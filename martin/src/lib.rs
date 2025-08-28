@@ -10,7 +10,7 @@ pub use source::{
 };
 
 mod utils;
-pub use utils::{IdResolver, MartinError, MartinResult, NO_MAIN_CACHE};
+pub use utils::{IdResolver, MartinError, MartinResult, NO_MAIN_CACHE, construct_cache};
 
 pub mod args;
 #[cfg(feature = "cog")]

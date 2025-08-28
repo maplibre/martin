@@ -178,7 +178,16 @@ async fn start(copy_args: CopierArgs) -> MartinCpResult<()> {
     args.merge_into_config(&mut config, &env)?;
     config.finalize()?;
 
-    let sources = config.resolve().await?;
+    if let Some(cache_size_mb) = config.cache_size_mb
+        && cache_size_mb > 0
+    {
+        info!(
+            "Ignoring setting cache_size_mb={} as caching does not make sense for tile copying",
+            cache_size_mb
+        );
+    }
+
+    let sources = config.resolve(None).await?;
 
     if let Some(file_name) = save_config {
         config.save_to_file(file_name)?;
@@ -463,7 +472,7 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()>
     mbt.update_metadata(&mut conn, GrowOnly).await?;
 
     for (key, value) in args.set_meta {
-        info!("Setting metadata key={key} value={value}");
+        info!("Setting metadata {key}={value}");
         mbt.set_metadata_value(&mut conn, &key, value).await?;
     }
 

@@ -1,5 +1,5 @@
 pub(crate) mod cache;
-pub use cache::{CacheKey, CacheValue, MainCache, NO_MAIN_CACHE, OptMainCache};
+pub use cache::{CacheKey, CacheValue, MainCache, NO_MAIN_CACHE, OptMainCache, construct_cache};
 
 mod error;
 pub use error::*;

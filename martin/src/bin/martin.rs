@@ -2,7 +2,7 @@ use clap::Parser;
 use log::{error, info, log_enabled};
 use martin::args::Args;
 use martin::srv::new_server;
-use martin::{Config, MartinResult, read_config};
+use martin::{Config, MartinResult, construct_cache, read_config};
 use martin_core::config::env::OsEnv;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -22,7 +22,10 @@ async fn start(args: Args) -> MartinResult<()> {
 
     args.merge_into_config(&mut config, &env)?;
     config.finalize()?;
-    let sources = config.resolve().await?;
+
+    let sources = config
+        .resolve(construct_cache(config.cache_size_mb))
+        .await?;
 
     if let Some(file_name) = save_config {
         config.save_to_file(file_name)?;

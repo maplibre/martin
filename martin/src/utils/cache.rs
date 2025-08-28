@@ -1,3 +1,4 @@
+use log::info;
 use martin_tile_utils::TileCoord;
 use moka::future::Cache;
 
@@ -6,6 +7,30 @@ use crate::TileData;
 pub type MainCache = Cache<CacheKey, CacheValue>;
 pub type OptMainCache = Option<MainCache>;
 pub const NO_MAIN_CACHE: OptMainCache = None;
+
+pub fn construct_cache(cache_size_mb: Option<u64>) -> OptMainCache {
+    let cache_size = cache_size_mb.unwrap_or(512) * 1024 * 1024;
+    if cache_size > 0 {
+        info!("Initializing main cache with maximum size {cache_size}B");
+        Some(
+            MainCache::builder()
+                .weigher(|_key, value: &CacheValue| -> u32 {
+                    match value {
+                        CacheValue::Tile(v) => v.len().try_into().unwrap_or(u32::MAX),
+                        #[cfg(feature = "pmtiles")]
+                        CacheValue::PmtDirectory(v) => {
+                            v.get_approx_byte_size().try_into().unwrap_or(u32::MAX)
+                        }
+                    }
+                })
+                .max_capacity(cache_size)
+                .build(),
+        )
+    } else {
+        info!("Caching is disabled");
+        None
+    }
+}
 
 #[derive(Debug, Hash, PartialEq, Eq)]
 pub enum CacheKey {
