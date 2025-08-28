@@ -33,7 +33,7 @@ exports[`CatalogSkeleton Component > renders correctly with default item count 1
       class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
     >
       <div
-        class="rounded-lg border bg-card text-card-foreground shadow-sm hover:shadow-lg transition-shadow"
+        class="rounded-lg border bg-card text-card-foreground shadow-xs hover:shadow-lg transition-shadow"
       >
         <div
           class="flex flex-col space-y-1.5 p-6"
@@ -116,7 +116,7 @@ exports[`CatalogSkeleton Component > renders correctly with default item count 1
         </div>
       </div>
       <div
-        class="rounded-lg border bg-card text-card-foreground shadow-sm hover:shadow-lg transition-shadow"
+        class="rounded-lg border bg-card text-card-foreground shadow-xs hover:shadow-lg transition-shadow"
       >
         <div
           class="flex flex-col space-y-1.5 p-6"
@@ -199,7 +199,7 @@ exports[`CatalogSkeleton Component > renders correctly with default item count 1
         </div>
       </div>
       <div
-        class="rounded-lg border bg-card text-card-foreground shadow-sm hover:shadow-lg transition-shadow"
+        class="rounded-lg border bg-card text-card-foreground shadow-xs hover:shadow-lg transition-shadow"
       >
         <div
           class="flex flex-col space-y-1.5 p-6"
@@ -282,7 +282,7 @@ exports[`CatalogSkeleton Component > renders correctly with default item count 1
         </div>
       </div>
       <div
-        class="rounded-lg border bg-card text-card-foreground shadow-sm hover:shadow-lg transition-shadow"
+        class="rounded-lg border bg-card text-card-foreground shadow-xs hover:shadow-lg transition-shadow"
       >
         <div
           class="flex flex-col space-y-1.5 p-6"
@@ -365,7 +365,7 @@ exports[`CatalogSkeleton Component > renders correctly with default item count 1
         </div>
       </div>
       <div
-        class="rounded-lg border bg-card text-card-foreground shadow-sm hover:shadow-lg transition-shadow"
+        class="rounded-lg border bg-card text-card-foreground shadow-xs hover:shadow-lg transition-shadow"
       >
         <div
           class="flex flex-col space-y-1.5 p-6"
@@ -448,7 +448,7 @@ exports[`CatalogSkeleton Component > renders correctly with default item count 1
         </div>
       </div>
       <div
-        class="rounded-lg border bg-card text-card-foreground shadow-sm hover:shadow-lg transition-shadow"
+        class="rounded-lg border bg-card text-card-foreground shadow-xs hover:shadow-lg transition-shadow"
       >
         <div
           class="flex flex-col space-y-1.5 p-6"
@@ -568,7 +568,7 @@ exports[`CatalogSkeleton Component > renders with custom item count 1`] = `
       class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
     >
       <div
-        class="rounded-lg border bg-card text-card-foreground shadow-sm hover:shadow-lg transition-shadow"
+        class="rounded-lg border bg-card text-card-foreground shadow-xs hover:shadow-lg transition-shadow"
       >
         <div
           class="flex flex-col space-y-1.5 p-6"
@@ -651,7 +651,7 @@ exports[`CatalogSkeleton Component > renders with custom item count 1`] = `
         </div>
       </div>
       <div
-        class="rounded-lg border bg-card text-card-foreground shadow-sm hover:shadow-lg transition-shadow"
+        class="rounded-lg border bg-card text-card-foreground shadow-xs hover:shadow-lg transition-shadow"
       >
         <div
           class="flex flex-col space-y-1.5 p-6"
@@ -734,7 +734,7 @@ exports[`CatalogSkeleton Component > renders with custom item count 1`] = `
         </div>
       </div>
       <div
-        class="rounded-lg border bg-card text-card-foreground shadow-sm hover:shadow-lg transition-shadow"
+        class="rounded-lg border bg-card text-card-foreground shadow-xs hover:shadow-lg transition-shadow"
       >
         <div
           class="flex flex-col space-y-1.5 p-6"
@@ -817,7 +817,7 @@ exports[`CatalogSkeleton Component > renders with custom item count 1`] = `
         </div>
       </div>
       <div
-        class="rounded-lg border bg-card text-card-foreground shadow-sm hover:shadow-lg transition-shadow"
+        class="rounded-lg border bg-card text-card-foreground shadow-xs hover:shadow-lg transition-shadow"
       >
         <div
           class="flex flex-col space-y-1.5 p-6"
@@ -900,7 +900,7 @@ exports[`CatalogSkeleton Component > renders with custom item count 1`] = `
         </div>
       </div>
       <div
-        class="rounded-lg border bg-card text-card-foreground shadow-sm hover:shadow-lg transition-shadow"
+        class="rounded-lg border bg-card text-card-foreground shadow-xs hover:shadow-lg transition-shadow"
       >
         <div
           class="flex flex-col space-y-1.5 p-6"
@@ -983,7 +983,7 @@ exports[`CatalogSkeleton Component > renders with custom item count 1`] = `
         </div>
       </div>
       <div
-        class="rounded-lg border bg-card text-card-foreground shadow-sm hover:shadow-lg transition-shadow"
+        class="rounded-lg border bg-card text-card-foreground shadow-xs hover:shadow-lg transition-shadow"
       >
         <div
           class="flex flex-col space-y-1.5 p-6"
@@ -1103,7 +1103,7 @@ exports[`CatalogSkeleton Component > renders with large item count 1`] = `
       class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
     >
       <div
-        class="rounded-lg border bg-card text-card-foreground shadow-sm hover:shadow-lg transition-shadow"
+        class="rounded-lg border bg-card text-card-foreground shadow-xs hover:shadow-lg transition-shadow"
       >
         <div
           class="flex flex-col space-y-1.5 p-6"
@@ -1186,7 +1186,7 @@ exports[`CatalogSkeleton Component > renders with large item count 1`] = `
         </div>
       </div>
       <div
-        class="rounded-lg border bg-card text-card-foreground shadow-sm hover:shadow-lg transition-shadow"
+        class="rounded-lg border bg-card text-card-foreground shadow-xs hover:shadow-lg transition-shadow"
       >
         <div
           class="flex flex-col space-y-1.5 p-6"
@@ -1269,7 +1269,7 @@ exports[`CatalogSkeleton Component > renders with large item count 1`] = `
         </div>
       </div>
       <div
-        class="rounded-lg border bg-card text-card-foreground shadow-sm hover:shadow-lg transition-shadow"
+        class="rounded-lg border bg-card text-card-foreground shadow-xs hover:shadow-lg transition-shadow"
       >
         <div
           class="flex flex-col space-y-1.5 p-6"
@@ -1352,7 +1352,7 @@ exports[`CatalogSkeleton Component > renders with large item count 1`] = `
         </div>
       </div>
       <div
-        class="rounded-lg border bg-card text-card-foreground shadow-sm hover:shadow-lg transition-shadow"
+        class="rounded-lg border bg-card text-card-foreground shadow-xs hover:shadow-lg transition-shadow"
       >
         <div
           class="flex flex-col space-y-1.5 p-6"
@@ -1435,7 +1435,7 @@ exports[`CatalogSkeleton Component > renders with large item count 1`] = `
         </div>
       </div>
       <div
-        class="rounded-lg border bg-card text-card-foreground shadow-sm hover:shadow-lg transition-shadow"
+        class="rounded-lg border bg-card text-card-foreground shadow-xs hover:shadow-lg transition-shadow"
       >
         <div
           class="flex flex-col space-y-1.5 p-6"
@@ -1518,7 +1518,7 @@ exports[`CatalogSkeleton Component > renders with large item count 1`] = `
         </div>
       </div>
       <div
-        class="rounded-lg border bg-card text-card-foreground shadow-sm hover:shadow-lg transition-shadow"
+        class="rounded-lg border bg-card text-card-foreground shadow-xs hover:shadow-lg transition-shadow"
       >
         <div
           class="flex flex-col space-y-1.5 p-6"
