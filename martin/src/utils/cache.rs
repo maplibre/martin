@@ -8,6 +8,11 @@ pub type MainCache = Cache<CacheKey, CacheValue>;
 pub type OptMainCache = Option<MainCache>;
 pub const NO_MAIN_CACHE: OptMainCache = None;
 
+/// Constructs a main cache with the specified size in megabytes.
+///
+/// If the size is zero, caching is disabled.
+/// Logs initialization and capacity.
+#[must_use]
 pub fn construct_cache(cache_size_mb: Option<u64>) -> OptMainCache {
     let cache_size = cache_size_mb.unwrap_or(512) * 1024 * 1024;
     if cache_size > 0 {

@@ -182,8 +182,7 @@ async fn start(copy_args: CopierArgs) -> MartinCpResult<()> {
         && cache_size_mb > 0
     {
         info!(
-            "Ignoring setting cache_size_mb={} as caching does not make sense for tile copying",
-            cache_size_mb
+            "Ignoring setting cache_size_mb={cache_size_mb} as caching does not make sense for tile copying"
         );
     }
 
