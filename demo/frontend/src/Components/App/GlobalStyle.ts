@@ -38,7 +38,7 @@ export default createGlobalStyle`
 
     background-image: linear-gradient(to bottom,  #0e0e1e 50%, #1c1c30);
   }
-  
+
   .header {
     > div {
       display: inline-block;
