@@ -26,8 +26,11 @@ with any well knowed TIle Matrix Set.
 
 To load COG file, there are two approaches generally:
 
-1. The client(`Maplibre`, `OpenLayers`,etc) load COG file with the specific customized [Tile Matrix Set](https://docs.ogc.org/is/17-083r2/17-083r2.html#72). As martin support various data sources we need to find one general way to support `not-3857` projections and to tell clients the TMS. [Join our disscussion there](https://github.com/maplibre/martin/issues/343).
-2. Martin serve COG files with well known [Tile Matrix Set](https://docs.ogc.org/is/17-083r2/17-083r2.html#72) and do the clipping internally. Currently we support the [WebMercatorQuad](https://docs.ogc.org/is/17-083r2/17-083r2.html#72) with `auto-web` configuration.
+1. The client(`Maplibre`, `OpenLayers`,etc) load COG file with the specific customized [Tile Matrix Set](https://docs.ogc.org/is/17-083r2/17-083r2.html#72).
+  To not break the compatibility with the [TileJson spec](https://github.com/mapbox/tilejson-spec), the `/catalog` seems a good choice to add the customized TMS info (Other data sources could benefit from this if we want to support other projections either, [Join our discussion there](https://github.com/maplibre/martin/issues/343))
+
+2. Martin serve COG files with well known [Tile Matrix Set](https://docs.ogc.org/is/17-083r2/17-083r2.html#72) and do the clipping internally.
+   Currently, we support [WebMercatorQuad](https://docs.ogc.org/is/17-083r2/17-083r2.html#72) if `auto-web: true` is configured.
 
 ## configuration file
 
