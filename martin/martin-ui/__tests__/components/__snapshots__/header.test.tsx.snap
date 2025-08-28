@@ -1,11 +1,11 @@
-// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`Header Component renders correctly 1`] = `
+exports[`Header Component > renders correctly 1`] = `
 <div>
   <script
     nonce=""
   >
-    ((e,s,n,l,o,d,u,h)=&gt;{let m=document.documentElement,w=["light","dark"];function p(r){(Array.isArray(e)?e:[e]).forEach(y=&gt;{let k=y==="class",S=k&&d?o.map(f=&gt;d[f]||f):o;k?(m.classList.remove(...S),m.classList.add(d&&d[r]?d[r]:r)):m.setAttribute(y,r)}),C(r)}function C(r){h&&w.includes(r)&&(m.style.colorScheme=r)}function a(){return window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"}if(l)p(l);else try{let r=localStorage.getItem(s)||n,y=u&&r==="system"?a():r;p(y)}catch(r){}})("class","theme","light",null,["light","dark"],null,true,true)
+    ((e,i,s,u,m,a,l,h)=&gt;{let d=document.documentElement,w=["light","dark"];function p(n){(Array.isArray(e)?e:[e]).forEach(y=&gt;{let k=y==="class",S=k&&a?m.map(f=&gt;a[f]||f):m;k?(d.classList.remove(...S),d.classList.add(a&&a[n]?a[n]:n)):d.setAttribute(y,n)}),R(n)}function R(n){h&&w.includes(n)&&(d.style.colorScheme=n)}function c(){return window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"}if(u)p(u);else try{let n=localStorage.getItem(i)||s,y=l&&n==="system"?c():n;p(y)}catch(n){}})("class","theme","light",null,["light","dark"],null,true,true)
   </script>
   <header
     class="border-b bg-navbar backdrop-blur-md backdrop-brightness-90 sticky top-0 z-50"
@@ -41,7 +41,6 @@ exports[`Header Component renders correctly 1`] = `
                   <filter
                     filterUnits="objectBoundingBox"
                     height="108.9%"
-                    id="a"
                     width="104.4%"
                     x="-2.2%"
                     y="-2.2%"
@@ -70,7 +69,6 @@ exports[`Header Component renders correctly 1`] = `
                   <filter
                     filterUnits="objectBoundingBox"
                     height="108.6%"
-                    id="c"
                     width="106.4%"
                     x="-3.2%"
                     y="-2.2%"
@@ -99,7 +97,6 @@ exports[`Header Component renders correctly 1`] = `
                   <filter
                     filterUnits="objectBoundingBox"
                     height="108.3%"
-                    id="e"
                     width="111.2%"
                     x="-5.6%"
                     y="-2.1%"
@@ -128,7 +125,6 @@ exports[`Header Component renders correctly 1`] = `
                   <filter
                     filterUnits="objectBoundingBox"
                     height="108%"
-                    id="g"
                     width="146.2%"
                     x="-23.1%"
                     y="-2%"
@@ -157,7 +153,6 @@ exports[`Header Component renders correctly 1`] = `
                   <filter
                     filterUnits="objectBoundingBox"
                     height="107.8%"
-                    id="i"
                     width="121.7%"
                     x="-10.8%"
                     y="-1.9%"
@@ -186,7 +181,6 @@ exports[`Header Component renders correctly 1`] = `
                   <filter
                     filterUnits="objectBoundingBox"
                     height="109%"
-                    id="k"
                     width="104.3%"
                     x="-2.2%"
                     y="-2.2%"
@@ -215,7 +209,6 @@ exports[`Header Component renders correctly 1`] = `
                   <filter
                     filterUnits="objectBoundingBox"
                     height="108.6%"
-                    id="m"
                     width="106.1%"
                     x="-3%"
                     y="-2.2%"
@@ -244,7 +237,6 @@ exports[`Header Component renders correctly 1`] = `
                   <filter
                     filterUnits="objectBoundingBox"
                     height="108.3%"
-                    id="o"
                     width="110.4%"
                     x="-5.2%"
                     y="-2.1%"
@@ -273,7 +265,6 @@ exports[`Header Component renders correctly 1`] = `
                   <filter
                     filterUnits="objectBoundingBox"
                     height="108%"
-                    id="q"
                     width="117%"
                     x="-8.5%"
                     y="-2%"
@@ -302,7 +293,6 @@ exports[`Header Component renders correctly 1`] = `
                   <filter
                     filterUnits="objectBoundingBox"
                     height="107.8%"
-                    id="s"
                     width="115.1%"
                     x="-7.6%"
                     y="-1.9%"
@@ -331,7 +321,6 @@ exports[`Header Component renders correctly 1`] = `
                   <filter
                     filterUnits="objectBoundingBox"
                     height="109%"
-                    id="u"
                     width="104.2%"
                     x="-2.1%"
                     y="-2.3%"
@@ -360,7 +349,6 @@ exports[`Header Component renders correctly 1`] = `
                   <filter
                     filterUnits="objectBoundingBox"
                     height="108.7%"
-                    id="w"
                     width="105.8%"
                     x="-2.9%"
                     y="-2.2%"
@@ -389,7 +377,6 @@ exports[`Header Component renders correctly 1`] = `
                   <filter
                     filterUnits="objectBoundingBox"
                     height="108.4%"
-                    id="y"
                     width="108.4%"
                     x="-4.2%"
                     y="-2.1%"
@@ -418,7 +405,6 @@ exports[`Header Component renders correctly 1`] = `
                   <filter
                     filterUnits="objectBoundingBox"
                     height="108.1%"
-                    id="A"
                     width="107.9%"
                     x="-3.9%"
                     y="-2%"
@@ -447,7 +433,6 @@ exports[`Header Component renders correctly 1`] = `
                   <filter
                     filterUnits="objectBoundingBox"
                     height="107.8%"
-                    id="C"
                     width="107.5%"
                     x="-3.7%"
                     y="-2%"
@@ -476,7 +461,6 @@ exports[`Header Component renders correctly 1`] = `
                   <filter
                     filterUnits="objectBoundingBox"
                     height="109.1%"
-                    id="E"
                     width="104.1%"
                     x="-2%"
                     y="-2.3%"
@@ -505,7 +489,6 @@ exports[`Header Component renders correctly 1`] = `
                   <filter
                     filterUnits="objectBoundingBox"
                     height="108.7%"
-                    id="G"
                     width="105.4%"
                     x="-2.7%"
                     y="-2.2%"
@@ -534,7 +517,6 @@ exports[`Header Component renders correctly 1`] = `
                   <filter
                     filterUnits="objectBoundingBox"
                     height="108.4%"
-                    id="I"
                     width="105.3%"
                     x="-2.7%"
                     y="-2.1%"
@@ -563,7 +545,6 @@ exports[`Header Component renders correctly 1`] = `
                   <filter
                     filterUnits="objectBoundingBox"
                     height="108.1%"
-                    id="K"
                     width="105.1%"
                     x="-2.6%"
                     y="-2%"
@@ -592,7 +573,6 @@ exports[`Header Component renders correctly 1`] = `
                   <filter
                     filterUnits="objectBoundingBox"
                     height="107.8%"
-                    id="M"
                     width="105%"
                     x="-2.5%"
                     y="-2%"
@@ -621,7 +601,6 @@ exports[`Header Component renders correctly 1`] = `
                   <filter
                     filterUnits="objectBoundingBox"
                     height="109.1%"
-                    id="O"
                     width="103.9%"
                     x="-2%"
                     y="-2.3%"
@@ -650,7 +629,6 @@ exports[`Header Component renders correctly 1`] = `
                   <filter
                     filterUnits="objectBoundingBox"
                     height="108.8%"
-                    id="Q"
                     width="104%"
                     x="-2%"
                     y="-2.2%"
@@ -679,7 +657,6 @@ exports[`Header Component renders correctly 1`] = `
                   <filter
                     filterUnits="objectBoundingBox"
                     height="108.4%"
-                    id="S"
                     width="103.9%"
                     x="-2%"
                     y="-2.1%"
@@ -708,7 +685,6 @@ exports[`Header Component renders correctly 1`] = `
                   <filter
                     filterUnits="objectBoundingBox"
                     height="108.1%"
-                    id="U"
                     width="103.8%"
                     x="-1.9%"
                     y="-2%"
@@ -737,7 +713,6 @@ exports[`Header Component renders correctly 1`] = `
                   <filter
                     filterUnits="objectBoundingBox"
                     height="107.9%"
-                    id="W"
                     width="103.7%"
                     x="-1.9%"
                     y="-2%"
@@ -765,103 +740,78 @@ exports[`Header Component renders correctly 1`] = `
                   </filter>
                   <path
                     d="M159.673 882.935 1.729 1006.155l209.318-79.02L384.232 804.94z"
-                    id="b"
                   />
                   <path
                     d="M140.655 948.856 34.267 1075.539l145.651-83.296 121.628-125.66z"
-                    id="d"
                   />
                   <path
                     d="m119.17 1015.411-54.83 130.147 81.984-87.573 70.07-129.123z"
-                    id="f"
                   />
                   <path
                     d="m95.47 1083.473-3.273 133.61 18.316-91.85 18.514-132.587z"
-                    id="h"
                   />
                   <path
                     d="m69.577 1152.17 48.283 137.073-45.35-96.128-33.044-136.05z"
-                    id="j"
                   />
                   <path
                     d="M520.082 776.307 298.47 895.249l157.762-82.483 236.852-117.918z"
-                    id="l"
                   />
                   <path
                     d="M442.848 811.686 272.793 934.092l94.094-86.76L552.182 725.95z"
-                    id="n"
                   />
                   <path
                     d="m368.287 842.147-118.498 125.87 30.427-91.037 133.738-124.846z"
-                    id="p"
                   />
                   <path
                     d="M287.37 879.667 220.428 1009l-33.24-95.314 82.181-128.309z"
-                    id="r"
                   />
                   <path
                     d="m209.294 912.27-15.384 132.797-96.908-99.592 30.624-131.773z"
-                    id="t"
                   />
                   <path
                     d="M877.474 672.455 592.195 787.12 698.4 701.173l300.52-113.64z"
-                    id="v"
                   />
                   <path
                     d="M747.848 672.375 514.126 790.504l42.537-90.224 248.963-117.105z"
-                    id="x"
                   />
                   <path
                     d="M614.927 671.66 432.762 793.252l-21.13-94.5 197.406-120.569z"
-                    id="z"
                   />
                   <path
                     d="M485.053 670.945 354.445 796l-84.798-98.778 145.85-124.032z"
-                    id="B"
                   />
                   <path
                     d="m347.312 674.983-79.052 128.52-148.464-103.056 94.292-127.495z"
-                    id="D"
                   />
                   <path
                     d="M1237.12 567.18 888.175 677.57l54.648-89.41 364.187-109.364z"
-                    id="F"
                   />
                   <path
                     d="M1052.704 532.429 755.314 646.28l-9.019-93.687 312.63-112.827z"
-                    id="H"
                   />
                   <path
                     d="M861.568 501.172 615.735 618.487l-72.687-97.964 261.073-116.291z"
-                    id="J"
                   />
                   <path
                     d="M676.495 467.14 482.219 587.918 345.865 485.677 555.38 365.922z"
-                    id="L"
                   />
                   <path
                     d="M488.375 433.107 345.656 557.349 145.634 450.83l157.96-123.218z"
-                    id="N"
                   />
                   <path
                     d="m1594.816 462.61-412.614 106.11 3.09-92.874 427.855-105.086z"
-                    id="P"
                   />
                   <path
                     d="M1354.544 395.259 993.487 504.833l-60.577-97.15 376.297-108.55z"
-                    id="R"
                   />
                   <path
                     d="m1111.225 327.908-309.5 113.038L677.48 339.518l324.74-112.014z"
-                    id="T"
                   />
                   <path
                     d="M870.953 260.558 613.009 377.059 425.1 271.354l273.183-115.477z"
-                    id="V"
                   />
                   <path
                     d="M687.665 109.913 481.278 229.878 229.7 119.896 451.326.955z"
-                    id="X"
                   />
                 </defs>
                 <g
@@ -1311,10 +1261,11 @@ exports[`Header Component renders correctly 1`] = `
           </a>
         </div>
         <div
-          class="flex items-center space-x-6"
+          class="flex items-center space-x-4"
         >
           <a
-            class="flex items-center gap-2 text-foreground hover:bg-accent hover:text-accent-foreground px-3 py-2 rounded-md transition-all"
+            class="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive h-10 rounded-md px-6 has-[>svg]:px-4 border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50"
+            data-slot="button"
             data-state="closed"
             href="https://maplibre.org/martin/"
             rel="noopener noreferrer"
@@ -1345,7 +1296,8 @@ exports[`Header Component renders correctly 1`] = `
             </span>
           </a>
           <a
-            class="md:flex hidden items-center gap-2 text-foreground hover:bg-accent hover:text-accent-foreground px-3 py-2 rounded-md transition-all"
+            class="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive h-10 rounded-md px-6 has-[>svg]:px-4 border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50"
+            data-slot="button"
             data-state="closed"
             href="https://maplibre.org"
             rel="noopener noreferrer"
@@ -1380,11 +1332,41 @@ exports[`Header Component renders correctly 1`] = `
               About us
             </span>
           </a>
+          <a
+            aria-label="View source on GitHub"
+            class="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive h-10 rounded-md px-3 border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50"
+            data-slot="button"
+            data-state="closed"
+            href="https://github.com/maplibre/martin"
+            rel="noopener noreferrer"
+            target="_blank"
+          >
+            <svg
+              aria-hidden="true"
+              class="lucide lucide-github"
+              fill="none"
+              height="20"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+              width="20"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"
+              />
+              <path
+                d="M9 18c-4.51 2-5-2-7-2"
+              />
+            </svg>
+          </a>
           <div>
             <div>
               <button
                 aria-label="Switch to dark theme"
-                class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive size-9 border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50"
+                class="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive h-10 rounded-md px-3 border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50"
                 data-slot="button"
               >
                 <svg

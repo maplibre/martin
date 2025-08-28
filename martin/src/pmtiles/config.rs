@@ -7,11 +7,11 @@ use pmtiles::reqwest::Client;
 use serde::{Deserialize, Serialize};
 use url::Url;
 
-use crate::TileInfoSource;
 use crate::config::UnrecognizedValues;
 use crate::file_config::{ConfigExtras, FileResult, SourceConfigExtras};
 use crate::pmtiles::{PmtCache, PmtFileSource, PmtHttpSource, PmtS3Source};
 use crate::utils::OptMainCache;
+use crate::{MartinResult, TileInfoSource};
 
 #[serde_with::skip_serializing_none]
 #[derive(Debug, Default, Serialize, Deserialize)]
@@ -99,13 +99,13 @@ impl SourceConfigExtras for PmtConfig {
         true
     }
 
-    async fn new_sources(&self, id: String, path: PathBuf) -> FileResult<TileInfoSource> {
+    async fn new_sources(&self, id: String, path: PathBuf) -> MartinResult<TileInfoSource> {
         Ok(Box::new(
             PmtFileSource::new(self.new_cached_source(), id, path).await?,
         ))
     }
 
-    async fn new_sources_url(&self, id: String, url: Url) -> FileResult<TileInfoSource> {
+    async fn new_sources_url(&self, id: String, url: Url) -> MartinResult<TileInfoSource> {
         match url.scheme() {
             "s3" => {
                 let force_path_style = self.force_path_style.unwrap_or_else(|| {

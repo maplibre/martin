@@ -14,7 +14,8 @@ command will automatically rename the `agg_tiles_hash_after_apply` value back to
 diff.
 
 ```bash
-# This command will compare `file1.mbtiles` and `file2.mbtiles`, and generate a new diff file `diff.mbtiles`.
+# This command will compare `file1.mbtiles` and `file2.mbtiles`,
+# and generate a new diff file `diff.mbtiles`.
 mbtiles diff file1.mbtiles file2.mbtiles diff.mbtiles
 
 # If diff.mbtiles is applied to file1.mbtiles, it will produce file2.mbtiles
@@ -56,8 +57,13 @@ not update the `agg_tiles_hash` metadata value, so it will be incorrect after th
 ```bash
 sqlite3 src_file.mbtiles \
   -bail \
-  -cmd ".parameter set @diffDbFilename diff_file.mbtiles" \
-  "ATTACH DATABASE @diffDbFilename AS diffDb;" \
-  "DELETE FROM tiles WHERE (zoom_level, tile_column, tile_row) IN (SELECT zoom_level, tile_column, tile_row FROM diffDb.tiles WHERE tile_data ISNULL);" \
-  "INSERT OR REPLACE INTO tiles (zoom_level, tile_column, tile_row, tile_data) SELECT * FROM diffDb.tiles WHERE tile_data NOTNULL;"
+  -cmd ".parameter set @diffDbFilename diff_file.mbtiles "\
+  "ATTACH DATABASE @diffDbFilename AS diffDb; "\
+  "DELETE FROM tiles "\
+  "  WHERE (zoom_level, tile_column, tile_row) IN ( "\
+  "    SELECT zoom_level, tile_column, tile_row "\
+  "    FROM diffDb.tiles "\
+  "    WHERE tile_data ISNULL); "\
+  "INSERT OR REPLACE INTO tiles (zoom_level, tile_column, tile_row, tile_data) "\
+  "  SELECT * FROM diffDb.tiles WHERE tile_data NOTNULL;"
 ```

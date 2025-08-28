@@ -1,6 +1,7 @@
-import { BookOpen, Info } from 'lucide-react';
+import { BookOpen, Github, Info } from 'lucide-react';
 import Logo from '@/components/logo';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { ThemeSwitcher } from './theme-switcher';
 
@@ -16,29 +17,29 @@ export function Header() {
                 MARTIN
               </h1>
             </a>
-            {import.meta.env.VITE_MARTIN_VERSION && (
-              <Badge asChild className="hover:bg-purple-700 hidden md:block" variant="default">
+
+            <Badge asChild className="hover:bg-purple-700 hidden md:block" variant="default">
+              {import.meta.env.VITE_MARTIN_VERSION ? (
                 <a
                   className="p-1"
                   href={`https://github.com/maplibre/martin/releases/tag/${import.meta.env.VITE_MARTIN_VERSION}`}
                 >
                   {import.meta.env.VITE_MARTIN_VERSION}
                 </a>
-              </Badge>
-            )}
+              ) : (
+                'dev'
+              )}
+            </Badge>
           </div>
-          <div className="flex items-center space-x-6">
+          <div className="flex items-center space-x-4">
             <HoverCard>
               <HoverCardTrigger asChild>
-                <a
-                  className="flex items-center gap-2 text-foreground hover:bg-accent hover:text-accent-foreground px-3 py-2 rounded-md transition-all"
-                  href="https://maplibre.org/martin/"
-                  rel="noopener noreferrer"
-                  target="_blank"
-                >
-                  <BookOpen size={18} />
-                  <span>Documentation</span>
-                </a>
+                <Button asChild size="lg" variant="outline">
+                  <a href="https://maplibre.org/martin/" rel="noopener noreferrer" target="_blank">
+                    <BookOpen size={18} />
+                    <span>Documentation</span>
+                  </a>
+                </Button>
               </HoverCardTrigger>
               <HoverCardContent className="w-80">
                 <div className="space-y-2">
@@ -51,15 +52,12 @@ export function Header() {
             </HoverCard>
             <HoverCard>
               <HoverCardTrigger asChild>
-                <a
-                  className="md:flex hidden items-center gap-2 text-foreground hover:bg-accent hover:text-accent-foreground px-3 py-2 rounded-md transition-all"
-                  href="https://maplibre.org"
-                  rel="noopener noreferrer"
-                  target="_blank"
-                >
-                  <Info size={18} />
-                  <span>About us</span>
-                </a>
+                <Button asChild size="lg" variant="outline">
+                  <a href="https://maplibre.org" rel="noopener noreferrer" target="_blank">
+                    <Info size={18} />
+                    <span>About us</span>
+                  </a>
+                </Button>
               </HoverCardTrigger>
               <HoverCardContent className="w-80">
                 <div className="space-y-2">
@@ -68,6 +66,28 @@ export function Header() {
                     Learn about MapLibre,
                     <br />
                     the open-source collective behind this project.
+                  </p>
+                </div>
+              </HoverCardContent>
+            </HoverCard>
+            <HoverCard>
+              <HoverCardTrigger asChild>
+                <Button asChild size="lg-icon" variant="outline">
+                  <a
+                    aria-label="View source on GitHub"
+                    href="https://github.com/maplibre/martin"
+                    rel="noopener noreferrer"
+                    target="_blank"
+                  >
+                    <Github size={20} />
+                  </a>
+                </Button>
+              </HoverCardTrigger>
+              <HoverCardContent className="w-60">
+                <div className="space-y-2">
+                  <h4 className="text-sm font-semibold">GitHub Repository</h4>
+                  <p className="text-sm">
+                    View the source code, discuss issues and contribute to Martin.
                   </p>
                 </div>
               </HoverCardContent>
