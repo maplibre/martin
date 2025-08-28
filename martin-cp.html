@@ -270,14 +270,20 @@ This allows the MBTiles file to be <a href="mbtiles-validation.html#aggregate-co
   <span class="mdbook-alerts-icon"></span>
   tip
 </p>
-<p><code>--concurrency &lt;CONCURRENCY&gt;</code> and <code>--pool-size &lt;POOL_SIZE&gt;</code> can be used to control the number of concurrent requests and the pool size for postgres sources respectively.</p>
+<p>Next to regular sorces, <code>--source &lt;SOURCE&gt;</code> does support <a href="sources-composite.html">composite sources</a>.
+This means <code>martin-cp</code> can be used to merge two different sources into one <code>mbtiles</code> archive.</p>
+</div>
+<p>If performance is a concern, you should also consider</p>
+<blockquote>
+<p>[!TIP]
+<code>--concurrency &lt;CONCURRENCY&gt;</code> and <code>--pool-size &lt;POOL_SIZE&gt;</code> can be used to control the number of concurrent requests and the pool size for postgres sources respectively.</p>
 <p>The optimal setting depends on:</p>
 <ul>
 <li>the source(s) performance characteristics</li>
 <li>how much load is allowed, for example in a multi-tenant environment</li>
 <li>how to compress tiles stored in the output file</li>
 </ul>
-</div>
+</blockquote>
 <p>You should also consider</p>
 <div class="mdbook-alerts mdbook-alerts-tip">
 <p class="mdbook-alerts-title">
