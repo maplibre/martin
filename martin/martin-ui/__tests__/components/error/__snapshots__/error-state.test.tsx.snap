@@ -1,14 +1,14 @@
-// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`ErrorState Component renders error details when showDetails is true 1`] = `
+exports[`ErrorState Component > renders error details when showDetails is true 1`] = `
 <div>
   <script
     nonce=""
   >
-    ((e,s,n,l,o,d,u,h)=&gt;{let m=document.documentElement,w=["light","dark"];function p(r){(Array.isArray(e)?e:[e]).forEach(y=&gt;{let k=y==="class",S=k&&d?o.map(f=&gt;d[f]||f):o;k?(m.classList.remove(...S),m.classList.add(d&&d[r]?d[r]:r)):m.setAttribute(y,r)}),C(r)}function C(r){h&&w.includes(r)&&(m.style.colorScheme=r)}function a(){return window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"}if(l)p(l);else try{let r=localStorage.getItem(s)||n,y=u&&r==="system"?a():r;p(y)}catch(r){}})("class","theme","light",null,["light","dark"],null,true,true)
+    ((e,i,s,u,m,a,l,h)=&gt;{let d=document.documentElement,w=["light","dark"];function p(n){(Array.isArray(e)?e:[e]).forEach(y=&gt;{let k=y==="class",S=k&&a?m.map(f=&gt;a[f]||f):m;k?(d.classList.remove(...S),d.classList.add(a&&a[n]?a[n]:n)):d.setAttribute(y,n)}),R(n)}function R(n){h&&w.includes(n)&&(d.style.colorScheme=n)}function c(){return window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"}if(u)p(u);else try{let n=localStorage.getItem(i)||s,y=l&&n==="system"?c():n;p(y)}catch(n){}})("class","theme","light",null,["light","dark"],null,true,true)
   </script>
   <div
-    class="rounded-lg border bg-card text-card-foreground shadow-sm w-full max-w-md mx-auto"
+    class="rounded-lg border bg-card text-card-foreground shadow-xs w-full max-w-md mx-auto"
   >
     <div
       class="flex flex-col space-y-1.5 p-6 text-center"
@@ -68,15 +68,15 @@ exports[`ErrorState Component renders error details when showDetails is true 1`]
 </div>
 `;
 
-exports[`ErrorState Component renders generic error state correctly 1`] = `
+exports[`ErrorState Component > renders generic error state correctly 1`] = `
 <div>
   <script
     nonce=""
   >
-    ((e,s,n,l,o,d,u,h)=&gt;{let m=document.documentElement,w=["light","dark"];function p(r){(Array.isArray(e)?e:[e]).forEach(y=&gt;{let k=y==="class",S=k&&d?o.map(f=&gt;d[f]||f):o;k?(m.classList.remove(...S),m.classList.add(d&&d[r]?d[r]:r)):m.setAttribute(y,r)}),C(r)}function C(r){h&&w.includes(r)&&(m.style.colorScheme=r)}function a(){return window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"}if(l)p(l);else try{let r=localStorage.getItem(s)||n,y=u&&r==="system"?a():r;p(y)}catch(r){}})("class","theme","light",null,["light","dark"],null,true,true)
+    ((e,i,s,u,m,a,l,h)=&gt;{let d=document.documentElement,w=["light","dark"];function p(n){(Array.isArray(e)?e:[e]).forEach(y=&gt;{let k=y==="class",S=k&&a?m.map(f=&gt;a[f]||f):m;k?(d.classList.remove(...S),d.classList.add(a&&a[n]?a[n]:n)):d.setAttribute(y,n)}),R(n)}function R(n){h&&w.includes(n)&&(d.style.colorScheme=n)}function c(){return window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"}if(u)p(u);else try{let n=localStorage.getItem(i)||s,y=l&&n==="system"?c():n;p(y)}catch(n){}})("class","theme","light",null,["light","dark"],null,true,true)
   </script>
   <div
-    class="rounded-lg border bg-card text-card-foreground shadow-sm w-full max-w-md mx-auto"
+    class="rounded-lg border bg-card text-card-foreground shadow-xs w-full max-w-md mx-auto"
   >
     <div
       class="flex flex-col space-y-1.5 p-6 text-center"
@@ -126,15 +126,15 @@ exports[`ErrorState Component renders generic error state correctly 1`] = `
 </div>
 `;
 
-exports[`ErrorState Component renders network error state correctly 1`] = `
+exports[`ErrorState Component > renders network error state correctly 1`] = `
 <div>
   <script
     nonce=""
   >
-    ((e,s,n,l,o,d,u,h)=&gt;{let m=document.documentElement,w=["light","dark"];function p(r){(Array.isArray(e)?e:[e]).forEach(y=&gt;{let k=y==="class",S=k&&d?o.map(f=&gt;d[f]||f):o;k?(m.classList.remove(...S),m.classList.add(d&&d[r]?d[r]:r)):m.setAttribute(y,r)}),C(r)}function C(r){h&&w.includes(r)&&(m.style.colorScheme=r)}function a(){return window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"}if(l)p(l);else try{let r=localStorage.getItem(s)||n,y=u&&r==="system"?a():r;p(y)}catch(r){}})("class","theme","light",null,["light","dark"],null,true,true)
+    ((e,i,s,u,m,a,l,h)=&gt;{let d=document.documentElement,w=["light","dark"];function p(n){(Array.isArray(e)?e:[e]).forEach(y=&gt;{let k=y==="class",S=k&&a?m.map(f=&gt;a[f]||f):m;k?(d.classList.remove(...S),d.classList.add(a&&a[n]?a[n]:n)):d.setAttribute(y,n)}),R(n)}function R(n){h&&w.includes(n)&&(d.style.colorScheme=n)}function c(){return window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"}if(u)p(u);else try{let n=localStorage.getItem(i)||s,y=l&&n==="system"?c():n;p(y)}catch(n){}})("class","theme","light",null,["light","dark"],null,true,true)
   </script>
   <div
-    class="rounded-lg border bg-card text-card-foreground shadow-sm w-full max-w-md mx-auto"
+    class="rounded-lg border bg-card text-card-foreground shadow-xs w-full max-w-md mx-auto"
   >
     <div
       class="flex flex-col space-y-1.5 p-6 text-center"
@@ -196,15 +196,15 @@ exports[`ErrorState Component renders network error state correctly 1`] = `
 </div>
 `;
 
-exports[`ErrorState Component renders retry button when onRetry is provided 1`] = `
+exports[`ErrorState Component > renders retry button when onRetry is provided 1`] = `
 <div>
   <script
     nonce=""
   >
-    ((e,s,n,l,o,d,u,h)=&gt;{let m=document.documentElement,w=["light","dark"];function p(r){(Array.isArray(e)?e:[e]).forEach(y=&gt;{let k=y==="class",S=k&&d?o.map(f=&gt;d[f]||f):o;k?(m.classList.remove(...S),m.classList.add(d&&d[r]?d[r]:r)):m.setAttribute(y,r)}),C(r)}function C(r){h&&w.includes(r)&&(m.style.colorScheme=r)}function a(){return window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"}if(l)p(l);else try{let r=localStorage.getItem(s)||n,y=u&&r==="system"?a():r;p(y)}catch(r){}})("class","theme","light",null,["light","dark"],null,true,true)
+    ((e,i,s,u,m,a,l,h)=&gt;{let d=document.documentElement,w=["light","dark"];function p(n){(Array.isArray(e)?e:[e]).forEach(y=&gt;{let k=y==="class",S=k&&a?m.map(f=&gt;a[f]||f):m;k?(d.classList.remove(...S),d.classList.add(a&&a[n]?a[n]:n)):d.setAttribute(y,n)}),R(n)}function R(n){h&&w.includes(n)&&(d.style.colorScheme=n)}function c(){return window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"}if(u)p(u);else try{let n=localStorage.getItem(i)||s,y=l&&n==="system"?c():n;p(y)}catch(n){}})("class","theme","light",null,["light","dark"],null,true,true)
   </script>
   <div
-    class="rounded-lg border bg-card text-card-foreground shadow-sm w-full max-w-md mx-auto"
+    class="rounded-lg border bg-card text-card-foreground shadow-xs w-full max-w-md mx-auto"
   >
     <div
       class="flex flex-col space-y-1.5 p-6 text-center"
@@ -251,7 +251,7 @@ exports[`ErrorState Component renders retry button when onRetry is provided 1`] 
       class="p-6 pt-0 space-y-4"
     >
       <button
-        class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive h-9 px-4 py-2 has-[>svg]:px-3 bg-primary text-primary-foreground shadow-xs hover:bg-primary/90 w-full"
+        class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all cursor-pointer disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-hidden focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive h-9 px-4 py-2 has-[>svg]:px-3 bg-primary text-primary-foreground shadow-2xs hover:bg-primary/90 w-full"
         data-slot="button"
       >
         <svg
@@ -287,15 +287,15 @@ exports[`ErrorState Component renders retry button when onRetry is provided 1`] 
 </div>
 `;
 
-exports[`ErrorState Component renders server error state correctly 1`] = `
+exports[`ErrorState Component > renders server error state correctly 1`] = `
 <div>
   <script
     nonce=""
   >
-    ((e,s,n,l,o,d,u,h)=&gt;{let m=document.documentElement,w=["light","dark"];function p(r){(Array.isArray(e)?e:[e]).forEach(y=&gt;{let k=y==="class",S=k&&d?o.map(f=&gt;d[f]||f):o;k?(m.classList.remove(...S),m.classList.add(d&&d[r]?d[r]:r)):m.setAttribute(y,r)}),C(r)}function C(r){h&&w.includes(r)&&(m.style.colorScheme=r)}function a(){return window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"}if(l)p(l);else try{let r=localStorage.getItem(s)||n,y=u&&r==="system"?a():r;p(y)}catch(r){}})("class","theme","light",null,["light","dark"],null,true,true)
+    ((e,i,s,u,m,a,l,h)=&gt;{let d=document.documentElement,w=["light","dark"];function p(n){(Array.isArray(e)?e:[e]).forEach(y=&gt;{let k=y==="class",S=k&&a?m.map(f=&gt;a[f]||f):m;k?(d.classList.remove(...S),d.classList.add(a&&a[n]?a[n]:n)):d.setAttribute(y,n)}),R(n)}function R(n){h&&w.includes(n)&&(d.style.colorScheme=n)}function c(){return window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"}if(u)p(u);else try{let n=localStorage.getItem(i)||s,y=l&&n==="system"?c():n;p(y)}catch(n){}})("class","theme","light",null,["light","dark"],null,true,true)
   </script>
   <div
-    class="rounded-lg border bg-card text-card-foreground shadow-sm w-full max-w-md mx-auto"
+    class="rounded-lg border bg-card text-card-foreground shadow-xs w-full max-w-md mx-auto"
   >
     <div
       class="flex flex-col space-y-1.5 p-6 text-center"
@@ -345,15 +345,15 @@ exports[`ErrorState Component renders server error state correctly 1`] = `
 </div>
 `;
 
-exports[`ErrorState Component renders timeout error state correctly 1`] = `
+exports[`ErrorState Component > renders timeout error state correctly 1`] = `
 <div>
   <script
     nonce=""
   >
-    ((e,s,n,l,o,d,u,h)=&gt;{let m=document.documentElement,w=["light","dark"];function p(r){(Array.isArray(e)?e:[e]).forEach(y=&gt;{let k=y==="class",S=k&&d?o.map(f=&gt;d[f]||f):o;k?(m.classList.remove(...S),m.classList.add(d&&d[r]?d[r]:r)):m.setAttribute(y,r)}),C(r)}function C(r){h&&w.includes(r)&&(m.style.colorScheme=r)}function a(){return window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"}if(l)p(l);else try{let r=localStorage.getItem(s)||n,y=u&&r==="system"?a():r;p(y)}catch(r){}})("class","theme","light",null,["light","dark"],null,true,true)
+    ((e,i,s,u,m,a,l,h)=&gt;{let d=document.documentElement,w=["light","dark"];function p(n){(Array.isArray(e)?e:[e]).forEach(y=&gt;{let k=y==="class",S=k&&a?m.map(f=&gt;a[f]||f):m;k?(d.classList.remove(...S),d.classList.add(a&&a[n]?a[n]:n)):d.setAttribute(y,n)}),R(n)}function R(n){h&&w.includes(n)&&(d.style.colorScheme=n)}function c(){return window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"}if(u)p(u);else try{let n=localStorage.getItem(i)||s,y=l&&n==="system"?c():n;p(y)}catch(n){}})("class","theme","light",null,["light","dark"],null,true,true)
   </script>
   <div
-    class="rounded-lg border bg-card text-card-foreground shadow-sm w-full max-w-md mx-auto"
+    class="rounded-lg border bg-card text-card-foreground shadow-xs w-full max-w-md mx-auto"
   >
     <div
       class="flex flex-col space-y-1.5 p-6 text-center"
@@ -403,15 +403,15 @@ exports[`ErrorState Component renders timeout error state correctly 1`] = `
 </div>
 `;
 
-exports[`ErrorState Component renders with custom title and description 1`] = `
+exports[`ErrorState Component > renders with custom title and description 1`] = `
 <div>
   <script
     nonce=""
   >
-    ((e,s,n,l,o,d,u,h)=&gt;{let m=document.documentElement,w=["light","dark"];function p(r){(Array.isArray(e)?e:[e]).forEach(y=&gt;{let k=y==="class",S=k&&d?o.map(f=&gt;d[f]||f):o;k?(m.classList.remove(...S),m.classList.add(d&&d[r]?d[r]:r)):m.setAttribute(y,r)}),C(r)}function C(r){h&&w.includes(r)&&(m.style.colorScheme=r)}function a(){return window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"}if(l)p(l);else try{let r=localStorage.getItem(s)||n,y=u&&r==="system"?a():r;p(y)}catch(r){}})("class","theme","light",null,["light","dark"],null,true,true)
+    ((e,i,s,u,m,a,l,h)=&gt;{let d=document.documentElement,w=["light","dark"];function p(n){(Array.isArray(e)?e:[e]).forEach(y=&gt;{let k=y==="class",S=k&&a?m.map(f=&gt;a[f]||f):m;k?(d.classList.remove(...S),d.classList.add(a&&a[n]?a[n]:n)):d.setAttribute(y,n)}),R(n)}function R(n){h&&w.includes(n)&&(d.style.colorScheme=n)}function c(){return window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"}if(u)p(u);else try{let n=localStorage.getItem(i)||s,y=l&&n==="system"?c():n;p(y)}catch(n){}})("class","theme","light",null,["light","dark"],null,true,true)
   </script>
   <div
-    class="rounded-lg border bg-card text-card-foreground shadow-sm w-full max-w-md mx-auto"
+    class="rounded-lg border bg-card text-card-foreground shadow-xs w-full max-w-md mx-auto"
   >
     <div
       class="flex flex-col space-y-1.5 p-6 text-center"
@@ -461,15 +461,15 @@ exports[`ErrorState Component renders with custom title and description 1`] = `
 </div>
 `;
 
-exports[`ErrorState Component shows retrying state when isRetrying is true 1`] = `
+exports[`ErrorState Component > shows retrying state when isRetrying is true 1`] = `
 <div>
   <script
     nonce=""
   >
-    ((e,s,n,l,o,d,u,h)=&gt;{let m=document.documentElement,w=["light","dark"];function p(r){(Array.isArray(e)?e:[e]).forEach(y=&gt;{let k=y==="class",S=k&&d?o.map(f=&gt;d[f]||f):o;k?(m.classList.remove(...S),m.classList.add(d&&d[r]?d[r]:r)):m.setAttribute(y,r)}),C(r)}function C(r){h&&w.includes(r)&&(m.style.colorScheme=r)}function a(){return window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"}if(l)p(l);else try{let r=localStorage.getItem(s)||n,y=u&&r==="system"?a():r;p(y)}catch(r){}})("class","theme","light",null,["light","dark"],null,true,true)
+    ((e,i,s,u,m,a,l,h)=&gt;{let d=document.documentElement,w=["light","dark"];function p(n){(Array.isArray(e)?e:[e]).forEach(y=&gt;{let k=y==="class",S=k&&a?m.map(f=&gt;a[f]||f):m;k?(d.classList.remove(...S),d.classList.add(a&&a[n]?a[n]:n)):d.setAttribute(y,n)}),R(n)}function R(n){h&&w.includes(n)&&(d.style.colorScheme=n)}function c(){return window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"}if(u)p(u);else try{let n=localStorage.getItem(i)||s,y=l&&n==="system"?c():n;p(y)}catch(n){}})("class","theme","light",null,["light","dark"],null,true,true)
   </script>
   <div
-    class="rounded-lg border bg-card text-card-foreground shadow-sm w-full max-w-md mx-auto"
+    class="rounded-lg border bg-card text-card-foreground shadow-xs w-full max-w-md mx-auto"
   >
     <div
       class="flex flex-col space-y-1.5 p-6 text-center"
@@ -516,7 +516,7 @@ exports[`ErrorState Component shows retrying state when isRetrying is true 1`] =
       class="p-6 pt-0 space-y-4"
     >
       <button
-        class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive h-9 px-4 py-2 has-[>svg]:px-3 bg-primary text-primary-foreground shadow-xs hover:bg-primary/90 w-full"
+        class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all cursor-pointer disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-hidden focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive h-9 px-4 py-2 has-[>svg]:px-3 bg-primary text-primary-foreground shadow-2xs hover:bg-primary/90 w-full"
         data-slot="button"
         disabled=""
       >
@@ -553,12 +553,12 @@ exports[`ErrorState Component shows retrying state when isRetrying is true 1`] =
 </div>
 `;
 
-exports[`InlineErrorState Component renders generic inline error state correctly 1`] = `
+exports[`InlineErrorState Component > renders generic inline error state correctly 1`] = `
 <div>
   <script
     nonce=""
   >
-    ((e,s,n,l,o,d,u,h)=&gt;{let m=document.documentElement,w=["light","dark"];function p(r){(Array.isArray(e)?e:[e]).forEach(y=&gt;{let k=y==="class",S=k&&d?o.map(f=&gt;d[f]||f):o;k?(m.classList.remove(...S),m.classList.add(d&&d[r]?d[r]:r)):m.setAttribute(y,r)}),C(r)}function C(r){h&&w.includes(r)&&(m.style.colorScheme=r)}function a(){return window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"}if(l)p(l);else try{let r=localStorage.getItem(s)||n,y=u&&r==="system"?a():r;p(y)}catch(r){}})("class","theme","light",null,["light","dark"],null,true,true)
+    ((e,i,s,u,m,a,l,h)=&gt;{let d=document.documentElement,w=["light","dark"];function p(n){(Array.isArray(e)?e:[e]).forEach(y=&gt;{let k=y==="class",S=k&&a?m.map(f=&gt;a[f]||f):m;k?(d.classList.remove(...S),d.classList.add(a&&a[n]?a[n]:n)):d.setAttribute(y,n)}),R(n)}function R(n){h&&w.includes(n)&&(d.style.colorScheme=n)}function c(){return window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"}if(u)p(u);else try{let n=localStorage.getItem(i)||s,y=l&&n==="system"?c():n;p(y)}catch(n){}})("class","theme","light",null,["light","dark"],null,true,true)
   </script>
   <div
     class="flex items-center justify-between p-3 bg-destructive border border-red-200 rounded-md"
@@ -599,12 +599,12 @@ exports[`InlineErrorState Component renders generic inline error state correctly
 </div>
 `;
 
-exports[`InlineErrorState Component renders network inline error state correctly 1`] = `
+exports[`InlineErrorState Component > renders network inline error state correctly 1`] = `
 <div>
   <script
     nonce=""
   >
-    ((e,s,n,l,o,d,u,h)=&gt;{let m=document.documentElement,w=["light","dark"];function p(r){(Array.isArray(e)?e:[e]).forEach(y=&gt;{let k=y==="class",S=k&&d?o.map(f=&gt;d[f]||f):o;k?(m.classList.remove(...S),m.classList.add(d&&d[r]?d[r]:r)):m.setAttribute(y,r)}),C(r)}function C(r){h&&w.includes(r)&&(m.style.colorScheme=r)}function a(){return window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"}if(l)p(l);else try{let r=localStorage.getItem(s)||n,y=u&&r==="system"?a():r;p(y)}catch(r){}})("class","theme","light",null,["light","dark"],null,true,true)
+    ((e,i,s,u,m,a,l,h)=&gt;{let d=document.documentElement,w=["light","dark"];function p(n){(Array.isArray(e)?e:[e]).forEach(y=&gt;{let k=y==="class",S=k&&a?m.map(f=&gt;a[f]||f):m;k?(d.classList.remove(...S),d.classList.add(a&&a[n]?a[n]:n)):d.setAttribute(y,n)}),R(n)}function R(n){h&&w.includes(n)&&(d.style.colorScheme=n)}function c(){return window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"}if(u)p(u);else try{let n=localStorage.getItem(i)||s,y=l&&n==="system"?c():n;p(y)}catch(n){}})("class","theme","light",null,["light","dark"],null,true,true)
   </script>
   <div
     class="flex items-center justify-between p-3 bg-destructive border border-red-200 rounded-md"
@@ -657,12 +657,12 @@ exports[`InlineErrorState Component renders network inline error state correctly
 </div>
 `;
 
-exports[`InlineErrorState Component renders with retry button when onRetry is provided 1`] = `
+exports[`InlineErrorState Component > renders with retry button when onRetry is provided 1`] = `
 <div>
   <script
     nonce=""
   >
-    ((e,s,n,l,o,d,u,h)=&gt;{let m=document.documentElement,w=["light","dark"];function p(r){(Array.isArray(e)?e:[e]).forEach(y=&gt;{let k=y==="class",S=k&&d?o.map(f=&gt;d[f]||f):o;k?(m.classList.remove(...S),m.classList.add(d&&d[r]?d[r]:r)):m.setAttribute(y,r)}),C(r)}function C(r){h&&w.includes(r)&&(m.style.colorScheme=r)}function a(){return window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"}if(l)p(l);else try{let r=localStorage.getItem(s)||n,y=u&&r==="system"?a():r;p(y)}catch(r){}})("class","theme","light",null,["light","dark"],null,true,true)
+    ((e,i,s,u,m,a,l,h)=&gt;{let d=document.documentElement,w=["light","dark"];function p(n){(Array.isArray(e)?e:[e]).forEach(y=&gt;{let k=y==="class",S=k&&a?m.map(f=&gt;a[f]||f):m;k?(d.classList.remove(...S),d.classList.add(a&&a[n]?a[n]:n)):d.setAttribute(y,n)}),R(n)}function R(n){h&&w.includes(n)&&(d.style.colorScheme=n)}function c(){return window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"}if(u)p(u);else try{let n=localStorage.getItem(i)||s,y=l&&n==="system"?c():n;p(y)}catch(n){}})("class","theme","light",null,["light","dark"],null,true,true)
   </script>
   <div
     class="flex items-center justify-between p-3 bg-destructive border border-red-200 rounded-md"
@@ -700,7 +700,7 @@ exports[`InlineErrorState Component renders with retry button when onRetry is pr
       </span>
     </div>
     <button
-      class="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive h-8 rounded-md gap-1.5 px-3 has-[>svg]:px-2.5 border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50"
+      class="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-all cursor-pointer disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-hidden focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive h-8 rounded-md gap-1.5 px-3 has-[>svg]:px-2.5 border bg-background shadow-2xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50"
       data-slot="button"
     >
       <svg
@@ -735,12 +735,12 @@ exports[`InlineErrorState Component renders with retry button when onRetry is pr
 </div>
 `;
 
-exports[`InlineErrorState Component shows retrying state when isRetrying is true 1`] = `
+exports[`InlineErrorState Component > shows retrying state when isRetrying is true 1`] = `
 <div>
   <script
     nonce=""
   >
-    ((e,s,n,l,o,d,u,h)=&gt;{let m=document.documentElement,w=["light","dark"];function p(r){(Array.isArray(e)?e:[e]).forEach(y=&gt;{let k=y==="class",S=k&&d?o.map(f=&gt;d[f]||f):o;k?(m.classList.remove(...S),m.classList.add(d&&d[r]?d[r]:r)):m.setAttribute(y,r)}),C(r)}function C(r){h&&w.includes(r)&&(m.style.colorScheme=r)}function a(){return window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"}if(l)p(l);else try{let r=localStorage.getItem(s)||n,y=u&&r==="system"?a():r;p(y)}catch(r){}})("class","theme","light",null,["light","dark"],null,true,true)
+    ((e,i,s,u,m,a,l,h)=&gt;{let d=document.documentElement,w=["light","dark"];function p(n){(Array.isArray(e)?e:[e]).forEach(y=&gt;{let k=y==="class",S=k&&a?m.map(f=&gt;a[f]||f):m;k?(d.classList.remove(...S),d.classList.add(a&&a[n]?a[n]:n)):d.setAttribute(y,n)}),R(n)}function R(n){h&&w.includes(n)&&(d.style.colorScheme=n)}function c(){return window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"}if(u)p(u);else try{let n=localStorage.getItem(i)||s,y=l&&n==="system"?c():n;p(y)}catch(n){}})("class","theme","light",null,["light","dark"],null,true,true)
   </script>
   <div
     class="flex items-center justify-between p-3 bg-destructive border border-red-200 rounded-md"
@@ -778,7 +778,7 @@ exports[`InlineErrorState Component shows retrying state when isRetrying is true
       </span>
     </div>
     <button
-      class="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive h-8 rounded-md gap-1.5 px-3 has-[>svg]:px-2.5 border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50"
+      class="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-all cursor-pointer disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-hidden focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive h-8 rounded-md gap-1.5 px-3 has-[>svg]:px-2.5 border bg-background shadow-2xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50"
       data-slot="button"
       disabled=""
     >

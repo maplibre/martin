@@ -113,7 +113,6 @@ mod tests {
     use super::*;
     use crate::config::UnrecognizedValues;
     use crate::srv::cors::CorsProperties;
-    use crate::tests::some;
 
     #[test]
     fn parse_config() {
@@ -126,7 +125,7 @@ mod tests {
             .unwrap(),
             SrvConfig {
                 keep_alive: Some(75),
-                listen_addresses: some("0.0.0.0:3000"),
+                listen_addresses: Some("0.0.0.0:3000".to_string()),
                 worker_processes: Some(8),
                 ..Default::default()
             }
@@ -141,7 +140,7 @@ mod tests {
             .unwrap(),
             SrvConfig {
                 keep_alive: Some(75),
-                listen_addresses: some("0.0.0.0:3000"),
+                listen_addresses: Some("0.0.0.0:3000".to_string()),
                 worker_processes: Some(8),
                 preferred_encoding: Some(PreferredEncoding::Brotli),
                 ..Default::default()
@@ -157,7 +156,7 @@ mod tests {
             .unwrap(),
             SrvConfig {
                 keep_alive: Some(75),
-                listen_addresses: some("0.0.0.0:3000"),
+                listen_addresses: Some("0.0.0.0:3000".to_string()),
                 worker_processes: Some(8),
                 preferred_encoding: Some(PreferredEncoding::Brotli),
                 ..Default::default()
@@ -177,7 +176,7 @@ mod tests {
             .unwrap(),
             SrvConfig {
                 keep_alive: Some(75),
-                listen_addresses: some("0.0.0.0:3000"),
+                listen_addresses: Some("0.0.0.0:3000".to_string()),
                 worker_processes: Some(8),
                 cors: Some(CorsConfig::SimpleFlag(false)),
                 ..Default::default()
@@ -193,7 +192,7 @@ mod tests {
             .unwrap(),
             SrvConfig {
                 keep_alive: Some(75),
-                listen_addresses: some("0.0.0.0:3000"),
+                listen_addresses: Some("0.0.0.0:3000".to_string()),
                 worker_processes: Some(8),
                 cors: Some(CorsConfig::SimpleFlag(true)),
                 ..Default::default()
@@ -212,7 +211,7 @@ mod tests {
             .unwrap(),
             SrvConfig {
                 keep_alive: Some(75),
-                listen_addresses: some("0.0.0.0:3000"),
+                listen_addresses: Some("0.0.0.0:3000".to_string()),
                 worker_processes: Some(8),
                 cors: Some(CorsConfig::Properties(CorsProperties {
                     origin: vec![

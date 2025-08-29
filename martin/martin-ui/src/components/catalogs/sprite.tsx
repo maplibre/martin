@@ -1,6 +1,5 @@
 import { Download, Eye, ImageIcon, Search } from 'lucide-react';
 
-import { useState } from 'react';
 import { SpriteDownloadDialog } from '@/components/dialogs/sprite-download';
 import { SpritePreviewDialog } from '@/components/dialogs/sprite-preview';
 import { ErrorState } from '@/components/error/error-state';
@@ -23,6 +22,10 @@ interface SpriteCatalogProps {
   error?: string | Error | null;
   onRetry?: () => void;
   isRetrying?: boolean;
+  selectedSprite?: string | null;
+  downloadSprite?: string | null;
+  onPreviewSprite?: (spriteName: string | undefined) => void;
+  onDownloadSprite?: (spriteName: string | undefined) => void;
 }
 
 export function SpriteCatalog({
@@ -33,10 +36,11 @@ export function SpriteCatalog({
   error = null,
   onRetry,
   isRetrying = false,
+  selectedSprite = null,
+  downloadSprite = null,
+  onPreviewSprite = () => {},
+  onDownloadSprite = () => {},
 }: SpriteCatalogProps) {
-  const [selectedSprite, setSelectedSprite] = useState<string | null>(null);
-  const [downloadSprite, setDownloadSprite] = useState<string | null>(null);
-
   if (isLoading) {
     return (
       <CatalogSkeleton
@@ -97,7 +101,7 @@ export function SpriteCatalog({
                 </div>
                 <CardDescription>{sprite.images.length} total icons</CardDescription>
               </CardHeader>
-              <CardContent className="flex flex-col p-6 justify-between flex-grow grow-1">
+              <CardContent className="flex flex-col p-6 justify-between grow grow-1">
                 <div>
                   <div className="p-3 bg-gray-50 rounded-lg text-gray-900">
                     <p className="text-sm font-medium mb-2">Icon Preview:</p>
@@ -122,7 +126,7 @@ export function SpriteCatalog({
                 <div className="flex flex-col md:flex-row items-center gap-2 mt-4">
                   <Button
                     className="flex-1 bg-transparent w-full"
-                    onClick={() => setDownloadSprite(name)}
+                    onClick={() => onDownloadSprite(name)}
                     size="sm"
                     variant="outline"
                   >
@@ -131,7 +135,7 @@ export function SpriteCatalog({
                   </Button>
                   <Button
                     className="flex-1 bg-primary hover:bg-purple-700 text-primary-foreground  w-full"
-                    onClick={() => setSelectedSprite(name)}
+                    onClick={() => onPreviewSprite(name)}
                     size="sm"
                     variant="default"
                   >
@@ -169,10 +173,10 @@ export function SpriteCatalog({
       {selectedSprite && spriteCollections && (
         <SpritePreviewDialog
           name={selectedSprite}
-          onCloseAction={() => setSelectedSprite(null)}
+          onCloseAction={() => onPreviewSprite(undefined)}
           onDownloadAction={() => {
-            setDownloadSprite(selectedSprite);
-            setSelectedSprite(null);
+            onDownloadSprite(selectedSprite);
+            onPreviewSprite(undefined);
           }}
           sprite={spriteCollections[selectedSprite]}
         />
@@ -180,7 +184,7 @@ export function SpriteCatalog({
       {downloadSprite && spriteCollections && (
         <SpriteDownloadDialog
           name={downloadSprite}
-          onCloseAction={() => setDownloadSprite(null)}
+          onCloseAction={() => onDownloadSprite(undefined)}
           sprite={spriteCollections[downloadSprite]}
         />
       )}

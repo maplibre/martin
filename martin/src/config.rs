@@ -7,12 +7,12 @@ use std::pin::Pin;
 
 use futures::future::try_join_all;
 use log::{info, warn};
+#[cfg(any(feature = "fonts", feature = "postgres"))]
+use martin_core::config::OptOneMany;
 use serde::{Deserialize, Serialize};
 use subst::VariableMap;
 
 use crate::MartinError::{ConfigLoadError, ConfigParseError, ConfigWriteError, NoSources};
-#[cfg(any(feature = "fonts", feature = "postgres"))]
-use crate::OptOneMany;
 use crate::file_config::ConfigExtras;
 #[cfg(any(
     feature = "cog",
@@ -84,12 +84,8 @@ pub struct Config {
 impl Config {
     /// Apply defaults to the config, and validate if there is a connection string
     pub fn finalize(&mut self) -> MartinResult<UnrecognizedKeys> {
-        let mut unrecognized_keys = self
-            .unrecognized
-            .keys()
-            .cloned()
-            .collect::<UnrecognizedKeys>();
-        unrecognized_keys.extend(self.srv.get_unrecognized_keys());
+        let mut res = self.srv.get_unrecognized_keys();
+        copy_unrecognized_config(&mut res, "", &self.unrecognized);
 
         if let Some(path) = &self.srv.base_path {
             self.srv.base_path = Some(parse_base_path(path)?);
@@ -255,6 +251,14 @@ impl Config {
     }
 }
 
+pub fn copy_unrecognized_config(
+    result: &mut UnrecognizedKeys,
+    prefix: &str,
+    unrecognized: &UnrecognizedValues,
+) {
+    result.extend(unrecognized.keys().map(|k| format!("{prefix}{k}")));
+}
+
 /// Read config from a file
 pub fn read_config<'a, M>(file_name: &Path, env: &'a M) -> MartinResult<Config>
 where
@@ -279,9 +283,10 @@ where
 #[cfg(feature = "postgres")]
 #[cfg(test)]
 pub mod tests {
+    use martin_core::config::env::FauxEnv;
+
     use super::*;
     use crate::config::Config;
-    use crate::tests::FauxEnv;
 
     pub fn parse_cfg(yaml: &str) -> Config {
         parse_config(yaml, &FauxEnv::default(), Path::new("<test>")).unwrap()

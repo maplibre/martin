@@ -23,6 +23,9 @@ impl ConfigExtras for MbtConfig {
 }
 
 impl SourceConfigExtras for MbtConfig {
+    fn parse_urls() -> bool {
+        false
+    }
     async fn new_sources(&self, id: String, path: PathBuf) -> MartinResult<TileInfoSource> {
         Ok(Box::new(MbtSource::new(id, path).await?))
     }

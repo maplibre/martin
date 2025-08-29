@@ -6,7 +6,7 @@ use dashmap::{DashMap, Entry};
 use futures::future::try_join_all;
 use log::{info, warn};
 use serde::{Deserialize, Serialize};
-use spreet::resvg::usvg::{Options, Tree, TreeParsing};
+use spreet::resvg::usvg::{Options, Tree};
 use spreet::{Sprite, Spritesheet, SpritesheetBuilder, get_svg_input_paths, sprite_name};
 use tokio::io::AsyncReadExt;
 

@@ -4,17 +4,16 @@ use std::mem;
 use std::path::{Path, PathBuf};
 
 use log::{info, warn};
+use martin_core::config::OptOneMany::{self, Many, One};
 use serde::{Deserialize, Serialize};
 use url::Url;
 
-use crate::OptOneMany::{Many, One};
 use crate::config::UnrecognizedKeys;
 use crate::file_config::FileError::{
     InvalidFilePath, InvalidSourceFilePath, InvalidSourceUrl, IoError,
 };
-use crate::source::TileInfoSources;
 use crate::utils::{IdResolver, OptMainCache, OptOneMany};
-use crate::{MartinError, MartinResult, TileInfoSource};
+use crate::{MartinError, MartinResult, TileInfoSource, TileInfoSources};
 
 pub type FileResult<T> = Result<T, FileError>;
 
@@ -41,27 +40,30 @@ pub trait ConfigExtras: Clone + Debug + Default + PartialEq + Send {
         Ok(())
     }
 
-    #[must_use]
-    fn is_default(&self) -> bool {
-        true
-    }
-
     /// Iterates over all unrecognized (present, but not expected) keys in the configuration
     fn get_unrecognized_keys(&self) -> UnrecognizedKeys;
 }
 
 pub trait SourceConfigExtras: ConfigExtras {
+    /// Indicates whether path strings for this configuration should be parsed as URLs.
+    ///
+    /// - `true` means any source path starting with `http://`, `https://`, or `s3://` will be treated as a remote URL.
+    /// - `false` means all paths are treated as local file system paths.
     #[must_use]
-    fn parse_urls() -> bool {
-        false
-    }
+    fn parse_urls() -> bool;
 
+    /// Asynchronously creates a new `TileInfoSource` from a **local** file `path` using the given `id`.
+    ///
+    /// This function is called for each discovered file path that is not a URL.
     fn new_sources(
         &self,
         id: String,
         path: PathBuf,
     ) -> impl Future<Output = MartinResult<TileInfoSource>> + Send;
 
+    /// Asynchronously creates a new `TileInfoSource` from a **remote** `url` using the given `id`.
+    ///
+    /// This function is called for each discovered source path that is a valid URL.
     fn new_sources_url(
         &self,
         id: String,
@@ -91,7 +93,7 @@ impl<T: ConfigExtras> FileConfigEnum<T> {
         configs: BTreeMap<String, FileConfigSrc>,
         custom: T,
     ) -> Self {
-        if configs.is_empty() && custom.is_default() {
+        if configs.is_empty() {
             match paths.len() {
                 0 => FileConfigEnum::None,
                 1 => FileConfigEnum::Path(paths.into_iter().next().unwrap()),
@@ -147,13 +149,13 @@ impl<T: ConfigExtras> FileConfigEnum<T> {
 
     pub fn finalize(&self, prefix: &str) -> UnrecognizedKeys {
         if let Self::Config(cfg) = self {
-            return cfg
-                .get_unrecognized_keys()
+            cfg.get_unrecognized_keys()
                 .iter()
                 .map(|k| format!("{prefix}{k}"))
-                .collect::<UnrecognizedKeys>();
+                .collect()
+        } else {
+            UnrecognizedKeys::new()
         }
-        UnrecognizedKeys::new()
     }
 }
 
@@ -173,10 +175,7 @@ pub struct FileConfig<T> {
 impl<T: ConfigExtras> FileConfig<T> {
     #[must_use]
     pub fn is_empty(&self) -> bool {
-        self.paths.is_none()
-            && self.sources.is_none()
-            && self.get_unrecognized_keys().is_empty()
-            && self.custom.is_default()
+        self.paths.is_none() && self.sources.is_none() && self.get_unrecognized_keys().is_empty()
     }
 
     pub fn get_unrecognized_keys(&self) -> UnrecognizedKeys {

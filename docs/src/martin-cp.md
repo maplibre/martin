@@ -22,3 +22,30 @@ martin-cp  --output-file tileset.mbtiles \
            --source source_name          \
            postgresql://postgres@localhost:5432/db
 ```
+
+> [!TIP]
+> `--concurrency <CONCURRENCY>` and `--pool-size <POOL_SIZE>` can be used to control the number of concurrent requests and the pool size for postgres sources respectively.
+>
+> The optimal setting depends on:
+>
+> - the source(s) performance characteristics
+> - how much load is allowed, for example in a multi-tenant environment
+> - how to compress tiles stored in the output file
+
+You should also consider
+
+> [!TIP]
+> `--encoding <ENCODING>` can be used to reduce the final size of the MBTiles file or decrease the amount of processing `martin-cp` does.
+>
+> The default `gzip` should be a reasonable choice for most use cases, but if you prefer a different encoding, you can specify it here.
+> If set to multiple values like `'gzip,br'`, `martin-cp` will use the first encoding, or re-encode if the tile is already encoded and that encoding is not listed.
+> Use `identity` to disable compression.
+> Ignored for non-encodable tiles like PNG and JPEG.
+
+## Arguments
+
+Use `martin-cp --help` to see a list of available options:
+
+```text
+{{#include help/martin-cp.txt}}
+```

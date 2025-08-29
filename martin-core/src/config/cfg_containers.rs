@@ -1,18 +1,20 @@
 use std::vec::IntoIter;
 
 use serde::{Deserialize, Serialize};
-
-use crate::config::UnrecognizedKeys;
 use crate::file_config::ConfigExtras;
+crate::config::UnrecognizedKeys;
 
 /// A serde helper to store a boolean as an object.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum OptBoolObj<T: ConfigExtras> {
+    /// No value present.
     #[default]
     #[serde(skip)]
     NoValue,
+    /// A boolean value.
     Bool(bool),
+    /// An object value.
     Object(T),
 }
 
@@ -30,12 +32,16 @@ impl<T: ConfigExtras> ConfigExtras for OptBoolObj<T> {
     }
 }
 
+/// An enum that can hold no values, one value, or many values of type T.
 #[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum OptOneMany<T> {
+    /// No values present.
     #[default]
     NoVals,
+    /// Exactly one value present.
     One(T),
+    /// Multiple values present.
     Many(Vec<T>),
 }
 
@@ -53,6 +59,10 @@ impl<T> IntoIterator for OptOneMany<T> {
 }
 
 impl<T> OptOneMany<T> {
+    /// Creates a new `OptOneMany` from an iterator.
+    ///
+    /// Returns `NoVals` if the iterator is empty, `One` if it contains exactly one item,
+    /// and `Many` if it contains multiple items.
     pub fn new<I: IntoIterator<Item = T>>(iter: I) -> Self {
         let mut iter = iter.into_iter();
         match (iter.next(), iter.next()) {
@@ -68,10 +78,12 @@ impl<T> OptOneMany<T> {
         }
     }
 
+    /// Returns `true` if this contains no values.
     pub fn is_none(&self) -> bool {
         matches!(self, Self::NoVals)
     }
 
+    /// Returns `true` if this contains no values or an empty vector.
     pub fn is_empty(&self) -> bool {
         match self {
             Self::NoVals => true,
@@ -80,6 +92,7 @@ impl<T> OptOneMany<T> {
         }
     }
 
+    /// Returns an iterator over the contained values.
     pub fn iter(&self) -> impl Iterator<Item = &T> {
         match self {
             Self::NoVals => [].iter(),
@@ -88,6 +101,9 @@ impl<T> OptOneMany<T> {
         }
     }
 
+    /// Returns an optional iterator over the contained values.
+    ///
+    /// Returns `None` for `NoVals`, `Some(iterator)` for `One` and `Many`.
     pub fn opt_iter(&self) -> Option<impl Iterator<Item = &T>> {
         match self {
             Self::NoVals => None,
@@ -96,6 +112,7 @@ impl<T> OptOneMany<T> {
         }
     }
 
+    /// Returns a mutable iterator over the contained values.
     pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut T> {
         match self {
             Self::NoVals => [].iter_mut(),
@@ -104,6 +121,7 @@ impl<T> OptOneMany<T> {
         }
     }
 
+    /// Returns a slice view of the contained values.
     pub fn as_slice(&self) -> &[T] {
         match self {
             Self::NoVals => &[],
@@ -115,8 +133,8 @@ impl<T> OptOneMany<T> {
 
 #[cfg(test)]
 mod tests {
+    use super::OptOneMany::{Many, NoVals, One};
     use super::*;
-    use crate::OptOneMany::{Many, NoVals, One};
 
     #[test]
     fn test_one_or_many() {
