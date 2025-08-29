@@ -11,13 +11,30 @@ repository.workspace = true
 rust-version.workspace = true
 homepage.workspace = true
 
+[features]
+default = ["fonts"]
+fonts = [
+    "dep:bit-set",
+    "dep:pbf_font_tools",
+    "dep:regex",
+    "dep:itertools",
+    "dep:dashmap",
+    "dep:thiserror",
+]
+
 [dependencies]
 async-trait.workspace = true
+bit-set = { workspace = true, optional = true }
+dashmap = { workspace = true, optional = true }
+itertools = { workspace = true, optional = true }
 log.workspace = true
 martin-tile-utils.workspace = true
+pbf_font_tools = { workspace = true, optional = true }
+regex = { workspace = true, optional = true }
 serde.workspace = true
 serde_with.workspace = true
 subst.workspace = true
+thiserror = { workspace = true, optional = true }
 
 [lints]
 workspace = true

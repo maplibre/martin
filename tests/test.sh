@@ -387,7 +387,7 @@ kill_process "$MARTIN_PROC_ID" Martin
 
 test_log_has_str "$LOG_FILE" 'WARN  martin::pg::query_tables] Table public.table_source has no spatial index on column geom'
 test_log_has_str "$LOG_FILE" 'WARN  martin::pg::query_tables] Table public.table_source_geog has no spatial index on column geog'
-test_log_has_str "$LOG_FILE" 'WARN  martin::fonts] Ignoring duplicate font Overpass Mono Regular from tests'
+test_log_has_str "$LOG_FILE" 'WARN  martin_core::resources::fonts] Ignoring duplicate font Overpass Mono Regular from tests'
 test_log_has_str "$LOG_FILE" 'was renamed to `stamen_toner__raster_CC-BY-ODbL_z3`'
 test_log_has_str "$LOG_FILE" 'was renamed to `table_source_multiple_geom.1`'
 test_log_has_str "$LOG_FILE" 'was renamed to `-function.withweired---_-characters`'
@@ -496,7 +496,7 @@ test_metrics "metrics_1"
 kill_process "$MARTIN_PROC_ID" Martin
 test_log_has_str "$LOG_FILE" 'WARN  martin::pg::query_tables] Table public.table_source has no spatial index on column geom'
 test_log_has_str "$LOG_FILE" 'WARN  martin::pg::query_tables] Table public.table_source_geog has no spatial index on column geog'
-test_log_has_str "$LOG_FILE" 'WARN  martin::fonts] Ignoring duplicate font Overpass Mono Regular from tests'
+test_log_has_str "$LOG_FILE" 'WARN  martin_core::resources::fonts] Ignoring duplicate font Overpass Mono Regular from tests'
 validate_log "$LOG_FILE"
 remove_line "${TEST_OUT_DIR}/save_config.yaml" " connection_string: "
 

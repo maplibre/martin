@@ -14,8 +14,6 @@ pub mod args;
 #[cfg(feature = "cog")]
 pub mod cog;
 pub mod file_config;
-#[cfg(feature = "fonts")]
-pub mod fonts;
 #[cfg(feature = "mbtiles")]
 pub mod mbtiles;
 #[cfg(feature = "postgres")]
