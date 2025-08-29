@@ -748,7 +748,7 @@ jobs:
 
       - name: Generate SLSA build provenance attestation
         if: startsWith(github.ref, 'refs/tags/')
-        uses: actions/attest-build-provenance@v3
+        uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3.0.0
         with: { subject-path: 'target/files/*' }
       - name: Publish
         if: startsWith(github.ref, 'refs/tags/')
