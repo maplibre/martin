@@ -1,5 +1,5 @@
 #![cfg_attr(doc, doc = include_str!("../README.md"))]
-// feat geojson: #![forbid(unsafe_code)]
+#![forbid(unsafe_code)]
 
 mod config;
 pub use config::{Config, ServerState, read_config};
