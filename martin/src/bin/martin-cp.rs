@@ -541,7 +541,7 @@ async fn main() {
     if log_filter.contains("marin-cp=") && !log_filter.contains("martin_core=") {
         if let Some(level) = log_filter
             .split(',')
-            .find_map(|s| s.strip_prefix("martin="))
+            .find_map(|s| s.strip_prefix("marin-cp="))
         {
             let level = level.to_string();
             let _ = write!(log_filter, ",martin_core={level}");
