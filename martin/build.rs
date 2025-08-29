@@ -101,11 +101,9 @@ fn webui() {
         .change_detection();
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() {
     #[cfg(feature = "webui")]
     if option_env!("RUSTDOC").is_none() {
         webui();
     }
-
-    Ok(())
 }
