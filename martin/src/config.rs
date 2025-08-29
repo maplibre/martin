@@ -35,7 +35,7 @@ pub struct ServerState {
     #[cfg(feature = "sprites")]
     pub sprites: crate::sprites::SpriteSources,
     #[cfg(feature = "fonts")]
-    pub fonts: crate::fonts::FontSources,
+    pub fonts: martin_core::fonts::FontSources,
     #[cfg(feature = "styles")]
     pub styles: crate::styles::StyleSources,
 }
@@ -169,7 +169,7 @@ impl Config {
             #[cfg(feature = "sprites")]
             sprites: crate::sprites::SpriteSources::resolve(&mut self.sprites)?,
             #[cfg(feature = "fonts")]
-            fonts: crate::fonts::FontSources::resolve(&mut self.fonts)?,
+            fonts: martin_core::fonts::FontSources::resolve(&mut self.fonts)?,
             #[cfg(feature = "styles")]
             styles: crate::styles::StyleSources::resolve(&mut self.styles)?,
             cache,

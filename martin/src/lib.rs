@@ -5,9 +5,7 @@ mod config;
 pub use config::{Config, ServerState, read_config};
 
 mod source;
-pub use source::{
-    CatalogSourceEntry, Source, Tile, TileData, TileInfoSource, TileSources, UrlQuery,
-};
+pub use source::{Source, TileData, TileInfoSource, TileSources, UrlQuery};
 
 mod utils;
 pub use utils::{IdResolver, MartinError, MartinResult, NO_MAIN_CACHE};
@@ -16,8 +14,6 @@ pub mod args;
 #[cfg(feature = "cog")]
 pub mod cog;
 pub mod file_config;
-#[cfg(feature = "fonts")]
-pub mod fonts;
 #[cfg(feature = "mbtiles")]
 pub mod mbtiles;
 #[cfg(feature = "postgres")]
