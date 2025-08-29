@@ -86,8 +86,7 @@ impl Source for GeoJsonSource {
     }
 
     fn benefits_from_concurrent_scraping(&self) -> bool {
-        // TODO: figure out if this is a good idea
-        false
+        true
     }
 
     async fn get_tile(
