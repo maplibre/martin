@@ -8,7 +8,7 @@ use martin_core::config::OptOneMany::{self, Many, One};
 use serde::{Deserialize, Serialize};
 use url::Url;
 
-use crate::config::{UnrecognizedValues, copy_unrecognized_config};
+use crate::config::UnrecognizedKeys;
 use crate::file_config::FileError::{
     InvalidFilePath, InvalidSourceFilePath, InvalidSourceUrl, IoError,
 };
