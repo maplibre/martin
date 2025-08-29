@@ -260,6 +260,17 @@ mbtiles:
     # named source matching source name to a single file
     mb-src1: /path/to/mbtiles1.mbtiles
 
+# Publish GeoJSON files
+geojson:
+  paths:
+    # scan this whole dir, matching all *.geojson files
+    - /dir-path
+    # specific geojson file will be published as geojson2 source
+    - /path/to/geojson.geojson
+  sources:
+    # named source matching source name to a single file
+    geo-src1: /path/to/geojson1.geojson
+
 # Cloud Optimized GeoTIFF File Sources
 cog:
   paths:
