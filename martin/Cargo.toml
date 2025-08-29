@@ -134,6 +134,11 @@ deadpool-postgres = { workspace = true, optional = true }
 enum-display = { workspace = true, optional = true }
 env_logger.workspace = true
 futures.workspace = true
+geojson = { version = "0.24.2", optional = true }
+geojson-vt-rs = { git = "https://github.com/maxammann/geojson-vt-rs.git", optional = true }
+geozero = { git = "https://github.com/styrowolf/geozero.git", branch = "styrowolf/expose-mvt-internals", features = [
+    "with-mvt",
+], optional = true }
 itertools.workspace = true
 json-patch = { workspace = true, optional = true }
 lambda-web = { workspace = true, optional = true }
@@ -169,11 +174,6 @@ tokio-postgres-rustls = { workspace = true, optional = true }
 url.workspace = true
 walkdir = { workspace = true, optional = true }
 xxhash-rust.workspace = true
-geojson = { version = "0.24.2", optional = true }
-geojson-vt-rs = { git = "https://github.com/maxammann/geojson-vt-rs.git", optional = true }
-geozero = { git = "https://github.com/styrowolf/geozero.git", branch = "styrowolf/expose-mvt-internals", features = [
-    "with-mvt",
-], optional = true }
 
 [build-dependencies]
 static-files = { workspace = true, optional = true }

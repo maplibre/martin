@@ -9,7 +9,7 @@ use martin_tile_utils::{Format, TileCoord, TileInfo};
 use std::fs::File;
 use tilejson::TileJSON;
 use tilejson::tilejson;
-use tokio::sync::Mutex;
+use tokio::sync::RwLock;
 
 use crate::file_config::FileError;
 use crate::file_config::FileResult;
@@ -25,18 +25,17 @@ pub use config::GeoJsonConfig;
 pub struct GeoJsonSource {
     id: String,
     path: PathBuf,
-    inner: Arc<Mutex<GeoJSONVT>>,
+    inner: Arc<RwLock<GeoJSONVT>>,
     tilejson: TileJSON,
     tile_info: TileInfo,
 }
 
 impl Debug for GeoJsonSource {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "GeoJsonSource {{ id: {}, path: {:?} }}",
-            self.id, self.path,
-        )
+        f.debug_struct("GeoJsonSource")
+            .field("id", &self.id)
+            .field("path", &self.path)
+            .finish()
     }
 }
 
@@ -62,7 +61,7 @@ impl GeoJsonSource {
         return Ok(Self {
             id,
             path,
-            inner: Arc::new(Mutex::new(inner)),
+            inner: Arc::new(RwLock::new(inner)),
             tilejson,
             tile_info,
         });
@@ -98,19 +97,18 @@ impl Source for GeoJsonSource {
         xyz: TileCoord,
         _url_query: Option<&UrlQuery>,
     ) -> MartinResult<TileData> {
-        let mut guard = self.inner.lock().await;
-        let tile = guard.get_tile(xyz.z, xyz.x, xyz.y).clone();
-        drop(guard);
-
+        let tile;
+        {
+            let mut guard = self.inner.write().await;
+            tile = guard.get_tile(xyz.z, xyz.x, xyz.y).clone();
+        }
         let mut builder = LayerBuilder::new(self.id.clone(), 4096);
         for feature in &tile.features.features {
             builder.add_feature(feature);
         }
-        let mvt_layer = builder.build();
         let mvt_tile = geozero::mvt::Tile {
-            layers: vec![mvt_layer],
+            layers: vec![builder.build()],
         };
-
-        return Ok(mvt_tile.encode_to_vec());
+        Ok(mvt_tile.encode_to_vec())
     }
 }
