@@ -95,14 +95,7 @@ default = [
 ]
 cog = ["dep:png", "dep:tiff"]
 fonts = ["dep:bit-set", "dep:pbf_font_tools", "dep:regex"]
-# feat: geojson
-geojson = [
-    "dep:dup-indexer",
-    "dep:geojson",
-    "dep:geojson-vt-rs",
-    "dep:prost",
-    "dep:prost-build",
-]
+geojson = ["dep:geojson", "dep:geojson-vt-rs", "dep:geozero"]
 lambda = ["dep:lambda-web"]
 mbtiles = ["dep:mbtiles"]
 metrics = ["dep:actix-web-prom"]
@@ -176,18 +169,15 @@ tokio-postgres-rustls = { workspace = true, optional = true }
 url.workspace = true
 walkdir = { workspace = true, optional = true }
 xxhash-rust.workspace = true
-# feat: geojson
-dup-indexer = { version = "0.4.3", optional = true }
 geojson = { version = "0.24.2", optional = true }
 geojson-vt-rs = { git = "https://github.com/maxammann/geojson-vt-rs.git", optional = true }
-prost = { version = "0.14.1", optional = true }
-
+geozero = { git = "https://github.com/styrowolf/geozero.git", branch = "styrowolf/expose-mvt-internals", features = [
+    "with-mvt",
+], optional = true }
 
 [build-dependencies]
 static-files = { workspace = true, optional = true }
 walkdir = { workspace = true, optional = true }
-# feat: geojson
-prost-build = { version = "0.14.1", optional = true }
 
 [dev-dependencies]
 anyhow.workspace = true

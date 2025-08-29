@@ -1,18 +1,17 @@
 use std::fmt::{Debug, Formatter};
-use std::io;
 use std::path::PathBuf;
 use std::sync::Arc;
 
 use async_trait::async_trait;
 use geojson_vt_rs::{GeoJSONVT, Options};
+use geozero::mvt::Message as _;
 use martin_tile_utils::{Format, TileCoord, TileInfo};
-use prost::Message as _;
 use std::fs::File;
 use tilejson::TileJSON;
 use tilejson::tilejson;
 use tokio::sync::Mutex;
 
-use crate::file_config::FileError::{self, InvalidMetadata, IoError};
+use crate::file_config::FileError;
 use crate::file_config::FileResult;
 use crate::geojson::mvt::LayerBuilder;
 use crate::source::{TileData, TileInfoSource, UrlQuery};
@@ -108,7 +107,7 @@ impl Source for GeoJsonSource {
             builder.add_feature(feature);
         }
         let mvt_layer = builder.build();
-        let mvt_tile = mvt::vector_tile::Tile {
+        let mvt_tile = geozero::mvt::Tile {
             layers: vec![mvt_layer],
         };
 

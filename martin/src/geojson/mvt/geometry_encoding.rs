@@ -1,4 +1,4 @@
-use super::commands::*;
+use geozero::mvt::{Command, CommandInteger, ParameterInteger};
 
 pub fn encode_geom(geom: &geojson::Geometry) -> Vec<u32> {
     match &geom.value {
