@@ -177,7 +177,7 @@ function MyMap() {
               <div>
                 <span className="font-medium">Style URL:</span>
                 <br />
-                <code className="text-xs bg-background px-2 py-1 rounded break-all">
+                <code className="text-xs bg-background px-2 py-1 rounded-sm break-all">
                   {styleUrl}
                 </code>
               </div>
