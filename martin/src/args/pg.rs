@@ -163,16 +163,17 @@ impl PgArgs {
                 Ignore
             }
         });
-        if connections.is_empty() {
-            if let Some(s) = env.get_env_str("DATABASE_URL") {
-                if is_postgresql_string(&s) {
-                    info!("Using env var DATABASE_URL to connect to PostgreSQL");
-                    connections.push(s);
-                } else {
-                    warn!("Environment var DATABASE_URL is not a valid postgres connection string");
-                }
+        if connections.is_empty()
+            && let Some(s) = env.get_env_str("DATABASE_URL")
+        {
+            if is_postgresql_string(&s) {
+                info!("Using env var DATABASE_URL to connect to PostgreSQL");
+                connections.push(s);
+            } else {
+                warn!("Environment var DATABASE_URL is not a valid postgres connection string");
             }
         }
+
         connections
     }
 

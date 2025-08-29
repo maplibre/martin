@@ -112,12 +112,12 @@ pub struct PgCfgPublishFuncs {
 impl PgConfig {
     /// Apply defaults to the config, and validate if there is a connection string
     pub fn validate(&self) -> PgResult<()> {
-        if let Some(pool_size) = self.pool_size {
-            if pool_size < 1 {
-                return Err(PgError::ConfigError(
-                    "pool_size must be greater than or equal to 1.",
-                ));
-            }
+        if let Some(pool_size) = self.pool_size
+            && pool_size < 1
+        {
+            return Err(PgError::ConfigError(
+                "pool_size must be greater than or equal to 1.",
+            ));
         }
         if self.connection_string.is_none() {
             return Err(PgError::ConfigError(

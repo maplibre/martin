@@ -70,7 +70,7 @@ export function MiniHistogram({ histogram, className = '' }: MiniHistogramProps)
           <Tooltip key={bar.timeRange}>
             <TooltipTrigger asChild>
               <div
-                className="flex-1 bg-primary rounded-[1px] cursor-default"
+                className="flex-1 bg-primary rounded-[1px] cursor-help"
                 style={{
                   height: `${bar.height}%`,
                   opacity: bar.opacity,
