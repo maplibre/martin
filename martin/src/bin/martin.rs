@@ -52,7 +52,7 @@ async fn start(args: Args) -> MartinResult<()> {
 
 #[actix_web::main]
 async fn main() {
-    let mut log_filter = std::env::var("RUST_LOG").unwrap_or("marin=info".to_string());
+    let mut log_filter = std::env::var("RUST_LOG").unwrap_or("martin=info".to_string());
     // if we don't have martin_core set, this can hide parts of our logs unintentionally
     if log_filter.contains("martin=") && !log_filter.contains("martin_core=") {
         if let Some(level) = log_filter
