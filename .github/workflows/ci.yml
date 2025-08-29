@@ -663,6 +663,12 @@ jobs:
   package:
     name: Package
     runs-on: ubuntu-latest
+    permissions:
+      # for writing attestations
+      id-token: write
+      attestations: write
+      # for writing release artifacts
+      contents: write
     needs: [ lint-debug-test, test-multi-os, test-with-svc, test-aws-lambda ]
     steps:
       - name: Checkout sources
@@ -740,6 +746,10 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with: { name: 'homebrew-config', path: 'target/homebrew_config.yaml' }
 
+      - name: Generate SLSA build provenance attestation
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: actions/attest-build-provenance@v2
+        with: { subject-path: 'target/files/*' }
       - name: Publish
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@72f2c25fcb47643c292f7107632f7a47c1df5cd8 # v2
