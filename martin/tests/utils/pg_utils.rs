@@ -1,5 +1,5 @@
 use indoc::formatdoc;
-use martin::{Config, ServerState, Source};
+use martin::{Config, ServerState, Source, construct_cache};
 
 use crate::mock_cfg;
 
@@ -21,7 +21,7 @@ pub fn mock_pgcfg(yaml: &str) -> Config {
 
 #[allow(dead_code)]
 pub async fn mock_sources(mut config: Config) -> MockSource {
-    let res = config.resolve().await;
+    let res = config.resolve(construct_cache(config.cache_size_mb)).await;
     let res = res.unwrap_or_else(|e| panic!("Failed to resolve config {config:?}: {e}"));
     (res, config)
 }

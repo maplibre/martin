@@ -23,7 +23,7 @@ use crate::MartinError::{ConfigLoadError, ConfigParseError, ConfigWriteError, No
 use crate::file_config::FileConfigEnum;
 use crate::source::{TileInfoSources, TileSources};
 use crate::srv::{RESERVED_KEYWORDS, SrvConfig};
-use crate::utils::{CacheValue, MainCache, OptMainCache, init_aws_lc_tls, parse_base_path};
+use crate::utils::{OptMainCache, init_aws_lc_tls, parse_base_path};
 use crate::{IdResolver, MartinResult};
 
 pub type UnrecognizedValues = HashMap<String, serde_yaml::Value>;
@@ -138,30 +138,9 @@ impl Config {
         if is_empty { Err(NoSources) } else { Ok(res) }
     }
 
-    pub async fn resolve(&mut self) -> MartinResult<ServerState> {
+    pub async fn resolve(&mut self, cache: OptMainCache) -> MartinResult<ServerState> {
         init_aws_lc_tls()?;
         let resolver = IdResolver::new(RESERVED_KEYWORDS);
-        let cache_size = self.cache_size_mb.unwrap_or(512) * 1024 * 1024;
-        let cache = if cache_size > 0 {
-            info!("Initializing main cache with maximum size {cache_size}B");
-            Some(
-                MainCache::builder()
-                    .weigher(|_key, value: &CacheValue| -> u32 {
-                        match value {
-                            CacheValue::Tile(v) => v.len().try_into().unwrap_or(u32::MAX),
-                            #[cfg(feature = "pmtiles")]
-                            CacheValue::PmtDirectory(v) => {
-                                v.get_approx_byte_size().try_into().unwrap_or(u32::MAX)
-                            }
-                        }
-                    })
-                    .max_capacity(cache_size)
-                    .build(),
-            )
-        } else {
-            info!("Caching is disabled");
-            None
-        };
 
         Ok(ServerState {
             tiles: self.resolve_tile_sources(&resolver, cache.clone()).await?,

@@ -178,7 +178,15 @@ async fn start(copy_args: CopierArgs) -> MartinCpResult<()> {
     args.merge_into_config(&mut config, &env)?;
     config.finalize()?;
 
-    let sources = config.resolve().await?;
+    if let Some(cache_size_mb) = config.cache_size_mb
+        && cache_size_mb > 0
+    {
+        info!(
+            "Ignoring setting cache_size_mb={cache_size_mb} as caching does not make sense for tile copying"
+        );
+    }
+
+    let sources = config.resolve(None).await?;
 
     if let Some(file_name) = save_config {
         config.save_to_file(file_name)?;
