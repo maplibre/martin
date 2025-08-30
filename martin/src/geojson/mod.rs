@@ -54,12 +54,38 @@ impl GeoJsonSource {
         let geojson = geojson::GeoJson::from_reader(geojson_file)
             .map_err(|e| FileError::InvalidFilePath(path.clone()))?;
 
-        // TODO: vector layers
+        let bounds = match &geojson {
+            geojson::GeoJson::Geometry(geometry) => geojson_to_bounds(&geometry.value),
+            geojson::GeoJson::Feature(feature) => match feature.geometry.as_ref() {
+                Some(geom) => geojson_to_bounds(&geom.value),
+                None => return Err(FileError::InvalidFilePath(path.clone())),
+            },
+            geojson::GeoJson::FeatureCollection(feature_collection) => {
+                let mut bounds = tilejson::Bounds::new(f64::MAX, f64::MAX, f64::MIN, f64::MIN);
+                for feature in &feature_collection.features {
+                    match feature.geometry.as_ref() {
+                        Some(geom) => {
+                            let feat_bounds = geojson_to_bounds(&geom.value);
+                            update_bounds(&mut bounds, feat_bounds.left, feat_bounds.bottom);
+                            update_bounds(&mut bounds, feat_bounds.right, feat_bounds.top);
+                        }
+                        None => continue,
+                    }
+                }
+                // no feature has geom so return an error
+                if bounds == tilejson::Bounds::new(f64::MAX, f64::MAX, f64::MIN, f64::MIN) {
+                    return Err(FileError::InvalidFilePath(path.clone()));
+                }
+                bounds
+            }
+        };
+
         let tilejson = tilejson! {
             tiles: vec![],
             vector_layers: geojson_to_vector_layer(&id, &geojson),
+            bounds: bounds,
             minzoom: 0,
-            maxzoom: 18,
+            maxzoom: 24, // from geojson-vt-rs max_zoom
         };
 
         return Ok(Self {
@@ -119,6 +145,65 @@ impl Source for GeoJsonSource {
         };
         Ok(mvt_tile.encode_to_vec())
     }
+}
+
+fn update_bounds(bounds: &mut tilejson::Bounds, x: f64, y: f64) {
+    bounds.left = f64::min(bounds.left, x);
+    bounds.right = f64::max(bounds.right, x);
+    bounds.bottom = f64::min(bounds.bottom, y);
+    bounds.top = f64::max(bounds.top, y);
+}
+
+fn geojson_to_bounds(geojson_value: &geojson::Value) -> tilejson::Bounds {
+    let mut bounds = tilejson::Bounds::new(f64::MAX, f64::MAX, f64::MIN, f64::MIN);
+
+    match geojson_value {
+        geojson::Value::Point(point) => {
+            update_bounds(&mut bounds, point[0], point[1]);
+        }
+        geojson::Value::MultiPoint(points) => {
+            points.iter().for_each(|point| {
+                update_bounds(&mut bounds, point[0], point[1]);
+            });
+        }
+        geojson::Value::LineString(points) => {
+            points.iter().for_each(|point| {
+                update_bounds(&mut bounds, point[0], point[1]);
+            });
+        }
+        geojson::Value::MultiLineString(linestrings) => {
+            linestrings.iter().for_each(|linestring| {
+                linestring.iter().for_each(|point| {
+                    update_bounds(&mut bounds, point[0], point[1]);
+                });
+            });
+        }
+        geojson::Value::Polygon(rings) => {
+            rings.iter().for_each(|ring| {
+                ring.iter().for_each(|point| {
+                    update_bounds(&mut bounds, point[0], point[1]);
+                });
+            });
+        }
+        geojson::Value::MultiPolygon(polygons) => {
+            polygons.iter().for_each(|polygon| {
+                polygon.iter().for_each(|ring| {
+                    ring.iter().for_each(|point| {
+                        update_bounds(&mut bounds, point[0], point[1]);
+                    });
+                });
+            });
+        }
+        geojson::Value::GeometryCollection(geometries) => {
+            for geometry in geometries {
+                let col_bounds = geojson_to_bounds(&geometry.value);
+                update_bounds(&mut bounds, col_bounds.left, col_bounds.bottom);
+                update_bounds(&mut bounds, col_bounds.right, col_bounds.top);
+            }
+        }
+    }
+
+    return bounds;
 }
 
 // TODO: maybe break down fields subroutine into a function
