@@ -14,6 +14,8 @@ pub mod args;
 #[cfg(feature = "cog")]
 pub mod cog;
 pub mod file_config;
+#[cfg(feature = "geojson")]
+pub mod geojson;
 #[cfg(feature = "mbtiles")]
 pub mod mbtiles;
 #[cfg(feature = "postgres")]

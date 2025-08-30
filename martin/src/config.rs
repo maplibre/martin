@@ -63,6 +63,10 @@ pub struct Config {
     #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
     pub cog: FileConfigEnum<crate::cog::CogConfig>,
 
+    #[cfg(feature = "geojson")]
+    #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
+    pub geojson: FileConfigEnum<crate::geojson::GeoJsonConfig>,
+
     #[cfg(feature = "sprites")]
     #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
     pub sprites: FileConfigEnum<crate::sprites::SpriteConfig>,
@@ -103,6 +107,9 @@ impl Config {
         #[cfg(feature = "cog")]
         res.extend(self.cog.finalize("cog."));
 
+        #[cfg(feature = "geojson")]
+        res.extend(self.geojson.finalize("geojson."));
+
         #[cfg(feature = "sprites")]
         res.extend(self.sprites.finalize("sprites."));
 
@@ -125,6 +132,9 @@ impl Config {
 
         #[cfg(feature = "cog")]
         let is_empty = is_empty && self.cog.is_empty();
+
+        #[cfg(feature = "geojson")]
+        let is_empty = is_empty && self.geojson.is_empty();
 
         #[cfg(feature = "sprites")]
         let is_empty = is_empty && self.sprites.is_empty();
@@ -207,6 +217,14 @@ impl Config {
         if !self.cog.is_empty() {
             let cfg = &mut self.cog;
             let val = crate::file_config::resolve_files(cfg, idr, cache.clone(), &["tif", "tiff"]);
+            sources.push(Box::pin(val));
+        }
+
+        #[cfg(feature = "geojson")]
+        if !self.geojson.is_empty() {
+            let cfg = &mut self.geojson;
+            let val =
+                crate::file_config::resolve_files(cfg, idr, cache.clone(), &["geojson", "json"]);
             sources.push(Box::pin(val));
         }
 
