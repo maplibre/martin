@@ -1,11 +1,3 @@
-use std::borrow::Cow;
-use std::fmt::{Debug, Display, Formatter};
-use std::num::NonZeroUsize;
-use std::ops::RangeInclusive;
-use std::path::PathBuf;
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::time::Duration;
-
 use actix_http::error::ParseError;
 use actix_http::test::TestRequest;
 use actix_web::http::header::{ACCEPT_ENCODING, AcceptEncoding, Header as _};
@@ -29,6 +21,14 @@ use mbtiles::{
     CopyDuplicateMode, MbtError, MbtType, MbtTypeCli, Mbtiles, init_mbtiles_schema,
     is_empty_database,
 };
+use std::borrow::Cow;
+use std::fmt::Write;
+use std::fmt::{Debug, Display, Formatter};
+use std::num::NonZeroUsize;
+use std::ops::RangeInclusive;
+use std::path::PathBuf;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::Duration;
 use tilejson::Bounds;
 use tokio::sync::mpsc::channel;
 use tokio::time::Instant;
@@ -536,8 +536,18 @@ async fn init_schema(
 
 #[actix_web::main]
 async fn main() {
-    let env = env_logger::Env::default().default_filter_or("martin_cp=info");
-    env_logger::Builder::from_env(env).init();
+    let mut log_filter = std::env::var("RUST_LOG").unwrap_or("martin-cp=info".to_string());
+    // if we don't have martin_core set, this can hide parts of our logs unintentionally
+    if log_filter.contains("martin-cp=") && !log_filter.contains("martin_core=") {
+        if let Some(level) = log_filter
+            .split(',')
+            .find_map(|s| s.strip_prefix("martin-cp="))
+        {
+            let level = level.to_string();
+            let _ = write!(log_filter, ",martin_core={level}");
+        }
+    }
+    env_logger::builder().parse_filters(&log_filter).init();
 
     if let Err(e) = start(CopierArgs::parse()).await {
         // Ensure the message is printed, even if the logging is disabled
