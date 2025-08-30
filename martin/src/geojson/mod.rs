@@ -26,6 +26,7 @@ pub struct GeoJsonSource {
     id: String,
     path: PathBuf,
     geojson: Arc<geojson::GeoJson>,
+    tile_options: geojson_vt_rs::TileOptions,
     tilejson: TileJSON,
     tile_info: TileInfo,
 }
@@ -40,7 +41,11 @@ impl Debug for GeoJsonSource {
 }
 
 impl GeoJsonSource {
-    fn new(id: String, path: PathBuf) -> FileResult<Self> {
+    fn new(
+        id: String,
+        path: PathBuf,
+        tile_options: geojson_vt_rs::TileOptions,
+    ) -> FileResult<Self> {
         let tile_info = TileInfo::new(Format::Mvt, martin_tile_utils::Encoding::Uncompressed);
         let geojson_file =
             File::open(&path).map_err(|e: std::io::Error| FileError::IoError(e, path.clone()))?;
@@ -61,6 +66,7 @@ impl GeoJsonSource {
             id,
             path,
             geojson: Arc::new(geojson),
+            tile_options,
             tilejson,
             tile_info,
         });
@@ -95,13 +101,12 @@ impl Source for GeoJsonSource {
         _url_query: Option<&UrlQuery>,
     ) -> MartinResult<TileData> {
         // TODO: get from source (self)
-        let options = geojson_vt_rs::TileOptions::default();
         let tile = geojson_vt_rs::geojson_to_tile(
             &self.geojson,
             xyz.z,
             xyz.x,
             xyz.y,
-            &options,
+            &self.tile_options,
             true,
             true,
         );

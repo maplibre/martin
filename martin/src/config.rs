@@ -133,6 +133,9 @@ impl Config {
         #[cfg(feature = "cog")]
         let is_empty = is_empty && self.cog.is_empty();
 
+        #[cfg(feature = "geojson")]
+        let is_empty = is_empty && self.geojson.is_empty();
+
         #[cfg(feature = "sprites")]
         let is_empty = is_empty && self.sprites.is_empty();
 
