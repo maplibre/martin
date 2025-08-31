@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::HashMap;
 use std::fmt::Debug;
 use std::path::PathBuf;
 
@@ -11,10 +11,6 @@ use spreet::{Sprite, Spritesheet, SpritesheetBuilder, get_svg_input_paths, sprit
 use tokio::io::AsyncReadExt;
 
 use self::SpriteError::{SpriteInstError, SpriteParsingError, SpriteProcessingError};
-use crate::file_config::{FileConfigEnum, FileResult};
-
-mod config;
-pub use config::SpriteConfig;
 
 mod error;
 pub use error::SpriteError;
@@ -30,39 +26,6 @@ pub type SpriteCatalog = HashMap<String, CatalogSpriteEntry>;
 pub struct SpriteSources(DashMap<String, SpriteSource>);
 
 impl SpriteSources {
-    pub fn resolve(config: &mut FileConfigEnum<SpriteConfig>) -> FileResult<Self> {
-        let Some(cfg) = config.extract_file_config(None)? else {
-            return Ok(Self::default());
-        };
-
-        let mut results = Self::default();
-        let mut directories = Vec::new();
-        let mut configs = BTreeMap::new();
-
-        if let Some(sources) = cfg.sources {
-            for (id, source) in sources {
-                configs.insert(id.clone(), source.clone());
-                results.add_source(id, source.abs_path()?);
-            }
-        }
-
-        for path in cfg.paths {
-            let Some(name) = path.file_name() else {
-                warn!(
-                    "Ignoring sprite source with no name from {}",
-                    path.display()
-                );
-                continue;
-            };
-            directories.push(path.clone());
-            results.add_source(name.to_string_lossy().to_string(), path);
-        }
-
-        *config = FileConfigEnum::new_extended(directories, configs, cfg.custom);
-
-        Ok(results)
-    }
-
     pub fn get_catalog(&self) -> Result<SpriteCatalog, SpriteError> {
         // TODO: all sprite generation should be pre-cached
         let mut entries = SpriteCatalog::new();
@@ -82,7 +45,7 @@ impl SpriteSources {
         Ok(entries)
     }
 
-    fn add_source(&mut self, id: String, path: PathBuf) {
+    pub fn add_source(&mut self, id: String, path: PathBuf) {
         let disp_path = path.display();
         if path.is_file() {
             warn!("Ignoring non-directory sprite source {id} from {disp_path}");
@@ -198,35 +161,32 @@ mod tests {
 
     #[actix_rt::test]
     async fn test_sprites() {
-        let mut cfg = FileConfigEnum::new(vec![
+        let mut sprites = SpriteSources::default();
+        sprites.add_source(
+            "src1".to_string(),
             PathBuf::from("../tests/fixtures/sprites/src1"),
+        );
+        sprites.add_source(
+            "src2".to_string(),
             PathBuf::from("../tests/fixtures/sprites/src2"),
-        ]);
+        );
 
-        let sprites = SpriteSources::resolve(&mut cfg).unwrap().0;
-        assert_eq!(sprites.len(), 2);
+        assert_eq!(sprites.0.len(), 2);
 
         for generate_sdf in [true, false] {
             let paths = sprites
+                .0
                 .iter()
                 .map(|v| v.value().clone())
                 .collect::<Vec<_>>();
             test_src(paths.iter(), 1, "all_1", generate_sdf).await;
             test_src(paths.iter(), 2, "all_2", generate_sdf).await;
 
-            let src1_path = sprites
-                .get("src1")
-                .into_iter()
-                .map(|v| v.value().clone())
-                .collect::<Vec<_>>();
+            let src1_path = sprites.get("src1").into_iter().collect::<Vec<_>>();
             test_src(src1_path.iter(), 1, "src1_1", generate_sdf).await;
             test_src(src1_path.iter(), 2, "src1_2", generate_sdf).await;
 
-            let src2_path = sprites
-                .get("src2")
-                .into_iter()
-                .map(|v| v.value().clone())
-                .collect::<Vec<_>>();
+            let src2_path = sprites.get("src2").into_iter().collect::<Vec<_>>();
             test_src(src2_path.iter(), 1, "src2_1", generate_sdf).await;
             test_src(src2_path.iter(), 2, "src2_2", generate_sdf).await;
         }

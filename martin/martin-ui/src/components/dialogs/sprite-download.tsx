@@ -136,7 +136,7 @@ export function SpriteDownloadDialog({ name, sprite, onCloseAction }: SpriteDown
                 <li>Single color per sprite - Layer multiple SDFs for multi-color icons</li>
                 <li>
                   Customizable color via{' '}
-                  <code className="bg-purple-200 font-semibold font-monospace text-purple-950 p-0.5 rounded-sm">
+                  <code className="bg-purple-200 font-semibold font-monospace text-purple-950 p-0.5 rounded-xs">
                     icon-color
                   </code>{' '}
                   property

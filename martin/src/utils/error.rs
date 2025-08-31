@@ -71,7 +71,7 @@ pub enum MartinError {
     CogError(#[from] crate::cog::CogError),
 
     #[error(transparent)]
-    FileError(#[from] crate::file_config::FileError),
+    ConfigFileError(#[from] crate::config::file::ConfigFileError),
 
     #[cfg(feature = "sprites")]
     #[error(transparent)]
@@ -79,7 +79,7 @@ pub enum MartinError {
 
     #[cfg(feature = "fonts")]
     #[error(transparent)]
-    FontError(#[from] crate::fonts::FontError),
+    FontError(#[from] martin_core::fonts::FontError),
 
     #[cfg(feature = "styles")]
     #[error(transparent)]
@@ -93,7 +93,4 @@ pub enum MartinError {
 
     #[error("Internal error: {0}")]
     InternalError(#[from] Box<dyn Error + Send + Sync>),
-
-    #[error(transparent)]
-    CorsError(#[from] crate::srv::cors::CorsError),
 }

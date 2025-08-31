@@ -10,7 +10,7 @@ const mockImportMeta = {
   },
 };
 
-// @ts-ignore
+// @ts-expect-error
 global.import = { meta: mockImportMeta };
 
 describe('Header Component', () => {
