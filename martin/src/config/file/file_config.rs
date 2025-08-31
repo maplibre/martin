@@ -36,6 +36,10 @@ pub enum ConfigFileError {
 
     #[error("At least one 'origin' must be specified in the 'cors' configuration")]
     CorsNoOriginsConfigured,
+
+    #[cfg(feature = "styles")]
+    #[error("Walk directory error {0}: {1}")]
+    DirectoryWalking(walkdir::Error, PathBuf),
 }
 
 pub trait ConfigExtras: Clone + Debug + Default + PartialEq + Send {

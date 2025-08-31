@@ -34,7 +34,7 @@ pub struct ServerState {
     #[cfg(feature = "fonts")]
     pub fonts: martin_core::fonts::FontSources,
     #[cfg(feature = "styles")]
-    pub styles: crate::styles::StyleSources,
+    pub styles: martin_core::styles::StyleSources,
 }
 
 #[serde_with::skip_serializing_none]

@@ -2,11 +2,11 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use log::warn;
+use martin_core::styles::StyleSources;
 use serde::{Deserialize, Serialize};
 
 use crate::MartinResult;
-use crate::config::file::{ConfigExtras, FileConfigEnum, UnrecognizedValues};
-use crate::styles::{StyleError, StyleSources};
+use crate::config::file::{ConfigExtras, ConfigFileError, FileConfigEnum, UnrecognizedValues};
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct InnerStyleConfig {
@@ -91,7 +91,7 @@ impl StyleConfig {
 fn list_contained_files(
     source_path: &Path,
     filter_extension: &str,
-) -> Result<Vec<PathBuf>, StyleError> {
+) -> Result<Vec<PathBuf>, ConfigFileError> {
     let working_directory = std::env::current_dir().ok();
     let mut contained_files = Vec::new();
     let it = walkdir::WalkDir::new(source_path)
@@ -100,7 +100,7 @@ fn list_contained_files(
         .filter_entry(|e| e.depth() == 0 || !is_hidden(e));
     for entry in it {
         let entry =
-            entry.map_err(|e| StyleError::DirectoryWalking(e, source_path.to_path_buf()))?;
+            entry.map_err(|e| ConfigFileError::DirectoryWalking(e, source_path.to_path_buf()))?;
         if entry.path().is_file()
             && entry
                 .path()
@@ -146,7 +146,7 @@ mod tests {
         let styles = cfg.resolve().unwrap();
         assert_eq!(styles.len(), 3);
         insta::with_settings!({sort_maps => true}, {
-        insta::assert_yaml_snapshot!(styles, @r#"
+        insta::assert_yaml_snapshot!(styles.get_catalog(), @r#"
             maplibre_demo:
               path: "../tests/fixtures/styles/maplibre_demo.json"
             maptiler_basic:
@@ -176,7 +176,7 @@ mod tests {
         let styles = cfg.resolve().unwrap();
         assert_eq!(styles.len(), 2);
         insta::with_settings!({sort_maps => true}, {
-        insta::assert_yaml_snapshot!(styles, @r#"
+        insta::assert_yaml_snapshot!(styles.get_catalog(), @r#"
             maplibre_demo:
               path: "../tests/fixtures/styles/maplibre_demo.json"
             osm-liberty-lite:

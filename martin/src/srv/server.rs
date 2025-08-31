@@ -48,7 +48,7 @@ pub struct Catalog {
     #[cfg(feature = "fonts")]
     pub fonts: martin_core::fonts::FontCatalog,
     #[cfg(feature = "styles")]
-    pub styles: crate::styles::StyleCatalog,
+    pub styles: martin_core::styles::StyleCatalog,
 }
 
 impl Catalog {
