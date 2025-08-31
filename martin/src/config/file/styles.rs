@@ -6,7 +6,9 @@ use martin_core::styles::StyleSources;
 use serde::{Deserialize, Serialize};
 
 use crate::MartinResult;
-use crate::config::file::{ConfigExtras, ConfigFileError, FileConfigEnum, UnrecognizedKeys, UnrecognizedValues};
+use crate::config::file::{
+    ConfigExtras, ConfigFileError, FileConfigEnum, UnrecognizedKeys, UnrecognizedValues,
+};
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct InnerStyleConfig {
