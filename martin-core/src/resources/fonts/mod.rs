@@ -11,10 +11,9 @@
 //! use martin_core::config::OptOneMany;
 //! use std::path::PathBuf;
 //!
-//! let mut dirs = OptOneMany::new(vec![PathBuf::from("/usr/share/fonts")]);
-//! let sources = FontSources::resolve(&mut dirs)?;
-//! let font_data = sources.get_font_range("Arial,Helvetica", 0, 255)?;
-//! # Ok::<(), martin_core::fonts::FontError>(())
+//! let mut sources = FontSources::default();
+//! sources.recursively_add_directory("/usr/share/fonts".into()).unwrap();
+//! let font_data = sources.get_font_range("Arial,Helvetica", 0, 255).unwrap();
 //! ```
 
 use std::collections::HashMap;
