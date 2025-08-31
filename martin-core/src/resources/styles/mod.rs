@@ -1,6 +1,6 @@
 //! Style processing and serving for map tile rendering.
 //!
-//! Manages MapLibre style JSON files for map rendering clients.
+//! Manages `MapLibre` style JSON files for map rendering clients.
 //!
 //! # Usage
 //!
@@ -9,7 +9,7 @@
 //! use std::path::PathBuf;
 //!
 //! let mut sources = StyleSources::default();
-//! sources.add_style("basic", PathBuf::from("/path/to/style.json"));
+//! sources.add_style("basic".to_string(), PathBuf::from("/path/to/style.json"));
 //! let path = sources.style_json_path("basic").unwrap();
 //! ```
 
@@ -66,8 +66,7 @@ impl StyleSources {
     }
 
     /// Adds a style JSON file with an ID to the catalog.
-    pub fn add_style(&mut self, id: impl ToString, path: PathBuf) {
-        let id = id.to_string();
+    pub fn add_style(&mut self, id: String, path: PathBuf) {
         debug_assert!(path.is_file());
         debug_assert!(!id.is_empty());
         match self.0.entry(id) {
