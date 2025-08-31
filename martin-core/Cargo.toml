@@ -12,7 +12,7 @@ rust-version.workspace = true
 homepage.workspace = true
 
 [features]
-default = ["fonts"]
+default = ["fonts", "sprites"]
 fonts = [
     "dep:bit-set",
     "dep:pbf_font_tools",
