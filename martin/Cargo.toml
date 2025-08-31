@@ -2,9 +2,9 @@
 name = "martin"
 version = "0.19.0"
 authors = [
-  "Stepan Kuzmin <to.stepan.kuzmin@gmail.com>",
-  "Yuri Astrakhan <YuriAstrakhan@gmail.com>",
-  "MapLibre contributors",
+    "Stepan Kuzmin <to.stepan.kuzmin@gmail.com>",
+    "Yuri Astrakhan <YuriAstrakhan@gmail.com>",
+    "MapLibre contributors",
 ]
 description = "Blazing fast and lightweight tile server with PostGIS, MBTiles, and PMTiles support"
 keywords = ["maps", "tiles", "mbtiles", "pmtiles", "postgis"]
@@ -23,32 +23,32 @@ maintainer = "Yuri Astrakhan <YuriAstrakhan@gmail.com>, Stepan Kuzmin <to.stepan
 maintainer-scripts = "../debian"
 depends = "$auto"
 assets = [
-  [
+    [
     "target/release/martin",
     "/usr/bin/martin",
     "755",
   ],
-  [
+    [
     "target/release/martin-cp",
     "/usr/bin/martin-cp",
     "755",
   ],
-  [
+    [
     "target/release/mbtiles",
     "/usr/bin/mbtiles",
     "755",
   ],
-  [
+    [
     "../README.md",
     "/usr/share/doc/martin/README.md",
     "644",
   ],
-  [
+    [
     "../debian/config.yaml",
     "/usr/share/doc/martin/config.yaml",
     "644",
   ],
-  [
+    [
     "../debian/config.yaml",
     "/usr/local/etc/martin/config.yaml",
     "644",
@@ -81,16 +81,16 @@ harness = false
 
 [features]
 default = [
-  "cog",
-  "fonts",
-  "lambda",
-  "mbtiles",
-  "metrics",
-  "pmtiles",
-  "postgres",
-  "sprites",
-  "styles",
-  "webui",
+    "cog",
+    "fonts",
+    "lambda",
+    "mbtiles",
+    "metrics",
+    "pmtiles",
+    "postgres",
+    "sprites",
+    "styles",
+    "webui",
 ]
 cog = ["dep:png", "dep:tiff"]
 fonts = ["martin-core/fonts"]
@@ -99,17 +99,17 @@ mbtiles = ["dep:mbtiles"]
 metrics = ["dep:actix-web-prom"]
 pmtiles = ["dep:aws-config", "dep:pmtiles"]
 postgres = [
-  "dep:deadpool-postgres",
-  "dep:enum-display",
-  "dep:json-patch",
-  "dep:postgis",
-  "dep:postgres",
-  "dep:postgres-protocol",
-  "dep:regex",
-  "dep:rustls-native-certs",
-  "dep:rustls-pemfile",
-  "dep:semver",
-  "dep:tokio-postgres-rustls",
+    "dep:deadpool-postgres",
+    "dep:enum-display",
+    "dep:json-patch",
+    "dep:postgis",
+    "dep:postgres",
+    "dep:postgres-protocol",
+    "dep:regex",
+    "dep:rustls-native-certs",
+    "dep:rustls-pemfile",
+    "dep:semver",
+    "dep:tokio-postgres-rustls",
 ]
 sprites = ["dep:spreet", "tokio/fs"]
 styles = ["martin-core/styles", "dep:walkdir"]

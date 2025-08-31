@@ -2,11 +2,11 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use log::warn;
+use martin_core::styles::StyleSources;
 use serde::{Deserialize, Serialize};
 
 use crate::MartinResult;
 use crate::config::file::{ConfigExtras, ConfigFileError, FileConfigEnum, UnrecognizedValues};
-use martin_core::styles::StyleSources;
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct InnerStyleConfig {
