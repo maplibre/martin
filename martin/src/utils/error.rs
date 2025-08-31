@@ -75,7 +75,7 @@ pub enum MartinError {
 
     #[cfg(feature = "sprites")]
     #[error(transparent)]
-    SpriteError(#[from] crate::sprites::SpriteError),
+    SpriteError(#[from] martin_core::sprites::SpriteError),
 
     #[cfg(feature = "fonts")]
     #[error(transparent)]

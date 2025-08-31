@@ -9,7 +9,7 @@ pub mod config;
 /// Tile sources
 pub mod tiles;
 
-#[cfg(feature = "fonts")]
+#[cfg(any(feature = "fonts", feature = "sprites"))]
 mod resources;
-#[cfg(feature = "fonts")]
+#[cfg(any(feature = "fonts", feature = "sprites"))]
 pub use resources::*;

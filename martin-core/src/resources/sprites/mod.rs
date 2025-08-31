@@ -6,8 +6,9 @@ use dashmap::{DashMap, Entry};
 use futures::future::try_join_all;
 use log::{info, warn};
 use serde::{Deserialize, Serialize};
+pub use spreet::Spritesheet;
 use spreet::resvg::usvg::{Options, Tree};
-use spreet::{Sprite, Spritesheet, SpritesheetBuilder, get_svg_input_paths, sprite_name};
+use spreet::{Sprite, SpritesheetBuilder, get_svg_input_paths, sprite_name};
 use tokio::io::AsyncReadExt;
 
 use self::SpriteError::{SpriteInstError, SpriteParsingError, SpriteProcessingError};
@@ -159,7 +160,7 @@ mod tests {
 
     use super::*;
 
-    #[actix_rt::test]
+    #[tokio::test]
     async fn test_sprites() {
         let mut sprites = SpriteSources::default();
         sprites.add_source(
