@@ -20,8 +20,6 @@ pub mod pmtiles;
 #[cfg(feature = "sprites")]
 pub mod sprites;
 pub mod srv;
-#[cfg(feature = "styles")]
-pub mod styles;
 
 // Ensure README.md contains valid code
 #[cfg(doctest)]

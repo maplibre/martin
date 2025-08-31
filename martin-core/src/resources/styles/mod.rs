@@ -6,9 +6,6 @@ use dashmap::{DashMap, Entry};
 use log::{info, warn};
 use serde::{Deserialize, Serialize};
 
-mod error;
-pub use error::StyleError;
-
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CatalogStyleEntry {
     pub path: PathBuf,
@@ -17,11 +14,9 @@ pub struct CatalogStyleEntry {
 pub type StyleCatalog = HashMap<String, CatalogStyleEntry>;
 
 #[derive(Debug, Clone, Default)]
-#[cfg_attr(test, serde_with::skip_serializing_none, derive(serde::Serialize))]
 pub struct StyleSources(DashMap<String, StyleSource>);
 
 #[derive(Clone, Debug)]
-#[cfg_attr(test, serde_with::skip_serializing_none, derive(serde::Serialize))]
 pub struct StyleSource {
     path: PathBuf,
 }

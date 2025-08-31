@@ -6,7 +6,7 @@ use actix_web::{HttpResponse, route};
 use log::error;
 use serde::Deserialize;
 
-use crate::styles::StyleSources;
+use martin_core::styles::StyleSources;
 
 #[derive(Deserialize, Debug)]
 struct StyleRequest {
