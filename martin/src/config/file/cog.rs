@@ -4,27 +4,30 @@ use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
 use url::Url;
 
-use crate::MartinResult;
-use crate::config::UnrecognizedValues;
-use crate::file_config::{ConfigExtras, SourceConfigExtras};
-use crate::mbtiles::MbtSource;
-use crate::source::TileInfoSource;
+use crate::cog::CogSource;
+use crate::config::file::{ConfigExtras, SourceConfigExtras, UnrecognizedValues};
+use crate::{MartinResult, TileInfoSource};
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-pub struct MbtConfig {
+pub struct CogConfig {
     #[serde(flatten)]
     pub unrecognized: UnrecognizedValues,
 }
 
-impl ConfigExtras for MbtConfig {
+impl ConfigExtras for CogConfig {
     fn get_unrecognized(&self) -> &UnrecognizedValues {
         &self.unrecognized
     }
 }
 
-impl SourceConfigExtras for MbtConfig {
+impl SourceConfigExtras for CogConfig {
+    fn parse_urls() -> bool {
+        false
+    }
+
     async fn new_sources(&self, id: String, path: PathBuf) -> MartinResult<TileInfoSource> {
-        Ok(Box::new(MbtSource::new(id, path).await?))
+        let cog = CogSource::new(id, path)?;
+        Ok(Box::new(cog))
     }
 
     async fn new_sources_url(&self, _id: String, _url: Url) -> MartinResult<TileInfoSource> {

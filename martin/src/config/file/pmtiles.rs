@@ -7,8 +7,7 @@ use pmtiles::reqwest::Client;
 use serde::{Deserialize, Serialize};
 use url::Url;
 
-use crate::config::UnrecognizedValues;
-use crate::file_config::{ConfigExtras, FileResult, SourceConfigExtras};
+use crate::config::file::{ConfigExtras, ConfigFileResult, SourceConfigExtras, UnrecognizedValues};
 use crate::pmtiles::{PmtCache, PmtFileSource, PmtHttpSource, PmtS3Source};
 use crate::utils::OptMainCache;
 use crate::{MartinResult, TileInfoSource};
@@ -69,7 +68,7 @@ impl PmtConfig {
 }
 
 impl ConfigExtras for PmtConfig {
-    fn init_parsing(&mut self, cache: OptMainCache) -> FileResult<()> {
+    fn init_parsing(&mut self, cache: OptMainCache) -> ConfigFileResult<()> {
         assert!(self.client.is_none());
         assert!(self.cache.is_none());
 

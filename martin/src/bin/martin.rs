@@ -1,10 +1,12 @@
+use std::fmt::Write;
+
 use clap::Parser;
 use log::{error, info, log_enabled};
-use martin::args::Args;
+use martin::MartinResult;
+use martin::config::args::Args;
+use martin::config::file::{Config, read_config};
 use martin::srv::new_server;
-use martin::{Config, MartinResult, read_config};
 use martin_core::config::env::OsEnv;
-use std::fmt::Write;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -39,7 +41,7 @@ async fn start(args: Args) -> MartinResult<()> {
     info!("Use http://{listen_addresses}/catalog to get the list of available sources.");
 
     #[cfg(feature = "webui")]
-    if web_ui_mode == martin::args::WebUiMode::EnableForAll {
+    if web_ui_mode == martin::config::args::WebUiMode::EnableForAll {
         log::warn!("Web UI is enabled for all connections at http://{listen_addresses}/");
     } else {
         info!(

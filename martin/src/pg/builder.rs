@@ -7,17 +7,18 @@ use log::{debug, error, info, warn};
 use martin_core::config::OptBoolObj::{Bool, NoValue, Object};
 use martin_core::config::OptOneMany::NoVals;
 
-use crate::args::BoundsCalcType;
+use crate::config::args::BoundsCalcType;
+use crate::config::file::pg::{
+    FuncInfoSources, FunctionInfo, PgCfgPublish, PgCfgPublishFuncs, PgConfig, PgInfo, TableInfo,
+    TableInfoSources,
+};
 use crate::pg::PgError::InvalidTableExtent;
-use crate::pg::config::{PgConfig, PgInfo};
-use crate::pg::config_function::{FuncInfoSources, FunctionInfo};
-use crate::pg::config_table::{TableInfo, TableInfoSources};
+use crate::pg::PgResult;
 use crate::pg::pg_source::{PgSource, PgSqlInfo};
 use crate::pg::pool::PgPool;
 use crate::pg::query_functions::query_available_function;
 use crate::pg::query_tables::{query_available_tables, table_to_query};
 use crate::pg::utils::{InfoMap, find_info, find_kv_ignore_case, normalize_key};
-use crate::pg::{PgCfgPublish, PgCfgPublishFuncs, PgResult};
 use crate::source::TileInfoSources;
 use crate::utils::IdResolver;
 

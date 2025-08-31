@@ -1,3 +1,11 @@
+use std::borrow::Cow;
+use std::fmt::{Debug, Display, Formatter, Write};
+use std::num::NonZeroUsize;
+use std::ops::RangeInclusive;
+use std::path::PathBuf;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::Duration;
+
 use actix_http::error::ParseError;
 use actix_http::test::TestRequest;
 use actix_web::http::header::{ACCEPT_ENCODING, AcceptEncoding, Header as _};
@@ -7,12 +15,11 @@ use clap::builder::styling::AnsiColor;
 use futures::TryStreamExt;
 use futures::stream::{self, StreamExt};
 use log::{debug, error, info, log_enabled, warn};
-use martin::args::{Args, ExtraArgs, MetaArgs, SrvArgs};
+use martin::config::args::{Args, ExtraArgs, MetaArgs, SrvArgs};
+use martin::config::file::{Config, ServerState, read_config};
 use martin::mbtiles::MbtilesError;
 use martin::srv::{DynTileSource, merge_tilejson};
-use martin::{
-    Config, MartinError, MartinResult, ServerState, TileData, TileInfoSource, read_config,
-};
+use martin::{MartinError, MartinResult, TileData, TileInfoSource};
 use martin_core::config::env::OsEnv;
 use martin_tile_utils::{TileCoord, TileInfo, TileRect, append_rect, bbox_to_xyz};
 use mbtiles::UpdateZoomType::GrowOnly;
@@ -21,14 +28,6 @@ use mbtiles::{
     CopyDuplicateMode, MbtError, MbtType, MbtTypeCli, Mbtiles, init_mbtiles_schema,
     is_empty_database,
 };
-use std::borrow::Cow;
-use std::fmt::Write;
-use std::fmt::{Debug, Display, Formatter};
-use std::num::NonZeroUsize;
-use std::ops::RangeInclusive;
-use std::path::PathBuf;
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::time::Duration;
 use tilejson::Bounds;
 use tokio::sync::mpsc::channel;
 use tokio::time::Instant;
@@ -60,7 +59,7 @@ pub struct CopierArgs {
     pub meta: MetaArgs,
     #[cfg(feature = "postgres")]
     #[command(flatten)]
-    pub pg: Option<martin::args::PgArgs>,
+    pub pg: Option<martin::config::args::PgArgs>,
 }
 
 #[serde_with::serde_as]

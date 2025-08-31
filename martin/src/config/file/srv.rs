@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 
 use super::cors::CorsConfig;
-use crate::args::PreferredEncoding;
+use crate::config::args::PreferredEncoding;
 
 pub const KEEP_ALIVE_DEFAULT: u64 = 75;
 pub const LISTEN_ADDRESSES_DEFAULT: &str = "0.0.0.0:3000";
@@ -18,7 +18,7 @@ pub struct SrvConfig {
     pub worker_processes: Option<usize>,
     pub preferred_encoding: Option<PreferredEncoding>,
     #[cfg(feature = "webui")]
-    pub web_ui: Option<crate::args::WebUiMode>,
+    pub web_ui: Option<crate::config::args::WebUiMode>,
     pub cors: Option<CorsConfig>,
     /// Advanced monitoring options
     #[cfg(feature = "metrics")]
@@ -53,7 +53,7 @@ mod tests {
     use indoc::indoc;
 
     use super::*;
-    use crate::srv::cors::CorsProperties;
+    use crate::config::file::cors::CorsProperties;
 
     #[test]
     fn parse_config() {
