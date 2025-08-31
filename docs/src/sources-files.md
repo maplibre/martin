@@ -15,12 +15,12 @@ The config file can then be used via the `--config my-config.yaml` option.
 
 > [!IMPORTANT]
 > The difference between MBTiles and PMTiles is that:
-> 
+>
 > - **MBTiles** require the entire archive to be on the same machine. **PMTiles** can utilise a remote HTTP-Range request supporting server or a local file.
 > - Performance wise, **MBTiles** is slightly faster than **PMTiles**, but with caching this is negligible.
 > - Disk size wise, **MBTiles** is slightly (10-15%) higher than **PMTiles**.
 > - **PMTiles** requires less memory in extreme cases as sqlite has a small in-memory cache.
-> 
+>
 > The choice depends on your specific usecase and requirements.
 
 ### Serving PMTiles via S3

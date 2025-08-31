@@ -16,7 +16,7 @@ The config file can then be used via the `--config my-config.yaml` option.
 > [!WARNING]
 > Serving these files is less efficient compared to [PMTiles or MBTiles](sources-files.md).
 > This is because to serve GeoJSON, martin needs to:
-> 
+>
 > - parse JSON
 > - reproject geometrys
 > - clip geometry to the requested tiles
