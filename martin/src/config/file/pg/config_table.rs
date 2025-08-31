@@ -4,8 +4,8 @@ use log::{info, warn};
 use serde::{Deserialize, Serialize};
 use tilejson::{Bounds, TileJSON, VectorLayer};
 
-use crate::config::UnrecognizedValues;
-use crate::pg::config::PgInfo;
+use super::PgInfo;
+use crate::config::file::UnrecognizedValues;
 use crate::pg::utils::{InfoMap, normalize_key, patch_json};
 
 pub type TableInfoSources = InfoMap<TableInfo>;

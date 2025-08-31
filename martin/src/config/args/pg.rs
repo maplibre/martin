@@ -7,9 +7,10 @@ use martin_core::config::env::Env;
 use martin_core::config::{OptBoolObj, OptOneMany};
 use serde::{Deserialize, Serialize};
 
-use crate::args::connections::Arguments;
-use crate::args::connections::State::{Ignore, Take};
-use crate::pg::{POOL_SIZE_DEFAULT, PgConfig, PgSslCerts};
+use super::connections::Arguments;
+use super::connections::State::{Ignore, Take};
+use crate::config::file::pg::{PgConfig, PgSslCerts};
+use crate::pg::POOL_SIZE_DEFAULT;
 
 // Must match the help string for BoundsType::Quick
 pub const DEFAULT_BOUNDS_TIMEOUT: Duration = Duration::from_secs(5);

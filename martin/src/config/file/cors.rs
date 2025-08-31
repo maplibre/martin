@@ -2,13 +2,8 @@ use actix_http::Method;
 use log::info;
 use serde::{Deserialize, Serialize};
 
+use crate::config::file::{ConfigFileError, ConfigFileResult};
 use crate::{MartinError, MartinResult};
-
-#[derive(thiserror::Error, Debug, PartialEq, Eq)]
-pub enum CorsError {
-    #[error("At least one 'origin' must be specified in the 'cors' configuration")]
-    NoOriginsConfigured,
-}
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(untagged)]
@@ -40,9 +35,9 @@ impl Default for CorsProperties {
 }
 
 impl CorsProperties {
-    pub fn validate(&self) -> Result<(), CorsError> {
+    pub fn validate(&self) -> ConfigFileResult<()> {
         if self.origin.is_empty() {
-            Err(CorsError::NoOriginsConfigured)
+            Err(ConfigFileError::CorsNoOriginsConfigured)
         } else {
             Ok(())
         }
@@ -191,7 +186,10 @@ mod tests {
         let config: CorsConfig = serde_yaml::from_str(indoc! {"max_age: 3600"}).unwrap();
         if let CorsConfig::Properties(settings) = config {
             // This should fail validation
-            assert_eq!(settings.validate(), Err(CorsError::NoOriginsConfigured));
+            assert!(matches!(
+                settings.validate(),
+                Err(ConfigFileError::CorsNoOriginsConfigured)
+            ));
         } else {
             panic!("Expected Properties variant");
         }
@@ -215,7 +213,10 @@ mod tests {
             max_age: Some(3600),
         };
 
-        assert_eq!(properties.validate(), Err(CorsError::NoOriginsConfigured));
+        assert!(matches!(
+            properties.validate(),
+            Err(ConfigFileError::CorsNoOriginsConfigured)
+        ));
     }
 
     #[test]

@@ -14,7 +14,7 @@ use tilejson::{TileJSON, tilejson};
 use super::CogError;
 use super::image::Image;
 use super::model::ModelInfo;
-use crate::file_config::FileError;
+use crate::config::file::ConfigFileError;
 use crate::{MartinResult, Source, TileData, UrlQuery};
 
 #[derive(Clone, Debug)]
@@ -38,8 +38,8 @@ impl CogSource {
     #[expect(clippy::cast_possible_truncation)]
     pub fn new(id: String, path: PathBuf) -> MartinResult<Self> {
         let tileinfo = TileInfo::new(Format::Png, martin_tile_utils::Encoding::Uncompressed);
-        let tif_file =
-            File::open(&path).map_err(|e: std::io::Error| FileError::IoError(e, path.clone()))?;
+        let tif_file = File::open(&path)
+            .map_err(|e: std::io::Error| ConfigFileError::IoError(e, path.clone()))?;
         let mut decoder = Decoder::new(tif_file)
             .map_err(|e| CogError::InvalidTiffFile(e, path.clone()))?
             .with_limits(tiff::decoder::Limits::unlimited());
@@ -131,7 +131,7 @@ impl CogSource {
             return Ok(Vec::new());
         }
         let tif_file =
-            File::open(&self.path).map_err(|e| FileError::IoError(e, self.path.clone()))?;
+            File::open(&self.path).map_err(|e| ConfigFileError::IoError(e, self.path.clone()))?;
         let mut decoder =
             Decoder::new(tif_file).map_err(|e| CogError::InvalidTiffFile(e, self.path.clone()))?;
         decoder = decoder.with_limits(tiff::decoder::Limits::unlimited());
