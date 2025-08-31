@@ -101,7 +101,7 @@ export function SpriteCatalog({
                 </div>
                 <CardDescription>{sprite.images.length} total icons</CardDescription>
               </CardHeader>
-              <CardContent className="flex flex-col p-6 justify-between flex-grow grow-1">
+              <CardContent className="flex flex-col p-6 justify-between grow grow-1">
                 <div>
                   <div className="p-3 bg-gray-50 rounded-lg text-gray-900">
                     <p className="text-sm font-medium mb-2">Icon Preview:</p>

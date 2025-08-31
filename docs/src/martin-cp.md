@@ -24,6 +24,12 @@ martin-cp  --output-file tileset.mbtiles \
 ```
 
 > [!TIP]
+> Next to regular sorces, `--source <SOURCE>` does support [composite sources](sources-composite.md).
+> This means `martin-cp` can be used to merge two different sources into one `mbtiles` archive.
+
+If performance is a concern, you should also consider
+
+ > [!TIP]
 > `--concurrency <CONCURRENCY>` and `--pool-size <POOL_SIZE>` can be used to control the number of concurrent requests and the pool size for postgres sources respectively.
 >
 > The optimal setting depends on:

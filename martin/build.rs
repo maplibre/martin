@@ -96,7 +96,7 @@ fn webui() {
     );
 
     // TODO: we may need to move index.html one level down per change_detection() docs
-    static_files::NpmBuild::new(martin_ui_dir)
+    let _ = static_files::NpmBuild::new(martin_ui_dir)
         .target(&target_to_keep)
         .change_detection();
 }

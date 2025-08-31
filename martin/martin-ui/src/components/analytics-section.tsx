@@ -97,7 +97,7 @@ export function AnalyticsSection({
                     {data?.histogram ? (
                       <MiniHistogram histogram={data.histogram} />
                     ) : (
-                      <div className="w-20 h-12 bg-muted/10 rounded-md opacity-40 animate-pulse bg-gradient-to-r from-transparent to-muted"></div>
+                      <div className="w-20 h-12 bg-muted/10 rounded-md opacity-40 animate-pulse bg-linear-to-r from-transparent to-muted"></div>
                     )}
                   </div>
                 </div>

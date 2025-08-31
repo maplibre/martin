@@ -47,7 +47,7 @@ const SpriteCanvas = ({ meta, image, label, previewMode = false }: SpriteCanvasP
     return (
       <div className="flex flex-col items-center justify-center m-1.5 h-7 w-7">
         {!meta || !image ? (
-          <div className="w-7 h-7 animate-pulse bg-purple-200 rounded flex items-center justify-center"></div>
+          <div className="w-7 h-7 animate-pulse bg-purple-200 rounded-sm flex items-center justify-center"></div>
         ) : (
           <Tooltip>
             <TooltipTrigger asChild>
@@ -63,7 +63,7 @@ const SpriteCanvas = ({ meta, image, label, previewMode = false }: SpriteCanvasP
             <TooltipContent>
               <p>
                 Sprite:{' '}
-                <code className="bg-purple-200 font-semibold font-monospace text-purple-950 p-1 rounded-sm">
+                <code className="bg-purple-200 font-semibold font-monospace text-purple-950 p-1 rounded-xs">
                   {label}
                 </code>
                 <br />
@@ -85,7 +85,7 @@ const SpriteCanvas = ({ meta, image, label, previewMode = false }: SpriteCanvasP
         >
           <div className="flex flex-1 items-center justify-center w-full">
             {!meta || !image ? (
-              <div className="w-24 h-24 animate-pulse bg-purple-200 rounded flex items-center justify-center cursor-pointer hover:bg-purple-300 transition-colors"></div>
+              <div className="w-24 h-24 animate-pulse bg-purple-200 rounded-sm flex items-center justify-center cursor-pointer hover:bg-purple-300 transition-colors"></div>
             ) : (
               <div className="flex items-center justify-center h-20 w-20">
                 <canvas

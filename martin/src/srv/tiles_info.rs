@@ -10,8 +10,8 @@ use itertools::Itertools as _;
 use serde::Deserialize;
 use tilejson::{TileJSON, tilejson};
 
+use crate::config::file::srv::SrvConfig;
 use crate::source::{TileInfoSource, TileSources};
-use crate::srv::SrvConfig;
 
 #[derive(Deserialize)]
 pub struct SourceIDsRequest {

@@ -23,12 +23,36 @@ maintainer = "Yuri Astrakhan <YuriAstrakhan@gmail.com>, Stepan Kuzmin <to.stepan
 maintainer-scripts = "../debian"
 depends = "$auto"
 assets = [
-    ["target/release/martin", "/usr/bin/martin", "755"],
-    ["target/release/martin-cp", "/usr/bin/martin-cp", "755"],
-    ["target/release/mbtiles", "/usr/bin/mbtiles", "755"],
-    ["../README.md", "/usr/share/doc/martin/README.md", "644"],
-    ["../debian/config.yaml", "/usr/share/doc/martin/config.yaml", "644"],
-    ["../debian/config.yaml", "/usr/local/etc/martin/config.yaml", "644"],
+    [
+    "target/release/martin",
+    "/usr/bin/martin",
+    "755",
+  ],
+    [
+    "target/release/martin-cp",
+    "/usr/bin/martin-cp",
+    "755",
+  ],
+    [
+    "target/release/mbtiles",
+    "/usr/bin/mbtiles",
+    "755",
+  ],
+    [
+    "../README.md",
+    "/usr/share/doc/martin/README.md",
+    "644",
+  ],
+    [
+    "../debian/config.yaml",
+    "/usr/share/doc/martin/config.yaml",
+    "644",
+  ],
+    [
+    "../debian/config.yaml",
+    "/usr/local/etc/martin/config.yaml",
+    "644",
+  ],
 ]
 
 # see https://github.com/kornelski/cargo-deb/blob/main/systemd.md#packagemetadatadebsystemd-units-options
@@ -56,6 +80,8 @@ name = "bench"
 harness = false
 
 [features]
+cog = ["dep:tiff", "dep:png", "dep:image", "dep:imageproc"]
+lambda = ["dep:lambda-web"]
 default = [
     "cog",
     "fonts",
@@ -68,9 +94,7 @@ default = [
     "styles",
     "webui",
 ]
-cog = ["dep:tiff", "dep:png", "dep:image", "dep:imageproc"]
-fonts = ["dep:bit-set", "dep:pbf_font_tools", "dep:regex"]
-lambda = ["dep:lambda-web"]
+fonts = ["martin-core/fonts"]
 mbtiles = ["dep:mbtiles"]
 metrics = ["dep:actix-web-prom"]
 pmtiles = ["dep:aws-config", "dep:pmtiles"]
@@ -88,7 +112,7 @@ postgres = [
     "dep:tokio-postgres-rustls",
 ]
 sprites = ["dep:spreet", "tokio/fs"]
-styles = ["dep:walkdir", "tokio/fs"]
+styles = ["martin-core/styles", "dep:walkdir"]
 webui = ["dep:actix-web-static-files", "dep:static-files", "dep:walkdir"]
 
 [dependencies]
@@ -101,7 +125,6 @@ actix-web-prom = { workspace = true, optional = true }
 actix-web-static-files = { workspace = true, optional = true }
 async-trait.workspace = true
 aws-config = { workspace = true, optional = true }
-bit-set = { workspace = true, optional = true }
 clap.workspace = true
 dashmap.workspace = true
 deadpool-postgres = { workspace = true, optional = true }
@@ -119,7 +142,6 @@ martin-tile-utils.workspace = true
 mbtiles = { workspace = true, optional = true }
 moka.workspace = true
 num_cpus.workspace = true
-pbf_font_tools = { workspace = true, optional = true }
 pmtiles = { workspace = true, optional = true }
 png = { workspace = true, optional = true }
 postgis = { workspace = true, optional = true }

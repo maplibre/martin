@@ -18,8 +18,8 @@ The library providing the basic building blocks for [Martin](https://maplibre.or
   - [ ] postgres functions
 - resources
   - [ ] sprites
-  - [ ] fonts
-  - [ ] styles
+  - [x] fonts
+  - [x] styles
 
 ## License
 

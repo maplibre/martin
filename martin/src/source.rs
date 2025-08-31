@@ -5,9 +5,9 @@ use actix_web::error::ErrorNotFound;
 use async_trait::async_trait;
 use dashmap::DashMap;
 use log::debug;
+use martin_core::tiles::catalog::{CatalogSourceEntry, TileCatalog};
 pub use martin_tile_utils::TileData;
 use martin_tile_utils::{TileCoord, TileInfo};
-use serde::{Deserialize, Serialize};
 use tilejson::TileJSON;
 
 use crate::MartinResult;
@@ -19,7 +19,6 @@ pub type TileInfoSources = Vec<TileInfoSource>;
 
 #[derive(Default, Clone)]
 pub struct TileSources(DashMap<String, TileInfoSource>);
-pub type TileCatalog = HashMap<String, CatalogSourceEntry>;
 
 impl TileSources {
     #[must_use]
@@ -168,40 +167,5 @@ pub trait Source: Send + Debug {
 impl Clone for TileInfoSource {
     fn clone(&self) -> Self {
         self.clone_source()
-    }
-}
-
-#[serde_with::skip_serializing_none]
-#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
-pub struct CatalogSourceEntry {
-    pub content_type: String,
-    pub content_encoding: Option<String>,
-    pub name: Option<String>,
-    pub description: Option<String>,
-    pub attribution: Option<String>,
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn xyz_format() {
-        let xyz = TileCoord { z: 1, x: 2, y: 3 };
-        assert_eq!(format!("{xyz}"), "1,2,3");
-        assert_eq!(format!("{xyz:#}"), "1/2/3");
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct Tile {
-    pub data: TileData,
-    pub info: TileInfo,
-}
-
-impl Tile {
-    #[must_use]
-    pub fn new(data: TileData, info: TileInfo) -> Self {
-        Self { data, info }
     }
 }

@@ -100,7 +100,7 @@ export function FontCatalog({
                   <Tooltip>
                     <TooltipTrigger className="cursor-help">
                       <p
-                        className="text-base text-gray-900 blur-sm animate-pulse"
+                        className="text-base text-gray-900 blur-xs animate-pulse"
                         style={{ fontFamily: font.family, fontWeight: 500 }}
                       >
                         The quick brown fox jumps over the lazy dog

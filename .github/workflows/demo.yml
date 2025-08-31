@@ -19,6 +19,6 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
-      - uses: taiki-e/install-action@f63c33fd96cc1e69a29bafd06541cf28588b43a4 # v2
+      - uses: taiki-e/install-action@32ab0f399d6a4c27191682bcdc62f89934126624 # v2
         with: { tool: just }
       - run: cd demo && just build

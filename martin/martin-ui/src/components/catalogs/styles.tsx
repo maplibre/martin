@@ -148,7 +148,7 @@ export function StylesCatalog({
                     <div className="flex space-x-1">
                       {style.colors.map((color) => (
                         <div
-                          className="w-6 h-6 rounded border border-gray-200"
+                          className="w-6 h-6 rounded-sm border border-gray-200"
                           key={color}
                           style={{ backgroundColor: color }}
                           title={color}
