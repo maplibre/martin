@@ -6,12 +6,14 @@
 //! # Usage
 //!
 //! ```rust,no_run
+//! # async fn foo() {
 //! use martin_core::sprites::SpriteSources;
 //! use std::path::PathBuf;
 //!
 //! let mut sources = SpriteSources::default();
 //! sources.add_source("icons".to_string(), PathBuf::from("/path/to/svg/directory"));
 //! let spritesheet = sources.get_sprites("icons@2x", false).await.unwrap();
+//! # }
 //! ```
 
 use std::collections::HashMap;
