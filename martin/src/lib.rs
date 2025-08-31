@@ -17,8 +17,6 @@ pub mod mbtiles;
 pub mod pg;
 #[cfg(feature = "pmtiles")]
 pub mod pmtiles;
-#[cfg(feature = "sprites")]
-pub mod sprites;
 pub mod srv;
 #[cfg(feature = "styles")]
 pub mod styles;

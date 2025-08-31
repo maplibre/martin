@@ -1,5 +1,5 @@
 ---
-source: martin/src/sprites/mod.rs
+source: martin-core/src/resources/sprites/mod.rs
 expression: sprites.get_index()
 ---
 {
@@ -16,13 +16,6 @@ expression: sprites.get_index()
     "width": 16,
     "x": 20,
     "y": 0
-  },
-  "bicycle": {
-    "height": 15,
-    "pixelRatio": 1,
-    "width": 15,
-    "x": 35,
-    "y": 16
   },
   "sub/circle": {
     "height": 20,

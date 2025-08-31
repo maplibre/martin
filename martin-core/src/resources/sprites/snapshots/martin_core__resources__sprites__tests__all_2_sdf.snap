@@ -1,5 +1,5 @@
 ---
-source: martin/src/sprites/mod.rs
+source: martin-core/src/resources/sprites/mod.rs
 expression: png
 extension: png
 snapshot_kind: binary
