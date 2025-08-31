@@ -3,7 +3,7 @@ use actix_web::test::{TestRequest, call_service, read_body, read_body_json};
 use ctor::ctor;
 use indoc::indoc;
 use insta::assert_yaml_snapshot;
-use martin::srv::SrvConfig;
+use martin::config::file::srv::SrvConfig;
 use martin_tile_utils::{decode_brotli, decode_gzip};
 use tilejson::TileJSON;
 

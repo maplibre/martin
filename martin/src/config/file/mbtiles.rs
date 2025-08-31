@@ -5,8 +5,7 @@ use serde::{Deserialize, Serialize};
 use url::Url;
 
 use crate::MartinResult;
-use crate::config::{UnrecognizedKeys, UnrecognizedValues};
-use crate::file_config::{ConfigExtras, SourceConfigExtras};
+use crate::config::file::{ConfigExtras, SourceConfigExtras, UnrecognizedKeys, UnrecognizedValues};
 use crate::mbtiles::MbtSource;
 use crate::source::TileInfoSource;
 

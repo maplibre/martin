@@ -1,44 +1,34 @@
-use std::collections::{BTreeMap, HashMap};
-use std::fmt::Debug;
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
-use dashmap::{DashMap, Entry};
-use log::{info, warn};
+use log::warn;
+use martin_core::styles::StyleSources;
 use serde::{Deserialize, Serialize};
 
 use crate::MartinResult;
-use crate::file_config::FileConfigEnum;
+use crate::config::file::{ConfigExtras, ConfigFileError, FileConfigEnum, UnrecognizedKeys, UnrecognizedValues};
 
-mod config;
-pub use config::StyleConfig;
-
-mod error;
-pub use error::StyleError;
-
-#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
-pub struct CatalogStyleEntry {
-    pub path: PathBuf,
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct InnerStyleConfig {
+    #[serde(flatten)]
+    pub unrecognized: UnrecognizedValues,
 }
 
-pub type StyleCatalog = HashMap<String, CatalogStyleEntry>;
-
-#[derive(Debug, Clone, Default)]
-#[cfg_attr(test, serde_with::skip_serializing_none, derive(serde::Serialize))]
-pub struct StyleSources(DashMap<String, StyleSource>);
-
-#[derive(Clone, Debug)]
-#[cfg_attr(test, serde_with::skip_serializing_none, derive(serde::Serialize))]
-pub struct StyleSource {
-    path: PathBuf,
+impl ConfigExtras for InnerStyleConfig {
+    fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
+        self.unrecognized.keys().cloned().collect()
+    }
 }
 
-impl StyleSources {
-    pub fn resolve(config: &mut FileConfigEnum<StyleConfig>) -> MartinResult<Self> {
-        let Some(cfg) = config.extract_file_config(None)? else {
-            return Ok(Self::default());
+pub type StyleConfig = FileConfigEnum<InnerStyleConfig>;
+
+impl StyleConfig {
+    pub fn resolve(&mut self) -> MartinResult<StyleSources> {
+        let Some(cfg) = self.extract_file_config(None)? else {
+            return Ok(StyleSources::default());
         };
 
-        let mut results = Self::default();
+        let mut results = StyleSources::default();
         let mut configs = BTreeMap::new();
 
         if let Some(sources) = cfg.sources {
@@ -84,56 +74,9 @@ impl StyleSources {
         paths_with_names.sort_unstable();
         paths_with_names.dedup();
 
-        *config = FileConfigEnum::new_extended(paths_with_names, configs, cfg.custom);
+        *self = FileConfigEnum::new_extended(paths_with_names, configs, cfg.custom);
 
         Ok(results)
-    }
-
-    /// retrieve a styles' `PathBuf` from the internal catalog
-    #[must_use]
-    pub fn style_json_path(&self, style_id: &str) -> Option<PathBuf> {
-        let style_id = style_id.trim_end_matches(".json").trim();
-        let item = self.0.get(style_id)?;
-        Some(item.path.clone())
-    }
-
-    /// an external representation of the internal catalog
-    #[must_use]
-    pub fn get_catalog(&self) -> StyleCatalog {
-        let mut entries = StyleCatalog::new();
-        for source in &self.0 {
-            entries.insert(
-                source.key().clone(),
-                CatalogStyleEntry {
-                    path: source.path.clone(),
-                },
-            );
-        }
-        entries
-    }
-
-    /// add a single style file with an id to the internal catalog
-    fn add_style(&mut self, id: String, path: PathBuf) {
-        debug_assert!(path.is_file());
-        debug_assert!(!id.is_empty());
-        match self.0.entry(id) {
-            Entry::Occupied(v) => {
-                warn!(
-                    "Ignoring duplicate style source {id} from {new_path} because it was already configured for {old_path}",
-                    id = v.key(),
-                    old_path = v.get().path.display(),
-                    new_path = path.display()
-                );
-            }
-            Entry::Vacant(v) => {
-                info!(
-                    "Configured style source {id} to {new_path}",
-                    id = v.key(),
-                    new_path = path.display()
-                );
-                v.insert(StyleSource { path });
-            }
-        }
     }
 }
 
@@ -148,7 +91,7 @@ impl StyleSources {
 fn list_contained_files(
     source_path: &Path,
     filter_extension: &str,
-) -> Result<Vec<PathBuf>, StyleError> {
+) -> Result<Vec<PathBuf>, ConfigFileError> {
     let working_directory = std::env::current_dir().ok();
     let mut contained_files = Vec::new();
     let it = walkdir::WalkDir::new(source_path)
@@ -157,7 +100,7 @@ fn list_contained_files(
         .filter_entry(|e| e.depth() == 0 || !is_hidden(e));
     for entry in it {
         let entry =
-            entry.map_err(|e| StyleError::DirectoryWalking(e, source_path.to_path_buf()))?;
+            entry.map_err(|e| ConfigFileError::DirectoryWalking(e, source_path.to_path_buf()))?;
         if entry.path().is_file()
             && entry
                 .path()
@@ -190,42 +133,27 @@ fn is_hidden(entry: &walkdir::DirEntry) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::file_config::FileConfigSrc;
-    #[test]
-    fn test_add_single_source() {
-        use std::fs::File;
-        let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("maplibre_demo.json");
-        File::create(&path).unwrap();
-
-        let mut style_sources = StyleSources::default();
-        assert_eq!(style_sources.0.len(), 0);
-
-        style_sources.add_style("maplibre_demo".to_string(), path.clone());
-        assert_eq!(style_sources.0.len(), 1);
-        let maplibre_demo = style_sources.0.get("maplibre_demo").unwrap();
-        assert_eq!(maplibre_demo.path, path);
-    }
+    use crate::config::file::FileConfigSrc;
 
     #[test]
     fn test_styles_resolve_paths() {
         let style_dir = PathBuf::from("../tests/fixtures/styles/");
-        let mut cfg = FileConfigEnum::new(vec![
+        let mut cfg = StyleConfig::new(vec![
             style_dir.join("maplibre_demo.json"),
             style_dir.join("src2"),
         ]);
 
-        let styles = StyleSources::resolve(&mut cfg).unwrap();
-        assert_eq!(styles.0.len(), 3);
+        let styles = cfg.resolve().unwrap();
+        assert_eq!(styles.len(), 3);
         insta::with_settings!({sort_maps => true}, {
-        insta::assert_yaml_snapshot!(styles, @r#"
-        maplibre_demo:
-          path: "../tests/fixtures/styles/maplibre_demo.json"
-        maptiler_basic:
-          path: "../tests/fixtures/styles/src2/maptiler_basic.json"
-        osm-liberty-lite:
-          path: "../tests/fixtures/styles/src2/osm-liberty-lite.json"
-        "#);
+        insta::assert_yaml_snapshot!(styles.get_catalog(), @r#"
+            maplibre_demo:
+              path: "../tests/fixtures/styles/maplibre_demo.json"
+            maptiler_basic:
+              path: "../tests/fixtures/styles/src2/maptiler_basic.json"
+            osm-liberty-lite:
+              path: "../tests/fixtures/styles/src2/osm-liberty-lite.json"
+            "#);
         });
     }
 
@@ -243,70 +171,49 @@ mod tests {
             .into_iter()
             .map(|(k, v)| (k.to_string(), FileConfigSrc::Path(v)))
             .collect();
-        let mut cfg = FileConfigEnum::new_extended(vec![], configs, StyleConfig::default());
+        let mut cfg = StyleConfig::new_extended(vec![], configs, InnerStyleConfig::default());
 
-        let styles = StyleSources::resolve(&mut cfg).unwrap();
-        assert_eq!(styles.0.len(), 2);
+        let styles = cfg.resolve().unwrap();
+        assert_eq!(styles.len(), 2);
         insta::with_settings!({sort_maps => true}, {
-        insta::assert_yaml_snapshot!(styles, @r#"
-        maplibre_demo:
-          path: "../tests/fixtures/styles/maplibre_demo.json"
-        osm-liberty-lite:
-          path: "../tests/fixtures/styles/src2/osm-liberty-lite.json"
-        "#);
+        insta::assert_yaml_snapshot!(styles.get_catalog(), @r#"
+            maplibre_demo:
+              path: "../tests/fixtures/styles/maplibre_demo.json"
+            osm-liberty-lite:
+              path: "../tests/fixtures/styles/src2/osm-liberty-lite.json"
+            "#);
         });
     }
 
     #[test]
     fn test_style_external() {
         let style_dir = PathBuf::from("../tests/fixtures/styles/");
-        let mut cfg = FileConfigEnum::new(vec![
+        let mut cfg = StyleConfig::new(vec![
             style_dir.join("maplibre_demo.json"),
             style_dir.join("src2"),
         ]);
 
-        let styles = StyleSources::resolve(&mut cfg).unwrap();
-        assert_eq!(styles.0.len(), 3);
+        let styles = cfg.resolve().unwrap();
+        assert_eq!(styles.len(), 3);
 
         let catalog = styles.get_catalog();
 
         insta::with_settings!({sort_maps => true}, {
         insta::assert_json_snapshot!(catalog, @r#"
-        {
-          "maplibre_demo": {
-            "path": "../tests/fixtures/styles/maplibre_demo.json"
-          },
-          "maptiler_basic": {
-            "path": "../tests/fixtures/styles/src2/maptiler_basic.json"
-          },
-          "osm-liberty-lite": {
-            "path": "../tests/fixtures/styles/src2/osm-liberty-lite.json"
-          }
-        }
-        "#);
+            {
+              "maplibre_demo": {
+                "path": "../tests/fixtures/styles/maplibre_demo.json"
+              },
+              "maptiler_basic": {
+                "path": "../tests/fixtures/styles/src2/maptiler_basic.json"
+              },
+              "osm-liberty-lite": {
+                "path": "../tests/fixtures/styles/src2/osm-liberty-lite.json"
+              }
+            }
+            "#);
         });
-
-        assert_eq!(styles.style_json_path("NON_EXISTENT"), None);
-        assert_eq!(
-            styles.style_json_path("maplibre_demo.json"),
-            Some(style_dir.join("maplibre_demo.json"))
-        );
-        assert_eq!(styles.style_json_path("src2"), None);
-        let src2_dir = style_dir.join("src2");
-        assert_eq!(
-            styles.style_json_path("maptiler_basic"),
-            Some(src2_dir.join("maptiler_basic.json"))
-        );
-        assert_eq!(
-            styles.style_json_path("maptiler_basic.json"),
-            Some(src2_dir.join("maptiler_basic.json"))
-        );
-        assert_eq!(
-            styles.style_json_path("osm-liberty-lite.json"),
-            Some(src2_dir.join("osm-liberty-lite.json"))
-        );
     }
-
     #[test]
     fn test_list_contained_files() {
         use std::fs::File;

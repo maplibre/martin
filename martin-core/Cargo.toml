@@ -21,6 +21,7 @@ fonts = [
     "dep:dashmap",
     "dep:thiserror",
 ]
+styles = ["dep:walkdir", "tokio/fs", "dep:dashmap", "dep:thiserror"]
 
 [dependencies]
 async-trait.workspace = true
@@ -35,6 +36,11 @@ serde.workspace = true
 serde_with.workspace = true
 subst.workspace = true
 thiserror = { workspace = true, optional = true }
+tokio = { workspace = true, optional = true }
+walkdir = { workspace = true, optional = true }
+
+[dev-dependencies]
+insta = { workspace = true, features = ["json", "yaml"] }
 
 [lints]
 workspace = true

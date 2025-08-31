@@ -17,14 +17,11 @@ use pmtiles::{
 use tilejson::TileJSON;
 use url::Url;
 
-use crate::file_config::FileError::{InvalidMetadata, IoError};
+use crate::config::file::ConfigFileError::{InvalidMetadata, IoError};
 use crate::source::{TileInfoSource, UrlQuery};
 use crate::utils::cache::get_cached_value;
 use crate::utils::{CacheKey, CacheValue, OptMainCache};
 use crate::{MartinError, MartinResult, Source, TileData};
-
-mod config;
-pub use config::PmtConfig;
 
 mod error;
 pub use error::PmtilesError;

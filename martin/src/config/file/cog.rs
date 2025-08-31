@@ -4,9 +4,8 @@ use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
 use url::Url;
 
-use super::source::CogSource;
-use crate::config::{UnrecognizedKeys, UnrecognizedValues};
-use crate::file_config::{ConfigExtras, SourceConfigExtras};
+use crate::cog::CogSource;
+use crate::config::file::{ConfigExtras, SourceConfigExtras, UnrecognizedKeys, UnrecognizedValues};
 use crate::{MartinResult, TileInfoSource};
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]

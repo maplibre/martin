@@ -3598,6 +3598,7 @@ dependencies = [
  "async-trait",
  "bit-set",
  "dashmap",
+ "insta",
  "itertools 0.14.0",
  "log",
  "martin-tile-utils",
@@ -3607,6 +3608,8 @@ dependencies = [
  "serde_with",
  "subst",
  "thiserror 2.0.16",
+ "tokio",
+ "walkdir",
 ]
 
 [[package]]

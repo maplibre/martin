@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt::Debug;
 use std::mem;
 use std::path::{Path, PathBuf};
@@ -8,18 +8,17 @@ use martin_core::config::OptOneMany::{self, Many, One};
 use serde::{Deserialize, Serialize};
 use url::Url;
 
-use crate::config::UnrecognizedKeys;
-use crate::file_config::FileError::{
+use crate::config::file::ConfigFileError::{
     InvalidFilePath, InvalidSourceFilePath, InvalidSourceUrl, IoError,
 };
 use crate::source::{TileInfoSource, TileInfoSources};
 use crate::utils::{IdResolver, OptMainCache};
 use crate::{MartinError, MartinResult};
 
-pub type FileResult<T> = Result<T, FileError>;
+pub type ConfigFileResult<T> = Result<T, ConfigFileError>;
 
 #[derive(thiserror::Error, Debug)]
-pub enum FileError {
+pub enum ConfigFileError {
     #[error("IO error {0}: {1}")]
     IoError(std::io::Error, PathBuf),
 
@@ -34,10 +33,17 @@ pub enum FileError {
 
     #[error(r"Unable to parse metadata in file {1}: {0}")]
     InvalidMetadata(String, PathBuf),
+
+    #[error("At least one 'origin' must be specified in the 'cors' configuration")]
+    CorsNoOriginsConfigured,
+
+    #[cfg(feature = "styles")]
+    #[error("Walk directory error {0}: {1}")]
+    DirectoryWalking(walkdir::Error, PathBuf),
 }
 
 pub trait ConfigExtras: Clone + Debug + Default + PartialEq + Send {
-    fn init_parsing(&mut self, _cache: OptMainCache) -> FileResult<()> {
+    fn init_parsing(&mut self, _cache: OptMainCache) -> ConfigFileResult<()> {
         Ok(())
     }
 
@@ -130,7 +136,7 @@ impl<T: ConfigExtras> FileConfigEnum<T> {
     pub fn extract_file_config(
         &mut self,
         cache: OptMainCache,
-    ) -> FileResult<Option<FileConfig<T>>> {
+    ) -> ConfigFileResult<Option<FileConfig<T>>> {
         let mut res = match self {
             FileConfigEnum::None => return Ok(None),
             FileConfigEnum::Path(path) => FileConfig {
@@ -208,7 +214,7 @@ impl FileConfigSrc {
         }
     }
 
-    pub fn abs_path(&self) -> FileResult<PathBuf> {
+    pub fn abs_path(&self) -> ConfigFileResult<PathBuf> {
         let path = self.get_path();
         path.canonicalize().map_err(|e| IoError(e, path.clone()))
     }
@@ -256,7 +262,7 @@ async fn resolve_int<T: SourceConfigExtras>(
                 let can = source.abs_path()?;
                 if !can.is_file() {
                     // todo: maybe warn instead?
-                    return Err(MartinError::FileError(InvalidSourceFilePath(
+                    return Err(MartinError::ConfigFileError(InvalidSourceFilePath(
                         id.to_string(),
                         can,
                     )));
@@ -340,7 +346,7 @@ async fn resolve_int<T: SourceConfigExtras>(
 fn collect_files_with_extension(
     base_path: &Path,
     allowed_extension: &[&str],
-) -> Result<Vec<PathBuf>, FileError> {
+) -> Result<Vec<PathBuf>, ConfigFileError> {
     Ok(base_path
         .read_dir()
         .map_err(|e| IoError(e, base_path.to_path_buf()))?
@@ -373,7 +379,7 @@ fn sanitize_url(url: &Url) -> String {
     result
 }
 
-fn parse_url(is_enabled: bool, path: &Path) -> Result<Option<Url>, FileError> {
+fn parse_url(is_enabled: bool, path: &Path) -> Result<Option<Url>, ConfigFileError> {
     if !is_enabled {
         return Ok(None);
     }
@@ -381,4 +387,15 @@ fn parse_url(is_enabled: bool, path: &Path) -> Result<Option<Url>, FileError> {
         .filter(|v| v.starts_with("http://") || v.starts_with("https://") || v.starts_with("s3://"))
         .map(|v| Url::parse(v).map_err(|e| InvalidSourceUrl(e, v.to_string())))
         .transpose()
+}
+
+pub type UnrecognizedValues = HashMap<String, serde_yaml::Value>;
+pub type UnrecognizedKeys = HashSet<String>;
+
+pub fn copy_unrecognized_keys_from_config(
+    result: &mut UnrecognizedKeys,
+    prefix: &str,
+    unrecognized: &UnrecognizedValues,
+) {
+    result.extend(unrecognized.keys().map(|k| format!("{prefix}{k}")));
 }

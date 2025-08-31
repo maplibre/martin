@@ -3,12 +3,12 @@ use log::{info, warn};
 use postgres::config::SslMode;
 use semver::Version;
 
+use crate::config::file::pg::PgConfig;
 use crate::pg::PgError::{
     BadPostgisVersion, BadPostgresVersion, PostgisTooOld, PostgresError, PostgresPoolBuildError,
     PostgresPoolConnError, PostgresqlTooOld,
 };
 use crate::pg::PgResult;
-use crate::pg::config::PgConfig;
 use crate::pg::tls::{SslModeOverride, make_connector, parse_conn_str};
 
 pub const POOL_SIZE_DEFAULT: usize = 20;
