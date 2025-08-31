@@ -11,10 +11,9 @@
 //! use martin_core::config::OptOneMany;
 //! use std::path::PathBuf;
 //!
-//! let mut dirs = OptOneMany::new(vec![PathBuf::from("/usr/share/fonts")]);
-//! let sources = FontSources::resolve(&mut dirs)?;
-//! let font_data = sources.get_font_range("Arial,Helvetica", 0, 255)?;
-//! # Ok::<(), martin_core::fonts::FontError>(())
+//! let mut sources = FontSources::default();
+//! sources.recursively_add_directory("/usr/share/fonts".into()).unwrap();
+//! let font_data = sources.get_font_range("Arial,Helvetica", 0, 255).unwrap();
 //! ```
 
 use std::collections::HashMap;
@@ -32,8 +31,6 @@ use pbf_font_tools::prost::Message;
 use pbf_font_tools::{Fontstack, Glyphs, render_sdf_glyph};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
-
-use crate::config::OptOneMany;
 
 /// Maximum Unicode codepoint supported (U+FFFF - Basic Multilingual Plane).
 const MAX_UNICODE_CP: usize = 0xFFFF;
@@ -114,7 +111,7 @@ pub struct CatalogFontEntry {
 }
 
 /// Thread-safe font manager for discovery, cataloging, and serving fonts as Protocol Buffers.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct FontSources {
     /// Map of font name to font source data.
     fonts: DashMap<String, FontSource>,
@@ -122,20 +119,8 @@ pub struct FontSources {
     masks: Vec<BitSet>,
 }
 
-impl FontSources {
-    /// Discovers and loads fonts from the specified directories by recursively scanning for `.ttf`, `.otf`, and `.ttc` files.
-    pub fn resolve(config: &mut OptOneMany<PathBuf>) -> Result<Self, FontError> {
-        if config.is_empty() {
-            return Ok(Self::default());
-        }
-
-        let mut fonts = DashMap::new();
-        let lib = Library::init()?;
-
-        for path in config.iter() {
-            recurse_dirs(&lib, path.clone(), &mut fonts, true)?;
-        }
-
+impl Default for FontSources {
+    fn default() -> Self {
         let mut masks = Vec::with_capacity(MAX_UNICODE_CP_RANGE_ID + 1);
 
         let mut bs = BitSet::with_capacity(CP_RANGE_SIZE);
@@ -147,7 +132,18 @@ impl FontSources {
             }
         }
 
-        Ok(Self { fonts, masks })
+        Self {
+            fonts: DashMap::new(),
+            masks,
+        }
+    }
+}
+
+impl FontSources {
+    /// Discovers and loads fonts from the specified directory by recursively scanning for `.ttf`, `.otf`, and `.ttc` files.
+    pub fn recursively_add_directory(&mut self, path: PathBuf) -> Result<(), FontError> {
+        let lib = Library::init()?;
+        recurse_dirs(&lib, path, &mut self.fonts, true)
     }
 
     /// Returns a catalog of all loaded fonts

@@ -18,9 +18,9 @@ use serde::{Deserialize, Serialize};
 use crate::MartinError::BindingError;
 use crate::MartinResult;
 #[cfg(feature = "webui")]
-use crate::args::WebUiMode;
-use crate::config::ServerState;
-use crate::srv::config::{KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT, SrvConfig};
+use crate::config::args::WebUiMode;
+use crate::config::file::ServerState;
+use crate::config::file::srv::{KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT, SrvConfig};
 use crate::srv::tiles::get_tile;
 use crate::srv::tiles_info::get_source_info;
 
@@ -48,7 +48,7 @@ pub struct Catalog {
     #[cfg(feature = "fonts")]
     pub fonts: martin_core::fonts::FontCatalog,
     #[cfg(feature = "styles")]
-    pub styles: crate::styles::StyleCatalog,
+    pub styles: martin_core::styles::StyleCatalog,
 }
 
 impl Catalog {

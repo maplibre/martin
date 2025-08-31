@@ -2,18 +2,18 @@ use std::ops::Add;
 use std::time::Duration;
 
 use futures::future::try_join;
+use futures::pin_mut;
 use log::warn;
 use martin_core::config::{OptBoolObj, OptOneMany};
 use serde::{Deserialize, Serialize};
 use tilejson::TileJSON;
+use tokio::time::timeout;
 
+use super::{FuncInfoSources, TableInfoSources};
 use crate::MartinResult;
-use crate::args::{BoundsCalcType, DEFAULT_BOUNDS_TIMEOUT};
-use crate::config::{UnrecognizedValues, copy_unrecognized_config};
+use crate::config::args::{BoundsCalcType, DEFAULT_BOUNDS_TIMEOUT};
+use crate::config::file::{UnrecognizedValues, copy_unrecognized_config};
 use crate::pg::builder::PgBuilder;
-use crate::pg::config_function::FuncInfoSources;
-use crate::pg::config_table::TableInfoSources;
-use crate::pg::utils::on_slow;
 use crate::pg::{PgError, PgResult};
 use crate::source::TileInfoSources;
 use crate::utils::IdResolver;
@@ -178,19 +178,44 @@ impl PgConfig {
     }
 }
 
+async fn on_slow<T, S: FnOnce()>(
+    future: impl Future<Output = T>,
+    duration: Duration,
+    fn_on_slow: S,
+) -> T {
+    pin_mut!(future);
+    if let Ok(result) = timeout(duration, &mut future).await {
+        result
+    } else {
+        fn_on_slow();
+        future.await
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::collections::BTreeMap;
+    use std::path::Path;
 
     use indoc::indoc;
     use martin_core::config::OptOneMany::{Many, One};
+    use martin_core::config::env::FauxEnv;
     use tilejson::Bounds;
 
     use super::*;
-    use crate::config::Config;
-    use crate::config::tests::assert_config;
-    use crate::pg::config_function::FunctionInfo;
-    use crate::pg::config_table::TableInfo;
+    use crate::config::file::pg::{FunctionInfo, TableInfo};
+    use crate::config::file::{Config, parse_config};
+
+    pub fn parse_cfg(yaml: &str) -> Config {
+        parse_config(yaml, &FauxEnv::default(), Path::new("<test>")).unwrap()
+    }
+
+    pub fn assert_config(yaml: &str, expected: &Config) {
+        let mut config = parse_cfg(yaml);
+        let res = config.finalize().unwrap();
+        assert!(res.is_empty(), "unrecognized config: {res:?}");
+        assert_eq!(&config, expected);
+    }
 
     #[test]
     fn parse_pg_one() {

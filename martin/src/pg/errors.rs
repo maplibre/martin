@@ -6,7 +6,7 @@ use deadpool_postgres::{BuildError, PoolError};
 use martin_tile_utils::TileCoord;
 use semver::Version;
 
-use crate::pg::utils::query_to_json;
+use super::utils::query_to_json;
 use crate::source::UrlQuery;
 
 pub type PgResult<T> = Result<T, PgError>;

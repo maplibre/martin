@@ -114,7 +114,7 @@ postgres = [
     "dep:tokio-postgres-rustls",
 ]
 sprites = ["dep:spreet", "tokio/fs"]
-styles = ["dep:walkdir", "tokio/fs"]
+styles = ["martin-core/styles", "dep:walkdir"]
 webui = ["dep:actix-web-static-files", "dep:static-files", "dep:walkdir"]
 
 [dependencies]

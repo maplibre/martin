@@ -4,15 +4,13 @@ use clap::Parser;
 use clap::builder::Styles;
 use clap::builder::styling::AnsiColor;
 use log::warn;
-#[cfg(feature = "fonts")]
-use martin_core::config::OptOneMany;
 use martin_core::config::env::Env;
 
+use super::connections::Arguments;
+use super::srv::SrvArgs;
 use crate::MartinError::ConfigAndConnectionsError;
 use crate::MartinResult;
-use crate::args::connections::Arguments;
-use crate::args::srv::SrvArgs;
-use crate::config::Config;
+use crate::config::file::Config;
 #[cfg(any(
     feature = "cog",
     feature = "geojson",
@@ -21,7 +19,9 @@ use crate::config::Config;
     feature = "sprites",
     feature = "styles",
 ))]
-use crate::file_config::FileConfigEnum;
+use crate::config::file::FileConfigEnum;
+#[cfg(feature = "fonts")]
+use crate::config::file::fonts::FontConfig;
 
 /// Defines the styles used for the CLI help output.
 const HELP_STYLES: Styles = Styles::styled()
@@ -46,7 +46,7 @@ pub struct Args {
     pub srv: SrvArgs,
     #[cfg(feature = "postgres")]
     #[command(flatten)]
-    pub pg: Option<crate::args::pg::PgArgs>,
+    pub pg: Option<super::pg::PgArgs>,
 }
 
 // None of these params will be transferred to the config
@@ -92,6 +92,7 @@ impl Args {
         if self.srv.watch {
             warn!("The --watch flag is no longer supported, and will be ignored");
         }
+
         if self.meta.config.is_some() && !self.meta.connection.is_empty() {
             return Err(ConfigAndConnectionsError(self.meta.connection));
         }
@@ -148,7 +149,7 @@ impl Args {
 
         #[cfg(feature = "fonts")]
         if !self.extras.font.is_empty() {
-            config.fonts = OptOneMany::new(self.extras.font);
+            config.fonts = FontConfig::new(self.extras.font);
         }
 
         cli_strings.check()
@@ -156,7 +157,12 @@ impl Args {
 }
 
 /// Check if a string is a valid [`url::Url`] with a specified extension.
-#[cfg(any(feature = "cog", feature = "mbtiles", feature = "pmtiles"))]
+#[cfg(any(
+    feature = "cog",
+    feature = "mbtiles",
+    feature = "pmtiles",
+    feature = "geojson"
+))]
 fn is_url(s: &str, extension: &[&str]) -> bool {
     let Ok(url) = url::Url::parse(s) else {
         return false;
@@ -183,12 +189,12 @@ fn is_url(s: &str, extension: &[&str]) -> bool {
     feature = "pmtiles",
     feature = "geojson"
 ))]
-pub fn parse_file_args<T: crate::file_config::ConfigExtras>(
+pub fn parse_file_args<T: crate::config::file::ConfigExtras>(
     cli_strings: &mut Arguments,
     extensions: &[&str],
     allow_url: bool,
 ) -> FileConfigEnum<T> {
-    use crate::args::State::{Ignore, Share, Take};
+    use super::State::{Ignore, Share, Take};
 
     let paths = cli_strings.process(|s| {
         let path = PathBuf::from(s);
@@ -219,7 +225,7 @@ mod tests {
 
     use super::*;
     use crate::MartinError::UnrecognizableConnections;
-    use crate::args::PreferredEncoding;
+    use crate::config::args::PreferredEncoding;
 
     fn parse(args: &[&str]) -> MartinResult<(Config, MetaArgs)> {
         let args = Args::parse_from(args);
@@ -258,7 +264,7 @@ mod tests {
 
         let args = parse(&["martin", "postgres://connection"]).unwrap();
         let cfg = Config {
-            postgres: OptOneMany::One(crate::pg::PgConfig {
+            postgres: OptOneMany::One(crate::config::file::pg::PgConfig {
                 connection_string: Some("postgres://connection".to_string()),
                 ..Default::default()
             }),

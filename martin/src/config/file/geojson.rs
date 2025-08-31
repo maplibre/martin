@@ -5,8 +5,7 @@ use serde::{Deserialize, Serialize};
 use url::Url;
 
 use crate::MartinResult;
-use crate::config::UnrecognizedValues;
-use crate::file_config::{ConfigExtras, SourceConfigExtras};
+use crate::config::file::{ConfigExtras, SourceConfigExtras, UnrecognizedValues};
 use crate::geojson::GeoJsonSource;
 use crate::source::TileInfoSource;
 

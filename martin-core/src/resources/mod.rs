@@ -3,7 +3,10 @@
 //! Provides:
 //! - [x] fonts
 //! - [ ] sprites
-//! - [ ] styles
+//! - [x] styles
 
 #[cfg(feature = "fonts")]
 pub mod fonts;
+
+#[cfg(feature = "styles")]
+pub mod styles;

@@ -1,25 +1,21 @@
 use std::collections::BTreeMap;
 use std::fmt::{Debug, Formatter};
+use std::fs::File;
 use std::path::PathBuf;
 use std::sync::Arc;
 
 use async_trait::async_trait;
 use geozero::mvt::Message as _;
 use martin_tile_utils::{Format, TileCoord, TileInfo};
-use std::fs::File;
-use tilejson::TileJSON;
-use tilejson::tilejson;
+use tilejson::{TileJSON, tilejson};
 
-use crate::file_config::FileError;
-use crate::file_config::FileResult;
 use crate::geojson::mvt::LayerBuilder;
 use crate::source::{TileData, TileInfoSource, UrlQuery};
 use crate::{MartinResult, Source};
 
-mod config;
+mod error;
 mod mvt;
-
-pub use config::GeoJsonConfig;
+pub use error::GeoJsonError;
 
 #[derive(Clone)]
 pub struct GeoJsonSource {
@@ -41,24 +37,23 @@ impl Debug for GeoJsonSource {
 }
 
 impl GeoJsonSource {
-    fn new(
+    pub fn new(
         id: String,
         path: PathBuf,
         tile_options: geojson_vt_rs::TileOptions,
-    ) -> FileResult<Self> {
+    ) -> Result<Self, GeoJsonError> {
         let tile_info = TileInfo::new(Format::Mvt, martin_tile_utils::Encoding::Uncompressed);
-        let geojson_file =
-            File::open(&path).map_err(|e: std::io::Error| FileError::IoError(e, path.clone()))?;
+        let geojson_file = File::open(&path)
+            .map_err(|e: std::io::Error| GeoJsonError::IoError(e, path.clone()))?;
 
-        // TODO: better error handling
         let geojson = geojson::GeoJson::from_reader(geojson_file)
-            .map_err(|e| FileError::InvalidFilePath(path.clone()))?;
+            .map_err(|e| GeoJsonError::NotValidGeoJson(e, path.clone()))?;
 
         let bounds = match &geojson {
             geojson::GeoJson::Geometry(geometry) => geojson_to_bounds(&geometry.value),
             geojson::GeoJson::Feature(feature) => match feature.geometry.as_ref() {
                 Some(geom) => geojson_to_bounds(&geom.value),
-                None => return Err(FileError::InvalidFilePath(path.clone())),
+                None => return Err(GeoJsonError::NoGeometry(path.clone())),
             },
             geojson::GeoJson::FeatureCollection(feature_collection) => {
                 let mut bounds = tilejson::Bounds::new(f64::MAX, f64::MAX, f64::MIN, f64::MIN);
@@ -74,7 +69,7 @@ impl GeoJsonSource {
                 }
                 // no feature has geom so return an error
                 if bounds == tilejson::Bounds::new(f64::MAX, f64::MAX, f64::MIN, f64::MIN) {
-                    return Err(FileError::InvalidFilePath(path.clone()));
+                    return Err(GeoJsonError::NoGeometry(path.clone()));
                 }
                 bounds
             }

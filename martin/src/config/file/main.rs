@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::fs::File;
 use std::io::prelude::*;
@@ -17,16 +16,16 @@ use crate::MartinError::{ConfigLoadError, ConfigParseError, ConfigWriteError, No
     feature = "cog",
     feature = "mbtiles",
     feature = "pmtiles",
+    feature = "geojson",
     feature = "sprites",
     feature = "styles",
 ))]
-use crate::file_config::FileConfigEnum;
+use crate::config::file::FileConfigEnum;
+use crate::config::file::{UnrecognizedValues, copy_unrecognized_config};
 use crate::source::{TileInfoSources, TileSources};
-use crate::srv::{RESERVED_KEYWORDS, SrvConfig};
+use crate::srv::RESERVED_KEYWORDS;
 use crate::utils::{CacheValue, MainCache, OptMainCache, init_aws_lc_tls, parse_base_path};
 use crate::{IdResolver, MartinResult};
-
-pub type UnrecognizedValues = HashMap<String, serde_yaml::Value>;
 
 pub struct ServerState {
     pub cache: OptMainCache,
@@ -36,7 +35,7 @@ pub struct ServerState {
     #[cfg(feature = "fonts")]
     pub fonts: martin_core::fonts::FontSources,
     #[cfg(feature = "styles")]
-    pub styles: crate::styles::StyleSources,
+    pub styles: martin_core::styles::StyleSources,
 }
 
 #[serde_with::skip_serializing_none]
@@ -45,39 +44,39 @@ pub struct Config {
     pub cache_size_mb: Option<u64>,
 
     #[serde(flatten)]
-    pub srv: SrvConfig,
+    pub srv: super::srv::SrvConfig,
 
     #[cfg(feature = "postgres")]
     #[serde(default, skip_serializing_if = "OptOneMany::is_none")]
-    pub postgres: OptOneMany<crate::pg::PgConfig>,
+    pub postgres: OptOneMany<super::pg::PgConfig>,
 
     #[cfg(feature = "pmtiles")]
     #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
-    pub pmtiles: FileConfigEnum<crate::pmtiles::PmtConfig>,
+    pub pmtiles: FileConfigEnum<super::pmtiles::PmtConfig>,
 
     #[cfg(feature = "mbtiles")]
     #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
-    pub mbtiles: FileConfigEnum<crate::mbtiles::MbtConfig>,
+    pub mbtiles: FileConfigEnum<super::mbtiles::MbtConfig>,
 
     #[cfg(feature = "cog")]
     #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
-    pub cog: FileConfigEnum<crate::cog::CogConfig>,
+    pub cog: FileConfigEnum<super::cog::CogConfig>,
 
     #[cfg(feature = "geojson")]
     #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
-    pub geojson: FileConfigEnum<crate::geojson::GeoJsonConfig>,
+    pub geojson: FileConfigEnum<super::geojson::GeoJsonConfig>,
 
     #[cfg(feature = "sprites")]
     #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
-    pub sprites: FileConfigEnum<crate::sprites::SpriteConfig>,
+    pub sprites: super::sprites::SpriteConfig,
 
     #[cfg(feature = "styles")]
     #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
-    pub styles: FileConfigEnum<crate::styles::StyleConfig>,
+    pub styles: super::styles::StyleConfig,
 
     #[cfg(feature = "fonts")]
     #[serde(default, skip_serializing_if = "OptOneMany::is_none")]
-    pub fonts: OptOneMany<PathBuf>,
+    pub fonts: super::fonts::FontConfig,
 
     #[serde(flatten)]
     pub unrecognized: UnrecognizedValues,
@@ -176,11 +175,11 @@ impl Config {
         Ok(ServerState {
             tiles: self.resolve_tile_sources(&resolver, cache.clone()).await?,
             #[cfg(feature = "sprites")]
-            sprites: crate::sprites::SpriteSources::resolve(&mut self.sprites)?,
+            sprites: self.sprites.resolve()?,
             #[cfg(feature = "fonts")]
-            fonts: martin_core::fonts::FontSources::resolve(&mut self.fonts)?,
+            fonts: self.fonts.resolve()?,
             #[cfg(feature = "styles")]
-            styles: crate::styles::StyleSources::resolve(&mut self.styles)?,
+            styles: self.styles.resolve()?,
             cache,
         })
     }
@@ -202,21 +201,21 @@ impl Config {
         #[cfg(feature = "pmtiles")]
         if !self.pmtiles.is_empty() {
             let cfg = &mut self.pmtiles;
-            let val = crate::file_config::resolve_files(cfg, idr, cache.clone(), &["pmtiles"]);
+            let val = crate::config::file::resolve_files(cfg, idr, cache.clone(), &["pmtiles"]);
             sources.push(Box::pin(val));
         }
 
         #[cfg(feature = "mbtiles")]
         if !self.mbtiles.is_empty() {
             let cfg = &mut self.mbtiles;
-            let val = crate::file_config::resolve_files(cfg, idr, cache.clone(), &["mbtiles"]);
+            let val = crate::config::file::resolve_files(cfg, idr, cache.clone(), &["mbtiles"]);
             sources.push(Box::pin(val));
         }
 
         #[cfg(feature = "cog")]
         if !self.cog.is_empty() {
             let cfg = &mut self.cog;
-            let val = crate::file_config::resolve_files(cfg, idr, cache.clone(), &["tif", "tiff"]);
+            let val = crate::config::file::resolve_files(cfg, idr, cache.clone(), &["tif", "tiff"]);
             sources.push(Box::pin(val));
         }
 
@@ -224,7 +223,7 @@ impl Config {
         if !self.geojson.is_empty() {
             let cfg = &mut self.geojson;
             let val =
-                crate::file_config::resolve_files(cfg, idr, cache.clone(), &["geojson", "json"]);
+                crate::config::file::resolve_files(cfg, idr, cache.clone(), &["geojson", "json"]);
             sources.push(Box::pin(val));
         }
 
@@ -252,18 +251,6 @@ impl Config {
     }
 }
 
-pub fn copy_unrecognized_config(
-    result: &mut UnrecognizedValues,
-    prefix: &str,
-    unrecognized: &UnrecognizedValues,
-) {
-    result.extend(
-        unrecognized
-            .iter()
-            .map(|(k, v)| (format!("{prefix}{k}"), v.clone())),
-    );
-}
-
 /// Read config from a file
 pub fn read_config<'a, M>(file_name: &Path, env: &'a M) -> MartinResult<Config>
 where
@@ -283,24 +270,4 @@ where
     M::Value: AsRef<str>,
 {
     subst::yaml::from_str(contents, env).map_err(|e| ConfigParseError(e, file_name.into()))
-}
-
-#[cfg(feature = "postgres")]
-#[cfg(test)]
-pub mod tests {
-    use martin_core::config::env::FauxEnv;
-
-    use super::*;
-    use crate::config::Config;
-
-    pub fn parse_cfg(yaml: &str) -> Config {
-        parse_config(yaml, &FauxEnv::default(), Path::new("<test>")).unwrap()
-    }
-
-    pub fn assert_config(yaml: &str, expected: &Config) {
-        let mut config = parse_cfg(yaml);
-        let res = config.finalize().unwrap();
-        assert!(res.is_empty(), "unrecognized config: {res:?}");
-        assert_eq!(&config, expected);
-    }
 }

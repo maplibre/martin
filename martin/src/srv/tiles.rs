@@ -16,9 +16,9 @@ use martin_tile_utils::{
 use serde::Deserialize;
 
 use crate::TileData;
-use crate::args::PreferredEncoding;
+use crate::config::args::PreferredEncoding;
+use crate::config::file::srv::SrvConfig;
 use crate::source::{TileInfoSources, TileSources, UrlQuery};
-use crate::srv::SrvConfig;
 use crate::srv::server::map_internal_error;
 use crate::utils::cache::get_or_insert_cached_value;
 use crate::utils::{CacheKey, CacheValue, MainCache, OptMainCache};

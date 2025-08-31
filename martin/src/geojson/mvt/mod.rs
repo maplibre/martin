@@ -1,9 +1,7 @@
 mod geometry_encoding;
 
 use geometry_encoding::encode_geom;
-use geozero::mvt::TagsBuilder;
-use geozero::mvt::TileValue;
-use geozero::mvt::tile;
+use geozero::mvt::{TagsBuilder, TileValue, tile};
 
 pub struct LayerBuilder {
     name: String,
