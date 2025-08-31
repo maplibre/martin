@@ -1,3 +1,19 @@
+//! Sprite processing and serving for map tile rendering.
+//!
+//! Generates spritesheets from SVG files with support for high-DPI (@2x) and
+//! SDF (Signed Distance Field) sprites for dynamic styling.
+//!
+//! # Usage
+//!
+//! ```rust,no_run
+//! use martin_core::sprites::SpriteSources;
+//! use std::path::PathBuf;
+//!
+//! let mut sources = SpriteSources::default();
+//! sources.add_source("icons".to_string(), PathBuf::from("/path/to/svg/directory"));
+//! let spritesheet = sources.get_sprites("icons@2x", false).await.unwrap();
+//! ```
+
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::path::PathBuf;
@@ -16,17 +32,22 @@ use self::SpriteError::{SpriteInstError, SpriteParsingError, SpriteProcessingErr
 mod error;
 pub use error::SpriteError;
 
+/// Sprite source metadata.
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CatalogSpriteEntry {
+    /// Available sprite image names.
     pub images: Vec<String>,
 }
 
+/// Catalog mapping sprite names to metadata (e.g., "icons" -> [`CatalogSpriteEntry`]).
 pub type SpriteCatalog = HashMap<String, CatalogSpriteEntry>;
 
+/// Thread-safe sprite source manager for serving sprites as `.png` or `.json`.
 #[derive(Debug, Clone, Default)]
 pub struct SpriteSources(DashMap<String, SpriteSource>);
 
 impl SpriteSources {
+    /// Returns a catalog of all sprite sources.
     pub fn get_catalog(&self) -> Result<SpriteCatalog, SpriteError> {
         // TODO: all sprite generation should be pre-cached
         let mut entries = SpriteCatalog::new();
@@ -46,6 +67,8 @@ impl SpriteSources {
         Ok(entries)
     }
 
+    /// Adds a sprite source directory containing SVG files.
+    /// Files are ignored - only directories accepted. Duplicates ignored with warning.
     pub fn add_source(&mut self, id: String, path: PathBuf) {
         let disp_path = path.display();
         if path.is_file() {
@@ -67,8 +90,10 @@ impl SpriteSources {
         }
     }
 
-    /// Given a list of IDs in a format "id1,id2,id3", return a spritesheet with them all.
-    /// `ids` may optionally end with "@2x" to request a high-DPI spritesheet.
+    /// Generates a spritesheet from comma-separated sprite source IDs.
+    ///
+    /// Append "@2x" for high-DPI sprites.
+    /// Set `as_sdf` for SDF sprites.
     pub async fn get_sprites(&self, ids: &str, as_sdf: bool) -> Result<Spritesheet, SpriteError> {
         let (ids, dpi) = if let Some(ids) = ids.strip_suffix("@2x") {
             (ids, 2)
@@ -92,11 +117,13 @@ impl SpriteSources {
     }
 }
 
+/// Sprite source directory.
 #[derive(Clone, Debug)]
 pub struct SpriteSource {
     path: PathBuf,
 }
 
+/// Parses SVG file into sprite.
 async fn parse_sprite(
     name: String,
     path: PathBuf,
@@ -123,6 +150,7 @@ async fn parse_sprite(
     Ok((name, sprite))
 }
 
+/// Generates spritesheet from sprite sources.
 pub async fn get_spritesheet(
     sources: impl Iterator<Item = &SpriteSource>,
     pixel_ratio: u8,
