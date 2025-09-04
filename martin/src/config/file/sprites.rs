@@ -3,7 +3,9 @@ use std::collections::BTreeMap;
 use log::warn;
 use serde::{Deserialize, Serialize};
 
-use crate::config::file::{ConfigExtras, ConfigFileResult, FileConfigEnum, UnrecognizedValues};
+use crate::config::file::{
+    ConfigExtras, ConfigFileResult, FileConfigEnum, UnrecognizedKeys, UnrecognizedValues,
+};
 use crate::sprites::SpriteSources;
 
 pub type SpriteConfig = FileConfigEnum<InnerSpriteConfig>;
@@ -49,7 +51,7 @@ pub struct InnerSpriteConfig {
 }
 
 impl ConfigExtras for InnerSpriteConfig {
-    fn get_unrecognized(&self) -> &UnrecognizedValues {
-        &self.unrecognized
+    fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
+        self.unrecognized.keys().cloned().collect()
     }
 }

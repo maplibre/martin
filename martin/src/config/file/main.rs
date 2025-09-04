@@ -20,7 +20,9 @@ use crate::MartinError::{ConfigLoadError, ConfigParseError, ConfigWriteError, No
     feature = "styles",
 ))]
 use crate::config::file::FileConfigEnum;
-use crate::config::file::{UnrecognizedValues, copy_unrecognized_config};
+use crate::config::file::{
+    UnrecognizedKeys, UnrecognizedValues, copy_unrecognized_keys_from_config,
+};
 use crate::source::{TileInfoSources, TileSources};
 use crate::srv::RESERVED_KEYWORDS;
 use crate::utils::{CacheValue, MainCache, OptMainCache, init_aws_lc_tls, parse_base_path};
@@ -79,9 +81,9 @@ pub struct Config {
 
 impl Config {
     /// Apply defaults to the config, and validate if there is a connection string
-    pub fn finalize(&mut self) -> MartinResult<UnrecognizedValues> {
-        let mut res = UnrecognizedValues::new();
-        copy_unrecognized_config(&mut res, "", &self.unrecognized);
+    pub fn finalize(&mut self) -> MartinResult<UnrecognizedKeys> {
+        let mut res = UnrecognizedKeys::new();
+        copy_unrecognized_keys_from_config(&mut res, "", &self.unrecognized);
 
         if let Some(path) = &self.srv.base_path {
             self.srv.base_path = Some(parse_base_path(path)?);

@@ -12,7 +12,7 @@ use tokio::time::timeout;
 use super::{FuncInfoSources, TableInfoSources};
 use crate::MartinResult;
 use crate::config::args::{BoundsCalcType, DEFAULT_BOUNDS_TIMEOUT};
-use crate::config::file::{UnrecognizedValues, copy_unrecognized_config};
+use crate::config::file::{UnrecognizedKeys, copy_unrecognized_keys_from_config};
 use crate::pg::builder::PgBuilder;
 use crate::pg::{PgError, PgResult};
 use crate::source::TileInfoSources;
@@ -128,16 +128,24 @@ impl PgConfig {
         Ok(())
     }
 
-    pub fn finalize(&mut self) -> PgResult<UnrecognizedValues> {
-        let mut res = UnrecognizedValues::new();
+    pub fn finalize(&mut self) -> PgResult<UnrecognizedKeys> {
+        let mut res = UnrecognizedKeys::new();
         if let Some(ref ts) = self.tables {
             for (k, v) in ts {
-                copy_unrecognized_config(&mut res, &format!("tables.{k}."), &v.unrecognized);
+                copy_unrecognized_keys_from_config(
+                    &mut res,
+                    &format!("tables.{k}."),
+                    &v.unrecognized,
+                );
             }
         }
         if let Some(ref fs) = self.functions {
             for (k, v) in fs {
-                copy_unrecognized_config(&mut res, &format!("functions.{k}."), &v.unrecognized);
+                copy_unrecognized_keys_from_config(
+                    &mut res,
+                    &format!("functions.{k}."),
+                    &v.unrecognized,
+                );
             }
         }
         if self.tables.is_none() && self.functions.is_none() && self.auto_publish.is_none() {
