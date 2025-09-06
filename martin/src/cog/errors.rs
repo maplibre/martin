@@ -63,4 +63,7 @@ pub enum CogError {
         "Get full resolution failed for {0}: either a valid ModelPixelScaleTag or ModelPixelScaleTag is required"
     )]
     GetFullResolutionFailed(PathBuf),
+
+    #[error("Failed to create image buffer for {0}: {1}")]
+    ImageBufferCreationFailed(PathBuf, String),
 }
