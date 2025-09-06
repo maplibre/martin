@@ -7,6 +7,7 @@ use crate::config::file::{ConfigExtras, ConfigFileResult, FileConfigEnum, Unreco
 use crate::sprites::SpriteSources;
 
 pub type SpriteConfig = FileConfigEnum<InnerSpriteConfig>;
+
 impl SpriteConfig {
     pub fn resolve(&mut self) -> ConfigFileResult<SpriteSources> {
         let Some(cfg) = self.extract_file_config(None)? else {

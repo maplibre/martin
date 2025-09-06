@@ -70,6 +70,10 @@ pub enum MartinError {
     #[error(transparent)]
     CogError(#[from] crate::cog::CogError),
 
+    #[cfg(feature = "geojson")]
+    #[error(transparent)]
+    GeoJsonError(#[from] crate::geojson::GeoJsonError),
+
     #[error(transparent)]
     ConfigFileError(#[from] crate::config::file::ConfigFileError),
 
