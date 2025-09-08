@@ -228,33 +228,33 @@ mod tests {
     #[rstest]
     // the right half should be transparent
     #[case(
-        "../tests/fixtures/cog/expected/right_padded.png",
+        "right_padded.png",
         (0, 0, 0, None), None, (128, 256), (256, 256)
     )]
     // the down half should be transparent
     #[case(
-        "../tests/fixtures/cog/expected/down_padded.png",
+        "down_padded.png",
         (0, 0, 0, None), None, (256, 128), (256, 256)
     )]
     // the up half should be half-transparent and down half should be transparent
     #[case(
-        "../tests/fixtures/cog/expected/down_padded_with_alpha.png",
+        "down_padded_with_alpha.png",
         (0, 0, 0, Some(128)), None, (256, 128), (256, 256)
     )]
     // the left half should be half-transparent and the right half should be transparent
     #[case(
-        "../tests/fixtures/cog/expected/right_padded_with_alpha.png",
+        "right_padded_with_alpha.png",
         (0, 0, 0, Some(128)), None, (128, 256), (256, 256)
     )]
     // should be all half transparent
     #[case(
-        "../tests/fixtures/cog/expected/not_padded.png",
+        "not_padded.png",
         (0, 0, 0, Some(128)), None, (256, 256), (256, 256)
     )]
     // all padded and with a no_data whose value is 128, and all the component is 128
     // so that should be all transparent
     #[case(
-        "../tests/fixtures/cog/expected/all_transparent.png",
+        "all_transparent.png",
         (128, 128, 128, Some(128)), Some(128), (128, 128), (256, 256)
     )]
     fn test_padded_cases(
@@ -283,7 +283,7 @@ mod tests {
             &PathBuf::from("not_exist.tif"),
         )
         .unwrap();
-        let expected = std::fs::read(expected_file_path).unwrap();
-        assert_eq!(png_bytes, expected);
+
+        insta::assert_binary_snapshot!(expected_file_path, png_bytes);
     }
 }
