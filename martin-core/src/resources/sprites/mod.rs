@@ -1,3 +1,21 @@
+//! Sprite processing and serving for map tile rendering.
+//!
+//! Generates spritesheets from SVG files with support for high-DPI (@2x) and
+//! SDF (Signed Distance Field) sprites for dynamic styling.
+//!
+//! # Usage
+//!
+//! ```rust,no_run
+//! # async fn foo() {
+//! use martin_core::sprites::SpriteSources;
+//! use std::path::PathBuf;
+//!
+//! let mut sources = SpriteSources::default();
+//! sources.add_source("icons".to_string(), PathBuf::from("/path/to/svg/directory"));
+//! let spritesheet = sources.get_sprites("icons@2x", false).await.unwrap();
+//! # }
+//! ```
+
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::path::PathBuf;
@@ -6,8 +24,9 @@ use dashmap::{DashMap, Entry};
 use futures::future::try_join_all;
 use log::{info, warn};
 use serde::{Deserialize, Serialize};
+pub use spreet::Spritesheet;
 use spreet::resvg::usvg::{Options, Tree};
-use spreet::{Sprite, Spritesheet, SpritesheetBuilder, get_svg_input_paths, sprite_name};
+use spreet::{Sprite, SpritesheetBuilder, get_svg_input_paths, sprite_name};
 use tokio::io::AsyncReadExt;
 
 use self::SpriteError::{SpriteInstError, SpriteParsingError, SpriteProcessingError};
@@ -15,17 +34,22 @@ use self::SpriteError::{SpriteInstError, SpriteParsingError, SpriteProcessingErr
 mod error;
 pub use error::SpriteError;
 
+/// Sprite source metadata.
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CatalogSpriteEntry {
+    /// Available sprite image names.
     pub images: Vec<String>,
 }
 
+/// Catalog mapping sprite names to metadata (e.g., "icons" -> [`CatalogSpriteEntry`]).
 pub type SpriteCatalog = HashMap<String, CatalogSpriteEntry>;
 
+/// Thread-safe sprite source manager for serving sprites as `.png` or `.json`.
 #[derive(Debug, Clone, Default)]
 pub struct SpriteSources(DashMap<String, SpriteSource>);
 
 impl SpriteSources {
+    /// Returns a catalog of all sprite sources.
     pub fn get_catalog(&self) -> Result<SpriteCatalog, SpriteError> {
         // TODO: all sprite generation should be pre-cached
         let mut entries = SpriteCatalog::new();
@@ -45,6 +69,8 @@ impl SpriteSources {
         Ok(entries)
     }
 
+    /// Adds a sprite source directory containing SVG files.
+    /// Files are ignored - only directories accepted. Duplicates ignored with warning.
     pub fn add_source(&mut self, id: String, path: PathBuf) {
         let disp_path = path.display();
         if path.is_file() {
@@ -66,8 +92,10 @@ impl SpriteSources {
         }
     }
 
-    /// Given a list of IDs in a format "id1,id2,id3", return a spritesheet with them all.
-    /// `ids` may optionally end with "@2x" to request a high-DPI spritesheet.
+    /// Generates a spritesheet from comma-separated sprite source IDs.
+    ///
+    /// Append "@2x" for high-DPI sprites.
+    /// Set `as_sdf` for SDF sprites.
     pub async fn get_sprites(&self, ids: &str, as_sdf: bool) -> Result<Spritesheet, SpriteError> {
         let (ids, dpi) = if let Some(ids) = ids.strip_suffix("@2x") {
             (ids, 2)
@@ -91,11 +119,13 @@ impl SpriteSources {
     }
 }
 
+/// Sprite source directory.
 #[derive(Clone, Debug)]
 pub struct SpriteSource {
     path: PathBuf,
 }
 
+/// Parses SVG file into sprite.
 async fn parse_sprite(
     name: String,
     path: PathBuf,
@@ -122,6 +152,7 @@ async fn parse_sprite(
     Ok((name, sprite))
 }
 
+/// Generates spritesheet from sprite sources.
 pub async fn get_spritesheet(
     sources: impl Iterator<Item = &SpriteSource>,
     pixel_ratio: u8,
@@ -159,7 +190,7 @@ mod tests {
 
     use super::*;
 
-    #[actix_rt::test]
+    #[tokio::test]
     async fn test_sprites() {
         let mut sprites = SpriteSources::default();
         sprites.add_source(
