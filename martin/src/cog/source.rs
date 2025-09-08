@@ -433,9 +433,9 @@ mod tests {
     #[test]
     fn can_get_model_info() {
         let path = Path::new("../tests/fixtures/cog/rgb_u8.tif");
-        let tif_file = File::open(&path).unwrap();
+        let tif_file = File::open(path).unwrap();
         let mut decoder = Decoder::new(tif_file).unwrap();
-        let model = ModelInfo::decode(&mut decoder, &path);
+        let model = ModelInfo::decode(&mut decoder, path);
 
         assert_yaml_snapshot!(model.pixel_scale, @r"
         - 10
