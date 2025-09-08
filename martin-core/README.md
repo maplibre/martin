@@ -19,7 +19,7 @@ The library providing the basic building blocks for [Martin](https://maplibre.or
 - resources
   - [x] sprites
   - [x] fonts
-  - [ ] styles
+  - [x] styles
 
 ## License
 

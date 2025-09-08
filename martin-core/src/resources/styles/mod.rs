@@ -1,3 +1,18 @@
+//! Style processing and serving for map tile rendering.
+//!
+//! Manages `MapLibre` style JSON files for map rendering clients.
+//!
+//! # Usage
+//!
+//! ```rust,no_run
+//! use martin_core::styles::StyleSources;
+//! use std::path::PathBuf;
+//!
+//! let mut sources = StyleSources::default();
+//! sources.add_style("basic".to_string(), PathBuf::from("/path/to/style.json"));
+//! let path = sources.style_json_path("basic").unwrap();
+//! ```
+
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::path::PathBuf;
@@ -6,28 +21,28 @@ use dashmap::{DashMap, Entry};
 use log::{info, warn};
 use serde::{Deserialize, Serialize};
 
-mod error;
-pub use error::StyleError;
-
+/// Style metadata.
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CatalogStyleEntry {
+    /// Path to the style JSON file.
     pub path: PathBuf,
 }
 
+/// Catalog mapping style names to metadata (e.g., "basic" -> `CatalogStyleEntry`).
 pub type StyleCatalog = HashMap<String, CatalogStyleEntry>;
 
+/// Thread-safe style source manager.
 #[derive(Debug, Clone, Default)]
-#[cfg_attr(test, serde_with::skip_serializing_none, derive(serde::Serialize))]
 pub struct StyleSources(DashMap<String, StyleSource>);
 
+/// Style source file.
 #[derive(Clone, Debug)]
-#[cfg_attr(test, serde_with::skip_serializing_none, derive(serde::Serialize))]
 pub struct StyleSource {
     path: PathBuf,
 }
 
 impl StyleSources {
-    /// retrieve a styles' `PathBuf` from the internal catalog
+    /// Retrieve a style's path from the catalog.
     #[must_use]
     pub fn style_json_path(&self, style_id: &str) -> Option<PathBuf> {
         let style_id = style_id.trim_end_matches(".json").trim();
@@ -35,7 +50,7 @@ impl StyleSources {
         Some(item.path.clone())
     }
 
-    /// an external representation of the internal catalog
+    /// Returns a catalog of all style sources.
     #[must_use]
     pub fn get_catalog(&self) -> StyleCatalog {
         let mut entries = StyleCatalog::new();
@@ -50,7 +65,7 @@ impl StyleSources {
         entries
     }
 
-    /// add a single style file with an id to the internal catalog
+    /// Adds a style JSON file with an ID to the catalog.
     pub fn add_style(&mut self, id: String, path: PathBuf) {
         debug_assert!(path.is_file());
         debug_assert!(!id.is_empty());
@@ -74,13 +89,13 @@ impl StyleSources {
         }
     }
 
-    /// Returns the number of style sources in the catalog
+    /// Returns the number of style sources.
     #[must_use]
     pub fn len(&self) -> usize {
         self.0.len()
     }
 
-    /// Returns if the catalog is empty
+    /// Returns true if the catalog is empty.
     #[must_use]
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()

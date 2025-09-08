@@ -81,10 +81,6 @@ pub enum MartinError {
     #[error(transparent)]
     FontError(#[from] martin_core::fonts::FontError),
 
-    #[cfg(feature = "styles")]
-    #[error(transparent)]
-    StyleError(#[from] crate::styles::StyleError),
-
     #[error(transparent)]
     WebError(#[from] actix_web::Error),
 

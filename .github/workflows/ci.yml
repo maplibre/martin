@@ -46,7 +46,7 @@ jobs:
           -c "exec docker-entrypoint.sh postgres -c ssl=on -c ssl_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem -c ssl_key_file=/etc/ssl/private/ssl-cert-snakeoil.key"
     steps:
       - run: rustup update stable && rustup default stable
-      - uses: taiki-e/install-action@32ab0f399d6a4c27191682bcdc62f89934126624 # v2
+      - uses: taiki-e/install-action@36ef4183e0fbb22f4d6044d1d1f8701c3bd07716 # v2
         # TODO: add cargo-sort once https://github.com/taiki-e/install-action/pull/997 is resolved
         with: { tool: 'just,cargo-binstall' }
       - name: Checkout sources
@@ -99,7 +99,7 @@ jobs:
       - name: Install zig
         uses: mlugg/setup-zig@8d6198c65fb0feaa111df26e6b467fea8345e46f # v2.0.5
         with: { version: '0.15.1' }
-      - uses: taiki-e/install-action@32ab0f399d6a4c27191682bcdc62f89934126624 # v2
+      - uses: taiki-e/install-action@36ef4183e0fbb22f4d6044d1d1f8701c3bd07716 # v2
         with: { tool: cargo-zigbuild }
       - run: rustup target add ${{ matrix.target }}
       - name: Build ${{ matrix.target }}
