@@ -58,7 +58,7 @@ impl Image {
         let (tile_width, tile_height) = decoder.chunk_dimensions();
         let (data_width, data_height) = decoder.chunk_data_dimensions(tile_idx);
 
-        //FIXME: do more research on the not u8 case, is this the right way to do it?
+        // FIXME: do more research on the not u8 case, is this the right way to do it?
         let png_file_bytes = match (decode_result, color_type) {
             (DecodingResult::U8(vec), tiff::ColorType::RGB(_)) => rgb_to_png(
                 vec,
@@ -80,7 +80,7 @@ impl Image {
                 color_type,
                 path.to_path_buf(),
             )),
-            //todo do others in next PRs, a lot of discussion would be needed
+            // todo: do others in next PRs, a lot of discussion would be needed
         }?;
         Ok(png_file_bytes)
     }
@@ -200,7 +200,7 @@ fn encode_rgba_as_png(
 
 #[cfg(test)]
 mod tests {
-    use std::path::PathBuf;
+    use std::path::Path;
 
     use martin_tile_utils::TileCoord;
     use rstest::rstest;
@@ -280,7 +280,7 @@ mod tests {
             (data_width, data_height),
             components_count,
             no_value,
-            &PathBuf::from("not_exist.tif"),
+            Path::new("not_exist.tif"),
         )
         .unwrap();
         let expected = std::fs::read(expected_file_path).unwrap();
