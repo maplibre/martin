@@ -1164,10 +1164,10 @@ lru-cache@^5.1.1:
   dependencies:
     yallist "^3.0.2"
 
-maplibre-gl@^5.7.0:
-  version "5.7.0"
-  resolved "https://registry.yarnpkg.com/maplibre-gl/-/maplibre-gl-5.7.0.tgz#6a2500f40908dec8cf80a92274d5a20a34a2f85d"
-  integrity sha512-Hs+Y0qbR1iZo+07WuSbYUCOOUK45pPRzA3+7Pes8Y9jCcAqZendIMcVP6O99CWD1V/znh3qHgaZOAi3jlVxwcg==
+maplibre-gl@^5.7.1:
+  version "5.7.1"
+  resolved "https://registry.yarnpkg.com/maplibre-gl/-/maplibre-gl-5.7.1.tgz#ad6f2d7f6bfcf4617058360f063b992536980548"
+  integrity sha512-iCOQB6W/EGgQx8aU4SyfU5a5/GR2E+ELF92NMsqYfs3x+vnY+8mARmz4gor6XZHCz3tv19mnotVDRlRTMNKyGw==
   dependencies:
     "@mapbox/geojson-rewind" "^0.5.2"
     "@mapbox/jsonlint-lines-primitives" "^2.0.2"
