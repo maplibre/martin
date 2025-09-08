@@ -241,7 +241,7 @@ mod tests {
 
     #[test]
     fn test_list_contained_files_error() {
-        let result = list_contained_files(&PathBuf::from("/non_existent"), "txt");
+        let result = list_contained_files(Path::new("/non_existent"), "txt");
         assert!(result.is_err());
     }
 }
