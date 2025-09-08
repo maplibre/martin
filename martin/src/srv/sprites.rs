@@ -6,9 +6,8 @@ use actix_web::http::header::ContentType;
 use actix_web::middleware::Compress;
 use actix_web::web::{Data, Path};
 use actix_web::{HttpResponse, Result as ActixResult, route};
-use spreet::Spritesheet;
+use martin_core::sprites::{SpriteError, SpriteSources, Spritesheet};
 
-use crate::sprites::{SpriteError, SpriteSources};
 use crate::srv::SourceIDsRequest;
 use crate::srv::server::map_internal_error;
 
