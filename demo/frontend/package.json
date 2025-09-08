@@ -8,7 +8,7 @@
   "dependencies": {
     "date-fns": "^4.1.0",
     "debounce": "2.2.0",
-    "maplibre-gl": "^5.7.0",
+    "maplibre-gl": "^5.7.1",
     "normalize.css": "8.0.1",
     "react": "19.1.1",
     "react-day-picker": "^9.9.0",
