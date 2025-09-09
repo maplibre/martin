@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use crate::config::file::{ConfigExtras, ConfigFileResult, FileConfigEnum, UnrecognizedValues};
 
 pub type SpriteConfig = FileConfigEnum<InnerSpriteConfig>;
+
 impl SpriteConfig {
     pub fn resolve(&mut self) -> ConfigFileResult<SpriteSources> {
         let Some(cfg) = self.extract_file_config(None)? else {

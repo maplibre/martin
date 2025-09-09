@@ -11,6 +11,8 @@ pub use utils::{IdResolver, MartinError, MartinResult, NO_MAIN_CACHE};
 
 #[cfg(feature = "cog")]
 pub mod cog;
+#[cfg(feature = "geojson")]
+pub mod geojson;
 #[cfg(feature = "mbtiles")]
 pub mod mbtiles;
 #[cfg(feature = "postgres")]
