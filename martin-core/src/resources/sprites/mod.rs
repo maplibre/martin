@@ -186,8 +186,6 @@ pub async fn get_spritesheet(
 
 #[cfg(test)]
 mod tests {
-    use std::path::PathBuf;
-
     use super::*;
 
     #[tokio::test]
