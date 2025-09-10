@@ -30,7 +30,7 @@ pub struct ServerState {
     pub cache: OptMainCache,
     pub tiles: TileSources,
     #[cfg(feature = "sprites")]
-    pub sprites: crate::sprites::SpriteSources,
+    pub sprites: martin_core::sprites::SpriteSources,
     #[cfg(feature = "fonts")]
     pub fonts: martin_core::fonts::FontSources,
     #[cfg(feature = "styles")]
