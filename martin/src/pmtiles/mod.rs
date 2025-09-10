@@ -184,11 +184,11 @@ macro_rules! impl_pmtiles_source {
                     .pmtiles
                     .get_tile(
                         pmtiles::TileCoord::new(xyz.z, xyz.x, xyz.y)
-                            .map_err(|e| PmtilesError::LibError(e))?,
+                            .map_err(|e| PmtilesError::PmtError(e))?,
                     )
                     .await
                     .map_err(|e| {
-                        PmtilesError::LibErrorWithCtx(e, $display_path(&self.path).to_string())
+                        PmtilesError::PmtErrorWithCtx(e, $display_path(&self.path).to_string())
                     })?
                 {
                     Ok(t.to_vec())
@@ -217,7 +217,7 @@ impl_pmtiles_source!(
 impl PmtHttpSource {
     pub async fn new(client: Client, cache: PmtCache, id: String, url: Url) -> MartinResult<Self> {
         let reader = AsyncPmTilesReader::new_with_cached_url(cache, client, url.clone()).await;
-        let reader = reader.map_err(|e| PmtilesError::LibErrorWithCtx(e, url.to_string()))?;
+        let reader = reader.map_err(|e| PmtilesError::PmtErrorWithCtx(e, url.to_string()))?;
 
         Self::new_int(id, url, reader).await
     }
@@ -265,7 +265,7 @@ impl PmtS3Source {
         let reader =
             AsyncPmTilesReader::new_with_cached_client_bucket_and_path(cache, client, bucket, key)
                 .await
-                .map_err(|e| PmtilesError::LibErrorWithCtx(e, url.to_string()))?;
+                .map_err(|e| PmtilesError::PmtErrorWithCtx(e, url.to_string()))?;
 
         Self::new_int(id, url, reader).await
     }
