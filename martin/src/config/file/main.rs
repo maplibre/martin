@@ -146,11 +146,7 @@ impl Config {
         #[cfg(feature = "fonts")]
         let is_empty = is_empty && self.fonts.is_empty();
 
-        if is_empty {
-            Err(NoSources)
-        } else {
-            Ok(res)
-        }
+        if is_empty { Err(NoSources) } else { Ok(res) }
     }
 
     pub async fn resolve(&mut self) -> MartinResult<ServerState> {
