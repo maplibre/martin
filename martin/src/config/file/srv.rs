@@ -67,6 +67,7 @@ mod tests {
     use indoc::indoc;
 
     use super::*;
+    use crate::config::file::UnrecognizedValues;
     use crate::config::file::cors::CorsProperties;
 
     #[test]

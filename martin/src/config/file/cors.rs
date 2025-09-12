@@ -2,7 +2,7 @@ use actix_http::Method;
 use log::info;
 use serde::{Deserialize, Serialize};
 
-use crate::config::file::{ConfigFileError, ConfigFileResult};
+use crate::config::file::{ConfigFileError, ConfigFileResult, UnrecognizedValues};
 use crate::{MartinError, MartinResult};
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
