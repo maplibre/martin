@@ -23,7 +23,7 @@ pub struct CorsProperties {
     #[serde(default)]
     pub origin: Vec<String>,
     pub max_age: Option<usize>,
-    
+
     #[serde(flatten, skip_serializing)]
     pub unrecognized: UnrecognizedValues,
 }
