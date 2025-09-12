@@ -84,13 +84,8 @@ pub struct Config {
 impl Config {
     /// Apply defaults to the config, and validate if there is a connection string
     pub fn finalize(&mut self) -> MartinResult<UnrecognizedKeys> {
-<<<<<<< HEAD:martin/src/config.rs
         let mut res = self.srv.get_unrecognized_keys();
         copy_unrecognized_config(&mut res, "", &self.unrecognized);
-=======
-        let mut res = UnrecognizedKeys::new();
-        copy_unrecognized_keys_from_config(&mut res, "", &self.unrecognized);
->>>>>>> main:martin/src/config/file/main.rs
 
         if let Some(path) = &self.srv.base_path {
             self.srv.base_path = Some(parse_base_path(path)?);
@@ -256,17 +251,6 @@ impl Config {
     }
 }
 
-<<<<<<< HEAD:martin/src/config.rs
-pub fn copy_unrecognized_config(
-    result: &mut UnrecognizedKeys,
-    prefix: &str,
-    unrecognized: &UnrecognizedValues,
-) {
-    result.extend(unrecognized.keys().map(|k| format!("{prefix}{k}")));
-}
-
-=======
->>>>>>> main:martin/src/config/file/main.rs
 /// Read config from a file
 pub fn read_config<'a, M>(file_name: &Path, env: &'a M) -> MartinResult<Config>
 where

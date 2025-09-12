@@ -1,8 +1,8 @@
 use std::vec::IntoIter;
 
 use serde::{Deserialize, Serialize};
-use crate::file_config::ConfigExtras;
-crate::config::UnrecognizedKeys;
+
+use crate::config::file::{ConfigExtras, UnrecognizedKeys};
 
 /// A serde helper to store a boolean as an object.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
