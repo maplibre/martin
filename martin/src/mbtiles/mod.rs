@@ -9,15 +9,13 @@ use martin_tile_utils::{TileCoord, TileInfo};
 use mbtiles::MbtilesPool;
 use tilejson::TileJSON;
 
-use crate::file_config::FileError::{InvalidMetadata, IoError};
-use crate::file_config::FileResult;
+use crate::config::file::ConfigFileError::{InvalidMetadata, IoError};
+use crate::config::file::ConfigFileResult;
 use crate::source::{TileData, TileInfoSource, UrlQuery};
 use crate::{MartinResult, Source};
 
-mod config;
 mod error;
 
-pub use config::MbtConfig;
 pub use error::MbtilesError;
 
 #[derive(Clone)]
@@ -40,7 +38,7 @@ impl Debug for MbtSource {
 }
 
 impl MbtSource {
-    async fn new(id: String, path: PathBuf) -> FileResult<Self> {
+    pub async fn new(id: String, path: PathBuf) -> ConfigFileResult<Self> {
         let mbt = MbtilesPool::open_readonly(&path)
             .await
             .map_err(|e| io::Error::other(format!("{e:?}: Cannot open file {}", path.display())))
@@ -112,8 +110,8 @@ mod tests {
 
     use indoc::indoc;
 
-    use crate::file_config::{FileConfigEnum, FileConfigSource, FileConfigSrc};
-    use crate::mbtiles::MbtConfig;
+    use crate::config::file::mbtiles::MbtConfig;
+    use crate::config::file::{FileConfigEnum, FileConfigSource, FileConfigSrc};
 
     #[test]
     fn parse() {

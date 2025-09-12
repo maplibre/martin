@@ -1,18 +1,12 @@
-mod builder;
-mod config;
-mod config_function;
-mod config_table;
+pub(crate) mod builder;
 mod errors;
 mod pg_source;
 mod pool;
 mod query_functions;
 mod query_tables;
 mod tls;
-mod utils;
+pub(crate) mod utils;
 
-pub use config::{PgCfgPublish, PgCfgPublishFuncs, PgCfgPublishTables, PgConfig, PgSslCerts};
-pub use config_function::FunctionInfo;
-pub use config_table::TableInfo;
 pub use errors::{PgError, PgResult};
 pub use pool::{POOL_SIZE_DEFAULT, PgPool};
 pub use query_functions::query_available_function;
