@@ -12,7 +12,6 @@ use serde::{Deserialize, Serialize};
 use subst::VariableMap;
 
 use crate::MartinError::{ConfigLoadError, ConfigParseError, ConfigWriteError, NoSources};
-use crate::config::file::ConfigExtras;
 #[cfg(any(
     feature = "cog",
     feature = "mbtiles",
@@ -22,7 +21,7 @@ use crate::config::file::ConfigExtras;
 ))]
 use crate::config::file::FileConfigEnum;
 use crate::config::file::{
-    UnrecognizedKeys, UnrecognizedValues, copy_unrecognized_keys_from_config,
+    ConfigExtras, UnrecognizedKeys, UnrecognizedValues, copy_unrecognized_keys_from_config,
 };
 use crate::source::{TileInfoSources, TileSources};
 use crate::srv::RESERVED_KEYWORDS;

@@ -281,13 +281,13 @@ impl ConfigExtras for PgConfig {
         );
 
         match &self.auto_publish {
-          OptBoolObj::NoValue | OptBoolObj::Bool(_) => {}
-          OptBoolObj::Object(o) => res.extend(
-              o.get_unrecognized_keys()
-                  .iter()
-                  .map(|k| format!("auto_publish.{k}"))
-                  .collect::<UnrecognizedKeys>(),
-          ),
+            OptBoolObj::NoValue | OptBoolObj::Bool(_) => {}
+            OptBoolObj::Object(o) => res.extend(
+                o.get_unrecognized_keys()
+                    .iter()
+                    .map(|k| format!("auto_publish.{k}"))
+                    .collect::<UnrecognizedKeys>(),
+            ),
         }
 
         res
