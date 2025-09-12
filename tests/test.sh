@@ -496,7 +496,6 @@ test_metrics "metrics_1"
 kill_process "$MARTIN_PROC_ID" Martin
 test_log_has_str "$LOG_FILE" 'WARN  martin::pg::query_tables] Table public.table_source has no spatial index on column geom'
 test_log_has_str "$LOG_FILE" 'WARN  martin::pg::query_tables] Table public.table_source_geog has no spatial index on column geog'
-test_log_has_str "$LOG_FILE" 'WARN  martin::fonts] Ignoring duplicate font Overpass Mono Regular from tests'
 test_log_has_str "$LOG_FILE" 'WARN  martin_core::resources::fonts] Ignoring duplicate font Overpass Mono Regular from tests'
 test_log_has_str "$LOG_FILE" "WARN  martin::config] Ignoring unrecognized configuration key 'warning'. Please check your configuration file for typos."
 test_log_has_str "$LOG_FILE" "WARN  martin::config] Ignoring unrecognized configuration key 'observability.warning'. Please check your configuration file for typos."
