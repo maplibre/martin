@@ -55,7 +55,7 @@ async fn function_source_schemas() {
     "});
     let sources = mock_sources(cfg).await.0.tiles;
     assert_yaml_snapshot!(sources.get_catalog(), @r"
-    function_Mixed_Name:
+    fnc_Mixed_Name:
       content_type: application/x-protobuf
       description: a function source with MixedCase name
     ");

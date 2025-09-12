@@ -59,7 +59,7 @@ postgres:
       extent: 9000
     functions:
       warning: 'due to not expected'
-      from_schemas: MixedCase # function is function_Mixed_Namen
+      from_schemas: MixedCase # function is fnc_Mixed_Namen
 
   # Associative arrays of table sources
   tables:

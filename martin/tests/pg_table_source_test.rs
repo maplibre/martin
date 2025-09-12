@@ -35,7 +35,7 @@ async fn table_source() {
     bigint_table:
       content_type: application/x-protobuf
       description: autodetect.bigint_table.geom
-    function_Mixed_Name:
+    fnc_Mixed_Name:
       content_type: application/x-protobuf
       description: a function source with MixedCase name
     function_null:

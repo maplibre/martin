@@ -1,11 +1,11 @@
-DROP FUNCTION IF EXISTS "MixedCase"."function_Mixed_Name";
+DROP FUNCTION IF EXISTS "MixedCase"."fnc_Mixed_Name";
 
-CREATE OR REPLACE FUNCTION "MixedCase"."function_Mixed_Name"(
+CREATE OR REPLACE FUNCTION "MixedCase"."fnc_Mixed_Name"(
     "Z" integer, x integer, y integer
 )
 RETURNS TABLE ("mVt" bytea, key text) AS $$
   SELECT mvt, md5(mvt) as key FROM (
-    SELECT ST_AsMVT(tile, 'MixedCase.function_Mixed_Name', 4096, 'geom') as mvt FROM (
+    SELECT ST_AsMVT(tile, 'MixedCase.fnc_Mixed_Name', 4096, 'geom') as mvt FROM (
       SELECT
         "Gid",
         ST_AsMVTGeom(
@@ -18,12 +18,12 @@ RETURNS TABLE ("mVt" bytea, key text) AS $$
 $$ LANGUAGE sql IMMUTABLE STRICT PARALLEL SAFE;
 
 DO $do$ BEGIN
-    EXECUTE 'COMMENT ON FUNCTION "MixedCase"."function_Mixed_Name" IS $tj$' || $$
+    EXECUTE 'COMMENT ON FUNCTION "MixedCase"."fnc_Mixed_Name" IS $tj$' || $$
     {
         "description": "a function source with MixedCase name",
         "vector_layers": [
             {
-                "id": "MixedCase.function_Mixed_Name",
+                "id": "MixedCase.fnc_Mixed_Name",
                 "fields": {
                     "TABLE": "",
                     "Geom": ""

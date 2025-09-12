@@ -10,7 +10,7 @@
       },
       "properties": {
         "Gid": 1,
-        "source_mvt_layer": "MixedCase.function_Mixed_Name"
+        "source_mvt_layer": "MixedCase.fnc_Mixed_Name"
       },
       "type": "Feature"
     },
@@ -24,7 +24,7 @@
       },
       "properties": {
         "Gid": 3,
-        "source_mvt_layer": "MixedCase.function_Mixed_Name"
+        "source_mvt_layer": "MixedCase.fnc_Mixed_Name"
       },
       "type": "Feature"
     },
@@ -38,7 +38,7 @@
       },
       "properties": {
         "Gid": 2,
-        "source_mvt_layer": "MixedCase.function_Mixed_Name"
+        "source_mvt_layer": "MixedCase.fnc_Mixed_Name"
       },
       "type": "Feature"
     }

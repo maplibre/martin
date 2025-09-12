@@ -336,7 +336,7 @@ test_pbf fnc_zxy_6_57_29          function_zxy/6/57/29
 test_pbf fnc_zxy2_6_57_29         function_zxy2/6/57/29
 test_pbf fnc_zxy_query_6_57_29    function_zxy_query/6/57/29
 test_pbf fnc_zxy_row_6_57_29      function_zxy_row/6/57/29
-test_pbf fnc_zxy_row2_6_57_29     function_Mixed_Name/6/57/29
+test_pbf fnc_zxy_row2_6_57_29     fnc_Mixed_Name/6/57/29
 test_pbf fnc_zxy_row_key_6_57_29  function_zxy_row_key/6/57/29
 
 >&2 echo "***** Test server response for table source with different SRID *****"
@@ -381,7 +381,7 @@ test_pbf antimeridian_4_0_5 antimeridian/4/0/5
 
 >&2 echo "***** Test server response for comments *****"
 test_jsn tbl_comment              MixPoints
-test_jsn fnc_comment              function_Mixed_Name
+test_jsn fnc_comment              fnc_Mixed_Name
 
 kill_process "$MARTIN_PROC_ID" Martin
 
@@ -489,7 +489,7 @@ test_font font_3      font/Overpass%20Mono%20Regular,Overpass%20Mono%20Light/0-2
 
 # Test comments override
 test_jsn tbl_comment_cfg  MixPoints
-test_jsn fnc_comment_cfg  function_Mixed_Name
+test_jsn fnc_comment_cfg  fnc_Mixed_Name
 
 test_metrics "metrics_1"
 
