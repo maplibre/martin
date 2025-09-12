@@ -1,12 +1,12 @@
 use std::collections::BTreeMap;
 
 use log::warn;
+use martin_core::sprites::SpriteSources;
 use serde::{Deserialize, Serialize};
 
 use crate::config::file::{
     ConfigExtras, ConfigFileResult, FileConfigEnum, UnrecognizedKeys, UnrecognizedValues,
 };
-use crate::sprites::SpriteSources;
 
 pub type SpriteConfig = FileConfigEnum<InnerSpriteConfig>;
 impl SpriteConfig {

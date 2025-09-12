@@ -1,0 +1,14 @@
+---
+source: martin-core/src/resources/sprites/mod.rs
+expression: sprites.get_index()
+---
+{
+  "bicycle": {
+    "height": 36,
+    "pixelRatio": 2,
+    "width": 36,
+    "x": 0,
+    "y": 0,
+    "sdf": true
+  }
+}
