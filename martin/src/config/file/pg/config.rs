@@ -12,8 +12,9 @@ use tokio::time::timeout;
 use super::{FuncInfoSources, TableInfoSources};
 use crate::MartinResult;
 use crate::config::args::{BoundsCalcType, DEFAULT_BOUNDS_TIMEOUT};
-use crate::config::file::{UnrecognizedKeys, copy_unrecognized_keys_from_config};
-use crate::file_config::ConfigExtras;
+use crate::config::file::{
+    ConfigExtras, UnrecognizedKeys, UnrecognizedValues, copy_unrecognized_keys_from_config,
+};
 use crate::pg::builder::PgBuilder;
 use crate::pg::{PgError, PgResult};
 use crate::source::TileInfoSources;
@@ -97,20 +98,24 @@ impl ConfigExtras for PgCfgPublish {
             .keys()
             .cloned()
             .collect::<UnrecognizedKeys>();
-        keys.extend(
-            self.functions
-                .get_unrecognized_keys()
-                .iter()
-                .map(|k| format!("functions.{k}"))
-                .collect::<UnrecognizedKeys>(),
-        );
-        keys.extend(
-            self.tables
-                .get_unrecognized_keys()
-                .iter()
-                .map(|k| format!("tables.{k}"))
-                .collect::<UnrecognizedKeys>(),
-        );
+        match &self.functions {
+            OptBoolObj::NoValue | OptBoolObj::Bool(_) => {}
+            OptBoolObj::Object(o) => keys.extend(
+                o.get_unrecognized_keys()
+                    .iter()
+                    .map(|k| format!("functions.{k}"))
+                    .collect::<UnrecognizedKeys>(),
+            ),
+        }
+        match &self.tables {
+            OptBoolObj::NoValue | OptBoolObj::Bool(_) => {}
+            OptBoolObj::Object(o) => keys.extend(
+                o.get_unrecognized_keys()
+                    .iter()
+                    .map(|k| format!("tables.{k}"))
+                    .collect::<UnrecognizedKeys>(),
+            ),
+        }
         keys
     }
 }
@@ -179,7 +184,7 @@ impl PgConfig {
         Ok(())
     }
 
-    pub fn finalize(&mut self) -> PgResult<UnrecognizedKeys> {
+    pub fn finalize(&mut self, prefix: &str) -> PgResult<UnrecognizedKeys> {
         let mut res = UnrecognizedKeys::new();
         if let Some(ref ts) = self.tables {
             for (k, v) in ts {
@@ -251,12 +256,20 @@ impl ConfigExtras for PgConfig {
 
         if let Some(ref ts) = self.tables {
             for (k, v) in ts {
-                copy_unrecognized_config(&mut res, &format!("tables.{k}."), &v.unrecognized);
+                copy_unrecognized_keys_from_config(
+                    &mut res,
+                    &format!("tables.{k}."),
+                    &v.unrecognized,
+                );
             }
         }
         if let Some(ref fs) = self.functions {
             for (k, v) in fs {
-                copy_unrecognized_config(&mut res, &format!("functions.{k}."), &v.unrecognized);
+                copy_unrecognized_keys_from_config(
+                    &mut res,
+                    &format!("functions.{k}."),
+                    &v.unrecognized,
+                );
             }
         }
 
@@ -267,14 +280,31 @@ impl ConfigExtras for PgConfig {
                 .map(|k| format!("ssl_certificates.{k}")),
         );
 
-        res.extend(
-            self.auto_publish
-                .get_unrecognized_keys()
-                .iter()
-                .map(|k| format!("auto_publish.{k}")),
-        );
+        match &self.auto_publish {
+          OptBoolObj::NoValue | OptBoolObj::Bool(_) => {}
+          OptBoolObj::Object(o) => res.extend(
+              o.get_unrecognized_keys()
+                  .iter()
+                  .map(|k| format!("auto_publish.{k}"))
+                  .collect::<UnrecognizedKeys>(),
+          ),
+        }
 
         res
+    }
+}
+
+async fn on_slow<T, S: FnOnce()>(
+    future: impl Future<Output = T>,
+    duration: Duration,
+    fn_on_slow: S,
+) -> T {
+    pin_mut!(future);
+    if let Ok(result) = timeout(duration, &mut future).await {
+        result
+    } else {
+        fn_on_slow();
+        future.await
     }
 }
 
@@ -291,20 +321,6 @@ mod tests {
     use super::*;
     use crate::config::file::pg::{FunctionInfo, TableInfo};
     use crate::config::file::{Config, parse_config};
-
-    async fn on_slow<T, S: FnOnce()>(
-        future: impl Future<Output = T>,
-        duration: Duration,
-        fn_on_slow: S,
-    ) -> T {
-        pin_mut!(future);
-        if let Ok(result) = timeout(duration, &mut future).await {
-            result
-        } else {
-            fn_on_slow();
-            future.await
-        }
-    }
 
     pub fn parse_cfg(yaml: &str) -> Config {
         parse_config(yaml, &FauxEnv::default(), Path::new("<test>")).unwrap()

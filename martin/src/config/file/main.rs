@@ -1,4 +1,3 @@
-use std::collections::{HashMap, HashSet};
 use std::ffi::OsStr;
 use std::fs::File;
 use std::io::prelude::*;
@@ -13,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use subst::VariableMap;
 
 use crate::MartinError::{ConfigLoadError, ConfigParseError, ConfigWriteError, NoSources};
-use crate::file_config::ConfigExtras;
+use crate::config::file::ConfigExtras;
 #[cfg(any(
     feature = "cog",
     feature = "mbtiles",
@@ -84,8 +83,8 @@ pub struct Config {
 impl Config {
     /// Apply defaults to the config, and validate if there is a connection string
     pub fn finalize(&mut self) -> MartinResult<UnrecognizedKeys> {
-        let mut res = self.srv.get_unrecognized_keys();
-        copy_unrecognized_config(&mut res, "", &self.unrecognized);
+        let mut unrecognized_keys = self.srv.get_unrecognized_keys();
+        copy_unrecognized_keys_from_config(&mut unrecognized_keys, "", &self.unrecognized);
 
         if let Some(path) = &self.srv.base_path {
             self.srv.base_path = Some(parse_base_path(path)?);

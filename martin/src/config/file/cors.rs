@@ -3,7 +3,7 @@ use log::info;
 use serde::{Deserialize, Serialize};
 
 use crate::config::file::{
-    ConfigFileError, ConfigFileResult, UnrecognizedKeys, UnrecognizedValues,
+    ConfigExtras, ConfigFileError, ConfigFileResult, UnrecognizedKeys, UnrecognizedValues
 };
 use crate::{MartinError, MartinResult};
 

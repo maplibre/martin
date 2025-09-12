@@ -3,12 +3,12 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
-use super::config::file::cors::CorsConfig;
-use crate::config::UnrecognizedKeys;
-#[cfg(feature = "metrics")]
-use crate::config::UnrecognizedValues;
 use crate::config::args::PreferredEncoding;
 use crate::config::file::ConfigExtras;
+use crate::config::file::UnrecognizedKeys;
+#[cfg(feature = "metrics")]
+use crate::config::file::UnrecognizedValues;
+use crate::config::file::cors::CorsConfig;
 
 pub const KEEP_ALIVE_DEFAULT: u64 = 75;
 pub const LISTEN_ADDRESSES_DEFAULT: &str = "0.0.0.0:3000";
@@ -113,7 +113,6 @@ mod tests {
     use super::*;
     use crate::config::file::UnrecognizedValues;
     use crate::config::file::cors::CorsProperties;
-    use crate::srv::cors::CorsProperties;
 
     #[test]
     fn parse_config() {
