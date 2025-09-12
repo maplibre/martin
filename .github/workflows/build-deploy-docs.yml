@@ -29,7 +29,7 @@ jobs:
           file-path: './README.md'
           config-file: '.github/files/markdown.links.config.json'
 
-      - uses: taiki-e/install-action@1dd4d60a583436c5738af3d204f159f44d92f704 # v2.61.0
+      - uses: taiki-e/install-action@01548646b508174da6dd38eafe7a5909d7cfe11d # v2.61.2
         with: { tool: 'mdbook,mdbook-alerts' }
 
       - run: mdbook build docs
