@@ -75,7 +75,7 @@ postgres:
       bigint_table:
         content_type: application/x-protobuf
         description: autodetect.bigint_table.geom
-      fnc_Mixed_Name:
+      function_Mixed_Name:
         content_type: application/x-protobuf
         description: a function source with MixedCase name
       function_null:
@@ -525,7 +525,7 @@ postgres:
     let req = test_get("/function_zxy_row/6/38/20");
     assert!(call_service(&app, req).await.status().is_success());
 
-    let req = test_get("/fnc_Mixed_Name/6/38/20");
+    let req = test_get("/function_Mixed_Name/6/38/20");
     assert!(call_service(&app, req).await.status().is_success());
 
     let req = test_get("/function_zxy_row_key/6/38/20");
@@ -832,7 +832,7 @@ postgres:
     let response = call_service(&app, req).await;
     assert_response(response).await;
 
-    let req = test_get("/fnc_Mixed_Name");
+    let req = test_get("/function_Mixed_Name");
     let response = call_service(&app, req).await;
     assert_response(response).await;
 
