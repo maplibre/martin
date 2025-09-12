@@ -3674,7 +3674,7 @@ dependencies = [
  "serde_json",
  "serde_with",
  "serde_yaml",
- "static-files 0.2.5",
+ "static-files 0.3.1",
  "subst",
  "tempfile",
  "testcontainers-modules",
