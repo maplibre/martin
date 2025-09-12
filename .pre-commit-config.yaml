@@ -54,9 +54,9 @@ repos:
         files: \.sql$
   # NPM hooks for JavaScript/TypeScript formatting and linting
   - repo: https://github.com/biomejs/pre-commit
-    rev: "v2.2.3"  # Use the sha / tag you want to point at
+    rev: "v2.2.4"  # Use the sha / tag you want to point at
     hooks:
       - id: biome-check
-        additional_dependencies: [ "@biomejs/biome@2.2.2" ]
+        additional_dependencies: [ "@biomejs/biome@2.2.4" ]
       - id: biome-format
-        additional_dependencies: [ "@biomejs/biome@2.2.2" ]
+        additional_dependencies: [ "@biomejs/biome@2.2.4" ]
