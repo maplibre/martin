@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::time::Duration;
 
 use clap::ValueEnum;
@@ -10,6 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use super::connections::Arguments;
 use super::connections::State::{Ignore, Take};
+use crate::config::file::UnrecognizedValues;
 use crate::config::file::pg::{PgConfig, PgSslCerts};
 use crate::pg::POOL_SIZE_DEFAULT;
 
@@ -78,7 +78,7 @@ impl PgArgs {
                 auto_publish: OptBoolObj::NoValue,
                 tables: None,
                 functions: None,
-                unrecognized: HashMap::default(),
+                unrecognized: UnrecognizedValues::default(),
             })
             .collect();
 
@@ -202,7 +202,7 @@ impl PgArgs {
             ssl_cert: Self::parse_env_var(env, "PGSSLCERT", "ssl certificate"),
             ssl_key: Self::parse_env_var(env, "PGSSLKEY", "ssl key for certificate"),
             ssl_root_cert: self.ca_root_file.clone(),
-            unrecognized: HashMap::default(),
+            unrecognized: UnrecognizedValues::default(),
         };
         if result.ssl_root_cert.is_none() {
             result.ssl_root_cert = Self::parse_env_var(env, "PGSSLROOTCERT", "root certificate(s)");
@@ -232,7 +232,6 @@ fn is_postgresql_string(s: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
     use std::ffi::OsString;
     use std::path::PathBuf;
 
@@ -342,7 +341,7 @@ mod tests {
                     ssl_cert: Some(PathBuf::from("cert")),
                     ssl_key: Some(PathBuf::from("key")),
                     ssl_root_cert: Some(PathBuf::from("root")),
-                    unrecognized: HashMap::default()
+                    unrecognized: UnrecognizedValues::default()
                 },
                 ..Default::default()
             })

@@ -3,7 +3,7 @@ use log::info;
 use serde::{Deserialize, Serialize};
 
 use crate::config::file::{
-    ConfigExtras, ConfigFileError, ConfigFileResult, UnrecognizedKeys, UnrecognizedValues
+    ConfigExtras, ConfigFileError, ConfigFileResult, UnrecognizedKeys, UnrecognizedValues,
 };
 use crate::{MartinError, MartinResult};
 
@@ -117,7 +117,6 @@ impl CorsConfig {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
 
     use indoc::indoc;
 
@@ -225,7 +224,7 @@ mod tests {
         let properties = CorsProperties {
             origin: vec![],
             max_age: Some(3600),
-            unrecognized: HashMap::default(),
+            unrecognized: UnrecognizedValues::default(),
         };
 
         assert!(matches!(
@@ -239,7 +238,7 @@ mod tests {
         let properties = CorsProperties {
             origin: vec!["https://example.org".to_string()],
             max_age: Some(3600),
-            unrecognized: HashMap::default(),
+            unrecognized: UnrecognizedValues::default(),
         };
         assert!(properties.validate().is_ok());
 
