@@ -23,6 +23,9 @@ pub struct CorsProperties {
     #[serde(default)]
     pub origin: Vec<String>,
     pub max_age: Option<usize>,
+    
+    #[serde(flatten, skip_serializing)]
+    pub unrecognized: UnrecognizedValues,
 }
 
 impl Default for CorsProperties {
@@ -30,6 +33,7 @@ impl Default for CorsProperties {
         Self {
             origin: vec!["*".to_string()],
             max_age: None,
+            unrecognized: UnrecognizedValues::default(),
         }
     }
 }
@@ -211,6 +215,7 @@ mod tests {
         let properties = CorsProperties {
             origin: vec![],
             max_age: Some(3600),
+            unrecognized: UnrecognizedValues::default(),
         };
 
         assert!(matches!(
@@ -224,6 +229,7 @@ mod tests {
         let properties = CorsProperties {
             origin: vec!["https://example.org".to_string()],
             max_age: Some(3600),
+            unrecognized: UnrecognizedValues::default(),
         };
         assert!(properties.validate().is_ok());
 

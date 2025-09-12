@@ -5,6 +5,8 @@ use serde::{Deserialize, Serialize};
 
 use super::cors::CorsConfig;
 use crate::config::args::PreferredEncoding;
+#[cfg(feature = "metrics")]
+use crate::config::file::{ConfigExtras, UnrecognizedKeys, UnrecognizedValues};
 
 pub const KEEP_ALIVE_DEFAULT: u64 = 75;
 pub const LISTEN_ADDRESSES_DEFAULT: &str = "0.0.0.0:3000";
@@ -32,6 +34,9 @@ pub struct SrvConfig {
 pub struct ObservabilityConfig {
     /// Configure metrics reported under `/_/metrics`
     pub metrics: Option<MetricsConfig>,
+
+    #[serde(flatten, skip_serializing)]
+    pub unrecognized: UnrecognizedValues,
 }
 
 /// Configure metrics reported under `/_/metrics`
@@ -46,6 +51,15 @@ pub struct MetricsConfig {
     /// ```
     #[serde(skip_serializing_if = "HashMap::is_empty")]
     pub add_labels: HashMap<String, String>,
+
+    #[serde(flatten, skip_serializing)]
+    pub unrecognized: UnrecognizedValues,
+}
+#[cfg(feature = "metrics")]
+impl ConfigExtras for MetricsConfig {
+    fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
+        self.unrecognized.keys().cloned().collect()
+    }
 }
 
 #[cfg(test)]
@@ -160,6 +174,7 @@ mod tests {
                         "https://example.org".to_string()
                     ],
                     max_age: None,
+                    unrecognized: UnrecognizedValues::default()
                 })),
                 ..Default::default()
             }
