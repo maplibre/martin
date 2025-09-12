@@ -36,7 +36,7 @@ VALUES ('point_1', '0101000020E6100000EC3A2806EDDA61401C2041E87DDA2740'),
 INSERT INTO schema_b.table_name_existing_two_schemas (b_info, b_geom)
 VALUES ('polygon_1', GEOMFROMEWKT('SRID=4326;POLYGON((30 10, 40 40, 20 40, 10 20, 30 10))'));
 
-CREATE INDEX ON schema_a.table_name_existing_two_schemas USING gist (geom);
+CREATE INDEX ON schema_a.table_name_existing_two_schemas USING gist (a_geom);
 CLUSTER table_name_existing_two_schemas_geom_idx ON schema_a.table_name_existing_two_schemas;
-CREATE INDEX ON schema_b.table_name_existing_two_schemas USING gist (geom);
+CREATE INDEX ON schema_b.table_name_existing_two_schemas USING gist (b_geom);
 CLUSTER table_name_existing_two_schemas_geom_idx ON schema_b.table_name_existing_two_schemas;
