@@ -1,0 +1,23 @@
+{
+  "bounds": [
+    142.84094409430955,
+    11.926741846036798,
+    142.84143360001997,
+    11.927370348564835
+  ],
+  "description": "schema_a.view_name_existing_two_schemas.geom",
+  "name": "view_name_existing_two_schemas",
+  "tilejson": "3.0.0",
+  "tiles": [
+    "http://localhost:3111/view_name_existing_two_schemas/{z}/{x}/{y}"
+  ],
+  "vector_layers": [
+    {
+      "fields": {
+        "id": "int4",
+        "name": "text"
+      },
+      "id": "view_name_existing_two_schemas"
+    }
+  ]
+}

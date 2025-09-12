@@ -383,6 +383,16 @@ test_pbf antimeridian_4_0_5 antimeridian/4/0/5
 test_jsn tbl_comment              MixPoints
 test_jsn fnc_comment              function_Mixed_Name
 
+>&2 echo "***** Test server response for the same name in different schemas *****"
+test_jsn same_name_different_schema_table1       table_name_existing_two_schemas
+test_pbf same_name_different_schema_table1_0_0_0 table_name_existing_two_schemas/0/0/0
+test_jsn same_name_different_schema_table2       table_name_existing_two_schemas.1
+test_pbf same_name_different_schema_table2_0_0_0 table_name_existing_two_schemas.1/0/0/0
+test_jsn same_name_different_schema_view1        view_name_existing_two_schemas
+test_pbf same_name_different_schema_view1_0_0_0  view_name_existing_two_schemas/0/0/0
+test_jsn same_name_different_schema_view2        view_name_existing_two_schemas.1
+test_pbf same_name_different_schema_view2_0_0_0  view_name_existing_two_schemas.1/0/0/0
+
 kill_process "$MARTIN_PROC_ID" Martin
 
 test_log_has_str "$LOG_FILE" 'WARN  martin::pg::query_tables] Table public.table_source has no spatial index on column geom'
@@ -392,6 +402,8 @@ test_log_has_str "$LOG_FILE" 'was renamed to `stamen_toner__raster_CC-BY-ODbL_z3
 test_log_has_str "$LOG_FILE" 'was renamed to `table_source_multiple_geom.1`'
 test_log_has_str "$LOG_FILE" 'was renamed to `-function.withweired---_-characters`'
 test_log_has_str "$LOG_FILE" 'was renamed to `.-Points-----------quote`'
+test_log_has_str "$LOG_FILE" 'was renamed to `table_name_existing_two_schemas.1`'
+test_log_has_str "$LOG_FILE" 'was renamed to `view_name_existing_two_schemas.1`'
 validate_log "$LOG_FILE"
 remove_line "${TEST_OUT_DIR}/save_config.yaml" " connection_string: "
 
