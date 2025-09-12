@@ -11,9 +11,9 @@ use url::Url;
 use crate::config::file::ConfigFileError::{
     InvalidFilePath, InvalidSourceFilePath, InvalidSourceUrl, IoError,
 };
-use crate::source::TileInfoSources;
+use crate::source::{TileInfoSources, TileInfoSource};
 use crate::utils::{IdResolver, OptMainCache};
-use crate::{MartinError, MartinResult, TileInfoSource};
+use crate::{MartinError, MartinResult};
 
 pub type ConfigFileResult<T> = Result<T, ConfigFileError>;
 

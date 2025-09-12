@@ -82,8 +82,8 @@ pub struct Config {
 impl Config {
     /// Apply defaults to the config, and validate if there is a connection string
     pub fn finalize(&mut self) -> MartinResult<UnrecognizedKeys> {
-        let mut unrecognized_keys = self.srv.get_unrecognized_keys();
-        copy_unrecognized_keys_from_config(&mut unrecognized_keys, "", &self.unrecognized);
+        let mut res = self.srv.get_unrecognized_keys();
+        copy_unrecognized_keys_from_config(&mut res, "", &self.unrecognized);
 
         if let Some(path) = &self.srv.base_path {
             self.srv.base_path = Some(parse_base_path(path)?);
@@ -96,28 +96,28 @@ impl Config {
         };
         #[cfg(feature = "postgres")]
         for pg in self.postgres.iter_mut() {
-            unrecognized_keys.extend(pg.finalize(pg_prefix)?);
+            res.extend(pg.finalize(pg_prefix)?);
         }
 
         #[cfg(feature = "pmtiles")]
-        unrecognized_keys.extend(self.pmtiles.finalize("pmtiles."));
+        res.extend(self.pmtiles.finalize("pmtiles."));
 
         #[cfg(feature = "mbtiles")]
-        unrecognized_keys.extend(self.mbtiles.finalize("mbtiles."));
+        res.extend(self.mbtiles.finalize("mbtiles."));
 
         #[cfg(feature = "cog")]
-        unrecognized_keys.extend(self.cog.finalize("cog."));
+        res.extend(self.cog.finalize("cog."));
 
         #[cfg(feature = "sprites")]
-        unrecognized_keys.extend(self.sprites.finalize("sprites."));
+        res.extend(self.sprites.finalize("sprites."));
 
         #[cfg(feature = "styles")]
-        unrecognized_keys.extend(self.styles.finalize("styles."));
+        res.extend(self.styles.finalize("styles."));
 
         // TODO: support for unrecognized fonts?
         // res.extend(self.fonts.finalize("fonts.")?);
 
-        for key in &unrecognized_keys {
+        for key in &res {
             warn!(
                 "Ignoring unrecognized configuration key '{key}'. Please check your configuration file for typos."
             );
@@ -149,7 +149,7 @@ impl Config {
         if is_empty {
             Err(NoSources)
         } else {
-            Ok(unrecognized_keys)
+            Ok(res)
         }
     }
 
