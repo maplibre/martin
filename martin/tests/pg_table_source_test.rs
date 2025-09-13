@@ -132,7 +132,7 @@ async fn table_source() {
     geometry_column: geog
     bounds:
       - -2
-      - -1
+      - 0
       - 142.84131509869133
       - 45
     geometry_type: Geometry
