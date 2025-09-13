@@ -83,6 +83,12 @@ async fn table_source() {
     points3857:
       content_type: application/x-protobuf
       description: public.points3857.geom
+    table_name_existing_two_schemas:
+      content_type: application/x-protobuf
+      description: schema_a.table_name_existing_two_schemas.a_geom
+    table_name_existing_two_schemas.1:
+      content_type: application/x-protobuf
+      description: schema_b.table_name_existing_two_schemas.b_geom
     table_source:
       content_type: application/x-protobuf
     table_source_geog:
@@ -93,6 +99,12 @@ async fn table_source() {
     table_source_multiple_geom.1:
       content_type: application/x-protobuf
       description: public.table_source_multiple_geom.geom2
+    view_name_existing_two_schemas:
+      content_type: application/x-protobuf
+      description: schema_a.view_name_existing_two_schemas.a_geom
+    view_name_existing_two_schemas.1:
+      content_type: application/x-protobuf
+      description: schema_b.view_name_existing_two_schemas.b_geom
     "#);
     });
 
