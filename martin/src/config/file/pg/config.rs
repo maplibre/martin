@@ -109,6 +109,7 @@ pub struct PgCfgPublishTables {
     #[serde(flatten, skip_serializing)]
     pub unrecognized: UnrecognizedValues,
 }
+
 impl ConfigExtras for PgCfgPublishTables {
     fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
         self.unrecognized.keys().cloned().collect()
@@ -127,6 +128,7 @@ pub struct PgCfgPublishFuncs {
     #[serde(flatten, skip_serializing)]
     pub unrecognized: UnrecognizedValues,
 }
+
 impl ConfigExtras for PgCfgPublishFuncs {
     fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
         self.unrecognized.keys().cloned().collect()
