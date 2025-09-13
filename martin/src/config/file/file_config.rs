@@ -47,6 +47,7 @@ pub trait ConfigExtras: Clone + Debug + Default + PartialEq + Send {
         Ok(())
     }
 
+    /// Iterates over all unrecognized (present, but not expected) keys in the configuration
     fn get_unrecognized_keys(&self) -> UnrecognizedKeys;
 }
 

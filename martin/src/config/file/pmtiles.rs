@@ -29,7 +29,7 @@ pub struct PmtConfig {
     /// If `None` (the default), this will look at `AWS_SKIP_CREDENTIALS` and `AWS_NO_CREDENTIALS` or default to `false`.
     #[serde(default, alias = "aws_skip_credentials")]
     pub skip_credentials: Option<bool>,
-    #[serde(flatten)]
+    #[serde(flatten, skip_serializing)]
     pub unrecognized: UnrecognizedValues,
 
     //

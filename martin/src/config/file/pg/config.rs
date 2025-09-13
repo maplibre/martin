@@ -12,7 +12,9 @@ use tokio::time::timeout;
 use super::{FuncInfoSources, TableInfoSources};
 use crate::MartinResult;
 use crate::config::args::{BoundsCalcType, DEFAULT_BOUNDS_TIMEOUT};
-use crate::config::file::{UnrecognizedKeys, copy_unrecognized_keys_from_config};
+use crate::config::file::{
+    ConfigExtras, UnrecognizedKeys, UnrecognizedValues, copy_unrecognized_keys_from_config,
+};
 use crate::pg::builder::PgBuilder;
 use crate::pg::{PgError, PgResult};
 use crate::source::TileInfoSources;
@@ -35,6 +37,9 @@ pub struct PgSslCerts {
     /// Same as PGSSLROOTCERT
     /// ([docs](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNECT-SSLROOTCERT))
     pub ssl_root_cert: Option<std::path::PathBuf>,
+
+    #[serde(flatten, skip_serializing)]
+    pub unrecognized: UnrecognizedValues,
 }
 
 #[serde_with::skip_serializing_none]
@@ -67,6 +72,9 @@ pub struct PgConfig {
     pub tables: Option<TableInfoSources>,
     /// Associative arrays of function sources
     pub functions: Option<FuncInfoSources>,
+
+    #[serde(flatten, skip_serializing)]
+    pub unrecognized: UnrecognizedValues,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -97,6 +105,15 @@ pub struct PgCfgPublishTables {
     pub clip_geom: Option<bool>,
     pub buffer: Option<u32>,
     pub extent: Option<u32>,
+
+    #[serde(flatten, skip_serializing)]
+    pub unrecognized: UnrecognizedValues,
+}
+
+impl ConfigExtras for PgCfgPublishTables {
+    fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
+        self.unrecognized.keys().cloned().collect()
+    }
 }
 
 #[serde_with::skip_serializing_none]
@@ -107,6 +124,15 @@ pub struct PgCfgPublishFuncs {
     pub from_schemas: OptOneMany<String>,
     #[serde(alias = "id_format")]
     pub source_id_format: Option<String>,
+
+    #[serde(flatten, skip_serializing)]
+    pub unrecognized: UnrecognizedValues,
+}
+
+impl ConfigExtras for PgCfgPublishFuncs {
+    fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
+        self.unrecognized.keys().cloned().collect()
+    }
 }
 
 impl PgConfig {
