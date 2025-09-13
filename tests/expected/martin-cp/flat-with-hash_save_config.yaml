@@ -145,6 +145,34 @@ postgres:
       geometry_type: GEOMETRY
       properties:
         gid: int4
+    table_name_existing_two_schemas:
+      schema: schema_a
+      table: table_name_existing_two_schemas
+      srid: 4326
+      geometry_column: a_geom
+      bounds:
+      - 142.84094409430955
+      - 11.926741846036798
+      - 142.84143360001997
+      - 11.927370348564835
+      geometry_type: POINT
+      properties:
+        a_id: int4
+        a_name: text
+    table_name_existing_two_schemas.1:
+      schema: schema_b
+      table: table_name_existing_two_schemas
+      srid: 4326
+      geometry_column: b_geom
+      bounds:
+      - 10.0
+      - 10.0
+      - 40.0
+      - 40.0
+      geometry_type: POLYGON
+      properties:
+        b_id: int4
+        b_info: text
     table_source:
       schema: public
       table: table_source
@@ -197,6 +225,34 @@ postgres:
       geometry_type: POINT
       properties:
         gid: int4
+    view_name_existing_two_schemas:
+      schema: schema_a
+      table: view_name_existing_two_schemas
+      srid: 4326
+      geometry_column: a_geom
+      bounds:
+      - 142.84094409430955
+      - 11.926741846036798
+      - 142.84143360001997
+      - 11.927370348564835
+      geometry_type: POINT
+      properties:
+        a_id: int4
+        a_name: text
+    view_name_existing_two_schemas.1:
+      schema: schema_b
+      table: view_name_existing_two_schemas
+      srid: 4326
+      geometry_column: b_geom
+      bounds:
+      - 10.0
+      - 10.0
+      - 40.0
+      - 40.0
+      geometry_type: POLYGON
+      properties:
+        b_id: int4
+        b_info: text
   functions:
     -function.withweired---_-characters:
       schema: public
