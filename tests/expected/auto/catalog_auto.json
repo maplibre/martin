@@ -189,7 +189,7 @@
     },
     "table_and_view_two_schemas.1": {
       "content_type": "application/x-protobuf",
-      "description": "schema_b.table_and_view_two_schemas.a_geom"
+      "description": "schema_b.table_and_view_two_schemas.b_geom"
     },
     "table_name_existing_two_schemas": {
       "content_type": "application/x-protobuf",

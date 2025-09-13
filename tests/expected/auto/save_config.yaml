@@ -164,7 +164,7 @@ postgres:
       schema: schema_b
       table: table_and_view_two_schemas
       srid: 900913
-      geometry_column: a_geom
+      geometry_column: b_geom
       bounds:
       - 0.001274183277243222
       - 0.0000988181180915986

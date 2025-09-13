@@ -114,11 +114,6 @@ async fn table_source() {
     table: table_source
     srid: 4326
     geometry_column: geom
-    bounds:
-      - -2
-      - -1
-      - 142.84131509869133
-      - 45
     geometry_type: GEOMETRY
     properties:
       gid: int4
@@ -130,11 +125,6 @@ async fn table_source() {
     table: table_source_geog
     srid: 4326
     geometry_column: geog
-    bounds:
-      - -2
-      - 0
-      - 142.84131509869133
-      - 45
     geometry_type: Geometry
     properties:
       gid: int4
@@ -146,11 +136,6 @@ async fn table_source() {
     table: points3857
     srid: 3857
     geometry_column: geom
-    bounds:
-      - -161.40590777554058
-      - -81.50727021609012
-      - 172.51549126768532
-      - 84.2440187164111
     geometry_type: POINT
     properties:
       gid: int4
@@ -168,11 +153,6 @@ async fn tables_tilejson() {
       - id: table_source
         fields:
           gid: int4
-    bounds:
-      - -2
-      - -1
-      - 142.84131509869133
-      - 45
     name: table_source
     foo:
       bar: foo
