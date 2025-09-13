@@ -3,10 +3,10 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
+use super::cors::CorsConfig;
 use crate::config::args::PreferredEncoding;
 #[cfg(feature = "metrics")]
 use crate::config::file::UnrecognizedValues;
-use crate::config::file::cors::CorsConfig;
 use crate::config::file::{ConfigExtras, UnrecognizedKeys};
 
 pub const KEEP_ALIVE_DEFAULT: u64 = 75;
@@ -58,6 +58,7 @@ impl ConfigExtras for SrvConfig {
 pub struct ObservabilityConfig {
     /// Configure metrics reported under `/_/metrics`
     pub metrics: Option<MetricsConfig>,
+
     #[serde(flatten, skip_serializing)]
     pub unrecognized: UnrecognizedValues,
 }
@@ -94,6 +95,7 @@ pub struct MetricsConfig {
     /// ```
     #[serde(skip_serializing_if = "HashMap::is_empty")]
     pub add_labels: HashMap<String, String>,
+
     #[serde(flatten, skip_serializing)]
     pub unrecognized: UnrecognizedValues,
 }
