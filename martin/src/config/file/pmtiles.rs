@@ -85,6 +85,7 @@ impl ConfigExtras for PmtConfig {
 
         Ok(())
     }
+
     fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
         self.unrecognized.keys().cloned().collect()
     }
