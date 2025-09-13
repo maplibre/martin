@@ -146,6 +146,34 @@ postgres:
       geometry_type: GEOMETRY
       properties:
         gid: int4
+    table_and_view_two_schemas:
+      schema: schema_a
+      table: table_and_view_two_schemas
+      srid: 900913
+      geometry_column: a_geom
+      bounds:
+      - 0.0012741832772432218
+      - 0.00009881811809159857
+      - 0.0012921495829256121
+      - 0.00011690550763257369
+      geometry_type: GEOMETRY
+      properties:
+        a_id: int4
+        a_info: text
+    table_and_view_two_schemas.1:
+      schema: schema_b
+      table: table_and_view_two_schemas
+      srid: 900913
+      geometry_column: b_geom
+      bounds:
+      - 0.0012741832772432218
+      - 0.00009881811809159857
+      - 0.0012921495829256121
+      - 0.00011690550763257369
+      geometry_type: GEOMETRY
+      properties:
+        b_id: int4
+        b_info: text
     table_name_existing_two_schemas:
       schema: schema_a
       table: table_name_existing_two_schemas

@@ -55,10 +55,12 @@ annotated_geometry_columns AS (
         coalesce(cls.relkind = 'v', false) AS is_view,
         bool_or(sic.column_name IS NOT null) AS geom_idx
     FROM geometry_columns
-    INNER JOIN pg_catalog.pg_class AS cls
-        ON geometry_columns.f_table_name = cls.relname
     INNER JOIN pg_catalog.pg_namespace AS ns
         ON geometry_columns.f_table_schema = ns.nspname
+    INNER JOIN pg_catalog.pg_class AS cls
+        ON
+            ns.oid = cls.relnamespace
+            AND geometry_columns.f_table_name = cls.relname
     LEFT JOIN spatially_indexed_columns AS sic
         ON
             geometry_columns.f_table_schema = sic.table_schema
@@ -80,10 +82,12 @@ annotated_geography_columns AS (
         coalesce(cls.relkind = 'v', false) AS is_view,
         bool_or(sic.column_name IS NOT null) AS geom_idx
     FROM geography_columns
-    INNER JOIN pg_catalog.pg_class AS cls
-        ON geography_columns.f_table_name = cls.relname
     INNER JOIN pg_catalog.pg_namespace AS ns
         ON geography_columns.f_table_schema = ns.nspname
+    INNER JOIN pg_catalog.pg_class AS cls
+        ON
+            ns.oid = cls.relnamespace
+            AND geography_columns.f_table_name = cls.relname
     LEFT JOIN spatially_indexed_columns AS sic
         ON
             geography_columns.f_table_schema = sic.table_schema
