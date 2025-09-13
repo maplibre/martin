@@ -185,11 +185,11 @@
     },
     "table_name_existing_two_schemas": {
       "content_type": "application/x-protobuf",
-      "description": "schema_a.table_name_existing_two_schemas.geom"
+      "description": "schema_a.table_name_existing_two_schemas.a_geom"
     },
     "table_name_existing_two_schemas.1": {
       "content_type": "application/x-protobuf",
-      "description": "schema_b.table_name_existing_two_schemas.geom"
+      "description": "schema_b.table_name_existing_two_schemas.b_geom"
     },
     "table_source": {
       "content_type": "application/x-protobuf"
@@ -212,11 +212,11 @@
     },
     "view_name_existing_two_schemas": {
       "content_type": "application/x-protobuf",
-      "description": "schema_a.view_name_existing_two_schemas.geom"
+      "description": "schema_a.view_name_existing_two_schemas.a_geom"
     },
     "view_name_existing_two_schemas.1": {
       "content_type": "application/x-protobuf",
-      "description": "schema_b.view_name_existing_two_schemas.geom"
+      "description": "schema_b.view_name_existing_two_schemas.b_geom"
     },
     "webp": {
       "content_type": "image/webp",

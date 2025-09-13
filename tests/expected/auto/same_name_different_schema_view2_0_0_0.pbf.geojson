@@ -29,8 +29,8 @@
         "type": "Polygon"
       },
       "properties": {
-        "id": 1,
-        "info": "view_polygon_1",
+        "b_id": 1,
+        "b_info": "view_polygon_1",
         "source_mvt_layer": "view_name_existing_two_schemas.1"
       },
       "type": "Feature"

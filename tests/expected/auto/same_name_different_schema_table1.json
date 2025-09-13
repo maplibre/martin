@@ -5,7 +5,7 @@
     142.84143360001997,
     11.927370348564835
   ],
-  "description": "schema_a.table_name_existing_two_schemas.geom",
+  "description": "schema_a.table_name_existing_two_schemas.a_geom",
   "name": "table_name_existing_two_schemas",
   "tilejson": "3.0.0",
   "tiles": [
@@ -14,8 +14,8 @@
   "vector_layers": [
     {
       "fields": {
-        "id": "int4",
-        "name": "text"
+        "a_id": "int4",
+        "a_name": "text"
       },
       "id": "table_name_existing_two_schemas"
     }
