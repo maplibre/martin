@@ -6,7 +6,8 @@ use serde::{Deserialize, Serialize};
 use super::cors::CorsConfig;
 use crate::config::args::PreferredEncoding;
 #[cfg(feature = "metrics")]
-use crate::config::file::{ConfigExtras, UnrecognizedKeys, UnrecognizedValues};
+use crate::config::file::UnrecognizedValues;
+use crate::config::file::{ConfigExtras, UnrecognizedKeys};
 
 pub const KEEP_ALIVE_DEFAULT: u64 = 75;
 pub const LISTEN_ADDRESSES_DEFAULT: &str = "0.0.0.0:3000";
