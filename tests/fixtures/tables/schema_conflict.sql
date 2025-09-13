@@ -57,5 +57,5 @@ CLUSTER table_and_view_two_schemas_a_geom_idx ON schema_a.table_and_view_two_sch
 CREATE VIEW schema_b.table_and_view_two_schemas AS SELECT
     a_id AS b_id,
     a_info AS b_info,
-    a_geom
+    a_geom AS b_geom
 FROM schema_a.table_and_view_two_schemas;

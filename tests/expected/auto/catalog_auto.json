@@ -183,6 +183,14 @@
     "stamen_toner__raster_CC-BY-ODbL_z3": {
       "content_type": "image/png"
     },
+    "table_and_view_two_schemas": {
+      "content_type": "application/x-protobuf",
+      "description": "schema_a.table_and_view_two_schemas.a_geom"
+    },
+    "table_and_view_two_schemas.1": {
+      "content_type": "application/x-protobuf",
+      "description": "schema_b.table_and_view_two_schemas.a_geom"
+    },
     "table_name_existing_two_schemas": {
       "content_type": "application/x-protobuf",
       "description": "schema_a.table_name_existing_two_schemas.a_geom"
