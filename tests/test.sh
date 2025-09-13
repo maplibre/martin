@@ -48,9 +48,6 @@ function wait_for {
     for _ in {1..60}; do
         if $CURL "$TEST_URL" 2>/dev/null >/dev/null; then
             echo "$PROC_NAME is up!"
-            if [[ "$PROC_NAME" == "Martin" ]]; then
-              $CURL "$TEST_URL"
-            fi
             return
         fi
         if ps -p "$PROCESS_ID" > /dev/null ; then
@@ -159,11 +156,18 @@ test_font() {
   clean_headers_dump "$FILENAME.headers"
 }
 
-# Delete a line from a file $1 that matches parameter $2
-remove_line() {
+# Delete line from a file $1 that matches parameter $2 and log the action
+remove_lines() {
   FILE="$1"
   LINE_TO_REMOVE="$2"
   >&2 echo "Removing line '$LINE_TO_REMOVE' from $FILE"
+  quietly_remove_lines "$FILE" "$LINE_TO_REMOVE"
+}
+
+# Delete line from a file $1 that matches parameter $2
+quietly_remove_lines() {
+  FILE="$1"
+  LINE_TO_REMOVE="$2"
   grep -v "$LINE_TO_REMOVE" "${FILE}" > "${FILE}.tmp"
   mv "${FILE}.tmp" "${FILE}"
 }
@@ -191,8 +195,8 @@ test_log_has_str() {
     exit 1
   else
     >&2 echo "OK: $LOG_FILE contains expected text: '$EXPECTED_TEXT'"
+    quietly_remove_lines "$LOG_FILE" "$EXPECTED_TEXT"
   fi
-  remove_line "$LOG_FILE" "$EXPECTED_TEXT"
 }
 
 test_martin_cp() {
@@ -212,10 +216,10 @@ test_martin_cp() {
   $MBTILES_BIN meta-all "$TEST_FILE" 2>&1 | tee "$TEST_OUT_DIR/${TEST_NAME}_metadata.txt"
   { set +x; } 2> /dev/null
 
-  remove_line "$SAVE_CONFIG_FILE" " connection_string: "
+  remove_lines "$SAVE_CONFIG_FILE" " connection_string: "
   # These tend to vary between runs. In theory, vacuuming might make it the same.
-  remove_line "$SUMMARY_FILE" "File size: "
-  remove_line "$SUMMARY_FILE" "Page count: "
+  remove_lines "$SUMMARY_FILE" "File size: "
+  remove_lines "$SUMMARY_FILE" "Page count: "
 }
 
 validate_log() {
@@ -223,10 +227,10 @@ validate_log() {
   >&2 echo "Validating log file $LOG_FILE"
 
   # Older versions of PostGIS don't support the margin parameter, so we need to remove it from the log
-  remove_line "$LOG_FILE" 'Margin parameter in ST_TileEnvelope is not supported'
-  remove_line "$LOG_FILE" 'PostgreSQL 11.10.0 is older than the recommended minimum 12.0.0'
-  remove_line "$LOG_FILE" 'In the used version, some geometry may be hidden on some zoom levels.'
-  remove_line "$LOG_FILE" 'Unable to deserialize SQL comment on public.points2 as tilejson, the automatically generated tilejson would be used: expected value at line 1 column 1'
+  remove_lines "$LOG_FILE" 'Margin parameter in ST_TileEnvelope is not supported'
+  remove_lines "$LOG_FILE" 'PostgreSQL 11.10.0 is older than the recommended minimum 12.0.0'
+  remove_lines "$LOG_FILE" 'In the used version, some geometry may be hidden on some zoom levels.'
+  remove_lines "$LOG_FILE" 'Unable to deserialize SQL comment on public.points2 as tilejson, the automatically generated tilejson would be used: expected value at line 1 column 1'
 
   echo "Checking for no other warnings or errors in the log"
   if grep -e ' ERROR ' -e ' WARN ' "$LOG_FILE"; then
@@ -258,7 +262,7 @@ compare_sql_dbs() {
 echo "------------------------------------------------------------------------------------------------------------------------"
 curl --version
 jq --version
-grep --version
+grep --version | head -1
 
 # Make sure all targets are built - this way it won't timeout while waiting for it to start
 # If set to "-", skip this step (e.g. when testing a pre-built binary)
@@ -405,7 +409,7 @@ test_log_has_str "$LOG_FILE" 'was renamed to `.-Points-----------quote`'
 test_log_has_str "$LOG_FILE" 'was renamed to `table_name_existing_two_schemas.1`'
 test_log_has_str "$LOG_FILE" 'was renamed to `view_name_existing_two_schemas.1`'
 validate_log "$LOG_FILE"
-remove_line "${TEST_OUT_DIR}/save_config.yaml" " connection_string: "
+remove_lines "${TEST_OUT_DIR}/save_config.yaml" " connection_string: "
 
 
 echo "------------------------------------------------------------------------------------------------------------------------"
@@ -510,7 +514,7 @@ test_log_has_str "$LOG_FILE" 'WARN  martin::pg::query_tables] Table public.table
 test_log_has_str "$LOG_FILE" 'WARN  martin::pg::query_tables] Table public.table_source_geog has no spatial index on column geog'
 test_log_has_str "$LOG_FILE" 'WARN  martin_core::resources::fonts] Ignoring duplicate font Overpass Mono Regular from tests'
 validate_log "$LOG_FILE"
-remove_line "${TEST_OUT_DIR}/save_config.yaml" " connection_string: "
+remove_lines "${TEST_OUT_DIR}/save_config.yaml" " connection_string: "
 
 echo "------------------------------------------------------------------------------------------------------------------------"
 echo "Test martin-cp"
