@@ -1,10 +1,12 @@
 use std::collections::BTreeMap;
 
 use log::warn;
+use martin_core::sprites::SpriteSources;
 use serde::{Deserialize, Serialize};
 
-use crate::config::file::{ConfigExtras, ConfigFileResult, FileConfigEnum, UnrecognizedValues};
-use crate::sprites::SpriteSources;
+use crate::config::file::{
+    ConfigExtras, ConfigFileResult, FileConfigEnum, UnrecognizedKeys, UnrecognizedValues,
+};
 
 pub type SpriteConfig = FileConfigEnum<InnerSpriteConfig>;
 impl SpriteConfig {
@@ -44,12 +46,12 @@ impl SpriteConfig {
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct InnerSpriteConfig {
-    #[serde(flatten)]
+    #[serde(flatten, skip_serializing)]
     pub unrecognized: UnrecognizedValues,
 }
 
 impl ConfigExtras for InnerSpriteConfig {
-    fn get_unrecognized(&self) -> &UnrecognizedValues {
-        &self.unrecognized
+    fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
+        self.unrecognized.keys().cloned().collect()
     }
 }
