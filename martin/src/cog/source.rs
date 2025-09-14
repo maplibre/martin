@@ -17,6 +17,7 @@ use super::model::ModelInfo;
 use crate::config::file::ConfigFileError;
 use crate::{MartinResult, Source, TileData, UrlQuery};
 
+/// Tile source that reads from `Cloud Optimized GeoTIFF` files.
 #[derive(Clone, Debug)]
 pub struct CogSource {
     id: String,
@@ -36,6 +37,7 @@ pub struct CogSource {
 
 impl CogSource {
     #[expect(clippy::cast_possible_truncation)]
+    /// Creates a new COG tile source from a file path.
     pub fn new(id: String, path: PathBuf) -> MartinResult<Self> {
         let tileinfo = TileInfo::new(Format::Png, martin_tile_utils::Encoding::Uncompressed);
         let tif_file = File::open(&path)
@@ -125,24 +127,6 @@ impl CogSource {
             tileinfo,
         })
     }
-
-    pub fn get_tile(&self, xyz: TileCoord) -> Result<TileData, Box<dyn std::error::Error>> {
-        if xyz.z < self.min_zoom || xyz.z > self.max_zoom {
-            return Ok(Vec::new());
-        }
-        let tif_file =
-            File::open(&self.path).map_err(|e| ConfigFileError::IoError(e, self.path.clone()))?;
-        let mut decoder =
-            Decoder::new(tif_file).map_err(|e| CogError::InvalidTiffFile(e, self.path.clone()))?;
-        decoder = decoder.with_limits(tiff::decoder::Limits::unlimited());
-
-        let image = self.images.get(&(xyz.z)).ok_or_else(|| {
-            CogError::ZoomOutOfRange(xyz.z, self.path.clone(), self.min_zoom, self.max_zoom)
-        })?;
-
-        let bytes = image.get_tile(&mut decoder, xyz, self.nodata, &self.path)?;
-        Ok(bytes)
-    }
 }
 
 #[async_trait]
@@ -176,8 +160,22 @@ impl Source for CogSource {
         &self,
         xyz: TileCoord,
         _url_query: Option<&UrlQuery>,
-    ) -> Result<TileData, Box<dyn std::error::Error>> {
-        Ok(self.get_tile(xyz)?)
+        ) -> Result<TileData, Box<dyn std::error::Error>> {
+        if xyz.z < self.min_zoom || xyz.z > self.max_zoom {
+            return Ok(Vec::new());
+        }
+        let tif_file =
+            File::open(&self.path).map_err(|e| ConfigFileError::IoError(e, self.path.clone()))?;
+        let mut decoder =
+            Decoder::new(tif_file).map_err(|e| CogError::InvalidTiffFile(e, self.path.clone()))?;
+        decoder = decoder.with_limits(tiff::decoder::Limits::unlimited());
+
+        let image = self.images.get(&(xyz.z)).ok_or_else(|| {
+            CogError::ZoomOutOfRange(xyz.z, self.path.clone(), self.min_zoom, self.max_zoom)
+        })?;
+
+        let bytes = image.get_tile(&mut decoder, xyz, self.nodata, &self.path)?;
+        Ok(bytes)
     }
 }
 

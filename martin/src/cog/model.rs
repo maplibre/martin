@@ -69,6 +69,7 @@ pub struct ModelInfo {
 }
 
 impl ModelInfo {
+    /// Extracts `GeoTIFF` model information from TIFF decoder.
     pub fn decode(decoder: &mut Decoder<File>, path: &Path) -> ModelInfo {
         let pixel_scale = decoder
             .get_tag_f64_vec(Tag::ModelPixelScaleTag)

@@ -21,6 +21,7 @@ pub struct Image {
 }
 
 impl Image {
+    /// Creates a new image with the specified IFD index and tile dimensions.
     pub fn new(ifd_index: usize, tiles_across: u32, tiles_down: u32) -> Self {
         Self {
             ifd_index,
@@ -85,6 +86,7 @@ impl Image {
         Ok(png_file_bytes)
     }
 
+    /// Returns the Image File Directory index for this image.
     pub fn ifd_index(&self) -> usize {
         self.ifd_index
     }
