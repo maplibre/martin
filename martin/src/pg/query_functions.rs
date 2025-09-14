@@ -1,3 +1,5 @@
+//! PostgreSQL function discovery and validation.
+
 use std::fmt::Write as _;
 use std::iter::zip;
 
@@ -12,7 +14,7 @@ use crate::pg::builder::SqlFuncInfoMapMap;
 use crate::pg::pool::PgPool;
 use crate::pg::source::PgSqlInfo;
 
-/// Get the list of functions from the database
+/// Queries the database for available tile-generating functions.
 ///
 /// # Panics
 /// Panics if the built-in query returns unexpected results.

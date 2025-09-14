@@ -1,3 +1,5 @@
+//! PostgreSQL connection pool implementation.
+
 use deadpool_postgres::{Manager, ManagerConfig, Object, Pool, RecyclingMethod};
 use log::{info, warn};
 use postgres::config::SslMode;
@@ -11,6 +13,7 @@ use crate::pg::PgError::{
 use crate::pg::PgResult;
 use crate::pg::tls::{SslModeOverride, make_connector, parse_conn_str};
 
+/// Default connection pool size.
 pub const POOL_SIZE_DEFAULT: usize = 20;
 
 /// We require `ST_TileEnvelope` that was added in [`PostGIS 3.0.0`](https://postgis.net/2019/10/PostGIS-3.0.0/)
@@ -26,6 +29,7 @@ const MISSING_GEOM_FIXED_POSTGIS_VERSION: Version = Version::new(3, 5, 0);
 /// Minimum version of postgres required for [`RECOMMENDED_POSTGIS_VERSION`] according to the [Support Matrix](https://trac.osgeo.org/postgis/wiki/UsersWikiPostgreSQLPostGIS)
 const RECOMMENDED_POSTGRES_VERSION: Version = Version::new(12, 0, 0);
 
+/// PostgreSQL connection pool with PostGIS support.
 #[derive(Clone, Debug)]
 pub struct PgPool {
     id: String,
@@ -38,6 +42,7 @@ pub struct PgPool {
 }
 
 impl PgPool {
+    /// Creates a new PostgreSQL connection pool from configuration.
     pub async fn new(config: &PgConfig) -> PgResult<Self> {
         let (id, mgr) = Self::parse_config(config)?;
 
