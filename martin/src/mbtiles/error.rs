@@ -1,8 +1,8 @@
-//! Error types for MBTiles operations.
+//! Error types for `MBTiles` operations.
 
 #[derive(thiserror::Error, Debug)]
 pub enum MbtilesError {
-    /// Failed to acquire database connection to MBTiles file.
+    /// Failed to acquire database connection to `MBTiles` file.
     #[error(r"Unable to acquire connection to file: {0}")]
     AcquireConnError(String),
 
