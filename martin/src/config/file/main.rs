@@ -191,7 +191,7 @@ impl Config {
         #[allow(unused_variables)] idr: &IdResolver,
         #[allow(unused_variables)] cache: OptMainCache,
     ) -> MartinResult<TileSources> {
-        #[allow(unused_mut)]
+        #[allow(unused_mut, clippy::type_complexity)]
         let mut sources: Vec<
             Pin<Box<dyn Future<Output = MartinResult<Vec<TileInfoSource>>>>>,
         > = Vec::new();
