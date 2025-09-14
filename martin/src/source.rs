@@ -10,7 +10,6 @@ pub use martin_tile_utils::TileData;
 use martin_tile_utils::{TileCoord, TileInfo};
 use tilejson::TileJSON;
 
-use crate::MartinResult;
 pub type UrlQuery = HashMap<String, String>;
 
 pub type TileInfoSource = Box<dyn Source>;
@@ -142,7 +141,7 @@ pub trait Source: Send + Debug {
         &self,
         xyz: TileCoord,
         url_query: Option<&UrlQuery>,
-    ) -> MartinResult<TileData>;
+    ) -> Result<TileData, Box<dyn std::error::Error>>;
 
     fn is_valid_zoom(&self, zoom: u8) -> bool {
         let tj = self.get_tilejson();

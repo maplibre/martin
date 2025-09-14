@@ -17,13 +17,12 @@ use pmtiles::{
 use tilejson::TileJSON;
 use url::Url;
 
+use super::PmtilesError::{self, InvalidUrlMetadata};
 use crate::config::file::ConfigFileError::{InvalidMetadata, IoError};
 use crate::source::{TileInfoSource, UrlQuery};
 use crate::utils::cache::get_cached_value;
 use crate::utils::{CacheKey, CacheValue, OptMainCache};
 use crate::{MartinError, MartinResult, Source, TileData};
-
-use super::PmtilesError::{self, InvalidUrlMetadata};
 
 #[derive(Clone, Debug)]
 pub struct PmtCache {
@@ -176,7 +175,7 @@ macro_rules! impl_pmtiles_source {
                 &self,
                 xyz: TileCoord,
                 _url_query: Option<&UrlQuery>,
-            ) -> MartinResult<TileData> {
+            ) -> Result<TileData, Box<dyn std::error::Error>> {
                 // TODO: optimize to return Bytes
                 if let Some(t) = self
                     .pmtiles

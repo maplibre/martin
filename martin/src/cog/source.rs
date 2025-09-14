@@ -126,7 +126,7 @@ impl CogSource {
         })
     }
 
-    pub fn get_tile(&self, xyz: TileCoord) -> MartinResult<TileData> {
+    pub fn get_tile(&self, xyz: TileCoord) -> Result<TileData, Box<dyn std::error::Error>> {
         if xyz.z < self.min_zoom || xyz.z > self.max_zoom {
             return Ok(Vec::new());
         }
@@ -176,7 +176,7 @@ impl Source for CogSource {
         &self,
         xyz: TileCoord,
         _url_query: Option<&UrlQuery>,
-    ) -> MartinResult<TileData> {
+    ) -> Result<TileData, Box<dyn std::error::Error>> {
         Ok(self.get_tile(xyz)?)
     }
 }

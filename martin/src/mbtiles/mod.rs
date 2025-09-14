@@ -9,10 +9,10 @@ use martin_tile_utils::{TileCoord, TileInfo};
 use mbtiles::MbtilesPool;
 use tilejson::TileJSON;
 
+use crate::Source;
 use crate::config::file::ConfigFileError::{InvalidMetadata, IoError};
 use crate::config::file::ConfigFileResult;
 use crate::source::{TileData, TileInfoSource, UrlQuery};
-use crate::{MartinResult, Source};
 
 mod error;
 
@@ -85,7 +85,7 @@ impl Source for MbtSource {
         &self,
         xyz: TileCoord,
         _url_query: Option<&UrlQuery>,
-    ) -> MartinResult<TileData> {
+    ) -> Result<TileData, Box<dyn std::error::Error>> {
         if let Some(tile) = self
             .mbtiles
             .get_tile(xyz.z, xyz.x, xyz.y)

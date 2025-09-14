@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use criterion::async_executor::FuturesExecutor;
 use criterion::{Criterion, criterion_group, criterion_main};
 use martin::srv::DynTileSource;
-use martin::{MartinResult, Source, TileData, TileSources, UrlQuery};
+use martin::{Source, TileData, TileSources, UrlQuery};
 use martin_core::tiles::catalog::CatalogSourceEntry;
 use martin_tile_utils::{Encoding, Format, TileCoord, TileInfo};
 use pprof::criterion::{Output, PProfProfiler};
@@ -47,7 +47,7 @@ impl Source for NullSource {
         &self,
         _xyz: TileCoord,
         _url_query: Option<&UrlQuery>,
-    ) -> MartinResult<TileData> {
+    ) -> Result<TileData, Box<dyn std::error::Error>> {
         Ok(b"empty".to_vec())
     }
 

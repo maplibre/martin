@@ -236,7 +236,6 @@ pub mod tests {
     use martin_tile_utils::{Encoding, Format, TileCoord, TileInfo};
     use tilejson::TileJSON;
 
-    use super::*;
     use crate::UrlQuery;
     use crate::source::{Source, TileData, TileInfoSource};
 
@@ -269,7 +268,7 @@ pub mod tests {
             &self,
             _xyz: TileCoord,
             _url_query: Option<&UrlQuery>,
-        ) -> MartinResult<TileData> {
+        ) -> Result<TileData, Box<dyn std::error::Error>> {
             Ok(self.data.clone())
         }
     }

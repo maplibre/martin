@@ -6,7 +6,6 @@ use martin_tile_utils::Format::Mvt;
 use martin_tile_utils::{TileCoord, TileInfo};
 use tilejson::TileJSON;
 
-use crate::MartinResult;
 use crate::pg::PgError::{GetTileError, GetTileWithQueryError, PrepareQueryError};
 use crate::pg::pool::PgPool;
 use crate::pg::utils::query_to_json;
@@ -63,7 +62,7 @@ impl Source for PgSource {
         &self,
         xyz: TileCoord,
         url_query: Option<&UrlQuery>,
-    ) -> MartinResult<TileData> {
+    ) -> Result<TileData, Box<dyn std::error::Error>> {
         let conn = self.pool.get().await?;
         let param_types: &[Type] = if self.support_url_query() {
             &[Type::INT2, Type::INT8, Type::INT8, Type::JSON]
