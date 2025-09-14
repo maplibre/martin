@@ -23,7 +23,7 @@ use crate::config::file::FileConfigEnum;
 use crate::config::file::{
     ConfigExtras, UnrecognizedKeys, UnrecognizedValues, copy_unrecognized_keys_from_config,
 };
-use crate::source::{TileInfoSources, TileSources};
+use crate::source::{TileInfoSource, TileSources};
 use crate::srv::RESERVED_KEYWORDS;
 use crate::utils::{CacheValue, MainCache, OptMainCache, init_aws_lc_tls, parse_base_path};
 use crate::{IdResolver, MartinResult};
@@ -192,7 +192,7 @@ impl Config {
         #[allow(unused_variables)] cache: OptMainCache,
     ) -> MartinResult<TileSources> {
         #[allow(unused_mut)]
-        let mut sources: Vec<Pin<Box<dyn Future<Output = MartinResult<TileInfoSources>>>>> =
+        let mut sources: Vec<Pin<Box<dyn Future<Output = MartinResult<Vec<TileInfoSource>>>>>> =
             Vec::new();
 
         #[cfg(feature = "postgres")]

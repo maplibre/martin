@@ -19,7 +19,7 @@ use crate::pg::pool::PgPool;
 use crate::pg::query_functions::query_available_function;
 use crate::pg::query_tables::{query_available_tables, table_to_query};
 use crate::pg::utils::{InfoMap, find_info, find_kv_ignore_case, normalize_key};
-use crate::source::TileInfoSources;
+use crate::source::TileInfoSource;
 use crate::utils::IdResolver;
 
 pub type SqlFuncInfoMapMap = InfoMap<InfoMap<(PgSqlInfo, FunctionInfo)>>;
@@ -119,7 +119,7 @@ impl PgBuilder {
 
     // FIXME: this function has gotten too long due to the new formatting rules, need to be refactored
     #[allow(clippy::too_many_lines)]
-    pub async fn instantiate_tables(&self) -> PgResult<(TileInfoSources, TableInfoSources)> {
+    pub async fn instantiate_tables(&self) -> PgResult<(Vec<TileInfoSource>, TableInfoSources)> {
         let mut db_tables_info = query_available_tables(&self.pool).await?;
 
         // Match configured sources with the discovered ones and add them to the pending list.
@@ -210,7 +210,7 @@ impl PgBuilder {
             }
         }
 
-        let mut res = TileInfoSources::default();
+        let mut res = Vec::new();
         let mut info_map = TableInfoSources::new();
         let pending = join_all(pending).await;
         for src in pending {
@@ -229,9 +229,9 @@ impl PgBuilder {
         Ok((res, info_map))
     }
 
-    pub async fn instantiate_functions(&self) -> PgResult<(TileInfoSources, FuncInfoSources)> {
+    pub async fn instantiate_functions(&self) -> PgResult<(Vec<TileInfoSource>, FuncInfoSources)> {
         let mut db_funcs_info = query_available_function(&self.pool).await?;
-        let mut res = TileInfoSources::default();
+        let mut res = Vec::new();
         let mut info_map = FuncInfoSources::new();
         let mut used = HashSet::<(&str, &str)>::new();
 
@@ -307,7 +307,7 @@ impl PgBuilder {
 
     fn add_func_src(
         &self,
-        sources: &mut TileInfoSources,
+        sources: &mut Vec<TileInfoSource>,
         id: String,
         pg_info: &impl PgInfo,
         sql_info: PgSqlInfo,

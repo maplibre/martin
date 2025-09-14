@@ -17,7 +17,7 @@ use crate::config::file::{
 };
 use crate::pg::builder::PgBuilder;
 use crate::pg::{PgError, PgResult};
-use crate::source::TileInfoSources;
+use crate::source::TileInfoSource;
 use crate::utils::IdResolver;
 
 pub trait PgInfo {
@@ -218,7 +218,7 @@ impl PgConfig {
             .collect())
     }
 
-    pub async fn resolve(&mut self, id_resolver: IdResolver) -> MartinResult<TileInfoSources> {
+    pub async fn resolve(&mut self, id_resolver: IdResolver) -> MartinResult<Vec<TileInfoSource>> {
         let pg = PgBuilder::new(self, id_resolver).await?;
         let inst_tables = on_slow(
             pg.instantiate_tables(),

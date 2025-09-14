@@ -15,14 +15,18 @@ pub type UrlQuery = HashMap<String, String>;
 
 pub type TileInfoSource = Box<dyn Source>;
 
-pub type TileInfoSources = Vec<TileInfoSource>;
+impl Clone for TileInfoSource {
+    fn clone(&self) -> Self {
+        self.clone_source()
+    }
+}
 
 #[derive(Default, Clone)]
 pub struct TileSources(DashMap<String, TileInfoSource>);
 
 impl TileSources {
     #[must_use]
-    pub fn new(sources: Vec<TileInfoSources>) -> Self {
+    pub fn new(sources: Vec<Vec<TileInfoSource>>) -> Self {
         Self(
             sources
                 .into_iter()
@@ -161,11 +165,5 @@ pub trait Source: Send + Debug {
             description: tilejson.description.clone(),
             attribution: tilejson.attribution.clone(),
         }
-    }
-}
-
-impl Clone for TileInfoSource {
-    fn clone(&self) -> Self {
-        self.clone_source()
     }
 }
