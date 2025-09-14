@@ -44,11 +44,11 @@ pub const RESERVED_KEYWORDS: &[&str] = &[
 pub struct Catalog {
     pub tiles: TileCatalog,
     #[cfg(feature = "sprites")]
-    pub sprites: crate::sprites::SpriteCatalog,
+    pub sprites: martin_core::sprites::SpriteCatalog,
     #[cfg(feature = "fonts")]
     pub fonts: martin_core::fonts::FontCatalog,
     #[cfg(feature = "styles")]
-    pub styles: crate::styles::StyleCatalog,
+    pub styles: martin_core::styles::StyleCatalog,
 }
 
 impl Catalog {

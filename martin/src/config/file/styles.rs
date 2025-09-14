@@ -2,21 +2,23 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use log::warn;
+use martin_core::styles::StyleSources;
 use serde::{Deserialize, Serialize};
 
 use crate::MartinResult;
-use crate::config::file::{ConfigExtras, FileConfigEnum, UnrecognizedValues};
-use crate::styles::{StyleError, StyleSources};
+use crate::config::file::{
+    ConfigExtras, ConfigFileError, FileConfigEnum, UnrecognizedKeys, UnrecognizedValues,
+};
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct InnerStyleConfig {
-    #[serde(flatten)]
+    #[serde(flatten, skip_serializing)]
     pub unrecognized: UnrecognizedValues,
 }
 
 impl ConfigExtras for InnerStyleConfig {
-    fn get_unrecognized(&self) -> &UnrecognizedValues {
-        &self.unrecognized
+    fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
+        self.unrecognized.keys().cloned().collect()
     }
 }
 
@@ -91,7 +93,7 @@ impl StyleConfig {
 fn list_contained_files(
     source_path: &Path,
     filter_extension: &str,
-) -> Result<Vec<PathBuf>, StyleError> {
+) -> Result<Vec<PathBuf>, ConfigFileError> {
     let working_directory = std::env::current_dir().ok();
     let mut contained_files = Vec::new();
     let it = walkdir::WalkDir::new(source_path)
@@ -100,7 +102,7 @@ fn list_contained_files(
         .filter_entry(|e| e.depth() == 0 || !is_hidden(e));
     for entry in it {
         let entry =
-            entry.map_err(|e| StyleError::DirectoryWalking(e, source_path.to_path_buf()))?;
+            entry.map_err(|e| ConfigFileError::DirectoryWalking(e, source_path.to_path_buf()))?;
         if entry.path().is_file()
             && entry
                 .path()
@@ -137,7 +139,7 @@ mod tests {
 
     #[test]
     fn test_styles_resolve_paths() {
-        let style_dir = PathBuf::from("../tests/fixtures/styles/");
+        let style_dir = Path::new("../tests/fixtures/styles/");
         let mut cfg = StyleConfig::new(vec![
             style_dir.join("maplibre_demo.json"),
             style_dir.join("src2"),
@@ -146,7 +148,7 @@ mod tests {
         let styles = cfg.resolve().unwrap();
         assert_eq!(styles.len(), 3);
         insta::with_settings!({sort_maps => true}, {
-        insta::assert_yaml_snapshot!(styles, @r#"
+        insta::assert_yaml_snapshot!(styles.get_catalog(), @r#"
             maplibre_demo:
               path: "../tests/fixtures/styles/maplibre_demo.json"
             maptiler_basic:
@@ -159,7 +161,7 @@ mod tests {
 
     #[test]
     fn test_styles_resolve_sources() {
-        let style_dir = PathBuf::from("../tests/fixtures/styles/");
+        let style_dir = Path::new("../tests/fixtures/styles/");
         let mut configs = BTreeMap::new();
         configs.insert("maplibre_demo", style_dir.join("maplibre_demo.json"));
         configs.insert("src_ignored_due_to_directory", style_dir.join("src2"));
@@ -176,7 +178,7 @@ mod tests {
         let styles = cfg.resolve().unwrap();
         assert_eq!(styles.len(), 2);
         insta::with_settings!({sort_maps => true}, {
-        insta::assert_yaml_snapshot!(styles, @r#"
+        insta::assert_yaml_snapshot!(styles.get_catalog(), @r#"
             maplibre_demo:
               path: "../tests/fixtures/styles/maplibre_demo.json"
             osm-liberty-lite:
@@ -187,7 +189,7 @@ mod tests {
 
     #[test]
     fn test_style_external() {
-        let style_dir = PathBuf::from("../tests/fixtures/styles/");
+        let style_dir = Path::new("../tests/fixtures/styles/");
         let mut cfg = StyleConfig::new(vec![
             style_dir.join("maplibre_demo.json"),
             style_dir.join("src2"),
@@ -241,7 +243,7 @@ mod tests {
 
     #[test]
     fn test_list_contained_files_error() {
-        let result = list_contained_files(&PathBuf::from("/non_existent"), "txt");
+        let result = list_contained_files(Path::new("/non_existent"), "txt");
         assert!(result.is_err());
     }
 }

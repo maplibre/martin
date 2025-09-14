@@ -23,12 +23,36 @@ maintainer = "Yuri Astrakhan <YuriAstrakhan@gmail.com>, Stepan Kuzmin <to.stepan
 maintainer-scripts = "../debian"
 depends = "$auto"
 assets = [
-    ["target/release/martin", "/usr/bin/martin", "755"],
-    ["target/release/martin-cp", "/usr/bin/martin-cp", "755"],
-    ["target/release/mbtiles", "/usr/bin/mbtiles", "755"],
-    ["../README.md", "/usr/share/doc/martin/README.md", "644"],
-    ["../debian/config.yaml", "/usr/share/doc/martin/config.yaml", "644"],
-    ["../debian/config.yaml", "/usr/local/etc/martin/config.yaml", "644"],
+    [
+    "target/release/martin",
+    "/usr/bin/martin",
+    "755",
+  ],
+    [
+    "target/release/martin-cp",
+    "/usr/bin/martin-cp",
+    "755",
+  ],
+    [
+    "target/release/mbtiles",
+    "/usr/bin/mbtiles",
+    "755",
+  ],
+    [
+    "../README.md",
+    "/usr/share/doc/martin/README.md",
+    "644",
+  ],
+    [
+    "../debian/config.yaml",
+    "/usr/share/doc/martin/config.yaml",
+    "644",
+  ],
+    [
+    "../debian/config.yaml",
+    "/usr/local/etc/martin/config.yaml",
+    "644",
+  ],
 ]
 
 # see https://github.com/kornelski/cargo-deb/blob/main/systemd.md#packagemetadatadebsystemd-units-options
@@ -87,8 +111,8 @@ postgres = [
     "dep:semver",
     "dep:tokio-postgres-rustls",
 ]
-sprites = ["dep:spreet", "tokio/fs"]
-styles = ["dep:walkdir", "tokio/fs"]
+sprites = ["martin-core/sprites"]
+styles = ["martin-core/styles", "dep:walkdir"]
 webui = ["dep:actix-web-static-files", "dep:static-files", "dep:walkdir"]
 
 [dependencies]
@@ -130,7 +154,6 @@ serde.workspace = true
 serde_json.workspace = true
 serde_with.workspace = true
 serde_yaml.workspace = true
-spreet = { workspace = true, optional = true }
 static-files = { workspace = true, optional = true }
 subst.workspace = true
 thiserror.workspace = true

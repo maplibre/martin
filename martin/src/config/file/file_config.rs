@@ -36,6 +36,10 @@ pub enum ConfigFileError {
 
     #[error("At least one 'origin' must be specified in the 'cors' configuration")]
     CorsNoOriginsConfigured,
+
+    #[cfg(feature = "styles")]
+    #[error("Walk directory error {0}: {1}")]
+    DirectoryWalking(walkdir::Error, PathBuf),
 }
 
 pub trait ConfigExtras: Clone + Debug + Default + PartialEq + Send {
@@ -43,26 +47,30 @@ pub trait ConfigExtras: Clone + Debug + Default + PartialEq + Send {
         Ok(())
     }
 
-    #[must_use]
-    fn is_default(&self) -> bool {
-        true
-    }
-
-    fn get_unrecognized(&self) -> &UnrecognizedValues;
+    /// Iterates over all unrecognized (present, but not expected) keys in the configuration
+    fn get_unrecognized_keys(&self) -> UnrecognizedKeys;
 }
 
 pub trait SourceConfigExtras: ConfigExtras {
+    /// Indicates whether path strings for this configuration should be parsed as URLs.
+    ///
+    /// - `true` means any source path starting with `http://`, `https://`, or `s3://` will be treated as a remote URL.
+    /// - `false` means all paths are treated as local file system paths.
     #[must_use]
-    fn parse_urls() -> bool {
-        false
-    }
+    fn parse_urls() -> bool;
 
+    /// Asynchronously creates a new `TileInfoSource` from a **local** file `path` using the given `id`.
+    ///
+    /// This function is called for each discovered file path that is not a URL.
     fn new_sources(
         &self,
         id: String,
         path: PathBuf,
     ) -> impl Future<Output = MartinResult<TileInfoSource>> + Send;
 
+    /// Asynchronously creates a new `TileInfoSource` from a **remote** `url` using the given `id`.
+    ///
+    /// This function is called for each discovered source path that is a valid URL.
     fn new_sources_url(
         &self,
         id: String,
@@ -92,7 +100,7 @@ impl<T: ConfigExtras> FileConfigEnum<T> {
         configs: BTreeMap<String, FileConfigSrc>,
         custom: T,
     ) -> Self {
-        if configs.is_empty() && custom.is_default() {
+        if configs.is_empty() {
             match paths.len() {
                 0 => FileConfigEnum::None,
                 1 => FileConfigEnum::Path(paths.into_iter().next().unwrap()),
@@ -146,12 +154,15 @@ impl<T: ConfigExtras> FileConfigEnum<T> {
         Ok(Some(res))
     }
 
-    pub fn finalize(&self, prefix: &str) -> UnrecognizedValues {
-        let mut res = UnrecognizedValues::new();
+    pub fn finalize(&self, prefix: &str) -> UnrecognizedKeys {
         if let Self::Config(cfg) = self {
-            copy_unrecognized_config(&mut res, prefix, cfg.get_unrecognized());
+            cfg.get_unrecognized_keys()
+                .iter()
+                .map(|k| format!("{prefix}{k}"))
+                .collect()
+        } else {
+            UnrecognizedKeys::new()
         }
-        res
     }
 }
 
@@ -171,14 +182,11 @@ pub struct FileConfig<T> {
 impl<T: ConfigExtras> FileConfig<T> {
     #[must_use]
     pub fn is_empty(&self) -> bool {
-        self.paths.is_none()
-            && self.sources.is_none()
-            && self.get_unrecognized().is_empty()
-            && self.custom.is_default()
+        self.paths.is_none() && self.sources.is_none() && self.get_unrecognized_keys().is_empty()
     }
 
-    pub fn get_unrecognized(&self) -> &UnrecognizedValues {
-        self.custom.get_unrecognized()
+    pub fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
+        self.custom.get_unrecognized_keys()
     }
 }
 
@@ -383,15 +391,12 @@ fn parse_url(is_enabled: bool, path: &Path) -> Result<Option<Url>, ConfigFileErr
 }
 
 pub type UnrecognizedValues = HashMap<String, serde_yaml::Value>;
+pub type UnrecognizedKeys = HashSet<String>;
 
-pub fn copy_unrecognized_config(
-    result: &mut UnrecognizedValues,
+pub fn copy_unrecognized_keys_from_config(
+    result: &mut UnrecognizedKeys,
     prefix: &str,
     unrecognized: &UnrecognizedValues,
 ) {
-    result.extend(
-        unrecognized
-            .iter()
-            .map(|(k, v)| (format!("{prefix}{k}"), v.clone())),
-    );
+    result.extend(unrecognized.keys().map(|k| format!("{prefix}{k}")));
 }

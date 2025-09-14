@@ -17,9 +17,9 @@ The library providing the basic building blocks for [Martin](https://maplibre.or
   - [ ] postgres tables
   - [ ] postgres functions
 - resources
-  - [ ] sprites
-  - [ ] fonts
-  - [ ] styles
+  - [x] sprites
+  - [x] fonts
+  - [x] styles
 
 ## License
 
