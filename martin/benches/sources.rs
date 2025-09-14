@@ -7,7 +7,8 @@ use pprof::criterion::{Output, PProfProfiler};
 
 mod sources {
     use async_trait::async_trait;
-    use martin_core::tiles::{MartinCoreResult, Source, UrlQuery, catalog::CatalogSourceEntry};
+    use martin_core::tiles::catalog::CatalogSourceEntry;
+    use martin_core::tiles::{MartinCoreResult, Source, UrlQuery};
     use martin_tile_utils::{Encoding, Format, TileCoord, TileData, TileInfo};
     use tilejson::{TileJSON, tilejson};
 
