@@ -2,9 +2,8 @@ use std::ffi::OsStr;
 use std::fs::File;
 use std::io::prelude::*;
 use std::path::{Path, PathBuf};
-use std::pin::Pin;
 
-use futures::future::try_join_all;
+use futures::future::{BoxFuture, try_join_all};
 use log::{info, warn};
 #[cfg(any(feature = "fonts", feature = "postgres"))]
 use martin_core::config::OptOneMany;
@@ -191,10 +190,8 @@ impl Config {
         #[allow(unused_variables)] idr: &IdResolver,
         #[allow(unused_variables)] cache: OptMainCache,
     ) -> MartinResult<TileSources> {
-        #[allow(unused_mut, clippy::type_complexity)]
-        let mut sources: Vec<
-            Pin<Box<dyn Future<Output = MartinResult<Vec<TileInfoSource>>>>>,
-        > = Vec::new();
+        #[allow(unused_mut)]
+        let mut sources: Vec<BoxFuture<MartinResult<Vec<TileInfoSource>>>> = Vec::new();
 
         #[cfg(feature = "postgres")]
         for s in self.postgres.iter_mut() {
