@@ -2,9 +2,8 @@ use std::ffi::OsStr;
 use std::fs::File;
 use std::io::prelude::*;
 use std::path::{Path, PathBuf};
-use std::pin::Pin;
 
-use futures::future::try_join_all;
+use futures::future::{BoxFuture, try_join_all};
 use log::{info, warn};
 #[cfg(any(feature = "fonts", feature = "postgres"))]
 use martin_core::config::OptOneMany;
@@ -23,7 +22,7 @@ use crate::config::file::FileConfigEnum;
 use crate::config::file::{
     ConfigExtras, UnrecognizedKeys, UnrecognizedValues, copy_unrecognized_keys_from_config,
 };
-use crate::source::{TileInfoSources, TileSources};
+use crate::source::{TileInfoSource, TileSources};
 use crate::srv::RESERVED_KEYWORDS;
 use crate::utils::{CacheValue, MainCache, OptMainCache, init_aws_lc_tls, parse_base_path};
 use crate::{IdResolver, MartinResult};
@@ -192,8 +191,7 @@ impl Config {
         #[allow(unused_variables)] cache: OptMainCache,
     ) -> MartinResult<TileSources> {
         #[allow(unused_mut)]
-        let mut sources: Vec<Pin<Box<dyn Future<Output = MartinResult<TileInfoSources>>>>> =
-            Vec::new();
+        let mut sources: Vec<BoxFuture<MartinResult<Vec<TileInfoSource>>>> = Vec::new();
 
         #[cfg(feature = "postgres")]
         for s in self.postgres.iter_mut() {

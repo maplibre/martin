@@ -18,8 +18,11 @@ pub type UrlQuery = HashMap<String, String>;
 /// Boxed tile source trait object for storage in collections.
 pub type TileInfoSource = Box<dyn Source>;
 
-/// Collection of tile sources for batch operations.
-pub type TileInfoSources = Vec<TileInfoSource>;
+impl Clone for TileInfoSource {
+    fn clone(&self) -> Self {
+        self.clone_source()
+    }
+}
 
 /// Thread-safe registry of tile sources indexed by ID.
 ///
@@ -30,7 +33,7 @@ pub struct TileSources(DashMap<String, TileInfoSource>);
 impl TileSources {
     /// Creates a new registry from flattened source collections.
     #[must_use]
-    pub fn new(sources: Vec<TileInfoSources>) -> Self {
+    pub fn new(sources: Vec<Vec<TileInfoSource>>) -> Self {
         Self(
             sources
                 .into_iter()
@@ -183,12 +186,5 @@ pub trait Source: Send + Debug {
             description: tilejson.description.clone(),
             attribution: tilejson.attribution.clone(),
         }
-    }
-}
-
-/// Enables cloning of trait objects by delegating to [`Source::clone_source`]
-impl Clone for TileInfoSource {
-    fn clone(&self) -> Self {
-        self.clone_source()
     }
 }
