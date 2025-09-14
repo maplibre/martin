@@ -1,3 +1,5 @@
+//! `PostgreSQL` table discovery and validation.
+
 use std::collections::HashMap;
 
 use futures::pin_mut;
@@ -22,7 +24,7 @@ static DEFAULT_EXTENT: u32 = 4096;
 static DEFAULT_BUFFER: u32 = 64;
 static DEFAULT_CLIP_GEOM: bool = true;
 
-/// Examine a database to get a list of all tables that have geometry columns.
+/// Queries the database for available tables with geometry columns.
 pub async fn query_available_tables(pool: &PgPool) -> PgResult<SqlTableInfoMapMapMap> {
     let rows = pool
         .get()
