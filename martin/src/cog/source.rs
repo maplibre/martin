@@ -160,7 +160,7 @@ impl Source for CogSource {
         &self,
         xyz: TileCoord,
         _url_query: Option<&UrlQuery>,
-        ) -> Result<TileData, Box<dyn std::error::Error>> {
+    ) -> Result<TileData, Box<dyn std::error::Error>> {
         if xyz.z < self.min_zoom || xyz.z > self.max_zoom {
             return Ok(Vec::new());
         }
