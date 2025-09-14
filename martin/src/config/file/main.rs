@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use std::pin::Pin;
 
 use futures::future::try_join_all;
-use log::info;
+use log::{info, warn};
 #[cfg(any(feature = "fonts", feature = "postgres"))]
 use martin_core::config::OptOneMany;
 use serde::{Deserialize, Serialize};
@@ -21,7 +21,7 @@ use crate::MartinError::{ConfigLoadError, ConfigParseError, ConfigWriteError, No
 ))]
 use crate::config::file::FileConfigEnum;
 use crate::config::file::{
-    UnrecognizedKeys, UnrecognizedValues, copy_unrecognized_keys_from_config,
+    ConfigExtras, UnrecognizedKeys, UnrecognizedValues, copy_unrecognized_keys_from_config,
 };
 use crate::source::{TileInfoSources, TileSources};
 use crate::srv::RESERVED_KEYWORDS;
@@ -75,23 +75,28 @@ pub struct Config {
     #[serde(default, skip_serializing_if = "OptOneMany::is_none")]
     pub fonts: super::fonts::FontConfig,
 
-    #[serde(flatten)]
+    #[serde(flatten, skip_serializing)]
     pub unrecognized: UnrecognizedValues,
 }
 
 impl Config {
     /// Apply defaults to the config, and validate if there is a connection string
     pub fn finalize(&mut self) -> MartinResult<UnrecognizedKeys> {
-        let mut res = UnrecognizedKeys::new();
+        let mut res = self.srv.get_unrecognized_keys();
         copy_unrecognized_keys_from_config(&mut res, "", &self.unrecognized);
 
         if let Some(path) = &self.srv.base_path {
             self.srv.base_path = Some(parse_base_path(path)?);
         }
-
+        #[cfg(feature = "postgres")]
+        let pg_prefix = if matches!(self.postgres, OptOneMany::One(_)) {
+            "postgres."
+        } else {
+            "postgres[]."
+        };
         #[cfg(feature = "postgres")]
         for pg in self.postgres.iter_mut() {
-            res.extend(pg.finalize()?);
+            res.extend(pg.finalize(pg_prefix)?);
         }
 
         #[cfg(feature = "pmtiles")]
@@ -111,6 +116,12 @@ impl Config {
 
         // TODO: support for unrecognized fonts?
         // res.extend(self.fonts.finalize("fonts.")?);
+
+        for key in &res {
+            warn!(
+                "Ignoring unrecognized configuration key '{key}'. Please check your configuration file for typos."
+            );
+        }
 
         let is_empty = true;
 

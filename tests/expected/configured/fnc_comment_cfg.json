@@ -1,9 +1,9 @@
 {
   "description": "a function source with MixedCase name",
-  "name": "fnc_Mixed_Name",
+  "name": "function_Mixed_Name",
   "tilejson": "3.0.0",
   "tiles": [
-    "http://localhost:3111/fnc_Mixed_Name/{z}/{x}/{y}"
+    "http://localhost:3111/function_Mixed_Name/{z}/{x}/{y}"
   ],
   "vector_layers": [
     {
