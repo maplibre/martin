@@ -192,8 +192,9 @@ impl Config {
         #[allow(unused_variables)] cache: OptMainCache,
     ) -> MartinResult<TileSources> {
         #[allow(unused_mut)]
-        let mut sources: Vec<Pin<Box<dyn Future<Output = MartinResult<Vec<TileInfoSource>>>>>> =
-            Vec::new();
+        let mut sources: Vec<
+            Pin<Box<dyn Future<Output = MartinResult<Vec<TileInfoSource>>>>>,
+        > = Vec::new();
 
         #[cfg(feature = "postgres")]
         for s in self.postgres.iter_mut() {

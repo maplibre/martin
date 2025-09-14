@@ -11,7 +11,7 @@ use url::Url;
 use crate::config::file::ConfigFileError::{
     InvalidFilePath, InvalidSourceFilePath, InvalidSourceUrl, IoError,
 };
-use crate::source::{TileInfoSource};
+use crate::source::TileInfoSource;
 use crate::utils::{IdResolver, OptMainCache};
 use crate::{MartinError, MartinResult};
 
