@@ -3767,6 +3767,7 @@ dependencies = [
  "ctor",
  "enum-display",
  "env_logger",
+ "flate2",
  "flume",
  "futures",
  "insta",
@@ -3788,6 +3789,7 @@ dependencies = [
  "thiserror 2.0.16",
  "tilejson",
  "tokio",
+ "walkdir",
  "xxhash-rust",
 ]
 
