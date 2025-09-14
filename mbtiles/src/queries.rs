@@ -37,9 +37,9 @@ where
              -- The order is not important
              SELECT COUNT(*) = 4
              FROM pragma_table_info('map')
-             WHERE ((name = 'zoom_level' AND type = 'INTEGER')
-                 OR (name = 'tile_column' AND type = 'INTEGER')
-                 OR (name = 'tile_row' AND type = 'INTEGER')
+             WHERE (name = 'zoom_level' AND type IN ('INTEGER', 'INT'))
+                 OR (name = 'tile_column' AND type IN ('INTEGER', 'INT'))
+                 OR (name = 'tile_row' AND type IN ('INTEGER', 'INT'))
                  OR (name = 'tile_id' AND type = 'TEXT'))
              --
          ) AND (
