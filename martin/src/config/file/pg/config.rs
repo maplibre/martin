@@ -86,6 +86,38 @@ pub struct PgCfgPublish {
     pub tables: OptBoolObj<PgCfgPublishTables>,
     #[serde(default, skip_serializing_if = "OptBoolObj::is_none")]
     pub functions: OptBoolObj<PgCfgPublishFuncs>,
+
+    #[serde(flatten, skip_serializing)]
+    pub unrecognized: UnrecognizedValues,
+}
+
+impl ConfigExtras for PgCfgPublish {
+    fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
+        let mut keys = self
+            .unrecognized
+            .keys()
+            .cloned()
+            .collect::<UnrecognizedKeys>();
+        match &self.functions {
+            OptBoolObj::NoValue | OptBoolObj::Bool(_) => {}
+            OptBoolObj::Object(o) => keys.extend(
+                o.get_unrecognized_keys()
+                    .iter()
+                    .map(|k| format!("functions.{k}"))
+                    .collect::<UnrecognizedKeys>(),
+            ),
+        }
+        match &self.tables {
+            OptBoolObj::NoValue | OptBoolObj::Bool(_) => {}
+            OptBoolObj::Object(o) => keys.extend(
+                o.get_unrecognized_keys()
+                    .iter()
+                    .map(|k| format!("tables.{k}"))
+                    .collect::<UnrecognizedKeys>(),
+            ),
+        }
+        keys
+    }
 }
 
 #[serde_with::skip_serializing_none]
@@ -154,7 +186,7 @@ impl PgConfig {
         Ok(())
     }
 
-    pub fn finalize(&mut self) -> PgResult<UnrecognizedKeys> {
+    pub fn finalize(&mut self, prefix: &str) -> PgResult<UnrecognizedKeys> {
         let mut res = UnrecognizedKeys::new();
         if let Some(ref ts) = self.tables {
             for (k, v) in ts {
@@ -179,7 +211,11 @@ impl PgConfig {
         }
 
         self.validate()?;
-        Ok(res)
+        Ok(self
+            .get_unrecognized_keys()
+            .iter()
+            .map(|k| format!("{prefix}{k}"))
+            .collect())
     }
 
     pub async fn resolve(&mut self, id_resolver: IdResolver) -> MartinResult<TileInfoSources> {
@@ -209,6 +245,54 @@ impl PgConfig {
         self.functions = Some(func_info);
         tables.extend(funcs);
         Ok(tables)
+    }
+}
+
+impl ConfigExtras for PgConfig {
+    fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
+        let mut res = self
+            .unrecognized
+            .keys()
+            .cloned()
+            .collect::<UnrecognizedKeys>();
+
+        if let Some(ref ts) = self.tables {
+            for (k, v) in ts {
+                copy_unrecognized_keys_from_config(
+                    &mut res,
+                    &format!("tables.{k}."),
+                    &v.unrecognized,
+                );
+            }
+        }
+        if let Some(ref fs) = self.functions {
+            for (k, v) in fs {
+                copy_unrecognized_keys_from_config(
+                    &mut res,
+                    &format!("functions.{k}."),
+                    &v.unrecognized,
+                );
+            }
+        }
+
+        res.extend(
+            self.ssl_certificates
+                .unrecognized
+                .keys()
+                .map(|k| format!("ssl_certificates.{k}")),
+        );
+
+        match &self.auto_publish {
+            OptBoolObj::NoValue | OptBoolObj::Bool(_) => {}
+            OptBoolObj::Object(o) => res.extend(
+                o.get_unrecognized_keys()
+                    .iter()
+                    .map(|k| format!("auto_publish.{k}"))
+                    .collect::<UnrecognizedKeys>(),
+            ),
+        }
+
+        res
     }
 }
 

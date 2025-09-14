@@ -2,7 +2,9 @@ use actix_http::Method;
 use log::info;
 use serde::{Deserialize, Serialize};
 
-use crate::config::file::{ConfigFileError, ConfigFileResult, UnrecognizedValues};
+use crate::config::file::{
+    ConfigExtras, ConfigFileError, ConfigFileResult, UnrecognizedKeys, UnrecognizedValues,
+};
 use crate::{MartinError, MartinResult};
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -35,6 +37,12 @@ impl Default for CorsProperties {
             max_age: None,
             unrecognized: UnrecognizedValues::default(),
         }
+    }
+}
+
+impl ConfigExtras for CorsProperties {
+    fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
+        self.unrecognized.keys().cloned().collect()
     }
 }
 
