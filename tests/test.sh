@@ -396,6 +396,10 @@ test_jsn same_name_different_schema_view1        view_name_existing_two_schemas
 test_pbf same_name_different_schema_view1_0_0_0  view_name_existing_two_schemas/0/0/0
 test_jsn same_name_different_schema_view2        view_name_existing_two_schemas.1
 test_pbf same_name_different_schema_view2_0_0_0  view_name_existing_two_schemas.1/0/0/0
+test_jsn table_and_view_two_schemas1        table_and_view_two_schemas
+test_pbf table_and_view_two_schemas1_0_0_0  table_and_view_two_schemas/0/0/0
+test_jsn table_and_view_two_schemas2        table_and_view_two_schemas.1
+test_pbf table_and_view_two_schemas2_0_0_0  table_and_view_two_schemas.1/0/0/0
 
 kill_process "$MARTIN_PROC_ID" Martin
 
@@ -408,6 +412,7 @@ test_log_has_str "$LOG_FILE" 'was renamed to `-function.withweired---_-character
 test_log_has_str "$LOG_FILE" 'was renamed to `.-Points-----------quote`'
 test_log_has_str "$LOG_FILE" 'was renamed to `table_name_existing_two_schemas.1`'
 test_log_has_str "$LOG_FILE" 'was renamed to `view_name_existing_two_schemas.1`'
+test_log_has_str "$LOG_FILE" 'was renamed to `table_and_view_two_schemas.1`'
 validate_log "$LOG_FILE"
 remove_lines "${TEST_OUT_DIR}/save_config.yaml" " connection_string: "
 
