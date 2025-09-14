@@ -10,6 +10,9 @@ use martin_tile_utils::{TileData, TileInfo};
 /// The public facing API for managing a catalog of tile sources
 pub mod catalog;
 
+mod error;
+pub use error::*;
+
 /// Represents a single map tile with its raw data and metadata.
 ///
 /// Combines tile data (as raw bytes) with format and encoding information.

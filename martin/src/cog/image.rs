@@ -6,7 +6,7 @@ use martin_tile_utils::TileCoord;
 use tiff::decoder::{Decoder, DecodingResult};
 
 use super::CogError;
-use crate::{MartinResult, TileData};
+use crate::TileData;
 
 /// Image represents a single image in a COG file. A tiff file may contain many images.
 /// This struct contains information and methods for taking tiles from the image.
@@ -38,7 +38,7 @@ impl Image {
         xyz: TileCoord,
         nodata: Option<f64>,
         path: &Path,
-    ) -> MartinResult<TileData> {
+    ) -> Result<TileData, Box<dyn std::error::Error>> {
         decoder
             .seek_to_image(self.ifd_index())
             .map_err(|e| CogError::IfdSeekFailed(e, self.ifd_index(), path.to_path_buf()))?;

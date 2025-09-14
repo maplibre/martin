@@ -5,12 +5,13 @@ use actix_web::error::ErrorNotFound;
 use async_trait::async_trait;
 use dashmap::DashMap;
 use log::debug;
-use martin_core::tiles::catalog::{CatalogSourceEntry, TileCatalog};
+use martin_core::tiles::{
+    MartinCoreResult,
+    catalog::{CatalogSourceEntry, TileCatalog},
+};
 pub use martin_tile_utils::TileData;
 use martin_tile_utils::{TileCoord, TileInfo};
 use tilejson::TileJSON;
-
-use crate::MartinResult;
 
 /// URL query parameters for dynamic tile generation.
 pub type UrlQuery = HashMap<String, String>;
@@ -165,7 +166,7 @@ pub trait Source: Send + Debug {
         &self,
         xyz: TileCoord,
         url_query: Option<&UrlQuery>,
-    ) -> MartinResult<TileData>;
+    ) -> MartinCoreResult<TileData>;
 
     /// Validates zoom level against `TileJSON` min/max zoom constraints.
     fn is_valid_zoom(&self, zoom: u8) -> bool {

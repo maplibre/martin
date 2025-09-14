@@ -8,6 +8,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use log::{trace, warn};
+use martin_core::tiles::MartinCoreResult;
 use martin_tile_utils::{Encoding, Format, TileCoord, TileInfo};
 use pmtiles::aws_sdk_s3::Client as S3Client;
 use pmtiles::aws_sdk_s3::config::Builder as S3ConfigBuilder;
@@ -179,7 +180,7 @@ macro_rules! impl_pmtiles_source {
                 &self,
                 xyz: TileCoord,
                 _url_query: Option<&UrlQuery>,
-            ) -> MartinResult<TileData> {
+            ) -> MartinCoreResult<TileData> {
                 // TODO: optimize to return Bytes
                 if let Some(t) = self
                     .pmtiles
