@@ -5,16 +5,15 @@ use std::path::{Path, PathBuf};
 
 use log::{info, warn};
 use martin_core::config::OptOneMany::{self, Many, One};
+use martin_core::tiles::BoxedSource;
 use serde::{Deserialize, Serialize};
 use url::Url;
 
 use crate::config::file::ConfigFileError::{
     InvalidFilePath, InvalidSourceFilePath, InvalidSourceUrl, IoError,
 };
-
 use crate::utils::{IdResolver, OptMainCache};
 use crate::{MartinError, MartinResult};
-use martin_core::tiles::BoxedSource;
 
 pub type ConfigFileResult<T> = Result<T, ConfigFileError>;
 

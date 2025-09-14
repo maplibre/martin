@@ -5,6 +5,7 @@ use futures::future::try_join;
 use futures::pin_mut;
 use log::warn;
 use martin_core::config::{OptBoolObj, OptOneMany};
+use martin_core::tiles::BoxedSource;
 use serde::{Deserialize, Serialize};
 use tilejson::TileJSON;
 use tokio::time::timeout;
@@ -17,9 +18,7 @@ use crate::config::file::{
 };
 use crate::pg::builder::PgBuilder;
 use crate::pg::{PgError, PgResult};
-
 use crate::utils::IdResolver;
-use martin_core::tiles::BoxedSource;
 
 pub trait PgInfo {
     fn format_id(&self) -> String;

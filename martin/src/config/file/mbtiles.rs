@@ -1,14 +1,13 @@
 use std::fmt::Debug;
 use std::path::PathBuf;
 
+use martin_core::tiles::BoxedSource;
 use serde::{Deserialize, Serialize};
 use url::Url;
 
 use crate::MartinResult;
 use crate::config::file::{ConfigExtras, SourceConfigExtras, UnrecognizedKeys, UnrecognizedValues};
 use crate::mbtiles::MbtSource;
-
-use martin_core::tiles::BoxedSource;
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct MbtConfig {

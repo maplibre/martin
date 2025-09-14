@@ -1,13 +1,13 @@
 use std::fmt::Debug;
 use std::path::PathBuf;
 
+use martin_core::tiles::BoxedSource;
 use serde::{Deserialize, Serialize};
 use url::Url;
 
 use crate::MartinResult;
 use crate::cog::CogSource;
 use crate::config::file::{ConfigExtras, SourceConfigExtras, UnrecognizedKeys, UnrecognizedValues};
-use martin_core::tiles::BoxedSource;
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct CogConfig {

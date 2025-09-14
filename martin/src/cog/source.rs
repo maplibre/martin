@@ -6,6 +6,7 @@ use std::vec;
 
 use async_trait::async_trait;
 use log::warn;
+use martin_core::tiles::{MartinCoreResult, Source, UrlQuery};
 use martin_tile_utils::{Format, TileCoord, TileData, TileInfo};
 use tiff::decoder::{ChunkType, Decoder};
 use tiff::tags::Tag::{self, GdalNodata};
@@ -16,8 +17,6 @@ use super::image::Image;
 use super::model::ModelInfo;
 use crate::MartinResult;
 use crate::config::file::ConfigFileError;
-
-use martin_core::tiles::{Source, UrlQuery};
 
 /// Tile source that reads from `Cloud Optimized GeoTIFF` files.
 #[derive(Clone, Debug)]
@@ -162,7 +161,7 @@ impl Source for CogSource {
         &self,
         xyz: TileCoord,
         _url_query: Option<&UrlQuery>,
-    ) -> Result<TileData, Box<dyn std::error::Error>> {
+    ) -> MartinCoreResult<TileData> {
         if xyz.z < self.min_zoom || xyz.z > self.max_zoom {
             return Ok(Vec::new());
         }

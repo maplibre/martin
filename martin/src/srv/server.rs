@@ -233,10 +233,9 @@ pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server
 #[cfg(test)]
 pub mod tests {
     use async_trait::async_trait;
+    use martin_core::tiles::{BoxedSource, MartinCoreResult, Source, UrlQuery};
     use martin_tile_utils::{Encoding, Format, TileCoord, TileData, TileInfo};
     use tilejson::TileJSON;
-
-    use martin_core::tiles::{BoxedSource, Source, UrlQuery};
 
     #[derive(Debug, Clone)]
     pub struct TestSource {
@@ -267,7 +266,7 @@ pub mod tests {
             &self,
             _xyz: TileCoord,
             _url_query: Option<&UrlQuery>,
-        ) -> Result<TileData, Box<dyn std::error::Error>> {
+        ) -> MartinCoreResult<TileData> {
             Ok(self.data.clone())
         }
     }

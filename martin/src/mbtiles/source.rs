@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use log::trace;
-use martin_core::tiles::{BoxedSource, Source, UrlQuery};
+use martin_core::tiles::{BoxedSource, MartinCoreResult, Source, UrlQuery};
 use martin_tile_utils::{TileCoord, TileData, TileInfo};
 use mbtiles::MbtilesPool;
 use tilejson::TileJSON;
@@ -84,7 +84,7 @@ impl Source for MbtSource {
         &self,
         xyz: TileCoord,
         _url_query: Option<&UrlQuery>,
-    ) -> Result<TileData, Box<dyn std::error::Error>> {
+    ) -> MartinCoreResult<TileData> {
         if let Some(tile) = self
             .mbtiles
             .get_tile(xyz.z, xyz.x, xyz.y)

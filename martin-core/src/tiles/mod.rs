@@ -17,6 +17,9 @@ pub use source::{BoxedSource, Source};
 /// URL query parameters for dynamic tile generation.
 pub type UrlQuery = HashMap<String, String>;
 
+mod error;
+pub use error::*;
+
 /// Represents a single map tile with its raw data and metadata.
 ///
 /// Combines tile data (as raw bytes) with format and encoding information.

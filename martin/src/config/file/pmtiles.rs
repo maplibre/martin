@@ -3,18 +3,17 @@ use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering::Relaxed;
 
 use log::warn;
+use martin_core::tiles::BoxedSource;
 use pmtiles::reqwest::Client;
 use serde::{Deserialize, Serialize};
 use url::Url;
 
+use crate::MartinResult;
 use crate::config::file::{
     ConfigExtras, ConfigFileResult, SourceConfigExtras, UnrecognizedKeys, UnrecognizedValues,
 };
 use crate::pmtiles::{PmtCache, PmtFileSource, PmtHttpSource, PmtS3Source};
 use crate::utils::OptMainCache;
-
-use crate::MartinResult;
-use martin_core::tiles::BoxedSource;
 
 #[serde_with::skip_serializing_none]
 #[derive(Debug, Default, Serialize, Deserialize)]

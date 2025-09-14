@@ -10,9 +10,9 @@ use actix_web::{HttpMessage, HttpRequest, HttpResponse, Result as ActixResult, r
 use futures::future::try_join_all;
 use log::trace;
 use martin_core::tiles::{BoxedSource, Tile, UrlQuery};
-use martin_tile_utils::TileData;
 use martin_tile_utils::{
-    Encoding, Format, TileCoord, TileInfo, decode_brotli, decode_gzip, encode_brotli, encode_gzip,
+    Encoding, Format, TileCoord, TileData, TileInfo, decode_brotli, decode_gzip, encode_brotli,
+    encode_gzip,
 };
 use serde::Deserialize;
 
