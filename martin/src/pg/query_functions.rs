@@ -1,4 +1,4 @@
-//! PostgreSQL function discovery and validation.
+//! `PostgreSQL` function discovery and validation.
 
 use std::fmt::Write as _;
 use std::iter::zip;

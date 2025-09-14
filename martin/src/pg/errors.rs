@@ -1,4 +1,4 @@
-//! Error types for PostgreSQL operations.
+//! Error types for `PostgreSQL` operations.
 
 use std::io;
 use std::path::PathBuf;
@@ -11,10 +11,10 @@ use semver::Version;
 use super::utils::query_to_json;
 use crate::source::UrlQuery;
 
-/// Result type for PostgreSQL operations.
+/// Result type for `PostgreSQL` operations.
 pub type PgResult<T> = Result<T, PgError>;
 
-/// Errors that can occur when working with PostgreSQL databases.
+/// Errors that can occur when working with `PostgreSQL` databases.
 #[derive(thiserror::Error, Debug)]
 pub enum PgError {
     /// Cannot load platform root certificates.
@@ -45,35 +45,35 @@ pub enum PgError {
     #[error("Unknown SSL mode: {0:?}")]
     UnknownSslMode(deadpool_postgres::tokio_postgres::config::SslMode),
 
-    /// PostgreSQL database error.
+    /// `PostgreSQL` database error.
     #[error("Postgres error while {1}: {0}")]
     PostgresError(#[source] TokioPgError, &'static str),
 
-    /// Cannot build PostgreSQL connection pool.
+    /// Cannot build `PostgreSQL` connection pool.
     #[error("Unable to build a Postgres connection pool {1}: {0}")]
     PostgresPoolBuildError(#[source] BuildError, String),
 
-    /// Cannot get connection from PostgreSQL pool.
+    /// Cannot get connection from `PostgreSQL` pool.
     #[error("Unable to get a Postgres connection from the pool {1}: {0}")]
     PostgresPoolConnError(#[source] PoolError, String),
 
-    /// Invalid PostgreSQL connection string.
+    /// Invalid `PostgreSQL` connection string.
     #[error("Unable to parse connection string {1}: {0}")]
     BadConnectionString(#[source] TokioPgError, String),
 
-    /// Cannot parse PostGIS version.
+    /// Cannot parse `PostGIS` version.
     #[error("Unable to parse PostGIS version {1}: {0}")]
     BadPostgisVersion(#[source] semver::Error, String),
 
-    /// Cannot parse PostgreSQL version.
+    /// Cannot parse `PostgreSQL` version.
     #[error("Unable to parse PostgreSQL version {1}: {0}")]
     BadPostgresVersion(#[source] semver::Error, String),
 
-    /// PostGIS version too old.
+    /// `PostGIS` version too old.
     #[error("PostGIS version {0} is too old, minimum required is {1}")]
     PostgisTooOld(Version, Version),
 
-    /// PostgreSQL version too old.
+    /// `PostgreSQL` version too old.
     #[error("PostgreSQL version {0} is too old, minimum required is {1}")]
     PostgresqlTooOld(Version, Version),
 

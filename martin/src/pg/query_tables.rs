@@ -1,4 +1,4 @@
-//! PostgreSQL table discovery and validation.
+//! `PostgreSQL` table discovery and validation.
 
 use std::collections::HashMap;
 
