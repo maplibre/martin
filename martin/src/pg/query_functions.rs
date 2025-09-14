@@ -9,7 +9,7 @@ use crate::config::file::pg::FunctionInfo;
 use crate::pg::PgError::PostgresError;
 use crate::pg::PgResult;
 use crate::pg::builder::SqlFuncInfoMapMap;
-use crate::pg::pg_source::PgSqlInfo;
+use crate::pg::source::PgSqlInfo;
 use crate::pg::pool::PgPool;
 
 /// Get the list of functions from the database

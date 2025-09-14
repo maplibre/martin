@@ -14,7 +14,7 @@ use crate::config::file::pg::{
 };
 use crate::pg::PgError::InvalidTableExtent;
 use crate::pg::PgResult;
-use crate::pg::pg_source::{PgSource, PgSqlInfo};
+use crate::pg::source::{PgSource, PgSqlInfo};
 use crate::pg::pool::PgPool;
 use crate::pg::query_functions::query_available_function;
 use crate::pg::query_tables::{query_available_tables, table_to_query};
