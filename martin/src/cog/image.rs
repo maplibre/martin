@@ -2,6 +2,7 @@ use std::fs::File;
 use std::io::BufWriter;
 use std::path::Path;
 
+use martin_core::tiles::MartinCoreResult;
 use martin_tile_utils::{TileCoord, TileData};
 use tiff::decoder::{Decoder, DecodingResult};
 
@@ -37,7 +38,7 @@ impl Image {
         xyz: TileCoord,
         nodata: Option<f64>,
         path: &Path,
-    ) -> Result<TileData, Box<dyn std::error::Error>> {
+    ) -> MartinCoreResult<TileData> {
         decoder
             .seek_to_image(self.ifd_index())
             .map_err(|e| CogError::IfdSeekFailed(e, self.ifd_index(), path.to_path_buf()))?;

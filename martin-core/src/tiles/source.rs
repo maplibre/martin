@@ -43,7 +43,7 @@ pub trait Source: Send + Debug {
         &self,
         xyz: TileCoord,
         url_query: Option<&UrlQuery>,
-    ) -> Result<TileData, Box<dyn std::error::Error>>;
+    ) -> MartinCoreResult<TileData>;
 
     /// Validates zoom level against `TileJSON` min/max zoom constraints.
     fn is_valid_zoom(&self, zoom: u8) -> bool {
