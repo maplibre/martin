@@ -10,16 +10,23 @@ pub use martin_tile_utils::TileData;
 use martin_tile_utils::{TileCoord, TileInfo};
 use tilejson::TileJSON;
 
+/// URL query parameters for dynamic tile generation.
 pub type UrlQuery = HashMap<String, String>;
 
+/// Boxed tile source trait object for storage in collections.
 pub type TileInfoSource = Box<dyn Source>;
 
+/// Collection of tile sources for batch operations.
 pub type TileInfoSources = Vec<TileInfoSource>;
 
+/// Thread-safe registry of tile sources indexed by ID.
+///
+/// Uses a [`DashMap`] for concurrent access without explicit locking.
 #[derive(Default, Clone)]
 pub struct TileSources(DashMap<String, TileInfoSource>);
 
 impl TileSources {
+    /// Creates a new registry from flattened source collections.
     #[must_use]
     pub fn new(sources: Vec<TileInfoSources>) -> Self {
         Self(
@@ -31,6 +38,7 @@ impl TileSources {
         )
     }
 
+    /// Returns a catalog of all sources with their metadata.
     #[must_use]
     pub fn get_catalog(&self) -> TileCatalog {
         self.0
@@ -39,11 +47,13 @@ impl TileSources {
             .collect()
     }
 
+    /// Returns all source IDs.
     #[must_use]
     pub fn source_names(&self) -> Vec<String> {
         self.0.iter().map(|v| v.key().to_string()).collect()
     }
 
+    /// Gets a source by ID, returning 404 error if not found.
     pub fn get_source(&self, id: &str) -> actix_web::Result<TileInfoSource> {
         Ok(self
             .0
@@ -53,9 +63,12 @@ impl TileSources {
             .clone())
     }
 
-    /// Get a list of sources, and the tile info for the merged sources.
-    /// Ensure that all sources have the same format and encoding.
-    /// If `zoom` is specified, filter out sources that do not support it.
+    /// Gets multiple sources for composite tiles, ensuring format compatibility.
+    ///
+    /// Parses comma-separated source IDs and validates all sources have matching
+    /// format/encoding. Optionally filters by zoom level support.
+    ///
+    /// Returns (`sources`, `supports_url_query`, `merged_tile_info`).
     pub fn get_sources(
         &self,
         source_ids: &str,
@@ -94,6 +107,7 @@ impl TileSources {
         Ok((sources, use_url_query, info.unwrap()))
     }
 
+    /// Validates zoom level support for a source
     #[must_use]
     pub fn check_zoom(src: &dyn Source, id: &str, zoom: u8) -> bool {
         let is_valid = src.is_valid_zoom(zoom);
@@ -103,52 +117,59 @@ impl TileSources {
         is_valid
     }
 
-    /// Whether this [`Source`] benefits from concurrency when being scraped via `martin-cp`.
-    ///
-    /// If this returns `true`, martin-cp will suggest concurrent scraping.
+    /// Returns if any source benefits from concurrent scraping by martin-cp
     #[must_use]
     pub fn benefits_from_concurrent_scraping(&self) -> bool {
         self.0.iter().any(|s| s.benefits_from_concurrent_scraping())
     }
 }
 
+/// Core trait for tile sources providing data to Martin
+///
+/// Implementors can serve tiles from databases, files, or other backends.
 #[async_trait]
 pub trait Source: Send + Debug {
-    /// ID under which this [`Source`] is identified if accessed externally
+    /// Unique source identifier used in URLs.
     fn get_id(&self) -> &str;
 
-    /// `TileJSON` of this [`Source`]
-    ///
-    /// Will be communicated verbatim to the outside to give rendering engines information about the source's contents such as zoom levels, center points, ...
+    /// `TileJSON` specification served to clients.
     fn get_tilejson(&self) -> &TileJSON;
 
-    /// Information for serving the source such as which Mime-type to apply or how compression should work
+    /// Technical tile information (format, encoding, etc.).
     fn get_tile_info(&self) -> TileInfo;
 
+    /// Creates a boxed clone for trait object storage.
     fn clone_source(&self) -> TileInfoSource;
 
+    /// Whether this source accepts URL query parameters. Default: false.
     fn support_url_query(&self) -> bool {
         false
     }
-    /// Whether this [`Source`] benefits from concurrency when being scraped via `martin-cp`.
-    ///
-    /// If this returns `true`, martin-cp will suggest concurrent scraping.
+
+    /// Whether martin-cp should use concurrent scraping. Default: false.
     fn benefits_from_concurrent_scraping(&self) -> bool {
         false
     }
 
+    /// Retrieves tile data for the given coordinates.
+    ///
+    /// # Arguments
+    /// * `xyz` - Tile coordinates (x, y, zoom)
+    /// * `url_query` - Optional query parameters for dynamic tiles
     async fn get_tile(
         &self,
         xyz: TileCoord,
         url_query: Option<&UrlQuery>,
     ) -> Result<TileData, Box<dyn std::error::Error>>;
 
+    /// Validates zoom level against `TileJSON` min/max zoom constraints.
     fn is_valid_zoom(&self, zoom: u8) -> bool {
         let tj = self.get_tilejson();
         tj.minzoom.is_none_or(|minzoom| zoom >= minzoom)
             && tj.maxzoom.is_none_or(|maxzoom| zoom <= maxzoom)
     }
 
+    /// Generates catalog entry for this source.
     fn get_catalog_entry(&self) -> CatalogSourceEntry {
         let id = self.get_id();
         let tilejson = self.get_tilejson();
@@ -163,6 +184,7 @@ pub trait Source: Send + Debug {
     }
 }
 
+/// Enables cloning of trait objects by delegating to [`Source::clone_source`]
 impl Clone for TileInfoSource {
     fn clone(&self) -> Self {
         self.clone_source()
