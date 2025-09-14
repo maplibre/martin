@@ -11,7 +11,7 @@ use url::Url;
 use crate::config::file::ConfigFileError::{
     InvalidFilePath, InvalidSourceFilePath, InvalidSourceUrl, IoError,
 };
-use crate::source::{TileInfoSource, TileInfoSources};
+use crate::source::TileInfoSource;
 use crate::utils::{IdResolver, OptMainCache};
 use crate::{MartinError, MartinResult};
 
@@ -231,7 +231,7 @@ pub async fn resolve_files<T: SourceConfigExtras>(
     idr: &IdResolver,
     cache: OptMainCache,
     extension: &[&str],
-) -> MartinResult<TileInfoSources> {
+) -> MartinResult<Vec<TileInfoSource>> {
     resolve_int(config, idr, cache, extension).await
 }
 
@@ -240,12 +240,12 @@ async fn resolve_int<T: SourceConfigExtras>(
     idr: &IdResolver,
     cache: OptMainCache,
     extension: &[&str],
-) -> MartinResult<TileInfoSources> {
+) -> MartinResult<Vec<TileInfoSource>> {
     let Some(cfg) = config.extract_file_config(cache)? else {
-        return Ok(TileInfoSources::default());
+        return Ok(Vec::new());
     };
 
-    let mut results = TileInfoSources::default();
+    let mut results = Vec::new();
     let mut configs = BTreeMap::new();
     let mut files = HashSet::new();
     let mut directories = Vec::new();
