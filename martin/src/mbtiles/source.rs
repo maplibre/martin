@@ -1,3 +1,5 @@
+//! `MBTiles` tile source implementation.
+
 use std::fmt::{Debug, Formatter};
 use std::io;
 use std::path::PathBuf;
@@ -14,6 +16,7 @@ use crate::config::file::ConfigFileResult;
 use crate::source::{TileData, TileInfoSource, UrlQuery};
 use crate::{MartinResult, Source};
 
+/// Tile source that reads from `MBTiles` files.
 #[derive(Clone)]
 pub struct MbtSource {
     id: String,
@@ -34,6 +37,7 @@ impl Debug for MbtSource {
 }
 
 impl MbtSource {
+    /// Creates a new `MBTiles` source from the given file path.
     pub async fn new(id: String, path: PathBuf) -> ConfigFileResult<Self> {
         let mbt = MbtilesPool::open_readonly(&path)
             .await

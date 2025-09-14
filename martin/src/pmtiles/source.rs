@@ -1,3 +1,5 @@
+//! `PMTiles` tile source implementations.
+
 use std::convert::identity;
 use std::fmt::{Debug, Formatter};
 use std::io;
@@ -24,6 +26,7 @@ use crate::utils::cache::get_cached_value;
 use crate::utils::{CacheKey, CacheValue, OptMainCache};
 use crate::{MartinError, MartinResult, Source, TileData};
 
+/// Directory cache for `PMTiles` files.
 #[derive(Clone, Debug)]
 pub struct PmtCache {
     id: usize,
@@ -32,6 +35,7 @@ pub struct PmtCache {
 }
 
 impl PmtCache {
+    /// Creates a new `PMTiles` cache with the given ID and cache store.
     #[must_use]
     pub fn new(id: usize, cache: OptMainCache) -> Self {
         Self { id, cache }
@@ -212,6 +216,7 @@ impl_pmtiles_source!(
 );
 
 impl PmtHttpSource {
+    /// Creates a new HTTP-based `PMTiles` source.
     pub async fn new(client: Client, cache: PmtCache, id: String, url: Url) -> MartinResult<Self> {
         let reader = AsyncPmTilesReader::new_with_cached_url(cache, client, url.clone()).await;
         let reader = reader.map_err(|e| PmtilesError::PmtErrorWithCtx(e, url.to_string()))?;
@@ -231,6 +236,7 @@ impl_pmtiles_source!(
 );
 
 impl PmtS3Source {
+    /// Creates a new S3-based `PMTiles` source.
     pub async fn new(
         cache: PmtCache,
         id: String,
@@ -279,6 +285,7 @@ impl_pmtiles_source!(
 );
 
 impl PmtFileSource {
+    /// Creates a new file-based `PMTiles` source.
     pub async fn new(cache: PmtCache, id: String, path: PathBuf) -> MartinResult<Self> {
         let backend = MmapBackend::try_from(path.as_path())
             .await
