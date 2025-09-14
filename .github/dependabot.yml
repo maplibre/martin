@@ -1,75 +1,57 @@
 version: 2
 updates:
-    # Maintain dependencies for GitHub Actions
-    - package-ecosystem: github-actions
-      directory: "/"
-      schedule: { interval: monthly }
-      groups:
-          all-actions-version-updates:
-              applies-to: version-updates
-              patterns: ["*"]
-    - package-ecosystem: github-actions
-      directory: "/"
-      schedule: { interval: daily }
-      groups:
-          all-actions-security-updates:
-              applies-to: security-updates
-              patterns: ["*"]
+  # Maintain dependencies for GitHub Actions
+  - package-ecosystem: github-actions
+    directory: '/'
+    schedule: { interval: daily }
+    groups:
+      all-actions-version-updates:
+        applies-to: version-updates
+        patterns: [ '*' ]
+      all-actions-security-updates:
+        applies-to: security-updates
+        patterns: [ '*' ]
 
-    # Update Rust dependencies
-    - package-ecosystem: cargo
-      directory: "/"
-      schedule: { interval: monthly }
-      open-pull-requests-limit: 10
-      groups:
-          all-cargo-version-updates:
-              applies-to: version-updates
-              patterns: ["*"]
-    - package-ecosystem: cargo
-      directory: "/"
-      schedule: { interval: daily }
-      open-pull-requests-limit: 10
-      groups:
-          all-cargo-security-updates:
-              applies-to: security-updates
-              patterns: ["*"]
+  # Update Rust dependencies
+  - package-ecosystem: cargo
+    directory: '/'
+    schedule: { interval: daily, time: '02:00' }
+    open-pull-requests-limit: 10
+    groups:
+      all-cargo-version-updates:
+        applies-to: version-updates
+        patterns: [ '*' ]
+      all-cargo-security-updates:
+        applies-to: security-updates
+        patterns: [ '*' ]
 
-    # Update Martin UI NPM dependencies
-    - package-ecosystem: npm
-      directory: "/martin/martin-ui/"
-      schedule: { interval: monthly }
-      open-pull-requests-limit: 10
-      groups:
-          all-npm-ui-version-updates:
-              applies-to: version-updates
-              patterns: ["*"]
-              exclude-patterns:
-                  - "@biomejs/biome"
-    - package-ecosystem: npm
-      directory: "/martin/martin-ui/"
-      schedule: { interval: daily }
-      open-pull-requests-limit: 10
-      groups:
-          all-npm-ui-security-updates:
-              applies-to: security-updates
-              patterns: ["*"]
+  # Update Martin UI NPM dependencies
+  - package-ecosystem: npm
+    directory: '/martin/martin-ui/'
+    schedule: { interval: daily, time: '02:00' }
+    open-pull-requests-limit: 10
+    groups:
+      all-npm-ui-version-updates:
+        applies-to: version-updates
+        patterns: [ '*' ]
+        exclude-patterns:
+          - '@biomejs/biome'
+          - 'tailwindcss'
+      all-npm-ui-security-updates:
+        applies-to: security-updates
+        patterns: [ '*' ]
 
-    # Update Demo frontend NPM dependencies
-    - package-ecosystem: npm
-      directory: "/demo/frontend/"
-      schedule: { interval: monthly }
-      open-pull-requests-limit: 10
-      groups:
-          all-npm-fe-version-updates:
-              applies-to: version-updates
-              patterns: ["*"]
-              exclude-patterns:
-                  - "@biomejs/biome"
-    - package-ecosystem: npm
-      directory: "/demo/frontend/"
-      schedule: { interval: daily }
-      open-pull-requests-limit: 10
-      groups:
-          all-npm-fe-security-updates:
-              applies-to: security-updates
-              patterns: ["*"]
+  # Update Demo frontend NPM dependencies
+  - package-ecosystem: npm
+    directory: '/demo/frontend/'
+    schedule: { interval: daily, time: '02:00' }
+    open-pull-requests-limit: 10
+    groups:
+      all-npm-fe-version-updates:
+        applies-to: version-updates
+        patterns: [ '*' ]
+        exclude-patterns:
+          - '@biomejs/biome'
+      all-npm-fe-security-updates:
+        applies-to: security-updates
+        patterns: [ '*' ]
