@@ -12,7 +12,7 @@ rust-version.workspace = true
 homepage.workspace = true
 
 [features]
-default = ["fonts", "styles", "sprites"]
+default = ["fonts", "styles", "sprites", "mbtiles"]
 fonts = [
     "dep:bit-set",
     "dep:pbf_font_tools",
@@ -30,6 +30,7 @@ sprites = [
     "dep:thiserror",
 ]
 styles = ["dep:walkdir", "tokio/fs", "dep:dashmap", "dep:thiserror"]
+mbtiles = ["dep:mbtiles", "dep:thiserror"]
 
 [dependencies]
 async-trait.workspace = true
@@ -39,6 +40,7 @@ futures = { workspace = true, optional = true }
 itertools = { workspace = true, optional = true }
 log.workspace = true
 martin-tile-utils.workspace = true
+mbtiles = { workspace = true, optional = true }
 pbf_font_tools = { workspace = true, optional = true }
 regex = { workspace = true, optional = true }
 serde.workspace = true

@@ -1,11 +1,15 @@
+use std::collections::HashMap;
 use std::fmt::Debug;
 
 use async_trait::async_trait;
 use martin_tile_utils::{TileCoord, TileData, TileInfo};
 use tilejson::TileJSON;
 
+use crate::tiles::MartinCoreResult;
 use crate::tiles::catalog::CatalogSourceEntry;
-use crate::tiles::{MartinCoreResult, UrlQuery};
+
+/// URL query parameters for dynamic tile generation.
+pub type UrlQuery = HashMap<String, String>;
 
 /// Core trait for tile sources providing data to Martin
 ///
