@@ -6,7 +6,7 @@ use std::vec;
 
 use async_trait::async_trait;
 use log::warn;
-use martin_tile_utils::{Format, TileCoord, TileInfo};
+use martin_tile_utils::{Format, TileCoord, TileData, TileInfo};
 use tiff::decoder::{ChunkType, Decoder};
 use tiff::tags::Tag::{self, GdalNodata};
 use tilejson::{TileJSON, tilejson};
@@ -14,8 +14,10 @@ use tilejson::{TileJSON, tilejson};
 use super::CogError;
 use super::image::Image;
 use super::model::ModelInfo;
+use crate::MartinResult;
 use crate::config::file::ConfigFileError;
-use crate::{MartinResult, Source, TileData, UrlQuery};
+
+use martin_core::tiles::{Source, UrlQuery};
 
 /// Tile source that reads from `Cloud Optimized GeoTIFF` files.
 #[derive(Clone, Debug)]

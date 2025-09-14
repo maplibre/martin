@@ -22,10 +22,12 @@ use crate::config::file::FileConfigEnum;
 use crate::config::file::{
     ConfigExtras, UnrecognizedKeys, UnrecognizedValues, copy_unrecognized_keys_from_config,
 };
-use crate::source::{TileInfoSource, TileSources};
+
+use crate::source::TileSources;
 use crate::srv::RESERVED_KEYWORDS;
 use crate::utils::{CacheValue, MainCache, OptMainCache, init_aws_lc_tls, parse_base_path};
 use crate::{IdResolver, MartinResult};
+use martin_core::tiles::BoxedSource;
 
 pub struct ServerState {
     pub cache: OptMainCache,
@@ -191,7 +193,7 @@ impl Config {
         #[allow(unused_variables)] cache: OptMainCache,
     ) -> MartinResult<TileSources> {
         #[allow(unused_mut)]
-        let mut sources: Vec<BoxFuture<MartinResult<Vec<TileInfoSource>>>> = Vec::new();
+        let mut sources: Vec<BoxFuture<MartinResult<Vec<BoxedSource>>>> = Vec::new();
 
         #[cfg(feature = "postgres")]
         for s in self.postgres.iter_mut() {

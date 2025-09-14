@@ -5,11 +5,11 @@ use std::path::PathBuf;
 
 use deadpool_postgres::tokio_postgres::Error as TokioPgError;
 use deadpool_postgres::{BuildError, PoolError};
+use martin_core::tiles::UrlQuery;
 use martin_tile_utils::TileCoord;
 use semver::Version;
 
 use super::utils::query_to_json;
-use crate::source::UrlQuery;
 
 /// Result type for `PostgreSQL` operations.
 pub type PgResult<T> = Result<T, PgError>;

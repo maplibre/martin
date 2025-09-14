@@ -5,10 +5,17 @@
 //! - a public facing catalog for exposing which tile sources exis
 //! - the sources for accessing tiles
 
+use std::collections::HashMap;
+
 use martin_tile_utils::{TileData, TileInfo};
 
 /// The public facing API for managing a catalog of tile sources
 pub mod catalog;
+mod source;
+pub use source::{BoxedSource, Source};
+
+/// URL query parameters for dynamic tile generation.
+pub type UrlQuery = HashMap<String, String>;
 
 /// Represents a single map tile with its raw data and metadata.
 ///

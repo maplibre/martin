@@ -3707,6 +3707,7 @@ dependencies = [
  "spreet",
  "subst",
  "thiserror 2.0.16",
+ "tilejson",
  "tokio",
  "walkdir",
 ]

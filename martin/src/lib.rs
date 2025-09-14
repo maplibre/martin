@@ -4,7 +4,7 @@
 pub mod config;
 
 mod source;
-pub use source::{Source, TileData, TileInfoSource, TileSources, UrlQuery};
+pub use source::TileSources;
 
 mod utils;
 pub use utils::{IdResolver, MartinError, MartinResult, NO_MAIN_CACHE};

@@ -1,10 +1,11 @@
 use async_trait::async_trait;
 use criterion::async_executor::FuturesExecutor;
 use criterion::{Criterion, criterion_group, criterion_main};
+use martin::TileSources;
 use martin::srv::DynTileSource;
-use martin::{Source, TileData, TileSources, UrlQuery};
 use martin_core::tiles::catalog::CatalogSourceEntry;
-use martin_tile_utils::{Encoding, Format, TileCoord, TileInfo};
+use martin_core::tiles::{BoxedSource, Source, UrlQuery};
+use martin_tile_utils::{Encoding, Format, TileCoord, TileData, TileInfo};
 use pprof::criterion::{Output, PProfProfiler};
 use tilejson::{TileJSON, tilejson};
 
@@ -35,7 +36,7 @@ impl Source for NullSource {
         TileInfo::new(Format::Png, Encoding::Internal)
     }
 
-    fn clone_source(&self) -> Box<dyn Source> {
+    fn clone_source(&self) -> BoxedSource {
         Box::new(self.clone())
     }
 
