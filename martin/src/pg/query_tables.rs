@@ -14,8 +14,8 @@ use crate::config::file::pg::{PgInfo, TableInfo};
 use crate::pg::PgError::PostgresError;
 use crate::pg::PgResult;
 use crate::pg::builder::SqlTableInfoMapMapMap;
-use crate::pg::source::PgSqlInfo;
 use crate::pg::pool::PgPool;
+use crate::pg::source::PgSqlInfo;
 use crate::pg::utils::{json_to_hashmap, polygon_to_bbox};
 
 static DEFAULT_EXTENT: u32 = 4096;
