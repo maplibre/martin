@@ -12,6 +12,7 @@ use crate::pg::utils::query_to_json;
 use crate::source::{Source, TileData, TileInfoSource, UrlQuery};
 
 #[derive(Clone, Debug)]
+/// `PostgreSQL` tile source that executes SQL queries to generate tiles.
 pub struct PgSource {
     id: String,
     info: PgSqlInfo,
@@ -20,6 +21,7 @@ pub struct PgSource {
 }
 
 impl PgSource {
+    /// Creates a new `PostgreSQL` tile source.
     #[must_use]
     pub fn new(id: String, info: PgSqlInfo, tilejson: TileJSON, pool: PgPool) -> Self {
         Self {
@@ -118,6 +120,7 @@ impl Source for PgSource {
 }
 
 #[derive(Clone, Debug)]
+/// SQL query information for `PostgreSQL` tile sources.
 pub struct PgSqlInfo {
     pub sql_query: String,
     pub use_url_query: bool,
@@ -125,6 +128,7 @@ pub struct PgSqlInfo {
 }
 
 impl PgSqlInfo {
+    /// Creates new SQL query information.
     #[must_use]
     pub fn new(query: String, has_query_params: bool, signature: String) -> Self {
         Self {

@@ -22,10 +22,12 @@ use crate::pg::utils::{InfoMap, find_info, find_kv_ignore_case, normalize_key};
 use crate::source::TileInfoSource;
 use crate::utils::IdResolver;
 
+/// Map of `PostgreSQL` functions organized by schema and function name.
 pub type SqlFuncInfoMapMap = InfoMap<InfoMap<(PgSqlInfo, FunctionInfo)>>;
+/// Map of `PostgreSQL` tables organized by schema, table, and geometry column.
 pub type SqlTableInfoMapMapMap = InfoMap<InfoMap<InfoMap<TableInfo>>>;
 
-/// A builder for creating a set of sources from a Postgres database
+/// Builder for auto-discovering `PostgreSQL` tile sources.
 #[derive(Debug)]
 pub struct PgBuilder {
     pool: PgPool,
@@ -49,6 +51,7 @@ pub struct PgBuilder {
     functions: FuncInfoSources,
 }
 
+/// Configuration for auto-discovering `PostgreSQL` functions.
 #[derive(Debug, PartialEq)]
 #[cfg_attr(test, serde_with::skip_serializing_none, derive(serde::Serialize))]
 pub struct PgBuilderFuncs {
@@ -56,6 +59,7 @@ pub struct PgBuilderFuncs {
     source_id_format: String,
 }
 
+/// Configuration for auto-discovering `PostgreSQL` tables.
 #[derive(Debug, Default, PartialEq)]
 #[cfg_attr(test, serde_with::skip_serializing_none, derive(serde::Serialize))]
 pub struct PgBuilderTables {
@@ -89,7 +93,9 @@ macro_rules! get_auto_schemas {
 }
 
 impl PgBuilder {
-    /// Creates a new Builder from the [`PgConfig`] and a way to deterministically convert duplicate to unique names
+    /// Creates a new `PostgreSQL` source builder from the [`PgConfig`].
+    ///
+    /// Duplicate names are deterministically converted to unique names.
     pub async fn new(config: &PgConfig, id_resolver: IdResolver) -> PgResult<Self> {
         let pool = PgPool::new(config).await?;
 
@@ -108,6 +114,7 @@ impl PgBuilder {
         })
     }
 
+    /// Returns the bounds calculation type for this builder.
     pub fn auto_bounds(&self) -> BoundsCalcType {
         self.auto_bounds
     }
@@ -117,9 +124,11 @@ impl PgBuilder {
         self.pool.get_id()
     }
 
-    // FIXME: this function has gotten too long due to the new formatting rules, need to be refactored
+    /// Discovers and instantiates table-based tile sources.
     #[allow(clippy::too_many_lines)]
     pub async fn instantiate_tables(&self) -> PgResult<(Vec<TileInfoSource>, TableInfoSources)> {
+        // FIXME: this function has gotten too long due to the new formatting rules, need to be refactored
+        //
         let mut db_tables_info = query_available_tables(&self.pool).await?;
 
         // Match configured sources with the discovered ones and add them to the pending list.
@@ -229,6 +238,7 @@ impl PgBuilder {
         Ok((res, info_map))
     }
 
+    /// Discovers and instantiates function-based tile sources.
     pub async fn instantiate_functions(&self) -> PgResult<(Vec<TileInfoSource>, FuncInfoSources)> {
         let mut db_funcs_info = query_available_function(&self.pool).await?;
         let mut res = Vec::new();
