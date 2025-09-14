@@ -76,9 +76,9 @@ where
            -- The order is not important
            SELECT COUNT(*) = 5
            FROM pragma_table_info('tiles_with_hash')
-           WHERE ((name = 'zoom_level' AND type = 'INTEGER')
-               OR (name = 'tile_column' AND type = 'INTEGER')
-               OR (name = 'tile_row' AND type = 'INTEGER')
+           WHERE ((name = 'zoom_level' AND type IN ('INTEGER', 'INT'))
+               OR (name = 'tile_column' AND type IN ('INTEGER', 'INT'))
+               OR (name = 'tile_row' AND type IN ('INTEGER', 'INT'))
                OR (name = 'tile_data' AND type = 'BLOB')
                OR (name = 'tile_hash' AND type = 'TEXT'))
            --
@@ -126,9 +126,9 @@ where
              -- The order is not important
              SELECT COUNT(*) = 4
              FROM pragma_table_info('tiles')
-             WHERE ((name = 'zoom_level' AND type = 'INTEGER')
-                 OR (name = 'tile_column' AND type = 'INTEGER')
-                 OR (name = 'tile_row' AND type = 'INTEGER')
+             WHERE ((name = 'zoom_level' AND type IN ('INTEGER', 'INT'))
+                 OR (name = 'tile_column' AND type IN ('INTEGER', 'INT'))
+                 OR (name = 'tile_row' AND type IN ('INTEGER', 'INT'))
                  OR (name = 'tile_data' AND type = 'BLOB'))
              --
          ) as is_valid;"
@@ -241,11 +241,11 @@ where
             "SELECT (
            SELECT COUNT(*) = 5
            FROM pragma_table_info('{tbl}')
-           WHERE ((name = 'zoom_level' AND type = 'INTEGER')
-               OR (name = 'tile_column' AND type = 'INTEGER')
-               OR (name = 'tile_row' AND type = 'INTEGER')
+           WHERE ((name = 'zoom_level' AND type IN ('INTEGER', 'INT'))
+               OR (name = 'tile_column' AND type IN ('INTEGER', 'INT'))
+               OR (name = 'tile_row' AND type IN ('INTEGER', 'INT'))
                OR (name = 'patch_data' AND type = 'BLOB')
-               OR (name = 'tile_xxh3_64_hash' AND type = 'INTEGER'))
+               OR (name = 'tile_xxh3_64_hash' AND type IN ('INTEGER', 'INT')))
            --
        ) as is_valid;"
         );
