@@ -4,8 +4,8 @@ use async_trait::async_trait;
 use martin_tile_utils::{TileCoord, TileData, TileInfo};
 use tilejson::TileJSON;
 
-use crate::tiles::UrlQuery;
 use crate::tiles::catalog::CatalogSourceEntry;
+use crate::tiles::{MartinCoreResult, UrlQuery};
 
 /// Core trait for tile sources providing data to Martin
 ///
