@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 use deadpool_postgres::tokio_postgres::types::{ToSql, Type};
 use log::debug;
+use martin_core::tiles::MartinCoreResult;
 use martin_tile_utils::Encoding::Uncompressed;
 use martin_tile_utils::Format::Mvt;
 use martin_tile_utils::{TileCoord, TileInfo};
@@ -64,7 +65,7 @@ impl Source for PgSource {
         &self,
         xyz: TileCoord,
         url_query: Option<&UrlQuery>,
-    ) -> Result<TileData, Box<dyn std::error::Error>> {
+    ) -> MartinCoreResult<TileData> {
         let conn = self.pool.get().await?;
         let param_types: &[Type] = if self.support_url_query() {
             &[Type::INT2, Type::INT8, Type::INT8, Type::JSON]
