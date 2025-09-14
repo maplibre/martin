@@ -510,7 +510,7 @@ test_font font_3      font/Overpass%20Mono%20Regular,Overpass%20Mono%20Light/0-2
 
 # Test comments override
 test_jsn tbl_comment_cfg  MixPoints
-test_jsn fnc_comment_cfg  fnc_Mixed_Name
+test_jsn fnc_comment_cfg  function_Mixed_Name
 
 test_metrics "metrics_1"
 
@@ -518,6 +518,21 @@ kill_process "$MARTIN_PROC_ID" Martin
 test_log_has_str "$LOG_FILE" 'WARN  martin::pg::query_tables] Table public.table_source has no spatial index on column geom'
 test_log_has_str "$LOG_FILE" 'WARN  martin::pg::query_tables] Table public.table_source_geog has no spatial index on column geog'
 test_log_has_str "$LOG_FILE" 'WARN  martin_core::resources::fonts] Ignoring duplicate font Overpass Mono Regular from tests'
+test_log_has_str "$LOG_FILE" "WARN  martin::config::file::main] Ignoring unrecognized configuration key 'warning'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" "WARN  martin::config::file::main] Ignoring unrecognized configuration key 'observability.warning'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" "WARN  martin::config::file::main] Ignoring unrecognized configuration key 'observability.metrics.warning'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" "WARN  martin::config::file::main] Ignoring unrecognized configuration key 'cors.warning'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" "WARN  martin::config::file::main] Ignoring unrecognized configuration key 'postgres.warning'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" "WARN  martin::config::file::main] Ignoring unrecognized configuration key 'postgres.ssl_certificates.warning'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" "WARN  martin::config::file::main] Ignoring unrecognized configuration key 'postgres.auto_publish.warning'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" "WARN  martin::config::file::main] Ignoring unrecognized configuration key 'postgres.auto_publish.tables.warning'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" "WARN  martin::config::file::main] Ignoring unrecognized configuration key 'postgres.auto_publish.functions.warning'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" "WARN  martin::config::file::main] Ignoring unrecognized configuration key 'postgres.tables.table_source.warning'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" "WARN  martin::config::file::main] Ignoring unrecognized configuration key 'postgres.functions.function_zxy_query.warning'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" "WARN  martin::config::file::main] Ignoring unrecognized configuration key 'pmtiles.warning'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" "WARN  martin::config::file::main] Ignoring unrecognized configuration key 'sprites.warning'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" "WARN  martin::config::file::main] Ignoring unrecognized configuration key 'cog.warning'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" "WARN  martin::config::file::main] Ignoring unrecognized configuration key 'styles.warning'. Please check your configuration file for typos."
 validate_log "$LOG_FILE"
 remove_lines "${TEST_OUT_DIR}/save_config.yaml" " connection_string: "
 

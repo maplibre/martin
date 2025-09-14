@@ -2,6 +2,12 @@ cache_size_mb: 8
 keep_alive: 75
 listen_addresses: localhost:3111
 worker_processes: 1
+cors:
+  origin:
+  - '*'
+  max_age: null
+observability:
+  metrics: {}
 postgres:
   default_srid: 4326
   max_feature_count: 1000
@@ -15,6 +21,8 @@ postgres:
       clip_geom: false
       buffer: 3
       extent: 9000
+    functions:
+      from_schemas: MixedCase
   tables:
     MixPoints:
       schema: MixedCase
@@ -138,7 +146,7 @@ postgres:
       properties:
         gid: int4
   functions:
-    fnc_Mixed_Name:
+    function_Mixed_Name:
       schema: MixedCase
       function: function_Mixed_Name
     function_zxy_query:
