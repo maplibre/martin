@@ -1,5 +1,7 @@
 //! `PostgreSQL` connection pool implementation.
 
+use std::path::PathBuf;
+
 use deadpool_postgres::{Manager, ManagerConfig, Object, Pool, RecyclingMethod};
 use log::{info, warn};
 use martin_core::tiles::postgres::PgError::{
@@ -10,11 +12,7 @@ use martin_core::tiles::postgres::PgResult;
 use postgres::config::SslMode;
 use semver::Version;
 
-use crate::config::file::pg::PgConfig;
 use crate::pg::tls::{SslModeOverride, make_connector, parse_conn_str};
-
-/// Default connection pool size.
-pub const POOL_SIZE_DEFAULT: usize = 20;
 
 /// We require `ST_TileEnvelope` that was added in [`PostGIS 3.0.0`](https://postgis.net/2019/10/PostGIS-3.0.0/)
 /// See <https://postgis.net/docs/ST_TileEnvelope.html>
@@ -42,12 +40,25 @@ pub struct PgPool {
 }
 
 impl PgPool {
-    /// Creates a new `PostgreSQL` connection pool from configuration.
-    pub async fn new(config: &PgConfig) -> PgResult<Self> {
-        let (id, mgr) = Self::parse_config(config)?;
+    /// Creates a new `PostgreSQL` connection pool
+    ///
+    /// Arguments:
+    /// - `connection_string`: the postgres connection string
+    /// - `ssl_cert`: Same as PGSSLCERT ([docs](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNECT-SSLCERT))
+    /// - `ssl_key`: Same as PGSSLKEY ([docs](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNECT-SSLKEY))
+    /// - `ssl_root_cert`: Same as PGSSLROOTCERT ([docs](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNECT-SSLROOTCERT))
+    /// - `pool_size`: Maximum number of connections in the pool
+    pub async fn new(
+        connection_string: &str,
+        ssl_cert: Option<&PathBuf>,
+        ssl_key: Option<&PathBuf>,
+        ssl_root_cert: Option<&PathBuf>,
+        pool_size: usize,
+    ) -> PgResult<Self> {
+        let (id, mgr) = Self::parse_config(connection_string, ssl_cert, ssl_key, ssl_root_cert)?;
 
         let pool = Pool::builder(mgr)
-            .max_size(config.pool_size.unwrap_or(POOL_SIZE_DEFAULT))
+            .max_size(pool_size)
             .build()
             .map_err(|e| PostgresPoolBuildError(e, id.clone()))?;
         let mut res = Self {
@@ -88,9 +99,20 @@ impl PgPool {
         Ok(res)
     }
 
-    fn parse_config(config: &PgConfig) -> PgResult<(String, Manager)> {
-        let conn_str = config.connection_string.as_ref().unwrap().as_str();
-        let (pg_cfg, ssl_mode) = parse_conn_str(conn_str)?;
+    /// Parse configuration from connection string
+    ///
+    /// Arguments:
+    /// - `connection_string`: the postgres connection string
+    /// - `ssl_cert`: Same as PGSSLCERT ([docs](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNECT-SSLCERT))
+    /// - `ssl_key`: Same as PGSSLKEY ([docs](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNECT-SSLKEY))
+    /// - `ssl_root_cert`: Same as PGSSLROOTCERT ([docs](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNECT-SSLROOTCERT))
+    fn parse_config(
+        connection_string: &str,
+        ssl_cert: Option<&PathBuf>,
+        ssl_key: Option<&PathBuf>,
+        ssl_root_cert: Option<&PathBuf>,
+    ) -> PgResult<(String, Manager)> {
+        let (pg_cfg, ssl_mode) = parse_conn_str(connection_string)?;
 
         let id = pg_cfg.get_dbname().map_or_else(
             || format!("{:?}", pg_cfg.get_hosts()[0]),
@@ -117,7 +139,7 @@ impl PgPool {
                     info!("Using sslmode=verify-full to connect: {pg_cfg:?}");
                 }
             }
-            let connector = make_connector(&config.ssl_certificates, ssl_mode)?;
+            let connector = make_connector(ssl_cert, ssl_key, ssl_root_cert, ssl_mode)?;
             Manager::from_config(pg_cfg, connector, mgr_config)
         };
 

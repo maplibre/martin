@@ -95,7 +95,14 @@ impl PgBuilder {
     ///
     /// Duplicate names are deterministically converted to unique names.
     pub async fn new(config: &PgConfig, id_resolver: IdResolver) -> PgResult<Self> {
-        let pool = PgPool::new(config).await?;
+        let pool = PgPool::new(
+            config.connection_string.as_ref().unwrap().as_str(),
+            config.ssl_certificates.ssl_cert.as_ref(),
+            config.ssl_certificates.ssl_key.as_ref(),
+            config.ssl_certificates.ssl_root_cert.as_ref(),
+            config.pool_size,
+        )
+        .await?;
 
         let (auto_tables, auto_functions) = calc_auto(config);
 

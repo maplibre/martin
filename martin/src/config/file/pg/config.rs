@@ -62,7 +62,8 @@ pub struct PgConfig {
     /// Can be either a positive integer or unlimited if omitted.
     pub max_feature_count: Option<usize>,
     /// Maximum Postgres connections pool size [DEFAULT: 20]
-    pub pool_size: Option<usize>,
+    #[serde(default = "default_pool_size")]
+    pub pool_size: usize,
     /// Enable/disable/configure automatic discovery of tables and functions.
     ///
     /// You may set this to `OptBoolObj::Bool(false)` to disable.
@@ -75,6 +76,14 @@ pub struct PgConfig {
 
     #[serde(flatten, skip_serializing)]
     pub unrecognized: UnrecognizedValues,
+}
+
+/// Default connection pool size.
+pub const POOL_SIZE_DEFAULT: usize = 20;
+
+/// Default connection pool size.
+const fn default_pool_size() -> usize {
+    POOL_SIZE_DEFAULT // serde only allows functions
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -168,11 +177,9 @@ impl ConfigExtras for PgCfgPublishFuncs {
 }
 
 impl PgConfig {
-    /// Apply defaults to the config, and validate if there is a connection string
+    /// Validate if all settings are valid
     pub fn validate(&self) -> PgResult<()> {
-        if let Some(pool_size) = self.pool_size
-            && pool_size < 1
-        {
+        if self.pool_size < 1 {
             return Err(PgError::ConfigError(
                 "pool_size must be greater than or equal to 1.",
             ));
@@ -422,7 +429,7 @@ mod tests {
                 postgres: One(PgConfig {
                     connection_string: Some("postgres://postgres@localhost:5432/db".to_string()),
                     default_srid: Some(4326),
-                    pool_size: Some(20),
+                    pool_size: 20,
                     max_feature_count: Some(100),
                     tables: Some(BTreeMap::from([(
                         "table_source".to_string(),
