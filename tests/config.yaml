@@ -213,11 +213,14 @@ sprites:
 
 cog:
   warning: 'due to not expected'
-  paths:
-    - tests/fixtures/cog/rgba_u8_nodata.tiff
   sources:
-    cog-src1: tests/fixtures/cog/rgba_u8.tif
     cog-src2: tests/fixtures/cog/rgb_u8.tif
+    cog-src1: tests/fixtures/cog/rgba_u8.tif
+    # Test COG with auto_webmercator enabled
+    cog-auto-web:
+      path: tests/fixtures/cog/rgba_u8_nodata.tiff
+      auto_web: true
+      warning: 'due to not expected'
 
 fonts:
   - tests/fixtures/fonts/overpass-mono-regular.ttf

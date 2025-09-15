@@ -80,6 +80,7 @@ name = "sources"
 harness = false
 
 [features]
+lambda = ["dep:lambda-web"]
 default = [
     "cog",
     "fonts",
@@ -94,7 +95,6 @@ default = [
 ]
 cog = ["martin-core/cog"]
 fonts = ["martin-core/fonts"]
-lambda = ["dep:lambda-web"]
 mbtiles = ["martin-core/mbtiles"]
 metrics = ["dep:actix-web-prom"]
 pmtiles = ["dep:aws-config", "dep:pmtiles"]

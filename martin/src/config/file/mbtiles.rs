@@ -85,6 +85,7 @@ mod tests {
                     "pm-src2".to_string(),
                     FileConfigSrc::Obj(FileConfigSource {
                         path: PathBuf::from("/tmp/file.ext"),
+                        ..FileConfigSource::default()
                     })
                 ),
                 (
@@ -95,6 +96,7 @@ mod tests {
                     "pm-src4".to_string(),
                     FileConfigSrc::Obj(FileConfigSource {
                         path: PathBuf::from("https://example.org/file4.ext"),
+                        ..FileConfigSource::default()
                     })
                 ),
             ]))

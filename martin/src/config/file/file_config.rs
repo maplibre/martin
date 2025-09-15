@@ -68,6 +68,15 @@ pub trait SourceConfigExtras: ConfigExtras {
         path: PathBuf,
     ) -> impl Future<Output = MartinResult<BoxedSource>> + Send;
 
+    fn new_sources_with_config(
+        &self,
+        id: String,
+        path: PathBuf,
+        _config: serde_yaml::Value,
+    ) -> impl Future<Output = MartinResult<BoxedSource>> + Send {
+        self.new_sources(id, path)
+    }
+
     /// Asynchronously creates a new `BoxedSource` from a **remote** `url` using the given `id`.
     ///
     /// This function is called for each discovered source path that is a valid URL.
@@ -224,6 +233,8 @@ impl FileConfigSrc {
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct FileConfigSource {
     pub path: PathBuf,
+    #[serde(flatten)]
+    pub config: serde_yaml::Value,
 }
 
 pub async fn resolve_files<T: SourceConfigExtras>(
@@ -274,7 +285,16 @@ async fn resolve_int<T: SourceConfigExtras>(
                 let id = idr.resolve(&id, can.to_string_lossy().to_string());
                 info!("Configured {dup}source {id} from {}", can.display());
                 configs.insert(id.clone(), source.clone());
-                results.push(cfg.custom.new_sources(id, source.into_path()).await?);
+                let path = source.get_path().clone();
+                let result = match source {
+                    FileConfigSrc::Path(_) => cfg.custom.new_sources(id, path).await?,
+                    FileConfigSrc::Obj(obj) => {
+                        cfg.custom
+                            .new_sources_with_config(id, path, obj.config.clone())
+                            .await?
+                    }
+                };
+                results.push(result);
             }
         }
     }

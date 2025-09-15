@@ -471,6 +471,18 @@ test_pbf fnc2_0_0_0   function_zxy_query_test/0/0/0?token=martin
 test_png pmt_0_0_0    pmt/0/0/0
 test_png pmt2_0_0_0   pmt2/0/0/0  # HTTP pmtiles
 
+# Test COG sources (only cog-auto-web, with calculated z/x/y)
+test_jsn cog_auto_web  cog-auto-web
+test_png cog_auto_web_13_4427_3221 cog-auto-web/13/4427/3221
+test_png cog_auto_web_12_2213_1610 cog-auto-web/12/2213/1610
+
+# These should be not auto-web
+test_jsn cog-src1       cog-src1
+test_png cog-src1_0_0_0 cog-src1/0/0/0
+test_png cog-src1_3_0_0 cog-src1/3/0/0
+test_png cog-src1_3_1_1 cog-src1/3/1/1
+
+
 # Test sprites
 test_jsn spr_src1      sprite/src1.json
 test_jsn sdf_spr_src1  sdf_sprite/src1.json
