@@ -13,7 +13,7 @@ The library providing the basic building blocks for [Martin](https://maplibre.or
 - tiles
   - [x] mbtiles
   - [ ] pmtiles
-  - [ ] cog
+  - [x] cog
   - [ ] postgres tables
   - [ ] postgres functions
 - resources

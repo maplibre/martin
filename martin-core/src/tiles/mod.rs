@@ -6,7 +6,7 @@
 //! - the [`Source`](crate::tiles::Source) for accessing tiles:
 //!   - [x] [`mbtiles`]
 //!   - [ ] pmtiles
-//!   - [ ] cog
+//!   - [x] cog
 //!   - [ ] postgres
 
 /// The public facing API for managing a catalog of tile sources
@@ -15,6 +15,10 @@ pub mod catalog;
 #[cfg(feature = "mbtiles")]
 /// Implementation of `MBTiles`' [`Source`].
 pub mod mbtiles;
+
+#[cfg(feature = "cog")]
+/// Implementation of `Cloud Optimized GeoTIFF`' [`Source`].
+pub mod cog;
 
 mod source;
 pub use source::{BoxedSource, Source, UrlQuery};

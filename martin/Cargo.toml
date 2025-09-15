@@ -80,7 +80,6 @@ name = "sources"
 harness = false
 
 [features]
-cog = ["dep:tiff", "dep:png", "dep:image", "dep:imageproc"]
 lambda = ["dep:lambda-web"]
 default = [
     "cog",
@@ -94,6 +93,7 @@ default = [
     "styles",
     "webui",
 ]
+cog = ["martin-core/cog"]
 fonts = ["martin-core/fonts"]
 mbtiles = ["martin-core/mbtiles"]
 metrics = ["dep:actix-web-prom"]
@@ -131,8 +131,6 @@ deadpool-postgres = { workspace = true, optional = true }
 enum-display = { workspace = true, optional = true }
 env_logger.workspace = true
 futures.workspace = true
-image = { workspace = true, optional = true }
-imageproc = { workspace = true, optional = true }
 itertools.workspace = true
 json-patch = { workspace = true, optional = true }
 lambda-web = { workspace = true, optional = true }
@@ -143,7 +141,7 @@ mbtiles.workspace = true
 moka.workspace = true
 num_cpus.workspace = true
 pmtiles = { workspace = true, optional = true }
-png = { workspace = true, optional = true }
+
 postgis = { workspace = true, optional = true }
 postgres = { workspace = true, optional = true }
 postgres-protocol = { workspace = true, optional = true }

@@ -68,7 +68,7 @@ pub enum MartinError {
 
     #[cfg(feature = "cog")]
     #[error(transparent)]
-    CogError(#[from] crate::cog::CogError),
+    CogError(#[from] martin_core::tiles::cog::CogError),
 
     #[error(transparent)]
     ConfigFileError(#[from] crate::config::file::ConfigFileError),

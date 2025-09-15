@@ -3,13 +3,12 @@ use std::io::BufWriter;
 use std::path::Path;
 
 use image::{ImageBuffer, Rgba};
-use martin_core::tiles::MartinCoreResult;
 use martin_tile_utils::{TileCoord, TileData};
 use tiff::ColorType;
 use tiff::decoder::{Decoder, DecodingResult};
 
 use super::CogError;
-use crate::MartinResult;
+use crate::tiles::MartinCoreResult;
 
 /// Image represents a single image in a COG file. A tiff file may contain many images.
 /// This struct contains information and methods for taking tiles from the image.
@@ -59,7 +58,7 @@ impl Image {
         xyz: TileCoord,
         nodata: Option<f64>,
         path: &Path,
-    ) -> MartinResult<TileData> {
+    ) -> Result<TileData, CogError> {
         let bbox = martin_tile_utils::xyz_to_bbox_webmercator(xyz.z, xyz.x, xyz.y, xyz.x, xyz.y);
         #[allow(clippy::cast_sign_loss)]
         let nodata_u8 = nodata.map(|v| v as u8);
@@ -77,7 +76,7 @@ impl Image {
         output_size: u32,
         nodata: Option<u8>,
         path: &Path,
-    ) -> MartinResult<TileData> {
+    ) -> Result<TileData, CogError> {
         decoder
             .seek_to_image(self.ifd_index())
             .map_err(|e| CogError::IfdSeekFailed(e, self.ifd_index(), path.to_path_buf()))?;
@@ -146,8 +145,7 @@ impl Image {
                     return Err(CogError::NotSupportedColorTypeAndBitDepth(
                         color_type,
                         path.to_path_buf(),
-                    )
-                    .into());
+                    ));
                 } //todo do others in next PRs, a lot of discussion would be needed
             }
         }
@@ -455,7 +453,7 @@ mod tests {
     use martin_tile_utils::{TileCoord, xyz_to_bbox_webmercator};
     use rstest::rstest;
 
-    use crate::cog::image::Image;
+    use crate::tiles::cog::image::Image;
 
     #[test]
     fn can_calc_tile_idx() {

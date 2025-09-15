@@ -2,11 +2,11 @@ use std::fmt::Debug;
 use std::path::PathBuf;
 
 use martin_core::tiles::BoxedSource;
+use martin_core::tiles::cog::CogSource;
 use serde::{Deserialize, Serialize};
 use url::Url;
 
 use crate::MartinResult;
-use crate::cog::CogSource;
 use crate::config::file::{ConfigExtras, SourceConfigExtras, UnrecognizedKeys, UnrecognizedValues};
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
