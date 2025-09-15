@@ -3,10 +3,9 @@ use std::collections::{BTreeMap, HashMap};
 use deadpool_postgres::tokio_postgres::types::Json;
 use itertools::Itertools as _;
 use log::{error, info, warn};
+use martin_core::tiles::UrlQuery;
 use postgis::{LineString, Point, Polygon, ewkb};
 use tilejson::{Bounds, TileJSON};
-
-use crate::source::UrlQuery;
 
 #[cfg(test)]
 #[expect(clippy::ref_option)]

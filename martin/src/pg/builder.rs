@@ -6,6 +6,7 @@ use itertools::Itertools as _;
 use log::{debug, error, info, warn};
 use martin_core::config::OptBoolObj::{Bool, NoValue, Object};
 use martin_core::config::OptOneMany::NoVals;
+use martin_core::tiles::BoxedSource;
 
 use crate::config::args::BoundsCalcType;
 use crate::config::file::pg::{
@@ -19,7 +20,6 @@ use crate::pg::query_functions::query_available_function;
 use crate::pg::query_tables::{query_available_tables, table_to_query};
 use crate::pg::source::{PgSource, PgSqlInfo};
 use crate::pg::utils::{InfoMap, find_info, find_kv_ignore_case, normalize_key};
-use crate::source::TileInfoSource;
 use crate::utils::IdResolver;
 
 /// Map of `PostgreSQL` functions organized by schema and function name.
@@ -126,7 +126,7 @@ impl PgBuilder {
 
     /// Discovers and instantiates table-based tile sources.
     #[allow(clippy::too_many_lines)]
-    pub async fn instantiate_tables(&self) -> PgResult<(Vec<TileInfoSource>, TableInfoSources)> {
+    pub async fn instantiate_tables(&self) -> PgResult<(Vec<BoxedSource>, TableInfoSources)> {
         // FIXME: this function has gotten too long due to the new formatting rules, need to be refactored
         //
         let mut db_tables_info = query_available_tables(&self.pool).await?;
@@ -239,7 +239,7 @@ impl PgBuilder {
     }
 
     /// Discovers and instantiates function-based tile sources.
-    pub async fn instantiate_functions(&self) -> PgResult<(Vec<TileInfoSource>, FuncInfoSources)> {
+    pub async fn instantiate_functions(&self) -> PgResult<(Vec<BoxedSource>, FuncInfoSources)> {
         let mut db_funcs_info = query_available_function(&self.pool).await?;
         let mut res = Vec::new();
         let mut info_map = FuncInfoSources::new();
@@ -317,7 +317,7 @@ impl PgBuilder {
 
     fn add_func_src(
         &self,
-        sources: &mut Vec<TileInfoSource>,
+        sources: &mut Vec<BoxedSource>,
         id: String,
         pg_info: &impl PgInfo,
         sql_info: PgSqlInfo,

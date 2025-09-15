@@ -9,16 +9,16 @@ use actix_web::web::{Data, Path, Query};
 use actix_web::{HttpMessage, HttpRequest, HttpResponse, Result as ActixResult, route};
 use futures::future::try_join_all;
 use log::trace;
-use martin_core::tiles::Tile;
+use martin_core::tiles::{BoxedSource, Tile, UrlQuery};
 use martin_tile_utils::{
-    Encoding, Format, TileCoord, TileInfo, decode_brotli, decode_gzip, encode_brotli, encode_gzip,
+    Encoding, Format, TileCoord, TileData, TileInfo, decode_brotli, decode_gzip, encode_brotli,
+    encode_gzip,
 };
 use serde::Deserialize;
 
-use crate::TileData;
 use crate::config::args::PreferredEncoding;
 use crate::config::file::srv::SrvConfig;
-use crate::source::{TileInfoSource, TileSources, UrlQuery};
+use crate::source::TileSources;
 use crate::srv::server::map_internal_error;
 use crate::utils::cache::get_or_insert_cached_value;
 use crate::utils::{CacheKey, CacheValue, MainCache, OptMainCache};
@@ -65,7 +65,7 @@ async fn get_tile(
 }
 
 pub struct DynTileSource<'a> {
-    pub sources: Vec<TileInfoSource>,
+    pub sources: Vec<BoxedSource>,
     pub info: TileInfo,
     pub query_str: Option<&'a str>,
     pub query_obj: Option<UrlQuery>,

@@ -1,40 +1,20 @@
-use std::collections::HashMap;
-use std::fmt::Debug;
-
 use actix_web::error::ErrorNotFound;
-use async_trait::async_trait;
 use dashmap::DashMap;
 use log::debug;
-use martin_core::tiles::{
-    MartinCoreResult,
-    catalog::{CatalogSourceEntry, TileCatalog},
-};
-pub use martin_tile_utils::TileData;
-use martin_tile_utils::{TileCoord, TileInfo};
-use tilejson::TileJSON;
-
-/// URL query parameters for dynamic tile generation.
-pub type UrlQuery = HashMap<String, String>;
-
-/// Boxed tile source trait object for storage in collections.
-pub type TileInfoSource = Box<dyn Source>;
-
-impl Clone for TileInfoSource {
-    fn clone(&self) -> Self {
-        self.clone_source()
-    }
-}
+use martin_core::tiles::catalog::TileCatalog;
+use martin_core::tiles::{BoxedSource, Source};
+use martin_tile_utils::TileInfo;
 
 /// Thread-safe registry of tile sources indexed by ID.
 ///
 /// Uses a [`DashMap`] for concurrent access without explicit locking.
 #[derive(Default, Clone)]
-pub struct TileSources(DashMap<String, TileInfoSource>);
+pub struct TileSources(DashMap<String, BoxedSource>);
 
 impl TileSources {
     /// Creates a new registry from flattened source collections.
     #[must_use]
-    pub fn new(sources: Vec<Vec<TileInfoSource>>) -> Self {
+    pub fn new(sources: Vec<Vec<BoxedSource>>) -> Self {
         Self(
             sources
                 .into_iter()
@@ -60,7 +40,7 @@ impl TileSources {
     }
 
     /// Gets a source by ID, returning 404 error if not found.
-    pub fn get_source(&self, id: &str) -> actix_web::Result<TileInfoSource> {
+    pub fn get_source(&self, id: &str) -> actix_web::Result<BoxedSource> {
         Ok(self
             .0
             .get(id)
@@ -79,7 +59,7 @@ impl TileSources {
         &self,
         source_ids: &str,
         zoom: Option<u8>,
-    ) -> actix_web::Result<(Vec<TileInfoSource>, bool, TileInfo)> {
+    ) -> actix_web::Result<(Vec<BoxedSource>, bool, TileInfo)> {
         let mut sources = Vec::new();
         let mut info: Option<TileInfo> = None;
         let mut use_url_query = false;
@@ -127,65 +107,5 @@ impl TileSources {
     #[must_use]
     pub fn benefits_from_concurrent_scraping(&self) -> bool {
         self.0.iter().any(|s| s.benefits_from_concurrent_scraping())
-    }
-}
-
-/// Core trait for tile sources providing data to Martin
-///
-/// Implementors can serve tiles from databases, files, or other backends.
-#[async_trait]
-pub trait Source: Send + Debug {
-    /// Unique source identifier used in URLs.
-    fn get_id(&self) -> &str;
-
-    /// `TileJSON` specification served to clients.
-    fn get_tilejson(&self) -> &TileJSON;
-
-    /// Technical tile information (format, encoding, etc.).
-    fn get_tile_info(&self) -> TileInfo;
-
-    /// Creates a boxed clone for trait object storage.
-    fn clone_source(&self) -> TileInfoSource;
-
-    /// Whether this source accepts URL query parameters. Default: false.
-    fn support_url_query(&self) -> bool {
-        false
-    }
-
-    /// Whether martin-cp should use concurrent scraping. Default: false.
-    fn benefits_from_concurrent_scraping(&self) -> bool {
-        false
-    }
-
-    /// Retrieves tile data for the given coordinates.
-    ///
-    /// # Arguments
-    /// * `xyz` - Tile coordinates (x, y, zoom)
-    /// * `url_query` - Optional query parameters for dynamic tiles
-    async fn get_tile(
-        &self,
-        xyz: TileCoord,
-        url_query: Option<&UrlQuery>,
-    ) -> MartinCoreResult<TileData>;
-
-    /// Validates zoom level against `TileJSON` min/max zoom constraints.
-    fn is_valid_zoom(&self, zoom: u8) -> bool {
-        let tj = self.get_tilejson();
-        tj.minzoom.is_none_or(|minzoom| zoom >= minzoom)
-            && tj.maxzoom.is_none_or(|maxzoom| zoom <= maxzoom)
-    }
-
-    /// Generates catalog entry for this source.
-    fn get_catalog_entry(&self) -> CatalogSourceEntry {
-        let id = self.get_id();
-        let tilejson = self.get_tilejson();
-        let info = self.get_tile_info();
-        CatalogSourceEntry {
-            content_type: info.format.content_type().to_string(),
-            content_encoding: info.encoding.content_encoding().map(ToString::to_string),
-            name: tilejson.name.as_ref().filter(|v| *v != id).cloned(),
-            description: tilejson.description.clone(),
-            attribution: tilejson.attribution.clone(),
-        }
     }
 }

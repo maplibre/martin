@@ -5,6 +5,7 @@ use futures::future::try_join;
 use futures::pin_mut;
 use log::warn;
 use martin_core::config::{OptBoolObj, OptOneMany};
+use martin_core::tiles::BoxedSource;
 use serde::{Deserialize, Serialize};
 use tilejson::TileJSON;
 use tokio::time::timeout;
@@ -17,7 +18,6 @@ use crate::config::file::{
 };
 use crate::pg::builder::PgBuilder;
 use crate::pg::{PgError, PgResult};
-use crate::source::TileInfoSource;
 use crate::utils::IdResolver;
 
 pub trait PgInfo {
@@ -218,7 +218,7 @@ impl PgConfig {
             .collect())
     }
 
-    pub async fn resolve(&mut self, id_resolver: IdResolver) -> MartinResult<Vec<TileInfoSource>> {
+    pub async fn resolve(&mut self, id_resolver: IdResolver) -> MartinResult<Vec<BoxedSource>> {
         let pg = PgBuilder::new(self, id_resolver).await?;
         let inst_tables = on_slow(
             pg.instantiate_tables(),

@@ -8,8 +8,8 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use log::{trace, warn};
-use martin_core::tiles::MartinCoreResult;
-use martin_tile_utils::{Encoding, Format, TileCoord, TileInfo};
+use martin_core::tiles::{BoxedSource, MartinCoreResult, Source, UrlQuery};
+use martin_tile_utils::{Encoding, Format, TileCoord, TileData, TileInfo};
 use pmtiles::aws_sdk_s3::Client as S3Client;
 use pmtiles::aws_sdk_s3::config::Builder as S3ConfigBuilder;
 use pmtiles::reqwest::Client;
@@ -22,10 +22,9 @@ use url::Url;
 
 use super::PmtilesError::{self, InvalidUrlMetadata};
 use crate::config::file::ConfigFileError::{InvalidMetadata, IoError};
-use crate::source::{TileInfoSource, UrlQuery};
 use crate::utils::cache::get_cached_value;
 use crate::utils::{CacheKey, CacheValue, OptMainCache};
-use crate::{MartinError, MartinResult, Source, TileData};
+use crate::{MartinError, MartinResult};
 
 /// Directory cache for `PMTiles` files.
 #[derive(Clone, Debug)]
@@ -168,7 +167,7 @@ macro_rules! impl_pmtiles_source {
                 self.tile_info
             }
 
-            fn clone_source(&self) -> TileInfoSource {
+            fn clone_source(&self) -> BoxedSource {
                 Box::new(self.clone())
             }
 

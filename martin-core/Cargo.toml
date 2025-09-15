@@ -46,6 +46,7 @@ serde_with.workspace = true
 spreet = { workspace = true, optional = true }
 subst.workspace = true
 thiserror = { workspace = true, optional = true }
+tilejson.workspace = true
 tokio = { workspace = true, optional = true }
 walkdir = { workspace = true, optional = true }
 

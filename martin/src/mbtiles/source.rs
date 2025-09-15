@@ -7,14 +7,13 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use log::trace;
-use martin_core::tiles::MartinCoreResult;
-use martin_tile_utils::{TileCoord, TileInfo};
+use martin_core::tiles::{BoxedSource, MartinCoreResult, Source, UrlQuery};
+use martin_tile_utils::{TileCoord, TileData, TileInfo};
 use mbtiles::MbtilesPool;
 use tilejson::TileJSON;
 
 use crate::config::file::ConfigFileError::{InvalidMetadata, IoError};
 use crate::config::file::ConfigFileResult;
-use crate::source::{Source, TileData, TileInfoSource, UrlQuery};
 
 /// Tile source that reads from `MBTiles` files.
 #[derive(Clone)]
@@ -72,7 +71,7 @@ impl Source for MbtSource {
         self.tile_info
     }
 
-    fn clone_source(&self) -> TileInfoSource {
+    fn clone_source(&self) -> BoxedSource {
         Box::new(self.clone())
     }
 
