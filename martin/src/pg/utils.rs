@@ -26,19 +26,6 @@ pub fn sorted_opt_set<S: serde::Serializer>(
 }
 
 #[must_use]
-pub fn json_to_hashmap(value: &serde_json::Value) -> InfoMap<String> {
-    let mut result = BTreeMap::new();
-
-    let object = value.as_object().unwrap();
-    for (key, value) in object {
-        let string_value = value.as_str().unwrap().to_string();
-        result.insert(key.clone(), string_value);
-    }
-
-    result
-}
-
-#[must_use]
 pub fn patch_json(target: TileJSON, patch: Option<&serde_json::Value>) -> TileJSON {
     let Some(tj) = patch else {
         // Nothing to merge in, keep the original
