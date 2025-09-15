@@ -18,7 +18,6 @@ use crate::pg::PgResult;
 use crate::pg::builder::SqlTableInfoMapMapMap;
 use crate::pg::pool::PgPool;
 use crate::pg::source::PgSqlInfo;
-use crate::pg::utils::json_to_hashmap;
 
 static DEFAULT_EXTENT: u32 = 4096;
 static DEFAULT_BUFFER: u32 = 64;
@@ -62,7 +61,7 @@ pub async fn query_available_tables(pool: &PgPool) -> PgResult<SqlTableInfoMapMa
             is_view: row.get("is_view"),
             srid: row.get("srid"), // casting i32 to u32?
             geometry_type: row.get("type"),
-            properties: Some(json_to_hashmap(&row.get("properties"))),
+            properties: Some(serde_json::from_value(row.get("properties")).unwrap()),
             tilejson,
             ..Default::default()
         };
