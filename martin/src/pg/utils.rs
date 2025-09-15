@@ -98,21 +98,29 @@ pub fn polygon_to_bbox(polygon: &ewkb::Polygon) -> Option<Bounds> {
     })
 }
 
-pub type InfoMap<T> = BTreeMap<String, T>;
-
 #[must_use]
-pub fn normalize_key<T>(map: &InfoMap<T>, key: &str, info: &str, id: &str) -> Option<String> {
+pub fn normalize_key<T>(
+    map: &BTreeMap<String, T>,
+    key: &str,
+    info: &str,
+    id: &str,
+) -> Option<String> {
     find_info_kv(map, key, info, id).map(|(k, _)| k.to_string())
 }
 
 #[must_use]
-pub fn find_info<'a, T>(map: &'a InfoMap<T>, key: &'a str, info: &str, id: &str) -> Option<&'a T> {
+pub fn find_info<'a, T>(
+    map: &'a BTreeMap<String, T>,
+    key: &'a str,
+    info: &str,
+    id: &str,
+) -> Option<&'a T> {
     find_info_kv(map, key, info, id).map(|(_, v)| v)
 }
 
 #[must_use]
 fn find_info_kv<'a, T>(
-    map: &'a InfoMap<T>,
+    map: &'a BTreeMap<String, T>,
     key: &'a str,
     info: &str,
     id: &str,
@@ -148,7 +156,7 @@ fn find_info_kv<'a, T>(
 /// If there is no exact match and there are multiple case-insensitive matches, return an error with a vector of the possible matches.
 /// If there is no match, return `Ok(None)`.
 pub fn find_kv_ignore_case<'a, T>(
-    map: &'a InfoMap<T>,
+    map: &'a BTreeMap<String, T>,
     key: &str,
 ) -> Result<Option<&'a String>, Vec<String>> {
     let key = key.to_lowercase();
