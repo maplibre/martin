@@ -95,7 +95,7 @@ default = [
 ]
 cog = ["martin-core/cog"]
 fonts = ["martin-core/fonts"]
-geojson = ["martin-core/geojson"]
+geojson = ["martin-core/geojson", "dep:geojson-vt-rs"]
 lambda = ["dep:lambda-web"]
 mbtiles = ["martin-core/mbtiles"]
 metrics = ["dep:actix-web-prom"]
@@ -153,6 +153,7 @@ rustls-native-certs = { workspace = true, optional = true }
 rustls-pemfile = { workspace = true, optional = true }
 semver = { workspace = true, optional = true }
 serde.workspace = true
+geojson-vt-rs = { workspace = true, optional = true }
 serde_json.workspace = true
 serde_with.workspace = true
 serde_yaml.workspace = true

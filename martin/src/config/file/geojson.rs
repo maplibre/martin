@@ -5,9 +5,9 @@ use serde::{Deserialize, Serialize};
 use url::Url;
 
 use crate::MartinResult;
-use crate::config::file::{ConfigExtras, SourceConfigExtras, UnrecognizedValues};
-use crate::geojson::GeoJsonSource;
-use crate::source::TileInfoSource;
+use crate::config::file::{ConfigExtras, SourceConfigExtras, UnrecognizedKeys, UnrecognizedValues};
+use martin_core::tiles::BoxedSource;
+use martin_core::tiles::geojson::GeoJsonSource;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct GeoJsonConfig {
@@ -58,13 +58,16 @@ impl GeoJsonConfig {
 }
 
 impl ConfigExtras for GeoJsonConfig {
-    fn get_unrecognized(&self) -> &UnrecognizedValues {
-        &self.unrecognized
+    fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
+        self.unrecognized.keys().cloned().collect()
     }
 }
 
 impl SourceConfigExtras for GeoJsonConfig {
-    async fn new_sources(&self, id: String, path: PathBuf) -> MartinResult<TileInfoSource> {
+    fn parse_urls() -> bool {
+        false
+    }
+    async fn new_sources(&self, id: String, path: PathBuf) -> MartinResult<BoxedSource> {
         let tile_options = geojson_vt_rs::TileOptions {
             tolerance: self.tolerance,
             extent: self.extent,
@@ -74,7 +77,7 @@ impl SourceConfigExtras for GeoJsonConfig {
         Ok(Box::new(GeoJsonSource::new(id, path, tile_options)?))
     }
 
-    async fn new_sources_url(&self, _id: String, _url: Url) -> MartinResult<TileInfoSource> {
+    async fn new_sources_url(&self, _id: String, _url: Url) -> MartinResult<BoxedSource> {
         unreachable!()
     }
 }

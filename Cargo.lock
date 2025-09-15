@@ -3714,6 +3714,7 @@ dependencies = [
  "enum-display",
  "env_logger",
  "futures",
+ "geojson-vt-rs",
  "indoc",
  "insta",
  "itertools 0.14.0",
