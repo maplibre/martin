@@ -4,6 +4,8 @@ use std::collections::HashMap;
 
 use futures::pin_mut;
 use log::{debug, warn};
+use martin_core::tiles::postgres::PgError::PostgresError;
+use martin_core::tiles::postgres::PgResult;
 use martin_tile_utils::EARTH_CIRCUMFERENCE_DEGREES;
 use postgis::ewkb;
 use postgres_protocol::escape::{escape_identifier, escape_literal};
@@ -13,8 +15,6 @@ use tokio::time::timeout;
 
 use crate::config::args::{BoundsCalcType, DEFAULT_BOUNDS_TIMEOUT};
 use crate::config::file::pg::{PgInfo, TableInfo};
-use crate::pg::PgError::PostgresError;
-use crate::pg::PgResult;
 use crate::pg::builder::SqlTableInfoMapMapMap;
 use crate::pg::pool::PgPool;
 use crate::pg::source::PgSqlInfo;

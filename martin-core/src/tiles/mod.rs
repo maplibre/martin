@@ -20,6 +20,10 @@ pub mod mbtiles;
 /// Implementation of `Cloud Optimized GeoTIFF`' [`Source`].
 pub mod cog;
 
+#[cfg(feature = "postgres")]
+/// Implementation of `PostgreSQL`' [`Source`].
+pub mod postgres;
+
 mod source;
 pub use source::{BoxedSource, Source, UrlQuery};
 
