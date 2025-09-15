@@ -8,9 +8,6 @@ use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering::SeqCst;
 use std::sync::{Arc, LazyLock};
 
-use crate::cache::{CacheKey, CacheValue, OptMainCache};
-use crate::get_cached_value;
-use crate::tiles::{BoxedSource, MartinCoreResult, Source, UrlQuery};
 use async_trait::async_trait;
 use log::{trace, warn};
 use martin_tile_utils::{Encoding, Format, TileCoord, TileData, TileInfo};
@@ -25,6 +22,9 @@ use tilejson::TileJSON;
 use url::Url;
 
 use super::PmtilesError::{self, InvalidMetadata, InvalidUrlMetadata};
+use crate::cache::{CacheKey, CacheValue, OptMainCache};
+use crate::get_cached_value;
+use crate::tiles::{BoxedSource, MartinCoreResult, Source, UrlQuery};
 
 /// [`pmtiles::Directory`] cache for `PMTiles` files.
 #[derive(Clone, Debug)]
@@ -75,7 +75,7 @@ impl DirectoryCache for PmtCache {
 
 macro_rules! impl_pmtiles_source {
     ($name: ident, $backend: ty, $path: ty, $display_path: path, $err: ident, $concurrent: expr $(,)?) => {
-        /// A source for PMTiles files
+        /// A source for `PMTiles` files
         #[derive(Clone)]
         pub struct $name {
             id: String,
