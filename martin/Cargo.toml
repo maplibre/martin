@@ -97,7 +97,7 @@ fonts = ["martin-core/fonts"]
 lambda = ["dep:lambda-web"]
 mbtiles = ["martin-core/mbtiles"]
 metrics = ["dep:actix-web-prom"]
-pmtiles = ["dep:aws-config", "dep:pmtiles"]
+pmtiles = ["martin-core/pmtiles", "dep:aws-config", "dep:pmtiles"]
 postgres = [
     "dep:deadpool-postgres",
     "dep:enum-display",
@@ -138,7 +138,6 @@ log.workspace = true
 martin-core.workspace = true
 martin-tile-utils.workspace = true
 mbtiles.workspace = true
-moka.workspace = true
 num_cpus.workspace = true
 pmtiles = { workspace = true, optional = true }
 

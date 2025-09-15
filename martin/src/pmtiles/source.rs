@@ -8,6 +8,8 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use log::{trace, warn};
+use martin_core::cache::{CacheKey, CacheValue, OptMainCache};
+use martin_core::get_cached_value;
 use martin_core::tiles::{BoxedSource, MartinCoreResult, Source, UrlQuery};
 use martin_tile_utils::{Encoding, Format, TileCoord, TileData, TileInfo};
 use pmtiles::aws_sdk_s3::Client as S3Client;
@@ -22,8 +24,6 @@ use url::Url;
 
 use super::PmtilesError::{self, InvalidUrlMetadata};
 use crate::config::file::ConfigFileError::{InvalidMetadata, IoError};
-use crate::utils::cache::get_cached_value;
-use crate::utils::{CacheKey, CacheValue, OptMainCache};
 use crate::{MartinError, MartinResult};
 
 /// Directory cache for `PMTiles` files.

@@ -7,6 +7,7 @@ pub const NO_MAIN_CACHE: OptMainCache = None;
 
 #[derive(Debug, Hash, PartialEq, Eq)]
 pub enum CacheKey {
+    #[cfg(feature = "pmtiles")]
     /// (`pmtiles_id`, `offset`)
     PmtDirectory(usize, usize),
     /// (`source_id`, `xyz`)
@@ -22,19 +23,16 @@ pub enum CacheValue {
     PmtDirectory(pmtiles::Directory),
 }
 
-macro_rules! trace_cache {
-    ($typ: literal, $cache: expr, $key: expr) => {
-        trace!(
-            "Cache {} for {:?} in {:?} that has {} entries taking up {} space",
-            $typ,
-            $key,
-            $cache.name(),
-            $cache.entry_count(),
-            $cache.weighted_size(),
-        );
-    };
+pub fn trace_cache(typ: &'static str, cache: &MainCache, key: &CacheKey) {
+    log::trace!(
+        "Cache {typ} for {key:?} in {name:?} that has {entry_count} entries taking up {weighted_size} space",
+        name = cache.name(),
+        entry_count = cache.entry_count(),
+        weighted_size = cache.weighted_size(),
+    );
 }
 
+#[macro_export]
 macro_rules! from_cache_value {
     ($value_type: path, $data: expr, $key: expr) => {
         #[allow(irrefutable_let_patterns)]
@@ -47,19 +45,16 @@ macro_rules! from_cache_value {
 }
 
 #[cfg(feature = "pmtiles")]
+#[macro_export]
 macro_rules! get_cached_value {
     ($cache: expr, $value_type: path, $make_key: expr) => {
         if let Some(cache) = $cache {
             let key = $make_key;
             if let Some(data) = cache.get(&key).await {
-                $crate::utils::cache::trace_cache!("HIT", cache, key);
-                Some($crate::utils::cache::from_cache_value!(
-                    $value_type,
-                    data,
-                    key
-                ))
+                $crate::cache::trace_cache("HIT", cache, &key);
+                Some($crate::from_cache_value!($value_type, data, key))
             } else {
-                $crate::utils::cache::trace_cache!("MISS", cache, key);
+                $crate::cache::trace_cache("MISS", cache, &key);
                 None
             }
         } else {
@@ -68,15 +63,16 @@ macro_rules! get_cached_value {
     };
 }
 
+#[macro_export]
 macro_rules! get_or_insert_cached_value {
     ($cache: expr, $value_type: path, $make_item:expr, $make_key: expr) => {{
         if let Some(cache) = $cache {
             let key = $make_key;
             Ok(if let Some(data) = cache.get(&key).await {
-                $crate::utils::cache::trace_cache!("HIT", cache, key);
-                $crate::utils::cache::from_cache_value!($value_type, data, key)
+                $crate::cache::trace_cache("HIT", cache, &key);
+                $crate::from_cache_value!($value_type, data, key)
             } else {
-                $crate::utils::cache::trace_cache!("MISS", cache, key);
+                $crate::cache::trace_cache("MISS", cache, &key);
                 let data = $make_item.await?;
                 cache.insert(key, $value_type(data.clone())).await;
                 data
@@ -86,7 +82,3 @@ macro_rules! get_or_insert_cached_value {
         }
     }};
 }
-
-#[cfg(feature = "pmtiles")]
-pub(crate) use get_cached_value;
-pub(crate) use {from_cache_value, get_or_insert_cached_value, trace_cache};

@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 
 use futures::future::{BoxFuture, try_join_all};
 use log::{info, warn};
+use martin_core::cache::{CacheValue, MainCache, OptMainCache};
 #[cfg(any(feature = "fonts", feature = "postgres"))]
 use martin_core::config::OptOneMany;
 use martin_core::tiles::BoxedSource;
@@ -25,7 +26,7 @@ use crate::config::file::{
 };
 use crate::source::TileSources;
 use crate::srv::RESERVED_KEYWORDS;
-use crate::utils::{CacheValue, MainCache, OptMainCache, init_aws_lc_tls, parse_base_path};
+use crate::utils::{init_aws_lc_tls, parse_base_path};
 use crate::{IdResolver, MartinResult};
 
 pub struct ServerState {
