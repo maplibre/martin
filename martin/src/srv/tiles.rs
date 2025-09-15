@@ -8,7 +8,8 @@ use actix_web::http::header::{
 use actix_web::web::{Data, Path, Query};
 use actix_web::{HttpMessage, HttpRequest, HttpResponse, Result as ActixResult, route};
 use futures::future::try_join_all;
-use log::trace;
+use martin_core::cache::{CacheKey, CacheValue, MainCache, OptMainCache};
+use martin_core::get_or_insert_cached_value;
 use martin_core::tiles::{BoxedSource, Tile, UrlQuery};
 use martin_tile_utils::{
     Encoding, Format, TileCoord, TileData, TileInfo, decode_brotli, decode_gzip, encode_brotli,
@@ -20,8 +21,6 @@ use crate::config::args::PreferredEncoding;
 use crate::config::file::srv::SrvConfig;
 use crate::source::TileSources;
 use crate::srv::server::map_internal_error;
-use crate::utils::cache::get_or_insert_cached_value;
-use crate::utils::{CacheKey, CacheValue, MainCache, OptMainCache};
 
 static SUPPORTED_ENC: &[HeaderEnc] = &[
     HeaderEnc::gzip(),

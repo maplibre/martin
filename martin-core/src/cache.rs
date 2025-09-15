@@ -1,40 +1,50 @@
 use martin_tile_utils::{TileCoord, TileData};
 use moka::future::Cache;
 
+/// Main cache instance for storing tiles and `PMTiles` directories.
 pub type MainCache = Cache<CacheKey, CacheValue>;
+
+/// Optional wrapper for the [`MainCache`].
 pub type OptMainCache = Option<MainCache>;
+
+/// Constant representing no cache configuration.
 pub const NO_MAIN_CACHE: OptMainCache = None;
 
+/// Keys used to identify cached items.
 #[derive(Debug, Hash, PartialEq, Eq)]
 pub enum CacheKey {
-    /// (`pmtiles_id`, `offset`)
+    #[cfg(feature = "pmtiles")]
+    /// `PMTiles` directory cache key with `PMTiles ID` and `offset`.
     PmtDirectory(usize, usize),
-    /// (`source_id`, `xyz`)
+    /// Tile cache key with `source ID` and `coordinates`.
     Tile(String, TileCoord),
-    /// (`source_id`, `xyz`, `url_query`)
+    /// Tile cache key with `source ID`, [`TileCoord`], and `URL query parameters`.
     TileWithQuery(String, TileCoord, String),
 }
 
+/// Values stored in the cache.
 #[derive(Debug, Clone)]
 pub enum CacheValue {
+    /// Cached tile data.
     Tile(TileData),
     #[cfg(feature = "pmtiles")]
+    /// Cached `PMTiles` directory.
     PmtDirectory(pmtiles::Directory),
 }
 
-macro_rules! trace_cache {
-    ($typ: literal, $cache: expr, $key: expr) => {
-        trace!(
-            "Cache {} for {:?} in {:?} that has {} entries taking up {} space",
-            $typ,
-            $key,
-            $cache.name(),
-            $cache.entry_count(),
-            $cache.weighted_size(),
-        );
-    };
+/// Logs cache operation details for debugging and monitoring.
+#[inline]
+pub fn trace_cache(typ: &'static str, cache: &MainCache, key: &CacheKey) {
+    log::trace!(
+        "Cache {typ} for {key:?} in {name:?} that has {entry_count} entries taking up {weighted_size} space",
+        name = cache.name(),
+        entry_count = cache.entry_count(),
+        weighted_size = cache.weighted_size(),
+    );
 }
 
+/// Extracts typed data from cache values with panic on type mismatch.
+#[macro_export]
 macro_rules! from_cache_value {
     ($value_type: path, $data: expr, $key: expr) => {
         #[allow(irrefutable_let_patterns)]
@@ -46,20 +56,18 @@ macro_rules! from_cache_value {
     };
 }
 
+/// Retrieves a value from cache if present, returning None on cache miss.
 #[cfg(feature = "pmtiles")]
+#[macro_export]
 macro_rules! get_cached_value {
     ($cache: expr, $value_type: path, $make_key: expr) => {
         if let Some(cache) = $cache {
             let key = $make_key;
             if let Some(data) = cache.get(&key).await {
-                $crate::utils::cache::trace_cache!("HIT", cache, key);
-                Some($crate::utils::cache::from_cache_value!(
-                    $value_type,
-                    data,
-                    key
-                ))
+                $crate::cache::trace_cache("HIT", cache, &key);
+                Some($crate::from_cache_value!($value_type, data, key))
             } else {
-                $crate::utils::cache::trace_cache!("MISS", cache, key);
+                $crate::cache::trace_cache("MISS", cache, &key);
                 None
             }
         } else {
@@ -68,15 +76,17 @@ macro_rules! get_cached_value {
     };
 }
 
+/// Gets a value from cache or computes and inserts it on cache miss.
+#[macro_export]
 macro_rules! get_or_insert_cached_value {
     ($cache: expr, $value_type: path, $make_item:expr, $make_key: expr) => {{
         if let Some(cache) = $cache {
             let key = $make_key;
             Ok(if let Some(data) = cache.get(&key).await {
-                $crate::utils::cache::trace_cache!("HIT", cache, key);
-                $crate::utils::cache::from_cache_value!($value_type, data, key)
+                $crate::cache::trace_cache("HIT", cache, &key);
+                $crate::from_cache_value!($value_type, data, key)
             } else {
-                $crate::utils::cache::trace_cache!("MISS", cache, key);
+                $crate::cache::trace_cache("MISS", cache, &key);
                 let data = $make_item.await?;
                 cache.insert(key, $value_type(data.clone())).await;
                 data
@@ -86,7 +96,3 @@ macro_rules! get_or_insert_cached_value {
         }
     }};
 }
-
-#[cfg(feature = "pmtiles")]
-pub(crate) use get_cached_value;
-pub(crate) use {from_cache_value, get_or_insert_cached_value, trace_cache};

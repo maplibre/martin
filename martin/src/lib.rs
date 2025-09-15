@@ -7,7 +7,7 @@ mod source;
 pub use source::TileSources;
 
 mod utils;
-pub use utils::{IdResolver, MartinError, MartinResult, NO_MAIN_CACHE};
+pub use utils::{IdResolver, MartinError, MartinResult};
 
 #[cfg(feature = "postgres")]
 pub mod pg;
