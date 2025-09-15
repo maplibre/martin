@@ -7,9 +7,9 @@ use tilejson::{Bounds, TileJSON, VectorLayer};
 use super::PgInfo;
 use crate::config::file::UnrecognizedValues;
 use crate::config::file::pg::utils::patch_json;
-use crate::pg::utils::{InfoMap, normalize_key};
+use crate::pg::utils::normalize_key;
 
-pub type TableInfoSources = InfoMap<TableInfo>;
+pub type TableInfoSources = BTreeMap<String, TableInfo>;
 
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Default)]

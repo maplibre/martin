@@ -1,12 +1,13 @@
+use std::collections::BTreeMap;
+
 use serde::{Deserialize, Serialize};
 use tilejson::{Bounds, TileJSON};
 
 use super::config::PgInfo;
 use crate::config::file::UnrecognizedValues;
 use crate::config::file::pg::utils::patch_json;
-use crate::pg::utils::InfoMap;
 
-pub type FuncInfoSources = InfoMap<FunctionInfo>;
+pub type FuncInfoSources = BTreeMap<String, FunctionInfo>;
 
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Default)]

@@ -1,5 +1,5 @@
 use std::cmp::Ordering;
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashSet};
 
 use futures::future::join_all;
 use itertools::Itertools as _;
@@ -19,13 +19,13 @@ use crate::pg::pool::PgPool;
 use crate::pg::query_functions::query_available_function;
 use crate::pg::query_tables::{query_available_tables, table_to_query};
 use crate::pg::source::{PgSource, PgSqlInfo};
-use crate::pg::utils::{InfoMap, find_info, find_kv_ignore_case, normalize_key};
+use crate::pg::utils::{find_info, find_kv_ignore_case, normalize_key};
 use crate::utils::IdResolver;
 
 /// Map of `PostgreSQL` functions organized by schema and function name.
-pub type SqlFuncInfoMapMap = InfoMap<InfoMap<(PgSqlInfo, FunctionInfo)>>;
+pub type SqlFuncInfoMapMap = BTreeMap<String, BTreeMap<String, (PgSqlInfo, FunctionInfo)>>;
 /// Map of `PostgreSQL` tables organized by schema, table, and geometry column.
-pub type SqlTableInfoMapMapMap = InfoMap<InfoMap<InfoMap<TableInfo>>>;
+pub type SqlTableInfoMapMapMap = BTreeMap<String, BTreeMap<String, BTreeMap<String, TableInfo>>>;
 
 /// Builder for auto-discovering `PostgreSQL` tile sources.
 #[derive(Debug)]
