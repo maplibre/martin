@@ -1,5 +1,7 @@
 //! Error types for `PMTiles` operations.
 
+use std::path::PathBuf;
+
 use pmtiles::PmtError;
 use url::Url;
 
@@ -7,8 +9,8 @@ use url::Url;
 #[derive(thiserror::Error, Debug)]
 pub enum PmtilesError {
     /// Error processing S3 source URI.
-    #[error(r"Error occurred in processing S3 source uri: {0}")]
-    S3SourceError(String),
+    #[error(r"Failed to parse bucket name while processing S3 source uri {0}")]
+    S3SourceError(Url),
 
     /// Wrapper for underlying `PMTiles` library errors.
     #[error(transparent)]
@@ -21,4 +23,12 @@ pub enum PmtilesError {
     /// Invalid or unparseable metadata in `PMTiles` file.
     #[error(r"Unable to parse metadata in file {1}: {0}")]
     InvalidUrlMetadata(String, Url),
+
+    /// Invalid or unparseable metadata in `PMTiles` file.
+    #[error(r"Unable to parse metadata in file {1}: {0}")]
+    InvalidMetadata(String, PathBuf),
+
+    /// IO error occurred while processing `PMTiles` file.
+    #[error("IO error {0}: {1}")]
+    IoError(std::io::Error, PathBuf),
 }

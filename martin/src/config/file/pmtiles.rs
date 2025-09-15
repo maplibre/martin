@@ -1,11 +1,8 @@
 use std::path::PathBuf;
-use std::sync::atomic::AtomicUsize;
-use std::sync::atomic::Ordering::Relaxed;
 
 use log::warn;
 use martin_core::cache::OptMainCache;
 use martin_core::tiles::BoxedSource;
-use pmtiles::reqwest::Client;
 use serde::{Deserialize, Serialize};
 use url::Url;
 
@@ -16,7 +13,7 @@ use crate::config::file::{
 use crate::pmtiles::{PmtCache, PmtFileSource, PmtHttpSource, PmtS3Source};
 
 #[serde_with::skip_serializing_none]
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct PmtConfig {
     /// Force path style URLs for S3 buckets
     ///
@@ -30,52 +27,29 @@ pub struct PmtConfig {
     /// If `None` (the default), this will look at `AWS_SKIP_CREDENTIALS` and `AWS_NO_CREDENTIALS` or default to `false`.
     #[serde(default, alias = "aws_skip_credentials")]
     pub skip_credentials: Option<bool>,
+
     #[serde(flatten, skip_serializing)]
     pub unrecognized: UnrecognizedValues,
 
-    //
-    // The rest are internal state, not serialized
-    //
+    /// Internal state => not serialized
     #[serde(skip)]
-    pub client: Option<Client>,
-
-    #[serde(skip)]
-    pub next_cache_id: AtomicUsize,
-
-    #[serde(skip)]
-    pub cache: OptMainCache,
+    cache: OptMainCache,
 }
 
 impl PartialEq for PmtConfig {
     fn eq(&self, other: &Self) -> bool {
-        self.unrecognized == other.unrecognized
-    }
-}
-
-impl Clone for PmtConfig {
-    fn clone(&self) -> Self {
-        // State is not shared between clones, only the serialized config
-        Self {
-            unrecognized: self.unrecognized.clone(),
-            ..Default::default()
-        }
-    }
-}
-
-impl PmtConfig {
-    /// Create a new cache object for a source, giving it a unique internal ID
-    /// and a reference to the global cache.
-    pub fn new_cached_source(&self) -> PmtCache {
-        PmtCache::new(self.next_cache_id.fetch_add(1, Relaxed), self.cache.clone())
+        self.force_path_style == other.force_path_style
+            && self.skip_credentials == other.skip_credentials
+            && self.unrecognized == other.unrecognized
     }
 }
 
 impl ConfigExtras for PmtConfig {
     fn init_parsing(&mut self, cache: OptMainCache) -> ConfigFileResult<()> {
-        assert!(self.client.is_none());
-        assert!(self.cache.is_none());
-
-        self.client = Some(Client::new());
+        assert!(
+            self.cache.is_none(),
+            "init_parsing should only be called once"
+        );
         self.cache = cache;
 
         if self.unrecognized.contains_key("dir_cache_size_mb") {
@@ -99,7 +73,7 @@ impl SourceConfigExtras for PmtConfig {
 
     async fn new_sources(&self, id: String, path: PathBuf) -> MartinResult<BoxedSource> {
         Ok(Box::new(
-            PmtFileSource::new(self.new_cached_source(), id, path).await?,
+            PmtFileSource::new(PmtCache::from(self.cache.clone()), id, path).await?,
         ))
     }
 
@@ -117,7 +91,7 @@ impl SourceConfigExtras for PmtConfig {
                 });
                 Ok(Box::new(
                     PmtS3Source::new(
-                        self.new_cached_source(),
+                        PmtCache::from(self.cache.clone()),
                         id,
                         url,
                         skip_credentials,
@@ -127,13 +101,7 @@ impl SourceConfigExtras for PmtConfig {
                 ))
             }
             _ => Ok(Box::new(
-                PmtHttpSource::new(
-                    self.client.clone().unwrap(),
-                    self.new_cached_source(),
-                    id,
-                    url,
-                )
-                .await?,
+                PmtHttpSource::new(PmtCache::from(self.cache.clone()), id, url).await?,
             )),
         }
     }

@@ -2,4 +2,4 @@ mod error;
 pub use error::PmtilesError;
 
 mod source;
-pub use source::*;
+pub use source::{PmtCache, PmtFileSource, PmtHttpSource, PmtS3Source};
