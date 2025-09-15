@@ -2,11 +2,11 @@ use std::fs::File;
 use std::io::BufWriter;
 use std::path::Path;
 
-use martin_core::tiles::MartinCoreResult;
 use martin_tile_utils::{TileCoord, TileData};
 use tiff::decoder::{Decoder, DecodingResult};
 
 use super::CogError;
+use crate::tiles::MartinCoreResult;
 
 /// Image represents a single image in a COG file. A tiff file may contain many images.
 /// This struct contains information and methods for taking tiles from the image.
@@ -207,7 +207,7 @@ mod tests {
     use martin_tile_utils::TileCoord;
     use rstest::rstest;
 
-    use crate::cog::image::Image;
+    use crate::tiles::cog::image::Image;
 
     #[test]
     fn can_calc_tile_idx() {

@@ -3659,7 +3659,6 @@ dependencies = [
  "moka",
  "num_cpus",
  "pmtiles",
- "png 0.18.0",
  "postgis",
  "postgres",
  "postgres-protocol",
@@ -3692,6 +3691,7 @@ dependencies = [
 name = "martin-core"
 version = "0.1.0"
 dependencies = [
+ "approx",
  "async-trait",
  "bit-set",
  "dashmap",
@@ -3702,12 +3702,15 @@ dependencies = [
  "martin-tile-utils",
  "mbtiles",
  "pbf_font_tools",
+ "png 0.18.0",
  "regex",
+ "rstest",
  "serde",
  "serde_with",
  "spreet",
  "subst",
  "thiserror 2.0.16",
+ "tiff",
  "tilejson",
  "tokio",
  "walkdir",

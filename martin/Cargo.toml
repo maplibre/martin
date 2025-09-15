@@ -92,7 +92,7 @@ default = [
     "styles",
     "webui",
 ]
-cog = ["dep:png", "dep:tiff"]
+cog = ["martin-core/cog"]
 fonts = ["martin-core/fonts"]
 lambda = ["dep:lambda-web"]
 mbtiles = ["martin-core/mbtiles"]
@@ -141,7 +141,7 @@ mbtiles.workspace = true
 moka.workspace = true
 num_cpus.workspace = true
 pmtiles = { workspace = true, optional = true }
-png = { workspace = true, optional = true }
+
 postgis = { workspace = true, optional = true }
 postgres = { workspace = true, optional = true }
 postgres-protocol = { workspace = true, optional = true }

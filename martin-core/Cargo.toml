@@ -12,14 +12,14 @@ rust-version.workspace = true
 homepage.workspace = true
 
 [features]
-default = ["fonts", "styles", "sprites", "mbtiles"]
+default = ["fonts", "styles", "sprites", "mbtiles", "cog"]
+cog = ["dep:png", "dep:tiff"]
 fonts = [
     "dep:bit-set",
     "dep:pbf_font_tools",
     "dep:regex",
     "dep:itertools",
     "dep:dashmap",
-    "dep:thiserror",
 ]
 sprites = [
     "dep:spreet",
@@ -27,10 +27,9 @@ sprites = [
     "tokio/fs",
     "dep:futures",
     "dep:dashmap",
-    "dep:thiserror",
 ]
-styles = ["dep:walkdir", "tokio/fs", "dep:dashmap", "dep:thiserror"]
-mbtiles = ["dep:mbtiles", "dep:thiserror"]
+styles = ["dep:walkdir", "tokio/fs", "dep:dashmap"]
+mbtiles = ["dep:mbtiles"]
 
 [dependencies]
 async-trait.workspace = true
@@ -42,18 +41,22 @@ log.workspace = true
 martin-tile-utils.workspace = true
 mbtiles = { workspace = true, optional = true }
 pbf_font_tools = { workspace = true, optional = true }
+png = { workspace = true, optional = true }
 regex = { workspace = true, optional = true }
 serde.workspace = true
 serde_with.workspace = true
 spreet = { workspace = true, optional = true }
 subst.workspace = true
-thiserror = { workspace = true, optional = true }
+thiserror.workspace = true
+tiff = { workspace = true, optional = true }
 tilejson.workspace = true
 tokio = { workspace = true, optional = true }
 walkdir = { workspace = true, optional = true }
 
 [dev-dependencies]
 insta = { workspace = true, features = ["json", "yaml"] }
+rstest.workspace = true
+approx.workspace = true
 
 [lints]
 workspace = true
