@@ -1,15 +1,7 @@
-//! Tile management and representation for Martin tile server.
-//!
-//! This module provides core abstractions for working with map tiles.
-//! We split this into two parts:
 //! - a public facing catalog for exposing which tile sources exis
 //! - the sources for accessing tiles
 
 use martin_tile_utils::{TileData, TileInfo};
-
-/// The public facing API for managing a catalog of tile sources
-pub mod catalog;
-
 /// Represents a single map tile with its raw data and metadata.
 ///
 /// Combines tile data (as raw bytes) with format and encoding information.

@@ -76,7 +76,7 @@ path = "src/bin/martin-cp.rs"
 required-features = ["mbtiles"]
 
 [[bench]]
-name = "bench"
+name = "sources"
 harness = false
 
 [features]
@@ -93,11 +93,11 @@ default = [
     "styles",
     "webui",
 ]
-cog = ["dep:png", "dep:tiff"]
+cog = ["martin-core/cog"]
 fonts = ["martin-core/fonts"]
-geojson = ["dep:geojson", "dep:geojson-vt-rs", "dep:geozero"]
+geojson = ["martin-core/geojson"]
 lambda = ["dep:lambda-web"]
-mbtiles = ["dep:mbtiles"]
+mbtiles = ["martin-core/mbtiles"]
 metrics = ["dep:actix-web-prom"]
 pmtiles = ["dep:aws-config", "dep:pmtiles"]
 postgres = [
@@ -113,7 +113,7 @@ postgres = [
     "dep:semver",
     "dep:tokio-postgres-rustls",
 ]
-sprites = ["dep:spreet", "tokio/fs"]
+sprites = ["martin-core/sprites"]
 styles = ["martin-core/styles", "dep:walkdir"]
 webui = ["dep:actix-web-static-files", "dep:static-files", "dep:walkdir"]
 
@@ -133,22 +133,17 @@ deadpool-postgres = { workspace = true, optional = true }
 enum-display = { workspace = true, optional = true }
 env_logger.workspace = true
 futures.workspace = true
-geojson = { version = "0.24.2", optional = true }
-geojson-vt-rs = { git = "https://github.com/maxammann/geojson-vt-rs.git", optional = true }
-geozero = { git = "https://github.com/styrowolf/geozero.git", branch = "styrowolf/expose-mvt-internals", features = [
-    "with-mvt",
-], optional = true }
 itertools.workspace = true
 json-patch = { workspace = true, optional = true }
 lambda-web = { workspace = true, optional = true }
 log.workspace = true
 martin-core.workspace = true
 martin-tile-utils.workspace = true
-mbtiles = { workspace = true, optional = true }
+mbtiles.workspace = true
 moka.workspace = true
 num_cpus.workspace = true
 pmtiles = { workspace = true, optional = true }
-png = { workspace = true, optional = true }
+
 postgis = { workspace = true, optional = true }
 postgres = { workspace = true, optional = true }
 postgres-protocol = { workspace = true, optional = true }
@@ -161,7 +156,6 @@ serde.workspace = true
 serde_json.workspace = true
 serde_with.workspace = true
 serde_yaml.workspace = true
-spreet = { workspace = true, optional = true }
 static-files = { workspace = true, optional = true }
 subst.workspace = true
 thiserror.workspace = true
@@ -183,7 +177,7 @@ approx.workspace = true
 criterion.workspace = true
 ctor.workspace = true
 indoc.workspace = true
-insta = { workspace = true, features = ["json", "yaml"] }
+insta = { workspace = true, features = ["json", "yaml", "redactions"] }
 pprof.workspace = true
 rstest.workspace = true
 tempfile.workspace = true

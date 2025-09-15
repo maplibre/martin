@@ -2,12 +2,12 @@ use std::ffi::OsStr;
 use std::fs::File;
 use std::io::prelude::*;
 use std::path::{Path, PathBuf};
-use std::pin::Pin;
 
-use futures::future::try_join_all;
-use log::info;
+use futures::future::{BoxFuture, try_join_all};
+use log::{info, warn};
 #[cfg(any(feature = "fonts", feature = "postgres"))]
 use martin_core::config::OptOneMany;
+use martin_core::tiles::BoxedSource;
 use serde::{Deserialize, Serialize};
 use subst::VariableMap;
 
@@ -21,8 +21,10 @@ use crate::MartinError::{ConfigLoadError, ConfigParseError, ConfigWriteError, No
     feature = "styles",
 ))]
 use crate::config::file::FileConfigEnum;
-use crate::config::file::{UnrecognizedValues, copy_unrecognized_config};
-use crate::source::{TileInfoSources, TileSources};
+use crate::config::file::{
+    ConfigExtras, UnrecognizedKeys, UnrecognizedValues, copy_unrecognized_keys_from_config,
+};
+use crate::source::TileSources;
 use crate::srv::RESERVED_KEYWORDS;
 use crate::utils::{CacheValue, MainCache, OptMainCache, init_aws_lc_tls, parse_base_path};
 use crate::{IdResolver, MartinResult};
@@ -31,7 +33,7 @@ pub struct ServerState {
     pub cache: OptMainCache,
     pub tiles: TileSources,
     #[cfg(feature = "sprites")]
-    pub sprites: crate::sprites::SpriteSources,
+    pub sprites: martin_core::sprites::SpriteSources,
     #[cfg(feature = "fonts")]
     pub fonts: martin_core::fonts::FontSources,
     #[cfg(feature = "styles")]
@@ -78,23 +80,28 @@ pub struct Config {
     #[serde(default, skip_serializing_if = "OptOneMany::is_none")]
     pub fonts: super::fonts::FontConfig,
 
-    #[serde(flatten)]
+    #[serde(flatten, skip_serializing)]
     pub unrecognized: UnrecognizedValues,
 }
 
 impl Config {
     /// Apply defaults to the config, and validate if there is a connection string
-    pub fn finalize(&mut self) -> MartinResult<UnrecognizedValues> {
-        let mut res = UnrecognizedValues::new();
-        copy_unrecognized_config(&mut res, "", &self.unrecognized);
+    pub fn finalize(&mut self) -> MartinResult<UnrecognizedKeys> {
+        let mut res = self.srv.get_unrecognized_keys();
+        copy_unrecognized_keys_from_config(&mut res, "", &self.unrecognized);
 
         if let Some(path) = &self.srv.base_path {
             self.srv.base_path = Some(parse_base_path(path)?);
         }
-
+        #[cfg(feature = "postgres")]
+        let pg_prefix = if matches!(self.postgres, OptOneMany::One(_)) {
+            "postgres."
+        } else {
+            "postgres[]."
+        };
         #[cfg(feature = "postgres")]
         for pg in self.postgres.iter_mut() {
-            res.extend(pg.finalize()?);
+            res.extend(pg.finalize(pg_prefix)?);
         }
 
         #[cfg(feature = "pmtiles")]
@@ -117,6 +124,12 @@ impl Config {
 
         // TODO: support for unrecognized fonts?
         // res.extend(self.fonts.finalize("fonts.")?);
+
+        for key in &res {
+            warn!(
+                "Ignoring unrecognized configuration key '{key}'. Please check your configuration file for typos."
+            );
+        }
 
         let is_empty = true;
 
@@ -190,8 +203,7 @@ impl Config {
         #[allow(unused_variables)] cache: OptMainCache,
     ) -> MartinResult<TileSources> {
         #[allow(unused_mut)]
-        let mut sources: Vec<Pin<Box<dyn Future<Output = MartinResult<TileInfoSources>>>>> =
-            Vec::new();
+        let mut sources: Vec<BoxFuture<MartinResult<Vec<BoxedSource>>>> = Vec::new();
 
         #[cfg(feature = "postgres")]
         for s in self.postgres.iter_mut() {

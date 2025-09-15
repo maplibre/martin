@@ -6,17 +6,19 @@ use martin_core::styles::StyleSources;
 use serde::{Deserialize, Serialize};
 
 use crate::MartinResult;
-use crate::config::file::{ConfigExtras, ConfigFileError, FileConfigEnum, UnrecognizedValues};
+use crate::config::file::{
+    ConfigExtras, ConfigFileError, FileConfigEnum, UnrecognizedKeys, UnrecognizedValues,
+};
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct InnerStyleConfig {
-    #[serde(flatten)]
+    #[serde(flatten, skip_serializing)]
     pub unrecognized: UnrecognizedValues,
 }
 
 impl ConfigExtras for InnerStyleConfig {
-    fn get_unrecognized(&self) -> &UnrecognizedValues {
-        &self.unrecognized
+    fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
+        self.unrecognized.keys().cloned().collect()
     }
 }
 
@@ -137,7 +139,7 @@ mod tests {
 
     #[test]
     fn test_styles_resolve_paths() {
-        let style_dir = PathBuf::from("../tests/fixtures/styles/");
+        let style_dir = Path::new("../tests/fixtures/styles/");
         let mut cfg = StyleConfig::new(vec![
             style_dir.join("maplibre_demo.json"),
             style_dir.join("src2"),
@@ -159,7 +161,7 @@ mod tests {
 
     #[test]
     fn test_styles_resolve_sources() {
-        let style_dir = PathBuf::from("../tests/fixtures/styles/");
+        let style_dir = Path::new("../tests/fixtures/styles/");
         let mut configs = BTreeMap::new();
         configs.insert("maplibre_demo", style_dir.join("maplibre_demo.json"));
         configs.insert("src_ignored_due_to_directory", style_dir.join("src2"));
@@ -187,7 +189,7 @@ mod tests {
 
     #[test]
     fn test_style_external() {
-        let style_dir = PathBuf::from("../tests/fixtures/styles/");
+        let style_dir = Path::new("../tests/fixtures/styles/");
         let mut cfg = StyleConfig::new(vec![
             style_dir.join("maplibre_demo.json"),
             style_dir.join("src2"),
@@ -241,7 +243,7 @@ mod tests {
 
     #[test]
     fn test_list_contained_files_error() {
-        let result = list_contained_files(&PathBuf::from("/non_existent"), "txt");
+        let result = list_contained_files(Path::new("/non_existent"), "txt");
         assert!(result.is_err());
     }
 }

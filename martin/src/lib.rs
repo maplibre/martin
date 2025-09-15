@@ -4,23 +4,15 @@
 pub mod config;
 
 mod source;
-pub use source::{Source, TileData, TileInfoSource, TileSources, UrlQuery};
+pub use source::TileSources;
 
 mod utils;
 pub use utils::{IdResolver, MartinError, MartinResult, NO_MAIN_CACHE};
 
-#[cfg(feature = "cog")]
-pub mod cog;
-#[cfg(feature = "geojson")]
-pub mod geojson;
-#[cfg(feature = "mbtiles")]
-pub mod mbtiles;
 #[cfg(feature = "postgres")]
 pub mod pg;
 #[cfg(feature = "pmtiles")]
 pub mod pmtiles;
-#[cfg(feature = "sprites")]
-pub mod sprites;
 pub mod srv;
 
 // Ensure README.md contains valid code

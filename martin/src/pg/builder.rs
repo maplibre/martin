@@ -6,6 +6,7 @@ use itertools::Itertools as _;
 use log::{debug, error, info, warn};
 use martin_core::config::OptBoolObj::{Bool, NoValue, Object};
 use martin_core::config::OptOneMany::NoVals;
+use martin_core::tiles::BoxedSource;
 
 use crate::config::args::BoundsCalcType;
 use crate::config::file::pg::{
@@ -14,18 +15,19 @@ use crate::config::file::pg::{
 };
 use crate::pg::PgError::InvalidTableExtent;
 use crate::pg::PgResult;
-use crate::pg::pg_source::{PgSource, PgSqlInfo};
 use crate::pg::pool::PgPool;
 use crate::pg::query_functions::query_available_function;
 use crate::pg::query_tables::{query_available_tables, table_to_query};
+use crate::pg::source::{PgSource, PgSqlInfo};
 use crate::pg::utils::{InfoMap, find_info, find_kv_ignore_case, normalize_key};
-use crate::source::TileInfoSources;
 use crate::utils::IdResolver;
 
+/// Map of `PostgreSQL` functions organized by schema and function name.
 pub type SqlFuncInfoMapMap = InfoMap<InfoMap<(PgSqlInfo, FunctionInfo)>>;
+/// Map of `PostgreSQL` tables organized by schema, table, and geometry column.
 pub type SqlTableInfoMapMapMap = InfoMap<InfoMap<InfoMap<TableInfo>>>;
 
-/// A builder for creating a set of sources from a Postgres database
+/// Builder for auto-discovering `PostgreSQL` tile sources.
 #[derive(Debug)]
 pub struct PgBuilder {
     pool: PgPool,
@@ -49,6 +51,7 @@ pub struct PgBuilder {
     functions: FuncInfoSources,
 }
 
+/// Configuration for auto-discovering `PostgreSQL` functions.
 #[derive(Debug, PartialEq)]
 #[cfg_attr(test, serde_with::skip_serializing_none, derive(serde::Serialize))]
 pub struct PgBuilderFuncs {
@@ -56,10 +59,10 @@ pub struct PgBuilderFuncs {
     source_id_format: String,
 }
 
+/// Configuration for auto-discovering `PostgreSQL` tables.
 #[derive(Debug, Default, PartialEq)]
 #[cfg_attr(test, serde_with::skip_serializing_none, derive(serde::Serialize))]
 pub struct PgBuilderTables {
-    #[cfg_attr(test, serde(serialize_with = "crate::pg::utils::sorted_opt_set"))]
     schemas: Option<HashSet<String>>,
     source_id_format: String,
     id_columns: Option<Vec<String>>,
@@ -89,7 +92,9 @@ macro_rules! get_auto_schemas {
 }
 
 impl PgBuilder {
-    /// Creates a new Builder from the [`PgConfig`] and a way to deterministically convert duplicate to unique names
+    /// Creates a new `PostgreSQL` source builder from the [`PgConfig`].
+    ///
+    /// Duplicate names are deterministically converted to unique names.
     pub async fn new(config: &PgConfig, id_resolver: IdResolver) -> PgResult<Self> {
         let pool = PgPool::new(config).await?;
 
@@ -108,6 +113,7 @@ impl PgBuilder {
         })
     }
 
+    /// Returns the bounds calculation type for this builder.
     pub fn auto_bounds(&self) -> BoundsCalcType {
         self.auto_bounds
     }
@@ -117,9 +123,11 @@ impl PgBuilder {
         self.pool.get_id()
     }
 
-    // FIXME: this function has gotten too long due to the new formatting rules, need to be refactored
+    /// Discovers and instantiates table-based tile sources.
     #[allow(clippy::too_many_lines)]
-    pub async fn instantiate_tables(&self) -> PgResult<(TileInfoSources, TableInfoSources)> {
+    pub async fn instantiate_tables(&self) -> PgResult<(Vec<BoxedSource>, TableInfoSources)> {
+        // FIXME: this function has gotten too long due to the new formatting rules, need to be refactored
+        //
         let mut db_tables_info = query_available_tables(&self.pool).await?;
 
         // Match configured sources with the discovered ones and add them to the pending list.
@@ -210,7 +218,7 @@ impl PgBuilder {
             }
         }
 
-        let mut res = TileInfoSources::default();
+        let mut res = Vec::new();
         let mut info_map = TableInfoSources::new();
         let pending = join_all(pending).await;
         for src in pending {
@@ -229,9 +237,10 @@ impl PgBuilder {
         Ok((res, info_map))
     }
 
-    pub async fn instantiate_functions(&self) -> PgResult<(TileInfoSources, FuncInfoSources)> {
+    /// Discovers and instantiates function-based tile sources.
+    pub async fn instantiate_functions(&self) -> PgResult<(Vec<BoxedSource>, FuncInfoSources)> {
         let mut db_funcs_info = query_available_function(&self.pool).await?;
-        let mut res = TileInfoSources::default();
+        let mut res = Vec::new();
         let mut info_map = FuncInfoSources::new();
         let mut used = HashSet::<(&str, &str)>::new();
 
@@ -307,7 +316,7 @@ impl PgBuilder {
 
     fn add_func_src(
         &self,
-        sources: &mut TileInfoSources,
+        sources: &mut Vec<BoxedSource>,
         id: String,
         pg_info: &impl PgInfo,
         sql_info: PgSqlInfo,
@@ -604,7 +613,11 @@ mod tests {
                 tables:
                     from_schemas: osm
                     id_format: 'foo_{schema}.{table}_bar'"});
-        assert_yaml_snapshot!(cfg, @r#"
+        assert_yaml_snapshot!(cfg,
+        {
+            ".auto_table.schemas" => insta::sorted_redaction()
+        },
+        @r#"
         auto_table:
           schemas:
             - osm
@@ -619,7 +632,11 @@ mod tests {
                 tables:
                     from_schemas: osm
                     source_id_format: '{schema}.{table}'"});
-        assert_yaml_snapshot!(cfg, @r#"
+        assert_yaml_snapshot!(cfg,
+          {
+              ".auto_table.schemas" => insta::sorted_redaction()
+          },
+          @r#"
         auto_table:
           schemas:
             - osm
@@ -634,7 +651,11 @@ mod tests {
                     from_schemas:
                       - osm
                       - public"});
-        assert_yaml_snapshot!(cfg, @r#"
+        assert_yaml_snapshot!(cfg,
+          {
+              ".auto_table.schemas" => insta::sorted_redaction()
+          },
+          @r#"
         auto_table:
           schemas:
             - osm

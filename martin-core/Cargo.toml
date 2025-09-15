@@ -12,35 +12,56 @@ rust-version.workspace = true
 homepage.workspace = true
 
 [features]
-default = ["fonts"]
+default = ["fonts", "styles", "sprites", "mbtiles", "cog"]
+cog = ["dep:png", "dep:tiff"]
 fonts = [
     "dep:bit-set",
     "dep:pbf_font_tools",
     "dep:regex",
     "dep:itertools",
     "dep:dashmap",
-    "dep:thiserror",
 ]
-styles = ["dep:walkdir", "tokio/fs", "dep:dashmap", "dep:thiserror"]
+sprites = [
+    "dep:spreet",
+    "dep:tokio",
+    "tokio/fs",
+    "dep:futures",
+    "dep:dashmap",
+]
+styles = ["dep:walkdir", "tokio/fs", "dep:dashmap"]
+mbtiles = ["dep:mbtiles"]
+geojson = ["dep:geojson", "dep:geojson-vt-rs", "dep:geozero", "dep:serde_json"]
 
 [dependencies]
 async-trait.workspace = true
+serde_json = { workspace = true, optional = true }
 bit-set = { workspace = true, optional = true }
 dashmap = { workspace = true, optional = true }
+futures = { workspace = true, optional = true }
+geojson = { workspace = true, optional = true }
+geojson-vt-rs = { workspace = true, optional = true }
+geozero = { workspace = true, features = ["with-mvt"], optional = true }
 itertools = { workspace = true, optional = true }
 log.workspace = true
 martin-tile-utils.workspace = true
+mbtiles = { workspace = true, optional = true }
 pbf_font_tools = { workspace = true, optional = true }
+png = { workspace = true, optional = true }
 regex = { workspace = true, optional = true }
 serde.workspace = true
 serde_with.workspace = true
+spreet = { workspace = true, optional = true }
 subst.workspace = true
-thiserror = { workspace = true, optional = true }
+thiserror.workspace = true
+tiff = { workspace = true, optional = true }
+tilejson.workspace = true
 tokio = { workspace = true, optional = true }
 walkdir = { workspace = true, optional = true }
 
 [dev-dependencies]
+approx.workspace = true
 insta = { workspace = true, features = ["json", "yaml"] }
+rstest.workspace = true
 
 [lints]
 workspace = true
