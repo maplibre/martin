@@ -24,7 +24,7 @@ pub enum PmtilesError {
     #[error(r"Unable to parse metadata in file {1}: {0}")]
     InvalidUrlMetadata(String, Url),
 
-    /// Invalid or unparseable metadata in `PMTiles` file.
+    /// Invalid or unparseable metadata in the `PMTiles` source.
     #[error(r"Unable to parse metadata in file {1}: {0}")]
     InvalidMetadata(String, PathBuf),
 
