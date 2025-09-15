@@ -3700,6 +3700,7 @@ dependencies = [
  "itertools 0.14.0",
  "log",
  "martin-tile-utils",
+ "mbtiles",
  "pbf_font_tools",
  "regex",
  "serde",

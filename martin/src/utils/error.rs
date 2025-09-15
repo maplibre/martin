@@ -64,7 +64,7 @@ pub enum MartinError {
 
     #[cfg(feature = "mbtiles")]
     #[error(transparent)]
-    MbtilesError(#[from] crate::mbtiles::MbtilesError),
+    MbtilesError(#[from] martin_core::tiles::mbtiles::MbtilesError),
 
     #[cfg(feature = "cog")]
     #[error(transparent)]
