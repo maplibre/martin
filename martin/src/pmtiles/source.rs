@@ -26,11 +26,16 @@ use url::Url;
 
 use super::PmtilesError::{self, InvalidMetadata, InvalidUrlMetadata};
 
-/// Directory cache for `PMTiles` files.
+/// [`pmtiles::Directory`] cache for `PMTiles` files.
 #[derive(Clone, Debug)]
 pub struct PmtCache {
+    /// Unique identifier for this cache instance
+    ///
+    /// Uniqueness invariant is guaranteed by how the struct is constructed
     id: usize,
-    /// Storing (id, offset) -> Directory, or None to disable caching
+    /// Cache storing (id, offset) -> [`pmtiles::Directory`]
+    ///
+    /// Set to [`None`] to disable caching
     cache: OptMainCache,
 }
 
