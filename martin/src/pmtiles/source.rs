@@ -260,7 +260,7 @@ impl PmtS3Source {
 
         let bucket = url
             .host_str()
-            .ok_or_else(|| PmtilesError::S3SourceError(url.clone()))?
+            .ok_or_else(|| PmtilesError::S3BucketNameNotString(url.clone()))?
             .to_string();
 
         // Strip leading '/' from the key

@@ -9,8 +9,8 @@ use url::Url;
 #[derive(thiserror::Error, Debug)]
 pub enum PmtilesError {
     /// Error processing S3 source URI.
-    #[error(r"Failed to parse bucket name while processing S3 source uri {0}")]
-    S3SourceError(Url),
+    #[error(r"Failed to parse bucket name of S3 source uri {0}")]
+    S3BucketNameNotString(Url),
 
     /// Wrapper for underlying `PMTiles` library errors.
     #[error(transparent)]
