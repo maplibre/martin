@@ -1,0 +1,36 @@
+{
+  "features": [
+    {
+      "geometry": {
+        "coordinates": [
+          3673,
+          2185
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "a_id": 2,
+        "a_name": "point_2",
+        "source_mvt_layer": "table_name_existing_two_schemas"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          3673,
+          2185
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "a_id": 1,
+        "a_name": "point_1",
+        "source_mvt_layer": "table_name_existing_two_schemas"
+      },
+      "type": "Feature"
+    }
+  ],
+  "name": "merged",
+  "type": "FeatureCollection"
+}

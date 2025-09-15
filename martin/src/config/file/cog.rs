@@ -1,16 +1,17 @@
 use std::fmt::Debug;
 use std::path::PathBuf;
 
+use martin_core::tiles::BoxedSource;
 use serde::{Deserialize, Serialize};
 use url::Url;
 
+use crate::MartinResult;
 use crate::cog::CogSource;
-use crate::config::file::{ConfigExtras, SourceConfigExtras, UnrecognizedValues};
-use crate::{MartinResult, TileInfoSource};
+use crate::config::file::{ConfigExtras, SourceConfigExtras, UnrecognizedKeys, UnrecognizedValues};
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct CogConfig {
-    #[serde(flatten)]
+    #[serde(flatten, skip_serializing)]
     pub unrecognized: UnrecognizedValues,
 
     /// Default false
@@ -20,8 +21,8 @@ pub struct CogConfig {
 }
 
 impl ConfigExtras for CogConfig {
-    fn get_unrecognized(&self) -> &UnrecognizedValues {
-        &self.unrecognized
+    fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
+        self.unrecognized.keys().cloned().collect()
     }
 }
 
@@ -30,7 +31,7 @@ impl SourceConfigExtras for CogConfig {
         false
     }
 
-    async fn new_sources(&self, id: String, path: PathBuf) -> MartinResult<TileInfoSource> {
+    async fn new_sources(&self, id: String, path: PathBuf) -> MartinResult<BoxedSource> {
         let cog = CogSource::new(id, path, self.auto_web.unwrap_or(false))?;
         Ok(Box::new(cog))
     }
@@ -40,7 +41,7 @@ impl SourceConfigExtras for CogConfig {
         id: String,
         path: PathBuf,
         config: serde_yaml::Value,
-    ) -> MartinResult<TileInfoSource> {
+    ) -> MartinResult<BoxedSource> {
         let source_auto_web = if let serde_yaml::Value::Mapping(map) = &config {
             if let Some(auto_web_value) = map.get(serde_yaml::Value::String("auto_web".to_string()))
             {
@@ -60,7 +61,7 @@ impl SourceConfigExtras for CogConfig {
         Ok(Box::new(cog))
     }
 
-    async fn new_sources_url(&self, _id: String, _url: Url) -> MartinResult<TileInfoSource> {
+    async fn new_sources_url(&self, _id: String, _url: Url) -> MartinResult<BoxedSource> {
         unreachable!()
     }
 }

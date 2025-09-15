@@ -3,14 +3,17 @@ use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering::Relaxed;
 
 use log::warn;
+use martin_core::tiles::BoxedSource;
 use pmtiles::reqwest::Client;
 use serde::{Deserialize, Serialize};
 use url::Url;
 
-use crate::config::file::{ConfigExtras, ConfigFileResult, SourceConfigExtras, UnrecognizedValues};
+use crate::MartinResult;
+use crate::config::file::{
+    ConfigExtras, ConfigFileResult, SourceConfigExtras, UnrecognizedKeys, UnrecognizedValues,
+};
 use crate::pmtiles::{PmtCache, PmtFileSource, PmtHttpSource, PmtS3Source};
 use crate::utils::OptMainCache;
-use crate::{MartinResult, TileInfoSource};
 
 #[serde_with::skip_serializing_none]
 #[derive(Debug, Default, Serialize, Deserialize)]
@@ -27,7 +30,7 @@ pub struct PmtConfig {
     /// If `None` (the default), this will look at `AWS_SKIP_CREDENTIALS` and `AWS_NO_CREDENTIALS` or default to `false`.
     #[serde(default, alias = "aws_skip_credentials")]
     pub skip_credentials: Option<bool>,
-    #[serde(flatten)]
+    #[serde(flatten, skip_serializing)]
     pub unrecognized: UnrecognizedValues,
 
     //
@@ -84,12 +87,8 @@ impl ConfigExtras for PmtConfig {
         Ok(())
     }
 
-    fn is_default(&self) -> bool {
-        true
-    }
-
-    fn get_unrecognized(&self) -> &UnrecognizedValues {
-        &self.unrecognized
+    fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
+        self.unrecognized.keys().cloned().collect()
     }
 }
 
@@ -98,13 +97,13 @@ impl SourceConfigExtras for PmtConfig {
         true
     }
 
-    async fn new_sources(&self, id: String, path: PathBuf) -> MartinResult<TileInfoSource> {
+    async fn new_sources(&self, id: String, path: PathBuf) -> MartinResult<BoxedSource> {
         Ok(Box::new(
             PmtFileSource::new(self.new_cached_source(), id, path).await?,
         ))
     }
 
-    async fn new_sources_url(&self, id: String, url: Url) -> MartinResult<TileInfoSource> {
+    async fn new_sources_url(&self, id: String, url: Url) -> MartinResult<BoxedSource> {
         match url.scheme() {
             "s3" => {
                 let force_path_style = self.force_path_style.unwrap_or_else(|| {

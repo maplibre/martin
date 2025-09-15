@@ -72,7 +72,7 @@ cat <<EOF >template.yaml
 AWSTemplateFormatVersion: 2010-09-09
 Transform: 'AWS::Serverless-2016-10-31'
 Resources:
-  martin:
+  MartinLayer:
     Type: 'AWS::Serverless::LayerVersion'
     DeletionPolicy: Delete
     Properties:

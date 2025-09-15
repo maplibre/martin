@@ -6,7 +6,8 @@ use std::vec;
 
 use async_trait::async_trait;
 use log::warn;
-use martin_tile_utils::{EARTH_CIRCUMFERENCE, Format, TileCoord, TileInfo};
+use martin_core::tiles::{MartinCoreResult, Source, UrlQuery};
+use martin_tile_utils::{EARTH_CIRCUMFERENCE, Format, TileCoord, TileData, TileInfo};
 use tiff::decoder::{ChunkType, Decoder};
 use tiff::tags::Tag::{self, GdalNodata};
 use tilejson::{TileJSON, tilejson};
@@ -14,9 +15,10 @@ use tilejson::{TileJSON, tilejson};
 use super::CogError;
 use super::image::Image;
 use super::model::ModelInfo;
+use crate::MartinResult;
 use crate::config::file::ConfigFileError;
-use crate::{MartinResult, Source, TileData, UrlQuery};
 
+/// Tile source that reads from `Cloud Optimized GeoTIFF` files.
 #[derive(Clone, Debug)]
 pub struct CogSource {
     id: String,
@@ -37,6 +39,7 @@ pub struct CogSource {
 
 impl CogSource {
     #[expect(clippy::cast_possible_truncation)]
+    /// Creates a new COG tile source from a file path.
     pub fn new(id: String, path: PathBuf, auto_web: bool) -> MartinResult<Self> {
         let tileinfo = TileInfo::new(Format::Png, martin_tile_utils::Encoding::Uncompressed);
         let tif_file = File::open(&path)
@@ -147,30 +150,6 @@ impl CogSource {
             web_friendly: auto_web,
         })
     }
-
-    pub fn get_tile(&self, xyz: TileCoord) -> MartinResult<TileData> {
-        if xyz.z < self.min_zoom || xyz.z > self.max_zoom {
-            return Ok(Vec::new());
-        }
-        let tif_file =
-            File::open(&self.path).map_err(|e| ConfigFileError::IoError(e, self.path.clone()))?;
-        let mut decoder =
-            Decoder::new(tif_file).map_err(|e| CogError::InvalidTiffFile(e, self.path.clone()))?;
-        decoder = decoder.with_limits(tiff::decoder::Limits::unlimited());
-
-        let image = self.images.get(&(xyz.z)).ok_or_else(|| {
-            CogError::ZoomOutOfRange(xyz.z, self.path.clone(), self.min_zoom, self.max_zoom)
-        })?;
-
-        if self.web_friendly {
-            // just clip the image to get the tile in web mercator
-            let bytes = image.get_tile_webmercator(&mut decoder, xyz, self.nodata, &self.path)?;
-            Ok(bytes)
-        } else {
-            let bytes = image.get_tile(&mut decoder, xyz, self.nodata, &self.path)?;
-            Ok(bytes)
-        }
-    }
 }
 
 /// find a zoom level of google web mercator that is closest to the given resolution
@@ -222,8 +201,28 @@ impl Source for CogSource {
         &self,
         xyz: TileCoord,
         _url_query: Option<&UrlQuery>,
-    ) -> MartinResult<TileData> {
-        Ok(self.get_tile(xyz)?)
+    ) -> MartinCoreResult<TileData> {
+        if xyz.z < self.min_zoom || xyz.z > self.max_zoom {
+            return Ok(Vec::new());
+        }
+        let tif_file =
+            File::open(&self.path).map_err(|e| ConfigFileError::IoError(e, self.path.clone()))?;
+        let mut decoder =
+            Decoder::new(tif_file).map_err(|e| CogError::InvalidTiffFile(e, self.path.clone()))?;
+        decoder = decoder.with_limits(tiff::decoder::Limits::unlimited());
+
+        let image = self.images.get(&(xyz.z)).ok_or_else(|| {
+            CogError::ZoomOutOfRange(xyz.z, self.path.clone(), self.min_zoom, self.max_zoom)
+        })?;
+
+        if self.web_friendly {
+            // just clip the image to get the tile in web mercator
+            let bytes = image.get_tile_webmercator(&mut decoder, xyz, self.nodata, &self.path)?;
+            Ok(bytes)
+        } else {
+            let bytes = image.get_tile(&mut decoder, xyz, self.nodata, &self.path)?;
+            Ok(bytes)
+        }
     }
 }
 
@@ -483,7 +482,7 @@ fn get_extent(
 #[cfg(test)]
 mod tests {
     use std::fs::File;
-    use std::path::PathBuf;
+    use std::path::Path;
 
     use insta::assert_yaml_snapshot;
     use rstest::rstest;
@@ -493,10 +492,10 @@ mod tests {
 
     #[test]
     fn can_get_model_info() {
-        let path = PathBuf::from("../tests/fixtures/cog/rgb_u8.tif");
-        let tif_file = File::open(&path).unwrap();
+        let path = Path::new("../tests/fixtures/cog/rgb_u8.tif");
+        let tif_file = File::open(path).unwrap();
         let mut decoder = Decoder::new(tif_file).unwrap();
-        let model = ModelInfo::decode(&mut decoder, &path);
+        let model = ModelInfo::decode(&mut decoder, path);
 
         assert_yaml_snapshot!(model.pixel_scale, @r"
         - 10
@@ -537,7 +536,7 @@ mod tests {
         let origin = super::get_origin(
             tie_point.as_deref(),
             matrix.as_deref(),
-            &PathBuf::from("not_exist.tif"),
+            Path::new("not_exist.tif"),
         )
         .ok();
         match (origin, expected) {
@@ -592,13 +591,13 @@ mod tests {
         let origin = get_origin(
             tie_point.as_deref(),
             matrix.as_deref(),
-            &PathBuf::from("not_exist.tif"),
+            Path::new("not_exist.tif"),
         )
         .unwrap();
         let full_resolution = get_full_resolution(
             pixel_scale.as_deref(),
             matrix.as_deref(),
-            &PathBuf::from("not_exist.tif"),
+            Path::new("not_exist.tif"),
         )
         .unwrap();
 
@@ -643,7 +642,7 @@ mod tests {
         let full_resolution = get_full_resolution(
             pixel_scale.as_deref(),
             matrix.as_deref(),
-            &PathBuf::from("not_exist.tif"),
+            Path::new("not_exist.tif"),
         )
         .unwrap();
         assert_abs_diff_eq!(full_resolution[0], expected[0], epsilon = 0.00001);

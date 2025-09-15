@@ -7,11 +7,12 @@ use actix_web::middleware::Compress;
 use actix_web::web::{Data, Path};
 use actix_web::{HttpRequest, HttpResponse, Result as ActixResult, route};
 use itertools::Itertools as _;
+use martin_core::tiles::BoxedSource;
 use serde::Deserialize;
 use tilejson::{TileJSON, tilejson};
 
 use crate::config::file::srv::SrvConfig;
-use crate::source::{TileInfoSource, TileSources};
+use crate::source::TileSources;
 
 #[derive(Deserialize)]
 pub struct SourceIDsRequest {
@@ -65,7 +66,7 @@ async fn get_source_info(
 }
 
 #[must_use]
-pub fn merge_tilejson(sources: &[TileInfoSource], tiles_url: String) -> TileJSON {
+pub fn merge_tilejson(sources: &[BoxedSource], tiles_url: String) -> TileJSON {
     if sources.len() == 1 {
         let mut tj = sources[0].get_tilejson().clone();
         tj.tiles = vec![tiles_url];

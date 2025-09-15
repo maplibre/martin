@@ -3,12 +3,13 @@ use std::io::BufWriter;
 use std::path::Path;
 
 use image::{ImageBuffer, Rgba};
-use martin_tile_utils::TileCoord;
+use martin_core::tiles::MartinCoreResult;
+use martin_tile_utils::{TileCoord, TileData};
 use tiff::ColorType;
 use tiff::decoder::{Decoder, DecodingResult};
 
 use super::CogError;
-use crate::{MartinResult, TileData};
+use crate::MartinResult;
 
 /// Image represents a single image in a COG file. A tiff file may contain many images.
 /// This struct contains information and methods for taking tiles from the image.
@@ -176,7 +177,7 @@ impl Image {
         xyz: TileCoord,
         nodata: Option<f64>,
         path: &Path,
-    ) -> MartinResult<TileData> {
+    ) -> MartinCoreResult<TileData> {
         decoder
             .seek_to_image(self.ifd_index())
             .map_err(|e| CogError::IfdSeekFailed(e, self.ifd_index(), path.to_path_buf()))?;
@@ -197,7 +198,7 @@ impl Image {
         let (tile_width, tile_height) = decoder.chunk_dimensions();
         let (data_width, data_height) = decoder.chunk_data_dimensions(tile_idx);
 
-        //FIXME: do more research on the not u8 case, is this the right way to do it?
+        // FIXME: do more research on the not u8 case, is this the right way to do it?
         let png_file_bytes = match (decode_result, color_type) {
             (DecodingResult::U8(vec), ColorType::RGB(_)) => rgb_to_png(
                 vec,
@@ -219,11 +220,12 @@ impl Image {
                 color_type,
                 path.to_path_buf(),
             )),
-            //todo do others in next PRs, a lot of discussion would be needed
+            // todo: do others in next PRs, a lot of discussion would be needed
         }?;
         Ok(png_file_bytes)
     }
 
+    /// Returns the Image File Directory index for this image.
     pub fn ifd_index(&self) -> usize {
         self.ifd_index
     }
@@ -448,7 +450,7 @@ fn draw_tile(
 
 #[cfg(test)]
 mod tests {
-    use std::path::PathBuf;
+    use std::path::Path;
 
     use martin_tile_utils::{TileCoord, xyz_to_bbox_webmercator};
     use rstest::rstest;
@@ -480,33 +482,33 @@ mod tests {
     #[rstest]
     // the right half should be transparent
     #[case(
-        "../tests/fixtures/cog/expected/right_padded.png",
+        "right_padded.png",
         (0, 0, 0, None), None, (128, 256), (256, 256)
     )]
     // the down half should be transparent
     #[case(
-        "../tests/fixtures/cog/expected/down_padded.png",
+        "down_padded.png",
         (0, 0, 0, None), None, (256, 128), (256, 256)
     )]
     // the up half should be half-transparent and down half should be transparent
     #[case(
-        "../tests/fixtures/cog/expected/down_padded_with_alpha.png",
+        "down_padded_with_alpha.png",
         (0, 0, 0, Some(128)), None, (256, 128), (256, 256)
     )]
     // the left half should be half-transparent and the right half should be transparent
     #[case(
-        "../tests/fixtures/cog/expected/right_padded_with_alpha.png",
+        "right_padded_with_alpha.png",
         (0, 0, 0, Some(128)), None, (128, 256), (256, 256)
     )]
     // should be all half transparent
     #[case(
-        "../tests/fixtures/cog/expected/not_padded.png",
+        "not_padded.png",
         (0, 0, 0, Some(128)), None, (256, 256), (256, 256)
     )]
     // all padded and with a no_data whose value is 128, and all the component is 128
     // so that should be all transparent
     #[case(
-        "../tests/fixtures/cog/expected/all_transparent.png",
+        "all_transparent.png",
         (128, 128, 128, Some(128)), Some(128), (128, 128), (256, 256)
     )]
     fn test_padded_cases(
@@ -532,11 +534,11 @@ mod tests {
             (data_width, data_height),
             components_count,
             no_value,
-            &PathBuf::from("not_exist.tif"),
+            Path::new("not_exist.tif"),
         )
         .unwrap();
-        let expected = std::fs::read(expected_file_path).unwrap();
-        assert_eq!(png_bytes, expected);
+
+        insta::assert_binary_snapshot!(expected_file_path, png_bytes);
     }
 
     // test bbox which aligned with tile boundary

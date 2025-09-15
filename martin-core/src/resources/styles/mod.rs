@@ -104,11 +104,13 @@ impl StyleSources {
 
 #[cfg(test)]
 mod tests {
+    use std::path::Path;
+
     use super::*;
 
     #[test]
     fn test_style_external() {
-        let style_dir = PathBuf::from("../tests/fixtures/styles/");
+        let style_dir = Path::new("../tests/fixtures/styles/");
 
         let mut styles = StyleSources::default();
         styles.add_style(

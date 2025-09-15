@@ -64,7 +64,7 @@ pub enum MartinError {
 
     #[cfg(feature = "mbtiles")]
     #[error(transparent)]
-    MbtilesError(#[from] crate::mbtiles::MbtilesError),
+    MbtilesError(#[from] martin_core::tiles::mbtiles::MbtilesError),
 
     #[cfg(feature = "cog")]
     #[error(transparent)]
@@ -75,7 +75,7 @@ pub enum MartinError {
 
     #[cfg(feature = "sprites")]
     #[error(transparent)]
-    SpriteError(#[from] crate::sprites::SpriteError),
+    SpriteError(#[from] martin_core::sprites::SpriteError),
 
     #[cfg(feature = "fonts")]
     #[error(transparent)]

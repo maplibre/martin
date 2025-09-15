@@ -1,9 +1,9 @@
 pub(crate) mod builder;
 mod errors;
-mod pg_source;
 mod pool;
 mod query_functions;
 mod query_tables;
+mod source;
 mod tls;
 pub(crate) mod utils;
 

@@ -17,11 +17,12 @@ use futures::stream::{self, StreamExt};
 use log::{debug, error, info, log_enabled, warn};
 use martin::config::args::{Args, ExtraArgs, MetaArgs, SrvArgs};
 use martin::config::file::{Config, ServerState, read_config};
-use martin::mbtiles::MbtilesError;
 use martin::srv::{DynTileSource, merge_tilejson};
-use martin::{MartinError, MartinResult, TileData, TileInfoSource};
+use martin::{MartinError, MartinResult};
 use martin_core::config::env::OsEnv;
-use martin_tile_utils::{TileCoord, TileInfo, TileRect, append_rect, bbox_to_xyz};
+use martin_core::tiles::BoxedSource;
+use martin_core::tiles::mbtiles::MbtilesError;
+use martin_tile_utils::{TileCoord, TileData, TileInfo, TileRect, append_rect, bbox_to_xyz};
 use mbtiles::UpdateZoomType::GrowOnly;
 use mbtiles::sqlx::SqliteConnection;
 use mbtiles::{
@@ -488,7 +489,7 @@ fn parse_encoding(encoding: &str) -> MartinCpResult<AcceptEncoding> {
 async fn init_schema(
     mbt: &Mbtiles,
     conn: &mut SqliteConnection,
-    sources: &[TileInfoSource],
+    sources: &[BoxedSource],
     tile_info: TileInfo,
     args: &CopyArgs,
 ) -> Result<MbtType, MartinError> {

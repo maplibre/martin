@@ -11,13 +11,13 @@ The library providing the basic building blocks for [Martin](https://maplibre.or
 # Features
 
 - tiles
-  - [ ] mbtiles
+  - [x] mbtiles
   - [ ] pmtiles
   - [ ] cog
   - [ ] postgres tables
   - [ ] postgres functions
 - resources
-  - [ ] sprites
+  - [x] sprites
   - [x] fonts
   - [x] styles
 

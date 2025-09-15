@@ -152,6 +152,10 @@ vi.mock('@vis.gl/react-maplibre', () => ({
     const React = require('react');
     return React.createElement('div', { 'data-testid': 'fullscreen-control' });
   },
+  Layer: ({ children }: { children?: React.ReactNode }) => {
+    const React = require('react');
+    return React.createElement('div', { 'data-testid': 'maplibre-layer' }, children);
+  },
   Map: ({
     children,
     style,

@@ -1,0 +1,41 @@
+{
+  "features": [
+    {
+      "geometry": {
+        "coordinates": [
+          [
+            [
+              2162,
+              2280
+            ],
+            [
+              2276,
+              2545
+            ],
+            [
+              2503,
+              2545
+            ],
+            [
+              2389,
+              2162
+            ],
+            [
+              2162,
+              2280
+            ]
+          ]
+        ],
+        "type": "Polygon"
+      },
+      "properties": {
+        "b_id": 1,
+        "b_info": "polygon_1",
+        "source_mvt_layer": "table_name_existing_two_schemas.1"
+      },
+      "type": "Feature"
+    }
+  ],
+  "name": "merged",
+  "type": "FeatureCollection"
+}

@@ -40,7 +40,7 @@ export RUST_BACKTRACE := env('RUST_BACKTRACE', if ci_mode == '1' {'1'} else {''}
 
 # Run benchmark tests
 bench:
-    cargo bench --bench bench
+    cargo bench --bench sources
     open target/criterion/report/index.html
 
 # Run HTTP requests benchmark using OHA tool. Use with `just bench-server`
@@ -181,7 +181,7 @@ env-info:
 
 # Run benchmark tests showing a flamegraph
 flamegraph:
-    cargo bench --bench bench -- --profile-time=10
+    cargo bench --bench sources -- --profile-time=10
     /opt/google/chrome/chrome "file://$PWD/target/criterion/get_table_source_tile/profile/flamegraph.svg"
 
 # Reformat all code `cargo fmt`. If nightly is available, use it for better results
