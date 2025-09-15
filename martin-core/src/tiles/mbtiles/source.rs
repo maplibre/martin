@@ -5,13 +5,14 @@ use std::io;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use super::MbtilesError;
-use crate::tiles::{BoxedSource, MartinCoreResult, Source, UrlQuery};
 use async_trait::async_trait;
 use log::trace;
 use martin_tile_utils::{TileCoord, TileData, TileInfo};
 use mbtiles::MbtilesPool;
 use tilejson::TileJSON;
+
+use super::MbtilesError;
+use crate::tiles::{BoxedSource, MartinCoreResult, Source, UrlQuery};
 
 /// Tile source that reads from `MBTiles` files.
 #[derive(Clone)]
