@@ -18,7 +18,6 @@ use crate::pg::PgResult;
 use crate::pg::builder::SqlTableInfoMapMapMap;
 use crate::pg::pool::PgPool;
 use crate::pg::source::PgSqlInfo;
-use crate::pg::utils::polygon_to_bbox;
 
 static DEFAULT_EXTENT: u32 = 4096;
 static DEFAULT_BUFFER: u32 = 64;
@@ -257,4 +256,23 @@ FROM {schema}.{table};
         .map_err(|e| PostgresError(e, "querying table bounds"))?
         .get::<_, Option<ewkb::Polygon>>("bounds")
         .and_then(|p| polygon_to_bbox(&p)))
+}
+
+#[must_use]
+pub fn polygon_to_bbox(polygon: &ewkb::Polygon) -> Option<Bounds> {
+    use postgis::{LineString, Point, Polygon};
+
+    polygon.rings().next().and_then(|linestring| {
+        let mut points = linestring.points();
+        if let (Some(bottom_left), Some(top_right)) = (points.next(), points.nth(1)) {
+            Some(Bounds::new(
+                bottom_left.x(),
+                bottom_left.y(),
+                top_right.x(),
+                top_right.y(),
+            ))
+        } else {
+            None
+        }
+    })
 }
