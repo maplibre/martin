@@ -110,7 +110,7 @@ postgres = [
     "dep:rustls-pemfile",
     "dep:semver",
     "dep:tokio-postgres-rustls",
-    "martin-core/postgres"
+    "martin-core/postgres",
 ]
 sprites = ["martin-core/sprites"]
 styles = ["martin-core/styles", "dep:walkdir"]
