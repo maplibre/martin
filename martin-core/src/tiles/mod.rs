@@ -8,6 +8,7 @@
 //!   - [ ] pmtiles
 //!   - [x] cog
 //!   - [ ] postgres
+//!   - [x] geojson
 
 /// The public facing API for managing a catalog of tile sources
 pub mod catalog;
@@ -19,6 +20,10 @@ pub mod mbtiles;
 #[cfg(feature = "cog")]
 /// Implementation of `Cloud Optimized GeoTIFF`' [`Source`].
 pub mod cog;
+
+#[cfg(feature = "geojson")]
+/// Implementation of `GeoJSON`' [`Source`].
+pub mod geojson;
 
 mod source;
 pub use source::{BoxedSource, Source, UrlQuery};

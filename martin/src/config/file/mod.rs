@@ -10,6 +10,8 @@ pub mod srv;
 pub mod cog;
 #[cfg(feature = "fonts")]
 pub mod fonts;
+#[cfg(feature = "geojson")]
+pub mod geojson;
 #[cfg(feature = "mbtiles")]
 pub mod mbtiles;
 #[cfg(feature = "postgres")]

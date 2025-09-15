@@ -30,12 +30,17 @@ sprites = [
 ]
 styles = ["dep:walkdir", "tokio/fs", "dep:dashmap"]
 mbtiles = ["dep:mbtiles"]
+geojson = ["dep:geojson", "dep:geojson-vt-rs", "dep:geozero", "dep:serde_json"]
 
 [dependencies]
 async-trait.workspace = true
+serde_json = { workspace = true, optional = true }
 bit-set = { workspace = true, optional = true }
 dashmap = { workspace = true, optional = true }
 futures = { workspace = true, optional = true }
+geojson = { workspace = true, optional = true }
+geojson-vt-rs = { workspace = true, optional = true }
+geozero = { workspace = true, features = ["with-mvt"], optional = true }
 itertools = { workspace = true, optional = true }
 log.workspace = true
 martin-tile-utils.workspace = true
