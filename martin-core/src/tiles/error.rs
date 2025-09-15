@@ -1,6 +1,3 @@
-/// A convenience [`Result`] for tiles coming from `martin-core`.
-pub type MartinCoreResult<T> = Result<T, BoxedMartinCoreError>;
-
 /// Temporary error type for integration purposes.
 pub type BoxedMartinCoreError = Box<dyn std::error::Error>;
 
@@ -16,3 +13,6 @@ pub enum MartinCoreError {
     #[error(transparent)]
     OtherError(#[from] Box<dyn std::error::Error>),
 }
+
+/// A convenience [`Result`] for tiles coming from `martin-core`.
+pub type MartinCoreResult<T> = Result<T, BoxedMartinCoreError>;
