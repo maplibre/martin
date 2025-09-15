@@ -11,8 +11,6 @@ pub use utils::{IdResolver, MartinError, MartinResult};
 
 #[cfg(feature = "postgres")]
 pub mod pg;
-#[cfg(feature = "pmtiles")]
-pub mod pmtiles;
 pub mod srv;
 
 // Ensure README.md contains valid code

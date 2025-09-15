@@ -8,11 +8,11 @@ use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering::SeqCst;
 use std::sync::{Arc, LazyLock};
 
+use crate::cache::{CacheKey, CacheValue, OptMainCache};
+use crate::get_cached_value;
+use crate::tiles::{BoxedSource, MartinCoreResult, Source, UrlQuery};
 use async_trait::async_trait;
 use log::{trace, warn};
-use martin_core::cache::{CacheKey, CacheValue, OptMainCache};
-use martin_core::get_cached_value;
-use martin_core::tiles::{BoxedSource, MartinCoreResult, Source, UrlQuery};
 use martin_tile_utils::{Encoding, Format, TileCoord, TileData, TileInfo};
 use pmtiles::aws_sdk_s3::Client as S3Client;
 use pmtiles::aws_sdk_s3::config::Builder as S3ConfigBuilder;
@@ -75,6 +75,7 @@ impl DirectoryCache for PmtCache {
 
 macro_rules! impl_pmtiles_source {
     ($name: ident, $backend: ty, $path: ty, $display_path: path, $err: ident, $concurrent: expr $(,)?) => {
+        /// A source for PMTiles files
         #[derive(Clone)]
         pub struct $name {
             id: String,

@@ -10,7 +10,7 @@ use crate::MartinResult;
 use crate::config::file::{
     ConfigExtras, ConfigFileResult, SourceConfigExtras, UnrecognizedKeys, UnrecognizedValues,
 };
-use crate::pmtiles::{PmtCache, PmtFileSource, PmtHttpSource, PmtS3Source};
+use martin_core::tiles::pmtiles::{PmtCache, PmtFileSource, PmtHttpSource, PmtS3Source};
 
 #[serde_with::skip_serializing_none]
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
