@@ -7,24 +7,6 @@ use martin_core::tiles::UrlQuery;
 use postgis::{LineString, Point, Polygon, ewkb};
 use tilejson::{Bounds, TileJSON};
 
-#[cfg(test)]
-#[expect(clippy::ref_option)]
-pub fn sorted_opt_set<S: serde::Serializer>(
-    value: &Option<std::collections::HashSet<String>>,
-    serializer: S,
-) -> Result<S::Ok, S::Error> {
-    use serde::Serialize as _;
-
-    value
-        .as_ref()
-        .map(|v| {
-            let mut v: Vec<_> = v.iter().collect();
-            v.sort();
-            v
-        })
-        .serialize(serializer)
-}
-
 #[must_use]
 pub fn json_to_hashmap(value: &serde_json::Value) -> InfoMap<String> {
     let mut result = BTreeMap::new();
