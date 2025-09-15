@@ -82,4 +82,8 @@ pub enum CogError {
         "Get full resolution failed for {0}: either a valid ModelPixelScaleTag or ModelPixelScaleTag is required"
     )]
     GetFullResolutionFailed(PathBuf),
+
+    /// IO error.
+    #[error("IO error {0}: {1}")]
+    IoError(std::io::Error, PathBuf),
 }

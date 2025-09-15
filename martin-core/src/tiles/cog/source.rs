@@ -6,7 +6,6 @@ use std::vec;
 
 use async_trait::async_trait;
 use log::warn;
-use martin_core::tiles::{MartinCoreResult, Source, UrlQuery};
 use martin_tile_utils::{Format, TileCoord, TileData, TileInfo};
 use tiff::decoder::{ChunkType, Decoder};
 use tiff::tags::Tag::{self, GdalNodata};
@@ -15,8 +14,7 @@ use tilejson::{TileJSON, tilejson};
 use super::CogError;
 use super::image::Image;
 use super::model::ModelInfo;
-use crate::MartinResult;
-use crate::config::file::ConfigFileError;
+use crate::tiles::{MartinCoreResult, Source, UrlQuery};
 
 /// Tile source that reads from `Cloud Optimized GeoTIFF` files.
 #[derive(Clone, Debug)]
@@ -39,10 +37,10 @@ pub struct CogSource {
 impl CogSource {
     #[expect(clippy::cast_possible_truncation)]
     /// Creates a new COG tile source from a file path.
-    pub fn new(id: String, path: PathBuf) -> MartinResult<Self> {
+    pub fn new(id: String, path: PathBuf) -> Result<Self, CogError> {
         let tileinfo = TileInfo::new(Format::Png, martin_tile_utils::Encoding::Uncompressed);
-        let tif_file = File::open(&path)
-            .map_err(|e: std::io::Error| ConfigFileError::IoError(e, path.clone()))?;
+        let tif_file =
+            File::open(&path).map_err(|e: std::io::Error| CogError::IoError(e, path.clone()))?;
         let mut decoder = Decoder::new(tif_file)
             .map_err(|e| CogError::InvalidTiffFile(e, path.clone()))?
             .with_limits(tiff::decoder::Limits::unlimited());
@@ -166,7 +164,7 @@ impl Source for CogSource {
             return Ok(Vec::new());
         }
         let tif_file =
-            File::open(&self.path).map_err(|e| ConfigFileError::IoError(e, self.path.clone()))?;
+            File::open(&self.path).map_err(|e| CogError::IoError(e, self.path.clone()))?;
         let mut decoder =
             Decoder::new(tif_file).map_err(|e| CogError::InvalidTiffFile(e, self.path.clone()))?;
         decoder = decoder.with_limits(tiff::decoder::Limits::unlimited());
@@ -427,7 +425,7 @@ mod tests {
     use rstest::rstest;
     use tiff::decoder::Decoder;
 
-    use crate::cog::model::ModelInfo;
+    use crate::tiles::cog::model::ModelInfo;
 
     #[test]
     fn can_get_model_info() {
@@ -525,7 +523,7 @@ mod tests {
     ) {
         use approx::assert_abs_diff_eq;
 
-        use crate::cog::source::{get_extent, get_full_resolution, get_origin};
+        use crate::tiles::cog::source::{get_extent, get_full_resolution, get_origin};
 
         let origin = get_origin(
             tie_point.as_deref(),
@@ -576,7 +574,7 @@ mod tests {
     ) {
         use approx::assert_abs_diff_eq;
 
-        use crate::cog::source::get_full_resolution;
+        use crate::tiles::cog::source::get_full_resolution;
 
         let full_resolution = get_full_resolution(
             pixel_scale.as_deref(),
