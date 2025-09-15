@@ -1,3 +1,5 @@
+//! `GeoJSON` tile source implementation.
+
 use std::collections::BTreeMap;
 use std::fmt::{Debug, Formatter};
 use std::fs::File;
@@ -13,6 +15,7 @@ use super::GeoJsonError;
 use crate::tiles::geojson::mvt::LayerBuilder;
 use crate::tiles::{BoxedSource, MartinCoreResult, Source, UrlQuery};
 
+/// Tile source that reads from `GeoJSON` files.
 #[derive(Clone)]
 pub struct GeoJsonSource {
     id: String,
@@ -33,6 +36,7 @@ impl Debug for GeoJsonSource {
 }
 
 impl GeoJsonSource {
+    /// Creates a new [`GeoJsonSource`] from the given file path.
     pub fn new(
         id: String,
         path: PathBuf,
