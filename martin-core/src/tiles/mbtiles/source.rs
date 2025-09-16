@@ -11,7 +11,7 @@ use martin_tile_utils::{TileCoord, TileData, TileInfo};
 use mbtiles::MbtilesPool;
 use tilejson::TileJSON;
 
-use super::MbtilesError;
+use crate::tiles::mbtiles::MbtilesError;
 use crate::tiles::{BoxedSource, MartinCoreResult, Source, UrlQuery};
 
 /// Tile source that reads from `MBTiles` files.
