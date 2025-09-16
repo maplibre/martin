@@ -5,7 +5,7 @@
 //! - a public facing [`catalog`](crate::tiles::catalog) for exposing which tile sources exsts
 //! - the [`Source`](crate::tiles::Source) for accessing tiles:
 //!   - [x] [`mbtiles`]
-//!   - [ ] pmtiles
+//!   - [x] pmtiles
 //!   - [x] cog
 //!   - [ ] postgres
 
@@ -15,6 +15,10 @@ pub mod catalog;
 #[cfg(feature = "mbtiles")]
 /// Implementation of `MBTiles`' [`Source`].
 pub mod mbtiles;
+
+#[cfg(feature = "pmtiles")]
+/// Implementation of `PMTiles`' [`Source`].
+pub mod pmtiles;
 
 #[cfg(feature = "cog")]
 /// Implementation of `Cloud Optimized GeoTIFF`' [`Source`].
