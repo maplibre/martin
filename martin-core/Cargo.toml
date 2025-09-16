@@ -81,8 +81,8 @@ thiserror.workspace = true
 tiff = { workspace = true, optional = true }
 tilejson.workspace = true
 tokio = { workspace = true, optional = true }
-url = { workspace = true, optional = true }
 tokio-postgres-rustls = { workspace = true, optional = true }
+url = { workspace = true, optional = true }
 walkdir = { workspace = true, optional = true }
 
 [dev-dependencies]
