@@ -32,9 +32,6 @@ pub enum ConfigFileError {
     #[error("Source {0} uses bad file {1}")]
     InvalidSourceFilePath(String, PathBuf),
 
-    #[error(r"Unable to parse metadata in file {1}: {0}")]
-    InvalidMetadata(String, PathBuf),
-
     #[error("At least one 'origin' must be specified in the 'cors' configuration")]
     CorsNoOriginsConfigured,
 
