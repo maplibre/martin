@@ -43,7 +43,7 @@ pub struct PgSslCerts {
 }
 
 #[serde_with::skip_serializing_none]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct PgConfig {
     /// Database connection string
     pub connection_string: Option<String>,
@@ -62,8 +62,7 @@ pub struct PgConfig {
     /// Can be either a positive integer or unlimited if omitted.
     pub max_feature_count: Option<usize>,
     /// Maximum Postgres connections pool size [DEFAULT: 20]
-    #[serde(default = "default_pool_size")]
-    pub pool_size: usize,
+    pub pool_size: Option<usize>,
     /// Enable/disable/configure automatic discovery of tables and functions.
     ///
     /// You may set this to `OptBoolObj::Bool(false)` to disable.
@@ -78,30 +77,8 @@ pub struct PgConfig {
     pub unrecognized: UnrecognizedValues,
 }
 
-impl Default for PgConfig {
-    fn default() -> Self {
-        Self {
-            connection_string: None,
-            ssl_certificates: PgSslCerts::default(),
-            default_srid: None,
-            auto_bounds: None,
-            max_feature_count: None,
-            pool_size: POOL_SIZE_DEFAULT,
-            auto_publish: OptBoolObj::default(),
-            tables: None,
-            functions: None,
-            unrecognized: UnrecognizedValues::default(),
-        }
-    }
-}
-
 /// Default connection pool size.
 pub const POOL_SIZE_DEFAULT: usize = 20;
-
-/// Default connection pool size.
-const fn default_pool_size() -> usize {
-    POOL_SIZE_DEFAULT // serde only allows functions
-}
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct PgCfgPublish {
@@ -196,7 +173,9 @@ impl ConfigExtras for PgCfgPublishFuncs {
 impl PgConfig {
     /// Validate if all settings are valid
     pub fn validate(&self) -> PgResult<()> {
-        if self.pool_size < 1 {
+        if let Some(pool_size) = self.pool_size
+            && pool_size < 1
+        {
             return Err(PgError::ConfigError(
                 "pool_size must be greater than or equal to 1.",
             ));
@@ -446,7 +425,7 @@ mod tests {
                 postgres: One(PgConfig {
                     connection_string: Some("postgres://postgres@localhost:5432/db".to_string()),
                     default_srid: Some(4326),
-                    pool_size: 20,
+                    pool_size: Some(20),
                     max_feature_count: Some(100),
                     tables: Some(BTreeMap::from([(
                         "table_source".to_string(),
