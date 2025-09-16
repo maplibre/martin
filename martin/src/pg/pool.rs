@@ -4,15 +4,15 @@ use std::path::PathBuf;
 
 use deadpool_postgres::{Manager, ManagerConfig, Object, Pool, RecyclingMethod};
 use log::{info, warn};
-use postgres::config::SslMode;
-use semver::Version;
-
-use super::tls::{SslModeOverride, make_connector, parse_conn_str};
-use crate::tiles::postgres::PgError::{
+use martin_core::tiles::postgres::PgError::{
     BadPostgisVersion, BadPostgresVersion, PostgisTooOld, PostgresError, PostgresPoolBuildError,
     PostgresPoolConnError, PostgresqlTooOld,
 };
-use crate::tiles::postgres::PgResult;
+use martin_core::tiles::postgres::PgResult;
+use postgres::config::SslMode;
+use semver::Version;
+
+use crate::pg::tls::{SslModeOverride, make_connector, parse_conn_str};
 
 /// We require `ST_TileEnvelope` that was added in [`PostGIS 3.0.0`](https://postgis.net/2019/10/PostGIS-3.0.0/)
 /// See <https://postgis.net/docs/ST_TileEnvelope.html>
@@ -230,17 +230,16 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn parse_version() {
+    async fn parse_version() -> anyhow::Result<()> {
         let node = Postgres::default()
             .with_name("postgis/postgis")
             .with_tag("11-3.0") // purposely very old and stable
             .start()
-            .await
-            .expect("container launched");
+            .await?;
 
         let pg_config = Config::new()
-            .host(node.get_host().await.unwrap().to_string())
-            .port(node.get_host_port_ipv4(5432).await.unwrap())
+            .host(node.get_host().await?.to_string())
+            .port(node.get_host_port_ipv4(5432).await?)
             .dbname("postgres")
             .user("postgres")
             .password("postgres")
@@ -251,27 +250,19 @@ mod tests {
         };
 
         let mgr = Manager::from_config(pg_config, NoTls, mgr_config);
-        let pool = Pool::builder(mgr)
-            .max_size(2)
-            .build()
-            .expect("pool created");
-        let conn = pool
-            .get()
-            .await
-            .expect("able to establish connection to the pool");
+        let pool = Pool::builder(mgr).max_size(2).build()?;
+        let conn = pool.get().await?;
 
-        let pg_version = get_postgres_version(&conn)
-            .await
-            .expect("postgres version can be retrieved");
+        let pg_version = get_postgres_version(&conn).await?;
         assert_eq!(pg_version.major, 11);
         assert!(pg_version.minor >= 10); // we don't want to break this testcase just because postgis updates that image
         assert_eq!(pg_version.patch, 0);
 
-        let postgis_version = get_postgis_version(&conn)
-            .await
-            .expect("postgis version can be retrieved");
+        let postgis_version = get_postgis_version(&conn).await?;
         assert_eq!(postgis_version.major, 3);
         assert_eq!(postgis_version.minor, 0);
         assert!(postgis_version.patch >= 3); // we don't want to break this testcase just because postgis updates that image
+
+        Ok(())
     }
 }

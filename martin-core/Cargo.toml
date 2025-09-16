@@ -87,8 +87,6 @@ walkdir = { workspace = true, optional = true }
 approx.workspace = true
 insta = { workspace = true, features = ["json", "yaml"] }
 rstest.workspace = true
-testcontainers-modules.workspace = true
-tokio.workspace = true
 
 [lints]
 workspace = true
