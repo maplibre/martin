@@ -4,7 +4,9 @@ use std::convert::identity;
 use std::fmt::{Debug, Formatter};
 use std::io;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::Ordering::SeqCst;
+use std::sync::{Arc, LazyLock};
 
 use async_trait::async_trait;
 use log::{trace, warn};
@@ -22,23 +24,29 @@ use pmtiles::{
 use tilejson::TileJSON;
 use url::Url;
 
-use super::PmtilesError::{self, InvalidUrlMetadata};
-use crate::config::file::ConfigFileError::{InvalidMetadata, IoError};
-use crate::{MartinError, MartinResult};
+use super::PmtilesError::{self, InvalidMetadata, InvalidUrlMetadata};
 
-/// Directory cache for `PMTiles` files.
+/// [`pmtiles::Directory`] cache for `PMTiles` files.
 #[derive(Clone, Debug)]
 pub struct PmtCache {
+    /// Unique identifier for this cache instance
+    ///
+    /// Uniqueness invariant is guaranteed by how the struct is constructed
     id: usize,
-    /// Storing (id, offset) -> Directory, or None to disable caching
+    /// Cache storing (id, offset) -> [`pmtiles::Directory`]
+    ///
+    /// Set to [`None`] to disable caching
     cache: OptMainCache,
 }
 
-impl PmtCache {
-    /// Creates a new `PMTiles` cache with the given ID and cache store.
-    #[must_use]
-    pub fn new(id: usize, cache: OptMainCache) -> Self {
-        Self { id, cache }
+impl From<OptMainCache> for PmtCache {
+    fn from(cache: OptMainCache) -> Self {
+        static NEXT_CACHE_ID: LazyLock<AtomicUsize> = LazyLock::new(|| AtomicUsize::new(0));
+
+        Self {
+            id: NEXT_CACHE_ID.fetch_add(1, SeqCst),
+            cache,
+        }
     }
 }
 
@@ -93,11 +101,11 @@ macro_rules! impl_pmtiles_source {
                 id: String,
                 path: $path,
                 reader: AsyncPmTilesReader<$backend, PmtCache>,
-            ) -> MartinResult<Self> {
+            ) -> Result<Self, PmtilesError> {
                 let hdr = &reader.get_header();
 
                 if hdr.tile_type != TileType::Mvt && hdr.tile_compression != Compression::None {
-                    return Err(MartinError::from($err(
+                    return Err(PmtilesError::from($err(
                         format!(
                             "Format {:?} and compression {:?} are not yet supported",
                             hdr.tile_type, hdr.tile_compression
@@ -128,10 +136,7 @@ macro_rules! impl_pmtiles_source {
                     TileType::Jpeg => Format::Jpeg.into(),
                     TileType::Webp => Format::Webp.into(),
                     TileType::Unknown => {
-                        return Err(MartinError::from($err(
-                            "Unknown tile type".to_string(),
-                            path,
-                        )));
+                        return Err($err("Unknown tile type".to_string(), path));
                     }
                 };
 
@@ -217,8 +222,11 @@ impl_pmtiles_source!(
 
 impl PmtHttpSource {
     /// Creates a new HTTP-based `PMTiles` source.
-    pub async fn new(client: Client, cache: PmtCache, id: String, url: Url) -> MartinResult<Self> {
-        let reader = AsyncPmTilesReader::new_with_cached_url(cache, client, url.clone()).await;
+    pub async fn new(cache: PmtCache, id: String, url: Url) -> Result<Self, PmtilesError> {
+        static CLIENT: LazyLock<Client> = LazyLock::new(Client::new);
+
+        let reader =
+            AsyncPmTilesReader::new_with_cached_url(cache, CLIENT.clone(), url.clone()).await;
         let reader = reader.map_err(|e| PmtilesError::PmtErrorWithCtx(e, url.to_string()))?;
 
         Self::new_int(id, url, reader).await
@@ -243,7 +251,7 @@ impl PmtS3Source {
         url: Url,
         skip_credentials: bool,
         force_path_style: bool,
-    ) -> MartinResult<Self> {
+    ) -> Result<Self, PmtilesError> {
         let mut aws_config_builder = aws_config::from_env();
         if skip_credentials {
             aws_config_builder = aws_config_builder.no_credentials();
@@ -257,9 +265,7 @@ impl PmtS3Source {
 
         let bucket = url
             .host_str()
-            .ok_or_else(|| {
-                PmtilesError::S3SourceError(format!("failed to parse bucket name from {url}"))
-            })?
+            .ok_or_else(|| PmtilesError::S3BucketNameNotString(url.clone()))?
             .to_string();
 
         // Strip leading '/' from the key
@@ -286,16 +292,16 @@ impl_pmtiles_source!(
 
 impl PmtFileSource {
     /// Creates a new file-based `PMTiles` source.
-    pub async fn new(cache: PmtCache, id: String, path: PathBuf) -> MartinResult<Self> {
+    pub async fn new(cache: PmtCache, id: String, path: PathBuf) -> Result<Self, PmtilesError> {
         let backend = MmapBackend::try_from(path.as_path())
             .await
             .map_err(|e| io::Error::other(format!("{e:?}: Cannot open file {}", path.display())))
-            .map_err(|e| IoError(e, path.clone()))?;
+            .map_err(|e| PmtilesError::IoError(e, path.clone()))?;
 
         let reader = AsyncPmTilesReader::try_from_cached_source(backend, cache).await;
         let reader = reader
             .map_err(|e| io::Error::other(format!("{e:?}: Cannot open file {}", path.display())))
-            .map_err(|e| IoError(e, path.clone()))?;
+            .map_err(|e| PmtilesError::IoError(e, path.clone()))?;
 
         Self::new_int(id, path, reader).await
     }
