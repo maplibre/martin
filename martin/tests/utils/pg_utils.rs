@@ -1,6 +1,6 @@
 use indoc::formatdoc;
 #[cfg(feature = "postgres")]
-use martin::config::file::pg::TableInfo;
+use martin::config::file::postgres::TableInfo;
 use martin::config::file::{Config, ServerState};
 use martin_core::tiles::BoxedSource;
 

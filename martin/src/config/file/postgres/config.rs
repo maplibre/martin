@@ -14,10 +14,10 @@ use tokio::time::timeout;
 use super::{FuncInfoSources, TableInfoSources};
 use crate::MartinResult;
 use crate::config::args::{BoundsCalcType, DEFAULT_BOUNDS_TIMEOUT};
+use crate::config::file::postgres::PgBuilder;
 use crate::config::file::{
     ConfigExtras, UnrecognizedKeys, UnrecognizedValues, copy_unrecognized_keys_from_config,
 };
-use crate::pg::builder::PgBuilder;
 use crate::utils::IdResolver;
 
 pub trait PgInfo {
@@ -324,7 +324,7 @@ mod tests {
     use tilejson::Bounds;
 
     use super::*;
-    use crate::config::file::pg::{FunctionInfo, TableInfo};
+    use crate::config::file::postgres::{FunctionInfo, TableInfo};
     use crate::config::file::{Config, parse_config};
 
     pub fn parse_cfg(yaml: &str) -> Config {

@@ -1,6 +1,6 @@
 //! `PostgreSQL` table discovery and validation.
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use futures::pin_mut;
 use log::{debug, warn};
@@ -14,12 +14,14 @@ use tilejson::Bounds;
 use tokio::time::timeout;
 
 use crate::config::args::{BoundsCalcType, DEFAULT_BOUNDS_TIMEOUT};
-use crate::config::file::pg::{PgInfo, TableInfo};
-use crate::pg::builder::SqlTableInfoMapMapMap;
+use crate::config::file::postgres::{PgInfo, TableInfo};
 
-static DEFAULT_EXTENT: u32 = 4096;
-static DEFAULT_BUFFER: u32 = 64;
-static DEFAULT_CLIP_GEOM: bool = true;
+/// Map of `PostgreSQL` tables organized by schema, table, and geometry column.
+pub type SqlTableInfoMapMapMap = BTreeMap<String, BTreeMap<String, BTreeMap<String, TableInfo>>>;
+
+const DEFAULT_EXTENT: u32 = 4096;
+const DEFAULT_BUFFER: u32 = 64;
+const DEFAULT_CLIP_GEOM: bool = true;
 
 /// Queries the database for available tables with geometry columns.
 pub async fn query_available_tables(pool: &PgPool) -> PgResult<SqlTableInfoMapMapMap> {
