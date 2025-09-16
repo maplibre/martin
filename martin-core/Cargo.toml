@@ -15,15 +15,11 @@ homepage.workspace = true
 default = ["fonts", "styles", "sprites", "mbtiles", "pmtiles", "cog", "postgres"]
 postgres = [
     "dep:deadpool-postgres",
-    "dep:enum-display",
-    "dep:json-patch",
-    "dep:postgis",
     "dep:postgres",
-    "dep:postgres-protocol",
     "dep:regex",
+    "dep:rustls",
     "dep:rustls-native-certs",
     "dep:rustls-pemfile",
-    "dep:rustls",
     "dep:semver",
     "dep:tokio-postgres-rustls",
     "dep:serde_json",
@@ -53,10 +49,8 @@ aws-config = { workspace = true, optional = true }
 bit-set = { workspace = true, optional = true }
 dashmap = { workspace = true, optional = true }
 deadpool-postgres = { workspace = true, optional = true }
-enum-display = { workspace = true, optional = true }
 futures = { workspace = true, optional = true }
 itertools = { workspace = true, optional = true }
-json-patch = { workspace = true, optional = true }
 log.workspace = true
 martin-tile-utils.workspace = true
 mbtiles = { workspace = true, optional = true }
@@ -64,9 +58,7 @@ moka.workspace = true
 pbf_font_tools = { workspace = true, optional = true }
 pmtiles = { workspace = true, optional = true }
 png = { workspace = true, optional = true }
-postgis = { workspace = true, optional = true }
 postgres = { workspace = true, optional = true }
-postgres-protocol = { workspace = true, optional = true }
 regex = { workspace = true, optional = true }
 rustls = { workspace = true, optional = true }
 rustls-native-certs = { workspace = true, optional = true }
