@@ -134,7 +134,6 @@ num_cpus.workspace = true
 postgis = { workspace = true, optional = true }
 postgres-protocol = { workspace = true, optional = true }
 rustls.workspace = true
-semver = { workspace = true, optional = true }
 serde.workspace = true
 serde_json.workspace = true
 serde_with.workspace = true
