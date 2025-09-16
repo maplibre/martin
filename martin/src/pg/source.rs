@@ -4,13 +4,13 @@ use log::debug;
 use martin_core::tiles::postgres::PgError::{
     GetTileError, GetTileWithQueryError, PrepareQueryError,
 };
+use martin_core::tiles::postgres::PgPool;
 use martin_core::tiles::{BoxedSource, MartinCoreResult, Source, UrlQuery};
 use martin_tile_utils::Encoding::Uncompressed;
 use martin_tile_utils::Format::Mvt;
 use martin_tile_utils::{TileCoord, TileData, TileInfo};
 use tilejson::TileJSON;
 
-use crate::pg::pool::PgPool;
 use crate::pg::utils::query_to_json;
 
 #[derive(Clone, Debug)]

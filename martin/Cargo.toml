@@ -170,7 +170,6 @@ static-files = { workspace = true, optional = true }
 walkdir = { workspace = true, optional = true }
 
 [dev-dependencies]
-anyhow.workspace = true
 approx.workspace = true
 criterion.workspace = true
 ctor.workspace = true
@@ -179,7 +178,6 @@ insta = { workspace = true, features = ["json", "yaml", "redactions"] }
 pprof.workspace = true
 rstest.workspace = true
 tempfile.workspace = true
-testcontainers-modules.workspace = true
 
 [lints]
 workspace = true
