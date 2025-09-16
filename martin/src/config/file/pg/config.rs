@@ -6,6 +6,7 @@ use futures::pin_mut;
 use log::warn;
 use martin_core::config::{OptBoolObj, OptOneMany};
 use martin_core::tiles::BoxedSource;
+use martin_core::tiles::postgres::{PgError, PgResult};
 use serde::{Deserialize, Serialize};
 use tilejson::TileJSON;
 use tokio::time::timeout;
@@ -17,7 +18,6 @@ use crate::config::file::{
     ConfigExtras, UnrecognizedKeys, UnrecognizedValues, copy_unrecognized_keys_from_config,
 };
 use crate::pg::builder::PgBuilder;
-use crate::pg::{PgError, PgResult};
 use crate::utils::IdResolver;
 
 pub trait PgInfo {

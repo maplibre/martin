@@ -2,15 +2,15 @@
 
 use deadpool_postgres::{Manager, ManagerConfig, Object, Pool, RecyclingMethod};
 use log::{info, warn};
+use martin_core::tiles::postgres::PgError::{
+    BadPostgisVersion, BadPostgresVersion, PostgisTooOld, PostgresError, PostgresPoolBuildError,
+    PostgresPoolConnError, PostgresqlTooOld,
+};
+use martin_core::tiles::postgres::PgResult;
 use postgres::config::SslMode;
 use semver::Version;
 
 use crate::config::file::pg::PgConfig;
-use crate::pg::PgError::{
-    BadPostgisVersion, BadPostgresVersion, PostgisTooOld, PostgresError, PostgresPoolBuildError,
-    PostgresPoolConnError, PostgresqlTooOld,
-};
-use crate::pg::PgResult;
 use crate::pg::tls::{SslModeOverride, make_connector, parse_conn_str};
 
 /// Default connection pool size.
