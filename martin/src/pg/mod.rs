@@ -6,6 +6,6 @@ mod source;
 mod tls;
 pub(crate) mod utils;
 
-pub use pool::{POOL_SIZE_DEFAULT, PgPool};
+pub use pool::PgPool;
 pub use query_functions::query_available_function;
 pub use query_tables::query_available_tables;

@@ -77,6 +77,9 @@ pub struct PgConfig {
     pub unrecognized: UnrecognizedValues,
 }
 
+/// Default connection pool size.
+pub const POOL_SIZE_DEFAULT: usize = 20;
+
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct PgCfgPublish {
     #[serde(alias = "from_schema")]
@@ -168,7 +171,7 @@ impl ConfigExtras for PgCfgPublishFuncs {
 }
 
 impl PgConfig {
-    /// Apply defaults to the config, and validate if there is a connection string
+    /// Validate if all settings are valid
     pub fn validate(&self) -> PgResult<()> {
         if let Some(pool_size) = self.pool_size
             && pool_size < 1
