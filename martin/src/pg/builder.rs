@@ -11,8 +11,8 @@ use martin_core::tiles::postgres::{PgError, PgResult};
 
 use crate::config::args::BoundsCalcType;
 use crate::config::file::pg::{
-    FuncInfoSources, FunctionInfo, PgCfgPublish, PgCfgPublishFuncs, PgConfig, PgInfo, TableInfo,
-    TableInfoSources,
+    FuncInfoSources, FunctionInfo, POOL_SIZE_DEFAULT, PgCfgPublish, PgCfgPublishFuncs, PgConfig,
+    PgInfo, TableInfo, TableInfoSources,
 };
 use crate::pg::pool::PgPool;
 use crate::pg::query_functions::query_available_function;
@@ -95,7 +95,14 @@ impl PgBuilder {
     ///
     /// Duplicate names are deterministically converted to unique names.
     pub async fn new(config: &PgConfig, id_resolver: IdResolver) -> PgResult<Self> {
-        let pool = PgPool::new(config).await?;
+        let pool = PgPool::new(
+            config.connection_string.as_ref().unwrap().as_str(),
+            config.ssl_certificates.ssl_cert.as_ref(),
+            config.ssl_certificates.ssl_key.as_ref(),
+            config.ssl_certificates.ssl_root_cert.as_ref(),
+            config.pool_size.unwrap_or(POOL_SIZE_DEFAULT),
+        )
+        .await?;
 
         let (auto_tables, auto_functions) = calc_auto(config);
 

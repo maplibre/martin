@@ -22,8 +22,6 @@ use rustls_native_certs::load_native_certs;
 use rustls_pemfile::Item::Pkcs1Key;
 use tokio_postgres_rustls::MakeRustlsConnect;
 
-use crate::config::file::pg::PgSslCerts;
-
 /// A temporary workaround for <https://github.com/sfackler/rust-postgres/pull/988>
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SslModeOverride {
@@ -125,13 +123,15 @@ fn cert_reader(file: &PathBuf) -> PgResult<BufReader<File>> {
 }
 
 pub fn make_connector(
-    pg_certs: &PgSslCerts,
+    ssl_cert: Option<&PathBuf>,
+    ssl_key: Option<&PathBuf>,
+    ssl_root_cert: Option<&PathBuf>,
     ssl_mode: SslModeOverride,
 ) -> PgResult<MakeRustlsConnect> {
     let (verify_ca, _verify_hostname) = match ssl_mode {
         SslModeOverride::Unmodified(mode) => match mode {
             SslMode::Disable | SslMode::Prefer => (false, false),
-            SslMode::Require => match pg_certs.ssl_root_cert {
+            SslMode::Require => match ssl_root_cert {
                 // If a root CA file exists, the behavior of sslmode=require will be the same as
                 // that of verify-ca, meaning the server certificate is validated against the CA.
                 // For more details, check out the note about backwards compatibility in
@@ -149,14 +149,14 @@ pub fn make_connector(
 
     let mut roots = rustls::RootCertStore::empty();
 
-    if let Some(file) = &pg_certs.ssl_root_cert {
+    if let Some(file) = &ssl_root_cert {
         for cert in read_certs(file)? {
             roots.add(cert)?;
         }
         info!("Using {} as a root certificate", file.display());
     }
 
-    if verify_ca || pg_certs.ssl_root_cert.is_some() || pg_certs.ssl_cert.is_some() {
+    if verify_ca || ssl_root_cert.is_some() || ssl_cert.is_some() {
         let certs = load_native_certs();
         if !certs.errors.is_empty() {
             return Err(CannotLoadRoots(certs.errors));
@@ -168,7 +168,7 @@ pub fn make_connector(
 
     let builder = rustls::ClientConfig::builder().with_root_certificates(roots);
 
-    let mut builder = if let (Some(cert), Some(key)) = (&pg_certs.ssl_cert, &pg_certs.ssl_key) {
+    let mut builder = if let (Some(cert), Some(key)) = (ssl_cert, ssl_key) {
         match rustls_pemfile::read_one(&mut cert_reader(key)?) {
             Ok(Some(Pkcs1Key(rsa_key))) => builder
                 .with_client_auth_cert(read_certs(cert)?, rsa_key.into())
@@ -177,7 +177,7 @@ pub fn make_connector(
             Err(e) => Err(CannotParseCert(e, key.clone()))?,
         }
     } else {
-        if pg_certs.ssl_key.is_some() || pg_certs.ssl_key.is_some() {
+        if ssl_key.is_some() || ssl_key.is_some() {
             warn!(
                 "SSL client certificate and key files must be set to use client certificate with Postgres. Only one of them was set."
             );
