@@ -4,15 +4,16 @@ use std::mem;
 use std::path::{Path, PathBuf};
 
 use log::{info, warn};
+use martin_core::cache::OptMainCache;
 use martin_core::config::OptOneMany::{self, Many, One};
+use martin_core::tiles::BoxedSource;
 use serde::{Deserialize, Serialize};
 use url::Url;
 
 use crate::config::file::ConfigFileError::{
     InvalidFilePath, InvalidSourceFilePath, InvalidSourceUrl, IoError,
 };
-use crate::source::{TileInfoSource, TileInfoSources};
-use crate::utils::{IdResolver, OptMainCache};
+use crate::utils::IdResolver;
 use crate::{MartinError, MartinResult};
 
 pub type ConfigFileResult<T> = Result<T, ConfigFileError>;
@@ -30,9 +31,6 @@ pub enum ConfigFileError {
 
     #[error("Source {0} uses bad file {1}")]
     InvalidSourceFilePath(String, PathBuf),
-
-    #[error(r"Unable to parse metadata in file {1}: {0}")]
-    InvalidMetadata(String, PathBuf),
 
     #[error("At least one 'origin' must be specified in the 'cors' configuration")]
     CorsNoOriginsConfigured,
@@ -59,23 +57,23 @@ pub trait SourceConfigExtras: ConfigExtras {
     #[must_use]
     fn parse_urls() -> bool;
 
-    /// Asynchronously creates a new `TileInfoSource` from a **local** file `path` using the given `id`.
+    /// Asynchronously creates a new `BoxedSource` from a **local** file `path` using the given `id`.
     ///
     /// This function is called for each discovered file path that is not a URL.
     fn new_sources(
         &self,
         id: String,
         path: PathBuf,
-    ) -> impl Future<Output = MartinResult<TileInfoSource>> + Send;
+    ) -> impl Future<Output = MartinResult<BoxedSource>> + Send;
 
-    /// Asynchronously creates a new `TileInfoSource` from a **remote** `url` using the given `id`.
+    /// Asynchronously creates a new `BoxedSource` from a **remote** `url` using the given `id`.
     ///
     /// This function is called for each discovered source path that is a valid URL.
     fn new_sources_url(
         &self,
         id: String,
         url: Url,
-    ) -> impl Future<Output = MartinResult<TileInfoSource>> + Send;
+    ) -> impl Future<Output = MartinResult<BoxedSource>> + Send;
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -231,7 +229,7 @@ pub async fn resolve_files<T: SourceConfigExtras>(
     idr: &IdResolver,
     cache: OptMainCache,
     extension: &[&str],
-) -> MartinResult<TileInfoSources> {
+) -> MartinResult<Vec<BoxedSource>> {
     resolve_int(config, idr, cache, extension).await
 }
 
@@ -240,12 +238,12 @@ async fn resolve_int<T: SourceConfigExtras>(
     idr: &IdResolver,
     cache: OptMainCache,
     extension: &[&str],
-) -> MartinResult<TileInfoSources> {
+) -> MartinResult<Vec<BoxedSource>> {
     let Some(cfg) = config.extract_file_config(cache)? else {
-        return Ok(TileInfoSources::default());
+        return Ok(Vec::new());
     };
 
-    let mut results = TileInfoSources::default();
+    let mut results = Vec::new();
     let mut configs = BTreeMap::new();
     let mut files = HashSet::new();
     let mut directories = Vec::new();

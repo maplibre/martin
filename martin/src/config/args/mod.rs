@@ -2,9 +2,9 @@ mod connections;
 pub use connections::State;
 
 #[cfg(feature = "postgres")]
-mod pg;
+mod postgres;
 #[cfg(feature = "postgres")]
-pub use pg::{BoundsCalcType, DEFAULT_BOUNDS_TIMEOUT, PgArgs};
+pub use postgres::{BoundsCalcType, DEFAULT_BOUNDS_TIMEOUT, PgArgs};
 
 mod root;
 pub use root::*;

@@ -10,6 +10,8 @@ use super::connections::Arguments;
 use super::srv::SrvArgs;
 use crate::MartinError::ConfigAndConnectionsError;
 use crate::MartinResult;
+#[cfg(feature = "postgres")]
+use crate::config::args::PgArgs;
 use crate::config::file::Config;
 #[cfg(any(
     feature = "cog",
@@ -45,7 +47,7 @@ pub struct Args {
     pub srv: SrvArgs,
     #[cfg(feature = "postgres")]
     #[command(flatten)]
-    pub pg: Option<super::pg::PgArgs>,
+    pub pg: Option<PgArgs>,
 }
 
 // None of these params will be transferred to the config
@@ -231,6 +233,8 @@ mod tests {
     fn cli_with_config() {
         use martin_core::config::OptOneMany;
 
+        use crate::config::file::postgres::PgConfig;
+
         let args = parse(&["martin", "--config", "c.toml"]).unwrap();
         let meta = MetaArgs {
             config: Some(PathBuf::from("c.toml")),
@@ -248,7 +252,7 @@ mod tests {
 
         let args = parse(&["martin", "postgres://connection"]).unwrap();
         let cfg = Config {
-            postgres: OptOneMany::One(crate::config::file::pg::PgConfig {
+            postgres: OptOneMany::One(PgConfig {
                 connection_string: Some("postgres://connection".to_string()),
                 ..Default::default()
             }),

@@ -3,7 +3,7 @@ updates:
   # Maintain dependencies for GitHub Actions
   - package-ecosystem: github-actions
     directory: '/'
-    schedule: { interval: daily }
+    schedule: { interval: monthly }
     groups:
       all-actions-version-updates:
         applies-to: version-updates
@@ -15,7 +15,7 @@ updates:
   # Update Rust dependencies
   - package-ecosystem: cargo
     directory: '/'
-    schedule: { interval: daily, time: '02:00' }
+    schedule: { interval: monthly }
     open-pull-requests-limit: 10
     groups:
       all-cargo-version-updates:
@@ -28,7 +28,7 @@ updates:
   # Update Martin UI NPM dependencies
   - package-ecosystem: npm
     directory: '/martin/martin-ui/'
-    schedule: { interval: daily, time: '02:00' }
+    schedule: { interval: monthly }
     open-pull-requests-limit: 10
     groups:
       all-npm-ui-version-updates:
@@ -44,7 +44,7 @@ updates:
   # Update Demo frontend NPM dependencies
   - package-ecosystem: npm
     directory: '/demo/frontend/'
-    schedule: { interval: daily, time: '02:00' }
+    schedule: { interval: monthly }
     open-pull-requests-limit: 10
     groups:
       all-npm-fe-version-updates:

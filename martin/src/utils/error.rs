@@ -56,19 +56,19 @@ pub enum MartinError {
 
     #[cfg(feature = "postgres")]
     #[error(transparent)]
-    PostgresError(#[from] crate::pg::PgError),
+    PostgresError(#[from] martin_core::tiles::postgres::PgError),
 
     #[cfg(feature = "pmtiles")]
     #[error(transparent)]
-    PmtilesError(#[from] crate::pmtiles::PmtilesError),
+    PmtilesError(#[from] martin_core::tiles::pmtiles::PmtilesError),
 
     #[cfg(feature = "mbtiles")]
     #[error(transparent)]
-    MbtilesError(#[from] crate::mbtiles::MbtilesError),
+    MbtilesError(#[from] martin_core::tiles::mbtiles::MbtilesError),
 
     #[cfg(feature = "cog")]
     #[error(transparent)]
-    CogError(#[from] crate::cog::CogError),
+    CogError(#[from] martin_core::tiles::cog::CogError),
 
     #[error(transparent)]
     ConfigFileError(#[from] crate::config::file::ConfigFileError),

@@ -76,7 +76,7 @@ path = "src/bin/martin-cp.rs"
 required-features = ["mbtiles"]
 
 [[bench]]
-name = "bench"
+name = "sources"
 harness = false
 
 [features]
@@ -92,24 +92,18 @@ default = [
     "styles",
     "webui",
 ]
-cog = ["dep:png", "dep:tiff"]
+cog = ["martin-core/cog"]
 fonts = ["martin-core/fonts"]
 lambda = ["dep:lambda-web"]
-mbtiles = ["dep:mbtiles"]
+mbtiles = ["martin-core/mbtiles"]
 metrics = ["dep:actix-web-prom"]
-pmtiles = ["dep:aws-config", "dep:pmtiles"]
+pmtiles = ["martin-core/pmtiles"]
 postgres = [
-    "dep:deadpool-postgres",
+    "martin-core/postgres",
     "dep:enum-display",
     "dep:json-patch",
     "dep:postgis",
-    "dep:postgres",
     "dep:postgres-protocol",
-    "dep:regex",
-    "dep:rustls-native-certs",
-    "dep:rustls-pemfile",
-    "dep:semver",
-    "dep:tokio-postgres-rustls",
 ]
 sprites = ["martin-core/sprites"]
 styles = ["martin-core/styles", "dep:walkdir"]
@@ -124,10 +118,8 @@ actix-web.workspace = true
 actix-web-prom = { workspace = true, optional = true }
 actix-web-static-files = { workspace = true, optional = true }
 async-trait.workspace = true
-aws-config = { workspace = true, optional = true }
 clap.workspace = true
 dashmap.workspace = true
-deadpool-postgres = { workspace = true, optional = true }
 enum-display = { workspace = true, optional = true }
 env_logger.workspace = true
 futures.workspace = true
@@ -137,19 +129,11 @@ lambda-web = { workspace = true, optional = true }
 log.workspace = true
 martin-core.workspace = true
 martin-tile-utils.workspace = true
-mbtiles = { workspace = true, optional = true }
-moka.workspace = true
+mbtiles.workspace = true
 num_cpus.workspace = true
-pmtiles = { workspace = true, optional = true }
-png = { workspace = true, optional = true }
 postgis = { workspace = true, optional = true }
-postgres = { workspace = true, optional = true }
 postgres-protocol = { workspace = true, optional = true }
-regex = { workspace = true, optional = true }
 rustls.workspace = true
-rustls-native-certs = { workspace = true, optional = true }
-rustls-pemfile = { workspace = true, optional = true }
-semver = { workspace = true, optional = true }
 serde.workspace = true
 serde_json.workspace = true
 serde_with.workspace = true
@@ -160,7 +144,6 @@ thiserror.workspace = true
 tiff = { workspace = true, optional = true }
 tilejson.workspace = true
 tokio = { workspace = true, features = ["io-std"] }
-tokio-postgres-rustls = { workspace = true, optional = true }
 url.workspace = true
 walkdir = { workspace = true, optional = true }
 xxhash-rust.workspace = true
@@ -170,16 +153,14 @@ static-files = { workspace = true, optional = true }
 walkdir = { workspace = true, optional = true }
 
 [dev-dependencies]
-anyhow.workspace = true
 approx.workspace = true
 criterion.workspace = true
 ctor.workspace = true
 indoc.workspace = true
-insta = { workspace = true, features = ["json", "yaml"] }
+insta = { workspace = true, features = ["json", "yaml", "redactions"] }
 pprof.workspace = true
 rstest.workspace = true
 tempfile.workspace = true
-testcontainers-modules.workspace = true
 
 [lints]
 workspace = true
