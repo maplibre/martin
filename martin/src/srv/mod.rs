@@ -15,3 +15,5 @@ mod sprites;
 
 #[cfg(feature = "styles")]
 mod styles;
+
+pub mod ogcapi;

@@ -1351,8 +1351,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "145052bdd345b87320e369255277e3fb5152762ad123a901ef5c262dd38fe8d2"
 dependencies = [
  "iana-time-zone",
+ "js-sys",
  "num-traits",
  "serde",
+ "wasm-bindgen",
  "windows-link 0.2.0",
 ]
 
@@ -2629,6 +2631,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "geo-types"
+version = "0.7.17"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "75a4dcd69d35b2c87a7c83bce9af69fd65c9d68d3833a0ded568983928f3fc99"
+dependencies = [
+ "approx",
+ "num-traits",
+ "serde",
+]
+
+[[package]]
+name = "geojson"
+version = "0.24.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e26f3c45b36fccc9cf2805e61d4da6bc4bbd5a3a9589b01afa3a40eff703bd79"
+dependencies = [
+ "geo-types",
+ "log",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.16",
+]
+
+[[package]]
 name = "getrandom"
 version = "0.2.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3658,6 +3684,7 @@ dependencies = [
  "martin-tile-utils",
  "mbtiles",
  "num_cpus",
+ "ogcapi-types",
  "postgis",
  "postgres",
  "postgres-protocol",
@@ -4134,6 +4161,22 @@ dependencies = [
  "url",
  "wasm-bindgen-futures",
  "web-time",
+]
+
+[[package]]
+name = "ogcapi-types"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e07c6bed7690347372eba07c3b864eb3f3408e08e63127b3a35df2827d4d29be"
+dependencies = [
+ "chrono",
+ "geojson",
+ "log",
+ "serde",
+ "serde_json",
+ "serde_repr",
+ "serde_with",
+ "url",
 ]
 
 [[package]]

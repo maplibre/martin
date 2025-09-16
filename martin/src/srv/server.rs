@@ -117,6 +117,18 @@ pub fn router(cfg: &mut web::ServiceConfig, #[allow(unused_variables)] usr_cfg: 
         .service(get_source_info)
         .service(get_tile);
 
+    // OGC API - Tiles endpoints
+    cfg.service(crate::srv::ogcapi::landing::get_landing_page)
+        .service(crate::srv::ogcapi::conformance::get_conformance)
+        .service(crate::srv::ogcapi::collections::get_collections)
+        .service(crate::srv::ogcapi::collections::get_collection)
+        .service(crate::srv::ogcapi::tilesets::get_tilesets)
+        .service(crate::srv::ogcapi::tilematrixsets::get_tile_matrix_sets)
+        .service(crate::srv::ogcapi::tilematrixsets::get_tile_matrix_set)
+        .service(crate::srv::ogcapi::collections::get_collection_tiles)
+        .service(crate::srv::ogcapi::collections::get_collection_tileset)
+        .service(crate::srv::ogcapi::tiles::get_ogc_tile);
+
     #[cfg(feature = "sprites")]
     cfg.service(crate::srv::sprites::get_sprite_sdf_json)
         .service(crate::srv::sprites::get_sprite_json)

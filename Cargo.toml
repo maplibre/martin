@@ -65,6 +65,7 @@ pbf_font_tools = { version = "3.0.0", features = ["freetype"] }
 pmtiles = { version = "0.16", features = ["http-async", "mmap-async-tokio", "tilejson", "reqwest-rustls-tls-native-roots", "aws-s3-async"] }
 png = "0.18.0"
 postgis = "0.9"
+ogcapi-types = "0.3.0"
 postgres = { version = "0.19", features = ["with-time-0_3", "with-uuid-1", "with-serde_json-1"] }
 postgres-protocol = "0.6"
 pprof = { version = "0.15", features = ["flamegraph", "criterion"] }

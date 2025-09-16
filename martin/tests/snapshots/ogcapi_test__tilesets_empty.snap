@@ -1,0 +1,7 @@
+---
+source: martin/tests/ogcapi_test.rs
+expression: json
+---
+{
+  "tilesets": []
+}
