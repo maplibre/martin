@@ -21,9 +21,9 @@ use pmtiles::{
 use tilejson::TileJSON;
 use url::Url;
 
-use super::PmtilesError::{self, InvalidMetadata, InvalidUrlMetadata};
 use crate::cache::{CacheKey, CacheValue, OptMainCache};
 use crate::get_cached_value;
+use crate::tiles::pmtiles::PmtilesError::{self, InvalidMetadata, InvalidUrlMetadata};
 use crate::tiles::{BoxedSource, MartinCoreResult, Source, UrlQuery};
 
 /// [`pmtiles::Directory`] cache for `PMTiles` files.
