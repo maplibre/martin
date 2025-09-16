@@ -43,7 +43,7 @@ pub struct PgSslCerts {
 }
 
 #[serde_with::skip_serializing_none]
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PgConfig {
     /// Database connection string
     pub connection_string: Option<String>,
@@ -76,6 +76,23 @@ pub struct PgConfig {
 
     #[serde(flatten, skip_serializing)]
     pub unrecognized: UnrecognizedValues,
+}
+
+impl Default for PgConfig {
+    fn default() -> Self {
+        Self {
+            connection_string: None,
+            ssl_certificates: PgSslCerts::default(),
+            default_srid: None,
+            auto_bounds: None,
+            max_feature_count: None,
+            pool_size: POOL_SIZE_DEFAULT,
+            auto_publish: OptBoolObj::default(),
+            tables: None,
+            functions: None,
+            unrecognized: UnrecognizedValues::default(),
+        }
+    }
 }
 
 /// Default connection pool size.
