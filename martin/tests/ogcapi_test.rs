@@ -168,6 +168,7 @@ async fn test_ogc_collections_empty() {
     assert_json_snapshot!(json_for_snapshot,@r#"
     {
       "collections": [],
+      "crs": [],
       "links": [
         {
           "href": "[URL]",
@@ -175,7 +176,8 @@ async fn test_ogc_collections_empty() {
           "title": "This document",
           "type": "application/json"
         }
-      ]
+      ],
+      "numberReturned": 0
     }
     "#);
 }

@@ -47,7 +47,7 @@ pub fn create_tilesets(sources: &TileSources, base_url: &str) -> TileSets {
                 })
             }
             Err(e) => {
-                warn!("Failed to get source for tileset '{}': {}", id, e);
+                warn!("Failed to get source for tileset '{id}': {e}");
                 None
             }
         })

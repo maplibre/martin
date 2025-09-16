@@ -4,12 +4,17 @@ use actix_web::http::header::CONTENT_TYPE;
 use actix_web::web::{Data, Path};
 use actix_web::{HttpRequest, HttpResponse, Result as ActixResult, route};
 use log::warn;
-use ogcapi_types::common::{Crs, Link};
+use martin_core::tiles::Source;
+use ogcapi_types::common::{
+    Bbox, Collection as OgcCollection, Collections as OgcCollections, Crs, Extent as OgcExtent,
+    Link, SpatialExtent as OgcSpatialExtent,
+};
 use ogcapi_types::tiles::{
     BoundingBox2D, DataType, GeospatialData, TileMatrixLimits, TilePoint, TileSet, TileSetItem,
     TileSets, TitleDescriptionKeywords,
 };
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
+use serde_json::Map;
 
 use super::landing::get_base_url;
 use crate::source::TileSources;
@@ -26,132 +31,99 @@ pub struct CollectionTileMatrixSetPath {
     tilematrixset_id: String,
 }
 
-/// OGC API Collection
-#[derive(Serialize, Deserialize)]
-pub struct Collection {
-    pub id: String,
-    pub title: Option<String>,
-    pub description: Option<String>,
-    pub links: Vec<Link>,
-    pub extent: Option<Extent>,
-    pub crs: Vec<String>,
-    #[serde(rename = "storageCrs")]
-    pub storage_crs: Option<String>,
-    #[serde(rename = "dataType")]
-    pub data_type: Option<DataType>,
+/// Convert tilejson bounds to OGC API spatial extent
+fn bounds_to_spatial_extent(bounds: &tilejson::Bounds) -> OgcSpatialExtent {
+    // Create a Bbox2D with the bounds in [west, south, east, north] order
+    let bbox = Bbox::Bbox2D([bounds.left, bounds.bottom, bounds.right, bounds.top]);
+
+    // Construct the spatial extent directly
+    OgcSpatialExtent {
+        bbox: vec![bbox],
+        crs: Crs::new(ogcapi_types::common::Authority::OGC, "1.3", "CRS84"),
+    }
 }
 
-/// Spatial and temporal extent
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Extent {
-    pub spatial: Option<SpatialExtent>,
-    pub temporal: Option<TemporalExtent>,
-}
+/// Create an OGC API Collection from a tile source
+fn create_collection(
+    id: String,
+    source_result: Result<Box<dyn Source>, actix_web::Error>,
+    base_url: &str,
+) -> Option<OgcCollection> {
+    match source_result {
+        Ok(source) => {
+            let tj = source.get_tilejson();
 
-/// Spatial extent
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SpatialExtent {
-    pub bbox: Vec<Vec<f64>>,
-    pub crs: Option<String>,
-}
+            // Build the collection using ogcapi_types::common::Collection
+            let collection = OgcCollection {
+                id: id.clone(),
+                title: tj.name.clone(),
+                description: tj.description.clone(),
+                keywords: vec![],
+                attribution: tj.attribution.clone(),
+                extent: tj.bounds.map(|bounds| OgcExtent {
+                    spatial: Some(bounds_to_spatial_extent(&bounds)),
+                    temporal: None,
+                }),
+                item_type: Some("tile".to_string()),
+                crs: vec![Crs::from_epsg(3857)],
+                storage_crs: Some(Crs::from_epsg(3857)),
+                storage_crs_coordinate_epoch: None,
+                links: vec![
+                    Link::new(format!("{base_url}/api/collections/{id}"), "self")
+                        .mediatype("application/json")
+                        .title(format!("Collection {id}")),
+                    Link::new(
+                        format!("{base_url}/api/collections/{id}/tiles"),
+                        "http://www.opengis.net/def/rel/ogc/1.0/tilesets-vector",
+                    )
+                    .mediatype("application/json")
+                    .title(format!("Vector tilesets for collection {id}")),
+                ],
+                additional_properties: {
+                    let mut props = Map::new();
+                    props.insert("dataType".to_string(), serde_json::json!(DataType::Vector));
+                    props
+                },
+            };
 
-/// Temporal extent
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TemporalExtent {
-    pub interval: Vec<Vec<Option<String>>>,
-}
-
-/// OGC API Collections response
-#[derive(Serialize, Deserialize)]
-pub struct Collections {
-    pub collections: Vec<Collection>,
-    pub links: Vec<Link>,
-}
-
-impl Collections {
-    pub fn from_catalog(_catalog: &Catalog, sources: &TileSources, base_url: &str) -> Self {
-        // Get the list of source names from TileSources
-        let collections = sources
-            .source_names()
-            .into_iter()
-            .filter_map(|id| match sources.get_source(&id) {
-                Ok(source) => {
-                    let tj = source.get_tilejson();
-                    Some(Collection {
-                        id: id.clone(),
-                        title: tj.name.clone(),
-                        description: tj.description.clone(),
-                        links: vec![
-                            Link {
-                                rel: "self".to_string(),
-                                r#type: Some("application/json".to_string()),
-                                title: Some(format!("Collection {id}")),
-                                href: format!("{base_url}/api/collections/{id}"),
-                                hreflang: None,
-                                length: None,
-                            },
-                            Link {
-                                rel: "http://www.opengis.net/def/rel/ogc/1.0/tilesets-vector"
-                                    .to_string(),
-                                r#type: Some("application/json".to_string()),
-                                title: Some("Vector tilesets".to_string()),
-                                href: format!("{base_url}/api/collections/{id}/tiles"),
-                                hreflang: None,
-                                length: None,
-                            },
-                        ],
-                        extent: tj.bounds.map(|bounds| Extent {
-                            spatial: Some(SpatialExtent {
-                                bbox: vec![vec![
-                                    bounds.left,
-                                    bounds.bottom,
-                                    bounds.right,
-                                    bounds.top,
-                                ]],
-                                crs: Some(
-                                    "http://www.opengis.net/def/crs/OGC/1.3/CRS84".to_string(),
-                                ),
-                            }),
-                            temporal: None,
-                        }),
-                        crs: vec![
-                            "http://www.opengis.net/def/crs/OGC/1.3/CRS84".to_string(),
-                            "http://www.opengis.net/def/crs/EPSG/0/3857".to_string(),
-                        ],
-                        storage_crs: Some("http://www.opengis.net/def/crs/EPSG/0/3857".to_string()),
-                        data_type: Some(DataType::Vector),
-                    })
-                }
-                Err(e) => {
-                    warn!("Failed to get source for collection '{}': {}", id, e);
-                    None
-                }
-            })
-            .collect();
-
-        Self {
-            collections,
-            links: vec![Link {
-                rel: "self".to_string(),
-                r#type: Some("application/json".to_string()),
-                title: Some("This document".to_string()),
-                href: format!("{base_url}/api/collections"),
-                hreflang: None,
-                length: None,
-            }],
+            Some(collection)
+        }
+        Err(e) => {
+            warn!("Failed to get source for collection '{id}': {e}");
+            None
         }
     }
+}
+
+/// Create OGC API Collections response from catalog and sources
+fn create_collections(_catalog: &Catalog, sources: &TileSources, base_url: &str) -> OgcCollections {
+    let mut collection = OgcCollections::new(
+        sources
+            .source_names()
+            .into_iter()
+            .filter_map(|id| {
+                let source_result = sources.get_source(&id);
+                create_collection(id, source_result, base_url)
+            })
+            .collect(),
+    );
+    collection.links = vec![
+        Link::new(format!("{base_url}/api/collections"), "self")
+            .mediatype("application/json")
+            .title("All Collections"),
+    ];
+    collection
 }
 
 /// OGC API Collections endpoint
 #[route("/api/collections", method = "GET", method = "HEAD")]
 pub async fn get_collections(
     req: HttpRequest,
-    catalog: Data<Catalog>,
+    _catalog: Data<Catalog>,
     sources: Data<TileSources>,
 ) -> ActixResult<HttpResponse> {
     let base_url = get_base_url(&req);
-    let collections = Collections::from_catalog(&catalog, &sources, &base_url);
+    let collections = create_collections(&_catalog, &sources, &base_url);
 
     Ok(HttpResponse::Ok()
         .insert_header((CONTENT_TYPE, "application/json"))
@@ -163,17 +135,18 @@ pub async fn get_collections(
 pub async fn get_collection(
     req: HttpRequest,
     path: Path<CollectionPath>,
-    catalog: Data<Catalog>,
+    _catalog: Data<Catalog>,
     sources: Data<TileSources>,
 ) -> ActixResult<HttpResponse> {
     let base_url = get_base_url(&req);
-    let collections = Collections::from_catalog(&catalog, &sources, &base_url);
 
-    let collection = collections
-        .collections
-        .into_iter()
-        .find(|c| c.id == path.collection_id)
-        .ok_or_else(|| actix_web::error::ErrorNotFound("Collection not found"))?;
+    // Get the specific collection
+    let collection = create_collection(
+        path.collection_id.clone(),
+        sources.get_source(&path.collection_id),
+        &base_url,
+    )
+    .ok_or_else(|| actix_web::error::ErrorNotFound("Collection not found"))?;
 
     Ok(HttpResponse::Ok()
         .insert_header((CONTENT_TYPE, "application/json"))
@@ -352,7 +325,7 @@ pub async fn get_collection_tileset(
                     },
                     id: layer.id,
                     data_type: DataType::Vector,
-                    geometry_dimension: None, // VectorLayer doesn't have geometry_type field
+                    geometry_dimension: None,
                     feature_type: None,
                     point_of_contact: None,
                     publisher: None,

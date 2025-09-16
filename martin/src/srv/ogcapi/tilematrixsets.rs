@@ -3,6 +3,7 @@
 use actix_web::http::header::CONTENT_TYPE;
 use actix_web::web::Path;
 use actix_web::{HttpRequest, HttpResponse, Result as ActixResult, route};
+use martin_tile_utils::MAX_ZOOM;
 use ogcapi_types::common::{Crs, Link};
 use ogcapi_types::tiles::{
     CornerOfOrigin, TileMatrix, TileMatrixSet, TileMatrixSetItem, TileMatrixSets,
@@ -26,14 +27,14 @@ pub fn get_web_mercator_tilematrixset() -> TileMatrixSet {
     let mut tile_matrices = Vec::new();
 
     // Generate tile matrices for zoom levels 0 to 22
-    for zoom in 0..=22 {
+    for zoom in 0..=MAX_ZOOM {
         let matrix_size = 1u64 << zoom;
         let pixel_size = (2.0 * ORIGIN_SHIFT) / (256.0 * matrix_size as f64);
         let scale_denominator = pixel_size * 0.00028; // 0.00028 meters per pixel
 
         tile_matrices.push(TileMatrix {
             title_description_keywords: TitleDescriptionKeywords {
-                title: Some(format!("Zoom level {}", zoom)),
+                title: Some(format!("Zoom level {zoom}")),
                 description: None,
                 keywords: None,
             },
@@ -78,14 +79,14 @@ pub fn get_tilematrixsets(base_url: &str) -> TileMatrixSets {
                 "http://www.opengis.net/def/tilematrixset/OGC/1.0/WebMercatorQuad".to_string(),
             ),
             crs: Some(Crs::from_epsg(3857)),
-            links: vec![Link {
-                rel: "self".to_string(),
-                r#type: Some("application/json".to_string()),
-                title: Some("Web Mercator Quad TileMatrixSet".to_string()),
-                href: format!("{base_url}/api/tileMatrixSets/WebMercatorQuad"),
-                hreflang: None,
-                length: None,
-            }],
+            links: vec![
+                Link::new(
+                    format!("{base_url}/api/tileMatrixSets/WebMercatorQuad"),
+                    "self",
+                )
+                .mediatype("application/json")
+                .title("Web Mercator Quad TileMatrixSet"),
+            ],
         }],
     }
 }

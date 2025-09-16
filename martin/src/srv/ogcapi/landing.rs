@@ -2,74 +2,44 @@
 
 use actix_web::http::header::CONTENT_TYPE;
 use actix_web::{HttpRequest, HttpResponse, Result as ActixResult, route};
-use ogcapi_types::common::Link;
-use serde::{Deserialize, Serialize};
+use ogcapi_types::common::{LandingPage, Link};
 
-/// OGC API Landing Page
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct LandingPage {
-    pub title: String,
-    pub description: Option<String>,
-    pub links: Vec<Link>,
-}
+/// Create the OGC API Landing Page
+fn create_landing_page(base_url: &str) -> LandingPage {
+    let links = vec![
+        Link::new(format!("{base_url}/api"), "self")
+            .mediatype("application/json")
+            .title("Landing page"),
+        Link::new(format!("{base_url}/api/conformance"), "conformance")
+            .mediatype("application/json")
+            .title("Conformance declaration"),
+        Link::new(format!("{base_url}/api/collections"), "data")
+            .mediatype("application/json")
+            .title("Collections"),
+        Link::new(
+            format!("{base_url}/api/tilesets"),
+            "http://www.opengis.net/def/rel/ogc/1.0/tilesets-vector",
+        )
+        .mediatype("application/json")
+        .title("Vector tilesets"),
+        Link::new(
+            format!("{base_url}/api/tilesets"),
+            "http://www.opengis.net/def/rel/ogc/1.0/tilesets-map",
+        )
+        .mediatype("application/json")
+        .title("Map tilesets"),
+        Link::new(
+            format!("{base_url}/api/tileMatrixSets"),
+            "http://www.opengis.net/def/rel/ogc/1.0/tiling-schemes",
+        )
+        .mediatype("application/json")
+        .title("Tiling schemes"),
+    ];
 
-impl LandingPage {
-    pub fn new(base_url: &str) -> Self {
-        Self {
-            title: "Martin Tile Server - OGC API".to_string(),
-            description: Some("Access to Martin tile server via OGC API - Tiles".to_string()),
-            links: vec![
-                Link {
-                    rel: "self".to_string(),
-                    r#type: Some("application/json".to_string()),
-                    title: Some("This document (JSON)".to_string()),
-                    href: format!("{base_url}/api"),
-                    hreflang: None,
-                    length: None,
-                },
-                Link {
-                    rel: "conformance".to_string(),
-                    r#type: Some("application/json".to_string()),
-                    title: Some("Conformance declaration".to_string()),
-                    href: format!("{base_url}/api/conformance"),
-                    hreflang: None,
-                    length: None,
-                },
-                Link {
-                    rel: "data".to_string(),
-                    r#type: Some("application/json".to_string()),
-                    title: Some("Collections".to_string()),
-                    href: format!("{base_url}/api/collections"),
-                    hreflang: None,
-                    length: None,
-                },
-                Link {
-                    rel: "http://www.opengis.net/def/rel/ogc/1.0/tilesets-vector".to_string(),
-                    r#type: Some("application/json".to_string()),
-                    title: Some("Vector tilesets".to_string()),
-                    href: format!("{base_url}/api/tilesets"),
-                    hreflang: None,
-                    length: None,
-                },
-                Link {
-                    rel: "http://www.opengis.net/def/rel/ogc/1.0/tilesets-map".to_string(),
-                    r#type: Some("application/json".to_string()),
-                    title: Some("Map tilesets".to_string()),
-                    href: format!("{base_url}/api/tilesets"),
-                    hreflang: None,
-                    length: None,
-                },
-                Link {
-                    rel: "http://www.opengis.net/def/rel/ogc/1.0/tiling-schemes".to_string(),
-                    r#type: Some("application/json".to_string()),
-                    title: Some("Tiling schemes".to_string()),
-                    href: format!("{base_url}/api/tileMatrixSets"),
-                    hreflang: None,
-                    length: None,
-                },
-            ],
-        }
-    }
+    LandingPage::new("Martin Tile Server - OGC API")
+        .title("Martin Tile Server - OGC API")
+        .description("Access to Martin tile server via OGC API - Tiles")
+        .links(links)
 }
 
 /// Get base URL from request
@@ -84,7 +54,7 @@ pub fn get_base_url(req: &HttpRequest) -> String {
 #[route("/api", method = "GET", method = "HEAD")]
 pub async fn get_landing_page(req: HttpRequest) -> ActixResult<HttpResponse> {
     let base_url = get_base_url(&req);
-    let landing_page = LandingPage::new(&base_url);
+    let landing_page = create_landing_page(&base_url);
 
     Ok(HttpResponse::Ok()
         .insert_header((CONTENT_TYPE, "application/json"))
