@@ -2680,14 +2680,15 @@ dependencies = [
 [[package]]
 name = "geozero"
 version = "0.14.0"
-source = "git+https://github.com/styrowolf/geozero.git?branch=styrowolf%2Fexpose-mvt-internals#f27cf3ed080adb465db12a54456f28707d36180f"
+source = "git+https://github.com/georust/geozero.git?rev=9975851#997585174c9ca6b56f633213d992f316ea3b44e8"
 dependencies = [
+ "base64 0.22.1",
  "dup-indexer",
  "geo-types",
  "geojson",
  "log",
- "prost 0.13.5",
- "prost-build 0.13.5",
+ "prost 0.14.1",
+ "prost-build",
  "serde_json",
  "thiserror 2.0.16",
  "wkt",
@@ -4370,7 +4371,7 @@ checksum = "f621f25023f31c597de8b20a44d511d97eacea1943ccbcb709e6ed27156c144d"
 dependencies = [
  "futures",
  "prost 0.14.1",
- "prost-build 0.14.1",
+ "prost-build",
  "protoc-bin-vendored",
  "sdf_glyph_renderer",
  "thiserror 2.0.16",
@@ -4809,26 +4810,6 @@ checksum = "7231bd9b3d3d33c86b58adbac74b5ec0ad9f496b19d22801d773636feaa95f3d"
 dependencies = [
  "bytes",
  "prost-derive 0.14.1",
-]
-
-[[package]]
-name = "prost-build"
-version = "0.13.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "be769465445e8c1474e9c5dac2018218498557af32d9ed057325ec9a41ae81bf"
-dependencies = [
- "heck",
- "itertools 0.14.0",
- "log",
- "multimap",
- "once_cell",
- "petgraph",
- "prettyplease",
- "prost 0.13.5",
- "prost-types 0.13.5",
- "regex",
- "syn 2.0.106",
- "tempfile",
 ]
 
 [[package]]

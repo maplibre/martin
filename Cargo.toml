@@ -51,7 +51,7 @@ flume = "0.11"
 futures = "0.3"
 geojson = "0.24.2"
 geojson-vt-rs = "0.2.0"
-geozero = { git = "https://github.com/styrowolf/geozero.git", branch = "styrowolf/expose-mvt-internals" }
+geozero = { git = "https://github.com/georust/geozero.git", rev = "9975851" } # TODO: put version in when geozero cuts new release
 indoc = "2"
 insta = "1"
 itertools = "0.14"

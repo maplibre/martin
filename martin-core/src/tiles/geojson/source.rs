@@ -7,12 +7,12 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use geozero::mvt::Message as _;
+use geozero::mvt::{Message as _, MvtWriter};
+use geozero::{ColumnValue, FeatureProcessor, GeomProcessor, PropertyProcessor};
 use martin_tile_utils::{Format, TileCoord, TileData, TileInfo};
 use tilejson::{TileJSON, tilejson};
 
 use super::GeoJsonError;
-use crate::tiles::geojson::mvt::LayerBuilder;
 use crate::tiles::{BoxedSource, MartinCoreResult, Source, UrlQuery};
 
 /// Tile source that reads from `GeoJSON` files.
@@ -20,6 +20,7 @@ use crate::tiles::{BoxedSource, MartinCoreResult, Source, UrlQuery};
 pub struct GeoJsonSource {
     id: String,
     path: PathBuf,
+    extent: u16,
     preprocessed: Arc<geojson_vt_rs::PreprocessedGeoJSON>,
     tilejson: TileJSON,
     tile_info: TileInfo,
@@ -89,6 +90,7 @@ impl GeoJsonSource {
         return Ok(Self {
             id,
             path,
+            extent: tile_options.extent,
             preprocessed: Arc::new(preprocessed),
             tilejson,
             tile_info,
@@ -123,16 +125,151 @@ impl Source for GeoJsonSource {
         xyz: TileCoord,
         _url_query: Option<&UrlQuery>,
     ) -> MartinCoreResult<TileData> {
-        // TODO: get from source (self)
         let tile = self.preprocessed.generate_tile(xyz.z, xyz.x, xyz.y);
-        let mut builder = LayerBuilder::new(self.id.clone(), 4096);
-        for feature in &tile.features.features {
-            builder.add_feature(feature);
+
+        let mut mvt_writer = MvtWriter::new_unscaled(self.extent as u32)?;
+
+        let _ = mvt_writer.dataset_begin(None);
+        for (idx, feature) in tile.features.features.iter().enumerate() {
+            let idx = idx as u64;
+            let _ = mvt_writer.feature_begin(idx);
+            let _ = mvt_writer.properties_begin();
+            if let Some(properties) = feature.properties.as_ref() {
+                for (key, json_value) in properties.iter() {
+                    let stringified_json: String;
+                    let value = match json_value {
+                        serde_json::Value::Bool(bool) => ColumnValue::Bool(*bool),
+                        serde_json::Value::Number(number) => number_to_columnvalue(number, false),
+                        serde_json::Value::String(str) => ColumnValue::String(str),
+                        json_value => {
+                            stringified_json = json_value.to_string();
+                            ColumnValue::Json(&stringified_json)
+                        }
+                    };
+                    let _ = mvt_writer.property(idx as usize, key, &value);
+                }
+            }
+            let _ = mvt_writer.properties_end();
+            let _ = mvt_writer.geometry_begin();
+            if let Some(geom) = feature.geometry.as_ref() {
+                write_geojson_geom(&mut mvt_writer, &geom.value);
+            }
+            let _ = mvt_writer.geometry_end();
+            let _ = mvt_writer.feature_end(idx);
         }
+        let _ = mvt_writer.dataset_end();
+
         let mvt_tile = geozero::mvt::Tile {
-            layers: vec![builder.build()],
+            layers: vec![mvt_writer.layer(&self.id)],
         };
         Ok(mvt_tile.encode_to_vec())
+    }
+}
+
+fn number_to_columnvalue(number: &serde_json::value::Number, prefer_f32: bool) -> ColumnValue {
+    if number.is_u64() {
+        let number_u64 = number.as_u64().unwrap();
+        if u8::MIN as u64 <= number_u64 && number_u64 <= u8::MAX as u64 {
+            ColumnValue::UByte(number_u64 as u8)
+        } else if u16::MIN as u64 <= number_u64 && number_u64 <= u16::MAX as u64 {
+            ColumnValue::UShort(number_u64 as u16)
+        } else if u32::MIN as u64 <= number_u64 && number_u64 <= u32::MAX as u64 {
+            ColumnValue::UInt(number_u64 as u32)
+        } else {
+            ColumnValue::ULong(number_u64)
+        }
+    } else if number.is_i64() {
+        let number_i64 = number.as_i64().unwrap();
+        if i8::MIN as i64 <= number_i64 && number_i64 <= i8::MAX as i64 {
+            ColumnValue::Byte(number_i64 as i8)
+        } else if i16::MIN as i64 <= number_i64 && number_i64 <= i16::MAX as i64 {
+            ColumnValue::Short(number_i64 as i16)
+        } else if i32::MIN as i64 <= number_i64 && number_i64 <= i32::MAX as i64 {
+            ColumnValue::Int(number_i64 as i32)
+        } else {
+            ColumnValue::Long(number_i64)
+        }
+    } else {
+        let number_f64 = number.as_f64().unwrap();
+        if prefer_f32 {
+            ColumnValue::Float(number_f64 as f32)
+        } else {
+            ColumnValue::Double(number_f64)
+        }
+    }
+}
+
+fn write_geojson_geom(mvt_writer: &mut MvtWriter, geom: &geojson::Value) {
+    match geom {
+        geojson::Value::Point(point) => {
+            let x = point[0];
+            let y = point[1];
+            let _ = mvt_writer.point_begin(0);
+            let _ = mvt_writer.xy(x, y, 0);
+            let _ = mvt_writer.point_end(0);
+        }
+        geojson::Value::MultiPoint(points) => {
+            let _ = mvt_writer.multipoint_begin(0, points.len());
+            for point in points {
+                let x = point[0];
+                let y = point[1];
+                let _ = mvt_writer.xy(x, y, 0);
+            }
+            let _ = mvt_writer.multipoint_end(0);
+        }
+        geojson::Value::LineString(points) => {
+            let _ = mvt_writer.linestring_begin(true, points.len(), 0);
+            for point in points {
+                let x = point[0];
+                let y = point[1];
+                let _ = mvt_writer.xy(x, y, 0);
+            }
+            let _ = mvt_writer.linestring_end(true, 0);
+        }
+        geojson::Value::MultiLineString(linestrings) => {
+            let _ = mvt_writer.multilinestring_begin(linestrings.len(), 0);
+            for linestring in linestrings {
+                let _ = mvt_writer.linestring_begin(false, linestring.len(), 0);
+                for point in linestring {
+                    let x = point[0];
+                    let y = point[1];
+                    let _ = mvt_writer.xy(x, y, 0);
+                }
+                let _ = mvt_writer.linestring_end(false, 0);
+            }
+            let _ = mvt_writer.multilinestring_end(0);
+        }
+        geojson::Value::Polygon(rings) => {
+            let _ = mvt_writer.polygon_begin(true, rings.len(), 0);
+            for ring in rings {
+                let _ = mvt_writer.linestring_begin(false, ring.len(), 0);
+                for point in ring {
+                    let x = point[0];
+                    let y = point[1];
+                    let _ = mvt_writer.xy(x, y, 0);
+                }
+                let _ = mvt_writer.linestring_end(false, 0);
+            }
+            let _ = mvt_writer.polygon_end(true, 0);
+        }
+        geojson::Value::MultiPolygon(polygons) => {
+            let _ = mvt_writer.multipolygon_begin(polygons.len(), 0);
+            for polygon in polygons {
+                let _ = mvt_writer.polygon_begin(false, polygon.len(), 0);
+                for ring in polygon {
+                    let _ = mvt_writer.linestring_begin(false, ring.len(), 0);
+                    for point in ring {
+                        let x = point[0];
+                        let y = point[1];
+                        let _ = mvt_writer.xy(x, y, 0);
+                    }
+                    let _ = mvt_writer.linestring_end(false, 0);
+                }
+                let _ = mvt_writer.polygon_end(false, 0);
+            }
+            let _ = mvt_writer.multipolygon_end(0);
+        }
+        _ => unimplemented!(),
     }
 }
 
