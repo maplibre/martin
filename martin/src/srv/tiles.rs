@@ -22,7 +22,7 @@ use crate::config::file::srv::SrvConfig;
 use crate::source::TileSources;
 use crate::srv::server::map_internal_error;
 
-static SUPPORTED_ENC: &[HeaderEnc] = &[
+const SUPPORTED_ENC: &[HeaderEnc] = &[
     HeaderEnc::gzip(),
     HeaderEnc::brotli(),
     HeaderEnc::identity(),

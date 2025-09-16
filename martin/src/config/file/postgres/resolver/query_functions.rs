@@ -1,5 +1,6 @@
 //! `PostgreSQL` function discovery and validation.
 
+use std::collections::BTreeMap;
 use std::fmt::Write as _;
 use std::iter::zip;
 
@@ -9,8 +10,10 @@ use martin_core::tiles::postgres::{PgPool, PgResult, PgSqlInfo};
 use postgres_protocol::escape::escape_identifier;
 use serde_json::Value;
 
-use crate::config::file::pg::FunctionInfo;
-use crate::pg::builder::SqlFuncInfoMapMap;
+use crate::config::file::postgres::FunctionInfo;
+
+/// Map of `PostgreSQL` functions organized by schema and function name.
+pub type SqlFuncInfoMapMap = BTreeMap<String, BTreeMap<String, (PgSqlInfo, FunctionInfo)>>;
 
 /// Queries the database for available tile-generating functions.
 ///

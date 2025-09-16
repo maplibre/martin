@@ -1,5 +1,5 @@
 use std::cmp::Ordering;
-use std::collections::{BTreeMap, HashSet};
+use std::collections::HashSet;
 
 use futures::future::join_all;
 use itertools::Itertools as _;
@@ -10,19 +10,15 @@ use martin_core::tiles::BoxedSource;
 use martin_core::tiles::postgres::{PgError, PgPool, PgResult, PgSource, PgSqlInfo};
 
 use crate::config::args::BoundsCalcType;
-use crate::config::file::pg::{
-    FuncInfoSources, FunctionInfo, POOL_SIZE_DEFAULT, PgCfgPublish, PgCfgPublishFuncs, PgConfig,
-    PgInfo, TableInfo, TableInfoSources,
+use crate::config::file::postgres::resolver::{
+    query_available_function, query_available_tables, table_to_query,
 };
-use crate::pg::query_functions::query_available_function;
-use crate::pg::query_tables::{query_available_tables, table_to_query};
-use crate::pg::utils::{find_info, find_kv_ignore_case, normalize_key};
+use crate::config::file::postgres::utils::{find_info, find_kv_ignore_case, normalize_key};
+use crate::config::file::postgres::{
+    FuncInfoSources, POOL_SIZE_DEFAULT, PgCfgPublish, PgCfgPublishFuncs, PgConfig, PgInfo,
+    TableInfo, TableInfoSources,
+};
 use crate::utils::IdResolver;
-
-/// Map of `PostgreSQL` functions organized by schema and function name.
-pub type SqlFuncInfoMapMap = BTreeMap<String, BTreeMap<String, (PgSqlInfo, FunctionInfo)>>;
-/// Map of `PostgreSQL` tables organized by schema, table, and geometry column.
-pub type SqlTableInfoMapMapMap = BTreeMap<String, BTreeMap<String, BTreeMap<String, TableInfo>>>;
 
 /// Builder for auto-discovering `PostgreSQL` tile sources.
 #[derive(Debug)]
@@ -118,11 +114,13 @@ impl PgBuilder {
     }
 
     /// Returns the bounds calculation type for this builder.
+    #[must_use]
     pub fn auto_bounds(&self) -> BoundsCalcType {
         self.auto_bounds
     }
 
     /// ID under which this [`PgBuilder`] is identified externally
+    #[must_use]
     pub fn get_id(&self) -> &str {
         self.pool.get_id()
     }
@@ -131,7 +129,6 @@ impl PgBuilder {
     #[allow(clippy::too_many_lines)]
     pub async fn instantiate_tables(&self) -> PgResult<(Vec<BoxedSource>, TableInfoSources)> {
         // FIXME: this function has gotten too long due to the new formatting rules, need to be refactored
-        //
         let mut db_tables_info = query_available_tables(&self.pool).await?;
 
         // Match configured sources with the discovered ones and add them to the pending list.

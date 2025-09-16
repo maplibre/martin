@@ -9,8 +9,6 @@ pub use source::TileSources;
 mod utils;
 pub use utils::{IdResolver, MartinError, MartinResult};
 
-#[cfg(feature = "postgres")]
-pub mod pg;
 pub mod srv;
 
 // Ensure README.md contains valid code
