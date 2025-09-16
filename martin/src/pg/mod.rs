@@ -1,5 +1,4 @@
 pub(crate) mod builder;
-mod errors;
 mod pool;
 mod query_functions;
 mod query_tables;
@@ -7,6 +6,6 @@ mod source;
 mod tls;
 pub(crate) mod utils;
 
-pub use errors::{PgError, PgResult};
 pub use pool::{POOL_SIZE_DEFAULT, PgPool};
 pub use query_functions::query_available_function;
+pub use query_tables::query_available_tables;

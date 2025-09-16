@@ -4,12 +4,12 @@ use std::fmt::Write as _;
 use std::iter::zip;
 
 use log::{debug, warn};
+use martin_core::tiles::postgres::PgError::PostgresError;
+use martin_core::tiles::postgres::PgResult;
 use postgres_protocol::escape::escape_identifier;
 use serde_json::Value;
 
 use crate::config::file::pg::FunctionInfo;
-use crate::pg::PgError::PostgresError;
-use crate::pg::PgResult;
 use crate::pg::builder::SqlFuncInfoMapMap;
 use crate::pg::pool::PgPool;
 use crate::pg::source::PgSqlInfo;

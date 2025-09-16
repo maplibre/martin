@@ -7,14 +7,13 @@ use log::{debug, error, info, warn};
 use martin_core::config::OptBoolObj::{Bool, NoValue, Object};
 use martin_core::config::OptOneMany::NoVals;
 use martin_core::tiles::BoxedSource;
+use martin_core::tiles::postgres::{PgError, PgResult};
 
 use crate::config::args::BoundsCalcType;
 use crate::config::file::pg::{
     FuncInfoSources, FunctionInfo, PgCfgPublish, PgCfgPublishFuncs, PgConfig, PgInfo, TableInfo,
     TableInfoSources,
 };
-use crate::pg::PgError::InvalidTableExtent;
-use crate::pg::PgResult;
 use crate::pg::pool::PgPool;
 use crate::pg::query_functions::query_available_function;
 use crate::pg::query_tables::{query_available_tables, table_to_query};
@@ -136,7 +135,10 @@ impl PgBuilder {
         for (id, cfg_inf) in &self.tables {
             // TODO: move this validation to serde somehow?
             if cfg_inf.extent == Some(0) {
-                return Err(InvalidTableExtent(id.to_string(), cfg_inf.format_id()));
+                return Err(PgError::InvalidTableExtent(
+                    id.to_string(),
+                    cfg_inf.format_id(),
+                ));
             }
 
             let Some(db_tables) = find_info(&db_tables_info, &cfg_inf.schema, "schema", id) else {
