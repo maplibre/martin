@@ -124,8 +124,8 @@ impl<T> OptOneMany<T> {
 
 #[cfg(test)]
 mod tests {
-    use super::OptOneMany::{Many, NoVals, One};
     use super::*;
+    use crate::config::OptOneMany::{Many, NoVals, One};
 
     #[test]
     fn test_one_or_many() {

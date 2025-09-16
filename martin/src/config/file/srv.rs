@@ -3,10 +3,10 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
-use super::cors::CorsConfig;
 use crate::config::args::PreferredEncoding;
 #[cfg(feature = "metrics")]
 use crate::config::file::UnrecognizedValues;
+use crate::config::file::cors::CorsConfig;
 use crate::config::file::{ConfigExtras, UnrecognizedKeys};
 
 pub const KEEP_ALIVE_DEFAULT: u64 = 75;

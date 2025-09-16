@@ -8,8 +8,8 @@ use deadpool_postgres::{BuildError, PoolError};
 use martin_tile_utils::TileCoord;
 use semver::Version;
 
-use super::utils::query_to_json;
 use crate::tiles::UrlQuery;
+use crate::tiles::postgres::utils::query_to_json;
 
 /// Result type for `PostgreSQL` operations.
 pub type PgResult<T> = Result<T, PgError>;
