@@ -1,24 +1,7 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 
-use deadpool_postgres::tokio_postgres::types::Json;
-use itertools::Itertools as _;
+use itertools::Itertools;
 use log::{error, info, warn};
-use martin_core::tiles::UrlQuery;
-
-#[must_use]
-pub fn query_to_json(query: Option<&UrlQuery>) -> Json<HashMap<String, serde_json::Value>> {
-    let mut query_as_json = HashMap::new();
-    if let Some(query) = query {
-        for (k, v) in query {
-            let json_value: serde_json::Value =
-                serde_json::from_str(v).unwrap_or_else(|_| serde_json::Value::String(v.clone()));
-
-            query_as_json.insert(k.clone(), json_value);
-        }
-    }
-
-    Json(query_as_json)
-}
 
 #[must_use]
 pub fn normalize_key<T>(
