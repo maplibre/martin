@@ -72,7 +72,7 @@ impl PgArgs {
                 default_srid,
                 auto_bounds: self.auto_bounds,
                 max_feature_count: self.max_feature_count,
-                pool_size: self.pool_size.unwrap_or(POOL_SIZE_DEFAULT),
+                pool_size: self.pool_size,
                 auto_publish: OptBoolObj::NoValue,
                 tables: None,
                 functions: None,
@@ -111,7 +111,7 @@ impl PgArgs {
                 "Overriding configured pool size to {value} on all Postgres connections because of a CLI parameter"
             );
             pg_config.iter_mut().for_each(|c| {
-                c.pool_size = value;
+                c.pool_size = pool_size;
             });
         }
         if let Some(value) = auto_bounds {

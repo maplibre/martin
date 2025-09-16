@@ -11,8 +11,8 @@ use martin_core::tiles::postgres::{PgError, PgPool, PgResult};
 
 use crate::config::args::BoundsCalcType;
 use crate::config::file::pg::{
-    FuncInfoSources, FunctionInfo, PgCfgPublish, PgCfgPublishFuncs, PgConfig, PgInfo, TableInfo,
-    TableInfoSources,
+    FuncInfoSources, FunctionInfo, POOL_SIZE_DEFAULT, PgCfgPublish, PgCfgPublishFuncs, PgConfig,
+    PgInfo, TableInfo, TableInfoSources,
 };
 use crate::pg::query_functions::query_available_function;
 use crate::pg::query_tables::{query_available_tables, table_to_query};
@@ -99,7 +99,7 @@ impl PgBuilder {
             config.ssl_certificates.ssl_cert.as_ref(),
             config.ssl_certificates.ssl_key.as_ref(),
             config.ssl_certificates.ssl_root_cert.as_ref(),
-            config.pool_size,
+            config.pool_size.unwrap_or(POOL_SIZE_DEFAULT),
         )
         .await?;
 
