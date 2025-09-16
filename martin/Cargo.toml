@@ -97,7 +97,7 @@ fonts = ["martin-core/fonts"]
 lambda = ["dep:lambda-web"]
 mbtiles = ["martin-core/mbtiles"]
 metrics = ["dep:actix-web-prom"]
-pmtiles = ["martin-core/pmtiles", "dep:aws-config", "dep:pmtiles"]
+pmtiles = ["martin-core/pmtiles"]
 postgres = [
     "dep:deadpool-postgres",
     "dep:enum-display",
@@ -125,7 +125,6 @@ actix-web.workspace = true
 actix-web-prom = { workspace = true, optional = true }
 actix-web-static-files = { workspace = true, optional = true }
 async-trait.workspace = true
-aws-config = { workspace = true, optional = true }
 clap.workspace = true
 dashmap.workspace = true
 deadpool-postgres = { workspace = true, optional = true }
@@ -140,7 +139,6 @@ martin-core.workspace = true
 martin-tile-utils.workspace = true
 mbtiles.workspace = true
 num_cpus.workspace = true
-pmtiles = { workspace = true, optional = true }
 
 postgis = { workspace = true, optional = true }
 postgres = { workspace = true, optional = true }

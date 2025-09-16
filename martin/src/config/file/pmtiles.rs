@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use log::warn;
 use martin_core::cache::OptMainCache;
 use martin_core::tiles::BoxedSource;
+use martin_core::tiles::pmtiles::{PmtCache, PmtFileSource, PmtHttpSource, PmtS3Source};
 use serde::{Deserialize, Serialize};
 use url::Url;
 
@@ -10,7 +11,6 @@ use crate::MartinResult;
 use crate::config::file::{
     ConfigExtras, ConfigFileResult, SourceConfigExtras, UnrecognizedKeys, UnrecognizedValues,
 };
-use crate::pmtiles::{PmtCache, PmtFileSource, PmtHttpSource, PmtS3Source};
 
 #[serde_with::skip_serializing_none]
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
