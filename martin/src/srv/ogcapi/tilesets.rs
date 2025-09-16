@@ -31,7 +31,7 @@ pub fn create_tilesets(sources: &TileSources, base_url: &str) -> TileSets {
                             rel: "self".to_string(),
                             r#type: Some("application/json".to_string()),
                             title: Some(format!("Tileset for {id}")),
-                            href: format!("{base_url}/api/collections/{id}/tiles/WebMercatorQuad"),
+                            href: format!("{base_url}/ogc/collections/{id}/tiles/WebMercatorQuad"),
                             hreflang: None,
                             length: None,
                         },
@@ -39,7 +39,7 @@ pub fn create_tilesets(sources: &TileSources, base_url: &str) -> TileSets {
                             rel: "http://www.opengis.net/def/rel/ogc/1.0/tileset".to_string(),
                             r#type: Some("application/json".to_string()),
                             title: Some("Tileset metadata".to_string()),
-                            href: format!("{base_url}/api/collections/{id}/tiles/WebMercatorQuad"),
+                            href: format!("{base_url}/ogc/collections/{id}/tiles/WebMercatorQuad"),
                             hreflang: None,
                             length: None,
                         },
@@ -60,7 +60,7 @@ pub fn create_tilesets(sources: &TileSources, base_url: &str) -> TileSets {
 }
 
 /// OGC API Tilesets endpoint
-#[route("/api/tilesets", method = "GET", method = "HEAD")]
+#[route("/ogc/tilesets", method = "GET", method = "HEAD")]
 pub async fn get_tilesets(
     req: HttpRequest,
     sources: Data<TileSources>,

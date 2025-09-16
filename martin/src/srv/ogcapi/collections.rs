@@ -69,11 +69,11 @@ fn create_collection(
                 storage_crs: Some(Crs::from_epsg(3857)),
                 storage_crs_coordinate_epoch: None,
                 links: vec![
-                    Link::new(format!("{base_url}/api/collections/{id}"), "self")
+                    Link::new(format!("{base_url}/ogc/collections/{id}"), "self")
                         .mediatype("application/json")
                         .title(format!("Collection {id}")),
                     Link::new(
-                        format!("{base_url}/api/collections/{id}/tiles"),
+                        format!("{base_url}/ogc/collections/{id}/tiles"),
                         "http://www.opengis.net/def/rel/ogc/1.0/tilesets-vector",
                     )
                     .mediatype("application/json")
@@ -108,7 +108,7 @@ fn create_collections(_catalog: &Catalog, sources: &TileSources, base_url: &str)
             .collect(),
     );
     collection.links = vec![
-        Link::new(format!("{base_url}/api/collections"), "self")
+        Link::new(format!("{base_url}/ogc/collections"), "self")
             .mediatype("application/json")
             .title("All Collections"),
     ];
@@ -116,7 +116,7 @@ fn create_collections(_catalog: &Catalog, sources: &TileSources, base_url: &str)
 }
 
 /// OGC API Collections endpoint
-#[route("/api/collections", method = "GET", method = "HEAD")]
+#[route("/ogc/collections", method = "GET", method = "HEAD")]
 pub async fn get_collections(
     req: HttpRequest,
     _catalog: Data<Catalog>,
@@ -131,7 +131,7 @@ pub async fn get_collections(
 }
 
 /// OGC API Collection endpoint
-#[route("/api/collections/{collection_id}", method = "GET", method = "HEAD")]
+#[route("/ogc/collections/{collection_id}", method = "GET", method = "HEAD")]
 pub async fn get_collection(
     req: HttpRequest,
     path: Path<CollectionPath>,
@@ -155,7 +155,7 @@ pub async fn get_collection(
 
 /// OGC API Collection Tiles endpoint (list of tilesets for a collection)
 #[route(
-    "/api/collections/{collection_id}/tiles",
+    "/ogc/collections/{collection_id}/tiles",
     method = "GET",
     method = "HEAD"
 )]
@@ -187,7 +187,7 @@ pub async fn get_collection_tiles(
                 r#type: Some("application/json".to_string()),
                 title: Some(format!("Tileset for {}", path.collection_id)),
                 href: format!(
-                    "{}/api/collections/{}/tiles/WebMercatorQuad",
+                    "{}/ogc/collections/{}/tiles/WebMercatorQuad",
                     base_url, path.collection_id
                 ),
                 hreflang: None,
@@ -197,7 +197,7 @@ pub async fn get_collection_tiles(
                 rel: "http://www.opengis.net/def/rel/ogc/1.0/tiling-scheme".to_string(),
                 r#type: Some("application/json".to_string()),
                 title: Some("TileMatrixSet".to_string()),
-                href: format!("{}/api/tileMatrixSets/WebMercatorQuad", base_url),
+                href: format!("{}/ogc/tileMatrixSets/WebMercatorQuad", base_url),
                 hreflang: None,
                 length: None,
             },
@@ -206,7 +206,7 @@ pub async fn get_collection_tiles(
                 r#type: Some("application/vnd.mapbox-vector-tile".to_string()),
                 title: Some("Tiles".to_string()),
                 href: format!(
-                    "{}/api/collections/{}/tiles/WebMercatorQuad/{{tileMatrix}}/{{tileRow}}/{{tileCol}}",
+                    "{}/ogc/collections/{}/tiles/WebMercatorQuad/{{tileMatrix}}/{{tileRow}}/{{tileCol}}",
                     base_url, path.collection_id
                 ),
                 hreflang: None,
@@ -221,7 +221,7 @@ pub async fn get_collection_tiles(
             rel: "self".to_string(),
             r#type: Some("application/json".to_string()),
             title: Some("This document".to_string()),
-            href: format!("{}/api/collections/{}/tiles", base_url, path.collection_id),
+            href: format!("{}/ogc/collections/{}/tiles", base_url, path.collection_id),
             hreflang: None,
             length: None,
         }]),
@@ -234,7 +234,7 @@ pub async fn get_collection_tiles(
 
 /// OGC API Collection Tileset endpoint
 #[route(
-    "/api/collections/{collection_id}/tiles/{tilematrixset_id}",
+    "/ogc/collections/{collection_id}/tiles/{tilematrixset_id}",
     method = "GET",
     method = "HEAD"
 )]
@@ -288,7 +288,7 @@ pub async fn get_collection_tileset(
                 r#type: Some("application/json".to_string()),
                 title: Some("This document".to_string()),
                 href: format!(
-                    "{}/api/collections/{}/tiles/{}",
+                    "{}/ogc/collections/{}/tiles/{}",
                     base_url, path.collection_id, path.tilematrixset_id
                 ),
                 hreflang: None,
@@ -298,7 +298,7 @@ pub async fn get_collection_tileset(
                 rel: "http://www.opengis.net/def/rel/ogc/1.0/tiling-scheme".to_string(),
                 r#type: Some("application/json".to_string()),
                 title: Some("TileMatrixSet".to_string()),
-                href: format!("{}/api/tileMatrixSets/{}", base_url, path.tilematrixset_id),
+                href: format!("{}/ogc/tileMatrixSets/{}", base_url, path.tilematrixset_id),
                 hreflang: None,
                 length: None,
             },
@@ -307,7 +307,7 @@ pub async fn get_collection_tileset(
                 r#type: Some("application/vnd.mapbox-vector-tile".to_string()),
                 title: Some("Mapbox Vector Tiles".to_string()),
                 href: format!(
-                    "{}/api/collections/{}/tiles/{}/{{tileMatrix}}/{{tileRow}}/{{tileCol}}",
+                    "{}/ogc/collections/{}/tiles/{}/{{tileMatrix}}/{{tileRow}}/{{tileCol}}",
                     base_url, path.collection_id, path.tilematrixset_id
                 ),
                 hreflang: None,

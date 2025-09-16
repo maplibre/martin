@@ -16,4 +16,5 @@ mod sprites;
 #[cfg(feature = "styles")]
 mod styles;
 
+#[cfg(feature = "ogcapi")]
 pub mod ogcapi;

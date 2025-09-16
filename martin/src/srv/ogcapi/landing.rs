@@ -7,33 +7,33 @@ use ogcapi_types::common::{LandingPage, Link};
 /// Create the OGC API Landing Page
 fn create_landing_page(base_url: &str) -> LandingPage {
     let links = vec![
-        Link::new(format!("{base_url}/api"), "self")
+        Link::new(format!("{base_url}/ogc/"), "self")
             .mediatype("application/json")
             .title("Landing page"),
-        Link::new(format!("{base_url}/api/conformance"), "conformance")
+        Link::new(format!("{base_url}/ogc/conformance"), "conformance")
             .mediatype("application/json")
             .title("Conformance declaration"),
-        Link::new(format!("{base_url}/api/collections"), "data")
+        Link::new(format!("{base_url}/ogc/collections"), "data")
             .mediatype("application/json")
             .title("Collections"),
         Link::new(
-            format!("{base_url}/api/tilesets"),
+            format!("{base_url}/ogc/tilesets"),
             "http://www.opengis.net/def/rel/ogc/1.0/tilesets-vector",
         )
         .mediatype("application/json")
         .title("Vector tilesets"),
         Link::new(
-            format!("{base_url}/api/tilesets"),
+            format!("{base_url}/ogc/tilesets"),
             "http://www.opengis.net/def/rel/ogc/1.0/tilesets-map",
         )
         .mediatype("application/json")
         .title("Map tilesets"),
         Link::new(
-            format!("{base_url}/api/tileMatrixSets"),
+            format!("{base_url}/ogc/tileMatrixSets"),
             "http://www.opengis.net/def/rel/ogc/1.0/tiling-schemes",
         )
         .mediatype("application/json")
-        .title("Tiling schemes"),
+        .title("Tile matrix sets"),
     ];
 
     LandingPage::new("Martin Tile Server - OGC API")
@@ -51,7 +51,7 @@ pub fn get_base_url(req: &HttpRequest) -> String {
 }
 
 /// OGC API Landing Page endpoint
-#[route("/api", method = "GET", method = "HEAD")]
+#[route("/ogc/", method = "GET", method = "HEAD")]
 pub async fn get_landing_page(req: HttpRequest) -> ActixResult<HttpResponse> {
     let base_url = get_base_url(&req);
     let landing_page = create_landing_page(&base_url);

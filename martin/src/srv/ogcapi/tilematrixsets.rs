@@ -81,7 +81,7 @@ pub fn get_tilematrixsets(base_url: &str) -> TileMatrixSets {
             crs: Some(Crs::from_epsg(3857)),
             links: vec![
                 Link::new(
-                    format!("{base_url}/api/tileMatrixSets/WebMercatorQuad"),
+                    format!("{base_url}/ogc/tileMatrixSets/WebMercatorQuad"),
                     "self",
                 )
                 .mediatype("application/json")
@@ -92,7 +92,7 @@ pub fn get_tilematrixsets(base_url: &str) -> TileMatrixSets {
 }
 
 /// OGC API TileMatrixSets endpoint
-#[route("/api/tileMatrixSets", method = "GET", method = "HEAD")]
+#[route("/ogc/tileMatrixSets", method = "GET", method = "HEAD")]
 pub async fn get_tile_matrix_sets(req: HttpRequest) -> ActixResult<HttpResponse> {
     let base_url = get_base_url(&req);
     let tilematrixsets = get_tilematrixsets(&base_url);
@@ -104,7 +104,7 @@ pub async fn get_tile_matrix_sets(req: HttpRequest) -> ActixResult<HttpResponse>
 
 /// OGC API TileMatrixSet endpoint
 #[route(
-    "/api/tileMatrixSets/{tilematrixset_id}",
+    "/ogc/tileMatrixSets/{tilematrixset_id}",
     method = "GET",
     method = "HEAD"
 )]

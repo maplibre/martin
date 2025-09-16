@@ -4,7 +4,7 @@ use actix_web::{HttpResponse, route};
 use ogcapi_types::common::Conformance;
 
 /// OGC API Conformance endpoint
-#[route("/api/conformance", method = "GET", method = "HEAD")]
+#[route("/ogc/conformance", method = "GET", method = "HEAD")]
 pub async fn get_conformance() -> HttpResponse {
     HttpResponse::Ok().json(Conformance::new(&[
         // Tiles Core "we can serve tiles"

@@ -19,7 +19,7 @@ pub struct OgcTilePath {
 
 /// OGC API Tile endpoint - get actual tile data
 #[route(
-    "/api/collections/{collection_id}/tiles/{tilematrixset_id}/{tile_matrix}/{tile_row}/{tile_col}",
+    "/ogc/collections/{collection_id}/tiles/{tilematrixset_id}/{tile_matrix}/{tile_row}/{tile_col}",
     method = "GET",
     method = "HEAD"
 )]

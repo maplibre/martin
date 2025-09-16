@@ -116,7 +116,7 @@ pub fn router(cfg: &mut web::ServiceConfig, #[allow(unused_variables)] usr_cfg: 
         .service(get_source_info)
         .service(get_tile);
 
-    // OGC API - Tiles endpoints
+    #[cfg(feature = "ogcapi")]
     cfg.service(crate::srv::ogcapi::landing::get_landing_page)
         .service(crate::srv::ogcapi::conformance::get_conformance)
         .service(crate::srv::ogcapi::collections::get_collections)

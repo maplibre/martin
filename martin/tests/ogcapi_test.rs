@@ -19,7 +19,13 @@ async fn test_ogc_landing_page() {
     )
     .await;
 
-    let req = test::TestRequest::get().uri("/api").to_request();
+    // this would be a regular source
+    let req = test::TestRequest::get().uri("/ogc").to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+
+    // our landing page
+    let req = test::TestRequest::get().uri("/ogc/").to_request();
     let resp = test::call_service(&app, req).await;
 
     assert_eq!(resp.status(), StatusCode::OK);
@@ -49,7 +55,7 @@ async fn test_ogc_landing_page() {
         {
           "href": "[URL]",
           "rel": "self",
-          "title": "This document (JSON)",
+          "title": "Landing page",
           "type": "application/json"
         },
         {
@@ -79,7 +85,7 @@ async fn test_ogc_landing_page() {
         {
           "href": "[URL]",
           "rel": "http://www.opengis.net/def/rel/ogc/1.0/tiling-schemes",
-          "title": "Tiling schemes",
+          "title": "Tile matrix sets",
           "type": "application/json"
         }
       ],
@@ -95,7 +101,7 @@ async fn test_ogc_conformance() {
             .await;
 
     let req = test::TestRequest::get()
-        .uri("/api/conformance")
+        .uri("/ogc/conformance")
         .to_request();
     let resp = test::call_service(&app, req).await;
 
@@ -123,7 +129,7 @@ async fn test_ogc_conformance() {
         "http://www.opengis.net/spec/ogcapi-tiles-1/1.0/conf/mvt",
         "http://www.opengis.net/spec/ogcapi-tiles-1/1.0/conf/png",
         "http://www.opengis.net/spec/ogcapi-tiles-1/1.0/conf/jpeg",
-        "http://www.opengis.net/spec/ogcapi-tiles-1/1.0/conf/webp"
+        "http://www.opengis.net/spec/ogcapi-tiles-1/1.0/conf/geojson"
       ]
     }
     "#);
@@ -143,7 +149,7 @@ async fn test_ogc_collections_empty() {
     .await;
 
     let req = test::TestRequest::get()
-        .uri("/api/collections")
+        .uri("/ogc/collections")
         .to_request();
     let resp = test::call_service(&app, req).await;
 
@@ -155,7 +161,7 @@ async fn test_ogc_collections_empty() {
     assert!(json["collections"].is_array());
     assert!(json["links"].is_array());
 
-    // Remove dynamic URLs before snapshot
+    // Remove dynamic URLs and timestamp before snapshot
     let mut json_for_snapshot = json.clone();
     if let Some(links) = json_for_snapshot["links"].as_array_mut() {
         for link in links {
@@ -163,6 +169,12 @@ async fn test_ogc_collections_empty() {
                 href.insert("href".to_string(), Value::String("[URL]".to_string()));
             }
         }
+    }
+    if let Some(obj) = json_for_snapshot.as_object_mut() {
+        obj.insert(
+            "timeStamp".to_string(),
+            Value::String("[TIMESTAMP]".to_string()),
+        );
     }
 
     assert_json_snapshot!(json_for_snapshot,@r#"
@@ -173,11 +185,12 @@ async fn test_ogc_collections_empty() {
         {
           "href": "[URL]",
           "rel": "self",
-          "title": "This document",
+          "title": "All Collections",
           "type": "application/json"
         }
       ],
-      "numberReturned": 0
+      "numberReturned": 0,
+      "timeStamp": "[TIMESTAMP]"
     }
     "#);
 }
@@ -190,7 +203,7 @@ async fn test_ogc_tilematrixsets() {
     .await;
 
     let req = test::TestRequest::get()
-        .uri("/api/tileMatrixSets")
+        .uri("/ogc/tileMatrixSets")
         .to_request();
     let resp = test::call_service(&app, req).await;
 
@@ -252,7 +265,7 @@ async fn test_ogc_tilematrixset_webmercator() {
     .await;
 
     let req = test::TestRequest::get()
-        .uri("/api/tileMatrixSets/WebMercatorQuad")
+        .uri("/ogc/tileMatrixSets/WebMercatorQuad")
         .to_request();
     let resp = test::call_service(&app, req).await;
 
@@ -272,7 +285,7 @@ async fn test_ogc_tilematrixset_webmercator() {
 
     // Verify tile matrices are properly populated
     let tile_matrices = json["tileMatrices"].as_array().unwrap();
-    assert_eq!(tile_matrices.len(), 23); // Zoom levels 0-22
+    assert_eq!(tile_matrices.len(), 31); // Zoom levels 0-30
 
     // Check zoom 0
     let tm0 = &tile_matrices[0];
@@ -282,11 +295,11 @@ async fn test_ogc_tilematrixset_webmercator() {
     assert_eq!(tm0["matrixWidth"], 1);
     assert_eq!(tm0["matrixHeight"], 1);
 
-    // Check zoom 22
-    let tm22 = &tile_matrices[22];
-    assert_eq!(tm22["id"], "22");
-    assert_eq!(tm22["matrixWidth"], 4194304); // 2^22
-    assert_eq!(tm22["matrixHeight"], 4194304);
+    // Check zoom 30
+    let tm30 = &tile_matrices[30];
+    assert_eq!(tm30["id"], "30");
+    assert_eq!(tm30["matrixWidth"], 1073741824); // 2^30
+    assert_eq!(tm30["matrixHeight"], 1073741824);
 
     // Snapshot for metadata without the full tile matrices array
     let mut json_metadata = json.clone();
@@ -302,7 +315,7 @@ async fn test_ogc_tilematrixset_webmercator() {
         "X",
         "Y"
       ],
-      "tileMatrices": "[23 tile matrices]",
+      "tileMatrices": "[31 tile matrices]",
       "title": "Web Mercator Quad",
       "uri": "http://www.opengis.net/def/tilematrixset/OGC/1.0/WebMercatorQuad",
       "wellKnownScaleSet": "http://www.opengis.net/def/wkss/OGC/1.0/WebMercatorQuad"
@@ -313,7 +326,7 @@ async fn test_ogc_tilematrixset_webmercator() {
     let selected_matrices = serde_json::json!({
         "zoom_0": tile_matrices[0].clone(),
         "zoom_10": tile_matrices[10].clone(),
-        "zoom_22": tile_matrices[22].clone(),
+        "zoom_30": tile_matrices[30].clone(),
     });
 
     assert_json_snapshot!(selected_matrices,@r#"
@@ -348,20 +361,20 @@ async fn test_ogc_tilematrixset_webmercator() {
         "tileWidth": 256,
         "title": "Zoom level 10"
       },
-      "zoom_22": {
-        "cellSize": 0.03732276771737122,
+      "zoom_30": {
+        "cellSize": 0.00014579206139598132,
         "cornerOfOrigin": "topLeft",
-        "id": "22",
-        "matrixHeight": 4194304,
-        "matrixWidth": 4194304,
+        "id": "30",
+        "matrixHeight": 1073741824,
+        "matrixWidth": 1073741824,
         "pointOfOrigin": [
           -20037508.342789244,
           20037508.342789244
         ],
-        "scaleDenominator": 0.03732276771737122,
+        "scaleDenominator": 0.00014579206139598132,
         "tileHeight": 256,
         "tileWidth": 256,
-        "title": "Zoom level 22"
+        "title": "Zoom level 30"
       }
     }
     "#);
@@ -375,7 +388,7 @@ async fn test_ogc_tilematrixset_not_found() {
     .await;
 
     let req = test::TestRequest::get()
-        .uri("/api/tileMatrixSets/UnknownTMS")
+        .uri("/ogc/tileMatrixSets/UnknownTMS")
         .to_request();
     let resp = test::call_service(&app, req).await;
 
@@ -393,7 +406,7 @@ async fn test_ogc_tilesets_empty() {
     )
     .await;
 
-    let req = test::TestRequest::get().uri("/api/tilesets").to_request();
+    let req = test::TestRequest::get().uri("/ogc/tilesets").to_request();
     let resp = test::call_service(&app, req).await;
 
     assert_eq!(resp.status(), StatusCode::OK);
