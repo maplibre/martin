@@ -99,18 +99,11 @@ mbtiles = ["martin-core/mbtiles"]
 metrics = ["dep:actix-web-prom"]
 pmtiles = ["martin-core/pmtiles"]
 postgres = [
-    "dep:deadpool-postgres",
+    "martin-core/postgres",
     "dep:enum-display",
     "dep:json-patch",
     "dep:postgis",
-    "dep:postgres",
     "dep:postgres-protocol",
-    "dep:regex",
-    "dep:rustls-native-certs",
-    "dep:rustls-pemfile",
-    "dep:semver",
-    "dep:tokio-postgres-rustls",
-    "martin-core/postgres",
 ]
 sprites = ["martin-core/sprites"]
 styles = ["martin-core/styles", "dep:walkdir"]
@@ -127,7 +120,6 @@ actix-web-static-files = { workspace = true, optional = true }
 async-trait.workspace = true
 clap.workspace = true
 dashmap.workspace = true
-deadpool-postgres = { workspace = true, optional = true }
 enum-display = { workspace = true, optional = true }
 env_logger.workspace = true
 futures.workspace = true
@@ -139,14 +131,9 @@ martin-core.workspace = true
 martin-tile-utils.workspace = true
 mbtiles.workspace = true
 num_cpus.workspace = true
-
 postgis = { workspace = true, optional = true }
-postgres = { workspace = true, optional = true }
 postgres-protocol = { workspace = true, optional = true }
-regex = { workspace = true, optional = true }
 rustls.workspace = true
-rustls-native-certs = { workspace = true, optional = true }
-rustls-pemfile = { workspace = true, optional = true }
 semver = { workspace = true, optional = true }
 serde.workspace = true
 serde_json.workspace = true
@@ -158,7 +145,6 @@ thiserror.workspace = true
 tiff = { workspace = true, optional = true }
 tilejson.workspace = true
 tokio = { workspace = true, features = ["io-std"] }
-tokio-postgres-rustls = { workspace = true, optional = true }
 url.workspace = true
 walkdir = { workspace = true, optional = true }
 xxhash-rust.workspace = true
