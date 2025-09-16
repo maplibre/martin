@@ -6,9 +6,9 @@ use martin_tile_utils::Format::Mvt;
 use martin_tile_utils::{TileCoord, TileData, TileInfo};
 use tilejson::TileJSON;
 
-use super::utils::query_to_json;
 use crate::tiles::postgres::PgError::{GetTileError, GetTileWithQueryError, PrepareQueryError};
 use crate::tiles::postgres::PgPool;
+use crate::tiles::postgres::utils::query_to_json;
 use crate::tiles::{BoxedSource, MartinCoreResult, Source, UrlQuery};
 
 #[derive(Clone, Debug)]

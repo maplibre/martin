@@ -4,7 +4,7 @@ use std::path::PathBuf;
 
 use pbf_font_tools::PbfFontError;
 
-use super::CP_RANGE_SIZE;
+use crate::resources::fonts::CP_RANGE_SIZE;
 
 /// Errors that can occur during font processing operations.
 #[derive(thiserror::Error, Debug)]

@@ -7,12 +7,12 @@ use log::{info, warn};
 use postgres::config::SslMode;
 use semver::Version;
 
-use super::tls::{SslModeOverride, make_connector, parse_conn_str};
 use crate::tiles::postgres::PgError::{
     BadPostgisVersion, BadPostgresVersion, PostgisTooOld, PostgresError, PostgresPoolBuildError,
     PostgresPoolConnError, PostgresqlTooOld,
 };
 use crate::tiles::postgres::PgResult;
+use crate::tiles::postgres::tls::{SslModeOverride, make_connector, parse_conn_str};
 
 /// We require `ST_TileEnvelope` that was added in [`PostGIS 3.0.0`](https://postgis.net/2019/10/PostGIS-3.0.0/)
 /// See <https://postgis.net/docs/ST_TileEnvelope.html>

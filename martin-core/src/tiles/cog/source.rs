@@ -11,9 +11,9 @@ use tiff::decoder::{ChunkType, Decoder};
 use tiff::tags::Tag::{self, GdalNodata};
 use tilejson::{TileJSON, tilejson};
 
-use super::CogError;
-use super::image::Image;
-use super::model::ModelInfo;
+use crate::tiles::cog::CogError;
+use crate::tiles::cog::image::Image;
+use crate::tiles::cog::model::ModelInfo;
 use crate::tiles::{MartinCoreResult, Source, UrlQuery};
 
 /// Tile source that reads from `Cloud Optimized GeoTIFF` files.
