@@ -7,11 +7,6 @@ use std::str::FromStr;
 use deadpool_postgres::tokio_postgres::Config;
 use deadpool_postgres::tokio_postgres::config::SslMode;
 use log::{info, warn};
-use martin_core::tiles::postgres::PgError::{
-    BadConnectionString, CannotLoadRoots, CannotOpenCert, CannotParseCert, CannotUseClientKey,
-    InvalidPrivateKey, UnknownSslMode,
-};
-use martin_core::tiles::postgres::PgResult;
 use regex::Regex;
 use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
 use rustls::crypto::aws_lc_rs::default_provider;
@@ -21,6 +16,12 @@ use rustls::{DigitallySignedStruct, Error, SignatureScheme};
 use rustls_native_certs::load_native_certs;
 use rustls_pemfile::Item::Pkcs1Key;
 use tokio_postgres_rustls::MakeRustlsConnect;
+
+use crate::tiles::postgres::PgError::{
+    BadConnectionString, CannotLoadRoots, CannotOpenCert, CannotParseCert, CannotUseClientKey,
+    InvalidPrivateKey, UnknownSslMode,
+};
+use crate::tiles::postgres::PgResult;
 
 /// A temporary workaround for <https://github.com/sfackler/rust-postgres/pull/988>
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

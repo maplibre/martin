@@ -1,17 +1,15 @@
 use async_trait::async_trait;
 use deadpool_postgres::tokio_postgres::types::{ToSql, Type};
 use log::debug;
-use martin_core::tiles::postgres::PgError::{
-    GetTileError, GetTileWithQueryError, PrepareQueryError,
-};
-use martin_core::tiles::{BoxedSource, MartinCoreResult, Source, UrlQuery};
 use martin_tile_utils::Encoding::Uncompressed;
 use martin_tile_utils::Format::Mvt;
 use martin_tile_utils::{TileCoord, TileData, TileInfo};
 use tilejson::TileJSON;
 
-use crate::pg::pool::PgPool;
-use crate::pg::utils::query_to_json;
+use super::utils::query_to_json;
+use crate::tiles::postgres::PgError::{GetTileError, GetTileWithQueryError, PrepareQueryError};
+use crate::tiles::postgres::PgPool;
+use crate::tiles::{BoxedSource, MartinCoreResult, Source, UrlQuery};
 
 #[derive(Clone, Debug)]
 /// `PostgreSQL` tile source that executes SQL queries to generate tiles.
@@ -124,8 +122,11 @@ impl Source for PgSource {
 #[derive(Clone, Debug)]
 /// SQL query information for `PostgreSQL` tile sources.
 pub struct PgSqlInfo {
+    /// SQL query string.
     pub sql_query: String,
+    /// Whether the query uses URL query parameters.
     pub use_url_query: bool,
+    /// Signature of the query.
     pub signature: String,
 }
 

@@ -7,17 +7,15 @@ use log::{debug, error, info, warn};
 use martin_core::config::OptBoolObj::{Bool, NoValue, Object};
 use martin_core::config::OptOneMany::NoVals;
 use martin_core::tiles::BoxedSource;
-use martin_core::tiles::postgres::{PgError, PgResult};
+use martin_core::tiles::postgres::{PgError, PgPool, PgResult, PgSource, PgSqlInfo};
 
 use crate::config::args::BoundsCalcType;
 use crate::config::file::pg::{
     FuncInfoSources, FunctionInfo, POOL_SIZE_DEFAULT, PgCfgPublish, PgCfgPublishFuncs, PgConfig,
     PgInfo, TableInfo, TableInfoSources,
 };
-use crate::pg::pool::PgPool;
 use crate::pg::query_functions::query_available_function;
 use crate::pg::query_tables::{query_available_tables, table_to_query};
-use crate::pg::source::{PgSource, PgSqlInfo};
 use crate::pg::utils::{find_info, find_kv_ignore_case, normalize_key};
 use crate::utils::IdResolver;
 
