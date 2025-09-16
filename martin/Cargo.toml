@@ -133,6 +133,7 @@ deadpool-postgres = { workspace = true, optional = true }
 enum-display = { workspace = true, optional = true }
 env_logger.workspace = true
 futures.workspace = true
+geojson-vt-rs = { workspace = true, optional = true }
 itertools.workspace = true
 json-patch = { workspace = true, optional = true }
 lambda-web = { workspace = true, optional = true }
@@ -153,7 +154,6 @@ rustls-native-certs = { workspace = true, optional = true }
 rustls-pemfile = { workspace = true, optional = true }
 semver = { workspace = true, optional = true }
 serde.workspace = true
-geojson-vt-rs = { workspace = true, optional = true }
 serde_json.workspace = true
 serde_with.workspace = true
 serde_yaml.workspace = true

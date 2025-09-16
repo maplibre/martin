@@ -34,7 +34,6 @@ geojson = ["dep:geojson", "dep:geojson-vt-rs", "dep:geozero", "dep:serde_json"]
 
 [dependencies]
 async-trait.workspace = true
-serde_json = { workspace = true, optional = true }
 bit-set = { workspace = true, optional = true }
 dashmap = { workspace = true, optional = true }
 futures = { workspace = true, optional = true }
@@ -49,6 +48,7 @@ pbf_font_tools = { workspace = true, optional = true }
 png = { workspace = true, optional = true }
 regex = { workspace = true, optional = true }
 serde.workspace = true
+serde_json = { workspace = true, optional = true }
 serde_with.workspace = true
 spreet = { workspace = true, optional = true }
 subst.workspace = true
