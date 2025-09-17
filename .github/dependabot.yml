@@ -11,6 +11,13 @@ updates:
       all-actions-security-updates:
         applies-to: security-updates
         patterns: [ '*' ]
+    cooldown:
+      default-days: 3
+      semver-major-days: 3
+      semver-minor-days: 3
+      semver-patch-days: 3
+      include:
+        - "*"
 
   # Update Rust dependencies
   - package-ecosystem: cargo
@@ -24,6 +31,13 @@ updates:
       all-cargo-security-updates:
         applies-to: security-updates
         patterns: [ '*' ]
+    cooldown:
+      default-days: 3
+      semver-major-days: 3
+      semver-minor-days: 3
+      semver-patch-days: 3
+      include:
+        - "*"
 
   # Update Martin UI NPM dependencies
   - package-ecosystem: npm
@@ -40,6 +54,13 @@ updates:
       all-npm-ui-security-updates:
         applies-to: security-updates
         patterns: [ '*' ]
+    cooldown:
+      default-days: 3
+      semver-major-days: 3
+      semver-minor-days: 3
+      semver-patch-days: 3
+      include:
+        - "*"
 
   # Update Demo frontend NPM dependencies
   - package-ecosystem: npm
@@ -55,3 +76,10 @@ updates:
       all-npm-fe-security-updates:
         applies-to: security-updates
         patterns: [ '*' ]
+    cooldown:
+      default-days: 3
+      semver-major-days: 3
+      semver-minor-days: 3
+      semver-patch-days: 3
+      include:
+        - "*"
