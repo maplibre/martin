@@ -20,6 +20,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
       
       - name: Setup Rust
         run: rustup update stable && rustup default stable
@@ -64,8 +65,17 @@ jobs:
       - name: Install system dependencies
         run: sudo apt-get install -y gdal-bin sqlite3-tools
       
+      - name: Debug environment
+        run: |
+          echo "User: $USER"
+          echo "GitHub Actor: ${{ github.actor }}"
+          echo "Database URL: postgres://${{ github.actor }}:postgres@localhost:5432/test"
+          pg_isready -h localhost -p 5432 -U ${{ github.actor }} || echo "Database not ready"
+      
       - name: Run just bless
-        run: just bless
+        run: |
+          echo "Running just bless..."
+          just bless
         env:
           DATABASE_URL: postgres://${{ github.actor }}:postgres@localhost:5432/test
           PGPORT: 5432
@@ -79,10 +89,16 @@ jobs:
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action (bless)"
+          
+          echo "Checking for changes..."
+          git status
           git add -A
+          
           if ! git diff --cached --quiet; then
+            echo "Changes detected, committing..."
             git commit -m "Bless test output [skip ci]"
-            git push
+            echo "Pushing changes..."
+            git push origin ${{ github.event.pull_request.head.ref }}
             echo "✅ Test output blessed and committed"
             echo "changes_made=true" >> $GITHUB_OUTPUT
           else
@@ -91,24 +107,38 @@ jobs:
           fi
       
       - name: Remove bless label
+        if: always()
         uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
         with:
           script: |
-            await github.rest.issues.removeLabel({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-              name: 'bless'
-            });
+            try {
+              await github.rest.issues.removeLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                name: 'bless'
+              });
+              console.log('Label removed successfully');
+            } catch (error) {
+              console.log('Could not remove label:', error.message);
+            }
       
       - name: Add comment
+        if: always()
         uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
         with:
           script: |
             const changesMade = '${{ steps.commit.outputs.changes_made }}' === 'true';
-            const body = changesMade 
-              ? 'Test output has been blessed. Please review the changed files.'
-              : 'Blessing test output yielded no changes.';
+            const jobStatus = '${{ job.status }}';
+            
+            let body;
+            if (jobStatus === 'failure') {
+              body = '❌ Blessing failed. Please check the workflow logs for details.';
+            } else if (changesMade) {
+              body = '🎉 Test output has been blessed! The expected output files have been updated to match the current test results.';
+            } else {
+              body = 'ℹ️ No changes were needed. The test output already matches the expected results.';
+            }
             
             await github.rest.issues.createComment({
               owner: context.repo.owner,
