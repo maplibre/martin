@@ -55,7 +55,7 @@ async fn get_source_info(
     let query = (!versions.is_empty())
         .then(|| Cow::Owned(format!("v={versions}")))
         .into_iter()
-        .chain((!query_string.is_empty()).then(|| Cow::Borrowed(query_string)))
+        .chain((!query_string.is_empty()).then_some(Cow::Borrowed(query_string)))
         .join("&");
     let path_and_query = if query.is_empty() {
         format!("{tiles_path}/{{z}}/{{x}}/{{y}}")
