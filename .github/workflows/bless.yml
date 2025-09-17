@@ -3,6 +3,9 @@ name: Bless Test Output
 on:
   pull_request:
     types: [labeled]
+  push:
+    branches:
+      - main
 
 permissions:
   contents: write
@@ -12,7 +15,7 @@ jobs:
   bless:
     name: Bless test output
     runs-on: ubuntu-latest
-    if: contains(github.event.label.name, 'bless')
+    #if: contains(github.event.label.name, 'bless')
     
     steps:
       - name: Checkout sources
