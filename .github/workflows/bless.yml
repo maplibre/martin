@@ -36,15 +36,9 @@ jobs:
         run: npm install
         working-directory: martin/martin-ui
       
-      - name: Setup PostgreSQL
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y postgresql postgresql-contrib postgis
-          sudo systemctl start postgresql
-          sudo -u postgres createuser -s $USER
-          sudo -u postgres createdb test
-          sudo -u postgres psql -c "ALTER USER $USER WITH PASSWORD 'postgres';"
-      
+      - name: Setup PostGIS
+        uses: nyurik/action-setup-postgis@228cfe4dd41aad01801a0bdc767040e5024fff1d # v2
+        id: postgres
       - name: Setup NGINX
         uses: nyurik/action-setup-nginx@612ee9cb839ad727832cda16359452e7e14dd521 # v1.1
         id: nginx
@@ -55,11 +49,7 @@ jobs:
       - name: Initialize database
         run: tests/fixtures/initdb.sh
         env:
-          PGPORT: 5432
-          PGHOST: localhost
-          PGUSER: ${{ github.actor }}
-          PGPASSWORD: postgres
-          PGDATABASE: test
+          DATABASE_URL: ${{ postgres.outputs.connection-uri }}
       
       - name: Install system dependencies
         run: sudo apt-get install -y gdal-bin sqlite3-tools
@@ -68,20 +58,14 @@ jobs:
         run: |
           echo "User: $USER"
           echo "GitHub Actor: ${{ github.actor }}"
-          echo "Database URL: postgres://${{ github.actor }}:postgres@localhost:5432/test"
-          pg_isready -h localhost -p 5432 -U ${{ github.actor }} || echo "Database not ready"
+          echo "Database URL: ${{ postgres.outputs.connection-uri }}
       
       - name: Run just bless
         run: |
           echo "Running just bless..."
           just bless
         env:
-          DATABASE_URL: postgres://${{ github.actor }}:postgres@localhost:5432/test
-          PGPORT: 5432
-          PGHOST: localhost
-          PGUSER: ${{ github.actor }}
-          PGPASSWORD: postgres
-          PGDATABASE: test
+          DATABASE_URL: ${{ postgres.outputs.connection-uri }}
       
       - name: Commit blessed output
         id: commit
