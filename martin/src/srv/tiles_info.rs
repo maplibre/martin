@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::string::ToString;
 
 use actix_middleware_etag::Etag;
@@ -45,11 +46,21 @@ async fn get_source_info(
             .map_or_else(|| req.path().to_string(), |v| v.path().to_string())
     };
 
+    let versions = sources
+        .iter()
+        .filter_map(|s| s.get_version())
+        .collect::<Vec<_>>()
+        .join("-");
     let query_string = req.query_string();
-    let path_and_query = if query_string.is_empty() {
+    let query = (!versions.is_empty())
+        .then(|| Cow::Owned(format!("v={versions}")))
+        .into_iter()
+        .chain((!query_string.is_empty()).then(|| Cow::Borrowed(query_string)))
+        .join("&");
+    let path_and_query = if query.is_empty() {
         format!("{tiles_path}/{{z}}/{{x}}/{{y}}")
     } else {
-        format!("{tiles_path}/{{z}}/{{x}}/{{y}}?{query_string}")
+        format!("{tiles_path}/{{z}}/{{x}}/{{y}}?{query}")
     };
 
     // Construct a tiles URL from the request info, including the query string if present.
