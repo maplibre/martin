@@ -1,0 +1,118 @@
+name: Bless Test Output
+
+on:
+  pull_request:
+    types: [labeled]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  bless:
+    name: Bless test output
+    runs-on: ubuntu-latest
+    if: contains(github.event.label.name, 'bless')
+    
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: ${{ github.event.pull_request.head.ref }}
+      
+      - name: Setup Rust
+        run: rustup update stable && rustup default stable
+      
+      - name: Install just
+        uses: taiki-e/install-action@cc60de1d6831d7e9c4342f618ce7a5d6a9f223a4 # v2.61.6
+        with:
+          tool: just,cargo-binstall
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+      
+      - name: Install frontend dependencies
+        run: npm install
+        working-directory: martin/martin-ui
+      
+      - name: Setup PostgreSQL
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql postgresql-contrib postgis
+          sudo systemctl start postgresql
+          sudo -u postgres createuser -s $USER
+          sudo -u postgres createdb test
+          sudo -u postgres psql -c "ALTER USER $USER WITH PASSWORD 'postgres';"
+      
+      - name: Setup NGINX
+        uses: nyurik/action-setup-nginx@612ee9cb839ad727832cda16359452e7e14dd521 # v1.1
+        id: nginx
+      
+      - name: Copy static test files
+        run: cp -r tests/fixtures/pmtiles2/* ${{ steps.nginx.outputs.html-dir }}
+      
+      - name: Initialize database
+        run: tests/fixtures/initdb.sh
+        env:
+          PGPORT: 5432
+          PGHOST: localhost
+          PGUSER: ${{ github.actor }}
+          PGPASSWORD: postgres
+          PGDATABASE: test
+      
+      - name: Install system dependencies
+        run: sudo apt-get install -y gdal-bin sqlite3-tools
+      
+      - name: Run just bless
+        run: just bless
+        env:
+          DATABASE_URL: postgres://${{ github.actor }}:postgres@localhost:5432/test
+          PGPORT: 5432
+          PGHOST: localhost
+          PGUSER: ${{ github.actor }}
+          PGPASSWORD: postgres
+          PGDATABASE: test
+      
+      - name: Commit blessed output
+        id: commit
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action (bless)"
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit -m "Bless test output [skip ci]"
+            git push
+            echo "✅ Test output blessed and committed"
+            echo "changes_made=true" >> $GITHUB_OUTPUT
+          else
+            echo "ℹ️ No changes to commit"
+            echo "changes_made=false" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Remove bless label
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+        with:
+          script: |
+            await github.rest.issues.removeLabel({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              name: 'bless'
+            });
+      
+      - name: Add comment
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+        with:
+          script: |
+            const changesMade = '${{ steps.commit.outputs.changes_made }}' === 'true';
+            const body = changesMade 
+              ? 'Test output has been blessed. Please review the changed files.'
+              : 'Blessing test output yielded no changes.';
+            
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: body
+            });
