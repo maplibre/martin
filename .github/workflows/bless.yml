@@ -26,7 +26,7 @@ jobs:
       - name: Install just
         uses: taiki-e/install-action@cc60de1d6831d7e9c4342f618ce7a5d6a9f223a4 # v2.61.6
         with:
-          tool: just,cargo-binstall
+          tool: just
       
       - name: Setup Node.js
         uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
