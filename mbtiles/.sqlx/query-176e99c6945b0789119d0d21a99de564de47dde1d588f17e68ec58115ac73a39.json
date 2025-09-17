@@ -1,5 +1,6 @@
 {
   "db_name": "SQLite",
+  "query": "SELECT 1 as has_rows FROM sqlite_schema LIMIT 1",
   "describe": {
     "columns": [
       {
@@ -8,11 +9,12 @@
         "type_info": "Integer"
       }
     ],
-    "nullable": [false],
     "parameters": {
       "Right": 0
-    }
+    },
+    "nullable": [
+      false
+    ]
   },
-  "hash": "176e99c6945b0789119d0d21a99de564de47dde1d588f17e68ec58115ac73a39",
-  "query": "SELECT 1 as has_rows FROM sqlite_schema LIMIT 1"
+  "hash": "176e99c6945b0789119d0d21a99de564de47dde1d588f17e68ec58115ac73a39"
 }

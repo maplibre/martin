@@ -1,5 +1,6 @@
 {
   "db_name": "SQLite",
+  "query": "SELECT zoom_level, tile_column, tile_row FROM tiles",
   "describe": {
     "columns": [
       {
@@ -18,11 +19,14 @@
         "type_info": "Integer"
       }
     ],
-    "nullable": [true, true, true],
     "parameters": {
       "Right": 0
-    }
+    },
+    "nullable": [
+      true,
+      true,
+      true
+    ]
   },
-  "hash": "55c64964bfddf842e4dd73726fe94f3d7d71f72439c8e8edc5c801f387de364b",
-  "query": "SELECT zoom_level, tile_column, tile_row FROM tiles"
+  "hash": "55c64964bfddf842e4dd73726fe94f3d7d71f72439c8e8edc5c801f387de364b"
 }
