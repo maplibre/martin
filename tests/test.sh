@@ -29,13 +29,21 @@ mkdir -p "$TEST_TEMP_DIR"
 
 # Verify the tools used in the tests are available
 # todo add more verification for other tools like jq file curl sqlite3...
-if [[ $OSTYPE == linux* ]]; then # We only used ogrmerge.py on Linux see the test_pbf() function
+if [[ $OSTYPE == linux* || $OSTYPE == darwin* ]]; then
   if ! command -v ogrmerge.py > /dev/null; then
   echo "gdal-bin is required for testing"
-  echo "For Ubuntu, you could install it with sudo apt update && sudo apt install gdal-bin -y"
-  echo "see more at https://gdal.org/en/stable/download.html#binaries"
+  echo "See https://gdal.org/en/stable/download.html#binaries"
   exit 1
   fi
+fi
+
+if [[ $(sed --version 2> /dev/null) > /dev/null ]]; then
+  SED=${SED:-sed}
+elif [[ $(gsed --version 2> /dev/null) > /dev/null ]]; then
+  SED=${SED:-gsed}
+else
+  echo 'GNU sed is required for testing'
+  exit 1
 fi
 
 function wait_for {
@@ -100,13 +108,13 @@ test_metrics() {
   URL="$MARTIN_URL/_/metrics"
 
   echo "Testing $1 from $URL"
-  $CURL --dump-header  "$FILENAME.headers" "$URL" | sed -E 's/^(martin_.*?) [\.0-9]+$/\1 NUMBER/g' > "$FILENAME.txt"
+  $CURL --dump-header  "$FILENAME.headers" "$URL" | $SED -E 's/^(martin_.*?) [\.0-9]+$/\1 NUMBER/g' > "$FILENAME.txt"
   clean_headers_dump "$FILENAME.headers"
-  $CURL --dump-header  "$FILENAME.fetched_with_compression.headers" --compressed "$URL" | sed -E 's/^(martin_.*?) [\.0-9]+$/\1 NUMBER/g' > "$FILENAME.fetched_with_compression.txt"
+  $CURL --dump-header  "$FILENAME.fetched_with_compression.headers" --compressed "$URL" | $SED -E 's/^(martin_.*?) [\.0-9]+$/\1 NUMBER/g' > "$FILENAME.fetched_with_compression.txt"
   clean_headers_dump "$FILENAME.fetched_with_compression.headers"
   # due to slight timing differences, these might be slightly different
-  sed --regexp-extended --in-place 's/^content-length: [\.0-9]+$/content-length: NUMBER/g' "$FILENAME.headers"
-  sed --regexp-extended --in-place 's/^content-length: [\.0-9]+$/content-length: NUMBER/g' "$FILENAME.fetched_with_compression.headers"
+  $SED --regexp-extended --in-place 's/^content-length: [\.0-9]+$/content-length: NUMBER/g' "$FILENAME.headers"
+  $SED --regexp-extended --in-place 's/^content-length: [\.0-9]+$/content-length: NUMBER/g' "$FILENAME.fetched_with_compression.headers"
 }
 
 test_pbf() {
@@ -119,11 +127,16 @@ test_pbf() {
 
   if [[ $OSTYPE == linux* ]]; then
     ./tests/fixtures/vtzero-check "$FILENAME"
-    # see https://gdal.org/en/stable/programs/ogrmerge.html#ogrmerge
-    ogrmerge.py -o "$FILENAME.geojson" "$FILENAME" -single -src_layer_field_name "source_mvt_layer" -src_layer_field_content "{LAYER_NAME}" -f "GeoJSON" -overwrite_ds
-    jq --sort-keys '.features |= sort_by(.properties.source_mvt_layer, .properties.gid) | walk(if type == "number" then .+0.0 else . end)' "$FILENAME.geojson" > "$FILENAME.sorted.geojson"
-    mv "$FILENAME.sorted.geojson" "$FILENAME.geojson"
+  elif [[ $OSTYPE == darwin* ]]; then
+    ./tests/fixtures/vtzero-check-darwin "$FILENAME"
+  else
+    return 0
   fi
+
+  # see https://gdal.org/en/stable/programs/ogrmerge.html#ogrmerge
+  ogrmerge.py -o "$FILENAME.geojson" "$FILENAME" -single -src_layer_field_name "source_mvt_layer" -src_layer_field_content "{LAYER_NAME}" -f "GeoJSON" -overwrite_ds
+  jq --sort-keys '.features |= sort_by(.properties.source_mvt_layer, .properties.gid) | walk(if type == "number" then .+0.0 else . end)' "$FILENAME.geojson" > "$FILENAME.sorted.geojson"
+  mv "$FILENAME.sorted.geojson" "$FILENAME.geojson"
 }
 
 test_png() {
@@ -135,10 +148,10 @@ test_png() {
   $CURL --dump-header  "$FILENAME.headers" "$URL" > "$FILENAME"
   clean_headers_dump "$FILENAME.headers"
 
-  if [[ $OSTYPE == linux* ]]; then
+  if [[ $OSTYPE == linux* || $OSTYPE == darwin* ]]; then
     # some 'file' versions are more verbose, but CI is not
     # we must reduce this to match their output
-    file "$FILENAME" | sed 's#Web/P image, with alpha, 511+1x511+1#Web/P image#' > "$FILENAME.txt"
+    file "$FILENAME" | $SED 's#Web/P image, with alpha, 511+1x511+1#Web/P image#' > "$FILENAME.txt"
   fi
 }
 
@@ -176,15 +189,15 @@ quietly_remove_lines() {
 clean_headers_dump() {
   FILE="$1"
   # now we need to strip the date header as it is undeterministic
-  sed --regexp-extended --in-place "s/date: .+//" "$FILE"
+  $SED --regexp-extended --in-place "s/date: .+//" "$FILE"
   # the http version is not an "header" that we want to assert
-  sed --regexp-extended --in-place "s/HTTP.+//" "$FILE"
+  $SED --regexp-extended --in-place "s/HTTP.+//" "$FILE"
   # need to remove entirely empty lines, \r\n and leading/trailing whitespace
   # sorting is arbitrairy => sort here
-  tr --squeeze-repeats '\r\n' '\n' < "$FILE" | sort > "$FILE.tmp"
+  tr -s '\r\n' '\n' < "$FILE" | sort > "$FILE.tmp"
   mv "$FILE.tmp" "$FILE"
   # we need to remove the first line as squeezing repeat newlines makes does not remove this empty line
-  sed --in-place '1d' "$FILE"
+  $SED --in-place '1d' "$FILE"
 }
 
 test_log_has_str() {
