@@ -46,7 +46,7 @@ jobs:
       - name: Initialize database
         run: tests/fixtures/initdb.sh
         env:
-          DATABASE_URL: ${{ postgres.outputs.connection-uri }}
+          DATABASE_URL: ${{ job.postgres.outputs.connection-uri }}
       
       - name: Install system dependencies
         run: sudo apt-get install -y gdal-bin sqlite3-tools
@@ -79,7 +79,7 @@ jobs:
             git commit -m "Bless test output [skip ci]"
             echo "Pushing changes..."
             git push origin ${{ github.event.pull_request.head.ref }}
-            echo "✅ Test output blessed and committed"
+            echo "Test output blessed and committed"
             echo "changes_made=true" >> $GITHUB_OUTPUT
           else
             echo "ℹ️ No changes to commit"
@@ -105,15 +105,10 @@ jobs:
       - name: Add comment
         uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
         with:
-          script: |
-            const changesMade = '${{ steps.commit.outputs.changes_made }}' === 'true';
-            const jobStatus = '${{ job.status }}';
-            
+          script: |            
             let body;
-            if (jobStatus === 'failure') {
-              body = '❌ Blessing failed. Please check the workflow logs for details.';
-            } else if (changesMade) {
-              body = '🎉 Test output has been blessed! The expected output files have been updated to match the current test results.';
+            if ('${{ steps.commit.outputs.changes_made }}' === 'true') {
+              body = ;
             } else {
               body = 'ℹ️ No changes were needed. The test output already matches the expected results.';
             }
