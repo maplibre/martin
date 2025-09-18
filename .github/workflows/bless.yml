@@ -46,7 +46,7 @@ jobs:
       - name: Initialize database
         run: tests/fixtures/initdb.sh
         env:
-          DATABASE_URL: ${{ job.postgres.outputs.connection-uri }}
+          DATABASE_URL: ${{ steps.postgres.outputs.connection-uri }}
       
       - name: Install system dependencies
         run: sudo apt-get install -y gdal-bin sqlite3-tools
@@ -55,14 +55,14 @@ jobs:
         run: |
           echo "User: $USER"
           echo "GitHub Actor: ${{ github.actor }}"
-          echo "Database URL: ${{ job.postgres.outputs.connection-uri }}
+          echo "Database URL: ${{ steps.postgres.outputs.connection-uri }}"
       
       - name: Run just bless
         run: |
           echo "Running just bless..."
           just bless
         env:
-          DATABASE_URL: ${{ job.postgres.outputs.connection-uri }}
+          DATABASE_URL: ${{ steps.postgres.outputs.connection-uri }}
       
       - name: Commit blessed output
         id: commit
