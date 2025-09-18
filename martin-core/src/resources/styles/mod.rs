@@ -110,9 +110,9 @@ impl StyleSources {
     #[cfg(feature = "render")]
     pub fn render(
         &self,
-        path: &Path,
+        path: &std::path::Path,
         zxy: martin_tile_utils::TileCoord,
-    ) -> StyleResult<Vec<u8>, Error> {
+    ) -> Result<Vec<u8>, Error> {
         let mut map = maplibre_native::ImageRendererOptions::new().build_static_renderer();
         map.set_style_path(path);
         Ok(map.render_static(zxy.z, zxy.x, zxy.y))
