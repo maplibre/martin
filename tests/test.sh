@@ -108,9 +108,9 @@ test_metrics() {
   URL="$MARTIN_URL/_/metrics"
 
   echo "Testing $1 from $URL"
-  $CURL --dump-header  "$FILENAME.headers" "$URL" | $SED -E 's/^(martin_.*?) [\.0-9]+$/\1 NUMBER/g' > "$FILENAME.txt"
+  $CURL --dump-header  "$FILENAME.headers" "$URL" | $SED --regexp-extended 's/^(martin_.*?) [\.0-9]+$/\1 NUMBER/g' > "$FILENAME.txt"
   clean_headers_dump "$FILENAME.headers"
-  $CURL --dump-header  "$FILENAME.fetched_with_compression.headers" --compressed "$URL" | $SED -E 's/^(martin_.*?) [\.0-9]+$/\1 NUMBER/g' > "$FILENAME.fetched_with_compression.txt"
+  $CURL --dump-header  "$FILENAME.fetched_with_compression.headers" --compressed "$URL" | $SED --regexp-extended 's/^(martin_.*?) [\.0-9]+$/\1 NUMBER/g' > "$FILENAME.fetched_with_compression.txt"
   clean_headers_dump "$FILENAME.fetched_with_compression.headers"
   # due to slight timing differences, these might be slightly different
   $SED --regexp-extended --in-place 's/^content-length: [\.0-9]+$/content-length: NUMBER/g' "$FILENAME.headers"
