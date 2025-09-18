@@ -55,14 +55,14 @@ jobs:
         run: |
           echo "User: $USER"
           echo "GitHub Actor: ${{ github.actor }}"
-          echo "Database URL: ${{ postgres.outputs.connection-uri }}
+          echo "Database URL: ${{ job.postgres.outputs.connection-uri }}
       
       - name: Run just bless
         run: |
           echo "Running just bless..."
           just bless
         env:
-          DATABASE_URL: ${{ postgres.outputs.connection-uri }}
+          DATABASE_URL: ${{ job.postgres.outputs.connection-uri }}
       
       - name: Commit blessed output
         id: commit
