@@ -28,6 +28,9 @@ dockercompose := `if docker-compose --version &> /dev/null; then echo "docker-co
 # Use `CI=true just ci-test` to run the same tests as in GitHub CI.
 # Use `just env-info` to see the current values of RUSTFLAGS and RUSTDOCFLAGS
 ci_mode := if env('CI', '') != '' {'1'} else {''}
+# cargo-binstall needs a workaround due to caching
+# ci_mode might be manually set by user, so re-check the env var
+binstall_args := if env('CI', '') != '' {'--no-track'} else {''}
 export RUSTFLAGS := env('RUSTFLAGS', if ci_mode == '1' {'-D warnings'} else {''})
 export RUSTDOCFLAGS := env('RUSTDOCFLAGS', if ci_mode == '1' {'-D warnings'} else {''})
 export RUST_BACKTRACE := env('RUST_BACKTRACE', if ci_mode == '1' {'1'} else {''})
@@ -37,7 +40,7 @@ export RUST_BACKTRACE := env('RUST_BACKTRACE', if ci_mode == '1' {'1'} else {''}
 
 # Run benchmark tests
 bench:
-    cargo bench --bench bench
+    cargo bench --bench sources
     open target/criterion/report/index.html
 
 # Run HTTP requests benchmark using OHA tool. Use with `just bench-server`
@@ -55,8 +58,19 @@ bench-http:  (cargo-install 'oha')
 bench-server: start
     cargo run --release -- tests/fixtures/mbtiles tests/fixtures/pmtiles
 
+# Run biomejs on the dashboard (martin/martin-ui)
+[working-directory: 'martin/martin-ui']
+biomejs-martin-ui:
+    npm run format
+    npm run lint
+
 # Run integration tests and save its output as the new expected output (ordering is important)
-bless: restart clean-test bless-insta-martin bless-insta-mbtiles bless-int
+bless: restart clean-test bless-insta-martin bless-insta-mbtiles bless-frontend bless-int
+
+# Bless the frontend tests
+[working-directory: 'martin/martin-ui']
+bless-frontend:
+    npm run test:update-snapshots
 
 # Run integration tests and save its output as the new expected output
 bless-insta-cp *args:  (cargo-install 'cargo-insta')
@@ -78,7 +92,7 @@ bless-int:
     rm -rf tests/expected && mv tests/output tests/expected
 
 # Build and open mdbook documentation
-book:  (cargo-install 'mdbook')
+book:  (cargo-install 'mdbook') (cargo-install 'mdbook-alerts')
     mdbook serve docs --open --port 8321
 
 # Quick compile without building a binary
@@ -93,9 +107,8 @@ check:
         cargo check --all-targets -p martin --no-default-features --features $feature ;\
     done
 
-# Verify doc build
-check-doc:
-    cargo doc --no-deps --workspace
+# Test documentation generation
+check-doc:  (docs '')
 
 # Run all tests as expected by CI
 ci-test: env-info restart test-fmt clippy check-doc test check && assert-git-is-clean
@@ -149,29 +162,33 @@ docker-run *args:
     docker run -it --rm --net host -e DATABASE_URL -v $PWD/tests:/tests ghcr.io/maplibre/martin {{args}}
 
 # Build and open code documentation
-docs:
-    cargo doc --no-deps --open
+docs *args='--open':
+    DOCS_RS=1 cargo doc --no-deps {{args}} --workspace
 
 # Print environment info
 env-info:
     @echo "Running {{if ci_mode == '1' {'in CI mode'} else {'in dev mode'} }} on {{os()}} / {{arch()}}"
+    @echo "PWD $(pwd)"
     {{just_executable()}} --version
     rustc --version
     cargo --version
     rustup --version
     @echo "RUSTFLAGS='$RUSTFLAGS'"
     @echo "RUSTDOCFLAGS='$RUSTDOCFLAGS'"
+    @echo "RUST_BACKTRACE='$RUST_BACKTRACE'"
+    npm --version
+    node --version
 
 # Run benchmark tests showing a flamegraph
 flamegraph:
-    cargo bench --bench bench -- --profile-time=10
+    cargo bench --bench sources -- --profile-time=10
     /opt/google/chrome/chrome "file://$PWD/target/criterion/get_table_source_tile/profile/flamegraph.svg"
 
 # Reformat all code `cargo fmt`. If nightly is available, use it for better results
 fmt:
     #!/usr/bin/env bash
     set -euo pipefail
-    if rustup component list --toolchain nightly | grep rustfmt &> /dev/null; then
+    if (rustup toolchain list | grep nightly && rustup component list --toolchain nightly | grep rustfmt) &> /dev/null; then
         echo 'Reformatting Rust code using nightly Rust fmt to sort imports'
         cargo +nightly fmt --all -- --config imports_granularity=Module,group_imports=StdExternalCrate
     else
@@ -187,6 +204,10 @@ fmt-md:
 fmt-sql:
     docker run -it --rm -v $PWD:/sql sqlfluff/sqlfluff:latest fix --dialect=postgres --exclude-rules=AL07,LT05,LT12
 
+# Reformat all Cargo.toml files using cargo-sort
+fmt-toml *args: (cargo-install 'cargo-sort')
+    cargo sort --workspace --order package,lib,bin,bench,features,dependencies,build-dependencies,dev-dependencies {{args}}
+
 # Get all testable features of the main crate as space-separated list
 get-features:
     cargo metadata --format-version=1 --no-deps --manifest-path Cargo.toml | jq -r '.packages[] | select(.name == "{{main_crate}}") | .features | keys[] | select(. != "default")' | tr '\n' ' '
@@ -196,8 +217,20 @@ get-features:
 git *args: start
     git {{args}}
 
+# Show help for new contributors
+help:
+    @echo "Common commands:"
+    @echo "  just validate-tools    # Check required tools"
+    @echo "  just start             # Start test database"
+    @echo "  just run               # Start Martin server"
+    @echo "  just test              # Run all tests"
+    @echo "  just fmt               # Format code"
+    @echo "  just book              # Build documentation"
+    @echo ""
+    @echo "Full list: just --list"
+
 # Run cargo fmt and cargo clippy
-lint: fmt clippy
+lint: fmt clippy biomejs-martin-ui type-check
 
 # Run mbtiles command
 mbtiles *args:
@@ -263,7 +296,7 @@ stop:
     {{dockercompose}} down --remove-orphans
 
 # Run all tests using a test database
-test: start (test-cargo '--all-targets') test-doc test-int
+test: start (test-cargo '--all-targets') test-doc test-frontend test-int
 
 # Run Rust unit tests (cargo test)
 test-cargo *args:
@@ -274,8 +307,13 @@ test-doc *args:
     cargo test --doc {{args}}
 
 # Test code formatting
-test-fmt:
+test-fmt: (cargo-install 'cargo-sort') && (fmt-toml '--check' '--check-format')
     cargo fmt --all -- --check
+
+# Run frontend tests
+[working-directory: 'martin/martin-ui']
+test-frontend:
+    npm run test
 
 # Run integration tests
 test-int: clean-test install-sqlx
@@ -325,10 +363,66 @@ test-ssl-cert: start-ssl-cert
     {{just_executable()}} test-doc
     tests/test.sh
 
+# Run typescript typechecking on the frontend
+[working-directory: 'martin/martin-ui']
+type-check:
+    npm run type-check
+
 # Update all dependencies, including breaking changes. Requires nightly toolchain (install with `rustup install nightly`)
 update:
     cargo +nightly -Z unstable-options update --breaking
     cargo update
+
+# Validate that all required development tools are installed
+validate-tools:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo "Validating development tools..."
+
+    # Check essential tools
+    missing_tools=()
+
+    if ! command -v jq >/dev/null 2>&1; then
+        missing_tools+=("jq")
+    fi
+
+    if ! command -v file >/dev/null 2>&1; then
+        missing_tools+=("file")
+    fi
+
+    if ! command -v curl >/dev/null 2>&1; then
+        missing_tools+=("curl")
+    fi
+
+    if ! command -v grep >/dev/null 2>&1; then
+        missing_tools+=("grep")
+    fi
+
+    if ! command -v sqlite3 >/dev/null 2>&1; then
+        missing_tools+=("sqlite3")
+    fi
+
+    if ! command -v sqldiff >/dev/null 2>&1; then
+        missing_tools+=("sqldiff")
+    fi
+
+    # Check Linux-specific tools
+    if [[ "$OSTYPE" == "linux"* ]]; then
+        if ! command -v ogrmerge.py >/dev/null 2>&1; then
+            missing_tools+=("ogrmerge.py")
+        fi
+    fi
+
+    # Report results
+    if [[ ${#missing_tools[@]} -eq 0 ]]; then
+        echo "✓ All required tools are installed"
+    else
+        echo "✗ Missing tools: ${missing_tools[*]}"
+        echo "  Ubuntu/Debian: sudo apt install -y jq file curl grep sqlite3-tools gdal-bin"
+        echo "  macOS: brew install jq file curl grep sqlite gdal"
+        echo ""
+        exit 1
+    fi
 
 # Make sure the git repo has no uncommitted changes
 [private]
@@ -337,6 +431,7 @@ assert-git-is-clean:
       >&2 echo "ERROR: git repo is no longer clean. Make sure compilation and tests artifacts are in the .gitignore, and no repo files are modified." ;\
       >&2 echo "######### git status ##########" ;\
       git status ;\
+      git --no-pager diff ;\
       exit 1 ;\
     fi
 
@@ -350,8 +445,8 @@ cargo-install $COMMAND $INSTALL_CMD='' *args='':
             echo "$COMMAND could not be found. Installing it with    cargo install ${INSTALL_CMD:-$COMMAND} --locked {{args}}"
             cargo install ${INSTALL_CMD:-$COMMAND} --locked {{args}}
         else
-            echo "$COMMAND could not be found. Installing it with    cargo binstall ${INSTALL_CMD:-$COMMAND} --locked {{args}}"
-            cargo binstall ${INSTALL_CMD:-$COMMAND} --locked {{args}}
+            echo "$COMMAND could not be found. Installing it with    cargo binstall ${INSTALL_CMD:-$COMMAND} {{binstall_args}} --locked {{args}}"
+            cargo binstall ${INSTALL_CMD:-$COMMAND} {{binstall_args}} --locked {{args}}
         fi
     fi
 

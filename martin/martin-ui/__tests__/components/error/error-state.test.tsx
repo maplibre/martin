@@ -1,0 +1,113 @@
+import { fireEvent, screen } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
+import { ErrorState, InlineErrorState } from '@/components/error/error-state';
+import { render } from '../../test-utils';
+
+describe('ErrorState Component', () => {
+  it('renders generic error state correctly', () => {
+    const { container } = render(<ErrorState />);
+    expect(container).toMatchSnapshot();
+    expect(screen.getByText('Something went wrong')).toBeTruthy();
+    expect(screen.getByText('An unexpected error occurred. Please try again.')).toBeTruthy();
+  });
+
+  it('renders network error state correctly', () => {
+    const { container } = render(<ErrorState variant="network" />);
+    expect(container).toMatchSnapshot();
+    expect(screen.getByText('Network Error')).toBeTruthy();
+    expect(
+      screen.getByText('Unable to connect to the server. Please check your internet connection.'),
+    ).toBeTruthy();
+  });
+
+  it('renders server error state correctly', () => {
+    const { container } = render(<ErrorState variant="server" />);
+    expect(container).toMatchSnapshot();
+    expect(screen.getByText('Server Error')).toBeTruthy();
+    expect(
+      screen.getByText('The server encountered an error. Please try again later.'),
+    ).toBeTruthy();
+  });
+
+  it('renders timeout error state correctly', () => {
+    const { container } = render(<ErrorState variant="timeout" />);
+    expect(container).toMatchSnapshot();
+    expect(screen.getByText('Request Timeout')).toBeTruthy();
+    expect(
+      screen.getByText('The request took too long to complete. Please try again.'),
+    ).toBeTruthy();
+  });
+
+  it('renders with custom title and description', () => {
+    const { container } = render(
+      <ErrorState description="Custom error description for testing" title="Custom Error Title" />,
+    );
+    expect(container).toMatchSnapshot();
+    expect(screen.getByText('Custom Error Title')).toBeTruthy();
+    expect(screen.getByText('Custom error description for testing')).toBeTruthy();
+  });
+
+  it('renders error details when showDetails is true', () => {
+    const errorMessage = 'This is a detailed error message';
+    const { container } = render(<ErrorState error={errorMessage} showDetails={true} />);
+    expect(container).toMatchSnapshot();
+    expect(screen.getByText(errorMessage)).toBeTruthy();
+  });
+
+  it('renders retry button when onRetry is provided', () => {
+    const handleRetry = vi.fn();
+    const { container } = render(<ErrorState onRetry={handleRetry} />);
+    expect(container).toMatchSnapshot();
+
+    const retryButton = screen.getByText('Try Again');
+    expect(retryButton).toBeTruthy();
+
+    fireEvent.click(retryButton);
+    expect(handleRetry).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows retrying state when isRetrying is true', () => {
+    const handleRetry = vi.fn();
+    const { container } = render(<ErrorState isRetrying={true} onRetry={handleRetry} />);
+    expect(container).toMatchSnapshot();
+    expect(screen.getByText('Retrying...')).toBeTruthy();
+  });
+});
+
+describe('InlineErrorState Component', () => {
+  it('renders generic inline error state correctly', () => {
+    const { container } = render(<InlineErrorState message="Something went wrong" />);
+    expect(container).toMatchSnapshot();
+    expect(screen.getByText('Something went wrong')).toBeTruthy();
+  });
+
+  it('renders network inline error state correctly', () => {
+    const { container } = render(
+      <InlineErrorState message="Network error occurred" variant="network" />,
+    );
+    expect(container).toMatchSnapshot();
+    expect(screen.getByText('Network error occurred')).toBeTruthy();
+  });
+
+  it('renders with retry button when onRetry is provided', () => {
+    const handleRetry = vi.fn();
+    const { container } = render(
+      <InlineErrorState message="Error with retry" onRetry={handleRetry} />,
+    );
+    expect(container).toMatchSnapshot();
+
+    const retryButton = screen.getByText('Retry');
+    expect(retryButton).toBeTruthy();
+
+    fireEvent.click(retryButton);
+    expect(handleRetry).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows retrying state when isRetrying is true', () => {
+    const { container } = render(
+      <InlineErrorState isRetrying={true} message="Error while retrying" onRetry={() => {}} />,
+    );
+    expect(container).toMatchSnapshot();
+    expect(screen.getByText('Retrying')).toBeTruthy();
+  });
+});

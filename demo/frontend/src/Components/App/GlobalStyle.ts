@@ -1,13 +1,12 @@
 import { createGlobalStyle } from 'styled-components';
 import 'normalize.css';
 
-// vremenagroteskBook
-import vremenagroteskbookWoff2 from './fonts/vremenagroteskbook.woff2';
-import vremenagroteskbookWoff from './fonts/vremenagroteskbook.woff';
-
+import vremenagroteskboldWoff from './fonts/vremenagroteskbold.woff';
 // vremenaGroteskBold
 import vremenagroteskboldWoff2 from './fonts/vremenagroteskbold.woff2';
-import vremenagroteskboldWoff from './fonts/vremenagroteskbold.woff';
+import vremenagroteskbookWoff from './fonts/vremenagroteskbook.woff';
+// vremenagroteskBook
+import vremenagroteskbookWoff2 from './fonts/vremenagroteskbook.woff2';
 
 export default createGlobalStyle`
   * {
@@ -38,5 +37,32 @@ export default createGlobalStyle`
     color: white;
 
     background-image: linear-gradient(to bottom,  #0e0e1e 50%, #1c1c30);
+  }
+
+  .header {
+    > div {
+      display: inline-block;
+      width: 50%;
+      &.header-left {
+        text-align: left;
+        vertical-align: top;
+        padding: 20px;
+        img {
+          width: 100%;
+          max-width: 400px;
+        }
+        @media (max-width: 600px) {
+            padding: 5px;
+        }
+      }
+      &.header-right {
+        img {
+          width: 100%;
+          max-width: 600px;
+        }
+        text-align: right;
+        padding-left: 20px;
+      }
+    }
   }
 `;

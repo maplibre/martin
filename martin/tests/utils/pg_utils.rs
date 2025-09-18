@@ -1,6 +1,8 @@
 use indoc::formatdoc;
-pub use martin::args::Env;
-use martin::{Config, ServerState, Source};
+#[cfg(feature = "postgres")]
+use martin::config::file::postgres::TableInfo;
+use martin::config::file::{Config, ServerState};
+use martin_core::tiles::BoxedSource;
 
 use crate::mock_cfg;
 
@@ -30,9 +32,9 @@ pub async fn mock_sources(mut config: Config) -> MockSource {
 #[cfg(feature = "postgres")]
 #[allow(dead_code)]
 #[must_use]
-pub fn table<'a>(mock: &'a MockSource, name: &str) -> &'a martin::pg::TableInfo {
+pub fn table<'a>(mock: &'a MockSource, name: &str) -> &'a TableInfo {
     let (_, config) = mock;
-    let vals: Vec<&martin::pg::TableInfo> = config
+    let vals: Vec<&TableInfo> = config
         .postgres
         .iter()
         .flat_map(|v| v.tables.iter().map(|vv| vv.get(name)))
@@ -44,7 +46,7 @@ pub fn table<'a>(mock: &'a MockSource, name: &str) -> &'a martin::pg::TableInfo 
 
 #[allow(dead_code)]
 #[must_use]
-pub fn source(mock: &MockSource, name: &str) -> Box<dyn Source> {
+pub fn source(mock: &MockSource, name: &str) -> BoxedSource {
     let (sources, _) = mock;
     sources.tiles.get_source(name).unwrap()
 }

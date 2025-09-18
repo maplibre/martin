@@ -26,6 +26,9 @@ async fn table_source() {
     MixPoints:
       content_type: application/x-protobuf
       description: a description from comment on table
+    antimeridian:
+      content_type: application/x-protobuf
+      description: public.antimeridian.geom
     auto_table:
       content_type: application/x-protobuf
       description: autodetect.auto_table.geom
@@ -80,6 +83,12 @@ async fn table_source() {
     points3857:
       content_type: application/x-protobuf
       description: public.points3857.geom
+    table_name_existing_two_schemas:
+      content_type: application/x-protobuf
+      description: schema_a.table_name_existing_two_schemas.a_geom
+    table_name_existing_two_schemas.1:
+      content_type: application/x-protobuf
+      description: schema_b.table_name_existing_two_schemas.b_geom
     table_source:
       content_type: application/x-protobuf
     table_source_geog:
@@ -90,6 +99,12 @@ async fn table_source() {
     table_source_multiple_geom.1:
       content_type: application/x-protobuf
       description: public.table_source_multiple_geom.geom2
+    view_name_existing_two_schemas:
+      content_type: application/x-protobuf
+      description: schema_a.view_name_existing_two_schemas.a_geom
+    view_name_existing_two_schemas.1:
+      content_type: application/x-protobuf
+      description: schema_b.view_name_existing_two_schemas.b_geom
     "#);
     });
 
@@ -121,6 +136,22 @@ async fn table_source() {
       - 142.84131509869133
       - 45
     geometry_type: Geometry
+    properties:
+      gid: int4
+    ");
+
+    let source3 = table(&mock, "points3857");
+    assert_yaml_snapshot!(source3, @r"
+    schema: public
+    table: points3857
+    srid: 3857
+    geometry_column: geom
+    bounds:
+      - -161.40590777554058
+      - -81.50727021609012
+      - 172.51549126768532
+      - 84.2440187164111
+    geometry_type: POINT
     properties:
       gid: int4
     ");

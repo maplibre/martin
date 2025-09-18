@@ -1,0 +1,90 @@
+[package]
+name = "martin-core"
+version = "0.1.0"
+authors = ["Yuri Astrakhan <YuriAstrakhan@gmail.com>", "MapLibre contributors"]
+description = "Basic building blocks of MapLibre's Martin tile server."
+keywords = ["maps", "tiles", "mvt", "tileserver"]
+categories = ["science::geo", "parsing"]
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+homepage.workspace = true
+
+[features]
+default = ["fonts", "styles", "sprites", "mbtiles", "pmtiles", "cog", "postgres"]
+postgres = [
+    "dep:deadpool-postgres",
+    "dep:postgres",
+    "dep:regex",
+    "dep:rustls",
+    "dep:rustls-native-certs",
+    "dep:rustls-pemfile",
+    "dep:semver",
+    "dep:tokio-postgres-rustls",
+    "dep:serde_json",
+]
+cog = ["dep:png", "dep:tiff"]
+fonts = [
+    "dep:bit-set",
+    "dep:pbf_font_tools",
+    "dep:regex",
+    "dep:itertools",
+    "dep:dashmap",
+]
+sprites = [
+    "dep:spreet",
+    "dep:tokio",
+    "tokio/fs",
+    "dep:futures",
+    "dep:dashmap",
+]
+render = ["styles", "dep:maplibre_native"]
+styles = ["dep:walkdir", "tokio/fs", "dep:dashmap"]
+mbtiles = ["dep:mbtiles"]
+pmtiles = ["dep:pmtiles", "dep:aws-config", "dep:url"]
+
+[dependencies]
+async-trait.workspace = true
+aws-config = { workspace = true, optional = true }
+bit-set = { workspace = true, optional = true }
+dashmap = { workspace = true, optional = true }
+deadpool-postgres = { workspace = true, optional = true }
+futures = { workspace = true, optional = true }
+itertools = { workspace = true, optional = true }
+log.workspace = true
+maplibre_native = { workspace = true, optional = true }
+martin-tile-utils.workspace = true
+mbtiles = { workspace = true, optional = true }
+moka.workspace = true
+pbf_font_tools = { workspace = true, optional = true }
+pmtiles = { workspace = true, optional = true }
+png = { workspace = true, optional = true }
+postgres = { workspace = true, optional = true }
+regex = { workspace = true, optional = true }
+rustls = { workspace = true, optional = true }
+rustls-native-certs = { workspace = true, optional = true }
+rustls-pemfile = { workspace = true, optional = true }
+semver = { workspace = true, optional = true }
+serde.workspace = true
+serde_json = { workspace = true, optional = true }
+serde_with.workspace = true
+spreet = { workspace = true, optional = true }
+subst.workspace = true
+thiserror.workspace = true
+tiff = { workspace = true, optional = true }
+tilejson.workspace = true
+tokio = { workspace = true, optional = true }
+tokio-postgres-rustls = { workspace = true, optional = true }
+url = { workspace = true, optional = true }
+walkdir = { workspace = true, optional = true }
+
+[dev-dependencies]
+approx.workspace = true
+insta = { workspace = true, features = ["json", "yaml"] }
+rstest.workspace = true
+testcontainers-modules.workspace = true
+tokio.workspace = true
+
+[lints]
+workspace = true

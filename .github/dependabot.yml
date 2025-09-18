@@ -1,31 +1,57 @@
 version: 2
 updates:
   # Maintain dependencies for GitHub Actions
-  - package-ecosystem: "github-actions"
-    directory: "/"
-    schedule:
-      interval: "daily"
+  - package-ecosystem: github-actions
+    directory: '/'
+    schedule: { interval: monthly }
     groups:
       all-actions-version-updates:
         applies-to: version-updates
-        patterns:
-          - "*"
+        patterns: [ '*' ]
       all-actions-security-updates:
         applies-to: security-updates
-        patterns:
-          - "*"
+        patterns: [ '*' ]
+
+  # Update Rust dependencies
   - package-ecosystem: cargo
-    directory: "/"
-    schedule:
-      interval: daily
-      time: "02:00"
+    directory: '/'
+    schedule: { interval: monthly }
     open-pull-requests-limit: 10
     groups:
       all-cargo-version-updates:
         applies-to: version-updates
-        patterns:
-          - "*"
+        patterns: [ '*' ]
       all-cargo-security-updates:
         applies-to: security-updates
-        patterns:
-          - "*"
+        patterns: [ '*' ]
+
+  # Update Martin UI NPM dependencies
+  - package-ecosystem: npm
+    directory: '/martin/martin-ui/'
+    schedule: { interval: monthly }
+    open-pull-requests-limit: 10
+    groups:
+      all-npm-ui-version-updates:
+        applies-to: version-updates
+        patterns: [ '*' ]
+        exclude-patterns:
+          - '@biomejs/biome'
+          - 'tailwindcss'
+      all-npm-ui-security-updates:
+        applies-to: security-updates
+        patterns: [ '*' ]
+
+  # Update Demo frontend NPM dependencies
+  - package-ecosystem: npm
+    directory: '/demo/frontend/'
+    schedule: { interval: monthly }
+    open-pull-requests-limit: 10
+    groups:
+      all-npm-fe-version-updates:
+        applies-to: version-updates
+        patterns: [ '*' ]
+        exclude-patterns:
+          - '@biomejs/biome'
+      all-npm-fe-security-updates:
+        applies-to: security-updates
+        patterns: [ '*' ]

@@ -6,9 +6,8 @@ use actix_web::http::header::ContentType;
 use actix_web::middleware::Compress;
 use actix_web::web::{Data, Path};
 use actix_web::{HttpResponse, Result as ActixResult, route};
-use spreet::Spritesheet;
+use martin_core::sprites::{SpriteError, SpriteSources, Spritesheet};
 
-use crate::sprites::{SpriteError, SpriteSources};
 use crate::srv::SourceIDsRequest;
 use crate::srv::server::map_internal_error;
 
@@ -16,7 +15,7 @@ use crate::srv::server::map_internal_error;
     "/sprite/{source_ids}.png",
     method = "GET",
     method = "HEAD",
-    wrap = "Etag"
+    wrap = "Etag::default()"
 )]
 async fn get_sprite_png(
     path: Path<SourceIDsRequest>,
@@ -32,7 +31,7 @@ async fn get_sprite_png(
     "/sdf_sprite/{source_ids}.png",
     method = "GET",
     method = "HEAD",
-    wrap = "Etag"
+    wrap = "Etag::default()"
 )]
 async fn get_sprite_sdf_png(
     path: Path<SourceIDsRequest>,
@@ -48,7 +47,7 @@ async fn get_sprite_sdf_png(
     "/sprite/{source_ids}.json",
     method = "GET",
     method = "HEAD",
-    wrap = "Etag",
+    wrap = "Etag::default()",
     wrap = "Compress::default()"
 )]
 async fn get_sprite_json(
@@ -63,7 +62,7 @@ async fn get_sprite_json(
     "/sdf_sprite/{source_ids}.json",
     method = "GET",
     method = "HEAD",
-    wrap = "Etag",
+    wrap = "Etag::default()",
     wrap = "Compress::default()"
 )]
 async fn get_sprite_sdf_json(

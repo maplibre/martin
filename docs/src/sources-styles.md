@@ -7,7 +7,6 @@ To edit these styles, we recommend using <https://maputnik.github.io/editor/>.
 ### API
 
 Martin can serve [MapLibre Style Spec](https://maplibre.org/maplibre-style-spec/).
-
 Currently, Martin will use any valid [`JSON`](https://json.org) file as a style,
 but in the future, we may optimise Martin which may result in additional restrictions.
 

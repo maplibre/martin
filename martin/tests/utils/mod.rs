@@ -3,17 +3,12 @@
 #![allow(clippy::unused_async)]
 
 mod pg_utils;
-
 use actix_web::dev::ServiceResponse;
 use actix_web::test::read_body;
 use log::warn;
-use martin::Config;
+use martin::config::file::Config;
+use martin_core::config::env::FauxEnv;
 pub use pg_utils::*;
-
-#[path = "../../src/utils/tests.rs"]
-mod tests;
-#[allow(clippy::wildcard_imports)]
-pub use tests::*;
 
 #[must_use]
 pub fn mock_cfg(yaml: &str) -> Config {

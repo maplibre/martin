@@ -18,7 +18,8 @@ $ aws ecr create-repository --repository-name martin
 
 # Read the repositoryUri which includes your account number
 $ docker tag ghcr.io/maplibre/martin:latest 493749042871.dkr.ecr.us-east-2.amazonaws.com/martin:latest
-$ aws ecr get-login-password --region us-east-2 | docker login --username AWS --password-stdin 493749042871.dkr.ecr.us-east-2.amazonaws.com
+$ aws ecr get-login-password --region us-east-2 \
+  | docker login --username AWS --password-stdin 493749042871.dkr.ecr.us-east-2.amazonaws.com
 $ docker push 493749042871.dkr.ecr.us-east-2.amazonaws.com/martin:latest
 ```
 
@@ -71,7 +72,7 @@ cat <<EOF >template.yaml
 AWSTemplateFormatVersion: 2010-09-09
 Transform: 'AWS::Serverless-2016-10-31'
 Resources:
-  martin:
+  MartinLayer:
     Type: 'AWS::Serverless::LayerVersion'
     DeletionPolicy: Delete
     Properties:

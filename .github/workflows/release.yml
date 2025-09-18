@@ -21,12 +21,8 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
+      - run: rustup update stable && rustup default stable
       - name: Checkout sources
-        uses: actions/checkout@v4
-      - uses: Swatinem/rust-cache@v2
-      - name: Install nightly toolchain
-        uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: nightly
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       - name: Test packaging
-        run: cargo publish --workspace -Z package-workspace --dry-run
+        run: cargo publish --workspace --dry-run
