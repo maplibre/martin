@@ -78,6 +78,6 @@ async fn get_style_rendered(
     log::trace!("Rendering style {style_id} ({style_path:?}) at {xyz}");
 
     HttpResponse::Ok()
-        .content_type(ContentType.png())
-        .body(styles.render(path, xyz))
+        .content_type(ContentType::png())
+        .body(styles.render(&style_path, xyz).as_slice().to_owned())
 }
