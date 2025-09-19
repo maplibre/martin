@@ -35,6 +35,9 @@ pub enum ConfigFileError {
     #[error("At least one 'origin' must be specified in the 'cors' configuration")]
     CorsNoOriginsConfigured,
 
+    #[error("Configuration parsing initialization has already been called")]
+    ConfigInitializationAlreadyCalled,
+
     #[cfg(feature = "styles")]
     #[error("Walk directory error {0}: {1}")]
     DirectoryWalking(walkdir::Error, PathBuf),
