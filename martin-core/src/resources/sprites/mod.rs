@@ -91,27 +91,30 @@ impl SpriteSources {
                 let mut sprite_output_files = Vec::new();
 
                 for entry in entries.flatten() {
-                        let entry_path = entry.path();
-                        if entry_path.is_file() {
-                            file_count += 1;
-                            if let Some(extension) = entry_path.extension() {
-                                let ext = extension.to_string_lossy().to_lowercase();
-                                if ext == "svg" {
-                                    svg_count += 1;
-                                } else if ext == "png" || ext == "json" {
-                                    let filename = entry_path.file_stem()
-                                        .map(|s| s.to_string_lossy().to_string())
-                                        .unwrap_or_default();
-                                    if filename.contains("sprite") || filename.contains("@2x") {
-                                        sprite_output_files.push(entry_path.file_name()
+                    let entry_path = entry.path();
+                    if entry_path.is_file() {
+                        file_count += 1;
+                        if let Some(extension) = entry_path.extension() {
+                            let ext = extension.to_string_lossy().to_lowercase();
+                            if ext == "svg" {
+                                svg_count += 1;
+                            } else if ext == "png" || ext == "json" {
+                                let filename = entry_path
+                                    .file_stem()
+                                    .map(|s| s.to_string_lossy().to_string())
+                                    .unwrap_or_default();
+                                if filename.contains("sprite") || filename.contains("@2x") {
+                                    sprite_output_files.push(
+                                        entry_path
+                                            .file_name()
                                             .map(|s| s.to_string_lossy().to_string())
-                                            .unwrap_or_default());
-                                    }
+                                            .unwrap_or_default(),
+                                    );
                                 }
                             }
                         }
                     }
-                
+                }
 
                 if file_count == 0 {
                     warn!("Sprite source {id} directory is empty: {disp_path}");
@@ -145,7 +148,7 @@ impl SpriteSources {
             }
         }
     }
-    
+
     /// Validates a sprite source directory to ensure it contains valid SVG files.
     /// Checks include:
     /// - Directory existence and accessibility
@@ -162,7 +165,7 @@ impl SpriteSources {
             warn!("Sprite source is not a directory: {disp_path}");
             return Err(SpriteError::DirectoryValidationFailed(
                 path.clone(),
-                "Path is not a directory".to_string()
+                "Path is not a directory".to_string(),
             ));
         }
 
@@ -186,13 +189,17 @@ impl SpriteSources {
                             warn!("Invalid SVG file {}: {}", entry_path.display(), e);
                         }
                     } else if ext == "png" || ext == "json" {
-                        let filename = entry_path.file_stem()
+                        let filename = entry_path
+                            .file_stem()
                             .map(|s| s.to_string_lossy().to_string())
                             .unwrap_or_default();
                         if filename.contains("sprite") || filename.contains("@2x") {
-                            sprite_output_files.push(entry_path.file_name()
-                                .map(|s| s.to_string_lossy().to_string())
-                                .unwrap_or_default());
+                            sprite_output_files.push(
+                                entry_path
+                                    .file_name()
+                                    .map(|s| s.to_string_lossy().to_string())
+                                    .unwrap_or_default(),
+                            );
                         }
                     }
                 }
@@ -204,26 +211,26 @@ impl SpriteSources {
             return Err(SpriteError::EmptyDirectory(path.clone()));
         }
 
-        if svg_count == 0 && 
-             sprite_output_files.is_empty() {
-                warn!(
-                    "No SVG source files found in sprite directory: {disp_path}. \
+        if svg_count == 0 && sprite_output_files.is_empty() {
+            warn!(
+                "No SVG source files found in sprite directory: {disp_path}. \
                     Found pre-generated sprite files: {}. \
                     Martin requires source SVG files, not pre-generated sprite outputs.",
-                    sprite_output_files.join(", ")
-                );
-                return Err(SpriteError::DirectoryValidationFailed(
-                    path.clone(),
-                    format!(
-                        "Directory contains pre-generated sprite files ({}) but no source SVG files. \
+                sprite_output_files.join(", ")
+            );
+            return Err(SpriteError::DirectoryValidationFailed(
+                path.clone(),
+                format!(
+                    "Directory contains pre-generated sprite files ({}) but no source SVG files. \
                         Please provide a directory with .svg files instead.",
-                        sprite_output_files.join(", ")
-                    )
-                ));
-            }
-        
+                    sprite_output_files.join(", ")
+                ),
+            ));
+        }
 
-        info!("Validated sprite directory {disp_path}: found {svg_count} SVG files out of {total_files} total files");
+        info!(
+            "Validated sprite directory {disp_path}: found {svg_count} SVG files out of {total_files} total files"
+        );
         Ok(())
     }
 
@@ -237,14 +244,14 @@ impl SpriteSources {
         if content.is_empty() {
             return Err(SpriteError::InvalidSvgFormat(
                 path.clone(),
-                "File is empty".to_string()
+                "File is empty".to_string(),
             ));
         }
 
         if !content.starts_with("<?xml") && !content.starts_with("<svg") {
             return Err(SpriteError::InvalidSvgFormat(
                 path.clone(),
-                "Missing SVG or XML declaration".to_string()
+                "Missing SVG or XML declaration".to_string(),
             ));
         }
 
@@ -252,7 +259,7 @@ impl SpriteSources {
         if !content.contains("<svg") {
             return Err(SpriteError::InvalidSvgFormat(
                 path.clone(),
-                "No SVG element found".to_string()
+                "No SVG element found".to_string(),
             ));
         }
 
