@@ -11,6 +11,12 @@ updates:
       all-actions-security-updates:
         applies-to: security-updates
         patterns: [ '*' ]
+    cooldown:
+      default-days: 3
+      # no semver support for github-actions
+      # => no specific configuration for this
+      include:
+        - "*"
 
   # Update Rust dependencies
   - package-ecosystem: cargo
@@ -24,6 +30,13 @@ updates:
       all-cargo-security-updates:
         applies-to: security-updates
         patterns: [ '*' ]
+    cooldown:
+      default-days: 4
+      semver-major-days: 4
+      semver-minor-days: 2
+      semver-patch-days: 2
+      include:
+        - "*"
 
   # Update Martin UI NPM dependencies
   - package-ecosystem: npm
@@ -55,3 +68,10 @@ updates:
       all-npm-fe-security-updates:
         applies-to: security-updates
         patterns: [ '*' ]
+    cooldown:
+      default-days: 4
+      semver-major-days: 4
+      semver-minor-days: 2
+      semver-patch-days: 2
+      include:
+        - "*"
