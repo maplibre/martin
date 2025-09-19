@@ -16,6 +16,11 @@ unused_qualifications = "warn"
 # unsafe_code = "forbid"
 
 [workspace.lints.clippy]
+# Restrictions
+panic_in_result_fn = "warn"
+todo = "warn"
+unwrap_used = "warn"
+# Pedantics without being too noisy
 pedantic = { level = "warn", priority = -1 }
 derive_partial_eq_without_eq = "allow"
 enum_variant_names = "allow"
