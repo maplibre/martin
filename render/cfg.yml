@@ -1,0 +1,7 @@
+web_ui: enableforall
+mbtiles:
+  sources:
+    openmaptiles: .../planet.mbtiles
+styles:
+  sources:
+    bright: render/bright.json
