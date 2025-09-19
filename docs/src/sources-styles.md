@@ -21,5 +21,4 @@ A restart of Martin is required to see new styles.
 
 ### Server-side raster tile rendering
 
-This is not implemented yet, but there is a plan to add it.
-Please see <https://github.com/maplibre/martin/issues/978> for more information.
+TODO, document

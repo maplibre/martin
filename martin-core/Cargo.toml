@@ -39,6 +39,7 @@ sprites = [
     "dep:futures",
     "dep:dashmap",
 ]
+render = ["styles", "dep:maplibre_native"]
 styles = ["dep:walkdir", "tokio/fs", "dep:dashmap"]
 mbtiles = ["dep:mbtiles"]
 pmtiles = ["dep:pmtiles", "dep:aws-config", "dep:url"]
@@ -52,6 +53,7 @@ deadpool-postgres = { workspace = true, optional = true }
 futures = { workspace = true, optional = true }
 itertools = { workspace = true, optional = true }
 log.workspace = true
+maplibre_native = { workspace = true, optional = true }
 martin-tile-utils.workspace = true
 mbtiles = { workspace = true, optional = true }
 moka.workspace = true

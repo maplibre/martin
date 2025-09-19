@@ -19,6 +19,7 @@ use std::path::PathBuf;
 
 use dashmap::{DashMap, Entry};
 use log::{info, warn};
+use maplibre_native::Image;
 use serde::{Deserialize, Serialize};
 
 /// Style metadata.
@@ -99,6 +100,19 @@ impl StyleSources {
     #[must_use]
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
+    }
+
+    /// assumptions:
+    /// - martin is not an interactive renderer (think 60fps, embedded)
+    /// - We are not rendering the same tile all the time (instead, it is cached)
+    ///
+    /// For now, we only use a static renderer which is optimized for our kind of usage
+    /// In the future, we may consider adding support for smarter rendering including a pool of renderers.
+    #[cfg(feature = "render")]
+    pub fn render(&self, path: &std::path::Path, zxy: martin_tile_utils::TileCoord) -> Image {
+        let mut map = maplibre_native::ImageRendererOptions::new().build_tile_renderer();
+        map.set_style_path(path);
+        map.render_tile(zxy.z, zxy.x, zxy.y)
     }
 }
 
