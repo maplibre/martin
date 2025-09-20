@@ -40,21 +40,21 @@ cargo build --workspace --release
 ```
 
 ### Test Commands and Timing
-**CRITICAL**: Tests may take 10-15+ minutes total. NEVER CANCEL. Set timeout to 30+ minutes.
+**CRITICAL**: Tests may take 10+ minutes total. NEVER CANCEL. Set timeout to 30 minutes.
 
 ```bash
-# Unit tests - takes ~2 minutes total. NEVER CANCEL. Set timeout to 5+ minutes.
+# Unit tests - takes ~2 minutes total. NEVER CANCEL. Timeout 10 minutes
 just test-cargo --all-targets
 
-# Frontend tests - takes ~11 seconds. Set timeout to 2+ minutes.
+# Frontend tests - takes ~30 seconds. timeout 5
+2 minutes
 just test-frontend
 
-# Integration tests - requires database. Set timeout to 10+ minutes.
+# Integration tests - requires database. timeout 10 minutes
 # Note: Some integration tests may fail due to S3/network issues - this is expected in CI environments
-export DATABASE_URL='postgres://postgres:postgres@localhost:5411/db'
 tests/test.sh
 
-# Run all tests - takes 10-15 minutes. NEVER CANCEL. Set timeout to 30+ minutes.
+# Run all tests - takes 15 minutes. NEVER CANCEL. Set timeout to 30 minutes
 just test
 ```
 
