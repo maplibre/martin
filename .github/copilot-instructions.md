@@ -1,6 +1,6 @@
 # Martin Tile Server Development Guide
 
-Martin is a blazing fast and lightweight tile server with PostGIS, MBTiles, and PMTiles support written in Rust. 
+Martin is a blazing fast and lightweight tile server with PostGIS, MBTiles, and PMTiles support written in Rust.
 
 **ALWAYS follow these instructions first and only fallback to additional search or context gathering if the information here is incomplete or found to be in error.**
 
@@ -64,7 +64,7 @@ just test
 just run --webui enable-for-all
 
 # Server will be available at:
-# - API: http://localhost:3000/catalog  
+# - API: http://localhost:3000/catalog
 # - Web UI: http://localhost:3000/
 # - Health check: http://localhost:3000/health
 ```
@@ -92,7 +92,7 @@ just start
 # Stop database
 just stop
 
-# Restart database 
+# Restart database
 just restart
 
 # Connect to database
@@ -120,14 +120,14 @@ cargo run --bin martin -- --webui enable-for-all tests/fixtures/mbtiles
 curl -s http://localhost:3000/catalog | head -10
 curl -s http://localhost:3000/health
 
-# 4. Test a tile endpoint  
+# 4. Test a tile endpoint
 curl -s http://localhost:3000/world_cities/0/0/0 | head -1
 
 # 5. Access web UI in browser (if possible)
 # Navigate to http://localhost:3000/
 ```
 
-#### Scenario 2: PostgreSQL Database Integration  
+#### Scenario 2: PostgreSQL Database Integration
 ```bash
 # 1. Ensure database is running and initialized
 just start
@@ -146,7 +146,7 @@ curl -s http://localhost:3000/catalog | grep -i table
 # Test martin-cp tool
 cargo run --bin martin-cp -- --help
 
-# Test mbtiles tool  
+# Test mbtiles tool
 cargo run --bin mbtiles -- --help
 
 # Test actual functionality
@@ -170,11 +170,11 @@ just test         # All tests - 15 minutes
 
 ### Build Operations
 - **Build check (`just check`)**: 6 minutes - Set timeout to 15+ minutes
-- **Full build (`cargo build`)**: 3-4 minutes - Set timeout to 10+ minutes  
+- **Full build (`cargo build`)**: 3-4 minutes - Set timeout to 10+ minutes
 - **Release build**: 5+ minutes - Set timeout to 15+ minutes
 - **Frontend build**: 30 seconds - Set timeout to 2+ minutes
 
-### Test Operations  
+### Test Operations
 - **Unit tests (`just test-cargo`)**: 2 minutes - Set timeout to 5+ minutes
 - **Frontend tests**: 11 seconds - Set timeout to 2+ minutes
 - **Integration tests**: Variable, 5-10 minutes - Set timeout to 20+ minutes
@@ -193,21 +193,21 @@ just test         # All tests - 15 minutes
 - If PostgreSQL connection fails: Check `just start` output and use `just restart`
 - If frontend tests fail: Run `cd martin/martin-ui && npm install` first
 
-### Integration Test Issues  
+### Integration Test Issues
 - Some tests may fail due to S3/AWS configuration in CI environments - this is expected
 - Database connection issues: Ensure `DATABASE_URL='postgres://postgres:postgres@localhost:5411/db'`
 - PMTiles HTTP tests: Ensure nginx fileserver is running via `just start`
 
 ### Performance Notes
 - Martin is optimized for speed and heavy traffic
-- Release builds are significantly faster than debug builds for performance testing  
+- Release builds are significantly faster than debug builds for performance testing
 - Database connection pooling is configured for high throughput
 - Caching is enabled by default (512MB)
 
 ## Key Project Structure
 
 ### Main Components
-- `martin/` - Main martin server crate  
+- `martin/` - Main martin server crate
 - `martin-core/` - Core shared functionality
 - `martin-tile-utils/` - Tile manipulation utilities
 - `mbtiles/` - MBTiles format support and CLI tool
@@ -217,7 +217,7 @@ just test         # All tests - 15 minutes
 
 ### Important Configuration Files
 - `Cargo.toml` - Workspace configuration
-- `justfile` - Development task definitions  
+- `justfile` - Development task definitions
 - `docker-compose.yml` - Test database and services
 - `martin/martin-ui/package.json` - Frontend dependencies
 - `.github/workflows/ci.yml` - CI pipeline configuration
@@ -234,22 +234,22 @@ just test         # All tests - 15 minutes
 ```bash
 # Development workflow
 just help         # Show common commands
-just --list       # Show all available commands  
+just --list       # Show all available commands
 just validate-tools  # Check required tools
 just start        # Start test database
 just run          # Start martin server
 just test         # Run all tests (15+ minutes)
 just fmt          # Format code
-just clippy       # Lint code  
+just clippy       # Lint code
 just book         # Build documentation
 just stop         # Stop test database
 
 # Build variants
 just check        # Quick build check (6+ minutes)
-cargo build       # Debug build (3+ minutes)  
+cargo build       # Debug build (3+ minutes)
 cargo build --release  # Release build (5+ minutes)
 
-# Testing variants  
+# Testing variants
 just test-cargo   # Unit tests only (2+ minutes)
 just test-frontend # Frontend tests (11 seconds)
 just test-int     # Integration tests (variable)
