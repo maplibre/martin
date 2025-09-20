@@ -74,7 +74,7 @@ just run --webui enable-for-all
 # Format code - takes ~10 seconds
 just fmt
 
-# Lint code - takes ~2 minutes. Set timeout to 5+ minutes.
+# Lint code - takes ~10 minutes. Set timeout 20 minutes
 just clippy
 
 # Type check frontend - takes ~5 seconds
