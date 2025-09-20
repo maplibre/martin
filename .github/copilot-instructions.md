@@ -29,13 +29,13 @@ cd martin/martin-ui && npm install && cd ../..
 **CRITICAL**: NEVER CANCEL builds or tests before completion. Set appropriate timeouts:
 
 ```bash
-# Build check - takes ~6 minutes. NEVER CANCEL. Set timeout to 15+ minutes.
+# Build check - takes ~10 minutes. NEVER CANCEL. Set timeout to 20 minutes.
 just check
 
-# Full build - takes ~3 minutes. NEVER CANCEL. Set timeout to 10+ minutes.
+# Full build - takes ~10 minutes. NEVER CANCEL. Set timeout to 20 minutes.
 cargo build --workspace
 
-# Release build - takes ~5 minutes. NEVER CANCEL. Set timeout to 15+ minutes.
+# Release build - takes ~10 minutes. NEVER CANCEL. Set timeout to 20 minutes.
 cargo build --workspace --release
 ```
 
