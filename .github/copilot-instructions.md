@@ -10,21 +10,20 @@ Martin is a blazing fast and lightweight tile server with PostGIS, MBTiles, and 
 Bootstrap the development environment in this exact order:
 
 ```bash
-# 1. Install just command runner
+# Install just command runner
 cargo install just --locked
 
-# 2. Validate all required tools are present
+# Validate all required tools are present
 just validate-tools
 
-# 3. Start test database (takes ~15 seconds)
+# Start test database
 just start
 
-# 4. Build the project - NEVER CANCEL: Full build takes 3-4 minutes. Set timeout to 10+ minutes.
+# Build the project - NEVER CANCEL: Full build takes 3-4 minutes.
 cargo build --workspace
 
-# 5. Install frontend dependencies (takes ~6 seconds)  
+# 5Install frontend dependencies
 cd martin/martin-ui && npm install && cd ../..
-```
 
 ### Build Commands and Timing
 **CRITICAL**: NEVER CANCEL builds or tests before completion. Set appropriate timeouts:
