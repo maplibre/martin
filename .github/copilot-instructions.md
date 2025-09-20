@@ -60,7 +60,7 @@ just test
 
 ### Development Server
 ```bash
-# Start development server with web UI
+# Run the server in a debug build
 just run --webui enable-for-all
 
 # Server will be available at:
