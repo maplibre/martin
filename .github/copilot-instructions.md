@@ -58,7 +58,7 @@ tests/test.sh
 just test
 ```
 
-### Development Server
+### Debug builds
 ```bash
 # Run the server in a debug build
 just run --webui enable-for-all
