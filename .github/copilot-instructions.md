@@ -207,13 +207,13 @@ just test         # All tests - 15 minutes
 ## Key Project Structure
 
 ### Main Components
-- `martin/` - Main martin server crate
-- `martin-core/` - Core shared functionality
+- `martin/` - Main tile server with CLI and config management
+- `martin-core/` - Shared Core Library for how tiles and supporting resources are shared
 - `martin-tile-utils/` - Tile manipulation utilities
 - `mbtiles/` - MBTiles format support and CLI tool
 - `martin/martin-ui/` - React-based web UI
 - `tests/` - Integration tests and fixtures
-- `justfile` - Main task runner configuration
+- `justfile` - Task runner configuration
 
 ### Important Configuration Files
 - `Cargo.toml` - Workspace configuration
