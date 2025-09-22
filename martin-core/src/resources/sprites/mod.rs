@@ -134,9 +134,7 @@ impl SpriteSources {
             if entry_path.is_file() {
                 if let Some(extension) = entry_path.extension() {
                     if extension.to_string_lossy().to_lowercase() == "svg" {
-                        if let Err(e) = self.validate_svg_file(&entry_path).await {
-                            return Err(e);
-                        }
+                        self.validate_svg_file(&entry_path).await?;
                     }
                 }
             }
@@ -331,11 +329,11 @@ mod tests {
     #[tokio::test]
     async fn test_sprites() {
         let mut sprites = SpriteSources::default();
-        sprites.add_source(
+        let _ = sprites.add_source(
             "src1".to_string(),
             PathBuf::from("../tests/fixtures/sprites/src1"),
         );
-        sprites.add_source(
+        let _ = sprites.add_source(
             "src2".to_string(),
             PathBuf::from("../tests/fixtures/sprites/src2"),
         );
