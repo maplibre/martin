@@ -7,7 +7,9 @@ use log::{debug, error, info, warn};
 use martin_core::config::OptBoolObj::{Bool, NoValue, Object};
 use martin_core::config::OptOneMany::NoVals;
 use martin_core::tiles::BoxedSource;
-use martin_core::tiles::postgres::{PgError, PgPool, PgResult, PgSource, PgSqlInfo};
+use martin_core::tiles::postgres::{
+    PostgresError, PostgresPool, PostgresResult, PostgresSource, PostgresSqlInfo,
+};
 
 use crate::config::args::BoundsCalcType;
 use crate::config::file::postgres::resolver::{
@@ -15,15 +17,15 @@ use crate::config::file::postgres::resolver::{
 };
 use crate::config::file::postgres::utils::{find_info, find_kv_ignore_case, normalize_key};
 use crate::config::file::postgres::{
-    FuncInfoSources, POOL_SIZE_DEFAULT, PgCfgPublish, PgCfgPublishFuncs, PgConfig, PgInfo,
-    TableInfo, TableInfoSources,
+    FuncInfoSources, POOL_SIZE_DEFAULT, PostgresCfgPublish, PostgresCfgPublishFuncs,
+    PostgresConfig, PostgresInfo, TableInfo, TableInfoSources,
 };
 use crate::utils::IdResolver;
 
 /// Builder for auto-discovering `PostgreSQL` tile sources.
 #[derive(Debug)]
-pub struct PgBuilder {
-    pool: PgPool,
+pub struct PostgresAutoDiscoveringBuilder {
+    pool: PostgresPool,
     /// If a spatial table has SRID 0, then this SRID will be used as a fallback
     default_srid: Option<i32>,
     /// Specify how bounds should be computed for the spatial PG tables
@@ -36,8 +38,8 @@ pub struct PgBuilder {
     ///
     /// Can be either a positive integer or unlimited if omitted.
     max_feature_count: Option<usize>,
-    auto_functions: Option<PgBuilderFuncs>,
-    auto_tables: Option<PgBuilderTables>,
+    auto_functions: Option<PostgresAutoDiscoveringBuilderFuncs>,
+    auto_tables: Option<PostgresAutoDiscoveringBuilderTables>,
     id_resolver: IdResolver,
     /// Associative arrays of table sources
     tables: TableInfoSources,
@@ -47,7 +49,7 @@ pub struct PgBuilder {
 /// Configuration for auto-discovering `PostgreSQL` functions.
 #[derive(Debug, PartialEq)]
 #[cfg_attr(test, serde_with::skip_serializing_none, derive(serde::Serialize))]
-pub struct PgBuilderFuncs {
+pub struct PostgresAutoDiscoveringBuilderFuncs {
     schemas: Option<HashSet<String>>,
     source_id_format: String,
 }
@@ -55,7 +57,7 @@ pub struct PgBuilderFuncs {
 /// Configuration for auto-discovering `PostgreSQL` tables.
 #[derive(Debug, Default, PartialEq)]
 #[cfg_attr(test, serde_with::skip_serializing_none, derive(serde::Serialize))]
-pub struct PgBuilderTables {
+pub struct PostgresAutoDiscoveringBuilderTables {
     schemas: Option<HashSet<String>>,
     source_id_format: String,
     id_columns: Option<Vec<String>>,
@@ -84,12 +86,12 @@ macro_rules! get_auto_schemas {
     };
 }
 
-impl PgBuilder {
-    /// Creates a new `PostgreSQL` source builder from the [`PgConfig`].
+impl PostgresAutoDiscoveringBuilder {
+    /// Creates a new `PostgreSQL` source builder from the [`PostgresConfig`].
     ///
     /// Duplicate names are deterministically converted to unique names.
-    pub async fn new(config: &PgConfig, id_resolver: IdResolver) -> PgResult<Self> {
-        let pool = PgPool::new(
+    pub async fn new(config: &PostgresConfig, id_resolver: IdResolver) -> PostgresResult<Self> {
+        let pool = PostgresPool::new(
             config.connection_string.as_ref().unwrap().as_str(),
             config.ssl_certificates.ssl_cert.as_ref(),
             config.ssl_certificates.ssl_key.as_ref(),
@@ -119,7 +121,7 @@ impl PgBuilder {
         self.auto_bounds
     }
 
-    /// ID under which this [`PgBuilder`] is identified externally
+    /// ID under which this [`PostgresAutoDiscoveringBuilder`] is identified externally
     #[must_use]
     pub fn get_id(&self) -> &str {
         self.pool.get_id()
@@ -127,7 +129,7 @@ impl PgBuilder {
 
     /// Discovers and instantiates table-based tile sources.
     #[allow(clippy::too_many_lines)]
-    pub async fn instantiate_tables(&self) -> PgResult<(Vec<BoxedSource>, TableInfoSources)> {
+    pub async fn instantiate_tables(&self) -> PostgresResult<(Vec<BoxedSource>, TableInfoSources)> {
         // FIXME: this function has gotten too long due to the new formatting rules, need to be refactored
         let mut db_tables_info = query_available_tables(&self.pool).await?;
 
@@ -137,7 +139,7 @@ impl PgBuilder {
         for (id, cfg_inf) in &self.tables {
             // TODO: move this validation to serde somehow?
             if cfg_inf.extent == Some(0) {
-                return Err(PgError::InvalidTableExtent(
+                return Err(PostgresError::InvalidTableExtent(
                     id.to_string(),
                     cfg_inf.format_id(),
                 ));
@@ -242,7 +244,9 @@ impl PgBuilder {
     }
 
     /// Discovers and instantiates function-based tile sources.
-    pub async fn instantiate_functions(&self) -> PgResult<(Vec<BoxedSource>, FuncInfoSources)> {
+    pub async fn instantiate_functions(
+        &self,
+    ) -> PostgresResult<(Vec<BoxedSource>, FuncInfoSources)> {
         let mut db_funcs_info = query_available_function(&self.pool).await?;
         let mut res = Vec::new();
         let mut info_map = FuncInfoSources::new();
@@ -313,7 +317,7 @@ impl PgBuilder {
         Ok((res, info_map))
     }
 
-    fn resolve_id<T: PgInfo>(&self, id: &str, src_inf: &T) -> String {
+    fn resolve_id<T: PostgresInfo>(&self, id: &str, src_inf: &T) -> String {
         let signature = format!("{}.{}", self.pool.get_id(), src_inf.format_id());
         self.id_resolver.resolve(id, signature)
     }
@@ -322,16 +326,20 @@ impl PgBuilder {
         &self,
         sources: &mut Vec<BoxedSource>,
         id: String,
-        pg_info: &impl PgInfo,
-        sql_info: PgSqlInfo,
+        pg_info: &impl PostgresInfo,
+        sql_info: PostgresSqlInfo,
     ) {
         let tilejson = pg_info.to_tilejson(id.clone());
-        let source = PgSource::new(id, sql_info, tilejson, self.pool.clone());
+        let source = PostgresSource::new(id, sql_info, tilejson, self.pool.clone());
         sources.push(Box::new(source));
     }
 }
 
-fn update_auto_fields(id: &str, inf: &mut TableInfo, auto_tables: &PgBuilderTables) {
+fn update_auto_fields(
+    id: &str,
+    inf: &mut TableInfo,
+    auto_tables: &PostgresAutoDiscoveringBuilderTables,
+) {
     if inf.clip_geom.is_none() {
         inf.clip_geom = auto_tables.clip_geom;
     }
@@ -397,14 +405,19 @@ fn update_auto_fields(id: &str, inf: &mut TableInfo, auto_tables: &PgBuilderTabl
     );
 }
 
-fn calc_auto(config: &PgConfig) -> (Option<PgBuilderTables>, Option<PgBuilderFuncs>) {
+fn calc_auto(
+    config: &PostgresConfig,
+) -> (
+    Option<PostgresAutoDiscoveringBuilderTables>,
+    Option<PostgresAutoDiscoveringBuilderFuncs>,
+) {
     let auto_tables = if use_auto_publish(config, false) {
         let schemas = get_auto_schemas!(config, tables);
-        let bld = if let Object(PgCfgPublish {
+        let bld = if let Object(PostgresCfgPublish {
             tables: Object(v), ..
         }) = &config.auto_publish
         {
-            PgBuilderTables {
+            PostgresAutoDiscoveringBuilderTables {
                 schemas,
                 source_id_format: v
                     .source_id_format
@@ -417,7 +430,7 @@ fn calc_auto(config: &PgConfig) -> (Option<PgBuilderTables>, Option<PgBuilderFun
                 extent: v.extent,
             }
         } else {
-            PgBuilderTables {
+            PostgresAutoDiscoveringBuilderTables {
                 schemas,
                 source_id_format: "{table}".to_string(),
                 ..Default::default()
@@ -429,11 +442,11 @@ fn calc_auto(config: &PgConfig) -> (Option<PgBuilderTables>, Option<PgBuilderFun
     };
 
     let auto_functions = if use_auto_publish(config, true) {
-        Some(PgBuilderFuncs {
+        Some(PostgresAutoDiscoveringBuilderFuncs {
             schemas: get_auto_schemas!(config, functions),
-            source_id_format: if let Object(PgCfgPublish {
+            source_id_format: if let Object(PostgresCfgPublish {
                 functions:
-                    Object(PgCfgPublishFuncs {
+                    Object(PostgresCfgPublishFuncs {
                         source_id_format: Some(v),
                         ..
                     }),
@@ -452,7 +465,7 @@ fn calc_auto(config: &PgConfig) -> (Option<PgBuilderTables>, Option<PgBuilderFun
     (auto_tables, auto_functions)
 }
 
-fn use_auto_publish(config: &PgConfig, for_functions: bool) -> bool {
+fn use_auto_publish(config: &PostgresConfig, for_functions: bool) -> bool {
     match &config.auto_publish {
         NoValue => config.tables.is_none() && config.functions.is_none(),
         Object(funcs) => {
@@ -514,11 +527,11 @@ mod tests {
 
     #[derive(serde::Serialize)]
     struct AutoCfg {
-        auto_table: Option<PgBuilderTables>,
-        auto_funcs: Option<PgBuilderFuncs>,
+        auto_table: Option<PostgresAutoDiscoveringBuilderTables>,
+        auto_funcs: Option<PostgresAutoDiscoveringBuilderFuncs>,
     }
     fn auto(content: &str) -> AutoCfg {
-        let cfg: PgConfig = serde_yaml::from_str(content).unwrap();
+        let cfg: PostgresConfig = serde_yaml::from_str(content).unwrap();
         let (auto_table, auto_funcs) = calc_auto(&cfg);
         AutoCfg {
             auto_table,

@@ -3,7 +3,7 @@
 use std::io;
 use std::path::PathBuf;
 
-use deadpool_postgres::tokio_postgres::Error as TokioPgError;
+use deadpool_postgres::tokio_postgres::Error as TokioPostgresError;
 use deadpool_postgres::{BuildError, PoolError};
 use martin_tile_utils::TileCoord;
 use semver::Version;
@@ -12,11 +12,11 @@ use crate::tiles::UrlQuery;
 use crate::tiles::postgres::utils::query_to_json;
 
 /// Result type for `PostgreSQL` operations.
-pub type PgResult<T> = Result<T, PgError>;
+pub type PostgresResult<T> = Result<T, PostgresError>;
 
 /// Errors that can occur when working with `PostgreSQL` databases.
 #[derive(thiserror::Error, Debug)]
-pub enum PgError {
+pub enum PostgresError {
     /// Cannot load platform root certificates.
     #[error("Cannot load platform root certificates: {0:?}")]
     CannotLoadRoots(Vec<rustls_native_certs::Error>),
@@ -47,7 +47,7 @@ pub enum PgError {
 
     /// `PostgreSQL` database error.
     #[error("Postgres error while {1}: {0}")]
-    PostgresError(#[source] TokioPgError, &'static str),
+    PostgresError(#[source] TokioPostgresError, &'static str),
 
     /// Cannot build `PostgreSQL` connection pool.
     #[error("Unable to build a Postgres connection pool {1}: {0}")]
@@ -59,7 +59,7 @@ pub enum PgError {
 
     /// Invalid `PostgreSQL` connection string.
     #[error("Unable to parse connection string {1}: {0}")]
-    BadConnectionString(#[source] TokioPgError, String),
+    BadConnectionString(#[source] TokioPostgresError, String),
 
     /// Cannot parse `PostGIS` version.
     #[error("Unable to parse PostGIS version {1}: {0}")]
@@ -83,15 +83,20 @@ pub enum PgError {
 
     /// Query preparation error.
     #[error("Error preparing a query for the tile '{1}' ({2}): {3} {0}")]
-    PrepareQueryError(#[source] TokioPgError, String, String, String),
+    PrepareQueryError(#[source] TokioPostgresError, String, String, String),
 
     /// Tile retrieval error.
     #[error(r"Unable to get tile {2:#} from {1}: {0}")]
-    GetTileError(#[source] TokioPgError, String, TileCoord),
+    GetTileError(#[source] TokioPostgresError, String, TileCoord),
 
     /// Tile retrieval error with query parameters.
     #[error(r"Unable to get tile {2:#} with {json_query:?} params from {1}: {0}", json_query=query_to_json(.3.as_ref()))]
-    GetTileWithQueryError(#[source] TokioPgError, String, TileCoord, Option<UrlQuery>),
+    GetTileWithQueryError(
+        #[source] TokioPostgresError,
+        String,
+        TileCoord,
+        Option<UrlQuery>,
+    ),
 
     /// Configuration error.
     #[error("Configuration error: {0}")]

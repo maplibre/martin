@@ -56,7 +56,7 @@ pub enum MartinError {
 
     #[cfg(feature = "postgres")]
     #[error(transparent)]
-    PostgresError(#[from] martin_core::tiles::postgres::PgError),
+    PostgresError(#[from] martin_core::tiles::postgres::PostgresError),
 
     #[cfg(feature = "pmtiles")]
     #[error(transparent)]

@@ -17,11 +17,11 @@ use rustls_native_certs::load_native_certs;
 use rustls_pemfile::Item::Pkcs1Key;
 use tokio_postgres_rustls::MakeRustlsConnect;
 
-use crate::tiles::postgres::PgError::{
+use crate::tiles::postgres::PostgresError::{
     BadConnectionString, CannotLoadRoots, CannotOpenCert, CannotParseCert, CannotUseClientKey,
     InvalidPrivateKey, UnknownSslMode,
 };
-use crate::tiles::postgres::PgResult;
+use crate::tiles::postgres::PostgresResult;
 
 /// A temporary workaround for <https://github.com/sfackler/rust-postgres/pull/988>
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -32,7 +32,7 @@ pub enum SslModeOverride {
 }
 
 /// Special treatment for sslmode=verify-ca & sslmode=verify-full - if found, replace them with sslmode=require
-pub fn parse_conn_str(conn_str: &str) -> PgResult<(Config, SslModeOverride)> {
+pub fn parse_conn_str(conn_str: &str) -> PostgresResult<(Config, SslModeOverride)> {
     let mut mode = SslModeOverride::Unmodified(SslMode::Disable);
 
     let exp = r"(?P<before>(^|\?|&| )sslmode=)(?P<mode>verify-(ca|full))(?P<after>$|&| )";
@@ -111,13 +111,13 @@ impl ServerCertVerifier for NoCertificateVerification {
     }
 }
 
-fn read_certs(file: &PathBuf) -> PgResult<Vec<CertificateDer<'static>>> {
+fn read_certs(file: &PathBuf) -> PostgresResult<Vec<CertificateDer<'static>>> {
     rustls_pemfile::certs(&mut cert_reader(file)?)
         .collect::<Result<Vec<_>, io::Error>>()
         .map_err(|e| CannotParseCert(e, file.clone()))
 }
 
-fn cert_reader(file: &PathBuf) -> PgResult<BufReader<File>> {
+fn cert_reader(file: &PathBuf) -> PostgresResult<BufReader<File>> {
     Ok(BufReader::new(
         File::open(file).map_err(|e| CannotOpenCert(e, file.clone()))?,
     ))
@@ -128,7 +128,7 @@ pub fn make_connector(
     ssl_key: Option<&PathBuf>,
     ssl_root_cert: Option<&PathBuf>,
     ssl_mode: SslModeOverride,
-) -> PgResult<MakeRustlsConnect> {
+) -> PostgresResult<MakeRustlsConnect> {
     let (verify_ca, _verify_hostname) = match ssl_mode {
         SslModeOverride::Unmodified(mode) => match mode {
             SslMode::Disable | SslMode::Prefer => (false, false),

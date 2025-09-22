@@ -60,7 +60,7 @@ pub struct CopierArgs {
     pub meta: MetaArgs,
     #[cfg(feature = "postgres")]
     #[command(flatten)]
-    pub pg: Option<martin::config::args::PgArgs>,
+    pub pg: Option<martin::config::args::PostgresArgs>,
 }
 
 #[serde_with::serde_as]
