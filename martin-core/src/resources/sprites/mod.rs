@@ -76,7 +76,6 @@ impl SpriteSources {
         let disp_path = path.display();
 
         if path.is_file() {
-            warn!("Ignoring non-directory sprite source {id} from {disp_path}");
             return Err(SpriteError::DirectoryValidationFailed(
                 path,
                 "Path is not a directory".to_string(),
@@ -84,7 +83,6 @@ impl SpriteSources {
         }
 
         if !path.exists() {
-            warn!("Sprite source {id} path doesn't exist: {disp_path}");
             return Err(SpriteError::DirectoryValidationFailed(
                 path,
                 "Path does not exist".to_string(),
@@ -121,7 +119,6 @@ impl SpriteSources {
         let metadata = tokio::fs::metadata(path).await.map_err(on_err)?;
 
         if !metadata.is_dir() {
-            warn!("Sprite source is not a directory: {disp_path}");
             return Err(SpriteError::DirectoryValidationFailed(
                 path.clone(),
                 "Path is not a directory".to_string(),
@@ -138,7 +135,7 @@ impl SpriteSources {
                 if let Some(extension) = entry_path.extension() {
                     if extension.to_string_lossy().to_lowercase() == "svg" {
                         if let Err(e) = self.validate_svg_file(&entry_path).await {
-                            warn!("Invalid SVG file {}: {}", entry_path.display(), e);
+                            return Err(e);
                         }
                     }
                 }
@@ -146,24 +143,13 @@ impl SpriteSources {
         }
 
         if total_files == 0 {
-            warn!("Empty sprite directory: {disp_path}");
             return Err(SpriteError::EmptyDirectory(path.clone()));
         }
 
         if svg_count == 0 && sprite_output_files.is_empty() {
-            warn!(
-                "No SVG source files found in sprite directory: {disp_path}. \
-                    Found pre-generated sprite files: {}. \
-                    Martin requires source SVG files, not pre-generated sprite outputs.",
-                sprite_output_files.join(", ")
-            );
             return Err(SpriteError::DirectoryValidationFailed(
                 path.clone(),
-                format!(
-                    "Directory contains pre-generated sprite files ({}) but no source SVG files. \
-                        Please provide a directory with .svg files instead.",
-                    sprite_output_files.join(", ")
-                ),
+                "Directory contains no SVG files".to_string(),
             ));
         }
 
@@ -200,56 +186,6 @@ impl SpriteSources {
                 path.clone(),
                 "No SVG element found".to_string(),
             ));
-        }
-
-        Ok(())
-    }
-
-    /// Validates all configured sprite sources and logs a summary.
-    pub async fn validate_all_sources(&self) -> Result<(), SpriteError> {
-        if self.0.is_empty() {
-            info!("No sprite sources configured");
-            return Ok(());
-        }
-
-        let mut total_sources = 0;
-        let mut valid_sources = 0;
-        let mut total_svg_files = 0;
-        let mut validation_errors = Vec::new();
-
-        info!("Validating {} configured sprite sources...", self.0.len());
-
-        for source in &self.0 {
-            total_sources += 1;
-            let id = source.key();
-            let path = &source.value().path;
-
-            match self.validate_source_directory(path).await {
-                Ok(()) => {
-                    valid_sources += 1;
-                    if let Ok(svg_count) = Self::count_svg_files(path).await {
-                        total_svg_files += svg_count;
-                    }
-                }
-                Err(e) => {
-                    warn!("Validation failed for sprite source {id}: {e}");
-                    validation_errors.push((id.clone(), e));
-                }
-            }
-        }
-
-        if validation_errors.is_empty() {
-            info!(
-                "Sprite source validation completed successfully: {valid_sources}/{total_sources} sources valid, {total_svg_files} total SVG files",
-            );
-        } else {
-            warn!(
-                "Sprite source validation completed with errors: {valid_sources}/{total_sources} sources valid, {} errors encountered",
-                validation_errors.len()
-            );
-            for (id, error) in &validation_errors {
-                warn!("  - {id}: {error}");
-            }
         }
 
         Ok(())
@@ -292,11 +228,6 @@ impl SpriteSources {
         }
 
         Ok((total_files, svg_count, sprite_output_files))
-    }
-
-    async fn count_svg_files(path: &PathBuf) -> Result<usize, SpriteError> {
-        let (_, svg_count, _) = Self::scan_directory_files(path).await?;
-        Ok(svg_count)
     }
 }
 
