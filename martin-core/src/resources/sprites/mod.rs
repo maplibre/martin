@@ -76,17 +76,11 @@ impl SpriteSources {
         let disp_path = path.display();
 
         if path.is_file() {
-            return Err(SpriteError::DirectoryValidationFailed(
-                path,
-                "Path is not a directory".to_string(),
-            ));
+            return Err(SpriteError::NotADirectory(path));
         }
 
         if !path.exists() {
-            return Err(SpriteError::DirectoryValidationFailed(
-                path,
-                "Path does not exist".to_string(),
-            ));
+            return Err(SpriteError::DirectoryNotFound(path));
         }
 
         match self.0.entry(id) {
@@ -119,10 +113,7 @@ impl SpriteSources {
         let metadata = tokio::fs::metadata(path).await.map_err(on_err)?;
 
         if !metadata.is_dir() {
-            return Err(SpriteError::DirectoryValidationFailed(
-                path.clone(),
-                "Path is not a directory".to_string(),
-            ));
+            return Err(SpriteError::NotADirectory(path.clone()));
         }
 
         let (total_files, svg_count, sprite_output_files) =
@@ -165,16 +156,13 @@ impl SpriteSources {
         let content = content.trim();
 
         if content.is_empty() {
-            return Err(SpriteError::InvalidSvgFormat(
-                path.clone(),
-                "File is empty".to_string(),
-            ));
+            return Err(SpriteError::EmptyFile(path.clone()));
         }
 
         if !content.starts_with("<?xml") && !content.starts_with("<svg") {
             return Err(SpriteError::InvalidSvgFormat(
                 path.clone(),
-                "Missing SVG or XML declaration".to_string(),
+                "Missing SVG declaration".to_string(),
             ));
         }
 
