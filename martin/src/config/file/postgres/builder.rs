@@ -18,6 +18,7 @@ use crate::config::file::postgres::{
     FuncInfoSources, POOL_SIZE_DEFAULT, PgCfgPublish, PgCfgPublishFuncs, PgConfig, PgInfo,
     TableInfo, TableInfoSources,
 };
+use crate::config::file::{ConfigFileError, ConfigFileResult};
 use crate::utils::IdResolver;
 
 /// Builder for auto-discovering `PostgreSQL` tile sources.
@@ -88,7 +89,7 @@ impl PgBuilder {
     /// Creates a new `PostgreSQL` source builder from the [`PgConfig`].
     ///
     /// Duplicate names are deterministically converted to unique names.
-    pub async fn new(config: &PgConfig, id_resolver: IdResolver) -> PgResult<Self> {
+    pub async fn new(config: &PgConfig, id_resolver: IdResolver) -> ConfigFileResult<Self> {
         let pool = PgPool::new(
             config.connection_string.as_ref().unwrap().as_str(),
             config.ssl_certificates.ssl_cert.as_ref(),
@@ -96,7 +97,8 @@ impl PgBuilder {
             config.ssl_certificates.ssl_root_cert.as_ref(),
             config.pool_size.unwrap_or(POOL_SIZE_DEFAULT),
         )
-        .await?;
+        .await
+        .map_err(|e| ConfigFileError::PostgresPoolCreationFailed(e))?;
 
         let (auto_tables, auto_functions) = calc_auto(config);
 

@@ -6,7 +6,6 @@ use futures::pin_mut;
 use log::warn;
 use martin_core::config::{OptBoolObj, OptOneMany};
 use martin_core::tiles::BoxedSource;
-use martin_core::tiles::postgres::{PgError, PgResult};
 use serde::{Deserialize, Serialize};
 use tilejson::TileJSON;
 use tokio::time::timeout;
@@ -16,7 +15,8 @@ use crate::MartinResult;
 use crate::config::args::{BoundsCalcType, DEFAULT_BOUNDS_TIMEOUT};
 use crate::config::file::postgres::PgBuilder;
 use crate::config::file::{
-    ConfigExtras, UnrecognizedKeys, UnrecognizedValues, copy_unrecognized_keys_from_config,
+    ConfigExtras, ConfigFileError, ConfigFileResult, UnrecognizedKeys, UnrecognizedValues,
+    copy_unrecognized_keys_from_config,
 };
 use crate::utils::IdResolver;
 
@@ -172,24 +172,18 @@ impl ConfigExtras for PgCfgPublishFuncs {
 
 impl PgConfig {
     /// Validate if all settings are valid
-    pub fn validate(&self) -> PgResult<()> {
-        if let Some(pool_size) = self.pool_size
-            && pool_size < 1
-        {
-            return Err(PgError::ConfigError(
-                "pool_size must be greater than or equal to 1.",
-            ));
+    pub fn validate(&self) -> ConfigFileResult<()> {
+        if self.pool_size.is_some_and(|size| size < 1) {
+            return Err(ConfigFileError::PostgresPoolSizeInvalid);
         }
         if self.connection_string.is_none() {
-            return Err(PgError::ConfigError(
-                "A connection string must be provided.",
-            ));
+            return Err(ConfigFileError::PostgresConnectionStringMissing);
         }
 
         Ok(())
     }
 
-    pub fn finalize(&mut self, prefix: &str) -> PgResult<UnrecognizedKeys> {
+    pub fn finalize(&mut self, prefix: &str) -> ConfigFileResult<UnrecognizedKeys> {
         let mut res = UnrecognizedKeys::new();
         if let Some(ref ts) = self.tables {
             for (k, v) in ts {
