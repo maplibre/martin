@@ -58,7 +58,7 @@ log = "0.4"
 maplibre_native = "0.1.2"
 martin-core = { path = "./martin-core", version = "0.1.0", default-features = false }
 martin-tile-utils = { path = "./martin-tile-utils", version = "0.6.3" }
-mbtiles = { path = "./mbtiles", version = "0.12.2" }
+mbtiles = { path = "./mbtiles", version = "0.13.0" }
 md5 = "0.8.0"
 moka = { version = "0.12", features = ["future"] }
 num_cpus = "1"

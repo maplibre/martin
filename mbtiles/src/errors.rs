@@ -5,6 +5,7 @@ use sqlite_hashes::rusqlite;
 
 use crate::{AGG_TILES_HASH, AGG_TILES_HASH_AFTER_APPLY, AGG_TILES_HASH_BEFORE_APPLY, MbtType};
 
+#[non_exhaustive]
 #[derive(thiserror::Error, Debug)]
 pub enum MbtError {
     #[error("The source and destination MBTiles files are the same: {0}")]

@@ -18,7 +18,7 @@ If you require guarnatees regarding [eavesdropping](https://en.wikipedia.org/wik
 Use the `sslmode` parameter to specify a different mode:
 
 ```bash
-martin postgresql://user:password@host/db?sslmode=verify-full
+martin postgres://user:password@host/db?sslmode=verify-full
 ```
 
 For a practical walkthrough of SSL certificate setup — including creation, configuration, and troubleshooting — see our [PostgreSQL SSL Certificates Recipe](pg-ssl-certificates.md).
