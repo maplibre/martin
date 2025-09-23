@@ -9,7 +9,7 @@ pub enum MartinCoreError {
     /// Errors that can occur during [`postgres`](crate::tiles::cog) processing operations.
     #[cfg(feature = "postgres")]
     #[error(transparent)]
-    PostgresError(#[from] super::postgres::PgError),
+    PostgresError(#[from] super::postgres::PostgresError),
 
     /// Errors that can occur during [`pmtiles`](crate::tiles::cog) processing operations.
     #[cfg(feature = "pmtiles")]
