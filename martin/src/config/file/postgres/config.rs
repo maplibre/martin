@@ -6,7 +6,6 @@ use futures::pin_mut;
 use log::warn;
 use martin_core::config::{OptBoolObj, OptOneMany};
 use martin_core::tiles::BoxedSource;
-use martin_core::tiles::postgres::{PostgresError, PostgresResult};
 use serde::{Deserialize, Serialize};
 use tilejson::TileJSON;
 use tokio::time::timeout;
