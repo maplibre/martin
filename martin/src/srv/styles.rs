@@ -75,7 +75,10 @@ async fn get_style_rendered(
         x: path.x,
         y: path.y,
     };
-    log::trace!("Rendering style {style_id} ({style_path:?}) at {xyz}");
+    log::trace!(
+        "Rendering style {style_id} ({}) at {xyz}",
+        style_path.display()
+    );
 
     let image = styles.render(&style_path, xyz).await;
     HttpResponse::Ok()
