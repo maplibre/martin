@@ -108,7 +108,7 @@ impl StyleSources {
     ///
     /// For now, we only use a static renderer which is optimized for our kind of usage
     /// In the future, we may consider adding support for smarter rendering including a pool of renderers.
-    #[cfg(feature = "render")]
+    #[cfg(feature = "render-styles")]
     pub fn render(&self, path: &std::path::Path, zxy: martin_tile_utils::TileCoord) -> Image {
         let mut map = maplibre_native::ImageRendererOptions::new().build_tile_renderer();
         map.set_style_path(path);
