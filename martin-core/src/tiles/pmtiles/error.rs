@@ -18,7 +18,7 @@ pub enum PmtilesError {
 
     /// `PMTiles` error with additional context.
     #[error(r"PMTiles error {0:?} processing {1}")]
-    PmtErrorWithCtx(PmtError, String),
+    PmtErrorWithCtx(#[source] PmtError, String),
 
     /// Invalid or unparseable metadata in `PMTiles` file.
     #[error(r"Unable to parse metadata in file {1}: {0}")]
@@ -30,5 +30,5 @@ pub enum PmtilesError {
 
     /// IO error occurred while processing `PMTiles` file.
     #[error("IO error {0}: {1}")]
-    IoError(std::io::Error, PathBuf),
+    IoError(#[source] std::io::Error, PathBuf),
 }

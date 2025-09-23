@@ -14,7 +14,7 @@ pub enum SpriteError {
 
     /// I/O error accessing sprite file or directory.
     #[error("IO error {0}: {1}")]
-    IoError(std::io::Error, PathBuf),
+    IoError(#[source] std::io::Error, PathBuf),
 
     /// Path is not a valid file.
     #[error("Sprite path is not a file: {0}")]
@@ -34,11 +34,11 @@ pub enum SpriteError {
 
     /// Sprite processing error.
     #[error("{0} in file {1}")]
-    SpriteProcessingError(SpreetError, PathBuf),
+    SpriteProcessingError(#[source] SpreetError, PathBuf),
 
     /// SVG parsing error.
     #[error("{0} in file {1}")]
-    SpriteParsingError(ResvgError, PathBuf),
+    SpriteParsingError(#[source] ResvgError, PathBuf),
 
     /// Failed to generate spritesheet.
     #[error("Unable to generate spritesheet")]

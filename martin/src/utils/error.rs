@@ -31,7 +31,7 @@ pub enum MartinError {
     ConfigAndConnectionsError(Vec<String>),
 
     #[error("Unable to bind to {1}: {0}")]
-    BindingError(io::Error, String),
+    BindingError(#[source] io::Error, String),
 
     #[error("Base path must be a valid URL path, and must begin with a '/' symbol, but is '{0}'")]
     BasePathError(String),

@@ -15,7 +15,7 @@ pub enum MbtilesError {
 
     /// IO error.
     #[error("IO error {0}: {1}")]
-    IoError(std::io::Error, PathBuf),
+    IoError(#[source] std::io::Error, PathBuf),
 
     /// Unable to parse metadata in file.
     #[error(r"Unable to parse metadata in file {1}: {0}")]

@@ -39,7 +39,7 @@ pub enum FontError {
 
     /// An I/O error occurred while accessing a font file or directory.
     #[error("IO error accessing {1}: {0}")]
-    IoError(std::io::Error, PathBuf),
+    IoError(#[source] std::io::Error, PathBuf),
 
     /// The specified path is not a valid font file (supports .ttf, .otf, .ttc).
     #[error("Invalid font file {0}")]

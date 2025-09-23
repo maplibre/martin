@@ -21,16 +21,16 @@ pub type ConfigFileResult<T> = Result<T, ConfigFileError>;
 #[derive(thiserror::Error, Debug)]
 pub enum ConfigFileError {
     #[error("IO error {0}: {1}")]
-    IoError(std::io::Error, PathBuf),
+    IoError(#[source] std::io::Error, PathBuf),
 
     #[error("Unable to load config file {1}: {0}")]
-    ConfigLoadError(std::io::Error, PathBuf),
+    ConfigLoadError(#[source] std::io::Error, PathBuf),
 
     #[error("Unable to parse config file {1}: {0}")]
-    ConfigParseError(subst::yaml::Error, PathBuf),
+    ConfigParseError(#[source] subst::yaml::Error, PathBuf),
 
     #[error("Unable to write config file {1}: {0}")]
-    ConfigWriteError(std::io::Error, PathBuf),
+    ConfigWriteError(#[source] std::io::Error, PathBuf),
 
     #[error(
         "No tile sources found. Set sources by giving a database connection string on command line, env variable, or a config file."
@@ -40,7 +40,7 @@ pub enum ConfigFileError {
     InvalidFilePath(PathBuf),
 
     #[error("Error {0} while parsing URL {1}")]
-    InvalidSourceUrl(url::ParseError, String),
+    InvalidSourceUrl(#[source] url::ParseError, String),
 
     #[error("Source {0} uses bad file {1}")]
     InvalidSourceFilePath(String, PathBuf),
@@ -50,7 +50,7 @@ pub enum ConfigFileError {
 
     #[cfg(feature = "styles")]
     #[error("Walk directory error {0}: {1}")]
-    DirectoryWalking(walkdir::Error, PathBuf),
+    DirectoryWalking(#[source] walkdir::Error, PathBuf),
 
     #[cfg(feature = "postgres")]
     #[error("The postgres pool_size must be greater than or equal to 1")]
