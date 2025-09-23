@@ -102,14 +102,25 @@ impl StyleSources {
         self.0.is_empty()
     }
 
-    /// assumptions:
+    /// EXPERIMENTAL support for rendering styles.
+    ///
+    /// Assumptions:
     /// - martin is not an interactive renderer (think 60fps, embedded)
     /// - We are not rendering the same tile all the time (instead, it is cached)
     ///
     /// For now, we only use a static renderer which is optimized for our kind of usage
     /// In the future, we may consider adding support for smarter rendering including a pool of renderers.
     #[cfg(feature = "render-styles")]
-    pub fn render(&self, path: &std::path::Path, zxy: martin_tile_utils::TileCoord) -> Image {
+    pub async fn render(&self, path: &std::path::Path, zxy: martin_tile_utils::TileCoord) -> Image {
+        use std::sync::{Arc, LazyLock};
+
+        use tokio::sync::Mutex;
+
+        // this is a horrible hack and needs to be addressed before making it generally available (i.e. non-experimental)
+        // without this, we segfault..
+        static RENDER_MUTEX: LazyLock<Arc<Mutex<()>>> = LazyLock::new(|| Arc::new(Mutex::new(())));
+        let _lock = RENDER_MUTEX.lock().await;
+
         let mut map = maplibre_native::ImageRendererOptions::new().build_tile_renderer();
         map.set_style_path(path);
         map.render_tile(zxy.z, zxy.x, zxy.y)
