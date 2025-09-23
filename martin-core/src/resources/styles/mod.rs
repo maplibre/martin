@@ -19,6 +19,7 @@ use std::path::PathBuf;
 
 use dashmap::{DashMap, Entry};
 use log::{info, warn};
+#[cfg(feature = "render-styles")]
 use maplibre_native::Image;
 use serde::{Deserialize, Serialize};
 
@@ -115,11 +116,12 @@ impl StyleSources {
         use std::path::PathBuf;
         use std::sync::{LazyLock, mpsc};
         use std::thread;
+        use tokio::sync::oneshot;
 
         struct RenderRequest {
             style_path: PathBuf,
             coord: martin_tile_utils::TileCoord,
-            response: mpsc::Sender<Image>,
+            response: oneshot::Sender<Image>,
         }
 
         static RENDER_ACTOR: LazyLock<mpsc::Sender<RenderRequest>> = LazyLock::new(|| {
@@ -140,7 +142,7 @@ impl StyleSources {
             tx
         });
 
-        let (response_tx, response_rx) = mpsc::channel();
+        let (response_tx, response_rx) = oneshot::channel();
         let request = RenderRequest {
             style_path: path.to_path_buf(),
             coord: zxy,
@@ -150,10 +152,7 @@ impl StyleSources {
         RENDER_ACTOR
             .send(request)
             .expect("Render actor should be alive");
-        tokio::task::spawn_blocking(move || response_rx.recv())
-            .await
-            .unwrap()
-            .unwrap()
+        response_rx.await.expect("Render actor should respond")
     }
 }
 
