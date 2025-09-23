@@ -10,6 +10,6 @@ pub use config_table::*;
 pub(crate) mod utils;
 
 mod builder;
-pub use builder::PostgresAutoDiscoveringBuilder;
+pub use builder::PostgresAutoDiscoveryBuilder;
 
 pub mod resolver;

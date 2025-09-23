@@ -22,9 +22,9 @@ use crate::config::file::postgres::{
 };
 use crate::utils::IdResolver;
 
-/// Builder for auto-discovering `PostgreSQL` tile sources.
+/// Builder for [`PostgresSource`]' auto-discovery of functions and tables.
 #[derive(Debug)]
-pub struct PostgresAutoDiscoveringBuilder {
+pub struct PostgresAutoDiscoveryBuilder {
     pool: PostgresPool,
     /// If a spatial table has SRID 0, then this SRID will be used as a fallback
     default_srid: Option<i32>,
@@ -38,8 +38,8 @@ pub struct PostgresAutoDiscoveringBuilder {
     ///
     /// Can be either a positive integer or unlimited if omitted.
     max_feature_count: Option<usize>,
-    auto_functions: Option<PostgresAutoDiscoveringBuilderFuncs>,
-    auto_tables: Option<PostgresAutoDiscoveringBuilderTables>,
+    auto_functions: Option<PostgresAutoDiscoveryBuilderFunctions>,
+    auto_tables: Option<PostgresAutoDiscoveryBuilderTables>,
     id_resolver: IdResolver,
     /// Associative arrays of table sources
     tables: TableInfoSources,
@@ -49,7 +49,7 @@ pub struct PostgresAutoDiscoveringBuilder {
 /// Configuration for auto-discovering `PostgreSQL` functions.
 #[derive(Debug, PartialEq)]
 #[cfg_attr(test, serde_with::skip_serializing_none, derive(serde::Serialize))]
-pub struct PostgresAutoDiscoveringBuilderFuncs {
+pub struct PostgresAutoDiscoveryBuilderFunctions {
     schemas: Option<HashSet<String>>,
     source_id_format: String,
 }
@@ -57,7 +57,7 @@ pub struct PostgresAutoDiscoveringBuilderFuncs {
 /// Configuration for auto-discovering `PostgreSQL` tables.
 #[derive(Debug, Default, PartialEq)]
 #[cfg_attr(test, serde_with::skip_serializing_none, derive(serde::Serialize))]
-pub struct PostgresAutoDiscoveringBuilderTables {
+pub struct PostgresAutoDiscoveryBuilderTables {
     schemas: Option<HashSet<String>>,
     source_id_format: String,
     id_columns: Option<Vec<String>>,
@@ -86,7 +86,7 @@ macro_rules! get_auto_schemas {
     };
 }
 
-impl PostgresAutoDiscoveringBuilder {
+impl PostgresAutoDiscoveryBuilder {
     /// Creates a new `PostgreSQL` source builder from the [`PostgresConfig`].
     ///
     /// Duplicate names are deterministically converted to unique names.
@@ -121,7 +121,7 @@ impl PostgresAutoDiscoveringBuilder {
         self.auto_bounds
     }
 
-    /// ID under which this [`PostgresAutoDiscoveringBuilder`] is identified externally
+    /// ID under which this [`PostgresAutoDiscoveryBuilder`] is identified externally
     #[must_use]
     pub fn get_id(&self) -> &str {
         self.pool.get_id()
@@ -338,7 +338,7 @@ impl PostgresAutoDiscoveringBuilder {
 fn update_auto_fields(
     id: &str,
     inf: &mut TableInfo,
-    auto_tables: &PostgresAutoDiscoveringBuilderTables,
+    auto_tables: &PostgresAutoDiscoveryBuilderTables,
 ) {
     if inf.clip_geom.is_none() {
         inf.clip_geom = auto_tables.clip_geom;
@@ -408,8 +408,8 @@ fn update_auto_fields(
 fn calc_auto(
     config: &PostgresConfig,
 ) -> (
-    Option<PostgresAutoDiscoveringBuilderTables>,
-    Option<PostgresAutoDiscoveringBuilderFuncs>,
+    Option<PostgresAutoDiscoveryBuilderTables>,
+    Option<PostgresAutoDiscoveryBuilderFunctions>,
 ) {
     let auto_tables = if use_auto_publish(config, false) {
         let schemas = get_auto_schemas!(config, tables);
@@ -417,7 +417,7 @@ fn calc_auto(
             tables: Object(v), ..
         }) = &config.auto_publish
         {
-            PostgresAutoDiscoveringBuilderTables {
+            PostgresAutoDiscoveryBuilderTables {
                 schemas,
                 source_id_format: v
                     .source_id_format
@@ -430,7 +430,7 @@ fn calc_auto(
                 extent: v.extent,
             }
         } else {
-            PostgresAutoDiscoveringBuilderTables {
+            PostgresAutoDiscoveryBuilderTables {
                 schemas,
                 source_id_format: "{table}".to_string(),
                 ..Default::default()
@@ -442,7 +442,7 @@ fn calc_auto(
     };
 
     let auto_functions = if use_auto_publish(config, true) {
-        Some(PostgresAutoDiscoveringBuilderFuncs {
+        Some(PostgresAutoDiscoveryBuilderFunctions {
             schemas: get_auto_schemas!(config, functions),
             source_id_format: if let Object(PostgresCfgPublish {
                 functions:
@@ -527,8 +527,8 @@ mod tests {
 
     #[derive(serde::Serialize)]
     struct AutoCfg {
-        auto_table: Option<PostgresAutoDiscoveringBuilderTables>,
-        auto_funcs: Option<PostgresAutoDiscoveringBuilderFuncs>,
+        auto_table: Option<PostgresAutoDiscoveryBuilderTables>,
+        auto_funcs: Option<PostgresAutoDiscoveryBuilderFunctions>,
     }
     fn auto(content: &str) -> AutoCfg {
         let cfg: PostgresConfig = serde_yaml::from_str(content).unwrap();
