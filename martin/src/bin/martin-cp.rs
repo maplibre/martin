@@ -278,7 +278,7 @@ impl Progress {
 
 type MartinCpResult<T> = Result<T, MartinCpError>;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(thiserror::Error, Debug)]
 enum MartinCpError {
     #[error(transparent)]
     Martin(#[from] MartinError),

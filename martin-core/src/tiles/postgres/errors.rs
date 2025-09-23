@@ -15,6 +15,7 @@ use crate::tiles::postgres::utils::query_to_json;
 pub type PgResult<T> = Result<T, PgError>;
 
 /// Errors that can occur when working with `PostgreSQL` databases.
+#[non_exhaustive]
 #[derive(thiserror::Error, Debug)]
 pub enum PgError {
     /// Cannot load platform root certificates.
