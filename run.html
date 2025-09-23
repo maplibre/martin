@@ -251,7 +251,7 @@
 <h1 id="usage"><a class="header" href="#usage">Usage</a></h1>
 <p>Martin requires at least one PostgreSQL <a href="pg-connections.html">connection string</a> or a <a href="sources-files.html">tile source file</a>
 as a command-line argument. A PG connection string can also be passed via the <code>DATABASE_URL</code> environment variable.</p>
-<pre><code class="language-bash">martin postgresql://postgres@localhost/db
+<pre><code class="language-bash">martin postgres://postgres@localhost/db
 </code></pre>
 <p>Martin provides <a href="https://github.com/mapbox/tilejson-spec">TileJSON</a> endpoint for
 each <a href="https://postgis.net/docs/using_postgis_dbmanagement.html#geometry_columns">geospatial-enabled</a> table in your

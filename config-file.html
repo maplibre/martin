@@ -253,7 +253,7 @@
 start Martin with a configuration file you need to pass a path to a file with a <code>--config</code> argument. Config files may
 contain environment variables, which will be expanded before parsing. For example, to use <code>MY_DATABASE_URL</code> in your
 config file: <code>connection_string: ${MY_DATABASE_URL}</code>, or with a
-default <code>connection_string: ${MY_DATABASE_URL:-postgresql://postgres@localhost/db}</code></p>
+default <code>connection_string: ${MY_DATABASE_URL:-postgres://postgres@localhost/db}</code></p>
 <pre><code class="language-bash">martin --config config.yaml
 </code></pre>
 <p>You may wish to auto-generate a config file with <code>--save-config</code> argument. This will generate a config yaml file with
@@ -322,8 +322,8 @@ postgres:
   #
   # You can use environment variables too, for example:
   # connection_string: $DATABASE_URL
-  # connection_string: ${DATABASE_URL:-postgresql://postgres@localhost/db}
-  connection_string: 'postgresql://postgres@localhost:5432/db'
+  # connection_string: ${DATABASE_URL:-postgres://postgres@localhost/db}
+  connection_string: 'postgres://postgres@localhost:5432/db'
 
   # Same as PGSSLCERT for psql
   ssl_cert: './postgresql.crt'

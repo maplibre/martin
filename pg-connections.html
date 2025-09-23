@@ -261,7 +261,7 @@ See <a href="env-vars.html">environment vars</a> for details.</p>
 This matches <code>psql</code> default behavior.</p>
 <p>If you require guarnatees regarding <a href="https://en.wikipedia.org/wiki/Eavesdropping">eavesdropping</a> or <a href="https://en.wikipedia.org/wiki/Man-in-the-middle_attack">MITM protection</a>, you need a different option.
 Use the <code>sslmode</code> parameter to specify a different mode:</p>
-<pre><code class="language-bash">martin postgresql://user:password@host/db?sslmode=verify-full
+<pre><code class="language-bash">martin postgres://user:password@host/db?sslmode=verify-full
 </code></pre>
 <p>For a practical walkthrough of SSL certificate setup — including creation, configuration, and troubleshooting — see our <a href="pg-ssl-certificates.html">PostgreSQL SSL Certificates Recipe</a>.</p>
 

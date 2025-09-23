@@ -787,7 +787,7 @@ passing <code>DATABASE_URL</code> or specifying the .mbtiles/.pmtiles files or U
 
 docker run -p 3000:3000 \
            -e PGPASSWORD \
-           -e DATABASE_URL=postgresql://user@host:port/db \
+           -e DATABASE_URL=postgres://user@host:port/db \
            -v /path/to/config/dir:/config \
            ghcr.io/maplibre/martin --config /config/config.yaml
 </code></pre>
@@ -895,7 +895,7 @@ martin --help
 <h1 id="usage"><a class="header" href="#usage">Usage</a></h1>
 <p>Martin requires at least one PostgreSQL <a href="pg-connections.html">connection string</a> or a <a href="sources-files.html">tile source file</a>
 as a command-line argument. A PG connection string can also be passed via the <code>DATABASE_URL</code> environment variable.</p>
-<pre><code class="language-bash">martin postgresql://postgres@localhost/db
+<pre><code class="language-bash">martin postgres://postgres@localhost/db
 </code></pre>
 <p>Martin provides <a href="https://github.com/mapbox/tilejson-spec">TileJSON</a> endpoint for
 each <a href="https://postgis.net/docs/using_postgis_dbmanagement.html#geometry_columns">geospatial-enabled</a> table in your
@@ -1133,7 +1133,7 @@ The configuration file itself can use environment variables if needed.
 See <a href="config-file.html">configuration section</a> on how to use environment variables with config files.
 See also <a href="pg-connections.html#postgresql-ssl-connections">SSL configuration</a> section below.</p>
 <div class="table-wrapper"><table><thead><tr><th>Environment var <br/> Config File key</th><th>Example</th><th>Description</th></tr></thead><tbody>
-<tr><td><code>DATABASE_URL</code> <br/> <code>connection_string</code></td><td><code>postgresql://</code><br/><code>postgres@localhost/db</code></td><td>Postgres database connection</td></tr>
+<tr><td><code>DATABASE_URL</code> <br/> <code>connection_string</code></td><td><code>postgres://</code><br/><code>postgres@localhost/db</code></td><td>Postgres database connection</td></tr>
 <tr><td><code>DEFAULT_SRID</code> <br/> <code>default_srid</code></td><td><code>4326</code></td><td>If a PostgreSQL table has a geometry column with SRID=0, use this value instead</td></tr>
 <tr><td><code>PGSSLCERT</code> <br/> <code>ssl_cert</code></td><td><code>./postgresql.crt</code></td><td>A file with a client SSL certificate. <a href="https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNECT-SSLCERT">docs</a></td></tr>
 <tr><td><code>PGSSLKEY</code> <br/> <code>ssl_key</code></td><td><code>./postgresql.key</code></td><td>A file with the key for the client SSL certificate. <a href="https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNECT-SSLKEY">docs</a></td></tr>
@@ -1297,7 +1297,7 @@ See also <a href="pg-connections.html#postgresql-ssl-connections">SSL configurat
 <h3 id="using-non-local-postgresql"><a class="header" href="#using-non-local-postgresql">Using Non-Local PostgreSQL</a></h3>
 <pre><code class="language-bash">docker run \
   -p 3000:3000 \
-  -e DATABASE_URL=postgresql://postgres@postgres.example.org/db \
+  -e DATABASE_URL=postgres://postgres@postgres.example.org/db \
   ghcr.io/maplibre/martin
 </code></pre>
 <h3 id="exposing-local-files"><a class="header" href="#exposing-local-files">Exposing Local Files</a></h3>
@@ -1314,21 +1314,21 @@ to access the <code>localhost</code> network.</p>
 with <code>-p</code> because the container is already using the host network.</p>
 <pre><code class="language-bash">docker run \
   --net=host \
-  -e DATABASE_URL=postgresql://postgres@localhost/db \
+  -e DATABASE_URL=postgres://postgres@localhost/db \
   ghcr.io/maplibre/martin
 </code></pre>
 <h3 id="accessing-local-postgresql-on-macos"><a class="header" href="#accessing-local-postgresql-on-macos">Accessing Local PostgreSQL on macOS</a></h3>
 <p>For macOS, use <code>host.docker.internal</code> as hostname to access the <code>localhost</code> PostgreSQL service.</p>
 <pre><code class="language-bash">docker run \
   -p 3000:3000 \
-  -e DATABASE_URL=postgresql://postgres@host.docker.internal/db \
+  -e DATABASE_URL=postgres://postgres@host.docker.internal/db \
   ghcr.io/maplibre/martin
 </code></pre>
 <h3 id="accessing-local-postgresql-on-windows"><a class="header" href="#accessing-local-postgresql-on-windows">Accessing Local PostgreSQL on Windows</a></h3>
 <p>For Windows, use <code>docker.for.win.localhost</code> as hostname to access the <code>localhost</code> PostgreSQL service.</p>
 <pre><code class="language-bash">docker run \
   -p 3000:3000 \
-  -e DATABASE_URL=postgresql://postgres@docker.for.win.localhost/db \
+  -e DATABASE_URL=postgres://postgres@docker.for.win.localhost/db \
   ghcr.io/maplibre/martin
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><style>
@@ -1408,7 +1408,7 @@ file as a reference</p>
     ports:
       - "3000:3000"
     environment:
-      - DATABASE_URL=postgresql://postgres:password@db/db
+      - DATABASE_URL=postgres://postgres:password@db/db
     depends_on:
       - db
 
@@ -1791,7 +1791,7 @@ services:
     image: maplibre/martin:v0.7.0
     restart: unless-stopped
     environment:
-      - DATABASE_URL=postgresql://postgres:password@db/db
+      - DATABASE_URL=postgres://postgres:password@db/db
     depends_on:
       - db
 
@@ -2041,12 +2041,12 @@ controlled via the <code>RUST_LOG</code> environment variable. The value of this
 logging directives.</p>
 <p>This will enable debug logging for all modules:</p>
 <pre><code class="language-bash">export RUST_LOG=debug
-martin postgresql://postgres@localhost/db
+martin postgres://postgres@localhost/db
 </code></pre>
 <p>While this will only enable verbose logging for the <code>actix_web</code> module and enable debug logging for the <code>martin</code>
 and <code>tokio_postgres</code> modules:</p>
 <pre><code class="language-bash">export RUST_LOG=actix_web=info,martin=debug,tokio_postgres=debug
-martin postgresql://postgres@localhost/db
+martin postgres://postgres@localhost/db
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><style>
 .mdbook-alerts {
@@ -2120,7 +2120,7 @@ martin postgresql://postgres@localhost/db
 start Martin with a configuration file you need to pass a path to a file with a <code>--config</code> argument. Config files may
 contain environment variables, which will be expanded before parsing. For example, to use <code>MY_DATABASE_URL</code> in your
 config file: <code>connection_string: ${MY_DATABASE_URL}</code>, or with a
-default <code>connection_string: ${MY_DATABASE_URL:-postgresql://postgres@localhost/db}</code></p>
+default <code>connection_string: ${MY_DATABASE_URL:-postgres://postgres@localhost/db}</code></p>
 <pre><code class="language-bash">martin --config config.yaml
 </code></pre>
 <p>You may wish to auto-generate a config file with <code>--save-config</code> argument. This will generate a config yaml file with
@@ -2189,8 +2189,8 @@ postgres:
   #
   # You can use environment variables too, for example:
   # connection_string: $DATABASE_URL
-  # connection_string: ${DATABASE_URL:-postgresql://postgres@localhost/db}
-  connection_string: 'postgresql://postgres@localhost:5432/db'
+  # connection_string: ${DATABASE_URL:-postgres://postgres@localhost/db}
+  connection_string: 'postgres://postgres@localhost:5432/db'
 
   # Same as PGSSLCERT for psql
   ssl_cert: './postgresql.crt'
@@ -2696,7 +2696,7 @@ See <a href="env-vars.html">environment vars</a> for details.</p>
 This matches <code>psql</code> default behavior.</p>
 <p>If you require guarnatees regarding <a href="https://en.wikipedia.org/wiki/Eavesdropping">eavesdropping</a> or <a href="https://en.wikipedia.org/wiki/Man-in-the-middle_attack">MITM protection</a>, you need a different option.
 Use the <code>sslmode</code> parameter to specify a different mode:</p>
-<pre><code class="language-bash">martin postgresql://user:password@host/db?sslmode=verify-full
+<pre><code class="language-bash">martin postgres://user:password@host/db?sslmode=verify-full
 </code></pre>
 <p>For a practical walkthrough of SSL certificate setup — including creation, configuration, and troubleshooting — see our <a href="pg-ssl-certificates.html">PostgreSQL SSL Certificates Recipe</a>.</p>
 <div style="break-before: page; page-break-before: always;"></div><style>
@@ -4407,7 +4407,7 @@ We try to provide a guide for each provider, but we may not cover all of them.</
 <p>First, you need to download the CA certificate and get your cluster connection string from the <a href="https://cloud.digitalocean.com/databases">dashboard</a>.
 After that, you can use the connection string and the CA certificate to connect to the database</p>
 <pre><code class="language-bash">martin --ca-root-file ./ca-certificate.crt \
-       postgresql://user:password@host:port/db?sslmode=require
+       postgres://user:password@host:port/db?sslmode=require
 </code></pre>
 <h2 id="using-with-heroku-postgresql"><a class="header" href="#using-with-heroku-postgresql">Using with Heroku PostgreSQL</a></h2>
 <p>You can use Martin with <a href="https://www.heroku.com/postgres">Managed PostgreSQL from Heroku</a> with the PostGIS extension</p>
@@ -4817,7 +4817,7 @@ chmod 400 *.pem
 </div>
 <h2 id="testing-with-psql"><a class="header" href="#testing-with-psql">Testing with psql</a></h2>
 <p>Test SSL Connection via</p>
-<pre><code class="language-bash">PGSSLROOTCERT=ca-cert.pem psql "postgresql://postgres:password@localhost:5432/postgres?sslmode=verify-full"
+<pre><code class="language-bash">PGSSLROOTCERT=ca-cert.pem psql "postgres://postgres:password@localhost:5432/postgres?sslmode=verify-full"
 </code></pre>
 <div class="mdbook-alerts mdbook-alerts-tip">
 <p class="mdbook-alerts-title">
@@ -4845,7 +4845,7 @@ You do not need to configure things twice.</p>
 <li><details>
 <summary>Environment Variables (click to expand)</summary>
 <pre><code class="language-bash">export PGSSLROOTCERT=./ca-cert.pem
-export DATABASE_URL="postgresql://postgres:password@localhost:5432/postgres?sslmode=verify-full"
+export DATABASE_URL="postgres://postgres:password@localhost:5432/postgres?sslmode=verify-full"
 martin
 </code></pre>
 </details>
@@ -4854,14 +4854,14 @@ martin
 <summary>Configuration File (click to expand)</summary>
 <pre><code class="language-yaml">postgres:
   ssl_root_cert: './ca-cert.pem'
-  connection_string: 'postgresql://postgres:password@localhost:5432/postgres?sslmode=verify-full'
+  connection_string: 'postgres://postgres:password@localhost:5432/postgres?sslmode=verify-full'
 </code></pre>
 </details>
 </li>
 <li><details>
 <summary>Command Line (click to expand)</summary>
 <pre><code class="language-bash">martin --ca-root-file ./ca-cert.pem \
-      "postgresql://postgres:password@localhost:5432/postgres?sslmode=verify-full"
+      "postgres://postgres:password@localhost:5432/postgres?sslmode=verify-full"
 </code></pre>
 </details>
 </li>
@@ -4874,7 +4874,7 @@ export PGSSLROOTCERT=./ca-cert.pem
 psql -h localhost -U postgres -d postgres -v
 
 # Debug Martin
-RUST_LOG=debug martin postgresql://...
+RUST_LOG=debug martin postgres://...
 </code></pre>
 <p>These are the errors that can occur:</p>
 <ul>
@@ -5004,7 +5004,7 @@ This allows the MBTiles file to be <a href="mbtiles-validation.html#aggregate-co
            --min-zoom 0                  \
            --max-zoom 10                 \
            --source source_name          \
-           postgresql://postgres@localhost:5432/db
+           postgres://postgres@localhost:5432/db
 </code></pre>
 <div class="mdbook-alerts mdbook-alerts-tip">
 <p class="mdbook-alerts-title">

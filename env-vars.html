@@ -254,7 +254,7 @@ The configuration file itself can use environment variables if needed.
 See <a href="config-file.html">configuration section</a> on how to use environment variables with config files.
 See also <a href="pg-connections.html#postgresql-ssl-connections">SSL configuration</a> section below.</p>
 <div class="table-wrapper"><table><thead><tr><th>Environment var <br/> Config File key</th><th>Example</th><th>Description</th></tr></thead><tbody>
-<tr><td><code>DATABASE_URL</code> <br/> <code>connection_string</code></td><td><code>postgresql://</code><br/><code>postgres@localhost/db</code></td><td>Postgres database connection</td></tr>
+<tr><td><code>DATABASE_URL</code> <br/> <code>connection_string</code></td><td><code>postgres://</code><br/><code>postgres@localhost/db</code></td><td>Postgres database connection</td></tr>
 <tr><td><code>DEFAULT_SRID</code> <br/> <code>default_srid</code></td><td><code>4326</code></td><td>If a PostgreSQL table has a geometry column with SRID=0, use this value instead</td></tr>
 <tr><td><code>PGSSLCERT</code> <br/> <code>ssl_cert</code></td><td><code>./postgresql.crt</code></td><td>A file with a client SSL certificate. <a href="https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNECT-SSLCERT">docs</a></td></tr>
 <tr><td><code>PGSSLKEY</code> <br/> <code>ssl_key</code></td><td><code>./postgresql.key</code></td><td>A file with the key for the client SSL certificate. <a href="https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNECT-SSLKEY">docs</a></td></tr>
