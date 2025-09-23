@@ -1,7 +1,7 @@
 web_ui: enableforall
 mbtiles:
   sources:
-    openmaptiles: /home/frank/dev/martin/data/output.mbtiles
+    openmaptiles: .../planet.mbtiles
 styles:
   sources:
     bright: render/bright.json
