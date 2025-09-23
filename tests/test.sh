@@ -503,6 +503,11 @@ test_jsn style_src2_maptiler_basic.1  style/maptiler_basic.json
 test_jsn style_maplibre_demo          style/maplibre
 test_jsn style_maplibre_demo.1        style/maplibre.json
 
+# Test style rendering
+test_png style_maplibre_demo_0_0_0    style/maplibre/0/0/0.png
+test_png style_maplibre_demo_1_0_0    style/maplibre/1/0/0.png
+test_png style_maplibre_demo_2_1_1    style/maplibre/2/1/1.png
+
 # Test fonts
 test_font font_1      font/Overpass%20Mono%20Light/0-255
 test_font font_2      font/Overpass%20Mono%20Regular/0-255
