@@ -45,7 +45,6 @@ mbtiles = ["dep:mbtiles"]
 pmtiles = ["dep:pmtiles", "dep:aws-config", "dep:url"]
 
 [dependencies]
-
 async-trait.workspace = true
 aws-config = { workspace = true, optional = true }
 bit-set = { workspace = true, optional = true }
