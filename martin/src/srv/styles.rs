@@ -70,10 +70,10 @@ async fn get_style_rendered(
             .content_type(ContentType::plaintext())
             .body("No such style exists");
     };
-    let xyz = martin_tile_utils::TileCoord {
-        z: path.z,
-        x: path.x,
-        y: path.y,
+    let Some(xyz) = martin_tile_utils::TileCoord::new_checked(path.z, path.x, path.y) else {
+        return HttpResponse::BadRequest()
+            .content_type(ContentType::plaintext())
+            .body("Invalid tile coordinates for zoom level");
     };
     log::trace!(
         "Rendering style {style_id} ({}) at {xyz}",

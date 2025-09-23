@@ -165,6 +165,10 @@ impl StyleSources {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(feature = "render-styles")]
+    use martin_tile_utils::TileCoord;
+    #[cfg(feature = "render-styles")]
+    use rstest::rstest;
     use std::path::Path;
 
     use super::*;
@@ -225,5 +229,62 @@ mod tests {
             styles.style_json_path("osm-liberty-lite.json"),
             Some(src2_dir.join("osm-liberty-lite.json"))
         );
+    }
+
+    #[cfg(feature = "render-styles")]
+    #[rstest]
+    #[case::maplibre_demo("maplibre_demo.json", (0, 0, 0))]
+    #[case::maplibre_demo_zoom1("maplibre_demo.json", (1, 0, 0))]
+    #[case::maptiler_basic("src2/maptiler_basic.json", (0, 0, 0))]
+    #[tokio::test]
+    async fn test_render_tile_with_fixtures(
+        #[case] style_file: &str,
+        #[case] (z, x, y): (u8, u32, u32),
+    ) {
+        let style_dir = Path::new("../tests/fixtures/styles/");
+        let style_path = style_dir.join(style_file);
+        let styles = StyleSources::default();
+
+        let coord = TileCoord { z, x, y };
+        let image = styles.render(&style_path, coord).await;
+        assert!(!image.as_slice().is_empty());
+
+        // Create a snapshot name based on the style and coordinates
+        let snapshot_name = format!(
+            "{}_{}_{}_{}.png",
+            style_file.replace('/', "_").replace(".json", ""),
+            z,
+            x,
+            y
+        );
+        insta::assert_binary_snapshot!(&snapshot_name, image.as_slice().to_vec());
+    }
+
+    #[cfg(feature = "render-styles")]
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_render_concurrent_requests_no_side_effects() {
+        let style_dir = Path::new("../tests/fixtures/styles/");
+        let style_path = style_dir.join("maplibre_demo.json");
+        let styles = StyleSources::default();
+
+        let coords = vec![
+            TileCoord { z: 0, x: 0, y: 0 },
+            TileCoord { z: 1, x: 0, y: 0 },
+            TileCoord { z: 1, x: 1, y: 0 },
+            TileCoord { z: 1, x: 0, y: 1 },
+        ];
+
+        let futures = coords
+            .iter()
+            .map(|&coord| styles.render(&style_path, coord));
+
+        let results = futures::future::join_all(futures).await;
+
+        for (i, image) in results.iter().enumerate() {
+            assert!(
+                !image.as_slice().is_empty(),
+                "Concurrent request {i} should produce non-empty image"
+            );
+        }
     }
 }
