@@ -181,7 +181,9 @@ async fn start(copy_args: CopierArgs) -> MartinCpResult<()> {
     let sources = config.resolve().await?;
 
     if let Some(file_name) = save_config {
-        config.save_to_file(file_name).map_err(MartinError::from)?;
+        config
+            .save_to_file(file_name.as_path())
+            .map_err(MartinError::from)?;
     } else {
         info!("Use --save-config to save or print configuration.");
     }

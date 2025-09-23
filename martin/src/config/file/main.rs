@@ -1,7 +1,7 @@
 use std::ffi::OsStr;
 use std::fs::File;
 use std::io::prelude::*;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use futures::future::{BoxFuture, try_join_all};
 use log::{info, warn};
@@ -228,7 +228,7 @@ impl Config {
         Ok(TileSources::new(try_join_all(sources).await?))
     }
 
-    pub fn save_to_file(&self, file_name: PathBuf) -> ConfigFileResult<()> {
+    pub fn save_to_file(&self, file_name: &Path) -> ConfigFileResult<()> {
         let yaml = serde_yaml::to_string(&self).expect("Unable to serialize config");
         if file_name.as_os_str() == OsStr::new("-") {
             info!("Current system configuration:");
@@ -239,10 +239,10 @@ impl Config {
                 "Saving config to {}, use --config to load it",
                 file_name.display()
             );
-            File::create(&file_name)
-                .map_err(|e| ConfigFileError::ConfigWriteError(e, file_name.clone()))?
+            File::create(file_name)
+                .map_err(|e| ConfigFileError::ConfigWriteError(e, file_name.to_path_buf()))?
                 .write_all(yaml.as_bytes())
-                .map_err(|e| ConfigFileError::ConfigWriteError(e, file_name.clone()))?;
+                .map_err(|e| ConfigFileError::ConfigWriteError(e, file_name.to_path_buf()))?;
             Ok(())
         }
     }

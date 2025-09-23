@@ -98,7 +98,7 @@ impl PgBuilder {
             config.pool_size.unwrap_or(POOL_SIZE_DEFAULT),
         )
         .await
-        .map_err(|e| ConfigFileError::PostgresPoolCreationFailed(e))?;
+        .map_err(ConfigFileError::PostgresPoolCreationFailed)?;
 
         let (auto_tables, auto_functions) = calc_auto(config);
 
