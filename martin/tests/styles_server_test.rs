@@ -140,7 +140,7 @@ mod render_tests {
     async fn render_concurrent_requests() {
         let app = create_app! { CONFIG_STYLES };
 
-        let coords = vec![
+        let coords = [
             "/style/maplibre_demo/0/0/0.png",
             "/style/maplibre_demo/1/0/0.png",
             "/style/maplibre_demo/1/1/0.png",

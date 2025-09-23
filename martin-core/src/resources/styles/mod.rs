@@ -116,6 +116,7 @@ impl StyleSources {
         use std::path::PathBuf;
         use std::sync::{LazyLock, mpsc};
         use std::thread;
+
         use tokio::sync::oneshot;
 
         struct RenderRequest {
@@ -165,11 +166,12 @@ impl StyleSources {
 
 #[cfg(test)]
 mod tests {
+    use std::path::Path;
+
     #[cfg(feature = "render-styles")]
     use martin_tile_utils::TileCoord;
     #[cfg(feature = "render-styles")]
     use rstest::rstest;
-    use std::path::Path;
 
     use super::*;
 
@@ -267,7 +269,7 @@ mod tests {
         let style_path = style_dir.join("maplibre_demo.json");
         let styles = StyleSources::default();
 
-        let coords = vec![
+        let coords = [
             TileCoord { z: 0, x: 0, y: 0 },
             TileCoord { z: 1, x: 0, y: 0 },
             TileCoord { z: 1, x: 1, y: 0 },
