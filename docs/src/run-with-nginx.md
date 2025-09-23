@@ -21,7 +21,7 @@ services:
     image: maplibre/martin:v0.7.0
     restart: unless-stopped
     environment:
-      - DATABASE_URL=postgresql://postgres:password@db/db
+      - DATABASE_URL=postgres://postgres:password@db/db
     depends_on:
       - db
 

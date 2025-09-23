@@ -62,7 +62,7 @@ pub enum ConfigFileError {
 
     #[cfg(feature = "postgres")]
     #[error("Failed to create postgres pool: {0}")]
-    PostgresPoolCreationFailed(#[source] martin_core::tiles::postgres::PgError),
+    PostgresPoolCreationFailed(#[source] martin_core::tiles::postgres::PostgresError),
 
     #[cfg(feature = "fonts")]
     #[error("Failed to load fonts from {1}: {0}")]

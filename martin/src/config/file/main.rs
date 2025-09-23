@@ -50,7 +50,7 @@ pub struct Config {
 
     #[cfg(feature = "postgres")]
     #[serde(default, skip_serializing_if = "OptOneMany::is_none")]
-    pub postgres: OptOneMany<super::postgres::PgConfig>,
+    pub postgres: OptOneMany<super::postgres::PostgresConfig>,
 
     #[cfg(feature = "pmtiles")]
     #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
