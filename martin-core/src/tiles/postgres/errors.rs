@@ -97,8 +97,4 @@ pub enum PostgresError {
         TileCoord,
         Option<UrlQuery>,
     ),
-
-    /// Configuration error.
-    #[error("Configuration error: {0}")]
-    ConfigError(&'static str),
 }

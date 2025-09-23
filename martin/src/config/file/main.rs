@@ -1,7 +1,7 @@
 use std::ffi::OsStr;
 use std::fs::File;
 use std::io::prelude::*;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use futures::future::{BoxFuture, try_join_all};
 use log::{info, warn};
@@ -12,7 +12,6 @@ use martin_core::tiles::BoxedSource;
 use serde::{Deserialize, Serialize};
 use subst::VariableMap;
 
-use crate::MartinError::{ConfigLoadError, ConfigParseError, ConfigWriteError, NoSources};
 #[cfg(any(
     feature = "cog",
     feature = "mbtiles",
@@ -22,7 +21,8 @@ use crate::MartinError::{ConfigLoadError, ConfigParseError, ConfigWriteError, No
 ))]
 use crate::config::file::FileConfigEnum;
 use crate::config::file::{
-    ConfigExtras, UnrecognizedKeys, UnrecognizedValues, copy_unrecognized_keys_from_config,
+    ConfigExtras, ConfigFileError, ConfigFileResult, UnrecognizedKeys, UnrecognizedValues,
+    copy_unrecognized_keys_from_config,
 };
 use crate::source::TileSources;
 use crate::srv::RESERVED_KEYWORDS;
@@ -147,7 +147,11 @@ impl Config {
         #[cfg(feature = "fonts")]
         let is_empty = is_empty && self.fonts.is_empty();
 
-        if is_empty { Err(NoSources) } else { Ok(res) }
+        if is_empty {
+            Err(ConfigFileError::NoSources.into())
+        } else {
+            Ok(res)
+        }
     }
 
     pub async fn resolve(&mut self) -> MartinResult<ServerState> {
@@ -224,7 +228,7 @@ impl Config {
         Ok(TileSources::new(try_join_all(sources).await?))
     }
 
-    pub fn save_to_file(&self, file_name: PathBuf) -> MartinResult<()> {
+    pub fn save_to_file(&self, file_name: &Path) -> ConfigFileResult<()> {
         let yaml = serde_yaml::to_string(&self).expect("Unable to serialize config");
         if file_name.as_os_str() == OsStr::new("-") {
             info!("Current system configuration:");
@@ -235,33 +239,34 @@ impl Config {
                 "Saving config to {}, use --config to load it",
                 file_name.display()
             );
-            match File::create(&file_name) {
-                Ok(mut file) => file
-                    .write_all(yaml.as_bytes())
-                    .map_err(|e| ConfigWriteError(e, file_name)),
-                Err(e) => Err(ConfigWriteError(e, file_name)),
-            }
+            File::create(file_name)
+                .map_err(|e| ConfigFileError::ConfigWriteError(e, file_name.to_path_buf()))?
+                .write_all(yaml.as_bytes())
+                .map_err(|e| ConfigFileError::ConfigWriteError(e, file_name.to_path_buf()))?;
+            Ok(())
         }
     }
 }
 
 /// Read config from a file
-pub fn read_config<'a, M>(file_name: &Path, env: &'a M) -> MartinResult<Config>
+pub fn read_config<'a, M>(file_name: &Path, env: &'a M) -> ConfigFileResult<Config>
 where
     M: VariableMap<'a>,
     M::Value: AsRef<str>,
 {
-    let mut file = File::open(file_name).map_err(|e| ConfigLoadError(e, file_name.into()))?;
+    let mut file =
+        File::open(file_name).map_err(|e| ConfigFileError::ConfigLoadError(e, file_name.into()))?;
     let mut contents = String::new();
     file.read_to_string(&mut contents)
-        .map_err(|e| ConfigLoadError(e, file_name.into()))?;
+        .map_err(|e| ConfigFileError::ConfigLoadError(e, file_name.into()))?;
     parse_config(&contents, env, file_name)
 }
 
-pub fn parse_config<'a, M>(contents: &str, env: &'a M, file_name: &Path) -> MartinResult<Config>
+pub fn parse_config<'a, M>(contents: &str, env: &'a M, file_name: &Path) -> ConfigFileResult<Config>
 where
     M: VariableMap<'a>,
     M::Value: AsRef<str>,
 {
-    subst::yaml::from_str(contents, env).map_err(|e| ConfigParseError(e, file_name.into()))
+    subst::yaml::from_str(contents, env)
+        .map_err(|e| ConfigFileError::ConfigParseError(e, file_name.into()))
 }

@@ -20,6 +20,7 @@ use crate::config::file::postgres::{
     FuncInfoSources, POOL_SIZE_DEFAULT, PostgresCfgPublish, PostgresCfgPublishFuncs,
     PostgresConfig, PostgresInfo, TableInfo, TableInfoSources,
 };
+use crate::config::file::{ConfigFileError, ConfigFileResult};
 use crate::utils::IdResolver;
 
 /// Builder for [`PostgresSource`]' auto-discovery of functions and tables.
@@ -90,7 +91,7 @@ impl PostgresAutoDiscoveryBuilder {
     /// Creates a new `PostgreSQL` source builder from the [`PostgresConfig`].
     ///
     /// Duplicate names are deterministically converted to unique names.
-    pub async fn new(config: &PostgresConfig, id_resolver: IdResolver) -> PostgresResult<Self> {
+    pub async fn new(config: &PostgresConfig, id_resolver: IdResolver) -> ConfigFileResult<Self> {
         let pool = PostgresPool::new(
             config.connection_string.as_ref().unwrap().as_str(),
             config.ssl_certificates.ssl_cert.as_ref(),
@@ -98,7 +99,8 @@ impl PostgresAutoDiscoveryBuilder {
             config.ssl_certificates.ssl_root_cert.as_ref(),
             config.pool_size.unwrap_or(POOL_SIZE_DEFAULT),
         )
-        .await?;
+        .await
+        .map_err(ConfigFileError::PostgresPoolCreationFailed)?;
 
         let (auto_tables, auto_functions) = calc_auto(config);
 

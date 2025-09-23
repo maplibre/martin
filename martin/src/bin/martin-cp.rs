@@ -161,7 +161,7 @@ async fn start(copy_args: CopierArgs) -> MartinCpResult<()> {
     let save_config = copy_args.meta.save_config.clone();
     let mut config = if let Some(ref cfg_filename) = copy_args.meta.config {
         info!("Using {}", cfg_filename.display());
-        read_config(cfg_filename, &env)?
+        read_config(cfg_filename, &env).map_err(MartinError::from)?
     } else {
         info!("Config file is not specified, auto-detecting sources");
         Config::default()
@@ -181,7 +181,9 @@ async fn start(copy_args: CopierArgs) -> MartinCpResult<()> {
     let sources = config.resolve().await?;
 
     if let Some(file_name) = save_config {
-        config.save_to_file(file_name)?;
+        config
+            .save_to_file(file_name.as_path())
+            .map_err(MartinError::from)?;
     } else {
         info!("Use --save-config to save or print configuration.");
     }
