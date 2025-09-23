@@ -135,10 +135,10 @@ impl StyleSources {
                 while let Ok(request) = rx.recv() {
                     // Switching styles, even if this were a no-op takes 250ms
                     if current_path.as_ref() != Some(&request.style_path) {
-                        renderer.set_style_path(request.style_path.as_path());
+                        renderer.load_style_from_path(request.style_path.as_path());
                         current_path = Some(request.style_path.clone());
                     }
-                    // TODO: if the style on disk is changed, we need to reload it via `set_style_path`
+                    // TODO: if the style on disk is changed, we need to reload it via `load_style_from_path`
 
                     let image =
                         renderer.render_tile(request.coord.z, request.coord.x, request.coord.y);
