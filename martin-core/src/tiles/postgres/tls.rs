@@ -213,8 +213,7 @@ mod tests {
 
     #[test]
     fn test_parse_conn_str() {
-        let (cfg, mode) =
-            parse_conn_str("postgresql://user:password@localhost:5432/dbname").unwrap();
+        let (cfg, mode) = parse_conn_str("postgres://user:password@localhost:5432/dbname").unwrap();
         assert_eq!(cfg.get_hosts(), &vec![Host::Tcp("localhost".to_string())]);
         assert_eq!(cfg.get_ports(), &vec![5432]);
         assert_eq!(cfg.get_user(), Some("user"));
@@ -223,17 +222,16 @@ mod tests {
         assert_eq!(cfg.get_ssl_mode(), SslMode::Prefer);
         assert_eq!(mode, SslModeOverride::Unmodified(SslMode::Prefer));
 
-        let (cfg, mode) =
-            parse_conn_str("postgresql://localhost:5432/db?sslmode=verify-ca").unwrap();
+        let (cfg, mode) = parse_conn_str("postgres://localhost:5432/db?sslmode=verify-ca").unwrap();
         assert_eq!(cfg.get_ssl_mode(), SslMode::Require);
         assert_eq!(mode, SslModeOverride::VerifyCa);
 
-        let conn = "postgresql://localhost:5432?sslmode=verify-full";
+        let conn = "postgres://localhost:5432?sslmode=verify-full";
         let (cfg, mode) = parse_conn_str(conn).unwrap();
         assert_eq!(cfg.get_ssl_mode(), SslMode::Require);
         assert_eq!(mode, SslModeOverride::VerifyFull);
 
-        let conn = "postgresql://localhost:5432?sslmode=verify-full&connect_timeout=5";
+        let conn = "postgres://localhost:5432?sslmode=verify-full&connect_timeout=5";
         let (cfg, mode) = parse_conn_str(conn).unwrap();
         assert_eq!(cfg.get_ssl_mode(), SslMode::Require);
         assert_eq!(mode, SslModeOverride::VerifyFull);

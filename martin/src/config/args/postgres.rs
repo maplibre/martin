@@ -162,7 +162,7 @@ impl PostgresArgs {
 
     fn extract_conn_strings<'a>(cli_strings: &mut Arguments, env: &impl Env<'a>) -> Vec<String> {
         let mut connections = cli_strings.process(|v| {
-            if is_postgresql_string(v) {
+            if is_postgres_connection_string(v) {
                 Take(v.to_string())
             } else {
                 Ignore
@@ -171,7 +171,7 @@ impl PostgresArgs {
         if connections.is_empty()
             && let Some(s) = env.get_env_str("DATABASE_URL")
         {
-            if is_postgresql_string(&s) {
+            if is_postgres_connection_string(&s) {
                 info!("Using env var DATABASE_URL to connect to PostgreSQL");
                 connections.push(s);
             } else {
@@ -228,7 +228,7 @@ impl PostgresArgs {
 }
 
 #[must_use]
-fn is_postgresql_string(s: &str) -> bool {
+fn is_postgres_connection_string(s: &str) -> bool {
     s.starts_with("postgresql://") || s.starts_with("postgres://")
 }
 

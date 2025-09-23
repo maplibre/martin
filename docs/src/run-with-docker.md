@@ -7,7 +7,7 @@ You can use official Docker image [`ghcr.io/maplibre/martin`](https://ghcr.io/ma
 ```bash
 docker run \
   -p 3000:3000 \
-  -e DATABASE_URL=postgresql://postgres@postgres.example.org/db \
+  -e DATABASE_URL=postgres://postgres@postgres.example.org/db \
   ghcr.io/maplibre/martin
 ```
 
@@ -33,7 +33,7 @@ with `-p` because the container is already using the host network.
 ```bash
 docker run \
   --net=host \
-  -e DATABASE_URL=postgresql://postgres@localhost/db \
+  -e DATABASE_URL=postgres://postgres@localhost/db \
   ghcr.io/maplibre/martin
 ```
 
@@ -44,7 +44,7 @@ For macOS, use `host.docker.internal` as hostname to access the `localhost` Post
 ```bash
 docker run \
   -p 3000:3000 \
-  -e DATABASE_URL=postgresql://postgres@host.docker.internal/db \
+  -e DATABASE_URL=postgres://postgres@host.docker.internal/db \
   ghcr.io/maplibre/martin
 ```
 
@@ -55,6 +55,6 @@ For Windows, use `docker.for.win.localhost` as hostname to access the `localhost
 ```bash
 docker run \
   -p 3000:3000 \
-  -e DATABASE_URL=postgresql://postgres@docker.for.win.localhost/db \
+  -e DATABASE_URL=postgres://postgres@docker.for.win.localhost/db \
   ghcr.io/maplibre/martin
 ```
