@@ -130,9 +130,16 @@ impl StyleSources {
             thread::spawn(move || {
                 let mut renderer =
                     maplibre_native::ImageRendererOptions::new().build_tile_renderer();
+                let mut current_path = None;
 
                 while let Ok(request) = rx.recv() {
-                    renderer.set_style_path(&request.style_path);
+                    // Switching styles, even if this were a no-op takes 250ms
+                    if current_path.as_ref() != Some(&request.style_path) {
+                        renderer.set_style_path(request.style_path.as_path());
+                        current_path = Some(request.style_path.clone());
+                    }
+                    // TODO: if the style on disk is changed, we need to reload it via `set_style_path`
+
                     let image =
                         renderer.render_tile(request.coord.z, request.coord.x, request.coord.y);
                     let _ = request.response.send(image);
