@@ -112,18 +112,48 @@ impl StyleSources {
     /// In the future, we may consider adding support for smarter rendering including a pool of renderers.
     #[cfg(feature = "render-styles")]
     pub async fn render(&self, path: &std::path::Path, zxy: martin_tile_utils::TileCoord) -> Image {
-        use std::sync::{Arc, LazyLock};
+        use std::path::PathBuf;
+        use std::sync::{LazyLock, mpsc};
+        use std::thread;
 
-        use tokio::sync::Mutex;
+        struct RenderRequest {
+            style_path: PathBuf,
+            coord: martin_tile_utils::TileCoord,
+            response: mpsc::Sender<Image>,
+        }
 
-        // this is a horrible hack and needs to be addressed before making it generally available (i.e. non-experimental)
-        // without this, we segfault..
-        static RENDER_MUTEX: LazyLock<Arc<Mutex<()>>> = LazyLock::new(|| Arc::new(Mutex::new(())));
-        let _lock = RENDER_MUTEX.lock().await;
+        static RENDER_ACTOR: LazyLock<mpsc::Sender<RenderRequest>> = LazyLock::new(|| {
+            let (tx, rx) = mpsc::channel::<RenderRequest>();
 
-        let mut map = maplibre_native::ImageRendererOptions::new().build_tile_renderer();
-        map.set_style_path(path);
-        map.render_tile(zxy.z, zxy.x, zxy.y)
+            thread::spawn(move || {
+                let mut renderer =
+                    maplibre_native::ImageRendererOptions::new().build_tile_renderer();
+
+                while let Ok(request) = rx.recv() {
+                    renderer.set_style_path(&request.style_path);
+                    let image =
+                        renderer.render_tile(request.coord.z, request.coord.x, request.coord.y);
+                    let _ = request.response.send(image);
+                }
+            });
+
+            tx
+        });
+
+        let (response_tx, response_rx) = mpsc::channel();
+        let request = RenderRequest {
+            style_path: path.to_path_buf(),
+            coord: zxy,
+            response: response_tx,
+        };
+
+        RENDER_ACTOR
+            .send(request)
+            .expect("Render actor should be alive");
+        tokio::task::spawn_blocking(move || response_rx.recv())
+            .await
+            .unwrap()
+            .unwrap()
     }
 }
 
