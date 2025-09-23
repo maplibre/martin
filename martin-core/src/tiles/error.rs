@@ -2,6 +2,7 @@
 pub type BoxedMartinCoreError = Box<dyn std::error::Error>;
 
 /// Errors that can occur during mbtiles processing operations.
+#[non_exhaustive]
 #[derive(thiserror::Error, Debug)]
 pub enum MartinCoreError {
     /// Errors that can occur during mbtiles processing operations.

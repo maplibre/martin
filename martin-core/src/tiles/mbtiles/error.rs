@@ -3,6 +3,7 @@
 use std::path::PathBuf;
 
 /// Errors that can occur during mbtiles processing operations.
+#[non_exhaustive]
 #[derive(thiserror::Error, Debug)]
 pub enum MbtilesError {
     /// Failed to acquire database connection to `MBTiles` file.

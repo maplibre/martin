@@ -6,6 +6,7 @@ use pmtiles::PmtError;
 use url::Url;
 
 /// Errors that can occur when working with `PMTiles` files.
+#[non_exhaustive]
 #[derive(thiserror::Error, Debug)]
 pub enum PmtilesError {
     /// Error processing S3 source URI.

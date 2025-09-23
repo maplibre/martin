@@ -6,6 +6,7 @@ use spreet::SpreetError;
 use spreet::resvg::usvg::Error as ResvgError;
 
 /// Errors that can occur during sprite processing.
+#[non_exhaustive]
 #[derive(thiserror::Error, Debug)]
 pub enum SpriteError {
     /// Sprite source ID not found.

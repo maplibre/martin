@@ -7,6 +7,7 @@ use pbf_font_tools::PbfFontError;
 use crate::resources::fonts::CP_RANGE_SIZE;
 
 /// Errors that can occur during font processing operations.
+#[non_exhaustive]
 #[derive(thiserror::Error, Debug)]
 pub enum FontError {
     /// The requested font ID was not found in the font catalog.
