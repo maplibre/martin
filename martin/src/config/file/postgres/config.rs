@@ -14,7 +14,7 @@ use tokio::time::timeout;
 use super::{FuncInfoSources, TableInfoSources};
 use crate::MartinResult;
 use crate::config::args::{BoundsCalcType, DEFAULT_BOUNDS_TIMEOUT};
-use crate::config::file::postgres::PostgresAutoDiscoveringBuilder;
+use crate::config::file::postgres::PostgresAutoDiscoveryBuilder;
 use crate::config::file::{
     ConfigExtras, UnrecognizedKeys, UnrecognizedValues, copy_unrecognized_keys_from_config,
 };
@@ -222,7 +222,7 @@ impl PostgresConfig {
     }
 
     pub async fn resolve(&mut self, id_resolver: IdResolver) -> MartinResult<Vec<BoxedSource>> {
-        let pg = PostgresAutoDiscoveringBuilder::new(self, id_resolver).await?;
+        let pg = PostgresAutoDiscoveryBuilder::new(self, id_resolver).await?;
         let inst_tables = on_slow(
             pg.instantiate_tables(),
             // warn only if default bounds timeout has already passed
