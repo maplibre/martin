@@ -96,16 +96,8 @@ book:  (cargo-install 'mdbook') (cargo-install 'mdbook-alerts')
     mdbook serve docs --open --port 8321
 
 # Quick compile without building a binary
-check:
-    cargo check --all-targets -p martin-tile-utils
-    cargo check --all-targets -p mbtiles
-    cargo check --all-targets -p mbtiles --no-default-features
-    cargo check --all-targets -p martin
-    cargo check --all-targets -p martin --no-default-features
-    for feature in $({{just_executable()}} get-features); do \
-        echo "Checking '$feature' feature" >&2 ;\
-        cargo check --all-targets -p martin --no-default-features --features $feature ;\
-    done
+check: (cargo-install 'cargo-hack')
+    cargo hack check --all-targets --each-feature --workspace
 
 # Test documentation generation
 check-doc:  (docs '')
@@ -207,10 +199,6 @@ fmt-sql:
 # Reformat all Cargo.toml files using cargo-sort
 fmt-toml *args: (cargo-install 'cargo-sort')
     cargo sort --workspace --order package,lib,bin,bench,features,dependencies,build-dependencies,dev-dependencies {{args}}
-
-# Get all testable features of the main crate as space-separated list
-get-features:
-    cargo metadata --format-version=1 --no-deps --manifest-path Cargo.toml | jq -r '.packages[] | select(.name == "{{main_crate}}") | .features | keys[] | select(. != "default")' | tr '\n' ' '
 
 # Do any git command, ensuring that the testing environment is set up. Accepts the same arguments as git.
 [no-exit-message]
