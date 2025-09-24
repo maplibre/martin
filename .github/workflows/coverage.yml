@@ -23,6 +23,9 @@ jobs:
       AWS_SKIP_CREDENTIALS: 1
       AWS_REGION: eu-central-1
     steps:
+      - run: rustup update stable && rustup default stable
+      - uses: taiki-e/install-action@cc60de1d6831d7e9c4342f618ce7a5d6a9f223a4 # v2.61.6
+        with: { tool: 'just' }
       - name: Set up system dependencies
         run: sudo apt-get update && sudo apt-get install -y gdal-bin sqlite3-tools postgresql-client
       - name: Install dependencies for rendering
