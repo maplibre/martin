@@ -317,14 +317,18 @@ mod tests {
     #[tokio::test]
     async fn test_sprites() {
         let mut sprites = SpriteSources::default();
-        sprites.add_source(
-            "src1".to_string(),
-            PathBuf::from("../tests/fixtures/sprites/src1"),
-        ).unwrap();
-        sprites.add_source(
-            "src2".to_string(),
-            PathBuf::from("../tests/fixtures/sprites/src2"),
-        ).unwrap();
+        sprites
+            .add_source(
+                "src1".to_string(),
+                PathBuf::from("../tests/fixtures/sprites/src1"),
+            )
+            .unwrap();
+        sprites
+            .add_source(
+                "src2".to_string(),
+                PathBuf::from("../tests/fixtures/sprites/src2"),
+            )
+            .unwrap();
 
         assert_eq!(sprites.0.len(), 2);
 
