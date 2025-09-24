@@ -2,10 +2,12 @@ use std::ffi::OsStr;
 use std::fs::File;
 use std::io::prelude::*;
 use std::path::Path;
+use std::sync::LazyLock;
 
 use futures::future::{BoxFuture, try_join_all};
 use log::{info, warn};
 use martin_core::cache::{CacheValue, MainCache, OptMainCache};
+use martin_core::config::IdResolver;
 #[cfg(any(feature = "fonts", feature = "postgres"))]
 use martin_core::config::OptOneMany;
 use martin_core::tiles::BoxedSource;
@@ -26,8 +28,7 @@ use crate::config::file::{
 };
 use crate::source::TileSources;
 use crate::srv::RESERVED_KEYWORDS;
-use crate::utils::{init_aws_lc_tls, parse_base_path};
-use crate::{IdResolver, MartinResult};
+use crate::{MartinError, MartinResult};
 
 pub struct ServerState {
     pub cache: OptMainCache,
@@ -269,4 +270,46 @@ where
 {
     subst::yaml::from_str(contents, env)
         .map_err(|e| ConfigFileError::ConfigParseError(e, file_name.into()))
+}
+
+pub fn parse_base_path(path: &str) -> MartinResult<String> {
+    if !path.starts_with('/') {
+        return Err(MartinError::BasePathError(path.to_string()));
+    }
+    if let Ok(uri) = path.parse::<actix_web::http::Uri>() {
+        return Ok(uri.path().trim_end_matches('/').to_string());
+    }
+    Err(MartinError::BasePathError(path.to_string()))
+}
+
+#[cfg(test)]
+pub mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_base_path() {
+        for (path, expected) in [
+            ("/", Some("")),
+            ("//", Some("")),
+            ("/foo/bar", Some("/foo/bar")),
+            ("/foo/bar/", Some("/foo/bar")),
+            ("", None),
+            ("foo/bar", None),
+        ] {
+            match expected {
+                Some(v) => assert_eq!(v, parse_base_path(path).unwrap()),
+                None => assert!(parse_base_path(path).is_err()),
+            }
+        }
+    }
+}
+
+pub fn init_aws_lc_tls() {
+    // https://github.com/rustls/rustls/issues/1877
+    static INIT_TLS: LazyLock<()> = LazyLock::new(|| {
+        rustls::crypto::aws_lc_rs::default_provider()
+            .install_default()
+            .expect("Unable to init rustls: {e:?}");
+    });
+    *INIT_TLS;
 }

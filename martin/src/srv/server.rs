@@ -15,14 +15,13 @@ use log::error;
 use martin_core::tiles::catalog::TileCatalog;
 use serde::{Deserialize, Serialize};
 
-use crate::MartinError;
-use crate::MartinResult;
 #[cfg(feature = "webui")]
 use crate::config::args::WebUiMode;
 use crate::config::file::ServerState;
 use crate::config::file::srv::{KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT, SrvConfig};
 use crate::srv::tiles::get_tile;
 use crate::srv::tiles_info::get_source_info;
+use crate::{MartinError, MartinResult};
 
 #[cfg(feature = "webui")]
 mod webui {

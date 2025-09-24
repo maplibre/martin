@@ -5,6 +5,7 @@ use std::sync::{Arc, Mutex};
 
 use log::warn;
 
+/// Resolver for transforming names into unique, non-reserved names
 #[derive(Debug, Default, Clone)]
 pub struct IdResolver {
     /// name -> unique name

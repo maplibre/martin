@@ -4,3 +4,6 @@ mod cfg_containers;
 pub mod env;
 
 pub use cfg_containers::*;
+
+mod id_resolver;
+pub use id_resolver::IdResolver;
