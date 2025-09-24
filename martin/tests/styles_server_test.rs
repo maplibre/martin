@@ -1,10 +1,11 @@
+#![cfg(feature = "styles")]
+
 use actix_web::http::header::CONTENT_TYPE;
 use actix_web::test::{TestRequest, call_service, read_body, read_body_json};
 use ctor::ctor;
 use indoc::indoc;
 use insta::assert_json_snapshot;
 use martin::config::file::srv::SrvConfig;
-use rstest::rstest;
 use serde_json::Value;
 
 pub mod utils;
@@ -82,9 +83,10 @@ async fn style_json_not_found() {
     assert_eq!(body, "No such style exists");
 }
 
-#[cfg(feature = "render-styles")]
+#[cfg(all(feature = "render-styles", target_os = "linux"))]
 mod render_tests {
     use super::*;
+    use rstest::rstest;
 
     #[rstest]
     #[case::single_style(CONFIG_STYLES, "/style/maplibre_demo/0/0/0.png")]
