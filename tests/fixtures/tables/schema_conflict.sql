@@ -49,7 +49,9 @@ CREATE TABLE schema_a.table_and_view_two_schemas (
 );
 
 INSERT INTO schema_a.table_and_view_two_schemas (a_info, a_geom)
-VALUES ('point_1', '0101000020E6100000EC3A2806EDDA61401C2041E87DDA2740');
+VALUES
+('point_1', GEOMFROMEWKT('SRID=4326;POINT(1 1)')),
+('point_2', GEOMFROMEWKT('SRID=4326;POINT(2 2)'));
 
 CREATE INDEX ON schema_a.table_and_view_two_schemas USING gist (a_geom);
 CLUSTER table_and_view_two_schemas_a_geom_idx ON schema_a.table_and_view_two_schemas;
