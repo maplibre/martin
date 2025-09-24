@@ -282,29 +282,7 @@ pub fn parse_base_path(path: &str) -> MartinResult<String> {
     Err(MartinError::BasePathError(path.to_string()))
 }
 
-#[cfg(test)]
-pub mod tests {
-    use super::*;
-
-    #[test]
-    fn test_parse_base_path() {
-        for (path, expected) in [
-            ("/", Some("")),
-            ("//", Some("")),
-            ("/foo/bar", Some("/foo/bar")),
-            ("/foo/bar/", Some("/foo/bar")),
-            ("", None),
-            ("foo/bar", None),
-        ] {
-            match expected {
-                Some(v) => assert_eq!(v, parse_base_path(path).unwrap()),
-                None => assert!(parse_base_path(path).is_err()),
-            }
-        }
-    }
-}
-
-pub fn init_aws_lc_tls() {
+fn init_aws_lc_tls() {
     // https://github.com/rustls/rustls/issues/1877
     static INIT_TLS: LazyLock<()> = LazyLock::new(|| {
         rustls::crypto::aws_lc_rs::default_provider()
@@ -312,4 +290,23 @@ pub fn init_aws_lc_tls() {
             .expect("Unable to init rustls: {e:?}");
     });
     *INIT_TLS;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_base_path_accepts_valid_paths() {
+        assert_eq!("", parse_base_path("/").unwrap());
+        assert_eq!("", parse_base_path("//").unwrap());
+        assert_eq!("/foo/bar", parse_base_path("/foo/bar").unwrap());
+        assert_eq!("/foo/bar", parse_base_path("/foo/bar/").unwrap());
+    }
+
+    #[test]
+    fn parse_base_path_rejects_invalid_paths() {
+        assert!(parse_base_path("").is_err());
+        assert!(parse_base_path("foo/bar").is_err());
+    }
 }
