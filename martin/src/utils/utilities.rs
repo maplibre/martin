@@ -3,18 +3,16 @@ use std::sync::LazyLock;
 use actix_web::http::Uri;
 
 use crate::MartinError::BasePathError;
-use crate::{MartinError, MartinResult};
+use crate::MartinResult;
 
-pub fn init_aws_lc_tls() -> MartinResult<()> {
+pub fn init_aws_lc_tls() {
     // https://github.com/rustls/rustls/issues/1877
-    static INIT_TLS: LazyLock<Result<(), String>> = LazyLock::new(|| {
+    static INIT_TLS: LazyLock<()> = LazyLock::new(|| {
         rustls::crypto::aws_lc_rs::default_provider()
             .install_default()
-            .map_err(|e| format!("Unable to init rustls: {e:?}"))
+            .expect("Unable to init rustls: {e:?}");
     });
-    (*INIT_TLS)
-        .clone()
-        .map_err(|e| MartinError::InternalError(e.into()))
+    *INIT_TLS;
 }
 
 pub fn parse_base_path(path: &str) -> MartinResult<String> {

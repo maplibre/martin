@@ -1,4 +1,3 @@
-use std::error::Error;
 use std::fmt::Write as _;
 use std::io;
 
@@ -62,16 +61,17 @@ pub enum MartinError {
     #[error(transparent)]
     SpriteError(#[from] martin_core::sprites::SpriteError),
 
-    #[cfg(feature = "fonts")]
-    #[error(transparent)]
-    FontError(#[from] martin_core::fonts::FontError),
-
     #[error(transparent)]
     WebError(#[from] actix_web::Error),
 
     #[error(transparent)]
     IoError(#[from] io::Error),
 
-    #[error("Internal error: {0}")]
-    InternalError(#[from] Box<dyn Error + Send + Sync>),
+    #[cfg(feature = "lambda")]
+    #[error(transparent)]
+    LambdaError(#[from] lambda_web::LambdaError),
+
+    #[cfg(feature = "metrics")]
+    #[error("could not initialize metrics: {0}")]
+    MetricsIntialisationError(#[source] Box<dyn std::error::Error>),
 }
