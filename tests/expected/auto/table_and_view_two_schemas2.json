@@ -1,9 +1,9 @@
 {
   "bounds": [
-    0.001274183277243222,
+    0.0012741832772432218,
     9.88181180915986e-05,
     0.0012921495829256121,
-    0.00011690550763257368
+    0.00011690550763257369
   ],
   "description": "schema_b.table_and_view_two_schemas.b_geom",
   "name": "table_and_view_two_schemas.1",
