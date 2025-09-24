@@ -344,9 +344,11 @@ jobs:
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-latest
     steps:
+      - run: rustup update stable && rustup default stable
+      - uses: taiki-e/install-action@cc60de1d6831d7e9c4342f618ce7a5d6a9f223a4 # v2.61.6
+        with: { tool: 'just' }
       - name: Checkout sources
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-      - run: rustup update stable && rustup default stable
       # the macOS x86 runners are 3x slower than all other runners.
       # We need to cache here to not spend 30 minutes on each build.
       # We cannot cache the others as well because we only have 10GB of cache
@@ -590,6 +592,8 @@ jobs:
           -c "exec docker-entrypoint.sh ${{ matrix.args }}"
     steps:
       - run: rustup update stable && rustup default stable
+      - uses: taiki-e/install-action@cc60de1d6831d7e9c4342f618ce7a5d6a9f223a4 # v2.61.6
+        with: { tool: 'just' }
       - name: Checkout sources
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       # cache for the unit-test to be run against postgres to be acceptably slow
