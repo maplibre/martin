@@ -6,8 +6,8 @@ pub mod config;
 mod source;
 pub use source::TileSources;
 
-mod utils;
-pub use utils::{IdResolver, MartinError, MartinResult};
+mod error;
+pub use error::{MartinError, MartinResult};
 
 pub mod srv;
 
