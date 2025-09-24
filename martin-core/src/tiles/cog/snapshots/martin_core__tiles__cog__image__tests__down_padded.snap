@@ -1,6 +1,5 @@
 ---
 source: martin-core/src/tiles/cog/image.rs
-assertion_line: 289
 expression: png_bytes
 extension: png
 snapshot_kind: binary
