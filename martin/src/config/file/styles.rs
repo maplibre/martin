@@ -76,9 +76,12 @@ impl StyleConfig {
         #[cfg(all(feature = "rendering", target_os = "linux"))]
         match cfg.custom.experimental_rendering {
             OptBoolObj::NoValue | OptBoolObj::Bool(false) => results.set_rendering_enabled(false),
-            OptBoolObj::Bool(true) => results.set_rendering_enabled(true),
-            OptBoolObj::Object(ref o) => {
-                results.set_rendering_enabled(o.enabled);
+            OptBoolObj::Object(ref o) if !o.enabled => results.set_rendering_enabled(false),
+            _ => {
+                warn!(
+                    "experimental feature rendering is enabled. Expect breaking changes in upcoming releases."
+                );
+                results.set_rendering_enabled(true);
             }
         }
 
