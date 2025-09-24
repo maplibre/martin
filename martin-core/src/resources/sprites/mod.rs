@@ -317,14 +317,14 @@ mod tests {
     #[tokio::test]
     async fn test_sprites() {
         let mut sprites = SpriteSources::default();
-        let _ = sprites.add_source(
+        sprites.add_source(
             "src1".to_string(),
             PathBuf::from("../tests/fixtures/sprites/src1"),
-        );
-        let _ = sprites.add_source(
+        ).unwrap();
+        sprites.add_source(
             "src2".to_string(),
             PathBuf::from("../tests/fixtures/sprites/src2"),
-        );
+        ).unwrap();
 
         assert_eq!(sprites.0.len(), 2);
 
@@ -365,4 +365,52 @@ mod tests {
         let png = sprites.encode_png().unwrap();
         insta::assert_binary_snapshot!(&format!("{filename}.png"), png);
     }
+}
+
+#[tokio::test]
+async fn test_directory_not_found() {
+    let mut sprites = SpriteSources::default();
+    let result = sprites.add_source("nothere".to_string(), PathBuf::from("/path/to/nowhere"));
+    assert!(matches!(result, Err(SpriteError::DirectoryNotFound(..))));
+}
+
+#[tokio::test]
+async fn test_not_a_directory() {
+    let mut sprites = SpriteSources::default();
+    let result = sprites.add_source(
+        "notadir".to_string(),
+        PathBuf::from("../tests/fixtures/sprites/notsrc2/ferris.png"),
+    );
+    assert!(matches!(result, Err(SpriteError::NotADirectory(..))));
+}
+
+#[tokio::test]
+async fn test_empty_directory() {
+    let sprites = SpriteSources::default();
+    let result = sprites
+        .validate_source_directory(&PathBuf::from("../tests/fixtures/sprites/notsrc1"))
+        .await;
+    assert!(matches!(result, Err(SpriteError::EmptyDirectory(..))));
+}
+
+#[tokio::test]
+async fn test_sprite_source_scan() {
+    use crate::sprites::SpriteSources;
+    let result =
+        SpriteSources::scan_directory_files(&PathBuf::from("../tests/fixtures/sprites/notsrc2"))
+            .await;
+    assert_eq!(result.as_ref().unwrap().0, 2);
+    assert_eq!(result.unwrap().1, 0);
+}
+
+#[tokio::test]
+async fn test_empty_file() {
+    use crate::sprites::SpriteSources;
+    let sprites = SpriteSources::default();
+    let result = SpriteSources::validate_svg_file(
+        &sprites,
+        &PathBuf::from("../tests/fixtures/sprites/notsrc2/notasprite.txt"),
+    )
+    .await;
+    assert!(matches!(result, Err(SpriteError::EmptyFile(..))));
 }
