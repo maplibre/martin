@@ -16,6 +16,8 @@ defaults:
 jobs:
   lint-unit-test-js:
     name: Lint and Unit test the frontend
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     steps:
       - uses: taiki-e/install-action@cc60de1d6831d7e9c4342f618ce7a5d6a9f223a4 # v2.61.6
@@ -27,6 +29,8 @@ jobs:
       - run: just type-check
   unit-test-rust:
     name: Unit test the server
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     env:
       PGDATABASE: test
@@ -77,6 +81,8 @@ jobs:
           AWS_REGION: eu-central-1
   lint-rust:
     name: Lint the Rust code
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     steps:
       - run: rustup update stable && rustup default stable
