@@ -42,7 +42,7 @@ impl ConfigExtras for InnerStyleConfig {
                     .iter()
                     .map(|k| format!("experimental_rendering.{k}")),
             ),
-        };
+        }
         keys
     }
 }

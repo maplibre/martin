@@ -133,10 +133,6 @@ impl StyleSources {
 
         use tokio::sync::oneshot;
 
-        if !self.rendering_enabled {
-            return Err(StyleError::RenderingIsDisabled);
-        }
-
         struct RenderRequest {
             style_path: PathBuf,
             coord: martin_tile_utils::TileCoord,
@@ -167,6 +163,10 @@ impl StyleSources {
 
             tx
         });
+
+        if !self.rendering_enabled {
+            return Err(StyleError::RenderingIsDisabled);
+        }
 
         let (response_tx, response_rx) = oneshot::channel();
         let request = RenderRequest {
