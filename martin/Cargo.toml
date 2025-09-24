@@ -88,7 +88,7 @@ default = [
     "metrics",
     "pmtiles",
     "postgres",
-    "render-styles",
+    "rendering",
     "sprites",
     "styles",
     "webui",
@@ -106,7 +106,7 @@ postgres = [
     "dep:postgis",
     "dep:postgres-protocol",
 ]
-render-styles = ["styles", "martin-core/render-styles"]
+rendering = ["styles", "martin-core/rendering"]
 sprites = ["martin-core/sprites"]
 styles = ["martin-core/styles", "dep:walkdir"]
 webui = ["dep:actix-web-static-files", "dep:static-files", "dep:walkdir"]

@@ -49,7 +49,7 @@ async fn get_style_json(path: Path<StyleRequest>, styles: Data<StyleSources>) ->
     }
 }
 
-#[cfg(all(feature = "render-styles", target_os = "linux"))]
+#[cfg(all(feature = "rendering", target_os = "linux"))]
 #[derive(Deserialize, Debug)]
 struct StyleRenderRequest {
     style_id: String,
@@ -58,7 +58,7 @@ struct StyleRenderRequest {
     y: u32,
 }
 
-#[cfg(all(feature = "render-styles", target_os = "linux"))]
+#[cfg(all(feature = "rendering", target_os = "linux"))]
 #[route("/style/{style_id}/{z}/{x}/{y}.png", method = "GET")]
 async fn get_style_rendered(
     path: Path<StyleRenderRequest>,

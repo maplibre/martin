@@ -19,7 +19,7 @@ use std::path::PathBuf;
 
 use dashmap::{DashMap, Entry};
 use log::{info, warn};
-#[cfg(all(feature = "render-styles", target_os = "linux"))]
+#[cfg(all(feature = "rendering", target_os = "linux"))]
 use maplibre_native::Image;
 use serde::{Deserialize, Serialize};
 
@@ -111,7 +111,7 @@ impl StyleSources {
     ///
     /// For now, we only use a static renderer which is optimized for our kind of usage
     /// In the future, we may consider adding support for smarter rendering including a pool of renderers.
-    #[cfg(all(feature = "render-styles", target_os = "linux"))]
+    #[cfg(all(feature = "rendering", target_os = "linux"))]
     pub async fn render(&self, path: &std::path::Path, zxy: martin_tile_utils::TileCoord) -> Image {
         use std::path::PathBuf;
         use std::sync::{LazyLock, mpsc};
@@ -168,9 +168,9 @@ impl StyleSources {
 mod tests {
     use std::path::Path;
 
-    #[cfg(all(feature = "render-styles", target_os = "linux"))]
+    #[cfg(all(feature = "rendering", target_os = "linux"))]
     use martin_tile_utils::TileCoord;
-    #[cfg(all(feature = "render-styles", target_os = "linux"))]
+    #[cfg(all(feature = "rendering", target_os = "linux"))]
     use rstest::rstest;
 
     use super::*;
@@ -233,7 +233,7 @@ mod tests {
         );
     }
 
-    #[cfg(all(feature = "render-styles", target_os = "linux"))]
+    #[cfg(all(feature = "rendering", target_os = "linux"))]
     #[rstest]
     #[case::maplibre_demo("maplibre_demo.json", (0, 0, 0))]
     #[case::maplibre_demo_zoom1("maplibre_demo.json", (1, 0, 0))]
@@ -262,7 +262,7 @@ mod tests {
         insta::assert_binary_snapshot!(&snapshot_name, image.as_slice().to_vec());
     }
 
-    #[cfg(all(feature = "render-styles", target_os = "linux"))]
+    #[cfg(all(feature = "rendering", target_os = "linux"))]
     #[tokio::test(flavor = "multi_thread")]
     async fn test_render_concurrent_requests_no_side_effects() {
         let style_dir = Path::new("../tests/fixtures/styles/");
