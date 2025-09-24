@@ -225,6 +225,7 @@ fonts:
 
 styles:
   experimental_rendering:
+    enabled: true
     warning: 'due to not expected'
   warning: 'due to not expected'
   sources:

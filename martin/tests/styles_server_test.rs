@@ -42,6 +42,7 @@ fn test_get(path: &str) -> TestRequest {
 
 const CONFIG_STYLES: &str = indoc! {"
         styles:
+            experimental_rendering: true
             sources:
                 maplibre_demo: ../tests/fixtures/styles/maplibre_demo.json
     "};

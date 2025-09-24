@@ -50,6 +50,9 @@ impl ConfigExtras for InnerStyleConfig {
 #[cfg(all(feature = "rendering", target_os = "linux"))]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct RendererConfig {
+    // Same effect as experimental_rendering: true|false shorthands
+    enabled: bool,
+
     #[serde(flatten, skip_serializing)]
     pub unrecognized: UnrecognizedValues,
 }
@@ -74,7 +77,9 @@ impl StyleConfig {
         match cfg.custom.experimental_rendering {
             OptBoolObj::NoValue | OptBoolObj::Bool(false) => results.set_rendering_enabled(false),
             OptBoolObj::Bool(true) => results.set_rendering_enabled(true),
-            OptBoolObj::Object(_) => {}
+            OptBoolObj::Object(ref o) => {
+                results.set_rendering_enabled(o.enabled);
+            }
         }
 
         let mut configs = BTreeMap::new();
