@@ -24,10 +24,10 @@ pub struct FunctionInfo {
     /// An integer specifying the maximum zoom level. MUST be >= minzoom
     pub maxzoom: Option<u8>,
 
-    /// The maximum extent of available map tiles. Bounds MUST define an area
-    /// covered by all zoom levels. The bounds are represented in WGS:84
-    /// latitude and longitude values, in the order left, bottom, right, top.
-    /// Values may be integers or floating point numbers.
+    /// The maximum extent of available map tiles.
+    ///
+    /// Bounds MUST define an area covered by all zoom levels.
+    /// The bounds are represented in WGS:84 latitude and longitude values, in the order left, bottom, right, top.
     pub bounds: Option<Bounds>,
 
     /// `TileJSON` provided by the SQL function comment. Not serialized.

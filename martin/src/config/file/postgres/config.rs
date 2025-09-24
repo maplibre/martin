@@ -430,7 +430,7 @@ mod tests {
                             geometry_column: "geom".to_string(),
                             minzoom: Some(0),
                             maxzoom: Some(30),
-                            bounds: Some([-180, -90, 180, 90].into()),
+                            bounds: Some(Bounds::MAX),
                             extent: Some(2048),
                             buffer: Some(10),
                             clip_geom: Some(false),
