@@ -60,7 +60,7 @@ pub struct CopierArgs {
     pub meta: MetaArgs,
     #[cfg(feature = "postgres")]
     #[command(flatten)]
-    pub pg: Option<martin::config::args::PgArgs>,
+    pub pg: Option<martin::config::args::PostgresArgs>,
 }
 
 #[serde_with::serde_as]
@@ -161,7 +161,7 @@ async fn start(copy_args: CopierArgs) -> MartinCpResult<()> {
     let save_config = copy_args.meta.save_config.clone();
     let mut config = if let Some(ref cfg_filename) = copy_args.meta.config {
         info!("Using {}", cfg_filename.display());
-        read_config(cfg_filename, &env)?
+        read_config(cfg_filename, &env).map_err(MartinError::from)?
     } else {
         info!("Config file is not specified, auto-detecting sources");
         Config::default()
@@ -181,7 +181,9 @@ async fn start(copy_args: CopierArgs) -> MartinCpResult<()> {
     let sources = config.resolve().await?;
 
     if let Some(file_name) = save_config {
-        config.save_to_file(file_name)?;
+        config
+            .save_to_file(file_name.as_path())
+            .map_err(MartinError::from)?;
     } else {
         info!("Use --save-config to save or print configuration.");
     }
@@ -276,7 +278,7 @@ impl Progress {
 
 type MartinCpResult<T> = Result<T, MartinCpError>;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(thiserror::Error, Debug)]
 enum MartinCpError {
     #[error(transparent)]
     Martin(#[from] MartinError),

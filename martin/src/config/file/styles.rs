@@ -5,9 +5,9 @@ use log::warn;
 use martin_core::styles::StyleSources;
 use serde::{Deserialize, Serialize};
 
-use crate::MartinResult;
 use crate::config::file::{
-    ConfigExtras, ConfigFileError, FileConfigEnum, UnrecognizedKeys, UnrecognizedValues,
+    ConfigExtras, ConfigFileError, ConfigFileResult, FileConfigEnum, UnrecognizedKeys,
+    UnrecognizedValues,
 };
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -25,7 +25,7 @@ impl ConfigExtras for InnerStyleConfig {
 pub type StyleConfig = FileConfigEnum<InnerStyleConfig>;
 
 impl StyleConfig {
-    pub fn resolve(&mut self) -> MartinResult<StyleSources> {
+    pub fn resolve(&mut self) -> ConfigFileResult<StyleSources> {
         let Some(cfg) = self.extract_file_config(None)? else {
             return Ok(StyleSources::default());
         };

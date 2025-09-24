@@ -1,7 +1,6 @@
 use std::error::Error;
 use std::fmt::Write as _;
 use std::io;
-use std::path::PathBuf;
 
 /// A convenience [`Result`] for Martin crate.
 pub type MartinResult<T> = Result<T, MartinError>;
@@ -32,31 +31,17 @@ pub enum MartinError {
     ConfigAndConnectionsError(Vec<String>),
 
     #[error("Unable to bind to {1}: {0}")]
-    BindingError(io::Error, String),
+    BindingError(#[source] io::Error, String),
 
     #[error("Base path must be a valid URL path, and must begin with a '/' symbol, but is '{0}'")]
     BasePathError(String),
-
-    #[error("Unable to load config file {1}: {0}")]
-    ConfigLoadError(io::Error, PathBuf),
-
-    #[error("Unable to parse config file {1}: {0}")]
-    ConfigParseError(subst::yaml::Error, PathBuf),
-
-    #[error("Unable to write config file {1}: {0}")]
-    ConfigWriteError(io::Error, PathBuf),
-
-    #[error(
-        "No tile sources found. Set sources by giving a database connection string on command line, env variable, or a config file."
-    )]
-    NoSources,
 
     #[error("Unrecognizable connection strings: {0:?}")]
     UnrecognizableConnections(Vec<String>),
 
     #[cfg(feature = "postgres")]
     #[error(transparent)]
-    PostgresError(#[from] martin_core::tiles::postgres::PgError),
+    PostgresError(#[from] martin_core::tiles::postgres::PostgresError),
 
     #[cfg(feature = "pmtiles")]
     #[error(transparent)]
