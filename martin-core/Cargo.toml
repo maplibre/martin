@@ -84,6 +84,7 @@ insta = { workspace = true, features = ["json", "yaml"] }
 rstest.workspace = true
 testcontainers-modules.workspace = true
 tokio.workspace = true
+futures.workspace = true
 
 [target.'cfg(target_os = "linux")'.dependencies]
 maplibre_native = { workspace = true, optional = true }
