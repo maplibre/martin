@@ -85,8 +85,9 @@ async fn style_json_not_found() {
 
 #[cfg(all(feature = "rendering", target_os = "linux"))]
 mod render_tests {
-    use super::*;
     use rstest::rstest;
+
+    use super::*;
 
     #[rstest]
     #[case::single_style(CONFIG_STYLES, "/style/maplibre_demo/0/0/0.png")]

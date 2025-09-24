@@ -23,6 +23,11 @@ use log::{info, warn};
 use maplibre_native::Image;
 use serde::{Deserialize, Serialize};
 
+#[cfg(all(feature = "rendering", target_os = "linux"))]
+mod error;
+#[cfg(all(feature = "rendering", target_os = "linux"))]
+pub use error::StyleError;
+
 /// Style metadata.
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CatalogStyleEntry {
@@ -35,7 +40,12 @@ pub type StyleCatalog = HashMap<String, CatalogStyleEntry>;
 
 /// Thread-safe style source manager.
 #[derive(Debug, Clone, Default)]
-pub struct StyleSources(DashMap<String, StyleSource>);
+pub struct StyleSources {
+    sources: DashMap<String, StyleSource>,
+    // if rendering is allowed
+    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    rendering_enabled: bool,
+}
 
 /// Style source file.
 #[derive(Clone, Debug)]
@@ -48,7 +58,7 @@ impl StyleSources {
     #[must_use]
     pub fn style_json_path(&self, style_id: &str) -> Option<PathBuf> {
         let style_id = style_id.trim_end_matches(".json").trim();
-        let item = self.0.get(style_id)?;
+        let item = self.sources.get(style_id)?;
         Some(item.path.clone())
     }
 
@@ -56,7 +66,7 @@ impl StyleSources {
     #[must_use]
     pub fn get_catalog(&self) -> StyleCatalog {
         let mut entries = StyleCatalog::new();
-        for source in &self.0 {
+        for source in &self.sources {
             entries.insert(
                 source.key().clone(),
                 CatalogStyleEntry {
@@ -71,7 +81,7 @@ impl StyleSources {
     pub fn add_style(&mut self, id: String, path: PathBuf) {
         debug_assert!(path.is_file());
         debug_assert!(!id.is_empty());
-        match self.0.entry(id) {
+        match self.sources.entry(id) {
             Entry::Occupied(v) => {
                 warn!(
                     "Ignoring duplicate style source {id} from {new_path} because it was already configured for {old_path}",
@@ -94,13 +104,13 @@ impl StyleSources {
     /// Returns the number of style sources.
     #[must_use]
     pub fn len(&self) -> usize {
-        self.0.len()
+        self.sources.len()
     }
 
     /// Returns true if the catalog is empty.
     #[must_use]
     pub fn is_empty(&self) -> bool {
-        self.0.is_empty()
+        self.sources.is_empty()
     }
 
     /// EXPERIMENTAL support for rendering styles.
@@ -112,12 +122,20 @@ impl StyleSources {
     /// For now, we only use a static renderer which is optimized for our kind of usage
     /// In the future, we may consider adding support for smarter rendering including a pool of renderers.
     #[cfg(all(feature = "rendering", target_os = "linux"))]
-    pub async fn render(&self, path: &std::path::Path, zxy: martin_tile_utils::TileCoord) -> Image {
+    pub async fn render(
+        &self,
+        path: &std::path::Path,
+        zxy: martin_tile_utils::TileCoord,
+    ) -> Result<Image, StyleError> {
         use std::path::PathBuf;
         use std::sync::{LazyLock, mpsc};
         use std::thread;
 
         use tokio::sync::oneshot;
+
+        if !self.rendering_enabled {
+            return Err(StyleError::RenderingIsDisabled);
+        }
 
         struct RenderRequest {
             style_path: PathBuf,
@@ -160,7 +178,13 @@ impl StyleSources {
         RENDER_ACTOR
             .send(request)
             .expect("Render actor should be alive");
-        response_rx.await.expect("Render actor should respond")
+        Ok(response_rx.await.expect("Render actor should respond"))
+    }
+
+    /// Enable or disable rendering.
+    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    pub fn set_rendering_enabled(&mut self, arg: bool) {
+        self.rendering_enabled = arg;
     }
 }
 
@@ -192,7 +216,7 @@ mod tests {
             "osm-liberty-lite".to_string(),
             style_dir.join("src2").join("osm-liberty-lite.json"),
         );
-        assert_eq!(styles.0.len(), 3);
+        assert_eq!(styles.sources.len(), 3);
 
         let catalog = styles.get_catalog();
 
@@ -248,7 +272,7 @@ mod tests {
         let styles = StyleSources::default();
 
         let coord = TileCoord { z, x, y };
-        let image = styles.render(&style_path, coord).await;
+        let image = styles.render(&style_path, coord).await.unwrap();
         assert!(!image.as_slice().is_empty());
 
         // Create a snapshot name based on the style and coordinates
@@ -284,7 +308,7 @@ mod tests {
 
         for (i, image) in results.iter().enumerate() {
             assert!(
-                !image.as_slice().is_empty(),
+                !image.as_ref().unwrap().as_slice().is_empty(),
                 "Concurrent request {i} should produce non-empty image"
             );
         }

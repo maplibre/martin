@@ -224,6 +224,8 @@ fonts:
   - tests/fixtures/fonts
 
 styles:
+  experimental_rendering:
+    warning: 'due to not expected'
   warning: 'due to not expected'
   sources:
     maplibre: tests/fixtures/styles/maplibre_demo.json

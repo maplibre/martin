@@ -64,6 +64,8 @@ async fn get_style_rendered(
     path: Path<StyleRenderRequest>,
     styles: Data<StyleSources>,
 ) -> HttpResponse {
+    use martin_core::styles::StyleError;
+
     let style_id = &path.style_id;
     let Some(style_path) = styles.style_json_path(style_id) else {
         return HttpResponse::NotFound()
@@ -81,7 +83,19 @@ async fn get_style_rendered(
     );
 
     let image = styles.render(&style_path, xyz).await;
-    HttpResponse::Ok()
-        .content_type(ContentType::png())
-        .body(image.as_slice().to_owned())
+    match image {
+        Ok(image) => HttpResponse::Ok()
+            .content_type(ContentType::png())
+            .body(image.as_slice().to_owned()),
+        Err(StyleError::RenderingIsDisabled) => {
+            log::warn!("Failed to render style {style_id} because rendering is disabled");
+
+            HttpResponse::Forbidden()
+                .content_type(ContentType::plaintext())
+                .body(format!("Failed to render style {style_id} at {xyz} is forbidden as rendering is disabled"))
+        }
+        Err(_) => HttpResponse::InternalServerError()
+            .content_type(ContentType::plaintext())
+            .body("Failed to render style"),
+    }
 }
