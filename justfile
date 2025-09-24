@@ -65,7 +65,7 @@ biomejs-martin-ui:
     npm run lint
 
 # Run integration tests and save its output as the new expected output (ordering is important)
-bless: restart clean-test bless-insta-martin bless-insta-mbtiles bless-frontend bless-int
+bless: restart clean-test bless-insta-martin bless-insta-martin-core bless-insta-mbtiles bless-frontend bless-int
 
 # Bless the frontend tests
 [working-directory: 'martin/martin-ui']
@@ -78,7 +78,11 @@ bless-insta-cp *args:  (cargo-install 'cargo-insta')
 
 # Run integration tests and save its output as the new expected output
 bless-insta-martin *args:  (cargo-install 'cargo-insta')
-    cargo insta test --accept -p martin {{args}}
+    cargo insta test --accept --bin martin {{args}}
+
+# Run integration tests and save its output as the new expected output
+bless-insta-martin-core *args:  (cargo-install 'cargo-insta')
+    cargo insta test --accept -p martin-core {{args}}
 
 # Run integration tests and save its output as the new expected output
 bless-insta-mbtiles *args:  (cargo-install 'cargo-insta')
