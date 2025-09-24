@@ -10,7 +10,8 @@ Install [Just](https://github.com/casey/just#readme):
 
 ```bash, ignore
 cargo install just --locked
-just validate-tools  # verify setup
+just install-dependencies # (Linux-only) install system dependencies for rendering styles
+just validate-tools       # verify setup
 ```
 
 ## Other Required tools
@@ -112,6 +113,7 @@ git push -u origin my-new-feature
 # Install tools
 cargo install just --locked
 just validate-tools
+just install-dependencies  # install system dependencies
 
 # Start development
 just start  # test database
@@ -122,9 +124,10 @@ just test   # verify setup
 ## Working with Just
 
 ```bash
-just help        # common commands
-just --list      # all commands
-just validate-tools  # check setup
+just help                 # common commands
+just --list               # all commands
+just validate-tools       # check setup
+just install-dependencies # install system dependencies
 ```
 
 ### Development workflow
@@ -137,6 +140,18 @@ just fmt         # format code
 just clippy      # lint code
 just book        # build documentation
 just stop        # stop test database
+```
+
+### System Dependencies for rendering styles
+
+> [!NOTE]
+> Rendering support is currently only available on Linux.
+
+Martin includes optional rendering support via [`maplibre-native`](https://github.com/maplibre/maplibre-native).
+To build with rendering features enabled (`feature="rendering"`), you need additional system dependencies:
+
+```bash
+just install-dependencies
 ```
 
 ### Pass arguments to commands

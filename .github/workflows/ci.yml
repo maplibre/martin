@@ -51,6 +51,9 @@ jobs:
         with: { tool: 'just,cargo-binstall' }
       - name: Checkout sources
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      - name: Install dependencies for rendering
+        if: runner.os == 'Linux'
+        run: just install-dependencies
       - uses: Swatinem/rust-cache@f13886b937689c021905a6b90929199931d60db1 # v2.8.1
         if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
       - run: just env-info
@@ -354,6 +357,9 @@ jobs:
       - name: Install NASM for rustls/aws-lc-rs on Windows
         if: runner.os == 'Windows'
         uses: ilammy/setup-nasm@72793074d3c8cdda771dba85f6deafe00623038b # v1.5.2
+      - name: Install dependencies for rendering (Linux)
+        if: runner.os == 'Linux'
+        run: just install-dependencies
       - name: Build (.deb)
         if: matrix.target == 'debian-x86_64'
         run: |
@@ -473,6 +479,16 @@ jobs:
       - name: Set up gdal-bin and sqlite3-tools
         if: matrix.os == 'ubuntu-latest'
         run: sudo apt-get update && sudo apt-get install -y gdal-bin sqlite3-tools
+      - name: Install dependencies for rendering (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get install -y \
+            mesa-vulkan-drivers glslang-dev \
+            build-essential \
+            libcurl4-openssl-dev \
+            libglfw3-dev \
+            libuv1-dev \
+            libz-dev
       - name: Integration Tests
         run: |
           export MARTIN_BUILD_ALL=-
@@ -601,6 +617,8 @@ jobs:
         with: { name: 'build-x86_64-unknown-linux-gnu', path: 'target_releases/' }
       - name: Set up gdal-bin and sqlite3-tools
         run: sudo apt update && sudo apt-get install -y gdal-bin sqlite3-tools
+      - name: Install dependencies for rendering
+        run: just install-dependencies
       - name: Integration Tests
         run: |
           if [[ "${{ matrix.sslmode }}" == "verify-ca" || "${{ matrix.sslmode }}" == "verify-full" ]]; then

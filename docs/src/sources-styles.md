@@ -21,4 +21,20 @@ A restart of Martin is required to see new styles.
 
 ### Server-side raster tile rendering
 
-TODO, document
+We support generating a rasterised image for an XYZ tile of a given style.
+
+> [!IMPORTANT]
+> Rendering support is currently only available on Linux.
+> To add support for macOS/Windows, please see <https://github.com/maplibre/maplibre-native-rs>.
+
+Use the `/style/<style_id>/{z}/{x}/{y}.png` API to get a `<style_id>`'s rendered png content.
+
+> [!WARNING]
+> This API is currently experimental and may change in the future.
+> Especially, the multi-threading model and caching strategy.
+> Currently, martin does not cache these requests and does not support concurrency for this feature.
+
+### Static image prepraration
+
+We currently do not have the same [capabilites as Tileserver-GL](https://tileserver.readthedocs.io/en/latest/endpoints.html#static-images) to layout images.
+We are working on adding this feature and are very open to contributions.
