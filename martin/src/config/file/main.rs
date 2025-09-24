@@ -155,7 +155,7 @@ impl Config {
     }
 
     pub async fn resolve(&mut self) -> MartinResult<ServerState> {
-        init_aws_lc_tls()?;
+        init_aws_lc_tls();
         let resolver = IdResolver::new(RESERVED_KEYWORDS);
         let cache_size = self.cache_size_mb.unwrap_or(512) * 1024 * 1024;
         let cache = if cache_size > 0 {

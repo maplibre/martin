@@ -419,7 +419,7 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()>
                         let data = tile.data;
                         tx.send(TileXyz { xyz, data })
                             .await
-                            .map_err(|e| MartinError::InternalError(e.into()))?;
+                            .expect("The receive half of the channel is not closed");
                         Ok(())
                     }
                 })
