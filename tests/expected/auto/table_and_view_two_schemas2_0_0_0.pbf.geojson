@@ -3,14 +3,29 @@
     {
       "geometry": {
         "coordinates": [
-          3673,
-          2185
+          2059,
+          2059
         ],
         "type": "Point"
       },
       "properties": {
         "b_id": 1,
         "b_info": "point_1",
+        "source_mvt_layer": "table_and_view_two_schemas.1"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          2071,
+          2071
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "b_id": 2,
+        "b_info": "point_2",
         "source_mvt_layer": "table_and_view_two_schemas.1"
       },
       "type": "Feature"
