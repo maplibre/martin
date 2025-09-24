@@ -284,7 +284,7 @@ TEST_OUT_DIR="${TEST_OUT_BASE_DIR}/${TEST_NAME}"
 mkdir -p "$TEST_OUT_DIR"
 
 
-ARG=(--default-srid 900913 --auto-bounds calc --save-config "${TEST_OUT_DIR}/save_config.yaml" tests/fixtures/mbtiles tests/fixtures/pmtiles tests/fixtures/cog "$STATICS_URL/webp2.pmtiles" s3://pmtilestest/cb_2018_us_zcta510_500k.pmtiles --sprite tests/fixtures/sprites/src1 --font tests/fixtures/fonts/overpass-mono-regular.ttf --font tests/fixtures/fonts --style tests/fixtures/styles/maplibre_demo.json --style tests/fixtures/styles/src2 )
+ARG=(--default-srid 900913 --auto-bounds calc --save-config "${TEST_OUT_DIR}/save_config.yaml" tests/fixtures/mbtiles tests/fixtures/pmtiles tests/fixtures/cog "$STATICS_URL/webp2.pmtiles" s3://pmtilestest/cb_2018_us_zcta510_500k.pmtiles --sprite tests/fixtures/sprites/src1 --font tests/fixtures/fonts/overpass-mono-regular.ttf --font tests/fixtures/fonts --style tests/fixtures/styles/maplibre_demo.json --style tests/fixtures/styles/src2 --tilejson-url-version-param version )
 export DATABASE_URL="$MARTIN_DATABASE_URL"
 
 set -x

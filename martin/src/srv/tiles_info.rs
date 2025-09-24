@@ -46,14 +46,24 @@ async fn get_source_info(
             .map_or_else(|| req.path().to_string(), |v| v.path().to_string())
     };
 
-    let versions = sources
-        .iter()
-        .filter_map(|s| s.get_version())
-        .collect::<Vec<_>>()
-        .join("-");
+    let version_param = &srv_config.tilejson_url_version_param;
+    let versions: Option<(&str, String)> = if let Some(v) = version_param {
+        let version_str = sources
+            .iter()
+            .filter_map(|s| s.get_version())
+            .collect::<Vec<_>>()
+            .join("-");
+        if version_str.is_empty() {
+            None
+        } else {
+            Some((v.as_str(), version_str))
+        }
+    } else {
+        None
+    };
     let query_string = req.query_string();
-    let query = (!versions.is_empty())
-        .then(|| Cow::Owned(format!("v={versions}")))
+    let query = versions
+        .map(|(k, v)| Cow::Owned(format!("{k}={v}")))
         .into_iter()
         .chain((!query_string.is_empty()).then_some(Cow::Borrowed(query_string)))
         .join("&");
