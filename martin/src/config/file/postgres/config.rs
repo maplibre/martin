@@ -106,8 +106,7 @@ impl ConfigExtras for PostgresCfgPublish {
             OptBoolObj::Object(o) => keys.extend(
                 o.get_unrecognized_keys()
                     .iter()
-                    .map(|k| format!("functions.{k}"))
-                    .collect::<UnrecognizedKeys>(),
+                    .map(|k| format!("functions.{k}")),
             ),
         }
         match &self.tables {
@@ -115,8 +114,7 @@ impl ConfigExtras for PostgresCfgPublish {
             OptBoolObj::Object(o) => keys.extend(
                 o.get_unrecognized_keys()
                     .iter()
-                    .map(|k| format!("tables.{k}"))
-                    .collect::<UnrecognizedKeys>(),
+                    .map(|k| format!("tables.{k}")),
             ),
         }
         keys
@@ -247,7 +245,7 @@ impl PostgresConfig {
 
 impl ConfigExtras for PostgresConfig {
     fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
-        let mut res = self
+        let mut keys = self
             .unrecognized
             .keys()
             .cloned()
@@ -256,7 +254,7 @@ impl ConfigExtras for PostgresConfig {
         if let Some(ref ts) = self.tables {
             for (k, v) in ts {
                 copy_unrecognized_keys_from_config(
-                    &mut res,
+                    &mut keys,
                     &format!("tables.{k}."),
                     &v.unrecognized,
                 );
@@ -265,14 +263,14 @@ impl ConfigExtras for PostgresConfig {
         if let Some(ref fs) = self.functions {
             for (k, v) in fs {
                 copy_unrecognized_keys_from_config(
-                    &mut res,
+                    &mut keys,
                     &format!("functions.{k}."),
                     &v.unrecognized,
                 );
             }
         }
 
-        res.extend(
+        keys.extend(
             self.ssl_certificates
                 .unrecognized
                 .keys()
@@ -281,15 +279,14 @@ impl ConfigExtras for PostgresConfig {
 
         match &self.auto_publish {
             OptBoolObj::NoValue | OptBoolObj::Bool(_) => {}
-            OptBoolObj::Object(o) => res.extend(
+            OptBoolObj::Object(o) => keys.extend(
                 o.get_unrecognized_keys()
                     .iter()
-                    .map(|k| format!("auto_publish.{k}"))
-                    .collect::<UnrecognizedKeys>(),
+                    .map(|k| format!("auto_publish.{k}")),
             ),
         }
 
-        res
+        keys
     }
 }
 
