@@ -35,7 +35,9 @@ pub struct SrvArgs {
     #[cfg(feature = "webui")]
     pub web_ui: Option<WebUiMode>,
     /// If set, the version of the tileset (as specified in the MBTiles or PMTiles metadata)
-    /// will be embedded in the TileJSON `tiles` URL, with the set identifier. For example
+    /// will be embedded in the TileJSON `tiles` URL, with the set identifier.
+    /// For example, if the value of this option is `version`, and the tileset version is `1.0.0`,
+    /// the TileJSON `tiles` URL will be like `.../{z}/{x}/{y}?version=1.0.0`.
     #[arg(long)]
     pub tilejson_url_version_param: Option<String>,
     /// Main cache size (in MB)

@@ -313,5 +313,5 @@ styles:
 # the setting here is `version`, and the PMTiles tileset version is `1.0.0`, the
 # TileJSON will be:
 # { ..., "tiles": [".../{z}/{x}/{y}?version=1.0.0"], ... }
-tilejson_url_version_param: null # any string appropriate for a URL. Will not be URL-encoded.
+tilejson_url_version_param: null # a string, such as `version` or `v`
 ```

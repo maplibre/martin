@@ -11,6 +11,7 @@ use itertools::Itertools as _;
 use martin_core::tiles::BoxedSource;
 use serde::Deserialize;
 use tilejson::{TileJSON, tilejson};
+use url::form_urlencoded;
 
 use crate::config::file::srv::SrvConfig;
 use crate::source::TileSources;
@@ -48,11 +49,17 @@ async fn get_source_info(
 
     let version_param = &srv_config.tilejson_url_version_param;
     let versions: Option<(&str, String)> = if let Some(v) = version_param {
-        let version_str = sources
-            .iter()
-            .filter_map(|s| s.get_version())
-            .collect::<Vec<_>>()
-            .join("-");
+        let version_str =
+            sources
+                .iter()
+                .filter_map(|s| s.get_version())
+                .fold(String::new(), |mut acc, ver| {
+                    if !acc.is_empty() {
+                        acc.push('-');
+                    }
+                    acc.push_str(&ver);
+                    acc
+                });
         if version_str.is_empty() {
             None
         } else {
@@ -62,11 +69,12 @@ async fn get_source_info(
         None
     };
     let query_string = req.query_string();
-    let query = versions
-        .map(|(k, v)| Cow::Owned(format!("{k}={v}")))
-        .into_iter()
-        .chain((!query_string.is_empty()).then_some(Cow::Borrowed(query_string)))
-        .join("&");
+    let mut query = form_urlencoded::Serializer::new(query_string.to_string());
+    if let Some((k, v)) = versions {
+        query.append_pair(k, &v);
+    }
+    let query = query.finish();
+
     let path_and_query = if query.is_empty() {
         format!("{tiles_path}/{{z}}/{{x}}/{{y}}")
     } else {
