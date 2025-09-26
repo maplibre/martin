@@ -248,11 +248,11 @@ impl<'a> DynTileSource<'a> {
                 }
             }
 
-            if tile.info.encoding == Encoding::Uncompressed {
-                if let Some(enc) = self.decide_encoding(accept_enc)? {
-                    // (re-)compress the tile into the preferred encoding
-                    tile = encode(tile, enc)?;
-                }
+            if tile.info.encoding == Encoding::Uncompressed
+                && let Some(enc) = self.decide_encoding(accept_enc)?
+            {
+                // (re-)compress the tile into the preferred encoding
+                tile = encode(tile, enc)?;
             }
 
             Ok(tile)
