@@ -56,7 +56,7 @@ itertools = "0.14"
 json-patch = "4"
 lambda-web = { version = "0.2.1", features = ["actix4"] }
 log = "0.4"
-maplibre_native = { git = "https://github.com/CommanderStorm/maplibre-native-rs.git", branch = "pool" }
+maplibre_native = "0.3.1"
 martin-core = { path = "./martin-core", version = "0.1.0", default-features = false }
 martin-tile-utils = { path = "./martin-tile-utils", version = "0.6.3" }
 mbtiles = { path = "./mbtiles", version = "0.13.0" }
