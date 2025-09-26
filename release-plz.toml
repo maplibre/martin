@@ -1,0 +1,24 @@
+[workspace]
+dependencies_update = true
+git_release_type = "auto"
+changelog_update = true
+release_always = false
+
+[[package]]
+name = "martin-core"
+
+[[package]]
+name = "martin-tile-utils"
+changelog_update = false
+git_release_enable = false
+
+[[package]]
+name = "martin"
+changelog_include = ["martin-tile-utils", "martin-core"]
+
+[[package]]
+name = "mbtiles"
+changelog_include = ["martin-tile-utils"]
+
+[changelog]
+protect_breaking_commits = true
