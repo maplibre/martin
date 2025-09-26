@@ -585,9 +585,13 @@ else
   echo "Skipping martin-cp tests"
 fi
 
-# redact unnecessary precision in save_config.yaml
 # If we don't do this, rounding differences on CI and local machines are a problem
-find ./tests/ -name "*_config.yaml" -type f -exec "$SED" --regexp-extended --in-place 's/(-?[0-9]+\.0*[1-9][0-9]{0,14})[0-9]+/\1/g' {} \;
+echo "::group::redact unnecessary precision in *_config.yaml"
+for file in $(find ./tests/ -name "*_config.yaml" -type f); do
+    echo "truncating floats in $file"
+    "$SED" --regexp-extended --in-place 's/(-?[0-9]+\.0*[1-9][0-9]{0,10})[0-9]+/\1/g' {} \; "$file"
+done
+echo "::endgroup::"
 
 if [[ "$MBTILES_BIN" != "-" ]]; then
   echo "::group::Test mbtiles utility"
