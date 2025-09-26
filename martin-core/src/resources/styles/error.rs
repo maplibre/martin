@@ -18,5 +18,5 @@ pub enum StyleError {
     /// Cannot render style
     #[cfg(all(feature = "rendering", target_os = "linux"))]
     #[error(transparent)]
-    RenderingError(#[from] maplibre_native::RenderingError),
+    RenderingPoolError(#[from] maplibre_native::SingleThreadedRenderPoolError),
 }

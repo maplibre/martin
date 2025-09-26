@@ -56,10 +56,19 @@ struct StyleRenderRequest {
     z: u8,
     x: u32,
     y: u32,
+    format: ImageFormatRequest,
 }
 
 #[cfg(all(feature = "rendering", target_os = "linux"))]
-#[route("/style/{style_id}/{z}/{x}/{y}.png", method = "GET")]
+#[derive(Deserialize, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+#[serde(rename_all = "lowercase")]
+enum ImageFormatRequest {
+    #[default]
+    Png,
+}
+
+#[cfg(all(feature = "rendering", target_os = "linux"))]
+#[route("/style/{style_id}/{z}/{x}/{y}.{format}", method = "GET")]
 async fn get_style_rendered(
     path: Path<StyleRenderRequest>,
     styles: Data<StyleSources>,
@@ -72,32 +81,37 @@ async fn get_style_rendered(
             .content_type(ContentType::plaintext())
             .body("No such style exists");
     };
-    let Some(xyz) = martin_tile_utils::TileCoord::new_checked(path.z, path.x, path.y) else {
+    let Some(zxy) = martin_tile_utils::TileCoord::new_checked(path.z, path.x, path.y) else {
         return HttpResponse::BadRequest()
             .content_type(ContentType::plaintext())
             .body("Invalid tile coordinates for zoom level");
     };
     log::trace!(
-        "Rendering style {style_id} ({}) at {xyz}",
+        "Rendering style {style_id} ({}) at {zxy}",
         style_path.display()
     );
 
-    let image = styles.render(&style_path, xyz).await;
-    match image {
-        Ok(image) => HttpResponse::Ok()
-            .content_type(ContentType::png())
-            .body(image.as_bytes().to_owned()),
+    let image = styles.render(style_path, zxy.z, zxy.x, zxy.y).await;
+    let image = match image {
+        Ok(image) => image,
         Err(StyleError::RenderingIsDisabled) => {
             log::warn!("Failed to render style {style_id} because rendering is disabled");
-            HttpResponse::Forbidden()
+            return HttpResponse::Forbidden()
                 .content_type(ContentType::plaintext())
-                .body(format!("Failed to render style {style_id} at {xyz} is forbidden as rendering is disabled"))
+                .body(format!("Failed to render style {style_id} at {zxy} is forbidden as rendering is disabled"));
         }
         Err(e) => {
-            error!("Failed to render style {style_id} at {xyz}: {e}");
-            HttpResponse::InternalServerError()
+            error!("Failed to render style {style_id} at {zxy}: {e}");
+            return HttpResponse::InternalServerError()
                 .content_type(ContentType::plaintext())
-                .body("Failed to render style")
+                .body("Failed to render style");
         }
+    };
+    
+    // Re-encode to target forat
+    match path.format {
+        ImageFormatRequest::Png => HttpResponse::Ok()
+            .content_type(ContentType::png())
+            .body(image.as_bytes().to_owned()),
     }
 }

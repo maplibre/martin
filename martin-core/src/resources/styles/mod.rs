@@ -122,75 +122,14 @@ impl StyleSources {
     /// For now, we only use a static renderer which is optimized for our kind of usage
     /// In the future, we may consider adding support for smarter rendering including a pool of renderers.
     #[cfg(all(feature = "rendering", target_os = "linux"))]
-    pub async fn render(
-        &self,
-        path: &std::path::Path,
-        zxy: martin_tile_utils::TileCoord,
-    ) -> Result<Image, StyleError> {
-        use std::path::PathBuf;
-        use std::sync::{LazyLock, mpsc};
-        use std::thread;
-
-        use tokio::sync::oneshot;
-
-        struct RenderRequest {
-            style_path: PathBuf,
-            coord: martin_tile_utils::TileCoord,
-            response: oneshot::Sender<Result<Image, StyleError>>,
-        }
-
-        static RENDER_ACTOR: LazyLock<mpsc::Sender<RenderRequest>> = LazyLock::new(|| {
-            let (tx, rx) = mpsc::channel::<RenderRequest>();
-
-            thread::spawn(move || {
-                let mut renderer =
-                    maplibre_native::ImageRendererOptions::new().build_tile_renderer();
-                let mut current_path = None;
-
-                while let Ok(request) = rx.recv() {
-                    // Switching styles, even if this were a no-op takes 250ms
-                    if current_path.as_ref() != Some(&request.style_path) {
-                        if let Err(e) = renderer.load_style_from_path(request.style_path.as_path())
-                        {
-                            request
-                                .response
-                                .send(Err(StyleError::IoError(e, request.style_path.clone())))
-                                .expect("channel can receive the io error");
-                            continue;
-                        };
-
-                        current_path = Some(request.style_path.clone());
-                    }
-                    // TODO: if the style on disk is changed, we need to reload it via `load_style_from_path`
-
-                    let image = renderer
-                        .render_tile(request.coord.z, request.coord.x, request.coord.y)
-                        .map_err(StyleError::RenderingError);
-                    request
-                        .response
-                        .send(image)
-                        .expect("channel can receive the rendered image");
-                }
-            });
-
-            tx
-        });
-
+    pub async fn render(&self, path: PathBuf, z: u8, x: u32, y: u32) -> Result<Image, StyleError> {
         if !self.rendering_enabled {
             return Err(StyleError::RenderingIsDisabled);
         }
 
-        let (response_tx, response_rx) = oneshot::channel();
-        let request = RenderRequest {
-            style_path: path.to_path_buf(),
-            coord: zxy,
-            response: response_tx,
-        };
-
-        RENDER_ACTOR
-            .send(request)
-            .expect("Render actor should be alive");
-        let image = response_rx.await.expect("Render actor should respond")?;
+        let image = maplibre_native::SingleThreadedRenderPool::global_pool()
+            .render_tile(path, z, x, y)
+            .await?;
         Ok(image)
     }
 
@@ -284,8 +223,7 @@ mod tests {
         let style_path = style_dir.join(style_file);
         let styles = StyleSources::default();
 
-        let coord = TileCoord { z, x, y };
-        let image = styles.render(&style_path, coord).await.unwrap();
+        let image = styles.render(style_path, z, x, y).await.unwrap();
         assert!(!image.as_bytes().is_empty());
 
         // Create a snapshot name based on the style and coordinates
@@ -315,7 +253,7 @@ mod tests {
 
         let futures = coords
             .iter()
-            .map(|&coord| styles.render(&style_path, coord));
+            .map(|&coord| styles.render(style_path.clone(), coord.z, coord.x, coord.y));
 
         let results = futures::future::join_all(futures).await;
 
