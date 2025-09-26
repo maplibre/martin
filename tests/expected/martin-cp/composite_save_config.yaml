@@ -52,7 +52,7 @@ postgres:
       bounds:
       - -166.87107126230
       - -53.44747249115
-      - 168.14061220360
+      - 168.140612203609
       - 84.22411861475
       geometry_type: POINT
       properties:
@@ -67,7 +67,7 @@ postgres:
       - -174.89475564568
       - -77.25797453968
       - 174.72753224514
-      - 73.80785950599
+      - 73.8078595099903
       geometry_type: POINT
       properties:
         big_feat_id: int8
@@ -79,9 +79,9 @@ postgres:
       geometry_column: geom
       bounds:
       - -179.27313970132
-      - -67.52518563265
+      - -67.525185632659
       - 162.60117193735
-      - 84.93092095128
+      - 84.9309209512937
       geometry_type: POINT
       properties:
         gid: int4
@@ -92,9 +92,9 @@ postgres:
       geometry_column: geom
       bounds:
       - -179.27313970132
-      - -67.52518563265
+      - -67.525185632659
       - 162.60117193735
-      - 84.93092095128
+      - 84.9309209512937
       geometry_type: POINT
       properties:
         gid: int4
@@ -139,7 +139,7 @@ postgres:
       geometry_column: geom
       bounds:
       - -162.35196679784
-      - -84.49919770031
+      - -84.4991977003191
       - 178.47294677445
       - 82.70000124504
       geometry_type: GEOMETRY
@@ -152,7 +152,7 @@ postgres:
       geometry_column: a_geom
       bounds:
       - 0.0012741832772
-      - 0.000098818118091
+      - 0.000098818118091986
       - 0.0012921495829
       - 0.00011690550763
       geometry_type: GEOMETRY
@@ -166,7 +166,7 @@ postgres:
       geometry_column: b_geom
       bounds:
       - 0.0012741832772
-      - 0.000098818118091
+      - 0.000098818118091986
       - 0.0012921495829
       - 0.00011690550763
       geometry_type: GEOMETRY
@@ -179,9 +179,9 @@ postgres:
       srid: 4326
       geometry_column: a_geom
       bounds:
-      - 142.84094409430
-      - 11.92674184603
-      - 142.84143360001
+      - 142.8409440943955
+      - 11.9267418460398
+      - 142.8414336000997
       - 11.92737034856
       geometry_type: POINT
       properties:
@@ -259,9 +259,9 @@ postgres:
       srid: 4326
       geometry_column: a_geom
       bounds:
-      - 142.84094409430
-      - 11.92674184603
-      - 142.84143360001
+      - 142.8409440943955
+      - 11.9267418460398
+      - 142.8414336000997
       - 11.92737034856
       geometry_type: POINT
       properties:
