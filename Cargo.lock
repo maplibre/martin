@@ -3611,7 +3611,7 @@ checksum = "112b39cec0b298b6c1999fee3e31427f74f676e4cb9879ed1a121b43661a4154"
 
 [[package]]
 name = "martin"
-version = "0.19.0"
+version = "0.18.1"
 dependencies = [
  "actix-cors",
  "actix-http",
@@ -3732,7 +3732,7 @@ dependencies = [
 
 [[package]]
 name = "mbtiles"
-version = "0.13.0"
+version = "0.12.2"
 dependencies = [
  "actix-rt",
  "anyhow",

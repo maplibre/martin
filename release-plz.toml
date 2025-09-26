@@ -14,11 +14,11 @@ git_release_enable = false
 
 [[package]]
 name = "martin"
-changelog_include = ["martin-tile-utils", "martin-core"]
+changelog_include = ["martin", "martin-core", "martin-tile-utils", "mbtiles"]
 
 [[package]]
 name = "mbtiles"
-changelog_include = ["martin-tile-utils"]
+changelog_include = ["martin-tile-utils", "mbtiles"]
 
 [changelog]
 protect_breaking_commits = true
