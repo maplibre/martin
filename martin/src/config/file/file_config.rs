@@ -10,9 +10,7 @@ use martin_core::tiles::BoxedSource;
 use serde::{Deserialize, Serialize};
 use url::Url;
 
-use crate::config::file::ConfigFileError::{
-    InvalidFilePath, InvalidSourceFilePath, InvalidSourceUrl, IoError,
-};
+use crate::config::file::ConfigFileError::{InvalidFilePath, InvalidSourceUrl, IoError};
 use crate::utils::IdResolver;
 use crate::{MartinError, MartinResult};
 
@@ -274,15 +272,7 @@ async fn resolve_int<T: SourceConfigExtras>(
             } else {
                 let can = source.abs_path()?;
                 if !can.is_file() {
-<<<<<<< HEAD:martin/src/file_config.rs
                     log::warn!("The file: {} does not exist", can.display());
-=======
-                    // todo: maybe warn instead?
-                    return Err(MartinError::ConfigFileError(InvalidSourceFilePath(
-                        id.to_string(),
-                        can,
-                    )));
->>>>>>> 6e870e510725064267cadda415ff4a55fdbe115f:martin/src/config/file/file_config.rs
                 }
 
                 let dup = !files.insert(can.clone());
