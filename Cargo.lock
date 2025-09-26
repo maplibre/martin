@@ -567,9 +567,9 @@ dependencies = [
 
 [[package]]
 name = "aws-lc-sys"
-version = "0.32.0"
+version = "0.32.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ee74396bee4da70c2e27cf94762714c911725efe69d9e2672f998512a67a4ce4"
+checksum = "1ba2e2516bdf37af57fc6ff047855f54abad0066e5c4fdaaeb76dabb2e05bcf5"
 dependencies = [
  "bindgen",
  "cc",
@@ -830,7 +830,7 @@ dependencies = [
  "rustls-native-certs 0.8.1",
  "rustls-pki-types",
  "tokio",
- "tokio-rustls 0.26.3",
+ "tokio-rustls 0.26.4",
  "tower 0.5.2",
  "tracing",
 ]
@@ -2984,7 +2984,7 @@ dependencies = [
  "rustls-native-certs 0.8.1",
  "rustls-pki-types",
  "tokio",
- "tokio-rustls 0.26.3",
+ "tokio-rustls 0.26.4",
  "tower-service",
  "webpki-roots 1.0.2",
 ]
@@ -3611,7 +3611,7 @@ checksum = "112b39cec0b298b6c1999fee3e31427f74f676e4cb9879ed1a121b43661a4154"
 
 [[package]]
 name = "martin"
-version = "0.18.1"
+version = "0.19.0"
 dependencies = [
  "actix-cors",
  "actix-http",
@@ -3704,7 +3704,7 @@ dependencies = [
 
 [[package]]
 name = "martin-tile-utils"
-version = "0.6.3"
+version = "0.6.4"
 dependencies = [
  "approx",
  "brotli 8.0.2",
@@ -3732,7 +3732,7 @@ dependencies = [
 
 [[package]]
 name = "mbtiles"
-version = "0.12.2"
+version = "0.13.0"
 dependencies = [
  "actix-rt",
  "anyhow",
@@ -5157,7 +5157,7 @@ dependencies = [
  "serde_urlencoded",
  "sync_wrapper",
  "tokio",
- "tokio-rustls 0.26.3",
+ "tokio-rustls 0.26.4",
  "tokio-util",
  "tower 0.5.2",
  "tower-http",
@@ -6363,9 +6363,9 @@ dependencies = [
 
 [[package]]
 name = "sysinfo"
-version = "0.37.0"
+version = "0.37.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "07cec4dc2d2e357ca1e610cfb07de2fa7a10fc3e9fe89f72545f3d244ea87753"
+checksum = "3bddd368fda2f82ead69c03d46d351987cfa0c2a57abfa37a017f3aa3e9bf69a"
 dependencies = [
  "libc",
  "memchr",
@@ -6705,7 +6705,7 @@ dependencies = [
  "rustls 0.23.32",
  "tokio",
  "tokio-postgres",
- "tokio-rustls 0.26.3",
+ "tokio-rustls 0.26.4",
  "x509-cert",
 ]
 
@@ -6721,9 +6721,9 @@ dependencies = [
 
 [[package]]
 name = "tokio-rustls"
-version = "0.26.3"
+version = "0.26.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "05f63835928ca123f1bef57abbcd23bb2ba0ac9ae1235f1e65bda0d06e7786bd"
+checksum = "1729aa945f29d91ba541258c8df89027d5792d85a8841fb65e8bf0f4ede4ef61"
 dependencies = [
  "rustls 0.23.32",
  "tokio",
