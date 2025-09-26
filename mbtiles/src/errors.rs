@@ -5,13 +5,23 @@ use sqlite_hashes::rusqlite;
 
 use crate::{AGG_TILES_HASH, AGG_TILES_HASH_AFTER_APPLY, AGG_TILES_HASH_BEFORE_APPLY, MbtType};
 
+#[non_exhaustive]
 #[derive(thiserror::Error, Debug)]
 pub enum MbtError {
     #[error("The source and destination MBTiles files are the same: {0}")]
     SameSourceAndDestination(PathBuf),
 
-    #[error("The diff file and source or destination MBTiles files are the same: {0}")]
-    SameDiffAndSourceOrDestination(PathBuf),
+    #[error("The diff file and source MBTiles files are the same: {0}")]
+    SameDiffAndSource(PathBuf),
+
+    #[error("The diff file and destination MBTiles files are the same: {0}")]
+    SameDiffAndDestination(PathBuf),
+
+    #[error("The patch file and source MBTiles files are the same: {0}")]
+    SamePatchAndSource(PathBuf),
+
+    #[error("The patch file and destination MBTiles files are the same: {0}")]
+    SamePatchAndDestination(PathBuf),
 
     #[error(transparent)]
     SqlxError(#[from] sqlx::Error),

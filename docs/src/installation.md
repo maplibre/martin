@@ -13,7 +13,7 @@ export PGPASSWORD=postgres  # secret!
 
 docker run -p 3000:3000 \
            -e PGPASSWORD \
-           -e DATABASE_URL=postgresql://user@host:port/db \
+           -e DATABASE_URL=postgres://user@host:port/db \
            -v /path/to/config/dir:/config \
            ghcr.io/maplibre/martin --config /config/config.yaml
 ```

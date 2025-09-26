@@ -13,9 +13,8 @@ updates:
         patterns: [ '*' ]
     cooldown:
       default-days: 3
-      semver-major-days: 3
-      semver-minor-days: 3
-      semver-patch-days: 3
+      # no semver support for github-actions
+      # => no specific configuration for this
       include:
         - "*"
 
@@ -32,10 +31,10 @@ updates:
         applies-to: security-updates
         patterns: [ '*' ]
     cooldown:
-      default-days: 3
-      semver-major-days: 3
-      semver-minor-days: 3
-      semver-patch-days: 3
+      default-days: 4
+      semver-major-days: 4
+      semver-minor-days: 2
+      semver-patch-days: 2
       include:
         - "*"
 
@@ -77,9 +76,9 @@ updates:
         applies-to: security-updates
         patterns: [ '*' ]
     cooldown:
-      default-days: 3
-      semver-major-days: 3
-      semver-minor-days: 3
-      semver-patch-days: 3
+      default-days: 4
+      semver-major-days: 4
+      semver-minor-days: 2
+      semver-patch-days: 2
       include:
         - "*"

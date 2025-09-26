@@ -8,7 +8,7 @@ This will enable debug logging for all modules:
 
 ```bash
 export RUST_LOG=debug
-martin postgresql://postgres@localhost/db
+martin postgres://postgres@localhost/db
 ```
 
 While this will only enable verbose logging for the `actix_web` module and enable debug logging for the `martin`
@@ -16,5 +16,5 @@ and `tokio_postgres` modules:
 
 ```bash
 export RUST_LOG=actix_web=info,martin=debug,tokio_postgres=debug
-martin postgresql://postgres@localhost/db
+martin postgres://postgres@localhost/db
 ```
