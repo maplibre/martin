@@ -126,7 +126,7 @@ pub fn router(cfg: &mut web::ServiceConfig, #[allow(unused_variables)] usr_cfg: 
     cfg.service(crate::srv::fonts::get_font);
 
     #[cfg(all(feature = "rendering", target_os = "linux"))]
-    cfg.service(crate::srv::styles::get_style_rendered);
+    cfg.service(crate::srv::styles_rendering::get_style_rendered);
 
     #[cfg(feature = "styles")]
     cfg.service(crate::srv::styles::get_style_json);
