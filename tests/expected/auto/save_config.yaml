@@ -10,7 +10,7 @@ postgres:
       srid: 4326
       geometry_column: . ' \ \' \" "Geom"
       bounds:
-      - -170.9498463900 # truncated to 10 digits
+      - -170.94984639 # truncated to 10 digits
       - -84.2002558073 # truncated to 10 digits
       - 167.7089285828 # truncated to 10 digits
       - 74.2357328475 # truncated to 10 digits
@@ -24,7 +24,7 @@ postgres:
       srid: 4326
       geometry_column: Geom
       bounds:
-      - -170.9498463900 # truncated to 10 digits
+      - -170.94984639 # truncated to 10 digits
       - -84.2002558073 # truncated to 10 digits
       - 167.7089285828 # truncated to 10 digits
       - 74.2357328475 # truncated to 10 digits
@@ -119,7 +119,7 @@ postgres:
       geometry_column: geom
       bounds:
       - -161.4059077755 # truncated to 10 digits
-      - -81.5072702160 # truncated to 10 digits
+      - -81.507270216 # truncated to 10 digits
       - 172.5154912676 # truncated to 10 digits
       - 84.2440187164 # truncated to 10 digits
       geometry_type: POINT
@@ -142,7 +142,7 @@ postgres:
       - -162.3519667978 # truncated to 10 digits
       - -84.4991977003 # truncated to 10 digits
       - 178.4729467744 # truncated to 10 digits
-      - 82.7000012450 # truncated to 10 digits
+      - 82.700001245 # truncated to 10 digits
       geometry_type: GEOMETRY
       properties:
         gid: int4
@@ -181,8 +181,8 @@ postgres:
       geometry_column: a_geom
       bounds:
       - 142.8409440943 # truncated to 10 digits
-      - 11.9267418460 # truncated to 10 digits
-      - 142.8414336000 # truncated to 10 digits
+      - 11.926741846 # truncated to 10 digits
+      - 142.8414336 # truncated to 10 digits
       - 11.9273703485 # truncated to 10 digits
       geometry_type: POINT
       properties:
@@ -234,7 +234,7 @@ postgres:
       srid: 4326
       geometry_column: geom1
       bounds:
-      - -136.6207604970 # truncated to 10 digits
+      - -136.620760497 # truncated to 10 digits
       - -78.3350299285 # truncated to 10 digits
       - 176.5629774349 # truncated to 10 digits
       - 75.7873106595 # truncated to 10 digits
@@ -247,7 +247,7 @@ postgres:
       srid: 4326
       geometry_column: geom2
       bounds:
-      - -136.6207604970 # truncated to 10 digits
+      - -136.620760497 # truncated to 10 digits
       - -78.3350299285 # truncated to 10 digits
       - 176.5629774349 # truncated to 10 digits
       - 75.7873106595 # truncated to 10 digits
@@ -261,8 +261,8 @@ postgres:
       geometry_column: a_geom
       bounds:
       - 142.8409440943 # truncated to 10 digits
-      - 11.9267418460 # truncated to 10 digits
-      - 142.8414336000 # truncated to 10 digits
+      - 11.926741846 # truncated to 10 digits
+      - 142.8414336 # truncated to 10 digits
       - 11.9273703485 # truncated to 10 digits
       geometry_type: POINT
       properties:

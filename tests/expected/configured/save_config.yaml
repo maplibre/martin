@@ -31,7 +31,7 @@ postgres:
       geometry_column: Geom
       id_column: giD
       bounds:
-      - -170.9498463900 # truncated to 10 digits
+      - -170.94984639 # truncated to 10 digits
       - -84.2002558073 # truncated to 10 digits
       - 167.7089285828 # truncated to 10 digits
       - 74.2357328475 # truncated to 10 digits
