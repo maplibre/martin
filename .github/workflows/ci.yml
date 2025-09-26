@@ -133,7 +133,7 @@ jobs:
         uses: mlugg/setup-zig@8d6198c65fb0feaa111df26e6b467fea8345e46f # v2.0.5
         with: { version: '0.15.1' }
       - uses: taiki-e/install-action@cc60de1d6831d7e9c4342f618ce7a5d6a9f223a4 # v2.61.6
-        with: { tool: cargo-zigbuild,just }
+        with: { tool: 'cargo-zigbuild,just' }
       - name: Install dependencies for rendering
         run: just install-dependencies
 
