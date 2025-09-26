@@ -589,6 +589,9 @@ else
   echo "Skipping martin-cp tests"
 fi
 
+# redact unnecessary precision in save_config.yaml
+# If we don't do this, rounding differences on CI and local machines are a problem
+find . -name "*_config.yaml" -type f -exec "$SED" --regexp-extended --in-place 's/(-?[0-9]+\.0*[1-9][0-9]{0,14})[0-9]+/\1/g' {} \;
 
 echo "------------------------------------------------------------------------------------------------------------------------"
 echo "Test mbtiles utility"
