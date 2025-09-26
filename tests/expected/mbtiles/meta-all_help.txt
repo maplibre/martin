@@ -1,4 +1,5 @@
-Prints all values in the metadata table in a free-style, unstable YAML format
+Prints all values in the metadata table in a free-style, unstable YAML
+format
 
 Usage: mbtiles meta-all <FILE>
 

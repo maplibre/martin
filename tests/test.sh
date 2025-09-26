@@ -589,7 +589,7 @@ fi
 echo "::group::redact unnecessary precision in *_config.yaml"
 for file in $(find ./tests/ -name "*_config.yaml" -type f); do
     echo "truncating floats in $file"
-    "$SED" --regexp-extended --in-place 's/(-?[0-9]+\.0*[1-9][0-9]{0,10})[0-8]+/\1/g' "$file"
+    "$SED" --regexp-extended --in-place 's/(-?[0-9]+\.0*[1-9][0-9]{0,9})[0-9]+/\1/g' "$file"
 done
 echo "::endgroup::"
 

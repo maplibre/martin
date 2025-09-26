@@ -31,10 +31,10 @@ postgres:
       geometry_column: Geom
       id_column: giD
       bounds:
-      - -170.94984639004
-      - -84.20025580733
-      - 167.70892858284
-      - 74.23573284753
+      - -170.9498463900
+      - -84.2002558073
+      - 167.7089285828
+      - 74.2357328475
       geometry_type: POINT
       properties:
         taBLe: text
@@ -45,10 +45,10 @@ postgres:
       geometry_column: geom
       id_column: feat_id
       bounds:
-      - -166.87107126230
-      - -53.44747249115
-      - 168.140612203609
-      - 84.22411861475
+      - -166.8710712623
+      - -53.4474724911
+      - 168.1406122036
+      - 84.2241186147
       extent: 9000
       buffer: 3
       clip_geom: false
@@ -62,10 +62,10 @@ postgres:
       geometry_column: geom
       id_column: big_feat_id
       bounds:
-      - -174.89475564568
-      - -77.25797453968
-      - 174.72753224514
-      - 73.8078595099903
+      - -174.8947556456
+      - -77.2579745396
+      - 174.7275322451
+      - 73.8078595059
       extent: 9000
       buffer: 3
       clip_geom: false
