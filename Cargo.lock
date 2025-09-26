@@ -3768,16 +3768,19 @@ checksum = "112b39cec0b298b6c1999fee3e31427f74f676e4cb9879ed1a121b43661a4154"
 
 [[package]]
 name = "maplibre_native"
-version = "0.2.0"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c2edb0140a7d54a94063c3d7b009f716fb1e0ff896177a52ae815f44d73f1261"
+checksum = "ea9bee75f9e7ddc756f5f18a7a6bacfdfb89e8d361425ef4f94feb7cbaced54e"
 dependencies = [
  "cmake",
  "cxx",
  "cxx-build",
  "downloader",
  "flate2",
+ "log",
  "tar",
+ "thiserror 2.0.16",
+ "url",
  "walkdir",
 ]
 

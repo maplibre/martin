@@ -86,16 +86,18 @@ async fn get_style_rendered(
     match image {
         Ok(image) => HttpResponse::Ok()
             .content_type(ContentType::png())
-            .body(image.as_slice().to_owned()),
+            .body(image.as_bytes().to_owned()),
         Err(StyleError::RenderingIsDisabled) => {
             log::warn!("Failed to render style {style_id} because rendering is disabled");
-
             HttpResponse::Forbidden()
                 .content_type(ContentType::plaintext())
                 .body(format!("Failed to render style {style_id} at {xyz} is forbidden as rendering is disabled"))
         }
-        Err(_) => HttpResponse::InternalServerError()
-            .content_type(ContentType::plaintext())
-            .body("Failed to render style"),
+        Err(e) => {
+            error!("Failed to render style {style_id} at {xyz}: {e}");
+            HttpResponse::InternalServerError()
+                .content_type(ContentType::plaintext())
+                .body("Failed to render style")
+        }
     }
 }

@@ -136,7 +136,7 @@ impl StyleSources {
         struct RenderRequest {
             style_path: PathBuf,
             coord: martin_tile_utils::TileCoord,
-            response: oneshot::Sender<Image>,
+            response: oneshot::Sender<Result<Image, StyleError>>,
         }
 
         static RENDER_ACTOR: LazyLock<mpsc::Sender<RenderRequest>> = LazyLock::new(|| {
@@ -150,14 +150,26 @@ impl StyleSources {
                 while let Ok(request) = rx.recv() {
                     // Switching styles, even if this were a no-op takes 250ms
                     if current_path.as_ref() != Some(&request.style_path) {
-                        renderer.load_style_from_path(request.style_path.as_path());
+                        if let Err(e) = renderer.load_style_from_path(request.style_path.as_path())
+                        {
+                            request
+                                .response
+                                .send(Err(StyleError::IoError(e, request.style_path.clone())))
+                                .expect("channel can receive the io error");
+                            continue;
+                        };
+
                         current_path = Some(request.style_path.clone());
                     }
                     // TODO: if the style on disk is changed, we need to reload it via `load_style_from_path`
 
-                    let image =
-                        renderer.render_tile(request.coord.z, request.coord.x, request.coord.y);
-                    let _ = request.response.send(image);
+                    let image = renderer
+                        .render_tile(request.coord.z, request.coord.x, request.coord.y)
+                        .map_err(StyleError::RenderingError);
+                    request
+                        .response
+                        .send(image)
+                        .expect("channel can receive the rendered image");
                 }
             });
 
@@ -178,7 +190,8 @@ impl StyleSources {
         RENDER_ACTOR
             .send(request)
             .expect("Render actor should be alive");
-        Ok(response_rx.await.expect("Render actor should respond"))
+        let image = response_rx.await.expect("Render actor should respond")?;
+        Ok(image)
     }
 
     /// Enable or disable rendering.
@@ -273,7 +286,7 @@ mod tests {
 
         let coord = TileCoord { z, x, y };
         let image = styles.render(&style_path, coord).await.unwrap();
-        assert!(!image.as_slice().is_empty());
+        assert!(!image.as_bytes().is_empty());
 
         // Create a snapshot name based on the style and coordinates
         let snapshot_name = format!(
@@ -283,7 +296,7 @@ mod tests {
             x,
             y
         );
-        insta::assert_binary_snapshot!(&snapshot_name, image.as_slice().to_vec());
+        insta::assert_binary_snapshot!(&snapshot_name, image.as_bytes().to_vec());
     }
 
     #[cfg(all(feature = "rendering", target_os = "linux"))]
@@ -308,7 +321,7 @@ mod tests {
 
         for (i, image) in results.iter().enumerate() {
             assert!(
-                !image.as_ref().unwrap().as_slice().is_empty(),
+                !image.as_ref().unwrap().as_bytes().is_empty(),
                 "Concurrent request {i} should produce non-empty image"
             );
         }
