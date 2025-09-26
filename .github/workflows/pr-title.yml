@@ -11,7 +11,7 @@ on:
 
 jobs:
   pr-title:
-    name: Validate PR title
+    name: Validate PR title follows https://conventionalcommits.org
     runs-on: ubuntu-latest
     permissions:
       pull-requests: read
