@@ -11,9 +11,7 @@ use martin_core::tiles::BoxedSource;
 use serde::{Deserialize, Serialize};
 use url::Url;
 
-use crate::config::file::ConfigFileError::{
-    InvalidFilePath, InvalidSourceFilePath, InvalidSourceUrl, IoError,
-};
+use crate::config::file::ConfigFileError::{InvalidFilePath, InvalidSourceUrl, IoError};
 
 use crate::{MartinError, MartinResult};
 
