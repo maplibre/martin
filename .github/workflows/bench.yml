@@ -23,16 +23,11 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
+      - run: rustup update stable && rustup default stable
+      - uses: taiki-e/install-action@cc60de1d6831d7e9c4342f618ce7a5d6a9f223a4 # v2.61.6
+        with: { tool: 'just' }
       - name: Install dependencies for rendering
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            mesa-vulkan-drivers glslang-dev \
-            build-essential \
-            libcurl4-openssl-dev \
-            libglfw3-dev \
-            libuv1-dev \
-            libz-dev
+        run: just install-dependencies
 
       - name: Check benchmark
         run: cargo bench
