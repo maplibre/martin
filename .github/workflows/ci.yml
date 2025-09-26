@@ -686,6 +686,18 @@ jobs:
             target/test_logs/*
           retention-days: 5
 
+  test-publish:
+    name: Test publishing via cargo-publish
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+      - run: rustup update stable && rustup default stable
+      - name: Checkout sources
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      - name: Test packaging
+        run: cargo publish --workspace --dry-run
+
   package:
     name: Package
     runs-on: ubuntu-latest
@@ -695,7 +707,7 @@ jobs:
       attestations: write
       # for writing release artifacts
       contents: write
-    needs: [ lint-unit-test-js, unit-test-rust, lint-rust, test-multi-os, test-with-svc, test-aws-lambda ]
+    needs: [ lint-unit-test-js, unit-test-rust, lint-rust, test-multi-os, test-with-svc, test-aws-lambda, test-publish ]
     steps:
       - name: Checkout sources
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
@@ -842,10 +854,10 @@ jobs:
 
   # Release unpublished packages or create a PR with changes
   release-plz:
-    needs: [ ci-passed ]
+    needs: [ done ]
     if: |
       always()
-      && needs.ci-passed.result == 'success'
+      && needs.done.result == 'success'
       && github.event_name == 'push'
       && github.ref == 'refs/heads/main'
       && github.repository_owner == 'maplibre'
