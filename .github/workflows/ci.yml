@@ -62,9 +62,9 @@ jobs:
           postgis/postgis:16-3.5
           -c "exec docker-entrypoint.sh postgres -c ssl=on -c ssl_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem -c ssl_key_file=/etc/ssl/private/ssl-cert-snakeoil.key"
     steps:
-      - run: rustup update stable && rustup default stable
       - name: Checkout sources
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      - run: rustup update stable && rustup default stable
       - uses: taiki-e/install-action@cc60de1d6831d7e9c4342f618ce7a5d6a9f223a4 # v2.61.6
         with: { tool: 'just' }
       - name: Install dependencies for rendering
@@ -93,6 +93,8 @@ jobs:
       contents: read
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout sources
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       - run: rustup update stable && rustup default stable
       - run: rustup component add clippy rustfmt
       - uses: taiki-e/install-action@cc60de1d6831d7e9c4342f618ce7a5d6a9f223a4 # v2.61.6
@@ -101,8 +103,6 @@ jobs:
       - name: Install dependencies for rendering
         run: just install-dependencies
 
-      - name: Checkout sources
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       - uses: Swatinem/rust-cache@f13886b937689c021905a6b90929199931d60db1 # v2.8.1
         if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
 
@@ -124,6 +124,9 @@ jobs:
           - target: aarch64-unknown-linux-musl
           - target: x86_64-unknown-linux-musl
     steps:
+      - name: Checkout sources
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with: { set-safe-directory: false }
       - run: rustup update stable && rustup default stable
       - run: rustup target add ${{ matrix.target }}
       - name: Install zig
@@ -133,9 +136,6 @@ jobs:
         with: { tool: cargo-zigbuild,just }
       - name: Install dependencies for rendering
         run: just install-dependencies
-      - name: Checkout sources
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-        with: { set-safe-directory: false }
 
       - name: Build ${{ matrix.target }}
         run: |
@@ -376,6 +376,8 @@ jobs:
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-latest
     steps:
+      - name: Checkout sources
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       - run: rustup update stable && rustup default stable
       - uses: taiki-e/install-action@cc60de1d6831d7e9c4342f618ce7a5d6a9f223a4 # v2.61.6
         with: { tool: 'just' }
@@ -390,8 +392,6 @@ jobs:
       - name: Install dependencies for rendering (Linux)
         if: runner.os == 'Linux'
         run: just install-dependencies
-      - name: Checkout sources
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
       - run: just env-info
       - name: Build (.deb)
@@ -464,6 +464,15 @@ jobs:
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-latest
     steps:
+      - name: Checkout sources
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      - name: Set up gdal-bin and sqlite3-tools
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y gdal-bin sqlite3-tools
+      - name: Install dependencies for rendering (Linux)
+        if: runner.os == 'Linux'
+        run: just install-dependencies
+
       - name: Install and run Postgis (Windows)
         if: matrix.os == 'windows-latest'
         uses: nyurik/action-setup-postgis@5183a5e26ade31809faed263cd4d638e144fe186 # v2.2
@@ -497,15 +506,6 @@ jobs:
         uses: nyurik/action-setup-nginx@612ee9cb839ad727832cda16359452e7e14dd521 # v1.1
         id: nginx
         with: { port: '5412', output-unix-paths: 'yes' }
-
-      - name: Set up gdal-bin and sqlite3-tools
-        if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y gdal-bin sqlite3-tools
-      - name: Install dependencies for rendering (Linux)
-        if: runner.os == 'Linux'
-        run: just install-dependencies
-      - name: Checkout sources
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
       - name: Init database
         env:
@@ -626,11 +626,11 @@ jobs:
           postgis/postgis:${{ matrix.img_ver }}
           -c "exec docker-entrypoint.sh ${{ matrix.args }}"
     steps:
+      - name: Checkout sources
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       - run: rustup update stable && rustup default stable
       - uses: taiki-e/install-action@cc60de1d6831d7e9c4342f618ce7a5d6a9f223a4 # v2.61.6
         with: { tool: 'just' }
-      - name: Checkout sources
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       # cache for the unit-test to be run against postgres to be acceptably slow
       - uses: Swatinem/rust-cache@f13886b937689c021905a6b90929199931d60db1 # v2.8.1
         if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
