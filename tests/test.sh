@@ -596,6 +596,14 @@ for file in $(find ./tests/ -name "*.json" -type f); do
     echo "truncating floats in $file"
     # Use jq to truncate floating point numbers to 10 decimal places
     jq --sort-keys 'walk(if type == "number" then (. * 10000000000 | round | . / 10000000000) else . end)' "$file" > "$file.tmp"
+
+    # update headers if content changed
+    if ! cmp -s "$file" "$file.tmp"; then
+        if [[ -f "$file.headers" ]]; then
+            "$SED" --regexp-extended --in-place 's/^etag: .*/etag: "unstable due to floating-point rounding"/g' "$file.headers"
+        fi
+    fi
+
     mv "$file.tmp" "$file"
 done
 echo "::endgroup::"
