@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.1.0](https://github.com/maplibre/martin/releases/tag/martin-core-v0.1.0) - 2025-09-26
 
+This marks the v0.1 relese, where we moved over the largest part of the previous `martin` crate.
+The motivation for this split is mostly to be able to not couple the SemVer promise for `martin` and `martin-core`, i.e. just because something gets refactored in `martin`, `martin-core` has a breaking release without breakage.
+
 ### Other
 
 - *(release)* bump pmtiles ([#2232](https://github.com/maplibre/martin/pull/2232))
