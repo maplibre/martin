@@ -2,6 +2,7 @@
 dependencies_update = true
 git_release_type = "auto"
 changelog_update = true
+release_always = false
 
 [[package]]
 name = "martin-core"
