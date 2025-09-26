@@ -14,8 +14,25 @@ defaults:
     shell: bash
 
 jobs:
-  lint-debug-test:
-    name: Lint and Unit test
+  lint-unit-test-js:
+    name: Lint and Unit test the frontend
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      - uses: taiki-e/install-action@cc60de1d6831d7e9c4342f618ce7a5d6a9f223a4 # v2.61.6
+        with: { tool: 'just' }
+      - run: npm install
+        working-directory: martin/martin-ui
+      - run: just biomejs-martin-ui
+      - run: just test-frontend
+      - run: just type-check
+  unit-test-rust:
+    name: Unit test the server
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     env:
       PGDATABASE: test
@@ -46,29 +63,10 @@ jobs:
           -c "exec docker-entrypoint.sh postgres -c ssl=on -c ssl_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem -c ssl_key_file=/etc/ssl/private/ssl-cert-snakeoil.key"
     steps:
       - run: rustup update stable && rustup default stable
-      - uses: taiki-e/install-action@cc60de1d6831d7e9c4342f618ce7a5d6a9f223a4 # v2.61.6
-        # TODO: add cargo-sort once https://github.com/taiki-e/install-action/pull/997 is resolved
-        with: { tool: 'just,cargo-binstall' }
       - name: Checkout sources
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       - name: Install dependencies for rendering
-        if: runner.os == 'Linux'
         run: just install-dependencies
-      - uses: Swatinem/rust-cache@f13886b937689c021905a6b90929199931d60db1 # v2.8.1
-        if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
-      - run: just env-info
-      - run: just test-fmt
-      - run: npm install
-        working-directory: martin/martin-ui
-      - run: just biomejs-martin-ui
-      - run: just test-frontend
-      - run: just type-check
-      - run: just clippy
-      - run: just check
-      - run: just check-doc
-      - name: Check semver
-        uses: obi1kenobi/cargo-semver-checks-action@5b298c9520f7096a4683c0bd981a7ac5a7e249ae # v2.8
-        with: { exclude: martin-core }
       - name: Init database
         run: tests/fixtures/initdb.sh
         env:
@@ -85,6 +83,31 @@ jobs:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=require
           AWS_SKIP_CREDENTIALS: 1
           AWS_REGION: eu-central-1
+  lint-rust:
+    name: Lint the Rust code
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+      - run: rustup update stable && rustup default stable
+      - run: rustup component add clippy rustfmt
+      - name: Install dependencies for rendering
+        run: just install-dependencies
+      - name: Checkout sources
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      - uses: taiki-e/install-action@cc60de1d6831d7e9c4342f618ce7a5d6a9f223a4 # v2.61.6
+        # TODO: add cargo-sort once https://github.com/taiki-e/install-action/pull/997 is resolved
+        with: { tool: 'just,cargo-binstall' }
+      - uses: Swatinem/rust-cache@f13886b937689c021905a6b90929199931d60db1 # v2.8.1
+        if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
+      - run: just env-info
+      - run: just test-fmt
+      - run: just clippy
+      - run: just check
+      - run: just check-doc
+      - name: Check semver
+        uses: obi1kenobi/cargo-semver-checks-action@5b298c9520f7096a4683c0bd981a7ac5a7e249ae # v2.8
+        with: { exclude: martin-core }
   musl-build:
     name: Build ${{ matrix.target }}
     runs-on: ubuntu-latest
@@ -124,7 +147,7 @@ jobs:
   docker-build-test:
     name: Build and test docker images
     runs-on: ubuntu-latest
-    needs: [ musl-build, lint-debug-test ]
+    needs: [ musl-build, lint-unit-test-js, unit-test-rust, lint-rust ]
     permissions:
       id-token: write
       attestations: write
@@ -435,6 +458,10 @@ jobs:
         uses: nyurik/action-setup-postgis@5183a5e26ade31809faed263cd4d638e144fe186 # v2.2
         id: pg
         with: { username: 'postgres', password: 'postgres', database: 'test', postgres-version: 16, port: 34837, postgis_version: 3.5.2 }
+      - name: Install and run Postgis (Macos)
+        if: matrix.os == 'macos-13'
+        uses: nyurik/action-setup-postgis@5183a5e26ade31809faed263cd4d638e144fe186 # v2.2
+        with: { username: 'postgres', password: 'postgres', database: 'test', postgres-version: 16, port: 34837, postgis_version: 3.5.2 }
       - name: Install and run Postgis (Ubuntu)
         if: matrix.os == 'ubuntu-latest'
         run: |
@@ -691,7 +718,7 @@ jobs:
       attestations: write
       # for writing release artifacts
       contents: write
-    needs: [ lint-debug-test, test-multi-os, test-with-svc, test-aws-lambda ]
+    needs: [ lint-unit-test-js, unit-test-rust, lint-rust, test-multi-os, test-with-svc, test-aws-lambda ]
     steps:
       - name: Checkout sources
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0

@@ -4,7 +4,7 @@ use std::time::Duration;
 use futures::future::try_join;
 use futures::pin_mut;
 use log::warn;
-use martin_core::config::{OptBoolObj, OptOneMany};
+use martin_core::config::{IdResolver, OptBoolObj, OptOneMany};
 use martin_core::tiles::BoxedSource;
 use serde::{Deserialize, Serialize};
 use tilejson::TileJSON;
@@ -18,7 +18,6 @@ use crate::config::file::{
     ConfigExtras, ConfigFileError, ConfigFileResult, UnrecognizedKeys, UnrecognizedValues,
     copy_unrecognized_keys_from_config,
 };
-use crate::utils::IdResolver;
 
 pub trait PostgresInfo {
     fn format_id(&self) -> String;

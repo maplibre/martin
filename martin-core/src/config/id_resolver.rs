@@ -5,6 +5,7 @@ use std::sync::{Arc, Mutex};
 
 use log::warn;
 
+/// Resolver for transforming names into unique, non-reserved names
 #[derive(Debug, Default, Clone)]
 pub struct IdResolver {
     /// name -> unique name
@@ -33,7 +34,7 @@ impl IdResolver {
     ///
     /// ```
     /// let reserved = &["catalog"];
-    /// let r = martin::IdResolver::new(reserved);
+    /// let r = martin_core::config::IdResolver::new(reserved);
     ///
     /// // catalog is a reserved name => needs renaming
     /// assert_eq!(r.resolve("catalog", "catalog1".to_string()), "catalog.1");
