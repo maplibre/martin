@@ -138,8 +138,14 @@ coverage *args='--no-clean --open':  (cargo-install 'cargo-llvm-cov') clean star
     source <(cargo llvm-cov show-env --export-prefix)
     cargo llvm-cov clean --workspace
 
+    echo "::group::Unit tests"
     {{just_executable()}} test-cargo --all-targets
+    echo "::endgroup::"
+
+    # echo "::group::Documentation tests"
     # {{just_executable()}} test-doc <- deliberately disabled until --doctest for cargo-llvm-cov does not hang indefinitely
+    # echo "::endgroup::"
+
     {{just_executable()}} test-int
 
     cargo llvm-cov report {{args}}
@@ -343,6 +349,10 @@ test-int: clean-test install-sqlx
         if ! diff --brief --recursive --new-file --exclude='*.pbf' tests/output tests/expected; then
             echo "** Expected output does not match actual output"
             echo "** If this is expected, run 'just bless' to update expected output"
+            echo ""
+            echo "::group::Resulting diff (max 100 lines)"
+            diff --recursive --new-file --exclude='*.pbf' tests/output tests/expected | head -n 100
+            echo "::endgroup::"
             exit 1
         else
             echo "** Expected output matches actual output"

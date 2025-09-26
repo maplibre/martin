@@ -181,25 +181,6 @@ impl PostgresConfig {
     }
 
     pub fn finalize(&mut self, prefix: &str) -> ConfigFileResult<UnrecognizedKeys> {
-        let mut res = UnrecognizedKeys::new();
-        if let Some(ref ts) = self.tables {
-            for (k, v) in ts {
-                copy_unrecognized_keys_from_config(
-                    &mut res,
-                    &format!("tables.{k}."),
-                    &v.unrecognized,
-                );
-            }
-        }
-        if let Some(ref fs) = self.functions {
-            for (k, v) in fs {
-                copy_unrecognized_keys_from_config(
-                    &mut res,
-                    &format!("functions.{k}."),
-                    &v.unrecognized,
-                );
-            }
-        }
         if self.tables.is_none() && self.functions.is_none() && self.auto_publish.is_none() {
             self.auto_publish = OptBoolObj::Bool(true);
         }
@@ -207,7 +188,7 @@ impl PostgresConfig {
         self.validate()?;
         Ok(self
             .get_unrecognized_keys()
-            .iter()
+            .into_iter()
             .map(|k| format!("{prefix}{k}"))
             .collect())
     }
