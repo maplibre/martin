@@ -1,6 +1,6 @@
 [package]
 name = "martin"
-version = "0.18.1"
+version = "0.19.0"
 authors = [
     "Stepan Kuzmin <to.stepan.kuzmin@gmail.com>",
     "Yuri Astrakhan <YuriAstrakhan@gmail.com>",
@@ -23,12 +23,36 @@ maintainer = "Yuri Astrakhan <YuriAstrakhan@gmail.com>, Stepan Kuzmin <to.stepan
 maintainer-scripts = "../debian"
 depends = "$auto"
 assets = [
-    ["target/release/martin", "/usr/bin/martin", "755"],
-    ["target/release/martin-cp", "/usr/bin/martin-cp", "755"],
-    ["target/release/mbtiles", "/usr/bin/mbtiles", "755"],
-    ["../README.md", "/usr/share/doc/martin/README.md", "644"],
-    ["../debian/config.yaml", "/usr/share/doc/martin/config.yaml", "644"],
-    ["../debian/config.yaml", "/usr/local/etc/martin/config.yaml", "644"],
+    [
+    "target/release/martin",
+    "/usr/bin/martin",
+    "755",
+  ],
+    [
+    "target/release/martin-cp",
+    "/usr/bin/martin-cp",
+    "755",
+  ],
+    [
+    "target/release/mbtiles",
+    "/usr/bin/mbtiles",
+    "755",
+  ],
+    [
+    "../README.md",
+    "/usr/share/doc/martin/README.md",
+    "644",
+  ],
+    [
+    "../debian/config.yaml",
+    "/usr/share/doc/martin/config.yaml",
+    "644",
+  ],
+    [
+    "../debian/config.yaml",
+    "/usr/local/etc/martin/config.yaml",
+    "644",
+  ],
 ]
 
 # see https://github.com/kornelski/cargo-deb/blob/main/systemd.md#packagemetadatadebsystemd-units-options
@@ -52,7 +76,7 @@ path = "src/bin/martin-cp.rs"
 required-features = ["mbtiles"]
 
 [[bench]]
-name = "bench"
+name = "sources"
 harness = false
 
 [features]
@@ -68,27 +92,21 @@ default = [
     "styles",
     "webui",
 ]
-cog = ["dep:png", "dep:tiff"]
-fonts = ["dep:bit-set", "dep:pbf_font_tools", "dep:regex"]
+cog = ["martin-core/cog"]
+fonts = ["martin-core/fonts"]
 lambda = ["dep:lambda-web"]
-mbtiles = ["dep:mbtiles"]
+mbtiles = ["martin-core/mbtiles"]
 metrics = ["dep:actix-web-prom"]
-pmtiles = ["dep:aws-config", "dep:pmtiles"]
+pmtiles = ["martin-core/pmtiles"]
 postgres = [
-    "dep:deadpool-postgres",
+    "martin-core/postgres",
     "dep:enum-display",
     "dep:json-patch",
     "dep:postgis",
-    "dep:postgres",
     "dep:postgres-protocol",
-    "dep:regex",
-    "dep:rustls-native-certs",
-    "dep:rustls-pemfile",
-    "dep:semver",
-    "dep:tokio-postgres-rustls",
 ]
-sprites = ["dep:spreet", "tokio/fs"]
-styles = ["dep:walkdir", "tokio/fs"]
+sprites = ["martin-core/sprites"]
+styles = ["martin-core/styles", "dep:walkdir"]
 webui = ["dep:actix-web-static-files", "dep:static-files", "dep:walkdir"]
 
 [dependencies]
@@ -100,11 +118,8 @@ actix-web.workspace = true
 actix-web-prom = { workspace = true, optional = true }
 actix-web-static-files = { workspace = true, optional = true }
 async-trait.workspace = true
-aws-config = { workspace = true, optional = true }
-bit-set = { workspace = true, optional = true }
 clap.workspace = true
 dashmap.workspace = true
-deadpool-postgres = { workspace = true, optional = true }
 enum-display = { workspace = true, optional = true }
 env_logger.workspace = true
 futures.workspace = true
@@ -112,33 +127,23 @@ itertools.workspace = true
 json-patch = { workspace = true, optional = true }
 lambda-web = { workspace = true, optional = true }
 log.workspace = true
+martin-core.workspace = true
 martin-tile-utils.workspace = true
-mbtiles = { workspace = true, optional = true }
-moka.workspace = true
+mbtiles.workspace = true
 num_cpus.workspace = true
-pbf_font_tools = { workspace = true, optional = true }
-pmtiles = { workspace = true, optional = true }
-png = { workspace = true, optional = true }
 postgis = { workspace = true, optional = true }
-postgres = { workspace = true, optional = true }
 postgres-protocol = { workspace = true, optional = true }
-regex = { workspace = true, optional = true }
 rustls.workspace = true
-rustls-native-certs = { workspace = true, optional = true }
-rustls-pemfile = { workspace = true, optional = true }
-semver = { workspace = true, optional = true }
 serde.workspace = true
 serde_json.workspace = true
 serde_with.workspace = true
 serde_yaml.workspace = true
-spreet = { workspace = true, optional = true }
 static-files = { workspace = true, optional = true }
 subst.workspace = true
 thiserror.workspace = true
 tiff = { workspace = true, optional = true }
 tilejson.workspace = true
 tokio = { workspace = true, features = ["io-std"] }
-tokio-postgres-rustls = { workspace = true, optional = true }
 url.workspace = true
 walkdir = { workspace = true, optional = true }
 xxhash-rust.workspace = true
@@ -148,17 +153,15 @@ static-files = { workspace = true, optional = true }
 walkdir = { workspace = true, optional = true }
 
 [dev-dependencies]
-anyhow.workspace = true
 approx.workspace = true
 criterion.workspace = true
 ctor.workspace = true
 indoc.workspace = true
-insta = { workspace = true, features = ["json", "yaml"] }
+insta = { workspace = true, features = ["json", "yaml", "redactions"] }
 mbtiles = { workspace = true }
 pprof.workspace = true
 rstest.workspace = true
 tempfile.workspace = true
-testcontainers-modules.workspace = true
 
 [lints]
 workspace = true

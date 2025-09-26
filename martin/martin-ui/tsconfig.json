@@ -16,7 +16,7 @@
     "skipLibCheck": true,
     "strict": true,
     "target": "ES2023",
-    "types": ["vite/client", "@testing-library/jest-dom"]
+    "types": ["vite/client"]
   },
   "exclude": ["node_modules", "dist"],
   "include": ["**/*.ts", "**/*.tsx", "src/types/jest.d.ts", "vite.config.ts"]

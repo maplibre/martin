@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["martin", "martin-tile-utils", "mbtiles"]
+members = ["martin", "martin-core", "martin-tile-utils", "mbtiles"]
 
 [workspace.package]
 edition = "2024"
@@ -36,12 +36,12 @@ actix-web-static-files = "4"
 anyhow = "1.0"
 approx = "0.5.1"
 async-trait = "0.1"
-aws-config = { version = "1.5.10", features = ["behavior-version-latest"] }
+aws-config = { version = "1.8.5", features = ["behavior-version-latest"] }
 bit-set = "0.8"
 brotli = ">=5, <9"
 clap = { version = "4", features = ["derive", "unstable-markdown", "wrap_help"] }
 criterion = { version = "0.5", features = ["async_futures", "async_tokio", "html_reports"] }
-ctor = "0.4.3"
+ctor = "0.5.0"
 dashmap = { version = "6.1.0", features = ["serde", "inline", "rayon"] }
 deadpool-postgres = "0.14"
 enum-display = "0.1"
@@ -55,14 +55,15 @@ itertools = "0.14"
 json-patch = "4"
 lambda-web = { version = "0.2.1", features = ["actix4"] }
 log = "0.4"
+martin-core = { path = "./martin-core", version = "0.1.0", default-features = false }
 martin-tile-utils = { path = "./martin-tile-utils", version = "0.6.3" }
 mbtiles = { path = "./mbtiles", version = "0.12.2" }
 md5 = "0.8.0"
 moka = { version = "0.12", features = ["future"] }
 num_cpus = "1"
 pbf_font_tools = { version = "3.0.0", features = ["freetype"] }
-pmtiles = { version = "0.15", features = ["http-async", "mmap-async-tokio", "tilejson", "reqwest-rustls-tls-native-roots", "aws-s3-async"] }
-png = "0.17.14"
+pmtiles = { version = "0.16", features = ["http-async", "mmap-async-tokio", "tilejson", "reqwest-rustls-tls-native-roots", "aws-s3-async"] }
+png = "0.18.0"
 postgis = "0.9"
 postgres = { version = "0.19", features = ["with-time-0_3", "with-uuid-1", "with-serde_json-1"] }
 postgres-protocol = "0.6"
@@ -87,10 +88,10 @@ sqlite-hashes = { version = "0.10.6", default-features = false, features = ["md5
 sqlx = { version = "0.8.6", features = ["sqlite", "runtime-tokio"] }
 static-files = "0.2"
 subst = { version = "0.3", features = ["yaml"] }
-tempfile = "3.20.0"
-testcontainers-modules = { version = "0.12.1", features = ["postgres"] }
+tempfile = "3.21.0"
+testcontainers-modules = { version = "0.13.0", features = ["postgres"] }
 thiserror = "2"
-tiff = "0.10.0"
+tiff = "0.10.1"
 tilejson = "0.4"
 tokio = { version = "1", features = ["macros"] }
 tokio-postgres-rustls = "0.13"

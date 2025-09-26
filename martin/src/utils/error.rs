@@ -56,34 +56,30 @@ pub enum MartinError {
 
     #[cfg(feature = "postgres")]
     #[error(transparent)]
-    PostgresError(#[from] crate::pg::PgError),
+    PostgresError(#[from] martin_core::tiles::postgres::PgError),
 
     #[cfg(feature = "pmtiles")]
     #[error(transparent)]
-    PmtilesError(#[from] crate::pmtiles::PmtilesError),
+    PmtilesError(#[from] martin_core::tiles::pmtiles::PmtilesError),
 
     #[cfg(feature = "mbtiles")]
     #[error(transparent)]
-    MbtilesError(#[from] crate::mbtiles::MbtilesError),
+    MbtilesError(#[from] martin_core::tiles::mbtiles::MbtilesError),
 
     #[cfg(feature = "cog")]
     #[error(transparent)]
-    CogError(#[from] crate::cog::CogError),
+    CogError(#[from] martin_core::tiles::cog::CogError),
 
     #[error(transparent)]
-    FileError(#[from] crate::file_config::FileError),
+    ConfigFileError(#[from] crate::config::file::ConfigFileError),
 
     #[cfg(feature = "sprites")]
     #[error(transparent)]
-    SpriteError(#[from] crate::sprites::SpriteError),
+    SpriteError(#[from] martin_core::sprites::SpriteError),
 
     #[cfg(feature = "fonts")]
     #[error(transparent)]
-    FontError(#[from] crate::fonts::FontError),
-
-    #[cfg(feature = "styles")]
-    #[error(transparent)]
-    StyleError(#[from] crate::styles::StyleError),
+    FontError(#[from] martin_core::fonts::FontError),
 
     #[error(transparent)]
     WebError(#[from] actix_web::Error),
@@ -93,7 +89,4 @@ pub enum MartinError {
 
     #[error("Internal error: {0}")]
     InternalError(#[from] Box<dyn Error + Send + Sync>),
-
-    #[error(transparent)]
-    CorsError(#[from] crate::srv::cors::CorsError),
 }

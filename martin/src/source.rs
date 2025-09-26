@@ -1,29 +1,20 @@
-use std::collections::HashMap;
-use std::fmt::Debug;
-
 use actix_web::error::ErrorNotFound;
-use async_trait::async_trait;
 use dashmap::DashMap;
 use log::debug;
-pub use martin_tile_utils::TileData;
-use martin_tile_utils::{TileCoord, TileInfo};
-use serde::{Deserialize, Serialize};
-use tilejson::TileJSON;
+use martin_core::tiles::catalog::TileCatalog;
+use martin_core::tiles::{BoxedSource, Source};
+use martin_tile_utils::TileInfo;
 
-use crate::MartinResult;
-pub type UrlQuery = HashMap<String, String>;
-
-pub type TileInfoSource = Box<dyn Source>;
-
-pub type TileInfoSources = Vec<TileInfoSource>;
-
+/// Thread-safe registry of tile sources indexed by ID.
+///
+/// Uses a [`DashMap`] for concurrent access without explicit locking.
 #[derive(Default, Clone)]
-pub struct TileSources(DashMap<String, TileInfoSource>);
-pub type TileCatalog = HashMap<String, CatalogSourceEntry>;
+pub struct TileSources(DashMap<String, BoxedSource>);
 
 impl TileSources {
+    /// Creates a new registry from flattened source collections.
     #[must_use]
-    pub fn new(sources: Vec<TileInfoSources>) -> Self {
+    pub fn new(sources: Vec<Vec<BoxedSource>>) -> Self {
         Self(
             sources
                 .into_iter()
@@ -33,6 +24,7 @@ impl TileSources {
         )
     }
 
+    /// Returns a catalog of all sources with their metadata.
     #[must_use]
     pub fn get_catalog(&self) -> TileCatalog {
         self.0
@@ -41,12 +33,14 @@ impl TileSources {
             .collect()
     }
 
+    /// Returns all source IDs.
     #[must_use]
     pub fn source_names(&self) -> Vec<String> {
         self.0.iter().map(|v| v.key().to_string()).collect()
     }
 
-    pub fn get_source(&self, id: &str) -> actix_web::Result<TileInfoSource> {
+    /// Gets a source by ID, returning 404 error if not found.
+    pub fn get_source(&self, id: &str) -> actix_web::Result<BoxedSource> {
         Ok(self
             .0
             .get(id)
@@ -55,14 +49,17 @@ impl TileSources {
             .clone())
     }
 
-    /// Get a list of sources, and the tile info for the merged sources.
-    /// Ensure that all sources have the same format and encoding.
-    /// If zoom is specified, filter out sources that do not support it.
+    /// Gets multiple sources for composite tiles, ensuring format compatibility.
+    ///
+    /// Parses comma-separated source IDs and validates all sources have matching
+    /// format/encoding. Optionally filters by zoom level support.
+    ///
+    /// Returns (`sources`, `supports_url_query`, `merged_tile_info`).
     pub fn get_sources(
         &self,
         source_ids: &str,
         zoom: Option<u8>,
-    ) -> actix_web::Result<(Vec<TileInfoSource>, bool, TileInfo)> {
+    ) -> actix_web::Result<(Vec<BoxedSource>, bool, TileInfo)> {
         let mut sources = Vec::new();
         let mut info: Option<TileInfo> = None;
         let mut use_url_query = false;
@@ -96,6 +93,8 @@ impl TileSources {
         Ok((sources, use_url_query, info.unwrap()))
     }
 
+    /// Validates zoom level support for a source
+    #[must_use]
     pub fn check_zoom(src: &dyn Source, id: &str, zoom: u8) -> bool {
         let is_valid = src.is_valid_zoom(zoom);
         if !is_valid {
@@ -103,90 +102,10 @@ impl TileSources {
         }
         is_valid
     }
-}
 
-#[async_trait]
-pub trait Source: Send + Debug {
-    /// ID under which this [`Source`] is identified if accessed externally
-    fn get_id(&self) -> &str;
-
-    /// `TileJSON` of this [`Source`]
-    ///
-    /// Will be communicated verbatim to the outside to give rendering engines information about the source's contents such as zoom levels, center points, ...
-    fn get_tilejson(&self) -> &TileJSON;
-
-    /// Information for serving the source such as which Mime-type to apply or how compression should work
-    fn get_tile_info(&self) -> TileInfo;
-
-    fn clone_source(&self) -> TileInfoSource;
-
-    fn support_url_query(&self) -> bool {
-        false
-    }
-
-    async fn get_tile(
-        &self,
-        xyz: TileCoord,
-        url_query: Option<&UrlQuery>,
-    ) -> MartinResult<TileData>;
-
-    fn is_valid_zoom(&self, zoom: u8) -> bool {
-        let tj = self.get_tilejson();
-        tj.minzoom.is_none_or(|minzoom| zoom >= minzoom)
-            && tj.maxzoom.is_none_or(|maxzoom| zoom <= maxzoom)
-    }
-
-    fn get_catalog_entry(&self) -> CatalogSourceEntry {
-        let id = self.get_id();
-        let tilejson = self.get_tilejson();
-        let info = self.get_tile_info();
-        CatalogSourceEntry {
-            content_type: info.format.content_type().to_string(),
-            content_encoding: info.encoding.content_encoding().map(ToString::to_string),
-            name: tilejson.name.as_ref().filter(|v| *v != id).cloned(),
-            description: tilejson.description.clone(),
-            attribution: tilejson.attribution.clone(),
-        }
-    }
-}
-
-impl Clone for TileInfoSource {
-    fn clone(&self) -> Self {
-        self.clone_source()
-    }
-}
-
-#[serde_with::skip_serializing_none]
-#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
-pub struct CatalogSourceEntry {
-    pub content_type: String,
-    pub content_encoding: Option<String>,
-    pub name: Option<String>,
-    pub description: Option<String>,
-    pub attribution: Option<String>,
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn xyz_format() {
-        let xyz = TileCoord { z: 1, x: 2, y: 3 };
-        assert_eq!(format!("{xyz}"), "1,2,3");
-        assert_eq!(format!("{xyz:#}"), "1/2/3");
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct Tile {
-    pub data: TileData,
-    pub info: TileInfo,
-}
-
-impl Tile {
+    /// Returns if any source benefits from concurrent scraping by martin-cp
     #[must_use]
-    pub fn new(data: TileData, info: TileInfo) -> Self {
-        Self { data, info }
+    pub fn benefits_from_concurrent_scraping(&self) -> bool {
+        self.0.iter().any(|s| s.benefits_from_concurrent_scraping())
     }
 }

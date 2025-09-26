@@ -1,5 +1,6 @@
 use std::borrow::Cow;
-use std::fmt::{Debug, Display, Formatter};
+use std::fmt::{Debug, Display, Formatter, Write};
+use std::num::NonZeroUsize;
 use std::ops::RangeInclusive;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -13,14 +14,15 @@ use clap::builder::Styles;
 use clap::builder::styling::AnsiColor;
 use futures::TryStreamExt;
 use futures::stream::{self, StreamExt};
-use log::{debug, error, info, log_enabled};
-use martin::args::{Args, ExtraArgs, MetaArgs, OsEnv, SrvArgs};
-use martin::mbtiles::MbtilesError;
+use log::{debug, error, info, log_enabled, warn};
+use martin::config::args::{Args, ExtraArgs, MetaArgs, SrvArgs};
+use martin::config::file::{Config, ServerState, read_config};
 use martin::srv::{DynTileSource, merge_tilejson};
-use martin::{
-    Config, MartinError, MartinResult, ServerState, TileData, TileInfoSource, read_config,
-};
-use martin_tile_utils::{TileCoord, TileInfo, TileRect, append_rect, bbox_to_xyz};
+use martin::{MartinError, MartinResult};
+use martin_core::config::env::OsEnv;
+use martin_core::tiles::BoxedSource;
+use martin_core::tiles::mbtiles::MbtilesError;
+use martin_tile_utils::{TileCoord, TileData, TileInfo, TileRect, append_rect, bbox_to_xyz};
 use mbtiles::UpdateZoomType::GrowOnly;
 use mbtiles::sqlx::SqliteConnection;
 use mbtiles::{
@@ -44,7 +46,7 @@ const HELP_STYLES: Styles = Styles::styled()
     .literal(AnsiColor::White.on_default())
     .placeholder(AnsiColor::Green.on_default());
 
-#[derive(Parser, Debug, PartialEq, Default)]
+#[derive(Parser, Debug, PartialEq)]
 #[command(
     about = "A tool to bulk copy tiles from any Martin-supported sources into an mbtiles file",
     version,
@@ -58,11 +60,11 @@ pub struct CopierArgs {
     pub meta: MetaArgs,
     #[cfg(feature = "postgres")]
     #[command(flatten)]
-    pub pg: Option<martin::args::PgArgs>,
+    pub pg: Option<martin::config::args::PgArgs>,
 }
 
 #[serde_with::serde_as]
-#[derive(clap::Args, Debug, PartialEq, Default, serde::Deserialize, serde::Serialize)]
+#[derive(clap::Args, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
 pub struct CopyArgs {
     /// Name of the source to copy from. Not required if there is only one source.
     #[arg(short, long)]
@@ -93,7 +95,7 @@ pub struct CopyArgs {
     pub on_duplicate: Option<CopyDuplicateMode>,
     /// Number of concurrent connections to use.
     #[arg(long, default_value = "1")]
-    pub concurrency: Option<usize>,
+    pub concurrency: NonZeroUsize,
     /// Bounds to copy, in the format `min_lon,min_lat,max_lon,max_lat`. Can be specified multiple times. Overlapping regions will be handled correctly.
     #[arg(long)]
     pub bbox: Vec<Bounds>,
@@ -117,6 +119,26 @@ pub struct CopyArgs {
     /// Set additional metadata values. Must be set as `"key=value"` pairs. Can be specified multiple times.
     #[arg(long, value_name="KEY=VALUE", value_parser = parse_key_value)]
     pub set_meta: Vec<(String, String)>,
+}
+
+impl Default for CopyArgs {
+    fn default() -> Self {
+        CopyArgs {
+            bbox: Vec::new(),
+            source: None,
+            output_file: PathBuf::new(),
+            mbt_type: None,
+            url_query: None,
+            encoding: "gzip".to_string(),
+            on_duplicate: None,
+            concurrency: NonZeroUsize::new(1).unwrap(),
+            min_zoom: None,
+            max_zoom: None,
+            zoom_levels: Vec::new(),
+            skip_agg_tiles_hash: true,
+            set_meta: Vec::new(),
+        }
+    }
 }
 
 fn parse_key_value(s: &str) -> Result<(String, String), String> {
@@ -334,7 +356,15 @@ fn check_sources(args: &CopyArgs, state: &ServerState) -> Result<String, MartinC
 #[allow(clippy::too_many_lines)]
 async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()> {
     let output_file = &args.output_file;
-    let concurrency = args.concurrency.unwrap_or(1);
+    let concurrency = args.concurrency.get();
+    // we only warn that the concurrency might be too low if:
+    // - a user has concurrency at the default
+    // - there is at least one pg or remote pmtiles source
+    if concurrency == 1 && state.tiles.benefits_from_concurrent_scraping() {
+        warn!(
+            "Using `--concurrency 1`. Increasing it may improve performance for your tile sources. See https://docs.martin.rs/cli/usage.html#concurrency for further details."
+        );
+    }
 
     let source = check_sources(&args, &state)?;
 
@@ -459,7 +489,7 @@ fn parse_encoding(encoding: &str) -> MartinCpResult<AcceptEncoding> {
 async fn init_schema(
     mbt: &Mbtiles,
     conn: &mut SqliteConnection,
-    sources: &[TileInfoSource],
+    sources: &[BoxedSource],
     tile_info: TileInfo,
     args: &CopyArgs,
 ) -> Result<MbtType, MartinError> {
@@ -506,8 +536,18 @@ async fn init_schema(
 
 #[actix_web::main]
 async fn main() {
-    let env = env_logger::Env::default().default_filter_or("martin_cp=info");
-    env_logger::Builder::from_env(env).init();
+    let mut log_filter = std::env::var("RUST_LOG").unwrap_or("martin-cp=info".to_string());
+    // if we don't have martin_core set, this can hide parts of our logs unintentionally
+    if log_filter.contains("martin-cp=") && !log_filter.contains("martin_core=") {
+        if let Some(level) = log_filter
+            .split(',')
+            .find_map(|s| s.strip_prefix("martin-cp="))
+        {
+            let level = level.to_string();
+            let _ = write!(log_filter, ",martin_core={level}");
+        }
+    }
+    env_logger::builder().parse_filters(&log_filter).init();
 
     if let Err(e) = start(CopierArgs::parse()).await {
         // Ensure the message is printed, even if the logging is disabled

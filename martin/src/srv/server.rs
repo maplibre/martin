@@ -12,15 +12,15 @@ use futures::TryFutureExt;
 #[cfg(feature = "lambda")]
 use lambda_web::{is_running_on_lambda, run_actix_on_lambda};
 use log::error;
+use martin_core::tiles::catalog::TileCatalog;
 use serde::{Deserialize, Serialize};
 
 use crate::MartinError::BindingError;
 use crate::MartinResult;
 #[cfg(feature = "webui")]
-use crate::args::WebUiMode;
-use crate::config::ServerState;
-use crate::source::TileCatalog;
-use crate::srv::config::{KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT, SrvConfig};
+use crate::config::args::WebUiMode;
+use crate::config::file::ServerState;
+use crate::config::file::srv::{KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT, SrvConfig};
 use crate::srv::tiles::get_tile;
 use crate::srv::tiles_info::get_source_info;
 
@@ -44,11 +44,11 @@ pub const RESERVED_KEYWORDS: &[&str] = &[
 pub struct Catalog {
     pub tiles: TileCatalog,
     #[cfg(feature = "sprites")]
-    pub sprites: crate::sprites::SpriteCatalog,
+    pub sprites: martin_core::sprites::SpriteCatalog,
     #[cfg(feature = "fonts")]
-    pub fonts: crate::fonts::FontCatalog,
+    pub fonts: martin_core::fonts::FontCatalog,
     #[cfg(feature = "styles")]
-    pub styles: crate::styles::StyleCatalog,
+    pub styles: martin_core::styles::StyleCatalog,
 }
 
 impl Catalog {
@@ -233,12 +233,9 @@ pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server
 #[cfg(test)]
 pub mod tests {
     use async_trait::async_trait;
-    use martin_tile_utils::{Encoding, Format, TileCoord, TileInfo};
+    use martin_core::tiles::{BoxedSource, MartinCoreResult, Source, UrlQuery};
+    use martin_tile_utils::{Encoding, Format, TileCoord, TileData, TileInfo};
     use tilejson::TileJSON;
-
-    use super::*;
-    use crate::UrlQuery;
-    use crate::source::{Source, TileData, TileInfoSource};
 
     #[derive(Debug, Clone)]
     pub struct TestSource {
@@ -261,7 +258,7 @@ pub mod tests {
             TileInfo::new(Format::Mvt, Encoding::Uncompressed)
         }
 
-        fn clone_source(&self) -> TileInfoSource {
+        fn clone_source(&self) -> BoxedSource {
             Box::new(self.clone())
         }
 
@@ -269,7 +266,7 @@ pub mod tests {
             &self,
             _xyz: TileCoord,
             _url_query: Option<&UrlQuery>,
-        ) -> MartinResult<TileData> {
+        ) -> MartinCoreResult<TileData> {
             Ok(self.data.clone())
         }
     }
