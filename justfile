@@ -138,13 +138,13 @@ coverage *args='--no-clean --open':  (cargo-install 'cargo-llvm-cov') clean star
     source <(cargo llvm-cov show-env --export-prefix)
     cargo llvm-cov clean --workspace
 
-    @echo "::group::Unit tests"
+    echo "::group::Unit tests"
     {{just_executable()}} test-cargo --all-targets
-    @echo "::endgroup::"
+    echo "::endgroup::"
 
-    # @echo "::group::Documentation tests"
+    # echo "::group::Documentation tests"
     # {{just_executable()}} test-doc <- deliberately disabled until --doctest for cargo-llvm-cov does not hang indefinitely
-    # @echo "::endgroup::"
+    # echo "::endgroup::"
 
     {{just_executable()}} test-int
 
