@@ -107,7 +107,7 @@ async fn get_style_rendered(
                 .body("Failed to render style");
         }
     };
-    
+
     // Re-encode to target forat
     match path.format {
         ImageFormatRequest::Png => HttpResponse::Ok()
