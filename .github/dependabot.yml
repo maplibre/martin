@@ -53,6 +53,13 @@ updates:
       all-npm-ui-security-updates:
         applies-to: security-updates
         patterns: [ '*' ]
+    cooldown:
+      default-days: 3
+      semver-major-days: 3
+      semver-minor-days: 3
+      semver-patch-days: 3
+      include:
+        - "*"
 
   # Update Demo frontend NPM dependencies
   - package-ecosystem: npm
