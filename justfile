@@ -321,8 +321,8 @@ test-int: clean-test install-sqlx
             echo "** Expected output does not match actual output"
             echo "** If this is expected, run 'just bless' to update expected output"
             echo ""
-            echo "::group::Diff (max 200 lines)"
-            diff --recursive --new-file --exclude='*.pbf' tests/output tests/expected | tail -n 200
+            echo "::group::Resulting diff (max 100 lines)"
+            diff --recursive --new-file --exclude='*.pbf' tests/output tests/expected | head -n 100
             echo "::endgroup::"
             exit 1
         else
