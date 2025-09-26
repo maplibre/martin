@@ -272,7 +272,7 @@ compare_sql_dbs() {
        }
 }
 
-echo "------------------------------------------------------------------------------------------------------------------------"
+echo "::group::versions"
 curl --version
 jq --version
 grep --version | head -1
@@ -280,17 +280,17 @@ grep --version | head -1
 # Make sure all targets are built - this way it won't timeout while waiting for it to start
 # If set to "-", skip this step (e.g. when testing a pre-built binary)
 if [[ "$MARTIN_BUILD_ALL" != "-" ]]; then
+  echo "::group::Make sure all targets are built. Set MARTIN_BUILD_ALL=- to skip this step."
   rm -rf "$MARTIN_BIN" "$MARTIN_CP_BIN" "$MBTILES_BIN"
   $MARTIN_BUILD_ALL
+  echo "::endgroup::"
 fi
 
-echo "------------------------------------------------------------------------------------------------------------------------"
-echo "Check HTTP server is running"
+echo "::group::Check HTTP server is running"
 $CURL --head "$STATICS_URL/webp2.pmtiles"
+echo "::endgroup::"
 
-echo "------------------------------------------------------------------------------------------------------------------------"
-echo "Test auto configured Martin"
-
+echo "::group::Test auto configured Martin"
 TEST_NAME="auto"
 LOG_FILE="${LOG_DIR}/${TEST_NAME}.txt"
 TEST_OUT_DIR="${TEST_OUT_BASE_DIR}/${TEST_NAME}"
@@ -428,11 +428,9 @@ test_log_has_str "$LOG_FILE" 'was renamed to `view_name_existing_two_schemas.1`'
 test_log_has_str "$LOG_FILE" 'was renamed to `table_and_view_two_schemas.1`'
 validate_log "$LOG_FILE"
 remove_lines "${TEST_OUT_DIR}/save_config.yaml" " connection_string: "
+echo "::endgroup::"
 
-
-echo "------------------------------------------------------------------------------------------------------------------------"
-echo "Test minimum auto configured Martin"
-
+echo "::group::Test minimum auto configured Martin"
 TEST_NAME="auto_mini"
 LOG_FILE="${LOG_DIR}/${TEST_NAME}.txt"
 TEST_OUT_DIR="${TEST_OUT_BASE_DIR}/${TEST_NAME}"
@@ -452,11 +450,9 @@ test_jsn catalog_auto catalog
 
 kill_process "$MARTIN_PROC_ID" Martin
 validate_log "$LOG_FILE"
+echo "::endgroup::"
 
-
-echo "------------------------------------------------------------------------------------------------------------------------"
-echo "Test pre-configured Martin"
-
+echo "::group::Test pre-configured Martin"
 TEST_NAME="configured"
 LOG_FILE="${LOG_DIR}/${TEST_NAME}.txt"
 TEST_OUT_DIR="${TEST_OUT_BASE_DIR}/${TEST_NAME}"
@@ -548,11 +544,10 @@ test_log_has_str "$LOG_FILE" "WARN  martin::config::file::main] Ignoring unrecog
 test_log_has_str "$LOG_FILE" "WARN  martin::config::file::main] Ignoring unrecognized configuration key 'styles.warning'. Please check your configuration file for typos."
 validate_log "$LOG_FILE"
 remove_lines "${TEST_OUT_DIR}/save_config.yaml" " connection_string: "
-
-echo "------------------------------------------------------------------------------------------------------------------------"
-echo "Test martin-cp"
+echo "::endgroup::"
 
 if [[ "$MARTIN_CP_BIN" != "-" ]]; then
+  echo "::group::Test martin-cp"
   TEST_NAME="martin-cp"
   TEST_OUT_DIR="${TEST_OUT_BASE_DIR}/${TEST_NAME}"
   mkdir -p "$TEST_OUT_DIR"
@@ -583,8 +578,9 @@ if [[ "$MARTIN_CP_BIN" != "-" ]]; then
   test_martin_cp "no-source" ./tests/fixtures/mbtiles/world_cities.mbtiles \
       --mbtiles-type flat --concurrency 3 \
       --min-zoom 0 --max-zoom 6 "--bbox=-2,-1,142.84,45" \
-      --set-meta "generator=martin-cp v0.0.0" \
+      --set-meta "generator=martin-cp v0.0.0"
 
+  echo "::endgroup::"
 else
   echo "Skipping martin-cp tests"
 fi
@@ -593,9 +589,8 @@ fi
 # If we don't do this, rounding differences on CI and local machines are a problem
 find . -name "*_config.yaml" -type f -exec "$SED" --regexp-extended --in-place 's/(-?[0-9]+\.0*[1-9][0-9]{0,14})[0-9]+/\1/g' {} \;
 
-echo "------------------------------------------------------------------------------------------------------------------------"
-echo "Test mbtiles utility"
 if [[ "$MBTILES_BIN" != "-" ]]; then
+  echo "::group::Test mbtiles utility"
 
   TEST_NAME="mbtiles"
   TEST_OUT_DIR="${TEST_OUT_BASE_DIR}/${TEST_NAME}"
@@ -715,6 +710,7 @@ if [[ "$MBTILES_BIN" != "-" ]]; then
   fi
 
   { set +x; } 2> /dev/null
+  echo "::endgroup::"
 else
   echo "Skipping mbtiles utility tests"
 fi
