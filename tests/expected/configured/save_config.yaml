@@ -187,6 +187,8 @@ styles:
   paths: tests/fixtures/styles/src2
   sources:
     maplibre: tests/fixtures/styles/maplibre_demo.json
+  experimental_rendering:
+    enabled: true
 fonts:
 - tests/fixtures/fonts/overpass-mono-regular.ttf
 - tests/fixtures/fonts

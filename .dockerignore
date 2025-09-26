@@ -24,6 +24,7 @@ demo/
 .env.local
 .idea/
 .vscode/
+cache.sqlite
 config.yml
 coverage
 pg_data/

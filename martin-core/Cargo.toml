@@ -39,9 +39,14 @@ sprites = [
     "dep:futures",
     "dep:dashmap",
 ]
+rendering = ["styles", "dep:maplibre_native", "dep:image"]
 styles = ["dep:walkdir", "tokio/fs", "dep:dashmap"]
 mbtiles = ["dep:mbtiles"]
 pmtiles = ["dep:pmtiles", "dep:aws-config", "dep:url"]
+
+[target.'cfg(target_os = "linux")'.dependencies]
+image = { workspace = true, optional = true }
+maplibre_native = { workspace = true, optional = true }
 
 [dependencies]
 async-trait.workspace = true
@@ -79,6 +84,7 @@ walkdir = { workspace = true, optional = true }
 
 [dev-dependencies]
 approx.workspace = true
+futures.workspace = true
 insta = { workspace = true, features = ["json", "yaml"] }
 rstest.workspace = true
 testcontainers-modules.workspace = true
