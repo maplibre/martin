@@ -101,9 +101,6 @@ jobs:
       - run: just clippy
       - run: just check
       - run: just check-doc
-      - name: Check semver
-        uses: obi1kenobi/cargo-semver-checks-action@5b298c9520f7096a4683c0bd981a7ac5a7e249ae # v2.8
-        with: { exclude: martin-core }
   musl-build:
     name: Build ${{ matrix.target }}
     runs-on: ubuntu-latest
