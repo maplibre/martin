@@ -826,7 +826,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      pull-requests: write
       id-token: write
     concurrency:
       group: release-plz-${{ github.ref }}
@@ -846,4 +845,4 @@ jobs:
         uses: release-plz/action@acb9246af4d59a270d1d4058a8b9af8c3f3a2559 # v0.5.117
         with: { command: release-pr }
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN }}
