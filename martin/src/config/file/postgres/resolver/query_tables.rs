@@ -4,8 +4,8 @@ use std::collections::{BTreeMap, HashMap};
 
 use futures::pin_mut;
 use log::{debug, warn};
-use martin_core::tiles::postgres::PgError::PostgresError;
-use martin_core::tiles::postgres::{PgPool, PgResult, PgSqlInfo};
+use martin_core::tiles::postgres::PostgresError::PostgresError;
+use martin_core::tiles::postgres::{PostgresPool, PostgresResult, PostgresSqlInfo};
 use martin_tile_utils::EARTH_CIRCUMFERENCE_DEGREES;
 use postgis::ewkb;
 use postgres_protocol::escape::{escape_identifier, escape_literal};
@@ -14,7 +14,7 @@ use tilejson::Bounds;
 use tokio::time::timeout;
 
 use crate::config::args::{BoundsCalcType, DEFAULT_BOUNDS_TIMEOUT};
-use crate::config::file::postgres::{PgInfo, TableInfo};
+use crate::config::file::postgres::{PostgresInfo, TableInfo};
 
 /// Map of `PostgreSQL` tables organized by schema, table, and geometry column.
 pub type SqlTableInfoMapMapMap = BTreeMap<String, BTreeMap<String, BTreeMap<String, TableInfo>>>;
@@ -24,7 +24,7 @@ const DEFAULT_BUFFER: u32 = 64;
 const DEFAULT_CLIP_GEOM: bool = true;
 
 /// Queries the database for available tables with geometry columns.
-pub async fn query_available_tables(pool: &PgPool) -> PgResult<SqlTableInfoMapMapMap> {
+pub async fn query_available_tables(pool: &PostgresPool) -> PostgresResult<SqlTableInfoMapMapMap> {
     let rows = pool
         .get()
         .await?
@@ -109,10 +109,10 @@ fn escape_with_alias(mapping: &HashMap<String, String>, field: &str) -> String {
 pub async fn table_to_query(
     id: String,
     mut info: TableInfo,
-    pool: PgPool,
+    pool: PostgresPool,
     bounds_type: BoundsCalcType,
     max_feature_count: Option<usize>,
-) -> PgResult<(String, PgSqlInfo, TableInfo)> {
+) -> PostgresResult<(String, PostgresSqlInfo, TableInfo)> {
     let schema = escape_identifier(&info.schema);
     let table = escape_identifier(&info.table);
     let geometry_column = escape_identifier(&info.geometry_column);
@@ -226,17 +226,21 @@ FROM (
     .trim()
     .to_string();
 
-    Ok((id, PgSqlInfo::new(query, false, info.format_id()), info))
+    Ok((
+        id,
+        PostgresSqlInfo::new(query, false, info.format_id()),
+        info,
+    ))
 }
 
 /// Compute the bounds of a table. This could be slow if the table is large or has no geo index.
 async fn calc_bounds(
-    pool: &PgPool,
+    pool: &PostgresPool,
     schema: &str,
     table: &str,
     geometry_column: &str,
     srid: i32,
-) -> PgResult<Option<Bounds>> {
+) -> PostgresResult<Option<Bounds>> {
     Ok(pool.get()
         .await?
         .query_one(&format!(

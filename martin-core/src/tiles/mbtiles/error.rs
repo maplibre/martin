@@ -3,6 +3,7 @@
 use std::path::PathBuf;
 
 /// Errors that can occur during mbtiles processing operations.
+#[non_exhaustive]
 #[derive(thiserror::Error, Debug)]
 pub enum MbtilesError {
     /// Failed to acquire database connection to `MBTiles` file.
@@ -15,7 +16,7 @@ pub enum MbtilesError {
 
     /// IO error.
     #[error("IO error {0}: {1}")]
-    IoError(std::io::Error, PathBuf),
+    IoError(#[source] std::io::Error, PathBuf),
 
     /// Unable to parse metadata in file.
     #[error(r"Unable to parse metadata in file {1}: {0}")]

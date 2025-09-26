@@ -5,13 +5,16 @@ use std::path::{Path, PathBuf};
 
 use log::{info, warn};
 use martin_core::cache::OptMainCache;
+use martin_core::config::IdResolver;
 use martin_core::config::OptOneMany::{self, Many, One};
 use martin_core::tiles::BoxedSource;
 use serde::{Deserialize, Serialize};
 use url::Url;
 
-use crate::config::file::ConfigFileError::{InvalidFilePath, InvalidSourceUrl, IoError};
-use crate::utils::IdResolver;
+use crate::config::file::ConfigFileError::{
+    InvalidFilePath, InvalidSourceFilePath, InvalidSourceUrl, IoError,
+};
+
 use crate::{MartinError, MartinResult};
 
 pub type ConfigFileResult<T> = Result<T, ConfigFileError>;
@@ -19,13 +22,26 @@ pub type ConfigFileResult<T> = Result<T, ConfigFileError>;
 #[derive(thiserror::Error, Debug)]
 pub enum ConfigFileError {
     #[error("IO error {0}: {1}")]
-    IoError(std::io::Error, PathBuf),
+    IoError(#[source] std::io::Error, PathBuf),
 
+    #[error("Unable to load config file {1}: {0}")]
+    ConfigLoadError(#[source] std::io::Error, PathBuf),
+
+    #[error("Unable to parse config file {1}: {0}")]
+    ConfigParseError(#[source] subst::yaml::Error, PathBuf),
+
+    #[error("Unable to write config file {1}: {0}")]
+    ConfigWriteError(#[source] std::io::Error, PathBuf),
+
+    #[error(
+        "No tile sources found. Set sources by giving a database connection string on command line, env variable, or a config file."
+    )]
+    NoSources,
     #[error("Source path is not a file: {0}")]
     InvalidFilePath(PathBuf),
 
     #[error("Error {0} while parsing URL {1}")]
-    InvalidSourceUrl(url::ParseError, String),
+    InvalidSourceUrl(#[source] url::ParseError, String),
 
     #[error("Source {0} uses bad file {1}")]
     InvalidSourceFilePath(String, PathBuf),
@@ -35,7 +51,23 @@ pub enum ConfigFileError {
 
     #[cfg(feature = "styles")]
     #[error("Walk directory error {0}: {1}")]
-    DirectoryWalking(walkdir::Error, PathBuf),
+    DirectoryWalking(#[source] walkdir::Error, PathBuf),
+
+    #[cfg(feature = "postgres")]
+    #[error("The postgres pool_size must be greater than or equal to 1")]
+    PostgresPoolSizeInvalid,
+
+    #[cfg(feature = "postgres")]
+    #[error("A postgres connection string must be provided")]
+    PostgresConnectionStringMissing,
+
+    #[cfg(feature = "postgres")]
+    #[error("Failed to create postgres pool: {0}")]
+    PostgresPoolCreationFailed(#[source] martin_core::tiles::postgres::PostgresError),
+
+    #[cfg(feature = "fonts")]
+    #[error("Failed to load fonts from {1}: {0}")]
+    FontResolutionFailed(#[source] martin_core::fonts::FontError, PathBuf),
 }
 
 pub trait ConfigExtras: Clone + Debug + Default + PartialEq + Send {

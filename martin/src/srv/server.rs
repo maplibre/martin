@@ -15,14 +15,13 @@ use log::error;
 use martin_core::tiles::catalog::TileCatalog;
 use serde::{Deserialize, Serialize};
 
-use crate::MartinError::BindingError;
-use crate::MartinResult;
 #[cfg(feature = "webui")]
 use crate::config::args::WebUiMode;
 use crate::config::file::ServerState;
 use crate::config::file::srv::{KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT, SrvConfig};
 use crate::srv::tiles::get_tile;
 use crate::srv::tiles_info::get_source_info;
+use crate::{MartinError, MartinResult};
 
 #[cfg(feature = "webui")]
 mod webui {
@@ -165,7 +164,8 @@ pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server
                 .unwrap_or_default()
                 .add_labels,
         )
-        .build()?;
+        .build()
+        .map_err(|err| MartinError::MetricsIntialisationError(err))?;
     let catalog = Catalog::new(&state)?;
 
     let keep_alive = Duration::from_secs(config.keep_alive.unwrap_or(KEEP_ALIVE_DEFAULT));
@@ -214,13 +214,13 @@ pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server
 
     #[cfg(feature = "lambda")]
     if is_running_on_lambda() {
-        let server = run_actix_on_lambda(factory).err_into();
+        let server = run_actix_on_lambda(factory).map_err(MartinError::LambdaError);
         return Ok((Box::pin(server), "(aws lambda)".into()));
     }
 
     let server = HttpServer::new(factory)
         .bind(listen_addresses.clone())
-        .map_err(|e| BindingError(e, listen_addresses.clone()))?
+        .map_err(|e| MartinError::BindingError(e, listen_addresses.clone()))?
         .keep_alive(keep_alive)
         .shutdown_timeout(0)
         .workers(worker_processes)

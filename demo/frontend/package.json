@@ -8,10 +8,10 @@
   "dependencies": {
     "date-fns": "^4.1.0",
     "debounce": "2.2.0",
-    "maplibre-gl": "^5.7.1",
+    "maplibre-gl": "^5.7.3",
     "normalize.css": "8.0.1",
     "react": "19.1.1",
-    "react-day-picker": "^9.10.0",
+    "react-day-picker": "^9.11.0",
     "react-dom": "19.1.1",
     "react-map-gl": "^8.0.4",
     "react-scroll-parallax": "3.4.5",
@@ -20,12 +20,12 @@
   "devDependencies": {
     "@biomejs/biome": "^2.2.4",
     "@types/debounce": "^1.2.4",
-    "@types/node": "^24.5.0",
+    "@types/node": "^24.5.2",
     "@types/react": "^19.1.13",
     "@types/react-dom": "^19.1.9",
-    "@vitejs/plugin-react": "^5.0.2",
+    "@vitejs/plugin-react": "^5.0.3",
     "typescript": "^5.9.2",
-    "vite": "^7.1.5",
+    "vite": "^7.1.7",
     "vite-plugin-mkcert": "^1.17.8",
     "vite-tsconfig-paths": "^5.0.0"
   },

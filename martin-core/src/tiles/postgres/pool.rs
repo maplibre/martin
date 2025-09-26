@@ -7,11 +7,11 @@ use log::{info, warn};
 use postgres::config::SslMode;
 use semver::Version;
 
-use crate::tiles::postgres::PgError::{
+use crate::tiles::postgres::PostgresError::{
     BadPostgisVersion, BadPostgresVersion, PostgisTooOld, PostgresError, PostgresPoolBuildError,
     PostgresPoolConnError, PostgresqlTooOld,
 };
-use crate::tiles::postgres::PgResult;
+use crate::tiles::postgres::PostgresResult;
 use crate::tiles::postgres::tls::{SslModeOverride, make_connector, parse_conn_str};
 
 /// We require `ST_TileEnvelope` that was added in [`PostGIS 3.0.0`](https://postgis.net/2019/10/PostGIS-3.0.0/)
@@ -29,7 +29,7 @@ const RECOMMENDED_POSTGRES_VERSION: Version = Version::new(12, 0, 0);
 
 /// `PostgreSQL` connection pool with `PostGIS` support.
 #[derive(Clone, Debug)]
-pub struct PgPool {
+pub struct PostgresPool {
     id: String,
     pool: Pool,
     /// Indicates if `ST_TileEnvelope` supports the margin parameter.
@@ -39,7 +39,7 @@ pub struct PgPool {
     supports_tile_margin: bool,
 }
 
-impl PgPool {
+impl PostgresPool {
     /// Creates a new `PostgreSQL` connection pool
     ///
     /// Arguments:
@@ -54,7 +54,7 @@ impl PgPool {
         ssl_key: Option<&PathBuf>,
         ssl_root_cert: Option<&PathBuf>,
         pool_size: usize,
-    ) -> PgResult<Self> {
+    ) -> PostgresResult<Self> {
         let (id, mgr) = Self::parse_config(connection_string, ssl_cert, ssl_key, ssl_root_cert)?;
 
         let pool = Pool::builder(mgr)
@@ -111,7 +111,7 @@ impl PgPool {
         ssl_cert: Option<&PathBuf>,
         ssl_key: Option<&PathBuf>,
         ssl_root_cert: Option<&PathBuf>,
-    ) -> PgResult<(String, Manager)> {
+    ) -> PostgresResult<(String, Manager)> {
         let (pg_cfg, ssl_mode) = parse_conn_str(connection_string)?;
 
         let id = pg_cfg.get_dbname().map_or_else(
@@ -146,19 +146,19 @@ impl PgPool {
         Ok((id, mgr))
     }
 
-    /// Retrieves an [`Object`] from this [`PgPool`] or waits for one to become available.
+    /// Retrieves an [`Object`] from this [`PostgresPool`] or waits for one to become available.
     ///
     /// # Errors
     ///
     /// See [`PostgresPoolConnError`] for details.
-    pub async fn get(&self) -> PgResult<Object> {
+    pub async fn get(&self) -> PostgresResult<Object> {
         self.pool
             .get()
             .await
             .map_err(|e| PostgresPoolConnError(e, self.id.clone()))
     }
 
-    /// ID under which this [`PgPool`] is identified externally
+    /// ID under which this [`PostgresPool`] is identified externally
     #[must_use]
     pub fn get_id(&self) -> &str {
         &self.id
@@ -176,7 +176,7 @@ impl PgPool {
 
 /// Get [PostgreSQL version](https://www.postgresql.org/support/versioning/).
 /// `PostgreSQL` only has a Major.Minor versioning, so we use 0 the patch version
-async fn get_postgres_version(conn: &Object) -> PgResult<Version> {
+async fn get_postgres_version(conn: &Object) -> PostgresResult<Version> {
     let version: String = conn
         .query_one(
             r"
@@ -199,7 +199,7 @@ SELECT (regexp_matches(
 }
 
 /// Get [PostGIS version](https://postgis.net/docs/PostGIS_Lib_Version.html)
-async fn get_postgis_version(conn: &Object) -> PgResult<Version> {
+async fn get_postgis_version(conn: &Object) -> PostgresResult<Version> {
     let version: String = conn
         .query_one(
             r"
