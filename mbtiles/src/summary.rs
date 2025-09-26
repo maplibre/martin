@@ -80,27 +80,27 @@ impl Display for Summary {
             )?;
         }
 
-        if self.zoom_info.len() > 1 {
-            if let (Some(min), Some(max), Some(bbox), Some(max_zoom)) = (
+        if self.zoom_info.len() > 1
+            && let (Some(min), Some(max), Some(bbox), Some(max_zoom)) = (
                 self.min_tile_size,
                 self.max_tile_size,
                 self.bbox,
                 self.max_zoom,
-            ) {
-                let min = SizeFormatterBinary::new(min);
-                let max = SizeFormatterBinary::new(max);
-                let avg = SizeFormatterBinary::new(self.avg_tile_size as u64);
-                let prec = get_zoom_precision(max_zoom);
-                writeln!(
-                    f,
-                    " {:>4} | {:>9} | {:>9} | {:>9} | {:>9} | {bbox:.prec$}",
-                    "all",
-                    self.tile_count,
-                    format!("{min}B"),
-                    format!("{max}B"),
-                    format!("{avg}B"),
-                )?;
-            }
+            )
+        {
+            let min = SizeFormatterBinary::new(min);
+            let max = SizeFormatterBinary::new(max);
+            let avg = SizeFormatterBinary::new(self.avg_tile_size as u64);
+            let prec = get_zoom_precision(max_zoom);
+            writeln!(
+                f,
+                " {:>4} | {:>9} | {:>9} | {:>9} | {:>9} | {bbox:.prec$}",
+                "all",
+                self.tile_count,
+                format!("{min}B"),
+                format!("{max}B"),
+                format!("{avg}B"),
+            )?;
         }
 
         Ok(())
