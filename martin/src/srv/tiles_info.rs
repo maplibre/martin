@@ -1,4 +1,3 @@
-use std::borrow::Cow;
 use std::string::ToString;
 
 use actix_middleware_etag::Etag;
