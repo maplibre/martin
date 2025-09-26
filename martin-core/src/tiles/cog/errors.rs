@@ -11,7 +11,7 @@ use tiff::TiffError;
 pub enum CogError {
     /// Cannot decode file as valid TIFF.
     #[error("Couldn't decode {1} as tiff file: {0}")]
-    InvalidTiffFile(TiffError, PathBuf),
+    InvalidTiffFile(#[source] TiffError, PathBuf),
 
     /// Requested zoom level is outside the available range.
     #[error(
@@ -25,7 +25,7 @@ pub enum CogError {
 
     /// Cannot seek to Image File Directory.
     #[error("Couldn't seek to ifd number {1} (0 based indexing) in tiff file {2}: {0}")]
-    IfdSeekFailed(TiffError, usize, PathBuf),
+    IfdSeekFailed(#[source] TiffError, usize, PathBuf),
 
     /// TIFF file contains too many images.
     #[error("Too many images in the tiff file: {0}")]
@@ -33,7 +33,7 @@ pub enum CogError {
 
     /// Required TIFF tags not found.
     #[error("Couldn't find tags {1:?} at ifd {2} of tiff file {3}: {0}")]
-    TagsNotFound(TiffError, Vec<u16>, usize, PathBuf),
+    TagsNotFound(#[source] TiffError, Vec<u16>, usize, PathBuf),
 
     /// Unsupported planar configuration in TIFF.
     #[error(
@@ -43,15 +43,15 @@ pub enum CogError {
 
     /// Failed to read TIFF chunk data.
     #[error("Failed to read {1}th chunk(0 based index) at ifd {2} from tiff file {3}: {0}")]
-    ReadChunkFailed(TiffError, u32, usize, PathBuf),
+    ReadChunkFailed(#[source] TiffError, u32, usize, PathBuf),
 
     /// Failed to write PNG header.
     #[error("Failed to write header of png file at {0}: {1}")]
-    WritePngHeaderFailed(PathBuf, EncodingError),
+    WritePngHeaderFailed(PathBuf, #[source] EncodingError),
 
     /// Failed to write PNG pixel data.
     #[error("Failed to write pixel bytes to png file at {0}: {1}")]
-    WriteToPngFailed(PathBuf, EncodingError),
+    WriteToPngFailed(PathBuf, #[source] EncodingError),
 
     /// Unsupported color type or bit depth.
     #[error("The color type {0:?} and its bit depth of the tiff file {1} is not supported yet")]
@@ -85,5 +85,5 @@ pub enum CogError {
 
     /// IO error.
     #[error("IO error {0}: {1}")]
-    IoError(std::io::Error, PathBuf),
+    IoError(#[source] std::io::Error, PathBuf),
 }

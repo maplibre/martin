@@ -40,7 +40,7 @@ cors:
 postgres:
   warning: 'due to not expected'
   # Database connection string
-  connection_string: '${DATABASE_URL:postgresql://postgres@localhost:5432/db}'
+  connection_string: '${DATABASE_URL:postgres://postgres@localhost:5432/db}'
 
   # If a spatial table has SRID 0, then this SRID will be used as a fallback
   default_srid: 4326

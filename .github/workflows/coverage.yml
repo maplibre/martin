@@ -23,11 +23,12 @@ jobs:
       AWS_SKIP_CREDENTIALS: 1
       AWS_REGION: eu-central-1
     steps:
+      - run: rustup update stable && rustup default stable
       - name: Set up system dependencies
         run: sudo apt-get update && sudo apt-get install -y gdal-bin sqlite3-tools postgresql-client
       - name: Checkout sources
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-      - uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0 # v2.8.0
+      - uses: Swatinem/rust-cache@f13886b937689c021905a6b90929199931d60db1 # v2.8.1
 
       - uses: taiki-e/install-action@cc60de1d6831d7e9c4342f618ce7a5d6a9f223a4 # v2.61.6
         with: { tool: 'just,cargo-llvm-cov' }

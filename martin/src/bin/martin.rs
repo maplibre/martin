@@ -28,7 +28,7 @@ async fn start(args: Args) -> MartinResult<()> {
     let sources = config.resolve().await?;
 
     if let Some(file_name) = save_config {
-        config.save_to_file(file_name)?;
+        config.save_to_file(file_name.as_path())?;
     } else {
         info!("Use --save-config to save or print Martin configuration.");
     }
