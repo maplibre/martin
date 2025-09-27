@@ -279,8 +279,8 @@ jobs:
           TAG=${{ github.repository }}:linux
           export MARTIN_BUILD_ALL=-
           export MARTIN_BIN="docker run --rm --net host --platform $PLATFORM -e DATABASE_URL -e AWS_REGION=eu-central-1 -e AWS_SKIP_CREDENTIALS=1 -v $PWD/tests:/tests $TAG"
-                    export MARTIN_CP_BIN="docker run --rm --net host --platform $PLATFORM -e DATABASE_URL -e AWS_REGION=eu-central-1 -e AWS_SKIP_CREDENTIALS=1 -v $PWD/tests:/tests --entrypoint /usr/local/bin/martin-cp $TAG"
-                    export MBTILES_BIN="docker run --rm --net host --platform $PLATFORM -e DATABASE_URL -e AWS_REGION=eu-central-1 -e AWS_SKIP_CREDENTIALS=1 -v $PWD/tests:/tests --entrypoint /usr/local/bin/mbtiles $TAG"
+          export MARTIN_CP_BIN="docker run --rm --net host --platform $PLATFORM -e DATABASE_URL -e AWS_REGION=eu-central-1 -e AWS_SKIP_CREDENTIALS=1 -v $PWD/tests:/tests --entrypoint /usr/local/bin/martin-cp $TAG"
+          export MBTILES_BIN="docker run --rm --net host --platform $PLATFORM -e DATABASE_URL -e AWS_REGION=eu-central-1 -e AWS_SKIP_CREDENTIALS=1 -v $PWD/tests:/tests --entrypoint /usr/local/bin/mbtiles $TAG"
           tests/test.sh
         env:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=require

@@ -53,7 +53,6 @@ The available url schemes are:
 - `gs://bucket/path` -> Google Cloud Storage
 - `az://account/container/path` -> Microsoft Azure (also supports `adl`, `azure`, `abfs`, `abfss`)
 
-
 If you want more control over your request, you can configure additional options here as such:
 
 ```yaml
@@ -64,6 +63,7 @@ pmtiles:
 ```
 
 The avaliable options are documented here:
+
 - [Http(s) Source](https://docs.rs/object_store/latest/object_store/http/struct.HttpBuilder.html)
 - [Amazon S3](https://docs.rs/object_store/latest/object_store/aws/struct.AmazonS3Builder.html)
 - [Google Cloud Storage](https://docs.rs/object_store/latest/object_store/gcp/struct.GoogleCloudStorageBuilder.html)
