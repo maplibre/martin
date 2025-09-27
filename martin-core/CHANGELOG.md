@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1](https://github.com/maplibre/martin/compare/martin-core-v0.1.0...martin-core-v0.1.1) - 2025-09-27
+
+- fix release not working for some packages due to outdated dependedncy definitions
+- update documentation to reflect the features better
+
 ## [0.1.0](https://github.com/maplibre/martin/releases/tag/martin-core-v0.1.0) - 2025-09-26
 
 This marks the v0.1 relese, where we moved over the largest part of the previous `martin` crate.
