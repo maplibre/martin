@@ -19,6 +19,7 @@ use crate::config::file::{
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct PmtConfig {
     // if the key is the allowed set, we assume it is there for a purpose
+    // settings and unreconginsed values are partitioned from each other in the init_parsing step
     #[serde(skip)]
     pub options: HashMap<String, String>,
 
