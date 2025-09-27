@@ -205,7 +205,7 @@ pub fn parse_file_args<T: crate::config::file::ConfigExtras>(
 
 #[cfg(test)]
 mod tests {
-
+    #[cfg(all(feature = "pmtiles", feature = "mbtiles", feature = "cog"))]
     use insta::assert_yaml_snapshot;
     use martin_core::config::env::FauxEnv;
 
