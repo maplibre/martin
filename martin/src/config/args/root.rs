@@ -205,7 +205,7 @@ pub fn parse_file_args<T: crate::config::file::ConfigExtras>(
 
 #[cfg(test)]
 mod tests {
-
+    #[cfg(all(feature = "pmtiles", feature = "mbtiles", feature = "cog"))]
     use insta::assert_yaml_snapshot;
     use martin_core::config::env::FauxEnv;
 
@@ -319,6 +319,7 @@ mod tests {
         assert!(matches!(err, UnrecognizableConnections(v) if v == bad));
     }
 
+    #[cfg(all(feature = "pmtiles", feature = "mbtiles", feature = "cog"))]
     #[test]
     fn cli_multiple_extensions() {
         let args = Args::parse_from([
@@ -342,6 +343,7 @@ mod tests {
         "#);
     }
 
+    #[cfg(all(feature = "pmtiles", feature = "mbtiles", feature = "cog"))]
     #[test]
     fn cli_directories_propagate() {
         let args = Args::parse_from(["martin", "../tests/fixtures/"]);

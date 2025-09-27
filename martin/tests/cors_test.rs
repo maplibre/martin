@@ -1,3 +1,5 @@
+#![cfg(feature = "mbtiles")]
+
 use actix_http::Method;
 use actix_http::header::ACCESS_CONTROL_MAX_AGE;
 use actix_web::http::header::{ACCESS_CONTROL_ALLOW_ORIGIN, ACCESS_CONTROL_REQUEST_METHOD, ORIGIN};
