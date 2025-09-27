@@ -111,7 +111,7 @@ impl PmtConfig {
                 "Environment variable AWS_S3_FORCE_PATH_STYLE is no longer used as path style urls are natively supported without additional configuration"
             );
         }
-        
+
         // `AWS_NO_CREDENTIALS` was the name in some early documentation of this feature
         for key in ["aws_skip_credentials", "aws_no_credentials"] {
             if let Some(Some(no_credentials)) = self.unrecognized.remove(key).map(|v| v.as_bool()) {
