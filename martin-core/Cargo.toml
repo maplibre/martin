@@ -41,11 +41,10 @@ sprites = [
 ]
 styles = ["dep:walkdir", "tokio/fs", "dep:dashmap"]
 mbtiles = ["dep:mbtiles"]
-pmtiles = ["dep:pmtiles", "dep:aws-config", "dep:object_store"]
+pmtiles = ["dep:pmtiles", "dep:object_store"]
 
 [dependencies]
 async-trait.workspace = true
-aws-config = { workspace = true, optional = true }
 bit-set = { workspace = true, optional = true }
 dashmap = { workspace = true, optional = true }
 deadpool-postgres = { workspace = true, optional = true }
