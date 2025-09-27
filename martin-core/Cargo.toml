@@ -41,7 +41,7 @@ sprites = [
 ]
 styles = ["dep:walkdir", "tokio/fs", "dep:dashmap"]
 mbtiles = ["dep:mbtiles"]
-pmtiles = ["dep:pmtiles", "dep:aws-config", "dep:url"]
+pmtiles = ["dep:pmtiles", "dep:aws-config", "dep:object_store"]
 
 [dependencies]
 async-trait.workspace = true
@@ -55,6 +55,7 @@ log.workspace = true
 martin-tile-utils.workspace = true
 mbtiles = { workspace = true, optional = true }
 moka.workspace = true
+object_store = { workspace = true, optional = true }
 pbf_font_tools = { workspace = true, optional = true }
 pmtiles = { workspace = true, optional = true }
 png = { workspace = true, optional = true }
@@ -74,7 +75,6 @@ tiff = { workspace = true, optional = true }
 tilejson.workspace = true
 tokio = { workspace = true, optional = true }
 tokio-postgres-rustls = { workspace = true, optional = true }
-url = { workspace = true, optional = true }
 walkdir = { workspace = true, optional = true }
 
 [dev-dependencies]
