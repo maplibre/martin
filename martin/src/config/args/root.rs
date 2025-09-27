@@ -319,6 +319,7 @@ mod tests {
         assert!(matches!(err, UnrecognizableConnections(v) if v == bad));
     }
 
+    #[cfg(all(feature = "pmtiles", feature = "mbtiles", feature = "cog"))]
     #[test]
     fn cli_multiple_extensions() {
         let args = Args::parse_from([
@@ -343,6 +344,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(all(feature = "pmtiles", feature = "mbtiles", feature = "cog"))]
     fn cli_directories_propagate() {
         let args = Args::parse_from(["martin", "../tests/fixtures/"]);
 
