@@ -160,20 +160,20 @@ impl PmtConfig {
                     .expect("all our keys start with aws_");
                 self.migrate_aws_value(
                     "Environment variable",
-                    &env_key,
-                    &new_key_without_aws_prefix,
+                    env_key,
+                    new_key_without_aws_prefix,
                     var,
                 );
             }
         }
-        if let Ok(_) = std::env::var("AWS_PROFILE") {
+        if std::env::var("AWS_PROFILE").is_ok() {
             warn!(
                 "Environment variable AWS_PROFILE not supported anymore. Supporting this is in scope, but would need more work. See https://github.com/pola-rs/polars/issues/18757#issuecomment-2379398284"
             );
         }
     }
     fn migrate_aws_value(&mut self, r#type: &'static str, key: &str, new_key: &str, value: String) {
-        let new_key_with_aws_prefix = format!("aws_{}", new_key);
+        let new_key_with_aws_prefix = format!("aws_{new_key}");
         if self.options.contains_key(new_key) {
             warn!(
                 "{type} {key} is ignored in favor of the new configuration value pmtiles.{new_key}."
