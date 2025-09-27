@@ -115,20 +115,55 @@ impl PmtConfig {
         // `AWS_NO_CREDENTIALS` was the name in some early documentation of this feature
         for key in ["aws_skip_credentials", "aws_no_credentials"] {
             if let Some(Some(no_credentials)) = self.unrecognized.remove(key).map(|v| v.as_bool()) {
-                warn!(
-                    "Configuration option pmtiles.{key} is deprecated. Please use pmtiles.skip_signature instead."
-                );
-                self.options
-                    .insert("skip_signature".to_string(), no_credentials.to_string());
+                if self.options.contains_key("skip_signature") {
+                    warn!(
+                        "Configuration option pmtiles.{key} is ignored in favor of the new configuration value pmtiles.skip_signature."
+                    );
+                } else {
+                    warn!(
+                        "Configuration option pmtiles.{key} is deprecated. Please use pmtiles.skip_signature instead."
+                    );
+                    self.options
+                        .insert("skip_signature".to_string(), no_credentials.to_string());
+                }
             }
         }
         for env in ["AWS_SKIP_CREDENTIALS", "AWS_NO_CREDENTIALS"] {
             if let Ok(Ok(no_credentials)) = std::env::var(env).map(|v| v.parse::<bool>()) {
-                warn!(
-                    "Environment variable {env} is deprecated. Please use pmtiles.skip_signature instead."
-                );
-                self.options
-                    .insert("skip_signature".to_string(), no_credentials.to_string());
+                if self.options.contains_key("skip_signature") {
+                    warn!(
+                        "Environment variable {env} is ignored in favor of the new configuration value pmtiles.skip_signature."
+                    );
+                } else {
+                    warn!(
+                        "Environment variable {env} is deprecated. Please use pmtiles.skip_signature in the configuration file instead."
+                    );
+                    self.options
+                        .insert("skip_signature".to_string(), no_credentials.to_string());
+                }
+            }
+        }
+
+        // lowercase(env_key) => new key
+        for env_key in [
+            "AWS_ACCESS_KEY_ID",
+            "AWS_SECRET_ACCESS_KEY",
+            "AWS_SESSION_TOKEN",
+            "AWS_PROFILE",
+            "AWS_REGION",
+        ] {
+            if let Ok(var) = std::env::var(env_key) {
+                let new_key = env_key.to_lowercase();
+                if self.options.contains_key(&new_key) {
+                    warn!(
+                        "Environment variable {env_key} is ignored in favor of the new configuration value pmtiles.{new_key}."
+                    );
+                } else {
+                    warn!(
+                        "Environment variable {env_key} is deprecated. Please use pmtiles.{new_key} in the configuration file instead."
+                    );
+                    self.options.insert(new_key, var);
+                }
             }
         }
     }
