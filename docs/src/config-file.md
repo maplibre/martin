@@ -227,7 +227,16 @@ postgres:
 
 # Publish PMTiles files from local disk or proxy to a web server
 pmtiles:
-  # you can configure
+  # You can pass options for pmtiles files located on remote storages here.
+  # 
+  # The avaliable options are documented here:
+  #
+  # - [Http(s) Source](https://docs.rs/object_store/latest/object_store/http/struct.HttpBuilder.html)
+  # - [Amazon S3](https://docs.rs/object_store/latest/object_store/aws/struct.AmazonS3Builder.html)
+  # - [Google Cloud Storage](https://docs.rs/object_store/latest/object_store/gcp/struct.GoogleCloudStorageBuilder.html)
+  # - [Microsoft Azure](https://docs.rs/object_store/latest/object_store/azure/struct.MicrosoftAzureBuilder.html)
+  aws_allow_http: true # just an example
+
   paths:
     # scan this whole dir, matching all *.pmtiles files
     - /dir-path
