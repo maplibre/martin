@@ -110,7 +110,6 @@ styles = ["martin-core/styles", "dep:walkdir"]
 webui = ["dep:actix-web-static-files", "dep:static-files", "dep:walkdir"]
 
 [dependencies]
-object_store = { workspace = true, optional = true }
 actix-cors.workspace = true
 actix-http.workspace = true
 actix-middleware-etag.workspace = true
@@ -132,6 +131,7 @@ martin-core.workspace = true
 martin-tile-utils.workspace = true
 mbtiles.workspace = true
 num_cpus.workspace = true
+object_store = { workspace = true, optional = true }
 postgis = { workspace = true, optional = true }
 postgres-protocol = { workspace = true, optional = true }
 rustls.workspace = true
