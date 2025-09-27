@@ -26,6 +26,7 @@ pub struct SrvConfig {
     /// Advanced monitoring options
     #[cfg(feature = "metrics")]
     pub observability: Option<ObservabilityConfig>,
+    pub tilejson_url_version_param: Option<String>,
 }
 
 impl ConfigExtras for SrvConfig {

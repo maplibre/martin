@@ -28,6 +28,13 @@ pub trait Source: Send + Debug {
     /// Creates a boxed clone for trait object storage.
     fn clone_source(&self) -> BoxedSource;
 
+    /// A version string for this source, if available. Default: None.
+    /// If available, this string is appended to tile URLs as a query parameter,
+    /// invalidating caches.
+    fn get_version(&self) -> Option<String> {
+        None
+    }
+
     /// Whether this source accepts URL query parameters. Default: false.
     fn support_url_query(&self) -> bool {
         false

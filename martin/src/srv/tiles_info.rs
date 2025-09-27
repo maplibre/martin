@@ -10,6 +10,7 @@ use itertools::Itertools as _;
 use martin_core::tiles::BoxedSource;
 use serde::Deserialize;
 use tilejson::{TileJSON, tilejson};
+use url::form_urlencoded;
 
 use crate::config::file::srv::SrvConfig;
 use crate::source::TileSources;
@@ -45,11 +46,38 @@ async fn get_source_info(
             .map_or_else(|| req.path().to_string(), |v| v.path().to_string())
     };
 
+    let version_param = &srv_config.tilejson_url_version_param;
+    let versions: Option<(&str, String)> = if let Some(v) = version_param {
+        let version_str =
+            sources
+                .iter()
+                .filter_map(|s| s.get_version())
+                .fold(String::new(), |mut acc, ver| {
+                    if !acc.is_empty() {
+                        acc.push('-');
+                    }
+                    acc.push_str(&ver);
+                    acc
+                });
+        if version_str.is_empty() {
+            None
+        } else {
+            Some((v.as_str(), version_str))
+        }
+    } else {
+        None
+    };
     let query_string = req.query_string();
-    let path_and_query = if query_string.is_empty() {
+    let mut query = form_urlencoded::Serializer::new(query_string.to_string());
+    if let Some((k, v)) = versions {
+        query.append_pair(k, &v);
+    }
+    let query = query.finish();
+
+    let path_and_query = if query.is_empty() {
         format!("{tiles_path}/{{z}}/{{x}}/{{y}}")
     } else {
-        format!("{tiles_path}/{{z}}/{{x}}/{{y}}?{query_string}")
+        format!("{tiles_path}/{{z}}/{{x}}/{{y}}?{query}")
     };
 
     // Construct a tiles URL from the request info, including the query string if present.

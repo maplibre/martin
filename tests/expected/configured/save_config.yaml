@@ -8,6 +8,7 @@ cors:
   max_age: null
 observability:
   metrics: {}
+tilejson_url_version_param: version
 postgres:
   default_srid: 4326
   max_feature_count: 1000

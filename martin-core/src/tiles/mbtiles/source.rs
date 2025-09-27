@@ -74,6 +74,10 @@ impl Source for MbtSource {
         Box::new(self.clone())
     }
 
+    fn get_version(&self) -> Option<String> {
+        self.tilejson.version.clone()
+    }
+
     fn benefits_from_concurrent_scraping(&self) -> bool {
         // If we copy from one local file to another, we are likely not bottlenecked by CPU
         false
