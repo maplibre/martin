@@ -1,4 +1,4 @@
-﻿DROP INDEX name;
+DROP INDEX name;
 CREATE UNIQUE INDEX name ON metadata (name);
 DROP INDEX tile_index;
 CREATE UNIQUE INDEX tile_index ON tiles (zoom_level, tile_column, tile_row);
