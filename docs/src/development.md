@@ -10,7 +10,7 @@ Install [Just](https://github.com/casey/just#readme):
 
 ```bash, ignore
 cargo install just --locked
-just install-dependencies # (Linux-only) install system dependencies for rendering styles
+just install-dependencies # install system dependencies for rendering styles
 just validate-tools       # verify setup
 ```
 

@@ -250,6 +250,11 @@ install-dependencies backend='vulkan':
         libuv \
         zlib
 
+# Install Windows dependencies
+[windows]
+install-dependencies backend='vulkan':
+    @echo "rendering styles is not currently supported on windows"
+
 # Run cargo fmt and cargo clippy
 lint: fmt clippy biomejs-martin-ui type-check
 
