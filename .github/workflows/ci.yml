@@ -65,22 +65,18 @@ jobs:
       - run: rustup update stable && rustup default stable
       - name: Checkout sources
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      - uses: taiki-e/install-action@cc60de1d6831d7e9c4342f618ce7a5d6a9f223a4 # v2.61.6
+        with: { tool: 'just' }
       - name: Init database
         run: tests/fixtures/initdb.sh
         env:
           PGPORT: ${{ job.services.postgres.ports[5432] }}
-      - name: Run cargo test
-        run: |
-          set -x
-          cargo test --package martin-tile-utils
-          cargo test --package mbtiles --no-default-features
-          cargo test --package mbtiles
-          cargo test --package martin
-          cargo test --doc
+      - run: just test-cargo --workspace
         env:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=require
           AWS_SKIP_CREDENTIALS: 1
           AWS_REGION: eu-central-1
+      - run: just test-doc
   lint-rust:
     name: Lint the Rust code
     permissions:
@@ -91,6 +87,7 @@ jobs:
       - run: rustup component add clippy rustfmt
       - name: Checkout sources
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with: { persist-credentials: false }
       - uses: taiki-e/install-action@cc60de1d6831d7e9c4342f618ce7a5d6a9f223a4 # v2.61.6
         # TODO: add cargo-sort once https://github.com/taiki-e/install-action/pull/997 is resolved
         with: { tool: 'just,cargo-binstall' }
@@ -114,12 +111,12 @@ jobs:
       - run: rustup update stable && rustup default stable
       - name: Checkout sources
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-        with: { set-safe-directory: false }
+        with: { persist-credentials: false }
+      - uses: taiki-e/install-action@cc60de1d6831d7e9c4342f618ce7a5d6a9f223a4 # v2.61.6
+        with: { tool: cargo-zigbuild }
       - name: Install zig
         uses: mlugg/setup-zig@8d6198c65fb0feaa111df26e6b467fea8345e46f # v2.0.5
         with: { version: '0.15.1' }
-      - uses: taiki-e/install-action@cc60de1d6831d7e9c4342f618ce7a5d6a9f223a4 # v2.61.6
-        with: { tool: cargo-zigbuild }
       - run: rustup target add ${{ matrix.target }}
       - name: Build ${{ matrix.target }}
         run: |
@@ -176,7 +173,7 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-        with: { set-safe-directory: false }
+        with: { persist-credentials: false }
       - name: Init database
         run: tests/fixtures/initdb.sh
         env:
@@ -362,6 +359,7 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with: { persist-credentials: false }
       - run: rustup update stable && rustup default stable
       # the macOS x86 runners are 3x slower than all other runners.
       # We need to cache here to not spend 30 minutes on each build.
@@ -407,6 +405,7 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with: { persist-credentials: false }
       - name: Download build artifact build-x86_64-unknown-linux-musl
         uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
         with: { name: 'build-x86_64-unknown-linux-musl', path: 'target/' }
@@ -476,6 +475,7 @@ jobs:
         with: { port: '5412', output-unix-paths: 'yes' }
       - name: Checkout sources
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with: { persist-credentials: false }
       - name: Init database
         env:
           PGPORT: ${{ env.PGPORT }}
@@ -599,6 +599,7 @@ jobs:
       - run: rustup update stable && rustup default stable
       - name: Checkout sources
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with: { persist-credentials: false }
       # cache for the unit-test to be run against postgres to be acceptably slow
       - uses: Swatinem/rust-cache@f13886b937689c021905a6b90929199931d60db1 # v2.8.1
         if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
@@ -692,6 +693,7 @@ jobs:
       - run: rustup update stable && rustup default stable
       - name: Checkout sources
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with: { persist-credentials: false }
       - name: Test packaging
         run: cargo publish --workspace --dry-run
 
@@ -708,6 +710,7 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with: { persist-credentials: false }
       - name: Download build artifact build-aarch64-apple-darwin
         uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
         with: { name: 'build-aarch64-apple-darwin', path: 'target/aarch64-apple-darwin' }
@@ -810,6 +813,7 @@ jobs:
           repository: maplibre/homebrew-martin
           token: ${{ secrets.GH_HOMEBREW_MARTIN_TOKEN }} # See instructions above
           path: target/homebrew
+          persist-credentials: false
 
       - name: Create Homebrew formula
         uses: cuchi/jinja2-action@8bd801365a8d36a0b20f45ee969161685de7785a # master
