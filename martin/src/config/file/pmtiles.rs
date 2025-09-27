@@ -19,7 +19,6 @@ use crate::config::file::{
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct PmtConfig {
     // if the key is the allowed set, we assume it is there for a purpose
-    // settings and unreconginsed values are partitioned from each other in the init_parsing step
     #[serde(skip)]
     pub options: HashMap<String, String>,
 
@@ -99,49 +98,51 @@ impl PmtConfig {
         }
 
         // below: AWS -> object_store
+        // virtual_hosted_style_request is the exact opposite of force_path_style
         for key in ["aws_s3_force_path_style", "force_path_style"] {
-            if self.unrecognized.contains_key(key) {
-                warn!(
-                    "{key} is no longer used as path style urls are natively supported without additional configuration"
+            if let Some(Some(force_path_style)) = self.unrecognized.remove(key).map(|v| v.as_bool())
+            {
+                let virtual_hosted_style_request = !force_path_style;
+                self.migrate_aws_value(
+                    "Configuration option",
+                    &format!("pmtiles.{key}"),
+                    "virtual_hosted_style_request",
+                    virtual_hosted_style_request.to_string(),
                 );
             }
         }
 
-        if std::env::var_os("AWS_S3_FORCE_PATH_STYLE").is_some() {
-            warn!(
-                "Environment variable AWS_S3_FORCE_PATH_STYLE is no longer used as path style urls are natively supported without additional configuration"
+        if let Ok(Ok(force_path_style)) =
+            std::env::var("AWS_S3_FORCE_PATH_STYLE").map(|v| v.parse::<bool>())
+        {
+            let virtual_hosted_style_request = !force_path_style;
+            self.migrate_aws_value(
+                "Environment variable",
+                "AWS_S3_FORCE_PATH_STYLE",
+                "virtual_hosted_style_request",
+                virtual_hosted_style_request.to_string(),
             );
         }
 
         // `AWS_NO_CREDENTIALS` was the name in some early documentation of this feature
         for key in ["aws_skip_credentials", "aws_no_credentials"] {
             if let Some(Some(no_credentials)) = self.unrecognized.remove(key).map(|v| v.as_bool()) {
-                if self.options.contains_key("skip_signature") {
-                    warn!(
-                        "Configuration option pmtiles.{key} is ignored in favor of the new configuration value pmtiles.skip_signature."
-                    );
-                } else {
-                    warn!(
-                        "Configuration option pmtiles.{key} is deprecated. Please use pmtiles.skip_signature instead."
-                    );
-                    self.options
-                        .insert("skip_signature".to_string(), no_credentials.to_string());
-                }
+                self.migrate_aws_value(
+                    "Configuration option",
+                    &format!("pmtiles.{key}"),
+                    "skip_signature",
+                    no_credentials.to_string(),
+                );
             }
         }
         for env in ["AWS_SKIP_CREDENTIALS", "AWS_NO_CREDENTIALS"] {
             if let Ok(Ok(no_credentials)) = std::env::var(env).map(|v| v.parse::<bool>()) {
-                if self.options.contains_key("skip_signature") {
-                    warn!(
-                        "Environment variable {env} is ignored in favor of the new configuration value pmtiles.skip_signature."
-                    );
-                } else {
-                    warn!(
-                        "Environment variable {env} is deprecated. Please use pmtiles.skip_signature in the configuration file instead."
-                    );
-                    self.options
-                        .insert("skip_signature".to_string(), no_credentials.to_string());
-                }
+                self.migrate_aws_value(
+                    "Environment variable",
+                    env,
+                    "skip_signature",
+                    no_credentials.to_string(),
+                );
             }
         }
 
@@ -150,22 +151,40 @@ impl PmtConfig {
             "AWS_ACCESS_KEY_ID",
             "AWS_SECRET_ACCESS_KEY",
             "AWS_SESSION_TOKEN",
-            "AWS_PROFILE",
             "AWS_REGION",
         ] {
             if let Ok(var) = std::env::var(env_key) {
-                let new_key = env_key.to_lowercase();
-                if self.options.contains_key(&new_key) {
-                    warn!(
-                        "Environment variable {env_key} is ignored in favor of the new configuration value pmtiles.{new_key}."
-                    );
-                } else {
-                    warn!(
-                        "Environment variable {env_key} is deprecated. Please use pmtiles.{new_key} in the configuration file instead."
-                    );
-                    self.options.insert(new_key, var);
-                }
+                let new_key_with_aws_prefix = env_key.to_lowercase();
+                let new_key_without_aws_prefix = new_key_with_aws_prefix
+                    .strip_prefix("aws_")
+                    .expect("all our keys start with aws_");
+                self.migrate_aws_value(
+                    "Environment variable",
+                    &env_key,
+                    &new_key_without_aws_prefix,
+                    var,
+                );
             }
+        }
+        if let Ok(_) = std::env::var("AWS_PROFILE") {
+            warn!("Environment variable AWS_PROFILE not supported anymore. Supporting this is in scope, but would need more work. See https://github.com/pola-rs/polars/issues/18757#issuecomment-2379398284");
+        }
+    }
+    fn migrate_aws_value(&mut self, r#type: &'static str, key: &str, new_key: &str, value: String) {
+        let new_key_with_aws_prefix = format!("aws_{}", new_key);
+        if self.options.contains_key(new_key) {
+            warn!(
+                "{type} {key} is ignored in favor of the new configuration value pmtiles.{new_key}."
+            );
+        } else if self.options.contains_key(&new_key_with_aws_prefix) {
+            warn!(
+                "{type} {key} is ignored in favor of the new configuration value pmtiles.{new_key_with_aws_prefix}."
+            );
+        } else {
+            warn!(
+                "{type} {key} is deprecated. Please use pmtiles.{new_key} in the configuration file instead."
+            );
+            self.options.insert(new_key.to_string(), value);
         }
     }
 }
