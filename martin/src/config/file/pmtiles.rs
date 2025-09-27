@@ -85,6 +85,12 @@ impl SourceConfigExtras for PmtConfig {
     }
 
     async fn new_sources(&self, id: String, path: PathBuf) -> MartinResult<BoxedSource> {
+        // canonicalize to get rid of symlinks
+        let path = path
+            .canonicalize()
+            .map_err(|e| ConfigFileError::IoError(e, path))?;
+        // object_store does not support relative paths
+        let path = std::path::absolute(&path).map_err(|e| ConfigFileError::IoError(e, path))?;
         let url = format!("file://{}", path.display());
         let url = url
             .parse()
