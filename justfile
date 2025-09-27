@@ -347,7 +347,7 @@ test-int: clean-test install-sqlx prepare-fixtures
             echo "** If this is expected, run 'just bless' to update expected output"
             echo ""
             echo "::group::Resulting diff (max 100 lines)"
-            diff --recursive --new-file --exclude='*.pbf' tests/output tests/expected | head -n 100
+            diff --recursive --new-file --exclude='*.pbf' tests/output tests/expected | head -n 100 | cat --show-nonprinting
             echo "::endgroup::"
             exit 1
         else
