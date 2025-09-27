@@ -204,7 +204,8 @@ fmt-md:
 
 # Reformat all SQL files using docker
 fmt-sql:
-    docker run -it --rm -v $PWD:/sql sqlfluff/sqlfluff:latest fix --dialect=postgres --exclude-rules=AL07,LT05,LT12
+    docker run -it --rm -v $PWD:/sql sqlfluff/sqlfluff:latest fix --dialect=postgres --exclude-rules=AL07,LT05,LT12 --exclude '^tests/fixtures/(mbtiles|files)/.*\.sql$'
+    docker run -it --rm -v $PWD:/sql sqlfluff/sqlfluff:latest fix --dialect=sqlite --exclude-rules=LT01,LT05 --files '^tests/fixtures/(mbtiles|files)/.*\.sql$'
 
 # Reformat all Cargo.toml files using cargo-sort
 fmt-toml *args: (cargo-install 'cargo-sort')
@@ -308,13 +309,31 @@ test-doc *args:
 test-fmt: (cargo-install 'cargo-sort') && (fmt-toml '--check' '--check-format')
     cargo fmt --all -- --check
 
+prepare-fixtures:
+    #!/bin/bash
+    set -euo pipefail
+
+    FOLDERS=("tests/fixtures/files" "tests/fixtures/mbtiles")
+
+    for folder in "${FOLDERS[@]}"; do
+        echo "Processing folder: $folder"
+
+        for sql_file in "$folder"/*.sql; do
+            [ -e "$sql_file" ] || continue
+
+            mbtiles_file="${sql_file%.sql}.mbtiles"
+            echo "Creating: $mbtiles_file from $sql_file"
+            sqlite3 "$mbtiles_file" < "$sql_file"
+        done
+    done
+
 # Run frontend tests
 [working-directory: 'martin/martin-ui']
 test-frontend:
     npm run test
 
 # Run integration tests
-test-int: clean-test install-sqlx
+test-int: clean-test install-sqlx prepare-fixtures
     #!/usr/bin/env bash
     set -euo pipefail
     tests/test.sh
