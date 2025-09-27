@@ -343,8 +343,8 @@ mod tests {
         "#);
     }
 
-    #[test]
     #[cfg(all(feature = "pmtiles", feature = "mbtiles", feature = "cog"))]
+    #[test]
     fn cli_directories_propagate() {
         let args = Args::parse_from(["martin", "../tests/fixtures/"]);
 
