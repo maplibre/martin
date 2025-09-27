@@ -788,7 +788,12 @@ jobs:
       - name: Publish
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@6cbd405e2c4e67a21c47fa9e383d020e4e28b836 # v2.3.3
-        with: { files: 'target/files/*', generate_release_notes: true }
+        with:
+          files: 'target/files/*'
+          generate_release_notes: false
+          draft: false
+          make_latest: ${{ startsWith(github.ref, 'refs/tags/martin-') }}
+          fail_on_unmatched_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -859,9 +864,6 @@ jobs:
       && github.ref == 'refs/heads/main'
       && github.repository_owner == 'maplibre'
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      id-token: write
     concurrency:
       group: release-plz-${{ github.ref }}
       cancel-in-progress: false
@@ -874,7 +876,7 @@ jobs:
         id: release
         with: { command: release }
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN }}
       - if: ${{ steps.release.outputs.releases_created == 'false' }}
         name: If version is the same, create a PR proposing new version and changelog for the next release
         uses: release-plz/action@acb9246af4d59a270d1d4058a8b9af8c3f3a2559 # v0.5.117
