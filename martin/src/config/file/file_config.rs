@@ -67,6 +67,10 @@ pub enum ConfigFileError {
     #[cfg(feature = "fonts")]
     #[error("Failed to load fonts from {1}: {0}")]
     FontResolutionFailed(#[source] martin_core::fonts::FontError, PathBuf),
+
+    #[cfg(feature = "pmtiles")]
+    #[error("Failed to parse object store URL of {1}: {0}")]
+    ObjectStoreUrlParsing(object_store::Error, String),
 }
 
 pub trait ConfigExtras: Clone + Debug + Default + PartialEq + Send {

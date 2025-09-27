@@ -97,7 +97,7 @@ fonts = ["martin-core/fonts"]
 lambda = ["dep:lambda-web"]
 mbtiles = ["martin-core/mbtiles"]
 metrics = ["dep:actix-web-prom"]
-pmtiles = ["martin-core/pmtiles"]
+pmtiles = ["martin-core/pmtiles", "dep:object_store"]
 postgres = [
     "martin-core/postgres",
     "dep:enum-display",
@@ -110,6 +110,7 @@ styles = ["martin-core/styles", "dep:walkdir"]
 webui = ["dep:actix-web-static-files", "dep:static-files", "dep:walkdir"]
 
 [dependencies]
+object_store = { workspace = true, optional = true }
 actix-cors.workspace = true
 actix-http.workspace = true
 actix-middleware-etag.workspace = true
