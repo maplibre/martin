@@ -65,6 +65,7 @@ jobs:
       - run: rustup update stable && rustup default stable
       - name: Checkout sources
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with: { persist-credentials: false }
       - uses: taiki-e/install-action@cc60de1d6831d7e9c4342f618ce7a5d6a9f223a4 # v2.61.6
         with: { tool: 'just' }
       - name: Init database
@@ -357,10 +358,10 @@ jobs:
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-latest
     steps:
+      - run: rustup update stable && rustup default stable
       - name: Checkout sources
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with: { persist-credentials: false }
-      - run: rustup update stable && rustup default stable
       # the macOS x86 runners are 3x slower than all other runners.
       # We need to cache here to not spend 30 minutes on each build.
       # We cannot cache the others as well because we only have 10GB of cache
@@ -392,6 +393,7 @@ jobs:
           mv target/${{ matrix.target }}/release/martin${{ matrix.ext }} target_releases/
           mv target/${{ matrix.target }}/release/martin-cp${{ matrix.ext }} target_releases/
           mv target/${{ matrix.target }}/release/mbtiles${{ matrix.ext }} target_releases/
+
       - name: Save build artifacts to build-${{ matrix.target }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
@@ -409,6 +411,7 @@ jobs:
       - name: Download build artifact build-x86_64-unknown-linux-musl
         uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
         with: { name: 'build-x86_64-unknown-linux-musl', path: 'target/' }
+
       - run: tests/test-aws-lambda.sh
         env:
           MARTIN_BIN: target/martin
@@ -440,6 +443,13 @@ jobs:
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-latest
     steps:
+      - name: Checkout sources
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with: { persist-credentials: false }
+      - name: Set up gdal-bin and sqlite3-tools
+        if: matrix.os == 'ubuntu-latest'
+        run: sudo apt-get update && sudo apt-get install -y gdal-bin sqlite3-tools
+        
       - name: Install and run Postgis (Windows)
         if: matrix.os == 'windows-latest'
         uses: nyurik/action-setup-postgis@5183a5e26ade31809faed263cd4d638e144fe186 # v2.2
@@ -473,9 +483,6 @@ jobs:
         uses: nyurik/action-setup-nginx@612ee9cb839ad727832cda16359452e7e14dd521 # v1.1
         id: nginx
         with: { port: '5412', output-unix-paths: 'yes' }
-      - name: Checkout sources
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-        with: { persist-credentials: false }
       - name: Init database
         env:
           PGPORT: ${{ env.PGPORT }}
@@ -493,9 +500,7 @@ jobs:
         with:
           name: build-${{ matrix.target }}
           path: target/
-      - name: Set up gdal-bin and sqlite3-tools
-        if: matrix.os == 'ubuntu-latest'
-        run: sudo apt-get update && sudo apt-get install -y gdal-bin sqlite3-tools
+
       - name: Integration Tests
         run: |
           export MARTIN_BUILD_ALL=-
