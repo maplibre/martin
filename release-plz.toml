@@ -2,6 +2,7 @@
 dependencies_update = true
 git_release_type = "auto"
 changelog_update = true
+git_release_latest = false
 
 [[package]]
 name = "martin-core"
@@ -14,6 +15,7 @@ git_release_enable = false
 [[package]]
 name = "martin"
 changelog_include = ["martin", "martin-core", "martin-tile-utils", "mbtiles"]
+git_release_latest = true # mark only martins' releses as latest
 
 [[package]]
 name = "mbtiles"
