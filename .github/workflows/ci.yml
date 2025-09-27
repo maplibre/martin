@@ -660,8 +660,6 @@ jobs:
           rm -rf target_releases
         env:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=${{ matrix.sslmode }}
-          AWS_SKIP_CREDENTIALS: 1
-          AWS_REGION: eu-central-1
       - name: Unit Tests
         if: matrix.sslmode != 'verify-ca' && matrix.sslmode != 'verify-full'
         run: |
