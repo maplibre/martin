@@ -227,7 +227,7 @@ postgres:
 
 # Publish PMTiles files from local disk or proxy to a web server
 pmtiles:
-  # you can configure 
+  # you can configure
   paths:
     # scan this whole dir, matching all *.pmtiles files
     - /dir-path

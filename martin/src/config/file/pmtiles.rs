@@ -167,7 +167,9 @@ impl PmtConfig {
             }
         }
         if let Ok(_) = std::env::var("AWS_PROFILE") {
-            warn!("Environment variable AWS_PROFILE not supported anymore. Supporting this is in scope, but would need more work. See https://github.com/pola-rs/polars/issues/18757#issuecomment-2379398284");
+            warn!(
+                "Environment variable AWS_PROFILE not supported anymore. Supporting this is in scope, but would need more work. See https://github.com/pola-rs/polars/issues/18757#issuecomment-2379398284"
+            );
         }
     }
     fn migrate_aws_value(&mut self, r#type: &'static str, key: &str, new_key: &str, value: String) {
