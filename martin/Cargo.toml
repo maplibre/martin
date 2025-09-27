@@ -131,6 +131,7 @@ martin-core.workspace = true
 martin-tile-utils.workspace = true
 mbtiles.workspace = true
 num_cpus.workspace = true
+ogcapi-types = { workspace = true, features = ["tiles", "features"] }
 postgis = { workspace = true, optional = true }
 postgres-protocol = { workspace = true, optional = true }
 rustls.workspace = true
