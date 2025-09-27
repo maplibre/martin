@@ -228,7 +228,7 @@ postgres:
 # Publish PMTiles files from local disk or proxy to a web server
 pmtiles:
   # You can pass options for pmtiles files located on remote storages here.
-  # 
+  #
   # The avaliable options are documented here:
   #
   # - [Http(s) Source](https://docs.rs/object_store/latest/object_store/http/struct.HttpBuilder.html)
