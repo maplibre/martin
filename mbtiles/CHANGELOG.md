@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Other
 
+- The previous `martin-0.19.1` release had another bug which prevented proper releasing which is now fixed ([#2262](https://github.com/maplibre/martin/pull/2262))
 - update Cargo.lock dependencies
 
 ## [0.13.0](https://github.com/maplibre/martin/compare/mbtiles-v0.12.2...mbtiles-v0.13.0) - 2025-09-26
