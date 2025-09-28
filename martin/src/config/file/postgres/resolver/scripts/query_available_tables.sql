@@ -25,7 +25,7 @@ CREATE TEMP TABLE spatially_indexed_columns AS (
     GROUP BY 1, 2, 3
 );
 
-CREATE INDEX IF NOT EXISTS idx_sic_lookup ON spatially_indexed_columns (table_schema, table_name, column_name);
+CREATE INDEX idx_sic_lookup ON spatially_indexed_columns (table_schema, table_name, column_name);
 
 ANALYZE spatially_indexed_columns;
 
