@@ -8,7 +8,7 @@ use testcontainers_modules::testcontainers::ImageExt;
 use testcontainers_modules::testcontainers::runners::AsyncRunner;
 
 // Benchmark sizes
-const SIZES: &[usize] = &[10, 100, 500];
+const SIZES: &[usize] = &[10, 100, 200, 400, 800, 1600, 3200, 6400, 12800, 25600];
 
 /// Setup PostGIS container
 async fn setup_postgres_container() -> (
