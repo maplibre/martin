@@ -12,7 +12,7 @@
 .env.local
 .idea/
 .vscode/
-cache.sqlite
+cache.sqlite*
 config.yml
 coverage
 pg_data/
