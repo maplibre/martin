@@ -1,4 +1,5 @@
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
+use martin::config::file::init_aws_lc_tls;
 use martin::config::file::postgres::{PostgresAutoDiscoveryBuilder, PostgresConfig};
 use martin_core::config::IdResolver;
 use pprof::criterion::{Output, PProfProfiler};
@@ -8,16 +9,6 @@ use testcontainers_modules::testcontainers::runners::AsyncRunner;
 
 // Benchmark sizes
 const SIZES: &[usize] = &[10, 100, 500];
-
-/// Initialize rustls crypto provider once
-fn init_crypto() {
-    static ONCE: std::sync::Once = std::sync::Once::new();
-    ONCE.call_once(|| {
-        rustls::crypto::ring::default_provider()
-            .install_default()
-            .expect("Failed to install rustls crypto provider");
-    });
-}
 
 /// Setup PostGIS container
 async fn setup_postgres_container() -> (
@@ -41,20 +32,7 @@ async fn setup_postgres_container() -> (
         .await
         .expect("Failed to get port");
 
-    let connection_string = format!("postgres://postgres:postgres@{}:{}/bench", host, port);
-
-    // Wait for container and install PostGIS
-    let temp_pool =
-        martin_core::tiles::postgres::PostgresPool::new(&connection_string, None, None, None, 5)
-            .await
-            .expect("Failed to create pool");
-
-    let client = temp_pool.get().await.expect("Failed to get client");
-
-    client
-        .execute("CREATE EXTENSION IF NOT EXISTS postgis", &[])
-        .await
-        .expect("Failed to create PostGIS extension");
+    let connection_string = format!("postgres://postgres:postgres@{}:{}/bench?sslmode=disable", host, port);
 
     (container, connection_string)
 }
@@ -343,7 +321,7 @@ async fn discover_functions(config: &PostgresConfig) {
 }
 
 fn bench_table_discovery(c: &mut Criterion) {
-    init_crypto();
+    init_aws_lc_tls();
     let runtime = tokio::runtime::Runtime::new().unwrap();
 
     let mut group = c.benchmark_group("table_discovery");
@@ -360,17 +338,13 @@ fn bench_table_discovery(c: &mut Criterion) {
         group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, _| {
             b.to_async(&runtime).iter(|| discover_tables(&config));
         });
-
-        runtime.block_on(async {
-            drop(_container);
-        });
     }
 
     group.finish();
 }
 
 fn bench_function_discovery(c: &mut Criterion) {
-    init_crypto();
+    init_aws_lc_tls();
     let runtime = tokio::runtime::Runtime::new().unwrap();
 
     let mut group = c.benchmark_group("function_discovery");
@@ -386,10 +360,6 @@ fn bench_function_discovery(c: &mut Criterion) {
 
         group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, _| {
             b.to_async(&runtime).iter(|| discover_functions(&config));
-        });
-
-        runtime.block_on(async {
-            drop(_container);
         });
     }
 
