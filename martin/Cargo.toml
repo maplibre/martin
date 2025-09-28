@@ -79,6 +79,10 @@ required-features = ["mbtiles"]
 name = "sources"
 harness = false
 
+[[bench]]
+name = "postgres_discovery"
+harness = false
+
 [features]
 default = [
     "cog",
