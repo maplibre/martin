@@ -5,14 +5,14 @@ use martin_core::config::IdResolver;
 use pprof::criterion::{Output, PProfProfiler};
 use testcontainers_modules::postgres::Postgres;
 use testcontainers_modules::testcontainers::ImageExt;
-use testcontainers_modules::testcontainers::runners::AsyncRunner;
+use testcontainers_modules::testcontainers::runners::SyncRunner;
 
 // Benchmark sizes
 const SIZES: &[usize] = &[10, 100, 200, 400, 800, 1600, 3200, 6400, 12800, 25600];
 
-/// Setup PostGIS container
-async fn setup_postgres_container() -> (
-    testcontainers_modules::testcontainers::ContainerAsync<Postgres>,
+/// Setup [`PostGIS`](https://hub.docker.com/r/postgis/postgis/) container
+fn setup_postgres_container() -> (
+    testcontainers_modules::testcontainers::Container<Postgres>,
     String,
 ) {
     let container = Postgres::default()
@@ -23,19 +23,15 @@ async fn setup_postgres_container() -> (
         .with_env_var("POSTGRES_PASSWORD", "postgres")
         .with_env_var("POSTGRES_HOST_AUTH_METHOD", "trust")
         .start()
-        .await
         .expect("Failed to start container");
 
-    let host = container.get_host().await.expect("Failed to get host");
+    let host = container.get_host().expect("Failed to get host");
     let port = container
         .get_host_port_ipv4(5432)
-        .await
         .expect("Failed to get port");
 
-    let connection_string = format!(
-        "postgres://postgres:postgres@{}:{}/bench?sslmode=disable",
-        host, port
-    );
+    let connection_string =
+        format!("postgres://postgres:postgres@{host}:{port}/bench?sslmode=disable");
 
     (container, connection_string)
 }
@@ -50,8 +46,6 @@ async fn populate_tables(connection_string: &str, count: usize) {
     let client = pool.get().await.expect("Failed to get client");
 
     for i in 0..count {
-        let table_name = format!("bench_table_{}", i);
-
         // Mix geometry types
         let geometry_type = match i % 4 {
             0 => "Point",
@@ -70,16 +64,15 @@ async fn populate_tables(connection_string: &str, count: usize) {
         client
             .execute(
                 &format!(
-                    "CREATE TABLE {} (
+                    "CREATE TABLE bench_table_{i} (
                             id SERIAL PRIMARY KEY,
-                            geom geometry({}, {}),
+                            geom geometry({geometry_type}, {srid}),
                             name VARCHAR(255),
                             description TEXT,
                             category VARCHAR(100),
                             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                             properties JSONB
-                        )",
-                    table_name, geometry_type, srid
+                        )"
                 ),
                 &[],
             )
@@ -90,8 +83,7 @@ async fn populate_tables(connection_string: &str, count: usize) {
         client
             .execute(
                 &format!(
-                    "CREATE INDEX {}_geom_idx ON {} USING GIST (geom)",
-                    table_name, table_name
+                    "CREATE INDEX bench_table_{i}_geom_idx ON bench_table_{i} USING GIST (geom)"
                 ),
                 &[],
             )
@@ -103,8 +95,7 @@ async fn populate_tables(connection_string: &str, count: usize) {
             client
                 .execute(
                     &format!(
-                        "CREATE INDEX {}_category_idx ON {} (category)",
-                        table_name, table_name
+                        "CREATE INDEX bench_table_{i}_category_idx ON bench_table_{i} (category)"
                     ),
                     &[],
                 )
@@ -114,31 +105,23 @@ async fn populate_tables(connection_string: &str, count: usize) {
 
         // Insert sample data
         let sample_geom = match geometry_type {
-            "Point" => format!("ST_SetSRID(ST_MakePoint(-73.9857, 40.7484), {})", srid),
+            "Point" => format!("ST_SetSRID(ST_MakePoint(-73.9857, 40.7484), {srid})", ),
             "LineString" => {
                 format!(
-                    "ST_SetSRID(ST_MakeLine(ST_MakePoint(-73.9857, 40.7484), ST_MakePoint(-73.9757, 40.7584)), {})",
-                    srid
+                    "ST_SetSRID(ST_MakeLine(ST_MakePoint(-73.9857, 40.7484), ST_MakePoint(-73.9757, 40.7584)), {srid})",
+                    
                 )
             }
-            "Polygon" => format!(
-                "ST_SetSRID(ST_MakeEnvelope(-74.0, 40.7, -73.9, 40.8), {})",
-                srid
-            ),
             _ => format!(
-                "ST_SetSRID(ST_MakeEnvelope(-74.0, 40.7, -73.9, 40.8), {})",
-                srid
+                "ST_SetSRID(ST_MakeEnvelope(-74.0, 40.7, -73.9, 40.8), {srid})"
             ),
         };
 
         client
                 .execute(
                     &format!(
-                        "INSERT INTO {} (geom, name, category, properties) VALUES ({}, 'Sample {}', 'category_{}', '{{}}'::jsonb)",
-                        table_name,
-                        sample_geom,
-                        i,
-                        i % 5
+                        "INSERT INTO bench_table_{i} (geom, name, category, properties) VALUES ({sample_geom}, 'Sample {i}', 'category_{category}', '{{}}'::jsonb)",
+                        category = i % 5
                     ),
                     &[],
                 )
@@ -159,19 +142,17 @@ async fn populate_functions(connection_string: &str, count: usize) {
     let client = pool.get().await.expect("Failed to get client");
 
     for i in 0..count {
-        let func_name = format!("bench_func_{}", i);
-
         // Create different function patterns
-        let create_sql = match i % 4 {
+        let create_sql = match i % 3 {
             0 => {
                 // Basic MVT function
                 format!(
-                    "CREATE FUNCTION {}(z integer, x integer, y integer)
+                    "CREATE FUNCTION bench_func_{i}(z integer, x integer, y integer)
                          RETURNS bytea AS $$
                          DECLARE
                            result bytea;
                          BEGIN
-                           SELECT ST_AsMVT(q, '{}', 4096, 'geom')
+                           SELECT ST_AsMVT(q, 'bench_func_{i}', 4096, 'geom')
                            INTO result
                            FROM (
                              SELECT
@@ -184,14 +165,13 @@ async fn populate_functions(connection_string: &str, count: usize) {
                            ) q;
                            RETURN COALESCE(result, '\\x00'::bytea);
                          END;
-                         $$ LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE",
-                    func_name, func_name
+                         $$ LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE"
                 )
             }
             1 => {
                 // With query params
                 format!(
-                    "CREATE FUNCTION {}(z integer, x integer, y integer, query_params json)
+                    "CREATE FUNCTION bench_func_{i}(z integer, x integer, y integer, query_params json)
                          RETURNS bytea AS $$
                          DECLARE
                            result bytea;
@@ -199,7 +179,7 @@ async fn populate_functions(connection_string: &str, count: usize) {
                          BEGIN
                            filter_value := COALESCE(query_params->>'filter', '');
 
-                           SELECT ST_AsMVT(q, '{}', 4096, 'geom')
+                           SELECT ST_AsMVT(q, 'bench_func_{i}', 4096, 'geom')
                            INTO result
                            FROM (
                              SELECT
@@ -212,19 +192,18 @@ async fn populate_functions(connection_string: &str, count: usize) {
                            ) q;
                            RETURN COALESCE(result, '\\x00'::bytea);
                          END;
-                         $$ LANGUAGE plpgsql IMMUTABLE PARALLEL SAFE",
-                    func_name, func_name
+                         $$ LANGUAGE plpgsql IMMUTABLE PARALLEL SAFE"
                 )
             }
-            2 => {
+            _ => {
                 // With ETag support
                 format!(
-                    "CREATE FUNCTION {}(z integer, x integer, y integer)
+                    "CREATE FUNCTION bench_func_{i}(z integer, x integer, y integer)
                          RETURNS TABLE(mvt bytea, hash text) AS $$
                          DECLARE
                            tile_data bytea;
                          BEGIN
-                           SELECT ST_AsMVT(q, '{}', 4096, 'geom')
+                           SELECT ST_AsMVT(q, 'bench_func_{i}', 4096, 'geom')
                            INTO tile_data
                            FROM (
                              SELECT
@@ -239,43 +218,7 @@ async fn populate_functions(connection_string: &str, count: usize) {
                            hash := md5(mvt::text);
                            RETURN NEXT;
                          END;
-                         $$ LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE",
-                    func_name, func_name
-                )
-            }
-            _ => {
-                // Complex with CTEs
-                format!(
-                    "CREATE FUNCTION {}(z integer, x integer, y integer, query json)
-                         RETURNS bytea AS $$
-                         DECLARE
-                           result bytea;
-                           bbox geometry;
-                         BEGIN
-                           bbox := ST_TileEnvelope(z, x, y);
-
-                           WITH filtered AS (
-                             SELECT ST_MakePoint(0, 0) as geom, 'test' as name
-                           ),
-                           transformed AS (
-                             SELECT
-                               ST_AsMVTGeom(
-                                 ST_Transform(geom, 3857),
-                                 bbox,
-                                 4096, 64, true
-                               ) AS geom,
-                               name
-                             FROM filtered
-                           )
-                           SELECT ST_AsMVT(transformed, '{}', 4096, 'geom')
-                           INTO result
-                           FROM transformed
-                           WHERE geom IS NOT NULL;
-
-                           RETURN COALESCE(result, '\\x00'::bytea);
-                         END;
-                         $$ LANGUAGE plpgsql STABLE PARALLEL SAFE",
-                    func_name, func_name
+                         $$ LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE"
                 )
             }
         };
@@ -286,15 +229,14 @@ async fn populate_functions(connection_string: &str, count: usize) {
             .expect("Failed to create function");
 
         // Add documentation to some functions
-        if i % 3 == 0 {
+        if i.is_multiple_of(3) {
+            let params = if i.is_multiple_of(2) {
+                "integer, integer, integer"
+            } else {
+                "integer, integer, integer, json"
+            };
             let comment = format!(
-                "COMMENT ON FUNCTION {} IS 'Benchmark test function {} - returns MVT tiles'",
-                if i % 2 == 0 {
-                    format!("{}(integer, integer, integer)", func_name)
-                } else {
-                    format!("{}(integer, integer, integer, json)", func_name)
-                },
-                i
+                "COMMENT ON FUNCTION bench_func_{i}({params}) IS 'Benchmark test function bench_func_{i} - returns MVT tiles'",
             );
             client.execute(&comment, &[]).await.ok();
         }
@@ -330,7 +272,7 @@ fn bench_table_discovery(c: &mut Criterion) {
     let mut group = c.benchmark_group("table_discovery");
 
     for size in SIZES {
-        let (_container, connection_string) = runtime.block_on(setup_postgres_container());
+        let (_container, connection_string) = setup_postgres_container();
         runtime.block_on(populate_tables(&connection_string, *size));
 
         let config = PostgresConfig {
@@ -353,7 +295,7 @@ fn bench_function_discovery(c: &mut Criterion) {
     let mut group = c.benchmark_group("function_discovery");
 
     for size in SIZES {
-        let (_container, connection_string) = runtime.block_on(setup_postgres_container());
+        let (_container, connection_string) = setup_postgres_container();
         runtime.block_on(populate_functions(&connection_string, *size));
 
         let config = PostgresConfig {
