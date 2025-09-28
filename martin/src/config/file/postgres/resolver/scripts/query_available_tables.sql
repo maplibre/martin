@@ -1,23 +1,6 @@
-WITH
---
-columns AS (
-    -- list of table columns
-    SELECT
-        ns.nspname AS table_schema,
-        cls.relname AS table_name,
-        attr.attname AS column_name,
-        trim(LEADING '_' FROM tp.typname) AS type_name
-    FROM pg_attribute AS attr
-    INNER JOIN pg_catalog.pg_class AS cls ON attr.attrelid = cls.oid
-    INNER JOIN pg_catalog.pg_namespace AS ns ON cls.relnamespace = ns.oid
-    INNER JOIN pg_catalog.pg_type AS tp ON attr.atttypid = tp.oid
-    WHERE
-        NOT attr.attisdropped
-        AND attr.attnum > 0
-),
+DROP TABLE IF EXISTS pg_temp.spatially_indexed_columns;
 
---
-spatially_indexed_columns AS (
+CREATE TEMP TABLE IF NOT EXISTS spatially_indexed_columns AS (
     -- list of columns with spatial indexes
     SELECT
         ns.nspname AS table_schema,
@@ -40,6 +23,28 @@ spatially_indexed_columns AS (
                 'gist_geography_ops'
             )
     GROUP BY 1, 2, 3
+);
+
+CREATE INDEX IF NOT EXISTS idx_sic_lookup ON spatially_indexed_columns (table_schema, table_name, column_name);
+
+ANALYZE spatially_indexed_columns;
+
+WITH
+--
+columns AS (
+    -- list of table columns
+    SELECT
+        ns.nspname AS table_schema,
+        cls.relname AS table_name,
+        attr.attname AS column_name,
+        trim(LEADING '_' FROM tp.typname) AS type_name
+    FROM pg_attribute AS attr
+    INNER JOIN pg_catalog.pg_class AS cls ON attr.attrelid = cls.oid
+    INNER JOIN pg_catalog.pg_namespace AS ns ON cls.relnamespace = ns.oid
+    INNER JOIN pg_catalog.pg_type AS tp ON attr.atttypid = tp.oid
+    WHERE
+        NOT attr.attisdropped
+        AND attr.attnum > 0
 ),
 
 --
