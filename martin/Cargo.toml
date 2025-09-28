@@ -165,6 +165,7 @@ insta = { workspace = true, features = ["json", "yaml", "redactions"] }
 pprof.workspace = true
 rstest.workspace = true
 tempfile.workspace = true
+testcontainers-modules.workspace = true
 
 [lints]
 workspace = true

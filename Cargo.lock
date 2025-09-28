@@ -3651,6 +3651,7 @@ dependencies = [
  "static-files 0.2.5",
  "subst",
  "tempfile",
+ "testcontainers-modules",
  "thiserror 2.0.16",
  "tiff",
  "tilejson",

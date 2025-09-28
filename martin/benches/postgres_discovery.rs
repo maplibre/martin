@@ -1,8 +1,10 @@
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use martin::config::file::postgres::{PostgresAutoDiscoveryBuilder, PostgresConfig};
 use martin_core::config::IdResolver;
-use martin_core::tiles::postgres::PostgresPool;
 use pprof::criterion::{Output, PProfProfiler};
+use testcontainers_modules::postgres::Postgres;
+use testcontainers_modules::testcontainers::ImageExt;
+use testcontainers_modules::testcontainers::runners::AsyncRunner;
 
 // Different sizes to benchmark
 const SIZES: &[usize] = &[10, 100, 500];
@@ -17,92 +19,60 @@ fn init_crypto() {
     });
 }
 
-/// Get database connection URL from environment or use default test database
-fn get_database_url() -> String {
-    std::env::var("DATABASE_URL")
-        .unwrap_or_else(|_| "postgres://postgres:postgres@localhost:5411/db".to_string())
-}
-
-/// Clean up all benchmark tables and functions
-async fn cleanup_database() {
-    let database_url = get_database_url();
-    let pool = PostgresPool::new(&database_url, None, None, None, 10)
+/// Setup a new PostGIS container and return its configuration
+async fn setup_postgres_container() -> (
+    testcontainers_modules::testcontainers::ContainerAsync<Postgres>,
+    String,
+) {
+    // Use PostGIS 18-3.6-alpine image as requested
+    let container = Postgres::default()
+        .with_name("postgis/postgis")
+        .with_tag("18-3.6-alpine")
+        .with_env_var("POSTGRES_DB", "bench")
+        .with_env_var("POSTGRES_USER", "postgres")
+        .with_env_var("POSTGRES_PASSWORD", "postgres")
+        .with_env_var("POSTGRES_HOST_AUTH_METHOD", "trust")
+        .start()
         .await
-        .expect("Failed to create pool");
+        .expect("Failed to start container");
 
-    let client = pool.get().await.expect("Failed to get client");
-
-    // Drop all benchmark tables
-    let tables_result = client
-        .query(
-            "SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename LIKE 'bench_%'",
-            &[],
-        )
+    let host = container.get_host().await.expect("Failed to get host");
+    let port = container
+        .get_host_port_ipv4(5432)
         .await
-        .expect("Failed to query tables");
+        .expect("Failed to get port");
 
-    for row in tables_result {
-        let table_name: String = row.get(0);
-        client
-            .execute(&format!("DROP TABLE IF EXISTS {} CASCADE", table_name), &[])
+    let connection_string = format!("postgres://postgres:postgres@{}:{}/bench", host, port);
+
+    // Wait for container to be ready and install PostGIS
+    let temp_pool =
+        martin_core::tiles::postgres::PostgresPool::new(&connection_string, None, None, None, 5)
             .await
-            .ok();
-    }
+            .expect("Failed to create pool");
 
-    // Drop all benchmark functions
-    let funcs_result = client
-        .query(
-            "SELECT proname, pg_get_function_identity_arguments(oid) as args
-             FROM pg_proc
-             WHERE pronamespace = 'public'::regnamespace AND proname LIKE 'bench_%'",
-            &[],
-        )
-        .await
-        .expect("Failed to query functions");
+    let client = temp_pool.get().await.expect("Failed to get client");
 
-    for row in funcs_result {
-        let func_name: String = row.get(0);
-        let args: String = row.get(1);
-        client
-            .execute(
-                &format!("DROP FUNCTION IF EXISTS {}({}) CASCADE", func_name, args),
-                &[],
-            )
-            .await
-            .ok();
-    }
-}
-
-/// Setup database with realistic tables
-async fn setup_tables(count: usize) -> PostgresConfig {
-    let database_url = get_database_url();
-
-    let config = PostgresConfig {
-        connection_string: Some(database_url.clone()),
-        ..Default::default()
-    };
-
-    let pool = PostgresPool::new(&database_url, None, None, None, 10)
-        .await
-        .expect("Failed to create pool");
-
-    let client = pool.get().await.expect("Failed to get client");
-
-    // Ensure PostGIS extension exists
+    // Install PostGIS extension
     client
         .execute("CREATE EXTENSION IF NOT EXISTS postgis", &[])
         .await
-        .ok();
+        .expect("Failed to create PostGIS extension");
+
+    (container, connection_string)
+}
+
+/// Populate database with realistic tables
+async fn populate_tables(connection_string: &str, count: usize) {
+    let pool =
+        martin_core::tiles::postgres::PostgresPool::new(connection_string, None, None, None, 10)
+            .await
+            .expect("Failed to create pool");
+
+    let client = pool.get().await.expect("Failed to get client");
 
     // Create realistic tables with various geometry types and indexes
     for i in 0..count {
         let table_name = format!("bench_table_{}", i);
-
-        // Drop if exists
-        client
-            .execute(&format!("DROP TABLE IF EXISTS {}", table_name), &[])
-            .await
-            .ok();
 
         // Create table with multiple geometry columns and metadata
         let geometry_type = match i % 4 {
@@ -122,14 +92,14 @@ async fn setup_tables(count: usize) -> PostgresConfig {
             .execute(
                 &format!(
                     "CREATE TABLE {} (
-                        id SERIAL PRIMARY KEY,
-                        geom geometry({}, {}),
-                        name VARCHAR(255),
-                        description TEXT,
-                        category VARCHAR(100),
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        properties JSONB
-                    )",
+                            id SERIAL PRIMARY KEY,
+                            geom geometry({}, {}),
+                            name VARCHAR(255),
+                            description TEXT,
+                            category VARCHAR(100),
+                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                            properties JSONB
+                        )",
                     table_name, geometry_type, srid
                 ),
                 &[],
@@ -165,81 +135,54 @@ async fn setup_tables(count: usize) -> PostgresConfig {
 
         // Add some sample data to make bounds calculation more realistic
         let sample_geom = match geometry_type {
-            "Point" => "ST_SetSRID(ST_MakePoint(-73.9857, 40.7484), {})",
+            "Point" => format!("ST_SetSRID(ST_MakePoint(-73.9857, 40.7484), {})", srid),
             "LineString" => {
-                "ST_SetSRID(ST_MakeLine(ST_MakePoint(-73.9857, 40.7484), ST_MakePoint(-73.9757, 40.7584)), {})"
+                format!(
+                    "ST_SetSRID(ST_MakeLine(ST_MakePoint(-73.9857, 40.7484), ST_MakePoint(-73.9757, 40.7584)), {})",
+                    srid
+                )
             }
-            "Polygon" => "ST_SetSRID(ST_MakeEnvelope(-74.0, 40.7, -73.9, 40.8), {})",
-            _ => "ST_SetSRID(ST_MakeEnvelope(-74.0, 40.7, -73.9, 40.8), {})",
+            "Polygon" => format!(
+                "ST_SetSRID(ST_MakeEnvelope(-74.0, 40.7, -73.9, 40.8), {})",
+                srid
+            ),
+            _ => format!(
+                "ST_SetSRID(ST_MakeEnvelope(-74.0, 40.7, -73.9, 40.8), {})",
+                srid
+            ),
         };
 
         client
-            .execute(
-                &format!(
-                    "INSERT INTO {} (geom, name, category, properties) VALUES ({}, 'Sample {}', 'category_{}', '{{}}'::jsonb)",
-                    table_name,
-                    sample_geom.replace("{}", &srid.to_string()),
-                    i,
-                    i % 5
-                ),
-                &[],
-            )
-            .await
-            .expect("Failed to insert sample data");
+                .execute(
+                    &format!(
+                        "INSERT INTO {} (geom, name, category, properties) VALUES ({}, 'Sample {}', 'category_{}', '{{}}'::jsonb)",
+                        table_name,
+                        sample_geom,
+                        i,
+                        i % 5
+                    ),
+                    &[],
+                )
+                .await
+                .expect("Failed to insert sample data");
     }
 
     // Analyze tables for better query planning
     client.execute("ANALYZE", &[]).await.ok();
-
-    config
 }
 
-/// Setup database with realistic functions
-async fn setup_functions(count: usize) -> PostgresConfig {
-    let database_url = get_database_url();
-
-    let config = PostgresConfig {
-        connection_string: Some(database_url.clone()),
-        ..Default::default()
-    };
-
-    let pool = PostgresPool::new(&database_url, None, None, None, 10)
-        .await
-        .expect("Failed to create pool");
+/// Populate database with realistic functions
+async fn populate_functions(connection_string: &str, count: usize) {
+    let pool =
+        martin_core::tiles::postgres::PostgresPool::new(connection_string, None, None, None, 10)
+            .await
+            .expect("Failed to create pool");
 
     let client = pool.get().await.expect("Failed to get client");
-
-    // Ensure PostGIS extension exists
-    client
-        .execute("CREATE EXTENSION IF NOT EXISTS postgis", &[])
-        .await
-        .ok();
 
     // Create realistic tile-serving functions
     for i in 0..count {
         let func_name = format!("bench_func_{}", i);
-
-        // Drop if exists (handle both signatures)
-        client
-            .execute(
-                &format!(
-                    "DROP FUNCTION IF EXISTS {}(integer, integer, integer) CASCADE",
-                    func_name
-                ),
-                &[],
-            )
-            .await
-            .ok();
-        client
-            .execute(
-                &format!(
-                    "DROP FUNCTION IF EXISTS {}(integer, integer, integer, json) CASCADE",
-                    func_name
-                ),
-                &[],
-            )
-            .await
-            .ok();
 
         // Create realistic MVT-returning functions
         // Mix different function patterns that Martin might encounter
@@ -248,25 +191,25 @@ async fn setup_functions(count: usize) -> PostgresConfig {
                 // Simple function without query param
                 format!(
                     "CREATE FUNCTION {}(z integer, x integer, y integer)
-                     RETURNS bytea AS $$
-                     DECLARE
-                       result bytea;
-                     BEGIN
-                       -- Simulate MVT generation with ST_AsMVT
-                       SELECT ST_AsMVT(q, '{}', 4096, 'geom')
-                       INTO result
-                       FROM (
-                         SELECT
-                           ST_AsMVTGeom(
-                             ST_Transform(ST_MakePoint(0, 0), 3857),
-                             ST_TileEnvelope(z, x, y),
-                             4096, 64, true
-                           ) AS geom,
-                           'test' as name
-                       ) q;
-                       RETURN COALESCE(result, '\\x00'::bytea);
-                     END;
-                     $$ LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE",
+                         RETURNS bytea AS $$
+                         DECLARE
+                           result bytea;
+                         BEGIN
+                           -- Simulate MVT generation with ST_AsMVT
+                           SELECT ST_AsMVT(q, '{}', 4096, 'geom')
+                           INTO result
+                           FROM (
+                             SELECT
+                               ST_AsMVTGeom(
+                                 ST_Transform(ST_MakePoint(0, 0), 3857),
+                                 ST_TileEnvelope(z, x, y),
+                                 4096, 64, true
+                               ) AS geom,
+                               'test' as name
+                           ) q;
+                           RETURN COALESCE(result, '\\x00'::bytea);
+                         END;
+                         $$ LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE",
                     func_name, func_name
                 )
             }
@@ -274,28 +217,28 @@ async fn setup_functions(count: usize) -> PostgresConfig {
                 // Function with query param
                 format!(
                     "CREATE FUNCTION {}(z integer, x integer, y integer, query_params json)
-                     RETURNS bytea AS $$
-                     DECLARE
-                       result bytea;
-                       filter_value text;
-                     BEGIN
-                       -- Extract filter from query params
-                       filter_value := COALESCE(query_params->>'filter', '');
+                         RETURNS bytea AS $$
+                         DECLARE
+                           result bytea;
+                           filter_value text;
+                         BEGIN
+                           -- Extract filter from query params
+                           filter_value := COALESCE(query_params->>'filter', '');
 
-                       SELECT ST_AsMVT(q, '{}', 4096, 'geom')
-                       INTO result
-                       FROM (
-                         SELECT
-                           ST_AsMVTGeom(
-                             ST_Transform(ST_MakePoint(0, 0), 3857),
-                             ST_TileEnvelope(z, x, y),
-                             4096, 64, true
-                           ) AS geom,
-                           filter_value as filter
-                       ) q;
-                       RETURN COALESCE(result, '\\x00'::bytea);
-                     END;
-                     $$ LANGUAGE plpgsql IMMUTABLE PARALLEL SAFE",
+                           SELECT ST_AsMVT(q, '{}', 4096, 'geom')
+                           INTO result
+                           FROM (
+                             SELECT
+                               ST_AsMVTGeom(
+                                 ST_Transform(ST_MakePoint(0, 0), 3857),
+                                 ST_TileEnvelope(z, x, y),
+                                 4096, 64, true
+                               ) AS geom,
+                               filter_value as filter
+                           ) q;
+                           RETURN COALESCE(result, '\\x00'::bytea);
+                         END;
+                         $$ LANGUAGE plpgsql IMMUTABLE PARALLEL SAFE",
                     func_name, func_name
                 )
             }
@@ -303,26 +246,26 @@ async fn setup_functions(count: usize) -> PostgresConfig {
                 // Function returning record with hash (for ETag support)
                 format!(
                     "CREATE FUNCTION {}(z integer, x integer, y integer)
-                     RETURNS TABLE(mvt bytea, hash text) AS $$
-                     DECLARE
-                       tile_data bytea;
-                     BEGIN
-                       SELECT ST_AsMVT(q, '{}', 4096, 'geom')
-                       INTO tile_data
-                       FROM (
-                         SELECT
-                           ST_AsMVTGeom(
-                             ST_Transform(ST_MakePoint(0, 0), 3857),
-                             ST_TileEnvelope(z, x, y),
-                             4096, 64, true
-                           ) AS geom
-                       ) q;
+                         RETURNS TABLE(mvt bytea, hash text) AS $$
+                         DECLARE
+                           tile_data bytea;
+                         BEGIN
+                           SELECT ST_AsMVT(q, '{}', 4096, 'geom')
+                           INTO tile_data
+                           FROM (
+                             SELECT
+                               ST_AsMVTGeom(
+                                 ST_Transform(ST_MakePoint(0, 0), 3857),
+                                 ST_TileEnvelope(z, x, y),
+                                 4096, 64, true
+                               ) AS geom
+                           ) q;
 
-                       mvt := COALESCE(tile_data, '\\x00'::bytea);
-                       hash := md5(mvt::text);
-                       RETURN NEXT;
-                     END;
-                     $$ LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE",
+                           mvt := COALESCE(tile_data, '\\x00'::bytea);
+                           hash := md5(mvt::text);
+                           RETURN NEXT;
+                         END;
+                         $$ LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE",
                     func_name, func_name
                 )
             }
@@ -330,36 +273,36 @@ async fn setup_functions(count: usize) -> PostgresConfig {
                 // Complex function with multiple CTEs (common pattern in production)
                 format!(
                     "CREATE FUNCTION {}(z integer, x integer, y integer, query json)
-                     RETURNS bytea AS $$
-                     DECLARE
-                       result bytea;
-                       bbox geometry;
-                     BEGIN
-                       -- Get tile bbox
-                       bbox := ST_TileEnvelope(z, x, y);
+                         RETURNS bytea AS $$
+                         DECLARE
+                           result bytea;
+                           bbox geometry;
+                         BEGIN
+                           -- Get tile bbox
+                           bbox := ST_TileEnvelope(z, x, y);
 
-                       -- Complex query with CTEs
-                       WITH filtered AS (
-                         SELECT ST_MakePoint(0, 0) as geom, 'test' as name
-                       ),
-                       transformed AS (
-                         SELECT
-                           ST_AsMVTGeom(
-                             ST_Transform(geom, 3857),
-                             bbox,
-                             4096, 64, true
-                           ) AS geom,
-                           name
-                         FROM filtered
-                       )
-                       SELECT ST_AsMVT(transformed, '{}', 4096, 'geom')
-                       INTO result
-                       FROM transformed
-                       WHERE geom IS NOT NULL;
+                           -- Complex query with CTEs
+                           WITH filtered AS (
+                             SELECT ST_MakePoint(0, 0) as geom, 'test' as name
+                           ),
+                           transformed AS (
+                             SELECT
+                               ST_AsMVTGeom(
+                                 ST_Transform(geom, 3857),
+                                 bbox,
+                                 4096, 64, true
+                               ) AS geom,
+                               name
+                             FROM filtered
+                           )
+                           SELECT ST_AsMVT(transformed, '{}', 4096, 'geom')
+                           INTO result
+                           FROM transformed
+                           WHERE geom IS NOT NULL;
 
-                       RETURN COALESCE(result, '\\x00'::bytea);
-                     END;
-                     $$ LANGUAGE plpgsql STABLE PARALLEL SAFE",
+                           RETURN COALESCE(result, '\\x00'::bytea);
+                         END;
+                         $$ LANGUAGE plpgsql STABLE PARALLEL SAFE",
                     func_name, func_name
                 )
             }
@@ -384,8 +327,6 @@ async fn setup_functions(count: usize) -> PostgresConfig {
             client.execute(&comment, &[]).await.ok();
         }
     }
-
-    config
 }
 
 async fn discover_tables(config: &PostgresConfig) {
@@ -414,16 +355,25 @@ fn bench_table_discovery(c: &mut Criterion) {
     init_crypto();
     let runtime = tokio::runtime::Runtime::new().unwrap();
 
-    // Clean up before starting
-    runtime.block_on(cleanup_database());
-
     let mut group = c.benchmark_group("table_discovery");
 
     for size in SIZES {
-        let config = runtime.block_on(setup_tables(*size));
+        // Create a fresh container for each benchmark size
+        let (_container, connection_string) = runtime.block_on(setup_postgres_container());
+        runtime.block_on(populate_tables(&connection_string, *size));
+
+        let config = PostgresConfig {
+            connection_string: Some(connection_string.clone()),
+            ..Default::default()
+        };
 
         group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, _| {
             b.to_async(&runtime).iter(|| discover_tables(&config));
+        });
+
+        // Container will be dropped here within the runtime context
+        runtime.block_on(async {
+            drop(_container);
         });
     }
 
@@ -434,16 +384,28 @@ fn bench_function_discovery(c: &mut Criterion) {
     init_crypto();
     let runtime = tokio::runtime::Runtime::new().unwrap();
 
-    // Clean up before starting
-    runtime.block_on(cleanup_database());
-
     let mut group = c.benchmark_group("function_discovery");
 
     for size in SIZES {
-        let config = runtime.block_on(setup_functions(*size));
+        // Create a fresh container for each benchmark size
+        let (_container, connection_string) = runtime.block_on(setup_postgres_container());
+        runtime.block_on(populate_functions(
+            &connection_string,
+            *size,
+        ));
+
+        let config = PostgresConfig {
+            connection_string: Some(connection_string.clone()),
+            ..Default::default()
+        };
 
         group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, _| {
             b.to_async(&runtime).iter(|| discover_functions(&config));
+        });
+
+        // Container will be dropped here within the runtime context
+        runtime.block_on(async {
+            drop(_container);
         });
     }
 
