@@ -309,8 +309,12 @@ styles:
      other_style_name: /path/to/other_style.json
 
 # If set, the version of the tileset (as specified in the MBTiles or PMTiles metadata)
-# will be embedded in the TileJSON `tiles` URL, with the set identifier. For example, if
-# the setting here is `version`, and the PMTiles tileset version is `1.0.0`, the
+# will be embedded in the TileJSON `tiles` URL, with the set identifier.
+# This is useful to
+#
+# For example, if
+# - the setting here is `version`, and
+# - the PMTiles tileset version is `1.0.0`, the
 # TileJSON will be:
 # { ..., "tiles": [".../{z}/{x}/{y}?version=1.0.0"], ... }
 tilejson_url_version_param: null # a string, such as `version` or `v`
