@@ -6,7 +6,7 @@ use testcontainers_modules::postgres::Postgres;
 use testcontainers_modules::testcontainers::ImageExt;
 use testcontainers_modules::testcontainers::runners::AsyncRunner;
 
-// Different sizes to benchmark
+// Benchmark sizes
 const SIZES: &[usize] = &[10, 100, 500];
 
 /// Initialize rustls crypto provider once
@@ -19,12 +19,11 @@ fn init_crypto() {
     });
 }
 
-/// Setup a new PostGIS container and return its configuration
+/// Setup PostGIS container
 async fn setup_postgres_container() -> (
     testcontainers_modules::testcontainers::ContainerAsync<Postgres>,
     String,
 ) {
-    // Use PostGIS 18-3.6-alpine image as requested
     let container = Postgres::default()
         .with_name("postgis/postgis")
         .with_tag("18-3.6-alpine")
@@ -44,7 +43,7 @@ async fn setup_postgres_container() -> (
 
     let connection_string = format!("postgres://postgres:postgres@{}:{}/bench", host, port);
 
-    // Wait for container to be ready and install PostGIS
+    // Wait for container and install PostGIS
     let temp_pool =
         martin_core::tiles::postgres::PostgresPool::new(&connection_string, None, None, None, 5)
             .await
@@ -52,7 +51,6 @@ async fn setup_postgres_container() -> (
 
     let client = temp_pool.get().await.expect("Failed to get client");
 
-    // Install PostGIS extension
     client
         .execute("CREATE EXTENSION IF NOT EXISTS postgis", &[])
         .await
@@ -61,7 +59,7 @@ async fn setup_postgres_container() -> (
     (container, connection_string)
 }
 
-/// Populate database with realistic tables
+/// Create test tables with various geometries
 async fn populate_tables(connection_string: &str, count: usize) {
     let pool =
         martin_core::tiles::postgres::PostgresPool::new(connection_string, None, None, None, 10)
@@ -70,11 +68,10 @@ async fn populate_tables(connection_string: &str, count: usize) {
 
     let client = pool.get().await.expect("Failed to get client");
 
-    // Create realistic tables with various geometry types and indexes
     for i in 0..count {
         let table_name = format!("bench_table_{}", i);
 
-        // Create table with multiple geometry columns and metadata
+        // Mix geometry types
         let geometry_type = match i % 4 {
             0 => "Point",
             1 => "LineString",
@@ -82,10 +79,11 @@ async fn populate_tables(connection_string: &str, count: usize) {
             _ => "MultiPolygon",
         };
 
+        // Vary SRIDs
         let srid = match i % 3 {
             0 => 4326,
             1 => 3857,
-            _ => 2154, // French projection for variety
+            _ => 2154, // French projection
         };
 
         client
@@ -107,7 +105,7 @@ async fn populate_tables(connection_string: &str, count: usize) {
             .await
             .expect("Failed to create table");
 
-        // Create spatial index
+        // Add spatial index
         client
             .execute(
                 &format!(
@@ -119,7 +117,7 @@ async fn populate_tables(connection_string: &str, count: usize) {
             .await
             .expect("Failed to create spatial index");
 
-        // Create attribute indexes for more realistic scenario
+        // Some tables get additional indexes
         if i % 2 == 0 {
             client
                 .execute(
@@ -133,7 +131,7 @@ async fn populate_tables(connection_string: &str, count: usize) {
                 .ok();
         }
 
-        // Add some sample data to make bounds calculation more realistic
+        // Insert sample data
         let sample_geom = match geometry_type {
             "Point" => format!("ST_SetSRID(ST_MakePoint(-73.9857, 40.7484), {})", srid),
             "LineString" => {
@@ -167,11 +165,10 @@ async fn populate_tables(connection_string: &str, count: usize) {
                 .expect("Failed to insert sample data");
     }
 
-    // Analyze tables for better query planning
     client.execute("ANALYZE", &[]).await.ok();
 }
 
-/// Populate database with realistic functions
+/// Create test MVT functions
 async fn populate_functions(connection_string: &str, count: usize) {
     let pool =
         martin_core::tiles::postgres::PostgresPool::new(connection_string, None, None, None, 10)
@@ -180,22 +177,19 @@ async fn populate_functions(connection_string: &str, count: usize) {
 
     let client = pool.get().await.expect("Failed to get client");
 
-    // Create realistic tile-serving functions
     for i in 0..count {
         let func_name = format!("bench_func_{}", i);
 
-        // Create realistic MVT-returning functions
-        // Mix different function patterns that Martin might encounter
+        // Create different function patterns
         let create_sql = match i % 4 {
             0 => {
-                // Simple function without query param
+                // Basic MVT function
                 format!(
                     "CREATE FUNCTION {}(z integer, x integer, y integer)
                          RETURNS bytea AS $$
                          DECLARE
                            result bytea;
                          BEGIN
-                           -- Simulate MVT generation with ST_AsMVT
                            SELECT ST_AsMVT(q, '{}', 4096, 'geom')
                            INTO result
                            FROM (
@@ -214,7 +208,7 @@ async fn populate_functions(connection_string: &str, count: usize) {
                 )
             }
             1 => {
-                // Function with query param
+                // With query params
                 format!(
                     "CREATE FUNCTION {}(z integer, x integer, y integer, query_params json)
                          RETURNS bytea AS $$
@@ -222,7 +216,6 @@ async fn populate_functions(connection_string: &str, count: usize) {
                            result bytea;
                            filter_value text;
                          BEGIN
-                           -- Extract filter from query params
                            filter_value := COALESCE(query_params->>'filter', '');
 
                            SELECT ST_AsMVT(q, '{}', 4096, 'geom')
@@ -243,7 +236,7 @@ async fn populate_functions(connection_string: &str, count: usize) {
                 )
             }
             2 => {
-                // Function returning record with hash (for ETag support)
+                // With ETag support
                 format!(
                     "CREATE FUNCTION {}(z integer, x integer, y integer)
                          RETURNS TABLE(mvt bytea, hash text) AS $$
@@ -270,7 +263,7 @@ async fn populate_functions(connection_string: &str, count: usize) {
                 )
             }
             _ => {
-                // Complex function with multiple CTEs (common pattern in production)
+                // Complex with CTEs
                 format!(
                     "CREATE FUNCTION {}(z integer, x integer, y integer, query json)
                          RETURNS bytea AS $$
@@ -278,10 +271,8 @@ async fn populate_functions(connection_string: &str, count: usize) {
                            result bytea;
                            bbox geometry;
                          BEGIN
-                           -- Get tile bbox
                            bbox := ST_TileEnvelope(z, x, y);
 
-                           -- Complex query with CTEs
                            WITH filtered AS (
                              SELECT ST_MakePoint(0, 0) as geom, 'test' as name
                            ),
@@ -313,7 +304,7 @@ async fn populate_functions(connection_string: &str, count: usize) {
             .await
             .expect("Failed to create function");
 
-        // Add comment/documentation to some functions (Martin reads these)
+        // Add documentation to some functions
         if i % 3 == 0 {
             let comment = format!(
                 "COMMENT ON FUNCTION {} IS 'Benchmark test function {} - returns MVT tiles'",
@@ -358,7 +349,6 @@ fn bench_table_discovery(c: &mut Criterion) {
     let mut group = c.benchmark_group("table_discovery");
 
     for size in SIZES {
-        // Create a fresh container for each benchmark size
         let (_container, connection_string) = runtime.block_on(setup_postgres_container());
         runtime.block_on(populate_tables(&connection_string, *size));
 
@@ -371,7 +361,6 @@ fn bench_table_discovery(c: &mut Criterion) {
             b.to_async(&runtime).iter(|| discover_tables(&config));
         });
 
-        // Container will be dropped here within the runtime context
         runtime.block_on(async {
             drop(_container);
         });
@@ -387,12 +376,8 @@ fn bench_function_discovery(c: &mut Criterion) {
     let mut group = c.benchmark_group("function_discovery");
 
     for size in SIZES {
-        // Create a fresh container for each benchmark size
         let (_container, connection_string) = runtime.block_on(setup_postgres_container());
-        runtime.block_on(populate_functions(
-            &connection_string,
-            *size,
-        ));
+        runtime.block_on(populate_functions(&connection_string, *size));
 
         let config = PostgresConfig {
             connection_string: Some(connection_string.clone()),
@@ -403,7 +388,6 @@ fn bench_function_discovery(c: &mut Criterion) {
             b.to_async(&runtime).iter(|| discover_functions(&config));
         });
 
-        // Container will be dropped here within the runtime context
         runtime.block_on(async {
             drop(_container);
         });

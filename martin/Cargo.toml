@@ -82,6 +82,7 @@ harness = false
 [[bench]]
 name = "postgres_discovery"
 harness = false
+required-features = ["postgres"]
 
 [features]
 default = [
