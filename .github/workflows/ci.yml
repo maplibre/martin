@@ -65,6 +65,7 @@ jobs:
       - run: rustup update stable && rustup default stable
       - name: Checkout sources
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with: { persist-credentials: false }
       - name: Init database
         run: tests/fixtures/initdb.sh
         env:
@@ -76,11 +77,12 @@ jobs:
           cargo test --package mbtiles --no-default-features
           cargo test --package mbtiles
           cargo test --package martin
-          cargo test --doc
+          cargo test --package martin-core
         env:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=require
           AWS_SKIP_CREDENTIALS: 1
           AWS_REGION: eu-central-1
+      - run: cargo test --doc
   lint-rust:
     name: Lint the Rust code
     permissions:
@@ -91,6 +93,7 @@ jobs:
       - run: rustup component add clippy rustfmt
       - name: Checkout sources
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with: { persist-credentials: false }
       - uses: taiki-e/install-action@cc60de1d6831d7e9c4342f618ce7a5d6a9f223a4 # v2.61.6
         # TODO: add cargo-sort once https://github.com/taiki-e/install-action/pull/997 is resolved
         with: { tool: 'just,cargo-binstall' }
@@ -104,6 +107,8 @@ jobs:
   musl-build:
     name: Build ${{ matrix.target }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     strategy:
       fail-fast: true
       matrix:
@@ -114,12 +119,12 @@ jobs:
       - run: rustup update stable && rustup default stable
       - name: Checkout sources
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-        with: { set-safe-directory: false }
+        with: { persist-credentials: false }
+      - uses: taiki-e/install-action@cc60de1d6831d7e9c4342f618ce7a5d6a9f223a4 # v2.61.6
+        with: { tool: cargo-zigbuild }
       - name: Install zig
         uses: mlugg/setup-zig@8d6198c65fb0feaa111df26e6b467fea8345e46f # v2.0.5
         with: { version: '0.15.1' }
-      - uses: taiki-e/install-action@cc60de1d6831d7e9c4342f618ce7a5d6a9f223a4 # v2.61.6
-        with: { tool: cargo-zigbuild }
       - run: rustup target add ${{ matrix.target }}
       - name: Build ${{ matrix.target }}
         run: |
@@ -176,7 +181,7 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-        with: { set-safe-directory: false }
+        with: { persist-credentials: false }
       - name: Init database
         run: tests/fixtures/initdb.sh
         env:
@@ -343,6 +348,8 @@ jobs:
   build:
     name: Build ${{ matrix.target }}
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
     strategy:
       fail-fast: true
       matrix:
@@ -360,9 +367,10 @@ jobs:
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-latest
     steps:
+      - run: rustup update stable && rustup default stable
       - name: Checkout sources
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-      - run: rustup update stable && rustup default stable
+        with: { persist-credentials: false }
       # the macOS x86 runners are 3x slower than all other runners.
       # We need to cache here to not spend 30 minutes on each build.
       # We cannot cache the others as well because we only have 10GB of cache
@@ -394,6 +402,7 @@ jobs:
           mv target/${{ matrix.target }}/release/martin${{ matrix.ext }} target_releases/
           mv target/${{ matrix.target }}/release/martin-cp${{ matrix.ext }} target_releases/
           mv target/${{ matrix.target }}/release/mbtiles${{ matrix.ext }} target_releases/
+
       - name: Save build artifacts to build-${{ matrix.target }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
@@ -403,13 +412,17 @@ jobs:
   test-aws-lambda:
     name: Test AWS Lambda
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     needs: [ musl-build ]
     steps:
       - name: Checkout sources
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with: { persist-credentials: false }
       - name: Download build artifact build-x86_64-unknown-linux-musl
         uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
         with: { name: 'build-x86_64-unknown-linux-musl', path: 'target/' }
+
       - run: tests/test-aws-lambda.sh
         env:
           MARTIN_BIN: target/martin
@@ -417,6 +430,8 @@ jobs:
   test-multi-os:
     name: Test on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
     needs: [ build ]
     env:
       # PG_* variables are used by psql
@@ -441,6 +456,13 @@ jobs:
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-latest
     steps:
+      - name: Checkout sources
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with: { persist-credentials: false }
+      - name: Set up gdal-bin and sqlite3-tools
+        if: matrix.os == 'ubuntu-latest'
+        run: sudo apt-get update && sudo apt-get install -y gdal-bin sqlite3-tools
+
       - name: Install and run Postgis (Windows)
         if: matrix.os == 'windows-latest'
         uses: nyurik/action-setup-postgis@5183a5e26ade31809faed263cd4d638e144fe186 # v2.2
@@ -474,8 +496,6 @@ jobs:
         uses: nyurik/action-setup-nginx@612ee9cb839ad727832cda16359452e7e14dd521 # v1.1
         id: nginx
         with: { port: '5412', output-unix-paths: 'yes' }
-      - name: Checkout sources
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       - name: Init database
         env:
           PGPORT: ${{ env.PGPORT }}
@@ -493,9 +513,7 @@ jobs:
         with:
           name: build-${{ matrix.target }}
           path: target/
-      - name: Set up gdal-bin and sqlite3-tools
-        if: matrix.os == 'ubuntu-latest'
-        run: sudo apt-get update && sudo apt-get install -y gdal-bin sqlite3-tools
+
       - name: Integration Tests
         run: |
           export MARTIN_BUILD_ALL=-
@@ -546,6 +564,8 @@ jobs:
   test-with-svc:
     name: Test postgis:${{ matrix.img_ver }} sslmode=${{ matrix.sslmode }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     needs: [ build ]
     strategy:
       fail-fast: true
@@ -599,6 +619,7 @@ jobs:
       - run: rustup update stable && rustup default stable
       - name: Checkout sources
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with: { persist-credentials: false }
       # cache for the unit-test to be run against postgres to be acceptably slow
       - uses: Swatinem/rust-cache@f13886b937689c021905a6b90929199931d60db1 # v2.8.1
         if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
@@ -692,6 +713,7 @@ jobs:
       - run: rustup update stable && rustup default stable
       - name: Checkout sources
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with: { persist-credentials: false }
       - name: Test packaging
         run: cargo publish --workspace --dry-run
 
@@ -708,6 +730,7 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with: { persist-credentials: false }
       - name: Download build artifact build-aarch64-apple-darwin
         uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
         with: { name: 'build-aarch64-apple-darwin', path: 'target/aarch64-apple-darwin' }
@@ -815,6 +838,7 @@ jobs:
           repository: maplibre/homebrew-martin
           token: ${{ secrets.GH_HOMEBREW_MARTIN_TOKEN }} # See instructions above
           path: target/homebrew
+          persist-credentials: false
 
       - name: Create Homebrew formula
         uses: cuchi/jinja2-action@8bd801365a8d36a0b20f45ee969161685de7785a # master
@@ -847,6 +871,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [ package, docker-build-test ]
     if: always()
+    permissions: {}
     steps:
       - name: Result of the needed steps
         run: echo "${{ toJSON(needs) }}"
@@ -864,13 +889,16 @@ jobs:
       && github.ref == 'refs/heads/main'
       && github.repository_owner == 'maplibre'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     concurrency:
       group: release-plz-${{ github.ref }}
       cancel-in-progress: false
     steps:
+      - run: rustup update stable && rustup default stable
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with: { fetch-depth: 0, persist-credentials: false }
-      - uses: dtolnay/rust-toolchain@stable
       - name: Publish to crates.io if crate's version is newer
         uses: release-plz/action@acb9246af4d59a270d1d4058a8b9af8c3f3a2559 # v0.5.117
         id: release

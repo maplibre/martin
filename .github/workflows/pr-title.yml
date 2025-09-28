@@ -8,6 +8,7 @@ on:
       - opened
       - edited
       - reopened
+      - synchronize
 
 jobs:
   pr-title:
