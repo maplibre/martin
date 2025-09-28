@@ -1,6 +1,6 @@
 DROP TABLE IF EXISTS pg_temp.spatially_indexed_columns;
 
-CREATE TEMP TABLE IF NOT EXISTS spatially_indexed_columns AS (
+CREATE TEMP TABLE spatially_indexed_columns AS (
     -- list of columns with spatial indexes
     SELECT
         ns.nspname AS table_schema,
