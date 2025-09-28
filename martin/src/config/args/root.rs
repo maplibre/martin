@@ -205,8 +205,6 @@ pub fn parse_file_args<T: crate::config::file::ConfigExtras>(
 
 #[cfg(test)]
 mod tests {
-    #[cfg(all(feature = "pmtiles", feature = "mbtiles", feature = "cog"))]
-    use insta::assert_yaml_snapshot;
     use martin_core::config::env::FauxEnv;
 
     use super::*;
@@ -334,7 +332,7 @@ mod tests {
         let mut config = Config::default();
         let err = args.merge_into_config(&mut config, &env);
         assert!(err.is_ok());
-        assert_yaml_snapshot!(config, @r#"
+        insta::assert_yaml_snapshot!(config, @r#"
         pmtiles: "../tests/fixtures/pmtiles/png.pmtiles"
         mbtiles: "../tests/fixtures/mbtiles/json.mbtiles"
         cog:
@@ -352,7 +350,7 @@ mod tests {
         let mut config = Config::default();
         let err = args.merge_into_config(&mut config, &env);
         assert!(err.is_ok());
-        assert_yaml_snapshot!(config, @r#"
+        insta::assert_yaml_snapshot!(config, @r#"
         pmtiles: "../tests/fixtures/"
         mbtiles: "../tests/fixtures/"
         cog: "../tests/fixtures/"
