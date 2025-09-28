@@ -787,7 +787,8 @@ jobs:
           set -x
 
           # Extract Github release version only without the "martin-v" prefix from release tag names (martin-vX.Y.Z)
-          MARTIN_VERSION=$(echo "${{ github.event.release.tag_name }}" | sed -e 's/martin-v//')
+          # On non-release events, this still generates a config with not-a-release as the version to test the release process
+          MARTIN_VERSION=$(echo "${{ github.event.release.tag_name || 'not-a-release' }}" | sed -e 's/martin-v//')
 
           mkdir -p target/homebrew
           cd target
