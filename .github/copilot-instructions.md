@@ -86,7 +86,7 @@ just lint
 
 ### Database Management
 ```bash
-# Start test database (PostgreSQL 16 with PostGIS)
+# Start test database (PostgreSQL 18 with PostGIS)
 just start
 
 # Stop database
