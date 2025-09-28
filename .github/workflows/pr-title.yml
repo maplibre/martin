@@ -1,0 +1,22 @@
+name: "Lint PR"
+# if someone opens a PR, edits it, or reopens it we want to validate the title
+# This is separate form the rest of the CI as the title may change without code changes
+
+on:
+  pull_request_target:
+    types:
+      - opened
+      - edited
+      - reopened
+      - synchronize
+
+jobs:
+  pr-title:
+    name: Validate PR title follows https://conventionalcommits.org
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    steps:
+      - uses: amannn/action-semantic-pull-request@48f256284bd46cdaab1048c3721360e808335d50 # v6.1.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
