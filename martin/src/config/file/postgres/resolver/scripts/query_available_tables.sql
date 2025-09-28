@@ -150,4 +150,4 @@ LEFT JOIN descriptions AS dc
 GROUP BY -- noqa: AM06
     gc.schema, gc.name, gc.geom, gc.srid, gc.type, gc.is_view, gc.geom_idx, dc.description;
 
-DROP TABLE IF EXISTS pg_temp.spatially_indexed_columns; -- clean up in case the pg session is not immediately closed
+DROP TABLE pg_temp.spatially_indexed_columns; -- clean up in case the pg session is not immediately closed
