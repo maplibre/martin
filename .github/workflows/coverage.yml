@@ -18,6 +18,8 @@ on:
 jobs:
   coverage:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     env:
       CARGO_TERM_COLOR: always
       AWS_SKIP_CREDENTIALS: 1
