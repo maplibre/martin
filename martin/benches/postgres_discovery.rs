@@ -32,7 +32,10 @@ async fn setup_postgres_container() -> (
         .await
         .expect("Failed to get port");
 
-    let connection_string = format!("postgres://postgres:postgres@{}:{}/bench?sslmode=disable", host, port);
+    let connection_string = format!(
+        "postgres://postgres:postgres@{}:{}/bench?sslmode=disable",
+        host, port
+    );
 
     (container, connection_string)
 }
