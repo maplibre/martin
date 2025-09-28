@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Other
 
+- The previous `0.19.1` release had another bug which prevented proper releasing which is now fixed ([#2262](https://github.com/maplibre/martin/pull/2262))
 - update Cargo.lock dependencies
 
 ## [0.19.1](https://github.com/maplibre/martin/compare/martin-v0.19.0...martin-v0.19.1) - 2025-09-28
