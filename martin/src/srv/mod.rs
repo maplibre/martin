@@ -15,3 +15,6 @@ mod sprites;
 
 #[cfg(feature = "styles")]
 mod styles;
+
+#[cfg(all(feature = "rendering", target_os = "linux"))]
+mod styles_rendering;

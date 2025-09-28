@@ -112,6 +112,20 @@ martin_http_requests_duration_seconds_bucket{endpoint="/style/{style_id}",method
 martin_http_requests_duration_seconds_bucket{endpoint="/style/{style_id}",method="GET",status="200",le="+Inf"} NUMBER
 martin_http_requests_duration_seconds_sum{endpoint="/style/{style_id}",method="GET",status="200"} NUMBER
 martin_http_requests_duration_seconds_count{endpoint="/style/{style_id}",method="GET",status="200"} NUMBER
+martin_http_requests_duration_seconds_bucket{endpoint="/style/{style_id}/{z}/{x}/{y}.png",method="GET",status="200",le="0.005"} NUMBER
+martin_http_requests_duration_seconds_bucket{endpoint="/style/{style_id}/{z}/{x}/{y}.png",method="GET",status="200",le="0.01"} NUMBER
+martin_http_requests_duration_seconds_bucket{endpoint="/style/{style_id}/{z}/{x}/{y}.png",method="GET",status="200",le="0.025"} NUMBER
+martin_http_requests_duration_seconds_bucket{endpoint="/style/{style_id}/{z}/{x}/{y}.png",method="GET",status="200",le="0.05"} NUMBER
+martin_http_requests_duration_seconds_bucket{endpoint="/style/{style_id}/{z}/{x}/{y}.png",method="GET",status="200",le="0.1"} NUMBER
+martin_http_requests_duration_seconds_bucket{endpoint="/style/{style_id}/{z}/{x}/{y}.png",method="GET",status="200",le="0.25"} NUMBER
+martin_http_requests_duration_seconds_bucket{endpoint="/style/{style_id}/{z}/{x}/{y}.png",method="GET",status="200",le="0.5"} NUMBER
+martin_http_requests_duration_seconds_bucket{endpoint="/style/{style_id}/{z}/{x}/{y}.png",method="GET",status="200",le="1"} NUMBER
+martin_http_requests_duration_seconds_bucket{endpoint="/style/{style_id}/{z}/{x}/{y}.png",method="GET",status="200",le="2.5"} NUMBER
+martin_http_requests_duration_seconds_bucket{endpoint="/style/{style_id}/{z}/{x}/{y}.png",method="GET",status="200",le="5"} NUMBER
+martin_http_requests_duration_seconds_bucket{endpoint="/style/{style_id}/{z}/{x}/{y}.png",method="GET",status="200",le="10"} NUMBER
+martin_http_requests_duration_seconds_bucket{endpoint="/style/{style_id}/{z}/{x}/{y}.png",method="GET",status="200",le="+Inf"} NUMBER
+martin_http_requests_duration_seconds_sum{endpoint="/style/{style_id}/{z}/{x}/{y}.png",method="GET",status="200"} NUMBER
+martin_http_requests_duration_seconds_count{endpoint="/style/{style_id}/{z}/{x}/{y}.png",method="GET",status="200"} NUMBER
 martin_http_requests_duration_seconds_bucket{endpoint="/{source_ids}",method="GET",status="200",le="0.005"} NUMBER
 martin_http_requests_duration_seconds_bucket{endpoint="/{source_ids}",method="GET",status="200",le="0.01"} NUMBER
 martin_http_requests_duration_seconds_bucket{endpoint="/{source_ids}",method="GET",status="200",le="0.025"} NUMBER
@@ -150,5 +164,6 @@ martin_http_requests_total{endpoint="/sdf_sprite/{source_ids}.png",method="GET",
 martin_http_requests_total{endpoint="/sprite/{source_ids}.json",method="GET",status="200"} NUMBER
 martin_http_requests_total{endpoint="/sprite/{source_ids}.png",method="GET",status="200"} NUMBER
 martin_http_requests_total{endpoint="/style/{style_id}",method="GET",status="200"} NUMBER
+martin_http_requests_total{endpoint="/style/{style_id}/{z}/{x}/{y}.png",method="GET",status="200"} NUMBER
 martin_http_requests_total{endpoint="/{source_ids}",method="GET",status="200"} NUMBER
 martin_http_requests_total{endpoint="/{source_ids}/{z}/{x}/{y}",method="GET",status="200"} NUMBER
