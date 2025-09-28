@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- *(tests)* missing cfg making testing just one feature more cumbersome ([#2252](https://github.com/maplibre/martin/pull/2252))
+- *(release)* Our release new process for `0.19.0` did not properly attach binaries and build docker files due to permission issues ([#2253](https://github.com/maplibre/martin/pull/2253))
 
 ## [0.19.0](https://github.com/maplibre/martin/compare/martin-v0.18.1...martin-v0.19.0) - 2025-09-26
 
