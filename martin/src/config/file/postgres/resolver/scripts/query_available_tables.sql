@@ -1,5 +1,3 @@
-DROP TABLE IF EXISTS pg_temp.spatially_indexed_columns;
-
 CREATE TEMP TABLE spatially_indexed_columns AS (
     -- list of columns with spatial indexes
     SELECT
@@ -151,3 +149,5 @@ LEFT JOIN descriptions AS dc
         AND gc.name = dc.table_name
 GROUP BY -- noqa: AM06
     gc.schema, gc.name, gc.geom, gc.srid, gc.type, gc.is_view, gc.geom_idx, dc.description;
+
+DROP TABLE IF EXISTS pg_temp.spatially_indexed_columns; -- clean up in case the pg session is not immediately closed
