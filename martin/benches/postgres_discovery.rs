@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use martin::config::file::init_aws_lc_tls;
 use martin::config::file::postgres::{PostgresAutoDiscoveryBuilder, PostgresConfig};
@@ -267,6 +269,8 @@ fn bench_table_discovery(c: &mut Criterion) {
     let runtime = tokio::runtime::Runtime::new().unwrap();
 
     let mut group = c.benchmark_group("table_discovery");
+    group.measurement_time(Duration::from_secs(20));
+    group.sample_size(20);
 
     for size in SIZES {
         let (_container, connection_string) = setup_postgres_container();
@@ -290,6 +294,8 @@ fn bench_function_discovery(c: &mut Criterion) {
     let runtime = tokio::runtime::Runtime::new().unwrap();
 
     let mut group = c.benchmark_group("function_discovery");
+    group.measurement_time(Duration::from_secs(20));
+    group.sample_size(20);
 
     for size in SIZES {
         let (_container, connection_string) = setup_postgres_container();
