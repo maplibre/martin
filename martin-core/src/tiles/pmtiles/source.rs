@@ -177,6 +177,10 @@ macro_rules! impl_pmtiles_source {
                 Box::new(self.clone())
             }
 
+            fn get_version(&self) -> Option<String> {
+                self.tilejson.version.clone()
+            }
+
             fn benefits_from_concurrent_scraping(&self) -> bool {
                 $concurrent
             }
