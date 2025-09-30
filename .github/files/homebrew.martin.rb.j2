@@ -23,11 +23,11 @@ class Martin < Formula
   on_linux do
     on_arm do
       sha256 "{{ linux_arm_sha256 }}"
-      url "https://github.com/maplibre/martin/releases/download/v#{current_version}/martin-aarch64-unknown-linux-musl.tar.gz"
+      url "https://github.com/maplibre/martin/releases/download/v#{current_version}/martin-aarch64-unknown-linux-gnu.tar.gz"
     end
     on_intel do
       sha256 "{{ linux_intel_sha256 }}"
-      url "https://github.com/maplibre/martin/releases/download/v#{current_version}/martin-x86_64-unknown-linux-musl.tar.gz"
+      url "https://github.com/maplibre/martin/releases/download/v#{current_version}/martin-x86_64-unknown-linux-gnu.tar.gz"
     end
   end
 
