@@ -11,6 +11,7 @@ git_release_latest = false
 git_release_draft = true
 # if we publish an RC, it should be a pre-release
 git_release_type = "auto"
+semver_check = true
 
 [[package]]
 name = "martin-core"
@@ -23,6 +24,7 @@ git_release_enable = false
 [[package]]
 name = "martin"
 changelog_include = ["martin", "martin-core", "martin-tile-utils", "mbtiles"]
+semver_check = false # this binary crate doesn't have a public API in the cargo-semver-checks sense
 
 [[package]]
 name = "mbtiles"
