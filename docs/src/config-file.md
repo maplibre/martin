@@ -308,4 +308,23 @@ styles:
      some_style_name: /path/to/this/style.json
      #  Publish specific file as `other_style_name`
      other_style_name: /path/to/other_style.json
+
+# If set, the version of the tileset (as specified in the MBTiles or PMTiles metadata)
+# will be embedded in the TileJSON `tiles` URL, with the set identifier.
+# This is useful to give clients a better way to cache-bust a CDN:
+# 1. maplibre requests tilejson, tilejson contains the tiles URL. This is always up-to-date.
+# 2. maplibre requests each tile it requires, with the tiles URL in the tilejson.
+# 3. Add `Control: public, max-age=..., immutable` on the tile responses
+#    optimize browser/CDN cache hit rates, while also making sure that
+#    old tiles aren't served when a new tileset is deployed.
+#
+# The CDN must handle query parameters for caching to work correctly.
+# Many CDNs ignore them by default.
+#
+# For example, if
+# - the setting here is `version`, and
+# - the PMTiles tileset version is `1.0.0`, the
+# TileJSON will be:
+# { ..., "tiles": [".../{z}/{x}/{y}?version=1.0.0"], ... }
+tilejson_url_version_param: null # a string, such as `version` or `v`
 ```
