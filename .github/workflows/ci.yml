@@ -360,7 +360,7 @@ jobs:
             os: ubuntu-22.04 # downgraded to have lower libc support. Debian-12 (stable at the time of writing) does not support the same version ubuntu does.
             # TODO: update to ubuntu-latest again once debian 13 launches
           - target: x86_64-apple-darwin
-            os: macos-13 # x64 CPU
+            os: macos-15-intel # x64 CPU, available until August 2027, see https://github.com/actions/runner-images/issues/13045
           - target: x86_64-pc-windows-msvc
             os: windows-latest
             ext: '.exe'
