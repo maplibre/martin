@@ -171,9 +171,9 @@ impl Source for PmtilesSource {
     fn clone_source(&self) -> BoxedSource {
         Box::new(self.clone())
     }
-  fn get_version(&self) -> Option<String> {
-                self.tilejson.version.clone()
-            }
+    fn get_version(&self) -> Option<String> {
+        self.tilejson.version.clone()
+    }
 
     fn benefits_from_concurrent_scraping(&self) -> bool {
         true
