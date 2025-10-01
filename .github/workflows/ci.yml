@@ -157,7 +157,6 @@ jobs:
       PGHOST: localhost
       PGUSER: postgres
       PGPASSWORD: postgres
-      # TODO:  aarch64-unknown-linux-gnu
     services:
       postgres:
         image: postgis/postgis:16-3.5
@@ -360,12 +359,14 @@ jobs:
             os: ubuntu-22.04 # downgraded to have lower libc support. Debian-12 (stable at the time of writing) does not support the same version ubuntu does.
             # TODO: update to ubuntu-latest again once debian 13 launches
           - target: x86_64-apple-darwin
-            os: macos-13 # x64 CPU
+            os: macos-15-intel # x64 CPU, available until August 2027, see https://github.com/actions/runner-images/issues/13045
           - target: x86_64-pc-windows-msvc
             os: windows-latest
             ext: '.exe'
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-latest
+          - target: aarch64-unknown-linux-gnu
+            os: ubuntu-24.04-arm
     steps:
       - run: rustup update stable && rustup default stable
       - name: Checkout sources
@@ -737,6 +738,9 @@ jobs:
       - name: Download build artifact build-x86_64-apple-darwin
         uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
         with: { name: 'build-x86_64-apple-darwin', path: 'target/x86_64-apple-darwin' }
+      - name: Download build artifact build-aarch64-unknown-linux-gnu
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        with: { name: 'build-aarch64-unknown-linux-gnu', path: 'target/aarch64-unknown-linux-gnu' }
       - name: Download build artifact build-x86_64-unknown-linux-gnu
         uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
         with: { name: 'build-x86_64-unknown-linux-gnu', path: 'target/x86_64-unknown-linux-gnu' }
@@ -760,7 +764,7 @@ jobs:
           cd target
           mkdir files
 
-          for target in aarch64-apple-darwin x86_64-apple-darwin x86_64-unknown-linux-gnu aarch64-unknown-linux-musl x86_64-unknown-linux-musl;
+          for target in aarch64-apple-darwin x86_64-apple-darwin aarch64-unknown-linux-gnu x86_64-unknown-linux-gnu aarch64-unknown-linux-musl x86_64-unknown-linux-musl;
           do
             cd "$target"
             chmod +x martin martin-cp mbtiles
