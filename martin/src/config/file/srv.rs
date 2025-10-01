@@ -20,7 +20,7 @@ pub struct SrvConfig {
     pub base_path: Option<String>,
     pub worker_processes: Option<usize>,
     pub preferred_encoding: Option<PreferredEncoding>,
-    #[cfg(feature = "webui")]
+    #[cfg(all(feature = "webui", not(docsrs)))]
     pub web_ui: Option<crate::config::args::WebUiMode>,
     pub cors: Option<CorsConfig>,
     /// Advanced monitoring options
