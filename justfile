@@ -107,7 +107,7 @@ check: (cargo-install 'cargo-hack')
 check-doc:  (docs '')
 
 # Run all tests as expected by CI
-ci-test: env-info restart test-fmt clippy check-doc test check && assert-git-is-clean
+ci-test: env-info restart test-fmt clippy check-doc test check prepare-fixtures && assert-git-is-clean
 
 # Perform  cargo clean  to delete all build files
 clean: clean-test stop && clean-martin-ui
