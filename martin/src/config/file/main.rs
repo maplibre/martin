@@ -282,7 +282,7 @@ pub fn parse_base_path(path: &str) -> MartinResult<String> {
     Err(MartinError::BasePathError(path.to_string()))
 }
 
-fn init_aws_lc_tls() {
+pub fn init_aws_lc_tls() {
     // https://github.com/rustls/rustls/issues/1877
     static INIT_TLS: LazyLock<()> = LazyLock::new(|| {
         rustls::crypto::aws_lc_rs::default_provider()
