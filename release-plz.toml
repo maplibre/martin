@@ -1,8 +1,17 @@
 [workspace]
 dependencies_update = true
-git_release_type = "auto"
 changelog_update = true
-release_always = false
+# Our process goes as follows:
+# - We first release as a non-latest draft and publish it
+# - the binaries are build (in GHA, attested) and
+# - attached to the release
+# - the release is marked as non-draft (and latest for martin).
+# => Our releases are fully attested and immutable
+git_release_latest = false
+git_release_draft = true
+# if we publish an RC, it should be a pre-release
+git_release_type = "auto"
+semver_check = true
 
 [[package]]
 name = "martin-core"
@@ -14,11 +23,12 @@ git_release_enable = false
 
 [[package]]
 name = "martin"
-changelog_include = ["martin-tile-utils", "martin-core"]
+changelog_include = ["martin", "martin-core", "martin-tile-utils", "mbtiles"]
+semver_check = false # this binary crate doesn't have a public API in the cargo-semver-checks sense
 
 [[package]]
 name = "mbtiles"
-changelog_include = ["martin-tile-utils"]
+changelog_include = ["martin-tile-utils", "mbtiles"]
 
 [changelog]
 protect_breaking_commits = true

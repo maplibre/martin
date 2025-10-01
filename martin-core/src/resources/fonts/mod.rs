@@ -164,7 +164,7 @@ impl FontSources {
         if start > end {
             return Err(FontError::InvalidFontRangeStartEnd(start, end));
         }
-        if start % (CP_RANGE_SIZE as u32) != 0 {
+        if !start.is_multiple_of(CP_RANGE_SIZE as u32) {
             return Err(FontError::InvalidFontRangeStart(start));
         }
         if end % (CP_RANGE_SIZE as u32) != (CP_RANGE_SIZE as u32 - 1) {

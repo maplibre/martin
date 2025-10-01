@@ -205,8 +205,6 @@ pub fn parse_file_args<T: crate::config::file::ConfigExtras>(
 
 #[cfg(test)]
 mod tests {
-
-    use insta::assert_yaml_snapshot;
     use martin_core::config::env::FauxEnv;
 
     use super::*;
@@ -319,6 +317,7 @@ mod tests {
         assert!(matches!(err, UnrecognizableConnections(v) if v == bad));
     }
 
+    #[cfg(all(feature = "pmtiles", feature = "mbtiles", feature = "cog"))]
     #[test]
     fn cli_multiple_extensions() {
         let args = Args::parse_from([
@@ -333,7 +332,7 @@ mod tests {
         let mut config = Config::default();
         let err = args.merge_into_config(&mut config, &env);
         assert!(err.is_ok());
-        assert_yaml_snapshot!(config, @r#"
+        insta::assert_yaml_snapshot!(config, @r#"
         pmtiles: "../tests/fixtures/pmtiles/png.pmtiles"
         cog:
           - "../tests/fixtures/cog/rgba_u8_nodata.tiff"
@@ -342,6 +341,7 @@ mod tests {
         // mbtiles: "../tests/fixtures/mbtiles/json.mbtiles"
     }
 
+    #[cfg(all(feature = "pmtiles", feature = "mbtiles", feature = "cog"))]
     #[test]
     fn cli_directories_propagate() {
         let args = Args::parse_from(["martin", "../tests/fixtures/"]);
@@ -350,7 +350,7 @@ mod tests {
         let mut config = Config::default();
         let err = args.merge_into_config(&mut config, &env);
         assert!(err.is_ok());
-        assert_yaml_snapshot!(config, @r#"
+        insta::assert_yaml_snapshot!(config, @r#"
         pmtiles: "../tests/fixtures/"
         mbtiles: "../tests/fixtures/"
         cog: "../tests/fixtures/"
