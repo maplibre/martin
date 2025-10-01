@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- *(pmtiles)* Embed version in tilejson tiles URL ([#2198](https://github.com/maplibre/martin/pull/2198))
+- `Source::get_version` which returns the version of pmtiles sources allowing for better caching in some circumstances ([#2198](https://github.com/maplibre/martin/pull/2198))
 
 ### Other
 
