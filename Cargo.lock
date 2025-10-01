@@ -3730,7 +3730,7 @@ dependencies = [
 
 [[package]]
 name = "mbtiles"
-version = "0.13.2"
+version = "0.13.1"
 dependencies = [
  "actix-rt",
  "anyhow",
