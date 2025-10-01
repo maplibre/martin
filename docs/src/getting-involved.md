@@ -5,7 +5,7 @@ This guide covers IDE setup and debugging.
 While we use Visual Studio Code as an example, Martin can be developed with any editor that supports Rust.
 
 <details>
-<summary>Editor-specifc Guides (click to expand)</summary>
+<summary>Editor-specific Guides (click to expand)</summary>
 
 ### Visual Studio Code
 
@@ -62,7 +62,7 @@ Press `F1` on your keyboard, and input "Generate Launch Configurations from Carg
 
 ## Modify
 
-Let's say you want to debugging Martin with this command:
+Let's say you want to debug Martin with this command:
 
 ```shell
 martin postgres://postgres:postgres@localhost:5411/db

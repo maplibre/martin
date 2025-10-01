@@ -32,8 +32,14 @@ pub struct SrvArgs {
     pub preferred_encoding: Option<PreferredEncoding>,
     /// Control Martin web UI. [DEFAULT: disabled]
     #[arg(short = 'u', long = "webui")]
-    #[cfg(feature = "webui")]
+    #[cfg(all(feature = "webui", not(docsrs)))]
     pub web_ui: Option<WebUiMode>,
+    /// If set, the version of the tileset (as specified in the MBTiles or PMTiles metadata)
+    /// will be embedded in the TileJSON `tiles` URL, with the set identifier.
+    /// For example, if the value of this option is `version`, and the tileset version is `1.0.0`,
+    /// the TileJSON `tiles` URL will be like `.../{z}/{x}/{y}?version=1.0.0`.
+    #[arg(long)]
+    pub tilejson_url_version_param: Option<String>,
     /// Main cache size (in MB)
     #[arg(short = 'C', long)]
     pub cache_size: Option<u64>,
@@ -42,7 +48,7 @@ pub struct SrvArgs {
     pub watch: bool,
 }
 
-#[cfg(feature = "webui")]
+#[cfg(all(feature = "webui", not(docsrs)))]
 #[derive(PartialEq, Eq, Debug, Clone, Copy, Default, Serialize, Deserialize, ValueEnum)]
 #[serde(rename_all = "lowercase")]
 pub enum WebUiMode {
@@ -87,9 +93,12 @@ impl SrvArgs {
         if self.preferred_encoding.is_some() {
             srv_config.preferred_encoding = self.preferred_encoding;
         }
-        #[cfg(feature = "webui")]
+        #[cfg(all(feature = "webui", not(docsrs)))]
         if self.web_ui.is_some() {
             srv_config.web_ui = self.web_ui;
+        }
+        if self.tilejson_url_version_param.is_some() {
+            srv_config.tilejson_url_version_param = self.tilejson_url_version_param;
         }
     }
 }

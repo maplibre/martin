@@ -65,6 +65,7 @@ jobs:
       - run: rustup update stable && rustup default stable
       - name: Checkout sources
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with: { persist-credentials: false }
       - name: Init database
         run: tests/fixtures/initdb.sh
         env:
@@ -76,11 +77,12 @@ jobs:
           cargo test --package mbtiles --no-default-features
           cargo test --package mbtiles
           cargo test --package martin
-          cargo test --doc
+          cargo test --package martin-core
         env:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=require
           AWS_SKIP_CREDENTIALS: 1
           AWS_REGION: eu-central-1
+      - run: cargo test --doc
   lint-rust:
     name: Lint the Rust code
     permissions:
@@ -91,6 +93,7 @@ jobs:
       - run: rustup component add clippy rustfmt
       - name: Checkout sources
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with: { persist-credentials: false }
       - uses: taiki-e/install-action@cc60de1d6831d7e9c4342f618ce7a5d6a9f223a4 # v2.61.6
         # TODO: add cargo-sort once https://github.com/taiki-e/install-action/pull/997 is resolved
         with: { tool: 'just,cargo-binstall' }
@@ -108,6 +111,8 @@ jobs:
   musl-build:
     name: Build ${{ matrix.target }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     strategy:
       fail-fast: true
       matrix:
@@ -118,12 +123,12 @@ jobs:
       - run: rustup update stable && rustup default stable
       - name: Checkout sources
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-        with: { set-safe-directory: false }
+        with: { persist-credentials: false }
+      - uses: taiki-e/install-action@cc60de1d6831d7e9c4342f618ce7a5d6a9f223a4 # v2.61.6
+        with: { tool: cargo-zigbuild }
       - name: Install zig
         uses: mlugg/setup-zig@8d6198c65fb0feaa111df26e6b467fea8345e46f # v2.0.5
         with: { version: '0.15.1' }
-      - uses: taiki-e/install-action@cc60de1d6831d7e9c4342f618ce7a5d6a9f223a4 # v2.61.6
-        with: { tool: cargo-zigbuild }
       - run: rustup target add ${{ matrix.target }}
       - name: Build ${{ matrix.target }}
         run: |
@@ -156,7 +161,6 @@ jobs:
       PGHOST: localhost
       PGUSER: postgres
       PGPASSWORD: postgres
-      # TODO:  aarch64-unknown-linux-gnu
     services:
       postgres:
         image: postgis/postgis:16-3.5
@@ -180,7 +184,7 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-        with: { set-safe-directory: false }
+        with: { persist-credentials: false }
       - name: Init database
         run: tests/fixtures/initdb.sh
         env:
@@ -312,7 +316,7 @@ jobs:
           retention-days: 5
 
       - name: Login to GitHub Docker registry
-        if: github.event_name != 'pull_request'
+        if: github.event_name == 'push' || github.event_name == 'release'
         uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
         # https://github.com/docker/login-action
         with:
@@ -322,7 +326,7 @@ jobs:
 
       - name: Push the Docker image
         id: docker_push
-        if: github.event_name != 'pull_request'
+        if: github.event_name == 'push' || github.event_name == 'release'
         uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
         with:
           provenance: mode=max
@@ -336,7 +340,7 @@ jobs:
           labels: ${{ steps.docker_meta.outputs.labels }}
           platforms: linux/amd64,linux/arm64
       - name: Attest
-        if: github.event_name != 'pull_request'
+        if: github.event_name == 'push' || github.event_name == 'release'
         uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v2
         id: attest
         with:
@@ -347,6 +351,8 @@ jobs:
   build:
     name: Build ${{ matrix.target }}
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
     strategy:
       fail-fast: true
       matrix:
@@ -357,16 +363,19 @@ jobs:
             os: ubuntu-22.04 # downgraded to have lower libc support. Debian-12 (stable at the time of writing) does not support the same version ubuntu does.
             # TODO: update to ubuntu-latest again once debian 13 launches
           - target: x86_64-apple-darwin
-            os: macos-13 # x64 CPU
+            os: macos-15-intel # x64 CPU, available until August 2027, see https://github.com/actions/runner-images/issues/13045
           - target: x86_64-pc-windows-msvc
             os: windows-latest
             ext: '.exe'
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-latest
+          - target: aarch64-unknown-linux-gnu
+            os: ubuntu-24.04-arm
     steps:
+      - run: rustup update stable && rustup default stable
       - name: Checkout sources
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-      - run: rustup update stable && rustup default stable
+        with: { persist-credentials: false }
       # the macOS x86 runners are 3x slower than all other runners.
       # We need to cache here to not spend 30 minutes on each build.
       # We cannot cache the others as well because we only have 10GB of cache
@@ -398,6 +407,7 @@ jobs:
           mv target/${{ matrix.target }}/release/martin${{ matrix.ext }} target_releases/
           mv target/${{ matrix.target }}/release/martin-cp${{ matrix.ext }} target_releases/
           mv target/${{ matrix.target }}/release/mbtiles${{ matrix.ext }} target_releases/
+
       - name: Save build artifacts to build-${{ matrix.target }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
@@ -407,13 +417,17 @@ jobs:
   test-aws-lambda:
     name: Test AWS Lambda
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     needs: [ musl-build ]
     steps:
       - name: Checkout sources
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with: { persist-credentials: false }
       - name: Download build artifact build-x86_64-unknown-linux-musl
         uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
         with: { name: 'build-x86_64-unknown-linux-musl', path: 'target/' }
+
       - run: tests/test-aws-lambda.sh
         env:
           MARTIN_BIN: target/martin
@@ -421,6 +435,8 @@ jobs:
   test-multi-os:
     name: Test on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
     needs: [ build ]
     env:
       # PG_* variables are used by psql
@@ -445,6 +461,13 @@ jobs:
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-latest
     steps:
+      - name: Checkout sources
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with: { persist-credentials: false }
+      - name: Set up gdal-bin and sqlite3-tools
+        if: matrix.os == 'ubuntu-latest'
+        run: sudo apt-get update && sudo apt-get install -y gdal-bin sqlite3-tools
+
       - name: Install and run Postgis (Windows)
         if: matrix.os == 'windows-latest'
         uses: nyurik/action-setup-postgis@5183a5e26ade31809faed263cd4d638e144fe186 # v2.2
@@ -478,8 +501,6 @@ jobs:
         uses: nyurik/action-setup-nginx@612ee9cb839ad727832cda16359452e7e14dd521 # v1.1
         id: nginx
         with: { port: '5412', output-unix-paths: 'yes' }
-      - name: Checkout sources
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       - name: Init database
         env:
           PGPORT: ${{ env.PGPORT }}
@@ -497,9 +518,7 @@ jobs:
         with:
           name: build-${{ matrix.target }}
           path: target/
-      - name: Set up gdal-bin and sqlite3-tools
-        if: matrix.os == 'ubuntu-latest'
-        run: sudo apt-get update && sudo apt-get install -y gdal-bin sqlite3-tools
+
       - name: Integration Tests
         run: |
           export MARTIN_BUILD_ALL=-
@@ -550,6 +569,8 @@ jobs:
   test-with-svc:
     name: Test postgis:${{ matrix.img_ver }} sslmode=${{ matrix.sslmode }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     needs: [ build ]
     strategy:
       fail-fast: true
@@ -603,6 +624,7 @@ jobs:
       - run: rustup update stable && rustup default stable
       - name: Checkout sources
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with: { persist-credentials: false }
       # cache for the unit-test to be run against postgres to be acceptably slow
       - uses: Swatinem/rust-cache@f13886b937689c021905a6b90929199931d60db1 # v2.8.1
         if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
@@ -696,6 +718,7 @@ jobs:
       - run: rustup update stable && rustup default stable
       - name: Checkout sources
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with: { persist-credentials: false }
       - name: Test packaging
         run: cargo publish --workspace --dry-run
 
@@ -712,12 +735,16 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with: { persist-credentials: false }
       - name: Download build artifact build-aarch64-apple-darwin
         uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
         with: { name: 'build-aarch64-apple-darwin', path: 'target/aarch64-apple-darwin' }
       - name: Download build artifact build-x86_64-apple-darwin
         uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
         with: { name: 'build-x86_64-apple-darwin', path: 'target/x86_64-apple-darwin' }
+      - name: Download build artifact build-aarch64-unknown-linux-gnu
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        with: { name: 'build-aarch64-unknown-linux-gnu', path: 'target/aarch64-unknown-linux-gnu' }
       - name: Download build artifact build-x86_64-unknown-linux-gnu
         uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
         with: { name: 'build-x86_64-unknown-linux-gnu', path: 'target/x86_64-unknown-linux-gnu' }
@@ -741,7 +768,7 @@ jobs:
           cd target
           mkdir files
 
-          for target in aarch64-apple-darwin x86_64-apple-darwin x86_64-unknown-linux-gnu aarch64-unknown-linux-musl x86_64-unknown-linux-musl;
+          for target in aarch64-apple-darwin x86_64-apple-darwin aarch64-unknown-linux-gnu x86_64-unknown-linux-gnu aarch64-unknown-linux-musl x86_64-unknown-linux-musl;
           do
             cd "$target"
             chmod +x martin martin-cp mbtiles
@@ -767,8 +794,9 @@ jobs:
         run: |
           set -x
 
-          # Extract Github release version only without the "v" prefix
-          MARTIN_VERSION=$(echo "${{ github.ref }}" | sed -e 's/refs\/tags\/v//')
+          # Extract Github release version only without the "martin-v" prefix from release tag names (martin-vX.Y.Z)
+          # On non-release events, this still generates a config with not-a-release as the version to test the release process
+          MARTIN_VERSION=$(echo "${{ github.event.release.tag_name || 'not-a-release' }}" | sed -e 's/martin-v//')
 
           mkdir -p target/homebrew
           cd target
@@ -786,13 +814,18 @@ jobs:
         with: { name: 'homebrew-config', path: 'target/homebrew_config.yaml' }
 
       - name: Generate SLSA build provenance attestation
-        if: startsWith(github.ref, 'refs/tags/')
+        if: github.event_name == 'release'
         uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3.0.0
         with: { subject-path: 'target/files/*' }
       - name: Publish
-        if: startsWith(github.ref, 'refs/tags/')
+        if: github.event_name == 'release'
         uses: softprops/action-gh-release@6cbd405e2c4e67a21c47fa9e383d020e4e28b836 # v2.3.3
-        with: { files: 'target/files/*', generate_release_notes: true }
+        with:
+          files: 'target/files/*'
+          generate_release_notes: false
+          draft: false
+          make_latest: ${{ github.event_name == 'release' && startsWith(github.event.release.tag_name, 'martin-') }}
+          fail_on_unmatched_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -808,12 +841,13 @@ jobs:
         #   Access Metadata: Read-only
         #   Access Pull requests: Read and write
       - name: Checkout maplibre/homebrew-martin
-        if: startsWith(github.ref, 'refs/tags/')
+        if: github.event_name == 'release'
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           repository: maplibre/homebrew-martin
           token: ${{ secrets.GH_HOMEBREW_MARTIN_TOKEN }} # See instructions above
           path: target/homebrew
+          persist-credentials: false
 
       - name: Create Homebrew formula
         uses: cuchi/jinja2-action@8bd801365a8d36a0b20f45ee969161685de7785a # master
@@ -823,14 +857,14 @@ jobs:
           data_file: target/homebrew_config.yaml
 
       - name: Create a PR for maplibre/homebrew-martin
-        if: startsWith(github.ref, 'refs/tags/')
+        if: github.event_name == 'release' && startsWith(github.event.release.tag_name, 'martin-v')
         uses: peter-evans/create-pull-request@271a8d0340265f705b14b6d32b9829c1cb33d45e # v7.0.8
         with:
           token: ${{ secrets.GH_HOMEBREW_MARTIN_TOKEN }} # See instructions above
-          commit-message: 'Update to ${{ github.ref }}'
-          title: 'Update to ${{ github.ref }}'
-          body: 'Update to ${{ github.ref }}'
-          branch: 'update-to-${{ github.ref }}'
+          commit-message: 'Update to ${{ github.event.release.tag_name }}'
+          title: 'Update to ${{ github.event.release.tag_name }}'
+          body: 'Update to ${{ github.event.release.tag_name }}'
+          branch: 'update-to-${{ github.event.release.tag_name }}'
           branch-suffix: timestamp
           base: 'main'
           labels: 'auto-update'
@@ -846,6 +880,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [ package, docker-build-test ]
     if: always()
+    permissions: {}
     steps:
       - name: Result of the needed steps
         run: echo "${{ toJSON(needs) }}"
@@ -864,21 +899,21 @@ jobs:
       && github.repository_owner == 'maplibre'
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
       id-token: write
     concurrency:
       group: release-plz-${{ github.ref }}
       cancel-in-progress: false
     steps:
+      - run: rustup update stable && rustup default stable
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with: { fetch-depth: 0, persist-credentials: false }
-      - uses: dtolnay/rust-toolchain@stable
       - name: Publish to crates.io if crate's version is newer
         uses: release-plz/action@acb9246af4d59a270d1d4058a8b9af8c3f3a2559 # v0.5.117
         id: release
         with: { command: release }
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN }}
       - if: ${{ steps.release.outputs.releases_created == 'false' }}
         name: If version is the same, create a PR proposing new version and changelog for the next release
         uses: release-plz/action@acb9246af4d59a270d1d4058a8b9af8c3f3a2559 # v0.5.117
