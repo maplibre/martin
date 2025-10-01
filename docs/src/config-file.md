@@ -313,7 +313,7 @@ styles:
 # This is useful to give clients a better way to cache-bust a CDN:
 # 1. maplibre requests tilejson, tilejson contains the tiles URL. This is always up-to-date.
 # 2. maplibre requests each tile it requires, with the tiles URL in the tilejson.
-# 3. Add `Control: public, max-age=..., immutable` on the tile responses 
+# 3. Add `Control: public, max-age=..., immutable` on the tile responses
 #    optimize browser/CDN cache hit rates, while also making sure that
 #    old tiles aren't served when a new tileset is deployed.
 #
