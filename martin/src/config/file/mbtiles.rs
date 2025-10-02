@@ -7,9 +7,7 @@ use serde::{Deserialize, Serialize};
 use url::Url;
 
 use crate::MartinResult;
-use crate::config::file::{
-    ConfigExtras, SourceConfigExtras, UnrecognizedKeys, UnrecognizedValues,
-};
+use crate::config::file::{ConfigExtras, SourceConfigExtras, UnrecognizedKeys, UnrecognizedValues};
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct MbtConfig {
@@ -63,7 +61,10 @@ mod tests {
         "})
         .unwrap();
         let unrecognised = cfg.get_unrecognized_keys();
-        assert!(unrecognised.is_empty(), "unrecognized config: {unrecognised:?}");
+        assert!(
+            unrecognised.is_empty(),
+            "unrecognized config: {unrecognised:?}"
+        );
         let FileConfigEnum::Config(cfg) = cfg else {
             panic!();
         };

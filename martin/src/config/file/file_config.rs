@@ -205,7 +205,8 @@ impl<T: ConfigExtras> ConfigExtras for FileConfigEnum<T> {
         if let Self::Config(cfg) = self {
             cfg.custom.finalize()
         } else {
-        Ok(())}
+            Ok(())
+        }
     }
 
     fn get_unrecognized_keys(&self) -> UnrecognizedKeys {

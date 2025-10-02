@@ -5,8 +5,7 @@ use martin_core::sprites::SpriteSources;
 use serde::{Deserialize, Serialize};
 
 use crate::config::file::{
-    ConfigExtras, ConfigFileResult, FileConfigEnum, UnrecognizedKeys,
-    UnrecognizedValues,
+    ConfigExtras, ConfigFileResult, FileConfigEnum, UnrecognizedKeys, UnrecognizedValues,
 };
 
 pub type SpriteConfig = FileConfigEnum<InnerSpriteConfig>;

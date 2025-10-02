@@ -7,9 +7,7 @@ use serde::{Deserialize, Serialize};
 use url::Url;
 
 use crate::MartinResult;
-use crate::config::file::{
-    ConfigExtras, SourceConfigExtras, UnrecognizedKeys, UnrecognizedValues,
-};
+use crate::config::file::{ConfigExtras, SourceConfigExtras, UnrecognizedKeys, UnrecognizedValues};
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct CogConfig {

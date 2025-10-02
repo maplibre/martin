@@ -38,7 +38,7 @@ impl PartialEq for PmtConfig {
 }
 
 impl ConfigExtras for PmtConfig {
-    fn finalize(&mut self)-> ConfigFileResult<()> {
+    fn finalize(&mut self) -> ConfigFileResult<()> {
         // if the key is the allowed set, we assume it is there for a purpose
         // because of how serde(flatten) works, we need to collect all in one place and then
         // partition them into options and unrecognized keys
@@ -46,7 +46,7 @@ impl ConfigExtras for PmtConfig {
         // If we don't do this, the error message is not clear enough
         self.partition_options_and_unrecognized();
         self.migrate_deprecated_keys();
-        
+
         Ok(())
     }
 
