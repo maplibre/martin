@@ -185,11 +185,11 @@ impl<T: ConfigExtras> FileConfigEnum<T> {
         let mut res = match self {
             FileConfigEnum::None => return Ok(None),
             FileConfigEnum::Path(path) => FileConfig {
-                paths: One(mem::take(path)),
+                paths: OptOneMany::One(mem::take(path)),
                 ..FileConfig::default()
             },
             FileConfigEnum::Paths(paths) => FileConfig {
-                paths: Many(mem::take(paths)),
+                paths: OptOneMany::Many(mem::take(paths)),
                 ..Default::default()
             },
             FileConfigEnum::Config(cfg) => mem::take(cfg),

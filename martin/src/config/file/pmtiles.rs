@@ -103,6 +103,15 @@ impl PmtConfig {
             );
         }
 
+        // below: http -> object_store
+        if !self.options.contains_key("allow_http") {
+            warn!(
+                "Defaulting `pmtiles.allow_http` to `true`. This is likely to become an error in the future for better security."
+            );
+            self.options
+                .insert("allow_http".to_string(), "true".to_string());
+        }
+
         // below: AWS -> object_store
         // virtual_hosted_style_request is the exact opposite of force_path_style
         for key in ["aws_s3_force_path_style", "force_path_style"] {
