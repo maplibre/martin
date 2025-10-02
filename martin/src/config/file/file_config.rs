@@ -196,6 +196,23 @@ impl<T: ConfigExtras> FileConfigEnum<T> {
         res.custom.init_parsing(cache)?;
         Ok(Some(res))
     }
+
+    /// convert path/paths and the config enums
+    pub fn to_config(self) -> FileConfigEnum<T> {
+        match self {
+            FileConfigEnum::Path(path) => FileConfigEnum::Config(FileConfig {
+                paths: OptOneMany::One(path),
+                sources: None,
+                custom: T::default(),
+            }),
+            FileConfigEnum::Paths(paths) => FileConfigEnum::Config(FileConfig {
+                paths: OptOneMany::Many(paths),
+                sources: None,
+                custom: T::default(),
+            }),
+            c => c,
+        }
+    }
 }
 
 impl<T: ConfigExtras> ConfigExtras for FileConfigEnum<T> {
