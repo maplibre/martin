@@ -159,12 +159,14 @@ fn is_url(s: &str, extension: &[&str]) -> bool {
         return false;
     };
     match url.scheme() {
-        "s3" => url.path().split('/').any(|segment| {
-            segment
-                .rsplit('.')
-                .next()
-                .is_some_and(|ext| extension.contains(&ext))
-        }),
+        "s3" | "s3a" | "gs" | "adl" | "azure" | "abfs" | "abfss" => {
+            url.path().split('/').any(|segment| {
+                segment
+                    .rsplit('.')
+                    .next()
+                    .is_some_and(|ext| extension.contains(&ext))
+            })
+        }
         "http" | "https" => url
             .path()
             .rsplit('.')
