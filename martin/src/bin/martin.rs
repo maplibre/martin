@@ -33,14 +33,14 @@ async fn start(args: Args) -> MartinResult<()> {
         info!("Use --save-config to save or print Martin configuration.");
     }
 
-    #[cfg(feature = "webui")]
+    #[cfg(all(feature = "webui", not(docsrs)))]
     let web_ui_mode = config.srv.web_ui.unwrap_or_default();
 
     let (server, listen_addresses) = new_server(config.srv, sources)?;
     info!("Martin has been started on {listen_addresses}.");
     info!("Use http://{listen_addresses}/catalog to get the list of available sources.");
 
-    #[cfg(feature = "webui")]
+    #[cfg(all(feature = "webui", not(docsrs)))]
     if web_ui_mode == martin::config::args::WebUiMode::EnableForAll {
         log::warn!("Web UI is enabled for all connections at http://{listen_addresses}/");
     } else {
