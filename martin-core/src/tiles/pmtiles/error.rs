@@ -11,7 +11,7 @@ pub enum PmtilesError {
     PmtError(#[from] PmtError),
 
     /// `PMTiles` error with additional context.
-    #[error(r"PMTiles error {0:?} processing {1}")]
+    #[error(r"PMTiles error {0} processing {1}")]
     PmtErrorWithCtx(#[source] PmtError, String),
 
     /// Invalid or unparseable metadata in the `PMTiles` source.
