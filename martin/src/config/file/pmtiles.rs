@@ -109,7 +109,7 @@ impl PmtConfig {
                 "Defaulting `pmtiles.allow_http` to `true`. This is likely to become an error in the future for better security."
             );
             self.options
-                .insert("allow_http".to_string(), "true".to_string());
+                .insert("allow_http".to_string(), true.to_string());
         }
 
         // below: AWS -> object_store
@@ -127,8 +127,8 @@ impl PmtConfig {
             }
         }
 
-        if let Ok(Ok(force_path_style)) =
-            std::env::var("AWS_S3_FORCE_PATH_STYLE").map(|v| v.parse::<bool>())
+        if let Ok(force_path_style) =
+            std::env::var("AWS_S3_FORCE_PATH_STYLE").map(|v| v == "1" || v.to_lowercase() == "true")
         {
             let virtual_hosted_style_request = !force_path_style;
             self.migrate_aws_value(
@@ -151,12 +151,14 @@ impl PmtConfig {
             }
         }
         for env in ["AWS_SKIP_CREDENTIALS", "AWS_NO_CREDENTIALS"] {
-            if let Ok(Ok(no_credentials)) = std::env::var(env).map(|v| v.parse::<bool>()) {
+            if let Ok(skip_credentials) =
+                std::env::var(env).map(|v| v == "1" || v.to_lowercase() == "true")
+            {
                 self.migrate_aws_value(
                     "Environment variable",
                     env,
                     "skip_signature",
-                    no_credentials.to_string(),
+                    skip_credentials.to_string(),
                 );
             }
         }
