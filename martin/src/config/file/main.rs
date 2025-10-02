@@ -22,6 +22,8 @@ use subst::VariableMap;
     feature = "styles",
 ))]
 use crate::config::file::FileConfigEnum;
+#[cfg(feature = "pmtiles")]
+use crate::config::file::Finalisable;
 use crate::config::file::{
     ConfigExtras, ConfigFileError, ConfigFileResult, UnrecognizedKeys, UnrecognizedValues,
     copy_unrecognized_keys_from_config,

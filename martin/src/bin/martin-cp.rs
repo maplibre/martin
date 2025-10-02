@@ -342,14 +342,14 @@ fn iterate_tiles(tiles: Vec<TileRect>) -> impl Iterator<Item = TileCoord> {
 
 fn check_sources(args: &CopyArgs, state: &ServerState) -> Result<String, MartinCpError> {
     if let Some(source) = &args.source {
-        Ok(source.to_string())
+        Ok(source.clone())
     } else {
         let sources = state.tiles.source_names();
         if let Some(source) = sources.first() {
             if sources.len() > 1 {
                 return Err(MartinCpError::MultipleSources(sources.join(", ")));
             }
-            Ok(source.to_string())
+            Ok(source.clone())
         } else {
             Err(MartinCpError::NoSources)
         }

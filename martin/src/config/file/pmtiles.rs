@@ -11,8 +11,8 @@ use url::Url;
 
 use crate::MartinResult;
 use crate::config::file::{
-    ConfigExtras, ConfigFileError, ConfigFileResult, SourceConfigExtras, UnrecognizedKeys,
-    UnrecognizedValues,
+    ConfigExtras, ConfigFileError, ConfigFileResult, Finalisable, SourceConfigExtras,
+    UnrecognizedKeys, UnrecognizedValues,
 };
 
 #[serde_with::skip_serializing_none]
@@ -45,6 +45,16 @@ impl ConfigExtras for PmtConfig {
         );
         self.cache = cache;
 
+        Ok(())
+    }
+
+    fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
+        self.unrecognized.keys().cloned().collect()
+    }
+}
+
+impl Finalisable for PmtConfig {
+    fn finalize(&mut self, _prefix: &str) -> UnrecognizedKeys {
         // if the key is the allowed set, we assume it is there for a purpose
         // because of how serde(flatten) works, we need to collect all in one place and then
         // partition them into options and unrecognized keys
@@ -52,11 +62,8 @@ impl ConfigExtras for PmtConfig {
         // If we don't do this, the error message is not clear enough
         self.partition_options_and_unrecognized();
         self.migrate_deprecated_keys();
-        Ok(())
-    }
 
-    fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
-        self.unrecognized.keys().cloned().collect()
+        self.get_unrecognized_keys()
     }
 }
 
@@ -77,7 +84,7 @@ impl PmtConfig {
                 let _ = match value {
                     serde_yaml::Value::Bool(b) => self.options.insert(key.clone(), b.to_string()),
                     serde_yaml::Value::Number(n) => self.options.insert(key.clone(), n.to_string()),
-                    serde_yaml::Value::String(s) => self.options.insert(key.clone(), s.to_string()),
+                    serde_yaml::Value::String(s) => self.options.insert(key.clone(), s.clone()),
                     v => {
                         // warn early with better context
                         warn!(

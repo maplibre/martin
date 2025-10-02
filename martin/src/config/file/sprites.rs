@@ -5,7 +5,8 @@ use martin_core::sprites::SpriteSources;
 use serde::{Deserialize, Serialize};
 
 use crate::config::file::{
-    ConfigExtras, ConfigFileResult, FileConfigEnum, UnrecognizedKeys, UnrecognizedValues,
+    ConfigExtras, ConfigFileResult, FileConfigEnum, Finalisable, UnrecognizedKeys,
+    UnrecognizedValues,
 };
 
 pub type SpriteConfig = FileConfigEnum<InnerSpriteConfig>;
@@ -48,6 +49,12 @@ impl SpriteConfig {
 pub struct InnerSpriteConfig {
     #[serde(flatten, skip_serializing)]
     pub unrecognized: UnrecognizedValues,
+}
+
+impl Finalisable for InnerSpriteConfig {
+    fn finalize(&mut self, _prefix: &str) -> UnrecognizedKeys {
+        self.get_unrecognized_keys()
+    }
 }
 
 impl ConfigExtras for InnerSpriteConfig {

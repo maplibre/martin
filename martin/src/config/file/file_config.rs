@@ -184,9 +184,13 @@ impl<T: ConfigExtras> FileConfigEnum<T> {
         res.custom.init_parsing(cache)?;
         Ok(Some(res))
     }
+}
 
-    pub fn finalize(&self, prefix: &str) -> UnrecognizedKeys {
+impl<T: Finalisable + ConfigExtras> Finalisable for FileConfigEnum<T> {
+    /// Finalize configuration discovery, patch old values and return a set of unrecognized keys
+    fn finalize(&mut self, prefix: &str) -> UnrecognizedKeys {
         if let Self::Config(cfg) = self {
+            cfg.custom.finalize(prefix);
             cfg.get_unrecognized_keys()
                 .iter()
                 .map(|k| format!("{prefix}{k}"))
@@ -195,6 +199,11 @@ impl<T: ConfigExtras> FileConfigEnum<T> {
             UnrecognizedKeys::new()
         }
     }
+}
+
+pub trait Finalisable {
+    /// Finalize configuration discovery, patch old values and return a set of unrecognized keys
+    fn finalize(&mut self, prefix: &str) -> UnrecognizedKeys;
 }
 
 #[serde_with::skip_serializing_none]
@@ -295,7 +304,7 @@ async fn resolve_int<T: SourceConfigExtras>(
                 if !can.is_file() {
                     // todo: maybe warn instead?
                     return Err(MartinError::ConfigFileError(InvalidSourceFilePath(
-                        id.to_string(),
+                        id.clone(),
                         can,
                     )));
                 }
