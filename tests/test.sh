@@ -294,17 +294,20 @@ echo "::endgroup::"
 echo "::group::Prepare .mbtiles fixtures from .sql"
 FOLDERS=("tests/fixtures/files" "tests/fixtures/mbtiles")
 
-    for folder in "${FOLDERS[@]}"; do
-        echo "Processing folder: $folder"
+for folder in "${FOLDERS[@]}"; do
+    echo "Processing folder: $folder"
 
-        for sql_file in "$folder"/*.sql; do
-            [ -e "$sql_file" ] || continue
+    # Remove existing .mbtiles files before recreating them
+    rm -f "$folder"/*.mbtiles
 
-            mbtiles_file="${sql_file%.sql}.mbtiles"
-            echo "Creating: $mbtiles_file from $sql_file"
-            sqlite3 "$mbtiles_file" < "$sql_file"
-        done
+    for sql_file in "$folder"/*.sql; do
+        [ -e "$sql_file" ] || continue
+
+        mbtiles_file="${sql_file%.sql}.mbtiles"
+        echo "Creating: $mbtiles_file from $sql_file"
+        sqlite3 "$mbtiles_file" < "$sql_file"
     done
+done
 echo "::endgroup::"
 
 echo "::group::Test auto configured Martin"
