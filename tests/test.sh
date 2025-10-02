@@ -290,6 +290,23 @@ echo "::group::Check HTTP server is running"
 $CURL --head "$STATICS_URL/webp2.pmtiles"
 echo "::endgroup::"
 
+# Prepare MBTiles from SQL fixtures
+echo "::group::Prepare .mbtiles fixtures from .sql"
+FOLDERS=("tests/fixtures/files" "tests/fixtures/mbtiles")
+
+    for folder in "${FOLDERS[@]}"; do
+        echo "Processing folder: $folder"
+
+        for sql_file in "$folder"/*.sql; do
+            [ -e "$sql_file" ] || continue
+
+            mbtiles_file="${sql_file%.sql}.mbtiles"
+            echo "Creating: $mbtiles_file from $sql_file"
+            sqlite3 "$mbtiles_file" < "$sql_file"
+        done
+    done
+echo "::endgroup::"
+
 echo "::group::Test auto configured Martin"
 TEST_NAME="auto"
 LOG_FILE="${LOG_DIR}/${TEST_NAME}.txt"

@@ -107,7 +107,7 @@ check: (cargo-install 'cargo-hack')
 check-doc:  (docs '')
 
 # Run all tests as expected by CI
-ci-test: env-info restart test-fmt clippy check-doc test check prepare-fixtures && assert-git-is-clean
+ci-test: env-info restart test-fmt clippy check-doc test check && assert-git-is-clean
 
 # Perform  cargo clean  to delete all build files
 clean: clean-test stop && clean-martin-ui
@@ -309,31 +309,13 @@ test-doc *args:
 test-fmt: (cargo-install 'cargo-sort') && (fmt-toml '--check' '--check-format')
     cargo fmt --all -- --check
 
-prepare-fixtures:
-    #!/bin/bash
-    set -euo pipefail
-
-    FOLDERS=("tests/fixtures/files" "tests/fixtures/mbtiles")
-
-    for folder in "${FOLDERS[@]}"; do
-        echo "Processing folder: $folder"
-
-        for sql_file in "$folder"/*.sql; do
-            [ -e "$sql_file" ] || continue
-
-            mbtiles_file="${sql_file%.sql}.mbtiles"
-            echo "Creating: $mbtiles_file from $sql_file"
-            sqlite3 "$mbtiles_file" < "$sql_file"
-        done
-    done
-
 # Run frontend tests
 [working-directory: 'martin/martin-ui']
 test-frontend:
     npm run test
 
 # Run integration tests
-test-int: clean-test install-sqlx prepare-fixtures
+test-int: clean-test install-sqlx
     #!/usr/bin/env bash
     set -euo pipefail
     tests/test.sh
