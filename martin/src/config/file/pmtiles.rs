@@ -11,8 +11,8 @@ use url::Url;
 
 use crate::MartinResult;
 use crate::config::file::{
-    ConfigExtras, ConfigFileError, ConfigFileResult, Finalisable, SourceConfigExtras,
-    UnrecognizedKeys, UnrecognizedValues,
+    ConfigExtras, ConfigFileError, ConfigFileResult, SourceConfigExtras, UnrecognizedKeys,
+    UnrecognizedValues,
 };
 
 #[serde_with::skip_serializing_none]
@@ -38,6 +38,22 @@ impl PartialEq for PmtConfig {
 }
 
 impl ConfigExtras for PmtConfig {
+    fn finalize(&mut self)-> ConfigFileResult<()> {
+        // if the key is the allowed set, we assume it is there for a purpose
+        // because of how serde(flatten) works, we need to collect all in one place and then
+        // partition them into options and unrecognized keys
+        //
+        // If we don't do this, the error message is not clear enough
+        self.partition_options_and_unrecognized();
+        self.migrate_deprecated_keys();
+        
+        Ok(())
+    }
+
+    fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
+        self.unrecognized.keys().cloned().collect()
+    }
+
     fn init_parsing(&mut self, cache: OptMainCache) -> ConfigFileResult<()> {
         assert!(
             self.cache.is_none(),
@@ -46,24 +62,6 @@ impl ConfigExtras for PmtConfig {
         self.cache = cache;
 
         Ok(())
-    }
-
-    fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
-        self.unrecognized.keys().cloned().collect()
-    }
-}
-
-impl Finalisable for PmtConfig {
-    fn finalize(&mut self, _prefix: &str) -> UnrecognizedKeys {
-        // if the key is the allowed set, we assume it is there for a purpose
-        // because of how serde(flatten) works, we need to collect all in one place and then
-        // partition them into options and unrecognized keys
-        //
-        // If we don't do this, the error message is not clear enough
-        self.partition_options_and_unrecognized();
-        self.migrate_deprecated_keys();
-
-        self.get_unrecognized_keys()
     }
 }
 

@@ -22,8 +22,6 @@ use subst::VariableMap;
     feature = "styles",
 ))]
 use crate::config::file::FileConfigEnum;
-#[cfg(feature = "pmtiles")]
-use crate::config::file::Finalisable;
 use crate::config::file::{
     ConfigExtras, ConfigFileError, ConfigFileResult, UnrecognizedKeys, UnrecognizedValues,
     copy_unrecognized_keys_from_config,
@@ -93,33 +91,80 @@ impl Config {
             self.srv.base_path = Some(parse_base_path(path)?);
         }
         #[cfg(feature = "postgres")]
-        let pg_prefix = if matches!(self.postgres, OptOneMany::One(_)) {
-            "postgres."
-        } else {
-            "postgres[]."
-        };
-        #[cfg(feature = "postgres")]
-        for pg in self.postgres.iter_mut() {
-            res.extend(pg.finalize(pg_prefix)?);
+        {
+            let pg_prefix = if matches!(self.postgres, OptOneMany::One(_)) {
+                "postgres."
+            } else {
+                "postgres[]."
+            };
+            for pg in self.postgres.iter_mut() {
+                pg.finalize()?;
+                res.extend(
+                    pg.get_unrecognized_keys()
+                        .iter()
+                        .map(|k| format!("{pg_prefix}.{k}")),
+                );
+            }
         }
 
         #[cfg(feature = "pmtiles")]
-        res.extend(self.pmtiles.finalize("pmtiles."));
+        {
+            self.pmtiles.finalize()?;
+            res.extend(
+                self.pmtiles
+                    .get_unrecognized_keys()
+                    .iter()
+                    .map(|k| format!("pmtiles.{k}")),
+            );
+        }
 
         #[cfg(feature = "mbtiles")]
-        res.extend(self.mbtiles.finalize("mbtiles."));
+        {
+            self.mbtiles.finalize()?;
+            res.extend(
+                self.mbtiles
+                    .get_unrecognized_keys()
+                    .iter()
+                    .map(|k| format!("mbtiles.{k}")),
+            );
+        }
 
         #[cfg(feature = "cog")]
-        res.extend(self.cog.finalize("cog."));
+        {
+            self.cog.finalize()?;
+            res.extend(
+                self.cog
+                    .get_unrecognized_keys()
+                    .iter()
+                    .map(|k| format!("cog.{k}")),
+            );
+        }
 
         #[cfg(feature = "sprites")]
-        res.extend(self.sprites.finalize("sprites."));
+        {
+            self.sprites.finalize()?;
+            res.extend(
+                self.sprites
+                    .get_unrecognized_keys()
+                    .iter()
+                    .map(|k| format!("sprites.{k}")),
+            );
+        }
 
         #[cfg(feature = "styles")]
-        res.extend(self.styles.finalize("styles."));
+        {
+            self.styles.finalize()?;
+            res.extend(
+                self.styles
+                    .get_unrecognized_keys()
+                    .iter()
+                    .map(|k| format!("styles.{k}")),
+            );
+        }
 
         // TODO: support for unrecognized fonts?
-        // res.extend(self.fonts.finalize("fonts.")?);
+        // self.fonts.finalize();
+        // res.extend(self.fonts.get_unrecognized_keys("fonts.")?);
 
         for key in &res {
             warn!(

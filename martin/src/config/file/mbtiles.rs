@@ -8,7 +8,7 @@ use url::Url;
 
 use crate::MartinResult;
 use crate::config::file::{
-    ConfigExtras, Finalisable, SourceConfigExtras, UnrecognizedKeys, UnrecognizedValues,
+    ConfigExtras, SourceConfigExtras, UnrecognizedKeys, UnrecognizedValues,
 };
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -20,12 +20,6 @@ pub struct MbtConfig {
 impl ConfigExtras for MbtConfig {
     fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
         self.unrecognized.keys().cloned().collect()
-    }
-}
-
-impl Finalisable for MbtConfig {
-    fn finalize(&mut self, _prefix: &str) -> UnrecognizedKeys {
-        self.get_unrecognized_keys()
     }
 }
 
@@ -50,11 +44,11 @@ mod tests {
     use indoc::indoc;
 
     use crate::config::file::mbtiles::MbtConfig;
-    use crate::config::file::{FileConfigEnum, FileConfigSource, FileConfigSrc, Finalisable};
+    use crate::config::file::{ConfigExtras, FileConfigEnum, FileConfigSource, FileConfigSrc};
 
     #[test]
     fn parse() {
-        let mut cfg = serde_yaml::from_str::<FileConfigEnum<MbtConfig>>(indoc! {"
+        let cfg = serde_yaml::from_str::<FileConfigEnum<MbtConfig>>(indoc! {"
             paths:
               - /dir-path
               - /path/to/file2.ext
@@ -68,8 +62,8 @@ mod tests {
                   path: https://example.org/file4.ext
         "})
         .unwrap();
-        let res = cfg.finalize("");
-        assert!(res.is_empty(), "unrecognized config: {res:?}");
+        let unrecognised = cfg.get_unrecognized_keys();
+        assert!(unrecognised.is_empty(), "unrecognized config: {unrecognised:?}");
         let FileConfigEnum::Config(cfg) = cfg else {
             panic!();
         };

@@ -73,13 +73,26 @@ pub enum ConfigFileError {
     ObjectStoreUrlParsing(object_store::Error, String),
 }
 
+/// Lifecycle hooks for configuring the application
+///
+/// The hooks are guaranteed called in the following order:
+/// 1. `finalize`
+/// 2. `get_unrecognized_keys`
+/// 3. `init_parsing`
 pub trait ConfigExtras: Clone + Debug + Default + PartialEq + Send {
-    fn init_parsing(&mut self, _cache: OptMainCache) -> ConfigFileResult<()> {
+    /// Finalize configuration discovery and patch old values
+    ///
+    /// In practice, this method is only implemented on a path of the config if a value or a value in the path below it needs to be finalized
+    fn finalize(&mut self) -> ConfigFileResult<()> {
         Ok(())
     }
 
     /// Iterates over all unrecognized (present, but not expected) keys in the configuration
     fn get_unrecognized_keys(&self) -> UnrecognizedKeys;
+
+    fn init_parsing(&mut self, _cache: OptMainCache) -> ConfigFileResult<()> {
+        Ok(())
+    }
 }
 
 pub trait SourceConfigExtras: ConfigExtras {
@@ -186,24 +199,29 @@ impl<T: ConfigExtras> FileConfigEnum<T> {
     }
 }
 
-impl<T: Finalisable + ConfigExtras> Finalisable for FileConfigEnum<T> {
+impl<T: ConfigExtras> ConfigExtras for FileConfigEnum<T> {
     /// Finalize configuration discovery, patch old values and return a set of unrecognized keys
-    fn finalize(&mut self, prefix: &str) -> UnrecognizedKeys {
+    fn finalize(&mut self) -> ConfigFileResult<()> {
         if let Self::Config(cfg) = self {
-            cfg.custom.finalize(prefix);
-            cfg.get_unrecognized_keys()
-                .iter()
-                .map(|k| format!("{prefix}{k}"))
-                .collect()
+            cfg.custom.finalize()
+        } else {
+        Ok(())}
+    }
+
+    fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
+        if let Self::Config(cfg) = self {
+            cfg.custom.get_unrecognized_keys()
         } else {
             UnrecognizedKeys::new()
         }
     }
-}
 
-pub trait Finalisable {
-    /// Finalize configuration discovery, patch old values and return a set of unrecognized keys
-    fn finalize(&mut self, prefix: &str) -> UnrecognizedKeys;
+    fn init_parsing(&mut self, cache: OptMainCache) -> ConfigFileResult<()> {
+        if let Self::Config(cfg) = self {
+            cfg.custom.init_parsing(cache)?;
+        }
+        Ok(())
+    }
 }
 
 #[serde_with::skip_serializing_none]
@@ -222,11 +240,9 @@ pub struct FileConfig<T> {
 impl<T: ConfigExtras> FileConfig<T> {
     #[must_use]
     pub fn is_empty(&self) -> bool {
-        self.paths.is_none() && self.sources.is_none() && self.get_unrecognized_keys().is_empty()
-    }
-
-    pub fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
-        self.custom.get_unrecognized_keys()
+        self.paths.is_none()
+            && self.sources.is_none()
+            && self.custom.get_unrecognized_keys().is_empty()
     }
 }
 
