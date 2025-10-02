@@ -5,8 +5,7 @@ use std::path::{Path, PathBuf};
 
 use log::{info, warn};
 use martin_core::cache::OptMainCache;
-use martin_core::config::IdResolver;
-use martin_core::config::OptOneMany::{self, Many, One};
+use martin_core::config::{IdResolver, OptOneMany};
 use martin_core::tiles::BoxedSource;
 use serde::{Deserialize, Serialize};
 use url::Url;
