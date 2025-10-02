@@ -198,7 +198,8 @@ impl<T: ConfigExtras> FileConfigEnum<T> {
     }
 
     /// convert path/paths and the config enums
-    pub fn to_config(self) -> FileConfigEnum<T> {
+    #[must_use]
+    pub fn into_config(self) -> FileConfigEnum<T> {
         match self {
             FileConfigEnum::Path(path) => FileConfigEnum::Config(FileConfig {
                 paths: OptOneMany::One(path),
