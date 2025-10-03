@@ -463,7 +463,10 @@ jobs:
       - name: Set up gdal-bin and sqlite3-tools
         if: matrix.os == 'ubuntu-latest'
         run: sudo apt-get update && sudo apt-get install -y gdal-bin sqlite3-tools
-
+      - name: Install sqlite3 and sqldiff on Windows
+        if: matrix.os == 'windows-latest'
+        run: choco install sqlite --yes
+        shell: powershell      
       - name: Install and run Postgis (Windows)
         if: matrix.os == 'windows-latest'
         uses: nyurik/action-setup-postgis@5183a5e26ade31809faed263cd4d638e144fe186 # v2.2
