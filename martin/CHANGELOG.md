@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.19.4](https://github.com/maplibre/martin/compare/martin-v0.19.3...martin-v0.19.4) - 2025-10-03
+
+### Other
+
+- *(deps-dev)* Bump the all-npm-ui-version-updates group in /martin/martin-ui with 2 updates ([#2277](https://github.com/maplibre/martin/pull/2277))
+- release ([#2265](https://github.com/maplibre/martin/pull/2265))
+
 ## [0.19.3](https://github.com/maplibre/martin/compare/martin-v0.19.2...martin-v0.19.3) - 2025-10-01
 
 ### Added
