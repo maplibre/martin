@@ -225,7 +225,10 @@ impl SourceConfigExtras for PmtConfig {
         // example: C:\Users\martin\Documents\pmtiles -> file://C:/Users/martin/Documents/pmtiles
         let url = Url::from_file_path(&path)
             .or(Err(ConfigFileError::PathNotConvertibleToUrl(path.clone())))?;
-        trace!("Pmtiles source {id} ({}) will be loaded as {url}", path.display());
+        trace!(
+            "Pmtiles source {id} ({}) will be loaded as {url}",
+            path.display()
+        );
         self.new_sources_url(id, url).await
     }
 
