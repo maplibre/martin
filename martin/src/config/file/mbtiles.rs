@@ -42,7 +42,7 @@ mod tests {
     use indoc::indoc;
 
     use crate::config::file::mbtiles::MbtConfig;
-    use crate::config::file::{FileConfigEnum, FileConfigSource, FileConfigSrc};
+    use crate::config::file::{ConfigExtras, FileConfigEnum, FileConfigSource, FileConfigSrc};
 
     #[test]
     fn parse() {
@@ -60,8 +60,11 @@ mod tests {
                   path: https://example.org/file4.ext
         "})
         .unwrap();
-        let res = cfg.finalize("");
-        assert!(res.is_empty(), "unrecognized config: {res:?}");
+        let unrecognised = cfg.get_unrecognized_keys();
+        assert!(
+            unrecognised.is_empty(),
+            "unrecognized config: {unrecognised:?}"
+        );
         let FileConfigEnum::Config(cfg) = cfg else {
             panic!();
         };

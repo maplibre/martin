@@ -23,14 +23,13 @@ pub struct MbtSource {
     tile_info: TileInfo,
 }
 
+#[allow(clippy::missing_fields_in_debug)]
 impl Debug for MbtSource {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "MbtSource {{ id: {}, path: {:?} }}",
-            self.id,
-            self.mbtiles.as_ref()
-        )
+        f.debug_struct("MbtSource")
+            .field("id", &self.id)
+            .field("path", &self.mbtiles.as_ref())
+            .finish()
     }
 }
 

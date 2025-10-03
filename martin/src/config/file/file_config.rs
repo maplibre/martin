@@ -5,8 +5,7 @@ use std::path::{Path, PathBuf};
 
 use log::{info, warn};
 use martin_core::cache::OptMainCache;
-use martin_core::config::IdResolver;
-use martin_core::config::OptOneMany::{self, Many, One};
+use martin_core::config::{IdResolver, OptOneMany};
 use martin_core::tiles::BoxedSource;
 use serde::{Deserialize, Serialize};
 use url::Url;
@@ -42,6 +41,9 @@ pub enum ConfigFileError {
     #[error("Error {0} while parsing URL {1}")]
     InvalidSourceUrl(#[source] url::ParseError, String),
 
+    #[error("Could not parse source path {0} as a URL")]
+    PathNotConvertibleToUrl(PathBuf),
+
     #[error("Source {0} uses bad file {1}")]
     InvalidSourceFilePath(String, PathBuf),
 
@@ -67,15 +69,32 @@ pub enum ConfigFileError {
     #[cfg(feature = "fonts")]
     #[error("Failed to load fonts from {1}: {0}")]
     FontResolutionFailed(#[source] martin_core::fonts::FontError, PathBuf),
+
+    #[cfg(feature = "pmtiles")]
+    #[error("Failed to parse object store URL of {1}: {0}")]
+    ObjectStoreUrlParsing(object_store::Error, String),
 }
 
+/// Lifecycle hooks for configuring the application
+///
+/// The hooks are guaranteed called in the following order:
+/// 1. `finalize`
+/// 2. `get_unrecognized_keys`
+/// 3. `init_parsing`
 pub trait ConfigExtras: Clone + Debug + Default + PartialEq + Send {
-    fn init_parsing(&mut self, _cache: OptMainCache) -> ConfigFileResult<()> {
+    /// Finalize configuration discovery and patch old values
+    ///
+    /// In practice, this method is only implemented on a path of the config if a value or a value in the path below it needs to be finalized
+    fn finalize(&mut self) -> ConfigFileResult<()> {
         Ok(())
     }
 
     /// Iterates over all unrecognized (present, but not expected) keys in the configuration
     fn get_unrecognized_keys(&self) -> UnrecognizedKeys;
+
+    fn init_parsing(&mut self, _cache: OptMainCache) -> ConfigFileResult<()> {
+        Ok(())
+    }
 }
 
 pub trait SourceConfigExtras: ConfigExtras {
@@ -168,11 +187,11 @@ impl<T: ConfigExtras> FileConfigEnum<T> {
         let mut res = match self {
             FileConfigEnum::None => return Ok(None),
             FileConfigEnum::Path(path) => FileConfig {
-                paths: One(mem::take(path)),
+                paths: OptOneMany::One(mem::take(path)),
                 ..FileConfig::default()
             },
             FileConfigEnum::Paths(paths) => FileConfig {
-                paths: Many(mem::take(paths)),
+                paths: OptOneMany::Many(mem::take(paths)),
                 ..Default::default()
             },
             FileConfigEnum::Config(cfg) => mem::take(cfg),
@@ -181,15 +200,48 @@ impl<T: ConfigExtras> FileConfigEnum<T> {
         Ok(Some(res))
     }
 
-    pub fn finalize(&self, prefix: &str) -> UnrecognizedKeys {
+    /// convert path/paths and the config enums
+    #[must_use]
+    pub fn into_config(self) -> FileConfigEnum<T> {
+        match self {
+            FileConfigEnum::Path(path) => FileConfigEnum::Config(FileConfig {
+                paths: OptOneMany::One(path),
+                sources: None,
+                custom: T::default(),
+            }),
+            FileConfigEnum::Paths(paths) => FileConfigEnum::Config(FileConfig {
+                paths: OptOneMany::Many(paths),
+                sources: None,
+                custom: T::default(),
+            }),
+            c => c,
+        }
+    }
+}
+
+impl<T: ConfigExtras> ConfigExtras for FileConfigEnum<T> {
+    /// Finalize configuration discovery, patch old values and return a set of unrecognized keys
+    fn finalize(&mut self) -> ConfigFileResult<()> {
         if let Self::Config(cfg) = self {
-            cfg.get_unrecognized_keys()
-                .iter()
-                .map(|k| format!("{prefix}{k}"))
-                .collect()
+            cfg.custom.finalize()
+        } else {
+            Ok(())
+        }
+    }
+
+    fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
+        if let Self::Config(cfg) = self {
+            cfg.custom.get_unrecognized_keys()
         } else {
             UnrecognizedKeys::new()
         }
+    }
+
+    fn init_parsing(&mut self, cache: OptMainCache) -> ConfigFileResult<()> {
+        if let Self::Config(cfg) = self {
+            cfg.custom.init_parsing(cache)?;
+        }
+        Ok(())
     }
 }
 
@@ -209,11 +261,9 @@ pub struct FileConfig<T> {
 impl<T: ConfigExtras> FileConfig<T> {
     #[must_use]
     pub fn is_empty(&self) -> bool {
-        self.paths.is_none() && self.sources.is_none() && self.get_unrecognized_keys().is_empty()
-    }
-
-    pub fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
-        self.custom.get_unrecognized_keys()
+        self.paths.is_none()
+            && self.sources.is_none()
+            && self.custom.get_unrecognized_keys().is_empty()
     }
 }
 
@@ -291,7 +341,7 @@ async fn resolve_int<T: SourceConfigExtras>(
                 if !can.is_file() {
                     // todo: maybe warn instead?
                     return Err(MartinError::ConfigFileError(InvalidSourceFilePath(
-                        id.to_string(),
+                        id.clone(),
                         can,
                     )));
                 }
@@ -411,8 +461,12 @@ fn parse_url(is_enabled: bool, path: &Path) -> Result<Option<Url>, ConfigFileErr
     if !is_enabled {
         return Ok(None);
     }
+    let url_schemes = [
+        "s3://", "s3a://", "gs://", "adl://", "azure://", "abfs://", "abfss://", "http://",
+        "https://",
+    ];
     path.to_str()
-        .filter(|v| v.starts_with("http://") || v.starts_with("https://") || v.starts_with("s3://"))
+        .filter(|v| url_schemes.iter().any(|scheme| v.starts_with(scheme)))
         .map(|v| Url::parse(v).map_err(|e| InvalidSourceUrl(e, v.to_string())))
         .transpose()
 }

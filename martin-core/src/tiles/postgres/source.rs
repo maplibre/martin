@@ -81,9 +81,9 @@ impl Source for PostgresSource {
             .map_err(|e| {
                 PrepareQueryError(
                     e,
-                    self.id.to_string(),
-                    self.info.signature.to_string(),
-                    self.info.sql_query.to_string(),
+                    self.id.clone(),
+                    self.info.signature.clone(),
+                    self.info.sql_query.clone(),
                 )
             })?;
 
@@ -110,9 +110,9 @@ impl Source for PostgresSource {
             .map(|row| row.and_then(|r| r.get::<_, Option<TileData>>(0)))
             .map_err(|e| {
                 if self.support_url_query() {
-                    GetTileWithQueryError(e, self.id.to_string(), xyz, url_query.cloned())
+                    GetTileWithQueryError(e, self.id.clone(), xyz, url_query.cloned())
                 } else {
-                    GetTileError(e, self.id.to_string(), xyz)
+                    GetTileError(e, self.id.clone(), xyz)
                 }
             })?
             .unwrap_or_default();

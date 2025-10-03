@@ -75,9 +75,9 @@ pub fn find_kv_ignore_case<'a, T>(
                 None => result = Some(k),
                 Some(result) => {
                     if multiple.is_empty() {
-                        multiple.push(result.to_string());
+                        multiple.push(result.clone());
                     }
-                    multiple.push(k.to_string());
+                    multiple.push(k.clone());
                 }
             }
         }
