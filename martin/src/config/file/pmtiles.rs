@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::str::FromStr;
 
-use log::warn;
+use log::{trace, warn};
 use martin_core::cache::OptMainCache;
 use martin_core::tiles::BoxedSource;
 use martin_core::tiles::pmtiles::{PmtCache, PmtilesSource};
@@ -214,16 +214,18 @@ impl SourceConfigExtras for PmtConfig {
     }
 
     async fn new_sources(&self, id: String, path: PathBuf) -> MartinResult<BoxedSource> {
-        // canonicalize to get rid of symlinks
+        // canonicalize to resolve symlinks
         let path = path
             .canonicalize()
             .map_err(|e| ConfigFileError::IoError(e, path))?;
-        // object_store does not support relative paths
+        // url parsing needs absolute path
         let path = std::path::absolute(&path).map_err(|e| ConfigFileError::IoError(e, path))?;
-        let url = format!("file://{}", path.display());
-        let url = url
-            .parse()
-            .map_err(|e| ConfigFileError::InvalidSourceUrl(e, url))?;
+        // windows needs unix style paths, I.e. replace backslashes with forward slashes
+        // a simple "add file://" does not work on windows
+        // example: C:\Users\martin\Documents\pmtiles -> file://C:/Users/martin/Documents/pmtiles
+        let url = Url::from_file_path(&path)
+            .map_err(|_| ConfigFileError::PathNotConvertibleToUrl(path.clone()))?;
+        trace!("Pmtiles source {} will be loaded as {url}", path.display());
         self.new_sources_url(id, url).await
     }
 

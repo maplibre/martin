@@ -41,6 +41,9 @@ pub enum ConfigFileError {
     #[error("Error {0} while parsing URL {1}")]
     InvalidSourceUrl(#[source] url::ParseError, String),
 
+    #[error("Could not parse source path {0} as a URL")]
+    PathNotConvertibleToUrl(PathBuf),
+
     #[error("Source {0} uses bad file {1}")]
     InvalidSourceFilePath(String, PathBuf),
 
