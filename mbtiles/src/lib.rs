@@ -14,7 +14,7 @@ mod mbtiles;
 pub use mbtiles::{CopyType, MbtTypeCli, Mbtiles};
 
 mod metadata;
-pub use metadata::Metadata;
+pub use metadata::{Metadata, anonymous_mbtiles, temp_named_mbtiles};
 
 mod patcher;
 pub use patcher::apply_patch;

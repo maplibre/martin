@@ -204,7 +204,8 @@ fmt-md:
 
 # Reformat all SQL files using docker
 fmt-sql:
-    docker run -it --rm -v $PWD:/sql sqlfluff/sqlfluff:latest fix --dialect=postgres --exclude-rules=AL07,LT05,LT12
+    docker run -it --rm -v $PWD:/sql sqlfluff/sqlfluff:latest fix --dialect=postgres --exclude-rules=AL07,LT05,LT12 --exclude '^tests/fixtures/(mbtiles|files)/.*\.sql$'
+    docker run -it --rm -v $PWD:/sql sqlfluff/sqlfluff:latest fix --dialect=sqlite --exclude-rules=LT01,LT05 --files '^tests/fixtures/(mbtiles|files)/.*\.sql$'
 
 # Reformat all Cargo.toml files using cargo-sort
 fmt-toml *args: (cargo-install 'cargo-sort')
@@ -328,7 +329,7 @@ test-int: clean-test install-sqlx
             echo "** If this is expected, run 'just bless' to update expected output"
             echo ""
             echo "::group::Resulting diff (max 100 lines)"
-            diff --recursive --new-file --exclude='*.pbf' tests/output tests/expected | head -n 100
+            diff --recursive --new-file --exclude='*.pbf' tests/output tests/expected | head -n 100 | cat --show-nonprinting
             echo "::endgroup::"
             exit 1
         else
