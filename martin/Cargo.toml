@@ -158,7 +158,6 @@ criterion.workspace = true
 ctor.workspace = true
 indoc.workspace = true
 insta = { workspace = true, features = ["json", "yaml", "redactions"] }
-mbtiles = { workspace = true }
 pprof.workspace = true
 rstest.workspace = true
 tempfile.workspace = true

@@ -232,7 +232,7 @@ impl Mbtiles {
     }
 }
 
-#[allow(dead_code)]
+/// Create an in memory, temporary mbtile connection with the given `script`
 pub async fn anonymous_mbtiles(script: &str) -> (Mbtiles, SqliteConnection) {
     let mbt = Mbtiles::new(":memory:").unwrap();
     let mut conn = mbt.open().await.unwrap();
@@ -240,7 +240,7 @@ pub async fn anonymous_mbtiles(script: &str) -> (Mbtiles, SqliteConnection) {
     (mbt, conn)
 }
 
-#[allow(dead_code)]
+/// Create a named, in memory, temporary mbtile connection with the given `script`
 pub async fn temp_named_mbtiles(
     file_name: &str,
     script: &str,
