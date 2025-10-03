@@ -218,14 +218,14 @@ impl SourceConfigExtras for PmtConfig {
         let path = path
             .canonicalize()
             .map_err(|e| ConfigFileError::IoError(e, path))?;
-        // url parsing needs absolute path
+        // path->url conversion requires absolute path, otherwise it errors
         let path = std::path::absolute(&path).map_err(|e| ConfigFileError::IoError(e, path))?;
         // windows needs unix style paths, I.e. replace backslashes with forward slashes
         // a simple "add file://" does not work on windows
         // example: C:\Users\martin\Documents\pmtiles -> file://C:/Users/martin/Documents/pmtiles
         let url = Url::from_file_path(&path)
-            .map_err(|_| ConfigFileError::PathNotConvertibleToUrl(path.clone()))?;
-        trace!("Pmtiles source {} will be loaded as {url}", path.display());
+            .or(Err(ConfigFileError::PathNotConvertibleToUrl(path.clone())))?;
+        trace!("Pmtiles source {id} ({}) will be loaded as {url}", path.display());
         self.new_sources_url(id, url).await
     }
 
