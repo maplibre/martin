@@ -400,6 +400,10 @@ test_pbf antimeridian_4_0_5 antimeridian/4/0/5
 test_jsn tbl_comment              MixPoints
 test_jsn fnc_comment              function_Mixed_Name
 
+>&2 echo "***** Test server response for materialized view *****"
+test_jsn mv_comment               fixtures_mv_comments
+test_pbf mv_comment_0_0_0         fixtures_mv_comments/0/0/0
+
 >&2 echo "***** Test server response for the same name in different schemas *****"
 test_jsn same_name_different_schema_table1       table_name_existing_two_schemas
 test_pbf same_name_different_schema_table1_0_0_0 table_name_existing_two_schemas/0/0/0
