@@ -794,7 +794,7 @@ docker run -p 3000:3000 \
 <h3 id="from-binary-distributions-manually"><a class="header" href="#from-binary-distributions-manually">From Binary Distributions Manually</a></h3>
 <p>You can download martin from <a href="https://github.com/maplibre/martin/releases">GitHub releases page</a>.</p>
 <div class="table-wrapper"><table><thead><tr><th>Platform</th><th>x64</th><th>ARM-64</th></tr></thead><tbody>
-<tr><td>Linux</td><td><a href="https://github.com/maplibre/martin/releases/latest/download/martin-x86_64-unknown-linux-gnu.tar.gz">.tar.gz</a> (gnu)<br><a href="https://github.com/maplibre/martin/releases/latest/download/martin-x86_64-unknown-linux-musl.tar.gz">.tar.gz</a> (musl)<br><a href="https://github.com/maplibre/martin/releases/latest/download/martin-Debian-x86_64.deb">.deb</a></td><td><a href="https://github.com/maplibre/martin/releases/latest/download/martin-aarch64-unknown-linux-musl.tar.gz">.tar.gz</a> (musl)</td></tr>
+<tr><td>Linux</td><td><a href="https://github.com/maplibre/martin/releases/latest/download/martin-x86_64-unknown-linux-gnu.tar.gz">.tar.gz</a> (gnu)<br><a href="https://github.com/maplibre/martin/releases/latest/download/martin-x86_64-unknown-linux-musl.tar.gz">.tar.gz</a> (musl)<br><a href="https://github.com/maplibre/martin/releases/latest/download/martin-Debian-x86_64.deb">.deb</a></td><td><a href="https://github.com/maplibre/martin/releases/latest/download/martin-aarch64-unknown-linux-gnu.tar.gz">.tar.gz</a> (gnu)<br><a href="https://github.com/maplibre/martin/releases/latest/download/martin-aarch64-unknown-linux-musl.tar.gz">.tar.gz</a> (musl)</td></tr>
 <tr><td>macOS</td><td><a href="https://github.com/maplibre/martin/releases/latest/download/martin-x86_64-apple-darwin.tar.gz">.tar.gz</a></td><td><a href="https://github.com/maplibre/martin/releases/latest/download/martin-aarch64-apple-darwin.tar.gz">.tar.gz</a></td></tr>
 <tr><td>Windows</td><td><a href="https://github.com/maplibre/martin/releases/latest/download/martin-x86_64-pc-windows-msvc.zip">.zip</a></td><td></td></tr>
 </tbody></table>
@@ -2415,6 +2415,25 @@ styles:
      some_style_name: /path/to/this/style.json
      #  Publish specific file as `other_style_name`
      other_style_name: /path/to/other_style.json
+
+# If set, the version of the tileset (as specified in the MBTiles or PMTiles metadata)
+# will be embedded in the TileJSON `tiles` URL, with the set identifier.
+# This is useful to give clients a better way to cache-bust a CDN:
+# 1. maplibre requests tilejson, tilejson contains the tiles URL. This is always up-to-date.
+# 2. maplibre requests each tile it requires, with the tiles URL in the tilejson.
+# 3. Add `Control: public, max-age=..., immutable` on the tile responses
+#    optimize browser/CDN cache hit rates, while also making sure that
+#    old tiles aren't served when a new tileset is deployed.
+#
+# The CDN must handle query parameters for caching to work correctly.
+# Many CDNs ignore them by default.
+#
+# For example, if
+# - the setting here is `version`, and
+# - the PMTiles tileset version is `1.0.0`, the
+# TileJSON will be:
+# { ..., "tiles": [".../{z}/{x}/{y}?version=1.0.0"], ... }
+tilejson_url_version_param: null # a string, such as `version` or `v`
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><style>
 .mdbook-alerts {
@@ -6066,7 +6085,7 @@ just run --config /path/to/config.yaml
 This guide covers IDE setup and debugging.
 While we use Visual Studio Code as an example, Martin can be developed with any editor that supports Rust.</p>
 <details>
-<summary>Editor-specifc Guides (click to expand)</summary>
+<summary>Editor-specific Guides (click to expand)</summary>
 <h3 id="visual-studio-code"><a class="header" href="#visual-studio-code">Visual Studio Code</a></h3>
 <p>Install these essential extensions:</p>
 <ul>
@@ -6103,7 +6122,7 @@ just help   # shows common commands
 <h2 id="generate"><a class="header" href="#generate">Generate</a></h2>
 <p>Press <code>F1</code> on your keyboard, and input “Generate Launch Configurations from Cargo.toml”. Execute it and save it to your <code>.vscode</code> directory.</p>
 <h2 id="modify"><a class="header" href="#modify">Modify</a></h2>
-<p>Let’s say you want to debugging Martin with this command:</p>
+<p>Let’s say you want to debug Martin with this command:</p>
 <pre><code class="language-shell">martin postgres://postgres:postgres@localhost:5411/db
 </code></pre>
 <p>You could find <code>Debug executable 'martin'</code> in your <code>launch.json</code>, like below:</p>
