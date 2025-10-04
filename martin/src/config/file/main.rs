@@ -1,18 +1,19 @@
 use std::ffi::OsStr;
 use std::fs::File;
 use std::io::prelude::*;
-use std::path::{Path, PathBuf};
+use std::path::Path;
+use std::sync::LazyLock;
 
 use futures::future::{BoxFuture, try_join_all};
 use log::{info, warn};
 use martin_core::cache::{CacheValue, MainCache, OptMainCache};
+use martin_core::config::IdResolver;
 #[cfg(any(feature = "fonts", feature = "postgres"))]
 use martin_core::config::OptOneMany;
 use martin_core::tiles::BoxedSource;
 use serde::{Deserialize, Serialize};
 use subst::VariableMap;
 
-use crate::MartinError::{ConfigLoadError, ConfigParseError, ConfigWriteError, NoSources};
 #[cfg(any(
     feature = "cog",
     feature = "mbtiles",
@@ -22,12 +23,12 @@ use crate::MartinError::{ConfigLoadError, ConfigParseError, ConfigWriteError, No
 ))]
 use crate::config::file::FileConfigEnum;
 use crate::config::file::{
-    ConfigExtras, UnrecognizedKeys, UnrecognizedValues, copy_unrecognized_keys_from_config,
+    ConfigExtras, ConfigFileError, ConfigFileResult, UnrecognizedKeys, UnrecognizedValues,
+    copy_unrecognized_keys_from_config,
 };
 use crate::source::TileSources;
 use crate::srv::RESERVED_KEYWORDS;
-use crate::utils::{init_aws_lc_tls, parse_base_path};
-use crate::{IdResolver, MartinResult};
+use crate::{MartinError, MartinResult};
 
 pub struct ServerState {
     pub cache: OptMainCache,
@@ -50,7 +51,7 @@ pub struct Config {
 
     #[cfg(feature = "postgres")]
     #[serde(default, skip_serializing_if = "OptOneMany::is_none")]
-    pub postgres: OptOneMany<super::pg::PgConfig>,
+    pub postgres: OptOneMany<super::postgres::PostgresConfig>,
 
     #[cfg(feature = "pmtiles")]
     #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
@@ -147,11 +148,15 @@ impl Config {
         #[cfg(feature = "fonts")]
         let is_empty = is_empty && self.fonts.is_empty();
 
-        if is_empty { Err(NoSources) } else { Ok(res) }
+        if is_empty {
+            Err(ConfigFileError::NoSources.into())
+        } else {
+            Ok(res)
+        }
     }
 
     pub async fn resolve(&mut self) -> MartinResult<ServerState> {
-        init_aws_lc_tls()?;
+        init_aws_lc_tls();
         let resolver = IdResolver::new(RESERVED_KEYWORDS);
         let cache_size = self.cache_size_mb.unwrap_or(512) * 1024 * 1024;
         let cache = if cache_size > 0 {
@@ -224,7 +229,7 @@ impl Config {
         Ok(TileSources::new(try_join_all(sources).await?))
     }
 
-    pub fn save_to_file(&self, file_name: PathBuf) -> MartinResult<()> {
+    pub fn save_to_file(&self, file_name: &Path) -> ConfigFileResult<()> {
         let yaml = serde_yaml::to_string(&self).expect("Unable to serialize config");
         if file_name.as_os_str() == OsStr::new("-") {
             info!("Current system configuration:");
@@ -235,33 +240,73 @@ impl Config {
                 "Saving config to {}, use --config to load it",
                 file_name.display()
             );
-            match File::create(&file_name) {
-                Ok(mut file) => file
-                    .write_all(yaml.as_bytes())
-                    .map_err(|e| ConfigWriteError(e, file_name)),
-                Err(e) => Err(ConfigWriteError(e, file_name)),
-            }
+            File::create(file_name)
+                .map_err(|e| ConfigFileError::ConfigWriteError(e, file_name.to_path_buf()))?
+                .write_all(yaml.as_bytes())
+                .map_err(|e| ConfigFileError::ConfigWriteError(e, file_name.to_path_buf()))?;
+            Ok(())
         }
     }
 }
 
 /// Read config from a file
-pub fn read_config<'a, M>(file_name: &Path, env: &'a M) -> MartinResult<Config>
+pub fn read_config<'a, M>(file_name: &Path, env: &'a M) -> ConfigFileResult<Config>
 where
     M: VariableMap<'a>,
     M::Value: AsRef<str>,
 {
-    let mut file = File::open(file_name).map_err(|e| ConfigLoadError(e, file_name.into()))?;
+    let mut file =
+        File::open(file_name).map_err(|e| ConfigFileError::ConfigLoadError(e, file_name.into()))?;
     let mut contents = String::new();
     file.read_to_string(&mut contents)
-        .map_err(|e| ConfigLoadError(e, file_name.into()))?;
+        .map_err(|e| ConfigFileError::ConfigLoadError(e, file_name.into()))?;
     parse_config(&contents, env, file_name)
 }
 
-pub fn parse_config<'a, M>(contents: &str, env: &'a M, file_name: &Path) -> MartinResult<Config>
+pub fn parse_config<'a, M>(contents: &str, env: &'a M, file_name: &Path) -> ConfigFileResult<Config>
 where
     M: VariableMap<'a>,
     M::Value: AsRef<str>,
 {
-    subst::yaml::from_str(contents, env).map_err(|e| ConfigParseError(e, file_name.into()))
+    subst::yaml::from_str(contents, env)
+        .map_err(|e| ConfigFileError::ConfigParseError(e, file_name.into()))
+}
+
+pub fn parse_base_path(path: &str) -> MartinResult<String> {
+    if !path.starts_with('/') {
+        return Err(MartinError::BasePathError(path.to_string()));
+    }
+    if let Ok(uri) = path.parse::<actix_web::http::Uri>() {
+        return Ok(uri.path().trim_end_matches('/').to_string());
+    }
+    Err(MartinError::BasePathError(path.to_string()))
+}
+
+fn init_aws_lc_tls() {
+    // https://github.com/rustls/rustls/issues/1877
+    static INIT_TLS: LazyLock<()> = LazyLock::new(|| {
+        rustls::crypto::aws_lc_rs::default_provider()
+            .install_default()
+            .expect("Unable to init rustls: {e:?}");
+    });
+    *INIT_TLS;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_base_path_accepts_valid_paths() {
+        assert_eq!("", parse_base_path("/").unwrap());
+        assert_eq!("", parse_base_path("//").unwrap());
+        assert_eq!("/foo/bar", parse_base_path("/foo/bar").unwrap());
+        assert_eq!("/foo/bar", parse_base_path("/foo/bar/").unwrap());
+    }
+
+    #[test]
+    fn parse_base_path_rejects_invalid_paths() {
+        assert!(parse_base_path("").is_err());
+        assert!(parse_base_path("foo/bar").is_err());
+    }
 }

@@ -15,16 +15,15 @@ use log::error;
 use martin_core::tiles::catalog::TileCatalog;
 use serde::{Deserialize, Serialize};
 
-use crate::MartinError::BindingError;
-use crate::MartinResult;
-#[cfg(feature = "webui")]
+#[cfg(all(feature = "webui", not(docsrs)))]
 use crate::config::args::WebUiMode;
 use crate::config::file::ServerState;
 use crate::config::file::srv::{KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT, SrvConfig};
 use crate::srv::tiles::get_tile;
 use crate::srv::tiles_info::get_source_info;
+use crate::{MartinError, MartinResult};
 
-#[cfg(feature = "webui")]
+#[cfg(all(feature = "webui", not(docsrs)))]
 mod webui {
     #![allow(clippy::unreadable_literal)]
     #![allow(clippy::too_many_lines)]
@@ -71,7 +70,7 @@ pub fn map_internal_error<T: std::fmt::Display>(e: T) -> actix_web::Error {
 }
 
 /// Root path in case web front is disabled.
-#[cfg(not(feature = "webui"))]
+#[cfg(any(not(feature = "webui"), docsrs))]
 #[route("/", method = "GET", method = "HEAD")]
 #[allow(clippy::unused_async)]
 async fn get_index_no_ui() -> &'static str {
@@ -81,7 +80,7 @@ async fn get_index_no_ui() -> &'static str {
 }
 
 /// Root path in case web front is disabled and the `webui` feature is enabled.
-#[cfg(feature = "webui")]
+#[cfg(all(feature = "webui", not(docsrs)))]
 #[route("/", method = "GET", method = "HEAD")]
 #[allow(clippy::unused_async)]
 async fn get_index_ui_disabled() -> &'static str {
@@ -141,7 +140,7 @@ pub fn router(cfg: &mut web::ServiceConfig, #[allow(unused_variables)] usr_cfg: 
     #[cfg(feature = "styles")]
     cfg.service(crate::srv::styles::get_style_json);
 
-    #[cfg(feature = "webui")]
+    #[cfg(all(feature = "webui", not(docsrs)))]
     {
         // TODO: this can probably be simplified with a wrapping middleware,
         //       which would share usr_cfg from Data<> with all routes.
@@ -155,7 +154,7 @@ pub fn router(cfg: &mut web::ServiceConfig, #[allow(unused_variables)] usr_cfg: 
         }
     }
 
-    #[cfg(not(feature = "webui"))]
+    #[cfg(any(not(feature = "webui"), docsrs))]
     cfg.service(get_index_no_ui);
 }
 
@@ -177,7 +176,8 @@ pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server
                 .unwrap_or_default()
                 .add_labels,
         )
-        .build()?;
+        .build()
+        .map_err(|err| MartinError::MetricsIntialisationError(err))?;
     let catalog = Catalog::new(&state)?;
 
     let keep_alive = Duration::from_secs(config.keep_alive.unwrap_or(KEEP_ALIVE_DEFAULT));
@@ -226,13 +226,13 @@ pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server
 
     #[cfg(feature = "lambda")]
     if is_running_on_lambda() {
-        let server = run_actix_on_lambda(factory).err_into();
+        let server = run_actix_on_lambda(factory).map_err(MartinError::LambdaError);
         return Ok((Box::pin(server), "(aws lambda)".into()));
     }
 
     let server = HttpServer::new(factory)
         .bind(listen_addresses.clone())
-        .map_err(|e| BindingError(e, listen_addresses.clone()))?
+        .map_err(|e| MartinError::BindingError(e, listen_addresses.clone()))?
         .keep_alive(keep_alive)
         .shutdown_timeout(0)
         .workers(worker_processes)

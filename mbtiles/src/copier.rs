@@ -113,15 +113,25 @@ impl MbtileCopierInt {
         if options.src_file == options.dst_file {
             return Err(MbtError::SameSourceAndDestination(options.src_file));
         }
-        if let Some((diff_file, _)) = &options.diff_with_file {
-            if options.src_file == *diff_file || options.dst_file == *diff_file {
-                return Err(MbtError::SameDiffAndSourceOrDestination(options.src_file));
-            }
+        if let Some((diff_file, _)) = &options.diff_with_file
+            && options.src_file == *diff_file
+        {
+            return Err(MbtError::SameDiffAndSource(options.src_file));
         }
-        if let Some(patch_file) = &options.apply_patch {
-            if options.src_file == *patch_file || options.dst_file == *patch_file {
-                return Err(MbtError::SameDiffAndSourceOrDestination(options.src_file));
-            }
+        if let Some((diff_file, _)) = &options.diff_with_file
+            && options.dst_file == *diff_file
+        {
+            return Err(MbtError::SameDiffAndDestination(options.src_file));
+        }
+        if let Some(patch_file) = &options.apply_patch
+            && options.src_file == *patch_file
+        {
+            return Err(MbtError::SamePatchAndSource(options.src_file));
+        }
+        if let Some(patch_file) = &options.apply_patch
+            && options.dst_file == *patch_file
+        {
+            return Err(MbtError::SamePatchAndDestination(options.src_file));
         }
 
         Ok(MbtileCopierInt {

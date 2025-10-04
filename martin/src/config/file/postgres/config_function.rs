@@ -3,9 +3,9 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 use tilejson::{Bounds, TileJSON};
 
-use super::config::PgInfo;
+use super::config::PostgresInfo;
 use crate::config::file::UnrecognizedValues;
-use crate::config::file::pg::utils::patch_json;
+use crate::config::file::postgres::utils::patch_json;
 
 pub type FuncInfoSources = BTreeMap<String, FunctionInfo>;
 
@@ -68,7 +68,7 @@ impl FunctionInfo {
     }
 }
 
-impl PgInfo for FunctionInfo {
+impl PostgresInfo for FunctionInfo {
     fn format_id(&self) -> String {
         format!("{}.{}", self.schema, self.function)
     }

@@ -4,10 +4,9 @@ use log::{info, warn};
 use serde::{Deserialize, Serialize};
 use tilejson::{Bounds, TileJSON, VectorLayer};
 
-use super::PgInfo;
+use super::PostgresInfo;
 use crate::config::file::UnrecognizedValues;
-use crate::config::file::pg::utils::patch_json;
-use crate::pg::utils::normalize_key;
+use crate::config::file::postgres::utils::{normalize_key, patch_json};
 
 pub type TableInfoSources = BTreeMap<String, TableInfo>;
 
@@ -79,7 +78,7 @@ pub struct TableInfo {
     pub tilejson: Option<serde_json::Value>,
 }
 
-impl PgInfo for TableInfo {
+impl PostgresInfo for TableInfo {
     fn format_id(&self) -> String {
         format!("{}.{}.{}", self.schema, self.table, self.geometry_column)
     }

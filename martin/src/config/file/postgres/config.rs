@@ -4,9 +4,8 @@ use std::time::Duration;
 use futures::future::try_join;
 use futures::pin_mut;
 use log::warn;
-use martin_core::config::{OptBoolObj, OptOneMany};
+use martin_core::config::{IdResolver, OptBoolObj, OptOneMany};
 use martin_core::tiles::BoxedSource;
-use martin_core::tiles::postgres::{PgError, PgResult};
 use serde::{Deserialize, Serialize};
 use tilejson::TileJSON;
 use tokio::time::timeout;
@@ -14,20 +13,20 @@ use tokio::time::timeout;
 use super::{FuncInfoSources, TableInfoSources};
 use crate::MartinResult;
 use crate::config::args::{BoundsCalcType, DEFAULT_BOUNDS_TIMEOUT};
+use crate::config::file::postgres::PostgresAutoDiscoveryBuilder;
 use crate::config::file::{
-    ConfigExtras, UnrecognizedKeys, UnrecognizedValues, copy_unrecognized_keys_from_config,
+    ConfigExtras, ConfigFileError, ConfigFileResult, UnrecognizedKeys, UnrecognizedValues,
+    copy_unrecognized_keys_from_config,
 };
-use crate::pg::builder::PgBuilder;
-use crate::utils::IdResolver;
 
-pub trait PgInfo {
+pub trait PostgresInfo {
     fn format_id(&self) -> String;
     fn to_tilejson(&self, source_id: String) -> TileJSON;
 }
 
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-pub struct PgSslCerts {
+pub struct PostgresSslCerts {
     /// Same as PGSSLCERT
     /// ([docs](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNECT-SSLCERT))
     pub ssl_cert: Option<std::path::PathBuf>,
@@ -44,11 +43,11 @@ pub struct PgSslCerts {
 
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-pub struct PgConfig {
+pub struct PostgresConfig {
     /// Database connection string
     pub connection_string: Option<String>,
     #[serde(flatten)]
-    pub ssl_certificates: PgSslCerts,
+    pub ssl_certificates: PostgresSslCerts,
     /// If a spatial table has SRID 0, then this SRID will be used as a fallback
     pub default_srid: Option<i32>,
     /// Specify how bounds should be computed for the spatial PG tables
@@ -67,7 +66,7 @@ pub struct PgConfig {
     ///
     /// You may set this to `OptBoolObj::Bool(false)` to disable.
     #[serde(default, skip_serializing_if = "OptBoolObj::is_none")]
-    pub auto_publish: OptBoolObj<PgCfgPublish>,
+    pub auto_publish: OptBoolObj<PostgresCfgPublish>,
     /// Associative arrays of table sources
     pub tables: Option<TableInfoSources>,
     /// Associative arrays of function sources
@@ -81,20 +80,20 @@ pub struct PgConfig {
 pub const POOL_SIZE_DEFAULT: usize = 20;
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-pub struct PgCfgPublish {
+pub struct PostgresCfgPublish {
     #[serde(alias = "from_schema")]
     #[serde(default, skip_serializing_if = "OptOneMany::is_none")]
     pub from_schemas: OptOneMany<String>,
     #[serde(default, skip_serializing_if = "OptBoolObj::is_none")]
-    pub tables: OptBoolObj<PgCfgPublishTables>,
+    pub tables: OptBoolObj<PostgresCfgPublishTables>,
     #[serde(default, skip_serializing_if = "OptBoolObj::is_none")]
-    pub functions: OptBoolObj<PgCfgPublishFuncs>,
+    pub functions: OptBoolObj<PostgresCfgPublishFuncs>,
 
     #[serde(flatten, skip_serializing)]
     pub unrecognized: UnrecognizedValues,
 }
 
-impl ConfigExtras for PgCfgPublish {
+impl ConfigExtras for PostgresCfgPublish {
     fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
         let mut keys = self
             .unrecognized
@@ -106,8 +105,7 @@ impl ConfigExtras for PgCfgPublish {
             OptBoolObj::Object(o) => keys.extend(
                 o.get_unrecognized_keys()
                     .iter()
-                    .map(|k| format!("functions.{k}"))
-                    .collect::<UnrecognizedKeys>(),
+                    .map(|k| format!("functions.{k}")),
             ),
         }
         match &self.tables {
@@ -115,8 +113,7 @@ impl ConfigExtras for PgCfgPublish {
             OptBoolObj::Object(o) => keys.extend(
                 o.get_unrecognized_keys()
                     .iter()
-                    .map(|k| format!("tables.{k}"))
-                    .collect::<UnrecognizedKeys>(),
+                    .map(|k| format!("tables.{k}")),
             ),
         }
         keys
@@ -125,7 +122,7 @@ impl ConfigExtras for PgCfgPublish {
 
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-pub struct PgCfgPublishTables {
+pub struct PostgresCfgPublishTables {
     #[serde(alias = "from_schema")]
     #[serde(default, skip_serializing_if = "OptOneMany::is_none")]
     pub from_schemas: OptOneMany<String>,
@@ -145,7 +142,7 @@ pub struct PgCfgPublishTables {
     pub unrecognized: UnrecognizedValues,
 }
 
-impl ConfigExtras for PgCfgPublishTables {
+impl ConfigExtras for PostgresCfgPublishTables {
     fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
         self.unrecognized.keys().cloned().collect()
     }
@@ -153,7 +150,7 @@ impl ConfigExtras for PgCfgPublishTables {
 
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-pub struct PgCfgPublishFuncs {
+pub struct PostgresCfgPublishFuncs {
     #[serde(alias = "from_schema")]
     #[serde(default, skip_serializing_if = "OptOneMany::is_none")]
     pub from_schemas: OptOneMany<String>,
@@ -164,51 +161,26 @@ pub struct PgCfgPublishFuncs {
     pub unrecognized: UnrecognizedValues,
 }
 
-impl ConfigExtras for PgCfgPublishFuncs {
+impl ConfigExtras for PostgresCfgPublishFuncs {
     fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
         self.unrecognized.keys().cloned().collect()
     }
 }
 
-impl PgConfig {
+impl PostgresConfig {
     /// Validate if all settings are valid
-    pub fn validate(&self) -> PgResult<()> {
-        if let Some(pool_size) = self.pool_size
-            && pool_size < 1
-        {
-            return Err(PgError::ConfigError(
-                "pool_size must be greater than or equal to 1.",
-            ));
+    pub fn validate(&self) -> ConfigFileResult<()> {
+        if self.pool_size.is_some_and(|size| size < 1) {
+            return Err(ConfigFileError::PostgresPoolSizeInvalid);
         }
         if self.connection_string.is_none() {
-            return Err(PgError::ConfigError(
-                "A connection string must be provided.",
-            ));
+            return Err(ConfigFileError::PostgresConnectionStringMissing);
         }
 
         Ok(())
     }
 
-    pub fn finalize(&mut self, prefix: &str) -> PgResult<UnrecognizedKeys> {
-        let mut res = UnrecognizedKeys::new();
-        if let Some(ref ts) = self.tables {
-            for (k, v) in ts {
-                copy_unrecognized_keys_from_config(
-                    &mut res,
-                    &format!("tables.{k}."),
-                    &v.unrecognized,
-                );
-            }
-        }
-        if let Some(ref fs) = self.functions {
-            for (k, v) in fs {
-                copy_unrecognized_keys_from_config(
-                    &mut res,
-                    &format!("functions.{k}."),
-                    &v.unrecognized,
-                );
-            }
-        }
+    pub fn finalize(&mut self, prefix: &str) -> ConfigFileResult<UnrecognizedKeys> {
         if self.tables.is_none() && self.functions.is_none() && self.auto_publish.is_none() {
             self.auto_publish = OptBoolObj::Bool(true);
         }
@@ -216,13 +188,13 @@ impl PgConfig {
         self.validate()?;
         Ok(self
             .get_unrecognized_keys()
-            .iter()
+            .into_iter()
             .map(|k| format!("{prefix}{k}"))
             .collect())
     }
 
     pub async fn resolve(&mut self, id_resolver: IdResolver) -> MartinResult<Vec<BoxedSource>> {
-        let pg = PgBuilder::new(self, id_resolver).await?;
+        let pg = PostgresAutoDiscoveryBuilder::new(self, id_resolver).await?;
         let inst_tables = on_slow(
             pg.instantiate_tables(),
             // warn only if default bounds timeout has already passed
@@ -251,9 +223,9 @@ impl PgConfig {
     }
 }
 
-impl ConfigExtras for PgConfig {
+impl ConfigExtras for PostgresConfig {
     fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
-        let mut res = self
+        let mut keys = self
             .unrecognized
             .keys()
             .cloned()
@@ -262,7 +234,7 @@ impl ConfigExtras for PgConfig {
         if let Some(ref ts) = self.tables {
             for (k, v) in ts {
                 copy_unrecognized_keys_from_config(
-                    &mut res,
+                    &mut keys,
                     &format!("tables.{k}."),
                     &v.unrecognized,
                 );
@@ -271,14 +243,14 @@ impl ConfigExtras for PgConfig {
         if let Some(ref fs) = self.functions {
             for (k, v) in fs {
                 copy_unrecognized_keys_from_config(
-                    &mut res,
+                    &mut keys,
                     &format!("functions.{k}."),
                     &v.unrecognized,
                 );
             }
         }
 
-        res.extend(
+        keys.extend(
             self.ssl_certificates
                 .unrecognized
                 .keys()
@@ -287,7 +259,7 @@ impl ConfigExtras for PgConfig {
 
         match &self.auto_publish {
             OptBoolObj::NoValue | OptBoolObj::Bool(_) => {}
-            OptBoolObj::Object(o) => res.extend(
+            OptBoolObj::Object(o) => keys.extend(
                 o.get_unrecognized_keys()
                     .iter()
                     .map(|k| format!("auto_publish.{k}"))
@@ -295,7 +267,7 @@ impl ConfigExtras for PgConfig {
             ),
         }
 
-        res
+        keys
     }
 }
 
@@ -324,7 +296,7 @@ mod tests {
     use tilejson::Bounds;
 
     use super::*;
-    use crate::config::file::pg::{FunctionInfo, TableInfo};
+    use crate::config::file::postgres::{FunctionInfo, TableInfo};
     use crate::config::file::{Config, parse_config};
 
     pub fn parse_cfg(yaml: &str) -> Config {
@@ -346,7 +318,7 @@ mod tests {
               connection_string: 'postgresql://postgres@localhost/db'
         "},
             &Config {
-                postgres: One(PgConfig {
+                postgres: One(PostgresConfig {
                     connection_string: Some("postgresql://postgres@localhost/db".to_string()),
                     auto_publish: OptBoolObj::Bool(true),
                     ..Default::default()
@@ -366,14 +338,14 @@ mod tests {
         "},
             &Config {
                 postgres: Many(vec![
-                    PgConfig {
+                    PostgresConfig {
                         connection_string: Some(
                             "postgres://postgres@localhost:5432/db".to_string(),
                         ),
                         auto_publish: OptBoolObj::Bool(true),
                         ..Default::default()
                     },
-                    PgConfig {
+                    PostgresConfig {
                         connection_string: Some(
                             "postgresql://postgres@localhost:5433/db".to_string(),
                         ),
@@ -422,7 +394,7 @@ mod tests {
                   bounds: [-180.0, -90.0, 180.0, 90.0]
         "},
             &Config {
-                postgres: One(PgConfig {
+                postgres: One(PostgresConfig {
                     connection_string: Some("postgres://postgres@localhost:5432/db".to_string()),
                     default_srid: Some(4326),
                     pool_size: Some(20),

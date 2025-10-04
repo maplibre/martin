@@ -20,7 +20,7 @@ martin-cp  --output-file tileset.mbtiles \
            --min-zoom 0                  \
            --max-zoom 10                 \
            --source source_name          \
-           postgresql://postgres@localhost:5432/db
+           postgres://postgres@localhost:5432/db
 ```
 
 > [!TIP]

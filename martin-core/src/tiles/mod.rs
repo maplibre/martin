@@ -7,7 +7,7 @@
 //!   - [x] [`mbtiles`]
 //!   - [x] pmtiles
 //!   - [x] cog
-//!   - [ ] postgres
+//!   - [x] postgres
 
 /// The public facing API for managing a catalog of tile sources
 pub mod catalog;

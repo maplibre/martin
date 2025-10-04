@@ -13,7 +13,7 @@ export PGPASSWORD=postgres  # secret!
 
 docker run -p 3000:3000 \
            -e PGPASSWORD \
-           -e DATABASE_URL=postgresql://user@host:port/db \
+           -e DATABASE_URL=postgres://user@host:port/db \
            -v /path/to/config/dir:/config \
            ghcr.io/maplibre/martin --config /config/config.yaml
 ```
@@ -24,7 +24,7 @@ You can download martin from [GitHub releases page](https://github.com/maplibre/
 
 | Platform | x64                                                                                              | ARM-64                              |
 |----------|--------------------------------------------------------------------------------------------------|-------------------------------------|
-| Linux    | [.tar.gz][rl-linux-x64] (gnu)<br>[.tar.gz][rl-linux-x64-musl] (musl)<br>[.deb][rl-linux-x64-deb] | [.tar.gz][rl-linux-a64-musl] (musl) |
+| Linux    | [.tar.gz][rl-linux-x64] (gnu)<br>[.tar.gz][rl-linux-x64-musl] (musl)<br>[.deb][rl-linux-x64-deb] | [.tar.gz][rl-linux-a64-gnu] (gnu)<br>[.tar.gz][rl-linux-a64-musl] (musl) |
 | macOS    | [.tar.gz][rl-macos-x64]                                                                          | [.tar.gz][rl-macos-a64]             |
 | Windows  | [.zip][rl-win64-zip]                                                                             |                                     |
 
@@ -33,6 +33,8 @@ You can download martin from [GitHub releases page](https://github.com/maplibre/
 [rl-linux-x64-musl]: https://github.com/maplibre/martin/releases/latest/download/martin-x86_64-unknown-linux-musl.tar.gz
 
 [rl-linux-x64-deb]: https://github.com/maplibre/martin/releases/latest/download/martin-Debian-x86_64.deb
+
+[rl-linux-a64-gnu]: https://github.com/maplibre/martin/releases/latest/download/martin-aarch64-unknown-linux-gnu.tar.gz
 
 [rl-linux-a64-musl]: https://github.com/maplibre/martin/releases/latest/download/martin-aarch64-unknown-linux-musl.tar.gz
 

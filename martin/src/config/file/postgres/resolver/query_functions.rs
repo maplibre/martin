@@ -1,22 +1,25 @@
 //! `PostgreSQL` function discovery and validation.
 
+use std::collections::BTreeMap;
 use std::fmt::Write as _;
 use std::iter::zip;
 
 use log::{debug, warn};
-use martin_core::tiles::postgres::PgError::PostgresError;
-use martin_core::tiles::postgres::{PgPool, PgResult, PgSqlInfo};
+use martin_core::tiles::postgres::PostgresError::PostgresError;
+use martin_core::tiles::postgres::{PostgresPool, PostgresResult, PostgresSqlInfo};
 use postgres_protocol::escape::escape_identifier;
 use serde_json::Value;
 
-use crate::config::file::pg::FunctionInfo;
-use crate::pg::builder::SqlFuncInfoMapMap;
+use crate::config::file::postgres::FunctionInfo;
+
+/// Map of `PostgreSQL` functions organized by schema and function name.
+pub type SqlFuncInfoMapMap = BTreeMap<String, BTreeMap<String, (PostgresSqlInfo, FunctionInfo)>>;
 
 /// Queries the database for available tile-generating functions.
 ///
 /// # Panics
 /// Panics if the built-in query returns unexpected results.
-pub async fn query_available_function(pool: &PgPool) -> PgResult<SqlFuncInfoMapMap> {
+pub async fn query_available_function(pool: &PostgresPool) -> PostgresResult<SqlFuncInfoMapMap> {
     let mut res = SqlFuncInfoMapMap::new();
 
     pool.get()
@@ -99,7 +102,7 @@ pub async fn query_available_function(pool: &PgPool) -> PgResult<SqlFuncInfoMapM
                 .insert(
                     function.clone(),
                     (
-                        PgSqlInfo::new(
+                        PostgresSqlInfo::new(
                             query,
                             input_types.len() == 4,
                             format!(

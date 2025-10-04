@@ -10,6 +10,8 @@ use super::connections::Arguments;
 use super::srv::SrvArgs;
 use crate::MartinError::ConfigAndConnectionsError;
 use crate::MartinResult;
+#[cfg(feature = "postgres")]
+use crate::config::args::PostgresArgs;
 use crate::config::file::Config;
 #[cfg(any(
     feature = "cog",
@@ -45,7 +47,7 @@ pub struct Args {
     pub srv: SrvArgs,
     #[cfg(feature = "postgres")]
     #[command(flatten)]
-    pub pg: Option<super::pg::PgArgs>,
+    pub pg: Option<PostgresArgs>,
 }
 
 // None of these params will be transferred to the config
@@ -203,8 +205,6 @@ pub fn parse_file_args<T: crate::config::file::ConfigExtras>(
 
 #[cfg(test)]
 mod tests {
-
-    use insta::assert_yaml_snapshot;
     use martin_core::config::env::FauxEnv;
 
     use super::*;
@@ -231,6 +231,8 @@ mod tests {
     fn cli_with_config() {
         use martin_core::config::OptOneMany;
 
+        use crate::config::file::postgres::PostgresConfig;
+
         let args = parse(&["martin", "--config", "c.toml"]).unwrap();
         let meta = MetaArgs {
             config: Some(PathBuf::from("c.toml")),
@@ -248,7 +250,7 @@ mod tests {
 
         let args = parse(&["martin", "postgres://connection"]).unwrap();
         let cfg = Config {
-            postgres: OptOneMany::One(crate::config::file::pg::PgConfig {
+            postgres: OptOneMany::One(PostgresConfig {
                 connection_string: Some("postgres://connection".to_string()),
                 ..Default::default()
             }),
@@ -315,6 +317,7 @@ mod tests {
         assert!(matches!(err, UnrecognizableConnections(v) if v == bad));
     }
 
+    #[cfg(all(feature = "pmtiles", feature = "mbtiles", feature = "cog"))]
     #[test]
     fn cli_multiple_extensions() {
         let args = Args::parse_from([
@@ -329,7 +332,7 @@ mod tests {
         let mut config = Config::default();
         let err = args.merge_into_config(&mut config, &env);
         assert!(err.is_ok());
-        assert_yaml_snapshot!(config, @r#"
+        insta::assert_yaml_snapshot!(config, @r#"
         pmtiles: "../tests/fixtures/pmtiles/png.pmtiles"
         mbtiles: "../tests/fixtures/mbtiles/json.mbtiles"
         cog:
@@ -338,6 +341,7 @@ mod tests {
         "#);
     }
 
+    #[cfg(all(feature = "pmtiles", feature = "mbtiles", feature = "cog"))]
     #[test]
     fn cli_directories_propagate() {
         let args = Args::parse_from(["martin", "../tests/fixtures/"]);
@@ -346,7 +350,7 @@ mod tests {
         let mut config = Config::default();
         let err = args.merge_into_config(&mut config, &env);
         assert!(err.is_ok());
-        assert_yaml_snapshot!(config, @r#"
+        insta::assert_yaml_snapshot!(config, @r#"
         pmtiles: "../tests/fixtures/"
         mbtiles: "../tests/fixtures/"
         cog: "../tests/fixtures/"
