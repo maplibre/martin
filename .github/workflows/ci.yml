@@ -705,6 +705,44 @@ jobs:
             target/test_logs/*
           retention-days: 5
 
+  test-ogc-cite-compliance:
+    name: Test OGC CITE compliance
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+      - run: rustup update stable && rustup default stable
+      - name: Checkout sources
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with: { persist-credentials: false }
+      - uses: taiki-e/install-action@cc60de1d6831d7e9c4342f618ce7a5d6a9f223a4 # v2.61.6
+        with: { tool: 'just' }
+      - name: Starting Martin server
+        # assumption: all of our tile sources behave the same => just test with mbtiles
+        run: cargo run -p martin --no-default-features -F mbtiles,ogcapi tests/fixtures/mbtiles/world_cities.mbtiles &
+      - name: Waiting for Martin server to start
+        run: |
+          timeout 600 bash -c 'until curl -sf http://localhost:3000/health; do sleep 2; done'
+      - name: Verify OGC API endpoint exists
+        run: |
+          curl -sf http://localhost:3000/ogc/ > /dev/null || { echo "ERROR: OGC API not available"; exit 1; }
+      - name: test ogcapi-tiles compliancy
+        uses: OSGEO/ogc-cite-runner@ # v0.3.0
+        with:
+          test_suite_identifier: ogcapi-tiles-1.0
+          test_session_arguments: >-
+            iut=http://localhost:3000
+            tilematrixsetdefinitionuri=http://www.opengis.net/def/tilematrixset/OGC/1.0/WebMercatorQuad
+            urltemplatefortiles=http://localhost:3000/ogc/collections/world_cities/tiles/WebMercatorQuad/{tileMatrix}/{tileRow}/{tileCol}
+            tilematrix=WebMercatorQuad
+            mintilerow=0
+            maxtilerow=1
+            mintilecol=0
+            maxtilecol=1
+          with_failed: true
+          with_skipped: true
+          with_passed: true
+
   test-publish:
     name: Test publishing via cargo-publish
     permissions:
@@ -727,7 +765,15 @@ jobs:
       attestations: write
       # for writing release artifacts
       contents: write
-    needs: [ lint-unit-test-js, unit-test-rust, lint-rust, test-multi-os, test-with-svc, test-aws-lambda, test-publish ]
+    needs:
+      - lint-unit-test-js
+      - lint-rust
+      - unit-test-rust
+      - test-multi-os
+      - test-with-svc
+      - test-ogc-cite-compliance
+      - test-aws-lambda
+      - test-publish
     steps:
       - name: Checkout sources
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0

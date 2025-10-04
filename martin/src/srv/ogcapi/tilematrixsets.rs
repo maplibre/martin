@@ -69,9 +69,11 @@ pub fn get_web_mercator_tilematrixset() -> TileMatrixSet {
     }
 }
 
-/// Get list of supported `TileMatrixSets`
-pub fn get_tilematrixsets(base_url: &str) -> TileMatrixSets {
-    TileMatrixSets {
+/// OGC API TileMatrixSets endpoint
+#[route("/ogc/tileMatrixSets", method = "GET", method = "HEAD")]
+pub async fn get_tile_matrix_sets(req: HttpRequest) -> ActixResult<HttpResponse> {
+    let base_url = get_base_url(&req);
+    let tilematrixsets = TileMatrixSets {
         tile_matrix_sets: vec![TileMatrixSetItem {
             id: Some("WebMercatorQuad".to_string()),
             title: Some("Web Mercator Quad".to_string()),
@@ -88,14 +90,7 @@ pub fn get_tilematrixsets(base_url: &str) -> TileMatrixSets {
                 .title("Web Mercator Quad TileMatrixSet"),
             ],
         }],
-    }
-}
-
-/// OGC API TileMatrixSets endpoint
-#[route("/ogc/tileMatrixSets", method = "GET", method = "HEAD")]
-pub async fn get_tile_matrix_sets(req: HttpRequest) -> ActixResult<HttpResponse> {
-    let base_url = get_base_url(&req);
-    let tilematrixsets = get_tilematrixsets(&base_url);
+    };
 
     Ok(HttpResponse::Ok()
         .insert_header((CONTENT_TYPE, "application/json"))
