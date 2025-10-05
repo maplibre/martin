@@ -305,6 +305,7 @@ mod tests {
         assert_eq!(config4.unwrap().0.srv.preferred_encoding, None);
     }
 
+    #[cfg(any(feature = "cog", feature = "mbtiles", feature = "pmtiles"))]
     #[test]
     fn test_is_file_scheme_uri() {
         // Valid file scheme URIs
