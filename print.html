@@ -403,7 +403,13 @@
 cd martin
 
 # Download some sample data
-curl -L -O https://github.com/maplibre/martin/raw/main/tests/fixtures/mbtiles/world_cities.mbtiles
+curl -L -O https://github.com/maplibre/martin/raw/main/tests/fixtures/mbtiles/world_cities.sql
+
+# Check if sqlite is installed
+sqlite3 --version
+
+# Initialize a database
+sqlite3 world_cities.mbtiles &lt; world_cities.sql
 
 # Download the latest version of Martin binary, extract it, and make it executable
 curl -L -O https://github.com/maplibre/martin/releases/latest/download/martin-x86_64-unknown-linux-gnu.tar.gz
@@ -488,7 +494,7 @@ chmod +x ./martin
 <h2 id="quick-start-on-macos"><a class="header" href="#quick-start-on-macos">Quick start on macOS</a></h2>
 <ol>
 <li>
-<p>Download some <a href="https://github.com/maplibre/martin/raw/main/tests/fixtures/mbtiles/world_cities.mbtiles">demo tiles</a>.</p>
+<p>Download some <a href="https://github.com/maplibre/martin/raw/main/tests/fixtures/mbtiles/world_cities.sql">demo tiles</a>.</p>
 </li>
 <li>
 <p>Download the latest version of Martin from
@@ -503,13 +509,16 @@ Use <a href="https://support.apple.com/en-us/116943">about this Mac</a> to find 
 <p>Extract content of both files and place them in a same directory.</p>
 </li>
 <li>
-<p>Open the command prompt and navigate to the directory where <code>martin</code> and <code>world_cities.mbtiles</code> are located.</p>
+<p>Open the command prompt and navigate to the directory where <code>martin</code> and <code>world_cities.sql</code> are located.</p>
 </li>
 <li>
 <p>Run the following command to start Martin with the demo data:</p>
 </li>
 </ol>
-<pre><code class="language-bash"># Show Martin help screen
+<pre><code class="language-bash"># Initialize a database
+sqlite3 world_cities.mbtiles &lt; world_cities.sql
+
+# Show Martin help screen
 ./martin --help
 
 # Run Martin with the sample data as the only tile source
@@ -587,7 +596,7 @@ Use <a href="https://support.apple.com/en-us/116943">about this Mac</a> to find 
 <h2 id="quick-start-on-windows"><a class="header" href="#quick-start-on-windows">Quick start on Windows</a></h2>
 <ol>
 <li>
-<p>Download some <a href="https://github.com/maplibre/martin/raw/main/tests/fixtures/mbtiles/world_cities.mbtiles">demo tiles</a>.</p>
+<p>Download some <a href="https://github.com/maplibre/martin/raw/main/tests/fixtures/mbtiles/world_cities.sql">demo tiles</a>.</p>
 </li>
 <li>
 <p>Download the latest Windows version of Martin from
@@ -597,13 +606,19 @@ the <a href="https://github.com/maplibre/martin/releases">release page</a>:  <a 
 <p>Extract content of both files and place them in a same directory.</p>
 </li>
 <li>
-<p>Open the command prompt and navigate to the directory where <code>martin</code> and <code>world_cities.mbtiles</code> are located.</p>
+<p>Open the command prompt and navigate to the directory where <code>martin</code> and <code>world_cities.sql</code> are located.</p>
 </li>
 <li>
 <p>Run the following command to start Martin with the demo data:</p>
 </li>
 </ol>
-<pre><code class="language-bash"># Show Martin help screen
+<pre><code class="language-bash"># Check if sqlite is installed
+sqlite3 --version
+
+# Initialize a database
+sqlite3 world_cities.mbtiles &lt; world_cities.sql
+
+# Show Martin help screen
 martin --help
 
 # Run Martin with the sample data as the only tile source
@@ -5349,68 +5364,95 @@ Options:
 <h2 id="flat"><a class="header" href="#flat">flat</a></h2>
 <p>Flat schema is the closest to the original MBTiles specification. It stores all tiles in a single table. This schema is the most efficient when the tileset contains no duplicate tiles.</p>
 <pre><code class="language-sql  ignore">CREATE TABLE tiles (
-    zoom_level  INTEGER,
+    zoom_level INTEGER,
     tile_column INTEGER,
-    tile_row    INTEGER,
-    tile_data   BLOB);
+    tile_row INTEGER,
+    tile_data BLOB
+);
 
-CREATE UNIQUE INDEX tile_index on tiles (
-    zoom_level, tile_column, tile_row);
+CREATE UNIQUE INDEX tile_index ON tiles (
+    zoom_level, tile_column, tile_row
+);
 </code></pre>
 <h2 id="flat-with-hash"><a class="header" href="#flat-with-hash">flat-with-hash</a></h2>
 <p>Similar to the <code>flat</code> schema, but also includes a <code>tile_hash</code> column that contains a hash value of the <code>tile_data</code> column. Use this schema when the tileset has no duplicate tiles, but you still want to be able to validate the content of each tile individually.</p>
 <pre><code class="language-sql  ignore">CREATE TABLE tiles_with_hash (
-    zoom_level  INTEGER NOT NULL,
+    zoom_level INTEGER NOT NULL,
     tile_column INTEGER NOT NULL,
-    tile_row    INTEGER NOT NULL,
-    tile_data   BLOB,
-    tile_hash   TEXT);
+    tile_row INTEGER NOT NULL,
+    tile_data BLOB,
+    tile_hash TEXT
+);
 
-CREATE UNIQUE INDEX tiles_with_hash_index on tiles_with_hash (
-    zoom_level, tile_column, tile_row);
+CREATE UNIQUE INDEX tiles_with_hash_index ON tiles_with_hash (
+    zoom_level, tile_column, tile_row
+);
 
 CREATE VIEW tiles AS
-    SELECT zoom_level, tile_column, tile_row, tile_data
-    FROM tiles_with_hash;
+SELECT
+    zoom_level,
+    tile_column,
+    tile_row,
+    tile_data
+FROM tiles_with_hash;
 </code></pre>
 <h2 id="normalized"><a class="header" href="#normalized">normalized</a></h2>
 <p>Normalized schema is the most efficient when the tileset contains duplicate tiles. It stores all tile blobs in the <code>images</code> table, and stores the tile Z,X,Y coordinates in a <code>map</code> table. The <code>map</code> table contains a <code>tile_id</code> column that is a foreign key to the <code>images</code> table. The <code>tile_id</code> column is a hash of the <code>tile_data</code> column, making it possible to both validate each individual tile like in the <code>flat-with-hash</code> schema, and also to optimize storage by storing each unique tile only once.</p>
 <pre><code class="language-sql  ignore">CREATE TABLE map (
-    zoom_level  INTEGER,
+    zoom_level INTEGER,
     tile_column INTEGER,
-    tile_row    INTEGER,
-    tile_id     TEXT);
+    tile_row INTEGER,
+    tile_id TEXT
+);
 
 CREATE TABLE images (
-    tile_id   TEXT,
-    tile_data BLOB);
+    tile_id TEXT,
+    tile_data BLOB
+);
 
 CREATE UNIQUE INDEX map_index ON map (
-    zoom_level, tile_column, tile_row);
+    zoom_level, tile_column, tile_row
+);
 CREATE UNIQUE INDEX images_id ON images (
-    tile_id);
+    tile_id
+);
 
 CREATE VIEW tiles AS
-    SELECT
-        map.zoom_level   AS zoom_level,
-        map.tile_column  AS tile_column,
-        map.tile_row     AS tile_row,
-        images.tile_data AS tile_data
-    FROM
-        map JOIN images
-        ON images.tile_id = map.tile_id;
+SELECT
+    map.zoom_level,
+    map.tile_column,
+    map.tile_row,
+    images.tile_data
+FROM
+    map INNER JOIN images
+    ON map.tile_id = images.tile_id;
+
+CREATE VIEW tiles_with_hash AS
+SELECT
+    map.zoom_level,
+    map.tile_column,
+    map.tile_row,
+    images.tile_data,
+    images.tile_id AS tile_hash
+FROM
+    map INNER JOIN images
+    ON map.tile_id = images.tile_id;
 </code></pre>
 <p>Optionally, <code>.mbtiles</code> files with <code>normalized</code> schema can include a <code>tiles_with_hash</code> view. All <code>normalized</code> files created by the <code>mbtiles</code> tool will contain this view.</p>
-<pre><code class="language-sql  ignore">CREATE VIEW tiles_with_hash AS
-    SELECT
-        map.zoom_level   AS zoom_level,
-        map.tile_column  AS tile_column,
-        map.tile_row     AS tile_row,
-        images.tile_data AS tile_data,
-        images.tile_id   AS tile_hash
-    FROM
-        map JOIN images
-        ON map.tile_id = images.tile_id;
+<pre><code class="language-sql  ignore">FROM
+    map INNER JOIN images
+    ON map.tile_id = images.tile_id;
+
+CREATE VIEW tiles_with_hash AS
+SELECT
+    map.zoom_level,
+    map.tile_column,
+    map.tile_row,
+    images.tile_data,
+    images.tile_id AS tile_hash
+FROM
+    map INNER JOIN images
+    ON map.tile_id = images.tile_id;
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><style>
 .mdbook-alerts {
@@ -5484,7 +5526,12 @@ CREATE VIEW tiles AS
 <p>Use <code>mbtiles summary</code> to get a summary of the contents of an MBTiles file. The command will print a table with the
 number of tiles per zoom level, the size of the smallest and largest tiles, and the average size of tiles at each zoom
 level. The command will also print the bounding box of the covered area per zoom level.</p>
-<pre><code class="language-bash">MBTiles file summary for tests/fixtures/mbtiles/world_cities.mbtiles
+<pre><code class="language-bash"># Create a sample .mbtiles file in some dir
+sqlite3 target/world_cities.mbtiles &lt; tests/fixtures/mbtiles/world_cities.sql
+# Get mbtiles summary
+mbtiles summary target/world_cities.mbtiles
+
+MBTiles file summary for tests/fixtures/mbtiles/world_cities.mbtiles
 Schema: flat
 File size: 48.00KiB
 Page size: 4.00KiB
@@ -5590,7 +5637,7 @@ to <code>A vector tile dataset</code>:</p>
 </code></pre>
 <p>This command can also be used to generate files of different <a href="mbtiles-schema.html">supported schema</a>.</p>
 <pre><code class="language-bash">mbtiles copy normalized.mbtiles dst.mbtiles \
-         --dst-mbttype flat-with-hash
+         --dst-type flat-with-hash
 </code></pre>
 <h2 id="mbtiles-copy---diff-with-file"><a class="header" href="#mbtiles-copy---diff-with-file"><code>mbtiles copy --diff-with-file</code></a></h2>
 <p>This option is identical to using <a href="mbtiles-diff.html"><code>mbtiles diff ...</code></a>. The following commands two are equivalent:</p>

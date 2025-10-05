@@ -251,7 +251,7 @@
 <h2 id="quick-start-on-windows"><a class="header" href="#quick-start-on-windows">Quick start on Windows</a></h2>
 <ol>
 <li>
-<p>Download some <a href="https://github.com/maplibre/martin/raw/main/tests/fixtures/mbtiles/world_cities.mbtiles">demo tiles</a>.</p>
+<p>Download some <a href="https://github.com/maplibre/martin/raw/main/tests/fixtures/mbtiles/world_cities.sql">demo tiles</a>.</p>
 </li>
 <li>
 <p>Download the latest Windows version of Martin from
@@ -261,13 +261,19 @@ the <a href="https://github.com/maplibre/martin/releases">release page</a>:  <a 
 <p>Extract content of both files and place them in a same directory.</p>
 </li>
 <li>
-<p>Open the command prompt and navigate to the directory where <code>martin</code> and <code>world_cities.mbtiles</code> are located.</p>
+<p>Open the command prompt and navigate to the directory where <code>martin</code> and <code>world_cities.sql</code> are located.</p>
 </li>
 <li>
 <p>Run the following command to start Martin with the demo data:</p>
 </li>
 </ol>
-<pre><code class="language-bash"># Show Martin help screen
+<pre><code class="language-bash"># Check if sqlite is installed
+sqlite3 --version
+
+# Initialize a database
+sqlite3 world_cities.mbtiles &lt; world_cities.sql
+
+# Show Martin help screen
 martin --help
 
 # Run Martin with the sample data as the only tile source

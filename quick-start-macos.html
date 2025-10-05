@@ -251,7 +251,7 @@
 <h2 id="quick-start-on-macos"><a class="header" href="#quick-start-on-macos">Quick start on macOS</a></h2>
 <ol>
 <li>
-<p>Download some <a href="https://github.com/maplibre/martin/raw/main/tests/fixtures/mbtiles/world_cities.mbtiles">demo tiles</a>.</p>
+<p>Download some <a href="https://github.com/maplibre/martin/raw/main/tests/fixtures/mbtiles/world_cities.sql">demo tiles</a>.</p>
 </li>
 <li>
 <p>Download the latest version of Martin from
@@ -266,13 +266,16 @@ Use <a href="https://support.apple.com/en-us/116943">about this Mac</a> to find 
 <p>Extract content of both files and place them in a same directory.</p>
 </li>
 <li>
-<p>Open the command prompt and navigate to the directory where <code>martin</code> and <code>world_cities.mbtiles</code> are located.</p>
+<p>Open the command prompt and navigate to the directory where <code>martin</code> and <code>world_cities.sql</code> are located.</p>
 </li>
 <li>
 <p>Run the following command to start Martin with the demo data:</p>
 </li>
 </ol>
-<pre><code class="language-bash"># Show Martin help screen
+<pre><code class="language-bash"># Initialize a database
+sqlite3 world_cities.mbtiles &lt; world_cities.sql
+
+# Show Martin help screen
 ./martin --help
 
 # Run Martin with the sample data as the only tile source
