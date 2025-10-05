@@ -176,7 +176,7 @@ fn is_url(s: &str, extension: &[&str]) -> bool {
 
 /// Check if a string is a `file:` scheme URI with a specified extension.
 ///
-/// This is used for SQLite connection strings like `file:name.mbtiles?mode=memory&cache=shared`
+/// This is used for `SQLite` connection strings like `file:name.mbtiles?mode=memory&cache=shared`
 #[cfg(any(feature = "cog", feature = "mbtiles", feature = "pmtiles"))]
 fn is_file_scheme_uri(s: &str, extensions: &[&str]) -> bool {
     let Ok(url) = url::Url::parse(s) else {
