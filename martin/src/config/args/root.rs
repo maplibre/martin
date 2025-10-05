@@ -318,27 +318,30 @@ mod tests {
     }
 
     #[cfg(all(feature = "pmtiles", feature = "mbtiles", feature = "cog"))]
-    #[test]
-    fn cli_multiple_extensions() {
+    #[tokio::test]
+    async fn cli_multiple_extensions() {
+        use std::ffi::OsString;
+
+        let script = include_str!("../../../../tests/fixtures/mbtiles/json.sql");
+        let (_mbt, _conn, file) = mbtiles::temp_named_mbtiles("json.mbtiles", script).await;
         let args = Args::parse_from([
-            "martin",
-            "../tests/fixtures/pmtiles/png.pmtiles",
-            // "../tests/fixtures/mbtiles/json.mbtiles",
-            "../tests/fixtures/cog/rgba_u8_nodata.tiff",
-            "../tests/fixtures/cog/rgba_u8.tif",
+            OsString::from("martin"),
+            OsString::from("../tests/fixtures/pmtiles/png.pmtiles"),
+            file.as_os_str().to_owned(),
+            OsString::from("../tests/fixtures/cog/rgba_u8_nodata.tiff"),
+            OsString::from("../tests/fixtures/cog/rgba_u8.tif"),
         ]);
 
         let env = FauxEnv::default();
         let mut config = Config::default();
-        let err = args.merge_into_config(&mut config, &env);
-        assert!(err.is_ok());
+        args.merge_into_config(&mut config, &env).unwrap();
         insta::assert_yaml_snapshot!(config, @r#"
         pmtiles: "../tests/fixtures/pmtiles/png.pmtiles"
         cog:
           - "../tests/fixtures/cog/rgba_u8_nodata.tiff"
           - "../tests/fixtures/cog/rgba_u8.tif"
+        mbtiles: "file:json.mbtiles?mode=memory&cache=shared"
         "#);
-        // mbtiles: "../tests/fixtures/mbtiles/json.mbtiles"
     }
 
     #[cfg(all(feature = "pmtiles", feature = "mbtiles", feature = "cog"))]
