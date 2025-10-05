@@ -174,6 +174,23 @@ fn is_url(s: &str, extension: &[&str]) -> bool {
     }
 }
 
+/// Check if a string is a `file:` scheme URI with a specified extension.
+///
+/// This is used for SQLite connection strings like `file:name.mbtiles?mode=memory&cache=shared`
+#[cfg(any(feature = "cog", feature = "mbtiles", feature = "pmtiles"))]
+fn is_file_scheme_uri(s: &str, extensions: &[&str]) -> bool {
+    let Ok(url) = url::Url::parse(s) else {
+        return false;
+    };
+    if url.scheme() != "file" {
+        return false;
+    }
+    url.path()
+        .rsplit('.')
+        .next()
+        .is_some_and(|ext| extensions.contains(&ext))
+}
+
 #[cfg(any(feature = "cog", feature = "mbtiles", feature = "pmtiles"))]
 pub fn parse_file_args<T: crate::config::file::ConfigExtras>(
     cli_strings: &mut Arguments,
@@ -185,6 +202,9 @@ pub fn parse_file_args<T: crate::config::file::ConfigExtras>(
     let paths = cli_strings.process(|s| {
         let path = PathBuf::from(s);
         if allow_url && is_url(s, extensions) {
+            Take(path)
+        } else if is_file_scheme_uri(s, extensions) {
+            // Handle file: scheme URIs (SQLite connection strings) as valid paths
             Take(path)
         } else if path.is_dir() {
             Share(path)
@@ -286,6 +306,32 @@ mod tests {
     }
 
     #[test]
+    fn test_is_file_scheme_uri() {
+        // Valid file scheme URIs
+        assert!(is_file_scheme_uri("file:test.mbtiles", &["mbtiles"]));
+        assert!(is_file_scheme_uri(
+            "file:test.mbtiles?mode=memory&cache=shared",
+            &["mbtiles"]
+        ));
+        assert!(is_file_scheme_uri(
+            "file:/path/to/test.mbtiles",
+            &["mbtiles"]
+        ));
+        assert!(is_file_scheme_uri("file:data.pmtiles", &["pmtiles"]));
+        assert!(is_file_scheme_uri("file:image.tiff", &["tiff", "tif"]));
+
+        // Invalid cases
+        assert!(!is_file_scheme_uri(
+            "http://example.com/test.mbtiles",
+            &["mbtiles"]
+        ));
+        assert!(!is_file_scheme_uri("test.mbtiles", &["mbtiles"]));
+        assert!(!is_file_scheme_uri("file:test.txt", &["mbtiles"]));
+        assert!(!is_file_scheme_uri("file:", &["mbtiles"]));
+        assert!(!is_file_scheme_uri("", &["mbtiles"]));
+    }
+
+    #[test]
     fn cli_bad_arguments() {
         for params in [
             ["martin", "--config", "c.toml", "--tmp"].as_slice(),
@@ -337,10 +383,10 @@ mod tests {
         args.merge_into_config(&mut config, &env).unwrap();
         insta::assert_yaml_snapshot!(config, @r#"
         pmtiles: "../tests/fixtures/pmtiles/png.pmtiles"
+        mbtiles: "file:json.mbtiles?mode=memory&cache=shared"
         cog:
           - "../tests/fixtures/cog/rgba_u8_nodata.tiff"
           - "../tests/fixtures/cog/rgba_u8.tif"
-        mbtiles: "file:json.mbtiles?mode=memory&cache=shared"
         "#);
     }
 
