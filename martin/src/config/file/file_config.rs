@@ -11,9 +11,8 @@ use martin_core::tiles::BoxedSource;
 use serde::{Deserialize, Serialize};
 use url::Url;
 
-use crate::config::file::ConfigFileError::{
-    InvalidFilePath, InvalidSourceFilePath, InvalidSourceUrl, IoError,
-};
+use crate::config::file::ConfigFileError::{InvalidFilePath, InvalidSourceUrl, IoError};
+
 use crate::{MartinError, MartinResult};
 
 pub type ConfigFileResult<T> = Result<T, ConfigFileError>;
@@ -247,7 +246,21 @@ impl FileConfigSrc {
 
     pub fn abs_path(&self) -> ConfigFileResult<PathBuf> {
         let path = self.get_path();
+
+        if is_sqlite_memory_uri(path) {
+            // Skip canonicalization for in-memory DB URIs
+            return Ok(path.clone());
+        }
+
         path.canonicalize().map_err(|e| IoError(e, path.clone()))
+    }
+}
+
+fn is_sqlite_memory_uri(path: &Path) -> bool {
+    if let Some(s) = path.to_str() {
+        s.starts_with("file:") && s.contains("mode=memory") && s.contains("cache=shared")
+    } else {
+        false
     }
 }
 
@@ -292,11 +305,7 @@ async fn resolve_int<T: SourceConfigExtras>(
             } else {
                 let can = source.abs_path()?;
                 if !can.is_file() {
-                    // todo: maybe warn instead?
-                    return Err(MartinError::ConfigFileError(InvalidSourceFilePath(
-                        id.to_string(),
-                        can,
-                    )));
+                    log::warn!("The file: {} does not exist", can.display());
                 }
 
                 let dup = !files.insert(can.clone());

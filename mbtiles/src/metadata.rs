@@ -1,4 +1,5 @@
 use std::fmt::Display;
+use std::path::PathBuf;
 use std::str::FromStr;
 
 use futures::TryStreamExt;
@@ -7,7 +8,7 @@ use martin_tile_utils::TileInfo;
 use serde::ser::SerializeStruct;
 use serde::{Serialize, Serializer};
 use serde_json::{Value as JSONValue, Value, json};
-use sqlx::{SqliteExecutor, query};
+use sqlx::{SqliteConnection, SqliteExecutor, query};
 use tilejson::{Bounds, Center, TileJSON, tilejson};
 
 use crate::MbtError::InvalidZoomValue;
@@ -231,6 +232,26 @@ impl Mbtiles {
     }
 }
 
+/// Create an in memory, temporary mbtile connection with the given `script`
+pub async fn anonymous_mbtiles(script: &str) -> (Mbtiles, SqliteConnection) {
+    let mbt = Mbtiles::new(":memory:").unwrap();
+    let mut conn = mbt.open().await.unwrap();
+    sqlx::raw_sql(script).execute(&mut conn).await.unwrap();
+    (mbt, conn)
+}
+
+/// Create a named, in memory, temporary mbtile connection with the given `script`
+pub async fn temp_named_mbtiles(
+    file_name: &str,
+    script: &str,
+) -> (Mbtiles, SqliteConnection, PathBuf) {
+    let file = PathBuf::from(format!("file:{file_name}?mode=memory&cache=shared"));
+    let mbt = Mbtiles::new(&file).unwrap();
+    let mut conn = mbt.open().await.unwrap();
+    sqlx::raw_sql(script).execute(&mut conn).await.unwrap();
+    (mbt, conn, file)
+}
+
 #[cfg(test)]
 mod tests {
     use std::collections::BTreeMap;
@@ -244,17 +265,16 @@ mod tests {
 
     #[actix_rt::test]
     async fn mbtiles_meta() {
-        let filepath = "../tests/fixtures/mbtiles/geography-class-jpg.mbtiles";
-        let mbt = Mbtiles::new(filepath).unwrap();
-        assert_eq!(mbt.filepath(), filepath);
-        assert_eq!(mbt.filename(), "geography-class-jpg");
+        let script = include_str!("../../tests/fixtures/mbtiles/geography-class-jpg.sql");
+        let (mbt, _) = anonymous_mbtiles(script).await;
+        assert_eq!(mbt.filepath(), ":memory:");
+        assert_eq!(mbt.filename(), ":memory:");
     }
 
     #[actix_rt::test]
     async fn metadata_jpeg() {
-        let (mut conn, mbt) = open("../tests/fixtures/mbtiles/geography-class-jpg.mbtiles")
-            .await
-            .unwrap();
+        let script = include_str!("../../tests/fixtures/mbtiles/geography-class-jpg.sql");
+        let (mbt, mut conn) = anonymous_mbtiles(script).await;
         let metadata = mbt.get_metadata(&mut conn).await.unwrap();
         let tj = metadata.tilejson;
 
@@ -271,15 +291,14 @@ mod tests {
             "{{#__location__}}{{/__location__}}{{#__teaser__}}<div style=\"text-align:center;\">\n\n<img src=\"data:image/png;base64,{{flag_png}}\" style=\"-moz-box-shadow:0px 1px 3px #222;-webkit-box-shadow:0px 1px 5px #222;box-shadow:0px 1px 3px #222;\"><br>\n<strong>{{admin}}</strong>\n\n</div>{{/__teaser__}}{{#__full__}}{{/__full__}}"
         );
         assert_eq!(tj.version.unwrap(), "1.0.0");
-        assert_eq!(metadata.id, "geography-class-jpg");
+        assert_eq!(metadata.id, ":memory:");
         assert_eq!(metadata.tile_info, Format::Jpeg.into());
     }
 
     #[actix_rt::test]
     async fn metadata_mvt() {
-        let (mut conn, mbt) = open("../tests/fixtures/mbtiles/world_cities.mbtiles")
-            .await
-            .unwrap();
+        let script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
+        let (mbt, mut conn) = anonymous_mbtiles(script).await;
         let metadata = mbt.get_metadata(&mut conn).await.unwrap();
         let tj = metadata.tilejson;
 
@@ -300,7 +319,7 @@ mod tests {
                 other: BTreeMap::default()
             }])
         );
-        assert_eq!(metadata.id, "world_cities");
+        assert_eq!(metadata.id, ":memory:");
         assert_eq!(
             metadata.tile_info,
             TileInfo::new(Format::Mvt, Encoding::Gzip)
@@ -310,10 +329,8 @@ mod tests {
 
     #[actix_rt::test]
     async fn metadata_get_key() {
-        let (mut conn, mbt) = open("../tests/fixtures/mbtiles/world_cities.mbtiles")
-            .await
-            .unwrap();
-
+        let script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
+        let (mbt, mut conn) = anonymous_mbtiles(script).await;
         let res = mbt
             .get_metadata_value(&mut conn, "bounds")
             .await
@@ -343,9 +360,7 @@ mod tests {
 
     #[actix_rt::test]
     async fn metadata_set_key() {
-        let (mut conn, mbt) = open("file:metadata_set_key_mem_db?mode=memory&cache=shared")
-            .await
-            .unwrap();
+        let (mut conn, mbt) = open(":memory:").await.unwrap();
 
         conn.execute("CREATE TABLE metadata (name text NOT NULL PRIMARY KEY, value text);")
             .await
