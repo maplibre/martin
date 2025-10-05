@@ -623,40 +623,46 @@ pub(crate) mod tests {
     use crate::mbtiles::tests::open;
 
     #[actix_rt::test]
-    async fn detect_type() -> MbtResult<()> {
-        let (mut conn, mbt) = open("../tests/fixtures/mbtiles/world_cities.mbtiles").await?;
-        let res = mbt.detect_type(&mut conn).await?;
+    async fn detect_type() {
+        let (mut conn, mbt) = open("../tests/fixtures/mbtiles/world_cities.mbtiles")
+            .await
+            .unwrap();
+        let res = mbt.detect_type(&mut conn).await.unwrap();
         assert_eq!(res, MbtType::Flat);
 
-        let (mut conn, mbt) = open("../tests/fixtures/mbtiles/zoomed_world_cities.mbtiles").await?;
-        let res = mbt.detect_type(&mut conn).await?;
+        let (mut conn, mbt) = open("../tests/fixtures/mbtiles/zoomed_world_cities.mbtiles")
+            .await
+            .unwrap();
+        let res = mbt.detect_type(&mut conn).await.unwrap();
         assert_eq!(res, MbtType::FlatWithHash);
 
-        let (mut conn, mbt) = open("../tests/fixtures/mbtiles/geography-class-jpg.mbtiles").await?;
-        let res = mbt.detect_type(&mut conn).await?;
+        let (mut conn, mbt) = open("../tests/fixtures/mbtiles/geography-class-jpg.mbtiles")
+            .await
+            .unwrap();
+        let res = mbt.detect_type(&mut conn).await.unwrap();
         assert_eq!(res, MbtType::Normalized { hash_view: false });
 
-        let (mut conn, mbt) = open(":memory:").await?;
+        let (mut conn, mbt) = open(":memory:").await.unwrap();
         let res = mbt.detect_type(&mut conn).await;
         assert!(matches!(res, Err(MbtError::InvalidDataFormat(_))));
-
-        Ok(())
     }
 
     #[actix_rt::test]
-    async fn validate_valid_file() -> MbtResult<()> {
-        let (mut conn, mbt) = open("../tests/fixtures/mbtiles/zoomed_world_cities.mbtiles").await?;
+    async fn validate_valid_file() {
+        let (mut conn, mbt) = open("../tests/fixtures/mbtiles/zoomed_world_cities.mbtiles")
+            .await
+            .unwrap();
         mbt.check_integrity(&mut conn, IntegrityCheckType::Quick)
-            .await?;
-        Ok(())
+            .await
+            .unwrap();
     }
 
     #[actix_rt::test]
-    async fn validate_invalid_file() -> MbtResult<()> {
-        let (mut conn, mbt) =
-            open("../tests/fixtures/files/invalid_zoomed_world_cities.mbtiles").await?;
+    async fn validate_invalid_file() {
+        let (mut conn, mbt) = open("../tests/fixtures/files/invalid_zoomed_world_cities.mbtiles")
+            .await
+            .unwrap();
         let result = mbt.check_agg_tiles_hashes(&mut conn).await;
         assert!(matches!(result, Err(AggHashMismatch(..))));
-        Ok(())
     }
 }

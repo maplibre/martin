@@ -1018,8 +1018,8 @@ mod tests {
         verify_copy_with_zoom_filter(opt, 2).await
     }
 
-    #[actix_rt::test]
-    async fn copy_with_diff_with_file() -> MbtResult<()> {
+    #[tokio::test]
+    async fn copy_with_diff_with_file() {
         let src = PathBuf::from("../tests/fixtures/mbtiles/geography-class-jpg.mbtiles");
         let dst = PathBuf::from("file:copy_with_diff_with_file_mem_db?mode=memory&cache=shared");
 
@@ -1033,12 +1033,13 @@ mod tests {
             force: true,
             ..Default::default()
         };
-        let mut dst_conn = opt.run().await?;
+        let mut dst_conn = opt.run().await.unwrap();
 
         assert!(
             dst_conn
                 .fetch_optional("SELECT 1 FROM sqlite_schema WHERE name = 'tiles';")
-                .await?
+                .await
+                .unwrap()
                 .is_some()
         );
 
@@ -1073,8 +1074,6 @@ mod tests {
             .await
             .is_some()
         );
-
-        Ok(())
     }
 
     #[actix_rt::test]
@@ -1096,7 +1095,7 @@ mod tests {
     }
 
     #[actix_rt::test]
-    async fn copy_to_existing_override_mode() -> MbtResult<()> {
+    async fn copy_to_existing_override_mode() {
         let src_file = PathBuf::from("../tests/fixtures/mbtiles/world_cities_modified.mbtiles");
 
         // Copy the dst file to an in-memory DB
@@ -1110,7 +1109,8 @@ mod tests {
             ..Default::default()
         }
         .run()
-        .await?;
+        .await
+        .unwrap();
 
         let opt = MbtilesCopier {
             src_file: src_file.clone(),
@@ -1118,24 +1118,25 @@ mod tests {
             on_duplicate: Some(CopyDuplicateMode::Override),
             ..Default::default()
         };
-        let mut dst_conn = opt.run().await?;
+        let mut dst_conn = opt.run().await.unwrap();
 
         // Verify the tiles in the destination file is a superset of the tiles in the source file
-        Mbtiles::new(src_file)?
+        Mbtiles::new(src_file)
+            .unwrap()
             .attach_to(&mut dst_conn, "testOtherDb")
-            .await?;
+            .await
+            .unwrap();
         assert!(
             dst_conn
                 .fetch_optional("SELECT * FROM testOtherDb.tiles EXCEPT SELECT * FROM tiles;")
-                .await?
+                .await
+                .unwrap()
                 .is_none()
         );
-
-        Ok(())
     }
 
     #[actix_rt::test]
-    async fn copy_to_existing_ignore_mode() -> MbtResult<()> {
+    async fn copy_to_existing_ignore_mode() {
         let src_file = PathBuf::from("../tests/fixtures/mbtiles/world_cities_modified.mbtiles");
 
         // Copy the dst file to an in-memory DB
@@ -1149,7 +1150,8 @@ mod tests {
             ..Default::default()
         }
         .run()
-        .await?;
+        .await
+        .unwrap();
 
         let opt = MbtilesCopier {
             src_file: src_file.clone(),
@@ -1157,15 +1159,19 @@ mod tests {
             on_duplicate: Some(CopyDuplicateMode::Ignore),
             ..Default::default()
         };
-        let mut dst_conn = opt.run().await?;
+        let mut dst_conn = opt.run().await.unwrap();
 
         // Verify the tiles in the destination file are the same as those in the source file except for those with duplicate (zoom_level, tile_column, tile_row)
-        Mbtiles::new(src_file)?
+        Mbtiles::new(src_file)
+            .unwrap()
             .attach_to(&mut dst_conn, "testSrcDb")
-            .await?;
-        Mbtiles::new(dst_file)?
+            .await
+            .unwrap();
+        Mbtiles::new(dst_file)
+            .unwrap()
             .attach_to(&mut dst_conn, "testOriginalDb")
-            .await?;
+            .await
+            .unwrap();
 
         // Create a temporary table with all the tiles in the original database and
         // all the tiles in the source database except for those that conflict with tiles in the original database
@@ -1178,20 +1184,19 @@ mod tests {
                    FROM testOriginalDb.tiles as t1
                    FULL OUTER JOIN testSrcDb.tiles as t2
                        ON t1.zoom_level = t2.zoom_level AND t1.tile_column = t2.tile_column AND t1.tile_row = t2.tile_row")
-            .await?;
+            .await.unwrap();
 
-        // Ensure all entries in expected_tiles are in tiles and vice versa
+        let expected_tiles = query(
+            "SELECT * FROM expected_tiles EXCEPT SELECT * FROM tiles
+           UNION
+         SELECT * FROM tiles EXCEPT SELECT * FROM expected_tiles",
+        )
+        .fetch_optional(&mut dst_conn)
+        .await
+        .unwrap();
         assert!(
-            query(
-                "SELECT * FROM expected_tiles EXCEPT SELECT * FROM tiles
-               UNION
-             SELECT * FROM tiles EXCEPT SELECT * FROM expected_tiles"
-            )
-            .fetch_optional(&mut dst_conn)
-            .await?
-            .is_none()
+            expected_tiles.is_none(),
+            "all entries in expected_tiles are in tiles and vice versa"
         );
-
-        Ok(())
     }
 }

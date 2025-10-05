@@ -9,7 +9,8 @@ use url::Url;
 
 use crate::MartinResult;
 use crate::config::file::{
-    ConfigExtras, ConfigFileResult, SourceConfigExtras, UnrecognizedKeys, UnrecognizedValues,
+    ConfigExtras, ConfigFileError, ConfigFileResult, SourceConfigExtras, UnrecognizedKeys,
+    UnrecognizedValues,
 };
 
 #[serde_with::skip_serializing_none]
@@ -46,10 +47,9 @@ impl PartialEq for PmtConfig {
 
 impl ConfigExtras for PmtConfig {
     fn init_parsing(&mut self, cache: OptMainCache) -> ConfigFileResult<()> {
-        assert!(
-            self.cache.is_none(),
-            "init_parsing should only be called once"
-        );
+        if self.cache.is_some() {
+            return Err(ConfigFileError::InitParsingCalledTwice);
+        }
         self.cache = cache;
 
         if self.unrecognized.contains_key("dir_cache_size_mb") {

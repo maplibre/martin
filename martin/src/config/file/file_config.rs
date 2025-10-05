@@ -67,6 +67,9 @@ pub enum ConfigFileError {
     #[cfg(feature = "fonts")]
     #[error("Failed to load fonts from {1}: {0}")]
     FontResolutionFailed(#[source] martin_core::fonts::FontError, PathBuf),
+
+    #[error("init_parsing should only be called once")]
+    InitParsingCalledTwice,
 }
 
 pub trait ConfigExtras: Clone + Debug + Default + PartialEq + Send {

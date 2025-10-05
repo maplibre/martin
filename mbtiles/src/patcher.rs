@@ -169,7 +169,7 @@ mod tests {
     use crate::MbtilesCopier;
 
     #[actix_rt::test]
-    async fn apply_flat_patch_file() -> MbtResult<()> {
+    async fn apply_flat_patch_file() {
         // Copy the src file to an in-memory DB
         let src_file = PathBuf::from("../tests/fixtures/mbtiles/world_cities.mbtiles");
         let src = PathBuf::from("file:apply_flat_diff_file_mem_db?mode=memory&cache=shared");
@@ -180,29 +180,31 @@ mod tests {
             ..Default::default()
         }
         .run()
-        .await?;
+        .await
+        .unwrap();
 
         // Apply patch to the src data in in-memory DB
         let patch_file = PathBuf::from("../tests/fixtures/mbtiles/world_cities_diff.mbtiles");
-        apply_patch(src, patch_file, true).await?;
+        apply_patch(src, patch_file, true).await.unwrap();
 
         // Verify the data is the same as the file the patch was generated from
-        Mbtiles::new("../tests/fixtures/mbtiles/world_cities_modified.mbtiles")?
+        Mbtiles::new("../tests/fixtures/mbtiles/world_cities_modified.mbtiles")
+            .unwrap()
             .attach_to(&mut src_conn, "testOtherDb")
-            .await?;
+            .await
+            .unwrap();
 
         assert!(
             src_conn
                 .fetch_optional("SELECT * FROM tiles EXCEPT SELECT * FROM testOtherDb.tiles;")
-                .await?
+                .await
+                .unwrap()
                 .is_none()
         );
-
-        Ok(())
     }
 
     #[actix_rt::test]
-    async fn apply_normalized_patch_file() -> MbtResult<()> {
+    async fn apply_normalized_patch_file() {
         // Copy the src file to an in-memory DB
         let src_file = PathBuf::from("../tests/fixtures/mbtiles/geography-class-jpg.mbtiles");
         let src = PathBuf::from("file:apply_normalized_diff_file_mem_db?mode=memory&cache=shared");
@@ -213,25 +215,27 @@ mod tests {
             ..Default::default()
         }
         .run()
-        .await?;
+        .await
+        .unwrap();
 
         // Apply patch to the src data in in-memory DB
         let patch_file =
             PathBuf::from("../tests/fixtures/mbtiles/geography-class-jpg-diff.mbtiles");
-        apply_patch(src, patch_file, true).await?;
+        apply_patch(src, patch_file, true).await.unwrap();
 
         // Verify the data is the same as the file the patch was generated from
-        Mbtiles::new("../tests/fixtures/mbtiles/geography-class-jpg-modified.mbtiles")?
+        Mbtiles::new("../tests/fixtures/mbtiles/geography-class-jpg-modified.mbtiles")
+            .unwrap()
             .attach_to(&mut src_conn, "testOtherDb")
-            .await?;
+            .await
+            .unwrap();
 
         assert!(
             src_conn
                 .fetch_optional("SELECT * FROM tiles EXCEPT SELECT * FROM testOtherDb.tiles;")
-                .await?
+                .await
+                .unwrap()
                 .is_none()
         );
-
-        Ok(())
     }
 }
