@@ -1041,7 +1041,7 @@ mod tests {
         verify_copy_with_zoom_filter(opt, 2).await;
     }
 
-    #[tokio::test]
+    #[actix_rt::test]
     async fn copy_with_diff_with_file() {
         let script = include_str!("../../tests/fixtures/mbtiles/geography-class-jpg.sql");
         let (_mbt, _conn, src) =
