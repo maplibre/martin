@@ -38,6 +38,7 @@ impl PartialEq for PmtConfig {
 }
 
 impl ConfigurationLivecycleHooks for PmtConfig {
+<<<<<<< HEAD
     fn finalize(&mut self) -> ConfigFileResult<()> {
         // if the key is the allowed set, we assume it is there for a purpose
         // because of how serde(flatten) works, we need to collect all in one place and then
@@ -54,10 +55,13 @@ impl ConfigurationLivecycleHooks for PmtConfig {
         self.unrecognized.keys().cloned().collect()
     }
 
-    fn intialise_cache(&mut self, cache: OptMainCache) -> ConfigFileResult<()> {
+    fn initialize_cache(&mut self, cache: OptMainCache) -> ConfigFileResult<()> {
+=======
+    fn initialize_cache(&mut self, cache: OptMainCache) -> ConfigFileResult<()> {
+>>>>>>> db0ddfc7 (fix typo)
         assert!(
             self.cache.is_none(),
-            "intialise_cache should only be called once"
+            "initialize_cache should only be called once"
         );
         self.cache = cache;
 
