@@ -72,7 +72,7 @@ pub enum ConfigFileError {
 /// The hooks are guaranteed called in the following order:
 /// 1. `finalize`
 /// 2. `get_unrecognized_keys`
-/// 3. `intialise_cache`
+/// 3. `initialize_cache`
 pub trait ConfigurationLivecycleHooks: Clone + Debug + Default + PartialEq + Send {
     /// Finalize configuration discovery and patch old values
     ///
@@ -87,8 +87,8 @@ pub trait ConfigurationLivecycleHooks: Clone + Debug + Default + PartialEq + Sen
     /// Initalises the configuration with the given cache
     ///
     /// This allows configurations to interact with the cache and perform any necessary initialization tasks.
-    /// The configuration should be found to be valid in [`Self::finalize`] instead of [`Self::intialise_cache`].
-    fn intialise_cache(&mut self, _cache: OptMainCache) -> ConfigFileResult<()> {
+    /// The configuration should be found to be valid in [`Self::finalize`] instead of [`Self::initialize_cache`].
+    fn initialize_cache(&mut self, _cache: OptMainCache) -> ConfigFileResult<()> {
         Ok(())
     }
 }
@@ -193,7 +193,7 @@ impl<T: ConfigurationLivecycleHooks> FileConfigEnum<T> {
             },
             FileConfigEnum::Config(cfg) => mem::take(cfg),
         };
-        res.custom.intialise_cache(cache)?;
+        res.custom.initialize_cache(cache)?;
         Ok(Some(res))
     }
 }
@@ -214,9 +214,9 @@ impl<T: ConfigurationLivecycleHooks> ConfigurationLivecycleHooks for FileConfigE
             UnrecognizedKeys::new()
         }
     }
-    fn intialise_cache(&mut self, cache: OptMainCache) -> ConfigFileResult<()> {
+    fn initialize_cache(&mut self, cache: OptMainCache) -> ConfigFileResult<()> {
         if let Self::Config(cfg) = self {
-            cfg.custom.intialise_cache(cache)
+            cfg.custom.initialize_cache(cache)
         } else {
             Ok(())
         }
@@ -250,8 +250,8 @@ impl<T: ConfigurationLivecycleHooks> ConfigurationLivecycleHooks for FileConfig<
     fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
         self.custom.get_unrecognized_keys()
     }
-    fn intialise_cache(&mut self, cache: OptMainCache) -> ConfigFileResult<()> {
-        self.custom.intialise_cache(cache)
+    fn initialize_cache(&mut self, cache: OptMainCache) -> ConfigFileResult<()> {
+        self.custom.initialize_cache(cache)
     }
 }
 

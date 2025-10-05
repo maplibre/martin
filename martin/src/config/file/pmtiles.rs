@@ -46,10 +46,10 @@ impl PartialEq for PmtConfig {
 }
 
 impl ConfigurationLivecycleHooks for PmtConfig {
-    fn intialise_cache(&mut self, cache: OptMainCache) -> ConfigFileResult<()> {
+    fn initialize_cache(&mut self, cache: OptMainCache) -> ConfigFileResult<()> {
         assert!(
             self.cache.is_none(),
-            "intialise_cache should only be called once"
+            "initialize_cache should only be called once"
         );
         self.cache = cache;
 
