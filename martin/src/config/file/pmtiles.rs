@@ -47,9 +47,8 @@ impl PartialEq for PmtConfig {
 
 impl ConfigExtras for PmtConfig {
     fn init_parsing(&mut self, cache: OptMainCache) -> ConfigFileResult<()> {
-        if self.cache.is_some() {
-            return Err(ConfigFileError::InitParsingCalledTwice);
-        }
+        #[allow(clippy::unwrap_in_result)]
+        assert!(self.cache.is_none(), "Cache cannot be initialized twice");
         self.cache = cache;
 
         if self.unrecognized.contains_key("dir_cache_size_mb") {
