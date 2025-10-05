@@ -90,6 +90,14 @@ pub trait ConfigurationLivecycleHooks: Clone + Debug + Default + PartialEq + Sen
     /// Iterates over all unrecognized (present, but not expected) keys in the configuration
     fn get_unrecognized_keys(&self) -> UnrecognizedKeys;
 
+    /// Returns all results of the [`Self::get_unrecognized_keys`], but with a given prefix
+    fn get_unrecognized_keys_with_prefix(&self, prefix: &str) -> UnrecognizedKeys {
+        self.get_unrecognized_keys()
+            .into_iter()
+            .map(|key| format!("{prefix}{key}"))
+            .collect()
+    }
+
     /// Initalises the configuration with the given cache
     ///
     /// This allows configurations to interact with the cache and perform any necessary initialization tasks.

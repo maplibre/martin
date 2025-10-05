@@ -99,11 +99,7 @@ impl Config {
             };
             for pg in self.postgres.iter_mut() {
                 pg.finalize()?;
-                res.extend(
-                    pg.get_unrecognized_keys()
-                        .iter()
-                        .map(|k| format!("{pg_prefix}.{k}")),
-                );
+                res.extend(pg.get_unrecognized_keys_with_prefix(pg_prefix));
             }
         }
 
@@ -113,68 +109,38 @@ impl Config {
             // we would not be able to migrate defaults/deprecate settings
             self.pmtiles = self.pmtiles.clone().into_config();
             self.pmtiles.finalize()?;
-            res.extend(
-                self.pmtiles
-                    .get_unrecognized_keys()
-                    .iter()
-                    .map(|k| format!("pmtiles.{k}")),
-            );
+            res.extend(self.pmtiles.get_unrecognized_keys_with_prefix("pmtiles."));
         }
 
         #[cfg(feature = "mbtiles")]
         {
             self.mbtiles.finalize()?;
-            res.extend(
-                self.mbtiles
-                    .get_unrecognized_keys()
-                    .iter()
-                    .map(|k| format!("mbtiles.{k}")),
-            );
+            res.extend(self.mbtiles.get_unrecognized_keys_with_prefix("mbtiles."));
         }
 
         #[cfg(feature = "cog")]
         {
             self.cog.finalize()?;
-            res.extend(
-                self.cog
-                    .get_unrecognized_keys()
-                    .iter()
-                    .map(|k| format!("cog.{k}")),
-            );
+            res.extend(self.cog.get_unrecognized_keys_with_prefix("cog."));
         }
 
         #[cfg(feature = "sprites")]
         {
             self.sprites.finalize()?;
-            res.extend(
-                self.sprites
-                    .get_unrecognized_keys()
-                    .iter()
-                    .map(|k| format!("sprites.{k}")),
-            );
+            res.extend(self.sprites.get_unrecognized_keys_with_prefix("sprites."));
         }
 
         #[cfg(feature = "styles")]
         {
             self.styles.finalize()?;
-            res.extend(
-                self.styles
-                    .get_unrecognized_keys()
-                    .iter()
-                    .map(|k| format!("styles.{k}")),
-            );
+            res.extend(self.styles.get_unrecognized_keys_with_prefix("styles."));
         }
 
         // TODO: support for unrecognized fonts?
         // #[cfg(feature = "fonts")]
         // {
         //     self.fonts.finalize()?;
-        //     res.extend(
-        //         self.fonts
-        //             .get_unrecognized_keys()
-        //             .iter()
-        //             .map(|k| format!("fonts.{k}")),
-        //     );
+        //     res.extend(self.fonts.get_unrecognized_keys_with_prefix("fonts."));
         // }
 
         for key in &res {
