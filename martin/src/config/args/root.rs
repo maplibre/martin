@@ -176,6 +176,23 @@ fn is_url(s: &str, extension: &[&str]) -> bool {
     }
 }
 
+/// Check if a string is a `file:` scheme URI with a specified extension.
+///
+/// This is used for `SQLite` connection strings like `file:name.mbtiles?mode=memory&cache=shared`
+#[cfg(any(feature = "cog", feature = "mbtiles", feature = "pmtiles"))]
+fn is_file_scheme_uri(s: &str, extensions: &[&str]) -> bool {
+    let Ok(url) = url::Url::parse(s) else {
+        return false;
+    };
+    if url.scheme() != "file" {
+        return false;
+    }
+    url.path()
+        .rsplit('.')
+        .next()
+        .is_some_and(|ext| extensions.contains(&ext))
+}
+
 #[cfg(any(feature = "cog", feature = "mbtiles", feature = "pmtiles"))]
 pub fn parse_file_args<T: crate::config::file::ConfigExtras>(
     cli_strings: &mut Arguments,
@@ -187,6 +204,9 @@ pub fn parse_file_args<T: crate::config::file::ConfigExtras>(
     let paths = cli_strings.process(|s| {
         let path = PathBuf::from(s);
         if allow_url && is_url(s, extensions) {
+            Take(path)
+        } else if is_file_scheme_uri(s, extensions) {
+            // Handle file: scheme URIs (SQLite connection strings) as valid paths
             Take(path)
         } else if path.is_dir() {
             Share(path)
@@ -287,6 +307,33 @@ mod tests {
         assert_eq!(config4.unwrap().0.srv.preferred_encoding, None);
     }
 
+    #[cfg(any(feature = "cog", feature = "mbtiles", feature = "pmtiles"))]
+    #[test]
+    fn test_is_file_scheme_uri() {
+        // Valid file scheme URIs
+        assert!(is_file_scheme_uri("file:test.mbtiles", &["mbtiles"]));
+        assert!(is_file_scheme_uri(
+            "file:test.mbtiles?mode=memory&cache=shared",
+            &["mbtiles"]
+        ));
+        assert!(is_file_scheme_uri(
+            "file:/path/to/test.mbtiles",
+            &["mbtiles"]
+        ));
+        assert!(is_file_scheme_uri("file:data.pmtiles", &["pmtiles"]));
+        assert!(is_file_scheme_uri("file:image.tiff", &["tiff", "tif"]));
+
+        // Invalid cases
+        assert!(!is_file_scheme_uri(
+            "http://example.com/test.mbtiles",
+            &["mbtiles"]
+        ));
+        assert!(!is_file_scheme_uri("test.mbtiles", &["mbtiles"]));
+        assert!(!is_file_scheme_uri("file:test.txt", &["mbtiles"]));
+        assert!(!is_file_scheme_uri("file:", &["mbtiles"]));
+        assert!(!is_file_scheme_uri("", &["mbtiles"]));
+    }
+
     #[test]
     fn cli_bad_arguments() {
         for params in [
@@ -320,23 +367,26 @@ mod tests {
     }
 
     #[cfg(all(feature = "pmtiles", feature = "mbtiles", feature = "cog"))]
-    #[test]
-    fn cli_multiple_extensions() {
+    #[tokio::test]
+    async fn cli_multiple_extensions() {
+        use std::ffi::OsString;
+
+        let script = include_str!("../../../../tests/fixtures/mbtiles/json.sql");
+        let (_mbt, _conn, file) = mbtiles::temp_named_mbtiles("json.mbtiles", script).await;
         let args = Args::parse_from([
-            "martin",
-            "../tests/fixtures/pmtiles/png.pmtiles",
-            "../tests/fixtures/mbtiles/json.mbtiles",
-            "../tests/fixtures/cog/rgba_u8_nodata.tiff",
-            "../tests/fixtures/cog/rgba_u8.tif",
+            OsString::from("martin"),
+            OsString::from("../tests/fixtures/pmtiles/png.pmtiles"),
+            file.as_os_str().to_owned(),
+            OsString::from("../tests/fixtures/cog/rgba_u8_nodata.tiff"),
+            OsString::from("../tests/fixtures/cog/rgba_u8.tif"),
         ]);
 
         let env = FauxEnv::default();
         let mut config = Config::default();
-        let err = args.merge_into_config(&mut config, &env);
-        assert!(err.is_ok());
+        args.merge_into_config(&mut config, &env).unwrap();
         insta::assert_yaml_snapshot!(config, @r#"
         pmtiles: "../tests/fixtures/pmtiles/png.pmtiles"
-        mbtiles: "../tests/fixtures/mbtiles/json.mbtiles"
+        mbtiles: "file:json.mbtiles?mode=memory&cache=shared"
         cog:
           - "../tests/fixtures/cog/rgba_u8_nodata.tiff"
           - "../tests/fixtures/cog/rgba_u8.tif"
