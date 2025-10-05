@@ -1,7 +1,6 @@
-use actix_web::App;
 use actix_web::http::StatusCode;
-use actix_web::test;
 use actix_web::web::Data;
+use actix_web::{App, test};
 use insta::assert_json_snapshot;
 use martin::TileSources;
 use martin::srv::Catalog;

@@ -1,5 +1,7 @@
 //! OGC API tile matrix sets endpoints
 
+use std::num::{NonZeroU16, NonZeroU64};
+
 use actix_web::http::header::CONTENT_TYPE;
 use actix_web::web::Path;
 use actix_web::{HttpRequest, HttpResponse, Result as ActixResult, route};
@@ -10,7 +12,6 @@ use ogcapi_types::tiles::{
     TitleDescriptionKeywords,
 };
 use serde::Deserialize;
-use std::num::{NonZeroU16, NonZeroU64};
 
 use super::landing::get_base_url;
 
