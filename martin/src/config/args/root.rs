@@ -175,7 +175,7 @@ fn is_url(s: &str, extension: &[&str]) -> bool {
 }
 
 #[cfg(any(feature = "cog", feature = "mbtiles", feature = "pmtiles"))]
-pub fn parse_file_args<T: crate::config::file::ConfigExtras>(
+pub fn parse_file_args<T: crate::config::file::ConfigurationLivecycleHooks>(
     cli_strings: &mut Arguments,
     extensions: &[&str],
     allow_url: bool,

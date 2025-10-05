@@ -5,8 +5,7 @@ use std::path::{Path, PathBuf};
 
 use log::{info, warn};
 use martin_core::cache::OptMainCache;
-use martin_core::config::IdResolver;
-use martin_core::config::OptOneMany::{self, Many, One};
+use martin_core::config::{IdResolver, OptOneMany};
 use martin_core::tiles::BoxedSource;
 use serde::{Deserialize, Serialize};
 use url::Url;
@@ -69,16 +68,34 @@ pub enum ConfigFileError {
     FontResolutionFailed(#[source] martin_core::fonts::FontError, PathBuf),
 }
 
-pub trait ConfigExtras: Clone + Debug + Default + PartialEq + Send {
-    fn init_parsing(&mut self, _cache: OptMainCache) -> ConfigFileResult<()> {
+/// Lifecycle hooks for configuring the application
+///
+/// The hooks are guaranteed called in the following order:
+/// 1. `finalize`
+/// 2. `get_unrecognized_keys`
+/// 3. `intialise_cache`
+pub trait ConfigurationLivecycleHooks: Clone + Debug + Default + PartialEq + Send {
+    /// Finalize configuration discovery and patch old values
+    ///
+    /// In practice, this method is only implemented on a path of the config if a value or a value in the path below it needs to be finalized
+    fn finalize(&mut self) -> ConfigFileResult<()> {
         Ok(())
     }
 
     /// Iterates over all unrecognized (present, but not expected) keys in the configuration
     fn get_unrecognized_keys(&self) -> UnrecognizedKeys;
+
+    /// Initalises the configuration with the given cache
+    ///
+    /// This allows configurations to interact with the cache and perform any necessary initialization tasks.
+    /// The configuration should be found to be valid in [`Self::finalize`] instead of [`Self::intialise_cache`].
+    fn intialise_cache(&mut self, _cache: OptMainCache) -> ConfigFileResult<()> {
+        Ok(())
+    }
 }
 
-pub trait SourceConfigExtras: ConfigExtras {
+/// Configuration which all of our tile sources implement to make configuring them easier
+pub trait TileSourceConfiguration: ConfigurationLivecycleHooks {
     /// Indicates whether path strings for this configuration should be parsed as URLs.
     ///
     /// - `true` means any source path starting with `http://`, `https://`, or `s3://` will be treated as a remote URL.
@@ -115,7 +132,7 @@ pub enum FileConfigEnum<T> {
     Config(FileConfig<T>),
 }
 
-impl<T: ConfigExtras> FileConfigEnum<T> {
+impl<T: ConfigurationLivecycleHooks> FileConfigEnum<T> {
     #[must_use]
     pub fn new(paths: Vec<PathBuf>) -> FileConfigEnum<T> {
         Self::new_extended(paths, BTreeMap::new(), T::default())
@@ -168,27 +185,41 @@ impl<T: ConfigExtras> FileConfigEnum<T> {
         let mut res = match self {
             FileConfigEnum::None => return Ok(None),
             FileConfigEnum::Path(path) => FileConfig {
-                paths: One(mem::take(path)),
+                paths: OptOneMany::One(mem::take(path)),
                 ..FileConfig::default()
             },
             FileConfigEnum::Paths(paths) => FileConfig {
-                paths: Many(mem::take(paths)),
+                paths: OptOneMany::Many(mem::take(paths)),
                 ..Default::default()
             },
             FileConfigEnum::Config(cfg) => mem::take(cfg),
         };
-        res.custom.init_parsing(cache)?;
+        res.custom.intialise_cache(cache)?;
         Ok(Some(res))
     }
+}
 
-    pub fn finalize(&self, prefix: &str) -> UnrecognizedKeys {
+impl<T: ConfigurationLivecycleHooks> ConfigurationLivecycleHooks for FileConfigEnum<T> {
+    fn finalize(&mut self) -> ConfigFileResult<()> {
+        if let Self::Config(cfg) = self {
+            cfg.finalize()
+        } else {
+            Ok(())
+        }
+    }
+
+    fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
         if let Self::Config(cfg) = self {
             cfg.get_unrecognized_keys()
-                .iter()
-                .map(|k| format!("{prefix}{k}"))
-                .collect()
         } else {
             UnrecognizedKeys::new()
+        }
+    }
+    fn intialise_cache(&mut self, cache: OptMainCache) -> ConfigFileResult<()> {
+        if let Self::Config(cfg) = self {
+            cfg.custom.intialise_cache(cache)
+        } else {
+            Ok(())
         }
     }
 }
@@ -206,14 +237,22 @@ pub struct FileConfig<T> {
     pub custom: T,
 }
 
-impl<T: ConfigExtras> FileConfig<T> {
+impl<T: ConfigurationLivecycleHooks> FileConfig<T> {
     #[must_use]
     pub fn is_empty(&self) -> bool {
         self.paths.is_none() && self.sources.is_none() && self.get_unrecognized_keys().is_empty()
     }
+}
 
-    pub fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
+impl<T: ConfigurationLivecycleHooks> ConfigurationLivecycleHooks for FileConfig<T> {
+    fn finalize(&mut self) -> ConfigFileResult<()> {
+        self.custom.finalize()
+    }
+    fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
         self.custom.get_unrecognized_keys()
+    }
+    fn intialise_cache(&mut self, cache: OptMainCache) -> ConfigFileResult<()> {
+        self.custom.intialise_cache(cache)
     }
 }
 
@@ -253,7 +292,7 @@ pub struct FileConfigSource {
     pub path: PathBuf,
 }
 
-pub async fn resolve_files<T: SourceConfigExtras>(
+pub async fn resolve_files<T: TileSourceConfiguration>(
     config: &mut FileConfigEnum<T>,
     idr: &IdResolver,
     cache: OptMainCache,
@@ -262,7 +301,7 @@ pub async fn resolve_files<T: SourceConfigExtras>(
     resolve_int(config, idr, cache, extension).await
 }
 
-async fn resolve_int<T: SourceConfigExtras>(
+async fn resolve_int<T: TileSourceConfiguration>(
     config: &mut FileConfigEnum<T>,
     idr: &IdResolver,
     cache: OptMainCache,

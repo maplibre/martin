@@ -9,7 +9,8 @@ use url::Url;
 
 use crate::MartinResult;
 use crate::config::file::{
-    ConfigExtras, ConfigFileResult, SourceConfigExtras, UnrecognizedKeys, UnrecognizedValues,
+    ConfigFileResult, ConfigurationLivecycleHooks, TileSourceConfiguration, UnrecognizedKeys,
+    UnrecognizedValues,
 };
 
 #[serde_with::skip_serializing_none]
@@ -44,11 +45,11 @@ impl PartialEq for PmtConfig {
     }
 }
 
-impl ConfigExtras for PmtConfig {
-    fn init_parsing(&mut self, cache: OptMainCache) -> ConfigFileResult<()> {
+impl ConfigurationLivecycleHooks for PmtConfig {
+    fn intialise_cache(&mut self, cache: OptMainCache) -> ConfigFileResult<()> {
         assert!(
             self.cache.is_none(),
-            "init_parsing should only be called once"
+            "intialise_cache should only be called once"
         );
         self.cache = cache;
 
@@ -66,7 +67,7 @@ impl ConfigExtras for PmtConfig {
     }
 }
 
-impl SourceConfigExtras for PmtConfig {
+impl TileSourceConfiguration for PmtConfig {
     fn parse_urls() -> bool {
         true
     }
