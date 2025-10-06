@@ -45,6 +45,7 @@ martin  path/to/tiles.pmtiles
 ```
 
 The available schemes are:
+
 - `file:///path/to/my/file.pmtiles`
 - `path/to/my/file.pmtiles`
 
@@ -71,7 +72,6 @@ The available url schemes are:
 - `http://example.com/path.pmtiles`
 - `https://example.com/path.pmtiles`
 
-
 If you want more control over your requests, you can configure additional options here as such:
 
 ```yaml
@@ -81,7 +81,7 @@ pmtiles:
     tiles: s3://bucket/path/to/tiles.pmtiles
 ```
 
-### Available options:
+### Available http client settings
 
 {{#include pmtiles/client.md}}
 
@@ -116,7 +116,7 @@ pmtiles:
 > All settings are also available under the `aws_` prefix.
 > This can be useful if you want to have different cloud providers.
 
-### Available options:
+### Available AWS S3 settings
 
 {{#include pmtiles/aws.md}}
 
@@ -149,7 +149,7 @@ pmtiles:
 > All settings are also available under the `google_` prefix.
 > This can be useful if you want to have different cloud providers.
 
-### Available options:
+### Available google settings
 
 {{#include pmtiles/google.md}}
 
@@ -186,7 +186,7 @@ pmtiles:
 > All settings are also available under the `azure_` prefix.
 > This can be useful if you want to have different cloud providers.
 
-### Available options:
+### Available azure settings
 
 {{#include pmtiles/azure.md}}
 
