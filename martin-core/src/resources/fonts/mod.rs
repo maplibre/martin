@@ -288,7 +288,8 @@ fn parse_font(
     fonts: &mut DashMap<String, FontSource>,
     path: PathBuf,
 ) -> Result<(), FontError> {
-    static RE_SPACES: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(\s|/|,)+").unwrap());
+    static RE_SPACES: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"(\s|/|,)+").expect("regex pattern is valid"));
 
     let mut face = lib.new_face(&path, 0)?;
     let num_faces = face.num_faces() as isize;

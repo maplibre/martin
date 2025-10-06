@@ -82,7 +82,7 @@ impl PostgresArgs {
 
         match results.len() {
             0 => OptOneMany::NoVals,
-            1 => OptOneMany::One(results.into_iter().next().unwrap()),
+            1 => OptOneMany::One(results.into_iter().next().expect("one result exists")),
             _ => OptOneMany::Many(results),
         }
     }
