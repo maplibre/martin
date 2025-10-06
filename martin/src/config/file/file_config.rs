@@ -495,7 +495,7 @@ fn parse_url(is_enabled: bool, path: &Path) -> Result<Option<Url>, ConfigFileErr
     }
     let url_schemes = [
         "s3://", "s3a://", "gs://", "adl://", "azure://", "abfs://", "abfss://", "http://",
-        "https://",
+        "https://", "file://",
     ];
     path.to_str()
         .filter(|v| url_schemes.iter().any(|scheme| v.starts_with(scheme)))
