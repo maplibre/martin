@@ -131,7 +131,7 @@ impl Default for CopyArgs {
             url_query: None,
             encoding: "gzip".to_string(),
             on_duplicate: None,
-            concurrency: NonZeroUsize::new(1).unwrap(),
+            concurrency: NonZeroUsize::new(1).expect("1 is larger than 0"),
             min_zoom: None,
             max_zoom: None,
             zoom_levels: Vec::new(),
@@ -143,7 +143,9 @@ impl Default for CopyArgs {
 
 fn parse_key_value(s: &str) -> Result<(String, String), String> {
     let mut parts = s.splitn(2, '=');
-    let key = parts.next().unwrap();
+    let key = parts
+        .next()
+        .ok_or_else(|| format!("Invalid key=value pair: {s}"))?;
     let value = parts
         .next()
         .ok_or_else(|| format!("Invalid key=value pair: {s}"))?;

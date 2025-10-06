@@ -120,10 +120,18 @@ impl Mbtiles {
             .map(|m| m.len());
 
         let sql = query!("PRAGMA page_size;");
-        let page_size = sql.fetch_one(&mut *conn).await?.page_size.unwrap() as u64;
+        let page_size = sql
+            .fetch_one(&mut *conn)
+            .await?
+            .page_size
+            .expect("page_size is not null") as u64;
 
         let sql = query!("PRAGMA page_count;");
-        let page_count = sql.fetch_one(&mut *conn).await?.page_count.unwrap() as u64;
+        let page_count = sql
+            .fetch_one(&mut *conn)
+            .await?
+            .page_count
+            .expect("page_count is not null") as u64;
 
         let zoom_info = query!(
             "
@@ -154,10 +162,10 @@ impl Mbtiles {
                     avg_tile_size: r.average.unwrap_or(0.0),
                     bbox: xyz_to_bbox(
                         zoom,
-                        r.min_tile_x.unwrap() as u32,
-                        invert_y_value(zoom, r.max_tile_y.unwrap() as u32),
-                        r.max_tile_x.unwrap() as u32,
-                        invert_y_value(zoom, r.min_tile_y.unwrap() as u32),
+                        r.min_tile_x.expect("we are mapping over a value, so there is a value -> min_tile_x cannot be None") as u32,
+                        invert_y_value(zoom, r.max_tile_y.expect("we are mapping over a value, so there is a value -> max_tile_y cannot be None") as u32),
+                        r.max_tile_x.expect("we are mapping over a value, so there is a value -> max_tile_x cannot be None") as u32,
+                        invert_y_value(zoom, r.min_tile_y.expect("we are mapping over a value, so there is a value -> min_tile_y cannot be None") as u32),
                     )
                     .into(),
                 }
