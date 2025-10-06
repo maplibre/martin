@@ -36,7 +36,7 @@ pub fn parse_conn_str(conn_str: &str) -> PostgresResult<(Config, SslModeOverride
     let mut mode = SslModeOverride::Unmodified(SslMode::Disable);
 
     let exp = r"(?P<before>(^|\?|&| )sslmode=)(?P<mode>verify-(ca|full))(?P<after>$|&| )";
-    let re = Regex::new(exp).unwrap();
+    let re = Regex::new(exp).expect("the regex is valid");
     let pg_cfg = if let Some(captures) = re.captures(conn_str) {
         let captured_value = &captures["mode"];
         mode = match captured_value {

@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 use subst::VariableMap;
 
 #[cfg(any(
-    feature = "cog",
+    feature = "unstable-cog",
     feature = "mbtiles",
     feature = "pmtiles",
     feature = "sprites",
@@ -23,8 +23,8 @@ use subst::VariableMap;
 ))]
 use crate::config::file::FileConfigEnum;
 use crate::config::file::{
-    ConfigExtras, ConfigFileError, ConfigFileResult, UnrecognizedKeys, UnrecognizedValues,
-    copy_unrecognized_keys_from_config,
+    ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks, UnrecognizedKeys,
+    UnrecognizedValues, copy_unrecognized_keys_from_config,
 };
 use crate::source::TileSources;
 use crate::srv::RESERVED_KEYWORDS;
@@ -61,7 +61,7 @@ pub struct Config {
     #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
     pub mbtiles: FileConfigEnum<super::mbtiles::MbtConfig>,
 
-    #[cfg(feature = "cog")]
+    #[cfg(feature = "unstable-cog")]
     #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
     pub cog: FileConfigEnum<super::cog::CogConfig>,
 
@@ -91,33 +91,57 @@ impl Config {
             self.srv.base_path = Some(parse_base_path(path)?);
         }
         #[cfg(feature = "postgres")]
-        let pg_prefix = if matches!(self.postgres, OptOneMany::One(_)) {
-            "postgres."
-        } else {
-            "postgres[]."
-        };
-        #[cfg(feature = "postgres")]
-        for pg in self.postgres.iter_mut() {
-            res.extend(pg.finalize(pg_prefix)?);
+        {
+            let pg_prefix = if matches!(self.postgres, OptOneMany::One(_)) {
+                "postgres."
+            } else {
+                "postgres[]."
+            };
+            for pg in self.postgres.iter_mut() {
+                pg.finalize()?;
+                res.extend(pg.get_unrecognized_keys_with_prefix(pg_prefix));
+            }
         }
 
         #[cfg(feature = "pmtiles")]
-        res.extend(self.pmtiles.finalize("pmtiles."));
+        {
+            // if a pmtiles source were to keep being configured like this,
+            // we would not be able to migrate defaults/deprecate settings
+            self.pmtiles = self.pmtiles.clone().into_config();
+            self.pmtiles.finalize()?;
+            res.extend(self.pmtiles.get_unrecognized_keys_with_prefix("pmtiles."));
+        }
 
         #[cfg(feature = "mbtiles")]
-        res.extend(self.mbtiles.finalize("mbtiles."));
+        {
+            self.mbtiles.finalize()?;
+            res.extend(self.mbtiles.get_unrecognized_keys_with_prefix("mbtiles."));
+        }
 
-        #[cfg(feature = "cog")]
-        res.extend(self.cog.finalize("cog."));
+        #[cfg(feature = "unstable-cog")]
+        {
+            self.cog.finalize()?;
+            res.extend(self.cog.get_unrecognized_keys_with_prefix("cog."));
+        }
 
         #[cfg(feature = "sprites")]
-        res.extend(self.sprites.finalize("sprites."));
+        {
+            self.sprites.finalize()?;
+            res.extend(self.sprites.get_unrecognized_keys_with_prefix("sprites."));
+        }
 
         #[cfg(feature = "styles")]
-        res.extend(self.styles.finalize("styles."));
+        {
+            self.styles.finalize()?;
+            res.extend(self.styles.get_unrecognized_keys_with_prefix("styles."));
+        }
 
         // TODO: support for unrecognized fonts?
-        // res.extend(self.fonts.finalize("fonts.")?);
+        // #[cfg(feature = "fonts")]
+        // {
+        //     self.fonts.finalize()?;
+        //     res.extend(self.fonts.get_unrecognized_keys_with_prefix("fonts."));
+        // }
 
         for key in &res {
             warn!(
@@ -136,7 +160,7 @@ impl Config {
         #[cfg(feature = "mbtiles")]
         let is_empty = is_empty && self.mbtiles.is_empty();
 
-        #[cfg(feature = "cog")]
+        #[cfg(feature = "unstable-cog")]
         let is_empty = is_empty && self.cog.is_empty();
 
         #[cfg(feature = "sprites")]
@@ -219,7 +243,7 @@ impl Config {
             sources.push(Box::pin(val));
         }
 
-        #[cfg(feature = "cog")]
+        #[cfg(feature = "unstable-cog")]
         if !self.cog.is_empty() {
             let cfg = &mut self.cog;
             let val = crate::config::file::resolve_files(cfg, idr, cache.clone(), &["tif", "tiff"]);

@@ -7,7 +7,9 @@ use serde::{Deserialize, Serialize};
 use url::Url;
 
 use crate::MartinResult;
-use crate::config::file::{ConfigExtras, SourceConfigExtras, UnrecognizedKeys, UnrecognizedValues};
+use crate::config::file::{
+    ConfigurationLivecycleHooks, TileSourceConfiguration, UnrecognizedKeys, UnrecognizedValues,
+};
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct CogConfig {
@@ -15,13 +17,13 @@ pub struct CogConfig {
     pub unrecognized: UnrecognizedValues,
 }
 
-impl ConfigExtras for CogConfig {
+impl ConfigurationLivecycleHooks for CogConfig {
     fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
         self.unrecognized.keys().cloned().collect()
     }
 }
 
-impl SourceConfigExtras for CogConfig {
+impl TileSourceConfiguration for CogConfig {
     fn parse_urls() -> bool {
         false
     }

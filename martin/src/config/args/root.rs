@@ -14,7 +14,7 @@ use crate::MartinResult;
 use crate::config::args::PostgresArgs;
 use crate::config::file::Config;
 #[cfg(any(
-    feature = "cog",
+    feature = "unstable-cog",
     feature = "mbtiles",
     feature = "pmtiles",
     feature = "sprites",
@@ -128,7 +128,7 @@ impl Args {
             config.mbtiles = parse_file_args(&mut cli_strings, &["mbtiles"], false);
         }
 
-        #[cfg(feature = "cog")]
+        #[cfg(feature = "unstable-cog")]
         if !cli_strings.is_empty() {
             config.cog = parse_file_args(&mut cli_strings, &["tif", "tiff"], false);
         }
@@ -153,19 +153,21 @@ impl Args {
 }
 
 /// Check if a string is a valid [`url::Url`] with a specified extension.
-#[cfg(any(feature = "cog", feature = "mbtiles", feature = "pmtiles"))]
+#[cfg(any(feature = "unstable-cog", feature = "mbtiles", feature = "pmtiles"))]
 fn is_url(s: &str, extension: &[&str]) -> bool {
     let Ok(url) = url::Url::parse(s) else {
         return false;
     };
     match url.scheme() {
-        "s3" => url.path().split('/').any(|segment| {
-            segment
-                .rsplit('.')
-                .next()
-                .is_some_and(|ext| extension.contains(&ext))
-        }),
-        "http" | "https" => url
+        "s3" | "s3a" | "gs" | "adl" | "azure" | "abfs" | "abfss" => {
+            url.path().split('/').any(|segment| {
+                segment
+                    .rsplit('.')
+                    .next()
+                    .is_some_and(|ext| extension.contains(&ext))
+            })
+        }
+        "http" | "https" | "file" => url
             .path()
             .rsplit('.')
             .next()
@@ -177,7 +179,7 @@ fn is_url(s: &str, extension: &[&str]) -> bool {
 /// Check if a string is a `file:` scheme URI with a specified extension.
 ///
 /// This is used for `SQLite` connection strings like `file:name.mbtiles?mode=memory&cache=shared`
-#[cfg(any(feature = "cog", feature = "mbtiles", feature = "pmtiles"))]
+#[cfg(any(feature = "unstable-cog", feature = "mbtiles", feature = "pmtiles"))]
 fn is_file_scheme_uri(s: &str, extensions: &[&str]) -> bool {
     let Ok(url) = url::Url::parse(s) else {
         return false;
@@ -191,8 +193,8 @@ fn is_file_scheme_uri(s: &str, extensions: &[&str]) -> bool {
         .is_some_and(|ext| extensions.contains(&ext))
 }
 
-#[cfg(any(feature = "cog", feature = "mbtiles", feature = "pmtiles"))]
-pub fn parse_file_args<T: crate::config::file::ConfigExtras>(
+#[cfg(any(feature = "unstable-cog", feature = "mbtiles", feature = "pmtiles"))]
+pub fn parse_file_args<T: crate::config::file::ConfigurationLivecycleHooks>(
     cli_strings: &mut Arguments,
     extensions: &[&str],
     allow_url: bool,
@@ -305,7 +307,7 @@ mod tests {
         assert_eq!(config4.unwrap().0.srv.preferred_encoding, None);
     }
 
-    #[cfg(any(feature = "cog", feature = "mbtiles", feature = "pmtiles"))]
+    #[cfg(any(feature = "unstable-cog", feature = "mbtiles", feature = "pmtiles"))]
     #[test]
     fn test_is_file_scheme_uri() {
         // Valid file scheme URIs
@@ -364,7 +366,7 @@ mod tests {
         assert!(matches!(err, UnrecognizableConnections(v) if v == bad));
     }
 
-    #[cfg(all(feature = "pmtiles", feature = "mbtiles", feature = "cog"))]
+    #[cfg(all(feature = "pmtiles", feature = "mbtiles", feature = "unstable-cog"))]
     #[tokio::test]
     async fn cli_multiple_extensions() {
         use std::ffi::OsString;
@@ -391,7 +393,7 @@ mod tests {
         "#);
     }
 
-    #[cfg(all(feature = "pmtiles", feature = "mbtiles", feature = "cog"))]
+    #[cfg(all(feature = "pmtiles", feature = "mbtiles", feature = "unstable-cog"))]
     #[test]
     fn cli_directories_propagate() {
         let args = Args::parse_from(["martin", "../tests/fixtures/"]);

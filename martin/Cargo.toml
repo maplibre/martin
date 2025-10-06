@@ -86,7 +86,6 @@ required-features = ["postgres"]
 
 [features]
 default = [
-    "cog",
     "fonts",
     "lambda",
     "mbtiles",
@@ -95,14 +94,15 @@ default = [
     "postgres",
     "sprites",
     "styles",
+    "unstable-cog",
     "webui",
 ]
-cog = ["martin-core/cog"]
+unstable-cog = ["martin-core/unstable-cog"]
 fonts = ["martin-core/fonts"]
 lambda = ["dep:lambda-web"]
 mbtiles = ["martin-core/mbtiles"]
 metrics = ["dep:actix-web-prom"]
-pmtiles = ["martin-core/pmtiles"]
+pmtiles = ["martin-core/pmtiles", "dep:object_store"]
 postgres = [
     "martin-core/postgres",
     "dep:enum-display",
@@ -136,6 +136,7 @@ martin-core.workspace = true
 martin-tile-utils.workspace = true
 mbtiles.workspace = true
 num_cpus.workspace = true
+object_store = { workspace = true, optional = true }
 postgis = { workspace = true, optional = true }
 postgres-protocol = { workspace = true, optional = true }
 rustls.workspace = true

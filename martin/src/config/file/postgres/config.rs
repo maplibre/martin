@@ -15,8 +15,8 @@ use crate::MartinResult;
 use crate::config::args::{BoundsCalcType, DEFAULT_BOUNDS_TIMEOUT};
 use crate::config::file::postgres::PostgresAutoDiscoveryBuilder;
 use crate::config::file::{
-    ConfigExtras, ConfigFileError, ConfigFileResult, UnrecognizedKeys, UnrecognizedValues,
-    copy_unrecognized_keys_from_config,
+    ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks, UnrecognizedKeys,
+    UnrecognizedValues, copy_unrecognized_keys_from_config,
 };
 
 pub trait PostgresInfo {
@@ -93,7 +93,7 @@ pub struct PostgresCfgPublish {
     pub unrecognized: UnrecognizedValues,
 }
 
-impl ConfigExtras for PostgresCfgPublish {
+impl ConfigurationLivecycleHooks for PostgresCfgPublish {
     fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
         let mut keys = self
             .unrecognized
@@ -142,7 +142,7 @@ pub struct PostgresCfgPublishTables {
     pub unrecognized: UnrecognizedValues,
 }
 
-impl ConfigExtras for PostgresCfgPublishTables {
+impl ConfigurationLivecycleHooks for PostgresCfgPublishTables {
     fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
         self.unrecognized.keys().cloned().collect()
     }
@@ -161,38 +161,13 @@ pub struct PostgresCfgPublishFuncs {
     pub unrecognized: UnrecognizedValues,
 }
 
-impl ConfigExtras for PostgresCfgPublishFuncs {
+impl ConfigurationLivecycleHooks for PostgresCfgPublishFuncs {
     fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
         self.unrecognized.keys().cloned().collect()
     }
 }
 
 impl PostgresConfig {
-    /// Validate if all settings are valid
-    pub fn validate(&self) -> ConfigFileResult<()> {
-        if self.pool_size.is_some_and(|size| size < 1) {
-            return Err(ConfigFileError::PostgresPoolSizeInvalid);
-        }
-        if self.connection_string.is_none() {
-            return Err(ConfigFileError::PostgresConnectionStringMissing);
-        }
-
-        Ok(())
-    }
-
-    pub fn finalize(&mut self, prefix: &str) -> ConfigFileResult<UnrecognizedKeys> {
-        if self.tables.is_none() && self.functions.is_none() && self.auto_publish.is_none() {
-            self.auto_publish = OptBoolObj::Bool(true);
-        }
-
-        self.validate()?;
-        Ok(self
-            .get_unrecognized_keys()
-            .into_iter()
-            .map(|k| format!("{prefix}{k}"))
-            .collect())
-    }
-
     pub async fn resolve(&mut self, id_resolver: IdResolver) -> MartinResult<Vec<BoxedSource>> {
         let pg = PostgresAutoDiscoveryBuilder::new(self, id_resolver).await?;
         let inst_tables = on_slow(
@@ -223,7 +198,22 @@ impl PostgresConfig {
     }
 }
 
-impl ConfigExtras for PostgresConfig {
+impl ConfigurationLivecycleHooks for PostgresConfig {
+    fn finalize(&mut self) -> ConfigFileResult<()> {
+        if self.tables.is_none() && self.functions.is_none() && self.auto_publish.is_none() {
+            self.auto_publish = OptBoolObj::Bool(true);
+        }
+
+        if self.pool_size.is_some_and(|size| size < 1) {
+            return Err(ConfigFileError::PostgresPoolSizeInvalid);
+        }
+        if self.connection_string.is_none() {
+            return Err(ConfigFileError::PostgresConnectionStringMissing);
+        }
+
+        Ok(())
+    }
+
     fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
         let mut keys = self
             .unrecognized
