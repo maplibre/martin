@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 use subst::VariableMap;
 
 #[cfg(any(
-    feature = "cog",
+    feature = "experimental-cog",
     feature = "mbtiles",
     feature = "pmtiles",
     feature = "sprites",
@@ -61,7 +61,7 @@ pub struct Config {
     #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
     pub mbtiles: FileConfigEnum<super::mbtiles::MbtConfig>,
 
-    #[cfg(feature = "cog")]
+    #[cfg(feature = "experimental-cog")]
     #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
     pub cog: FileConfigEnum<super::cog::CogConfig>,
 
@@ -107,7 +107,7 @@ impl Config {
         #[cfg(feature = "mbtiles")]
         res.extend(self.mbtiles.finalize("mbtiles."));
 
-        #[cfg(feature = "cog")]
+        #[cfg(feature = "experimental-cog")]
         res.extend(self.cog.finalize("cog."));
 
         #[cfg(feature = "sprites")]
@@ -136,7 +136,7 @@ impl Config {
         #[cfg(feature = "mbtiles")]
         let is_empty = is_empty && self.mbtiles.is_empty();
 
-        #[cfg(feature = "cog")]
+        #[cfg(feature = "experimental-cog")]
         let is_empty = is_empty && self.cog.is_empty();
 
         #[cfg(feature = "sprites")]
@@ -219,7 +219,7 @@ impl Config {
             sources.push(Box::pin(val));
         }
 
-        #[cfg(feature = "cog")]
+        #[cfg(feature = "experimental-cog")]
         if !self.cog.is_empty() {
             let cfg = &mut self.cog;
             let val = crate::config::file::resolve_files(cfg, idr, cache.clone(), &["tif", "tiff"]);

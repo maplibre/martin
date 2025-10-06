@@ -12,7 +12,7 @@ rust-version.workspace = true
 homepage.workspace = true
 
 [features]
-default = ["fonts", "styles", "sprites", "mbtiles", "pmtiles", "cog", "postgres"]
+default = ["fonts", "styles", "sprites", "mbtiles", "pmtiles", "experimental-cog", "postgres"]
 postgres = [
     "dep:deadpool-postgres",
     "dep:postgres",
@@ -24,7 +24,7 @@ postgres = [
     "dep:tokio-postgres-rustls",
     "dep:serde_json",
 ]
-cog = ["dep:png", "dep:tiff"]
+experimental-cog = ["dep:png", "dep:tiff"]
 fonts = [
     "dep:bit-set",
     "dep:pbf_font_tools",

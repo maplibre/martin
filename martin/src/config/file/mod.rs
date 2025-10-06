@@ -6,7 +6,7 @@ pub use main::*;
 pub mod cors;
 pub mod srv;
 
-#[cfg(feature = "cog")]
+#[cfg(feature = "experimental-cog")]
 pub mod cog;
 #[cfg(feature = "fonts")]
 pub mod fonts;
