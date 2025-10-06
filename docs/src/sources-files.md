@@ -61,20 +61,19 @@ pmtiles:
     tiles: s3://bucket/path/to/tiles.pmtiles
 ```
 
-The available options are:
+The available options depend on the underlying source:
 
+<details><summary>File Sources (click to expand)</summary>
 
-- <details><summary>File Sources</summary>
+files don't currently support additional options.
 
-  files don't currently support additional options.
-
-  </details>
-- <details><summary>Http(s) Sources</summary>
+</details>
+<details><summary>Http(s) Sources (click to expand)</summary>
 
 {{#include pmtiles/client.md}}
 
-  </details>
-- <details><summary>Amazon S3 Sources</summary>
+</details>
+<details><summary>Amazon S3 Sources (click to expand)</summary>
 
 > [!TIP]
 > All settings are also available under the `aws_` prefix.
@@ -84,8 +83,8 @@ The available options are:
 
 {{#include pmtiles/client.md}}
 
-  </details>
-- <details><summary>Google Cloud Storage Sources</summary>
+</details>
+<details><summary>Google Cloud Storage Sources (click to expand)</summary>
 
 > [!TIP]
 > All settings are also available under the `google_` prefix.
@@ -95,8 +94,8 @@ The available options are:
 
 {{#include pmtiles/client.md}}
 
-  </details>
-- <details><summary>Microsoft Azure Sources</summary>
+</details>
+<details><summary>Microsoft Azure Sources (click to expand)</summary>
 
 > [!TIP]
 > All settings are also available under the `azure_` prefix.
@@ -106,4 +105,4 @@ The available options are:
 
 {{#include pmtiles/client.md}}
 
-  </details>
+</details>

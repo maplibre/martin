@@ -2,8 +2,8 @@
 
 | configuration                | description                                                                                                                                                                                                                                                                                                                                                    | example |
 |------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------|
-| `allow_http`                 | Allow non-TLS, i.e. non-HTTPS connections<br>*Warning*<br>If you enable this option, attackers may be able to read the data you request                                                                                                                                                                                                                        | `true`  |
-| `allow_invalid_certificates` | Skip certificate validation on https connections<br>*Warning*<br>You should think very carefully before using this method. If invalid certificates are trusted, any certificate for any site will be trusted for use. This includes expired certificates. This introduces significant vulnerabilities, and should only be used as a last resort or for testing | `true`  |
+| `allow_http`                 | Allow non-TLS, i.e. non-HTTPS connections<br><br>**Security warning:**<br>If you enable this option, attackers may be able to read the data you request                                                                                                                                                                                                                        | `true`  |
+| `allow_invalid_certificates` | Skip certificate validation on https connections<br><br>**Security warning:**<br>You should think very carefully before using this method. If invalid certificates are trusted, any certificate for any site will be trusted for use. This includes expired certificates. This introduces significant vulnerabilities, and should only be used as a last resort or for testing | `true`  |
 
 
 ### Connection options
@@ -29,5 +29,5 @@
 | configuration          | description                                        | example                         |
 |------------------------|----------------------------------------------------|---------------------------------|
 | `proxy_url`            | HTTP proxy to use for requests                     | `http://proxy.example.com:8080` |
-| `proxy_ca_certificate` | PEM-formatted CA certificate for proxy connections | ``                              |
-| `proxy_excludes`       | List of hosts that bypass proxy                    | ``                              |
+| `proxy_ca_certificate` | PEM-formatted CA certificate for proxy connections | `-----BEGIN CERTIFICATE-----`<br>...<br>`-----END CERTIFICATE-----`                              |
+| `proxy_excludes`       | List of hosts that bypass proxy                    | `example.com`, `maplibre.org`   |
