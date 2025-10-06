@@ -47,26 +47,36 @@ The available url schemes are:
 
 {{#tabs }}
 {{#tab name="local file system" }}
+
 - `file:///path/to/my/file`
 - `path/to/my/file`
+
 {{#endtab }}
 {{#tab name="Http(s)" }}
+
 - `http://mydomain/path`
 - `https://mydomain/path`
+
 {{#endtab }}
 {{#tab name="Amazon S3" }}
+
 - `s3://bucket/path`
 - `s3a://bucket/path`
+
 {{#endtab }}
 {{#tab name="Google Cloud Storage" }}
+
 - `gs://bucket/path`
+
 {{#endtab }}
 {{#tab name="Microsoft Azure" }}
+
 - `az://account/container/path`
 - `adl://account/container/path`
 - `azure://account/container/path`
 - `abfs://account/container/path`
 - `abfss://account/container/path`
+
 {{#endtab }}
 {{#endtabs}}
 
