@@ -18,7 +18,7 @@ pub enum MartinCoreError {
     PmtilesError(#[from] super::pmtiles::PmtilesError),
 
     /// Errors that can occur during [`cog`](crate::tiles::cog) processing operations.
-    #[cfg(feature = "cog")]
+    #[cfg(feature = "unstable-cog")]
     #[error(transparent)]
     CogError(#[from] super::cog::CogError),
 
