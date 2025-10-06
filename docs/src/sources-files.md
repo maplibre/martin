@@ -24,7 +24,7 @@ martin  /path/to/directory
 ```
 
 > [!WARNING]
-> For remote Pmtiles, we don't currently support autodiscovery.
+> For remote PMTiles, we don't currently support auto-discovery.
 > If you want to implement this feature, please see <https://github.com/maplibre/martin/issues/2180>
 >
 > We also don't currently support refreshing the catalog at runtime.
