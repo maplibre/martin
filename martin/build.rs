@@ -1,3 +1,8 @@
+#![expect(
+    clippy::panic,
+    reason = "panics in build.rs generate better error messages, are easier to debug and are fatal anyway"
+)]
+
 #[cfg(feature = "webui")]
 use std::fs;
 #[cfg(feature = "webui")]

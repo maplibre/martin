@@ -3,7 +3,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::config::file::srv::{KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT, SrvConfig};
 
-#[allow(clippy::doc_markdown)]
+#[expect(
+    clippy::doc_markdown,
+    reason = "for command line arguments, formatting `TileJSON` is awkward"
+)]
 #[derive(clap::Args, Debug, PartialEq, Default)]
 #[command(about, version)]
 pub struct SrvArgs {

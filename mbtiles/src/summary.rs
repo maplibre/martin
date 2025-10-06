@@ -1,4 +1,4 @@
-#![allow(
+#![expect(
     clippy::cast_possible_truncation,
     clippy::cast_precision_loss,
     clippy::cast_sign_loss
@@ -197,8 +197,6 @@ impl Mbtiles {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unreadable_literal)]
-
     use insta::assert_yaml_snapshot;
 
     use crate::metadata::anonymous_mbtiles;

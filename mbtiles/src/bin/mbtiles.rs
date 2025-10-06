@@ -33,7 +33,6 @@ pub struct Args {
     command: Commands,
 }
 
-#[allow(clippy::doc_markdown)]
 #[derive(Subcommand, PartialEq, Debug)]
 enum Commands {
     /// Show `MBTiles` file summary statistics
@@ -94,7 +93,7 @@ enum Commands {
     Validate {
         /// `MBTiles` file to validate
         file: PathBuf,
-        /// Value to specify the extent of the SQLite integrity check performed
+        /// Value to specify the extent of the `SQLite` integrity check performed
         #[arg(long, value_enum, default_value_t=IntegrityCheckType::default())]
         integrity_check: IntegrityCheckType,
         /// Update `agg_tiles_hash` metadata value instead of using it to validate if the entire tile store is valid.
@@ -106,7 +105,6 @@ enum Commands {
     },
 }
 
-#[allow(clippy::doc_markdown)]
 #[derive(Clone, Default, PartialEq, Debug, clap::Args)]
 pub struct CopyArgs {
     /// `MBTiles` file to read from
@@ -130,7 +128,6 @@ pub struct CopyArgs {
     patch_type: PatchTypeCli,
 }
 
-#[allow(clippy::doc_markdown)]
 #[derive(Clone, Default, PartialEq, Debug, clap::Args)]
 pub struct DiffArgs {
     /// First `MBTiles` file to compare
@@ -147,7 +144,10 @@ pub struct DiffArgs {
     pub options: SharedCopyOpts,
 }
 
-#[allow(clippy::doc_markdown)]
+#[expect(
+    clippy::doc_markdown,
+    reason = "for command line arguments, formatting `TileJSON` is awkward"
+)]
 #[derive(Clone, Default, PartialEq, Debug, clap::Args)]
 pub struct SharedCopyOpts {
     /// Limit what gets copied.

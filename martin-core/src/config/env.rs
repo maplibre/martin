@@ -54,7 +54,7 @@ pub struct OsEnv(RefCell<HashSet<String>>);
 
 impl Env<'_> for OsEnv {
     fn var_os(&self, key: &str) -> Option<OsString> {
-        #[allow(unused_qualifications)]
+        #[expect(unused_qualifications)]
         std::env::var_os(key)
     }
 

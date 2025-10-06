@@ -303,7 +303,7 @@ enum MartinCpError {
 }
 
 impl Display for Progress {
-    #[allow(clippy::cast_precision_loss)]
+    #[expect(clippy::cast_precision_loss)]
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let elapsed = self.start_time.elapsed();
         let elapsed_s = elapsed.as_secs_f32();
@@ -357,7 +357,7 @@ fn check_sources(args: &CopyArgs, state: &ServerState) -> Result<String, MartinC
         }
     }
 }
-#[allow(clippy::too_many_lines)]
+#[expect(clippy::too_many_lines)]
 async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()> {
     let output_file = &args.output_file;
     let concurrency = args.concurrency.get();

@@ -130,7 +130,7 @@ impl PostgresAutoDiscoveryBuilder {
     }
 
     /// Discovers and instantiates table-based tile sources.
-    #[allow(clippy::too_many_lines)]
+    #[expect(clippy::too_many_lines)]
     pub async fn instantiate_tables(&self) -> PostgresResult<(Vec<BoxedSource>, TableInfoSources)> {
         // FIXME: this function has gotten too long due to the new formatting rules, need to be refactored
         let mut db_tables_info = query_available_tables(&self.pool).await?;
@@ -542,7 +542,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::too_many_lines)]
+    #[expect(clippy::too_many_lines)]
     fn test_auto_publish_no_auto() {
         let cfg = auto("{}");
         assert_yaml_snapshot!(cfg, @r#"
