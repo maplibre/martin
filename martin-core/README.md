@@ -12,10 +12,10 @@ The library providing the basic building blocks for [Martin](https://maplibre.or
 
 - tiles
   - [x] mbtiles
-  - [ ] pmtiles
+  - [x] pmtiles
   - [x] cog
-  - [ ] postgres tables
-  - [ ] postgres functions
+  - [x] postgres tables
+  - [x] postgres functions
 - resources
   - [x] sprites
   - [x] fonts

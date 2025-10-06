@@ -80,27 +80,27 @@ impl Display for Summary {
             )?;
         }
 
-        if self.zoom_info.len() > 1 {
-            if let (Some(min), Some(max), Some(bbox), Some(max_zoom)) = (
+        if self.zoom_info.len() > 1
+            && let (Some(min), Some(max), Some(bbox), Some(max_zoom)) = (
                 self.min_tile_size,
                 self.max_tile_size,
                 self.bbox,
                 self.max_zoom,
-            ) {
-                let min = SizeFormatterBinary::new(min);
-                let max = SizeFormatterBinary::new(max);
-                let avg = SizeFormatterBinary::new(self.avg_tile_size as u64);
-                let prec = get_zoom_precision(max_zoom);
-                writeln!(
-                    f,
-                    " {:>4} | {:>9} | {:>9} | {:>9} | {:>9} | {bbox:.prec$}",
-                    "all",
-                    self.tile_count,
-                    format!("{min}B"),
-                    format!("{max}B"),
-                    format!("{avg}B"),
-                )?;
-            }
+            )
+        {
+            let min = SizeFormatterBinary::new(min);
+            let max = SizeFormatterBinary::new(max);
+            let avg = SizeFormatterBinary::new(self.avg_tile_size as u64);
+            let prec = get_zoom_precision(max_zoom);
+            writeln!(
+                f,
+                " {:>4} | {:>9} | {:>9} | {:>9} | {:>9} | {bbox:.prec$}",
+                "all",
+                self.tile_count,
+                format!("{min}B"),
+                format!("{max}B"),
+                format!("{avg}B"),
+            )?;
         }
 
         Ok(())
@@ -193,15 +193,16 @@ mod tests {
 
     use insta::assert_yaml_snapshot;
 
-    use crate::{MbtResult, MbtType, Mbtiles, init_mbtiles_schema};
+    use crate::metadata::anonymous_mbtiles;
+    use crate::{MbtType, Mbtiles, init_mbtiles_schema};
 
     #[actix_rt::test]
-    async fn summary_empty_file() -> MbtResult<()> {
-        let mbt = Mbtiles::new("file:mbtiles_empty_summary?mode=memory&cache=shared")?;
-        let mut conn = mbt.open().await?;
+    async fn summary_empty_file() {
+        let mbt = Mbtiles::new(":memory:").unwrap();
+        let mut conn = mbt.open().await.unwrap();
 
         init_mbtiles_schema(&mut conn, MbtType::Flat).await.unwrap();
-        let res = mbt.summary(&mut conn).await?;
+        let res = mbt.summary(&mut conn).await.unwrap();
         assert_yaml_snapshot!(res, @r"
         file_size: ~
         mbt_type: Flat
@@ -216,22 +217,19 @@ mod tests {
         max_zoom: ~
         zoom_info: []
         ");
-
-        Ok(())
     }
 
     #[actix_rt::test]
-    async fn summary() -> MbtResult<()> {
-        let mbt = Mbtiles::new("../tests/fixtures/mbtiles/world_cities.mbtiles")?;
-        let mut conn = mbt.open().await?;
-
-        let res = mbt.summary(&mut conn).await?;
+    async fn summary() {
+        let script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
+        let (mbt, mut conn) = anonymous_mbtiles(script).await;
+        let res = mbt.summary(&mut conn).await.unwrap();
 
         assert_yaml_snapshot!(res, @r"
-        file_size: 49152
+        file_size: ~
         mbt_type: Flat
         page_size: 4096
-        page_count: 12
+        page_count: 11
         tile_count: 196
         min_tile_size: 64
         max_tile_size: 1107
@@ -315,7 +313,5 @@ mod tests {
               - 180.00000000000003
               - 61.60639637138628
         ");
-
-        Ok(())
     }
 }

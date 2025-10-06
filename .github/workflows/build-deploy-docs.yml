@@ -9,11 +9,13 @@ jobs:
   build-docs:
     name: Build Docs
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     concurrency:
       group: ${{ github.workflow }}-${{ github.ref }}
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-      - uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0 # v2.8.0
+      - uses: Swatinem/rust-cache@f13886b937689c021905a6b90929199931d60db1 # v2.8.1
 
       - name: 'Validate .md files (use "just fmt-md" to fix)'
         uses: DavidAnson/markdownlint-cli2-action@992badcdf24e3b8eb7e87ff9287fe931bcb00c6e # v20.0.0
@@ -21,10 +23,10 @@ jobs:
           config: '.github/files/config.markdownlint-cli2.jsonc'
 
       - name: 'Check Markdown URLs (same as "just clippy-md")'
-        uses: gaurav-nelson/github-action-markdown-link-check@5c5dfc0ac2e225883c0e5f03a85311ec2830d368 # v1
+        uses: tcort/github-action-markdown-link-check@a800ad5f1c35bf61987946fd31c15726a1c9f2ba # v1.1.0
         with:
-          use-quiet-mode: 'no'
-          use-verbose-mode: 'yes'
+          use-quiet-mode: 'yes' # only of the checks that failed
+          use-verbose-mode: 'yes' # show status codes
           folder-path: 'docs/src'
           file-path: './README.md'
           config-file: '.github/files/markdown.links.config.json'

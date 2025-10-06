@@ -103,7 +103,7 @@ fn webui() {
 
 fn main() {
     #[cfg(feature = "webui")]
-    if option_env!("RUSTDOC").is_none() {
+    if option_env!("RUSTDOC").is_none() && option_env!("DOCS_RS").is_none() {
         webui();
     }
 }

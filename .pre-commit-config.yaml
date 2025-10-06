@@ -12,7 +12,9 @@ repos:
     rev: v6.0.0
     hooks:
       - id: check-added-large-files
+      - id: check-case-conflict
       - id: check-executables-have-shebangs
+      - id: check-illegal-windows-names
       - id: check-json
         exclude: ".+/tsconfig.json"
       - id: check-shebang-scripts-are-executable
@@ -45,6 +47,7 @@ repos:
   - repo: https://github.com/sqlfluff/sqlfluff
     rev: 3.4.2
     hooks:
+        # 1. Postgres dialect for general .sql files, excluding sqlite dirs
       - id: sqlfluff-fix
         # AL07: Avoid table aliases in from clauses and join conditions <- we sometimes do this for long names
         # LT05: Line is too long <- not useful. mostly triggers for comments
@@ -52,6 +55,15 @@ repos:
         # If you update this rule, please also update the rules in justfile, the fmt-sql recipe
         args: [ --dialect=postgres, "--exclude-rules=AL07,LT05,LT12" ]
         files: \.sql$
+        exclude: ^tests/fixtures/(mbtiles|files)/.*\.sql$
+
+        # 2. SQLite dialect for .sql files in specific directories
+      - id: sqlfluff-fix
+        # LT01: Layout spacing adds space between x and 'blob' breaking the blobs
+        args: [--dialect=sqlite, "--exclude-rules=LT01,LT05"]
+        files: ^tests/fixtures/(mbtiles|files)/.*\.sql$
+
+  # TODO: Add NPM hooks for formatting and linting
   # NPM hooks for JavaScript/TypeScript formatting and linting
   - repo: https://github.com/biomejs/pre-commit
     rev: "v2.2.4"  # Use the sha / tag you want to point at

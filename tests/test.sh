@@ -29,13 +29,21 @@ mkdir -p "$TEST_TEMP_DIR"
 
 # Verify the tools used in the tests are available
 # todo add more verification for other tools like jq file curl sqlite3...
-if [[ $OSTYPE == linux* ]]; then # We only used ogrmerge.py on Linux see the test_pbf() function
+if [[ $OSTYPE == linux* || $OSTYPE == darwin* ]]; then
   if ! command -v ogrmerge.py > /dev/null; then
   echo "gdal-bin is required for testing"
-  echo "For Ubuntu, you could install it with sudo apt update && sudo apt install gdal-bin -y"
-  echo "see more at https://gdal.org/en/stable/download.html#binaries"
+  echo "See https://gdal.org/en/stable/download.html#binaries"
   exit 1
   fi
+fi
+
+if [[ $(sed --version 2> /dev/null) > /dev/null ]]; then
+  SED=${SED:-sed}
+elif [[ $(gsed --version 2> /dev/null) > /dev/null ]]; then
+  SED=${SED:-gsed}
+else
+  echo 'GNU sed is required for testing'
+  exit 1
 fi
 
 function wait_for {
@@ -100,13 +108,13 @@ test_metrics() {
   URL="$MARTIN_URL/_/metrics"
 
   echo "Testing $1 from $URL"
-  $CURL --dump-header  "$FILENAME.headers" "$URL" | sed -E 's/^(martin_.*?) [\.0-9]+$/\1 NUMBER/g' > "$FILENAME.txt"
+  $CURL --dump-header  "$FILENAME.headers" "$URL" | $SED --regexp-extended 's/^(martin_.*?) [\.0-9]+$/\1 NUMBER/g' > "$FILENAME.txt"
   clean_headers_dump "$FILENAME.headers"
-  $CURL --dump-header  "$FILENAME.fetched_with_compression.headers" --compressed "$URL" | sed -E 's/^(martin_.*?) [\.0-9]+$/\1 NUMBER/g' > "$FILENAME.fetched_with_compression.txt"
+  $CURL --dump-header  "$FILENAME.fetched_with_compression.headers" --compressed "$URL" | $SED --regexp-extended 's/^(martin_.*?) [\.0-9]+$/\1 NUMBER/g' > "$FILENAME.fetched_with_compression.txt"
   clean_headers_dump "$FILENAME.fetched_with_compression.headers"
   # due to slight timing differences, these might be slightly different
-  sed --regexp-extended --in-place 's/^content-length: [\.0-9]+$/content-length: NUMBER/g' "$FILENAME.headers"
-  sed --regexp-extended --in-place 's/^content-length: [\.0-9]+$/content-length: NUMBER/g' "$FILENAME.fetched_with_compression.headers"
+  $SED --regexp-extended --in-place 's/^content-length: [\.0-9]+$/content-length: NUMBER/g' "$FILENAME.headers"
+  $SED --regexp-extended --in-place 's/^content-length: [\.0-9]+$/content-length: NUMBER/g' "$FILENAME.fetched_with_compression.headers"
 }
 
 test_pbf() {
@@ -119,11 +127,16 @@ test_pbf() {
 
   if [[ $OSTYPE == linux* ]]; then
     ./tests/fixtures/vtzero-check "$FILENAME"
-    # see https://gdal.org/en/stable/programs/ogrmerge.html#ogrmerge
-    ogrmerge.py -o "$FILENAME.geojson" "$FILENAME" -single -src_layer_field_name "source_mvt_layer" -src_layer_field_content "{LAYER_NAME}" -f "GeoJSON" -overwrite_ds
-    jq --sort-keys '.features |= sort_by(.properties.source_mvt_layer, .properties.gid) | walk(if type == "number" then .+0.0 else . end)' "$FILENAME.geojson" > "$FILENAME.sorted.geojson"
-    mv "$FILENAME.sorted.geojson" "$FILENAME.geojson"
+  elif [[ $OSTYPE == darwin* ]]; then
+    ./tests/fixtures/vtzero-check-darwin "$FILENAME"
+  else
+    return 0
   fi
+
+  # see https://gdal.org/en/stable/programs/ogrmerge.html#ogrmerge
+  ogrmerge.py -o "$FILENAME.geojson" "$FILENAME" -single -src_layer_field_name "source_mvt_layer" -src_layer_field_content "{LAYER_NAME}" -f "GeoJSON" -overwrite_ds
+  jq --sort-keys '.features |= sort_by(.properties.source_mvt_layer, .properties.gid) | walk(if type == "number" then .+0.0 else . end)' "$FILENAME.geojson" > "$FILENAME.sorted.geojson"
+  mv "$FILENAME.sorted.geojson" "$FILENAME.geojson"
 }
 
 test_png() {
@@ -135,10 +148,10 @@ test_png() {
   $CURL --dump-header  "$FILENAME.headers" "$URL" > "$FILENAME"
   clean_headers_dump "$FILENAME.headers"
 
-  if [[ $OSTYPE == linux* ]]; then
+  if [[ $OSTYPE == linux* || $OSTYPE == darwin* ]]; then
     # some 'file' versions are more verbose, but CI is not
     # we must reduce this to match their output
-    file "$FILENAME" | sed 's#Web/P image, with alpha, 511+1x511+1#Web/P image#' > "$FILENAME.txt"
+    file "$FILENAME" | $SED 's#Web/P image, with alpha, 511+1x511+1#Web/P image#' > "$FILENAME.txt"
   fi
 }
 
@@ -176,15 +189,15 @@ quietly_remove_lines() {
 clean_headers_dump() {
   FILE="$1"
   # now we need to strip the date header as it is undeterministic
-  sed --regexp-extended --in-place "s/date: .+//" "$FILE"
+  $SED --regexp-extended --in-place "s/date: .+//" "$FILE"
   # the http version is not an "header" that we want to assert
-  sed --regexp-extended --in-place "s/HTTP.+//" "$FILE"
+  $SED --regexp-extended --in-place "s/HTTP.+//" "$FILE"
   # need to remove entirely empty lines, \r\n and leading/trailing whitespace
   # sorting is arbitrairy => sort here
-  tr --squeeze-repeats '\r\n' '\n' < "$FILE" | sort > "$FILE.tmp"
+  tr -s '\r\n' '\n' < "$FILE" | sort > "$FILE.tmp"
   mv "$FILE.tmp" "$FILE"
   # we need to remove the first line as squeezing repeat newlines makes does not remove this empty line
-  sed --in-place '1d' "$FILE"
+  $SED --in-place '1d' "$FILE"
 }
 
 test_log_has_str() {
@@ -259,7 +272,7 @@ compare_sql_dbs() {
        }
 }
 
-echo "------------------------------------------------------------------------------------------------------------------------"
+echo "::group::versions"
 curl --version
 jq --version
 grep --version | head -1
@@ -267,24 +280,44 @@ grep --version | head -1
 # Make sure all targets are built - this way it won't timeout while waiting for it to start
 # If set to "-", skip this step (e.g. when testing a pre-built binary)
 if [[ "$MARTIN_BUILD_ALL" != "-" ]]; then
+  echo "::group::Make sure all targets are built. Set MARTIN_BUILD_ALL=- to skip this step."
   rm -rf "$MARTIN_BIN" "$MARTIN_CP_BIN" "$MBTILES_BIN"
   $MARTIN_BUILD_ALL
+  echo "::endgroup::"
 fi
 
-echo "------------------------------------------------------------------------------------------------------------------------"
-echo "Check HTTP server is running"
+echo "::group::Check HTTP server is running"
 $CURL --head "$STATICS_URL/webp2.pmtiles"
+echo "::endgroup::"
 
-echo "------------------------------------------------------------------------------------------------------------------------"
-echo "Test auto configured Martin"
+# Prepare MBTiles from SQL fixtures
+echo "::group::Prepare .mbtiles fixtures from .sql"
+FOLDERS=("tests/fixtures/files" "tests/fixtures/mbtiles")
 
+for folder in "${FOLDERS[@]}"; do
+    echo "Processing folder: $folder"
+
+    # Remove existing .mbtiles files before recreating them
+    rm -f "$folder"/*.mbtiles
+
+    for sql_file in "$folder"/*.sql; do
+        [ -e "$sql_file" ] || continue
+
+        mbtiles_file="${sql_file%.sql}.mbtiles"
+        echo "Creating: $mbtiles_file from $sql_file"
+        sqlite3 "$mbtiles_file" < "$sql_file"
+    done
+done
+echo "::endgroup::"
+
+echo "::group::Test auto configured Martin"
 TEST_NAME="auto"
 LOG_FILE="${LOG_DIR}/${TEST_NAME}.txt"
 TEST_OUT_DIR="${TEST_OUT_BASE_DIR}/${TEST_NAME}"
 mkdir -p "$TEST_OUT_DIR"
 
 
-ARG=(--default-srid 900913 --auto-bounds calc --save-config "${TEST_OUT_DIR}/save_config.yaml" tests/fixtures/mbtiles tests/fixtures/pmtiles tests/fixtures/cog "$STATICS_URL/webp2.pmtiles" s3://pmtilestest/cb_2018_us_zcta510_500k.pmtiles --sprite tests/fixtures/sprites/src1 --font tests/fixtures/fonts/overpass-mono-regular.ttf --font tests/fixtures/fonts --style tests/fixtures/styles/maplibre_demo.json --style tests/fixtures/styles/src2 )
+ARG=(--default-srid 900913 --auto-bounds calc --save-config "${TEST_OUT_DIR}/save_config.yaml" tests/fixtures/mbtiles tests/fixtures/pmtiles tests/fixtures/cog "$STATICS_URL/webp2.pmtiles" s3://pmtilestest/cb_2018_us_zcta510_500k.pmtiles --sprite tests/fixtures/sprites/src1 --font tests/fixtures/fonts/overpass-mono-regular.ttf --font tests/fixtures/fonts --style tests/fixtures/styles/maplibre_demo.json --style tests/fixtures/styles/src2 --tilejson-url-version-param version )
 export DATABASE_URL="$MARTIN_DATABASE_URL"
 
 set -x
@@ -415,11 +448,9 @@ test_log_has_str "$LOG_FILE" 'was renamed to `view_name_existing_two_schemas.1`'
 test_log_has_str "$LOG_FILE" 'was renamed to `table_and_view_two_schemas.1`'
 validate_log "$LOG_FILE"
 remove_lines "${TEST_OUT_DIR}/save_config.yaml" " connection_string: "
+echo "::endgroup::"
 
-
-echo "------------------------------------------------------------------------------------------------------------------------"
-echo "Test minimum auto configured Martin"
-
+echo "::group::Test minimum auto configured Martin"
 TEST_NAME="auto_mini"
 LOG_FILE="${LOG_DIR}/${TEST_NAME}.txt"
 TEST_OUT_DIR="${TEST_OUT_BASE_DIR}/${TEST_NAME}"
@@ -439,11 +470,9 @@ test_jsn catalog_auto catalog
 
 kill_process "$MARTIN_PROC_ID" Martin
 validate_log "$LOG_FILE"
+echo "::endgroup::"
 
-
-echo "------------------------------------------------------------------------------------------------------------------------"
-echo "Test pre-configured Martin"
-
+echo "::group::Test pre-configured Martin"
 TEST_NAME="configured"
 LOG_FILE="${LOG_DIR}/${TEST_NAME}.txt"
 TEST_OUT_DIR="${TEST_OUT_BASE_DIR}/${TEST_NAME}"
@@ -535,11 +564,10 @@ test_log_has_str "$LOG_FILE" "WARN  martin::config::file::main] Ignoring unrecog
 test_log_has_str "$LOG_FILE" "WARN  martin::config::file::main] Ignoring unrecognized configuration key 'styles.warning'. Please check your configuration file for typos."
 validate_log "$LOG_FILE"
 remove_lines "${TEST_OUT_DIR}/save_config.yaml" " connection_string: "
-
-echo "------------------------------------------------------------------------------------------------------------------------"
-echo "Test martin-cp"
+echo "::endgroup::"
 
 if [[ "$MARTIN_CP_BIN" != "-" ]]; then
+  echo "::group::Test martin-cp"
   TEST_NAME="martin-cp"
   TEST_OUT_DIR="${TEST_OUT_BASE_DIR}/${TEST_NAME}"
   mkdir -p "$TEST_OUT_DIR"
@@ -570,16 +598,38 @@ if [[ "$MARTIN_CP_BIN" != "-" ]]; then
   test_martin_cp "no-source" ./tests/fixtures/mbtiles/world_cities.mbtiles \
       --mbtiles-type flat --concurrency 3 \
       --min-zoom 0 --max-zoom 6 "--bbox=-2,-1,142.84,45" \
-      --set-meta "generator=martin-cp v0.0.0" \
+      --set-meta "generator=martin-cp v0.0.0"
 
+  echo "::endgroup::"
 else
   echo "Skipping martin-cp tests"
 fi
 
+# If we don't do this, rounding differences on CI and local machines are a problem
+echo "::group::redact unnecessary precision in *_config.yaml and *.json"
+for file in $(find ./tests/ -name "*_config.yaml" -type f); do
+    echo "truncating floats in $file"
+    "$SED" --regexp-extended --in-place 's/(-?[0-9]+\.[0-9]{10})[0-9]+$/\1 # truncated to 10 digits/g' "$file"
+    "$SED" --regexp-extended --in-place 's/0+ # truncated/ # truncated/g' "$file"
+done
+for file in $(find ./tests/ -name "*.json" -type f); do
+    echo "truncating floats in $file"
+    # Use jq to truncate floating point numbers to 10 decimal places
+    jq --sort-keys 'walk(if type == "number" then (. * 10000000000 | round | . / 10000000000) else . end)' "$file" > "$file.tmp"
 
-echo "------------------------------------------------------------------------------------------------------------------------"
-echo "Test mbtiles utility"
+    # update headers if content changed
+    if ! cmp -s "$file" "$file.tmp"; then
+        if [[ -f "$file.headers" ]]; then
+            "$SED" --regexp-extended --in-place 's/^etag: .*/etag: "unstable due to floating-point rounding"/g' "$file.headers"
+        fi
+    fi
+
+    mv "$file.tmp" "$file"
+done
+echo "::endgroup::"
+
 if [[ "$MBTILES_BIN" != "-" ]]; then
+  echo "::group::Test mbtiles utility"
 
   TEST_NAME="mbtiles"
   TEST_OUT_DIR="${TEST_OUT_BASE_DIR}/${TEST_NAME}"
@@ -699,6 +749,7 @@ if [[ "$MBTILES_BIN" != "-" ]]; then
   fi
 
   { set +x; } 2> /dev/null
+  echo "::endgroup::"
 else
   echo "Skipping mbtiles utility tests"
 fi
