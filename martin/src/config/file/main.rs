@@ -93,9 +93,9 @@ impl Config {
         #[cfg(feature = "postgres")]
         {
             let pg_prefix = if matches!(self.postgres, OptOneMany::One(_)) {
-                "postgres"
+                "postgres."
             } else {
-                "postgres[]"
+                "postgres[]."
             };
             for pg in self.postgres.iter_mut() {
                 pg.finalize()?;
