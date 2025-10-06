@@ -17,7 +17,6 @@ export CARGO_TERM_COLOR := 'always'
 # Set AWS variables for testing pmtiles from S3
 export AWS_SKIP_CREDENTIALS := '1'
 export AWS_REGION := 'eu-central-1'
-
 #export RUST_LOG := 'debug'
 #export RUST_LOG := 'sqlx::query=info,trace'
 #export RUST_BACKTRACE := '1'
@@ -96,7 +95,7 @@ bless-int:
     rm -rf tests/expected && mv tests/output tests/expected
 
 # Build and open mdbook documentation
-book:  (cargo-install 'mdbook') (cargo-install 'mdbook-alerts')
+book:  (cargo-install 'mdbook') (cargo-install 'mdbook-alerts') (cargo-install 'mdbook-tabs')
     mdbook serve docs --open --port 8321
 
 # Quick compile without building a binary

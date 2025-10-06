@@ -227,15 +227,18 @@ postgres:
 
 # Publish PMTiles files from local disk or proxy to a web server
 pmtiles:
-  # Allows forcing path style URLs for S3 buckets [default: false]
+  # You can pass options for pmtiles files located on remote storages here.
   #
-  # A path style URL is a URL that uses the bucket name as part of the path like
-  # example.org/some_bucket instead of the hostname some_bucket.example.org
-  force_path_style: false
-  # Skip loading credentials for S3 buckets [default: false]
+  # The avaliable options are documented here:
+  # - local file sources don't have options
+  # - Http(s) Source: https://docs.rs/object_store/latest/object_store/http/struct.HttpBuilder.html
+  # - Amazon S3: https://docs.rs/object_store/latest/object_store/aws/struct.AmazonS3Builder.html
+  # - Google Cloud Storage: https://docs.rs/object_store/latest/object_store/gcp/struct.GoogleCloudStorageBuilder.html
+  # - Microsoft Azure: https://docs.rs/object_store/latest/object_store/azure/struct.MicrosoftAzureBuilder.html
   #
-  # Set this to true to request anonymously for publicly available buckets.
-  skip_credentials: false
+  # Example for configuring a source to allow http
+  allow_http: true
+
   paths:
     # scan this whole dir, matching all *.pmtiles files
     - /dir-path

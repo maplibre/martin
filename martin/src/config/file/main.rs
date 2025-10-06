@@ -105,6 +105,9 @@ impl Config {
 
         #[cfg(feature = "pmtiles")]
         {
+            // if a pmtiles source were to keep being configured like this,
+            // we would not be able to migrate defaults/deprecate settings
+            self.pmtiles = self.pmtiles.clone().into_config();
             self.pmtiles.finalize()?;
             res.extend(self.pmtiles.get_unrecognized_keys_with_prefix("pmtiles."));
         }
