@@ -30,6 +30,7 @@
         <link rel="stylesheet" id="ayu-highlight-css" href="ayu-highlight.css">
 
         <!-- Custom theme stylesheets -->
+        <link rel="stylesheet" href="theme/tabs.css">
 
 
         <!-- Provide site root and default themes to javascript -->
@@ -1154,17 +1155,6 @@ See also <a href="pg-connections.html#postgresql-ssl-connections">SSL configurat
 <tr><td><code>PGSSLKEY</code> <br/> <code>ssl_key</code></td><td><code>./postgresql.key</code></td><td>A file with the key for the client SSL certificate. <a href="https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNECT-SSLKEY">docs</a></td></tr>
 <tr><td><code>PGSSLROOTCERT</code> <br/> <code>ssl_root_cert</code></td><td><code>./root.crt</code></td><td>A file with trusted root certificate(s). The file should contain a sequence of PEM-formatted CA certificates. <a href="https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNECT-SSLROOTCERT">docs</a></td></tr>
 <tr><td><code>AWS_LAMBDA_RUNTIME_API</code> <br/> -</td><td></td><td>If defined, connect to AWS Lambda to handle requests. The regular HTTP server is not used. See <a href="run-with-lambda.html">Running in AWS Lambda</a></td></tr>
-</tbody></table>
-</div>
-<p>To <a href="sources-files.html#serving-pmtiles-via-s3">access PMTiles via S3</a>, we also support the following configuration options:</p>
-<div class="table-wrapper"><table><thead><tr><th>Environment var <br/> Config File key</th><th>Example</th><th>Description</th></tr></thead><tbody>
-<tr><td><code>AWS_ACCESS_KEY_ID</code> <br/> -</td><td><code>AKIAEXAMPLE12345678</code></td><td>AWS access key ID used for authenticating requests when using long-term or temporary credentials.</td></tr>
-<tr><td><code>AWS_SECRET_ACCESS_KEY</code> <br/> -</td><td><code>wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY</code></td><td>AWS secret access key paired with the access key ID.</td></tr>
-<tr><td><code>AWS_SESSION_TOKEN</code> <br/> -</td><td><code>FwoGZXIvYXdzEF0aD...</code></td><td>Session token used with temporary security credentials (e.g., from AWS STS). Required if you’re using <code>AssumeRole</code>.</td></tr>
-<tr><td><code>AWS_PROFILE</code> <br/> -</td><td><code>default</code></td><td>Specifies which named profile to use from the AWS credentials/config files.</td></tr>
-<tr><td><code>AWS_REGION</code> <br/> -</td><td><code>us-west-2</code></td><td>Sets the AWS region to send requests to, e.g., <code>us-east-1</code>, <code>eu-central-1</code>.</td></tr>
-<tr><td><code>AWS_SKIP_CREDENTIALS</code> <br/> <code>pmtiles.skip_credentials</code></td><td><code>true</code></td><td>Disable credential loading and to send requests anonymously for publicly available buckets. Default: <code>true</code></td></tr>
-<tr><td><code>AWS_S3_FORCE_PATH_STYLE</code> <br/> <code>pmtiles.force_path_style</code></td><td><code>true</code></td><td>Forces the AWS SDK to use path-style URLs for S3 like <code>s3.amazonaws.com/bucket/key</code> instead of virtual-hosted style. Useful for local S3-compatible services like MinIO.</td></tr>
 </tbody></table>
 </div><div style="break-before: page; page-break-before: always;"></div><style>
 .mdbook-alerts {
@@ -2350,15 +2340,18 @@ postgres:
 
 # Publish PMTiles files from local disk or proxy to a web server
 pmtiles:
-  # Allows forcing path style URLs for S3 buckets [default: false]
+  # You can pass options for pmtiles files located on remote storages here.
   #
-  # A path style URL is a URL that uses the bucket name as part of the path like
-  # example.org/some_bucket instead of the hostname some_bucket.example.org
-  force_path_style: false
-  # Skip loading credentials for S3 buckets [default: false]
+  # The avaliable options are documented here:
+  # - local file sources don't have options
+  # - Http(s) Source: https://docs.rs/object_store/latest/object_store/http/struct.HttpBuilder.html
+  # - Amazon S3: https://docs.rs/object_store/latest/object_store/aws/struct.AmazonS3Builder.html
+  # - Google Cloud Storage: https://docs.rs/object_store/latest/object_store/gcp/struct.GoogleCloudStorageBuilder.html
+  # - Microsoft Azure: https://docs.rs/object_store/latest/object_store/azure/struct.MicrosoftAzureBuilder.html
   #
-  # Set this to true to request anonymously for publicly available buckets.
-  skip_credentials: false
+  # Example for configuring a source to allow http
+  allow_http: true
+
   paths:
     # scan this whole dir, matching all *.pmtiles files
     - /dir-path
@@ -2619,37 +2612,360 @@ the directory with <code>*.mbtiles</code> or <code>*.pmtiles</code> files. A pat
 </code></pre>
 <p>You may also want to generate a <a href="config-file.html">config file</a> using the <code>--save-config my-config.yaml</code>, and later edit
 it and use it with <code>--config my-config.yaml</code> option.</p>
-<h3 id="serving-pmtiles-via-s3"><a class="header" href="#serving-pmtiles-via-s3">Serving PMTiles via S3</a></h3>
-<h4 id="authentication-with-aws-credentials"><a class="header" href="#authentication-with-aws-credentials">Authentication with AWS credentials</a></h4>
-<p>Martin supports authenticated S3 sources using environment variables.</p>
-<p>By default, Martin will use default profile’s credentials unless these <a href="https://docs.aws.amazon.com/sdkref/latest/guide/creds-config-files.html">AWS environment variables</a> are set:</p>
+<div class="mdbook-alerts mdbook-alerts-tip">
+<p class="mdbook-alerts-title">
+  <span class="mdbook-alerts-icon"></span>
+  tip
+</p>
+<p>See <a href="sources-tiles.html">our tile sources explanation</a> for a more detailed explanation on the difference between our available data sources.</p>
+</div>
+<h3 id="autodiscovery"><a class="header" href="#autodiscovery">Autodiscovery</a></h3>
+<p>For mbtiles or local pmtiles files, we support auto discovering at startup.
+This means that the following will discover all mbtiles and pmtiles files in the directory:</p>
+<pre><code class="language-bash">martin  /path/to/directory
+</code></pre>
+<div class="mdbook-alerts mdbook-alerts-warning">
+<p class="mdbook-alerts-title">
+  <span class="mdbook-alerts-icon"></span>
+  warning
+</p>
+<p>For remote PMTiles, we don’t currently support auto-discovery.
+If you want to implement this feature, please see <a href="https://github.com/maplibre/martin/issues/2180">https://github.com/maplibre/martin/issues/2180</a></p>
+<p>We also don’t currently support refreshing the catalog at runtime.
+If you want to implement this feature, please see <a href="https://github.com/maplibre/martin/issues/288">https://github.com/maplibre/martin/issues/288</a> instead.</p>
+</div>
+<h3 id="serving-pmtiles-from-object-storage"><a class="header" href="#serving-pmtiles-from-object-storage">Serving PMTiles from Object Storage</a></h3>
+<p>Next to local files and remote HTTP sources, we support serving PMTiles from object storage.
+All major cloud providers, including AWS S3, Google Cloud Storage, and Azure Blob Storage are supported.
+The providers differ in the options they support.</p>
+<p>To serve PMTiles from a provider, you need to provide the bucket name and the prefix of the object key.
+For example:</p>
+<pre><code class="language-bash">martin  s3://my-bucket/tiles.pmtiles
+</code></pre>
+<p>The available url schemes are:</p>
+<div class="mdbook-tabs-container">
+<nav class="mdbook-tabs">
+<button class="mdbook-tab active" data-tabname="local file system">local file system</button>
+<button class="mdbook-tab" data-tabname="Http(s)">Http(s)</button>
+<button class="mdbook-tab" data-tabname="Amazon S3">Amazon S3</button>
+<button class="mdbook-tab" data-tabname="Google Cloud Storage">Google Cloud Storage</button>
+<button class="mdbook-tab" data-tabname="Microsoft Azure">Microsoft Azure</button>
+</nav>
+<div class="mdbook-tab-content" data-tabname="local file system">
 <ul>
-<li><code>AWS_ACCESS_KEY_ID</code></li>
-<li><code>AWS_SECRET_ACCESS_KEY</code></li>
-<li><code>AWS_SESSION_TOKEN</code></li>
-<li><code>AWS_PROFILE</code> - to specify profile instead of access key variables</li>
-<li><code>AWS_REGION</code> - if set, must match the region of the bucket in the S3 URI</li>
+<li><code>file:///path/to/my/file</code></li>
+<li><code>path/to/my/file</code></li>
 </ul>
-<h4 id="anonymous-credentials"><a class="header" href="#anonymous-credentials">Anonymous credentials</a></h4>
-<p>By default, martin does require credentials for S3 buckets.
-To send requests anonymously for publicly available buckets, set the environment variable <code>AWS_SKIP_CREDENTIALS=1</code> or configuration key <code>skip_credentials: true</code> respectively.</p>
-<p>Note: you still need to set <code>AWS_REGION</code> to the correct region.</p>
-<p>Example configuration:</p>
+</div>
+<div class="mdbook-tab-content hidden" data-tabname="Http(s)">
+<ul>
+<li><code>http://mydomain/path</code></li>
+<li><code>https://mydomain/path</code></li>
+</ul>
+</div>
+<div class="mdbook-tab-content hidden" data-tabname="Amazon S3">
+<ul>
+<li><code>s3://bucket/path</code></li>
+<li><code>s3a://bucket/path</code></li>
+</ul>
+</div>
+<div class="mdbook-tab-content hidden" data-tabname="Google Cloud Storage">
+<ul>
+<li><code>gs://bucket/path</code></li>
+</ul>
+</div>
+<div class="mdbook-tab-content hidden" data-tabname="Microsoft Azure">
+<ul>
+<li><code>az://account/container/path</code></li>
+<li><code>adl://account/container/path</code></li>
+<li><code>azure://account/container/path</code></li>
+<li><code>abfs://account/container/path</code></li>
+<li><code>abfss://account/container/path</code></li>
+</ul>
+</div>
+</div>
+<p>If you want more control over your requests, you can configure additional options here as such:</p>
 <pre><code class="language-yaml">pmtiles:
-  skip_credentials: false
+  allow_http: true
   sources:
     tiles: s3://bucket/path/to/tiles.pmtiles
 </code></pre>
-<h4 id="url-styles"><a class="header" href="#url-styles">Url styles</a></h4>
-<p>We also support forcing path style URLs for S3 buckets via the environment variable <code>AWS_S3_FORCE_PATH_STYLE=1</code> or configuration key <code>force_path_style: true</code>.
-This allows you to use this functionality for <a href="https://min.io/"><code>MinIO</code></a> or similar s3-compatible instances which use path style URLs.
-A path style URL is a URL that uses the bucket name as part of the path (<code>example.org/some_bucket</code>) instead of the hostname (<code>some_bucket.example.org</code>).</p>
-<p>Example configuration:</p>
-<pre><code class="language-yaml">pmtiles:
-  force_path_style: true
-  sources:
-    tiles: s3://bucket/path/to/tiles.pmtiles
-</code></pre>
+<p>The available options depend on the underlying source:</p>
+<div class="mdbook-tabs-container">
+<nav class="mdbook-tabs">
+<button class="mdbook-tab active" data-tabname="local file system">local file system</button>
+<button class="mdbook-tab" data-tabname="Http(s)">Http(s)</button>
+<button class="mdbook-tab" data-tabname="Amazon S3">Amazon S3</button>
+<button class="mdbook-tab" data-tabname="Google Cloud Storage">Google Cloud Storage</button>
+<button class="mdbook-tab" data-tabname="Microsoft Azure">Microsoft Azure</button>
+</nav>
+<div class="mdbook-tab-content" data-tabname="local file system">
+<p>Files don’t currently support additional options.</p>
+</div>
+<div class="mdbook-tab-content hidden" data-tabname="Http(s)">
+<h3 id="security-options"><a class="header" href="#security-options">Security options</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>configuration</th><th>description</th><th>example</th></tr></thead><tbody>
+<tr><td><code>allow_http</code></td><td>Allow non-TLS, i.e. non-HTTPS connections<br><br><strong>Security warning:</strong><br>If you enable this option, attackers may be able to read the data you request</td><td><code>true</code></td></tr>
+<tr><td><code>allow_invalid_certificates</code></td><td>Skip certificate validation on https connections<br><br><strong>Security warning:</strong><br>You should think very carefully before using this method. If invalid certificates are trusted, any certificate for any site will be trusted for use. This includes expired certificates. This introduces significant vulnerabilities, and should only be used as a last resort or for testing</td><td><code>true</code></td></tr>
+</tbody></table>
+</div>
+<h3 id="connection-options"><a class="header" href="#connection-options">Connection options</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>configuration</th><th>description</th><th>example</th></tr></thead><tbody>
+<tr><td><code>user_agent</code></td><td>User-Agent header to be used by this client</td><td><code>martin 1.0.0</code></td></tr>
+<tr><td><code>randomize_addresses</code></td><td>Randomize order addresses that the DNS resolution yields.<br>This will spread the connections across more servers.</td><td><code>true</code></td></tr>
+<tr><td><code>connect_timeout</code></td><td>Timeout for only the connect phase of a Client</td><td><code>5s</code></td></tr>
+<tr><td><code>timeout</code></td><td>The timeout is applied from when the request starts connecting until the response body has finished</td><td><code>10s</code></td></tr>
+<tr><td><code>pool_idle_timeout</code></td><td>The pool max idle timeout</td><td><code>5m</code></td></tr>
+<tr><td><code>pool_max_idle_per_host</code></td><td>maximum number of idle connections per host</td><td><code>10</code></td></tr>
+<tr><td><code>http1_only</code></td><td>Only use http1 connections</td><td><code>false</code></td></tr>
+<tr><td><code>http2_only</code></td><td>Only use http2 connections</td><td><code>false</code></td></tr>
+<tr><td><code>http2_keep_alive_interval</code></td><td>Interval for HTTP2 Ping frames should be sent to keep a connection alive.</td><td><code>15s</code></td></tr>
+<tr><td><code>http2_keep_alive_timeout</code></td><td>Timeout for receiving an acknowledgement of the keep-alive ping.</td><td><code>15s</code></td></tr>
+<tr><td><code>http2_keep_alive_while_idle</code></td><td>Enable HTTP2 keep alive pings for idle connections</td><td><code>true</code></td></tr>
+<tr><td><code>http2_max_frame_size</code></td><td>Sets the maximum frame size to use for HTTP2.</td><td></td></tr>
+</tbody></table>
+</div>
+<h3 id="proxy-settings"><a class="header" href="#proxy-settings">Proxy settings</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>configuration</th><th>description</th><th>example</th></tr></thead><tbody>
+<tr><td><code>proxy_url</code></td><td>HTTP proxy to use for requests</td><td><code>http://proxy.example.com:8080</code></td></tr>
+<tr><td><code>proxy_ca_certificate</code></td><td>PEM-formatted CA certificate for proxy connections</td><td><code>-----BEGIN CERTIFICATE-----</code><br>…<br><code>-----END CERTIFICATE-----</code></td></tr>
+<tr><td><code>proxy_excludes</code></td><td>List of hosts that bypass proxy</td><td><code>example.com</code>, <code>maplibre.org</code></td></tr>
+</tbody></table>
+</div></div>
+<div class="mdbook-tab-content hidden" data-tabname="Amazon S3">
+<div class="mdbook-alerts mdbook-alerts-tip">
+<p class="mdbook-alerts-title">
+  <span class="mdbook-alerts-icon"></span>
+  tip
+</p>
+<p>All settings are also available under the <code>aws_</code> prefix.
+This can be useful if you want to have different cloud providers.</p>
+</div>
+<h3 id="aws-specific-authentication--credentials"><a class="header" href="#aws-specific-authentication--credentials">AWS specific Authentication &amp; Credentials</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>configuration</th><th>description</th><th>example</th></tr></thead><tbody>
+<tr><td><code>access_key_id</code></td><td>AWS Access Key</td><td><code>AKIAIOSFODNN7EXAMPLE</code></td></tr>
+<tr><td><code>secret_access_key</code></td><td>Secret Access Key</td><td><code>wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY</code></td></tr>
+<tr><td><code>session_token</code><br><code>token</code></td><td>AWS session token used for temporary credentials</td><td><code>IQoJb3JpZ2luX2VjEOr...</code></td></tr>
+<tr><td><code>web_identity_token_file</code></td><td>Web identity token file path for AssumeRoleWithWebIdentity</td><td><code>/var/run/secrets/eks.amazonaws.com/serviceaccount/token</code></td></tr>
+<tr><td><code>role_arn</code></td><td>Role ARN to assume with web identity token</td><td><code>arn:aws:iam::123456789012:role/MyWebIdentityRole</code></td></tr>
+<tr><td><code>role_session_name</code></td><td>Session name for web identity assumption</td><td><code>my-session</code></td></tr>
+<tr><td><code>endpoint_url_sts</code></td><td>Custom STS endpoint for web identity token exchange</td><td><code>https://sts.amazonaws.com</code></td></tr>
+</tbody></table>
+</div>
+<h3 id="aws-specific-connection--endpoint-configuration"><a class="header" href="#aws-specific-connection--endpoint-configuration">AWS specific Connection &amp; Endpoint Configuration</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>configuration</th><th>description</th><th>example</th></tr></thead><tbody>
+<tr><td><code>region</code></td><td>AWS region<br>Defaults to <code>us-east-1</code></td><td><code>us-west-2</code></td></tr>
+<tr><td><code>bucket</code><br><code>bucket_name</code></td><td>Bucket name</td><td><code>my-app-bucket</code></td></tr>
+<tr><td><code>endpoint</code><br><code>endpoint_url</code></td><td>Custom S3 endpoint<br>Defaults to regional endpoint<br>Ensure consistency with <code>virtual_hosted_style_request</code><br>By default, <strong>only HTTPS schemes are enabled</strong>; enabling HTTP can expose sensitive data<br>Local testing example: <code>"http://localhost:4566"</code></td><td><code>https://s3.us-west-2.amazonaws.com</code></td></tr>
+<tr><td><code>metadata_endpoint</code></td><td>Instance metadata endpoint (IPv4 default <code>http://169.254.169.254</code>)<br>IPv6 alternative: <code>http://fd00:ec2::254</code></td><td><code>http://169.254.169.254</code></td></tr>
+<tr><td><code>container_credentials_relative_uri</code></td><td>ECS container credentials relative URI</td><td><code>/v2/credentials/12345678-1234-1234-1234-123456789012</code></td></tr>
+<tr><td><code>container_credentials_full_uri</code></td><td>EKS container credentials full URI</td><td><code>http://169.254.170.2/v2/credentials/abc123</code></td></tr>
+<tr><td><code>container_authorization_token_file</code></td><td>Authorization token file for EKS container creds</td><td><code>/var/run/secrets/eks.amazonaws.com/serviceaccount/token</code></td></tr>
+</tbody></table>
+</div>
+<h3 id="aws-specific-request-behavior--fallbacks"><a class="header" href="#aws-specific-request-behavior--fallbacks">AWS specific Request Behavior &amp; Fallbacks</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>configuration</th><th>description</th><th>example</th></tr></thead><tbody>
+<tr><td><code>imdsv1_fallback</code></td><td>Fall back to IMDSv1 if IMDSv2 is <strong>not supported</strong> (useful for older kube2iam deployments)<br><strong>Security note:</strong> AWS recommends IMDSv2 only; IMDSv1 is vulnerable to <a href="https://aws.amazon.com/blogs/security/defense-in-depth-open-firewalls-reverse-proxies-ssrf-vulnerabilities-ec2-instance-metadata-service/">SSRF attacks</a><br>Has no effect if not using instance credentials</td><td><code>true</code></td></tr>
+<tr><td><code>virtual_hosted_style_request</code></td><td>Use virtual-hosted-style requests instead of path-style<br>Endpoint must match the style<br>Ensures correct bucket addressing for security and routing</td><td><code>true</code></td></tr>
+<tr><td><code>skip_signature</code></td><td>Skip signing request<br><strong>Security warning:</strong> Unsigned requests may expose credentials or allow tampering if endpoint is public</td><td><code>true</code></td></tr>
+<tr><td><code>unsigned_payload</code></td><td>Use unsigned payload option (<code>UNSIGNED-PAYLOAD</code>) instead of signed<br><strong>Impact:</strong> Checksums for request body are not computed in canonical requests, which can reduce integrity guarantees<br>Default is signed payload with checksum</td><td><code>true</code></td></tr>
+<tr><td><code>disable_tagging</code></td><td>Disable tagging objects (useful if unsupported by backend)</td><td><code>true</code></td></tr>
+<tr><td><code>s3_express</code></td><td>Enable S3 Express One Zone</td><td><code>true</code></td></tr>
+<tr><td><code>request_payer</code></td><td>Enable S3 Requester Pays</td><td><code>true</code></td></tr>
+</tbody></table>
+</div>
+<h3 id="aws-specific-object-integrity--encryption"><a class="header" href="#aws-specific-object-integrity--encryption">AWS Specific Object Integrity &amp; Encryption</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>configuration</th><th>description</th><th>example</th></tr></thead><tbody>
+<tr><td><code>checksum</code></td><td>Checksum algorithm for uploads</td><td><code>SHA256</code></td></tr>
+<tr><td><code>server_side_encryption</code></td><td>Type of server-side encryption:<br><code>AES256</code> (SSE-S3)<br><code>aws:kms</code> (SSE-KMS)<br><code>aws:kms:dsse</code> (DSSE-KMS)<br><code>sse-c</code></td><td><code>AES256</code></td></tr>
+<tr><td><code>kms_key_id</code></td><td>KMS Key ID for SSE-KMS or DSSE-KMS</td><td><code>arn:aws:kms:us-east-1:123456789012:key/abcd-1234-efgh-5678</code></td></tr>
+<tr><td><code>bucket_key_enabled</code></td><td>Use bucket’s default KMS key (<code>true</code>/<code>false</code>)</td><td><code>true</code></td></tr>
+<tr><td><code>customer_encryption_key</code></td><td>Base64-encoded 256-bit key for SSE-C</td><td><code>MDEyMzQ1Njc4OUFCQ0RFRjAxMjM0NTY3ODlBQkNERUY=</code></td></tr>
+</tbody></table>
+</div>
+<h3 id="security-options-1"><a class="header" href="#security-options-1">Security options</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>configuration</th><th>description</th><th>example</th></tr></thead><tbody>
+<tr><td><code>allow_http</code></td><td>Allow non-TLS, i.e. non-HTTPS connections<br><br><strong>Security warning:</strong><br>If you enable this option, attackers may be able to read the data you request</td><td><code>true</code></td></tr>
+<tr><td><code>allow_invalid_certificates</code></td><td>Skip certificate validation on https connections<br><br><strong>Security warning:</strong><br>You should think very carefully before using this method. If invalid certificates are trusted, any certificate for any site will be trusted for use. This includes expired certificates. This introduces significant vulnerabilities, and should only be used as a last resort or for testing</td><td><code>true</code></td></tr>
+</tbody></table>
+</div>
+<h3 id="connection-options-1"><a class="header" href="#connection-options-1">Connection options</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>configuration</th><th>description</th><th>example</th></tr></thead><tbody>
+<tr><td><code>user_agent</code></td><td>User-Agent header to be used by this client</td><td><code>martin 1.0.0</code></td></tr>
+<tr><td><code>randomize_addresses</code></td><td>Randomize order addresses that the DNS resolution yields.<br>This will spread the connections across more servers.</td><td><code>true</code></td></tr>
+<tr><td><code>connect_timeout</code></td><td>Timeout for only the connect phase of a Client</td><td><code>5s</code></td></tr>
+<tr><td><code>timeout</code></td><td>The timeout is applied from when the request starts connecting until the response body has finished</td><td><code>10s</code></td></tr>
+<tr><td><code>pool_idle_timeout</code></td><td>The pool max idle timeout</td><td><code>5m</code></td></tr>
+<tr><td><code>pool_max_idle_per_host</code></td><td>maximum number of idle connections per host</td><td><code>10</code></td></tr>
+<tr><td><code>http1_only</code></td><td>Only use http1 connections</td><td><code>false</code></td></tr>
+<tr><td><code>http2_only</code></td><td>Only use http2 connections</td><td><code>false</code></td></tr>
+<tr><td><code>http2_keep_alive_interval</code></td><td>Interval for HTTP2 Ping frames should be sent to keep a connection alive.</td><td><code>15s</code></td></tr>
+<tr><td><code>http2_keep_alive_timeout</code></td><td>Timeout for receiving an acknowledgement of the keep-alive ping.</td><td><code>15s</code></td></tr>
+<tr><td><code>http2_keep_alive_while_idle</code></td><td>Enable HTTP2 keep alive pings for idle connections</td><td><code>true</code></td></tr>
+<tr><td><code>http2_max_frame_size</code></td><td>Sets the maximum frame size to use for HTTP2.</td><td></td></tr>
+</tbody></table>
+</div>
+<h3 id="proxy-settings-1"><a class="header" href="#proxy-settings-1">Proxy settings</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>configuration</th><th>description</th><th>example</th></tr></thead><tbody>
+<tr><td><code>proxy_url</code></td><td>HTTP proxy to use for requests</td><td><code>http://proxy.example.com:8080</code></td></tr>
+<tr><td><code>proxy_ca_certificate</code></td><td>PEM-formatted CA certificate for proxy connections</td><td><code>-----BEGIN CERTIFICATE-----</code><br>…<br><code>-----END CERTIFICATE-----</code></td></tr>
+<tr><td><code>proxy_excludes</code></td><td>List of hosts that bypass proxy</td><td><code>example.com</code>, <code>maplibre.org</code></td></tr>
+</tbody></table>
+</div></div>
+<div class="mdbook-tab-content hidden" data-tabname="Google Cloud Storage">
+<div class="mdbook-alerts mdbook-alerts-tip">
+<p class="mdbook-alerts-title">
+  <span class="mdbook-alerts-icon"></span>
+  tip
+</p>
+<p>All settings are also available under the <code>google_</code> prefix.
+This can be useful if you want to have different cloud providers.</p>
+</div>
+<h3 id="aws-specific-authentication--credentials-1"><a class="header" href="#aws-specific-authentication--credentials-1">AWS specific Authentication &amp; Credentials</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>configuration</th><th>description</th><th>example</th></tr></thead><tbody>
+<tr><td><code>access_key_id</code></td><td>AWS Access Key</td><td><code>AKIAIOSFODNN7EXAMPLE</code></td></tr>
+<tr><td><code>secret_access_key</code></td><td>Secret Access Key</td><td><code>wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY</code></td></tr>
+<tr><td><code>session_token</code><br><code>token</code></td><td>AWS session token used for temporary credentials</td><td><code>IQoJb3JpZ2luX2VjEOr...</code></td></tr>
+<tr><td><code>web_identity_token_file</code></td><td>Web identity token file path for AssumeRoleWithWebIdentity</td><td><code>/var/run/secrets/eks.amazonaws.com/serviceaccount/token</code></td></tr>
+<tr><td><code>role_arn</code></td><td>Role ARN to assume with web identity token</td><td><code>arn:aws:iam::123456789012:role/MyWebIdentityRole</code></td></tr>
+<tr><td><code>role_session_name</code></td><td>Session name for web identity assumption</td><td><code>my-session</code></td></tr>
+<tr><td><code>endpoint_url_sts</code></td><td>Custom STS endpoint for web identity token exchange</td><td><code>https://sts.amazonaws.com</code></td></tr>
+</tbody></table>
+</div>
+<h3 id="aws-specific-connection--endpoint-configuration-1"><a class="header" href="#aws-specific-connection--endpoint-configuration-1">AWS specific Connection &amp; Endpoint Configuration</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>configuration</th><th>description</th><th>example</th></tr></thead><tbody>
+<tr><td><code>region</code></td><td>AWS region<br>Defaults to <code>us-east-1</code></td><td><code>us-west-2</code></td></tr>
+<tr><td><code>bucket</code><br><code>bucket_name</code></td><td>Bucket name</td><td><code>my-app-bucket</code></td></tr>
+<tr><td><code>endpoint</code><br><code>endpoint_url</code></td><td>Custom S3 endpoint<br>Defaults to regional endpoint<br>Ensure consistency with <code>virtual_hosted_style_request</code><br>By default, <strong>only HTTPS schemes are enabled</strong>; enabling HTTP can expose sensitive data<br>Local testing example: <code>"http://localhost:4566"</code></td><td><code>https://s3.us-west-2.amazonaws.com</code></td></tr>
+<tr><td><code>metadata_endpoint</code></td><td>Instance metadata endpoint (IPv4 default <code>http://169.254.169.254</code>)<br>IPv6 alternative: <code>http://fd00:ec2::254</code></td><td><code>http://169.254.169.254</code></td></tr>
+<tr><td><code>container_credentials_relative_uri</code></td><td>ECS container credentials relative URI</td><td><code>/v2/credentials/12345678-1234-1234-1234-123456789012</code></td></tr>
+<tr><td><code>container_credentials_full_uri</code></td><td>EKS container credentials full URI</td><td><code>http://169.254.170.2/v2/credentials/abc123</code></td></tr>
+<tr><td><code>container_authorization_token_file</code></td><td>Authorization token file for EKS container creds</td><td><code>/var/run/secrets/eks.amazonaws.com/serviceaccount/token</code></td></tr>
+</tbody></table>
+</div>
+<h3 id="aws-specific-request-behavior--fallbacks-1"><a class="header" href="#aws-specific-request-behavior--fallbacks-1">AWS specific Request Behavior &amp; Fallbacks</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>configuration</th><th>description</th><th>example</th></tr></thead><tbody>
+<tr><td><code>imdsv1_fallback</code></td><td>Fall back to IMDSv1 if IMDSv2 is <strong>not supported</strong> (useful for older kube2iam deployments)<br><strong>Security note:</strong> AWS recommends IMDSv2 only; IMDSv1 is vulnerable to <a href="https://aws.amazon.com/blogs/security/defense-in-depth-open-firewalls-reverse-proxies-ssrf-vulnerabilities-ec2-instance-metadata-service/">SSRF attacks</a><br>Has no effect if not using instance credentials</td><td><code>true</code></td></tr>
+<tr><td><code>virtual_hosted_style_request</code></td><td>Use virtual-hosted-style requests instead of path-style<br>Endpoint must match the style<br>Ensures correct bucket addressing for security and routing</td><td><code>true</code></td></tr>
+<tr><td><code>skip_signature</code></td><td>Skip signing request<br><strong>Security warning:</strong> Unsigned requests may expose credentials or allow tampering if endpoint is public</td><td><code>true</code></td></tr>
+<tr><td><code>unsigned_payload</code></td><td>Use unsigned payload option (<code>UNSIGNED-PAYLOAD</code>) instead of signed<br><strong>Impact:</strong> Checksums for request body are not computed in canonical requests, which can reduce integrity guarantees<br>Default is signed payload with checksum</td><td><code>true</code></td></tr>
+<tr><td><code>disable_tagging</code></td><td>Disable tagging objects (useful if unsupported by backend)</td><td><code>true</code></td></tr>
+<tr><td><code>s3_express</code></td><td>Enable S3 Express One Zone</td><td><code>true</code></td></tr>
+<tr><td><code>request_payer</code></td><td>Enable S3 Requester Pays</td><td><code>true</code></td></tr>
+</tbody></table>
+</div>
+<h3 id="aws-specific-object-integrity--encryption-1"><a class="header" href="#aws-specific-object-integrity--encryption-1">AWS Specific Object Integrity &amp; Encryption</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>configuration</th><th>description</th><th>example</th></tr></thead><tbody>
+<tr><td><code>checksum</code></td><td>Checksum algorithm for uploads</td><td><code>SHA256</code></td></tr>
+<tr><td><code>server_side_encryption</code></td><td>Type of server-side encryption:<br><code>AES256</code> (SSE-S3)<br><code>aws:kms</code> (SSE-KMS)<br><code>aws:kms:dsse</code> (DSSE-KMS)<br><code>sse-c</code></td><td><code>AES256</code></td></tr>
+<tr><td><code>kms_key_id</code></td><td>KMS Key ID for SSE-KMS or DSSE-KMS</td><td><code>arn:aws:kms:us-east-1:123456789012:key/abcd-1234-efgh-5678</code></td></tr>
+<tr><td><code>bucket_key_enabled</code></td><td>Use bucket’s default KMS key (<code>true</code>/<code>false</code>)</td><td><code>true</code></td></tr>
+<tr><td><code>customer_encryption_key</code></td><td>Base64-encoded 256-bit key for SSE-C</td><td><code>MDEyMzQ1Njc4OUFCQ0RFRjAxMjM0NTY3ODlBQkNERUY=</code></td></tr>
+</tbody></table>
+</div>
+<h3 id="security-options-2"><a class="header" href="#security-options-2">Security options</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>configuration</th><th>description</th><th>example</th></tr></thead><tbody>
+<tr><td><code>allow_http</code></td><td>Allow non-TLS, i.e. non-HTTPS connections<br><br><strong>Security warning:</strong><br>If you enable this option, attackers may be able to read the data you request</td><td><code>true</code></td></tr>
+<tr><td><code>allow_invalid_certificates</code></td><td>Skip certificate validation on https connections<br><br><strong>Security warning:</strong><br>You should think very carefully before using this method. If invalid certificates are trusted, any certificate for any site will be trusted for use. This includes expired certificates. This introduces significant vulnerabilities, and should only be used as a last resort or for testing</td><td><code>true</code></td></tr>
+</tbody></table>
+</div>
+<h3 id="connection-options-2"><a class="header" href="#connection-options-2">Connection options</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>configuration</th><th>description</th><th>example</th></tr></thead><tbody>
+<tr><td><code>user_agent</code></td><td>User-Agent header to be used by this client</td><td><code>martin 1.0.0</code></td></tr>
+<tr><td><code>randomize_addresses</code></td><td>Randomize order addresses that the DNS resolution yields.<br>This will spread the connections across more servers.</td><td><code>true</code></td></tr>
+<tr><td><code>connect_timeout</code></td><td>Timeout for only the connect phase of a Client</td><td><code>5s</code></td></tr>
+<tr><td><code>timeout</code></td><td>The timeout is applied from when the request starts connecting until the response body has finished</td><td><code>10s</code></td></tr>
+<tr><td><code>pool_idle_timeout</code></td><td>The pool max idle timeout</td><td><code>5m</code></td></tr>
+<tr><td><code>pool_max_idle_per_host</code></td><td>maximum number of idle connections per host</td><td><code>10</code></td></tr>
+<tr><td><code>http1_only</code></td><td>Only use http1 connections</td><td><code>false</code></td></tr>
+<tr><td><code>http2_only</code></td><td>Only use http2 connections</td><td><code>false</code></td></tr>
+<tr><td><code>http2_keep_alive_interval</code></td><td>Interval for HTTP2 Ping frames should be sent to keep a connection alive.</td><td><code>15s</code></td></tr>
+<tr><td><code>http2_keep_alive_timeout</code></td><td>Timeout for receiving an acknowledgement of the keep-alive ping.</td><td><code>15s</code></td></tr>
+<tr><td><code>http2_keep_alive_while_idle</code></td><td>Enable HTTP2 keep alive pings for idle connections</td><td><code>true</code></td></tr>
+<tr><td><code>http2_max_frame_size</code></td><td>Sets the maximum frame size to use for HTTP2.</td><td></td></tr>
+</tbody></table>
+</div>
+<h3 id="proxy-settings-2"><a class="header" href="#proxy-settings-2">Proxy settings</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>configuration</th><th>description</th><th>example</th></tr></thead><tbody>
+<tr><td><code>proxy_url</code></td><td>HTTP proxy to use for requests</td><td><code>http://proxy.example.com:8080</code></td></tr>
+<tr><td><code>proxy_ca_certificate</code></td><td>PEM-formatted CA certificate for proxy connections</td><td><code>-----BEGIN CERTIFICATE-----</code><br>…<br><code>-----END CERTIFICATE-----</code></td></tr>
+<tr><td><code>proxy_excludes</code></td><td>List of hosts that bypass proxy</td><td><code>example.com</code>, <code>maplibre.org</code></td></tr>
+</tbody></table>
+</div></div>
+<div class="mdbook-tab-content hidden" data-tabname="Microsoft Azure">
+<div class="mdbook-alerts mdbook-alerts-tip">
+<p class="mdbook-alerts-title">
+  <span class="mdbook-alerts-icon"></span>
+  tip
+</p>
+<p>All settings are also available under the <code>azure_</code> prefix.
+This can be useful if you want to have different cloud providers.</p>
+</div>
+<h3 id="azure-specific-authentication--credentials"><a class="header" href="#azure-specific-authentication--credentials">Azure specific Authentication &amp; Credentials</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>configuration</th><th>description</th><th>example</th></tr></thead><tbody>
+<tr><td><code>account_name</code></td><td>Name of the Azure Storage account</td><td><code>myaccount</code></td></tr>
+<tr><td><code>access_key</code><br><code>account_key</code><br><code>master_key</code></td><td>Master key for accessing the storage account<br><br><strong>Security note:</strong><br> Keep this key secret; anyone with access can read/write all data in the account</td><td><code>abcd1234efgh5678ijkl9012mnop3456qrst7890uvwx1234yzab5678cdef9012</code></td></tr>
+<tr><td><code>client_id</code></td><td>Service principal client ID for OAuth authorization</td><td><code>12345678-90ab-cdef-1234-567890abcdef</code></td></tr>
+<tr><td><code>client_secret</code></td><td>Service principal client secret for OAuth authorization<br><strong>Security note:</strong> Must be kept confidential</td><td><code>s3cr3tV@lu3!</code></td></tr>
+<tr><td><code>tenant_id</code><br><code>authority_id</code></td><td>Tenant ID used in OAuth flows</td><td><code>abcdef12-3456-7890-abcd-ef1234567890</code></td></tr>
+<tr><td><code>authority_host</code></td><td>Authority host used in OAuth flows</td><td><code>https://login.microsoftonline.com/</code></td></tr>
+<tr><td><code>sas_key</code><br><code>sas_token</code></td><td>Shared Access Signature (percent-encoded)<br><br><strong>Security note:</strong><br> Grants scoped access; treat as sensitive credentials</td><td><code>sv=2021-06-08&amp;ss=b&amp;srt=sco&amp;sp=rwdl</code><br><code>&amp;se=2025-12-31T23:59:00Z&amp;sig=ABCDEF1234567890</code></td></tr>
+<tr><td><code>bearer_token</code><br><code>token</code></td><td>Bearer token for requests<br><br><strong>Security note:</strong><br> Token must be protected; use HTTPS</td><td><code>eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...</code></td></tr>
+<tr><td><code>identity_endpoint</code><br><code>msi_endpoint</code></td><td>Endpoint to request a managed identity token</td><td><code>http://169.254.169.254/metadata/identity/oauth2/token</code></td></tr>
+<tr><td><code>object_id</code></td><td>Object ID for use with managed identity authentication</td><td><code>12345678-90ab-cdef-1234-567890abcdef</code></td></tr>
+<tr><td><code>msi_resource_id</code></td><td>Resource ID for managed identity authentication</td><td><code>/subscriptions/12345678-90ab-cdef-1234-567890abcdef/</code><br><code>resourcegroups/myrg/providers/Microsoft.ManagedIdentity/</code><br><code>userAssignedIdentities/myidentity</code></td></tr>
+<tr><td><code>federated_token_file</code></td><td>File containing token for Azure AD workload identity federation</td><td><code>/var/run/secrets/azure/federated-token</code></td></tr>
+<tr><td><code>use_azure_cli</code></td><td>Use Azure CLI for acquiring access token</td><td><code>true</code></td></tr>
+</tbody></table>
+</div>
+<h3 id="azure-specific-connection--endpoint-configuration"><a class="header" href="#azure-specific-connection--endpoint-configuration">Azure specific Connection &amp; Endpoint Configuration</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>configuration</th><th>description</th><th>example</th></tr></thead><tbody>
+<tr><td><code>endpoint</code></td><td>Override endpoint used to communicate with blob storage</td><td><code>https://myaccount.blob.core.windows.net</code></td></tr>
+<tr><td><code>object_store_use_emulator</code><br><code>use_emulator</code></td><td>Use Azurite storage emulator</td><td><code>true</code></td></tr>
+<tr><td><code>use_fabric_endpoint</code></td><td>Use Azure Fabric endpoint (account.dfs.fabric.microsoft.com)</td><td><code>true</code></td></tr>
+<tr><td><code>container_name</code></td><td>Container name in the storage account</td><td><code>mycontainer</code></td></tr>
+</tbody></table>
+</div>
+<h3 id="azure-specific-request-behavior--security-options"><a class="header" href="#azure-specific-request-behavior--security-options">Azure specific Request Behavior &amp; Security Options</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>configuration</th><th>description</th><th>example</th></tr></thead><tbody>
+<tr><td><code>skip_signature</code></td><td>Skip signing requests<br><br><strong>Security warning:</strong><br> Unsigned requests may expose sensitive data or allow tampering; use only in secure or local environments</td><td><code>true</code></td></tr>
+<tr><td><code>disable_tagging</code></td><td>Disable object tagging (useful if backend does not support it)</td><td><code>true</code></td></tr>
+<tr><td><code>fabric_token_service_url</code></td><td>URL of Fabric token service</td><td><code>https://fabric-token.mycompany.com</code></td></tr>
+<tr><td><code>fabric_workload_host</code></td><td>Host for Fabric workload</td><td><code>https://workload.fabric.mycompany.com</code></td></tr>
+<tr><td><code>fabric_session_token</code></td><td>Session token for Fabric<br><br><strong>Security note:</strong> Must be protected; use HTTPS</td><td><code>eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...</code></td></tr>
+<tr><td><code>fabric_cluster_identifier</code></td><td>Identifier for Fabric cluster</td><td><code>fabric-cluster-01</code></td></tr>
+</tbody></table>
+</div>
+<h3 id="security-options-3"><a class="header" href="#security-options-3">Security options</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>configuration</th><th>description</th><th>example</th></tr></thead><tbody>
+<tr><td><code>allow_http</code></td><td>Allow non-TLS, i.e. non-HTTPS connections<br><br><strong>Security warning:</strong><br>If you enable this option, attackers may be able to read the data you request</td><td><code>true</code></td></tr>
+<tr><td><code>allow_invalid_certificates</code></td><td>Skip certificate validation on https connections<br><br><strong>Security warning:</strong><br>You should think very carefully before using this method. If invalid certificates are trusted, any certificate for any site will be trusted for use. This includes expired certificates. This introduces significant vulnerabilities, and should only be used as a last resort or for testing</td><td><code>true</code></td></tr>
+</tbody></table>
+</div>
+<h3 id="connection-options-3"><a class="header" href="#connection-options-3">Connection options</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>configuration</th><th>description</th><th>example</th></tr></thead><tbody>
+<tr><td><code>user_agent</code></td><td>User-Agent header to be used by this client</td><td><code>martin 1.0.0</code></td></tr>
+<tr><td><code>randomize_addresses</code></td><td>Randomize order addresses that the DNS resolution yields.<br>This will spread the connections across more servers.</td><td><code>true</code></td></tr>
+<tr><td><code>connect_timeout</code></td><td>Timeout for only the connect phase of a Client</td><td><code>5s</code></td></tr>
+<tr><td><code>timeout</code></td><td>The timeout is applied from when the request starts connecting until the response body has finished</td><td><code>10s</code></td></tr>
+<tr><td><code>pool_idle_timeout</code></td><td>The pool max idle timeout</td><td><code>5m</code></td></tr>
+<tr><td><code>pool_max_idle_per_host</code></td><td>maximum number of idle connections per host</td><td><code>10</code></td></tr>
+<tr><td><code>http1_only</code></td><td>Only use http1 connections</td><td><code>false</code></td></tr>
+<tr><td><code>http2_only</code></td><td>Only use http2 connections</td><td><code>false</code></td></tr>
+<tr><td><code>http2_keep_alive_interval</code></td><td>Interval for HTTP2 Ping frames should be sent to keep a connection alive.</td><td><code>15s</code></td></tr>
+<tr><td><code>http2_keep_alive_timeout</code></td><td>Timeout for receiving an acknowledgement of the keep-alive ping.</td><td><code>15s</code></td></tr>
+<tr><td><code>http2_keep_alive_while_idle</code></td><td>Enable HTTP2 keep alive pings for idle connections</td><td><code>true</code></td></tr>
+<tr><td><code>http2_max_frame_size</code></td><td>Sets the maximum frame size to use for HTTP2.</td><td></td></tr>
+</tbody></table>
+</div>
+<h3 id="proxy-settings-3"><a class="header" href="#proxy-settings-3">Proxy settings</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>configuration</th><th>description</th><th>example</th></tr></thead><tbody>
+<tr><td><code>proxy_url</code></td><td>HTTP proxy to use for requests</td><td><code>http://proxy.example.com:8080</code></td></tr>
+<tr><td><code>proxy_ca_certificate</code></td><td>PEM-formatted CA certificate for proxy connections</td><td><code>-----BEGIN CERTIFICATE-----</code><br>…<br><code>-----END CERTIFICATE-----</code></td></tr>
+<tr><td><code>proxy_excludes</code></td><td>List of hosts that bypass proxy</td><td><code>example.com</code>, <code>maplibre.org</code></td></tr>
+</tbody></table>
+</div></div>
+</div>
 <div style="break-before: page; page-break-before: always;"></div><style>
 .mdbook-alerts {
   padding: 8px 16px;
@@ -6438,6 +6754,7 @@ Please open an issue on our GitHub repository or directly open a pull request.</
         <script src="book.js"></script>
 
         <!-- Custom JS scripts -->
+        <script src="theme/tabs.js"></script>
 
         <script>
         window.addEventListener('load', function() {
