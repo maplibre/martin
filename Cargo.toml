@@ -94,7 +94,7 @@ sqlx = { version = "0.8.6", features = ["sqlite", "runtime-tokio"] }
 static-files = "0.2"
 subst = { version = "0.3", features = ["yaml"] }
 tempfile = "3.21.0"
-testcontainers-modules = { version = "0.13.0", features = ["postgres"] }
+testcontainers-modules = { version = "0.13.0", features = ["postgres", "blocking"] }
 thiserror = "2"
 tiff = "0.10.1"
 tilejson = "0.4"
