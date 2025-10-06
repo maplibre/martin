@@ -46,11 +46,12 @@ impl PartialEq for PmtConfig {
 }
 
 impl ConfigurationLivecycleHooks for PmtConfig {
+    #[allow(
+        clippy::panic_in_result_fn,
+        reason = "invariant: the function cannot be called twice"
+    )]
     fn initialize_cache(&mut self, cache: OptMainCache) -> ConfigFileResult<()> {
-        assert!(
-            self.cache.is_none(),
-            "initialize_cache should only be called once"
-        );
+        assert!(self.cache.is_none(), "Cache cannot be initialized twice");
         self.cache = cache;
 
         if self.unrecognized.contains_key("dir_cache_size_mb") {
