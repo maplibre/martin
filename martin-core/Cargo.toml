@@ -12,7 +12,15 @@ rust-version.workspace = true
 homepage.workspace = true
 
 [features]
-default = ["fonts", "mbtiles", "pmtiles", "postgres", "sprites", "styles", "unstable-cog"]
+default = [
+    "fonts",
+    "mbtiles",
+    "pmtiles",
+    "postgres",
+    "sprites",
+    "styles",
+    "unstable-cog",
+]
 postgres = [
     "dep:deadpool-postgres",
     "dep:postgres",
