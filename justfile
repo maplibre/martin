@@ -95,7 +95,7 @@ bless-int:
     rm -rf tests/expected && mv tests/output tests/expected
 
 # Build and open mdbook documentation
-book:  (cargo-install 'mdbook') (cargo-install 'mdbook-alerts')
+book:  (cargo-install 'mdbook') (cargo-install 'mdbook-alerts') (cargo-install 'mdbook-tabs')
     mdbook serve docs --open --port 8321
 
 # Quick compile without building a binary

@@ -45,14 +45,32 @@ martin  s3://my-bucket/tiles.pmtiles
 
 The available url schemes are:
 
-- `file:///path/to/my/file` -> local file system
-- `path/to/my/file` -> local file system
-- `https://mydomain/path` -> Http(s) Source
-- `s3://bucket/path` -> Amazon S3 (also supports `s3a`)
-- `gs://bucket/path` -> Google Cloud Storage
-- `az://account/container/path` -> Microsoft Azure (also supports `adl`, `azure`, `abfs`, `abfss`)
+{{#tabs }}
+{{#tab name="local file system" }}
+- `file:///path/to/my/file`
+- `path/to/my/file`
+{{#endtab }}
+{{#tab name="Http(s)" }}
+- `http://mydomain/path`
+- `https://mydomain/path`
+{{#endtab }}
+{{#tab name="Amazon S3" }}
+- `s3://bucket/path`
+- `s3a://bucket/path`
+{{#endtab }}
+{{#tab name="Google Cloud Storage" }}
+- `gs://bucket/path`
+{{#endtab }}
+{{#tab name="Microsoft Azure" }}
+- `az://account/container/path`
+- `adl://account/container/path`
+- `azure://account/container/path`
+- `abfs://account/container/path`
+- `abfss://account/container/path`
+{{#endtab }}
+{{#endtabs}}
 
-If you want more control over your request, you can configure additional options here as such:
+If you want more control over your requests, you can configure additional options here as such:
 
 ```yaml
 pmtiles:
@@ -63,17 +81,16 @@ pmtiles:
 
 The available options depend on the underlying source:
 
-<details><summary>File Sources (click to expand)</summary>
-
-files don't currently support additional options.
-
-</details>
-<details><summary>Http(s) Sources (click to expand)</summary>
+{{#tabs }}
+{{#tab name="local file system" }}
+Files don't currently support additional options.
+{{#endtab }}
+{{#tab name="Http(s)" }}
 
 {{#include pmtiles/client.md}}
 
-</details>
-<details><summary>Amazon S3 Sources (click to expand)</summary>
+{{#endtab }}
+{{#tab name="Amazon S3" }}
 
 > [!TIP]
 > All settings are also available under the `aws_` prefix.
@@ -83,8 +100,8 @@ files don't currently support additional options.
 
 {{#include pmtiles/client.md}}
 
-</details>
-<details><summary>Google Cloud Storage Sources (click to expand)</summary>
+{{#endtab }}
+{{#tab name="Google Cloud Storage" }}
 
 > [!TIP]
 > All settings are also available under the `google_` prefix.
@@ -94,8 +111,8 @@ files don't currently support additional options.
 
 {{#include pmtiles/client.md}}
 
-</details>
-<details><summary>Microsoft Azure Sources (click to expand)</summary>
+{{#endtab }}
+{{#tab name="Microsoft Azure" }}
 
 > [!TIP]
 > All settings are also available under the `azure_` prefix.
@@ -105,4 +122,5 @@ files don't currently support additional options.
 
 {{#include pmtiles/client.md}}
 
-</details>
+{{#endtab }}
+{{#endtabs }}
