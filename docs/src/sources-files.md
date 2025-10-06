@@ -61,9 +61,49 @@ pmtiles:
     tiles: s3://bucket/path/to/tiles.pmtiles
 ```
 
-The avaliable options are documented here:
+The available options are:
 
-- [Http(s) Source](https://docs.rs/object_store/latest/object_store/http/struct.HttpBuilder.html)
-- [Amazon S3](https://docs.rs/object_store/latest/object_store/aws/struct.AmazonS3Builder.html)
-- [Google Cloud Storage](https://docs.rs/object_store/latest/object_store/gcp/struct.GoogleCloudStorageBuilder.html)
-- [Microsoft Azure](https://docs.rs/object_store/latest/object_store/azure/struct.MicrosoftAzureBuilder.html)
+
+- <details><summary>File Sources</summary>
+
+  files don't currently support additional options.
+
+  </details>
+- <details><summary>Http(s) Sources</summary>
+
+{{#include pmtiles/client.md}}
+
+  </details>
+- <details><summary>Amazon S3 Sources</summary>
+
+> [!TIP]
+> All settings are also available under the `aws_` prefix.
+> This can be useful if you want to have different cloud providers.
+
+{{#include pmtiles/aws.md}}
+
+{{#include pmtiles/client.md}}
+
+  </details>
+- <details><summary>Google Cloud Storage Sources</summary>
+
+> [!TIP]
+> All settings are also available under the `google_` prefix.
+> This can be useful if you want to have different cloud providers.
+
+{{#include pmtiles/aws.md}}
+
+{{#include pmtiles/client.md}}
+
+  </details>
+- <details><summary>Microsoft Azure Sources</summary>
+
+> [!TIP]
+> All settings are also available under the `azure_` prefix.
+> This can be useful if you want to have different cloud providers.
+
+{{#include pmtiles/azure.md}}
+
+{{#include pmtiles/client.md}}
+
+  </details>
