@@ -9,8 +9,7 @@ use url::Url;
 
 use crate::MartinResult;
 use crate::config::file::{
-    ConfigExtras, ConfigFileError, ConfigFileResult, SourceConfigExtras, UnrecognizedKeys,
-    UnrecognizedValues,
+    ConfigExtras, ConfigFileResult, SourceConfigExtras, UnrecognizedKeys, UnrecognizedValues,
 };
 
 #[serde_with::skip_serializing_none]
@@ -46,8 +45,11 @@ impl PartialEq for PmtConfig {
 }
 
 impl ConfigExtras for PmtConfig {
+    #[allow(
+        clippy::panic_in_result_fn,
+        reason = "invariant: the function cannot be called twice"
+    )]
     fn init_parsing(&mut self, cache: OptMainCache) -> ConfigFileResult<()> {
-        #[allow(clippy::unwrap_in_result)]
         assert!(self.cache.is_none(), "Cache cannot be initialized twice");
         self.cache = cache;
 
