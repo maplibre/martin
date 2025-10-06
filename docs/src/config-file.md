@@ -230,7 +230,6 @@ pmtiles:
   # You can pass options for pmtiles files located on remote storages here.
   #
   # The avaliable options are documented here:
-  #
   # - local file sources don't have options
   # - Http(s) Source: https://docs.rs/object_store/latest/object_store/http/struct.HttpBuilder.html
   # - Amazon S3: https://docs.rs/object_store/latest/object_store/aws/struct.AmazonS3Builder.html
