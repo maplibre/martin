@@ -88,6 +88,9 @@ pmtiles:
 {{#endtab }}
 {{#tab name="Amazon S3" }}
 
+> [!IMPORTANT]
+> Even though we name this section `Amazon S3`, it also works with other providers that support the S3 API, such as [MinIO](https://www.min.io/), [Ceph](https://docs.ceph.com/en/latest/radosgw/s3/), [Cloudflare R2](https://developers.cloudflare.com/r2/), [hetzner object storage](https://www.hetzner.com/de/storage/object-storage/) and many more.
+
 For AWS, you need to provide the bucket name and the prefix of the object key.
 For example:
 
