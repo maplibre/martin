@@ -210,7 +210,6 @@ impl<T: ConfigurationLivecycleHooks> FileConfigEnum<T> {
         res.custom.initialize_cache(cache)?;
         Ok(Some(res))
     }
-}
 
     /// convert path/paths and the config enums
     #[must_use]
