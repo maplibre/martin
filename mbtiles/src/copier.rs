@@ -1,4 +1,3 @@
-use std::fmt::Write as _;
 use std::path::PathBuf;
 
 use enum_display::EnumDisplay;
@@ -662,11 +661,11 @@ impl MbtileCopierInt {
                 if idx > 0 {
                     sql.push_str(" OR\n");
                 }
-                writeln!(
-                    sql,
+                let filter = format!(
                     "(({prefix}tile_column * (1 << ({MAX_ZOOM} - {prefix}zoom_level))) BETWEEN {min_x} AND {max_x} \
-                     AND ({prefix}tile_row * (1 << ({MAX_ZOOM} - {prefix}zoom_level))) BETWEEN {min_y} AND {max_y})",
-                ).unwrap();
+                 AND ({prefix}tile_row * (1 << ({MAX_ZOOM} - {prefix}zoom_level))) BETWEEN {min_y} AND {max_y})\n"
+                );
+                sql.push_str(&filter);
             }
             sql.push(')');
         }
