@@ -47,7 +47,6 @@ pub fn trace_cache(typ: &'static str, cache: &MainCache, key: &CacheKey) {
 #[macro_export]
 macro_rules! from_cache_value {
     ($value_type: path, $data: expr, $key: expr) => {
-        #[allow(irrefutable_let_patterns)]
         if let $value_type(data) = $data {
             data
         } else {

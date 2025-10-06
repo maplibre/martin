@@ -1,6 +1,3 @@
-// See https://github.com/SeedyROM/enum-display/issues/1
-#![allow(unused_qualifications)]
-
 use enum_display::EnumDisplay;
 use log::{info, warn};
 use sqlx::SqliteExecutor;
