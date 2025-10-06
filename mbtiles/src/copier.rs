@@ -663,7 +663,7 @@ impl MbtileCopierInt {
                 }
                 let filter = format!(
                     "(({prefix}tile_column * (1 << ({MAX_ZOOM} - {prefix}zoom_level))) BETWEEN {min_x} AND {max_x} \
-                 AND ({prefix}tile_row * (1 << ({MAX_ZOOM} - {prefix}zoom_level))) BETWEEN {min_y} AND {max_y}))\n"
+                 AND ({prefix}tile_row * (1 << ({MAX_ZOOM} - {prefix}zoom_level))) BETWEEN {min_y} AND {max_y})\n"
                 );
                 sql.push_str(&filter);
             }
