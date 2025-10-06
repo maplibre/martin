@@ -47,7 +47,6 @@ The available url schemes are:
 
 - `file:///path/to/my/file` -> local file system
 - `path/to/my/file` -> local file system
-- `http://mydomain/path` -> Http(s) Source
 - `https://mydomain/path` -> Http(s) Source
 - `s3://bucket/path` -> Amazon S3 (also supports `s3a`)
 - `gs://bucket/path` -> Google Cloud Storage
