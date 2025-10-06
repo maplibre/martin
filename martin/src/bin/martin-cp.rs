@@ -131,7 +131,7 @@ impl Default for CopyArgs {
             url_query: None,
             encoding: "gzip".to_string(),
             on_duplicate: None,
-            concurrency: NonZeroUsize::new(1).unwrap(),
+            concurrency: NonZeroUsize::new(1).expect("1 is larger than 0"),
             min_zoom: None,
             max_zoom: None,
             zoom_levels: Vec::new(),
@@ -143,7 +143,9 @@ impl Default for CopyArgs {
 
 fn parse_key_value(s: &str) -> Result<(String, String), String> {
     let mut parts = s.splitn(2, '=');
-    let key = parts.next().unwrap();
+    let key = parts
+        .next()
+        .ok_or_else(|| format!("Invalid key=value pair: {s}"))?;
     let value = parts
         .next()
         .ok_or_else(|| format!("Invalid key=value pair: {s}"))?;
@@ -342,14 +344,14 @@ fn iterate_tiles(tiles: Vec<TileRect>) -> impl Iterator<Item = TileCoord> {
 
 fn check_sources(args: &CopyArgs, state: &ServerState) -> Result<String, MartinCpError> {
     if let Some(source) = &args.source {
-        Ok(source.to_string())
+        Ok(source.clone())
     } else {
         let sources = state.tiles.source_names();
         if let Some(source) = sources.first() {
             if sources.len() > 1 {
                 return Err(MartinCpError::MultipleSources(sources.join(", ")));
             }
-            Ok(source.to_string())
+            Ok(source.clone())
         } else {
             Err(MartinCpError::NoSources)
         }

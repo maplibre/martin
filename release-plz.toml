@@ -23,12 +23,12 @@ git_release_enable = false
 
 [[package]]
 name = "martin"
-changelog_include = ["martin", "martin-core", "martin-tile-utils", "mbtiles"]
+changelog_include = ["martin", "martin-core", "martin-tile-utils", "mbtiles", ".github", "tests", "docs", "debian"]
 semver_check = false # this binary crate doesn't have a public API in the cargo-semver-checks sense
 
 [[package]]
 name = "mbtiles"
-changelog_include = ["martin-tile-utils", "mbtiles"]
+changelog_include = ["martin-tile-utils", "mbtiles", ".github", "tests", "docs"]
 
 [changelog]
 protect_breaking_commits = true

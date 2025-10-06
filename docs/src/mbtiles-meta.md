@@ -7,6 +7,11 @@ number of tiles per zoom level, the size of the smallest and largest tiles, and 
 level. The command will also print the bounding box of the covered area per zoom level.
 
 ```bash
+# Create a sample .mbtiles file in some dir
+sqlite3 target/world_cities.mbtiles < tests/fixtures/mbtiles/world_cities.sql
+# Get mbtiles summary
+mbtiles summary target/world_cities.mbtiles
+
 MBTiles file summary for tests/fixtures/mbtiles/world_cities.mbtiles
 Schema: flat
 File size: 48.00KiB

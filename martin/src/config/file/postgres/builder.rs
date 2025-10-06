@@ -142,7 +142,7 @@ impl PostgresAutoDiscoveryBuilder {
             // TODO: move this validation to serde somehow?
             if cfg_inf.extent == Some(0) {
                 return Err(PostgresError::InvalidTableExtent(
-                    id.to_string(),
+                    id.clone(),
                     cfg_inf.format_id(),
                 ));
             }
@@ -392,7 +392,7 @@ fn update_auto_fields(
             continue;
         }
 
-        inf.id_column = Some(column.to_string());
+        inf.id_column = Some(column.clone());
         let mut final_props = props.clone();
         final_props.remove(column);
         inf.properties = Some(final_props);

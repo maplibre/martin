@@ -48,5 +48,5 @@ pub fn table<'a>(mock: &'a MockSource, name: &str) -> &'a TableInfo {
 #[must_use]
 pub fn source(mock: &MockSource, name: &str) -> BoxedSource {
     let (sources, _) = mock;
-    sources.tiles.get_source(name).unwrap()
+    sources.tiles.get_source(name).expect("source can be found")
 }
