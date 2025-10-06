@@ -167,7 +167,7 @@ fn is_url(s: &str, extension: &[&str]) -> bool {
                     .is_some_and(|ext| extension.contains(&ext))
             })
         }
-        "http" | "https" => url
+        "http" | "https" | "file" => url
             .path()
             .rsplit('.')
             .next()
