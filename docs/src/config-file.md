@@ -236,7 +236,7 @@ pmtiles:
   # - Amazon S3: https://docs.rs/object_store/latest/object_store/aws/struct.AmazonS3Builder.html
   # - Google Cloud Storage: https://docs.rs/object_store/latest/object_store/gcp/struct.GoogleCloudStorageBuilder.html
   # - Microsoft Azure: https://docs.rs/object_store/latest/object_store/azure/struct.MicrosoftAzureBuilder.html
-  # 
+  #
   # Example for configuring a source to allow http
   allow_http: true
 
