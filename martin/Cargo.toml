@@ -81,7 +81,6 @@ harness = false
 
 [features]
 default = [
-    "experimental-cog",
     "fonts",
     "lambda",
     "mbtiles",
@@ -90,9 +89,10 @@ default = [
     "postgres",
     "sprites",
     "styles",
+    "unstable-cog",
     "webui",
 ]
-experimental-cog = ["martin-core/experimental-cog"]
+unstable-cog = ["martin-core/unstable-cog"]
 fonts = ["martin-core/fonts"]
 lambda = ["dep:lambda-web"]
 mbtiles = ["martin-core/mbtiles"]

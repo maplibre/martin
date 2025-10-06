@@ -50,7 +50,7 @@ pub enum MartinError {
     #[error(transparent)]
     MbtilesError(#[from] martin_core::tiles::mbtiles::MbtilesError),
 
-    #[cfg(feature = "experimental-cog")]
+    #[cfg(feature = "unstable-cog")]
     #[error(transparent)]
     CogError(#[from] martin_core::tiles::cog::CogError),
 

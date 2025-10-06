@@ -2,7 +2,7 @@
 name = "martin-core"
 version = "0.1.3"
 authors = ["Yuri Astrakhan <YuriAstrakhan@gmail.com>", "MapLibre contributors"]
-description = "Basic building blocks of MapLibre's Martin tile server."
+description = "Basic building blocks of MapLibre"s Martin tile server."
 keywords = ["maps", "tiles", "mvt", "tileserver"]
 categories = ["science::geo", "parsing"]
 edition.workspace = true
@@ -12,15 +12,7 @@ rust-version.workspace = true
 homepage.workspace = true
 
 [features]
-default = [
-    "fonts",
-    "styles",
-    "sprites",
-    "mbtiles",
-    "pmtiles",
-    "experimental-cog",
-    "postgres",
-]
+default = ["fonts", "mbtiles", "pmtiles", "postgres", "sprites", "styles", "unstable-cog"]
 postgres = [
     "dep:deadpool-postgres",
     "dep:postgres",
@@ -32,7 +24,7 @@ postgres = [
     "dep:tokio-postgres-rustls",
     "dep:serde_json",
 ]
-experimental-cog = ["dep:png", "dep:tiff"]
+unstable-cog = ["dep:png", "dep:tiff"]
 fonts = [
     "dep:bit-set",
     "dep:pbf_font_tools",
