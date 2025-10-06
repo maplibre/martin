@@ -1,5 +1,3 @@
-#![allow(clippy::redundant_clone)]
-#![allow(clippy::unused_async)]
 #![cfg(test)]
 
 mod pg_utils;
