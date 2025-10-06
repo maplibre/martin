@@ -1,25 +1,25 @@
 .mdbook-tabs {
-    display: flex;
+  display: flex;
 }
 
 .mdbook-tab {
-    background-color: var(--table-alternate-bg);
-    padding: 0.5rem 1rem;
-    cursor: pointer;
-    border: none;
-    font-size: 1.6rem;
-    line-height: 1.45em;
+  padding: 0.5rem 1rem;
+  font-size: 1.6rem;
+  line-height: 1.45em;
+  cursor: pointer;
+  background-color: var(--table-alternate-bg);
+  border: none;
 }
 
 .mdbook-tab.active {
-    background-color: var(--table-header-bg);
-    font-weight: bold;
+  font-weight: bold;
+  background-color: var(--table-header-bg);
 }
 
 .mdbook-tab-content {
-    padding: 1rem 0rem;
+  padding: 1rem 0rem;
 }
 
 .mdbook-tab-content table {
-    margin: unset;
+  margin: unset;
 }
