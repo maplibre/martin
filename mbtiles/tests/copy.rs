@@ -780,7 +780,14 @@ async fn dump(conn: &mut SqliteConnection) -> MbtResult<Vec<SqliteEntry>> {
                                     )
                                 )
                             }),
-                            _ => panic!("Unknown column type: {typ}"),
+
+                            #[allow(
+                                clippy::panic,
+                                reason = "We should know all column types that sqlite supports"
+                            )]
+                            _ => {
+                                panic!("Unknown column type: {typ}")
+                            }
                         })
                         .unwrap_or("NULL".to_string())
                     })
