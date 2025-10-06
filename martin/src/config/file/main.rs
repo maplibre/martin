@@ -23,8 +23,8 @@ use subst::VariableMap;
 ))]
 use crate::config::file::FileConfigEnum;
 use crate::config::file::{
-    ConfigExtras, ConfigFileError, ConfigFileResult, UnrecognizedKeys, UnrecognizedValues,
-    copy_unrecognized_keys_from_config,
+    ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks, UnrecognizedKeys,
+    UnrecognizedValues, copy_unrecognized_keys_from_config,
 };
 use crate::source::TileSources;
 use crate::srv::RESERVED_KEYWORDS;
@@ -166,8 +166,16 @@ impl Config {
         }
 
         // TODO: support for unrecognized fonts?
-        // self.fonts.finalize();
-        // res.extend(self.fonts.get_unrecognized_keys("fonts.")?);
+        // #[cfg(feature = "fonts")]
+        // {
+        //     self.fonts.finalize()?;
+        //     res.extend(
+        //         self.fonts
+        //             .get_unrecognized_keys()
+        //             .iter()
+        //             .map(|k| format!("fonts.{k}")),
+        //     );
+        // }
 
         for key in &res {
             warn!(

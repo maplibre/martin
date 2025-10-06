@@ -11,8 +11,8 @@ use url::Url;
 
 use crate::MartinResult;
 use crate::config::file::{
-    ConfigExtras, ConfigFileError, ConfigFileResult, SourceConfigExtras, UnrecognizedKeys,
-    UnrecognizedValues,
+    ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks, TileSourceConfiguration,
+    UnrecognizedKeys, UnrecognizedValues,
 };
 
 #[serde_with::skip_serializing_none]
@@ -37,7 +37,7 @@ impl PartialEq for PmtConfig {
     }
 }
 
-impl ConfigExtras for PmtConfig {
+impl ConfigurationLivecycleHooks for PmtConfig {
     fn finalize(&mut self) -> ConfigFileResult<()> {
         // if the key is the allowed set, we assume it is there for a purpose
         // because of how serde(flatten) works, we need to collect all in one place and then
@@ -54,10 +54,10 @@ impl ConfigExtras for PmtConfig {
         self.unrecognized.keys().cloned().collect()
     }
 
-    fn init_parsing(&mut self, cache: OptMainCache) -> ConfigFileResult<()> {
+    fn intialise_cache(&mut self, cache: OptMainCache) -> ConfigFileResult<()> {
         assert!(
             self.cache.is_none(),
-            "init_parsing should only be called once"
+            "intialise_cache should only be called once"
         );
         self.cache = cache;
 
@@ -208,7 +208,7 @@ impl PmtConfig {
     }
 }
 
-impl SourceConfigExtras for PmtConfig {
+impl TileSourceConfiguration for PmtConfig {
     fn parse_urls() -> bool {
         true
     }

@@ -15,8 +15,8 @@ use crate::MartinResult;
 use crate::config::args::{BoundsCalcType, DEFAULT_BOUNDS_TIMEOUT};
 use crate::config::file::postgres::PostgresAutoDiscoveryBuilder;
 use crate::config::file::{
-    ConfigExtras, ConfigFileError, ConfigFileResult, UnrecognizedKeys, UnrecognizedValues,
-    copy_unrecognized_keys_from_config,
+    ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks, UnrecognizedKeys,
+    UnrecognizedValues, copy_unrecognized_keys_from_config,
 };
 
 pub trait PostgresInfo {
@@ -93,7 +93,7 @@ pub struct PostgresCfgPublish {
     pub unrecognized: UnrecognizedValues,
 }
 
-impl ConfigExtras for PostgresCfgPublish {
+impl ConfigurationLivecycleHooks for PostgresCfgPublish {
     fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
         let mut keys = self
             .unrecognized
@@ -142,7 +142,7 @@ pub struct PostgresCfgPublishTables {
     pub unrecognized: UnrecognizedValues,
 }
 
-impl ConfigExtras for PostgresCfgPublishTables {
+impl ConfigurationLivecycleHooks for PostgresCfgPublishTables {
     fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
         self.unrecognized.keys().cloned().collect()
     }
@@ -161,7 +161,7 @@ pub struct PostgresCfgPublishFuncs {
     pub unrecognized: UnrecognizedValues,
 }
 
-impl ConfigExtras for PostgresCfgPublishFuncs {
+impl ConfigurationLivecycleHooks for PostgresCfgPublishFuncs {
     fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
         self.unrecognized.keys().cloned().collect()
     }
@@ -198,7 +198,7 @@ impl PostgresConfig {
     }
 }
 
-impl ConfigExtras for PostgresConfig {
+impl ConfigurationLivecycleHooks for PostgresConfig {
     fn finalize(&mut self) -> ConfigFileResult<()> {
         if self.tables.is_none() && self.functions.is_none() && self.auto_publish.is_none() {
             self.auto_publish = OptBoolObj::Bool(true);
@@ -213,6 +213,7 @@ impl ConfigExtras for PostgresConfig {
 
         Ok(())
     }
+
     fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
         let mut keys = self
             .unrecognized
