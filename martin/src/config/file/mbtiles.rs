@@ -7,7 +7,9 @@ use serde::{Deserialize, Serialize};
 use url::Url;
 
 use crate::MartinResult;
-use crate::config::file::{ConfigExtras, SourceConfigExtras, UnrecognizedKeys, UnrecognizedValues};
+use crate::config::file::{
+    ConfigurationLivecycleHooks, TileSourceConfiguration, UnrecognizedKeys, UnrecognizedValues,
+};
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct MbtConfig {
@@ -15,13 +17,13 @@ pub struct MbtConfig {
     pub unrecognized: UnrecognizedValues,
 }
 
-impl ConfigExtras for MbtConfig {
+impl ConfigurationLivecycleHooks for MbtConfig {
     fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
         self.unrecognized.keys().cloned().collect()
     }
 }
 
-impl SourceConfigExtras for MbtConfig {
+impl TileSourceConfiguration for MbtConfig {
     fn parse_urls() -> bool {
         false
     }
@@ -42,11 +44,13 @@ mod tests {
     use indoc::indoc;
 
     use crate::config::file::mbtiles::MbtConfig;
-    use crate::config::file::{FileConfigEnum, FileConfigSource, FileConfigSrc};
+    use crate::config::file::{
+        ConfigurationLivecycleHooks, FileConfigEnum, FileConfigSource, FileConfigSrc,
+    };
 
     #[test]
     fn parse() {
-        let cfg = serde_yaml::from_str::<FileConfigEnum<MbtConfig>>(indoc! {"
+        let mut cfg = serde_yaml::from_str::<FileConfigEnum<MbtConfig>>(indoc! {"
             paths:
               - /dir-path
               - /path/to/file2.ext
@@ -60,8 +64,13 @@ mod tests {
                   path: https://example.org/file4.ext
         "})
         .unwrap();
-        let res = cfg.finalize("");
-        assert!(res.is_empty(), "unrecognized config: {res:?}");
+        cfg.finalize().unwrap();
+        let unrecognised = cfg.get_unrecognized_keys();
+        assert!(
+            unrecognised.is_empty(),
+            "unrecognized config: {unrecognised:?}"
+        );
+        cfg.initialize_cache(None).unwrap();
         let FileConfigEnum::Config(cfg) = cfg else {
             panic!();
         };
