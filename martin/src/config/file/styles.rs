@@ -6,8 +6,8 @@ use martin_core::styles::StyleSources;
 use serde::{Deserialize, Serialize};
 
 use crate::config::file::{
-    ConfigExtras, ConfigFileError, ConfigFileResult, FileConfigEnum, UnrecognizedKeys,
-    UnrecognizedValues,
+    ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks, FileConfigEnum,
+    UnrecognizedKeys, UnrecognizedValues,
 };
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -16,7 +16,7 @@ pub struct InnerStyleConfig {
     pub unrecognized: UnrecognizedValues,
 }
 
-impl ConfigExtras for InnerStyleConfig {
+impl ConfigurationLivecycleHooks for InnerStyleConfig {
     fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
         self.unrecognized.keys().cloned().collect()
     }
