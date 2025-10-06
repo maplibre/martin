@@ -129,7 +129,7 @@ impl<T: ConfigExtras> FileConfigEnum<T> {
         if configs.is_empty() {
             match paths.len() {
                 0 => FileConfigEnum::None,
-                1 => FileConfigEnum::Path(paths.into_iter().next().unwrap()),
+                1 => FileConfigEnum::Path(paths.into_iter().next().expect("one path exists")),
                 _ => FileConfigEnum::Paths(paths),
             }
         } else {

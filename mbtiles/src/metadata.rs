@@ -234,9 +234,12 @@ impl Mbtiles {
 
 /// Create an in memory, temporary mbtile connection with the given `script`
 pub async fn anonymous_mbtiles(script: &str) -> (Mbtiles, SqliteConnection) {
-    let mbt = Mbtiles::new(":memory:").unwrap();
-    let mut conn = mbt.open().await.unwrap();
-    sqlx::raw_sql(script).execute(&mut conn).await.unwrap();
+    let mbt = Mbtiles::new(":memory:").expect("in-memory mbtiles can be created");
+    let mut conn = mbt.open().await.expect("in-memory mbtiles can be opened");
+    sqlx::raw_sql(script)
+        .execute(&mut conn)
+        .await
+        .expect("script execution succeeded");
     (mbt, conn)
 }
 
@@ -246,9 +249,16 @@ pub async fn temp_named_mbtiles(
     script: &str,
 ) -> (Mbtiles, SqliteConnection, PathBuf) {
     let file = PathBuf::from(format!("file:{file_name}?mode=memory&cache=shared"));
-    let mbt = Mbtiles::new(&file).unwrap();
-    let mut conn = mbt.open().await.unwrap();
-    sqlx::raw_sql(script).execute(&mut conn).await.unwrap();
+    let mbt =
+        Mbtiles::new(&file).unwrap_or_else(|_| panic!("can create pool for {}", file.display()));
+    let mut conn = mbt
+        .open()
+        .await
+        .unwrap_or_else(|_| panic!("can open connection to {}", file.display()));
+    sqlx::raw_sql(script)
+        .execute(&mut conn)
+        .await
+        .unwrap_or_else(|_| panic!("can execute script on {}", file.display()));
     (mbt, conn, file)
 }
 
