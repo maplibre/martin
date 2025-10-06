@@ -1046,7 +1046,6 @@ mod tests {
         let script = include_str!("../../tests/fixtures/mbtiles/geography-class-jpg.sql");
         let (_mbt, _conn, src) =
             temp_named_mbtiles("src_copy_with_diff_with_file_mem_db", script).await;
-
         let dst = PathBuf::from("file:copy_with_diff_with_file_mem_db?mode=memory&cache=shared");
 
         let script = include_str!("../../tests/fixtures/mbtiles/geography-class-jpg-modified.sql");
@@ -1228,17 +1227,38 @@ mod tests {
                        ON t1.zoom_level = t2.zoom_level AND t1.tile_column = t2.tile_column AND t1.tile_row = t2.tile_row")
             .await.unwrap();
 
-        // Ensure all entries in expected_tiles are in tiles and vice versa
+        let missing_tiles = query(
+            "
+            SELECT *
+            FROM expected_tiles
+            EXCEPT
+            SELECT *
+            FROM tiles
+            ",
+        )
+        .fetch_optional(&mut dst_conn)
+        .await
+        .unwrap();
         assert!(
-            query(
-                "SELECT * FROM expected_tiles EXCEPT SELECT * FROM tiles
-               UNION
-             SELECT * FROM tiles EXCEPT SELECT * FROM expected_tiles"
-            )
-            .fetch_optional(&mut dst_conn)
-            .await
-            .unwrap()
-            .is_none()
+            missing_tiles.is_none(),
+            "entries in expected_tiles are in tiles"
+        );
+
+        let extra_tiles = query(
+            "
+                    SELECT *
+                    FROM tiles
+                    EXCEPT
+                    SELECT *
+                    FROM expected_tiles
+                    ",
+        )
+        .fetch_optional(&mut dst_conn)
+        .await
+        .unwrap();
+        assert!(
+            extra_tiles.is_none(),
+            "entries in tiles are in expected_tiles"
         );
     }
 }
