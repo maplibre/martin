@@ -32,7 +32,7 @@ jobs:
           config-file: '.github/files/markdown.links.config.json'
 
       - uses: taiki-e/install-action@cc60de1d6831d7e9c4342f618ce7a5d6a9f223a4 # v2.61.6
-        with: { tool: 'mdbook,mdbook-alerts' }
+        with: { tool: 'mdbook,mdbook-alerts,mdbook-tabs' }
 
       - run: mdbook build docs
 

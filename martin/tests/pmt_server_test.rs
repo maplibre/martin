@@ -42,6 +42,8 @@ fn test_get(path: &str) -> TestRequest {
 
 const CONFIG: &str = indoc! {"
         pmtiles:
+            aws_region: eu-central-1
+            skip_signature: true
             sources:
                 p_png: ../tests/fixtures/pmtiles/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles
                 s3: s3://pmtilestest/cb_2018_us_zcta510_500k.pmtiles

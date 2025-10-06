@@ -11,7 +11,6 @@ use serde::{Deserialize, Serialize};
 use url::Url;
 
 use crate::config::file::ConfigFileError::{InvalidFilePath, InvalidSourceUrl, IoError};
-
 use crate::{MartinError, MartinResult};
 
 pub type ConfigFileResult<T> = Result<T, ConfigFileError>;
@@ -40,6 +39,9 @@ pub enum ConfigFileError {
     #[error("Error {0} while parsing URL {1}")]
     InvalidSourceUrl(#[source] url::ParseError, String),
 
+    #[error("Could not parse source path {0} as a URL")]
+    PathNotConvertibleToUrl(PathBuf),
+
     #[error("Source {0} uses bad file {1}")]
     InvalidSourceFilePath(String, PathBuf),
 
@@ -65,6 +67,10 @@ pub enum ConfigFileError {
     #[cfg(feature = "fonts")]
     #[error("Failed to load fonts from {1}: {0}")]
     FontResolutionFailed(#[source] martin_core::fonts::FontError, PathBuf),
+
+    #[cfg(feature = "pmtiles")]
+    #[error("Failed to parse object store URL of {1}: {0}")]
+    ObjectStoreUrlParsing(object_store::Error, String),
 }
 
 /// Lifecycle hooks for configuring the application
@@ -204,6 +210,24 @@ impl<T: ConfigurationLivecycleHooks> FileConfigEnum<T> {
         res.custom.initialize_cache(cache)?;
         Ok(Some(res))
     }
+
+    /// convert path/paths and the config enums
+    #[must_use]
+    pub fn into_config(self) -> FileConfigEnum<T> {
+        match self {
+            FileConfigEnum::Path(path) => FileConfigEnum::Config(FileConfig {
+                paths: OptOneMany::One(path),
+                sources: None,
+                custom: T::default(),
+            }),
+            FileConfigEnum::Paths(paths) => FileConfigEnum::Config(FileConfig {
+                paths: OptOneMany::Many(paths),
+                sources: None,
+                custom: T::default(),
+            }),
+            c => c,
+        }
+    }
 }
 
 impl<T: ConfigurationLivecycleHooks> ConfigurationLivecycleHooks for FileConfigEnum<T> {
@@ -222,6 +246,7 @@ impl<T: ConfigurationLivecycleHooks> ConfigurationLivecycleHooks for FileConfigE
             UnrecognizedKeys::new()
         }
     }
+
     fn initialize_cache(&mut self, cache: OptMainCache) -> ConfigFileResult<()> {
         if let Self::Config(cfg) = self {
             cfg.custom.initialize_cache(cache)
@@ -467,8 +492,12 @@ fn parse_url(is_enabled: bool, path: &Path) -> Result<Option<Url>, ConfigFileErr
     if !is_enabled {
         return Ok(None);
     }
+    let url_schemes = [
+        "s3://", "s3a://", "gs://", "adl://", "azure://", "abfs://", "abfss://", "http://",
+        "https://", "file://",
+    ];
     path.to_str()
-        .filter(|v| v.starts_with("http://") || v.starts_with("https://") || v.starts_with("s3://"))
+        .filter(|v| url_schemes.iter().any(|scheme| v.starts_with(scheme)))
         .map(|v| Url::parse(v).map_err(|e| InvalidSourceUrl(e, v.to_string())))
         .transpose()
 }

@@ -219,7 +219,7 @@ impl Mbtiles {
                 let y = row.tile_row;
                 let coord = parse_tile_index(z, x, y).ok_or_else(|| {
                     MbtError::InvalidTileIndex(
-                        filepath.to_string(),
+                        filepath.clone(),
                         format!("{z:?}"),
                         format!("{x:?}"),
                         format!("{y:?}"),
@@ -261,7 +261,7 @@ impl Mbtiles {
                 let y = row.tile_row;
                 let coord = parse_tile_index(z, x, y).ok_or_else(|| {
                     MbtError::InvalidTileIndex(
-                        filepath.to_string(),
+                        filepath.clone(),
                         format!("{z:?}"),
                         format!("{x:?}"),
                         format!("{y:?}"),

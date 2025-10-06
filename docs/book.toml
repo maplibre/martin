@@ -12,5 +12,9 @@ build-dir = "../target/book"
 smart-punctuation = true
 git-repository-url = "https://github.com/maplibre/martin"
 edit-url-template = "https://github.com/maplibre/martin/edit/main/docs/{path}"
+additional-css = ["theme/tabs.css"]
+additional-js = ["theme/tabs.js"]
 
 [preprocessor.alerts]
+
+[preprocessor.tabs]
