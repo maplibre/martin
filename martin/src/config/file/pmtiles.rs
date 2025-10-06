@@ -45,11 +45,12 @@ impl PartialEq for PmtConfig {
 }
 
 impl ConfigExtras for PmtConfig {
+    #[allow(
+        clippy::panic_in_result_fn,
+        reason = "invariant: the function cannot be called twice"
+    )]
     fn init_parsing(&mut self, cache: OptMainCache) -> ConfigFileResult<()> {
-        assert!(
-            self.cache.is_none(),
-            "init_parsing should only be called once"
-        );
+        assert!(self.cache.is_none(), "Cache cannot be initialized twice");
         self.cache = cache;
 
         if self.unrecognized.contains_key("dir_cache_size_mb") {
