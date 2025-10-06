@@ -17,7 +17,9 @@ unused_qualifications = "warn"
 
 [workspace.lints.clippy]
 # Restrictions
+unimplemented = "warn"
 panic_in_result_fn = "warn"
+panic = "warn"
 todo = "warn"
 # Pedantics without being too noisy
 pedantic = { level = "warn", priority = -1 }
