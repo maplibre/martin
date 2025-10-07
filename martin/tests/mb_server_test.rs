@@ -28,7 +28,7 @@ macro_rules! create_app {
                     ::martin::srv::Catalog::new(&state).unwrap(),
                 ))
                 .app_data(actix_web::web::Data::new(
-                    ::martin_core::cache::NO_MAIN_CACHE,
+                    ::martin_core::cache::NO_TILE_CACHE,
                 ))
                 .app_data(actix_web::web::Data::new(state.tiles))
                 .app_data(actix_web::web::Data::new(SrvConfig::default()))
