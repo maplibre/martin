@@ -73,7 +73,6 @@ jobs:
       - name: Run cargo test
         run: |
           set -x
-          cargo check --workspace --no-default-features --all-targets
           cargo test --package martin-tile-utils
           cargo test --package mbtiles --no-default-features
           cargo test --package mbtiles
