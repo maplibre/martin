@@ -58,7 +58,7 @@ pub trait Source: Send + Sync + Debug {
 
     /// Retrieves tile with etag for the given coordinates.
     ///
-    /// Default implementation calls get_tile and computes etag using `xxh3_128`.
+    /// Default implementation calls [`get_tile()`](Self::get_tile) and computes etag using `xxh3_128`.
     /// Sources can override this for more performance.
     ///
     /// # Arguments
