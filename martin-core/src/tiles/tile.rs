@@ -42,11 +42,7 @@ impl Tile {
     /// Creates a new tile with the given tile data, metadata, and etag.
     #[must_use]
     pub fn new_with_etag(data: TileData, info: TileInfo, etag: String) -> Self {
-        Self {
-            data,
-            info,
-            etag,
-        }
+        Self { data, info, etag }
     }
 
     /// Returns true if the tile data is empty.

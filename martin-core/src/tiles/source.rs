@@ -75,7 +75,11 @@ pub trait Source: Send + Sync + Debug {
         } else {
             xxhash_rust::xxh3::xxh3_128(&data)
         };
-        Ok(Tile::new_with_etag(data, self.get_tile_info(), etag.to_string()))
+        Ok(Tile::new_with_etag(
+            data,
+            self.get_tile_info(),
+            etag.to_string(),
+        ))
     }
 
     /// Validates zoom level against `TileJSON` min/max zoom constraints.
