@@ -13,12 +13,6 @@ pub struct MbtilesPool {
 }
 
 impl MbtilesPool {
-    #[deprecated(note = "Use `MbtilesPool::open_readonly` instead")]
-    #[doc(hidden)]
-    pub async fn new<P: AsRef<Path>>(filepath: P) -> MbtResult<Self> {
-        Self::open_readonly(filepath).await
-    }
-
     /// Open a `MBTiles` file in read-only mode.
     pub async fn open_readonly<P: AsRef<Path>>(filepath: P) -> MbtResult<Self> {
         let mbtiles = Mbtiles::new(filepath)?;
