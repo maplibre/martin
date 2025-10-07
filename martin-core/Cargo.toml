@@ -83,6 +83,7 @@ tilejson.workspace = true
 tokio = { workspace = true, optional = true }
 tokio-postgres-rustls = { workspace = true, optional = true }
 walkdir = { workspace = true, optional = true }
+xxhash-rust.workspace = true
 
 [dev-dependencies]
 approx.workspace = true

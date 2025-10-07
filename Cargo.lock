@@ -3550,7 +3550,6 @@ dependencies = [
  "tokio",
  "url",
  "walkdir",
- "xxhash-rust",
 ]
 
 [[package]]
@@ -3592,6 +3591,7 @@ dependencies = [
  "tokio",
  "tokio-postgres-rustls",
  "walkdir",
+ "xxhash-rust",
 ]
 
 [[package]]

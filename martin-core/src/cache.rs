@@ -1,5 +1,7 @@
-use martin_tile_utils::{TileCoord, TileData};
+use martin_tile_utils::TileCoord;
 use moka::future::Cache;
+
+use crate::tiles::Tile;
 
 /// Main cache instance for storing tiles and `PMTiles` directories.
 pub type MainCache = Cache<CacheKey, CacheValue>;
@@ -25,8 +27,8 @@ pub enum CacheKey {
 /// Values stored in the cache.
 #[derive(Debug, Clone)]
 pub enum CacheValue {
-    /// Cached tile data.
-    Tile(TileData),
+    /// Cached tile with metadata and etag.
+    Tile(Tile),
     #[cfg(feature = "pmtiles")]
     /// Cached `PMTiles` directory.
     PmtDirectory(pmtiles::Directory),

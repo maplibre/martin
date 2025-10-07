@@ -116,8 +116,8 @@ impl<'a> DynTileSource<'a> {
         if tile.data.is_empty() {
             return Ok(HttpResponse::NoContent().finish());
         }
-        let hash = xxhash_rust::xxh3::xxh3_128(&tile.data);
-        let etag = EntityTag::new_strong(hash.to_string());
+        let etag = EntityTag::new_strong(tile.etag.clone());
+
         if let Some(IfNoneMatch::Items(expected_etags)) = &self.if_none_match {
             for expected_etag in expected_etags {
                 if etag.strong_eq(expected_etag) {
@@ -140,7 +140,7 @@ impl<'a> DynTileSource<'a> {
             get_or_insert_cached_value!(
                 self.cache,
                 CacheValue::Tile,
-                s.get_tile(xyz, self.query_obj.as_ref()),
+                s.get_tile_with_etag(xyz, self.query_obj.as_ref()),
                 {
                     let id = s.get_id().to_string();
                     if let Some(query_str) = self.query_str {
@@ -164,9 +164,12 @@ impl<'a> DynTileSource<'a> {
         }
 
         // Minor optimization to prevent concatenation if there are less than 2 tiles
-        let data = match layer_count {
-            1 => tiles.swap_remove(last_non_empty_layer),
+        let (data, etag) = match layer_count {
             0 => return Ok(Tile::new(Vec::new(), self.info)),
+            1 => {
+                let tile = tiles.swap_remove(last_non_empty_layer);
+                (tile.data, tile.etag)
+            }
             _ => {
                 // Make sure tiles can be concatenated, or if not, that there is only one non-empty tile for each zoom level
                 // TODO: can zlib, brotli, or zstd be concatenated?
@@ -180,12 +183,26 @@ impl<'a> DynTileSource<'a> {
                         self.info, xyz.z
                     )))?;
                 }
-                tiles.concat()
+                // When concatenating tiles, we can't use pre-computed etags since the data changes
+                let total_etag_len = tiles.iter().map(|t| t.etag.len()).sum();
+                let mut concatenated_hash = String::with_capacity(total_etag_len);
+                for tile in &tiles {
+                    concatenated_hash.push_str(&tile.etag);
+                }
+                let concatenated_data = tiles
+                    .into_iter()
+                    .map(|t| t.data)
+                    .collect::<Vec<_>>()
+                    .concat();
+                (concatenated_data, concatenated_hash)
             }
         };
 
         // decide if (re-)encoding of the tile data is needed, and recompress if so
-        self.recompress(data)
+        let mut tile = self.recompress(data)?;
+        // Set the etag for the final tile
+        tile.etag = etag;
+        Ok(tile)
     }
 
     /// Decide which encoding to use for the uncompressed tile data, based on the client's Accept-Encoding header

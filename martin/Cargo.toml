@@ -152,7 +152,6 @@ tilejson.workspace = true
 tokio = { workspace = true, features = ["io-std"] }
 url.workspace = true
 walkdir = { workspace = true, optional = true }
-xxhash-rust.workspace = true
 
 [build-dependencies]
 static-files = { workspace = true, optional = true }
