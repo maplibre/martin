@@ -100,7 +100,7 @@ book:  (cargo-install 'mdbook') (cargo-install 'mdbook-alerts') (cargo-install '
 
 # Quick compile without building a binary
 check: (cargo-install 'cargo-hack')
-    cargo hack check --all-targets --each-feature --workspace
+    cargo hack --exclude-features _tiles check --all-targets --each-feature --workspace
 
 # Test documentation generation
 check-doc:  (docs '')
