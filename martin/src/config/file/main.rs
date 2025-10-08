@@ -4,34 +4,42 @@ use std::io::prelude::*;
 use std::path::Path;
 use std::sync::LazyLock;
 
+#[cfg(feature = "_tiles")]
 use futures::future::{BoxFuture, try_join_all};
 use log::{info, warn};
+#[cfg(feature = "_tiles")]
 use martin_core::cache::{CacheValue, MainCache, OptMainCache};
+#[cfg(feature = "_tiles")]
 use martin_core::config::IdResolver;
 #[cfg(any(feature = "fonts", feature = "postgres"))]
 use martin_core::config::OptOneMany;
+#[cfg(feature = "_tiles")]
 use martin_core::tiles::BoxedSource;
 use serde::{Deserialize, Serialize};
 use subst::VariableMap;
 
 #[cfg(any(
-    feature = "unstable-cog",
-    feature = "mbtiles",
     feature = "pmtiles",
-    feature = "sprites",
+    feature = "mbtiles",
+    feature = "unstable-cog",
     feature = "styles",
+    feature = "sprites",
 ))]
 use crate::config::file::FileConfigEnum;
 use crate::config::file::{
     ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks, UnrecognizedKeys,
     UnrecognizedValues, copy_unrecognized_keys_from_config,
 };
+#[cfg(feature = "_tiles")]
 use crate::source::TileSources;
+#[cfg(feature = "_tiles")]
 use crate::srv::RESERVED_KEYWORDS;
 use crate::{MartinError, MartinResult};
 
 pub struct ServerState {
+    #[cfg(feature = "_tiles")]
     pub cache: OptMainCache,
+    #[cfg(feature = "_tiles")]
     pub tiles: TileSources,
     #[cfg(feature = "sprites")]
     pub sprites: martin_core::sprites::SpriteSources,
@@ -181,14 +189,19 @@ impl Config {
 
     pub async fn resolve(&mut self) -> MartinResult<ServerState> {
         init_aws_lc_tls();
+
+        #[cfg(feature = "_tiles")]
         let resolver = IdResolver::new(RESERVED_KEYWORDS);
+        #[cfg(feature = "_tiles")]
         let cache_size = self.cache_size_mb.unwrap_or(512) * 1024 * 1024;
+        #[cfg(feature = "_tiles")]
         let cache = if cache_size > 0 {
             info!("Initializing main cache with maximum size {cache_size}B");
             Some(
                 MainCache::builder()
                     .weigher(|_key, value: &CacheValue| -> u32 {
                         match value {
+                            #[cfg(feature = "_tiles")]
                             CacheValue::Tile(v) => v.len().try_into().unwrap_or(u32::MAX),
                             #[cfg(feature = "pmtiles")]
                             CacheValue::PmtDirectory(v) => {
@@ -205,6 +218,7 @@ impl Config {
         };
 
         Ok(ServerState {
+            #[cfg(feature = "_tiles")]
             tiles: self.resolve_tile_sources(&resolver, cache.clone()).await?,
             #[cfg(feature = "sprites")]
             sprites: self.sprites.resolve()?,
@@ -212,16 +226,17 @@ impl Config {
             fonts: self.fonts.resolve()?,
             #[cfg(feature = "styles")]
             styles: self.styles.resolve()?,
+            #[cfg(feature = "_tiles")]
             cache,
         })
     }
 
+    #[cfg(feature = "_tiles")]
     async fn resolve_tile_sources(
         &mut self,
-        #[allow(unused_variables)] idr: &IdResolver,
+        idr: &IdResolver,
         #[allow(unused_variables)] cache: OptMainCache,
     ) -> MartinResult<TileSources> {
-        #[allow(unused_mut)]
         let mut sources: Vec<BoxFuture<MartinResult<Vec<BoxedSource>>>> = Vec::new();
 
         #[cfg(feature = "postgres")]

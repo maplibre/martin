@@ -1,16 +1,23 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt::Debug;
 use std::mem;
-use std::path::{Path, PathBuf};
+#[cfg(feature = "_tiles")]
+use std::path::Path;
+use std::path::PathBuf;
 
+#[cfg(feature = "_tiles")]
 use log::{info, warn};
 use martin_core::cache::OptMainCache;
-use martin_core::config::{IdResolver, OptOneMany};
+#[cfg(feature = "_tiles")]
+use martin_core::config::IdResolver;
+use martin_core::config::OptOneMany;
+#[cfg(feature = "_tiles")]
 use martin_core::tiles::BoxedSource;
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "_tiles")]
 use url::Url;
 
-use crate::config::file::ConfigFileError::{InvalidFilePath, InvalidSourceUrl, IoError};
+#[cfg(feature = "_tiles")]
 use crate::{MartinError, MartinResult};
 
 pub type ConfigFileResult<T> = Result<T, ConfigFileError>;
@@ -108,6 +115,7 @@ pub trait ConfigurationLivecycleHooks: Clone + Debug + Default + PartialEq + Sen
 }
 
 /// Configuration which all of our tile sources implement to make configuring them easier
+#[cfg(feature = "_tiles")]
 pub trait TileSourceConfiguration: ConfigurationLivecycleHooks {
     /// Indicates whether path strings for this configuration should be parsed as URLs.
     ///
@@ -283,6 +291,7 @@ impl<T: ConfigurationLivecycleHooks> ConfigurationLivecycleHooks for FileConfig<
     fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
         self.custom.get_unrecognized_keys()
     }
+
     fn initialize_cache(&mut self, cache: OptMainCache) -> ConfigFileResult<()> {
         self.custom.initialize_cache(cache)
     }
@@ -316,15 +325,18 @@ impl FileConfigSrc {
     pub fn abs_path(&self) -> ConfigFileResult<PathBuf> {
         let path = self.get_path();
 
+        #[cfg(feature = "mbtiles")]
         if is_sqlite_memory_uri(path) {
             // Skip canonicalization for in-memory DB URIs
             return Ok(path.clone());
         }
 
-        path.canonicalize().map_err(|e| IoError(e, path.clone()))
+        path.canonicalize()
+            .map_err(|e| ConfigFileError::IoError(e, path.clone()))
     }
 }
 
+#[cfg(feature = "mbtiles")]
 fn is_sqlite_memory_uri(path: &Path) -> bool {
     if let Some(s) = path.to_str() {
         s.starts_with("file:") && s.contains("mode=memory") && s.contains("cache=shared")
@@ -338,6 +350,7 @@ pub struct FileConfigSource {
     pub path: PathBuf,
 }
 
+#[cfg(feature = "_tiles")]
 pub async fn resolve_files<T: TileSourceConfiguration>(
     config: &mut FileConfigEnum<T>,
     idr: &IdResolver,
@@ -347,6 +360,7 @@ pub async fn resolve_files<T: TileSourceConfiguration>(
     resolve_int(config, idr, cache, extension).await
 }
 
+#[cfg(feature = "_tiles")]
 async fn resolve_int<T: TileSourceConfiguration>(
     config: &mut FileConfigEnum<T>,
     idr: &IdResolver,
@@ -417,12 +431,14 @@ async fn resolve_int<T: TileSourceConfiguration>(
             } else if path.is_file() {
                 vec![path]
             } else {
-                return Err(MartinError::from(InvalidFilePath(
+                return Err(MartinError::from(ConfigFileError::InvalidFilePath(
                     path.canonicalize().unwrap_or(path),
                 )));
             };
             for path in dir_files {
-                let can = path.canonicalize().map_err(|e| IoError(e, path.clone()))?;
+                let can = path
+                    .canonicalize()
+                    .map_err(|e| ConfigFileError::IoError(e, path.clone()))?;
                 if files.contains(&can) {
                     if !is_dir {
                         warn!("Ignoring duplicate MBTiles path: {}", can.display());
@@ -452,13 +468,14 @@ async fn resolve_int<T: TileSourceConfiguration>(
 /// # Errors
 ///
 /// Returns an error if Rust's underlying [`read_dir`](std::fs::read_dir) returns an error.
+#[cfg(feature = "_tiles")]
 fn collect_files_with_extension(
     base_path: &Path,
     allowed_extension: &[&str],
 ) -> Result<Vec<PathBuf>, ConfigFileError> {
     Ok(base_path
         .read_dir()
-        .map_err(|e| IoError(e, base_path.to_path_buf()))?
+        .map_err(|e| ConfigFileError::IoError(e, base_path.to_path_buf()))?
         .filter_map(Result::ok)
         .filter(|f| {
             f.path()
@@ -475,6 +492,7 @@ fn collect_files_with_extension(
         .collect())
 }
 
+#[cfg(feature = "_tiles")]
 fn sanitize_url(url: &Url) -> String {
     let mut result = format!("{}://", url.scheme());
     if let Some(host) = url.host_str() {
@@ -488,6 +506,7 @@ fn sanitize_url(url: &Url) -> String {
     result
 }
 
+#[cfg(feature = "_tiles")]
 fn parse_url(is_enabled: bool, path: &Path) -> Result<Option<Url>, ConfigFileError> {
     if !is_enabled {
         return Ok(None);
@@ -498,7 +517,7 @@ fn parse_url(is_enabled: bool, path: &Path) -> Result<Option<Url>, ConfigFileErr
     ];
     path.to_str()
         .filter(|v| url_schemes.iter().any(|scheme| v.starts_with(scheme)))
-        .map(|v| Url::parse(v).map_err(|e| InvalidSourceUrl(e, v.to_string())))
+        .map(|v| Url::parse(v).map_err(|e| ConfigFileError::InvalidSourceUrl(e, v.to_string())))
         .transpose()
 }
 
