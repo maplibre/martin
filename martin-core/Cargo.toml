@@ -3,7 +3,7 @@ name = "martin-core"
 version = "0.1.3"
 authors = ["Yuri Astrakhan <YuriAstrakhan@gmail.com>", "MapLibre contributors"]
 description = "Basic building blocks of MapLibre's Martin tile server."
-keywords = ["maps", "tiles", "mvt", "tileserver"]
+keywords = ["maps", "_tiles", "mvt", "_tileserver"]
 categories = ["science::geo", "parsing"]
 edition.workspace = true
 license.workspace = true
@@ -30,9 +30,9 @@ postgres = [
     "dep:rustls-pemfile",
     "dep:semver",
     "dep:tokio-postgres-rustls",
-    "dep:serde_json",
+    "dep:serde_json", "_tiles",
 ]
-unstable-cog = ["dep:png", "dep:tiff"]
+unstable-cog = ["dep:png", "dep:tiff", "_tiles"]
 fonts = [
     "dep:bit-set",
     "dep:pbf_font_tools",
@@ -48,8 +48,9 @@ sprites = [
     "dep:dashmap",
 ]
 styles = ["dep:walkdir", "tokio/fs", "dep:dashmap"]
-mbtiles = ["dep:mbtiles"]
-pmtiles = ["dep:pmtiles", "dep:object_store"]
+mbtiles = ["dep:mbtiles", "_tiles"]
+pmtiles = ["dep:pmtiles", "dep:object_store", "_tiles"]
+_tiles = []
 
 [dependencies]
 async-trait.workspace = true
