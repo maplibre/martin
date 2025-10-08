@@ -41,6 +41,12 @@ pub const RESERVED_KEYWORDS: &[&str] = &[
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Catalog {
+    #[cfg(any(
+        feature = "postgres",
+        feature = "pmtiles",
+        feature = "mbtiles",
+        feature = "unstable-cog"
+    ))]
     pub tiles: TileCatalog,
     #[cfg(feature = "sprites")]
     pub sprites: martin_core::sprites::SpriteCatalog,
@@ -188,7 +194,15 @@ pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server
     let factory = move || {
         let cors_middleware = cors_config.make_cors_middleware();
 
-        let app = App::new()
+        let app = App::new();
+
+        #[cfg(any(
+            feature = "postgres",
+            feature = "pmtiles",
+            feature = "mbtiles",
+            feature = "unstable-cog",
+        ))]
+        let app = app
             .app_data(Data::new(state.tiles.clone()))
             .app_data(Data::new(state.tile_cache.clone()));
 

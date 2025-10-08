@@ -11,6 +11,12 @@ use martin_core::config::IdResolver;
 use martin_core::config::OptOneMany;
 #[cfg(feature = "pmtiles")]
 use martin_core::tiles::pmtiles::PmtCache;
+#[cfg(any(
+    feature = "postgres",
+    feature = "pmtiles",
+    feature = "mbtiles",
+    feature = "unstable-cog"
+))]
 use martin_core::tiles::{BoxedSource, OptTileCache};
 use serde::{Deserialize, Serialize};
 use subst::VariableMap;
@@ -23,6 +29,14 @@ use subst::VariableMap;
     feature = "styles",
 ))]
 use crate::config::file::FileConfigEnum;
+#[cfg(any(
+    feature = "postgres",
+    feature = "pmtiles",
+    feature = "mbtiles",
+    feature = "unstable-cog",
+    feature = "sprites",
+    feature = "fonts",
+))]
 use crate::config::file::cache::CacheConfig;
 use crate::config::file::{
     ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks, UnrecognizedKeys,
@@ -213,7 +227,14 @@ impl Config {
         init_aws_lc_tls();
         let resolver = IdResolver::new(RESERVED_KEYWORDS);
 
-        // Create cache configuration
+        #[cfg(any(
+            feature = "postgres",
+            feature = "pmtiles",
+            feature = "mbtiles",
+            feature = "unstable-cog",
+            feature = "sprites",
+            feature = "fonts",
+        ))]
         let cache_config = self.resolve_cache_config();
 
         #[cfg(feature = "pmtiles")]
@@ -256,6 +277,14 @@ impl Config {
         })
     }
 
+    #[cfg(any(
+        feature = "postgres",
+        feature = "pmtiles",
+        feature = "mbtiles",
+        feature = "unstable-cog",
+        feature = "sprites",
+        feature = "fonts",
+    ))]
     // cache_config is still respected, but can be overridden by individual cache sizes
     //
     // `cache_config: 0` disables caching, unless overridden by individual cache sizes
@@ -319,6 +348,12 @@ impl Config {
         }
     }
 
+    #[cfg(any(
+        feature = "postgres",
+        feature = "pmtiles",
+        feature = "mbtiles",
+        feature = "unstable-cog"
+    ))]
     async fn resolve_tile_sources(
         &mut self,
         #[allow(unused_variables)] idr: &IdResolver,
