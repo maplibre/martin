@@ -101,7 +101,7 @@ default = [
 unstable-cog = ["martin-core/unstable-cog", "_tiles"]
 fonts = ["martin-core/fonts"]
 lambda = ["dep:lambda-web"]
-mbtiles = ["martin-core/mbtiles", "_tiles"]
+mbtiles = ["martin-core/mbtiles", "dep:mbtiles", "_tiles"]
 metrics = ["dep:actix-web-prom"]
 pmtiles = ["martin-core/pmtiles", "dep:object_store", "_tiles"]
 postgres = [
@@ -137,7 +137,7 @@ lambda-web = { workspace = true, optional = true }
 log.workspace = true
 martin-core.workspace = true
 martin-tile-utils.workspace = true
-mbtiles.workspace = true
+mbtiles = { workspace = true, optional = true }
 num_cpus.workspace = true
 object_store = { workspace = true, optional = true }
 postgis = { workspace = true, optional = true }
