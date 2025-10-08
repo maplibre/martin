@@ -55,6 +55,9 @@ const MAX_UNICODE_CP_RANGE_ID: usize = MAX_UNICODE_CP / CP_RANGE_SIZE;
 mod error;
 pub use error::FontError;
 
+mod cache;
+pub use cache::{FontCache, NO_FONT_CACHE, OptFontCache};
+
 /// Glyph information: (codepoints, count, ranges, first, last).
 type GetGlyphInfo = (BitSet, usize, Vec<(usize, usize)>, usize, usize);
 

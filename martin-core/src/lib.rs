@@ -7,10 +7,8 @@
 pub mod config;
 
 /// Tile sources
+#[cfg(feature = "_tiles")]
 pub mod tiles;
-
-/// Cache utilities.
-pub mod cache;
 
 #[cfg(any(feature = "fonts", feature = "sprites", feature = "styles"))]
 mod resources;

@@ -3,9 +3,8 @@ use std::path::PathBuf;
 use std::str::FromStr;
 
 use log::{trace, warn};
-use martin_core::cache::OptMainCache;
 use martin_core::tiles::BoxedSource;
-use martin_core::tiles::pmtiles::{PmtCache, PmtilesSource};
+use martin_core::tiles::pmtiles::{PmtCache, PmtCacheInstance, PmtilesSource};
 use serde::{Deserialize, Serialize};
 use url::Url;
 
@@ -18,6 +17,11 @@ use crate::config::file::{
 #[serde_with::skip_serializing_none]
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct PmtConfig {
+    /// Size of the directory cache in megabytes (0 to disable)
+    ///
+    /// Overrides [`cache_size_mb`](crate::config::file::Config::cache_size_mb).
+    pub directory_cache_size_mb: Option<u64>,
+
     // if the key is the allowed set, we assume it is there for a purpose
     // settings and unreconginsed values are partitioned from each other in the init_parsing step
     #[serde(skip)]
@@ -26,14 +30,15 @@ pub struct PmtConfig {
     #[serde(flatten, skip_serializing)]
     pub unrecognized: UnrecognizedValues,
 
-    /// Internal state => not serialized
+    /// `PMTiles` directory cache (internal state, not serialized)
     #[serde(skip)]
-    cache: OptMainCache,
+    pub pmtiles_directory_cache: PmtCache,
 }
 
 impl PartialEq for PmtConfig {
     fn eq(&self, other: &Self) -> bool {
         self.options == other.options && self.unrecognized == other.unrecognized
+        // pmtiles_directory_cache is intentionally excluded from equality check
     }
 }
 
@@ -52,17 +57,6 @@ impl ConfigurationLivecycleHooks for PmtConfig {
 
     fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
         self.unrecognized.keys().cloned().collect()
-    }
-
-    #[allow(
-        clippy::panic_in_result_fn,
-        reason = "invariant: the function cannot be called twice"
-    )]
-    fn initialize_cache(&mut self, cache: OptMainCache) -> ConfigFileResult<()> {
-        assert!(self.cache.is_none(), "Cache cannot be initialized twice");
-        self.cache = cache;
-
-        Ok(())
     }
 }
 
@@ -234,9 +228,15 @@ impl TileSourceConfiguration for PmtConfig {
     }
 
     async fn new_sources_url(&self, id: String, url: Url) -> MartinResult<BoxedSource> {
+        use std::sync::LazyLock;
+        use std::sync::atomic::{AtomicUsize, Ordering};
+
+        static NEXT_CACHE_ID: LazyLock<AtomicUsize> = LazyLock::new(|| AtomicUsize::new(0));
+        let cache_id = NEXT_CACHE_ID.fetch_add(1, Ordering::SeqCst);
+
         let (store, path) = object_store::parse_url_opts(&url, &self.options)
             .map_err(|e| ConfigFileError::ObjectStoreUrlParsing(e, id.clone()))?;
-        let cache = PmtCache::from(self.cache.clone());
+        let cache = PmtCacheInstance::new(cache_id, self.pmtiles_directory_cache.clone());
         let source = PmtilesSource::new(cache, id, store, path).await?;
         Ok(Box::new(source))
     }

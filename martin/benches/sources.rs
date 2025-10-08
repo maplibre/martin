@@ -1,5 +1,6 @@
 use criterion::async_executor::FuturesExecutor;
 use criterion::{Criterion, criterion_group, criterion_main};
+#[cfg(feature = "_tiles")]
 use martin::TileSources;
 use martin::srv::DynTileSource;
 use martin_tile_utils::TileCoord;
