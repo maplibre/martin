@@ -7,8 +7,10 @@ use std::sync::LazyLock;
 use futures::future::{BoxFuture, try_join_all};
 use log::{info, warn};
 use martin_core::config::IdResolver;
-#[cfg(any(feature = "fonts", feature = "postgres"))]
+#[cfg(any(feature = "postgres"))]
 use martin_core::config::OptOneMany;
+#[cfg(feature = "pmtiles")]
+use martin_core::tiles::pmtiles::PmtCache;
 use martin_core::tiles::{BoxedSource, OptTileCache};
 use serde::{Deserialize, Serialize};
 use subst::VariableMap;
@@ -31,7 +33,19 @@ use crate::srv::RESERVED_KEYWORDS;
 use crate::{MartinError, MartinResult};
 
 pub struct ServerState {
+    #[cfg(any(
+        feature = "postgres",
+        feature = "pmtiles",
+        feature = "mbtiles",
+        feature = "unstable-cog"
+    ))]
     pub tiles: TileSources,
+    #[cfg(any(
+        feature = "postgres",
+        feature = "pmtiles",
+        feature = "mbtiles",
+        feature = "unstable-cog"
+    ))]
     pub tile_cache: OptTileCache,
 
     #[cfg(feature = "sprites")]
@@ -88,7 +102,7 @@ pub struct Config {
     pub styles: super::styles::StyleConfig,
 
     #[cfg(feature = "fonts")]
-    #[serde(default, skip_serializing_if = "OptOneMany::is_none")]
+    #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
     pub fonts: super::fonts::FontConfig,
 
     #[serde(flatten, skip_serializing)]
@@ -121,6 +135,8 @@ impl Config {
         {
             // if a pmtiles source were to keep being configured like this,
             // we would not be able to migrate defaults/deprecate settings
+            //
+            // pmiles intialisation after this in resolve_tile_sources depends on this behaviour and will panic otherwise
             self.pmtiles = self.pmtiles.clone().into_config();
             self.pmtiles.finalize()?;
             res.extend(self.pmtiles.get_unrecognized_keys_with_prefix("pmtiles."));
@@ -204,18 +220,39 @@ impl Config {
         let pmtiles_cache = cache_config.create_pmtiles_cache();
 
         Ok(ServerState {
-            tiles: self.resolve_tile_sources(&resolver).await?,
+            #[cfg(any(
+                feature = "postgres",
+                feature = "pmtiles",
+                feature = "mbtiles",
+                feature = "unstable-cog"
+            ))]
+            tiles: self
+                .resolve_tile_sources(
+                    &resolver,
+                    #[cfg(feature = "pmtiles")]
+                    pmtiles_cache,
+                )
+                .await?,
+            #[cfg(any(
+                feature = "postgres",
+                feature = "pmtiles",
+                feature = "mbtiles",
+                feature = "unstable-cog"
+            ))]
+            tile_cache: cache_config.create_tile_cache(),
+
             #[cfg(feature = "sprites")]
             sprites: self.sprites.resolve()?,
-            #[cfg(feature = "fonts")]
-            fonts: self.fonts.resolve()?,
-            #[cfg(feature = "styles")]
-            styles: self.styles.resolve()?,
-            tile_cache: cache_config.create_tile_cache(),
             #[cfg(feature = "sprites")]
             sprite_cache: cache_config.create_sprite_cache(),
+
+            #[cfg(feature = "fonts")]
+            fonts: self.fonts.resolve()?,
             #[cfg(feature = "fonts")]
             font_cache: cache_config.create_font_cache(),
+
+            #[cfg(feature = "styles")]
+            styles: self.styles.resolve()?,
         })
     }
 
@@ -225,7 +262,7 @@ impl Config {
     fn resolve_cache_config(&self) -> CacheConfig {
         if let Some(cache_size_mb) = self.cache_size_mb {
             #[cfg(feature = "pmtiles")]
-            let pmtiles_cache_size_mb = if let FileConfigEnum::Config(cfg) = self.pmtiles {
+            let pmtiles_cache_size_mb = if let FileConfigEnum::Config(cfg) = &self.pmtiles {
                 cfg.custom
                     .directory_cache_size_mb
                     .unwrap_or(cache_size_mb / 4) // Default: 25% for PMTiles directories
@@ -234,14 +271,14 @@ impl Config {
             };
 
             #[cfg(feature = "sprites")]
-            let sprite_cache_size_mb = if let FileConfigEnum::Config(cfg) = self.sprites {
+            let sprite_cache_size_mb = if let FileConfigEnum::Config(cfg) = &self.sprites {
                 cfg.custom.cache_size_mb.unwrap_or(cache_size_mb / 8) // Default: 12.5% for sprites
             } else {
                 cache_size_mb / 8 // Default: 12.5% for sprites
             };
 
             #[cfg(feature = "fonts")]
-            let font_cache_size_mb = if let FileConfigEnum::Config(cfg) = self.fonts {
+            let font_cache_size_mb = if let FileConfigEnum::Config(cfg) = &self.fonts {
                 cfg.custom.cache_size_mb.unwrap_or(cache_size_mb / 8) // Default: 12.5% for fonts
             } else {
                 cache_size_mb / 8 // Default: 12.5% for fonts
@@ -285,6 +322,7 @@ impl Config {
     async fn resolve_tile_sources(
         &mut self,
         #[allow(unused_variables)] idr: &IdResolver,
+        #[cfg(feature = "pmtiles")] pmtiles_cache: PmtCache,
     ) -> MartinResult<TileSources> {
         #[allow(unused_mut)]
         let mut sources: Vec<BoxFuture<MartinResult<Vec<BoxedSource>>>> = Vec::new();
@@ -297,6 +335,15 @@ impl Config {
         #[cfg(feature = "pmtiles")]
         if !self.pmtiles.is_empty() {
             let cfg = &mut self.pmtiles;
+            match cfg {
+                FileConfigEnum::None => {}
+                FileConfigEnum::Paths(_) | FileConfigEnum::Path(_) => unreachable!(
+                    "pmtiles was transformed to FileConfigEnum::Config in the previous step via `into_config`",
+                ),
+                FileConfigEnum::Config(file_config) => {
+                    file_config.custom.pmtiles_directory_cache = pmtiles_cache;
+                }
+            };
             let val = crate::config::file::resolve_files(cfg, idr, &["pmtiles"]);
             sources.push(Box::pin(val));
         }

@@ -43,14 +43,15 @@ impl CacheConfig {
     /// Creates PMTiles directory cache if configured.
     #[cfg(feature = "pmtiles")]
     #[must_use]
-    pub fn create_pmtiles_cache(&self) -> martin_core::tiles::pmtiles::OptPmtCache {
+    pub fn create_pmtiles_cache(&self) -> martin_core::tiles::pmtiles::PmtCache {
+        // TODO: make this actually disabled, not just zero sized cached
         if self.pmtiles_cache_size_mb > 0 {
             let size = self.pmtiles_cache_size_mb * 1024 * 1024;
             log::info!("Initializing PMTiles directory cache with maximum size {size}B");
-            Some(martin_core::tiles::pmtiles::PmtCache::new(size))
+            martin_core::tiles::pmtiles::PmtCache::new(size)
         } else {
             log::debug!("PMTiles directory caching is disabled");
-            None
+            martin_core::tiles::pmtiles::PmtCache::new(0)
         }
     }
 

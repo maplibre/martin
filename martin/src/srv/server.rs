@@ -53,6 +53,12 @@ pub struct Catalog {
 impl Catalog {
     pub fn new(state: &ServerState) -> MartinResult<Self> {
         Ok(Self {
+            #[cfg(any(
+                feature = "postgres",
+                feature = "pmtiles",
+                feature = "mbtiles",
+                feature = "unstable-cog"
+            ))]
             tiles: state.tiles.get_catalog(),
             #[cfg(feature = "sprites")]
             sprites: state.sprites.get_catalog()?,
