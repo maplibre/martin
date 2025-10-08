@@ -3,8 +3,8 @@ use std::path::PathBuf;
 use std::str::FromStr;
 
 use log::{trace, warn};
-use martin_core::tiles::OptTileCache;
 use martin_core::tiles::BoxedSource;
+use martin_core::tiles::OptTileCache;
 use martin_core::tiles::pmtiles::{PmtCache, PmtilesSource};
 use serde::{Deserialize, Serialize};
 use url::Url;
