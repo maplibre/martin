@@ -11,8 +11,6 @@ pub use tiles::{DynTileSource, TileRequest};
 
 #[cfg(feature = "_tiles")]
 mod tiles_info;
-#[cfg(any(feature = "_tiles"))]
-pub use tiles_info::SourceIDsRequest;
 #[cfg(feature = "_tiles")]
 pub use tiles_info::merge_tilejson;
 
