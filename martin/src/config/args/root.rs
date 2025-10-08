@@ -3,7 +3,6 @@ use std::path::PathBuf;
 use clap::Parser;
 use clap::builder::Styles;
 use clap::builder::styling::AnsiColor;
-use log::warn;
 use martin_core::config::env::Env;
 
 use super::connections::Arguments;
