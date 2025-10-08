@@ -148,7 +148,7 @@ just stop        # stop test database
 > Rendering support is currently only available on Linux.
 
 Martin includes optional rendering support via [`maplibre-native`](https://github.com/maplibre/maplibre-native).
-To build with rendering features enabled (`feature="rendering"`), you need additional system dependencies:
+To build with rendering features enabled (`feature="unstable-rendering"`), you need additional system dependencies:
 
 ```bash
 just install-dependencies

@@ -19,13 +19,13 @@ use std::path::PathBuf;
 
 use dashmap::{DashMap, Entry};
 use log::{info, warn};
-#[cfg(all(feature = "rendering", target_os = "linux"))]
+#[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
 use maplibre_native::Image;
 use serde::{Deserialize, Serialize};
 
-#[cfg(all(feature = "rendering", target_os = "linux"))]
+#[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
 mod error;
-#[cfg(all(feature = "rendering", target_os = "linux"))]
+#[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
 pub use error::StyleError;
 
 /// Style metadata.
@@ -43,7 +43,7 @@ pub type StyleCatalog = HashMap<String, CatalogStyleEntry>;
 pub struct StyleSources {
     sources: DashMap<String, StyleSource>,
     // if rendering is allowed
-    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    #[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
     rendering_enabled: bool,
 }
 
@@ -121,7 +121,7 @@ impl StyleSources {
     ///
     /// For now, we only use a static renderer which is optimized for our kind of usage
     /// In the future, we may consider adding support for smarter rendering including a pool of renderers.
-    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    #[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
     pub async fn render(&self, path: PathBuf, z: u8, x: u32, y: u32) -> Result<Image, StyleError> {
         if !self.rendering_enabled {
             return Err(StyleError::RenderingIsDisabled);
@@ -134,7 +134,7 @@ impl StyleSources {
     }
 
     /// Enable or disable rendering.
-    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    #[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
     pub fn set_rendering_enabled(&mut self, arg: bool) {
         self.rendering_enabled = arg;
     }
@@ -144,9 +144,9 @@ impl StyleSources {
 mod tests {
     use std::path::Path;
 
-    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    #[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
     use martin_tile_utils::TileCoord;
-    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    #[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
     use rstest::rstest;
 
     use super::*;
@@ -209,7 +209,7 @@ mod tests {
         );
     }
 
-    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    #[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
     #[rstest]
     #[case::maplibre_demo("maplibre_demo.json", (0, 0, 0))]
     #[case::maplibre_demo_zoom1("maplibre_demo.json", (1, 0, 0))]
@@ -237,7 +237,7 @@ mod tests {
         insta::assert_binary_snapshot!(&snapshot_name, image.as_bytes().to_vec());
     }
 
-    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    #[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
     #[tokio::test(flavor = "multi_thread")]
     async fn test_render_concurrent_requests_no_side_effects() {
         let style_dir = Path::new("../tests/fixtures/styles/");

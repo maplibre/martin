@@ -39,7 +39,7 @@ sprites = [
     "dep:futures",
     "dep:dashmap",
 ]
-rendering = ["styles", "dep:maplibre_native", "dep:image"]
+unstable-rendering = ["styles", "dep:maplibre_native", "dep:image"]
 styles = ["dep:walkdir", "tokio/fs", "dep:dashmap"]
 mbtiles = ["dep:mbtiles"]
 pmtiles = ["dep:pmtiles", "dep:aws-config", "dep:url"]

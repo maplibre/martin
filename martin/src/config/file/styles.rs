@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use log::warn;
-#[cfg(all(feature = "rendering", target_os = "linux"))]
+#[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
 use martin_core::config::OptBoolObj;
 use martin_core::styles::StyleSources;
 use serde::{Deserialize, Serialize};
@@ -19,7 +19,7 @@ pub struct InnerStyleConfig {
     /// Note on EXPERIMENTAL status:
     /// We are not currently happy with the performance of this endpoint and intend to improve this in the future
     /// Marking this experimental means that we are not stuck with single threaded performance as a default until v2.0
-    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    #[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
     pub experimental_rendering: OptBoolObj<RendererConfig>,
 
     #[serde(flatten, skip_serializing)]
@@ -34,7 +34,7 @@ impl ConfigExtras for InnerStyleConfig {
             .keys()
             .cloned()
             .collect::<UnrecognizedKeys>();
-        #[cfg(all(feature = "rendering", target_os = "linux"))]
+        #[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
         match &self.experimental_rendering {
             OptBoolObj::NoValue | OptBoolObj::Bool(_) => {}
             OptBoolObj::Object(o) => keys.extend(
@@ -47,7 +47,7 @@ impl ConfigExtras for InnerStyleConfig {
     }
 }
 
-#[cfg(all(feature = "rendering", target_os = "linux"))]
+#[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct RendererConfig {
     // Same effect as experimental_rendering: true|false shorthands
@@ -56,7 +56,7 @@ pub struct RendererConfig {
     #[serde(flatten, skip_serializing)]
     pub unrecognized: UnrecognizedValues,
 }
-#[cfg(all(feature = "rendering", target_os = "linux"))]
+#[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
 impl ConfigExtras for RendererConfig {
     fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
         self.unrecognized.keys().cloned().collect()
@@ -73,7 +73,7 @@ impl StyleConfig {
 
         let mut results = StyleSources::default();
 
-        #[cfg(all(feature = "rendering", target_os = "linux"))]
+        #[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
         match cfg.custom.experimental_rendering {
             OptBoolObj::NoValue | OptBoolObj::Bool(false) => results.set_rendering_enabled(false),
             OptBoolObj::Object(ref o) if !o.enabled => results.set_rendering_enabled(false),

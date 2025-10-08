@@ -84,7 +84,7 @@ async fn style_json_not_found() {
     assert_eq!(body, "No such style exists");
 }
 
-#[cfg(all(feature = "rendering", target_os = "linux"))]
+#[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
 mod render_tests {
     use rstest::rstest;
 
