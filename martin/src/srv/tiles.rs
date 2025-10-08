@@ -8,7 +8,7 @@ use actix_web::http::header::{
 use actix_web::web::{Data, Path, Query};
 use actix_web::{HttpMessage, HttpRequest, HttpResponse, Result as ActixResult, route};
 use futures::future::try_join_all;
-use martin_core::cache::{CacheKey, CacheValue, MainCache, OptMainCache};
+use martin_core::tiles::{CacheKey, CacheValue, OptTileCache, TileCache};
 use martin_core::get_or_insert_cached_value;
 use martin_core::tiles::{BoxedSource, Tile, UrlQuery};
 use martin_tile_utils::{
@@ -42,7 +42,7 @@ async fn get_tile(
     srv_config: Data<SrvConfig>,
     path: Path<TileRequest>,
     sources: Data<TileSources>,
-    cache: Data<OptMainCache>,
+    cache: Data<OptTileCache>,
 ) -> ActixResult<HttpResponse> {
     let src = DynTileSource::new(
         sources.as_ref(),
@@ -71,7 +71,7 @@ pub struct DynTileSource<'a> {
     pub accept_enc: Option<AcceptEncoding>,
     pub if_none_match: Option<IfNoneMatch>,
     pub preferred_enc: Option<PreferredEncoding>,
-    pub cache: Option<&'a MainCache>,
+    pub cache: Option<&'a TileCache>,
 }
 
 impl<'a> DynTileSource<'a> {
@@ -84,7 +84,7 @@ impl<'a> DynTileSource<'a> {
         accept_enc: Option<AcceptEncoding>,
         if_none_match: Option<IfNoneMatch>,
         preferred_enc: Option<PreferredEncoding>,
-        cache: Option<&'a MainCache>,
+        cache: Option<&'a TileCache>,
     ) -> ActixResult<Self> {
         let (sources, use_url_query, info) = sources.get_sources(source_ids, zoom)?;
 

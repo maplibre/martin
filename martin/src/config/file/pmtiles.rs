@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use std::str::FromStr;
 
 use log::{trace, warn};
-use martin_core::cache::OptMainCache;
+use martin_core::tiles::OptTileCache;
 use martin_core::tiles::BoxedSource;
 use martin_core::tiles::pmtiles::{PmtCache, PmtilesSource};
 use serde::{Deserialize, Serialize};
@@ -28,7 +28,7 @@ pub struct PmtConfig {
 
     /// Internal state => not serialized
     #[serde(skip)]
-    cache: OptMainCache,
+    cache: OptTileCache,
 }
 
 impl PartialEq for PmtConfig {
@@ -58,7 +58,7 @@ impl ConfigurationLivecycleHooks for PmtConfig {
         clippy::panic_in_result_fn,
         reason = "invariant: the function cannot be called twice"
     )]
-    fn initialize_cache(&mut self, cache: OptMainCache) -> ConfigFileResult<()> {
+    fn initialize_cache(&mut self, cache: OptTileCache) -> ConfigFileResult<()> {
         assert!(self.cache.is_none(), "Cache cannot be initialized twice");
         self.cache = cache;
 

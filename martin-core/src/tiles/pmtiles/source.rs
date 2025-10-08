@@ -15,8 +15,8 @@ use pmtiles::{
 };
 use tilejson::TileJSON;
 
-use crate::cache::{CacheKey, CacheValue, OptMainCache};
 use crate::get_cached_value;
+use crate::tiles::cache::{CacheKey, CacheValue, OptTileCache};
 use crate::tiles::pmtiles::PmtilesError::{self, InvalidMetadata};
 use crate::tiles::{BoxedSource, MartinCoreResult, Source, UrlQuery};
 
@@ -30,11 +30,11 @@ pub struct PmtCache {
     /// Cache storing (id, offset) -> [`pmtiles::Directory`]
     ///
     /// Set to [`None`] to disable caching
-    cache: OptMainCache,
+    cache: OptTileCache,
 }
 
-impl From<OptMainCache> for PmtCache {
-    fn from(cache: OptMainCache) -> Self {
+impl From<OptTileCache> for PmtCache {
+    fn from(cache: OptTileCache) -> Self {
         static NEXT_CACHE_ID: LazyLock<AtomicUsize> = LazyLock::new(|| AtomicUsize::new(0));
 
         Self {
