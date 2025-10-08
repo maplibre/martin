@@ -44,9 +44,6 @@ pub struct SrvArgs {
     /// Main cache size (in MB)
     #[arg(short = 'C', long)]
     pub cache_size: Option<u64>,
-    /// **Deprecated** Scan for new sources on sources list requests
-    #[arg(short, long, hide = true)]
-    pub watch: bool,
 }
 
 #[cfg(all(feature = "webui", not(docsrs)))]
