@@ -1,4 +1,4 @@
-### AWS specific Authentication & Credentials
+#### AWS specific Authentication & Credentials
 
 | configuration              | description                                                | example                                                   |
 | -------------------------- | ---------------------------------------------------------- | --------------------------------------------------------- |
@@ -10,7 +10,7 @@
 | `role_session_name`        | Session name for web identity assumption                   | `my-session`                                              |
 | `endpoint_url_sts`         | Custom STS endpoint for web identity token exchange        | `https://sts.amazonaws.com`                               |
 
-### AWS specific Connection & Endpoint Configuration
+#### AWS specific Connection & Endpoint Configuration
 
 | configuration                        | description                                                                                                                                                                                                                                                  | example                                                   |
 | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------- |
@@ -22,7 +22,7 @@
 | `container_credentials_full_uri`     | EKS container credentials full URI                                                                                                                                                                                                                           | `http://169.254.170.2/v2/credentials/abc123`              |
 | `container_authorization_token_file` | Authorization token file for EKS container creds                                                                                                                                                                                                             | `/var/run/secrets/eks.amazonaws.com/serviceaccount/token` |
 
-### AWS specific Request Behavior & Fallbacks
+#### AWS specific Request Behavior & Fallbacks
 
 | configuration                  | description                                                                                                                                                                                                                                                                                                                                                                       | example |
 |--------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------|
@@ -34,7 +34,7 @@
 | `s3_express`                   | Enable S3 Express One Zone                                                                                                                                                                                                                                                                                                                                                        | `true`  |
 | `request_payer`                | Enable S3 Requester Pays                                                                                                                                                                                                                                                                                                                                                          | `true`  |
 
-### AWS Specific Object Integrity & Encryption
+#### AWS Specific Object Integrity & Encryption
 
 | configuration             | description                                                                                                         | example                                                      |
 |---------------------------|---------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------|

@@ -1,4 +1,4 @@
-### Security options
+#### Security options
 
 | configuration                | description                                                                                                                                                                                                                                                                                                                                                    | example |
 |------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------|
@@ -6,7 +6,7 @@
 | `allow_invalid_certificates` | Skip certificate validation on https connections<br><br>**Security warning:**<br>You should think very carefully before using this method. If invalid certificates are trusted, any certificate for any site will be trusted for use. This includes expired certificates. This introduces significant vulnerabilities, and should only be used as a last resort or for testing | `true`  |
 
 
-### Connection options
+#### Connection options
 
 | configuration                 | description                                                                                                        | example        |
 |-------------------------------|--------------------------------------------------------------------------------------------------------------------|----------------|
@@ -24,7 +24,7 @@
 | `http2_max_frame_size`        | Sets the maximum frame size to use for HTTP2.                                                                      |                |
 
 
-### Proxy settings
+#### Proxy settings
 
 | configuration          | description                                        | example                         |
 |------------------------|----------------------------------------------------|---------------------------------|
