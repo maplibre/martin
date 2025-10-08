@@ -6,6 +6,7 @@ pub use main::*;
 pub mod cors;
 pub mod srv;
 
+pub mod cache;
 #[cfg(feature = "unstable-cog")]
 pub mod cog;
 #[cfg(feature = "fonts")]

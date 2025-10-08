@@ -6,11 +6,10 @@ use std::sync::LazyLock;
 
 use futures::future::{BoxFuture, try_join_all};
 use log::{info, warn};
-use martin_core::cache::{CacheValue, MainCache, OptMainCache};
 use martin_core::config::IdResolver;
 #[cfg(any(feature = "fonts", feature = "postgres"))]
 use martin_core::config::OptOneMany;
-use martin_core::tiles::BoxedSource;
+use martin_core::tiles::{BoxedSource, OptTileCache};
 use serde::{Deserialize, Serialize};
 use subst::VariableMap;
 
@@ -22,6 +21,7 @@ use subst::VariableMap;
     feature = "styles",
 ))]
 use crate::config::file::FileConfigEnum;
+use crate::config::file::cache::CacheConfig;
 use crate::config::file::{
     ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks, UnrecognizedKeys,
     UnrecognizedValues, copy_unrecognized_keys_from_config,
@@ -31,12 +31,19 @@ use crate::srv::RESERVED_KEYWORDS;
 use crate::{MartinError, MartinResult};
 
 pub struct ServerState {
-    pub cache: OptMainCache,
     pub tiles: TileSources,
+    pub tile_cache: OptTileCache,
+
     #[cfg(feature = "sprites")]
     pub sprites: martin_core::sprites::SpriteSources,
+    #[cfg(feature = "sprites")]
+    pub sprite_cache: martin_core::sprites::OptSpriteCache,
+
     #[cfg(feature = "fonts")]
     pub fonts: martin_core::fonts::FontSources,
+    #[cfg(feature = "fonts")]
+    pub font_cache: martin_core::fonts::OptFontCache,
+
     #[cfg(feature = "styles")]
     pub styles: martin_core::styles::StyleSources,
 }
@@ -44,7 +51,14 @@ pub struct ServerState {
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct Config {
+    /// Maximum size of the tile cache in megabytes (0 to disable)
+    ///
+    /// Can be overridden by [`tile_cache_size_mb`](Self::tile_cache_size_mb) or similar configuration options.
     pub cache_size_mb: Option<u64>,
+    /// Maximum size of the tile cache in megabytes (0 to disable)
+    ///
+    /// Overrides [`cache_size_mb`](Self::cache_size_mb)
+    pub tile_cache_size_mb: Option<u64>,
 
     #[serde(flatten)]
     pub srv: super::srv::SrvConfig,
@@ -182,44 +196,95 @@ impl Config {
     pub async fn resolve(&mut self) -> MartinResult<ServerState> {
         init_aws_lc_tls();
         let resolver = IdResolver::new(RESERVED_KEYWORDS);
-        let cache_size = self.cache_size_mb.unwrap_or(512) * 1024 * 1024;
-        let cache = if cache_size > 0 {
-            info!("Initializing main cache with maximum size {cache_size}B");
-            Some(
-                MainCache::builder()
-                    .weigher(|_key, value: &CacheValue| -> u32 {
-                        match value {
-                            CacheValue::Tile(v) => v.len().try_into().unwrap_or(u32::MAX),
-                            #[cfg(feature = "pmtiles")]
-                            CacheValue::PmtDirectory(v) => {
-                                v.get_approx_byte_size().try_into().unwrap_or(u32::MAX)
-                            }
-                        }
-                    })
-                    .max_capacity(cache_size)
-                    .build(),
-            )
-        } else {
-            info!("Caching is disabled");
-            None
-        };
+
+        // Create cache configuration
+        let cache_config = self.resolve_cache_config();
+
+        #[cfg(feature = "pmtiles")]
+        let pmtiles_cache = cache_config.create_pmtiles_cache();
 
         Ok(ServerState {
-            tiles: self.resolve_tile_sources(&resolver, cache.clone()).await?,
+            tiles: self.resolve_tile_sources(&resolver).await?,
             #[cfg(feature = "sprites")]
             sprites: self.sprites.resolve()?,
             #[cfg(feature = "fonts")]
             fonts: self.fonts.resolve()?,
             #[cfg(feature = "styles")]
             styles: self.styles.resolve()?,
-            cache,
+            tile_cache: cache_config.create_tile_cache(),
+            #[cfg(feature = "sprites")]
+            sprite_cache: cache_config.create_sprite_cache(),
+            #[cfg(feature = "fonts")]
+            font_cache: cache_config.create_font_cache(),
         })
+    }
+
+    // cache_config is still respected, but can be overridden by individual cache sizes
+    //
+    // `cache_config: 0` disables caching, unless overridden by individual cache sizes
+    fn resolve_cache_config(&self) -> CacheConfig {
+        if let Some(cache_size_mb) = self.cache_size_mb {
+            #[cfg(feature = "pmtiles")]
+            let pmtiles_cache_size_mb = if let FileConfigEnum::Config(cfg) = self.pmtiles {
+                cfg.custom
+                    .directory_cache_size_mb
+                    .unwrap_or(cache_size_mb / 4) // Default: 25% for PMTiles directories
+            } else {
+                cache_size_mb / 4 // Default: 25% for PMTiles directories
+            };
+
+            #[cfg(feature = "sprites")]
+            let sprite_cache_size_mb = if let FileConfigEnum::Config(cfg) = self.sprites {
+                cfg.custom.cache_size_mb.unwrap_or(cache_size_mb / 8) // Default: 12.5% for sprites
+            } else {
+                cache_size_mb / 8 // Default: 12.5% for sprites
+            };
+
+            #[cfg(feature = "fonts")]
+            let font_cache_size_mb = if let FileConfigEnum::Config(cfg) = self.fonts {
+                cfg.custom.cache_size_mb.unwrap_or(cache_size_mb / 8) // Default: 12.5% for fonts
+            } else {
+                cache_size_mb / 8 // Default: 12.5% for fonts
+            };
+
+            CacheConfig {
+                #[cfg(any(
+                    feature = "postgres",
+                    feature = "pmtiles",
+                    feature = "mbtiles",
+                    feature = "unstable-cog"
+                ))]
+                tile_cache_size_mb: self.tile_cache_size_mb.unwrap_or(cache_size_mb / 2), // Default: 50% for tiles
+                #[cfg(feature = "pmtiles")]
+                pmtiles_cache_size_mb,
+                #[cfg(feature = "sprites")]
+                sprite_cache_size_mb,
+                #[cfg(feature = "fonts")]
+                font_cache_size_mb,
+            }
+        } else {
+            // TODO: the defaults could be smarter. If I don't have pmtiles sources, don't reserve cache for it
+            CacheConfig {
+                #[cfg(any(
+                    feature = "postgres",
+                    feature = "pmtiles",
+                    feature = "mbtiles",
+                    feature = "unstable-cog"
+                ))]
+                tile_cache_size_mb: 256,
+                #[cfg(feature = "pmtiles")]
+                pmtiles_cache_size_mb: 128,
+                #[cfg(feature = "sprites")]
+                sprite_cache_size_mb: 64,
+                #[cfg(feature = "fonts")]
+                font_cache_size_mb: 64,
+            }
+        }
     }
 
     async fn resolve_tile_sources(
         &mut self,
         #[allow(unused_variables)] idr: &IdResolver,
-        #[allow(unused_variables)] cache: OptMainCache,
     ) -> MartinResult<TileSources> {
         #[allow(unused_mut)]
         let mut sources: Vec<BoxFuture<MartinResult<Vec<BoxedSource>>>> = Vec::new();
@@ -232,21 +297,21 @@ impl Config {
         #[cfg(feature = "pmtiles")]
         if !self.pmtiles.is_empty() {
             let cfg = &mut self.pmtiles;
-            let val = crate::config::file::resolve_files(cfg, idr, cache.clone(), &["pmtiles"]);
+            let val = crate::config::file::resolve_files(cfg, idr, &["pmtiles"]);
             sources.push(Box::pin(val));
         }
 
         #[cfg(feature = "mbtiles")]
         if !self.mbtiles.is_empty() {
             let cfg = &mut self.mbtiles;
-            let val = crate::config::file::resolve_files(cfg, idr, cache.clone(), &["mbtiles"]);
+            let val = crate::config::file::resolve_files(cfg, idr, &["mbtiles"]);
             sources.push(Box::pin(val));
         }
 
         #[cfg(feature = "unstable-cog")]
         if !self.cog.is_empty() {
             let cfg = &mut self.cog;
-            let val = crate::config::file::resolve_files(cfg, idr, cache.clone(), &["tif", "tiff"]);
+            let val = crate::config::file::resolve_files(cfg, idr, &["tif", "tiff"]);
             sources.push(Box::pin(val));
         }
 

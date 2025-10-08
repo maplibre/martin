@@ -4,7 +4,6 @@ use std::mem;
 use std::path::{Path, PathBuf};
 
 use log::{info, warn};
-use martin_core::cache::OptMainCache;
 use martin_core::config::{IdResolver, OptOneMany};
 use martin_core::tiles::BoxedSource;
 use serde::{Deserialize, Serialize};
@@ -78,7 +77,6 @@ pub enum ConfigFileError {
 /// The hooks are guaranteed called in the following order:
 /// 1. `finalize`
 /// 2. `get_unrecognized_keys`
-/// 3. `initialize_cache`
 pub trait ConfigurationLivecycleHooks: Clone + Debug + Default + PartialEq + Send {
     /// Finalize configuration discovery and patch old values
     ///
@@ -96,14 +94,6 @@ pub trait ConfigurationLivecycleHooks: Clone + Debug + Default + PartialEq + Sen
             .into_iter()
             .map(|key| format!("{prefix}{key}"))
             .collect()
-    }
-
-    /// Initalises the configuration with the given cache
-    ///
-    /// This allows configurations to interact with the cache and perform any necessary initialization tasks.
-    /// The configuration should be found to be valid in [`Self::finalize`] instead of [`Self::initialize_cache`].
-    fn initialize_cache(&mut self, _cache: OptMainCache) -> ConfigFileResult<()> {
-        Ok(())
     }
 }
 
@@ -191,11 +181,8 @@ impl<T: ConfigurationLivecycleHooks> FileConfigEnum<T> {
         }
     }
 
-    pub fn extract_file_config(
-        &mut self,
-        cache: OptMainCache,
-    ) -> ConfigFileResult<Option<FileConfig<T>>> {
-        let mut res = match self {
+    pub fn extract_file_config(&mut self) -> ConfigFileResult<Option<FileConfig<T>>> {
+        let res = match self {
             FileConfigEnum::None => return Ok(None),
             FileConfigEnum::Path(path) => FileConfig {
                 paths: OptOneMany::One(mem::take(path)),
@@ -207,7 +194,6 @@ impl<T: ConfigurationLivecycleHooks> FileConfigEnum<T> {
             },
             FileConfigEnum::Config(cfg) => mem::take(cfg),
         };
-        res.custom.initialize_cache(cache)?;
         Ok(Some(res))
     }
 
@@ -246,14 +232,6 @@ impl<T: ConfigurationLivecycleHooks> ConfigurationLivecycleHooks for FileConfigE
             UnrecognizedKeys::new()
         }
     }
-
-    fn initialize_cache(&mut self, cache: OptMainCache) -> ConfigFileResult<()> {
-        if let Self::Config(cfg) = self {
-            cfg.custom.initialize_cache(cache)
-        } else {
-            Ok(())
-        }
-    }
 }
 
 #[serde_with::skip_serializing_none]
@@ -282,9 +260,6 @@ impl<T: ConfigurationLivecycleHooks> ConfigurationLivecycleHooks for FileConfig<
     }
     fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
         self.custom.get_unrecognized_keys()
-    }
-    fn initialize_cache(&mut self, cache: OptMainCache) -> ConfigFileResult<()> {
-        self.custom.initialize_cache(cache)
     }
 }
 
@@ -341,19 +316,17 @@ pub struct FileConfigSource {
 pub async fn resolve_files<T: TileSourceConfiguration>(
     config: &mut FileConfigEnum<T>,
     idr: &IdResolver,
-    cache: OptMainCache,
     extension: &[&str],
 ) -> MartinResult<Vec<BoxedSource>> {
-    resolve_int(config, idr, cache, extension).await
+    resolve_int(config, idr, extension).await
 }
 
 async fn resolve_int<T: TileSourceConfiguration>(
     config: &mut FileConfigEnum<T>,
     idr: &IdResolver,
-    cache: OptMainCache,
     extension: &[&str],
 ) -> MartinResult<Vec<BoxedSource>> {
-    let Some(cfg) = config.extract_file_config(cache)? else {
+    let Some(cfg) = config.extract_file_config()? else {
         return Ok(Vec::new());
     };
 
