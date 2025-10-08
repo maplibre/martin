@@ -6,17 +6,25 @@ pub use main::*;
 pub mod cors;
 pub mod srv;
 
-#[cfg(feature = "unstable-cog")]
-pub mod cog;
-#[cfg(feature = "fonts")]
-pub mod fonts;
-#[cfg(feature = "mbtiles")]
-pub mod mbtiles;
-#[cfg(feature = "pmtiles")]
-pub mod pmtiles;
-#[cfg(feature = "postgres")]
-pub mod postgres;
-#[cfg(feature = "sprites")]
-pub mod sprites;
-#[cfg(feature = "styles")]
-pub mod styles;
+mod error;
+pub use error::{ConfigFileError, ConfigFileResult};
+
+#[cfg(any(feature = "fonts", feature = "sprites", feature = "styles"))]
+mod resources;
+#[cfg(any(feature = "fonts", feature = "sprites", feature = "styles"))]
+pub use resources::*;
+
+#[cfg(any(
+    feature = "unstable-cog",
+    feature = "mbtiles",
+    feature = "pmtiles",
+    feature = "postgres"
+))]
+mod tiles;
+#[cfg(any(
+    feature = "unstable-cog",
+    feature = "mbtiles",
+    feature = "pmtiles",
+    feature = "postgres"
+))]
+pub use tiles::*;
