@@ -3,7 +3,6 @@ use std::pin::Pin;
 use std::string::ToString;
 use std::time::Duration;
 
-use actix_web::error::ErrorInternalServerError;
 use actix_web::http::header::CACHE_CONTROL;
 use actix_web::middleware::{Logger, NormalizePath, TrailingSlash};
 use actix_web::web::Data;
@@ -11,16 +10,12 @@ use actix_web::{App, HttpResponse, HttpServer, Responder, middleware, route, web
 use futures::TryFutureExt;
 #[cfg(feature = "lambda")]
 use lambda_web::{is_running_on_lambda, run_actix_on_lambda};
-use log::error;
-use martin_core::tiles::catalog::TileCatalog;
 use serde::{Deserialize, Serialize};
 
 #[cfg(all(feature = "webui", not(docsrs)))]
 use crate::config::args::WebUiMode;
 use crate::config::file::ServerState;
 use crate::config::file::srv::{KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT, SrvConfig};
-use crate::srv::tiles::get_tile;
-use crate::srv::tiles_info::get_source_info;
 use crate::{MartinError, MartinResult};
 
 #[cfg(all(feature = "webui", not(docsrs)))]
@@ -41,13 +36,10 @@ pub const RESERVED_KEYWORDS: &[&str] = &[
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Catalog {
-    #[cfg(any(
-        feature = "postgres",
-        feature = "pmtiles",
-        feature = "mbtiles",
-        feature = "unstable-cog"
-    ))]
-    pub tiles: TileCatalog,
+    #[cfg(
+        feature = "_tiles"
+    )]
+    pub tiles: martin_core::tiles::catalog::TileCatalog,
     #[cfg(feature = "sprites")]
     pub sprites: martin_core::sprites::SpriteCatalog,
     #[cfg(feature = "fonts")]
@@ -57,13 +49,10 @@ pub struct Catalog {
 }
 
 impl Catalog {
-    pub fn new(state: &ServerState) -> MartinResult<Self> {
+    pub fn new(#[allow(unused_variables)] state: &ServerState) -> MartinResult<Self> {
         Ok(Self {
             #[cfg(any(
-                feature = "postgres",
-                feature = "pmtiles",
-                feature = "mbtiles",
-                feature = "unstable-cog"
+                feature = "_tiles"
             ))]
             tiles: state.tiles.get_catalog(),
             #[cfg(feature = "sprites")]
@@ -76,9 +65,10 @@ impl Catalog {
     }
 }
 
+#[cfg(any(feature = "_tiles", feature = "fonts", feature = "sprites"))]
 pub fn map_internal_error<T: std::fmt::Display>(e: T) -> actix_web::Error {
-    error!("{e}");
-    ErrorInternalServerError(e.to_string())
+    log::error!("{e}");
+    actix_web::error::ErrorInternalServerError(e.to_string())
 }
 
 /// Root path in case web front is disabled.
@@ -123,10 +113,11 @@ async fn get_catalog(catalog: Data<Catalog>) -> impl Responder {
 }
 
 pub fn router(cfg: &mut web::ServiceConfig, #[allow(unused_variables)] usr_cfg: &SrvConfig) {
-    cfg.service(get_health)
-        .service(get_catalog)
-        .service(get_source_info)
-        .service(get_tile);
+    cfg.service(get_health).service(get_catalog);
+
+    #[cfg(feature = "_tiles")]
+    cfg.service(crate::srv::tiles_info::get_source_info)
+        .service(crate::srv::tiles::get_tile);
 
     #[cfg(feature = "sprites")]
     cfg.service(crate::srv::sprites::get_sprite_sdf_json)
@@ -194,14 +185,13 @@ pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server
     let factory = move || {
         let cors_middleware = cors_config.make_cors_middleware();
 
-        let app = App::new();
+        let app = App::new()
+          .app_data(Data::new(catalog.clone()))
+          .app_data(Data::new(config.clone()));
 
-        #[cfg(any(
-            feature = "postgres",
-            feature = "pmtiles",
-            feature = "mbtiles",
-            feature = "unstable-cog",
-        ))]
+        #[cfg(
+            feature = "_tiles",
+        )]
         let app = app
             .app_data(Data::new(state.tiles.clone()))
             .app_data(Data::new(state.tile_cache.clone()));
@@ -218,10 +208,6 @@ pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server
 
         #[cfg(feature = "styles")]
         let app = app.app_data(Data::new(state.styles.clone()));
-
-        let app = app
-            .app_data(Data::new(catalog.clone()))
-            .app_data(Data::new(config.clone()));
 
         let app = app.wrap(middleware::Condition::new(
             cors_middleware.is_some(),
@@ -254,7 +240,7 @@ pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server
     Ok((Box::pin(server), listen_addresses))
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "_tiles"))]
 pub mod tests {
     use async_trait::async_trait;
     use martin_core::tiles::{BoxedSource, MartinCoreResult, Source, UrlQuery};

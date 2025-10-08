@@ -4,8 +4,10 @@ use std::io::prelude::*;
 use std::path::Path;
 use std::sync::LazyLock;
 
+#[cfg(feature = "_tiles")]
 use futures::future::{BoxFuture, try_join_all};
 use log::{info, warn};
+#[cfg(feature = "_tiles")]
 use martin_core::config::IdResolver;
 #[cfg(any(feature = "postgres"))]
 use martin_core::config::OptOneMany;
@@ -22,18 +24,16 @@ use serde::{Deserialize, Serialize};
 use subst::VariableMap;
 
 #[cfg(any(
-    feature = "unstable-cog",
-    feature = "mbtiles",
     feature = "pmtiles",
-    feature = "sprites",
+    feature = "mbtiles",
+    feature = "unstable-cog",
     feature = "styles",
+    feature = "sprites",
+    feature = "fonts",
 ))]
 use crate::config::file::FileConfigEnum;
 #[cfg(any(
-    feature = "postgres",
-    feature = "pmtiles",
-    feature = "mbtiles",
-    feature = "unstable-cog",
+    feature = "_tiles",
     feature = "sprites",
     feature = "fonts",
 ))]
@@ -42,17 +42,16 @@ use crate::config::file::{
     ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks, UnrecognizedKeys,
     UnrecognizedValues, copy_unrecognized_keys_from_config,
 };
+#[cfg(feature = "_tiles")]
 use crate::source::TileSources;
+#[cfg(feature = "_tiles")]
 use crate::srv::RESERVED_KEYWORDS;
 use crate::{MartinError, MartinResult};
 
 pub struct ServerState {
-    #[cfg(any(
-        feature = "postgres",
-        feature = "pmtiles",
-        feature = "mbtiles",
-        feature = "unstable-cog"
-    ))]
+    #[cfg(
+        feature = "_tiles"
+    )]
     pub tiles: TileSources,
     #[cfg(any(
         feature = "postgres",
@@ -225,13 +224,12 @@ impl Config {
 
     pub async fn resolve(&mut self) -> MartinResult<ServerState> {
         init_aws_lc_tls();
+
+        #[cfg(feature = "_tiles")]
         let resolver = IdResolver::new(RESERVED_KEYWORDS);
 
         #[cfg(any(
-            feature = "postgres",
-            feature = "pmtiles",
-            feature = "mbtiles",
-            feature = "unstable-cog",
+            feature = "_tiles",
             feature = "sprites",
             feature = "fonts",
         ))]
@@ -278,10 +276,7 @@ impl Config {
     }
 
     #[cfg(any(
-        feature = "postgres",
-        feature = "pmtiles",
-        feature = "mbtiles",
-        feature = "unstable-cog",
+        feature = "_tiles",
         feature = "sprites",
         feature = "fonts",
     ))]
@@ -315,10 +310,7 @@ impl Config {
 
             CacheConfig {
                 #[cfg(any(
-                    feature = "postgres",
-                    feature = "pmtiles",
-                    feature = "mbtiles",
-                    feature = "unstable-cog"
+                    feature = "_tiles"
                 ))]
                 tile_cache_size_mb: self.tile_cache_size_mb.unwrap_or(cache_size_mb / 2), // Default: 50% for tiles
                 #[cfg(feature = "pmtiles")]
@@ -332,10 +324,7 @@ impl Config {
             // TODO: the defaults could be smarter. If I don't have pmtiles sources, don't reserve cache for it
             CacheConfig {
                 #[cfg(any(
-                    feature = "postgres",
-                    feature = "pmtiles",
-                    feature = "mbtiles",
-                    feature = "unstable-cog"
+                    feature = "_tiles"
                 ))]
                 tile_cache_size_mb: 256,
                 #[cfg(feature = "pmtiles")]
@@ -348,18 +337,14 @@ impl Config {
         }
     }
 
-    #[cfg(any(
-        feature = "postgres",
-        feature = "pmtiles",
-        feature = "mbtiles",
-        feature = "unstable-cog"
-    ))]
+    #[cfg(
+        feature = "_tiles"
+    )]
     async fn resolve_tile_sources(
         &mut self,
         #[allow(unused_variables)] idr: &IdResolver,
         #[cfg(feature = "pmtiles")] pmtiles_cache: PmtCache,
     ) -> MartinResult<TileSources> {
-        #[allow(unused_mut)]
         let mut sources: Vec<BoxFuture<MartinResult<Vec<BoxedSource>>>> = Vec::new();
 
         #[cfg(feature = "postgres")]

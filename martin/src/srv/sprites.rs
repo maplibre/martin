@@ -7,9 +7,14 @@ use actix_web::middleware::Compress;
 use actix_web::web::{Bytes, Data, Path};
 use actix_web::{HttpResponse, Result as ActixResult, route};
 use martin_core::sprites::{OptSpriteCache, SpriteError, SpriteSources};
+use serde::Deserialize;
 
-use crate::srv::SourceIDsRequest;
 use crate::srv::server::map_internal_error;
+
+#[derive(Deserialize)]
+pub struct SourceIDsRequest {
+    pub source_ids: String,
+}
 
 #[route(
     "/sprite/{source_ids}.png",
