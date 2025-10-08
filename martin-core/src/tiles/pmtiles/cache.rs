@@ -3,24 +3,24 @@ use moka::future::Cache;
 /// Optional wrapper for `PmtCache`.
 pub type OptPmtCache = Option<PmtCache>;
 
-/// Constant representing no PMTiles cache configuration.
+/// Constant representing no `PMTiles` cache configuration.
 pub const NO_PMT_CACHE: OptPmtCache = None;
 
-/// Globally shared PMTiles directory cache for storing PMTiles directory structures.
+/// Globally shared `PMTiles` directory cache for storing `PMTiles` directory structures.
 ///
 /// For access to the cache, use the [`PmtCacheInstance`] struct instead, as this way the cache can have a consistent view into how large it is.
 #[derive(Clone, Debug)]
 pub struct PmtCache(Cache<PmtCacheKey, pmtiles::Directory>);
 
 impl PmtCache {
-    /// Creates a new PMTiles directory cache instance
+    /// Creates a new `PMTiles` directory cache instance
     #[must_use]
     pub fn new(max_size_bytes: u64) -> Self {
         let cache = Cache::builder()
             .name("pmtiles_directory_cache")
             .weigher(|_key: &PmtCacheKey, value: &pmtiles::Directory| -> u32 {
                 value.get_approx_byte_size().try_into().unwrap_or(u32::MAX)
-                    + size_of::<PmtCacheKey>() as u32
+                    + size_of::<PmtCacheKey>().try_into().unwrap_or(u32::MAX)
             })
             .max_capacity(max_size_bytes)
             .build();
@@ -34,7 +34,7 @@ impl Default for PmtCache {
     }
 }
 
-/// PMTiles directory cache for storing PMTiles directory structures.
+/// `PMTiles` directory cache for storing `PMTiles` directory structures.
 #[derive(Clone, Debug)]
 pub struct PmtCacheInstance {
     /// Unique identifier for this cache instance
@@ -46,7 +46,7 @@ pub struct PmtCacheInstance {
 }
 
 impl PmtCacheInstance {
-    /// Creates a new PMTiles directory cache instance
+    /// Creates a new `PMTiles` directory cache instance
     #[must_use]
     pub fn new(id: usize, cache: PmtCache) -> Self {
         Self { id, cache }
@@ -88,8 +88,8 @@ impl PmtCacheInstance {
         self.id
     }
 
-    /// Invalidates all cached directories for this PMTiles file.
-    pub async fn invalidate_all(&self) {
+    /// Invalidates all cached directories for this `PMTiles` file.
+    pub fn invalidate_all(&self) {
         self.cache.0.invalidate_all();
         log::info!("Invalidated PMTiles directory cache for id={}", self.id);
     }
@@ -125,7 +125,7 @@ impl pmtiles::DirectoryCache for PmtCacheInstance {
     }
 }
 
-/// Cache key for PMTiles directory data.
+/// Cache key for `PMTiles` directory data.
 #[derive(Debug, Hash, PartialEq, Eq, Clone)]
 struct PmtCacheKey {
     id: usize,

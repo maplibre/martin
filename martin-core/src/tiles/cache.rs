@@ -87,7 +87,7 @@ impl TileCache {
     }
 
     /// Invalidates all cached tiles for a specific source.
-    pub async fn invalidate_source(&self, source_id: &str) {
+    pub fn invalidate_source(&self, source_id: &str) {
         let source_id_owned = source_id.to_string();
         self.0
             .invalidate_entries_if(move |key, _| key.source_id == source_id_owned)
@@ -96,7 +96,7 @@ impl TileCache {
     }
 
     /// Invalidates all cached tiles.
-    pub async fn invalidate_all(&self) {
+    pub fn invalidate_all(&self) {
         self.0.invalidate_all();
         log::info!("Invalidated all tile cache entries");
     }

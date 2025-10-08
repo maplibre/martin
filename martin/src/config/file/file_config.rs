@@ -189,20 +189,19 @@ impl<T: ConfigurationLivecycleHooks> FileConfigEnum<T> {
         }
     }
 
-    pub fn extract_file_config(&mut self) -> ConfigFileResult<Option<FileConfig<T>>> {
-        let res = match self {
-            FileConfigEnum::None => return Ok(None),
-            FileConfigEnum::Path(path) => FileConfig {
+    pub fn extract_file_config(&mut self) -> Option<FileConfig<T>> {
+        match self {
+            FileConfigEnum::None => None,
+            FileConfigEnum::Path(path) => Some(FileConfig {
                 paths: OptOneMany::One(mem::take(path)),
                 ..FileConfig::default()
-            },
-            FileConfigEnum::Paths(paths) => FileConfig {
+            }),
+            FileConfigEnum::Paths(paths) => Some(FileConfig {
                 paths: OptOneMany::Many(mem::take(paths)),
                 ..Default::default()
-            },
-            FileConfigEnum::Config(cfg) => mem::take(cfg),
-        };
-        Ok(Some(res))
+            }),
+            FileConfigEnum::Config(cfg) => Some(mem::take(cfg)),
+        }
     }
 
     /// convert path/paths and the config enums
@@ -339,7 +338,7 @@ async fn resolve_int<T: TileSourceConfiguration>(
     idr: &IdResolver,
     extension: &[&str],
 ) -> MartinResult<Vec<BoxedSource>> {
-    let Some(cfg) = config.extract_file_config()? else {
+    let Some(cfg) = config.extract_file_config() else {
         return Ok(Vec::new());
     };
 

@@ -79,7 +79,7 @@ impl SpriteCache {
     }
 
     /// Invalidates all cached sprites that use the specified source ID.
-    pub async fn invalidate_source(&self, source_id: &str) {
+    pub fn invalidate_source(&self, source_id: &str) {
         let source_id_owned = source_id.to_string();
         self.cache
             .invalidate_entries_if(move |key, _| key.ids.contains(&source_id_owned))
@@ -88,7 +88,7 @@ impl SpriteCache {
     }
 
     /// Invalidates all cached sprites.
-    pub async fn invalidate_all(&self) {
+    pub fn invalidate_all(&self) {
         self.cache.invalidate_all();
         log::info!("Invalidated all sprite cache entries");
     }
@@ -107,11 +107,9 @@ impl SpriteCache {
 }
 
 /// Optional wrapper for `SpriteCache`.
-
 pub type OptSpriteCache = Option<SpriteCache>;
 
 /// Constant representing no sprite cache configuration.
-
 pub const NO_SPRITE_CACHE: OptSpriteCache = None;
 
 /// Cache key for sprite data.

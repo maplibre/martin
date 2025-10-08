@@ -49,7 +49,7 @@ pub struct Catalog {
 impl Catalog {
     pub fn new(#[allow(unused_variables)] state: &ServerState) -> MartinResult<Self> {
         Ok(Self {
-            #[cfg(any(feature = "_tiles"))]
+            #[cfg(feature = "_tiles")]
             tiles: state.tiles.get_catalog(),
             #[cfg(feature = "sprites")]
             sprites: state.sprites.get_catalog()?,

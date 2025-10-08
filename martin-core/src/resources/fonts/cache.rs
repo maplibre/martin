@@ -72,7 +72,7 @@ impl FontCache {
     }
 
     /// Invalidates all cached font ranges that use the specified font ID.
-    pub async fn invalidate_font(&self, font_id: &str) {
+    pub fn invalidate_font(&self, font_id: &str) {
         let font_id_owned = font_id.to_string();
         self.cache
             .invalidate_entries_if(move |key, _| key.ids.contains(&font_id_owned))
@@ -81,7 +81,7 @@ impl FontCache {
     }
 
     /// Invalidates all cached font ranges.
-    pub async fn invalidate_all(&self) {
+    pub fn invalidate_all(&self) {
         self.cache.invalidate_all();
         log::info!("Invalidated all font cache entries");
     }

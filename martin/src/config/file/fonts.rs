@@ -27,7 +27,7 @@ pub type FontConfig = FileConfigEnum<InnerFontConfig>;
 impl FontConfig {
     /// Discovers and loads fonts from the specified directories by recursively scanning for `.ttf`, `.otf`, and `.ttc` files.
     pub fn resolve(&mut self) -> ConfigFileResult<FontSources> {
-        let Some(cfg) = self.extract_file_config()? else {
+        let Some(cfg) = self.extract_file_config() else {
             return Ok(FontSources::default());
         };
 

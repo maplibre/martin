@@ -30,7 +30,7 @@ pub struct PmtConfig {
     #[serde(flatten, skip_serializing)]
     pub unrecognized: UnrecognizedValues,
 
-    /// PMTiles directory cache (internal state, not serialized)
+    /// `PMTiles` directory cache (internal state, not serialized)
     #[serde(skip)]
     pub pmtiles_directory_cache: PmtCache,
 }

@@ -9,7 +9,7 @@ use futures::future::{BoxFuture, try_join_all};
 use log::{info, warn};
 #[cfg(feature = "_tiles")]
 use martin_core::config::IdResolver;
-#[cfg(any(feature = "postgres"))]
+#[cfg(feature = "postgres")]
 use martin_core::config::OptOneMany;
 #[cfg(feature = "pmtiles")]
 use martin_core::tiles::pmtiles::PmtCache;
@@ -295,7 +295,7 @@ impl Config {
             };
 
             CacheConfig {
-                #[cfg(any(feature = "_tiles"))]
+                #[cfg(feature = "_tiles")]
                 tile_cache_size_mb: self.tile_cache_size_mb.unwrap_or(cache_size_mb / 2), // Default: 50% for tiles
                 #[cfg(feature = "pmtiles")]
                 pmtiles_cache_size_mb,
@@ -307,7 +307,7 @@ impl Config {
         } else {
             // TODO: the defaults could be smarter. If I don't have pmtiles sources, don't reserve cache for it
             CacheConfig {
-                #[cfg(any(feature = "_tiles"))]
+                #[cfg(feature = "_tiles")]
                 tile_cache_size_mb: 256,
                 #[cfg(feature = "pmtiles")]
                 pmtiles_cache_size_mb: 128,
@@ -343,7 +343,7 @@ impl Config {
                 FileConfigEnum::Config(file_config) => {
                     file_config.custom.pmtiles_directory_cache = pmtiles_cache;
                 }
-            };
+            }
             let val = crate::config::file::resolve_files(cfg, idr, &["pmtiles"]);
             sources.push(Box::pin(val));
         }

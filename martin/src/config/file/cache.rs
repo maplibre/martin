@@ -9,7 +9,7 @@ pub struct CacheConfig {
         feature = "unstable-cog"
     ))]
     pub tile_cache_size_mb: u64,
-    /// Maximum size for PMTiles directory cache in MB (0 to disable).
+    /// Maximum size for `PMTiles` directory cache in MB (0 to disable).
     #[cfg(feature = "pmtiles")]
     pub pmtiles_cache_size_mb: u64,
     /// Maximum size for sprite cache in MB (0 to disable).
@@ -40,7 +40,7 @@ impl CacheConfig {
         }
     }
 
-    /// Creates PMTiles directory cache if configured.
+    /// Creates `PMTiles` directory cache if configured.
     #[cfg(feature = "pmtiles")]
     #[must_use]
     pub fn create_pmtiles_cache(&self) -> martin_core::tiles::pmtiles::PmtCache {
