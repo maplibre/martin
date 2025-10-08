@@ -1,12 +1,11 @@
-use std::sync::Arc;
-
+use actix_web::web::Bytes;
 use moka::future::Cache;
 
 /// Sprite cache for storing generated sprite sheets.
 
 #[derive(Clone)]
 pub struct SpriteCache {
-    cache: Cache<SpriteCacheKey, Arc<spreet::Spritesheet>>,
+    cache: Cache<SpriteCacheKey, Bytes>,
 }
 
 impl std::fmt::Debug for SpriteCache {
@@ -25,74 +24,57 @@ impl SpriteCache {
         Self {
             cache: Cache::builder()
                 .name("sprite_cache")
-                .weigher(
-                    |_key: &SpriteCacheKey, value: &Arc<spreet::Spritesheet>| -> u32 {
-                        // Approximate size: JSON index + PNG data
-                        let json_size = serde_json::to_string(value.get_index())
-                            .map(|s| s.len())
-                            .unwrap_or(0);
-                        let png_size = value.encode_png().map(|p| p.len()).unwrap_or(0);
-                        (json_size + png_size).try_into().unwrap_or(u32::MAX)
-                    },
-                )
+                .weigher(|key: &SpriteCacheKey, value: &Bytes| -> u32 {
+                    size_of_val(key).try_into().unwrap_or(u32::MAX)
+                        + value.len().try_into().unwrap_or(u32::MAX)
+                })
                 .max_capacity(max_size_bytes)
                 .build(),
         }
     }
 
     /// Retrieves a sprite sheet from cache if present.
-    pub async fn get(
-        &self,
-        ids: &str,
-        pixel_ratio: u8,
-        as_sdf: bool,
-    ) -> Option<Arc<spreet::Spritesheet>> {
-        let key = SpriteCacheKey::new(ids, pixel_ratio, as_sdf);
+    pub async fn get(&self, ids: &str, as_sdf: bool, as_json: bool) -> Option<Bytes> {
+        let key = SpriteCacheKey::new(ids.to_string(), as_sdf, as_json);
         let result = self.cache.get(&key).await;
 
         if result.is_some() {
             log::trace!(
-                "Sprite cache HIT for ids={ids}, ratio={pixel_ratio}, sdf={as_sdf} (entries={}, size={})",
+                "Sprite cache HIT for ids={ids}, sdf={as_sdf} json={as_json} (entries={}, size={})",
                 self.cache.entry_count(),
                 self.cache.weighted_size()
             );
         } else {
-            log::trace!("Sprite cache MISS for ids={ids}, ratio={pixel_ratio}, sdf={as_sdf}");
+            log::trace!("Sprite cache MISS for ids={ids}, sdf={as_sdf}, json={as_json}");
         }
 
         result
     }
 
     /// Inserts a sprite sheet into the cache.
-    pub async fn insert(
-        &self,
-        ids: &str,
-        pixel_ratio: u8,
-        as_sdf: bool,
-        spritesheet: Arc<spreet::Spritesheet>,
-    ) {
-        let key = SpriteCacheKey::new(ids, pixel_ratio, as_sdf);
-        self.cache.insert(key, spritesheet).await;
+    pub async fn insert(&self, ids: &str, as_sdf: bool, as_json: bool, bytes: Bytes) {
+        let key = SpriteCacheKey::new(ids.to_string(), as_sdf, as_json);
+        self.cache.insert(key, bytes).await;
     }
 
-    /// Gets a sprite sheet from cache or computes it using the provided function.
+    /// Gets a json sprite sheet from cache or computes it using the provided function.
     pub async fn get_or_insert<F, Fut, E>(
         &self,
         ids: &str,
-        pixel_ratio: u8,
         as_sdf: bool,
+        as_json: bool,
         compute: F,
-    ) -> Result<Arc<spreet::Spritesheet>, E>
+    ) -> Result<Bytes, E>
     where
         F: FnOnce() -> Fut,
-        Fut: Future<Output = Result<spreet::Spritesheet, E>>,
+        Fut: Future<Output = Result<Bytes, E>>,
     {
-        if let Some(data) = self.get(ids, pixel_ratio, as_sdf).await {
+        if let Some(data) = self.get(ids, as_sdf, as_json).await {
             return Ok(data);
         }
 
-        let data = Arc::new(compute().await?);
-        self.insert(ids, pixel_ratio, as_sdf, data.clone()).await;
+        let data = compute().await?;
+        self.insert(ids, as_sdf, as_json, data.clone()).await;
         Ok(data)
     }
 
@@ -133,20 +115,19 @@ pub type OptSpriteCache = Option<SpriteCache>;
 pub const NO_SPRITE_CACHE: OptSpriteCache = None;
 
 /// Cache key for sprite data.
-
 #[derive(Debug, Hash, PartialEq, Eq, Clone)]
 struct SpriteCacheKey {
     ids: String,
-    pixel_ratio: u8,
     as_sdf: bool,
+    as_json: bool,
 }
 
 impl SpriteCacheKey {
-    fn new(ids: &str, pixel_ratio: u8, as_sdf: bool) -> Self {
+    fn new(ids: String, as_sdf: bool, as_json: bool) -> Self {
         Self {
-            ids: ids.to_string(),
-            pixel_ratio,
+            ids,
             as_sdf,
+            as_json,
         }
     }
 }

@@ -187,10 +187,14 @@ pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server
             .app_data(Data::new(state.tile_cache.clone()));
 
         #[cfg(feature = "sprites")]
-        let app = app.app_data(Data::new(state.sprites.clone()));
+        let app = app
+            .app_data(Data::new(state.sprites.clone()))
+            .app_data(Data::new(state.sprite_cache.clone()));
 
         #[cfg(feature = "fonts")]
-        let app = app.app_data(Data::new(state.fonts.clone()));
+        let app = app
+            .app_data(Data::new(state.fonts.clone()))
+            .app_data(Data::new(state.font_cache.clone()));
 
         #[cfg(feature = "styles")]
         let app = app.app_data(Data::new(state.styles.clone()));

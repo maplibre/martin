@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use moka::future::Cache;
 
 /// Optional wrapper for `FontCache`.
@@ -11,7 +9,7 @@ pub const NO_FONT_CACHE: OptFontCache = None;
 /// Font cache for storing generated font ranges.
 #[derive(Clone, Debug)]
 pub struct FontCache {
-    cache: Cache<FontCacheKey, Arc<Vec<u8>>>,
+    cache: Cache<FontCacheKey, Vec<u8>>,
 }
 
 impl FontCache {
@@ -21,7 +19,7 @@ impl FontCache {
         Self {
             cache: Cache::builder()
                 .name("font_cache")
-                .weigher(|_key: &FontCacheKey, value: &Arc<Vec<u8>>| -> u32 {
+                .weigher(|_key: &FontCacheKey, value: &Vec<u8>| -> u32 {
                     value.len().try_into().unwrap_or(u32::MAX)
                 })
                 .max_capacity(max_size_bytes)
@@ -30,7 +28,7 @@ impl FontCache {
     }
 
     /// Retrieves a font range from cache if present.
-    pub async fn get(&self, ids: &str, start: u32, end: u32) -> Option<Arc<Vec<u8>>> {
+    pub async fn get(&self, ids: &str, start: u32, end: u32) -> Option<Vec<u8>> {
         let key = FontCacheKey::new(ids, start, end);
         let result = self.cache.get(&key).await;
 
@@ -48,28 +46,27 @@ impl FontCache {
     }
 
     /// Inserts a font range into the cache.
-    pub async fn insert(&self, ids: &str, start: u32, end: u32, data: Arc<Vec<u8>>) {
+    pub async fn insert(&self, ids: &str, start: u32, end: u32, data: Vec<u8>) {
         let key = FontCacheKey::new(ids, start, end);
         self.cache.insert(key, data).await;
     }
 
     /// Gets a font range from cache or computes it using the provided function.
-    pub async fn get_or_insert<F, Fut, E>(
+    pub async fn get_or_insert<F, E>(
         &self,
         ids: &str,
         start: u32,
         end: u32,
         compute: F,
-    ) -> Result<Arc<Vec<u8>>, E>
+    ) -> Result<Vec<u8>, E>
     where
-        F: FnOnce() -> Fut,
-        Fut: Future<Output = Result<Vec<u8>, E>>,
+        F: FnOnce() -> Result<Vec<u8>, E>,
     {
         if let Some(data) = self.get(ids, start, end).await {
             return Ok(data);
         }
 
-        let data = Arc::new(compute().await?);
+        let data = compute()?;
         self.insert(ids, start, end, data.clone()).await;
         Ok(data)
     }
