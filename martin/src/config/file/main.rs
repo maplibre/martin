@@ -32,11 +32,7 @@ use subst::VariableMap;
     feature = "fonts",
 ))]
 use crate::config::file::FileConfigEnum;
-#[cfg(any(
-    feature = "_tiles",
-    feature = "sprites",
-    feature = "fonts",
-))]
+#[cfg(any(feature = "_tiles", feature = "sprites", feature = "fonts",))]
 use crate::config::file::cache::CacheConfig;
 use crate::config::file::{
     ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks, UnrecognizedKeys,
@@ -49,9 +45,7 @@ use crate::srv::RESERVED_KEYWORDS;
 use crate::{MartinError, MartinResult};
 
 pub struct ServerState {
-    #[cfg(
-        feature = "_tiles"
-    )]
+    #[cfg(feature = "_tiles")]
     pub tiles: TileSources,
     #[cfg(any(
         feature = "postgres",
@@ -228,11 +222,7 @@ impl Config {
         #[cfg(feature = "_tiles")]
         let resolver = IdResolver::new(RESERVED_KEYWORDS);
 
-        #[cfg(any(
-            feature = "_tiles",
-            feature = "sprites",
-            feature = "fonts",
-        ))]
+        #[cfg(any(feature = "_tiles", feature = "sprites", feature = "fonts",))]
         let cache_config = self.resolve_cache_config();
 
         #[cfg(feature = "pmtiles")]
@@ -275,11 +265,7 @@ impl Config {
         })
     }
 
-    #[cfg(any(
-        feature = "_tiles",
-        feature = "sprites",
-        feature = "fonts",
-    ))]
+    #[cfg(any(feature = "_tiles", feature = "sprites", feature = "fonts",))]
     // cache_config is still respected, but can be overridden by individual cache sizes
     //
     // `cache_config: 0` disables caching, unless overridden by individual cache sizes
@@ -309,9 +295,7 @@ impl Config {
             };
 
             CacheConfig {
-                #[cfg(any(
-                    feature = "_tiles"
-                ))]
+                #[cfg(any(feature = "_tiles"))]
                 tile_cache_size_mb: self.tile_cache_size_mb.unwrap_or(cache_size_mb / 2), // Default: 50% for tiles
                 #[cfg(feature = "pmtiles")]
                 pmtiles_cache_size_mb,
@@ -323,9 +307,7 @@ impl Config {
         } else {
             // TODO: the defaults could be smarter. If I don't have pmtiles sources, don't reserve cache for it
             CacheConfig {
-                #[cfg(any(
-                    feature = "_tiles"
-                ))]
+                #[cfg(any(feature = "_tiles"))]
                 tile_cache_size_mb: 256,
                 #[cfg(feature = "pmtiles")]
                 pmtiles_cache_size_mb: 128,
@@ -337,9 +319,7 @@ impl Config {
         }
     }
 
-    #[cfg(
-        feature = "_tiles"
-    )]
+    #[cfg(feature = "_tiles")]
     async fn resolve_tile_sources(
         &mut self,
         #[allow(unused_variables)] idr: &IdResolver,

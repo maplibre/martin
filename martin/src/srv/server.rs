@@ -36,9 +36,7 @@ pub const RESERVED_KEYWORDS: &[&str] = &[
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Catalog {
-    #[cfg(
-        feature = "_tiles"
-    )]
+    #[cfg(feature = "_tiles")]
     pub tiles: martin_core::tiles::catalog::TileCatalog,
     #[cfg(feature = "sprites")]
     pub sprites: martin_core::sprites::SpriteCatalog,
@@ -51,9 +49,7 @@ pub struct Catalog {
 impl Catalog {
     pub fn new(#[allow(unused_variables)] state: &ServerState) -> MartinResult<Self> {
         Ok(Self {
-            #[cfg(any(
-                feature = "_tiles"
-            ))]
+            #[cfg(any(feature = "_tiles"))]
             tiles: state.tiles.get_catalog(),
             #[cfg(feature = "sprites")]
             sprites: state.sprites.get_catalog()?,
@@ -186,12 +182,10 @@ pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server
         let cors_middleware = cors_config.make_cors_middleware();
 
         let app = App::new()
-          .app_data(Data::new(catalog.clone()))
-          .app_data(Data::new(config.clone()));
+            .app_data(Data::new(catalog.clone()))
+            .app_data(Data::new(config.clone()));
 
-        #[cfg(
-            feature = "_tiles",
-        )]
+        #[cfg(feature = "_tiles")]
         let app = app
             .app_data(Data::new(state.tiles.clone()))
             .app_data(Data::new(state.tile_cache.clone()));

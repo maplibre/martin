@@ -30,7 +30,8 @@ postgres = [
     "dep:rustls-pemfile",
     "dep:semver",
     "dep:tokio-postgres-rustls",
-    "dep:serde_json", "_tiles",
+    "dep:serde_json",
+    "_tiles",
 ]
 unstable-cog = ["dep:png", "dep:tiff", "_tiles"]
 fonts = [
