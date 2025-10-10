@@ -232,3 +232,5 @@ styles:
     maplibre: tests/fixtures/styles/maplibre_demo.json
   paths:
     - tests/fixtures/styles/src2
+
+tilejson_url_version_param: version

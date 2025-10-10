@@ -8,8 +8,8 @@ use martin_core::styles::StyleSources;
 use serde::{Deserialize, Serialize};
 
 use crate::config::file::{
-    ConfigExtras, ConfigFileError, ConfigFileResult, FileConfigEnum, UnrecognizedKeys,
-    UnrecognizedValues,
+    ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks, FileConfigEnum,
+    UnrecognizedKeys, UnrecognizedValues,
 };
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -26,7 +26,7 @@ pub struct InnerStyleConfig {
     pub unrecognized: UnrecognizedValues,
 }
 
-impl ConfigExtras for InnerStyleConfig {
+impl ConfigurationLivecycleHooks for InnerStyleConfig {
     fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
         #[allow(unused_mut)]
         let mut keys = self
@@ -57,7 +57,7 @@ pub struct RendererConfig {
     pub unrecognized: UnrecognizedValues,
 }
 #[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
-impl ConfigExtras for RendererConfig {
+impl ConfigurationLivecycleHooks for RendererConfig {
     fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
         self.unrecognized.keys().cloned().collect()
     }

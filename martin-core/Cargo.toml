@@ -1,6 +1,6 @@
 [package]
 name = "martin-core"
-version = "0.1.1"
+version = "0.1.3"
 authors = ["Yuri Astrakhan <YuriAstrakhan@gmail.com>", "MapLibre contributors"]
 description = "Basic building blocks of MapLibre's Martin tile server."
 keywords = ["maps", "tiles", "mvt", "tileserver"]
@@ -12,7 +12,15 @@ rust-version.workspace = true
 homepage.workspace = true
 
 [features]
-default = ["fonts", "styles", "sprites", "mbtiles", "pmtiles", "cog", "postgres"]
+default = [
+    "fonts",
+    "mbtiles",
+    "pmtiles",
+    "postgres",
+    "sprites",
+    "styles",
+    "unstable-cog",
+]
 postgres = [
     "dep:deadpool-postgres",
     "dep:postgres",
@@ -24,7 +32,7 @@ postgres = [
     "dep:tokio-postgres-rustls",
     "dep:serde_json",
 ]
-cog = ["dep:png", "dep:tiff"]
+unstable-cog = ["dep:png", "dep:tiff"]
 fonts = [
     "dep:bit-set",
     "dep:pbf_font_tools",
@@ -42,7 +50,7 @@ sprites = [
 unstable-rendering = ["styles", "dep:maplibre_native", "dep:image"]
 styles = ["dep:walkdir", "tokio/fs", "dep:dashmap"]
 mbtiles = ["dep:mbtiles"]
-pmtiles = ["dep:pmtiles", "dep:aws-config", "dep:url"]
+pmtiles = ["dep:pmtiles", "dep:object_store"]
 
 [target.'cfg(target_os = "linux")'.dependencies]
 image = { workspace = true, optional = true }
@@ -50,7 +58,6 @@ maplibre_native = { workspace = true, optional = true }
 
 [dependencies]
 async-trait.workspace = true
-aws-config = { workspace = true, optional = true }
 bit-set = { workspace = true, optional = true }
 dashmap = { workspace = true, optional = true }
 deadpool-postgres = { workspace = true, optional = true }
@@ -60,6 +67,7 @@ log.workspace = true
 martin-tile-utils.workspace = true
 mbtiles = { workspace = true, optional = true }
 moka.workspace = true
+object_store = { workspace = true, optional = true }
 pbf_font_tools = { workspace = true, optional = true }
 pmtiles = { workspace = true, optional = true }
 png = { workspace = true, optional = true }
@@ -79,7 +87,6 @@ tiff = { workspace = true, optional = true }
 tilejson.workspace = true
 tokio = { workspace = true, optional = true }
 tokio-postgres-rustls = { workspace = true, optional = true }
-url = { workspace = true, optional = true }
 walkdir = { workspace = true, optional = true }
 
 [dev-dependencies]

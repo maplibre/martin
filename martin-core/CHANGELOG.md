@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.3](https://github.com/maplibre/martin/compare/martin-core-v0.1.2...martin-core-v0.1.3) - 2025-10-01
+
+### Added
+
+- `Source::get_version` which returns the version of pmtiles sources allowing for better caching in some circumstances ([#2198](https://github.com/maplibre/martin/pull/2198))
+
+### Other
+
+- release ([#2265](https://github.com/maplibre/martin/pull/2265))
+
+## [0.1.2](https://github.com/maplibre/martin/compare/martin-core-v0.1.1...martin-core-v0.1.2) - 2025-09-28
+
+### Other
+
+- The previous `martin-0.19.1` release had another bug which prevented proper releasing which is now fixed ([#2262](https://github.com/maplibre/martin/pull/2262))
+- updated the following local packages: mbtiles
+
 ## [0.1.1](https://github.com/maplibre/martin/compare/martin-core-v0.1.0...martin-core-v0.1.1) - 2025-09-27
 
 - fix release not working for some packages due to outdated dependedncy definitions

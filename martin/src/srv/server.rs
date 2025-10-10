@@ -15,7 +15,7 @@ use log::error;
 use martin_core::tiles::catalog::TileCatalog;
 use serde::{Deserialize, Serialize};
 
-#[cfg(feature = "webui")]
+#[cfg(all(feature = "webui", not(docsrs)))]
 use crate::config::args::WebUiMode;
 use crate::config::file::ServerState;
 use crate::config::file::srv::{KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT, SrvConfig};
@@ -23,7 +23,7 @@ use crate::srv::tiles::get_tile;
 use crate::srv::tiles_info::get_source_info;
 use crate::{MartinError, MartinResult};
 
-#[cfg(feature = "webui")]
+#[cfg(all(feature = "webui", not(docsrs)))]
 mod webui {
     #![allow(clippy::unreadable_literal)]
     #![allow(clippy::too_many_lines)]
@@ -70,7 +70,7 @@ pub fn map_internal_error<T: std::fmt::Display>(e: T) -> actix_web::Error {
 }
 
 /// Root path in case web front is disabled.
-#[cfg(not(feature = "webui"))]
+#[cfg(any(not(feature = "webui"), docsrs))]
 #[route("/", method = "GET", method = "HEAD")]
 #[allow(clippy::unused_async)]
 async fn get_index_no_ui() -> &'static str {
@@ -80,7 +80,7 @@ async fn get_index_no_ui() -> &'static str {
 }
 
 /// Root path in case web front is disabled and the `webui` feature is enabled.
-#[cfg(feature = "webui")]
+#[cfg(all(feature = "webui", not(docsrs)))]
 #[route("/", method = "GET", method = "HEAD")]
 #[allow(clippy::unused_async)]
 async fn get_index_ui_disabled() -> &'static str {
@@ -131,7 +131,7 @@ pub fn router(cfg: &mut web::ServiceConfig, #[allow(unused_variables)] usr_cfg: 
     #[cfg(feature = "styles")]
     cfg.service(crate::srv::styles::get_style_json);
 
-    #[cfg(feature = "webui")]
+    #[cfg(all(feature = "webui", not(docsrs)))]
     {
         // TODO: this can probably be simplified with a wrapping middleware,
         //       which would share usr_cfg from Data<> with all routes.
@@ -145,7 +145,7 @@ pub fn router(cfg: &mut web::ServiceConfig, #[allow(unused_variables)] usr_cfg: 
         }
     }
 
-    #[cfg(not(feature = "webui"))]
+    #[cfg(any(not(feature = "webui"), docsrs))]
     cfg.service(get_index_no_ui);
 }
 

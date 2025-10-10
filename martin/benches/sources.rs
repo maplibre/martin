@@ -111,17 +111,19 @@ mod sources {
 }
 
 async fn process_null_tile(sources: &TileSources) {
-    let src = DynTileSource::new(sources, "null", Some(0), "", None, None, None, None).unwrap();
+    let src = DynTileSource::new(sources, "null", Some(0), "", None, None, None, None)
+        .expect("null source can be created");
     src.get_http_response(TileCoord { z: 0, x: 0, y: 0 })
         .await
-        .unwrap();
+        .expect("null source returns empty tile");
 }
 
 async fn process_error_tile(sources: &TileSources) {
-    let src = DynTileSource::new(sources, "error", Some(0), "", None, None, None, None).unwrap();
+    let src = DynTileSource::new(sources, "error", Some(0), "", None, None, None, None)
+        .expect("error source can be created");
     src.get_http_response(TileCoord { z: 0, x: 0, y: 0 })
         .await
-        .unwrap_err();
+        .expect_err("error source returns an error");
 }
 
 fn bench_null_source(c: &mut Criterion) {

@@ -1,4 +1,5 @@
 listen_addresses: localhost:3111
+tilejson_url_version_param: version
 postgres:
   default_srid: 900913
   auto_bounds: calc

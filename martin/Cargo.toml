@@ -1,6 +1,6 @@
 [package]
 name = "martin"
-version = "0.19.0"
+version = "0.19.3"
 authors = [
     "Stepan Kuzmin <to.stepan.kuzmin@gmail.com>",
     "Yuri Astrakhan <YuriAstrakhan@gmail.com>",
@@ -79,9 +79,13 @@ required-features = ["mbtiles"]
 name = "sources"
 harness = false
 
+[[bench]]
+name = "postgres_discovery"
+harness = false
+required-features = ["postgres"]
+
 [features]
 default = [
-    "cog",
     "fonts",
     "lambda",
     "mbtiles",
@@ -90,14 +94,15 @@ default = [
     "postgres",
     "sprites",
     "styles",
+    "unstable-cog",
     "webui",
 ]
-cog = ["martin-core/cog"]
+unstable-cog = ["martin-core/unstable-cog"]
 fonts = ["martin-core/fonts"]
 lambda = ["dep:lambda-web"]
 mbtiles = ["martin-core/mbtiles"]
 metrics = ["dep:actix-web-prom"]
-pmtiles = ["martin-core/pmtiles"]
+pmtiles = ["martin-core/pmtiles", "dep:object_store"]
 postgres = [
     "martin-core/postgres",
     "dep:enum-display",
@@ -105,7 +110,7 @@ postgres = [
     "dep:postgis",
     "dep:postgres-protocol",
 ]
-unstable-rendering = ["styles", "martin-core/unstable-rendering"]
+unstable-rendering = ["styles", "martin-core/unstable-rendering", "dep:image"]
 sprites = ["martin-core/sprites"]
 styles = ["martin-core/styles", "dep:walkdir"]
 webui = ["dep:actix-web-static-files", "dep:static-files", "dep:walkdir"]
@@ -124,6 +129,7 @@ dashmap.workspace = true
 enum-display = { workspace = true, optional = true }
 env_logger.workspace = true
 futures.workspace = true
+image = { workspace = true, optional = true }
 itertools.workspace = true
 json-patch = { workspace = true, optional = true }
 lambda-web = { workspace = true, optional = true }
@@ -132,6 +138,7 @@ martin-core.workspace = true
 martin-tile-utils.workspace = true
 mbtiles.workspace = true
 num_cpus.workspace = true
+object_store = { workspace = true, optional = true }
 postgis = { workspace = true, optional = true }
 postgres-protocol = { workspace = true, optional = true }
 rustls.workspace = true
@@ -162,6 +169,7 @@ insta = { workspace = true, features = ["json", "yaml", "redactions"] }
 pprof.workspace = true
 rstest.workspace = true
 tempfile.workspace = true
+testcontainers-modules.workspace = true
 
 [lints]
 workspace = true

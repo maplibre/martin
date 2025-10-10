@@ -13,7 +13,7 @@ This command can also be used to generate files of different [supported schema](
 
 ```bash
 mbtiles copy normalized.mbtiles dst.mbtiles \
-         --dst-mbttype flat-with-hash
+         --dst-type flat-with-hash
 ```
 
 ## `mbtiles copy --diff-with-file`

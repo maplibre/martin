@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.19.3](https://github.com/maplibre/martin/compare/martin-v0.19.2...martin-v0.19.3) - 2025-10-01
+
+### Added
+
+- add `tilejson_url_version_param` configuration which allows embedding the version of tile sources (specifically pmtiles) in tilejson tiles URL, resulting in better cache hit rates ([#2198](https://github.com/maplibre/martin/pull/2198))
+
+### Other
+
+- fix docs.rs not build failing due to misconfiguration of the `cfg(feature="webui")` ([#2273](https://github.com/maplibre/martin/pull/2273))
+- release ([#2265](https://github.com/maplibre/martin/pull/2265))
+
+## [0.19.2](https://github.com/maplibre/martin/compare/martin-v0.19.1...martin-v0.19.2) - 2025-09-28
+
+### Other
+
+- The previous `0.19.1` release had another bug which prevented proper releasing which is now fixed ([#2262](https://github.com/maplibre/martin/pull/2262))
+- update Cargo.lock dependencies
+
+## [0.19.1](https://github.com/maplibre/martin/compare/martin-v0.19.0...martin-v0.19.1) - 2025-09-28
+
+### Fixed
+
+- *(release)* Our release new process for `0.19.0` did not properly attach binaries and build docker files due to permission issues ([#2253](https://github.com/maplibre/martin/pull/2253), [#2260](https://github.com/maplibre/martin/pull/2260))
+
 ## [0.19.0](https://github.com/maplibre/martin/compare/martin-v0.18.1...martin-v0.19.0) - 2025-09-26
 
 ### Breaking Changes

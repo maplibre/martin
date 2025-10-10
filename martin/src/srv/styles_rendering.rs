@@ -61,10 +61,22 @@ pub async fn get_style_rendered(
         }
     };
 
-    // Re-encode to target forat
-    match path.format {
-        ImageFormatRequest::Png => HttpResponse::Ok()
-            .content_type(ContentType::png())
-            .body(image.as_bytes().to_owned()),
+    // Re-encode to target format
+    let mut img_buffer = std::io::Cursor::new(Vec::new());
+    let (image_format, content_type) = match path.format {
+        ImageFormatRequest::Png => (image::ImageFormat::Png, ContentType::png()),
+    };
+
+    let image_encoding_result = image.as_image().write_to(&mut img_buffer, image_format);
+    match image_encoding_result {
+        Ok(()) => HttpResponse::Ok()
+            .content_type(content_type)
+            .body(img_buffer.into_inner()),
+        Err(e) => {
+            error!("Failed to encode image: {e}");
+            HttpResponse::InternalServerError()
+                .content_type(ContentType::plaintext())
+                .body("Failed to encode image")
+        }
     }
 }

@@ -22,6 +22,7 @@ tests/mbtiles_temp_files/
 tests/output/
 tmp/
 tsconfig.tsbuildinfo
+*.mbtiles
 
 ####
 #### Above content must match .dockerignore ####

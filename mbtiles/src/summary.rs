@@ -120,10 +120,18 @@ impl Mbtiles {
             .map(|m| m.len());
 
         let sql = query!("PRAGMA page_size;");
-        let page_size = sql.fetch_one(&mut *conn).await?.page_size.unwrap() as u64;
+        let page_size = sql
+            .fetch_one(&mut *conn)
+            .await?
+            .page_size
+            .expect("page_size is not null") as u64;
 
         let sql = query!("PRAGMA page_count;");
-        let page_count = sql.fetch_one(&mut *conn).await?.page_count.unwrap() as u64;
+        let page_count = sql
+            .fetch_one(&mut *conn)
+            .await?
+            .page_count
+            .expect("page_count is not null") as u64;
 
         let zoom_info = query!(
             "
@@ -154,10 +162,10 @@ impl Mbtiles {
                     avg_tile_size: r.average.unwrap_or(0.0),
                     bbox: xyz_to_bbox(
                         zoom,
-                        r.min_tile_x.unwrap() as u32,
-                        invert_y_value(zoom, r.max_tile_y.unwrap() as u32),
-                        r.max_tile_x.unwrap() as u32,
-                        invert_y_value(zoom, r.min_tile_y.unwrap() as u32),
+                        r.min_tile_x.expect("we are mapping over a value, so there is a value -> min_tile_x cannot be None") as u32,
+                        invert_y_value(zoom, r.max_tile_y.expect("we are mapping over a value, so there is a value -> max_tile_y cannot be None") as u32),
+                        r.max_tile_x.expect("we are mapping over a value, so there is a value -> max_tile_x cannot be None") as u32,
+                        invert_y_value(zoom, r.min_tile_y.expect("we are mapping over a value, so there is a value -> min_tile_y cannot be None") as u32),
                     )
                     .into(),
                 }
@@ -193,15 +201,16 @@ mod tests {
 
     use insta::assert_yaml_snapshot;
 
-    use crate::{MbtResult, MbtType, Mbtiles, init_mbtiles_schema};
+    use crate::metadata::anonymous_mbtiles;
+    use crate::{MbtType, Mbtiles, init_mbtiles_schema};
 
     #[actix_rt::test]
-    async fn summary_empty_file() -> MbtResult<()> {
-        let mbt = Mbtiles::new("file:mbtiles_empty_summary?mode=memory&cache=shared")?;
-        let mut conn = mbt.open().await?;
+    async fn summary_empty_file() {
+        let mbt = Mbtiles::new(":memory:").unwrap();
+        let mut conn = mbt.open().await.unwrap();
 
         init_mbtiles_schema(&mut conn, MbtType::Flat).await.unwrap();
-        let res = mbt.summary(&mut conn).await?;
+        let res = mbt.summary(&mut conn).await.unwrap();
         assert_yaml_snapshot!(res, @r"
         file_size: ~
         mbt_type: Flat
@@ -216,22 +225,19 @@ mod tests {
         max_zoom: ~
         zoom_info: []
         ");
-
-        Ok(())
     }
 
     #[actix_rt::test]
-    async fn summary() -> MbtResult<()> {
-        let mbt = Mbtiles::new("../tests/fixtures/mbtiles/world_cities.mbtiles")?;
-        let mut conn = mbt.open().await?;
-
-        let res = mbt.summary(&mut conn).await?;
+    async fn summary() {
+        let script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
+        let (mbt, mut conn) = anonymous_mbtiles(script).await;
+        let res = mbt.summary(&mut conn).await.unwrap();
 
         assert_yaml_snapshot!(res, @r"
-        file_size: 49152
+        file_size: ~
         mbt_type: Flat
         page_size: 4096
-        page_count: 12
+        page_count: 11
         tile_count: 196
         min_tile_size: 64
         max_tile_size: 1107
@@ -315,7 +321,5 @@ mod tests {
               - 180.00000000000003
               - 61.60639637138628
         ");
-
-        Ok(())
     }
 }

@@ -290,6 +290,26 @@ echo "::group::Check HTTP server is running"
 $CURL --head "$STATICS_URL/webp2.pmtiles"
 echo "::endgroup::"
 
+# Prepare MBTiles from SQL fixtures
+echo "::group::Prepare .mbtiles fixtures from .sql"
+FOLDERS=("tests/fixtures/files" "tests/fixtures/mbtiles")
+
+for folder in "${FOLDERS[@]}"; do
+    echo "Processing folder: $folder"
+
+    # Remove existing .mbtiles files before recreating them
+    rm -f "$folder"/*.mbtiles
+
+    for sql_file in "$folder"/*.sql; do
+        [ -e "$sql_file" ] || continue
+
+        mbtiles_file="${sql_file%.sql}.mbtiles"
+        echo "Creating: $mbtiles_file from $sql_file"
+        sqlite3 "$mbtiles_file" < "$sql_file"
+    done
+done
+echo "::endgroup::"
+
 echo "::group::Test auto configured Martin"
 TEST_NAME="auto"
 LOG_FILE="${LOG_DIR}/${TEST_NAME}.txt"
@@ -297,7 +317,7 @@ TEST_OUT_DIR="${TEST_OUT_BASE_DIR}/${TEST_NAME}"
 mkdir -p "$TEST_OUT_DIR"
 
 
-ARG=(--default-srid 900913 --auto-bounds calc --save-config "${TEST_OUT_DIR}/save_config.yaml" tests/fixtures/mbtiles tests/fixtures/pmtiles tests/fixtures/cog "$STATICS_URL/webp2.pmtiles" s3://pmtilestest/cb_2018_us_zcta510_500k.pmtiles --sprite tests/fixtures/sprites/src1 --font tests/fixtures/fonts/overpass-mono-regular.ttf --font tests/fixtures/fonts --style tests/fixtures/styles/maplibre_demo.json --style tests/fixtures/styles/src2 )
+ARG=(--default-srid 900913 --auto-bounds calc --save-config "${TEST_OUT_DIR}/save_config.yaml" tests/fixtures/mbtiles tests/fixtures/pmtiles tests/fixtures/cog "$STATICS_URL/webp2.pmtiles" s3://pmtilestest/cb_2018_us_zcta510_500k.pmtiles --sprite tests/fixtures/sprites/src1 --font tests/fixtures/fonts/overpass-mono-regular.ttf --font tests/fixtures/fonts --style tests/fixtures/styles/maplibre_demo.json --style tests/fixtures/styles/src2 --tilejson-url-version-param version )
 export DATABASE_URL="$MARTIN_DATABASE_URL"
 
 set -x
@@ -426,6 +446,9 @@ test_log_has_str "$LOG_FILE" 'was renamed to `.-Points-----------quote`'
 test_log_has_str "$LOG_FILE" 'was renamed to `table_name_existing_two_schemas.1`'
 test_log_has_str "$LOG_FILE" 'was renamed to `view_name_existing_two_schemas.1`'
 test_log_has_str "$LOG_FILE" 'was renamed to `table_and_view_two_schemas.1`'
+test_log_has_str "$LOG_FILE" 'WARN  martin::config::file::pmtiles] Defaulting `pmtiles.allow_http` to `true`. This is likely to become an error in the future for better security.'
+test_log_has_str "$LOG_FILE" 'WARN  martin::config::file::pmtiles] Environment variable AWS_SKIP_CREDENTIALS is deprecated. Please use pmtiles.skip_signature in the configuration file instead.'
+test_log_has_str "$LOG_FILE" 'WARN  martin::config::file::pmtiles] Environment variable AWS_REGION is deprecated. Please use pmtiles.region in the configuration file instead.'
 validate_log "$LOG_FILE"
 remove_lines "${TEST_OUT_DIR}/save_config.yaml" " connection_string: "
 echo "::endgroup::"
@@ -449,6 +472,9 @@ wait_for "$MARTIN_PROC_ID" Martin "$MARTIN_URL/health"
 test_jsn catalog_auto catalog
 
 kill_process "$MARTIN_PROC_ID" Martin
+test_log_has_str "$LOG_FILE" 'WARN  martin::config::file::pmtiles] Defaulting `pmtiles.allow_http` to `true`. This is likely to become an error in the future for better security.'
+test_log_has_str "$LOG_FILE" 'WARN  martin::config::file::pmtiles] Environment variable AWS_SKIP_CREDENTIALS is deprecated. Please use pmtiles.skip_signature in the configuration file instead.'
+test_log_has_str "$LOG_FILE" 'WARN  martin::config::file::pmtiles] Environment variable AWS_REGION is deprecated. Please use pmtiles.region in the configuration file instead.'
 validate_log "$LOG_FILE"
 echo "::endgroup::"
 
@@ -549,6 +575,9 @@ test_log_has_str "$LOG_FILE" "WARN  martin::config::file::main] Ignoring unrecog
 test_log_has_str "$LOG_FILE" "WARN  martin::config::file::main] Ignoring unrecognized configuration key 'styles.warning'. Please check your configuration file for typos."
 test_log_has_str "$LOG_FILE" "WARN  martin::config::file::main] Ignoring unrecognized configuration key 'styles.experimental_rendering.warning'. Please check your configuration file for typos."
 test_log_has_str "$LOG_FILE" "experimental feature rendering is enabled"
+test_log_has_str "$LOG_FILE" 'WARN  martin::config::file::pmtiles] Defaulting `pmtiles.allow_http` to `true`. This is likely to become an error in the future for better security.'
+test_log_has_str "$LOG_FILE" 'WARN  martin::config::file::pmtiles] Environment variable AWS_SKIP_CREDENTIALS is deprecated. Please use pmtiles.skip_signature in the configuration file instead.'
+test_log_has_str "$LOG_FILE" 'WARN  martin::config::file::pmtiles] Environment variable AWS_REGION is deprecated. Please use pmtiles.region in the configuration file instead.'
 validate_log "$LOG_FILE"
 remove_lines "${TEST_OUT_DIR}/save_config.yaml" " connection_string: "
 echo "::endgroup::"
