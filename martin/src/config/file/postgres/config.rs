@@ -252,8 +252,7 @@ impl ConfigurationLivecycleHooks for PostgresConfig {
             OptBoolObj::Object(o) => keys.extend(
                 o.get_unrecognized_keys()
                     .iter()
-                    .map(|k| format!("auto_publish.{k}"))
-                    .collect::<UnrecognizedKeys>(),
+                    .map(|k| format!("auto_publish.{k}")),
             ),
         }
 

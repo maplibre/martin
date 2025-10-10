@@ -110,6 +110,7 @@ postgres = [
     "dep:postgis",
     "dep:postgres-protocol",
 ]
+unstable-rendering = ["styles", "martin-core/unstable-rendering", "dep:image"]
 sprites = ["martin-core/sprites"]
 styles = ["martin-core/styles", "dep:walkdir"]
 webui = ["dep:actix-web-static-files", "dep:static-files", "dep:walkdir"]
@@ -128,6 +129,7 @@ dashmap.workspace = true
 enum-display = { workspace = true, optional = true }
 env_logger.workspace = true
 futures.workspace = true
+image = { workspace = true, optional = true }
 itertools.workspace = true
 json-patch = { workspace = true, optional = true }
 lambda-web = { workspace = true, optional = true }

@@ -66,10 +66,16 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with: { persist-credentials: false }
+      - uses: taiki-e/install-action@cc60de1d6831d7e9c4342f618ce7a5d6a9f223a4 # v2.61.6
+        with: { tool: 'just' }
+      - name: Install dependencies for rendering
+        run: just install-dependencies
+
       - name: Init database
         run: tests/fixtures/initdb.sh
         env:
           PGPORT: ${{ job.services.postgres.ports[5432] }}
+
       - name: Run cargo test
         run: |
           set -x
@@ -97,8 +103,12 @@ jobs:
       - uses: taiki-e/install-action@cc60de1d6831d7e9c4342f618ce7a5d6a9f223a4 # v2.61.6
         # TODO: add cargo-sort once https://github.com/taiki-e/install-action/pull/997 is resolved
         with: { tool: 'just,cargo-binstall' }
+      - name: Install dependencies for rendering
+        run: just install-dependencies
+
       - uses: Swatinem/rust-cache@f13886b937689c021905a6b90929199931d60db1 # v2.8.1
         if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
+
       - run: just env-info
       - run: just test-fmt
       - run: just clippy
@@ -121,11 +131,14 @@ jobs:
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with: { persist-credentials: false }
       - uses: taiki-e/install-action@cc60de1d6831d7e9c4342f618ce7a5d6a9f223a4 # v2.61.6
-        with: { tool: cargo-zigbuild }
+        with: { tool: 'cargo-zigbuild,just' }
+      - name: Install dependencies for rendering
+        run: just install-dependencies
       - name: Install zig
         uses: mlugg/setup-zig@8d6198c65fb0feaa111df26e6b467fea8345e46f # v2.0.5
         with: { version: '0.15.1' }
       - run: rustup target add ${{ matrix.target }}
+
       - name: Build ${{ matrix.target }}
         run: |
           export "CARGO_TARGET_$(echo ${{ matrix.target }} | tr 'a-z-' 'A-Z_')_RUSTFLAGS"='-C strip=debuginfo'
@@ -372,16 +385,20 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with: { persist-credentials: false }
+      - uses: taiki-e/install-action@cc60de1d6831d7e9c4342f618ce7a5d6a9f223a4 # v2.61.6
+        with: { tool: 'just' }
       # the macOS x86 runners are 3x slower than all other runners.
       # We need to cache here to not spend 30 minutes on each build.
       # We cannot cache the others as well because we only have 10GB of cache
       - if: matrix.target == 'x86_64-apple-darwin' && github.event_name != 'release' && github.event_name != 'workflow_dispatch'
         uses: Swatinem/rust-cache@f13886b937689c021905a6b90929199931d60db1 # v2.8.1
-      - name: Rust Versions
-        run: rustc --version && cargo --version
       - name: Install NASM for rustls/aws-lc-rs on Windows
         if: runner.os == 'Windows'
         uses: ilammy/setup-nasm@72793074d3c8cdda771dba85f6deafe00623038b # v1.5.2
+      - name: Install dependencies for rendering
+        run: just install-dependencies
+
+      - run: just env-info
       - name: Build (.deb)
         if: matrix.target == 'debian-x86_64'
         run: |
@@ -461,8 +478,11 @@ jobs:
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with: { persist-credentials: false }
       - name: Set up gdal-bin and sqlite3-tools
-        if: matrix.os == 'ubuntu-latest'
+        if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y gdal-bin sqlite3-tools
+      - name: Install dependencies for rendering
+        run: just install-dependencies
+
       - name: Install sqlite3 and sqldiff on Windows
         if: matrix.os == 'windows-latest'
         run: choco install sqlite --yes
@@ -500,6 +520,7 @@ jobs:
         uses: nyurik/action-setup-nginx@612ee9cb839ad727832cda16359452e7e14dd521 # v1.1
         id: nginx
         with: { port: '5412', output-unix-paths: 'yes' }
+
       - name: Init database
         env:
           PGPORT: ${{ env.PGPORT }}
@@ -555,6 +576,7 @@ jobs:
           tests/test.sh
         env:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ env.PGPORT }}/${{ env.PGDATABASE }}?sslmode=require
+
       - name: Save test output (on error)
         if: failure()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -624,6 +646,8 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with: { persist-credentials: false }
+      - uses: taiki-e/install-action@cc60de1d6831d7e9c4342f618ce7a5d6a9f223a4 # v2.61.6
+        with: { tool: 'just' }
       # cache for the unit-test to be run against postgres to be acceptably slow
       - uses: Swatinem/rust-cache@f13886b937689c021905a6b90929199931d60db1 # v2.8.1
         if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
@@ -649,6 +673,8 @@ jobs:
         with: { name: 'build-x86_64-unknown-linux-gnu', path: 'target_releases/' }
       - name: Set up gdal-bin and sqlite3-tools
         run: sudo apt update && sudo apt-get install -y gdal-bin sqlite3-tools
+      - name: Install dependencies for rendering
+        run: just install-dependencies
       - name: Integration Tests
         run: |
           if [[ "${{ matrix.sslmode }}" == "verify-ca" || "${{ matrix.sslmode }}" == "verify-full" ]]; then
