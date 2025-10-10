@@ -2314,6 +2314,10 @@ postgres:
       geometry_type: GEOMETRY
 
       # List of columns, that should be encoded as tile properties (required)
+      #
+      # Keys and values are the names and descriptions of attributes available in this layer.
+      # Each value (description) must be a string that describes the underlying data.
+      # If no fields (=just the geometry) should be encoded, an empty object is allowed.
       properties:
         gid: int4
 
