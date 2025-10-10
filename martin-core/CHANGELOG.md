@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0](https://github.com/maplibre/martin/compare/martin-core-v0.1.3...martin-core-v0.2.0) - 2025-10-10
+
+### Added
+
+- *(pmtiles)* [**breaking**] change pmtiles to base the implementation on `object_storage` instead ([#2251](https://github.com/maplibre/martin/pull/2251))
+
+### Fixed
+
+- *(cog)* [**breaking**] rename `cog` feature to `unstable-cog` ([#2285](https://github.com/maplibre/martin/pull/2285))
+
+### Other
+
+- *(lints)* migrate a few of our expects to unwraps ([#2284](https://github.com/maplibre/martin/pull/2284))
+
 ## [0.1.3](https://github.com/maplibre/martin/compare/martin-core-v0.1.2...martin-core-v0.1.3) - 2025-10-01
 
 ### Added
