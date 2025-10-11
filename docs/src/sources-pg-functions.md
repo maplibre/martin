@@ -51,6 +51,7 @@ $$ LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE;
 Lets explain a few of the aspects of the function:
 
 `ST_Transform(ST_CurveToLine(geom), 3857)`
+
 - Since the table in the example can contain arbitrary geometries, we need to transform `CIRCULARSTRING` geometry types.
   Concretely, we use `ST_CurveToLine` to convert a
   - CIRCULAR STRING to regular LINESTRING,
@@ -59,12 +60,14 @@ Lets explain a few of the aspects of the function:
 - `ST_Transform` is necessary as `ST_CurveToLine` returns a geometry in `4326` SRID, which is the SRID of stored geometry in the example.
 
 `WHERE geom && ST_Transform(ST_TileEnvelope(z, x, y), 4326)`
+
 - `&&` is the spatial intersection operator. Thus it checks if the geometry intersects with the tile envelope and uses spatial indexes.
 - `ST_Transform` is used to transform the tile envelope from `3857` SRID to `4326` SRID, as `geom` in our example is in `4326` SRID.
 
 > [!NOTE]
 > The planning mode `IMMUTABLE STRICT PARALLEL SAFE` allows postgres further freedom to optimize our function.
 > Your function is likely to be the same category as the example, but be careful to not cause unexpected behavior.
+>
 > - [`IMMUTABLE`](https://www.postgresql.org/docs/current/sql-createfunction.html#:~:text=existing%20function%20definition.-,IMMUTABLE,-STABLE%0AVOLATILE)
 >   The function does not have side effects.
 >
