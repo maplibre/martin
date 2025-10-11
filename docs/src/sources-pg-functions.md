@@ -67,14 +67,14 @@ Lets explain a few of the aspects of the function:
 > Your function is likely to be the same category as the example, but be careful to not cause unexpected behavior.
 > - [`IMMUTABLE`](https://www.postgresql.org/docs/current/sql-createfunction.html#:~:text=existing%20function%20definition.-,IMMUTABLE,-STABLE%0AVOLATILE)
 >   The function does not have side effects.
->   
+>
 >   > Indicates that the function cannot modify the database and always returns the same result when given the same argument values;
 >   > that is, it does not do database lookups or otherwise use information not directly present in its argument list.
 >   > If this option is given, any call of the function with all-constant arguments can be immediately replaced with the function value.
 > - `STRICT`: Our function will not be called if any of the arguments are `NULL`.
 > - [`PARALLEL SAFE`](https://www.postgresql.org/docs/current/parallel-safety.html):
 >   Our function is safe to call in parallel as it does not modify the database, nor use randomness or temporary tables.
->   
+>
 >   > Functions should be labeled parallel unsafe if they
 >   > - modify any database state,
 >   > - change the transaction state (other than by using a subtransaction for error recovery),
