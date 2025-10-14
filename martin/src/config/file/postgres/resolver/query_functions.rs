@@ -59,7 +59,7 @@ pub async fn query_available_function(pool: &PostgresPool) -> PostgresResult<Sql
                     assert_eq!(t, &["bytea", "text"]);
                 }
                 (None, None) => {}
-                #[allow(clippy::panic, reason = "Can only happen if postgres changes their code. We have tests against this")]
+                #[expect(clippy::panic, reason = "Can only happen if postgres changes their code. We have tests against this")]
                 _ => {
                     panic!("Invalid output record names or types: {output_record_names:?} {output_record_types:?}");
                 }
