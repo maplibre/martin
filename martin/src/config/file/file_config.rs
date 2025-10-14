@@ -4,9 +4,8 @@ use std::mem;
 use std::path::{Path, PathBuf};
 
 use log::{info, warn};
-use martin_core::cache::OptMainCache;
 use martin_core::config::{IdResolver, OptOneMany};
-use martin_core::tiles::BoxedSource;
+use martin_core::tiles::{BoxedSource, OptTileCache};
 use serde::{Deserialize, Serialize};
 use url::Url;
 
@@ -42,7 +41,7 @@ pub trait ConfigurationLivecycleHooks: Clone + Debug + Default + PartialEq + Sen
     ///
     /// This allows configurations to interact with the cache and perform any necessary initialization tasks.
     /// The configuration should be found to be valid in [`Self::finalize`] instead of [`Self::initialize_cache`].
-    fn initialize_cache(&mut self, _cache: OptMainCache) -> ConfigFileResult<()> {
+    fn initialize_cache(&mut self, _cache: OptTileCache) -> ConfigFileResult<()> {
         Ok(())
     }
 }
@@ -133,7 +132,7 @@ impl<T: ConfigurationLivecycleHooks> FileConfigEnum<T> {
 
     pub fn extract_file_config(
         &mut self,
-        cache: OptMainCache,
+        cache: OptTileCache,
     ) -> ConfigFileResult<Option<FileConfig<T>>> {
         let mut res = match self {
             FileConfigEnum::None => return Ok(None),
@@ -187,7 +186,7 @@ impl<T: ConfigurationLivecycleHooks> ConfigurationLivecycleHooks for FileConfigE
         }
     }
 
-    fn initialize_cache(&mut self, cache: OptMainCache) -> ConfigFileResult<()> {
+    fn initialize_cache(&mut self, cache: OptTileCache) -> ConfigFileResult<()> {
         if let Self::Config(cfg) = self {
             cfg.custom.initialize_cache(cache)
         } else {
@@ -223,7 +222,7 @@ impl<T: ConfigurationLivecycleHooks> ConfigurationLivecycleHooks for FileConfig<
     fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
         self.custom.get_unrecognized_keys()
     }
-    fn initialize_cache(&mut self, cache: OptMainCache) -> ConfigFileResult<()> {
+    fn initialize_cache(&mut self, cache: OptTileCache) -> ConfigFileResult<()> {
         self.custom.initialize_cache(cache)
     }
 }
@@ -282,7 +281,7 @@ pub struct FileConfigSource {
 pub async fn resolve_files<T: TileSourceConfiguration>(
     config: &mut FileConfigEnum<T>,
     idr: &IdResolver,
-    cache: OptMainCache,
+    cache: OptTileCache,
     extension: &[&str],
 ) -> MartinResult<Vec<BoxedSource>> {
     resolve_int(config, idr, cache, extension).await
@@ -291,7 +290,7 @@ pub async fn resolve_files<T: TileSourceConfiguration>(
 async fn resolve_int<T: TileSourceConfiguration>(
     config: &mut FileConfigEnum<T>,
     idr: &IdResolver,
-    cache: OptMainCache,
+    cache: OptTileCache,
     extension: &[&str],
 ) -> MartinResult<Vec<BoxedSource>> {
     let Some(cfg) = config.extract_file_config(cache)? else {
