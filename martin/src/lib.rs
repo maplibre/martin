@@ -3,7 +3,9 @@
 
 pub mod config;
 
+#[cfg(feature = "_tiles")]
 mod source;
+#[cfg(feature = "_tiles")]
 pub use source::TileSources;
 
 mod error;

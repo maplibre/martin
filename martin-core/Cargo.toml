@@ -31,8 +31,9 @@ postgres = [
     "dep:semver",
     "dep:tokio-postgres-rustls",
     "dep:serde_json",
+    "_tiles",
 ]
-unstable-cog = ["dep:png", "dep:tiff"]
+unstable-cog = ["dep:png", "dep:tiff", "_tiles"]
 fonts = [
     "dep:bit-set",
     "dep:pbf_font_tools",
@@ -48,8 +49,9 @@ sprites = [
     "dep:dashmap",
 ]
 styles = ["dep:walkdir", "tokio/fs", "dep:dashmap"]
-mbtiles = ["dep:mbtiles"]
-pmtiles = ["dep:pmtiles", "dep:object_store"]
+mbtiles = ["dep:mbtiles", "_tiles"]
+pmtiles = ["dep:pmtiles", "dep:object_store", "_tiles"]
+_tiles = []
 
 [dependencies]
 async-trait.workspace = true
