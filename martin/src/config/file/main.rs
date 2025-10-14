@@ -8,13 +8,11 @@ use std::sync::LazyLock;
 use futures::future::{BoxFuture, try_join_all};
 use log::{info, warn};
 #[cfg(feature = "_tiles")]
-use martin_core::cache::{CacheValue, MainCache, OptMainCache};
-#[cfg(feature = "_tiles")]
 use martin_core::config::IdResolver;
 #[cfg(any(feature = "fonts", feature = "postgres"))]
 use martin_core::config::OptOneMany;
 #[cfg(feature = "_tiles")]
-use martin_core::tiles::BoxedSource;
+use martin_core::tiles::{BoxedSource, CacheValue, OptTileCache, TileCache};
 use serde::{Deserialize, Serialize};
 use subst::VariableMap;
 
@@ -38,7 +36,7 @@ use crate::{MartinError, MartinResult};
 
 pub struct ServerState {
     #[cfg(feature = "_tiles")]
-    pub cache: OptMainCache,
+    pub cache: OptTileCache,
     #[cfg(feature = "_tiles")]
     pub tiles: TileSources,
     #[cfg(feature = "sprites")]
@@ -198,7 +196,7 @@ impl Config {
         let cache = if cache_size > 0 {
             info!("Initializing main cache with maximum size {cache_size}B");
             Some(
-                MainCache::builder()
+                TileCache::builder()
                     .weigher(|_key, value: &CacheValue| -> u32 {
                         match value {
                             #[cfg(feature = "_tiles")]
@@ -235,7 +233,7 @@ impl Config {
     async fn resolve_tile_sources(
         &mut self,
         idr: &IdResolver,
-        #[allow(unused_variables)] cache: OptMainCache,
+        #[allow(unused_variables)] cache: OptTileCache,
     ) -> MartinResult<TileSources> {
         let mut sources: Vec<BoxFuture<MartinResult<Vec<BoxedSource>>>> = Vec::new();
 
