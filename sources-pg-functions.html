@@ -262,21 +262,22 @@ a suitable signature.</p>
 <tr><td><code>query</code> (optional, any name)</td><td>json</td><td>Query string parameters</td></tr>
 </tbody></table>
 </div>
-<h3 id="simple-function"><a class="header" href="#simple-function">Simple Function</a></h3>
-<p>For example, if you have a table <code>table_source</code> in WGS84 (<code>4326</code> SRID), then you can use this function as a Function
-Source:</p>
+<h3 id="simple-function-with-coordinate-projection"><a class="header" href="#simple-function-with-coordinate-projection">Simple Function with coordinate projection</a></h3>
+<p>For example, if you have a table with arbitrary geometry <code>table_source</code> in WGS84 (<code>4326</code> SRID).
+If we need the tables’ row <code>field_color</code> and geometry <code>geom</code> as a function source, then it can be written as:</p>
 <pre><code class="language-sql  ignore">CREATE OR REPLACE
-    FUNCTION function_zxy_query(z integer, x integer, y integer)
+    FUNCTION function_zxy(z integer, x integer, y integer)
     RETURNS bytea AS $$
 DECLARE
   mvt bytea;
 BEGIN
-  SELECT INTO mvt ST_AsMVT(tile, 'function_zxy_query', 4096, 'geom') FROM (
+  SELECT INTO mvt ST_AsMVT(tile, 'function_zxy', 4096, 'geom') FROM (
     SELECT
       ST_AsMVTGeom(
           ST_Transform(ST_CurveToLine(geom), 3857),
           ST_TileEnvelope(z, x, y),
-          4096, 64, true) AS geom
+          4096, 64, true) AS geom,
+        field_color AS color
     FROM table_source
     WHERE geom &amp;&amp; ST_Transform(ST_TileEnvelope(z, x, y), 4326)
   ) as tile WHERE geom IS NOT NULL;
@@ -285,32 +286,88 @@ BEGIN
 END
 $$ LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE;
 </code></pre>
+<div class="mdbook-alerts mdbook-alerts-tip">
+<p class="mdbook-alerts-title">
+  <span class="mdbook-alerts-icon"></span>
+  tip
+</p>
+<p>By default, <a href="https://postgis.net/docs/ST_TileEnvelope.html"><code>ST_TileEnvelope</code></a> produces <code>3857</code> SRID and <a href="https://postgis.net/docs/ST_AsMVTGeom.html"><code>ST_AsMVTGeom</code></a> consumes <code>3857</code> SRID.
+Many tooling (for example <a href="https://osm2pgsql.org/"><code>osm2pgsql</code></a>) thus directly store their data in <code>3857</code> SRID for lower processing overhead.
+If your data is in <code>3857</code> SRID, you can remove the two <code>ST_Transform</code> calls.</p>
+</div>
+<p>Lets explain a few of the aspects of the function:</p>
+<p><code>ST_Transform(ST_CurveToLine(geom), 3857)</code></p>
+<ul>
+<li>Since the table in the example can contain arbitrary geometries, we need to transform <code>CIRCULARSTRING</code> geometry types.
+Concretely, we use <code>ST_CurveToLine</code> to convert a
+<ul>
+<li>CIRCULAR STRING to regular LINESTRING,</li>
+<li>CURVEPOLYGON to POLYGON or</li>
+<li>MULTISURFACE to MULTIPOLYGON.</li>
+</ul>
+</li>
+<li><code>ST_Transform</code> is necessary as <code>ST_CurveToLine</code> returns a geometry in <code>4326</code> SRID, which is the SRID of stored geometry in the example.</li>
+</ul>
+<p><code>WHERE geom &amp;&amp; ST_Transform(ST_TileEnvelope(z, x, y), 4326)</code></p>
+<ul>
+<li><code>&amp;&amp;</code> is the spatial intersection operator. Thus it checks if the geometry intersects with the tile envelope and uses spatial indexes.</li>
+<li><code>ST_Transform</code> is used to transform the tile envelope from <code>3857</code> SRID to <code>4326</code> SRID, as <code>geom</code> in our example is in <code>4326</code> SRID.</li>
+</ul>
+<div class="mdbook-alerts mdbook-alerts-note">
+<p class="mdbook-alerts-title">
+  <span class="mdbook-alerts-icon"></span>
+  note
+</p>
+<p>The planning mode <code>IMMUTABLE STRICT PARALLEL SAFE</code> allows postgres further freedom to optimize our function.
+Your function is likely to be the same category as the example, but be careful to not cause unexpected behavior.</p>
+<ul>
+<li>
+<p><a href="https://www.postgresql.org/docs/current/sql-createfunction.html#:~:text=existing%20function%20definition.-,IMMUTABLE,-STABLE%0AVOLATILE"><code>IMMUTABLE</code></a>
+The function does not have side effects.</p>
+<blockquote>
+<p>Indicates that the function cannot modify the database and always returns the same result when given the same argument values;
+that is, it does not do database lookups or otherwise use information not directly present in its argument list.
+If this option is given, any call of the function with all-constant arguments can be immediately replaced with the function value.</p>
+</blockquote>
+</li>
+<li>
+<p><code>STRICT</code>: Our function will not be called if any of the arguments are <code>NULL</code>.</p>
+</li>
+<li>
+<p><a href="https://www.postgresql.org/docs/current/parallel-safety.html"><code>PARALLEL SAFE</code></a>:
+Our function is safe to call in parallel as it does not modify the database, nor use randomness or temporary tables.</p>
+<blockquote>
+<p>Functions should be labeled parallel unsafe if they</p>
+<ul>
+<li>modify any database state,</li>
+<li>change the transaction state (other than by using a subtransaction for error recovery),</li>
+<li>access sequences (e.g., by calling currval) or</li>
+<li>make persistent changes to settings.</li>
+</ul>
+<p>They should be labeled parallel restricted if they</p>
+<ul>
+<li>access temporary tables,</li>
+<li>client connection state,</li>
+<li>cursors,</li>
+<li>prepared statements, or</li>
+<li>miscellaneous backend-local state which the system cannot synchronize in parallel mode
+(e.g., setseed cannot be executed other than by the group leader because a change made by another process
+would not be reflected in the leader).</li>
+</ul>
+<p>In general, if a function is labeled as being safe when it is restricted or unsafe, or if it is labeled as being restricted
+when it is in fact unsafe, it may throw errors or produce wrong answers when used in a parallel query.
+C-language functions could in theory exhibit totally undefined behavior if mislabeled, since there is no way for the system
+to protect itself against arbitrary C code, but in most likely cases the result will be no worse than for any other function.
+If in doubt, functions should be labeled as UNSAFE, which is the default.</p>
+</blockquote>
+</li>
+</ul>
+</div>
 <h3 id="function-with-query-parameters"><a class="header" href="#function-with-query-parameters">Function with Query Parameters</a></h3>
 <p>Users may add a <code>query</code> parameter to pass additional parameters to the function.</p>
-<p><em><strong>TODO</strong>: Modify this example to actually use the query parameters.</em></p>
-<pre><code class="language-sql  ignore">CREATE OR REPLACE
-    FUNCTION function_zxy_query(z integer, x integer, y integer, query_params json)
-    RETURNS bytea AS $$
-DECLARE
-  mvt bytea;
-BEGIN
-  SELECT INTO mvt ST_AsMVT(tile, 'function_zxy_query', 4096, 'geom') FROM (
-    SELECT
-      ST_AsMVTGeom(
-          ST_Transform(ST_CurveToLine(geom), 3857),
-          ST_TileEnvelope(z, x, y),
-          4096, 64, true) AS geom
-    FROM table_source
-    WHERE geom &amp;&amp; ST_Transform(ST_TileEnvelope(z, x, y), 4326)
-  ) as tile WHERE geom IS NOT NULL;
-
-  RETURN mvt;
-END
-$$ LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE;
-</code></pre>
 <p>The <code>query_params</code> argument is a JSON representation of the tile request query params. Query params could be passed as
 simple query values, e.g.</p>
-<pre><code class="language-bash">curl localhost:3000/function_zxy_query/0/0/0?token=martin
+<pre><code class="language-bash">curl localhost:3000/function_zxy_query/0/0/0?answer=42
 </code></pre>
 <p>You can also
 use <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/encodeURIComponent">urlencoded</a>
@@ -335,12 +392,35 @@ params to encode complex values:</p>
 <p>You can access this params using <a href="https://www.postgresql.org/docs/current/functions-json.html">json operators</a>:</p>
 <pre><code class="language-sql  ignore">...WHERE answer = (query_params-&gt;'objectParam'-&gt;&gt;'answer')::int;
 </code></pre>
+<p>As an example, our <code>table_source</code> in WGS84 (<code>4326</code> SRID) has a column <code>answer</code> of type <code>integer</code>.
+The function <code>function_zxy_query</code> will return a MVT tile with the <code>answer</code> column as a property.</p>
+<pre><code class="language-sql  ignore">CREATE OR REPLACE
+    FUNCTION function_zxy_query(z integer, x integer, y integer, query_params json)
+    RETURNS bytea AS $$
+DECLARE
+  mvt bytea;
+BEGIN
+  SELECT INTO mvt ST_AsMVT(tile, 'function_zxy_query', 4096, 'geom') FROM (
+    SELECT
+      ST_AsMVTGeom(
+          ST_Transform(ST_CurveToLine(geom), 3857),
+          ST_TileEnvelope(z, x, y),
+          4096, 64, true) AS geom
+    FROM table_source
+    WHERE geom &amp;&amp; ST_Transform(ST_TileEnvelope(z, x, y), 4326) AND
+          answer = (query_params-&gt;&gt;'answer')::int
+  ) as tile WHERE geom IS NOT NULL;
+
+  RETURN mvt;
+END
+$$ LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE;
+</code></pre>
 <h3 id="modifying-tilejson"><a class="header" href="#modifying-tilejson">Modifying TileJSON</a></h3>
 <p>Martin will automatically generate a basic <a href="https://github.com/mapbox/tilejson-spec">TileJSON</a> manifest for each
-function source that will contain the name and description of the function, plus optionally <code>minzoom</code>, <code>maxzoom</code>,
-and <code>bounds</code> (if they were specified via one of the configuration methods). For example, if there is a
-function <code>public.function_zxy_query_jsonb</code>, the default <code>TileJSON</code> might look like this (note that URL will be
-automatically adjusted to match the request host):</p>
+function source.
+This will contain the <code>name</code> and <code>description</code> of the function, plus optionally <code>minzoom</code>, <code>maxzoom</code>, and <code>bounds</code>
+(if they were specified via one of the configuration methods).</p>
+<p>For example, if there is a function <code>public.function_zxy_query_jsonb</code>, the default <code>TileJSON</code> might look like this:</p>
 <pre><code class="language-json">{
   "tilejson": "3.0.0",
   "tiles": [
@@ -350,12 +430,26 @@ automatically adjusted to match the request host):</p>
   "description": "public.function_zxy_query_jsonb"
 }
 </code></pre>
+<div class="mdbook-alerts mdbook-alerts-note">
+<p class="mdbook-alerts-title">
+  <span class="mdbook-alerts-icon"></span>
+  note
+</p>
+<p>The URL will be automatically adjusted to match the request host</p>
+</div>
 <h4 id="tilejson-in-sql-comments"><a class="header" href="#tilejson-in-sql-comments">TileJSON in SQL Comments</a></h4>
-<p>To modify automatically generated <code>TileJSON</code>, you can add a valid JSON as an SQL comment on the function. Martin will
-merge function comment into the generated <code>TileJSON</code> using <a href="https://www.rfc-editor.org/rfc/rfc7386">JSON Merge patch</a>.
+<p>To modify automatically generated <code>TileJSON</code>, you can add a valid JSON as an SQL comment on the function.
+Martin will merge function comment into the generated <code>TileJSON</code> using <a href="https://www.rfc-editor.org/rfc/rfc7386">JSON Merge patch</a>.
 The following example adds <code>attribution</code> and <code>version</code> fields to the <code>TileJSON</code>.</p>
-<p><strong>Note:</strong> This example uses <code>EXECUTE</code> to ensure that the comment is a valid JSON (or else PostgreSQL will throw an
-error). You can use other methods of creating SQL comments.</p>
+<div class="mdbook-alerts mdbook-alerts-note">
+<p class="mdbook-alerts-title">
+  <span class="mdbook-alerts-icon"></span>
+  note
+</p>
+<p>This example uses <code>EXECUTE</code> to ensure that the comment is a valid JSON
+(or else PostgreSQL will throw an error).
+You can use other methods of creating SQL comments.</p>
+</div>
 <pre><code class="language-sql">DO $do$ BEGIN
     EXECUTE 'COMMENT ON FUNCTION my_function_name IS $tj$' || $$
     {
