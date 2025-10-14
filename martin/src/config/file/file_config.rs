@@ -1,5 +1,6 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt::Debug;
+use std::mem;
 #[cfg(feature = "_tiles")]
 use std::path::Path;
 use std::path::PathBuf;
