@@ -9,8 +9,7 @@ use log::{info, warn};
 use martin_core::config::IdResolver;
 #[cfg(any(feature = "fonts", feature = "postgres"))]
 use martin_core::config::OptOneMany;
-use martin_core::tiles::BoxedSource;
-use martin_core::tiles::{CacheValue, OptTileCache, TileCache};
+use martin_core::tiles::{BoxedSource, CacheValue, OptTileCache, TileCache};
 use serde::{Deserialize, Serialize};
 use subst::VariableMap;
 
