@@ -11,9 +11,7 @@ use log::{info, warn};
 use martin_core::config::IdResolver;
 use martin_core::config::OptOneMany;
 #[cfg(feature = "_tiles")]
-use martin_core::tiles::BoxedSource;
-#[cfg(feature = "_tiles")]
-use martin_core::tiles::OptTileCache;
+use martin_core::tiles::{BoxedSource, OptTileCache};
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "_tiles")]
 use url::Url;
