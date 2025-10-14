@@ -2,13 +2,13 @@ use martin_tile_utils::{TileCoord, TileData};
 use moka::future::Cache;
 
 /// Main cache instance for storing tiles and `PMTiles` directories.
-pub type MainCache = Cache<CacheKey, CacheValue>;
+pub type TileCache = Cache<CacheKey, CacheValue>;
 
-/// Optional wrapper for the [`MainCache`].
-pub type OptMainCache = Option<MainCache>;
+/// Optional wrapper for the [`TileCache`].
+pub type OptTileCache = Option<TileCache>;
 
 /// Constant representing no cache configuration.
-pub const NO_MAIN_CACHE: OptMainCache = None;
+pub const NO_TILE_CACHE: OptTileCache = None;
 
 /// Keys used to identify cached items.
 #[derive(Debug, Hash, PartialEq, Eq)]
@@ -34,7 +34,7 @@ pub enum CacheValue {
 
 /// Logs cache operation details for debugging and monitoring.
 #[inline]
-pub fn trace_cache(typ: &'static str, cache: &MainCache, key: &CacheKey) {
+pub fn trace_cache(typ: &'static str, cache: &TileCache, key: &CacheKey) {
     log::trace!(
         "Cache {typ} for {key:?} in {name:?} that has {entry_count} entries taking up {weighted_size} space",
         name = cache.name(),
@@ -64,10 +64,10 @@ macro_rules! get_cached_value {
         if let Some(cache) = $cache {
             let key = $make_key;
             if let Some(data) = cache.get(&key).await {
-                $crate::cache::trace_cache("HIT", cache, &key);
+                $crate::tiles::cache::trace_cache("HIT", cache, &key);
                 Some($crate::from_cache_value!($value_type, data, key))
             } else {
-                $crate::cache::trace_cache("MISS", cache, &key);
+                $crate::tiles::cache::trace_cache("MISS", cache, &key);
                 None
             }
         } else {
@@ -83,10 +83,10 @@ macro_rules! get_or_insert_cached_value {
         if let Some(cache) = $cache {
             let key = $make_key;
             Ok(if let Some(data) = cache.get(&key).await {
-                $crate::cache::trace_cache("HIT", cache, &key);
+                $crate::tiles::trace_cache("HIT", cache, &key);
                 $crate::from_cache_value!($value_type, data, key)
             } else {
-                $crate::cache::trace_cache("MISS", cache, &key);
+                $crate::tiles::trace_cache("MISS", cache, &key);
                 let data = $make_item.await?;
                 cache.insert(key, $value_type(data.clone())).await;
                 data
