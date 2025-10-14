@@ -201,7 +201,7 @@ impl<T: ConfigurationLivecycleHooks> FileConfigEnum<T> {
 
     pub fn extract_file_config(&mut self) -> Option<FileConfig<T>> {
         match self {
-            FileConfigEnum::None => return None,
+            FileConfigEnum::None => None,
             FileConfigEnum::Path(path) => Some(FileConfig {
                 paths: OptOneMany::One(mem::take(path)),
                 ..FileConfig::default()
