@@ -244,7 +244,7 @@ pub async fn anonymous_mbtiles(script: &str) -> (Mbtiles, SqliteConnection) {
 }
 
 /// Create a named, in memory, temporary mbtile connection with the given `script`
-#[allow(
+#[expect(
     clippy::panic,
     reason = "only useful for testing and the debug messages are better with panic"
 )]
