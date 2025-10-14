@@ -1,4 +1,4 @@
-### Azure specific Authentication & Credentials
+#### Azure specific Authentication & Credentials
 
 | configuration                                 | description                                                                                                                                                | example                                                                                                                                                     |
 |-----------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -17,7 +17,7 @@
 | `use_azure_cli`                               | Use Azure CLI for acquiring access token                                                                                                                   | `true`                                                                                                                                                      |
 
 
-### Azure specific Connection & Endpoint Configuration
+#### Azure specific Connection & Endpoint Configuration
 
 | configuration                                 | description                                                  | example                                   |
 |-----------------------------------------------|--------------------------------------------------------------|-------------------------------------------|
@@ -26,7 +26,7 @@
 | `use_fabric_endpoint`                         | Use Azure Fabric endpoint (account.dfs.fabric.microsoft.com) | `true`                                    |
 | `container_name`                              | Container name in the storage account                        | `mycontainer`                             |
 
-### Azure specific Request Behavior & Security Options
+#### Azure specific Request Behavior & Security Options
 
 | configuration               | description                                                                                                                                                     | example                                   |
 |-----------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------|
