@@ -46,6 +46,8 @@ use crate::{MartinError, MartinResult};
 
 pub struct ServerState {
     #[cfg(feature = "_tiles")]
+    pub cache: OptTileCache,
+    #[cfg(feature = "_tiles")]
     pub tiles: TileSources,
     #[cfg(any(
         feature = "postgres",
