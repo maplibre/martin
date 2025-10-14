@@ -781,7 +781,7 @@ async fn dump(conn: &mut SqliteConnection) -> MbtResult<Vec<SqliteEntry>> {
                                 )
                             }),
 
-                            #[allow(
+                            #[expect(
                                 clippy::panic,
                                 reason = "We should know all column types that sqlite supports"
                             )]
