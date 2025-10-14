@@ -1,3 +1,4 @@
+#[cfg(feature = "_tiles")]
 use martin_tile_utils::{TileCoord, TileData};
 use moka::future::Cache;
 
@@ -13,12 +14,14 @@ pub const NO_TILE_CACHE: OptTileCache = None;
 /// Keys used to identify cached items.
 #[derive(Debug, Hash, PartialEq, Eq)]
 pub enum CacheKey {
-    #[cfg(feature = "pmtiles")]
     /// `PMTiles` directory cache key with `PMTiles ID` and `offset`.
+    #[cfg(feature = "pmtiles")]
     PmtDirectory(usize, usize),
     /// Tile cache key with `source ID` and `coordinates`.
+    #[cfg(feature = "_tiles")]
     Tile(String, TileCoord),
     /// Tile cache key with `source ID`, [`TileCoord`], and `URL query parameters`.
+    #[cfg(feature = "_tiles")]
     TileWithQuery(String, TileCoord, String),
 }
 
@@ -26,9 +29,10 @@ pub enum CacheKey {
 #[derive(Debug, Clone)]
 pub enum CacheValue {
     /// Cached tile data.
+    #[cfg(feature = "_tiles")]
     Tile(TileData),
-    #[cfg(feature = "pmtiles")]
     /// Cached `PMTiles` directory.
+    #[cfg(feature = "pmtiles")]
     PmtDirectory(pmtiles::Directory),
 }
 
