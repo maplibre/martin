@@ -79,6 +79,11 @@ required-features = ["mbtiles"]
 name = "sources"
 harness = false
 
+[[bench]]
+name = "postgres_discovery"
+harness = false
+required-features = ["postgres"]
+
 [features]
 default = [
     "fonts",
@@ -95,7 +100,7 @@ default = [
 unstable-cog = ["martin-core/unstable-cog"]
 fonts = ["martin-core/fonts"]
 lambda = ["dep:lambda-web"]
-mbtiles = ["martin-core/mbtiles"]
+mbtiles = ["martin-core/mbtiles", "dep:mbtiles"]
 metrics = ["dep:actix-web-prom"]
 pmtiles = ["martin-core/pmtiles", "dep:object_store"]
 postgres = [
@@ -129,7 +134,7 @@ lambda-web = { workspace = true, optional = true }
 log.workspace = true
 martin-core.workspace = true
 martin-tile-utils.workspace = true
-mbtiles.workspace = true
+mbtiles = { workspace = true, optional = true }
 num_cpus.workspace = true
 object_store = { workspace = true, optional = true }
 postgis = { workspace = true, optional = true }
@@ -162,6 +167,7 @@ insta = { workspace = true, features = ["json", "yaml", "redactions"] }
 pprof.workspace = true
 rstest.workspace = true
 tempfile.workspace = true
+testcontainers-modules.workspace = true
 
 [lints]
 workspace = true
