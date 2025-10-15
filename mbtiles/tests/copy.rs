@@ -189,7 +189,7 @@ macro_rules! assert_dump {
 }
 
 #[derive(Default)]
-#[allow(clippy::type_complexity)]
+#[expect(clippy::type_complexity)]
 struct Databases(
     HashMap<
         (&'static str, MbtTypeCli),
@@ -233,7 +233,6 @@ impl Databases {
 /// These dbs will be used by other tests to check against in various conditions.
 #[fixture]
 #[once]
-#[allow(clippy::too_many_lines)]
 fn databases() -> Databases {
     tokio::task::block_in_place(|| {
         Handle::current().block_on(async {
@@ -804,7 +803,7 @@ async fn dump(conn: &mut SqliteConnection) -> MbtResult<Vec<SqliteEntry>> {
     Ok(result)
 }
 
-#[allow(dead_code)]
+#[expect(dead_code)]
 async fn save_to_file(source_mbt: &Mbtiles, path_mbt: &str) {
     copy!(
         path(source_mbt),

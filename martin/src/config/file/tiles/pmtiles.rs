@@ -53,7 +53,7 @@ impl ConfigurationLivecycleHooks for PmtConfig {
         self.unrecognized.keys().cloned().collect()
     }
 
-    #[allow(
+    #[expect(
         clippy::panic_in_result_fn,
         reason = "invariant: the function cannot be called twice"
     )]

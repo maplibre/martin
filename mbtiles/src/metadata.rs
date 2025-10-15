@@ -27,7 +27,10 @@ pub struct Metadata {
     pub agg_tiles_hash: Option<String>,
 }
 
-#[allow(clippy::trivially_copy_pass_by_ref)]
+#[expect(
+    clippy::trivially_copy_pass_by_ref,
+    reason = "serialize_with requires a reference"
+)]
 fn serialize_ti<S: Serializer>(ti: &TileInfo, serializer: S) -> Result<S::Ok, S::Error> {
     let mut s = serializer.serialize_struct("TileInfo", 2)?;
     s.serialize_field("format", &ti.format.to_string())?;

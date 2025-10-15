@@ -1,4 +1,4 @@
-#![allow(
+#![expect(
     clippy::panic,
     reason = "panics in build.rs generate better error messages, are easier to debug and are fatal anyway"
 )]
