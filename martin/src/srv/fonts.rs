@@ -23,7 +23,6 @@ struct FontRequest {
     wrap = "Etag::default()",
     wrap = "Compress::default()"
 )]
-#[allow(clippy::unused_async)]
 async fn get_font(path: Path<FontRequest>, fonts: Data<FontSources>) -> ActixResult<HttpResponse> {
     let data = fonts
         .get_font_range(&path.fontstack, path.start, path.end)
@@ -34,14 +33,12 @@ async fn get_font(path: Path<FontRequest>, fonts: Data<FontSources>) -> ActixRes
 }
 
 pub fn map_font_error(e: FontError) -> actix_web::Error {
-    #[allow(clippy::enum_glob_use)]
-    use FontError::*;
     match e {
-        FontNotFound(_) => ErrorNotFound(e.to_string()),
-        InvalidFontRangeStartEnd(_, _)
-        | InvalidFontRangeStart(_)
-        | InvalidFontRangeEnd(_)
-        | InvalidFontRange(_, _) => ErrorBadRequest(e.to_string()),
+        FontError::FontNotFound(_) => ErrorNotFound(e.to_string()),
+        FontError::InvalidFontRangeStartEnd(_, _)
+        | FontError::InvalidFontRangeStart(_)
+        | FontError::InvalidFontRangeEnd(_)
+        | FontError::InvalidFontRange(_, _) => ErrorBadRequest(e.to_string()),
         _ => map_internal_error(e),
     }
 }
