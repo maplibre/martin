@@ -20,9 +20,6 @@ use crate::{MartinError, MartinResult};
 
 #[cfg(all(feature = "webui", not(docsrs)))]
 mod webui {
-    #![allow(clippy::unreadable_literal)]
-    #![allow(clippy::too_many_lines)]
-    #![allow(clippy::wildcard_imports)]
     include!(concat!(env!("OUT_DIR"), "/generated.rs"));
 }
 
@@ -70,7 +67,6 @@ pub fn map_internal_error<T: std::fmt::Display>(e: T) -> actix_web::Error {
 /// Root path in case web front is disabled.
 #[cfg(any(not(feature = "webui"), docsrs))]
 #[route("/", method = "GET", method = "HEAD")]
-#[allow(clippy::unused_async)]
 async fn get_index_no_ui() -> &'static str {
     "Martin server is running. The WebUI feature was disabled at the compile time.\n\n\
     A list of all available sources is available at http://<host>/catalog\n\n\
@@ -80,7 +76,6 @@ async fn get_index_no_ui() -> &'static str {
 /// Root path in case web front is disabled and the `webui` feature is enabled.
 #[cfg(all(feature = "webui", not(docsrs)))]
 #[route("/", method = "GET", method = "HEAD")]
-#[allow(clippy::unused_async)]
 async fn get_index_ui_disabled() -> &'static str {
     "Martin server is running.\n\n
     The WebUI feature can be enabled with the --webui enable-for-all CLI flag or in the config file, making it available to all users.\n\n
@@ -90,7 +85,6 @@ async fn get_index_ui_disabled() -> &'static str {
 
 /// Return 200 OK if healthy. Used for readiness and liveness probes.
 #[route("/health", method = "GET", method = "HEAD")]
-#[allow(clippy::unused_async)]
 async fn get_health() -> impl Responder {
     HttpResponse::Ok()
         .insert_header((CACHE_CONTROL, "no-cache"))
@@ -103,7 +97,6 @@ async fn get_health() -> impl Responder {
     method = "HEAD",
     wrap = "middleware::Compress::default()"
 )]
-#[allow(clippy::unused_async)]
 async fn get_catalog(catalog: Data<Catalog>) -> impl Responder {
     HttpResponse::Ok().json(catalog)
 }
