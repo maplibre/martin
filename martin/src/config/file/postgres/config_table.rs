@@ -32,9 +32,9 @@ pub struct TableInfo {
     #[serde(skip)]
     pub geometry_index: Option<bool>,
 
-    /// Flag indicating if table is actually a view (`PostgreSQL relkind = 'v'`)
+    /// Flag indicating if table is actually a view (`PostgreSQL relkind = 'v'`) or a Materialized View (`relkind = 'm'`)
     #[serde(skip)]
-    pub is_view: Option<bool>,
+    pub is_view: Option<char>,
 
     /// Feature id column name
     pub id_column: Option<String>,

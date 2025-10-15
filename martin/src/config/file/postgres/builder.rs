@@ -499,7 +499,8 @@ fn warn_on_rename(old_id: &String, new_id: &String, typ: &str) {
 
 fn summary(info: &TableInfo) -> String {
     let relkind = match info.is_view {
-        Some(true) => "view",
+        Some('v') => "view",
+        Some('m') => "materialized view",
         _ => "table",
     };
     // TODO: add column_id to the summary if it is set
