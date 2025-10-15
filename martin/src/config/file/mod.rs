@@ -14,17 +14,7 @@ mod resources;
 #[cfg(any(feature = "fonts", feature = "sprites", feature = "styles"))]
 pub use resources::*;
 
-#[cfg(any(
-    feature = "unstable-cog",
-    feature = "mbtiles",
-    feature = "pmtiles",
-    feature = "postgres"
-))]
+#[cfg(feature = "_tiles")]
 mod tiles;
-#[cfg(any(
-    feature = "unstable-cog",
-    feature = "mbtiles",
-    feature = "pmtiles",
-    feature = "postgres"
-))]
+#[cfg(feature = "_tiles")]
 pub use tiles::*;
