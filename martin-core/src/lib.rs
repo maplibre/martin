@@ -7,6 +7,7 @@
 pub mod config;
 
 /// Tile sources
+#[cfg(feature = "_tiles")]
 pub mod tiles;
 
 #[cfg(any(feature = "fonts", feature = "sprites", feature = "styles"))]
