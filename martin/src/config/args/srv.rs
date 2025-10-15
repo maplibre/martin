@@ -42,6 +42,7 @@ pub struct SrvArgs {
     /// For example, if the value of this option is `version`, and the tileset version is `1.0.0`,
     /// the TileJSON `tiles` URL will be like `.../{z}/{x}/{y}?version=1.0.0`.
     #[arg(long)]
+    #[cfg(feature = "_tiles")]
     pub tilejson_url_version_param: Option<String>,
     /// Main cache size (in MB)
     #[arg(short = 'C', long)]
@@ -97,6 +98,7 @@ impl SrvArgs {
         if self.web_ui.is_some() {
             srv_config.web_ui = self.web_ui;
         }
+        #[cfg(feature = "_tiles")]
         if self.tilejson_url_version_param.is_some() {
             srv_config.tilejson_url_version_param = self.tilejson_url_version_param;
         }

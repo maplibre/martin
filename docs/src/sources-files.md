@@ -30,55 +30,47 @@ martin  /path/to/directory
 > We also don't currently support refreshing the catalog at runtime.
 > If you want to implement this feature, please see <https://github.com/maplibre/martin/issues/288> instead.
 
-### Serving PMTiles from Object Storage
+### Serving PMTiles from local file systems, http or Object Storage
 
-Next to local files and remote HTTP sources, we support serving PMTiles from object storage.
-All major cloud providers, including AWS S3, Google Cloud Storage, and Azure Blob Storage are supported.
-The providers differ in the options they support.
-
-To serve PMTiles from a provider, you need to provide the bucket name and the prefix of the object key.
-For example:
-
-```bash
-martin  s3://my-bucket/tiles.pmtiles
-```
-
-The available url schemes are:
+The settings avaliable for a PMTiles source depend on the backend:
 
 {{#tabs }}
 {{#tab name="local file system" }}
 
-- `file:///path/to/my/file`
-- `path/to/my/file`
+For local sources, you need to provide the path or URL.
+For example:
+
+```bash
+martin  path/to/tiles.pmtiles
+```
+
+The available schemes are:
+
+- `file:///path/to/my/file.pmtiles`
+- `path/to/my/file.pmtiles`
+
+You can also configure this via the configuration file:
+
+```yaml
+pmtiles:
+  sources:
+    tiles: file:///path/to/my/file.pmtiles
+```
 
 {{#endtab }}
 {{#tab name="Http(s)" }}
 
-- `http://mydomain/path`
-- `https://mydomain/path`
+For HTTP(s), you need to provide the url.
+For example:
 
-{{#endtab }}
-{{#tab name="Amazon S3" }}
+```bash
+martin  https://example.com/tiles.pmtiles
+```
 
-- `s3://bucket/path`
-- `s3a://bucket/path`
+The available url schemes are:
 
-{{#endtab }}
-{{#tab name="Google Cloud Storage" }}
-
-- `gs://bucket/path`
-
-{{#endtab }}
-{{#tab name="Microsoft Azure" }}
-
-- `az://account/container/path`
-- `adl://account/container/path`
-- `azure://account/container/path`
-- `abfs://account/container/path`
-- `abfss://account/container/path`
-
-{{#endtab }}
-{{#endtabs}}
+- `http://example.com/path.pmtiles`
+- `https://example.com/path.pmtiles`
 
 If you want more control over your requests, you can configure additional options here as such:
 
@@ -89,22 +81,42 @@ pmtiles:
     tiles: s3://bucket/path/to/tiles.pmtiles
 ```
 
-The available options depend on the underlying source:
-
-{{#tabs }}
-{{#tab name="local file system" }}
-Files don't currently support additional options.
-{{#endtab }}
-{{#tab name="Http(s)" }}
+### Available http client settings
 
 {{#include pmtiles/client.md}}
 
 {{#endtab }}
 {{#tab name="Amazon S3" }}
 
+> [!IMPORTANT]
+> Even though we name this section `Amazon S3`, it also works with other providers that support the S3 API, such as [MinIO](https://www.min.io/), [Ceph](https://docs.ceph.com/en/latest/radosgw/s3/), [Cloudflare R2](https://developers.cloudflare.com/r2/), [hetzner object storage](https://www.hetzner.com/de/storage/object-storage/) and many more.
+
+For AWS, you need to provide the bucket name and the prefix of the object key.
+For example:
+
+```bash
+martin  s3://my-bucket/tiles.pmtiles
+```
+
+The available url schemes are:
+
+- `s3://bucket/path`
+- `s3a://bucket/path`
+
+If you want more control over your requests, you can configure additional options here as such:
+
+```yaml
+pmtiles:
+  allow_http: true
+  sources:
+    tiles: s3://bucket/path/to/tiles.pmtiles
+```
+
 > [!TIP]
 > All settings are also available under the `aws_` prefix.
 > This can be useful if you want to have different cloud providers.
+
+### Available AWS S3 settings
 
 {{#include pmtiles/aws.md}}
 
@@ -113,24 +125,72 @@ Files don't currently support additional options.
 {{#endtab }}
 {{#tab name="Google Cloud Storage" }}
 
+For Google Cloud, you need to provide the bucket name and the prefix of the object key.
+For example:
+
+```bash
+martin  gs://my-bucket/tiles.pmtiles
+```
+
+The available url scheme is:
+
+- `gs://bucket/path`
+
+If you want more control over your requests, you can configure additional options here as such:
+
+```yaml
+pmtiles:
+  allow_http: true
+  sources:
+    tiles: gs://bucket/path/to/tiles.pmtiles
+```
+
 > [!TIP]
 > All settings are also available under the `google_` prefix.
 > This can be useful if you want to have different cloud providers.
 
-{{#include pmtiles/aws.md}}
+### Available google settings
+
+{{#include pmtiles/google.md}}
 
 {{#include pmtiles/client.md}}
 
 {{#endtab }}
 {{#tab name="Microsoft Azure" }}
 
+For Azure, you need to provide the account name, container and path.
+For example:
+
+```bash
+martin  az://account/container.pmtiles
+```
+
+The available url schemes are:
+
+- `az://account/container/path.pmtiles`
+- `adl://account/container/path.pmtiles`
+- `azure://account/container/path.pmtiles`
+- `abfs://account/container/path.pmtiles`
+- `abfss://account/container/path.pmtiles`
+
+If you want more control over your requests, you can configure additional options here as such:
+
+```yaml
+pmtiles:
+  allow_http: true
+  sources:
+    tiles: az://account/container/path.pmtiles
+```
+
 > [!TIP]
 > All settings are also available under the `azure_` prefix.
 > This can be useful if you want to have different cloud providers.
+
+### Available azure settings
 
 {{#include pmtiles/azure.md}}
 
 {{#include pmtiles/client.md}}
 
 {{#endtab }}
-{{#endtabs }}
+{{#endtabs}}
