@@ -1,15 +1,23 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt::Debug;
 use std::mem;
-use std::path::{Path, PathBuf};
+#[cfg(feature = "_tiles")]
+use std::path::Path;
+use std::path::PathBuf;
 
+#[cfg(feature = "_tiles")]
 use log::{info, warn};
-use martin_core::config::{IdResolver, OptOneMany};
+#[cfg(feature = "_tiles")]
+use martin_core::config::IdResolver;
+use martin_core::config::OptOneMany;
+#[cfg(feature = "_tiles")]
 use martin_core::tiles::{BoxedSource, OptTileCache};
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "_tiles")]
 use url::Url;
 
 use crate::config::file::{ConfigFileError, ConfigFileResult};
+#[cfg(feature = "_tiles")]
 use crate::{MartinError, MartinResult};
 
 /// Lifecycle hooks for configuring the application
@@ -41,12 +49,14 @@ pub trait ConfigurationLivecycleHooks: Clone + Debug + Default + PartialEq + Sen
     ///
     /// This allows configurations to interact with the cache and perform any necessary initialization tasks.
     /// The configuration should be found to be valid in [`Self::finalize`] instead of [`Self::initialize_cache`].
+    #[cfg(feature = "_tiles")]
     fn initialize_cache(&mut self, _cache: OptTileCache) -> ConfigFileResult<()> {
         Ok(())
     }
 }
 
 /// Configuration which all of our tile sources implement to make configuring them easier
+#[cfg(feature = "_tiles")]
 pub trait TileSourceConfiguration: ConfigurationLivecycleHooks {
     /// Indicates whether path strings for this configuration should be parsed as URLs.
     ///
@@ -130,24 +140,19 @@ impl<T: ConfigurationLivecycleHooks> FileConfigEnum<T> {
         }
     }
 
-    pub fn extract_file_config(
-        &mut self,
-        cache: OptTileCache,
-    ) -> ConfigFileResult<Option<FileConfig<T>>> {
-        let mut res = match self {
-            FileConfigEnum::None => return Ok(None),
-            FileConfigEnum::Path(path) => FileConfig {
+    pub fn extract_file_config(&mut self) -> Option<FileConfig<T>> {
+        match self {
+            FileConfigEnum::None => None,
+            FileConfigEnum::Path(path) => Some(FileConfig {
                 paths: OptOneMany::One(mem::take(path)),
                 ..FileConfig::default()
-            },
-            FileConfigEnum::Paths(paths) => FileConfig {
+            }),
+            FileConfigEnum::Paths(paths) => Some(FileConfig {
                 paths: OptOneMany::Many(mem::take(paths)),
                 ..Default::default()
-            },
-            FileConfigEnum::Config(cfg) => mem::take(cfg),
-        };
-        res.custom.initialize_cache(cache)?;
-        Ok(Some(res))
+            }),
+            FileConfigEnum::Config(cfg) => Some(mem::take(cfg)),
+        }
     }
 
     /// convert path/paths and the config enums
@@ -186,6 +191,7 @@ impl<T: ConfigurationLivecycleHooks> ConfigurationLivecycleHooks for FileConfigE
         }
     }
 
+    #[cfg(feature = "_tiles")]
     fn initialize_cache(&mut self, cache: OptTileCache) -> ConfigFileResult<()> {
         if let Self::Config(cfg) = self {
             cfg.custom.initialize_cache(cache)
@@ -222,6 +228,8 @@ impl<T: ConfigurationLivecycleHooks> ConfigurationLivecycleHooks for FileConfig<
     fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
         self.custom.get_unrecognized_keys()
     }
+
+    #[cfg(feature = "_tiles")]
     fn initialize_cache(&mut self, cache: OptTileCache) -> ConfigFileResult<()> {
         self.custom.initialize_cache(cache)
     }
@@ -255,6 +263,7 @@ impl FileConfigSrc {
     pub fn abs_path(&self) -> ConfigFileResult<PathBuf> {
         let path = self.get_path();
 
+        #[cfg(feature = "mbtiles")]
         if is_sqlite_memory_uri(path) {
             // Skip canonicalization for in-memory DB URIs
             return Ok(path.clone());
@@ -265,6 +274,7 @@ impl FileConfigSrc {
     }
 }
 
+#[cfg(feature = "mbtiles")]
 fn is_sqlite_memory_uri(path: &Path) -> bool {
     if let Some(s) = path.to_str() {
         s.starts_with("file:") && s.contains("mode=memory") && s.contains("cache=shared")
@@ -278,6 +288,7 @@ pub struct FileConfigSource {
     pub path: PathBuf,
 }
 
+#[cfg(feature = "_tiles")]
 pub async fn resolve_files<T: TileSourceConfiguration>(
     config: &mut FileConfigEnum<T>,
     idr: &IdResolver,
@@ -287,15 +298,17 @@ pub async fn resolve_files<T: TileSourceConfiguration>(
     resolve_int(config, idr, cache, extension).await
 }
 
+#[cfg(feature = "_tiles")]
 async fn resolve_int<T: TileSourceConfiguration>(
     config: &mut FileConfigEnum<T>,
     idr: &IdResolver,
     cache: OptTileCache,
     extension: &[&str],
 ) -> MartinResult<Vec<BoxedSource>> {
-    let Some(cfg) = config.extract_file_config(cache)? else {
+    let Some(cfg) = config.extract_file_config() else {
         return Ok(Vec::new());
     };
+    config.initialize_cache(cache)?;
 
     let mut results = Vec::new();
     let mut configs = BTreeMap::new();
@@ -394,6 +407,7 @@ async fn resolve_int<T: TileSourceConfiguration>(
 /// # Errors
 ///
 /// Returns an error if Rust's underlying [`read_dir`](std::fs::read_dir) returns an error.
+#[cfg(feature = "_tiles")]
 fn collect_files_with_extension(
     base_path: &Path,
     allowed_extension: &[&str],
@@ -417,6 +431,7 @@ fn collect_files_with_extension(
         .collect())
 }
 
+#[cfg(feature = "_tiles")]
 fn sanitize_url(url: &Url) -> String {
     let mut result = format!("{}://", url.scheme());
     if let Some(host) = url.host_str() {
@@ -430,6 +445,7 @@ fn sanitize_url(url: &Url) -> String {
     result
 }
 
+#[cfg(feature = "_tiles")]
 fn parse_url(is_enabled: bool, path: &Path) -> Result<Option<Url>, ConfigFileError> {
     if !is_enabled {
         return Ok(None);
