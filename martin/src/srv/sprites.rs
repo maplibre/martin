@@ -6,7 +6,7 @@ use actix_web::http::header::ContentType;
 use actix_web::middleware::Compress;
 use actix_web::web::{Bytes, Data, Path};
 use actix_web::{HttpResponse, Result as ActixResult, route};
-use martin_core::sprites::{OptSpriteCache, SpriteError, SpriteSources};
+use martin_core::sprites::{SpriteError, SpriteSources};
 use serde::Deserialize;
 
 use crate::srv::server::map_internal_error;
@@ -25,18 +25,9 @@ pub struct SourceIDsRequest {
 async fn get_sprite_png(
     path: Path<SourceIDsRequest>,
     sprites: Data<SpriteSources>,
-    cache: Data<OptSpriteCache>,
 ) -> ActixResult<HttpResponse> {
     let is_sdf = false;
-    let png = if let Some(cache) = cache.as_ref() {
-        cache
-            .get_or_insert(&path.source_ids, is_sdf, false, async || {
-                get_sprite(&path, &sprites, is_sdf).await
-            })
-            .await?
-    } else {
-        get_sprite(&path, &sprites, is_sdf).await?
-    };
+    let png = get_sprite(&path, &sprites, is_sdf).await?;
     Ok(HttpResponse::Ok()
         .content_type(ContentType::png())
         .body(png))
@@ -51,18 +42,9 @@ async fn get_sprite_png(
 async fn get_sprite_sdf_png(
     path: Path<SourceIDsRequest>,
     sprites: Data<SpriteSources>,
-    cache: Data<OptSpriteCache>,
 ) -> ActixResult<HttpResponse> {
     let is_sdf = true;
-    let png = if let Some(cache) = cache.as_ref() {
-        cache
-            .get_or_insert(&path.source_ids, is_sdf, false, async || {
-                get_sprite(&path, &sprites, is_sdf).await
-            })
-            .await?
-    } else {
-        get_sprite(&path, &sprites, is_sdf).await?
-    };
+    let png = get_sprite(&path, &sprites, is_sdf).await?;
     Ok(HttpResponse::Ok()
         .content_type(ContentType::png())
         .body(png))
@@ -78,18 +60,9 @@ async fn get_sprite_sdf_png(
 async fn get_sprite_json(
     path: Path<SourceIDsRequest>,
     sprites: Data<SpriteSources>,
-    cache: Data<OptSpriteCache>,
 ) -> ActixResult<HttpResponse> {
     let is_sdf = false;
-    let json = if let Some(cache) = cache.as_ref() {
-        cache
-            .get_or_insert(&path.source_ids, is_sdf, true, async || {
-                get_index(&path, &sprites, is_sdf).await
-            })
-            .await?
-    } else {
-        get_index(&path, &sprites, is_sdf).await?
-    };
+    let json = get_index(&path, &sprites, is_sdf).await?;
     Ok(HttpResponse::Ok()
         .content_type(ContentType::json())
         .body(json))
@@ -105,18 +78,9 @@ async fn get_sprite_json(
 async fn get_sprite_sdf_json(
     path: Path<SourceIDsRequest>,
     sprites: Data<SpriteSources>,
-    cache: Data<OptSpriteCache>,
 ) -> ActixResult<HttpResponse> {
     let is_sdf = true;
-    let json = if let Some(cache) = cache.as_ref() {
-        cache
-            .get_or_insert(&path.source_ids, is_sdf, true, async || {
-                get_index(&path, &sprites, is_sdf).await
-            })
-            .await?
-    } else {
-        get_index(&path, &sprites, is_sdf).await?
-    };
+    let json = get_index(&path, &sprites, is_sdf).await?;
     Ok(HttpResponse::Ok()
         .content_type(ContentType::json())
         .body(json))

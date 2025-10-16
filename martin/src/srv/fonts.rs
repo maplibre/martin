@@ -5,7 +5,7 @@ use actix_web::error::{ErrorBadRequest, ErrorNotFound};
 use actix_web::middleware::Compress;
 use actix_web::web::{Data, Path};
 use actix_web::{HttpResponse, Result as ActixResult, route};
-use martin_core::fonts::{FontError, FontSources, OptFontCache};
+use martin_core::fonts::{FontError, FontSources};
 use serde::Deserialize;
 
 use crate::srv::server::map_internal_error;
@@ -24,20 +24,8 @@ struct FontRequest {
     wrap = "Compress::default()"
 )]
 #[allow(clippy::unused_async)]
-async fn get_font(
-    path: Path<FontRequest>,
-    fonts: Data<FontSources>,
-    cache: Data<OptFontCache>,
-) -> ActixResult<HttpResponse> {
-    let result = if let Some(cache) = cache.as_ref() {
-        cache
-            .get_or_insert(&path.fontstack, path.start, path.end, || {
-                fonts.get_font_range(&path.fontstack, path.start, path.end)
-            })
-            .await
-    } else {
-        fonts.get_font_range(&path.fontstack, path.start, path.end)
-    };
+async fn get_font(path: Path<FontRequest>, fonts: Data<FontSources>) -> ActixResult<HttpResponse> {
+    let result = fonts.get_font_range(&path.fontstack, path.start, path.end);
     let data = result.map_err(map_font_error)?;
     Ok(HttpResponse::Ok()
         .content_type("application/x-protobuf")

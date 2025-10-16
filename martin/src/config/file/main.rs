@@ -27,7 +27,7 @@ use subst::VariableMap;
     feature = "fonts",
 ))]
 use crate::config::file::FileConfigEnum;
-#[cfg(any(feature = "_tiles", feature = "sprites", feature = "fonts",))]
+#[cfg(feature = "_tiles")]
 use crate::config::file::cache::CacheConfig;
 use crate::config::file::{
     ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks, UnrecognizedKeys,
@@ -47,13 +47,9 @@ pub struct ServerState {
 
     #[cfg(feature = "sprites")]
     pub sprites: martin_core::sprites::SpriteSources,
-    #[cfg(feature = "sprites")]
-    pub sprite_cache: martin_core::sprites::OptSpriteCache,
 
     #[cfg(feature = "fonts")]
     pub fonts: martin_core::fonts::FontSources,
-    #[cfg(feature = "fonts")]
-    pub font_cache: martin_core::fonts::OptFontCache,
 
     #[cfg(feature = "styles")]
     pub styles: martin_core::styles::StyleSources,
@@ -212,7 +208,7 @@ impl Config {
         #[cfg(feature = "_tiles")]
         let resolver = IdResolver::new(RESERVED_KEYWORDS);
 
-        #[cfg(any(feature = "_tiles", feature = "sprites", feature = "fonts",))]
+        #[cfg(feature = "_tiles")]
         let cache_config = self.resolve_cache_config();
 
         #[cfg(feature = "pmtiles")]
@@ -232,20 +228,16 @@ impl Config {
 
             #[cfg(feature = "sprites")]
             sprites: self.sprites.resolve()?,
-            #[cfg(feature = "sprites")]
-            sprite_cache: cache_config.create_sprite_cache(),
 
             #[cfg(feature = "fonts")]
             fonts: self.fonts.resolve()?,
-            #[cfg(feature = "fonts")]
-            font_cache: cache_config.create_font_cache(),
 
             #[cfg(feature = "styles")]
             styles: self.styles.resolve()?,
         })
     }
 
-    #[cfg(any(feature = "_tiles", feature = "sprites", feature = "fonts",))]
+    #[cfg(feature = "_tiles")]
     // cache_config is still respected, but can be overridden by individual cache sizes
     //
     // `cache_config: 0` disables caching, unless overridden by individual cache sizes
@@ -260,29 +252,11 @@ impl Config {
                 cache_size_mb / 4 // Default: 25% for PMTiles directories
             };
 
-            #[cfg(feature = "sprites")]
-            let sprite_cache_size_mb = if let FileConfigEnum::Config(cfg) = &self.sprites {
-                cfg.custom.cache_size_mb.unwrap_or(cache_size_mb / 8) // Default: 12.5% for sprites
-            } else {
-                cache_size_mb / 8 // Default: 12.5% for sprites
-            };
-
-            #[cfg(feature = "fonts")]
-            let font_cache_size_mb = if let FileConfigEnum::Config(cfg) = &self.fonts {
-                cfg.custom.cache_size_mb.unwrap_or(cache_size_mb / 8) // Default: 12.5% for fonts
-            } else {
-                cache_size_mb / 8 // Default: 12.5% for fonts
-            };
-
             CacheConfig {
                 #[cfg(feature = "_tiles")]
                 tile_cache_size_mb: self.tile_cache_size_mb.unwrap_or(cache_size_mb / 2), // Default: 50% for tiles
                 #[cfg(feature = "pmtiles")]
                 pmtiles_cache_size_mb,
-                #[cfg(feature = "sprites")]
-                sprite_cache_size_mb,
-                #[cfg(feature = "fonts")]
-                font_cache_size_mb,
             }
         } else {
             // TODO: the defaults could be smarter. If I don't have pmtiles sources, don't reserve cache for it
@@ -291,10 +265,6 @@ impl Config {
                 tile_cache_size_mb: 256,
                 #[cfg(feature = "pmtiles")]
                 pmtiles_cache_size_mb: 128,
-                #[cfg(feature = "sprites")]
-                sprite_cache_size_mb: 64,
-                #[cfg(feature = "fonts")]
-                font_cache_size_mb: 64,
             }
         }
     }
