@@ -23,10 +23,10 @@ struct FontRequest {
     wrap = "Etag::default()",
     wrap = "Compress::default()"
 )]
-#[allow(clippy::unused_async)]
 async fn get_font(path: Path<FontRequest>, fonts: Data<FontSources>) -> ActixResult<HttpResponse> {
-    let result = fonts.get_font_range(&path.fontstack, path.start, path.end);
-    let data = result.map_err(map_font_error)?;
+    let data = fonts
+        .get_font_range(&path.fontstack, path.start, path.end)
+        .map_err(map_font_error)?;
     Ok(HttpResponse::Ok()
         .content_type("application/x-protobuf")
         .body(data))

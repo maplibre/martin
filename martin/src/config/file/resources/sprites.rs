@@ -47,11 +47,6 @@ impl SpriteConfig {
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct InnerSpriteConfig {
-    /// Size of the sprite cache in megabytes (0 to disable)
-    ///
-    /// Overrides [`cache_size_mb`](crate::config::file::Config::cache_size_mb).
-    pub cache_size_mb: Option<u64>,
-
     #[serde(flatten, skip_serializing)]
     pub unrecognized: UnrecognizedValues,
 }

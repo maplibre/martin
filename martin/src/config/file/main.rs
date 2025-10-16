@@ -9,7 +9,7 @@ use futures::future::{BoxFuture, try_join_all};
 use log::{info, warn};
 #[cfg(feature = "_tiles")]
 use martin_core::config::IdResolver;
-#[cfg(feature = "postgres")]
+#[cfg(any(feature = "postgres", feature = "fonts"))]
 use martin_core::config::OptOneMany;
 #[cfg(feature = "pmtiles")]
 use martin_core::tiles::pmtiles::PmtCache;
@@ -95,7 +95,7 @@ pub struct Config {
     pub styles: super::styles::StyleConfig,
 
     #[cfg(feature = "fonts")]
-    #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
+    #[serde(default, skip_serializing_if = "OptOneMany::is_none")]
     pub fonts: super::fonts::FontConfig,
 
     #[serde(flatten, skip_serializing)]
