@@ -125,8 +125,10 @@ async fn recv_and_insert<S: Send + 'static, T: Send + 'static, P: BinDiffer<S, T
     Ok(())
 }
 
-// Both tx and rcv must be consumed, or it will run forever
-#[allow(clippy::needless_pass_by_value)]
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "Both tx and rcv must be consumed, or it will run forever"
+)]
 fn start_processor_threads<S: Send + 'static, T: Send + 'static, P: BinDiffer<S, T>>(
     patcher: Arc<P>,
     rx_wrk: Receiver<S>,
@@ -277,7 +279,7 @@ impl BinDiffer<DifferBefore, DifferAfter> for BinDiffDiffer {
     }
 
     async fn insert(&self, value: DifferAfter, conn: &mut SqliteConnection) -> MbtResult<()> {
-        #[allow(clippy::cast_possible_wrap)]
+        #[expect(clippy::cast_possible_wrap)]
         query(self.insert_sql.as_str())
             .bind(value.coord.z)
             .bind(value.coord.x)
@@ -358,7 +360,7 @@ impl BinDiffer<ApplierBefore, ApplierAfter> for BinDiffPatcher {
                 },
                 old_tile: row.get(3),
                 patch_data: row.get(4),
-                #[allow(clippy::cast_sign_loss)]
+                #[expect(clippy::cast_sign_loss)]
                 uncompressed_tile_hash: row.get::<i64, _>(5) as u64,
             };
             if tx_wrk.send_async(work).await.is_err() {

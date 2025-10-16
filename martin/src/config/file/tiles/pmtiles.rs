@@ -4,7 +4,7 @@ use std::str::FromStr;
 
 use log::{trace, warn};
 use martin_core::tiles::pmtiles::{PmtCache, PmtCacheInstance, PmtilesSource};
-use martin_core::tiles::{BoxedSource, OptTileCache};
+use martin_core::tiles::{BoxedSource};
 use serde::{Deserialize, Serialize};
 use url::Url;
 

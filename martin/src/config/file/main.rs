@@ -13,12 +13,7 @@ use martin_core::config::IdResolver;
 use martin_core::config::OptOneMany;
 #[cfg(feature = "pmtiles")]
 use martin_core::tiles::pmtiles::PmtCache;
-#[cfg(any(
-    feature = "postgres",
-    feature = "pmtiles",
-    feature = "mbtiles",
-    feature = "unstable-cog"
-))]
+#[cfg(feature = "_tiles")]
 use martin_core::tiles::{BoxedSource, OptTileCache};
 use serde::{Deserialize, Serialize};
 use subst::VariableMap;
@@ -46,15 +41,8 @@ use crate::{MartinError, MartinResult};
 
 pub struct ServerState {
     #[cfg(feature = "_tiles")]
-    pub cache: OptTileCache,
-    #[cfg(feature = "_tiles")]
     pub tiles: TileSources,
-    #[cfg(any(
-        feature = "postgres",
-        feature = "pmtiles",
-        feature = "mbtiles",
-        feature = "unstable-cog"
-    ))]
+    #[cfg(feature = "_tiles")]
     pub tile_cache: OptTileCache,
 
     #[cfg(feature = "sprites")]
@@ -231,12 +219,7 @@ impl Config {
         let pmtiles_cache = cache_config.create_pmtiles_cache();
 
         Ok(ServerState {
-            #[cfg(any(
-                feature = "postgres",
-                feature = "pmtiles",
-                feature = "mbtiles",
-                feature = "unstable-cog"
-            ))]
+            #[cfg(feature = "_tiles")]
             tiles: self
                 .resolve_tile_sources(
                     &resolver,
@@ -244,12 +227,9 @@ impl Config {
                     pmtiles_cache,
                 )
                 .await?,
-            #[cfg(any(
-                feature = "postgres",
-                feature = "pmtiles",
-                feature = "mbtiles",
-                feature = "unstable-cog"
-            ))]
+            #[cfg(
+                feature = "_tiles"
+            )]
             tile_cache: cache_config.create_tile_cache(),
 
             #[cfg(feature = "sprites")]

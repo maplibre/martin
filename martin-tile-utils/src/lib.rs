@@ -205,11 +205,7 @@ impl TileInfo {
 
     /// Try to figure out the format and encoding of the raw tile data
     #[must_use]
-    #[allow(clippy::enum_glob_use)]
     pub fn detect(value: &[u8]) -> Option<Self> {
-        use Encoding::*;
-        use Format::*;
-
         // TODO: Make detection slower but more accurate:
         //  - uncompress gzip/zlib/... and run detection again. If detection fails, assume MVT
         //  - detect json inside a compressed data
@@ -217,15 +213,19 @@ impl TileInfo {
         //  - possibly keep the current `detect()` available as a fast path for those who may need it
         Some(match value {
             // Compressed prefixes assume MVT content
-            v if v.starts_with(b"\x1f\x8b") => Self::new(Mvt, Gzip),
-            v if v.starts_with(b"\x78\x9c") => Self::new(Mvt, Zlib),
-            v if v.starts_with(b"\x89\x50\x4E\x47\x0D\x0A\x1A\x0A") => Self::new(Png, Internal),
-            v if v.starts_with(b"\x47\x49\x46\x38\x39\x61") => Self::new(Gif, Internal),
-            v if v.starts_with(b"\xFF\xD8\xFF") => Self::new(Jpeg, Internal),
-            v if v.starts_with(b"RIFF") && v.len() > 8 && v[8..].starts_with(b"WEBP") => {
-                Self::new(Webp, Internal)
+            v if v.starts_with(b"\x1f\x8b") => Self::new(Format::Mvt, Encoding::Gzip),
+            v if v.starts_with(b"\x78\x9c") => Self::new(Format::Mvt, Encoding::Zlib),
+            v if v.starts_with(b"\x89\x50\x4E\x47\x0D\x0A\x1A\x0A") => {
+                Self::new(Format::Png, Encoding::Internal)
             }
-            v if v.starts_with(b"{") => Self::new(Json, Uncompressed),
+            v if v.starts_with(b"\x47\x49\x46\x38\x39\x61") => {
+                Self::new(Format::Gif, Encoding::Internal)
+            }
+            v if v.starts_with(b"\xFF\xD8\xFF") => Self::new(Format::Jpeg, Encoding::Internal),
+            v if v.starts_with(b"RIFF") && v.len() > 8 && v[8..].starts_with(b"WEBP") => {
+                Self::new(Format::Webp, Encoding::Internal)
+            }
+            v if v.starts_with(b"{") => Self::new(Format::Json, Encoding::Uncompressed),
             _ => None?,
         })
     }
@@ -262,8 +262,8 @@ impl Display for TileInfo {
 
 /// Convert longitude and latitude to a tile (x,y) coordinates for a given zoom
 #[must_use]
-#[allow(clippy::cast_possible_truncation)]
-#[allow(clippy::cast_sign_loss)]
+#[expect(clippy::cast_possible_truncation)]
+#[expect(clippy::cast_sign_loss)]
 pub fn tile_index(lng: f64, lat: f64, zoom: u8) -> (u32, u32) {
     let tile_size = EARTH_CIRCUMFERENCE / f64::from(1_u32 << zoom);
     let (x, y) = wgs84_to_webmercator(lng, lat);
@@ -292,7 +292,7 @@ pub fn xyz_to_bbox(zoom: u8, min_x: u32, min_y: u32, max_x: u32, max_y: u32) -> 
     [min_lng, min_lat, max_lng, max_lat]
 }
 
-#[allow(clippy::cast_lossless)]
+#[expect(clippy::cast_lossless)]
 fn tile_bbox(x: u32, y: u32, tile_length: f64) -> [f64; 4] {
     let min_x = EARTH_CIRCUMFERENCE * -0.5 + x as f64 * tile_length;
     let max_y = EARTH_CIRCUMFERENCE * 0.5 - y as f64 * tile_length;
@@ -310,7 +310,7 @@ pub fn bbox_to_xyz(left: f64, bottom: f64, right: f64, top: f64, zoom: u8) -> (u
 
 /// Compute precision of a zoom level, i.e. how many decimal digits of the longitude and latitude are relevant
 #[must_use]
-#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+#[expect(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
 pub fn get_zoom_precision(zoom: u8) -> usize {
     assert!(zoom < MAX_ZOOM, "zoom {zoom} must be <= {MAX_ZOOM}");
     let lng_delta = webmercator_to_wgs84(EARTH_CIRCUMFERENCE / f64::from(1_u32 << zoom), 0.0).0;
@@ -341,7 +341,7 @@ pub fn wgs84_to_webmercator(lon: f64, lat: f64) -> (f64, f64) {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unreadable_literal)]
+    #![expect(clippy::unreadable_literal)]
 
     use std::fs::read;
 
@@ -356,7 +356,7 @@ mod tests {
         TileInfo::detect(&read(path).unwrap())
     }
 
-    #[allow(clippy::unnecessary_wraps)]
+    #[expect(clippy::unnecessary_wraps)]
     fn info(format: Format, encoding: Encoding) -> Option<TileInfo> {
         Some(TileInfo::new(format, encoding))
     }

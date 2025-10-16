@@ -23,7 +23,7 @@ pub struct PmtilesSource {
     tile_info: TileInfo,
 }
 
-#[allow(clippy::missing_fields_in_debug)]
+#[expect(clippy::missing_fields_in_debug)]
 impl Debug for PmtilesSource {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("PmtilesSource")

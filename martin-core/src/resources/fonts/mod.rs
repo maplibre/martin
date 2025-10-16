@@ -39,7 +39,7 @@ const CP_RANGE_SIZE: usize = 256;
 /// Font size in pixels for SDF glyph rendering.
 const FONT_SIZE: usize = 24;
 /// Font height in `FreeType`'s 26.6 fixed-point format.
-#[allow(clippy::cast_possible_wrap)]
+#[expect(clippy::cast_possible_wrap, reason = "FONT_SIZE << 6 is not wrapping")]
 const CHAR_HEIGHT: isize = (FONT_SIZE as isize) << 6;
 /// Buffer size in pixels around each glyph for SDF calculation.
 const BUFFER_SIZE: usize = 3;
@@ -162,7 +162,7 @@ impl FontSources {
     ///
     /// Combines multiple fonts (comma-separated) with later fonts filling gaps.
     /// Range must be exactly 256 characters (e.g., 0-255, 256-511).
-    #[allow(clippy::cast_possible_truncation)]
+    #[expect(clippy::cast_possible_truncation)]
     pub fn get_font_range(&self, ids: &str, start: u32, end: u32) -> Result<Vec<u8>, FontError> {
         if start > end {
             return Err(FontError::InvalidFontRangeStartEnd(start, end));
