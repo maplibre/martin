@@ -15,22 +15,25 @@ pub const NO_TILE_CACHE: OptTileCache = None;
 /// Keys used to identify cached items.
 #[derive(Debug, Hash, PartialEq, Eq)]
 pub enum CacheKey {
-    #[cfg(feature = "pmtiles")]
     /// `PMTiles` directory cache key with `PMTiles ID` and `offset`.
+    #[cfg(feature = "pmtiles")]
     PmtDirectory(usize, usize),
     /// Tile cache key with `source ID` and `coordinates`.
+    #[cfg(feature = "_tiles")]
     Tile(String, TileCoord),
     /// Tile cache key with `source ID`, [`TileCoord`], and `URL query parameters`.
+    #[cfg(feature = "_tiles")]
     TileWithQuery(String, TileCoord, String),
 }
 
 /// Values stored in the cache.
 #[derive(Debug, Clone)]
 pub enum CacheValue {
-    /// Cached tile with metadata and etag.
+    /// Cached tile data.
+    #[cfg(feature = "_tiles")]
     Tile(Tile),
-    #[cfg(feature = "pmtiles")]
     /// Cached `PMTiles` directory.
+    #[cfg(feature = "pmtiles")]
     PmtDirectory(pmtiles::Directory),
 }
 
@@ -49,7 +52,6 @@ pub fn trace_cache(typ: &'static str, cache: &TileCache, key: &CacheKey) {
 #[macro_export]
 macro_rules! from_cache_value {
     ($value_type: path, $data: expr, $key: expr) => {
-        #[allow(irrefutable_let_patterns)]
         if let $value_type(data) = $data {
             data
         } else {

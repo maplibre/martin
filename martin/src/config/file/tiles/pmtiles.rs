@@ -3,9 +3,8 @@ use std::path::PathBuf;
 use std::str::FromStr;
 
 use log::{trace, warn};
-use martin_core::tiles::BoxedSource;
-use martin_core::tiles::OptTileCache;
 use martin_core::tiles::pmtiles::{PmtCache, PmtilesSource};
+use martin_core::tiles::{BoxedSource, OptTileCache};
 use serde::{Deserialize, Serialize};
 use url::Url;
 
@@ -54,7 +53,7 @@ impl ConfigurationLivecycleHooks for PmtConfig {
         self.unrecognized.keys().cloned().collect()
     }
 
-    #[allow(
+    #[expect(
         clippy::panic_in_result_fn,
         reason = "invariant: the function cannot be called twice"
     )]

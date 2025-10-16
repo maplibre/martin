@@ -3558,6 +3558,7 @@ version = "0.1.3"
 dependencies = [
  "approx",
  "async-trait",
+ "base64 0.22.1",
  "bit-set",
  "dashmap",
  "deadpool-postgres",

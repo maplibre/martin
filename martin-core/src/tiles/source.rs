@@ -2,6 +2,8 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 
 use async_trait::async_trait;
+use base64::Engine;
+use base64::prelude::BASE64_STANDARD_NO_PAD;
 use martin_tile_utils::{TileCoord, TileData, TileInfo};
 use tilejson::TileJSON;
 
@@ -75,11 +77,8 @@ pub trait Source: Send + Sync + Debug {
         } else {
             xxhash_rust::xxh3::xxh3_128(&data)
         };
-        Ok(Tile::new_with_etag(
-            data,
-            self.get_tile_info(),
-            etag.to_string(),
-        ))
+        let etag_base64 = BASE64_STANDARD_NO_PAD.encode(etag.to_ne_bytes());
+        Ok(Tile::new_with_etag(data, self.get_tile_info(), etag_base64))
     }
 
     /// Validates zoom level against `TileJSON` min/max zoom constraints.
