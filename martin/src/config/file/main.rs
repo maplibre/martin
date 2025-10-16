@@ -24,7 +24,6 @@ use subst::VariableMap;
     feature = "unstable-cog",
     feature = "styles",
     feature = "sprites",
-    feature = "fonts",
 ))]
 use crate::config::file::FileConfigEnum;
 #[cfg(feature = "_tiles")]
