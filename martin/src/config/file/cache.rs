@@ -2,12 +2,7 @@
 #[derive(Debug, Clone)]
 pub struct CacheConfig {
     /// Maximum size for tile cache in MB (0 to disable).
-    #[cfg(any(
-        feature = "postgres",
-        feature = "pmtiles",
-        feature = "mbtiles",
-        feature = "unstable-cog"
-    ))]
+    #[cfg(feature = "_tiles")]
     pub tile_cache_size_mb: u64,
     /// Maximum size for `PMTiles` directory cache in MB (0 to disable).
     #[cfg(feature = "pmtiles")]
@@ -22,12 +17,7 @@ pub struct CacheConfig {
 
 impl CacheConfig {
     /// Creates tile cache if configured.
-    #[cfg(any(
-        feature = "postgres",
-        feature = "pmtiles",
-        feature = "mbtiles",
-        feature = "unstable-cog"
-    ))]
+    #[cfg(feature = "_tiles")]
     #[must_use]
     pub fn create_tile_cache(&self) -> Option<martin_core::tiles::TileCache> {
         if self.tile_cache_size_mb > 0 {
