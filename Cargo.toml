@@ -42,6 +42,7 @@ actix-web-static-files = "4"
 anyhow = "1.0"
 approx = "0.5.1"
 async-trait = "0.1"
+base64 = "0.22.1"
 bit-set = "0.8"
 brotli = ">=5, <9"
 clap = { version = "4", features = ["derive", "unstable-markdown", "wrap_help"] }

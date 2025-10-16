@@ -200,7 +200,7 @@ impl Config {
                     .weigher(|_key, value: &CacheValue| -> u32 {
                         match value {
                             #[cfg(feature = "_tiles")]
-                            CacheValue::Tile(v) => v.len().try_into().unwrap_or(u32::MAX),
+                            CacheValue::Tile(v) => v.data.len().try_into().unwrap_or(u32::MAX),
                             #[cfg(feature = "pmtiles")]
                             CacheValue::PmtDirectory(v) => {
                                 v.get_approx_byte_size().try_into().unwrap_or(u32::MAX)
