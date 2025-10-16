@@ -1,5 +1,5 @@
 use base64::Engine;
-use base64::prelude::BASE64_STANDARD_NO_PAD;
+use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use martin_tile_utils::{TileData, TileInfo};
 
 /// Represents a single map tile with its raw data and metadata.
@@ -38,7 +38,7 @@ impl Tile {
         } else {
             xxhash_rust::xxh3::xxh3_128(&data)
         };
-        let etag_base64 = BASE64_STANDARD_NO_PAD.encode(etag.to_ne_bytes());
+        let etag_base64 = URL_SAFE_NO_PAD.encode(etag.to_ne_bytes());
         Self {
             data,
             info,
