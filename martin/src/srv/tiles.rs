@@ -381,9 +381,9 @@ mod tests {
     }
 
     #[rstest]
-    #[case(200, None, Some(EntityTag::new_strong("229249875805521414007261281044017345339".to_string())))]
-    #[case(304, Some(IfNoneMatch::Items(vec![EntityTag::new_strong("229249875805521414007261281044017345339".to_string())])), None)]
-    #[case(200, Some(IfNoneMatch::Items(vec![EntityTag::new_strong("incorrect_etag".to_string())])), Some(EntityTag::new_strong("229249875805521414007261281044017345339".to_string())))]
+    #[case(200, None, Some(EntityTag::new_strong("O3OuMnabzuvUuMTLiOt3rA".to_string())))]
+    #[case(304, Some(IfNoneMatch::Items(vec![EntityTag::new_strong("O3OuMnabzuvUuMTLiOt3rA".to_string())])), None)]
+    #[case(200, Some(IfNoneMatch::Items(vec![EntityTag::new_strong("incorrect_etag".to_string())])), Some(EntityTag::new_strong("O3OuMnabzuvUuMTLiOt3rA".to_string())))]
     #[actix_rt::test]
     async fn test_etag(
         #[case] expected_status: u16,
