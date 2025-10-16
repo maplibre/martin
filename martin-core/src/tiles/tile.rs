@@ -1,3 +1,5 @@
+use base64::Engine;
+use base64::prelude::BASE64_STANDARD_NO_PAD;
 use martin_tile_utils::{TileData, TileInfo};
 
 /// Represents a single map tile with its raw data and metadata.
@@ -28,15 +30,16 @@ pub struct Tile {
 impl Tile {
     /// Creates a new tile with the given tile data and metadata.
     ///
-    /// For empty tiles, etag will be "0", otherwise [`xxh3_128(data)`](xxhash_rust::xxh3::xxh3_128).
+    /// For empty tiles, etag will be base64 of `0`, otherwise base64 of [`xxh3_128(data)`](xxhash_rust::xxh3::xxh3_128).
     #[must_use]
-    pub fn new(data: TileData, info: TileInfo) -> Self {
+    pub fn new_hash_etag(data: TileData, info: TileInfo) -> Self {
         let etag = if data.is_empty() {
             0
         } else {
             xxhash_rust::xxh3::xxh3_128(&data)
         };
-        Self::new_with_etag(data, info, etag.to_string())
+        let etag_base64 = BASE64_STANDARD_NO_PAD.encode(etag.to_ne_bytes());
+        Self { data, info, etag: etag_base64 }
     }
 
     /// Creates a new tile with the given tile data, metadata, and etag.

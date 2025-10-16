@@ -166,7 +166,7 @@ impl<'a> DynTileSource<'a> {
 
         // Minor optimization to prevent concatenation if there are less than 2 tiles
         let (data, etag) = match layer_count {
-            0 => return Ok(Tile::new(Vec::new(), self.info)),
+            0 => return Ok(Tile::new_hash_etag(Vec::new(), self.info)),
             1 => {
                 let tile = tiles.swap_remove(last_non_empty_layer);
                 (tile.data, tile.etag)
@@ -250,7 +250,7 @@ impl<'a> DynTileSource<'a> {
     }
 
     fn recompress(&self, tile: TileData) -> ActixResult<Tile> {
-        let mut tile = Tile::new(tile, self.info);
+        let mut tile = Tile::new_hash_etag(tile, self.info);
         if let Some(accept_enc) = &self.accept_enc {
             if self.info.encoding.is_encoded() {
                 // already compressed, see if we can send it as is, or need to re-compress
@@ -283,12 +283,12 @@ impl<'a> DynTileSource<'a> {
 
 fn encode(tile: Tile, enc: ContentEncoding) -> ActixResult<Tile> {
     Ok(match enc {
-        ContentEncoding::Brotli => Tile::new(
+        ContentEncoding::Brotli => Tile::new_hash_etag(
             encode_brotli(&tile.data)?,
             tile.info.encoding(Encoding::Brotli),
         ),
         ContentEncoding::Gzip => {
-            Tile::new(encode_gzip(&tile.data)?, tile.info.encoding(Encoding::Gzip))
+            Tile::new_hash_etag(encode_gzip(&tile.data)?, tile.info.encoding(Encoding::Gzip))
         }
         _ => tile,
     })
@@ -298,11 +298,11 @@ fn decode(tile: Tile) -> ActixResult<Tile> {
     let info = tile.info;
     Ok(if info.encoding.is_encoded() {
         match info.encoding {
-            Encoding::Gzip => Tile::new(
+            Encoding::Gzip => Tile::new_hash_etag(
                 decode_gzip(&tile.data)?,
                 info.encoding(Encoding::Uncompressed),
             ),
-            Encoding::Brotli => Tile::new(
+            Encoding::Brotli => Tile::new_hash_etag(
                 decode_brotli(&tile.data)?,
                 info.encoding(Encoding::Uncompressed),
             ),
