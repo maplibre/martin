@@ -15,7 +15,7 @@ use martin_tile_utils::{TileData, TileInfo};
 ///
 /// let data = vec![0x89, 0x50, 0x4E, 0x47]; // PNG header
 /// let info = TileInfo::new(Format::Png, Encoding::Uncompressed);
-/// let tile = Tile::new(data, info);
+/// let tile = Tile::new_hash_etag(data, info);
 /// ```
 #[derive(Debug, Clone)]
 pub struct Tile {
