@@ -8,9 +8,7 @@ use actix_web::http::header::{
 use actix_web::web::{Data, Path, Query};
 use actix_web::{HttpMessage, HttpRequest, HttpResponse, Result as ActixResult, route};
 use futures::future::try_join_all;
-use martin_core::tiles::{
-    BoxedSource, OptTileCache, Tile, TileCache, UrlQuery,
-};
+use martin_core::tiles::{BoxedSource, OptTileCache, Tile, TileCache, UrlQuery};
 use martin_tile_utils::{
     Encoding, Format, TileCoord, TileData, TileInfo, decode_brotli, decode_gzip, encode_brotli,
     encode_gzip,

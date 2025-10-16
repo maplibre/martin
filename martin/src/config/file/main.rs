@@ -227,9 +227,7 @@ impl Config {
                     pmtiles_cache,
                 )
                 .await?,
-            #[cfg(
-                feature = "_tiles"
-            )]
+            #[cfg(feature = "_tiles")]
             tile_cache: cache_config.create_tile_cache(),
 
             #[cfg(feature = "sprites")]
