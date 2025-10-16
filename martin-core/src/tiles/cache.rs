@@ -19,10 +19,8 @@ pub enum CacheKey {
     #[cfg(feature = "pmtiles")]
     PmtDirectory(usize, usize),
     /// Tile cache key with `source ID` and `coordinates`.
-    #[cfg(feature = "_tiles")]
     Tile(String, TileCoord),
     /// Tile cache key with `source ID`, [`TileCoord`], and `URL query parameters`.
-    #[cfg(feature = "_tiles")]
     TileWithQuery(String, TileCoord, String),
 }
 
@@ -30,7 +28,6 @@ pub enum CacheKey {
 #[derive(Debug, Clone)]
 pub enum CacheValue {
     /// Cached tile data.
-    #[cfg(feature = "_tiles")]
     Tile(Tile),
     /// Cached `PMTiles` directory.
     #[cfg(feature = "pmtiles")]
