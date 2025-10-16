@@ -59,17 +59,15 @@ impl PmtCacheInstance {
 
         if result.is_some() {
             log::trace!(
-                "PMTiles directory cache HIT for id={}, offset={} (entries={}, size={})",
-                self.id,
-                offset,
-                self.cache.0.entry_count(),
-                self.cache.0.weighted_size()
+                "PMTiles directory cache HIT for id={id}, offset={offset} (entries={entries}, size={size})",
+                id = self.id,
+                entries = self.cache.0.entry_count(),
+                size = self.cache.0.weighted_size()
             );
         } else {
             log::trace!(
-                "PMTiles directory cache MISS for id={}, offset={}",
-                self.id,
-                offset
+                "PMTiles directory cache MISS for id={id}, offset={offset}",
+                id = self.id,
             );
         }
 

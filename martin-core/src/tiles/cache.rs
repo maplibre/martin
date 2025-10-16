@@ -32,22 +32,12 @@ impl TileCache {
 
         if result.is_some() {
             log::trace!(
-                "Tile cache HIT for source={source_id}, xyz={}/{}/{}, query={:?} (entries={}, size={})",
-                xyz.z,
-                xyz.x,
-                xyz.y,
-                query,
-                self.0.entry_count(),
-                self.0.weighted_size()
+                "Tile cache HIT for {key:?} (entries={entries}, size={size}B)",
+                entries = self.0.entry_count(),
+                size = self.0.weighted_size()
             );
         } else {
-            log::trace!(
-                "Tile cache MISS for source={source_id}, xyz={}/{}/{}, query={:?}",
-                xyz.z,
-                xyz.x,
-                xyz.y,
-                query
-            );
+            log::trace!("Tile cache MISS for {key:?}, query={query:?}");
         }
 
         result
