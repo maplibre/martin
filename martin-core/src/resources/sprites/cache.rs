@@ -2,7 +2,6 @@ use actix_web::web::Bytes;
 use moka::future::Cache;
 
 /// Sprite cache for storing generated sprite sheets.
-
 #[derive(Clone)]
 pub struct SpriteCache {
     cache: Cache<SpriteCacheKey, Bytes>,
