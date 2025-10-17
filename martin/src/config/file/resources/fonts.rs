@@ -6,6 +6,7 @@ use crate::config::file::{
     UnrecognizedKeys, UnrecognizedValues,
 };
 
+#[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct InnerFontConfig {
     /// Size of the font cache in megabytes (0 to disable)
