@@ -245,10 +245,10 @@ impl Config {
         })
     }
 
-    #[cfg(any(feature = "_tiles", feature = "sprites", feature = "fonts"))]
     // cache_config is still respected, but can be overridden by individual cache sizes
     //
     // `cache_config: 0` disables caching, unless overridden by individual cache sizes
+    #[cfg(any(feature = "_tiles", feature = "sprites", feature = "fonts"))]
     fn resolve_cache_config(&self) -> CacheConfig {
         if let Some(cache_size_mb) = self.cache_size_mb {
             #[cfg(feature = "pmtiles")]

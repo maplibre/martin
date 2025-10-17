@@ -33,10 +33,12 @@ impl FontConfig {
         };
 
         let mut results = FontSources::default();
-        // TODO: make sure that the resolution is similarly tolerant of errors as the other resolution methods (warning instead of hard errors)
+        let mut directories = Vec::new();
+        let mut configs = BTreeMap::new();
 
         if let Some(sources) = cfg.sources {
-            for (_id, source) in sources {
+            for (id, source) in sources {
+                configs.insert(id.clone(), source.clone());
                 results
                     .recursively_add_directory(source.get_path().clone())
                     .map_err(|e| ConfigFileError::FontResolutionFailed(e, source.into_path()))?;
@@ -44,10 +46,13 @@ impl FontConfig {
         }
 
         for base_path in cfg.paths {
+            directories.push(base_path.clone());
             results
                 .recursively_add_directory(base_path.clone())
                 .map_err(|e| ConfigFileError::FontResolutionFailed(e, base_path.clone()))?;
         }
+
+        *self = FileConfigEnum::new_extended(directories, configs, cfg.custom);
 
         Ok(results)
     }
