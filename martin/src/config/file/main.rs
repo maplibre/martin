@@ -9,7 +9,7 @@ use futures::future::{BoxFuture, try_join_all};
 use log::{info, warn};
 #[cfg(feature = "_tiles")]
 use martin_core::config::IdResolver;
-#[cfg(any(feature = "postgres", feature = "fonts"))]
+#[cfg(feature = "postgres")]
 use martin_core::config::OptOneMany;
 #[cfg(feature = "pmtiles")]
 use martin_core::tiles::pmtiles::PmtCache;
@@ -24,9 +24,10 @@ use subst::VariableMap;
     feature = "unstable-cog",
     feature = "styles",
     feature = "sprites",
+    feature = "fonts",
 ))]
 use crate::config::file::FileConfigEnum;
-#[cfg(feature = "_tiles")]
+#[cfg(any(feature = "_tiles", feature = "fonts"))]
 use crate::config::file::cache::CacheConfig;
 use crate::config::file::{
     ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks, UnrecognizedKeys,
@@ -49,6 +50,8 @@ pub struct ServerState {
 
     #[cfg(feature = "fonts")]
     pub fonts: martin_core::fonts::FontSources,
+    #[cfg(feature = "fonts")]
+    pub font_cache: martin_core::fonts::OptFontCache,
 
     #[cfg(feature = "styles")]
     pub styles: martin_core::styles::StyleSources,
@@ -94,7 +97,7 @@ pub struct Config {
     pub styles: super::styles::StyleConfig,
 
     #[cfg(feature = "fonts")]
-    #[serde(default, skip_serializing_if = "OptOneMany::is_none")]
+    #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
     pub fonts: super::fonts::FontConfig,
 
     #[serde(flatten, skip_serializing)]
@@ -207,7 +210,7 @@ impl Config {
         #[cfg(feature = "_tiles")]
         let resolver = IdResolver::new(RESERVED_KEYWORDS);
 
-        #[cfg(feature = "_tiles")]
+        #[cfg(any(feature = "_tiles", feature = "fonts"))]
         let cache_config = self.resolve_cache_config();
 
         #[cfg(feature = "pmtiles")]
@@ -230,13 +233,15 @@ impl Config {
 
             #[cfg(feature = "fonts")]
             fonts: self.fonts.resolve()?,
+            #[cfg(feature = "fonts")]
+            font_cache: cache_config.create_font_cache(),
 
             #[cfg(feature = "styles")]
             styles: self.styles.resolve()?,
         })
     }
 
-    #[cfg(feature = "_tiles")]
+    #[cfg(any(feature = "_tiles", feature = "fonts"))]
     // cache_config is still respected, but can be overridden by individual cache sizes
     //
     // `cache_config: 0` disables caching, unless overridden by individual cache sizes
@@ -251,11 +256,20 @@ impl Config {
                 cache_size_mb / 4 // Default: 25% for PMTiles directories
             };
 
+            #[cfg(feature = "fonts")]
+            let font_cache_size_mb = if let FileConfigEnum::Config(cfg) = &self.fonts {
+                cfg.custom.cache_size_mb.unwrap_or(cache_size_mb / 8) // Default: 12.5% for fonts
+            } else {
+                cache_size_mb / 8 // Default: 12.5% for fonts
+            };
+
             CacheConfig {
                 #[cfg(feature = "_tiles")]
                 tile_cache_size_mb: self.tile_cache_size_mb.unwrap_or(cache_size_mb / 2), // Default: 50% for tiles
                 #[cfg(feature = "pmtiles")]
                 pmtiles_cache_size_mb,
+                #[cfg(feature = "fonts")]
+                font_cache_size_mb,
             }
         } else {
             // TODO: the defaults could be smarter. If I don't have pmtiles sources, don't reserve cache for it
@@ -264,6 +278,8 @@ impl Config {
                 tile_cache_size_mb: 256,
                 #[cfg(feature = "pmtiles")]
                 pmtiles_cache_size_mb: 128,
+                #[cfg(feature = "fonts")]
+                font_cache_size_mb: 64,
             }
         }
     }
