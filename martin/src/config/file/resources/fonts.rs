@@ -1,6 +1,6 @@
-use std::collections::BTreeMap;
 use martin_core::fonts::FontSources;
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 
 use crate::config::file::{
     ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks, FileConfigEnum,
