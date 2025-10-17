@@ -1,9 +1,11 @@
-use martin_tile_utils::{TileCoord, TileData};
+use martin_tile_utils::TileCoord;
 use moka::future::Cache;
+
+use crate::tiles::Tile;
 
 /// Tile cache for storing rendered tile data.
 #[derive(Clone, Debug)]
-pub struct TileCache(Cache<TileCacheKey, TileData>);
+pub struct TileCache(Cache<TileCacheKey, Tile>);
 
 impl TileCache {
     /// Creates a new tile cache with the specified maximum size in bytes.
@@ -12,8 +14,8 @@ impl TileCache {
         Self(
             Cache::builder()
                 .name("tile_cache")
-                .weigher(|_key: &TileCacheKey, value: &TileData| -> u32 {
-                    value.len().try_into().unwrap_or(u32::MAX)
+                .weigher(|_key: &TileCacheKey, value: &Tile| -> u32 {
+                    value.data.len().try_into().unwrap_or(u32::MAX)
                 })
                 .max_capacity(max_size_bytes)
                 .build(),
@@ -21,12 +23,7 @@ impl TileCache {
     }
 
     /// Retrieves a tile from cache if present.
-    pub async fn get(
-        &self,
-        source_id: &str,
-        xyz: TileCoord,
-        query: Option<&str>,
-    ) -> Option<TileData> {
+    pub async fn get(&self, source_id: &str, xyz: TileCoord, query: Option<&str>) -> Option<Tile> {
         let key = TileCacheKey::new(source_id, xyz, query);
         let result = self.0.get(&key).await;
 
@@ -44,13 +41,7 @@ impl TileCache {
     }
 
     /// Inserts a tile into the cache.
-    pub async fn insert(
-        &self,
-        source_id: &str,
-        xyz: TileCoord,
-        query: Option<&str>,
-        data: TileData,
-    ) {
+    pub async fn insert(&self, source_id: &str, xyz: TileCoord, query: Option<&str>, data: Tile) {
         let key = TileCacheKey::new(source_id, xyz, query);
         self.0.insert(key, data).await;
     }
@@ -62,10 +53,10 @@ impl TileCache {
         xyz: TileCoord,
         query: Option<&str>,
         compute: F,
-    ) -> Result<TileData, E>
+    ) -> Result<Tile, E>
     where
         F: FnOnce() -> Fut,
-        Fut: Future<Output = Result<TileData, E>>,
+        Fut: Future<Output = Result<Tile, E>>,
     {
         if let Some(data) = self.get(source_id, xyz, query).await {
             return Ok(data);
