@@ -11,7 +11,7 @@ use log::{info, warn};
 use martin_core::config::IdResolver;
 use martin_core::config::OptOneMany;
 #[cfg(feature = "_tiles")]
-use martin_core::tiles::{BoxedSource, OptTileCache};
+use martin_core::tiles::BoxedSource;
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "_tiles")]
 use url::Url;
@@ -25,7 +25,6 @@ use crate::{MartinError, MartinResult};
 /// The hooks are guaranteed called in the following order:
 /// 1. `finalize`
 /// 2. `get_unrecognized_keys`
-/// 3. `initialize_cache`
 pub trait ConfigurationLivecycleHooks: Clone + Debug + Default + PartialEq + Send {
     /// Finalize configuration discovery and patch old values
     ///
@@ -43,15 +42,6 @@ pub trait ConfigurationLivecycleHooks: Clone + Debug + Default + PartialEq + Sen
             .into_iter()
             .map(|key| format!("{prefix}{key}"))
             .collect()
-    }
-
-    /// Initalises the configuration with the given cache
-    ///
-    /// This allows configurations to interact with the cache and perform any necessary initialization tasks.
-    /// The configuration should be found to be valid in [`Self::finalize`] instead of [`Self::initialize_cache`].
-    #[cfg(feature = "_tiles")]
-    fn initialize_cache(&mut self, _cache: OptTileCache) -> ConfigFileResult<()> {
-        Ok(())
     }
 }
 
@@ -190,15 +180,6 @@ impl<T: ConfigurationLivecycleHooks> ConfigurationLivecycleHooks for FileConfigE
             UnrecognizedKeys::new()
         }
     }
-
-    #[cfg(feature = "_tiles")]
-    fn initialize_cache(&mut self, cache: OptTileCache) -> ConfigFileResult<()> {
-        if let Self::Config(cfg) = self {
-            cfg.custom.initialize_cache(cache)
-        } else {
-            Ok(())
-        }
-    }
 }
 
 #[serde_with::skip_serializing_none]
@@ -227,11 +208,6 @@ impl<T: ConfigurationLivecycleHooks> ConfigurationLivecycleHooks for FileConfig<
     }
     fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
         self.custom.get_unrecognized_keys()
-    }
-
-    #[cfg(feature = "_tiles")]
-    fn initialize_cache(&mut self, cache: OptTileCache) -> ConfigFileResult<()> {
-        self.custom.initialize_cache(cache)
     }
 }
 
@@ -292,23 +268,20 @@ pub struct FileConfigSource {
 pub async fn resolve_files<T: TileSourceConfiguration>(
     config: &mut FileConfigEnum<T>,
     idr: &IdResolver,
-    cache: OptTileCache,
     extension: &[&str],
 ) -> MartinResult<Vec<BoxedSource>> {
-    resolve_int(config, idr, cache, extension).await
+    resolve_int(config, idr, extension).await
 }
 
 #[cfg(feature = "_tiles")]
 async fn resolve_int<T: TileSourceConfiguration>(
     config: &mut FileConfigEnum<T>,
     idr: &IdResolver,
-    cache: OptTileCache,
     extension: &[&str],
 ) -> MartinResult<Vec<BoxedSource>> {
     let Some(cfg) = config.extract_file_config() else {
         return Ok(Vec::new());
     };
-    config.initialize_cache(cache)?;
 
     let mut results = Vec::new();
     let mut configs = BTreeMap::new();

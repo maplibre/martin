@@ -42,6 +42,7 @@ fonts = [
     "dep:dashmap",
 ]
 sprites = [
+    "dep:actix-web",
     "dep:spreet",
     "dep:tokio",
     "tokio/fs",
@@ -54,6 +55,7 @@ pmtiles = ["dep:pmtiles", "dep:object_store", "_tiles"]
 _tiles = ["dep:base64"]
 
 [dependencies]
+actix-web = { workspace = true, optional = true }
 async-trait.workspace = true
 base64  = { workspace = true, optional = true }
 bit-set = { workspace = true, optional = true }
