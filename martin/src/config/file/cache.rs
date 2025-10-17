@@ -7,9 +7,6 @@ pub struct CacheConfig {
     /// Maximum size for `PMTiles` directory cache in MB (0 to disable).
     #[cfg(feature = "pmtiles")]
     pub pmtiles_cache_size_mb: u64,
-    /// Maximum size for sprite cache in MB (0 to disable).
-    #[cfg(feature = "sprites")]
-    pub sprite_cache_size_mb: u64,
     /// Maximum size for font cache in MB (0 to disable).
     #[cfg(feature = "fonts")]
     pub font_cache_size_mb: u64,
