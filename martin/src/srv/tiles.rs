@@ -114,8 +114,8 @@ impl<'a> DynTileSource<'a> {
         if tile.data.is_empty() {
             return Ok(HttpResponse::NoContent().finish());
         }
-        let hash = xxhash_rust::xxh3::xxh3_128(&tile.data);
-        let etag = EntityTag::new_strong(hash.to_string());
+        let etag = EntityTag::new_strong(tile.etag.clone());
+
         if let Some(IfNoneMatch::Items(expected_etags)) = &self.if_none_match {
             for expected_etag in expected_etags {
                 if etag.strong_eq(expected_etag) {
@@ -138,11 +138,11 @@ impl<'a> DynTileSource<'a> {
             if let Some(cache) = self.cache {
                 cache
                     .get_or_insert(s.get_id(), xyz, self.query_str, || {
-                        s.get_tile(xyz, self.query_obj.as_ref())
+                        s.get_tile_with_etag(xyz, self.query_obj.as_ref())
                     })
                     .await
             } else {
-                s.get_tile(xyz, self.query_obj.as_ref()).await
+                s.get_tile_with_etag(xyz, self.query_obj.as_ref()).await
             }
         }))
         .await
@@ -158,9 +158,12 @@ impl<'a> DynTileSource<'a> {
         }
 
         // Minor optimization to prevent concatenation if there are less than 2 tiles
-        let data = match layer_count {
-            1 => tiles.swap_remove(last_non_empty_layer),
-            0 => return Ok(Tile::new(Vec::new(), self.info)),
+        let (data, etag) = match layer_count {
+            0 => return Ok(Tile::new_hash_etag(Vec::new(), self.info)),
+            1 => {
+                let tile = tiles.swap_remove(last_non_empty_layer);
+                (tile.data, tile.etag)
+            }
             _ => {
                 // Make sure tiles can be concatenated, or if not, that there is only one non-empty tile for each zoom level
                 // TODO: can zlib, brotli, or zstd be concatenated?
@@ -174,12 +177,26 @@ impl<'a> DynTileSource<'a> {
                         self.info, xyz.z
                     )))?;
                 }
-                tiles.concat()
+                // When concatenating tiles, we can't use pre-computed etags since the data changes
+                let total_etag_len = tiles.iter().map(|t| t.etag.len()).sum();
+                let mut concatenated_hash = String::with_capacity(total_etag_len);
+                for tile in &tiles {
+                    concatenated_hash.push_str(&tile.etag);
+                }
+                let concatenated_data = tiles
+                    .into_iter()
+                    .map(|t| t.data)
+                    .collect::<Vec<_>>()
+                    .concat();
+                (concatenated_data, concatenated_hash)
             }
         };
 
         // decide if (re-)encoding of the tile data is needed, and recompress if so
-        self.recompress(data)
+        let mut tile = self.recompress(data)?;
+        // Set the etag for the final tile
+        tile.etag = etag;
+        Ok(tile)
     }
 
     /// Decide which encoding to use for the uncompressed tile data, based on the client's Accept-Encoding header
@@ -226,7 +243,7 @@ impl<'a> DynTileSource<'a> {
     }
 
     fn recompress(&self, tile: TileData) -> ActixResult<Tile> {
-        let mut tile = Tile::new(tile, self.info);
+        let mut tile = Tile::new_hash_etag(tile, self.info);
         if let Some(accept_enc) = &self.accept_enc {
             if self.info.encoding.is_encoded() {
                 // already compressed, see if we can send it as is, or need to re-compress
@@ -259,12 +276,12 @@ impl<'a> DynTileSource<'a> {
 
 fn encode(tile: Tile, enc: ContentEncoding) -> ActixResult<Tile> {
     Ok(match enc {
-        ContentEncoding::Brotli => Tile::new(
+        ContentEncoding::Brotli => Tile::new_hash_etag(
             encode_brotli(&tile.data)?,
             tile.info.encoding(Encoding::Brotli),
         ),
         ContentEncoding::Gzip => {
-            Tile::new(encode_gzip(&tile.data)?, tile.info.encoding(Encoding::Gzip))
+            Tile::new_hash_etag(encode_gzip(&tile.data)?, tile.info.encoding(Encoding::Gzip))
         }
         _ => tile,
     })
@@ -274,11 +291,11 @@ fn decode(tile: Tile) -> ActixResult<Tile> {
     let info = tile.info;
     Ok(if info.encoding.is_encoded() {
         match info.encoding {
-            Encoding::Gzip => Tile::new(
+            Encoding::Gzip => Tile::new_hash_etag(
                 decode_gzip(&tile.data)?,
                 info.encoding(Encoding::Uncompressed),
             ),
-            Encoding::Brotli => Tile::new(
+            Encoding::Brotli => Tile::new_hash_etag(
                 decode_brotli(&tile.data)?,
                 info.encoding(Encoding::Uncompressed),
             ),
@@ -357,9 +374,9 @@ mod tests {
     }
 
     #[rstest]
-    #[case(200, None, Some(EntityTag::new_strong("229249875805521414007261281044017345339".to_string())))]
-    #[case(304, Some(IfNoneMatch::Items(vec![EntityTag::new_strong("229249875805521414007261281044017345339".to_string())])), None)]
-    #[case(200, Some(IfNoneMatch::Items(vec![EntityTag::new_strong("incorrect_etag".to_string())])), Some(EntityTag::new_strong("229249875805521414007261281044017345339".to_string())))]
+    #[case(200, None, Some(EntityTag::new_strong("O3OuMnabzuvUuMTLiOt3rA".to_string())))]
+    #[case(304, Some(IfNoneMatch::Items(vec![EntityTag::new_strong("O3OuMnabzuvUuMTLiOt3rA".to_string())])), None)]
+    #[case(200, Some(IfNoneMatch::Items(vec![EntityTag::new_strong("incorrect_etag".to_string())])), Some(EntityTag::new_strong("O3OuMnabzuvUuMTLiOt3rA".to_string())))]
     #[actix_rt::test]
     async fn test_etag(
         #[case] expected_status: u16,
