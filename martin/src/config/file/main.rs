@@ -27,7 +27,7 @@ use subst::VariableMap;
     feature = "fonts",
 ))]
 use crate::config::file::FileConfigEnum;
-#[cfg(any(feature = "_tiles", feature = "fonts",))]
+#[cfg(any(feature = "_tiles", feature = "fonts"))]
 use crate::config::file::cache::CacheConfig;
 use crate::config::file::{
     ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks, UnrecognizedKeys,
@@ -210,7 +210,7 @@ impl Config {
         #[cfg(feature = "_tiles")]
         let resolver = IdResolver::new(RESERVED_KEYWORDS);
 
-        #[cfg(any(feature = "_tiles", feature = "fonts",))]
+        #[cfg(any(feature = "_tiles", feature = "fonts"))]
         let cache_config = self.resolve_cache_config();
 
         #[cfg(feature = "pmtiles")]
@@ -241,7 +241,7 @@ impl Config {
         })
     }
 
-    #[cfg(any(feature = "_tiles", feature = "fonts",))]
+    #[cfg(any(feature = "_tiles", feature = "fonts"))]
     // cache_config is still respected, but can be overridden by individual cache sizes
     //
     // `cache_config: 0` disables caching, unless overridden by individual cache sizes
