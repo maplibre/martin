@@ -45,20 +45,6 @@ impl CacheConfig {
         }
     }
 
-    /// Creates sprite cache if configured.
-    #[cfg(feature = "sprites")]
-    #[must_use]
-    pub fn create_sprite_cache(&self) -> martin_core::sprites::OptSpriteCache {
-        if self.sprite_cache_size_mb > 0 {
-            let size = self.sprite_cache_size_mb * 1024 * 1024;
-            log::info!("Initializing sprite cache with maximum size {size}B");
-            Some(martin_core::sprites::SpriteCache::new(size))
-        } else {
-            log::info!("Sprite caching is disabled");
-            None
-        }
-    }
-
     /// Creates font cache if configured.
     #[cfg(feature = "fonts")]
     #[must_use]

@@ -47,8 +47,6 @@ pub struct ServerState {
 
     #[cfg(feature = "sprites")]
     pub sprites: martin_core::sprites::SpriteSources,
-    #[cfg(feature = "sprites")]
-    pub sprite_cache: martin_core::sprites::OptSpriteCache,
 
     #[cfg(feature = "fonts")]
     pub fonts: martin_core::fonts::FontSources,
@@ -232,8 +230,6 @@ impl Config {
 
             #[cfg(feature = "sprites")]
             sprites: self.sprites.resolve()?,
-            #[cfg(feature = "sprites")]
-            sprite_cache: cache_config.create_sprite_cache(),
 
             #[cfg(feature = "fonts")]
             fonts: self.fonts.resolve()?,
