@@ -3,97 +3,118 @@ use moka::future::Cache;
 
 use crate::tiles::Tile;
 
-/// Main cache instance for storing tiles and `PMTiles` directories.
-pub type TileCache = Cache<CacheKey, CacheValue>;
+/// Tile cache for storing rendered tile data.
+#[derive(Clone, Debug)]
+pub struct TileCache(Cache<TileCacheKey, Tile>);
 
-/// Optional wrapper for the [`TileCache`].
+impl TileCache {
+    /// Creates a new tile cache with the specified maximum size in bytes.
+    #[must_use]
+    pub fn new(max_size_bytes: u64) -> Self {
+        Self(
+            Cache::builder()
+                .name("tile_cache")
+                .weigher(|_key: &TileCacheKey, value: &Tile| -> u32 {
+                    value.data.len().try_into().unwrap_or(u32::MAX)
+                })
+                .max_capacity(max_size_bytes)
+                .build(),
+        )
+    }
+
+    /// Retrieves a tile from cache if present.
+    pub async fn get(&self, source_id: &str, xyz: TileCoord, query: Option<&str>) -> Option<Tile> {
+        let key = TileCacheKey::new(source_id, xyz, query);
+        let result = self.0.get(&key).await;
+
+        if result.is_some() {
+            log::trace!(
+                "Tile cache HIT for {key:?} (entries={entries}, size={size}B)",
+                entries = self.0.entry_count(),
+                size = self.0.weighted_size()
+            );
+        } else {
+            log::trace!("Tile cache MISS for {key:?}, query={query:?}");
+        }
+
+        result
+    }
+
+    /// Inserts a tile into the cache.
+    pub async fn insert(&self, source_id: &str, xyz: TileCoord, query: Option<&str>, data: Tile) {
+        let key = TileCacheKey::new(source_id, xyz, query);
+        self.0.insert(key, data).await;
+    }
+
+    /// Gets a tile from cache or computes it using the provided function.
+    pub async fn get_or_insert<F, Fut, E>(
+        &self,
+        source_id: &str,
+        xyz: TileCoord,
+        query: Option<&str>,
+        compute: F,
+    ) -> Result<Tile, E>
+    where
+        F: FnOnce() -> Fut,
+        Fut: Future<Output = Result<Tile, E>>,
+    {
+        if let Some(data) = self.get(source_id, xyz, query).await {
+            return Ok(data);
+        }
+
+        let data = compute().await?;
+        self.insert(source_id, xyz, query, data.clone()).await;
+        Ok(data)
+    }
+
+    /// Invalidates all cached tiles for a specific source.
+    pub fn invalidate_source(&self, source_id: &str) {
+        let source_id_owned = source_id.to_string();
+        self.0
+            .invalidate_entries_if(move |key, _| key.source_id == source_id_owned)
+            .expect("invalidate_entries_if predicate should not error");
+        log::info!("Invalidated tile cache for source: {source_id}");
+    }
+
+    /// Invalidates all cached tiles.
+    pub fn invalidate_all(&self) {
+        self.0.invalidate_all();
+        log::info!("Invalidated all tile cache entries");
+    }
+
+    /// Returns the number of cached entries.
+    #[must_use]
+    pub fn entry_count(&self) -> u64 {
+        self.0.entry_count()
+    }
+
+    /// Returns the total size of cached data in bytes.
+    #[must_use]
+    pub fn weighted_size(&self) -> u64 {
+        self.0.weighted_size()
+    }
+}
+
+/// Optional wrapper for `TileCache`.
 pub type OptTileCache = Option<TileCache>;
 
-/// Constant representing no cache configuration.
+/// Constant representing no tile cache configuration.
 pub const NO_TILE_CACHE: OptTileCache = None;
 
-/// Keys used to identify cached items.
-#[derive(Debug, Hash, PartialEq, Eq)]
-pub enum CacheKey {
-    /// `PMTiles` directory cache key with `PMTiles ID` and `offset`.
-    #[cfg(feature = "pmtiles")]
-    PmtDirectory(usize, usize),
-    /// Tile cache key with `source ID` and `coordinates`.
-    Tile(String, TileCoord),
-    /// Tile cache key with `source ID`, [`TileCoord`], and `URL query parameters`.
-    TileWithQuery(String, TileCoord, String),
+/// Cache key for tile data.
+#[derive(Debug, Hash, PartialEq, Eq, Clone)]
+struct TileCacheKey {
+    source_id: String,
+    xyz: TileCoord,
+    query: Option<String>,
 }
 
-/// Values stored in the cache.
-#[derive(Debug, Clone)]
-pub enum CacheValue {
-    /// Cached tile data.
-    Tile(Tile),
-    /// Cached `PMTiles` directory.
-    #[cfg(feature = "pmtiles")]
-    PmtDirectory(pmtiles::Directory),
-}
-
-/// Logs cache operation details for debugging and monitoring.
-#[inline]
-pub fn trace_cache(typ: &'static str, cache: &TileCache, key: &CacheKey) {
-    log::trace!(
-        "Cache {typ} for {key:?} in {name:?} that has {entry_count} entries taking up {weighted_size} space",
-        name = cache.name(),
-        entry_count = cache.entry_count(),
-        weighted_size = cache.weighted_size(),
-    );
-}
-
-/// Extracts typed data from cache values with panic on type mismatch.
-#[macro_export]
-macro_rules! from_cache_value {
-    ($value_type: path, $data: expr, $key: expr) => {
-        if let $value_type(data) = $data {
-            data
-        } else {
-            panic!("Unexpected value type {:?} for key {:?} cache", $data, $key)
+impl TileCacheKey {
+    fn new(source_id: &str, xyz: TileCoord, query: Option<&str>) -> Self {
+        Self {
+            source_id: source_id.to_string(),
+            xyz,
+            query: query.map(ToString::to_string),
         }
-    };
-}
-
-/// Retrieves a value from cache if present, returning None on cache miss.
-#[cfg(feature = "pmtiles")]
-#[macro_export]
-macro_rules! get_cached_value {
-    ($cache: expr, $value_type: path, $make_key: expr) => {
-        if let Some(cache) = $cache {
-            let key = $make_key;
-            if let Some(data) = cache.get(&key).await {
-                $crate::tiles::cache::trace_cache("HIT", cache, &key);
-                Some($crate::from_cache_value!($value_type, data, key))
-            } else {
-                $crate::tiles::cache::trace_cache("MISS", cache, &key);
-                None
-            }
-        } else {
-            None
-        }
-    };
-}
-
-/// Gets a value from cache or computes and inserts it on cache miss.
-#[macro_export]
-macro_rules! get_or_insert_cached_value {
-    ($cache: expr, $value_type: path, $make_item:expr, $make_key: expr) => {{
-        if let Some(cache) = $cache {
-            let key = $make_key;
-            Ok(if let Some(data) = cache.get(&key).await {
-                $crate::tiles::trace_cache("HIT", cache, &key);
-                $crate::from_cache_value!($value_type, data, key)
-            } else {
-                $crate::tiles::trace_cache("MISS", cache, &key);
-                let data = $make_item.await?;
-                cache.insert(key, $value_type(data.clone())).await;
-                data
-            })
-        } else {
-            $make_item.await
-        }
-    }};
+    }
 }

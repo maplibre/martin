@@ -1,77 +1,24 @@
 //! `PMTiles` tile source implementations.
 
 use std::fmt::{Debug, Formatter};
-use std::sync::atomic::AtomicUsize;
-use std::sync::atomic::Ordering::SeqCst;
-use std::sync::{Arc, LazyLock};
+use std::sync::Arc;
 
 use async_trait::async_trait;
 use log::{trace, warn};
 use martin_tile_utils::{Encoding, Format, TileCoord, TileData, TileInfo};
 use object_store::ObjectStore;
-use pmtiles::{
-    AsyncPmTilesReader, Compression, DirCacheResult, Directory, DirectoryCache, ObjectStoreBackend,
-    TileId, TileType,
-};
+use pmtiles::{AsyncPmTilesReader, Compression, ObjectStoreBackend, TileType};
 use tilejson::TileJSON;
 
-use crate::get_cached_value;
-use crate::tiles::cache::{CacheKey, CacheValue, OptTileCache};
+use crate::tiles::pmtiles::PmtCacheInstance;
 use crate::tiles::pmtiles::PmtilesError::{self, InvalidMetadata};
 use crate::tiles::{BoxedSource, MartinCoreResult, Source, UrlQuery};
-
-/// [`pmtiles::Directory`] cache for `PMTiles` files.
-#[derive(Clone, Debug)]
-pub struct PmtCache {
-    /// Unique identifier for this cache instance
-    ///
-    /// Uniqueness invariant is guaranteed by how the struct is constructed
-    id: usize,
-    /// Cache storing (id, offset) -> [`pmtiles::Directory`]
-    ///
-    /// Set to [`None`] to disable caching
-    cache: OptTileCache,
-}
-
-impl From<OptTileCache> for PmtCache {
-    fn from(cache: OptTileCache) -> Self {
-        static NEXT_CACHE_ID: LazyLock<AtomicUsize> = LazyLock::new(|| AtomicUsize::new(0));
-
-        Self {
-            id: NEXT_CACHE_ID.fetch_add(1, SeqCst),
-            cache,
-        }
-    }
-}
-
-impl DirectoryCache for PmtCache {
-    async fn get_dir_entry(&self, offset: usize, tile_id: TileId) -> DirCacheResult {
-        if let Some(dir) = get_cached_value!(&self.cache, CacheValue::PmtDirectory, {
-            CacheKey::PmtDirectory(self.id, offset)
-        }) {
-            dir.find_tile_id(tile_id).into()
-        } else {
-            DirCacheResult::NotCached
-        }
-    }
-
-    async fn insert_dir(&self, offset: usize, directory: Directory) {
-        if let Some(cache) = &self.cache {
-            cache
-                .insert(
-                    CacheKey::PmtDirectory(self.id, offset),
-                    CacheValue::PmtDirectory(directory),
-                )
-                .await;
-        }
-    }
-}
 
 /// A source for `PMTiles` files using `ObjectStoreBackend`
 #[derive(Clone)]
 pub struct PmtilesSource {
     id: String,
-    pmtiles: Arc<AsyncPmTilesReader<ObjectStoreBackend, PmtCache>>,
+    pmtiles: Arc<AsyncPmTilesReader<ObjectStoreBackend, PmtCacheInstance>>,
     tilejson: TileJSON,
     tile_info: TileInfo,
 }
@@ -88,7 +35,7 @@ impl Debug for PmtilesSource {
 impl PmtilesSource {
     /// Create a new `PmtilesSource` from an id, an [`ObjectStore`] and the path of the `.pmtiles` file
     pub async fn new(
-        cache: PmtCache,
+        cache: PmtCacheInstance,
         id: String,
         store: Box<dyn ObjectStore>,
         path: impl Into<object_store::path::Path>,

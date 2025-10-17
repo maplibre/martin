@@ -8,10 +8,7 @@ use actix_web::http::header::{
 use actix_web::web::{Data, Path, Query};
 use actix_web::{HttpMessage, HttpRequest, HttpResponse, Result as ActixResult, route};
 use futures::future::try_join_all;
-use martin_core::get_or_insert_cached_value;
-use martin_core::tiles::{
-    BoxedSource, CacheKey, CacheValue, OptTileCache, Tile, TileCache, UrlQuery,
-};
+use martin_core::tiles::{BoxedSource, OptTileCache, Tile, TileCache, UrlQuery};
 use martin_tile_utils::{
     Encoding, Format, TileCoord, TileData, TileInfo, decode_brotli, decode_gzip, encode_brotli,
     encode_gzip,
@@ -138,19 +135,15 @@ impl<'a> DynTileSource<'a> {
 
     pub async fn get_tile_content(&self, xyz: TileCoord) -> ActixResult<Tile> {
         let mut tiles = try_join_all(self.sources.iter().map(|s| async {
-            get_or_insert_cached_value!(
-                self.cache,
-                CacheValue::Tile,
-                s.get_tile_with_etag(xyz, self.query_obj.as_ref()),
-                {
-                    let id = s.get_id().to_string();
-                    if let Some(query_str) = self.query_str {
-                        CacheKey::TileWithQuery(id, xyz, query_str.to_string())
-                    } else {
-                        CacheKey::Tile(id, xyz)
-                    }
-                }
-            )
+            if let Some(cache) = self.cache {
+                cache
+                    .get_or_insert(s.get_id(), xyz, self.query_str, || {
+                        s.get_tile_with_etag(xyz, self.query_obj.as_ref())
+                    })
+                    .await
+            } else {
+                s.get_tile_with_etag(xyz, self.query_obj.as_ref()).await
+            }
         }))
         .await
         .map_err(map_internal_error)?;
