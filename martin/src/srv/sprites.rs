@@ -122,11 +122,7 @@ async fn get_sprite_sdf_json(
         .body(json))
 }
 
-async fn get_sprite(
-    source_ids: &str,
-    sprites: &SpriteSources,
-    as_sdf: bool,
-) -> ActixResult<Bytes> {
+async fn get_sprite(source_ids: &str, sprites: &SpriteSources, as_sdf: bool) -> ActixResult<Bytes> {
     let sheet = sprites
         .get_sprites(source_ids, as_sdf)
         .await
@@ -138,11 +134,7 @@ async fn get_sprite(
     Ok(Bytes::from(json))
 }
 
-async fn get_index(
-    source_ids: &str,
-    sprites: &SpriteSources,
-    as_sdf: bool,
-) -> ActixResult<Bytes> {
+async fn get_index(source_ids: &str, sprites: &SpriteSources, as_sdf: bool) -> ActixResult<Bytes> {
     let sheet = sprites
         .get_sprites(source_ids, as_sdf)
         .await

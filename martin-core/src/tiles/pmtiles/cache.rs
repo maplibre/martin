@@ -113,7 +113,10 @@ impl pmtiles::DirectoryCache for PmtCacheInstance {
     }
 
     async fn insert_dir(&self, offset: usize, directory: pmtiles::Directory) {
-        self.cache.0.insert(PmtCacheKey::new(self.id, offset), directory).await;
+        self.cache
+            .0
+            .insert(PmtCacheKey::new(self.id, offset), directory)
+            .await;
     }
 }
 
