@@ -70,7 +70,6 @@ mod tests {
             unrecognised.is_empty(),
             "unrecognized config: {unrecognised:?}"
         );
-        cfg.initialize_cache(None).unwrap();
         let FileConfigEnum::Config(cfg) = cfg else {
             panic!();
         };

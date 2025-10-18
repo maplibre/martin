@@ -17,7 +17,9 @@ unused_qualifications = "warn"
 
 [workspace.lints.clippy]
 # Restrictions
+unimplemented = "warn"
 panic_in_result_fn = "warn"
+panic = "warn"
 todo = "warn"
 # Pedantics without being too noisy
 pedantic = { level = "warn", priority = -1 }
@@ -40,6 +42,7 @@ actix-web-static-files = "4"
 anyhow = "1.0"
 approx = "0.5.1"
 async-trait = "0.1"
+base64 = "0.22.1"
 bit-set = "0.8"
 brotli = ">=5, <9"
 clap = { version = "4", features = ["derive", "unstable-markdown", "wrap_help"] }
@@ -93,7 +96,7 @@ sqlx = { version = "0.8.6", features = ["sqlite", "runtime-tokio"] }
 static-files = "0.2"
 subst = { version = "0.3", features = ["yaml"] }
 tempfile = "3.21.0"
-testcontainers-modules = { version = "0.13.0", features = ["postgres"] }
+testcontainers-modules = { version = "0.13.0", features = ["postgres", "blocking"] }
 thiserror = "2"
 tiff = "0.10.1"
 tilejson = "0.4"

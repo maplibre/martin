@@ -3,7 +3,6 @@ use std::path::PathBuf;
 use clap::Parser;
 use clap::builder::Styles;
 use clap::builder::styling::AnsiColor;
-use log::warn;
 use martin_core::config::env::Env;
 
 use super::connections::Arguments;
@@ -90,10 +89,6 @@ impl Args {
         config: &mut Config,
         #[allow(unused_variables)] env: &impl Env<'a>,
     ) -> MartinResult<()> {
-        if self.srv.watch {
-            warn!("The --watch flag is no longer supported, and will be ignored");
-        }
-
         if self.meta.config.is_some() && !self.meta.connection.is_empty() {
             return Err(ConfigAndConnectionsError(self.meta.connection));
         }

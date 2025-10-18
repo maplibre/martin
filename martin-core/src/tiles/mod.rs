@@ -36,3 +36,6 @@ pub use error::{MartinCoreError, MartinCoreResult};
 
 mod tile;
 pub use tile::Tile;
+
+mod cache;
+pub use cache::{NO_TILE_CACHE, OptTileCache, TileCache};

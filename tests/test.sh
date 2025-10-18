@@ -440,8 +440,8 @@ test_pbf table_and_view_two_schemas2_0_0_0  table_and_view_two_schemas.1/0/0/0
 
 kill_process "$MARTIN_PROC_ID" Martin
 
-test_log_has_str "$LOG_FILE" 'WARN  martin::config::file::postgres::resolver::query_tables] Table public.table_source has no spatial index on column geom'
-test_log_has_str "$LOG_FILE" 'WARN  martin::config::file::postgres::resolver::query_tables] Table public.table_source_geog has no spatial index on column geog'
+test_log_has_str "$LOG_FILE" 'WARN  martin::config::file::tiles::postgres::resolver::query_tables] Table public.table_source has no spatial index on column geom'
+test_log_has_str "$LOG_FILE" 'WARN  martin::config::file::tiles::postgres::resolver::query_tables] Table public.table_source_geog has no spatial index on column geog'
 test_log_has_str "$LOG_FILE" 'WARN  martin_core::resources::fonts] Ignoring duplicate font Overpass Mono Regular from tests'
 test_log_has_str "$LOG_FILE" 'was renamed to `stamen_toner__raster_CC-BY-ODbL_z3`'
 test_log_has_str "$LOG_FILE" 'was renamed to `table_source_multiple_geom.1`'
@@ -450,9 +450,9 @@ test_log_has_str "$LOG_FILE" 'was renamed to `.-Points-----------quote`'
 test_log_has_str "$LOG_FILE" 'was renamed to `table_name_existing_two_schemas.1`'
 test_log_has_str "$LOG_FILE" 'was renamed to `view_name_existing_two_schemas.1`'
 test_log_has_str "$LOG_FILE" 'was renamed to `table_and_view_two_schemas.1`'
-test_log_has_str "$LOG_FILE" 'WARN  martin::config::file::pmtiles] Defaulting `pmtiles.allow_http` to `true`. This is likely to become an error in the future for better security.'
-test_log_has_str "$LOG_FILE" 'WARN  martin::config::file::pmtiles] Environment variable AWS_SKIP_CREDENTIALS is deprecated. Please use pmtiles.skip_signature in the configuration file instead.'
-test_log_has_str "$LOG_FILE" 'WARN  martin::config::file::pmtiles] Environment variable AWS_REGION is deprecated. Please use pmtiles.region in the configuration file instead.'
+test_log_has_str "$LOG_FILE" 'WARN  martin::config::file::tiles::pmtiles] Defaulting `pmtiles.allow_http` to `true`. This is likely to become an error in the future for better security.'
+test_log_has_str "$LOG_FILE" 'WARN  martin::config::file::tiles::pmtiles] Environment variable AWS_SKIP_CREDENTIALS is deprecated. Please use pmtiles.skip_signature in the configuration file instead.'
+test_log_has_str "$LOG_FILE" 'WARN  martin::config::file::tiles::pmtiles] Environment variable AWS_REGION is deprecated. Please use pmtiles.region in the configuration file instead.'
 validate_log "$LOG_FILE"
 remove_lines "${TEST_OUT_DIR}/save_config.yaml" " connection_string: "
 echo "::endgroup::"
@@ -476,9 +476,9 @@ wait_for "$MARTIN_PROC_ID" Martin "$MARTIN_URL/health"
 test_jsn catalog_auto catalog
 
 kill_process "$MARTIN_PROC_ID" Martin
-test_log_has_str "$LOG_FILE" 'WARN  martin::config::file::pmtiles] Defaulting `pmtiles.allow_http` to `true`. This is likely to become an error in the future for better security.'
-test_log_has_str "$LOG_FILE" 'WARN  martin::config::file::pmtiles] Environment variable AWS_SKIP_CREDENTIALS is deprecated. Please use pmtiles.skip_signature in the configuration file instead.'
-test_log_has_str "$LOG_FILE" 'WARN  martin::config::file::pmtiles] Environment variable AWS_REGION is deprecated. Please use pmtiles.region in the configuration file instead.'
+test_log_has_str "$LOG_FILE" 'WARN  martin::config::file::tiles::pmtiles] Defaulting `pmtiles.allow_http` to `true`. This is likely to become an error in the future for better security.'
+test_log_has_str "$LOG_FILE" 'WARN  martin::config::file::tiles::pmtiles] Environment variable AWS_SKIP_CREDENTIALS is deprecated. Please use pmtiles.skip_signature in the configuration file instead.'
+test_log_has_str "$LOG_FILE" 'WARN  martin::config::file::tiles::pmtiles] Environment variable AWS_REGION is deprecated. Please use pmtiles.region in the configuration file instead.'
 validate_log "$LOG_FILE"
 echo "::endgroup::"
 
@@ -554,8 +554,8 @@ test_jsn fnc_comment_cfg  function_Mixed_Name
 test_metrics "metrics_1"
 
 kill_process "$MARTIN_PROC_ID" Martin
-test_log_has_str "$LOG_FILE" 'WARN  martin::config::file::postgres::resolver::query_tables] Table public.table_source has no spatial index on column geom'
-test_log_has_str "$LOG_FILE" 'WARN  martin::config::file::postgres::resolver::query_tables] Table public.table_source_geog has no spatial index on column geog'
+test_log_has_str "$LOG_FILE" 'WARN  martin::config::file::tiles::postgres::resolver::query_tables] Table public.table_source has no spatial index on column geom'
+test_log_has_str "$LOG_FILE" 'WARN  martin::config::file::tiles::postgres::resolver::query_tables] Table public.table_source_geog has no spatial index on column geog'
 test_log_has_str "$LOG_FILE" 'WARN  martin_core::resources::fonts] Ignoring duplicate font Overpass Mono Regular from tests'
 test_log_has_str "$LOG_FILE" "WARN  martin::config::file::main] Ignoring unrecognized configuration key 'warning'. Please check your configuration file for typos."
 test_log_has_str "$LOG_FILE" "WARN  martin::config::file::main] Ignoring unrecognized configuration key 'observability.warning'. Please check your configuration file for typos."
@@ -572,9 +572,9 @@ test_log_has_str "$LOG_FILE" "WARN  martin::config::file::main] Ignoring unrecog
 test_log_has_str "$LOG_FILE" "WARN  martin::config::file::main] Ignoring unrecognized configuration key 'sprites.warning'. Please check your configuration file for typos."
 test_log_has_str "$LOG_FILE" "WARN  martin::config::file::main] Ignoring unrecognized configuration key 'cog.warning'. Please check your configuration file for typos."
 test_log_has_str "$LOG_FILE" "WARN  martin::config::file::main] Ignoring unrecognized configuration key 'styles.warning'. Please check your configuration file for typos."
-test_log_has_str "$LOG_FILE" 'WARN  martin::config::file::pmtiles] Defaulting `pmtiles.allow_http` to `true`. This is likely to become an error in the future for better security.'
-test_log_has_str "$LOG_FILE" 'WARN  martin::config::file::pmtiles] Environment variable AWS_SKIP_CREDENTIALS is deprecated. Please use pmtiles.skip_signature in the configuration file instead.'
-test_log_has_str "$LOG_FILE" 'WARN  martin::config::file::pmtiles] Environment variable AWS_REGION is deprecated. Please use pmtiles.region in the configuration file instead.'
+test_log_has_str "$LOG_FILE" 'WARN  martin::config::file::tiles::pmtiles] Defaulting `pmtiles.allow_http` to `true`. This is likely to become an error in the future for better security.'
+test_log_has_str "$LOG_FILE" 'WARN  martin::config::file::tiles::pmtiles] Environment variable AWS_SKIP_CREDENTIALS is deprecated. Please use pmtiles.skip_signature in the configuration file instead.'
+test_log_has_str "$LOG_FILE" 'WARN  martin::config::file::tiles::pmtiles] Environment variable AWS_REGION is deprecated. Please use pmtiles.region in the configuration file instead.'
 validate_log "$LOG_FILE"
 remove_lines "${TEST_OUT_DIR}/save_config.yaml" " connection_string: "
 echo "::endgroup::"

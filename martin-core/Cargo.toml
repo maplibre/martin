@@ -31,8 +31,9 @@ postgres = [
     "dep:semver",
     "dep:tokio-postgres-rustls",
     "dep:serde_json",
+    "_tiles",
 ]
-unstable-cog = ["dep:png", "dep:tiff"]
+unstable-cog = ["dep:png", "dep:tiff", "_tiles"]
 fonts = [
     "dep:bit-set",
     "dep:pbf_font_tools",
@@ -41,6 +42,7 @@ fonts = [
     "dep:dashmap",
 ]
 sprites = [
+    "dep:actix-web",
     "dep:spreet",
     "dep:tokio",
     "tokio/fs",
@@ -48,11 +50,14 @@ sprites = [
     "dep:dashmap",
 ]
 styles = ["dep:walkdir", "tokio/fs", "dep:dashmap"]
-mbtiles = ["dep:mbtiles"]
-pmtiles = ["dep:pmtiles", "dep:object_store"]
+mbtiles = ["dep:mbtiles", "_tiles"]
+pmtiles = ["dep:pmtiles", "dep:object_store", "_tiles"]
+_tiles = ["dep:base64"]
 
 [dependencies]
+actix-web = { workspace = true, optional = true }
 async-trait.workspace = true
+base64  = { workspace = true, optional = true }
 bit-set = { workspace = true, optional = true }
 dashmap = { workspace = true, optional = true }
 deadpool-postgres = { workspace = true, optional = true }
@@ -83,6 +88,7 @@ tilejson.workspace = true
 tokio = { workspace = true, optional = true }
 tokio-postgres-rustls = { workspace = true, optional = true }
 walkdir = { workspace = true, optional = true }
+xxhash-rust.workspace = true
 
 [dev-dependencies]
 approx.workspace = true
