@@ -137,9 +137,12 @@ impl<'a> DynTileSource<'a> {
         let mut tiles = try_join_all(self.sources.iter().map(|s| async {
             if let Some(cache) = self.cache {
                 cache
-                    .get_or_insert(s.get_id(), xyz, self.query_str, || {
-                        s.get_tile_with_etag(xyz, self.query_obj.as_ref())
-                    })
+                    .get_or_insert(
+                        s.get_id().to_string(),
+                        xyz,
+                        self.query_str.map(ToString::to_string),
+                        || s.get_tile_with_etag(xyz, self.query_obj.as_ref()),
+                    )
                     .await
             } else {
                 s.get_tile_with_etag(xyz, self.query_obj.as_ref()).await

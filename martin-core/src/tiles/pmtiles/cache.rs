@@ -53,7 +53,7 @@ impl PmtCacheInstance {
     }
 
     /// Retrieves a directory from cache if present.
-    pub async fn get(&self, offset: usize) -> Option<pmtiles::Directory> {
+    async fn get(&self, offset: usize) -> Option<pmtiles::Directory> {
         let key = PmtCacheKey::new(self.id, offset);
         let result = self.cache.0.get(&key).await;
 
@@ -72,12 +72,6 @@ impl PmtCacheInstance {
         }
 
         result
-    }
-
-    /// Inserts a directory into the cache.
-    pub async fn insert(&self, offset: usize, directory: pmtiles::Directory) {
-        let key = PmtCacheKey::new(self.id, offset);
-        self.cache.0.insert(key, directory).await;
     }
 
     /// Returns the cache ID.
@@ -119,7 +113,10 @@ impl pmtiles::DirectoryCache for PmtCacheInstance {
     }
 
     async fn insert_dir(&self, offset: usize, directory: pmtiles::Directory) {
-        self.insert(offset, directory).await;
+        self.cache
+            .0
+            .insert(PmtCacheKey::new(self.id, offset), directory)
+            .await;
     }
 }
 

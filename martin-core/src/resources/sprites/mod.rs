@@ -34,6 +34,9 @@ use self::SpriteError::{SpriteInstError, SpriteParsingError, SpriteProcessingErr
 mod error;
 pub use error::SpriteError;
 
+mod cache;
+pub use cache::{NO_SPRITE_CACHE, OptSpriteCache, SpriteCache};
+
 /// Sprite source metadata.
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CatalogSpriteEntry {

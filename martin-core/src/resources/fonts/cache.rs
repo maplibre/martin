@@ -28,33 +28,26 @@ impl FontCache {
     }
 
     /// Retrieves a font range from cache if present.
-    pub async fn get(&self, ids: &str, start: u32, end: u32) -> Option<Vec<u8>> {
-        let key = FontCacheKey::new(ids, start, end);
-        let result = self.cache.get(&key).await;
+    async fn get(&self, key: &FontCacheKey) -> Option<Vec<u8>> {
+        let result = self.cache.get(key).await;
 
         if result.is_some() {
             log::trace!(
-                "Font cache HIT for ids={ids}, range={start}-{end} (entries={}, size={})",
+                "Font cache HIT for {key:?} (entries={}, size={})",
                 self.cache.entry_count(),
                 self.cache.weighted_size()
             );
         } else {
-            log::trace!("Font cache MISS for ids={ids}, range={start}-{end}");
+            log::trace!("Font cache MISS for {key:?}");
         }
 
         result
     }
 
-    /// Inserts a font range into the cache.
-    pub async fn insert(&self, ids: &str, start: u32, end: u32, data: Vec<u8>) {
-        let key = FontCacheKey::new(ids, start, end);
-        self.cache.insert(key, data).await;
-    }
-
     /// Gets a font range from cache or computes it using the provided function.
     pub async fn get_or_insert<F, E>(
         &self,
-        ids: &str,
+        ids: String,
         start: u32,
         end: u32,
         compute: F,
@@ -62,12 +55,13 @@ impl FontCache {
     where
         F: FnOnce() -> Result<Vec<u8>, E>,
     {
-        if let Some(data) = self.get(ids, start, end).await {
+        let key = FontCacheKey::new(ids, start, end);
+        if let Some(data) = self.get(&key).await {
             return Ok(data);
         }
 
         let data = compute()?;
-        self.insert(ids, start, end, data.clone()).await;
+        self.cache.insert(key, data.clone()).await;
         Ok(data)
     }
 
@@ -108,11 +102,7 @@ struct FontCacheKey {
 }
 
 impl FontCacheKey {
-    fn new(ids: &str, start: u32, end: u32) -> Self {
-        Self {
-            ids: ids.to_string(),
-            start,
-            end,
-        }
+    fn new(ids: String, start: u32, end: u32) -> Self {
+        Self { ids, start, end }
     }
 }
