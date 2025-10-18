@@ -38,7 +38,7 @@ describe('formatFileSize', () => {
   });
 
   it("returns 'File too large' for values exceeding TB", () => {
-    expect(formatFileSize(1_000_000_000_000_000)).toBe('File too large');
+    expect(formatFileSize(1125899906842624)).toBe('File too large');
     expect(formatFileSize(Number.MAX_SAFE_INTEGER)).toBe('File too large');
   });
 });

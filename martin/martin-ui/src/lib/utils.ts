@@ -17,7 +17,7 @@ export function formatFileSize(bytes: number): string {
 
   // there are no half-bit princes. This is not harry potter..
   bytes = Math.floor(bytes);
-  const k = 1024;
+  const k = 1000;
   const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
 
