@@ -33,33 +33,26 @@ impl SpriteCache {
     }
 
     /// Retrieves a sprite sheet from cache if present.
-    pub async fn get(&self, ids: &str, as_sdf: bool, as_json: bool) -> Option<Bytes> {
-        let key = SpriteCacheKey::new(ids.to_string(), as_sdf, as_json);
-        let result = self.cache.get(&key).await;
+    async fn get(&self, key: &SpriteCacheKey) -> Option<Bytes> {
+        let result = self.cache.get(key).await;
 
         if result.is_some() {
             log::trace!(
-                "Sprite cache HIT for ids={ids}, sdf={as_sdf} json={as_json} (entries={}, size={})",
+                "Sprite cache HIT for {key:?} (entries={}, size={})",
                 self.cache.entry_count(),
                 self.cache.weighted_size()
             );
         } else {
-            log::trace!("Sprite cache MISS for ids={ids}, sdf={as_sdf}, json={as_json}");
+            log::trace!("Sprite cache MISS for {key:?}");
         }
 
         result
     }
 
-    /// Inserts a sprite sheet into the cache.
-    pub async fn insert(&self, ids: &str, as_sdf: bool, as_json: bool, bytes: Bytes) {
-        let key = SpriteCacheKey::new(ids.to_string(), as_sdf, as_json);
-        self.cache.insert(key, bytes).await;
-    }
-
     /// Gets a json sprite sheet from cache or computes it using the provided function.
     pub async fn get_or_insert<F, Fut, E>(
         &self,
-        ids: &str,
+        ids: String,
         as_sdf: bool,
         as_json: bool,
         compute: F,
@@ -68,12 +61,13 @@ impl SpriteCache {
         F: FnOnce() -> Fut,
         Fut: Future<Output = Result<Bytes, E>>,
     {
-        if let Some(data) = self.get(ids, as_sdf, as_json).await {
+        let key = SpriteCacheKey::new(ids, as_sdf, as_json);
+        if let Some(data) = self.get(&key).await {
             return Ok(data);
         }
 
         let data = compute().await?;
-        self.insert(ids, as_sdf, as_json, data.clone()).await;
+        self.cache.insert(key, data.clone()).await;
         Ok(data)
     }
 

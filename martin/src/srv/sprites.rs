@@ -30,12 +30,12 @@ async fn get_sprite_png(
     let is_sdf = false;
     let png = if let Some(cache) = cache.as_ref() {
         cache
-            .get_or_insert(&path.source_ids, is_sdf, false, async || {
-                get_sprite(&path, &sprites, is_sdf).await
+            .get_or_insert(path.source_ids.clone(), is_sdf, false, async || {
+                get_sprite(&path.source_ids, &sprites, is_sdf).await
             })
             .await?
     } else {
-        get_sprite(&path, &sprites, is_sdf).await?
+        get_sprite(&path.source_ids, &sprites, is_sdf).await?
     };
     Ok(HttpResponse::Ok()
         .content_type(ContentType::png())
@@ -56,12 +56,12 @@ async fn get_sprite_sdf_png(
     let is_sdf = true;
     let png = if let Some(cache) = cache.as_ref() {
         cache
-            .get_or_insert(&path.source_ids, is_sdf, false, async || {
-                get_sprite(&path, &sprites, is_sdf).await
+            .get_or_insert(path.source_ids.clone(), is_sdf, false, async || {
+                get_sprite(&path.source_ids, &sprites, is_sdf).await
             })
             .await?
     } else {
-        get_sprite(&path, &sprites, is_sdf).await?
+        get_sprite(&path.source_ids, &sprites, is_sdf).await?
     };
     Ok(HttpResponse::Ok()
         .content_type(ContentType::png())
@@ -83,12 +83,12 @@ async fn get_sprite_json(
     let is_sdf = false;
     let json = if let Some(cache) = cache.as_ref() {
         cache
-            .get_or_insert(&path.source_ids, is_sdf, true, async || {
-                get_index(&path, &sprites, is_sdf).await
+            .get_or_insert(path.source_ids.clone(), is_sdf, true, async || {
+                get_index(&path.source_ids, &sprites, is_sdf).await
             })
             .await?
     } else {
-        get_index(&path, &sprites, is_sdf).await?
+        get_index(&path.source_ids, &sprites, is_sdf).await?
     };
     Ok(HttpResponse::Ok()
         .content_type(ContentType::json())
@@ -110,12 +110,12 @@ async fn get_sprite_sdf_json(
     let is_sdf = true;
     let json = if let Some(cache) = cache.as_ref() {
         cache
-            .get_or_insert(&path.source_ids, is_sdf, true, async || {
-                get_index(&path, &sprites, is_sdf).await
+            .get_or_insert(path.source_ids.clone(), is_sdf, true, async || {
+                get_index(&path.source_ids, &sprites, is_sdf).await
             })
             .await?
     } else {
-        get_index(&path, &sprites, is_sdf).await?
+        get_index(&path.source_ids, &sprites, is_sdf).await?
     };
     Ok(HttpResponse::Ok()
         .content_type(ContentType::json())
@@ -123,12 +123,12 @@ async fn get_sprite_sdf_json(
 }
 
 async fn get_sprite(
-    path: &SourceIDsRequest,
+    source_ids: &str,
     sprites: &SpriteSources,
     as_sdf: bool,
 ) -> ActixResult<Bytes> {
     let sheet = sprites
-        .get_sprites(&path.source_ids, as_sdf)
+        .get_sprites(source_ids, as_sdf)
         .await
         .map_err(|e| match e {
             SpriteError::SpriteNotFound(_) => ErrorNotFound(e.to_string()),
@@ -139,12 +139,12 @@ async fn get_sprite(
 }
 
 async fn get_index(
-    path: &SourceIDsRequest,
+    source_ids: &str,
     sprites: &SpriteSources,
     as_sdf: bool,
 ) -> ActixResult<Bytes> {
     let sheet = sprites
-        .get_sprites(&path.source_ids, as_sdf)
+        .get_sprites(source_ids, as_sdf)
         .await
         .map_err(|e| match e {
             SpriteError::SpriteNotFound(_) => ErrorNotFound(e.to_string()),
