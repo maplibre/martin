@@ -5,8 +5,8 @@ CREATE TABLE fixtures_comments (
 );
 
 INSERT INTO fixtures_comments (txt, geom) VALUES
-('a', ST_GEOMFROMTEXT('POINT(-122.4194 37.7749)', 4326)),
-('b', ST_GEOMFROMTEXT('POINT(-73.935242 40.730610)', 4326));
+('a', ST_GeomFromText('POINT(-122.4194 37.7749)', 4326)),
+('b', ST_GeomFromText('POINT(-73.935242 40.730610)', 4326));
 
 CREATE MATERIALIZED VIEW fixtures_mv_comments AS
 SELECT
