@@ -498,14 +498,17 @@ fn warn_on_rename(old_id: &String, new_id: &String, typ: &str) {
 }
 
 fn summary(info: &TableInfo) -> String {
-    let relkind = match info.is_view {
-        Some('v') => "view",
-        Some('m') => "materialized view",
-        _ => "table",
+    let long_relkind = match info.relkind.as_deref() {
+        Some("v") => "view".to_string(),
+        Some("m") => "materialized view".to_string(),
+        Some("t") => "table".to_string(),
+        // if we get to either of below lines, this is likely a bug
+        Some(r) => format!("unknown relkind={r}"),
+        None => "unknown relkind".to_string(),
     };
     // TODO: add column_id to the summary if it is set
     format!(
-        "{relkind} {}.{} with {} column ({}, SRID={})",
+        "{long_relkind} {}.{} with {} column ({}, SRID={})",
         info.schema,
         info.table,
         info.geometry_column,

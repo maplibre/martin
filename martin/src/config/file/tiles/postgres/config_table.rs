@@ -32,9 +32,12 @@ pub struct TableInfo {
     #[serde(skip)]
     pub geometry_index: Option<bool>,
 
-    /// Flag indicating if table is actually a view (`PostgreSQL relkind = 'v'`) or a Materialized View (`relkind = 'm'`)
+    /// Flag indicating the `PostgreSQL relkind`:
+    /// - `"t"`: Table
+    /// - `"v"`: View
+    /// - `"m"`: Materialized View
     #[serde(skip)]
-    pub is_view: Option<char>,
+    pub relkind: Option<String>,
 
     /// Feature id column name
     pub id_column: Option<String>,
@@ -131,7 +134,7 @@ impl TableInfo {
             geometry_column: self.geometry_column.clone(),
             // These values are not serialized, so copy auto-detected values from the database
             geometry_index: self.geometry_index,
-            is_view: self.is_view,
+            relkind: self.relkind.clone(),
             tilejson: self.tilejson.clone(),
             // Srid requires some logic
             srid: self.calc_srid(new_id, cfg_inf.srid, default_srid)?,
