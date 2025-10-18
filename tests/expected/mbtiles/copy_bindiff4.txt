@@ -1,6 +1,6 @@
 MBTiles file summary for tests/mbtiles_temp_files/world_cities_bindiff_modified.mbtiles
 Schema: flat
-File size: 3.00KiB
+File size: 3.00KB
 Page size: 512B
 Page count: 6
 
