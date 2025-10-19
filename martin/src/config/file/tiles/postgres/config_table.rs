@@ -37,7 +37,7 @@ pub struct TableInfo {
     /// - `"v"`: View
     /// - `"m"`: Materialized View
     #[serde(skip)]
-    pub relkind: Option<String>,
+    pub relkind: Option<char>,
 
     /// Feature id column name
     pub id_column: Option<String>,

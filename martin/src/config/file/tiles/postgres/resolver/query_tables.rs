@@ -53,12 +53,13 @@ pub async fn query_available_tables(pool: &PostgresPool) -> PostgresResult<SqlTa
             None
         };
 
+        let relkind: Option<i8> = row.get("relkind");
         let info = TableInfo {
             schema,
             table,
             geometry_column: row.get("geom"),
             geometry_index: row.get("geom_idx"),
-            relkind: row.get("relkind"),
+            relkind: relkind.map(|r| u8::try_from(r).ok().map(char::from)).flatten(),
             srid: row.get("srid"), // casting i32 to u32?
             geometry_type: row.get("type"),
             properties: Some(serde_json::from_value(row.get("properties")).unwrap()),
@@ -68,7 +69,7 @@ pub async fn query_available_tables(pool: &PostgresPool) -> PostgresResult<SqlTa
 
         // Warn for missing geometry indices.
         // Ignore views since those can't have indices and will generally refer to table columns.
-        if info.geometry_index == Some(false) && info.relkind.as_deref() != Some("v") {
+        if info.geometry_index == Some(false) && info.relkind != Some('v') {
             warn!(
                 "Table {}.{} has no spatial index on column {}",
                 info.schema, info.table, info.geometry_column
