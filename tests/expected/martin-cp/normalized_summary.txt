@@ -3,7 +3,7 @@ Schema: normalized
 Page size: 512B
 
  Zoom |   Count   | Smallest  |  Largest  |  Average  | Bounding Box
-    0 |         1 |   20.7KiB |   20.7KiB |   20.7KiB | -180,-85,180,85
-    1 |         4 |   11.8KiB |   20.6KiB |   16.4KiB | -180,-85,180,85
-  all |         5 |   11.8KiB |   20.7KiB |   17.2KiB | -180,-85,180,85
+    0 |         1 |    21.2kB |    21.2kB |    21.2kB | -180,-85,180,85
+    1 |         4 |    12.0kB |    21.1kB |    16.8kB | -180,-85,180,85
+  all |         5 |    12.0kB |    21.2kB |    17.6kB | -180,-85,180,85
 

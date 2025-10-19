@@ -537,7 +537,18 @@ jobs:
           tests/test.sh
       - name: Compare test output results (Linux)
         if: matrix.target == 'x86_64-unknown-linux-gnu'
-        run: diff --brief --recursive --new-file --exclude='*.pbf' tests/output tests/expected
+        run: |
+          if ! diff --brief --recursive --new-file --exclude='*.pbf' tests/output tests/expected; then
+            echo "** Expected output does not match actual output"
+            echo "** If this is expected, run 'just bless' to update expected output"
+            echo ""
+            echo "::group::Resulting diff (max 100 lines)"
+            diff --recursive --new-file --exclude='*.pbf' tests/output tests/expected | head -n 100 | cat --show-nonprinting
+            echo "::endgroup::"
+            exit 1
+          else
+              echo "** Expected output matches actual output"
+          fi
       - name: Download Debian package (Linux)
         if: matrix.target == 'x86_64-unknown-linux-gnu'
         uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
