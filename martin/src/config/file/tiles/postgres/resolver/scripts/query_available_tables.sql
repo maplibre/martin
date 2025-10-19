@@ -52,7 +52,7 @@ annotated_geometry_columns AS (
         geometry_columns.srid,
         geometry_columns.type,
         -- 'geometry' AS column_type
-        cls.relkind AS relkind,
+        cls.relkind,
         bool_or(sic.column_name IS NOT null) AS geom_idx
     FROM geometry_columns
     INNER JOIN pg_catalog.pg_namespace AS ns
@@ -79,7 +79,7 @@ annotated_geography_columns AS (
         geography_columns.srid,
         geography_columns.type,
         -- 'geography' AS column_type
-        cls.relkind AS relkind,
+        cls.relkind,
         bool_or(sic.column_name IS NOT null) AS geom_idx
     FROM geography_columns
     INNER JOIN pg_catalog.pg_namespace AS ns

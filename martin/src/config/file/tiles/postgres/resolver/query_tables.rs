@@ -59,7 +59,9 @@ pub async fn query_available_tables(pool: &PostgresPool) -> PostgresResult<SqlTa
             table,
             geometry_column: row.get("geom"),
             geometry_index: row.get("geom_idx"),
-            relkind: relkind.map(|r| u8::try_from(r).ok().map(char::from)).flatten(),
+            relkind: relkind
+                .map(|r| u8::try_from(r).ok().map(char::from))
+                .flatten(),
             srid: row.get("srid"), // casting i32 to u32?
             geometry_type: row.get("type"),
             properties: Some(serde_json::from_value(row.get("properties")).unwrap()),
