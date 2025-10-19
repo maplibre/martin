@@ -5,8 +5,8 @@ use async_trait::async_trait;
 use martin_tile_utils::{TileCoord, TileData, TileInfo};
 use tilejson::TileJSON;
 
-use crate::tiles::MartinCoreResult;
 use crate::tiles::catalog::CatalogSourceEntry;
+use crate::tiles::{MartinCoreResult, Tile};
 
 /// URL query parameters for dynamic tile generation.
 pub type UrlQuery = HashMap<String, String>;
@@ -15,7 +15,7 @@ pub type UrlQuery = HashMap<String, String>;
 ///
 /// Implementors can serve tiles from databases, files, or other backends.
 #[async_trait]
-pub trait Source: Send + Debug {
+pub trait Source: Send + Sync + Debug {
     /// Unique source identifier used in URLs.
     fn get_id(&self) -> &str;
 
@@ -55,6 +55,23 @@ pub trait Source: Send + Debug {
         xyz: TileCoord,
         url_query: Option<&UrlQuery>,
     ) -> MartinCoreResult<TileData>;
+
+    /// Retrieves tile with etag for the given coordinates.
+    ///
+    /// Default implementation calls [`get_tile()`](Self::get_tile) and computes etag using `xxh3_128`.
+    /// Sources can override this for more performance.
+    ///
+    /// # Arguments
+    /// * `xyz` - Tile coordinates (x, y, zoom)
+    /// * `url_query` - Optional query parameters for dynamic tiles
+    async fn get_tile_with_etag(
+        &self,
+        xyz: TileCoord,
+        url_query: Option<&UrlQuery>,
+    ) -> MartinCoreResult<Tile> {
+        let data = self.get_tile(xyz, url_query).await?;
+        Ok(Tile::new_hash_etag(data, self.get_tile_info()))
+    }
 
     /// Validates zoom level against `TileJSON` min/max zoom constraints.
     fn is_valid_zoom(&self, zoom: u8) -> bool {

@@ -67,7 +67,7 @@ pub type StyleConfig = FileConfigEnum<InnerStyleConfig>;
 
 impl StyleConfig {
     pub fn resolve(&mut self) -> ConfigFileResult<StyleSources> {
-        let Some(cfg) = self.extract_file_config(None)? else {
+        let Some(cfg) = self.extract_file_config() else {
             return Ok(StyleSources::default());
         };
 

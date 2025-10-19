@@ -3872,15 +3872,16 @@ dependencies = [
  "tokio",
  "url",
  "walkdir",
- "xxhash-rust",
 ]
 
 [[package]]
 name = "martin-core"
 version = "0.1.3"
 dependencies = [
+ "actix-web",
  "approx",
  "async-trait",
+ "base64 0.22.1",
  "bit-set",
  "dashmap",
  "deadpool-postgres",
@@ -3916,6 +3917,7 @@ dependencies = [
  "tokio",
  "tokio-postgres-rustls",
  "walkdir",
+ "xxhash-rust",
 ]
 
 [[package]]

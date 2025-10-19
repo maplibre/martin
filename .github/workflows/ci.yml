@@ -41,7 +41,7 @@ jobs:
       PGPASSWORD: postgres
     services:
       postgres:
-        image: postgis/postgis:16-3.5
+        image: postgis/postgis:18-3.6
         ports:
           # will assign a random free host port
           - 5432/tcp
@@ -59,7 +59,7 @@ jobs:
           --health-timeout 5s
           --health-retries 5
           --entrypoint sh
-          postgis/postgis:16-3.5
+          postgis/postgis:18-3.6
           -c "exec docker-entrypoint.sh postgres -c ssl=on -c ssl_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem -c ssl_key_file=/etc/ssl/private/ssl-cert-snakeoil.key"
     steps:
       - run: rustup update stable && rustup default stable
@@ -172,7 +172,7 @@ jobs:
       PGPASSWORD: postgres
     services:
       postgres:
-        image: postgis/postgis:16-3.5
+        image: postgis/postgis:18-3.6
         ports:
           - 5432/tcp
         options: >-
@@ -187,7 +187,7 @@ jobs:
           --health-timeout 5s
           --health-retries 5
           --entrypoint sh
-          postgis/postgis:16-3.5
+          postgis/postgis:18-3.6
           -c "exec docker-entrypoint.sh postgres -c ssl=on -c ssl_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem -c ssl_key_file=/etc/ssl/private/ssl-cert-snakeoil.key"
 
     steps:
@@ -511,7 +511,7 @@ jobs:
           --health-interval=10s \
           --health-timeout=5s \
           --health-retries=5 \
-          postgis/postgis:16-3.5 \
+          postgis/postgis:18-3.6 \
           postgres \
           -c ssl=on \
           -c ssl_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem  \
@@ -558,7 +558,18 @@ jobs:
           tests/test.sh
       - name: Compare test output results (Linux)
         if: matrix.target == 'x86_64-unknown-linux-gnu'
-        run: diff --brief --recursive --new-file --exclude='*.pbf' tests/output tests/expected
+        run: |
+          if ! diff --brief --recursive --new-file --exclude='*.pbf' tests/output tests/expected; then
+            echo "** Expected output does not match actual output"
+            echo "** If this is expected, run 'just bless' to update expected output"
+            echo ""
+            echo "::group::Resulting diff (max 100 lines)"
+            diff --recursive --new-file --exclude='*.pbf' tests/output tests/expected | head -n 100 | cat --show-nonprinting
+            echo "::endgroup::"
+            exit 1
+          else
+              echo "** Expected output matches actual output"
+          fi
       - name: Download Debian package (Linux)
         if: matrix.target == 'x86_64-unknown-linux-gnu'
         uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
@@ -601,11 +612,11 @@ jobs:
           - img_ver: 11-3.0-alpine
             args: postgres
             sslmode: disable
-          - img_ver: 16-3.5-alpine
+          - img_ver: 18-3.6-alpine
             args: postgres
             sslmode: disable
           # alpine images don't support SSL, so for this we use the debian images
-          - img_ver: 16-3.5
+          - img_ver: 18-3.6
             args: postgres -c ssl=on -c ssl_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem -c ssl_key_file=/etc/ssl/private/ssl-cert-snakeoil.key
             sslmode: require
           #

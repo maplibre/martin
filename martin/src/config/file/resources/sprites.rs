@@ -12,7 +12,7 @@ use crate::config::file::{
 pub type SpriteConfig = FileConfigEnum<InnerSpriteConfig>;
 impl SpriteConfig {
     pub fn resolve(&mut self) -> ConfigFileResult<SpriteSources> {
-        let Some(cfg) = self.extract_file_config(None)? else {
+        let Some(cfg) = self.extract_file_config() else {
             return Ok(SpriteSources::default());
         };
 
@@ -45,8 +45,14 @@ impl SpriteConfig {
     }
 }
 
+#[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct InnerSpriteConfig {
+    /// Size of the sprite cache in megabytes (0 to disable)
+    ///
+    /// Overrides [`cache_size_mb`](crate::config::file::Config::cache_size_mb).
+    pub cache_size_mb: Option<u64>,
+
     #[serde(flatten, skip_serializing)]
     pub unrecognized: UnrecognizedValues,
 }

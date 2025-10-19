@@ -1,4 +1,4 @@
-#![allow(
+#![expect(
     clippy::cast_possible_truncation,
     clippy::cast_precision_loss,
     clippy::cast_sign_loss
@@ -10,7 +10,7 @@ use std::str::FromStr;
 
 use martin_tile_utils::{get_zoom_precision, xyz_to_bbox};
 use serde::Serialize;
-use size_format::SizeFormatterBinary;
+use size_format::SizeFormatterSI;
 use sqlx::{SqliteExecutor, query};
 use tilejson::Bounds;
 
@@ -47,12 +47,12 @@ impl Display for Summary {
         writeln!(f, "Schema: {}", self.mbt_type)?;
 
         if let Some(file_size) = self.file_size {
-            let file_size = SizeFormatterBinary::new(file_size);
+            let file_size = SizeFormatterSI::new(file_size);
             writeln!(f, "File size: {file_size:.2}B")?;
         } else {
             writeln!(f, "File size: unknown")?;
         }
-        let page_size = SizeFormatterBinary::new(self.page_size);
+        let page_size = SizeFormatterSI::new(self.page_size);
         writeln!(f, "Page size: {page_size:.2}B")?;
         writeln!(f, "Page count: {:.2}", self.page_count)?;
         writeln!(f)?;
@@ -63,9 +63,9 @@ impl Display for Summary {
         )?;
 
         for l in &self.zoom_info {
-            let min = SizeFormatterBinary::new(l.min_tile_size);
-            let max = SizeFormatterBinary::new(l.max_tile_size);
-            let avg = SizeFormatterBinary::new(l.avg_tile_size as u64);
+            let min = SizeFormatterSI::new(l.min_tile_size);
+            let max = SizeFormatterSI::new(l.max_tile_size);
+            let avg = SizeFormatterSI::new(l.avg_tile_size as u64);
             let prec = get_zoom_precision(l.zoom);
 
             writeln!(
@@ -88,9 +88,9 @@ impl Display for Summary {
                 self.max_zoom,
             )
         {
-            let min = SizeFormatterBinary::new(min);
-            let max = SizeFormatterBinary::new(max);
-            let avg = SizeFormatterBinary::new(self.avg_tile_size as u64);
+            let min = SizeFormatterSI::new(min);
+            let max = SizeFormatterSI::new(max);
+            let avg = SizeFormatterSI::new(self.avg_tile_size as u64);
             let prec = get_zoom_precision(max_zoom);
             writeln!(
                 f,
@@ -197,8 +197,6 @@ impl Mbtiles {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unreadable_literal)]
-
     use insta::assert_yaml_snapshot;
 
     use crate::metadata::anonymous_mbtiles;

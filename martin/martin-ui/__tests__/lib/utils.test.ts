@@ -14,29 +14,30 @@ describe('formatFileSize', () => {
   });
 
   it('formats bytes correctly for typical values', () => {
-    expect(formatFileSize(1)).toBe('1 Bytes');
+    expect(formatFileSize(0)).toBe('0 Bytes');
+    expect(formatFileSize(1)).toBe('1 Byte');
+    expect(formatFileSize(2)).toBe('2 Bytes');
     expect(formatFileSize(512)).toBe('512 Bytes');
-    expect(formatFileSize(1024)).toBe('1 KiB');
-    expect(formatFileSize(1536)).toBe('1.5 KiB');
-    expect(formatFileSize(1048576)).toBe('1 MiB');
-    expect(formatFileSize(1073741824)).toBe('1 GiB');
-    expect(formatFileSize(1099511627776)).toBe('1 TiB');
+    expect(formatFileSize(1000)).toBe('1 KB');
+    expect(formatFileSize(1500)).toBe('1.5 KB');
+    expect(formatFileSize(1_000_000)).toBe('1 MB');
+    expect(formatFileSize(1_000_000_000)).toBe('1 GB');
+    expect(formatFileSize(1_000_000_000_000)).toBe('1 TB');
   });
 
-  it('formats bytes correctly if passed nonsenical floats', () => {
+  it('formats bytes correctly if passed nonsensical floats', () => {
     expect(formatFileSize(1.2345)).toBe('1 Bytes');
-    expect(formatFileSize(1512.345)).toBe('1.48 KiB');
+    expect(formatFileSize(1512.345)).toBe('1.51 KB');
   });
 
   it('formats with two decimal places for non-integer values', () => {
-    expect(formatFileSize(1234)).toBe('1.21 KiB');
-    expect(formatFileSize(10485760)).toBe('10 MiB');
-    expect(formatFileSize(10737418240)).toBe('10 GiB');
-    expect(formatFileSize(1100585369600)).toBe('1 TiB');
+    expect(formatFileSize(1234)).toBe('1.23 KB');
+    expect(formatFileSize(10_000_000)).toBe('10 MB');
+    expect(formatFileSize(10_000_000_000)).toBe('10 GB');
+    expect(formatFileSize(1_000_000_000_000)).toBe('1 TB');
   });
 
   it("returns 'File too large' for values exceeding TB", () => {
-    // 1 PB (petabyte) = 1024 TB
     expect(formatFileSize(1125899906842624)).toBe('File too large');
     expect(formatFileSize(Number.MAX_SAFE_INTEGER)).toBe('File too large');
   });
