@@ -4,9 +4,10 @@ use std::path::PathBuf;
 
 use pbf_font_tools::PbfFontError;
 
-use super::CP_RANGE_SIZE;
+use crate::resources::fonts::CP_RANGE_SIZE;
 
 /// Errors that can occur during font processing operations.
+#[non_exhaustive]
 #[derive(thiserror::Error, Debug)]
 pub enum FontError {
     /// The requested font ID was not found in the font catalog.
@@ -39,7 +40,7 @@ pub enum FontError {
 
     /// An I/O error occurred while accessing a font file or directory.
     #[error("IO error accessing {1}: {0}")]
-    IoError(std::io::Error, PathBuf),
+    IoError(#[source] std::io::Error, PathBuf),
 
     /// The specified path is not a valid font file (supports .ttf, .otf, .ttc).
     #[error("Invalid font file {0}")]

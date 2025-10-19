@@ -17,7 +17,6 @@ export CARGO_TERM_COLOR := 'always'
 # Set AWS variables for testing pmtiles from S3
 export AWS_SKIP_CREDENTIALS := '1'
 export AWS_REGION := 'eu-central-1'
-
 #export RUST_LOG := 'debug'
 #export RUST_LOG := 'sqlx::query=info,trace'
 #export RUST_BACKTRACE := '1'
@@ -65,7 +64,7 @@ biomejs-martin-ui:
     npm run lint
 
 # Run integration tests and save its output as the new expected output (ordering is important)
-bless: restart clean-test bless-insta-martin bless-insta-mbtiles bless-frontend bless-int
+bless: restart clean-test bless-insta-martin bless-insta-martin-core bless-insta-mbtiles bless-frontend bless-int
 
 # Bless the frontend tests
 [working-directory: 'martin/martin-ui']
@@ -78,7 +77,11 @@ bless-insta-cp *args:  (cargo-install 'cargo-insta')
 
 # Run integration tests and save its output as the new expected output
 bless-insta-martin *args:  (cargo-install 'cargo-insta')
-    cargo insta test --accept -p martin {{args}}
+    cargo insta test --accept --bin martin {{args}}
+
+# Run integration tests and save its output as the new expected output
+bless-insta-martin-core *args:  (cargo-install 'cargo-insta')
+    cargo insta test --accept -p martin-core {{args}}
 
 # Run integration tests and save its output as the new expected output
 bless-insta-mbtiles *args:  (cargo-install 'cargo-insta')
@@ -92,20 +95,12 @@ bless-int:
     rm -rf tests/expected && mv tests/output tests/expected
 
 # Build and open mdbook documentation
-book:  (cargo-install 'mdbook') (cargo-install 'mdbook-alerts')
+book:  (cargo-install 'mdbook') (cargo-install 'mdbook-alerts') (cargo-install 'mdbook-tabs')
     mdbook serve docs --open --port 8321
 
 # Quick compile without building a binary
-check:
-    cargo check --all-targets -p martin-tile-utils
-    cargo check --all-targets -p mbtiles
-    cargo check --all-targets -p mbtiles --no-default-features
-    cargo check --all-targets -p martin
-    cargo check --all-targets -p martin --no-default-features
-    for feature in $({{just_executable()}} get-features); do \
-        echo "Checking '$feature' feature" >&2 ;\
-        cargo check --all-targets -p martin --no-default-features --features $feature ;\
-    done
+check: (cargo-install 'cargo-hack')
+    cargo hack --exclude-features _tiles check --all-targets --each-feature --workspace
 
 # Test documentation generation
 check-doc:  (docs '')
@@ -142,8 +137,14 @@ coverage *args='--no-clean --open':  (cargo-install 'cargo-llvm-cov') clean star
     source <(cargo llvm-cov show-env --export-prefix)
     cargo llvm-cov clean --workspace
 
+    echo "::group::Unit tests"
     {{just_executable()}} test-cargo --all-targets
+    echo "::endgroup::"
+
+    # echo "::group::Documentation tests"
     # {{just_executable()}} test-doc <- deliberately disabled until --doctest for cargo-llvm-cov does not hang indefinitely
+    # echo "::endgroup::"
+
     {{just_executable()}} test-int
 
     cargo llvm-cov report {{args}}
@@ -202,15 +203,12 @@ fmt-md:
 
 # Reformat all SQL files using docker
 fmt-sql:
-    docker run -it --rm -v $PWD:/sql sqlfluff/sqlfluff:latest fix --dialect=postgres --exclude-rules=AL07,LT05,LT12
+    docker run -it --rm -v $PWD:/sql sqlfluff/sqlfluff:latest fix --dialect=postgres --exclude-rules=AL07,LT05,LT12 --exclude '^tests/fixtures/(mbtiles|files)/.*\.sql$'
+    docker run -it --rm -v $PWD:/sql sqlfluff/sqlfluff:latest fix --dialect=sqlite --exclude-rules=LT01,LT05 --files '^tests/fixtures/(mbtiles|files)/.*\.sql$'
 
 # Reformat all Cargo.toml files using cargo-sort
 fmt-toml *args: (cargo-install 'cargo-sort')
     cargo sort --workspace --order package,lib,bin,bench,features,dependencies,build-dependencies,dev-dependencies {{args}}
-
-# Get all testable features of the main crate as space-separated list
-get-features:
-    cargo metadata --format-version=1 --no-deps --manifest-path Cargo.toml | jq -r '.packages[] | select(.name == "{{main_crate}}") | .features | keys[] | select(. != "default")' | tr '\n' ' '
 
 # Do any git command, ensuring that the testing environment is set up. Accepts the same arguments as git.
 [no-exit-message]
@@ -328,6 +326,10 @@ test-int: clean-test install-sqlx
         if ! diff --brief --recursive --new-file --exclude='*.pbf' tests/output tests/expected; then
             echo "** Expected output does not match actual output"
             echo "** If this is expected, run 'just bless' to update expected output"
+            echo ""
+            echo "::group::Resulting diff (max 100 lines)"
+            diff --recursive --new-file --exclude='*.pbf' tests/output tests/expected | head -n 100 | cat --show-nonprinting
+            echo "::endgroup::"
             exit 1
         else
             echo "** Expected output matches actual output"

@@ -4,7 +4,7 @@ If you don't want to expose all of your tables and functions, you can list your 
 start Martin with a configuration file you need to pass a path to a file with a `--config` argument. Config files may
 contain environment variables, which will be expanded before parsing. For example, to use `MY_DATABASE_URL` in your
 config file: `connection_string: ${MY_DATABASE_URL}`, or with a
-default `connection_string: ${MY_DATABASE_URL:-postgresql://postgres@localhost/db}`
+default `connection_string: ${MY_DATABASE_URL:-postgres://postgres@localhost/db}`
 
 ```bash
 martin --config config.yaml
@@ -81,8 +81,8 @@ postgres:
   #
   # You can use environment variables too, for example:
   # connection_string: $DATABASE_URL
-  # connection_string: ${DATABASE_URL:-postgresql://postgres@localhost/db}
-  connection_string: 'postgresql://postgres@localhost:5432/db'
+  # connection_string: ${DATABASE_URL:-postgres://postgres@localhost/db}
+  connection_string: 'postgres://postgres@localhost:5432/db'
 
   # Same as PGSSLCERT for psql
   ssl_cert: './postgresql.crt'
@@ -201,6 +201,10 @@ postgres:
       geometry_type: GEOMETRY
 
       # List of columns, that should be encoded as tile properties (required)
+      #
+      # Keys and values are the names and descriptions of attributes available in this layer.
+      # Each value (description) must be a string that describes the underlying data.
+      # If no fields (=just the geometry) should be encoded, an empty object is allowed.
       properties:
         gid: int4
 
@@ -227,15 +231,18 @@ postgres:
 
 # Publish PMTiles files from local disk or proxy to a web server
 pmtiles:
-  # Allows forcing path style URLs for S3 buckets [default: false]
+  # You can pass options for pmtiles files located on remote storages here.
   #
-  # A path style URL is a URL that uses the bucket name as part of the path like
-  # example.org/some_bucket instead of the hostname some_bucket.example.org
-  force_path_style: false
-  # Skip loading credentials for S3 buckets [default: false]
+  # The avaliable options are documented here:
+  # - local file sources don't have options
+  # - Http(s) Source: https://docs.rs/object_store/latest/object_store/http/struct.HttpBuilder.html
+  # - Amazon S3: https://docs.rs/object_store/latest/object_store/aws/struct.AmazonS3Builder.html
+  # - Google Cloud Storage: https://docs.rs/object_store/latest/object_store/gcp/struct.GoogleCloudStorageBuilder.html
+  # - Microsoft Azure: https://docs.rs/object_store/latest/object_store/azure/struct.MicrosoftAzureBuilder.html
   #
-  # Set this to true to request anonymously for publicly available buckets.
-  skip_credentials: false
+  # Example for configuring a source to allow http
+  allow_http: true
+
   paths:
     # scan this whole dir, matching all *.pmtiles files
     - /dir-path
@@ -307,4 +314,23 @@ styles:
      some_style_name: /path/to/this/style.json
      #  Publish specific file as `other_style_name`
      other_style_name: /path/to/other_style.json
+
+# If set, the version of the tileset (as specified in the MBTiles or PMTiles metadata)
+# will be embedded in the TileJSON `tiles` URL, with the set identifier.
+# This is useful to give clients a better way to cache-bust a CDN:
+# 1. maplibre requests tilejson, tilejson contains the tiles URL. This is always up-to-date.
+# 2. maplibre requests each tile it requires, with the tiles URL in the tilejson.
+# 3. Add `Control: public, max-age=..., immutable` on the tile responses
+#    optimize browser/CDN cache hit rates, while also making sure that
+#    old tiles aren't served when a new tileset is deployed.
+#
+# The CDN must handle query parameters for caching to work correctly.
+# Many CDNs ignore them by default.
+#
+# For example, if
+# - the setting here is `version`, and
+# - the PMTiles tileset version is `1.0.0`, the
+# TileJSON will be:
+# { ..., "tiles": [".../{z}/{x}/{y}?version=1.0.0"], ... }
+tilejson_url_version_param: null # a string, such as `version` or `v`
 ```

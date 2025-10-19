@@ -1,5 +1,6 @@
 use criterion::async_executor::FuturesExecutor;
 use criterion::{Criterion, criterion_group, criterion_main};
+#[cfg(feature = "_tiles")]
 use martin::TileSources;
 use martin::srv::DynTileSource;
 use martin_tile_utils::TileCoord;
@@ -7,9 +8,9 @@ use pprof::criterion::{Output, PProfProfiler};
 
 mod sources {
     use async_trait::async_trait;
-    use martin::{Source, TileData, UrlQuery};
-    use martin_core::tiles::{MartinCoreResult, catalog::CatalogSourceEntry};
-    use martin_tile_utils::{Encoding, Format, TileCoord, TileInfo};
+    use martin_core::tiles::catalog::CatalogSourceEntry;
+    use martin_core::tiles::{MartinCoreError, MartinCoreResult, Source, UrlQuery};
+    use martin_tile_utils::{Encoding, Format, TileCoord, TileData, TileInfo};
     use tilejson::{TileJSON, tilejson};
 
     #[derive(Clone, Debug)]
@@ -100,7 +101,8 @@ mod sources {
             _xyz: TileCoord,
             _url_query: Option<&UrlQuery>,
         ) -> MartinCoreResult<TileData> {
-            Err(Box::new(std::io::Error::other("some error".to_string())))
+            let error = std::io::Error::other("some error".to_string());
+            Err(MartinCoreError::OtherError(Box::new(error)))
         }
 
         fn get_catalog_entry(&self) -> CatalogSourceEntry {
@@ -110,17 +112,19 @@ mod sources {
 }
 
 async fn process_null_tile(sources: &TileSources) {
-    let src = DynTileSource::new(sources, "null", Some(0), "", None, None, None, None).unwrap();
+    let src = DynTileSource::new(sources, "null", Some(0), "", None, None, None, None)
+        .expect("null source can be created");
     src.get_http_response(TileCoord { z: 0, x: 0, y: 0 })
         .await
-        .unwrap();
+        .expect("null source returns empty tile");
 }
 
 async fn process_error_tile(sources: &TileSources) {
-    let src = DynTileSource::new(sources, "error", Some(0), "", None, None, None, None).unwrap();
+    let src = DynTileSource::new(sources, "error", Some(0), "", None, None, None, None)
+        .expect("error source can be created");
     src.get_http_response(TileCoord { z: 0, x: 0, y: 0 })
         .await
-        .unwrap_err();
+        .expect_err("error source returns an error");
 }
 
 fn bench_null_source(c: &mut Criterion) {

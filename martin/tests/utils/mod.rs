@@ -1,6 +1,4 @@
-#![allow(clippy::missing_panics_doc)]
-#![allow(clippy::redundant_clone)]
-#![allow(clippy::unused_async)]
+#![cfg(test)]
 
 mod pg_utils;
 use actix_web::dev::ServiceResponse;
@@ -18,8 +16,8 @@ pub fn mock_cfg(yaml: &str) -> Config {
         warn!("DATABASE_URL env var is not set. Might not be able to do integration tests");
         FauxEnv::default()
     };
-    let mut cfg: Config = subst::yaml::from_str(yaml, &env).unwrap();
-    let res = cfg.finalize().unwrap();
+    let mut cfg: Config = subst::yaml::from_str(yaml, &env).expect("source can be parsed as yaml");
+    let res = cfg.finalize().expect("source can be finalized");
     assert!(res.is_empty(), "unrecognized config: {res:?}");
     cfg
 }

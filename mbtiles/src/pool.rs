@@ -13,12 +13,6 @@ pub struct MbtilesPool {
 }
 
 impl MbtilesPool {
-    #[deprecated(note = "Use `MbtilesPool::open_readonly` instead")]
-    #[doc(hidden)]
-    pub async fn new<P: AsRef<Path>>(filepath: P) -> MbtResult<Self> {
-        Self::open_readonly(filepath).await
-    }
-
     /// Open a `MBTiles` file in read-only mode.
     pub async fn open_readonly<P: AsRef<Path>>(filepath: P) -> MbtResult<Self> {
         let mbtiles = Mbtiles::new(filepath)?;
@@ -82,17 +76,19 @@ impl MbtilesPool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::metadata::temp_named_mbtiles;
 
     #[tokio::test]
     async fn test_metadata_invalid() {
-        let pool = MbtilesPool::open_readonly("../tests/fixtures/mbtiles/webp.mbtiles")
-            .await
-            .unwrap();
+        let script = include_str!("../../tests/fixtures/mbtiles/webp.sql");
+        let (_mbt, _conn, file) = temp_named_mbtiles("test_metadata_invalid", script).await;
+
+        let pool = MbtilesPool::open_readonly(file).await.unwrap();
         // invalid type
         assert!(pool.detect_type().await.is_err());
         let metadata = pool.get_metadata().await.unwrap();
         insta::assert_yaml_snapshot!(metadata, @r#"
-        id: webp
+        id: "file:test_metadata_invalid?mode=memory&cache=shared"
         tile_info:
           format: webp
           encoding: ""
@@ -118,9 +114,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_contains_invalid() {
-        let pool = MbtilesPool::open_readonly("../tests/fixtures/mbtiles/webp.mbtiles")
-            .await
-            .unwrap();
+        let script = include_str!("../../tests/fixtures/mbtiles/webp.sql");
+        let (_mbt, _conn, file) = temp_named_mbtiles("test_contains_invalid", script).await;
+
+        let pool = MbtilesPool::open_readonly(file).await.unwrap();
         assert!(pool.detect_type().await.is_err());
 
         assert!(pool.contains(MbtType::Flat, 0, 0, 0).await.unwrap());
@@ -135,9 +132,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_invalid_type() {
-        let pool = MbtilesPool::open_readonly("../tests/fixtures/mbtiles/webp.mbtiles")
-            .await
-            .unwrap();
+        let script = include_str!("../../tests/fixtures/mbtiles/webp.sql");
+        let (_mbt, _conn, file) = temp_named_mbtiles("test_invalid_type", script).await;
+
+        let pool = MbtilesPool::open_readonly(file).await.unwrap();
 
         // invalid type => cannot hash properly, but can get tile
         assert!(pool.detect_type().await.is_err());
@@ -162,18 +160,17 @@ mod tests {
 
     #[tokio::test]
     async fn test_metadata_normalized() {
-        let pool = MbtilesPool::open_readonly(
-            "../tests/fixtures/mbtiles/geography-class-png-no-bounds.mbtiles",
-        )
-        .await
-        .unwrap();
+        let script = include_str!("../../tests/fixtures/mbtiles/geography-class-png-no-bounds.sql");
+        let (_mbt, _conn, file) = temp_named_mbtiles("test_metadata_normalized", script).await;
+
+        let pool = MbtilesPool::open_readonly(file).await.unwrap();
         assert_eq!(
             pool.detect_type().await.unwrap(),
             MbtType::Normalized { hash_view: false }
         );
         let metadata = pool.get_metadata().await.unwrap();
         insta::assert_yaml_snapshot!(metadata, @r#"
-        id: geography-class-png-no-bounds
+        id: "file:test_metadata_normalized?mode=memory&cache=shared"
         tile_info:
           format: png
           encoding: ""
@@ -192,11 +189,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_contains_normalized() {
-        let pool = MbtilesPool::open_readonly(
-            "../tests/fixtures/mbtiles/geography-class-png-no-bounds.mbtiles",
-        )
-        .await
-        .unwrap();
+        let script = include_str!("../../tests/fixtures/mbtiles/geography-class-png-no-bounds.sql");
+        let (_mbt, _conn, file) = temp_named_mbtiles("test_contains_normalized", script).await;
+
+        let pool = MbtilesPool::open_readonly(file).await.unwrap();
         assert_eq!(
             pool.detect_type().await.unwrap(),
             MbtType::Normalized { hash_view: false }
@@ -214,11 +210,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_normalized() {
-        let pool = MbtilesPool::open_readonly(
-            "../tests/fixtures/mbtiles/geography-class-png-no-bounds.mbtiles",
-        )
-        .await
-        .unwrap();
+        let script = include_str!("../../tests/fixtures/mbtiles/geography-class-png-no-bounds.sql");
+        let (_mbt, _conn, file) = temp_named_mbtiles("test_normalized", script).await;
+
+        let pool = MbtilesPool::open_readonly(file).await.unwrap();
         assert_eq!(
             pool.detect_type().await.unwrap(),
             MbtType::Normalized { hash_view: false }
@@ -254,14 +249,14 @@ mod tests {
     #[expect(clippy::too_many_lines)]
     #[tokio::test]
     async fn test_metadata_flat_with_hash() {
-        let pool =
-            MbtilesPool::open_readonly("../tests/fixtures/mbtiles/zoomed_world_cities.mbtiles")
-                .await
-                .unwrap();
+        let script = include_str!("../../tests/fixtures/mbtiles/zoomed_world_cities.sql");
+        let (_mbt, _conn, file) = temp_named_mbtiles("test_metadata_flat_with_hash", script).await;
+
+        let pool = MbtilesPool::open_readonly(file).await.unwrap();
         assert_eq!(pool.detect_type().await.unwrap(), MbtType::FlatWithHash);
         let metadata = pool.get_metadata().await.unwrap();
         insta::assert_yaml_snapshot!(metadata, @r#"
-        id: zoomed_world_cities
+        id: "file:test_metadata_flat_with_hash?mode=memory&cache=shared"
         tile_info:
           format: mvt
           encoding: gzip
@@ -378,10 +373,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_contains_flat_with_hash() {
-        let pool =
-            MbtilesPool::open_readonly("../tests/fixtures/mbtiles/zoomed_world_cities.mbtiles")
-                .await
-                .unwrap();
+        let script = include_str!("../../tests/fixtures/mbtiles/zoomed_world_cities.sql");
+        let (_mbt, _conn, file) = temp_named_mbtiles("test_contains_flat_with_hash", script).await;
+
+        let pool = MbtilesPool::open_readonly(file).await.unwrap();
         assert_eq!(pool.detect_type().await.unwrap(), MbtType::FlatWithHash);
         for working_mbt_type in [MbtType::FlatWithHash, MbtType::Flat] {
             assert!(pool.contains(working_mbt_type, 6, 38, 19).await.unwrap());
@@ -396,10 +391,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_flat_with_hash() {
-        let pool =
-            MbtilesPool::open_readonly("../tests/fixtures/mbtiles/zoomed_world_cities.mbtiles")
-                .await
-                .unwrap();
+        let script = include_str!("../../tests/fixtures/mbtiles/zoomed_world_cities.sql");
+        let (_mbt, _conn, file) = temp_named_mbtiles("test_flat_with_hash", script).await;
+
+        let pool = MbtilesPool::open_readonly(file).await.unwrap();
         assert_eq!(pool.detect_type().await.unwrap(), MbtType::FlatWithHash);
         let t1 = pool.get_tile(6, 38, 19).await.unwrap().unwrap();
         assert!(!t1.is_empty());

@@ -1,0 +1,25 @@
+.mdbook-tabs {
+  display: flex;
+}
+
+.mdbook-tab {
+  padding: 0.5rem 1rem;
+  font-size: 1.6rem;
+  line-height: 1.45em;
+  cursor: pointer;
+  background-color: var(--table-alternate-bg);
+  border: none;
+}
+
+.mdbook-tab.active {
+  font-weight: bold;
+  background-color: var(--table-header-bg);
+}
+
+.mdbook-tab-content {
+  padding: 1rem 0rem;
+}
+
+.mdbook-tab-content table {
+  margin: unset;
+}

@@ -135,7 +135,7 @@ docker compose up
 Test SSL Connection via
 
 ```bash
-PGSSLROOTCERT=ca-cert.pem psql "postgresql://postgres:password@localhost:5432/postgres?sslmode=verify-full"
+PGSSLROOTCERT=ca-cert.pem psql "postgres://postgres:password@localhost:5432/postgres?sslmode=verify-full"
 ```
 
 > [!TIP]
@@ -166,7 +166,7 @@ You do not need to configure things twice.
 
   ```bash
   export PGSSLROOTCERT=./ca-cert.pem
-  export DATABASE_URL="postgresql://postgres:password@localhost:5432/postgres?sslmode=verify-full"
+  export DATABASE_URL="postgres://postgres:password@localhost:5432/postgres?sslmode=verify-full"
   martin
   ```
 
@@ -177,7 +177,7 @@ You do not need to configure things twice.
   ```yaml
   postgres:
     ssl_root_cert: './ca-cert.pem'
-    connection_string: 'postgresql://postgres:password@localhost:5432/postgres?sslmode=verify-full'
+    connection_string: 'postgres://postgres:password@localhost:5432/postgres?sslmode=verify-full'
   ```
 
   </details>
@@ -186,7 +186,7 @@ You do not need to configure things twice.
 
   ```bash
   martin --ca-root-file ./ca-cert.pem \
-        "postgresql://postgres:password@localhost:5432/postgres?sslmode=verify-full"
+        "postgres://postgres:password@localhost:5432/postgres?sslmode=verify-full"
   ```
 
   </details>
@@ -202,7 +202,7 @@ export PGSSLROOTCERT=./ca-cert.pem
 psql -h localhost -U postgres -d postgres -v
 
 # Debug Martin
-RUST_LOG=debug martin postgresql://...
+RUST_LOG=debug martin postgres://...
 ```
 
 These are the errors that can occur:

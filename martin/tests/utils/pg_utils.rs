@@ -1,19 +1,13 @@
 use indoc::formatdoc;
-use martin::Source;
 #[cfg(feature = "postgres")]
-use martin::config::file::pg::TableInfo;
+use martin::config::file::postgres::TableInfo;
 use martin::config::file::{Config, ServerState};
+use martin_core::tiles::BoxedSource;
 
 use crate::mock_cfg;
 
-//
-// This file is used by many tests and benchmarks.
-// Each function should allow dead_code as they might not be used by a specific test file.
-//
-
 pub type MockSource = (ServerState, Config);
 
-#[allow(dead_code)]
 #[must_use]
 pub fn mock_pgcfg(yaml: &str) -> Config {
     mock_cfg(&formatdoc! {"
@@ -22,7 +16,6 @@ pub fn mock_pgcfg(yaml: &str) -> Config {
     ", yaml.replace('\n', "\n  ")})
 }
 
-#[allow(dead_code)]
 pub async fn mock_sources(mut config: Config) -> MockSource {
     let res = config.resolve().await;
     let res = res.unwrap_or_else(|e| panic!("Failed to resolve config {config:?}: {e}"));
@@ -30,7 +23,6 @@ pub async fn mock_sources(mut config: Config) -> MockSource {
 }
 
 #[cfg(feature = "postgres")]
-#[allow(dead_code)]
 #[must_use]
 pub fn table<'a>(mock: &'a MockSource, name: &str) -> &'a TableInfo {
     let (_, config) = mock;
@@ -44,9 +36,8 @@ pub fn table<'a>(mock: &'a MockSource, name: &str) -> &'a TableInfo {
     vals[0]
 }
 
-#[allow(dead_code)]
 #[must_use]
-pub fn source(mock: &MockSource, name: &str) -> Box<dyn Source> {
+pub fn source(mock: &MockSource, name: &str) -> BoxedSource {
     let (sources, _) = mock;
-    sources.tiles.get_source(name).unwrap()
+    sources.tiles.get_source(name).expect("source can be found")
 }
