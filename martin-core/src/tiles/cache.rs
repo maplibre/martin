@@ -23,9 +23,8 @@ impl TileCache {
     }
 
     /// Retrieves a tile from cache if present.
-    pub async fn get(&self, source_id: &str, xyz: TileCoord, query: Option<&str>) -> Option<Tile> {
-        let key = TileCacheKey::new(source_id, xyz, query);
-        let result = self.0.get(&key).await;
+    async fn get(&self, key: &TileCacheKey) -> Option<Tile> {
+        let result = self.0.get(key).await;
 
         if result.is_some() {
             log::trace!(
@@ -34,36 +33,31 @@ impl TileCache {
                 size = self.0.weighted_size()
             );
         } else {
-            log::trace!("Tile cache MISS for {key:?}, query={query:?}");
+            log::trace!("Tile cache MISS for {key:?}");
         }
 
         result
     }
 
-    /// Inserts a tile into the cache.
-    pub async fn insert(&self, source_id: &str, xyz: TileCoord, query: Option<&str>, data: Tile) {
-        let key = TileCacheKey::new(source_id, xyz, query);
-        self.0.insert(key, data).await;
-    }
-
     /// Gets a tile from cache or computes it using the provided function.
     pub async fn get_or_insert<F, Fut, E>(
         &self,
-        source_id: &str,
+        source_id: String,
         xyz: TileCoord,
-        query: Option<&str>,
+        query: Option<String>,
         compute: F,
     ) -> Result<Tile, E>
     where
         F: FnOnce() -> Fut,
         Fut: Future<Output = Result<Tile, E>>,
     {
-        if let Some(data) = self.get(source_id, xyz, query).await {
+        let key = TileCacheKey::new(source_id, xyz, query);
+        if let Some(data) = self.get(&key).await {
             return Ok(data);
         }
 
         let data = compute().await?;
-        self.insert(source_id, xyz, query, data.clone()).await;
+        self.0.insert(key, data.clone()).await;
         Ok(data)
     }
 
@@ -110,11 +104,11 @@ struct TileCacheKey {
 }
 
 impl TileCacheKey {
-    fn new(source_id: &str, xyz: TileCoord, query: Option<&str>) -> Self {
+    fn new(source_id: String, xyz: TileCoord, query: Option<String>) -> Self {
         Self {
-            source_id: source_id.to_string(),
+            source_id,
             xyz,
-            query: query.map(ToString::to_string),
+            query,
         }
     }
 }

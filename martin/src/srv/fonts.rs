@@ -30,7 +30,7 @@ async fn get_font(
 ) -> ActixResult<HttpResponse> {
     let result = if let Some(cache) = cache.as_ref() {
         cache
-            .get_or_insert(&path.fontstack, path.start, path.end, || {
+            .get_or_insert(path.fontstack.clone(), path.start, path.end, || {
                 fonts.get_font_range(&path.fontstack, path.start, path.end)
             })
             .await
