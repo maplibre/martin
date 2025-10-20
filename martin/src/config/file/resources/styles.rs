@@ -2,6 +2,8 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use log::warn;
+#[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
+use martin_core::config::OptBoolObj;
 use martin_core::styles::StyleSources;
 use serde::{Deserialize, Serialize};
 
@@ -12,11 +14,50 @@ use crate::config::file::{
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct InnerStyleConfig {
+    /// Allows static, server side, style rendering
+    ///
+    /// Note on EXPERIMENTAL status:
+    /// We are not currently happy with the performance of this endpoint and intend to improve this in the future
+    /// Marking this experimental means that we are not stuck with single threaded performance as a default until v2.0
+    #[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
+    pub experimental_rendering: OptBoolObj<RendererConfig>,
+
     #[serde(flatten, skip_serializing)]
     pub unrecognized: UnrecognizedValues,
 }
 
 impl ConfigurationLivecycleHooks for InnerStyleConfig {
+    fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
+        #[allow(unused_mut)]
+        let mut keys = self
+            .unrecognized
+            .keys()
+            .cloned()
+            .collect::<UnrecognizedKeys>();
+        #[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
+        match &self.experimental_rendering {
+            OptBoolObj::NoValue | OptBoolObj::Bool(_) => {}
+            OptBoolObj::Object(o) => keys.extend(
+                o.get_unrecognized_keys()
+                    .iter()
+                    .map(|k| format!("experimental_rendering.{k}")),
+            ),
+        }
+        keys
+    }
+}
+
+#[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct RendererConfig {
+    // Same effect as experimental_rendering: true|false shorthands
+    enabled: bool,
+
+    #[serde(flatten, skip_serializing)]
+    pub unrecognized: UnrecognizedValues,
+}
+#[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
+impl ConfigurationLivecycleHooks for RendererConfig {
     fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
         self.unrecognized.keys().cloned().collect()
     }
@@ -31,6 +72,19 @@ impl StyleConfig {
         };
 
         let mut results = StyleSources::default();
+
+        #[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
+        match cfg.custom.experimental_rendering {
+            OptBoolObj::NoValue | OptBoolObj::Bool(false) => results.set_rendering_enabled(false),
+            OptBoolObj::Object(ref o) if !o.enabled => results.set_rendering_enabled(false),
+            _ => {
+                warn!(
+                    "experimental feature rendering is enabled. Expect breaking changes in upcoming releases."
+                );
+                results.set_rendering_enabled(true);
+            }
+        }
+
         let mut configs = BTreeMap::new();
 
         if let Some(sources) = cfg.sources {

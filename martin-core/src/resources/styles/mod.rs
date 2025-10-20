@@ -19,7 +19,14 @@ use std::path::PathBuf;
 
 use dashmap::{DashMap, Entry};
 use log::{info, warn};
+#[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
+use maplibre_native::Image;
 use serde::{Deserialize, Serialize};
+
+#[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
+mod error;
+#[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
+pub use error::StyleError;
 
 /// Style metadata.
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
@@ -33,7 +40,12 @@ pub type StyleCatalog = HashMap<String, CatalogStyleEntry>;
 
 /// Thread-safe style source manager.
 #[derive(Debug, Clone, Default)]
-pub struct StyleSources(DashMap<String, StyleSource>);
+pub struct StyleSources {
+    sources: DashMap<String, StyleSource>,
+    // if rendering is allowed
+    #[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
+    rendering_enabled: bool,
+}
 
 /// Style source file.
 #[derive(Clone, Debug)]
@@ -46,7 +58,7 @@ impl StyleSources {
     #[must_use]
     pub fn style_json_path(&self, style_id: &str) -> Option<PathBuf> {
         let style_id = style_id.trim_end_matches(".json").trim();
-        let item = self.0.get(style_id)?;
+        let item = self.sources.get(style_id)?;
         Some(item.path.clone())
     }
 
@@ -54,7 +66,7 @@ impl StyleSources {
     #[must_use]
     pub fn get_catalog(&self) -> StyleCatalog {
         let mut entries = StyleCatalog::new();
-        for source in &self.0 {
+        for source in &self.sources {
             entries.insert(
                 source.key().clone(),
                 CatalogStyleEntry {
@@ -69,7 +81,7 @@ impl StyleSources {
     pub fn add_style(&mut self, id: String, path: PathBuf) {
         debug_assert!(path.is_file());
         debug_assert!(!id.is_empty());
-        match self.0.entry(id) {
+        match self.sources.entry(id) {
             Entry::Occupied(v) => {
                 warn!(
                     "Ignoring duplicate style source {id} from {new_path} because it was already configured for {old_path}",
@@ -92,19 +104,48 @@ impl StyleSources {
     /// Returns the number of style sources.
     #[must_use]
     pub fn len(&self) -> usize {
-        self.0.len()
+        self.sources.len()
     }
 
     /// Returns true if the catalog is empty.
     #[must_use]
     pub fn is_empty(&self) -> bool {
-        self.0.is_empty()
+        self.sources.is_empty()
+    }
+
+    /// EXPERIMENTAL support for rendering styles.
+    ///
+    /// Assumptions:
+    /// - martin is not an interactive renderer (think 60fps, embedded)
+    /// - We are not rendering the same tile all the time (instead, it is cached)
+    ///
+    /// For now, we only use a static renderer which is optimized for our kind of usage
+    /// In the future, we may consider adding support for smarter rendering including a pool of renderers.
+    #[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
+    pub async fn render(&self, path: PathBuf, z: u8, x: u32, y: u32) -> Result<Image, StyleError> {
+        if !self.rendering_enabled {
+            return Err(StyleError::RenderingIsDisabled);
+        }
+
+        let image = maplibre_native::SingleThreadedRenderPool::global_pool()
+            .render_tile(path, z, x, y)
+            .await?;
+        Ok(image)
+    }
+
+    /// Enable or disable rendering.
+    #[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
+    pub fn set_rendering_enabled(&mut self, arg: bool) {
+        self.rendering_enabled = arg;
     }
 }
 
 #[cfg(test)]
 mod tests {
     use std::path::Path;
+
+    #[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
+    use rstest::rstest;
 
     use super::*;
 
@@ -125,7 +166,7 @@ mod tests {
             "osm-liberty-lite".to_string(),
             style_dir.join("src2").join("osm-liberty-lite.json"),
         );
-        assert_eq!(styles.0.len(), 3);
+        assert_eq!(styles.sources.len(), 3);
 
         let catalog = styles.get_catalog();
 
@@ -164,5 +205,39 @@ mod tests {
             styles.style_json_path("osm-liberty-lite.json"),
             Some(src2_dir.join("osm-liberty-lite.json"))
         );
+    }
+
+    #[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
+    #[rstest]
+    #[case::maplibre_demo("maplibre_demo.json", (0, 0, 0))]
+    #[case::maplibre_demo_zoom1("maplibre_demo.json", (1, 0, 0))]
+    #[case::maptiler_basic("src2/maptiler_basic.json", (0, 0, 0))]
+    #[tokio::test]
+    async fn test_render_tile_with_fixtures(
+        #[case] style_file: &str,
+        #[case] (z, x, y): (u8, u32, u32),
+    ) {
+        let style_dir = Path::new("../tests/fixtures/styles/");
+        let style_path = style_dir.join(style_file);
+        let mut styles = StyleSources::default();
+        styles.set_rendering_enabled(true);
+
+        let image = styles.render(style_path, z, x, y).await.unwrap();
+
+        let mut img_buffer = std::io::Cursor::new(Vec::new());
+        image
+            .as_image()
+            .write_to(&mut img_buffer, image::ImageFormat::Png)
+            .unwrap();
+
+        // Create a snapshot name based on the style and coordinates
+        let snapshot_name = format!(
+            "{}_{}_{}_{}.png",
+            style_file.replace('/', "_").replace(".json", ""),
+            z,
+            x,
+            y
+        );
+        insta::assert_binary_snapshot!(&snapshot_name, img_buffer.into_inner());
     }
 }
