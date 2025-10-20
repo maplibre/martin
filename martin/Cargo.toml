@@ -99,16 +99,9 @@ default = [
     "webui",
     "ogcapi",
 ]
-<<<<<<< HEAD
-<<<<<<< HEAD
 ogcapi = ["dep:ogcapi-types"]
-cog = ["martin-core/cog"]
-=======
-unstable-cog = ["martin-core/unstable-cog"]
->>>>>>> 1064cc32 (fix(cog)!: rename `cog` feature to `unstable-cog` (#2285))
-=======
 unstable-cog = ["martin-core/unstable-cog", "_tiles"]
->>>>>>> 34b6b3aa (chore(core): add a `_tiles` feature  to simplify our feature configuration (#2296))
+unstable-rendering = ["styles", "martin-core/unstable-rendering", "dep:image"]
 fonts = ["martin-core/fonts"]
 lambda = ["dep:lambda-web"]
 mbtiles = ["martin-core/mbtiles", "dep:mbtiles", "_tiles"]
@@ -141,6 +134,7 @@ dashmap.workspace = true
 enum-display = { workspace = true, optional = true }
 env_logger.workspace = true
 futures.workspace = true
+image = { workspace = true, optional = true }
 itertools.workspace = true
 json-patch = { workspace = true, optional = true }
 lambda-web = { workspace = true, optional = true }
@@ -149,11 +143,8 @@ martin-core.workspace = true
 martin-tile-utils.workspace = true
 mbtiles = { workspace = true, optional = true }
 num_cpus.workspace = true
-<<<<<<< HEAD
 ogcapi-types = { workspace = true, features = ["tiles"], optional = true }
-=======
 object_store = { workspace = true, optional = true }
->>>>>>> 1d60131d (feat(pmtiles)!: change pmtiles to base the implementation on `object_storage` instead (#2251))
 postgis = { workspace = true, optional = true }
 postgres-protocol = { workspace = true, optional = true }
 rustls.workspace = true

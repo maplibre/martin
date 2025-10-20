@@ -22,3 +22,6 @@ mod styles;
 
 #[cfg(feature = "ogcapi")]
 pub mod ogcapi;
+
+#[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
+mod styles_rendering;
