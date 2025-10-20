@@ -262,8 +262,27 @@ but in the future, we may optimise Martin which may result in additional restric
 <p>Changes or removals of styles are reflected immediately, but additions are not.
 A restart of Martin is required to see new styles.</p>
 <h3 id="server-side-raster-tile-rendering"><a class="header" href="#server-side-raster-tile-rendering">Server-side raster tile rendering</a></h3>
-<p>This is not implemented yet, but there is a plan to add it.
-Please see <a href="https://github.com/maplibre/martin/issues/978">https://github.com/maplibre/martin/issues/978</a> for more information.</p>
+<div class="mdbook-alerts mdbook-alerts-note">
+<p class="mdbook-alerts-title">
+  <span class="mdbook-alerts-icon"></span>
+  note
+</p>
+<p>This feature is currently marked as unstable/experimental and thus not included in the default build.
+The behaviour on this endpoint may change in patch releases.</p>
+<p>To enable it, build Martin with the <code>--features=unstable-rendering</code> flag after installing the nessesary dependencys via <code>just install-dependencies</code>.</p>
+<p>It is experimental due to the limitations of our current implementation:</p>
+<ul>
+<li>Rendering support is currently only available on Linux.
+To add support for macOS/Windows, please see <a href="https://github.com/maplibre/maplibre-native-rs">https://github.com/maplibre/maplibre-native-rs</a>.</li>
+<li>Currently, martin does not cache style rendered requests and</li>
+<li>does not support concurrency for this feature.</li>
+</ul>
+</div>
+<p>We support generating a rasterised image for an XYZ tile of a given style.
+Use the <code>/style/&lt;style_id&gt;/{z}/{x}/{y}.{filetype}</code> API to get a <code>&lt;style_id&gt;</code>’s rendered png/jpeg content.</p>
+<h3 id="static-image-prepraration"><a class="header" href="#static-image-prepraration">Static image prepraration</a></h3>
+<p>We currently do not have the same <a href="https://tileserver.readthedocs.io/en/latest/endpoints.html#static-images">capabilites as Tileserver-GL</a> to layout images.
+We are working on adding this feature and are very open to contributions.</p>
 
                     </main>
 
