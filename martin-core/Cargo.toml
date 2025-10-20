@@ -50,7 +50,6 @@ sprites = [
     "dep:futures",
     "dep:dashmap",
 ]
-unstable-rendering = ["styles", "dep:maplibre_native", "dep:image"]
 styles = ["dep:walkdir", "tokio/fs", "dep:dashmap"]
 mbtiles = ["dep:mbtiles", "_tiles"]
 pmtiles = ["dep:pmtiles", "dep:object_store", "_tiles"]
