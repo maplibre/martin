@@ -25,7 +25,7 @@ A restart of Martin is required to see new styles.
 > This feature is currently marked as unstable/experimental and thus not included in the default build.
 > The behaviour on this endpoint may change in patch releases.
 >
-> To enable it, build Martin with the `--features=unstable-rendering` flag.
+> To enable it, build Martin with the `--features=unstable-rendering` flag after installing the nessesary dependencys via `just install-dependencies`.
 >
 > It is experimental due to the limitations of our current implementation:
 > - Rendering support is currently only available on Linux.
