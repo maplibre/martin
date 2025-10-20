@@ -1,7 +1,0 @@
----
-source: martin-core/src/resources/styles/mod.rs
-assertion_line: 260
-expression: image.as_slice().to_vec()
-extension: png
-snapshot_kind: binary
----
