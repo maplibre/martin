@@ -19,6 +19,8 @@ struct StyleRenderRequest {
 enum ImageFormatRequest {
     #[default]
     Png,
+    #[serde(alias = "jpg")]
+    Jpeg,
 }
 
 #[route("/style/{style_id}/{z}/{x}/{y}.{format}", method = "GET")]
@@ -65,6 +67,7 @@ pub async fn get_style_rendered(
     let mut img_buffer = std::io::Cursor::new(Vec::new());
     let (image_format, content_type) = match path.format {
         ImageFormatRequest::Png => (image::ImageFormat::Png, ContentType::png()),
+        ImageFormatRequest::Jpeg => (image::ImageFormat::Jpeg, ContentType::jpeg()),
     };
 
     let image_encoding_result = image.as_image().write_to(&mut img_buffer, image_format);

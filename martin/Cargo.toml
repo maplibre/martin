@@ -99,6 +99,7 @@ default = [
     "webui",
 ]
 unstable-cog = ["martin-core/unstable-cog", "_tiles"]
+unstable-rendering = ["styles", "martin-core/unstable-rendering", "dep:image"]
 fonts = ["martin-core/fonts"]
 lambda = ["dep:lambda-web"]
 mbtiles = ["martin-core/mbtiles", "dep:mbtiles", "_tiles"]

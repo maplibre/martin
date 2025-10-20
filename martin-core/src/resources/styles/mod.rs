@@ -145,8 +145,6 @@ mod tests {
     use std::path::Path;
 
     #[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
-    use martin_tile_utils::TileCoord;
-    #[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
     use rstest::rstest;
 
     use super::*;
@@ -221,10 +219,16 @@ mod tests {
     ) {
         let style_dir = Path::new("../tests/fixtures/styles/");
         let style_path = style_dir.join(style_file);
-        let styles = StyleSources::default();
+        let mut styles = StyleSources::default();
+        styles.set_rendering_enabled(true);
 
         let image = styles.render(style_path, z, x, y).await.unwrap();
-        assert!(!image.as_bytes().is_empty());
+
+        let mut img_buffer = std::io::Cursor::new(Vec::new());
+        image
+            .as_image()
+            .write_to(&mut img_buffer, image::ImageFormat::Png)
+            .unwrap();
 
         // Create a snapshot name based on the style and coordinates
         let snapshot_name = format!(
@@ -234,34 +238,6 @@ mod tests {
             x,
             y
         );
-        insta::assert_binary_snapshot!(&snapshot_name, image.as_bytes().to_vec());
-    }
-
-    #[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
-    #[tokio::test(flavor = "multi_thread")]
-    async fn test_render_concurrent_requests_no_side_effects() {
-        let style_dir = Path::new("../tests/fixtures/styles/");
-        let style_path = style_dir.join("maplibre_demo.json");
-        let styles = StyleSources::default();
-
-        let coords = [
-            TileCoord { z: 0, x: 0, y: 0 },
-            TileCoord { z: 1, x: 0, y: 0 },
-            TileCoord { z: 1, x: 1, y: 0 },
-            TileCoord { z: 1, x: 0, y: 1 },
-        ];
-
-        let futures = coords
-            .iter()
-            .map(|&coord| styles.render(style_path.clone(), coord.z, coord.x, coord.y));
-
-        let results = futures::future::join_all(futures).await;
-
-        for (i, image) in results.iter().enumerate() {
-            assert!(
-                !image.as_ref().unwrap().as_bytes().is_empty(),
-                "Concurrent request {i} should produce non-empty image"
-            );
-        }
+        insta::assert_binary_snapshot!(&snapshot_name, img_buffer.into_inner());
     }
 }

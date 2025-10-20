@@ -24,10 +24,6 @@ macro_rules! create_app {
                 .app_data(actix_web::web::Data::new(
                     ::martin::srv::Catalog::new(&state).unwrap(),
                 ))
-                .app_data(actix_web::web::Data::new(
-                    ::martin_core::cache::NO_MAIN_CACHE,
-                ))
-                .app_data(actix_web::web::Data::new(state.tiles))
                 .app_data(actix_web::web::Data::new(state.styles))
                 .app_data(actix_web::web::Data::new(SrvConfig::default()))
                 .configure(|c| ::martin::srv::router(c, &SrvConfig::default())),
@@ -40,9 +36,16 @@ fn test_get(path: &str) -> TestRequest {
     TestRequest::get().uri(path)
 }
 
+#[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
 const CONFIG_STYLES: &str = indoc! {"
         styles:
             experimental_rendering: true
+            sources:
+                maplibre_demo: ../tests/fixtures/styles/maplibre_demo.json
+    "};
+#[cfg(any(not(feature = "unstable-rendering"), not(target_os = "linux")))]
+const CONFIG_STYLES: &str = indoc! {"
+        styles:
             sources:
                 maplibre_demo: ../tests/fixtures/styles/maplibre_demo.json
     "};
