@@ -24,35 +24,35 @@ maintainer-scripts = "../debian"
 depends = "$auto"
 assets = [
     [
-    "target/release/martin",
-    "/usr/bin/martin",
-    "755",
-  ],
+        "target/release/martin",
+        "/usr/bin/martin",
+        "755",
+    ],
     [
-    "target/release/martin-cp",
-    "/usr/bin/martin-cp",
-    "755",
-  ],
+        "target/release/martin-cp",
+        "/usr/bin/martin-cp",
+        "755",
+    ],
     [
-    "target/release/mbtiles",
-    "/usr/bin/mbtiles",
-    "755",
-  ],
+        "target/release/mbtiles",
+        "/usr/bin/mbtiles",
+        "755",
+    ],
     [
-    "../README.md",
-    "/usr/share/doc/martin/README.md",
-    "644",
-  ],
+        "../README.md",
+        "/usr/share/doc/martin/README.md",
+        "644",
+    ],
     [
-    "../debian/config.yaml",
-    "/usr/share/doc/martin/config.yaml",
-    "644",
-  ],
+        "../debian/config.yaml",
+        "/usr/share/doc/martin/config.yaml",
+        "644",
+    ],
     [
-    "../debian/config.yaml",
-    "/usr/local/etc/martin/config.yaml",
-    "644",
-  ],
+        "../debian/config.yaml",
+        "/usr/local/etc/martin/config.yaml",
+        "644",
+    ],
 ]
 
 # see https://github.com/kornelski/cargo-deb/blob/main/systemd.md#packagemetadatadebsystemd-units-options
@@ -88,6 +88,7 @@ required-features = ["postgres"]
 [features]
 default = [
     "fonts",
+    "geojson",
     "lambda",
     "mbtiles",
     "metrics",
@@ -101,6 +102,7 @@ default = [
 unstable-cog = ["martin-core/unstable-cog", "_tiles"]
 unstable-rendering = ["styles", "martin-core/unstable-rendering", "dep:image"]
 fonts = ["martin-core/fonts"]
+geojson = ["martin-core/geojson", "dep:geojson-vt-rs", "_tiles"]
 lambda = ["dep:lambda-web"]
 mbtiles = ["martin-core/mbtiles", "dep:mbtiles", "_tiles"]
 metrics = ["dep:actix-web-prom"]
@@ -132,6 +134,7 @@ dashmap.workspace = true
 enum-display = { workspace = true, optional = true }
 env_logger.workspace = true
 futures.workspace = true
+geojson-vt-rs = { workspace = true, optional = true }
 image = { workspace = true, optional = true }
 itertools.workspace = true
 json-patch = { workspace = true, optional = true }
