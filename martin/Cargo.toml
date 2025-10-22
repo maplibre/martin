@@ -1,6 +1,6 @@
 [package]
 name = "martin"
-version = "0.19.0"
+version = "0.19.3"
 authors = [
     "Stepan Kuzmin <to.stepan.kuzmin@gmail.com>",
     "Yuri Astrakhan <YuriAstrakhan@gmail.com>",
@@ -78,10 +78,15 @@ required-features = ["mbtiles"]
 [[bench]]
 name = "sources"
 harness = false
+required-features = ["_tiles"]
+
+[[bench]]
+name = "postgres_discovery"
+harness = false
+required-features = ["postgres"]
 
 [features]
 default = [
-    "cog",
     "fonts",
     "geojson",
     "lambda",
@@ -91,31 +96,29 @@ default = [
     "postgres",
     "sprites",
     "styles",
+    "unstable-cog",
     "webui",
 ]
-cog = ["martin-core/cog"]
+unstable-cog = ["martin-core/unstable-cog", "_tiles"]
+unstable-rendering = ["styles", "martin-core/unstable-rendering", "dep:image"]
 fonts = ["martin-core/fonts"]
-geojson = ["martin-core/geojson", "dep:geojson-vt-rs"]
+geojson = ["martin-core/geojson", "dep:geojson-vt-rs", "_tiles"]
 lambda = ["dep:lambda-web"]
-mbtiles = ["martin-core/mbtiles"]
+mbtiles = ["martin-core/mbtiles", "dep:mbtiles", "_tiles"]
 metrics = ["dep:actix-web-prom"]
-pmtiles = ["dep:aws-config", "dep:pmtiles"]
+pmtiles = ["martin-core/pmtiles", "dep:object_store", "_tiles"]
 postgres = [
-    "dep:deadpool-postgres",
+    "martin-core/postgres",
     "dep:enum-display",
     "dep:json-patch",
     "dep:postgis",
-    "dep:postgres",
     "dep:postgres-protocol",
-    "dep:regex",
-    "dep:rustls-native-certs",
-    "dep:rustls-pemfile",
-    "dep:semver",
-    "dep:tokio-postgres-rustls",
+    "_tiles",
 ]
 sprites = ["martin-core/sprites"]
 styles = ["martin-core/styles", "dep:walkdir"]
 webui = ["dep:actix-web-static-files", "dep:static-files", "dep:walkdir"]
+_tiles = ["martin-core/_tiles"]
 
 [dependencies]
 actix-cors.workspace = true
@@ -126,33 +129,25 @@ actix-web.workspace = true
 actix-web-prom = { workspace = true, optional = true }
 actix-web-static-files = { workspace = true, optional = true }
 async-trait.workspace = true
-aws-config = { workspace = true, optional = true }
 clap.workspace = true
 dashmap.workspace = true
-deadpool-postgres = { workspace = true, optional = true }
 enum-display = { workspace = true, optional = true }
 env_logger.workspace = true
 futures.workspace = true
 geojson-vt-rs = { workspace = true, optional = true }
+image = { workspace = true, optional = true }
 itertools.workspace = true
 json-patch = { workspace = true, optional = true }
 lambda-web = { workspace = true, optional = true }
 log.workspace = true
 martin-core.workspace = true
 martin-tile-utils.workspace = true
-mbtiles.workspace = true
-moka.workspace = true
+mbtiles = { workspace = true, optional = true }
 num_cpus.workspace = true
-pmtiles = { workspace = true, optional = true }
-
+object_store = { workspace = true, optional = true }
 postgis = { workspace = true, optional = true }
-postgres = { workspace = true, optional = true }
 postgres-protocol = { workspace = true, optional = true }
-regex = { workspace = true, optional = true }
 rustls.workspace = true
-rustls-native-certs = { workspace = true, optional = true }
-rustls-pemfile = { workspace = true, optional = true }
-semver = { workspace = true, optional = true }
 serde.workspace = true
 serde_json.workspace = true
 serde_with.workspace = true
@@ -163,17 +158,14 @@ thiserror.workspace = true
 tiff = { workspace = true, optional = true }
 tilejson.workspace = true
 tokio = { workspace = true, features = ["io-std"] }
-tokio-postgres-rustls = { workspace = true, optional = true }
 url.workspace = true
 walkdir = { workspace = true, optional = true }
-xxhash-rust.workspace = true
 
 [build-dependencies]
 static-files = { workspace = true, optional = true }
 walkdir = { workspace = true, optional = true }
 
 [dev-dependencies]
-anyhow.workspace = true
 approx.workspace = true
 criterion.workspace = true
 ctor.workspace = true

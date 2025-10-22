@@ -11,7 +11,7 @@ use martin_tile_utils::{TileCoord, TileData, TileInfo};
 use mbtiles::MbtilesPool;
 use tilejson::TileJSON;
 
-use super::MbtilesError;
+use crate::tiles::mbtiles::MbtilesError;
 use crate::tiles::{BoxedSource, MartinCoreResult, Source, UrlQuery};
 
 /// Tile source that reads from `MBTiles` files.
@@ -23,14 +23,13 @@ pub struct MbtSource {
     tile_info: TileInfo,
 }
 
+#[expect(clippy::missing_fields_in_debug)]
 impl Debug for MbtSource {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "MbtSource {{ id: {}, path: {:?} }}",
-            self.id,
-            self.mbtiles.as_ref()
-        )
+        f.debug_struct("MbtSource")
+            .field("id", &self.id)
+            .field("path", &self.mbtiles.as_ref())
+            .finish()
     }
 }
 
@@ -72,6 +71,10 @@ impl Source for MbtSource {
 
     fn clone_source(&self) -> BoxedSource {
         Box::new(self.clone())
+    }
+
+    fn get_version(&self) -> Option<String> {
+        self.tilejson.version.clone()
     }
 
     fn benefits_from_concurrent_scraping(&self) -> bool {

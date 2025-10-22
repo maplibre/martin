@@ -1,4 +1,4 @@
-#![allow(
+#![expect(
     clippy::cast_possible_truncation,
     clippy::cast_precision_loss,
     clippy::cast_sign_loss
@@ -10,7 +10,7 @@ use std::str::FromStr;
 
 use martin_tile_utils::{get_zoom_precision, xyz_to_bbox};
 use serde::Serialize;
-use size_format::SizeFormatterBinary;
+use size_format::SizeFormatterSI;
 use sqlx::{SqliteExecutor, query};
 use tilejson::Bounds;
 
@@ -47,12 +47,12 @@ impl Display for Summary {
         writeln!(f, "Schema: {}", self.mbt_type)?;
 
         if let Some(file_size) = self.file_size {
-            let file_size = SizeFormatterBinary::new(file_size);
+            let file_size = SizeFormatterSI::new(file_size);
             writeln!(f, "File size: {file_size:.2}B")?;
         } else {
             writeln!(f, "File size: unknown")?;
         }
-        let page_size = SizeFormatterBinary::new(self.page_size);
+        let page_size = SizeFormatterSI::new(self.page_size);
         writeln!(f, "Page size: {page_size:.2}B")?;
         writeln!(f, "Page count: {:.2}", self.page_count)?;
         writeln!(f)?;
@@ -63,9 +63,9 @@ impl Display for Summary {
         )?;
 
         for l in &self.zoom_info {
-            let min = SizeFormatterBinary::new(l.min_tile_size);
-            let max = SizeFormatterBinary::new(l.max_tile_size);
-            let avg = SizeFormatterBinary::new(l.avg_tile_size as u64);
+            let min = SizeFormatterSI::new(l.min_tile_size);
+            let max = SizeFormatterSI::new(l.max_tile_size);
+            let avg = SizeFormatterSI::new(l.avg_tile_size as u64);
             let prec = get_zoom_precision(l.zoom);
 
             writeln!(
@@ -80,27 +80,27 @@ impl Display for Summary {
             )?;
         }
 
-        if self.zoom_info.len() > 1 {
-            if let (Some(min), Some(max), Some(bbox), Some(max_zoom)) = (
+        if self.zoom_info.len() > 1
+            && let (Some(min), Some(max), Some(bbox), Some(max_zoom)) = (
                 self.min_tile_size,
                 self.max_tile_size,
                 self.bbox,
                 self.max_zoom,
-            ) {
-                let min = SizeFormatterBinary::new(min);
-                let max = SizeFormatterBinary::new(max);
-                let avg = SizeFormatterBinary::new(self.avg_tile_size as u64);
-                let prec = get_zoom_precision(max_zoom);
-                writeln!(
-                    f,
-                    " {:>4} | {:>9} | {:>9} | {:>9} | {:>9} | {bbox:.prec$}",
-                    "all",
-                    self.tile_count,
-                    format!("{min}B"),
-                    format!("{max}B"),
-                    format!("{avg}B"),
-                )?;
-            }
+            )
+        {
+            let min = SizeFormatterSI::new(min);
+            let max = SizeFormatterSI::new(max);
+            let avg = SizeFormatterSI::new(self.avg_tile_size as u64);
+            let prec = get_zoom_precision(max_zoom);
+            writeln!(
+                f,
+                " {:>4} | {:>9} | {:>9} | {:>9} | {:>9} | {bbox:.prec$}",
+                "all",
+                self.tile_count,
+                format!("{min}B"),
+                format!("{max}B"),
+                format!("{avg}B"),
+            )?;
         }
 
         Ok(())
@@ -120,10 +120,18 @@ impl Mbtiles {
             .map(|m| m.len());
 
         let sql = query!("PRAGMA page_size;");
-        let page_size = sql.fetch_one(&mut *conn).await?.page_size.unwrap() as u64;
+        let page_size = sql
+            .fetch_one(&mut *conn)
+            .await?
+            .page_size
+            .expect("page_size is not null") as u64;
 
         let sql = query!("PRAGMA page_count;");
-        let page_count = sql.fetch_one(&mut *conn).await?.page_count.unwrap() as u64;
+        let page_count = sql
+            .fetch_one(&mut *conn)
+            .await?
+            .page_count
+            .expect("page_count is not null") as u64;
 
         let zoom_info = query!(
             "
@@ -154,10 +162,10 @@ impl Mbtiles {
                     avg_tile_size: r.average.unwrap_or(0.0),
                     bbox: xyz_to_bbox(
                         zoom,
-                        r.min_tile_x.unwrap() as u32,
-                        invert_y_value(zoom, r.max_tile_y.unwrap() as u32),
-                        r.max_tile_x.unwrap() as u32,
-                        invert_y_value(zoom, r.min_tile_y.unwrap() as u32),
+                        r.min_tile_x.expect("we are mapping over a value, so there is a value -> min_tile_x cannot be None") as u32,
+                        invert_y_value(zoom, r.max_tile_y.expect("we are mapping over a value, so there is a value -> max_tile_y cannot be None") as u32),
+                        r.max_tile_x.expect("we are mapping over a value, so there is a value -> max_tile_x cannot be None") as u32,
+                        invert_y_value(zoom, r.min_tile_y.expect("we are mapping over a value, so there is a value -> min_tile_y cannot be None") as u32),
                     )
                     .into(),
                 }
@@ -189,19 +197,18 @@ impl Mbtiles {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unreadable_literal)]
-
     use insta::assert_yaml_snapshot;
 
-    use crate::{MbtResult, MbtType, Mbtiles, init_mbtiles_schema};
+    use crate::metadata::anonymous_mbtiles;
+    use crate::{MbtType, Mbtiles, init_mbtiles_schema};
 
     #[actix_rt::test]
-    async fn summary_empty_file() -> MbtResult<()> {
-        let mbt = Mbtiles::new("file:mbtiles_empty_summary?mode=memory&cache=shared")?;
-        let mut conn = mbt.open().await?;
+    async fn summary_empty_file() {
+        let mbt = Mbtiles::new(":memory:").unwrap();
+        let mut conn = mbt.open().await.unwrap();
 
         init_mbtiles_schema(&mut conn, MbtType::Flat).await.unwrap();
-        let res = mbt.summary(&mut conn).await?;
+        let res = mbt.summary(&mut conn).await.unwrap();
         assert_yaml_snapshot!(res, @r"
         file_size: ~
         mbt_type: Flat
@@ -216,22 +223,19 @@ mod tests {
         max_zoom: ~
         zoom_info: []
         ");
-
-        Ok(())
     }
 
     #[actix_rt::test]
-    async fn summary() -> MbtResult<()> {
-        let mbt = Mbtiles::new("../tests/fixtures/mbtiles/world_cities.mbtiles")?;
-        let mut conn = mbt.open().await?;
-
-        let res = mbt.summary(&mut conn).await?;
+    async fn summary() {
+        let script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
+        let (mbt, mut conn) = anonymous_mbtiles(script).await;
+        let res = mbt.summary(&mut conn).await.unwrap();
 
         assert_yaml_snapshot!(res, @r"
-        file_size: 49152
+        file_size: ~
         mbt_type: Flat
         page_size: 4096
-        page_count: 12
+        page_count: 11
         tile_count: 196
         min_tile_size: 64
         max_tile_size: 1107
@@ -315,7 +319,5 @@ mod tests {
               - 180.00000000000003
               - 61.60639637138628
         ");
-
-        Ok(())
     }
 }

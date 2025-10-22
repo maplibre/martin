@@ -16,4 +16,8 @@ pub enum GeoJsonError {
     /// `GeoJSON` file contains no geometry that can be served as tiles.
     #[error("GeoJSON File {0} has no geometry which could be served as tiles")]
     NoGeometry(PathBuf),
+
+    /// Cannot encode `GeoJSON` to MVT.
+    #[error(transparent)]
+    GeoZeroError(#[from] geozero::error::GeozeroError),
 }

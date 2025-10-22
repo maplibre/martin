@@ -3,7 +3,8 @@ use log::info;
 use serde::{Deserialize, Serialize};
 
 use crate::config::file::{
-    ConfigExtras, ConfigFileError, ConfigFileResult, UnrecognizedKeys, UnrecognizedValues,
+    ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks, UnrecognizedKeys,
+    UnrecognizedValues,
 };
 use crate::{MartinError, MartinResult};
 
@@ -40,7 +41,7 @@ impl Default for CorsProperties {
     }
 }
 
-impl ConfigExtras for CorsProperties {
+impl ConfigurationLivecycleHooks for CorsProperties {
     fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
         self.unrecognized.keys().cloned().collect()
     }

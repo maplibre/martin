@@ -3,7 +3,7 @@ updates:
   # Maintain dependencies for GitHub Actions
   - package-ecosystem: github-actions
     directory: '/'
-    schedule: { interval: daily }
+    schedule: { interval: monthly }
     groups:
       all-actions-version-updates:
         applies-to: version-updates
@@ -11,11 +11,17 @@ updates:
       all-actions-security-updates:
         applies-to: security-updates
         patterns: [ '*' ]
+    cooldown:
+      default-days: 3
+      # no semver support for github-actions
+      # => no specific configuration for this
+      include:
+        - "*"
 
   # Update Rust dependencies
   - package-ecosystem: cargo
     directory: '/'
-    schedule: { interval: daily, time: '02:00' }
+    schedule: { interval: monthly }
     open-pull-requests-limit: 10
     groups:
       all-cargo-version-updates:
@@ -24,11 +30,18 @@ updates:
       all-cargo-security-updates:
         applies-to: security-updates
         patterns: [ '*' ]
+    cooldown:
+      default-days: 4
+      semver-major-days: 4
+      semver-minor-days: 2
+      semver-patch-days: 2
+      include:
+        - "*"
 
   # Update Martin UI NPM dependencies
   - package-ecosystem: npm
     directory: '/martin/martin-ui/'
-    schedule: { interval: daily, time: '02:00' }
+    schedule: { interval: monthly }
     open-pull-requests-limit: 10
     groups:
       all-npm-ui-version-updates:
@@ -40,11 +53,18 @@ updates:
       all-npm-ui-security-updates:
         applies-to: security-updates
         patterns: [ '*' ]
+    cooldown:
+      default-days: 3
+      semver-major-days: 3
+      semver-minor-days: 3
+      semver-patch-days: 3
+      include:
+        - "*"
 
   # Update Demo frontend NPM dependencies
   - package-ecosystem: npm
     directory: '/demo/frontend/'
-    schedule: { interval: daily, time: '02:00' }
+    schedule: { interval: monthly }
     open-pull-requests-limit: 10
     groups:
       all-npm-fe-version-updates:
@@ -55,3 +75,10 @@ updates:
       all-npm-fe-security-updates:
         applies-to: security-updates
         patterns: [ '*' ]
+    cooldown:
+      default-days: 4
+      semver-major-days: 4
+      semver-minor-days: 2
+      semver-patch-days: 2
+      include:
+        - "*"

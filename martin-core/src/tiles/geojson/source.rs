@@ -127,7 +127,8 @@ impl Source for GeoJsonSource {
     ) -> MartinCoreResult<TileData> {
         let tile = self.preprocessed.generate_tile(xyz.z, xyz.x, xyz.y);
 
-        let mut mvt_writer = MvtWriter::new_unscaled(self.extent as u32)?;
+        let mut mvt_writer =
+            MvtWriter::new_unscaled(self.extent as u32).map_err(GeoJsonError::from)?;
 
         let _ = mvt_writer.dataset_begin(None);
         for (idx, feature) in tile.features.features.iter().enumerate() {
@@ -166,7 +167,7 @@ impl Source for GeoJsonSource {
     }
 }
 
-fn number_to_columnvalue(number: &serde_json::value::Number, prefer_f32: bool) -> ColumnValue {
+fn number_to_columnvalue(number: &serde_json::value::Number, prefer_f32: bool) -> ColumnValue<'_> {
     if number.is_u64() {
         let number_u64 = number.as_u64().unwrap();
         if u8::MIN as u64 <= number_u64 && number_u64 <= u8::MAX as u64 {

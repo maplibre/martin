@@ -3,16 +3,14 @@
 
 pub mod config;
 
+#[cfg(feature = "_tiles")]
 mod source;
+#[cfg(feature = "_tiles")]
 pub use source::TileSources;
 
-mod utils;
-pub use utils::{IdResolver, MartinError, MartinResult, NO_MAIN_CACHE};
+mod error;
+pub use error::{MartinError, MartinResult};
 
-#[cfg(feature = "postgres")]
-pub mod pg;
-#[cfg(feature = "pmtiles")]
-pub mod pmtiles;
 pub mod srv;
 
 // Ensure README.md contains valid code

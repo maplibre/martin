@@ -3,22 +3,19 @@ pub use file_config::*;
 
 mod main;
 pub use main::*;
+pub mod cache;
 pub mod cors;
 pub mod srv;
 
-#[cfg(feature = "cog")]
-pub mod cog;
-#[cfg(feature = "fonts")]
-pub mod fonts;
-#[cfg(feature = "geojson")]
-pub mod geojson;
-#[cfg(feature = "mbtiles")]
-pub mod mbtiles;
-#[cfg(feature = "postgres")]
-pub mod pg;
-#[cfg(feature = "pmtiles")]
-pub mod pmtiles;
-#[cfg(feature = "sprites")]
-pub mod sprites;
-#[cfg(feature = "styles")]
-pub mod styles;
+mod error;
+pub use error::{ConfigFileError, ConfigFileResult};
+
+#[cfg(any(feature = "fonts", feature = "sprites", feature = "styles"))]
+mod resources;
+#[cfg(any(feature = "fonts", feature = "sprites", feature = "styles"))]
+pub use resources::*;
+
+#[cfg(feature = "_tiles")]
+mod tiles;
+#[cfg(feature = "_tiles")]
+pub use tiles::*;
