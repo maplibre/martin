@@ -37,8 +37,28 @@ base_path: /tiles
 # Number of web server workers
 worker_processes: 8
 
-# Amount of memory (in MB) to use for caching tiles [default: 512, 0 to disable]
-cache_size_mb: 1024
+# Amount of memory (in MB) to use for caching [default: 512, 0 to disable]
+# 
+# This is the total amount of cache we use.
+# By default, this is split up between:
+# - Tiles 50% -> 256 MB
+# - Pmtiles' directories 25% -> 128 MB
+# - Fonts 12.5% -> 64 MB
+# - Sprites 12.5% -> 64 MB
+# 
+# How the cache works internally is unstable and may change to improve performance/efficiency.
+# For example, we may change the split between sources to improve efficiency.
+# 
+# If you need more control over the cache size, you can specify each source's cache size individually:
+# - Tiles: `tile_cache_size_mb`
+# - Pmtiles: `pmtiles.directory_cache_size_mb`
+# - Fonts: `fonts.cache_size_mb`
+# - Sprites: `sprites.cache_size_mb`
+cache_size_mb: 512
+
+# Allows overriding the size of the tile cache.
+# Defaults to `cache_size_mb` / 2
+tile_cache_size_mb: 256
 
 # Which compression should be used if the
 # - client accepts multiple compression formats, and
@@ -231,6 +251,13 @@ postgres:
 
 # Publish PMTiles files from local disk or proxy to a web server
 pmtiles:
+  # Size of the directory cache (in MB).
+  # Defaults to cache_size_mb / 4
+  # 
+  # Note: tile and directory caching is complementary.
+  # For good performance, you want both directory caching (to not resolve the directory on each request) and tile caching (for high access tiles).
+  directory_cache_size_mb: 128
+
   # You can pass options for pmtiles files located on remote storages here.
   #
   # The avaliable options are documented here:
@@ -282,6 +309,10 @@ cog:
 
 # Sprite configuration
 sprites:
+  # Size of the sprite cache (in MB).
+  # Defaults to cache_size_mb / 8
+  cache_size_mb: 64
+  
   paths:
     # all SVG files in this dir will be published as a "my_images" sprite source
     - /path/to/my_images
@@ -291,6 +322,10 @@ sprites:
 
 # Font configuration
 fonts:
+  # Size of the sprite cache (in MB).
+  # Defaults to cache_size_mb / 4
+  cache_size_mb: 64
+  
   # A list of *.otf, *.ttf, and *.ttc font files and dirs to search recursively.
   - /path/to/font/file.ttf
   - /path/to/font_dir
