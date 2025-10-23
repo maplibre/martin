@@ -49,7 +49,7 @@ worker_processes: 8
 # How the cache works internally is unstable and may change to improve performance/efficiency.
 # For example, we may change the split between sources to improve efficiency.
 #
-# If you need more control over the cache size, you can specify each source's cache size individually:
+# Specify each cache size individually for finer cache control:
 # - Tiles: `tile_cache_size_mb`
 # - Pmtiles: `pmtiles.directory_cache_size_mb`
 # - Fonts: `fonts.cache_size_mb`
