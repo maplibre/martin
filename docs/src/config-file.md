@@ -256,7 +256,7 @@ pmtiles:
   #
   # Note:
   # Tile and directory caching are complementary.
-  # For good performance, you want both
+  # For good performance, you want
   # - directory caching (to not resolve the directory on each request) and
   # - tile caching (for high access tiles)
   directory_cache_size_mb: 128
