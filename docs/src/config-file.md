@@ -254,7 +254,8 @@ pmtiles:
   # Size of the directory cache (in MB).
   # Defaults to cache_size_mb / 4
   #
-  # Note: tile and directory caching is complementary.
+  # Note:
+  # Tile and directory caching are complementary.
   # For good performance, you want both
   # - directory caching (to not resolve the directory on each request) and
   # - tile caching (for high access tiles)
