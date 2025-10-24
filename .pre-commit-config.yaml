@@ -45,7 +45,7 @@ repos:
         pass_filenames: false
 
   - repo: https://github.com/sqlfluff/sqlfluff
-    rev: 3.4.2
+    rev: 3.5.0
     hooks:
         # 1. Postgres dialect for general .sql files, excluding sqlite dirs
       - id: sqlfluff-fix
@@ -66,7 +66,7 @@ repos:
   # TODO: Add NPM hooks for formatting and linting
   # NPM hooks for JavaScript/TypeScript formatting and linting
   - repo: https://github.com/biomejs/pre-commit
-    rev: "v2.2.5"  # Use the sha / tag you want to point at
+    rev: "v2.2.6"  # Use the sha / tag you want to point at
     hooks:
       - id: biome-check
         additional_dependencies: [ "@biomejs/biome@2.2.4" ]

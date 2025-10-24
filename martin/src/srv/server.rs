@@ -120,6 +120,9 @@ pub fn router(cfg: &mut web::ServiceConfig, #[allow(unused_variables)] usr_cfg: 
     #[cfg(feature = "styles")]
     cfg.service(crate::srv::styles::get_style_json);
 
+    #[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
+    cfg.service(crate::srv::styles_rendering::get_style_rendered);
+
     #[cfg(all(feature = "webui", not(docsrs)))]
     {
         // TODO: this can probably be simplified with a wrapping middleware,
@@ -184,7 +187,9 @@ pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server
             .app_data(Data::new(state.tile_cache.clone()));
 
         #[cfg(feature = "sprites")]
-        let app = app.app_data(Data::new(state.sprites.clone()));
+        let app = app
+            .app_data(Data::new(state.sprites.clone()))
+            .app_data(Data::new(state.sprite_cache.clone()));
 
         #[cfg(feature = "fonts")]
         let app = app

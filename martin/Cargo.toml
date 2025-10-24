@@ -99,6 +99,7 @@ default = [
     "webui",
 ]
 unstable-cog = ["martin-core/unstable-cog", "_tiles"]
+unstable-rendering = ["styles", "martin-core/unstable-rendering", "dep:image"]
 fonts = ["martin-core/fonts"]
 lambda = ["dep:lambda-web"]
 mbtiles = ["martin-core/mbtiles", "dep:mbtiles", "_tiles"]
@@ -131,6 +132,7 @@ dashmap.workspace = true
 enum-display = { workspace = true, optional = true }
 env_logger.workspace = true
 futures.workspace = true
+image = { workspace = true, optional = true }
 itertools.workspace = true
 json-patch = { workspace = true, optional = true }
 lambda-web = { workspace = true, optional = true }
