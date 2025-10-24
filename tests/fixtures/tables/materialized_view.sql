@@ -9,10 +9,7 @@ INSERT INTO fixtures_comments (txt, geom) VALUES
 ('b', ST_GEOMFROMTEXT('POINT(-73.935242 40.730610)', 4326));
 
 CREATE MATERIALIZED VIEW fixtures_mv_comments AS
-SELECT
-    id,
-    txt,
-    geom
+SELECT id, txt, geom
 FROM fixtures_comments;
 
 COMMENT ON MATERIALIZED VIEW fixtures_mv_comments IS 'fixture: materialized view comments';
