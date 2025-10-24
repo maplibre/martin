@@ -501,7 +501,7 @@ fn summary(info: &TableInfo) -> String {
     let long_relkind = match info.relkind {
         Some('v') => "view".to_string(),
         Some('m') => "materialized view".to_string(),
-        Some('t') => "table".to_string(),
+        Some('r') => "table".to_string(),
         // if we get to any of below lines, this is likely a bug
         Some(r) => format!("unknown relkind={r}"),
         None => "unknown relkind".to_string(),
