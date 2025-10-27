@@ -2,7 +2,7 @@
 mod fonts;
 
 mod server;
-pub use server::{new_server, RESERVED_KEYWORDS, router};
+pub use server::{RESERVED_KEYWORDS, new_server, router};
 
 mod admin;
 pub use admin::Catalog;
@@ -10,7 +10,7 @@ pub use admin::Catalog;
 #[cfg(feature = "_tiles")]
 mod tiles;
 #[cfg(feature = "_tiles")]
-pub use tiles::content::{DynTileSource};
+pub use tiles::content::DynTileSource;
 #[cfg(feature = "_tiles")]
 pub use tiles::metadata::merge_tilejson;
 
