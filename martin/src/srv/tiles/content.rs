@@ -328,7 +328,7 @@ mod tests {
     use tilejson::tilejson;
 
     use super::*;
-    use crate::srv::server::tests::TestSource;
+    use crate::srv::tiles::tests::TestSource;
 
     #[actix_rt::test]
     async fn test_deleteme() {
