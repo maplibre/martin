@@ -7,6 +7,10 @@ exclude: |
       tests/expected/.*
   )$
 
+ci:
+  autofix_commit_msg: "chore(fmt): apply pre-commit formatting fixes"
+  autoupdate_commit_msg: "chore(deps): autoupdate pre-commit"
+
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
