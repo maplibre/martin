@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.14.0](https://github.com/maplibre/martin/compare/mbtiles-v0.13.1...mbtiles-v0.14.0) - 2025-10-27
+
+### Added
+
+- *(cache)* implement sprite caching ([#2295](https://github.com/maplibre/martin/pull/2295))
+- *(pmtiles)* [**breaking**] change pmtiles to base the implementation on `object_storage` instead ([#2251](https://github.com/maplibre/martin/pull/2251))
+
+### Other
+
+- *(lints)* audit all allows, add reasons and remove unnessesary ones ([#2288](https://github.com/maplibre/martin/pull/2288))
+- *(config)* [**breaking**] remove deprecated `--watch` from the CLI options and `MbtilesPool::new` ([#2294](https://github.com/maplibre/martin/pull/2294))
+- *(lints)* migrate a few of our expects to unwraps ([#2284](https://github.com/maplibre/martin/pull/2284))
+- *(lints)* applly `clippy::panic_in_result_fn` and `clippy::todo` as warnings ([#2283](https://github.com/maplibre/martin/pull/2283))
+- *(mbtiles)* Generate mbtiles dynamically from SQL files to increase debuggability and transparency ([#1868](https://github.com/maplibre/martin/pull/1868))
+- release ([#2265](https://github.com/maplibre/martin/pull/2265))
+
 ## [0.13.1](https://github.com/maplibre/martin/compare/mbtiles-v0.13.0...mbtiles-v0.13.1) - 2025-09-28
 
 ### Other

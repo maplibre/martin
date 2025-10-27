@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.20.0](https://github.com/maplibre/martin/compare/martin-v0.19.3...martin-v0.20.0) - 2025-10-27
+
+### Added
+
+- unstable style rendering ([#2306](https://github.com/maplibre/martin/pull/2306))
+- *(cache)* implement sprite caching ([#2295](https://github.com/maplibre/martin/pull/2295))
+- add font caching ([#2304](https://github.com/maplibre/martin/pull/2304))
+- *(cache)* [**breaking**] split the cache configuration of tiles and pmtiles directories ([#2303](https://github.com/maplibre/martin/pull/2303))
+- *(core)* enable overriding of the automatic hashing for source traits ([#2293](https://github.com/maplibre/martin/pull/2293))
+- *(pg)* Add benchmark for source discovery timing ([#2263](https://github.com/maplibre/martin/pull/2263))
+- *(pmtiles)* [**breaking**] change pmtiles to base the implementation on `object_storage` instead ([#2251](https://github.com/maplibre/martin/pull/2251))
+
+### Fixed
+
+- *(cog)* [**breaking**] rename `cog` feature to `unstable-cog` ([#2285](https://github.com/maplibre/martin/pull/2285))
+
+### Other
+
+- *(admin)* move functionality into better modules ([#2315](https://github.com/maplibre/martin/pull/2315))
+- *(deps-dev)* Bump vite from 7.1.7 to 7.1.11 in /martin/martin-ui in the all-npm-ui-security-updates group across 1 directory ([#2308](https://github.com/maplibre/martin/pull/2308))
+- *(lints)* enable `clippy::unimplemented` and `clippy::panic` ([#2287](https://github.com/maplibre/martin/pull/2287))
+- *(lints)* audit all allows, add reasons and remove unnessesary ones ([#2288](https://github.com/maplibre/martin/pull/2288))
+- move config files to new folders ([#2298](https://github.com/maplibre/martin/pull/2298))
+- *(core)* add a `_tiles` feature  to simplify our feature configuration ([#2296](https://github.com/maplibre/martin/pull/2296))
+- move `MainCache` to be a `TileCache` ([#2297](https://github.com/maplibre/martin/pull/2297))
+- *(config)* [**breaking**] remove deprecated `--watch` from the CLI options and `MbtilesPool::new` ([#2294](https://github.com/maplibre/martin/pull/2294))
+- Make mbtiles dependency properly optional again ([#2292](https://github.com/maplibre/martin/pull/2292))
+- *(config)* refactor the livecycle hooks to be cleaner and better documented ([#2282](https://github.com/maplibre/martin/pull/2282))
+- *(lints)* migrate a few of our expects to unwraps ([#2284](https://github.com/maplibre/martin/pull/2284))
+- *(lints)* applly `clippy::panic_in_result_fn` and `clippy::todo` as warnings ([#2283](https://github.com/maplibre/martin/pull/2283))
+- *(mbtiles)* Generate mbtiles dynamically from SQL files to increase debuggability and transparency ([#1868](https://github.com/maplibre/martin/pull/1868))
+- *(deps-dev)* Bump the all-npm-ui-version-updates group in /martin/martin-ui with 2 updates ([#2277](https://github.com/maplibre/martin/pull/2277))
+- release ([#2265](https://github.com/maplibre/martin/pull/2265))
+
 ## [0.19.3](https://github.com/maplibre/martin/compare/martin-v0.19.2...martin-v0.19.3) - 2025-10-01
 
 ### Added
