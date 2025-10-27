@@ -19,7 +19,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           ignore: RUSTSEC-2023-0071
-          # RUSTSEC-2023-0071 = Marvin Attack: potential key recovery through timing sidechannels => not used explitably
+          # RUSTSEC-2023-0071 = Marvin Attack: potential key recovery through timing sidechannels => not used exploitably
   codeql:
     name: CodeQL (${{ matrix.language }})
     runs-on: ubuntu-latest
