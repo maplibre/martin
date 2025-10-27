@@ -227,6 +227,34 @@ help:
     @echo ""
     @echo "Full list: just --list"
 
+# Install Linux dependencies (Ubuntu/Debian). Supports 'vulkan' and 'opengl' backends.
+[linux]
+install-dependencies backend='vulkan':
+    sudo apt-get update
+    sudo apt-get install -y \
+      {{if backend == 'opengl' {'libgl1-mesa-dev libglu1-mesa-dev'} else {''} }} \
+      {{if backend == 'vulkan' {'mesa-vulkan-drivers glslang-dev'} else {''} }} \
+      build-essential \
+      libcurl4-openssl-dev \
+      libglfw3-dev \
+      libuv1-dev \
+      libz-dev
+
+# Install macOS dependencies via Homebrew
+[macos]
+install-dependencies backend='vulkan':
+    brew install \
+        {{if backend == 'vulkan' {'molten-vk vulkan-headers'} else {''} }} \
+        curl \
+        glfw \
+        libuv \
+        zlib
+
+# Install Windows dependencies
+[windows]
+install-dependencies backend='vulkan':
+    @echo "rendering styles is not currently supported on windows"
+
 # Run cargo fmt and cargo clippy
 lint: fmt clippy biomejs-martin-ui type-check
 
@@ -447,8 +475,8 @@ cargo-install $COMMAND $INSTALL_CMD='' *args='':
             echo "$COMMAND could not be found. Installing it with    cargo install ${INSTALL_CMD:-$COMMAND} --locked {{args}}"
             cargo install ${INSTALL_CMD:-$COMMAND} --locked {{args}}
         else
-            echo "$COMMAND could not be found. Installing it with    cargo binstall ${INSTALL_CMD:-$COMMAND} {{binstall_args}} --locked {{args}}"
-            cargo binstall ${INSTALL_CMD:-$COMMAND} {{binstall_args}} --locked {{args}}
+            echo "$COMMAND could not be found. Installing it with    cargo binstall ${INSTALL_CMD:-$COMMAND} {{binstall_args}} --locked"
+            cargo binstall ${INSTALL_CMD:-$COMMAND} {{binstall_args}} --locked
         fi
     fi
 

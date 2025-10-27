@@ -34,6 +34,7 @@ postgres = [
     "_tiles",
 ]
 unstable-cog = ["dep:png", "dep:tiff", "_tiles"]
+unstable-rendering = ["styles", "dep:maplibre_native", "dep:image"]
 fonts = [
     "dep:bit-set",
     "dep:pbf_font_tools",
@@ -53,6 +54,10 @@ styles = ["dep:walkdir", "tokio/fs", "dep:dashmap"]
 mbtiles = ["dep:mbtiles", "_tiles"]
 pmtiles = ["dep:pmtiles", "dep:object_store", "_tiles"]
 _tiles = ["dep:base64"]
+
+[target.'cfg(target_os = "linux")'.dependencies]
+image = { workspace = true, optional = true }
+maplibre_native = { workspace = true, optional = true }
 
 [dependencies]
 actix-web = { workspace = true, optional = true }
@@ -92,6 +97,7 @@ xxhash-rust.workspace = true
 
 [dev-dependencies]
 approx.workspace = true
+futures.workspace = true
 insta = { workspace = true, features = ["json", "yaml"] }
 rstest.workspace = true
 testcontainers-modules.workspace = true
