@@ -16,6 +16,7 @@ The library providing the basic building blocks for [Martin](https://maplibre.or
   - [x] cog
   - [x] postgres tables
   - [x] postgres functions
+  - [x] geojson
 - resources
   - [x] sprites
   - [x] fonts
