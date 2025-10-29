@@ -250,7 +250,8 @@
 
 </style>
 <h2 id="using-with-nginx"><a class="header" href="#using-with-nginx">Using with NGINX</a></h2>
-<p>You can run Martin behind NGINX proxy, so you can cache frequently accessed tiles and reduce unnecessary pressure on the database. Here is an example <code>docker-compose.yml</code> file that runs Martin with NGINX and PostgreSQL.</p>
+<p>You can run Martin behind NGINX proxy, so you can cache frequently accessed tiles with custom logic.
+Here is an example <code>docker-compose.yml</code> file that runs Martin with NGINX and PostgreSQL.</p>
 <pre><code class="language-yml">version: '3'
 
 services:
