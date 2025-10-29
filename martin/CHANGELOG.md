@@ -73,7 +73,8 @@ Done in [#2306](https://github.com/maplibre/martin/pull/2306)
 
 ### rename `cog` feature to `unstable-cog`
 
-The `cog` feature was renamed to `unstable-cog` .
+The `cog` feature was renamed to `unstable-cog` and thus removed from the features active by default.
+If you compile martin from source with this feature enabled, experimentation is still possible.
 This change signals that the feature is still evolving and allows us to iterate more freely as we add the missing functionality.
 Currently, our COG support does not support certain projection aspects required for good usability.
 
