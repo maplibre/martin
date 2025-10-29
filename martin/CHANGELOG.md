@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > [!NOTE]
 > As part of our v1.0 release, we have locked down key parts of the architecture.
 > We plan to do SemVer major versions at most once a year.
-> 
+>
 > This obviously does not mean that we are done.
 > There is still a lot of exciting work left to do
 
@@ -55,7 +55,7 @@ Done in [#2251](https://github.com/maplibre/martin/pull/2251)
 We added an experimental option to render styles on the server.
 See our [documentation here](https://maplibre.org/martin/sources-styles.html#server-side-raster-tile-rendering) for further context.
 
-Done in [#2306](https://github.com/maplibre/martin/pull/2306) 
+Done in [#2306](https://github.com/maplibre/martin/pull/2306)
 
 ### rename `cog` feature to `unstable-cog`
 
