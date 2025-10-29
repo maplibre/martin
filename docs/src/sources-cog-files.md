@@ -39,7 +39,7 @@ listen_addresses: '0.0.0.0:3000'
 # Number of web server workers
 worker_processes: 8
 
-# Amount of memory (in MB) to use for caching tiles [default: 512, 0 to disable]
+# Amount of memory (in MB) to use for caching [default: 512, 0 to disable]
 cache_size_mb: 8
 
 # Database configuration. This can also be a list of PG configs.
