@@ -50,7 +50,7 @@ impl ConfigurationLivecycleHooks for InnerStyleConfig {
 #[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct RendererConfig {
-    // Same effect as experimental_rendering: true|false shorthands
+    // Same effect as rendering: true|false shorthands
     enabled: bool,
 
     #[serde(flatten, skip_serializing)]
@@ -74,7 +74,7 @@ impl StyleConfig {
         let mut results = StyleSources::default();
 
         #[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
-        match cfg.custom.experimental_rendering {
+        match cfg.custom.rendering {
             OptBoolObj::NoValue | OptBoolObj::Bool(false) => results.set_rendering_enabled(false),
             OptBoolObj::Object(ref o) if !o.enabled => results.set_rendering_enabled(false),
             _ => {
