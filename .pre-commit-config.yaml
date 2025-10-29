@@ -7,6 +7,10 @@ exclude: |
       tests/expected/.*
   )$
 
+ci:
+  autofix_commit_msg: "chore(fmt): apply pre-commit formatting fixes"
+  autoupdate_commit_msg: "chore(deps): autoupdate pre-commit"
+
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
@@ -66,7 +70,7 @@ repos:
   # TODO: Add NPM hooks for formatting and linting
   # NPM hooks for JavaScript/TypeScript formatting and linting
   - repo: https://github.com/biomejs/pre-commit
-    rev: "v2.2.6"  # Use the sha / tag you want to point at
+    rev: "v2.3.1"  # Use the sha / tag you want to point at
     hooks:
       - id: biome-check
         additional_dependencies: [ "@biomejs/biome@2.2.4" ]

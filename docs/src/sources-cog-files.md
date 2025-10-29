@@ -49,6 +49,8 @@ martin /with/tiff/files /path/to/target1.tif /path/to/target2.tiff
 
 ## Run Martin with configuration file
 
+To add a COG in martin, simply add
+
 ```yml
 # Cloud Optimized GeoTIFF File Sources
 cog:
