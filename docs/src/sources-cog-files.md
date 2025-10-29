@@ -1,6 +1,25 @@
 # Cloud Optimized GeoTIFF File Sources
 
-Martin can also serve raster sources like local [COG(Cloud Optimized GeoTIFF)](https://cogeo.org/) files. For cog on remote like S3 and other improvements, you could track them on [issue 875](https://github.com/maplibre/martin/issues/875), we are working on and welcome any assistance.
+> [!WARNING]
+> This feature is currently marked as unstable/experimental and thus not included in the default build.
+> The behaviour on this endpoint may change in patch releases.
+> 
+> To enable it, build Martin with the `--features=unstable-rendering` flag:
+> 
+> ```bash
+> cargo build --features=unstable-cog
+> ```
+> 
+> It is experimental due to the limitations of our current implementation:
+> - `EPSG:3857` is not yet supported => <https://github.com/maplibre/martin/pull/1893>
+>
+> If you want to contribute to this feature to stabilise it faster, we are very open to contributions 😉!
+
+Martin supports serving raster sources like local [COG(Cloud Optimized GeoTIFF)](https://cogeo.org/) files.
+
+> [!NOTE]
+> For cog on remote storage like S3 and other improvements, you could track them on [issue 875](https://github.com/maplibre/martin/issues/875).
+> We welcome any assistance.
 
 ## Supported colortype and bits per sample
 
@@ -31,26 +50,14 @@ martin /with/tiff/files /path/to/target1.tif /path/to/target2.tiff
 ## Run Martin with configuration file
 
 ```yml
-keep_alive: 75
-
-# The socket address to bind [default: 0.0.0.0:3000]
-listen_addresses: '0.0.0.0:3000'
-
-# Number of web server workers
-worker_processes: 8
-
-# Amount of memory (in MB) to use for caching tiles [default: 512, 0 to disable]
-cache_size_mb: 8
-
-# Database configuration. This can also be a list of PG configs.
-
+# Cloud Optimized GeoTIFF File Sources
 cog:
   paths:
     # scan this whole dir, matching all *.tif and *.tiff files
     - /dir-path
     # specific TIFF file will be published as a cog source
-    - /path/to/target1.tif
-    - /path/to/target2.tiff
+    - /path/to/cog_file1.tif
+    - /path/to/cog_file2.tiff
   sources:
     # named source matching source name to a single file
      cog-src1: /path/to/cog1.tif
