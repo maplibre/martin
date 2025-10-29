@@ -82,7 +82,7 @@ Done in [#2285](https://github.com/maplibre/martin/pull/2285)
 
 ### Removal of deprecated functionality
 
-We removed the long-deprecated --watch CLI option, which previously only displayed a deprecation warning in the log.
+We removed the long-deprecated `--watch` CLI option, which previously only displayed a deprecation warning in the log.
 
 Done in [#2294](https://github.com/maplibre/martin/pull/2294)
 
