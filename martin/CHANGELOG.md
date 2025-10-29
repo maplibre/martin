@@ -7,39 +7,87 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.20.0](https://github.com/maplibre/martin/compare/martin-v0.19.3...martin-v0.20.0) - 2025-10-27
+## [1.0.0](https://github.com/maplibre/martin/compare/martin-v0.19.3...martin-v1.0.0) - 2025-10-27
 
-### Added
 
-- unstable style rendering ([#2306](https://github.com/maplibre/martin/pull/2306))
-- *(cache)* implement sprite caching ([#2295](https://github.com/maplibre/martin/pull/2295))
-- add font caching ([#2304](https://github.com/maplibre/martin/pull/2304))
-- *(cache)* [**breaking**] split the cache configuration of tiles and pmtiles directories ([#2303](https://github.com/maplibre/martin/pull/2303))
-- *(core)* enable overriding of the automatic hashing for source traits ([#2293](https://github.com/maplibre/martin/pull/2293))
-- *(pg)* Add benchmark for source discovery timing ([#2263](https://github.com/maplibre/martin/pull/2263))
-- *(pmtiles)* [**breaking**] change pmtiles to base the implementation on `object_storage` instead ([#2251](https://github.com/maplibre/martin/pull/2251))
+> [!NOTE]
+> As part of our v1.0 release, we have locked down key parts of the architecture.
+> We plan to do SemVer major versions at most once a year.
+> 
+> This obviously does not mean that we are done.
+> There is still a lot of exciting work left to do
 
-### Fixed
+### A better, more configurable cache
 
-- *(cog)* [**breaking**] rename `cog` feature to `unstable-cog` ([#2285](https://github.com/maplibre/martin/pull/2285))
+In previous versions, the cache was a single monolithic cache.
+We have split this up into different parts and you can now specify how much sprites, fonts, pmtiles directories and tiles are allowed in the cache.
+
+Did we mention: we now also support caching sprites and  fonts significantly speeding up this part a vector map near you.
+
+See our [documentation here](https://maplibre.org/martin/config-file.html) for further context.
+
+Done in [#2295](https://github.com/maplibre/martin/pull/2295) [#2304](https://github.com/maplibre/martin/pull/2304) [#2303](https://github.com/maplibre/martin/pull/2303), [#2297](https://github.com/maplibre/martin/pull/2297)
+
+### Pmtiles support for GCP, Azure and much more options
+
+The good news first:
+- our AWS or HTTP options for the pmtiles vector tile backend are [greatly expanded](https://maplibre.org/martin/sources-files.html) now
+- we added support for GCP and Azures' object stores.
+
+How did we do this?
+We replaced our entire pmtiles backend with the [`object_storage` crate](http://docs.rs/object_storage).
+
+Most of the options were cleanly migratable.
+Some of the environment variable usages are deprecated (-> will be removed in v2.0 at the earliest).
+
+`AWS_PROFILE` presented a challenge and we had to drop this environment variable.
+Asking for feedback on slack if this is a feature that is needed (see [here](https://maplibre.org/community)) yielded that this might not be a nessesary feature.
+If you depend on `AWS_PROFILE`, we opened the following issue to discuss details:
+- https://github.com/maplibre/martin/issues/2286
+
+For further details on the now avaliable options, please [see our documentation](https://maplibre.org/martin/sources-files.html).
+
+Done in [#2251](https://github.com/maplibre/martin/pull/2251)
+
+
+### unstable style rendering support
+
+We added an experimental option to render styles on the server.
+See our [documentation here](https://maplibre.org/martin/sources-styles.html#server-side-raster-tile-rendering) for further context.
+
+Done in [#2306](https://github.com/maplibre/martin/pull/2306) 
+
+### rename `cog` feature to `unstable-cog`
+
+The `cog` feature was renamed to `unstable-cog` .
+This allows us to further iterate on this feature, while we implement more parts of this feature.
+Currently, our COG support does not support certain projection aspects required for good usability.
+
+Done in [#2285](https://github.com/maplibre/martin/pull/2285)
+
+### Removal of deprecated functionality
+
+We removed the long time deprecated `--watch` CLI option.
+It was only used to print a warning beforehand.
+
+Done in [#2294](https://github.com/maplibre/martin/pull/2294)
+
+### Fix
+
+- Make mbtiles dependency properly optional again ([#2292](https://github.com/maplibre/martin/pull/2292))
 
 ### Other
 
+- *(core)* enable overriding of the automatic hashing for source traits ([#2293](https://github.com/maplibre/martin/pull/2293))
+- *(pg)* Add benchmark for source discovery timing ([#2263](https://github.com/maplibre/martin/pull/2263))
 - *(admin)* move functionality into better modules ([#2315](https://github.com/maplibre/martin/pull/2315))
-- *(deps-dev)* Bump vite from 7.1.7 to 7.1.11 in /martin/martin-ui in the all-npm-ui-security-updates group across 1 directory ([#2308](https://github.com/maplibre/martin/pull/2308))
-- *(lints)* enable `clippy::unimplemented` and `clippy::panic` ([#2287](https://github.com/maplibre/martin/pull/2287))
-- *(lints)* audit all allows, add reasons and remove unnessesary ones ([#2288](https://github.com/maplibre/martin/pull/2288))
 - move config files to new folders ([#2298](https://github.com/maplibre/martin/pull/2298))
 - *(core)* add a `_tiles` feature  to simplify our feature configuration ([#2296](https://github.com/maplibre/martin/pull/2296))
-- move `MainCache` to be a `TileCache` ([#2297](https://github.com/maplibre/martin/pull/2297))
-- *(config)* [**breaking**] remove deprecated `--watch` from the CLI options and `MbtilesPool::new` ([#2294](https://github.com/maplibre/martin/pull/2294))
-- Make mbtiles dependency properly optional again ([#2292](https://github.com/maplibre/martin/pull/2292))
 - *(config)* refactor the livecycle hooks to be cleaner and better documented ([#2282](https://github.com/maplibre/martin/pull/2282))
-- *(lints)* migrate a few of our expects to unwraps ([#2284](https://github.com/maplibre/martin/pull/2284))
-- *(lints)* applly `clippy::panic_in_result_fn` and `clippy::todo` as warnings ([#2283](https://github.com/maplibre/martin/pull/2283))
-- *(mbtiles)* Generate mbtiles dynamically from SQL files to increase debuggability and transparency ([#1868](https://github.com/maplibre/martin/pull/1868))
-- *(deps-dev)* Bump the all-npm-ui-version-updates group in /martin/martin-ui with 2 updates ([#2277](https://github.com/maplibre/martin/pull/2277))
-- release ([#2265](https://github.com/maplibre/martin/pull/2265))
+- *(lints)* applly tighter clippy lints like `clippy::panic_in_result_fn`, `clippy::todo` or similar [#2284](https://github.com/maplibre/martin/pull/2284 [#2283](https://github.com/maplibre/martin/pull/2283), [#2288](https://github.com/maplibre/martin/pull/2288), [#2287](https://github.com/maplibre/martin/pull/2287)
+- *(mbtiles)* Generate mbtiles dynamically from SQL files to increase debuggability, transparency and supply chain trust/security ([#1868](https://github.com/maplibre/martin/pull/1868))
+- A number of dependency updates [#2277](https://github.com/maplibre/martin/pull/2277), [#2308](https://github.com/maplibre/martin/pull/2308)
+
 
 ## [0.19.3](https://github.com/maplibre/martin/compare/martin-v0.19.2...martin-v0.19.3) - 2025-10-01
 
