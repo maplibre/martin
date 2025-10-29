@@ -20,7 +20,7 @@ pub struct InnerStyleConfig {
     /// We are not currently happy with the performance of this endpoint and intend to improve this in the future
     /// Marking this experimental means that we are not stuck with single threaded performance as a default until v2.0
     #[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
-    pub experimental_rendering: OptBoolObj<RendererConfig>,
+    pub rendering: OptBoolObj<RendererConfig>,
 
     #[serde(flatten, skip_serializing)]
     pub unrecognized: UnrecognizedValues,
@@ -35,12 +35,12 @@ impl ConfigurationLivecycleHooks for InnerStyleConfig {
             .cloned()
             .collect::<UnrecognizedKeys>();
         #[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
-        match &self.experimental_rendering {
+        match &self.rendering {
             OptBoolObj::NoValue | OptBoolObj::Bool(_) => {}
             OptBoolObj::Object(o) => keys.extend(
                 o.get_unrecognized_keys()
                     .iter()
-                    .map(|k| format!("experimental_rendering.{k}")),
+                    .map(|k| format!("rendering.{k}")),
             ),
         }
         keys
