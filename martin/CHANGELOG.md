@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.0.0](https://github.com/maplibre/martin/compare/martin-v0.19.3...martin-v1.0.0) - 2025-10-27
+## [0.20.0](https://github.com/maplibre/martin/compare/martin-v0.19.3...martin-v0.20.0) - 2025-10-27
 
 
 > [!NOTE]
