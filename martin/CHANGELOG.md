@@ -11,9 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 > [!NOTE]
-> As part of our v1.0 release, we have locked down key parts of the architecture.
-> We plan to release new SemVer major versions at most once a year.
-> Of course, that doesn’t mean the work is done — there is still much exciting ground to cover!
+> This release can be considered the last beta of the v1.0 release.
+> We have locked down key parts of the architecture.
+>
+> We will republish this release as v1.0 in roghly a week, unless we see any bugs in this release.
 
 A big thank you to everyone who contributed to this release - through code, reviews, testing, and feedback.
 Your work and discussions continue to make Martin faster, more reliable, and more welcoming for new users.
