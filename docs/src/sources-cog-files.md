@@ -3,13 +3,13 @@
 > [!WARNING]
 > This feature is currently marked as unstable/experimental and thus not included in the default build.
 > The behaviour on this endpoint may change in patch releases.
-> 
+>
 > To enable it, build Martin with the `--features=unstable-rendering` flag:
-> 
+>
 > ```bash
 > cargo build --features=unstable-cog
 > ```
-> 
+>
 > It is experimental due to the limitations of our current implementation:
 > - `EPSG:3857` is not yet supported => <https://github.com/maplibre/martin/pull/1893>
 >

@@ -26,7 +26,7 @@ A restart of Martin is required to see new styles.
 > The behaviour on this endpoint may change in patch releases.
 >
 > To enable it, build Martin with the `--features=unstable-rendering` flag after installing the nessesary dependencys via `just install-dependencies`:
-> 
+>
 > ```bash
 > cargo build --features=unstable-rendering
 > ```
