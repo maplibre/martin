@@ -567,7 +567,8 @@ test_log_has_str "$LOG_FILE" "WARN  martin::config::file::main] Ignoring unrecog
 test_log_has_str "$LOG_FILE" "WARN  martin::config::file::main] Ignoring unrecognized configuration key 'postgres.functions.function_zxy_query.warning'. Please check your configuration file for typos."
 test_log_has_str "$LOG_FILE" "WARN  martin::config::file::main] Ignoring unrecognized configuration key 'pmtiles.warning'. Please check your configuration file for typos."
 test_log_has_str "$LOG_FILE" "WARN  martin::config::file::main] Ignoring unrecognized configuration key 'sprites.warning'. Please check your configuration file for typos."
-test_log_has_str "$LOG_FILE" "WARN  martin::config::file::main] Ignoring unrecognized configuration key 'cog.warning'. Please check your configuration file for typos."
+# TODO: below should be changed to cog.warning once unstable-cog is made stable
+test_log_has_str "$LOG_FILE" "WARN  martin::config::file::main] Ignoring unrecognized configuration key 'cog'. Please check your configuration file for typos."
 test_log_has_str "$LOG_FILE" "WARN  martin::config::file::main] Ignoring unrecognized configuration key 'styles.warning'. Please check your configuration file for typos."
 test_log_has_str "$LOG_FILE" 'WARN  martin::config::file::tiles::pmtiles] Defaulting `pmtiles.allow_http` to `true`. This is likely to become an error in the future for better security.'
 test_log_has_str "$LOG_FILE" 'WARN  martin::config::file::tiles::pmtiles] Environment variable AWS_SKIP_CREDENTIALS is deprecated. Please use pmtiles.skip_signature in the configuration file instead.'
