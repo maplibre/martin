@@ -1,0 +1,36 @@
+{
+  "features": [
+    {
+      "geometry": {
+        "coordinates": [
+          655,
+          2513
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "id": 1,
+        "source_mvt_layer": "fixtures_mv_comments",
+        "txt": "a"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          1207,
+          2556
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "id": 2,
+        "source_mvt_layer": "fixtures_mv_comments",
+        "txt": "b"
+      },
+      "type": "Feature"
+    }
+  ],
+  "name": "merged",
+  "type": "FeatureCollection"
+}

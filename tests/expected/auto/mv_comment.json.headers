@@ -1,0 +1,5 @@
+content-encoding: br
+content-type: application/json
+etag: W/"12b-4gjFu6gewT5jaJK4j987zg=="
+transfer-encoding: chunked
+vary: accept-encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
