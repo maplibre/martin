@@ -394,21 +394,20 @@ test_png mb_png_0_0_0 geography-class-png/0/0/0
 test_jsn mb_mvt       world_cities
 test_pbf mb_mvt_2_3_1 world_cities/2/3/1
 
-# TODO: enable below once unstable-cog is stable
-#>&2 echo "***** Test server response for COG(Cloud Optimized GeoTiff) source *****"
-#test_jsn rgb_u8       rgb_u8
-#test_png rgb_u8_0_0_0 rgb_u8/0/0/0
-#test_png rgb_u8_3_0_0 rgb_u8/3/0/0
-#test_png rgb_u8_3_1_1 rgb_u8/3/1/1
+>&2 echo "***** Test server response for COG(Cloud Optimized GeoTiff) source *****"
+test_jsn rgb_u8       rgb_u8
+test_png rgb_u8_0_0_0 rgb_u8/0/0/0
+test_png rgb_u8_3_0_0 rgb_u8/3/0/0
+test_png rgb_u8_3_1_1 rgb_u8/3/1/1
 
-#test_jsn rgba_u8       rgba_u8
-#test_png rgba_u8_0_0_0 rgba_u8/0/0/0
-#test_png rgba_u8_3_0_0 rgba_u8/3/0/0
-#test_png rgba_u8_3_1_1 rgba_u8/3/1/1
+test_jsn rgba_u8       rgba_u8
+test_png rgba_u8_0_0_0 rgba_u8/0/0/0
+test_png rgba_u8_3_0_0 rgba_u8/3/0/0
+test_png rgba_u8_3_1_1 rgba_u8/3/1/1
 
-#test_jsn rgba_u8_nodata       rgba_u8_nodata
-#test_png rgba_u8_nodata_0_0_0 rgba_u8_nodata/0/0/0
-#test_png rgba_u8_nodata_1_0_0 rgba_u8_nodata/1/0/0
+test_jsn rgba_u8_nodata       rgba_u8_nodata
+test_png rgba_u8_nodata_0_0_0 rgba_u8_nodata/0/0/0
+test_png rgba_u8_nodata_1_0_0 rgba_u8_nodata/1/0/0
 
 >&2 echo "***** Test server response for table source with empty SRID *****"
 test_pbf points_empty_srid_0_0_0  points_empty_srid/0/0/0

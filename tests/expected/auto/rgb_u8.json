@@ -1,0 +1,8 @@
+{
+  "maxzoom": 3,
+  "minzoom": 0,
+  "tilejson": "3.0.0",
+  "tiles": [
+    "http://localhost:3111/rgb_u8/{z}/{x}/{y}"
+  ]
+}
