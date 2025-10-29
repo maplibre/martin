@@ -11,6 +11,7 @@
 > ```
 >
 > It is experimental due to the limitations of our current implementation:
+>
 > - `EPSG:3857` is not yet supported => <https://github.com/maplibre/martin/pull/1893>
 >
 > If you want to contribute to this feature to stabilise it faster, we are very open to contributions 😉!
@@ -31,10 +32,10 @@ Martin supports serving raster sources like local [COG(Cloud Optimized GeoTIFF)]
 
 ## Supported compression
 
-* None
-* LZW
-* Deflate
-* PackBits
+- None
+- LZW
+- Deflate
+- PackBits
 
 ## Run Martin with CLI to serve cog files
 
@@ -78,9 +79,9 @@ COG is a valid GeoTIFF file with some requirements for efficient reading. That i
 
 You may want to visit these specs:
 
-* [TIFF 6.0](https://www.itu.int/itudoc/itu-t/com16/tiff-fx/docs/tiff6.pdf)
-* [GeoTIFF](https://docs.ogc.org/is/19-008r4/19-008r4.html)
-* [Cloud Optimized GeoTIFF](https://docs.ogc.org/is/21-026/21-026.html)
+- [TIFF 6.0](https://www.itu.int/itudoc/itu-t/com16/tiff-fx/docs/tiff6.pdf)
+- [GeoTIFF](https://docs.ogc.org/is/19-008r4/19-008r4.html)
+- [Cloud Optimized GeoTIFF](https://docs.ogc.org/is/21-026/21-026.html)
 
 ### COG generation with GDAL
 
@@ -100,8 +101,8 @@ gdal_translate input.tif output_cog.tif -of COG
 
 ### The mapping from ZXY to tiff chunk
 
-* A single TIFF file could contains many sub-file about same spatial area, each has different resolution
-* A sub file is organized with many tiles
+- A single TIFF file could contains many sub-file about same spatial area, each has different resolution
+- A sub file is organized with many tiles
 
 So basically there's a mapping from zxy to tile of sub-file of TIFF.
 
