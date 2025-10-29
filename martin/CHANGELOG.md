@@ -25,7 +25,7 @@ We couldn’t have done it without you ❤️
 ### A better, more configurable cache
 
 In previous versions, the cache was a single monolithic cache.
-We have split this up into different parts and you can now specify how much sprites, fonts, pmtiles directories and tiles are allowed in the cache.
+We have split this up into different parts and you can now specify how much sprites, fonts, pmtiles directories and tiles martin is allowed in the cache.
 
 > [!TIP]
 > We also now support caching sprites and fonts - speeding up the rendering of vector maps.
