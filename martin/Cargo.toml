@@ -95,7 +95,6 @@ default = [
     "postgres",
     "sprites",
     "styles",
-    "unstable-cog",
     "webui",
 ]
 unstable-cog = ["martin-core/unstable-cog", "_tiles"]

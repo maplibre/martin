@@ -71,7 +71,7 @@ moka = { version = "0.12", features = ["future"] }
 num_cpus = "1"
 object_store = { version = "0.12.4", features = ["gcp", "aws", "azure", "fs", "http"] }
 pbf_font_tools = { version = "3.0.0", features = ["freetype"] }
-pmtiles = { version = "0.17", features = ["http-async", "mmap-async-tokio", "tilejson", "reqwest-rustls-tls-native-roots", "aws-s3-async"] }
+pmtiles = { version = "0.18", features = ["http-async", "mmap-async-tokio", "tilejson", "reqwest-rustls-tls-native-roots", "aws-s3-async"] }
 png = "0.18.0"
 postgis = "0.9"
 postgres = { version = "0.19", features = ["with-time-0_3", "with-uuid-1", "with-serde_json-1"] }
