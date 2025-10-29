@@ -17,31 +17,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > This obviously does not mean that we are done.
 > There is still a lot of exciting work left to do
 
+A big thank you to everyone who contributed to this release - through code, reviews, testing, and feedback.
+Your work and discussions continue to make Martin faster, more reliable, and more welcoming for new users.
+
+We couldn’t have done it without you ❤️
+
 ### A better, more configurable cache
 
 In previous versions, the cache was a single monolithic cache.
 We have split this up into different parts and you can now specify how much sprites, fonts, pmtiles directories and tiles are allowed in the cache.
 
-Did we mention: we now also support caching sprites and  fonts significantly speeding up this part a vector map near you.
+> [!TIP]
+> We also now support caching sprites and fonts - speeding up the rendering of vector maps.
 
 See our [documentation here](https://maplibre.org/martin/config-file.html) for further context.
 
 Done in [#2295](https://github.com/maplibre/martin/pull/2295) [#2304](https://github.com/maplibre/martin/pull/2304) [#2303](https://github.com/maplibre/martin/pull/2303), [#2297](https://github.com/maplibre/martin/pull/2297)
 
-### Pmtiles support for GCP, Azure and much more options
+### Pmtiles support for Google Cloud, Azure and much more options
 
 The good news first:
-- our AWS or HTTP options for the pmtiles vector tile backend are [greatly expanded](https://maplibre.org/martin/sources-files.html) now
-- we added support for GCP and Azures' object stores.
+- [greatly expanded](https://maplibre.org/martin/sources-files.html) options for AWS and HTTP backends
+- New support for Google Cloud and Azure object storage
+- Local files remain unaffected
 
 How did we do this?
 We replaced our entire pmtiles backend with the [`object_storage` crate](http://docs.rs/object_storage).
 
-Most of the options were cleanly migratable.
-Some of the environment variable usages are deprecated (-> will be removed in v2.0 at the earliest).
+Most of the options are cleanly migratable, but we deprecated the following:
+
+- AWS specific environment variable usages are deprecated.
+- `pmtiles.allow_http` being unset is currently defaulting to `true`.
+  In v2.0, we will change this to be `false` by default for better security defaults.
+
+The deprecated items will be removed in v2.0 at the earliest.
+
+> [!TIP]
+> Each of the deprecations also has its own warning in the log, so you don't have to guess if you are affected 😉
 
 `AWS_PROFILE` presented a challenge and we had to drop this environment variable.
-Asking for feedback on slack if this is a feature that is needed (see [here](https://maplibre.org/community)) yielded that this might not be a nessesary feature.
+We asked for community feedback on Slack (see [here](https://maplibre.org/community)), and it seems this may not be a necessary feature.
 If you depend on `AWS_PROFILE`, we opened the following issue to discuss details:
 - https://github.com/maplibre/martin/issues/2286
 
@@ -52,7 +67,7 @@ Done in [#2251](https://github.com/maplibre/martin/pull/2251)
 
 ### unstable style rendering support
 
-We added an experimental option to render styles on the server.
+We added an experimental option for server-side style rendering, allowing you to convert your configured styles into images on the server side instead of the client.
 See our [documentation here](https://maplibre.org/martin/sources-styles.html#server-side-raster-tile-rendering) for further context.
 
 Done in [#2306](https://github.com/maplibre/martin/pull/2306)
@@ -60,15 +75,14 @@ Done in [#2306](https://github.com/maplibre/martin/pull/2306)
 ### rename `cog` feature to `unstable-cog`
 
 The `cog` feature was renamed to `unstable-cog` .
-This allows us to further iterate on this feature, while we implement more parts of this feature.
+This change signals that the feature is still evolving and allows us to iterate more freely as we add the missing functionality.
 Currently, our COG support does not support certain projection aspects required for good usability.
 
 Done in [#2285](https://github.com/maplibre/martin/pull/2285)
 
 ### Removal of deprecated functionality
 
-We removed the long time deprecated `--watch` CLI option.
-It was only used to print a warning beforehand.
+We removed the long-deprecated --watch CLI option, which previously only displayed a deprecation warning in the log.
 
 Done in [#2294](https://github.com/maplibre/martin/pull/2294)
 
