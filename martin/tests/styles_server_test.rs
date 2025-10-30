@@ -39,7 +39,7 @@ fn test_get(path: &str) -> TestRequest {
 #[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
 const CONFIG_STYLES: &str = indoc! {"
         styles:
-            experimental_rendering: true
+            rendering: true
             sources:
                 maplibre_demo: ../tests/fixtures/styles/maplibre_demo.json
     "};
