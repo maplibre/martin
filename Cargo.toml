@@ -63,16 +63,16 @@ json-patch = "4"
 lambda-web = { version = "0.2.1", features = ["actix4"] }
 log = "0.4"
 maplibre_native = "0.4.1"
-martin-core = { path = "./martin-core", version = "0.1.3", default-features = false }
-martin-tile-utils = { path = "./martin-tile-utils", version = "0.6.4" }
-mbtiles = { path = "./mbtiles", version = "0.13.1" }
+martin-core = { path = "./martin-core", version = "0.2.0", default-features = false }
+martin-tile-utils = { path = "./martin-tile-utils", version = "0.6.5" }
+mbtiles = { path = "./mbtiles", version = "0.14.0" }
 md5 = "0.8.0"
 moka = { version = "0.12", features = ["future"] }
 num_cpus = "1"
 ogcapi-types = "0.3.0"
 object_store = { version = "0.12.4", features = ["gcp", "aws", "azure", "fs", "http"] }
 pbf_font_tools = { version = "3.0.0", features = ["freetype"] }
-pmtiles = { version = "0.17", features = ["http-async", "mmap-async-tokio", "tilejson", "reqwest-rustls-tls-native-roots", "aws-s3-async"] }
+pmtiles = { version = "0.18", features = ["http-async", "mmap-async-tokio", "tilejson", "reqwest-rustls-tls-native-roots", "aws-s3-async"] }
 png = "0.18.0"
 postgis = "0.9"
 postgres = { version = "0.19", features = ["with-time-0_3", "with-uuid-1", "with-serde_json-1"] }

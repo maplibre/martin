@@ -1,6 +1,6 @@
 [package]
 name = "martin"
-version = "0.19.3"
+version = "0.20.0"
 authors = [
     "Stepan Kuzmin <to.stepan.kuzmin@gmail.com>",
     "Yuri Astrakhan <YuriAstrakhan@gmail.com>",
@@ -95,7 +95,6 @@ default = [
     "postgres",
     "sprites",
     "styles",
-    "unstable-cog",
     "webui",
     "ogcapi",
 ]
