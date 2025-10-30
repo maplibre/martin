@@ -4,7 +4,7 @@
 > This feature is currently unstable and thus not included in the default build.
 > Its behaviour may change in patch releases.
 >
-> To experiment with it, [install Rust](https://rust-lang.org/tools/install/), and run the following to install martin with the unstable feature:
+> To experiment with it, [install Rust](https://rust-lang.org/tools/install/), and run this to download, compile, and install martin with the unstable feature:
 >
 > ```bash
 > cargo install martin --features=unstable-cog
