@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Configuration File - Martin Tile Server Documentation</title>
+        <title>Cloud Optimized GeoTIFF File Sources - Martin Tile Server Documentation</title>
 
 
         <!-- Custom HTML head -->
@@ -148,7 +148,7 @@
                         <a href="https://github.com/maplibre/martin" title="Git repository" aria-label="Git repository">
                             <i id="git-repository-button" class="fa fa-github"></i>
                         </a>
-                        <a href="https://github.com/maplibre/martin/edit/main/docs/src/config-file.md" title="Suggest an edit" aria-label="Suggest an edit" rel="edit">
+                        <a href="https://github.com/maplibre/martin/edit/main/docs/src/sources-cog-files.md" title="Suggest an edit" aria-label="Suggest an edit" rel="edit">
                             <i id="git-edit-button" class="fa fa-edit"></i>
                         </a>
 
@@ -249,368 +249,114 @@
 }
 
 </style>
-<h1 id="configuration-file"><a class="header" href="#configuration-file">Configuration File</a></h1>
-<p>If you don’t want to expose all of your tables and functions, you can list your sources in a configuration file. To
-start Martin with a configuration file you need to pass a path to a file with a <code>--config</code> argument. Config files may
-contain environment variables, which will be expanded before parsing. For example, to use <code>MY_DATABASE_URL</code> in your
-config file: <code>connection_string: ${MY_DATABASE_URL}</code>, or with a
-default <code>connection_string: ${MY_DATABASE_URL:-postgres://postgres@localhost/db}</code></p>
-<pre><code class="language-bash">martin --config config.yaml
+<h1 id="cloud-optimized-geotiff-file-sources"><a class="header" href="#cloud-optimized-geotiff-file-sources">Cloud Optimized GeoTIFF File Sources</a></h1>
+<div class="mdbook-alerts mdbook-alerts-warning">
+<p class="mdbook-alerts-title">
+  <span class="mdbook-alerts-icon"></span>
+  warning
+</p>
+<p>This feature is currently unstable and thus not included in the default build.
+Its behaviour may change in patch releases.</p>
+<p>To experiment with it, <a href="https://rust-lang.org/tools/install/">install Rust</a>, and run this to download, compile, and install martin with the unstable feature:</p>
+<pre><code class="language-bash">cargo install martin --features=unstable-cog
 </code></pre>
-<p>You may wish to auto-generate a config file with <code>--save-config</code> argument. This will generate a config yaml file with
-all of your configuration, which you can edit to remove any sources you don’t want to expose.</p>
-<pre><code class="language-bash">martin  ... ... ...  --save-config config.yaml
+<p>It is unstable due to the limitations of our current implementation:</p>
+<ul>
+<li><a href="https://epsg.io/3857"><code>EPSG:3857</code></a> is not yet supported =&gt; <a href="https://github.com/maplibre/martin/pull/1893">https://github.com/maplibre/martin/pull/1893</a></li>
+</ul>
+<p>We welcome contributions to help stabilise this feature!</p>
+</div>
+<p>Martin supports serving raster sources like local <a href="https://cogeo.org/">COG(Cloud Optimized GeoTIFF)</a> files.</p>
+<div class="mdbook-alerts mdbook-alerts-note">
+<p class="mdbook-alerts-title">
+  <span class="mdbook-alerts-icon"></span>
+  note
+</p>
+<p>For cog on remote storage like S3 and other improvements, you could track them on <a href="https://github.com/maplibre/martin/issues/875">issue 875</a>.
+We welcome any assistance.</p>
+</div>
+<h2 id="supported-colortype-and-bits-per-sample"><a class="header" href="#supported-colortype-and-bits-per-sample">Supported colortype and bits per sample</a></h2>
+<div class="table-wrapper"><table><thead><tr><th>colory type</th><th>bits per sample</th><th>supported</th><th>status</th></tr></thead><tbody>
+<tr><td>rgb/rgba</td><td>8</td><td>✅</td><td></td></tr>
+<tr><td>rgb/rgba</td><td>16/32…</td><td>🛠️</td><td>working on</td></tr>
+<tr><td>gray</td><td>8/16/32…</td><td>🛠️</td><td>working on</td></tr>
+</tbody></table>
+</div>
+<h2 id="supported-compression"><a class="header" href="#supported-compression">Supported compression</a></h2>
+<ul>
+<li>None</li>
+<li>LZW</li>
+<li>Deflate</li>
+<li>PackBits</li>
+</ul>
+<h2 id="run-martin-with-cli-to-serve-cog-files"><a class="header" href="#run-martin-with-cli-to-serve-cog-files">Run Martin with CLI to serve cog files</a></h2>
+<pre><code class="language-bash"># Configured with a directory containing `*.tif` or `*.tiff` TIFF files.
+martin /with/tiff/dir1 /with/tiff/dir2
+# Configured with dedicated TIFF file
+martin /path/to/target1.tif /path/to/target2.tiff
+# Configured with a combination of directories and dedicated TIFF files.
+martin /with/tiff/files /path/to/target1.tif /path/to/target2.tiff
 </code></pre>
-<h2 id="config-example"><a class="header" href="#config-example">Config Example</a></h2>
-<pre><code class="language-yaml"># Connection keep alive timeout [default: 75]
-keep_alive: 75
-
-# The socket address to bind [default: 0.0.0.0:3000]
-listen_addresses: '0.0.0.0:3000'
-
-# Set TileJSON URL path prefix.
-# This overrides the default of respecting the X-Rewrite-URL header.
-# Only modifies the JSON (TileJSON) returned; Martin's API-URLs remain unchanged.
-# If you need to rewrite URLs, please use a reverse proxy.
-# Must begin with a `/`.
-# Examples: `/`, `/tiles`
-base_path: /tiles
-
-# Number of web server workers
-worker_processes: 8
-
-# Amount of memory (in MB) to use for caching [default: 512, 0 to disable]
-#
-# This is the total amount of cache we use.
-# By default, this is split up between:
-# - Tiles 50% -&gt; 256 MB
-# - Pmtiles' directories 25% -&gt; 128 MB
-# - Fonts 12.5% -&gt; 64 MB
-# - Sprites 12.5% -&gt; 64 MB
-#
-# How the cache works internally is unstable and may change to improve performance/efficiency.
-# For example, we may change the split between sources to improve efficiency.
-#
-# Specify each cache size individually for finer cache size control:
-# - Tiles: `tile_cache_size_mb`
-# - Pmtiles: `pmtiles.directory_cache_size_mb`
-# - Fonts: `fonts.cache_size_mb`
-# - Sprites: `sprites.cache_size_mb`
-cache_size_mb: 512
-
-# Allows overriding the size of the tile cache.
-# Defaults to `cache_size_mb` / 2
-tile_cache_size_mb: 256
-
-# Which compression should be used if the
-# - client accepts multiple compression formats, and
-# - tile source is not pre-compressed.
-#
-# `gzip` is faster, but `brotli` is smaller, and may be faster with caching.
-# Default could be different depending on Martin version.
-preferred_encoding: gzip
-
-# Enable or disable Martin web UI. [default: disable]
-#
-# At the moment, only allows `enable-for-all`, which enables the web UI for all connections.
-# This may be undesirable in a production environment
-web_ui: disable
-
-# Advanced monitoring options
-observability:
-  # Configure metrics reported under `/_/metrics`
-  metrics:
-    # Add these labels to every metric
-    # Example: `{ env: prod, server: martin }`
-    add_labels: {}
-
-# CORS Configuration
-#
-# Defaults to `cors: true`, which allows all origins.
-# Sending/Acting on CORS headers can be completely disabled via `cors: false`
-cors:
-  # Sets the `Access-Control-Allow-Origin` header [default: *]
-  # '*' will use the requests `ORIGIN` header
-  origin:
-    - https://example.org
-  # Sets `Access-Control-Max-Age` Header. [default: null]
-  # null means not setting the header for preflight requests
-  max_age: 3600
-
-# Database configuration. This can also be a list of PG configs.
-postgres:
-  # Database connection string.
-  #
-  # You can use environment variables too, for example:
-  # connection_string: $DATABASE_URL
-  # connection_string: ${DATABASE_URL:-postgres://postgres@localhost/db}
-  connection_string: 'postgres://postgres@localhost:5432/db'
-
-  # Same as PGSSLCERT for psql
-  ssl_cert: './postgresql.crt'
-  # Same as PGSSLKEY for psql
-  ssl_key: './postgresql.key'
-  # Same as PGSSLROOTCERT for psql
-  ssl_root_cert: './root.crt'
-
-  # If a spatial table has SRID 0, then this SRID will be used as a fallback
-  default_srid: 4326
-
-  # Maximum Postgres connections pool size [default: 20]
-  pool_size: 20
-
-  # Limit the number of geo features per tile.
-  #
-  # If the source table has more features than set here, they will not be
-  # included in the tile and the result will look "cut off"/incomplete.
-  # This feature allows you to put a maximum latency bound on tiles with an
-  # extreme amount of detail at the cost of not returning all data.
-  # It is sensible to set this limit if you have user generated/untrusted
-  # geodata, e.g. a lot of data points at [Null Island]
-  # (https://en.wikipedia.org/wiki/Null_Island).
-  max_feature_count: null # either a positive integer, or null=unlimited (default)
-
-  # Specify how bounds should be computed for the spatial PG tables [default: quick]
-  #
-  # Options:
-  # - `calc` compute table geometry bounds on startup.
-  # - `quick` same as 'calc', but the calculation will be aborted after 5 seconds.
-  # - `skip` does not compute table geometry bounds on startup.
-  auto_bounds: quick
-
-  # Enable automatic discovery of tables and functions.
-  # You may set this to `false` to disable.
-  auto_publish:
-    # Optionally limit to just these schemas
-    from_schemas:
-      - public
-      - my_schema
-    # Here we enable both tables and functions auto discovery.
-    # You can also enable just one of them by not mentioning the other, or
-    # setting it to false. Setting one to true disables the other one as well.
-    # E.g. `tables: false` enables just the functions auto-discovery.
-    tables:
-      # Optionally set how source ID should be generated based on the table's name,
-      # schema, and geometry column
-      source_id_format: 'table.{schema}.{table}.{column}'
-      # Add more schemas to the ones listed above
-      from_schemas: my_other_schema
-      # A table column to use as the feature ID
-      # If a table has no column with this name, `id_column` will not be set for
-      # that table.
-      # If a list of strings is given, the first found column will be treated as a
-      # feature ID.
-      id_columns: feature_id
-      # Controls if geometries should be clipped or encoded as is [default: true]
-      clip_geom: true
-      # Buffer distance in tile coordinate space to optionally clip geometries,
-      # optional, default to 64
-      buffer: 64
-      # Tile extent in tile coordinate space, optional, default to 4096
-      extent: 4096
-    functions:
-      # Optionally limit to just these schemas
-      from_schemas:
-        - public
-        - my_schema
-      # Optionally set how source ID should be generated based on the function's
-      # name and schema
-      source_id_format: '{schema}.{function}'
-
-  # Associative arrays of table sources
-  tables:
-    table_source_id:
-      # ID of the MVT layer (optional, defaults to table name)
-      layer_id: table_source
-
-      # Table schema (required)
-      schema: public
-
-      # Table name (required)
-      table: table_source
-
-      # Geometry SRID (required)
-      srid: 4326
-
-      # Geometry column name (required)
-      geometry_column: geom
-
-      # Feature id column name
-      id_column: ~
-
-      # An integer specifying the minimum zoom level
-      minzoom: 0
-
-      # An integer specifying the maximum zoom level. MUST be &gt;= minzoom
-      maxzoom: 30
-
-      # The maximum extent of available map tiles. Bounds MUST define an area
-      # covered by all zoom levels. The bounds are represented in WGS:84 latitude
-      # and longitude values, in the order left, bottom, right, top. Values may
-      # be integers or floating point numbers.
-      bounds: [ -180.0, -90.0, 180.0, 90.0 ]
-
-      # Tile extent in tile coordinate space
-      extent: 4096
-
-      # Buffer distance in tile coordinate space to optionally clip geometries
-      buffer: 64
-
-      # Boolean to control if geometries should be clipped or encoded as is
-      clip_geom: true
-
-      # Geometry type
-      geometry_type: GEOMETRY
-
-      # List of columns, that should be encoded as tile properties (required)
-      #
-      # Keys and values are the names and descriptions of attributes available in this layer.
-      # Each value (description) must be a string that describes the underlying data.
-      # If no fields (=just the geometry) should be encoded, an empty object is allowed.
-      properties:
-        gid: int4
-
-  # Associative arrays of function sources
-  functions:
-    function_source_id:
-      # Schema name (required)
-      schema: public
-
-      # Function name (required)
-      function: function_zxy_query
-
-      # An integer specifying the minimum zoom level
-      minzoom: 0
-
-      # An integer specifying the maximum zoom level. MUST be &gt;= minzoom
-      maxzoom: 30
-
-      # The maximum extent of available map tiles. Bounds MUST define an area
-      # covered by all zoom levels. The bounds are represented in WGS:84
-      # latitude and longitude values, in the order left, bottom, right, top.
-      # Values may be integers or floating point numbers.
-      bounds: [ -180.0, -90.0, 180.0, 90.0 ]
-
-# Publish PMTiles files from local disk or proxy to a web server
-pmtiles:
-  # Size of the directory cache (in MB).
-  # Defaults to cache_size_mb / 4
-  #
-  # Note:
-  # Tile and directory caching are complementary.
-  # For good performance, you want
-  # - directory caching (to not resolve the directory on each request) and
-  # - tile caching (for high access tiles)
-  directory_cache_size_mb: 128
-
-  # You can pass options for pmtiles files located on remote storages here.
-  #
-  # The avaliable options are documented here:
-  # - local file sources don't have options
-  # - Http(s) Source: https://docs.rs/object_store/latest/object_store/http/struct.HttpBuilder.html
-  # - Amazon S3: https://docs.rs/object_store/latest/object_store/aws/struct.AmazonS3Builder.html
-  # - Google Cloud Storage: https://docs.rs/object_store/latest/object_store/gcp/struct.GoogleCloudStorageBuilder.html
-  # - Microsoft Azure: https://docs.rs/object_store/latest/object_store/azure/struct.MicrosoftAzureBuilder.html
-  #
-  # Example for configuring a source to allow http
-  allow_http: true
-
+<h2 id="run-martin-with-configuration-file"><a class="header" href="#run-martin-with-configuration-file">Run Martin with configuration file</a></h2>
+<p>To add a COG in martin, simply add</p>
+<pre><code class="language-yml"># Cloud Optimized GeoTIFF File Sources
+cog:
   paths:
-    # scan this whole dir, matching all *.pmtiles files
+    # scan this whole dir, matching all *.tif and *.tiff files
     - /dir-path
-    # specific pmtiles file will be published as a pmt source (filename without extension)
-    - /path/to/pmt.pmtiles
-    # A web server with a PMTiles file that supports range requests
-    - https://example.org/path/tiles.pmtiles
+    # specific TIFF file will be published as a cog source
+    - /path/to/cog_file1.tif
+    - /path/to/cog_file2.tiff
   sources:
     # named source matching source name to a single file
-    pm-src1: /path/to/pmt.pmtiles
-    # A named source to a web server with a PMTiles file that supports range requests
-    pm-web2: https://example.org/path/tiles.pmtiles
-
-# Publish MBTiles files
-mbtiles:
-  paths:
-    # scan this whole dir, matching all *.mbtiles files
-    - /dir-path
-    # specific mbtiles file will be published as mbtiles2 source
-    - /path/to/mbtiles.mbtiles
-  sources:
-    # named source matching source name to a single file
-    mb-src1: /path/to/mbtiles1.mbtiles
-
-# Sprite configuration
-sprites:
-  # Size of the sprite cache (in MB).
-  # Defaults to cache_size_mb / 8
-  cache_size_mb: 64
-
-  paths:
-    # all SVG files in this dir will be published as a "my_images" sprite source
-    - /path/to/my_images
-  sources:
-    # SVG images in this directory will be published as a "my_sprites" sprite source
-    my_sprites: /path/to/some_dir
-
-# Font configuration
-fonts:
-  # Size of the sprite cache (in MB).
-  # Defaults to cache_size_mb / 4
-  cache_size_mb: 64
-
-  # A list of *.otf, *.ttf, and *.ttc font files and dirs to search recursively.
-  - /path/to/font/file.ttf
-  - /path/to/font_dir
-
-# Publish MapLibre style files
-# In the future, the style files will be used for the server-side rendering as well
-styles:
-   paths:
-     # publish all *.json files in this directory
-     # The name of the file will be used as the style name
-     - /path/to/styles_dir
-     # publish a single file - here `maplibre_style` will be the style name
-     - /path/to/maplibre_style.json
-   sources:
-     # publish a JSON file found at this path as `some_style_name`
-     #
-     # Contrairy to paths, if directories are specified, Martin will print a
-     # warning and ignore them.
-     # To serve a style-directory, use the `paths` section above or name each
-     # style individually. This prevents footguns with names being unclear.
-     some_style_name: /path/to/this/style.json
-     #  Publish specific file as `other_style_name`
-     other_style_name: /path/to/other_style.json
-
-# If set, the version of the tileset (as specified in the MBTiles or PMTiles metadata)
-# will be embedded in the TileJSON `tiles` URL, with the set identifier.
-# This is useful to give clients a better way to cache-bust a CDN:
-# 1. maplibre requests tilejson, tilejson contains the tiles URL. This is always up-to-date.
-# 2. maplibre requests each tile it requires, with the tiles URL in the tilejson.
-# 3. Add `Control: public, max-age=..., immutable` on the tile responses
-#    optimize browser/CDN cache hit rates, while also making sure that
-#    old tiles aren't served when a new tileset is deployed.
-#
-# The CDN must handle query parameters for caching to work correctly.
-# Many CDNs ignore them by default.
-#
-# For example, if
-# - the setting here is `version`, and
-# - the PMTiles tileset version is `1.0.0`, the
-# TileJSON will be:
-# { ..., "tiles": [".../{z}/{x}/{y}?version=1.0.0"], ... }
-tilejson_url_version_param: null # a string, such as `version` or `v`
+     cog-src1: /path/to/cog1.tif
+     cog-src2: /path/to/cog2.tif
 </code></pre>
+<h2 id="about-cog"><a class="header" href="#about-cog">About COG</a></h2>
+<p><a href="https://cogeo.org/">COG</a> is just Cloud Optimized GeoTIFF file.</p>
+<p>TIFF is an image file format. TIFF tags are something like key-value pairs inside to describe the metadata about a TIFF file, ike <code>ImageWidth</code>, <code>ImageLength</code>, etc.</p>
+<p>GeoTIFF is a valid TIFF file with a set of TIFF tags to describe the ‘Cartographic’ information associated with it.</p>
+<p>COG is a valid GeoTIFF file with some requirements for efficient reading. That is, all COG files are valid GeoTIFF files, but not all GeoTIFF files are valid COG files. For quick access to tiles in TIFF files, Martin relies on the requirements/recommendations(like the <a href="https://docs.ogc.org/is/21-026/21-026.html#_requirement_reduced_resolution_subfiles">requirement about Reduced-Resolution Subfiles</a> and <a href="https://docs.ogc.org/is/21-026/21-026.html#_tiles">the content dividing strategy</a>) so we use the term <code>COG</code> over <code>GeoTIFF</code> in our documentation and configuration files.</p>
+<p>You may want to visit these specs:</p>
+<ul>
+<li><a href="https://www.itu.int/itudoc/itu-t/com16/tiff-fx/docs/tiff6.pdf">TIFF 6.0</a></li>
+<li><a href="https://docs.ogc.org/is/19-008r4/19-008r4.html">GeoTIFF</a></li>
+<li><a href="https://docs.ogc.org/is/21-026/21-026.html">Cloud Optimized GeoTIFF</a></li>
+</ul>
+<h3 id="cog-generation-with-gdal"><a class="header" href="#cog-generation-with-gdal">COG generation with GDAL</a></h3>
+<p>You could generate cog with <code>gdal_translate</code> or <code>gdalwarp</code>. See more details in <a href="https://gdal.org/en/latest/drivers/raster/cog.html">gdal doc</a>.</p>
+<pre><code class="language-bash"># gdal-bin installation
+# sudo apt update
+# sudo apt install gdal-bin
+
+# gdalwarp
+gdalwarp src1.tif src2.tif out.tif -of COG
+
+# or gdal_translate
+gdal_translate input.tif output_cog.tif -of COG
+</code></pre>
+<h3 id="the-mapping-from-zxy-to-tiff-chunk"><a class="header" href="#the-mapping-from-zxy-to-tiff-chunk">The mapping from ZXY to tiff chunk</a></h3>
+<ul>
+<li>A single TIFF file could contains many sub-file about same spatial area, each has different resolution</li>
+<li>A sub file is organized with many tiles</li>
+</ul>
+<p>So basically there’s a mapping from zxy to tile of sub-file of TIFF.</p>
+<div class="table-wrapper"><table><thead><tr><th>zxy</th><th>mapping to</th></tr></thead><tbody>
+<tr><td>Zoom level</td><td>which sub-file in TIFF file</td></tr>
+<tr><td>X and Y</td><td>which tile in subfile</td></tr>
+</tbody></table>
+</div>
+<p>Clients could read only the header part of COG to figure out the mapping from zxy to the chunk number and the subfile number. Martin get tile to frontend by this mapping.</p>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="troubleshooting.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="sources-pg-functions.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
 
-                            <a rel="next prefetch" href="sources-tiles.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="sources-composite.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
 
@@ -620,11 +366,11 @@ tilejson_url_version_param: null # a string, such as `version` or `v`
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="troubleshooting.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="sources-pg-functions.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
 
-                    <a rel="next prefetch" href="sources-tiles.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="sources-composite.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
             </nav>

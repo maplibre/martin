@@ -262,21 +262,27 @@ but in the future, we may optimise Martin which may result in additional restric
 <p>Changes or removals of styles are reflected immediately, but additions are not.
 A restart of Martin is required to see new styles.</p>
 <h3 id="server-side-raster-tile-rendering"><a class="header" href="#server-side-raster-tile-rendering">Server-side raster tile rendering</a></h3>
-<div class="mdbook-alerts mdbook-alerts-note">
+<div class="mdbook-alerts mdbook-alerts-warning">
 <p class="mdbook-alerts-title">
   <span class="mdbook-alerts-icon"></span>
-  note
+  warning
 </p>
-<p>This feature is currently marked as unstable/experimental and thus not included in the default build.
-The behaviour on this endpoint may change in patch releases.</p>
-<p>To enable it, build Martin with the <code>--features=unstable-rendering</code> flag after installing the nessesary dependencys via <code>just install-dependencies</code>.</p>
-<p>It is experimental due to the limitations of our current implementation:</p>
+<p>This feature is currently unstable and thus not included in the default build.
+Its behaviour may change in patch releases.</p>
+<blockquote>
+</blockquote>
+<p>To experiment with it, <a href="https://rust-lang.org/tools/install/">install Rust</a> and run <code>just install-dependencies</code>.
+With these installed, run the following command to install martin with the unstable feature:</p>
+<pre><code class="language-bash">cargo build --features=unstable-rendering
+</code></pre>
+<p>It is unstable due to the limitations of our current implementation:</p>
 <ul>
 <li>Rendering support is currently only available on Linux.
 To add support for macOS/Windows, please see <a href="https://github.com/maplibre/maplibre-native-rs">https://github.com/maplibre/maplibre-native-rs</a>.</li>
 <li>Currently, martin does not cache style rendered requests and</li>
 <li>does not support concurrency for this feature.</li>
 </ul>
+<p>We welcome contributions to help stabilise this feature!</p>
 </div>
 <p>We support generating a rasterised image for an XYZ tile of a given style.</p>
 <p>To do so, you need to enable the feature in the configuration file:</p>
