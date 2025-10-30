@@ -43,7 +43,15 @@ A restart of Martin is required to see new styles.
 > We welcome contributions to help stabilise this feature!
 
 We support generating a rasterised image for an XYZ tile of a given style.
-Use the `/style/<style_id>/{z}/{x}/{y}.{filetype}` API to get a `<style_id>`'s rendered png/jpeg content.
+
+To do so, you need to enable the feature in the configuration file:
+
+```yaml
+styles:
+    rendering: true
+```
+
+After doing so, you can use the `/style/<style_id>/{z}/{x}/{y}.{filetype}` API to get a `<style_id>`'s rendered png/jpeg content.
 
 ### Static image prepraration
 
