@@ -1,20 +1,20 @@
 # Cloud Optimized GeoTIFF File Sources
 
 > [!WARNING]
-> This feature is currently marked as unstable/experimental and thus not included in the default build.
-> The behaviour on this endpoint may change in patch releases.
+> This feature is currently unstable and thus not included in the default build.
+> Its behaviour may change in patch releases.
 >
-> To experiment with this, [install Rust](https://rust-lang.org/tools/install/), and run the following to download and build martin with the experimental feature:
+> To experiment with it, [install Rust](https://rust-lang.org/tools/install/), and run the following to install martin with the unstable feature:
 >
 > ```bash
 > cargo install martin --features=unstable-cog
 > ```
 >
-> It is experimental due to the limitations of our current implementation:
+> It is unstable due to the limitations of our current implementation:
 >
-> - `EPSG:3857` is not yet supported => <https://github.com/maplibre/martin/pull/1893>
+> - [`EPSG:3857`](https://epsg.io/3857) is not yet supported => <https://github.com/maplibre/martin/pull/1893>
 >
-> If you want to contribute to this feature to stabilise it faster, we are very open to contributions 😉!
+> We welcome contributions to help stabilise this feature!
 
 Martin supports serving raster sources like local [COG(Cloud Optimized GeoTIFF)](https://cogeo.org/) files.
 

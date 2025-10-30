@@ -22,23 +22,25 @@ A restart of Martin is required to see new styles.
 ### Server-side raster tile rendering
 
 > [!WARNING]
-> This feature is currently marked as unstable/experimental and thus not included in the default build.
-> The behaviour on this endpoint may change in patch releases.
+> This feature is currently unstable and thus not included in the default build.
+> Its behaviour may change in patch releases.
 >
-> To enable it, build Martin with the `--features=unstable-rendering` flag after installing the nessesary dependencys via `just install-dependencies`:
+> 
+> To experiment with it, [install Rust](https://rust-lang.org/tools/install/) and run `just install-dependencies`.
+> With these installed, run the following command to install martin with the unstable feature:
 >
 > ```bash
 > cargo build --features=unstable-rendering
 > ```
 >
-> It is experimental due to the limitations of our current implementation:
+> It is unstable due to the limitations of our current implementation:
 >
 > - Rendering support is currently only available on Linux.
 >   To add support for macOS/Windows, please see <https://github.com/maplibre/maplibre-native-rs>.
 > - Currently, martin does not cache style rendered requests and
 > - does not support concurrency for this feature.
 >
-> If you want to contribute to this feature to stabilise it faster, we are very open to contributions 😉!
+> We welcome contributions to help stabilise this feature!
 
 We support generating a rasterised image for an XYZ tile of a given style.
 Use the `/style/<style_id>/{z}/{x}/{y}.{filetype}` API to get a `<style_id>`'s rendered png/jpeg content.
