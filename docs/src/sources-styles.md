@@ -25,7 +25,7 @@ A restart of Martin is required to see new styles.
 > This feature is currently unstable and thus not included in the default build.
 > Its behaviour may change in patch releases.
 >
-> 
+>
 > To experiment with it, [install Rust](https://rust-lang.org/tools/install/) and run `just install-dependencies`.
 > With these installed, run the following command to install martin with the unstable feature:
 >
