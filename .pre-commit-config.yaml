@@ -48,6 +48,19 @@ repos:
         language: rust
         pass_filenames: false
 
+      - id: sync-frontend-version
+        name: Sync Frontend Version
+        description: "Update martin-ui package.json version from martin Cargo.toml"
+        entry: |
+          bash -c '
+            VERSION=$(grep "^version = " martin/Cargo.toml | sed "s/version = \"\(.*\)\"/\1/")
+            sed -i "s/version\": \".*\"/version\": \"$VERSION\"/" martin/martin-ui/package.json
+            echo "Synced version to $VERSION"
+          '
+        language: system
+        files: ^martin/Cargo\.toml$
+        pass_filenames: false
+
   - repo: https://github.com/sqlfluff/sqlfluff
     rev: 3.5.0
     hooks:
