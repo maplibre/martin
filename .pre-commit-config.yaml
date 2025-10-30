@@ -48,6 +48,14 @@ repos:
         language: rust
         pass_filenames: false
 
+      - id: sync-frontend-version
+        name: Sync Frontend Version
+        description: "Update martin-ui package.json version from martin Cargo.toml"
+        entry: python3 -c "import re, json; cargo=open('martin/Cargo.toml').read(); pkg=json.load(open('martin/martin-ui/package.json')); v=re.search(r'^version = \"(.+?)\"', cargo, re.M).group(1); pkg['version']=v; f=open('martin/martin-ui/package.json', 'w'); json.dump(pkg, f, indent=2); f.write('\n'); f.close(); print(f'Synced version to {v}')"
+        language: system
+        files: ^martin/Cargo\.toml$
+        pass_filenames: false
+
   - repo: https://github.com/sqlfluff/sqlfluff
     rev: 3.5.0
     hooks:
