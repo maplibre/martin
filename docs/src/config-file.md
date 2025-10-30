@@ -297,19 +297,6 @@ mbtiles:
     # named source matching source name to a single file
     mb-src1: /path/to/mbtiles1.mbtiles
 
-# Cloud Optimized GeoTIFF File Sources
-cog:
-  paths:
-    # scan this whole dir, matching all *.tif and *.tiff files
-    - /dir-path
-    # specific TIFF file will be published as a cog source
-    - /path/to/cog_file1.tif
-    - /path/to/cog_file2.tiff
-  sources:
-    # named source matching source name to a single file
-     cog-src1: /path/to/cog1.tif
-     cog-src2: /path/to/cog2.tif
-
 # Sprite configuration
 sprites:
   # Size of the sprite cache (in MB).

@@ -1,6 +1,26 @@
 # Cloud Optimized GeoTIFF File Sources
 
-Martin can also serve raster sources like local [COG(Cloud Optimized GeoTIFF)](https://cogeo.org/) files. For cog on remote like S3 and other improvements, you could track them on [issue 875](https://github.com/maplibre/martin/issues/875), we are working on and welcome any assistance.
+> [!WARNING]
+> This feature is currently unstable and thus not included in the default build.
+> Its behaviour may change in patch releases.
+>
+> To experiment with it, [install Rust](https://rust-lang.org/tools/install/), and run this to download, compile, and install martin with the unstable feature:
+>
+> ```bash
+> cargo install martin --features=unstable-cog
+> ```
+>
+> It is unstable due to the limitations of our current implementation:
+>
+> - [`EPSG:3857`](https://epsg.io/3857) is not yet supported => <https://github.com/maplibre/martin/pull/1893>
+>
+> We welcome contributions to help stabilise this feature!
+
+Martin supports serving raster sources like local [COG(Cloud Optimized GeoTIFF)](https://cogeo.org/) files.
+
+> [!NOTE]
+> For cog on remote storage like S3 and other improvements, you could track them on [issue 875](https://github.com/maplibre/martin/issues/875).
+> We welcome any assistance.
 
 ## Supported colortype and bits per sample
 
@@ -12,10 +32,10 @@ Martin can also serve raster sources like local [COG(Cloud Optimized GeoTIFF)](h
 
 ## Supported compression
 
-* None
-* LZW
-* Deflate
-* PackBits
+- None
+- LZW
+- Deflate
+- PackBits
 
 ## Run Martin with CLI to serve cog files
 
@@ -30,27 +50,17 @@ martin /with/tiff/files /path/to/target1.tif /path/to/target2.tiff
 
 ## Run Martin with configuration file
 
+To add a COG in martin, simply add
+
 ```yml
-keep_alive: 75
-
-# The socket address to bind [default: 0.0.0.0:3000]
-listen_addresses: '0.0.0.0:3000'
-
-# Number of web server workers
-worker_processes: 8
-
-# Amount of memory (in MB) to use for caching [default: 512, 0 to disable]
-cache_size_mb: 8
-
-# Database configuration. This can also be a list of PG configs.
-
+# Cloud Optimized GeoTIFF File Sources
 cog:
   paths:
     # scan this whole dir, matching all *.tif and *.tiff files
     - /dir-path
     # specific TIFF file will be published as a cog source
-    - /path/to/target1.tif
-    - /path/to/target2.tiff
+    - /path/to/cog_file1.tif
+    - /path/to/cog_file2.tiff
   sources:
     # named source matching source name to a single file
      cog-src1: /path/to/cog1.tif
@@ -69,9 +79,9 @@ COG is a valid GeoTIFF file with some requirements for efficient reading. That i
 
 You may want to visit these specs:
 
-* [TIFF 6.0](https://www.itu.int/itudoc/itu-t/com16/tiff-fx/docs/tiff6.pdf)
-* [GeoTIFF](https://docs.ogc.org/is/19-008r4/19-008r4.html)
-* [Cloud Optimized GeoTIFF](https://docs.ogc.org/is/21-026/21-026.html)
+- [TIFF 6.0](https://www.itu.int/itudoc/itu-t/com16/tiff-fx/docs/tiff6.pdf)
+- [GeoTIFF](https://docs.ogc.org/is/19-008r4/19-008r4.html)
+- [Cloud Optimized GeoTIFF](https://docs.ogc.org/is/21-026/21-026.html)
 
 ### COG generation with GDAL
 
@@ -91,8 +101,8 @@ gdal_translate input.tif output_cog.tif -of COG
 
 ### The mapping from ZXY to tiff chunk
 
-* A single TIFF file could contains many sub-file about same spatial area, each has different resolution
-* A sub file is organized with many tiles
+- A single TIFF file could contains many sub-file about same spatial area, each has different resolution
+- A sub file is organized with many tiles
 
 So basically there's a mapping from zxy to tile of sub-file of TIFF.
 
