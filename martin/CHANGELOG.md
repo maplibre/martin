@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.20.1](https://github.com/maplibre/martin/compare/martin-v0.20.0...martin-v0.20.1) - 2025-10-31
+
+### Other
+
+- *(ci)* add pre commit step to sync the fronted version to the backend ([#2324](https://github.com/maplibre/martin/pull/2324))
+- reduce pg discovery bench sizes ([#2321](https://github.com/maplibre/martin/pull/2321))
+
 ## [0.20.0](https://github.com/maplibre/martin/compare/martin-v0.19.3...martin-v0.20.0) - 2025-10-27
 
 
