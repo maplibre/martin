@@ -52,7 +52,7 @@ annotated_geometry_columns AS (
         geometry_columns.srid,
         geometry_columns.type,
         -- 'geometry' AS column_type
-        coalesce(cls.relkind = 'v', false) AS is_view,
+        cls.relkind,
         bool_or(sic.column_name IS NOT null) AS geom_idx
     FROM geometry_columns
     INNER JOIN pg_catalog.pg_namespace AS ns
@@ -79,7 +79,7 @@ annotated_geography_columns AS (
         geography_columns.srid,
         geography_columns.type,
         -- 'geography' AS column_type
-        coalesce(cls.relkind = 'v', false) AS is_view,
+        cls.relkind,
         bool_or(sic.column_name IS NOT null) AS geom_idx
     FROM geography_columns
     INNER JOIN pg_catalog.pg_namespace AS ns
@@ -113,7 +113,7 @@ descriptions AS (
     FROM pg_class AS cls
     INNER JOIN pg_namespace ON cls.relnamespace = pg_namespace.oid
     LEFT JOIN pg_description ON cls.oid = pg_description.objoid AND pg_description.objsubid = 0
-    WHERE cls.relkind = 'r' OR cls.relkind = 'v'
+    WHERE cls.relkind IN ('r', 'v', 'm') -- table, view or materialised view
 )
 
 SELECT
@@ -122,7 +122,7 @@ SELECT
     gc.geom,
     gc.srid,
     gc.type,
-    gc.is_view,
+    gc.relkind,
     gc.geom_idx,
     dc.description,
     coalesce(
@@ -145,4 +145,4 @@ LEFT JOIN descriptions AS dc
         gc.schema = dc.schema_name
         AND gc.name = dc.table_name
 GROUP BY -- noqa: AM06
-    gc.schema, gc.name, gc.geom, gc.srid, gc.type, gc.is_view, gc.geom_idx, dc.description;
+    gc.schema, gc.name, gc.geom, gc.srid, gc.type, gc.relkind, gc.geom_idx, dc.description;
