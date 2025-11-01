@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useId, useRef } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -17,6 +17,23 @@ import { Database } from 'lucide-react';
 import { Popup } from 'maplibre-gl';
 import { buildMartinUrl } from '@/lib/api';
 
+interface TileJSON {
+  tilejson?: string;
+  name?: string;
+  description?: string;
+  version?: string;
+  attribution?: string;
+  scheme?: string;
+  tiles: string[];
+  grids?: string[];
+  data?: string[];
+  minzoom?: number;
+  maxzoom?: number;
+  bounds?: [number, number, number, number]; // [west, south, east, north]
+  center?: [number, number, number]; // [longitude, latitude, zoom]
+  vector_layers?: unknown[];
+}
+
 interface TileInspectDialogProps {
   name: string;
   source: TileSource;
@@ -27,6 +44,86 @@ export function TileInspectDialog({ name, source, onCloseAction }: TileInspectDi
   const id = useId();
   const mapRef = useRef<MapRef>(null);
   const inspectControlRef = useRef<MaplibreInspect>(null);
+  const [tileJSON, setTileJSON] = useState<TileJSON | null>(null);
+
+  const configureMapBounds = useCallback(() => {
+    if (!mapRef.current || !tileJSON) {
+      return;
+    }
+
+    const map = mapRef.current.getMap();
+
+    // Set minzoom and maxzoom restrictions
+    if (tileJSON.minzoom !== undefined) {
+      map.setMinZoom(tileJSON.minzoom);
+    }
+    if (tileJSON.maxzoom !== undefined) {
+      map.setMaxZoom(tileJSON.maxzoom);
+    }
+
+    // Set bounds restrictions if available
+    if (tileJSON.bounds) {
+      const [west, south, east, north] = tileJSON.bounds;
+      map.setMaxBounds([
+        [west, south],
+        [east, north],
+      ]);
+    }
+
+    // Fit to bounds or center if available
+    if (tileJSON.bounds) {
+      const [west, south, east, north] = tileJSON.bounds;
+      map.fitBounds(
+        [
+          [west, south],
+          [east, north],
+        ],
+        {
+          padding: 50,
+          maxZoom: tileJSON.maxzoom,
+        },
+      );
+    } else if (tileJSON.center) {
+      const [lng, lat, zoom] = tileJSON.center;
+      map.setCenter([lng, lat]);
+      if (zoom !== undefined) {
+        map.setZoom(zoom);
+      }
+    }
+  }, [tileJSON]);
+
+  // Fetch TileJSON when dialog opens
+  useEffect(() => {
+    let cancelled = false;
+
+    fetch(buildMartinUrl(`/${name}`))
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`Failed to fetch TileJSON: ${response.statusText}`);
+        }
+        return response.json();
+      })
+      .then((data: TileJSON) => {
+        if (!cancelled) {
+          setTileJSON(data);
+        }
+      })
+      .catch((error) => {
+        console.error('Error fetching TileJSON:', error);
+        // Continue without TileJSON restrictions if fetch fails
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [name]);
+
+  // Reconfigure bounds when TileJSON loads after map is already initialized
+  useEffect(() => {
+    if (tileJSON && mapRef.current) {
+      configureMapBounds();
+    }
+  }, [tileJSON, configureMapBounds]);
 
   const addInspectorToMap = useCallback(() => {
     if (!mapRef.current) {
@@ -54,12 +151,15 @@ export function TileInspectDialog({ name, source, onCloseAction }: TileInspectDi
     });
 
     map.addControl(inspectControlRef.current);
-  }, [name]);
+
+    // Configure bounds after adding inspector
+    configureMapBounds();
+  }, [name, configureMapBounds]);
   const isImageSource = ['image/gif', 'image/jpeg', 'image/png', 'image/webp'].includes(
     source.content_type,
   );
   return (
-    <Dialog onOpenChange={(v) => !v && onCloseAction()} open={true}>
+    <Dialog onOpenChange={(v: boolean) => !v && onCloseAction()} open={true}>
       <DialogContent className="max-w-6xl w-full p-6 max-h-[90vh] overflow-auto">
         <DialogHeader className="mb-6">
           <DialogTitle className="text-2xl flex items-center justify-between">
@@ -78,6 +178,31 @@ export function TileInspectDialog({ name, source, onCloseAction }: TileInspectDi
               <MapLibreMap
                 ref={mapRef}
                 reuseMaps={false}
+                onLoad={() => {
+                  // Configure bounds for raster sources after map loads
+                  if (tileJSON) {
+                    configureMapBounds();
+                  }
+                }}
+                initialViewState={
+                  tileJSON?.center
+                    ? {
+                        longitude: tileJSON.center[0],
+                        latitude: tileJSON.center[1],
+                        zoom: tileJSON.center[2] ?? 0,
+                      }
+                    : undefined
+                }
+                minZoom={tileJSON?.minzoom}
+                maxZoom={tileJSON?.maxzoom}
+                maxBounds={
+                  tileJSON?.bounds
+                    ? [
+                        [tileJSON.bounds[0], tileJSON.bounds[1]],
+                        [tileJSON.bounds[2], tileJSON.bounds[3]],
+                      ]
+                    : undefined
+                }
                 style={{
                   height: '500px',
                   width: '100%',
@@ -91,6 +216,25 @@ export function TileInspectDialog({ name, source, onCloseAction }: TileInspectDi
                 onLoad={addInspectorToMap}
                 ref={mapRef}
                 reuseMaps={false}
+                initialViewState={
+                  tileJSON?.center
+                    ? {
+                        longitude: tileJSON.center[0],
+                        latitude: tileJSON.center[1],
+                        zoom: tileJSON.center[2] ?? 0,
+                      }
+                    : undefined
+                }
+                minZoom={tileJSON?.minzoom}
+                maxZoom={tileJSON?.maxzoom}
+                maxBounds={
+                  tileJSON?.bounds
+                    ? [
+                        [tileJSON.bounds[0], tileJSON.bounds[1]],
+                        [tileJSON.bounds[2], tileJSON.bounds[3]],
+                      ]
+                    : undefined
+                }
                 style={{
                   height: '500px',
                   width: '100%',
