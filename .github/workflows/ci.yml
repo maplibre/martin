@@ -138,7 +138,7 @@ jobs:
           mv target/${{ matrix.target }}/release/martin-cp target_releases/
           mv target/${{ matrix.target }}/release/mbtiles target_releases/
       - name: Save build artifacts to build-${{ matrix.target }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
           name: build-${{ matrix.target }}
           path: target_releases/
@@ -196,7 +196,7 @@ jobs:
       # > The default image store in Docker Engine doesn't support loading multi-platform images.
       # > You can enable the containerd image store, or push multi-platform images is to directly push to a registry
       - name: Set up Docker
-        uses: docker/setup-docker-action@b60f85385d03ac8acfca6d9996982511d8620a19 # v4.3.0
+        uses: docker/setup-docker-action@3fb92d6d9c634363128c8cce4bc3b2826526370a # v4.4.0
         with:
           daemon-config: |
             {
@@ -215,12 +215,12 @@ jobs:
         # https://github.com/docker/setup-buildx-action
         with: { install: true, platforms: 'linux/amd64,linux/arm64' }
       - name: Download build artifact build-aarch64-unknown-linux-musl
-        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
         with: { name: 'build-aarch64-unknown-linux-musl', path: 'target_releases/linux/arm64/' }
       - name: Mark target_releases/linux/arm64/* as executable
         run: chmod +x target_releases/linux/arm64/*
       - name: Download build artifact build-x86_64-unknown-linux-musl
-        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
         with: { name: 'build-x86_64-unknown-linux-musl', path: 'target_releases/linux/amd64/' }
       - name: Mark target_releases/linux/amd64/* as executable
         run: chmod +x target_releases/linux/amd64/*
@@ -303,7 +303,7 @@ jobs:
 
       - name: Save test output (on error)
         if: failure()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
           name: failed-test-output-docker
           path: |
@@ -313,7 +313,7 @@ jobs:
 
       - name: Login to GitHub Docker registry
         if: github.event_name == 'push' || github.event_name == 'release'
-        uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
+        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # v3.6.0
         # https://github.com/docker/login-action
         with:
           registry: ghcr.io
@@ -405,7 +405,7 @@ jobs:
           mv target/${{ matrix.target }}/release/mbtiles${{ matrix.ext }} target_releases/
 
       - name: Save build artifacts to build-${{ matrix.target }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
           name: build-${{ matrix.target }}
           path: target_releases/*
@@ -421,7 +421,7 @@ jobs:
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with: { persist-credentials: false }
       - name: Download build artifact build-x86_64-unknown-linux-musl
-        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
         with: { name: 'build-x86_64-unknown-linux-musl', path: 'target/' }
 
       - run: tests/test-aws-lambda.sh
@@ -513,7 +513,7 @@ jobs:
       - name: Copy static files
         run: cp -r tests/fixtures/pmtiles2/* ${{ steps.nginx.outputs.html-dir }}
       - name: Download build artifact build-${{ matrix.target }}
-        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
         with:
           name: build-${{ matrix.target }}
           path: target/
@@ -551,7 +551,7 @@ jobs:
           fi
       - name: Download Debian package (Linux)
         if: matrix.target == 'x86_64-unknown-linux-gnu'
-        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
         with: { name: 'build-debian-x86_64', path: 'target/' }
       - name: Tests Debian package (Linux)
         if: matrix.target == 'x86_64-unknown-linux-gnu'
@@ -568,7 +568,7 @@ jobs:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ env.PGPORT }}/${{ env.PGDATABASE }}?sslmode=require
       - name: Save test output (on error)
         if: failure()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
           name: failed-test-output-${{ runner.os }}
           path: |
@@ -656,7 +656,7 @@ jobs:
           docker cp ${{ job.services.postgres.id }}:/etc/ssl/certs/ssl-cert-snakeoil.pem target/certs/server.crt
           docker cp ${{ job.services.postgres.id }}:/etc/ssl/private/ssl-cert-snakeoil.key target/certs/server.key
       - name: Download build artifact build-x86_64-unknown-linux-gnu
-        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
         with: { name: 'build-x86_64-unknown-linux-gnu', path: 'target_releases/' }
       - name: Set up gdal-bin and sqlite3-tools
         run: sudo apt update && sudo apt-get install -y gdal-bin sqlite3-tools
@@ -677,7 +677,7 @@ jobs:
         env:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=${{ matrix.sslmode }}
       - name: Download Debian package
-        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
         with: { name: 'build-debian-x86_64', path: 'target_releases/' }
       - name: Tests Debian package
         run: |
@@ -711,7 +711,7 @@ jobs:
           AWS_REGION: eu-central-1
       - name: Save test output (on error)
         if: failure()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
           name: test-output
           path: |
@@ -747,28 +747,28 @@ jobs:
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with: { persist-credentials: false }
       - name: Download build artifact build-aarch64-apple-darwin
-        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
         with: { name: 'build-aarch64-apple-darwin', path: 'target/aarch64-apple-darwin' }
       - name: Download build artifact build-x86_64-apple-darwin
-        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
         with: { name: 'build-x86_64-apple-darwin', path: 'target/x86_64-apple-darwin' }
       - name: Download build artifact build-aarch64-unknown-linux-gnu
-        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
         with: { name: 'build-aarch64-unknown-linux-gnu', path: 'target/aarch64-unknown-linux-gnu' }
       - name: Download build artifact build-x86_64-unknown-linux-gnu
-        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
         with: { name: 'build-x86_64-unknown-linux-gnu', path: 'target/x86_64-unknown-linux-gnu' }
       - name: Download build artifact build-aarch64-unknown-linux-musl
-        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
         with: { name: 'build-aarch64-unknown-linux-musl', path: 'target/aarch64-unknown-linux-musl' }
       - name: Download build artifact build-x86_64-unknown-linux-musl
-        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
         with: { name: 'build-x86_64-unknown-linux-musl', path: 'target/x86_64-unknown-linux-musl' }
       - name: Download build artifact build-x86_64-pc-windows-msvc
-        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
         with: { name: 'build-x86_64-pc-windows-msvc', path: 'target/x86_64-pc-windows-msvc' }
       - name: Download build artifact build-debian-x86_64
-        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
         with: { name: 'build-debian-x86_64', path: 'target/debian-x86_64' }
 
       - name: Package
@@ -820,7 +820,7 @@ jobs:
           EOF
 
       - name: Save Homebrew Config
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with: { name: 'homebrew-config', path: 'target/homebrew_config.yaml' }
 
       - name: Generate SLSA build provenance attestation
@@ -829,7 +829,7 @@ jobs:
         with: { subject-path: 'target/files/*' }
       - name: Publish
         if: github.event_name == 'release'
-        uses: softprops/action-gh-release@6cbd405e2c4e67a21c47fa9e383d020e4e28b836 # v2.3.3
+        uses: softprops/action-gh-release@6da8fa9354ddfdc4aeace5fc48d7f679b5214090 # v2.4.1
         with:
           files: 'target/files/*'
           generate_release_notes: false
@@ -919,14 +919,14 @@ jobs:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with: { fetch-depth: 0, persist-credentials: false }
       - name: Publish to crates.io if crate's version is newer
-        uses: release-plz/action@acb9246af4d59a270d1d4058a8b9af8c3f3a2559 # v0.5.117
+        uses: release-plz/action@d529f731ae3e89610ada96eda34e5c6ba3b12214 # v0.5.118
         id: release
         with: { command: release }
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN }}
       - if: ${{ steps.release.outputs.releases_created == 'false' }}
         name: If version is the same, create a PR proposing new version and changelog for the next release
-        uses: release-plz/action@acb9246af4d59a270d1d4058a8b9af8c3f3a2559 # v0.5.117
+        uses: release-plz/action@d529f731ae3e89610ada96eda34e5c6ba3b12214 # v0.5.118
         with: { command: release-pr }
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN }}
