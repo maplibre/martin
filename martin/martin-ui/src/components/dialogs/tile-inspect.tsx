@@ -79,8 +79,8 @@ export function TileInspectDialog({ name, source, onCloseAction }: TileInspectDi
           [east, north],
         ],
         {
-          padding: 50,
           maxZoom: tileJSON.maxzoom,
+          padding: 50,
         },
       );
     } else if (tileJSON.center) {
@@ -176,25 +176,15 @@ export function TileInspectDialog({ name, source, onCloseAction }: TileInspectDi
           <section className="border rounded-lg overflow-hidden">
             {isImageSource ? (
               <MapLibreMap
-                ref={mapRef}
-                reuseMaps={false}
-                onLoad={() => {
-                  // Configure bounds for raster sources after map loads
-                  if (tileJSON) {
-                    configureMapBounds();
-                  }
-                }}
                 initialViewState={
                   tileJSON?.center
                     ? {
-                        longitude: tileJSON.center[0],
                         latitude: tileJSON.center[1],
+                        longitude: tileJSON.center[0],
                         zoom: tileJSON.center[2] ?? 0,
                       }
                     : undefined
                 }
-                minZoom={tileJSON?.minzoom}
-                maxZoom={tileJSON?.maxzoom}
                 maxBounds={
                   tileJSON?.bounds
                     ? [
@@ -203,6 +193,16 @@ export function TileInspectDialog({ name, source, onCloseAction }: TileInspectDi
                       ]
                     : undefined
                 }
+                maxZoom={tileJSON?.maxzoom}
+                minZoom={tileJSON?.minzoom}
+                onLoad={() => {
+                  // Configure bounds for raster sources after map loads
+                  if (tileJSON) {
+                    configureMapBounds();
+                  }
+                }}
+                ref={mapRef}
+                reuseMaps={false}
                 style={{
                   height: '500px',
                   width: '100%',
@@ -213,20 +213,15 @@ export function TileInspectDialog({ name, source, onCloseAction }: TileInspectDi
               </MapLibreMap>
             ) : (
               <MapLibreMap
-                onLoad={addInspectorToMap}
-                ref={mapRef}
-                reuseMaps={false}
                 initialViewState={
                   tileJSON?.center
                     ? {
-                        longitude: tileJSON.center[0],
                         latitude: tileJSON.center[1],
+                        longitude: tileJSON.center[0],
                         zoom: tileJSON.center[2] ?? 0,
                       }
                     : undefined
                 }
-                minZoom={tileJSON?.minzoom}
-                maxZoom={tileJSON?.maxzoom}
                 maxBounds={
                   tileJSON?.bounds
                     ? [
@@ -235,6 +230,11 @@ export function TileInspectDialog({ name, source, onCloseAction }: TileInspectDi
                       ]
                     : undefined
                 }
+                maxZoom={tileJSON?.maxzoom}
+                minZoom={tileJSON?.minzoom}
+                onLoad={addInspectorToMap}
+                ref={mapRef}
+                reuseMaps={false}
                 style={{
                   height: '500px',
                   width: '100%',
