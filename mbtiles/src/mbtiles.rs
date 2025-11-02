@@ -85,7 +85,7 @@ pub struct PatchFileInfo {
 /// > **The default in mapbox and maplibre is xyz.***
 /// > **The default in mbtiles generation like plantitler is tms.***
 /// >
-/// > You can use [`mbtiles::invert_y_value`] to convert them.
+/// > You can use [`invert_y_value`] to convert them.
 ///
 /// ```
 /// use mbtiles::Mbtiles;
