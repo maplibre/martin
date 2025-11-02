@@ -6,6 +6,67 @@ use sqlx::{Pool, Sqlite, SqlitePool};
 use crate::errors::MbtResult;
 use crate::{MbtType, Mbtiles, Metadata};
 
+/// Connection pool for concurrent read access to an `MBTiles` file.
+///
+/// `MbtilesPool` wraps an [`Mbtiles`] reference with a `SQLite` connection pool,
+/// enabling safe concurrent access for tile serving applications. This is the
+/// recommended type for production tile servers.
+///
+/// # Connection Pooling
+///
+/// The pool manages multiple `SQLite` connections to the same file, allowing
+/// concurrent read operations without blocking. This is particularly useful
+/// for web servers handling multiple simultaneous tile requests.
+///
+/// # Examples
+///
+/// ## Basic tile serving
+///
+/// ```
+/// use mbtiles::MbtilesPool;
+///
+/// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+/// // Open file with connection pool
+/// let pool = MbtilesPool::open_readonly("world.mbtiles").await?;
+///
+/// // Get metadata (automatically acquires connection from pool)
+/// let metadata = pool.get_metadata().await?;
+/// println!("Tileset: {}", metadata.tilejson.name.unwrap_or_default());
+///
+/// // Fetch a tile - connection is automatically managed
+/// if let Some(tile_data) = pool.get_tile(4, 5, 6).await? {
+///     println!("Tile size: {} bytes", tile_data.len());
+/// }
+/// # Ok(())
+/// # }
+/// ```
+///
+/// ## Concurrent tile requests
+///
+/// ```
+/// use mbtiles::MbtilesPool;
+/// use std::sync::Arc;
+///
+/// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+/// let pool = Arc::new(MbtilesPool::open_readonly("world.mbtiles").await?);
+///
+/// // Spawn multiple concurrent tile requests
+/// let mut handles = vec![];
+/// for z in 0..5 {
+///     let pool = Arc::clone(&pool);
+///     handles.push(tokio::spawn(async move {
+///         pool.get_tile(z, 0, 0).await
+///     }));
+/// }
+///
+/// // All requests run concurrently using different pool connections
+/// for handle in handles {
+///     let result = handle.await??;
+///     println!("Got tile: {:?}", result.is_some());
+/// }
+/// # Ok(())
+/// # }
+/// ```
 #[derive(Clone, Debug)]
 pub struct MbtilesPool {
     mbtiles: Mbtiles,
@@ -13,7 +74,41 @@ pub struct MbtilesPool {
 }
 
 impl MbtilesPool {
-    /// Open a `MBTiles` file in read-only mode.
+    /// Opens an `MBTiles` file in read-only mode with connection pooling.
+    ///
+    /// Creates a new connection pool for the specified file, enabling safe
+    /// concurrent read access. This is the primary way to open an `MBTiles` file
+    /// for serving tiles in a production application.
+    ///
+    /// # Connection Pool
+    ///
+    /// The pool automatically manages multiple `SQLite` connections, allowing
+    /// concurrent tile requests without blocking. Each method call acquires
+    /// a connection from the pool, executes the operation, and returns the
+    /// connection to the pool automatically.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The file does not exist
+    /// - The file is not a valid `SQLite` database
+    /// - The connection pool cannot be created
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use mbtiles::MbtilesPool;
+    ///
+    /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+    /// // Open for concurrent tile serving
+    /// let pool = MbtilesPool::open_readonly("world.mbtiles").await?;
+    ///
+    /// // Pool automatically manages connections for all operations
+    /// let metadata = pool.get_metadata().await?;
+    /// let tile = pool.get_tile(4, 5, 6).await?;
+    /// # Ok(())
+    /// # }
+    /// ```
     pub async fn open_readonly<P: AsRef<Path>>(filepath: P) -> MbtResult<Self> {
         let mbtiles = Mbtiles::new(filepath)?;
         let opt = SqliteConnectOptions::new()
@@ -23,25 +118,122 @@ impl MbtilesPool {
         Ok(Self { mbtiles, pool })
     }
 
-    /// Get the metadata of the `MBTiles` file.
+    /// Retrieves the metadata for the `MBTiles` file.
     ///
-    /// See [`Metadata`] for more information.
+    /// Returns a [`Metadata`] struct containing:
+    /// - `TileJSON` information (name, description, bounds, zoom levels, etc.)
+    /// - Tile format and encoding
+    /// - Layer type (overlay or baselayer)
+    /// - Additional JSON metadata
+    /// - Aggregate tiles hash (if available)
+    ///
+    /// This method automatically acquires a connection from the pool.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use mbtiles::MbtilesPool;
+    ///
+    /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+    /// let pool = MbtilesPool::open_readonly("world.mbtiles").await?;
+    /// let metadata = pool.get_metadata().await?;
+    ///
+    /// println!("Tileset: {}", metadata.tilejson.name.unwrap_or_default());
+    /// println!("Format: {}", metadata.tile_info.format);
+    /// println!("Zoom levels: {:?}-{:?}", metadata.tilejson.minzoom, metadata.tilejson.maxzoom);
+    /// # Ok(())
+    /// # }
+    /// ```
     pub async fn get_metadata(&self) -> MbtResult<Metadata> {
         let mut conn = self.pool.acquire().await?;
         self.mbtiles.get_metadata(&mut *conn).await
     }
 
-    /// Detect the type of the `MBTiles` file.
+    /// Detects the schema type of the `MBTiles` file.
     ///
-    /// See [`MbtType`] for more information.
+    /// Examines the database schema to determine which of the three `MBTiles`
+    /// schema types is in use:
+    /// - [`MbtType::Flat`] - Single `tiles` table
+    /// - [`MbtType::FlatWithHash`] - `tiles_with_hash` table
+    /// - [`MbtType::Normalized`] - Separate `map` and `images` tables
+    ///
+    /// You typically need the schema type for operations like [`get_tile_and_hash`](Self::get_tile_and_hash)
+    /// or [`contains`](Self::contains) that behave differently based on the schema.
+    ///
+    /// # Performance
+    ///
+    /// This method queries the database schema. Consider caching the result if you
+    /// need it repeatedly.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use mbtiles::{MbtilesPool, MbtType};
+    ///
+    /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+    /// let pool = MbtilesPool::open_readonly("tiles.mbtiles").await?;
+    /// let mbt_type = pool.detect_type().await?;
+    ///
+    /// match mbt_type {
+    ///     MbtType::Flat => println!("Simple flat schema"),
+    ///     MbtType::FlatWithHash => println!("Flat schema with hashes"),
+    ///     MbtType::Normalized { .. } => println!("Normalized schema with deduplication"),
+    /// }
+    /// # Ok(())
+    /// # }
+    /// ```
     pub async fn detect_type(&self) -> MbtResult<MbtType> {
         let mut conn = self.pool.acquire().await?;
         self.mbtiles.detect_type(&mut *conn).await
     }
 
-    /// Get a tile from the pool
+    /// Retrieves a tile from the pool by its coordinates.
     ///
-    /// See [`MbtilesPool::get_tile_and_hash`] if you do need the tiles' hash.
+    /// Automatically acquires a connection from the pool, fetches the tile data,
+    /// and returns the connection to the pool. Safe to call concurrently from
+    /// multiple tasks.
+    ///
+    /// # Coordinate System
+    ///
+    /// Coordinates use the XYZ tile scheme where:
+    /// - `z` is the zoom level (0-30)
+    /// - `x` is the column (0 to 2^z - 1)
+    /// - `y` is the row in XYZ format (0 at top, increases southward)
+    ///
+    /// Note: `MBTiles` files internally use TMS coordinates (0 at bottom), but this
+    /// method handles the conversion automatically.
+    ///
+    /// # Returns
+    ///
+    /// - `Ok(Some(data))` if the tile exists
+    /// - `Ok(None)` if no tile exists at the coordinates
+    /// - `Err(_)` on database errors
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use mbtiles::MbtilesPool;
+    /// use std::sync::Arc;
+    ///
+    /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+    /// let pool = Arc::new(MbtilesPool::open_readonly("tiles.mbtiles").await?);
+    ///
+    /// // Can be called concurrently from multiple tasks
+    /// let pool1 = Arc::clone(&pool);
+    /// let handle1 = tokio::spawn(async move {
+    ///     pool1.get_tile(4, 5, 6).await
+    /// });
+    ///
+    /// let pool2 = Arc::clone(&pool);
+    /// let handle2 = tokio::spawn(async move {
+    ///     pool2.get_tile(4, 5, 7).await
+    /// });
+    ///
+    /// let tile1 = handle1.await??;
+    /// let tile2 = handle2.await??;
+    /// # Ok(())
+    /// # }
+    /// ```
     pub async fn get_tile(&self, z: u8, x: u32, y: u32) -> MbtResult<Option<Vec<u8>>> {
         let mut conn = self.pool.acquire().await?;
         self.mbtiles.get_tile(&mut *conn, z, x, y).await
