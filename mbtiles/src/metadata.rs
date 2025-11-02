@@ -48,6 +48,7 @@ pub struct Metadata {
     pub tile_info: TileInfo,
 
     /// Layer type: `"overlay"` or `"baselayer"` (MBTiles-specific field).
+    // todo: change this to an enum
     pub layer_type: Option<String>,
 
     /// Core [TileJSON](https://github.com/mapbox/tilejson-spec) metadata.
@@ -271,11 +272,10 @@ impl Mbtiles {
     /// - Vector tile fields: `vector_layers` (stored in `json` metadata key)
     /// - Custom fields: any values in `TileJSON.other`
     ///
-    /// # Notes
-    ///
-    /// - Existing metadata values are replaced (INSERT OR REPLACE)
-    /// - `None` values are skipped (not inserted)
-    /// - Vector layers are serialized to JSON and stored in the `json` metadata key
+    /// > [!NOTE]
+    /// > - Existing metadata values are replaced (INSERT OR REPLACE)
+    /// > - `None` values are skipped (not inserted)
+    /// > - Vector layers are serialized to JSON and stored in the `json` metadata key
     ///
     /// # Examples
     ///

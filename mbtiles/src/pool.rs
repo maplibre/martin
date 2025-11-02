@@ -45,15 +45,15 @@ use crate::{MbtType, Mbtiles, Metadata};
 ///
 /// ```
 /// use mbtiles::MbtilesPool;
-/// use std::sync::Arc;
 ///
 /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
-/// let pool = Arc::new(MbtilesPool::open_readonly("world.mbtiles").await?);
+/// let pool = MbtilesPool::open_readonly("world.mbtiles").await?;
 ///
 /// // Spawn multiple concurrent tile requests
 /// let mut handles = vec![];
 /// for z in 0..5 {
-///     let pool = Arc::clone(&pool);
+///     // cheap and thead-save
+///     let pool = pool.clone();
 ///     handles.push(tokio::spawn(async move {
 ///         pool.get_tile(z, 0, 0).await
 ///     }));
@@ -160,10 +160,9 @@ impl MbtilesPool {
     /// You typically need the schema type for operations like [`get_tile_and_hash`](Self::get_tile_and_hash)
     /// or [`contains`](Self::contains) that behave differently based on the schema.
     ///
-    /// # Performance
-    ///
-    /// This method queries the database schema. Consider caching the result if you
-    /// need it repeatedly.
+    /// > [!TIP]
+    /// > This method queries the database schema.
+    /// > Consider caching the result if you need it repeatedly.
     ///
     /// # Examples
     ///
@@ -195,13 +194,14 @@ impl MbtilesPool {
     ///
     /// # Coordinate System
     ///
-    /// Coordinates use the XYZ tile scheme where:
+    /// Coordinates use the [xyz Slippy map tilenames](https://wiki.openstreetmap.org/wiki/Slippy_map_tilenames) tile scheme where:
     /// - `z` is the zoom level (0-30)
     /// - `x` is the column (0 to 2^z - 1)
     /// - `y` is the row in XYZ format (0 at top, increases southward)
     ///
-    /// Note: `MBTiles` files internally use TMS coordinates (0 at bottom), but this
-    /// method handles the conversion automatically.
+    /// > [!NOTE]
+    /// > MBTiles files internally use [osgeos' Tile Map Service](https://wiki.openstreetmap.org/wiki/TMS) coordinates (0 at bottom).
+    /// > This method handles the conversion automatically as maplibre/mapbox expect this.
     ///
     /// # Returns
     ///

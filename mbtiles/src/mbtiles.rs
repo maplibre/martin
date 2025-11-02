@@ -57,9 +57,9 @@ pub struct PatchFileInfo {
 
 /// A reference to an `MBTiles` file providing low-level database operations.
 ///
-/// `Mbtiles` represents a reference to an [MBTiles](https://github.com/mapbox/mbtiles-spec)
-/// file without holding an open connection. It provides methods for opening connections
-/// and performing tile operations directly.
+/// `Mbtiles` represents a reference to an [MBTiles](https://maplibre.org/martin/mbtiles-schema.html)
+/// file without holding an open connection.
+/// It provides methods for opening connections and performing tile operations directly.
 ///
 /// # `MBTiles` Schema Types
 ///
@@ -78,6 +78,14 @@ pub struct PatchFileInfo {
 /// # Examples
 ///
 /// ## Reading tiles from an existing file
+///
+/// > [!NOTE]
+/// > Note that there are both [osgeos' Tile Map Service](https://wiki.openstreetmap.org/wiki/TMS) and [xyz Slippy map tilenames](https://wiki.openstreetmap.org/wiki/Slippy_map_tilenames) tiling shemes.
+/// > They differ only in if the y coordinate direction.
+/// > **The default in mapbox and maplibre is xyz.***
+/// > **The default in mbtiles generation like plantitler is tms.***
+/// > 
+/// > You can use [`mbtiles::invert_y_value`] to convert them.
 ///
 /// ```
 /// use mbtiles::Mbtiles;
@@ -410,13 +418,25 @@ impl Mbtiles {
     /// - `x` is the column (0 to 2^z - 1)
     /// - `y` is the row in XYZ format (0 at top, increases southward)
     ///
-    /// Note: `MBTiles` files internally use TMS coordinates (0 at bottom), but this
-    /// method handles the conversion automatically.
+    /// > [!NOTE]
+    /// > MBTiles files internally use [osgeos' Tile Map Service](https://wiki.openstreetmap.org/wiki/TMS) coordinates (0 at bottom).
+    /// > This method handles the conversion automatically as maplibre/mapbox expect this.
     ///
     /// # Performance
     ///
     /// If you also need the tile hash, use [`get_tile_and_hash`](Self::get_tile_and_hash)
     /// to fetch both in a single query.
+    ///
+    /// # Coordinate System
+    ///
+    /// Coordinates use the [xyz Slippy map tilenames](https://wiki.openstreetmap.org/wiki/Slippy_map_tilenames) tile scheme where:
+    /// - `z` is the zoom level (0-30)
+    /// - `x` is the column (0 to 2^z - 1)
+    /// - `y` is the row in XYZ format (0 at top, increases southward)
+    ///
+    /// > [!NOTE]
+    /// > MBTiles files internally use [osgeos' Tile Map Service](https://wiki.openstreetmap.org/wiki/TMS) coordinates (0 at bottom).
+    /// > This method handles the conversion automatically as maplibre/mapbox expect this.
     ///
     /// # Examples
     ///
@@ -475,6 +495,17 @@ impl Mbtiles {
     ///
     /// If you don't need the hash, use [`get_tile`](Self::get_tile) instead to avoid
     /// the overhead of hash retrieval.
+    ///
+    /// # Coordinate System
+    ///
+    /// Coordinates use the [xyz Slippy map tilenames](https://wiki.openstreetmap.org/wiki/Slippy_map_tilenames) tile scheme where:
+    /// - `z` is the zoom level (0-30)
+    /// - `x` is the column (0 to 2^z - 1)
+    /// - `y` is the row in XYZ format (0 at top, increases southward)
+    ///
+    /// > [!NOTE]
+    /// > MBTiles files internally use [osgeos' Tile Map Service](https://wiki.openstreetmap.org/wiki/TMS) coordinates (0 at bottom).
+    /// > This method handles the conversion automatically as maplibre/mapbox expect this.
     ///
     /// # Examples
     ///
