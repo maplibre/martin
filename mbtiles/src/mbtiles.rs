@@ -84,7 +84,7 @@ pub struct PatchFileInfo {
 /// > They differ only in if the y coordinate direction.
 /// > **The default in mapbox and maplibre is xyz.***
 /// > **The default in mbtiles generation like plantitler is tms.***
-/// > 
+/// >
 /// > You can use [`mbtiles::invert_y_value`] to convert them.
 ///
 /// ```
