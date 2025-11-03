@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.20.1](https://github.com/maplibre/martin/compare/martin-v0.20.0...martin-v0.20.1) - 2025-11-03
+
+### Other
+
+- *(deps)* Bump the all-npm-ui-version-updates group in /martin/martin-ui with 16 updates ([#2331](https://github.com/maplibre/martin/pull/2331))
+- *(deps-dev)* Bump @biomejs/biome from 2.2.4 to 2.3.2 in /martin/martin-ui ([#2333](https://github.com/maplibre/martin/pull/2333))
+- *(deps-dev)* Bump tailwindcss from 4.1.13 to 4.1.16 in /martin/martin-ui ([#2332](https://github.com/maplibre/martin/pull/2332))
+- *(ci)* add pre commit step to sync the fronted version to the backend ([#2324](https://github.com/maplibre/martin/pull/2324))
+- reduce pg discovery bench sizes ([#2321](https://github.com/maplibre/martin/pull/2321))
+- *(mbtiles)* Improve/Extend a large part of the doc comments ([#2334](https://github.com/maplibre/martin/pull/2334))
+
 ## [0.20.0](https://github.com/maplibre/martin/compare/martin-v0.19.3...martin-v0.20.0) - 2025-10-27
 
 

@@ -1,6 +1,6 @@
 [package]
 name = "martin"
-version = "0.20.0"
+version = "0.20.1"
 authors = [
     "Stepan Kuzmin <to.stepan.kuzmin@gmail.com>",
     "Yuri Astrakhan <YuriAstrakhan@gmail.com>",
