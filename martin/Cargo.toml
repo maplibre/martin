@@ -152,7 +152,6 @@ serde_yaml.workspace = true
 static-files = { workspace = true, optional = true }
 subst.workspace = true
 thiserror.workspace = true
-tiff = { workspace = true, optional = true }
 tilejson.workspace = true
 tokio = { workspace = true, features = ["io-std"] }
 url.workspace = true
