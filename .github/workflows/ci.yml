@@ -248,6 +248,7 @@ jobs:
             org.opencontainers.image.documentation=https://maplibre.org/martin/
             org.opencontainers.image.source=${{ github.event.repository.html_url }}
             org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version={{version}}
             org.opencontainers.image.vendor=maplibre
             org.opencontainers.image.licenses=Apache-2.0 OR MIT
             org.opencontainers.image.description=Blazing fast and lightweight tile server with PostGIS, MBTiles, and PMTiles support
@@ -260,6 +261,7 @@ jobs:
             org.opencontainers.image.documentation=https://maplibre.org/martin/
             org.opencontainers.image.source=${{ github.event.repository.html_url }}
             org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version={{version}}
             org.opencontainers.image.vendor=maplibre
             org.opencontainers.image.licenses=Apache-2.0 OR MIT
             org.opencontainers.image.description=Blazing fast and lightweight tile server with PostGIS, MBTiles, and PMTiles support
