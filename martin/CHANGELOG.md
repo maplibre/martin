@@ -9,10 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.20.1](https://github.com/maplibre/martin/compare/martin-v0.20.0...martin-v0.20.1) - 2025-11-03
 
-### Other
-
-
-## Changes to our docker tags
+## Fixed prefixes in ghcr tags
 
 We fixed a bug where in the 0.20.0 release our ghcr.io tags always had the prefix `:martin-v0.20.0` and were also published under `:martin-core-v0.2.0` and `:mbtiles-v0.14.0`.
 
