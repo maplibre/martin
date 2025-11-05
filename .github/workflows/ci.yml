@@ -236,6 +236,11 @@ jobs:
         # https://github.com/docker/metadata-action
         with:
           images: ghcr.io/${{ github.repository }}
+          tags: |
+            # Only tag release images for martin-v* tags, stripping the prefix
+            type=ref,event=tag,pattern=martin-v(.*),group=1
+            # Tag nightly builds from main as :nightly
+            type=raw,value=nightly,enable={{is_default_branch}}
           labels: |
             org.opencontainers.image.created={{commit_date 'YYYY-MM-DDTHH:mm:ss.SSS[Z]'}}
             org.opencontainers.image.authors=Yuri Astrakhan, Stepan Kuzmin and MapLibre contributors
@@ -243,6 +248,7 @@ jobs:
             org.opencontainers.image.documentation=https://maplibre.org/martin/
             org.opencontainers.image.source=${{ github.event.repository.html_url }}
             org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version={{version}}
             org.opencontainers.image.vendor=maplibre
             org.opencontainers.image.licenses=Apache-2.0 OR MIT
             org.opencontainers.image.description=Blazing fast and lightweight tile server with PostGIS, MBTiles, and PMTiles support
@@ -255,6 +261,7 @@ jobs:
             org.opencontainers.image.documentation=https://maplibre.org/martin/
             org.opencontainers.image.source=${{ github.event.repository.html_url }}
             org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version={{version}}
             org.opencontainers.image.vendor=maplibre
             org.opencontainers.image.licenses=Apache-2.0 OR MIT
             org.opencontainers.image.description=Blazing fast and lightweight tile server with PostGIS, MBTiles, and PMTiles support
@@ -827,15 +834,24 @@ jobs:
         if: github.event_name == 'release'
         uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3.0.0
         with: { subject-path: 'target/files/*' }
-      - name: Publish
-        if: github.event_name == 'release'
+      - name: Publish with artifacts
+        if: ${{ github.event_name == 'release' && startsWith(github.event.release.tag_name, 'martin-v') }}
         uses: softprops/action-gh-release@6da8fa9354ddfdc4aeace5fc48d7f679b5214090 # v2.4.1
         with:
           files: 'target/files/*'
           generate_release_notes: false
           draft: false
-          make_latest: ${{ github.event_name == 'release' && startsWith(github.event.release.tag_name, 'martin-') }}
+          make_latest: true
           fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish without artifacts
+        if: ${{ github.event_name == 'release' && !startsWith(github.event.release.tag_name, 'martin-v') }}
+        uses: softprops/action-gh-release@6da8fa9354ddfdc4aeace5fc48d7f679b5214090 # v2.4.1
+        with:
+          generate_release_notes: false
+          draft: false
+          make_latest: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
