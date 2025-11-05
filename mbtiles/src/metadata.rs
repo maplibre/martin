@@ -15,15 +15,53 @@ use crate::MbtError::InvalidZoomValue;
 use crate::Mbtiles;
 use crate::errors::MbtResult;
 
+/// Tileset metadata combining [MBTiles](https://github.com/mapbox/mbtiles-spec)
+/// and [TileJSON](https://github.com/mapbox/tilejson-spec) specifications.
+///
+/// Returned by [`Mbtiles::get_metadata`] and [`crate::MbtilesPool::get_metadata`].
+///
+/// # Example
+///
+/// ```no_run
+/// use mbtiles::MbtilesPool;
+///
+/// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+/// let pool = MbtilesPool::open_readonly("world.mbtiles").await?;
+/// let metadata = pool.get_metadata().await?;
+///
+/// println!("Name: {}", metadata.tilejson.name.unwrap_or_default());
+/// println!("Format: {}", metadata.tile_info.format);
+/// println!("Zoom: {:?}-{:?}", metadata.tilejson.minzoom, metadata.tilejson.maxzoom);
+/// # Ok(())
+/// # }
+/// ```
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct Metadata {
+    /// Tileset identifier, typically the filename without extension.
     pub id: String,
+
+    /// Tile format (PNG, JPEG, MVT, etc.) and encoding (gzip, etc.).
+    ///
+    /// Auto-detected from tile data. See [`martin_tile_utils::TileInfo`].
     #[serde(serialize_with = "serialize_ti")]
     pub tile_info: TileInfo,
+
+    /// Layer type: `"overlay"` or `"baselayer"` (MBTiles-specific field).
+    // todo: change this to an enum
     pub layer_type: Option<String>,
+
+    /// Core [TileJSON](https://github.com/mapbox/tilejson-spec) metadata.
+    ///
+    /// Includes name, bounds, zoom levels, attribution, vector layers, etc.
     pub tilejson: TileJSON,
+
+    /// Custom JSON metadata for application-specific data.
     pub json: Option<JSONValue>,
+
+    /// Aggregate hash of all tiles for validation and change detection.
+    ///
+    /// See [`Mbtiles::validate`] and [`Mbtiles::update_agg_tiles_hash`].
     pub agg_tiles_hash: Option<String>,
 }
 
@@ -108,6 +146,44 @@ impl Mbtiles {
         Ok(())
     }
 
+    /// Retrieves all metadata from the `MBTiles` file.
+    ///
+    /// Reads the entire metadata table and constructs a [`Metadata`] struct
+    /// containing all tileset information. This includes:
+    /// - All `TileJSON` fields (bounds, zoom levels, attribution, etc.)
+    /// - Tile format and encoding (auto-detected from sample tiles)
+    /// - Vector layer definitions (for MVT tiles)
+    /// - Custom JSON metadata
+    /// - Aggregate tiles hash (if present)
+    ///
+    /// # Format Detection
+    ///
+    /// This method automatically detects the tile format (PNG, JPEG, MVT, etc.)
+    /// and encoding (gzip, etc.) by examining actual tile data in the database.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use mbtiles::Mbtiles;
+    ///
+    /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+    /// let mbt = Mbtiles::new("world.mbtiles")?;
+    /// let mut conn = mbt.open_readonly().await?;
+    ///
+    /// let metadata = mbt.get_metadata(&mut conn).await?;
+    ///
+    /// // Access various metadata fields
+    /// println!("Name: {}", metadata.tilejson.name.unwrap_or_default());
+    /// println!("Format: {}", metadata.tile_info.format);
+    /// println!("Bounds: {:?}", metadata.tilejson.bounds);
+    /// println!("Zoom: {:?}-{:?}", metadata.tilejson.minzoom, metadata.tilejson.maxzoom);
+    ///
+    /// if let Some(layers) = &metadata.tilejson.vector_layers {
+    ///     println!("Vector layers: {}", layers.len());
+    /// }
+    /// # Ok(())
+    /// # }
+    /// ```
     pub async fn get_metadata<T>(&self, conn: &mut T) -> MbtResult<Metadata>
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
@@ -186,6 +262,39 @@ impl Mbtiles {
         })
     }
 
+    /// Inserts `TileJSON` metadata into the `MBTiles` metadata table.
+    ///
+    /// Writes all fields from a [`TileJSON`] struct to the metadata table,
+    /// converting them to the `MBTiles` key-value format. This includes:
+    /// - Standard fields: name, description, version, attribution, legend, template
+    /// - Geographic fields: bounds, center
+    /// - Zoom fields: minzoom, maxzoom
+    /// - Vector tile fields: `vector_layers` (stored in `json` metadata key)
+    /// - Custom fields: any values in `TileJSON.other`
+    ///
+    /// > [!NOTE]
+    /// > - Existing metadata values are replaced (INSERT OR REPLACE)
+    /// > - `None` values are skipped (not inserted)
+    /// > - Vector layers are serialized to JSON and stored in the `json` metadata key
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use mbtiles::Mbtiles;
+    /// use tilejson::tilejson;
+    ///
+    /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+    /// let mbt = Mbtiles::new("output.mbtiles")?;
+    /// let mut conn = mbt.open().await?;
+    ///
+    /// // Create TileJSON metadata
+    /// let tj = tilejson! { tiles: vec![] };
+    ///
+    /// // Insert all metadata
+    /// mbt.insert_metadata(&mut conn, &tj).await?;
+    /// # Ok(())
+    /// # }
+    /// ```
     pub async fn insert_metadata<T>(&self, conn: &mut T, tile_json: &TileJSON) -> MbtResult<()>
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,

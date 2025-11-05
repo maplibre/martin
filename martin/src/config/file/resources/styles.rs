@@ -20,7 +20,7 @@ pub struct InnerStyleConfig {
     /// We are not currently happy with the performance of this endpoint and intend to improve this in the future
     /// Marking this experimental means that we are not stuck with single threaded performance as a default until v2.0
     #[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
-    pub experimental_rendering: OptBoolObj<RendererConfig>,
+    pub rendering: OptBoolObj<RendererConfig>,
 
     #[serde(flatten, skip_serializing)]
     pub unrecognized: UnrecognizedValues,
@@ -35,12 +35,12 @@ impl ConfigurationLivecycleHooks for InnerStyleConfig {
             .cloned()
             .collect::<UnrecognizedKeys>();
         #[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
-        match &self.experimental_rendering {
+        match &self.rendering {
             OptBoolObj::NoValue | OptBoolObj::Bool(_) => {}
             OptBoolObj::Object(o) => keys.extend(
                 o.get_unrecognized_keys()
                     .iter()
-                    .map(|k| format!("experimental_rendering.{k}")),
+                    .map(|k| format!("rendering.{k}")),
             ),
         }
         keys
@@ -50,7 +50,7 @@ impl ConfigurationLivecycleHooks for InnerStyleConfig {
 #[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct RendererConfig {
-    // Same effect as experimental_rendering: true|false shorthands
+    // Same effect as rendering: true|false shorthands
     enabled: bool,
 
     #[serde(flatten, skip_serializing)]
@@ -74,7 +74,7 @@ impl StyleConfig {
         let mut results = StyleSources::default();
 
         #[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
-        match cfg.custom.experimental_rendering {
+        match cfg.custom.rendering {
             OptBoolObj::NoValue | OptBoolObj::Bool(false) => results.set_rendering_enabled(false),
             OptBoolObj::Object(ref o) if !o.enabled => results.set_rendering_enabled(false),
             _ => {

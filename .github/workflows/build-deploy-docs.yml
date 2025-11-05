@@ -23,7 +23,7 @@ jobs:
           config: '.github/files/config.markdownlint-cli2.jsonc'
 
       - name: 'Check Markdown URLs (same as "just clippy-md")'
-        uses: tcort/github-action-markdown-link-check@a800ad5f1c35bf61987946fd31c15726a1c9f2ba # v1.1.0
+        uses: tcort/github-action-markdown-link-check@f3d33029dca1c4a24b87e2df648f9f4604ef6533 # v1.1.1
         with:
           use-quiet-mode: 'yes' # only of the checks that failed
           use-verbose-mode: 'yes' # show status codes

@@ -1,9 +1,10 @@
 [package]
 name = "martin"
-version = "0.19.3"
+version = "0.20.1"
 authors = [
     "Stepan Kuzmin <to.stepan.kuzmin@gmail.com>",
     "Yuri Astrakhan <YuriAstrakhan@gmail.com>",
+    "Frank Elsinga <fr.elsinga+martin@gmail.com>",
     "MapLibre contributors",
 ]
 description = "Blazing fast and lightweight tile server with PostGIS, MBTiles, and PMTiles support"
@@ -95,7 +96,6 @@ default = [
     "postgres",
     "sprites",
     "styles",
-    "unstable-cog",
     "webui",
 ]
 unstable-cog = ["martin-core/unstable-cog", "_tiles"]
