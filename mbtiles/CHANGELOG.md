@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.14.1](https://github.com/maplibre/martin/compare/mbtiles-v0.14.0...mbtiles-v0.14.1) - 2025-11-03
+
+### Other
+
+- *(mbtiles)* Improve/Extend a large part of the doc comments ([#2334](https://github.com/maplibre/martin/pull/2334))
+
 ## [0.14.0](https://github.com/maplibre/martin/compare/mbtiles-v0.13.1...mbtiles-v0.14.0) - 2025-10-27
 
 ### Other
