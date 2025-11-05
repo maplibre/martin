@@ -312,7 +312,7 @@ pub fn bbox_to_xyz(left: f64, bottom: f64, right: f64, top: f64, zoom: u8) -> (u
 #[must_use]
 #[expect(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
 pub fn get_zoom_precision(zoom: u8) -> usize {
-    assert!(zoom < MAX_ZOOM, "zoom {zoom} must be <= {MAX_ZOOM}");
+    assert!(zoom <= MAX_ZOOM, "zoom {zoom} must be <= {MAX_ZOOM}");
     let lng_delta = webmercator_to_wgs84(EARTH_CIRCUMFERENCE / f64::from(1_u32 << zoom), 0.0).0;
     let log = lng_delta.log10() - 0.5;
     if log > 0.0 { 0 } else { -log.ceil() as usize }
