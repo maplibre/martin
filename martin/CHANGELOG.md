@@ -11,12 +11,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Other
 
-- *(deps)* Bump the all-npm-ui-version-updates group in /martin/martin-ui with 16 updates ([#2331](https://github.com/maplibre/martin/pull/2331))
-- *(deps-dev)* Bump @biomejs/biome from 2.2.4 to 2.3.2 in /martin/martin-ui ([#2333](https://github.com/maplibre/martin/pull/2333))
-- *(deps-dev)* Bump tailwindcss from 4.1.13 to 4.1.16 in /martin/martin-ui ([#2332](https://github.com/maplibre/martin/pull/2332))
+
+## Changes to our docker tags
+
+We fixed a bug where in the 0.20.0 release our ghcr.io tags always had the prefix `:martin-v0.20.0` and were also published under `:martin-core-v0.2.0` and `:mbtiles-v0.14.0`.
+
+Sorry for users affected by this change.
+Done in [#2338](https://github.com/maplibre/martin/pull/2338)
+
+## Fix
+
+Fixed a potential crash due to an off-by-one error when zooming in at exactly Zoom 30 (our limit). [#2340](https://github.com/maplibre/martin/pull/2340)
+
+## Maintenance
+
 - *(ci)* add pre commit step to sync the fronted version to the backend ([#2324](https://github.com/maplibre/martin/pull/2324))
 - reduce pg discovery bench sizes ([#2321](https://github.com/maplibre/martin/pull/2321))
-- *(mbtiles)* Improve/Extend a large part of the doc comments ([#2334](https://github.com/maplibre/martin/pull/2334))
+- various dependency bumps ([#2331](https://github.com/maplibre/martin/pull/2331), [#2333](https://github.com/maplibre/martin/pull/2333), [#2332](https://github.com/maplibre/martin/pull/2332))
 
 ## [0.20.0](https://github.com/maplibre/martin/compare/martin-v0.19.3...martin-v0.20.0) - 2025-10-27
 
