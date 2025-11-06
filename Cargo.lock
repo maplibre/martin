@@ -3666,7 +3666,7 @@ dependencies = [
 
 [[package]]
 name = "libdeflater"
-version = "1.25.0"
+version = "1.24.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d5d4880e6d634d3d029d65fa016038e788cc728a17b782684726fb34ee140caf"
 dependencies = [
