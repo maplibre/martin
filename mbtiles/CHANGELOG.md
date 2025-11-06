@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.14.2](https://github.com/maplibre/martin/compare/mbtiles-v0.14.1...mbtiles-v0.14.2) - 2025-11-06
+
+### Fixed
+
+- fix assertion ([#2340](https://github.com/maplibre/martin/pull/2340))
+
 ## [0.14.1](https://github.com/maplibre/martin/compare/mbtiles-v0.14.0...mbtiles-v0.14.1) - 2025-11-03
 
 ### Other
