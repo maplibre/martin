@@ -238,7 +238,7 @@ jobs:
           images: ghcr.io/${{ github.repository }}
           tags: |
             # Only tag release images for martin-v* tags, stripping the prefix
-            type=ref,event=tag,pattern=martin-v(.*),group=1
+            type=raw,value=${{ $(echo "${{ replace(github.event.release.tag_name || 'not-a-release', 'martin-v', '') }},enabled=${{ github.event_name == 'release' && startsWith(github.event.release.tag_name, 'martin-v') }}
             # Tag nightly builds from main as :nightly
             type=raw,value=nightly,enable={{is_default_branch}}
           labels: |
