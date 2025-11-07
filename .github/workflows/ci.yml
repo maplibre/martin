@@ -236,7 +236,7 @@ jobs:
           if [ "${{ github.event_name }}" = "release" ]; then
             TAG="${{ github.event.release.tag_name }}"
           else
-            TAG="not-a-release"
+            TAG="nightly"
           fi
 
           # Strip prefix "martin-v" if present
@@ -248,10 +248,8 @@ jobs:
         with:
           images: ghcr.io/${{ github.repository }}
           tags: |
-            # Only tag release images for martin-v* tags, stripping the prefix
-            type=raw,value=${{ steps.prepare_tag.outputs.short_tag }},enabled=${{ github.event_name == 'release' && startsWith(github.event.release.tag_name, 'martin-v') }}
-            # Tag nightly builds from main as :nightly
-            type=raw,value=nightly,enable={{is_default_branch}}
+            type=raw,value=${{ steps.prepare_tag.outputs.short_tag }}
+            type=raw,value=latest,enable=${{ github.event_name == 'release' && startsWith(github.event.release.tag_name, 'martin-v') }}
           labels: |
             org.opencontainers.image.created={{commit_date 'YYYY-MM-DDTHH:mm:ss.SSS[Z]'}}
             org.opencontainers.image.authors=Yuri Astrakhan, Stepan Kuzmin and MapLibre contributors
