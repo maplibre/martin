@@ -11,13 +11,13 @@ Everything can be performed via AWS CloudShell, or you can install the AWS CLI a
 Lambda images must come from a public or private ECR registry. Pull the image from GHCR and push it to ECR.
 
 ```bash
-$ docker pull ghcr.io/maplibre/martin:0.20.0 --platform linux/arm64
+$ docker pull ghcr.io/maplibre/martin:0.20.2 --platform linux/arm64
 $ aws ecr create-repository --repository-name martin
 […]
         "repositoryUri": "493749042871.dkr.ecr.us-east-2.amazonaws.com/martin",
 
 # Read the repositoryUri which includes your account number
-$ docker tag ghcr.io/maplibre/martin:0.20.0 493749042871.dkr.ecr.us-east-2.amazonaws.com/martin:latest
+$ docker tag ghcr.io/maplibre/martin:0.20.2 493749042871.dkr.ecr.us-east-2.amazonaws.com/martin:latest
 $ aws ecr get-login-password --region us-east-2 \
   | docker login --username AWS --password-stdin 493749042871.dkr.ecr.us-east-2.amazonaws.com
 $ docker push 493749042871.dkr.ecr.us-east-2.amazonaws.com/martin:latest
