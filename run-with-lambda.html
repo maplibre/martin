@@ -255,13 +255,13 @@
 <p>Everything can be performed via AWS CloudShell, or you can install the AWS CLI and the AWS SAM CLI, and configure authentication. The CloudShell also runs in a particular AWS region.</p>
 <h3 id="container-deployment"><a class="header" href="#container-deployment">Container deployment</a></h3>
 <p>Lambda images must come from a public or private ECR registry. Pull the image from GHCR and push it to ECR.</p>
-<pre><code class="language-bash">$ docker pull ghcr.io/maplibre/martin:latest --platform linux/arm64
+<pre><code class="language-bash">$ docker pull ghcr.io/maplibre/martin:0.20.2 --platform linux/arm64
 $ aws ecr create-repository --repository-name martin
 […]
         "repositoryUri": "493749042871.dkr.ecr.us-east-2.amazonaws.com/martin",
 
 # Read the repositoryUri which includes your account number
-$ docker tag ghcr.io/maplibre/martin:latest 493749042871.dkr.ecr.us-east-2.amazonaws.com/martin:latest
+$ docker tag ghcr.io/maplibre/martin:0.20.2 493749042871.dkr.ecr.us-east-2.amazonaws.com/martin:latest
 $ aws ecr get-login-password --region us-east-2 \
   | docker login --username AWS --password-stdin 493749042871.dkr.ecr.us-east-2.amazonaws.com
 $ docker push 493749042871.dkr.ecr.us-east-2.amazonaws.com/martin:latest

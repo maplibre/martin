@@ -255,14 +255,15 @@
 <pre><code class="language-bash">docker run \
   -p 3000:3000 \
   -e DATABASE_URL=postgres://postgres@postgres.example.org/db \
-  ghcr.io/maplibre/martin
+  ghcr.io/maplibre/martin:0.20.2
 </code></pre>
 <h3 id="exposing-local-files"><a class="header" href="#exposing-local-files">Exposing Local Files</a></h3>
 <p>You can expose local files to the Docker container using the <code>-v</code> flag.</p>
 <pre><code class="language-bash">docker run \
   -p 3000:3000 \
   -v /path/to/local/files:/files \
-  ghcr.io/maplibre/martin /files
+  ghcr.io/maplibre/martin:0.20.2 \
+  /files
 </code></pre>
 <h3 id="accessing-local-postgresql-on-linux"><a class="header" href="#accessing-local-postgresql-on-linux">Accessing Local PostgreSQL on Linux</a></h3>
 <p>If you are running PostgreSQL instance on <code>localhost</code>, you have to change network settings to allow the Docker container
@@ -272,21 +273,21 @@ with <code>-p</code> because the container is already using the host network.</p
 <pre><code class="language-bash">docker run \
   --net=host \
   -e DATABASE_URL=postgres://postgres@localhost/db \
-  ghcr.io/maplibre/martin
+  ghcr.io/maplibre/martin:0.20.2
 </code></pre>
 <h3 id="accessing-local-postgresql-on-macos"><a class="header" href="#accessing-local-postgresql-on-macos">Accessing Local PostgreSQL on macOS</a></h3>
 <p>For macOS, use <code>host.docker.internal</code> as hostname to access the <code>localhost</code> PostgreSQL service.</p>
 <pre><code class="language-bash">docker run \
   -p 3000:3000 \
   -e DATABASE_URL=postgres://postgres@host.docker.internal/db \
-  ghcr.io/maplibre/martin
+  ghcr.io/maplibre/martin:0.20.2
 </code></pre>
 <h3 id="accessing-local-postgresql-on-windows"><a class="header" href="#accessing-local-postgresql-on-windows">Accessing Local PostgreSQL on Windows</a></h3>
 <p>For Windows, use <code>docker.for.win.localhost</code> as hostname to access the <code>localhost</code> PostgreSQL service.</p>
 <pre><code class="language-bash">docker run \
   -p 3000:3000 \
   -e DATABASE_URL=postgres://postgres@docker.for.win.localhost/db \
-  ghcr.io/maplibre/martin
+  ghcr.io/maplibre/martin:0.20.2
 </code></pre>
 
                     </main>

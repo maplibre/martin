@@ -261,7 +261,8 @@ docker run -p 3000:3000 \
            -e PGPASSWORD \
            -e DATABASE_URL=postgres://user@host:port/db \
            -v /path/to/config/dir:/config \
-           ghcr.io/maplibre/martin --config /config/config.yaml
+           ghcr.io/maplibre/martin:0.20.2 \
+           --config /config/config.yaml
 </code></pre>
 <h3 id="from-binary-distributions-manually"><a class="header" href="#from-binary-distributions-manually">From Binary Distributions Manually</a></h3>
 <p>You can download martin from <a href="https://github.com/maplibre/martin/releases">GitHub releases page</a>.</p>
