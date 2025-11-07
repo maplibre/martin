@@ -9,9 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.20.2](https://github.com/maplibre/martin/compare/martin-v0.20.1...martin-v0.20.2) - 2025-11-07
 
-### Fixed
-
-- fix assertion ([#2340](https://github.com/maplibre/martin/pull/2340))
+In 0.20.1 we clamed to have fixed the bug regarding how our release script determines versions for docker containers.
+This was incorrect and is fixed now with a more manual appraoch instead of relying on `docker/metadata-action`.
+Done in [#2348](https://github.com/maplibre/martin/pull/2348)
 
 ### Other
 
