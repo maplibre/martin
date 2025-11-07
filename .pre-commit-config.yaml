@@ -48,13 +48,18 @@ repos:
         language: rust
         pass_filenames: false
 
-      - id: sync-frontend-version
-        name: Sync Frontend Version
+      - id: sync-martin-version
+        name: Sync martin Version
         description: "Update martin-ui package.json version from martin Cargo.toml"
         entry: |
           bash -c '
             VERSION=$(grep "^version = " martin/Cargo.toml | sed "s/version = \"\(.*\)\"/\1/")
             sed -i "s/version\": \".*\"/version\": \"$VERSION\"/" martin/martin-ui/package.json
+            sed -i "s%ghcr.io/maplibre/martin:[^[:space:]]*%ghcr.io/maplibre/martin:$VERSION%" docs/src/run-with-docker-compose.md
+            sed -i "s%ghcr.io/maplibre/martin:[^[:space:]]*%ghcr.io/maplibre/martin:$VERSION%" docs/src/run-with-docker.md
+            sed -i "s%ghcr.io/maplibre/martin:[^[:space:]]* %ghcr.io/maplibre/martin:$VERSION %" docs/src/installation.md
+            sed -i "s%ghcr.io/maplibre/martin:[^[:space:]]* %ghcr.io/maplibre/martin:$VERSION %" docs/src/run-with-lambda.md
+            sed -i "s%ghcr.io/maplibre/martin:[^[:space:]]* %ghcr.io/maplibre/martin:$VERSION %" justfile
             echo "Synced version to $VERSION"
           '
         language: system
