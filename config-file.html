@@ -559,8 +559,9 @@ fonts:
   cache_size_mb: 64
 
   # A list of *.otf, *.ttf, and *.ttc font files and dirs to search recursively.
-  - /path/to/font/file.ttf
-  - /path/to/font_dir
+  paths:
+    - /path/to/font/file.ttf
+    - /path/to/font_dir
 
 # Publish MapLibre style files
 # In the future, the style files will be used for the server-side rendering as well
