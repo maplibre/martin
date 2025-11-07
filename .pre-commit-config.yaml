@@ -57,7 +57,6 @@ repos:
             sed -i "s/version\": \".*\"/version\": \"$VERSION\"/" martin/martin-ui/package.json
             sed -i "s%ghcr.io/maplibre/martin:[^[:space:]]*%ghcr.io/maplibre/martin:$VERSION%" docs/src/run-with-docker-compose.md
             sed -i "s%ghcr.io/maplibre/martin:[^[:space:]]*%ghcr.io/maplibre/martin:$VERSION%" docs/src/run-with-docker.md
-            sed -i "s%ghcr.io/maplibre/martin:[^[:space:]]*%ghcr.io/maplibre/martin:$VERSION%" demo/docker-compose.yml
             sed -i "s%ghcr.io/maplibre/martin:[^[:space:]]* %ghcr.io/maplibre/martin:$VERSION %" docs/src/installation.md
             sed -i "s%ghcr.io/maplibre/martin:[^[:space:]]* %ghcr.io/maplibre/martin:$VERSION %" docs/src/run-with-lambda.md
             sed -i "s%ghcr.io/maplibre/martin:[^[:space:]]* %ghcr.io/maplibre/martin:$VERSION %" justfile
