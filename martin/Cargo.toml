@@ -1,6 +1,6 @@
 [package]
 name = "martin"
-version = "0.20.1"
+version = "0.20.2"
 authors = [
     "Stepan Kuzmin <to.stepan.kuzmin@gmail.com>",
     "Yuri Astrakhan <YuriAstrakhan@gmail.com>",
@@ -152,7 +152,6 @@ serde_yaml.workspace = true
 static-files = { workspace = true, optional = true }
 subst.workspace = true
 thiserror.workspace = true
-tiff = { workspace = true, optional = true }
 tilejson.workspace = true
 tokio = { workspace = true, features = ["io-std"] }
 url.workspace = true
