@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.20.2](https://github.com/maplibre/martin/compare/martin-v0.20.1...martin-v0.20.2) - 2025-11-07
+
+### Fixed
+
+- fix assertion ([#2340](https://github.com/maplibre/martin/pull/2340))
+
+### Other
+
+- Remove unused optional 'tiff' dependency from Cargo.toml ([#2343](https://github.com/maplibre/martin/pull/2343))
+
 ## [0.20.1](https://github.com/maplibre/martin/compare/martin-v0.20.0...martin-v0.20.1) - 2025-11-03
 
 ## Fixed prefixes in ghcr tags
