@@ -230,6 +230,17 @@ jobs:
         with: { port: '5412', output-unix-paths: 'yes' }
       - name: Copy static files
         run: cp -r tests/fixtures/pmtiles2/* ${{ steps.nginx.outputs.html-dir }}
+      - name: Prepare tag
+        id: prepare_tag
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            TAG="${{ github.event.release.tag_name }}"
+          else
+            TAG="not-a-release"
+          fi
+
+          # Strip prefix "martin-v" if present
+          echo "short_tag=${TAG#martin-v}" >> "$GITHUB_OUTPUT"
       - name: Docker meta
         id: docker_meta
         uses: docker/metadata-action@c1e51972afc2121e065aed6d45c65596fe445f3f # v5.8.0
@@ -238,7 +249,7 @@ jobs:
           images: ghcr.io/${{ github.repository }}
           tags: |
             # Only tag release images for martin-v* tags, stripping the prefix
-            type=ref,event=tag,pattern=martin-v(.*),group=1
+            type=raw,value=${{ steps.prepare_tag.outputs.short_tag }},enabled=${{ github.event_name == 'release' && startsWith(github.event.release.tag_name, 'martin-v') }}
             # Tag nightly builds from main as :nightly
             type=raw,value=nightly,enable={{is_default_branch}}
           labels: |
@@ -319,7 +330,7 @@ jobs:
           retention-days: 5
 
       - name: Login to GitHub Docker registry
-        if: github.event_name == 'push' || github.event_name == 'release'
+        if: github.event_name == 'push' || (github.event_name == 'release' && startsWith(github.event.release.tag_name, 'martin-v'))
         uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # v3.6.0
         # https://github.com/docker/login-action
         with:
@@ -329,7 +340,7 @@ jobs:
 
       - name: Push the Docker image
         id: docker_push
-        if: github.event_name == 'push' || github.event_name == 'release'
+        if: github.event_name == 'push' || (github.event_name == 'release' && startsWith(github.event.release.tag_name, 'martin-v'))
         uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
         with:
           provenance: mode=max
