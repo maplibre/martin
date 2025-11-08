@@ -21,8 +21,8 @@ export function Header() {
             <Badge asChild className="hover:bg-purple-700 hidden md:block" variant="default">
               {import.meta.env.VITE_MARTIN_VERSION ? (
                 <a
-                  className="p-1"
-                  href={`https://github.com/maplibre/martin/releases/tag/${import.meta.env.VITE_MARTIN_VERSION}`}
+                  className="p-1" target="_blank"
+                  href={`https://github.com/maplibre/martin/releases/tag/martin-v${import.meta.env.VITE_MARTIN_VERSION}`}
                 >
                   {import.meta.env.VITE_MARTIN_VERSION}
                 </a>
