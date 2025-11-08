@@ -21,7 +21,7 @@ vi.mock('react', async () => {
 });
 
 // Mock import.meta.env globally - Vitest handles this natively, but we set defaults
-vi.stubEnv('VITE_MARTIN_VERSION', 'v0.0.0-test');
+vi.stubEnv('VITE_MARTIN_VERSION', '0.0.0-test');
 vi.stubEnv('VITE_MARTIN_BASE', 'http://localhost:3000');
 
 // Suppress console errors during tests
