@@ -6,7 +6,7 @@ import { render } from '../test-utils';
 // Mock import.meta.env for tests
 const mockImportMeta = {
   env: {
-    VITE_MARTIN_VERSION: 'v0.0.0-test',
+    VITE_MARTIN_VERSION: '0.0.0-test',
   },
 };
 
@@ -25,7 +25,7 @@ describe('Header Component', () => {
 
   it('displays the Martin version', () => {
     const { getByText } = render(<Header />);
-    expect(getByText('v0.0.0-test')).toBeTruthy();
+    expect(getByText('0.0.0-test')).toBeTruthy();
   });
 
   it('contains navigation links', () => {
