@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.20.3](https://github.com/maplibre/martin/compare/martin-v0.20.2...martin-v0.20.3) - 2025-11-10
+
+### Fixed
+
+- broken url to github release in web-ui ([#2354](https://github.com/maplibre/martin/pull/2354))
+
 ## [0.20.2](https://github.com/maplibre/martin/compare/martin-v0.20.1...martin-v0.20.2) - 2025-11-07
 
 In 0.20.1 we clamed to have fixed the bug regarding how our release script determines versions for docker containers.
