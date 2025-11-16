@@ -9,8 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.0.0](https://github.com/maplibre/martin/compare/martin-v0.20.2...martin-v1.0.0) - 2025-11-10
 
-This is the v1.0.0 release of martin.
+🎉🎉🎉 **After 8 years in developmen, we are excited to release v1.0.0 of martin.** 🎉🎉🎉
 Functionally, it is the same as `v0.20.2`, just with our releses further automated.
+There are no breaking changes between `v0.20.X` and `v1.X.X`
 
 ### Fixed
 
