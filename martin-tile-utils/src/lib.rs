@@ -79,6 +79,7 @@ pub enum Format {
     Mvt,
     Png,
     Webp,
+    Avif,
 }
 
 impl Format {
@@ -91,6 +92,7 @@ impl Format {
             "pbf" | "mvt" => Self::Mvt,
             "png" => Self::Png,
             "webp" => Self::Webp,
+            "avif" => Self::Avif,
             _ => None?,
         })
     }
@@ -106,6 +108,7 @@ impl Format {
             Self::Mvt => "pbf",
             Self::Png => "png",
             Self::Webp => "webp",
+            Self::Avif => "avif",
         }
     }
 
@@ -118,13 +121,14 @@ impl Format {
             Self::Mvt => "application/x-protobuf",
             Self::Png => "image/png",
             Self::Webp => "image/webp",
+            Self::Avif => "image/avif",
         }
     }
 
     #[must_use]
     pub fn is_detectable(self) -> bool {
         match self {
-            Self::Png | Self::Jpeg | Self::Gif | Self::Webp => true,
+            Self::Png | Self::Jpeg | Self::Gif | Self::Webp | Self::Avif => true,
             // TODO: Json can be detected, but currently we only detect it
             //       when it's not compressed, so to avoid a warning, keeping it as false for now.
             //       Once we can detect it inside a compressed data, change it to true.
@@ -142,6 +146,7 @@ impl Display for Format {
             Self::Mvt => "mvt",
             Self::Png => "png",
             Self::Webp => "webp",
+            Self::Avif => "avif",
         })
     }
 }
@@ -241,7 +246,9 @@ impl From<Format> for TileInfo {
         Self::new(
             format,
             match format {
-                Format::Png | Format::Jpeg | Format::Webp | Format::Gif => Encoding::Internal,
+                Format::Png | Format::Jpeg | Format::Webp | Format::Gif | Format::Avif => {
+                    Encoding::Internal
+                }
                 Format::Mvt | Format::Json => Encoding::Uncompressed,
             },
         )
