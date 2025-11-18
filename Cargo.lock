@@ -4880,9 +4880,9 @@ dependencies = [
 
 [[package]]
 name = "pmtiles"
-version = "0.17.1"
+version = "0.18.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7f01c60faf873f6bbffc603c84934402fdf51d1b32624a405041524fce89da23"
+checksum = "6ccb5d2a71c30442e35985a680614e0666d24daab8682aa01d4b1c4eae10de40"
 dependencies = [
  "async-compression",
  "async-stream",
@@ -4893,6 +4893,7 @@ dependencies = [
  "flate2",
  "fmmap",
  "futures-util",
+ "moka",
  "object_store",
  "reqwest",
  "rust-s3",
