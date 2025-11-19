@@ -64,7 +64,7 @@ lambda-web = { version = "0.2.1", features = ["actix4"] }
 log = "0.4"
 maplibre_native = "0.4.1"
 martin-core = { path = "./martin-core", version = "0.2.3", default-features = false }
-martin-tile-utils = { path = "./martin-tile-utils", version = "0.6.6" }
+martin-tile-utils = { path = "./martin-tile-utils", version = "0.6.7" }
 mbtiles = { path = "./mbtiles", version = "0.14.2" }
 md5 = "0.8.0"
 moka = { version = "0.12", features = ["future"] }

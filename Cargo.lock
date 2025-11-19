@@ -3965,7 +3965,7 @@ dependencies = [
 
 [[package]]
 name = "martin-tile-utils"
-version = "0.6.6"
+version = "0.6.7"
 dependencies = [
  "approx",
  "brotli 8.0.2",
