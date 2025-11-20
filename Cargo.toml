@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["martin", "martin-core", "martin-tile-utils", "mbtiles"]
+members = ["martin", "martin-core", "martin-tracing-utils", "martin-tile-utils", "mbtiles"]
 
 [workspace.package]
 edition = "2024"
@@ -104,6 +104,10 @@ tiff = "0.10.1"
 tilejson = "0.4"
 tokio = { version = "1", features = ["macros"] }
 tokio-postgres-rustls = "0.13"
+tracing = { version = "0.1.41", features = ["log"] }
+tracing-log = { version ="0.2.0", features = ["interest-cache"] }
+tracing-subscriber = { version = "0.3.19", features = ["env-filter", "json"] }
+tracing-test = { version = "0.2.5",features = ["no-env-filter"] }
 url = "2.5"
 walkdir = "2.5.0"
 xxhash-rust = { version = "0.8", features = ["xxh3"] }
