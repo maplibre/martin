@@ -12,7 +12,7 @@ After that, you can use the connection string and the CA certificate to connect 
 
 ```bash
 martin --ca-root-file ./ca-certificate.crt \
-       postgresql://user:password@host:port/db?sslmode=require
+       postgres://user:password@host:port/db?sslmode=require
 ```
 
 ## Using with Heroku PostgreSQL

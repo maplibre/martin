@@ -1,9 +1,24 @@
-## PostgreSQL Connection String
+## PostgreSQL Connections
 
-Martin supports many of the PostgreSQL connection string settings such as `host`, `port`, `user`, `password`, `dbname`, `sslmode`, `connect_timeout`, `keepalives`, `keepalives_idle`, etc. See the [PostgreSQL docs](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNSTRING) for more details.
+Martin supports standard PostgreSQL connection string settings including `host`, `port`, `user`, `password`, `dbname`, `sslmode`, `connect_timeout`, `keepalives`, `keepalives_idle`, etc.
+See the [PostgreSQL docs](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNSTRING) for more details.
 
-### PostgreSQL SSL Connections
+### SSL Connections
 
-Martin supports PostgreSQL `sslmode` including `disable`, `prefer`, `require`, `verify-ca` and `verify-full` modes as described in the [PostgreSQL docs](https://www.postgresql.org/docs/current/libpq-ssl.html).  Certificates can be provided in the configuration file, or can be set using the same env vars as used for `psql`. When set as env vars, they apply to all PostgreSQL connections.  See [environment vars](env-vars.md) section for more details.
+Martin supports PostgreSQL `sslmode` settings: `disable`, `prefer`, `require`, `verify-ca` and `verify-full`.
+See the [PostgreSQL docs](https://www.postgresql.org/docs/current/libpq-ssl.html) for mode descriptions.
+Certificates can be provided in the configuration file or via environment variables (same as `psql`).
+Environment variables apply to all PostgreSQL connections.
+See [environment vars](env-vars.md) for details.
 
-By default, `sslmode` is set to `prefer` which means that SSL is used if the server supports it, but the connection is not aborted if the server does not support it.  This is the default behavior of `psql` and is the most compatible option.  Use the `sslmode` param to set a different `sslmode`, e.g. `postgresql://user:password@host/db?sslmode=require`.
+By default, `sslmode` is `prefer` - encrypt (don't check certificates) if the server supports it, but the connection proceeds without SSL if not supported.
+This matches `psql` default behavior.
+
+If you require guarnatees regarding [eavesdropping](https://en.wikipedia.org/wiki/Eavesdropping) or [MITM protection](https://en.wikipedia.org/wiki/Man-in-the-middle_attack), you need a different option.
+Use the `sslmode` parameter to specify a different mode:
+
+```bash
+martin postgres://user:password@host/db?sslmode=verify-full
+```
+
+For a practical walkthrough of SSL certificate setup — including creation, configuration, and troubleshooting — see our [PostgreSQL SSL Certificates Recipe](pg-ssl-certificates.md).

@@ -1,3 +1,8 @@
+#![expect(
+    clippy::panic,
+    reason = "panics in build.rs generate better error messages, are easier to debug and are fatal anyway"
+)]
+
 #[cfg(feature = "webui")]
 use std::fs;
 #[cfg(feature = "webui")]
@@ -96,14 +101,14 @@ fn webui() {
     );
 
     // TODO: we may need to move index.html one level down per change_detection() docs
-    static_files::NpmBuild::new(martin_ui_dir)
+    let _ = static_files::NpmBuild::new(martin_ui_dir)
         .target(&target_to_keep)
         .change_detection();
 }
 
 fn main() {
     #[cfg(feature = "webui")]
-    if option_env!("RUSTDOC").is_none() {
+    if option_env!("RUSTDOC").is_none() && option_env!("DOCS_RS").is_none() {
         webui();
     }
 }

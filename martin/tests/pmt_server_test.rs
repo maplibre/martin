@@ -1,9 +1,11 @@
+#![cfg(feature = "pmtiles")]
+
 use actix_web::http::header::{ACCEPT_ENCODING, CONTENT_ENCODING, CONTENT_TYPE};
 use actix_web::test::{TestRequest, call_service, read_body, read_body_json};
 use ctor::ctor;
 use indoc::indoc;
 use insta::assert_yaml_snapshot;
-use martin::srv::SrvConfig;
+use martin::config::file::srv::SrvConfig;
 use martin_tile_utils::decode_gzip;
 use tilejson::TileJSON;
 
@@ -23,7 +25,9 @@ macro_rules! create_app {
                 .app_data(actix_web::web::Data::new(
                     ::martin::srv::Catalog::new(&state).unwrap(),
                 ))
-                .app_data(actix_web::web::Data::new(::martin::NO_MAIN_CACHE))
+                .app_data(actix_web::web::Data::new(
+                    ::martin_core::tiles::NO_TILE_CACHE,
+                ))
                 .app_data(actix_web::web::Data::new(state.tiles))
                 .app_data(actix_web::web::Data::new(SrvConfig::default()))
                 .configure(|c| ::martin::srv::router(c, &SrvConfig::default())),
@@ -38,6 +42,8 @@ fn test_get(path: &str) -> TestRequest {
 
 const CONFIG: &str = indoc! {"
         pmtiles:
+            aws_region: eu-central-1
+            skip_signature: true
             sources:
                 p_png: ../tests/fixtures/pmtiles/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles
                 s3: s3://pmtilestest/cb_2018_us_zcta510_500k.pmtiles

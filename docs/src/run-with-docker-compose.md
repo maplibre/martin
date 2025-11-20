@@ -6,12 +6,12 @@ file as a reference
 ```yml
 services:
   martin:
-    image: ghcr.io/maplibre/martin:v0.16.0
+    image: ghcr.io/maplibre/martin:1.0.0
     restart: unless-stopped
     ports:
       - "3000:3000"
     environment:
-      - DATABASE_URL=postgresql://postgres:password@db/db
+      - DATABASE_URL=postgres://postgres:password@db/db
     depends_on:
       - db
 

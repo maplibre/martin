@@ -48,6 +48,10 @@
       "content_type": "application/x-protobuf",
       "description": "a description from comment on table"
     },
+    "antimeridian": {
+      "content_type": "application/x-protobuf",
+      "description": "public.antimeridian.geom"
+    },
     "auto_table": {
       "content_type": "application/x-protobuf",
       "description": "autodetect.auto_table.geom"
@@ -167,17 +171,24 @@
       "content_type": "application/x-protobuf",
       "description": "public.points_empty_srid.geom"
     },
-    "rgb_u8": {
-      "content_type": "image/png"
-    },
-    "rgba_u8": {
-      "content_type": "image/png"
-    },
-    "rgba_u8_nodata": {
-      "content_type": "image/png"
-    },
     "stamen_toner__raster_CC-BY-ODbL_z3": {
       "content_type": "image/png"
+    },
+    "table_and_view_two_schemas": {
+      "content_type": "application/x-protobuf",
+      "description": "schema_a.table_and_view_two_schemas.a_geom"
+    },
+    "table_and_view_two_schemas.1": {
+      "content_type": "application/x-protobuf",
+      "description": "schema_b.table_and_view_two_schemas.b_geom"
+    },
+    "table_name_existing_two_schemas": {
+      "content_type": "application/x-protobuf",
+      "description": "schema_a.table_name_existing_two_schemas.a_geom"
+    },
+    "table_name_existing_two_schemas.1": {
+      "content_type": "application/x-protobuf",
+      "description": "schema_b.table_name_existing_two_schemas.b_geom"
     },
     "table_source": {
       "content_type": "application/x-protobuf"
@@ -197,6 +208,14 @@
       "content_type": "application/x-protobuf",
       "description": "Major cities from Natural Earth data",
       "name": "Major cities from Natural Earth data"
+    },
+    "view_name_existing_two_schemas": {
+      "content_type": "application/x-protobuf",
+      "description": "schema_a.view_name_existing_two_schemas.a_geom"
+    },
+    "view_name_existing_two_schemas.1": {
+      "content_type": "application/x-protobuf",
+      "description": "schema_b.view_name_existing_two_schemas.b_geom"
     },
     "webp": {
       "content_type": "image/webp",

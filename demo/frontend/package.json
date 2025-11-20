@@ -1,47 +1,45 @@
 {
-  "name": "martin-landing",
-  "version": "0.1.0",
-  "private": true,
-  "scripts": {
-    "dev": "vite --port 8080 --host",
-    "build": "tsc && vite build",
-    "preview": "vite preview --port 8080 --host",
-    "lint": "eslint src"
-  },
-  "eslintConfig": {
-    "extends": "react-app"
-  },
-  "dependencies": {
-    "date-fns": "^2.30.0",
-    "debounce": "1.2.1",
-    "maplibre-gl": "^3.5.2",
-    "normalize.css": "8.0.1",
-    "react": "18.2.0",
-    "react-day-picker": "^8.9.1",
-    "react-dom": "18.2.0",
-    "react-map-gl": "^7.1.6",
-    "react-scroll-parallax": "3.4.3",
-    "styled-components": "6.1.1"
-  },
-  "devDependencies": {
-    "@types/node": "^20.9.0",
-    "@types/react": "^18.2.37",
-    "@types/react-dom": "^18.2.15",
-    "@vitejs/plugin-react": "^4.1.1",
-    "eslint": "8.53.0",
-    "eslint-config-airbnb": "19.0.4",
-    "eslint-config-airbnb-base": "15.0.0",
-    "eslint-config-react-app": "7.0.1",
-    "typescript": "^5.2.2",
-    "vite": "^4.5.14",
-    "vite-plugin-mkcert": "^1.16.0",
-    "vite-tsconfig-paths": "^4.2.1"
-  },
   "browserslist": [
     ">0.2%",
     "not dead",
     "not ie <= 11",
     "not op_mini all"
   ],
-  "proxy": "https://maplibre.org"
+  "dependencies": {
+    "date-fns": "^4.1.0",
+    "debounce": "2.2.0",
+    "maplibre-gl": "^5.10.0",
+    "normalize.css": "8.0.1",
+    "react": "19.2.0",
+    "react-day-picker": "^9.11.1",
+    "react-dom": "19.2.0",
+    "react-map-gl": "^8.1.0",
+    "react-scroll-parallax": "3.5.0",
+    "styled-components": "6.1.19"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.3.2",
+    "@types/debounce": "^1.2.4",
+    "@types/node": "^24.9.2",
+    "@types/react": "^19.2.2",
+    "@types/react-dom": "^19.2.2",
+    "@vitejs/plugin-react": "^5.1.0",
+    "typescript": "^5.9.3",
+    "vite": "^7.1.12",
+    "vite-plugin-mkcert": "^1.17.9",
+    "vite-tsconfig-paths": "^5.0.0"
+  },
+  "name": "martin-landing",
+  "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e",
+  "private": true,
+  "proxy": "https://maplibre.org",
+  "scripts": {
+    "build": "tsc && vite build",
+    "dev": "vite --port 8080 --host",
+    "format": "biome check --write",
+    "lint": "biome lint --write",
+    "preview": "vite preview --port 8080 --host",
+    "type-check": "tsc --noEmit"
+  },
+  "version": "0.1.0"
 }

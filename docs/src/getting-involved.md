@@ -1,15 +1,54 @@
 # Getting involved
 
 It's time to get involved once you have the [fork and all required software](development.md).
+This guide covers IDE setup and debugging.
+While we use Visual Studio Code as an example, Martin can be developed with any editor that supports Rust.
 
-We assume you are working on Ubuntu (or WSL) with Visual Studio Code in this post.
+<details>
+<summary>Editor-specific Guides (click to expand)</summary>
 
-## Editor Plugins
+### Visual Studio Code
 
-Install plugins below:
+Install these essential extensions:
 
-* [CodeLLDB](https://marketplace.visualstudio.com/items?itemName=vadimcn.vscode-lldb)
-* [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)
+* [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer) - Rust language server
+* [CodeLLDB](https://marketplace.visualstudio.com/items?itemName=vadimcn.vscode-lldb) - Debugger for Rust
+* [Even Better TOML](https://marketplace.visualstudio.com/items?itemName=tamasfe.even-better-toml) - TOML syntax highlighting
+* [GitLens](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens) - Git integration (optional)
+
+### Vim/Neovim
+
+Use [rustaceanvim](https://github.com/mrcjkb/rustaceanvim)
+
+### Emacs
+
+Use either
+
+* [rustic](https://github.com/brotzeit/rustic) or
+* [rust-mode](https://github.com/rust-lang/rust-mode)
+
+### RustRover
+
+[RustRover](https://jetbrains.com/rust/) supports rust out of the box
+
+### Zed
+
+[Zed](https://zed.dev/) supports rust out of the box
+
+</details>
+
+## Quick Development Setup
+
+Before diving into IDE configuration, make sure your development environment is ready:
+
+```bash
+# Validate all required tools are installed
+just validate-tools
+
+# Start the development environment
+just start  # starts test database
+just help   # shows common commands
+```
 
 ## Debugging with `launch.json`
 
@@ -23,7 +62,7 @@ Press `F1` on your keyboard, and input "Generate Launch Configurations from Carg
 
 ## Modify
 
-Let's say you want to debugging Martin with this command:
+Let's say you want to debug Martin with this command:
 
 ```shell
 martin postgres://postgres:postgres@localhost:5411/db

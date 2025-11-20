@@ -18,23 +18,36 @@ on:
 jobs:
   coverage:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     env:
       CARGO_TERM_COLOR: always
       AWS_SKIP_CREDENTIALS: 1
       AWS_REGION: eu-central-1
     steps:
+      - run: rustup update stable && rustup default stable
+      - uses: BRAINSia/free-disk-space@961cea98847272b08b213eb88534f529a3023f43 # v2.1.1
+        with:
+          tool-cache: false
+          mandb:   true
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: true
+      - name: Checkout sources
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with: { persist-credentials: false }
+      - uses: taiki-e/install-action@cc60de1d6831d7e9c4342f618ce7a5d6a9f223a4 # v2.61.6
+        with: { tool: 'just,cargo-llvm-cov' }
       - name: Set up system dependencies
         run: sudo apt-get update && sudo apt-get install -y gdal-bin sqlite3-tools postgresql-client
-      - name: Checkout sources
-        uses: actions/checkout@v4
-      - uses: Swatinem/rust-cache@v2
 
-      - uses: taiki-e/install-action@v2
-        with: { tool: 'just,cargo-llvm-cov' }
       - name: Generate code coverage
         run: just coverage --codecov --output-path target/codecov.info
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@5a1091511ad55cbe89839c7260b706298ca349f7 # v5.5.1
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: target/codecov.info

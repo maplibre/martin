@@ -14,7 +14,7 @@ mod mbtiles;
 pub use mbtiles::{CopyType, MbtTypeCli, Mbtiles};
 
 mod metadata;
-pub use metadata::Metadata;
+pub use metadata::{Metadata, anonymous_mbtiles, temp_named_mbtiles};
 
 mod patcher;
 pub use patcher::apply_patch;
@@ -34,6 +34,7 @@ mod bindiff;
 
 mod validation;
 
+pub use martin_tile_utils::{Tile, TileCoord};
 pub use validation::{
     AGG_TILES_HASH, AGG_TILES_HASH_AFTER_APPLY, AGG_TILES_HASH_BEFORE_APPLY, AggHashType,
     IntegrityCheckType, MbtType, calc_agg_tiles_hash,

@@ -29,13 +29,21 @@ mkdir -p "$TEST_TEMP_DIR"
 
 # Verify the tools used in the tests are available
 # todo add more verification for other tools like jq file curl sqlite3...
-if [[ $OSTYPE == linux* ]]; then # We only used ogrmerge.py on Linux see the test_pbf() function
+if [[ $OSTYPE == linux* || $OSTYPE == darwin* ]]; then
   if ! command -v ogrmerge.py > /dev/null; then
   echo "gdal-bin is required for testing"
-  echo "For Ubuntu, you could install it with sudo apt update && sudo apt install gdal-bin -y"
-  echo "see more at https://gdal.org/en/stable/download.html#binaries"
+  echo "See https://gdal.org/en/stable/download.html#binaries"
   exit 1
   fi
+fi
+
+if [[ $(sed --version 2> /dev/null) > /dev/null ]]; then
+  SED=${SED:-sed}
+elif [[ $(gsed --version 2> /dev/null) > /dev/null ]]; then
+  SED=${SED:-gsed}
+else
+  echo 'GNU sed is required for testing'
+  exit 1
 fi
 
 function wait_for {
@@ -48,9 +56,6 @@ function wait_for {
     for _ in {1..60}; do
         if $CURL "$TEST_URL" 2>/dev/null >/dev/null; then
             echo "$PROC_NAME is up!"
-            if [[ "$PROC_NAME" == "Martin" ]]; then
-              $CURL "$TEST_URL"
-            fi
             return
         fi
         if ps -p "$PROCESS_ID" > /dev/null ; then
@@ -103,13 +108,13 @@ test_metrics() {
   URL="$MARTIN_URL/_/metrics"
 
   echo "Testing $1 from $URL"
-  $CURL --dump-header  "$FILENAME.headers" "$URL" | sed -E 's/^(martin_.*?) [\.0-9]+$/\1 NUMBER/g' > "$FILENAME.txt"
+  $CURL --dump-header  "$FILENAME.headers" "$URL" | $SED --regexp-extended 's/^(martin_.*?) [\.0-9]+$/\1 NUMBER/g' > "$FILENAME.txt"
   clean_headers_dump "$FILENAME.headers"
-  $CURL --dump-header  "$FILENAME.fetched_with_compression.headers" --compressed "$URL" | sed -E 's/^(martin_.*?) [\.0-9]+$/\1 NUMBER/g' > "$FILENAME.fetched_with_compression.txt"
+  $CURL --dump-header  "$FILENAME.fetched_with_compression.headers" --compressed "$URL" | $SED --regexp-extended 's/^(martin_.*?) [\.0-9]+$/\1 NUMBER/g' > "$FILENAME.fetched_with_compression.txt"
   clean_headers_dump "$FILENAME.fetched_with_compression.headers"
   # due to slight timing differences, these might be slightly different
-  sed --regexp-extended --in-place 's/^content-length: [\.0-9]+$/content-length: NUMBER/g' "$FILENAME.headers"
-  sed --regexp-extended --in-place 's/^content-length: [\.0-9]+$/content-length: NUMBER/g' "$FILENAME.fetched_with_compression.headers"
+  $SED --regexp-extended --in-place 's/^content-length: [\.0-9]+$/content-length: NUMBER/g' "$FILENAME.headers"
+  $SED --regexp-extended --in-place 's/^content-length: [\.0-9]+$/content-length: NUMBER/g' "$FILENAME.fetched_with_compression.headers"
 }
 
 test_pbf() {
@@ -122,11 +127,16 @@ test_pbf() {
 
   if [[ $OSTYPE == linux* ]]; then
     ./tests/fixtures/vtzero-check "$FILENAME"
-    # see https://gdal.org/en/stable/programs/ogrmerge.html#ogrmerge
-    ogrmerge.py -o "$FILENAME.geojson" "$FILENAME" -single -src_layer_field_name "source_mvt_layer" -src_layer_field_content "{LAYER_NAME}" -f "GeoJSON" -overwrite_ds
-    jq --sort-keys '.features |= sort_by(.properties.source_mvt_layer, .properties.gid) | walk(if type == "number" then .+0.0 else . end)' "$FILENAME.geojson" > "$FILENAME.sorted.geojson"
-    mv "$FILENAME.sorted.geojson" "$FILENAME.geojson"
+  elif [[ $OSTYPE == darwin* ]]; then
+    ./tests/fixtures/vtzero-check-darwin "$FILENAME"
+  else
+    return 0
   fi
+
+  # see https://gdal.org/en/stable/programs/ogrmerge.html#ogrmerge
+  ogrmerge.py -o "$FILENAME.geojson" "$FILENAME" -single -src_layer_field_name "source_mvt_layer" -src_layer_field_content "{LAYER_NAME}" -f "GeoJSON" -overwrite_ds
+  jq --sort-keys '.features |= sort_by(.properties.source_mvt_layer, .properties.gid) | walk(if type == "number" then .+0.0 else . end)' "$FILENAME.geojson" > "$FILENAME.sorted.geojson"
+  mv "$FILENAME.sorted.geojson" "$FILENAME.geojson"
 }
 
 test_png() {
@@ -138,8 +148,10 @@ test_png() {
   $CURL --dump-header  "$FILENAME.headers" "$URL" > "$FILENAME"
   clean_headers_dump "$FILENAME.headers"
 
-  if [[ $OSTYPE == linux* ]]; then
-    file "$FILENAME" > "$FILENAME.txt"
+  if [[ $OSTYPE == linux* || $OSTYPE == darwin* ]]; then
+    # some 'file' versions are more verbose, but CI is not
+    # we must reduce this to match their output
+    file "$FILENAME" | $SED 's#Web/P image, with alpha, 511+1x511+1#Web/P image#' > "$FILENAME.txt"
   fi
 }
 
@@ -157,11 +169,18 @@ test_font() {
   clean_headers_dump "$FILENAME.headers"
 }
 
-# Delete a line from a file $1 that matches parameter $2
-remove_line() {
+# Delete line from a file $1 that matches parameter $2 and log the action
+remove_lines() {
   FILE="$1"
   LINE_TO_REMOVE="$2"
   >&2 echo "Removing line '$LINE_TO_REMOVE' from $FILE"
+  quietly_remove_lines "$FILE" "$LINE_TO_REMOVE"
+}
+
+# Delete line from a file $1 that matches parameter $2
+quietly_remove_lines() {
+  FILE="$1"
+  LINE_TO_REMOVE="$2"
   grep -v "$LINE_TO_REMOVE" "${FILE}" > "${FILE}.tmp"
   mv "${FILE}.tmp" "${FILE}"
 }
@@ -170,15 +189,15 @@ remove_line() {
 clean_headers_dump() {
   FILE="$1"
   # now we need to strip the date header as it is undeterministic
-  sed --regexp-extended --in-place "s/date: .+//" "$FILE"
+  $SED --regexp-extended --in-place "s/date: .+//" "$FILE"
   # the http version is not an "header" that we want to assert
-  sed --regexp-extended --in-place "s/HTTP.+//" "$FILE"
+  $SED --regexp-extended --in-place "s/HTTP.+//" "$FILE"
   # need to remove entirely empty lines, \r\n and leading/trailing whitespace
   # sorting is arbitrairy => sort here
-  tr --squeeze-repeats '\r\n' '\n' < "$FILE" | sort > "$FILE.tmp"
+  tr -s '\r\n' '\n' < "$FILE" | sort > "$FILE.tmp"
   mv "$FILE.tmp" "$FILE"
   # we need to remove the first line as squeezing repeat newlines makes does not remove this empty line
-  sed --in-place '1d' "$FILE"
+  $SED --in-place '1d' "$FILE"
 }
 
 test_log_has_str() {
@@ -189,8 +208,8 @@ test_log_has_str() {
     exit 1
   else
     >&2 echo "OK: $LOG_FILE contains expected text: '$EXPECTED_TEXT'"
+    quietly_remove_lines "$LOG_FILE" "$EXPECTED_TEXT"
   fi
-  remove_line "$LOG_FILE" "$EXPECTED_TEXT"
 }
 
 test_martin_cp() {
@@ -210,10 +229,10 @@ test_martin_cp() {
   $MBTILES_BIN meta-all "$TEST_FILE" 2>&1 | tee "$TEST_OUT_DIR/${TEST_NAME}_metadata.txt"
   { set +x; } 2> /dev/null
 
-  remove_line "$SAVE_CONFIG_FILE" " connection_string: "
+  remove_lines "$SAVE_CONFIG_FILE" " connection_string: "
   # These tend to vary between runs. In theory, vacuuming might make it the same.
-  remove_line "$SUMMARY_FILE" "File size: "
-  remove_line "$SUMMARY_FILE" "Page count: "
+  remove_lines "$SUMMARY_FILE" "File size: "
+  remove_lines "$SUMMARY_FILE" "Page count: "
 }
 
 validate_log() {
@@ -221,11 +240,10 @@ validate_log() {
   >&2 echo "Validating log file $LOG_FILE"
 
   # Older versions of PostGIS don't support the margin parameter, so we need to remove it from the log
-  remove_line "$LOG_FILE" 'Margin parameter in ST_TileEnvelope is not supported'
-  remove_line "$LOG_FILE" 'Source IDs must be unique'
-  remove_line "$LOG_FILE" 'PostgreSQL 11.10.0 is older than the recommended minimum 12.0.0'
-  remove_line "$LOG_FILE" 'In the used version, some geometry may be hidden on some zoom levels.'
-  remove_line "$LOG_FILE" 'Unable to deserialize SQL comment on public.points2 as tilejson, the automatically generated tilejson would be used: expected value at line 1 column 1'
+  remove_lines "$LOG_FILE" 'Margin parameter in ST_TileEnvelope is not supported'
+  remove_lines "$LOG_FILE" 'PostgreSQL 11.10.0 is older than the recommended minimum 12.0.0'
+  remove_lines "$LOG_FILE" 'In the used version, some geometry may be hidden on some zoom levels.'
+  remove_lines "$LOG_FILE" 'Unable to deserialize SQL comment on public.points2 as tilejson, the automatically generated tilejson would be used: expected value at line 1 column 1'
 
   echo "Checking for no other warnings or errors in the log"
   if grep -e ' ERROR ' -e ' WARN ' "$LOG_FILE"; then
@@ -254,32 +272,52 @@ compare_sql_dbs() {
        }
 }
 
-echo "------------------------------------------------------------------------------------------------------------------------"
+echo "::group::versions"
 curl --version
 jq --version
-grep --version
+grep --version | head -1
 
 # Make sure all targets are built - this way it won't timeout while waiting for it to start
 # If set to "-", skip this step (e.g. when testing a pre-built binary)
 if [[ "$MARTIN_BUILD_ALL" != "-" ]]; then
+  echo "::group::Make sure all targets are built. Set MARTIN_BUILD_ALL=- to skip this step."
   rm -rf "$MARTIN_BIN" "$MARTIN_CP_BIN" "$MBTILES_BIN"
   $MARTIN_BUILD_ALL
+  echo "::endgroup::"
 fi
 
-echo "------------------------------------------------------------------------------------------------------------------------"
-echo "Check HTTP server is running"
+echo "::group::Check HTTP server is running"
 $CURL --head "$STATICS_URL/webp2.pmtiles"
+echo "::endgroup::"
 
-echo "------------------------------------------------------------------------------------------------------------------------"
-echo "Test auto configured Martin"
+# Prepare MBTiles from SQL fixtures
+echo "::group::Prepare .mbtiles fixtures from .sql"
+FOLDERS=("tests/fixtures/files" "tests/fixtures/mbtiles")
 
+for folder in "${FOLDERS[@]}"; do
+    echo "Processing folder: $folder"
+
+    # Remove existing .mbtiles files before recreating them
+    rm -f "$folder"/*.mbtiles
+
+    for sql_file in "$folder"/*.sql; do
+        [ -e "$sql_file" ] || continue
+
+        mbtiles_file="${sql_file%.sql}.mbtiles"
+        echo "Creating: $mbtiles_file from $sql_file"
+        sqlite3 "$mbtiles_file" < "$sql_file"
+    done
+done
+echo "::endgroup::"
+
+echo "::group::Test auto configured Martin"
 TEST_NAME="auto"
 LOG_FILE="${LOG_DIR}/${TEST_NAME}.txt"
 TEST_OUT_DIR="${TEST_OUT_BASE_DIR}/${TEST_NAME}"
 mkdir -p "$TEST_OUT_DIR"
 
 
-ARG=(--default-srid 900913 --auto-bounds calc --save-config "${TEST_OUT_DIR}/save_config.yaml" tests/fixtures/mbtiles tests/fixtures/pmtiles tests/fixtures/cog "$STATICS_URL/webp2.pmtiles" s3://pmtilestest/cb_2018_us_zcta510_500k.pmtiles --sprite tests/fixtures/sprites/src1 --font tests/fixtures/fonts/overpass-mono-regular.ttf --font tests/fixtures/fonts --style tests/fixtures/styles/maplibre_demo.json --style tests/fixtures/styles/src2 )
+ARG=(--default-srid 900913 --auto-bounds calc --save-config "${TEST_OUT_DIR}/save_config.yaml" tests/fixtures/mbtiles tests/fixtures/pmtiles tests/fixtures/cog "$STATICS_URL/webp2.pmtiles" s3://pmtilestest/cb_2018_us_zcta510_500k.pmtiles --sprite tests/fixtures/sprites/src1 --font tests/fixtures/fonts/overpass-mono-regular.ttf --font tests/fixtures/fonts --style tests/fixtures/styles/maplibre_demo.json --style tests/fixtures/styles/src2 --tilejson-url-version-param version )
 export DATABASE_URL="$MARTIN_DATABASE_URL"
 
 set -x
@@ -356,40 +394,67 @@ test_png mb_png_0_0_0 geography-class-png/0/0/0
 test_jsn mb_mvt       world_cities
 test_pbf mb_mvt_2_3_1 world_cities/2/3/1
 
->&2 echo "***** Test server response for COG(Cloud Optimized GeoTiff) source *****"
-test_jsn rgb_u8       rgb_u8
-test_png rgb_u8_0_0_0 rgb_u8/0/0/0
-test_png rgb_u8_3_0_0 rgb_u8/3/0/0
-test_png rgb_u8_3_1_1 rgb_u8/3/1/1
+# TODO: enable below once unstable-cog is stable
+#>&2 echo "***** Test server response for COG(Cloud Optimized GeoTiff) source *****"
+#test_jsn rgb_u8       rgb_u8
+#test_png rgb_u8_0_0_0 rgb_u8/0/0/0
+#test_png rgb_u8_3_0_0 rgb_u8/3/0/0
+#test_png rgb_u8_3_1_1 rgb_u8/3/1/1
 
-test_jsn rgba_u8       rgba_u8
-test_png rgba_u8_0_0_0 rgba_u8/0/0/0
-test_png rgba_u8_3_0_0 rgba_u8/3/0/0
-test_png rgba_u8_3_1_1 rgba_u8/3/1/1
+#test_jsn rgba_u8       rgba_u8
+#test_png rgba_u8_0_0_0 rgba_u8/0/0/0
+#test_png rgba_u8_3_0_0 rgba_u8/3/0/0
+#test_png rgba_u8_3_1_1 rgba_u8/3/1/1
 
-test_jsn rgba_u8_nodata       rgba_u8_nodata
-test_png rgba_u8_nodata_0_0_0 rgba_u8_nodata/0/0/0
-test_png rgba_u8_nodata_1_0_0 rgba_u8_nodata/1/0/0
+#test_jsn rgba_u8_nodata       rgba_u8_nodata
+#test_png rgba_u8_nodata_0_0_0 rgba_u8_nodata/0/0/0
+#test_png rgba_u8_nodata_1_0_0 rgba_u8_nodata/1/0/0
 
 >&2 echo "***** Test server response for table source with empty SRID *****"
 test_pbf points_empty_srid_0_0_0  points_empty_srid/0/0/0
+
+>&2 echo "***** Test server response for table source with antimeridian geometries *****"
+test_pbf antimeridian_4_0_4 antimeridian/4/0/4
+test_pbf antimeridian_4_0_5 antimeridian/4/0/5
 
 >&2 echo "***** Test server response for comments *****"
 test_jsn tbl_comment              MixPoints
 test_jsn fnc_comment              function_Mixed_Name
 
+>&2 echo "***** Test server response for the same name in different schemas *****"
+test_jsn same_name_different_schema_table1       table_name_existing_two_schemas
+test_pbf same_name_different_schema_table1_0_0_0 table_name_existing_two_schemas/0/0/0
+test_jsn same_name_different_schema_table2       table_name_existing_two_schemas.1
+test_pbf same_name_different_schema_table2_0_0_0 table_name_existing_two_schemas.1/0/0/0
+test_jsn same_name_different_schema_view1        view_name_existing_two_schemas
+test_pbf same_name_different_schema_view1_0_0_0  view_name_existing_two_schemas/0/0/0
+test_jsn same_name_different_schema_view2        view_name_existing_two_schemas.1
+test_pbf same_name_different_schema_view2_0_0_0  view_name_existing_two_schemas.1/0/0/0
+test_jsn table_and_view_two_schemas1        table_and_view_two_schemas
+test_pbf table_and_view_two_schemas1_0_0_0  table_and_view_two_schemas/0/0/0
+test_jsn table_and_view_two_schemas2        table_and_view_two_schemas.1
+test_pbf table_and_view_two_schemas2_0_0_0  table_and_view_two_schemas.1/0/0/0
+
 kill_process "$MARTIN_PROC_ID" Martin
 
-test_log_has_str "$LOG_FILE" 'WARN  martin::pg::query_tables] Table public.table_source has no spatial index on column geom'
-test_log_has_str "$LOG_FILE" 'WARN  martin::pg::query_tables] Table public.table_source_geog has no spatial index on column geog'
-test_log_has_str "$LOG_FILE" 'WARN  martin::fonts] Ignoring duplicate font Overpass Mono Regular from tests'
+test_log_has_str "$LOG_FILE" 'WARN  martin::config::file::tiles::postgres::resolver::query_tables] Table public.table_source has no spatial index on column geom'
+test_log_has_str "$LOG_FILE" 'WARN  martin::config::file::tiles::postgres::resolver::query_tables] Table public.table_source_geog has no spatial index on column geog'
+test_log_has_str "$LOG_FILE" 'WARN  martin_core::resources::fonts] Ignoring duplicate font Overpass Mono Regular from tests'
+test_log_has_str "$LOG_FILE" 'was renamed to `stamen_toner__raster_CC-BY-ODbL_z3`'
+test_log_has_str "$LOG_FILE" 'was renamed to `table_source_multiple_geom.1`'
+test_log_has_str "$LOG_FILE" 'was renamed to `-function.withweired---_-characters`'
+test_log_has_str "$LOG_FILE" 'was renamed to `.-Points-----------quote`'
+test_log_has_str "$LOG_FILE" 'was renamed to `table_name_existing_two_schemas.1`'
+test_log_has_str "$LOG_FILE" 'was renamed to `view_name_existing_two_schemas.1`'
+test_log_has_str "$LOG_FILE" 'was renamed to `table_and_view_two_schemas.1`'
+test_log_has_str "$LOG_FILE" 'WARN  martin::config::file::tiles::pmtiles] Defaulting `pmtiles.allow_http` to `true`. This is likely to become an error in the future for better security.'
+test_log_has_str "$LOG_FILE" 'WARN  martin::config::file::tiles::pmtiles] Environment variable AWS_SKIP_CREDENTIALS is deprecated. Please use pmtiles.skip_signature in the configuration file instead.'
+test_log_has_str "$LOG_FILE" 'WARN  martin::config::file::tiles::pmtiles] Environment variable AWS_REGION is deprecated. Please use pmtiles.region in the configuration file instead.'
 validate_log "$LOG_FILE"
-remove_line "${TEST_OUT_DIR}/save_config.yaml" " connection_string: "
+remove_lines "${TEST_OUT_DIR}/save_config.yaml" " connection_string: "
+echo "::endgroup::"
 
-
-echo "------------------------------------------------------------------------------------------------------------------------"
-echo "Test minimum auto configured Martin"
-
+echo "::group::Test minimum auto configured Martin"
 TEST_NAME="auto_mini"
 LOG_FILE="${LOG_DIR}/${TEST_NAME}.txt"
 TEST_OUT_DIR="${TEST_OUT_BASE_DIR}/${TEST_NAME}"
@@ -408,12 +473,13 @@ wait_for "$MARTIN_PROC_ID" Martin "$MARTIN_URL/health"
 test_jsn catalog_auto catalog
 
 kill_process "$MARTIN_PROC_ID" Martin
+test_log_has_str "$LOG_FILE" 'WARN  martin::config::file::tiles::pmtiles] Defaulting `pmtiles.allow_http` to `true`. This is likely to become an error in the future for better security.'
+test_log_has_str "$LOG_FILE" 'WARN  martin::config::file::tiles::pmtiles] Environment variable AWS_SKIP_CREDENTIALS is deprecated. Please use pmtiles.skip_signature in the configuration file instead.'
+test_log_has_str "$LOG_FILE" 'WARN  martin::config::file::tiles::pmtiles] Environment variable AWS_REGION is deprecated. Please use pmtiles.region in the configuration file instead.'
 validate_log "$LOG_FILE"
+echo "::endgroup::"
 
-
-echo "------------------------------------------------------------------------------------------------------------------------"
-echo "Test pre-configured Martin"
-
+echo "::group::Test pre-configured Martin"
 TEST_NAME="configured"
 LOG_FILE="${LOG_DIR}/${TEST_NAME}.txt"
 TEST_OUT_DIR="${TEST_OUT_BASE_DIR}/${TEST_NAME}"
@@ -480,21 +546,39 @@ test_font font_3      font/Overpass%20Mono%20Regular,Overpass%20Mono%20Light/0-2
 
 # Test comments override
 test_jsn tbl_comment_cfg  MixPoints
-test_jsn fnc_comment_cfg  fnc_Mixed_Name
+test_jsn fnc_comment_cfg  function_Mixed_Name
 
 test_metrics "metrics_1"
 
 kill_process "$MARTIN_PROC_ID" Martin
-test_log_has_str "$LOG_FILE" 'WARN  martin::pg::query_tables] Table public.table_source has no spatial index on column geom'
-test_log_has_str "$LOG_FILE" 'WARN  martin::pg::query_tables] Table public.table_source_geog has no spatial index on column geog'
-test_log_has_str "$LOG_FILE" 'WARN  martin::fonts] Ignoring duplicate font Overpass Mono Regular from tests'
+test_log_has_str "$LOG_FILE" 'WARN  martin::config::file::tiles::postgres::resolver::query_tables] Table public.table_source has no spatial index on column geom'
+test_log_has_str "$LOG_FILE" 'WARN  martin::config::file::tiles::postgres::resolver::query_tables] Table public.table_source_geog has no spatial index on column geog'
+test_log_has_str "$LOG_FILE" 'WARN  martin_core::resources::fonts] Ignoring duplicate font Overpass Mono Regular from tests'
+test_log_has_str "$LOG_FILE" "WARN  martin::config::file::main] Ignoring unrecognized configuration key 'warning'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" "WARN  martin::config::file::main] Ignoring unrecognized configuration key 'observability.warning'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" "WARN  martin::config::file::main] Ignoring unrecognized configuration key 'observability.metrics.warning'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" "WARN  martin::config::file::main] Ignoring unrecognized configuration key 'cors.warning'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" "WARN  martin::config::file::main] Ignoring unrecognized configuration key 'postgres.warning'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" "WARN  martin::config::file::main] Ignoring unrecognized configuration key 'postgres.ssl_certificates.warning'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" "WARN  martin::config::file::main] Ignoring unrecognized configuration key 'postgres.auto_publish.warning'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" "WARN  martin::config::file::main] Ignoring unrecognized configuration key 'postgres.auto_publish.tables.warning'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" "WARN  martin::config::file::main] Ignoring unrecognized configuration key 'postgres.auto_publish.functions.warning'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" "WARN  martin::config::file::main] Ignoring unrecognized configuration key 'postgres.tables.table_source.warning'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" "WARN  martin::config::file::main] Ignoring unrecognized configuration key 'postgres.functions.function_zxy_query.warning'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" "WARN  martin::config::file::main] Ignoring unrecognized configuration key 'pmtiles.warning'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" "WARN  martin::config::file::main] Ignoring unrecognized configuration key 'sprites.warning'. Please check your configuration file for typos."
+# TODO: below should be changed to cog.warning once unstable-cog is made stable
+test_log_has_str "$LOG_FILE" "WARN  martin::config::file::main] Ignoring unrecognized configuration key 'cog'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" "WARN  martin::config::file::main] Ignoring unrecognized configuration key 'styles.warning'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" 'WARN  martin::config::file::tiles::pmtiles] Defaulting `pmtiles.allow_http` to `true`. This is likely to become an error in the future for better security.'
+test_log_has_str "$LOG_FILE" 'WARN  martin::config::file::tiles::pmtiles] Environment variable AWS_SKIP_CREDENTIALS is deprecated. Please use pmtiles.skip_signature in the configuration file instead.'
+test_log_has_str "$LOG_FILE" 'WARN  martin::config::file::tiles::pmtiles] Environment variable AWS_REGION is deprecated. Please use pmtiles.region in the configuration file instead.'
 validate_log "$LOG_FILE"
-remove_line "${TEST_OUT_DIR}/save_config.yaml" " connection_string: "
-
-echo "------------------------------------------------------------------------------------------------------------------------"
-echo "Test martin-cp"
+remove_lines "${TEST_OUT_DIR}/save_config.yaml" " connection_string: "
+echo "::endgroup::"
 
 if [[ "$MARTIN_CP_BIN" != "-" ]]; then
+  echo "::group::Test martin-cp"
   TEST_NAME="martin-cp"
   TEST_OUT_DIR="${TEST_OUT_BASE_DIR}/${TEST_NAME}"
   mkdir -p "$TEST_OUT_DIR"
@@ -515,21 +599,48 @@ if [[ "$MARTIN_CP_BIN" != "-" ]]; then
       --min-zoom 0 --max-zoom 6 "--bbox=-2,-1,142.84,45" \
       --set-meta "generator=martin-cp v0.0.0" --set-meta "name=normalized" --set-meta=center=0,0,0
 
+  test_martin_cp "composite" "${CFG[@]}" \
+      --source table_source,function_zxy_query_test --url-query 'foo=bar&token=martin' --mbtiles-type normalized --concurrency 3 \
+      --min-zoom 0 --max-zoom 6 "--bbox=-2,-1,142.84,45" \
+      --set-meta "generator=martin-cp v0.0.0" --set-meta "name=composite" --set-meta=center=0,0,0
+
   unset DATABASE_URL
 
   test_martin_cp "no-source" ./tests/fixtures/mbtiles/world_cities.mbtiles \
       --mbtiles-type flat --concurrency 3 \
       --min-zoom 0 --max-zoom 6 "--bbox=-2,-1,142.84,45" \
-      --set-meta "generator=martin-cp v0.0.0" \
+      --set-meta "generator=martin-cp v0.0.0"
 
+  echo "::endgroup::"
 else
   echo "Skipping martin-cp tests"
 fi
 
+# If we don't do this, rounding differences on CI and local machines are a problem
+echo "::group::redact unnecessary precision in *_config.yaml and *.json"
+for file in $(find ./tests/ -name "*_config.yaml" -type f); do
+    echo "truncating floats in $file"
+    "$SED" --regexp-extended --in-place 's/(-?[0-9]+\.[0-9]{10})[0-9]+$/\1 # truncated to 10 digits/g' "$file"
+    "$SED" --regexp-extended --in-place 's/0+ # truncated/ # truncated/g' "$file"
+done
+for file in $(find ./tests/ -name "*.json" -type f); do
+    echo "truncating floats in $file"
+    # Use jq to truncate floating point numbers to 10 decimal places
+    jq --sort-keys 'walk(if type == "number" then (. * 10000000000 | round | . / 10000000000) else . end)' "$file" > "$file.tmp"
 
-echo "------------------------------------------------------------------------------------------------------------------------"
-echo "Test mbtiles utility"
+    # update headers if content changed
+    if ! cmp -s "$file" "$file.tmp"; then
+        if [[ -f "$file.headers" ]]; then
+            "$SED" --regexp-extended --in-place 's/^etag: .*/etag: "unstable due to floating-point rounding"/g' "$file.headers"
+        fi
+    fi
+
+    mv "$file.tmp" "$file"
+done
+echo "::endgroup::"
+
 if [[ "$MBTILES_BIN" != "-" ]]; then
+  echo "::group::Test mbtiles utility"
 
   TEST_NAME="mbtiles"
   TEST_OUT_DIR="${TEST_OUT_BASE_DIR}/${TEST_NAME}"
@@ -649,6 +760,7 @@ if [[ "$MBTILES_BIN" != "-" ]]; then
   fi
 
   { set +x; } 2> /dev/null
+  echo "::endgroup::"
 else
   echo "Skipping mbtiles utility tests"
 fi
