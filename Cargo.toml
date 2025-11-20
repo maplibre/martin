@@ -69,8 +69,8 @@ mbtiles = { path = "./mbtiles", version = "0.14.2" }
 md5 = "0.8.0"
 moka = { version = "0.12", features = ["future"] }
 num_cpus = "1"
-ogcapi-types = "0.3.0"
 object_store = { version = "0.12.4", features = ["gcp", "aws", "azure", "fs", "http"] }
+ogcapi-types = "0.3.0"
 pbf_font_tools = { version = "3.0.0", features = ["freetype"] }
 pmtiles = { version = "0.18.2", features = ["tilejson", "object-store"] }
 png = "0.18.0"
