@@ -81,7 +81,6 @@ harness = false
 
 [features]
 default = [
-    "cog",
     "fonts",
     "lambda",
     "mbtiles",
@@ -90,11 +89,16 @@ default = [
     "postgres",
     "sprites",
     "styles",
+    "unstable-cog",
     "webui",
     "ogcapi",
 ]
+<<<<<<< HEAD
 ogcapi = ["dep:ogcapi-types"]
 cog = ["martin-core/cog"]
+=======
+unstable-cog = ["martin-core/unstable-cog"]
+>>>>>>> 1064cc32 (fix(cog)!: rename `cog` feature to `unstable-cog` (#2285))
 fonts = ["martin-core/fonts"]
 lambda = ["dep:lambda-web"]
 mbtiles = ["martin-core/mbtiles"]
