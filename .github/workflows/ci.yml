@@ -727,7 +727,7 @@ jobs:
         run: |
           curl -sf http://localhost:3000/ogc/ > /dev/null || { echo "ERROR: OGC API not available"; exit 1; }
       - name: test ogcapi-tiles compliancy
-        uses: OSGEO/ogc-cite-runner@v0.3.0
+        uses: OSGEO/ogc-cite-runner@v0.3.1
         with:
           test_suite_identifier: ogcapi-tiles-1.0
           test_session_arguments: >-
