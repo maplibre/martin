@@ -207,6 +207,14 @@ pub async fn get_collection_tiles(
                 hreflang: None,
                 length: None,
             },
+            Link {
+                rel: "http://www.opengis.net/def/rel/ogc/1.0/tiling-scheme".to_string(),
+                r#type: Some("application/json".to_string()),
+                title: Some("WebMercatorQuad TileMatrixSet".to_string()),
+                href: format!("{base_url}/ogc/tileMatrixSets/WebMercatorQuad"),
+                hreflang: None,
+                length: None,
+            },
         ],
     };
 
@@ -304,6 +312,14 @@ pub async fn get_collection_tileset(
                 r#type: Some("application/vnd.mapbox-vector-tile".to_string()),
                 title: Some("Mapbox Vector Tiles".to_string()),
                 href: format!("{base_url}/{collection_id}/{{tileMatrix}}/{{tileRow}}/{{tileCol}}"),
+                hreflang: None,
+                length: None,
+            },
+            Link {
+                rel: "http://www.opengis.net/def/rel/ogc/1.0/tiling-scheme".to_string(),
+                r#type: Some("application/json".to_string()),
+                title: Some("WebMercatorQuad TileMatrixSet".to_string()),
+                  href: format!("{base_url}/ogc/tileMatrixSets/WebMercatorQuad"),
                 hreflang: None,
                 length: None,
             },
