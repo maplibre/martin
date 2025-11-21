@@ -45,7 +45,7 @@ fn bounds_to_spatial_extent(bounds: &tilejson::Bounds) -> OgcSpatialExtent {
 
 /// Create an OGC API Collection from a tile source
 fn create_collection(
-    id: String,
+    id: &str,
     source_result: Result<Box<dyn Source>, actix_web::Error>,
     base_url: &str,
 ) -> Option<OgcCollection> {
@@ -55,7 +55,7 @@ fn create_collection(
 
             // Build the collection using ogcapi_types::common::Collection
             let collection = OgcCollection {
-                id: id.clone(),
+                id: id.to_string(),
                 title: tj.name.clone(),
                 description: tj.description.clone(),
                 keywords: vec![],
@@ -103,7 +103,7 @@ fn create_collections(_catalog: &Catalog, sources: &TileSources, base_url: &str)
             .into_iter()
             .filter_map(|id| {
                 let source_result = sources.get_source(&id);
-                create_collection(id, source_result, base_url)
+                create_collection(&id, source_result, base_url)
             })
             .collect(),
     );
@@ -119,11 +119,11 @@ fn create_collections(_catalog: &Catalog, sources: &TileSources, base_url: &str)
 #[route("/ogc/collections", method = "GET", method = "HEAD")]
 pub async fn get_collections(
     req: HttpRequest,
-    _catalog: Data<Catalog>,
+    catalog: Data<Catalog>,
     sources: Data<TileSources>,
 ) -> ActixResult<HttpResponse> {
     let base_url = get_base_url(&req);
-    let collections = create_collections(&_catalog, &sources, &base_url);
+    let collections = create_collections(&catalog, &sources, &base_url);
 
     Ok(HttpResponse::Ok()
         .insert_header((CONTENT_TYPE, "application/json"))
@@ -142,7 +142,7 @@ pub async fn get_collection(
 
     // Get the specific collection
     let collection = create_collection(
-        path.collection_id.clone(),
+        &path.collection_id,
         sources.get_source(&path.collection_id),
         &base_url,
     )
@@ -165,6 +165,7 @@ pub async fn get_collection_tiles(
     sources: Data<TileSources>,
 ) -> ActixResult<HttpResponse> {
     let base_url = get_base_url(&req);
+    let collection_id = &path.collection_id;
 
     // Check if collection exists
     let source = sources
@@ -185,11 +186,8 @@ pub async fn get_collection_tiles(
             Link {
                 rel: "self".to_string(),
                 r#type: Some("application/json".to_string()),
-                title: Some(format!("Tileset for {}", path.collection_id)),
-                href: format!(
-                    "{}/ogc/collections/{}/tiles/WebMercatorQuad",
-                    base_url, path.collection_id
-                ),
+                title: Some(format!("Tileset for {collection_id}")),
+                href: format!("{base_url}/ogc/collections/{collection_id}/tiles/WebMercatorQuad"),
                 hreflang: None,
                 length: None,
             },
@@ -197,7 +195,7 @@ pub async fn get_collection_tiles(
                 rel: "http://www.opengis.net/def/rel/ogc/1.0/tiling-scheme".to_string(),
                 r#type: Some("application/json".to_string()),
                 title: Some("TileMatrixSet".to_string()),
-                href: format!("{}/ogc/tileMatrixSets/WebMercatorQuad", base_url),
+                href: format!("{base_url}/ogc/tileMatrixSets/WebMercatorQuad"),
                 hreflang: None,
                 length: None,
             },
@@ -205,10 +203,7 @@ pub async fn get_collection_tiles(
                 rel: "item".to_string(),
                 r#type: Some("application/vnd.mapbox-vector-tile".to_string()),
                 title: Some("Tiles".to_string()),
-                href: format!(
-                    "{}/ogc/collections/{}/tiles/WebMercatorQuad/{{tileMatrix}}/{{tileRow}}/{{tileCol}}",
-                    base_url, path.collection_id
-                ),
+                href: format!("{base_url}/{collection_id}/{{tileMatrix}}/{{tileRow}}/{{tileCol}}"),
                 hreflang: None,
                 length: None,
             },
@@ -221,7 +216,7 @@ pub async fn get_collection_tiles(
             rel: "self".to_string(),
             r#type: Some("application/json".to_string()),
             title: Some("This document".to_string()),
-            href: format!("{}/ogc/collections/{}/tiles", base_url, path.collection_id),
+            href: format!("{base_url}/ogc/collections/{collection_id}/tiles"),
             hreflang: None,
             length: None,
         }]),
@@ -238,21 +233,24 @@ pub async fn get_collection_tiles(
     method = "GET",
     method = "HEAD"
 )]
+#[allow(clippy::too_many_lines)]
 pub async fn get_collection_tileset(
     req: HttpRequest,
     path: Path<CollectionTileMatrixSetPath>,
     sources: Data<TileSources>,
 ) -> ActixResult<HttpResponse> {
     let base_url = get_base_url(&req);
+    let collection_id = &path.collection_id;
+    let tilematrixset_id = &path.tilematrixset_id;
 
     // For now, we only support WebMercatorQuad
-    if path.tilematrixset_id != "WebMercatorQuad" {
+    if tilematrixset_id != "WebMercatorQuad" {
         return Err(actix_web::error::ErrorNotFound("TileMatrixSet not found"));
     }
 
     // Check if collection exists
     let source = sources
-        .get_source(&path.collection_id)
+        .get_source(collection_id)
         .map_err(|_| actix_web::error::ErrorNotFound("Collection not found"))?;
 
     let tj = source.get_tilejson();
@@ -273,9 +271,9 @@ pub async fn get_collection_tileset(
                     .map(|z| TileMatrixLimits {
                         tile_matrix: z.to_string(),
                         min_tile_row: 0,
-                        max_tile_row: ((1 << z) - 1) as u64,
+                        max_tile_row: (1_u64 << z) - 1,
                         min_tile_col: 0,
-                        max_tile_col: ((1 << z) - 1) as u64,
+                        max_tile_col: (1_u64 << z) - 1,
                     })
                     .collect()
             })
@@ -288,8 +286,7 @@ pub async fn get_collection_tileset(
                 r#type: Some("application/json".to_string()),
                 title: Some("This document".to_string()),
                 href: format!(
-                    "{}/ogc/collections/{}/tiles/{}",
-                    base_url, path.collection_id, path.tilematrixset_id
+                    "{base_url}/ogc/collections/{collection_id}/tiles/{tilematrixset_id}",
                 ),
                 hreflang: None,
                 length: None,
@@ -298,7 +295,7 @@ pub async fn get_collection_tileset(
                 rel: "http://www.opengis.net/def/rel/ogc/1.0/tiling-scheme".to_string(),
                 r#type: Some("application/json".to_string()),
                 title: Some("TileMatrixSet".to_string()),
-                href: format!("{}/ogc/tileMatrixSets/{}", base_url, path.tilematrixset_id),
+                href: format!("{base_url}/ogc/tileMatrixSets/{tilematrixset_id}"),
                 hreflang: None,
                 length: None,
             },
@@ -306,10 +303,7 @@ pub async fn get_collection_tileset(
                 rel: "item".to_string(),
                 r#type: Some("application/vnd.mapbox-vector-tile".to_string()),
                 title: Some("Mapbox Vector Tiles".to_string()),
-                href: format!(
-                    "{}/ogc/collections/{}/tiles/{}/{{tileMatrix}}/{{tileRow}}/{{tileCol}}",
-                    base_url, path.collection_id, path.tilematrixset_id
-                ),
+                href: format!("{base_url}/{collection_id}/{{tileMatrix}}/{{tileRow}}/{{tileCol}}"),
                 hreflang: None,
                 length: None,
             },

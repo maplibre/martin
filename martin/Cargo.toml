@@ -99,7 +99,7 @@ default = [
     "webui",
     "ogcapi",
 ]
-ogcapi = ["dep:ogcapi-types"]
+ogcapi = ["dep:ogcapi-types", "_tiles"]
 unstable-cog = ["martin-core/unstable-cog", "_tiles"]
 unstable-rendering = ["styles", "martin-core/unstable-rendering", "dep:image"]
 fonts = ["martin-core/fonts"]

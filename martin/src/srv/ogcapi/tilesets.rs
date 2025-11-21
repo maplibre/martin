@@ -11,6 +11,7 @@ use super::landing::get_base_url;
 use crate::source::TileSources;
 
 /// Create `TileSets` response from catalog
+#[must_use]
 pub fn create_tilesets(sources: &TileSources, base_url: &str) -> TileSets {
     let tilesets: Vec<TileSetItem> = sources
         .source_names()

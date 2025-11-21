@@ -1,10 +1,12 @@
+#![cfg(feature = "ogcapi")]
+
 use actix_web::http::StatusCode;
 use actix_web::web::Data;
 use actix_web::{App, test};
 use insta::assert_json_snapshot;
 use martin::TileSources;
 use martin::srv::Catalog;
-use martin_core::cache::NO_MAIN_CACHE;
+use martin_core::tiles::NO_TILE_CACHE;
 use serde_json::Value;
 
 #[actix_rt::test]
@@ -13,7 +15,7 @@ async fn test_ogc_landing_page() {
         App::new()
             .app_data(Data::new(Catalog::default()))
             .app_data(Data::new(TileSources::default()))
-            .app_data(Data::new(NO_MAIN_CACHE))
+            .app_data(Data::new(NO_TILE_CACHE))
             .service(martin::srv::ogcapi::landing::get_landing_page),
     )
     .await;
@@ -297,8 +299,8 @@ async fn test_ogc_tilematrixset_webmercator() {
     // Check zoom 30
     let tm30 = &tile_matrices[30];
     assert_eq!(tm30["id"], "30");
-    assert_eq!(tm30["matrixWidth"], 1073741824); // 2^30
-    assert_eq!(tm30["matrixHeight"], 1073741824);
+    assert_eq!(tm30["matrixWidth"], 1_073_741_824); // 2^30
+    assert_eq!(tm30["matrixHeight"], 1_073_741_824);
 
     // Snapshot for metadata without the full tile matrices array
     let mut json_metadata = json.clone();

@@ -43,6 +43,7 @@ fn create_landing_page(base_url: &str) -> LandingPage {
 }
 
 /// Get base URL from request
+#[must_use]
 pub fn get_base_url(req: &HttpRequest) -> String {
     let connection_info = req.connection_info();
     let scheme = connection_info.scheme();

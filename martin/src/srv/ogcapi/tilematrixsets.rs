@@ -5,7 +5,7 @@ use std::num::{NonZeroU16, NonZeroU64};
 use actix_web::http::header::CONTENT_TYPE;
 use actix_web::web::Path;
 use actix_web::{HttpRequest, HttpResponse, Result as ActixResult, route};
-use martin_tile_utils::MAX_ZOOM;
+use martin_tile_utils::{EARTH_RADIUS, MAX_ZOOM};
 use ogcapi_types::common::{Crs, Link};
 use ogcapi_types::tiles::{
     CornerOfOrigin, TileMatrix, TileMatrixSet, TileMatrixSetItem, TileMatrixSets,
@@ -21,16 +21,17 @@ pub struct TileMatrixSetPath {
 }
 
 /// Get default Web Mercator `TileMatrixSet`
+#[must_use]
 pub fn get_web_mercator_tilematrixset() -> TileMatrixSet {
-    const EARTH_RADIUS: f64 = 6378137.0;
     const ORIGIN_SHIFT: f64 = 2.0 * std::f64::consts::PI * EARTH_RADIUS / 2.0;
 
     let mut tile_matrices = Vec::new();
 
-    // Generate tile matrices for zoom levels 0 to 22
+    // Generate tile matrices for zoom levels 0 to 30
     for zoom in 0..=MAX_ZOOM {
-        let matrix_size = 1u64 << zoom;
-        let pixel_size = (2.0 * ORIGIN_SHIFT) / (256.0 * matrix_size as f64);
+        // u32 because Zoom <= 32
+        let matrix_size = 1u32 << zoom;
+        let pixel_size = (2.0 * ORIGIN_SHIFT) / 256.0 / f64::from(matrix_size);
         let scale_denominator = pixel_size * 0.00028; // 0.00028 meters per pixel
 
         tile_matrices.push(TileMatrix {
@@ -46,8 +47,8 @@ pub fn get_web_mercator_tilematrixset() -> TileMatrixSet {
             point_of_origin: [-ORIGIN_SHIFT, ORIGIN_SHIFT],
             tile_width: NonZeroU16::new(256).unwrap(),
             tile_height: NonZeroU16::new(256).unwrap(),
-            matrix_width: NonZeroU64::new(matrix_size).unwrap(),
-            matrix_height: NonZeroU64::new(matrix_size).unwrap(),
+            matrix_width: NonZeroU64::new(u64::from(matrix_size)).unwrap(),
+            matrix_height: NonZeroU64::new(u64::from(matrix_size)).unwrap(),
             variable_matrix_widths: None,
         });
     }
@@ -70,7 +71,7 @@ pub fn get_web_mercator_tilematrixset() -> TileMatrixSet {
     }
 }
 
-/// OGC API TileMatrixSets endpoint
+/// OGC API `TileMatrixSets` endpoint
 #[route("/ogc/tileMatrixSets", method = "GET", method = "HEAD")]
 pub async fn get_tile_matrix_sets(req: HttpRequest) -> ActixResult<HttpResponse> {
     let base_url = get_base_url(&req);
@@ -98,7 +99,7 @@ pub async fn get_tile_matrix_sets(req: HttpRequest) -> ActixResult<HttpResponse>
         .json(tilematrixsets))
 }
 
-/// OGC API TileMatrixSet endpoint
+/// OGC API `TileMatrixSet` endpoint
 #[route(
     "/ogc/tileMatrixSets/{tilematrixset_id}",
     method = "GET",

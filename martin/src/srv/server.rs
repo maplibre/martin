@@ -15,7 +15,7 @@ use lambda_web::{is_running_on_lambda, run_actix_on_lambda};
 use crate::config::args::WebUiMode;
 use crate::config::file::ServerState;
 use crate::config::file::srv::{KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT, SrvConfig};
-use crate::srv::admin::Catalog;
+pub(crate) use crate::srv::admin::Catalog;
 use crate::{MartinError, MartinResult};
 
 /// List of keywords that cannot be used as source IDs. Some of these are reserved for future use.
@@ -57,8 +57,7 @@ pub fn router(cfg: &mut web::ServiceConfig, #[allow(unused_variables)] usr_cfg: 
         .service(crate::srv::ogcapi::tilematrixsets::get_tile_matrix_sets)
         .service(crate::srv::ogcapi::tilematrixsets::get_tile_matrix_set)
         .service(crate::srv::ogcapi::collections::get_collection_tiles)
-        .service(crate::srv::ogcapi::collections::get_collection_tileset)
-        .service(crate::srv::ogcapi::tiles::get_ogc_tile);
+        .service(crate::srv::ogcapi::collections::get_collection_tileset);
 
     #[cfg(feature = "sprites")]
     cfg.service(crate::srv::sprites::get_sprite_sdf_json)

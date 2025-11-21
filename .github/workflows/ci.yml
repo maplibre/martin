@@ -767,7 +767,7 @@ jobs:
           test_session_arguments: >-
             iut=http://localhost:3000/ogc
             tilematrixsetdefinitionuri=http://www.opengis.net/def/tilematrixset/OGC/1.0/WebMercatorQuad
-            urltemplatefortiles=http://localhost:3000/ogc/collections/world_cities/tiles/WebMercatorQuad/{tileMatrix}/{tileRow}/{tileCol}
+            urltemplatefortiles=http://localhost:3000/world_cities/{tileMatrix}/{tileRow}/{tileCol}
             tilematrix=WebMercatorQuad
             mintilerow=0
             maxtilerow=1
