@@ -51,6 +51,7 @@ sprites = [
     "dep:dashmap",
 ]
 styles = ["dep:walkdir", "tokio/fs", "dep:dashmap"]
+geojson = ["dep:geojson", "dep:geojson-vt-rs", "dep:geozero", "dep:serde_json", "_tiles"]
 mbtiles = ["dep:mbtiles", "_tiles"]
 pmtiles = ["dep:pmtiles", "dep:object_store", "_tiles"]
 _tiles = ["dep:base64"]
@@ -67,6 +68,9 @@ bit-set = { workspace = true, optional = true }
 dashmap = { workspace = true, optional = true }
 deadpool-postgres = { workspace = true, optional = true }
 futures = { workspace = true, optional = true }
+geojson = { workspace = true, optional = true }
+geojson-vt-rs = { workspace = true, optional = true }
+geozero = { workspace = true, features = ["with-mvt"], optional = true }
 itertools = { workspace = true, optional = true }
 log.workspace = true
 martin-tile-utils.workspace = true

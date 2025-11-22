@@ -22,6 +22,7 @@ use subst::VariableMap;
     feature = "pmtiles",
     feature = "mbtiles",
     feature = "unstable-cog",
+    feature = "geojson",
     feature = "styles",
     feature = "sprites",
     feature = "fonts",
@@ -90,6 +91,10 @@ pub struct Config {
     #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
     pub cog: FileConfigEnum<super::cog::CogConfig>,
 
+    #[cfg(feature = "geojson")]
+    #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
+    pub geojson: FileConfigEnum<super::geojson::GeoJsonConfig>,
+
     #[cfg(feature = "sprites")]
     #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
     pub sprites: super::sprites::SpriteConfig,
@@ -151,6 +156,12 @@ impl Config {
             res.extend(self.cog.get_unrecognized_keys_with_prefix("cog."));
         }
 
+        #[cfg(feature = "geojson")]
+        {
+            self.geojson.finalize()?;
+            res.extend(self.geojson.get_unrecognized_keys_with_prefix("geojson."));
+        }
+
         #[cfg(feature = "sprites")]
         {
             self.sprites.finalize()?;
@@ -189,6 +200,9 @@ impl Config {
 
         #[cfg(feature = "unstable-cog")]
         let is_empty = is_empty && self.cog.is_empty();
+
+        #[cfg(feature = "geojson")]
+        let is_empty = is_empty && self.geojson.is_empty();
 
         #[cfg(feature = "sprites")]
         let is_empty = is_empty && self.sprites.is_empty();
@@ -339,6 +353,13 @@ impl Config {
         if !self.cog.is_empty() {
             let cfg = &mut self.cog;
             let val = crate::config::file::resolve_files(cfg, idr, &["tif", "tiff"]);
+            sources.push(Box::pin(val));
+        }
+
+        #[cfg(feature = "geojson")]
+        if !self.geojson.is_empty() {
+            let cfg = &mut self.geojson;
+            let val = crate::config::file::resolve_files(cfg, idr, &["geojson", "json"]);
             sources.push(Box::pin(val));
         }
 
