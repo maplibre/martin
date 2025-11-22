@@ -1,6 +1,7 @@
 ## Using with NGINX
 
-You can run Martin behind NGINX proxy, so you can cache frequently accessed tiles and reduce unnecessary pressure on the database. Here is an example `docker-compose.yml` file that runs Martin with NGINX and PostgreSQL.
+You can run Martin behind NGINX proxy, so you can cache frequently accessed tiles with custom logic.
+Here is an example `docker-compose.yml` file that runs Martin with NGINX and PostgreSQL.
 
 ```yml
 version: '3'

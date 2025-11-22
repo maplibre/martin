@@ -15,7 +15,8 @@ docker run -p 3000:3000 \
            -e PGPASSWORD \
            -e DATABASE_URL=postgres://user@host:port/db \
            -v /path/to/config/dir:/config \
-           ghcr.io/maplibre/martin --config /config/config.yaml
+           ghcr.io/maplibre/martin:1.0.0 \
+           --config /config/config.yaml
 ```
 
 ### From Binary Distributions Manually

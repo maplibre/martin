@@ -7,8 +7,8 @@ use std::sync::Arc;
 
 use super::utils;
 use async_trait::async_trait;
+use geozero::FeatureProcessor;
 use geozero::mvt::{Message as _, MvtWriter};
-use geozero::{ColumnValue, FeatureProcessor, PropertyProcessor};
 use martin_tile_utils::{Format, TileCoord, TileData, TileInfo};
 use tilejson::{TileJSON, tilejson};
 

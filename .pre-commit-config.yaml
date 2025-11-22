@@ -7,6 +7,10 @@ exclude: |
       tests/expected/.*
   )$
 
+ci:
+  autofix_commit_msg: "chore(fmt): apply pre-commit formatting fixes"
+  autoupdate_commit_msg: "chore(deps): autoupdate pre-commit"
+
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
@@ -44,8 +48,26 @@ repos:
         language: rust
         pass_filenames: false
 
+      - id: sync-martin-version
+        name: Sync martin Version
+        description: "Update martin-ui package.json version from martin Cargo.toml"
+        entry: |
+          bash -c '
+            VERSION=$(grep "^version = " martin/Cargo.toml | sed "s/version = \"\(.*\)\"/\1/")
+            sed -i "s/version\": \".*\"/version\": \"$VERSION\"/" martin/martin-ui/package.json
+            sed -i "s%ghcr.io/maplibre/martin:[^[:space:]]*%ghcr.io/maplibre/martin:$VERSION%" docs/src/run-with-docker-compose.md
+            sed -i "s%ghcr.io/maplibre/martin:[^[:space:]]*%ghcr.io/maplibre/martin:$VERSION%" docs/src/run-with-docker.md
+            sed -i "s%ghcr.io/maplibre/martin:[^[:space:]]* %ghcr.io/maplibre/martin:$VERSION %" docs/src/installation.md
+            sed -i "s%ghcr.io/maplibre/martin:[^[:space:]]* %ghcr.io/maplibre/martin:$VERSION %" docs/src/run-with-lambda.md
+            sed -i "s%ghcr.io/maplibre/martin:[^[:space:]]* %ghcr.io/maplibre/martin:$VERSION %" justfile
+            echo "Synced version to $VERSION"
+          '
+        language: system
+        files: ^martin/Cargo\.toml$
+        pass_filenames: false
+
   - repo: https://github.com/sqlfluff/sqlfluff
-    rev: 3.5.0
+    rev: 4.0.0a2
     hooks:
         # 1. Postgres dialect for general .sql files, excluding sqlite dirs
       - id: sqlfluff-fix
@@ -66,7 +88,7 @@ repos:
   # TODO: Add NPM hooks for formatting and linting
   # NPM hooks for JavaScript/TypeScript formatting and linting
   - repo: https://github.com/biomejs/pre-commit
-    rev: "v2.2.6"  # Use the sha / tag you want to point at
+    rev: "v2.3.5"  # Use the sha / tag you want to point at
     hooks:
       - id: biome-check
         additional_dependencies: [ "@biomejs/biome@2.2.4" ]
