@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.1](https://github.com/maplibre/martin/compare/martin-v1.0.0...martin-v1.0.1) - 2025-11-22
+
+### Other
+
+- update Cargo.lock dependencies
+
 ## [1.0.0](https://github.com/maplibre/martin/compare/martin-v0.20.2...martin-v1.0.0) - 2025-11-10
 
 🎉🎉🎉 **After 8 years in developmen, we are excited to release v1.0.0 of martin.** 🎉🎉🎉
