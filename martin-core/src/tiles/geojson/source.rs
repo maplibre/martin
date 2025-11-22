@@ -94,7 +94,7 @@ impl GeoJsonSource {
             preprocessed: Arc::new(preprocessed),
             tilejson,
             tile_info,
-        });
+        })
     }
 }
 

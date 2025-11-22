@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use geozero::{ColumnValue, GeomProcessor, PropertyProcessor, mvt::MvtWriter};
 
-/// Helper functions to convert serde_json numbers into geozero::ColumnValue.
+/// Helper functions to convert `serde_json` numbers into `geozero::ColumnValue`.
 pub fn serde_number_to_geozero(
     number: &serde_json::value::Number,
     prefer_f32: bool,
@@ -66,7 +66,7 @@ pub fn write_geojson_properties(
     idx: usize,
     properties: &geojson::JsonObject,
 ) {
-    for (key, json_value) in properties.iter() {
+    for (key, json_value) in properties {
         let stringified_json: String;
         let value = match json_value {
             serde_json::Value::Bool(bool) => ColumnValue::Bool(*bool),
@@ -173,37 +173,37 @@ pub fn geojson_to_bounds(geojson_value: &geojson::Value) -> tilejson::Bounds {
             update_bounds(&mut bounds, point[0], point[1]);
         }
         geojson::Value::MultiPoint(points) => {
-            points.iter().for_each(|point| {
+            for point in points {
                 update_bounds(&mut bounds, point[0], point[1]);
-            });
+            }
         }
         geojson::Value::LineString(points) => {
-            points.iter().for_each(|point| {
+            for point in points {
                 update_bounds(&mut bounds, point[0], point[1]);
-            });
+            }
         }
         geojson::Value::MultiLineString(linestrings) => {
-            linestrings.iter().for_each(|linestring| {
-                linestring.iter().for_each(|point| {
+            for linestring in linestrings {
+                for point in linestring {
                     update_bounds(&mut bounds, point[0], point[1]);
-                });
-            });
+                }
+            }
         }
         geojson::Value::Polygon(rings) => {
-            rings.iter().for_each(|ring| {
-                ring.iter().for_each(|point| {
+            for ring in rings {
+                for point in ring {
                     update_bounds(&mut bounds, point[0], point[1]);
-                });
-            });
+                }
+            }
         }
         geojson::Value::MultiPolygon(polygons) => {
-            polygons.iter().for_each(|polygon| {
-                polygon.iter().for_each(|ring| {
-                    ring.iter().for_each(|point| {
+            for polygon in polygons.iter() {
+                for ring in polygon {
+                    for point in ring {
                         update_bounds(&mut bounds, point[0], point[1]);
-                    });
-                });
-            });
+                    }
+                }
+            }
         }
         geojson::Value::GeometryCollection(geometries) => {
             for geometry in geometries {
@@ -230,7 +230,7 @@ pub fn geojson_to_vector_layer(
         geojson::GeoJson::Feature(feature) => {
             if let Some(properties) = feature.properties.as_ref() {
                 properties.iter().for_each(|(key, value)| {
-                    fields.insert(key.to_string(), property_type(&value).to_string());
+                    fields.insert(key.to_string(), property_type(value).to_string());
                 });
             }
             vec![tilejson::VectorLayer::new(layer_name.to_string(), fields)]
@@ -239,7 +239,7 @@ pub fn geojson_to_vector_layer(
             for feature in &feature_collection.features {
                 if let Some(properties) = feature.properties.as_ref() {
                     properties.iter().for_each(|(key, value)| {
-                        fields.insert(key.to_string(), property_type(&value).to_string());
+                        fields.insert(key.to_string(), property_type(value).to_string());
                     });
                 }
             }
