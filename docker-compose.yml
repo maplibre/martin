@@ -10,6 +10,7 @@ services:
   db-is-ready:
     # This should match the version of postgres used in the CI workflow
     image: postgis/postgis:18-3.6-alpine
+    platform: linux/x86_64
     network_mode: host
     command:
       - 'sh'
@@ -26,6 +27,7 @@ services:
   db:
     # This should match the version of postgres used in the CI workflow
     image: postgis/postgis:18-3.6-alpine
+    platform: linux/x86_64
     restart: unless-stopped
     ports:
       - '${PGPORT:-5411}:5432'
@@ -48,6 +50,7 @@ services:
   db-ssl:
     # This should match the version of postgres used in the CI workflow
     image: postgis/postgis:18-3.6
+    platform: linux/x86_64
     command:
       - 'postgres'
       - '-c'
@@ -76,6 +79,7 @@ services:
   db-ssl-cert:
     # This should match the version of postgres used in the CI workflow
     image: postgis/postgis:18-3.6
+    platform: linux/x86_64
     command:
       - 'postgres'
       - '-c'
@@ -104,6 +108,7 @@ services:
   db-legacy:
     # This should match the version of postgres used in the CI workflow
     image: postgis/postgis:11-3.0-alpine
+    platform: linux/x86_64
     restart: unless-stopped
     ports:
       - '${PGPORT:-5411}:5432'
