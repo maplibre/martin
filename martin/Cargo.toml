@@ -97,7 +97,9 @@ default = [
     "sprites",
     "styles",
     "webui",
+    "ogcapi",
 ]
+ogcapi = ["dep:ogcapi-types", "_tiles"]
 unstable-cog = ["martin-core/unstable-cog", "_tiles"]
 unstable-rendering = ["styles", "martin-core/unstable-rendering", "dep:image"]
 fonts = ["martin-core/fonts"]
@@ -142,6 +144,7 @@ martin-tile-utils.workspace = true
 mbtiles = { workspace = true, optional = true }
 num_cpus.workspace = true
 object_store = { workspace = true, optional = true }
+ogcapi-types = { workspace = true, features = ["tiles"], optional = true }
 postgis = { workspace = true, optional = true }
 postgres-protocol = { workspace = true, optional = true }
 rustls.workspace = true

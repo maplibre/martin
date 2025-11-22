@@ -15,7 +15,7 @@ use lambda_web::{is_running_on_lambda, run_actix_on_lambda};
 use crate::config::args::WebUiMode;
 use crate::config::file::ServerState;
 use crate::config::file::srv::{KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT, SrvConfig};
-use crate::srv::admin::Catalog;
+pub(crate) use crate::srv::admin::Catalog;
 use crate::{MartinError, MartinResult};
 
 /// List of keywords that cannot be used as source IDs. Some of these are reserved for future use.
@@ -47,6 +47,17 @@ pub fn router(cfg: &mut web::ServiceConfig, #[allow(unused_variables)] usr_cfg: 
     #[cfg(feature = "_tiles")]
     cfg.service(crate::srv::tiles::metadata::get_source_info)
         .service(crate::srv::tiles::content::get_tile);
+
+    #[cfg(feature = "ogcapi")]
+    cfg.service(crate::srv::ogcapi::landing::get_landing_page)
+        .service(crate::srv::ogcapi::conformance::get_conformance)
+        .service(crate::srv::ogcapi::collections::get_collections)
+        .service(crate::srv::ogcapi::collections::get_collection)
+        .service(crate::srv::ogcapi::tilesets::get_tilesets)
+        .service(crate::srv::ogcapi::tilematrixsets::get_tile_matrix_sets)
+        .service(crate::srv::ogcapi::tilematrixsets::get_tile_matrix_set)
+        .service(crate::srv::ogcapi::collections::get_collection_tiles)
+        .service(crate::srv::ogcapi::collections::get_collection_tileset);
 
     #[cfg(feature = "sprites")]
     cfg.service(crate::srv::sprites::get_sprite_sdf_json)
