@@ -4,9 +4,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::MartinResult;
 use crate::config::file::ServerState;
-#[cfg(feature="ogcapi")]
+#[cfg(feature = "ogcapi")]
 use crate::srv::ogcapi::landing::get_ogc_landing_page;
-#[cfg(feature="ogcapi")]
+#[cfg(feature = "ogcapi")]
 use actix_web::HttpRequest;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -54,9 +54,7 @@ pub mod webui {
 /// Root path in case web front is disabled.
 #[cfg(any(not(feature = "webui"), docsrs))]
 #[route("/", method = "GET", method = "HEAD")]
-async fn get_index_no_ui(
-    #[cfg(feature = "ogcapi")] req: HttpRequest
-) -> impl Responder {
+async fn get_index_no_ui(#[cfg(feature = "ogcapi")] req: HttpRequest) -> impl Responder {
     #[cfg(feature = "ogcapi")]
     {
         let accepts_json = req
@@ -79,9 +77,7 @@ async fn get_index_no_ui(
 /// Root path in case web front is disabled and the `webui` feature is enabled.
 #[cfg(all(feature = "webui", not(docsrs)))]
 #[route("/", method = "GET", method = "HEAD")]
-async fn get_index_ui_disabled(
-    #[cfg(feature = "ogcapi")] req: HttpRequest
-) -> impl Responder {
+async fn get_index_ui_disabled(#[cfg(feature = "ogcapi")] req: HttpRequest) -> impl Responder {
     #[cfg(feature = "ogcapi")]
     {
         let accepts_json = req
