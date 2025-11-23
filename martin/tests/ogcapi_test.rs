@@ -333,46 +333,46 @@ async fn test_ogc_tilematrixset_webmercator() {
     assert_json_snapshot!(selected_matrices,@r#"
     {
       "zoom_0": {
-        "cellSize": 156543.03392804097,
+        "cellSize": 156543.03392804103,
         "cornerOfOrigin": "topLeft",
         "id": "0",
         "matrixHeight": 1,
         "matrixWidth": 1,
         "pointOfOrigin": [
-          -20037508.342789244,
-          20037508.342789244
+          -20037508.34278925,
+          20037508.34278925
         ],
-        "scaleDenominator": 156543.03392804097,
+        "scaleDenominator": 156543.03392804103,
         "tileHeight": 256,
         "tileWidth": 256,
         "title": "Zoom level 0"
       },
       "zoom_10": {
-        "cellSize": 152.8740565703525,
+        "cellSize": 152.87405657035256,
         "cornerOfOrigin": "topLeft",
         "id": "10",
         "matrixHeight": 1024,
         "matrixWidth": 1024,
         "pointOfOrigin": [
-          -20037508.342789244,
-          20037508.342789244
+          -20037508.34278925,
+          20037508.34278925
         ],
-        "scaleDenominator": 152.8740565703525,
+        "scaleDenominator": 152.87405657035256,
         "tileHeight": 256,
         "tileWidth": 256,
         "title": "Zoom level 10"
       },
       "zoom_30": {
-        "cellSize": 0.00014579206139598132,
+        "cellSize": 0.00014579206139598137,
         "cornerOfOrigin": "topLeft",
         "id": "30",
         "matrixHeight": 1073741824,
         "matrixWidth": 1073741824,
         "pointOfOrigin": [
-          -20037508.342789244,
-          20037508.342789244
+          -20037508.34278925,
+          20037508.34278925
         ],
-        "scaleDenominator": 0.00014579206139598132,
+        "scaleDenominator": 0.00014579206139598137,
         "tileHeight": 256,
         "tileWidth": 256,
         "title": "Zoom level 30"
