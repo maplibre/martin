@@ -747,10 +747,10 @@ jobs:
         with: { persist-credentials: false }
       - uses: taiki-e/install-action@cc60de1d6831d7e9c4342f618ce7a5d6a9f223a4 # v2.61.6
         with: { tool: 'just' }
-      - name: Setup a sample database
-        run: sqlite3 target/world_cities.mbtiles < tests/fixtures/mbtiles/world_cities.sql
       - name: Build the server
         run: cargo build -p martin --no-default-features -F mbtiles,ogcapi
+      - name: Setup a sample database
+        run: sqlite3 target/world_cities.mbtiles < tests/fixtures/mbtiles/world_cities.sql
       - name: Starting Martin server
         # assumption: all of our tile sources behave the same => just test with mbtiles
         run: cargo run -p martin --no-default-features -F mbtiles,ogcapi target/world_cities.mbtiles &
