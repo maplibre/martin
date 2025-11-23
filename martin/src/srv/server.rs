@@ -49,7 +49,7 @@ pub fn router(cfg: &mut web::ServiceConfig, #[allow(unused_variables)] usr_cfg: 
         .service(crate::srv::tiles::content::get_tile);
 
     #[cfg(feature = "ogcapi")]
-    cfg.service(crate::srv::ogcapi::conformance::get_conformance)
+    cfg .service(crate::srv::ogcapi::conformance::get_conformance)
         .service(crate::srv::ogcapi::collections::get_collections)
         .service(crate::srv::ogcapi::collections::get_collection)
         .service(crate::srv::ogcapi::tilesets::get_tilesets)
