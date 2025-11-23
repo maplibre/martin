@@ -1,7 +1,7 @@
 //! OGC API landing page endpoint
 
 use actix_web::http::header::CONTENT_TYPE;
-use actix_web::{HttpRequest, HttpResponse, Result as ActixResult, route};
+use actix_web::{HttpRequest, HttpResponse};
 use ogcapi_types::common::{LandingPage, Link};
 
 /// Create the OGC API Landing Page
