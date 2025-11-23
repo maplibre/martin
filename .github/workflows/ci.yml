@@ -771,7 +771,7 @@ jobs:
           teamengine_url: http://localhost:8080/teamengine
           test_suite_identifier: ogcapi-tiles-1.0
           test_session_arguments: >-
-            iut=http://localhost:3000
+            iut=http://localhost:3000/
             tilematrixsetdefinitionuri=http://www.opengis.net/def/tilematrixset/OGC/1.0/WebMercatorQuad
             urltemplatefortiles=http://localhost:3000/world_cities/{tileMatrix}/{tileRow}/{tileCol}
             tilematrix=WebMercatorQuad
