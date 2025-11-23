@@ -762,9 +762,9 @@ jobs:
           curl -sf http://localhost:3000/ogc/ > /dev/null || { echo "ERROR: OGC API not available"; exit 1; }
       - name: Start teamengine
         run: docker run -d --network=host ogccite/teamengine-production:1.0-SNAPSHOT
-      - name: Verify teamengine API endpoint exists
+      - name: Waiting for teamengine API to start
         run: |
-          curl -sf http://localhost:8080/teamengine > /dev/null || { echo "ERROR: OGC API not available"; exit 1; }
+          timeout 60 bash -c 'until curl -sf http://localhost:8080/teamengine; do sleep 1; done'
       - name: test ogcapi-tiles compliancy
         uses: OSGEO/ogc-cite-runner@v0.3.1
         with:
