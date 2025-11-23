@@ -52,11 +52,12 @@ pub fn get_base_url(req: &HttpRequest) -> String {
 }
 
 /// OGC API Landing Page endpoint
-pub fn get_ogc_landing_page(req: HttpRequest) -> HttpResponse {
+#[route("/ogc/", method = "GET", method = "HEAD")]
+pub async fn get_landing_page(req: HttpRequest) -> ActixResult<HttpResponse> {
     let base_url = get_base_url(&req);
     let landing_page = create_landing_page(&base_url);
 
-    HttpResponse::Ok()
+    Ok(HttpResponse::Ok()
         .insert_header((CONTENT_TYPE, "application/json"))
-        .json(landing_page)
+        .json(landing_page))
 }

@@ -10,6 +10,92 @@ use martin_core::tiles::NO_TILE_CACHE;
 use serde_json::Value;
 
 #[actix_rt::test]
+async fn test_ogc_landing_page() {
+    let app = test::init_service(
+        App::new()
+            .app_data(Data::new(Catalog::default()))
+            .app_data(Data::new(TileSources::default()))
+            .app_data(Data::new(NO_TILE_CACHE))
+            .service(martin::srv::ogcapi::landing::get_landing_page),
+    )
+    .await;
+
+    // this would be a regular source
+    let req = test::TestRequest::get().uri("/ogc").to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+
+    // our landing page
+    let req = test::TestRequest::get().uri("/ogc/").to_request();
+    let resp = test::call_service(&app, req).await;
+
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let body = test::read_body(resp).await;
+    let json: Value = serde_json::from_slice(&body).unwrap();
+
+    // Basic assertions for critical values
+    assert_eq!(json["title"], "Martin Tile Server - OGC API");
+    assert!(json["links"].is_array());
+    assert_eq!(json["links"].as_array().unwrap().len(), 6);
+
+    // Remove dynamic URLs before snapshot
+    let mut json_for_snapshot = json.clone();
+    if let Some(links) = json_for_snapshot["links"].as_array_mut() {
+        for link in links {
+            if let Some(href) = link.as_object_mut() {
+                href.insert("href".to_string(), Value::String("[URL]".to_string()));
+            }
+        }
+    }
+
+    assert_json_snapshot!(json_for_snapshot,@r#"
+    {
+      "description": "Access to Martin tile server via OGC API - Tiles",
+      "links": [
+        {
+          "href": "[URL]",
+          "rel": "self",
+          "title": "Landing page",
+          "type": "application/json"
+        },
+        {
+          "href": "[URL]",
+          "rel": "conformance",
+          "title": "Conformance declaration",
+          "type": "application/json"
+        },
+        {
+          "href": "[URL]",
+          "rel": "data",
+          "title": "Collections",
+          "type": "application/json"
+        },
+        {
+          "href": "[URL]",
+          "rel": "http://www.opengis.net/def/rel/ogc/1.0/tilesets-vector",
+          "title": "Vector tilesets",
+          "type": "application/json"
+        },
+        {
+          "href": "[URL]",
+          "rel": "http://www.opengis.net/def/rel/ogc/1.0/tilesets-map",
+          "title": "Map tilesets",
+          "type": "application/json"
+        },
+        {
+          "href": "[URL]",
+          "rel": "http://www.opengis.net/def/rel/ogc/1.0/tiling-schemes",
+          "title": "Tile matrix sets",
+          "type": "application/json"
+        }
+      ],
+      "title": "Martin Tile Server - OGC API"
+    }
+    "#);
+}
+
+#[actix_rt::test]
 async fn test_ogc_conformance() {
     let app =
         test::init_service(App::new().service(martin::srv::ogcapi::conformance::get_conformance))
