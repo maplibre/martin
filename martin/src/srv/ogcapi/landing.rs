@@ -7,7 +7,7 @@ use ogcapi_types::common::{LandingPage, Link};
 /// Create the OGC API Landing Page
 fn create_landing_page(base_url: &str) -> LandingPage {
     let links = vec![
-        Link::new(format!("{base_url}/ogc/"), "self")
+        Link::new(format!("{base_url}/"), "self")
             .mediatype("application/json")
             .title("Landing page"),
         Link::new(format!("{base_url}/ogc/conformance"), "conformance")
