@@ -4,6 +4,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::MartinResult;
 use crate::config::file::ServerState;
+#[cfg(feature="ogcapi")]
+use crate::srv::ogcapi::landing::get_ogc_landing_page;
+#[cfg(feature="ogcapi")]
+use actix_web::HttpRequest;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Catalog {
@@ -50,18 +54,49 @@ pub mod webui {
 /// Root path in case web front is disabled.
 #[cfg(any(not(feature = "webui"), docsrs))]
 #[route("/", method = "GET", method = "HEAD")]
-async fn get_index_no_ui() -> &'static str {
-    "Martin server is running. The WebUI feature was disabled at the compile time.\n\n\
+async fn get_index_no_ui(
+    #[cfg(feature = "ogcapi")] req: HttpRequest
+) -> impl Responder {
+    #[cfg(feature = "ogcapi")]
+    {
+        let accepts_json = req
+            .headers()
+            .get(actix_http::header::ACCEPT)
+            .and_then(|v| v.to_str().ok())
+            .is_some_and(|v| v.contains("application/json"));
+        if accepts_json {
+            return get_ogc_landing_page(req);
+        }
+    }
+
+    HttpResponse::Ok().body(
+        "Martin server is running. The WebUI feature was disabled at the compile time.\n\n\
     A list of all available sources is available at http://<host>/catalog\n\n\
-    See documentation https://github.com/maplibre/martin"
+    See documentation https://github.com/maplibre/martin",
+    )
 }
 
 /// Root path in case web front is disabled and the `webui` feature is enabled.
 #[cfg(all(feature = "webui", not(docsrs)))]
 #[route("/", method = "GET", method = "HEAD")]
-async fn get_index_ui_disabled() -> &'static str {
+async fn get_index_ui_disabled(
+    #[cfg(feature = "ogcapi")] req: HttpRequest
+) -> impl Responder {
+    #[cfg(feature = "ogcapi")]
+    {
+        let accepts_json = req
+            .headers()
+            .get(actix_http::header::ACCEPT)
+            .and_then(|v| v.to_str().ok())
+            .is_some_and(|v| v.contains("application/json"));
+        if accepts_json {
+            return get_ogc_landing_page(req);
+        }
+    }
+
+    HttpResponse::Ok().body(
     "Martin server is running.\n\n
     The WebUI feature can be enabled with the --webui enable-for-all CLI flag or in the config file, making it available to all users.\n\n
     A list of all available sources is available at http://<host>/catalog\n\n\
-    See documentation https://github.com/maplibre/martin"
+    See documentation https://github.com/maplibre/martin")
 }
