@@ -756,10 +756,10 @@ jobs:
         run: cargo run -p martin --no-default-features -F mbtiles,ogcapi target/world_cities.mbtiles &
       - name: Waiting for Martin server to start
         run: |
-          timeout 60 bash -c 'until curl -sf http://localhost:3000/health; do sleep 2; done'
+          timeout 60 bash -c 'until curl --silent --fail http://localhost:3000/health; do sleep 2; done'
       - name: Verify OGC API endpoint exists
         run: |
-          curl -sf http://localhost:3000/ogc/ > /dev/null || { echo "ERROR: OGC API not available"; exit 1; }
+          curl -H "Accept: application/json" --silent --fail http://localhost:3000/ || { echo "ERROR: OGC API not available"; exit 1; }
       - name: Start teamengine
         run: docker run -d --network=host ogccite/teamengine-production:1.0-SNAPSHOT
       - name: Waiting for teamengine API to start
