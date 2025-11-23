@@ -319,7 +319,7 @@ pub async fn get_collection_tileset(
                 rel: "http://www.opengis.net/def/rel/ogc/1.0/tiling-scheme".to_string(),
                 r#type: Some("application/json".to_string()),
                 title: Some("WebMercatorQuad TileMatrixSet".to_string()),
-                  href: format!("{base_url}/ogc/tileMatrixSets/WebMercatorQuad"),
+                href: format!("{base_url}/ogc/tileMatrixSets/WebMercatorQuad"),
                 hreflang: None,
                 length: None,
             },
