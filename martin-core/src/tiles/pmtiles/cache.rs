@@ -52,28 +52,6 @@ impl PmtCacheInstance {
         Self { id, cache }
     }
 
-    /// Retrieves a directory from cache if present.
-    async fn get(&self, offset: usize) -> Option<pmtiles::Directory> {
-        let key = PmtCacheKey::new(self.id, offset);
-        let result = self.cache.0.get(&key).await;
-
-        if result.is_some() {
-            log::trace!(
-                "PMTiles directory cache HIT for id={id}, offset={offset} (entries={entries}, size={size})",
-                id = self.id,
-                entries = self.cache.0.entry_count(),
-                size = self.cache.0.weighted_size()
-            );
-        } else {
-            log::trace!(
-                "PMTiles directory cache MISS for id={id}, offset={offset}",
-                id = self.id,
-            );
-        }
-
-        result
-    }
-
     /// Returns the cache ID.
     #[must_use]
     pub fn id(&self) -> usize {
@@ -100,23 +78,17 @@ impl PmtCacheInstance {
 }
 
 impl pmtiles::DirectoryCache for PmtCacheInstance {
-    async fn get_dir_entry(
+    async fn get_dir_entry_or_insert(
         &self,
         offset: usize,
         tile_id: pmtiles::TileId,
-    ) -> pmtiles::DirCacheResult {
-        if let Some(dir) = self.get(offset).await {
-            dir.find_tile_id(tile_id).into()
-        } else {
-            pmtiles::DirCacheResult::NotCached
-        }
-    }
-
-    async fn insert_dir(&self, offset: usize, directory: pmtiles::Directory) {
-        self.cache
-            .0
-            .insert(PmtCacheKey::new(self.id, offset), directory)
-            .await;
+        fetcher: impl Future<Output = pmtiles::PmtResult<pmtiles::Directory>> + Send,
+    ) -> pmtiles::PmtResult<Option<pmtiles::DirEntry>> {
+        let key = PmtCacheKey::new(self.id, offset);
+        let directory = self.cache.0.try_get_with(key, fetcher).await.map_err(|e| {
+            pmtiles::PmtError::DirectoryCacheError(format!("Moka cache fetch error: {e}"))
+        })?;
+        Ok(directory.find_tile_id(tile_id).cloned())
     }
 }
 

@@ -22,7 +22,9 @@ export function Header() {
               {import.meta.env.VITE_MARTIN_VERSION ? (
                 <a
                   className="p-1"
-                  href={`https://github.com/maplibre/martin/releases/tag/${import.meta.env.VITE_MARTIN_VERSION}`}
+                  href={`https://github.com/maplibre/martin/releases/tag/martin-v${import.meta.env.VITE_MARTIN_VERSION}`}
+                  rel="noopener noreferrer"
+                  target="_blank"
                 >
                   {import.meta.env.VITE_MARTIN_VERSION}
                 </a>

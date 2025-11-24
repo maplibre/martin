@@ -35,7 +35,7 @@ export RUSTDOCFLAGS := env('RUSTDOCFLAGS', if ci_mode == '1' {'-D warnings'} els
 export RUST_BACKTRACE := env('RUST_BACKTRACE', if ci_mode == '1' {'1'} else {'0'})
 
 @_default:
-    {{just_executable()}} --list
+    {{quote(just_executable())}} --list
 
 # Run benchmark tests
 bench:
@@ -138,14 +138,14 @@ coverage *args='--no-clean --open':  (cargo-install 'cargo-llvm-cov') clean star
     cargo llvm-cov clean --workspace
 
     echo "::group::Unit tests"
-    {{just_executable()}} test-cargo --all-targets
+    {{quote(just_executable())}} test-cargo --all-targets
     echo "::endgroup::"
 
     # echo "::group::Documentation tests"
-    # {{just_executable()}} test-doc <- deliberately disabled until --doctest for cargo-llvm-cov does not hang indefinitely
+    # {{quote(just_executable())}} test-doc <- deliberately disabled until --doctest for cargo-llvm-cov does not hang indefinitely
     # echo "::endgroup::"
 
-    {{just_executable()}} test-int
+    {{quote(just_executable())}} test-int
 
     cargo llvm-cov report {{args}}
 
@@ -156,11 +156,11 @@ cp *args:
 # Start Martin server and open a test page
 debug-page *args: start
     open tests/debug.html  # run will not exit, so open debug page first
-    {{just_executable()}} run {{args}}
+    {{quote(just_executable())}} run {{args}}
 
 # Build and run martin docker image
 docker-run *args:
-    docker run -it --rm --net host -e DATABASE_URL -v $PWD/tests:/tests ghcr.io/maplibre/martin:0.20.2 {{args}}
+    docker run -it --rm --net host -e DATABASE_URL -v $PWD/tests:/tests ghcr.io/maplibre/martin:1.0.0 {{args}}
 
 # Build and open code documentation
 docs *args='--open':
@@ -170,7 +170,7 @@ docs *args='--open':
 env-info:
     @echo "Running {{if ci_mode == '1' {'in CI mode'} else {'in dev mode'} }} on {{os()}} / {{arch()}}"
     @echo "PWD $(pwd)"
-    {{just_executable()}} --version
+    {{quote(just_executable())}} --version
     rustc --version
     cargo --version
     rustup --version
@@ -286,8 +286,8 @@ psql *args:
 # Restart the test database
 restart:
     # sometimes Just optimizes targets, so here we force stop & start by using external just executable
-    {{just_executable()}} stop
-    {{just_executable()}} start
+    {{quote(just_executable())}} stop
+    {{quote(just_executable())}} start
 
 # Start Martin server
 run *args='--webui enable-for-all':
@@ -388,9 +388,9 @@ test-ssl-cert: start-ssl-cert
     export PGSSLROOTCERT="$KEY_DIR/ssl-cert-snakeoil.pem"
     export PGSSLCERT="$KEY_DIR/ssl-cert-snakeoil.pem"
     export PGSSLKEY="$KEY_DIR/ssl-cert-snakeoil.key"
-    {{just_executable()}} test-cargo --all-targets
-    {{just_executable()}} clean-test
-    {{just_executable()}} test-doc
+    {{quote(just_executable())}} test-cargo --all-targets
+    {{quote(just_executable())}} clean-test
+    {{quote(just_executable())}} test-doc
     tests/test.sh
 
 # Run typescript typechecking on the frontend

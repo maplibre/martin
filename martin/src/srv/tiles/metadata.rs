@@ -191,9 +191,8 @@ pub mod tests {
 
     use tilejson::{Bounds, VectorLayer};
 
-    use crate::srv::tiles::tests::TestSource;
-
     use super::*;
+    use crate::srv::tiles::tests::TestSource;
 
     #[test]
     fn test_merge_tilejson() {

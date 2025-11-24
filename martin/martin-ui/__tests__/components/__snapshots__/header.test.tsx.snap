@@ -1255,9 +1255,11 @@ exports[`Header Component > renders correctly 1`] = `
           <a
             class="items-center justify-center rounded-md border px-2 py-0.5 text-xs font-medium w-fit whitespace-nowrap shrink-0 [&>svg]:size-3 gap-1 [&>svg]:pointer-events-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive transition-[color,box-shadow] overflow-hidden border-transparent bg-primary text-primary-foreground [a&]:hover:bg-primary/90 hover:bg-purple-700 hidden md:block p-1"
             data-slot="badge"
-            href="https://github.com/maplibre/martin/releases/tag/v0.0.0-test"
+            href="https://github.com/maplibre/martin/releases/tag/martin-v1.0.0"
+            rel="noopener noreferrer"
+            target="_blank"
           >
-            v0.0.0-test
+            1.0.0
           </a>
         </div>
         <div
