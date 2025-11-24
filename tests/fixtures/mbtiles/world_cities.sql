@@ -211,6 +211,6 @@ INSERT INTO tiles VALUES
 (6,37,40,x'1f8b0000'),
 (6,37,37,x'1f8b0000'),
 (6,45,37,x'1f8b0000');
-CREATE UNIQUE INDEX name on metadata (name);
-CREATE UNIQUE INDEX tile_index on tiles (zoom_level, tile_column, tile_row);
+CREATE UNIQUE INDEX name ON metadata (name);
+CREATE UNIQUE INDEX tile_index ON tiles (zoom_level, tile_column, tile_row);
 COMMIT;
