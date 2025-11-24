@@ -3,7 +3,6 @@ use martin_core::tiles::pmtiles::{PmtCache, PmtCacheInstance, PmtilesSource};
 use martin_core::tiles::{Source, UrlQuery};
 use martin_tile_utils::TileCoord;
 use serde::Deserialize;
-use std::sync::Arc;
 
 #[derive(Deserialize)]
 struct TileRequest {
