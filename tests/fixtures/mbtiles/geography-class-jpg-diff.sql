@@ -7,23 +7,26 @@ CREATE TABLE map (
    tile_id TEXT,
    grid_id TEXT
 );
-INSERT INTO map VALUES(0,0,0,'',NULL);
-INSERT INTO map VALUES(1,1,0,'d8018fba714e93c29500adb778b587a5',NULL);
-INSERT INTO map VALUES(1,1,1,'d8018fba714e93c29500adb778b587a5',NULL);
-INSERT INTO map VALUES(2,2,2,'035e1077aab736ad34208aaea571d6ac',NULL);
+INSERT INTO map VALUES
+(0,0,0,'',NULL),
+(1,1,0,'d8018fba714e93c29500adb778b587a5',NULL),
+(1,1,1,'d8018fba714e93c29500adb778b587a5',NULL),
+(2,2,2,'035e1077aab736ad34208aaea571d6ac',NULL);
 CREATE TABLE images (
     tile_data blob,
     tile_id text
 );
-INSERT INTO images VALUES(NULL,'');
-INSERT INTO images VALUES(X'ffd80000ffd9','d8018fba714e93c29500adb778b587a5');
-INSERT INTO images VALUES(X'ffd80000ffd9','035e1077aab736ad34208aaea571d6ac');
+INSERT INTO images VALUES
+(NULL,''),
+(X'ffd80000ffd9','d8018fba714e93c29500adb778b587a5'),
+(X'ffd80000ffd9','035e1077aab736ad34208aaea571d6ac');
 CREATE TABLE metadata (
     name text,
     value text
 );
-INSERT INTO metadata VALUES('description','A modified version of one of the example maps that comes with TileMill - a bright & colorful world map that blends retro and high-tech with its folded paper texture and interactive flag tooltips.');
-INSERT INTO metadata VALUES('agg_tiles_hash','ED6EE825AFB8F85F2CC53ECDF53539A8');
+INSERT INTO metadata VALUES
+('description','A modified version of one of the example maps that comes with TileMill - a bright & colorful world map that blends retro and high-tech with its folded paper texture and interactive flag tooltips.'),
+('agg_tiles_hash','ED6EE825AFB8F85F2CC53ECDF53539A8');
 CREATE VIEW tiles AS
     SELECT
         map.zoom_level AS zoom_level,
