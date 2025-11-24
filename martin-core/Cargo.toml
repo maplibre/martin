@@ -97,11 +97,18 @@ xxhash-rust.workspace = true
 
 [dev-dependencies]
 approx.workspace = true
+env_logger.workspace = true
 futures.workspace = true
 insta = { workspace = true, features = ["json", "yaml"] }
 rstest.workspace = true
+serde_json.workspace = true
 testcontainers-modules.workspace = true
 tokio.workspace = true
+url.workspace = true
+
+[[example]]
+name = "pmtiles-tileserver"
+required-features = ["pmtiles"]
 
 [lints]
 workspace = true
