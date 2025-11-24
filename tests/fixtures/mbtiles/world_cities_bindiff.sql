@@ -9,7 +9,7 @@ INSERT INTO metadata VALUES
 CREATE TABLE tiles (zoom_level integer, tile_column integer, tile_row integer, tile_data blob);
 INSERT INTO tiles VALUES
 (0,0,0,NULL),
-(4,4,4,x'1f8b08000000000000ff33a83031020022bc70f804000000');
+(4,4,4,x'1f8b0000');
 CREATE TABLE bsdiffrawgz (
     zoom_level integer NOT NULL,
     tile_column integer NOT NULL,

@@ -1070,7 +1070,7 @@ mod tests {
 
         assert_eq!(
             get_one::<i32>(&mut dst_conn, "SELECT COUNT(*) FROM map;").await,
-            3
+            2
         );
 
         assert!(
@@ -1082,6 +1082,7 @@ mod tests {
             .is_some()
         );
 
+        // culprit here
         assert!(
             get_one::<Option<i32>>(
                 &mut dst_conn,

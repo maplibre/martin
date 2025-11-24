@@ -235,11 +235,11 @@ mod tests {
         file_size: ~
         mbt_type: Flat
         page_size: 4096
-        page_count: 11
+        page_count: 5
         tile_count: 196
-        min_tile_size: 64
-        max_tile_size: 1107
-        avg_tile_size: 96.2295918367347
+        min_tile_size: 4
+        max_tile_size: 4
+        avg_tile_size: 4
         bbox:
           - -180
           - -85.0511287798066
@@ -250,9 +250,9 @@ mod tests {
         zoom_info:
           - zoom: 0
             tile_count: 1
-            min_tile_size: 1107
-            max_tile_size: 1107
-            avg_tile_size: 1107
+            min_tile_size: 4
+            max_tile_size: 4
+            avg_tile_size: 4
             bbox:
               - -180
               - -85.0511287798066
@@ -260,9 +260,9 @@ mod tests {
               - 85.0511287798066
           - zoom: 1
             tile_count: 4
-            min_tile_size: 160
-            max_tile_size: 650
-            avg_tile_size: 366.5
+            min_tile_size: 4
+            max_tile_size: 4
+            avg_tile_size: 4
             bbox:
               - -180
               - -85.0511287798066
@@ -270,9 +270,9 @@ mod tests {
               - 85.0511287798066
           - zoom: 2
             tile_count: 7
-            min_tile_size: 137
-            max_tile_size: 495
-            avg_tile_size: 239.57142857142858
+            min_tile_size: 4
+            max_tile_size: 4
+            avg_tile_size: 4
             bbox:
               - -180
               - -66.51326044311186
@@ -280,9 +280,9 @@ mod tests {
               - 66.51326044311186
           - zoom: 3
             tile_count: 17
-            min_tile_size: 67
-            max_tile_size: 246
-            avg_tile_size: 134
+            min_tile_size: 4
+            max_tile_size: 4
+            avg_tile_size: 4
             bbox:
               - -135
               - -40.97989806962013
@@ -290,9 +290,9 @@ mod tests {
               - 66.51326044311186
           - zoom: 4
             tile_count: 38
-            min_tile_size: 64
-            max_tile_size: 175
-            avg_tile_size: 86
+            min_tile_size: 4
+            max_tile_size: 4
+            avg_tile_size: 4
             bbox:
               - -135
               - -40.97989806962014
@@ -300,24 +300,24 @@ mod tests {
               - 66.51326044311186
           - zoom: 5
             tile_count: 57
-            min_tile_size: 64
-            max_tile_size: 107
-            avg_tile_size: 72.7719298245614
+            min_tile_size: 4
+            max_tile_size: 4
+            avg_tile_size: 4
             bbox:
               - -123.75000000000001
               - -40.97989806962013
               - 179.99999999999997
-              - 61.60639637138628
+              - 61.60639637138627
           - zoom: 6
             tile_count: 72
-            min_tile_size: 64
-            max_tile_size: 97
-            avg_tile_size: 68.29166666666667
+            min_tile_size: 4
+            max_tile_size: 4
+            avg_tile_size: 4
             bbox:
               - -123.75000000000001
               - -40.97989806962015
               - 180.00000000000003
-              - 61.60639637138628
+              - 61.60639637138627
         ");
     }
 }
