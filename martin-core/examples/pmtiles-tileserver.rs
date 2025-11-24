@@ -27,15 +27,15 @@ async fn get_tile(
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
     if tile_data.is_empty() {
-        return Ok(HttpResponse::NotFound().finish());
+        Ok(HttpResponse::NotFound().finish())
+    } else {
+        Ok(HttpResponse::Ok()
+            .content_type("image/webp")
+            .body(tile_data))
     }
-
-    Ok(HttpResponse::Ok()
-        .content_type("image/webp")
-        .body(tile_data))
 }
 
-async fn get_style(state: web::Data<PmtilesSource>) -> ActixResult<HttpResponse> {
+async fn get_style(state: web::Data<PmtilesSource>) -> HttpResponse {
     let tilejson = state.get_tilejson();
 
     let style = serde_json::json!({
@@ -63,39 +63,13 @@ async fn get_style(state: web::Data<PmtilesSource>) -> ActixResult<HttpResponse>
         ]
     });
 
-    Ok(HttpResponse::Ok().json(style))
+    HttpResponse::Ok().json(style)
 }
 
-async fn index() -> ActixResult<HttpResponse> {
-    let html = r#"<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <title>PMTiles Tile Server Example</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.13.0/dist/maplibre-gl.css">
-    <script src="https://unpkg.com/maplibre-gl@5.13.0/dist/maplibre-gl.js"></script>
-    <style>
-        body { margin: 0; padding: 0; }
-        #map { position: absolute; top: 0; bottom: 0; width: 100%; }
-    </style>
-</head>
-<body>
-    <div id="map"></div>
-    <script>
-        const map = new maplibregl.Map({
-            container: 'map',
-            style: 'http://localhost:3000/style.json',
-            center: [0, 20],
-            zoom: 2
-        });
-
-        map.addControl(new maplibregl.NavigationControl());
-    </script>
-</body>
-</html>"#;
-
-    Ok(HttpResponse::Ok().content_type("text/html").body(html))
+async fn index() -> HttpResponse {
+    HttpResponse::Ok()
+        .content_type("text/html")
+        .body(include_str!("pmtiles-tileserver.html"))
 }
 
 #[actix_web::main]
