@@ -1,3 +1,13 @@
 PRAGMA foreign_keys=OFF;
 BEGIN TRANSACTION;
+CREATE TABLE metadata (name text, value text);
+INSERT INTO metadata VALUES('description','A modified version of major cities from Natural Earth data');
+INSERT INTO metadata VALUES('agg_tiles_hash_before_apply','84792BF4EE9AEDDC5B1A60E707011FEE');
+INSERT INTO metadata VALUES('agg_tiles_hash_after_apply','578FB5BD64746C39E3D344662947FD0D');
+INSERT INTO metadata VALUES('agg_tiles_hash','6A51FC6A9048BE033C08CDDEC0D028AC');
+CREATE TABLE tiles (zoom_level integer, tile_column integer, tile_row integer, tile_data blob);
+INSERT INTO tiles VALUES(0,0,0,NULL);
+INSERT INTO tiles VALUES(4,4,4,X'1f8b0000');
+CREATE UNIQUE INDEX name on metadata (name);
+CREATE UNIQUE INDEX tile_index on tiles (zoom_level, tile_column, tile_row);
 COMMIT;

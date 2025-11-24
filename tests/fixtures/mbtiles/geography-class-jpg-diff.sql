@@ -7,32 +7,23 @@ CREATE TABLE map (
    tile_id TEXT,
    grid_id TEXT
 );
-INSERT INTO map VALUES
-(0,0,0,NULL,NULL),
-(1,1,1,'d8018fba714e93c29500adb778b587a5',NULL),
-(2,2,2,'035e1077aab736ad34208aaea571d6ac',NULL);
+INSERT INTO map VALUES(0,0,0,'',NULL);
+INSERT INTO map VALUES(1,1,0,'d8018fba714e93c29500adb778b587a5',NULL);
+INSERT INTO map VALUES(1,1,1,'d8018fba714e93c29500adb778b587a5',NULL);
+INSERT INTO map VALUES(2,2,2,'035e1077aab736ad34208aaea571d6ac',NULL);
 CREATE TABLE images (
     tile_data blob,
     tile_id text
 );
-INSERT INTO images VALUES
-(NULL,NULL),
-(X'FFD8FFD9','d8018fba714e93c29500adb778b587a5'),
-(X'FFD8FFD9','035e1077aab736ad34208aaea571d6ac');
+INSERT INTO images VALUES(NULL,'');
+INSERT INTO images VALUES(X'ffd80000ffd9','d8018fba714e93c29500adb778b587a5');
+INSERT INTO images VALUES(X'ffd80000ffd9','035e1077aab736ad34208aaea571d6ac');
 CREATE TABLE metadata (
     name text,
     value text
 );
-INSERT INTO metadata VALUES
-('bounds','-180,-85.0511,180,85.0511'),
-('minzoom','0'),
-('maxzoom','1'),
-('legend','<div style="text-align:center;">' || x'0A0A' || '<div style="font:12pt/16pt Georgia,serif;">Geography Class</div>' || x'0A' || '<div style="font:italic 10pt/16pt Georgia,serif;">by MapBox</div>' || x'0A0A' || '<img src="data:image/png;base64,iVBORw0KGgo">' || x'0A' || '</div>'),
-('name','Geography Class'),
-('description','One of the example maps that comes with TileMill - a bright & colorful world map that blends retro and high-tech with its folded paper texture and interactive flag tooltips. '),
-('attribution',''),
-('template','{{#__location__}}{{/__location__}}{{#__teaser__}}<div style="text-align:center;">' || x'0A0A' || '<img src="data:image/png;base64,{{flag_png}}" style="-moz-box-shadow:0px 1px 3px #222;-webkit-box-shadow:0px 1px 5px #222;box-shadow:0px 1px 3px #222;"><br>' || x'0A' || '<strong>{{admin}}</strong>' || x'0A0A' || '</div>{{/__teaser__}}{{#__full__}}{{/__full__}}'),
-('version','1.0.0');
+INSERT INTO metadata VALUES('description','A modified version of one of the example maps that comes with TileMill - a bright & colorful world map that blends retro and high-tech with its folded paper texture and interactive flag tooltips.');
+INSERT INTO metadata VALUES('agg_tiles_hash','ED6EE825AFB8F85F2CC53ECDF53539A8');
 CREATE VIEW tiles AS
     SELECT
         map.zoom_level AS zoom_level,
@@ -41,6 +32,15 @@ CREATE VIEW tiles AS
         images.tile_data AS tile_data
     FROM map
     JOIN images ON images.tile_id = map.tile_id;
+CREATE VIEW tiles_with_hash AS
+             SELECT
+                 map.zoom_level AS zoom_level,
+                 map.tile_column AS tile_column,
+                 map.tile_row AS tile_row,
+                 images.tile_data AS tile_data,
+                 images.tile_id AS tile_hash
+             FROM map
+             JOIN images ON images.tile_id = map.tile_id;
 CREATE UNIQUE INDEX map_index ON map (zoom_level, tile_column, tile_row);
 CREATE UNIQUE INDEX images_id ON images (tile_id);
 CREATE UNIQUE INDEX name ON metadata (name);
