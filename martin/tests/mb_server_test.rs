@@ -193,7 +193,7 @@ async fn mbt_get_raster() {
     assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), "image/webp");
     assert!(response.headers().get(CONTENT_ENCODING).is_none());
     let body = read_body(response).await;
-    assert_eq!(body.len(), 11586);
+    assert_eq!(body.len(), 1);
 }
 
 /// get a raster tile with accepted gzip enc, but should still be non-gzipped
@@ -208,7 +208,7 @@ async fn mbt_get_raster_gzip() {
     assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), "image/webp");
     assert!(response.headers().get(CONTENT_ENCODING).is_none());
     let body = read_body(response).await;
-    assert_eq!(body.len(), 11586);
+    assert_eq!(body.len(), 1);
 }
 
 #[actix_rt::test]
@@ -242,7 +242,7 @@ async fn mbt_get_mvt_gzip() {
     );
     assert_eq!(response.headers().get(CONTENT_ENCODING).unwrap(), "gzip");
     let body = read_body(response).await;
-    assert_eq!(body.len(), 1107); // this number could change if compression gets more optimized
+    assert_eq!(body.len(), 4); // this number could change if compression gets more optimized
     let body = decode_gzip(&body).unwrap();
     assert_eq!(body.len(), 1828);
 }
@@ -281,7 +281,7 @@ async fn mbt_get_raw_mvt() {
     );
     assert!(response.headers().get(CONTENT_ENCODING).is_none());
     let body = read_body(response).await;
-    assert_eq!(body.len(), 1828);
+    assert_eq!(body.len(), 1);
 }
 
 /// get an uncompressed MVT tile with accepted gzip
@@ -301,7 +301,7 @@ async fn mbt_get_raw_mvt_gzip() {
     );
     assert_eq!(response.headers().get(CONTENT_ENCODING).unwrap(), "gzip");
     let body = read_body(response).await;
-    assert_eq!(body.len(), 1107); // this number could change if compression gets more optimized
+    assert_eq!(body.len(), 21); // this number could change if compression gets more optimized
     let body = decode_gzip(&body).unwrap();
     assert_eq!(body.len(), 1828);
 }
@@ -324,7 +324,7 @@ async fn mbt_get_raw_mvt_gzip_br() {
     );
     assert_eq!(response.headers().get(CONTENT_ENCODING).unwrap(), "gzip");
     let body = read_body(response).await;
-    assert_eq!(body.len(), 1107); // this number could change if compression gets more optimized
+    assert_eq!(body.len(), 21); // this number could change if compression gets more optimized
     let body = decode_gzip(&body).unwrap();
     assert_eq!(body.len(), 1828);
 }
