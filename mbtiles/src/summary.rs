@@ -236,7 +236,7 @@ mod tests {
         mbt_type: Flat
         page_size: 4096
         page_count: 5
-        tile_count: 196
+        tile_count: 7
         min_tile_size: 4
         max_tile_size: 4
         avg_tile_size: 4
@@ -259,65 +259,65 @@ mod tests {
               - 180
               - 85.0511287798066
           - zoom: 1
-            tile_count: 4
+            tile_count: 1
             min_tile_size: 4
             max_tile_size: 4
             avg_tile_size: 4
             bbox:
               - -180
               - -85.0511287798066
-              - 180
-              - 85.0511287798066
+              - 0
+              - 0
           - zoom: 2
-            tile_count: 7
+            tile_count: 1
             min_tile_size: 4
             max_tile_size: 4
             avg_tile_size: 4
             bbox:
-              - -180
+              - 90.00000000000001
               - -66.51326044311186
               - 180.00000000000003
-              - 66.51326044311186
+              - 0
           - zoom: 3
-            tile_count: 17
+            tile_count: 1
             min_tile_size: 4
             max_tile_size: 4
             avg_tile_size: 4
             bbox:
-              - -135
+              - 134.99999999999997
               - -40.97989806962013
               - 179.99999999999997
-              - 66.51326044311186
+              - 0
           - zoom: 4
-            tile_count: 38
+            tile_count: 1
             min_tile_size: 4
             max_tile_size: 4
             avg_tile_size: 4
             bbox:
-              - -135
-              - -40.97989806962014
-              - 180.00000000000003
-              - 66.51326044311186
+              - -22.500000000000014
+              - 0.000000000000012549319548339412
+              - -0.000000000000012549319548339412
+              - 21.943045533438188
           - zoom: 5
-            tile_count: 57
+            tile_count: 1
             min_tile_size: 4
             max_tile_size: 4
             avg_tile_size: 4
             bbox:
-              - -123.75000000000001
-              - -40.97989806962013
-              - 179.99999999999997
-              - 61.60639637138627
+              - 0
+              - 40.97989806962013
+              - 11.25
+              - 48.92249926375824
           - zoom: 6
-            tile_count: 72
+            tile_count: 1
             min_tile_size: 4
             max_tile_size: 4
             avg_tile_size: 4
             bbox:
-              - -123.75000000000001
-              - -40.97989806962015
-              - 180.00000000000003
-              - 61.60639637138627
+              - 73.12500000000001
+              - 27.059125784374054
+              - 78.75000000000001
+              - 31.952162238024968
         ");
     }
 }
