@@ -7,7 +7,7 @@ INSERT INTO metadata VALUES('agg_tiles_hash_after_apply','578FB5BD64746C39E3D344
 INSERT INTO metadata VALUES('agg_tiles_hash','6A51FC6A9048BE033C08CDDEC0D028AC');
 CREATE TABLE tiles (zoom_level integer, tile_column integer, tile_row integer, tile_data blob);
 INSERT INTO tiles VALUES(0,0,0,NULL);
-INSERT INTO tiles VALUES(4,4,4,x'1f8b0800');
+INSERT INTO tiles VALUES(4,4,4,x'1f8b08000000000000000000');
 CREATE UNIQUE INDEX name ON metadata (name);
 CREATE UNIQUE INDEX tile_index ON tiles (zoom_level, tile_column, tile_row);
 COMMIT;
