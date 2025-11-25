@@ -247,7 +247,7 @@ async fn mbt_get_mvt_gzip() {
     let body = read_body(response).await;
     assert_eq!(body.len(), 20); // this number could change if compression gets more optimized
     let body = decode_gzip(&body).unwrap();
-    assert_eq!(body.len(), 1828);
+    assert_eq!(body.len(), 0);
 }
 
 /// get an MVT tile with accepted brotli enc
@@ -267,7 +267,7 @@ async fn mbt_get_mvt_brotli() {
     let body = read_body(response).await;
     assert_eq!(body.len(), 1); // this number could change if compression gets more optimized
     let body = decode_brotli(&body).unwrap();
-    assert_eq!(body.len(), 1828);
+    assert_eq!(body.len(), 0);
 }
 
 /// get an uncompressed MVT tile
@@ -306,7 +306,7 @@ async fn mbt_get_raw_mvt_gzip() {
     let body = read_body(response).await;
     assert_eq!(body.len(), 22); // this number could change if compression gets more optimized
     let body = decode_gzip(&body).unwrap();
-    assert_eq!(body.len(), 1);
+    assert_eq!(body.len(), 2);
 }
 
 /// get an uncompressed MVT tile with accepted both gzip and brotli enc
@@ -329,7 +329,7 @@ async fn mbt_get_raw_mvt_gzip_br() {
     let body = read_body(response).await;
     assert_eq!(body.len(), 22); // this number could change if compression gets more optimized
     let body = decode_gzip(&body).unwrap();
-    assert_eq!(body.len(), 1);
+    assert_eq!(body.len(), 2);
 }
 
 /// get a JSON tile

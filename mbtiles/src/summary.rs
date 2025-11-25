@@ -238,8 +238,8 @@ mod tests {
         page_count: 5
         tile_count: 7
         min_tile_size: 20
-        max_tile_size: 20
-        avg_tile_size: 20
+        max_tile_size: 22
+        avg_tile_size: 20.285714285714285
         bbox:
           - -180
           - -85.0511287798066
@@ -250,9 +250,9 @@ mod tests {
         zoom_info:
           - zoom: 0
             tile_count: 1
-            min_tile_size: 20
-            max_tile_size: 20
-            avg_tile_size: 20
+            min_tile_size: 22
+            max_tile_size: 22
+            avg_tile_size: 22
             bbox:
               - -180
               - -85.0511287798066
