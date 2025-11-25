@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS "tiles"(
   zoom_level INT,
   tile_column INT,
   tile_row INT,
-  tile_data
+  tile_data BLOB
 );
 INSERT INTO tiles VALUES(0,0,0,X'00');
 CREATE UNIQUE INDEX name ON metadata (name);
