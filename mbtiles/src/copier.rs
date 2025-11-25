@@ -1082,7 +1082,6 @@ mod tests {
             .is_some()
         );
 
-        // culprit here
         assert!(
             get_one::<Option<i32>>(
                 &mut dst_conn,
