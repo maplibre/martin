@@ -5,7 +5,7 @@ The documentation of `maplibre/martin` is available at <https://maplibre.org/mar
 To build/develop this documentation locally, you can install `mdbook` and `mdbook-linkcheck`.
 
 ```bash
-cargo install mdbook mdbook-alerts mdbook-tabs
+cargo install mdbook mdbook-tabs
 ```
 
 ## Development
