@@ -1,11 +1,11 @@
 PRAGMA foreign_keys=OFF;
 BEGIN TRANSACTION;
 CREATE TABLE map (
-   zoom_level INTEGER,
-   tile_column INTEGER,
-   tile_row INTEGER,
-   tile_id TEXT,
-   grid_id TEXT
+    zoom_level INTEGER,
+    tile_column INTEGER,
+    tile_row INTEGER,
+    tile_id TEXT,
+    grid_id TEXT
 );
 INSERT INTO map VALUES
 (0,0,0,'035e1077aab736ad34208aaea571d6ac','a592787e1b98714c9af7ba3e494166db'),
@@ -37,8 +37,8 @@ INSERT INTO grid_utfgrid VALUES
 ('57a5641e4893608878e715fd628870cd',X'789C03'),
 ('710f5a40afdc3155cf458ebcfdd76c09',X'789C03');
 CREATE TABLE images (
-    tile_data blob,
-    tile_id text
+    tile_data BLOB,
+    tile_id TEXT
 );
 INSERT INTO images VALUES
 (X'FFD8FFD9','035e1077aab736ad34208aaea571d6ac'),
@@ -47,45 +47,45 @@ INSERT INTO images VALUES
 (X'FFD8FFD9','d8018fba714e93c29500adb778b587a5'),
 (X'FFD8FFD9','2b2f374877cce18cc575498312b47aa3');
 CREATE TABLE metadata (
-    name text,
-    value text
+    name TEXT,
+    value TEXT
 );
 INSERT INTO metadata VALUES
 ('bounds','-180,-85.0511,180,85.0511'),
 ('minzoom','0'),
 ('maxzoom','1'),
-('legend','<div style="text-align:center;">' || x'0A0A' || '<div style="font:12pt/16pt Georgia,serif;">Geography Class</div>' || x'0A' || '<div style="font:italic 10pt/16pt Georgia,serif;">by MapBox</div>' || x'0A0A' || '<img src="data:image/png;base64,iVBORw0KGgo">' || x'0A' || '</div>'),
+('legend','<div style="text-align:center;">' || X'0A0A' || '<div style="font:12pt/16pt Georgia,serif;">Geography Class</div>' || X'0A' || '<div style="font:italic 10pt/16pt Georgia,serif;">by MapBox</div>' || X'0A0A' || '<img src="data:image/png;base64,iVBORw0KGgo">' || X'0A' || '</div>'),
 ('name','Geography Class'),
 ('description','One of the example maps that comes with TileMill - a bright & colorful world map that blends retro and high-tech with its folded paper texture and interactive flag tooltips. '),
 ('attribution',''),
 ('template', ''),
 ('version','1.0.0');
 CREATE VIEW tiles AS
-    SELECT
-        map.zoom_level AS zoom_level,
-        map.tile_column AS tile_column,
-        map.tile_row AS tile_row,
-        images.tile_data AS tile_data
-    FROM map
-    JOIN images ON images.tile_id = map.tile_id;
+SELECT
+    map.zoom_level,
+    map.tile_column,
+    map.tile_row,
+    images.tile_data
+FROM map
+INNER JOIN images ON map.tile_id = images.tile_id;
 CREATE VIEW grids AS
-    SELECT
-        map.zoom_level AS zoom_level,
-        map.tile_column AS tile_column,
-        map.tile_row AS tile_row,
-        grid_utfgrid.grid_utfgrid AS grid
-    FROM map
-    JOIN grid_utfgrid ON grid_utfgrid.grid_id = map.grid_id;
+SELECT
+    map.zoom_level,
+    map.tile_column,
+    map.tile_row,
+    grid_utfgrid.grid_utfgrid AS grid
+FROM map
+INNER JOIN grid_utfgrid ON map.grid_id = grid_utfgrid.grid_id;
 CREATE VIEW grid_data AS
-    SELECT
-        map.zoom_level AS zoom_level,
-        map.tile_column AS tile_column,
-        map.tile_row AS tile_row,
-        keymap.key_name AS key_name,
-        keymap.key_json AS key_json
-    FROM map
-    JOIN grid_key ON map.grid_id = grid_key.grid_id
-    JOIN keymap ON grid_key.key_name = keymap.key_name;
+SELECT
+    map.zoom_level,
+    map.tile_column,
+    map.tile_row,
+    keymap.key_name,
+    keymap.key_json
+FROM map
+INNER JOIN grid_key ON map.grid_id = grid_key.grid_id
+INNER JOIN keymap ON grid_key.key_name = keymap.key_name;
 CREATE UNIQUE INDEX map_index ON map (zoom_level, tile_column, tile_row);
 CREATE UNIQUE INDEX grid_key_lookup ON grid_key (grid_id, key_name);
 CREATE UNIQUE INDEX keymap_lookup ON keymap (key_name);
