@@ -15,13 +15,13 @@ INSERT INTO metadata VALUES
 ('agg_tiles_hash','578FB5BD64746C39E3D344662947FD0D');
 CREATE TABLE tiles (zoom_level integer, tile_column integer, tile_row integer, tile_data blob);
 INSERT INTO tiles VALUES
-(1,0,0,x'1f8b0000'),
-(2,3,1,x'1f8b0000'),
-(3,7,3,x'1f8b0000'),
-(4,7,8,x'1f8b0000'),
-(5,16,20,x'1f8b0000'),
-(6,45,37,x'1f8b0000'),
-(4,4,4,x'1f8b0000');
+(1,0,0,x'1f8b0800'),
+(2,3,1,x'1f8b0800'),
+(3,7,3,x'1f8b0800'),
+(4,7,8,x'1f8b0800'),
+(5,16,20,x'1f8b0800'),
+(6,45,37,x'1f8b0800'),
+(4,4,4,x'1f8b0800');
 CREATE UNIQUE INDEX name ON metadata (name);
 CREATE UNIQUE INDEX tile_index ON tiles (zoom_level, tile_column, tile_row);
 COMMIT;
