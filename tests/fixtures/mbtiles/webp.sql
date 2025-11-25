@@ -13,11 +13,11 @@ INSERT INTO metadata VALUES
 ('minzoom','0'),
 ('maxzoom','0');
 CREATE TABLE IF NOT EXISTS "tiles"(
-  zoom_level INT,
-  tile_column INT,
-  tile_row INT,
-  tile_data BLOB
+    zoom_level int,
+    tile_column int,
+    tile_row int,
+    tile_data blob
 );
-INSERT INTO tiles VALUES(0,0,0,X'00');
+INSERT INTO tiles VALUES(0,0,0,x'00');
 CREATE UNIQUE INDEX name ON metadata (name);
 COMMIT;
