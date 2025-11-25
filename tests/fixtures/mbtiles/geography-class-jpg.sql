@@ -58,7 +58,7 @@ INSERT INTO metadata VALUES
 ('name','Geography Class'),
 ('description','One of the example maps that comes with TileMill - a bright & colorful world map that blends retro and high-tech with its folded paper texture and interactive flag tooltips. '),
 ('attribution',''),
-('template', ''),
+('template', 'foobar'),
 ('version','1.0.0');
 CREATE VIEW tiles AS
 SELECT

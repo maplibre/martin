@@ -412,7 +412,7 @@ mod tests {
         assert_eq!(tj.maxzoom.unwrap(), 1);
         assert_eq!(tj.minzoom.unwrap(), 0);
         assert_eq!(tj.name.unwrap(), "Geography Class");
-        assert_eq!(tj.template.unwrap(), "");
+        assert_eq!(tj.template.unwrap(), "foobar");
         assert_eq!(tj.version.unwrap(), "1.0.0");
         assert_eq!(metadata.id, ":memory:");
         assert_eq!(metadata.tile_info, Format::Jpeg.into());
