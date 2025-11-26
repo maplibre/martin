@@ -358,11 +358,14 @@ fn default_bounds(src: &DynTileSource) -> Vec<Bounds> {
             Some(bounds) => {
                 info!("No bbox specified, using source bounds: {}", bounds);
                 vec![bounds]
-            },
+            }
             None => {
-                info!("No configured bounds for source, using: {}", Bounds::MAX_TILED);
+                info!(
+                    "No configured bounds for source, using: {}",
+                    Bounds::MAX_TILED
+                );
                 vec![Bounds::MAX_TILED]
-            },
+            }
         }
     } else {
         vec![Bounds::MAX_TILED]
@@ -585,15 +588,15 @@ async fn main() {
 
 #[cfg(test)]
 mod tests {
-    use std::str::FromStr;
+    use super::*;
     use async_trait::async_trait;
     use insta::assert_yaml_snapshot;
-    use rstest::{fixture, rstest};
-    use tilejson::{tilejson, TileJSON};
     use martin::TileSources;
     use martin_core::tiles::{MartinCoreResult, Source, UrlQuery};
     use martin_tile_utils::{Encoding, Format};
-    use super::*;
+    use rstest::{fixture, rstest};
+    use std::str::FromStr;
+    use tilejson::{TileJSON, tilejson};
 
     #[derive(Debug, Clone)]
     pub struct MockSource {
@@ -635,13 +638,13 @@ mod tests {
             Box::new(MockSource {
                 id: "test_source",
                 tj: tilejson! { tiles: vec![], bounds: Bounds::from_str("-110.0,20.0,-120.0,80.0").unwrap() },
-                data: Vec::default()
+                data: Vec::default(),
             }),
             Box::new(MockSource {
                 id: "test_source2",
                 tj: tilejson! { tiles: vec![], bounds: Bounds::from_str("-130.0,40.0,-170.0,10.0").unwrap() },
-                data: Vec::default()
-            })
+                data: Vec::default(),
+            }),
         ]])
     }
 
@@ -650,16 +653,16 @@ mod tests {
         TileSources::new(vec![vec![Box::new(MockSource {
             id: "test_source",
             tj: tilejson! { tiles: vec![], bounds: Bounds::from_str("-120.0,30.0,-110.0,40.0").unwrap() },
-            data: Vec::default()
+            data: Vec::default(),
         })]])
     }
-    
+
     #[fixture]
     fn source_wo_bounds() -> TileSources {
         TileSources::new(vec![vec![Box::new(MockSource {
             id: "test_source",
             tj: tilejson! { tiles: vec![] },
-            data: Vec::default()
+            data: Vec::default(),
         })]])
     }
 
@@ -667,7 +670,11 @@ mod tests {
     #[case::one_source(one_source(), "test_source", vec![Bounds::from_str("-120.0,30.0,-110.0,40.0").unwrap()])]
     #[case::many_sources(many_sources(), "test_source,test_source2", vec![Bounds::MAX_TILED])]
     #[case::source_wo_bounds(source_wo_bounds(), "test_source", vec![Bounds::MAX_TILED])]
-    fn test_default_bounds(#[case] src: TileSources, #[case] ids: &str, #[case] expected: Vec<Bounds>) {
+    fn test_default_bounds(
+        #[case] src: TileSources,
+        #[case] ids: &str,
+        #[case] expected: Vec<Bounds>,
+    ) {
         let dts = DynTileSource::new(&src, ids, None, "", None, None, None, None).unwrap();
 
         assert_eq!(default_bounds(&dts), expected);
