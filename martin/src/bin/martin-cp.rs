@@ -193,13 +193,7 @@ async fn start(copy_args: CopierArgs) -> MartinCpResult<()> {
     run_tile_copy(copy_args.copy, sources).await
 }
 
-fn check_bboxes(args: &CopyArgs) -> MartinCpResult<Vec<Bounds>> {
-    let boxes = if args.bbox.is_empty() {
-        vec![Bounds::MAX_TILED]
-    } else {
-        args.bbox.clone()
-    };
-
+fn check_bboxes(boxes: Vec<Bounds>) -> MartinCpResult<Vec<Bounds>> {
     for bb in &boxes {
         let allowed_lon = Bounds::MAX_TILED.left..=Bounds::MAX_TILED.right;
         if !allowed_lon.contains(&bb.left) || !allowed_lon.contains(&bb.right) {
@@ -343,20 +337,38 @@ fn iterate_tiles(tiles: Vec<TileRect>) -> impl Iterator<Item = TileCoord> {
 }
 
 fn check_sources(args: &CopyArgs, state: &ServerState) -> Result<String, MartinCpError> {
-    if let Some(source) = &args.source {
-        Ok(source.clone())
+    if let Some(source_id) = &args.source {
+        Ok(source_id.clone())
     } else {
-        let sources = state.tiles.source_names();
-        if let Some(source) = sources.first() {
-            if sources.len() > 1 {
-                return Err(MartinCpError::MultipleSources(sources.join(", ")));
+        let source_ids = state.tiles.source_names();
+        if let Some(source_id) = source_ids.first() {
+            if source_ids.len() > 1 {
+                return Err(MartinCpError::MultipleSources(source_ids.join(", ")));
             }
-            Ok(source.clone())
+            Ok(source_id.clone())
         } else {
             Err(MartinCpError::NoSources)
         }
     }
 }
+
+fn default_bounds(src: &DynTileSource) -> Vec<Bounds> {
+    if src.sources.len() == 1 {
+        match src.sources.first().unwrap().get_tilejson().bounds {
+            Some(bounds) => {
+                info!("No bbox specified, using source bounds: {}", bounds);
+                vec![bounds]
+            },
+            None => {
+                info!("No configured bounds for source, using: {}", Bounds::MAX_TILED);
+                vec![Bounds::MAX_TILED]
+            },
+        }
+    } else {
+        vec![Bounds::MAX_TILED]
+    }
+}
+
 #[expect(clippy::too_many_lines)]
 async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()> {
     let output_file = &args.output_file;
@@ -370,11 +382,11 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()>
         );
     }
 
-    let source = check_sources(&args, &state)?;
+    let source_id = check_sources(&args, &state)?;
 
     let src = DynTileSource::new(
         &state.tiles,
-        &source,
+        &source_id,
         None,
         args.url_query.as_deref().unwrap_or_default(),
         Some(parse_encoding(args.encoding.as_str())?),
@@ -382,11 +394,18 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()>
         None,
         None,
     )?;
+
+    let inferred_bboxes = if args.bbox.is_empty() {
+        default_bounds(&src)
+    } else {
+        args.bbox.clone()
+    };
+    let bboxes = check_bboxes(inferred_bboxes)?;
+
     // parallel async below uses move, so we must only use copyable types
     let src = &src;
 
     let zooms = get_zooms(&args);
-    let bboxes = check_bboxes(&args)?;
     let tiles = compute_tile_ranges(&bboxes, &zooms);
     let mbt = Mbtiles::new(output_file)?;
     let mut conn = mbt.open_or_new().await?;
@@ -404,7 +423,7 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()>
         "Copying {} {} tiles from {} to {}",
         progress.total,
         src.info,
-        source,
+        source_id,
         args.output_file.display()
     );
 
@@ -567,11 +586,92 @@ async fn main() {
 #[cfg(test)]
 mod tests {
     use std::str::FromStr;
-
+    use async_trait::async_trait;
     use insta::assert_yaml_snapshot;
-    use rstest::rstest;
-
+    use rstest::{fixture, rstest};
+    use tilejson::{tilejson, TileJSON};
+    use martin::TileSources;
+    use martin_core::tiles::{MartinCoreResult, Source, UrlQuery};
+    use martin_tile_utils::{Encoding, Format};
     use super::*;
+
+    #[derive(Debug, Clone)]
+    pub struct MockSource {
+        pub id: &'static str,
+        pub tj: TileJSON,
+        pub data: TileData,
+    }
+
+    #[async_trait]
+    impl Source for MockSource {
+        fn get_id(&self) -> &str {
+            self.id
+        }
+
+        fn get_tilejson(&self) -> &TileJSON {
+            &self.tj
+        }
+
+        fn get_tile_info(&self) -> TileInfo {
+            TileInfo::new(Format::Mvt, Encoding::Uncompressed)
+        }
+
+        fn clone_source(&self) -> BoxedSource {
+            Box::new(self.clone())
+        }
+
+        async fn get_tile(
+            &self,
+            _xyz: TileCoord,
+            _url_query: Option<&UrlQuery>,
+        ) -> MartinCoreResult<TileData> {
+            Ok(self.data.clone())
+        }
+    }
+
+    #[fixture]
+    fn many_sources() -> TileSources {
+        TileSources::new(vec![vec![
+            Box::new(MockSource {
+                id: "test_source",
+                tj: tilejson! { tiles: vec![], bounds: Bounds::from_str("-110.0,20.0,-120.0,80.0").unwrap() },
+                data: Vec::default()
+            }),
+            Box::new(MockSource {
+                id: "test_source2",
+                tj: tilejson! { tiles: vec![], bounds: Bounds::from_str("-130.0,40.0,-170.0,10.0").unwrap() },
+                data: Vec::default()
+            })
+        ]])
+    }
+
+    #[fixture]
+    fn one_source() -> TileSources {
+        TileSources::new(vec![vec![Box::new(MockSource {
+            id: "test_source",
+            tj: tilejson! { tiles: vec![], bounds: Bounds::from_str("-120.0,30.0,-110.0,40.0").unwrap() },
+            data: Vec::default()
+        })]])
+    }
+    
+    #[fixture]
+    fn source_wo_bounds() -> TileSources {
+        TileSources::new(vec![vec![Box::new(MockSource {
+            id: "test_source",
+            tj: tilejson! { tiles: vec![] },
+            data: Vec::default()
+        })]])
+    }
+
+    #[rstest]
+    #[case::one_source(one_source(), "test_source", vec![Bounds::from_str("-120.0,30.0,-110.0,40.0").unwrap()])]
+    #[case::many_sources(many_sources(), "test_source,test_source2", vec![Bounds::MAX_TILED])]
+    #[case::source_wo_bounds(source_wo_bounds(), "test_source", vec![Bounds::MAX_TILED])]
+    fn test_default_bounds(#[case] src: TileSources, #[case] ids: &str, #[case] expected: Vec<Bounds>) {
+        let dts = DynTileSource::new(&src, ids, None, "", None, None, None, None).unwrap();
+
+        assert_eq!(default_bounds(&dts), expected);
+    }
 
     #[test]
     fn test_compute_tile_ranges() {
@@ -609,7 +709,6 @@ mod tests {
     }
 
     #[rstest]
-    #[case("", Ok(Bounds::MAX_TILED.to_string()))]
     #[case("-180.0,-85.05112877980659,180.0,85.0511287798066", Ok(Bounds::MAX_TILED.to_string()))]
     #[case("-120.0,30.0,-110.0,40.0", Ok("-120.0,30.0,-110.0,40.0".to_string()))]
     #[case("-190.0,30.0,-110.0,40.0", Err("longitude".to_string()))]
@@ -625,10 +724,7 @@ mod tests {
             vec![Bounds::from_str(bbox_str).unwrap()]
         };
 
-        let result = check_bboxes(&CopyArgs {
-            bbox: bbox_vec,
-            ..Default::default()
-        });
+        let result = check_bboxes(bbox_vec);
 
         match expected {
             Ok(expected_str) => {
