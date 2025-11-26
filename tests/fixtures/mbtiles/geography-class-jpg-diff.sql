@@ -16,7 +16,7 @@ CREATE TABLE images (
     tile_id TEXT
 );
 INSERT INTO images VALUES
-(NULL,''),
+(NULL,NULL),
 (X'ffd80000ffd9','d8018fba714e93c29500adb778b587a5'),
 (X'ffd80000ffd9','035e1077aab736ad34208aaea571d6ac');
 CREATE TABLE metadata (
@@ -34,15 +34,6 @@ SELECT
     images.tile_data
 FROM map
 INNER JOIN images ON map.tile_id = images.tile_id;
-CREATE VIEW tiles_with_hash AS
-             SELECT
-                 map.zoom_level AS zoom_level,
-                 map.tile_column AS tile_column,
-                 map.tile_row AS tile_row,
-                 images.tile_data AS tile_data,
-                 images.tile_id AS tile_hash
-             FROM map
-             JOIN images ON images.tile_id = map.tile_id;
 CREATE UNIQUE INDEX map_index ON map (zoom_level, tile_column, tile_row);
 CREATE UNIQUE INDEX images_id ON images (tile_id);
 CREATE UNIQUE INDEX name ON metadata (name);
