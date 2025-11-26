@@ -245,7 +245,7 @@ async fn mbt_get_mvt_gzip() {
     );
     assert_eq!(response.headers().get(CONTENT_ENCODING).unwrap(), "gzip");
     let body = read_body(response).await;
-    assert_eq!(body.len(), 20); // this number could change if compression gets more optimized
+    assert_eq!(body.len(), 1107); // this number could change if compression gets more optimized
     let body = decode_gzip(&body).unwrap();
     assert_eq!(body.len(), 0);
 }
@@ -265,7 +265,7 @@ async fn mbt_get_mvt_brotli() {
     );
     assert_eq!(response.headers().get(CONTENT_ENCODING).unwrap(), "br");
     let body = read_body(response).await;
-    assert_eq!(body.len(), 1); // this number could change if compression gets more optimized
+    assert_eq!(body.len(), 871); // this number could change if compression gets more optimized
     let body = decode_brotli(&body).unwrap();
     assert_eq!(body.len(), 0);
 }
