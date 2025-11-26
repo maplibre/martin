@@ -17,7 +17,7 @@ CREATE TABLE images (
     tile_data BLOB,
     tile_id TEXT
 );
-INSERT INTO images VALUES(X'f','05376dc8f738f0690fba439c51d24f49e9a0333a');
+INSERT INTO images VALUES(X'ff','05376dc8f738f0690fba439c51d24f49e9a0333a');
 CREATE TABLE metadata (
     name TEXT,
     value TEXT
