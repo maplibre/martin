@@ -247,7 +247,7 @@ async fn mbt_get_mvt_gzip() {
     let body = read_body(response).await;
     assert_eq!(body.len(), 1107); // this number could change if compression gets more optimized
     let body = decode_gzip(&body).unwrap();
-    assert_eq!(body.len(), 0);
+    assert_eq!(body.len(), 1828);
 }
 
 /// get an MVT tile with accepted brotli enc
@@ -267,7 +267,7 @@ async fn mbt_get_mvt_brotli() {
     let body = read_body(response).await;
     assert_eq!(body.len(), 871); // this number could change if compression gets more optimized
     let body = decode_brotli(&body).unwrap();
-    assert_eq!(body.len(), 0);
+    assert_eq!(body.len(), 1828);
 }
 
 /// get an uncompressed MVT tile
