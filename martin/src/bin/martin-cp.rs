@@ -353,22 +353,25 @@ fn check_sources(args: &CopyArgs, state: &ServerState) -> Result<String, MartinC
 }
 
 fn default_bounds(src: &DynTileSource) -> Vec<Bounds> {
-    if src.sources.len() == 1 {
-        match src.sources.first().unwrap().get_tilejson().bounds {
-            Some(bounds) => {
-                info!("No bbox specified, using source bounds: {}", bounds);
-                vec![bounds]
-            }
-            None => {
-                info!(
-                    "No configured bounds for source, using: {}",
-                    Bounds::MAX_TILED
-                );
-                vec![Bounds::MAX_TILED]
-            }
-        }
-    } else {
+    if src.sources.is_empty() {
         vec![Bounds::MAX_TILED]
+    } else {
+        let mut source_bounds = src.sources.iter().filter_map(|source|
+            source.get_tilejson().bounds
+        ).collect::<Vec<Bounds>>();
+        
+        source_bounds.dedup_by_key(|bounds| bounds.to_string());
+        
+        if source_bounds.is_empty() {
+            info!("No configured bounds for source, using: {}", Bounds::MAX_TILED);
+            vec![Bounds::MAX_TILED]
+        } else {
+            info!(
+                "No bbox specified, using source bounds: {}",
+                source_bounds.iter().map(|s| format!("[{s}]")).collect::<Vec<String>>().join(", ")
+            );
+            source_bounds
+        }
     }
 }
 
@@ -645,6 +648,11 @@ mod tests {
                 tj: tilejson! { tiles: vec![], bounds: Bounds::from_str("-130.0,40.0,-170.0,10.0").unwrap() },
                 data: Vec::default(),
             }),
+            Box::new(MockSource {
+                id: "unrequested_source",
+                tj: tilejson! { tiles: vec![], bounds: Bounds::from_str("-150.0,40.0,-120.0,10.0").unwrap() },
+                data: Vec::default()
+            })
         ]])
     }
 
@@ -668,7 +676,7 @@ mod tests {
 
     #[rstest]
     #[case::one_source(one_source(), "test_source", vec![Bounds::from_str("-120.0,30.0,-110.0,40.0").unwrap()])]
-    #[case::many_sources(many_sources(), "test_source,test_source2", vec![Bounds::MAX_TILED])]
+    #[case::many_sources(many_sources(), "test_source,test_source2", vec![Bounds::from_str("-110.0,20.0,-120.0,80.0").unwrap(), Bounds::from_str("-130.0,40.0,-170.0,10.0").unwrap()])]
     #[case::source_wo_bounds(source_wo_bounds(), "test_source", vec![Bounds::MAX_TILED])]
     fn test_default_bounds(
         #[case] src: TileSources,
