@@ -356,19 +356,28 @@ fn default_bounds(src: &DynTileSource) -> Vec<Bounds> {
     if src.sources.is_empty() {
         vec![Bounds::MAX_TILED]
     } else {
-        let mut source_bounds = src.sources.iter().filter_map(|source|
-            source.get_tilejson().bounds
-        ).collect::<Vec<Bounds>>();
-        
+        let mut source_bounds = src
+            .sources
+            .iter()
+            .filter_map(|source| source.get_tilejson().bounds)
+            .collect::<Vec<Bounds>>();
+
         source_bounds.dedup_by_key(|bounds| bounds.to_string());
-        
+
         if source_bounds.is_empty() {
-            info!("No configured bounds for source, using: {}", Bounds::MAX_TILED);
+            info!(
+                "No configured bounds for source, using: {}",
+                Bounds::MAX_TILED
+            );
             vec![Bounds::MAX_TILED]
         } else {
             info!(
                 "No bbox specified, using source bounds: {}",
-                source_bounds.iter().map(|s| format!("[{s}]")).collect::<Vec<String>>().join(", ")
+                source_bounds
+                    .iter()
+                    .map(|s| format!("[{s}]"))
+                    .collect::<Vec<String>>()
+                    .join(", ")
             );
             source_bounds
         }
@@ -651,8 +660,8 @@ mod tests {
             Box::new(MockSource {
                 id: "unrequested_source",
                 tj: tilejson! { tiles: vec![], bounds: Bounds::from_str("-150.0,40.0,-120.0,10.0").unwrap() },
-                data: Vec::default()
-            })
+                data: Vec::default(),
+            }),
         ]])
     }
 
