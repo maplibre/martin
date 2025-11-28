@@ -36,7 +36,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-ffb7efe7.js";
+            window.path_to_searchindex_js = "searchindex-ad0e4baa.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-d7ad18cc.js"></script>
@@ -189,13 +189,13 @@ If multiple areas overlap, it will ensure each tile is generated only once
 <p>After copying, <code>martin-cp</code> will update the <code>agg_tiles_hash</code> metadata value unless <code>--skip-agg-tiles-hash</code> is specified.
 This allows the MBTiles file to be <a href="mbtiles-validation.html#aggregate-content-validation">validated</a> using <code>mbtiles validate</code> command.</p>
 <h2 id="usage"><a class="header" href="#usage">Usage</a></h2>
-<p>This copies tiles from a PostGIS table <code>my_table</code> into an MBTiles file <code>tileset.mbtiles</code> using <a href="mbtiles-schema.html#normalized">normalized</a> schema, with zoom levels from 0 to 10, and bounds of the whole world.</p>
-<pre><code class="language-bash">martin-cp  --output-file tileset.mbtiles \
-           --mbtiles-type normalized     \
-           "--bbox=-180,-90,180,90"      \
-           --min-zoom 0                  \
-           --max-zoom 10                 \
-           --source source_name          \
+<p>This copies tiles from a PostGIS table <code>my_table</code> into an MBTiles file <code>tileset.mbtiles</code> using <a href="mbtiles-schema.html#normalized">normalized</a> schema, with zoom levels from 0 to 10, and xyz-compliant tile bounds of the whole world.</p>
+<pre><code class="language-bash">martin-cp  --output-file tileset.mbtiles                         \
+           --mbtiles-type normalized                             \
+           "--bbox=-180,-85.05112877980659,180,85.0511287798066" \
+           --min-zoom 0                                          \
+           --max-zoom 10                                         \
+           --source source_name                                  \
            postgres://postgres@localhost:5432/db
 </code></pre>
 <blockquote class="blockquote-tag blockquote-tag-tip">
@@ -246,7 +246,7 @@ Options:
           [possible values: flat, flat-with-hash, normalized]
 
       --url-query &lt;URL_QUERY&gt;
-          Optional query parameter (in URL query format) for the sources that support it (e.g. Postgres functions)
+          Optional query parameter (in URL query format) for the sources that support it (e.g. Postgres functions).
 
       --encoding &lt;ENCODING&gt;
           Optional accepted encoding parameter as if the browser sent it in the HTTP request.
@@ -256,7 +256,7 @@ Options:
           [default: gzip]
 
       --on-duplicate &lt;ON_DUPLICATE&gt;
-          Allow copying to existing files, and indicate what to do if a tile with the same Z/X/Y already exists
+          Allow copying to existing files, and indicate what to do if a tile with the same Z/X/Y already exists.
 
           [possible values: override, ignore, abort]
 
@@ -266,7 +266,11 @@ Options:
           [default: 1]
 
       --bbox &lt;BBOX&gt;
-          Bounds to copy, in the format min_lon,min_lat,max_lon,max_lat. Can be specified multiple times. Overlapping regions will be handled correctly
+          Bounds to copy, in the format min_lon,min_lat,max_lon,max_lat. Can be specified multiple times with overlapping bounds being handled correctly. Maximum bounds follows mbtiles specification for xyz-compliant tile bounds
+
+          If omitted, will first default to configured source bounds if present. Otherwise, will default to global xyz-compliant tile bounds.
+
+          [default: -180,-85.05112877980659,180,85.0511287798066]
 
       --min-zoom &lt;MIN_ZOOM&gt;
           Minimum zoom level to copy
