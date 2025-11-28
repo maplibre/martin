@@ -80,7 +80,7 @@ pub struct CopyArgs {
         value_enum
     )]
     pub mbt_type: Option<MbtTypeCli>,
-    /// Optional query parameter (in URL query format) for the sources that support it (e.g. Postgres functions)
+    /// Optional query parameter (in URL query format) for the sources that support it (e.g. Postgres functions).
     #[arg(long)]
     pub url_query: Option<String>,
     /// Optional accepted encoding parameter as if the browser sent it in the HTTP request.
@@ -90,14 +90,16 @@ pub struct CopyArgs {
     /// Use `identity` to disable compression. Ignored for non-encodable tiles like PNG and JPEG.
     #[arg(long, alias = "encodings", default_value = "gzip")]
     pub encoding: String,
-    /// Allow copying to existing files, and indicate what to do if a tile with the same Z/X/Y already exists
+    /// Allow copying to existing files, and indicate what to do if a tile with the same Z/X/Y already exists.
     #[arg(long, value_enum)]
     pub on_duplicate: Option<CopyDuplicateMode>,
     /// Number of concurrent connections to use.
     #[arg(long, default_value = "1")]
     pub concurrency: NonZeroUsize,
-    /// Bounds to copy, in the format `min_lon,min_lat,max_lon,max_lat`. Can be specified multiple times. Overlapping regions will be handled correctly.
-    #[arg(long)]
+    /// Bounds to copy, in the format `min_lon,min_lat,max_lon,max_lat`. Can be specified multiple times with overlapping bounds being handled correctly. Maximum bounds follows mbtiles specification for xyz-compliant tile bounds.
+    ///
+    /// If omitted, will first default to configured source bounds if present. Otherwise, will default to global xyz-compliant tile bounds.
+    #[arg(long, default_value = "-180,-85.05112877980659,180,85.0511287798066")]
     pub bbox: Vec<Bounds>,
     /// Minimum zoom level to copy
     #[arg(long, alias = "minzoom", conflicts_with("zoom_levels"))]
