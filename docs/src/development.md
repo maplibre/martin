@@ -4,7 +4,7 @@
 
 Install [docker](https://docs.docker.com/get-docker/) and [docker-compose](https://docs.docker.com/compose/)
 
-Note that alternative container hosts/runtimes should also work, but you might need some tweak such as setting `DOCKER_HOST` envvar in order to let [the testcontainers module](https://docs.rs/testcontainers/latest/testcontainers/index.html#docker-host-resolution) detect your container. For example, [Colima uses a different socket location](https://github.com/abiosoft/colima/blob/main/docs/FAQ.md#cannot-connect-to-the-docker-daemon-at-unixvarrundockersock-is-the-docker-daemon-running).
+Note that alternative container hosts/runtimes should also work, but you might need some tweaks such as setting `DOCKER_HOST` envvar in order to let [the testcontainers module](https://docs.rs/testcontainers/latest/testcontainers/index.html#docker-host-resolution) detect your container. For example, [Colima uses a different socket location](https://github.com/abiosoft/colima/blob/main/docs/FAQ.md#cannot-connect-to-the-docker-daemon-at-unixvarrundockersock-is-the-docker-daemon-running).
 
 ## just
 
