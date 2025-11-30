@@ -604,6 +604,11 @@ if [[ "$MARTIN_CP_BIN" != "-" ]]; then
       --min-zoom 0 --max-zoom 6 "--bbox=-2,-1,142.84,45" \
       --set-meta "generator=martin-cp v0.0.0" --set-meta "name=composite" --set-meta=center=0,0,0
 
+  test_martin_cp "no-bbox" ./tests/fixtures/mbtiles/world_cities.mbtiles \
+          --source table_source --mbtiles-type flat --concurrency 3 \
+          --min-zoom 0 --max-zoom 6 \
+          --set-meta "generator=martin-cp v0.0.0"
+
   unset DATABASE_URL
 
   test_martin_cp "no-source" ./tests/fixtures/mbtiles/world_cities.mbtiles \
