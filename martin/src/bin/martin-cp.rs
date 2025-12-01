@@ -359,7 +359,12 @@ fn default_bounds(src: &DynTileSource) -> Vec<Bounds> {
         let mut source_bounds = src
             .sources
             .iter()
-            .map(|source| source.get_tilejson().bounds.unwrap_or_else(|| Bounds::MAX_TILED))
+            .map(|source| {
+                source
+                    .get_tilejson()
+                    .bounds
+                    .unwrap_or_else(|| Bounds::MAX_TILED)
+            })
             .collect::<Vec<Bounds>>();
 
         source_bounds.dedup_by_key(|bounds| bounds.to_string());
