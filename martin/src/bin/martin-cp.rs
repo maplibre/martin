@@ -363,7 +363,7 @@ fn default_bounds(src: &DynTileSource) -> Vec<Bounds> {
                 source
                     .get_tilejson()
                     .bounds
-                    .unwrap_or_else(|| Bounds::MAX_TILED)
+                    .unwrap_or(Bounds::MAX_TILED)
             })
             .collect::<Vec<Bounds>>();
 
