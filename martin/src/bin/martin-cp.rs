@@ -691,10 +691,10 @@ mod tests {
     #[rstest]
     #[case::one_source(one_source(), "test_source", vec![Bounds::from_str("-120.0,30.0,-110.0,40.0").unwrap()])]
     #[case::many_sources(many_sources(), "test_source,test_source2", vec![Bounds::from_str("-110.0,20.0,-120.0,80.0").unwrap(), Bounds::from_str("-130.0,40.0,-170.0,10.0").unwrap()])]
-    #[case::many_sources_rev(many_sources(), "test_source2,test_source", vec![Bounds::from_str("-110.0,20.0,-120.0,80.0").unwrap(), Bounds::from_str("-130.0,40.0,-170.0,10.0").unwrap()])]
+    #[case::many_sources_rev(many_sources(), "test_source2,test_source", vec![Bounds::from_str("-130.0,40.0,-170.0,10.0").unwrap(), Bounds::from_str("-110.0,20.0,-120.0,80.0").unwrap()])]
     #[case::many_sources_only_unbounded(many_sources(), "unbounded_source", vec![Bounds::MAX_TILED])]
     #[case::many_sources_bounded_and_unbounded(many_sources(), "test_source,unbounded_source", vec![Bounds::from_str("-110.0,20.0,-120.0,80.0").unwrap(), Bounds::MAX_TILED])]
-    #[case::many_sources_bounded_and_unbounded_rev(many_sources(), "unbounded_source,test_source", vec![Bounds::from_str("-110.0,20.0,-120.0,80.0").unwrap(), Bounds::MAX_TILED])]
+    #[case::many_sources_bounded_and_unbounded_rev(many_sources(), "unbounded_source,test_source", vec![Bounds::MAX_TILED, Bounds::from_str("-110.0,20.0,-120.0,80.0").unwrap()])]
     #[case::source_wo_bounds(source_wo_bounds(), "test_source", vec![Bounds::MAX_TILED])]
     fn test_default_bounds(
         #[case] src: TileSources,
