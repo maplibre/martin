@@ -8,6 +8,7 @@
 //!   - [x] pmtiles
 //!   - [x] cog
 //!   - [x] postgres
+//!   - [x] geojson
 
 /// The public facing API for managing a catalog of tile sources
 pub mod catalog;
@@ -23,6 +24,10 @@ pub mod pmtiles;
 #[cfg(feature = "unstable-cog")]
 /// Implementation of `Cloud Optimized GeoTIFF`' [`Source`].
 pub mod cog;
+
+#[cfg(feature = "geojson")]
+/// Implementation of `GeoJSON`' [`Source`].
+pub mod geojson;
 
 #[cfg(feature = "postgres")]
 /// Implementation of `PostgreSQL`' [`Source`].
