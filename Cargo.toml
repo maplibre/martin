@@ -46,11 +46,11 @@ base64 = "0.22.1"
 bit-set = "0.8"
 brotli = ">=5, <9"
 clap = { version = "4", features = ["derive", "unstable-markdown", "wrap_help"] }
-criterion = { version = "0.5", features = ["async_futures", "async_tokio", "html_reports"] }
-ctor = "0.5.0"
+criterion = { version = "0.8", features = ["async_futures", "async_tokio", "html_reports"] }
+ctor = "0.6.1"
 dashmap = { version = "6.1.0", features = ["serde", "inline", "rayon"] }
 deadpool-postgres = "0.14"
-enum-display = "0.1"
+enum-display = "0.2"
 env_logger = "0.11"
 flate2 = "1"
 flume = "0.11"
