@@ -66,6 +66,22 @@ repos:
         files: ^martin/Cargo\.toml$
         pass_filenames: false
 
+      - id: sync-biome-version
+        name: Sync Biome Version
+        description: "Update biome.json schema versions and additional_dependencies from pre-commit biome rev"
+        entry: |
+          bash -c '
+            VERSION=$(grep "repo: https://github.com/biomejs" -A 1 .pre-commit-config.yaml | grep "rev:" | sed "s/.*rev: \"v\([0-9\.]*\)\".*/\1/")
+            sed -i "s%biomejs.dev/schemas/[^/]*/%biomejs.dev/schemas/$VERSION/%" biome.json
+            sed -i "s%biomejs.dev/schemas/[^/]*/%biomejs.dev/schemas/$VERSION/%" demo/frontend/biome.json
+            sed -i "s%biomejs.dev/schemas/[^/]*/%biomejs.dev/schemas/$VERSION/%" martin/martin-ui/biome.json
+            sed -i "/repo: https:\/\/github.com\/biomejs\/pre-commit/,$ s/@biomejs\/biome@[0-9.]*/@biomejs\/biome@$VERSION/g" .pre-commit-config.yaml
+            echo "Synced Biome version to $VERSION"
+          '
+        language: system
+        files: ^\.pre-commit-config\.yaml$
+        pass_filenames: false
+
   - repo: https://github.com/sqlfluff/sqlfluff
     rev: 4.0.0a2
     hooks:
@@ -91,6 +107,6 @@ repos:
     rev: "v2.3.8"  # Use the sha / tag you want to point at
     hooks:
       - id: biome-check
-        additional_dependencies: [ "@biomejs/biome@2.2.4" ]
+        additional_dependencies: [ "@biomejs/biome@2.3.8" ]
       - id: biome-format
-        additional_dependencies: [ "@biomejs/biome@2.2.4" ]
+        additional_dependencies: [ "@biomejs/biome@2.3.8" ]
