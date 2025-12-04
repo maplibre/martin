@@ -290,7 +290,9 @@ async fn resolve_int<T: TileSourceConfiguration>(
 
     if let Some(sources) = cfg.sources {
         for (id, source) in sources {
-            let src = resolve_one_source_int(&cfg.custom, idr, &id, source, &mut files, &mut configs).await?;
+            let src =
+                resolve_one_source_int(&cfg.custom, idr, &id, source, &mut files, &mut configs)
+                    .await?;
             results.push(src);
         }
     }
@@ -303,7 +305,9 @@ async fn resolve_int<T: TileSourceConfiguration>(
             path.clone(),
             &mut files,
             &mut directories,
-            &mut configs).await?;
+            &mut configs,
+        )
+        .await?;
         results.extend(sources);
     }
 
@@ -364,7 +368,7 @@ async fn resolve_one_path_int<T: TileSourceConfiguration>(
     directories: &mut Vec<PathBuf>,
     configs: &mut BTreeMap<String, FileConfigSrc>,
 ) -> MartinResult<Vec<BoxedSource>> {
-    let mut results=Vec::new();
+    let mut results = Vec::new();
 
     if let Some(url) = parse_url(T::parse_urls(), &path)? {
         let target_ext = extension.iter().find(|&e| url.to_string().ends_with(e));
