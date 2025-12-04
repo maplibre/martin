@@ -409,7 +409,7 @@ async fn resolve_int<T: TileSourceConfiguration>(
             &cfg.custom,
             idr,
             extension,
-            path,
+            path.clone(),
             &mut files,
             &mut directories,
             &mut configs,
@@ -417,7 +417,10 @@ async fn resolve_int<T: TileSourceConfiguration>(
         .await
         {
             Ok(mut sources) => results.append(&mut sources),
-            Err(e) => warn!("Failed to resolve sources from path: {e}"),
+            Err(e) => warn!(
+                "Failed to resolve sources from path {}: {e}",
+                path.display(),
+            ),
         }
     }
 
