@@ -497,3 +497,71 @@ pub fn copy_unrecognized_keys_from_config(
 ) {
     result.extend(unrecognized.keys().map(|k| format!("{prefix}{k}")));
 }
+
+#[cfg(all(test, feature = "mbtiles"))]
+mod mbtiles_tests {
+    use martin_core::config::IdResolver;
+
+    use super::*;
+    use crate::config::file::tiles::mbtiles::MbtConfig;
+
+    #[tokio::test]
+    async fn test_invalid_path_warns_instead_of_failing() {
+        let _ = env_logger::builder().is_test(true).try_init();
+
+        let invalid_path = PathBuf::from("/nonexistent/path/");
+        let invalid_source = PathBuf::from("/nonexistent/path/to/file.mbtiles");
+        let mut sources = BTreeMap::new();
+        sources.insert(
+            "test_source".to_string(),
+            FileConfigSrc::Path(invalid_source.clone()),
+        );
+        let mut config = FileConfigEnum::<MbtConfig>::Config(FileConfig {
+            paths: OptOneMany::One(invalid_path.clone()),
+            sources: Some(sources),
+            custom: MbtConfig::default(),
+        });
+
+        let idr = IdResolver::new(&[]);
+        let result = resolve_files(&mut config, &idr, &["mbtiles"]).await;
+
+        // Should succeed despite invalid paths
+        assert!(result.is_ok());
+        let sources = result.unwrap();
+        assert_eq!(sources.len(), 0);
+    }
+}
+
+#[cfg(all(test, feature = "pmtiles"))]
+mod pmtiles_tests {
+    use martin_core::config::IdResolver;
+
+    use super::*;
+    use crate::config::file::tiles::pmtiles::PmtConfig;
+
+    #[tokio::test]
+    async fn test_invalid_path_warns_instead_of_failing() {
+        let _ = env_logger::builder().is_test(true).try_init();
+
+        let invalid_path = PathBuf::from("/nonexistent/path/");
+        let invalid_source = PathBuf::from("/nonexistent/path/to/file.pmtiles");
+        let mut sources = BTreeMap::new();
+        sources.insert(
+            "test_source".to_string(),
+            FileConfigSrc::Path(invalid_source.clone()),
+        );
+        let mut config = FileConfigEnum::<PmtConfig>::Config(FileConfig {
+            paths: OptOneMany::One(invalid_path.clone()),
+            sources: Some(sources),
+            custom: PmtConfig::default(),
+        });
+
+        let idr = IdResolver::new(&[]);
+        let result = resolve_files(&mut config, &idr, &["pmtiles"]).await;
+
+        // Should succeed despite invalid paths
+        assert!(result.is_ok());
+        let sources = result.unwrap();
+        assert_eq!(sources.len(), 0);
+    }
+}
