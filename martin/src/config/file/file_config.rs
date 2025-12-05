@@ -334,7 +334,7 @@ async fn resolve_one_source_int<T: TileSourceConfiguration>(
     if let Some(url) = parse_url(T::parse_urls(), source.get_path())? {
         let dup = !files.insert(source.get_path().clone());
         let dup = if dup { "duplicate " } else { "" };
-        let id = idr.resolve(&id, url.to_string());
+        let id = idr.resolve(id, url.to_string());
         configs.insert(id.clone(), source);
         result = custom.new_sources_url(id.clone(), url.clone()).await?;
         info!("Configured {dup}source {id} from {}", sanitize_url(&url));
@@ -346,7 +346,7 @@ async fn resolve_one_source_int<T: TileSourceConfiguration>(
 
         let dup = !files.insert(can.clone());
         let dup = if dup { "duplicate " } else { "" };
-        let id = idr.resolve(&id, can.to_string_lossy().to_string());
+        let id = idr.resolve(id, can.to_string_lossy().to_string());
         info!("Configured {dup}source {id} from {}", can.display());
         configs.insert(id.clone(), source.clone());
         result = custom.new_sources(id, source.into_path()).await?;
