@@ -274,6 +274,62 @@ pub async fn resolve_files<T: TileSourceConfiguration>(
 }
 
 #[cfg(feature = "_tiles")]
+async fn resolve_int<T: TileSourceConfiguration>(
+    config: &mut FileConfigEnum<T>,
+    idr: &IdResolver,
+    extension: &[&str],
+) -> MartinResult<Vec<BoxedSource>> {
+    let Some(cfg) = config.extract_file_config() else {
+        return Ok(Vec::new());
+    };
+
+    let mut results = Vec::new();
+    let mut configs = BTreeMap::new();
+    let mut files = HashSet::new();
+    let mut directories = Vec::new();
+
+    if let Some(sources) = cfg.sources {
+        for (id, source) in sources {
+            match resolve_one_source_int(&cfg.custom, idr, &id, source, &mut files, &mut configs)
+                .await
+            {
+                Ok(src) => results.push(src),
+                Err(e) => warn!("Failed to resolve source {id}: {e}"),
+            }
+        }
+    }
+
+    for path in cfg.paths {
+        match resolve_one_path_int(
+            &cfg.custom,
+            idr,
+            extension,
+            path.clone(),
+            &mut files,
+            &mut directories,
+            &mut configs,
+        )
+        .await
+        {
+            Ok(mut sources) => results.append(&mut sources),
+            Err(e) => warn!(
+                "Failed to resolve sources from path {}: {e}",
+                path.display(),
+            ),
+        }
+    }
+
+    *config = FileConfigEnum::new_extended(directories, configs, cfg.custom);
+
+    Ok(results)
+}
+
+/// Resolves a single tile source configuration and returns a boxed source for further processing.
+///
+/// This function processes a tile source configuration using a given custom implementation of
+/// `TileSourceConfiguration` and resolves its ID using `IdResolver`.
+/// It determines if the source is a URL or a file path, configures the source accordingly.
+#[cfg(feature = "_tiles")]
 async fn resolve_one_source_int<T: TileSourceConfiguration>(
     custom: &T,
     idr: &IdResolver,
@@ -281,15 +337,15 @@ async fn resolve_one_source_int<T: TileSourceConfiguration>(
     source: FileConfigSrc,
     files: &mut HashSet<PathBuf>,
     configs: &mut BTreeMap<String, FileConfigSrc>,
-) -> MartinResult<Vec<BoxedSource>> {
-    let mut results = Vec::new();
+) -> MartinResult<BoxedSource> {
+    let mut result;
 
     if let Some(url) = parse_url(T::parse_urls(), source.get_path())? {
         let dup = !files.insert(source.get_path().clone());
         let dup = if dup { "duplicate " } else { "" };
         let id = idr.resolve(id, url.to_string());
         configs.insert(id.clone(), source);
-        results.push(custom.new_sources_url(id.clone(), url.clone()).await?);
+        result = custom.new_sources_url(id.clone(), url.clone()).await?;
         info!("Configured {dup}source {id} from {}", sanitize_url(&url));
     } else {
         let can = source.abs_path()?;
@@ -302,12 +358,16 @@ async fn resolve_one_source_int<T: TileSourceConfiguration>(
         let id = idr.resolve(id, can.to_string_lossy().to_string());
         info!("Configured {dup}source {id} from {}", can.display());
         configs.insert(id.clone(), source.clone());
-        results.push(custom.new_sources(id, source.into_path()).await?);
+        result = custom.new_sources(id, source.into_path()).await?;
     }
 
-    Ok(results)
+    Ok(result)
 }
 
+/// Resolves a single path, configuring sources based on the given tile source configuration.
+///
+/// This function processes a given `PathBuf`, checking if it represents a file, directory,
+/// or a URL, and then it performs the necessary steps to configure tile sources.
 #[cfg(feature = "_tiles")]
 async fn resolve_one_path_int<T: TileSourceConfiguration>(
     custom: &T,
@@ -374,57 +434,6 @@ async fn resolve_one_path_int<T: TileSourceConfiguration>(
             results.push(custom.new_sources(id, path).await?);
         }
     }
-
-    Ok(results)
-}
-
-#[cfg(feature = "_tiles")]
-async fn resolve_int<T: TileSourceConfiguration>(
-    config: &mut FileConfigEnum<T>,
-    idr: &IdResolver,
-    extension: &[&str],
-) -> MartinResult<Vec<BoxedSource>> {
-    let Some(cfg) = config.extract_file_config() else {
-        return Ok(Vec::new());
-    };
-
-    let mut results = Vec::new();
-    let mut configs = BTreeMap::new();
-    let mut files = HashSet::new();
-    let mut directories = Vec::new();
-
-    if let Some(sources) = cfg.sources {
-        for (id, source) in sources {
-            match resolve_one_source_int(&cfg.custom, idr, &id, source, &mut files, &mut configs)
-                .await
-            {
-                Ok(mut sources) => results.append(&mut sources),
-                Err(e) => warn!("Failed to resolve source {id}: {e}"),
-            }
-        }
-    }
-
-    for path in cfg.paths {
-        match resolve_one_path_int(
-            &cfg.custom,
-            idr,
-            extension,
-            path.clone(),
-            &mut files,
-            &mut directories,
-            &mut configs,
-        )
-        .await
-        {
-            Ok(mut sources) => results.append(&mut sources),
-            Err(e) => warn!(
-                "Failed to resolve sources from path {}: {e}",
-                path.display(),
-            ),
-        }
-    }
-
-    *config = FileConfigEnum::new_extended(directories, configs, cfg.custom);
 
     Ok(results)
 }
