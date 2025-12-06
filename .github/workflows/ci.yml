@@ -108,7 +108,7 @@ jobs:
       - uses: taiki-e/install-action@763e3324d4fd026c9bd284c504378585777a87d5 # v2.62.57
         # TODO: add cargo-sort once https://github.com/taiki-e/install-action/pull/997 is resolved
         with: { tool: 'just,cargo-binstall' }
-      - uses: Swatinem/rust-cache@f13886b937689c021905a6b90929199931d60db1 # v2.8.1
+      - uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
         if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
       - run: just env-info
       - run: just test-fmt
@@ -134,7 +134,7 @@ jobs:
       - uses: taiki-e/install-action@763e3324d4fd026c9bd284c504378585777a87d5 # v2.62.57
         with: { tool: cargo-zigbuild }
       - name: Install zig
-        uses: mlugg/setup-zig@8d6198c65fb0feaa111df26e6b467fea8345e46f # v2.0.5
+        uses: mlugg/setup-zig@fa65c4058643678a4e4a9a60513944a7d8d35440 # v2.1.0
         with: { version: '0.15.1' }
       - run: rustup target add ${{ matrix.target }}
       - name: Build ${{ matrix.target }}
@@ -207,7 +207,7 @@ jobs:
       # > The default image store in Docker Engine doesn't support loading multi-platform images.
       # > You can enable the containerd image store, or push multi-platform images is to directly push to a registry
       - name: Set up Docker
-        uses: docker/setup-docker-action@efe9e3891a4f7307e689f2100b33a155b900a608 # v4.5.0
+        uses: docker/setup-docker-action@e61617a16c407a86262fb923c35a616ddbe070b3 # v4.6.0
         with:
           daemon-config: |
             {
@@ -259,7 +259,7 @@ jobs:
           echo "short_tag=${TAG#martin-v}" >> "$GITHUB_OUTPUT"
       - name: Docker meta
         id: docker_meta
-        uses: docker/metadata-action@318604b99e75e41977312d83839a89be02ca4893 # v5.9.0
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
         # https://github.com/docker/metadata-action
         with:
           images: ghcr.io/${{ github.repository }}
@@ -408,7 +408,7 @@ jobs:
       # We need to cache here to not spend 30 minutes on each build.
       # We cannot cache the others as well because we only have 10GB of cache
       - if: matrix.target == 'x86_64-apple-darwin' && github.event_name != 'release' && github.event_name != 'workflow_dispatch'
-        uses: Swatinem/rust-cache@f13886b937689c021905a6b90929199931d60db1 # v2.8.1
+        uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
       - name: Rust Versions
         run: rustc --version && cargo --version
       - name: Install NASM for rustls/aws-lc-rs on Windows
@@ -670,7 +670,7 @@ jobs:
         uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
         with: { persist-credentials: false }
       # cache for the unit-test to be run against postgres to be acceptably slow
-      - uses: Swatinem/rust-cache@f13886b937689c021905a6b90929199931d60db1 # v2.8.1
+      - uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
         if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
       - name: Run NGINX
         uses: nyurik/action-setup-nginx@612ee9cb839ad727832cda16359452e7e14dd521 # v1.1
