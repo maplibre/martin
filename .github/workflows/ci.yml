@@ -230,12 +230,17 @@ jobs:
         id: nginx
         with: { port: '5412', output-unix-paths: 'yes' }
       - name: Copy static files
-        run: cp -r tests/fixtures/pmtiles2/* ${{ steps.nginx.outputs.html-dir }}
+        env:
+          HTML_DIR: ${{ steps.nginx.outputs.html-dir }}
+        run: cp -r tests/fixtures/pmtiles2/* "$HTML_DIR"
       - name: Prepare tag
         id: prepare_tag
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
         run: |
-          if [ "${{ github.event_name }}" = "release" ]; then
-            TAG="${{ github.event.release.tag_name }}"
+          if [ "$EVENT_NAME" = "release" ]; then
+            TAG="$RELEASE_TAG"
           else
             TAG="nightly"
           fi
@@ -519,16 +524,18 @@ jobs:
         with: { port: '5412', output-unix-paths: 'yes' }
       - name: Init database
         env:
-          PGPORT: ${{ env.PGPORT }}
+          PG_SERVICE_NAME: ${{ steps.pg.outputs.service-name }}
         run: |
           if [ "$RUNNER_OS" == "Linux" ]; then
-            export DATABASE_URL="postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ env.PGPORT }}/${{ env.PGDATABASE }}?sslmode=require"
+            export DATABASE_URL="postgres://${PGUSER}:${PGUSER}@${PGHOST}:${PGPORT}/${PGDATABASE}?sslmode=require"
           else
-            export PGSERVICE="${{ steps.pg.outputs.service-name }}"
+            export PGSERVICE="${PG_SERVICE_NAME}"
           fi
           tests/fixtures/initdb.sh
       - name: Copy static files
-        run: cp -r tests/fixtures/pmtiles2/* ${{ steps.nginx.outputs.html-dir }}
+        env:
+          HTML_DIR: ${{ steps.nginx.outputs.html-dir }}
+        run: cp -r tests/fixtures/pmtiles2/* "$HTML_DIR"
       - name: Download build artifact build-${{ matrix.target }}
         uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
         with:
@@ -660,7 +667,9 @@ jobs:
         id: nginx
         with: { port: '5412', output-unix-paths: 'yes' }
       - name: Copy static files
-        run: cp -r tests/fixtures/pmtiles2/* ${{ steps.nginx.outputs.html-dir }}
+        env:
+          HTML_DIR: ${{ steps.nginx.outputs.html-dir }}
+        run: cp -r tests/fixtures/pmtiles2/* "$HTML_DIR"
       - name: Init database
         run: tests/fixtures/initdb.sh
         env:
@@ -919,7 +928,7 @@ jobs:
     permissions: {}
     steps:
       - name: Result of the needed steps
-        run: echo "${{ toJSON(needs) }}"
+        run: echo "${{ toJSON(needs) }}" # zizmor: ignore[template-injection]
       - if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped') }}
         name: CI Result
         run: exit 1
