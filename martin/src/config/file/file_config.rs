@@ -338,8 +338,7 @@ async fn resolve_one_source_int<T: TileSourceConfiguration>(
     files: &mut HashSet<PathBuf>,
     configs: &mut BTreeMap<String, FileConfigSrc>,
 ) -> MartinResult<BoxedSource> {
-    let mut result;
-
+    let result;
     if let Some(url) = parse_url(T::parse_urls(), source.get_path())? {
         let dup = !files.insert(source.get_path().clone());
         let dup = if dup { "duplicate " } else { "" };
@@ -360,7 +359,6 @@ async fn resolve_one_source_int<T: TileSourceConfiguration>(
         configs.insert(id.clone(), source.clone());
         result = custom.new_sources(id, source.into_path()).await?;
     }
-
     Ok(result)
 }
 
@@ -434,7 +432,6 @@ async fn resolve_one_path_int<T: TileSourceConfiguration>(
             results.push(custom.new_sources(id, path).await?);
         }
     }
-
     Ok(results)
 }
 
