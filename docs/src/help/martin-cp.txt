@@ -19,7 +19,7 @@ Options:
           [possible values: flat, flat-with-hash, normalized]
 
       --url-query <URL_QUERY>
-          Optional query parameter (in URL query format) for the sources that support it (e.g. Postgres functions)
+          Optional query parameter (in URL query format) for the sources that support it (e.g. Postgres functions).
 
       --encoding <ENCODING>
           Optional accepted encoding parameter as if the browser sent it in the HTTP request.
@@ -29,7 +29,7 @@ Options:
           [default: gzip]
 
       --on-duplicate <ON_DUPLICATE>
-          Allow copying to existing files, and indicate what to do if a tile with the same Z/X/Y already exists
+          Allow copying to existing files, and indicate what to do if a tile with the same Z/X/Y already exists.
 
           [possible values: override, ignore, abort]
 
@@ -39,7 +39,11 @@ Options:
           [default: 1]
 
       --bbox <BBOX>
-          Bounds to copy, in the format min_lon,min_lat,max_lon,max_lat. Can be specified multiple times. Overlapping regions will be handled correctly
+          Bounds to copy, in the format min_lon,min_lat,max_lon,max_lat. Can be specified multiple times with overlapping bounds being handled correctly. Maximum bounds follows mbtiles specification for xyz-compliant tile bounds
+
+          If omitted, will first default to configured source bounds if present. Otherwise, will default to global xyz-compliant tile bounds.
+
+          [default: -180,-85.05112877980659,180,85.0511287798066]
 
       --min-zoom <MIN_ZOOM>
           Minimum zoom level to copy
