@@ -273,7 +273,7 @@ mod tests {
             }),
             ..Default::default()
         };
-        let meta = MeftaArgs {
+        let meta = MetaArgs {
             connection: vec!["postgres://connection".to_string()],
             ..Default::default()
         };
