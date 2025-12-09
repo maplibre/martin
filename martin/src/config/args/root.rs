@@ -154,7 +154,7 @@ fn is_url(s: &str, extension: &[&str]) -> bool {
         return false;
     };
     match url.scheme() {
-        "s3" | "s3a" | "gs" | "adl" | "azure" | "abfs" | "abfss" => {
+        "s3" | "s3a" | "gs" | "az" | "adl" | "azure" | "abfs" | "abfss" => {
             url.path().split('/').any(|segment| {
                 segment
                     .rsplit('.')
@@ -273,7 +273,7 @@ mod tests {
             }),
             ..Default::default()
         };
-        let meta = MetaArgs {
+        let meta = MeftaArgs {
             connection: vec!["postgres://connection".to_string()],
             ..Default::default()
         };
