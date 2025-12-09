@@ -14,13 +14,15 @@ jobs:
       issues: write
       checks: write
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      - uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
+        with: { persist-credentials: false }
       - uses: rustsec/audit-check@69366f33c96575abad1ee0dba8212993eecbe998 # v2.0.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          ignore: RUSTSEC-2023-0071,RUSTSEC-2025-0111
+          ignore: RUSTSEC-2023-0071,RUSTSEC-2025-0111,RUSTSEC-2025-0134
           # RUSTSEC-2023-0071 = Marvin Attack: potential key recovery through timing sidechannels => not used exploitably
           # RUSTSEC-2025-0111 = tokio-tar parses PAX extended headers incorrectly, allows file smuggling => only used in testcontainer-rs, so not explitably
+          # RUSTSEC-2025-0134 = rustls-pemfile is unmaintained, but only used in development dependencies
   codeql:
     name: CodeQL (${{ matrix.language }})
     runs-on: ubuntu-latest
@@ -44,13 +46,14 @@ jobs:
         - language: rust
     steps:
     - name: Checkout repository
-      uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
+      with: { persist-credentials: false }
     - name: Initialize CodeQL
-      uses: github/codeql-action/init@3599b3baa15b485a2e49ef411a7a4bb2452e7f93 # v3.30.5
+      uses: github/codeql-action/init@e12f0178983d466f2f6028f5cc7a6d786fd97f4b # v4.31.4
       with:
         languages: ${{ matrix.language }}
         build-mode: none
     - name: Perform CodeQL Analysis
-      uses: github/codeql-action/analyze@3599b3baa15b485a2e49ef411a7a4bb2452e7f93 # v3.30.5
+      uses: github/codeql-action/analyze@e12f0178983d466f2f6028f5cc7a6d786fd97f4b # v4.31.4
       with:
         category: "/language:${{matrix.language}}"
