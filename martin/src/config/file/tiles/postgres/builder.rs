@@ -344,7 +344,10 @@ impl PostgresAutoDiscoveryBuilder {
     }
 
     fn configured_tables(&self) -> Vec<&str> {
-        self.tables.values().map(|t| t.table.as_str()).collect::<Vec<&str>>()
+        self.tables
+            .values()
+            .map(|t| t.table.as_str())
+            .collect::<Vec<&str>>()
     }
 }
 
