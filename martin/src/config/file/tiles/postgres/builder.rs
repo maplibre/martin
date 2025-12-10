@@ -133,7 +133,14 @@ impl PostgresAutoDiscoveryBuilder {
     #[expect(clippy::too_many_lines)]
     pub async fn instantiate_tables(&self) -> PostgresResult<(Vec<BoxedSource>, TableInfoSources)> {
         // FIXME: this function has gotten too long due to the new formatting rules, need to be refactored
-        let mut db_tables_info = query_available_tables(&self.pool).await?;
+
+        let filter_config_tables: Option<Vec<&str>> = if self.auto_tables.is_none() {
+            Some(self.configured_tables())
+        } else {
+            None
+        };
+
+        let mut db_tables_info = query_available_tables(&self.pool, filter_config_tables).await?;
 
         // Match configured sources with the discovered ones and add them to the pending list.
         let mut used = HashSet::<(&str, &str, &str)>::new();
@@ -334,6 +341,10 @@ impl PostgresAutoDiscoveryBuilder {
         let tilejson = pg_info.to_tilejson(id.clone());
         let source = PostgresSource::new(id, sql_info, tilejson, self.pool.clone());
         sources.push(Box::new(source));
+    }
+
+    fn configured_tables(&self) -> Vec<&str> {
+        self.tables.values().map(|t| t.table.as_str()).collect::<Vec<&str>>()
     }
 }
 

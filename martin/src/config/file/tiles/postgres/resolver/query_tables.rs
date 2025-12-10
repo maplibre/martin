@@ -22,13 +22,20 @@ pub type SqlTableInfoMapMapMap = BTreeMap<String, BTreeMap<String, BTreeMap<Stri
 const DEFAULT_EXTENT: u32 = 4096;
 const DEFAULT_BUFFER: u32 = 64;
 const DEFAULT_CLIP_GEOM: bool = true;
+const QUERY_AVAILABLE: &str = include_str!("scripts/query_available_tables.sql");
 
 /// Queries the database for available tables with geometry columns.
-pub async fn query_available_tables(pool: &PostgresPool) -> PostgresResult<SqlTableInfoMapMapMap> {
+pub async fn query_available_tables(pool: &PostgresPool, filtered_tables: Option<Vec<&str>>) -> PostgresResult<SqlTableInfoMapMapMap> {
+    let mut query = QUERY_AVAILABLE.to_string();
+
+    if let Some(table_names) = filtered_tables {
+        query.push_str(&format!("WHERE name in ('{}')\n", table_names.join("','")));
+    }
+    
     let rows = pool
         .get()
         .await?
-        .query(include_str!("scripts/query_available_tables.sql"), &[])
+        .query(query.as_str(), &[])
         .await
         .map_err(|e| PostgresError(e, "querying available tables"))?;
 
