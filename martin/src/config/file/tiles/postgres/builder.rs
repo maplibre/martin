@@ -134,13 +134,21 @@ impl PostgresAutoDiscoveryBuilder {
     pub async fn instantiate_tables(&self) -> PostgresResult<(Vec<BoxedSource>, TableInfoSources)> {
         // FIXME: this function has gotten too long due to the new formatting rules, need to be refactored
 
-        let filter_config_tables: Option<Vec<&str>> = if self.auto_tables.is_none() {
-            Some(self.configured_tables())
+        let configured_tables_filter = if self.auto_tables.is_none() {
+            // a user might have configured thousands of tables.
+            // filtering by thousands of tables is likely to be a perf degradation
+            // => We only apply this optimisation arbitrairly up to 100 tables
+            let configured_tables = self.configured_tables();
+            if configured_tables.len() > 100 {
+                Some(configured_tables)
+            } else {
+                None
+            }
         } else {
             None
         };
 
-        let mut db_tables_info = query_available_tables(&self.pool, filter_config_tables).await?;
+        let mut db_tables_info = query_available_tables(&self.pool, configured_tables_filter).await?;
 
         // Match configured sources with the discovered ones and add them to the pending list.
         let mut used = HashSet::<(&str, &str, &str)>::new();
