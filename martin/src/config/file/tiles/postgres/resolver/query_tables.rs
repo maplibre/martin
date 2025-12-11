@@ -24,7 +24,10 @@ const DEFAULT_BUFFER: u32 = 64;
 const DEFAULT_CLIP_GEOM: bool = true;
 
 /// Queries the database for available tables with geometry columns.
-pub async fn query_available_tables(pool: &PostgresPool, filtered_tables: Option<Vec<(&str, &str)>>) -> PostgresResult<SqlTableInfoMapMapMap> {
+pub async fn query_available_tables(
+    pool: &PostgresPool,
+    filtered_tables: Option<Vec<(&str, &str)>>,
+) -> PostgresResult<SqlTableInfoMapMapMap> {
     let rows = pool
         .get()
         .await?
