@@ -148,7 +148,8 @@ impl PostgresAutoDiscoveryBuilder {
             None
         };
 
-        let mut db_tables_info = query_available_tables(&self.pool, configured_tables_filter).await?;
+        let mut db_tables_info =
+            query_available_tables(&self.pool, configured_tables_filter).await?;
 
         // Match configured sources with the discovered ones and add them to the pending list.
         let mut used = HashSet::<(&str, &str, &str)>::new();
