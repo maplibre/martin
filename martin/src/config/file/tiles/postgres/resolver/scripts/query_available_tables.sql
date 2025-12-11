@@ -114,30 +114,35 @@ descriptions AS (
     INNER JOIN pg_namespace ON cls.relnamespace = pg_namespace.oid
     LEFT JOIN pg_description ON cls.oid = pg_description.objoid AND pg_description.objsubid = 0
     WHERE cls.relkind = 'r' OR cls.relkind = 'v'
-),
+)
 
---
-available_tables AS (
-    SELECT
-        gc.schema, gc.name, gc.geom, gc.srid, gc.type, gc.is_view, gc.geom_idx, dc.description, coalesce (
+SELECT
+    gc.schema,
+    gc.name,
+    gc.geom,
+    gc.srid,
+    gc.type,
+    gc.is_view,
+    gc.geom_idx,
+    dc.description,
+    coalesce(
         jsonb_object_agg(columns.column_name, columns.type_name)
         FILTER (
-        WHERE columns.column_name IS NOT null
-        AND columns.type_name != 'geometry'
-        AND columns.type_name != 'geography'
-        ), '{}'::jsonb
-        ) AS properties
-    FROM annotated_geo_columns AS gc
-        LEFT JOIN columns
+            WHERE columns.column_name IS NOT null
+            AND columns.type_name != 'geometry'
+            AND columns.type_name != 'geography'
+        ),
+        '{}'::jsonb
+    ) AS properties
+FROM annotated_geo_columns AS gc
+LEFT JOIN columns
     ON
         gc.schema = columns.table_schema
         AND gc.name = columns.table_name
         AND gc.geom != columns.column_name
-        LEFT JOIN descriptions AS dc
-        ON
+LEFT JOIN descriptions AS dc
+    ON
         gc.schema = dc.schema_name
         AND gc.name = dc.table_name
-    GROUP BY -- noqa: AM06
-        gc.schema, gc.name, gc.geom, gc.srid, gc.type, gc.is_view, gc.geom_idx, dc.description
-)
-SELECT * FROM available_tables
+GROUP BY -- noqa: AM06
+    gc.schema, gc.name, gc.geom, gc.srid, gc.type, gc.is_view, gc.geom_idx, dc.description;

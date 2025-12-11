@@ -22,20 +22,13 @@ pub type SqlTableInfoMapMapMap = BTreeMap<String, BTreeMap<String, BTreeMap<Stri
 const DEFAULT_EXTENT: u32 = 4096;
 const DEFAULT_BUFFER: u32 = 64;
 const DEFAULT_CLIP_GEOM: bool = true;
-const QUERY_AVAILABLE: &str = include_str!("scripts/query_available_tables.sql");
 
 /// Queries the database for available tables with geometry columns.
-pub async fn query_available_tables(pool: &PostgresPool, filtered_tables: Option<Vec<&str>>) -> PostgresResult<SqlTableInfoMapMapMap> {
-    let mut query = QUERY_AVAILABLE.to_string();
-
-    if let Some(table_names) = filtered_tables {
-        query.push_str(&format!("WHERE name in ('{}')\n", table_names.join("','")));
-    }
-    
+pub async fn query_available_tables(pool: &PostgresPool, filtered_tables: Option<Vec<(&str, &str)>>) -> PostgresResult<SqlTableInfoMapMapMap> {
     let rows = pool
         .get()
         .await?
-        .query(query.as_str(), &[])
+        .query(include_str!("scripts/query_available_tables.sql"), &[])
         .await
         .map_err(|e| PostgresError(e, "querying available tables"))?;
 
@@ -43,6 +36,15 @@ pub async fn query_available_tables(pool: &PostgresPool, filtered_tables: Option
     for row in &rows {
         let schema: String = row.get("schema");
         let table: String = row.get("name");
+
+        // If a list of configured tables was provided to the function, because auto_publish set
+        // to false, skip processing the tables that are not in the list.
+        if let Some(ref table_names) = filtered_tables {
+            if !table_names.contains(&(schema.as_str(), table.as_str())) {
+                continue;
+            }
+        }
+
         let tilejson = if let Some(text) = row.get("description") {
             match serde_json::from_str::<Value>(text) {
                 Ok(v) => Some(v),

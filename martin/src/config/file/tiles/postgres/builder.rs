@@ -134,7 +134,7 @@ impl PostgresAutoDiscoveryBuilder {
     pub async fn instantiate_tables(&self) -> PostgresResult<(Vec<BoxedSource>, TableInfoSources)> {
         // FIXME: this function has gotten too long due to the new formatting rules, need to be refactored
 
-        let filter_config_tables: Option<Vec<&str>> = if self.auto_tables.is_none() {
+        let filter_config_tables: Option<Vec<(&str, &str)>> = if self.auto_tables.is_none() {
             Some(self.configured_tables())
         } else {
             None
@@ -343,8 +343,11 @@ impl PostgresAutoDiscoveryBuilder {
         sources.push(Box::new(source));
     }
 
-    fn configured_tables(&self) -> Vec<&str> {
-        self.tables.values().map(|t| t.table.as_str()).collect::<Vec<&str>>()
+    fn configured_tables(&self) -> Vec<(&str, &str)> {
+        self.tables
+            .values()
+            .map(|t| (t.schema.as_str(), t.table.as_str()))
+            .collect::<Vec<(&str, &str)>>()
     }
 }
 
