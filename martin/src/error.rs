@@ -81,12 +81,6 @@ pub enum MartinError {
 
 #[derive(thiserror::Error, Debug)]
 pub enum TileSourceWarning {
-    #[error("{0}")]
-    SourceError(MartinError),
-}
-
-impl From<MartinError> for TileSourceWarning {
-    fn from(err: MartinError) -> Self {
-        TileSourceWarning::SourceError(err)
-    }
+    #[error("{id}: {error}")]
+    SourceError { id: String, error: MartinError },
 }

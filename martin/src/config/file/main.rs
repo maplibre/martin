@@ -241,7 +241,7 @@ impl Config {
                 "Warnings issued during source resolution. These sources will not be available:"
             );
             for warning in &warnings {
-                log::warn!("- {}: {}", "source_id_placeholder", warning);
+                log::warn!("- {}", warning);
             }
         }
 
