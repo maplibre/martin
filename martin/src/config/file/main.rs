@@ -37,7 +37,7 @@ use crate::config::file::{
 use crate::source::TileSources;
 #[cfg(feature = "_tiles")]
 use crate::srv::RESERVED_KEYWORDS;
-use crate::{MartinError, MartinResult};
+use crate::{MartinError, MartinResult, TileSourceWarning};
 
 pub struct ServerState {
     #[cfg(feature = "_tiles")]
@@ -218,7 +218,7 @@ impl Config {
         #[cfg(feature = "pmtiles")]
         let pmtiles_cache = cache_config.create_pmtiles_cache();
 
-        let tiles = self
+        let (tiles, _warnings) = self
             .resolve_tile_sources(
                 &resolver,
                 #[cfg(feature = "pmtiles")]
@@ -306,7 +306,7 @@ impl Config {
         &mut self,
         #[allow(unused_variables)] idr: &IdResolver,
         #[cfg(feature = "pmtiles")] pmtiles_cache: PmtCache,
-    ) -> MartinResult<TileSources> {
+    ) -> MartinResult<(TileSources, Vec<TileSourceWarning>)> {
         let mut sources: Vec<BoxFuture<MartinResult<Vec<BoxedSource>>>> = Vec::new();
 
         #[cfg(feature = "postgres")]
@@ -344,7 +344,7 @@ impl Config {
             sources.push(Box::pin(val));
         }
 
-        Ok(TileSources::new(try_join_all(sources).await?))
+        Ok((TileSources::new(try_join_all(sources).await?), Vec::new()))
     }
 
     pub fn save_to_file(&self, file_name: &Path) -> ConfigFileResult<()> {

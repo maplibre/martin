@@ -9,7 +9,7 @@ mod source;
 pub use source::TileSources;
 
 mod error;
-pub use error::{MartinError, MartinResult};
+pub use error::{MartinError, MartinResult, TileSourceWarning};
 
 pub mod srv;
 
