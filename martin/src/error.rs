@@ -75,3 +75,15 @@ pub enum MartinError {
     #[error("could not initialize metrics: {0}")]
     MetricsIntialisationError(#[source] Box<dyn std::error::Error>),
 }
+
+#[derive(thiserror::Error, Debug)]
+pub enum TileSourceWarning {
+    #[error("Warning source resolution: {0}")]
+    SourceError(MartinError),
+}
+
+impl From<MartinError> for TileSourceWarning {
+    fn from(err: MartinError) -> Self {
+        TileSourceWarning::SourceError(err)
+    }
+}
