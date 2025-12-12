@@ -230,13 +230,19 @@ impl Config {
             )
             .await?;
 
-        // log all of the warnings
-        for warning in &warnings {
-            log::warn!("Warning while resolving source: {}", warning);
-        }
-
-        if self.fail_on_source_resolution_warnings && !warnings.is_empty() {
-            return Err(MartinError::TileResolutionWarningsIssued);
+        if !warnings.is_empty() {
+            if self.fail_on_source_resolution_warnings {
+                for warning in &warnings {
+                    log::error!("Error while resolving source: {}", warning);
+                }
+                return Err(MartinError::TileResolutionWarningsIssued);
+            }
+            log::warn!(
+                "Warnings issued during source resolution. These sources will not be available:"
+            );
+            for warning in &warnings {
+                log::warn!("- {}: {}", "source_id_placeholder", warning);
+            }
         }
 
         Ok(ServerState {
