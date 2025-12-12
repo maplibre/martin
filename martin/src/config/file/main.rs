@@ -218,15 +218,17 @@ impl Config {
         #[cfg(feature = "pmtiles")]
         let pmtiles_cache = cache_config.create_pmtiles_cache();
 
+        let tiles = self
+            .resolve_tile_sources(
+                &resolver,
+                #[cfg(feature = "pmtiles")]
+                pmtiles_cache,
+            )
+            .await?;
+
         Ok(ServerState {
             #[cfg(feature = "_tiles")]
-            tiles: self
-                .resolve_tile_sources(
-                    &resolver,
-                    #[cfg(feature = "pmtiles")]
-                    pmtiles_cache,
-                )
-                .await?,
+            tiles,
             #[cfg(feature = "_tiles")]
             tile_cache: cache_config.create_tile_cache(),
 
