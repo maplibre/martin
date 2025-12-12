@@ -134,13 +134,13 @@ impl PostgresAutoDiscoveryBuilder {
     pub async fn instantiate_tables(&self) -> PostgresResult<(Vec<BoxedSource>, TableInfoSources)> {
         // FIXME: this function has gotten too long due to the new formatting rules, need to be refactored
 
-        let filter_config_tables: Option<Vec<(&str, &str)>> = if self.auto_tables.is_none() {
+        let restrict_to_tables = if self.auto_tables.is_none() {
             Some(self.configured_tables())
         } else {
             None
         };
 
-        let mut db_tables_info = query_available_tables(&self.pool, filter_config_tables).await?;
+        let mut db_tables_info = query_available_tables(&self.pool, restrict_to_tables).await?;
 
         // Match configured sources with the discovered ones and add them to the pending list.
         let mut used = HashSet::<(&str, &str, &str)>::new();
@@ -343,11 +343,11 @@ impl PostgresAutoDiscoveryBuilder {
         sources.push(Box::new(source));
     }
 
-    fn configured_tables(&self) -> Vec<(&str, &str)> {
+    fn configured_tables(&self) -> HashSet<(&str, &str)> {
         self.tables
             .values()
             .map(|t| (t.schema.as_str(), t.table.as_str()))
-            .collect::<Vec<(&str, &str)>>()
+            .collect()
     }
 }
 
