@@ -45,9 +45,10 @@ pub async fn query_available_tables(
         // If a list of configured tables was provided to the function, because auto_publish set
         // to false, skip processing the tables that are not in the list.
         if let Some(ref table_names) = restrict_to_tables
-            && !table_names.contains(&(schema.to_lowercase(), table.to_lowercase())) {
-                continue;
-            }
+            && !table_names.contains(&(schema.to_lowercase(), table.to_lowercase()))
+        {
+            continue;
+        }
 
         let tilejson = if let Some(text) = row.get("description") {
             match serde_json::from_str::<Value>(text) {
