@@ -66,10 +66,14 @@ pub struct Config {
     ///
     /// Can be overridden by [`tile_cache_size_mb`](Self::tile_cache_size_mb) or similar configuration options.
     pub cache_size_mb: Option<u64>,
+
     /// Maximum size of the tile cache in megabytes (0 to disable)
     ///
     /// Overrides [`cache_size_mb`](Self::cache_size_mb)
     pub tile_cache_size_mb: Option<u64>,
+
+    #[serde(default)]
+    pub fail_on_source_resolution_warnings: bool,
 
     #[serde(flatten)]
     pub srv: super::srv::SrvConfig,
@@ -218,13 +222,22 @@ impl Config {
         #[cfg(feature = "pmtiles")]
         let pmtiles_cache = cache_config.create_pmtiles_cache();
 
-        let (tiles, _warnings) = self
+        let (tiles, warnings) = self
             .resolve_tile_sources(
                 &resolver,
                 #[cfg(feature = "pmtiles")]
                 pmtiles_cache,
             )
             .await?;
+
+        // log all of the warnings
+        for warning in &warnings {
+            log::warn!("Warning while resolving source: {}", warning);
+        }
+
+        if self.fail_on_source_resolution_warnings && !warnings.is_empty() {
+            return Err(MartinError::TileResolutionWarningsIssued);
+        }
 
         Ok(ServerState {
             #[cfg(feature = "_tiles")]
