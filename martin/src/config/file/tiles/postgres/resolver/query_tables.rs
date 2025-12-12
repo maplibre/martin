@@ -28,7 +28,7 @@ const DEFAULT_CLIP_GEOM: bool = true;
 /// The reported tables are filtered by the `restrict_to_tables` parameter.
 pub async fn query_available_tables(
     pool: &PostgresPool,
-    restrict_to_tables: Option<HashSet<(&str, &str)>>,
+    restrict_to_tables: Option<HashSet<(String, String)>>,
 ) -> PostgresResult<SqlTableInfoMapMapMap> {
     let rows = pool
         .get()
@@ -45,7 +45,7 @@ pub async fn query_available_tables(
         // If a list of configured tables was provided to the function, because auto_publish set
         // to false, skip processing the tables that are not in the list.
         if let Some(ref table_names) = restrict_to_tables
-            && !table_names.contains(&(schema.as_str(), table.as_str())) {
+            && !table_names.contains(&(schema.to_lowercase(), table.to_lowercase())) {
                 continue;
             }
 

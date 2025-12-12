@@ -343,10 +343,10 @@ impl PostgresAutoDiscoveryBuilder {
         sources.push(Box::new(source));
     }
 
-    fn configured_tables(&self) -> HashSet<(&str, &str)> {
+    fn configured_tables(&self) -> HashSet<(String, String)> {
         self.tables
             .values()
-            .map(|t| (t.schema.as_str(), t.table.as_str()))
+            .map(|t| (t.schema.to_lowercase(), t.table.to_lowercase()))
             .collect()
     }
 }
