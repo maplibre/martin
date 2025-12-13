@@ -42,8 +42,9 @@ pub async fn query_available_tables(
         let schema: String = row.get("schema");
         let table: String = row.get("name");
 
-        // If a list of configured tables was provided to the function, because auto_publish set
-        // to false, skip processing the tables that are not in the list.
+        // Within the config, if auto_publish is false or omitted, the list of schema and table
+        // names set explicitly under the tables key is provided to the function. As the query above
+        // may return more tables than explicitly defined, these are filtered out below.
         if let Some(ref table_names) = restrict_to_tables
             && !table_names.contains(&(schema.to_lowercase(), table.to_lowercase()))
         {
