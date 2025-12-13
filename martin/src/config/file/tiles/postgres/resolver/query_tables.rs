@@ -1,6 +1,6 @@
 //! `PostgreSQL` table discovery and validation.
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use futures::pin_mut;
 use log::{debug, warn};
@@ -24,7 +24,12 @@ const DEFAULT_BUFFER: u32 = 64;
 const DEFAULT_CLIP_GEOM: bool = true;
 
 /// Queries the database for available tables with geometry columns.
-pub async fn query_available_tables(pool: &PostgresPool) -> PostgresResult<SqlTableInfoMapMapMap> {
+///
+/// The reported tables are filtered by the `restrict_to_tables` parameter.
+pub async fn query_available_tables(
+    pool: &PostgresPool,
+    restrict_to_tables: Option<HashSet<(String, String)>>,
+) -> PostgresResult<SqlTableInfoMapMapMap> {
     let rows = pool
         .get()
         .await?
@@ -36,6 +41,16 @@ pub async fn query_available_tables(pool: &PostgresPool) -> PostgresResult<SqlTa
     for row in &rows {
         let schema: String = row.get("schema");
         let table: String = row.get("name");
+
+        // Within the config, if auto_publish is false or omitted, the list of schema and table
+        // names set explicitly under the tables key is provided to the function. As the query above
+        // may return more tables than explicitly defined, these are filtered out below.
+        if let Some(ref table_names) = restrict_to_tables
+            && !table_names.contains(&(schema.to_lowercase(), table.to_lowercase()))
+        {
+            continue;
+        }
+
         let tilejson = if let Some(text) = row.get("description") {
             match serde_json::from_str::<Value>(text) {
                 Ok(v) => Some(v),
