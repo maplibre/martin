@@ -73,7 +73,7 @@ pub struct Config {
     pub tile_cache_size_mb: Option<u64>,
 
     #[serde(default)]
-    pub fail_on_source_resolution_warnings: bool,
+    pub on_invalid: OnInvalid,
 
     #[serde(flatten)]
     pub srv: super::srv::SrvConfig,
@@ -230,20 +230,7 @@ impl Config {
             )
             .await?;
 
-        if !warnings.is_empty() {
-            if self.fail_on_source_resolution_warnings {
-                for warning in &warnings {
-                    log::error!("Error while resolving source: {}", warning);
-                }
-                return Err(MartinError::TileResolutionWarningsIssued);
-            }
-            log::warn!(
-                "Warnings issued during source resolution. These sources will not be available:"
-            );
-            for warning in &warnings {
-                log::warn!("- {}", warning);
-            }
-        }
+        OnInvalid::handle_warnings(self.on_invalid, warnings)?;
 
         Ok(ServerState {
             #[cfg(feature = "_tiles")]
@@ -382,6 +369,38 @@ impl Config {
                 .write_all(yaml.as_bytes())
                 .map_err(|e| ConfigFileError::ConfigWriteError(e, file_name.to_path_buf()))?;
             Ok(())
+        }
+    }
+}
+
+#[derive(PartialEq, Eq, Debug, Clone, Copy, Default, Serialize, Deserialize, ValueEnum)]
+#[serde(rename_all = "lowercase")]
+pub enum OnInvalid {
+    /// Print warning message, and abort if the error is critical
+    #[default]
+    Warn,
+    /// Abort startup if any warnings
+    Abort,
+    /// Ignore all warnings
+    Ignore,
+}
+
+impl OnInvalid {
+    /// Handle warnings based on the configured behavior
+    pub fn handle_warnings(policy: Self, warnings: Vec<TileSourceWarning>) -> MartinResult<()> {
+        if warnings.is_empty() {
+            return Ok(());
+        }
+        match policy {
+            OnInvalid::Abort => Err(MartinError::TileResolutionWarningsIssued),
+            OnInvalid::Warn => {
+                warn!("Tile source resolution warnings:");
+                for warning in &warnings {
+                    warn!("  - {}", warning);
+                }
+                Ok(())
+            }
+            OnInvalid::Ignore => Ok(()),
         }
     }
 }
