@@ -37,7 +37,7 @@ use crate::config::file::{
 use crate::source::TileSources;
 #[cfg(feature = "_tiles")]
 use crate::srv::RESERVED_KEYWORDS;
-use crate::{MartinError, MartinResult};
+use crate::{MartinError, MartinResult, TileSourceWarning};
 
 pub struct ServerState {
     #[cfg(feature = "_tiles")]
@@ -66,10 +66,14 @@ pub struct Config {
     ///
     /// Can be overridden by [`tile_cache_size_mb`](Self::tile_cache_size_mb) or similar configuration options.
     pub cache_size_mb: Option<u64>,
+
     /// Maximum size of the tile cache in megabytes (0 to disable)
     ///
     /// Overrides [`cache_size_mb`](Self::cache_size_mb)
     pub tile_cache_size_mb: Option<u64>,
+
+    #[serde(default)]
+    pub on_invalid: OnInvalid,
 
     #[serde(flatten)]
     pub srv: super::srv::SrvConfig,
@@ -218,15 +222,19 @@ impl Config {
         #[cfg(feature = "pmtiles")]
         let pmtiles_cache = cache_config.create_pmtiles_cache();
 
+        let (tiles, warnings) = self
+            .resolve_tile_sources(
+                &resolver,
+                #[cfg(feature = "pmtiles")]
+                pmtiles_cache,
+            )
+            .await?;
+
+        OnInvalid::handle_warnings(self.on_invalid, warnings)?;
+
         Ok(ServerState {
             #[cfg(feature = "_tiles")]
-            tiles: self
-                .resolve_tile_sources(
-                    &resolver,
-                    #[cfg(feature = "pmtiles")]
-                    pmtiles_cache,
-                )
-                .await?,
+            tiles,
             #[cfg(feature = "_tiles")]
             tile_cache: cache_config.create_tile_cache(),
 
@@ -304,7 +312,7 @@ impl Config {
         &mut self,
         #[allow(unused_variables)] idr: &IdResolver,
         #[cfg(feature = "pmtiles")] pmtiles_cache: PmtCache,
-    ) -> MartinResult<TileSources> {
+    ) -> MartinResult<(TileSources, Vec<TileSourceWarning>)> {
         let mut sources: Vec<BoxFuture<MartinResult<Vec<BoxedSource>>>> = Vec::new();
 
         #[cfg(feature = "postgres")]
@@ -342,7 +350,7 @@ impl Config {
             sources.push(Box::pin(val));
         }
 
-        Ok(TileSources::new(try_join_all(sources).await?))
+        Ok((TileSources::new(try_join_all(sources).await?), Vec::new()))
     }
 
     pub fn save_to_file(&self, file_name: &Path) -> ConfigFileResult<()> {
@@ -361,6 +369,38 @@ impl Config {
                 .write_all(yaml.as_bytes())
                 .map_err(|e| ConfigFileError::ConfigWriteError(e, file_name.to_path_buf()))?;
             Ok(())
+        }
+    }
+}
+
+#[derive(PartialEq, Eq, Debug, Clone, Copy, Default, Serialize, Deserialize, ValueEnum)]
+#[serde(rename_all = "lowercase")]
+pub enum OnInvalid {
+    /// Print warning message, and abort if the error is critical
+    #[default]
+    Warn,
+    /// Abort startup if any warnings
+    Abort,
+    /// Ignore all warnings
+    Ignore,
+}
+
+impl OnInvalid {
+    /// Handle warnings based on the configured behavior
+    pub fn handle_warnings(policy: Self, warnings: Vec<TileSourceWarning>) -> MartinResult<()> {
+        if warnings.is_empty() {
+            return Ok(());
+        }
+        match policy {
+            OnInvalid::Abort => Err(MartinError::TileResolutionWarningsIssued),
+            OnInvalid::Warn => {
+                warn!("Tile source resolution warnings:");
+                for warning in &warnings {
+                    warn!("  - {}", warning);
+                }
+                Ok(())
+            }
+            OnInvalid::Ignore => Ok(()),
         }
     }
 }
