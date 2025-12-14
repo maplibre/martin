@@ -1,9 +1,10 @@
 [package]
 name = "martin"
-version = "0.19.3"
+version = "1.0.0"
 authors = [
     "Stepan Kuzmin <to.stepan.kuzmin@gmail.com>",
     "Yuri Astrakhan <YuriAstrakhan@gmail.com>",
+    "Frank Elsinga <fr.elsinga+martin@gmail.com>",
     "MapLibre contributors",
 ]
 description = "Blazing fast and lightweight tile server with PostGIS, MBTiles, and PMTiles support"
@@ -95,10 +96,10 @@ default = [
     "postgres",
     "sprites",
     "styles",
-    "unstable-cog",
     "webui",
 ]
 unstable-cog = ["martin-core/unstable-cog", "_tiles"]
+unstable-rendering = ["styles", "martin-core/unstable-rendering", "dep:image"]
 fonts = ["martin-core/fonts"]
 lambda = ["dep:lambda-web"]
 mbtiles = ["martin-core/mbtiles", "dep:mbtiles", "_tiles"]
@@ -131,6 +132,7 @@ dashmap.workspace = true
 enum-display = { workspace = true, optional = true }
 env_logger.workspace = true
 futures.workspace = true
+image = { workspace = true, optional = true }
 itertools.workspace = true
 json-patch = { workspace = true, optional = true }
 lambda-web = { workspace = true, optional = true }
@@ -150,12 +152,10 @@ serde_yaml.workspace = true
 static-files = { workspace = true, optional = true }
 subst.workspace = true
 thiserror.workspace = true
-tiff = { workspace = true, optional = true }
 tilejson.workspace = true
 tokio = { workspace = true, features = ["io-std"] }
 url.workspace = true
 walkdir = { workspace = true, optional = true }
-xxhash-rust.workspace = true
 
 [build-dependencies]
 static-files = { workspace = true, optional = true }

@@ -7,6 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.3](https://github.com/maplibre/martin/compare/martin-core-v0.2.2...martin-core-v0.2.3) - 2025-11-18
+
+A recent release of pmtiles had a breaking change.
+This release migrates to the new usage.
+
+## [0.2.2](https://github.com/maplibre/martin/compare/martin-core-v0.2.1...martin-core-v0.2.2) - 2025-11-07
+
+### Other
+
+- updated the following local packages: martin-tile-utils, mbtiles
+
+## [0.2.1](https://github.com/maplibre/martin/compare/martin-core-v0.2.0...martin-core-v0.2.1) - 2025-11-03
+
+### Other
+
+- updated the following local packages: mbtiles
+
+## [0.2.0](https://github.com/maplibre/martin/compare/martin-core-v0.1.3...martin-core-v0.2.0) - 2025-10-27
+
+### Added
+
+- unstable style rendering ([#2306](https://github.com/maplibre/martin/pull/2306))
+- *(cache)* implement sprite caching ([#2295](https://github.com/maplibre/martin/pull/2295))
+- add font caching ([#2304](https://github.com/maplibre/martin/pull/2304))
+- *(cache)* [**breaking**] split the cache configuration of tiles and pmtiles directories ([#2303](https://github.com/maplibre/martin/pull/2303))
+- *(core)* enable overriding of the automatic hashing for source traits ([#2293](https://github.com/maplibre/martin/pull/2293))
+- *(pmtiles)* [**breaking**] change pmtiles to base the implementation on `object_storage` instead ([#2251](https://github.com/maplibre/martin/pull/2251))
+
+### Fixed
+
+- *(cog)* [**breaking**] rename `cog` feature to `unstable-cog` ([#2285](https://github.com/maplibre/martin/pull/2285))
+
+### Other
+
+- *(lints)* audit all allows, add reasons and remove unnessesary ones ([#2288](https://github.com/maplibre/martin/pull/2288))
+- *(core)* add a `_tiles` feature  to simplify our feature configuration ([#2296](https://github.com/maplibre/martin/pull/2296))
+- move `MainCache` to be a `TileCache` ([#2297](https://github.com/maplibre/martin/pull/2297))
+- *(lints)* migrate a few of our expects to unwraps ([#2284](https://github.com/maplibre/martin/pull/2284))
+
 ## [0.1.3](https://github.com/maplibre/martin/compare/martin-core-v0.1.2...martin-core-v0.1.3) - 2025-10-01
 
 ### Added

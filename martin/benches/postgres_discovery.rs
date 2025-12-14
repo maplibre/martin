@@ -10,7 +10,7 @@ use testcontainers_modules::testcontainers::ImageExt;
 use testcontainers_modules::testcontainers::runners::SyncRunner;
 
 // Benchmark sizes
-const SIZES: &[usize] = &[10, 100, 200, 400, 800, 1600, 3200, 6400, 12800, 25600];
+const SIZES: &[usize] = &[10, 100, 200];
 
 /// Setup [`PostGIS`](https://hub.docker.com/r/postgis/postgis/) container
 fn setup_postgres_container() -> (

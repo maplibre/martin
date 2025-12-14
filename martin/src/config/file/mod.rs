@@ -3,6 +3,7 @@ pub use file_config::*;
 
 mod main;
 pub use main::*;
+pub mod cache;
 pub mod cors;
 pub mod srv;
 

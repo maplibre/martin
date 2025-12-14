@@ -10,18 +10,13 @@ use actix_web::{App, HttpResponse, HttpServer, Responder, middleware, route, web
 use futures::TryFutureExt;
 #[cfg(feature = "lambda")]
 use lambda_web::{is_running_on_lambda, run_actix_on_lambda};
-use serde::{Deserialize, Serialize};
 
 #[cfg(all(feature = "webui", not(docsrs)))]
 use crate::config::args::WebUiMode;
 use crate::config::file::ServerState;
 use crate::config::file::srv::{KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT, SrvConfig};
+use crate::srv::admin::Catalog;
 use crate::{MartinError, MartinResult};
-
-#[cfg(all(feature = "webui", not(docsrs)))]
-mod webui {
-    include!(concat!(env!("OUT_DIR"), "/generated.rs"));
-}
 
 /// List of keywords that cannot be used as source IDs. Some of these are reserved for future use.
 /// Reserved keywords must never end in a "dot number" (e.g. ".1").
@@ -31,56 +26,10 @@ pub const RESERVED_KEYWORDS: &[&str] = &[
     "reload", "sprite", "status",
 ];
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct Catalog {
-    #[cfg(feature = "_tiles")]
-    pub tiles: martin_core::tiles::catalog::TileCatalog,
-    #[cfg(feature = "sprites")]
-    pub sprites: martin_core::sprites::SpriteCatalog,
-    #[cfg(feature = "fonts")]
-    pub fonts: martin_core::fonts::FontCatalog,
-    #[cfg(feature = "styles")]
-    pub styles: martin_core::styles::StyleCatalog,
-}
-
-impl Catalog {
-    pub fn new(#[allow(unused_variables)] state: &ServerState) -> MartinResult<Self> {
-        Ok(Self {
-            #[cfg(feature = "_tiles")]
-            tiles: state.tiles.get_catalog(),
-            #[cfg(feature = "sprites")]
-            sprites: state.sprites.get_catalog()?,
-            #[cfg(feature = "fonts")]
-            fonts: state.fonts.get_catalog(),
-            #[cfg(feature = "styles")]
-            styles: state.styles.get_catalog(),
-        })
-    }
-}
-
 #[cfg(any(feature = "_tiles", feature = "fonts", feature = "sprites"))]
 pub fn map_internal_error<T: std::fmt::Display>(e: T) -> actix_web::Error {
     log::error!("{e}");
     actix_web::error::ErrorInternalServerError(e.to_string())
-}
-
-/// Root path in case web front is disabled.
-#[cfg(any(not(feature = "webui"), docsrs))]
-#[route("/", method = "GET", method = "HEAD")]
-async fn get_index_no_ui() -> &'static str {
-    "Martin server is running. The WebUI feature was disabled at the compile time.\n\n\
-    A list of all available sources is available at http://<host>/catalog\n\n\
-    See documentation https://github.com/maplibre/martin"
-}
-
-/// Root path in case web front is disabled and the `webui` feature is enabled.
-#[cfg(all(feature = "webui", not(docsrs)))]
-#[route("/", method = "GET", method = "HEAD")]
-async fn get_index_ui_disabled() -> &'static str {
-    "Martin server is running.\n\n
-    The WebUI feature can be enabled with the --webui enable-for-all CLI flag or in the config file, making it available to all users.\n\n
-    A list of all available sources is available at http://<host>/catalog\n\n\
-    See documentation https://github.com/maplibre/martin"
 }
 
 /// Return 200 OK if healthy. Used for readiness and liveness probes.
@@ -91,22 +40,13 @@ async fn get_health() -> impl Responder {
         .message_body("OK")
 }
 
-#[route(
-    "/catalog",
-    method = "GET",
-    method = "HEAD",
-    wrap = "middleware::Compress::default()"
-)]
-async fn get_catalog(catalog: Data<Catalog>) -> impl Responder {
-    HttpResponse::Ok().json(catalog)
-}
-
 pub fn router(cfg: &mut web::ServiceConfig, #[allow(unused_variables)] usr_cfg: &SrvConfig) {
-    cfg.service(get_health).service(get_catalog);
+    cfg.service(get_health)
+        .service(crate::srv::admin::get_catalog);
 
     #[cfg(feature = "_tiles")]
-    cfg.service(crate::srv::tiles_info::get_source_info)
-        .service(crate::srv::tiles::get_tile);
+    cfg.service(crate::srv::tiles::metadata::get_source_info)
+        .service(crate::srv::tiles::content::get_tile);
 
     #[cfg(feature = "sprites")]
     cfg.service(crate::srv::sprites::get_sprite_sdf_json)
@@ -120,6 +60,9 @@ pub fn router(cfg: &mut web::ServiceConfig, #[allow(unused_variables)] usr_cfg: 
     #[cfg(feature = "styles")]
     cfg.service(crate::srv::styles::get_style_json);
 
+    #[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
+    cfg.service(crate::srv::styles_rendering::get_style_rendered);
+
     #[cfg(all(feature = "webui", not(docsrs)))]
     {
         // TODO: this can probably be simplified with a wrapping middleware,
@@ -127,15 +70,15 @@ pub fn router(cfg: &mut web::ServiceConfig, #[allow(unused_variables)] usr_cfg: 
         if usr_cfg.web_ui.unwrap_or_default() == WebUiMode::EnableForAll {
             cfg.service(actix_web_static_files::ResourceFiles::new(
                 "/",
-                webui::generate(),
+                crate::srv::admin::webui::generate(),
             ));
         } else {
-            cfg.service(get_index_ui_disabled);
+            cfg.service(crate::srv::admin::get_index_ui_disabled);
         }
     }
 
     #[cfg(any(not(feature = "webui"), docsrs))]
-    cfg.service(get_index_no_ui);
+    cfg.service(crate::srv::admin::get_index_no_ui);
 }
 
 type Server = Pin<Box<dyn Future<Output = MartinResult<()>>>>;
@@ -181,13 +124,17 @@ pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server
         #[cfg(feature = "_tiles")]
         let app = app
             .app_data(Data::new(state.tiles.clone()))
-            .app_data(Data::new(state.cache.clone()));
+            .app_data(Data::new(state.tile_cache.clone()));
 
         #[cfg(feature = "sprites")]
-        let app = app.app_data(Data::new(state.sprites.clone()));
+        let app = app
+            .app_data(Data::new(state.sprites.clone()))
+            .app_data(Data::new(state.sprite_cache.clone()));
 
         #[cfg(feature = "fonts")]
-        let app = app.app_data(Data::new(state.fonts.clone()));
+        let app = app
+            .app_data(Data::new(state.fonts.clone()))
+            .app_data(Data::new(state.font_cache.clone()));
 
         #[cfg(feature = "styles")]
         let app = app.app_data(Data::new(state.styles.clone()));
@@ -221,46 +168,4 @@ pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server
         .err_into();
 
     Ok((Box::pin(server), listen_addresses))
-}
-
-#[cfg(all(test, feature = "_tiles"))]
-pub mod tests {
-    use async_trait::async_trait;
-    use martin_core::tiles::{BoxedSource, MartinCoreResult, Source, UrlQuery};
-    use martin_tile_utils::{Encoding, Format, TileCoord, TileData, TileInfo};
-    use tilejson::TileJSON;
-
-    #[derive(Debug, Clone)]
-    pub struct TestSource {
-        pub id: &'static str,
-        pub tj: TileJSON,
-        pub data: TileData,
-    }
-
-    #[async_trait]
-    impl Source for TestSource {
-        fn get_id(&self) -> &str {
-            self.id
-        }
-
-        fn get_tilejson(&self) -> &TileJSON {
-            &self.tj
-        }
-
-        fn get_tile_info(&self) -> TileInfo {
-            TileInfo::new(Format::Mvt, Encoding::Uncompressed)
-        }
-
-        fn clone_source(&self) -> BoxedSource {
-            Box::new(self.clone())
-        }
-
-        async fn get_tile(
-            &self,
-            _xyz: TileCoord,
-            _url_query: Option<&UrlQuery>,
-        ) -> MartinCoreResult<TileData> {
-            Ok(self.data.clone())
-        }
-    }
 }

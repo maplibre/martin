@@ -21,8 +21,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-      - uses: taiki-e/install-action@cc60de1d6831d7e9c4342f618ce7a5d6a9f223a4 # v2.61.6
+        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
+        with: { persist-credentials: false }
+      - uses: taiki-e/install-action@763e3324d4fd026c9bd284c504378585777a87d5 # v2.62.57
         with: { tool: 'just' }
       - run: npm install
         working-directory: martin/martin-ui
@@ -63,8 +64,18 @@ jobs:
           -c "exec docker-entrypoint.sh postgres -c ssl=on -c ssl_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem -c ssl_key_file=/etc/ssl/private/ssl-cert-snakeoil.key"
     steps:
       - run: rustup update stable && rustup default stable
+      - uses: BRAINSia/free-disk-space@f9f59b0ef974ff4b873aa243ce5278ab644eedc6 # v2.1.2
+        with:
+          tool-cache: false
+          mandb:   true
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: true
       - name: Checkout sources
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
         with: { persist-credentials: false }
       - name: Init database
         run: tests/fixtures/initdb.sh
@@ -92,12 +103,12 @@ jobs:
       - run: rustup update stable && rustup default stable
       - run: rustup component add clippy rustfmt
       - name: Checkout sources
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
         with: { persist-credentials: false }
-      - uses: taiki-e/install-action@cc60de1d6831d7e9c4342f618ce7a5d6a9f223a4 # v2.61.6
+      - uses: taiki-e/install-action@763e3324d4fd026c9bd284c504378585777a87d5 # v2.62.57
         # TODO: add cargo-sort once https://github.com/taiki-e/install-action/pull/997 is resolved
         with: { tool: 'just,cargo-binstall' }
-      - uses: Swatinem/rust-cache@f13886b937689c021905a6b90929199931d60db1 # v2.8.1
+      - uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
         if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
       - run: just env-info
       - run: just test-fmt
@@ -118,12 +129,12 @@ jobs:
     steps:
       - run: rustup update stable && rustup default stable
       - name: Checkout sources
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
         with: { persist-credentials: false }
-      - uses: taiki-e/install-action@cc60de1d6831d7e9c4342f618ce7a5d6a9f223a4 # v2.61.6
+      - uses: taiki-e/install-action@763e3324d4fd026c9bd284c504378585777a87d5 # v2.62.57
         with: { tool: cargo-zigbuild }
       - name: Install zig
-        uses: mlugg/setup-zig@8d6198c65fb0feaa111df26e6b467fea8345e46f # v2.0.5
+        uses: mlugg/setup-zig@fa65c4058643678a4e4a9a60513944a7d8d35440 # v2.1.0
         with: { version: '0.15.1' }
       - run: rustup target add ${{ matrix.target }}
       - name: Build ${{ matrix.target }}
@@ -138,7 +149,7 @@ jobs:
           mv target/${{ matrix.target }}/release/martin-cp target_releases/
           mv target/${{ matrix.target }}/release/mbtiles target_releases/
       - name: Save build artifacts to build-${{ matrix.target }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
           name: build-${{ matrix.target }}
           path: target_releases/
@@ -179,7 +190,7 @@ jobs:
 
     steps:
       - name: Checkout sources
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
         with: { persist-credentials: false }
       - name: Init database
         run: tests/fixtures/initdb.sh
@@ -196,7 +207,7 @@ jobs:
       # > The default image store in Docker Engine doesn't support loading multi-platform images.
       # > You can enable the containerd image store, or push multi-platform images is to directly push to a registry
       - name: Set up Docker
-        uses: docker/setup-docker-action@b60f85385d03ac8acfca6d9996982511d8620a19 # v4.3.0
+        uses: docker/setup-docker-action@e61617a16c407a86262fb923c35a616ddbe070b3 # v4.6.0
         with:
           daemon-config: |
             {
@@ -205,7 +216,7 @@ jobs:
               }
             }
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@29109295f81e9208d7d86ff1c6c12d2833863392 # v3.6.0
+        uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3.7.0
         # https://github.com/docker/setup-qemu-action
         with: { platforms: 'linux/amd64,linux/arm64' }
       - name: Set up gdal-bin and sqlite3-tools
@@ -215,12 +226,12 @@ jobs:
         # https://github.com/docker/setup-buildx-action
         with: { install: true, platforms: 'linux/amd64,linux/arm64' }
       - name: Download build artifact build-aarch64-unknown-linux-musl
-        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
         with: { name: 'build-aarch64-unknown-linux-musl', path: 'target_releases/linux/arm64/' }
       - name: Mark target_releases/linux/arm64/* as executable
         run: chmod +x target_releases/linux/arm64/*
       - name: Download build artifact build-x86_64-unknown-linux-musl
-        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
         with: { name: 'build-x86_64-unknown-linux-musl', path: 'target_releases/linux/amd64/' }
       - name: Mark target_releases/linux/amd64/* as executable
         run: chmod +x target_releases/linux/amd64/*
@@ -229,13 +240,32 @@ jobs:
         id: nginx
         with: { port: '5412', output-unix-paths: 'yes' }
       - name: Copy static files
-        run: cp -r tests/fixtures/pmtiles2/* ${{ steps.nginx.outputs.html-dir }}
+        env:
+          HTML_DIR: ${{ steps.nginx.outputs.html-dir }}
+        run: cp -r tests/fixtures/pmtiles2/* "$HTML_DIR"
+      - name: Prepare tag
+        id: prepare_tag
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          if [ "$EVENT_NAME" = "release" ]; then
+            TAG="$RELEASE_TAG"
+          else
+            TAG="nightly"
+          fi
+
+          # Strip prefix "martin-v" if present
+          echo "short_tag=${TAG#martin-v}" >> "$GITHUB_OUTPUT"
       - name: Docker meta
         id: docker_meta
-        uses: docker/metadata-action@c1e51972afc2121e065aed6d45c65596fe445f3f # v5.8.0
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
         # https://github.com/docker/metadata-action
         with:
           images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=raw,value=${{ steps.prepare_tag.outputs.short_tag }}
+            type=raw,value=latest,enable=${{ github.event_name == 'release' && startsWith(github.event.release.tag_name, 'martin-v') }}
           labels: |
             org.opencontainers.image.created={{commit_date 'YYYY-MM-DDTHH:mm:ss.SSS[Z]'}}
             org.opencontainers.image.authors=Yuri Astrakhan, Stepan Kuzmin and MapLibre contributors
@@ -243,6 +273,7 @@ jobs:
             org.opencontainers.image.documentation=https://maplibre.org/martin/
             org.opencontainers.image.source=${{ github.event.repository.html_url }}
             org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version={{version}}
             org.opencontainers.image.vendor=maplibre
             org.opencontainers.image.licenses=Apache-2.0 OR MIT
             org.opencontainers.image.description=Blazing fast and lightweight tile server with PostGIS, MBTiles, and PMTiles support
@@ -255,6 +286,7 @@ jobs:
             org.opencontainers.image.documentation=https://maplibre.org/martin/
             org.opencontainers.image.source=${{ github.event.repository.html_url }}
             org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version={{version}}
             org.opencontainers.image.vendor=maplibre
             org.opencontainers.image.licenses=Apache-2.0 OR MIT
             org.opencontainers.image.description=Blazing fast and lightweight tile server with PostGIS, MBTiles, and PMTiles support
@@ -303,7 +335,7 @@ jobs:
 
       - name: Save test output (on error)
         if: failure()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
           name: failed-test-output-docker
           path: |
@@ -312,8 +344,8 @@ jobs:
           retention-days: 5
 
       - name: Login to GitHub Docker registry
-        if: github.event_name == 'push' || github.event_name == 'release'
-        uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
+        if: github.event_name == 'push' || (github.event_name == 'release' && startsWith(github.event.release.tag_name, 'martin-v'))
+        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # v3.6.0
         # https://github.com/docker/login-action
         with:
           registry: ghcr.io
@@ -322,7 +354,7 @@ jobs:
 
       - name: Push the Docker image
         id: docker_push
-        if: github.event_name == 'push' || github.event_name == 'release'
+        if: github.event_name == 'push' || (github.event_name == 'release' && startsWith(github.event.release.tag_name, 'martin-v'))
         uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
         with:
           provenance: mode=max
@@ -370,13 +402,13 @@ jobs:
     steps:
       - run: rustup update stable && rustup default stable
       - name: Checkout sources
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
         with: { persist-credentials: false }
       # the macOS x86 runners are 3x slower than all other runners.
       # We need to cache here to not spend 30 minutes on each build.
       # We cannot cache the others as well because we only have 10GB of cache
       - if: matrix.target == 'x86_64-apple-darwin' && github.event_name != 'release' && github.event_name != 'workflow_dispatch'
-        uses: Swatinem/rust-cache@f13886b937689c021905a6b90929199931d60db1 # v2.8.1
+        uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
       - name: Rust Versions
         run: rustc --version && cargo --version
       - name: Install NASM for rustls/aws-lc-rs on Windows
@@ -405,7 +437,7 @@ jobs:
           mv target/${{ matrix.target }}/release/mbtiles${{ matrix.ext }} target_releases/
 
       - name: Save build artifacts to build-${{ matrix.target }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
           name: build-${{ matrix.target }}
           path: target_releases/*
@@ -418,10 +450,10 @@ jobs:
     needs: [ musl-build ]
     steps:
       - name: Checkout sources
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
         with: { persist-credentials: false }
       - name: Download build artifact build-x86_64-unknown-linux-musl
-        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
         with: { name: 'build-x86_64-unknown-linux-musl', path: 'target/' }
 
       - run: tests/test-aws-lambda.sh
@@ -458,7 +490,7 @@ jobs:
             os: ubuntu-latest
     steps:
       - name: Checkout sources
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
         with: { persist-credentials: false }
       - name: Set up gdal-bin and sqlite3-tools
         if: matrix.os == 'ubuntu-latest'
@@ -502,18 +534,20 @@ jobs:
         with: { port: '5412', output-unix-paths: 'yes' }
       - name: Init database
         env:
-          PGPORT: ${{ env.PGPORT }}
+          PG_SERVICE_NAME: ${{ steps.pg.outputs.service-name }}
         run: |
           if [ "$RUNNER_OS" == "Linux" ]; then
-            export DATABASE_URL="postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ env.PGPORT }}/${{ env.PGDATABASE }}?sslmode=require"
+            export DATABASE_URL="postgres://${PGUSER}:${PGUSER}@${PGHOST}:${PGPORT}/${PGDATABASE}?sslmode=require"
           else
-            export PGSERVICE="${{ steps.pg.outputs.service-name }}"
+            export PGSERVICE="${PG_SERVICE_NAME}"
           fi
           tests/fixtures/initdb.sh
       - name: Copy static files
-        run: cp -r tests/fixtures/pmtiles2/* ${{ steps.nginx.outputs.html-dir }}
+        env:
+          HTML_DIR: ${{ steps.nginx.outputs.html-dir }}
+        run: cp -r tests/fixtures/pmtiles2/* "$HTML_DIR"
       - name: Download build artifact build-${{ matrix.target }}
-        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
         with:
           name: build-${{ matrix.target }}
           path: target/
@@ -537,10 +571,21 @@ jobs:
           tests/test.sh
       - name: Compare test output results (Linux)
         if: matrix.target == 'x86_64-unknown-linux-gnu'
-        run: diff --brief --recursive --new-file --exclude='*.pbf' tests/output tests/expected
+        run: |
+          if ! diff --brief --recursive --new-file --exclude='*.pbf' tests/output tests/expected; then
+            echo "** Expected output does not match actual output"
+            echo "** If this is expected, run 'just bless' to update expected output"
+            echo ""
+            echo "::group::Resulting diff (max 100 lines)"
+            diff --recursive --new-file --exclude='*.pbf' tests/output tests/expected | head -n 100 | cat --show-nonprinting
+            echo "::endgroup::"
+            exit 1
+          else
+              echo "** Expected output matches actual output"
+          fi
       - name: Download Debian package (Linux)
         if: matrix.target == 'x86_64-unknown-linux-gnu'
-        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
         with: { name: 'build-debian-x86_64', path: 'target/' }
       - name: Tests Debian package (Linux)
         if: matrix.target == 'x86_64-unknown-linux-gnu'
@@ -557,7 +602,7 @@ jobs:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ env.PGPORT }}/${{ env.PGDATABASE }}?sslmode=require
       - name: Save test output (on error)
         if: failure()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
           name: failed-test-output-${{ runner.os }}
           path: |
@@ -622,17 +667,19 @@ jobs:
     steps:
       - run: rustup update stable && rustup default stable
       - name: Checkout sources
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
         with: { persist-credentials: false }
       # cache for the unit-test to be run against postgres to be acceptably slow
-      - uses: Swatinem/rust-cache@f13886b937689c021905a6b90929199931d60db1 # v2.8.1
+      - uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
         if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
       - name: Run NGINX
         uses: nyurik/action-setup-nginx@612ee9cb839ad727832cda16359452e7e14dd521 # v1.1
         id: nginx
         with: { port: '5412', output-unix-paths: 'yes' }
       - name: Copy static files
-        run: cp -r tests/fixtures/pmtiles2/* ${{ steps.nginx.outputs.html-dir }}
+        env:
+          HTML_DIR: ${{ steps.nginx.outputs.html-dir }}
+        run: cp -r tests/fixtures/pmtiles2/* "$HTML_DIR"
       - name: Init database
         run: tests/fixtures/initdb.sh
         env:
@@ -645,7 +692,7 @@ jobs:
           docker cp ${{ job.services.postgres.id }}:/etc/ssl/certs/ssl-cert-snakeoil.pem target/certs/server.crt
           docker cp ${{ job.services.postgres.id }}:/etc/ssl/private/ssl-cert-snakeoil.key target/certs/server.key
       - name: Download build artifact build-x86_64-unknown-linux-gnu
-        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
         with: { name: 'build-x86_64-unknown-linux-gnu', path: 'target_releases/' }
       - name: Set up gdal-bin and sqlite3-tools
         run: sudo apt update && sudo apt-get install -y gdal-bin sqlite3-tools
@@ -666,7 +713,7 @@ jobs:
         env:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=${{ matrix.sslmode }}
       - name: Download Debian package
-        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
         with: { name: 'build-debian-x86_64', path: 'target_releases/' }
       - name: Tests Debian package
         run: |
@@ -700,7 +747,7 @@ jobs:
           AWS_REGION: eu-central-1
       - name: Save test output (on error)
         if: failure()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
           name: test-output
           path: |
@@ -716,7 +763,7 @@ jobs:
     steps:
       - run: rustup update stable && rustup default stable
       - name: Checkout sources
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
         with: { persist-credentials: false }
       - name: Test packaging
         run: cargo publish --workspace --dry-run
@@ -733,31 +780,31 @@ jobs:
     needs: [ lint-unit-test-js, unit-test-rust, lint-rust, test-multi-os, test-with-svc, test-aws-lambda, test-publish ]
     steps:
       - name: Checkout sources
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
         with: { persist-credentials: false }
       - name: Download build artifact build-aarch64-apple-darwin
-        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
         with: { name: 'build-aarch64-apple-darwin', path: 'target/aarch64-apple-darwin' }
       - name: Download build artifact build-x86_64-apple-darwin
-        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
         with: { name: 'build-x86_64-apple-darwin', path: 'target/x86_64-apple-darwin' }
       - name: Download build artifact build-aarch64-unknown-linux-gnu
-        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
         with: { name: 'build-aarch64-unknown-linux-gnu', path: 'target/aarch64-unknown-linux-gnu' }
       - name: Download build artifact build-x86_64-unknown-linux-gnu
-        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
         with: { name: 'build-x86_64-unknown-linux-gnu', path: 'target/x86_64-unknown-linux-gnu' }
       - name: Download build artifact build-aarch64-unknown-linux-musl
-        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
         with: { name: 'build-aarch64-unknown-linux-musl', path: 'target/aarch64-unknown-linux-musl' }
       - name: Download build artifact build-x86_64-unknown-linux-musl
-        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
         with: { name: 'build-x86_64-unknown-linux-musl', path: 'target/x86_64-unknown-linux-musl' }
       - name: Download build artifact build-x86_64-pc-windows-msvc
-        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
         with: { name: 'build-x86_64-pc-windows-msvc', path: 'target/x86_64-pc-windows-msvc' }
       - name: Download build artifact build-debian-x86_64
-        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
         with: { name: 'build-debian-x86_64', path: 'target/debian-x86_64' }
 
       - name: Package
@@ -809,22 +856,31 @@ jobs:
           EOF
 
       - name: Save Homebrew Config
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with: { name: 'homebrew-config', path: 'target/homebrew_config.yaml' }
 
       - name: Generate SLSA build provenance attestation
         if: github.event_name == 'release'
         uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3.0.0
         with: { subject-path: 'target/files/*' }
-      - name: Publish
-        if: github.event_name == 'release'
-        uses: softprops/action-gh-release@6cbd405e2c4e67a21c47fa9e383d020e4e28b836 # v2.3.3
+      - name: Publish with artifacts
+        if: ${{ github.event_name == 'release' && startsWith(github.event.release.tag_name, 'martin-v') }}
+        uses: softprops/action-gh-release@5be0e66d93ac7ed76da52eca8bb058f665c3a5fe # v2.4.2
         with:
           files: 'target/files/*'
           generate_release_notes: false
           draft: false
-          make_latest: ${{ github.event_name == 'release' && startsWith(github.event.release.tag_name, 'martin-') }}
+          make_latest: true
           fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish without artifacts
+        if: ${{ github.event_name == 'release' && !startsWith(github.event.release.tag_name, 'martin-v') }}
+        uses: softprops/action-gh-release@5be0e66d93ac7ed76da52eca8bb058f665c3a5fe # v2.4.2
+        with:
+          generate_release_notes: false
+          draft: false
+          make_latest: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -841,7 +897,7 @@ jobs:
         #   Access Pull requests: Read and write
       - name: Checkout maplibre/homebrew-martin
         if: github.event_name == 'release'
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
         with:
           repository: maplibre/homebrew-martin
           token: ${{ secrets.GH_HOMEBREW_MARTIN_TOKEN }} # See instructions above
@@ -882,7 +938,7 @@ jobs:
     permissions: {}
     steps:
       - name: Result of the needed steps
-        run: echo "${{ toJSON(needs) }}"
+        run: echo "${{ toJSON(needs) }}" # zizmor: ignore[template-injection]
       - if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped') }}
         name: CI Result
         run: exit 1
@@ -905,17 +961,17 @@ jobs:
       cancel-in-progress: false
     steps:
       - run: rustup update stable && rustup default stable
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      - uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
         with: { fetch-depth: 0, persist-credentials: false }
       - name: Publish to crates.io if crate's version is newer
-        uses: release-plz/action@acb9246af4d59a270d1d4058a8b9af8c3f3a2559 # v0.5.117
+        uses: release-plz/action@d529f731ae3e89610ada96eda34e5c6ba3b12214 # v0.5.118
         id: release
         with: { command: release }
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN }}
       - if: ${{ steps.release.outputs.releases_created == 'false' }}
         name: If version is the same, create a PR proposing new version and changelog for the next release
-        uses: release-plz/action@acb9246af4d59a270d1d4058a8b9af8c3f3a2559 # v0.5.117
+        uses: release-plz/action@d529f731ae3e89610ada96eda34e5c6ba3b12214 # v0.5.118
         with: { command: release-pr }
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN }}

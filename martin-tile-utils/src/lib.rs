@@ -79,6 +79,7 @@ pub enum Format {
     Mvt,
     Png,
     Webp,
+    Avif,
 }
 
 impl Format {
@@ -91,6 +92,7 @@ impl Format {
             "pbf" | "mvt" => Self::Mvt,
             "png" => Self::Png,
             "webp" => Self::Webp,
+            "avif" => Self::Avif,
             _ => None?,
         })
     }
@@ -106,6 +108,7 @@ impl Format {
             Self::Mvt => "pbf",
             Self::Png => "png",
             Self::Webp => "webp",
+            Self::Avif => "avif",
         }
     }
 
@@ -118,13 +121,14 @@ impl Format {
             Self::Mvt => "application/x-protobuf",
             Self::Png => "image/png",
             Self::Webp => "image/webp",
+            Self::Avif => "image/avif",
         }
     }
 
     #[must_use]
     pub fn is_detectable(self) -> bool {
         match self {
-            Self::Png | Self::Jpeg | Self::Gif | Self::Webp => true,
+            Self::Png | Self::Jpeg | Self::Gif | Self::Webp | Self::Avif => true,
             // TODO: Json can be detected, but currently we only detect it
             //       when it's not compressed, so to avoid a warning, keeping it as false for now.
             //       Once we can detect it inside a compressed data, change it to true.
@@ -142,6 +146,7 @@ impl Display for Format {
             Self::Mvt => "mvt",
             Self::Png => "png",
             Self::Webp => "webp",
+            Self::Avif => "avif",
         })
     }
 }
@@ -241,7 +246,9 @@ impl From<Format> for TileInfo {
         Self::new(
             format,
             match format {
-                Format::Png | Format::Jpeg | Format::Webp | Format::Gif => Encoding::Internal,
+                Format::Png | Format::Jpeg | Format::Webp | Format::Gif | Format::Avif => {
+                    Encoding::Internal
+                }
                 Format::Mvt | Format::Json => Encoding::Uncompressed,
             },
         )
@@ -312,7 +319,7 @@ pub fn bbox_to_xyz(left: f64, bottom: f64, right: f64, top: f64, zoom: u8) -> (u
 #[must_use]
 #[expect(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
 pub fn get_zoom_precision(zoom: u8) -> usize {
-    assert!(zoom < MAX_ZOOM, "zoom {zoom} must be <= {MAX_ZOOM}");
+    assert!(zoom <= MAX_ZOOM, "zoom {zoom} must be <= {MAX_ZOOM}");
     let lng_delta = webmercator_to_wgs84(EARTH_CIRCUMFERENCE / f64::from(1_u32 << zoom), 0.0).0;
     let log = lng_delta.log10() - 0.5;
     if log > 0.0 { 0 } else { -log.ceil() as usize }

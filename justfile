@@ -32,10 +32,10 @@ ci_mode := if env('CI', '') != '' {'1'} else {''}
 binstall_args := if env('CI', '') != '' {'--no-track'} else {''}
 export RUSTFLAGS := env('RUSTFLAGS', if ci_mode == '1' {'-D warnings'} else {''})
 export RUSTDOCFLAGS := env('RUSTDOCFLAGS', if ci_mode == '1' {'-D warnings'} else {''})
-export RUST_BACKTRACE := env('RUST_BACKTRACE', if ci_mode == '1' {'1'} else {''})
+export RUST_BACKTRACE := env('RUST_BACKTRACE', if ci_mode == '1' {'1'} else {'0'})
 
 @_default:
-    {{just_executable()}} --list
+    {{quote(just_executable())}} --list
 
 # Run benchmark tests
 bench:
@@ -95,7 +95,7 @@ bless-int:
     rm -rf tests/expected && mv tests/output tests/expected
 
 # Build and open mdbook documentation
-book:  (cargo-install 'mdbook') (cargo-install 'mdbook-alerts') (cargo-install 'mdbook-tabs')
+book:  (cargo-install 'mdbook') (cargo-install 'mdbook-tabs')
     mdbook serve docs --open --port 8321
 
 # Quick compile without building a binary
@@ -138,14 +138,14 @@ coverage *args='--no-clean --open':  (cargo-install 'cargo-llvm-cov') clean star
     cargo llvm-cov clean --workspace
 
     echo "::group::Unit tests"
-    {{just_executable()}} test-cargo --all-targets
+    {{quote(just_executable())}} test-cargo --all-targets
     echo "::endgroup::"
 
     # echo "::group::Documentation tests"
-    # {{just_executable()}} test-doc <- deliberately disabled until --doctest for cargo-llvm-cov does not hang indefinitely
+    # {{quote(just_executable())}} test-doc <- deliberately disabled until --doctest for cargo-llvm-cov does not hang indefinitely
     # echo "::endgroup::"
 
-    {{just_executable()}} test-int
+    {{quote(just_executable())}} test-int
 
     cargo llvm-cov report {{args}}
 
@@ -156,11 +156,11 @@ cp *args:
 # Start Martin server and open a test page
 debug-page *args: start
     open tests/debug.html  # run will not exit, so open debug page first
-    {{just_executable()}} run {{args}}
+    {{quote(just_executable())}} run {{args}}
 
 # Build and run martin docker image
 docker-run *args:
-    docker run -it --rm --net host -e DATABASE_URL -v $PWD/tests:/tests ghcr.io/maplibre/martin {{args}}
+    docker run -it --rm --net host -e DATABASE_URL -v $PWD/tests:/tests ghcr.io/maplibre/martin:1.0.0 {{args}}
 
 # Build and open code documentation
 docs *args='--open':
@@ -170,7 +170,7 @@ docs *args='--open':
 env-info:
     @echo "Running {{if ci_mode == '1' {'in CI mode'} else {'in dev mode'} }} on {{os()}} / {{arch()}}"
     @echo "PWD $(pwd)"
-    {{just_executable()}} --version
+    {{quote(just_executable())}} --version
     rustc --version
     cargo --version
     rustup --version
@@ -227,6 +227,34 @@ help:
     @echo ""
     @echo "Full list: just --list"
 
+# Install Linux dependencies (Ubuntu/Debian). Supports 'vulkan' and 'opengl' backends.
+[linux]
+install-dependencies backend='vulkan':
+    sudo apt-get update
+    sudo apt-get install -y \
+      {{if backend == 'opengl' {'libgl1-mesa-dev libglu1-mesa-dev'} else {''} }} \
+      {{if backend == 'vulkan' {'mesa-vulkan-drivers glslang-dev'} else {''} }} \
+      build-essential \
+      libcurl4-openssl-dev \
+      libglfw3-dev \
+      libuv1-dev \
+      libz-dev
+
+# Install macOS dependencies via Homebrew
+[macos]
+install-dependencies backend='vulkan':
+    brew install \
+        {{if backend == 'vulkan' {'molten-vk vulkan-headers'} else {''} }} \
+        curl \
+        glfw \
+        libuv \
+        zlib
+
+# Install Windows dependencies
+[windows]
+install-dependencies backend='vulkan':
+    @echo "rendering styles is not currently supported on windows"
+
 # Run cargo fmt and cargo clippy
 lint: fmt clippy biomejs-martin-ui type-check
 
@@ -258,8 +286,8 @@ psql *args:
 # Restart the test database
 restart:
     # sometimes Just optimizes targets, so here we force stop & start by using external just executable
-    {{just_executable()}} stop
-    {{just_executable()}} start
+    {{quote(just_executable())}} stop
+    {{quote(just_executable())}} start
 
 # Start Martin server
 run *args='--webui enable-for-all':
@@ -360,9 +388,9 @@ test-ssl-cert: start-ssl-cert
     export PGSSLROOTCERT="$KEY_DIR/ssl-cert-snakeoil.pem"
     export PGSSLCERT="$KEY_DIR/ssl-cert-snakeoil.pem"
     export PGSSLKEY="$KEY_DIR/ssl-cert-snakeoil.key"
-    {{just_executable()}} test-cargo --all-targets
-    {{just_executable()}} clean-test
-    {{just_executable()}} test-doc
+    {{quote(just_executable())}} test-cargo --all-targets
+    {{quote(just_executable())}} clean-test
+    {{quote(just_executable())}} test-doc
     tests/test.sh
 
 # Run typescript typechecking on the frontend
@@ -447,8 +475,8 @@ cargo-install $COMMAND $INSTALL_CMD='' *args='':
             echo "$COMMAND could not be found. Installing it with    cargo install ${INSTALL_CMD:-$COMMAND} --locked {{args}}"
             cargo install ${INSTALL_CMD:-$COMMAND} --locked {{args}}
         else
-            echo "$COMMAND could not be found. Installing it with    cargo binstall ${INSTALL_CMD:-$COMMAND} {{binstall_args}} --locked {{args}}"
-            cargo binstall ${INSTALL_CMD:-$COMMAND} {{binstall_args}} --locked {{args}}
+            echo "$COMMAND could not be found. Installing it with    cargo binstall ${INSTALL_CMD:-$COMMAND} {{binstall_args}} --locked"
+            cargo binstall ${INSTALL_CMD:-$COMMAND} {{binstall_args}} --locked
         fi
     fi
 

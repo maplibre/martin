@@ -7,6 +7,141 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0](https://github.com/maplibre/martin/compare/martin-v0.20.2...martin-v1.0.0) - 2025-11-10
+
+🎉🎉🎉 **After 8 years in developmen, we are excited to release v1.0.0 of martin.** 🎉🎉🎉
+Functionally, it is the same as `v0.20.2`, just with our releses further automated.
+There are no breaking changes between `v0.20.X` and `v1.X.X`
+
+### Fixed
+
+- broken url to github release in web-ui ([#2354](https://github.com/maplibre/martin/pull/2354))
+
+## [0.20.2](https://github.com/maplibre/martin/compare/martin-v0.20.1...martin-v0.20.2) - 2025-11-07
+
+In 0.20.1 we clamed to have fixed the bug regarding how our release script determines versions for docker containers.
+This was incorrect and is fixed now with a more manual appraoch instead of relying on `docker/metadata-action`.
+Done in [#2348](https://github.com/maplibre/martin/pull/2348)
+
+### Other
+
+- Remove unused optional 'tiff' dependency from Cargo.toml ([#2343](https://github.com/maplibre/martin/pull/2343))
+
+## [0.20.1](https://github.com/maplibre/martin/compare/martin-v0.20.0...martin-v0.20.1) - 2025-11-03
+
+## Fixed prefixes in ghcr tags
+
+We fixed a bug where in the 0.20.0 release our ghcr.io tags always had the prefix `:martin-v0.20.0` and were also published under `:martin-core-v0.2.0` and `:mbtiles-v0.14.0`.
+
+Sorry for users affected by this change.
+Done in [#2338](https://github.com/maplibre/martin/pull/2338)
+
+## Fix
+
+Fixed a potential crash due to an off-by-one error when zooming in at exactly Zoom 30 (our limit). [#2340](https://github.com/maplibre/martin/pull/2340)
+
+## Maintenance
+
+- *(ci)* add pre commit step to sync the fronted version to the backend ([#2324](https://github.com/maplibre/martin/pull/2324))
+- reduce pg discovery bench sizes ([#2321](https://github.com/maplibre/martin/pull/2321))
+- various dependency bumps ([#2331](https://github.com/maplibre/martin/pull/2331), [#2333](https://github.com/maplibre/martin/pull/2333), [#2332](https://github.com/maplibre/martin/pull/2332))
+
+## [0.20.0](https://github.com/maplibre/martin/compare/martin-v0.19.3...martin-v0.20.0) - 2025-10-27
+
+
+> [!NOTE]
+> This release can be considered the last beta of the v1.0 release.
+> We have locked down key parts of the architecture.
+>
+> We will republish this release as v1.0 in roghly a week, unless we see any bugs in this release.
+
+A big thank you to everyone who contributed to this release - through code, reviews, testing, and feedback.
+Your work and discussions continue to make Martin faster, more reliable, and more welcoming for new users.
+
+We couldn’t have done it without you ❤️
+
+### A better, more configurable cache
+
+In previous versions, the cache was a single monolithic cache.
+We have split this up into different parts and you can now specify how much sprites, fonts, pmtiles directories and tiles martin is allowed in the cache.
+
+> [!TIP]
+> We also now support caching sprites and fonts - speeding up the rendering of vector maps.
+
+See our [documentation here](https://maplibre.org/martin/config-file.html) for further context.
+
+Done in [#2295](https://github.com/maplibre/martin/pull/2295) [#2304](https://github.com/maplibre/martin/pull/2304) [#2303](https://github.com/maplibre/martin/pull/2303), [#2297](https://github.com/maplibre/martin/pull/2297)
+
+### Pmtiles support for Google Cloud, Azure and much more options
+
+The good news first:
+- [greatly expanded](https://maplibre.org/martin/sources-files.html) options for AWS and HTTP backends
+- New support for Google Cloud and Azure object storage
+- Local files remain unaffected
+
+How did we do this?
+We replaced our entire pmtiles backend with the [`object_storage` crate](http://docs.rs/object_storage).
+
+Most of the options are cleanly migratable, but we deprecated the following:
+
+- AWS specific environment variable usages are deprecated.
+- `pmtiles.allow_http` being unset is currently defaulting to `true`.
+  In v2.0, we will change this to be `false` by default for better security defaults.
+
+The deprecated items will be removed in v2.0 at the earliest.
+
+> [!TIP]
+> Each of the deprecations also has its own warning in the log, so you don't have to guess if you are affected 😉
+
+`AWS_PROFILE` presented a challenge and we had to drop this environment variable.
+We asked for community feedback on Slack (see [here](https://maplibre.org/community)), and it seems this may not be a necessary feature.
+If you depend on `AWS_PROFILE`, we opened the following issue to discuss details:
+- https://github.com/maplibre/martin/issues/2286
+
+For further details on the now avaliable options, please [see our documentation](https://maplibre.org/martin/sources-files.html).
+
+Done in [#2251](https://github.com/maplibre/martin/pull/2251)
+
+
+### unstable style rendering support
+
+We added an experimental option for server-side style rendering, allowing you to convert your configured styles into images on the server side instead of the client.
+See our [documentation here](https://maplibre.org/martin/sources-styles.html#server-side-raster-tile-rendering) for further context.
+
+Done in [#2306](https://github.com/maplibre/martin/pull/2306)
+
+### rename `cog` feature to `unstable-cog`
+
+The `cog` feature was renamed to `unstable-cog` and thus removed from the features active by default.
+If you compile martin from source with this feature enabled, experimentation is still possible.
+This change signals that the feature is still evolving and allows us to iterate more freely as we add the missing functionality.
+Currently, our COG support does not support certain projection aspects required for good usability.
+
+Done in [#2285](https://github.com/maplibre/martin/pull/2285)
+
+### Removal of deprecated functionality
+
+We removed the long-deprecated `--watch` CLI option, which previously only displayed a deprecation warning in the log.
+
+Done in [#2294](https://github.com/maplibre/martin/pull/2294)
+
+### Fix
+
+- Make mbtiles dependency properly optional again ([#2292](https://github.com/maplibre/martin/pull/2292))
+
+### Other
+
+- *(core)* enable overriding of the automatic hashing for source traits ([#2293](https://github.com/maplibre/martin/pull/2293))
+- *(pg)* Add benchmark for source discovery timing ([#2263](https://github.com/maplibre/martin/pull/2263))
+- *(admin)* move functionality into better modules ([#2315](https://github.com/maplibre/martin/pull/2315))
+- move config files to new folders ([#2298](https://github.com/maplibre/martin/pull/2298))
+- *(core)* add a `_tiles` feature  to simplify our feature configuration ([#2296](https://github.com/maplibre/martin/pull/2296))
+- *(config)* refactor the livecycle hooks to be cleaner and better documented ([#2282](https://github.com/maplibre/martin/pull/2282))
+- *(lints)* applly tighter clippy lints like `clippy::panic_in_result_fn`, `clippy::todo` or similar [#2284](https://github.com/maplibre/martin/pull/2284 [#2283](https://github.com/maplibre/martin/pull/2283), [#2288](https://github.com/maplibre/martin/pull/2288), [#2287](https://github.com/maplibre/martin/pull/2287)
+- *(mbtiles)* Generate mbtiles dynamically from SQL files to increase debuggability, transparency and supply chain trust/security ([#1868](https://github.com/maplibre/martin/pull/1868))
+- A number of dependency updates [#2277](https://github.com/maplibre/martin/pull/2277), [#2308](https://github.com/maplibre/martin/pull/2308)
+
+
 ## [0.19.3](https://github.com/maplibre/martin/compare/martin-v0.19.2...martin-v0.19.3) - 2025-10-01
 
 ### Added
