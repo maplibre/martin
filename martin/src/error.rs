@@ -75,7 +75,7 @@ pub enum MartinError {
     #[error("could not initialize metrics: {0}")]
     MetricsIntialisationError(#[source] Box<dyn std::error::Error>),
 
-    #[error("one or more warnings issued during tile source resolution")]
+    #[error("warnings issued during tile source resolution")]
     TileResolutionWarningsIssued,
 }
 
