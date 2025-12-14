@@ -20,14 +20,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Other
 
-- *(deps)* Bump the all-npm-ui-version-updates group in /martin/martin-ui with 5 updates ([#2403](https://github.com/maplibre/martin/pull/2403))
-- *(deps-dev)* Bump @biomejs/biome from 2.3.6 to 2.3.8 in /martin/martin-ui ([#2404](https://github.com/maplibre/martin/pull/2404))
 - *(config)* move the resolve impl to a different function ([#2397](https://github.com/maplibre/martin/pull/2397))
 - *(docs)* fix martin-cp bbox docs ([#2387](https://github.com/maplibre/martin/pull/2387))
-- *(deps)* Bump the all-npm-ui-version-updates group in /martin/martin-ui with 14 updates ([#2373](https://github.com/maplibre/martin/pull/2373))
-- *(deps-dev)* Bump tailwindcss from 4.1.16 to 4.1.17 in /martin/martin-ui ([#2375](https://github.com/maplibre/martin/pull/2375))
-- *(deps-dev)* Bump @biomejs/biome from 2.3.2 to 2.3.6 in /martin/martin-ui ([#2374](https://github.com/maplibre/martin/pull/2374))
-- update Cargo.lock dependencies
+- *(deps)* miscelaneous dependency bumps ([#2403](https://github.com/maplibre/martin/pull/2403), [#2404](https://github.com/maplibre/martin/pull/2404), [#2373](https://github.com/maplibre/martin/pull/2373), [#2375](https://github.com/maplibre/martin/pull/2375), [#2374](https://github.com/maplibre/martin/pull/2374))
 
 ## [1.0.0](https://github.com/maplibre/martin/compare/martin-v0.20.2...martin-v1.0.0) - 2025-11-10
 
