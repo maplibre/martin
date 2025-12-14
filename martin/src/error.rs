@@ -78,9 +78,3 @@ pub enum MartinError {
     #[error("warnings issued during tile source resolution")]
     TileResolutionWarningsIssued,
 }
-
-#[derive(thiserror::Error, Debug)]
-pub enum TileSourceWarning {
-    #[error("{id}: {error}")]
-    SourceError { id: String, error: MartinError },
-}

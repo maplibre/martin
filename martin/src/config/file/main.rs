@@ -38,7 +38,13 @@ use crate::config::file::{
 use crate::source::TileSources;
 #[cfg(feature = "_tiles")]
 use crate::srv::RESERVED_KEYWORDS;
-use crate::{MartinError, MartinResult, TileSourceWarning};
+use crate::{MartinError, MartinResult};
+
+#[derive(thiserror::Error, Debug)]
+pub enum TileSourceWarning {
+    #[error("{id}: {error}")]
+    SourceError { id: String, error: MartinError },
+}
 
 pub struct ServerState {
     #[cfg(feature = "_tiles")]
