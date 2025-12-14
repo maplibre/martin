@@ -4,6 +4,7 @@ use std::io::prelude::*;
 use std::path::Path;
 use std::sync::LazyLock;
 
+use clap::ValueEnum;
 #[cfg(feature = "_tiles")]
 use futures::future::{BoxFuture, try_join_all};
 use log::{info, warn};
