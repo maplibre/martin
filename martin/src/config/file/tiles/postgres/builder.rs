@@ -154,13 +154,13 @@ impl PostgresAutoDiscoveryBuilder {
                 ));
             }
 
-            let Some(db_tables) = find_info(&db_tables_info, &cfg_inf.schema, "schema", id) else {
+            let Ok(db_tables) = find_info(&db_tables_info, &cfg_inf.schema, "schema", id) else {
                 continue;
             };
-            let Some(db_geo_columns) = find_info(db_tables, &cfg_inf.table, "table", id) else {
+            let Ok(db_geo_columns) = find_info(db_tables, &cfg_inf.table, "table", id) else {
                 continue;
             };
-            let Some(db_inf) = find_info(
+            let Ok(db_inf) = find_info(
                 db_geo_columns,
                 &cfg_inf.geometry_column,
                 "geometry column",
@@ -262,7 +262,7 @@ impl PostgresAutoDiscoveryBuilder {
         let mut used = HashSet::<(&str, &str)>::new();
 
         for (id, cfg_inf) in &self.functions {
-            let Some(db_funcs) = find_info(&db_funcs_info, &cfg_inf.schema, "schema", id) else {
+            let Ok(db_funcs) = find_info(&db_funcs_info, &cfg_inf.schema, "schema", id) else {
                 continue;
             };
             if db_funcs.is_empty() {
@@ -273,7 +273,7 @@ impl PostgresAutoDiscoveryBuilder {
                 continue;
             }
             let func_name = &cfg_inf.function;
-            let Some((pg_sql, db_inf)) = find_info(db_funcs, func_name, "function", id) else {
+            let Ok((pg_sql, db_inf)) = find_info(db_funcs, func_name, "function", id) else {
                 continue;
             };
 
