@@ -1,4 +1,4 @@
-FROM postgis/postgis:18-3.6@sha256:6e6ed346296866e89ab9665d69f0aa6cd62f1ad62fec42e73adf397ab259e5d1
+FROM postgis/postgis:18-3.6@sha256:8c1367a8a3c0d52835f0da36729ff7e6a072f30fb28fa89e991f8b923bd0cb00
 
 RUN set -x \
   && apt-get update \
