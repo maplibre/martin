@@ -358,10 +358,6 @@ async fn resolve_one_source_int<T: TileSourceConfiguration>(
         info!("Configured {dup}source {id} from {}", sanitize_url(&url));
     } else {
         let can = source.abs_path()?;
-        if !can.is_file() {
-            log::warn!("The file: {} does not exist", can.display());
-        }
-
         let dup = !files.insert(can.clone());
         let dup = if dup { "duplicate " } else { "" };
         let id = idr.resolve(id, can.to_string_lossy().to_string());
