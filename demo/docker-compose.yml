@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   frontend:
     build:
@@ -15,15 +13,21 @@ services:
       - ./certs:/etc/ssl/certs
 
   tiles:
-    image: ghcr.io/maplibre/martin
-    # For Arm64 - you have to build your own image from source https://github.com/maplibre/martin/issues/655#issuecomment-1540669505
+    image: ghcr.io/maplibre/martin:1.1.0
     restart: unless-stopped
     ports:
       - "3000:3000"
     environment:
       - DATABASE_URL=postgres://postgres@db/db
     depends_on:
-      - db
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: wget --spider http://0.0.0.0:3000/health || exit 1
+      retries: 10
+      interval: 1s
+      start_period: 1s
+      start_interval: 500ms
 
   db:
     build:
@@ -37,3 +41,9 @@ services:
     volumes:
       - ./db/db:/var/lib/postgresql/data
       - ./db/initdb:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: [ "CMD", "pg_isready", "-U", "${POSTGRES_USER}" ]
+      retries: 5
+      interval: 10s
+      start_interval: 500ms
+      start_period: 20s
