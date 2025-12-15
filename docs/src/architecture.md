@@ -262,35 +262,56 @@ sequenceDiagram
 
 ### Rust for Performance and Safety
 
-**Why Rust**: Martin is written in Rust to balance high performance with strong safety guarantees.
+<details>
+<summary>
+<b>Why Rust</b>: Martin is written in Rust to balance high performance with strong safety guarantees.
+<i>(click to expand)</i>
+</summary>
 
-- Near-C performance for CPU-heavy tile generation
-- Memory safety without null pointers or buffer overflows
+- Near-C performance without manual memory management
+- Memory safety (no null pointers or buffer overflows)
 - Safe concurrency without data races
-- High-level abstractions that compile down to efficient code
+- Zero-cost abstractions that compile to efficient code
+
+</details>
 
 ### Actix-Web Framework
 
-**Why Actix-Web**: It offers a fast, production-ready async HTTP stack.
+<details>
+<summary>
+<b>Why Actix-Web</b>: It offers a fast, production-ready async HTTP stack.
+<i>(click to expand)</i>
+</summary>
 
 - High-performance async request handling
-- A mature middleware ecosystem
-- Good support for streaming large responses
-- Built-in compression and cache headers
-- Straightforward Prometheus metrics integration
+- Mature middleware ecosystem
+- Built-in compression and caching headers
+- Easy Prometheus metrics integration
+
+</details>
 
 ### Async/Await Throughout
 
-**Why async**: Async I/O allows Martin to scale efficiently under load.
+<details>
+<summary>
+<b>Why async/await</b>: Allows Martin to handle many concurrent requests efficiently.
+<i>(click to expand)</i>
+</summary>
 
-- Handles many concurrent requests
+- Handles thousands of concurrent connections
 - Avoids blocking database queries
-- Efficient file and network I/O
-- Keeps thread usage low
+- Enables efficient file and network I/O
+- Keeps thread usage low under load
+
+</details>
 
 ### Crate Separation
 
-**Why multiple crates**: The codebase is split into crates with clear responsibilities.
+<details>
+<summary>
+<b>Why multiple crates</b>: The codebase is split into crates with clear responsibilities.
+<i>(click to expand)</i>
+</summary>
 
 - **martin-core** — reusable core logic and tile sources
 - **mbtiles** — standalone MBTiles tooling
@@ -302,64 +323,108 @@ This makes it easier to:
 - Use MBTiles tools independently
 - Maintain clear API boundaries and versioning
 
+</details>
+
 ### PostgreSQL Connection Pooling
 
-**Why connection pooling**: Martin uses `deadpool-postgres` to manage database access efficiently.
+<details>
+<summary>
+<b>Why connection pooling</b>: Reuse database connections instead of reconnecting per request.
+<i>(click to expand)</i>
+</summary>
 
-- Reuses persistent connections
-- Avoids connection setup cost per request
-- Configurable pool sizes for different workloads
-- Automatic health checking of connections
+- Uses `deadpool-postgres`
+- Avoids per-request connection overhead
+- Configurable pool sizing
+- Automatic connection health checks
+
+</details>
 
 ### In-Memory Tile Caching
 
-**Why caching**: Tiles and resources are cached in memory using `moka`.
+<details>
+<summary>
+<b>Why caching</b>: Avoid regenerating frequently requested tiles.
+<i>(click to expand)</i>
+</summary>
 
 - Fast LRU cache with optional TTLs
 - Automatic eviction of least-used entries
 - Configurable memory limits (default: 512 MB)
-- Thread-safe access
-- Big performance wins for repeated requests
+- Thread-safe concurrent access
+- Significant performance improvements for repeated requests
+
+</details>
 
 ### Automatic Source Discovery
 
-**Why auto-discovery**: Martin tries to work out of the box with minimal configuration.
+<details>
+<summary>
+<b>Why auto-discovery</b>: Martin tries to work out of the box with minimal configuration.
+<i>(click to expand)</i>
+</summary>
 
-It can automatically detect:
+It can currently automatically detect:
 - PostgreSQL tables with geometry columns
 - PostgreSQL functions that return MVT
 - MBTiles and PMTiles files in configured directories
 
 This keeps common setups close to zero-config.
 
+</details>
+
 ### Multi-Protocol Tile Support
 
-**Why multiple formats**: Different workloads benefit from different storage models.
+**Why multiple formats**: Different workloads benefit from different storage models. This lets operators pick the best format for their use case:
 
-- **PostgreSQL** — dynamic tiles from live data
-- **MBTiles** — pre-generated tile archives
-- **PMTiles** — cloud-friendly single-file archives
-- **COG** — direct serving from GeoTIFFs
+{{#tabs}}
+{{#tab name="PostgreSQL"}}
+Dynamic tiles generated from live data. Best for frequently changing datasets.
+{{#endtab}}
 
-This lets operators pick the best format for their use case.
+{{#tab name="MBTiles"}}
+Pre-generated tile archives. Simple and fast for static datasets.
+{{#endtab}}
+
+{{#tab name="PMTiles"}}
+Single-file, cloud-native archives optimized for HTTP range requests.
+{{#endtab}}
+
+{{#tab name="COG"}}
+Direct tile serving from Cloud Optimized GeoTIFFs.
+{{#endtab}}
+
+{{#endtabs}}
 
 ### On-the-Fly Resource Generation
 
-**Why generate resources dynamically**: Sprites, fonts, and styles are created on demand.
+<details>
+<summary>
+<b>Why generate resources dynamically</b>: Sprites, fonts, and styles are created on demand.
+<i>(click to expand)</i>
+</summary>
 
 - No pre-processing step required
 - Simpler deployments (just provide source files)
 - URL-based customization
 - Less storage overhead
 
+</details>
+
 ### Modular Configuration
 
-**Why layered configuration**: Martin supports multiple configuration sources.
+<details>
+<summary>
+<b>Why layered configuration</b>: Martin supports multiple configuration sources.
+<i>(click to expand)</i>
+</summary>
 
 - CLI flags for quick testing and overrides
 - Environment variables for containerized deployments
 - Config files for larger or more complex setups
 - Clear precedence between configuration layers
+
+</details>
 
 ## Component Interactions
 
