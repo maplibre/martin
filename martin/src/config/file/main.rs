@@ -12,10 +12,10 @@ use log::{info, warn};
 use martin_core::config::IdResolver;
 #[cfg(feature = "postgres")]
 use martin_core::config::OptOneMany;
+#[cfg(feature = "_tiles")]
+use martin_core::tiles::OptTileCache;
 #[cfg(feature = "pmtiles")]
 use martin_core::tiles::pmtiles::PmtCache;
-#[cfg(feature = "_tiles")]
-use martin_core::tiles::{BoxedSource, OptTileCache};
 use serde::{Deserialize, Serialize};
 use subst::VariableMap;
 
@@ -320,8 +320,7 @@ impl Config {
         #[allow(unused_variables)] idr: &IdResolver,
         #[cfg(feature = "pmtiles")] pmtiles_cache: PmtCache,
     ) -> MartinResult<(TileSources, Vec<TileSourceWarning>)> {
-        let mut sources: Vec<BoxFuture<MartinResult<(Vec<BoxedSource>, Vec<TileSourceWarning>)>>> =
-            Vec::new();
+        let mut sources: Vec<BoxFuture<_>> = Vec::new();
 
         #[cfg(feature = "postgres")]
         for s in self.postgres.iter_mut() {
