@@ -86,7 +86,7 @@ Martin's architecture is organized into four main Rust crates, each with distinc
 - `martin-ui/` - React-based web interface
 
 {{#endtab }}
-{{#tab name="martin-core (Shared Library)" }}
+{{#tab name="martin-core (Library)" }}
 
 **Purpose**: Core abstractions and implementations for tile sources and supporting resources.
 
@@ -113,7 +113,7 @@ Martin's architecture is organized into four main Rust crates, each with distinc
   - `styles/` - MapLibre style handling
 
 {{#endtab }}
-{{#tab name="mbtiles (MBTiles Library & CLI)" }}
+{{#tab name="mbtiles (Library & CLI)" }}
 
 **Purpose**: MBTiles format support and manipulation tools.
 
@@ -133,7 +133,7 @@ Martin's architecture is organized into four main Rust crates, each with distinc
 - `sql/` - SQL schema and migrations
 
 {{#endtab }}
-{{#tab name="martin-tile-utils (Tile Utilities)" }}
+{{#tab name="martin-tile-utils" }}
 
 **Purpose**: Low-level tile manipulation and conversion utilities.
 

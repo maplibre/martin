@@ -15,3 +15,5 @@ additional-css = ["theme/tabs.css"]
 additional-js = ["theme/tabs.js"]
 
 [preprocessor.tabs]
+
+[preprocessor.mermaid]
