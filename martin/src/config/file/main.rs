@@ -233,6 +233,7 @@ impl Config {
         #[cfg(feature = "pmtiles")]
         let pmtiles_cache = cache_config.create_pmtiles_cache();
 
+        #[cfg(feature = "_tiles")]
         let (tiles, warnings) = self
             .resolve_tile_sources(
                 &resolver,
@@ -241,6 +242,7 @@ impl Config {
             )
             .await?;
 
+        #[cfg(feature = "_tiles")]
         OnInvalid::handle_warnings(self.on_invalid, &warnings)?;
 
         Ok(ServerState {
