@@ -403,7 +403,7 @@ Martin supports multiple deployment patterns:
 - Docker image with all dependencies
 - Configuration via environment variables
 - Health check endpoints
-- Suitable for Kubernetes and container orchestras
+- Suitable for Kubernetes and container orchestrators
 
 ### 3. Serverless (AWS Lambda)
 - Lambda adapter for Actix-Web
