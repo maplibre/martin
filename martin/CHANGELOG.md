@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0](https://github.com/maplibre/martin/compare/martin-v1.0.0...martin-v1.1.0) - 2025-12-11
+
+### Added
+
+- *(martin-cp)* infer default bounds from configured sources for better performance ([#2385](https://github.com/maplibre/martin/pull/2385))
+- *(martin-core)* add an pmtiles example ([#2370](https://github.com/maplibre/martin/pull/2370))
+
+### Fixed
+
+- allow `az://` URL schemes in discovery ([#2408](https://github.com/maplibre/martin/pull/2408))
+
+### Other
+
+- *(config)* move the resolve impl to a different function ([#2397](https://github.com/maplibre/martin/pull/2397))
+- *(docs)* fix martin-cp bbox docs ([#2387](https://github.com/maplibre/martin/pull/2387))
+- *(deps)* miscelaneous dependency bumps ([#2403](https://github.com/maplibre/martin/pull/2403), [#2404](https://github.com/maplibre/martin/pull/2404), [#2373](https://github.com/maplibre/martin/pull/2373), [#2375](https://github.com/maplibre/martin/pull/2375), [#2374](https://github.com/maplibre/martin/pull/2374))
+
 ## [1.0.0](https://github.com/maplibre/martin/compare/martin-v0.20.2...martin-v1.0.0) - 2025-11-10
 
 🎉🎉🎉 **After 8 years in developmen, we are excited to release v1.0.0 of martin.** 🎉🎉🎉
