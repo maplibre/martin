@@ -116,10 +116,10 @@ postgres:
 
   # Enable automatic discovery of tables and functions. [default: null]
   #
-  # Options are:
-  # - `true` to run automatic discovery
-  # - `false` to disable automatic discovery
-  # - `null` to run automatic discovery if postgres.tables is `null` and postgres.functions is `null`
+  # Options:
+  # - `true`: run automatic discovery (`true` may be omitted if further configuration is provided)
+  # - `false`: disable automatic discovery
+  # - null: run automatic discovery if postgres.tables is null and postgres.functions is null
   auto_publish:
     # Optionally limit to just these schemas
     from_schemas:
