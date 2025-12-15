@@ -327,11 +327,11 @@ impl Config {
         #[allow(unused_variables)] idr: &IdResolver,
         #[cfg(feature = "pmtiles")] pmtiles_cache: PmtCache,
     ) -> MartinResult<(TileSources, Vec<TileSourceWarning>)> {
-        let mut sources: Vec<BoxFuture<_>> = Vec::new();
+        let mut sources_and_warnings: Vec<BoxFuture<_>> = Vec::new();
 
         #[cfg(feature = "postgres")]
         for s in self.postgres.iter_mut() {
-            sources.push(Box::pin(s.resolve(idr.clone())));
+            sources_and_warnings.push(Box::pin(s.resolve(idr.clone())));
         }
 
         #[cfg(feature = "pmtiles")]
@@ -347,14 +347,14 @@ impl Config {
                 }
             }
             let val = crate::config::file::resolve_files(cfg, idr, &["pmtiles"]);
-            sources.push(Box::pin(val));
+            sources_and_warnings.push(Box::pin(val));
         }
 
         #[cfg(feature = "mbtiles")]
         if !self.mbtiles.is_empty() {
             let cfg = &mut self.mbtiles;
             let val = crate::config::file::resolve_files(cfg, idr, &["mbtiles"]);
-            sources.push(Box::pin(val));
+            sources_and_warnings.push(Box::pin(val));
         }
 
         #[cfg(feature = "unstable-cog")]
@@ -364,12 +364,13 @@ impl Config {
             sources.push(Box::pin(val));
         }
 
-        let all_results = try_join_all(sources).await?;
-        let (tile_sources, tile_warnings): (Vec<_>, Vec<_>) = all_results.into_iter().unzip();
+        let all_results = try_join_all(sources_and_warnings).await?;
+        let (all_tile_sources, all_tile_warnings): (Vec<_>, Vec<_>) =
+            all_results.into_iter().unzip();
 
         Ok((
-            TileSources::new(tile_sources),
-            tile_warnings.into_iter().flatten().collect(),
+            TileSources::new(all_tile_sources),
+            all_tile_warnings.into_iter().flatten().collect(),
         ))
     }
 
