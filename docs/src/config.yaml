@@ -115,9 +115,11 @@ postgres:
   auto_bounds: quick
 
   # Enable automatic discovery of tables and functions. [default: null]
-  # null will attempt automatic discovery if no tables or functions are explicitly set
-  # in postgres.tables or postgres.functions.
-  # You may set this to `false` to disable.
+  # 
+  # Options are:
+  # - `true` to run automatic discovery
+  # - `false` to disable automatic discovery
+  # - `null` to run automatic discovery if postgres.tables is `null` and postgres.functions is `null`
   auto_publish:
     # Optionally limit to just these schemas
     from_schemas:
