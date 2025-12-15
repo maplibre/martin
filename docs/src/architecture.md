@@ -255,9 +255,9 @@ sequenceDiagram
 
 ## Key Design Decisions
 
-> [!NOTE]  
-> 🧠 This section provides **background and context**, not required knowledge.  
-> You don’t need to understand or remember all of this to use or contribute to Martin.  
+> [!NOTE]
+> 🧠 This section provides **background and context**, not required knowledge.
+> You don’t need to understand or remember all of this to use or contribute to Martin.
 > Read it when you’re curious *why* certain choices were made.
 
 ### Rust for Performance and Safety
