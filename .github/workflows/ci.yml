@@ -13,6 +13,9 @@ defaults:
   run:
     shell: bash
 
+permissions:
+  contents: read
+
 jobs:
   lint-unit-test-js:
     name: Lint and Unit test the frontend
@@ -21,7 +24,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
-        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with: { persist-credentials: false }
       - uses: taiki-e/install-action@763e3324d4fd026c9bd284c504378585777a87d5 # v2.62.57
         with: { tool: 'just' }
@@ -75,7 +78,7 @@ jobs:
           docker-images: true
           swap-storage: true
       - name: Checkout sources
-        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with: { persist-credentials: false }
       - name: Init database
         run: tests/fixtures/initdb.sh
@@ -103,7 +106,7 @@ jobs:
       - run: rustup update stable && rustup default stable
       - run: rustup component add clippy rustfmt
       - name: Checkout sources
-        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with: { persist-credentials: false }
       - uses: taiki-e/install-action@763e3324d4fd026c9bd284c504378585777a87d5 # v2.62.57
         # TODO: add cargo-sort once https://github.com/taiki-e/install-action/pull/997 is resolved
@@ -129,7 +132,7 @@ jobs:
     steps:
       - run: rustup update stable && rustup default stable
       - name: Checkout sources
-        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with: { persist-credentials: false }
       - uses: taiki-e/install-action@763e3324d4fd026c9bd284c504378585777a87d5 # v2.62.57
         with: { tool: cargo-zigbuild }
@@ -190,7 +193,7 @@ jobs:
 
     steps:
       - name: Checkout sources
-        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with: { persist-credentials: false }
       - name: Init database
         run: tests/fixtures/initdb.sh
@@ -402,7 +405,7 @@ jobs:
     steps:
       - run: rustup update stable && rustup default stable
       - name: Checkout sources
-        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with: { persist-credentials: false }
       # the macOS x86 runners are 3x slower than all other runners.
       # We need to cache here to not spend 30 minutes on each build.
@@ -450,7 +453,7 @@ jobs:
     needs: [ musl-build ]
     steps:
       - name: Checkout sources
-        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with: { persist-credentials: false }
       - name: Download build artifact build-x86_64-unknown-linux-musl
         uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
@@ -490,7 +493,7 @@ jobs:
             os: ubuntu-latest
     steps:
       - name: Checkout sources
-        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with: { persist-credentials: false }
       - name: Set up gdal-bin and sqlite3-tools
         if: matrix.os == 'ubuntu-latest'
@@ -667,7 +670,7 @@ jobs:
     steps:
       - run: rustup update stable && rustup default stable
       - name: Checkout sources
-        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with: { persist-credentials: false }
       # cache for the unit-test to be run against postgres to be acceptably slow
       - uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
@@ -763,7 +766,7 @@ jobs:
     steps:
       - run: rustup update stable && rustup default stable
       - name: Checkout sources
-        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with: { persist-credentials: false }
       - name: Test packaging
         run: cargo publish --workspace --dry-run
@@ -780,7 +783,7 @@ jobs:
     needs: [ lint-unit-test-js, unit-test-rust, lint-rust, test-multi-os, test-with-svc, test-aws-lambda, test-publish ]
     steps:
       - name: Checkout sources
-        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with: { persist-credentials: false }
       - name: Download build artifact build-aarch64-apple-darwin
         uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
@@ -865,7 +868,7 @@ jobs:
         with: { subject-path: 'target/files/*' }
       - name: Publish with artifacts
         if: ${{ github.event_name == 'release' && startsWith(github.event.release.tag_name, 'martin-v') }}
-        uses: softprops/action-gh-release@5be0e66d93ac7ed76da52eca8bb058f665c3a5fe # v2.4.2
+        uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2.5.0
         with:
           files: 'target/files/*'
           generate_release_notes: false
@@ -876,7 +879,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Publish without artifacts
         if: ${{ github.event_name == 'release' && !startsWith(github.event.release.tag_name, 'martin-v') }}
-        uses: softprops/action-gh-release@5be0e66d93ac7ed76da52eca8bb058f665c3a5fe # v2.4.2
+        uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2.5.0
         with:
           generate_release_notes: false
           draft: false
@@ -897,7 +900,7 @@ jobs:
         #   Access Pull requests: Read and write
       - name: Checkout maplibre/homebrew-martin
         if: github.event_name == 'release'
-        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           repository: maplibre/homebrew-martin
           token: ${{ secrets.GH_HOMEBREW_MARTIN_TOKEN }} # See instructions above
@@ -961,17 +964,17 @@ jobs:
       cancel-in-progress: false
     steps:
       - run: rustup update stable && rustup default stable
-      - uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with: { fetch-depth: 0, persist-credentials: false }
       - name: Publish to crates.io if crate's version is newer
-        uses: release-plz/action@d529f731ae3e89610ada96eda34e5c6ba3b12214 # v0.5.118
+        uses: release-plz/action@487eb7b5c085a664d5c5ca05f4159bd9b591182a # v0.5.120
         id: release
         with: { command: release }
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN }}
       - if: ${{ steps.release.outputs.releases_created == 'false' }}
         name: If version is the same, create a PR proposing new version and changelog for the next release
-        uses: release-plz/action@d529f731ae3e89610ada96eda34e5c6ba3b12214 # v0.5.118
+        uses: release-plz/action@487eb7b5c085a664d5c5ca05f4159bd9b591182a # v0.5.120
         with: { command: release-pr }
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN }}
