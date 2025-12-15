@@ -15,8 +15,8 @@ use crate::MartinResult;
 use crate::config::args::{BoundsCalcType, DEFAULT_BOUNDS_TIMEOUT};
 use crate::config::file::postgres::PostgresAutoDiscoveryBuilder;
 use crate::config::file::{
-    ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks, UnrecognizedKeys,
-    UnrecognizedValues, copy_unrecognized_keys_from_config,
+    ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks, TileSourceWarning,
+    UnrecognizedKeys, UnrecognizedValues, copy_unrecognized_keys_from_config,
 };
 
 pub trait PostgresInfo {
@@ -168,7 +168,10 @@ impl ConfigurationLivecycleHooks for PostgresCfgPublishFuncs {
 }
 
 impl PostgresConfig {
-    pub async fn resolve(&mut self, id_resolver: IdResolver) -> MartinResult<Vec<BoxedSource>> {
+    pub async fn resolve(
+        &mut self,
+        id_resolver: IdResolver,
+    ) -> MartinResult<(Vec<BoxedSource>, Vec<TileSourceWarning>)> {
         let pg = PostgresAutoDiscoveryBuilder::new(self, id_resolver).await?;
         let inst_tables = on_slow(
             pg.instantiate_tables(),
@@ -194,7 +197,7 @@ impl PostgresConfig {
         self.tables = Some(tbl_info);
         self.functions = Some(func_info);
         tables.extend(funcs);
-        Ok(tables)
+        Ok((tables, vec![]))
     }
 }
 

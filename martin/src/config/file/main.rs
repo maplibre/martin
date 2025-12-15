@@ -320,7 +320,8 @@ impl Config {
         #[allow(unused_variables)] idr: &IdResolver,
         #[cfg(feature = "pmtiles")] pmtiles_cache: PmtCache,
     ) -> MartinResult<(TileSources, Vec<TileSourceWarning>)> {
-        let mut sources: Vec<BoxFuture<MartinResult<Vec<BoxedSource>>>> = Vec::new();
+        let mut sources: Vec<BoxFuture<MartinResult<(Vec<BoxedSource>, Vec<TileSourceWarning>)>>> =
+            Vec::new();
 
         #[cfg(feature = "postgres")]
         for s in self.postgres.iter_mut() {
@@ -357,7 +358,13 @@ impl Config {
             sources.push(Box::pin(val));
         }
 
-        Ok((TileSources::new(try_join_all(sources).await?), Vec::new()))
+        let all_results = try_join_all(sources).await?;
+        let (tile_sources, tile_warnings): (Vec<_>, Vec<_>) = all_results.into_iter().unzip();
+
+        Ok((
+            TileSources::new(tile_sources),
+            tile_warnings.into_iter().flatten().collect(),
+        ))
     }
 
     pub fn save_to_file(&self, file_name: &Path) -> ConfigFileResult<()> {

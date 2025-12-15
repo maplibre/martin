@@ -16,6 +16,8 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "_tiles")]
 use url::Url;
 
+#[cfg(feature = "_tiles")]
+use crate::config::file::TileSourceWarning;
 use crate::config::file::{ConfigFileError, ConfigFileResult};
 #[cfg(feature = "_tiles")]
 use crate::{MartinError, MartinResult};
@@ -269,7 +271,7 @@ pub async fn resolve_files<T: TileSourceConfiguration>(
     config: &mut FileConfigEnum<T>,
     idr: &IdResolver,
     extension: &[&str],
-) -> MartinResult<Vec<BoxedSource>> {
+) -> MartinResult<(Vec<BoxedSource>, Vec<TileSourceWarning>)> {
     resolve_int(config, idr, extension).await
 }
 
@@ -278,9 +280,9 @@ async fn resolve_int<T: TileSourceConfiguration>(
     config: &mut FileConfigEnum<T>,
     idr: &IdResolver,
     extension: &[&str],
-) -> MartinResult<Vec<BoxedSource>> {
+) -> MartinResult<(Vec<BoxedSource>, Vec<TileSourceWarning>)> {
     let Some(cfg) = config.extract_file_config() else {
-        return Ok(Vec::new());
+        return Ok((vec![], vec![]));
     };
 
     let mut results = Vec::new();
@@ -313,7 +315,7 @@ async fn resolve_int<T: TileSourceConfiguration>(
 
     *config = FileConfigEnum::new_extended(directories, configs, cfg.custom);
 
-    Ok(results)
+    Ok((results, vec![]))
 }
 
 /// Resolves a single tile source configuration and returns a boxed source for further processing.
