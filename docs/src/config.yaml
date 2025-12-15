@@ -115,7 +115,7 @@ postgres:
   auto_bounds: quick
 
   # Enable automatic discovery of tables and functions. [default: null]
-  # 
+  #
   # Options are:
   # - `true` to run automatic discovery
   # - `false` to disable automatic discovery
