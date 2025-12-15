@@ -73,3 +73,13 @@ updates:
       default-days: 7
       include:
         - "*"
+
+  - package-ecosystem: docker
+    directory: /demo/db
+    schedule:
+      interval: daily
+
+  - package-ecosystem: docker
+    directory: /demo/frontend
+    schedule:
+      interval: daily

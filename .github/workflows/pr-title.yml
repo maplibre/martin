@@ -16,6 +16,9 @@ on:
       - reopened
       - synchronize
 
+permissions:
+  pull-requests: read
+
 jobs:
   pr-title:
     name: Validate PR title follows https://conventionalcommits.org
