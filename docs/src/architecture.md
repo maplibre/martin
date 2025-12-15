@@ -255,6 +255,11 @@ sequenceDiagram
 
 ## Key Design Decisions
 
+> [!NOTE]
+> 🧠 This section is **context, not required knowledge**.
+> You do NOT need to understand or remember all of this to use or contribute to Martin.
+> Think of it as background reading when you’re curious *why* something exists.
+
 ### 1. Rust for Performance and Safety
 
 **Rationale**: Martin is written in Rust to achieve:
