@@ -57,7 +57,8 @@ graph TB
 
 Martin's architecture is organized into four main Rust crates, each with distinct responsibilities:
 
-### 1. martin (Main Server)
+{{#tabs }}
+{{#tab name="`martin` (Main Server)" }}
 
 **Purpose**: The main tile server binary and HTTP service layer.
 
@@ -84,7 +85,8 @@ Martin's architecture is organized into four main Rust crates, each with distinc
   - `file/` - Config file parsing
 - `martin-ui/` - React-based web interface
 
-### 2. martin-core (Shared Library)
+{{#endtab }}
+{{#tab name="`martin-core` (Shared Library)" }}
 
 **Purpose**: Core abstractions and implementations for tile sources and supporting resources.
 
@@ -110,7 +112,8 @@ Martin's architecture is organized into four main Rust crates, each with distinc
   - `fonts/` - Font glyph generation
   - `styles/` - MapLibre style handling
 
-### 3. mbtiles (MBTiles Library & CLI)
+{{#endtab }}
+{{#tab name="`mbtiles` (MBTiles Library & CLI)" }}
 
 **Purpose**: MBTiles format support and manipulation tools.
 
@@ -129,7 +132,8 @@ Martin's architecture is organized into four main Rust crates, each with distinc
 - `src/bin/mbtiles.rs` - CLI tool
 - `sql/` - SQL schema and migrations
 
-### 4. martin-tile-utils (Tile Utilities)
+{{#endtab }}
+{{#tab name="`martin-tile-utils` (Tile Utilities)" }}
 
 **Purpose**: Low-level tile manipulation and conversion utilities.
 
@@ -141,9 +145,13 @@ Martin's architecture is organized into four main Rust crates, each with distinc
 - Tile format utilities
 - Bounding box calculations
 
+{{#endtab }}
+{{#endtabs }}
+
 ## Data Flow
 
-### Tile Request Flow
+{{#tabs }}
+{{#tab name="Tile Request Flow" }}
 
 ```mermaid
 sequenceDiagram
@@ -173,7 +181,8 @@ sequenceDiagram
     end
 ```
 
-### Configuration and Initialization Flow
+{{#endtab }}
+{{#tab name="Configuration and Initialization Flow" }}
 
 ```mermaid
 sequenceDiagram
@@ -204,7 +213,8 @@ sequenceDiagram
     Server->>Server: Start HTTP listener
 ```
 
-### Resource Generation Flow
+{{#endtab }}
+{{#tab name="Resource Generation Flow" }}
 
 ```mermaid
 sequenceDiagram
@@ -232,6 +242,9 @@ sequenceDiagram
     Font-->>Server: Glyph data
     Server-->>Client: PBF response
 ```
+
+{{#endtab }}
+{{#endtabs }}
 
 ## Key Design Decisions
 
@@ -327,7 +340,8 @@ This flexibility allows operators to choose the best storage format for their us
 
 ## Component Interactions
 
-### PostgreSQL Integration
+{{#tabs }}
+{{#tab name="PostgreSQL Integration" }}
 
 ```mermaid
 graph TB
@@ -355,7 +369,8 @@ graph TB
 5. Generates tile SQL queries with bbox parameters
 6. Returns results as MVT tiles
 
-### File Source Integration
+{{#endtab }}
+{{#tab name="File Source Integration" }}
 
 ```mermaid
 graph TB
@@ -389,86 +404,127 @@ graph TB
 5. Uses `object_store` crate for S3/Azure/GCP access
 6. Serves tiles directly from file format
 
+{{#endtab }}
+{{#endtabs }}
+
 ## Deployment Patterns
 
 Martin supports multiple deployment patterns:
 
-### 1. Standalone Server
+{{#tabs }}
+{{#tab name="Standalone Server" }}
+
 - Single binary with embedded WebUI
 - Direct PostgreSQL connection
 - Local file serving
 - Suitable for small to medium deployments
 
-### 2. Container Deployment
+{{#endtab }}
+{{#tab name="Container Deployment" }}
+
 - Docker image with all dependencies
 - Configuration via environment variables
 - Health check endpoints
 - Suitable for Kubernetes and container orchestrators
 
-### 3. Serverless (AWS Lambda)
+{{#endtab }}
+{{#tab name="Serverless (AWS Lambda)" }}
+
 - Lambda adapter for Actix-Web
 - Cold start optimization
 - Stateless operation
 - Suitable for sporadic traffic
 
-### 4. Behind Reverse Proxy
+{{#endtab }}
+{{#tab name="Behind Reverse Proxy" }}
+
 - NGINX or Apache fronting Martin
 - Additional caching layer
 - SSL termination
 - Load balancing across multiple Martin instances
 
+{{#endtab }}
+{{#endtabs }}
+
 ## Performance Characteristics
 
 ### Bottlenecks and Optimizations
 
-**PostgreSQL Queries**:
+{{#tabs }}
+{{#tab name="PostgreSQL Queries" }}
+
 - **Bottleneck**: Complex geometry queries on large tables
 - **Optimization**: Spatial indexes (GIST), connection pooling, query tuning
 
-**Tile Encoding**:
+{{#endtab }}
+{{#tab name="Tile Encoding" }}
+
 - **Bottleneck**: MVT encoding CPU time
 - **Optimization**: Tile caching, pre-generated MBTiles for static data
 
-**Network I/O**:
+{{#endtab }}
+{{#tab name="Network I/O" }}
+
 - **Bottleneck**: High tile request rate
 - **Optimization**: Async I/O, connection keep-alive, compression
 
-**Memory**:
+{{#endtab }}
+{{#tab name="Memory" }}
+
 - **Bottleneck**: Large tile cache size
 - **Optimization**: LRU eviction, configurable cache size, streaming responses
 
+{{#endtab }}
+{{#endtabs }}
+
 ### Scaling Strategies
 
-**Vertical Scaling**:
+{{#tabs }}
+{{#tab name="Vertical Scaling" }}
+
 - Increase CPU for faster tile generation
 - Increase memory for larger tile cache
 - Faster disk I/O for file sources
 
-**Horizontal Scaling**:
+{{#endtab }}
+{{#tab name="Horizontal Scaling" }}
+
 - Run multiple Martin instances behind load balancer
 - Each instance maintains its own cache
 - Shared PostgreSQL database with connection pooling
 - CDN for tile distribution
 
+{{#endtab }}
+{{#endtabs }}
+
 ## Security Considerations
 
-### Input Validation
+{{#tabs }}
+{{#tab name="Input Validation" }}
+
 - All tile coordinates validated (z/x/y bounds)
 - SQL injection prevention through parameterized queries
 - Path traversal prevention for file sources
 - URL parsing with strict validation
 
-### Database Access
+{{#endtab }}
+{{#tab name="Database Access" }}
+
 - Read-only database user recommended
 - Connection string security (avoid logging)
 - SSL/TLS support for PostgreSQL connections
 - Certificate validation for secure connections
 
-### Network Security
+{{#endtab }}
+{{#tab name="Network Security" }}
+
 - CORS configuration for cross-origin requests
 - Rate limiting (via reverse proxy)
 - Authentication/authorization (via reverse proxy)
 - HTTPS termination (via reverse proxy)
+
+{{#endtab }}
+{{#endtabs }}
 
 ## Extensibility Points
 
@@ -504,6 +560,9 @@ Martin doesn't include built-in auth, but supports:
 
 ## Monitoring and Observability
 
+{{#tabs }}
+{{#tab name="Metrics" }}
+
 ### Metrics
 
 Martin exposes Prometheus metrics via `/metrics`:
@@ -513,11 +572,17 @@ Martin exposes Prometheus metrics via `/metrics`:
 - Database connection pool stats
 - Error rates by type
 
+{{#endtab }}
+{{#tab name="Health Checks" }}
+
 ### Health Checks
 
 - `/health` - Basic health check (HTTP 200)
 - `/catalog` - Source availability check
 - Database connection health included in metrics
+
+{{#endtab }}
+{{#tab name="Logging" }}
 
 ### Logging
 
@@ -526,6 +591,9 @@ Martin exposes Prometheus metrics via `/metrics`:
 - Request/response logging
 - Error tracking with context
 
+{{#endtab }}
+{{#endtabs }}
+
 ## Future Architecture Considerations
 
 ### Potential Improvements
@@ -533,30 +601,11 @@ Martin exposes Prometheus metrics via `/metrics`:
 1. **Distributed Caching**: Redis/Memcached for shared cache across instances
 2. **Streaming Tile Generation**: Stream tiles as they're generated for large datasets
 3. **Background Tile Pre-generation**: Queue-based tile seeding
-4. **GraphQL API**: Alternative to REST for complex queries
-5. **WebSocket Support**: Real-time tile updates for live data
-
-### Backward Compatibility
-
-Martin maintains API compatibility:
-- TileJSON specification compliance
-- Standard MVT tile format
-- MapLibre/Mapbox GL JS compatibility
-- MBTiles spec compliance
+4. **WebSocket Support**: Real-time tile updates for live data
 
 ## Related Documentation
 
-- [Configuration File](config-file.md) - Detailed configuration options
 - [Development Guide](development.md) - Contributing to Martin
+- [Configuration File](config-file.md) - Detailed configuration options
 - [API Documentation](using.md) - HTTP API reference
 - [Sources Documentation](sources-tiles.md) - Tile source configuration
-
-## Glossary
-
-- **MVT**: Mapbox Vector Tile - Protocol Buffer format for vector tiles
-- **MBTiles**: SQLite-based archive format for tile storage
-- **PMTiles**: Cloud-optimized single-file tile archive format
-- **COG**: Cloud Optimized GeoTIFF - Tile-based GeoTIFF format
-- **PostGIS**: Spatial extension for PostgreSQL
-- **TileJSON**: JSON format describing tile sources
-- **PBF**: Protocol Buffer Format - Binary serialization format
