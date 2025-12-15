@@ -360,7 +360,7 @@ impl Config {
         if !self.cog.is_empty() {
             let cfg = &mut self.cog;
             let val = crate::config::file::resolve_files(cfg, idr, &["tif", "tiff"]);
-            sources.push(Box::pin(val));
+            sources_and_warnings.push(Box::pin(val));
         }
 
         let all_results = try_join_all(sources_and_warnings).await?;
