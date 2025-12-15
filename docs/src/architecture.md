@@ -58,7 +58,7 @@ graph TB
 Martin's architecture is organized into four main Rust crates, each with distinct responsibilities:
 
 {{#tabs }}
-{{#tab name="`martin` (Main Server)" }}
+{{#tab name="martin (Main Server)" }}
 
 **Purpose**: The main tile server binary and HTTP service layer.
 
@@ -86,7 +86,7 @@ Martin's architecture is organized into four main Rust crates, each with distinc
 - `martin-ui/` - React-based web interface
 
 {{#endtab }}
-{{#tab name="`martin-core` (Shared Library)" }}
+{{#tab name="martin-core (Shared Library)" }}
 
 **Purpose**: Core abstractions and implementations for tile sources and supporting resources.
 
@@ -113,7 +113,7 @@ Martin's architecture is organized into four main Rust crates, each with distinc
   - `styles/` - MapLibre style handling
 
 {{#endtab }}
-{{#tab name="`mbtiles` (MBTiles Library & CLI)" }}
+{{#tab name="mbtiles (MBTiles Library & CLI)" }}
 
 **Purpose**: MBTiles format support and manipulation tools.
 
@@ -133,7 +133,7 @@ Martin's architecture is organized into four main Rust crates, each with distinc
 - `sql/` - SQL schema and migrations
 
 {{#endtab }}
-{{#tab name="`martin-tile-utils` (Tile Utilities)" }}
+{{#tab name="martin-tile-utils (Tile Utilities)" }}
 
 **Purpose**: Low-level tile manipulation and conversion utilities.
 
@@ -448,8 +448,6 @@ Martin supports multiple deployment patterns:
 
 ## Performance Characteristics
 
-### Bottlenecks and Optimizations
-
 {{#tabs }}
 {{#tab name="PostgreSQL Queries" }}
 
@@ -477,8 +475,6 @@ Martin supports multiple deployment patterns:
 {{#endtab }}
 {{#endtabs }}
 
-### Scaling Strategies
-
 {{#tabs }}
 {{#tab name="Vertical Scaling" }}
 
@@ -496,8 +492,6 @@ Martin supports multiple deployment patterns:
 
 {{#endtab }}
 {{#endtabs }}
-
-## Security Considerations
 
 {{#tabs }}
 {{#tab name="Input Validation" }}
@@ -563,8 +557,6 @@ Martin doesn't include built-in auth, but supports:
 {{#tabs }}
 {{#tab name="Metrics" }}
 
-### Metrics
-
 Martin exposes Prometheus metrics via `/metrics`:
 - HTTP request counters and histograms
 - Tile generation time histograms
@@ -575,21 +567,16 @@ Martin exposes Prometheus metrics via `/metrics`:
 {{#endtab }}
 {{#tab name="Health Checks" }}
 
-### Health Checks
-
+We allow health checks via `/health` and `/catalog` endpoints:
 - `/health` - Basic health check (HTTP 200)
 - `/catalog` - Source availability check
-- Database connection health included in metrics
 
 {{#endtab }}
 {{#tab name="Logging" }}
 
-### Logging
-
-- Structured logging via `env_logger`
+- logging via `env_logger`
 - Configurable log levels
 - Request/response logging
-- Error tracking with context
 
 {{#endtab }}
 {{#endtabs }}
