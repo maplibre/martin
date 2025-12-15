@@ -255,111 +255,111 @@ sequenceDiagram
 
 ## Key Design Decisions
 
-> [!NOTE]
-> 🧠 This section is **context, not required knowledge**.
-> You do NOT need to understand or remember all of this to use or contribute to Martin.
-> Think of it as background reading when you’re curious *why* something exists.
+> [!NOTE]  
+> 🧠 This section provides **background and context**, not required knowledge.  
+> You don’t need to understand or remember all of this to use or contribute to Martin.  
+> Read it when you’re curious *why* certain choices were made.
 
 ### Rust for Performance and Safety
 
-**Rationale**: Martin is written in Rust to achieve:
+**Why Rust**: Martin is written in Rust to balance high performance with strong safety guarantees.
 
-- **Performance**: Near-C performance for CPU-intensive tile generation
-- **Memory Safety**: No null pointer dereferences or buffer overflows
-- **Concurrency**: Safe concurrent access without data races
-- **Zero-cost Abstractions**: High-level code with low-level performance
+- Near-C performance for CPU-heavy tile generation
+- Memory safety without null pointers or buffer overflows
+- Safe concurrency without data races
+- High-level abstractions that compile down to efficient code
 
 ### Actix-Web Framework
 
-**Rationale**: Actix-Web provides:
+**Why Actix-Web**: It offers a fast, production-ready async HTTP stack.
 
-- High-performance async HTTP server
-- Mature middleware ecosystem
-- Excellent streaming support for large tiles
-- Built-in compression and caching headers
-- Easy integration with Prometheus metrics
+- High-performance async request handling
+- A mature middleware ecosystem
+- Good support for streaming large responses
+- Built-in compression and cache headers
+- Straightforward Prometheus metrics integration
 
 ### Async/Await Throughout
 
-**Rationale**: Async I/O enables:
+**Why async**: Async I/O allows Martin to scale efficiently under load.
 
-- Handling thousands of concurrent connections
-- Non-blocking database queries
-- Efficient file I/O operations
-- Minimal thread overhead
+- Handles many concurrent requests
+- Avoids blocking database queries
+- Efficient file and network I/O
+- Keeps thread usage low
 
 ### Crate Separation
 
-**Rationale**: Splitting into multiple crates provides:
+**Why multiple crates**: The codebase is split into crates with clear responsibilities.
 
-- **martin-core**: Reusable as a library in other projects
-- **mbtiles**: Standalone MBTiles tooling
-- **martin**: Server-specific concerns (HTTP, config)
-- **martin-tile-utils**: Shared low-level utilities
+- **martin-core** — reusable core logic and tile sources
+- **mbtiles** — standalone MBTiles tooling
+- **martin** — HTTP server, configuration, and runtime wiring
+- **martin-tile-utils** — shared low-level tile utilities
 
-This enables:
-
-- Using Martin as a library (embedding in other Rust projects)
-- Using MBTiles tools independently
-- Clear API boundaries and versioning
+This makes it easier to:
+- Embed Martin as a library in other Rust projects
+- Use MBTiles tools independently
+- Maintain clear API boundaries and versioning
 
 ### PostgreSQL Connection Pooling
 
-**Rationale**: Using `deadpool-postgres`:
+**Why connection pooling**: Martin uses `deadpool-postgres` to manage database access efficiently.
 
-- Maintains a pool of persistent database connections
-- Avoids connection overhead per request
-- Configurable pool size for scaling
-- Automatic connection health checking
+- Reuses persistent connections
+- Avoids connection setup cost per request
+- Configurable pool sizes for different workloads
+- Automatic health checking of connections
 
 ### In-Memory Tile Caching
 
-**Rationale**: Using `moka` cache provides:
+**Why caching**: Tiles and resources are cached in memory using `moka`.
 
-- Fast LRU cache with TTL support
-- Automatic eviction of least-used tiles
-- Configurable memory limits (default 512MB)
-- Thread-safe concurrent access
-- Significant performance improvement for repeated tile requests
+- Fast LRU cache with optional TTLs
+- Automatic eviction of least-used entries
+- Configurable memory limits (default: 512 MB)
+- Thread-safe access
+- Big performance wins for repeated requests
 
 ### Automatic Source Discovery
 
-**Rationale**: Martin automatically discovers:
+**Why auto-discovery**: Martin tries to work out of the box with minimal configuration.
 
+It can automatically detect:
 - PostgreSQL tables with geometry columns
-- PostgreSQL functions returning MVT
-- MBTiles/PMTiles files in directories
+- PostgreSQL functions that return MVT
+- MBTiles and PMTiles files in configured directories
 
-This reduces configuration burden and enables zero-config operation for common scenarios.
+This keeps common setups close to zero-config.
 
 ### Multi-Protocol Tile Support
 
-**Rationale**: Supporting multiple source types enables:
+**Why multiple formats**: Different workloads benefit from different storage models.
 
-- **PostgreSQL**: Dynamic tiles from live data
-- **MBTiles**: Pre-generated tile archives
-- **PMTiles**: Cloud-native single-file archives
-- **COG**: Direct serving from GeoTIFF files
+- **PostgreSQL** — dynamic tiles from live data
+- **MBTiles** — pre-generated tile archives
+- **PMTiles** — cloud-friendly single-file archives
+- **COG** — direct serving from GeoTIFFs
 
-This flexibility allows operators to choose the best storage format for their use case.
+This lets operators pick the best format for their use case.
 
 ### On-the-Fly Resource Generation
 
-**Rationale**: Generating sprites, fonts, and styles dynamically:
+**Why generate resources dynamically**: Sprites, fonts, and styles are created on demand.
 
-- Eliminates need for pre-processing
-- Simplifies deployment (just provide source files)
-- Enables customization through URL parameters
-- Reduces storage requirements
+- No pre-processing step required
+- Simpler deployments (just provide source files)
+- URL-based customization
+- Less storage overhead
 
 ### Modular Configuration
 
-**Rationale**: Supporting CLI args, env vars, and config files:
+**Why layered configuration**: Martin supports multiple configuration sources.
 
-- CLI args for quick testing and overrides
+- CLI flags for quick testing and overrides
 - Environment variables for containerized deployments
-- Config files for complex multi-source setups
-- Layered configuration with clear precedence
+- Config files for larger or more complex setups
+- Clear precedence between configuration layers
 
 ## Component Interactions
 
@@ -609,15 +609,6 @@ We allow health checks via `/health` and `/catalog` endpoints:
 
 {{#endtab }}
 {{#endtabs }}
-
-## Future Architecture Considerations
-
-### Potential Improvements
-
-1. **Distributed Caching**: Redis/Memcached for shared cache across instances
-2. **Streaming Tile Generation**: Stream tiles as they're generated for large datasets
-3. **Background Tile Pre-generation**: Queue-based tile seeding
-4. **WebSocket Support**: Real-time tile updates for live data
 
 ## Related Documentation
 
