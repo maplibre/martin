@@ -260,7 +260,7 @@ sequenceDiagram
 > You do NOT need to understand or remember all of this to use or contribute to Martin.
 > Think of it as background reading when you’re curious *why* something exists.
 
-### 1. Rust for Performance and Safety
+### Rust for Performance and Safety
 
 **Rationale**: Martin is written in Rust to achieve:
 
@@ -269,7 +269,7 @@ sequenceDiagram
 - **Concurrency**: Safe concurrent access without data races
 - **Zero-cost Abstractions**: High-level code with low-level performance
 
-### 2. Actix-Web Framework
+### Actix-Web Framework
 
 **Rationale**: Actix-Web provides:
 
@@ -279,7 +279,7 @@ sequenceDiagram
 - Built-in compression and caching headers
 - Easy integration with Prometheus metrics
 
-### 3. Async/Await Throughout
+### Async/Await Throughout
 
 **Rationale**: Async I/O enables:
 
@@ -288,7 +288,7 @@ sequenceDiagram
 - Efficient file I/O operations
 - Minimal thread overhead
 
-### 4. Crate Separation
+### Crate Separation
 
 **Rationale**: Splitting into multiple crates provides:
 
@@ -303,7 +303,7 @@ This enables:
 - Using MBTiles tools independently
 - Clear API boundaries and versioning
 
-### 5. PostgreSQL Connection Pooling
+### PostgreSQL Connection Pooling
 
 **Rationale**: Using `deadpool-postgres`:
 
@@ -312,7 +312,7 @@ This enables:
 - Configurable pool size for scaling
 - Automatic connection health checking
 
-### 6. In-Memory Tile Caching
+### In-Memory Tile Caching
 
 **Rationale**: Using `moka` cache provides:
 
@@ -322,7 +322,7 @@ This enables:
 - Thread-safe concurrent access
 - Significant performance improvement for repeated tile requests
 
-### 7. Automatic Source Discovery
+### Automatic Source Discovery
 
 **Rationale**: Martin automatically discovers:
 
@@ -332,7 +332,7 @@ This enables:
 
 This reduces configuration burden and enables zero-config operation for common scenarios.
 
-### 8. Multi-Protocol Tile Support
+### Multi-Protocol Tile Support
 
 **Rationale**: Supporting multiple source types enables:
 
@@ -343,7 +343,7 @@ This reduces configuration burden and enables zero-config operation for common s
 
 This flexibility allows operators to choose the best storage format for their use case.
 
-### 9. On-the-Fly Resource Generation
+### On-the-Fly Resource Generation
 
 **Rationale**: Generating sprites, fonts, and styles dynamically:
 
@@ -352,7 +352,7 @@ This flexibility allows operators to choose the best storage format for their us
 - Enables customization through URL parameters
 - Reduces storage requirements
 
-### 10. Modular Configuration
+### Modular Configuration
 
 **Rationale**: Supporting CLI args, env vars, and config files:
 
