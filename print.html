@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-988547a6.js";
+            window.path_to_searchindex_js = "searchindex-2d68c800.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-d7ad18cc.js"></script>
@@ -348,7 +348,7 @@ docker run -p 3000:3000 \
            -e PGPASSWORD \
            -e DATABASE_URL=postgres://user@host:port/db \
            -v /path/to/config/dir:/config \
-           ghcr.io/maplibre/martin:1.0.0 \
+           ghcr.io/maplibre/martin:1.1.0 \
            --config /config/config.yaml
 </code></pre>
 <h3 id="from-binary-distributions-manually"><a class="header" href="#from-binary-distributions-manually">From Binary Distributions Manually</a></h3>
@@ -533,14 +533,14 @@ See also <a href="#postgresql-ssl-connections">SSL configuration</a> section bel
 <pre><code class="language-bash">docker run \
   -p 3000:3000 \
   -e DATABASE_URL=postgres://postgres@postgres.example.org/db \
-  ghcr.io/maplibre/martin:1.0.0
+  ghcr.io/maplibre/martin:1.1.0
 </code></pre>
 <h3 id="exposing-local-files"><a class="header" href="#exposing-local-files">Exposing Local Files</a></h3>
 <p>You can expose local files to the Docker container using the <code>-v</code> flag.</p>
 <pre><code class="language-bash">docker run \
   -p 3000:3000 \
   -v /path/to/local/files:/files \
-  ghcr.io/maplibre/martin:1.0.0 \
+  ghcr.io/maplibre/martin:1.1.0 \
   /files
 </code></pre>
 <h3 id="accessing-local-postgresql-on-linux"><a class="header" href="#accessing-local-postgresql-on-linux">Accessing Local PostgreSQL on Linux</a></h3>
@@ -551,21 +551,21 @@ with <code>-p</code> because the container is already using the host network.</p
 <pre><code class="language-bash">docker run \
   --net=host \
   -e DATABASE_URL=postgres://postgres@localhost/db \
-  ghcr.io/maplibre/martin:1.0.0
+  ghcr.io/maplibre/martin:1.1.0
 </code></pre>
 <h3 id="accessing-local-postgresql-on-macos"><a class="header" href="#accessing-local-postgresql-on-macos">Accessing Local PostgreSQL on macOS</a></h3>
 <p>For macOS, use <code>host.docker.internal</code> as hostname to access the <code>localhost</code> PostgreSQL service.</p>
 <pre><code class="language-bash">docker run \
   -p 3000:3000 \
   -e DATABASE_URL=postgres://postgres@host.docker.internal/db \
-  ghcr.io/maplibre/martin:1.0.0
+  ghcr.io/maplibre/martin:1.1.0
 </code></pre>
 <h3 id="accessing-local-postgresql-on-windows"><a class="header" href="#accessing-local-postgresql-on-windows">Accessing Local PostgreSQL on Windows</a></h3>
 <p>For Windows, use <code>docker.for.win.localhost</code> as hostname to access the <code>localhost</code> PostgreSQL service.</p>
 <pre><code class="language-bash">docker run \
   -p 3000:3000 \
   -e DATABASE_URL=postgres://postgres@docker.for.win.localhost/db \
-  ghcr.io/maplibre/martin:1.0.0
+  ghcr.io/maplibre/martin:1.1.0
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="docker-compose"><a href="#docker-compose" class="header">Docker Compose</a></h1>
@@ -574,7 +574,7 @@ with <code>-p</code> because the container is already using the host network.</p
 file as a reference</p>
 <pre><code class="language-yml">services:
   martin:
-    image: ghcr.io/maplibre/martin:1.0.0
+    image: ghcr.io/maplibre/martin:1.1.0
     restart: unless-stopped
     ports:
       - "3000:3000"
@@ -610,13 +610,13 @@ file as a reference</p>
 <p>Everything can be performed via AWS CloudShell, or you can install the AWS CLI and the AWS SAM CLI, and configure authentication. The CloudShell also runs in a particular AWS region.</p>
 <h3 id="container-deployment"><a class="header" href="#container-deployment">Container deployment</a></h3>
 <p>Lambda images must come from a public or private ECR registry. Pull the image from GHCR and push it to ECR.</p>
-<pre><code class="language-bash">$ docker pull ghcr.io/maplibre/martin:1.0.0 --platform linux/arm64
+<pre><code class="language-bash">$ docker pull ghcr.io/maplibre/martin:1.1.0 --platform linux/arm64
 $ aws ecr create-repository --repository-name martin
 […]
         "repositoryUri": "493749042871.dkr.ecr.us-east-2.amazonaws.com/martin",
 
 # Read the repositoryUri which includes your account number
-$ docker tag ghcr.io/maplibre/martin:1.0.0 493749042871.dkr.ecr.us-east-2.amazonaws.com/martin:latest
+$ docker tag ghcr.io/maplibre/martin:1.1.0 493749042871.dkr.ecr.us-east-2.amazonaws.com/martin:latest
 $ aws ecr get-login-password --region us-east-2 \
   | docker login --username AWS --password-stdin 493749042871.dkr.ecr.us-east-2.amazonaws.com
 $ docker push 493749042871.dkr.ecr.us-east-2.amazonaws.com/martin:latest
