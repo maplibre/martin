@@ -13,6 +13,9 @@ defaults:
   run:
     shell: bash
 
+permissions:
+  contents: read
+
 jobs:
   lint-unit-test-js:
     name: Lint and Unit test the frontend

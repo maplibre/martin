@@ -73,3 +73,23 @@ updates:
       default-days: 7
       include:
         - "*"
+
+  - package-ecosystem: docker
+    directory: /demo/db
+    schedule:
+      interval: daily
+
+  - package-ecosystem: docker
+    directory: /demo/frontend
+    schedule:
+      interval: daily
+
+  - package-ecosystem: npm
+    directory: /demo/frontend
+    schedule:
+      interval: daily
+
+  - package-ecosystem: npm
+    directory: /martin/martin-ui
+    schedule:
+      interval: daily
