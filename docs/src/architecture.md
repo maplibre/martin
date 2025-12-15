@@ -28,7 +28,7 @@ graph TB
         end
         
         Catalog[Tile Catalog<br/>Source Registry]
-        Cache[Tile Cache<br/>Moka]
+        Cache[Tile/Resources Cache<br/>Moka]
     end
     
     subgraph Storage["Data Storage"]
@@ -50,7 +50,7 @@ graph TB
     COG --> Files
     COG --> S3
     
-    Cache -.->|Cached Tiles| Client
+    Cache -.->|Cached Tiles/Resources| Client
 ```
 
 ## Core Components
