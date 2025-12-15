@@ -9,47 +9,47 @@ Martin is a blazing fast tile server written in Rust that generates and serves v
 ```mermaid
 graph TB
     Client[Map Client<br/>MapLibre, Leaflet, etc.]
-    
+
     subgraph Martin["Martin Tile Server"]
         CLI[CLI Entry Point<br/>martin binary]
         Server[HTTP Server<br/>Actix-Web]
-        
+
         subgraph Sources["Tile Sources"]
             PG[PostgreSQL<br/>Tables & Functions]
             MBT[MBTiles Files]
             PMT[PMTiles Files<br/>Local & Remote]
             COG[Cloud Optimized<br/>GeoTIFF]
         end
-        
+
         subgraph Resources["Supporting Resources"]
             Sprites[Sprite Generation<br/>SVG to PNG]
             Fonts[Font Glyphs<br/>PBF Format]
             Styles[MapLibre Styles<br/>JSON]
         end
-        
+
         Catalog[Tile Catalog<br/>Source Registry]
         Cache[Tile/Resources Cache<br/>Moka]
     end
-    
+
     subgraph Storage["Data Storage"]
         DB[(PostgreSQL<br/>PostGIS)]
         Files[File System<br/>MBTiles/PMTiles]
         S3[Object Storage<br/>S3/Azure/GCP]
     end
-    
+
     Client -->|HTTP Requests| Server
     Server --> Catalog
     Catalog --> Sources
     Server --> Resources
     Server --> Cache
-    
+
     PG --> DB
     MBT --> Files
     PMT --> Files
     PMT --> S3
     COG --> Files
     COG --> S3
-    
+
     Cache -.->|Cached Tiles/Resources| Client
 ```
 
@@ -158,7 +158,7 @@ sequenceDiagram
     Server->>Catalog: Resolve source_id
     Catalog-->>Server: Source reference
     Server->>Cache: Check cache
-    
+
     alt Tile in cache
         Cache-->>Server: Cached tile
         Server-->>Client: 200 OK (tile data)
@@ -185,20 +185,20 @@ sequenceDiagram
 
     CLI->>Config: Parse args & config file
     Config->>Discovery: Initialize sources
-    
+
     alt PostgreSQL Source
         Discovery->>Discovery: Connect to database
         Discovery->>Discovery: Query tables & functions
         Discovery->>Sources: Register table sources
         Discovery->>Sources: Register function sources
     end
-    
+
     alt File Sources
         Discovery->>Discovery: Scan MBTiles files
         Discovery->>Discovery: Scan PMTiles files
         Discovery->>Sources: Register file sources
     end
-    
+
     Sources-->>Server: Source catalog
     Server->>Server: Setup routes
     Server->>Server: Start HTTP listener
@@ -333,13 +333,13 @@ This flexibility allows operators to choose the best storage format for their us
 graph TB
     Martin[Martin Server]
     Pool[Connection Pool<br/>deadpool-postgres]
-    
+
     subgraph PostgreSQL
         Tables[Tables with<br/>Geometry Columns]
         Functions[MVT Functions]
         PostGIS[PostGIS Extension]
     end
-    
+
     Martin --> Pool
     Pool --> Tables
     Pool --> Functions
@@ -360,19 +360,19 @@ graph TB
 ```mermaid
 graph TB
     Martin[Martin Server]
-    
+
     subgraph "Local Files"
         MBT[MBTiles<br/>SQLite]
         PMT[PMTiles<br/>Binary Format]
         COG[GeoTIFF<br/>Cloud Optimized]
     end
-    
+
     subgraph "Remote Files"
         S3MBT[S3/Azure/GCP<br/>MBTiles]
         S3PMT[S3/Azure/GCP<br/>PMTiles]
         S3COG[S3/Azure/GCP<br/>GeoTIFF]
     end
-    
+
     Martin --> MBT
     Martin --> PMT
     Martin --> COG
