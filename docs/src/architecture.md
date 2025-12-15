@@ -65,6 +65,7 @@ Martin's architecture is organized into four main Rust crates, each with distinc
 **Location**: `/martin`
 
 **Key Responsibilities**:
+
 - HTTP server using Actix-Web framework
 - Request routing and endpoint handling
 - Configuration parsing (CLI args, env vars, config files)
@@ -72,6 +73,7 @@ Martin's architecture is organized into four main Rust crates, each with distinc
 - Serving the Web UI for tile inspection
 
 **Main Modules**:
+
 - `src/bin/martin.rs` - Server entry point
 - `src/bin/martin-cp.rs` - Bulk tile copying tool
 - `src/srv/` - HTTP service handlers
@@ -93,6 +95,7 @@ Martin's architecture is organized into four main Rust crates, each with distinc
 **Location**: `/martin-core`
 
 **Key Responsibilities**:
+
 - Abstract tile source traits and implementations
 - PostgreSQL connection pooling and query execution
 - MBTiles and PMTiles reading
@@ -101,6 +104,7 @@ Martin's architecture is organized into four main Rust crates, each with distinc
 - Tile format handling (MVT protocol buffers)
 
 **Main Modules**:
+
 - `src/tiles/` - Tile source implementations
   - `postgres/` - PostGIS table and function sources
   - `mbtiles/` - MBTiles file source
@@ -120,6 +124,7 @@ Martin's architecture is organized into four main Rust crates, each with distinc
 **Location**: `/mbtiles`
 
 **Key Responsibilities**:
+
 - SQLite-based MBTiles reading and writing
 - Metadata management
 - Tile compression (gzip, brotli)
@@ -128,6 +133,7 @@ Martin's architecture is organized into four main Rust crates, each with distinc
 - Schema management
 
 **Main Modules**:
+
 - `src/lib.rs` - Core MBTiles library
 - `src/bin/mbtiles.rs` - CLI tool
 - `sql/` - SQL schema and migrations
@@ -140,6 +146,7 @@ Martin's architecture is organized into four main Rust crates, each with distinc
 **Location**: `/martin-tile-utils`
 
 **Key Responsibilities**:
+
 - Tile coordinate system conversions
 - Tile encoding/decoding
 - Tile format utilities
@@ -251,6 +258,7 @@ sequenceDiagram
 ### 1. Rust for Performance and Safety
 
 **Rationale**: Martin is written in Rust to achieve:
+
 - **Performance**: Near-C performance for CPU-intensive tile generation
 - **Memory Safety**: No null pointer dereferences or buffer overflows
 - **Concurrency**: Safe concurrent access without data races
@@ -259,6 +267,7 @@ sequenceDiagram
 ### 2. Actix-Web Framework
 
 **Rationale**: Actix-Web provides:
+
 - High-performance async HTTP server
 - Mature middleware ecosystem
 - Excellent streaming support for large tiles
@@ -268,6 +277,7 @@ sequenceDiagram
 ### 3. Async/Await Throughout
 
 **Rationale**: Async I/O enables:
+
 - Handling thousands of concurrent connections
 - Non-blocking database queries
 - Efficient file I/O operations
@@ -276,12 +286,14 @@ sequenceDiagram
 ### 4. Crate Separation
 
 **Rationale**: Splitting into multiple crates provides:
+
 - **martin-core**: Reusable as a library in other projects
 - **mbtiles**: Standalone MBTiles tooling
 - **martin**: Server-specific concerns (HTTP, config)
 - **martin-tile-utils**: Shared low-level utilities
 
 This enables:
+
 - Using Martin as a library (embedding in other Rust projects)
 - Using MBTiles tools independently
 - Clear API boundaries and versioning
@@ -289,6 +301,7 @@ This enables:
 ### 5. PostgreSQL Connection Pooling
 
 **Rationale**: Using `deadpool-postgres`:
+
 - Maintains a pool of persistent database connections
 - Avoids connection overhead per request
 - Configurable pool size for scaling
@@ -297,6 +310,7 @@ This enables:
 ### 6. In-Memory Tile Caching
 
 **Rationale**: Using `moka` cache provides:
+
 - Fast LRU cache with TTL support
 - Automatic eviction of least-used tiles
 - Configurable memory limits (default 512MB)
@@ -306,6 +320,7 @@ This enables:
 ### 7. Automatic Source Discovery
 
 **Rationale**: Martin automatically discovers:
+
 - PostgreSQL tables with geometry columns
 - PostgreSQL functions returning MVT
 - MBTiles/PMTiles files in directories
@@ -315,6 +330,7 @@ This reduces configuration burden and enables zero-config operation for common s
 ### 8. Multi-Protocol Tile Support
 
 **Rationale**: Supporting multiple source types enables:
+
 - **PostgreSQL**: Dynamic tiles from live data
 - **MBTiles**: Pre-generated tile archives
 - **PMTiles**: Cloud-native single-file archives
@@ -325,6 +341,7 @@ This flexibility allows operators to choose the best storage format for their us
 ### 9. On-the-Fly Resource Generation
 
 **Rationale**: Generating sprites, fonts, and styles dynamically:
+
 - Eliminates need for pre-processing
 - Simplifies deployment (just provide source files)
 - Enables customization through URL parameters
@@ -333,6 +350,7 @@ This flexibility allows operators to choose the best storage format for their us
 ### 10. Modular Configuration
 
 **Rationale**: Supporting CLI args, env vars, and config files:
+
 - CLI args for quick testing and overrides
 - Environment variables for containerized deployments
 - Config files for complex multi-source setups
@@ -362,6 +380,7 @@ graph TB
 ```
 
 **How it works**:
+
 1. Martin connects to PostgreSQL using connection string
 2. Queries `geometry_columns` view to discover tables
 3. Queries `pg_proc` to discover MVT-returning functions
@@ -397,6 +416,7 @@ graph TB
 ```
 
 **How it works**:
+
 1. Martin scans configured directories for tile files
 2. Opens MBTiles with SQLite (using `sqlx`)
 3. Opens PMTiles with custom parser (HTTP range requests for remote)
@@ -532,6 +552,7 @@ To add a new tile source type:
 4. Add integration tests
 
 Example source types that could be added:
+
 - Direct GeoJSON file serving
 - Vector tile rendering from raster data
 - Integration with other spatial databases
@@ -548,6 +569,7 @@ To add new resource endpoints:
 ### Custom Authentication/Authorization
 
 Martin doesn't include built-in auth, but supports:
+
 - Reverse proxy authentication (recommended)
 - Custom Actix-Web middleware
 - Token-based access control via proxy
@@ -558,6 +580,7 @@ Martin doesn't include built-in auth, but supports:
 {{#tab name="Metrics" }}
 
 Martin exposes Prometheus metrics via `/metrics`:
+
 - HTTP request counters and histograms
 - Tile generation time histograms
 - Cache hit/miss rates
@@ -568,6 +591,7 @@ Martin exposes Prometheus metrics via `/metrics`:
 {{#tab name="Health Checks" }}
 
 We allow health checks via `/health` and `/catalog` endpoints:
+
 - `/health` - Basic health check (HTTP 200)
 - `/catalog` - Source availability check
 
