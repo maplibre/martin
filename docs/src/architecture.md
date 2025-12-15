@@ -553,7 +553,7 @@ Martin maintains API compatibility:
 
 ## Glossary
 
-- **MVT**: Mapbox Vector Tile - Protocol buffer format for vector tiles
+- **MVT**: Mapbox Vector Tile - Protocol Buffer format for vector tiles
 - **MBTiles**: SQLite-based archive format for tile storage
 - **PMTiles**: Cloud-optimized single-file tile archive format
 - **COG**: Cloud Optimized GeoTIFF - Tile-based GeoTIFF format
