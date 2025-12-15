@@ -11,7 +11,9 @@ pub fn normalize_key<T>(
     info: &str,
     id: &str,
 ) -> Option<String> {
-    find_info_kv(map, key, info, id).map(|(k, _)| k.to_string())
+    find_info_kv(map, key, info, id)
+        .map(|(k, _)| k.to_string())
+        .ok()
 }
 
 #[must_use]
@@ -20,7 +22,7 @@ pub fn find_info<'a, T>(
     key: &'a str,
     info: &str,
     id: &str,
-) -> Option<&'a T> {
+) -> Result<&'a T, String> {
     find_info_kv(map, key, info, id).map(|(_, v)| v)
 }
 
@@ -30,30 +32,23 @@ fn find_info_kv<'a, T>(
     key: &'a str,
     info: &str,
     id: &str,
-) -> Option<(&'a str, &'a T)> {
+) -> Result<(&'a str, &'a T), String> {
     if let Some(v) = map.get(key) {
-        return Some((key, v));
+        return Ok((key, v));
     }
 
     match find_kv_ignore_case(map, key) {
-        Ok(None) => {
-            warn!(
-                "Unable to configure source {id} because {info} '{key}' was not found.  Possible values are: {}",
-                map.keys().map(String::as_str).join(", ")
-            );
-            None
-        }
-        Ok(Some(result)) => {
-            info!("For source {id}, {info} '{key}' was not found, but found '{result}' instead.");
-            Some((result.as_str(), map.get(result)?))
-        }
-        Err(multiple) => {
-            error!(
-                "Unable to configure source {id} because {info} '{key}' has no exact match and more than one potential matches: {}",
-                multiple.join(", ")
-            );
-            None
-        }
+        Ok(None) => Err(format!(
+            "Unable to configure source {id} because {info} '{key}' was not found.  Possible values are: {}",
+            map.keys().map(String::as_str).join(", ")
+        )),
+        Ok(Some(result)) => map.get(result).map(|v| (result.as_str(), v)).ok_or(format!(
+            "For source {id}, {info} '{key}' was not found, but found '{result}' instead."
+        )),
+        Err(multiple) => Err(format!(
+            "Unable to configure source {id} because {info} '{key}' has no exact match and more than one potential matches: {}",
+            multiple.join(", ")
+        )),
     }
 }
 
