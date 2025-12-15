@@ -21,7 +21,7 @@ use crate::config::file::postgres::{
     FuncInfoSources, POOL_SIZE_DEFAULT, PostgresCfgPublish, PostgresCfgPublishFuncs,
     PostgresConfig, PostgresInfo, TableInfo, TableInfoSources,
 };
-use crate::config::file::{ConfigFileError, ConfigFileResult};
+use crate::config::file::{ConfigFileError, ConfigFileResult, TileSourceWarning};
 
 /// Builder for [`PostgresSource`]' auto-discovery of functions and tables.
 #[derive(Debug)]
@@ -131,7 +131,9 @@ impl PostgresAutoDiscoveryBuilder {
 
     /// Discovers and instantiates table-based tile sources.
     #[expect(clippy::too_many_lines)]
-    pub async fn instantiate_tables(&self) -> PostgresResult<(Vec<BoxedSource>, TableInfoSources)> {
+    pub async fn instantiate_tables(
+        &self,
+    ) -> PostgresResult<(Vec<BoxedSource>, TableInfoSources, Vec<TileSourceWarning>)> {
         // FIXME: this function has gotten too long due to the new formatting rules, need to be refactored
 
         let restrict_to_tables = if self.auto_tables.is_none() {
@@ -141,6 +143,7 @@ impl PostgresAutoDiscoveryBuilder {
         };
 
         let mut db_tables_info = query_available_tables(&self.pool, restrict_to_tables).await?;
+        let warnings = Vec::new();
 
         // Match configured sources with the discovered ones and add them to the pending list.
         let mut used = HashSet::<(&str, &str, &str)>::new();
@@ -249,14 +252,15 @@ impl PostgresAutoDiscoveryBuilder {
             }
         }
 
-        Ok((res, info_map))
+        Ok((res, info_map, warnings))
     }
 
     /// Discovers and instantiates function-based tile sources.
     pub async fn instantiate_functions(
         &self,
-    ) -> PostgresResult<(Vec<BoxedSource>, FuncInfoSources)> {
+    ) -> PostgresResult<(Vec<BoxedSource>, FuncInfoSources, Vec<TileSourceWarning>)> {
         let mut db_funcs_info = query_available_function(&self.pool).await?;
+        let warnings = Vec::new();
         let mut res = Vec::new();
         let mut info_map = FuncInfoSources::new();
         let mut used = HashSet::<(&str, &str)>::new();
@@ -323,7 +327,7 @@ impl PostgresAutoDiscoveryBuilder {
                 }
             }
         }
-        Ok((res, info_map))
+        Ok((res, info_map, warnings))
     }
 
     fn resolve_id<T: PostgresInfo>(&self, id: &str, src_inf: &T) -> String {

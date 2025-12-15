@@ -191,13 +191,14 @@ impl PostgresConfig {
                 }
             },
         );
-        let ((mut tables, tbl_info), (funcs, func_info)) =
+        let ((mut tables, tbl_info, mut tbl_warnings), (funcs, func_info, func_warnings)) =
             try_join(inst_tables, pg.instantiate_functions()).await?;
 
         self.tables = Some(tbl_info);
         self.functions = Some(func_info);
         tables.extend(funcs);
-        Ok((tables, vec![]))
+        tbl_warnings.extend(func_warnings);
+        Ok((tables, tbl_warnings))
     }
 }
 
