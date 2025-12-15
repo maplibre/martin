@@ -43,14 +43,11 @@ use crate::{MartinError, MartinResult};
 /// Warnings that can occur during tile source resolution
 #[derive(thiserror::Error, Debug)]
 pub enum TileSourceWarning {
-    #[error("{source_id}: {error}")]
-    SourceError {
-        source_id: String,
-        error: MartinError,
-    },
+    #[error("Source {source_id}: {error}")]
+    SourceError { source_id: String, error: String },
 
-    #[error("{path}: {error}")]
-    PathError { path: String, error: MartinError },
+    #[error("Path {path}: {error}")]
+    PathError { path: String, error: String },
 }
 
 pub struct ServerState {
