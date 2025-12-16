@@ -7,7 +7,7 @@ use std::sync::LazyLock;
 use clap::ValueEnum;
 #[cfg(feature = "_tiles")]
 use futures::future::{BoxFuture, try_join_all};
-use log::{info, warn};
+use log::{Level, info, log, warn};
 #[cfg(feature = "_tiles")]
 use martin_core::config::IdResolver;
 #[cfg(feature = "postgres")]
@@ -393,15 +393,17 @@ impl Config {
     }
 }
 
+/// Describes the action to take during startup when configuration is found to be invalid
+/// but Martin could still startup in a degraded state (ie, some sources not served).
 #[derive(PartialEq, Eq, Debug, Clone, Copy, Default, Serialize, Deserialize, ValueEnum)]
 #[serde(rename_all = "lowercase")]
 pub enum OnInvalid {
-    /// Print warning message, and abort if the error is critical
+    /// Log warning messages, abort if the error is critical
     #[default]
     Warn,
-    /// Abort startup if any warnings
+    /// Log warnings as errors, abort startup
     Abort,
-    /// Ignore all warnings
+    /// Log warnings as debug, abort if the error is critical
     Ignore,
 }
 
@@ -411,15 +413,24 @@ impl OnInvalid {
         if warnings.is_empty() {
             return Ok(());
         }
+        let level = match policy {
+            OnInvalid::Warn => Level::Warn,
+            OnInvalid::Abort => Level::Error,
+            OnInvalid::Ignore => Level::Debug,
+        };
+        if warnings.len() == 1 {
+            let warning = &warnings[0];
+            log!(level, "Tile source resolution warning: {warning}");
+        } else {
+            log!(level, "Tile source resolution warnings:");
+            for warning in warnings {
+                log!(level, "  - {warning}");
+            }
+        }
+
         match policy {
             OnInvalid::Abort => Err(MartinError::TileResolutionWarningsIssued),
-            OnInvalid::Warn => {
-                warn!("Tile source resolution warnings:");
-                for warning in warnings {
-                    warn!("  - {warning}");
-                }
-                Ok(())
-            }
+            OnInvalid::Warn => Ok(()),
             OnInvalid::Ignore => Ok(()),
         }
     }
