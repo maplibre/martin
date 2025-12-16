@@ -153,7 +153,15 @@ impl PostgresAutoDiscoveryBuilder {
                 ));
             }
 
-            let Ok(merged_inf) = self.instantiate_one_table(&db_tables_info, id, cfg_inf) else {
+            let one_result = self.instantiate_one_table(&db_tables_info, id, cfg_inf);
+            if one_result.is_err() {
+                warn!(
+                    "Failed to instantiate table {id}: {}",
+                    one_result.err().unwrap()
+                );
+                continue;
+            }
+            let Ok(merged_inf) = one_result else {
                 continue;
             };
 
@@ -306,7 +314,7 @@ impl PostgresAutoDiscoveryBuilder {
             String,
             std::collections::BTreeMap<String, std::collections::BTreeMap<String, TableInfo>>,
         >,
-        id: &str,
+        id: &String,
         cfg_inf: &TableInfo,
     ) -> Result<TableInfo, String> {
         let db_tables = find_info(db_tables_info, &cfg_inf.schema, "schema", id)?;
@@ -317,9 +325,8 @@ impl PostgresAutoDiscoveryBuilder {
             "geometry column",
             id,
         )?;
-        let id2 = self.resolve_id(id, cfg_inf);
         let merged_inf = db_inf
-            .append_cfg_info(cfg_inf, &id2, self.default_srid)
+            .append_cfg_info(cfg_inf, id, self.default_srid)
             .ok_or_else(|| format!("Failed to merge config info for table {id}"))?;
         Ok(merged_inf)
     }
