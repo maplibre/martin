@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use itertools::Itertools;
-use log::{error, info, warn};
+use log::error;
 use tilejson::TileJSON;
 
 #[must_use]
@@ -16,7 +16,6 @@ pub fn normalize_key<T>(
         .ok()
 }
 
-#[must_use]
 pub fn find_info<'a, T>(
     map: &'a BTreeMap<String, T>,
     key: &'a str,
@@ -26,7 +25,6 @@ pub fn find_info<'a, T>(
     find_info_kv(map, key, info, id).map(|(_, v)| v)
 }
 
-#[must_use]
 fn find_info_kv<'a, T>(
     map: &'a BTreeMap<String, T>,
     key: &'a str,

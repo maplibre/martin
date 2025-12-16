@@ -130,7 +130,6 @@ impl PostgresAutoDiscoveryBuilder {
     }
 
     /// Discovers and instantiates table-based tile sources.
-    #[expect(clippy::too_many_lines)]
     pub async fn instantiate_tables(&self) -> PostgresResult<(Vec<BoxedSource>, TableInfoSources)> {
         // FIXME: this function has gotten too long due to the new formatting rules, need to be refactored
 
@@ -249,7 +248,7 @@ impl PostgresAutoDiscoveryBuilder {
 
         for (id, cfg_inf) in &self.functions {
             let Ok((merged_inf, pg_sql_info)) =
-                self.instantiate_one_function(&db_funcs_info, id, cfg_inf)
+                Self::instantiate_one_function(&db_funcs_info, id, cfg_inf)
             else {
                 continue;
             };
@@ -307,7 +306,7 @@ impl PostgresAutoDiscoveryBuilder {
             String,
             std::collections::BTreeMap<String, std::collections::BTreeMap<String, TableInfo>>,
         >,
-        id: &String,
+        id: &str,
         cfg_inf: &TableInfo,
     ) -> Result<TableInfo, String> {
         let db_tables = find_info(db_tables_info, &cfg_inf.schema, "schema", id)?;
@@ -326,12 +325,11 @@ impl PostgresAutoDiscoveryBuilder {
     }
 
     fn instantiate_one_function(
-        &self,
         db_funcs_info: &std::collections::BTreeMap<
             String,
             std::collections::BTreeMap<String, (PostgresSqlInfo, FunctionInfo)>,
         >,
-        id: &String,
+        id: &str,
         cfg_inf: &FunctionInfo,
     ) -> Result<(FunctionInfo, PostgresSqlInfo), String> {
         let db_funcs = find_info(db_funcs_info, &cfg_inf.schema, "schema", id)?;
