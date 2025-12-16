@@ -153,15 +153,7 @@ impl PostgresAutoDiscoveryBuilder {
                 ));
             }
 
-            let one_result = self.instantiate_one_table(&db_tables_info, id, cfg_inf);
-            if one_result.is_err() {
-                warn!(
-                    "Failed to instantiate table {id}: {}",
-                    one_result.err().unwrap()
-                );
-                continue;
-            }
-            let Ok(merged_inf) = one_result else {
+            let Ok(merged_inf) = self.instantiate_one_table(&db_tables_info, id, cfg_inf) else {
                 continue;
             };
 
