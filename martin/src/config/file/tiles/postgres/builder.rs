@@ -18,7 +18,7 @@ use crate::config::file::postgres::resolver::{
 };
 use crate::config::file::postgres::utils::{find_info, find_kv_ignore_case, normalize_key};
 use crate::config::file::postgres::{
-    FuncInfoSources, POOL_SIZE_DEFAULT, PostgresCfgPublish, PostgresCfgPublishFuncs,
+    FuncInfoSources, FunctionInfo, POOL_SIZE_DEFAULT, PostgresCfgPublish, PostgresCfgPublishFuncs,
     PostgresConfig, PostgresInfo, TableInfo, TableInfoSources,
 };
 use crate::config::file::{ConfigFileError, ConfigFileResult};
@@ -262,31 +262,20 @@ impl PostgresAutoDiscoveryBuilder {
         let mut used = HashSet::<(&str, &str)>::new();
 
         for (id, cfg_inf) in &self.functions {
-            let Ok(db_funcs) = find_info(&db_funcs_info, &cfg_inf.schema, "schema", id) else {
-                continue;
-            };
-            if db_funcs.is_empty() {
-                warn!(
-                    "No functions found in schema {}. Only functions like (z,x,y) -> bytea and similar are considered. See README.md",
-                    cfg_inf.schema
-                );
-                continue;
-            }
-            let func_name = &cfg_inf.function;
-            let Ok((pg_sql, db_inf)) = find_info(db_funcs, func_name, "function", id) else {
+            let Ok((merged_inf, pg_sql_info)) =
+                self.instantiate_one_function(&db_funcs_info, id, cfg_inf)
+            else {
                 continue;
             };
 
-            let merged_inf = db_inf.append_cfg_info(cfg_inf);
-
-            let dup = !used.insert((&cfg_inf.schema, func_name));
+            let dup = !used.insert((&cfg_inf.schema, &cfg_inf.function));
             let dup = if dup { "duplicate " } else { "" };
             let id2 = self.resolve_id(id, &merged_inf);
-            self.add_func_src(&mut res, id2.clone(), &merged_inf, pg_sql.clone());
+            self.add_func_src(&mut res, id2.clone(), &merged_inf, pg_sql_info.clone());
             warn_on_rename(id, &id2, "Function");
-            let signature = &pg_sql.signature;
+            let signature = &pg_sql_info.signature;
             info!("Configured {dup}source {id2} from the function {signature}");
-            debug!("{id2} query: {}", pg_sql.sql_query);
+            debug!("{id2} query: {}", pg_sql_info.sql_query);
             info_map.insert(id2, merged_inf);
         }
 
@@ -324,6 +313,28 @@ impl PostgresAutoDiscoveryBuilder {
             }
         }
         Ok((res, info_map))
+    }
+
+    fn instantiate_one_function(
+        &self,
+        db_funcs_info: &std::collections::BTreeMap<
+            String,
+            std::collections::BTreeMap<String, (PostgresSqlInfo, FunctionInfo)>,
+        >,
+        id: &String,
+        cfg_inf: &FunctionInfo,
+    ) -> Result<(FunctionInfo, PostgresSqlInfo), String> {
+        let db_funcs = find_info(db_funcs_info, &cfg_inf.schema, "schema", id)?;
+        if db_funcs.is_empty() {
+            return Err(format!(
+                "No functions found in schema {}. Only functions like (z,x,y) -> bytea and similar are considered. See README.md",
+                cfg_inf.schema
+            ));
+        }
+        let func_name = &cfg_inf.function;
+        let (pg_sql_info, db_inf) = find_info(db_funcs, func_name, "function", id)?;
+        let merged_inf = db_inf.append_cfg_info(cfg_inf);
+        Ok((merged_inf, pg_sql_info.clone()))
     }
 
     fn resolve_id<T: PostgresInfo>(&self, id: &str, src_inf: &T) -> String {
