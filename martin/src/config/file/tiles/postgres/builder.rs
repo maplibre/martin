@@ -731,4 +731,87 @@ mod tests {
         auto_funcs: ~
         "#);
     }
+
+    #[tokio::test]
+    async fn test_nonexistent_tables_functions_generate_warning() {
+        use testcontainers_modules::postgres::Postgres;
+        use testcontainers_modules::testcontainers::ImageExt;
+        use testcontainers_modules::testcontainers::runners::AsyncRunner;
+
+        let _ = env_logger::builder().is_test(true).try_init();
+
+        let container = Postgres::default()
+            .with_name("postgis/postgis")
+            .with_tag("11-3.0") // purposely very old and stable
+            .start()
+            .await
+            .expect("container launched");
+
+        let host = container.get_host().await.unwrap();
+        let port = container.get_host_port_ipv4(5432).await.unwrap();
+
+        let connection_string =
+            format!("postgres://postgres:postgres@{host}:{port}/postgres?sslmode=disable");
+
+        let config_yaml = indoc! {r#"
+            tables:
+              nonexistent_table:
+                schema: public
+                table: this_table_does_not_exist
+                geometry_column: geom
+                srid: 4326
+                geometry_type: POINT
+
+            functions:
+              nonexistent_function:
+                schema: public
+                function: this_function_does_not_exist
+        "#};
+
+        let mut config: PostgresConfig = serde_yaml::from_str(config_yaml).unwrap();
+        config.connection_string = Some(connection_string);
+
+        let builder = PostgresAutoDiscoveryBuilder::new(&config, IdResolver::default())
+            .await
+            .expect("Failed to create builder");
+
+        let (table_sources, _info_map, table_warnings) = builder
+            .instantiate_tables()
+            .await
+            .expect("Failed to instantiate tables");
+
+        assert_eq!(table_sources.len(), 0);
+        assert_eq!(table_warnings.len(), 1);
+
+        match &table_warnings[0] {
+            TileSourceWarning::SourceError {
+                source_id,
+                error: _,
+            } => {
+                assert_eq!(source_id, "nonexistent_table");
+            }
+            _ => panic!("Expected SourceError warning, got: {:?}", table_warnings[0]),
+        }
+
+        let (function_sources, _info_map, function_warnings) = builder
+            .instantiate_functions()
+            .await
+            .expect("Failed to instantiate functions");
+
+        assert_eq!(function_sources.len(), 0);
+        assert_eq!(function_warnings.len(), 1);
+
+        match &function_warnings[0] {
+            TileSourceWarning::SourceError {
+                source_id,
+                error: _,
+            } => {
+                assert_eq!(source_id, "nonexistent_function")
+            }
+            _ => panic!(
+                "Expected SourceError warning, got: {:?}",
+                function_warnings[0]
+            ),
+        }
+    }
 }
