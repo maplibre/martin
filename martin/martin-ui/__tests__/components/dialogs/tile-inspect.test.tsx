@@ -1,14 +1,23 @@
-import { cleanup, render } from '@testing-library/react';
+import { cleanup, render, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TileInspectDialog } from '@/components/dialogs/tile-inspect';
 import type { TileSource } from '@/lib/types';
+import { buildMartinUrl } from '@/lib/api';
 
 interface MockComponentProps {
   children?: ReactNode;
   className?: string;
   [key: string]: unknown;
 }
+
+// Mock the buildMartinUrl function
+vi.mock('@/lib/api', () => ({
+  buildMartinUrl: vi.fn((path: string) => `http://localhost:3000${path}`),
+}));
+
+// Mock fetch globally
+global.fetch = vi.fn();
 
 // Mock the UI dialog components
 vi.mock('@/components/ui/dialog', () => ({
@@ -64,18 +73,28 @@ describe('TileInspectDialog', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    // Default mock for fetch - return empty TileJSON
+    vi.mocked(global.fetch).mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        tiles: [],
+      }),
+    } as Response);
   });
 
   afterEach(() => {
     cleanup();
   });
 
-  it('renders dialog with correct title and source information', () => {
+  it('renders dialog with correct title and source information', async () => {
     const { container } = render(
       <TileInspectDialog name="test-tiles" onCloseAction={mockOnClose} source={mockTileSource} />,
     );
 
-    expect(container.textContent).toContain('Inspect Tile Source:');
+    await waitFor(() => {
+      expect(container.textContent).toContain('Inspect Tile Source:');
+    });
+
     expect(container.textContent).toContain('test-tiles');
     expect(container.textContent).toContain('Source Information');
     expect(container.textContent).toContain('image/png');
@@ -163,6 +182,31 @@ describe('TileInspectDialog', () => {
 
     expect(container.textContent).toContain('Content Type:');
     expect(container.textContent).toContain('Encoding:');
+  });
+
+  it('fetches TileJSON when dialog opens', async () => {
+    const mockTileJSON = {
+      tiles: ['http://localhost:3000/test-tiles/{z}/{x}/{y}'],
+      minzoom: 5,
+      maxzoom: 15,
+      bounds: [-180, -85, 180, 85],
+      center: [0, 0, 10],
+    };
+
+    vi.mocked(global.fetch).mockResolvedValueOnce({
+      ok: true,
+      json: async () => mockTileJSON,
+    } as Response);
+
+    render(
+      <TileInspectDialog name="test-tiles" onCloseAction={mockOnClose} source={mockTileSource} />,
+    );
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        buildMartinUrl('/test-tiles'),
+      );
+    });
   });
 
   it('conditionally renders optional fields', () => {
