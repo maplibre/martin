@@ -154,28 +154,14 @@ impl PostgresAutoDiscoveryBuilder {
                 ));
             }
 
-            let Ok(db_tables) = find_info(&db_tables_info, &cfg_inf.schema, "schema", id) else {
-                continue;
-            };
-            let Ok(db_geo_columns) = find_info(db_tables, &cfg_inf.table, "table", id) else {
-                continue;
-            };
-            let Ok(db_inf) = find_info(
-                db_geo_columns,
-                &cfg_inf.geometry_column,
-                "geometry column",
-                id,
-            ) else {
+            let Ok(merged_inf) = self.instantiate_one_table(&db_tables_info, id, cfg_inf) else {
                 continue;
             };
 
             let dup = !used.insert((&cfg_inf.schema, &cfg_inf.table, &cfg_inf.geometry_column));
             let dup = if dup { "duplicate " } else { "" };
 
-            let id2 = self.resolve_id(id, cfg_inf);
-            let Some(merged_inf) = db_inf.append_cfg_info(cfg_inf, &id2, self.default_srid) else {
-                continue;
-            };
+            let id2 = self.resolve_id(id, &merged_inf);
             warn_on_rename(id, &id2, "Table");
             info!("Configured {dup}source {id2} from {}", summary(&merged_inf));
             pending.push(table_to_query(
@@ -313,6 +299,30 @@ impl PostgresAutoDiscoveryBuilder {
             }
         }
         Ok((res, info_map))
+    }
+
+    fn instantiate_one_table(
+        &self,
+        db_tables_info: &std::collections::BTreeMap<
+            String,
+            std::collections::BTreeMap<String, std::collections::BTreeMap<String, TableInfo>>,
+        >,
+        id: &String,
+        cfg_inf: &TableInfo,
+    ) -> Result<TableInfo, String> {
+        let db_tables = find_info(db_tables_info, &cfg_inf.schema, "schema", id)?;
+        let db_geo_columns = find_info(db_tables, &cfg_inf.table, "table", id)?;
+        let db_inf = find_info(
+            db_geo_columns,
+            &cfg_inf.geometry_column,
+            "geometry column",
+            id,
+        )?;
+        let id2 = self.resolve_id(id, cfg_inf);
+        let merged_inf = db_inf
+            .append_cfg_info(cfg_inf, &id2, self.default_srid)
+            .ok_or_else(|| format!("Failed to merge config info for table {id}"))?;
+        Ok(merged_inf)
     }
 
     fn instantiate_one_function(
