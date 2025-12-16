@@ -52,6 +52,17 @@ preferred_encoding: gzip
 # This may be undesirable in a production environment
 web_ui: disable
 
+# The policy for handling invalid sources during startup. [default: warn]
+#
+# Invalid sources are those that are missing (file not found, table doesn't exist, ...),
+# reference columns that don't exist, and so on.
+#
+# Options:
+# - `warn`: log warning messages
+# - `abort`: log warnings as error messages, abort startup
+# - `ignore`: log warnings as debug messages
+on_invalid: warn
+
 # Advanced monitoring options
 observability:
   # Configure metrics reported under `/_/metrics`
