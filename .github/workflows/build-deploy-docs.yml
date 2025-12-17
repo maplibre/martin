@@ -36,8 +36,7 @@ jobs:
           config-file: '.github/files/markdown.links.config.json'
 
       - uses: taiki-e/install-action@763e3324d4fd026c9bd284c504378585777a87d5 # v2.62.57
-        with: { tool: 'mdbook,mdbook-tabs,cargo-binstall' }
-      - run: cargo binstall mdbook-mermaid # https://github.com/taiki-e/install-action/pull/1359
+        with: { tool: 'mdbook,mdbook-tabs,mdbook-mermaid' }
 
       - run: mdbook build docs
 
