@@ -25,6 +25,12 @@ pub fn find_info<'a, T>(
     find_info_kv(map, key, info, id).map(|(_, v)| v)
 }
 
+/// Find a key in a map, falling back to a case-insensitive key lookup if no exact match is found.
+///
+/// If there is an exact match, returns Ok((key, value)).
+/// If there is a case-insensitive match, return that as `Ok((resolved_key, value))` but log info explaining the match.
+/// If there are multiple case-insensitive matches, return an Err with a list of possible matches.
+/// If there is no match at all, return Err.
 fn find_info_kv<'a, T>(
     map: &'a BTreeMap<String, T>,
     key: &'a str,
