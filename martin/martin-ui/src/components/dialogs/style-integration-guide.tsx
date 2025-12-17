@@ -12,7 +12,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { TooltipCopyText } from "@/components/ui/tooltip-copy-text";
+import { TooltipCopyText } from '@/components/ui/tooltip-copy-text';
 import { buildMartinUrl } from '@/lib/api';
 import type { Style } from '@/lib/types';
 
@@ -165,10 +165,11 @@ function MyMap() {
               <Code className="w-6 h-6" />
               Integration Guide:
             </div>
-            <TooltipCopyText text={name} side="bottom"/>
+            <TooltipCopyText side="bottom" text={name} />
           </DialogTitle>
           <DialogDescription>
-            Learn how to integrate this style into your MapLibre application across different platforms.
+            Learn how to integrate this style into your MapLibre application across different
+            platforms.
           </DialogDescription>
         </DialogHeader>
 

@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { TooltipCopyText } from "@/components/ui/tooltip-copy-text";
+import { TooltipCopyText } from '@/components/ui/tooltip-copy-text';
 import { buildMartinUrl } from '@/lib/api';
 import type { Style } from '@/lib/types';
 import 'maplibre-gl/dist/maplibre-gl.css';
@@ -104,7 +104,7 @@ export function StylesCatalog({
                 </div>
               </div>
               <CardTitle className="text-lg font-mono">
-                <TooltipCopyText text={name}/>
+                <TooltipCopyText text={name} />
               </CardTitle>
               <CardDescription>{style.path}</CardDescription>
             </CardHeader>

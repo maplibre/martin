@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { TooltipCopyText } from "@/components/ui/tooltip-copy-text";
+import { TooltipCopyText } from '@/components/ui/tooltip-copy-text';
 import type { TileSource } from '@/lib/types';
 import { DisabledNonInteractiveButton } from '../ui/disabled-non-interactive-button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
@@ -103,7 +103,7 @@ export function TilesCatalog({
                   <Badge variant="secondary">{source.content_type}</Badge>
                 </div>
                 <CardTitle>
-                  <TooltipCopyText text={name}/>
+                  <TooltipCopyText text={name} />
                 </CardTitle>
                 <div className="text-center md:text-start break-all text-balance">
                   {(source.description || source.name) && (

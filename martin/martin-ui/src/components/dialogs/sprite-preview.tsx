@@ -9,7 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { TooltipCopyText } from "@/components/ui/tooltip-copy-text";
+import { TooltipCopyText } from '@/components/ui/tooltip-copy-text';
 import type { SpriteCollection } from '@/lib/types';
 import { SpritePreview } from '../sprite/SpritePreview';
 
@@ -33,11 +33,11 @@ export function SpritePreviewDialog({
           <>
             <DialogHeader className="mb-6 truncate">
               <DialogTitle className="text-2xl flex gap-4">
-                <TooltipCopyText text={name} side="bottom"/>
+                <TooltipCopyText side="bottom" text={name} />
               </DialogTitle>
               <DialogDescription>
                 <span>Preview the selected sprite.</span>
-                <br/>
+                <br />
                 <Button onClick={() => onDownloadAction(sprite)} size="sm" variant="outline">
                   <Download className="h-4 w-4 mr-2" />
                   Download

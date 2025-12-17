@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { TooltipCopyText } from "@/components/ui/tooltip-copy-text";
+import { TooltipCopyText } from '@/components/ui/tooltip-copy-text';
 import type { SpriteCollection } from '@/lib/types';
 import { formatFileSize } from '@/lib/utils';
 import SpritePreview from '../sprite/SpritePreview';
@@ -100,7 +100,7 @@ export function SpriteCatalog({
                   </div>
                 </div>
                 <CardTitle className="text-lg font-mono">
-                  <TooltipCopyText text={name}/>
+                  <TooltipCopyText text={name} />
                 </CardTitle>
                 <CardDescription>{sprite.images.length} total icons</CardDescription>
               </CardHeader>

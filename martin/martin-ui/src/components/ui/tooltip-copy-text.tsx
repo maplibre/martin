@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { useToast } from '@/hooks/use-toast';
-import {Tooltip, TooltipContent, TooltipTrigger} from './tooltip';
+import { Tooltip, TooltipContent, TooltipTrigger } from './tooltip';
 
 /**
  * Props for TooltipCopyText
@@ -11,7 +11,7 @@ export interface TooltipCopyTextProps {
   text: string;
 }
 
-export function TooltipCopyText({text, ...props}: TooltipCopyTextProps) {
+export function TooltipCopyText({ text, ...props }: TooltipCopyTextProps) {
   const { toast } = useToast();
 
   const handleCopy = async (event) => {

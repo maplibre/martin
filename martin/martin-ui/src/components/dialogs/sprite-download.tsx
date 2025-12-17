@@ -10,7 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { TooltipCopyText } from "@/components/ui/tooltip-copy-text";
+import { TooltipCopyText } from '@/components/ui/tooltip-copy-text';
 import { useToast } from '@/hooks/use-toast';
 import { buildMartinUrl } from '@/lib/api';
 import type { SpriteCollection } from '@/lib/types';
@@ -97,7 +97,10 @@ export function SpriteDownloadDialog({ name, sprite, onCloseAction }: SpriteDown
       <DialogContent className="max-w-2xl w-full max-h-[90vh] overflow-auto">
         <DialogHeader className="truncate">
           <DialogTitle className="text-2xl">
-            Download <code className="font-mono"><TooltipCopyText text={name} side="bottom"/></code>
+            Download{' '}
+            <code className="font-mono">
+              <TooltipCopyText side="bottom" text={name} />
+            </code>
           </DialogTitle>
           <DialogDescription>
             Download the sprite in various formats or copy the download URL.
