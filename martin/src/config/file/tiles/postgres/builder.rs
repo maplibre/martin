@@ -1,5 +1,5 @@
 use std::cmp::Ordering;
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashSet};
 
 use futures::future::join_all;
 use itertools::Itertools as _;
@@ -303,10 +303,7 @@ impl PostgresAutoDiscoveryBuilder {
 
     fn instantiate_one_table(
         &self,
-        db_tables_info: &std::collections::BTreeMap<
-            String,
-            std::collections::BTreeMap<String, std::collections::BTreeMap<String, TableInfo>>,
-        >,
+        db_tables_info: &BTreeMap<String, BTreeMap<String, BTreeMap<String, TableInfo>>>,
         id: &String,
         cfg_inf: &TableInfo,
     ) -> Result<TableInfo, String> {
@@ -325,10 +322,7 @@ impl PostgresAutoDiscoveryBuilder {
     }
 
     fn instantiate_one_function(
-        db_funcs_info: &std::collections::BTreeMap<
-            String,
-            std::collections::BTreeMap<String, (PostgresSqlInfo, FunctionInfo)>,
-        >,
+        db_funcs_info: &BTreeMap<String, BTreeMap<String, (PostgresSqlInfo, FunctionInfo)>>,
         id: &str,
         cfg_inf: &FunctionInfo,
     ) -> Result<(FunctionInfo, PostgresSqlInfo), String> {
