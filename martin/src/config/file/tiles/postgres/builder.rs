@@ -153,23 +153,25 @@ impl PostgresAutoDiscoveryBuilder {
                 ));
             }
 
-            let Ok(merged_inf) = self.instantiate_one_table(&db_tables_info, id, cfg_inf) else {
-                continue;
-            };
+            match self.instantiate_one_table(&db_tables_info, id, cfg_inf) {
+                Ok(merged_inf) => {
+                    let dup =
+                        !used.insert((&cfg_inf.schema, &cfg_inf.table, &cfg_inf.geometry_column));
+                    let dup = if dup { "duplicate " } else { "" };
 
-            let dup = !used.insert((&cfg_inf.schema, &cfg_inf.table, &cfg_inf.geometry_column));
-            let dup = if dup { "duplicate " } else { "" };
-
-            let id2 = self.resolve_id(id, &merged_inf);
-            warn_on_rename(id, &id2, "Table");
-            info!("Configured {dup}source {id2} from {}", summary(&merged_inf));
-            pending.push(table_to_query(
-                id2,
-                merged_inf,
-                self.pool.clone(),
-                self.auto_bounds,
-                self.max_feature_count,
-            ));
+                    let id2 = self.resolve_id(id, &merged_inf);
+                    warn_on_rename(id, &id2, "Table");
+                    info!("Configured {dup}source {id2} from {}", summary(&merged_inf));
+                    pending.push(table_to_query(
+                        id2,
+                        merged_inf,
+                        self.pool.clone(),
+                        self.auto_bounds,
+                        self.max_feature_count,
+                    ));
+                }
+                Err(error) => warn!("{error}"),
+            }
         }
 
         // Sort the discovered sources by schema, table and geometry column to ensure a consistent behavior
@@ -247,21 +249,20 @@ impl PostgresAutoDiscoveryBuilder {
         let mut used = HashSet::<(&str, &str)>::new();
 
         for (id, cfg_inf) in &self.functions {
-            let Ok((merged_inf, pg_sql_info)) =
-                Self::instantiate_one_function(&db_funcs_info, id, cfg_inf)
-            else {
-                continue;
-            };
-
-            let dup = !used.insert((&cfg_inf.schema, &cfg_inf.function));
-            let dup = if dup { "duplicate " } else { "" };
-            let id2 = self.resolve_id(id, &merged_inf);
-            self.add_func_src(&mut res, id2.clone(), &merged_inf, pg_sql_info.clone());
-            warn_on_rename(id, &id2, "Function");
-            let signature = &pg_sql_info.signature;
-            info!("Configured {dup}source {id2} from the function {signature}");
-            debug!("{id2} query: {}", pg_sql_info.sql_query);
-            info_map.insert(id2, merged_inf);
+            match Self::instantiate_one_function(&db_funcs_info, id, cfg_inf) {
+                Ok((merged_inf, pg_sql_info)) => {
+                    let dup = !used.insert((&cfg_inf.schema, &cfg_inf.function));
+                    let dup = if dup { "duplicate " } else { "" };
+                    let id2 = self.resolve_id(id, &merged_inf);
+                    self.add_func_src(&mut res, id2.clone(), &merged_inf, pg_sql_info.clone());
+                    warn_on_rename(id, &id2, "Function");
+                    let signature = &pg_sql_info.signature;
+                    info!("Configured {dup}source {id2} from the function {signature}");
+                    debug!("{id2} query: {}", pg_sql_info.sql_query);
+                    info_map.insert(id2, merged_inf);
+                }
+                Err(error) => warn!("{error}"),
+            }
         }
 
         // Sort the discovered sources by schema and function name to ensure a consistent behavior
