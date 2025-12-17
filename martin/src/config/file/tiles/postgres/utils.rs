@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use itertools::Itertools;
-use log::error;
+use log::{error, info};
 use tilejson::TileJSON;
 
 #[must_use]
@@ -40,9 +40,11 @@ fn find_info_kv<'a, T>(
             "Unable to configure source {id} because {info} '{key}' was not found.  Possible values are: {}",
             map.keys().map(String::as_str).join(", ")
         )),
-        Ok(Some(result)) => map.get(result).map(|v| (result.as_str(), v)).ok_or(format!(
-            "For source {id}, {info} '{key}' was not found, but found '{result}' instead."
-        )),
+        Ok(Some(result)) => {
+            info!("For source {id}, {info} '{key}' was not found, but found '{result}' instead.");
+            let value = map.get(result).unwrap(); // guaranteed to be in the map
+            Ok((result.as_str(), value))
+        }
         Err(multiple) => Err(format!(
             "Unable to configure source {id} because {info} '{key}' has no exact match and more than one potential matches: {}",
             multiple.join(", ")
