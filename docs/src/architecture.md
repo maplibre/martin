@@ -319,6 +319,7 @@ sequenceDiagram
 - **martin-tile-utils** — shared low-level tile utilities
 
 This makes it easier to:
+
 - Embed Martin as a library in other Rust projects
 - Use MBTiles tools independently
 - Maintain clear API boundaries and versioning
@@ -365,6 +366,7 @@ This makes it easier to:
 </summary>
 
 It can currently automatically detect:
+
 - PostgreSQL tables with geometry columns
 - PostgreSQL functions that return MVT
 - MBTiles and PMTiles files in configured directories
