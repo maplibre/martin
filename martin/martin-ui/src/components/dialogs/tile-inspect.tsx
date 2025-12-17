@@ -8,6 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { TooltipCopyText } from "@/components/ui/tooltip-copy-text";
 import type { TileSource } from '@/lib/types';
 import '@maplibre/maplibre-gl-inspect/dist/maplibre-gl-inspect.css';
 import MaplibreInspect from '@maplibre/maplibre-gl-inspect';
@@ -61,10 +62,10 @@ export function TileInspectDialog({ name, source, onCloseAction }: TileInspectDi
   return (
     <Dialog onOpenChange={(v) => !v && onCloseAction()} open={true}>
       <DialogContent className="max-w-6xl w-full p-6 max-h-[90vh] overflow-auto">
-        <DialogHeader className="mb-6">
+        <DialogHeader className="mb-6 truncate">
           <DialogTitle className="text-2xl flex items-center justify-between">
             <span>
-              Inspect Tile Source: <code>{name}</code>
+              Inspect Tile Source: <TooltipCopyText text={name} side="bottom"/>
             </span>
           </DialogTitle>
           <DialogDescription>
