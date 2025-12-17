@@ -14,6 +14,12 @@ export interface TooltipCopyTextProps {
 export function TooltipCopyText({ text, ...props }: TooltipCopyTextProps) {
   const { toast } = useToast();
 
+  const handleKeyDown = (event) => {
+    if (event.key === 'Enter') {
+      handleCopy(event);
+    }
+  };
+
   const handleCopy = async (event) => {
     const text = event.target.innerText;
     try {
@@ -35,7 +41,14 @@ export function TooltipCopyText({ text, ...props }: TooltipCopyTextProps) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <div className="text-lg font-mono cursor-pointer truncate" onClick={handleCopy}>
+        <div
+          aria-disabled="true"
+          className="text-lg font-mono cursor-pointer truncate"
+          onClick={handleCopy}
+          onKeyDown={handleKeyDown}
+          role="button"
+          tabindex="0"
+        >
           {text}
         </div>
       </TooltipTrigger>
