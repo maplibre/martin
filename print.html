@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-82740566.js";
+            window.path_to_searchindex_js = "searchindex-bba8c7ec.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-d7ad18cc.js"></script>
+        <script src="toc-da940ac3.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -3448,6 +3448,714 @@ fail.</p>
 <p>The <code>mbtiles</code> tool will compute <code>agg_tiles_hash</code> value when copying or validating mbtiles files. Use <code>--agg-hash update</code>
 to force the value to be updated, even if it is incorrect or does not exist.</p>
 <div style="break-before: page; page-break-before: always;"></div>
+<h1 id="architecture"><a class="header" href="#architecture">Architecture</a></h1>
+<p>This document provides a high-level overview of Martin’s architecture, describing its major components, how they interact, and the rationale behind key design decisions.</p>
+<h2 id="overview"><a class="header" href="#overview">Overview</a></h2>
+<p>Martin is a blazing fast tile server written in Rust that generates and serves vector tiles on the fly from multiple data sources. It is designed to handle heavy traffic and optimize for speed while maintaining a clean separation of concerns.</p>
+<pre class="mermaid">graph TB
+    Client[Map Client&lt;br/&gt;MapLibre, Leaflet, etc.]
+
+    subgraph Martin["Martin Tile Server"]
+        CLI[CLI Entry Point&lt;br/&gt;martin binary]
+        Server[HTTP Server&lt;br/&gt;Actix-Web]
+
+        subgraph Sources["Tile Sources"]
+            PG[PostgreSQL&lt;br/&gt;Tables &amp; Functions]
+            MBT[MBTiles Files]
+            PMT[PMTiles Files&lt;br/&gt;Local &amp; Remote]
+            COG[Cloud Optimized&lt;br/&gt;GeoTIFF]
+        end
+
+        subgraph Resources["Supporting Resources"]
+            Sprites[Sprite Generation&lt;br/&gt;SVG to PNG]
+            Fonts[Font Glyphs&lt;br/&gt;PBF Format]
+            Styles[MapLibre Styles&lt;br/&gt;JSON]
+        end
+
+        Catalog[Tile Catalog&lt;br/&gt;Source Registry]
+        Cache[Tile/Resources Cache&lt;br/&gt;Moka]
+    end
+
+    subgraph Storage["Data Storage"]
+        DB[(PostgreSQL&lt;br/&gt;PostGIS)]
+        Files[File System&lt;br/&gt;MBTiles/PMTiles]
+        S3[Object Storage&lt;br/&gt;S3/Azure/GCP]
+    end
+
+    Client --&gt;|HTTP Requests| Server
+    Server --&gt; Catalog
+    Catalog --&gt; Sources
+    Server --&gt; Resources
+    Server --&gt; Cache
+
+    PG --&gt; DB
+    MBT --&gt; Files
+    PMT --&gt; Files
+    PMT --&gt; S3
+    COG --&gt; Files
+    COG --&gt; S3
+
+    Cache -.-&gt;|Cached Tiles/Resources| Client
+</pre>
+
+<h2 id="core-components"><a class="header" href="#core-components">Core Components</a></h2>
+<p>Martin’s architecture is organized into four main Rust crates, each with distinct responsibilities:</p>
+<div class="mdbook-tabs-container">
+<nav class="mdbook-tabs">
+<button class="mdbook-tab active" data-tabname="martin (Main Server)">martin (Main Server)</button>
+<button class="mdbook-tab" data-tabname="martin-core (Library)">martin-core (Library)</button>
+<button class="mdbook-tab" data-tabname="mbtiles (Library &amp; CLI)">mbtiles (Library &amp; CLI)</button>
+<button class="mdbook-tab" data-tabname="martin-tile-utils">martin-tile-utils</button>
+</nav>
+<div class="mdbook-tab-content" data-tabname="martin (Main Server)">
+<p><strong>Purpose</strong>: The main tile server binary and HTTP service layer.</p>
+<p><strong>Location</strong>: <code>/martin</code></p>
+<p><strong>Key Responsibilities</strong>:</p>
+<ul>
+<li>HTTP server using Actix-Web framework</li>
+<li>Request routing and endpoint handling</li>
+<li>Configuration parsing (CLI args, env vars, config files)</li>
+<li>Tile source discovery and initialization</li>
+<li>Serving the Web UI for tile inspection</li>
+</ul>
+<p><strong>Main Modules</strong>:</p>
+<ul>
+<li><code>src/bin/martin.rs</code> - Server entry point</li>
+<li><code>src/bin/martin-cp.rs</code> - Bulk tile copying tool</li>
+<li><code>src/srv/</code> - HTTP service handlers
+<ul>
+<li><code>server.rs</code> - Main server setup and routing</li>
+<li><code>tiles/</code> - Tile serving endpoints</li>
+<li><code>fonts.rs</code> - Font glyph serving</li>
+<li><code>sprites.rs</code> - Sprite serving</li>
+<li><code>styles.rs</code> - Style serving</li>
+</ul>
+</li>
+<li><code>src/config/</code> - Configuration management
+<ul>
+<li><code>args/</code> - CLI argument parsing</li>
+<li><code>file/</code> - Config file parsing</li>
+</ul>
+</li>
+<li><code>martin-ui/</code> - React-based web interface</li>
+</ul>
+</div>
+
+<div class="mdbook-tab-content hidden" data-tabname="martin-core (Library)">
+<p><strong>Purpose</strong>: Core abstractions and implementations for tile sources and supporting resources.</p>
+<p><strong>Location</strong>: <code>/martin-core</code></p>
+<p><strong>Key Responsibilities</strong>:</p>
+<ul>
+<li>Abstract tile source traits and implementations</li>
+<li>PostgreSQL connection pooling and query execution</li>
+<li>MBTiles and PMTiles reading</li>
+<li>Cloud Optimized GeoTIFF (COG) tile extraction</li>
+<li>Sprite, font, and style resource generation</li>
+<li>Tile format handling (MVT protocol buffers)</li>
+</ul>
+<p><strong>Main Modules</strong>:</p>
+<ul>
+<li><code>src/tiles/</code> - Tile source implementations
+<ul>
+<li><code>postgres/</code> - PostGIS table and function sources</li>
+<li><code>mbtiles/</code> - MBTiles file source</li>
+<li><code>pmtiles/</code> - PMTiles file source</li>
+<li><code>cog/</code> - Cloud Optimized GeoTIFF source</li>
+<li><code>catalog.rs</code> - Source registry and management</li>
+</ul>
+</li>
+<li><code>src/resources/</code> - Supporting resources
+<ul>
+<li><code>sprites/</code> - SVG sprite generation</li>
+<li><code>fonts/</code> - Font glyph generation</li>
+<li><code>styles/</code> - MapLibre style handling</li>
+</ul>
+</li>
+</ul>
+</div>
+
+<div class="mdbook-tab-content hidden" data-tabname="mbtiles (Library &amp; CLI)">
+<p><strong>Purpose</strong>: MBTiles format support and manipulation tools.</p>
+<p><strong>Location</strong>: <code>/mbtiles</code></p>
+<p><strong>Key Responsibilities</strong>:</p>
+<ul>
+<li>SQLite-based MBTiles reading and writing</li>
+<li>Metadata management</li>
+<li>Tile compression (gzip, brotli)</li>
+<li>Validation and integrity checking</li>
+<li>Diff/patch operations between MBTiles files</li>
+<li>Schema management</li>
+</ul>
+<p><strong>Main Modules</strong>:</p>
+<ul>
+<li><code>src/lib.rs</code> - Core MBTiles library</li>
+<li><code>src/bin/mbtiles.rs</code> - CLI tool</li>
+<li><code>sql/</code> - SQL schema and migrations</li>
+</ul>
+</div>
+
+<div class="mdbook-tab-content hidden" data-tabname="martin-tile-utils">
+<p><strong>Purpose</strong>: Low-level tile manipulation and conversion utilities.</p>
+<p><strong>Location</strong>: <code>/martin-tile-utils</code></p>
+<p><strong>Key Responsibilities</strong>:</p>
+<ul>
+<li>Tile coordinate system conversions</li>
+<li>Tile encoding/decoding</li>
+<li>Tile format utilities</li>
+<li>Bounding box calculations</li>
+</ul>
+</div>
+
+</div>
+
+<h2 id="data-flow"><a class="header" href="#data-flow">Data Flow</a></h2>
+<div class="mdbook-tabs-container">
+<nav class="mdbook-tabs">
+<button class="mdbook-tab active" data-tabname="Tile Request Flow">Tile Request Flow</button>
+<button class="mdbook-tab" data-tabname="Configuration and Initialization Flow">Configuration and Initialization Flow</button>
+<button class="mdbook-tab" data-tabname="Resource Generation Flow">Resource Generation Flow</button>
+</nav>
+<div class="mdbook-tab-content" data-tabname="Tile Request Flow">
+<pre class="mermaid">sequenceDiagram
+    participant Client
+    participant Server as HTTP Server
+    participant Catalog
+    participant Cache
+    participant Source as Tile Source
+    participant DB as Data Store
+
+    Client-&gt;&gt;Server: GET /source_id/z/x/y
+    Server-&gt;&gt;Catalog: Resolve source_id
+    Catalog--&gt;&gt;Server: Source reference
+    Server-&gt;&gt;Cache: Check cache
+
+    alt Tile in cache
+        Cache--&gt;&gt;Server: Cached tile
+        Server--&gt;&gt;Client: 200 OK (tile data)
+    else Tile not in cache
+        Server-&gt;&gt;Source: Get tile(z, x, y)
+        Source-&gt;&gt;DB: Query data
+        DB--&gt;&gt;Source: Raw data
+        Source-&gt;&gt;Source: Generate MVT
+        Source--&gt;&gt;Server: Tile data
+        Server-&gt;&gt;Cache: Store tile
+        Server--&gt;&gt;Client: 200 OK (tile data)
+    end
+</pre>
+
+</div>
+
+<div class="mdbook-tab-content hidden" data-tabname="Configuration and Initialization Flow">
+<pre class="mermaid">sequenceDiagram
+    participant CLI
+    participant Config as Config Parser
+    participant Discovery as Source Discovery
+    participant Sources as Tile Sources
+    participant Server as HTTP Server
+
+    CLI-&gt;&gt;Config: Parse args &amp; config file
+    Config-&gt;&gt;Discovery: Initialize sources
+
+    alt PostgreSQL Source
+        Discovery-&gt;&gt;Discovery: Connect to database
+        Discovery-&gt;&gt;Discovery: Query tables &amp; functions
+        Discovery-&gt;&gt;Sources: Register table sources
+        Discovery-&gt;&gt;Sources: Register function sources
+    end
+
+    alt File Sources
+        Discovery-&gt;&gt;Discovery: Scan MBTiles files
+        Discovery-&gt;&gt;Discovery: Scan PMTiles files
+        Discovery-&gt;&gt;Sources: Register file sources
+    end
+
+    Sources--&gt;&gt;Server: Source catalog
+    Server-&gt;&gt;Server: Setup routes
+    Server-&gt;&gt;Server: Start HTTP listener
+</pre>
+
+</div>
+
+<div class="mdbook-tab-content hidden" data-tabname="Resource Generation Flow">
+<pre class="mermaid">sequenceDiagram
+    participant Client
+    participant Server
+    participant Sprite as Sprite Generator
+    participant Font as Font Generator
+    participant FS as File System
+
+    Client-&gt;&gt;Server: GET /sprite/sprite_id
+    Server-&gt;&gt;Sprite: Generate sprite
+    Sprite-&gt;&gt;FS: Read SVG files
+    FS--&gt;&gt;Sprite: SVG data
+    Sprite-&gt;&gt;Sprite: Render to PNG
+    Sprite-&gt;&gt;Sprite: Generate JSON index
+    Sprite--&gt;&gt;Server: Sprite sheet
+    Server--&gt;&gt;Client: PNG/JSON response
+
+    Client-&gt;&gt;Server: GET /font/fontstack/range
+    Server-&gt;&gt;Font: Generate glyphs
+    Font-&gt;&gt;FS: Read font files
+    FS--&gt;&gt;Font: Font data
+    Font-&gt;&gt;Font: Rasterize glyphs
+    Font-&gt;&gt;Font: Encode as PBF
+    Font--&gt;&gt;Server: Glyph data
+    Server--&gt;&gt;Client: PBF response
+</pre>
+
+</div>
+
+</div>
+
+<h2 id="key-design-decisions"><a class="header" href="#key-design-decisions">Key Design Decisions</a></h2>
+<blockquote class="blockquote-tag blockquote-tag-note">
+<p class="blockquote-tag-title"><svg viewbox="0 0 16 16" width="18" height="18"><path d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8Zm8-6.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13ZM6.5 7.75A.75.75 0 0 1 7.25 7h1a.75.75 0 0 1 .75.75v2.75h.25a.75.75 0 0 1 0 1.5h-2a.75.75 0 0 1 0-1.5h.25v-2h-.25a.75.75 0 0 1-.75-.75ZM8 6a1 1 0 1 1 0-2 1 1 0 0 1 0 2Z"></path></svg>Note</p>
+<p>🧠 This section provides <strong>background and context</strong>, not required knowledge.
+You don’t need to understand or remember all of this to use or contribute to Martin.
+Read it when you’re curious <em>why</em> certain choices were made.</p>
+</blockquote>
+<h3 id="rust-for-performance-and-safety"><a class="header" href="#rust-for-performance-and-safety">Rust for Performance and Safety</a></h3>
+<details>
+<summary>
+<b>Why Rust</b>: Martin is written in Rust to balance high performance with strong safety guarantees.
+<i>(click to expand)</i>
+</summary>
+<ul>
+<li>Near-C performance without manual memory management</li>
+<li>Memory safety (no null pointers or buffer overflows)</li>
+<li>Safe concurrency without data races</li>
+<li>Zero-cost abstractions that compile to efficient code</li>
+</ul>
+</details>
+<h3 id="actix-web-framework"><a class="header" href="#actix-web-framework">Actix-Web Framework</a></h3>
+<details>
+<summary>
+<b>Why Actix-Web</b>: It offers a fast, production-ready async HTTP stack.
+<i>(click to expand)</i>
+</summary>
+<ul>
+<li>High-performance async request handling</li>
+<li>Mature middleware ecosystem</li>
+<li>Built-in compression and caching headers</li>
+<li>Easy Prometheus metrics integration</li>
+</ul>
+</details>
+<h3 id="asyncawait-throughout"><a class="header" href="#asyncawait-throughout">Async/Await Throughout</a></h3>
+<details>
+<summary>
+<b>Why async/await</b>: Allows Martin to handle many concurrent requests efficiently.
+<i>(click to expand)</i>
+</summary>
+<ul>
+<li>Handles thousands of concurrent connections</li>
+<li>Avoids blocking database queries</li>
+<li>Enables efficient file and network I/O</li>
+<li>Keeps thread usage low under load</li>
+</ul>
+</details>
+<h3 id="crate-separation"><a class="header" href="#crate-separation">Crate Separation</a></h3>
+<details>
+<summary>
+<b>Why multiple crates</b>: The codebase is split into crates with clear responsibilities.
+<i>(click to expand)</i>
+</summary>
+<ul>
+<li><strong>martin-core</strong> — reusable core logic and tile sources</li>
+<li><strong>mbtiles</strong> — standalone MBTiles tooling</li>
+<li><strong>martin</strong> — HTTP server, configuration, and runtime wiring</li>
+<li><strong>martin-tile-utils</strong> — shared low-level tile utilities</li>
+</ul>
+<p>This makes it easier to:</p>
+<ul>
+<li>Embed Martin as a library in other Rust projects</li>
+<li>Use MBTiles tools independently</li>
+<li>Maintain clear API boundaries and versioning</li>
+</ul>
+</details>
+<h3 id="postgresql-connection-pooling"><a class="header" href="#postgresql-connection-pooling">PostgreSQL Connection Pooling</a></h3>
+<details>
+<summary>
+<b>Why connection pooling</b>: Reuse database connections instead of reconnecting per request.
+<i>(click to expand)</i>
+</summary>
+<ul>
+<li>Uses <code>deadpool-postgres</code></li>
+<li>Avoids per-request connection overhead</li>
+<li>Configurable pool sizing</li>
+<li>Automatic connection health checks</li>
+</ul>
+</details>
+<h3 id="in-memory-tile-caching"><a class="header" href="#in-memory-tile-caching">In-Memory Tile Caching</a></h3>
+<details>
+<summary>
+<b>Why caching</b>: Avoid regenerating frequently requested tiles.
+<i>(click to expand)</i>
+</summary>
+<ul>
+<li>Fast LRU cache with optional TTLs</li>
+<li>Automatic eviction of least-used entries</li>
+<li>Configurable memory limits (default: 512 MB)</li>
+<li>Thread-safe concurrent access</li>
+<li>Significant performance improvements for repeated requests</li>
+</ul>
+</details>
+<h3 id="automatic-source-discovery"><a class="header" href="#automatic-source-discovery">Automatic Source Discovery</a></h3>
+<details>
+<summary>
+<b>Why auto-discovery</b>: Martin tries to work out of the box with minimal configuration.
+<i>(click to expand)</i>
+</summary>
+<p>It can currently automatically detect:</p>
+<ul>
+<li>PostgreSQL tables with geometry columns</li>
+<li>PostgreSQL functions that return MVT</li>
+<li>MBTiles and PMTiles files in configured directories</li>
+</ul>
+<p>This keeps common setups close to zero-config.</p>
+</details>
+<h3 id="multi-protocol-tile-support"><a class="header" href="#multi-protocol-tile-support">Multi-Protocol Tile Support</a></h3>
+<p><strong>Why multiple formats</strong>: Different workloads benefit from different storage models. This lets operators pick the best format for their use case:</p>
+<div class="mdbook-tabs-container">
+<nav class="mdbook-tabs">
+<button class="mdbook-tab active" data-tabname="PostgreSQL">PostgreSQL</button>
+<button class="mdbook-tab" data-tabname="MBTiles">MBTiles</button>
+<button class="mdbook-tab" data-tabname="PMTiles">PMTiles</button>
+<button class="mdbook-tab" data-tabname="COG">COG</button>
+</nav>
+<div class="mdbook-tab-content" data-tabname="PostgreSQL">
+<p>Dynamic tiles generated from live data. Best for frequently changing datasets.</p>
+</div>
+
+<div class="mdbook-tab-content hidden" data-tabname="MBTiles">
+<p>Pre-generated tile archives. Simple and fast for static datasets.</p>
+</div>
+
+<div class="mdbook-tab-content hidden" data-tabname="PMTiles">
+<p>Single-file, cloud-native archives optimized for HTTP range requests.</p>
+</div>
+
+<div class="mdbook-tab-content hidden" data-tabname="COG">
+<p>Direct tile serving from Cloud Optimized GeoTIFFs.</p>
+</div>
+
+</div>
+
+<h3 id="on-the-fly-resource-generation"><a class="header" href="#on-the-fly-resource-generation">On-the-Fly Resource Generation</a></h3>
+<details>
+<summary>
+<b>Why generate resources dynamically</b>: Sprites, fonts, and styles are created on demand.
+<i>(click to expand)</i>
+</summary>
+<ul>
+<li>No pre-processing step required</li>
+<li>Simpler deployments (just provide source files)</li>
+<li>URL-based customization</li>
+<li>Less storage overhead</li>
+</ul>
+</details>
+<h3 id="modular-configuration"><a class="header" href="#modular-configuration">Modular Configuration</a></h3>
+<details>
+<summary>
+<b>Why layered configuration</b>: Martin supports multiple configuration sources.
+<i>(click to expand)</i>
+</summary>
+<ul>
+<li>CLI flags for quick testing and overrides</li>
+<li>Environment variables for containerized deployments</li>
+<li>Config files for larger or more complex setups</li>
+<li>Clear precedence between configuration layers</li>
+</ul>
+</details>
+<h2 id="component-interactions"><a class="header" href="#component-interactions">Component Interactions</a></h2>
+<div class="mdbook-tabs-container">
+<nav class="mdbook-tabs">
+<button class="mdbook-tab active" data-tabname="PostgreSQL Integration">PostgreSQL Integration</button>
+<button class="mdbook-tab" data-tabname="File Source Integration">File Source Integration</button>
+</nav>
+<div class="mdbook-tab-content" data-tabname="PostgreSQL Integration">
+<pre class="mermaid">graph TB
+    Martin[Martin Server]
+    Pool[Connection Pool&lt;br/&gt;deadpool-postgres]
+
+    subgraph PostgreSQL
+        Tables[Tables with&lt;br/&gt;Geometry Columns]
+        Functions[MVT Functions]
+        PostGIS[PostGIS Extension]
+    end
+
+    Martin --&gt; Pool
+    Pool --&gt; Tables
+    Pool --&gt; Functions
+    Tables --&gt; PostGIS
+    Functions --&gt; PostGIS
+</pre>
+
+<p><strong>How it works</strong>:</p>
+<ol>
+<li>Martin connects to PostgreSQL using connection string</li>
+<li>Queries <code>geometry_columns</code> view to discover tables</li>
+<li>Queries <code>pg_proc</code> to discover MVT-returning functions</li>
+<li>Maintains connection pool for efficient query execution</li>
+<li>Generates tile SQL queries with bbox parameters</li>
+<li>Returns results as MVT tiles</li>
+</ol>
+</div>
+
+<div class="mdbook-tab-content hidden" data-tabname="File Source Integration">
+<pre class="mermaid">graph TB
+    Martin[Martin Server]
+
+    subgraph "Local Files"
+        MBT[MBTiles&lt;br/&gt;SQLite]
+        PMT[PMTiles&lt;br/&gt;Binary Format]
+        COG[GeoTIFF&lt;br/&gt;Cloud Optimized]
+    end
+
+    subgraph "Remote Files"
+        S3MBT[S3/Azure/GCP&lt;br/&gt;MBTiles]
+        S3PMT[S3/Azure/GCP&lt;br/&gt;PMTiles]
+        S3COG[S3/Azure/GCP&lt;br/&gt;GeoTIFF]
+    end
+
+    Martin --&gt; MBT
+    Martin --&gt; PMT
+    Martin --&gt; COG
+    Martin --&gt; S3MBT
+    Martin --&gt; S3PMT
+    Martin --&gt; S3COG
+</pre>
+
+<p><strong>How it works</strong>:</p>
+<ol>
+<li>Martin scans configured directories for tile files</li>
+<li>Opens MBTiles with SQLite (using <code>sqlx</code>)</li>
+<li>Opens PMTiles with custom parser (HTTP range requests for remote)</li>
+<li>Opens COG with TIFF parser (HTTP range requests for remote)</li>
+<li>Uses <code>object_store</code> crate for S3/Azure/GCP access</li>
+<li>Serves tiles directly from file format</li>
+</ol>
+</div>
+
+</div>
+
+<h2 id="deployment-patterns"><a class="header" href="#deployment-patterns">Deployment Patterns</a></h2>
+<p>Martin supports multiple deployment patterns:</p>
+<div class="mdbook-tabs-container">
+<nav class="mdbook-tabs">
+<button class="mdbook-tab active" data-tabname="Standalone Server">Standalone Server</button>
+<button class="mdbook-tab" data-tabname="Container Deployment">Container Deployment</button>
+<button class="mdbook-tab" data-tabname="Serverless (AWS Lambda)">Serverless (AWS Lambda)</button>
+<button class="mdbook-tab" data-tabname="Behind Reverse Proxy">Behind Reverse Proxy</button>
+</nav>
+<div class="mdbook-tab-content" data-tabname="Standalone Server">
+<ul>
+<li>Single binary with embedded WebUI</li>
+<li>Direct PostgreSQL connection</li>
+<li>Local file serving</li>
+<li>Suitable for small to medium deployments</li>
+</ul>
+</div>
+
+<div class="mdbook-tab-content hidden" data-tabname="Container Deployment">
+<ul>
+<li>Docker image with all dependencies</li>
+<li>Configuration via environment variables</li>
+<li>Health check endpoints</li>
+<li>Suitable for Kubernetes and container orchestrators</li>
+</ul>
+</div>
+
+<div class="mdbook-tab-content hidden" data-tabname="Serverless (AWS Lambda)">
+<ul>
+<li>Lambda adapter for Actix-Web</li>
+<li>Cold start optimization</li>
+<li>Stateless operation</li>
+<li>Suitable for sporadic traffic</li>
+</ul>
+</div>
+
+<div class="mdbook-tab-content hidden" data-tabname="Behind Reverse Proxy">
+<ul>
+<li>NGINX or Apache fronting Martin</li>
+<li>Additional caching layer</li>
+<li>SSL termination</li>
+<li>Load balancing across multiple Martin instances</li>
+</ul>
+</div>
+
+</div>
+
+<h2 id="performance-characteristics"><a class="header" href="#performance-characteristics">Performance Characteristics</a></h2>
+<div class="mdbook-tabs-container">
+<nav class="mdbook-tabs">
+<button class="mdbook-tab active" data-tabname="PostgreSQL Queries">PostgreSQL Queries</button>
+<button class="mdbook-tab" data-tabname="Tile Encoding">Tile Encoding</button>
+<button class="mdbook-tab" data-tabname="Network I/O">Network I/O</button>
+<button class="mdbook-tab" data-tabname="Memory">Memory</button>
+</nav>
+<div class="mdbook-tab-content" data-tabname="PostgreSQL Queries">
+<ul>
+<li><strong>Bottleneck</strong>: Complex geometry queries on large tables</li>
+<li><strong>Optimization</strong>: Spatial indexes (GIST), connection pooling, query tuning</li>
+</ul>
+</div>
+
+<div class="mdbook-tab-content hidden" data-tabname="Tile Encoding">
+<ul>
+<li><strong>Bottleneck</strong>: MVT encoding CPU time</li>
+<li><strong>Optimization</strong>: Tile caching, pre-generated MBTiles for static data</li>
+</ul>
+</div>
+
+<div class="mdbook-tab-content hidden" data-tabname="Network I/O">
+<ul>
+<li><strong>Bottleneck</strong>: High tile request rate</li>
+<li><strong>Optimization</strong>: Async I/O, connection keep-alive, compression</li>
+</ul>
+</div>
+
+<div class="mdbook-tab-content hidden" data-tabname="Memory">
+<ul>
+<li><strong>Bottleneck</strong>: Large tile cache size</li>
+<li><strong>Optimization</strong>: LRU eviction, configurable cache size, streaming responses</li>
+</ul>
+</div>
+
+</div>
+
+<div class="mdbook-tabs-container">
+<nav class="mdbook-tabs">
+<button class="mdbook-tab active" data-tabname="Vertical Scaling">Vertical Scaling</button>
+<button class="mdbook-tab" data-tabname="Horizontal Scaling">Horizontal Scaling</button>
+</nav>
+<div class="mdbook-tab-content" data-tabname="Vertical Scaling">
+<ul>
+<li>Increase CPU for faster tile generation</li>
+<li>Increase memory for larger tile cache</li>
+<li>Faster disk I/O for file sources</li>
+</ul>
+</div>
+
+<div class="mdbook-tab-content hidden" data-tabname="Horizontal Scaling">
+<ul>
+<li>Run multiple Martin instances behind load balancer</li>
+<li>Each instance maintains its own cache</li>
+<li>Shared PostgreSQL database with connection pooling</li>
+<li>CDN for tile distribution</li>
+</ul>
+</div>
+
+</div>
+
+<div class="mdbook-tabs-container">
+<nav class="mdbook-tabs">
+<button class="mdbook-tab active" data-tabname="Input Validation">Input Validation</button>
+<button class="mdbook-tab" data-tabname="Database Access">Database Access</button>
+<button class="mdbook-tab" data-tabname="Network Security">Network Security</button>
+</nav>
+<div class="mdbook-tab-content" data-tabname="Input Validation">
+<ul>
+<li>All tile coordinates validated (z/x/y bounds)</li>
+<li>SQL injection prevention through parameterized queries</li>
+<li>Path traversal prevention for file sources</li>
+<li>URL parsing with strict validation</li>
+</ul>
+</div>
+
+<div class="mdbook-tab-content hidden" data-tabname="Database Access">
+<ul>
+<li>Read-only database user recommended</li>
+<li>Connection string security (avoid logging)</li>
+<li>SSL/TLS support for PostgreSQL connections</li>
+<li>Certificate validation for secure connections</li>
+</ul>
+</div>
+
+<div class="mdbook-tab-content hidden" data-tabname="Network Security">
+<ul>
+<li>CORS configuration for cross-origin requests</li>
+<li>Rate limiting (via reverse proxy)</li>
+<li>Authentication/authorization (via reverse proxy)</li>
+<li>HTTPS termination (via reverse proxy)</li>
+</ul>
+</div>
+
+</div>
+
+<h2 id="extensibility-points"><a class="header" href="#extensibility-points">Extensibility Points</a></h2>
+<h3 id="adding-new-tile-sources"><a class="header" href="#adding-new-tile-sources">Adding New Tile Sources</a></h3>
+<p>To add a new tile source type:</p>
+<ol>
+<li>Implement the <code>Source</code> trait in <code>martin-core</code></li>
+<li>Add configuration parsing in <code>martin</code></li>
+<li>Register source in the catalog</li>
+<li>Add integration tests</li>
+</ol>
+<p>Example source types that could be added:</p>
+<ul>
+<li>Direct GeoJSON file serving</li>
+<li>Vector tile rendering from raster data</li>
+<li>Integration with other spatial databases</li>
+</ul>
+<h3 id="adding-new-resource-types"><a class="header" href="#adding-new-resource-types">Adding New Resource Types</a></h3>
+<p>To add new resource endpoints:</p>
+<ol>
+<li>Implement resource generator in <code>martin-core</code></li>
+<li>Add HTTP handler in <code>martin/src/srv/</code></li>
+<li>Add configuration support</li>
+<li>Update catalog/discovery</li>
+</ol>
+<h3 id="custom-authenticationauthorization"><a class="header" href="#custom-authenticationauthorization">Custom Authentication/Authorization</a></h3>
+<p>Martin doesn’t include built-in auth, but supports:</p>
+<ul>
+<li>Reverse proxy authentication (recommended)</li>
+<li>Custom Actix-Web middleware</li>
+<li>Token-based access control via proxy</li>
+</ul>
+<h2 id="monitoring-and-observability"><a class="header" href="#monitoring-and-observability">Monitoring and Observability</a></h2>
+<div class="mdbook-tabs-container">
+<nav class="mdbook-tabs">
+<button class="mdbook-tab active" data-tabname="Metrics">Metrics</button>
+<button class="mdbook-tab" data-tabname="Health Checks">Health Checks</button>
+<button class="mdbook-tab" data-tabname="Logging">Logging</button>
+</nav>
+<div class="mdbook-tab-content" data-tabname="Metrics">
+<p>Martin exposes Prometheus metrics via <code>/metrics</code>:</p>
+<ul>
+<li>HTTP request counters and histograms</li>
+<li>Tile generation time histograms</li>
+<li>Cache hit/miss rates</li>
+<li>Database connection pool stats</li>
+<li>Error rates by type</li>
+</ul>
+</div>
+
+<div class="mdbook-tab-content hidden" data-tabname="Health Checks">
+<p>We allow health checks via <code>/health</code> and <code>/catalog</code> endpoints:</p>
+<ul>
+<li><code>/health</code> - Basic health check (HTTP 200)</li>
+<li><code>/catalog</code> - Source availability check</li>
+</ul>
+</div>
+
+<div class="mdbook-tab-content hidden" data-tabname="Logging">
+<ul>
+<li>logging via <code>env_logger</code></li>
+<li>Configurable log levels</li>
+<li>Request/response logging</li>
+</ul>
+</div>
+
+</div>
+
+<h2 id="related-documentation"><a class="header" href="#related-documentation">Related Documentation</a></h2>
+<ul>
+<li><a href="#development">Development Guide</a> - Contributing to Martin</li>
+<li><a href="#configuration-file">Configuration File</a> - Detailed configuration options</li>
+<li><a href="#available-api-endpoints">API Documentation</a> - HTTP API reference</li>
+<li><a href="#tile-sources">Sources Documentation</a> - Tile source configuration</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div>
 <h1 id="development"><a class="header" href="#development">Development</a></h1>
 <h2 id="docker-1"><a class="header" href="#docker-1">docker</a></h2>
 <p>Install <a href="https://docs.docker.com/get-docker/">docker</a> and <a href="https://docs.docker.com/compose/">docker-compose</a></p>
@@ -3747,6 +4455,8 @@ Please open an issue on our GitHub repository or directly open a pull request.</
 
         <!-- Custom JS scripts -->
         <script src="theme/tabs-4258a7db.js"></script>
+        <script src="theme/mermaid-4194ac88.min.js"></script>
+        <script src="theme/mermaid-init-e151941c.js"></script>
 
         <script>
         window.addEventListener('load', function() {
