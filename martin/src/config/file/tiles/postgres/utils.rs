@@ -48,7 +48,7 @@ fn find_info_kv<'a, T>(
         )),
         Ok(Some(result)) => {
             info!("For source {id}, {info} '{key}' was not found, but found '{result}' instead.");
-            let value = map.get(result).unwrap(); // guaranteed to be in the map
+            let value = map.get(result).expect("guaranteed to be in the map");
             Ok((result.as_str(), value))
         }
         Err(multiple) => Err(format!(
