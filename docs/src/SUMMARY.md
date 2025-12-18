@@ -48,6 +48,7 @@
     - [Copying MBTiles](mbtiles-copy.md)
     - [Diffing/Patching MBTiles](mbtiles-diff.md)
     - [Validating MBTiles](mbtiles-validation.md)
+- [Architecture](architecture.md)
 - [Development](development.md)
   - [Getting involved](getting-involved.md)
   - [Provided Tools](tools.md)
