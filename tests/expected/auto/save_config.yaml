@@ -1,3 +1,4 @@
+on_invalid: abort
 listen_addresses: localhost:3111
 tilejson_url_version_param: version
 postgres:

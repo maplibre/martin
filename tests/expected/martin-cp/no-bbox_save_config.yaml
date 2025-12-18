@@ -1,3 +1,4 @@
+on_invalid: abort
 postgres:
   auto_publish: true
   tables:
