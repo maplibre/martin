@@ -130,9 +130,9 @@ impl PostgresAutoDiscoveryBuilder {
     }
 
     /// Discovers and instantiates table-based tile sources.
-    pub async fn instantiate_tables(&self) -> PostgresResult<(Vec<BoxedSource>, TableInfoSources)> {
-        // FIXME: this function has gotten too long due to the new formatting rules, need to be refactored
-
+    pub async fn instantiate_tables(
+        &self,
+    ) -> PostgresResult<(Vec<BoxedSource>, TableInfoSources, Vec<TileSourceWarning>)> {
         let restrict_to_tables = if self.auto_tables.is_none() {
             Some(self.configured_tables())
         } else {
@@ -776,7 +776,7 @@ mod tests {
         let connection_string =
             format!("postgres://postgres:postgres@{host}:{port}/postgres?sslmode=disable");
 
-        let config_yaml = indoc! {r#"
+        let config_yaml = indoc! {r"
             tables:
               nonexistent_table:
                 schema: public
@@ -789,7 +789,7 @@ mod tests {
               nonexistent_function:
                 schema: public
                 function: this_function_does_not_exist
-        "#};
+        "};
 
         let mut config: PostgresConfig = serde_yaml::from_str(config_yaml).unwrap();
         config.connection_string = Some(connection_string);
@@ -813,7 +813,9 @@ mod tests {
             } => {
                 assert_eq!(source_id, "nonexistent_table");
             }
-            _ => panic!("Expected SourceError warning, got: {:?}", table_warnings[0]),
+            TileSourceWarning::PathError { .. } => {
+                panic!("Expected SourceError warning, got: {:?}", table_warnings[0])
+            }
         }
 
         let (function_sources, _info_map, function_warnings) = builder
@@ -829,9 +831,9 @@ mod tests {
                 source_id,
                 error: _,
             } => {
-                assert_eq!(source_id, "nonexistent_function")
+                assert_eq!(source_id, "nonexistent_function");
             }
-            _ => panic!(
+            TileSourceWarning::PathError { .. } => panic!(
                 "Expected SourceError warning, got: {:?}",
                 function_warnings[0]
             ),

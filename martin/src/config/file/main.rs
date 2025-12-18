@@ -408,7 +408,7 @@ pub enum OnInvalid {
 }
 
 impl OnInvalid {
-    /// Handle warnings based on the configured behavior
+    /// Handle warnings based on `policy`
     pub fn handle_warnings(policy: Self, warnings: &[TileSourceWarning]) -> MartinResult<()> {
         if warnings.is_empty() {
             return Ok(());
@@ -430,8 +430,7 @@ impl OnInvalid {
 
         match policy {
             OnInvalid::Abort => Err(MartinError::TileResolutionWarningsIssued),
-            OnInvalid::Warn => Ok(()),
-            OnInvalid::Ignore => Ok(()),
+            OnInvalid::Warn | OnInvalid::Ignore => Ok(()),
         }
     }
 }
