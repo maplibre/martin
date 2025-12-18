@@ -12,7 +12,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { TooltipCopyText } from '@/components/ui/tooltip-copy-text';
 import { buildMartinUrl } from '@/lib/api';
 import type { Style } from '@/lib/types';
 
@@ -163,9 +162,8 @@ function MyMap() {
           <DialogTitle>
             <div className="text-2xl flex items-center gap-2">
               <Code className="w-6 h-6" />
-              Integration Guide:
+              Integration Guide: <code>{name}</code>
             </div>
-            <TooltipCopyText side="bottom" text={name} />
           </DialogTitle>
           <DialogDescription>
             Learn how to integrate this style into your MapLibre application across different

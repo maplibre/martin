@@ -9,7 +9,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { TooltipCopyText } from '@/components/ui/tooltip-copy-text';
 import type { SpriteCollection } from '@/lib/types';
 import { SpritePreview } from '../sprite/SpritePreview';
 
@@ -32,9 +31,7 @@ export function SpritePreviewDialog({
         {sprite && (
           <>
             <DialogHeader className="mb-6 truncate">
-              <DialogTitle className="text-2xl flex gap-4">
-                <TooltipCopyText side="bottom" text={name} />
-              </DialogTitle>
+              <DialogTitle className="text-2xl flex gap-4">{name}</DialogTitle>
               <DialogDescription>
                 <span>Preview the selected sprite.</span>
                 <br />

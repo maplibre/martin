@@ -1,4 +1,3 @@
-import * as React from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipTrigger } from './tooltip';
 
@@ -14,14 +13,7 @@ export interface TooltipCopyTextProps {
 export function TooltipCopyText({ text, ...props }: TooltipCopyTextProps) {
   const { toast } = useToast();
 
-  const handleKeyDown = (event) => {
-    if (event.key === 'Enter') {
-      handleCopy(event);
-    }
-  };
-
-  const handleCopy = async (event) => {
-    const text = event.target.innerText;
+  const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(text);
       toast({
@@ -40,17 +32,12 @@ export function TooltipCopyText({ text, ...props }: TooltipCopyTextProps) {
 
   return (
     <Tooltip>
-      <TooltipTrigger asChild>
-        <div
-          aria-disabled="true"
-          className="text-lg font-mono cursor-pointer truncate"
-          onClick={handleCopy}
-          onKeyDown={handleKeyDown}
-          role="button"
-          tabindex="0"
-        >
-          {text}
-        </div>
+      <TooltipTrigger
+        className="text-lg font-mono cursor-pointer truncate w-full"
+        onClick={handleCopy}
+        type="button"
+      >
+        <code>{text}</code>
       </TooltipTrigger>
       <TooltipContent {...props}>
         <div className="flex flex-col justify-center items-center">
