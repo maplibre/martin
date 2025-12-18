@@ -12,7 +12,7 @@ updates:
         applies-to: security-updates
         patterns: [ '*' ]
     cooldown:
-      default-days: 3
+      default-days: 7
       # no semver support for github-actions
       # => no specific configuration for this
       include:
@@ -31,10 +31,7 @@ updates:
         applies-to: security-updates
         patterns: [ '*' ]
     cooldown:
-      default-days: 4
-      semver-major-days: 4
-      semver-minor-days: 2
-      semver-patch-days: 2
+      default-days: 7
       include:
         - "*"
 
@@ -54,10 +51,7 @@ updates:
         applies-to: security-updates
         patterns: [ '*' ]
     cooldown:
-      default-days: 3
-      semver-major-days: 3
-      semver-minor-days: 3
-      semver-patch-days: 3
+      default-days: 7
       include:
         - "*"
 
@@ -76,9 +70,16 @@ updates:
         applies-to: security-updates
         patterns: [ '*' ]
     cooldown:
-      default-days: 4
-      semver-major-days: 4
-      semver-minor-days: 2
-      semver-patch-days: 2
+      default-days: 7
       include:
         - "*"
+
+  - package-ecosystem: docker
+    directory: /demo/db
+    schedule:
+      interval: daily
+
+  - package-ecosystem: docker
+    directory: /demo/frontend
+    schedule:
+      interval: daily

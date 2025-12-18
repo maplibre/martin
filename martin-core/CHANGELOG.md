@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.4](https://github.com/maplibre/martin/compare/martin-core-v0.2.3...martin-core-v0.2.4) - 2025-12-11
+
+### Added
+
+- *(martin-core)* add an pmtiles example ([#2370](https://github.com/maplibre/martin/pull/2370))
+
 ## [0.2.3](https://github.com/maplibre/martin/compare/martin-core-v0.2.2...martin-core-v0.2.3) - 2025-11-18
 
 A recent release of pmtiles had a breaking change.
