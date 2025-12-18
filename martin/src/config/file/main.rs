@@ -403,8 +403,6 @@ pub enum OnInvalid {
     /// Log warnings as errors, abort startup
     #[default]
     Abort,
-    /// Log warnings as debug, abort if the error is critical
-    Ignore,
 }
 
 impl OnInvalid {
@@ -416,7 +414,6 @@ impl OnInvalid {
         let level = match policy {
             OnInvalid::Warn => Level::Warn,
             OnInvalid::Abort => Level::Error,
-            OnInvalid::Ignore => Level::Debug,
         };
         if warnings.len() == 1 {
             let warning = &warnings[0];
@@ -430,7 +427,7 @@ impl OnInvalid {
 
         match policy {
             OnInvalid::Abort => Err(MartinError::TileResolutionWarningsIssued),
-            OnInvalid::Warn | OnInvalid::Ignore => Ok(()),
+            OnInvalid::Warn => Ok(()),
         }
     }
 }

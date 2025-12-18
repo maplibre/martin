@@ -60,7 +60,6 @@ web_ui: disable
 # Options:
 # - `warn`: log warning messages
 # - `abort`: log warnings as error messages, abort startup
-# - `ignore`: log warnings as debug messages
 on_invalid: abort
 
 # Advanced monitoring options
