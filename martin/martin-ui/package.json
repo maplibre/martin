@@ -44,7 +44,6 @@
     "vitest": "4.0.15"
   },
   "name": "martin-ui",
-  "packageManager": "pnpm@9.7.0+sha512.dc09430156b427f5ecfc79888899e1c39d2d690f004be70e05230b72cb173d96839587545d09429b55ac3c429c801b4dc3c0e002f653830a420fa2dd4e3cf9cf",
   "private": true,
   "scripts": {
     "build": "cross-env VITE_MARTIN_VERSION=$npm_package_version vite build",

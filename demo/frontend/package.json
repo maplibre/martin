@@ -18,7 +18,7 @@
     "styled-components": "6.1.19"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.3.8",
+    "@biomejs/biome": "2.3.8",
     "@types/debounce": "^1.2.4",
     "@types/node": "^24.10.1",
     "@types/react": "^19.2.7",

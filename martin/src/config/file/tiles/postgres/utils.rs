@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use itertools::Itertools;
-use log::{error, info, warn};
+use log::{error, info};
 use tilejson::TileJSON;
 
 #[must_use]
@@ -11,49 +11,50 @@ pub fn normalize_key<T>(
     info: &str,
     id: &str,
 ) -> Option<String> {
-    find_info_kv(map, key, info, id).map(|(k, _)| k.to_string())
+    find_info_kv(map, key, info, id)
+        .map(|(k, _)| k.to_string())
+        .ok()
 }
 
-#[must_use]
 pub fn find_info<'a, T>(
     map: &'a BTreeMap<String, T>,
     key: &'a str,
     info: &str,
     id: &str,
-) -> Option<&'a T> {
+) -> Result<&'a T, String> {
     find_info_kv(map, key, info, id).map(|(_, v)| v)
 }
 
-#[must_use]
+/// Find a key in a map, falling back to a case-insensitive key lookup if no exact match is found.
+///
+/// If there is an exact match, returns Ok((key, value)).
+/// If there is a case-insensitive match, return that as `Ok((resolved_key, value))` but log info explaining the match.
+/// If there are multiple case-insensitive matches, return an Err with a list of possible matches.
+/// If there is no match at all, return Err.
 fn find_info_kv<'a, T>(
     map: &'a BTreeMap<String, T>,
     key: &'a str,
     info: &str,
     id: &str,
-) -> Option<(&'a str, &'a T)> {
+) -> Result<(&'a str, &'a T), String> {
     if let Some(v) = map.get(key) {
-        return Some((key, v));
+        return Ok((key, v));
     }
 
     match find_kv_ignore_case(map, key) {
-        Ok(None) => {
-            warn!(
-                "Unable to configure source {id} because {info} '{key}' was not found.  Possible values are: {}",
-                map.keys().map(String::as_str).join(", ")
-            );
-            None
-        }
+        Ok(None) => Err(format!(
+            "Unable to configure source {id} because {info} '{key}' was not found.  Possible values are: {}",
+            map.keys().map(String::as_str).join(", ")
+        )),
         Ok(Some(result)) => {
             info!("For source {id}, {info} '{key}' was not found, but found '{result}' instead.");
-            Some((result.as_str(), map.get(result)?))
+            let value = map.get(result).expect("guaranteed to be in the map");
+            Ok((result.as_str(), value))
         }
-        Err(multiple) => {
-            error!(
-                "Unable to configure source {id} because {info} '{key}' has no exact match and more than one potential matches: {}",
-                multiple.join(", ")
-            );
-            None
-        }
+        Err(multiple) => Err(format!(
+            "Unable to configure source {id} because {info} '{key}' has no exact match and more than one potential matches: {}",
+            multiple.join(", ")
+        )),
     }
 }
 
