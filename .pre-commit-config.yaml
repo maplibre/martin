@@ -94,30 +94,32 @@ repos:
       - id: biome-format
         additional_dependencies: [ "@biomejs/biome@2.3.8" ]
 
-  - id: sync-biome-version
-    name: Sync Biome Version
-    description: "Update biome.json schema versions and additional_dependencies from pre-commit biome rev"
-    entry: |
-      bash -c '
-        VERSION=$(grep "repo: https://github.com/biomejs" -A 1 .pre-commit-config.yaml | grep -v "VERSION=" | grep "rev:" | sed "s/.*rev: \"v\([0-9\.]*\)\".*/\1/")
-        sed -i "s%biomejs.dev/schemas/[^/]*/%biomejs.dev/schemas/$VERSION/%" biome.json
-        sed -i "s%biomejs.dev/schemas/[^/]*/%biomejs.dev/schemas/$VERSION/%" demo/frontend/biome.json
-        sed -i "s%biomejs.dev/schemas/[^/]*/%biomejs.dev/schemas/$VERSION/%" martin/martin-ui/biome.json
+  - repo: local
+    hooks:
+    - id: sync-biome-version
+      name: Sync Biome Version
+      description: "Update biome.json schema versions and additional_dependencies from pre-commit biome rev"
+      entry: |
+        bash -c '
+          VERSION=$(grep "repo: https://github.com/biomejs" -A 1 .pre-commit-config.yaml | grep -v "VERSION=" | grep "rev:" | sed "s/.*rev: \"v\([0-9\.]*\)\".*/\1/")
+          sed -i "s%biomejs.dev/schemas/[^/]*/%biomejs.dev/schemas/$VERSION/%" biome.json
+          sed -i "s%biomejs.dev/schemas/[^/]*/%biomejs.dev/schemas/$VERSION/%" demo/frontend/biome.json
+          sed -i "s%biomejs.dev/schemas/[^/]*/%biomejs.dev/schemas/$VERSION/%" martin/martin-ui/biome.json
 
-        # Update package.json and lockfiles only if version changed
-        if ! grep -q "\"@biomejs/biome\": \"$VERSION\"" demo/frontend/package.json; then
-          sed -i "s%\"@biomejs/biome\": \"[0-9.]*\"%\"@biomejs/biome\": \"$VERSION\"%" demo/frontend/package.json
-          (cd demo/frontend && yarn install --no-immutable)
-        fi
+          # Update package.json and lockfiles only if version changed
+          if ! grep -q "\"@biomejs/biome\": \"$VERSION\"" demo/frontend/package.json; then
+            sed -i "s%\"@biomejs/biome\": \"[0-9.]*\"%\"@biomejs/biome\": \"$VERSION\"%" demo/frontend/package.json
+            (cd demo/frontend && yarn install --no-immutable)
+          fi
 
-        if ! grep -q "\"@biomejs/biome\": \"$VERSION\"" martin/martin-ui/package.json; then
-          sed -i "s%\"@biomejs/biome\": \"[0-9.]*\"%\"@biomejs/biome\": \"$VERSION\"%" martin/martin-ui/package.json
-          (cd martin/martin-ui && npm install --lockfile-only)
-        fi
+          if ! grep -q "\"@biomejs/biome\": \"$VERSION\"" martin/martin-ui/package.json; then
+            sed -i "s%\"@biomejs/biome\": \"[0-9.]*\"%\"@biomejs/biome\": \"$VERSION\"%" martin/martin-ui/package.json
+            (cd martin/martin-ui && npm install --lockfile-only)
+          fi
 
-        sed -i "/repo: https:\/\/github.com\/biomejs\/pre-commit/,$ s/@biomejs\/biome@[0-9.]*/@biomejs\/biome@$VERSION/g" .pre-commit-config.yaml
-        echo "Synced Biome version to $VERSION"
-      '
-    language: system
-    files: ^\.pre-commit-config\.yaml$
-    pass_filenames: false
+          sed -i "/repo: https:\/\/github.com\/biomejs\/pre-commit/,$ s/@biomejs\/biome@[0-9.]*/@biomejs\/biome@$VERSION/g" .pre-commit-config.yaml
+          echo "Synced Biome version to $VERSION"
+        '
+      language: system
+      files: ^\.pre-commit-config\.yaml$
+      pass_filenames: false
