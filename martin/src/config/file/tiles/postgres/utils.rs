@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use itertools::Itertools;
-use log::error;
+use log::{error, info};
 use tilejson::TileJSON;
 
 #[must_use]
@@ -16,7 +16,6 @@ pub fn normalize_key<T>(
         .ok()
 }
 
-#[must_use]
 pub fn find_info<'a, T>(
     map: &'a BTreeMap<String, T>,
     key: &'a str,
@@ -26,7 +25,12 @@ pub fn find_info<'a, T>(
     find_info_kv(map, key, info, id).map(|(_, v)| v)
 }
 
-#[must_use]
+/// Find a key in a map, falling back to a case-insensitive key lookup if no exact match is found.
+///
+/// If there is an exact match, returns Ok((key, value)).
+/// If there is a case-insensitive match, return that as `Ok((resolved_key, value))` but log info explaining the match.
+/// If there are multiple case-insensitive matches, return an Err with a list of possible matches.
+/// If there is no match at all, return Err.
 fn find_info_kv<'a, T>(
     map: &'a BTreeMap<String, T>,
     key: &'a str,
@@ -42,9 +46,11 @@ fn find_info_kv<'a, T>(
             "Unable to configure source {id} because {info} '{key}' was not found.  Possible values are: {}",
             map.keys().map(String::as_str).join(", ")
         )),
-        Ok(Some(result)) => map.get(result).map(|v| (result.as_str(), v)).ok_or(format!(
-            "For source {id}, {info} '{key}' was not found, but found '{result}' instead."
-        )),
+        Ok(Some(result)) => {
+            info!("For source {id}, {info} '{key}' was not found, but found '{result}' instead.");
+            let value = map.get(result).expect("guaranteed to be in the map");
+            Ok((result.as_str(), value))
+        }
         Err(multiple) => Err(format!(
             "Unable to configure source {id} because {info} '{key}' has no exact match and more than one potential matches: {}",
             multiple.join(", ")
