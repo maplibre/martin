@@ -45,7 +45,6 @@ updates:
         patterns: [ '*' ]
         exclude-patterns:
           - '@biomejs/biome'
-          - 'tailwindcss'
       all-npm-security-updates:
         applies-to: security-updates
         patterns: [ '*' ]
