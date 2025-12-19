@@ -26,7 +26,7 @@ mbtiles validate file2a.mbtiles
 
 ### Delta file metadata
 
-The diff file will copy all metadata from `file2.mbtiles` to the diff file.
+All metadata from `file2.mbtiles` will be copied to the diff file.
 
 The only exception is the `agg_tiles_hash` value, which will be renamed to `agg_tiles_hash_after_apply`. A
 new `agg_tiles_hash` will be generated for the diff file itself. This is done to avoid confusion when applying the diff
