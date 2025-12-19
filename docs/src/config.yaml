@@ -1,0 +1,343 @@
+# Connection keep alive timeout [default: 75]
+keep_alive: 75
+
+# The socket address to bind [default: 0.0.0.0:3000]
+listen_addresses: '0.0.0.0:3000'
+
+# Set TileJSON URL path prefix.
+# This overrides the default of respecting the X-Rewrite-URL header.
+# Only modifies the JSON (TileJSON) returned; Martin's API-URLs remain unchanged.
+# If you need to rewrite URLs, please use a reverse proxy.
+# Must begin with a `/`.
+# Examples: `/`, `/tiles`
+base_path: /tiles
+
+# Number of web server workers
+worker_processes: 8
+
+# Amount of memory (in MB) to use for caching [default: 512, 0 to disable]
+#
+# This is the total amount of cache we use.
+# By default, this is split up between:
+# - Tiles 50% -> 256 MB
+# - Pmtiles' directories 25% -> 128 MB
+# - Fonts 12.5% -> 64 MB
+# - Sprites 12.5% -> 64 MB
+#
+# How the cache works internally is unstable and may change to improve performance/efficiency.
+# For example, we may change the split between sources to improve efficiency.
+#
+# Specify each cache size individually for finer cache size control:
+# - Tiles: `tile_cache_size_mb`
+# - Pmtiles: `pmtiles.directory_cache_size_mb`
+# - Fonts: `fonts.cache_size_mb`
+# - Sprites: `sprites.cache_size_mb`
+cache_size_mb: 512
+
+# Allows overriding the size of the tile cache.
+# Defaults to `cache_size_mb` / 2
+tile_cache_size_mb: 256
+
+# Which compression should be used if the
+# - client accepts multiple compression formats, and
+# - tile source is not pre-compressed.
+#
+# `gzip` is faster, but `brotli` is smaller, and may be faster with caching.
+# Default could be different depending on Martin version.
+preferred_encoding: gzip
+
+# Enable or disable Martin web UI. [default: disable]
+#
+# At the moment, only allows `enable-for-all`, which enables the web UI for all connections.
+# This may be undesirable in a production environment
+web_ui: disable
+
+# Advanced monitoring options
+observability:
+  # Configure metrics reported under `/_/metrics`
+  metrics:
+    # Add these labels to every metric
+    # Example: `{ env: prod, server: martin }`
+    add_labels: {}
+
+# CORS Configuration
+#
+# Defaults to `cors: true`, which allows all origins.
+# Sending/Acting on CORS headers can be completely disabled via `cors: false`
+cors:
+  # Sets the `Access-Control-Allow-Origin` header [default: *]
+  # '*' will use the requests `ORIGIN` header
+  origin:
+    - https://example.org
+  # Sets `Access-Control-Max-Age` Header. [default: null]
+  # null means not setting the header for preflight requests
+  max_age: 3600
+
+# Database configuration. This can also be a list of PG configs.
+postgres:
+  # Database connection string.
+  #
+  # You can use environment variables too, for example:
+  # connection_string: $DATABASE_URL
+  # connection_string: ${DATABASE_URL:-postgres://postgres@localhost/db}
+  connection_string: 'postgres://postgres@localhost:5432/db'
+
+  # Same as PGSSLCERT for psql
+  ssl_cert: './postgresql.crt'
+  # Same as PGSSLKEY for psql
+  ssl_key: './postgresql.key'
+  # Same as PGSSLROOTCERT for psql
+  ssl_root_cert: './root.crt'
+
+  # If a spatial table has SRID 0, then this SRID will be used as a fallback
+  default_srid: 4326
+
+  # Maximum Postgres connections pool size [default: 20]
+  pool_size: 20
+
+  # Limit the number of geo features per tile.
+  #
+  # If the source table has more features than set here, they will not be
+  # included in the tile and the result will look "cut off"/incomplete.
+  # This feature allows you to put a maximum latency bound on tiles with an
+  # extreme amount of detail at the cost of not returning all data.
+  # It is sensible to set this limit if you have user generated/untrusted
+  # geodata, e.g. a lot of data points at [Null Island]
+  # (https://en.wikipedia.org/wiki/Null_Island).
+  max_feature_count: null # either a positive integer, or null=unlimited (default)
+
+  # Specify how bounds should be computed for the spatial PG tables [default: quick]
+  #
+  # Options:
+  # - `calc` compute table geometry bounds on startup.
+  # - `quick` same as 'calc', but the calculation will be aborted after 5 seconds.
+  # - `skip` does not compute table geometry bounds on startup.
+  auto_bounds: quick
+
+  # Enable automatic discovery of tables and functions. [default: null]
+  #
+  # Options:
+  # - `true`: run automatic discovery (`true` may be omitted if further configuration is provided)
+  # - `false`: disable automatic discovery
+  # - null: run automatic discovery if postgres.tables is null and postgres.functions is null
+  auto_publish:
+    # Optionally limit to just these schemas
+    from_schemas:
+      - public
+      - my_schema
+    # Here we enable both tables and functions auto discovery.
+    # You can also enable just one of them by not mentioning the other, or
+    # setting it to false. Setting one to true disables the other one as well.
+    # E.g. `tables: false` enables just the functions auto-discovery.
+    tables:
+      # Optionally set how source ID should be generated based on the table's name,
+      # schema, and geometry column
+      source_id_format: 'table.{schema}.{table}.{column}'
+      # Add more schemas to the ones listed above
+      from_schemas: my_other_schema
+      # A table column to use as the feature ID
+      # If a table has no column with this name, `id_column` will not be set for
+      # that table.
+      # If a list of strings is given, the first found column will be treated as a
+      # feature ID.
+      id_columns: feature_id
+      # Controls if geometries should be clipped or encoded as is [default: true]
+      clip_geom: true
+      # Buffer distance in tile coordinate space to optionally clip geometries,
+      # optional, default to 64
+      buffer: 64
+      # Tile extent in tile coordinate space, optional, default to 4096
+      extent: 4096
+    functions:
+      # Optionally limit to just these schemas
+      from_schemas:
+        - public
+        - my_schema
+      # Optionally set how source ID should be generated based on the function's
+      # name and schema
+      source_id_format: '{schema}.{function}'
+
+  # Associative arrays of table sources
+  tables:
+    table_source_id:
+      # ID of the MVT layer (optional, defaults to table name)
+      layer_id: table_source
+
+      # Table schema (required)
+      schema: public
+
+      # Table name (required)
+      table: table_source
+
+      # Geometry SRID (required)
+      srid: 4326
+
+      # Geometry column name (required)
+      geometry_column: geom
+
+      # Feature id column name
+      id_column: ~
+
+      # An integer specifying the minimum zoom level
+      minzoom: 0
+
+      # An integer specifying the maximum zoom level. MUST be >= minzoom
+      maxzoom: 30
+
+      # The maximum extent of available map tiles. Bounds MUST define an area
+      # covered by all zoom levels. The bounds are represented in WGS:84 latitude
+      # and longitude values, in the order left, bottom, right, top. Values may
+      # be integers or floating point numbers.
+      bounds: [ -180.0, -90.0, 180.0, 90.0 ]
+
+      # Tile extent in tile coordinate space
+      extent: 4096
+
+      # Buffer distance in tile coordinate space to optionally clip geometries
+      buffer: 64
+
+      # Boolean to control if geometries should be clipped or encoded as is
+      clip_geom: true
+
+      # Geometry type
+      geometry_type: GEOMETRY
+
+      # List of columns, that should be encoded as tile properties (required)
+      #
+      # Keys and values are the names and descriptions of attributes available in this layer.
+      # Each value (description) must be a string that describes the underlying data.
+      # If no fields (=just the geometry) should be encoded, an empty object is allowed.
+      properties:
+        gid: int4
+
+  # Associative arrays of function sources
+  functions:
+    function_source_id:
+      # Schema name (required)
+      schema: public
+
+      # Function name (required)
+      function: function_zxy_query
+
+      # An integer specifying the minimum zoom level
+      minzoom: 0
+
+      # An integer specifying the maximum zoom level. MUST be >= minzoom
+      maxzoom: 30
+
+      # The maximum extent of available map tiles. Bounds MUST define an area
+      # covered by all zoom levels. The bounds are represented in WGS:84
+      # latitude and longitude values, in the order left, bottom, right, top.
+      # Values may be integers or floating point numbers.
+      bounds: [ -180.0, -90.0, 180.0, 90.0 ]
+
+# Publish PMTiles files from local disk or proxy to a web server
+pmtiles:
+  # Size of the directory cache (in MB).
+  # Defaults to cache_size_mb / 4
+  #
+  # Note:
+  # Tile and directory caching are complementary.
+  # For good performance, you want
+  # - directory caching (to not resolve the directory on each request) and
+  # - tile caching (for high access tiles)
+  directory_cache_size_mb: 128
+
+  # You can pass options for pmtiles files located on remote storages here.
+  #
+  # The avaliable options are documented here:
+  # - local file sources don't have options
+  # - Http(s) Source: https://docs.rs/object_store/latest/object_store/http/struct.HttpBuilder.html
+  # - Amazon S3: https://docs.rs/object_store/latest/object_store/aws/struct.AmazonS3Builder.html
+  # - Google Cloud Storage: https://docs.rs/object_store/latest/object_store/gcp/struct.GoogleCloudStorageBuilder.html
+  # - Microsoft Azure: https://docs.rs/object_store/latest/object_store/azure/struct.MicrosoftAzureBuilder.html
+  #
+  # Example for configuring a source to allow http
+  allow_http: true
+
+  paths:
+    # scan this whole dir, matching all *.pmtiles files
+    - /dir-path
+    # specific pmtiles file will be published as a pmt source (filename without extension)
+    - /path/to/pmt.pmtiles
+    # A web server with a PMTiles file that supports range requests
+    - https://example.org/path/tiles.pmtiles
+  sources:
+    # named source matching source name to a single file
+    pm-src1: /path/to/pmt.pmtiles
+    # A named source to a web server with a PMTiles file that supports range requests
+    pm-web2: https://example.org/path/tiles.pmtiles
+
+# Publish MBTiles files
+mbtiles:
+  paths:
+    # scan this whole dir, matching all *.mbtiles files
+    - /dir-path
+    # specific mbtiles file will be published as mbtiles2 source
+    - /path/to/mbtiles.mbtiles
+  sources:
+    # named source matching source name to a single file
+    mb-src1: /path/to/mbtiles1.mbtiles
+
+# Sprite configuration
+sprites:
+  # Size of the sprite cache (in MB).
+  # Defaults to cache_size_mb / 8
+  cache_size_mb: 64
+
+  paths:
+    # all SVG files in this dir will be published as a "my_images" sprite source
+    - /path/to/my_images
+  sources:
+    # SVG images in this directory will be published as a "my_sprites" sprite source
+    my_sprites: /path/to/some_dir
+
+# Font configuration
+fonts:
+  # Size of the sprite cache (in MB).
+  # Defaults to cache_size_mb / 4
+  cache_size_mb: 64
+
+  # A list of *.otf, *.ttf, and *.ttc font files and dirs to search recursively.
+  paths:
+    - /path/to/font/file.ttf
+    - /path/to/font_dir
+
+# Publish MapLibre style files
+# In the future, the style files will be used for the server-side rendering as well
+styles:
+   paths:
+     # publish all *.json files in this directory
+     # The name of the file will be used as the style name
+     - /path/to/styles_dir
+     # publish a single file - here `maplibre_style` will be the style name
+     - /path/to/maplibre_style.json
+   sources:
+     # publish a JSON file found at this path as `some_style_name`
+     #
+     # Contrairy to paths, if directories are specified, Martin will print a
+     # warning and ignore them.
+     # To serve a style-directory, use the `paths` section above or name each
+     # style individually. This prevents footguns with names being unclear.
+     some_style_name: /path/to/this/style.json
+     #  Publish specific file as `other_style_name`
+     other_style_name: /path/to/other_style.json
+
+# If set, the version of the tileset (as specified in the MBTiles or PMTiles metadata)
+# will be embedded in the TileJSON `tiles` URL, with the set identifier.
+# This is useful to give clients a better way to cache-bust a CDN:
+# 1. maplibre requests tilejson, tilejson contains the tiles URL. This is always up-to-date.
+# 2. maplibre requests each tile it requires, with the tiles URL in the tilejson.
+# 3. Add `Control: public, max-age=..., immutable` on the tile responses
+#    optimize browser/CDN cache hit rates, while also making sure that
+#    old tiles aren't served when a new tileset is deployed.
+#
+# The CDN must handle query parameters for caching to work correctly.
+# Many CDNs ignore them by default.
+#
+# For example, if
+# - the setting here is `version`, and
+# - the PMTiles tileset version is `1.0.0`, the
+# TileJSON will be:
+# { ..., "tiles": [".../{z}/{x}/{y}?version=1.0.0"], ... }
+tilejson_url_version_param: null # a string, such as `version` or `v`

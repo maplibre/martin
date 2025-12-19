@@ -60,7 +60,7 @@ pub struct CopierArgs {
     pub meta: MetaArgs,
     #[cfg(feature = "postgres")]
     #[command(flatten)]
-    pub pg: Option<martin::config::args::PgArgs>,
+    pub pg: Option<martin::config::args::PostgresArgs>,
 }
 
 #[serde_with::serde_as]
@@ -80,7 +80,7 @@ pub struct CopyArgs {
         value_enum
     )]
     pub mbt_type: Option<MbtTypeCli>,
-    /// Optional query parameter (in URL query format) for the sources that support it (e.g. Postgres functions)
+    /// Optional query parameter (in URL query format) for the sources that support it (e.g. Postgres functions).
     #[arg(long)]
     pub url_query: Option<String>,
     /// Optional accepted encoding parameter as if the browser sent it in the HTTP request.
@@ -90,14 +90,16 @@ pub struct CopyArgs {
     /// Use `identity` to disable compression. Ignored for non-encodable tiles like PNG and JPEG.
     #[arg(long, alias = "encodings", default_value = "gzip")]
     pub encoding: String,
-    /// Allow copying to existing files, and indicate what to do if a tile with the same Z/X/Y already exists
+    /// Allow copying to existing files, and indicate what to do if a tile with the same Z/X/Y already exists.
     #[arg(long, value_enum)]
     pub on_duplicate: Option<CopyDuplicateMode>,
     /// Number of concurrent connections to use.
     #[arg(long, default_value = "1")]
     pub concurrency: NonZeroUsize,
-    /// Bounds to copy, in the format `min_lon,min_lat,max_lon,max_lat`. Can be specified multiple times. Overlapping regions will be handled correctly.
-    #[arg(long)]
+    /// Bounds to copy, in the format `min_lon,min_lat,max_lon,max_lat`. Can be specified multiple times with overlapping bounds being handled correctly. Maximum bounds follows mbtiles specification for xyz-compliant tile bounds.
+    ///
+    /// If omitted, will first default to configured source bounds if present. Otherwise, will default to global xyz-compliant tile bounds.
+    #[arg(long, default_value = "-180,-85.05112877980659,180,85.0511287798066")]
     pub bbox: Vec<Bounds>,
     /// Minimum zoom level to copy
     #[arg(long, alias = "minzoom", conflicts_with("zoom_levels"))]
@@ -131,7 +133,7 @@ impl Default for CopyArgs {
             url_query: None,
             encoding: "gzip".to_string(),
             on_duplicate: None,
-            concurrency: NonZeroUsize::new(1).unwrap(),
+            concurrency: NonZeroUsize::new(1).expect("1 is larger than 0"),
             min_zoom: None,
             max_zoom: None,
             zoom_levels: Vec::new(),
@@ -143,7 +145,9 @@ impl Default for CopyArgs {
 
 fn parse_key_value(s: &str) -> Result<(String, String), String> {
     let mut parts = s.splitn(2, '=');
-    let key = parts.next().unwrap();
+    let key = parts
+        .next()
+        .ok_or_else(|| format!("Invalid key=value pair: {s}"))?;
     let value = parts
         .next()
         .ok_or_else(|| format!("Invalid key=value pair: {s}"))?;
@@ -161,7 +165,7 @@ async fn start(copy_args: CopierArgs) -> MartinCpResult<()> {
     let save_config = copy_args.meta.save_config.clone();
     let mut config = if let Some(ref cfg_filename) = copy_args.meta.config {
         info!("Using {}", cfg_filename.display());
-        read_config(cfg_filename, &env)?
+        read_config(cfg_filename, &env).map_err(MartinError::from)?
     } else {
         info!("Config file is not specified, auto-detecting sources");
         Config::default()
@@ -181,7 +185,9 @@ async fn start(copy_args: CopierArgs) -> MartinCpResult<()> {
     let sources = config.resolve().await?;
 
     if let Some(file_name) = save_config {
-        config.save_to_file(file_name)?;
+        config
+            .save_to_file(file_name.as_path())
+            .map_err(MartinError::from)?;
     } else {
         info!("Use --save-config to save or print configuration.");
     }
@@ -189,13 +195,7 @@ async fn start(copy_args: CopierArgs) -> MartinCpResult<()> {
     run_tile_copy(copy_args.copy, sources).await
 }
 
-fn check_bboxes(args: &CopyArgs) -> MartinCpResult<Vec<Bounds>> {
-    let boxes = if args.bbox.is_empty() {
-        vec![Bounds::MAX_TILED]
-    } else {
-        args.bbox.clone()
-    };
-
+fn check_bboxes(boxes: Vec<Bounds>) -> MartinCpResult<Vec<Bounds>> {
     for bb in &boxes {
         let allowed_lon = Bounds::MAX_TILED.left..=Bounds::MAX_TILED.right;
         if !allowed_lon.contains(&bb.left) || !allowed_lon.contains(&bb.right) {
@@ -276,7 +276,7 @@ impl Progress {
 
 type MartinCpResult<T> = Result<T, MartinCpError>;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(thiserror::Error, Debug)]
 enum MartinCpError {
     #[error(transparent)]
     Martin(#[from] MartinError),
@@ -299,7 +299,7 @@ enum MartinCpError {
 }
 
 impl Display for Progress {
-    #[allow(clippy::cast_precision_loss)]
+    #[expect(clippy::cast_precision_loss)]
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let elapsed = self.start_time.elapsed();
         let elapsed_s = elapsed.as_secs_f32();
@@ -339,21 +339,54 @@ fn iterate_tiles(tiles: Vec<TileRect>) -> impl Iterator<Item = TileCoord> {
 }
 
 fn check_sources(args: &CopyArgs, state: &ServerState) -> Result<String, MartinCpError> {
-    if let Some(source) = &args.source {
-        Ok(source.to_string())
+    if let Some(source_id) = &args.source {
+        Ok(source_id.clone())
     } else {
-        let sources = state.tiles.source_names();
-        if let Some(source) = sources.first() {
-            if sources.len() > 1 {
-                return Err(MartinCpError::MultipleSources(sources.join(", ")));
+        let source_ids = state.tiles.source_names();
+        if let Some(source_id) = source_ids.first() {
+            if source_ids.len() > 1 {
+                return Err(MartinCpError::MultipleSources(source_ids.join(", ")));
             }
-            Ok(source.to_string())
+            Ok(source_id.clone())
         } else {
             Err(MartinCpError::NoSources)
         }
     }
 }
-#[allow(clippy::too_many_lines)]
+
+fn default_bounds(src: &DynTileSource) -> Vec<Bounds> {
+    if src.sources.is_empty() {
+        vec![Bounds::MAX_TILED]
+    } else {
+        let mut source_bounds = src
+            .sources
+            .iter()
+            .map(|source| source.get_tilejson().bounds.unwrap_or(Bounds::MAX_TILED))
+            .collect::<Vec<Bounds>>();
+
+        source_bounds.dedup_by_key(|bounds| bounds.to_string());
+
+        if source_bounds.is_empty() {
+            info!(
+                "No configured bounds for source, using: {}",
+                Bounds::MAX_TILED
+            );
+            vec![Bounds::MAX_TILED]
+        } else {
+            info!(
+                "No bbox specified, using source bounds: {}",
+                source_bounds
+                    .iter()
+                    .map(|s| format!("[{s}]"))
+                    .collect::<Vec<String>>()
+                    .join(", ")
+            );
+            source_bounds
+        }
+    }
+}
+
+#[expect(clippy::too_many_lines)]
 async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()> {
     let output_file = &args.output_file;
     let concurrency = args.concurrency.get();
@@ -366,11 +399,11 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()>
         );
     }
 
-    let source = check_sources(&args, &state)?;
+    let source_id = check_sources(&args, &state)?;
 
     let src = DynTileSource::new(
         &state.tiles,
-        &source,
+        &source_id,
         None,
         args.url_query.as_deref().unwrap_or_default(),
         Some(parse_encoding(args.encoding.as_str())?),
@@ -378,11 +411,18 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()>
         None,
         None,
     )?;
+
+    let inferred_bboxes = if args.bbox.is_empty() {
+        default_bounds(&src)
+    } else {
+        args.bbox.clone()
+    };
+    let bboxes = check_bboxes(inferred_bboxes)?;
+
     // parallel async below uses move, so we must only use copyable types
     let src = &src;
 
     let zooms = get_zooms(&args);
-    let bboxes = check_bboxes(&args)?;
     let tiles = compute_tile_ranges(&bboxes, &zooms);
     let mbt = Mbtiles::new(output_file)?;
     let mut conn = mbt.open_or_new().await?;
@@ -400,7 +440,7 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()>
         "Copying {} {} tiles from {} to {}",
         progress.total,
         src.info,
-        source,
+        source_id,
         args.output_file.display()
     );
 
@@ -417,7 +457,7 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()>
                         let data = tile.data;
                         tx.send(TileXyz { xyz, data })
                             .await
-                            .map_err(|e| MartinError::InternalError(e.into()))?;
+                            .expect("The receive half of the channel is not closed");
                         Ok(())
                     }
                 })
@@ -538,14 +578,14 @@ async fn init_schema(
 async fn main() {
     let mut log_filter = std::env::var("RUST_LOG").unwrap_or("martin-cp=info".to_string());
     // if we don't have martin_core set, this can hide parts of our logs unintentionally
-    if log_filter.contains("martin-cp=") && !log_filter.contains("martin_core=") {
-        if let Some(level) = log_filter
+    if log_filter.contains("martin-cp=")
+        && !log_filter.contains("martin_core=")
+        && let Some(level) = log_filter
             .split(',')
             .find_map(|s| s.strip_prefix("martin-cp="))
-        {
-            let level = level.to_string();
-            let _ = write!(log_filter, ",martin_core={level}");
-        }
+    {
+        let level = level.to_string();
+        let _ = write!(log_filter, ",martin_core={level}");
     }
     env_logger::builder().parse_filters(&log_filter).init();
 
@@ -562,12 +602,111 @@ async fn main() {
 
 #[cfg(test)]
 mod tests {
-    use std::str::FromStr;
-
-    use insta::assert_yaml_snapshot;
-    use rstest::rstest;
-
     use super::*;
+    use async_trait::async_trait;
+    use insta::assert_yaml_snapshot;
+    use martin::TileSources;
+    use martin_core::tiles::{MartinCoreResult, Source, UrlQuery};
+    use martin_tile_utils::{Encoding, Format};
+    use rstest::{fixture, rstest};
+    use std::str::FromStr;
+    use tilejson::{TileJSON, tilejson};
+
+    #[derive(Debug, Clone)]
+    pub struct MockSource {
+        pub id: &'static str,
+        pub tj: TileJSON,
+        pub data: TileData,
+    }
+
+    #[async_trait]
+    impl Source for MockSource {
+        fn get_id(&self) -> &str {
+            self.id
+        }
+
+        fn get_tilejson(&self) -> &TileJSON {
+            &self.tj
+        }
+
+        fn get_tile_info(&self) -> TileInfo {
+            TileInfo::new(Format::Mvt, Encoding::Uncompressed)
+        }
+
+        fn clone_source(&self) -> BoxedSource {
+            Box::new(self.clone())
+        }
+
+        async fn get_tile(
+            &self,
+            _xyz: TileCoord,
+            _url_query: Option<&UrlQuery>,
+        ) -> MartinCoreResult<TileData> {
+            Ok(self.data.clone())
+        }
+    }
+
+    #[fixture]
+    fn many_sources() -> TileSources {
+        TileSources::new(vec![vec![
+            Box::new(MockSource {
+                id: "test_source",
+                tj: tilejson! { tiles: vec![], bounds: Bounds::from_str("-110.0,20.0,-120.0,80.0").unwrap() },
+                data: Vec::default(),
+            }),
+            Box::new(MockSource {
+                id: "test_source2",
+                tj: tilejson! { tiles: vec![], bounds: Bounds::from_str("-130.0,40.0,-170.0,10.0").unwrap() },
+                data: Vec::default(),
+            }),
+            Box::new(MockSource {
+                id: "unrequested_source",
+                tj: tilejson! { tiles: vec![], bounds: Bounds::from_str("-150.0,40.0,-120.0,10.0").unwrap() },
+                data: Vec::default(),
+            }),
+            Box::new(MockSource {
+                id: "unbounded_source",
+                tj: tilejson! { tiles: vec![] },
+                data: Vec::default(),
+            }),
+        ]])
+    }
+
+    #[fixture]
+    fn one_source() -> TileSources {
+        TileSources::new(vec![vec![Box::new(MockSource {
+            id: "test_source",
+            tj: tilejson! { tiles: vec![], bounds: Bounds::from_str("-120.0,30.0,-110.0,40.0").unwrap() },
+            data: Vec::default(),
+        })]])
+    }
+
+    #[fixture]
+    fn source_wo_bounds() -> TileSources {
+        TileSources::new(vec![vec![Box::new(MockSource {
+            id: "test_source",
+            tj: tilejson! { tiles: vec![] },
+            data: Vec::default(),
+        })]])
+    }
+
+    #[rstest]
+    #[case::one_source(one_source(), "test_source", vec![Bounds::from_str("-120.0,30.0,-110.0,40.0").unwrap()])]
+    #[case::many_sources(many_sources(), "test_source,test_source2", vec![Bounds::from_str("-110.0,20.0,-120.0,80.0").unwrap(), Bounds::from_str("-130.0,40.0,-170.0,10.0").unwrap()])]
+    #[case::many_sources_rev(many_sources(), "test_source2,test_source", vec![Bounds::from_str("-130.0,40.0,-170.0,10.0").unwrap(), Bounds::from_str("-110.0,20.0,-120.0,80.0").unwrap()])]
+    #[case::many_sources_only_unbounded(many_sources(), "unbounded_source", vec![Bounds::MAX_TILED])]
+    #[case::many_sources_bounded_and_unbounded(many_sources(), "test_source,unbounded_source", vec![Bounds::from_str("-110.0,20.0,-120.0,80.0").unwrap(), Bounds::MAX_TILED])]
+    #[case::many_sources_bounded_and_unbounded_rev(many_sources(), "unbounded_source,test_source", vec![Bounds::MAX_TILED, Bounds::from_str("-110.0,20.0,-120.0,80.0").unwrap()])]
+    #[case::source_wo_bounds(source_wo_bounds(), "test_source", vec![Bounds::MAX_TILED])]
+    fn test_default_bounds(
+        #[case] src: TileSources,
+        #[case] ids: &str,
+        #[case] expected: Vec<Bounds>,
+    ) {
+        let dts = DynTileSource::new(&src, ids, None, "", None, None, None, None).unwrap();
+
+        assert_eq!(default_bounds(&dts), expected);
+    }
 
     #[test]
     fn test_compute_tile_ranges() {
@@ -605,7 +744,6 @@ mod tests {
     }
 
     #[rstest]
-    #[case("", Ok(Bounds::MAX_TILED.to_string()))]
     #[case("-180.0,-85.05112877980659,180.0,85.0511287798066", Ok(Bounds::MAX_TILED.to_string()))]
     #[case("-120.0,30.0,-110.0,40.0", Ok("-120.0,30.0,-110.0,40.0".to_string()))]
     #[case("-190.0,30.0,-110.0,40.0", Err("longitude".to_string()))]
@@ -621,10 +759,7 @@ mod tests {
             vec![Bounds::from_str(bbox_str).unwrap()]
         };
 
-        let result = check_bboxes(&CopyArgs {
-            bbox: bbox_vec,
-            ..Default::default()
-        });
+        let result = check_bboxes(bbox_vec);
 
         match expected {
             Ok(expected_str) => {

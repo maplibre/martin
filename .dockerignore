@@ -18,12 +18,13 @@ demo/
 **/dist/
 **/node_modules/
 *.profraw
-.DS_Store
 .aider*
 .aws-sam/
+.DS_Store
 .env.local
 .idea/
 .vscode/
+cache.sqlite*
 config.yml
 coverage
 pg_data/
@@ -33,6 +34,7 @@ tests/mbtiles_temp_files/
 tests/output/
 tmp/
 tsconfig.tsbuildinfo
+*.mbtiles
 
 ####
 #### Above content must match .gitignore ####

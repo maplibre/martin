@@ -1,6 +1,6 @@
 {
   "bearing": 0,
-  "center": [17.65431710431244, 32.954120326746775],
+  "center": [17.6543171043, 32.9541203267],
   "glyphs": "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf",
   "id": "43f36e14-e3f5-43c1-84c0-50a9c80dc5c7",
   "layers": [
@@ -391,7 +391,9 @@
   },
   "name": "MapLibre",
   "pitch": 0,
-  "projection": { "type": "globe" },
+  "projection": {
+    "type": "globe"
+  },
   "sources": {
     "maplibre": {
       "type": "vector",
@@ -399,5 +401,5 @@
     }
   },
   "version": 8,
-  "zoom": 0.8619833357855968
+  "zoom": 0.8619833358
 }

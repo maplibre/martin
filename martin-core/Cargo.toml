@@ -1,6 +1,6 @@
 [package]
 name = "martin-core"
-version = "0.1.0"
+version = "0.2.4"
 authors = ["Yuri Astrakhan <YuriAstrakhan@gmail.com>", "MapLibre contributors"]
 description = "Basic building blocks of MapLibre's Martin tile server."
 keywords = ["maps", "tiles", "mvt", "tileserver"]
@@ -12,7 +12,15 @@ rust-version.workspace = true
 homepage.workspace = true
 
 [features]
-default = ["fonts", "styles", "sprites", "mbtiles", "pmtiles", "cog", "postgres"]
+default = [
+    "fonts",
+    "mbtiles",
+    "pmtiles",
+    "postgres",
+    "sprites",
+    "styles",
+    "unstable-cog",
+]
 postgres = [
     "dep:deadpool-postgres",
     "dep:postgres",
@@ -23,8 +31,10 @@ postgres = [
     "dep:semver",
     "dep:tokio-postgres-rustls",
     "dep:serde_json",
+    "_tiles",
 ]
-cog = ["dep:png", "dep:tiff"]
+unstable-cog = ["dep:png", "dep:tiff", "_tiles"]
+unstable-rendering = ["styles", "dep:maplibre_native", "dep:image"]
 fonts = [
     "dep:bit-set",
     "dep:pbf_font_tools",
@@ -33,6 +43,7 @@ fonts = [
     "dep:dashmap",
 ]
 sprites = [
+    "dep:actix-web",
     "dep:spreet",
     "dep:tokio",
     "tokio/fs",
@@ -40,12 +51,18 @@ sprites = [
     "dep:dashmap",
 ]
 styles = ["dep:walkdir", "tokio/fs", "dep:dashmap"]
-mbtiles = ["dep:mbtiles"]
-pmtiles = ["dep:pmtiles", "dep:aws-config", "dep:url"]
+mbtiles = ["dep:mbtiles", "_tiles"]
+pmtiles = ["dep:pmtiles", "dep:object_store", "_tiles"]
+_tiles = ["dep:base64"]
+
+[target.'cfg(target_os = "linux")'.dependencies]
+image = { workspace = true, optional = true }
+maplibre_native = { workspace = true, optional = true }
 
 [dependencies]
+actix-web = { workspace = true, optional = true }
 async-trait.workspace = true
-aws-config = { workspace = true, optional = true }
+base64  = { workspace = true, optional = true }
 bit-set = { workspace = true, optional = true }
 dashmap = { workspace = true, optional = true }
 deadpool-postgres = { workspace = true, optional = true }
@@ -55,6 +72,7 @@ log.workspace = true
 martin-tile-utils.workspace = true
 mbtiles = { workspace = true, optional = true }
 moka.workspace = true
+object_store = { workspace = true, optional = true }
 pbf_font_tools = { workspace = true, optional = true }
 pmtiles = { workspace = true, optional = true }
 png = { workspace = true, optional = true }
@@ -74,15 +92,24 @@ tiff = { workspace = true, optional = true }
 tilejson.workspace = true
 tokio = { workspace = true, optional = true }
 tokio-postgres-rustls = { workspace = true, optional = true }
-url = { workspace = true, optional = true }
 walkdir = { workspace = true, optional = true }
+xxhash-rust.workspace = true
 
 [dev-dependencies]
+actix-web.workspace = true
 approx.workspace = true
+env_logger.workspace = true
+futures.workspace = true
 insta = { workspace = true, features = ["json", "yaml"] }
 rstest.workspace = true
+serde_json.workspace = true
 testcontainers-modules.workspace = true
 tokio.workspace = true
+url.workspace = true
+
+[[example]]
+name = "pmtiles-tileserver"
+required-features = ["pmtiles"]
 
 [lints]
 workspace = true

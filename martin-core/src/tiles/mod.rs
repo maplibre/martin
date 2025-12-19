@@ -7,7 +7,7 @@
 //!   - [x] [`mbtiles`]
 //!   - [x] pmtiles
 //!   - [x] cog
-//!   - [ ] postgres
+//!   - [x] postgres
 
 /// The public facing API for managing a catalog of tile sources
 pub mod catalog;
@@ -20,7 +20,7 @@ pub mod mbtiles;
 /// Implementation of `PMTiles`' [`Source`].
 pub mod pmtiles;
 
-#[cfg(feature = "cog")]
+#[cfg(feature = "unstable-cog")]
 /// Implementation of `Cloud Optimized GeoTIFF`' [`Source`].
 pub mod cog;
 
@@ -36,3 +36,6 @@ pub use error::{MartinCoreError, MartinCoreResult};
 
 mod tile;
 pub use tile::Tile;
+
+mod cache;
+pub use cache::{NO_TILE_CACHE, OptTileCache, TileCache};

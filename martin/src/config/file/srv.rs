@@ -7,7 +7,7 @@ use crate::config::args::PreferredEncoding;
 #[cfg(feature = "metrics")]
 use crate::config::file::UnrecognizedValues;
 use crate::config::file::cors::CorsConfig;
-use crate::config::file::{ConfigExtras, UnrecognizedKeys};
+use crate::config::file::{ConfigurationLivecycleHooks, UnrecognizedKeys};
 
 pub const KEEP_ALIVE_DEFAULT: u64 = 75;
 pub const LISTEN_ADDRESSES_DEFAULT: &str = "0.0.0.0:3000";
@@ -20,15 +20,17 @@ pub struct SrvConfig {
     pub base_path: Option<String>,
     pub worker_processes: Option<usize>,
     pub preferred_encoding: Option<PreferredEncoding>,
-    #[cfg(feature = "webui")]
+    #[cfg(all(feature = "webui", not(docsrs)))]
     pub web_ui: Option<crate::config::args::WebUiMode>,
     pub cors: Option<CorsConfig>,
     /// Advanced monitoring options
     #[cfg(feature = "metrics")]
     pub observability: Option<ObservabilityConfig>,
+    #[cfg(feature = "_tiles")]
+    pub tilejson_url_version_param: Option<String>,
 }
 
-impl ConfigExtras for SrvConfig {
+impl ConfigurationLivecycleHooks for SrvConfig {
     fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
         let mut unrecognized = UnrecognizedKeys::new();
         if let Some(CorsConfig::Properties(cors)) = &self.cors {
@@ -64,7 +66,7 @@ pub struct ObservabilityConfig {
 }
 
 #[cfg(feature = "metrics")]
-impl ConfigExtras for ObservabilityConfig {
+impl ConfigurationLivecycleHooks for ObservabilityConfig {
     fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
         let mut keys = self
             .unrecognized
@@ -101,7 +103,7 @@ pub struct MetricsConfig {
 }
 
 #[cfg(feature = "metrics")]
-impl ConfigExtras for MetricsConfig {
+impl ConfigurationLivecycleHooks for MetricsConfig {
     fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
         self.unrecognized.keys().cloned().collect()
     }
