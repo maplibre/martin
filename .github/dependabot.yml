@@ -1,6 +1,5 @@
 version: 2
 updates:
-  # Maintain dependencies for GitHub Actions
   - package-ecosystem: github-actions
     directory: '/'
     schedule: { interval: monthly }
@@ -16,7 +15,6 @@ updates:
       include:
         - "*"
 
-  # Update Rust dependencies
   - package-ecosystem: cargo
     directory: '/'
     schedule: { interval: monthly }
@@ -53,7 +51,6 @@ updates:
       include:
         - "*"
 
-
   - package-ecosystem: docker
     directories:
       - '/demo/db'
@@ -64,9 +61,6 @@ updates:
       all-npm-version-updates:
         applies-to: version-updates
         patterns: [ '*' ]
-        exclude-patterns:
-          - '@biomejs/biome'
-          - 'tailwindcss'
       all-npm-security-updates:
         applies-to: security-updates
         patterns: [ '*' ]
