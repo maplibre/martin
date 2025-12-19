@@ -76,10 +76,20 @@ updates:
 
   - package-ecosystem: docker
     directory: /demo/db
-    schedule:
-      interval: daily
+    schedule: { interval: monthly }
+    cooldown:
+      default-days: 7
+      include:
+        - "*"
+      exclude:
+        - "ghcr.io/maplibre/martin"
 
   - package-ecosystem: docker
     directory: /demo/frontend
-    schedule:
-      interval: daily
+    schedule: { interval: monthly }
+    cooldown:
+      default-days: 7
+      include:
+        - "*"
+      exclude:
+        - "ghcr.io/maplibre/martin"
