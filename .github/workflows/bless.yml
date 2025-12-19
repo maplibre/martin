@@ -33,20 +33,8 @@ jobs:
         run: npm install
         working-directory: martin/martin-ui
       
-      - name: Setup PostGIS
-        uses: nyurik/action-setup-postgis@228cfe4dd41aad01801a0bdc767040e5024fff1d # v2
-        id: postgres
-      - name: Setup NGINX
-        uses: nyurik/action-setup-nginx@612ee9cb839ad727832cda16359452e7e14dd521 # v1.1
-        id: nginx
-      
-      - name: Copy static test files
-        run: cp -r tests/fixtures/pmtiles2/* ${{ steps.nginx.outputs.html-dir }}
-      
-      - name: Initialize database
-        run: tests/fixtures/initdb.sh
-        env:
-          DATABASE_URL: ${{ steps.postgres.outputs.connection-uri }}
+      - name: Start runtime dependencies
+        run: just start
       
       - name: Install system dependencies
         run: sudo apt-get install -y gdal-bin sqlite3-tools
