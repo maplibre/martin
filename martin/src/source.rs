@@ -29,14 +29,14 @@ impl TileSources {
     pub fn get_catalog(&self) -> TileCatalog {
         self.0
             .iter()
-            .map(|v| (v.key().to_string(), v.get_catalog_entry()))
+            .map(|v| (v.key().clone(), v.get_catalog_entry()))
             .collect()
     }
 
     /// Returns all source IDs.
     #[must_use]
     pub fn source_names(&self) -> Vec<String> {
-        self.0.iter().map(|v| v.key().to_string()).collect()
+        self.0.iter().map(|v| v.key().clone()).collect()
     }
 
     /// Gets a source by ID, returning 404 error if not found.

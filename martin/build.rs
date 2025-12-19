@@ -1,3 +1,8 @@
+#![expect(
+    clippy::panic,
+    reason = "panics in build.rs generate better error messages, are easier to debug and are fatal anyway"
+)]
+
 #[cfg(feature = "webui")]
 use std::fs;
 #[cfg(feature = "webui")]
@@ -103,7 +108,7 @@ fn webui() {
 
 fn main() {
     #[cfg(feature = "webui")]
-    if option_env!("RUSTDOC").is_none() {
+    if option_env!("RUSTDOC").is_none() && option_env!("DOCS_RS").is_none() {
         webui();
     }
 }

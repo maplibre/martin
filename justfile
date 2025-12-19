@@ -17,7 +17,6 @@ export CARGO_TERM_COLOR := 'always'
 # Set AWS variables for testing pmtiles from S3
 export AWS_SKIP_CREDENTIALS := '1'
 export AWS_REGION := 'eu-central-1'
-
 #export RUST_LOG := 'debug'
 #export RUST_LOG := 'sqlx::query=info,trace'
 #export RUST_BACKTRACE := '1'
@@ -33,10 +32,10 @@ ci_mode := if env('CI', '') != '' {'1'} else {''}
 binstall_args := if env('CI', '') != '' {'--no-track'} else {''}
 export RUSTFLAGS := env('RUSTFLAGS', if ci_mode == '1' {'-D warnings'} else {''})
 export RUSTDOCFLAGS := env('RUSTDOCFLAGS', if ci_mode == '1' {'-D warnings'} else {''})
-export RUST_BACKTRACE := env('RUST_BACKTRACE', if ci_mode == '1' {'1'} else {''})
+export RUST_BACKTRACE := env('RUST_BACKTRACE', if ci_mode == '1' {'1'} else {'0'})
 
 @_default:
-    {{just_executable()}} --list
+    {{quote(just_executable())}} --list
 
 # Run benchmark tests
 bench:
@@ -65,7 +64,7 @@ biomejs-martin-ui:
     npm run lint
 
 # Run integration tests and save its output as the new expected output (ordering is important)
-bless: restart clean-test bless-insta-martin bless-insta-mbtiles bless-frontend bless-int
+bless: restart clean-test bless-insta-martin bless-insta-martin-core bless-insta-mbtiles bless-frontend bless-int
 
 # Bless the frontend tests
 [working-directory: 'martin/martin-ui']
@@ -78,7 +77,11 @@ bless-insta-cp *args:  (cargo-install 'cargo-insta')
 
 # Run integration tests and save its output as the new expected output
 bless-insta-martin *args:  (cargo-install 'cargo-insta')
-    cargo insta test --accept -p martin {{args}}
+    cargo insta test --accept --bin martin {{args}}
+
+# Run integration tests and save its output as the new expected output
+bless-insta-martin-core *args:  (cargo-install 'cargo-insta')
+    cargo insta test --accept -p martin-core {{args}}
 
 # Run integration tests and save its output as the new expected output
 bless-insta-mbtiles *args:  (cargo-install 'cargo-insta')
@@ -92,20 +95,12 @@ bless-int:
     rm -rf tests/expected && mv tests/output tests/expected
 
 # Build and open mdbook documentation
-book:  (cargo-install 'mdbook') (cargo-install 'mdbook-alerts')
+book:  (cargo-install 'mdbook') (cargo-install 'mdbook-tabs')
     mdbook serve docs --open --port 8321
 
 # Quick compile without building a binary
-check:
-    cargo check --all-targets -p martin-tile-utils
-    cargo check --all-targets -p mbtiles
-    cargo check --all-targets -p mbtiles --no-default-features
-    cargo check --all-targets -p martin
-    cargo check --all-targets -p martin --no-default-features
-    for feature in $({{just_executable()}} get-features); do \
-        echo "Checking '$feature' feature" >&2 ;\
-        cargo check --all-targets -p martin --no-default-features --features $feature ;\
-    done
+check: (cargo-install 'cargo-hack')
+    cargo hack --exclude-features _tiles check --all-targets --each-feature --workspace
 
 # Test documentation generation
 check-doc:  (docs '')
@@ -127,7 +122,7 @@ clippy *args:
 
 # Validate markdown URLs with markdown-link-check
 clippy-md:
-    docker run -it --rm -v ${PWD}:/workdir --entrypoint sh ghcr.io/tcort/markdown-link-check -c \
+    docker run --rm -v ${PWD}:/workdir --entrypoint sh ghcr.io/tcort/markdown-link-check -c \
       'echo -e "/workdir/README.md\n$(find /workdir/docs/src -name "*.md")" | tr "\n" "\0" | xargs -0 -P 5 -n1 -I{} markdown-link-check --config /workdir/.github/files/markdown.links.config.json {}'
 
 # Generate code coverage report. Will install `cargo llvm-cov` if missing.
@@ -142,9 +137,15 @@ coverage *args='--no-clean --open':  (cargo-install 'cargo-llvm-cov') clean star
     source <(cargo llvm-cov show-env --export-prefix)
     cargo llvm-cov clean --workspace
 
-    {{just_executable()}} test-cargo --all-targets
-    # {{just_executable()}} test-doc <- deliberately disabled until --doctest for cargo-llvm-cov does not hang indefinitely
-    {{just_executable()}} test-int
+    echo "::group::Unit tests"
+    {{quote(just_executable())}} test-cargo --all-targets
+    echo "::endgroup::"
+
+    # echo "::group::Documentation tests"
+    # {{quote(just_executable())}} test-doc <- deliberately disabled until --doctest for cargo-llvm-cov does not hang indefinitely
+    # echo "::endgroup::"
+
+    {{quote(just_executable())}} test-int
 
     cargo llvm-cov report {{args}}
 
@@ -154,7 +155,7 @@ cp *args:
 
 # Build and run martin docker image
 docker-run *args:
-    docker run -it --rm --net host -e DATABASE_URL -v $PWD/tests:/tests ghcr.io/maplibre/martin {{args}}
+    docker run -it --rm --net host -e DATABASE_URL -v $PWD/tests:/tests ghcr.io/maplibre/martin:1.1.0 {{args}}
 
 # Build and open code documentation
 docs *args='--open':
@@ -164,7 +165,7 @@ docs *args='--open':
 env-info:
     @echo "Running {{if ci_mode == '1' {'in CI mode'} else {'in dev mode'} }} on {{os()}} / {{arch()}}"
     @echo "PWD $(pwd)"
-    {{just_executable()}} --version
+    {{quote(just_executable())}} --version
     rustc --version
     cargo --version
     rustup --version
@@ -193,19 +194,16 @@ fmt:
 
 # Reformat markdown files using markdownlint-cli2
 fmt-md:
-    docker run -it --rm -v $PWD:/workdir davidanson/markdownlint-cli2 --config /workdir/.github/files/config.markdownlint-cli2.jsonc --fix
+    docker run --rm -v $PWD:/workdir davidanson/markdownlint-cli2 --config /workdir/.github/files/config.markdownlint-cli2.jsonc --fix
 
 # Reformat all SQL files using docker
 fmt-sql:
-    docker run -it --rm -v $PWD:/sql sqlfluff/sqlfluff:latest fix --dialect=postgres --exclude-rules=AL07,LT05,LT12
+    docker run -it --rm -v $PWD:/sql sqlfluff/sqlfluff:latest fix --dialect=postgres --exclude-rules=AL07,LT05,LT12 --exclude '^tests/fixtures/(mbtiles|files)/.*\.sql$'
+    docker run -it --rm -v $PWD:/sql sqlfluff/sqlfluff:latest fix --dialect=sqlite --exclude-rules=LT01,LT05 --files '^tests/fixtures/(mbtiles|files)/.*\.sql$'
 
 # Reformat all Cargo.toml files using cargo-sort
 fmt-toml *args: (cargo-install 'cargo-sort')
     cargo sort --workspace --order package,lib,bin,bench,features,dependencies,build-dependencies,dev-dependencies {{args}}
-
-# Get all testable features of the main crate as space-separated list
-get-features:
-    cargo metadata --format-version=1 --no-deps --manifest-path Cargo.toml | jq -r '.packages[] | select(.name == "{{main_crate}}") | .features | keys[] | select(. != "default")' | tr '\n' ' '
 
 # Do any git command, ensuring that the testing environment is set up. Accepts the same arguments as git.
 [no-exit-message]
@@ -223,6 +221,34 @@ help:
     @echo "  just book              # Build documentation"
     @echo ""
     @echo "Full list: just --list"
+
+# Install Linux dependencies (Ubuntu/Debian). Supports 'vulkan' and 'opengl' backends.
+[linux]
+install-dependencies backend='vulkan':
+    sudo apt-get update
+    sudo apt-get install -y \
+      {{if backend == 'opengl' {'libgl1-mesa-dev libglu1-mesa-dev'} else {''} }} \
+      {{if backend == 'vulkan' {'mesa-vulkan-drivers glslang-dev'} else {''} }} \
+      build-essential \
+      libcurl4-openssl-dev \
+      libglfw3-dev \
+      libuv1-dev \
+      libz-dev
+
+# Install macOS dependencies via Homebrew
+[macos]
+install-dependencies backend='vulkan':
+    brew install \
+        {{if backend == 'vulkan' {'molten-vk vulkan-headers'} else {''} }} \
+        curl \
+        glfw \
+        libuv \
+        zlib
+
+# Install Windows dependencies
+[windows]
+install-dependencies backend='vulkan':
+    @echo "rendering styles is not currently supported on windows"
 
 # Run cargo fmt and cargo clippy
 lint: fmt clippy biomejs-martin-ui type-check
@@ -255,8 +281,8 @@ psql *args:
 # Restart the test database
 restart:
     # sometimes Just optimizes targets, so here we force stop & start by using external just executable
-    {{just_executable()}} stop
-    {{just_executable()}} start
+    {{quote(just_executable())}} stop
+    {{quote(just_executable())}} start
 
 # Start Martin server
 run *args='--webui enable-for-all':
@@ -323,6 +349,10 @@ test-int: clean-test install-sqlx
         if ! diff --brief --recursive --new-file --exclude='*.pbf' tests/output tests/expected; then
             echo "** Expected output does not match actual output"
             echo "** If this is expected, run 'just bless' to update expected output"
+            echo ""
+            echo "::group::Resulting diff (max 100 lines)"
+            diff --recursive --new-file --exclude='*.pbf' tests/output tests/expected | head -n 100 | cat --show-nonprinting
+            echo "::endgroup::"
             exit 1
         else
             echo "** Expected output matches actual output"
@@ -353,9 +383,9 @@ test-ssl-cert: start-ssl-cert
     export PGSSLROOTCERT="$KEY_DIR/ssl-cert-snakeoil.pem"
     export PGSSLCERT="$KEY_DIR/ssl-cert-snakeoil.pem"
     export PGSSLKEY="$KEY_DIR/ssl-cert-snakeoil.key"
-    {{just_executable()}} test-cargo --all-targets
-    {{just_executable()}} clean-test
-    {{just_executable()}} test-doc
+    {{quote(just_executable())}} test-cargo --all-targets
+    {{quote(just_executable())}} clean-test
+    {{quote(just_executable())}} test-doc
     tests/test.sh
 
 # Run typescript typechecking on the frontend
@@ -440,8 +470,8 @@ cargo-install $COMMAND $INSTALL_CMD='' *args='':
             echo "$COMMAND could not be found. Installing it with    cargo install ${INSTALL_CMD:-$COMMAND} --locked {{args}}"
             cargo install ${INSTALL_CMD:-$COMMAND} --locked {{args}}
         else
-            echo "$COMMAND could not be found. Installing it with    cargo binstall ${INSTALL_CMD:-$COMMAND} {{binstall_args}} --locked {{args}}"
-            cargo binstall ${INSTALL_CMD:-$COMMAND} {{binstall_args}} --locked {{args}}
+            echo "$COMMAND could not be found. Installing it with    cargo binstall ${INSTALL_CMD:-$COMMAND} {{binstall_args}} --locked"
+            cargo binstall ${INSTALL_CMD:-$COMMAND} {{binstall_args}} --locked
         fi
     fi
 

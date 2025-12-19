@@ -11,6 +11,12 @@ updates:
       all-actions-security-updates:
         applies-to: security-updates
         patterns: [ '*' ]
+    cooldown:
+      default-days: 7
+      # no semver support for github-actions
+      # => no specific configuration for this
+      include:
+        - "*"
 
   # Update Rust dependencies
   - package-ecosystem: cargo
@@ -24,6 +30,10 @@ updates:
       all-cargo-security-updates:
         applies-to: security-updates
         patterns: [ '*' ]
+    cooldown:
+      default-days: 7
+      include:
+        - "*"
 
   # Update Martin UI NPM dependencies
   - package-ecosystem: npm
@@ -40,6 +50,10 @@ updates:
       all-npm-ui-security-updates:
         applies-to: security-updates
         patterns: [ '*' ]
+    cooldown:
+      default-days: 7
+      include:
+        - "*"
 
   # Update Demo frontend NPM dependencies
   - package-ecosystem: npm
@@ -55,3 +69,17 @@ updates:
       all-npm-fe-security-updates:
         applies-to: security-updates
         patterns: [ '*' ]
+    cooldown:
+      default-days: 7
+      include:
+        - "*"
+
+  - package-ecosystem: docker
+    directory: /demo/db
+    schedule:
+      interval: daily
+
+  - package-ecosystem: docker
+    directory: /demo/frontend
+    schedule:
+      interval: daily

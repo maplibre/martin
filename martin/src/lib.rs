@@ -3,11 +3,13 @@
 
 pub mod config;
 
+#[cfg(feature = "_tiles")]
 mod source;
+#[cfg(feature = "_tiles")]
 pub use source::TileSources;
 
-mod utils;
-pub use utils::{IdResolver, MartinError, MartinResult};
+mod error;
+pub use error::{MartinError, MartinResult};
 
 pub mod srv;
 

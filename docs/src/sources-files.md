@@ -11,47 +11,186 @@ martin  /path/to/mbtiles/file.mbtiles  /path/to/directory   https://example.org/
 You may also want to generate a [config file](config-file.md) using the `--save-config my-config.yaml`, and later edit
 it and use it with `--config my-config.yaml` option.
 
-### Serving PMTiles via S3
+> [!TIP]
+> See [our tile sources explanation](sources-tiles.md) for a more detailed explanation on the difference between our available data sources.
 
-#### Authentication with AWS credentials
+### Autodiscovery
 
-Martin supports authenticated S3 sources using environment variables.
+For mbtiles or local pmtiles files, we support auto discovering at startup.
+This means that the following will discover all mbtiles and pmtiles files in the directory:
 
-By default, Martin will use default profile's credentials unless these [AWS environment variables](https://docs.aws.amazon.com/sdkref/latest/guide/creds-config-files.html) are set:
+```bash
+martin  /path/to/directory
+```
 
-- `AWS_ACCESS_KEY_ID`
-- `AWS_SECRET_ACCESS_KEY`
-- `AWS_SESSION_TOKEN`
-- `AWS_PROFILE` - to specify profile instead of access key variables
-- `AWS_REGION` - if set, must match the region of the bucket in the S3 URI
+> [!WARNING]
+> For remote PMTiles, we don't currently support auto-discovery.
+> If you want to implement this feature, please see <https://github.com/maplibre/martin/issues/2180>
+>
+> We also don't currently support refreshing the catalog at runtime.
+> If you want to implement this feature, please see <https://github.com/maplibre/martin/issues/288> instead.
 
-#### Anonymous credentials
+### Serving PMTiles from local file systems, http or Object Storage
 
-By default, martin does require credentials for S3 buckets.
-To send requests anonymously for publicly available buckets, set the environment variable `AWS_SKIP_CREDENTIALS=1` or configuration key `skip_credentials: true` respectively.
+The settings avaliable for a PMTiles source depend on the backend:
 
-Note: you still need to set `AWS_REGION` to the correct region.
+{{#tabs }}
+{{#tab name="local file system" }}
 
-Example configuration:
+For local sources, you need to provide the path or URL.
+For example:
+
+```bash
+martin  path/to/tiles.pmtiles
+```
+
+The available schemes are:
+
+- `file:///path/to/my/file.pmtiles`
+- `path/to/my/file.pmtiles`
+
+You can also configure this via the configuration file:
 
 ```yaml
 pmtiles:
-  skip_credentials: false
+  sources:
+    tiles: file:///path/to/my/file.pmtiles
+```
+
+{{#endtab }}
+{{#tab name="Http(s)" }}
+
+For HTTP(s), you need to provide the url.
+For example:
+
+```bash
+martin  https://example.com/tiles.pmtiles
+```
+
+The available url schemes are:
+
+- `http://example.com/path.pmtiles`
+- `https://example.com/path.pmtiles`
+
+If you want more control over your requests, you can configure additional options here as such:
+
+```yaml
+pmtiles:
+  allow_http: true
   sources:
     tiles: s3://bucket/path/to/tiles.pmtiles
 ```
 
-#### Url styles
+### Available http client settings
 
-We also support forcing path style URLs for S3 buckets via the environment variable `AWS_S3_FORCE_PATH_STYLE=1` or configuration key `force_path_style: true`.
-This allows you to use this functionality for [`MinIO`](https://min.io/) or similar s3-compatible instances which use path style URLs.
-A path style URL is a URL that uses the bucket name as part of the path (`example.org/some_bucket`) instead of the hostname (`some_bucket.example.org`).
+{{#include pmtiles/client.md}}
 
-Example configuration:
+{{#endtab }}
+{{#tab name="Amazon S3" }}
+
+> [!IMPORTANT]
+> Even though we name this section `Amazon S3`, it also works with other providers that support the S3 API, such as [MinIO](https://www.min.io/), [Ceph](https://docs.ceph.com/en/latest/radosgw/s3/), [Cloudflare R2](https://developers.cloudflare.com/r2/), [hetzner object storage](https://www.hetzner.com/de/storage/object-storage/) and many more.
+
+For AWS, you need to provide the bucket name and the prefix of the object key.
+For example:
+
+```bash
+martin  s3://my-bucket/tiles.pmtiles
+```
+
+The available url schemes are:
+
+- `s3://bucket/path`
+- `s3a://bucket/path`
+
+If you want more control over your requests, you can configure additional options here as such:
 
 ```yaml
 pmtiles:
-  force_path_style: true
+  allow_http: true
   sources:
     tiles: s3://bucket/path/to/tiles.pmtiles
 ```
+
+> [!TIP]
+> All settings are also available under the `aws_` prefix.
+> This can be useful if you want to have different cloud providers.
+
+### Available AWS S3 settings
+
+{{#include pmtiles/aws.md}}
+
+{{#include pmtiles/client.md}}
+
+{{#endtab }}
+{{#tab name="Google Cloud Storage" }}
+
+For Google Cloud, you need to provide the bucket name and the prefix of the object key.
+For example:
+
+```bash
+martin  gs://my-bucket/tiles.pmtiles
+```
+
+The available url scheme is:
+
+- `gs://bucket/path`
+
+If you want more control over your requests, you can configure additional options here as such:
+
+```yaml
+pmtiles:
+  allow_http: true
+  sources:
+    tiles: gs://bucket/path/to/tiles.pmtiles
+```
+
+> [!TIP]
+> All settings are also available under the `google_` prefix.
+> This can be useful if you want to have different cloud providers.
+
+### Available google settings
+
+{{#include pmtiles/google.md}}
+
+{{#include pmtiles/client.md}}
+
+{{#endtab }}
+{{#tab name="Microsoft Azure" }}
+
+For Azure, you need to provide the account name, container and path.
+For example:
+
+```bash
+martin  az://account/container.pmtiles
+```
+
+The available url schemes are:
+
+- `az://account/container/path.pmtiles`
+- `adl://account/container/path.pmtiles`
+- `azure://account/container/path.pmtiles`
+- `abfs://account/container/path.pmtiles`
+- `abfss://account/container/path.pmtiles`
+
+If you want more control over your requests, you can configure additional options here as such:
+
+```yaml
+pmtiles:
+  allow_http: true
+  sources:
+    tiles: az://account/container/path.pmtiles
+```
+
+> [!TIP]
+> All settings are also available under the `azure_` prefix.
+> This can be useful if you want to have different cloud providers.
+
+### Available azure settings
+
+{{#include pmtiles/azure.md}}
+
+{{#include pmtiles/client.md}}
+
+{{#endtab }}
+{{#endtabs}}

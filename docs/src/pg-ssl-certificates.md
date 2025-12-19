@@ -13,14 +13,14 @@ Use SSL certificates for:
 
 ## SSL Modes
 
-| sslmode       | Eaves-<br/>dropping<br/>protection | MITM <br/>protection      | Statement                                                                                                                                   |
-|---------------|--------------------------|----------------------|---------------------------------------------------------------------------------------------------------------------------------------------|
-| `disable`     | ⛔                        | ⛔                    | I don't care about security, and I don't want to pay the overhead of encryption.                                                            |
-| `allow`       | 🤷                        | ⛔                    | I don't care about security, but I will pay the overhead of encryption if the server insists on it.                                         |
-| `prefer`      | 🤷                        | ⛔                    | I don't care about encryption, but I wish to pay the overhead of encryption if the server supports it.                                      |
-| `require`     | ✅                        | ⛔                    | I want my data to be encrypted, and I accept the overhead. I trust that the network will make sure I always connect to the server I want.   |
-| `verify-ca`   | ✅                        | Depends <br/> on CA policy | I want my data encrypted, and I accept the overhead. I want to be sure that I connect to a server that I trust.                             |
-| `verify-full` | ✅                        | ✅                    | I want my data encrypted, and I accept the overhead. I want to be sure that I connect to a server I trust, and that it's the one I specify. |
+| sslmode       | Eaves-<br/>dropping<br/>protection | MITM <br/>protection       | Statement                                                                                                                                   |
+|---------------|------------------------------------|----------------------------|---------------------------------------------------------------------------------------------------------------------------------------------|
+| `disable`     | ⛔                                  | ⛔                          | I don't care about security, and I don't want to pay the overhead of encryption.                                                            |
+| `allow`       | 🤷                                 | ⛔                          | I don't care about security, but I will pay the overhead of encryption if the server insists on it.                                         |
+| `prefer`      | 🤷                                 | ⛔                          | I don't care about encryption, but I wish to pay the overhead of encryption if the server supports it.                                      |
+| `require`     | ✅                                  | ⛔                          | I want my data to be encrypted, and I accept the overhead. I trust that the network will make sure I always connect to the server I want.   |
+| `verify-ca`   | ✅                                  | Depends <br/> on CA policy | I want my data encrypted, and I accept the overhead. I want to be sure that I connect to a server that I trust.                             |
+| `verify-full` | ✅                                  | ✅                          | I want my data encrypted, and I accept the overhead. I want to be sure that I connect to a server I trust, and that it's the one I specify. |
 
 Our recommendation: **`verify-full` or `allow`**.
 There are not many cases where anything in between makes sense.
@@ -135,7 +135,7 @@ docker compose up
 Test SSL Connection via
 
 ```bash
-PGSSLROOTCERT=ca-cert.pem psql "postgresql://postgres:password@localhost:5432/postgres?sslmode=verify-full"
+PGSSLROOTCERT=ca-cert.pem psql "postgres://postgres:password@localhost:5432/postgres?sslmode=verify-full"
 ```
 
 > [!TIP]
@@ -166,7 +166,7 @@ You do not need to configure things twice.
 
   ```bash
   export PGSSLROOTCERT=./ca-cert.pem
-  export DATABASE_URL="postgresql://postgres:password@localhost:5432/postgres?sslmode=verify-full"
+  export DATABASE_URL="postgres://postgres:password@localhost:5432/postgres?sslmode=verify-full"
   martin
   ```
 
@@ -177,7 +177,7 @@ You do not need to configure things twice.
   ```yaml
   postgres:
     ssl_root_cert: './ca-cert.pem'
-    connection_string: 'postgresql://postgres:password@localhost:5432/postgres?sslmode=verify-full'
+    connection_string: 'postgres://postgres:password@localhost:5432/postgres?sslmode=verify-full'
   ```
 
   </details>
@@ -186,7 +186,7 @@ You do not need to configure things twice.
 
   ```bash
   martin --ca-root-file ./ca-cert.pem \
-        "postgresql://postgres:password@localhost:5432/postgres?sslmode=verify-full"
+        "postgres://postgres:password@localhost:5432/postgres?sslmode=verify-full"
   ```
 
   </details>
@@ -202,7 +202,7 @@ export PGSSLROOTCERT=./ca-cert.pem
 psql -h localhost -U postgres -d postgres -v
 
 # Debug Martin
-RUST_LOG=debug martin postgresql://...
+RUST_LOG=debug martin postgres://...
 ```
 
 These are the errors that can occur:

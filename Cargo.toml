@@ -6,7 +6,7 @@ members = ["martin", "martin-core", "martin-tile-utils", "mbtiles"]
 edition = "2024"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/maplibre/martin"
-rust-version = "1.86"
+rust-version = "1.88"
 homepage = "https://martin.maplibre.org/"
 
 [workspace.lints.rust]
@@ -16,6 +16,12 @@ unused_qualifications = "warn"
 # unsafe_code = "forbid"
 
 [workspace.lints.clippy]
+# Restrictions
+unimplemented = "warn"
+panic_in_result_fn = "warn"
+panic = "warn"
+todo = "warn"
+# Pedantics without being too noisy
 pedantic = { level = "warn", priority = -1 }
 derive_partial_eq_without_eq = "allow"
 enum_variant_names = "allow"
@@ -36,7 +42,7 @@ actix-web-static-files = "4"
 anyhow = "1.0"
 approx = "0.5.1"
 async-trait = "0.1"
-aws-config = { version = "1.8.5", features = ["behavior-version-latest"] }
+base64 = "0.22.1"
 bit-set = "0.8"
 brotli = ">=5, <9"
 clap = { version = "4", features = ["derive", "unstable-markdown", "wrap_help"] }
@@ -49,20 +55,23 @@ env_logger = "0.11"
 flate2 = "1"
 flume = "0.11"
 futures = "0.3"
+image = "0.25.8"
 indoc = "2"
 insta = "1"
 itertools = "0.14"
 json-patch = "4"
 lambda-web = { version = "0.2.1", features = ["actix4"] }
 log = "0.4"
-martin-core = { path = "./martin-core", version = "0.1.0", default-features = false }
-martin-tile-utils = { path = "./martin-tile-utils", version = "0.6.3" }
-mbtiles = { path = "./mbtiles", version = "0.12.2" }
+maplibre_native = "0.4.1"
+martin-core = { path = "./martin-core", version = "0.2.4", default-features = false }
+martin-tile-utils = { path = "./martin-tile-utils", version = "0.6.7" }
+mbtiles = { path = "./mbtiles", version = "0.14.3" }
 md5 = "0.8.0"
 moka = { version = "0.12", features = ["future"] }
 num_cpus = "1"
+object_store = { version = "0.12.4", features = ["gcp", "aws", "azure", "fs", "http"] }
 pbf_font_tools = { version = "3.0.0", features = ["freetype"] }
-pmtiles = { version = "0.16", features = ["http-async", "mmap-async-tokio", "tilejson", "reqwest-rustls-tls-native-roots", "aws-s3-async"] }
+pmtiles = { version = "0.18.2", features = ["tilejson", "object-store"] }
 png = "0.18.0"
 postgis = "0.9"
 postgres = { version = "0.19", features = ["with-time-0_3", "with-uuid-1", "with-serde_json-1"] }
@@ -89,7 +98,7 @@ sqlx = { version = "0.8.6", features = ["sqlite", "runtime-tokio"] }
 static-files = "0.2"
 subst = { version = "0.3", features = ["yaml"] }
 tempfile = "3.21.0"
-testcontainers-modules = { version = "0.13.0", features = ["postgres"] }
+testcontainers-modules = { version = "0.13.0", features = ["postgres", "blocking"] }
 thiserror = "2"
 tiff = "0.10.1"
 tilejson = "0.4"
