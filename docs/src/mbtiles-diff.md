@@ -28,13 +28,13 @@ mbtiles validate file2a.mbtiles
 
 All metadata from `file2.mbtiles` will be copied to the diff file.
 
-The only exception is the `agg_tiles_hash` value, which will be renamed to `agg_tiles_hash_after_apply`. A
+There are two exceptions to this. The first is that the `agg_tiles_hash` value will be renamed to `agg_tiles_hash_after_apply`. A
 new `agg_tiles_hash` will be generated for the diff file itself. This is done to avoid confusion when applying the diff
 file to the original file, as the `agg_tiles_hash` value will be different after the diff is applied. The `apply-patch`
 command will automatically rename the `agg_tiles_hash_after_apply` value back to `agg_tiles_hash` when applying the
 diff.
 
-Additionally, a new metadata value `agg_tiles_hash_before_apply` will be added to the diff file, which contains the
+The second exception is that a new metadata value `agg_tiles_hash_before_apply` will be added to the diff file, which contains the
 `agg_tiles_hash` value from `file1.mbtiles`. This will be used to verify that the diff file is being applied to the correct source file.
 
 ## `mbtiles apply-patch`
