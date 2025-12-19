@@ -12,6 +12,8 @@ updates:
         patterns: [ '*' ]
     cooldown:
       default-days: 7
+      # no semver support for github-actions
+      # => no specific configuration for this
       include:
         - "*"
 
