@@ -13,8 +13,6 @@ updates:
         patterns: [ '*' ]
     cooldown:
       default-days: 7
-      # no semver support for github-actions
-      # => no specific configuration for this
       include:
         - "*"
 
@@ -35,19 +33,20 @@ updates:
       include:
         - "*"
 
-  # Update Martin UI NPM dependencies
   - package-ecosystem: npm
-    directory: '/martin/martin-ui/'
+    directories:
+      - '/martin/martin-ui/'
+      - '/demo/frontend/'
     schedule: { interval: monthly }
     open-pull-requests-limit: 10
     groups:
-      all-npm-ui-version-updates:
+      all-npm-version-updates:
         applies-to: version-updates
         patterns: [ '*' ]
         exclude-patterns:
           - '@biomejs/biome'
           - 'tailwindcss'
-      all-npm-ui-security-updates:
+      all-npm-security-updates:
         applies-to: security-updates
         patterns: [ '*' ]
     cooldown:
@@ -55,38 +54,23 @@ updates:
       include:
         - "*"
 
-  # Update Demo frontend NPM dependencies
-  - package-ecosystem: npm
-    directory: '/demo/frontend/'
+
+  - package-ecosystem: docker
+    directories:
+      - '/demo/db'
+      - '/demo/frontend'
     schedule: { interval: monthly }
     open-pull-requests-limit: 10
     groups:
-      all-npm-fe-version-updates:
+      all-npm-version-updates:
         applies-to: version-updates
         patterns: [ '*' ]
         exclude-patterns:
           - '@biomejs/biome'
-      all-npm-fe-security-updates:
+          - 'tailwindcss'
+      all-npm-security-updates:
         applies-to: security-updates
         patterns: [ '*' ]
-    cooldown:
-      default-days: 7
-      include:
-        - "*"
-
-  - package-ecosystem: docker
-    directory: /demo/db
-    schedule: { interval: monthly }
-    cooldown:
-      default-days: 7
-      include:
-        - "*"
-      exclude:
-        - "ghcr.io/maplibre/martin"
-
-  - package-ecosystem: docker
-    directory: /demo/frontend
-    schedule: { interval: monthly }
     cooldown:
       default-days: 7
       include:
