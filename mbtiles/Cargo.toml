@@ -28,6 +28,7 @@ anyhow = { workspace = true, optional = true }
 clap = { workspace = true, optional = true }
 enum-display.workspace = true
 env_logger = { workspace = true, optional = true }
+flate2.workspace = true
 flume.workspace = true
 futures.workspace = true
 itertools.workspace = true
@@ -46,8 +47,9 @@ sqlx.workspace = true
 thiserror.workspace = true
 tilejson.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread"] }
-xxhash-rust.workspace = true
 
+walkdir = "2.5.0"
+xxhash-rust.workspace = true
 [dev-dependencies]
 # For testing, might as well use the same async framework as the Martin itself
 actix-rt.workspace = true
