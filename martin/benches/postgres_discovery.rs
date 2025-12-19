@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
+use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
 use martin::config::file::init_aws_lc_tls;
 use martin::config::file::postgres::{PostgresAutoDiscoveryBuilder, PostgresConfig};
 use martin_core::config::IdResolver;
@@ -247,10 +247,11 @@ async fn discover_tables(config: &PostgresConfig) {
         .await
         .expect("Failed to create builder");
 
-    let _tables = builder
+    let tables = builder
         .instantiate_tables()
         .await
         .expect("Failed to discover tables");
+    black_box(tables);
 }
 
 async fn discover_functions(config: &PostgresConfig) {
@@ -258,10 +259,11 @@ async fn discover_functions(config: &PostgresConfig) {
         .await
         .expect("Failed to create builder");
 
-    let _functions = builder
+    let functions = builder
         .instantiate_functions()
         .await
         .expect("Failed to discover functions");
+    black_box(functions);
 }
 
 fn bench_table_discovery(c: &mut Criterion) {
