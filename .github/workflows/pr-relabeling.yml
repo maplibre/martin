@@ -1,0 +1,20 @@
+name: Relabel Pull Request
+
+on:
+  pull_request_target:
+    types: [labeled]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  remove-bless:
+    runs-on: ubuntu-latest
+    if: contains(github.event.label.name, 'bless')
+
+    steps:
+      - name: Remove bless label
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr edit ${{ github.event.pull_request.number }} --remove-label bless

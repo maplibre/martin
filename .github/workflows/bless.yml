@@ -31,10 +31,6 @@ jobs:
       - name: Setup Rust
         run: rustup update stable && rustup default stable
 
-      - run: gh pr edit ${{ github.event.pull_request.number }} --remove-label bless
-        env:
-          GH_TOKEN: ${{ github.token }}
-
       - name: Install just
         uses: taiki-e/install-action@cc60de1d6831d7e9c4342f618ce7a5d6a9f223a4 # v2.61.6
         with:
