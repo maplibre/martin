@@ -36,7 +36,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-bba8c7ec.js";
+            window.path_to_searchindex_js = "searchindex-bcd0a95d.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-da940ac3.js"></script>
@@ -187,11 +187,6 @@
 be <a href="#mbtiles-apply-patch">applied</a> to the <code>src_file.mbtiles</code> elsewhere, to avoid copying/transmitting the entire
 modified dataset. The delta file will contain all tiles that are different between the two files (modifications,
 insertions, and deletions as <code>NULL</code> values), for both the tile and metadata tables.</p>
-<p>There is one exception: <code>agg_tiles_hash</code> metadata value will be renamed to <code>agg_tiles_hash_after_apply</code>, and a
-new <code>agg_tiles_hash</code> will be generated for the diff file itself. This is done to avoid confusion when applying the diff
-file to the original file, as the <code>agg_tiles_hash</code> value will be different after the diff is applied. The <code>apply-patch</code>
-command will automatically rename the <code>agg_tiles_hash_after_apply</code> value back to <code>agg_tiles_hash</code> when applying the
-diff.</p>
 <pre><code class="language-bash"># This command will compare `file1.mbtiles` and `file2.mbtiles`,
 # and generate a new diff file `diff.mbtiles`.
 mbtiles diff file1.mbtiles file2.mbtiles diff.mbtiles
@@ -207,6 +202,15 @@ mbtiles validate file2.mbtiles
 mbtiles validate file2a.mbtiles
 [INFO ] The agg_tiles_hashes=E95C1081447FB25674DCC1EB97F60C26 has been verified for file2a.mbtiles
 </code></pre>
+<h3 id="delta-file-metadata"><a class="header" href="#delta-file-metadata">Delta file metadata</a></h3>
+<p>All metadata from <code>file2.mbtiles</code> will be copied to the diff file.</p>
+<p>There are two exceptions to this. The first is that the <code>agg_tiles_hash</code> value will be renamed to <code>agg_tiles_hash_after_apply</code>. A
+new <code>agg_tiles_hash</code> will be generated for the diff file itself. This is done to avoid confusion when applying the diff
+file to the original file, as the <code>agg_tiles_hash</code> value will be different after the diff is applied. The <code>apply-patch</code>
+command will automatically rename the <code>agg_tiles_hash_after_apply</code> value back to <code>agg_tiles_hash</code> when applying the
+diff.</p>
+<p>The second exception is that a new metadata value <code>agg_tiles_hash_before_apply</code> will be added to the diff file, which contains the
+<code>agg_tiles_hash</code> value from <code>file1.mbtiles</code>. This will be used to verify that the diff file is being applied to the correct source file.</p>
 <h2 id="mbtiles-apply-patch"><a class="header" href="#mbtiles-apply-patch"><code>mbtiles apply-patch</code></a></h2>
 <p>Apply the diff file generated with the <code>mbtiles diff</code> command above to an MBTiles file. The diff file can be applied to
 the <code>src_file.mbtiles</code> that has been previously downloaded to avoid copying/transmitting the entire modified dataset
