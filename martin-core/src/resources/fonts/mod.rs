@@ -376,7 +376,8 @@ mod tests {
     fn test_get_available_codepoints() -> Result<(), FontError> {
         let lib = Library::init()?;
 
-        for codepoint in [0x1234, 0x1f60a] {
+        // U+3320: SQUARE SANTIIMU, U+1F60A: SMILING FACE WITH SMILING EYES
+        for codepoint in [0x3320, 0x1f60a] {
             let font_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
                 .join(format!("src/resources/fonts/tests/u+{codepoint:x}.ttf"));
             assert!(font_path.is_file()); // make sure the file path is correct
