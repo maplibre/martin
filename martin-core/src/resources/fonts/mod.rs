@@ -367,3 +367,21 @@ fn parse_font(
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_get_available_codepoints() -> Result<(), FontError> {
+        let lib = Library::init()?;
+        let mut face = lib.new_face(
+            "../../../../tests/fixtures/fonts/overpass-mono-regular.ttf",
+            0,
+        )?;
+
+        let (codepoints, count, ranges, first, last) = get_available_codepoints(&mut face).unwrap();
+
+        Ok(())
+    }
+}
