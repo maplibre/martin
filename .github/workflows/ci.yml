@@ -83,7 +83,7 @@ jobs:
       - name: Init database
         run: tests/fixtures/initdb.sh
         env:
-          DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=require
+          PGPORT: ${{ job.services.postgres.ports[5432] }}
       - name: Run cargo test
         run: |
           set -x
@@ -198,7 +198,7 @@ jobs:
       - name: Init database
         run: tests/fixtures/initdb.sh
         env:
-          DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=require
+          PGPORT: ${{ job.services.postgres.ports[5432] }}
 
       # we want to test our docker images before we push them to the registry
       # this is done by
