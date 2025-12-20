@@ -15,11 +15,9 @@ jobs:
     if: contains(github.event.label.name, 'bless')
 
     steps:
-      - run: gh pr edit ${{ github.event.pull_request.number }} --remove-label bless
-        env:
-          GH_TOKEN: ${{ github.token }}
       - name: Checkout sources
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with: { persist-credentials: false }
       - uses: BRAINSia/free-disk-space@f9f59b0ef974ff4b873aa243ce5278ab644eedc6 # v2.1.2
         with:
           tool-cache: false
@@ -32,6 +30,10 @@ jobs:
           swap-storage: true
       - name: Setup Rust
         run: rustup update stable && rustup default stable
+
+      - run: gh pr edit ${{ github.event.pull_request.number }} --remove-label bless
+        env:
+          GH_TOKEN: ${{ github.token }}
 
       - name: Install just
         uses: taiki-e/install-action@cc60de1d6831d7e9c4342f618ce7a5d6a9f223a4 # v2.61.6
