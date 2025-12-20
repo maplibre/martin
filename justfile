@@ -65,10 +65,13 @@ biomejs-martin-ui:
 
 # Run integration tests and save its output as the new expected output (ordering is important)
 bless:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
     for target in restart clean-test bless-insta-martin bless-insta-martin-core bless-insta-mbtiles bless-frontend bless-int; do
-    echo "::group::just $target"
-    {{quote(just_executable())}} $target
-    echo "::endgroup::"
+      echo "::group::just $target"
+      {{quote(just_executable())}} $target
+      echo "::endgroup::"
     done
 
 # Bless the frontend tests
