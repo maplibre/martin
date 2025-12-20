@@ -17,7 +17,16 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-
+      - uses: BRAINSia/free-disk-space@f9f59b0ef974ff4b873aa243ce5278ab644eedc6 # v2.1.2
+        with:
+          tool-cache: false
+          mandb:   true
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: true
       - name: Setup Rust
         run: rustup update stable && rustup default stable
 
