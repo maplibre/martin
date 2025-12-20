@@ -20,12 +20,12 @@ jobs:
       - uses: BRAINSia/free-disk-space@f9f59b0ef974ff4b873aa243ce5278ab644eedc6 # v2.1.2
         with:
           tool-cache: false
-          mandb:   true
+          mandb:   false
           android: true
           dotnet: true
           haskell: true
-          large-packages: true
-          docker-images: true
+          large-packages: false
+          docker-images: false
           swap-storage: true
       - name: Setup Rust
         run: rustup update stable && rustup default stable
