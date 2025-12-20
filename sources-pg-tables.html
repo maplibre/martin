@@ -36,7 +36,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-bcd0a95d.js";
+            window.path_to_searchindex_js = "searchindex-61aae48f.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-da940ac3.js"></script>
@@ -188,7 +188,10 @@
 For example, if there is a table <code>public.table_source</code>:
 the default <code>TileJSON</code> might look like this (note that URL will be automatically adjusted to match the request host):</p>
 <p>The table:</p>
-<pre><code class="language-sql">CREATE TABLE "public"."table_source" ( "gid" int4 NOT NULL, "geom" "public"."geometry" );
+<pre><code class="language-sql">CREATE TABLE "public"."table_source" (
+  "gid" int4 NOT NULL,
+  "geom" "public"."geometry"
+);
 </code></pre>
 <p>The TileJSON:</p>
 <pre><code class="language-json">{
