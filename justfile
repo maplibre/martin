@@ -68,11 +68,15 @@ bless:
     #!/usr/bin/env bash
     set -euo pipefail
 
-    for target in restart clean-test bless-insta-martin bless-insta-martin-core bless-insta-mbtiles bless-frontend bless-int; do
+    echo "Blessing unit tests"
+    for target in restart clean-test bless-insta-martin bless-insta-martin-core bless-insta-mbtiles bless-frontend; do
       echo "::group::just $target"
       {{quote(just_executable())}} $target
       echo "::endgroup::"
     done
+
+    echo "Blessing integration tests"
+    {{quote(just_executable())}} bless-int
 
 # Bless the frontend tests
 [working-directory: 'martin/martin-ui']
