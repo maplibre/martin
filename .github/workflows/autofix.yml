@@ -1,4 +1,4 @@
-name: Bless Test Output
+name: autofix.ci # See https://autofix.ci/security why this name
 
 on:
   pull_request:
