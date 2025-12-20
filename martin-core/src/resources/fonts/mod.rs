@@ -33,7 +33,7 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 
 /// Maximum Unicode codepoint supported (U+FFFF - Basic Multilingual Plane).
-const MAX_UNICODE_CP: usize = 0xFFFF;
+const MAX_UNICODE_CP: usize = 0x2FFFF;
 /// Size of each Unicode codepoint range (256 characters).
 const CP_RANGE_SIZE: usize = 256;
 /// Font size in pixels for SDF glyph rendering.
@@ -375,12 +375,20 @@ mod tests {
     #[test]
     fn test_get_available_codepoints() -> Result<(), FontError> {
         let lib = Library::init()?;
-        let mut face = lib.new_face(
-            "../../../../tests/fixtures/fonts/overpass-mono-regular.ttf",
-            0,
-        )?;
 
-        let (codepoints, count, ranges, first, last) = get_available_codepoints(&mut face).unwrap();
+        for codepoint in [0x1234, 0x1f60a] {
+            let font_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join(format!("src/resources/fonts/tests/u+{codepoint:x}.ttf"));
+            assert!(font_path.is_file()); // make sure the file path is correct
+
+            let mut face = lib.new_face(&font_path, 0)?;
+
+            let (_codepoints, count, _ranges, first, last) =
+                get_available_codepoints(&mut face).unwrap();
+            assert_eq!(count, 1);
+            assert_eq!(format!("U+{first:X}"), format!("U+{codepoint:X}"));
+            assert_eq!(format!("U+{last:X}"), format!("U+{codepoint:X}"));
+        }
 
         Ok(())
     }
