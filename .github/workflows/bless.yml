@@ -33,24 +33,11 @@ jobs:
         run: npm install
         working-directory: martin/martin-ui
 
-      - name: Start runtime dependencies
-        run: just start
-
       - name: Install system dependencies
         run: sudo apt-get install -y gdal-bin sqlite3-tools
 
-      - name: Debug environment
-        run: |
-          echo "User: $USER"
-          echo "GitHub Actor: ${{ github.actor }}"
-          echo "Database URL: ${{ steps.postgres.outputs.connection-uri }}"
-
       - name: Run just bless
-        run: |
-          echo "Running just bless..."
-          just bless
-        env:
-          DATABASE_URL: ${{ steps.postgres.outputs.connection-uri }}
+        run: just bless
 
       - uses: autofix-ci/action@635ffb0c9798bd160680f18fd73371e355b85f27 # v1.3.2
         with: {commit-message: "test: update blessed test snapshots across all components"}
