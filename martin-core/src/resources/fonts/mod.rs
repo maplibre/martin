@@ -32,8 +32,12 @@ use pbf_font_tools::{Fontstack, Glyphs, render_sdf_glyph};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 
-/// Maximum Unicode codepoint supported (U+FFFF - Basic Multilingual Plane).
-const MAX_UNICODE_CP: usize = 0x2FFFF;
+/// Maximum Unicode codepoint supported.
+///
+/// Although U+FFFF covers the Basic Multilingual Plane, the Unicode standard
+/// allows to use up to U+10FFFF, including for private use.
+/// (cf. https://en.wikipedia.org/wiki/Unicode_block )
+const MAX_UNICODE_CP: usize = 0x10FFFF;
 /// Size of each Unicode codepoint range (256 characters).
 const CP_RANGE_SIZE: usize = 256;
 /// Font size in pixels for SDF glyph rendering.
