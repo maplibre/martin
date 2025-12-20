@@ -1,6 +1,7 @@
 name: Relabel Pull Request
 
 on:
+  # changing a label needs permissions in the pull request target
   pull_request_target:
     types: [labeled]
 
