@@ -78,7 +78,8 @@ openssl req -new -key server-key.pem -out server-csr.pem \
     -addext "subjectAltName = DNS:localhost"
 
 # Generate server certificate signed by CA with SAN extension
-openssl x509 -req -days 365 -in server-csr.pem -CA ca-cert.pem -CAkey ca-key.pem \
+openssl x509 -req -days 365 -in server-csr.pem \
+    -CA ca-cert.pem -CAkey ca-key.pem \
     -CAcreateserial -out server-cert.pem -extensions v3_req \
     -extfile <(printf "[v3_req]\nsubjectAltName = DNS:localhost")
 
@@ -109,7 +110,13 @@ services:
     volumes:
       - ./server-cert.pem:/var/lib/postgresql/server.crt:ro
       - ./server-key.pem:/var/lib/postgresql/server.key:ro
-    command: -c ssl=on -c ssl_cert_file=/var/lib/postgresql/server.crt -c ssl_key_file=/var/lib/postgresql/server.key
+    command:
+      - -c
+      - ssl=on
+      - -c
+      - ssl_cert_file=/var/lib/postgresql/server.crt
+      - -c
+      - ssl_key_file=/var/lib/postgresql/server.key
 ```
 
 ```bash
@@ -135,7 +142,8 @@ docker compose up
 Test SSL Connection via
 
 ```bash
-PGSSLROOTCERT=ca-cert.pem psql "postgres://postgres:password@localhost:5432/postgres?sslmode=verify-full"
+export PGSSLROOTCERT=ca-cert.pem
+psql "postgres://postgres:password@localhost:5432/postgres?sslmode=verify-full"
 ```
 
 > [!TIP]
