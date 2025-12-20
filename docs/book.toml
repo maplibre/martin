@@ -1,7 +1,6 @@
 [book]
 authors = ["MapLibre contributors"]
 language = "en"
-multilingual = false
 src = "src"
 title = "Martin Tile Server Documentation"
 
@@ -13,8 +12,9 @@ smart-punctuation = true
 git-repository-url = "https://github.com/maplibre/martin"
 edit-url-template = "https://github.com/maplibre/martin/edit/main/docs/{path}"
 additional-css = ["theme/tabs.css"]
-additional-js = ["theme/tabs.js"]
-
-[preprocessor.alerts]
+additional-js = ["theme/tabs.js", "theme/mermaid.min.js", "theme/mermaid-init.js"]
 
 [preprocessor.tabs]
+
+[preprocessor.mermaid]
+command = "mdbook-mermaid"

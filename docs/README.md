@@ -2,11 +2,13 @@
 
 The documentation of `maplibre/martin` is available at <https://maplibre.org/martin>.
 
-To build/develop this documentation locally, you can install `mdbook` and `mdbook-linkcheck`.
+To build/develop this documentation locally, you can install `mdbook` and the required preprocessors.
 
 ```bash
-cargo install mdbook mdbook-alerts mdbook-tabs
+cargo install mdbook mdbook-tabs mdbook-mermaid
 ```
+
+Mermaid diagrams are supported via the `mdbook-mermaid` preprocessor. The configuration lives in `docs/book.toml`.
 
 ## Development
 
