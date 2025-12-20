@@ -36,7 +36,7 @@ jobs:
       - name: Install system dependencies
         run: sudo apt-get install -y gdal-bin sqlite3-tools
 
-      - run: just test --all-targets --no-run # makes the log of `just bless` more manageable
+      - run: just test-cargo --all-targets --no-run # makes the log of `just bless` more manageable
       - run: just bless
 
       - uses: autofix-ci/action@635ffb0c9798bd160680f18fd73371e355b85f27 # v1.3.2
