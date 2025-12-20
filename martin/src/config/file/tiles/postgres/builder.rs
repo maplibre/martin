@@ -1,5 +1,5 @@
 use std::cmp::Ordering;
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashSet};
 
 use futures::future::join_all;
 use itertools::Itertools as _;
@@ -18,7 +18,7 @@ use crate::config::file::postgres::resolver::{
 };
 use crate::config::file::postgres::utils::{find_info, find_kv_ignore_case, normalize_key};
 use crate::config::file::postgres::{
-    FuncInfoSources, POOL_SIZE_DEFAULT, PostgresCfgPublish, PostgresCfgPublishFuncs,
+    FuncInfoSources, FunctionInfo, POOL_SIZE_DEFAULT, PostgresCfgPublish, PostgresCfgPublishFuncs,
     PostgresConfig, PostgresInfo, TableInfo, TableInfoSources,
 };
 use crate::config::file::{ConfigFileError, ConfigFileResult};
@@ -130,10 +130,16 @@ impl PostgresAutoDiscoveryBuilder {
     }
 
     /// Discovers and instantiates table-based tile sources.
-    #[expect(clippy::too_many_lines)]
     pub async fn instantiate_tables(&self) -> PostgresResult<(Vec<BoxedSource>, TableInfoSources)> {
         // FIXME: this function has gotten too long due to the new formatting rules, need to be refactored
-        let mut db_tables_info = query_available_tables(&self.pool).await?;
+
+        let restrict_to_tables = if self.auto_tables.is_none() {
+            Some(self.configured_tables())
+        } else {
+            None
+        };
+
+        let mut db_tables_info = query_available_tables(&self.pool, restrict_to_tables).await?;
 
         // Match configured sources with the discovered ones and add them to the pending list.
         let mut used = HashSet::<(&str, &str, &str)>::new();
@@ -147,37 +153,25 @@ impl PostgresAutoDiscoveryBuilder {
                 ));
             }
 
-            let Some(db_tables) = find_info(&db_tables_info, &cfg_inf.schema, "schema", id) else {
-                continue;
-            };
-            let Some(db_geo_columns) = find_info(db_tables, &cfg_inf.table, "table", id) else {
-                continue;
-            };
-            let Some(db_inf) = find_info(
-                db_geo_columns,
-                &cfg_inf.geometry_column,
-                "geometry column",
-                id,
-            ) else {
-                continue;
-            };
+            match self.build_one_table_info(&db_tables_info, id, cfg_inf) {
+                Ok(merged_inf) => {
+                    let dup =
+                        !used.insert((&cfg_inf.schema, &cfg_inf.table, &cfg_inf.geometry_column));
+                    let dup = if dup { "duplicate " } else { "" };
 
-            let dup = !used.insert((&cfg_inf.schema, &cfg_inf.table, &cfg_inf.geometry_column));
-            let dup = if dup { "duplicate " } else { "" };
-
-            let id2 = self.resolve_id(id, cfg_inf);
-            let Some(merged_inf) = db_inf.append_cfg_info(cfg_inf, &id2, self.default_srid) else {
-                continue;
-            };
-            warn_on_rename(id, &id2, "Table");
-            info!("Configured {dup}source {id2} from {}", summary(&merged_inf));
-            pending.push(table_to_query(
-                id2,
-                merged_inf,
-                self.pool.clone(),
-                self.auto_bounds,
-                self.max_feature_count,
-            ));
+                    let id2 = self.resolve_id(id, &merged_inf);
+                    warn_on_rename(id, &id2, "Table");
+                    info!("Configured {dup}source {id2} from {}", summary(&merged_inf));
+                    pending.push(table_to_query(
+                        id2,
+                        merged_inf,
+                        self.pool.clone(),
+                        self.auto_bounds,
+                        self.max_feature_count,
+                    ));
+                }
+                Err(error) => warn!("{error}"),
+            }
         }
 
         // Sort the discovered sources by schema, table and geometry column to ensure a consistent behavior
@@ -255,32 +249,20 @@ impl PostgresAutoDiscoveryBuilder {
         let mut used = HashSet::<(&str, &str)>::new();
 
         for (id, cfg_inf) in &self.functions {
-            let Some(db_funcs) = find_info(&db_funcs_info, &cfg_inf.schema, "schema", id) else {
-                continue;
-            };
-            if db_funcs.is_empty() {
-                warn!(
-                    "No functions found in schema {}. Only functions like (z,x,y) -> bytea and similar are considered. See README.md",
-                    cfg_inf.schema
-                );
-                continue;
+            match Self::build_one_function_info(&db_funcs_info, id, cfg_inf) {
+                Ok((merged_inf, pg_sql_info)) => {
+                    let dup = !used.insert((&cfg_inf.schema, &cfg_inf.function));
+                    let dup = if dup { "duplicate " } else { "" };
+                    let id2 = self.resolve_id(id, &merged_inf);
+                    self.add_func_src(&mut res, id2.clone(), &merged_inf, pg_sql_info.clone());
+                    warn_on_rename(id, &id2, "Function");
+                    let signature = &pg_sql_info.signature;
+                    info!("Configured {dup}source {id2} from the function {signature}");
+                    debug!("{id2} query: {}", pg_sql_info.sql_query);
+                    info_map.insert(id2, merged_inf);
+                }
+                Err(error) => warn!("{error}"),
             }
-            let func_name = &cfg_inf.function;
-            let Some((pg_sql, db_inf)) = find_info(db_funcs, func_name, "function", id) else {
-                continue;
-            };
-
-            let merged_inf = db_inf.append_cfg_info(cfg_inf);
-
-            let dup = !used.insert((&cfg_inf.schema, func_name));
-            let dup = if dup { "duplicate " } else { "" };
-            let id2 = self.resolve_id(id, &merged_inf);
-            self.add_func_src(&mut res, id2.clone(), &merged_inf, pg_sql.clone());
-            warn_on_rename(id, &id2, "Function");
-            let signature = &pg_sql.signature;
-            info!("Configured {dup}source {id2} from the function {signature}");
-            debug!("{id2} query: {}", pg_sql.sql_query);
-            info_map.insert(id2, merged_inf);
         }
 
         // Sort the discovered sources by schema and function name to ensure a consistent behavior
@@ -319,6 +301,78 @@ impl PostgresAutoDiscoveryBuilder {
         Ok((res, info_map))
     }
 
+    /// Builds and returns a `TableInfo` generated by:
+    ///
+    /// a) Finding the `TableInfo` instance in the discovered tables map `table_infos_from_db` that
+    ///    matches the (schema, table, `geometry_column`) specified in the input `table_info_from_config`'s values.
+    /// b) Merging the result of the lookup with the values in `table_info_from_config`, giving `table_info_from_config` preference.
+    ///
+    /// If the given (schema, table, `geometry_column`) combination is not found, returns Err.
+    fn build_one_table_info(
+        &self,
+        table_infos_from_db: &BTreeMap<String, BTreeMap<String, BTreeMap<String, TableInfo>>>,
+        id: &String,
+        table_info_from_config: &TableInfo,
+    ) -> Result<TableInfo, String> {
+        let table_infos_for_schema = find_info(
+            table_infos_from_db,
+            &table_info_from_config.schema,
+            "schema",
+            id,
+        )?;
+        let table_infos_for_table = find_info(
+            table_infos_for_schema,
+            &table_info_from_config.table,
+            "table",
+            id,
+        )?;
+        let table_info_for_geometry_column = find_info(
+            table_infos_for_table,
+            &table_info_from_config.geometry_column,
+            "geometry column",
+            id,
+        )?;
+        let merged_table_info = table_info_for_geometry_column
+            .append_cfg_info(table_info_from_config, id, self.default_srid)
+            .ok_or_else(|| format!("Failed to merge config info for table {id}"))?;
+        Ok(merged_table_info)
+    }
+
+    /// Builds and returns a `FunctionInfo` generated by:
+    ///
+    /// a) Finding the `FunctionInfo` instance in the discovered functions map `function_infos_from_db` that
+    ///    matches the (schema, function) values specified in the input `function_info_from_config`'s values.
+    /// b) Merging the result of the lookup with the values in `function_info_from_config`, giving `function_info_from_config` preference.
+    ///
+    /// If the given (schema, function) combination is not found, returns Err.
+    fn build_one_function_info(
+        function_infos_from_db: &BTreeMap<
+            String,
+            BTreeMap<String, (PostgresSqlInfo, FunctionInfo)>,
+        >,
+        id: &str,
+        function_info_from_config: &FunctionInfo,
+    ) -> Result<(FunctionInfo, PostgresSqlInfo), String> {
+        let function_infos_for_schema = find_info(
+            function_infos_from_db,
+            &function_info_from_config.schema,
+            "schema",
+            id,
+        )?;
+        if function_infos_for_schema.is_empty() {
+            return Err(format!(
+                "No functions found in schema {}. Only functions like (z,x,y) -> bytea and similar are considered. See README.md",
+                function_info_from_config.schema
+            ));
+        }
+        let function_name = &function_info_from_config.function;
+        let (function_sql_info, table_info_from_schema) =
+            find_info(function_infos_for_schema, function_name, "function", id)?;
+        let merged_function_info =
+            table_info_from_schema.append_cfg_info(function_info_from_config);
+        Ok((merged_function_info, function_sql_info.clone()))
+    }
+
     fn resolve_id<T: PostgresInfo>(&self, id: &str, src_inf: &T) -> String {
         let signature = format!("{}.{}", self.pool.get_id(), src_inf.format_id());
         self.id_resolver.resolve(id, signature)
@@ -334,6 +388,13 @@ impl PostgresAutoDiscoveryBuilder {
         let tilejson = pg_info.to_tilejson(id.clone());
         let source = PostgresSource::new(id, sql_info, tilejson, self.pool.clone());
         sources.push(Box::new(source));
+    }
+
+    fn configured_tables(&self) -> HashSet<(String, String)> {
+        self.tables
+            .values()
+            .map(|t| (t.schema.to_lowercase(), t.table.to_lowercase()))
+            .collect()
     }
 }
 

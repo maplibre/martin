@@ -11,15 +11,15 @@ This allows the MBTiles file to be [validated](mbtiles-validation.md#aggregate-c
 
 ## Usage
 
-This copies tiles from a PostGIS table `my_table` into an MBTiles file `tileset.mbtiles` using [normalized](mbtiles-schema.md#normalized) schema, with zoom levels from 0 to 10, and bounds of the whole world.
+This copies tiles from a PostGIS table `my_table` into an MBTiles file `tileset.mbtiles` using [normalized](mbtiles-schema.md#normalized) schema, with zoom levels from 0 to 10, and xyz-compliant tile bounds of the whole world.
 
 ```bash
-martin-cp  --output-file tileset.mbtiles \
-           --mbtiles-type normalized     \
-           "--bbox=-180,-90,180,90"      \
-           --min-zoom 0                  \
-           --max-zoom 10                 \
-           --source source_name          \
+martin-cp  --output-file tileset.mbtiles                         \
+           --mbtiles-type normalized                             \
+           "--bbox=-180,-85.05112877980659,180,85.0511287798066" \
+           --min-zoom 0                                          \
+           --max-zoom 10                                         \
+           --source source_name                                  \
            postgres://postgres@localhost:5432/db
 ```
 

@@ -1,6 +1,6 @@
 [package]
 name = "martin-core"
-version = "0.2.3"
+version = "0.2.4"
 authors = ["Yuri Astrakhan <YuriAstrakhan@gmail.com>", "MapLibre contributors"]
 description = "Basic building blocks of MapLibre's Martin tile server."
 keywords = ["maps", "tiles", "mvt", "tileserver"]
@@ -96,12 +96,20 @@ walkdir = { workspace = true, optional = true }
 xxhash-rust.workspace = true
 
 [dev-dependencies]
+actix-web.workspace = true
 approx.workspace = true
+env_logger.workspace = true
 futures.workspace = true
 insta = { workspace = true, features = ["json", "yaml"] }
 rstest.workspace = true
+serde_json.workspace = true
 testcontainers-modules.workspace = true
 tokio.workspace = true
+url.workspace = true
+
+[[example]]
+name = "pmtiles-tileserver"
+required-features = ["pmtiles"]
 
 [lints]
 workspace = true

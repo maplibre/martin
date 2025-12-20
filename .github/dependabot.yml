@@ -1,6 +1,5 @@
 version: 2
 updates:
-  # Maintain dependencies for GitHub Actions
   - package-ecosystem: github-actions
     directory: '/'
     schedule: { interval: monthly }
@@ -12,13 +11,12 @@ updates:
         applies-to: security-updates
         patterns: [ '*' ]
     cooldown:
-      default-days: 3
+      default-days: 7
       # no semver support for github-actions
       # => no specific configuration for this
       include:
         - "*"
 
-  # Update Rust dependencies
   - package-ecosystem: cargo
     directory: '/'
     schedule: { interval: monthly }
@@ -31,54 +29,46 @@ updates:
         applies-to: security-updates
         patterns: [ '*' ]
     cooldown:
-      default-days: 4
-      semver-major-days: 4
-      semver-minor-days: 2
-      semver-patch-days: 2
+      default-days: 7
       include:
         - "*"
 
-  # Update Martin UI NPM dependencies
   - package-ecosystem: npm
-    directory: '/martin/martin-ui/'
+    directories:
+      - '/martin/martin-ui/'
+      - '/demo/frontend/'
     schedule: { interval: monthly }
     open-pull-requests-limit: 10
     groups:
-      all-npm-ui-version-updates:
+      all-npm-version-updates:
         applies-to: version-updates
         patterns: [ '*' ]
         exclude-patterns:
           - '@biomejs/biome'
-          - 'tailwindcss'
-      all-npm-ui-security-updates:
+      all-npm-security-updates:
         applies-to: security-updates
         patterns: [ '*' ]
     cooldown:
-      default-days: 3
-      semver-major-days: 3
-      semver-minor-days: 3
-      semver-patch-days: 3
+      default-days: 7
       include:
         - "*"
 
-  # Update Demo frontend NPM dependencies
-  - package-ecosystem: npm
-    directory: '/demo/frontend/'
+  - package-ecosystem: docker
+    directories:
+      - '/demo/db'
+      - '/demo/frontend'
     schedule: { interval: monthly }
     open-pull-requests-limit: 10
     groups:
-      all-npm-fe-version-updates:
+      all-npm-version-updates:
         applies-to: version-updates
         patterns: [ '*' ]
-        exclude-patterns:
-          - '@biomejs/biome'
-      all-npm-fe-security-updates:
+      all-npm-security-updates:
         applies-to: security-updates
         patterns: [ '*' ]
     cooldown:
-      default-days: 4
-      semver-major-days: 4
-      semver-minor-days: 2
-      semver-patch-days: 2
+      default-days: 7
       include:
         - "*"
+      exclude:
+        - "ghcr.io/maplibre/martin"
