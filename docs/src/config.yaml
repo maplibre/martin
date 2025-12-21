@@ -56,6 +56,7 @@ web_ui: disable
 #
 # Invalid sources are those that are missing (file not found, table doesn't exist, ...),
 # reference columns that don't exist, and so on.
+# Currently limited to tile sources; broader rollout is planned.
 #
 # Options:
 # - `warn`: log warning messages
