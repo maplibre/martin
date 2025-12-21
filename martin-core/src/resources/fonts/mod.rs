@@ -69,7 +69,10 @@ type GetGlyphInfo = (BitSet, usize, Vec<(usize, usize)>, usize, usize);
 ///
 /// Returns `None` if the font contains no usable glyphs.
 fn get_available_codepoints(face: &mut Face) -> Option<GetGlyphInfo> {
-    let mut codepoints = BitSet::with_capacity(MAX_UNICODE_CP);
+    // Since MAX_UNICODE_CP is more than 0xFFF, it's possible that a face might
+    // have more than 0xFFFF glyphs. But, 0xFFFF should be enough for most of
+    // the cases.
+    let mut codepoints = BitSet::with_capacity(0xFFFF);
     let mut spans = Vec::new();
     let mut first: Option<usize> = None;
     let mut count = 0;
