@@ -4,17 +4,18 @@ use std::io::prelude::*;
 use std::path::Path;
 use std::sync::LazyLock;
 
+use clap::ValueEnum;
 #[cfg(feature = "_tiles")]
 use futures::future::{BoxFuture, try_join_all};
-use log::{info, warn};
+use log::{Level, info, log, warn};
 #[cfg(feature = "_tiles")]
 use martin_core::config::IdResolver;
 #[cfg(feature = "postgres")]
 use martin_core::config::OptOneMany;
+#[cfg(feature = "_tiles")]
+use martin_core::tiles::OptTileCache;
 #[cfg(feature = "pmtiles")]
 use martin_core::tiles::pmtiles::PmtCache;
-#[cfg(feature = "_tiles")]
-use martin_core::tiles::{BoxedSource, OptTileCache};
 use serde::{Deserialize, Serialize};
 use subst::VariableMap;
 
@@ -38,6 +39,16 @@ use crate::source::TileSources;
 #[cfg(feature = "_tiles")]
 use crate::srv::RESERVED_KEYWORDS;
 use crate::{MartinError, MartinResult};
+
+/// Warnings that can occur during tile source resolution
+#[derive(thiserror::Error, Debug)]
+pub enum TileSourceWarning {
+    #[error("Source {source_id}: {error}")]
+    SourceError { source_id: String, error: String },
+
+    #[error("Path {path}: {error}")]
+    PathError { path: String, error: String },
+}
 
 pub struct ServerState {
     #[cfg(feature = "_tiles")]
@@ -66,10 +77,14 @@ pub struct Config {
     ///
     /// Can be overridden by [`tile_cache_size_mb`](Self::tile_cache_size_mb) or similar configuration options.
     pub cache_size_mb: Option<u64>,
+
     /// Maximum size of the tile cache in megabytes (0 to disable)
     ///
     /// Overrides [`cache_size_mb`](Self::cache_size_mb)
     pub tile_cache_size_mb: Option<u64>,
+
+    #[serde(default)]
+    pub on_invalid: Option<OnInvalid>,
 
     #[serde(flatten)]
     pub srv: super::srv::SrvConfig,
@@ -218,15 +233,23 @@ impl Config {
         #[cfg(feature = "pmtiles")]
         let pmtiles_cache = cache_config.create_pmtiles_cache();
 
+        #[cfg(feature = "_tiles")]
+        let (tiles, warnings) = self
+            .resolve_tile_sources(
+                &resolver,
+                #[cfg(feature = "pmtiles")]
+                pmtiles_cache,
+            )
+            .await?;
+
+        #[cfg(feature = "_tiles")]
+        self.on_invalid
+            .unwrap_or_default()
+            .handle_tile_warnings(&warnings)?;
+
         Ok(ServerState {
             #[cfg(feature = "_tiles")]
-            tiles: self
-                .resolve_tile_sources(
-                    &resolver,
-                    #[cfg(feature = "pmtiles")]
-                    pmtiles_cache,
-                )
-                .await?,
+            tiles,
             #[cfg(feature = "_tiles")]
             tile_cache: cache_config.create_tile_cache(),
 
@@ -304,12 +327,12 @@ impl Config {
         &mut self,
         #[allow(unused_variables)] idr: &IdResolver,
         #[cfg(feature = "pmtiles")] pmtiles_cache: PmtCache,
-    ) -> MartinResult<TileSources> {
-        let mut sources: Vec<BoxFuture<MartinResult<Vec<BoxedSource>>>> = Vec::new();
+    ) -> MartinResult<(TileSources, Vec<TileSourceWarning>)> {
+        let mut sources_and_warnings: Vec<BoxFuture<_>> = Vec::new();
 
         #[cfg(feature = "postgres")]
         for s in self.postgres.iter_mut() {
-            sources.push(Box::pin(s.resolve(idr.clone())));
+            sources_and_warnings.push(Box::pin(s.resolve(idr.clone())));
         }
 
         #[cfg(feature = "pmtiles")]
@@ -325,24 +348,31 @@ impl Config {
                 }
             }
             let val = crate::config::file::resolve_files(cfg, idr, &["pmtiles"]);
-            sources.push(Box::pin(val));
+            sources_and_warnings.push(Box::pin(val));
         }
 
         #[cfg(feature = "mbtiles")]
         if !self.mbtiles.is_empty() {
             let cfg = &mut self.mbtiles;
             let val = crate::config::file::resolve_files(cfg, idr, &["mbtiles"]);
-            sources.push(Box::pin(val));
+            sources_and_warnings.push(Box::pin(val));
         }
 
         #[cfg(feature = "unstable-cog")]
         if !self.cog.is_empty() {
             let cfg = &mut self.cog;
             let val = crate::config::file::resolve_files(cfg, idr, &["tif", "tiff"]);
-            sources.push(Box::pin(val));
+            sources_and_warnings.push(Box::pin(val));
         }
 
-        Ok(TileSources::new(try_join_all(sources).await?))
+        let all_results = try_join_all(sources_and_warnings).await?;
+        let (all_tile_sources, all_tile_warnings): (Vec<_>, Vec<_>) =
+            all_results.into_iter().unzip();
+
+        Ok((
+            TileSources::new(all_tile_sources),
+            all_tile_warnings.into_iter().flatten().collect(),
+        ))
     }
 
     pub fn save_to_file(&self, file_name: &Path) -> ConfigFileResult<()> {
@@ -361,6 +391,51 @@ impl Config {
                 .write_all(yaml.as_bytes())
                 .map_err(|e| ConfigFileError::ConfigWriteError(e, file_name.to_path_buf()))?;
             Ok(())
+        }
+    }
+}
+
+/// Describes the action to take during startup when configuration is found to be invalid
+/// but Martin could still startup in a degraded state (ie, some sources not served).
+#[derive(PartialEq, Eq, Debug, Clone, Copy, Default, Serialize, Deserialize, ValueEnum)]
+#[serde(rename_all = "lowercase")]
+pub enum OnInvalid {
+    /// Log warning messages, abort if the error is critical
+    #[serde(
+        alias = "warnings",
+        alias = "warning",
+        alias = "continue",
+        alias = "ignore"
+    )]
+    Warn,
+    /// Log warnings as errors, abort startup
+    #[default]
+    Abort,
+}
+
+impl OnInvalid {
+    /// Handle warnings based on `policy`
+    pub fn handle_tile_warnings(self, warnings: &[TileSourceWarning]) -> MartinResult<()> {
+        if warnings.is_empty() {
+            return Ok(());
+        }
+        let level = match self {
+            OnInvalid::Warn => Level::Warn,
+            OnInvalid::Abort => Level::Error,
+        };
+        match warnings {
+            [warning] => log!(level, "Tile source resolution warning: {warning}"),
+            warnings => {
+                log!(level, "Tile source resolution warnings:");
+                for warning in warnings {
+                    log!(level, "  - {warning}");
+                }
+            }
+        }
+
+        match self {
+            OnInvalid::Abort => Err(MartinError::TileResolutionWarningsIssued),
+            OnInvalid::Warn => Ok(()),
         }
     }
 }
