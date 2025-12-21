@@ -84,7 +84,7 @@ pub struct Config {
     pub tile_cache_size_mb: Option<u64>,
 
     #[serde(default)]
-    pub on_invalid: OnInvalid,
+    pub on_invalid: Option<OnInvalid>,
 
     #[serde(flatten)]
     pub srv: super::srv::SrvConfig,
