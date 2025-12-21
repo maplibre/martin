@@ -399,6 +399,7 @@ impl Config {
 #[serde(rename_all = "lowercase")]
 pub enum OnInvalid {
     /// Log warning messages, abort if the error is critical
+    #[serde(alias = "warnings", alias = "warning", alias = "continue", alias = "ignore"))]
     Warn,
     /// Log warnings as errors, abort startup
     #[default]
