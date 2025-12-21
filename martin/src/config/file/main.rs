@@ -243,7 +243,7 @@ impl Config {
             .await?;
 
         #[cfg(feature = "_tiles")]
-        OnInvalid::handle_warnings(self.on_invalid, &warnings)?;
+        self.on_invalid.unwrap_or_default().handle_tile_warnings(&warnings)?;
 
         Ok(ServerState {
             #[cfg(feature = "_tiles")]
@@ -408,25 +408,25 @@ pub enum OnInvalid {
 
 impl OnInvalid {
     /// Handle warnings based on `policy`
-    pub fn handle_warnings(policy: Self, warnings: &[TileSourceWarning]) -> MartinResult<()> {
+    pub fn handle_tile_warnings(self, warnings: &[TileSourceWarning]) -> MartinResult<()> {
         if warnings.is_empty() {
             return Ok(());
         }
-        let level = match policy {
+        let level = match self {
             OnInvalid::Warn => Level::Warn,
             OnInvalid::Abort => Level::Error,
         };
-        if warnings.len() == 1 {
-            let warning = &warnings[0];
-            log!(level, "Tile source resolution warning: {warning}");
-        } else {
-            log!(level, "Tile source resolution warnings:");
-            for warning in warnings {
-                log!(level, "  - {warning}");
+        match warnings {
+            [warning] => log!(level, "Tile source resolution warning: {warning}"),
+            warnings => {
+                log!(level, "Tile source resolution warnings:");
+                for warning in warnings {
+                    log!(level, "  - {warning}");
+                }
             }
         }
 
-        match policy {
+        match self {
             OnInvalid::Abort => Err(MartinError::TileResolutionWarningsIssued),
             OnInvalid::Warn => Ok(()),
         }
