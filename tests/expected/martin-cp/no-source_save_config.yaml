@@ -1,4 +1,3 @@
-on_invalid: abort
 mbtiles:
   sources:
     world_cities: ./tests/fixtures/mbtiles/world_cities.mbtiles

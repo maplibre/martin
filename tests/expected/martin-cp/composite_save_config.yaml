@@ -1,4 +1,3 @@
-on_invalid: abort
 postgres:
   default_srid: 900913
   auto_bounds: calc

@@ -1,5 +1,4 @@
 cache_size_mb: 8
-on_invalid: abort
 keep_alive: 75
 listen_addresses: localhost:3111
 worker_processes: 1
