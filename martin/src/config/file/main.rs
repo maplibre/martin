@@ -243,7 +243,9 @@ impl Config {
             .await?;
 
         #[cfg(feature = "_tiles")]
-        self.on_invalid.unwrap_or_default().handle_tile_warnings(&warnings)?;
+        self.on_invalid
+            .unwrap_or_default()
+            .handle_tile_warnings(&warnings)?;
 
         Ok(ServerState {
             #[cfg(feature = "_tiles")]
@@ -399,7 +401,12 @@ impl Config {
 #[serde(rename_all = "lowercase")]
 pub enum OnInvalid {
     /// Log warning messages, abort if the error is critical
-    #[serde(alias = "warnings", alias = "warning", alias = "continue", alias = "ignore"))]
+    #[serde(
+        alias = "warnings",
+        alias = "warning",
+        alias = "continue",
+        alias = "ignore"
+    )]
     Warn,
     /// Log warnings as errors, abort startup
     #[default]
