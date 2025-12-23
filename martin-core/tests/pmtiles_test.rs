@@ -396,19 +396,17 @@ async fn different_tiles_have_different_etags() {
         .get_tile_with_etag(TileCoord { z: 0, x: 0, y: 0 }, None)
         .await
         .expect("First tile");
+    assert!(!tile1.data.is_empty(), "Tile 1 should have data");
     let tile2 = source
         .get_tile_with_etag(TileCoord { z: 1, x: 0, y: 0 }, None)
         .await
         .expect("Second tile");
+    assert!(!tile2.data.is_empty(), "Tile 2 should have data");
 
-    if !tile1.data.is_empty() && !tile2.data.is_empty() {
-        assert_ne!(
-            tile1.etag, tile2.etag,
-            "Different tiles should have different ETags"
-        );
-    } else {
-        println!("Skipping ETag comparison - one or both tiles are empty");
-    }
+    assert_ne!(
+        tile1.etag, tile2.etag,
+        "Different tiles should have different ETags"
+    );
 }
 
 #[tokio::test]
