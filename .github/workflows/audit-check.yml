@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 jobs:
-  audit:
+  cargo-audit:
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -26,6 +26,26 @@ jobs:
           # RUSTSEC-2023-0071 = Marvin Attack: potential key recovery through timing sidechannels => not used exploitably
           # RUSTSEC-2025-0111 = tokio-tar parses PAX extended headers incorrectly, allows file smuggling => only used in testcontainer-rs, so not explitably
           # RUSTSEC-2025-0134 = rustls-pemfile is unmaintained, but only used in development dependencies
+    dependency-review:
+        runs-on: ubuntu-latest
+        steps:
+          - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+            with: { persist-credentials: false }
+          - name: Dependency Review
+            uses: actions/dependency-review-action@3c4e3dcb1aa7874d2c16be7d79418e9b7efd6261 # v4.8.2
+            with:
+              fail-on-severity: moderate
+              allow-licenses: |
+                MIT,
+                Apache-2.0,
+                BSD-2-Clause,
+                BSD-3-Clause,
+                ISC,
+                Zlib,
+                CC0-1.0,
+                Unlicense,
+                Python-2.0,
+                BSL-1.0
   codeql:
     name: CodeQL (${{ matrix.language }})
     runs-on: ubuntu-latest
@@ -52,11 +72,11 @@ jobs:
       uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
       with: { persist-credentials: false }
     - name: Initialize CodeQL
-      uses: github/codeql-action/init@e12f0178983d466f2f6028f5cc7a6d786fd97f4b # v4.31.4
+      uses: github/codeql-action/init@5d4e8d1aca955e8d8589aabd499c5cae939e33c7 # v4.31.9
       with:
         languages: ${{ matrix.language }}
         build-mode: none
     - name: Perform CodeQL Analysis
-      uses: github/codeql-action/analyze@e12f0178983d466f2f6028f5cc7a6d786fd97f4b # v4.31.4
+      uses: github/codeql-action/analyze@5d4e8d1aca955e8d8589aabd499c5cae939e33c7 # v4.31.9
       with:
         category: "/language:${{matrix.language}}"
