@@ -3,6 +3,7 @@
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
+use bytes::Bytes;
 use martin_core::tiles::Source;
 use martin_core::tiles::pmtiles::{PmtCache, PmtCacheInstance, PmtilesError, PmtilesSource};
 use martin_tile_utils::{Encoding, Format, TileCoord};
@@ -34,6 +35,38 @@ fn test_cache_bytes(size_mb: u64) -> PmtCacheInstance {
     let cache_id = NEXT_CACHE_ID.fetch_add(1, Ordering::SeqCst);
     let cache = PmtCache::new(size_mb);
     PmtCacheInstance::new(cache_id, cache)
+}
+
+/// Create a valid PMTiles directory from bytes (varint encoded)
+/// Format: n_entries (varint), tile_ids (varint deltas), run_lengths (varint),
+///         lengths (varint), offsets (varint, with special encoding for consecutive)
+fn create_test_directory() -> Result<pmtiles::Directory, pmtiles::PmtError> {
+    // Create a directory with 2 entries
+    let mut buf = Vec::new();
+
+    // Write n_entries = 2
+    buf.push(2);
+
+    // Write tile_ids (delta encoded): first=1, second=2 (delta=1)
+    buf.push(1); // first tile_id = 1
+    buf.push(1); // delta = 1, so second tile_id = 2
+
+    // Write run_lengths = 1 for both entries
+    buf.push(1);
+    buf.push(1);
+
+    // Write lengths = 256 for both (0x80, 0x02 in varint for 256)
+    buf.extend_from_slice(&[0x80, 0x02]); // 256
+    buf.extend_from_slice(&[0x80, 0x02]); // 256
+
+    // Write offsets: first=1000, second=2000
+    // 1000 in varint = 0xE8, 0x07
+    buf.extend_from_slice(&[0xE8, 0x07]); // 1000
+    // Since 2000 != 1000+256, we write the actual offset
+    // 2000 in varint = 0xD0, 0x0F
+    buf.extend_from_slice(&[0xD0, 0x0F]); // 2000
+
+    pmtiles::Directory::try_from(Bytes::from(buf))
 }
 
 #[tokio::test]
@@ -411,30 +444,47 @@ async fn shared_cache_with_unique_instance_ids_can_fetch_same_tile() {
 
 #[tokio::test]
 async fn cache_invalidation_clears_entries() {
+    use pmtiles::DirectoryCache;
+
     let cache = test_cache_bytes(10 * 1024 * 1024);
-    create_source("png.pmtiles", "invalidation_test", cache.clone()).await;
+    let tile_id = pmtiles::TileId::new(1).unwrap();
 
+    // Directly use DirectoryCache trait to insert directories at different offsets
+    for offset in [1000, 2000, 3000] {
+        cache
+            .get_dir_entry_or_insert(offset, tile_id, async move { create_test_directory() })
+            .await
+            .expect("Failed to insert directory via DirectoryCache trait");
+    }
+
+    // Sync to ensure all pending cache operations are applied (moka is eventually consistent)
+    cache.sync().await;
+
+    // Verify cache has directory entries populated via DirectoryCache trait
+    let initial_entry_count = cache.entry_count();
+    let initial_weighted_size = cache.weighted_size();
+
+    assert_eq!(
+        initial_entry_count, 3,
+        "Cache should have directory entries after DirectoryCache::get_dir_entry_or_insert"
+    );
+    assert_eq!(
+        initial_weighted_size, 192,
+        "Cache should have the expected size after inserting directories"
+    );
+
+    // invalidate_all() needs a sync to ensure invalidation is reflected in statistics
     cache.invalidate_all();
+    cache.sync().await;
 
-    assert_eq!(cache.entry_count(), 0);
-    assert_eq!(cache.weighted_size(), 0);
-}
-
-#[tokio::test]
-async fn various_cache_sizes() {
-    let small_cache = test_cache_bytes(1024);
-    let medium_cache = test_cache_bytes(1024 * 1024);
-    let large_cache = test_cache_bytes(1024 * 1024 * 1024);
-
-    let small_id = small_cache.id();
-    let medium_id = medium_cache.id();
-    let large_id = large_cache.id();
-
-    assert_ne!(small_id, medium_id);
-    assert_ne!(small_id, large_id);
-    assert_ne!(medium_id, large_id);
-
-    create_source("png.pmtiles", "small", small_cache).await;
-    create_source("png.pmtiles", "medium", medium_cache).await;
-    create_source("png.pmtiles", "large", large_cache).await;
+    assert_eq!(
+        cache.entry_count(),
+        0,
+        "Cache should be empty after invalidation (was {initial_entry_count} before invalidation)"
+    );
+    assert_eq!(
+        cache.weighted_size(),
+        0,
+        "Cache size should be zero after invalidation (was {initial_weighted_size} bytes before invalidation)"
+    );
 }

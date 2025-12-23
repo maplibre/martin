@@ -45,6 +45,7 @@ async-trait = "0.1"
 base64 = "0.22.1"
 bit-set = "0.8"
 brotli = ">=5, <9"
+bytes = "1"
 clap = { version = "4", features = ["derive", "unstable-markdown", "wrap_help"] }
 criterion = { version = "0.5", features = ["async_futures", "async_tokio", "html_reports"] }
 ctor = "0.5.0"
