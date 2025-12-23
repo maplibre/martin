@@ -193,7 +193,6 @@ async fn missing_tile_returns_empty() {
     assert_eq!(tile.len(), 0, "Non-existent tile should return empty data");
 }
 
-#[tokio::test]
 #[rstest]
 #[case::coord_0_0_0(0, 0, 0)]
 #[case::coord_1_0_0(1, 0, 0)]
@@ -201,6 +200,7 @@ async fn missing_tile_returns_empty() {
 #[case::coord_2_0_0(2, 0, 0)]
 #[case::coord_2_3_2(2, 3, 2)]
 #[case::coord_3_7_7(3, 7, 7)]
+#[tokio::test]
 async fn retrieve_tiles_at_various_coordinates(#[case] z: u8, #[case] x: u32, #[case] y: u32) {
     let cache = test_cache_bytes(0);
     let source = create_source(
