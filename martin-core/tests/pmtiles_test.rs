@@ -48,28 +48,17 @@ fn test_cache_bytes(size_mb: u64) -> PmtCacheInstance {
 ///
 /// This creates a minimal valid directory structure for cache testing.
 fn create_test_directory() -> Result<pmtiles::Directory, pmtiles::PmtError> {
-    let mut buf = Vec::new();
-
-    // Write n_entries = 2
-    buf.push(2);
-
-    // Write tile_ids (delta encoded): first=1, second=2 (delta=1)
-    buf.push(1); // first tile_id = 1
-    buf.push(1); // delta = 1, so second tile_id = 2
-
-    // Write run_lengths = 1 for both entries
-    buf.push(1);
-    buf.push(1);
-
-    // Write lengths = 256 for both (0x80, 0x02 in varint for 256)
-    buf.extend_from_slice(&[0x80, 0x02]); // 256
-    buf.extend_from_slice(&[0x80, 0x02]); // 256
-
-    // Write offsets: first=1000, second=2000
-    // 1000 in varint = 0xE8, 0x07
-    buf.extend_from_slice(&[0xE8, 0x07]); // 1000
-    // 2000 in varint = 0xD0, 0x0F
-    buf.extend_from_slice(&[0xD0, 0x0F]); // 2000
+    let buf = vec![
+        2, // n_entries = 2
+        1, // first tile_id = 1
+        1, // delta = 1, so second tile_id = 2
+        1, // run_lengths = 1 for both entries
+        1, // run_lengths = 1 for both entries
+        0x80, 0x02, // lengths = 256 for both (0x80, 0x02 in varint for 256)
+        0x80, 0x02, // lengths = 256 for both (0x80, 0x02 in varint for 256)
+        0xE8, 0x07, // offsets: first=1000, second=2000
+        0xD0, 0x0F, // offsets: first=1000, second=2000
+    ];
 
     pmtiles::Directory::try_from(bytes::Bytes::from(buf))
 }
