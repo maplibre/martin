@@ -31,9 +31,9 @@ async fn create_source(filename: &str, id: &str, cache: PmtCacheInstance) -> Pmt
         .expect("Failed to create PMTiles source")
 }
 
-fn test_cache_bytes(size_mb: u64) -> PmtCacheInstance {
+fn test_cache_bytes(size_bytes: u64) -> PmtCacheInstance {
     let cache_id = NEXT_CACHE_ID.fetch_add(1, Ordering::SeqCst);
-    let cache = PmtCache::new(size_mb);
+    let cache = PmtCache::new(size_bytes);
     PmtCacheInstance::new(cache_id, cache)
 }
 
