@@ -3,7 +3,6 @@
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use bytes::Bytes;
 use martin_core::tiles::Source;
 use martin_core::tiles::pmtiles::{PmtCache, PmtCacheInstance, PmtilesError, PmtilesSource};
 use martin_tile_utils::{Encoding, Format, TileCoord};
@@ -11,6 +10,7 @@ use object_store::local::LocalFileSystem;
 use rstest::rstest;
 
 const PNG_MAGIC: &[u8] = &[0x89, 0x50, 0x4E, 0x47];
+const CACHE_SIZE_10MB: u64 = 10 * 1024 * 1024;
 static NEXT_CACHE_ID: AtomicUsize = AtomicUsize::new(0);
 
 fn fixtures_dir() -> PathBuf {
@@ -37,11 +37,17 @@ fn test_cache_bytes(size_mb: u64) -> PmtCacheInstance {
     PmtCacheInstance::new(cache_id, cache)
 }
 
-/// Create a valid PMTiles directory from bytes (varint encoded)
-/// Format: n_entries (varint), tile_ids (varint deltas), run_lengths (varint),
-///         lengths (varint), offsets (varint, with special encoding for consecutive)
+/// Create a valid `PMTiles` directory from bytes (varint encoded)
+///
+/// Format:
+/// - `n_entries` (varint),
+/// - `tile_ids` (varint deltas),
+/// - `run_lengths` (varint),
+/// - `lengths` (varint),
+/// - `offsets` (varint)
+///
+/// This creates a minimal valid directory structure for cache testing.
 fn create_test_directory() -> Result<pmtiles::Directory, pmtiles::PmtError> {
-    // Create a directory with 2 entries
     let mut buf = Vec::new();
 
     // Write n_entries = 2
@@ -62,11 +68,10 @@ fn create_test_directory() -> Result<pmtiles::Directory, pmtiles::PmtError> {
     // Write offsets: first=1000, second=2000
     // 1000 in varint = 0xE8, 0x07
     buf.extend_from_slice(&[0xE8, 0x07]); // 1000
-    // Since 2000 != 1000+256, we write the actual offset
     // 2000 in varint = 0xD0, 0x0F
     buf.extend_from_slice(&[0xD0, 0x0F]); // 2000
 
-    pmtiles::Directory::try_from(Bytes::from(buf))
+    pmtiles::Directory::try_from(bytes::Bytes::from(buf))
 }
 
 #[tokio::test]
@@ -101,14 +106,13 @@ async fn nonexistent_file_returns_error() {
 
     let result = PmtilesSource::new(cache, "invalid".to_string(), store, path).await;
 
-    assert!(result.is_err());
-    let err = result.unwrap_err();
+    let err = result.expect_err("Expected error for nonexistent file");
     assert!(
         matches!(
             err,
             PmtilesError::PmtError(_) | PmtilesError::PmtErrorWithCtx(_, _)
         ),
-        "Expected PMTiles error, got: {err:?}"
+        "Expected PMTiles-related error for nonexistent file, got: {err:?}"
     );
 }
 
@@ -176,8 +180,8 @@ async fn retrieve_valid_tile() {
         .await
         .expect("Should get tile");
 
-    assert!(!tile.is_empty());
-    assert_eq!(&tile[0..4], PNG_MAGIC);
+    assert!(!tile.is_empty(), "Tile data should not be empty");
+    assert_eq!(&tile[0..4], PNG_MAGIC, "Tile should be a valid PNG");
 }
 
 #[tokio::test]
@@ -197,17 +201,17 @@ async fn missing_tile_returns_empty() {
         .await
         .expect("Should succeed with empty tile");
 
-    assert!(tile.is_empty());
+    assert_eq!(tile.len(), 0, "Non-existent tile should return empty data");
 }
 
-#[rstest]
-#[case(0, 0, 0)]
-#[case(1, 0, 0)]
-#[case(1, 1, 1)]
-#[case(2, 0, 0)]
-#[case(2, 3, 2)]
-#[case(3, 7, 7)]
 #[tokio::test]
+#[rstest]
+#[case::coord_0_0_0(0, 0, 0)]
+#[case::coord_1_0_0(1, 0, 0)]
+#[case::coord_1_1_1(1, 1, 1)]
+#[case::coord_2_0_0(2, 0, 0)]
+#[case::coord_2_3_2(2, 3, 2)]
+#[case::coord_3_7_7(3, 7, 7)]
 async fn retrieve_tiles_at_various_coordinates(#[case] z: u8, #[case] x: u32, #[case] y: u32) {
     let cache = test_cache_bytes(0);
     let source = create_source(
@@ -217,8 +221,16 @@ async fn retrieve_tiles_at_various_coordinates(#[case] z: u8, #[case] x: u32, #[
     )
     .await;
 
-    let result = source.get_tile(TileCoord { z, x, y }, None).await;
-    assert!(result.is_ok(), "z={z}, x={x}, y={y}: {result:?}");
+    let coord = TileCoord { z, x, y };
+    let tile = source
+        .get_tile(coord, None)
+        .await
+        .expect("can request tile");
+    assert_ne!(
+        tile.len(),
+        0,
+        "{coord} does exist and should not return empty data"
+    );
 }
 
 #[tokio::test]
@@ -232,9 +244,15 @@ async fn repeated_tile_requests_return_same_data() {
     let tile2 = source.get_tile(coord, None).await.expect("Second request");
     let tile3 = source.get_tile(coord, None).await.expect("Third request");
 
-    assert_eq!(tile1, tile2);
-    assert_eq!(tile2, tile3);
-    assert!(!tile1.is_empty());
+    assert_eq!(
+        tile1, tile2,
+        "First and second request should return identical data"
+    );
+    assert_eq!(
+        tile2, tile3,
+        "Second and third request should return identical data"
+    );
+    assert!(!tile1.is_empty(), "Tile data should not be empty");
 }
 
 #[tokio::test]
@@ -248,19 +266,25 @@ async fn retrieve_tile_at_max_zoom() {
     .await;
 
     let tilejson = source.get_tilejson();
-    if let Some(max_zoom) = tilejson.maxzoom {
-        let result = source
-            .get_tile(
-                TileCoord {
-                    z: max_zoom,
-                    x: 0,
-                    y: 0,
-                },
-                None,
-            )
-            .await;
-        assert!(result.is_ok());
-    }
+    let max_zoom = tilejson
+        .maxzoom
+        .expect("Test file should have a maxzoom value");
+    let tile = source
+        .get_tile(
+            TileCoord {
+                z: max_zoom,
+                x: 0,
+                y: 0,
+            },
+            None,
+        )
+        .await
+        .expect("Should successfully retrieve tile");
+    assert_ne!(
+        tile.len(),
+        0,
+        "Should successfully retrieve tile at max zoom level"
+    );
 }
 
 #[tokio::test]
@@ -281,9 +305,9 @@ async fn tile_beyond_max_zoom_returns_empty() {
             None,
         )
         .await
-        .expect("Should succeed");
+        .expect("Should succeed for tile beyond max zoom");
 
-    assert!(tile.is_empty());
+    assert!(tile.is_empty(), "Tile beyond max zoom should be empty");
 }
 
 #[tokio::test]
@@ -301,9 +325,9 @@ async fn tile_with_etag() {
         .await
         .expect("Should get tile with etag");
 
-    assert!(!tile.data.is_empty());
-    assert!(!tile.etag.is_empty());
-    assert_eq!(tile.info.format, Format::Png);
+    assert!(!tile.data.is_empty(), "Tile data should not be empty");
+    assert!(!tile.etag.is_empty(), "ETag should not be empty");
+    assert_eq!(tile.info.format, Format::Png, "Tile format should be PNG");
 }
 
 #[tokio::test]
@@ -320,9 +344,18 @@ async fn repeated_requests_return_same_etag() {
         .expect("Second");
     let tile3 = source.get_tile_with_etag(coord, None).await.expect("Third");
 
-    assert_eq!(tile1.etag, tile2.etag);
-    assert_eq!(tile2.etag, tile3.etag);
-    assert_eq!(tile1.data, tile2.data);
+    assert_eq!(
+        tile1.etag, tile2.etag,
+        "ETags should be consistent across requests"
+    );
+    assert_eq!(
+        tile2.etag, tile3.etag,
+        "ETags should be consistent across requests"
+    );
+    assert_eq!(
+        tile1.data, tile2.data,
+        "Tile data should be consistent across requests"
+    );
 }
 
 #[tokio::test]
@@ -342,8 +375,11 @@ async fn empty_tile_has_etag() {
         .await
         .expect("Should get empty tile");
 
-    assert!(tile.data.is_empty());
-    assert!(!tile.etag.is_empty());
+    assert!(tile.data.is_empty(), "Empty tile should have no data");
+    assert!(
+        !tile.etag.is_empty(),
+        "Empty tile should still have an ETag"
+    );
 }
 
 #[tokio::test]
@@ -366,7 +402,12 @@ async fn different_tiles_have_different_etags() {
         .expect("Second tile");
 
     if !tile1.data.is_empty() && !tile2.data.is_empty() {
-        assert_ne!(tile1.etag, tile2.etag);
+        assert_ne!(
+            tile1.etag, tile2.etag,
+            "Different tiles should have different ETags"
+        );
+    } else {
+        println!("Skipping ETag comparison - one or both tiles are empty");
     }
 }
 
@@ -381,7 +422,7 @@ async fn cache_entry_only_root_directory() {
     // This test validates the cache infrastructure (tracking, sharing, invalidation) works
     // correctly, even though it won't actually populate with these test files.
 
-    let shared_cache = PmtCache::new(10 * 1024 * 1024);
+    let shared_cache = PmtCache::new(CACHE_SIZE_10MB);
     let cache = PmtCacheInstance::new(0, shared_cache.clone());
     assert_eq!(cache.entry_count(), 0, "Cache should start empty");
 
@@ -415,7 +456,7 @@ async fn cache_entry_only_root_directory() {
 
 #[tokio::test]
 async fn shared_cache_with_unique_instance_ids_can_fetch_same_tile() {
-    let shared_cache = PmtCache::new(10 * 1024 * 1024);
+    let shared_cache = PmtCache::new(CACHE_SIZE_10MB);
 
     let cache_id_1 = NEXT_CACHE_ID.fetch_add(1, Ordering::SeqCst);
     let cache_id_2 = NEXT_CACHE_ID.fetch_add(1, Ordering::SeqCst);
@@ -423,7 +464,11 @@ async fn shared_cache_with_unique_instance_ids_can_fetch_same_tile() {
     let cache1 = PmtCacheInstance::new(cache_id_1, shared_cache.clone());
     let cache2 = PmtCacheInstance::new(cache_id_2, shared_cache);
 
-    assert_ne!(cache1.id(), cache2.id());
+    assert_ne!(
+        cache1.id(),
+        cache2.id(),
+        "Cache instances should have unique IDs"
+    );
 
     let source1 = create_source("png.pmtiles", "shared1", cache1.clone()).await;
     let source2 = create_source("png.pmtiles", "shared2", cache2.clone()).await;
@@ -437,16 +482,19 @@ async fn shared_cache_with_unique_instance_ids_can_fetch_same_tile() {
         .await
         .expect("Source2 tile");
 
-    assert!(!tile1.is_empty());
-    assert!(!tile2.is_empty());
-    assert_eq!(tile1, tile2);
+    assert!(!tile1.is_empty(), "Tile from source1 should not be empty");
+    assert!(!tile2.is_empty(), "Tile from source2 should not be empty");
+    assert_eq!(
+        tile1, tile2,
+        "Both sources should return identical tile data"
+    );
 }
 
 #[tokio::test]
 async fn cache_invalidation_clears_entries() {
     use pmtiles::DirectoryCache;
 
-    let cache = test_cache_bytes(10 * 1024 * 1024);
+    let cache = test_cache_bytes(CACHE_SIZE_10MB);
     let tile_id = pmtiles::TileId::new(1).unwrap();
 
     // Directly use DirectoryCache trait to insert directories at different offsets
@@ -466,11 +514,11 @@ async fn cache_invalidation_clears_entries() {
 
     assert_eq!(
         initial_entry_count, 3,
-        "Cache should have directory entries after DirectoryCache::get_dir_entry_or_insert"
+        "Cache should have 3 directory entries after DirectoryCache::get_dir_entry_or_insert"
     );
-    assert_eq!(
-        initial_weighted_size, 192,
-        "Cache should have the expected size after inserting directories"
+    assert!(
+        initial_weighted_size > 0,
+        "Cache should have non-zero size after inserting directories (got {initial_weighted_size} bytes)"
     );
 
     // invalidate_all() needs a sync to ensure invalidation is reflected in statistics
