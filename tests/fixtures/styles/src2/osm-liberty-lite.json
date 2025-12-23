@@ -15,14 +15,35 @@
       "paint": {
         "raster-opacity": {
           "base": 1.5,
-          "stops": [[0, 0.6], [6, 0.1]]
+          "stops": [
+            [
+              0,
+              0.6
+            ],
+            [
+              6,
+              0.1
+            ]
+          ]
         }
       },
       "source": "natural_earth_shaded_relief",
       "type": "raster"
     },
     {
-      "filter": ["all", ["==", "class", "river"], ["!=", "brunnel", "tunnel"]],
+      "filter": [
+        "all",
+        [
+          "==",
+          "class",
+          "river"
+        ],
+        [
+          "!=",
+          "brunnel",
+          "tunnel"
+        ]
+      ],
       "id": "waterway_river",
       "layout": {
         "line-cap": "round"
@@ -31,7 +52,16 @@
         "line-color": "#a0c8f0",
         "line-width": {
           "base": 1.2,
-          "stops": [[11, 0.5], [20, 6]]
+          "stops": [
+            [
+              11,
+              0.5
+            ],
+            [
+              20,
+              6
+            ]
+          ]
         }
       },
       "source": "openmaptiles",
@@ -39,7 +69,14 @@
       "type": "line"
     },
     {
-      "filter": ["all", ["!=", "brunnel", "tunnel"]],
+      "filter": [
+        "all",
+        [
+          "!=",
+          "brunnel",
+          "tunnel"
+        ]
+      ],
       "id": "water",
       "paint": {
         "fill-color": "rgb(158,189,255)"
@@ -49,7 +86,18 @@
       "type": "fill"
     },
     {
-      "filter": ["all", ["==", "admin_level", 2], ["!has", "claimed_by"]],
+      "filter": [
+        "all",
+        [
+          "==",
+          "admin_level",
+          2
+        ],
+        [
+          "!has",
+          "claimed_by"
+        ]
+      ],
       "id": "boundary_2_z0-4",
       "layout": {
         "line-cap": "round",
@@ -60,11 +108,33 @@
         "line-color": "hsl(248, 1%, 41%)",
         "line-opacity": {
           "base": 1,
-          "stops": [[0, 0.4], [4, 1]]
+          "stops": [
+            [
+              0,
+              0.4
+            ],
+            [
+              4,
+              1
+            ]
+          ]
         },
         "line-width": {
           "base": 1,
-          "stops": [[3, 1], [5, 1.2], [12, 3]]
+          "stops": [
+            [
+              3,
+              1
+            ],
+            [
+              5,
+              1.2
+            ],
+            [
+              12,
+              3
+            ]
+          ]
         }
       },
       "source": "openmaptiles",
@@ -72,12 +142,21 @@
       "type": "line"
     },
     {
-      "filter": ["all", ["==", "$type", "LineString"]],
+      "filter": [
+        "all",
+        [
+          "==",
+          "$type",
+          "LineString"
+        ]
+      ],
       "id": "water_name_line",
       "layout": {
         "symbol-placement": "line",
         "text-field": "{name}",
-        "text-font": ["Roboto Regular"],
+        "text-font": [
+          "Roboto Regular"
+        ],
         "text-max-width": 5,
         "text-size": 12
       },
@@ -91,13 +170,31 @@
       "type": "symbol"
     },
     {
-      "filter": ["all", ["==", "class", "state"]],
+      "filter": [
+        "all",
+        [
+          "==",
+          "class",
+          "state"
+        ]
+      ],
       "id": "state",
       "layout": {
         "text-field": "{name_en}",
-        "text-font": ["Roboto Condensed Italic"],
+        "text-font": [
+          "Roboto Condensed Italic"
+        ],
         "text-size": {
-          "stops": [[4, 11], [6, 15]]
+          "stops": [
+            [
+              4,
+              11
+            ],
+            [
+              6,
+              15
+            ]
+          ]
         },
         "text-transform": "uppercase"
       },
@@ -112,14 +209,37 @@
       "type": "symbol"
     },
     {
-      "filter": ["all", [">=", "rank", 3], ["==", "class", "country"]],
+      "filter": [
+        "all",
+        [
+          ">=",
+          "rank",
+          3
+        ],
+        [
+          "==",
+          "class",
+          "country"
+        ]
+      ],
       "id": "country_3",
       "layout": {
         "text-field": "{name_en}",
-        "text-font": ["Roboto Condensed Italic"],
+        "text-font": [
+          "Roboto Condensed Italic"
+        ],
         "text-max-width": 6.25,
         "text-size": {
-          "stops": [[3, 11], [7, 17]]
+          "stops": [
+            [
+              3,
+              11
+            ],
+            [
+              7,
+              17
+            ]
+          ]
         },
         "text-transform": "none",
         "visibility": "visible"
@@ -135,14 +255,37 @@
       "type": "symbol"
     },
     {
-      "filter": ["all", ["==", "rank", 2], ["==", "class", "country"]],
+      "filter": [
+        "all",
+        [
+          "==",
+          "rank",
+          2
+        ],
+        [
+          "==",
+          "class",
+          "country"
+        ]
+      ],
       "id": "country_2",
       "layout": {
         "text-field": "{name_en}",
-        "text-font": ["Roboto Condensed Italic"],
+        "text-font": [
+          "Roboto Condensed Italic"
+        ],
         "text-max-width": 6.25,
         "text-size": {
-          "stops": [[2, 11], [5, 17]]
+          "stops": [
+            [
+              2,
+              11
+            ],
+            [
+              5,
+              17
+            ]
+          ]
         },
         "text-transform": "none"
       },
@@ -157,14 +300,37 @@
       "type": "symbol"
     },
     {
-      "filter": ["all", ["==", "rank", 1], ["==", "class", "country"]],
+      "filter": [
+        "all",
+        [
+          "==",
+          "rank",
+          1
+        ],
+        [
+          "==",
+          "class",
+          "country"
+        ]
+      ],
       "id": "country_1",
       "layout": {
         "text-field": "{name_en}",
-        "text-font": ["Roboto Condensed Italic"],
+        "text-font": [
+          "Roboto Condensed Italic"
+        ],
         "text-max-width": 6.25,
         "text-size": {
-          "stops": [[1, 11], [4, 17]]
+          "stops": [
+            [
+              1,
+              11
+            ],
+            [
+              4,
+              17
+            ]
+          ]
         },
         "text-transform": "none"
       },
@@ -179,11 +345,20 @@
       "type": "symbol"
     },
     {
-      "filter": ["all", ["==", "class", "continent"]],
+      "filter": [
+        "all",
+        [
+          "==",
+          "class",
+          "continent"
+        ]
+      ],
       "id": "continent",
       "layout": {
         "text-field": "{name_en}",
-        "text-font": ["Roboto Condensed Italic"],
+        "text-font": [
+          "Roboto Condensed Italic"
+        ],
         "text-justify": "center",
         "text-size": 13,
         "text-transform": "uppercase"
@@ -209,7 +384,9 @@
     "natural_earth_shaded_relief": {
       "maxzoom": 6,
       "tileSize": 256,
-      "tiles": ["https://tiles.openfreemap.org/natural_earth/ne2sr/{z}/{x}/{y}.png"],
+      "tiles": [
+        "https://tiles.openfreemap.org/natural_earth/ne2sr/{z}/{x}/{y}.png"
+      ],
       "type": "raster"
     },
     "openmaptiles": {
