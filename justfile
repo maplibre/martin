@@ -436,6 +436,14 @@ validate-tools:
         missing_tools+=("sqldiff")
     fi
 
+
+    # Check Darwin-specific tools
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        if ! command -v gsed >/dev/null 2>&1; then
+            missing_tools+=("gsed")
+        fi
+    fi
+
     # Check Linux-specific tools
     if [[ "$OSTYPE" == "linux"* ]]; then
         if ! command -v ogrmerge.py >/dev/null 2>&1; then
@@ -449,7 +457,7 @@ validate-tools:
     else
         echo "✗ Missing tools: ${missing_tools[*]}"
         echo "  Ubuntu/Debian: sudo apt install -y jq file curl grep sqlite3-tools gdal-bin"
-        echo "  macOS: brew install jq file curl grep sqlite gdal"
+        echo "  macOS: brew install jq file curl grep sqlite gdal gsed"
         echo ""
         exit 1
     fi

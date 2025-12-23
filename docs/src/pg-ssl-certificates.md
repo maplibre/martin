@@ -15,12 +15,12 @@ Use SSL certificates for:
 
 | sslmode       | Eaves-<br/>dropping<br/>protection | MITM <br/>protection       | Statement                                                                                                                                   |
 |---------------|------------------------------------|----------------------------|---------------------------------------------------------------------------------------------------------------------------------------------|
-| `disable`     | ⛔                                  | ⛔                          | I don't care about security, and I don't want to pay the overhead of encryption.                                                            |
-| `allow`       | 🤷                                 | ⛔                          | I don't care about security, but I will pay the overhead of encryption if the server insists on it.                                         |
-| `prefer`      | 🤷                                 | ⛔                          | I don't care about encryption, but I wish to pay the overhead of encryption if the server supports it.                                      |
-| `require`     | ✅                                  | ⛔                          | I want my data to be encrypted, and I accept the overhead. I trust that the network will make sure I always connect to the server I want.   |
-| `verify-ca`   | ✅                                  | Depends <br/> on CA policy | I want my data encrypted, and I accept the overhead. I want to be sure that I connect to a server that I trust.                             |
-| `verify-full` | ✅                                  | ✅                          | I want my data encrypted, and I accept the overhead. I want to be sure that I connect to a server I trust, and that it's the one I specify. |
+| `disable`     | ⛔                                 | ⛔                         | I don't care about security, and I don't want to pay the overhead of encryption.                                                            |
+| `allow`       | 🤷                                 | ⛔                         | I don't care about security, but I will pay the overhead of encryption if the server insists on it.                                         |
+| `prefer`      | 🤷                                 | ⛔                         | I don't care about encryption, but I wish to pay the overhead of encryption if the server supports it.                                      |
+| `require`     | ✅                                 | ⛔                         | I want my data to be encrypted, and I accept the overhead. I trust that the network will make sure I always connect to the server I want.   |
+| `verify-ca`   | ✅                                 | Depends <br/> on CA policy | I want my data encrypted, and I accept the overhead. I want to be sure that I connect to a server that I trust.                             |
+| `verify-full` | ✅                                 | ✅                         | I want my data encrypted, and I accept the overhead. I want to be sure that I connect to a server I trust, and that it's the one I specify. |
 
 Our recommendation: **`verify-full` or `allow`**.
 There are not many cases where anything in between makes sense.
@@ -78,7 +78,8 @@ openssl req -new -key server-key.pem -out server-csr.pem \
     -addext "subjectAltName = DNS:localhost"
 
 # Generate server certificate signed by CA with SAN extension
-openssl x509 -req -days 365 -in server-csr.pem -CA ca-cert.pem -CAkey ca-key.pem \
+openssl x509 -req -days 365 -in server-csr.pem \
+    -CA ca-cert.pem -CAkey ca-key.pem \
     -CAcreateserial -out server-cert.pem -extensions v3_req \
     -extfile <(printf "[v3_req]\nsubjectAltName = DNS:localhost")
 
@@ -109,7 +110,13 @@ services:
     volumes:
       - ./server-cert.pem:/var/lib/postgresql/server.crt:ro
       - ./server-key.pem:/var/lib/postgresql/server.key:ro
-    command: -c ssl=on -c ssl_cert_file=/var/lib/postgresql/server.crt -c ssl_key_file=/var/lib/postgresql/server.key
+    command:
+      - -c
+      - ssl=on
+      - -c
+      - ssl_cert_file=/var/lib/postgresql/server.crt
+      - -c
+      - ssl_key_file=/var/lib/postgresql/server.key
 ```
 
 ```bash
@@ -135,7 +142,8 @@ docker compose up
 Test SSL Connection via
 
 ```bash
-PGSSLROOTCERT=ca-cert.pem psql "postgres://postgres:password@localhost:5432/postgres?sslmode=verify-full"
+export PGSSLROOTCERT=ca-cert.pem
+psql "postgres://postgres:password@localhost:5432/postgres?sslmode=verify-full"
 ```
 
 > [!TIP]

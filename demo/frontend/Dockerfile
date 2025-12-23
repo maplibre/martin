@@ -1,4 +1,4 @@
-FROM node:alpine@sha256:fd164609b5ab0c6d49bac138ae06c347e72261ec6ae1de32b6aa9f5ee2271110 AS builder
+FROM node:alpine@sha256:f4769ca6eeb6ebbd15eb9c8233afed856e437b75f486f7fccaa81d7c8ad56007 AS builder
 
 WORKDIR /usr/src/app
 
@@ -9,6 +9,6 @@ RUN yarn install
 COPY . .
 RUN yarn run build
 
-FROM nginx:alpine@sha256:052b75ab72f690f33debaa51c7e08d9b969a0447a133eb2b99cc905d9188cb2b
+FROM nginx:alpine@sha256:8491795299c8e739b7fcc6285d531d9812ce2666e07bd3dd8db00020ad132295
 COPY nginx.conf /etc/nginx/nginx.conf
 COPY --from=builder /usr/src/app/dist /usr/share/nginx/html
