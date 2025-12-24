@@ -19,7 +19,7 @@ jobs:
         actions: read
       steps:
         - name: Checkout repository
-          uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
+          uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
           with: { persist-credentials: false }
         - name: Run zizmor
           uses: zizmorcore/zizmor-action@e639db99335bc9038abc0e066dfcd72e23d26fb4 # v0.3.0
@@ -48,9 +48,13 @@ jobs:
         uses: actions/dependency-review-action@3c4e3dcb1aa7874d2c16be7d79418e9b7efd6261 # v4.8.2
         with:
           fail-on-severity: low
-          allow-licenses: MIT,Apache-2.0,BSD-2-Clause,BSD-3-Clause,ISC,Zlib,CC0-1.0,Unlicense,Python-2.0,BSL-1.0
+          allow-licenses: MIT,Apache-2.0,BSD-2-Clause,BSD-3-Clause,ISC,Zlib,CC0-1.0,Unlicense,Python-2.0,BSL-1.0,Unicode-3.0,MPL-2.0,OpenSSL
           show-openssf-scorecard: true
           warn-on-openssf-scorecard-level: 5
+      # actions/dependency-review-action does not find all licenses -> we use cargo-deny for this in addition to dependency-review-action
+      - uses: EmbarkStudios/cargo-deny-action@76cd80eb775d7bbbd2d80292136d74d39e1b4918 # v2.0.14
+        with:
+          command: check bans licenses sources
   codeql:
     name: CodeQL (${{ matrix.language }})
     runs-on: ubuntu-latest
