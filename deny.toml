@@ -55,7 +55,8 @@ skip-tree = []
 
 # List of crates to deny
 deny = [
-    { crate = "ansi_term@0.11.0", reason = "you can specify a reason it is banned" },
+    { crate = "libdeflater@1.25.0", reason = "does not compile under musl" },
+    { crate = "libdeflate-sys@1.25.0", reason = "does not compile under musl" },
 ]
 
 [sources]
