@@ -2,12 +2,14 @@ use std::path::{Path, PathBuf};
 
 use clap::builder::Styles;
 use clap::builder::styling::AnsiColor;
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
+use enum_display::EnumDisplay;
 use log::error;
 use mbtiles::{
     AggHashType, CopyDuplicateMode, CopyType, IntegrityCheckType, MbtResult, MbtTypeCli, Mbtiles,
     MbtilesCopier, PatchTypeCli, UpdateZoomType, apply_patch,
 };
+use serde::{Deserialize, Serialize};
 use tilejson::Bounds;
 
 /// Defines the styles used for the CLI help output.
@@ -33,11 +35,26 @@ pub struct Args {
     command: Commands,
 }
 
+#[derive(
+    Default, Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, EnumDisplay, ValueEnum,
+)]
+#[enum_display(case = "Kebab")]
+pub enum OutputFormat {
+    #[default]
+    Text,
+    Json,
+    JsonPretty,
+}
+
 #[derive(Subcommand, PartialEq, Debug)]
 enum Commands {
     /// Show `MBTiles` file summary statistics
     #[command(name = "summary", alias = "info")]
-    Summary { file: PathBuf },
+    Summary {
+        file: PathBuf,
+        #[arg(short, long, value_enum, default_value_t=OutputFormat::default())]
+        format: OutputFormat,
+    },
     /// Prints all values in the metadata table in a free-style, unstable YAML format
     #[command(name = "meta-all")]
     MetaAll {
@@ -294,11 +311,15 @@ async fn main_int() -> anyhow::Result<()> {
             let mbt = Mbtiles::new(file.as_path())?;
             mbt.open_and_validate(integrity_check, agg_hash).await?;
         }
-        Commands::Summary { file } => {
+        Commands::Summary { file, format } => {
             let mbt = Mbtiles::new(file.as_path())?;
             let mut conn = mbt.open_readonly().await?;
-            println!("MBTiles file summary for {mbt}");
-            println!("{}", mbt.summary(&mut conn).await?);
+            let summary = mbt.summary(&mut conn).await?;
+            match format {
+                OutputFormat::Text => println!("{summary}"),
+                OutputFormat::Json => println!("{}", serde_json::to_string(&summary)?),
+                OutputFormat::JsonPretty => println!("{}", serde_json::to_string_pretty(&summary)?),
+            }
         }
     }
 

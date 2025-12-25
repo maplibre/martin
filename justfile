@@ -67,6 +67,7 @@ bless: restart clean-test bless-insta-martin bless-insta-martin-core bless-insta
 # Bless the frontend tests
 [working-directory: 'martin/martin-ui']
 bless-frontend:
+    npm install
     npm run test:update-snapshots
 
 # Run integration tests and save its output as the new expected output

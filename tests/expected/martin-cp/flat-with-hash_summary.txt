@@ -1,6 +1,7 @@
-MBTiles file summary for tests/mbtiles_temp_files/cp_flat-with-hash.mbtiles
-Schema: flat-with-hash
-Page size: 512B
+File path:      tests/mbtiles_temp_files/cp_flat-with-hash.mbtiles
+Schema:         flat-with-hash
+SQL page size:  512B
+SQL page count: 82
 
  Zoom |   Count   | Smallest  |  Largest  |  Average  | Bounding Box
     0 |         1 |      892B |      892B |      892B | -180,-85,180,85
