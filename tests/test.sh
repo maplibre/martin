@@ -93,6 +93,11 @@ function kill_process {
     timeout -k 1s 1s wait "$PROCESS_ID" || true;
 }
 
+cleanup_json() {
+    jq 'del(.file_size, .page_count) |
+        walk( if type == "number" then (. * 1e6 | floor / 1e6) else . end )'
+}
+
 test_jsn() {
   FILENAME="$TEST_OUT_DIR/$1.json"
   URL="$MARTIN_URL/$2"
@@ -232,7 +237,7 @@ test_martin_cp() {
   remove_lines "$SAVE_CONFIG_FILE" " connection_string: "
   # These tend to vary between runs. In theory, vacuuming might make it the same.
   remove_lines "$SUMMARY_FILE" "File size: "
-  remove_lines "$SUMMARY_FILE" "Page count: "
+  remove_lines "$SUMMARY_FILE" "SQL page count: "
 }
 
 validate_log() {
@@ -654,8 +659,8 @@ if [[ "$MBTILES_BIN" != "-" ]]; then
   set -x
 
   $MBTILES_BIN summary ./tests/fixtures/mbtiles/world_cities.mbtiles 2>&1 | tee "$TEST_OUT_DIR/summary.txt"
-  $MBTILES_BIN summary --format json-pretty ./tests/fixtures/mbtiles/world_cities.mbtiles 2>&1 | tee "$TEST_OUT_DIR/summary.pretty.json"
-  $MBTILES_BIN summary --format json ./tests/fixtures/mbtiles/world_cities.mbtiles 2>&1 | tee "$TEST_OUT_DIR/summary.json"
+  $MBTILES_BIN summary --format json-pretty ./tests/fixtures/mbtiles/world_cities.mbtiles 2> "$TEST_OUT_DIR/summary.pretty.json.err" | cleanup_json | tee "$TEST_OUT_DIR/summary.pretty.json"
+  $MBTILES_BIN summary --format json ./tests/fixtures/mbtiles/world_cities.mbtiles 2> "$TEST_OUT_DIR/summary.json.err" | cleanup_json | tee "$TEST_OUT_DIR/summary.json"
   $MBTILES_BIN meta-all --help 2>&1 | tee "$TEST_OUT_DIR/meta-all_help.txt"
   $MBTILES_BIN meta-all ./tests/fixtures/mbtiles/world_cities.mbtiles 2>&1 | tee "$TEST_OUT_DIR/meta-all.txt"
   $MBTILES_BIN meta-get --help 2>&1 | tee "$TEST_OUT_DIR/meta-get_help.txt"
