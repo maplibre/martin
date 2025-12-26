@@ -43,6 +43,7 @@ pub enum OutputFormat {
     #[default]
     Text,
     Json,
+    #[value(alias("pretty-json"))]
     JsonPretty,
 }
 
