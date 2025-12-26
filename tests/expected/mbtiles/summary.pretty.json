@@ -1,110 +1,110 @@
 {
-  "file_path": "./tests/fixtures/mbtiles/world_cities.mbtiles",
-  "mbt_type": "Flat",
-  "page_size": 4096,
-  "tile_count": 196,
-  "min_tile_size": 64,
-  "max_tile_size": 1107,
-  "avg_tile_size": 96.229591,
+  "avg_tile_size": 96.229592,
   "bbox": [
     -180,
     -85.051129,
     180,
-    85.051128
+    85.051129
   ],
-  "min_zoom": 0,
+  "file_path": "./tests/fixtures/mbtiles/world_cities.mbtiles",
+  "max_tile_size": 1107,
   "max_zoom": 6,
+  "mbt_type": "Flat",
+  "min_tile_size": 64,
+  "min_zoom": 0,
+  "page_size": 4096,
+  "tile_count": 196,
   "zoom_info": [
     {
-      "zoom": 0,
-      "tile_count": 1,
-      "min_tile_size": 1107,
-      "max_tile_size": 1107,
       "avg_tile_size": 1107,
       "bbox": [
         -180,
         -85.051129,
         180,
-        85.051128
-      ]
+        85.051129
+      ],
+      "max_tile_size": 1107,
+      "min_tile_size": 1107,
+      "tile_count": 1,
+      "zoom": 0
     },
     {
-      "zoom": 1,
-      "tile_count": 4,
-      "min_tile_size": 160,
-      "max_tile_size": 650,
       "avg_tile_size": 366.5,
       "bbox": [
         -180,
         -85.051129,
         180,
-        85.051128
-      ]
+        85.051129
+      ],
+      "max_tile_size": 650,
+      "min_tile_size": 160,
+      "tile_count": 4,
+      "zoom": 1
     },
     {
-      "zoom": 2,
-      "tile_count": 7,
-      "min_tile_size": 137,
-      "max_tile_size": 495,
-      "avg_tile_size": 239.571428,
+      "avg_tile_size": 239.571429,
       "bbox": [
         -180,
-        -66.513261,
+        -66.51326,
         180,
         66.51326
-      ]
+      ],
+      "max_tile_size": 495,
+      "min_tile_size": 137,
+      "tile_count": 7,
+      "zoom": 2
     },
     {
-      "zoom": 3,
-      "tile_count": 17,
-      "min_tile_size": 67,
-      "max_tile_size": 246,
       "avg_tile_size": 134,
       "bbox": [
         -135,
-        -40.979899,
-        179.999999,
+        -40.979898,
+        180,
         66.51326
-      ]
+      ],
+      "max_tile_size": 246,
+      "min_tile_size": 67,
+      "tile_count": 17,
+      "zoom": 3
     },
     {
-      "zoom": 4,
-      "tile_count": 38,
-      "min_tile_size": 64,
-      "max_tile_size": 175,
       "avg_tile_size": 86,
       "bbox": [
         -135,
-        -40.979899,
+        -40.979898,
         180,
         66.51326
-      ]
+      ],
+      "max_tile_size": 175,
+      "min_tile_size": 64,
+      "tile_count": 38,
+      "zoom": 4
     },
     {
-      "zoom": 5,
-      "tile_count": 57,
-      "min_tile_size": 64,
-      "max_tile_size": 107,
-      "avg_tile_size": 72.771929,
+      "avg_tile_size": 72.77193,
       "bbox": [
-        -123.750001,
-        -40.979899,
-        179.999999,
-        61.606396
-      ]
-    },
-    {
-      "zoom": 6,
-      "tile_count": 72,
-      "min_tile_size": 64,
-      "max_tile_size": 97,
-      "avg_tile_size": 68.291666,
-      "bbox": [
-        -123.750001,
-        -40.979899,
+        -123.75,
+        -40.979898,
         180,
         61.606396
-      ]
+      ],
+      "max_tile_size": 107,
+      "min_tile_size": 64,
+      "tile_count": 57,
+      "zoom": 5
+    },
+    {
+      "avg_tile_size": 68.291667,
+      "bbox": [
+        -123.75,
+        -40.979898,
+        180,
+        61.606396
+      ],
+      "max_tile_size": 97,
+      "min_tile_size": 64,
+      "tile_count": 72,
+      "zoom": 6
     }
   ]
 }
