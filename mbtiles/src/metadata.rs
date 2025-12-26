@@ -376,6 +376,7 @@ mod tests {
 
     use super::*;
     use crate::mbtiles::tests::open;
+    use crate::{MbtType, init_mbtiles_schema};
 
     #[actix_rt::test]
     async fn mbtiles_meta() {
@@ -515,5 +516,20 @@ mod tests {
             mbt.get_metadata_value(&mut conn, "bounds").await.unwrap(),
             None
         );
+    }
+
+    #[actix_rt::test]
+    async fn metadata_empty_tileset() {
+        let mbt = Mbtiles::new(":memory:").unwrap();
+        let mut conn = mbt.open().await.unwrap();
+        init_mbtiles_schema(&mut conn, MbtType::Flat).await.unwrap();
+
+        // get_metadata should work on empty tileset
+        let meta = mbt.get_metadata(&mut conn).await;
+        let meta = meta.expect("get_metadata works on empty tileset");
+
+        // detect_format should return None for empty tileset
+        let tile_info = mbt.detect_format(&meta.tilejson, &mut conn).await.unwrap();
+        assert_eq!(tile_info, None);
     }
 }
