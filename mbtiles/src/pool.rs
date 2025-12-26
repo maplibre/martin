@@ -1,7 +1,9 @@
 use std::path::Path;
 
+use martin_tile_utils::TileInfo;
 use sqlx::sqlite::SqliteConnectOptions;
 use sqlx::{Pool, Sqlite, SqlitePool};
+use tilejson::TileJSON;
 
 use crate::errors::MbtResult;
 use crate::{MbtType, Mbtiles, Metadata};
@@ -129,6 +131,8 @@ impl MbtilesPool {
     ///
     /// This method automatically acquires a connection from the pool.
     ///
+    /// To detect tile format and encoding, use [`detect_format`](Self::detect_format) separately.
+    ///
     /// # Examples
     ///
     /// ```
@@ -139,7 +143,6 @@ impl MbtilesPool {
     /// let metadata = pool.get_metadata().await?;
     ///
     /// println!("Tileset: {}", metadata.tilejson.name.unwrap_or_default());
-    /// println!("Format: {}", metadata.tile_info.format);
     /// println!("Zoom levels: {:?}-{:?}", metadata.tilejson.minzoom, metadata.tilejson.maxzoom);
     /// # Ok(())
     /// # }
@@ -184,6 +187,43 @@ impl MbtilesPool {
     pub async fn detect_type(&self) -> MbtResult<MbtType> {
         let mut conn = self.pool.acquire().await?;
         self.mbtiles.detect_type(&mut *conn).await
+    }
+
+    /// Detects the tile format and encoding from the `MBTiles` file.
+    ///
+    /// Examines actual tile data in the database to determine the format (PNG, JPEG, MVT, etc.)
+    /// and encoding (gzip, etc.). This method automatically acquires a connection from the pool.
+    ///
+    /// # Arguments
+    ///
+    /// * `tilejson` - The `TileJSON` metadata to use for format detection hints
+    ///
+    /// # Returns
+    ///
+    /// - `Ok(Some(tile_info))` if format was detected
+    /// - `Ok(None)` if no tiles exist or format cannot be determined
+    /// - `Err(_)` on database errors or format inconsistencies
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use mbtiles::MbtilesPool;
+    ///
+    /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+    /// let pool = MbtilesPool::open_readonly("world.mbtiles").await?;
+    /// let metadata = pool.get_metadata().await?;
+    ///
+    /// if let Some(tile_info) = pool.detect_format(&metadata.tilejson).await? {
+    ///     println!("Format: {}", tile_info.format);
+    /// } else {
+    ///    println!("No tiles found in the MBTiles file.");
+    /// }
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub async fn detect_format(&self, tilejson: &TileJSON) -> MbtResult<Option<TileInfo>> {
+        let mut conn = self.pool.acquire().await?;
+        self.mbtiles.detect_format(tilejson, &mut *conn).await
     }
 
     /// Retrieves a tile from the pool by its coordinates.
@@ -267,6 +307,8 @@ impl MbtilesPool {
 
 #[cfg(test)]
 mod tests {
+    use martin_tile_utils::{Encoding, Format};
+
     use super::*;
     use crate::metadata::temp_named_mbtiles;
 
@@ -281,9 +323,6 @@ mod tests {
         let metadata = pool.get_metadata().await.unwrap();
         insta::assert_yaml_snapshot!(metadata, @r#"
         id: "file:test_metadata_invalid?mode=memory&cache=shared"
-        tile_info:
-          format: webp
-          encoding: ""
         layer_type: baselayer
         tilejson:
           tilejson: 3.0.0
@@ -302,6 +341,11 @@ mod tests {
           name: ne2sr
           format: webp
         "#);
+
+        assert_eq!(
+            pool.detect_format(&metadata.tilejson).await.unwrap(),
+            Some(TileInfo::new(Format::Webp, Encoding::Internal))
+        );
     }
 
     #[tokio::test]
@@ -363,9 +407,6 @@ mod tests {
         let metadata = pool.get_metadata().await.unwrap();
         insta::assert_yaml_snapshot!(metadata, @r#"
         id: "file:test_metadata_normalized?mode=memory&cache=shared"
-        tile_info:
-          format: png
-          encoding: ""
         tilejson:
           tilejson: 3.0.0
           tiles: []
@@ -377,6 +418,11 @@ mod tests {
           template: "{{#__location__}}{{/__location__}}{{#__teaser__}}<div style=\"text-align:center;\">\n\n<img src=\"data:image/png;base64,{{flag_png}}\" style=\"-moz-box-shadow:0px 1px 3px #222;-webkit-box-shadow:0px 1px 5px #222;box-shadow:0px 1px 3px #222;\"><br>\n<strong>{{admin}}</strong>\n\n</div>{{/__teaser__}}{{#__full__}}{{/__full__}}"
           version: 1.0.0
         "#);
+
+        assert_eq!(
+            pool.detect_format(&metadata.tilejson).await.unwrap(),
+            Some(TileInfo::new(Format::Png, Encoding::Internal))
+        );
     }
 
     #[tokio::test]
@@ -449,9 +495,6 @@ mod tests {
         let metadata = pool.get_metadata().await.unwrap();
         insta::assert_yaml_snapshot!(metadata, @r#"
         id: "file:test_metadata_flat_with_hash?mode=memory&cache=shared"
-        tile_info:
-          format: mvt
-          encoding: gzip
         layer_type: overlay
         tilejson:
           tilejson: 3.0.0
@@ -561,6 +604,11 @@ mod tests {
                 layer: cities
         agg_tiles_hash: D4E1030D57751A0B45A28A71267E46B8
         "#);
+
+        assert_eq!(
+            pool.detect_format(&metadata.tilejson).await.unwrap(),
+            Some(TileInfo::new(Format::Mvt, Encoding::Gzip))
+        );
     }
 
     #[tokio::test]
