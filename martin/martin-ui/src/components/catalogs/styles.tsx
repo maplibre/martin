@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { TooltipCopyText } from '@/components/ui/tooltip-copy-text';
 import { buildMartinUrl } from '@/lib/api';
 import type { Style } from '@/lib/types';
 import 'maplibre-gl/dist/maplibre-gl.css';
@@ -99,10 +100,12 @@ export function StylesCatalog({
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
                   <Brush className="w-5 h-5 text-primary" />
-                  <CardTitle className="text-lg font-mono">{name}</CardTitle>
+                  {style.type && <Badge variant="secondary">{style.type}</Badge>}
                 </div>
-                {style.type && <Badge variant="secondary">{style.type}</Badge>}
               </div>
+              <CardTitle className="text-lg font-mono">
+                <TooltipCopyText text={name} />
+              </CardTitle>
               <CardDescription>{style.path}</CardDescription>
             </CardHeader>
             <CardContent>

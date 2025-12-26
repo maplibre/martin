@@ -158,10 +158,12 @@ function MyMap() {
   return (
     <Dialog onOpenChange={(v) => !v && onCloseAction()} open={true}>
       <DialogContent className="max-w-4xl w-full p-6 max-h-[90vh] overflow-auto">
-        <DialogHeader className="mb-6">
-          <DialogTitle className="text-2xl flex items-center gap-2">
-            <Code className="w-6 h-6" />
-            Integration Guide: <code>{name}</code>
+        <DialogHeader className="mb-6 truncate">
+          <DialogTitle>
+            <div className="text-2xl flex items-center gap-2">
+              <Code className="w-6 h-6" />
+              Integration Guide: <code>{name}</code>
+            </div>
           </DialogTitle>
           <DialogDescription>
             Learn how to integrate this style into your MapLibre application across different
