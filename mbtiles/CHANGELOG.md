@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.15.0](https://github.com/maplibre/martin/compare/mbtiles-v0.14.3...mbtiles-v0.15.0) - 2025-12-27
+
+### Added
+
+- *(mbtiles)* improve mbtiles summary output ([#2447](https://github.com/maplibre/martin/pull/2447))
+
+### Fixed
+
+- *(mbtiles)* meta-all with empty mbtiles ([#2448](https://github.com/maplibre/martin/pull/2448))
+
 ## [0.14.3](https://github.com/maplibre/martin/compare/mbtiles-v0.14.2...mbtiles-v0.14.3) - 2025-12-11
 
 ### Other
