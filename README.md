@@ -10,7 +10,9 @@
 [![Codecov](https://img.shields.io/codecov/c/github/maplibre/martin)](https://app.codecov.io/gh/maplibre/martin)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/11613/badge)](https://www.bestpractices.dev/projects/11613)
 
-Martin is a tile server and a set of tools able to generate vector tiles on the fly
+# Martin
+
+Martin is a tile server and a set of tools that can generate vector tiles on the fly
 from large `PostgreSQL` databases, and serve tiles from `PMTiles` and `MBTiles` files. Martin optimizes for speed and heavy traffic, and is written in [Rust](https://github.com/rust-lang/rust).
 
 ## Features
