@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Font glyph URLs now accept optional `.pbf` extension for compatibility with common MapLibre style specifications (e.g., `/font/{fontstack}/{range}.pbf`)
+
 ## [1.1.0](https://github.com/maplibre/martin/compare/martin-v1.0.0...martin-v1.1.0) - 2025-12-11
 
 ### Added

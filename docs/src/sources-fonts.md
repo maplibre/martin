@@ -10,10 +10,12 @@ Fonts ranges are available either for a single font, or a combination of multipl
 case-sensitive and should match the font name in the font file as published in the catalog. Make sure to URL-escape font
 names as they usually contain spaces.
 
-|         | Font Request                         |
-|---------|--------------------------------------|
-| Pattern | `/font/{name}/{start}-{end}`         |
-| Example | `/font/Overpass%20Mono%20Bold/0-255` |
+The optional `.pbf` extension is supported for compatibility with common MapLibre style specifications.
+
+|         | Font Request                                   |
+|---------|------------------------------------------------|
+| Pattern | `/font/{name}/{start}-{end}` or `/font/{name}/{start}-{end}.pbf` |
+| Example | `/font/Overpass%20Mono%20Bold/0-255` or `/font/Overpass%20Mono%20Bold/0-255.pbf` |
 
 ### Composite Font Request
 
@@ -21,10 +23,10 @@ When combining multiple fonts, the glyph range will contain glyphs from the firs
 to the next font if the glyph is not available in the first font, etc. The glyph range will be empty if none of the
 fonts contain the glyph.
 
-|         | Composite Font Request with fallbacks                        |
-|---------|--------------------------------------------------------------|
-| Pattern | `/font/{name1},…,{nameN}/{start}-{end}`                      |
-| Example | `/font/Overpass%20Mono%20Bold,Overpass%20Mono%20Light/0-255` |
+|         | Composite Font Request with fallbacks                                        |
+|---------|------------------------------------------------------------------------------|
+| Pattern | `/font/{name1},…,{nameN}/{start}-{end}` or `/font/{name1},…,{nameN}/{start}-{end}.pbf` |
+| Example | `/font/Overpass%20Mono%20Bold,Overpass%20Mono%20Light/0-255` or `/font/Overpass%20Mono%20Bold,Overpass%20Mono%20Light/0-255.pbf` |
 
 ### Catalog
 
