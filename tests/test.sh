@@ -556,6 +556,11 @@ test_font font_1      font/Overpass%20Mono%20Light/0-255
 test_font font_2      font/Overpass%20Mono%20Regular/0-255
 test_font font_3      font/Overpass%20Mono%20Regular,Overpass%20Mono%20Light/0-255
 
+# Test fonts with .pbf extension (commonly used in MapLibre styles)
+test_font font_1_pbf  font/Overpass%20Mono%20Light/0-255.pbf
+test_font font_2_pbf  font/Overpass%20Mono%20Regular/0-255.pbf
+test_font font_3_pbf  font/Overpass%20Mono%20Regular,Overpass%20Mono%20Light/0-255.pbf
+
 # Test comments override
 test_jsn tbl_comment_cfg  MixPoints
 test_jsn fnc_comment_cfg  function_Mixed_Name

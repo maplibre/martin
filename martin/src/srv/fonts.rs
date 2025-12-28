@@ -17,14 +17,8 @@ struct FontRequest {
     end: u32,
 }
 
-#[route(
-    "/font/{fontstack}/{start}-{end}",
-    method = "GET",
-    wrap = "Etag::default()",
-    wrap = "Compress::default()"
-)]
-async fn get_font(
-    path: Path<FontRequest>,
+async fn font_handler(
+    path: FontRequest,
     fonts: Data<FontSources>,
     cache: Data<OptFontCache>,
 ) -> ActixResult<HttpResponse> {
@@ -41,6 +35,34 @@ async fn get_font(
     Ok(HttpResponse::Ok()
         .content_type("application/x-protobuf")
         .body(data))
+}
+
+#[route(
+    "/font/{fontstack}/{start}-{end}",
+    method = "GET",
+    wrap = "Etag::default()",
+    wrap = "Compress::default()"
+)]
+async fn get_font(
+    path: Path<FontRequest>,
+    fonts: Data<FontSources>,
+    cache: Data<OptFontCache>,
+) -> ActixResult<HttpResponse> {
+    font_handler(path.into_inner(), fonts, cache).await
+}
+
+#[route(
+    "/font/{fontstack}/{start}-{end}.pbf",
+    method = "GET",
+    wrap = "Etag::default()",
+    wrap = "Compress::default()"
+)]
+async fn get_font_pbf(
+    path: Path<FontRequest>,
+    fonts: Data<FontSources>,
+    cache: Data<OptFontCache>,
+) -> ActixResult<HttpResponse> {
+    font_handler(path.into_inner(), fonts, cache).await
 }
 
 pub fn map_font_error(e: FontError) -> actix_web::Error {
