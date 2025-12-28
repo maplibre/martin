@@ -15,17 +15,18 @@ struct FontRequest {
     fontstack: String,
     start: u32,
     end: String,
+    #[allow(dead_code)]
+    ext: String,
 }
 
 impl FontRequest {
-    /// Parse the end parameter, removing optional .pbf extension
-    fn parse_end(&self) -> Result<u32, std::num::ParseIntError> {
-        self.end.strip_suffix(".pbf").unwrap_or(&self.end).parse()
+    fn get_end_value(&self) -> Result<u32, std::num::ParseIntError> {
+        self.end.parse()
     }
 }
 
 #[route(
-    "/font/{fontstack}/{start}-{end}",
+    "/font/{fontstack}/{start}-{end:[0-9]+}{ext:(\\.pbf)?}",
     method = "GET",
     wrap = "Etag::default()",
     wrap = "Compress::default()"
@@ -35,7 +36,7 @@ pub async fn get_font(
     fonts: Data<FontSources>,
     cache: Data<OptFontCache>,
 ) -> ActixResult<HttpResponse> {
-    let end = path.parse_end().map_err(|e| {
+    let end = path.get_end_value().map_err(|e| {
         ErrorBadRequest(format!("Invalid end parameter: {e}"))
     })?;
     
