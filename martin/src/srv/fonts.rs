@@ -36,7 +36,7 @@ pub async fn get_font(
     cache: Data<OptFontCache>,
 ) -> ActixResult<HttpResponse> {
     let end = path.parse_end().map_err(|e| {
-        ErrorBadRequest(format!("Invalid end parameter: {}", e))
+        ErrorBadRequest(format!("Invalid end parameter: {e}"))
     })?;
     
     let result = if let Some(cache) = cache.as_ref() {
