@@ -14,27 +14,14 @@ use crate::srv::server::map_internal_error;
 struct FontRequest {
     fontstack: String,
     start: u32,
-    end: u32,
+    end: String,
 }
 
-async fn font_handler(
-    path: FontRequest,
-    fonts: Data<FontSources>,
-    cache: Data<OptFontCache>,
-) -> ActixResult<HttpResponse> {
-    let result = if let Some(cache) = cache.as_ref() {
-        cache
-            .get_or_insert(path.fontstack.clone(), path.start, path.end, || {
-                fonts.get_font_range(&path.fontstack, path.start, path.end)
-            })
-            .await
-    } else {
-        fonts.get_font_range(&path.fontstack, path.start, path.end)
-    };
-    let data = result.map_err(map_font_error)?;
-    Ok(HttpResponse::Ok()
-        .content_type("application/x-protobuf")
-        .body(data))
+impl FontRequest {
+    /// Parse the end parameter, removing optional .pbf extension
+    fn parse_end(&self) -> Result<u32, std::num::ParseIntError> {
+        self.end.strip_suffix(".pbf").unwrap_or(&self.end).parse()
+    }
 }
 
 #[route(
@@ -43,26 +30,28 @@ async fn font_handler(
     wrap = "Etag::default()",
     wrap = "Compress::default()"
 )]
-async fn get_font(
+pub async fn get_font(
     path: Path<FontRequest>,
     fonts: Data<FontSources>,
     cache: Data<OptFontCache>,
 ) -> ActixResult<HttpResponse> {
-    font_handler(path.into_inner(), fonts, cache).await
-}
-
-#[route(
-    "/font/{fontstack}/{start}-{end}.pbf",
-    method = "GET",
-    wrap = "Etag::default()",
-    wrap = "Compress::default()"
-)]
-async fn get_font_pbf(
-    path: Path<FontRequest>,
-    fonts: Data<FontSources>,
-    cache: Data<OptFontCache>,
-) -> ActixResult<HttpResponse> {
-    font_handler(path.into_inner(), fonts, cache).await
+    let end = path.parse_end().map_err(|e| {
+        ErrorBadRequest(format!("Invalid end parameter: {}", e))
+    })?;
+    
+    let result = if let Some(cache) = cache.as_ref() {
+        cache
+            .get_or_insert(path.fontstack.clone(), path.start, end, || {
+                fonts.get_font_range(&path.fontstack, path.start, end)
+            })
+            .await
+    } else {
+        fonts.get_font_range(&path.fontstack, path.start, end)
+    };
+    let data = result.map_err(map_font_error)?;
+    Ok(HttpResponse::Ok()
+        .content_type("application/x-protobuf")
+        .body(data))
 }
 
 pub fn map_font_error(e: FontError) -> actix_web::Error {
