@@ -32,8 +32,12 @@ use pbf_font_tools::{Fontstack, Glyphs, render_sdf_glyph};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 
-/// Maximum Unicode codepoint supported (U+FFFF - Basic Multilingual Plane).
-const MAX_UNICODE_CP: usize = 0xFFFF;
+/// Maximum Unicode codepoint supported.
+///
+/// Although U+FFFF covers the Basic Multilingual Plane, the Unicode standard
+/// allows to use up to U+10FFFF, including for private use.
+/// (cf. <https://en.wikipedia.org/wiki/Unicode_block>)
+const MAX_UNICODE_CP: usize = 0x0010_FFFF;
 /// Size of each Unicode codepoint range (256 characters).
 const CP_RANGE_SIZE: usize = 256;
 /// Font size in pixels for SDF glyph rendering.
@@ -366,4 +370,29 @@ fn parse_font(
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_get_available_codepoints() {
+        let lib = Library::init().unwrap();
+
+        // U+3320: SQUARE SANTIIMU, U+1F60A: SMILING FACE WITH SMILING EYES
+        for codepoint in [0x3320, 0x1f60a] {
+            let font_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join(format!("src/resources/fonts/tests/u+{codepoint:x}.ttf"));
+            assert!(font_path.is_file()); // make sure the file path is correct
+
+            let mut face = lib.new_face(&font_path, 0).unwrap();
+
+            let (_codepoints, count, _ranges, first, last) =
+                get_available_codepoints(&mut face).unwrap();
+            assert_eq!(count, 1);
+            assert_eq!(format!("U+{first:X}"), format!("U+{codepoint:X}"));
+            assert_eq!(format!("U+{last:X}"), format!("U+{codepoint:X}"));
+        }
+    }
 }
