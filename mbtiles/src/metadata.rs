@@ -4,9 +4,7 @@ use std::str::FromStr;
 
 use futures::TryStreamExt;
 use log::{info, warn};
-use martin_tile_utils::TileInfo;
-use serde::ser::SerializeStruct;
-use serde::{Serialize, Serializer};
+use serde::Serialize;
 use serde_json::{Value as JSONValue, Value, json};
 use sqlx::{SqliteConnection, SqliteExecutor, query};
 use tilejson::{Bounds, Center, TileJSON, tilejson};
@@ -28,10 +26,15 @@ use crate::errors::MbtResult;
 /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
 /// let pool = MbtilesPool::open_readonly("world.mbtiles").await?;
 /// let metadata = pool.get_metadata().await?;
+/// let tile_info = pool.detect_format(&metadata.tilejson).await?;
 ///
 /// println!("Name: {}", metadata.tilejson.name.unwrap_or_default());
-/// println!("Format: {}", metadata.tile_info.format);
 /// println!("Zoom: {:?}-{:?}", metadata.tilejson.minzoom, metadata.tilejson.maxzoom);
+///
+/// // To get tile format, use detect_format separately:
+/// if let Some(tile_info) = tile_info {
+///     println!("Format: {}", tile_info.format);
+/// }
 /// # Ok(())
 /// # }
 /// ```
@@ -40,12 +43,6 @@ use crate::errors::MbtResult;
 pub struct Metadata {
     /// Tileset identifier, typically the filename without extension.
     pub id: String,
-
-    /// Tile format (PNG, JPEG, MVT, etc.) and encoding (gzip, etc.).
-    ///
-    /// Auto-detected from tile data. See [`martin_tile_utils::TileInfo`].
-    #[serde(serialize_with = "serialize_ti")]
-    pub tile_info: TileInfo,
 
     /// Layer type: `"overlay"` or `"baselayer"` (MBTiles-specific field).
     // todo: change this to an enum
@@ -63,20 +60,6 @@ pub struct Metadata {
     ///
     /// See [`Mbtiles::validate`] and [`Mbtiles::update_agg_tiles_hash`].
     pub agg_tiles_hash: Option<String>,
-}
-
-#[expect(
-    clippy::trivially_copy_pass_by_ref,
-    reason = "serialize_with requires a reference"
-)]
-fn serialize_ti<S: Serializer>(ti: &TileInfo, serializer: S) -> Result<S::Ok, S::Error> {
-    let mut s = serializer.serialize_struct("TileInfo", 2)?;
-    s.serialize_field("format", &ti.format.to_string())?;
-    s.serialize_field(
-        "encoding",
-        ti.encoding.content_encoding().unwrap_or_default(),
-    )?;
-    s.end()
 }
 
 impl Mbtiles {
@@ -151,15 +134,14 @@ impl Mbtiles {
     /// Reads the entire metadata table and constructs a [`Metadata`] struct
     /// containing all tileset information. This includes:
     /// - All `TileJSON` fields (bounds, zoom levels, attribution, etc.)
-    /// - Tile format and encoding (auto-detected from sample tiles)
     /// - Vector layer definitions (for MVT tiles)
     /// - Custom JSON metadata
     /// - Aggregate tiles hash (if present)
     ///
     /// # Format Detection
     ///
-    /// This method automatically detects the tile format (PNG, JPEG, MVT, etc.)
-    /// and encoding (gzip, etc.) by examining actual tile data in the database.
+    /// To detect tile format and encoding, use [`detect_format`](Mbtiles::detect_format)
+    /// separately after getting metadata.
     ///
     /// # Examples
     ///
@@ -170,15 +152,22 @@ impl Mbtiles {
     /// let mbt = Mbtiles::new("world.mbtiles")?;
     /// let mut conn = mbt.open_readonly().await?;
     ///
-    /// let metadata = mbt.get_metadata(&mut conn).await?;
+    /// let meta = mbt.get_metadata(&mut conn).await?;
+    /// let tile_info = mbt.detect_format(&meta.tilejson, &mut conn).await?;
     ///
     /// // Access various metadata fields
-    /// println!("Name: {}", metadata.tilejson.name.unwrap_or_default());
-    /// println!("Format: {}", metadata.tile_info.format);
-    /// println!("Bounds: {:?}", metadata.tilejson.bounds);
-    /// println!("Zoom: {:?}-{:?}", metadata.tilejson.minzoom, metadata.tilejson.maxzoom);
+    /// println!("Name: {}", meta.tilejson.name.unwrap_or_default());
+    /// println!("Bounds: {:?}", meta.tilejson.bounds);
+    /// println!("Zoom: {:?}-{:?}", meta.tilejson.minzoom, meta.tilejson.maxzoom);
     ///
-    /// if let Some(layers) = &metadata.tilejson.vector_layers {
+    /// // Detect tile format separately
+    /// if let Some(tile_info) = tile_info {
+    ///     println!("Format: {}", tile_info.format);
+    /// } else {
+    ///     println!("Format: Unknown (empty mbtiles)")
+    /// }
+    ///
+    /// if let Some(layers) = &meta.tilejson.vector_layers {
     ///     println!("Vector layers: {}", layers.len());
     /// }
     /// # Ok(())
@@ -254,7 +243,6 @@ impl Mbtiles {
 
         Ok(Metadata {
             id: self.filename().to_string(),
-            tile_info: self.detect_format(&tj, &mut *conn).await?,
             tilejson: tj,
             layer_type,
             json,
@@ -382,12 +370,13 @@ pub async fn temp_named_mbtiles(
 mod tests {
     use std::collections::BTreeMap;
 
-    use martin_tile_utils::{Encoding, Format};
+    use martin_tile_utils::{Encoding, Format, TileInfo};
     use sqlx::Executor as _;
     use tilejson::VectorLayer;
 
     use super::*;
     use crate::mbtiles::tests::open;
+    use crate::{MbtType, init_mbtiles_schema};
 
     #[actix_rt::test]
     async fn mbtiles_meta() {
@@ -401,9 +390,12 @@ mod tests {
     async fn metadata_jpeg() {
         let script = include_str!("../../tests/fixtures/mbtiles/geography-class-jpg.sql");
         let (mbt, mut conn) = anonymous_mbtiles(script).await;
-        let metadata = mbt.get_metadata(&mut conn).await.unwrap();
-        let tj = metadata.tilejson;
+        let meta = mbt.get_metadata(&mut conn).await.unwrap();
 
+        let tile_info = mbt.detect_format(&meta.tilejson, &mut conn).await.unwrap();
+        assert_eq!(tile_info, Some(Format::Jpeg.into()));
+
+        let tj = meta.tilejson;
         assert_eq!(
             tj.description.unwrap(),
             "One of the example maps that comes with TileMill - a bright & colorful world map that blends retro and high-tech with its folded paper texture and interactive flag tooltips. "
@@ -414,16 +406,19 @@ mod tests {
         assert_eq!(tj.name.unwrap(), "Geography Class");
         assert_eq!(tj.template.unwrap(), "foobar");
         assert_eq!(tj.version.unwrap(), "1.0.0");
-        assert_eq!(metadata.id, ":memory:");
-        assert_eq!(metadata.tile_info, Format::Jpeg.into());
+        assert_eq!(meta.id, ":memory:");
     }
 
     #[actix_rt::test]
     async fn metadata_mvt() {
         let script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
         let (mbt, mut conn) = anonymous_mbtiles(script).await;
-        let metadata = mbt.get_metadata(&mut conn).await.unwrap();
-        let tj = metadata.tilejson;
+        let meta = mbt.get_metadata(&mut conn).await.unwrap();
+
+        let tile_info = mbt.detect_format(&meta.tilejson, &mut conn).await.unwrap();
+        assert_eq!(tile_info, Some(TileInfo::new(Format::Mvt, Encoding::Gzip)));
+
+        let tj = meta.tilejson;
 
         assert_eq!(tj.maxzoom.unwrap(), 6);
         assert_eq!(tj.minzoom.unwrap(), 0);
@@ -442,12 +437,8 @@ mod tests {
                 other: BTreeMap::default()
             }])
         );
-        assert_eq!(metadata.id, ":memory:");
-        assert_eq!(
-            metadata.tile_info,
-            TileInfo::new(Format::Mvt, Encoding::Gzip)
-        );
-        assert_eq!(metadata.layer_type, Some("overlay".to_string()));
+        assert_eq!(meta.id, ":memory:");
+        assert_eq!(meta.layer_type, Some("overlay".to_string()));
     }
 
     #[actix_rt::test]
@@ -522,5 +513,20 @@ mod tests {
             mbt.get_metadata_value(&mut conn, "bounds").await.unwrap(),
             None
         );
+    }
+
+    #[actix_rt::test]
+    async fn metadata_empty_tileset() {
+        let mbt = Mbtiles::new(":memory:").unwrap();
+        let mut conn = mbt.open().await.unwrap();
+        init_mbtiles_schema(&mut conn, MbtType::Flat).await.unwrap();
+
+        // get_metadata should work on empty tileset
+        let meta = mbt.get_metadata(&mut conn).await;
+        let meta = meta.expect("get_metadata works on empty tileset");
+
+        // detect_format should return None for empty tileset
+        let tile_info = mbt.detect_format(&meta.tilejson, &mut conn).await.unwrap();
+        assert_eq!(tile_info, None);
     }
 }

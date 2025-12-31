@@ -8,7 +8,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use log::trace;
 use martin_tile_utils::{TileCoord, TileData, TileInfo};
-use mbtiles::MbtilesPool;
+use mbtiles::{MbtError, MbtilesPool};
 use tilejson::TileJSON;
 
 use crate::tiles::mbtiles::MbtilesError;
@@ -44,13 +44,20 @@ impl MbtSource {
         let meta = mbt
             .get_metadata()
             .await
+            .map_err(|e| MbtilesError::InvalidMetadata(e.to_string(), path.clone()))?;
+
+        // Empty mbtiles should cause an error
+        let tile_info = mbt
+            .detect_format(&meta.tilejson)
+            .await
+            .and_then(|v| v.ok_or(MbtError::NoTilesFound))
             .map_err(|e| MbtilesError::InvalidMetadata(e.to_string(), path))?;
 
         Ok(Self {
             id,
             mbtiles: Arc::new(mbt),
             tilejson: meta.tilejson,
-            tile_info: meta.tile_info,
+            tile_info,
         })
     }
 }
