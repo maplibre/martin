@@ -17,4 +17,4 @@ additional-js = ["theme/tabs.js", "theme/mermaid.min.js", "theme/mermaid-init.js
 [preprocessor.tabs]
 
 [preprocessor.mermaid]
-command = "mdbook-mermaid"
+command = "mdbook-mermaid-ssr"
