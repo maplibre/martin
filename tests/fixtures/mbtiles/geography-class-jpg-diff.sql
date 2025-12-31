@@ -24,6 +24,10 @@ CREATE TABLE metadata (
     value TEXT
 );
 INSERT INTO metadata VALUES
+('bounds','-180,-85.0511,180,85.0511'),
+('minzoom','0'),
+('maxzoom','1'),
+('name','Geography Class'),
 ('description','A modified version of one of the example maps that comes with TileMill - a bright & colorful world map that blends retro and high-tech with its folded paper texture and interactive flag tooltips.'),
 ('agg_tiles_hash','4FB0798A05430F5FDA9A0B5C42343CDE');
 CREATE VIEW tiles AS
