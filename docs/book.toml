@@ -12,9 +12,8 @@ smart-punctuation = true
 git-repository-url = "https://github.com/maplibre/martin"
 edit-url-template = "https://github.com/maplibre/martin/edit/main/docs/{path}"
 additional-css = ["theme/tabs.css"]
-additional-js = ["theme/tabs.js", "theme/mermaid.min.js", "theme/mermaid-init.js"]
+additional-js = ["theme/tabs.js"]
 
 [preprocessor.tabs]
 
-[preprocessor.mermaid]
-command = "mdbook-mermaid-ssr"
+[preprocessor.mermaid-ssr]
