@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 # optionally fail config loading/resolution for missing sources
 
-We added the `on_invalid: abort` (default) and `on_invalid: warn` settings, which controlls what happens when martin encounters an missing/invalid source.
+We added the `on_invalid: abort` (default) and `on_invalid: warn` settings, which controls what happens when martin encounters an missing/invalid source.
 
 Done in [#2412](https://github.com/maplibre/martin/pull/2412), [#2426](https://github.com/maplibre/martin/pull/2426) by @gabeschine
 
