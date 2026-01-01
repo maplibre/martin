@@ -1,7 +1,4 @@
 id: world_cities
-tile_info:
-  format: mvt
-  encoding: gzip
 layer_type: overlay
 tilejson:
   tilejson: 3.0.0
@@ -110,4 +107,6 @@ json:
       geometry: Point
       layer: cities
 agg_tiles_hash: 84792BF4EE9AEDDC5B1A60E707011FEE
-
+tile_info:
+  format: mvt
+  encoding: gzip
