@@ -28,7 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - *(deps)* sync pre-commit and biomejs versions ([#2429](https://github.com/maplibre/martin/pull/2429))
 - *(config)* no-op refactor to pull out "build_one_(table|function)_info" ([#2426](https://github.com/maplibre/martin/pull/2426))
 - *(deps)* Bump the all-npm-ui-version-updates group in /martin/martin-ui with 9 updates ([#2418](https://github.com/maplibre/martin/pull/2418))
-- *(ci)* More pinning of our dependencys in CI ([#2415](https://github.com/maplibre/martin/pull/2415))
+- *(ci)* More pinning of our dependencies in CI ([#2415](https://github.com/maplibre/martin/pull/2415))
 - *(pmtiles)* add pmtiles test in `martin-core` ([#2443](https://github.com/maplibre/martin/pull/2443))
 
 ## [1.1.0](https://github.com/maplibre/martin/compare/martin-v1.0.0...martin-v1.1.0) - 2025-12-11
