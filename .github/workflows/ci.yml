@@ -225,7 +225,7 @@ jobs:
       - name: Set up gdal-bin and sqlite3-tools
         run: sudo apt-get update && sudo apt-get install -y gdal-bin sqlite3-tools
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
         # https://github.com/docker/setup-buildx-action
         with: { install: true, platforms: 'linux/amd64,linux/arm64' }
       - name: Download build artifact build-aarch64-unknown-linux-musl
@@ -372,7 +372,7 @@ jobs:
           platforms: linux/amd64,linux/arm64
       - name: Attest
         if: github.event_name == 'push' || github.event_name == 'release'
-        uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v2
+        uses: actions/attest-build-provenance@00014ed6ed5efc5b1ab7f7f34a39eb55d41aa4f8 # v2
         id: attest
         with:
           subject-name: ghcr.io/${{ github.repository }}
@@ -870,7 +870,7 @@ jobs:
 
       - name: Generate SLSA build provenance attestation
         if: github.event_name == 'release'
-        uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3.0.0
+        uses: actions/attest-build-provenance@00014ed6ed5efc5b1ab7f7f34a39eb55d41aa4f8 # v3.1.0
         with: { subject-path: 'target/files/*' }
       - name: Publish with artifacts
         if: ${{ github.event_name == 'release' && startsWith(github.event.release.tag_name, 'martin-v') }}
