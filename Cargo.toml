@@ -47,14 +47,14 @@ bit-set = "0.8"
 brotli = ">=5, <9"
 bytes = "1"
 clap = { version = "4", features = ["derive", "unstable-markdown", "wrap_help"] }
-criterion = { version = "0.5", features = ["async_futures", "async_tokio", "html_reports"] }
-ctor = "0.5.0"
+criterion = { version = "0.8", features = ["async_futures", "async_tokio", "html_reports"] }
+ctor = "0.6.3"
 dashmap = { version = "6.1.0", features = ["serde", "inline", "rayon"] }
 deadpool-postgres = "0.14"
-enum-display = "0.1"
+enum-display = "0.2"
 env_logger = "0.11"
 flate2 = "1"
-flume = "0.11"
+flume = "0.12"
 futures = "0.3"
 image = "0.25.8"
 indoc = "2"
@@ -70,7 +70,7 @@ mbtiles = { path = "./mbtiles", version = "0.14.3" }
 md5 = "0.8.0"
 moka = { version = "0.12", features = ["future"] }
 num_cpus = "1"
-object_store = { version = "0.12.4", features = ["gcp", "aws", "azure", "fs", "http"] }
+object_store = { version = "0.13.0", features = ["gcp", "aws", "azure", "fs", "http"] }
 pbf_font_tools = { version = "3.0.0", features = ["freetype"] }
 pmtiles = { version = "0.18.2", features = ["tilejson", "object-store"] }
 png = "0.18.0"
@@ -92,14 +92,14 @@ serde_json = "1"
 serde_with = "3"
 serde_yaml = "0.9"
 size_format = "1.0.2"
-spreet = { version = "0.12", default-features = false }
+spreet = { version = "0.13", default-features = false }
 sqlite-compressions = { version = "0.3", default-features = false, features = ["bsdiffraw", "gzip"] }
 sqlite-hashes = { version = "0.10.6", default-features = false, features = ["md5", "aggregate", "hex"] }
 sqlx = { version = "0.8.6", features = ["sqlite", "runtime-tokio"] }
 static-files = "0.2"
 subst = { version = "0.3", features = ["yaml"] }
-tempfile = "3.21.0"
-testcontainers-modules = { version = "0.13.0", features = ["postgres", "blocking"] }
+tempfile = "3.24.0"
+testcontainers-modules = { version = "0.14.0", features = ["postgres", "blocking"] }
 thiserror = "2"
 tiff = "0.10.1"
 tilejson = "0.4"
