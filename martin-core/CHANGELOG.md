@@ -9,13 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.2.5](https://github.com/maplibre/martin/compare/martin-core-v0.2.4...martin-core-v0.2.5) - 2025-12-27
 
-### Fixed
-
-- *(mbtiles)* meta-all with empty mbtiles ([#2448](https://github.com/maplibre/martin/pull/2448))
-
-### Other
-
-- *(pmtiles)* add pmtiles test in `martin-core` ([#2443](https://github.com/maplibre/martin/pull/2443))
+Updated dependencies
 
 ## [0.2.4](https://github.com/maplibre/martin/compare/martin-core-v0.2.3...martin-core-v0.2.4) - 2025-12-11
 
