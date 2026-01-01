@@ -51,7 +51,7 @@ criterion = { version = "0.5", features = ["async_futures", "async_tokio", "html
 ctor = "0.5.0"
 dashmap = { version = "6.1.0", features = ["serde", "inline", "rayon"] }
 deadpool-postgres = "0.14"
-enum-display = "0.1"
+enum-display = "0.2.1"
 env_logger = "0.11"
 flate2 = "1"
 flume = "0.11"

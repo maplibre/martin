@@ -2191,21 +2191,23 @@ dependencies = [
 
 [[package]]
 name = "enum-display"
-version = "0.1.4"
+version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "02058bb25d8d0605829af88230427dd5cd50661590bd2b09d1baf7c64c417f24"
+checksum = "40f4d8927f0f19dc99da4506dca2b26f6c2a089887cf2cc424df114f3a2585ab"
 dependencies = [
  "enum-display-macro",
 ]
 
 [[package]]
 name = "enum-display-macro"
-version = "0.1.4"
+version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d4be2cf2fe7b971b1865febbacd4d8df544aa6bd377cca011a6d69dcf4c60d94"
+checksum = "1e2e13c29d91e61ec78280847036d13cdc585e75ea2458274362d5d8467f1641"
 dependencies = [
  "convert_case 0.6.0",
+ "proc-macro2",
  "quote",
+ "regex",
  "syn 1.0.109",
 ]
 
