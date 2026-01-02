@@ -601,7 +601,7 @@ mod tests {
                 count: 68
                 geometry: Point
                 layer: cities
-        agg_tiles_hash: D4E1030D57751A0B45A28A71267E46B8
+        agg_tiles_hash: AC15E26A1FCF82FDB6D0E8F43EE37821
         "#);
 
         assert_eq!(
