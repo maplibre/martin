@@ -1,3 +1,0 @@
-[INFO ] Quick integrity check passed for tests/mbtiles_temp_files/cp_no-source.mbtiles
-[INFO ] All values in the `tiles` table/view are valid for tests/mbtiles_temp_files/cp_no-source.mbtiles
-[INFO ] Skipping per-tile hash validation because this is a flat MBTiles file

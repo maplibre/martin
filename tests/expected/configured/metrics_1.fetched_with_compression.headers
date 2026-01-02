@@ -1,3 +1,0 @@
-content-length: NUMBER
-content-type: text/plain; version=0.0.4; charset=utf-8
-vary: Origin, Access-Control-Request-Method, Access-Control-Request-Headers
