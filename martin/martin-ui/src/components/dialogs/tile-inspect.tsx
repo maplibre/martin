@@ -61,7 +61,7 @@ export function TileInspectDialog({ name, source, onCloseAction }: TileInspectDi
   return (
     <Dialog onOpenChange={(v) => !v && onCloseAction()} open={true}>
       <DialogContent className="max-w-6xl w-full p-6 max-h-[90vh] overflow-auto">
-        <DialogHeader className="mb-6">
+        <DialogHeader className="mb-6 truncate">
           <DialogTitle className="text-2xl flex items-center justify-between">
             <span>
               Inspect Tile Source: <code>{name}</code>
