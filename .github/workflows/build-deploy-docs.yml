@@ -35,8 +35,11 @@ jobs:
           file-path: './README.md'
           config-file: '.github/files/markdown.links.config.json'
 
+      - name: Install Chromium
+        uses: browser-actions/setup-chrome@b94431e051d1c52dcbe9a7092a4f10f827795416 # v2.1.0
       - uses: taiki-e/install-action@69e777b377e4ec209ddad9426ae3e0c1008b0ef3 # v2.64.0
-        with: { tool: 'mdbook,mdbook-tabs,mdbook-mermaid' }
+        with: { tool: 'mdbook,mdbook-tabs,cargo-binstall' }
+      - run: cargo binstall -y mdbook-mermaid-ssr # TODO: move above once merged https://github.com/taiki-e/install-action/pull/1400
 
       - run: mdbook build docs
 
