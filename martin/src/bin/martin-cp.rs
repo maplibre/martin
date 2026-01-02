@@ -602,15 +602,17 @@ async fn main() {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use std::str::FromStr;
+
     use async_trait::async_trait;
     use insta::assert_yaml_snapshot;
     use martin::TileSources;
     use martin_core::tiles::{MartinCoreResult, Source, UrlQuery};
     use martin_tile_utils::{Encoding, Format};
     use rstest::{fixture, rstest};
-    use std::str::FromStr;
     use tilejson::{TileJSON, tilejson};
+
+    use super::*;
 
     #[derive(Debug, Clone)]
     pub struct MockSource {

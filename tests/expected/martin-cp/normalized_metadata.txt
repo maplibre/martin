@@ -1,7 +1,4 @@
 id: cp_normalized
-tile_info:
-  format: png
-  encoding: ''
 tilejson:
   tilejson: 3.0.0
   tiles: []
@@ -37,4 +34,6 @@ tilejson:
   format: png
   generator: martin-cp v0.0.0
 agg_tiles_hash: A85C80BA1CE047E2D93DAC25C5179775
-
+tile_info:
+  format: png
+  encoding: ''

@@ -28,6 +28,7 @@ pub struct ZoomInfo {
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct Summary {
+    pub file_path: String,
     pub file_size: Option<u64>,
     pub mbt_type: MbtType,
     pub page_size: u64,
@@ -44,23 +45,28 @@ pub struct Summary {
 
 impl Display for Summary {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "Schema: {}", self.mbt_type)?;
+        writeln!(f, "{:15} {}", "File path:", self.file_path)?;
+        writeln!(f, "{:15} {}", "Schema:", self.mbt_type)?;
 
         if let Some(file_size) = self.file_size {
             let file_size = SizeFormatterSI::new(file_size);
-            writeln!(f, "File size: {file_size:.2}B")?;
+            writeln!(f, "{:15} {file_size:.2}B", "File size:")?;
         } else {
-            writeln!(f, "File size: unknown")?;
+            writeln!(f, "{:15} unknown", "File size:")?;
         }
         let page_size = SizeFormatterSI::new(self.page_size);
-        writeln!(f, "Page size: {page_size:.2}B")?;
-        writeln!(f, "Page count: {:.2}", self.page_count)?;
+        writeln!(f, "{:15} {page_size:.2}B", "SQL page size:")?;
+        writeln!(f, "{:15} {:.2}", "SQL page count:", self.page_count)?;
         writeln!(f)?;
-        writeln!(
-            f,
-            " {:^4} | {:^9} | {:^9} | {:^9} | {:^9} | Bounding Box",
-            "Zoom", "Count", "Smallest", "Largest", "Average"
-        )?;
+        if self.zoom_info.is_empty() {
+            writeln!(f, "   There are no tiles in this mbtiles file")?;
+        } else {
+            writeln!(
+                f,
+                " {:^4} | {:^9} | {:^9} | {:^9} | {:^9} | Bounding Box",
+                "Zoom", "Count", "Smallest", "Largest", "Average"
+            )?;
+        }
 
         for l in &self.zoom_info {
             let min = SizeFormatterSI::new(l.min_tile_size);
@@ -179,6 +185,7 @@ impl Mbtiles {
             .sum::<f64>();
 
         Ok(Summary {
+            file_path: self.filepath().to_string(),
             file_size,
             mbt_type,
             page_size,
@@ -209,7 +216,8 @@ mod tests {
 
         init_mbtiles_schema(&mut conn, MbtType::Flat).await.unwrap();
         let res = mbt.summary(&mut conn).await.unwrap();
-        assert_yaml_snapshot!(res, @r"
+        assert_yaml_snapshot!(res, @r#"
+        file_path: ":memory:"
         file_size: ~
         mbt_type: Flat
         page_size: 512
@@ -222,7 +230,7 @@ mod tests {
         min_zoom: ~
         max_zoom: ~
         zoom_info: []
-        ");
+        "#);
     }
 
     #[actix_rt::test]
@@ -231,7 +239,8 @@ mod tests {
         let (mbt, mut conn) = anonymous_mbtiles(script).await;
         let res = mbt.summary(&mut conn).await.unwrap();
 
-        assert_yaml_snapshot!(res, @r"
+        assert_yaml_snapshot!(res, @r#"
+        file_path: ":memory:"
         file_size: ~
         mbt_type: Flat
         page_size: 4096
@@ -318,6 +327,6 @@ mod tests {
               - -40.97989806962015
               - 180.00000000000003
               - 61.60639637138628
-        ");
+        "#);
     }
 }

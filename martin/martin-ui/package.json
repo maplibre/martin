@@ -55,7 +55,7 @@
     "test:browser": "vitest --workspace=vitest.workspace.ts",
     "test:coverage": "vitest --coverage",
     "test:ui": "vitest --ui",
-    "test:update-snapshots": "vitest --update",
+    "test:update-snapshots": "vitest --update --run",
     "test:watch": "vitest --watch",
     "type-check": "tsc --noEmit"
   },
