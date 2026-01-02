@@ -17,8 +17,8 @@ CREATE TABLE images (
 );
 INSERT INTO images VALUES
 (NULL,NULL),
-(X'ffd80000ffd9','d8018fba714e93c29500adb778b587a5'),
-(X'ffd80000ffd9','035e1077aab736ad34208aaea571d6ac');
+(X'ffd8ff00ffd9','d8018fba714e93c29500adb778b587a5'),
+(X'ffd8ff00ffd9','035e1077aab736ad34208aaea571d6ac');
 CREATE TABLE metadata (
     name TEXT,
     value TEXT
@@ -27,9 +27,12 @@ INSERT INTO metadata VALUES
 ('bounds','-180,-85.0511,180,85.0511'),
 ('minzoom','0'),
 ('maxzoom','1'),
+('legend','<div style="text-align:center;">' || X'0A0A' || '<div style="font:12pt/16pt Georgia,serif;">Geography Class</div>' || X'0A' || '<div style="font:italic 10pt/16pt Georgia,serif;">by MapBox</div>' || X'0A0A' || '<img src="data:image/png;base64,iVBORw0KGgo">' || X'0A' || '</div>'),
 ('name','Geography Class'),
+('attribution',''),
+('template','{{#__location__}}{{/__location__}}{{#__teaser__}}<div style="text-align:center;">' || x'0A0A' || '<img src="data:image/png;base64,{{flag_png}}" style="-moz-box-shadow:0px 1px 3px #222;-webkit-box-shadow:0px 1px 5px #222;box-shadow:0px 1px 3px #222;"><br>' || x'0A' || '<strong>{{admin}}</strong>' || x'0A0A' || '</div>{{/__teaser__}}{{#__full__}}{{/__full__}}'),
 ('description','A modified version of one of the example maps that comes with TileMill - a bright & colorful world map that blends retro and high-tech with its folded paper texture and interactive flag tooltips.'),
-('agg_tiles_hash','4FB0798A05430F5FDA9A0B5C42343CDE');
+('version','1.0.0');
 CREATE VIEW tiles AS
 SELECT
     map.zoom_level,
