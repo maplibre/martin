@@ -18,7 +18,7 @@ CREATE TABLE tiles_with_hash (
     PRIMARY KEY(zoom_level, tile_column, tile_row)
 );
 INSERT INTO tiles_with_hash VALUES
-(6,63,24,x'1F8B08000000000000','863100D73B385382DEAE9080E776D8A2');
+(6,63,24,x'1F8B08000000000000','7BF5BB6CAEB5AF90402A57C82983C04D');
 CREATE VIEW tiles AS SELECT
     zoom_level,
     tile_column,

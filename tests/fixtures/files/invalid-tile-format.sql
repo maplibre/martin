@@ -8,7 +8,7 @@ CREATE TABLE map (
     grid_id TEXT
 );
 INSERT INTO map VALUES(0,0,0,'b0a559d767b45de037d4aefe483d3a274dff23e8',NULL),
-(1,0,0,'05376dc8f738f0690fba439c51d24f49e9a0333a',NULL);
+(1,0,0,'00594FD4F42BA43FC1CA0427A0576295',NULL);
 CREATE TABLE keymap (
     key_name TEXT,
     key_json TEXT
@@ -17,7 +17,7 @@ CREATE TABLE images (
     tile_data BLOB,
     tile_id TEXT
 );
-INSERT INTO images VALUES(X'ff','05376dc8f738f0690fba439c51d24f49e9a0333a');
+INSERT INTO images VALUES(X'ff','00594FD4F42BA43FC1CA0427A0576295');
 CREATE TABLE metadata (
     name TEXT,
     value TEXT
