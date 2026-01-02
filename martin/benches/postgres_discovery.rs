@@ -4,7 +4,6 @@ use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_ma
 use martin::config::file::init_aws_lc_tls;
 use martin::config::file::postgres::{PostgresAutoDiscoveryBuilder, PostgresConfig};
 use martin_core::config::IdResolver;
-use pprof::criterion::{Output, PProfProfiler};
 use testcontainers_modules::postgres::Postgres;
 use testcontainers_modules::testcontainers::ImageExt;
 use testcontainers_modules::testcontainers::runners::SyncRunner;
@@ -318,7 +317,7 @@ fn bench_function_discovery(c: &mut Criterion) {
 
 criterion_group! {
     name = benches;
-    config = Criterion::default().with_profiler(PProfProfiler::new(1000, Output::Flamegraph(None)));
+    config = Criterion::default();
     targets = bench_table_discovery, bench_function_discovery
 }
 
