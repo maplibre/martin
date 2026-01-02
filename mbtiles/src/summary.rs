@@ -245,10 +245,10 @@ mod tests {
         mbt_type: Flat
         page_size: 4096
         page_count: 5
-        tile_count: 7
+        tile_count: 8
         min_tile_size: 20
         max_tile_size: 1107
-        avg_tile_size: 194
+        avg_tile_size: 202.625
         bbox:
           - -180
           - -85.0511287798066
@@ -278,15 +278,15 @@ mod tests {
               - 0
               - 0
           - zoom: 2
-            tile_count: 1
+            tile_count: 2
             min_tile_size: 151
-            max_tile_size: 151
-            avg_tile_size: 151
+            max_tile_size: 263
+            avg_tile_size: 207
             bbox:
               - 90.00000000000001
               - -66.51326044311186
               - 180.00000000000003
-              - 0
+              - 66.51326044311186
           - zoom: 3
             tile_count: 1
             min_tile_size: 20
