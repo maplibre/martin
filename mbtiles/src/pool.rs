@@ -465,7 +465,7 @@ mod tests {
             .unwrap()
             .unwrap();
         assert_eq!(t2, t1);
-        let expected_hash = Some("1578fdca522831a6435f7795586c235b".to_string());
+        let expected_hash = Some("CDEE5DAAC3EBDC5180E5148B63992309".to_string());
         assert_eq!(h2, expected_hash);
 
         let (t3, h3) = pool
@@ -644,7 +644,7 @@ mod tests {
             .unwrap()
             .unwrap();
         assert_eq!(t2, t1);
-        let expected_hash = Some("80EE46337AC006B6BD14B4FA4D6E2EF9".to_string());
+        let expected_hash = Some("7029066C27AC6F5EF18D660D5741979A".to_string());
         assert_eq!(h2, expected_hash);
         let (t3, h3) = pool
             .get_tile_and_hash(MbtType::Flat, 6, 38, 19)
