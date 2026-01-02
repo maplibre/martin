@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { TooltipCopyText } from '@/components/ui/tooltip-copy-text';
 import type { TileSource } from '@/lib/types';
 import { DisabledNonInteractiveButton } from '../ui/disabled-non-interactive-button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
@@ -97,13 +98,13 @@ export function TilesCatalog({
           {filteredTileSources.map(([name, source]) => (
             <Card className="hover:shadow-lg transition-shadow flex flex-col" key={name}>
               <CardHeader>
-                <div className="flex flex-col md:flex-row items-center justify-between gap-2 mb-4">
-                  <div className="flex items-center space-x-2">
-                    {getIcon(source.content_type)}
-                    <CardTitle className="text-lg font-mono">{name}</CardTitle>
-                  </div>
+                <div className="flex items-center space-x-2">
+                  {getIcon(source.content_type)}
                   <Badge variant="secondary">{source.content_type}</Badge>
                 </div>
+                <CardTitle>
+                  <TooltipCopyText text={name} />
+                </CardTitle>
                 <div className="text-center md:text-start break-all text-balance">
                   {(source.description || source.name) && (
                     <CardDescription>
