@@ -30,7 +30,7 @@ INSERT INTO metadata VALUES
 ('legend','<div style="text-align:center;">' || X'0A0A' || '<div style="font:12pt/16pt Georgia,serif;">Geography Class</div>' || X'0A' || '<div style="font:italic 10pt/16pt Georgia,serif;">by MapBox</div>' || X'0A0A' || '<img src="data:image/png;base64,iVBORw0KGgo">' || X'0A' || '</div>'),
 ('name','Geography Class'),
 ('attribution',''),
-('template','{{#__location__}}{{/__location__}}{{#__teaser__}}<div style="text-align:center;">' || x'0A0A' || '<img src="data:image/png;base64,{{flag_png}}" style="-moz-box-shadow:0px 1px 3px #222;-webkit-box-shadow:0px 1px 5px #222;box-shadow:0px 1px 3px #222;"><br>' || x'0A' || '<strong>{{admin}}</strong>' || x'0A0A' || '</div>{{/__teaser__}}{{#__full__}}{{/__full__}}'),
+('template','foobar'),
 ('description','A modified version of one of the example maps that comes with TileMill - a bright & colorful world map that blends retro and high-tech with its folded paper texture and interactive flag tooltips.'),
 ('version','1.0.0');
 CREATE VIEW tiles AS
