@@ -1,0 +1,146 @@
+{
+  "features": [
+    {
+      "geometry": {
+        "coordinates": [
+          884,
+          2867
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "gid": 19,
+        "source_mvt_layer": "table_source"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          837,
+          2837
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "gid": 20,
+        "source_mvt_layer": "table_source"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          881,
+          2840
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "gid": 21,
+        "source_mvt_layer": "table_source"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          887,
+          2816
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "gid": 22,
+        "source_mvt_layer": "table_source"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          867,
+          2861
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "gid": 23,
+        "source_mvt_layer": "table_source"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          866,
+          2850
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "gid": 24,
+        "source_mvt_layer": "table_source"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          861,
+          2822
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "gid": 25,
+        "source_mvt_layer": "table_source"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          840,
+          2846
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "gid": 26,
+        "source_mvt_layer": "table_source"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          842,
+          2868
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "gid": 27,
+        "source_mvt_layer": "table_source"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          888,
+          2880
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "gid": 28,
+        "source_mvt_layer": "table_source"
+      },
+      "type": "Feature"
+    }
+  ],
+  "name": "merged",
+  "type": "FeatureCollection"
+}

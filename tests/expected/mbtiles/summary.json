@@ -1,5 +1,5 @@
 {
-  "avg_tile_size": 202.625,
+  "avg_tile_size": 96.229592,
   "bbox": [
     -180,
     -85.051129,
@@ -10,10 +10,10 @@
   "max_tile_size": 1107,
   "max_zoom": 6,
   "mbt_type": "Flat",
-  "min_tile_size": 20,
+  "min_tile_size": 64,
   "min_zoom": 0,
   "page_size": 4096,
-  "tile_count": 8,
+  "tile_count": 196,
   "zoom_info": [
     {
       "avg_tile_size": 1107,
@@ -29,81 +29,81 @@
       "zoom": 0
     },
     {
-      "avg_tile_size": 20,
+      "avg_tile_size": 366.5,
       "bbox": [
         -180,
         -85.051129,
-        0,
-        0
+        180,
+        85.051129
       ],
-      "max_tile_size": 20,
-      "min_tile_size": 20,
-      "tile_count": 1,
+      "max_tile_size": 650,
+      "min_tile_size": 160,
+      "tile_count": 4,
       "zoom": 1
     },
     {
-      "avg_tile_size": 207,
+      "avg_tile_size": 239.571429,
       "bbox": [
-        90,
+        -180,
         -66.51326,
         180,
         66.51326
       ],
-      "max_tile_size": 263,
-      "min_tile_size": 151,
-      "tile_count": 2,
+      "max_tile_size": 495,
+      "min_tile_size": 137,
+      "tile_count": 7,
       "zoom": 2
     },
     {
-      "avg_tile_size": 20,
+      "avg_tile_size": 134,
       "bbox": [
-        135,
+        -135,
         -40.979898,
         180,
-        0
+        66.51326
       ],
-      "max_tile_size": 20,
-      "min_tile_size": 20,
-      "tile_count": 1,
+      "max_tile_size": 246,
+      "min_tile_size": 67,
+      "tile_count": 17,
       "zoom": 3
     },
     {
-      "avg_tile_size": 20,
+      "avg_tile_size": 86,
       "bbox": [
-        -22.5,
-        0,
-        -0,
-        21.943046
+        -135,
+        -40.979898,
+        180,
+        66.51326
       ],
-      "max_tile_size": 20,
-      "min_tile_size": 20,
-      "tile_count": 1,
+      "max_tile_size": 175,
+      "min_tile_size": 64,
+      "tile_count": 38,
       "zoom": 4
     },
     {
-      "avg_tile_size": 20,
+      "avg_tile_size": 72.77193,
       "bbox": [
-        0,
-        40.979898,
-        11.25,
-        48.922499
+        -123.75,
+        -40.979898,
+        180,
+        61.606396
       ],
-      "max_tile_size": 20,
-      "min_tile_size": 20,
-      "tile_count": 1,
+      "max_tile_size": 107,
+      "min_tile_size": 64,
+      "tile_count": 57,
       "zoom": 5
     },
     {
-      "avg_tile_size": 20,
+      "avg_tile_size": 68.291667,
       "bbox": [
-        73.125,
-        27.059126,
-        78.75,
-        31.952162
+        -123.75,
+        -40.979898,
+        180,
+        61.606396
       ],
-      "max_tile_size": 20,
-      "min_tile_size": 20,
-      "tile_count": 1,
+      "max_tile_size": 97,
+      "min_tile_size": 64,
+      "tile_count": 72,
       "zoom": 6
     }
   ]

@@ -1,0 +1,1 @@
+tests/output/configured/spr_src1_2x.png: PNG image data, 72 x 62, 8-bit colormap, non-interlaced
