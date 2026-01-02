@@ -18,6 +18,7 @@ Done in [#2412](https://github.com/maplibre/martin/pull/2412), [#2426](https://g
 ### Fixed
 
 - *(pg)* Instead of reporting on all available tables, we now filter the result to the configured sources when `auto_publish: false` ([#2411](https://github.com/maplibre/martin/pull/2411))
+- *(sprites)* Scale SDF buffer and radius by pixel ratio leading to weird artefacts when using retina sdf sprites https://github.com/flother/spreet/pull/96
 
 ### Other
 
