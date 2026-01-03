@@ -507,6 +507,10 @@ async fn convert(
     Ok(())
 }
 
+// extracted here to not bloat the test function names
+const DB_WITH_DIFF: (&'static str, &'static str, &'static str) = ("v1", "v2", "dif");
+const DB_EMPTY_DIFF: (&'static str, &'static str, &'static str) = ("v1", "v1_clone", "dif_empty");
+
 #[rstest]
 #[trace]
 #[tokio::test(flavor = "multi_thread")]
@@ -514,11 +518,7 @@ async fn diff_and_patch(
     #[values(Flat, FlatWithHash, Normalized)] a_type: MbtTypeCli,
     #[values(Flat, FlatWithHash, Normalized)] b_type: MbtTypeCli,
     #[values(None, Some(Flat), Some(FlatWithHash), Some(Normalized))] dif_type: Option<MbtTypeCli>,
-    #[values(&[Flat, FlatWithHash, Normalized])] destination_types: &[MbtTypeCli],
-    #[values(
-        ("v1", "v2", "dif"),
-        ("v1", "v1_clone", "dif_empty"))]
-    tilesets: (&'static str, &'static str, &'static str),
+    #[values(DB_WITH_DIFF, DB_EMPTY_DIFF)] tilesets: (&'static str, &'static str, &'static str),
     #[notrace] databases: &Databases,
 ) -> MbtResult<()> {
     let (a_db, b_db, dif_db) = tilesets;
@@ -544,9 +544,9 @@ async fn diff_and_patch(
         databases.dump(dif_db, dif_type.unwrap_or(a_type))
     );
 
-    for dst_type in destination_types {
-        let short_dst_type = shorten(*dst_type);
-        let expected_b = databases.dump(b_db, *dst_type);
+    for dst_type in [Flat, FlatWithHash, Normalized] {
+        let short_dst_type = shorten(dst_type);
+        let expected_b = databases.dump(b_db, dst_type);
 
         eprintln!(
             "TEST: Applying the difference ({b_db} - {a_db} = {dif_db}) to {a_db}, should get {b_db}"
@@ -555,10 +555,10 @@ async fn diff_and_patch(
             diff_and_patch,
             "{a_db}_{short_b_type}--{b_db}_{short_a_type}={dif}__to__{short_dst_type}__1"
         );
-        copy!(databases.path(a_db, *dst_type), path(&clone_mbt));
+        copy!(databases.path(a_db, dst_type), path(&clone_mbt));
         apply_patch(path(&clone_mbt), path(&dif_mbt), false).await?;
         let hash = clone_mbt.open_and_validate(Off, Verify).await?;
-        assert_eq!(hash, databases.hash(b_db, *dst_type));
+        assert_eq!(hash, databases.hash(b_db, dst_type));
         let dmp = dump(&mut clone_cn).await?;
         pretty_assert_eq!(&dmp, expected_b);
 
@@ -569,16 +569,21 @@ async fn diff_and_patch(
             diff_and_patch,
             "{a_db}_{short_b_type}--{b_db}_{short_a_type}={dif}__to__{short_dst_type}__2"
         );
-        copy!(databases.path(b_db, *dst_type), path(&clone_mbt));
+        copy!(databases.path(b_db, dst_type), path(&clone_mbt));
         apply_patch(path(&clone_mbt), path(&dif_mbt), true).await?;
         let hash = clone_mbt.open_and_validate(Off, Verify).await?;
-        assert_eq!(hash, databases.hash(b_db, *dst_type));
+        assert_eq!(hash, databases.hash(b_db, dst_type));
         let dmp = dump(&mut clone_cn).await?;
         pretty_assert_eq!(&dmp, expected_b);
     }
 
     Ok(())
 }
+
+// extracted here to not bloat the test function names
+type BsDiffTileset = (&'static str, &'static str, &'static str, PatchTypeCli);
+const BIN_DIFF_RAW: BsDiffTileset = ("v1", "v2", "bdr", BinDiffRaw);
+const BIN_DIFF_GZ: BsDiffTileset = ("v1z", "v2z", "bdz", BinDiffGz);
 
 #[rstest]
 #[trace]
@@ -589,11 +594,7 @@ async fn diff_and_patch_bsdiff(
     #[values(Flat, FlatWithHash)] b_type: MbtTypeCli,
     #[values(Flat, FlatWithHash)] dif_type: MbtTypeCli,
     #[values(Flat, FlatWithHash)] dst_type: MbtTypeCli,
-    #[values(
-        ("v1", "v2", "bdr", BinDiffRaw),
-        ("v1z", "v2z", "bdz", BinDiffGz),
-    )]
-    tilesets: (&'static str, &'static str, &'static str, PatchTypeCli),
+    #[values(BIN_DIFF_RAW, BIN_DIFF_GZ)] tilesets: BsDiffTileset,
     #[notrace] databases: &Databases,
 ) -> MbtResult<()> {
     let (a_db, b_db, dif_db, patch_type) = tilesets;
