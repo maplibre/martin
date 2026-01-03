@@ -2231,7 +2231,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.59.0",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -3760,7 +3760,7 @@ dependencies = [
 
 [[package]]
 name = "martin"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "actix-cors",
  "actix-http",
@@ -3811,7 +3811,7 @@ dependencies = [
 
 [[package]]
 name = "martin-core"
-version = "0.2.4"
+version = "0.2.5"
 dependencies = [
  "actix-web",
  "approx",
@@ -3860,7 +3860,7 @@ dependencies = [
 
 [[package]]
 name = "martin-tile-utils"
-version = "0.6.7"
+version = "0.6.8"
 dependencies = [
  "approx",
  "brotli 8.0.2",
@@ -3898,7 +3898,7 @@ dependencies = [
 
 [[package]]
 name = "mbtiles"
-version = "0.14.3"
+version = "0.15.0"
 dependencies = [
  "actix-rt",
  "anyhow",
@@ -4972,7 +4972,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ac6c3320f9abac597dcbc668774ef006702672474aad53c6d596b62e487b40b1"
 dependencies = [
  "heck",
- "itertools 0.10.5",
+ "itertools 0.14.0",
  "log",
  "multimap",
  "once_cell",
@@ -4992,7 +4992,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9120690fafc389a67ba3803df527d0ec9cbbc9cc45e4cc20b332996dfb672425"
 dependencies = [
  "anyhow",
- "itertools 0.10.5",
+ "itertools 0.14.0",
  "proc-macro2",
  "quote",
  "syn 2.0.112",
@@ -5635,7 +5635,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys 0.4.15",
- "windows-sys 0.59.0",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -5648,7 +5648,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys 0.11.0",
- "windows-sys 0.59.0",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -6634,7 +6634,7 @@ dependencies = [
  "getrandom 0.3.4",
  "once_cell",
  "rustix 1.1.3",
- "windows-sys 0.59.0",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
