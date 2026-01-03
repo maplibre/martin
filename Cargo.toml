@@ -58,7 +58,7 @@ flume = "0.12"
 futures = "0.3"
 image = "0.25.8"
 indoc = "2"
-insta = "1.44.1"
+insta = "1.44.3"
 itertools = "0.14"
 json-patch = "4"
 lambda-web = { version = "0.2.1", features = ["actix4"] }
