@@ -1,1 +1,1 @@
-tests/output/configured/sdf_spr_src1_.png: PNG image data, 120 x 46, 8-bit gray+alpha, non-interlaced
+tests/output/configured/sdf_spr_src1_.png: PNG image data, 96 x 86, 8-bit gray+alpha, non-interlaced
