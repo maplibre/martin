@@ -31,12 +31,9 @@ Done in [#2427](https://github.com/maplibre/martin/pull/2427)) by @todtb
 ### Other
 
 - made our dependency management more reproducible/stable ([#2442](https://github.com/maplibre/martin/pull/2442), [#2429](https://github.com/maplibre/martin/pull/2429), [#2415](https://github.com/maplibre/martin/pull/2415))
-- various dependency bumps ([#2439](https://github.com/maplibre/martin/pull/2439), [#2435](https://github.com/maplibre/martin/pull/2435), [#2418](https://github.com/maplibre/martin/pull/2418))
+- various dependency bumps ([#2439](https://github.com/maplibre/martin/pull/2439), [#2435](https://github.com/maplibre/martin/pull/2435), [#2418](https://github.com/maplibre/martin/pull/2418), [#2471](https://github.com/maplibre/martin/pull/2471))
 - *(bench)* improve benchmark accuracy by adding black_box for tables/functions ([#2413](https://github.com/maplibre/martin/pull/2413))
 - *(pmtiles)* add pmtiles test in `martin-core` ([#2443](https://github.com/maplibre/martin/pull/2443))
-
-
-- update a variety of likely uncritical dependencys ([#2471](https://github.com/maplibre/martin/pull/2471))
 
 ## [1.1.0](https://github.com/maplibre/martin/compare/martin-v1.0.0...martin-v1.1.0) - 2025-12-11
 
