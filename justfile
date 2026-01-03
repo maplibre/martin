@@ -179,11 +179,6 @@ env-info:
     npm --version
     node --version
 
-# Run benchmark tests showing a flamegraph
-flamegraph:
-    cargo bench --bench sources -- --profile-time=10
-    /opt/google/chrome/chrome "file://$PWD/target/criterion/get_table_source_tile/profile/flamegraph.svg"
-
 # Reformat all code `cargo fmt`. If nightly is available, use it for better results
 fmt:
     #!/usr/bin/env bash

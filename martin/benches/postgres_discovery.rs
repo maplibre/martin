@@ -1,10 +1,9 @@
 use std::time::Duration;
 
-use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
+use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use martin::config::file::init_aws_lc_tls;
 use martin::config::file::postgres::{PostgresAutoDiscoveryBuilder, PostgresConfig};
 use martin_core::config::IdResolver;
-use pprof::criterion::{Output, PProfProfiler};
 use testcontainers_modules::postgres::Postgres;
 use testcontainers_modules::testcontainers::ImageExt;
 use testcontainers_modules::testcontainers::runners::SyncRunner;
@@ -251,7 +250,7 @@ async fn discover_tables(config: &PostgresConfig) {
         .instantiate_tables()
         .await
         .expect("Failed to discover tables");
-    black_box(tables);
+    std::hint::black_box(tables);
 }
 
 async fn discover_functions(config: &PostgresConfig) {
@@ -263,7 +262,7 @@ async fn discover_functions(config: &PostgresConfig) {
         .instantiate_functions()
         .await
         .expect("Failed to discover functions");
-    black_box(functions);
+    std::hint::black_box(functions);
 }
 
 fn bench_table_discovery(c: &mut Criterion) {
@@ -318,7 +317,7 @@ fn bench_function_discovery(c: &mut Criterion) {
 
 criterion_group! {
     name = benches;
-    config = Criterion::default().with_profiler(PProfProfiler::new(1000, Output::Flamegraph(None)));
+    config = Criterion::default();
     targets = bench_table_discovery, bench_function_discovery
 }
 
