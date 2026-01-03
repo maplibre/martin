@@ -396,6 +396,11 @@ type-check:
 update:
     cargo +nightly -Z unstable-options update --breaking
     cargo update
+    # Make sure that 'evil' dependencies are at the last compatible version
+    # below needs to be synced with deny.toml
+    cargo update --precise 1.44.3 insta
+    cargo update --precise 1.24.0 libdeflater
+    cargo update --precise 1.24.0 libdeflate-sys
 
 # Validate that all required development tools are installed
 validate-tools:
