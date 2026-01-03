@@ -508,8 +508,9 @@ async fn convert(
 }
 
 // extracted here to not bloat the test function names
-const DB_WITH_DIFF: (&'static str, &'static str, &'static str) = ("v1", "v2", "dif");
-const DB_EMPTY_DIFF: (&'static str, &'static str, &'static str) = ("v1", "v1_clone", "dif_empty");
+type RegularTileset = (&'static str, &'static str, &'static str);
+const DB_WITH_DIFF: RegularTileset = ("v1", "v2", "dif");
+const DB_EMPTY_DIFF: RegularTileset = ("v1", "v1_clone", "dif_empty");
 
 #[rstest]
 #[trace]
@@ -518,7 +519,7 @@ async fn diff_and_patch(
     #[values(Flat, FlatWithHash, Normalized)] a_type: MbtTypeCli,
     #[values(Flat, FlatWithHash, Normalized)] b_type: MbtTypeCli,
     #[values(None, Some(Flat), Some(FlatWithHash), Some(Normalized))] dif_type: Option<MbtTypeCli>,
-    #[values(DB_WITH_DIFF, DB_EMPTY_DIFF)] tilesets: (&'static str, &'static str, &'static str),
+    #[values(DB_WITH_DIFF, DB_EMPTY_DIFF)] tilesets: RegularTileset,
     #[notrace] databases: &Databases,
 ) -> MbtResult<()> {
     let (a_db, b_db, dif_db) = tilesets;
