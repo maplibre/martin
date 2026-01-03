@@ -3,7 +3,7 @@ Schema:         normalized
 SQL page size:  512B
 
  Zoom |   Count   | Smallest  |  Largest  |  Average  | Bounding Box
-    0 |         1 |    21.2kB |    21.2kB |    21.2kB | -180,-85,180,85
-    1 |         4 |    12.0kB |    21.1kB |    16.8kB | -180,-85,180,85
-  all |         5 |    12.0kB |    21.2kB |    17.6kB | -180,-85,180,85
+    0 |         1 |        9B |        9B |        9B | -180,-85,180,85
+    1 |         4 |        9B |        9B |        9B | -180,-85,180,85
+  all |         5 |        9B |        9B |        9B | -180,-85,180,85
 
