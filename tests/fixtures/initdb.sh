@@ -15,7 +15,7 @@ retry_count=0
 echo "Waiting for database to be ready..."
 while [ $retry_count -lt $MAX_RETRIES ]; do
   if psql -P pager=off -v ON_ERROR_STOP=1 -c "SELECT 1;" > /dev/null 2>&1; then
-    echo "Database is ready after $retry_count retry attempts"
+    echo "Database is ready after $((retry_count + 1)) attempt(s)"
     break
   fi
 
