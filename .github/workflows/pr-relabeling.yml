@@ -1,16 +1,20 @@
 name: Relabel Pull Request
 
 on:
-  # changing a label needs permissions in the pull request target
-  pull_request_target:
+  # SECURITY: pull_request_target is used here to allow validation of PRs from forks.
+  # This is safe because:
+  # 1. No user-controllable code from the PR is checked out or run
+  # 2. Permissions are restricted to pull-requests: write
+  pull_request_target: # zizmor: ignore[dangerous-triggers]
     types: [labeled]
 
-permissions:
-  pull-requests: write
+permissions: {}
 
 jobs:
   remove-bless:
     runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
     if: contains(github.event.label.name, 'bless')
 
     steps:
