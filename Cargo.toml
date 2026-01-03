@@ -47,7 +47,7 @@ bit-set = "0.8"
 brotli = ">=5, <9"
 bytes = "1"
 clap = { version = "4", features = ["derive", "unstable-markdown", "wrap_help"] }
-criterion = { version = "0.5", features = ["async_futures", "async_tokio", "html_reports"] }
+criterion = { version = "0.8", features = ["async_futures", "async_tokio", "html_reports"] }
 ctor = "0.6.3"
 dashmap = { version = "6.1.0", features = ["serde", "inline", "rayon"] }
 deadpool-postgres = "0.14"
@@ -77,7 +77,6 @@ png = "0.18.0"
 postgis = "0.9"
 postgres = { version = "0.19", features = ["with-time-0_3", "with-uuid-1", "with-serde_json-1"] }
 postgres-protocol = "0.6"
-pprof = { version = "0.15", features = ["flamegraph", "criterion"] }
 pretty_assertions = "1"
 regex = "1"
 rstest = "0.26.1"
