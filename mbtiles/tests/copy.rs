@@ -593,10 +593,9 @@ async fn diff_and_patch_bsdiff(
     let (a_db, b_db, dif_db, patch_type) = tilesets;
     let dif = shorten(dif_type);
     let prefix = format!(
-        "{a_db}_{short_b_type}--{b_db}_{short_a_type}={dif}_{patch_type}__to__{short_dst_type}",
-        short_a_type = shorten(a_type),
-        short_b_type = shorten(b_type),
-        short_dst_type = shorten(dst_type)
+        "{a_db}_{}--{b_db}_{}={dif}_{patch_type}",
+        shorten(b_type),
+        shorten(a_type),
     );
 
     eprintln!(
@@ -611,6 +610,7 @@ async fn diff_and_patch_bsdiff(
     };
     pretty_assert_eq!(&dump(&mut dif_cn).await?, databases.dump(dif_db, dif_type));
 
+    let prefix = format!("{prefix}__to__{}", shorten(dst_type));
     let (b_mbt, mut b_cn) = open!(diff_and_patch_bsdiff, "{prefix}__{b_db}");
     copy! {
         databases.path(a_db, a_type),
