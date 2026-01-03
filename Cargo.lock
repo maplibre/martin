@@ -6337,9 +6337,9 @@ dependencies = [
 
 [[package]]
 name = "spreet"
-version = "0.12.1"
+version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aa470d4ec65dc280e3e119d9d93ff93a76bdc754f3f266499b8a539f5ce22667"
+checksum = "2c3a067fde102cdaba74d1ab5c9d62c146d7e23529a1b366b56ad3cc628c72e3"
 dependencies = [
  "crunch",
  "multimap",
