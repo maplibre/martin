@@ -21,7 +21,7 @@ When clicking on various IDs in the UI, a click to copy feature is now available
 
 <img width="720" height="393" alt="image" src="https://github.com/user-attachments/assets/6d062bb1-18f1-4827-a378-44b141eb11d5" />
 
-Done in [#2427](https://github.com/maplibre/martin/pull/2427)) by @todtb
+Done in [#2427](https://github.com/maplibre/martin/pull/2427) by @todtb
 
 ### Fixed
 
