@@ -9,31 +9,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.2.0](https://github.com/maplibre/martin/compare/martin-v1.1.0...martin-v1.2.0) - 2026-01-03
 
-### Added
+### Optionally fail config loading/resolution for missing sources
 
-- *(martin-ui)* Add click to copy ([#2427](https://github.com/maplibre/martin/pull/2427))
-- *(mbtiles)* improve mbtiles summary output ([#2447](https://github.com/maplibre/martin/pull/2447))
-- *(config)* optionally fail config loading/resolution for missing sources ([#2412](https://github.com/maplibre/martin/pull/2412))
+We added the `on_invalid: abort` (default) and `on_invalid: warn` settings, which controls what happens when martin encounters an missing/invalid source.
+
+Done in [#2412](https://github.com/maplibre/martin/pull/2412), [#2426](https://github.com/maplibre/martin/pull/2426) by @gabeschine
+
+### Click to copy when clicking on various IDs in the UI
+
+When clicking on various IDs in the UI, a click to copy feature is now available.
+
+<img width="720" height="393" alt="image" src="https://github.com/user-attachments/assets/6d062bb1-18f1-4827-a378-44b141eb11d5" />
+
+Done in [#2427](https://github.com/maplibre/martin/pull/2427)) by @todtb
 
 ### Fixed
 
-- filter available tables result when auto publish false ([#2411](https://github.com/maplibre/martin/pull/2411))
-- *(mbtiles)* meta-all with empty mbtiles ([#2448](https://github.com/maplibre/martin/pull/2448))
+- *(pg)* Instead of reporting on all available tables, we now filter the result to the configured sources when `auto_publish: false` ([#2411](https://github.com/maplibre/martin/pull/2411))
+- *(sprites)* Scale SDF buffer and radius by pixel ratio leading to weird artefacts when using retina sdf sprites ([#2458](https://github.com/maplibre/martin/pull/2458))
 
 ### Other
 
-- *(mbtiles)* Generate mbtiles dynamically from SQL files to increase debuggability and transparency ([#2380](https://github.com/maplibre/martin/pull/2380))
-- *(deps)* Bump the all-npm-version-updates group across 2 directories with 13 updates ([#2455](https://github.com/maplibre/martin/pull/2455))
-- *(ci)* not installing our npm dependencys accoring to the lockfile when testing code ([#2442](https://github.com/maplibre/martin/pull/2442))
-- *(deps)* autoupdate pre-commit ([#2439](https://github.com/maplibre/martin/pull/2439))
-- *(deps)* Bump the all-npm-version-updates group across 2 directories with 17 updates ([#2435](https://github.com/maplibre/martin/pull/2435))
-- *(bench)* add black_box for tables/functions ([#2413](https://github.com/maplibre/martin/pull/2413))
-- *(deps)* sync pre-commit and biomejs versions ([#2429](https://github.com/maplibre/martin/pull/2429))
-- *(config)* no-op refactor to pull out "build_one_(table|function)_info" ([#2426](https://github.com/maplibre/martin/pull/2426))
-- *(deps)* Bump the all-npm-ui-version-updates group in /martin/martin-ui with 9 updates ([#2418](https://github.com/maplibre/martin/pull/2418))
-- *(ci)* More pinning of our dependencys in CI ([#2415](https://github.com/maplibre/martin/pull/2415))
-- *(deps)* bump spreet to fix Scale SDF buffer and radius by pixel ratio leading to weird artefacts when using retina sdf sprites ([#2458](https://github.com/maplibre/martin/pull/2458))
+- made our dependency management more reproducible/stable ([#2442](https://github.com/maplibre/martin/pull/2442), [#2429](https://github.com/maplibre/martin/pull/2429), [#2415](https://github.com/maplibre/martin/pull/2415))
+- various dependency bumps ([#2439](https://github.com/maplibre/martin/pull/2439), [#2435](https://github.com/maplibre/martin/pull/2435), [#2418](https://github.com/maplibre/martin/pull/2418))
+- *(bench)* improve benchmark accuracy by adding black_box for tables/functions ([#2413](https://github.com/maplibre/martin/pull/2413))
 - *(pmtiles)* add pmtiles test in `martin-core` ([#2443](https://github.com/maplibre/martin/pull/2443))
+
+
 - update a variety of likely uncritical dependencys ([#2471](https://github.com/maplibre/martin/pull/2471))
 
 ## [1.1.0](https://github.com/maplibre/martin/compare/martin-v1.0.0...martin-v1.1.0) - 2025-12-11
