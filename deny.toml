@@ -61,7 +61,7 @@ skip = []
 skip-tree = []
 
 # List of crates to deny
-# changes here needs to be synced `just update`
+# changes here need to be synced `just update`
 deny = [
     { crate = "libdeflater@1.25.0", reason = "does not compile under musl" },
     { crate = "libdeflate-sys@1.25.0", reason = "does not compile under musl" },
