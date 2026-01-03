@@ -1,7 +1,7 @@
 #![doc = include_str!("../README.md")]
 
 // This code was partially adapted from https://github.com/maplibre/mbtileserver-rs
-// project originally written by Kaveh Karimi and licensed under MIT/Apache-2.0
+// project originally written by Kaveh Karimi and licensed under MIT OR Apache-2.0
 
 use std::f64::consts::PI;
 use std::fmt::{Display, Formatter, Result};
