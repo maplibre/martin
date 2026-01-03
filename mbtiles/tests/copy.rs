@@ -581,7 +581,7 @@ async fn diff_and_patch(
         assert_eq!(
             hash,
             databases.hash(b_db, *dst_type),
-            "After applying patch to target {b_db}, hash should remain idempotent"
+            "After applying patch to target {b_db}, hash should remain unchanged"
         );
         let dmp = dump(&mut clone_cn).await?;
         pretty_assert_eq!(
