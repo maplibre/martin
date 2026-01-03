@@ -587,7 +587,7 @@ async fn diff_and_patch(
         pretty_assert_eq!(
             &dmp,
             expected_b,
-            "After applying patch to {b_db}, content should remain idempotent"
+            "After applying patch to {b_db}, content should remain unchanged"
         );
     }
 
