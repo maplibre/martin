@@ -4,14 +4,14 @@ on:
   pull_request:
     types: [labeled]
 
-permissions:
-  contents: write
-  pull-requests: write
+permissions: {}
 
 jobs:
   bless:
     name: Bless test output
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     if: contains(github.event.label.name, 'bless')
 
     steps:
