@@ -17,7 +17,7 @@ CREATE TABLE tiles_with_hash (
     zoom_level integer NOT NULL, tile_column integer NOT NULL, tile_row integer NOT NULL, tile_data blob, tile_hash text,
     PRIMARY KEY(zoom_level, tile_column, tile_row)
 );
-INSERT INTO tiles_with_hash VALUES(6,10,64,x'1f8b08000000000002039332ae60e2624bce2cc94c2dd668509062c94bcc4d55e2e7e20d4ecc53702b4acc4bce2c4ece17e29560146262605062e59cc2bf481f004d6b26c735000000','53B658F89AF42BD1D9C21C14BF006E04');
+INSERT INTO tiles_with_hash VALUES(6,10,64,x'1F8B08000000000000','53B658F89AF42BD1D9C21C14BF006E04');
 CREATE VIEW tiles AS SELECT
     zoom_level,
     tile_column,

@@ -7,12 +7,6 @@ be [applied](#mbtiles-apply-patch) to the `src_file.mbtiles` elsewhere, to avoid
 modified dataset. The delta file will contain all tiles that are different between the two files (modifications,
 insertions, and deletions as `NULL` values), for both the tile and metadata tables.
 
-There is one exception: `agg_tiles_hash` metadata value will be renamed to `agg_tiles_hash_after_apply`, and a
-new `agg_tiles_hash` will be generated for the diff file itself. This is done to avoid confusion when applying the diff
-file to the original file, as the `agg_tiles_hash` value will be different after the diff is applied. The `apply-patch`
-command will automatically rename the `agg_tiles_hash_after_apply` value back to `agg_tiles_hash` when applying the
-diff.
-
 ```bash
 # This command will compare `file1.mbtiles` and `file2.mbtiles`,
 # and generate a new diff file `diff.mbtiles`.
@@ -29,6 +23,19 @@ mbtiles validate file2.mbtiles
 mbtiles validate file2a.mbtiles
 [INFO ] The agg_tiles_hashes=E95C1081447FB25674DCC1EB97F60C26 has been verified for file2a.mbtiles
 ```
+
+### Delta file metadata
+
+All metadata from `file2.mbtiles` will be copied to the diff file.
+
+There are two exceptions to this. The first is that the `agg_tiles_hash` value will be renamed to `agg_tiles_hash_after_apply`. A
+new `agg_tiles_hash` will be generated for the diff file itself. This is done to avoid confusion when applying the diff
+file to the original file, as the `agg_tiles_hash` value will be different after the diff is applied. The `apply-patch`
+command will automatically rename the `agg_tiles_hash_after_apply` value back to `agg_tiles_hash` when applying the
+diff.
+
+The second exception is that a new metadata value `agg_tiles_hash_before_apply` will be added to the diff file, which contains the
+`agg_tiles_hash` value from `file1.mbtiles`. This will be used to verify that the diff file is being applied to the correct source file.
 
 ## `mbtiles apply-patch`
 

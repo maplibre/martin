@@ -98,6 +98,7 @@ xxhash-rust.workspace = true
 [dev-dependencies]
 actix-web.workspace = true
 approx.workspace = true
+bytes.workspace = true
 env_logger.workspace = true
 futures.workspace = true
 insta = { workspace = true, features = ["json", "yaml"] }

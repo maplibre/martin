@@ -11,7 +11,10 @@ For example, if there is a table `public.table_source`:
 The table:
 
 ```sql
-CREATE TABLE "public"."table_source" ( "gid" int4 NOT NULL, "geom" "public"."geometry" );
+CREATE TABLE "public"."table_source" (
+  "gid" int4 NOT NULL,
+  "geom" "public"."geometry"
+);
 ```
 
 The TileJSON:
