@@ -124,3 +124,16 @@ repos:
       language: system
       files: ^\.pre-commit-config\.yaml$
       pass_filenames: false
+      # below needs to be synced with deny.toml
+    - id: prevent-incompatible-dependencies
+      name: Hackily prevent incompatible dependencies
+      description: "Make sure that 'evil' dependencies are at the last compatible version"
+      entry: |
+        bash -c '
+          cargo update --precise 1.44.3 insta
+          cargo update --precise 1.24.0 libdeflater
+          cargo update --precise 1.24.0 libdeflate-sys
+        '
+      language: system
+      files: ^\.pre-commit-config\.yaml$
+      pass_filenames: false
