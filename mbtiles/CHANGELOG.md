@@ -9,8 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.15.0](https://github.com/maplibre/martin/compare/mbtiles-v0.14.3...mbtiles-v0.15.0) - 2026-01-03
 
-### Added configurable output formats for `mbtiles summary`
+### Added
 
+Configurable output formats for `mbtiles summary`.
 You can now control the output format using the `--format` option:
 - `json-pretty` — multi-line, human-readable JSON
 - `json` — compact JSON
