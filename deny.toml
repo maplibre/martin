@@ -64,6 +64,8 @@ skip-tree = []
 deny = [
     { crate = "libdeflater@1.25.0", reason = "does not compile under musl" },
     { crate = "libdeflate-sys@1.25.0", reason = "does not compile under musl" },
+    { crate = "insta@1.45.0", reason = "fails cargo test -- diff_and_patch" },
+    { crate = "insta@1.45.1", reason = "fails cargo test -- diff_and_patch" },
 ]
 
 [sources]
