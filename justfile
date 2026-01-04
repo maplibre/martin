@@ -168,7 +168,7 @@ docs *args='--open':
 # Print environment info
 env-info:
     @echo "Running {{if ci_mode == '1' {'in CI mode'} else {'in dev mode'} }} on {{os()}} / {{arch()}}"
-    @echo "PWD $(pwd)"
+    @echo "PWD {{justfile_directory()}}"
     {{just}} --version
     rustc --version
     cargo --version
