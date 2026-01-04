@@ -596,7 +596,6 @@ async fn diff_and_patch(
 
 #[rstest]
 #[trace]
-#[ignore = "test used to run for a while, and then became too complicated to maintain and got out of whack. TODO: bring it back or deleete"]
 #[tokio::test(flavor = "multi_thread")]
 async fn diff_and_patch_bsdiff(
     #[values(Flat, FlatWithHash)] a_type: MbtTypeCli,
@@ -611,17 +610,22 @@ async fn diff_and_patch_bsdiff(
     #[notrace] databases: &Databases,
 ) -> MbtResult<()> {
     let (a_db, b_db, dif_db, patch_type) = tilesets;
-    let dif = shorten(dif_type);
-    let prefix = format!(
-        "{a_db}_{}--{b_db}_{}={dif}_{patch_type}",
-        shorten(b_type),
+    // Create a unique prefix that includes all type parameters to avoid SQLite name conflicts
+    // Format: {a_db}_{a_type}_{b_db}_{b_type}_{dif_type}_{dst_type}_{patch_type}
+    let unique_id = format!(
+        "{}a{}b{}d{}dst{}{}",
+        a_db,
         shorten(a_type),
+        shorten(b_type),
+        shorten(dif_type),
+        shorten(dst_type),
+        patch_type,
     );
 
     eprintln!(
         "TEST: Compare {a_db} with {b_db}, and copy anything that's different (i.e. mathematically: {b_db} - {a_db} = {dif_db})"
     );
-    let (dif_mbt, mut dif_cn) = open!(diff_and_patch_bsdiff, "{prefix}__{dif_db}");
+    let (dif_mbt, mut dif_cn) = open!(diff_and_patch_bsdiff, "{unique_id}_diff");
     copy! {
         databases.path(a_db, a_type),
         path(&dif_mbt),
@@ -634,8 +638,7 @@ async fn diff_and_patch_bsdiff(
         "Binary diff file should match expected {dif_db} format",
     );
 
-    let prefix = format!("{prefix}__to__{}", shorten(dst_type));
-    let (b_mbt, mut b_cn) = open!(diff_and_patch_bsdiff, "{prefix}__{b_db}");
+    let (b_mbt, mut b_cn) = open!(diff_and_patch_bsdiff, "{unique_id}_apply");
     copy! {
         databases.path(a_db, a_type),
         path(&b_mbt),
