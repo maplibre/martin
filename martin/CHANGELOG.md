@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.1](https://github.com/maplibre/martin/compare/martin-v1.2.0...martin-v1.2.1) - 2026-01-04
+
+### Other
+
+- update Cargo.toml dependencies
+- *(mbtiles)* add assertion messages what we are checking to the copy tests ([#2477](https://github.com/maplibre/martin/pull/2477))
+
 ## [1.2.0](https://github.com/maplibre/martin/compare/martin-v1.1.0...martin-v1.2.0) - 2026-01-03
 
 ### Optionally fail config loading/resolution for missing sources
