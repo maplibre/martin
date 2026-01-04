@@ -578,7 +578,9 @@ async fn diff_and_patch(
 #[trace]
 #[tokio::test(flavor = "multi_thread")]
 async fn diff_and_patch_bsdiff(
-    #[values(Flat, FlatWithHash)] src_type: MbtTypeCli,
+    #[values(Flat, FlatWithHash)] a_type: MbtTypeCli,
+    #[values(Flat, FlatWithHash)] b_type: MbtTypeCli,
+    #[values(Flat, FlatWithHash)] dif_type: MbtTypeCli,
     #[values(Flat, FlatWithHash)] dst_type: MbtTypeCli,
     #[values(
         ("v1", "v2", "bdr", BinDiffRaw),
@@ -588,34 +590,38 @@ async fn diff_and_patch_bsdiff(
     #[notrace] databases: &Databases,
 ) -> MbtResult<()> {
     let (a_db, b_db, dif_db, patch_type) = tilesets;
-    
-    // The fixture creates binary diffs with matching source types only (Flat->Flat, FlatWithHash->FlatWithHash)
-    // So we need to use the same type for the diff database as the source
-    let dif_type = src_type;
-    
-    let prefix = format!(
-        "{a_db}_{}={}_{}__to__{}",
-        shorten(src_type),
+    // Create a unique prefix that includes all type parameters to avoid SQLite name conflicts
+    // Format: {a_db}_{a_type}_{b_db}_{b_type}_{dif_type}_{dst_type}_{patch_type}
+    let unique_id = format!(
+        "{}a{}b{}d{}dst{}{}",
+        a_db,
+        shorten(a_type),
+        shorten(b_type),
         shorten(dif_type),
+        shorten(dst_type),
         patch_type,
-        shorten(dst_type)
     );
 
     eprintln!(
-        "TEST: Apply binary diff patch ({a_db} + {dif_db} = {b_db}), converting from {} to {}",
-        shorten(src_type),
-        shorten(dst_type)
+        "TEST: Compare {a_db} with {b_db}, and copy anything that's different (i.e. mathematically: {b_db} - {a_db} = {dif_db})"
     );
-    
-    // Apply the pre-created binary diff patch to convert from a_db to b_db
-    let (result_mbt, mut result_cn) = open!(diff_and_patch_bsdiff, "{prefix}__{b_db}");
+    let (dif_mbt, mut dif_cn) = open!(diff_and_patch_bsdiff, "{unique_id}_diff");
     copy! {
-        databases.path(a_db, src_type),
-        path(&result_mbt),
+        databases.path(a_db, a_type),
+        path(&dif_mbt),
+        diff_with_file => Some((databases.path(b_db, b_type), patch_type.into())),
+        dst_type_cli => Some(dif_type),
+    };
+    pretty_assert_eq!(&dump(&mut dif_cn).await?, databases.dump(dif_db, dif_type));
+
+    let (b_mbt, mut b_cn) = open!(diff_and_patch_bsdiff, "{unique_id}_apply");
+    copy! {
+        databases.path(a_db, a_type),
+        path(&b_mbt),
         apply_patch => Some(databases.path(dif_db, dif_type)),
         dst_type_cli => Some(dst_type),
     };
-    let actual = dump(&mut result_cn).await?;
+    let actual = dump(&mut b_cn).await?;
     let expected = databases.dump(b_db, dst_type);
     pretty_assert_eq!(&actual, expected);
 
@@ -672,6 +678,8 @@ async fn test_one() {
     // .unwrap();
 
     diff_and_patch_bsdiff(
+        FlatWithHash,
+        FlatWithHash,
         FlatWithHash,
         FlatWithHash,
         ("v1", "v2", "bdr", BinDiffRaw),
