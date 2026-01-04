@@ -77,35 +77,6 @@ vi.mock('@/components/loading/catalog-skeleton', () => ({
   ),
 }));
 
-// Mock lucide-react icons
-vi.mock('lucide-react', () => ({
-  Brush: () => (
-    <svg aria-label="Brush icon" data-testid="brush-icon" role="img">
-      🎨
-    </svg>
-  ),
-  Code: () => (
-    <svg aria-label="Code icon" data-testid="code-icon" role="img">
-      📄
-    </svg>
-  ),
-  Eye: () => (
-    <svg aria-label="Eye icon" data-testid="eye-icon" role="img">
-      👁
-    </svg>
-  ),
-  Search: () => (
-    <svg aria-label="Search icon" data-testid="search-icon" role="img">
-      🔍
-    </svg>
-  ),
-  SquarePen: () => (
-    <svg aria-label="Square pen icon" data-testid="squarepen-icon" role="img">
-      ✏️
-    </svg>
-  ),
-}));
-
 describe('StylesCatalog Component', () => {
   const mockStyles: { [name: string]: Style } = {
     'Basic Style': {
@@ -353,7 +324,7 @@ describe('StylesCatalog Component', () => {
     const { container } = render(<StylesCatalog {...defaultProps} />);
 
     // Check for SVG elements - different style types should have different icons
-    const svgElements = container.querySelectorAll('svg');
+    const svgElements = container.querySelectorAll('span[role="img"]');
 
     // Should have at least 4 SVGs: search icon + 3 style type icons
     expect(svgElements.length).toBeGreaterThan(3);
