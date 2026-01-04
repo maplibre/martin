@@ -40,7 +40,7 @@ jobs:
         uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f # v6.1.0
 
       - name: Install frontend dependencies
-        run: npm install-clean --no-fund
+        run: npm clean-install --no-fund
         working-directory: martin/martin-ui
 
       - name: Install system dependencies
