@@ -1,3 +1,4 @@
+import { Rocket } from 'lucide-react';
 import React from 'react';
 import { vi } from 'vitest';
 
@@ -230,3 +231,31 @@ vi.mock('@maplibre/maplibre-gl-inspect', () => ({
 
 // Mock MapLibre GL Inspect CSS
 vi.mock('@maplibre/maplibre-gl-inspect/dist/maplibre-gl-inspect.css', () => ({}));
+
+vi.mock('lucide-react', () => ({
+  AlertTriangle: () => <span role="img" />,
+  ArrowLeft: () => <span role="img" />,
+  BookOpen: () => <span role="img" />,
+  Brush: () => <span role="img" />,
+  Clipboard: () => <span role="img" />,
+  Code: () => <span role="img" />,
+  Copy: () => <span role="img" />,
+  Database: () => <span role="img" />,
+  Download: () => <span role="img" />,
+  Eye: () => <span role="img" />,
+  ImageIcon: () => <span role="img" />,
+  Info: () => <span role="img" />,
+  Layers: () => <span role="img" />,
+  Loader2: () => <span role="img" />,
+  Moon: () => <span role="img" />,
+  Palette: () => <span role="img" />,
+  RefreshCw: () => <span role="img" />,
+  Search: () => <span role="img" />,
+  SquarePen: () => <span role="img" />,
+  Sun: () => <span role="img" />,
+  Type: () => <span role="img" />,
+  WifiOff: () => <span role="img" />,
+  X: () => <span role="img" />,
+  Github: () => <span role="img" />,
+  Image: () => <span role="img" />,
+}));
