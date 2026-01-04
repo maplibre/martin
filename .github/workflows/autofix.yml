@@ -44,7 +44,7 @@ jobs:
         working-directory: martin/martin-ui
 
       - name: Install system dependencies
-        run: sudo apt-get install -y gdal-bin sqlite3-tools
+        run: sudo apt-get update && sudo apt-get install -y gdal-bin sqlite3-tools
 
       - run: just bless
         continue-on-error: true
