@@ -43,7 +43,7 @@ export function TooltipCopyText({ text, ...props }: TooltipCopyTextProps) {
         <div className="flex flex-col justify-center items-center">
           <div className="text-xs">{text}</div>
           <br />
-          <div className="text-sm">Click to copy</div>
+          <div className="text-sm">⧉ Click to copy</div>
         </div>
       </TooltipContent>
     </Tooltip>

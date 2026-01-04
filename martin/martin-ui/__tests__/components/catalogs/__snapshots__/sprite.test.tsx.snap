@@ -127,7 +127,7 @@ exports[`SpriteCatalog Component > matches snapshot for loaded state with mock d
                   <div
                     class="text-sm"
                   >
-                    Click to copy
+                    ⧉ Click to copy
                   </div>
                 </div>
               </div>
@@ -341,7 +341,7 @@ exports[`SpriteCatalog Component > matches snapshot for loaded state with mock d
                   <div
                     class="text-sm"
                   >
-                    Click to copy
+                    ⧉ Click to copy
                   </div>
                 </div>
               </div>
@@ -567,7 +567,7 @@ exports[`SpriteCatalog Component > matches snapshot for loaded state with mock d
                   <div
                     class="text-sm"
                   >
-                    Click to copy
+                    ⧉ Click to copy
                   </div>
                 </div>
               </div>
