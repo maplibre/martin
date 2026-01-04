@@ -153,6 +153,10 @@ coverage *args='--no-clean --open':  (cargo-install 'cargo-llvm-cov') clean star
 cp *args:
     cargo run --bin martin-cp -- {{args}}
 
+# Start Martin server and open a test page (not the integrated UI)
+debug-page *args: start
+    open tests/debug.html  # run will not exit, so open debug page first
+    {{quote(just_executable())}} run {{args}}
 # Build and run martin docker image
 docker-run *args:
     docker run -it --rm --net host -e DATABASE_URL -v $PWD/tests:/tests ghcr.io/maplibre/martin:1.1.0 {{args}}
