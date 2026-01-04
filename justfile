@@ -157,6 +157,7 @@ cp *args:
 debug-page *args: start
     open tests/debug.html  # run will not exit, so open debug page first
     {{quote(just_executable())}} run {{args}}
+
 # Build and run martin docker image
 docker-run *args:
     docker run -it --rm --net host -e DATABASE_URL -v $PWD/tests:/tests ghcr.io/maplibre/martin:1.1.0 {{args}}
