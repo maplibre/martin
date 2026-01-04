@@ -243,6 +243,8 @@ vi.mock('lucide-react', () => ({
   Database: () => <span role="img" />,
   Download: () => <span role="img" />,
   Eye: () => <span role="img" />,
+  Github: () => <span role="img" />,
+  Image: () => <span role="img" />,
   ImageIcon: () => <span role="img" />,
   Info: () => <span role="img" />,
   Layers: () => <span role="img" />,
@@ -256,6 +258,4 @@ vi.mock('lucide-react', () => ({
   Type: () => <span role="img" />,
   WifiOff: () => <span role="img" />,
   X: () => <span role="img" />,
-  Github: () => <span role="img" />,
-  Image: () => <span role="img" />,
 }));
