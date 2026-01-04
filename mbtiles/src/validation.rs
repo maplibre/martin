@@ -146,7 +146,11 @@ impl Mbtiles {
     }
 
     /// Detect tile format and verify that it is consistent across some tiles
-    pub async fn detect_format<T>(&self, tilejson: &TileJSON, conn: &mut T) -> MbtResult<TileInfo>
+    pub async fn detect_format<T>(
+        &self,
+        tilejson: &TileJSON,
+        conn: &mut T,
+    ) -> MbtResult<Option<TileInfo>>
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
@@ -217,13 +221,13 @@ impl Mbtiles {
         if let Some(info) = tile_info {
             if info.format != Format::Mvt && tilejson.vector_layers.is_some() {
                 warn!(
-                    "{} has vector_layers metadata but non-vector tiles",
+                    "{} has vector_layers metadata value, but the tiles are not MVT",
                     self.filename()
                 );
             }
-            Ok(info)
+            Ok(Some(info))
         } else {
-            Err(MbtError::NoTilesFound)
+            Ok(None)
         }
     }
 

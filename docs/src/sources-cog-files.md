@@ -26,9 +26,9 @@ Martin supports serving raster sources like local [COG(Cloud Optimized GeoTIFF)]
 
 | colory type | bits per sample | supported | status     |
 |-------------|-----------------|-----------|------------|
-| rgb/rgba    | 8               | ✅         |            |
-| rgb/rgba    | 16/32...        | 🛠️       | working on |
-| gray        | 8/16/32...      | 🛠️       | working on |
+| rgb/rgba    | 8               | ✅        |            |
+| rgb/rgba    | 16/32...        | 🛠️        | working on |
+| gray        | 8/16/32...      | 🛠️        | working on |
 
 ## Supported compression
 

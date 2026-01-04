@@ -1,0 +1,89 @@
+# Dependency policy for this project.
+# cargo-deny is used here for *policy enforcement*, not vulnerability scanning.
+# Vulnerability advisories are handled separately via cargo-audit.
+
+[licenses]
+# Keep this aligned with GitHub dependency-review
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Zlib",
+    "CC0-1.0",
+    "Unlicense",
+    "BSL-1.0",
+    "Unicode-3.0", # basically MIT
+    "MPL-2.0", # copyleft, but not infectious
+    "OpenSSL", # compatible with Apache-2.0
+]
+
+confidence-threshold = 0.9
+
+exceptions = [
+    # Build-time dependencies can have more permissive copyleft licenses
+    # since they don't end up in the final binary
+    # used by maplibre_native build script
+    { crate = "downloader", allow = ["LGPL-3.0-or-later"] },
+]
+
+[licenses.private]
+ignore = true
+
+# Some crates don't have (easily) machine readable licensing information,
+# adding a clarification entry for it allows you to manually specify the
+# licensing information
+#[[licenses.clarify]]
+# The package spec the clarification applies to
+#crate = "ring"
+# The SPDX expression for the license requirements of the crate
+#expression = "MIT AND ISC AND OpenSSL"
+# One or more files in the crate's source used as the "source of truth" for
+# the license expression. If the contents match, the clarification will be used
+# when running the license check, otherwise the clarification will be ignored
+# and the crate will be checked normally, which may produce warnings or errors
+# depending on the rest of your configuration
+#license-files = [
+# Each entry is a crate relative path, and the (opaque) hash of its contents
+#{ path = "LICENSE", hash = 0xbd0eed23 }
+#]
+
+[bans]
+# Would be nice for compile time, but currently we don't have the capacity for this
+multiple-versions = "allow"
+
+# Wildcard versions are almost always accidental
+wildcards = "deny"
+
+# Explicitly allowed exceptions go here (keep empty unless justified)
+skip = []
+skip-tree = []
+
+# List of crates to deny
+# changes here need to be synced `just update`
+deny = [
+    { crate = "libdeflater@1.25.0", reason = "does not compile under musl" },
+    { crate = "libdeflate-sys@1.25.0", reason = "does not compile under musl" },
+    { crate = "insta@1.45.0", reason = "fails cargo test -- diff_and_patch" },
+    { crate = "insta@1.45.1", reason = "fails cargo test -- diff_and_patch" },
+]
+
+[sources]
+# Supply-chain hardening: only crates.io, no git deps
+unknown-registry = "deny"
+unknown-git = "deny"
+
+# If git deps are ever needed, they must be explicitly allowed here
+allow-git = []
+
+[graph]
+targets = [
+  "x86_64-unknown-linux-musl",
+  "aarch64-unknown-linux-musl",
+  "x86_64-unknown-linux-gnu",
+  "aarch64-unknown-linux-gnu",
+  "aarch64-apple-darwin",
+  "x86_64-apple-darwin",
+  "x86_64-pc-windows-msvc",
+]

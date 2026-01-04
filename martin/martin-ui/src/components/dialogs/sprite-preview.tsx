@@ -29,16 +29,17 @@ export function SpritePreviewDialog({
     <Dialog onOpenChange={(v) => !v && onCloseAction()} open={true}>
       <DialogContent className="max-w-4xl w-full p-6 max-h-[80vh] overflow-auto">
         {sprite && (
-          <div>
-            <DialogHeader className="mb-6">
-              <DialogTitle className="text-2xl flex gap-4">
-                {name}
+          <>
+            <DialogHeader className="mb-6 truncate">
+              <DialogTitle className="text-2xl flex gap-4">{name}</DialogTitle>
+              <DialogDescription>
+                <span>Preview the selected sprite.</span>
+                <br />
                 <Button onClick={() => onDownloadAction(sprite)} size="sm" variant="outline">
                   <Download className="h-4 w-4 mr-2" />
                   Download
                 </Button>
-              </DialogTitle>
-              <DialogDescription>Preview the selected sprite.</DialogDescription>
+              </DialogDescription>
             </DialogHeader>
             <div className="pace-y-4 bg-gray-50 rounded-lg text-gray-900">
               <Suspense
@@ -55,7 +56,7 @@ export function SpritePreviewDialog({
                 />
               </Suspense>
             </div>
-          </div>
+          </>
         )}
       </DialogContent>
     </Dialog>

@@ -4,7 +4,6 @@ use criterion::{Criterion, criterion_group, criterion_main};
 use martin::TileSources;
 use martin::srv::DynTileSource;
 use martin_tile_utils::TileCoord;
-use pprof::criterion::{Output, PProfProfiler};
 
 mod sources {
     use async_trait::async_trait;
@@ -137,7 +136,7 @@ fn bench_null_source(c: &mut Criterion) {
 
 criterion_group! {
     name = benches;
-    config = Criterion::default().with_profiler(PProfProfiler::new(1000, Output::Flamegraph(None)));
+    config = Criterion::default();
     targets = bench_null_source,bench_error_source
 }
 
