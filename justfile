@@ -159,7 +159,7 @@ debug-page *args: start
 
 # Build and run martin docker image
 docker-run *args:
-    docker run -it --rm --net host -e DATABASE_URL -v $PWD/tests:/tests ghcr.io/maplibre/martin:1.1.0 {{args}}
+    docker run -it --rm --net host -e DATABASE_URL -v $PWD/tests:/tests ghcr.io/maplibre/martin:1.2.0 {{args}}
 
 # Build and open code documentation
 docs *args='--open':
@@ -168,7 +168,7 @@ docs *args='--open':
 # Print environment info
 env-info:
     @echo "Running {{if ci_mode == '1' {'in CI mode'} else {'in dev mode'} }} on {{os()}} / {{arch()}}"
-    @echo "PWD $(pwd)"
+    @echo "PWD {{justfile_directory()}}"
     {{just}} --version
     rustc --version
     cargo --version
@@ -396,6 +396,11 @@ type-check:
 update:
     cargo +nightly -Z unstable-options update --breaking
     cargo update
+    # Make sure that 'evil' dependencies are at the last compatible version
+    # below needs to be synced with deny.toml
+    cargo update --precise 1.44.3 insta
+    cargo update --precise 1.24.0 libdeflater
+    cargo update --precise 1.24.0 libdeflate-sys
 
 # Validate that all required development tools are installed
 validate-tools:

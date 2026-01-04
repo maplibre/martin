@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.5](https://github.com/maplibre/martin/compare/martin-core-v0.2.4...martin-core-v0.2.5) - 2026-01-03
+
+- *(deps)* bump spreet to fix Scale SDF buffer and radius by pixel ratio leading to weird artefacts when using retina sdf sprites ([#2458](https://github.com/maplibre/martin/pull/2458))
+- *(pmtiles)* add pmtiles test in `martin-core` ([#2443](https://github.com/maplibre/martin/pull/2443))
+
 ## [0.2.4](https://github.com/maplibre/martin/compare/martin-core-v0.2.3...martin-core-v0.2.4) - 2025-12-11
 
 ### Added
