@@ -1,3 +1,4 @@
+import { Copy } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipTrigger } from './tooltip';
 
@@ -40,10 +41,11 @@ export function TooltipCopyText({ text, ...props }: TooltipCopyTextProps) {
         <code>{text}</code>
       </TooltipTrigger>
       <TooltipContent {...props}>
-        <div className="flex flex-col justify-center items-center">
-          <div className="text-xs">{text}</div>
-          <br />
-          <div className="text-sm">Click to copy</div>
+        <div className="flex flex-col justify-center items-center p-1">
+          <div className="text-sm font-mono">{text}</div>
+          <div className="text-xs pt-3 flex flex-row text-slate-400 p-0.5">
+            <Copy className="h-3 w-3 mr-2" /> Click to copy
+          </div>
         </div>
       </TooltipContent>
     </Tooltip>

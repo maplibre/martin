@@ -23,28 +23,9 @@ exports[`SpriteCatalog Component > matches snapshot for loaded state with mock d
       <div
         class="relative w-full md:w-64"
       >
-        <svg
-          aria-hidden="true"
-          class="lucide lucide-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4"
-          fill="none"
-          height="24"
-          stroke="currentColor"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          stroke-width="2"
-          viewBox="0 0 24 24"
-          width="24"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <path
-            d="m21 21-4.34-4.34"
-          />
-          <circle
-            cx="11"
-            cy="11"
-            r="8"
-          />
-        </svg>
+        <span
+          role="img"
+        />
         <input
           class="flex h-10 rounded-md border border-input px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm pl-10 md:w-64 w-full bg-card"
           placeholder="Search sprites..."
@@ -67,36 +48,9 @@ exports[`SpriteCatalog Component > matches snapshot for loaded state with mock d
             <div
               class="flex items-center space-x-2"
             >
-              <svg
-                aria-hidden="true"
-                class="lucide lucide-image w-5 h-5 text-primary"
-                fill="none"
-                height="24"
-                stroke="currentColor"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                viewBox="0 0 24 24"
-                width="24"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <rect
-                  height="18"
-                  rx="2"
-                  ry="2"
-                  width="18"
-                  x="3"
-                  y="3"
-                />
-                <circle
-                  cx="9"
-                  cy="9"
-                  r="2"
-                />
-                <path
-                  d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"
-                />
-              </svg>
+              <span
+                role="img"
+              />
               <span
                 class="inline-flex items-center justify-center rounded-md border px-2 py-0.5 text-xs font-medium w-fit whitespace-nowrap shrink-0 [&>svg]:size-3 gap-1 [&>svg]:pointer-events-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive transition-[color,box-shadow] overflow-hidden border-transparent bg-secondary text-secondary-foreground [a&]:hover:bg-secondary/90"
                 data-slot="badge"
@@ -116,18 +70,20 @@ exports[`SpriteCatalog Component > matches snapshot for loaded state with mock d
               </div>
               <div>
                 <div
-                  class="flex flex-col justify-center items-center"
+                  class="flex flex-col justify-center items-center p-1"
                 >
                   <div
-                    class="text-xs"
+                    class="text-sm font-mono"
                   >
                     map-icons
                   </div>
-                  <br />
                   <div
-                    class="text-sm"
+                    class="text-xs pt-3 flex flex-row text-slate-400 p-0.5"
                   >
-                    Click to copy
+                    <span
+                      role="img"
+                    />
+                     Click to copy
                   </div>
                 </div>
               </div>
@@ -213,57 +169,18 @@ exports[`SpriteCatalog Component > matches snapshot for loaded state with mock d
               class="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-all cursor-pointer disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 [&_svg]:shrink-0 outline-hidden focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive h-8 rounded-md gap-1.5 px-3 has-[>svg]:px-2.5 border shadow-2xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50 flex-1 bg-transparent w-full"
               data-slot="button"
             >
-              <svg
-                aria-hidden="true"
-                class="lucide lucide-download w-4 h-4 mr-2"
-                fill="none"
-                height="24"
-                stroke="currentColor"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                viewBox="0 0 24 24"
-                width="24"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  d="M12 15V3"
-                />
-                <path
-                  d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"
-                />
-                <path
-                  d="m7 10 5 5 5-5"
-                />
-              </svg>
+              <span
+                role="img"
+              />
               Download
             </button>
             <button
               class="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-all cursor-pointer disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 [&_svg]:shrink-0 outline-hidden focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive h-8 rounded-md gap-1.5 px-3 has-[>svg]:px-2.5 shadow-2xs flex-1 bg-primary hover:bg-purple-700 text-primary-foreground w-full"
               data-slot="button"
             >
-              <svg
-                aria-hidden="true"
-                class="lucide lucide-eye w-4 h-4 mr-2"
-                fill="none"
-                height="24"
-                stroke="currentColor"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                viewBox="0 0 24 24"
-                width="24"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"
-                />
-                <circle
-                  cx="12"
-                  cy="12"
-                  r="3"
-                />
-              </svg>
+              <span
+                role="img"
+              />
               Preview
             </button>
           </div>
@@ -281,36 +198,9 @@ exports[`SpriteCatalog Component > matches snapshot for loaded state with mock d
             <div
               class="flex items-center space-x-2"
             >
-              <svg
-                aria-hidden="true"
-                class="lucide lucide-image w-5 h-5 text-primary"
-                fill="none"
-                height="24"
-                stroke="currentColor"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                viewBox="0 0 24 24"
-                width="24"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <rect
-                  height="18"
-                  rx="2"
-                  ry="2"
-                  width="18"
-                  x="3"
-                  y="3"
-                />
-                <circle
-                  cx="9"
-                  cy="9"
-                  r="2"
-                />
-                <path
-                  d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"
-                />
-              </svg>
+              <span
+                role="img"
+              />
               <span
                 class="inline-flex items-center justify-center rounded-md border px-2 py-0.5 text-xs font-medium w-fit whitespace-nowrap shrink-0 [&>svg]:size-3 gap-1 [&>svg]:pointer-events-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive transition-[color,box-shadow] overflow-hidden border-transparent bg-secondary text-secondary-foreground [a&]:hover:bg-secondary/90"
                 data-slot="badge"
@@ -330,18 +220,20 @@ exports[`SpriteCatalog Component > matches snapshot for loaded state with mock d
               </div>
               <div>
                 <div
-                  class="flex flex-col justify-center items-center"
+                  class="flex flex-col justify-center items-center p-1"
                 >
                   <div
-                    class="text-xs"
+                    class="text-sm font-mono"
                   >
                     transportation
                   </div>
-                  <br />
                   <div
-                    class="text-sm"
+                    class="text-xs pt-3 flex flex-row text-slate-400 p-0.5"
                   >
-                    Click to copy
+                    <span
+                      role="img"
+                    />
+                     Click to copy
                   </div>
                 </div>
               </div>
@@ -439,57 +331,18 @@ exports[`SpriteCatalog Component > matches snapshot for loaded state with mock d
               class="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-all cursor-pointer disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 [&_svg]:shrink-0 outline-hidden focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive h-8 rounded-md gap-1.5 px-3 has-[>svg]:px-2.5 border shadow-2xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50 flex-1 bg-transparent w-full"
               data-slot="button"
             >
-              <svg
-                aria-hidden="true"
-                class="lucide lucide-download w-4 h-4 mr-2"
-                fill="none"
-                height="24"
-                stroke="currentColor"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                viewBox="0 0 24 24"
-                width="24"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  d="M12 15V3"
-                />
-                <path
-                  d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"
-                />
-                <path
-                  d="m7 10 5 5 5-5"
-                />
-              </svg>
+              <span
+                role="img"
+              />
               Download
             </button>
             <button
               class="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-all cursor-pointer disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 [&_svg]:shrink-0 outline-hidden focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive h-8 rounded-md gap-1.5 px-3 has-[>svg]:px-2.5 shadow-2xs flex-1 bg-primary hover:bg-purple-700 text-primary-foreground w-full"
               data-slot="button"
             >
-              <svg
-                aria-hidden="true"
-                class="lucide lucide-eye w-4 h-4 mr-2"
-                fill="none"
-                height="24"
-                stroke="currentColor"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                viewBox="0 0 24 24"
-                width="24"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"
-                />
-                <circle
-                  cx="12"
-                  cy="12"
-                  r="3"
-                />
-              </svg>
+              <span
+                role="img"
+              />
               Preview
             </button>
           </div>
@@ -507,36 +360,9 @@ exports[`SpriteCatalog Component > matches snapshot for loaded state with mock d
             <div
               class="flex items-center space-x-2"
             >
-              <svg
-                aria-hidden="true"
-                class="lucide lucide-image w-5 h-5 text-primary"
-                fill="none"
-                height="24"
-                stroke="currentColor"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                viewBox="0 0 24 24"
-                width="24"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <rect
-                  height="18"
-                  rx="2"
-                  ry="2"
-                  width="18"
-                  x="3"
-                  y="3"
-                />
-                <circle
-                  cx="9"
-                  cy="9"
-                  r="2"
-                />
-                <path
-                  d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"
-                />
-              </svg>
+              <span
+                role="img"
+              />
               <span
                 class="inline-flex items-center justify-center rounded-md border px-2 py-0.5 text-xs font-medium w-fit whitespace-nowrap shrink-0 [&>svg]:size-3 gap-1 [&>svg]:pointer-events-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive transition-[color,box-shadow] overflow-hidden border-transparent bg-secondary text-secondary-foreground [a&]:hover:bg-secondary/90"
                 data-slot="badge"
@@ -556,18 +382,20 @@ exports[`SpriteCatalog Component > matches snapshot for loaded state with mock d
               </div>
               <div>
                 <div
-                  class="flex flex-col justify-center items-center"
+                  class="flex flex-col justify-center items-center p-1"
                 >
                   <div
-                    class="text-xs"
+                    class="text-sm font-mono"
                   >
                     ui-elements
                   </div>
-                  <br />
                   <div
-                    class="text-sm"
+                    class="text-xs pt-3 flex flex-row text-slate-400 p-0.5"
                   >
-                    Click to copy
+                    <span
+                      role="img"
+                    />
+                     Click to copy
                   </div>
                 </div>
               </div>
@@ -671,57 +499,18 @@ exports[`SpriteCatalog Component > matches snapshot for loaded state with mock d
               class="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-all cursor-pointer disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 [&_svg]:shrink-0 outline-hidden focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive h-8 rounded-md gap-1.5 px-3 has-[>svg]:px-2.5 border shadow-2xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50 flex-1 bg-transparent w-full"
               data-slot="button"
             >
-              <svg
-                aria-hidden="true"
-                class="lucide lucide-download w-4 h-4 mr-2"
-                fill="none"
-                height="24"
-                stroke="currentColor"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                viewBox="0 0 24 24"
-                width="24"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  d="M12 15V3"
-                />
-                <path
-                  d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"
-                />
-                <path
-                  d="m7 10 5 5 5-5"
-                />
-              </svg>
+              <span
+                role="img"
+              />
               Download
             </button>
             <button
               class="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-all cursor-pointer disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 [&_svg]:shrink-0 outline-hidden focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive h-8 rounded-md gap-1.5 px-3 has-[>svg]:px-2.5 shadow-2xs flex-1 bg-primary hover:bg-purple-700 text-primary-foreground w-full"
               data-slot="button"
             >
-              <svg
-                aria-hidden="true"
-                class="lucide lucide-eye w-4 h-4 mr-2"
-                fill="none"
-                height="24"
-                stroke="currentColor"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                viewBox="0 0 24 24"
-                width="24"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"
-                />
-                <circle
-                  cx="12"
-                  cy="12"
-                  r="3"
-                />
-              </svg>
+              <span
+                role="img"
+              />
               Preview
             </button>
           </div>
