@@ -30,10 +30,13 @@ export async function copyToClipboard(text: string): Promise<void> {
   const textarea = document.createElement('textarea');
   textarea.value = text;
   textarea.style.position = 'fixed';
-  textarea.style.opacity = '0';
+  textarea.style.left = '-9999px';
+  textarea.style.top = '-9999px';
   textarea.style.pointerEvents = 'none';
+  textarea.setAttribute('aria-hidden', 'true');
   document.body.appendChild(textarea);
-  textarea.select();
+  textarea.focus();
+  textarea.setSelectionRange(0, text.length);
   try {
     const success = document.execCommand('copy');
     if (!success) {
