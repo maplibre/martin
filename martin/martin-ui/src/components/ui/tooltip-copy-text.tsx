@@ -2,19 +2,12 @@ import { Copy } from 'lucide-react';
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 import { Tooltip, TooltipContent, TooltipTrigger } from './tooltip';
 
-/**
- * Props for TooltipCopyText
- * @param text The string to copy to clipboard (required)
- * @param ...props Any other TooltipContent props
- */
 export interface TooltipCopyTextProps {
   text: string;
 }
 
 export function TooltipCopyText({ text, ...props }: TooltipCopyTextProps) {
-  const { copy } = useCopyToClipboard({
-    successMessage: `"${text}"`,
-  });
+  const { copy } = useCopyToClipboard({ successMessage: `"${text}"` });
 
   return (
     <Tooltip>

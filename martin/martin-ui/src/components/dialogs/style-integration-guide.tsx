@@ -22,10 +22,7 @@ interface StyleIntegrationGuideDialogProps {
 }
 
 const CodeBlock = ({ code }: { code: string }) => {
-  const { copy, copiedText } = useCopyToClipboard({
-    showErrorToast: false,
-    showSuccessToast: false,
-  });
+  const { copy, copiedText } = useCopyToClipboard();
 
   return (
     <div className="relative">

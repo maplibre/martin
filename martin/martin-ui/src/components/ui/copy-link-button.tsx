@@ -3,17 +3,6 @@ import type * as React from 'react';
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 import { Button } from './button';
 
-/**
- * Props for CopyLinkButton
- * @param link The string to copy to clipboard (required)
- * @param children Optional label or content for the button (defaults to "Copy Link")
- * @param className Optional additional class names for the button
- * @param toastMessage Optional custom toast message (defaults to "Link copied!")
- * @param size Button size (defaults to "sm")
- * @param variant Button variant (defaults to "outline")
- * @param iconPosition "left" or "right" (defaults to "left")
- * @param ...props Any other Button props
- */
 export interface CopyLinkButtonProps extends React.ComponentProps<typeof Button> {
   link: string;
   children?: React.ReactNode;
@@ -34,22 +23,16 @@ export function CopyLinkButton({
   iconPosition = 'left',
   ...props
 }: CopyLinkButtonProps) {
-  const { copy, copied } = useCopyToClipboard({
-    errorMessage: 'Failed to copy link',
-    resetDelay: 3000,
-    successMessage: toastMessage,
-  });
-
-  const handleCopy = (e: React.MouseEvent<HTMLButtonElement>) => {
-    e.preventDefault();
-    copy(link);
-  };
+  const { copy, copied } = useCopyToClipboard({ successMessage: toastMessage });
 
   return (
     <Button
       aria-label="Copy link"
       className={className}
-      onClick={handleCopy}
+      onClick={(e) => {
+        e.preventDefault();
+        copy(link);
+      }}
       size={size}
       type="button"
       variant={variant}

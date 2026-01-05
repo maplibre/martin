@@ -26,9 +26,7 @@ interface SpriteFormat {
 }
 
 export function SpriteDownloadDialog({ name, sprite, onCloseAction }: SpriteDownloadDialogProps) {
-  const { copy, copiedText } = useCopyToClipboard({
-    errorMessage: 'Failed to copy URL to clipboard',
-  });
+  const { copy, copiedText } = useCopyToClipboard();
   if (!sprite) return null;
 
   // Generate sprite format URLs
@@ -67,10 +65,6 @@ export function SpriteDownloadDialog({ name, sprite, onCloseAction }: SpriteDown
       url: buildMartinUrl(`/sdf_sprite/${name}@2x.png`),
     },
   ];
-
-  const handleCopyUrl = (url: string, label: string) => {
-    copy(url, `URL of ${label} copied to clipboard`);
-  };
 
   return (
     <Dialog onOpenChange={(v: boolean) => !v && onCloseAction()} open={true}>
@@ -160,7 +154,7 @@ export function SpriteDownloadDialog({ name, sprite, onCloseAction }: SpriteDown
                     </div>
                     <Button
                       className="ml-4"
-                      onClick={() => handleCopyUrl(format.url, format.label)}
+                      onClick={() => copy(format.url, `URL of ${format.label} copied`)}
                       size="sm"
                       variant="outline"
                     >
@@ -201,7 +195,7 @@ export function SpriteDownloadDialog({ name, sprite, onCloseAction }: SpriteDown
                     </div>
                     <Button
                       className="ml-4"
-                      onClick={() => handleCopyUrl(format.url, format.label)}
+                      onClick={() => copy(format.url, `URL of ${format.label} copied`)}
                       size="sm"
                       variant="outline"
                     >
