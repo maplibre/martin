@@ -46,9 +46,7 @@ describe('useCopyToClipboard', () => {
   });
 
   it('should use custom success message', async () => {
-    const { result } = renderHook(() =>
-      useCopyToClipboard({ successMessage: 'URL copied!' }),
-    );
+    const { result } = renderHook(() => useCopyToClipboard({ successMessage: 'URL copied!' }));
 
     await act(async () => {
       await result.current.copy('http://example.com');
@@ -96,8 +94,8 @@ describe('useCopyToClipboard', () => {
   it('should not show toasts when disabled', async () => {
     const { result } = renderHook(() =>
       useCopyToClipboard({
-        showSuccessToast: false,
         showErrorToast: false,
+        showSuccessToast: false,
       }),
     );
 

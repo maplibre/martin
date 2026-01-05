@@ -1,5 +1,5 @@
 import { Clipboard } from 'lucide-react';
-import * as React from 'react';
+import type * as React from 'react';
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 import { Button } from './button';
 
@@ -35,9 +35,9 @@ export function CopyLinkButton({
   ...props
 }: CopyLinkButtonProps) {
   const { copy, copied } = useCopyToClipboard({
-    successMessage: toastMessage,
     errorMessage: 'Failed to copy link',
     resetDelay: 3000,
+    successMessage: toastMessage,
   });
 
   const handleCopy = (e: React.MouseEvent<HTMLButtonElement>) => {

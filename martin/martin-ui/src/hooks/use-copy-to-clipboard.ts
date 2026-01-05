@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { copyToClipboard } from '@/lib/utils';
 
@@ -77,6 +77,15 @@ export function useCopyToClipboard(
     }
     setCopied(false);
     setCopiedText(null);
+  }, []);
+
+  // Cleanup timeout on unmount to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
   }, []);
 
   const copy = useCallback(

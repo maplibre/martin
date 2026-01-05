@@ -1,7 +1,6 @@
 'use client';
 
 import { Code, Copy, ExternalLink } from 'lucide-react';
-import { useId } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -22,10 +21,10 @@ interface StyleIntegrationGuideDialogProps {
   onCloseAction: () => void;
 }
 
-const CodeBlock = ({ code, id }: { code: string; id: string }) => {
+const CodeBlock = ({ code }: { code: string }) => {
   const { copy, copiedText } = useCopyToClipboard({
-    showSuccessToast: false,
     showErrorToast: false,
+    showSuccessToast: false,
   });
 
   return (
@@ -148,7 +147,6 @@ function MyMap() {
     />
   );
 }`;
-  const id = useId();
 
   return (
     <Dialog onOpenChange={(v) => !v && onCloseAction()} open={true}>
@@ -222,7 +220,7 @@ function MyMap() {
                       </a>
                     </Button>
                   </h4>
-                  <CodeBlock code={webJsCode} id={`web-js-${id}`} />
+                  <CodeBlock code={webJsCode} />
                 </div>
 
                 <div>
@@ -238,7 +236,7 @@ function MyMap() {
                       </a>
                     </Button>
                   </h4>
-                  <CodeBlock code={webNpmCode} id={`web-npm-${id}`} />
+                  <CodeBlock code={webNpmCode} />
                 </div>
 
                 <div>
@@ -254,7 +252,7 @@ function MyMap() {
                       </a>
                     </Button>
                   </h4>
-                  <CodeBlock code={reactCode} id={`react-${id}`} />
+                  <CodeBlock code={reactCode} />
                 </div>
               </div>
             </TabsContent>
@@ -274,7 +272,7 @@ function MyMap() {
                       </a>
                     </Button>
                   </h4>
-                  <CodeBlock code={androidCode} id={`android-${id}`} />
+                  <CodeBlock code={androidCode} />
                 </div>
 
                 <div>
@@ -290,7 +288,7 @@ function MyMap() {
                       </a>
                     </Button>
                   </h4>
-                  <CodeBlock code={iosCode} id={`ios-${id}`} />
+                  <CodeBlock code={iosCode} />
                 </div>
 
                 <div>
@@ -306,7 +304,7 @@ function MyMap() {
                       </a>
                     </Button>
                   </h4>
-                  <CodeBlock code={reactNativeCode} id={`react-native-${id}`} />
+                  <CodeBlock code={reactNativeCode} />
                 </div>
               </div>
             </TabsContent>

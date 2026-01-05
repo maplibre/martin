@@ -14,8 +14,8 @@ type SpriteCanvasProps = {
 const SpriteCanvas = ({ meta, image, label, previewMode = false }: SpriteCanvasProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const { copy } = useCopyToClipboard({
-    successMessage: `Sprite ID "${label}" copied to clipboard`,
     errorMessage: 'Failed to copy sprite ID to clipboard',
+    successMessage: `Sprite ID "${label}" copied to clipboard`,
   });
 
   const handleClick = () => copy(label);
