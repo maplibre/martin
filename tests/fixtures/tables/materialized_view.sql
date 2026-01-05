@@ -4,13 +4,13 @@ CREATE TABLE mat_view_src (
 );
 
 INSERT INTO mat_view_src (txt) VALUES
-    ('POINT(-122.4194 37.7749)'),
-    ('POINT(-73.935242 40.730610)');
+('POINT(-122.4194 37.7749)'),
+('POINT(-73.935242 40.730610)');
 
 CREATE MATERIALIZED VIEW mat_view AS
 SELECT
     id,
-    ST_GEOMFROMTEXT(txt, 4326) geom
+    ST_GEOMFROMTEXT(txt, 4326) AS geom
 FROM mat_view_src;
 
 DO $do$ BEGIN
