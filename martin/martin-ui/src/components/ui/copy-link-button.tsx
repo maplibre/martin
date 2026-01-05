@@ -1,4 +1,4 @@
-import { Clipboard } from 'lucide-react';
+import { Clipboard, ClipboardCheck } from 'lucide-react';
 import type * as React from 'react';
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 import { Button } from './button';
@@ -25,6 +25,9 @@ export function CopyLinkButton({
 }: CopyLinkButtonProps) {
   const { copy, copied } = useCopyToClipboard({ successMessage: toastMessage });
 
+  const Icon = copied ? ClipboardCheck : Clipboard;
+  const iconClass = copied ? 'text-green-600' : '';
+
   return (
     <Button
       aria-label="Copy link"
@@ -39,11 +42,19 @@ export function CopyLinkButton({
       {...props}
     >
       {iconPosition === 'left' && (
-        <Clipboard aria-hidden="true" className="w-4 h-4 mr-2" data-testid="clipboard-icon" />
+        <Icon
+          aria-hidden="true"
+          className={`w-4 h-4 mr-2 ${iconClass}`}
+          data-testid="clipboard-icon"
+        />
       )}
       {children ?? (copied ? 'Copied!' : 'Copy Link')}
       {iconPosition === 'right' && (
-        <Clipboard aria-hidden="true" className="w-4 h-4 ml-2" data-testid="clipboard-icon" />
+        <Icon
+          aria-hidden="true"
+          className={`w-4 h-4 ml-2 ${iconClass}`}
+          data-testid="clipboard-icon"
+        />
       )}
     </Button>
   );

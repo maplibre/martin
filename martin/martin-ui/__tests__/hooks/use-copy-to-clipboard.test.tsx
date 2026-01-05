@@ -23,7 +23,6 @@ describe('useCopyToClipboard', () => {
     const { result } = renderHook(() => useCopyToClipboard());
 
     expect(result.current.copied).toBe(false);
-    expect(result.current.copiedText).toBeNull();
 
     let success: boolean | undefined;
     await act(async () => {
@@ -32,7 +31,6 @@ describe('useCopyToClipboard', () => {
 
     expect(success).toBe(true);
     expect(result.current.copied).toBe(true);
-    expect(result.current.copiedText).toBe('test text');
     expect(mockCopyToClipboard).toHaveBeenCalledWith('test text');
     expect(mockToast).toHaveBeenCalledWith({
       description: 'Copied!',
@@ -65,7 +63,6 @@ describe('useCopyToClipboard', () => {
 
     expect(success).toBe(false);
     expect(result.current.copied).toBe(false);
-    expect(result.current.copiedText).toBeNull();
     expect(mockToast).toHaveBeenCalledWith({
       description: 'Failed to copy to clipboard',
       title: 'Error',

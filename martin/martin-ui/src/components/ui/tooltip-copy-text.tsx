@@ -1,4 +1,4 @@
-import { Copy } from 'lucide-react';
+import { Copy, CopyCheck } from 'lucide-react';
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 import { Tooltip, TooltipContent, TooltipTrigger } from './tooltip';
 
@@ -7,7 +7,7 @@ export interface TooltipCopyTextProps {
 }
 
 export function TooltipCopyText({ text, ...props }: TooltipCopyTextProps) {
-  const { copy } = useCopyToClipboard({ successMessage: `"${text}"` });
+  const { copy, copied } = useCopyToClipboard({ successMessage: `"${text}"` });
 
   return (
     <Tooltip>
@@ -22,7 +22,15 @@ export function TooltipCopyText({ text, ...props }: TooltipCopyTextProps) {
         <div className="flex flex-col justify-center items-center p-1">
           <div className="text-sm font-mono">{text}</div>
           <div className="text-xs pt-3 flex flex-row text-slate-400 p-0.5">
-            <Copy className="h-3 w-3 mr-2" /> Click to copy
+            {copied ? (
+              <>
+                <CopyCheck className="h-3 w-3 mr-2 text-green-600" /> Copied!
+              </>
+            ) : (
+              <>
+                <Copy className="h-3 w-3 mr-2" /> Click to copy
+              </>
+            )}
           </div>
         </div>
       </TooltipContent>

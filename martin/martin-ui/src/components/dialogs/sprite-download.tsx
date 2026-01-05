@@ -26,7 +26,7 @@ interface SpriteFormat {
 }
 
 export function SpriteDownloadDialog({ name, sprite, onCloseAction }: SpriteDownloadDialogProps) {
-  const { copy, copiedText } = useCopyToClipboard();
+  const { copy, copied } = useCopyToClipboard();
   if (!sprite) return null;
 
   // Generate sprite format URLs
@@ -158,7 +158,7 @@ export function SpriteDownloadDialog({ name, sprite, onCloseAction }: SpriteDown
                       size="sm"
                       variant="outline"
                     >
-                      {copiedText === format.url ? (
+                      {copied ? (
                         <>
                           <CopyCheck className="h-4 w-4 mr-2 text-green-600" />
                           Copied
@@ -199,7 +199,7 @@ export function SpriteDownloadDialog({ name, sprite, onCloseAction }: SpriteDown
                       size="sm"
                       variant="outline"
                     >
-                      {copiedText === format.url ? (
+                      {copied ? (
                         <>
                           <CopyCheck className="h-4 w-4 mr-2 text-green-600" />
                           Copied

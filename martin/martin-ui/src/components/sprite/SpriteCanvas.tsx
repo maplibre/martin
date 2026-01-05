@@ -1,4 +1,4 @@
-import { Copy } from 'lucide-react';
+import { Copy, CopyCheck } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
@@ -13,7 +13,7 @@ type SpriteCanvasProps = {
 
 const SpriteCanvas = ({ meta, image, label, previewMode = false }: SpriteCanvasProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const { copy } = useCopyToClipboard({
+  const { copy, copied } = useCopyToClipboard({
     successMessage: `Sprite ID "${label}" copied to clipboard`,
   });
 
@@ -56,7 +56,15 @@ const SpriteCanvas = ({ meta, image, label, previewMode = false }: SpriteCanvasP
                 </code>
                 <br />
                 <div className="pt-4 text-sm flex flex-row justify-center p-0.5">
-                  <Copy className="h-3 w-3 mr-2" /> Click to copy
+                  {copied ? (
+                    <>
+                      <CopyCheck className="h-3 w-3 mr-2 text-green-600" /> Copied!
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="h-3 w-3 mr-2" /> Click to copy
+                    </>
+                  )}
                 </div>
               </p>
             </TooltipContent>
@@ -96,7 +104,15 @@ const SpriteCanvas = ({ meta, image, label, previewMode = false }: SpriteCanvasP
       </TooltipTrigger>
       <TooltipContent>
         <div className="text-xs flex flex-row p-0.5">
-          <Copy className="h-3 w-3 mr-2" /> Click to copy
+          {copied ? (
+            <>
+              <CopyCheck className="h-3 w-3 mr-2 text-green-600" /> Copied!
+            </>
+          ) : (
+            <>
+              <Copy className="h-3 w-3 mr-2" /> Click to copy
+            </>
+          )}
         </div>
       </TooltipContent>
     </Tooltip>

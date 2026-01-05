@@ -1,6 +1,6 @@
 'use client';
 
-import { Code, Copy, ExternalLink } from 'lucide-react';
+import { Code, Copy, CopyCheck, ExternalLink } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -22,7 +22,7 @@ interface StyleIntegrationGuideDialogProps {
 }
 
 const CodeBlock = ({ code }: { code: string }) => {
-  const { copy, copiedText } = useCopyToClipboard();
+  const { copy, copied } = useCopyToClipboard();
 
   return (
     <div className="relative">
@@ -33,8 +33,17 @@ const CodeBlock = ({ code }: { code: string }) => {
           size="sm"
           variant="ghost"
         >
-          <Copy className="w-3 h-3 mr-1" />
-          {copiedText === code ? 'Copied!' : 'Copy'}
+          {copied ? (
+            <>
+              <CopyCheck className="w-3 h-3 mr-1 text-green-600" />
+              Copied!
+            </>
+          ) : (
+            <>
+              <Copy className="w-3 h-3 mr-1" />
+              Copy
+            </>
+          )}
         </Button>
         <code>{code}</code>
       </pre>
