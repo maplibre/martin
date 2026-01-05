@@ -1,18 +1,22 @@
-CREATE TABLE fixtures_comments (
+CREATE TABLE mat_view_src (
     id serial PRIMARY KEY,
-    txt text,
-    geom GEOMETRY (POINT, 4326)
+    txt text
 );
 
-INSERT INTO fixtures_comments (txt, geom) VALUES
-('a', ST_GEOMFROMTEXT('POINT(-122.4194 37.7749)', 4326)),
-('b', ST_GEOMFROMTEXT('POINT(-73.935242 40.730610)', 4326));
+INSERT INTO mat_view_src (txt) VALUES
+    ('POINT(-122.4194 37.7749)'),
+    ('POINT(-73.935242 40.730610)');
 
-CREATE MATERIALIZED VIEW fixtures_mv_comments AS
+CREATE MATERIALIZED VIEW mat_view AS
 SELECT
     id,
-    txt,
-    geom
-FROM fixtures_comments;
+    ST_GEOMFROMTEXT(txt, 4326) geom
+FROM mat_view_src;
 
-COMMENT ON MATERIALIZED VIEW fixtures_mv_comments IS 'fixture: materialized view comments';
+DO $do$ BEGIN
+    EXECUTE 'COMMENT ON MATERIALIZED VIEW mat_view IS $tj$' || $$
+    {
+      "description": "materialized view comment"
+    }
+    $$::json || '$tj$';
+END $do$;

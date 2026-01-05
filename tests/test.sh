@@ -434,8 +434,8 @@ test_jsn tbl_comment              MixPoints
 test_jsn fnc_comment              function_Mixed_Name
 
 >&2 echo "***** Test server response for materialized view *****"
-test_jsn mv_comment               fixtures_mv_comments
-test_pbf mv_comment_0_0_0         fixtures_mv_comments/0/0/0
+test_jsn mv_comment               mat_view
+test_pbf mv_comment_0_0_0         mat_view/0/0/0
 
 >&2 echo "***** Test server response for the same name in different schemas *****"
 test_jsn same_name_different_schema_table1       table_name_existing_two_schemas
@@ -455,8 +455,7 @@ kill_process "$MARTIN_PROC_ID" Martin
 
 test_log_has_str "$LOG_FILE" 'WARN  martin::config::file::tiles::postgres::resolver::query_tables] Table public.table_source has no spatial index on column geom'
 test_log_has_str "$LOG_FILE" 'WARN  martin::config::file::tiles::postgres::resolver::query_tables] Table public.table_source_geog has no spatial index on column geog'
-test_log_has_str "$LOG_FILE" 'WARN  martin::config::file::tiles::postgres::resolver::query_tables] Table public.fixtures_comments has no spatial index on column geom'
-test_log_has_str "$LOG_FILE" 'WARN  martin::config::file::tiles::postgres::resolver::query_tables] Table public.fixtures_mv_comments has no spatial index on column geom'
+test_log_has_str "$LOG_FILE" 'WARN  martin::config::file::tiles::postgres::resolver::query_tables] Table public.mat_view has no spatial index on column geom'
 test_log_has_str "$LOG_FILE" 'WARN  martin_core::resources::fonts] Ignoring duplicate font Overpass Mono Regular from tests'
 test_log_has_str "$LOG_FILE" 'was renamed to `stamen_toner__raster_CC-BY-ODbL_z3`'
 test_log_has_str "$LOG_FILE" 'was renamed to `table_source_multiple_geom.1`'
@@ -571,8 +570,7 @@ test_metrics "metrics_1"
 kill_process "$MARTIN_PROC_ID" Martin
 test_log_has_str "$LOG_FILE" 'WARN  martin::config::file::tiles::postgres::resolver::query_tables] Table public.table_source has no spatial index on column geom'
 test_log_has_str "$LOG_FILE" 'WARN  martin::config::file::tiles::postgres::resolver::query_tables] Table public.table_source_geog has no spatial index on column geog'
-test_log_has_str "$LOG_FILE" 'WARN  martin::config::file::tiles::postgres::resolver::query_tables] Table public.fixtures_comments has no spatial index on column geom'
-test_log_has_str "$LOG_FILE" 'WARN  martin::config::file::tiles::postgres::resolver::query_tables] Table public.fixtures_mv_comments has no spatial index on column geom'
+test_log_has_str "$LOG_FILE" 'WARN  martin::config::file::tiles::postgres::resolver::query_tables] Table public.mat_view has no spatial index on column geom'
 test_log_has_str "$LOG_FILE" 'WARN  martin_core::resources::fonts] Ignoring duplicate font Overpass Mono Regular from tests'
 test_log_has_str "$LOG_FILE" "WARN  martin::config::file::main] Ignoring unrecognized configuration key 'warning'. Please check your configuration file for typos."
 test_log_has_str "$LOG_FILE" "WARN  martin::config::file::main] Ignoring unrecognized configuration key 'observability.warning'. Please check your configuration file for typos."
