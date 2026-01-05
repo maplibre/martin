@@ -64,6 +64,14 @@ impl PmtCacheInstance {
         log::info!("Invalidated PMTiles directory cache for id={}", self.id);
     }
 
+    /// Syncs pending operations to make cache statistics consistent.
+    ///
+    /// This forces the cache to apply pending operations immediately,
+    /// ensuring that `entry_count()` and `weighted_size()` return accurate values.
+    pub async fn sync(&self) {
+        self.cache.0.run_pending_tasks().await;
+    }
+
     /// Returns the number of cached entries.
     #[must_use]
     pub fn entry_count(&self) -> u64 {

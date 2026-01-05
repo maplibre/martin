@@ -1,3 +1,4 @@
+import { Copy } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useToast } from '@/hooks/use-toast';
@@ -63,11 +64,13 @@ const SpriteCanvas = ({ meta, image, label, previewMode = false }: SpriteCanvasP
             <TooltipContent>
               <p>
                 Sprite:{' '}
-                <code className="bg-purple-200 font-semibold font-monospace text-purple-950 p-1 rounded-xs">
+                <code className="bg-purple-200 font-semibold font-monospace text-purple-950 p-1 m-1 rounded-xs">
                   {label}
                 </code>
                 <br />
-                <span className="text-xs text-gray-500">Click to copy</span>
+                <div className="pt-4 text-sm flex flex-row justify-center p-0.5">
+                  <Copy className="h-3 w-3 mr-1" /> Click to copy
+                </div>
               </p>
             </TooltipContent>
           </Tooltip>
@@ -105,7 +108,9 @@ const SpriteCanvas = ({ meta, image, label, previewMode = false }: SpriteCanvasP
         </button>
       </TooltipTrigger>
       <TooltipContent>
-        <span className="text-xs">Click to copy</span>
+        <div className="text-xs flex flex-row p-0.5">
+          <Copy className="h-3 w-3 mr-1" /> Click to copy
+        </div>
       </TooltipContent>
     </Tooltip>
   );

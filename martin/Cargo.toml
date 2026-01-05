@@ -1,6 +1,6 @@
 [package]
 name = "martin"
-version = "1.1.0"
+version = "1.2.0"
 authors = [
     "Stepan Kuzmin <to.stepan.kuzmin@gmail.com>",
     "Yuri Astrakhan <YuriAstrakhan@gmail.com>",
@@ -167,7 +167,6 @@ criterion.workspace = true
 ctor.workspace = true
 indoc.workspace = true
 insta = { workspace = true, features = ["json", "yaml", "redactions"] }
-pprof.workspace = true
 rstest.workspace = true
 tempfile.workspace = true
 testcontainers-modules.workspace = true

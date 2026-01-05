@@ -153,6 +153,7 @@ postgres:
 #[actix_rt::test]
 async fn pg_get_table_source_ok() {
     let app = create_app! { "
+on_invalid: warn
 postgres:
   connection_string: $DATABASE_URL
   tables:

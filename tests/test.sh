@@ -93,13 +93,24 @@ function kill_process {
     timeout -k 1s 1s wait "$PROCESS_ID" || true;
 }
 
+cleanup_json_floats() {
+  # round numbers to $1 decimal places, with optional $2 jq cmd
+  jq --sort-keys --exit-status --argjson PREC "$1" \
+     "${2:-}"'walk( if type == "number" then (. * $PREC | round | . / $PREC) else . end )'
+}
+
+cleanup_json_ints() {
+  # jq before 1.6 had a different float->int behavior, so trying to make it consistent in all
+  jq --sort-keys --exit-status \
+     "${1:-}"'walk( if type == "number" then .+0.0 else . end )'
+}
+
 test_jsn() {
   FILENAME="$TEST_OUT_DIR/$1.json"
   URL="$MARTIN_URL/$2"
 
   echo "Testing $(basename "$FILENAME") from $URL"
-  # jq before 1.6 had a different float->int behavior, so trying to make it consistent in all
-  $CURL  --dump-header  "$FILENAME.headers" "$URL" | jq --sort-keys -e 'walk(if type == "number" then .+0.0 else . end)' > "$FILENAME"
+  $CURL  --dump-header  "$FILENAME.headers" "$URL" | cleanup_json_ints > "$FILENAME"
   clean_headers_dump "$FILENAME.headers"
 }
 
@@ -135,7 +146,7 @@ test_pbf() {
 
   # see https://gdal.org/en/stable/programs/ogrmerge.html#ogrmerge
   ogrmerge.py -o "$FILENAME.geojson" "$FILENAME" -single -src_layer_field_name "source_mvt_layer" -src_layer_field_content "{LAYER_NAME}" -f "GeoJSON" -overwrite_ds
-  jq --sort-keys '.features |= sort_by(.properties.source_mvt_layer, .properties.gid) | walk(if type == "number" then .+0.0 else . end)' "$FILENAME.geojson" > "$FILENAME.sorted.geojson"
+  cat "$FILENAME.geojson" | cleanup_json_ints '.features |= sort_by(.properties.source_mvt_layer, .properties.gid) |' > "$FILENAME.sorted.geojson"
   mv "$FILENAME.sorted.geojson" "$FILENAME.geojson"
 }
 
@@ -232,7 +243,7 @@ test_martin_cp() {
   remove_lines "$SAVE_CONFIG_FILE" " connection_string: "
   # These tend to vary between runs. In theory, vacuuming might make it the same.
   remove_lines "$SUMMARY_FILE" "File size: "
-  remove_lines "$SUMMARY_FILE" "Page count: "
+  remove_lines "$SUMMARY_FILE" "SQL page count: "
 }
 
 validate_log() {
@@ -244,6 +255,7 @@ validate_log() {
   remove_lines "$LOG_FILE" 'PostgreSQL 11.10.0 is older than the recommended minimum 12.0.0'
   remove_lines "$LOG_FILE" 'In the used version, some geometry may be hidden on some zoom levels.'
   remove_lines "$LOG_FILE" 'Unable to deserialize SQL comment on public.points2 as tilejson, the automatically generated tilejson would be used: expected value at line 1 column 1'
+  remove_lines "$LOG_FILE" 'Environment variable AWS_PROFILE not supported anymore. Supporting this is in scope, but would need more work.'
 
   echo "Checking for no other warnings or errors in the log"
   if grep -e ' ERROR ' -e ' WARN ' "$LOG_FILE"; then
@@ -421,6 +433,10 @@ test_pbf antimeridian_4_0_5 antimeridian/4/0/5
 test_jsn tbl_comment              MixPoints
 test_jsn fnc_comment              function_Mixed_Name
 
+>&2 echo "***** Test server response for materialized view *****"
+test_jsn mv_comment               mat_view
+test_pbf mv_comment_0_0_0         mat_view/0/0/0
+
 >&2 echo "***** Test server response for the same name in different schemas *****"
 test_jsn same_name_different_schema_table1       table_name_existing_two_schemas
 test_pbf same_name_different_schema_table1_0_0_0 table_name_existing_two_schemas/0/0/0
@@ -439,6 +455,7 @@ kill_process "$MARTIN_PROC_ID" Martin
 
 test_log_has_str "$LOG_FILE" 'WARN  martin::config::file::tiles::postgres::resolver::query_tables] Table public.table_source has no spatial index on column geom'
 test_log_has_str "$LOG_FILE" 'WARN  martin::config::file::tiles::postgres::resolver::query_tables] Table public.table_source_geog has no spatial index on column geog'
+test_log_has_str "$LOG_FILE" 'WARN  martin::config::file::tiles::postgres::resolver::query_tables] Table public.mat_view has no spatial index on column geom'
 test_log_has_str "$LOG_FILE" 'WARN  martin_core::resources::fonts] Ignoring duplicate font Overpass Mono Regular from tests'
 test_log_has_str "$LOG_FILE" 'was renamed to `stamen_toner__raster_CC-BY-ODbL_z3`'
 test_log_has_str "$LOG_FILE" 'was renamed to `table_source_multiple_geom.1`'
@@ -553,6 +570,7 @@ test_metrics "metrics_1"
 kill_process "$MARTIN_PROC_ID" Martin
 test_log_has_str "$LOG_FILE" 'WARN  martin::config::file::tiles::postgres::resolver::query_tables] Table public.table_source has no spatial index on column geom'
 test_log_has_str "$LOG_FILE" 'WARN  martin::config::file::tiles::postgres::resolver::query_tables] Table public.table_source_geog has no spatial index on column geog'
+test_log_has_str "$LOG_FILE" 'WARN  martin::config::file::tiles::postgres::resolver::query_tables] Table public.mat_view has no spatial index on column geom'
 test_log_has_str "$LOG_FILE" 'WARN  martin_core::resources::fonts] Ignoring duplicate font Overpass Mono Regular from tests'
 test_log_has_str "$LOG_FILE" "WARN  martin::config::file::main] Ignoring unrecognized configuration key 'warning'. Please check your configuration file for typos."
 test_log_has_str "$LOG_FILE" "WARN  martin::config::file::main] Ignoring unrecognized configuration key 'observability.warning'. Please check your configuration file for typos."
@@ -630,8 +648,7 @@ for file in $(find ./tests/ -name "*_config.yaml" -type f); do
 done
 for file in $(find ./tests/ -name "*.json" -type f); do
     echo "truncating floats in $file"
-    # Use jq to truncate floating point numbers to 10 decimal places
-    jq --sort-keys 'walk(if type == "number" then (. * 10000000000 | round | . / 10000000000) else . end)' "$file" > "$file.tmp"
+    cat "$file" | cleanup_json_floats 10000000000 > "$file.tmp"
 
     # update headers if content changed
     if ! cmp -s "$file" "$file.tmp"; then
@@ -654,6 +671,8 @@ if [[ "$MBTILES_BIN" != "-" ]]; then
   set -x
 
   $MBTILES_BIN summary ./tests/fixtures/mbtiles/world_cities.mbtiles 2>&1 | tee "$TEST_OUT_DIR/summary.txt"
+  $MBTILES_BIN summary --format json-pretty ./tests/fixtures/mbtiles/world_cities.mbtiles 2>&1 | cleanup_json_floats 1e6 'del(.file_size, .page_count) |' | tee "$TEST_OUT_DIR/summary.pretty.json"
+  $MBTILES_BIN summary --format json ./tests/fixtures/mbtiles/world_cities.mbtiles 2>&1 | cleanup_json_floats 1e6 'del(.file_size, .page_count) |' | tee "$TEST_OUT_DIR/summary.json"
   $MBTILES_BIN meta-all --help 2>&1 | tee "$TEST_OUT_DIR/meta-all_help.txt"
   $MBTILES_BIN meta-all ./tests/fixtures/mbtiles/world_cities.mbtiles 2>&1 | tee "$TEST_OUT_DIR/meta-all.txt"
   $MBTILES_BIN meta-get --help 2>&1 | tee "$TEST_OUT_DIR/meta-get_help.txt"

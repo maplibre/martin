@@ -28,6 +28,7 @@ pub struct ZoomInfo {
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct Summary {
+    pub file_path: String,
     pub file_size: Option<u64>,
     pub mbt_type: MbtType,
     pub page_size: u64,
@@ -44,23 +45,28 @@ pub struct Summary {
 
 impl Display for Summary {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "Schema: {}", self.mbt_type)?;
+        writeln!(f, "{:15} {}", "File path:", self.file_path)?;
+        writeln!(f, "{:15} {}", "Schema:", self.mbt_type)?;
 
         if let Some(file_size) = self.file_size {
             let file_size = SizeFormatterSI::new(file_size);
-            writeln!(f, "File size: {file_size:.2}B")?;
+            writeln!(f, "{:15} {file_size:.2}B", "File size:")?;
         } else {
-            writeln!(f, "File size: unknown")?;
+            writeln!(f, "{:15} unknown", "File size:")?;
         }
         let page_size = SizeFormatterSI::new(self.page_size);
-        writeln!(f, "Page size: {page_size:.2}B")?;
-        writeln!(f, "Page count: {:.2}", self.page_count)?;
+        writeln!(f, "{:15} {page_size:.2}B", "SQL page size:")?;
+        writeln!(f, "{:15} {:.2}", "SQL page count:", self.page_count)?;
         writeln!(f)?;
-        writeln!(
-            f,
-            " {:^4} | {:^9} | {:^9} | {:^9} | {:^9} | Bounding Box",
-            "Zoom", "Count", "Smallest", "Largest", "Average"
-        )?;
+        if self.zoom_info.is_empty() {
+            writeln!(f, "   There are no tiles in this mbtiles file")?;
+        } else {
+            writeln!(
+                f,
+                " {:^4} | {:^9} | {:^9} | {:^9} | {:^9} | Bounding Box",
+                "Zoom", "Count", "Smallest", "Largest", "Average"
+            )?;
+        }
 
         for l in &self.zoom_info {
             let min = SizeFormatterSI::new(l.min_tile_size);
@@ -179,6 +185,7 @@ impl Mbtiles {
             .sum::<f64>();
 
         Ok(Summary {
+            file_path: self.filepath().to_string(),
             file_size,
             mbt_type,
             page_size,
@@ -209,7 +216,8 @@ mod tests {
 
         init_mbtiles_schema(&mut conn, MbtType::Flat).await.unwrap();
         let res = mbt.summary(&mut conn).await.unwrap();
-        assert_yaml_snapshot!(res, @r"
+        assert_yaml_snapshot!(res, @r#"
+        file_path: ":memory:"
         file_size: ~
         mbt_type: Flat
         page_size: 512
@@ -222,7 +230,7 @@ mod tests {
         min_zoom: ~
         max_zoom: ~
         zoom_info: []
-        ");
+        "#);
     }
 
     #[actix_rt::test]
@@ -231,15 +239,16 @@ mod tests {
         let (mbt, mut conn) = anonymous_mbtiles(script).await;
         let res = mbt.summary(&mut conn).await.unwrap();
 
-        assert_yaml_snapshot!(res, @r"
+        assert_yaml_snapshot!(res, @r#"
+        file_path: ":memory:"
         file_size: ~
         mbt_type: Flat
         page_size: 4096
-        page_count: 11
-        tile_count: 196
-        min_tile_size: 64
+        page_count: 5
+        tile_count: 8
+        min_tile_size: 20
         max_tile_size: 1107
-        avg_tile_size: 96.2295918367347
+        avg_tile_size: 202.625
         bbox:
           - -180
           - -85.0511287798066
@@ -259,65 +268,65 @@ mod tests {
               - 180
               - 85.0511287798066
           - zoom: 1
-            tile_count: 4
-            min_tile_size: 160
-            max_tile_size: 650
-            avg_tile_size: 366.5
+            tile_count: 1
+            min_tile_size: 20
+            max_tile_size: 20
+            avg_tile_size: 20
             bbox:
               - -180
               - -85.0511287798066
-              - 180
-              - 85.0511287798066
+              - 0
+              - 0
           - zoom: 2
-            tile_count: 7
-            min_tile_size: 137
-            max_tile_size: 495
-            avg_tile_size: 239.57142857142858
+            tile_count: 2
+            min_tile_size: 151
+            max_tile_size: 263
+            avg_tile_size: 207
             bbox:
-              - -180
+              - 90.00000000000001
               - -66.51326044311186
               - 180.00000000000003
               - 66.51326044311186
           - zoom: 3
-            tile_count: 17
-            min_tile_size: 67
-            max_tile_size: 246
-            avg_tile_size: 134
+            tile_count: 1
+            min_tile_size: 20
+            max_tile_size: 20
+            avg_tile_size: 20
             bbox:
-              - -135
+              - 134.99999999999997
               - -40.97989806962013
               - 179.99999999999997
-              - 66.51326044311186
+              - 0
           - zoom: 4
-            tile_count: 38
-            min_tile_size: 64
-            max_tile_size: 175
-            avg_tile_size: 86
+            tile_count: 1
+            min_tile_size: 20
+            max_tile_size: 20
+            avg_tile_size: 20
             bbox:
-              - -135
-              - -40.97989806962014
-              - 180.00000000000003
-              - 66.51326044311186
+              - -22.500000000000014
+              - 0.000000000000012549319548339412
+              - -0.000000000000012549319548339412
+              - 21.943045533438188
           - zoom: 5
-            tile_count: 57
-            min_tile_size: 64
-            max_tile_size: 107
-            avg_tile_size: 72.7719298245614
+            tile_count: 1
+            min_tile_size: 20
+            max_tile_size: 20
+            avg_tile_size: 20
             bbox:
-              - -123.75000000000001
-              - -40.97989806962013
-              - 179.99999999999997
-              - 61.60639637138628
+              - 0
+              - 40.97989806962013
+              - 11.25
+              - 48.92249926375824
           - zoom: 6
-            tile_count: 72
-            min_tile_size: 64
-            max_tile_size: 97
-            avg_tile_size: 68.29166666666667
+            tile_count: 1
+            min_tile_size: 20
+            max_tile_size: 20
+            avg_tile_size: 20
             bbox:
-              - -123.75000000000001
-              - -40.97989806962015
-              - 180.00000000000003
-              - 61.60639637138628
-        ");
+              - 73.12500000000001
+              - 27.059125784374054
+              - 78.75000000000001
+              - 31.952162238024968
+        "#);
     }
 }

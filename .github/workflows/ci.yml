@@ -28,7 +28,7 @@ jobs:
         with: { persist-credentials: false }
       - uses: taiki-e/install-action@763e3324d4fd026c9bd284c504378585777a87d5 # v2.62.57
         with: { tool: 'just' }
-      - run: npm install
+      - run: npm clean-install
         working-directory: martin/martin-ui
       - run: just biomejs-martin-ui
       - run: just test-frontend
@@ -225,7 +225,7 @@ jobs:
       - name: Set up gdal-bin and sqlite3-tools
         run: sudo apt-get update && sudo apt-get install -y gdal-bin sqlite3-tools
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
         # https://github.com/docker/setup-buildx-action
         with: { install: true, platforms: 'linux/amd64,linux/arm64' }
       - name: Download build artifact build-aarch64-unknown-linux-musl
@@ -372,7 +372,7 @@ jobs:
           platforms: linux/amd64,linux/arm64
       - name: Attest
         if: github.event_name == 'push' || github.event_name == 'release'
-        uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v2
+        uses: actions/attest-build-provenance@00014ed6ed5efc5b1ab7f7f34a39eb55d41aa4f8 # v3.1.0
         id: attest
         with:
           subject-name: ghcr.io/${{ github.repository }}
@@ -569,9 +569,11 @@ jobs:
           if [ "$RUNNER_OS" == "Linux" ]; then
             export DATABASE_URL="postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ env.PGPORT }}/${{ env.PGDATABASE }}?sslmode=require"
           else
-            export DATABASE_URL="${{ steps.pg.outputs.connection-uri }}"
+            export DATABASE_URL="${STEPS_PG_OUTPUTS_CONNECTION_URI}"
           fi
           tests/test.sh
+        env:
+          STEPS_PG_OUTPUTS_CONNECTION_URI: ${{ steps.pg.outputs.connection-uri }}
       - name: Compare test output results (Linux)
         if: matrix.target == 'x86_64-unknown-linux-gnu'
         run: |
@@ -692,8 +694,10 @@ jobs:
         run: |
           set -x
           mkdir -p target/certs
-          docker cp ${{ job.services.postgres.id }}:/etc/ssl/certs/ssl-cert-snakeoil.pem target/certs/server.crt
-          docker cp ${{ job.services.postgres.id }}:/etc/ssl/private/ssl-cert-snakeoil.key target/certs/server.key
+          docker cp ${JOB_SERVICES_POSTGRES_ID}:/etc/ssl/certs/ssl-cert-snakeoil.pem target/certs/server.crt
+          docker cp ${JOB_SERVICES_POSTGRES_ID}:/etc/ssl/private/ssl-cert-snakeoil.key target/certs/server.key
+        env:
+          JOB_SERVICES_POSTGRES_ID: ${{ job.services.postgres.id }}
       - name: Download build artifact build-x86_64-unknown-linux-gnu
         uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with: { name: 'build-x86_64-unknown-linux-gnu', path: 'target_releases/' }
@@ -845,7 +849,7 @@ jobs:
 
           # Extract Github release version only without the "martin-v" prefix from release tag names (martin-vX.Y.Z)
           # On non-release events, this still generates a config with not-a-release as the version to test the release process
-          MARTIN_VERSION=$(echo "${{ github.event.release.tag_name || 'not-a-release' }}" | sed -e 's/martin-v//')
+          MARTIN_VERSION=$(echo "$GITHUB_EVENT_RELEASE_TAG_NAME" | sed -e 's/martin-v//')
 
           mkdir -p target/homebrew
           cd target
@@ -857,6 +861,8 @@ jobs:
           linux_arm_sha256: "$(shasum -a 256 files/martin-aarch64-unknown-linux-musl.tar.gz | cut -d' ' -f1)"
           linux_intel_sha256: "$(shasum -a 256 files/martin-x86_64-unknown-linux-musl.tar.gz | cut -d' ' -f1)"
           EOF
+        env:
+          GITHUB_EVENT_RELEASE_TAG_NAME: ${{ github.event.release.tag_name || 'not-a-release' }}
 
       - name: Save Homebrew Config
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
@@ -864,7 +870,7 @@ jobs:
 
       - name: Generate SLSA build provenance attestation
         if: github.event_name == 'release'
-        uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3.0.0
+        uses: actions/attest-build-provenance@00014ed6ed5efc5b1ab7f7f34a39eb55d41aa4f8 # v3.1.0
         with: { subject-path: 'target/files/*' }
       - name: Publish with artifacts
         if: ${{ github.event_name == 'release' && startsWith(github.event.release.tag_name, 'martin-v') }}

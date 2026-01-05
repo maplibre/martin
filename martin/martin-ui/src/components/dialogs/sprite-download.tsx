@@ -94,7 +94,7 @@ export function SpriteDownloadDialog({ name, sprite, onCloseAction }: SpriteDown
   return (
     <Dialog onOpenChange={(v: boolean) => !v && onCloseAction()} open={true}>
       <DialogContent className="max-w-2xl w-full max-h-[90vh] overflow-auto">
-        <DialogHeader>
+        <DialogHeader className="truncate">
           <DialogTitle className="text-2xl">
             Download <code className="font-mono">{name}</code>
           </DialogTitle>
@@ -190,7 +190,7 @@ export function SpriteDownloadDialog({ name, sprite, onCloseAction }: SpriteDown
                         </>
                       ) : (
                         <>
-                          <Copy className="h-4 w-4 mr-2" />
+                          <Copy className="h-4 w-4 mr-1" />
                           Copy URL
                         </>
                       )}
@@ -231,7 +231,7 @@ export function SpriteDownloadDialog({ name, sprite, onCloseAction }: SpriteDown
                         </>
                       ) : (
                         <>
-                          <Copy className="h-4 w-4 mr-2" />
+                          <Copy className="h-4 w-4 mr-1" />
                           Copy URL
                         </>
                       )}
