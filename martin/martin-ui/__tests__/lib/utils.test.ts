@@ -44,29 +44,28 @@ describe('formatFileSize', () => {
 });
 
 describe('copyToClipboard', () => {
-  const originalClipboard = navigator.clipboard;
-  const originalExecCommand = document.execCommand;
+  const execCommandMock = vi.fn().mockReturnValue(true);
+  // Store original document reference
+  const originalDocument = globalThis.document;
 
   beforeEach(() => {
     vi.clearAllMocks();
+    execCommandMock.mockReturnValue(true);
+    // Add execCommand to the document object (jsdom doesn't have this)
+    originalDocument.execCommand = execCommandMock;
   });
 
   afterEach(() => {
-    // Restore original implementations
-    Object.defineProperty(navigator, 'clipboard', {
-      configurable: true,
-      value: originalClipboard,
-      writable: true,
-    });
-    document.execCommand = originalExecCommand;
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+    // Clean up execCommand
+    delete (originalDocument as Document & { execCommand?: unknown }).execCommand;
   });
 
   it('uses navigator.clipboard.writeText when available and succeeds', async () => {
     const writeTextMock = vi.fn().mockResolvedValue(undefined);
-    Object.defineProperty(navigator, 'clipboard', {
-      configurable: true,
-      value: { writeText: writeTextMock },
-      writable: true,
+    vi.stubGlobal('navigator', {
+      clipboard: { writeText: writeTextMock },
     });
 
     await copyToClipboard('test text');
@@ -74,14 +73,7 @@ describe('copyToClipboard', () => {
   });
 
   it('falls back to execCommand when navigator.clipboard is unavailable', async () => {
-    Object.defineProperty(navigator, 'clipboard', {
-      configurable: true,
-      value: undefined,
-      writable: true,
-    });
-
-    const execCommandMock = vi.fn().mockReturnValue(true);
-    document.execCommand = execCommandMock;
+    vi.stubGlobal('navigator', { clipboard: undefined });
 
     await copyToClipboard('fallback text');
     expect(execCommandMock).toHaveBeenCalledWith('copy');
@@ -89,14 +81,9 @@ describe('copyToClipboard', () => {
 
   it('falls back to execCommand when navigator.clipboard.writeText fails', async () => {
     const writeTextMock = vi.fn().mockRejectedValue(new Error('Clipboard API error'));
-    Object.defineProperty(navigator, 'clipboard', {
-      configurable: true,
-      value: { writeText: writeTextMock },
-      writable: true,
+    vi.stubGlobal('navigator', {
+      clipboard: { writeText: writeTextMock },
     });
-
-    const execCommandMock = vi.fn().mockReturnValue(true);
-    document.execCommand = execCommandMock;
 
     await copyToClipboard('test text');
     expect(writeTextMock).toHaveBeenCalledWith('test text');
@@ -104,14 +91,8 @@ describe('copyToClipboard', () => {
   });
 
   it('throws when both clipboard API and execCommand fail', async () => {
-    Object.defineProperty(navigator, 'clipboard', {
-      configurable: true,
-      value: undefined,
-      writable: true,
-    });
-
-    const execCommandMock = vi.fn().mockReturnValue(false);
-    document.execCommand = execCommandMock;
+    vi.stubGlobal('navigator', { clipboard: undefined });
+    execCommandMock.mockReturnValue(false);
 
     await expect(copyToClipboard('will fail')).rejects.toThrow('Copy command failed');
   });
