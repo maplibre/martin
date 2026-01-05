@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, HashSet};
 
@@ -569,17 +570,20 @@ fn warn_on_rename(old_id: &String, new_id: &String, typ: &str) {
 }
 
 fn summary(info: &TableInfo) -> String {
-    let long_relkind = match info.relkind {
-        Some('v') => "view".to_string(),
-        Some('m') => "materialized view".to_string(),
-        Some('r') => "table".to_string(),
-        // if we get to any of below lines, this is likely a bug
-        Some(r) => format!("unknown relkind={r}"),
-        None => "unknown relkind".to_string(),
+    let relkind: Cow<_> = match info.relkind {
+        Some('v') => "view".into(),
+        Some('m') => "materialized view".into(),
+        Some('r') => "table".into(),
+        // printing these variants is likely a bug
+        Some(r) => format!("unknown relkind={r}").into(),
+        None => "unknown relkind".into(),
     };
-    // TODO: add column_id to the summary if it is set
+    let id: Cow<_> = info.id_column.as_ref().map_or_else(
+        || "no ID column".into(),
+        |id| format!("ID column {id}").into(),
+    );
     format!(
-        "{long_relkind} {}.{} with {} column ({}, SRID={})",
+        "{relkind} {}.{} with {} column ({}, SRID={}), {id}",
         info.schema,
         info.table,
         info.geometry_column,
