@@ -70,16 +70,15 @@ exports[`SpriteCatalog Component > matches snapshot for loaded state with mock d
               </div>
               <div>
                 <div
-                  class="flex flex-col justify-center items-center"
+                  class="flex flex-col justify-center items-center p-1"
                 >
                   <div
-                    class="text-xs"
+                    class="text-sm font-mono"
                   >
                     map-icons
                   </div>
-                  <br />
                   <div
-                    class="text-sm"
+                    class="text-xs pt-3 flex flex-row text-slate-400 p-0.5"
                   >
                     <span
                       role="img"
@@ -221,16 +220,15 @@ exports[`SpriteCatalog Component > matches snapshot for loaded state with mock d
               </div>
               <div>
                 <div
-                  class="flex flex-col justify-center items-center"
+                  class="flex flex-col justify-center items-center p-1"
                 >
                   <div
-                    class="text-xs"
+                    class="text-sm font-mono"
                   >
                     transportation
                   </div>
-                  <br />
                   <div
-                    class="text-sm"
+                    class="text-xs pt-3 flex flex-row text-slate-400 p-0.5"
                   >
                     <span
                       role="img"
@@ -384,16 +382,15 @@ exports[`SpriteCatalog Component > matches snapshot for loaded state with mock d
               </div>
               <div>
                 <div
-                  class="flex flex-col justify-center items-center"
+                  class="flex flex-col justify-center items-center p-1"
                 >
                   <div
-                    class="text-xs"
+                    class="text-sm font-mono"
                   >
                     ui-elements
                   </div>
-                  <br />
                   <div
-                    class="text-sm"
+                    class="text-xs pt-3 flex flex-row text-slate-400 p-0.5"
                   >
                     <span
                       role="img"
