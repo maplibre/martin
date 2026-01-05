@@ -154,7 +154,7 @@ export function SpriteDownloadDialog({ name, sprite, onCloseAction }: SpriteDown
                     </div>
                     <Button
                       className="ml-4"
-                      onClick={() => copy(format.url, `URL of ${format.label} copied`)}
+                      onClick={() => copy(format.url, `URL of ${format.label} copied to clipboard`)}
                       size="sm"
                       variant="outline"
                     >
@@ -195,7 +195,7 @@ export function SpriteDownloadDialog({ name, sprite, onCloseAction }: SpriteDown
                     </div>
                     <Button
                       className="ml-4"
-                      onClick={() => copy(format.url, `URL of ${format.label} copied`)}
+                      onClick={() => copy(format.url, `URL of ${format.label} copied to clipboard`)}
                       size="sm"
                       variant="outline"
                     >
