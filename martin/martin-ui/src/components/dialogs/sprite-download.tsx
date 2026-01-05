@@ -190,7 +190,7 @@ export function SpriteDownloadDialog({ name, sprite, onCloseAction }: SpriteDown
                         </>
                       ) : (
                         <>
-                          <Copy className="h-4 w-4 mr-2" />
+                          <Copy className="h-4 w-4 mr-1" />
                           Copy URL
                         </>
                       )}
@@ -231,7 +231,7 @@ export function SpriteDownloadDialog({ name, sprite, onCloseAction }: SpriteDown
                         </>
                       ) : (
                         <>
-                          <Copy className="h-4 w-4 mr-2" />
+                          <Copy className="h-4 w-4 mr-1" />
                           Copy URL
                         </>
                       )}
