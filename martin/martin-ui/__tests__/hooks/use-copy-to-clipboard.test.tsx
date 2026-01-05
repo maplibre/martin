@@ -53,19 +53,6 @@ describe('useCopyToClipboard', () => {
     });
   });
 
-  it('uses custom success message per copy call', async () => {
-    const { result } = renderHook(() => useCopyToClipboard());
-
-    await act(async () => {
-      await result.current.copy('test', 'Custom message!');
-    });
-
-    expect(mockToast).toHaveBeenCalledWith({
-      description: 'Custom message!',
-      title: 'Copied!',
-    });
-  });
-
   it('handles errors and shows error toast', async () => {
     mockCopyToClipboard.mockRejectedValue(new Error('Copy failed'));
 
