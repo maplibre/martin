@@ -45,38 +45,38 @@ async-trait = "0.1"
 base64 = "0.22.1"
 bit-set = "0.8"
 brotli = ">=5, <9"
+bytes = "1"
 clap = { version = "4", features = ["derive", "unstable-markdown", "wrap_help"] }
-criterion = { version = "0.5", features = ["async_futures", "async_tokio", "html_reports"] }
-ctor = "0.5.0"
+criterion = { version = "0.8", features = ["async_futures", "async_tokio", "html_reports"] }
+ctor = "0.6.3"
 dashmap = { version = "6.1.0", features = ["serde", "inline", "rayon"] }
 deadpool-postgres = "0.14"
-enum-display = "0.1"
+enum-display = "0.2"
 env_logger = "0.11"
 flate2 = "1"
-flume = "0.11"
+flume = "0.12"
 futures = "0.3"
 image = "0.25.8"
 indoc = "2"
-insta = "1"
+insta = "1.44.3"
 itertools = "0.14"
 json-patch = "4"
 lambda-web = { version = "0.2.1", features = ["actix4"] }
 log = "0.4"
 maplibre_native = "0.4.1"
-martin-core = { path = "./martin-core", version = "0.1.3", default-features = false }
-martin-tile-utils = { path = "./martin-tile-utils", version = "0.6.4" }
-mbtiles = { path = "./mbtiles", version = "0.13.1" }
+martin-core = { path = "./martin-core", version = "0.2.5", default-features = false }
+martin-tile-utils = { path = "./martin-tile-utils", version = "0.6.8" }
+mbtiles = { path = "./mbtiles", version = "0.15.0" }
 md5 = "0.8.0"
 moka = { version = "0.12", features = ["future"] }
 num_cpus = "1"
 object_store = { version = "0.12.4", features = ["gcp", "aws", "azure", "fs", "http"] }
 pbf_font_tools = { version = "3.0.0", features = ["freetype"] }
-pmtiles = { version = "0.17", features = ["http-async", "mmap-async-tokio", "tilejson", "reqwest-rustls-tls-native-roots", "aws-s3-async"] }
+pmtiles = { version = "0.18.2", features = ["tilejson", "object-store"] }
 png = "0.18.0"
 postgis = "0.9"
 postgres = { version = "0.19", features = ["with-time-0_3", "with-uuid-1", "with-serde_json-1"] }
 postgres-protocol = "0.6"
-pprof = { version = "0.15", features = ["flamegraph", "criterion"] }
 pretty_assertions = "1"
 regex = "1"
 rstest = "0.26.1"
@@ -88,17 +88,17 @@ rustls-pemfile = "2"
 semver = "1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-serde_with = "3"
+serde_with = { version = "3", default-features = false, features = ["macros"] }
 serde_yaml = "0.9"
 size_format = "1.0.2"
-spreet = { version = "0.12", default-features = false }
+spreet = { version = "0.13", default-features = false }
 sqlite-compressions = { version = "0.3", default-features = false, features = ["bsdiffraw", "gzip"] }
 sqlite-hashes = { version = "0.10.6", default-features = false, features = ["md5", "aggregate", "hex"] }
 sqlx = { version = "0.8.6", features = ["sqlite", "runtime-tokio"] }
 static-files = "0.2"
 subst = { version = "0.3", features = ["yaml"] }
 tempfile = "3.21.0"
-testcontainers-modules = { version = "0.13.0", features = ["postgres", "blocking"] }
+testcontainers-modules = { version = "0.14.0", features = ["postgres", "blocking"] }
 thiserror = "2"
 tiff = "0.10.1"
 tilejson = "0.4"

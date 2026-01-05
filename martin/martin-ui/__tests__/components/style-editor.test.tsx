@@ -30,12 +30,6 @@ vi.mock('@/lib/api', () => ({
   buildMartinUrl: vi.fn((path: string) => `http://localhost:3000${path}`),
 }));
 
-// Mock lucide-react icons
-vi.mock('lucide-react', () => ({
-  ArrowLeft: () => <span>←</span>,
-  X: () => <span>×</span>,
-}));
-
 describe('StyleEditor', () => {
   const mockStyle = {
     colors: ['#ff0000', '#00ff00', '#0000ff'],

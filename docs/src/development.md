@@ -4,6 +4,10 @@
 
 Install [docker](https://docs.docker.com/get-docker/) and [docker-compose](https://docs.docker.com/compose/)
 
+> [!TIP]
+> Alternative container hosts/runtimes work, but you need to set the `DOCKER_HOST` environment variable to let [the testcontainers module](https://docs.rs/testcontainers/latest/testcontainers/index.html#docker-host-resolution) detect your container.
+> For example, [Colima uses a different socket location](https://github.com/abiosoft/colima/blob/main/docs/FAQ.md#cannot-connect-to-the-docker-daemon-at-unixvarrundockersock-is-the-docker-daemon-running).
+
 ## just
 
 Install [Just](https://github.com/casey/just#readme):

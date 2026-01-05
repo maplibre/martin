@@ -1,11 +1,19 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.2.4/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.3.10/schema.json",
   "extends": "//",
   "files": {
-    "experimentalScannerIgnores": ["node_modules", "dist"],
     "includes": [
       "*.{tsx,ts,mjs,json,jsonc,yaml,yml}",
-      "{__tests__,__mocks__,types,app,components,hooks,public,lib,src}/**/*.{tsx,ts,mjs,json,jsonc,yaml,yml}"
+      "{__tests__,__mocks__,types,app,components,hooks,public,lib,src}/**/*.{tsx,ts,mjs,json,jsonc,yaml,yml}",
+      "!node_modules",
+      "!dist"
     ]
+  },
+  "linter": {
+    "rules": {
+      "style": {
+        "useComponentExportOnlyModules": "off"
+      }
+    }
   }
 }

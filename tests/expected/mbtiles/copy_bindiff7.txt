@@ -1,9 +1,8 @@
-MBTiles file summary for tests/mbtiles_temp_files/world_cities_bindiff_modified2.mbtiles
-Schema: flat
-File size: 3.07kB
-Page size: 512B
-Page count: 6
+File path:      tests/mbtiles_temp_files/world_cities_bindiff_modified2.mbtiles
+Schema:         flat
+File size:      2.56kB
+SQL page size:  512B
+SQL page count: 5
 
- Zoom |   Count   | Smallest  |  Largest  |  Average  | Bounding Box
-    1 |         1 |      495B |      495B |      495B | 0,0,180,85
+   There are no tiles in this mbtiles file
 

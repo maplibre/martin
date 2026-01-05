@@ -1,7 +1,6 @@
 [book]
 authors = ["MapLibre contributors"]
 language = "en"
-multilingual = false
 src = "src"
 title = "Martin Tile Server Documentation"
 
@@ -15,6 +14,6 @@ edit-url-template = "https://github.com/maplibre/martin/edit/main/docs/{path}"
 additional-css = ["theme/tabs.css"]
 additional-js = ["theme/tabs.js"]
 
-[preprocessor.alerts]
-
 [preprocessor.tabs]
+
+[preprocessor.mermaid-ssr]

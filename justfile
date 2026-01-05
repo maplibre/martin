@@ -2,8 +2,22 @@
 
 set shell := ['bash', '-c']
 
+# How to call the current just executable. Note that just_executable() may have `\` in Windows paths, so we need to quote it.
+just := quote(just_executable())
+dockercompose := `if docker-compose --version &> /dev/null; then echo "docker-compose"; else echo "docker compose"; fi`
 
-main_crate := 'martin'
+# if running in CI, treat warnings as errors by setting RUSTFLAGS and RUSTDOCFLAGS to '-D warnings' unless they are already set
+# Use `CI=true just ci-test` to run the same tests as in GitHub CI.
+# Use `just env-info` to see the current values of RUSTFLAGS and RUSTDOCFLAGS
+ci_mode := if env('CI', '') != '' {'1'} else {''}
+# cargo-binstall needs a workaround due to caching
+# ci_mode might be manually set by user, so re-check the env var
+binstall_args := if env('CI', '') != '' {'--no-confirm --no-track --disable-telemetry'} else {''}
+export RUSTFLAGS := env('RUSTFLAGS', if ci_mode == '1' {'-D warnings'} else {''})
+export RUSTDOCFLAGS := env('RUSTDOCFLAGS', if ci_mode == '1' {'-D warnings'} else {''})
+export RUST_BACKTRACE := env('RUST_BACKTRACE', if ci_mode == '1' {'1'} else {'0'})
+#export RUST_LOG := 'debug'
+#export RUST_LOG := 'sqlx::query=info,trace'
 
 #export DATABASE_URL='postgres://postgres:postgres@localhost:5411/db'
 
@@ -17,25 +31,9 @@ export CARGO_TERM_COLOR := 'always'
 # Set AWS variables for testing pmtiles from S3
 export AWS_SKIP_CREDENTIALS := '1'
 export AWS_REGION := 'eu-central-1'
-#export RUST_LOG := 'debug'
-#export RUST_LOG := 'sqlx::query=info,trace'
-#export RUST_BACKTRACE := '1'
-
-dockercompose := `if docker-compose --version &> /dev/null; then echo "docker-compose"; else echo "docker compose"; fi`
-
-# if running in CI, treat warnings as errors by setting RUSTFLAGS and RUSTDOCFLAGS to '-D warnings' unless they are already set
-# Use `CI=true just ci-test` to run the same tests as in GitHub CI.
-# Use `just env-info` to see the current values of RUSTFLAGS and RUSTDOCFLAGS
-ci_mode := if env('CI', '') != '' {'1'} else {''}
-# cargo-binstall needs a workaround due to caching
-# ci_mode might be manually set by user, so re-check the env var
-binstall_args := if env('CI', '') != '' {'--no-track'} else {''}
-export RUSTFLAGS := env('RUSTFLAGS', if ci_mode == '1' {'-D warnings'} else {''})
-export RUSTDOCFLAGS := env('RUSTDOCFLAGS', if ci_mode == '1' {'-D warnings'} else {''})
-export RUST_BACKTRACE := env('RUST_BACKTRACE', if ci_mode == '1' {'1'} else {''})
 
 @_default:
-    {{just_executable()}} --list
+    {{just}} --list
 
 # Run benchmark tests
 bench:
@@ -69,6 +67,7 @@ bless: restart clean-test bless-insta-martin bless-insta-martin-core bless-insta
 # Bless the frontend tests
 [working-directory: 'martin/martin-ui']
 bless-frontend:
+    npm clean-install
     npm run test:update-snapshots
 
 # Run integration tests and save its output as the new expected output
@@ -95,7 +94,7 @@ bless-int:
     rm -rf tests/expected && mv tests/output tests/expected
 
 # Build and open mdbook documentation
-book:  (cargo-install 'mdbook') (cargo-install 'mdbook-alerts') (cargo-install 'mdbook-tabs')
+book:  (cargo-install 'mdbook') (cargo-install 'mdbook-tabs')
     mdbook serve docs --open --port 8321
 
 # Quick compile without building a binary
@@ -122,7 +121,7 @@ clippy *args:
 
 # Validate markdown URLs with markdown-link-check
 clippy-md:
-    docker run -it --rm -v ${PWD}:/workdir --entrypoint sh ghcr.io/tcort/markdown-link-check -c \
+    docker run --rm -v ${PWD}:/workdir --entrypoint sh ghcr.io/tcort/markdown-link-check -c \
       'echo -e "/workdir/README.md\n$(find /workdir/docs/src -name "*.md")" | tr "\n" "\0" | xargs -0 -P 5 -n1 -I{} markdown-link-check --config /workdir/.github/files/markdown.links.config.json {}'
 
 # Generate code coverage report. Will install `cargo llvm-cov` if missing.
@@ -138,14 +137,14 @@ coverage *args='--no-clean --open':  (cargo-install 'cargo-llvm-cov') clean star
     cargo llvm-cov clean --workspace
 
     echo "::group::Unit tests"
-    {{just_executable()}} test-cargo --all-targets
+    {{just}} test-cargo --all-targets
     echo "::endgroup::"
 
     # echo "::group::Documentation tests"
-    # {{just_executable()}} test-doc <- deliberately disabled until --doctest for cargo-llvm-cov does not hang indefinitely
+    # {{just}} test-doc <- deliberately disabled until --doctest for cargo-llvm-cov does not hang indefinitely
     # echo "::endgroup::"
 
-    {{just_executable()}} test-int
+    {{just}} test-int
 
     cargo llvm-cov report {{args}}
 
@@ -153,14 +152,14 @@ coverage *args='--no-clean --open':  (cargo-install 'cargo-llvm-cov') clean star
 cp *args:
     cargo run --bin martin-cp -- {{args}}
 
-# Start Martin server and open a test page
+# Start Martin server and open a test page (not the integrated UI)
 debug-page *args: start
     open tests/debug.html  # run will not exit, so open debug page first
-    {{just_executable()}} run {{args}}
+    {{just}} run {{args}}
 
 # Build and run martin docker image
 docker-run *args:
-    docker run -it --rm --net host -e DATABASE_URL -v $PWD/tests:/tests ghcr.io/maplibre/martin {{args}}
+    docker run -it --rm --net host -e DATABASE_URL -v $PWD/tests:/tests ghcr.io/maplibre/martin:1.2.0 {{args}}
 
 # Build and open code documentation
 docs *args='--open':
@@ -169,8 +168,8 @@ docs *args='--open':
 # Print environment info
 env-info:
     @echo "Running {{if ci_mode == '1' {'in CI mode'} else {'in dev mode'} }} on {{os()}} / {{arch()}}"
-    @echo "PWD $(pwd)"
-    {{just_executable()}} --version
+    @echo "PWD {{justfile_directory()}}"
+    {{just}} --version
     rustc --version
     cargo --version
     rustup --version
@@ -179,11 +178,6 @@ env-info:
     @echo "RUST_BACKTRACE='$RUST_BACKTRACE'"
     npm --version
     node --version
-
-# Run benchmark tests showing a flamegraph
-flamegraph:
-    cargo bench --bench sources -- --profile-time=10
-    /opt/google/chrome/chrome "file://$PWD/target/criterion/get_table_source_tile/profile/flamegraph.svg"
 
 # Reformat all code `cargo fmt`. If nightly is available, use it for better results
 fmt:
@@ -199,7 +193,7 @@ fmt:
 
 # Reformat markdown files using markdownlint-cli2
 fmt-md:
-    docker run -it --rm -v $PWD:/workdir davidanson/markdownlint-cli2 --config /workdir/.github/files/config.markdownlint-cli2.jsonc --fix
+    docker run --rm -v $PWD:/workdir davidanson/markdownlint-cli2 --config /workdir/.github/files/config.markdownlint-cli2.jsonc --fix
 
 # Reformat all SQL files using docker
 fmt-sql:
@@ -286,8 +280,8 @@ psql *args:
 # Restart the test database
 restart:
     # sometimes Just optimizes targets, so here we force stop & start by using external just executable
-    {{just_executable()}} stop
-    {{just_executable()}} start
+    {{just}} stop
+    {{just}} start
 
 # Start Martin server
 run *args='--webui enable-for-all':
@@ -388,9 +382,9 @@ test-ssl-cert: start-ssl-cert
     export PGSSLROOTCERT="$KEY_DIR/ssl-cert-snakeoil.pem"
     export PGSSLCERT="$KEY_DIR/ssl-cert-snakeoil.pem"
     export PGSSLKEY="$KEY_DIR/ssl-cert-snakeoil.key"
-    {{just_executable()}} test-cargo --all-targets
-    {{just_executable()}} clean-test
-    {{just_executable()}} test-doc
+    {{just}} test-cargo --all-targets
+    {{just}} clean-test
+    {{just}} test-doc
     tests/test.sh
 
 # Run typescript typechecking on the frontend
@@ -402,6 +396,11 @@ type-check:
 update:
     cargo +nightly -Z unstable-options update --breaking
     cargo update
+    # Make sure that 'evil' dependencies are at the last compatible version
+    # below needs to be synced with deny.toml
+    cargo update --precise 1.44.3 insta
+    cargo update --precise 1.24.0 libdeflater
+    cargo update --precise 1.24.0 libdeflate-sys
 
 # Validate that all required development tools are installed
 validate-tools:
@@ -436,6 +435,14 @@ validate-tools:
         missing_tools+=("sqldiff")
     fi
 
+
+    # Check Darwin-specific tools
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        if ! command -v gsed >/dev/null 2>&1; then
+            missing_tools+=("gsed")
+        fi
+    fi
+
     # Check Linux-specific tools
     if [[ "$OSTYPE" == "linux"* ]]; then
         if ! command -v ogrmerge.py >/dev/null 2>&1; then
@@ -449,7 +456,7 @@ validate-tools:
     else
         echo "✗ Missing tools: ${missing_tools[*]}"
         echo "  Ubuntu/Debian: sudo apt install -y jq file curl grep sqlite3-tools gdal-bin"
-        echo "  macOS: brew install jq file curl grep sqlite gdal"
+        echo "  macOS: brew install jq file curl grep sqlite gdal gsed"
         echo ""
         exit 1
     fi

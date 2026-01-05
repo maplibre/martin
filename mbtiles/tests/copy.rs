@@ -441,7 +441,8 @@ async fn convert(
             path(&frm_mbt),
             path(&mem),
             dst_type_cli => Some(dst_type),
-        }
+        },
+        "Converting format {frm} to {to} (copying both metadata and tiles) should match expected v1 database",
     );
 
     let dmp = copy_dump! {
@@ -490,7 +491,8 @@ async fn convert(
             path(&mem),
             dst_type_cli => Some(dst_type),
             min_zoom => Some(6),
-        }
+        },
+        "Filtering with zoom_levels=[6] should match min_zoom=6",
     );
 
     pretty_assert_eq!(
@@ -501,7 +503,8 @@ async fn convert(
             dst_type_cli => Some(dst_type),
             min_zoom => Some(6),
             max_zoom => Some(6),
-        }
+        },
+        "Filtering with zoom_levels=[6] should match min_zoom=6 and max_zoom=6",
     );
 
     Ok(())
@@ -541,7 +544,8 @@ async fn diff_and_patch(
     };
     pretty_assert_eq!(
         &dump(&mut dif_cn).await?,
-        databases.dump(dif_db, dif_type.unwrap_or(a_type))
+        databases.dump(dif_db, dif_type.unwrap_or(a_type)),
+        "Diff file should contain only the changes between {a_db} and {b_db}",
     );
 
     for dst_type in destination_types {
@@ -555,9 +559,17 @@ async fn diff_and_patch(
         copy!(databases.path(a_db, *dst_type), path(&clone_mbt));
         apply_patch(path(&clone_mbt), path(&dif_mbt), false).await?;
         let hash = clone_mbt.open_and_validate(Off, Verify).await?;
-        assert_eq!(hash, databases.hash(b_db, *dst_type));
+        assert_eq!(
+            hash,
+            databases.hash(b_db, *dst_type),
+            "After applying patch, hash should match target database {b_db}",
+        );
         let dmp = dump(&mut clone_cn).await?;
-        pretty_assert_eq!(&dmp, expected_b);
+        pretty_assert_eq!(
+            &dmp,
+            expected_b,
+            "After applying patch to {a_db}, content should match {b_db}",
+        );
 
         eprintln!(
             "TEST: Applying the difference ({b_db} - {a_db} = {dif_db}) to {b_db}, should not modify it"
@@ -566,9 +578,17 @@ async fn diff_and_patch(
         copy!(databases.path(b_db, *dst_type), path(&clone_mbt));
         apply_patch(path(&clone_mbt), path(&dif_mbt), true).await?;
         let hash = clone_mbt.open_and_validate(Off, Verify).await?;
-        assert_eq!(hash, databases.hash(b_db, *dst_type));
+        assert_eq!(
+            hash,
+            databases.hash(b_db, *dst_type),
+            "After applying patch to target {b_db}, hash should remain unchanged",
+        );
         let dmp = dump(&mut clone_cn).await?;
-        pretty_assert_eq!(&dmp, expected_b);
+        pretty_assert_eq!(
+            &dmp,
+            expected_b,
+            "After applying patch to {b_db}, content should remain unchanged",
+        );
     }
 
     Ok(())
@@ -608,7 +628,11 @@ async fn diff_and_patch_bsdiff(
         diff_with_file => Some((databases.path(b_db, b_type), patch_type.into())),
         dst_type_cli => Some(dif_type),
     };
-    pretty_assert_eq!(&dump(&mut dif_cn).await?, databases.dump(dif_db, dif_type));
+    pretty_assert_eq!(
+        &dump(&mut dif_cn).await?,
+        databases.dump(dif_db, dif_type),
+        "Binary diff file should match expected {dif_db} format",
+    );
 
     let prefix = format!("{prefix}__to__{}", shorten(dst_type));
     let (b_mbt, mut b_cn) = open!(diff_and_patch_bsdiff, "{prefix}__{b_db}");
@@ -620,7 +644,11 @@ async fn diff_and_patch_bsdiff(
     };
     let actual = dump(&mut b_cn).await?;
     let expected = databases.dump(b_db, dst_type);
-    pretty_assert_eq!(&actual, expected);
+    pretty_assert_eq!(
+        &actual,
+        expected,
+        "After applying binary diff patch, content should match {b_db}",
+    );
 
     Ok(())
 }
@@ -647,7 +675,11 @@ async fn patch_on_copy(
     };
     let actual = dump(&mut v2_cn).await?;
     let expected = databases.dump("v2", v2_type.unwrap_or(v1_type));
-    pretty_assert_eq!(&actual, expected);
+    pretty_assert_eq!(
+        &actual,
+        expected,
+        "After copying v1 and applying patch, result should match v2",
+    );
 
     Ok(())
 }

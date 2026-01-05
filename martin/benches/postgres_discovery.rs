@@ -4,13 +4,12 @@ use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use martin::config::file::init_aws_lc_tls;
 use martin::config::file::postgres::{PostgresAutoDiscoveryBuilder, PostgresConfig};
 use martin_core::config::IdResolver;
-use pprof::criterion::{Output, PProfProfiler};
 use testcontainers_modules::postgres::Postgres;
 use testcontainers_modules::testcontainers::ImageExt;
 use testcontainers_modules::testcontainers::runners::SyncRunner;
 
 // Benchmark sizes
-const SIZES: &[usize] = &[10, 100, 200, 400, 800, 1600, 3200, 6400, 12800, 25600];
+const SIZES: &[usize] = &[10, 100, 200];
 
 /// Setup [`PostGIS`](https://hub.docker.com/r/postgis/postgis/) container
 fn setup_postgres_container() -> (
@@ -247,10 +246,11 @@ async fn discover_tables(config: &PostgresConfig) {
         .await
         .expect("Failed to create builder");
 
-    let _tables = builder
+    let tables = builder
         .instantiate_tables()
         .await
         .expect("Failed to discover tables");
+    std::hint::black_box(tables);
 }
 
 async fn discover_functions(config: &PostgresConfig) {
@@ -258,10 +258,11 @@ async fn discover_functions(config: &PostgresConfig) {
         .await
         .expect("Failed to create builder");
 
-    let _functions = builder
+    let functions = builder
         .instantiate_functions()
         .await
         .expect("Failed to discover functions");
+    std::hint::black_box(functions);
 }
 
 fn bench_table_discovery(c: &mut Criterion) {
@@ -316,7 +317,7 @@ fn bench_function_discovery(c: &mut Criterion) {
 
 criterion_group! {
     name = benches;
-    config = Criterion::default().with_profiler(PProfProfiler::new(1000, Output::Flamegraph(None)));
+    config = Criterion::default();
     targets = bench_table_discovery, bench_function_discovery
 }
 

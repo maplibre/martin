@@ -1,9 +1,10 @@
 [package]
 name = "martin"
-version = "0.19.3"
+version = "1.2.0"
 authors = [
     "Stepan Kuzmin <to.stepan.kuzmin@gmail.com>",
     "Yuri Astrakhan <YuriAstrakhan@gmail.com>",
+    "Frank Elsinga <fr.elsinga+martin@gmail.com>",
     "MapLibre contributors",
 ]
 description = "Blazing fast and lightweight tile server with PostGIS, MBTiles, and PMTiles support"
@@ -95,7 +96,6 @@ default = [
     "postgres",
     "sprites",
     "styles",
-    "unstable-cog",
     "webui",
 ]
 unstable-cog = ["martin-core/unstable-cog", "_tiles"]
@@ -152,7 +152,6 @@ serde_yaml.workspace = true
 static-files = { workspace = true, optional = true }
 subst.workspace = true
 thiserror.workspace = true
-tiff = { workspace = true, optional = true }
 tilejson.workspace = true
 tokio = { workspace = true, features = ["io-std"] }
 url.workspace = true
@@ -168,7 +167,6 @@ criterion.workspace = true
 ctor.workspace = true
 indoc.workspace = true
 insta = { workspace = true, features = ["json", "yaml", "redactions"] }
-pprof.workspace = true
 rstest.workspace = true
 tempfile.workspace = true
 testcontainers-modules.workspace = true

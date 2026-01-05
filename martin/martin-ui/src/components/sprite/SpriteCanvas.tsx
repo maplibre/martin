@@ -1,3 +1,4 @@
+import { Copy } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useToast } from '@/hooks/use-toast';
@@ -67,7 +68,9 @@ const SpriteCanvas = ({ meta, image, label, previewMode = false }: SpriteCanvasP
                   {label}
                 </code>
                 <br />
-                <span className="text-xs text-gray-500">Click to copy</span>
+                <span className="text-xs text-gray-500">
+                  <Copy /> Click to copy
+                </span>
               </p>
             </TooltipContent>
           </Tooltip>
@@ -105,7 +108,9 @@ const SpriteCanvas = ({ meta, image, label, previewMode = false }: SpriteCanvasP
         </button>
       </TooltipTrigger>
       <TooltipContent>
-        <span className="text-xs">Click to copy</span>
+        <span className="text-xs">
+          <Copy /> Click to copy
+        </span>
       </TooltipContent>
     </Tooltip>
   );

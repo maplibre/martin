@@ -16,6 +16,8 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "_tiles")]
 use url::Url;
 
+#[cfg(feature = "_tiles")]
+use crate::config::file::TileSourceWarning;
 use crate::config::file::{ConfigFileError, ConfigFileResult};
 #[cfg(feature = "_tiles")]
 use crate::{MartinError, MartinResult};
@@ -269,7 +271,7 @@ pub async fn resolve_files<T: TileSourceConfiguration>(
     config: &mut FileConfigEnum<T>,
     idr: &IdResolver,
     extension: &[&str],
-) -> MartinResult<Vec<BoxedSource>> {
+) -> MartinResult<(Vec<BoxedSource>, Vec<TileSourceWarning>)> {
     resolve_int(config, idr, extension).await
 }
 
@@ -278,100 +280,164 @@ async fn resolve_int<T: TileSourceConfiguration>(
     config: &mut FileConfigEnum<T>,
     idr: &IdResolver,
     extension: &[&str],
-) -> MartinResult<Vec<BoxedSource>> {
+) -> MartinResult<(Vec<BoxedSource>, Vec<TileSourceWarning>)> {
     let Some(cfg) = config.extract_file_config() else {
-        return Ok(Vec::new());
+        return Ok((vec![], vec![]));
     };
 
     let mut results = Vec::new();
+    let mut warnings = Vec::new();
     let mut configs = BTreeMap::new();
     let mut files = HashSet::new();
     let mut directories = Vec::new();
 
     if let Some(sources) = cfg.sources {
         for (id, source) in sources {
-            if let Some(url) = parse_url(T::parse_urls(), source.get_path())? {
-                let dup = !files.insert(source.get_path().clone());
-                let dup = if dup { "duplicate " } else { "" };
-                let id = idr.resolve(&id, url.to_string());
-                configs.insert(id.clone(), source);
-                results.push(cfg.custom.new_sources_url(id.clone(), url.clone()).await?);
-                info!("Configured {dup}source {id} from {}", sanitize_url(&url));
-            } else {
-                let can = source.abs_path()?;
-                if !can.is_file() {
-                    log::warn!("The file: {} does not exist", can.display());
+            match resolve_one_source_int(&cfg.custom, idr, &id, source, &mut files, &mut configs)
+                .await
+            {
+                Ok(src) => results.push(src),
+                Err(err) => {
+                    warnings.push(TileSourceWarning::SourceError {
+                        source_id: id,
+                        error: err.to_string(),
+                    });
                 }
-
-                let dup = !files.insert(can.clone());
-                let dup = if dup { "duplicate " } else { "" };
-                let id = idr.resolve(&id, can.to_string_lossy().to_string());
-                info!("Configured {dup}source {id} from {}", can.display());
-                configs.insert(id.clone(), source.clone());
-                results.push(cfg.custom.new_sources(id, source.into_path()).await?);
             }
         }
     }
 
     for path in cfg.paths {
-        if let Some(url) = parse_url(T::parse_urls(), &path)? {
-            let target_ext = extension.iter().find(|&e| url.to_string().ends_with(e));
-            let id = if let Some(ext) = target_ext {
-                url.path_segments()
-                    .and_then(Iterator::last)
-                    .and_then(|s| {
-                        // Strip extension and trailing dot, or keep the original string
-                        s.strip_suffix(ext)
-                            .and_then(|s| s.strip_suffix('.'))
-                            .or(Some(s))
-                    })
-                    .unwrap_or("web_source")
-            } else {
-                "web_source"
-            };
-
-            let id = idr.resolve(id, url.to_string());
-            configs.insert(id.clone(), FileConfigSrc::Path(path));
-            results.push(cfg.custom.new_sources_url(id.clone(), url.clone()).await?);
-            info!("Configured source {id} from URL {}", sanitize_url(&url));
-        } else {
-            let is_dir = path.is_dir();
-            let dir_files = if is_dir {
-                // directories will be kept in the config just in case there are new files
-                directories.push(path.clone());
-                collect_files_with_extension(&path, extension)?
-            } else if path.is_file() {
-                vec![path]
-            } else {
-                return Err(MartinError::from(ConfigFileError::InvalidFilePath(
-                    path.canonicalize().unwrap_or(path),
-                )));
-            };
-            for path in dir_files {
-                let can = path
-                    .canonicalize()
-                    .map_err(|e| ConfigFileError::IoError(e, path.clone()))?;
-                if files.contains(&can) {
-                    if !is_dir {
-                        warn!("Ignoring duplicate MBTiles path: {}", can.display());
-                    }
-                    continue;
-                }
-                let id = path.file_stem().map_or_else(
-                    || "_unknown".to_string(),
-                    |s| s.to_string_lossy().to_string(),
-                );
-                let id = idr.resolve(&id, can.to_string_lossy().to_string());
-                info!("Configured source {id} from {}", can.display());
-                files.insert(can);
-                configs.insert(id.clone(), FileConfigSrc::Path(path.clone()));
-                results.push(cfg.custom.new_sources(id, path).await?);
+        match resolve_one_path_int(
+            &cfg.custom,
+            idr,
+            extension,
+            path.clone(),
+            &mut files,
+            &mut directories,
+            &mut configs,
+        )
+        .await
+        {
+            Ok(sources) => results.extend(sources),
+            Err(err) => {
+                warnings.push(TileSourceWarning::PathError {
+                    path: path.display().to_string(),
+                    error: err.to_string(),
+                });
             }
         }
     }
 
     *config = FileConfigEnum::new_extended(directories, configs, cfg.custom);
 
+    Ok((results, warnings))
+}
+
+/// Resolves a single tile source configuration and returns a boxed source for further processing.
+///
+/// This function processes a tile source configuration using a given custom implementation of
+/// `TileSourceConfiguration` and resolves its ID using `IdResolver`.
+/// It determines if the source is a URL or a file path, configures the source accordingly.
+#[cfg(feature = "_tiles")]
+async fn resolve_one_source_int<T: TileSourceConfiguration>(
+    custom: &T,
+    idr: &IdResolver,
+    id: &str,
+    source: FileConfigSrc,
+    files: &mut HashSet<PathBuf>,
+    configs: &mut BTreeMap<String, FileConfigSrc>,
+) -> MartinResult<BoxedSource> {
+    let result;
+    if let Some(url) = parse_url(T::parse_urls(), source.get_path())? {
+        let dup = !files.insert(source.get_path().clone());
+        let dup = if dup { "duplicate " } else { "" };
+        let id = idr.resolve(id, url.to_string());
+        configs.insert(id.clone(), source);
+        result = custom.new_sources_url(id.clone(), url.clone()).await?;
+        info!("Configured {dup}source {id} from {}", sanitize_url(&url));
+    } else {
+        let can = source.abs_path()?;
+        let dup = !files.insert(can.clone());
+        let dup = if dup { "duplicate " } else { "" };
+        let id = idr.resolve(id, can.to_string_lossy().to_string());
+        info!("Configured {dup}source {id} from {}", can.display());
+        configs.insert(id.clone(), source.clone());
+        result = custom.new_sources(id, source.into_path()).await?;
+    }
+    Ok(result)
+}
+
+/// Resolves a single path, configuring sources based on the given tile source configuration.
+///
+/// This function processes a given `PathBuf`, checking if it represents a file, directory,
+/// or a URL, and then it performs the necessary steps to configure tile sources.
+#[cfg(feature = "_tiles")]
+async fn resolve_one_path_int<T: TileSourceConfiguration>(
+    custom: &T,
+    idr: &IdResolver,
+    extension: &[&str],
+    path: PathBuf,
+    files: &mut HashSet<PathBuf>,
+    directories: &mut Vec<PathBuf>,
+    configs: &mut BTreeMap<String, FileConfigSrc>,
+) -> MartinResult<Vec<BoxedSource>> {
+    let mut results = Vec::new();
+
+    if let Some(url) = parse_url(T::parse_urls(), &path)? {
+        let target_ext = extension.iter().find(|&e| url.to_string().ends_with(e));
+        let id = if let Some(ext) = target_ext {
+            url.path_segments()
+                .and_then(Iterator::last)
+                .and_then(|s| {
+                    // Strip extension and trailing dot, or keep the original string
+                    s.strip_suffix(ext)
+                        .and_then(|s| s.strip_suffix('.'))
+                        .or(Some(s))
+                })
+                .unwrap_or("web_source")
+        } else {
+            "web_source"
+        };
+
+        let id = idr.resolve(id, url.to_string());
+        configs.insert(id.clone(), FileConfigSrc::Path(path));
+        results.push(custom.new_sources_url(id.clone(), url.clone()).await?);
+        info!("Configured source {id} from URL {}", sanitize_url(&url));
+    } else {
+        let is_dir = path.is_dir();
+        let dir_files = if is_dir {
+            // directories will be kept in the config just in case there are new files
+            directories.push(path.clone());
+            collect_files_with_extension(&path, extension)?
+        } else if path.is_file() {
+            vec![path]
+        } else {
+            return Err(MartinError::from(ConfigFileError::InvalidFilePath(
+                path.canonicalize().unwrap_or(path),
+            )));
+        };
+        for path in dir_files {
+            let can = path
+                .canonicalize()
+                .map_err(|e| ConfigFileError::IoError(e, path.clone()))?;
+            if files.contains(&can) {
+                if !is_dir {
+                    warn!("Ignoring duplicate MBTiles path: {}", can.display());
+                }
+                continue;
+            }
+            let id = path.file_stem().map_or_else(
+                || "_unknown".to_string(),
+                |s| s.to_string_lossy().to_string(),
+            );
+            let id = idr.resolve(&id, can.to_string_lossy().to_string());
+            info!("Configured source {id} from {}", can.display());
+            files.insert(can);
+            configs.insert(id.clone(), FileConfigSrc::Path(path.clone()));
+            results.push(custom.new_sources(id, path).await?);
+        }
+    }
     Ok(results)
 }
 
@@ -424,8 +490,8 @@ fn parse_url(is_enabled: bool, path: &Path) -> Result<Option<Url>, ConfigFileErr
         return Ok(None);
     }
     let url_schemes = [
-        "s3://", "s3a://", "gs://", "adl://", "azure://", "abfs://", "abfss://", "http://",
-        "https://", "file://",
+        "s3://", "s3a://", "gs://", "az://", "adl://", "azure://", "abfs://", "abfss://",
+        "http://", "https://", "file://",
     ];
     path.to_str()
         .filter(|v| url_schemes.iter().any(|scheme| v.starts_with(scheme)))
@@ -442,4 +508,70 @@ pub fn copy_unrecognized_keys_from_config(
     unrecognized: &UnrecognizedValues,
 ) {
     result.extend(unrecognized.keys().map(|k| format!("{prefix}{k}")));
+}
+
+#[cfg(all(test, feature = "mbtiles"))]
+mod mbtiles_tests {
+    use martin_core::config::IdResolver;
+
+    use super::*;
+    use crate::config::file::tiles::mbtiles::MbtConfig;
+
+    #[tokio::test]
+    async fn test_invalid_path_warns_instead_of_failing() {
+        let _ = env_logger::builder().is_test(true).try_init();
+
+        let invalid_path = PathBuf::from("/nonexistent/path/");
+        let invalid_source = PathBuf::from("/nonexistent/path/to/file.mbtiles");
+        let mut file_sources = BTreeMap::new();
+        file_sources.insert(
+            "test_source".to_string(),
+            FileConfigSrc::Path(invalid_source.clone()),
+        );
+        let mut config = FileConfigEnum::<MbtConfig>::Config(FileConfig {
+            paths: OptOneMany::One(invalid_path.clone()),
+            sources: Some(file_sources),
+            custom: MbtConfig::default(),
+        });
+
+        let idr = IdResolver::new(&[]);
+        let result = resolve_files(&mut config, &idr, &["mbtiles"]).await;
+
+        let (sources, warnings) = result.unwrap();
+        assert_eq!(sources.len(), 0);
+        assert_eq!(warnings.len(), 2);
+    }
+}
+
+#[cfg(all(test, feature = "pmtiles"))]
+mod pmtiles_tests {
+    use martin_core::config::IdResolver;
+
+    use super::*;
+    use crate::config::file::tiles::pmtiles::PmtConfig;
+
+    #[tokio::test]
+    async fn test_invalid_path_warns_instead_of_failing() {
+        let _ = env_logger::builder().is_test(true).try_init();
+
+        let invalid_path = PathBuf::from("/nonexistent/path/");
+        let invalid_source = PathBuf::from("/nonexistent/path/to/file.pmtiles");
+        let mut file_sources = BTreeMap::new();
+        file_sources.insert(
+            "test_source".to_string(),
+            FileConfigSrc::Path(invalid_source.clone()),
+        );
+        let mut config = FileConfigEnum::<PmtConfig>::Config(FileConfig {
+            paths: OptOneMany::One(invalid_path.clone()),
+            sources: Some(file_sources),
+            custom: PmtConfig::default(),
+        });
+
+        let idr = IdResolver::new(&[]);
+        let result = resolve_files(&mut config, &idr, &["pmtiles"]).await;
+
+        let (sources, warnings) = result.unwrap();
+        assert_eq!(sources.len(), 0);
+        assert_eq!(warnings.len(), 2);
+    }
 }
