@@ -14,6 +14,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { buildMartinUrl } from '@/lib/api';
 import type { Style } from '@/lib/types';
+import { copyToClipboard } from '@/lib/utils';
 
 interface StyleIntegrationGuideDialogProps {
   name: string;
@@ -24,9 +25,9 @@ interface StyleIntegrationGuideDialogProps {
 const CodeBlock = ({ code, id }: { code: string; id: string }) => {
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
 
-  const copyToClipboard = async (code: string, id: string) => {
+  const handleCopyCode = async (code: string, id: string) => {
     try {
-      await navigator.clipboard.writeText(code);
+      await copyToClipboard(code);
       setCopiedCode(id);
       setTimeout(() => setCopiedCode(null), 2000);
     } catch (err) {
@@ -38,7 +39,7 @@ const CodeBlock = ({ code, id }: { code: string; id: string }) => {
       <pre className="bg-muted p-4 rounded-md overflow-x-auto text-sm border">
         <Button
           className="absolute top-2 right-2 h-6 px-2 z-10"
-          onClick={() => copyToClipboard(code, id)}
+          onClick={() => handleCopyCode(code, id)}
           size="sm"
           variant="ghost"
         >

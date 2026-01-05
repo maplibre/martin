@@ -1,6 +1,7 @@
 import { Clipboard } from 'lucide-react';
 import * as React from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { copyToClipboard } from '@/lib/utils';
 import { Button } from './button';
 
 /**
@@ -40,7 +41,7 @@ export function CopyLinkButton({
   const handleCopy = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
     try {
-      await navigator.clipboard.writeText(link);
+      await copyToClipboard(link);
       setCopied(true);
       toast({ description: toastMessage });
       setTimeout(() => setCopied(false), 3000);

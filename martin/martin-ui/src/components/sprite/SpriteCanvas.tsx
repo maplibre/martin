@@ -2,6 +2,7 @@ import { Copy } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useToast } from '@/hooks/use-toast';
+import { copyToClipboard } from '@/lib/utils';
 import type { SpriteMeta } from './SpriteCache';
 
 type SpriteCanvasProps = {
@@ -17,7 +18,7 @@ const SpriteCanvas = ({ meta, image, label, previewMode = false }: SpriteCanvasP
 
   const handleClick = async () => {
     try {
-      await navigator.clipboard.writeText(label);
+      await copyToClipboard(label);
       toast({
         description: `Sprite ID "${label}" copied to clipboard`,
         title: 'Copied!',

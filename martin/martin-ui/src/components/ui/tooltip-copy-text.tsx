@@ -1,5 +1,6 @@
 import { Copy } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { copyToClipboard } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipTrigger } from './tooltip';
 
 /**
@@ -16,7 +17,7 @@ export function TooltipCopyText({ text, ...props }: TooltipCopyTextProps) {
 
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(text);
+      await copyToClipboard(text);
       toast({
         description: `"${text}"`,
         title: 'Copied!',

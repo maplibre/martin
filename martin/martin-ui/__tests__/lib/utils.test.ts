@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { formatFileSize } from '@/lib/utils';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { copyToClipboard, formatFileSize } from '@/lib/utils';
 
 describe('formatFileSize', () => {
   it("returns '0 Bytes' for 0", () => {
@@ -40,5 +40,79 @@ describe('formatFileSize', () => {
   it("returns 'File too large' for values exceeding TB", () => {
     expect(formatFileSize(1125899906842624)).toBe('File too large');
     expect(formatFileSize(Number.MAX_SAFE_INTEGER)).toBe('File too large');
+  });
+});
+
+describe('copyToClipboard', () => {
+  const originalClipboard = navigator.clipboard;
+  const originalExecCommand = document.execCommand;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    // Restore original implementations
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: originalClipboard,
+      writable: true,
+    });
+    document.execCommand = originalExecCommand;
+  });
+
+  it('uses navigator.clipboard.writeText when available and succeeds', async () => {
+    const writeTextMock = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText: writeTextMock },
+      writable: true,
+    });
+
+    await copyToClipboard('test text');
+    expect(writeTextMock).toHaveBeenCalledWith('test text');
+  });
+
+  it('falls back to execCommand when navigator.clipboard is unavailable', async () => {
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: undefined,
+      writable: true,
+    });
+
+    const execCommandMock = vi.fn().mockReturnValue(true);
+    document.execCommand = execCommandMock;
+
+    await copyToClipboard('fallback text');
+    expect(execCommandMock).toHaveBeenCalledWith('copy');
+  });
+
+  it('falls back to execCommand when navigator.clipboard.writeText fails', async () => {
+    const writeTextMock = vi.fn().mockRejectedValue(new Error('Clipboard API error'));
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText: writeTextMock },
+      writable: true,
+    });
+
+    const execCommandMock = vi.fn().mockReturnValue(true);
+    document.execCommand = execCommandMock;
+
+    await copyToClipboard('test text');
+    expect(writeTextMock).toHaveBeenCalledWith('test text');
+    expect(execCommandMock).toHaveBeenCalledWith('copy');
+  });
+
+  it('throws when both clipboard API and execCommand fail', async () => {
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: undefined,
+      writable: true,
+    });
+
+    const execCommandMock = vi.fn().mockReturnValue(false);
+    document.execCommand = execCommandMock;
+
+    await expect(copyToClipboard('will fail')).rejects.toThrow('Copy command failed');
   });
 });

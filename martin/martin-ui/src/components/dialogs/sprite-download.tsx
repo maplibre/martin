@@ -13,6 +13,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { buildMartinUrl } from '@/lib/api';
 import type { SpriteCollection } from '@/lib/types';
+import { copyToClipboard } from '@/lib/utils';
 
 interface SpriteDownloadDialogProps {
   name: string;
@@ -70,7 +71,7 @@ export function SpriteDownloadDialog({ name, sprite, onCloseAction }: SpriteDown
 
   const handleCopyUrl = async (url: string, label: string) => {
     try {
-      await navigator.clipboard.writeText(url);
+      await copyToClipboard(url);
 
       setCopiedUrl(url);
       toast({
