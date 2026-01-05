@@ -1,6 +1,5 @@
 import { Copy } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
-import { copyToClipboard } from '@/lib/utils';
+import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 import { Tooltip, TooltipContent, TooltipTrigger } from './tooltip';
 
 /**
@@ -13,30 +12,15 @@ export interface TooltipCopyTextProps {
 }
 
 export function TooltipCopyText({ text, ...props }: TooltipCopyTextProps) {
-  const { toast } = useToast();
-
-  const handleCopy = async () => {
-    try {
-      await copyToClipboard(text);
-      toast({
-        description: `"${text}"`,
-        title: 'Copied!',
-      });
-    } catch (err) {
-      console.error(`Failed to copy "${text}"`, err);
-      toast({
-        description: 'Failed to copy to clipboard',
-        title: 'Error',
-        variant: 'destructive',
-      });
-    }
-  };
+  const { copy } = useCopyToClipboard({
+    successMessage: `"${text}"`,
+  });
 
   return (
     <Tooltip>
       <TooltipTrigger
         className="text-lg font-mono cursor-pointer truncate w-full"
-        onClick={handleCopy}
+        onClick={() => copy(text)}
         type="button"
       >
         <code>{text}</code>

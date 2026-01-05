@@ -45,8 +45,9 @@ describe('formatFileSize', () => {
 
 describe('copyToClipboard', () => {
   const execCommandMock = vi.fn().mockReturnValue(true);
-  // Store original document reference
-  const originalDocument = globalThis.document;
+  // Store reference to original execCommand if it exists
+  // biome-ignore lint/suspicious/noExplicitAny: jsdom doesn't define execCommand, we need to add it
+  const originalDocument = globalThis.document as any;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -59,7 +60,7 @@ describe('copyToClipboard', () => {
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
     // Clean up execCommand
-    delete (originalDocument as Document & { execCommand?: unknown }).execCommand;
+    originalDocument.execCommand = undefined;
   });
 
   it('uses navigator.clipboard.writeText when available and succeeds', async () => {

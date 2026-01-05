@@ -1,7 +1,6 @@
 import { Clipboard } from 'lucide-react';
 import * as React from 'react';
-import { useToast } from '@/hooks/use-toast';
-import { copyToClipboard } from '@/lib/utils';
+import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 import { Button } from './button';
 
 /**
@@ -35,19 +34,15 @@ export function CopyLinkButton({
   iconPosition = 'left',
   ...props
 }: CopyLinkButtonProps) {
-  const { toast } = useToast();
-  const [copied, setCopied] = React.useState(false);
+  const { copy, copied } = useCopyToClipboard({
+    successMessage: toastMessage,
+    errorMessage: 'Failed to copy link',
+    resetDelay: 3000,
+  });
 
-  const handleCopy = async (e: React.MouseEvent<HTMLButtonElement>) => {
+  const handleCopy = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
-    try {
-      await copyToClipboard(link);
-      setCopied(true);
-      toast({ description: toastMessage });
-      setTimeout(() => setCopied(false), 3000);
-    } catch {
-      toast({ description: 'Failed to copy link', variant: 'destructive' });
-    }
+    copy(link);
   };
 
   return (

@@ -1,7 +1,7 @@
 'use client';
 
 import { Code, Copy, ExternalLink } from 'lucide-react';
-import { useId, useState } from 'react';
+import { useId } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -12,9 +12,9 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 import { buildMartinUrl } from '@/lib/api';
 import type { Style } from '@/lib/types';
-import { copyToClipboard } from '@/lib/utils';
 
 interface StyleIntegrationGuideDialogProps {
   name: string;
@@ -23,28 +23,22 @@ interface StyleIntegrationGuideDialogProps {
 }
 
 const CodeBlock = ({ code, id }: { code: string; id: string }) => {
-  const [copiedCode, setCopiedCode] = useState<string | null>(null);
+  const { copy, copiedText } = useCopyToClipboard({
+    showSuccessToast: false,
+    showErrorToast: false,
+  });
 
-  const handleCopyCode = async (code: string, id: string) => {
-    try {
-      await copyToClipboard(code);
-      setCopiedCode(id);
-      setTimeout(() => setCopiedCode(null), 2000);
-    } catch (err) {
-      console.error('Failed to copy code:', err);
-    }
-  };
   return (
     <div className="relative">
       <pre className="bg-muted p-4 rounded-md overflow-x-auto text-sm border">
         <Button
           className="absolute top-2 right-2 h-6 px-2 z-10"
-          onClick={() => handleCopyCode(code, id)}
+          onClick={() => copy(code)}
           size="sm"
           variant="ghost"
         >
           <Copy className="w-3 h-3 mr-1" />
-          {copiedCode === id ? 'Copied!' : 'Copy'}
+          {copiedText === code ? 'Copied!' : 'Copy'}
         </Button>
         <code>{code}</code>
       </pre>

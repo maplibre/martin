@@ -1,6 +1,5 @@
 import { Copy, CopyCheck } from 'lucide-react';
 
-import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -10,10 +9,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { useToast } from '@/hooks/use-toast';
+import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 import { buildMartinUrl } from '@/lib/api';
 import type { SpriteCollection } from '@/lib/types';
-import { copyToClipboard } from '@/lib/utils';
 
 interface SpriteDownloadDialogProps {
   name: string;
@@ -28,8 +26,9 @@ interface SpriteFormat {
 }
 
 export function SpriteDownloadDialog({ name, sprite, onCloseAction }: SpriteDownloadDialogProps) {
-  const [copiedUrl, setCopiedUrl] = useState<string | null>(null);
-  const { toast } = useToast();
+  const { copy, copiedText } = useCopyToClipboard({
+    errorMessage: 'Failed to copy URL to clipboard',
+  });
   if (!sprite) return null;
 
   // Generate sprite format URLs
@@ -69,27 +68,8 @@ export function SpriteDownloadDialog({ name, sprite, onCloseAction }: SpriteDown
     },
   ];
 
-  const handleCopyUrl = async (url: string, label: string) => {
-    try {
-      await copyToClipboard(url);
-
-      setCopiedUrl(url);
-      toast({
-        description: `URL of ${label} copied to clipboard`,
-        title: 'URL Copied',
-      });
-
-      // Reset copied state after 2 seconds
-      setTimeout(() => {
-        setCopiedUrl(null);
-      }, 2000);
-    } catch {
-      toast({
-        description: 'Failed to copy URL to clipboard',
-        title: 'Copy Failed',
-        variant: 'destructive',
-      });
-    }
+  const handleCopyUrl = (url: string, label: string) => {
+    copy(url, `URL of ${label} copied to clipboard`);
   };
 
   return (
@@ -184,7 +164,7 @@ export function SpriteDownloadDialog({ name, sprite, onCloseAction }: SpriteDown
                       size="sm"
                       variant="outline"
                     >
-                      {copiedUrl === format.url ? (
+                      {copiedText === format.url ? (
                         <>
                           <CopyCheck className="h-4 w-4 mr-2 text-green-600" />
                           Copied
@@ -225,7 +205,7 @@ export function SpriteDownloadDialog({ name, sprite, onCloseAction }: SpriteDown
                       size="sm"
                       variant="outline"
                     >
-                      {copiedUrl === format.url ? (
+                      {copiedText === format.url ? (
                         <>
                           <CopyCheck className="h-4 w-4 mr-2 text-green-600" />
                           Copied

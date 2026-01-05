@@ -1,8 +1,7 @@
 import { Copy } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { useToast } from '@/hooks/use-toast';
-import { copyToClipboard } from '@/lib/utils';
+import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 import type { SpriteMeta } from './SpriteCache';
 
 type SpriteCanvasProps = {
@@ -14,24 +13,12 @@ type SpriteCanvasProps = {
 
 const SpriteCanvas = ({ meta, image, label, previewMode = false }: SpriteCanvasProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const { toast } = useToast();
+  const { copy } = useCopyToClipboard({
+    successMessage: `Sprite ID "${label}" copied to clipboard`,
+    errorMessage: 'Failed to copy sprite ID to clipboard',
+  });
 
-  const handleClick = async () => {
-    try {
-      await copyToClipboard(label);
-      toast({
-        description: `Sprite ID "${label}" copied to clipboard`,
-        title: 'Copied!',
-      });
-    } catch (err) {
-      console.error('Failed to copy sprite ID:', err);
-      toast({
-        description: 'Failed to copy sprite ID to clipboard',
-        title: 'Error',
-        variant: 'destructive',
-      });
-    }
-  };
+  const handleClick = () => copy(label);
 
   useEffect(() => {
     const canvas = canvasRef.current;
