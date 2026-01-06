@@ -1,6 +1,7 @@
 import { Clipboard, ClipboardCheck } from 'lucide-react';
 import type * as React from 'react';
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
+import { cn } from '@/lib/utils';
 import { Button } from './button';
 
 export interface CopyLinkButtonProps extends React.ComponentProps<typeof Button> {
@@ -10,7 +11,6 @@ export interface CopyLinkButtonProps extends React.ComponentProps<typeof Button>
   toastMessage?: string;
   size?: 'default' | 'sm' | 'lg' | 'icon';
   variant?: 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link';
-  iconPosition?: 'left' | 'right';
 }
 
 export function CopyLinkButton({
@@ -20,18 +20,14 @@ export function CopyLinkButton({
   toastMessage = 'Link copied!',
   size = 'sm',
   variant = 'outline',
-  iconPosition = 'left',
   ...props
 }: CopyLinkButtonProps) {
   const { copy, copied } = useCopyToClipboard({ successMessage: toastMessage });
 
-  const Icon = copied ? ClipboardCheck : Clipboard;
-  const iconClass = copied ? 'dark:text-green-600' : '';
-
   return (
     <Button
       aria-label="Copy link"
-      className={className}
+      className={cn('gap-2', className)}
       onClick={(e) => {
         e.preventDefault();
         copy(link);
@@ -41,20 +37,20 @@ export function CopyLinkButton({
       variant={variant}
       {...props}
     >
-      {iconPosition === 'left' && (
-        <Icon
-          aria-hidden="true"
-          className={`w-4 h-4 mr-2 ${iconClass}`}
-          data-testid="clipboard-icon"
-        />
-      )}
-      {children ?? (copied ? 'Copied!' : 'Copy Link')}
-      {iconPosition === 'right' && (
-        <Icon
-          aria-hidden="true"
-          className={`w-4 h-4 ml-2 ${iconClass}`}
-          data-testid="clipboard-icon"
-        />
+      {copied ? (
+        <>
+          <ClipboardCheck
+            aria-hidden="true"
+            className={`w-4 h-4 dark:text-green-600`}
+            data-testid="clipboard-icon"
+          />
+          Copied!
+        </>
+      ) : (
+        <>
+          <Clipboard aria-hidden="true" className="w-4 h-4" data-testid="clipboard-icon" />
+          Copy Link
+        </>
       )}
     </Button>
   );
