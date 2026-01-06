@@ -24,11 +24,11 @@ export function TooltipCopyText({ text, ...props }: TooltipCopyTextProps) {
           <div className="text-xs pt-3 flex flex-row text-slate-400 p-0.5">
             {copied ? (
               <>
-                <CopyCheck className="h-3 w-3 mr-2 text-green-600" /> Copied!
+                <CopyCheck className="h-3 w-3 mr-1 text-green-600" /> Copied!
               </>
             ) : (
               <>
-                <Copy className="h-3 w-3 mr-2" /> Click to copy
+                <Copy className="h-3 w-3 mr-1" /> Click to copy
               </>
             )}
           </div>

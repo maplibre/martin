@@ -1,259 +1,232 @@
-# Martin Tile Server Development Guide
+# Martin Tile Server
 
-Martin is a blazing fast and lightweight tile server with PostGIS, MBTiles, and PMTiles support written in Rust.
+## 1. Identity & Project Scope
 
-**ALWAYS follow these instructions first and only fallback to additional search or context gathering if the information here is incomplete or found to be in error.**
+**Project:** Martin Tile Server
+**Primary Language:** Rust (Backend)
+**Frontend:** TypeScript / React (`martin/martin-ui`)
 
-## Working Effectively
+**Major Components:**
 
-### Essential Setup
-Bootstrap the development environment in this exact order:
+* `martin` / `martin-core`: Rust backend & business logic
+* `mbtiles`: Utility CLI
+* `martin/martin-ui`: React-based Web UI (isolated frontend)
+
+---
+
+## 2. Non-Negotiable Directives (HARD RULES)
+
+### Directive 000 - Quality bar for LLM-assisted changes
+
+All LLM-assisted contributions **must aim for a higher standard of excellence** than human-only changes.
+
+* Treat LLMs as a **quality multiplier, not a speed multiplier**.
+* Do not submit first-draft code unless explicitly requesting design feedback.
+* Invest time saved into:
+
+  * Additional tests (edge cases, regression, stress)
+  * Clearer structure and naming
+  * Removing TODOs and technical debt
+* Code produced with LLM assistance remains **the human author’s responsibility**.
+
+LLM-generated changes that show lack of care (missed obvious cases, shallow error handling, poor UX) may be declined outright.
+
+---
+
+## 3. Non-Negotiable Directives (HARD RULES)
+
+### Directive 001 - Build Integrity
+
+* **NEVER cancel** `cargo build`, `cargo test`, `just check`, or `just ci-test` once started.
+* Always allocate sufficient timeout **before** starting long-running commands.
+
+### Directive 002 - Scope Isolation
+
+You **MUST** correctly determine scope **before** running commands.
+
+#### Frontend-only scope (UI / React)
+
+* Allowed area: `martin/martin-ui/**`
+* **PROHIBITED:**
+
+  * `cargo build`
+  * `cargo run`
+  * `just start`
+  * Any Rust compilation
+
+#### Backend or Full-stack scope
+
+* Rust, DB, API, CLI, config, catalog, tile logic
+* Full bootstrap and validation **required**
+
+---
+
+## 4. Step 1: Determine Scope (MANDATORY)
+
+### PATH A - Frontend Only
+
+**Trigger:** CSS, JS, React components, frontend tests, UI behavior
+
+Steps:
+
+1. `cd martin/martin-ui`
+2. `npm clean-install --no-fund`
+3. `just test-frontend`
+4. (Optional) `npm run lint`
+5. (Optional) `just type-check`
+
+If a frontend task attempts Rust compilation -> **STOP immediately**.
+
+---
+
+### PATH B - Backend / Full System
+
+**Trigger:** Rust logic, APIs, DB, tiles, CLI, config
+
+Bootstrap order (exact):
 
 ```bash
-# Install just command runner
 cargo install just --locked
-
-# Validate all required tools are present
 just validate-tools
-
-# Start test database
 just start
-
-# Build the project - NEVER CANCEL: Full build takes 3-4 minutes.
 cargo build --workspace
-
-# 5Install frontend dependencies
-cd martin/martin-ui && npm install && cd ../..
-
-### Build Commands and Timing
-**CRITICAL**: NEVER CANCEL builds or tests before completion. Set appropriate timeouts:
-
-```bash
-# Build check - takes ~10 minutes. NEVER CANCEL. Set timeout to 20 minutes.
-just check
-
-# Full build - takes ~10 minutes. NEVER CANCEL. Set timeout to 20 minutes.
-cargo build --workspace
-
-# Release build - takes ~10 minutes. NEVER CANCEL. Set timeout to 20 minutes.
-cargo build --workspace --release
 ```
 
-### Test Commands and Timing
-**CRITICAL**: Tests may take 10+ minutes total. NEVER CANCEL. Set timeout to 30 minutes.
+---
+
+## 5. Execution Heuristics & Timeouts
+
+### Frontend Operations
+
+| Command              | Timeout | Notes               |
+| -------------------- | ------- | ------------------- |
+| `npm install`        | 5m      | Only in `martin-ui` |
+| `just test-frontend` | 2m      | UI tests only       |
+| `npm start`          | n/a     | Dev server          |
+
+### Backend Operations
+
+| Command                   | Timeout |
+| ------------------------- | ------- |
+| `cargo build --workspace` | 20m     |
+| `just check`              | 20m     |
+| `cargo clippy`            | 5m      |
+| `cargo test`              | 5m      |
+| `just test`               | 30m     |
+| `just ci-test`            | 45m     |
+
+---
+
+## 6. Validation Protocols
+
+### Frontend Validation (No Rust)
+
+* `just test-frontend` -> **must pass**
+* `just type-check` -> no TS errors
+* Rust logs are irrelevant here
+
+### Backend Validation (Required)
+
+1. `cargo build --workspace`
+2. `just start`
+3. `cargo run --bin martin -- ...`
+4. Health check:
+
+   * `/health`
+   * `/catalog`
+
+---
+
+## 7. Manual Validation Scenarios (Backend)
+
+### Scenario 1 - MBTiles
 
 ```bash
-# Unit tests - takes ~2 minutes total. NEVER CANCEL. Timeout 10 minutes
-just test-cargo --all-targets
-
-# Frontend tests - takes ~30 seconds. timeout 5
-2 minutes
-just test-frontend
-
-# Integration tests - requires database. timeout 10 minutes
-# Note: Some integration tests may fail due to S3/network issues - this is expected in CI environments
-tests/test.sh
-
-# Run all tests - takes 15 minutes. NEVER CANCEL. Set timeout to 30 minutes
-just test
-```
-
-### Debug builds
-```bash
-# Run the server in a debug build
-just run --webui enable-for-all
-
-# Server will be available at:
-# - API: http://localhost:3000/catalog
-# - Web UI: http://localhost:3000/
-# - Health check: http://localhost:3000/health
-```
-
-### Code Quality Commands
-```bash
-# Format code - takes ~10 seconds
-just fmt
-
-# Lint code - takes ~10 minutes. Set timeout 20 minutes
-just clippy
-
-# Type check frontend - takes ~5 seconds
-just type-check
-
-# All linting together - takes ~2 minutes
-just lint
-```
-
-### Database Management
-```bash
-# Start test database (PostgreSQL 18 with PostGIS)
-just start
-
-# Stop database
-just stop
-
-# Restart database
-just restart
-
-# Connect to database
-just psql
-
-# Print connection string
-just print-conn-str
-```
-
-## Validation Requirements
-
-### Manual Validation Scenarios
-**ALWAYS** run through these complete scenarios after making changes:
-
-#### Scenario 1: Basic MBTiles Server
-```bash
-# 1. Start with clean build
-cargo build --workspace
-just start
-
-# 2. Start server with MBTiles files
 cargo run --bin martin -- --webui enable-for-all tests/fixtures/mbtiles
-
-# 3. Validate server responds
-curl -s http://localhost:3000/catalog | head -10
-curl -s http://localhost:3000/health
-
-# 4. Test a tile endpoint
-curl -s http://localhost:3000/world_cities/0/0/0 | head -1
-
-# 5. Access web UI in browser (if possible)
-# Navigate to http://localhost:3000/
+curl http://localhost:3000/health
+curl http://localhost:3000/catalog
 ```
 
-#### Scenario 2: PostgreSQL Database Integration
+### Scenario 2 - PostgreSQL
+
 ```bash
-# 1. Ensure database is running and initialized
 just start
 PGHOST=localhost PGPORT=5411 PGUSER=postgres PGPASSWORD=postgres PGDATABASE=db tests/fixtures/initdb.sh
-
-# 2. Start server with database connection
 export DATABASE_URL='postgres://postgres:postgres@localhost:5411/db'
 cargo run --bin martin -- --webui enable-for-all
-
-# 3. Validate database tables are detected
-curl -s http://localhost:3000/catalog | grep -i table
 ```
 
-#### Scenario 3: CLI Tools Validation
+### Scenario 3 - CLI Tools
+
 ```bash
-# Test martin-cp tool
 cargo run --bin martin-cp -- --help
-
-# Test mbtiles tool
 cargo run --bin mbtiles -- --help
-
-# Test actual functionality
-cargo run --bin mbtiles -- --help meta-all tests/fixtures/mbtiles/world_cities.mbtiles
 ```
 
-### CI Validation Commands
-**ALWAYS** run these before completing any changes:
-```bash
-# Complete CI validation - takes 15-20 minutes. NEVER CANCEL. Set timeout to 45+ minutes.
-just ci-test
+---
 
-# Individual validation steps:
-just test-fmt     # Format check - 10 seconds
-just clippy       # Linting - 2 minutes. Set timeout to 5+ minutes.
-just check-doc    # Documentation - 1 minute
-just test         # All tests - 15 minutes
-```
+## 8. Directory Rules
 
-## Critical Timing and Timeout Information
+* `martin/martin-ui/` -> **Frontend-only zone**
+* `martin/` -> Rust CLI entry
+* `martin-core/` -> Core logic
+* `tests/` -> Fixtures & integration tests
 
-### Build Operations
-- **Build check (`just check`)**: 6 minutes - Set timeout to 15+ minutes
-- **Full build (`cargo build`)**: 3-4 minutes - Set timeout to 10+ minutes
-- **Release build**: 5+ minutes - Set timeout to 15+ minutes
-- **Frontend build**: 30 seconds - Set timeout to 2+ minutes
+Rule: **If you enter `martin-ui`, stay there.**
 
-### Test Operations
-- **Unit tests (`just test-cargo`)**: 2 minutes - Set timeout to 5+ minutes
-- **Frontend tests**: 11 seconds - Set timeout to 2+ minutes
-- **Integration tests**: Variable, 5-10 minutes - Set timeout to 20+ minutes
-- **Complete test suite (`just test`)**: 10-15 minutes - Set timeout to 30+ minutes
-- **CI test suite (`just ci-test`)**: 15-20 minutes - Set timeout to 45+ minutes
+---
 
-### Database Operations
-- **Database startup (`just start`)**: 15 seconds - Set timeout to 2+ minutes
-- **Database initialization**: 30 seconds - Set timeout to 2+ minutes
+## 9. Engineering principles (applies to all scopes)
 
-## Common Issues and Troubleshooting
+### Correctness over convenience
 
-### Build Issues
-- If `just` command not found: `cargo install just --locked`
-- If build fails with missing tools: `just validate-tools` then install missing dependencies
-- If PostgreSQL connection fails: Check `just start` output and use `just restart`
-- If frontend tests fail: Run `cd martin/martin-ui && npm install` first
+* Model the **full error space**-no shortcuts or silent fallbacks.
+* Handle edge cases explicitly, including race conditions, timing issues, and platform differences.
+* Prefer **compile-time guarantees** (types, invariants) over runtime checks where possible.
 
-### Integration Test Issues
-- Some tests may fail due to S3/AWS configuration in CI environments - this is expected
-- Database connection issues: Ensure `DATABASE_URL='postgres://postgres:postgres@localhost:5411/db'`
-- PMTiles HTTP tests: Ensure nginx fileserver is running via `just start`
+### User experience as a primary driver
 
-### Performance Notes
-- Martin is optimized for speed and heavy traffic
-- Release builds are significantly faster than debug builds for performance testing
-- Database connection pooling is configured for high throughput
-- Caching is enabled by default (512MB)
+* Errors must be actionable and specific.
+* Prefer structured, contextual error messages over generic ones.
+* Write user-facing messages in clear, present tense.
 
-## Key Project Structure
+### Pragmatic incrementalism
 
-### Main Components
-- `martin/` - Main tile server with CLI and config management
-- `martin-core/` - Shared Core Library for how tiles and supporting resources are shared
-- `martin-tile-utils/` - Tile manipulation utilities
-- `mbtiles/` - MBTiles format support and CLI tool
-- `martin/martin-ui/` - React-based web UI
-- `tests/` - Integration tests and fixtures
-- `justfile` - Task runner configuration
+* Avoid over-generic abstractions.
+* Prefer specific, composable logic.
+* Evolve designs incrementally and document trade-offs when they matter.
 
-### Important Configuration Files
-- `Cargo.toml` - Workspace configuration
-- `justfile` - Development task definitions
-- `docker-compose.yml` - Test database and services
-- `martin/martin-ui/package.json` - Frontend dependencies
-- `.github/workflows/ci.yml` - CI pipeline configuration
+### Production-grade Rust engineering
 
-### Test Data Locations
-- `tests/fixtures/mbtiles/` - Sample MBTiles files
-- `tests/fixtures/pmtiles/` - Sample PMTiles files
-- `tests/fixtures/cog/` - Cloud Optimized GeoTIFF files
-- `tests/fixtures/sprites/` - SVG sprite sources
-- `tests/fixtures/fonts/` - Font files
-- `tests/fixtures/styles/` - MapLibre style files
+* Use the type system aggressively (newtypes, builders, state encoding).
+* Avoid shared mutable state; prefer message passing or ownership transfer.
+* Be mindful of performance characteristics (allocation, cloning, hot paths).
+* Tests are part of the feature: missing tests means the change is incomplete.
 
-## Quick Reference Commands
-```bash
-# Development workflow
-just help         # Show common commands
-just --list       # Show all available commands
-just validate-tools  # Check required tools
-just start        # Start test database
-just run          # Start martin server
-just test         # Run all tests (15+ minutes)
-just fmt          # Format code
-just clippy       # Lint code
-just book         # Build documentation
-just stop         # Stop test database
+---
 
-# Build variants
-just check        # Quick build check (6+ minutes)
-cargo build       # Debug build (3+ minutes)
-cargo build --release  # Release build (5+ minutes)
+## 10. Troubleshooting Logic
 
-# Testing variants
-just test-cargo   # Unit tests only (2+ minutes)
-just test-frontend # Frontend tests (11 seconds)
-just test-int     # Integration tests (variable)
-just ci-test      # Full CI validation (20+ minutes)
-```
+1. Frontend task + Rust build -> **Error**
+2. Frontend dependency failure -> remove `node_modules`, reinstall
+3. Integration test DB failures -> `just restart`
+4. CI failures -> rerun `just ci-test` locally
 
-Remember: Martin is a production-ready tile server handling heavy geographic workloads. Always validate changes with realistic data scenarios and never cancel long-running builds or tests.
+---
+
+## 11. Performance & Reliability Notes
+
+* Release builds are significantly faster
+* Integration tests may fail in CI due to S3/network limits
+* Martin is optimized for high-throughput tile serving
+
+---
+
+## 12. Final Authority Rule
+
+If two instructions ever conflict:
+
+1. **This document wins**
+2. Hard rules override heuristics
+3. Scope isolation overrides convenience
+4. Do excellent work!
