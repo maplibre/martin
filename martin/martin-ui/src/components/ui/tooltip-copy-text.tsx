@@ -24,7 +24,6 @@ export function TooltipCopyText({ text, ...props }: TooltipCopyTextProps) {
           <div className="text-sm font-mono">{text}</div>
           <div className="text-xs pt-3 flex flex-row text-slate-400 p-0.5">
             <Copy className="h-3 w-3 mr-1" /> Click to copy
-              
           </div>
         </div>
       </TooltipContent>
