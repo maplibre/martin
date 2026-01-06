@@ -7,7 +7,7 @@ export interface TooltipCopyTextProps {
 }
 
 export function TooltipCopyText({ text, ...props }: TooltipCopyTextProps) {
-  // no copied and switching the icon since clicking immedeatly closes the tooltip
+  // no copied and switching the icon since clicking immediately closes the tooltip
   const { copy } = useCopyToClipboard({ successMessage: `"${text}"` });
 
   return (
