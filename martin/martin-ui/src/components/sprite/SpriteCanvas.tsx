@@ -1,4 +1,4 @@
-import { Copy, CopyCheck } from 'lucide-react';
+import { Copy } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
