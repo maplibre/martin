@@ -1,7 +1,6 @@
 'use client';
 
-import { Code, Copy, ExternalLink } from 'lucide-react';
-import { useId, useState } from 'react';
+import { Code, Copy, CopyCheck, ExternalLink } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -12,6 +11,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 import { buildMartinUrl } from '@/lib/api';
 import type { Style } from '@/lib/types';
 
@@ -21,29 +21,29 @@ interface StyleIntegrationGuideDialogProps {
   onCloseAction: () => void;
 }
 
-const CodeBlock = ({ code, id }: { code: string; id: string }) => {
-  const [copiedCode, setCopiedCode] = useState<string | null>(null);
+const CodeBlock = ({ code }: { code: string }) => {
+  const { copy, copied } = useCopyToClipboard();
 
-  const copyToClipboard = async (code: string, id: string) => {
-    try {
-      await navigator.clipboard.writeText(code);
-      setCopiedCode(id);
-      setTimeout(() => setCopiedCode(null), 2000);
-    } catch (err) {
-      console.error('Failed to copy code:', err);
-    }
-  };
   return (
     <div className="relative">
       <pre className="bg-muted p-4 rounded-md overflow-x-auto text-sm border">
         <Button
           className="absolute top-2 right-2 h-6 px-2 z-10"
-          onClick={() => copyToClipboard(code, id)}
+          onClick={() => copy(code)}
           size="sm"
           variant="ghost"
         >
-          <Copy className="w-3 h-3 mr-1" />
-          {copiedCode === id ? 'Copied!' : 'Copy'}
+          {copied ? (
+            <>
+              Copied
+              <CopyCheck className="w-3 h-3 dark:text-green-600" />
+            </>
+          ) : (
+            <>
+              Copy
+              <Copy className="w-3 h-3" />
+            </>
+          )}
         </Button>
         <code>{code}</code>
       </pre>
@@ -153,7 +153,6 @@ function MyMap() {
     />
   );
 }`;
-  const id = useId();
 
   return (
     <Dialog onOpenChange={(v) => !v && onCloseAction()} open={true}>
@@ -227,7 +226,7 @@ function MyMap() {
                       </a>
                     </Button>
                   </h4>
-                  <CodeBlock code={webJsCode} id={`web-js-${id}`} />
+                  <CodeBlock code={webJsCode} />
                 </div>
 
                 <div>
@@ -243,7 +242,7 @@ function MyMap() {
                       </a>
                     </Button>
                   </h4>
-                  <CodeBlock code={webNpmCode} id={`web-npm-${id}`} />
+                  <CodeBlock code={webNpmCode} />
                 </div>
 
                 <div>
@@ -259,7 +258,7 @@ function MyMap() {
                       </a>
                     </Button>
                   </h4>
-                  <CodeBlock code={reactCode} id={`react-${id}`} />
+                  <CodeBlock code={reactCode} />
                 </div>
               </div>
             </TabsContent>
@@ -279,7 +278,7 @@ function MyMap() {
                       </a>
                     </Button>
                   </h4>
-                  <CodeBlock code={androidCode} id={`android-${id}`} />
+                  <CodeBlock code={androidCode} />
                 </div>
 
                 <div>
@@ -295,7 +294,7 @@ function MyMap() {
                       </a>
                     </Button>
                   </h4>
-                  <CodeBlock code={iosCode} id={`ios-${id}`} />
+                  <CodeBlock code={iosCode} />
                 </div>
 
                 <div>
@@ -311,7 +310,7 @@ function MyMap() {
                       </a>
                     </Button>
                   </h4>
-                  <CodeBlock code={reactNativeCode} id={`react-native-${id}`} />
+                  <CodeBlock code={reactNativeCode} />
                 </div>
               </div>
             </TabsContent>
