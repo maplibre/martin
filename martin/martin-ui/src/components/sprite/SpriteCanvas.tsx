@@ -13,7 +13,8 @@ type SpriteCanvasProps = {
 
 const SpriteCanvas = ({ meta, image, label, previewMode = false }: SpriteCanvasProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const { copy, copied } = useCopyToClipboard({
+  // not using copied since on-click the tooltip closes
+  const { copy } = useCopyToClipboard({
     successMessage: `Sprite ID "${label}" copied to clipboard`,
   });
 
