@@ -56,15 +56,7 @@ const SpriteCanvas = ({ meta, image, label, previewMode = false }: SpriteCanvasP
                 </code>
                 <br />
                 <div className="pt-4 text-sm flex flex-row justify-center p-0.5">
-                  {copied ? (
-                    <>
-                      <CopyCheck className="h-3 w-3 mr-1 text-green-600" /> Copied!
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="h-3 w-3 mr-1" /> Click to copy
-                    </>
-                  )}
+                  <Copy className="h-3 w-3 mr-1" /> Click to copy
                 </div>
               </p>
             </TooltipContent>
@@ -104,15 +96,7 @@ const SpriteCanvas = ({ meta, image, label, previewMode = false }: SpriteCanvasP
       </TooltipTrigger>
       <TooltipContent>
         <div className="text-xs flex flex-row p-0.5">
-          {copied ? (
-            <>
-              <CopyCheck className="h-3 w-3 mr-1 text-green-600" /> Copied!
-            </>
-          ) : (
-            <>
-              <Copy className="h-3 w-3 mr-1" /> Click to copy
-            </>
-          )}
+          <Copy className="h-3 w-3 mr-1" /> Click to copy
         </div>
       </TooltipContent>
     </Tooltip>
