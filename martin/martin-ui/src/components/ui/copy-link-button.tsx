@@ -28,7 +28,7 @@ export function CopyLinkButton({
   const Icon = copied ? ClipboardCheck : Clipboard;
   const iconClass = copied ? 'dark:text-green-600' : '';
 
-  return (  
+  return (
     <Button
       aria-label="Copy link"
       className={className}
