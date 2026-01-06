@@ -11,6 +11,7 @@ interface UseCopyToClipboardOptions {
 
 interface UseCopyToClipboardReturn {
   copied: boolean;
+  copiedValue: string | null;
   copy: (text: string, customSuccessMessage?: string) => Promise<boolean>;
 }
 
@@ -21,6 +22,7 @@ export function useCopyToClipboard(
   const { successMessage = 'Copied!' } = options;
   const { toast } = useToast();
   const [copied, setCopied] = useState(false);
+  const [copiedValue, setCopiedValue] = useState<string | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -34,6 +36,7 @@ export function useCopyToClipboard(
       try {
         await copyToClipboard(text);
         setCopied(true);
+        setCopiedValue(text);
 
         toast({
           description: customSuccessMessage ?? successMessage,
@@ -43,6 +46,7 @@ export function useCopyToClipboard(
         if (timeoutRef.current) clearTimeout(timeoutRef.current);
         timeoutRef.current = setTimeout(() => {
           setCopied(false);
+          setCopiedValue(null);
           timeoutRef.current = null;
         }, RESET_DELAY);
 
@@ -60,5 +64,5 @@ export function useCopyToClipboard(
     [successMessage, toast],
   );
 
-  return { copied, copy };
+  return { copied, copiedValue, copy };
 }
