@@ -153,19 +153,19 @@ export function SpriteDownloadDialog({ name, sprite, onCloseAction }: SpriteDown
                       <p className="text-sm text-muted-foreground">{format.description}</p>
                     </div>
                     <Button
-                      className="ml-4"
+                      className="ml-4 gap-1"
                       onClick={() => copy(format.url, `URL of ${format.label} copied to clipboard`)}
                       size="sm"
                       variant="outline"
                     >
                       {copiedValue === format.url ? (
                         <>
-                          <CopyCheck className="h-4 w-4 mr-2 text-green-600" />
+                          <CopyCheck className="h-4 w-4" />
                           Copied
                         </>
                       ) : (
                         <>
-                          <Copy className="h-4 w-4 mr-1" />
+                          <Copy className="h-4 w-4" />
                           Copy URL
                         </>
                       )}
@@ -194,19 +194,19 @@ export function SpriteDownloadDialog({ name, sprite, onCloseAction }: SpriteDown
                       <p className="text-sm text-muted-foreground">{format.description}</p>
                     </div>
                     <Button
-                      className="ml-4"
+                      className="ml-4 gap-1"
                       onClick={() => copy(format.url, `URL of ${format.label} copied to clipboard`)}
                       size="sm"
                       variant="outline"
                     >
                       {copiedValue === format.url ? (
                         <>
-                          <CopyCheck className="h-4 w-4 mr-2 text-green-600" />
+                          <CopyCheck className="h-4 w-4" />
                           Copied
                         </>
                       ) : (
                         <>
-                          <Copy className="h-4 w-4 mr-1" />
+                          <Copy className="h-4 w-4" />
                           Copy URL
                         </>
                       )}

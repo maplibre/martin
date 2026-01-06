@@ -26,9 +26,9 @@ export function CopyLinkButton({
   const { copy, copied } = useCopyToClipboard({ successMessage: toastMessage });
 
   const Icon = copied ? ClipboardCheck : Clipboard;
-  const iconClass = copied ? 'text-green-600' : '';
+  const iconClass = copied ? 'dark:text-green-600' : '';
 
-  return (
+  return (  
     <Button
       aria-label="Copy link"
       className={className}

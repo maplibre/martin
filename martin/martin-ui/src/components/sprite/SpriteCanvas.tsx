@@ -56,8 +56,8 @@ const SpriteCanvas = ({ meta, image, label, previewMode = false }: SpriteCanvasP
                   {label}
                 </code>
                 <br />
-                <div className="pt-4 text-sm flex flex-row justify-center p-0.5">
-                  <Copy className="h-3 w-3 mr-1" /> Click to copy
+                <div className="pt-4 text-sm flex gap-1 flex-row justify-center p-0.5">
+                  <Copy className="h-4 w-4 mb-0.5" /> Click to copy
                 </div>
               </p>
             </TooltipContent>
@@ -96,8 +96,8 @@ const SpriteCanvas = ({ meta, image, label, previewMode = false }: SpriteCanvasP
         </button>
       </TooltipTrigger>
       <TooltipContent>
-        <div className="text-xs flex flex-row p-0.5">
-          <Copy className="h-3 w-3 mr-1" /> Click to copy
+        <div className="text-xs flex flex-row gap-1 p-0.5">
+          <Copy className="h-3 w-3 mb-0.5" /> Click to copy
         </div>
       </TooltipContent>
     </Tooltip>

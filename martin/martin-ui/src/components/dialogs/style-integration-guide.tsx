@@ -35,13 +35,13 @@ const CodeBlock = ({ code }: { code: string }) => {
         >
           {copied ? (
             <>
-              <CopyCheck className="w-3 h-3 mr-1 text-green-600" />
-              Copied!
+              Copied
+              <CopyCheck className="w-3 h-3 dark:text-green-600" />
             </>
           ) : (
             <>
-              <Copy className="w-3 h-3 mr-1" />
               Copy
+              <Copy className="w-3 h-3" />
             </>
           )}
         </Button>
