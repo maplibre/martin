@@ -1,6 +1,6 @@
 pmtiles:
   sources:
     webp2: ./webp2.pmtiles
- # if lamdas are added/removed for one request,
+ # if lambdas are added/removed for one request,
  # caching needs to be done externally
 cache_size_mb: 0
