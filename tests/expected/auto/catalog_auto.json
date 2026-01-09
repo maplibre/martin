@@ -142,6 +142,10 @@
       "content_type": "application/json",
       "name": "Dummy json data"
     },
+    "mat_view": {
+      "content_type": "application/x-protobuf",
+      "description": "materialized view comment"
+    },
     "png": {
       "content_type": "image/png",
       "name": "ne2sr"

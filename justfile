@@ -152,7 +152,7 @@ coverage *args='--no-clean --open':  (cargo-install 'cargo-llvm-cov') clean star
 cp *args:
     cargo run --bin martin-cp -- {{args}}
 
-# Start Martin server and open a test page
+# Start Martin server and open a test page (not the integrated UI)
 debug-page *args: start
     open tests/debug.html  # run will not exit, so open debug page first
     {{just}} run {{args}}

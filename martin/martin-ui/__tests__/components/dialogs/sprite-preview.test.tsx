@@ -50,11 +50,6 @@ vi.mock('@/components/ui/button', () => ({
   ),
 }));
 
-// Mock lucide-react icons
-vi.mock('lucide-react', () => ({
-  Download: () => <span data-testid="download-icon">📥</span>,
-}));
-
 // Mock the SpritePreview component first before importing anything else
 vi.mock('@/components/sprite/SpritePreview', () => ({
   SpritePreview: function MockSpritePreview() {
