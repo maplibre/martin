@@ -1,8 +1,8 @@
 //! Logging initialization for Martin using `tracing` and `tracing-subscriber`.
 //!
-//! This module provides static (non-reloadable) logging configuration controlled by:
-//! - `RUST_LOG`: Controls log level filtering (standard tracing-subscriber behavior)
-//! - `MARTIN_FORMAT`: Controls output format (compact, full, pretty, json)
+//! This module provides static logging configuration controlled by:
+//! - [`EnvFilter`]: Controls log level filtering (standard tracing-subscriber behavior)
+//! - [`LogFormat`]: Controls output format (compact, full, pretty, json)
 
 use std::str::FromStr;
 
@@ -10,8 +10,6 @@ use tracing_subscriber::EnvFilter;
 use tracing_subscriber::fmt::format::FmtSpan;
 
 /// Log output format options.
-///
-/// Controlled by the `MARTIN_FORMAT` environment variable.
 #[derive(Debug, Clone, Copy)]
 pub enum LogFormat {
     /// Emit human-readable, single-line logs.
