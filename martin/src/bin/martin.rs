@@ -51,7 +51,7 @@ async fn start(args: Args) -> MartinResult<()> {
     server.await
 }
 
-#[actix_web::main]
+#[tokio::main]
 async fn main() {
     let filter = ensure_martin_core_log_level_matches(std::env::var("RUST_LOG").ok(), "martin=");
     init_tracing(&filter, std::env::var("MARTIN_FORMAT").ok());

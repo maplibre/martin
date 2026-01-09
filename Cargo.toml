@@ -46,9 +46,6 @@ base64 = "0.22.1"
 bit-set = "0.8"
 brotli = ">=5, <9"
 bytes = "1"
-tracing = { version = "0.1.44", features = ["log"] }
-tracing-log = { version = "0.2.0", features = ["interest-cache"] }
-tracing-subscriber = { version = "0.3.22", features = ["env-filter", "json", "fmt", "chrono"] }
 clap = { version = "4", features = ["derive", "unstable-markdown", "wrap_help"] }
 criterion = { version = "0.8", features = ["async_futures", "async_tokio", "html_reports"] }
 dashmap = { version = "6.1.0", features = ["serde", "inline", "rayon"] }
@@ -106,6 +103,9 @@ tiff = "0.10.1"
 tilejson = "0.4"
 tokio = { version = "1", features = ["macros"] }
 tokio-postgres-rustls = "0.13"
+tracing = "0.1.44"
+tracing-log = { version = "0.2.0", features = ["interest-cache"] }
+tracing-subscriber = { version = "0.3", default-features = false }
 tracing-test = "0.2"
 url = "2.5"
 walkdir = "2.5.0"

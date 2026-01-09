@@ -6,10 +6,8 @@
 
 use std::str::FromStr;
 
+use tracing_subscriber::EnvFilter;
 use tracing_subscriber::fmt::format::FmtSpan;
-use tracing_subscriber::layer::SubscriberExt;
-use tracing_subscriber::util::SubscriberInitExt;
-use tracing_subscriber::{EnvFilter, Layer, Registry};
 
 /// Log output format options.
 ///
@@ -31,6 +29,39 @@ pub enum LogFormat {
     /// Output newline-delimited (structured) JSON logs.
     /// See [format::Json](https://docs.rs/tracing-subscriber/latest/tracing_subscriber/fmt/format/struct.Json.html#example-output)
     Json,
+}
+
+impl LogFormat {
+    pub fn init(self, env_filter: EnvFilter) {
+        match self {
+            LogFormat::Full => {
+                tracing_subscriber::fmt()
+                    .with_span_events(FmtSpan::NONE)
+                    .with_env_filter(env_filter)
+                    .init();
+            }
+            LogFormat::Compact => {
+                tracing_subscriber::fmt()
+                    .compact()
+                    .with_span_events(FmtSpan::NONE)
+                    .with_env_filter(env_filter)
+                    .init();
+            }
+            LogFormat::Pretty => {
+                tracing_subscriber::fmt()
+                    .pretty()
+                    .with_env_filter(env_filter)
+                    .init();
+            }
+            LogFormat::Json => {
+                tracing_subscriber::fmt()
+                    .json()
+                    .with_span_events(FmtSpan::NONE)
+                    .with_env_filter(env_filter)
+                    .init();
+            }
+        };
+    }
 }
 
 impl Default for LogFormat {
@@ -67,12 +98,6 @@ impl FromStr for LogFormat {
 /// 3. Uses the provided format for output
 /// 4. Sets up the global tracing subscriber
 pub fn init_tracing(filter: &str, format: Option<String>) {
-    // Initialize log -> tracing bridge (ignore if already initialized)
-    let _ = tracing_log::LogTracer::builder()
-        .with_interest_cache(tracing_log::InterestCacheConfig::default())
-        .init()
-        .expect("failed to intialise the global log -> tracing bridge");
-
     // Set up the filter from the provided string
     let env_filter = EnvFilter::from_str(filter).unwrap_or_else(|_| {
       eprintln!("Warning: Invalid filter string '{filter}' passed. Since you passed a filter, you likely want to debug us, so we set the filter to debug");
@@ -80,7 +105,7 @@ pub fn init_tracing(filter: &str, format: Option<String>) {
     });
 
     // Build and install the subscriber based on format
-    let format = format
+    format
         .and_then(|s| {
             s.parse::<LogFormat>()
                 .map_err(|e| {
@@ -89,39 +114,25 @@ pub fn init_tracing(filter: &str, format: Option<String>) {
                 })
                 .ok()
         })
-        .unwrap_or_default();
-    match format {
-        LogFormat::Full => {
-            let fmt_layer = tracing_subscriber::fmt::layer()
-                .with_span_events(FmtSpan::NONE)
-                .with_filter(env_filter);
+        .unwrap_or_default()
+        .init(env_filter.clone());
 
-            Registry::default().with(fmt_layer).init()
-        }
-        LogFormat::Compact => {
-            let fmt_layer = tracing_subscriber::fmt::layer()
-                .compact()
-                .with_span_events(FmtSpan::NONE)
-                .with_filter(env_filter);
-
-            Registry::default().with(fmt_layer).init()
-        }
-        LogFormat::Pretty => {
-            let fmt_layer = tracing_subscriber::fmt::layer()
-                .pretty()
-                .with_filter(env_filter);
-
-            Registry::default().with(fmt_layer).init()
-        }
-        LogFormat::Json => {
-            let fmt_layer = tracing_subscriber::fmt::layer()
-                .json()
-                .with_span_events(FmtSpan::NONE)
-                .with_filter(env_filter);
-
-            Registry::default().with(fmt_layer).init()
-        }
-    };
+    // Initialize log -> tracing bridge
+    let mut log_builder = tracing_log::LogTracer::builder()
+        .with_interest_cache(tracing_log::InterestCacheConfig::default());
+    if let Some(Some(max_level)) = env_filter.max_level_hint().map(|l| l.into_level()) {
+        let max_level = match max_level {
+            tracing::Level::DEBUG => log::LevelFilter::Debug,
+            tracing::Level::INFO => log::LevelFilter::Info,
+            tracing::Level::WARN => log::LevelFilter::Warn,
+            tracing::Level::ERROR => log::LevelFilter::Error,
+            tracing::Level::TRACE => log::LevelFilter::Trace,
+        };
+        log_builder = log_builder.with_max_level(max_level);
+    }
+    log_builder
+        .init()
+        .expect("Failed to initialize log -> tracing bridge");
 }
 
 pub fn ensure_martin_core_log_level_matches(
