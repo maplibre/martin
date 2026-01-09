@@ -3929,6 +3929,8 @@ dependencies = [
  "thiserror 2.0.17",
  "tilejson",
  "tokio",
+ "tracing",
+ "tracing-test",
  "xxhash-rust",
 ]
 

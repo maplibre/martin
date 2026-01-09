@@ -61,7 +61,7 @@ macro_rules! err {
 #[case("0, 0, ", ", NULL")] // test tile_row
 #[trace]
 #[actix_rt::test]
-#[traced_test::traced_test]
+#[tracing_test::traced_test]
 async fn integers(#[case] prefix: &str, #[case] suffix: &str) {
     ok!("{prefix} 0 {suffix}");
 
@@ -86,7 +86,7 @@ async fn integers(#[case] prefix: &str, #[case] suffix: &str) {
 #[case("0, ", ", NULL")] // test tile_row
 #[trace]
 #[actix_rt::test]
-#[traced_test::traced_test]
+#[tracing_test::traced_test]
 async fn tile_coordinate(#[case] prefix: &str, #[case] suffix: &str) {
     ok!("0,  {prefix} 0          {suffix}");
     ok!("1,  {prefix} 1          {suffix}");
@@ -108,7 +108,7 @@ async fn tile_coordinate(#[case] prefix: &str, #[case] suffix: &str) {
 }
 
 #[actix_rt::test]
-#[traced_test::traced_test]
+#[tracing_test::traced_test]
 async fn tile_data() {
     ok!("0, 0, 0, NULL");
     ok!("0, 0, 0, CAST('' AS BLOB)");

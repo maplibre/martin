@@ -60,7 +60,7 @@ impl LogFormat {
                     .with_env_filter(env_filter)
                     .init();
             }
-        };
+        }
     }
 }
 
@@ -120,7 +120,10 @@ pub fn init_tracing(filter: &str, format: Option<String>) {
     // Initialize log -> tracing bridge
     let mut log_builder = tracing_log::LogTracer::builder()
         .with_interest_cache(tracing_log::InterestCacheConfig::default());
-    if let Some(Some(max_level)) = env_filter.max_level_hint().map(|l| l.into_level()) {
+    if let Some(Some(max_level)) = env_filter
+        .max_level_hint()
+        .map(tracing::level_filters::LevelFilter::into_level)
+    {
         let max_level = match max_level {
             tracing::Level::DEBUG => log::LevelFilter::Debug,
             tracing::Level::INFO => log::LevelFilter::Info,
@@ -135,6 +138,8 @@ pub fn init_tracing(filter: &str, format: Option<String>) {
         .expect("Failed to initialize log -> tracing bridge");
 }
 
+/// Ensures that the log level for `martin_core` matches the log level for `replacement`.
+#[must_use]
 pub fn ensure_martin_core_log_level_matches(
     env_filter: Option<String>,
     replacement: &'static str,

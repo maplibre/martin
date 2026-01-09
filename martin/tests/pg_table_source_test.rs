@@ -1,6 +1,5 @@
 #![cfg(feature = "postgres")]
 
-use ctor::ctor;
 use indoc::indoc;
 use insta::assert_yaml_snapshot;
 use martin_tile_utils::TileCoord;
