@@ -166,12 +166,12 @@ walkdir = { workspace = true, optional = true }
 [dev-dependencies]
 approx.workspace = true
 criterion.workspace = true
-ctor.workspace = true
 indoc.workspace = true
 insta = { workspace = true, features = ["json", "yaml", "redactions"] }
 rstest.workspace = true
 tempfile.workspace = true
 testcontainers-modules.workspace = true
+tracing-test.workspace = true
 
 [lints]
 workspace = true

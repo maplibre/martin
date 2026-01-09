@@ -7,11 +7,6 @@ use martin_tile_utils::TileCoord;
 pub mod utils;
 pub use utils::*;
 
-#[ctor]
-fn init() {
-    let _ = martin::logging::init_tracing_for_tests();
-}
-
 #[actix_rt::test]
 async fn table_source() {
     let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL")).await;

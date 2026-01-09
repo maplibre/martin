@@ -14,11 +14,6 @@ use tilejson::TileJSON;
 pub mod utils;
 pub use utils::*;
 
-#[ctor]
-fn init() {
-    let _ = martin::logging::init_tracing_for_tests();
-}
-
 macro_rules! create_app {
     ($sources:expr) => {{
         let state = mock_sources(mock_cfg($sources)).await.0;
@@ -90,6 +85,7 @@ async fn config(
 }
 
 #[actix_rt::test]
+#[traced_test::traced_test]
 async fn mbt_get_catalog() {
     let (config, _conns) = config("mbt_get_catalog").await;
     let app = create_app!(&config);
@@ -121,6 +117,7 @@ async fn mbt_get_catalog() {
 }
 
 #[actix_rt::test]
+#[traced_test::traced_test]
 async fn mbt_get_catalog_gzip() {
     let (config, _conns) = config("mbt_get_catalog_gzip").await;
     let app = create_app!(&config);
@@ -154,6 +151,7 @@ async fn mbt_get_catalog_gzip() {
 }
 
 #[actix_rt::test]
+#[traced_test::traced_test]
 async fn mbt_get_tilejson() {
     let (config, _conns) = config("mbt_get_tilejson").await;
     let app = create_app!(&config);
@@ -168,6 +166,7 @@ async fn mbt_get_tilejson() {
 }
 
 #[actix_rt::test]
+#[traced_test::traced_test]
 async fn mbt_get_tilejson_gzip() {
     let (config, _conns) = config("mbt_get_tilejson_gzip").await;
     let app = create_app!(&config);
@@ -184,6 +183,7 @@ async fn mbt_get_tilejson_gzip() {
 }
 
 #[actix_rt::test]
+#[traced_test::traced_test]
 async fn mbt_get_raster() {
     let (config, _conns) = config("mbt_get_raster").await;
     let app = create_app!(&config);
@@ -198,6 +198,7 @@ async fn mbt_get_raster() {
 
 /// get a raster tile with accepted gzip enc, but should still be non-gzipped
 #[actix_rt::test]
+#[traced_test::traced_test]
 async fn mbt_get_raster_gzip() {
     let (config, _conns) = config("mbt_get_raster_gzip").await;
     let app = create_app!(&config);
@@ -212,6 +213,7 @@ async fn mbt_get_raster_gzip() {
 }
 
 #[actix_rt::test]
+#[traced_test::traced_test]
 async fn mbt_get_mvt() {
     let (config, _conns) = config("mbt_get_mvt").await;
     let app = create_app!(&config);
@@ -232,6 +234,7 @@ async fn mbt_get_mvt() {
 
 /// get an MVT tile with accepted gzip enc
 #[actix_rt::test]
+#[traced_test::traced_test]
 async fn mbt_get_mvt_gzip() {
     let (config, _conns) = config("mbt_get_mvt_gzip").await;
     let app = create_app!(&config);
@@ -252,6 +255,7 @@ async fn mbt_get_mvt_gzip() {
 
 /// get an MVT tile with accepted brotli enc
 #[actix_rt::test]
+#[traced_test::traced_test]
 async fn mbt_get_mvt_brotli() {
     let (config, _conns) = config("mbt_get_mvt_brotli").await;
     let app = create_app!(&config);
@@ -272,6 +276,7 @@ async fn mbt_get_mvt_brotli() {
 
 /// get an uncompressed MVT tile
 #[actix_rt::test]
+#[traced_test::traced_test]
 async fn mbt_get_raw_mvt() {
     let (config, _conns) = config("mbt_get_raw_mvt").await;
     let app = create_app!(&config);
@@ -289,6 +294,7 @@ async fn mbt_get_raw_mvt() {
 
 /// get an uncompressed MVT tile with accepted gzip
 #[actix_rt::test]
+#[traced_test::traced_test]
 async fn mbt_get_raw_mvt_gzip() {
     let (config, _conns) = config("mbt_get_raw_mvt_gzip").await;
     let app = create_app!(&config);
@@ -311,6 +317,7 @@ async fn mbt_get_raw_mvt_gzip() {
 
 /// get an uncompressed MVT tile with accepted both gzip and brotli enc
 #[actix_rt::test]
+#[traced_test::traced_test]
 async fn mbt_get_raw_mvt_gzip_br() {
     let (config, _conns) = config("mbt_get_raw_mvt_gzip_br").await;
     let app = create_app!(&config);
@@ -334,6 +341,7 @@ async fn mbt_get_raw_mvt_gzip_br() {
 
 /// get a JSON tile
 #[actix_rt::test]
+#[traced_test::traced_test]
 async fn mbt_get_json() {
     let (config, _conns) = config("mbt_get_json").await;
     let app = create_app!(&config);
@@ -351,6 +359,7 @@ async fn mbt_get_json() {
 
 /// get a JSON tile with accepted gzip
 #[actix_rt::test]
+#[traced_test::traced_test]
 async fn mbt_get_json_gzip() {
     let (config, _conns) = config("mbt_get_json_gzip").await;
     let app = create_app!(&config);

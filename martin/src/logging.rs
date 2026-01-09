@@ -70,7 +70,8 @@ pub fn init_tracing(filter: &str, format: Option<String>) {
     // Initialize log -> tracing bridge (ignore if already initialized)
     let _ = tracing_log::LogTracer::builder()
         .with_interest_cache(tracing_log::InterestCacheConfig::default())
-        .init().expect("failed to intialise the global log -> tracing bridge");
+        .init()
+        .expect("failed to intialise the global log -> tracing bridge");
 
     // Set up the filter from the provided string
     let env_filter = EnvFilter::from_str(filter).unwrap_or_else(|_| {

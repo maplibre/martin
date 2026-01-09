@@ -11,11 +11,6 @@ use serde_json::Value;
 pub mod utils;
 pub use utils::*;
 
-#[ctor]
-fn init() {
-    let _ = martin::logging::init_tracing_for_tests();
-}
-
 macro_rules! create_app {
     ($sources:expr) => {{
         let state = mock_sources(mock_cfg($sources)).await.0;
@@ -51,6 +46,7 @@ const CONFIG_STYLES: &str = indoc! {"
     "};
 
 #[actix_rt::test]
+#[traced_test::traced_test]
 async fn catalog_multiple_styles() {
     let app = create_app! { CONFIG_STYLES };
 
@@ -71,6 +67,7 @@ async fn catalog_multiple_styles() {
 }
 
 #[actix_rt::test]
+#[traced_test::traced_test]
 async fn style_json_not_found() {
     let app = create_app! { CONFIG_STYLES };
 
@@ -99,6 +96,7 @@ mod render_tests {
     #[case::single_style_corner(CONFIG_STYLES, "/style/maplibre_demo/1/1/0.png")]
     #[case::single_style_mid_zoom(CONFIG_STYLES, "/style/maplibre_demo/5/15/15.png")]
     #[tokio::test]
+#[traced_test::traced_test]
     async fn render_tile_png(#[case] config: &str, #[case] path: &str) {
         let app = create_app! { config };
 
@@ -119,6 +117,7 @@ mod render_tests {
     }
 
     #[tokio::test]
+#[traced_test::traced_test]
     async fn render_tile_not_found_style() {
         let app = create_app! { CONFIG_STYLES };
 
@@ -131,6 +130,7 @@ mod render_tests {
     }
 
     #[tokio::test]
+#[traced_test::traced_test]
     async fn render_tile_impossible() {
         let app = create_app! { CONFIG_STYLES };
 
@@ -144,6 +144,7 @@ mod render_tests {
     }
 
     #[tokio::test]
+#[traced_test::traced_test]
     async fn render_concurrent_requests() {
         let app = create_app! { CONFIG_STYLES };
 
