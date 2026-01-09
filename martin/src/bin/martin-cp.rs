@@ -312,9 +312,21 @@ impl Display for Progress {
         } else {
             0.0
         };
+        write!(f, "[")?;
+        let secs = elapsed_s.ceil() as u64;
+        let (mins, secs) = (secs / 60, secs % 60);
+        let (hrs, mins) = (mins / 60, mins % 60);
+        if hrs > 0 {
+            write!(f, "{hrs}h{mins:02}m{secs:02}s")?;
+        } else if mins > 0 {
+            write!(f, "{mins}m{secs:02}s")?;
+        } else {
+            write!(f, "{secs}s")?;
+        }
+
         write!(
             f,
-            "[{elapsed:.1?}] {percent:.2}% @ {speed:.1}/s | ✓ {non_empty} □ {empty}"
+            "] {percent:.2}% @ {speed:.1}/s | ✓ {non_empty} □ {empty}"
         )?;
 
         let left = self.total - done;
