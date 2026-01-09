@@ -96,7 +96,7 @@ mod render_tests {
     #[case::single_style_corner(CONFIG_STYLES, "/style/maplibre_demo/1/1/0.png")]
     #[case::single_style_mid_zoom(CONFIG_STYLES, "/style/maplibre_demo/5/15/15.png")]
     #[tokio::test]
-#[traced_test::traced_test]
+    #[traced_test::traced_test]
     async fn render_tile_png(#[case] config: &str, #[case] path: &str) {
         let app = create_app! { config };
 
@@ -117,7 +117,7 @@ mod render_tests {
     }
 
     #[tokio::test]
-#[traced_test::traced_test]
+    #[traced_test::traced_test]
     async fn render_tile_not_found_style() {
         let app = create_app! { CONFIG_STYLES };
 
@@ -130,7 +130,7 @@ mod render_tests {
     }
 
     #[tokio::test]
-#[traced_test::traced_test]
+    #[traced_test::traced_test]
     async fn render_tile_impossible() {
         let app = create_app! { CONFIG_STYLES };
 
@@ -144,7 +144,7 @@ mod render_tests {
     }
 
     #[tokio::test]
-#[traced_test::traced_test]
+    #[traced_test::traced_test]
     async fn render_concurrent_requests() {
         let app = create_app! { CONFIG_STYLES };
 
