@@ -1,4 +1,3 @@
-import { Rocket } from 'lucide-react';
 import React from 'react';
 import { vi } from 'vitest';
 
