@@ -359,8 +359,38 @@ test-int: clean-test install-sqlx
     fi
 
 # Run AWS Lambda smoke test against SAM local
-test-lambda:
-    tests/test-aws-lambda.sh
+test-lambda martin_bin='target/debug/martin':
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    if ! command -v sam >/dev/null 2>&1; then
+      echo "The AWS Serverless Application Model Command Line Interface (AWS SAM CLI) is missing."
+      echo "  https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html"
+      exit 1
+    fi
+    # `sam build` will copy the _entire_ context to a temporary directory, so just give it the files we need
+    mkdir -p .github/files/lambda-layer/bin/
+    if ! install {{quote(martin_bin)}} .github/files/lambda-layer/bin/; then
+      echo "Specify the binary, e.g. 'just test-lambda target/x86_64-linux-unknown-musl/release/martin'"
+      echo "Alternatively, build the binary with 'cargo build -p martin' and it will be used by default"
+      exit 1
+    fi
+    cp ./tests/fixtures/pmtiles2/webp2.pmtiles .github/files/lambda-function/
+
+    # build without touching real credentials
+    export AWS_PROFILE=dummy
+    export AWS_CONFIG_FILE=.github/files/dummy-aws-config
+    sam build --template-file .github/files/lambda.yaml
+
+    # Just send a single request using `sam local invoke` to verify that
+    # the server boots, finds a source to serve, and can handle a request.
+    # TODO Run the fuller integration suite against this.
+    # In doing so, switch from `sam local invoke`, which starts and stops the
+    # server, to `sam local start-api`, which keeps it running.
+    sam local generate-event apigateway http-api-proxy \
+      | jq '.rawPath = "/" | .requestContext.http.method = "GET"' \
+      | sam local invoke -e - \
+      | jq -ne 'input.statusCode==200'
 
 # Run all tests using the oldest supported version of the database
 test-legacy: start-legacy (test-cargo '--all-targets') test-doc test-int
@@ -410,31 +440,24 @@ validate-tools:
 
     # Check essential tools
     missing_tools=()
-
     if ! command -v jq >/dev/null 2>&1; then
         missing_tools+=("jq")
     fi
-
     if ! command -v file >/dev/null 2>&1; then
         missing_tools+=("file")
     fi
-
     if ! command -v curl >/dev/null 2>&1; then
         missing_tools+=("curl")
     fi
-
     if ! command -v grep >/dev/null 2>&1; then
         missing_tools+=("grep")
     fi
-
     if ! command -v sqlite3 >/dev/null 2>&1; then
         missing_tools+=("sqlite3")
     fi
-
     if ! command -v sqldiff >/dev/null 2>&1; then
         missing_tools+=("sqldiff")
     fi
-
 
     # Check Darwin-specific tools
     if [[ "$OSTYPE" == "darwin"* ]]; then
