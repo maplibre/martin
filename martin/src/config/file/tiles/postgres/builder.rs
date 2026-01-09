@@ -769,7 +769,7 @@ mod tests {
         use testcontainers_modules::testcontainers::ImageExt;
         use testcontainers_modules::testcontainers::runners::AsyncRunner;
 
-        let _ = env_logger::builder().is_test(true).try_init();
+        let _ = crate::logging::init_tracing_for_tests();
 
         let container = Postgres::default()
             .with_name("postgis/postgis")

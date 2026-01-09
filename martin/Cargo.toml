@@ -130,7 +130,6 @@ async-trait.workspace = true
 clap.workspace = true
 dashmap.workspace = true
 enum-display = { workspace = true, optional = true }
-env_logger.workspace = true
 futures.workspace = true
 image = { workspace = true, optional = true }
 itertools.workspace = true
@@ -154,6 +153,9 @@ subst.workspace = true
 thiserror.workspace = true
 tilejson.workspace = true
 tokio = { workspace = true, features = ["io-std"] }
+tracing = { workspace = true, features = ["log"] }
+tracing-log = { workspace = true, features = ["interest-cache"] }
+tracing-subscriber = { workspace = true, features = ["env-filter", "json", "fmt", "chrono"] }
 url.workspace = true
 walkdir = { workspace = true, optional = true }
 

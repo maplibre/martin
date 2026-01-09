@@ -519,7 +519,7 @@ mod mbtiles_tests {
 
     #[tokio::test]
     async fn test_invalid_path_warns_instead_of_failing() {
-        let _ = env_logger::builder().is_test(true).try_init();
+        let _ = crate::logging::init_tracing_for_tests();
 
         let invalid_path = PathBuf::from("/nonexistent/path/");
         let invalid_source = PathBuf::from("/nonexistent/path/to/file.mbtiles");
@@ -552,7 +552,7 @@ mod pmtiles_tests {
 
     #[tokio::test]
     async fn test_invalid_path_warns_instead_of_failing() {
-        let _ = env_logger::builder().is_test(true).try_init();
+        let _ = crate::logging::init_tracing_for_tests();
 
         let invalid_path = PathBuf::from("/nonexistent/path/");
         let invalid_source = PathBuf::from("/nonexistent/path/to/file.pmtiles");

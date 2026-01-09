@@ -46,6 +46,9 @@ base64 = "0.22.1"
 bit-set = "0.8"
 brotli = ">=5, <9"
 bytes = "1"
+tracing = { version = "0.1.44", features = ["log"] }
+tracing-log = { version = "0.2.0", features = ["interest-cache"] }
+tracing-subscriber = { version = "0.3.22", features = ["env-filter", "json", "fmt", "chrono"] }
 clap = { version = "4", features = ["derive", "unstable-markdown", "wrap_help"] }
 criterion = { version = "0.8", features = ["async_futures", "async_tokio", "html_reports"] }
 ctor = "0.6.3"

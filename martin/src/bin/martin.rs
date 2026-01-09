@@ -1,12 +1,11 @@
-use std::fmt::Write;
-
 use clap::Parser;
-use log::{error, info, log_enabled};
 use martin::MartinResult;
 use martin::config::args::Args;
 use martin::config::file::{Config, read_config};
+use martin::logging::{ensure_martin_core_log_level_matches, init_tracing};
 use martin::srv::new_server;
 use martin_core::config::env::OsEnv;
+use tracing::{error, info};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -54,26 +53,12 @@ async fn start(args: Args) -> MartinResult<()> {
 
 #[actix_web::main]
 async fn main() {
-    let mut log_filter = std::env::var("RUST_LOG").unwrap_or("martin=info".to_string());
-    // if we don't have martin_core set, this can hide parts of our logs unintentionally
-    if log_filter.contains("martin=")
-        && !log_filter.contains("martin_core=")
-        && let Some(level) = log_filter
-            .split(',')
-            .find_map(|s| s.strip_prefix("martin="))
-    {
-        let level = level.to_string();
-        let _ = write!(log_filter, ",martin_core={level}");
-    }
-    env_logger::builder().parse_filters(&log_filter).init();
+    let filter = ensure_martin_core_log_level_matches(std::env::var("RUST_LOG").ok(), "martin=");
+    init_tracing(&filter, std::env::var("MARTIN_FORMAT").ok());
 
-    if let Err(e) = start(Args::parse()).await {
-        // Ensure the message is printed, even if the logging is disabled
-        if log_enabled!(log::Level::Error) {
-            error!("{e}");
-        } else {
-            eprintln!("{e}");
-        }
+    let args = Args::parse();
+    if let Err(e) = start(args).await {
+        error!("{e}");
         std::process::exit(1);
     }
 }

@@ -1,5 +1,5 @@
 use std::borrow::Cow;
-use std::fmt::{Debug, Display, Formatter, Write};
+use std::fmt::{Debug, Display, Formatter};
 use std::num::NonZeroUsize;
 use std::ops::RangeInclusive;
 use std::path::PathBuf;
@@ -14,9 +14,9 @@ use clap::builder::Styles;
 use clap::builder::styling::AnsiColor;
 use futures::TryStreamExt;
 use futures::stream::{self, StreamExt};
-use log::{debug, error, info, log_enabled, warn};
 use martin::config::args::{Args, ExtraArgs, MetaArgs, SrvArgs};
 use martin::config::file::{Config, ServerState, read_config};
+use martin::logging::{ensure_martin_core_log_level_matches, init_tracing};
 use martin::srv::{DynTileSource, merge_tilejson};
 use martin::{MartinError, MartinResult};
 use martin_core::config::env::OsEnv;
@@ -33,6 +33,7 @@ use tilejson::Bounds;
 use tokio::sync::mpsc::channel;
 use tokio::time::Instant;
 use tokio::try_join;
+use tracing::{debug, error, info, warn};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const SAVE_EVERY: Duration = Duration::from_secs(60);
@@ -50,7 +51,7 @@ const HELP_STYLES: Styles = Styles::styled()
 #[command(
     about = "A tool to bulk copy tiles from any Martin-supported sources into an mbtiles file",
     version,
-    after_help = "Use RUST_LOG environment variable to control logging level, e.g. RUST_LOG=debug or RUST_LOG=martin_cp=debug. See https://docs.rs/env_logger/latest/env_logger/index.html#enabling-logging for more information.",
+    after_help = "Use RUST_LOG environment variable to control logging level, e.g. RUST_LOG=debug or RUST_LOG=martin_cp=debug.\nUse MARTIN_CP_FORMAT environment variable to control output format: compact (default), full, pretty, or json.\nSee https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.EnvFilter.html for more information.",
     styles = HELP_STYLES
 )]
 pub struct CopierArgs {
@@ -576,26 +577,12 @@ async fn init_schema(
 
 #[actix_web::main]
 async fn main() {
-    let mut log_filter = std::env::var("RUST_LOG").unwrap_or("martin-cp=info".to_string());
-    // if we don't have martin_core set, this can hide parts of our logs unintentionally
-    if log_filter.contains("martin-cp=")
-        && !log_filter.contains("martin_core=")
-        && let Some(level) = log_filter
-            .split(',')
-            .find_map(|s| s.strip_prefix("martin-cp="))
-    {
-        let level = level.to_string();
-        let _ = write!(log_filter, ",martin_core={level}");
-    }
-    env_logger::builder().parse_filters(&log_filter).init();
+    let filter = ensure_martin_core_log_level_matches(std::env::var("RUST_LOG").ok(), "martin_cp=");
+    init_tracing(&filter, std::env::var("MARTIN_CP_FORMAT").ok());
 
-    if let Err(e) = start(CopierArgs::parse()).await {
-        // Ensure the message is printed, even if the logging is disabled
-        if log_enabled!(log::Level::Error) {
-            error!("{e}");
-        } else {
-            eprintln!("{e}");
-        }
+    let args = CopierArgs::parse();
+    if let Err(e) = start(args).await {
+        error!("{e}");
         std::process::exit(1);
     }
 }

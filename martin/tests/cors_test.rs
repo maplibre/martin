@@ -12,7 +12,7 @@ pub use utils::*;
 
 #[ctor]
 fn init() {
-    let _ = env_logger::builder().is_test(true).try_init();
+    let _ = martin::logging::init_tracing_for_tests();
 }
 
 macro_rules! create_app {
