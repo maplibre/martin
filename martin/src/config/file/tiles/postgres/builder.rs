@@ -764,12 +764,11 @@ mod tests {
     }
 
     #[tokio::test]
+    #[tracing_test::traced_test]
     async fn test_nonexistent_tables_functions_generate_warning() {
         use testcontainers_modules::postgres::Postgres;
         use testcontainers_modules::testcontainers::ImageExt;
         use testcontainers_modules::testcontainers::runners::AsyncRunner;
-
-        let _ = crate::logging::init_tracing_for_tests();
 
         let container = Postgres::default()
             .with_name("postgis/postgis")

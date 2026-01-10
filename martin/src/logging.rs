@@ -177,27 +177,3 @@ pub fn ensure_martin_core_log_level_matches(
         format!("{replacement}info,martin_core=info")
     }
 }
-
-/// Initialize tracing for tests.
-///
-/// This is a simplified version that:
-/// - Doesn't panic if already initialized (returns Ok/Err)
-/// - Uses compact format
-/// - Sets `is_test(true)` to avoid interference between tests
-pub fn init_tracing_for_tests() -> Result<(), Box<dyn std::error::Error>> {
-    use tracing_subscriber::fmt;
-
-    let env_filter = EnvFilter::try_from_default_env()
-        .or_else(|_| EnvFilter::from_str("info"))
-        .unwrap();
-
-    let subscriber = fmt()
-        .compact()
-        .with_test_writer()
-        .with_env_filter(env_filter)
-        .with_span_events(FmtSpan::NONE)
-        .finish();
-
-    tracing::subscriber::set_global_default(subscriber)?;
-    Ok(())
-}

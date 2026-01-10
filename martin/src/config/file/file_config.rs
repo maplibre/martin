@@ -551,9 +551,8 @@ mod pmtiles_tests {
     use crate::config::file::tiles::pmtiles::PmtConfig;
 
     #[tokio::test]
+    #[tracing_test::traced_test]
     async fn test_invalid_path_warns_instead_of_failing() {
-        let _ = crate::logging::init_tracing_for_tests();
-
         let invalid_path = PathBuf::from("/nonexistent/path/");
         let invalid_source = PathBuf::from("/nonexistent/path/to/file.pmtiles");
         let mut file_sources = BTreeMap::new();
