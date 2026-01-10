@@ -35,47 +35,50 @@ pub enum LogFormat {
 }
 
 impl LogFormat {
-  pub fn init(self, env_filter: EnvFilter) {
-      match self {
-          LogFormat::Full => {
-              tracing_subscriber::fmt()
-                  .with_span_events(FmtSpan::NONE)
-                  .with_env_filter(env_filter)
-                  .init();
-          }
-          LogFormat::Compact => {
-              tracing_subscriber::fmt()
-                  .compact()
-                  .with_span_events(FmtSpan::NONE)
-                  .with_env_filter(env_filter)
-                  .init();
-          }
-          LogFormat::Pretty => {
-              tracing_subscriber::fmt()
-                  .pretty()
-                  .with_env_filter(env_filter)
-                  .init();
-          }
-          LogFormat::Bare => {
-              tracing_subscriber::fmt()
-                  .compact()
-                  .with_span_events(FmtSpan::NONE)
-                  .without_time()
-                  .with_target(false)
-                  .with_ansi(false)
-                  .with_env_filter(env_filter)
-                  .init();
-          }
-          LogFormat::Json => {
-              tracing_subscriber::fmt()
-                  .json()
-                  .with_span_events(FmtSpan::NONE)
-                  .with_env_filter(env_filter)
-                  .init();
-          }
-      }
-      /// t
-      pub fn init_with_progress(self, env_filter: EnvFilter) {
+    /// Initialize logging according to the selected format.
+    pub fn init(self, env_filter: EnvFilter) {
+        match self {
+            LogFormat::Full => {
+                tracing_subscriber::fmt()
+                    .with_span_events(FmtSpan::NONE)
+                    .with_env_filter(env_filter)
+                    .init();
+            }
+            LogFormat::Compact => {
+                tracing_subscriber::fmt()
+                    .compact()
+                    .with_span_events(FmtSpan::NONE)
+                    .with_env_filter(env_filter)
+                    .init();
+            }
+            LogFormat::Pretty => {
+                tracing_subscriber::fmt()
+                    .pretty()
+                    .with_env_filter(env_filter)
+                    .init();
+            }
+            LogFormat::Bare => {
+                tracing_subscriber::fmt()
+                    .compact()
+                    .with_span_events(FmtSpan::NONE)
+                    .without_time()
+                    .with_target(false)
+                    .with_ansi(false)
+                    .with_env_filter(env_filter)
+                    .init();
+            }
+            LogFormat::Json => {
+                tracing_subscriber::fmt()
+                    .json()
+                    .with_span_events(FmtSpan::NONE)
+                    .with_env_filter(env_filter)
+                    .init();
+            }
+        }
+    }
+    /// Initialize logging according to the selected format with a progress bar.
+    pub fn init_with_progress(self, env_filter: EnvFilter) {
+        use tracing_subscriber::fmt::layer as fmt_layer;
         let indicatif_layer = tracing_indicatif::IndicatifLayer::new();
 
         let registry = tracing_subscriber::registry()
@@ -85,21 +88,21 @@ impl LogFormat {
         match self {
             LogFormat::Full => {
                 registry
-                    .with(fmt::layer().with_span_events(FmtSpan::NONE))
+                    .with(fmt_layer().with_span_events(FmtSpan::NONE))
                     .init();
             }
             LogFormat::Compact => {
                 registry
-                    .with(fmt::layer().compact().with_span_events(FmtSpan::NONE))
+                    .with(fmt_layer().compact().with_span_events(FmtSpan::NONE))
                     .init();
             }
             LogFormat::Pretty => {
-                registry.with(fmt::layer().pretty()).init();
+                registry.with(fmt_layer().pretty()).init();
             }
             LogFormat::Bare => {
                 registry
                     .with(
-                        fmt::layer()
+                        fmt_layer()
                             .compact()
                             .with_span_events(FmtSpan::NONE)
                             .without_time()
@@ -110,10 +113,11 @@ impl LogFormat {
             }
             LogFormat::Json => {
                 registry
-                    .with(fmt::layer().json().with_span_events(FmtSpan::NONE))
+                    .with(fmt_layer().json().with_span_events(FmtSpan::NONE))
                     .init();
             }
-        }}
+        }
+    }
 }
 
 impl Default for LogFormat {
@@ -176,8 +180,6 @@ fn init_log_bridge(env_filter: &EnvFilter) {
 /// 4. Sets up the global tracing subscriber
 /// 5. Optionally includes `IndicatifLayer` for progress bar support
 pub fn init_tracing(filter: &str, format: Option<String>, use_progress: bool) {
-    use tracing_subscriber::fmt;
-
     // Set up the filter from the provided string
     let env_filter = EnvFilter::from_str(filter).unwrap_or_else(|_| {
       eprintln!("Warning: Invalid filter string '{filter}' passed. Since you passed a filter, you likely want to debug us, so we set the filter to debug");
@@ -200,7 +202,7 @@ pub fn init_tracing(filter: &str, format: Option<String>, use_progress: bool) {
         .unwrap_or_default();
 
     if use_progress {
-      log_format
+        log_format.init_with_progress(env_filter.clone());
     } else {
         log_format.init(env_filter.clone());
     }
