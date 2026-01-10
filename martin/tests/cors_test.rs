@@ -4,16 +4,10 @@ use actix_http::Method;
 use actix_http::header::ACCESS_CONTROL_MAX_AGE;
 use actix_web::http::header::{ACCESS_CONTROL_ALLOW_ORIGIN, ACCESS_CONTROL_REQUEST_METHOD, ORIGIN};
 use actix_web::test::{TestRequest, call_service};
-use ctor::ctor;
 use indoc::formatdoc;
 use mbtiles::temp_named_mbtiles;
 pub mod utils;
 pub use utils::*;
-
-#[ctor]
-fn init() {
-    let _ = env_logger::builder().is_test(true).try_init();
-}
 
 macro_rules! create_app {
     ($sources:expr) => {{
@@ -47,6 +41,7 @@ macro_rules! create_app {
 }
 
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn test_cors_explicit_disabled() {
     let script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
     let (_mbt, _conn, file) = temp_named_mbtiles("test_cors_explicit_disabled", script).await;
@@ -72,6 +67,7 @@ async fn test_cors_explicit_disabled() {
 }
 
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn test_cors_implicit_enabled() {
     let script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
     let (_mbt, _conn, file) = temp_named_mbtiles("test_cors_implicit_enabled", script).await;
@@ -95,6 +91,7 @@ async fn test_cors_implicit_enabled() {
 }
 
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn test_cors_explicit_enabled() {
     let script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
     let (_mbt, _conn, file) = temp_named_mbtiles("test_cors_explicit_enabled", script).await;
@@ -119,6 +116,7 @@ async fn test_cors_explicit_enabled() {
 }
 
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn test_cors_specific_origin() {
     let script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
     let (_mbt, _conn, file) = temp_named_mbtiles("test_cors_specific_origin", script).await;
@@ -144,6 +142,7 @@ async fn test_cors_specific_origin() {
 }
 
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn test_cors_no_header_on_mismatch() {
     let script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
     let (_mbt, _conn, file) = temp_named_mbtiles("test_cors_no_header_on_mismatch", script).await;
@@ -171,6 +170,7 @@ async fn test_cors_no_header_on_mismatch() {
 }
 
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn test_cors_preflight_request_with_max_age() {
     let script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
     let (_mbt, _conn, file) =
@@ -205,6 +205,7 @@ async fn test_cors_preflight_request_with_max_age() {
 }
 
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn test_cors_preflight_request_without_max_age() {
     let script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
     let (_mbt, _conn, file) =

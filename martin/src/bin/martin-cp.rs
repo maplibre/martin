@@ -1,5 +1,6 @@
 use std::borrow::Cow;
-use std::fmt::{Debug, Display, Formatter, Write};
+use std::env;
+use std::fmt::{Debug, Formatter};
 use std::num::NonZeroUsize;
 use std::ops::RangeInclusive;
 use std::path::PathBuf;
@@ -14,9 +15,10 @@ use clap::builder::Styles;
 use clap::builder::styling::AnsiColor;
 use futures::TryStreamExt;
 use futures::stream::{self, StreamExt};
-use log::{debug, error, info, log_enabled, warn};
+use indicatif::{ProgressBar, ProgressStyle};
 use martin::config::args::{Args, ExtraArgs, MetaArgs, SrvArgs};
 use martin::config::file::{Config, ServerState, read_config};
+use martin::logging::{ensure_martin_core_log_level_matches, init_tracing};
 use martin::srv::{DynTileSource, merge_tilejson};
 use martin::{MartinError, MartinResult};
 use martin_core::config::env::OsEnv;
@@ -33,6 +35,7 @@ use tilejson::Bounds;
 use tokio::sync::mpsc::channel;
 use tokio::time::Instant;
 use tokio::try_join;
+use tracing::{debug, error, info, warn};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const SAVE_EVERY: Duration = Duration::from_secs(60);
@@ -50,7 +53,7 @@ const HELP_STYLES: Styles = Styles::styled()
 #[command(
     about = "A tool to bulk copy tiles from any Martin-supported sources into an mbtiles file",
     version,
-    after_help = "Use RUST_LOG environment variable to control logging level, e.g. RUST_LOG=debug or RUST_LOG=martin_cp=debug. See https://docs.rs/env_logger/latest/env_logger/index.html#enabling-logging for more information.",
+    after_help = "Use RUST_LOG environment variable to control logging level, e.g. RUST_LOG=debug or RUST_LOG=martin_cp=debug.\nUse MARTIN_CP_FORMAT environment variable to control output format: json, full, compact (default), bare or pretty.\nSee https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.EnvFilter.html for more information.",
     styles = HELP_STYLES
 )]
 pub struct CopierArgs {
@@ -255,9 +258,7 @@ impl Debug for TileXyz {
 }
 
 struct Progress {
-    // needed to compute elapsed time
-    start_time: Instant,
-    total: u64,
+    bar: ProgressBar,
     empty: AtomicU64,
     non_empty: AtomicU64,
 }
@@ -265,12 +266,39 @@ struct Progress {
 impl Progress {
     pub fn new(tiles: &[TileRect]) -> Self {
         let total = tiles.iter().map(TileRect::size).sum();
+        let bar = ProgressBar::new(total);
+        bar.set_style(
+            ProgressStyle::default_bar()
+                .template("{elapsed_precise} -> eta: {eta} [{bar:40.cyan/blue} {percent}%] {pos}/{human_len} ({per_sec}) | {msg}")
+                .expect("Invalid progress bar template")
+                .progress_chars("█▓▒░ "),
+        );
         Progress {
-            start_time: Instant::now(),
-            total,
+            bar,
             empty: AtomicU64::default(),
             non_empty: AtomicU64::default(),
         }
+    }
+
+    fn update_message(&self) {
+        let non_empty = self.non_empty.load(Ordering::Relaxed);
+        let empty = self.empty.load(Ordering::Relaxed);
+        self.bar.set_message(format!("✓ {non_empty} □ {empty}"));
+    }
+
+    fn inc_empty(&self) {
+        self.empty.fetch_add(1, Ordering::Relaxed);
+        self.bar.inc(1);
+    }
+
+    fn inc_non_empty(&self) {
+        self.non_empty.fetch_add(1, Ordering::Relaxed);
+        self.bar.inc(1);
+    }
+
+    fn finish(&self) {
+        self.update_message();
+        self.bar.finish();
     }
 }
 
@@ -296,37 +324,6 @@ enum MartinCpError {
         "{0} of bounding box '{1}' must fit into {2:?}. Please check that your bounding box is in the `min_lon,min_lat,max_lon,max_lat` format."
     )]
     InvalidBoundingBox(&'static str, Bounds, RangeInclusive<f64>),
-}
-
-impl Display for Progress {
-    #[expect(clippy::cast_precision_loss)]
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let elapsed = self.start_time.elapsed();
-        let elapsed_s = elapsed.as_secs_f32();
-        let non_empty = self.non_empty.load(Ordering::Relaxed);
-        let empty = self.empty.load(Ordering::Relaxed);
-        let done = non_empty + empty;
-        let percent = done * 100 / self.total;
-        let speed = if elapsed_s > 0.0 {
-            done as f32 / elapsed_s
-        } else {
-            0.0
-        };
-        write!(
-            f,
-            "[{elapsed:.1?}] {percent:.2}% @ {speed:.1}/s | ✓ {non_empty} □ {empty}"
-        )?;
-
-        let left = self.total - done;
-        if left == 0 {
-            f.write_str(" | done")
-        } else if done == 0 {
-            f.write_str(" | ??? left")
-        } else {
-            let left = Duration::from_secs_f32(elapsed_s * left as f32 / done as f32);
-            write!(f, " | {left:.0?} left")
-        }
-    }
 }
 
 /// Given a list of tile ranges, iterate over all tiles in the ranges
@@ -437,8 +434,8 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()>
 
     let progress = Progress::new(&tiles);
     info!(
-        "Copying {} {} tiles from {} to {}",
-        progress.total,
+        "Copying {} {} tiles from the source {} to {}",
+        progress.bar.length().unwrap_or(0),
         src.info,
         source_id,
         args.output_file.display()
@@ -469,8 +466,8 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()>
             let mut batch = Vec::with_capacity(BATCH_SIZE);
             while let Some(tile) = rx.recv().await {
                 debug!("Generated tile {tile:?}");
-                let done = if tile.data.is_empty() {
-                    progress.empty.fetch_add(1, Ordering::Relaxed)
+                if tile.data.is_empty() {
+                    progress.inc_empty();
                 } else {
                     batch.push((tile.xyz.z, tile.xyz.x, tile.xyz.y, tile.data));
                     if batch.len() >= BATCH_SIZE || last_saved.elapsed() > SAVE_EVERY {
@@ -480,12 +477,14 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()>
                         batch.clear();
                         last_saved = Instant::now();
                     }
-                    progress.non_empty.fetch_add(1, Ordering::Relaxed)
-                };
+                    progress.inc_non_empty();
+                }
+
+                let done = progress.bar.position();
                 if done % PROGRESS_REPORT_AFTER == (PROGRESS_REPORT_AFTER - 1)
                     && last_reported.elapsed() > PROGRESS_REPORT_EVERY
                 {
-                    info!("{progress}");
+                    progress.update_message();
                     last_reported = Instant::now();
                 }
             }
@@ -498,7 +497,7 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()>
         }
     )?;
 
-    info!("{progress}");
+    progress.finish();
 
     mbt.update_metadata(&mut conn, GrowOnly).await?;
 
@@ -508,7 +507,8 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()>
     }
 
     if !args.skip_agg_tiles_hash {
-        if progress.non_empty.load(Ordering::Relaxed) == 0 {
+        let non_empty_count = progress.non_empty.load(Ordering::Relaxed);
+        if non_empty_count == 0 {
             info!("No tiles were copied, skipping agg_tiles_hash computation");
         } else {
             info!("Computing agg_tiles_hash value...");
@@ -576,26 +576,12 @@ async fn init_schema(
 
 #[actix_web::main]
 async fn main() {
-    let mut log_filter = std::env::var("RUST_LOG").unwrap_or("martin-cp=info".to_string());
-    // if we don't have martin_core set, this can hide parts of our logs unintentionally
-    if log_filter.contains("martin-cp=")
-        && !log_filter.contains("martin_core=")
-        && let Some(level) = log_filter
-            .split(',')
-            .find_map(|s| s.strip_prefix("martin-cp="))
-    {
-        let level = level.to_string();
-        let _ = write!(log_filter, ",martin_core={level}");
-    }
-    env_logger::builder().parse_filters(&log_filter).init();
+    let filter = ensure_martin_core_log_level_matches(env::var("RUST_LOG").ok(), "martin_cp=");
+    init_tracing(&filter, env::var("MARTIN_CP_FORMAT").ok(), true);
 
-    if let Err(e) = start(CopierArgs::parse()).await {
-        // Ensure the message is printed, even if the logging is disabled
-        if log_enabled!(log::Level::Error) {
-            error!("{e}");
-        } else {
-            eprintln!("{e}");
-        }
+    let args = CopierArgs::parse();
+    if let Err(e) = start(args).await {
+        error!("{e}");
         std::process::exit(1);
     }
 }
