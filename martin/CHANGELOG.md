@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0](https://github.com/maplibre/martin/compare/martin-v1.2.0...martin-v1.3.0) - 2026-01-10
+
+### Added
+
+- *(pg)* include ID column info for tables ([#2485](https://github.com/maplibre/martin/pull/2485))
+- *(pg)* support PostgreSQL materialized views ([#2279](https://github.com/maplibre/martin/pull/2279))
+- *(martin-core)* Allow glyph ranges more than 0xFFFF ([#2438](https://github.com/maplibre/martin/pull/2438))
+
+### Fixed
+
+- *(ui)* clipboard copy for http://0.0.0.0:3000 and unify implementations ([#2487](https://github.com/maplibre/martin/pull/2487))
+- the `Copy` icon displaying nicely, next to the text and with enough padding ot all items ([#2483](https://github.com/maplibre/martin/pull/2483))
+- update copy text to include icon for better visibility ([#2482](https://github.com/maplibre/martin/pull/2482))
+
+### Other
+
+- *(ui)* adjust margin for copy icon in URL component ([#2489](https://github.com/maplibre/martin/pull/2489))
+- *(mbtiles)* add assertion messages what we are checking to the copy tests ([#2477](https://github.com/maplibre/martin/pull/2477))
+
 ## [1.2.0](https://github.com/maplibre/martin/compare/martin-v1.1.0...martin-v1.2.0) - 2026-01-03
 
 ### Optionally fail config loading/resolution for missing sources
