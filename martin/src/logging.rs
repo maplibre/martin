@@ -2,7 +2,7 @@
 //!
 //! This module provides static logging configuration controlled by:
 //! - [`EnvFilter`]: Controls log level filtering (standard tracing-subscriber behavior)
-//! - [`LogFormat`]: Controls output format (compact, full, pretty, json)
+//! - [`LogFormat`]: Controls output format (json, full, compact, bare, pretty)
 
 use std::str::FromStr;
 
@@ -19,6 +19,9 @@ pub enum LogFormat {
     /// A variant of the full-format, optimized for short line lengths (default).
     /// See [format::Compact](https://docs.rs/tracing-subscriber/latest/tracing_subscriber/fmt/format/struct.Compact.html#example-output)
     Compact,
+
+    /// A very bare format, optimized for short line lengths, without timestamps, spans, locations or ANSI colors.
+    Bare,
 
     /// Excessively pretty, multi-line logs for local development/debugging.
     /// See [format::Pretty](https://docs.rs/tracing-subscriber/latest/tracing_subscriber/fmt/format/struct.Pretty.html#example-output)
@@ -51,6 +54,16 @@ impl LogFormat {
                     .with_env_filter(env_filter)
                     .init();
             }
+            LogFormat::Bare => {
+                tracing_subscriber::fmt()
+                    .compact()
+                    .with_span_events(FmtSpan::NONE)
+                    .without_time()
+                    .with_target(false)
+                    .with_ansi(false)
+                    .with_env_filter(env_filter)
+                    .init();
+            }
             LogFormat::Json => {
                 tracing_subscriber::fmt()
                     .json()
@@ -80,6 +93,7 @@ impl FromStr for LogFormat {
             "full" => Ok(Self::Full),
             "compact" => Ok(Self::Compact),
             "pretty" | "verbose" => Ok(Self::Pretty),
+            "bare" => Ok(Self::Bare),
             "json" | "jsonl" => Ok(Self::Json),
             _ => Err(format!(
                 "Invalid log format '{s}'. Valid options: full, compact, pretty, json"

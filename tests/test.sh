@@ -4,6 +4,8 @@ set -euo pipefail
 MARTIN_DATABASE_URL="${DATABASE_URL:-postgres://postgres@localhost/db}"
 unset DATABASE_URL
 
+export MARTIN_FORMAT=bare
+
 # TODO: use  --fail-with-body  to get the response body on failure
 CURL=${CURL:-curl --silent --show-error --fail --compressed}
 
