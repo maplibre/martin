@@ -576,7 +576,7 @@ async fn init_schema(
     )
 }
 
-#[actix_web::main]
+#[tokio::main]
 async fn main() {
     let filter = ensure_martin_core_log_level_matches(env::var("RUST_LOG").ok(), "martin_cp=");
     init_tracing(&filter, env::var("MARTIN_CP_FORMAT").ok());
