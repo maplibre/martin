@@ -104,6 +104,8 @@ tilejson = "0.4"
 tokio = { version = "1", features = ["macros"] }
 tokio-postgres-rustls = "0.13"
 tracing = "0.1.44"
+tracing-indicatif = "0.3"
+indicatif = "0.18.3"
 tracing-log = { version = "0.2.0", features = ["interest-cache"] }
 tracing-subscriber = { version = "0.3", default-features = false }
 tracing-test = "0.2"
