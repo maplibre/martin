@@ -79,27 +79,48 @@ impl LogFormat {
     /// Initialize logging according to the selected format with a progress bar.
     pub fn init_with_progress(self, env_filter: EnvFilter) {
         use tracing_subscriber::fmt::layer as fmt_layer;
-        let indicatif_layer = tracing_indicatif::IndicatifLayer::new();
 
-        let registry = tracing_subscriber::registry()
-            .with(env_filter.clone())
-            .with(indicatif_layer);
+        let registry = tracing_subscriber::registry().with(env_filter.clone());
 
+        // code below looks duplicated, but it has to be this way due to how types currently work.
+        // maybe there is a better way that I can not see
         match self {
             LogFormat::Full => {
+                let indicatif_layer = tracing_indicatif::IndicatifLayer::new();
                 registry
-                    .with(fmt_layer().with_span_events(FmtSpan::NONE))
+                    .with(
+                        fmt_layer()
+                            .with_span_events(FmtSpan::NONE)
+                            .with_writer(indicatif_layer.get_stderr_writer()),
+                    )
+                    .with(indicatif_layer)
                     .init();
             }
             LogFormat::Compact => {
+                let indicatif_layer = tracing_indicatif::IndicatifLayer::new();
                 registry
-                    .with(fmt_layer().compact().with_span_events(FmtSpan::NONE))
+                    .with(
+                        fmt_layer()
+                            .compact()
+                            .with_span_events(FmtSpan::NONE)
+                            .with_writer(indicatif_layer.get_stderr_writer()),
+                    )
+                    .with(indicatif_layer)
                     .init();
             }
             LogFormat::Pretty => {
-                registry.with(fmt_layer().pretty()).init();
+                let indicatif_layer = tracing_indicatif::IndicatifLayer::new();
+                registry
+                    .with(
+                        fmt_layer()
+                            .pretty()
+                            .with_writer(indicatif_layer.get_stderr_writer()),
+                    )
+                    .with(indicatif_layer)
+                    .init();
             }
             LogFormat::Bare => {
+                let indicatif_layer = tracing_indicatif::IndicatifLayer::new();
                 registry
                     .with(
                         fmt_layer()
@@ -107,13 +128,22 @@ impl LogFormat {
                             .with_span_events(FmtSpan::NONE)
                             .without_time()
                             .with_target(false)
-                            .with_ansi(false),
+                            .with_ansi(false)
+                            .with_writer(indicatif_layer.get_stderr_writer()),
                     )
+                    .with(indicatif_layer)
                     .init();
             }
             LogFormat::Json => {
+                let indicatif_layer = tracing_indicatif::IndicatifLayer::new();
                 registry
-                    .with(fmt_layer().json().with_span_events(FmtSpan::NONE))
+                    .with(
+                        fmt_layer()
+                            .json()
+                            .with_span_events(FmtSpan::NONE)
+                            .with_writer(indicatif_layer.get_stderr_writer()),
+                    )
+                    .with(indicatif_layer)
                     .init();
             }
         }
