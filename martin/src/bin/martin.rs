@@ -1,3 +1,5 @@
+use std::env;
+
 use clap::Parser;
 use martin::MartinResult;
 use martin::config::args::Args;
@@ -53,8 +55,8 @@ async fn start(args: Args) -> MartinResult<()> {
 
 #[tokio::main]
 async fn main() {
-    let filter = ensure_martin_core_log_level_matches(std::env::var("RUST_LOG").ok(), "martin=");
-    init_tracing(&filter, std::env::var("MARTIN_FORMAT").ok());
+    let filter = ensure_martin_core_log_level_matches(env::var("RUST_LOG").ok(), "martin=");
+    init_tracing(&filter, env::var("MARTIN_FORMAT").ok());
 
     let args = Args::parse();
     if let Err(e) = start(args).await {

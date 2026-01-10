@@ -1,5 +1,7 @@
 #![cfg(test)]
 
+use std::env;
+
 use actix_web::dev::ServiceResponse;
 use actix_web::test::read_body;
 use log::warn;
@@ -12,7 +14,7 @@ use martin_core::tiles::BoxedSource;
 
 #[must_use]
 pub fn mock_cfg(yaml: &str) -> Config {
-    let env = if let Ok(db_url) = std::env::var("DATABASE_URL") {
+    let env = if let Ok(db_url) = env::var("DATABASE_URL") {
         FauxEnv(vec![("DATABASE_URL", db_url.into())].into_iter().collect())
     } else {
         warn!("DATABASE_URL env var is not set. Might not be able to do integration tests");

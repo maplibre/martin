@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+use std::env;
 use std::fmt::{Debug, Display, Formatter};
 use std::num::NonZeroUsize;
 use std::ops::RangeInclusive;
@@ -577,8 +578,8 @@ async fn init_schema(
 
 #[actix_web::main]
 async fn main() {
-    let filter = ensure_martin_core_log_level_matches(std::env::var("RUST_LOG").ok(), "martin_cp=");
-    init_tracing(&filter, std::env::var("MARTIN_CP_FORMAT").ok());
+    let filter = ensure_martin_core_log_level_matches(env::var("RUST_LOG").ok(), "martin_cp=");
+    init_tracing(&filter, env::var("MARTIN_CP_FORMAT").ok());
 
     let args = CopierArgs::parse();
     if let Err(e) = start(args).await {

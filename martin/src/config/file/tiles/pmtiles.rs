@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::env;
 use std::path::PathBuf;
 use std::str::FromStr;
 
@@ -123,7 +124,7 @@ impl PmtConfig {
         }
 
         if let Ok(force_path_style) =
-            std::env::var("AWS_S3_FORCE_PATH_STYLE").map(|v| v == "1" || v.to_lowercase() == "true")
+            env::var("AWS_S3_FORCE_PATH_STYLE").map(|v| v == "1" || v.to_lowercase() == "true")
         {
             let virtual_hosted_style_request = !force_path_style;
             self.migrate_aws_value(
@@ -147,7 +148,7 @@ impl PmtConfig {
         }
         for env in ["AWS_SKIP_CREDENTIALS", "AWS_NO_CREDENTIALS"] {
             if let Ok(skip_credentials) =
-                std::env::var(env).map(|v| v == "1" || v.to_lowercase() == "true")
+                env::var(env).map(|v| v == "1" || v.to_lowercase() == "true")
             {
                 self.migrate_aws_value(
                     "Environment variable",
@@ -165,7 +166,7 @@ impl PmtConfig {
             "AWS_SESSION_TOKEN",
             "AWS_REGION",
         ] {
-            if let Ok(var) = std::env::var(env_key) {
+            if let Ok(var) = env::var(env_key) {
                 let new_key_with_aws_prefix = env_key.to_lowercase();
                 let new_key_without_aws_prefix = new_key_with_aws_prefix
                     .strip_prefix("aws_")
@@ -178,7 +179,7 @@ impl PmtConfig {
                 );
             }
         }
-        if std::env::var("AWS_PROFILE").is_ok() {
+        if env::var("AWS_PROFILE").is_ok() {
             warn!(
                 "Environment variable AWS_PROFILE not supported anymore. Supporting this is in scope, but would need more work. See https://github.com/pola-rs/polars/issues/18757#issuecomment-2379398284"
             );
