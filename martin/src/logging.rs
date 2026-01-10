@@ -96,7 +96,7 @@ impl FromStr for LogFormat {
             "bare" => Ok(Self::Bare),
             "json" | "jsonl" => Ok(Self::Json),
             _ => Err(format!(
-                "Invalid log format '{s}'. Valid options: full, compact, pretty, json"
+                "Invalid log format '{s}'. Valid options: json, full, compact, bare or pretty"
             )),
         }
     }
