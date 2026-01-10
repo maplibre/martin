@@ -122,7 +122,10 @@ pub fn init_tracing(filter: &str, format: Option<String>) {
             s.parse::<LogFormat>()
                 .map_err(|e| {
                     eprintln!("Warning: {e}");
-                    eprintln!("Falling back to default format (compact)");
+                    eprintln!(
+                        "Falling back to default format ({:?})",
+                        LogFormat::default()
+                    );
                 })
                 .ok()
         })
