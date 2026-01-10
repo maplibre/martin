@@ -583,7 +583,12 @@ async fn main() {
 
     let args = CopierArgs::parse();
     if let Err(e) = start(args).await {
-        error!("{e}");
+         // Ensure the message is printed, even if the logging is disabled
+        if log_enabled!(log::Level::Error) {
+            error!("{e}");
+        } else {
+            eprintln!("{e}");
+        }
         std::process::exit(1);
     }
 }
