@@ -78,7 +78,7 @@ exports[`SpriteCatalog Component > matches snapshot for loaded state with mock d
                     map-icons
                   </div>
                   <div
-                    class="text-xs pt-3 flex flex-row text-slate-400 p-0.5"
+                    class="text-xs pt-3 flex flex-row gap-1 text-slate-400 p-0.5"
                   >
                     <span
                       role="img"
@@ -228,7 +228,7 @@ exports[`SpriteCatalog Component > matches snapshot for loaded state with mock d
                     transportation
                   </div>
                   <div
-                    class="text-xs pt-3 flex flex-row text-slate-400 p-0.5"
+                    class="text-xs pt-3 flex flex-row gap-1 text-slate-400 p-0.5"
                   >
                     <span
                       role="img"
@@ -390,7 +390,7 @@ exports[`SpriteCatalog Component > matches snapshot for loaded state with mock d
                     ui-elements
                   </div>
                   <div
-                    class="text-xs pt-3 flex flex-row text-slate-400 p-0.5"
+                    class="text-xs pt-3 flex flex-row gap-1 text-slate-400 p-0.5"
                   >
                     <span
                       role="img"

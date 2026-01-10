@@ -455,13 +455,12 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with: { persist-credentials: false }
+      - uses: taiki-e/install-action@763e3324d4fd026c9bd284c504378585777a87d5 # v2.62.57
+        with: { tool: 'just' }
       - name: Download build artifact build-x86_64-unknown-linux-musl
         uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with: { name: 'build-x86_64-unknown-linux-musl', path: 'target/' }
-
-      - run: tests/test-aws-lambda.sh
-        env:
-          MARTIN_BIN: target/martin
+      - run: just test-lambda target/martin
 
   test-multi-os:
     name: Test on ${{ matrix.os }}
