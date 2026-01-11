@@ -1,4 +1,5 @@
 use std::collections::BTreeMap;
+use std::env;
 use std::path::{Path, PathBuf};
 
 use log::warn;
@@ -148,7 +149,7 @@ fn list_contained_files(
     source_path: &Path,
     filter_extension: &str,
 ) -> Result<Vec<PathBuf>, ConfigFileError> {
-    let working_directory = std::env::current_dir().ok();
+    let working_directory = env::current_dir().ok();
     let mut contained_files = Vec::new();
     let it = walkdir::WalkDir::new(source_path)
         .follow_links(true)
