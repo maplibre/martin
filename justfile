@@ -422,6 +422,8 @@ test-lambda martin_bin='target/debug/martin':
       sam local generate-event apigateway http-api-proxy \
         | jq '.rawPath = "/" | .requestContext.http.method = "GET"'
     )
+    echo "event:"
+    echo "$event" | jq .
     echo "::endgroup::"
 
     echo "::group::Invoke Lambda Function"
