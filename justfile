@@ -380,9 +380,9 @@ test-int-in-docker-image platform image:
     fi
 
     export MARTIN_BUILD_ALL="-"
-    export MARTIN_BIN="/home/runner/.cargo/bin/just run-in-docker-image {{platform}} {{image}} martin"
-    export MARTIN_CP_BIN="/home/runner/.cargo/bin/just run-in-docker-image {{platform}} {{image}} martin-cp"
-    export MBTILES_BIN="/home/runner/.cargo/bin/just run-in-docker-image {{platform}} {{image}} mbtiles"
+    export MARTIN_BIN="{{just}} run-in-docker-image {{platform}} {{image}} martin"
+    export MARTIN_CP_BIN="{{just}} run-in-docker-image {{platform}} {{image}} martin-cp"
+    export MBTILES_BIN="{{just}} run-in-docker-image {{platform}} {{image}} mbtiles"
 
     {{just}} test-int
 
