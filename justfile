@@ -159,7 +159,7 @@ debug-page *args: start
 
 # Build and run martin docker image
 docker-run *args:
-    docker run -it --rm --net host -e DATABASE_URL -v $PWD/tests:/tests ghcr.io/maplibre/martin:1.2.0 {{args}}
+    docker run -it --rm --net host --env DATABASE_URL -v $PWD/tests:/tests ghcr.io/maplibre/martin:1.2.0 {{args}}
 
 # Build and open code documentation
 docs *args='--open':
@@ -293,7 +293,7 @@ run-in-docker-image PLATFORM image entrypoint:
       --platform {{PLATFORM}} \
       --env DATABASE_URL \
       --env AWS_REGION=eu-central-1 --env AWS_SKIP_CREDENTIALS=1 \
-      --env MARTIN_FORMAT=bare -e MARTIN_CP_FORMAT=bare \
+      --env MARTIN_FORMAT=bare --env MARTIN_CP_FORMAT=bare \
       --volume "$PWD/tests:/tests" \
       --entrypoint /usr/local/bin/{{entrypoint}} \
       "{{image}}" --
