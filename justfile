@@ -2,7 +2,8 @@
 
 set shell := ['bash', '-c']
 
-# How to call the current just executable. Note that just_executable() may have `\` in Windows paths, so we need to quote it.
+# How to call the current just executable.
+# Note that just_executable() may have `\` in Windows paths, so we need to quote it.
 just := quote(just_executable())
 dockercompose := `if docker-compose --version &> /dev/null; then echo "docker-compose"; else echo "docker compose"; fi`
 
@@ -159,7 +160,7 @@ debug-page *args: start
 
 # Build and run martin docker image
 docker-run *args:
-    docker run -it --rm --net host --env DATABASE_URL -v $PWD/tests:/tests ghcr.io/maplibre/martin:1.2.0 {{args}}
+    docker run -it --rm --net host -e DATABASE_URL -v $PWD/tests:/tests ghcr.io/maplibre/martin:1.2.0 {{args}}
 
 # Build and open code documentation
 docs *args='--open':
@@ -291,10 +292,10 @@ run *args='--webui enable-for-all':
 run-in-docker-image PLATFORM image entrypoint:
     docker run --rm --net host \
       --platform {{PLATFORM}} \
-      --env DATABASE_URL \
-      --env AWS_REGION=eu-central-1 --env AWS_SKIP_CREDENTIALS=1 \
-      --env MARTIN_FORMAT=bare --env MARTIN_CP_FORMAT=bare \
-      --volume "$PWD/tests:/tests" \
+      -e DATABASE_URL \
+      -e AWS_REGION=eu-central-1 -e AWS_SKIP_CREDENTIALS=1 \
+      -e MARTIN_FORMAT=bare -e MARTIN_CP_FORMAT=bare \
+      -v "$PWD/tests:/tests" \
       --entrypoint /usr/local/bin/{{entrypoint}} \
       "{{image}}" --
 
