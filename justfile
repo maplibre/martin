@@ -288,7 +288,7 @@ run *args='--webui enable-for-all':
     cargo run -p martin -- {{args}}
 
 # Run a specified entrypoint of a docker image
-run-in-docker-image PLATFORM image entrypoint *args:
+run-in-docker-image PLATFORM image entrypoint:
     docker run --rm --net host \
       --platform {{PLATFORM}} \
       --env DATABASE_URL \
@@ -296,7 +296,7 @@ run-in-docker-image PLATFORM image entrypoint *args:
       --env MARTIN_FORMAT=bare -e MARTIN_CP_FORMAT=bare \
       --volume "$PWD/tests:/tests" \
       --entrypoint /usr/local/bin/{{entrypoint}} \
-      "{{image}}" -- {{args}}
+      "{{image}}" --
 
 # Start release-compiled Martin server and a test database
 run-release *args='--webui enable-for-all': start
