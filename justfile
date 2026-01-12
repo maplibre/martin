@@ -296,7 +296,7 @@ run-in-docker-image PLATFORM image entrypoint *args='':
       -e AWS_REGION=eu-central-1 -e AWS_SKIP_CREDENTIALS=1 \
       -v "$PWD/tests:/tests" \
       --entrypoint /usr/local/bin/{{entrypoint}} \
-      "{{image}}" -- {{args}}
+      {{image}} {{args}}
 
 # Start release-compiled Martin server and a test database
 run-release *args='--webui enable-for-all': start
