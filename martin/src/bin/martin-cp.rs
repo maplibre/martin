@@ -300,7 +300,7 @@ enum MartinCpError {
     InvalidBoundingBox(&'static str, Bounds, RangeInclusive<f64>),
 }
 
-fn write_duration(f: &mut impl Write, secs: f32) -> std::fmt::Result {
+fn write_duration(f: &mut impl std::fmt::Write, secs: f32) -> std::fmt::Result {
     if !secs.is_normal() || secs < 0. {
         // Nonsense input
         f.write_str("???")
