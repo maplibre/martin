@@ -535,7 +535,7 @@ async fn diff_and_patch(
     );
     let (dif_mbt, mut dif_cn) = open!(
         diff_and_patch,
-        "{a_db}_{short_b_type}--{b_db}_{short_a_type}={dif}__{dif_db}"
+        "{a_db}_{short_a_type}--{b_db}_{short_b_type}={dif}__{dif_db}"
     );
     copy! {
         databases.path(a_db, a_type),
@@ -558,7 +558,7 @@ async fn diff_and_patch(
         );
         let (clone_mbt, mut clone_cn) = open!(
             diff_and_patch,
-            "{a_db}_{short_b_type}--{b_db}_{short_a_type}={dif}__to__{short_dst_type}__1"
+            "{a_db}_{short_a_type}--{b_db}_{short_b_type}={dif}__to__{short_dst_type}__1"
         );
         copy!(databases.path(a_db, dst_type), path(&clone_mbt));
         apply_patch(path(&clone_mbt), path(&dif_mbt), false).await?;
@@ -580,7 +580,7 @@ async fn diff_and_patch(
         );
         let (clone_mbt, mut clone_cn) = open!(
             diff_and_patch,
-            "{a_db}_{short_b_type}--{b_db}_{short_a_type}={dif}__to__{short_dst_type}__2"
+            "{a_db}_{short_a_type}--{b_db}_{short_b_type}={dif}__to__{short_dst_type}__2"
         );
         copy!(databases.path(b_db, dst_type), path(&clone_mbt));
         apply_patch(path(&clone_mbt), path(&dif_mbt), true).await?;
@@ -629,7 +629,7 @@ async fn diff_and_patch_bsdiff(
     );
     let (dif_mbt, mut dif_cn) = open!(
         diff_and_patch_bsdiff,
-        "{a_db}_{short_b_type}--{b_db}_{short_a_type}={dif}_{patch_type}__{dif_db}"
+        "{a_db}_{short_a_type}--{b_db}_{short_b_type}={dif}_{patch_type}__{dif_db}"
     );
     copy! {
         databases.path(a_db, a_type),
@@ -645,7 +645,7 @@ async fn diff_and_patch_bsdiff(
 
     let (b_mbt, mut b_cn) = open!(
         diff_and_patch_bsdiff,
-        "{a_db}_{short_b_type}--{b_db}_{short_a_type}={dif}_{patch_type}__to__{short_dst_type}__{b_db}"
+        "{a_db}_{short_a_type}--{b_db}_{short_b_type}={dif}_{patch_type}__to__{short_dst_type}__{b_db}"
     );
     copy! {
         databases.path(a_db, a_type),
