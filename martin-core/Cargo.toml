@@ -50,7 +50,7 @@ sprites = [
     "dep:futures",
     "dep:dashmap",
 ]
-styles = ["dep:walkdir", "tokio/fs", "dep:dashmap"]
+styles = ["tokio/fs", "dep:dashmap"]
 mbtiles = ["dep:mbtiles", "_tiles"]
 pmtiles = ["dep:pmtiles", "dep:object_store", "_tiles"]
 _tiles = ["dep:base64"]
@@ -92,7 +92,6 @@ tiff = { workspace = true, optional = true }
 tilejson.workspace = true
 tokio = { workspace = true, optional = true }
 tokio-postgres-rustls = { workspace = true, optional = true }
-walkdir = { workspace = true, optional = true }
 xxhash-rust.workspace = true
 
 [dev-dependencies]
