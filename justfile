@@ -2,7 +2,8 @@
 
 set shell := ['bash', '-c']
 
-# How to call the current just executable. Note that just_executable() may have `\` in Windows paths, so we need to quote it.
+# How to call the current just executable.
+# Note that just_executable() may have `\` in Windows paths, so we need to quote it.
 just := quote(just_executable())
 dockercompose := `if docker-compose --version &> /dev/null; then echo "docker-compose"; else echo "docker compose"; fi`
 
@@ -287,6 +288,17 @@ restart:
 run *args='--webui enable-for-all':
     cargo run -p martin -- {{args}}
 
+# Run a specified entrypoint of a docker image
+run-in-docker-image PLATFORM image entrypoint *args='':
+    docker run --rm --net host \
+      --platform {{PLATFORM}} \
+      -e DATABASE_URL \
+      -e AWS_REGION=eu-central-1 -e AWS_SKIP_CREDENTIALS=1 \
+      -e MARTIN_FORMAT=bare -e MARTIN_CP_FORMAT=bare \
+      -v "$PWD/tests:/tests" \
+      --entrypoint /usr/local/bin/{{entrypoint}} \
+      "{{image}}" -- {{args}}
+
 # Start release-compiled Martin server and a test database
 run-release *args='--webui enable-for-all': start
     cargo run -p martin --release -- {{args}}
@@ -358,11 +370,29 @@ test-int: clean-test install-sqlx
         fi
     fi
 
+# Run integration tests against a docker container
+test-int-in-docker-image platform image:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    if ! command -v docker >/dev/null 2>&1; then
+      echo "Docker is missing -> https://docs.docker.com/get-docker/"
+      exit 1
+    fi
+
+    export MARTIN_BUILD_ALL="-"
+    export MARTIN_BIN="{{just_executable()}} run-in-docker-image {{platform}} {{image}} martin"
+    export MARTIN_CP_BIN="{{just_executable()}} run-in-docker-image {{platform}} {{image}} martin-cp"
+    export MBTILES_BIN="{{just_executable()}} run-in-docker-image {{platform}} {{image}} mbtiles"
+
+    {{just}} test-int
+
 # Run AWS Lambda smoke test against SAM local
 test-lambda martin_bin='target/debug/martin':
     #!/usr/bin/env bash
     set -euo pipefail
 
+    echo "::group::Build Lambda Function"
     if ! command -v sam >/dev/null 2>&1; then
       echo "The AWS Serverless Application Model Command Line Interface (AWS SAM CLI) is missing."
       echo "  https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html"
@@ -381,16 +411,27 @@ test-lambda martin_bin='target/debug/martin':
     export AWS_PROFILE=dummy
     export AWS_CONFIG_FILE=.github/files/dummy-aws-config
     sam build --template-file .github/files/lambda.yaml
+    echo "::endgroup::"
 
     # Just send a single request using `sam local invoke` to verify that
     # the server boots, finds a source to serve, and can handle a request.
     # TODO Run the fuller integration suite against this.
     # In doing so, switch from `sam local invoke`, which starts and stops the
     # server, to `sam local start-api`, which keeps it running.
-    sam local generate-event apigateway http-api-proxy \
-      | jq '.rawPath = "/" | .requestContext.http.method = "GET"' \
-      | sam local invoke -e - \
-      | jq -ne 'input.statusCode==200'
+    echo "::group::Generate Event"
+    event=$(
+      sam local generate-event apigateway http-api-proxy \
+        | jq '.rawPath = "/" | .requestContext.http.method = "GET"'
+    )
+    echo "event:"
+    echo "$event" | jq .
+    echo "::endgroup::"
+
+    echo "::group::Invoke Lambda Function"
+    response=$(sam local invoke -e <(echo "$event"))
+    echo "::endgroup::"
+
+    jq -ne 'input.statusCode == 200' <<<"$response"
 
 # Run all tests using the oldest supported version of the database
 test-legacy: start-legacy (test-cargo '--all-targets') test-doc test-int
