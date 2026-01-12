@@ -294,7 +294,6 @@ run-in-docker-image PLATFORM image entrypoint *args='':
       --platform {{PLATFORM}} \
       -e DATABASE_URL \
       -e AWS_REGION=eu-central-1 -e AWS_SKIP_CREDENTIALS=1 \
-      -e MARTIN_FORMAT=bare -e MARTIN_CP_FORMAT=bare \
       -v "$PWD/tests:/tests" \
       --entrypoint /usr/local/bin/{{entrypoint}} \
       "{{image}}" -- {{args}}
