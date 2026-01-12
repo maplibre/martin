@@ -118,7 +118,7 @@ jobs:
       - run: just clippy
       - run: just check
       - run: just check-doc
-  lint-rust-dependencys:
+  lint-rust-dependencies:
     name: Lint the Rust code
     permissions:
       contents: read
