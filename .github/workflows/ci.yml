@@ -118,6 +118,16 @@ jobs:
       - run: just clippy
       - run: just check
       - run: just check-doc
+  lint-rust-dependencys:
+    name: Lint the Rust code
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+      - uses: taiki-e/install-action@69e777b377e4ec209ddad9426ae3e0c1008b0ef3 # v2.64.0
+        with: { tool: 'cargo-shear,just' }
+
+      - run: just shear
   musl-build:
     name: Build ${{ matrix.target }}
     runs-on: ubuntu-latest
@@ -159,7 +169,7 @@ jobs:
   docker-build-test:
     name: Build and test docker images
     runs-on: ubuntu-latest
-    needs: [ musl-build, lint-unit-test-js, unit-test-rust, lint-rust ]
+    needs: [ musl-build, lint-unit-test-js, unit-test-rust, lint-rust, lint-rust-dependencys ]
     permissions:
       id-token: write
       attestations: write
@@ -783,7 +793,7 @@ jobs:
       attestations: write
       # for writing release artifacts
       contents: write
-    needs: [ lint-unit-test-js, unit-test-rust, lint-rust, test-multi-os, test-with-svc, test-aws-lambda, test-publish ]
+    needs: [ lint-unit-test-js, unit-test-rust, lint-rust, lint-rust-dependencys, test-multi-os, test-with-svc, test-aws-lambda, test-publish ]
     steps:
       - name: Checkout sources
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
