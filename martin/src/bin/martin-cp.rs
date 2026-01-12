@@ -319,7 +319,10 @@ fn write_duration(f: &mut impl Write, secs: f32) -> std::fmt::Result {
         let (weeks, days) = (days / 7, days % 7);
 
         if years > 0 {
-            write!(f, "{years}y{weeks:02}w{days:02}d{hrs:02}h{mins:02}m{secs:02}s")
+            write!(
+                f,
+                "{years}y{weeks:02}w{days:02}d{hrs:02}h{mins:02}m{secs:02}s"
+            )
         } else if weeks > 0 {
             write!(f, "{weeks}w{days:02}d{hrs:02}h{mins:02}m{secs:02}s")
         } else if days > 0 {
