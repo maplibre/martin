@@ -200,7 +200,7 @@ jobs:
         env:
           PGPORT: ${{ job.services.postgres.ports[5432] }}
       - uses: taiki-e/install-action@763e3324d4fd026c9bd284c504378585777a87d5 # v2.62.57
-        with: { tool: just,cargo-sqlx }
+        with: { tool: cargo-sqlx }
 
       # we want to test our docker images before we push them to the registry
       # this is done by
@@ -315,11 +315,25 @@ jobs:
           platforms: linux/arm64,linux/amd64
 
       - name: Test linux/arm64 Docker image
-        run: just test-int-in-docker-image linux/arm64 ${{ github.repository }}:linux
+        run: |
+          PLATFORM=linux/arm64
+          TAG=${{ github.repository }}:linux
+          export MARTIN_BUILD_ALL=-
+          export MARTIN_BIN="docker run --rm --net host --platform $PLATFORM -e DATABASE_URL -e AWS_REGION=eu-central-1 -e AWS_SKIP_CREDENTIALS=1 -e MARTIN_FORMAT=bare -v $PWD/tests:/tests $TAG"
+          export MARTIN_CP_BIN="docker run --rm --net host --platform $PLATFORM -e DATABASE_URL -e AWS_REGION=eu-central-1 -e AWS_SKIP_CREDENTIALS=1 -e MARTIN_CP_FORMAT=bare -v $PWD/tests:/tests --entrypoint /usr/local/bin/martin-cp $TAG"
+          export MBTILES_BIN="docker run --rm --net host --platform $PLATFORM -e DATABASE_URL -e AWS_REGION=eu-central-1 -e AWS_SKIP_CREDENTIALS=1 -v $PWD/tests:/tests --entrypoint /usr/local/bin/mbtiles $TAG"
+          tests/test.sh
         env:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=require
       - name: Test linux/amd64 Docker image
-        run: just test-int-in-docker-image linux/amd64 ${{ github.repository }}:linux
+        run: |
+          PLATFORM=linux/amd64
+          TAG=${{ github.repository }}:linux
+          export MARTIN_BUILD_ALL=-
+          export MARTIN_BIN="docker run --rm --net host --platform $PLATFORM -e DATABASE_URL -e AWS_REGION=eu-central-1 -e AWS_SKIP_CREDENTIALS=1 -e MARTIN_FORMAT=bare -v $PWD/tests:/tests $TAG"
+          export MARTIN_CP_BIN="docker run --rm --net host --platform $PLATFORM -e DATABASE_URL -e AWS_REGION=eu-central-1 -e AWS_SKIP_CREDENTIALS=1 -e MARTIN_CP_FORMAT=bare -v $PWD/tests:/tests --entrypoint /usr/local/bin/martin-cp $TAG"
+          export MBTILES_BIN="docker run --rm --net host --platform $PLATFORM -e DATABASE_URL -e AWS_REGION=eu-central-1 -e AWS_SKIP_CREDENTIALS=1 -v $PWD/tests:/tests --entrypoint /usr/local/bin/mbtiles $TAG"
+          tests/test.sh
         env:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=require
 
