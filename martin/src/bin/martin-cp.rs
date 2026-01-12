@@ -584,7 +584,7 @@ async fn main() {
     let args = CopierArgs::parse();
     if let Err(e) = start(args).await {
         // Ensure the message is printed, even if the logging is disabled
-        if log::log_enabled!(log::Level::Error) {
+        if tracing::event_enabled!(tracing::Level::ERROR) {
             error!("{e}");
         } else {
             eprintln!("{e}");
