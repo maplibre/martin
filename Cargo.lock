@@ -3761,7 +3761,6 @@ dependencies = [
  "actix-web",
  "actix-web-prom",
  "actix-web-static-files",
- "approx",
  "async-trait",
  "clap",
  "criterion",
@@ -3848,7 +3847,6 @@ dependencies = [
  "tokio",
  "tokio-postgres-rustls",
  "url",
- "walkdir",
  "xxhash-rust",
 ]
 

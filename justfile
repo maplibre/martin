@@ -316,6 +316,12 @@ start-ssl-cert:  (docker-up 'db-ssl-cert') docker-is-ready
 stop:
     {{dockercompose}} down --remove-orphans
 
+# runs cargo-shear to lint Rust dependencies
+shear:
+    cargo shear --expand
+    # in the future: add --deny-warnings
+    # https://github.com/Boshen/cargo-shear/pull/386
+
 # Run all tests using a test database
 test: start (test-cargo '--all-targets') test-doc test-frontend test-int
 
