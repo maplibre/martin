@@ -119,7 +119,7 @@ jobs:
       - run: just check
       - run: just check-doc
   lint-rust-dependencies:
-    name: Lint the Rust code
+    name: Lint Rust dependencies
     permissions:
       contents: read
     runs-on: ubuntu-latest
