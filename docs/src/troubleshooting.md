@@ -8,7 +8,7 @@ This will enable debug logging for all modules:
 
 ```bash
 export RUST_LOG=debug
-export MARTIN_FORMAT=pretty
+export RUST_LOG_FORMAT=pretty
 martin postgres://postgres@localhost/db
 ```
 
@@ -17,9 +17,9 @@ and `tokio_postgres` modules:
 
 ```bash
 export RUST_LOG=actix_web=info,martin=debug,tokio_postgres=debug
-export MARTIN_FORMAT=pretty
+export RUST_LOG_FORMAT=pretty
 martin postgres://postgres@localhost/db
 ```
 
-We also allow you to control the format of the logs via the `MARTIN_FORMAT` environment variable.
+We also allow you to control the format of the logs via the `RUST_LOG_FORMAT` environment variable.
 For troubleshooting, `pretty` or `full` are likely the most useful formats.
