@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-8fb4836a.js";
+            window.path_to_searchindex_js = "searchindex-309585dc.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-da940ac3.js"></script>
@@ -884,18 +884,22 @@ sudo systemctl restart apache2
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="troubleshooting-2"><a href="#troubleshooting-2" class="header">Troubleshooting</a></h1>
 <h2 id="troubleshooting"><a class="header" href="#troubleshooting">Troubleshooting</a></h2>
-<p>Log levels are controlled on a per-module basis, and by default all logging is disabled except for errors. Logging is
-controlled via the <code>RUST_LOG</code> environment variable. The value of this environment variable is a comma-separated list of
-logging directives.</p>
+<p>Log levels are controlled on a per-module basis, and by default all logging is disabled except for errors.
+Logging is controlled via the <code>RUST_LOG</code> environment variable.
+The value of this environment variable is a comma-separated list of logging directives.</p>
 <p>This will enable debug logging for all modules:</p>
 <pre><code class="language-bash">export RUST_LOG=debug
+export RUST_LOG_FORMAT=pretty
 martin postgres://postgres@localhost/db
 </code></pre>
 <p>While this will only enable verbose logging for the <code>actix_web</code> module and enable debug logging for the <code>martin</code>
 and <code>tokio_postgres</code> modules:</p>
 <pre><code class="language-bash">export RUST_LOG=actix_web=info,martin=debug,tokio_postgres=debug
+export RUST_LOG_FORMAT=pretty
 martin postgres://postgres@localhost/db
 </code></pre>
+<p>We also allow you to control the format of the logs via the <code>RUST_LOG_FORMAT</code> environment variable.
+For troubleshooting, <code>pretty</code> or <code>full</code> are likely the most useful formats.</p>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="configuration-file"><a class="header" href="#configuration-file">Configuration File</a></h1>
 <p>If you don’t want to expose all of your tables and functions, you can list your sources in a configuration file. To
@@ -2959,7 +2963,7 @@ export PGSSLROOTCERT=./ca-cert.pem
 psql -h localhost -U postgres -d postgres -v
 
 # Debug Martin
-RUST_LOG=debug martin postgres://...
+RUST_LOG=debug RUST_LOG_FORMAT=pretty martin postgres://...
 </code></pre>
 <p>These are the errors that can occur:</p>
 <ul>
@@ -4413,7 +4417,7 @@ just help   # shows common commands
 <p>Go to any part you’re interested in of martin code and add a breakpoint.</p>
 <p>We add a breakpoint here in the <a href="https://github.com/maplibre/martin/blob/e628c3973f193a432d3d1282c5893e2339e806b6/martin/src/bin/martin.rs#L10">start of martin</a>.</p>
 <pre><code class="language-rust ignore">use clap::Parser;
-use log::{error, info, log_enabled};
+use tracing::{error, info};
 use martin::args::{Args, OsEnv};
 use martin::srv::new_server;
 use martin::{read_config, Config, MartinResult};

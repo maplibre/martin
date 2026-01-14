@@ -36,7 +36,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-8fb4836a.js";
+            window.path_to_searchindex_js = "searchindex-309585dc.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-da940ac3.js"></script>
@@ -273,7 +273,7 @@ just help   # shows common commands
 <p>Go to any part you’re interested in of martin code and add a breakpoint.</p>
 <p>We add a breakpoint here in the <a href="https://github.com/maplibre/martin/blob/e628c3973f193a432d3d1282c5893e2339e806b6/martin/src/bin/martin.rs#L10">start of martin</a>.</p>
 <pre><code class="language-rust ignore">use clap::Parser;
-use log::{error, info, log_enabled};
+use tracing::{error, info};
 use martin::args::{Args, OsEnv};
 use martin::srv::new_server;
 use martin::{read_config, Config, MartinResult};

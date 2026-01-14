@@ -36,7 +36,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-8fb4836a.js";
+            window.path_to_searchindex_js = "searchindex-309585dc.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-da940ac3.js"></script>
@@ -358,7 +358,7 @@ export PGSSLROOTCERT=./ca-cert.pem
 psql -h localhost -U postgres -d postgres -v
 
 # Debug Martin
-RUST_LOG=debug martin postgres://...
+RUST_LOG=debug RUST_LOG_FORMAT=pretty martin postgres://...
 </code></pre>
 <p>These are the errors that can occur:</p>
 <ul>
