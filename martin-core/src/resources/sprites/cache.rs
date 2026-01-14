@@ -37,13 +37,13 @@ impl SpriteCache {
         let result = self.cache.get(key).await;
 
         if result.is_some() {
-            log::trace!(
+            tracing::trace!(
                 "Sprite cache HIT for {key:?} (entries={}, size={})",
                 self.cache.entry_count(),
                 self.cache.weighted_size()
             );
         } else {
-            log::trace!("Sprite cache MISS for {key:?}");
+            tracing::trace!("Sprite cache MISS for {key:?}");
         }
 
         result
@@ -77,13 +77,13 @@ impl SpriteCache {
         self.cache
             .invalidate_entries_if(move |key, _| key.ids.contains(&source_id_owned))
             .expect("invalidate_entries_if predicate should not error");
-        log::info!("Invalidated sprite cache for source: {source_id}");
+        tracing::info!("Invalidated sprite cache for source: {source_id}");
     }
 
     /// Invalidates all cached sprites.
     pub fn invalidate_all(&self) {
         self.cache.invalidate_all();
-        log::info!("Invalidated all sprite cache entries");
+        tracing::info!("Invalidated all sprite cache entries");
     }
 
     /// Returns the number of cached entries.

@@ -18,7 +18,7 @@ use std::fmt::Debug;
 use std::path::PathBuf;
 
 use dashmap::{DashMap, Entry};
-use log::{info, warn};
+use tracing::{info, warn};
 #[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
 use maplibre_native::Image;
 use serde::{Deserialize, Serialize};

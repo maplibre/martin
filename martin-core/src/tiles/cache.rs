@@ -27,13 +27,13 @@ impl TileCache {
         let result = self.0.get(key).await;
 
         if result.is_some() {
-            log::trace!(
+            tracing::trace!(
                 "Tile cache HIT for {key:?} (entries={entries}, size={size}B)",
                 entries = self.0.entry_count(),
                 size = self.0.weighted_size()
             );
         } else {
-            log::trace!("Tile cache MISS for {key:?}");
+            tracing::trace!("Tile cache MISS for {key:?}");
         }
 
         result
@@ -67,13 +67,13 @@ impl TileCache {
         self.0
             .invalidate_entries_if(move |key, _| key.source_id == source_id_owned)
             .expect("invalidate_entries_if predicate should not error");
-        log::info!("Invalidated tile cache for source: {source_id}");
+        tracing::info!("Invalidated tile cache for source: {source_id}");
     }
 
     /// Invalidates all cached tiles.
     pub fn invalidate_all(&self) {
         self.0.invalidate_all();
-        log::info!("Invalidated all tile cache entries");
+        tracing::info!("Invalidated all tile cache entries");
     }
 
     /// Returns the number of cached entries.

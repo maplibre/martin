@@ -3,7 +3,7 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 use futures::pin_mut;
-use log::{debug, warn};
+use tracing::{debug, warn};
 use martin_core::tiles::postgres::PostgresError::PostgresError;
 use martin_core::tiles::postgres::{PostgresPool, PostgresResult, PostgresSqlInfo};
 use martin_tile_utils::EARTH_CIRCUMFERENCE_DEGREES;

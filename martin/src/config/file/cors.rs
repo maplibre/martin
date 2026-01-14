@@ -1,5 +1,5 @@
 use actix_http::Method;
-use log::info;
+use tracing::info;
 use serde::{Deserialize, Serialize};
 
 use crate::config::file::{

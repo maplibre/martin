@@ -3,7 +3,7 @@
 use std::path::PathBuf;
 
 use deadpool_postgres::{Manager, ManagerConfig, Object, Pool, RecyclingMethod};
-use log::{info, warn};
+use tracing::{info, warn};
 use postgres::config::SslMode;
 use semver::Version;
 

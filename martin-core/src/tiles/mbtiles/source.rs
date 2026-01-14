@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use log::trace;
+use tracing::trace;
 use martin_tile_utils::{TileCoord, TileData, TileInfo};
 use mbtiles::{MbtError, MbtilesPool};
 use tilejson::TileJSON;

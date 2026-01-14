@@ -7,7 +7,6 @@ use std::sync::LazyLock;
 use clap::ValueEnum;
 #[cfg(feature = "_tiles")]
 use futures::future::{BoxFuture, try_join_all};
-use log::{Level, info, log, warn};
 #[cfg(feature = "_tiles")]
 use martin_core::config::IdResolver;
 #[cfg(feature = "postgres")]
@@ -18,6 +17,7 @@ use martin_core::tiles::OptTileCache;
 use martin_core::tiles::pmtiles::PmtCache;
 use serde::{Deserialize, Serialize};
 use subst::VariableMap;
+use tracing::{info, warn, error};
 
 #[cfg(any(
     feature = "pmtiles",
@@ -419,16 +419,21 @@ impl OnInvalid {
         if warnings.is_empty() {
             return Ok(());
         }
-        let level = match self {
-            OnInvalid::Warn => Level::Warn,
-            OnInvalid::Abort => Level::Error,
-        };
         match warnings {
-            [warning] => log!(level, "Tile source resolution warning: {warning}"),
+            [warning] => match self {
+                OnInvalid::Warn => warn!("Tile source resolution warning: {warning}"),
+                OnInvalid::Abort => error!("Tile source resolution warning: {warning}"),
+            },
             warnings => {
-                log!(level, "Tile source resolution warnings:");
+                match self {
+                    OnInvalid::Warn => warn!("Tile source resolution warnings:"),
+                    OnInvalid::Abort => error!("Tile source resolution warnings:"),
+                };
                 for warning in warnings {
-                    log!(level, "  - {warning}");
+                    match self {
+                        OnInvalid::Warn => warn!(" - {warning}"),
+                        OnInvalid::Abort => error!(" - {warning}"),
+                    };
                 }
             }
         }

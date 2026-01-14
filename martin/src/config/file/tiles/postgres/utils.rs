@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use itertools::Itertools;
-use log::{error, info};
+use tracing::{error, info};
 use tilejson::TileJSON;
 
 #[must_use]

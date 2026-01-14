@@ -4,7 +4,7 @@ use std::collections::{BTreeMap, HashSet};
 
 use futures::future::join_all;
 use itertools::Itertools as _;
-use log::{debug, error, info, warn};
+use tracing::{debug, error, info, warn};
 use martin_core::config::IdResolver;
 use martin_core::config::OptBoolObj::{Bool, NoValue, Object};
 use martin_core::config::OptOneMany::NoVals;

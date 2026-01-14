@@ -21,14 +21,14 @@ impl CacheConfig {
     #[must_use]
     pub fn create_tile_cache(&self) -> Option<martin_core::tiles::TileCache> {
         if self.tile_cache_size_mb > 0 {
-            log::info!(
+            tracing::info!(
                 "Initializing tile cache with maximum size {} MB",
                 self.tile_cache_size_mb
             );
             let size = self.tile_cache_size_mb * 1000 * 1000;
             Some(martin_core::tiles::TileCache::new(size))
         } else {
-            log::info!("Tile caching is disabled");
+            tracing::info!("Tile caching is disabled");
             None
         }
     }
@@ -39,14 +39,14 @@ impl CacheConfig {
     pub fn create_pmtiles_cache(&self) -> martin_core::tiles::pmtiles::PmtCache {
         // TODO: make this actually disabled, not just zero sized cached
         if self.pmtiles_cache_size_mb > 0 {
-            log::info!(
+            tracing::info!(
                 "Initializing PMTiles directory cache with maximum size {} MB",
                 self.pmtiles_cache_size_mb
             );
             let size = self.pmtiles_cache_size_mb * 1000 * 1000;
             martin_core::tiles::pmtiles::PmtCache::new(size)
         } else {
-            log::debug!("PMTiles directory caching is disabled");
+            tracing::debug!("PMTiles directory caching is disabled");
             martin_core::tiles::pmtiles::PmtCache::new(0)
         }
     }
@@ -56,14 +56,14 @@ impl CacheConfig {
     #[must_use]
     pub fn create_sprite_cache(&self) -> martin_core::sprites::OptSpriteCache {
         if self.sprite_cache_size_mb > 0 {
-            log::info!(
+            tracing::info!(
                 "Initializing sprite cache with maximum size {} MB",
                 self.sprite_cache_size_mb
             );
             let size = self.sprite_cache_size_mb * 1000 * 1000;
             Some(martin_core::sprites::SpriteCache::new(size))
         } else {
-            log::info!("Sprite caching is disabled");
+            tracing::info!("Sprite caching is disabled");
             None
         }
     }
@@ -73,14 +73,14 @@ impl CacheConfig {
     #[must_use]
     pub fn create_font_cache(&self) -> martin_core::fonts::OptFontCache {
         if self.font_cache_size_mb > 0 {
-            log::info!(
+            tracing::info!(
                 "Initializing font cache with maximum size {} MB",
                 self.font_cache_size_mb
             );
             let size = self.font_cache_size_mb * 1000 * 1000;
             Some(martin_core::fonts::FontCache::new(size))
         } else {
-            log::info!("Font caching is disabled");
+            tracing::info!("Font caching is disabled");
             None
         }
     }

@@ -3819,7 +3819,6 @@ dependencies = [
  "image",
  "insta",
  "itertools 0.14.0",
- "log",
  "maplibre_native",
  "martin-tile-utils",
  "mbtiles",
@@ -3846,6 +3845,7 @@ dependencies = [
  "tilejson",
  "tokio",
  "tokio-postgres-rustls",
+ "tracing",
  "url",
  "xxhash-rust",
 ]

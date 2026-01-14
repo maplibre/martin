@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use clap::ValueEnum;
 use enum_display::EnumDisplay;
-use log::{info, warn};
+use tracing::{info, warn};
 use martin_core::config::env::Env;
 use martin_core::config::{OptBoolObj, OptOneMany};
 use serde::{Deserialize, Serialize};

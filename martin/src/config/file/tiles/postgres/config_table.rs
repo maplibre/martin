@@ -1,6 +1,6 @@
 use std::collections::{BTreeMap, HashMap};
 
-use log::{info, warn};
+use tracing::{info, warn};
 use serde::{Deserialize, Serialize};
 use tilejson::{Bounds, TileJSON, VectorLayer};
 

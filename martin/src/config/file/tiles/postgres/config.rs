@@ -3,7 +3,7 @@ use std::time::Duration;
 
 use futures::future::try_join;
 use futures::pin_mut;
-use log::warn;
+use tracing::warn;
 use martin_core::config::{IdResolver, OptBoolObj, OptOneMany};
 use martin_core::tiles::BoxedSource;
 use serde::{Deserialize, Serialize};

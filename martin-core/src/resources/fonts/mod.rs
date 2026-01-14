@@ -25,7 +25,7 @@ use std::sync::LazyLock;
 use bit_set::BitSet;
 use dashmap::{DashMap, Entry};
 use itertools::Itertools as _;
-use log::{debug, info, warn};
+use tracing::{debug, info, warn};
 use pbf_font_tools::freetype::{Face, Library};
 use pbf_font_tools::prost::Message;
 use pbf_font_tools::{Fontstack, Glyphs, render_sdf_glyph};

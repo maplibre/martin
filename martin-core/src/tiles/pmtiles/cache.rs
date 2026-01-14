@@ -61,7 +61,7 @@ impl PmtCacheInstance {
     /// Invalidates all cached directories for this `PMTiles` file.
     pub fn invalidate_all(&self) {
         self.cache.0.invalidate_all();
-        log::info!("Invalidated PMTiles directory cache for id={}", self.id);
+        tracing::info!("Invalidated PMTiles directory cache for id={}", self.id);
     }
 
     /// Syncs pending operations to make cache statistics consistent.

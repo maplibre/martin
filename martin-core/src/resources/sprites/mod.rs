@@ -22,7 +22,7 @@ use std::path::PathBuf;
 
 use dashmap::{DashMap, Entry};
 use futures::future::try_join_all;
-use log::{info, warn};
+use tracing::{info, warn};
 use serde::{Deserialize, Serialize};
 pub use spreet::Spritesheet;
 use spreet::resvg::usvg::{Options, Tree};

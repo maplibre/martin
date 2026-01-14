@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use log::warn;
+use tracing::warn;
 use martin_core::sprites::SpriteSources;
 use serde::{Deserialize, Serialize};
 

@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 use std::env;
 use std::path::{Path, PathBuf};
 
-use log::warn;
+use tracing::warn;
 #[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
 use martin_core::config::OptBoolObj;
 use martin_core::styles::StyleSources;

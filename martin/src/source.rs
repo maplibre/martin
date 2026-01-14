@@ -1,6 +1,6 @@
 use actix_web::error::ErrorNotFound;
 use dashmap::DashMap;
-use log::debug;
+use tracing::debug;
 use martin_core::tiles::catalog::TileCatalog;
 use martin_core::tiles::{BoxedSource, Source};
 use martin_tile_utils::TileInfo;

@@ -4,7 +4,7 @@ use std::env;
 
 use actix_web::dev::ServiceResponse;
 use actix_web::test::read_body;
-use log::warn;
+use tracing::warn;
 #[cfg(feature = "postgres")]
 use martin::config::file::postgres::TableInfo;
 use martin::config::file::{Config, ServerState};

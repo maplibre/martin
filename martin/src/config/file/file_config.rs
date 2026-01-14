@@ -6,7 +6,7 @@ use std::path::Path;
 use std::path::PathBuf;
 
 #[cfg(feature = "_tiles")]
-use log::{info, warn};
+use tracing::{info, warn};
 #[cfg(feature = "_tiles")]
 use martin_core::config::IdResolver;
 use martin_core::config::OptOneMany;
