@@ -577,7 +577,7 @@ async fn init_schema(
 #[tokio::main]
 async fn main() {
     let filter = ensure_martin_core_log_level_matches(env::var("RUST_LOG").ok(), "martin_cp=");
-    init_tracing(&filter, env::var("RUST_LOG_FORMAT").ok());
+    init_tracing(&filter, env::var("RUST_LOG_FORMAT").ok(), true);
 
     let args = CopierArgs::parse();
     if let Err(e) = start(args).await {
