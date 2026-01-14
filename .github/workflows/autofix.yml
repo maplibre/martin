@@ -2,17 +2,39 @@ name: autofix.ci # See https://autofix.ci/security why this name
 
 on:
   pull_request:
-    types: [labeled]
+    types: [labeled, opened, synchronize, reopened]
 
 permissions: {}
 
 jobs:
+  fmt-toml:
+    name: Format Cargo.toml
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    if: |
+      github.event.action == 'opened' ||
+      github.event.action == 'synchronize' ||
+      github.event.action == 'reopened'
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with: { persist-credentials: false }
+      - uses: taiki-e/install-action@763e3324d4fd026c9bd284c504378585777a87d5 # v2.62.57
+        with: { tool: 'just,cargo-sort' }
+      - name: Format Cargo.toml
+        run: just fmt-toml
+
+      - uses: autofix-ci/action@635ffb0c9798bd160680f18fd73371e355b85f27 # v1.3.2
+        with: {commit-message: "chore: sort Cargo.toml"}
   bless:
     name: Bless test output
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    if: contains(github.event.label.name, 'bless')
+    if: |
+      github.event.action == 'labeled' &&
+      github.event.label.name == 'bless'
 
     steps:
       - name: Checkout sources

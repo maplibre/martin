@@ -109,8 +109,7 @@ jobs:
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with: { persist-credentials: false }
       - uses: taiki-e/install-action@763e3324d4fd026c9bd284c504378585777a87d5 # v2.62.57
-        # TODO: add cargo-sort once https://github.com/taiki-e/install-action/pull/997 is resolved
-        with: { tool: 'just,cargo-binstall' }
+        with: { tool: 'just,cargo-sort' }
       - uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
         if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
       - run: just env-info
