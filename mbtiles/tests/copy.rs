@@ -506,6 +506,11 @@ async fn convert(
     Ok(())
 }
 
+// extracted here to not bloat the test function names
+type RegularTileset = (&'static str, &'static str, &'static str);
+const DB_WITH_DIFF: RegularTileset = ("v1", "v2", "dif");
+const DB_EMPTY_DIFF: RegularTileset = ("v1", "v1_clone", "dif_empty");
+
 #[rstest]
 #[trace]
 #[tokio::test(flavor = "multi_thread")]
@@ -514,25 +519,21 @@ async fn diff_and_patch(
     #[values(Flat, FlatWithHash, Normalized)] a_type: MbtTypeCli,
     #[values(Flat, FlatWithHash, Normalized)] b_type: MbtTypeCli,
     #[values(None, Some(Flat), Some(FlatWithHash), Some(Normalized))] dif_type: Option<MbtTypeCli>,
-    #[values(&[Flat, FlatWithHash, Normalized])] destination_types: &[MbtTypeCli],
-    #[values(
-        ("v1", "v2", "dif"),
-        ("v1", "v1_clone", "dif_empty"))]
-    tilesets: (&'static str, &'static str, &'static str),
+    #[values(DB_WITH_DIFF, DB_EMPTY_DIFF)] tilesets: RegularTileset,
     #[notrace] databases: &Databases,
 ) -> MbtResult<()> {
     let (a_db, b_db, dif_db) = tilesets;
     let dif = dif_type.map_or("dflt", shorten);
-    let prefix = format!(
-        "{a_db}_{}--{b_db}_{}={dif}",
-        shorten(b_type),
-        shorten(a_type),
-    );
+    let short_b_type = shorten(b_type);
+    let short_a_type = shorten(a_type);
 
     eprintln!(
         "TEST: Compare {a_db} with {b_db}, and copy anything that's different (i.e. mathematically: {b_db} - {a_db} = {dif_db})"
     );
-    let (dif_mbt, mut dif_cn) = open!(diff_and_patch, "{prefix}__{dif_db}");
+    let (dif_mbt, mut dif_cn) = open!(
+        diff_and_patch,
+        "{a_db}_{short_a_type}--{b_db}_{short_b_type}={dif}__{dif_db}"
+    );
     copy! {
         databases.path(a_db, a_type),
         path(&dif_mbt),
@@ -545,20 +546,23 @@ async fn diff_and_patch(
         "Diff file should contain only the changes between {a_db} and {b_db}",
     );
 
-    for dst_type in destination_types {
-        let prefix = format!("{prefix}__to__{}", shorten(*dst_type));
-        let expected_b = databases.dump(b_db, *dst_type);
+    for dst_type in [Flat, FlatWithHash, Normalized] {
+        let short_dst_type = shorten(dst_type);
+        let expected_b = databases.dump(b_db, dst_type);
 
         eprintln!(
             "TEST: Applying the difference ({b_db} - {a_db} = {dif_db}) to {a_db}, should get {b_db}"
         );
-        let (clone_mbt, mut clone_cn) = open!(diff_and_patch, "{prefix}__1");
-        copy!(databases.path(a_db, *dst_type), path(&clone_mbt));
+        let (clone_mbt, mut clone_cn) = open!(
+            diff_and_patch,
+            "{a_db}_{short_a_type}--{b_db}_{short_b_type}={dif}__to__{short_dst_type}__1"
+        );
+        copy!(databases.path(a_db, dst_type), path(&clone_mbt));
         apply_patch(path(&clone_mbt), path(&dif_mbt), false).await?;
         let hash = clone_mbt.open_and_validate(Off, Verify).await?;
         assert_eq!(
             hash,
-            databases.hash(b_db, *dst_type),
+            databases.hash(b_db, dst_type),
             "After applying patch, hash should match target database {b_db}",
         );
         let dmp = dump(&mut clone_cn).await?;
@@ -571,13 +575,16 @@ async fn diff_and_patch(
         eprintln!(
             "TEST: Applying the difference ({b_db} - {a_db} = {dif_db}) to {b_db}, should not modify it"
         );
-        let (clone_mbt, mut clone_cn) = open!(diff_and_patch, "{prefix}__2");
-        copy!(databases.path(b_db, *dst_type), path(&clone_mbt));
+        let (clone_mbt, mut clone_cn) = open!(
+            diff_and_patch,
+            "{a_db}_{short_a_type}--{b_db}_{short_b_type}={dif}__to__{short_dst_type}__2"
+        );
+        copy!(databases.path(b_db, dst_type), path(&clone_mbt));
         apply_patch(path(&clone_mbt), path(&dif_mbt), true).await?;
         let hash = clone_mbt.open_and_validate(Off, Verify).await?;
         assert_eq!(
             hash,
-            databases.hash(b_db, *dst_type),
+            databases.hash(b_db, dst_type),
             "After applying patch to target {b_db}, hash should remain unchanged",
         );
         let dmp = dump(&mut clone_cn).await?;
@@ -591,6 +598,11 @@ async fn diff_and_patch(
     Ok(())
 }
 
+// extracted here to not bloat the test function names
+type BsDiffTileset = (&'static str, &'static str, &'static str, PatchTypeCli);
+const BIN_DIFF_RAW: BsDiffTileset = ("v1", "v2", "bdr", BinDiffRaw);
+const BIN_DIFF_GZ: BsDiffTileset = ("v1z", "v2z", "bdz", BinDiffGz);
+
 #[rstest]
 #[trace]
 #[ignore = "test used to run for a while, and then became too complicated to maintain and got out of whack. TODO: bring it back or deleete"]
@@ -601,25 +613,22 @@ async fn diff_and_patch_bsdiff(
     #[values(Flat, FlatWithHash)] b_type: MbtTypeCli,
     #[values(Flat, FlatWithHash)] dif_type: MbtTypeCli,
     #[values(Flat, FlatWithHash)] dst_type: MbtTypeCli,
-    #[values(
-        ("v1", "v2", "bdr", BinDiffRaw),
-        ("v1z", "v2z", "bdz", BinDiffGz),
-    )]
-    tilesets: (&'static str, &'static str, &'static str, PatchTypeCli),
+    #[values(BIN_DIFF_RAW, BIN_DIFF_GZ)] tilesets: BsDiffTileset,
     #[notrace] databases: &Databases,
 ) -> MbtResult<()> {
     let (a_db, b_db, dif_db, patch_type) = tilesets;
     let dif = shorten(dif_type);
-    let prefix = format!(
-        "{a_db}_{}--{b_db}_{}={dif}_{patch_type}",
-        shorten(b_type),
-        shorten(a_type),
-    );
+    let short_a_type = shorten(a_type);
+    let short_b_type = shorten(b_type);
+    let short_dst_type = shorten(dst_type);
 
     eprintln!(
         "TEST: Compare {a_db} with {b_db}, and copy anything that's different (i.e. mathematically: {b_db} - {a_db} = {dif_db})"
     );
-    let (dif_mbt, mut dif_cn) = open!(diff_and_patch_bsdiff, "{prefix}__{dif_db}");
+    let (dif_mbt, mut dif_cn) = open!(
+        diff_and_patch_bsdiff,
+        "{a_db}_{short_a_type}--{b_db}_{short_b_type}={dif}_{patch_type}__{dif_db}"
+    );
     copy! {
         databases.path(a_db, a_type),
         path(&dif_mbt),
@@ -632,8 +641,10 @@ async fn diff_and_patch_bsdiff(
         "Binary diff file should match expected {dif_db} format",
     );
 
-    let prefix = format!("{prefix}__to__{}", shorten(dst_type));
-    let (b_mbt, mut b_cn) = open!(diff_and_patch_bsdiff, "{prefix}__{b_db}");
+    let (b_mbt, mut b_cn) = open!(
+        diff_and_patch_bsdiff,
+        "{a_db}_{short_a_type}--{b_db}_{short_b_type}={dif}_{patch_type}__to__{short_dst_type}__{b_db}"
+    );
     copy! {
         databases.path(a_db, a_type),
         path(&b_mbt),
@@ -663,9 +674,8 @@ async fn patch_on_copy(
 ) -> MbtResult<()> {
     let (v1, dif) = (shorten(v1_type), shorten(dif_type));
     let v2 = v2_type.map_or("dflt", shorten);
-    let prefix = format!("{v1}+{dif}={v2}");
 
-    let (v2_mbt, mut v2_cn) = open!(patch_on_copy, "{prefix}__v2");
+    let (v2_mbt, mut v2_cn) = open!(patch_on_copy, "{v1}+{dif}={v2}__v2");
     copy! {
         databases.path("v1", v1_type),
         path(&v2_mbt),
