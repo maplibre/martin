@@ -56,11 +56,16 @@ async fn start(args: Args) -> MartinResult<()> {
 #[tokio::main]
 async fn main() {
     let filter = ensure_martin_core_log_level_matches(env::var("RUST_LOG").ok(), "martin=");
-    init_tracing(&filter, env::var("MARTIN_FORMAT").ok(), false);
+    init_tracing(&filter, env::var("RUST_LOG_FORMAT").ok());
 
     let args = Args::parse();
     if let Err(e) = start(args).await {
-        error!("{e}");
+        // Ensure the message is printed, even if the logging is disabled
+        if tracing::event_enabled!(tracing::Level::ERROR) {
+            error!("{e}");
+        } else {
+            eprintln!("{e}");
+        }
         std::process::exit(1);
     }
 }
