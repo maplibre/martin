@@ -3,12 +3,12 @@ use std::time::Duration;
 
 use futures::future::try_join;
 use futures::pin_mut;
-use tracing::warn;
 use martin_core::config::{IdResolver, OptBoolObj, OptOneMany};
 use martin_core::tiles::BoxedSource;
 use serde::{Deserialize, Serialize};
 use tilejson::TileJSON;
 use tokio::time::timeout;
+use tracing::warn;
 
 use super::{FuncInfoSources, TableInfoSources};
 use crate::MartinResult;

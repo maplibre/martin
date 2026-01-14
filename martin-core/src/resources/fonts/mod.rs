@@ -25,12 +25,12 @@ use std::sync::LazyLock;
 use bit_set::BitSet;
 use dashmap::{DashMap, Entry};
 use itertools::Itertools as _;
-use tracing::{debug, info, warn};
 use pbf_font_tools::freetype::{Face, Library};
 use pbf_font_tools::prost::Message;
 use pbf_font_tools::{Fontstack, Glyphs, render_sdf_glyph};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
+use tracing::{debug, info, warn};
 
 /// Maximum Unicode codepoint supported.
 ///

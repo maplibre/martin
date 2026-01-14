@@ -6,10 +6,10 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use tracing::trace;
 use martin_tile_utils::{TileCoord, TileData, TileInfo};
 use mbtiles::{MbtError, MbtilesPool};
 use tilejson::TileJSON;
+use tracing::trace;
 
 use crate::tiles::mbtiles::MbtilesError;
 use crate::tiles::{BoxedSource, MartinCoreResult, Source, UrlQuery};

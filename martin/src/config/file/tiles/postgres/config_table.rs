@@ -1,8 +1,8 @@
 use std::collections::{BTreeMap, HashMap};
 
-use tracing::{info, warn};
 use serde::{Deserialize, Serialize};
 use tilejson::{Bounds, TileJSON, VectorLayer};
+use tracing::{info, warn};
 
 use super::PostgresInfo;
 use crate::config::file::UnrecognizedValues;

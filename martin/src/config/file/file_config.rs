@@ -6,13 +6,13 @@ use std::path::Path;
 use std::path::PathBuf;
 
 #[cfg(feature = "_tiles")]
-use tracing::{info, warn};
-#[cfg(feature = "_tiles")]
 use martin_core::config::IdResolver;
 use martin_core::config::OptOneMany;
 #[cfg(feature = "_tiles")]
 use martin_core::tiles::BoxedSource;
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "_tiles")]
+use tracing::{info, warn};
 #[cfg(feature = "_tiles")]
 use url::Url;
 

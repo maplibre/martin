@@ -5,11 +5,11 @@ use std::path::{Path, PathBuf};
 use std::vec;
 
 use async_trait::async_trait;
-use tracing::warn;
 use martin_tile_utils::{Format, TileCoord, TileData, TileInfo};
 use tiff::decoder::{ChunkType, Decoder};
 use tiff::tags::Tag::{self, GdalNodata};
 use tilejson::{TileJSON, tilejson};
+use tracing::warn;
 
 use crate::tiles::cog::CogError;
 use crate::tiles::cog::image::Image;

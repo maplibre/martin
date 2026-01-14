@@ -3,9 +3,9 @@
 use std::path::PathBuf;
 
 use deadpool_postgres::{Manager, ManagerConfig, Object, Pool, RecyclingMethod};
-use tracing::{info, warn};
 use postgres::config::SslMode;
 use semver::Version;
+use tracing::{info, warn};
 
 use crate::tiles::postgres::PostgresError::{
     BadPostgisVersion, BadPostgresVersion, PostgisTooOld, PostgresError, PostgresPoolBuildError,

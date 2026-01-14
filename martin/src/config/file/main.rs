@@ -17,7 +17,7 @@ use martin_core::tiles::OptTileCache;
 use martin_core::tiles::pmtiles::PmtCache;
 use serde::{Deserialize, Serialize};
 use subst::VariableMap;
-use tracing::{info, warn, error};
+use tracing::{error, info, warn};
 
 #[cfg(any(
     feature = "pmtiles",

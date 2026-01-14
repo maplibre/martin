@@ -3,9 +3,9 @@ use actix_web::http::header::ContentType;
 use actix_web::middleware::Compress;
 use actix_web::web::{Data, Path};
 use actix_web::{HttpResponse, route};
-use tracing::error;
 use martin_core::styles::StyleSources;
 use serde::Deserialize;
+use tracing::error;
 
 #[derive(Deserialize, Debug)]
 struct StyleRequest {

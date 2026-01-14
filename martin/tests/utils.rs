@@ -4,13 +4,13 @@ use std::env;
 
 use actix_web::dev::ServiceResponse;
 use actix_web::test::read_body;
-use tracing::warn;
 #[cfg(feature = "postgres")]
 use martin::config::file::postgres::TableInfo;
 use martin::config::file::{Config, ServerState};
 use martin_core::config::env::FauxEnv;
 #[cfg(feature = "_tiles")]
 use martin_core::tiles::BoxedSource;
+use tracing::warn;
 
 #[must_use]
 pub fn mock_cfg(yaml: &str) -> Config {

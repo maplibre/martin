@@ -22,12 +22,12 @@ use std::path::PathBuf;
 
 use dashmap::{DashMap, Entry};
 use futures::future::try_join_all;
-use tracing::{info, warn};
 use serde::{Deserialize, Serialize};
 pub use spreet::Spritesheet;
 use spreet::resvg::usvg::{Options, Tree};
 use spreet::{Sprite, SpritesheetBuilder, get_svg_input_paths, sprite_name};
 use tokio::io::AsyncReadExt;
+use tracing::{info, warn};
 
 use self::SpriteError::{SpriteInstError, SpriteParsingError, SpriteProcessingError};
 
