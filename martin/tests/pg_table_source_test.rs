@@ -1,16 +1,10 @@
 #![cfg(feature = "postgres")]
 
-use ctor::ctor;
 use indoc::indoc;
 use insta::assert_yaml_snapshot;
 use martin_tile_utils::TileCoord;
 pub mod utils;
 pub use utils::*;
-
-#[ctor]
-fn init() {
-    let _ = env_logger::builder().is_test(true).try_init();
-}
 
 #[actix_rt::test]
 async fn table_source() {

@@ -2,7 +2,8 @@
 
 set shell := ['bash', '-c']
 
-# How to call the current just executable. Note that just_executable() may have `\` in Windows paths, so we need to quote it.
+# How to call the current just executable.
+# Note that just_executable() may have `\` in Windows paths, so we need to quote it.
 just := quote(just_executable())
 dockercompose := `if docker-compose --version &> /dev/null; then echo "docker-compose"; else echo "docker compose"; fi`
 
@@ -369,6 +370,7 @@ test-lambda martin_bin='target/debug/martin':
     #!/usr/bin/env bash
     set -euo pipefail
 
+    echo "::group::Build Lambda Function"
     if ! command -v sam >/dev/null 2>&1; then
       echo "The AWS Serverless Application Model Command Line Interface (AWS SAM CLI) is missing."
       echo "  https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html"
@@ -387,16 +389,28 @@ test-lambda martin_bin='target/debug/martin':
     export AWS_PROFILE=dummy
     export AWS_CONFIG_FILE=.github/files/dummy-aws-config
     sam build --template-file .github/files/lambda.yaml
+    echo "::endgroup::"
 
     # Just send a single request using `sam local invoke` to verify that
     # the server boots, finds a source to serve, and can handle a request.
     # TODO Run the fuller integration suite against this.
     # In doing so, switch from `sam local invoke`, which starts and stops the
     # server, to `sam local start-api`, which keeps it running.
-    sam local generate-event apigateway http-api-proxy \
-      | jq '.rawPath = "/" | .requestContext.http.method = "GET"' \
-      | sam local invoke -e - \
-      | jq -ne 'input.statusCode==200'
+    echo "::group::Generate Event"
+    event=$(
+      sam local generate-event apigateway http-api-proxy \
+        | jq '.rawPath = "/" | .requestContext.http.method = "GET"'
+    )
+    echo "event:"
+    echo "$event" | jq .
+    echo "::endgroup::"
+
+    echo "::group::Invoke Lambda Function"
+    response=$(sam local invoke -e <(echo "$event"))
+    echo "::endgroup::"
+
+    jq -ne 'input.statusCode == 200' <<<"$response"
+
 
 # Run all tests using the oldest supported version of the database
 test-legacy: start-legacy (test-cargo '--all-targets') test-doc test-int

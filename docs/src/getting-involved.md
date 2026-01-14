@@ -125,7 +125,7 @@ We add a breakpoint here in the [start of martin](https://github.com/maplibre/ma
 
 ```rust, ignore
 use clap::Parser;
-use log::{error, info, log_enabled};
+use tracing::{error, info};
 use martin::args::{Args, OsEnv};
 use martin::srv::new_server;
 use martin::{read_config, Config, MartinResult};

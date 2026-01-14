@@ -4,7 +4,6 @@ use std::path::PathBuf;
 use std::str::from_utf8;
 use std::sync::Mutex;
 
-use ctor::ctor;
 use insta::{allow_duplicates, assert_snapshot};
 use itertools::Itertools as _;
 use martin_tile_utils::xyz_to_bbox;
@@ -83,11 +82,6 @@ const METADATA_V2: &str = "
       , ('md-edit', 'value - v2')
       , ('md-new', 'value - new')
       ;";
-
-#[ctor]
-fn init() {
-    let _ = env_logger::builder().is_test(true).try_init();
-}
 
 fn path(mbt: &Mbtiles) -> PathBuf {
     PathBuf::from(mbt.filepath())
@@ -414,6 +408,7 @@ fn databases() -> Databases {
 }
 
 #[tokio::test]
+#[tracing_test::traced_test]
 async fn update() -> MbtResult<()> {
     let (mbt, mut cn) = new_file_no_hash!(databases, Flat, METADATA_V1, TILES_V1, "update");
     mbt.update_metadata(&mut cn, UpdateZoomType::Reset).await?;
@@ -426,6 +421,7 @@ async fn update() -> MbtResult<()> {
 #[rstest]
 #[trace]
 #[tokio::test(flavor = "multi_thread")]
+#[tracing_test::traced_test]
 async fn convert(
     #[values(Flat, FlatWithHash, Normalized)] frm_type: MbtTypeCli,
     #[values(Flat, FlatWithHash, Normalized)] dst_type: MbtTypeCli,
@@ -513,6 +509,7 @@ async fn convert(
 #[rstest]
 #[trace]
 #[tokio::test(flavor = "multi_thread")]
+#[tracing_test::traced_test]
 async fn diff_and_patch(
     #[values(Flat, FlatWithHash, Normalized)] a_type: MbtTypeCli,
     #[values(Flat, FlatWithHash, Normalized)] b_type: MbtTypeCli,
@@ -598,6 +595,7 @@ async fn diff_and_patch(
 #[trace]
 #[ignore = "test used to run for a while, and then became too complicated to maintain and got out of whack. TODO: bring it back or deleete"]
 #[tokio::test(flavor = "multi_thread")]
+#[tracing_test::traced_test]
 async fn diff_and_patch_bsdiff(
     #[values(Flat, FlatWithHash)] a_type: MbtTypeCli,
     #[values(Flat, FlatWithHash)] b_type: MbtTypeCli,
@@ -656,6 +654,7 @@ async fn diff_and_patch_bsdiff(
 #[rstest]
 #[trace]
 #[tokio::test(flavor = "multi_thread")]
+#[tracing_test::traced_test]
 async fn patch_on_copy(
     #[values(Flat, FlatWithHash, Normalized)] v1_type: MbtTypeCli,
     #[values(Flat, FlatWithHash, Normalized)] dif_type: MbtTypeCli,
@@ -687,6 +686,7 @@ async fn patch_on_copy(
 /// A simple tester to run specific values
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "this test is for debugging only, and should be disabled"]
+#[tracing_test::traced_test]
 async fn test_one() {
     // This will cause an error if ran together with other tests
     let db = databases();

@@ -7,11 +7,6 @@ use mbtiles::{Mbtiles, create_metadata_table};
 use rstest::rstest;
 use sqlx::{Executor as _, SqliteConnection, query};
 
-#[ctor::ctor]
-fn init() {
-    let _ = env_logger::builder().is_test(true).try_init();
-}
-
 async fn new(values: &str) -> (Mbtiles, SqliteConnection) {
     let mbtiles = Mbtiles::new(":memory:").unwrap();
     let mut conn = mbtiles.open().await.unwrap();
@@ -66,6 +61,7 @@ macro_rules! err {
 #[case("0, 0, ", ", NULL")] // test tile_row
 #[trace]
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn integers(#[case] prefix: &str, #[case] suffix: &str) {
     ok!("{prefix} 0 {suffix}");
 
@@ -90,6 +86,7 @@ async fn integers(#[case] prefix: &str, #[case] suffix: &str) {
 #[case("0, ", ", NULL")] // test tile_row
 #[trace]
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn tile_coordinate(#[case] prefix: &str, #[case] suffix: &str) {
     ok!("0,  {prefix} 0          {suffix}");
     ok!("1,  {prefix} 1          {suffix}");
@@ -111,6 +108,7 @@ async fn tile_coordinate(#[case] prefix: &str, #[case] suffix: &str) {
 }
 
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn tile_data() {
     ok!("0, 0, 0, NULL");
     ok!("0, 0, 0, CAST('' AS BLOB)");
