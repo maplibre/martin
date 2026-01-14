@@ -196,9 +196,9 @@ fn init_log_bridge(env_filter: &EnvFilter) {
         };
         log_builder = log_builder.with_max_level(max_level);
     }
-    // Use try_init to avoid panicking if logger is already initialized
-    // (e.g., by test harness or other initialization code)
-    let _ = log_builder.init();
+    log_builder
+        .init()
+        .expect("Failed to initialize log -> tracing bridge");
 }
 
 /// Initialize the global tracing subscriber for the given filter and format.
