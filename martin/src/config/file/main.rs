@@ -431,8 +431,8 @@ impl OnInvalid {
                 };
                 for warning in warnings {
                     match self {
-                        OnInvalid::Warn => warn!(" - {warning}"),
-                        OnInvalid::Abort => error!(" - {warning}"),
+                        OnInvalid::Warn => warn!("  - {warning}"),
+                        OnInvalid::Abort => error!("  - {warning}"),
                     };
                 }
             }
