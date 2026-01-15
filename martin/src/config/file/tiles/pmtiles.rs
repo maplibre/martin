@@ -228,14 +228,43 @@ impl TileSourceConfiguration for PmtConfig {
         self.new_sources_url(id, url).await
     }
 
-    async fn new_sources_url(&self, id: String, url: Url) -> MartinResult<BoxedSource> {
+    async fn new_sources_url(&self, id: String, mut url: Url) -> MartinResult<BoxedSource> {
         use std::sync::LazyLock;
         use std::sync::atomic::{AtomicUsize, Ordering};
 
         static NEXT_CACHE_ID: LazyLock<AtomicUsize> = LazyLock::new(|| AtomicUsize::new(0));
         let cache_id = NEXT_CACHE_ID.fetch_add(1, Ordering::SeqCst);
 
-        let (store, path) = object_store::parse_url_opts(&url, &self.options)
+        let mut options = self.options.clone();
+
+        // Handle Azure URL format documented as az://account/container/path
+        // The object_store crate expects az://container/path with account configured separately.
+        // Extract account from the first path segment and set it as an option.
+        // See: https://github.com/maplibre/martin/issues/2498
+        if matches!(url.scheme(), "az" | "azure" | "adl") {
+            if let Some(segments) = url.path_segments() {
+                let segments: Vec<_> = segments.collect();
+                // If we have at least 2 segments (account/container/...), extract account
+                if segments.len() >= 2 {
+                    let account = segments[0].to_string();
+                    let new_path = format!("/{}", segments[1..].join("/"));
+                    url.set_path(&new_path);
+                    // Only set account_name if not already configured
+                    if !options.contains_key("account_name")
+                        && !options.contains_key("azure_account_name")
+                    {
+                        trace!(
+                            "Extracted Azure account '{}' from URL for source {}",
+                            account,
+                            id
+                        );
+                        options.insert("account_name".to_string(), account);
+                    }
+                }
+            }
+        }
+
+        let (store, path) = object_store::parse_url_opts(&url, &options)
             .map_err(|e| ConfigFileError::ObjectStoreUrlParsing(e, id.clone()))?;
         let cache = PmtCacheInstance::new(cache_id, self.pmtiles_directory_cache.clone());
         let source = PmtilesSource::new(cache, id, store, path).await?;
