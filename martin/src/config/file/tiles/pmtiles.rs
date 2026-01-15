@@ -255,8 +255,7 @@ impl TileSourceConfiguration for PmtConfig {
                     {
                         trace!(
                             "Extracted Azure account '{}' from URL for source {}",
-                            account,
-                            id
+                            account, id
                         );
                         options.insert("account_name".to_string(), account);
                     }
