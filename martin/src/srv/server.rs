@@ -28,7 +28,7 @@ pub const RESERVED_KEYWORDS: &[&str] = &[
 
 #[cfg(any(feature = "_tiles", feature = "fonts", feature = "sprites"))]
 pub fn map_internal_error<T: std::fmt::Display>(e: T) -> actix_web::Error {
-    log::error!("{e}");
+    tracing::error!("{e}");
     actix_web::error::ErrorInternalServerError(e.to_string())
 }
 

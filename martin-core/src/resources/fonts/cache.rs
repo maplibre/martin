@@ -1,4 +1,5 @@
 use moka::future::Cache;
+use tracing::{info, trace};
 
 /// Optional wrapper for `FontCache`.
 pub type OptFontCache = Option<FontCache>;
@@ -32,13 +33,13 @@ impl FontCache {
         let result = self.cache.get(key).await;
 
         if result.is_some() {
-            log::trace!(
+            trace!(
                 "Font cache HIT for {key:?} (entries={}, size={})",
                 self.cache.entry_count(),
                 self.cache.weighted_size()
             );
         } else {
-            log::trace!("Font cache MISS for {key:?}");
+            trace!("Font cache MISS for {key:?}");
         }
 
         result
@@ -71,13 +72,13 @@ impl FontCache {
         self.cache
             .invalidate_entries_if(move |key, _| key.ids.contains(&font_id_owned))
             .expect("invalidate_entries_if predicate should not error");
-        log::info!("Invalidated font cache for font: {font_id}");
+        info!("Invalidated font cache for font: {font_id}");
     }
 
     /// Invalidates all cached font ranges.
     pub fn invalidate_all(&self) {
         self.cache.invalidate_all();
-        log::info!("Invalidated all font cache entries");
+        info!("Invalidated all font cache entries");
     }
 
     /// Returns the number of cached entries.
