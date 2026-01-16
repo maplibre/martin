@@ -11,8 +11,8 @@ use std::collections::HashSet;
 use std::ffi::OsString;
 use std::{collections, env};
 
-use log::warn;
 use subst::VariableMap;
+use tracing::warn;
 
 /// Environment variable access with Unicode validation and usage tracking.
 ///

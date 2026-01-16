@@ -6,6 +6,8 @@
 
 use std::str::FromStr;
 
+use tracing::Level;
+use tracing::level_filters::LevelFilter;
 use tracing_subscriber::EnvFilter;
 use tracing_subscriber::fmt::format::FmtSpan;
 
@@ -135,16 +137,13 @@ pub fn init_tracing(filter: &str, format: Option<String>) {
     // Initialize log -> tracing bridge
     let mut log_builder = tracing_log::LogTracer::builder()
         .with_interest_cache(tracing_log::InterestCacheConfig::default());
-    if let Some(Some(max_level)) = env_filter
-        .max_level_hint()
-        .map(tracing::level_filters::LevelFilter::into_level)
-    {
+    if let Some(Some(max_level)) = env_filter.max_level_hint().map(LevelFilter::into_level) {
         let max_level = match max_level {
-            tracing::Level::DEBUG => log::LevelFilter::Debug,
-            tracing::Level::INFO => log::LevelFilter::Info,
-            tracing::Level::WARN => log::LevelFilter::Warn,
-            tracing::Level::ERROR => log::LevelFilter::Error,
-            tracing::Level::TRACE => log::LevelFilter::Trace,
+            Level::DEBUG => log::LevelFilter::Debug,
+            Level::INFO => log::LevelFilter::Info,
+            Level::WARN => log::LevelFilter::Warn,
+            Level::ERROR => log::LevelFilter::Error,
+            Level::TRACE => log::LevelFilter::Trace,
         };
         log_builder = log_builder.with_max_level(max_level);
     }
