@@ -195,9 +195,7 @@ fn init_log_bridge(env_filter: &EnvFilter) {
         };
         log_builder = log_builder.with_max_level(max_level);
     }
-    log_builder
-        .init()
-        .expect("Failed to initialize log -> tracing bridge");
+    let _ = log_builder.init();
 }
 
 /// Initialize the global tracing subscriber for the given filter and format.
