@@ -165,7 +165,7 @@ For Azure, you need to provide the account name, container and path.
 For example:
 
 ```bash
-martin  az://CONTAINER/tiles.pmtiles
+martin  az://my-container/tiles.pmtiles
 ```
 
 The available url schemes are:
