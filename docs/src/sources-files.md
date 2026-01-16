@@ -100,8 +100,11 @@ martin  s3://my-bucket/tiles.pmtiles
 
 The available url schemes are:
 
-- `s3://bucket/path`
-- `s3a://bucket/path`
+ - `s3://<bucket>/<path>`
+ - `s3a://<bucket>/<path>`
+ - `https://s3.<region>.amazonaws.com/<bucket>`
+ - `https://<bucket>.s3.<region>.amazonaws.com`
+ - `https://ACCOUNT_ID.r2.cloudflarestorage.com/bucket`
 
 If you want more control over your requests, you can configure additional options here as such:
 
@@ -162,16 +165,24 @@ For Azure, you need to provide the account name, container and path.
 For example:
 
 ```bash
-martin  az://account/container.pmtiles
+martin  az://CONTAINER/tiles.pmtiles
 ```
 
 The available url schemes are:
 
-- `az://account/container/path.pmtiles`
-- `adl://account/container/path.pmtiles`
-- `azure://account/container/path.pmtiles`
-- `abfs://account/container/path.pmtiles`
-- `abfss://account/container/path.pmtiles`
+- `abfs[s]://<container>/<path>` (according to [fsspec](https://github.com/fsspec/adlfs))
+- `abfs[s]://<file_system>@<account_name>.dfs.core.windows.net/<path>`
+- `abfs[s]://<file_system>@<account_name>.dfs.fabric.microsoft.com/<path>`
+- `az://<container>/<path>` (according to [fsspec](https://github.com/fsspec/adlfs))
+- `adl://<container>/<path>` (according to [fsspec](https://github.com/fsspec/adlfs))
+- `azure://<container>/<path>` (custom)
+- `https://<account>.dfs.core.windows.net`
+- `https://<account>.blob.core.windows.net`
+- `https://<account>.blob.core.windows.net/<container>`
+- `https://<account>.dfs.fabric.microsoft.com`
+- `https://<account>.dfs.fabric.microsoft.com/<container>`
+- `https://<account>.blob.fabric.microsoft.com`
+- `https://<account>.blob.fabric.microsoft.com/<container>`
 
 If you want more control over your requests, you can configure additional options here as such:
 
@@ -179,7 +190,7 @@ If you want more control over your requests, you can configure additional option
 pmtiles:
   allow_http: true
   sources:
-    tiles: az://account/container/path.pmtiles
+    tiles: az://CONTAINER/tiles.pmtiles
 ```
 
 > [!TIP]
