@@ -1,5 +1,6 @@
 use actix_web::web::Bytes;
 use moka::future::Cache;
+use tracing::{info, trace};
 
 /// Sprite cache for storing generated sprite sheets.
 #[derive(Clone)]
@@ -37,13 +38,13 @@ impl SpriteCache {
         let result = self.cache.get(key).await;
 
         if result.is_some() {
-            tracing::trace!(
+            trace!(
                 "Sprite cache HIT for {key:?} (entries={}, size={})",
                 self.cache.entry_count(),
                 self.cache.weighted_size()
             );
         } else {
-            tracing::trace!("Sprite cache MISS for {key:?}");
+            trace!("Sprite cache MISS for {key:?}");
         }
 
         result
@@ -77,13 +78,13 @@ impl SpriteCache {
         self.cache
             .invalidate_entries_if(move |key, _| key.ids.contains(&source_id_owned))
             .expect("invalidate_entries_if predicate should not error");
-        tracing::info!("Invalidated sprite cache for source: {source_id}");
+        info!("Invalidated sprite cache for source: {source_id}");
     }
 
     /// Invalidates all cached sprites.
     pub fn invalidate_all(&self) {
         self.cache.invalidate_all();
-        tracing::info!("Invalidated all sprite cache entries");
+        info!("Invalidated all sprite cache entries");
     }
 
     /// Returns the number of cached entries.
