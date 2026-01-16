@@ -5,15 +5,16 @@ use std::path::{Path, PathBuf};
 use std::vec;
 
 use async_trait::async_trait;
-use martin_tile_utils::{Format, TileCoord, TileData, TileInfo};
+use log::warn;
+use martin_tile_utils::{EARTH_CIRCUMFERENCE, Format, TileCoord, TileData, TileInfo};
 use tiff::decoder::{ChunkType, Decoder};
 use tiff::tags::Tag::{self, GdalNodata};
 use tilejson::{TileJSON, tilejson};
 use tracing::warn;
 
-use crate::tiles::cog::CogError;
-use crate::tiles::cog::image::Image;
-use crate::tiles::cog::model::ModelInfo;
+use super::CogError;
+use super::image::Image;
+use super::model::ModelInfo;
 use crate::tiles::{MartinCoreResult, Source, UrlQuery};
 
 /// Tile source that reads from `Cloud Optimized GeoTIFF` files.
@@ -32,12 +33,13 @@ pub struct CogSource {
     nodata: Option<f64>,
     tilejson: TileJSON,
     tileinfo: TileInfo,
+    web_friendly: bool,
 }
 
 impl CogSource {
     #[expect(clippy::cast_possible_truncation)]
     /// Creates a new COG tile source from a file path.
-    pub fn new(id: String, path: PathBuf) -> Result<Self, CogError> {
+    pub fn new(id: String, path: PathBuf, auto_web: bool) -> Result<Self, CogError> {
         let tileinfo = TileInfo::new(Format::Png, martin_tile_utils::Encoding::Uncompressed);
         let tif_file =
             File::open(&path).map_err(|e: std::io::Error| CogError::IoError(e, path.clone()))?;
@@ -80,7 +82,14 @@ impl CogSource {
                 .map_or_else(|_| true, |v| v & 4 != 4); // see https://www.verypdf.com/document/tiff6/pg_0036.htm
             if is_image {
                 // TODO: We should not ignore mask in the next PRs
-                images.push(get_image(&mut decoder, &path, ifd_index)?);
+                images.push(get_image(
+                    &mut decoder,
+                    &path,
+                    ifd_index,
+                    origin,
+                    extent,
+                    (full_width, full_length),
+                )?);
             } else {
                 warn!(
                     "A subfile of {} is ignored in the tiff file as Martin currently does not support mask subfile in tiff. IFD={ifd_index}",
@@ -96,20 +105,33 @@ impl CogSource {
                 break;
             }
         }
-        let min_zoom = 0;
-        let max_zoom = (images.len() - 1) as u8;
+
+        let images_len = images.len() as u8;
         let images: HashMap<u8, Image> = images
             .into_iter()
             .enumerate()
             .map(|(idx, image)| {
-                let zoom = max_zoom.saturating_sub(idx as u8);
+                let zoom = if auto_web {
+                    nearest_web_mercator_zoom(image.resolution(), image.tile_size())
+                } else {
+                    (images_len - 1).saturating_sub(idx as u8)
+                };
                 (zoom, image)
             })
             .collect();
+
+        let min_zoom = *images
+            .keys()
+            .min()
+            .ok_or_else(|| CogError::NoImagesFound(path.clone()))?;
+        let max_zoom = *images
+            .keys()
+            .max()
+            .ok_or_else(|| CogError::NoImagesFound(path.clone()))?;
         let tilejson = tilejson! {
             tiles: vec![],
             minzoom: min_zoom,
-            maxzoom: max_zoom
+            maxzoom: max_zoom,
         };
         Ok(CogSource {
             id,
@@ -124,8 +146,27 @@ impl CogSource {
             nodata,
             tilejson,
             tileinfo,
+            web_friendly: auto_web,
         })
     }
+}
+
+/// find a zoom level of google web mercator that is closest to the given resolution
+fn nearest_web_mercator_zoom(resolution: (f64, f64), tile_size: (u32, u32)) -> u8 {
+    let tile_width_in_model = resolution.0 * f64::from(tile_size.0);
+    let mut nearest_zoom = 0u8;
+    let mut min_diff = f64::INFINITY;
+
+    for google_zoom in 0..30 {
+        let tile_length = EARTH_CIRCUMFERENCE / f64::from(1_u32 << google_zoom);
+        let current_diff = (tile_width_in_model - tile_length).abs();
+
+        if current_diff < min_diff {
+            min_diff = current_diff;
+            nearest_zoom = google_zoom;
+        }
+    }
+    nearest_zoom
 }
 
 #[async_trait]
@@ -173,8 +214,14 @@ impl Source for CogSource {
             CogError::ZoomOutOfRange(xyz.z, self.path.clone(), self.min_zoom, self.max_zoom)
         })?;
 
-        let bytes = image.get_tile(&mut decoder, xyz, self.nodata, &self.path)?;
-        Ok(bytes)
+        if self.web_friendly {
+            // just clip the image to get the tile in web mercator
+            let bytes = image.get_tile_webmercator(&mut decoder, xyz, self.nodata, &self.path)?;
+            Ok(bytes)
+        } else {
+            let bytes = image.get_tile(&mut decoder, xyz, self.nodata, &self.path)?;
+            Ok(bytes)
+        }
     }
 }
 
@@ -261,13 +308,28 @@ fn get_image(
     decoder: &mut Decoder<File>,
     path: &Path,
     ifd_index: usize,
+    origin: [f64; 3],
+    extent: [f64; 4],
+    (width_in_model, length_in_model): (f64, f64),
 ) -> Result<Image, CogError> {
     let (tile_width, tile_height) = (decoder.chunk_dimensions().0, decoder.chunk_dimensions().1);
     let (image_width, image_length) = dimensions_in_pixel(decoder, path, ifd_index)?;
     let tiles_across = image_width.div_ceil(tile_width);
     let tiles_down = image_length.div_ceil(tile_height);
-
-    Ok(Image::new(ifd_index, tiles_across, tiles_down))
+    let resolution = (
+        // all the images share a same extent, so to get resolution of current image, we can use the full width and lenght to divide the image width and length
+        width_in_model / f64::from(image_width),
+        length_in_model / f64::from(image_length),
+    );
+    Ok(Image::new(
+        ifd_index,
+        extent,
+        origin,
+        tiles_across,
+        tiles_down,
+        (tile_width, tile_height),
+        resolution,
+    ))
 }
 
 /// Gets image pixel dimensions from TIFF decoder
@@ -584,5 +646,18 @@ mod tests {
         .unwrap();
         assert_abs_diff_eq!(full_resolution[0], expected[0], epsilon = 0.00001);
         assert_abs_diff_eq!(full_resolution[1], expected[1], epsilon = 0.00001);
+    }
+
+    #[rstest]
+    #[case((9.554_628_535_644_346,-9.554_628_535_646_77),(256,256), 14)]
+    fn test_nearest_web_mercator_zoom(
+        #[case] resolution: (f64, f64),
+        #[case] tile_size: (u32, u32),
+        #[case] expected_zoom: u8,
+    ) {
+        use crate::tiles::cog::source::nearest_web_mercator_zoom;
+
+        let result = nearest_web_mercator_zoom(resolution, tile_size);
+        assert_eq!(result, expected_zoom);
     }
 }
