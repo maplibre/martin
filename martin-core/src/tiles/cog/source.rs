@@ -17,6 +17,8 @@ use super::image::Image;
 use super::model::ModelInfo;
 use crate::tiles::{MartinCoreResult, Source, UrlQuery};
 
+const MAX_ZOOM: u8 = 30;
+
 /// Tile source that reads from `Cloud Optimized GeoTIFF` files.
 #[derive(Clone, Debug)]
 pub struct CogSource {
@@ -157,7 +159,7 @@ fn nearest_web_mercator_zoom(resolution: (f64, f64), tile_size: (u32, u32)) -> u
     let mut nearest_zoom = 0u8;
     let mut min_diff = f64::INFINITY;
 
-    for google_zoom in 0..30 {
+    for google_zoom in 0..MAX_ZOOM {
         let tile_length = EARTH_CIRCUMFERENCE / f64::from(1_u32 << google_zoom);
         let current_diff = (tile_width_in_model - tile_length).abs();
 
