@@ -1,8 +1,8 @@
 use std::collections::BTreeMap;
 
-use log::warn;
 use martin_core::sprites::SpriteSources;
 use serde::{Deserialize, Serialize};
+use tracing::warn;
 
 use crate::config::file::{
     ConfigFileResult, ConfigurationLivecycleHooks, FileConfigEnum, UnrecognizedKeys,
