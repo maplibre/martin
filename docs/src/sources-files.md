@@ -190,7 +190,7 @@ If you want more control over your requests, you can configure additional option
 pmtiles:
   allow_http: true
   sources:
-    tiles: az://CONTAINER/tiles.pmtiles
+    tiles: az://my-container/tiles.pmtiles
 ```
 
 > [!TIP]
