@@ -57,7 +57,7 @@ flume = "0.12"
 futures = "0.3"
 image = "0.25.8"
 indoc = "2"
-insta = "1.44.3"
+insta = "1.46.0"
 itertools = "0.14"
 json-patch = "4"
 lambda-web = { version = "0.2.1", features = ["actix4"] }
@@ -69,7 +69,7 @@ mbtiles = { path = "./mbtiles", version = "0.15.0" }
 md5 = "0.8.0"
 moka = { version = "0.12", features = ["future"] }
 num_cpus = "1"
-object_store = { version = "0.12.4", features = ["gcp", "aws", "azure", "fs", "http"] }
+object_store = { version = "0.13.0", features = ["gcp", "aws", "azure", "fs", "http"] }
 pbf_font_tools = { version = "3.0.0", features = ["freetype"] }
 pmtiles = { version = "0.18.2", features = ["tilejson", "object-store"] }
 png = "0.18.0"
@@ -79,7 +79,7 @@ postgres-protocol = "0.6"
 pretty_assertions = "1"
 regex = "1"
 rstest = "0.26.1"
-rustls = "0.23.31"
+rustls = "0.23.36"
 # ring feature does not require NASM windows executable, but works slower
 #rustls = { version = "0.23", default-features = false, features = ["logging", "std", "tls12", "ring"] }
 rustls-native-certs = "0.8"
@@ -99,7 +99,7 @@ subst = { version = "0.3", features = ["yaml"] }
 tempfile = "3.21.0"
 testcontainers-modules = { version = "0.14.0", features = ["postgres", "blocking"] }
 thiserror = "2"
-tiff = "0.10.1"
+tiff = "0.11.0"
 tilejson = "0.4"
 tokio = { version = "1", features = ["macros"] }
 tokio-postgres-rustls = "0.13"
