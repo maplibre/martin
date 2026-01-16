@@ -82,7 +82,7 @@ impl LogFormat {
     pub fn init_with_progress(self, env_filter: EnvFilter) {
         use tracing_subscriber::fmt::layer as fmt_layer;
 
-        let registry = tracing_subscriber::registry().with(env_filter.clone());
+        let registry = tracing_subscriber::registry().with(env_filter);
 
         // code below looks duplicated, but it has to be this way due to how types currently work.
         // maybe there is a better way that I can not see
