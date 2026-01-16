@@ -1,9 +1,9 @@
 use actix_web::http::header::ContentType;
 use actix_web::web::{Data, Path};
 use actix_web::{HttpResponse, route};
-use log::{error, trace, warn};
 use martin_core::styles::StyleSources;
 use serde::Deserialize;
+use tracing::{error, trace, warn};
 
 #[derive(Deserialize, Debug)]
 struct StyleRenderRequest {

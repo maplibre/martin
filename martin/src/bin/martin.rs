@@ -43,7 +43,7 @@ async fn start(args: Args) -> MartinResult<()> {
 
     #[cfg(all(feature = "webui", not(docsrs)))]
     if web_ui_mode == martin::config::args::WebUiMode::EnableForAll {
-        log::warn!("Web UI is enabled for all connections at http://{listen_addresses}/");
+        tracing::warn!("Web UI is enabled for all connections at http://{listen_addresses}/");
     } else {
         info!(
             "Web UI is disabled. Use `--webui enable-for-all` in CLI or a config value to enable it for all connections."

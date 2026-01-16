@@ -70,7 +70,6 @@ futures = { workspace = true, optional = true }
 image = { workspace = true, optional = true }
 imageproc = { workspace = true, optional = true }
 itertools = { workspace = true, optional = true }
-log.workspace = true
 martin-tile-utils.workspace = true
 mbtiles = { workspace = true, optional = true }
 moka.workspace = true
@@ -94,6 +93,7 @@ tiff = { workspace = true, optional = true }
 tilejson.workspace = true
 tokio = { workspace = true, optional = true }
 tokio-postgres-rustls = { workspace = true, optional = true }
+tracing.workspace = true
 xxhash-rust.workspace = true
 
 [dev-dependencies]

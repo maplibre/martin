@@ -2,10 +2,10 @@ use std::time::Duration;
 
 use clap::ValueEnum;
 use enum_display::EnumDisplay;
-use log::{info, warn};
 use martin_core::config::env::Env;
 use martin_core::config::{OptBoolObj, OptOneMany};
 use serde::{Deserialize, Serialize};
+use tracing::{info, warn};
 
 use super::connections::Arguments;
 use super::connections::State::{Ignore, Take};
