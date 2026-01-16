@@ -4,11 +4,11 @@ use std::fmt::{Debug, Formatter};
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use log::{trace, warn};
 use martin_tile_utils::{Encoding, Format, TileCoord, TileData, TileInfo};
 use object_store::ObjectStore;
 use pmtiles::{AsyncPmTilesReader, Compression, ObjectStoreBackend, TileType};
 use tilejson::TileJSON;
+use tracing::{trace, warn};
 
 use crate::tiles::pmtiles::PmtCacheInstance;
 use crate::tiles::pmtiles::PmtilesError::{self, InvalidMetadata};

@@ -1,6 +1,6 @@
 use actix_http::Method;
-use log::info;
 use serde::{Deserialize, Serialize};
+use tracing::info;
 
 use crate::config::file::{
     ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks, UnrecognizedKeys,

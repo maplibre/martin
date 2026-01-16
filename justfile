@@ -63,7 +63,19 @@ biomejs-martin-ui:
     npm run lint
 
 # Run integration tests and save its output as the new expected output (ordering is important)
-bless: restart clean-test bless-insta-martin bless-insta-martin-core bless-insta-mbtiles bless-frontend bless-int
+bless:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    echo "Blessing unit tests"
+    for target in restart clean-test bless-insta-martin bless-insta-martin-core bless-insta-mbtiles bless-frontend; do
+      echo "::group::just $target"
+      {{quote(just_executable())}} $target
+      echo "::endgroup::"
+    done
+
+    echo "Blessing integration tests"
+    {{quote(just_executable())}} bless-int
 
 # Bless the frontend tests
 [working-directory: 'martin/martin-ui']

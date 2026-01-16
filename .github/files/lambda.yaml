@@ -18,3 +18,4 @@ Resources:
       CodeUri: lambda-function/
       Handler: config.yaml
       MemorySize: 350
+      Timeout: 10
