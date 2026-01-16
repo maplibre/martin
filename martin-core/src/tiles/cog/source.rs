@@ -34,13 +34,13 @@ pub struct CogSource {
     nodata: Option<f64>,
     tilejson: TileJSON,
     tileinfo: TileInfo,
-    web_friendly: bool,
+    auto_webmercator: bool,
 }
 
 impl CogSource {
     #[expect(clippy::cast_possible_truncation)]
     /// Creates a new COG tile source from a file path.
-    pub fn new(id: String, path: PathBuf, auto_web: bool) -> Result<Self, CogError> {
+    pub fn new(id: String, path: PathBuf, auto_webmercator: bool) -> Result<Self, CogError> {
         let tileinfo = TileInfo::new(Format::Png, martin_tile_utils::Encoding::Uncompressed);
         let tif_file =
             File::open(&path).map_err(|e: std::io::Error| CogError::IoError(e, path.clone()))?;
@@ -112,7 +112,7 @@ impl CogSource {
             .into_iter()
             .enumerate()
             .map(|(idx, image)| {
-                let zoom = if auto_web {
+                let zoom = if auto_webmercator {
                     nearest_web_mercator_zoom(image.resolution(), image.tile_size())
                 } else {
                     (images_len - 1).saturating_sub(idx as u8)
@@ -147,24 +147,24 @@ impl CogSource {
             nodata,
             tilejson,
             tileinfo,
-            web_friendly: auto_web,
+            auto_webmercator,
         })
     }
 }
 
-/// find a zoom level of google web mercator that is closest to the given resolution
+/// find a zoom level of [WebMercatorQuad](https://docs.ogc.org/is/17-083r2/17-083r2.html#72) that is closest to the given resolution
 fn nearest_web_mercator_zoom(resolution: (f64, f64), tile_size: (u32, u32)) -> u8 {
     let tile_width_in_model = resolution.0 * f64::from(tile_size.0);
     let mut nearest_zoom = 0u8;
     let mut min_diff = f64::INFINITY;
 
-    for google_zoom in 0..MAX_ZOOM {
-        let tile_length = EARTH_CIRCUMFERENCE / f64::from(1_u32 << google_zoom);
+    for zoom in 0..MAX_ZOOM {
+        let tile_length = EARTH_CIRCUMFERENCE / f64::from(1_u32 << zoom);
         let current_diff = (tile_width_in_model - tile_length).abs();
 
         if current_diff < min_diff {
             min_diff = current_diff;
-            nearest_zoom = google_zoom;
+            nearest_zoom = zoom;
         }
     }
     nearest_zoom
@@ -215,7 +215,7 @@ impl Source for CogSource {
             CogError::ZoomOutOfRange(xyz.z, self.path.clone(), self.min_zoom, self.max_zoom)
         })?;
 
-        if self.web_friendly {
+        if self.auto_webmercator {
             // just clip the image to get the tile in web mercator
             let bytes = image.get_tile_webmercator(&mut decoder, xyz, self.nodata, &self.path)?;
             Ok(bytes)
