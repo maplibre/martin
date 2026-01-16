@@ -36,7 +36,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-309585dc.js";
+            window.path_to_searchindex_js = "searchindex-e89dcfee.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-da940ac3.js"></script>
@@ -309,8 +309,11 @@ For example:</p>
 </code></pre>
 <p>The available url schemes are:</p>
 <ul>
-<li><code>s3://bucket/path</code></li>
-<li><code>s3a://bucket/path</code></li>
+<li><code>s3://&lt;bucket&gt;/&lt;path&gt;</code></li>
+<li><code>s3a://&lt;bucket&gt;/&lt;path&gt;</code></li>
+<li><code>https://s3.&lt;region&gt;.amazonaws.com/&lt;bucket&gt;</code></li>
+<li><code>https://&lt;bucket&gt;.s3.&lt;region&gt;.amazonaws.com</code></li>
+<li><code>https://ACCOUNT_ID.r2.cloudflarestorage.com/bucket</code></li>
 </ul>
 <p>If you want more control over your requests, you can configure additional options here as such:</p>
 <pre><code class="language-yaml">pmtiles:
@@ -467,6 +470,7 @@ This can be useful if you want to have different cloud providers.</p>
 <tr><th>configuration</th><th>description</th><th>example</th></tr>
 </thead>
 <tbody>
+<tr><td><code>base_url</code></td><td>Sets the base URL for communicating with GCS.<br>If not explicitly set, it will be:<br>1. Derived from the service account credentials, if provided<br>2. Otherwise, uses the default GCS endpoint</td><td><code>https://storage.googleapis.com</code></td></tr>
 <tr><td><code>service_account</code><br><code>service_account_path</code></td><td>Path to the service account file</td><td><code>some/path/to/file</code></td></tr>
 <tr><td><code>service_account_key</code></td><td>The serialized service account key</td><td><code>{"private_key": "private_key", "private_key_id": "private_key_id", "client_email":"client_email", "disable_oauth":true}</code></td></tr>
 <tr><td><code>bucket</code><br><code>bucket_name</code></td><td>Bucket name</td><td><code>foobar-abc</code></td></tr>
@@ -527,21 +531,29 @@ This can be useful if you want to have different cloud providers.</p>
 <div class="mdbook-tab-content hidden" data-tabname="Microsoft Azure">
 <p>For Azure, you need to provide the account name, container and path.
 For example:</p>
-<pre><code class="language-bash">martin  az://account/container.pmtiles
+<pre><code class="language-bash">martin  az://my-container/tiles.pmtiles
 </code></pre>
 <p>The available url schemes are:</p>
 <ul>
-<li><code>az://account/container/path.pmtiles</code></li>
-<li><code>adl://account/container/path.pmtiles</code></li>
-<li><code>azure://account/container/path.pmtiles</code></li>
-<li><code>abfs://account/container/path.pmtiles</code></li>
-<li><code>abfss://account/container/path.pmtiles</code></li>
+<li><code>abfs[s]://&lt;container&gt;/&lt;path&gt;</code> (according to <a href="https://github.com/fsspec/adlfs">fsspec</a>)</li>
+<li><code>abfs[s]://&lt;file_system&gt;@&lt;account_name&gt;.dfs.core.windows.net/&lt;path&gt;</code></li>
+<li><code>abfs[s]://&lt;file_system&gt;@&lt;account_name&gt;.dfs.fabric.microsoft.com/&lt;path&gt;</code></li>
+<li><code>az://&lt;container&gt;/&lt;path&gt;</code> (according to <a href="https://github.com/fsspec/adlfs">fsspec</a>)</li>
+<li><code>adl://&lt;container&gt;/&lt;path&gt;</code> (according to <a href="https://github.com/fsspec/adlfs">fsspec</a>)</li>
+<li><code>azure://&lt;container&gt;/&lt;path&gt;</code> (custom)</li>
+<li><code>https://&lt;account&gt;.dfs.core.windows.net</code></li>
+<li><code>https://&lt;account&gt;.blob.core.windows.net</code></li>
+<li><code>https://&lt;account&gt;.blob.core.windows.net/&lt;container&gt;</code></li>
+<li><code>https://&lt;account&gt;.dfs.fabric.microsoft.com</code></li>
+<li><code>https://&lt;account&gt;.dfs.fabric.microsoft.com/&lt;container&gt;</code></li>
+<li><code>https://&lt;account&gt;.blob.fabric.microsoft.com</code></li>
+<li><code>https://&lt;account&gt;.blob.fabric.microsoft.com/&lt;container&gt;</code></li>
 </ul>
 <p>If you want more control over your requests, you can configure additional options here as such:</p>
 <pre><code class="language-yaml">pmtiles:
   allow_http: true
   sources:
-    tiles: az://account/container/path.pmtiles
+    tiles: az://my-container/tiles.pmtiles
 </code></pre>
 <blockquote class="blockquote-tag blockquote-tag-tip">
 <p class="blockquote-tag-title"><svg viewbox="0 0 16 16" width="18" height="18"><path d="M8 1.5c-2.363 0-4 1.69-4 3.75 0 .984.424 1.625.984 2.304l.214.253c.223.264.47.556.673.848.284.411.537.896.621 1.49a.75.75 0 0 1-1.484.211c-.04-.282-.163-.547-.37-.847a8.456 8.456 0 0 0-.542-.68c-.084-.1-.173-.205-.268-.32C3.201 7.75 2.5 6.766 2.5 5.25 2.5 2.31 4.863 0 8 0s5.5 2.31 5.5 5.25c0 1.516-.701 2.5-1.328 3.259-.095.115-.184.22-.268.319-.207.245-.383.453-.541.681-.208.3-.33.565-.37.847a.751.751 0 0 1-1.485-.212c.084-.593.337-1.078.621-1.489.203-.292.45-.584.673-.848.075-.088.147-.173.213-.253.561-.679.985-1.32.985-2.304 0-2.06-1.637-3.75-4-3.75ZM5.75 12h4.5a.75.75 0 0 1 0 1.5h-4.5a.75.75 0 0 1 0-1.5ZM6 15.25a.75.75 0 0 1 .75-.75h2.5a.75.75 0 0 1 0 1.5h-2.5a.75.75 0 0 1-.75-.75Z"></path></svg>Tip</p>
