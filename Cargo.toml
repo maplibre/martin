@@ -57,7 +57,7 @@ flume = "0.12"
 futures = "0.3"
 image = "0.25.8"
 indoc = "2"
-insta = "1.44.3"
+insta = "1.46.0"
 itertools = "0.14"
 json-patch = "4"
 lambda-web = { version = "0.2.1", features = ["actix4"] }
@@ -79,7 +79,7 @@ postgres-protocol = "0.6"
 pretty_assertions = "1"
 regex = "1"
 rstest = "0.26.1"
-rustls = "0.23.31"
+rustls = "0.23.36"
 # ring feature does not require NASM windows executable, but works slower
 #rustls = { version = "0.23", default-features = false, features = ["logging", "std", "tls12", "ring"] }
 rustls-native-certs = "0.8"
@@ -99,7 +99,7 @@ subst = { version = "0.3", features = ["yaml"] }
 tempfile = "3.21.0"
 testcontainers-modules = { version = "0.14.0", features = ["postgres", "blocking"] }
 thiserror = "2"
-tiff = "0.10.1"
+tiff = "0.11.0"
 tilejson = "0.4"
 tokio = { version = "1", features = ["macros"] }
 tokio-postgres-rustls = "0.13"
