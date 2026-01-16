@@ -428,12 +428,12 @@ impl OnInvalid {
                 match self {
                     OnInvalid::Warn => warn!("Tile source resolution warnings:"),
                     OnInvalid::Abort => error!("Tile source resolution warnings:"),
-                };
+                }
                 for warning in warnings {
                     match self {
                         OnInvalid::Warn => warn!("  - {warning}"),
                         OnInvalid::Abort => error!("  - {warning}"),
-                    };
+                    }
                 }
             }
         }
