@@ -33,7 +33,7 @@ postgres = [
     "dep:serde_json",
     "_tiles",
 ]
-unstable-cog = ["dep:png", "dep:tiff", "_tiles"]
+unstable-cog = ["dep:png", "dep:tiff", "_tiles", "dep:image", "dep:imageproc"]
 unstable-rendering = ["styles", "dep:maplibre_native", "dep:image"]
 fonts = [
     "dep:bit-set",
@@ -67,6 +67,8 @@ bit-set = { workspace = true, optional = true }
 dashmap = { workspace = true, optional = true }
 deadpool-postgres = { workspace = true, optional = true }
 futures = { workspace = true, optional = true }
+image = { workspace = true, optional = true }
+imageproc = { workspace = true, optional = true }
 itertools = { workspace = true, optional = true }
 martin-tile-utils.workspace = true
 mbtiles = { workspace = true, optional = true }
