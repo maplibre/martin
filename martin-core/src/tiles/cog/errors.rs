@@ -83,6 +83,10 @@ pub enum CogError {
     )]
     GetFullResolutionFailed(PathBuf),
 
+    /// Failed to create image buffer
+    #[error("Failed to create image buffer for {0}: {1}")]
+    ImageBufferCreationFailed(PathBuf, String),
+
     /// IO error.
     #[error("IO error {0}: {1}")]
     IoError(#[source] std::io::Error, PathBuf),

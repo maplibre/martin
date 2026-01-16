@@ -4,7 +4,7 @@ use std::path::Path;
 use tiff::decoder::Decoder;
 use tiff::tags::Tag;
 
-use crate::tiles::cog::CogError;
+use super::CogError;
 
 /// These tags define the relationship between raster space and model space.
 /// See [ogc doc](https://docs.ogc.org/is/19-008r4/19-008r4.html#_coordinate_transformations) for details.
