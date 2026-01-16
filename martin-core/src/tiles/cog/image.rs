@@ -431,10 +431,10 @@ fn draw_tile(
             let idx_result = target_row * target_width as usize * 4 + target_col * 4;
             for component_idx in 0..components_count {
                 let value = data[(idx_chunk + component_idx) as usize];
-                if let Some(v) = nodata {
-                    if value == v {
-                        continue 'outer;
-                    }
+                if let Some(v) = nodata
+                    && value == v
+                {
+                    continue 'outer;
                 }
                 // Copy this component to the result vector
                 target[idx_result + component_idx as usize] = value;
