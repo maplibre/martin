@@ -170,19 +170,19 @@ martin  az://my-container/tiles.pmtiles
 
 The available url schemes are:
 
-- `abfs[s]://<container>/<path>` (according to [fsspec](https://github.com/fsspec/adlfs))
-- `abfs[s]://<file_system>@<account_name>.dfs.core.windows.net/<path>`
-- `abfs[s]://<file_system>@<account_name>.dfs.fabric.microsoft.com/<path>`
-- `az://<container>/<path>` (according to [fsspec](https://github.com/fsspec/adlfs))
-- `adl://<container>/<path>` (according to [fsspec](https://github.com/fsspec/adlfs))
-- `azure://<container>/<path>` (custom)
-- `https://<account>.dfs.core.windows.net`
-- `https://<account>.blob.core.windows.net`
-- `https://<account>.blob.core.windows.net/<container>`
-- `https://<account>.dfs.fabric.microsoft.com`
-- `https://<account>.dfs.fabric.microsoft.com/<container>`
-- `https://<account>.blob.fabric.microsoft.com`
-- `https://<account>.blob.fabric.microsoft.com/<container>`
+ - `abfs[s]://<container>/<path>` (according to [fsspec](https://github.com/fsspec/adlfs))
+ - `abfs[s]://<file_system>@<account_name>.dfs.core.windows.net/<path>`
+ - `abfs[s]://<file_system>@<account_name>.dfs.fabric.microsoft.com/<path>`
+ - `az://<container>/<path>` (according to [fsspec](https://github.com/fsspec/adlfs))
+ - `adl://<container>/<path>` (according to [fsspec](https://github.com/fsspec/adlfs))
+ - `azure://<container>/<path>` (custom)
+ - `https://<account>.dfs.core.windows.net`
+ - `https://<account>.blob.core.windows.net`
+ - `https://<account>.blob.core.windows.net/<container>`
+ - `https://<account>.dfs.fabric.microsoft.com`
+ - `https://<account>.dfs.fabric.microsoft.com/<container>`
+ - `https://<account>.blob.fabric.microsoft.com`
+ - `https://<account>.blob.fabric.microsoft.com/<container>`
 
 If you want more control over your requests, you can configure additional options here as such:
 
