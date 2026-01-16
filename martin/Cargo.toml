@@ -154,6 +154,7 @@ thiserror.workspace = true
 tilejson.workspace = true
 tokio = { workspace = true, features = ["io-std"] }
 tracing.workspace = true
+tracing-actix-web.workspace = true
 tracing-log = { workspace = true, features = ["interest-cache"] }
 tracing-subscriber = { workspace = true, default-features = false, features = ["env-filter", "json", "fmt", "std", "ansi", "chrono"] }
 url.workspace = true

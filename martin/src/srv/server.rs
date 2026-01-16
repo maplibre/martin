@@ -4,12 +4,13 @@ use std::string::ToString;
 use std::time::Duration;
 
 use actix_web::http::header::CACHE_CONTROL;
-use actix_web::middleware::{Logger, NormalizePath, TrailingSlash};
+use actix_web::middleware::{NormalizePath, TrailingSlash};
 use actix_web::web::Data;
 use actix_web::{App, HttpResponse, HttpServer, Responder, middleware, route, web};
 use futures::TryFutureExt;
 #[cfg(feature = "lambda")]
 use lambda_web::{is_running_on_lambda, run_actix_on_lambda};
+use tracing_actix_web::TracingLogger;
 
 #[cfg(all(feature = "webui", not(docsrs)))]
 use crate::config::args::WebUiMode;
@@ -147,7 +148,7 @@ pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server
         #[cfg(feature = "metrics")]
         let app = app.wrap(prometheus.clone());
 
-        app.wrap(Logger::default())
+        app.wrap(TracingLogger::default())
             .wrap(NormalizePath::new(TrailingSlash::MergeOnly))
             .configure(|c| router(c, &config))
     };
