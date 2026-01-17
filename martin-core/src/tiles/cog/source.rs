@@ -5,8 +5,7 @@ use std::path::{Path, PathBuf};
 use std::vec;
 
 use async_trait::async_trait;
-use log::warn;
-use martin_tile_utils::{EARTH_CIRCUMFERENCE, Format, TileCoord, TileData, TileInfo};
+use martin_tile_utils::{EARTH_CIRCUMFERENCE, Format, MAX_ZOOM, TileCoord, TileData, TileInfo};
 use tiff::decoder::{ChunkType, Decoder};
 use tiff::tags::Tag::{self, GdalNodata};
 use tilejson::{TileJSON, tilejson};
@@ -16,8 +15,6 @@ use super::CogError;
 use super::image::Image;
 use super::model::ModelInfo;
 use crate::tiles::{MartinCoreResult, Source, UrlQuery};
-
-const MAX_ZOOM: u8 = 30;
 
 /// Tile source that reads from `Cloud Optimized GeoTIFF` files.
 #[derive(Clone, Debug)]
@@ -35,13 +32,12 @@ pub struct CogSource {
     nodata: Option<f64>,
     tilejson: TileJSON,
     tileinfo: TileInfo,
-    auto_webmercator: bool,
 }
 
 impl CogSource {
     #[expect(clippy::cast_possible_truncation)]
     /// Creates a new COG tile source from a file path.
-    pub fn new(id: String, path: PathBuf, auto_webmercator: bool) -> Result<Self, CogError> {
+    pub fn new(id: String, path: PathBuf) -> Result<Self, CogError> {
         let tileinfo = TileInfo::new(Format::Png, martin_tile_utils::Encoding::Uncompressed);
         let tif_file =
             File::open(&path).map_err(|e: std::io::Error| CogError::IoError(e, path.clone()))?;
@@ -108,17 +104,11 @@ impl CogSource {
             }
         }
 
-        let images_len = images.len() as u8;
         let images: HashMap<u8, Image> = images
             .into_iter()
             .enumerate()
-            .map(|(idx, image)| {
-                let zoom = if auto_webmercator {
-                    nearest_web_mercator_zoom(image.resolution(), image.tile_size())
-                } else {
-                    (images_len - 1).saturating_sub(idx as u8)
-                };
-                (zoom, image)
+            .map(|(_, image)| {
+                (nearest_web_mercator_zoom(image.resolution(), image.tile_size()), image)
             })
             .collect();
 
@@ -148,7 +138,6 @@ impl CogSource {
             nodata,
             tilejson,
             tileinfo,
-            auto_webmercator,
         })
     }
 }
@@ -216,14 +205,8 @@ impl Source for CogSource {
             CogError::ZoomOutOfRange(xyz.z, self.path.clone(), self.min_zoom, self.max_zoom)
         })?;
 
-        if self.auto_webmercator {
-            // just clip the image to get the tile in web mercator
-            let bytes = image.get_tile_webmercator(&mut decoder, xyz, self.nodata, &self.path)?;
-            Ok(bytes)
-        } else {
-            let bytes = image.get_tile(&mut decoder, xyz, self.nodata, &self.path)?;
-            Ok(bytes)
-        }
+        let bytes = image.get_tile_webmercator(&mut decoder, xyz, self.nodata, &self.path)?;
+        Ok(bytes)
     }
 }
 

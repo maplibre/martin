@@ -13,17 +13,6 @@ use crate::config::file::{
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct CogConfig {
-    /// Default true
-    ///
-    /// |option |Reprojecting to WebMercatorQuad|Pro And Con|
-    /// |---|---|
-    /// |true|Server Side|1. A little bit slow as Martin would do some cliping and merging</br>2. No any extra configuration needed for map viewers as WebMercatorQuad is the most default|
-    /// |false|Client Side|1. Most efficient 2. Need extra configuration for map viewers|
-    ///
-    ///
-    /// As martin currently has no support for CRS not 3857, we strongly recommend to enable this option
-    pub auto_webmercator: Option<bool>,
-
     #[serde(flatten, skip_serializing)]
     pub unrecognized: UnrecognizedValues,
 }
