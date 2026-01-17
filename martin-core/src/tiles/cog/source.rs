@@ -8,12 +8,12 @@ use async_trait::async_trait;
 use martin_tile_utils::{EARTH_CIRCUMFERENCE, Format, MAX_ZOOM, TileCoord, TileData, TileInfo};
 use tiff::decoder::{ChunkType, Decoder};
 use tiff::tags::Tag::{self, GdalNodata};
-use tilejson::{TileJSON, tilejson};
+use tilejson::{Bounds, TileJSON, tilejson};
 use tracing::warn;
 
-use super::CogError;
-use super::image::Image;
-use super::model::ModelInfo;
+use crate::tiles::cog::CogError;
+use crate::tiles::cog::image::Image;
+use crate::tiles::cog::model::ModelInfo;
 use crate::tiles::{MartinCoreResult, Source, UrlQuery};
 
 /// Tile source that reads from `Cloud Optimized GeoTIFF` files.
@@ -125,6 +125,8 @@ impl CogSource {
             .ok_or_else(|| CogError::NoImagesFound(path.clone()))?;
         let tilejson = tilejson! {
             tiles: vec![],
+            // FIXME: compute bounds using extent defined in file
+            bounds: Bounds::new(0.0, 0.0, 0.0, 0.0),
             minzoom: min_zoom,
             maxzoom: max_zoom,
         };
@@ -289,6 +291,13 @@ fn verify_requirements(
             _ => Err(CogError::InvalidGeoInformation(path.to_path_buf(), "Either a valid transformation (tag 34264) or both pixel scale (tag 33550) and tie points (tag 33922) must be provided".to_string())),
     }?;
 
+    if !model.projected_crs.is_some_and(|crs| crs == 3857u16) {
+        return Err(CogError::InvalidGeoInformation(
+            path.to_path_buf(),
+            "The projected coordinate reference system must be EPSG:3857".to_string(),
+        ));
+    }
+
     Ok(())
 }
 
@@ -304,8 +313,9 @@ fn get_image(
     let (image_width, image_length) = dimensions_in_pixel(decoder, path, ifd_index)?;
     let tiles_across = image_width.div_ceil(tile_width);
     let tiles_down = image_length.div_ceil(tile_height);
+    // all the images share a same extent, so to get resolution of current image,
+    // we can use the full width and length to divide the image width and length
     let resolution = (
-        // all the images share a same extent, so to get resolution of current image, we can use the full width and lenght to divide the image width and length
         width_in_model / f64::from(image_width),
         length_in_model / f64::from(image_length),
     );

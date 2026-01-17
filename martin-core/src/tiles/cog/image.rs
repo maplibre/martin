@@ -14,7 +14,7 @@ use crate::tiles::MartinCoreResult;
 /// This struct contains information and methods for taking tiles from the image.
 #[derive(Clone, Debug)]
 pub struct Image {
-    /// The Image File Directory index represents IDF entry with the image pointers to the actual image data.
+    /// The Image File Directory index represents IFD entry with the image pointers to the actual image data.
     ifd_index: usize,
     /// The extent of the image in model units, represented as [`min_x`, `min_y`, `max_x`, `max_y`].
     extent: [f64; 4],

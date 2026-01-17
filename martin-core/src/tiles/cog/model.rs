@@ -66,6 +66,7 @@ pub struct ModelInfo {
     /// | 1 |     | m n o p |  | 1 |
     /// |- -|     |-       -|  |- -|
     pub transformation: Option<Vec<f64>>,
+    pub projected_crs: Option<u16>,
 }
 
 impl ModelInfo {
@@ -104,10 +105,50 @@ impl ModelInfo {
                 )
             })
             .ok();
+
+        let mut projected_crs: Option<u16> = None;
+        // See: https://docs.ogc.org/is/19-008r4/19-008r4.html#_requirements_class_geokeydirectorytag
+        if let Ok(geokeys) = decoder.get_tag_u16_vec(Tag::GeoKeyDirectoryTag) {
+            let mut i = 0;
+            for chunk in geokeys.chunks_exact(4) {
+                if i == 0 {
+                    if !chunk
+                        .get(0)
+                        .is_some_and(|key_directory_version| *key_directory_version == 1u16)
+                    {
+                        break;
+                    }
+                    if !chunk
+                        .get(1)
+                        .is_some_and(|key_revision| *key_revision == 1u16)
+                    {
+                        break;
+                    }
+                    if !chunk
+                        .get(2)
+                        .is_some_and(|minor_revision| *minor_revision == 0u16)
+                    {
+                        break;
+                    }
+                    if !chunk.get(3).is_some_and(|n_keys| *n_keys > 0u16) {
+                        break;
+                    }
+                } else {
+                    // See: https://docs.ogc.org/is/19-008r4/19-008r4.html#_requirements_class_projectedcrsgeokey
+                    if !chunk.get(0).is_some_and(|key_id| *key_id == 3072u16) {
+                        continue;
+                    }
+                    projected_crs = chunk.get(3).map(|v| *v);
+                }
+                i += 1;
+            }
+        }
+
         ModelInfo {
             pixel_scale,
             tie_points,
             transformation,
+            projected_crs,
         }
     }
 }
