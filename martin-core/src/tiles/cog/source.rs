@@ -108,7 +108,10 @@ impl CogSource {
             .into_iter()
             .enumerate()
             .map(|(_, image)| {
-                (nearest_web_mercator_zoom(image.resolution(), image.tile_size()), image)
+                (
+                    nearest_web_mercator_zoom(image.resolution(), image.tile_size()),
+                    image,
+                )
             })
             .collect();
 
