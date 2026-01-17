@@ -126,7 +126,7 @@ impl ModelInfo {
                 if i == 0 {
                     if chunk
                         .first()
-                        .is_none_or(|key_directory_version| *key_directory_version != 1u16)
+                        .is_none_or(|key_directory_version| *key_directory_version != 1)
                     {
                         break;
                     }
@@ -139,7 +139,7 @@ impl ModelInfo {
                     {
                         break;
                     }
-                    if chunk.get(3).is_some_and(|n_keys| *n_keys != 0) {
+                    if chunk.get(3).is_none_or(|n_keys| *n_keys == 0) {
                         break;
                     }
                 } else {
