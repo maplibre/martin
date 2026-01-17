@@ -5,7 +5,9 @@ use std::path::{Path, PathBuf};
 use std::vec;
 
 use async_trait::async_trait;
-use martin_tile_utils::{EARTH_CIRCUMFERENCE, Format, MAX_ZOOM, TileCoord, TileData, TileInfo, webmercator_to_wgs84};
+use martin_tile_utils::{
+    EARTH_CIRCUMFERENCE, Format, MAX_ZOOM, TileCoord, TileData, TileInfo, webmercator_to_wgs84,
+};
 use serde_json::Value;
 use tiff::decoder::{ChunkType, Decoder};
 use tiff::tags::Tag::{self, GdalNodata};
@@ -111,9 +113,7 @@ impl CogSource {
             })
             .collect();
 
-        let tile_size = images.values().fold(512u32, |_, x| {
-            x.tile_size().0
-        });
+        let tile_size = images.values().fold(512u32, |_, x| x.tile_size().0);
         let min_zoom = *images
             .keys()
             .min()
@@ -135,7 +135,9 @@ impl CogSource {
             minzoom: min_zoom,
             maxzoom: max_zoom,
         };
-        tilejson.other.insert("tileSize".to_string(), Value::from(tile_size));
+        tilejson
+            .other
+            .insert("tileSize".to_string(), Value::from(tile_size));
         Ok(CogSource {
             id,
             path,
