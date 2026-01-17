@@ -124,17 +124,18 @@ impl ModelInfo {
             let mut i = 0;
             for chunk in geokeys.chunks_exact(4) {
                 if i == 0 {
-                    if chunk.first().is_none_or(|key_directory_version| *key_directory_version != 1u16)
+                    if chunk
+                        .first()
+                        .is_none_or(|key_directory_version| *key_directory_version != 1u16)
                     {
                         break;
                     }
-                    if chunk
-                        .get(1).is_none_or(|key_revision| *key_revision != 1)
-                    {
+                    if chunk.get(1).is_none_or(|key_revision| *key_revision != 1) {
                         break;
                     }
                     if chunk
-                        .get(2).is_none_or(|minor_revision| *minor_revision != 0)
+                        .get(2)
+                        .is_none_or(|minor_revision| *minor_revision != 0)
                     {
                         break;
                     }
