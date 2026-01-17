@@ -33,8 +33,8 @@ pub struct CogSource {
 }
 
 impl CogSource {
-    #[expect(clippy::cast_possible_truncation)]
     /// Creates a new COG tile source from a file path.
+    #[allow(clippy::too_many_lines)]
     pub fn new(id: String, path: PathBuf) -> Result<Self, CogError> {
         let tileinfo = TileInfo::new(Format::Png, martin_tile_utils::Encoding::Uncompressed);
         let tif_file =
@@ -94,18 +94,18 @@ impl CogSource {
             }
 
             ifd_index += 1;
-
             let next_res = decoder.seek_to_image(ifd_index);
             if next_res.is_err() {
-                // TODO: add warn!() here
+                warn!(
+                    "Failed to seek to image. Any further images will be missed. IFD={ifd_index}",
+                );
                 break;
             }
         }
 
         let images: HashMap<u8, Image> = images
             .into_iter()
-            .enumerate()
-            .map(|(_, image)| {
+            .map(|image| {
                 (
                     nearest_web_mercator_zoom(image.resolution(), image.tile_size()),
                     image,
@@ -295,7 +295,7 @@ fn verify_requirements(
             _ => Err(CogError::InvalidGeoInformation(path.to_path_buf(), "Either a valid transformation (tag 34264) or both pixel scale (tag 33550) and tie points (tag 33922) must be provided".to_string())),
     }?;
 
-    if !model.projected_crs.is_some_and(|crs| crs == 3857u16) {
+    if model.projected_crs.is_none_or(|crs| crs != 3857u16) {
         return Err(CogError::InvalidGeoInformation(
             path.to_path_buf(),
             "The projected coordinate reference system must be EPSG:3857".to_string(),
