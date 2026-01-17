@@ -13,6 +13,8 @@ use tracing_subscriber::fmt::format::FmtSpan;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 
+pub mod progress;
+
 /// Log output format options.
 #[derive(Debug, Clone, Copy)]
 pub enum LogFormat {

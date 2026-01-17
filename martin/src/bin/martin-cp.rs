@@ -4,7 +4,6 @@ use std::fmt::{Debug, Formatter};
 use std::num::NonZeroUsize;
 use std::ops::RangeInclusive;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 
 use actix_http::error::ParseError;
@@ -15,9 +14,9 @@ use clap::builder::Styles;
 use clap::builder::styling::AnsiColor;
 use futures::TryStreamExt;
 use futures::stream::{self, StreamExt};
-use indicatif::{ProgressBar, ProgressStyle};
 use martin::config::args::{Args, ExtraArgs, MetaArgs, SrvArgs};
 use martin::config::file::{Config, ServerState, read_config};
+use martin::logging::progress::TileCopyProgress;
 use martin::logging::{ensure_martin_core_log_level_matches, init_tracing};
 use martin::srv::{DynTileSource, merge_tilejson};
 use martin::{MartinError, MartinResult};
@@ -257,51 +256,6 @@ impl Debug for TileXyz {
     }
 }
 
-struct Progress {
-    bar: ProgressBar,
-    empty: AtomicU64,
-    non_empty: AtomicU64,
-}
-
-impl Progress {
-    pub fn new(tiles: &[TileRect]) -> Self {
-        let total = tiles.iter().map(TileRect::size).sum();
-        let bar = ProgressBar::new(total);
-        bar.set_style(
-            ProgressStyle::default_bar()
-                .template("{elapsed_precise} -> eta: {eta} [{bar:40.cyan/blue} {percent}%] {pos}/{human_len} ({per_sec}) | {msg}")
-                .expect("Invalid progress bar template")
-                .progress_chars("█▓▒░ "),
-        );
-        Progress {
-            bar,
-            empty: AtomicU64::default(),
-            non_empty: AtomicU64::default(),
-        }
-    }
-
-    fn update_message(&self) {
-        let non_empty = self.non_empty.load(Ordering::Relaxed);
-        let empty = self.empty.load(Ordering::Relaxed);
-        self.bar.set_message(format!("✓ {non_empty} □ {empty}"));
-    }
-
-    fn inc_empty(&self) {
-        self.empty.fetch_add(1, Ordering::Relaxed);
-        self.bar.inc(1);
-    }
-
-    fn inc_non_empty(&self) {
-        self.non_empty.fetch_add(1, Ordering::Relaxed);
-        self.bar.inc(1);
-    }
-
-    fn finish(&self) {
-        self.update_message();
-        self.bar.finish();
-    }
-}
-
 type MartinCpResult<T> = Result<T, MartinCpError>;
 
 #[derive(thiserror::Error, Debug)]
@@ -431,14 +385,12 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()>
         CopyDuplicateMode::Override
     };
     let mbt_type = init_schema(&mbt, &mut conn, src.sources.as_slice(), src.info, &args).await?;
-
-    let progress = Progress::new(&tiles);
+    let total_size = tiles.iter().map(TileRect::size).sum();
+    let progress = TileCopyProgress::new(total_size);
     info!(
-        "Copying {} {} tiles from the source {} to {}",
-        progress.bar.length().unwrap_or(0),
-        src.info,
-        source_id,
-        args.output_file.display()
+        "Copying {total_size} {info} tiles from the source {source_id} to {out}",
+        info = src.info,
+        out = args.output_file.display()
     );
 
     let (tx, mut rx) = channel::<TileXyz>(500);
@@ -467,7 +419,7 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()>
             while let Some(tile) = rx.recv().await {
                 debug!("Generated tile {tile:?}");
                 if tile.data.is_empty() {
-                    progress.inc_empty();
+                    progress.increment_empty();
                 } else {
                     batch.push((tile.xyz.z, tile.xyz.x, tile.xyz.y, tile.data));
                     if batch.len() >= BATCH_SIZE || last_saved.elapsed() > SAVE_EVERY {
@@ -477,10 +429,10 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()>
                         batch.clear();
                         last_saved = Instant::now();
                     }
-                    progress.inc_non_empty();
+                    progress.increment_non_empty();
                 }
 
-                let done = progress.bar.position();
+                let done = progress.position();
                 if done % PROGRESS_REPORT_AFTER == (PROGRESS_REPORT_AFTER - 1)
                     && last_reported.elapsed() > PROGRESS_REPORT_EVERY
                 {
@@ -507,12 +459,11 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()>
     }
 
     if !args.skip_agg_tiles_hash {
-        let non_empty_count = progress.non_empty.load(Ordering::Relaxed);
-        if non_empty_count == 0 {
-            info!("No tiles were copied, skipping agg_tiles_hash computation");
-        } else {
+        if progress.did_copy_tiles() {
             info!("Computing agg_tiles_hash value...");
             mbt.update_agg_tiles_hash(&mut conn).await?;
+        } else {
+            info!("No tiles were copied, skipping agg_tiles_hash computation");
         }
     }
 
