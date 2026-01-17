@@ -5,7 +5,8 @@ use std::path::{Path, PathBuf};
 use std::vec;
 
 use async_trait::async_trait;
-use martin_tile_utils::{EARTH_CIRCUMFERENCE, Format, MAX_ZOOM, TileCoord, TileData, TileInfo};
+use martin_tile_utils::{EARTH_CIRCUMFERENCE, Format, MAX_ZOOM, TileCoord, TileData, TileInfo, webmercator_to_wgs84};
+use serde_json::Value;
 use tiff::decoder::{ChunkType, Decoder};
 use tiff::tags::Tag::{self, GdalNodata};
 use tilejson::{Bounds, TileJSON, tilejson};
@@ -23,11 +24,6 @@ pub struct CogSource {
     path: PathBuf,
     min_zoom: u8,
     max_zoom: u8,
-    _model: ModelInfo,
-    // The geo coords of pixel(0, 0, 0) ordering in [x, y, z]
-    _origin: [f64; 3],
-    // [minx, miny, maxx, maxy] in its model space coordinate system
-    _extent: [f64; 4],
     images: HashMap<u8, Image>,
     nodata: Option<f64>,
     tilejson: TileJSON,
@@ -115,6 +111,9 @@ impl CogSource {
             })
             .collect();
 
+        let tile_size = images.values().fold(512u32, |_, x| {
+            x.tile_size().0
+        });
         let min_zoom = *images
             .keys()
             .min()
@@ -123,22 +122,25 @@ impl CogSource {
             .keys()
             .max()
             .ok_or_else(|| CogError::NoImagesFound(path.clone()))?;
-        let tilejson = tilejson! {
+        let min = webmercator_to_wgs84(extent[0], extent[1]);
+        let max = webmercator_to_wgs84(extent[2], extent[3]);
+        let mut tilejson = tilejson! {
             tiles: vec![],
-            // FIXME: compute bounds using extent defined in file
-            bounds: Bounds::new(0.0, 0.0, 0.0, 0.0),
+            bounds: Bounds::new(
+                min.0,
+                min.1,
+                max.0,
+                max.1,
+            ),
             minzoom: min_zoom,
             maxzoom: max_zoom,
         };
+        tilejson.other.insert("tileSize".to_string(), Value::from(tile_size));
         Ok(CogSource {
             id,
             path,
             min_zoom,
             max_zoom,
-            // FIXME: these are not yet used
-            _model: model,
-            _origin: origin,
-            _extent: extent,
             images,
             nodata,
             tilejson,
@@ -210,7 +212,7 @@ impl Source for CogSource {
             CogError::ZoomOutOfRange(xyz.z, self.path.clone(), self.min_zoom, self.max_zoom)
         })?;
 
-        let bytes = image.get_tile_webmercator(&mut decoder, xyz, self.nodata, &self.path)?;
+        let bytes = image.get_tile(&mut decoder, xyz, self.nodata, &self.path)?;
         Ok(bytes)
     }
 }

@@ -66,6 +66,18 @@ pub struct ModelInfo {
     /// | 1 |     | m n o p |  | 1 |
     /// |- -|     |-       -|  |- -|
     pub transformation: Option<Vec<f64>>,
+    /// This key is used to specify the projected coordinate reference system from the GeoTIFF CRS register or to indicate that the Model CRS is a user-defined projected coordinate reference system.
+    ///
+    /// Requirement 12.3
+    /// http://www.opengis.net/spec/GeoTIFF/1.1/req/ProjectedCRSGeoKey.reserved
+    /// ProjectedCRSGeoKey values in the range 1-1023 SHALL be reserved.
+    ///
+    /// Requirement 12.4
+    /// http://www.opengis.net/spec/GeoTIFF/1.1/req/ProjectedCRSGeoKey.EPSG
+    /// ProjectedCRSGeoKey values in the range 1024-32766 SHALL be EPSG Projected CRS Codes
+    /// NOTE: In GeoTIFF v1.0 the range was 20000-32760. Several values in this range have been deprecated or deleted from the EPSG Dataset and should no longer be used. See Table G.1 - Deprecated and deleted EPSG Projected CRS codes
+    ///
+    /// Example: `Some(3857u16)` or `None`
     pub projected_crs: Option<u16>,
 }
 
