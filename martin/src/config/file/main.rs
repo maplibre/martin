@@ -79,6 +79,34 @@ pub struct Config {
     /// Can be overridden by [`tile_cache_size_mb`](Self::tile_cache_size_mb) or similar configuration options.
     pub cache_size_mb: Option<u64>,
 
+    /// Maximum lifetime for all caches (TTL - time to live from creation).
+    ///
+    /// When set, cache entries expire after this duration regardless of access frequency.
+    /// This ensures data freshness even for frequently accessed entries.
+    /// Can be overridden by cache-specific expiry settings (e.g., `tile_cache_expiry`).
+    /// Supports human-readable formats like "1h", "30m", "1d", or "3600s".
+    /// If not set, cache entries don't expire based on age.
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "humantime_serde"
+    )]
+    pub cache_expiry: Option<Duration>,
+
+    /// Maximum idle time for all caches (TTI - time to idle since last access).
+    ///
+    /// When set, cache entries expire after being idle (not accessed) for this duration.
+    /// This helps free memory by evicting rarely-used entries.
+    /// Can be overridden by cache-specific idle timeout settings (e.g., `tile_cache_idle_timeout`).
+    /// Supports human-readable formats like "5m", "300s", or "1h".
+    /// If not set, cache entries don't expire based on idle time.
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "humantime_serde"
+    )]
+    pub cache_idle_timeout: Option<Duration>,
+
     /// Maximum size of the tile cache in megabytes (0 to disable)
     ///
     /// Overrides [`cache_size_mb`](Self::cache_size_mb)
@@ -86,12 +114,8 @@ pub struct Config {
 
     /// Maximum lifetime for cached tiles (TTL - time to live from creation).
     ///
-    /// When set, tiles expire after this duration regardless of access frequency.
-    /// This ensures data freshness even for frequently accessed tiles.
+    /// Overrides [`cache_expiry`](Self::cache_expiry) for tiles specifically.
     /// Supports human-readable formats like "1h", "30m", "1d", or "3600s".
-    /// If not set, tiles don't expire based on age.
-    ///
-    /// Examples: "1h" (1 hour), "30m" (30 minutes), "1d" (1 day)
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
@@ -101,12 +125,8 @@ pub struct Config {
 
     /// Maximum idle time for cached tiles (TTI - time to idle since last access).
     ///
-    /// When set, tiles expire after being idle (not accessed) for this duration.
-    /// This helps free memory by evicting rarely-used tiles.
+    /// Overrides [`cache_idle_timeout`](Self::cache_idle_timeout) for tiles specifically.
     /// Supports human-readable formats like "5m", "300s", or "1h".
-    /// If not set, tiles don't expire based on idle time.
-    ///
-    /// Examples: "5m" (5 minutes), "300s" (300 seconds)
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
@@ -347,27 +367,27 @@ impl Config {
                 #[cfg(feature = "_tiles")]
                 tile_cache_size_mb: self.tile_cache_size_mb.unwrap_or(cache_size_mb / 2), // Default: 50% for tiles
                 #[cfg(feature = "_tiles")]
-                tile_cache_expiry: self.tile_cache_expiry,
+                tile_cache_expiry: self.tile_cache_expiry.or(self.cache_expiry),
                 #[cfg(feature = "_tiles")]
-                tile_cache_idle_timeout: self.tile_cache_idle_timeout,
+                tile_cache_idle_timeout: self.tile_cache_idle_timeout.or(self.cache_idle_timeout),
                 #[cfg(feature = "pmtiles")]
                 pmtiles_cache_size_mb,
                 #[cfg(feature = "pmtiles")]
-                pmtiles_cache_expiry,
+                pmtiles_cache_expiry: pmtiles_cache_expiry.or(self.cache_expiry),
                 #[cfg(feature = "pmtiles")]
-                pmtiles_cache_idle_timeout,
+                pmtiles_cache_idle_timeout: pmtiles_cache_idle_timeout.or(self.cache_idle_timeout),
                 #[cfg(feature = "sprites")]
                 sprite_cache_size_mb,
                 #[cfg(feature = "sprites")]
-                sprite_cache_expiry,
+                sprite_cache_expiry: sprite_cache_expiry.or(self.cache_expiry),
                 #[cfg(feature = "sprites")]
-                sprite_cache_idle_timeout,
+                sprite_cache_idle_timeout: sprite_cache_idle_timeout.or(self.cache_idle_timeout),
                 #[cfg(feature = "fonts")]
                 font_cache_size_mb,
                 #[cfg(feature = "fonts")]
-                font_cache_expiry,
+                font_cache_expiry: font_cache_expiry.or(self.cache_expiry),
                 #[cfg(feature = "fonts")]
-                font_cache_idle_timeout,
+                font_cache_idle_timeout: font_cache_idle_timeout.or(self.cache_idle_timeout),
             }
         } else {
             // TODO: the defaults could be smarter. If I don't have pmtiles sources, don't reserve cache for it
@@ -375,27 +395,27 @@ impl Config {
                 #[cfg(feature = "_tiles")]
                 tile_cache_size_mb: 256,
                 #[cfg(feature = "_tiles")]
-                tile_cache_expiry: self.tile_cache_expiry,
+                tile_cache_expiry: self.tile_cache_expiry.or(self.cache_expiry),
                 #[cfg(feature = "_tiles")]
-                tile_cache_idle_timeout: self.tile_cache_idle_timeout,
+                tile_cache_idle_timeout: self.tile_cache_idle_timeout.or(self.cache_idle_timeout),
                 #[cfg(feature = "pmtiles")]
                 pmtiles_cache_size_mb: 128,
                 #[cfg(feature = "pmtiles")]
-                pmtiles_cache_expiry: None,
+                pmtiles_cache_expiry: self.cache_expiry,
                 #[cfg(feature = "pmtiles")]
-                pmtiles_cache_idle_timeout: None,
+                pmtiles_cache_idle_timeout: self.cache_idle_timeout,
                 #[cfg(feature = "sprites")]
                 sprite_cache_size_mb: 64,
                 #[cfg(feature = "sprites")]
-                sprite_cache_expiry: None,
+                sprite_cache_expiry: self.cache_expiry,
                 #[cfg(feature = "sprites")]
-                sprite_cache_idle_timeout: None,
+                sprite_cache_idle_timeout: self.cache_idle_timeout,
                 #[cfg(feature = "fonts")]
                 font_cache_size_mb: 64,
                 #[cfg(feature = "fonts")]
-                font_cache_expiry: None,
+                font_cache_expiry: self.cache_expiry,
                 #[cfg(feature = "fonts")]
-                font_cache_idle_timeout: None,
+                font_cache_idle_timeout: self.cache_idle_timeout,
             }
         }
     }

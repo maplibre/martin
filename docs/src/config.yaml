@@ -34,25 +34,35 @@ worker_processes: 8
 # - Sprites: `sprites.cache_size_mb`
 cache_size_mb: 512
 
+# Maximum lifetime for all caches (TTL - time to live from creation).
+# When set, cache entries expire after this duration regardless of access frequency.
+# This ensures data freshness even for frequently accessed entries.
+# Can be overridden by cache-specific expiry settings (e.g., `tile_cache_expiry`, `sprites.sprite_cache_expiry`).
+# Supports human-readable formats like "1h", "30m", "1d", or "3600s".
+# If not set, cache entries don't expire based on age.
+cache_expiry: null
+
+# Maximum idle time for all caches (TTI - time to idle since last access).
+# When set, cache entries expire after being idle (not accessed) for this duration.
+# This helps free memory by evicting rarely-used entries.
+# Can be overridden by cache-specific idle timeout settings (e.g., `tile_cache_idle_timeout`, `sprites.sprite_cache_idle_timeout`).
+# Supports human-readable formats like "5m", "300s", or "1h".
+# If not set, cache entries don't expire based on idle time.
+cache_idle_timeout: null
+
 # Allows overriding the size of the tile cache.
 # Defaults to `cache_size_mb` / 2
 tile_cache_size_mb: 256
 
 # Maximum lifetime for cached tiles (TTL - time to live from creation).
-# When set, tiles expire after this duration regardless of access frequency.
-# This ensures data freshness even for frequently accessed tiles.
+# Overrides `cache_expiry` for tiles specifically.
 # Supports human-readable formats like "1h", "30m", "1d", or "3600s".
-# If not set, tiles don't expire based on age.
-# Examples: "1h" (1 hour), "30m" (30 minutes), "1d" (1 day)
-tile_cache_expiry: ~
+# tile_cache_expiry: 1h
 
 # Maximum idle time for cached tiles (TTI - time to idle since last access).
-# When set, tiles expire after being idle (not accessed) for this duration.
-# This helps free memory by evicting rarely-used tiles.
+# Overrides `cache_idle_timeout` for tiles specifically.
 # Supports human-readable formats like "5m", "300s", or "1h".
-# If not set, tiles don't expire based on idle time.
-# Examples: "5m" (5 minutes), "300s" (300 seconds)
-tile_cache_idle_timeout: ~
+# tile_cache_idle_timeout: 5m
 
 # When both tile_cache_expiry and tile_cache_idle_timeout are set,
 # tiles expire at the earliest of the two times. For example:
@@ -211,7 +221,7 @@ postgres:
       geometry_column: geom
 
       # Feature id column name
-      id_column: ~
+      id_column: null
 
       # An integer specifying the minimum zoom level
       minzoom: 0
@@ -333,12 +343,12 @@ sprites:
   # Maximum lifetime for cached sprites (TTL - time to live from creation).
   # When set, sprites expire after this duration regardless of access frequency.
   # Supports human-readable formats like "1h", "30m", "1d", or "3600s".
-  sprite_cache_expiry: ~
+  sprite_cache_expiry: null
 
   # Maximum idle time for cached sprites (TTI - time to idle since last access).
   # When set, sprites expire after being idle (not accessed) for this duration.
   # Supports human-readable formats like "5m", "300s", or "1h".
-  sprite_cache_idle_timeout: ~
+  sprite_cache_idle_timeout: null
 
   paths:
     # all SVG files in this dir will be published as a "my_images" sprite source
@@ -356,12 +366,12 @@ fonts:
   # Maximum lifetime for cached fonts (TTL - time to live from creation).
   # When set, fonts expire after this duration regardless of access frequency.
   # Supports human-readable formats like "1h", "30m", "1d", or "3600s".
-  font_cache_expiry: ~
+  font_cache_expiry: null
 
   # Maximum idle time for cached fonts (TTI - time to idle since last access).
   # When set, fonts expire after being idle (not accessed) for this duration.
   # Supports human-readable formats like "5m", "300s", or "1h".
-  font_cache_idle_timeout: ~
+  font_cache_idle_timeout: null
 
   # A list of *.otf, *.ttf, and *.ttc font files and dirs to search recursively.
   paths:
