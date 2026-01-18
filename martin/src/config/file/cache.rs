@@ -17,6 +17,12 @@ pub struct CacheConfig {
     /// Maximum size for `PMTiles` directory cache in MB (0 to disable).
     #[cfg(feature = "pmtiles")]
     pub pmtiles_cache_size_mb: u64,
+    /// Maximum lifetime for cached PMTiles directories (TTL - time to live from creation).
+    #[cfg(feature = "pmtiles")]
+    pub pmtiles_cache_expiry: Option<Duration>,
+    /// Maximum idle time for cached PMTiles directories (TTI - time to idle since last access).
+    #[cfg(feature = "pmtiles")]
+    pub pmtiles_cache_idle_timeout: Option<Duration>,
     /// Maximum size for sprite cache in MB (0 to disable).
     #[cfg(feature = "sprites")]
     pub sprite_cache_size_mb: u64,
@@ -72,15 +78,29 @@ impl CacheConfig {
     pub fn create_pmtiles_cache(&self) -> martin_core::tiles::pmtiles::PmtCache {
         // TODO: make this actually disabled, not just zero sized cached
         if self.pmtiles_cache_size_mb > 0 {
-            tracing::info!(
-                "Initializing PMTiles directory cache with maximum size {} MB",
-                self.pmtiles_cache_size_mb
-            );
             let size = self.pmtiles_cache_size_mb * 1000 * 1000;
-            martin_core::tiles::pmtiles::PmtCache::new(size)
+
+            let mut info_parts = vec![format!("maximum size {} MB", self.pmtiles_cache_size_mb)];
+            if let Some(ttl) = self.pmtiles_cache_expiry {
+                info_parts.push(format!("TTL {:?}", ttl));
+            }
+            if let Some(tti) = self.pmtiles_cache_idle_timeout {
+                info_parts.push(format!("TTI {:?}", tti));
+            }
+
+            tracing::info!(
+                "Initializing PMTiles directory cache with {}",
+                info_parts.join(", ")
+            );
+
+            martin_core::tiles::pmtiles::PmtCache::new(
+                size,
+                self.pmtiles_cache_expiry,
+                self.pmtiles_cache_idle_timeout,
+            )
         } else {
             tracing::debug!("PMTiles directory caching is disabled");
-            martin_core::tiles::pmtiles::PmtCache::new(0)
+            martin_core::tiles::pmtiles::PmtCache::new(0, None, None)
         }
     }
 

@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::env;
 use std::path::PathBuf;
 use std::str::FromStr;
+use std::time::Duration;
 
 use martin_core::tiles::BoxedSource;
 use martin_core::tiles::pmtiles::{PmtCache, PmtCacheInstance, PmtilesSource};
@@ -22,6 +23,24 @@ pub struct PmtConfig {
     ///
     /// Overrides [`cache_size_mb`](crate::config::file::Config::cache_size_mb).
     pub directory_cache_size_mb: Option<u64>,
+
+    /// Maximum lifetime for cached PMTiles directories (TTL - time to live from creation).
+    /// Supports human-readable formats like "1h", "30m", "1d", or "3600s".
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "humantime_serde"
+    )]
+    pub pmtiles_cache_expiry: Option<Duration>,
+
+    /// Maximum idle time for cached PMTiles directories (TTI - time to idle since last access).
+    /// Supports human-readable formats like "5m", "300s", or "1h".
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "humantime_serde"
+    )]
+    pub pmtiles_cache_idle_timeout: Option<Duration>,
 
     // if the key is the allowed set, we assume it is there for a purpose
     // settings and unreconginsed values are partitioned from each other in the init_parsing step

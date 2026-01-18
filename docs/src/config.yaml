@@ -278,6 +278,16 @@ pmtiles:
   # - tile caching (for high access tiles)
   directory_cache_size_mb: 128
 
+  # Maximum lifetime for cached PMTiles directories (TTL - time to live from creation).
+  # When set, directories expire after this duration regardless of access frequency.
+  # Supports human-readable formats like "1h", "30m", "1d", or "3600s".
+  # pmtiles_cache_expiry: 30m
+
+  # Maximum idle time for cached PMTiles directories (TTI - time to idle since last access).
+  # When set, directories expire after being idle (not accessed) for this duration.
+  # Supports human-readable formats like "5m", "300s", or "1h".
+  # pmtiles_cache_idle_timeout: 10m
+
   # You can pass options for pmtiles files located on remote storages here.
   #
   # The avaliable options are documented here:

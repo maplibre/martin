@@ -306,13 +306,18 @@ impl Config {
     fn resolve_cache_config(&self) -> CacheConfig {
         if let Some(cache_size_mb) = self.cache_size_mb {
             #[cfg(feature = "pmtiles")]
-            let pmtiles_cache_size_mb = if let FileConfigEnum::Config(cfg) = &self.pmtiles {
-                cfg.custom
-                    .directory_cache_size_mb
-                    .unwrap_or(cache_size_mb / 4) // Default: 25% for PMTiles directories
-            } else {
-                cache_size_mb / 4 // Default: 25% for PMTiles directories
-            };
+            let (pmtiles_cache_size_mb, pmtiles_cache_expiry, pmtiles_cache_idle_timeout) =
+                if let FileConfigEnum::Config(cfg) = &self.pmtiles {
+                    (
+                        cfg.custom
+                            .directory_cache_size_mb
+                            .unwrap_or(cache_size_mb / 4), // Default: 25% for PMTiles directories
+                        cfg.custom.pmtiles_cache_expiry,
+                        cfg.custom.pmtiles_cache_idle_timeout,
+                    )
+                } else {
+                    (cache_size_mb / 4, None, None) // Default: 25% for PMTiles directories
+                };
 
             #[cfg(feature = "sprites")]
             let (sprite_cache_size_mb, sprite_cache_expiry, sprite_cache_idle_timeout) =
@@ -347,6 +352,10 @@ impl Config {
                 tile_cache_idle_timeout: self.tile_cache_idle_timeout,
                 #[cfg(feature = "pmtiles")]
                 pmtiles_cache_size_mb,
+                #[cfg(feature = "pmtiles")]
+                pmtiles_cache_expiry,
+                #[cfg(feature = "pmtiles")]
+                pmtiles_cache_idle_timeout,
                 #[cfg(feature = "sprites")]
                 sprite_cache_size_mb,
                 #[cfg(feature = "sprites")]
@@ -371,6 +380,10 @@ impl Config {
                 tile_cache_idle_timeout: self.tile_cache_idle_timeout,
                 #[cfg(feature = "pmtiles")]
                 pmtiles_cache_size_mb: 128,
+                #[cfg(feature = "pmtiles")]
+                pmtiles_cache_expiry: None,
+                #[cfg(feature = "pmtiles")]
+                pmtiles_cache_idle_timeout: None,
                 #[cfg(feature = "sprites")]
                 sprite_cache_size_mb: 64,
                 #[cfg(feature = "sprites")]

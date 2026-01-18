@@ -1,5 +1,7 @@
+use std::time::Duration;
+
 use moka::future::Cache;
-use tracing::info;
+use tracing::{info, trace};
 
 /// Optional wrapper for `PmtCache`.
 pub type OptPmtCache = Option<PmtCache>;
@@ -15,23 +17,46 @@ pub struct PmtCache(Cache<PmtCacheKey, pmtiles::Directory>);
 
 impl PmtCache {
     /// Creates a new `PMTiles` directory cache instance
+    ///
+    /// # Arguments
+    ///
+    /// * `max_size_bytes` - Maximum cache size in bytes (based on directory data size)
+    /// * `expiry` - Optional maximum lifetime (TTL - time to live from creation)
+    /// * `idle_timeout` - Optional idle timeout (TTI - time to idle since last access)
+    ///
+    /// When both `expiry` and `idle_timeout` are set, entries expire at the
+    /// earliest of the two times.
     #[must_use]
-    pub fn new(max_size_bytes: u64) -> Self {
-        let cache = Cache::builder()
+    pub fn new(
+        max_size_bytes: u64,
+        expiry: Option<Duration>,
+        idle_timeout: Option<Duration>,
+    ) -> Self {
+        let mut builder = Cache::builder()
             .name("pmtiles_directory_cache")
             .weigher(|_key: &PmtCacheKey, value: &pmtiles::Directory| -> u32 {
                 value.get_approx_byte_size().try_into().unwrap_or(u32::MAX)
                     + size_of::<PmtCacheKey>().try_into().unwrap_or(u32::MAX)
             })
-            .max_capacity(max_size_bytes)
-            .build();
-        Self(cache)
+            .max_capacity(max_size_bytes);
+
+        if let Some(ttl) = expiry {
+            builder = builder.time_to_live(ttl);
+            trace!("PMTiles directory cache configured with TTL of {:?}", ttl);
+        }
+
+        if let Some(tti) = idle_timeout {
+            builder = builder.time_to_idle(tti);
+            trace!("PMTiles directory cache configured with TTI of {:?}", tti);
+        }
+
+        Self(builder.build())
     }
 }
 
 impl Default for PmtCache {
     fn default() -> Self {
-        Self::new(0)
+        Self::new(0, None, None)
     }
 }
 
