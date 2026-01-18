@@ -327,11 +327,16 @@ impl Config {
                 };
 
             #[cfg(feature = "fonts")]
-            let font_cache_size_mb = if let FileConfigEnum::Config(cfg) = &self.fonts {
-                cfg.custom.cache_size_mb.unwrap_or(cache_size_mb / 8) // Default: 12.5% for fonts
-            } else {
-                cache_size_mb / 8 // Default: 12.5% for fonts
-            };
+            let (font_cache_size_mb, font_cache_expiry, font_cache_idle_timeout) =
+                if let FileConfigEnum::Config(cfg) = &self.fonts {
+                    (
+                        cfg.custom.cache_size_mb.unwrap_or(cache_size_mb / 8), // Default: 12.5% for fonts
+                        cfg.custom.font_cache_expiry,
+                        cfg.custom.font_cache_idle_timeout,
+                    )
+                } else {
+                    (cache_size_mb / 8, None, None) // Default: 12.5% for fonts
+                };
 
             CacheConfig {
                 #[cfg(feature = "_tiles")]
@@ -350,6 +355,10 @@ impl Config {
                 sprite_cache_idle_timeout,
                 #[cfg(feature = "fonts")]
                 font_cache_size_mb,
+                #[cfg(feature = "fonts")]
+                font_cache_expiry,
+                #[cfg(feature = "fonts")]
+                font_cache_idle_timeout,
             }
         } else {
             // TODO: the defaults could be smarter. If I don't have pmtiles sources, don't reserve cache for it
@@ -370,6 +379,10 @@ impl Config {
                 sprite_cache_idle_timeout: None,
                 #[cfg(feature = "fonts")]
                 font_cache_size_mb: 64,
+                #[cfg(feature = "fonts")]
+                font_cache_expiry: None,
+                #[cfg(feature = "fonts")]
+                font_cache_idle_timeout: None,
             }
         }
     }

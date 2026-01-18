@@ -343,6 +343,16 @@ fonts:
   # Defaults to cache_size_mb / 4
   cache_size_mb: 64
 
+  # Maximum lifetime for cached fonts (TTL - time to live from creation).
+  # When set, fonts expire after this duration regardless of access frequency.
+  # Supports human-readable formats like "1h", "30m", "1d", or "3600s".
+  font_cache_expiry: ~
+
+  # Maximum idle time for cached fonts (TTI - time to idle since last access).
+  # When set, fonts expire after being idle (not accessed) for this duration.
+  # Supports human-readable formats like "5m", "300s", or "1h".
+  font_cache_idle_timeout: ~
+
   # A list of *.otf, *.ttf, and *.ttc font files and dirs to search recursively.
   paths:
     - /path/to/font/file.ttf

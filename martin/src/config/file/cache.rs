@@ -29,6 +29,12 @@ pub struct CacheConfig {
     /// Maximum size for font cache in MB (0 to disable).
     #[cfg(feature = "fonts")]
     pub font_cache_size_mb: u64,
+    /// Maximum lifetime for cached fonts (TTL - time to live from creation).
+    #[cfg(feature = "fonts")]
+    pub font_cache_expiry: Option<Duration>,
+    /// Maximum idle time for cached fonts (TTI - time to idle since last access).
+    #[cfg(feature = "fonts")]
+    pub font_cache_idle_timeout: Option<Duration>,
 }
 
 impl CacheConfig {
@@ -111,12 +117,23 @@ impl CacheConfig {
     #[must_use]
     pub fn create_font_cache(&self) -> martin_core::fonts::OptFontCache {
         if self.font_cache_size_mb > 0 {
-            tracing::info!(
-                "Initializing font cache with maximum size {} MB",
-                self.font_cache_size_mb
-            );
             let size = self.font_cache_size_mb * 1000 * 1000;
-            Some(martin_core::fonts::FontCache::new(size))
+
+            let mut info_parts = vec![format!("maximum size {} MB", self.font_cache_size_mb)];
+            if let Some(ttl) = self.font_cache_expiry {
+                info_parts.push(format!("TTL {:?}", ttl));
+            }
+            if let Some(tti) = self.font_cache_idle_timeout {
+                info_parts.push(format!("TTI {:?}", tti));
+            }
+
+            tracing::info!("Initializing font cache with {}", info_parts.join(", "));
+
+            Some(martin_core::fonts::FontCache::new(
+                size,
+                self.font_cache_expiry,
+                self.font_cache_idle_timeout,
+            ))
         } else {
             tracing::info!("Font caching is disabled");
             None
