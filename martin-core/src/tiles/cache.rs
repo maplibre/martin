@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use martin_tile_utils::TileCoord;
 use moka::future::Cache;
 use tracing::{info, trace};
@@ -10,17 +12,62 @@ pub struct TileCache(Cache<TileCacheKey, Tile>);
 
 impl TileCache {
     /// Creates a new tile cache with the specified maximum size in bytes.
+    ///
+    /// # Arguments
+    ///
+    /// * `max_size_bytes` - Maximum cache size in bytes (based on tile data size)
+    /// * `expiry` - Optional maximum lifetime (TTL - time to live from creation)
+    /// * `idle_timeout` - Optional idle timeout (TTI - time to idle since last access)
+    ///
+    /// When both `expiry` and `idle_timeout` are set, entries expire at the
+    /// earliest of the two times. This allows combining a maximum age (for data freshness) with
+    /// idle eviction (for memory efficiency).
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// use std::time::Duration;
+    ///
+    /// // Hot tiles expire after 1 hour, cold tiles after 5 minutes
+    /// let cache = TileCache::new(
+    ///     100_000_000,
+    ///     Some(Duration::from_secs(3600)),
+    ///     Some(Duration::from_secs(300))
+    /// );
+    ///
+    /// // All tiles expire after 1 hour regardless of access
+    /// let cache = TileCache::new(100_000_000, Some(Duration::from_secs(3600)), None);
+    ///
+    /// // Tiles expire 5 minutes after last access (no maximum age)
+    /// let cache = TileCache::new(100_000_000, None, Some(Duration::from_secs(300)));
+    ///
+    /// // No time-based expiry, only size-based eviction
+    /// let cache = TileCache::new(100_000_000, None, None);
+    /// ```
     #[must_use]
-    pub fn new(max_size_bytes: u64) -> Self {
-        Self(
-            Cache::builder()
-                .name("tile_cache")
-                .weigher(|_key: &TileCacheKey, value: &Tile| -> u32 {
-                    value.data.len().try_into().unwrap_or(u32::MAX)
-                })
-                .max_capacity(max_size_bytes)
-                .build(),
-        )
+    pub fn new(
+        max_size_bytes: u64,
+        expiry: Option<Duration>,
+        idle_timeout: Option<Duration>,
+    ) -> Self {
+        let mut builder = Cache::builder()
+            .name("tile_cache")
+            .weigher(|_key: &TileCacheKey, value: &Tile| -> u32 {
+                value.data.len().try_into().unwrap_or(u32::MAX)
+            })
+            .max_capacity(max_size_bytes);
+
+        if let Some(ttl) = expiry {
+            builder = builder.time_to_live(ttl);
+            trace!("Tile cache configured with TTL of {:?}", ttl);
+        }
+
+        if let Some(tti) = idle_timeout {
+            builder = builder.time_to_idle(tti);
+            trace!("Tile cache configured with TTI of {:?}", tti);
+        }
+
+        Self(builder.build())
     }
 
     /// Retrieves a tile from cache if present.
@@ -111,5 +158,134 @@ impl TileCacheKey {
             xyz,
             query,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use martin_tile_utils::{Encoding, Format, TileInfo};
+    use std::time::Duration;
+
+    #[tokio::test]
+    async fn test_cache_with_ttl() {
+        // Create cache with 1 second TTL
+        let cache = TileCache::new(1_000_000, Some(Duration::from_secs(1)), None);
+
+        let tile = Tile::new_hash_etag(
+            vec![1, 2, 3],
+            TileInfo::new(Format::Png, Encoding::Uncompressed),
+        );
+
+        let key = TileCacheKey::new(
+            "test_source".to_string(),
+            TileCoord { z: 0, x: 0, y: 0 },
+            None,
+        );
+
+        // Insert and retrieve immediately - should work
+        let result = cache
+            .get_or_insert(
+                "test_source".to_string(),
+                TileCoord { z: 0, x: 0, y: 0 },
+                None,
+                || async { Ok::<_, ()>(tile.clone()) },
+            )
+            .await;
+
+        assert!(result.is_ok());
+        assert!(cache.get(&key).await.is_some());
+
+        // Wait for expiry (longer to ensure expiration)
+        tokio::time::sleep(Duration::from_millis(1500)).await;
+
+        // Force eviction by running Moka's maintenance
+        cache.0.run_pending_tasks().await;
+
+        // Entry should be expired - verify it's not retrievable
+        assert!(cache.get(&key).await.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_cache_with_tti() {
+        // Create cache with 500ms idle timeout
+        let cache = TileCache::new(1_000_000, None, Some(Duration::from_millis(500)));
+
+        let tile = Tile::new_hash_etag(
+            vec![1, 2, 3],
+            TileInfo::new(Format::Png, Encoding::Uncompressed),
+        );
+
+        // Insert tile
+        cache
+            .get_or_insert(
+                "test_source".to_string(),
+                TileCoord { z: 0, x: 0, y: 0 },
+                None,
+                || async { Ok::<_, ()>(tile.clone()) },
+            )
+            .await
+            .unwrap();
+
+        // Access it before timeout
+        tokio::time::sleep(Duration::from_millis(300)).await;
+        let key = TileCacheKey::new(
+            "test_source".to_string(),
+            TileCoord { z: 0, x: 0, y: 0 },
+            None,
+        );
+        cache.get(&key).await;
+
+        // Should still be present (idle timer reset)
+        assert_eq!(cache.entry_count(), 1);
+
+        // Wait for idle timeout without accessing
+        tokio::time::sleep(Duration::from_millis(600)).await;
+        cache.0.run_pending_tasks().await;
+
+        // Entry should be expired
+        assert_eq!(cache.entry_count(), 0);
+    }
+
+    #[tokio::test]
+    async fn test_cache_with_both_ttl_and_tti() {
+        // Create cache with 2s TTL and 500ms TTI
+        // Entry should expire at earliest time (500ms idle)
+        let cache = TileCache::new(
+            1_000_000,
+            Some(Duration::from_secs(2)),
+            Some(Duration::from_millis(500)),
+        );
+
+        let tile = Tile::new_hash_etag(
+            vec![1, 2, 3],
+            TileInfo::new(Format::Png, Encoding::Uncompressed),
+        );
+
+        cache
+            .get_or_insert(
+                "test_source".to_string(),
+                TileCoord { z: 0, x: 0, y: 0 },
+                None,
+                || async { Ok::<_, ()>(tile.clone()) },
+            )
+            .await
+            .unwrap();
+
+        // Wait past idle timeout but before TTL
+        tokio::time::sleep(Duration::from_millis(600)).await;
+        cache.0.run_pending_tasks().await;
+
+        // Should expire due to idle timeout (earliest)
+        assert_eq!(cache.entry_count(), 0);
+    }
+
+    #[test]
+    fn test_cache_no_expiry() {
+        // Create cache with no time-based expiry
+        let cache = TileCache::new(1_000_000, None, None);
+
+        // Should only evict based on size, not time
+        assert_eq!(cache.entry_count(), 0);
     }
 }

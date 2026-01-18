@@ -1,9 +1,19 @@
+use std::time::Duration;
+
 /// Configuration for all cache types.
 #[derive(Debug, Clone)]
 pub struct CacheConfig {
     /// Maximum size for tile cache in MB (0 to disable).
     #[cfg(feature = "_tiles")]
     pub tile_cache_size_mb: u64,
+    /// Maximum lifetime for cached tiles (TTL - time to live from creation).
+    /// If not set, tiles don't expire based on age.
+    #[cfg(feature = "_tiles")]
+    pub tile_cache_expiry: Option<Duration>,
+    /// Maximum idle time for cached tiles (TTI - time to idle since last access).
+    /// If not set, tiles don't expire based on idle time.
+    #[cfg(feature = "_tiles")]
+    pub tile_cache_idle_timeout: Option<Duration>,
     /// Maximum size for `PMTiles` directory cache in MB (0 to disable).
     #[cfg(feature = "pmtiles")]
     pub pmtiles_cache_size_mb: u64,
@@ -21,12 +31,23 @@ impl CacheConfig {
     #[must_use]
     pub fn create_tile_cache(&self) -> Option<martin_core::tiles::TileCache> {
         if self.tile_cache_size_mb > 0 {
-            tracing::info!(
-                "Initializing tile cache with maximum size {} MB",
-                self.tile_cache_size_mb
-            );
             let size = self.tile_cache_size_mb * 1000 * 1000;
-            Some(martin_core::tiles::TileCache::new(size))
+
+            let mut info_parts = vec![format!("maximum size {} MB", self.tile_cache_size_mb)];
+            if let Some(ttl) = self.tile_cache_expiry {
+                info_parts.push(format!("TTL {:?}", ttl));
+            }
+            if let Some(tti) = self.tile_cache_idle_timeout {
+                info_parts.push(format!("TTI {:?}", tti));
+            }
+
+            tracing::info!("Initializing tile cache with {}", info_parts.join(", "));
+
+            Some(martin_core::tiles::TileCache::new(
+                size,
+                self.tile_cache_expiry,
+                self.tile_cache_idle_timeout,
+            ))
         } else {
             tracing::info!("Tile caching is disabled");
             None

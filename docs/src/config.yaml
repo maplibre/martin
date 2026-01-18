@@ -38,6 +38,30 @@ cache_size_mb: 512
 # Defaults to `cache_size_mb` / 2
 tile_cache_size_mb: 256
 
+# Maximum lifetime for cached tiles (TTL - time to live from creation).
+# When set, tiles expire after this duration regardless of access frequency.
+# This ensures data freshness even for frequently accessed tiles.
+# Supports human-readable formats like "1h", "30m", "1d", or "3600s".
+# If not set, tiles don't expire based on age.
+# Examples: "1h" (1 hour), "30m" (30 minutes), "1d" (1 day)
+tile_cache_expiry: ~
+
+# Maximum idle time for cached tiles (TTI - time to idle since last access).
+# When set, tiles expire after being idle (not accessed) for this duration.
+# This helps free memory by evicting rarely-used tiles.
+# Supports human-readable formats like "5m", "300s", or "1h".
+# If not set, tiles don't expire based on idle time.
+# Examples: "5m" (5 minutes), "300s" (300 seconds)
+tile_cache_idle_timeout: ~
+
+# When both tile_cache_expiry and tile_cache_idle_timeout are set,
+# tiles expire at the earliest of the two times. For example:
+# tile_cache_expiry: 1h
+# tile_cache_idle_timeout: 5m
+# This configuration ensures:
+# - Hot tiles (frequently accessed) expire after 1 hour maximum
+# - Cold tiles (rarely accessed) expire after 5 minutes of inactivity
+
 # Which compression should be used if the
 # - client accepts multiple compression formats, and
 # - tile source is not pre-compressed.

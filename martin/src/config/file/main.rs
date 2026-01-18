@@ -3,6 +3,7 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::path::Path;
 use std::sync::LazyLock;
+use std::time::Duration;
 
 use clap::ValueEnum;
 #[cfg(feature = "_tiles")]
@@ -82,6 +83,36 @@ pub struct Config {
     ///
     /// Overrides [`cache_size_mb`](Self::cache_size_mb)
     pub tile_cache_size_mb: Option<u64>,
+
+    /// Maximum lifetime for cached tiles (TTL - time to live from creation).
+    ///
+    /// When set, tiles expire after this duration regardless of access frequency.
+    /// This ensures data freshness even for frequently accessed tiles.
+    /// Supports human-readable formats like "1h", "30m", "1d", or "3600s".
+    /// If not set, tiles don't expire based on age.
+    ///
+    /// Examples: "1h" (1 hour), "30m" (30 minutes), "1d" (1 day)
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "humantime_serde"
+    )]
+    pub tile_cache_expiry: Option<Duration>,
+
+    /// Maximum idle time for cached tiles (TTI - time to idle since last access).
+    ///
+    /// When set, tiles expire after being idle (not accessed) for this duration.
+    /// This helps free memory by evicting rarely-used tiles.
+    /// Supports human-readable formats like "5m", "300s", or "1h".
+    /// If not set, tiles don't expire based on idle time.
+    ///
+    /// Examples: "5m" (5 minutes), "300s" (300 seconds)
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "humantime_serde"
+    )]
+    pub tile_cache_idle_timeout: Option<Duration>,
 
     #[serde(default)]
     pub on_invalid: Option<OnInvalid>,
@@ -300,6 +331,10 @@ impl Config {
             CacheConfig {
                 #[cfg(feature = "_tiles")]
                 tile_cache_size_mb: self.tile_cache_size_mb.unwrap_or(cache_size_mb / 2), // Default: 50% for tiles
+                #[cfg(feature = "_tiles")]
+                tile_cache_expiry: self.tile_cache_expiry,
+                #[cfg(feature = "_tiles")]
+                tile_cache_idle_timeout: self.tile_cache_idle_timeout,
                 #[cfg(feature = "pmtiles")]
                 pmtiles_cache_size_mb,
                 #[cfg(feature = "sprites")]
@@ -312,6 +347,10 @@ impl Config {
             CacheConfig {
                 #[cfg(feature = "_tiles")]
                 tile_cache_size_mb: 256,
+                #[cfg(feature = "_tiles")]
+                tile_cache_expiry: self.tile_cache_expiry,
+                #[cfg(feature = "_tiles")]
+                tile_cache_idle_timeout: self.tile_cache_idle_timeout,
                 #[cfg(feature = "pmtiles")]
                 pmtiles_cache_size_mb: 128,
                 #[cfg(feature = "sprites")]
