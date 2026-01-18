@@ -315,11 +315,16 @@ impl Config {
             };
 
             #[cfg(feature = "sprites")]
-            let sprite_cache_size_mb = if let FileConfigEnum::Config(cfg) = &self.sprites {
-                cfg.custom.cache_size_mb.unwrap_or(cache_size_mb / 8) // Default: 12.5% for sprites
-            } else {
-                cache_size_mb / 8 // Default: 12.5% for sprites
-            };
+            let (sprite_cache_size_mb, sprite_cache_expiry, sprite_cache_idle_timeout) =
+                if let FileConfigEnum::Config(cfg) = &self.sprites {
+                    (
+                        cfg.custom.cache_size_mb.unwrap_or(cache_size_mb / 8), // Default: 12.5% for sprites
+                        cfg.custom.sprite_cache_expiry,
+                        cfg.custom.sprite_cache_idle_timeout,
+                    )
+                } else {
+                    (cache_size_mb / 8, None, None) // Default: 12.5% for sprites
+                };
 
             #[cfg(feature = "fonts")]
             let font_cache_size_mb = if let FileConfigEnum::Config(cfg) = &self.fonts {
@@ -339,6 +344,10 @@ impl Config {
                 pmtiles_cache_size_mb,
                 #[cfg(feature = "sprites")]
                 sprite_cache_size_mb,
+                #[cfg(feature = "sprites")]
+                sprite_cache_expiry,
+                #[cfg(feature = "sprites")]
+                sprite_cache_idle_timeout,
                 #[cfg(feature = "fonts")]
                 font_cache_size_mb,
             }
@@ -355,6 +364,10 @@ impl Config {
                 pmtiles_cache_size_mb: 128,
                 #[cfg(feature = "sprites")]
                 sprite_cache_size_mb: 64,
+                #[cfg(feature = "sprites")]
+                sprite_cache_expiry: None,
+                #[cfg(feature = "sprites")]
+                sprite_cache_idle_timeout: None,
                 #[cfg(feature = "fonts")]
                 font_cache_size_mb: 64,
             }

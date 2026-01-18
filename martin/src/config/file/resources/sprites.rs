@@ -1,4 +1,5 @@
 use std::collections::BTreeMap;
+use std::time::Duration;
 
 use martin_core::sprites::SpriteSources;
 use serde::{Deserialize, Serialize};
@@ -52,6 +53,24 @@ pub struct InnerSpriteConfig {
     ///
     /// Overrides [`cache_size_mb`](crate::config::file::Config::cache_size_mb).
     pub cache_size_mb: Option<u64>,
+
+    /// Maximum lifetime for cached sprites (TTL - time to live from creation).
+    /// Supports human-readable formats like "1h", "30m", "1d", or "3600s".
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "humantime_serde"
+    )]
+    pub sprite_cache_expiry: Option<Duration>,
+
+    /// Maximum idle time for cached sprites (TTI - time to idle since last access).
+    /// Supports human-readable formats like "5m", "300s", or "1h".
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "humantime_serde"
+    )]
+    pub sprite_cache_idle_timeout: Option<Duration>,
 
     #[serde(flatten, skip_serializing)]
     pub unrecognized: UnrecognizedValues,

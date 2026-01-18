@@ -320,6 +320,16 @@ sprites:
   # Defaults to cache_size_mb / 8
   cache_size_mb: 64
 
+  # Maximum lifetime for cached sprites (TTL - time to live from creation).
+  # When set, sprites expire after this duration regardless of access frequency.
+  # Supports human-readable formats like "1h", "30m", "1d", or "3600s".
+  sprite_cache_expiry: ~
+
+  # Maximum idle time for cached sprites (TTI - time to idle since last access).
+  # When set, sprites expire after being idle (not accessed) for this duration.
+  # Supports human-readable formats like "5m", "300s", or "1h".
+  sprite_cache_idle_timeout: ~
+
   paths:
     # all SVG files in this dir will be published as a "my_images" sprite source
     - /path/to/my_images
