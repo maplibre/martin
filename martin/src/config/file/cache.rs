@@ -47,10 +47,9 @@ impl CacheConfig {
     #[cfg(feature = "pmtiles")]
     #[must_use]
     pub fn create_pmtiles_cache(&self) -> martin_core::tiles::pmtiles::PmtCache {
-        // TODO: make this actually disabled, not just zero sized cached
         if let Some(setting) = &self.pmtiles {
             tracing::info!(
-                "Initializing pmtiles cache with maximum size {} MB",
+                "Initializing PMTiles directory cache with maximum size {} MB",
                 setting.size_mb
             );
             let size = setting.size_mb.get() * 1000 * 1000;
@@ -58,6 +57,7 @@ impl CacheConfig {
             martin_core::tiles::pmtiles::PmtCache::new(size, setting.expiry, setting.idle_timeout)
         } else {
             tracing::debug!("PMTiles directory caching is disabled");
+            // TODO: make this actually disabled, not just zero sized cached
             martin_core::tiles::pmtiles::PmtCache::new(0, None, None)
         }
     }
