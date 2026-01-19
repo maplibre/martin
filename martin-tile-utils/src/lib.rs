@@ -218,9 +218,8 @@ impl TileInfo {
     pub fn detect(value: &[u8]) -> Option<Self> {
         // Try GZIP decompression
         if value.starts_with(b"\x1f\x8b") {
-            if let Ok(decompressed) = decode_gzip(value)
-                && let Some(inner_format) = Self::detect_vectorish_format(&decompressed)
-            {
+            if let Ok(decompressed) = decode_gzip(value) {
+                let inner_format = Self::detect_vectorish_format(&decompressed);
                 return Some(Self::new(inner_format, Encoding::Gzip));
             }
             // If decompression fails or format is unknown, assume MVT
@@ -229,9 +228,8 @@ impl TileInfo {
 
         // Try Zlib decompression
         if value.starts_with(b"\x78\x9c") {
-            if let Ok(decompressed) = decode_zlib(value)
-                && let Some(inner_format) = Self::detect_vectorish_format(&decompressed)
-            {
+            if let Ok(decompressed) = decode_zlib(value) {
+                let inner_format = Self::detect_vectorish_format(&decompressed);
                 return Some(Self::new(inner_format, Encoding::Zlib));
             }
             // If decompression fails or format is unknown, assume MVT
@@ -243,29 +241,34 @@ impl TileInfo {
     /// Fast-path detection without decompression
     #[must_use]
     fn detect_raster_formats(value: &[u8]) -> Option<Self> {
-        Some(match value {
+        match value {
             v if v.starts_with(b"\x89\x50\x4E\x47\x0D\x0A\x1A\x0A") => {
-                Self::new(Format::Png, Encoding::Internal)
+                Some(Self::new(Format::Png, Encoding::Internal))
             }
             v if v.starts_with(b"\x47\x49\x46\x38\x39\x61") => {
-                Self::new(Format::Gif, Encoding::Internal)
+                Some(Self::new(Format::Gif, Encoding::Internal))
             }
-            v if v.starts_with(b"\xFF\xD8\xFF") => Self::new(Format::Jpeg, Encoding::Internal),
+            v if v.starts_with(b"\xFF\xD8\xFF") => {
+                Some(Self::new(Format::Jpeg, Encoding::Internal))
+            }
             v if v.starts_with(b"RIFF") && v.len() > 8 && v[8..].starts_with(b"WEBP") => {
-                Self::new(Format::Webp, Encoding::Internal)
+                Some(Self::new(Format::Webp, Encoding::Internal))
             }
-            _ => None?,
-        })
+            _ => None,
+        }
     }
 
     /// Detect the format of vector (or json) data after decompression
     #[must_use]
-    fn detect_vectorish_format(value: &[u8]) -> Option<Format> {
+    fn detect_vectorish_format(value: &[u8]) -> Format {
         match value {
-            v if is_valid_json(v) => Some(Format::Json),
-            v if is_7bit_and_then(v, 0x1) => Some(Format::Mlt),
-            // If we can't detect the format, we assume MVT, since it's the most common format and we don't have a detector for it
-            _ => Some(Format::Mvt),
+            v if is_valid_json(v) => Format::Json,
+            v if is_7bit_and_then(v, 0x1) => Format::Mlt,
+            // If we can't detect the format, we assume MVT.
+            // Reasoning:
+            //- it's the most common format and
+            //- we don't have a detector for it
+            _ => Format::Mvt,
         }
     }
 
@@ -447,8 +450,9 @@ mod tests {
 
     #[test]
     fn test_compressed_json_zlib() {
-        use flate2::write::ZlibEncoder;
         use std::io::Write;
+
+        use flate2::write::ZlibEncoder;
 
         let json_data = br#"{"type":"FeatureCollection","features":[]}"#;
         let mut encoder = ZlibEncoder::new(Vec::new(), flate2::Compression::default());
@@ -470,8 +474,9 @@ mod tests {
 
     #[test]
     fn test_compressed_mlt_zlib() {
-        use flate2::write::ZlibEncoder;
         use std::io::Write;
+
+        use flate2::write::ZlibEncoder;
 
         // MLT tile: length=5 (0x05), version=1 (0x01), plus some data
         let mlt_data = &[0x05, 0x01, 0xaa, 0xbb];
@@ -494,8 +499,9 @@ mod tests {
 
     #[test]
     fn test_compressed_mvt_zlib_fallback() {
-        use flate2::write::ZlibEncoder;
         use std::io::Write;
+
+        use flate2::write::ZlibEncoder;
 
         // Random data that doesn't match any known format => should be detected as MVT
         let random_data = &[0xaa, 0xbb, 0xcc, 0xdd];
