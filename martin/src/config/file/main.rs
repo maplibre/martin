@@ -362,10 +362,10 @@ impl Config {
             })
         } else {
             if self.tile_cache_expiry.is_some() {
-                warn!("tiles cache is not enabled, ignoring custom expiry");
+                warn!("Tile cache is not enabled, ignoring custom expiry");
             }
             if self.tile_cache_idle_timeout.is_some() {
-                warn!("tiles cache is not enabled, ignoring custom idle timeout");
+                warn!("Tile cache is not enabled, ignoring custom idle timeout");
             }
             None
         }
