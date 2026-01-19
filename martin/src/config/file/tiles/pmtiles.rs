@@ -24,7 +24,7 @@ pub struct PmtConfig {
     /// Overrides [`cache_size_mb`](crate::config::file::Config::cache_size_mb).
     pub directory_cache_size_mb: Option<u64>,
 
-    /// Maximum lifetime for cached PMTiles directories (TTL - time to live from creation).
+    /// Maximum lifetime for cached `PMTiles` directories (TTL - time to live from creation).
     /// Supports human-readable formats like "1h", "30m", "1d", or "3600s".
     #[serde(
         default,
@@ -33,7 +33,7 @@ pub struct PmtConfig {
     )]
     pub pmtiles_cache_expiry: Option<Duration>,
 
-    /// Maximum idle time for cached PMTiles directories (TTI - time to idle since last access).
+    /// Maximum idle time for cached `PMTiles` directories (TTI - time to idle since last access).
     /// Supports human-readable formats like "5m", "300s", or "1h".
     #[serde(
         default,

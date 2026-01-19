@@ -163,9 +163,11 @@ impl TileCacheKey {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use martin_tile_utils::{Encoding, Format, TileInfo};
     use std::time::Duration;
+
+    use martin_tile_utils::{Encoding, Format, TileInfo};
+
+    use super::*;
 
     #[tokio::test]
     async fn test_cache_with_ttl() {
@@ -352,7 +354,7 @@ mod tests {
         for i in 0..3 {
             cache
                 .get_or_insert(
-                    format!("source_{}", i),
+                    format!("source_{i}"),
                     TileCoord { z: 0, x: i, y: 0 },
                     None,
                     || async { Ok::<_, ()>(large_tile.clone()) },
@@ -364,7 +366,7 @@ mod tests {
 
         // Cache should have entries
         let count = cache.entry_count();
-        assert!(count > 0, "Expected entries in cache, got {}", count);
+        assert!(count > 0, "Expected entries in cache, got {count}");
 
         // Wait for TTI expiry
         tokio::time::sleep(Duration::from_millis(600)).await;

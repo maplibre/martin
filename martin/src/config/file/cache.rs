@@ -1,3 +1,4 @@
+#[cfg(any(feature = "_tiles", feature = "pmtiles", feature = "sprites", feature = "fonts"))]
 use std::time::Duration;
 
 /// Configuration for all cache types.
@@ -17,10 +18,10 @@ pub struct CacheConfig {
     /// Maximum size for `PMTiles` directory cache in MB (0 to disable).
     #[cfg(feature = "pmtiles")]
     pub pmtiles_cache_size_mb: u64,
-    /// Maximum lifetime for cached PMTiles directories (TTL - time to live from creation).
+    /// Maximum lifetime for cached `PMTiles` directories (TTL - time to live from creation).
     #[cfg(feature = "pmtiles")]
     pub pmtiles_cache_expiry: Option<Duration>,
-    /// Maximum idle time for cached PMTiles directories (TTI - time to idle since last access).
+    /// Maximum idle time for cached `PMTiles` directories (TTI - time to idle since last access).
     #[cfg(feature = "pmtiles")]
     pub pmtiles_cache_idle_timeout: Option<Duration>,
     /// Maximum size for sprite cache in MB (0 to disable).
@@ -53,10 +54,10 @@ impl CacheConfig {
 
             let mut info_parts = vec![format!("maximum size {} MB", self.tile_cache_size_mb)];
             if let Some(ttl) = self.tile_cache_expiry {
-                info_parts.push(format!("TTL {:?}", ttl));
+                info_parts.push(format!("TTL {ttl:?}"));
             }
             if let Some(tti) = self.tile_cache_idle_timeout {
-                info_parts.push(format!("TTI {:?}", tti));
+                info_parts.push(format!("TTI {tti:?}"));
             }
 
             tracing::info!("Initializing tile cache with {}", info_parts.join(", "));
@@ -82,10 +83,10 @@ impl CacheConfig {
 
             let mut info_parts = vec![format!("maximum size {} MB", self.pmtiles_cache_size_mb)];
             if let Some(ttl) = self.pmtiles_cache_expiry {
-                info_parts.push(format!("TTL {:?}", ttl));
+                info_parts.push(format!("TTL {ttl:?}"));
             }
             if let Some(tti) = self.pmtiles_cache_idle_timeout {
-                info_parts.push(format!("TTI {:?}", tti));
+                info_parts.push(format!("TTI {tti:?}"));
             }
 
             tracing::info!(
@@ -113,10 +114,10 @@ impl CacheConfig {
 
             let mut info_parts = vec![format!("maximum size {} MB", self.sprite_cache_size_mb)];
             if let Some(ttl) = self.sprite_cache_expiry {
-                info_parts.push(format!("TTL {:?}", ttl));
+                info_parts.push(format!("TTL {ttl:?}"));
             }
             if let Some(tti) = self.sprite_cache_idle_timeout {
-                info_parts.push(format!("TTI {:?}", tti));
+                info_parts.push(format!("TTI {tti:?}"));
             }
 
             tracing::info!("Initializing sprite cache with {}", info_parts.join(", "));
@@ -141,10 +142,10 @@ impl CacheConfig {
 
             let mut info_parts = vec![format!("maximum size {} MB", self.font_cache_size_mb)];
             if let Some(ttl) = self.font_cache_expiry {
-                info_parts.push(format!("TTL {:?}", ttl));
+                info_parts.push(format!("TTL {ttl:?}"));
             }
             if let Some(tti) = self.font_cache_idle_timeout {
-                info_parts.push(format!("TTI {:?}", tti));
+                info_parts.push(format!("TTI {tti:?}"));
             }
 
             tracing::info!("Initializing font cache with {}", info_parts.join(", "));
