@@ -132,10 +132,6 @@ impl Format {
     #[must_use]
     pub fn is_detectable(self) -> bool {
         match self {
-            Self::Png | Self::Jpeg | Self::Gif | Self::Webp | Self::Avif => true,
-            // TODO: Json can be detected, but currently we only detect it
-            //       when it's not compressed, so to avoid a warning, keeping it as false for now.
-            //       Once we can detect it inside a compressed data, change it to true.
             Self::Png
             | Self::Jpeg
             | Self::Gif
