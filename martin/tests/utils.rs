@@ -40,7 +40,12 @@ pub async fn assert_response(response: ServiceResponse) -> ServiceResponse {
 pub type MockSource = (ServerState, Config);
 pub async fn mock_sources(mut config: Config) -> MockSource {
     let res = config.resolve().await;
-    let res = res.unwrap_or_else(|e| panic!("Failed to resolve config {config:?}: {e}"));
+    let res = res.unwrap_or_else(|e| {
+        panic!(
+            "Failed to resolve config\n{config}:\n{e}",
+            config = serde_yaml::to_string(&config).unwrap()
+        )
+    });
     (res, config)
 }
 
