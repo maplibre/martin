@@ -215,44 +215,43 @@ impl TileInfo {
 
     /// Try to figure out the format and encoding of the raw tile data
     #[must_use]
-    pub fn detect(value: &[u8]) -> Option<Self> {
+    pub fn detect(value: &[u8]) -> Self {
         // Try GZIP decompression
         if value.starts_with(b"\x1f\x8b") {
             if let Ok(decompressed) = decode_gzip(value) {
                 let inner_format = Self::detect_vectorish_format(&decompressed);
-                return Some(Self::new(inner_format, Encoding::Gzip));
+                return Self::new(inner_format, Encoding::Gzip);
             }
             // If decompression fails or format is unknown, assume MVT
-            return Some(Self::new(Format::Mvt, Encoding::Gzip));
+            return Self::new(Format::Mvt, Encoding::Gzip);
         }
 
         // Try Zlib decompression
         if value.starts_with(b"\x78\x9c") {
             if let Ok(decompressed) = decode_zlib(value) {
                 let inner_format = Self::detect_vectorish_format(&decompressed);
-                return Some(Self::new(inner_format, Encoding::Zlib));
+                return Self::new(inner_format, Encoding::Zlib);
             }
             // If decompression fails or format is unknown, assume MVT
-            return Some(Self::new(Format::Mvt, Encoding::Zlib));
+            return Self::new(Format::Mvt, Encoding::Zlib);
         }
-        Self::detect_raster_formats(value)
+        if let Some(raster_format) = Self::detect_raster_formats(value) {
+            Self::new(raster_format, Encoding::Internal)
+        } else {
+            let inner_format = Self::detect_vectorish_format(value);
+            Self::new(inner_format, Encoding::Uncompressed)
+        }
     }
 
     /// Fast-path detection without decompression
     #[must_use]
-    fn detect_raster_formats(value: &[u8]) -> Option<Self> {
+    fn detect_raster_formats(value: &[u8]) -> Option<Format> {
         match value {
-            v if v.starts_with(b"\x89\x50\x4E\x47\x0D\x0A\x1A\x0A") => {
-                Some(Self::new(Format::Png, Encoding::Internal))
-            }
-            v if v.starts_with(b"\x47\x49\x46\x38\x39\x61") => {
-                Some(Self::new(Format::Gif, Encoding::Internal))
-            }
-            v if v.starts_with(b"\xFF\xD8\xFF") => {
-                Some(Self::new(Format::Jpeg, Encoding::Internal))
-            }
+            v if v.starts_with(b"\x89\x50\x4E\x47\x0D\x0A\x1A\x0A") => Some(Format::Png),
+            v if v.starts_with(b"\x47\x49\x46\x38\x39\x61") => Some(Format::Gif),
+            v if v.starts_with(b"\xFF\xD8\xFF") => Some(Format::Jpeg),
             v if v.starts_with(b"RIFF") && v.len() > 8 && v[8..].starts_with(b"WEBP") => {
-                Some(Self::new(Format::Webp, Encoding::Internal))
+                Some(Format::Webp)
             }
             _ => None,
         }
@@ -420,22 +419,24 @@ mod tests {
     #[rstest]
     #[case::png(
         include_bytes!("../fixtures/world.png"),
-        Some(TileInfo::new(Format::Png, Encoding::Internal))
+        TileInfo::new(Format::Png, Encoding::Internal)
     )]
     #[case::jpg(
         include_bytes!("../fixtures/world.jpg"),
-        Some(TileInfo::new(Format::Jpeg, Encoding::Internal))
+        TileInfo::new(Format::Jpeg, Encoding::Internal)
     )]
     #[case::webp(
         include_bytes!("../fixtures/dc.webp"),
-        Some(TileInfo::new(Format::Webp, Encoding::Internal))
+        TileInfo::new(Format::Webp, Encoding::Internal)
     )]
     #[case::json(
         br#"{"foo":"bar"}"#,
-        Some(TileInfo::new(Format::Json, Encoding::Uncompressed))
+        TileInfo::new(Format::Json, Encoding::Uncompressed)
     )]
-    #[case::invalid_webp_header(b"RIFF", None)]
-    fn test_data_format_detect(#[case] data: &[u8], #[case] expected: Option<TileInfo>) {
+    // we hae no way of knowing what is an MVT -> we just say it is out of the
+    // fact that it is not something else
+    #[case::invalid_webp_header(b"RIFF", TileInfo::new(Format::Mvt, Encoding::Uncompressed))]
+    fn test_data_format_detect(#[case] data: &[u8], #[case] expected: TileInfo) {
         assert_eq!(TileInfo::detect(data), expected);
     }
 
@@ -445,7 +446,7 @@ mod tests {
         let json_data = br#"{"type":"FeatureCollection","features":[]}"#;
         let compressed = encode_gzip(json_data).unwrap();
         let result = TileInfo::detect(&compressed);
-        assert_eq!(result, Some(TileInfo::new(Format::Json, Encoding::Gzip)));
+        assert_eq!(result, TileInfo::new(Format::Json, Encoding::Gzip));
     }
 
     #[test]
@@ -460,7 +461,7 @@ mod tests {
         let compressed = encoder.finish().unwrap();
 
         let result = TileInfo::detect(&compressed);
-        assert_eq!(result, Some(TileInfo::new(Format::Json, Encoding::Zlib)));
+        assert_eq!(result, TileInfo::new(Format::Json, Encoding::Zlib));
     }
 
     #[test]
@@ -469,7 +470,7 @@ mod tests {
         let mlt_data = &[0x02, 0x01];
         let compressed = encode_gzip(mlt_data).unwrap();
         let result = TileInfo::detect(&compressed);
-        assert_eq!(result, Some(TileInfo::new(Format::Mlt, Encoding::Gzip)));
+        assert_eq!(result, TileInfo::new(Format::Mlt, Encoding::Gzip));
     }
 
     #[test]
@@ -485,7 +486,7 @@ mod tests {
         let compressed = encoder.finish().unwrap();
 
         let result = TileInfo::detect(&compressed);
-        assert_eq!(result, Some(TileInfo::new(Format::Mlt, Encoding::Zlib)));
+        assert_eq!(result, TileInfo::new(Format::Mlt, Encoding::Zlib));
     }
 
     #[test]
@@ -494,7 +495,7 @@ mod tests {
         let random_data = &[0x1a, 0x2b, 0x3c, 0x4d];
         let compressed = encode_gzip(random_data).unwrap();
         let result = TileInfo::detect(&compressed);
-        assert_eq!(result, Some(TileInfo::new(Format::Mvt, Encoding::Gzip)));
+        assert_eq!(result, TileInfo::new(Format::Mvt, Encoding::Gzip));
     }
 
     #[test]
@@ -510,7 +511,7 @@ mod tests {
         let compressed = encoder.finish().unwrap();
 
         let result = TileInfo::detect(&compressed);
-        assert_eq!(result, Some(TileInfo::new(Format::Mvt, Encoding::Zlib)));
+        assert_eq!(result, TileInfo::new(Format::Mvt, Encoding::Zlib));
     }
 
     #[test]
@@ -519,7 +520,7 @@ mod tests {
         let invalid_json = b"{this is not valid json}";
         let compressed = encode_gzip(invalid_json).unwrap();
         let result = TileInfo::detect(&compressed);
-        assert_eq!(result, Some(TileInfo::new(Format::Mvt, Encoding::Gzip)));
+        assert_eq!(result, TileInfo::new(Format::Mvt, Encoding::Gzip));
     }
 
     /// MLTs start with a 7-bit encoded length field followed by a version byte
