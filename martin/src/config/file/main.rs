@@ -347,8 +347,8 @@ impl Config {
     fn get_tiles_cache_config(&self) -> Option<SubCacheSetting> {
         let size_mb = self.tile_cache_size_mb;
         // TODO: the defaults could be smarter. If I don't have a specific source, don't reserve cache for it
-        // default to 25% of the total cache size
-        let size_mb = size_mb.or(self.cache_size_mb.map(|c| c / 4));
+        // default to 50% of the total cache size
+        let size_mb = size_mb.or(self.cache_size_mb.map(|c| c / 2));
         // or default to 128MB
         let size_mb = size_mb.unwrap_or(128);
         let size_mb = NonZeroU64::try_from(size_mb).ok();
