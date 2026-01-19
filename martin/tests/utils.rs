@@ -42,7 +42,7 @@ pub async fn mock_sources(mut config: Config) -> MockSource {
     let res = config.resolve().await;
     let res = res.unwrap_or_else(|e| {
         panic!(
-            "Failed to resolve config\n{config}:\n{e}",
+            "Failed to resolve config:\n{config}\nBecause {e}",
             config = serde_yaml::to_string(&config).unwrap()
         )
     });
