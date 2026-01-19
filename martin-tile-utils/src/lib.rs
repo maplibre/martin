@@ -232,7 +232,7 @@ impl TileInfo {
                 Self::new(Format::Gif, Encoding::Internal)
             }
             v if v.starts_with(b"\xFF\xD8\xFF") => Self::new(Format::Jpeg, Encoding::Internal),
-            v if v.starts_with(b"\x01") => Self::new(Format::Mlt, Encoding::Internal),
+            v if is_7bit_and_then(v, 0x1) => Self::new(Format::Mlt, Encoding::Internal),
             v if v.starts_with(b"RIFF") && v.len() > 8 && v[8..].starts_with(b"WEBP") => {
                 Self::new(Format::Webp, Encoding::Internal)
             }
@@ -276,6 +276,21 @@ impl Display for TileInfo {
         }
         Ok(())
     }
+}
+
+/// MLTs start with a 7-bit encoded length field followed by a version byte
+fn is_7bit_and_then(tile: &[u8], version: u8) -> bool {
+    let mut i = 0;
+
+    while i < tile.len() {
+        let b = tile[i];
+        i += 1;
+
+        if b & 0x80 == 0 {
+            return tile.get(i) == Some(&version);
+        }
+    }
+    false
 }
 
 /// Convert longitude and latitude to a tile (x,y) coordinates for a given zoom
@@ -384,6 +399,20 @@ mod tests {
     #[case::invalid_webp_header(b"RIFF", None)]
     fn test_data_format_detect(#[case] data: &[u8], #[case] expected: Option<TileInfo>) {
         assert_eq!(TileInfo::detect(data), expected);
+    }
+
+    /// MLTs start with a 7-bit encoded length field followed by a version byte
+    #[rstest]
+    #[case::minimal_tile(&[0x02, 0x01], 0x01, true)]
+    #[case::one_byte_length(&[0x05, 0x01, 0xaa, 0xbb], 0x01, true)]
+    #[case::two_byte_length(&[0x80, 0x01, 0x01, 0xcc], 0x01, true)]
+    #[case::multi_byte_length(&[0xff, 0xff, 0x03, 0x02, 0xdd], 0x02, true)]
+    #[case::wrong_version(&[0x05, 0x02, 0xaa], 0x01, false)]
+    #[case::unterminated_length(&[0x80, 0x80, 0x80], 0x01, false)]
+    #[case::missing_version_byte(&[0x05], 0x01, false)]
+    #[case::empty_input(&[], 0x01, false)]
+    fn test_is_7bit_and_then(#[case] tile: &[u8], #[case] version: u8, #[case] expected: bool) {
+        assert_eq!(is_7bit_and_then(tile, version), expected);
     }
 
     #[rstest]
