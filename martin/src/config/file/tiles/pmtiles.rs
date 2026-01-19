@@ -43,7 +43,7 @@ pub struct PmtConfig {
     pub directory_cache_idle_timeout: Option<Duration>,
 
     // if the key is the allowed set, we assume it is there for a purpose
-    // settings and unreconginsed values are partitioned from each other in the init_parsing step
+    // settings and unrecognized values are partitioned from each other in the init_parsing step
     #[serde(skip)]
     pub options: HashMap<String, String>,
 
