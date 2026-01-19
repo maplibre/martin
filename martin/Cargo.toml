@@ -131,7 +131,7 @@ clap.workspace = true
 dashmap.workspace = true
 enum-display = { workspace = true, optional = true }
 futures.workspace = true
-humantime-serde = "1.1.1"
+humantime-serde.workspace = true
 image = { workspace = true, optional = true }
 itertools.workspace = true
 json-patch = { workspace = true, optional = true }
