@@ -358,6 +358,7 @@ mbtiles:
     geography-class-png: tests/fixtures/mbtiles/geography-class-png.mbtiles
     geography-class-png-no-bounds: tests/fixtures/mbtiles/geography-class-png-no-bounds.mbtiles
     json: tests/fixtures/mbtiles/json.mbtiles
+    mlt: tests/fixtures/mbtiles/mlt.mbtiles
     uncompressed_mvt: tests/fixtures/mbtiles/uncompressed_mvt.mbtiles
     webp: tests/fixtures/mbtiles/webp.mbtiles
     world_cities: tests/fixtures/mbtiles/world_cities.mbtiles
