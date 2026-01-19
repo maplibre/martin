@@ -18,32 +18,6 @@ impl TileCache {
     /// * `max_size_bytes` - Maximum cache size in bytes (based on tile data size)
     /// * `expiry` - Optional maximum lifetime (TTL - time to live from creation)
     /// * `idle_timeout` - Optional idle timeout (TTI - time to idle since last access)
-    ///
-    /// When both `expiry` and `idle_timeout` are set, entries expire at the
-    /// earliest of the two times. This allows combining a maximum age (for data freshness) with
-    /// idle eviction (for memory efficiency).
-    ///
-    /// # Examples
-    ///
-    /// ```ignore
-    /// use std::time::Duration;
-    ///
-    /// // Hot tiles expire after 1 hour, cold tiles after 5 minutes
-    /// let cache = TileCache::new(
-    ///     100_000_000,
-    ///     Some(Duration::from_secs(3600)),
-    ///     Some(Duration::from_secs(300))
-    /// );
-    ///
-    /// // All tiles expire after 1 hour regardless of access
-    /// let cache = TileCache::new(100_000_000, Some(Duration::from_secs(3600)), None);
-    ///
-    /// // Tiles expire 5 minutes after last access (no maximum age)
-    /// let cache = TileCache::new(100_000_000, None, Some(Duration::from_secs(300)));
-    ///
-    /// // No time-based expiry, only size-based eviction
-    /// let cache = TileCache::new(100_000_000, None, None);
-    /// ```
     #[must_use]
     pub fn new(
         max_size_bytes: u64,

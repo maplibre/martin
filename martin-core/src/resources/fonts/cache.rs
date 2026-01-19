@@ -23,9 +23,6 @@ impl FontCache {
     /// * `max_size_bytes` - Maximum cache size in bytes (based on font data size)
     /// * `expiry` - Optional maximum lifetime (TTL - time to live from creation)
     /// * `idle_timeout` - Optional idle timeout (TTI - time to idle since last access)
-    ///
-    /// When both `expiry` and `idle_timeout` are set, entries expire at the
-    /// earliest of the two times.
     #[must_use]
     pub fn new(
         max_size_bytes: u64,
