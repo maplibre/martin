@@ -43,12 +43,10 @@ impl SpriteCache {
 
         if let Some(ttl) = expiry {
             builder = builder.time_to_live(ttl);
-            trace!("Sprite cache configured with TTL of {:?}", ttl);
         }
 
         if let Some(tti) = idle_timeout {
             builder = builder.time_to_idle(tti);
-            trace!("Sprite cache configured with TTI of {:?}", tti);
         }
 
         Self {

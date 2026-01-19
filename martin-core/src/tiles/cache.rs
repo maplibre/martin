@@ -33,12 +33,10 @@ impl TileCache {
 
         if let Some(ttl) = expiry {
             builder = builder.time_to_live(ttl);
-            trace!("Tile cache configured with TTL of {:?}", ttl);
         }
 
         if let Some(tti) = idle_timeout {
             builder = builder.time_to_idle(tti);
-            trace!("Tile cache configured with TTI of {:?}", tti);
         }
 
         Self(builder.build())

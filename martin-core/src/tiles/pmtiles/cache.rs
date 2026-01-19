@@ -39,12 +39,10 @@ impl PmtCache {
 
         if let Some(ttl) = expiry {
             builder = builder.time_to_live(ttl);
-            trace!("PMTiles directory cache configured with TTL of {:?}", ttl);
         }
 
         if let Some(tti) = idle_timeout {
             builder = builder.time_to_idle(tti);
-            trace!("PMTiles directory cache configured with TTI of {:?}", tti);
         }
 
         Self(builder.build())
