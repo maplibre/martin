@@ -122,7 +122,7 @@ impl Format {
             Self::Jpeg => "image/jpeg",
             Self::Json => "application/json",
             Self::Mvt => "application/x-protobuf",
-            Self::Mlt => "application/x-maplibre",
+            Self::Mlt => "application/vnd.maplibre-vector-tile",
             Self::Png => "image/png",
             Self::Webp => "image/webp",
             Self::Avif => "image/avif",
