@@ -1,9 +1,9 @@
+use std::borrow::Cow;
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, HashSet};
 
 use futures::future::join_all;
 use itertools::Itertools as _;
-use log::{debug, error, info, warn};
 use martin_core::config::IdResolver;
 use martin_core::config::OptBoolObj::{Bool, NoValue, Object};
 use martin_core::config::OptOneMany::NoVals;
@@ -11,6 +11,7 @@ use martin_core::tiles::BoxedSource;
 use martin_core::tiles::postgres::{
     PostgresError, PostgresPool, PostgresResult, PostgresSource, PostgresSqlInfo,
 };
+use tracing::{debug, error, info, warn};
 
 use crate::config::args::BoundsCalcType;
 use crate::config::file::postgres::resolver::{
@@ -569,13 +570,20 @@ fn warn_on_rename(old_id: &String, new_id: &String, typ: &str) {
 }
 
 fn summary(info: &TableInfo) -> String {
-    let relkind = match info.is_view {
-        Some(true) => "view",
-        _ => "table",
+    let relkind: Cow<_> = match info.relkind {
+        Some('v') => "view".into(),
+        Some('m') => "materialized view".into(),
+        Some('r') => "table".into(),
+        // printing these variants is likely a bug
+        Some(r) => format!("unknown relkind={r}").into(),
+        None => "unknown relkind".into(),
     };
-    // TODO: add column_id to the summary if it is set
+    let id: Cow<_> = info.id_column.as_ref().map_or_else(
+        || "no ID column".into(),
+        |id| format!("ID column {id}").into(),
+    );
     format!(
-        "{relkind} {}.{} with {} column ({}, SRID={})",
+        "{relkind} {}.{} with {} column ({}, SRID={}), {id}",
         info.schema,
         info.table,
         info.geometry_column,
@@ -756,12 +764,11 @@ mod tests {
     }
 
     #[tokio::test]
+    #[tracing_test::traced_test]
     async fn test_nonexistent_tables_functions_generate_warning() {
         use testcontainers_modules::postgres::Postgres;
         use testcontainers_modules::testcontainers::ImageExt;
         use testcontainers_modules::testcontainers::runners::AsyncRunner;
-
-        let _ = env_logger::builder().is_test(true).try_init();
 
         let container = Postgres::default()
             .with_name("postgis/postgis")

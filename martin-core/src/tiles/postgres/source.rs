@@ -1,10 +1,10 @@
 use async_trait::async_trait;
 use deadpool_postgres::tokio_postgres::types::{ToSql, Type};
-use log::debug;
 use martin_tile_utils::Encoding::Uncompressed;
 use martin_tile_utils::Format::Mvt;
 use martin_tile_utils::{TileCoord, TileData, TileInfo};
 use tilejson::TileJSON;
+use tracing::debug;
 
 use crate::tiles::postgres::PostgresError::{
     GetTileError, GetTileWithQueryError, PrepareQueryError,

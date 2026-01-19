@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { formatFileSize } from '@/lib/utils';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { copyToClipboard, formatFileSize } from '@/lib/utils';
 
 describe('formatFileSize', () => {
   it("returns '0 Bytes' for 0", () => {
@@ -40,5 +40,61 @@ describe('formatFileSize', () => {
   it("returns 'File too large' for values exceeding TB", () => {
     expect(formatFileSize(1125899906842624)).toBe('File too large');
     expect(formatFileSize(Number.MAX_SAFE_INTEGER)).toBe('File too large');
+  });
+});
+
+describe('copyToClipboard', () => {
+  const execCommandMock = vi.fn().mockReturnValue(true);
+  // Store reference to original execCommand if it exists
+  // biome-ignore lint/suspicious/noExplicitAny: jsdom doesn't define execCommand, we need to add it
+  const originalDocument = globalThis.document as any;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    execCommandMock.mockReturnValue(true);
+    // Add execCommand to the document object (jsdom doesn't have this)
+    originalDocument.execCommand = execCommandMock;
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+    // Clean up execCommand
+    originalDocument.execCommand = undefined;
+  });
+
+  it('uses navigator.clipboard.writeText when available and succeeds', async () => {
+    const writeTextMock = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal('navigator', {
+      clipboard: { writeText: writeTextMock },
+    });
+
+    await copyToClipboard('test text');
+    expect(writeTextMock).toHaveBeenCalledWith('test text');
+  });
+
+  it('falls back to execCommand when navigator.clipboard is unavailable', async () => {
+    vi.stubGlobal('navigator', { clipboard: undefined });
+
+    await copyToClipboard('fallback text');
+    expect(execCommandMock).toHaveBeenCalledWith('copy');
+  });
+
+  it('falls back to execCommand when navigator.clipboard.writeText fails', async () => {
+    const writeTextMock = vi.fn().mockRejectedValue(new Error('Clipboard API error'));
+    vi.stubGlobal('navigator', {
+      clipboard: { writeText: writeTextMock },
+    });
+
+    await copyToClipboard('test text');
+    expect(writeTextMock).toHaveBeenCalledWith('test text');
+    expect(execCommandMock).toHaveBeenCalledWith('copy');
+  });
+
+  it('throws when both clipboard API and execCommand fail', async () => {
+    vi.stubGlobal('navigator', { clipboard: undefined });
+    execCommandMock.mockReturnValue(false);
+
+    await expect(copyToClipboard('will fail')).rejects.toThrow('Copy command failed');
   });
 });

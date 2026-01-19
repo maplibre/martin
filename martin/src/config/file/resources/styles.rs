@@ -1,11 +1,12 @@
 use std::collections::BTreeMap;
+use std::env;
 use std::path::{Path, PathBuf};
 
-use log::warn;
 #[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
 use martin_core::config::OptBoolObj;
 use martin_core::styles::StyleSources;
 use serde::{Deserialize, Serialize};
+use tracing::warn;
 
 use crate::config::file::{
     ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks, FileConfigEnum,
@@ -148,7 +149,7 @@ fn list_contained_files(
     source_path: &Path,
     filter_extension: &str,
 ) -> Result<Vec<PathBuf>, ConfigFileError> {
-    let working_directory = std::env::current_dir().ok();
+    let working_directory = env::current_dir().ok();
     let mut contained_files = Vec::new();
     let it = walkdir::WalkDir::new(source_path)
         .follow_links(true)

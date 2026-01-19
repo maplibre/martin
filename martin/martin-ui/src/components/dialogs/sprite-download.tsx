@@ -1,6 +1,5 @@
 import { Copy, CopyCheck } from 'lucide-react';
 
-import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -10,7 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { useToast } from '@/hooks/use-toast';
+import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 import { buildMartinUrl } from '@/lib/api';
 import type { SpriteCollection } from '@/lib/types';
 
@@ -27,8 +26,7 @@ interface SpriteFormat {
 }
 
 export function SpriteDownloadDialog({ name, sprite, onCloseAction }: SpriteDownloadDialogProps) {
-  const [copiedUrl, setCopiedUrl] = useState<string | null>(null);
-  const { toast } = useToast();
+  const { copy, copiedValue } = useCopyToClipboard();
   if (!sprite) return null;
 
   // Generate sprite format URLs
@@ -67,29 +65,6 @@ export function SpriteDownloadDialog({ name, sprite, onCloseAction }: SpriteDown
       url: buildMartinUrl(`/sdf_sprite/${name}@2x.png`),
     },
   ];
-
-  const handleCopyUrl = async (url: string, label: string) => {
-    try {
-      await navigator.clipboard.writeText(url);
-
-      setCopiedUrl(url);
-      toast({
-        description: `URL of ${label} copied to clipboard`,
-        title: 'URL Copied',
-      });
-
-      // Reset copied state after 2 seconds
-      setTimeout(() => {
-        setCopiedUrl(null);
-      }, 2000);
-    } catch {
-      toast({
-        description: 'Failed to copy URL to clipboard',
-        title: 'Copy Failed',
-        variant: 'destructive',
-      });
-    }
-  };
 
   return (
     <Dialog onOpenChange={(v: boolean) => !v && onCloseAction()} open={true}>
@@ -178,19 +153,19 @@ export function SpriteDownloadDialog({ name, sprite, onCloseAction }: SpriteDown
                       <p className="text-sm text-muted-foreground">{format.description}</p>
                     </div>
                     <Button
-                      className="ml-4"
-                      onClick={() => handleCopyUrl(format.url, format.label)}
+                      className="ml-4 gap-1"
+                      onClick={() => copy(format.url, `URL of ${format.label} copied to clipboard`)}
                       size="sm"
                       variant="outline"
                     >
-                      {copiedUrl === format.url ? (
+                      {copiedValue === format.url ? (
                         <>
-                          <CopyCheck className="h-4 w-4 mr-2 text-green-600" />
+                          <CopyCheck className="h-4 w-4" />
                           Copied
                         </>
                       ) : (
                         <>
-                          <Copy className="h-4 w-4 mr-2" />
+                          <Copy className="h-4 w-4" />
                           Copy URL
                         </>
                       )}
@@ -219,19 +194,19 @@ export function SpriteDownloadDialog({ name, sprite, onCloseAction }: SpriteDown
                       <p className="text-sm text-muted-foreground">{format.description}</p>
                     </div>
                     <Button
-                      className="ml-4"
-                      onClick={() => handleCopyUrl(format.url, format.label)}
+                      className="ml-4 gap-1"
+                      onClick={() => copy(format.url, `URL of ${format.label} copied to clipboard`)}
                       size="sm"
                       variant="outline"
                     >
-                      {copiedUrl === format.url ? (
+                      {copiedValue === format.url ? (
                         <>
-                          <CopyCheck className="h-4 w-4 mr-2 text-green-600" />
+                          <CopyCheck className="h-4 w-4" />
                           Copied
                         </>
                       ) : (
                         <>
-                          <Copy className="h-4 w-4 mr-2" />
+                          <Copy className="h-4 w-4" />
                           Copy URL
                         </>
                       )}

@@ -111,8 +111,14 @@ export function InlineErrorState({
         <span className="text-sm destructive-foreground">{message}</span>
       </div>
       {onRetry && (
-        <Button disabled={isRetrying} onClick={onRetry} size="sm" variant="outline">
-          <RefreshCw className={`h-3 w-3 mr-1 ${isRetrying ? 'animate-spin' : ''}`} />
+        <Button
+          className="gap-1"
+          disabled={isRetrying}
+          onClick={onRetry}
+          size="sm"
+          variant="outline"
+        >
+          <RefreshCw className={`h-4 w-4 ${isRetrying ? 'animate-spin' : ''}`} />
           {isRetrying ? 'Retrying' : 'Retry'}
         </Button>
       )}

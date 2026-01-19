@@ -8,11 +8,11 @@
 
 use std::cell::RefCell;
 use std::collections::HashSet;
-use std::env::var_os;
 use std::ffi::OsString;
+use std::{collections, env};
 
-use log::warn;
 use subst::VariableMap;
+use tracing::warn;
 
 /// Environment variable access with Unicode validation and usage tracking.
 ///
@@ -54,12 +54,11 @@ pub struct OsEnv(RefCell<HashSet<String>>);
 
 impl Env<'_> for OsEnv {
     fn var_os(&self, key: &str) -> Option<OsString> {
-        #[expect(unused_qualifications)]
-        std::env::var_os(key)
+        env::var_os(key)
     }
 
     fn has_unused_var(&self, key: &str) -> bool {
-        !self.0.borrow().contains(key) && var_os(key).is_some()
+        !self.0.borrow().contains(key) && env::var_os(key).is_some()
     }
 }
 
@@ -68,13 +67,13 @@ impl<'a> VariableMap<'a> for OsEnv {
 
     fn get(&'a self, key: &str) -> Option<Self::Value> {
         self.0.borrow_mut().insert(key.to_string());
-        std::env::var(key).ok()
+        env::var(key).ok()
     }
 }
 
 /// Test implementation with configurable environment variables.
 #[derive(Debug, Default)]
-pub struct FauxEnv(pub std::collections::HashMap<&'static str, OsString>);
+pub struct FauxEnv(pub collections::HashMap<&'static str, OsString>);
 
 impl<'a> VariableMap<'a> for FauxEnv {
     type Value = String;

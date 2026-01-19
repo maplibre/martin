@@ -3,7 +3,6 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 use futures::pin_mut;
-use log::{debug, warn};
 use martin_core::tiles::postgres::PostgresError::PostgresError;
 use martin_core::tiles::postgres::{PostgresPool, PostgresResult, PostgresSqlInfo};
 use martin_tile_utils::EARTH_CIRCUMFERENCE_DEGREES;
@@ -12,6 +11,7 @@ use postgres_protocol::escape::{escape_identifier, escape_literal};
 use serde_json::Value;
 use tilejson::Bounds;
 use tokio::time::timeout;
+use tracing::{debug, warn};
 
 use crate::config::args::{BoundsCalcType, DEFAULT_BOUNDS_TIMEOUT};
 use crate::config::file::postgres::{PostgresInfo, TableInfo};
@@ -73,7 +73,9 @@ pub async fn query_available_tables(
             table,
             geometry_column: row.get("geom"),
             geometry_index: row.get("geom_idx"),
-            is_view: row.get("is_view"),
+            relkind: row
+                .get::<_, Option<i8>>("relkind")
+                .and_then(|r| u8::try_from(r).ok().map(char::from)),
             srid: row.get("srid"), // casting i32 to u32?
             geometry_type: row.get("type"),
             properties: Some(serde_json::from_value(row.get("properties")).unwrap()),
@@ -81,9 +83,9 @@ pub async fn query_available_tables(
             ..Default::default()
         };
 
-        // Warn for missing geometry indices. Ignore views since those can't have indices
-        // and will generally refer to table columns.
-        if let (Some(false), Some(false)) = (info.geometry_index, info.is_view) {
+        // Warn for missing geometry indices.
+        // Ignore views since those can't have indices and will generally refer to table columns.
+        if info.geometry_index == Some(false) && info.relkind != Some('v') {
             warn!(
                 "Table {}.{} has no spatial index on column {}",
                 info.schema, info.table, info.geometry_column

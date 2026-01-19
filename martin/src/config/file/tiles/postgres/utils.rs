@@ -1,8 +1,8 @@
 use std::collections::BTreeMap;
 
 use itertools::Itertools;
-use log::{error, info};
 use tilejson::TileJSON;
+use tracing::{error, info};
 
 #[must_use]
 pub fn normalize_key<T>(

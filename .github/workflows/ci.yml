@@ -28,7 +28,7 @@ jobs:
         with: { persist-credentials: false }
       - uses: taiki-e/install-action@763e3324d4fd026c9bd284c504378585777a87d5 # v2.62.57
         with: { tool: 'just' }
-      - run: npm clean-install
+      - run: npm clean-install --no-fund
         working-directory: martin/martin-ui
       - run: just biomejs-martin-ui
       - run: just test-frontend
@@ -109,15 +109,27 @@ jobs:
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with: { persist-credentials: false }
       - uses: taiki-e/install-action@763e3324d4fd026c9bd284c504378585777a87d5 # v2.62.57
-        # TODO: add cargo-sort once https://github.com/taiki-e/install-action/pull/997 is resolved
-        with: { tool: 'just,cargo-binstall' }
+        with: { tool: 'just' }
       - uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
         if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
       - run: just env-info
-      - run: just test-fmt
       - run: just clippy
       - run: just check
       - run: just check-doc
+  lint-rust-dependencies:
+    name: Lint Rust dependencies
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+      - run: rustup default nightly
+      - name: Checkout sources
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with: { persist-credentials: false }
+      - uses: taiki-e/install-action@69e777b377e4ec209ddad9426ae3e0c1008b0ef3 # v2.64.0
+        with: { tool: 'cargo-shear,just' }
+
+      - run: just shear
   musl-build:
     name: Build ${{ matrix.target }}
     runs-on: ubuntu-latest
@@ -159,7 +171,7 @@ jobs:
   docker-build-test:
     name: Build and test docker images
     runs-on: ubuntu-latest
-    needs: [ musl-build, lint-unit-test-js, unit-test-rust, lint-rust ]
+    needs: [ musl-build, lint-unit-test-js, unit-test-rust, lint-rust, lint-rust-dependencies ]
     permissions:
       id-token: write
       attestations: write
@@ -199,6 +211,8 @@ jobs:
         run: tests/fixtures/initdb.sh
         env:
           PGPORT: ${{ job.services.postgres.ports[5432] }}
+      - uses: taiki-e/install-action@763e3324d4fd026c9bd284c504378585777a87d5 # v2.62.57
+        with: { tool: sqlx-cli }
 
       # we want to test our docker images before we push them to the registry
       # this is done by
@@ -317,20 +331,19 @@ jobs:
           PLATFORM=linux/arm64
           TAG=${{ github.repository }}:linux
           export MARTIN_BUILD_ALL=-
-          export MARTIN_BIN="docker run --rm --net host --platform $PLATFORM -e DATABASE_URL -e AWS_REGION=eu-central-1 -e AWS_SKIP_CREDENTIALS=1 -v $PWD/tests:/tests $TAG"
-          export MARTIN_CP_BIN="docker run --rm --net host --platform $PLATFORM -e DATABASE_URL -e AWS_REGION=eu-central-1 -e AWS_SKIP_CREDENTIALS=1 -v $PWD/tests:/tests --entrypoint /usr/local/bin/martin-cp $TAG"
+          export MARTIN_BIN="docker run --rm --net host --platform $PLATFORM -e DATABASE_URL -e AWS_REGION=eu-central-1 -e AWS_SKIP_CREDENTIALS=1 -e RUST_LOG_FORMAT=bare -v $PWD/tests:/tests $TAG"
+          export MARTIN_CP_BIN="docker run --rm --net host --platform $PLATFORM -e DATABASE_URL -e AWS_REGION=eu-central-1 -e AWS_SKIP_CREDENTIALS=1 -e RUST_LOG_FORMAT=bare -v $PWD/tests:/tests --entrypoint /usr/local/bin/martin-cp $TAG"
           export MBTILES_BIN="docker run --rm --net host --platform $PLATFORM -e DATABASE_URL -e AWS_REGION=eu-central-1 -e AWS_SKIP_CREDENTIALS=1 -v $PWD/tests:/tests --entrypoint /usr/local/bin/mbtiles $TAG"
           tests/test.sh
         env:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=require
-
       - name: Test linux/amd64 Docker image
         run: |
           PLATFORM=linux/amd64
           TAG=${{ github.repository }}:linux
           export MARTIN_BUILD_ALL=-
-          export MARTIN_BIN="docker run --rm --net host --platform $PLATFORM -e DATABASE_URL -e AWS_REGION=eu-central-1 -e AWS_SKIP_CREDENTIALS=1 -v $PWD/tests:/tests $TAG"
-          export MARTIN_CP_BIN="docker run --rm --net host --platform $PLATFORM -e DATABASE_URL -e AWS_REGION=eu-central-1 -e AWS_SKIP_CREDENTIALS=1 -v $PWD/tests:/tests --entrypoint /usr/local/bin/martin-cp $TAG"
+          export MARTIN_BIN="docker run --rm --net host --platform $PLATFORM -e DATABASE_URL -e AWS_REGION=eu-central-1 -e AWS_SKIP_CREDENTIALS=1 -e RUST_LOG_FORMAT=bare -v $PWD/tests:/tests $TAG"
+          export MARTIN_CP_BIN="docker run --rm --net host --platform $PLATFORM -e DATABASE_URL -e AWS_REGION=eu-central-1 -e AWS_SKIP_CREDENTIALS=1 -e RUST_LOG_FORMAT=bare -v $PWD/tests:/tests --entrypoint /usr/local/bin/martin-cp $TAG"
           export MBTILES_BIN="docker run --rm --net host --platform $PLATFORM -e DATABASE_URL -e AWS_REGION=eu-central-1 -e AWS_SKIP_CREDENTIALS=1 -v $PWD/tests:/tests --entrypoint /usr/local/bin/mbtiles $TAG"
           tests/test.sh
         env:
@@ -455,13 +468,12 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with: { persist-credentials: false }
+      - uses: taiki-e/install-action@763e3324d4fd026c9bd284c504378585777a87d5 # v2.62.57
+        with: { tool: 'just' }
       - name: Download build artifact build-x86_64-unknown-linux-musl
         uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with: { name: 'build-x86_64-unknown-linux-musl', path: 'target/' }
-
-      - run: tests/test-aws-lambda.sh
-        env:
-          MARTIN_BIN: target/martin
+      - run: just test-lambda target/martin
 
   test-multi-os:
     name: Test on ${{ matrix.os }}
@@ -784,7 +796,7 @@ jobs:
       attestations: write
       # for writing release artifacts
       contents: write
-    needs: [ lint-unit-test-js, unit-test-rust, lint-rust, test-multi-os, test-with-svc, test-aws-lambda, test-publish ]
+    needs: [ lint-unit-test-js, unit-test-rust, lint-rust, lint-rust-dependencies, test-multi-os, test-with-svc, test-aws-lambda, test-publish ]
     steps:
       - name: Checkout sources
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1

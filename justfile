@@ -2,7 +2,8 @@
 
 set shell := ['bash', '-c']
 
-# How to call the current just executable. Note that just_executable() may have `\` in Windows paths, so we need to quote it.
+# How to call the current just executable.
+# Note that just_executable() may have `\` in Windows paths, so we need to quote it.
 just := quote(just_executable())
 dockercompose := `if docker-compose --version &> /dev/null; then echo "docker-compose"; else echo "docker compose"; fi`
 
@@ -62,7 +63,19 @@ biomejs-martin-ui:
     npm run lint
 
 # Run integration tests and save its output as the new expected output (ordering is important)
-bless: restart clean-test bless-insta-martin bless-insta-martin-core bless-insta-mbtiles bless-frontend bless-int
+bless:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    echo "Blessing unit tests"
+    for target in restart clean-test bless-insta-martin bless-insta-martin-core bless-insta-mbtiles bless-frontend; do
+      echo "::group::just $target"
+      {{quote(just_executable())}} $target
+      echo "::endgroup::"
+    done
+
+    echo "Blessing integration tests"
+    {{quote(just_executable())}} bless-int
 
 # Bless the frontend tests
 [working-directory: 'martin/martin-ui']
@@ -152,7 +165,7 @@ coverage *args='--no-clean --open':  (cargo-install 'cargo-llvm-cov') clean star
 cp *args:
     cargo run --bin martin-cp -- {{args}}
 
-# Start Martin server and open a test page
+# Start Martin server and open a test page (not the integrated UI)
 debug-page *args: start
     open tests/debug.html  # run will not exit, so open debug page first
     {{just}} run {{args}}
@@ -168,7 +181,7 @@ docs *args='--open':
 # Print environment info
 env-info:
     @echo "Running {{if ci_mode == '1' {'in CI mode'} else {'in dev mode'} }} on {{os()}} / {{arch()}}"
-    @echo "PWD $(pwd)"
+    @echo "PWD {{justfile_directory()}}"
     {{just}} --version
     rustc --version
     cargo --version
@@ -315,6 +328,12 @@ start-ssl-cert:  (docker-up 'db-ssl-cert') docker-is-ready
 stop:
     {{dockercompose}} down --remove-orphans
 
+# runs cargo-shear to lint Rust dependencies
+shear:
+    cargo shear --expand
+    # in the future: add --deny-warnings
+    # https://github.com/Boshen/cargo-shear/pull/386
+
 # Run all tests using a test database
 test: start (test-cargo '--all-targets') test-doc test-frontend test-int
 
@@ -359,8 +378,51 @@ test-int: clean-test install-sqlx
     fi
 
 # Run AWS Lambda smoke test against SAM local
-test-lambda:
-    tests/test-aws-lambda.sh
+test-lambda martin_bin='target/debug/martin':
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    echo "::group::Build Lambda Function"
+    if ! command -v sam >/dev/null 2>&1; then
+      echo "The AWS Serverless Application Model Command Line Interface (AWS SAM CLI) is missing."
+      echo "  https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html"
+      exit 1
+    fi
+    # `sam build` will copy the _entire_ context to a temporary directory, so just give it the files we need
+    mkdir -p .github/files/lambda-layer/bin/
+    if ! install {{quote(martin_bin)}} .github/files/lambda-layer/bin/; then
+      echo "Specify the binary, e.g. 'just test-lambda target/x86_64-linux-unknown-musl/release/martin'"
+      echo "Alternatively, build the binary with 'cargo build -p martin' and it will be used by default"
+      exit 1
+    fi
+    cp ./tests/fixtures/pmtiles2/webp2.pmtiles .github/files/lambda-function/
+
+    # build without touching real credentials
+    export AWS_PROFILE=dummy
+    export AWS_CONFIG_FILE=.github/files/dummy-aws-config
+    sam build --template-file .github/files/lambda.yaml
+    echo "::endgroup::"
+
+    # Just send a single request using `sam local invoke` to verify that
+    # the server boots, finds a source to serve, and can handle a request.
+    # TODO Run the fuller integration suite against this.
+    # In doing so, switch from `sam local invoke`, which starts and stops the
+    # server, to `sam local start-api`, which keeps it running.
+    echo "::group::Generate Event"
+    event=$(
+      sam local generate-event apigateway http-api-proxy \
+        | jq '.rawPath = "/" | .requestContext.http.method = "GET"'
+    )
+    echo "event:"
+    echo "$event" | jq .
+    echo "::endgroup::"
+
+    echo "::group::Invoke Lambda Function"
+    response=$(sam local invoke -e <(echo "$event"))
+    echo "::endgroup::"
+
+    jq -ne 'input.statusCode == 200' <<<"$response"
+
 
 # Run all tests using the oldest supported version of the database
 test-legacy: start-legacy (test-cargo '--all-targets') test-doc test-int
@@ -410,31 +472,24 @@ validate-tools:
 
     # Check essential tools
     missing_tools=()
-
     if ! command -v jq >/dev/null 2>&1; then
         missing_tools+=("jq")
     fi
-
     if ! command -v file >/dev/null 2>&1; then
         missing_tools+=("file")
     fi
-
     if ! command -v curl >/dev/null 2>&1; then
         missing_tools+=("curl")
     fi
-
     if ! command -v grep >/dev/null 2>&1; then
         missing_tools+=("grep")
     fi
-
     if ! command -v sqlite3 >/dev/null 2>&1; then
         missing_tools+=("sqlite3")
     fi
-
     if ! command -v sqldiff >/dev/null 2>&1; then
         missing_tools+=("sqldiff")
     fi
-
 
     # Check Darwin-specific tools
     if [[ "$OSTYPE" == "darwin"* ]]; then

@@ -1,49 +1,30 @@
-import { useToast } from '@/hooks/use-toast';
+import { Copy } from 'lucide-react';
+import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 import { Tooltip, TooltipContent, TooltipTrigger } from './tooltip';
 
-/**
- * Props for TooltipCopyText
- * @param text The string to copy to clipboard (required)
- * @param ...props Any other TooltipContent props
- */
 export interface TooltipCopyTextProps {
   text: string;
 }
 
 export function TooltipCopyText({ text, ...props }: TooltipCopyTextProps) {
-  const { toast } = useToast();
-
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(text);
-      toast({
-        description: `"${text}"`,
-        title: 'Copied!',
-      });
-    } catch (err) {
-      console.error(`Failed to copy "${text}"`, err);
-      toast({
-        description: 'Failed to copy to clipboard',
-        title: 'Error',
-        variant: 'destructive',
-      });
-    }
-  };
+  // no copied and switching the icon since clicking immediately closes the tooltip
+  const { copy } = useCopyToClipboard({ successMessage: `"${text}"` });
 
   return (
     <Tooltip>
       <TooltipTrigger
         className="text-lg font-mono cursor-pointer truncate w-full"
-        onClick={handleCopy}
+        onClick={() => copy(text)}
         type="button"
       >
         <code>{text}</code>
       </TooltipTrigger>
       <TooltipContent {...props}>
-        <div className="flex flex-col justify-center items-center">
-          <div className="text-xs">{text}</div>
-          <br />
-          <div className="text-sm">Click to copy</div>
+        <div className="flex flex-col justify-center items-center p-1">
+          <div className="text-sm font-mono">{text}</div>
+          <div className="text-xs pt-3 flex flex-row gap-1 text-slate-400 p-0.5">
+            <Copy className="h-3 w-3 mb-0.5" /> Click to copy
+          </div>
         </div>
       </TooltipContent>
     </Tooltip>

@@ -1,16 +1,16 @@
 {
   "fonts": {
     "Overpass Mono Light": {
-      "end": 64258,
+      "end": 128276,
       "family": "Overpass Mono",
-      "glyphs": 931,
+      "glyphs": 934,
       "start": 0,
       "style": "Light"
     },
     "Overpass Mono Regular": {
-      "end": 64258,
+      "end": 128276,
       "family": "Overpass Mono",
-      "glyphs": 931,
+      "glyphs": 934,
       "start": 0,
       "style": "Regular"
     }
@@ -141,6 +141,10 @@
     "json": {
       "content_type": "application/json",
       "name": "Dummy json data"
+    },
+    "mat_view": {
+      "content_type": "application/x-protobuf",
+      "description": "materialized view comment"
     },
     "png": {
       "content_type": "image/png",

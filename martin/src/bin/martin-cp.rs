@@ -1,5 +1,6 @@
 use std::borrow::Cow;
-use std::fmt::{Debug, Display, Formatter, Write};
+use std::env;
+use std::fmt::{Debug, Display, Formatter};
 use std::num::NonZeroUsize;
 use std::ops::RangeInclusive;
 use std::path::PathBuf;
@@ -14,9 +15,9 @@ use clap::builder::Styles;
 use clap::builder::styling::AnsiColor;
 use futures::TryStreamExt;
 use futures::stream::{self, StreamExt};
-use log::{debug, error, info, log_enabled, warn};
 use martin::config::args::{Args, ExtraArgs, MetaArgs, SrvArgs};
 use martin::config::file::{Config, ServerState, read_config};
+use martin::logging::{ensure_martin_core_log_level_matches, init_tracing};
 use martin::srv::{DynTileSource, merge_tilejson};
 use martin::{MartinError, MartinResult};
 use martin_core::config::env::OsEnv;
@@ -33,6 +34,7 @@ use tilejson::Bounds;
 use tokio::sync::mpsc::channel;
 use tokio::time::Instant;
 use tokio::try_join;
+use tracing::{debug, error, info, warn};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const SAVE_EVERY: Duration = Duration::from_secs(60);
@@ -50,7 +52,7 @@ const HELP_STYLES: Styles = Styles::styled()
 #[command(
     about = "A tool to bulk copy tiles from any Martin-supported sources into an mbtiles file",
     version,
-    after_help = "Use RUST_LOG environment variable to control logging level, e.g. RUST_LOG=debug or RUST_LOG=martin_cp=debug. See https://docs.rs/env_logger/latest/env_logger/index.html#enabling-logging for more information.",
+    after_help = "Use RUST_LOG environment variable to control logging level, e.g. RUST_LOG=debug or RUST_LOG=martin_cp=debug.\nUse RUST_LOG_FORMAT environment variable to control output format: json, full, compact (default), bare or pretty.\nSee https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.EnvFilter.html for more information.",
     styles = HELP_STYLES
 )]
 pub struct CopierArgs {
@@ -298,6 +300,45 @@ enum MartinCpError {
     InvalidBoundingBox(&'static str, Bounds, RangeInclusive<f64>),
 }
 
+fn write_duration(f: &mut impl std::fmt::Write, secs: f32) -> std::fmt::Result {
+    if !secs.is_normal() || secs < 0. {
+        // Nonsense input
+        f.write_str("???")
+    } else if secs < 1. {
+        write!(f, "<1s")
+    } else {
+        // we've already handled cases of inf, or negative
+        #[allow(clippy::cast_possible_truncation)]
+        #[allow(clippy::cast_sign_loss)]
+        let secs = secs.ceil() as u64;
+
+        let (mins, secs) = (secs / 60, secs % 60);
+        let (hrs, mins) = (mins / 60, mins % 60);
+        let (days, hrs) = (hrs / 24, hrs % 24);
+
+        // yes, the order is different. Calc years & days, then calc weeks
+        let (years, days) = (days / 365, days % 365);
+        let (weeks, days) = (days / 7, days % 7);
+
+        if years > 0 {
+            write!(
+                f,
+                "{years}y{weeks:02}w{days:02}d{hrs:02}h{mins:02}m{secs:02}s"
+            )
+        } else if weeks > 0 {
+            write!(f, "{weeks}w{days:02}d{hrs:02}h{mins:02}m{secs:02}s")
+        } else if days > 0 {
+            write!(f, "{days}d{hrs:02}h{mins:02}m{secs:02}s")
+        } else if hrs > 0 {
+            write!(f, "{hrs}h{mins:02}m{secs:02}s")
+        } else if mins > 0 {
+            write!(f, "{mins}m{secs:02}s")
+        } else {
+            write!(f, "{secs}s")
+        }
+    }
+}
+
 impl Display for Progress {
     #[expect(clippy::cast_precision_loss)]
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -312,19 +353,24 @@ impl Display for Progress {
         } else {
             0.0
         };
+        write!(f, "[")?;
+        write_duration(f, elapsed_s)?;
+
         write!(
             f,
-            "[{elapsed:.1?}] {percent:.2}% @ {speed:.1}/s | ✓ {non_empty} □ {empty}"
+            "] {percent:.2}% @ {speed:.1}/s | ✓ {non_empty} □ {empty}"
         )?;
 
         let left = self.total - done;
+        f.write_str(" | ")?;
         if left == 0 {
-            f.write_str(" | done")
+            f.write_str("done")
         } else if done == 0 {
-            f.write_str(" | ??? left")
+            f.write_str("??? left")
         } else {
-            let left = Duration::from_secs_f32(elapsed_s * left as f32 / done as f32);
-            write!(f, " | {left:.0?} left")
+            let secs = elapsed_s * left as f32 / done as f32;
+            write_duration(f, secs)?;
+            f.write_str(" left")
         }
     }
 }
@@ -574,24 +620,15 @@ async fn init_schema(
     )
 }
 
-#[actix_web::main]
+#[tokio::main]
 async fn main() {
-    let mut log_filter = std::env::var("RUST_LOG").unwrap_or("martin-cp=info".to_string());
-    // if we don't have martin_core set, this can hide parts of our logs unintentionally
-    if log_filter.contains("martin-cp=")
-        && !log_filter.contains("martin_core=")
-        && let Some(level) = log_filter
-            .split(',')
-            .find_map(|s| s.strip_prefix("martin-cp="))
-    {
-        let level = level.to_string();
-        let _ = write!(log_filter, ",martin_core={level}");
-    }
-    env_logger::builder().parse_filters(&log_filter).init();
+    let filter = ensure_martin_core_log_level_matches(env::var("RUST_LOG").ok(), "martin_cp=");
+    init_tracing(&filter, env::var("RUST_LOG_FORMAT").ok());
 
-    if let Err(e) = start(CopierArgs::parse()).await {
+    let args = CopierArgs::parse();
+    if let Err(e) = start(args).await {
         // Ensure the message is printed, even if the logging is disabled
-        if log_enabled!(log::Level::Error) {
+        if tracing::event_enabled!(tracing::Level::ERROR) {
             error!("{e}");
         } else {
             eprintln!("{e}");
