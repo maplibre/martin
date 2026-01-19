@@ -216,16 +216,34 @@ impl TileInfo {
     /// Try to figure out the format and encoding of the raw tile data
     #[must_use]
     pub fn detect(value: &[u8]) -> Option<Self> {
-        // TODO: Make detection slower but more accurate:
-        //  - uncompress gzip/zlib/... and run detection again. If detection fails, assume MVT
-        //  - detect json inside a compressed data
-        //    - json should be fully parsed
-        //  - detect MLT inside a compressed data
-        //  - possibly keep the current `detect()` available as a fast path to short-circuit
+        // Try GZIP decompression
+        if value.starts_with(b"\x1f\x8b") {
+            if let Ok(decompressed) = decode_gzip(value)
+                && let Some(inner_format) = Self::detect_vectorish_format(&decompressed)
+            {
+                return Some(Self::new(inner_format, Encoding::Gzip));
+            }
+            // If decompression fails or format is unknown, assume MVT
+            return Some(Self::new(Format::Mvt, Encoding::Gzip));
+        }
+
+        // Try Zlib decompression
+        if value.starts_with(b"\x78\x9c") {
+            if let Ok(decompressed) = decode_zlib(value)
+                && let Some(inner_format) = Self::detect_vectorish_format(&decompressed)
+            {
+                return Some(Self::new(inner_format, Encoding::Zlib));
+            }
+            // If decompression fails or format is unknown, assume MVT
+            return Some(Self::new(Format::Mvt, Encoding::Zlib));
+        }
+        Self::detect_raster_formats(value)
+    }
+
+    /// Fast-path detection without decompression
+    #[must_use]
+    fn detect_raster_formats(value: &[u8]) -> Option<Self> {
         Some(match value {
-            // Compressed prefixes assume MVT content
-            v if v.starts_with(b"\x1f\x8b") => Self::new(Format::Mvt, Encoding::Gzip),
-            v if v.starts_with(b"\x78\x9c") => Self::new(Format::Mvt, Encoding::Zlib),
             v if v.starts_with(b"\x89\x50\x4E\x47\x0D\x0A\x1A\x0A") => {
                 Self::new(Format::Png, Encoding::Internal)
             }
@@ -233,15 +251,22 @@ impl TileInfo {
                 Self::new(Format::Gif, Encoding::Internal)
             }
             v if v.starts_with(b"\xFF\xD8\xFF") => Self::new(Format::Jpeg, Encoding::Internal),
-            v if is_7bit_and_then(v, 0x1) => Self::new(Format::Mlt, Encoding::Internal),
             v if v.starts_with(b"RIFF") && v.len() > 8 && v[8..].starts_with(b"WEBP") => {
                 Self::new(Format::Webp, Encoding::Internal)
             }
-            v if v.starts_with(b"{") && v.ends_with(b"}") => {
-                Self::new(Format::Json, Encoding::Uncompressed)
-            }
             _ => None?,
         })
+    }
+
+    /// Detect the format of vector (or json) data after decompression
+    #[must_use]
+    fn detect_vectorish_format(value: &[u8]) -> Option<Format> {
+        match value {
+            v if is_valid_json(v) => Some(Format::Json),
+            v if is_7bit_and_then(v, 0x1) => Some(Format::Mlt),
+            // If we can't detect the format, we assume MVT, since it's the most common format and we don't have a detector for it
+            _ => Some(Format::Mvt),
+        }
     }
 
     #[must_use]
@@ -292,6 +317,15 @@ fn is_7bit_and_then(tile: &[u8], version: u8) -> bool {
         }
     }
     false
+}
+
+/// Detects if the given tile is a valid JSON tile.
+///
+/// The checks if it is a dictionary are to speed up the validation process.
+fn is_valid_json(tile: &[u8]) -> bool {
+    tile.starts_with(b"{")
+        && tile.ends_with(b"}")
+        && serde_json::from_slice::<serde_json::Value>(tile).is_ok()
 }
 
 /// Convert longitude and latitude to a tile (x,y) coordinates for a given zoom
@@ -400,6 +434,86 @@ mod tests {
     #[case::invalid_webp_header(b"RIFF", None)]
     fn test_data_format_detect(#[case] data: &[u8], #[case] expected: Option<TileInfo>) {
         assert_eq!(TileInfo::detect(data), expected);
+    }
+
+    /// Test detection of compressed content (JSON, MLT, MVT)
+    #[test]
+    fn test_compressed_json_gzip() {
+        let json_data = br#"{"type":"FeatureCollection","features":[]}"#;
+        let compressed = encode_gzip(json_data).unwrap();
+        let result = TileInfo::detect(&compressed);
+        assert_eq!(result, Some(TileInfo::new(Format::Json, Encoding::Gzip)));
+    }
+
+    #[test]
+    fn test_compressed_json_zlib() {
+        use flate2::write::ZlibEncoder;
+        use std::io::Write;
+
+        let json_data = br#"{"type":"FeatureCollection","features":[]}"#;
+        let mut encoder = ZlibEncoder::new(Vec::new(), flate2::Compression::default());
+        encoder.write_all(json_data).unwrap();
+        let compressed = encoder.finish().unwrap();
+
+        let result = TileInfo::detect(&compressed);
+        assert_eq!(result, Some(TileInfo::new(Format::Json, Encoding::Zlib)));
+    }
+
+    #[test]
+    fn test_compressed_mlt_gzip() {
+        // MLT tile: length=2 (0x02), version=1 (0x01)
+        let mlt_data = &[0x02, 0x01];
+        let compressed = encode_gzip(mlt_data).unwrap();
+        let result = TileInfo::detect(&compressed);
+        assert_eq!(result, Some(TileInfo::new(Format::Mlt, Encoding::Gzip)));
+    }
+
+    #[test]
+    fn test_compressed_mlt_zlib() {
+        use flate2::write::ZlibEncoder;
+        use std::io::Write;
+
+        // MLT tile: length=5 (0x05), version=1 (0x01), plus some data
+        let mlt_data = &[0x05, 0x01, 0xaa, 0xbb];
+        let mut encoder = ZlibEncoder::new(Vec::new(), flate2::Compression::default());
+        encoder.write_all(mlt_data).unwrap();
+        let compressed = encoder.finish().unwrap();
+
+        let result = TileInfo::detect(&compressed);
+        assert_eq!(result, Some(TileInfo::new(Format::Mlt, Encoding::Zlib)));
+    }
+
+    #[test]
+    fn test_compressed_mvt_gzip_fallback() {
+        // Random data that doesn't match any known format => should be detected as MVT
+        let random_data = &[0x1a, 0x2b, 0x3c, 0x4d];
+        let compressed = encode_gzip(random_data).unwrap();
+        let result = TileInfo::detect(&compressed);
+        assert_eq!(result, Some(TileInfo::new(Format::Mvt, Encoding::Gzip)));
+    }
+
+    #[test]
+    fn test_compressed_mvt_zlib_fallback() {
+        use flate2::write::ZlibEncoder;
+        use std::io::Write;
+
+        // Random data that doesn't match any known format => should be detected as MVT
+        let random_data = &[0xaa, 0xbb, 0xcc, 0xdd];
+        let mut encoder = ZlibEncoder::new(Vec::new(), flate2::Compression::default());
+        encoder.write_all(random_data).unwrap();
+        let compressed = encoder.finish().unwrap();
+
+        let result = TileInfo::detect(&compressed);
+        assert_eq!(result, Some(TileInfo::new(Format::Mvt, Encoding::Zlib)));
+    }
+
+    #[test]
+    fn test_invalid_json_in_gzip() {
+        // Data that looks like JSON but isn't valid => should fall back to MVT
+        let invalid_json = b"{this is not valid json}";
+        let compressed = encode_gzip(invalid_json).unwrap();
+        let result = TileInfo::detect(&compressed);
+        assert_eq!(result, Some(TileInfo::new(Format::Mvt, Encoding::Gzip)));
     }
 
     /// MLTs start with a 7-bit encoded length field followed by a version byte
