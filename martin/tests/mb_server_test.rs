@@ -54,12 +54,21 @@ async fn config(
     let mvt_script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
     let (mvt_mbt, mvt_conn, mvt_file) =
         temp_named_mbtiles(&format!("{test_name}_mapbox_vector_tiles"), mvt_script).await;
-    let raw_mapbox_vector_tiles_script = include_str!("../../tests/fixtures/mbtiles/uncompressed_mvt.sql");
+    let raw_mapbox_vector_tiles_script =
+        include_str!("../../tests/fixtures/mbtiles/uncompressed_mvt.sql");
     let (raw_mapbox_vector_tiles_mbt, raw_mapbox_vector_tiles_conn, raw_mapbox_vector_tiles_file) =
-        temp_named_mbtiles(&format!("{test_name}_raw_mapbox_vector_tiles"), raw_mapbox_vector_tiles_script).await;
+        temp_named_mbtiles(
+            &format!("{test_name}_raw_mapbox_vector_tiles"),
+            raw_mapbox_vector_tiles_script,
+        )
+        .await;
     let raw_maplibre_tiles_script = include_str!("../../tests/fixtures/mbtiles/mlt.sql");
     let (raw_maplibre_tiles_mbt, raw_maplibre_tiles_conn, raw_maplibre_tiles_file) =
-        temp_named_mbtiles(&format!("{test_name}_raw_maplibre_tiles"), raw_maplibre_tiles_script).await;
+        temp_named_mbtiles(
+            &format!("{test_name}_raw_maplibre_tiles"),
+            raw_maplibre_tiles_script,
+        )
+        .await;
     let webp_script = include_str!("../../tests/fixtures/mbtiles/webp.sql");
     let (webp_mbt, webp_conn, webp_file) =
         temp_named_mbtiles(&format!("{test_name}_webp"), webp_script).await;
@@ -245,7 +254,9 @@ async fn mbt_get_mapbox_vector_tiles_gzip() {
     let (config, _conns) = config("mbt_get_mapbox_vector_tiles_gzip").await;
     let app = create_app!(&config);
     let accept = (ACCEPT_ENCODING, "gzip");
-    let req = test_get("/m_mapbox_vector_tiles/0/0/0").insert_header(accept).to_request();
+    let req = test_get("/m_mapbox_vector_tiles/0/0/0")
+        .insert_header(accept)
+        .to_request();
     let response = call_service(&app, req).await;
     let response = assert_response(response).await;
     assert_eq!(
@@ -266,7 +277,9 @@ async fn mbt_get_mapbox_vector_tiles_brotli() {
     let (config, _conns) = config("mbt_get_mapbox_vector_tiles_brotli").await;
     let app = create_app!(&config);
     let accept = (ACCEPT_ENCODING, "br");
-    let req = test_get("/m_mapbox_vector_tiles/0/0/0").insert_header(accept).to_request();
+    let req = test_get("/m_mapbox_vector_tiles/0/0/0")
+        .insert_header(accept)
+        .to_request();
     let response = call_service(&app, req).await;
     let response = assert_response(response).await;
     assert_eq!(
