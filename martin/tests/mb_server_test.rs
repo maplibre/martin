@@ -53,8 +53,13 @@ async fn config(
         temp_named_mbtiles(&format!("{test_name}_json"), json_script).await;
     let mapbox_vector_tiles_script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
     let (mapbox_vector_tiles_mbt, mapbox_vector_tiles_conn, mapbox_vector_tiles_file) =
-        temp_named_mbtiles(&format!("{test_name}_mapbox_vector_tiles"), mapbox_vector_tiles_script).await;
-    let raw_mapbox_vector_tiles_script = include_str!("../../tests/fixtures/mbtiles/uncompressed_mvt.sql");
+        temp_named_mbtiles(
+            &format!("{test_name}_mapbox_vector_tiles"),
+            mapbox_vector_tiles_script,
+        )
+        .await;
+    let raw_mapbox_vector_tiles_script =
+        include_str!("../../tests/fixtures/mbtiles/uncompressed_mvt.sql");
     let (raw_mapbox_vector_tiles_mbt, raw_mapbox_vector_tiles_conn, raw_mapbox_vector_tiles_file) =
         temp_named_mbtiles(
             &format!("{test_name}_raw_mapbox_vector_tiles"),
@@ -308,6 +313,24 @@ async fn mbt_get_raw_mapbox_vector_tiles() {
     assert!(response.headers().get(CONTENT_ENCODING).is_none());
     let body = read_body(response).await;
     assert_eq!(body.len(), 2);
+}
+
+/// get an uncompressed MLT tile
+#[actix_rt::test]
+#[tracing_test::traced_test]
+async fn mbt_get_raw_maplibre_tiles() {
+    let (config, _conns) = config("mbt_get_raw_maplibre_tiles").await;
+    let app = create_app!(&config);
+    let req = test_get("/m_raw_maplibre_tiles/0/0/0").to_request();
+    let response = call_service(&app, req).await;
+    let response = assert_response(response).await;
+    assert_eq!(
+        response.headers().get(CONTENT_TYPE).unwrap(),
+        "application/vnd.maplibre-vector-tile"
+    );
+    assert_eq!(response.headers().get(CONTENT_ENCODING), None);
+    let body = read_body(response).await;
+    assert_eq!(body.iter().as_slice(), &[0x27, 0xA2]);
 }
 
 /// get an uncompressed MVT tile with accepted gzip
