@@ -603,4 +603,176 @@ mod tests {
         assert!(parse_base_path("").is_err());
         assert!(parse_base_path("foo/bar").is_err());
     }
+
+    #[test]
+    fn test_cache_expiry_global_config() {
+        use indoc::indoc;
+        use martin_core::config::env::FauxEnv;
+
+        let yaml = indoc! {"
+            cache_size_mb: 512
+            cache_expiry: 1h
+            cache_idle_timeout: 5m
+        "};
+
+        let config = parse_config(yaml, &FauxEnv::default(), Path::new("test.yaml")).unwrap();
+
+        assert_eq!(config.cache_size_mb, Some(512));
+        assert_eq!(config.cache_expiry, Some(Duration::from_secs(3600)));
+        assert_eq!(config.cache_idle_timeout, Some(Duration::from_secs(300)));
+    }
+
+    #[test]
+    fn test_cache_expiry_tile_specific() {
+        use indoc::indoc;
+        use martin_core::config::env::FauxEnv;
+
+        let yaml = indoc! {"
+            cache_size_mb: 512
+            cache_expiry: 1h
+            cache_idle_timeout: 10m
+            tile_cache_expiry: 30m
+            tile_cache_idle_timeout: 5m
+        "};
+
+        let config = parse_config(yaml, &FauxEnv::default(), Path::new("test.yaml")).unwrap();
+
+        // Global settings
+        assert_eq!(config.cache_expiry, Some(Duration::from_secs(3600)));
+        assert_eq!(config.cache_idle_timeout, Some(Duration::from_secs(600)));
+
+        // Tile-specific overrides
+        assert_eq!(config.tile_cache_expiry, Some(Duration::from_secs(1800)));
+        assert_eq!(
+            config.tile_cache_idle_timeout,
+            Some(Duration::from_secs(300))
+        );
+    }
+
+    #[test]
+    fn test_cache_expiry_various_formats() {
+        use indoc::indoc;
+        use martin_core::config::env::FauxEnv;
+
+        let yaml = indoc! {"
+            cache_expiry: 1d
+            cache_idle_timeout: 300s
+        "};
+
+        let config = parse_config(yaml, &FauxEnv::default(), Path::new("test.yaml")).unwrap();
+
+        assert_eq!(config.cache_expiry, Some(Duration::from_secs(86400))); // 1 day
+        assert_eq!(config.cache_idle_timeout, Some(Duration::from_secs(300))); // 300 seconds
+    }
+
+    #[cfg(all(feature = "_tiles", feature = "sprites", feature = "fonts"))]
+    #[test]
+    fn test_cache_config_resolution_with_expiry() {
+        use indoc::indoc;
+        use martin_core::config::env::FauxEnv;
+
+        let yaml = indoc! {"
+            cache_size_mb: 512
+            cache_expiry: 1h
+            cache_idle_timeout: 10m
+        "};
+
+        let config = parse_config(yaml, &FauxEnv::default(), Path::new("test.yaml")).unwrap();
+        let cache_config = config.resolve_cache_config();
+
+        // All caches should inherit global expiry settings
+        assert_eq!(
+            cache_config.tile_cache_expiry,
+            Some(Duration::from_secs(3600))
+        );
+        assert_eq!(
+            cache_config.tile_cache_idle_timeout,
+            Some(Duration::from_secs(600))
+        );
+
+        #[cfg(feature = "sprites")]
+        {
+            assert_eq!(
+                cache_config.sprite_cache_expiry,
+                Some(Duration::from_secs(3600))
+            );
+            assert_eq!(
+                cache_config.sprite_cache_idle_timeout,
+                Some(Duration::from_secs(600))
+            );
+        }
+
+        #[cfg(feature = "fonts")]
+        {
+            assert_eq!(
+                cache_config.font_cache_expiry,
+                Some(Duration::from_secs(3600))
+            );
+            assert_eq!(
+                cache_config.font_cache_idle_timeout,
+                Some(Duration::from_secs(600))
+            );
+        }
+    }
+
+    #[cfg(all(feature = "_tiles", feature = "sprites"))]
+    #[test]
+    fn test_cache_config_resolution_with_overrides() {
+        use indoc::indoc;
+        use martin_core::config::env::FauxEnv;
+
+        let yaml = indoc! {"
+            cache_size_mb: 512
+            cache_expiry: 2h
+            cache_idle_timeout: 15m
+
+            sprites:
+              sprite_cache_expiry: 30m
+              sprite_cache_idle_timeout: 5m
+        "};
+
+        let config = parse_config(yaml, &FauxEnv::default(), Path::new("test.yaml")).unwrap();
+        let cache_config = config.resolve_cache_config();
+
+        // Tiles should use global settings
+        assert_eq!(
+            cache_config.tile_cache_expiry,
+            Some(Duration::from_secs(7200))
+        );
+        assert_eq!(
+            cache_config.tile_cache_idle_timeout,
+            Some(Duration::from_secs(900))
+        );
+
+        // Sprites should use overrides
+        #[cfg(feature = "sprites")]
+        {
+            assert_eq!(
+                cache_config.sprite_cache_expiry,
+                Some(Duration::from_secs(1800))
+            );
+            assert_eq!(
+                cache_config.sprite_cache_idle_timeout,
+                Some(Duration::from_secs(300))
+            );
+        }
+    }
+
+    #[test]
+    fn test_cache_expiry_none() {
+        use indoc::indoc;
+        use martin_core::config::env::FauxEnv;
+
+        let yaml = indoc! {"
+            cache_size_mb: 512
+        "};
+
+        let config = parse_config(yaml, &FauxEnv::default(), Path::new("test.yaml")).unwrap();
+
+        // No expiry settings should result in None
+        assert_eq!(config.cache_expiry, None);
+        assert_eq!(config.cache_idle_timeout, None);
+        assert_eq!(config.tile_cache_expiry, None);
+        assert_eq!(config.tile_cache_idle_timeout, None);
+    }
 }

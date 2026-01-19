@@ -288,4 +288,89 @@ mod tests {
         // Should only evict based on size, not time
         assert_eq!(cache.entry_count(), 0);
     }
+
+    #[tokio::test]
+    async fn test_cache_expiry_integration_hot_tiles() {
+        // Test that hot tiles (frequently accessed) still expire after TTL
+        let cache = TileCache::new(
+            1_000_000,
+            Some(Duration::from_millis(500)),  // TTL: 500ms
+            Some(Duration::from_millis(2000)), // TTI: 2s (longer than TTL)
+        );
+
+        let tile = Tile::new_hash_etag(
+            vec![1, 2, 3],
+            TileInfo::new(Format::Png, Encoding::Uncompressed),
+        );
+
+        let key = TileCacheKey::new(
+            "hot_source".to_string(),
+            TileCoord { z: 0, x: 0, y: 0 },
+            None,
+        );
+
+        // Insert tile
+        cache
+            .get_or_insert(
+                "hot_source".to_string(),
+                TileCoord { z: 0, x: 0, y: 0 },
+                None,
+                || async { Ok::<_, ()>(tile.clone()) },
+            )
+            .await
+            .unwrap();
+
+        // Keep accessing it (simulate hot tile)
+        for _ in 0..5 {
+            tokio::time::sleep(Duration::from_millis(100)).await;
+            cache.get(&key).await; // Keep it "hot"
+        }
+
+        // Even though we kept accessing it, TTL should cause expiry
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        cache.0.run_pending_tasks().await;
+
+        // Should be expired due to TTL (500ms passed)
+        assert!(cache.get(&key).await.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_cache_expiry_integration_size_and_time() {
+        // Test that both size and time-based eviction work together
+        let cache = TileCache::new(
+            100,                              // Very small cache (100 bytes)
+            Some(Duration::from_secs(10)),    // Long TTL
+            Some(Duration::from_millis(500)), // Short TTI
+        );
+
+        let large_tile = Tile::new_hash_etag(
+            vec![0; 50], // 50 bytes
+            TileInfo::new(Format::Png, Encoding::Uncompressed),
+        );
+
+        // Insert multiple tiles
+        for i in 0..3 {
+            cache
+                .get_or_insert(
+                    format!("source_{}", i),
+                    TileCoord { z: 0, x: i, y: 0 },
+                    None,
+                    || async { Ok::<_, ()>(large_tile.clone()) },
+                )
+                .await
+                .unwrap();
+            cache.0.run_pending_tasks().await;
+        }
+
+        // Cache should have entries
+        let count = cache.entry_count();
+        assert!(count > 0, "Expected entries in cache, got {}", count);
+
+        // Wait for TTI expiry
+        tokio::time::sleep(Duration::from_millis(600)).await;
+        cache.0.run_pending_tasks().await;
+
+        // Should be expired due to TTI
+        assert_eq!(cache.entry_count(), 0);
+    }
 }
