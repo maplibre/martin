@@ -219,8 +219,9 @@ impl TileInfo {
         // TODO: Make detection slower but more accurate:
         //  - uncompress gzip/zlib/... and run detection again. If detection fails, assume MVT
         //  - detect json inside a compressed data
-        //  - json should be fully parsed
-        //  - possibly keep the current `detect()` available as a fast path for those who may need it
+        //    - json should be fully parsed
+        //  - detect MLT inside a compressed data
+        //  - possibly keep the current `detect()` available as a fast path to short-circuit
         Some(match value {
             // Compressed prefixes assume MVT content
             v if v.starts_with(b"\x1f\x8b") => Self::new(Format::Mvt, Encoding::Gzip),
