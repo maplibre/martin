@@ -349,8 +349,8 @@ impl Config {
         // TODO: the defaults could be smarter. If I don't have a specific source, don't reserve cache for it
         // default to 50% of the total cache size
         let size_mb = size_mb.or(self.cache_size_mb.map(|c| c / 2));
-        // or default to 128MB
-        let size_mb = size_mb.unwrap_or(128);
+        // or default to 256MB
+        let size_mb = size_mb.unwrap_or(256);
         let size_mb = NonZeroU64::try_from(size_mb).ok();
         if let Some(size_mb) = size_mb {
             let expiry = self.tile_cache_expiry.or(self.cache_expiry);
