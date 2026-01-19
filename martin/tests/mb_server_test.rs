@@ -54,7 +54,7 @@ async fn config(
     let mvt_script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
     let (mvt_mbt, mvt_conn, mvt_file) =
         temp_named_mbtiles(&format!("{test_name}_mapbox_vector_tiles"), mvt_script).await;
-    let raw_mapbox_vector_tiles_script = include_str!("../../tests/fixtures/mbtiles/uncompressed_mapbox_vector_tiles.sql");
+    let raw_mapbox_vector_tiles_script = include_str!("../../tests/fixtures/mbtiles/uncompressed_mvt.sql");
     let (raw_mapbox_vector_tiles_mbt, raw_mapbox_vector_tiles_conn, raw_mapbox_vector_tiles_file) =
         temp_named_mbtiles(&format!("{test_name}_raw_mapbox_vector_tiles"), raw_mapbox_vector_tiles_script).await;
     let raw_maplibre_tiles_script = include_str!("../../tests/fixtures/mbtiles/mlt.sql");
