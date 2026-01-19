@@ -85,20 +85,20 @@ bless-frontend:
 
 # Run integration tests and save its output as the new expected output
 bless-insta-martin *args:  (cargo-install 'cargo-insta')
-    cargo insta test --accept --package martin {{args}}
+    cargo insta test --accept --all-targets --package martin {{args}}
 
 # Run integration tests and save its output as the new expected output
 bless-insta-martin-core *args:  (cargo-install 'cargo-insta')
-    cargo insta test --accept --package martin-core {{args}}
+    cargo insta test --accept --all-targets --package martin-core {{args}}
 
 # Run integration tests and save its output as the new expected output
 bless-insta-martin-tile-utils *args:  (cargo-install 'cargo-insta')
-    cargo insta test --accept --package martin-tile-utils {{args}}
+    cargo insta test --accept --all-targets --package martin-tile-utils {{args}}
 
 # Run integration tests and save its output as the new expected output
 bless-insta-mbtiles *args:  (cargo-install 'cargo-insta')
     #rm -rf mbtiles/tests/snapshots
-    cargo insta test --accept --package mbtiles {{args}}
+    cargo insta test --accept --all-targets --package mbtiles {{args}}
 
 # Bless integration tests
 bless-int:
