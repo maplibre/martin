@@ -130,7 +130,6 @@ async-trait.workspace = true
 clap.workspace = true
 dashmap.workspace = true
 enum-display = { workspace = true, optional = true }
-env_logger.workspace = true
 futures.workspace = true
 image = { workspace = true, optional = true }
 itertools.workspace = true
@@ -154,6 +153,10 @@ subst.workspace = true
 thiserror.workspace = true
 tilejson.workspace = true
 tokio = { workspace = true, features = ["io-std"] }
+tracing.workspace = true
+tracing-actix-web.workspace = true
+tracing-log = { workspace = true, features = ["interest-cache"] }
+tracing-subscriber = { workspace = true, default-features = false, features = ["env-filter", "json", "fmt", "std", "ansi", "chrono"] }
 url.workspace = true
 walkdir = { workspace = true, optional = true }
 
@@ -162,14 +165,13 @@ static-files = { workspace = true, optional = true }
 walkdir = { workspace = true, optional = true }
 
 [dev-dependencies]
-approx.workspace = true
 criterion.workspace = true
-ctor.workspace = true
 indoc.workspace = true
 insta = { workspace = true, features = ["json", "yaml", "redactions"] }
 rstest.workspace = true
 tempfile.workspace = true
 testcontainers-modules.workspace = true
+tracing-test.workspace = true
 
 [lints]
 workspace = true
