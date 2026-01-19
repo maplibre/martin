@@ -1,4 +1,9 @@
-#[cfg(any(feature = "_tiles", feature = "pmtiles", feature = "sprites", feature = "fonts"))]
+#[cfg(any(
+    feature = "_tiles",
+    feature = "pmtiles",
+    feature = "sprites",
+    feature = "fonts"
+))]
 use std::time::Duration;
 
 /// Configuration for all cache types.
@@ -52,7 +57,10 @@ impl CacheConfig {
         if self.tile_cache_size_mb > 0 {
             let size = self.tile_cache_size_mb * 1000 * 1000;
 
-            tracing::info!("Initializing tile cache with maximum size {} MB", self.tile_cache_size_mb);
+            tracing::info!(
+                "Initializing tile cache with maximum size {} MB",
+                self.tile_cache_size_mb
+            );
 
             Some(martin_core::tiles::TileCache::new(
                 size,
@@ -73,7 +81,10 @@ impl CacheConfig {
         if self.pmtiles_cache_size_mb > 0 {
             let size = self.pmtiles_cache_size_mb * 1000 * 1000;
 
-            tracing::info!("Initializing pmtiles cache with maximum size {} MB", self.pmtiles_cache_size_mb);
+            tracing::info!(
+                "Initializing pmtiles cache with maximum size {} MB",
+                self.pmtiles_cache_size_mb
+            );
 
             martin_core::tiles::pmtiles::PmtCache::new(
                 size,
@@ -93,7 +104,10 @@ impl CacheConfig {
         if self.sprite_cache_size_mb > 0 {
             let size = self.sprite_cache_size_mb * 1000 * 1000;
 
-            tracing::info!("Initializing sprite cache with maximum size {} MB", self.sprite_cache_size_mb);
+            tracing::info!(
+                "Initializing sprite cache with maximum size {} MB",
+                self.sprite_cache_size_mb
+            );
 
             Some(martin_core::sprites::SpriteCache::new(
                 size,
@@ -113,7 +127,10 @@ impl CacheConfig {
         if self.font_cache_size_mb > 0 {
             let size = self.font_cache_size_mb * 1000 * 1000;
 
-            tracing::info!("Initializing font cache with maximum size {} MB", self.font_cache_size_mb);
+            tracing::info!(
+                "Initializing font cache with maximum size {} MB",
+                self.font_cache_size_mb
+            );
 
             Some(martin_core::fonts::FontCache::new(
                 size,
