@@ -1,10 +1,6 @@
+#[cfg(any(feature = "_tiles", feature = "fonts", feature = "sprites"))]
 use std::num::NonZeroU64;
-#[cfg(any(
-    feature = "_tiles",
-    feature = "pmtiles",
-    feature = "sprites",
-    feature = "fonts"
-))]
+#[cfg(any(feature = "_tiles", feature = "sprites", feature = "fonts"))]
 use std::time::Duration;
 
 /// Configuration for all cache types.
@@ -109,6 +105,7 @@ impl CacheConfig {
 
 /// Settings for one cache
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(any(feature = "_tiles", feature = "fonts", feature = "sprites"))]
 pub struct SubCacheSetting {
     /// Maximum size for cache in MB
     pub size_mb: NonZeroU64,
