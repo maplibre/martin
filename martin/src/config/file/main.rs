@@ -665,7 +665,7 @@ mod tests {
         assert_eq!(config.cache_idle_timeout, Some(Duration::from_secs(300))); // 300 seconds
     }
 
-    #[cfg(all(feature = "_tiles", feature = "sprites", feature = "fonts"))]
+    #[cfg(any(feature = "_tiles", feature = "sprites", feature = "fonts"))]
     #[test]
     fn test_cache_config_resolution_with_expiry() {
         use indoc::indoc;
@@ -681,14 +681,17 @@ mod tests {
         let cache_config = config.resolve_cache_config();
 
         // All caches should inherit global expiry settings
-        assert_eq!(
-            cache_config.tile_cache_expiry,
-            Some(Duration::from_secs(3600))
-        );
-        assert_eq!(
-            cache_config.tile_cache_idle_timeout,
-            Some(Duration::from_secs(600))
-        );
+        #[cfg(feature = "_tiles")]
+        {
+            assert_eq!(
+                cache_config.tile_cache_expiry,
+                Some(Duration::from_secs(3600))
+            );
+            assert_eq!(
+                cache_config.tile_cache_idle_timeout,
+                Some(Duration::from_secs(600))
+            );
+        }
 
         #[cfg(feature = "sprites")]
         {
@@ -717,19 +720,19 @@ mod tests {
 
     #[cfg(all(feature = "_tiles", feature = "sprites"))]
     #[test]
-    fn test_cache_config_resolution_with_overrides() {
+    fn test_sprite_cache_config_resolution_with_overrides_and_size() {
         use indoc::indoc;
         use martin_core::config::env::FauxEnv;
 
         let yaml = indoc! {"
-            cache_size_mb: 512
-            cache_expiry: 2h
-            cache_idle_timeout: 15m
+                cache_size_mb: 512
+                cache_expiry: 2h
+                cache_idle_timeout: 15m
 
-            sprites:
-              sprite_cache_expiry: 30m
-              sprite_cache_idle_timeout: 5m
-        "};
+                sprites:
+                  sprite_cache_expiry: 30m
+                  sprite_cache_idle_timeout: 5m
+            "};
 
         let config = parse_config(yaml, &FauxEnv::default(), Path::new("test.yaml")).unwrap();
         let cache_config = config.resolve_cache_config();
@@ -745,17 +748,53 @@ mod tests {
         );
 
         // Sprites should use overrides
-        #[cfg(feature = "sprites")]
-        {
-            assert_eq!(
-                cache_config.sprite_cache_expiry,
-                Some(Duration::from_secs(1800))
-            );
-            assert_eq!(
-                cache_config.sprite_cache_idle_timeout,
-                Some(Duration::from_secs(300))
-            );
-        }
+        assert_eq!(
+            cache_config.sprite_cache_expiry,
+            Some(Duration::from_secs(1800))
+        );
+        assert_eq!(
+            cache_config.sprite_cache_idle_timeout,
+            Some(Duration::from_secs(300))
+        );
+    }
+
+    #[cfg(all(feature = "_tiles", feature = "sprites"))]
+    #[test]
+    fn test_sprite_cache_config_resolution_with_overrides_without_size() {
+        use indoc::indoc;
+        use martin_core::config::env::FauxEnv;
+
+        let yaml = indoc! {"
+                    cache_expiry: 2h
+                    cache_idle_timeout: 15m
+
+                    sprites:
+                      sprite_cache_expiry: 30m
+                      sprite_cache_idle_timeout: 5m
+                "};
+
+        let config = parse_config(yaml, &FauxEnv::default(), Path::new("test.yaml")).unwrap();
+        let cache_config = config.resolve_cache_config();
+
+        // Tiles should use global settings
+        assert_eq!(
+            cache_config.tile_cache_expiry,
+            Some(Duration::from_secs(7200))
+        );
+        assert_eq!(
+            cache_config.tile_cache_idle_timeout,
+            Some(Duration::from_secs(900))
+        );
+
+        // Sprites should use overrides
+        assert_eq!(
+            cache_config.sprite_cache_expiry,
+            Some(Duration::from_secs(1800))
+        );
+        assert_eq!(
+            cache_config.sprite_cache_idle_timeout,
+            Some(Duration::from_secs(300))
+        );
     }
 
     #[test]
