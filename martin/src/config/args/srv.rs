@@ -1,7 +1,14 @@
+use std::time::Duration;
+
 use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
 
 use crate::config::file::srv::{KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT, SrvConfig};
+
+/// Parse a human-readable duration string (e.g., "1h", "30m", "1d")
+fn parse_duration(s: &str) -> Result<Duration, String> {
+    humantime_serde::re::humantime::parse_duration(s).map_err(|e| e.to_string())
+}
 
 #[expect(
     clippy::doc_markdown,
@@ -47,6 +54,16 @@ pub struct SrvArgs {
     /// Main cache size (in MB)
     #[arg(short = 'C', long)]
     pub cache_size: Option<u64>,
+    /// Maximum lifetime for all caches (TTL - time to live from creation).
+    ///
+    /// Supports human-readable formats like "1h", "30m", "1d", or "3600s".
+    #[arg(long, value_parser = parse_duration)]
+    pub cache_expiry: Option<Duration>,
+    /// Maximum idle time for all caches (TTI - time to idle since last access).
+    ///
+    /// Supports human-readable formats like "5m", "300s", or "1h".
+    #[arg(long, value_parser = parse_duration)]
+    pub cache_idle_timeout: Option<Duration>,
 }
 
 #[cfg(all(feature = "webui", not(docsrs)))]
