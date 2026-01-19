@@ -61,7 +61,7 @@ pub struct InnerSpriteConfig {
         skip_serializing_if = "Option::is_none",
         with = "humantime_serde"
     )]
-    pub sprite_cache_expiry: Option<Duration>,
+    pub cache_expiry: Option<Duration>,
 
     /// Maximum idle time for cached sprites (TTI - time to idle since last access).
     /// Supports human-readable formats like "5m", "300s", or "1h".
@@ -70,7 +70,7 @@ pub struct InnerSpriteConfig {
         skip_serializing_if = "Option::is_none",
         with = "humantime_serde"
     )]
-    pub sprite_cache_idle_timeout: Option<Duration>,
+    pub cache_idle_timeout: Option<Duration>,
 
     #[serde(flatten, skip_serializing)]
     pub unrecognized: UnrecognizedValues,

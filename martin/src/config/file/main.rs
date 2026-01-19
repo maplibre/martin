@@ -387,9 +387,9 @@ impl Config {
         if let Some(size_mb) = size_mb {
             let (expiry, idle_timeout) = if let FileConfigEnum::Config(cfg) = &self.pmtiles {
                 (
-                    cfg.custom.pmtiles_cache_expiry.or(self.cache_expiry),
+                    cfg.custom.directory_cache_expiry.or(self.cache_expiry),
                     cfg.custom
-                        .pmtiles_cache_idle_timeout
+                        .directory_cache_idle_timeout
                         .or(self.cache_idle_timeout),
                 )
             } else {
@@ -402,12 +402,12 @@ impl Config {
             })
         } else {
             if let FileConfigEnum::Config(cfg) = &self.pmtiles
-                && cfg.custom.pmtiles_cache_expiry.is_some()
+                && cfg.custom.directory_cache_expiry.is_some()
             {
                 warn!("PMTiles cache is not enabled, ignoring custom expiry");
             }
             if let FileConfigEnum::Config(cfg) = &self.pmtiles
-                && cfg.custom.pmtiles_cache_idle_timeout.is_some()
+                && cfg.custom.directory_cache_idle_timeout.is_some()
             {
                 warn!("PMTiles cache is not enabled, ignoring custom idle timeout");
             }
@@ -431,9 +431,9 @@ impl Config {
         if let Some(size_mb) = size_mb {
             let (expiry, idle_timeout) = if let FileConfigEnum::Config(cfg) = &self.sprites {
                 (
-                    cfg.custom.sprite_cache_expiry.or(self.cache_expiry),
+                    cfg.custom.cache_expiry.or(self.cache_expiry),
                     cfg.custom
-                        .sprite_cache_idle_timeout
+                        .cache_idle_timeout
                         .or(self.cache_idle_timeout),
                 )
             } else {
@@ -446,12 +446,12 @@ impl Config {
             })
         } else {
             if let FileConfigEnum::Config(cfg) = &self.sprites
-                && cfg.custom.sprite_cache_expiry.is_some()
+                && cfg.custom.cache_expiry.is_some()
             {
                 warn!("Sprite cache is not enabled, ignoring custom expiry");
             }
             if let FileConfigEnum::Config(cfg) = &self.sprites
-                && cfg.custom.sprite_cache_idle_timeout.is_some()
+                && cfg.custom.cache_idle_timeout.is_some()
             {
                 warn!("Sprite cache is not enabled, ignoring custom idle timeout");
             }
@@ -475,9 +475,9 @@ impl Config {
         if let Some(size_mb) = size_mb {
             let (expiry, idle_timeout) = if let FileConfigEnum::Config(cfg) = &self.fonts {
                 (
-                    cfg.custom.font_cache_expiry.or(self.cache_expiry),
+                    cfg.custom.cache_expiry.or(self.cache_expiry),
                     cfg.custom
-                        .font_cache_idle_timeout
+                        .cache_idle_timeout
                         .or(self.cache_idle_timeout),
                 )
             } else {
@@ -490,12 +490,12 @@ impl Config {
             })
         } else {
             if let FileConfigEnum::Config(cfg) = &self.fonts
-                && cfg.custom.font_cache_expiry.is_some()
+                && cfg.custom.cache_expiry.is_some()
             {
                 warn!("font cache is not enabled, ignoring custom expiry");
             }
             if let FileConfigEnum::Config(cfg) = &self.fonts
-                && cfg.custom.font_cache_idle_timeout.is_some()
+                && cfg.custom.cache_idle_timeout.is_some()
             {
                 warn!("font cache is not enabled, ignoring custom idle timeout");
             }
@@ -819,16 +819,16 @@ mod tests {
                 cache_idle_timeout: 15m
 
                 pmtiles:
-                  pmtiles_cache_expiry: 45m
-                  pmtiles_cache_idle_timeout: 8m
+                  directory_cache_expiry: 45m
+                  directory_cache_idle_timeout: 8m
 
                 sprites:
-                  sprite_cache_expiry: 30m
-                  sprite_cache_idle_timeout: 5m
+                  cache_expiry: 30m
+                  cache_idle_timeout: 5m
 
                 fonts:
-                  font_cache_expiry: 25m
-                  font_cache_idle_timeout: 3m
+                  cache_expiry: 25m
+                  cache_idle_timeout: 3m
             "};
 
         let mut config = parse_config(yaml, &FauxEnv::default(), Path::new("test.yaml")).unwrap();

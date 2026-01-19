@@ -31,7 +31,7 @@ pub struct PmtConfig {
         skip_serializing_if = "Option::is_none",
         with = "humantime_serde"
     )]
-    pub pmtiles_cache_expiry: Option<Duration>,
+    pub directory_cache_expiry: Option<Duration>,
 
     /// Maximum idle time for cached `PMTiles` directories (TTI - time to idle since last access).
     /// Supports human-readable formats like "5m", "300s", or "1h".
@@ -40,7 +40,7 @@ pub struct PmtConfig {
         skip_serializing_if = "Option::is_none",
         with = "humantime_serde"
     )]
-    pub pmtiles_cache_idle_timeout: Option<Duration>,
+    pub directory_cache_idle_timeout: Option<Duration>,
 
     // if the key is the allowed set, we assume it is there for a purpose
     // settings and unreconginsed values are partitioned from each other in the init_parsing step

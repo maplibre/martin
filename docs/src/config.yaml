@@ -37,7 +37,7 @@ cache_size_mb: 512
 # Maximum lifetime for all caches (TTL - time to live from creation).
 # When set, cache entries expire after this duration regardless of access frequency.
 # This ensures data freshness even for frequently accessed entries.
-# Can be overridden by cache-specific expiry settings (e.g., `tile_cache_expiry`, `sprites.sprite_cache_expiry`).
+# Can be overridden by cache-specific expiry settings (e.g., `tile_cache_expiry`, `sprites.cache_expiry`).
 # Supports human-readable formats like "1h", "30m", "1d", or "3600s".
 # If not set, cache entries don't expire based on age.
 cache_expiry: null
@@ -45,7 +45,7 @@ cache_expiry: null
 # Maximum idle time for all caches (TTI - time to idle since last access).
 # When set, cache entries expire after being idle (not accessed) for this duration.
 # This helps free memory by evicting rarely-used entries.
-# Can be overridden by cache-specific idle timeout settings (e.g., `tile_cache_idle_timeout`, `sprites.sprite_cache_idle_timeout`).
+# Can be overridden by cache-specific idle timeout settings (e.g., `tile_cache_idle_timeout`, `sprites.cache_idle_timeout`).
 # Supports human-readable formats like "5m", "300s", or "1h".
 # If not set, cache entries don't expire based on idle time.
 cache_idle_timeout: null
@@ -283,12 +283,12 @@ pmtiles:
   # Maximum lifetime for cached PMTiles directories (TTL - time to live from creation).
   # When set, directories expire after this duration regardless of access frequency.
   # Supports human-readable formats like "1h", "30m", "1d", or "3600s".
-  pmtiles_cache_expiry: null
+  directory_cache_expiry: null
 
   # Maximum idle time for cached PMTiles directories (TTI - time to idle since last access).
   # When set, directories expire after being idle (not accessed) for this duration.
   # Supports human-readable formats like "5m", "300s", or "1h".
-  pmtiles_cache_idle_timeout: null
+  directory_cache_idle_timeout: null
 
   # You can pass options for pmtiles files located on remote storages here.
   #
@@ -335,12 +335,12 @@ sprites:
   # Maximum lifetime for cached sprites (TTL - time to live from creation).
   # When set, sprites expire after this duration regardless of access frequency.
   # Supports human-readable formats like "1h", "30m", "1d", or "3600s".
-  sprite_cache_expiry: null
+  cache_expiry: null
 
   # Maximum idle time for cached sprites (TTI - time to idle since last access).
   # When set, sprites expire after being idle (not accessed) for this duration.
   # Supports human-readable formats like "5m", "300s", or "1h".
-  sprite_cache_idle_timeout: null
+  cache_idle_timeout: null
 
   paths:
     # all SVG files in this dir will be published as a "my_images" sprite source
@@ -358,12 +358,12 @@ fonts:
   # Maximum lifetime for cached fonts (TTL - time to live from creation).
   # When set, fonts expire after this duration regardless of access frequency.
   # Supports human-readable formats like "1h", "30m", "1d", or "3600s".
-  font_cache_expiry: null
+  cache_expiry: null
 
   # Maximum idle time for cached fonts (TTI - time to idle since last access).
   # When set, fonts expire after being idle (not accessed) for this duration.
   # Supports human-readable formats like "5m", "300s", or "1h".
-  font_cache_idle_timeout: null
+  cache_idle_timeout: null
 
   # A list of *.otf, *.ttf, and *.ttc font files and dirs to search recursively.
   paths:

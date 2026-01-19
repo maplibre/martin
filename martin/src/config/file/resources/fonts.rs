@@ -24,7 +24,7 @@ pub struct InnerFontConfig {
         skip_serializing_if = "Option::is_none",
         with = "humantime_serde"
     )]
-    pub font_cache_expiry: Option<Duration>,
+    pub cache_expiry: Option<Duration>,
 
     /// Maximum idle time for cached fonts (TTI - time to idle since last access).
     /// Supports human-readable formats like "5m", "300s", or "1h".
@@ -33,7 +33,7 @@ pub struct InnerFontConfig {
         skip_serializing_if = "Option::is_none",
         with = "humantime_serde"
     )]
-    pub font_cache_idle_timeout: Option<Duration>,
+    pub cache_idle_timeout: Option<Duration>,
 
     #[serde(flatten, skip_serializing)]
     pub unrecognized: UnrecognizedValues,
