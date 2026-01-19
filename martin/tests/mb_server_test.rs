@@ -51,11 +51,10 @@ async fn config(
     let json_script = include_str!("../../tests/fixtures/mbtiles/json.sql");
     let (json_mbt, json_conn, json_file) =
         temp_named_mbtiles(&format!("{test_name}_json"), json_script).await;
-    let mvt_script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
-    let (mvt_mbt, mvt_conn, mvt_file) =
-        temp_named_mbtiles(&format!("{test_name}_mapbox_vector_tiles"), mvt_script).await;
-    let raw_mapbox_vector_tiles_script =
-        include_str!("../../tests/fixtures/mbtiles/uncompressed_mvt.sql");
+    let mapbox_vector_tiles_script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
+    let (mapbox_vector_tiles_mbt, mapbox_vector_tiles_conn, mapbox_vector_tiles_file) =
+        temp_named_mbtiles(&format!("{test_name}_mapbox_vector_tiles"), mapbox_vector_tiles_script).await;
+    let raw_mapbox_vector_tiles_script = include_str!("../../tests/fixtures/mbtiles/uncompressed_mvt.sql");
     let (raw_mapbox_vector_tiles_mbt, raw_mapbox_vector_tiles_conn, raw_mapbox_vector_tiles_file) =
         temp_named_mbtiles(
             &format!("{test_name}_raw_mapbox_vector_tiles"),
@@ -78,20 +77,20 @@ async fn config(
     mbtiles:
         sources:
             m_json: {json}
-            m_mapbox_vector_tiles: {mvt}
+            m_mapbox_vector_tiles: {mapbox_vector_tiles}
             m_raw_mapbox_vector_tiles: {raw_mapbox_vector_tiles}
             m_raw_maplibre_tiles: {raw_maplibre_tiles}
             m_webp: {webp}
     ",
         json = json_file.display(),
-        mvt = mvt_file.display(),
+        mapbox_vector_tiles = mapbox_vector_tiles_file.display(),
         raw_mapbox_vector_tiles = raw_mapbox_vector_tiles_file.display(),
         raw_maplibre_tiles = raw_maplibre_tiles_file.display(),
         webp = webp_file.display()
         },
         (
             (json_mbt, json_conn),
-            (mvt_mbt, mvt_conn),
+            (mapbox_vector_tiles_mbt, mapbox_vector_tiles_conn),
             (raw_mapbox_vector_tiles_mbt, raw_mapbox_vector_tiles_conn),
             (raw_maplibre_tiles_mbt, raw_maplibre_tiles_conn),
             (webp_mbt, webp_conn),
