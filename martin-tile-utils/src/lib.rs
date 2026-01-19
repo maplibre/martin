@@ -77,6 +77,7 @@ pub enum Format {
     Jpeg,
     Json,
     Mvt,
+    Mlt,
     Png,
     Webp,
     Avif,
@@ -90,6 +91,7 @@ impl Format {
             "jpg" | "jpeg" => Self::Jpeg,
             "json" => Self::Json,
             "pbf" | "mvt" => Self::Mvt,
+            "mlt" => Self::Mlt,
             "png" => Self::Png,
             "webp" => Self::Webp,
             "avif" => Self::Avif,
@@ -106,6 +108,7 @@ impl Format {
             Self::Json => "json",
             // QGIS uses `pbf` instead of `mvt` for some reason
             Self::Mvt => "pbf",
+            Self::Mlt => "mlt",
             Self::Png => "png",
             Self::Webp => "webp",
             Self::Avif => "avif",
@@ -119,6 +122,7 @@ impl Format {
             Self::Jpeg => "image/jpeg",
             Self::Json => "application/json",
             Self::Mvt => "application/x-protobuf",
+            Self::Mlt => "application/x-maplibre",
             Self::Png => "image/png",
             Self::Webp => "image/webp",
             Self::Avif => "image/avif",
@@ -132,7 +136,7 @@ impl Format {
             // TODO: Json can be detected, but currently we only detect it
             //       when it's not compressed, so to avoid a warning, keeping it as false for now.
             //       Once we can detect it inside a compressed data, change it to true.
-            Self::Mvt | Self::Json => false,
+            Self::Mvt | Self::Json | Self::Mlt => false,
         }
     }
 }
@@ -144,6 +148,7 @@ impl Display for Format {
             Self::Jpeg => "jpeg",
             Self::Json => "json",
             Self::Mvt => "mvt",
+            Self::Mlt => "mlt",
             Self::Png => "png",
             Self::Webp => "webp",
             Self::Avif => "avif",
@@ -246,9 +251,12 @@ impl From<Format> for TileInfo {
         Self::new(
             format,
             match format {
-                Format::Png | Format::Jpeg | Format::Webp | Format::Gif | Format::Avif => {
-                    Encoding::Internal
-                }
+                Format::Mlt
+                | Format::Png
+                | Format::Jpeg
+                | Format::Webp
+                | Format::Gif
+                | Format::Avif => Encoding::Internal,
                 Format::Mvt | Format::Json => Encoding::Uncompressed,
             },
         )
@@ -348,48 +356,31 @@ pub fn wgs84_to_webmercator(lon: f64, lat: f64) -> (f64, f64) {
 
 #[cfg(test)]
 mod tests {
-    #![expect(clippy::unreadable_literal)]
-
-    use std::fs::read;
-
-    use Encoding::{Internal, Uncompressed};
-    use Format::{Jpeg, Json, Png, Webp};
     use approx::assert_relative_eq;
     use rstest::rstest;
 
     use super::*;
 
-    fn detect(path: &str) -> Option<TileInfo> {
-        TileInfo::detect(&read(path).unwrap())
-    }
-
-    #[expect(clippy::unnecessary_wraps)]
-    fn info(format: Format, encoding: Encoding) -> Option<TileInfo> {
-        Some(TileInfo::new(format, encoding))
-    }
-
-    #[test]
-    fn test_data_format_png() {
-        assert_eq!(detect("./fixtures/world.png"), info(Png, Internal));
-    }
-
-    #[test]
-    fn test_data_format_jpg() {
-        assert_eq!(detect("./fixtures/world.jpg"), info(Jpeg, Internal));
-    }
-
-    #[test]
-    fn test_data_format_webp() {
-        assert_eq!(detect("./fixtures/dc.webp"), info(Webp, Internal));
-        assert_eq!(TileInfo::detect(br"RIFF"), None);
-    }
-
-    #[test]
-    fn test_data_format_json() {
-        assert_eq!(
-            TileInfo::detect(br#"{"foo":"bar"}"#),
-            info(Json, Uncompressed)
-        );
+    #[rstest]
+    #[case::png(
+        include_bytes!("../fixtures/world.png"),
+        Some(TileInfo::new(Format::Png, Encoding::Internal))
+    )]
+    #[case::jpg(
+        include_bytes!("../fixtures/world.jpg"),
+        Some(TileInfo::new(Format::Jpeg, Encoding::Internal))
+    )]
+    #[case::webp(
+        include_bytes!("../fixtures/dc.webp"),
+        Some(TileInfo::new(Format::Webp, Encoding::Internal))
+    )]
+    #[case::json(
+        br#"{"foo":"bar"}"#,
+        Some(TileInfo::new(Format::Json, Encoding::Uncompressed))
+    )]
+    #[case::invalid_webp_header(b"RIFF", None)]
+    fn test_data_format_detect(#[case] data: &[u8], #[case] expected: Option<TileInfo>) {
+        assert_eq!(TileInfo::detect(data), expected);
     }
 
     #[rstest]

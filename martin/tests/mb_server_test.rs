@@ -45,6 +45,7 @@ async fn config(
         (Mbtiles, SqliteConnection),
         (Mbtiles, SqliteConnection),
         (Mbtiles, SqliteConnection),
+        (Mbtiles, SqliteConnection),
     ),
 ) {
     let json_script = include_str!("../../tests/fixtures/mbtiles/json.sql");
@@ -56,6 +57,9 @@ async fn config(
     let raw_mvt_script = include_str!("../../tests/fixtures/mbtiles/uncompressed_mvt.sql");
     let (raw_mvt_mbt, raw_mvt_conn, raw_mvt_file) =
         temp_named_mbtiles(&format!("{test_name}_raw_mvt"), raw_mvt_script).await;
+    let raw_mlt_script = include_str!("../../tests/fixtures/mbtiles/mlt.sql");
+    let (raw_mlt_mbt, raw_mlt_conn, raw_mlt_file) =
+        temp_named_mbtiles(&format!("{test_name}_raw_mlt"), raw_mlt_script).await;
     let webp_script = include_str!("../../tests/fixtures/mbtiles/webp.sql");
     let (webp_mbt, webp_conn, webp_file) =
         temp_named_mbtiles(&format!("{test_name}_webp"), webp_script).await;
@@ -67,17 +71,20 @@ async fn config(
             m_json: {json}
             m_mvt: {mvt}
             m_raw_mvt: {raw_mvt}
+            m_raw_mlt: {raw_mlt}
             m_webp: {webp}
     ",
         json = json_file.display(),
         mvt = mvt_file.display(),
         raw_mvt = raw_mvt_file.display(),
+        raw_mlt = raw_mlt_file.display(),
         webp = webp_file.display()
         },
         (
             (json_mbt, json_conn),
             (mvt_mbt, mvt_conn),
             (raw_mvt_mbt, raw_mvt_conn),
+            (raw_mlt_mbt, raw_mlt_conn),
             (webp_mbt, webp_conn),
         ),
     )
