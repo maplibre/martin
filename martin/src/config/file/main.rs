@@ -324,44 +324,63 @@ impl Config {
     // `cache_config: 0` disables caching, unless overridden by individual cache sizes
     #[cfg(any(feature = "_tiles", feature = "sprites", feature = "fonts"))]
     fn resolve_cache_config(&self) -> CacheConfig {
+        // Extract custom expiry/idle_timeout from individual cache configs
+        #[cfg(feature = "pmtiles")]
+        let (pmtiles_cache_expiry, pmtiles_cache_idle_timeout) =
+            if let FileConfigEnum::Config(cfg) = &self.pmtiles {
+                (
+                    cfg.custom.pmtiles_cache_expiry,
+                    cfg.custom.pmtiles_cache_idle_timeout,
+                )
+            } else {
+                (None, None)
+            };
+
+        #[cfg(feature = "sprites")]
+        let (sprite_cache_expiry, sprite_cache_idle_timeout) =
+            if let FileConfigEnum::Config(cfg) = &self.sprites {
+                (
+                    cfg.custom.sprite_cache_expiry,
+                    cfg.custom.sprite_cache_idle_timeout,
+                )
+            } else {
+                (None, None)
+            };
+
+        #[cfg(feature = "fonts")]
+        let (font_cache_expiry, font_cache_idle_timeout) =
+            if let FileConfigEnum::Config(cfg) = &self.fonts {
+                (
+                    cfg.custom.font_cache_expiry,
+                    cfg.custom.font_cache_idle_timeout,
+                )
+            } else {
+                (None, None)
+            };
+
         if let Some(cache_size_mb) = self.cache_size_mb {
             #[cfg(feature = "pmtiles")]
-            let (pmtiles_cache_size_mb, pmtiles_cache_expiry, pmtiles_cache_idle_timeout) =
-                if let FileConfigEnum::Config(cfg) = &self.pmtiles {
-                    (
-                        cfg.custom
-                            .directory_cache_size_mb
-                            .unwrap_or(cache_size_mb / 4), // Default: 25% for PMTiles directories
-                        cfg.custom.pmtiles_cache_expiry,
-                        cfg.custom.pmtiles_cache_idle_timeout,
-                    )
-                } else {
-                    (cache_size_mb / 4, None, None) // Default: 25% for PMTiles directories
-                };
+            let pmtiles_cache_size_mb = if let FileConfigEnum::Config(cfg) = &self.pmtiles {
+                cfg.custom
+                    .directory_cache_size_mb
+                    .unwrap_or(cache_size_mb / 4) // Default: 25% for PMTiles directories
+            } else {
+                cache_size_mb / 4 // Default: 25% for PMTiles directories
+            };
 
             #[cfg(feature = "sprites")]
-            let (sprite_cache_size_mb, sprite_cache_expiry, sprite_cache_idle_timeout) =
-                if let FileConfigEnum::Config(cfg) = &self.sprites {
-                    (
-                        cfg.custom.cache_size_mb.unwrap_or(cache_size_mb / 8), // Default: 12.5% for sprites
-                        cfg.custom.sprite_cache_expiry,
-                        cfg.custom.sprite_cache_idle_timeout,
-                    )
-                } else {
-                    (cache_size_mb / 8, None, None) // Default: 12.5% for sprites
-                };
+            let sprite_cache_size_mb = if let FileConfigEnum::Config(cfg) = &self.sprites {
+                cfg.custom.cache_size_mb.unwrap_or(cache_size_mb / 8) // Default: 12.5% for sprites
+            } else {
+                cache_size_mb / 8 // Default: 12.5% for sprites
+            };
 
             #[cfg(feature = "fonts")]
-            let (font_cache_size_mb, font_cache_expiry, font_cache_idle_timeout) =
-                if let FileConfigEnum::Config(cfg) = &self.fonts {
-                    (
-                        cfg.custom.cache_size_mb.unwrap_or(cache_size_mb / 8), // Default: 12.5% for fonts
-                        cfg.custom.font_cache_expiry,
-                        cfg.custom.font_cache_idle_timeout,
-                    )
-                } else {
-                    (cache_size_mb / 8, None, None) // Default: 12.5% for fonts
-                };
+            let font_cache_size_mb = if let FileConfigEnum::Config(cfg) = &self.fonts {
+                cfg.custom.cache_size_mb.unwrap_or(cache_size_mb / 8) // Default: 12.5% for fonts
+            } else {
+                cache_size_mb / 8 // Default: 12.5% for fonts
+            };
 
             CacheConfig {
                 #[cfg(feature = "_tiles")]
@@ -401,21 +420,21 @@ impl Config {
                 #[cfg(feature = "pmtiles")]
                 pmtiles_cache_size_mb: 128,
                 #[cfg(feature = "pmtiles")]
-                pmtiles_cache_expiry: self.cache_expiry,
+                pmtiles_cache_expiry: pmtiles_cache_expiry.or(self.cache_expiry),
                 #[cfg(feature = "pmtiles")]
-                pmtiles_cache_idle_timeout: self.cache_idle_timeout,
+                pmtiles_cache_idle_timeout: pmtiles_cache_idle_timeout.or(self.cache_idle_timeout),
                 #[cfg(feature = "sprites")]
                 sprite_cache_size_mb: 64,
                 #[cfg(feature = "sprites")]
-                sprite_cache_expiry: self.cache_expiry,
+                sprite_cache_expiry: sprite_cache_expiry.or(self.cache_expiry),
                 #[cfg(feature = "sprites")]
-                sprite_cache_idle_timeout: self.cache_idle_timeout,
+                sprite_cache_idle_timeout: sprite_cache_idle_timeout.or(self.cache_idle_timeout),
                 #[cfg(feature = "fonts")]
                 font_cache_size_mb: 64,
                 #[cfg(feature = "fonts")]
-                font_cache_expiry: self.cache_expiry,
+                font_cache_expiry: font_cache_expiry.or(self.cache_expiry),
                 #[cfg(feature = "fonts")]
-                font_cache_idle_timeout: self.cache_idle_timeout,
+                font_cache_idle_timeout: font_cache_idle_timeout.or(self.cache_idle_timeout),
             }
         }
     }
@@ -718,83 +737,93 @@ mod tests {
         }
     }
 
-    #[cfg(all(feature = "_tiles", feature = "sprites"))]
-    #[test]
-    fn test_sprite_cache_config_resolution_with_overrides_and_size() {
+    #[cfg(any(
+        feature = "_tiles",
+        feature = "sprites",
+        feature = "fonts",
+        feature = "pmtiles"
+    ))]
+    #[rstest::rstest]
+    #[case::with_cache_size_mb(true)]
+    #[case::without_cache_size_mb(false)]
+    fn test_cache_config_resolution_with_overrides(#[case] with_cache_size: bool) {
         use indoc::indoc;
         use martin_core::config::env::FauxEnv;
 
         let yaml = indoc! {"
-                cache_size_mb: 512
                 cache_expiry: 2h
                 cache_idle_timeout: 15m
+
+                pmtiles:
+                  pmtiles_cache_expiry: 45m
+                  pmtiles_cache_idle_timeout: 8m
 
                 sprites:
                   sprite_cache_expiry: 30m
                   sprite_cache_idle_timeout: 5m
+
+                fonts:
+                  font_cache_expiry: 25m
+                  font_cache_idle_timeout: 3m
             "};
 
-        let config = parse_config(yaml, &FauxEnv::default(), Path::new("test.yaml")).unwrap();
+        let mut config = parse_config(yaml, &FauxEnv::default(), Path::new("test.yaml")).unwrap();
+        if with_cache_size {
+            config.cache_size_mb = Some(1024);
+        }
         let cache_config = config.resolve_cache_config();
 
-        // Tiles should use global settings
-        assert_eq!(
-            cache_config.tile_cache_expiry,
-            Some(Duration::from_secs(7200))
-        );
-        assert_eq!(
-            cache_config.tile_cache_idle_timeout,
-            Some(Duration::from_secs(900))
-        );
+        // Tiles should use global settings (no overrides)
+        #[cfg(feature = "_tiles")]
+        {
+            assert_eq!(
+                cache_config.tile_cache_expiry,
+                Some(Duration::from_secs(7200))
+            );
+            assert_eq!(
+                cache_config.tile_cache_idle_timeout,
+                Some(Duration::from_secs(900))
+            );
+        }
+
+        // PMTiles should use overrides
+        #[cfg(feature = "pmtiles")]
+        {
+            assert_eq!(
+                cache_config.pmtiles_cache_expiry,
+                Some(Duration::from_secs(2700))
+            );
+            assert_eq!(
+                cache_config.pmtiles_cache_idle_timeout,
+                Some(Duration::from_secs(480))
+            );
+        }
 
         // Sprites should use overrides
-        assert_eq!(
-            cache_config.sprite_cache_expiry,
-            Some(Duration::from_secs(1800))
-        );
-        assert_eq!(
-            cache_config.sprite_cache_idle_timeout,
-            Some(Duration::from_secs(300))
-        );
-    }
+        #[cfg(feature = "sprites")]
+        {
+            assert_eq!(
+                cache_config.sprite_cache_expiry,
+                Some(Duration::from_secs(1800))
+            );
+            assert_eq!(
+                cache_config.sprite_cache_idle_timeout,
+                Some(Duration::from_secs(300))
+            );
+        }
 
-    #[cfg(all(feature = "_tiles", feature = "sprites"))]
-    #[test]
-    fn test_sprite_cache_config_resolution_with_overrides_without_size() {
-        use indoc::indoc;
-        use martin_core::config::env::FauxEnv;
-
-        let yaml = indoc! {"
-                    cache_expiry: 2h
-                    cache_idle_timeout: 15m
-
-                    sprites:
-                      sprite_cache_expiry: 30m
-                      sprite_cache_idle_timeout: 5m
-                "};
-
-        let config = parse_config(yaml, &FauxEnv::default(), Path::new("test.yaml")).unwrap();
-        let cache_config = config.resolve_cache_config();
-
-        // Tiles should use global settings
-        assert_eq!(
-            cache_config.tile_cache_expiry,
-            Some(Duration::from_secs(7200))
-        );
-        assert_eq!(
-            cache_config.tile_cache_idle_timeout,
-            Some(Duration::from_secs(900))
-        );
-
-        // Sprites should use overrides
-        assert_eq!(
-            cache_config.sprite_cache_expiry,
-            Some(Duration::from_secs(1800))
-        );
-        assert_eq!(
-            cache_config.sprite_cache_idle_timeout,
-            Some(Duration::from_secs(300))
-        );
+        // Fonts should use overrides
+        #[cfg(feature = "fonts")]
+        {
+            assert_eq!(
+                cache_config.font_cache_expiry,
+                Some(Duration::from_secs(1500))
+            );
+            assert_eq!(
+                cache_config.font_cache_idle_timeout,
+                Some(Duration::from_secs(180))
+            );
+        }
     }
 
     #[test]
