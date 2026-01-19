@@ -433,7 +433,7 @@ mod tests {
         br#"{"foo":"bar"}"#,
         TileInfo::new(Format::Json, Encoding::Uncompressed)
     )]
-    // we hae no way of knowing what is an MVT -> we just say it is out of the
+    // we have no way of knowing what is an MVT -> we just say it is out of the
     // fact that it is not something else
     #[case::invalid_webp_header(b"RIFF", TileInfo::new(Format::Mvt, Encoding::Uncompressed))]
     fn test_data_format_detect(#[case] data: &[u8], #[case] expected: TileInfo) {
