@@ -52,15 +52,7 @@ impl CacheConfig {
         if self.tile_cache_size_mb > 0 {
             let size = self.tile_cache_size_mb * 1000 * 1000;
 
-            let mut info_parts = vec![format!("maximum size {} MB", self.tile_cache_size_mb)];
-            if let Some(ttl) = self.tile_cache_expiry {
-                info_parts.push(format!("TTL {ttl:?}"));
-            }
-            if let Some(tti) = self.tile_cache_idle_timeout {
-                info_parts.push(format!("TTI {tti:?}"));
-            }
-
-            tracing::info!("Initializing tile cache with {}", info_parts.join(", "));
+            tracing::info!("Initializing tile cache with maximum size {} MB", self.tile_cache_size_mb);
 
             Some(martin_core::tiles::TileCache::new(
                 size,
@@ -81,18 +73,7 @@ impl CacheConfig {
         if self.pmtiles_cache_size_mb > 0 {
             let size = self.pmtiles_cache_size_mb * 1000 * 1000;
 
-            let mut info_parts = vec![format!("maximum size {} MB", self.pmtiles_cache_size_mb)];
-            if let Some(ttl) = self.pmtiles_cache_expiry {
-                info_parts.push(format!("TTL {ttl:?}"));
-            }
-            if let Some(tti) = self.pmtiles_cache_idle_timeout {
-                info_parts.push(format!("TTI {tti:?}"));
-            }
-
-            tracing::info!(
-                "Initializing PMTiles directory cache with {}",
-                info_parts.join(", ")
-            );
+            tracing::info!("Initializing pmtiles cache with maximum size {} MB", self.pmtiles_cache_size_mb);
 
             martin_core::tiles::pmtiles::PmtCache::new(
                 size,
@@ -112,15 +93,7 @@ impl CacheConfig {
         if self.sprite_cache_size_mb > 0 {
             let size = self.sprite_cache_size_mb * 1000 * 1000;
 
-            let mut info_parts = vec![format!("maximum size {} MB", self.sprite_cache_size_mb)];
-            if let Some(ttl) = self.sprite_cache_expiry {
-                info_parts.push(format!("TTL {ttl:?}"));
-            }
-            if let Some(tti) = self.sprite_cache_idle_timeout {
-                info_parts.push(format!("TTI {tti:?}"));
-            }
-
-            tracing::info!("Initializing sprite cache with {}", info_parts.join(", "));
+            tracing::info!("Initializing sprite cache with maximum size {} MB", self.sprite_cache_size_mb);
 
             Some(martin_core::sprites::SpriteCache::new(
                 size,
@@ -140,15 +113,7 @@ impl CacheConfig {
         if self.font_cache_size_mb > 0 {
             let size = self.font_cache_size_mb * 1000 * 1000;
 
-            let mut info_parts = vec![format!("maximum size {} MB", self.font_cache_size_mb)];
-            if let Some(ttl) = self.font_cache_expiry {
-                info_parts.push(format!("TTL {ttl:?}"));
-            }
-            if let Some(tti) = self.font_cache_idle_timeout {
-                info_parts.push(format!("TTI {tti:?}"));
-            }
-
-            tracing::info!("Initializing font cache with {}", info_parts.join(", "));
+            tracing::info!("Initializing font cache with maximum size {} MB", self.font_cache_size_mb);
 
             Some(martin_core::fonts::FontCache::new(
                 size,
