@@ -57,20 +57,12 @@ tile_cache_size_mb: 256
 # Maximum lifetime for cached tiles (TTL - time to live from creation).
 # Overrides `cache_expiry` for tiles specifically.
 # Supports human-readable formats like "1h", "30m", "1d", or "3600s".
-# tile_cache_expiry: 1h
+tile_cache_expiry: null
 
 # Maximum idle time for cached tiles (TTI - time to idle since last access).
 # Overrides `cache_idle_timeout` for tiles specifically.
 # Supports human-readable formats like "5m", "300s", or "1h".
-# tile_cache_idle_timeout: 5m
-
-# When both tile_cache_expiry and tile_cache_idle_timeout are set,
-# tiles expire at the earliest of the two times. For example:
-# tile_cache_expiry: 1h
-# tile_cache_idle_timeout: 5m
-# This configuration ensures:
-# - Hot tiles (frequently accessed) expire after 1 hour maximum
-# - Cold tiles (rarely accessed) expire after 5 minutes of inactivity
+tile_cache_idle_timeout: null
 
 # Which compression should be used if the
 # - client accepts multiple compression formats, and
@@ -291,12 +283,12 @@ pmtiles:
   # Maximum lifetime for cached PMTiles directories (TTL - time to live from creation).
   # When set, directories expire after this duration regardless of access frequency.
   # Supports human-readable formats like "1h", "30m", "1d", or "3600s".
-  # pmtiles_cache_expiry: 30m
+  pmtiles_cache_expiry: null
 
   # Maximum idle time for cached PMTiles directories (TTI - time to idle since last access).
   # When set, directories expire after being idle (not accessed) for this duration.
   # Supports human-readable formats like "5m", "300s", or "1h".
-  # pmtiles_cache_idle_timeout: 10m
+  pmtiles_cache_idle_timeout: null
 
   # You can pass options for pmtiles files located on remote storages here.
   #
