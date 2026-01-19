@@ -352,7 +352,7 @@ sprites:
 # Font configuration
 fonts:
   # Size of the sprite cache (in MB).
-  # Defaults to cache_size_mb / 4
+  # Defaults to cache_size_mb / 8
   cache_size_mb: 64
 
   # Maximum lifetime for cached fonts (TTL - time to live from creation).
