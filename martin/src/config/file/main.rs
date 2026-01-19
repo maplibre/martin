@@ -432,9 +432,7 @@ impl Config {
             let (expiry, idle_timeout) = if let FileConfigEnum::Config(cfg) = &self.sprites {
                 (
                     cfg.custom.cache_expiry.or(self.cache_expiry),
-                    cfg.custom
-                        .cache_idle_timeout
-                        .or(self.cache_idle_timeout),
+                    cfg.custom.cache_idle_timeout.or(self.cache_idle_timeout),
                 )
             } else {
                 (self.cache_expiry, self.cache_idle_timeout)
@@ -476,9 +474,7 @@ impl Config {
             let (expiry, idle_timeout) = if let FileConfigEnum::Config(cfg) = &self.fonts {
                 (
                     cfg.custom.cache_expiry.or(self.cache_expiry),
-                    cfg.custom
-                        .cache_idle_timeout
-                        .or(self.cache_idle_timeout),
+                    cfg.custom.cache_idle_timeout.or(self.cache_idle_timeout),
                 )
             } else {
                 (self.cache_expiry, self.cache_idle_timeout)
