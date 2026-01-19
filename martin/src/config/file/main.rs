@@ -324,39 +324,14 @@ impl Config {
     // `cache_config: 0` disables caching, unless overridden by individual cache sizes
     #[cfg(any(feature = "_tiles", feature = "sprites", feature = "fonts"))]
     fn resolve_cache_config(&self) -> CacheConfig {
-        // Extract custom expiry/idle_timeout from individual cache configs
         #[cfg(feature = "pmtiles")]
-        let (pmtiles_cache_expiry, pmtiles_cache_idle_timeout) =
-            if let FileConfigEnum::Config(cfg) = &self.pmtiles {
-                (
-                    cfg.custom.pmtiles_cache_expiry,
-                    cfg.custom.pmtiles_cache_idle_timeout,
-                )
-            } else {
-                (None, None)
-            };
+        let (pmtiles_cache_expiry, pmtiles_cache_idle_timeout) = self.get_pmtiles_cache_timing();
 
         #[cfg(feature = "sprites")]
-        let (sprite_cache_expiry, sprite_cache_idle_timeout) =
-            if let FileConfigEnum::Config(cfg) = &self.sprites {
-                (
-                    cfg.custom.sprite_cache_expiry,
-                    cfg.custom.sprite_cache_idle_timeout,
-                )
-            } else {
-                (None, None)
-            };
+        let (sprite_cache_expiry, sprite_cache_idle_timeout) = self.get_sprite_cache_timing();
 
         #[cfg(feature = "fonts")]
-        let (font_cache_expiry, font_cache_idle_timeout) =
-            if let FileConfigEnum::Config(cfg) = &self.fonts {
-                (
-                    cfg.custom.font_cache_expiry,
-                    cfg.custom.font_cache_idle_timeout,
-                )
-            } else {
-                (None, None)
-            };
+        let (font_cache_expiry, font_cache_idle_timeout) = self.get_font_cache_timing();
 
         if let Some(cache_size_mb) = self.cache_size_mb {
             #[cfg(feature = "pmtiles")]
@@ -436,6 +411,42 @@ impl Config {
                 #[cfg(feature = "fonts")]
                 font_cache_idle_timeout: font_cache_idle_timeout.or(self.cache_idle_timeout),
             }
+        }
+    }
+
+    #[cfg(feature = "pmtiles")]
+    fn get_pmtiles_cache_timing(&self) -> (Option<Duration>, Option<Duration>) {
+        if let FileConfigEnum::Config(cfg) = &self.pmtiles {
+            (
+                cfg.custom.pmtiles_cache_expiry,
+                cfg.custom.pmtiles_cache_idle_timeout,
+            )
+        } else {
+            (None, None)
+        }
+    }
+
+    #[cfg(feature = "sprites")]
+    fn get_sprite_cache_timing(&self) -> (Option<Duration>, Option<Duration>) {
+        if let FileConfigEnum::Config(cfg) = &self.sprites {
+            (
+                cfg.custom.sprite_cache_expiry,
+                cfg.custom.sprite_cache_idle_timeout,
+            )
+        } else {
+            (None, None)
+        }
+    }
+
+    #[cfg(feature = "fonts")]
+    fn get_font_cache_timing(&self) -> (Option<Duration>, Option<Duration>) {
+        if let FileConfigEnum::Config(cfg) = &self.fonts {
+            (
+                cfg.custom.font_cache_expiry,
+                cfg.custom.font_cache_idle_timeout,
+            )
+        } else {
+            (None, None)
         }
     }
 
