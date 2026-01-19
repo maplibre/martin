@@ -323,7 +323,7 @@ fn is_7bit_and_then(tile: &[u8], version: u8) -> bool {
 
 /// Detects if the given tile is a valid JSON tile.
 ///
-/// The checks if it is a dictionary are to speed up the validation process.
+/// The check for a dictionary is used to speed up the validation process.
 fn is_valid_json(tile: &[u8]) -> bool {
     tile.starts_with(b"{")
         && tile.ends_with(b"}")
