@@ -112,7 +112,7 @@ async fn mbt_get_catalog() {
     let response = call_service(&app, req).await;
     let response = assert_response(response).await;
     let body: serde_json::Value = read_body_json(response).await;
-    assert_yaml_snapshot!(body, @r"
+    assert_yaml_snapshot!(body, @r#"
     fonts: {}
     sprites: {}
     styles: {}
@@ -129,10 +129,15 @@ async fn mbt_get_catalog() {
         content_type: application/x-protobuf
         description: Major cities from Natural Earth data
         name: Major cities from Natural Earth data
+      m_raw_maplibre_tiles:
+        attribution: "<a href=\"https://www.openmaptiles.org/\" target=\"_blank\">&copy; OpenMapTiles</a> <a href=\"https://www.openstreetmap.org/copyright\" target=\"_blank\">&copy; OpenStreetMap contributors</a>"
+        content_type: application/vnd.maplibre-vector-tile
+        description: "A tileset showcasing all layers in OpenMapTiles. https://openmaptiles.org"
+        name: OpenMapTiles
       m_webp:
         content_type: image/webp
         name: ne2sr
-    ");
+    "#);
 }
 
 #[actix_rt::test]
@@ -146,7 +151,7 @@ async fn mbt_get_catalog_gzip() {
     let response = assert_response(response).await;
     let body = decode_gzip(&read_body(response).await).unwrap();
     let body: serde_json::Value = serde_json::from_slice(&body).unwrap();
-    assert_yaml_snapshot!(body, @r"
+    assert_yaml_snapshot!(body, @r#"
     fonts: {}
     sprites: {}
     styles: {}
@@ -163,10 +168,15 @@ async fn mbt_get_catalog_gzip() {
         content_type: application/x-protobuf
         description: Major cities from Natural Earth data
         name: Major cities from Natural Earth data
+      m_raw_maplibre_tiles:
+        attribution: "<a href=\"https://www.openmaptiles.org/\" target=\"_blank\">&copy; OpenMapTiles</a> <a href=\"https://www.openstreetmap.org/copyright\" target=\"_blank\">&copy; OpenStreetMap contributors</a>"
+        content_type: application/vnd.maplibre-vector-tile
+        description: "A tileset showcasing all layers in OpenMapTiles. https://openmaptiles.org"
+        name: OpenMapTiles
       m_webp:
         content_type: image/webp
         name: ne2sr
-    ");
+    "#);
 }
 
 #[actix_rt::test]
