@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use moka::future::Cache;
-use tracing::{info, trace};
+use tracing::info;
 
 /// Optional wrapper for `PmtCache`.
 pub type OptPmtCache = Option<PmtCache>;

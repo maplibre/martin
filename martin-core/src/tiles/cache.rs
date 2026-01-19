@@ -333,12 +333,12 @@ mod tests {
                 )
                 .await
                 .unwrap();
-            cache.0.run_pending_tasks().await;
         }
+        cache.0.run_pending_tasks().await;
 
         // Cache should have entries
         let count = cache.entry_count();
-        assert!(count > 0, "Expected entries in cache, got {count}");
+        assert_eq!(count, 2, "Expected entries in cache, got {count}");
 
         // Wait for TTI expiry
         tokio::time::sleep(Duration::from_millis(600)).await;
