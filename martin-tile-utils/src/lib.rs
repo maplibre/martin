@@ -236,7 +236,9 @@ impl TileInfo {
             v if v.starts_with(b"RIFF") && v.len() > 8 && v[8..].starts_with(b"WEBP") => {
                 Self::new(Format::Webp, Encoding::Internal)
             }
-            v if v.starts_with(b"{") && v.ends_with(b"}") => Self::new(Format::Json, Encoding::Uncompressed),
+            v if v.starts_with(b"{") && v.ends_with(b"}") => {
+                Self::new(Format::Json, Encoding::Uncompressed)
+            }
             _ => None?,
         })
     }
