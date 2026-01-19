@@ -1,6 +1,8 @@
 use std::ffi::OsStr;
 use std::fs::File;
 use std::io::prelude::*;
+#[cfg(any(feature = "_tiles", feature = "sprites", feature = "fonts"))]
+use std::num::NonZeroU64;
 use std::path::Path;
 use std::sync::LazyLock;
 use std::time::Duration;
@@ -31,6 +33,8 @@ use tracing::{error, info, warn};
 use crate::config::file::FileConfigEnum;
 #[cfg(any(feature = "_tiles", feature = "sprites", feature = "fonts"))]
 use crate::config::file::cache::CacheConfig;
+#[cfg(any(feature = "_tiles", feature = "sprites", feature = "fonts"))]
+use crate::config::file::cache::SubCacheSetting;
 use crate::config::file::{
     ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks, UnrecognizedKeys,
     UnrecognizedValues, copy_unrecognized_keys_from_config,
@@ -324,129 +328,178 @@ impl Config {
     // `cache_config: 0` disables caching, unless overridden by individual cache sizes
     #[cfg(any(feature = "_tiles", feature = "sprites", feature = "fonts"))]
     fn resolve_cache_config(&self) -> CacheConfig {
-        #[cfg(feature = "pmtiles")]
-        let (pmtiles_cache_expiry, pmtiles_cache_idle_timeout) = self.get_pmtiles_cache_timing();
+        CacheConfig {
+            #[cfg(feature = "_tiles")]
+            tiles: self.get_tiles_cache_config(),
 
-        #[cfg(feature = "sprites")]
-        let (sprite_cache_expiry, sprite_cache_idle_timeout) = self.get_sprite_cache_timing();
-
-        #[cfg(feature = "fonts")]
-        let (font_cache_expiry, font_cache_idle_timeout) = self.get_font_cache_timing();
-
-        if let Some(cache_size_mb) = self.cache_size_mb {
             #[cfg(feature = "pmtiles")]
-            let pmtiles_cache_size_mb = if let FileConfigEnum::Config(cfg) = &self.pmtiles {
-                cfg.custom
-                    .directory_cache_size_mb
-                    .unwrap_or(cache_size_mb / 4) // Default: 25% for PMTiles directories
-            } else {
-                cache_size_mb / 4 // Default: 25% for PMTiles directories
-            };
+            pmtiles: self.get_pmtiles_cache_config(),
 
             #[cfg(feature = "sprites")]
-            let sprite_cache_size_mb = if let FileConfigEnum::Config(cfg) = &self.sprites {
-                cfg.custom.cache_size_mb.unwrap_or(cache_size_mb / 8) // Default: 12.5% for sprites
-            } else {
-                cache_size_mb / 8 // Default: 12.5% for sprites
-            };
+            sprites: self.get_sprite_cache_config(),
 
             #[cfg(feature = "fonts")]
-            let font_cache_size_mb = if let FileConfigEnum::Config(cfg) = &self.fonts {
-                cfg.custom.cache_size_mb.unwrap_or(cache_size_mb / 8) // Default: 12.5% for fonts
-            } else {
-                cache_size_mb / 8 // Default: 12.5% for fonts
-            };
+            fonts: self.get_font_cache_config(),
+        }
+    }
 
-            CacheConfig {
-                #[cfg(feature = "_tiles")]
-                tile_cache_size_mb: self.tile_cache_size_mb.unwrap_or(cache_size_mb / 2), // Default: 50% for tiles
-                #[cfg(feature = "_tiles")]
-                tile_cache_expiry: self.tile_cache_expiry.or(self.cache_expiry),
-                #[cfg(feature = "_tiles")]
-                tile_cache_idle_timeout: self.tile_cache_idle_timeout.or(self.cache_idle_timeout),
-                #[cfg(feature = "pmtiles")]
-                pmtiles_cache_size_mb,
-                #[cfg(feature = "pmtiles")]
-                pmtiles_cache_expiry: pmtiles_cache_expiry.or(self.cache_expiry),
-                #[cfg(feature = "pmtiles")]
-                pmtiles_cache_idle_timeout: pmtiles_cache_idle_timeout.or(self.cache_idle_timeout),
-                #[cfg(feature = "sprites")]
-                sprite_cache_size_mb,
-                #[cfg(feature = "sprites")]
-                sprite_cache_expiry: sprite_cache_expiry.or(self.cache_expiry),
-                #[cfg(feature = "sprites")]
-                sprite_cache_idle_timeout: sprite_cache_idle_timeout.or(self.cache_idle_timeout),
-                #[cfg(feature = "fonts")]
-                font_cache_size_mb,
-                #[cfg(feature = "fonts")]
-                font_cache_expiry: font_cache_expiry.or(self.cache_expiry),
-                #[cfg(feature = "fonts")]
-                font_cache_idle_timeout: font_cache_idle_timeout.or(self.cache_idle_timeout),
-            }
+    #[cfg(feature = "_tiles")]
+    fn get_tiles_cache_config(&self) -> Option<SubCacheSetting> {
+        let size_mb = self.tile_cache_size_mb;
+        // TODO: the defaults could be smarter. If I don't have a specific source, don't reserve cache for it
+        // default to 25% of the total cache size
+        let size_mb = size_mb.or(self.cache_size_mb.map(|c| c / 4));
+        // or default to 128MB
+        let size_mb = size_mb.unwrap_or(128);
+        let size_mb = NonZeroU64::try_from(size_mb).ok();
+        if let Some(size_mb) = size_mb {
+            let expiry = self.tile_cache_expiry.or(self.cache_expiry);
+            let idle_timeout = self.tile_cache_idle_timeout.or(self.cache_idle_timeout);
+            Some(SubCacheSetting {
+                size_mb,
+                expiry,
+                idle_timeout,
+            })
         } else {
-            // TODO: the defaults could be smarter. If I don't have pmtiles sources, don't reserve cache for it
-            CacheConfig {
-                #[cfg(feature = "_tiles")]
-                tile_cache_size_mb: 256,
-                #[cfg(feature = "_tiles")]
-                tile_cache_expiry: self.tile_cache_expiry.or(self.cache_expiry),
-                #[cfg(feature = "_tiles")]
-                tile_cache_idle_timeout: self.tile_cache_idle_timeout.or(self.cache_idle_timeout),
-                #[cfg(feature = "pmtiles")]
-                pmtiles_cache_size_mb: 128,
-                #[cfg(feature = "pmtiles")]
-                pmtiles_cache_expiry: pmtiles_cache_expiry.or(self.cache_expiry),
-                #[cfg(feature = "pmtiles")]
-                pmtiles_cache_idle_timeout: pmtiles_cache_idle_timeout.or(self.cache_idle_timeout),
-                #[cfg(feature = "sprites")]
-                sprite_cache_size_mb: 64,
-                #[cfg(feature = "sprites")]
-                sprite_cache_expiry: sprite_cache_expiry.or(self.cache_expiry),
-                #[cfg(feature = "sprites")]
-                sprite_cache_idle_timeout: sprite_cache_idle_timeout.or(self.cache_idle_timeout),
-                #[cfg(feature = "fonts")]
-                font_cache_size_mb: 64,
-                #[cfg(feature = "fonts")]
-                font_cache_expiry: font_cache_expiry.or(self.cache_expiry),
-                #[cfg(feature = "fonts")]
-                font_cache_idle_timeout: font_cache_idle_timeout.or(self.cache_idle_timeout),
+            if self.tile_cache_expiry.is_some() {
+                warn!("tiles cache is not enabled, ignoring custom expiry");
             }
+            if self.tile_cache_idle_timeout.is_some() {
+                warn!("tiles cache is not enabled, ignoring custom idle timeout");
+            }
+            None
         }
     }
 
     #[cfg(feature = "pmtiles")]
-    fn get_pmtiles_cache_timing(&self) -> (Option<Duration>, Option<Duration>) {
-        if let FileConfigEnum::Config(cfg) = &self.pmtiles {
-            (
-                cfg.custom.pmtiles_cache_expiry,
-                cfg.custom.pmtiles_cache_idle_timeout,
-            )
+    fn get_pmtiles_cache_config(&self) -> Option<SubCacheSetting> {
+        let size_mb = if let FileConfigEnum::Config(cfg) = &self.pmtiles {
+            cfg.custom.directory_cache_size_mb
         } else {
-            (None, None)
+            None
+        };
+        // TODO: the defaults could be smarter. If I don't have a specific source, don't reserve cache for it
+        // default to 25% of the total cache size
+        let size_mb = size_mb.or(self.cache_size_mb.map(|c| c / 4));
+        // or default to 128MB
+        let size_mb = size_mb.unwrap_or(128);
+        let size_mb = NonZeroU64::try_from(size_mb).ok();
+        if let Some(size_mb) = size_mb {
+            let (expiry, idle_timeout) = if let FileConfigEnum::Config(cfg) = &self.pmtiles {
+                (
+                    cfg.custom.pmtiles_cache_expiry.or(self.cache_expiry),
+                    cfg.custom
+                        .pmtiles_cache_idle_timeout
+                        .or(self.cache_idle_timeout),
+                )
+            } else {
+                (self.cache_expiry, self.cache_idle_timeout)
+            };
+            Some(SubCacheSetting {
+                size_mb,
+                expiry,
+                idle_timeout,
+            })
+        } else {
+            if let FileConfigEnum::Config(cfg) = &self.pmtiles
+                && cfg.custom.pmtiles_cache_expiry.is_some()
+            {
+                warn!("PMTiles cache is not enabled, ignoring custom expiry");
+            }
+            if let FileConfigEnum::Config(cfg) = &self.pmtiles
+                && cfg.custom.pmtiles_cache_idle_timeout.is_some()
+            {
+                warn!("PMTiles cache is not enabled, ignoring custom idle timeout");
+            }
+            None
         }
     }
 
     #[cfg(feature = "sprites")]
-    fn get_sprite_cache_timing(&self) -> (Option<Duration>, Option<Duration>) {
-        if let FileConfigEnum::Config(cfg) = &self.sprites {
-            (
-                cfg.custom.sprite_cache_expiry,
-                cfg.custom.sprite_cache_idle_timeout,
-            )
+    fn get_sprite_cache_config(&self) -> Option<SubCacheSetting> {
+        let size_mb = if let FileConfigEnum::Config(cfg) = &self.sprites {
+            cfg.custom.cache_size_mb
         } else {
-            (None, None)
+            None
+        };
+        // TODO: the defaults could be smarter. If I don't have a specific source, don't reserve cache for it
+        // default to 12.5% of the total cache size
+        let size_mb = size_mb.or(self.cache_size_mb.map(|c| c / 8));
+        // or default to 64MB
+        let size_mb = size_mb.unwrap_or(64);
+        let size_mb = NonZeroU64::try_from(size_mb).ok();
+        if let Some(size_mb) = size_mb {
+            let (expiry, idle_timeout) = if let FileConfigEnum::Config(cfg) = &self.sprites {
+                (
+                    cfg.custom.sprite_cache_expiry.or(self.cache_expiry),
+                    cfg.custom
+                        .sprite_cache_idle_timeout
+                        .or(self.cache_idle_timeout),
+                )
+            } else {
+                (self.cache_expiry, self.cache_idle_timeout)
+            };
+            Some(SubCacheSetting {
+                size_mb,
+                expiry,
+                idle_timeout,
+            })
+        } else {
+            if let FileConfigEnum::Config(cfg) = &self.sprites
+                && cfg.custom.sprite_cache_expiry.is_some()
+            {
+                warn!("Sprite cache is not enabled, ignoring custom expiry");
+            }
+            if let FileConfigEnum::Config(cfg) = &self.sprites
+                && cfg.custom.sprite_cache_idle_timeout.is_some()
+            {
+                warn!("Sprite cache is not enabled, ignoring custom idle timeout");
+            }
+            None
         }
     }
 
     #[cfg(feature = "fonts")]
-    fn get_font_cache_timing(&self) -> (Option<Duration>, Option<Duration>) {
-        if let FileConfigEnum::Config(cfg) = &self.fonts {
-            (
-                cfg.custom.font_cache_expiry,
-                cfg.custom.font_cache_idle_timeout,
-            )
+    fn get_font_cache_config(&self) -> Option<SubCacheSetting> {
+        let size_mb = if let FileConfigEnum::Config(cfg) = &self.fonts {
+            cfg.custom.cache_size_mb
         } else {
-            (None, None)
+            None
+        };
+        // TODO: the defaults could be smarter. If I don't have a specific source, don't reserve cache for it
+        // default to 12.5% of the total cache size
+        let size_mb = size_mb.or(self.cache_size_mb.map(|c| c / 8));
+        // or default to 64MB
+        let size_mb = size_mb.unwrap_or(64);
+        let size_mb = NonZeroU64::try_from(size_mb).ok();
+        if let Some(size_mb) = size_mb {
+            let (expiry, idle_timeout) = if let FileConfigEnum::Config(cfg) = &self.fonts {
+                (
+                    cfg.custom.font_cache_expiry.or(self.cache_expiry),
+                    cfg.custom
+                        .font_cache_idle_timeout
+                        .or(self.cache_idle_timeout),
+                )
+            } else {
+                (self.cache_expiry, self.cache_idle_timeout)
+            };
+            Some(SubCacheSetting {
+                size_mb,
+                expiry,
+                idle_timeout,
+            })
+        } else {
+            if let FileConfigEnum::Config(cfg) = &self.fonts
+                && cfg.custom.font_cache_expiry.is_some()
+            {
+                warn!("font cache is not enabled, ignoring custom expiry");
+            }
+            if let FileConfigEnum::Config(cfg) = &self.fonts
+                && cfg.custom.font_cache_idle_timeout.is_some()
+            {
+                warn!("font cache is not enabled, ignoring custom idle timeout");
+            }
+            None
         }
     }
 
@@ -714,11 +767,11 @@ mod tests {
         #[cfg(feature = "_tiles")]
         {
             assert_eq!(
-                cache_config.tile_cache_expiry,
+                cache_config.tiles.unwrap().expiry,
                 Some(Duration::from_secs(3600))
             );
             assert_eq!(
-                cache_config.tile_cache_idle_timeout,
+                cache_config.tiles.unwrap().idle_timeout,
                 Some(Duration::from_secs(600))
             );
         }
@@ -726,11 +779,11 @@ mod tests {
         #[cfg(feature = "sprites")]
         {
             assert_eq!(
-                cache_config.sprite_cache_expiry,
+                cache_config.sprites.unwrap().expiry,
                 Some(Duration::from_secs(3600))
             );
             assert_eq!(
-                cache_config.sprite_cache_idle_timeout,
+                cache_config.sprites.unwrap().idle_timeout,
                 Some(Duration::from_secs(600))
             );
         }
@@ -738,11 +791,11 @@ mod tests {
         #[cfg(feature = "fonts")]
         {
             assert_eq!(
-                cache_config.font_cache_expiry,
+                cache_config.fonts.unwrap().expiry,
                 Some(Duration::from_secs(3600))
             );
             assert_eq!(
-                cache_config.font_cache_idle_timeout,
+                cache_config.fonts.unwrap().idle_timeout,
                 Some(Duration::from_secs(600))
             );
         }
@@ -788,11 +841,11 @@ mod tests {
         #[cfg(feature = "_tiles")]
         {
             assert_eq!(
-                cache_config.tile_cache_expiry,
+                cache_config.tiles.unwrap().expiry,
                 Some(Duration::from_secs(7200))
             );
             assert_eq!(
-                cache_config.tile_cache_idle_timeout,
+                cache_config.tiles.unwrap().idle_timeout,
                 Some(Duration::from_secs(900))
             );
         }
@@ -801,11 +854,11 @@ mod tests {
         #[cfg(feature = "pmtiles")]
         {
             assert_eq!(
-                cache_config.pmtiles_cache_expiry,
+                cache_config.pmtiles.unwrap().expiry,
                 Some(Duration::from_secs(2700))
             );
             assert_eq!(
-                cache_config.pmtiles_cache_idle_timeout,
+                cache_config.pmtiles.unwrap().idle_timeout,
                 Some(Duration::from_secs(480))
             );
         }
@@ -814,11 +867,11 @@ mod tests {
         #[cfg(feature = "sprites")]
         {
             assert_eq!(
-                cache_config.sprite_cache_expiry,
+                cache_config.sprites.unwrap().expiry,
                 Some(Duration::from_secs(1800))
             );
             assert_eq!(
-                cache_config.sprite_cache_idle_timeout,
+                cache_config.sprites.unwrap().idle_timeout,
                 Some(Duration::from_secs(300))
             );
         }
@@ -827,11 +880,11 @@ mod tests {
         #[cfg(feature = "fonts")]
         {
             assert_eq!(
-                cache_config.font_cache_expiry,
+                cache_config.fonts.unwrap().expiry,
                 Some(Duration::from_secs(1500))
             );
             assert_eq!(
-                cache_config.font_cache_idle_timeout,
+                cache_config.fonts.unwrap().idle_timeout,
                 Some(Duration::from_secs(180))
             );
         }
