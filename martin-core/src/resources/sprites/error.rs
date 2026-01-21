@@ -26,7 +26,7 @@ pub enum SpriteError {
     InvalidSpriteFilePath(String, PathBuf),
 
     /// No SVG files found in directory.
-    #[error("No sprite files found in {0}")]
+    #[error("No sprite SVG files found in {0}")]
     NoSpriteFilesFound(PathBuf),
 
     /// Failed to read sprite file.
