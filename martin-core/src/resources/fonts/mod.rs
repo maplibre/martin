@@ -16,13 +16,12 @@
 //! let font_data = sources.get_font_range("Arial,Helvetica", 0, 255).unwrap();
 //! ```
 
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 use std::ffi::OsStr;
 use std::fmt::Debug;
 use std::path::PathBuf;
 use std::sync::{Arc, LazyLock};
 
-use bit_set::BitSet;
 use dashmap::{DashMap, Entry};
 use itertools::Itertools as _;
 use pbf_font_tools::freetype::{Face, Library};
@@ -53,7 +52,7 @@ const RADIUS: usize = 8;
 const CUTOFF: f64 = 0.25_f64;
 /// Maximum Unicode codepoint range ID.
 ///
-/// Each range is 256 codepoints long, so the highest range ID is 0xFFFF / 256 = 255.
+/// Each range is 256 codepoints long, so the highest range ID is 0x10FFFF / 256 = 255.
 const MAX_UNICODE_CP_RANGE_ID: usize = MAX_UNICODE_CP / CP_RANGE_SIZE;
 
 mod error;
@@ -63,13 +62,13 @@ mod cache;
 pub use cache::{FontCache, NO_FONT_CACHE, OptFontCache};
 
 /// Glyph information: (codepoints, count, ranges, first, last).
-type GetGlyphInfo = (BitSet, usize, Vec<(usize, usize)>, usize, usize);
+type GetGlyphInfo = (BTreeSet<usize>, usize, Vec<(usize, usize)>, usize, usize);
 
 /// Extracts available codepoints from a font face.
 ///
 /// Returns `None` if the font contains no usable glyphs.
 fn get_available_codepoints(face: &mut Face) -> Option<GetGlyphInfo> {
-    let mut codepoints = BitSet::with_capacity(MAX_UNICODE_CP);
+    let mut codepoints = BTreeSet::new();
     let mut spans = Vec::new();
     let mut first: Option<usize> = None;
     let mut count = 0;
@@ -123,21 +122,30 @@ pub struct FontSources {
     /// Map of font name to font source data.
     fonts: DashMap<String, FontSource>,
     /// Pre-computed bitmasks for each 256-character Unicode range.
-    masks: Arc<Vec<BitSet>>,
+    masks: Arc<Vec<BTreeSet<usize>>>,
 }
 
 impl Default for FontSources {
     fn default() -> Self {
         let mut masks = Vec::with_capacity(MAX_UNICODE_CP_RANGE_ID + 1);
 
-        let mut bs = BitSet::with_capacity(CP_RANGE_SIZE);
+        // for i in 0..MAX_UNICODE_CP_RANGE_ID {
+        //     masks.push(BitSet::from_bytes(&[
+        //         0, 0, 0, 0, 0, 0, 0, 0,
+        //     ]));
+        // }
+        let mut bs = BTreeSet::new();
         for v in 0..=MAX_UNICODE_CP {
             bs.insert(v);
-            if v % CP_RANGE_SIZE == (CP_RANGE_SIZE - 1) {
+            if (v % CP_RANGE_SIZE) == (CP_RANGE_SIZE - 1) {
                 masks.push(bs);
-                bs = BitSet::with_capacity(CP_RANGE_SIZE);
+                bs = BTreeSet::new();
             }
         }
+
+        println!("{:?}", masks.get(0));
+        println!("{:?}", masks.get(1));
+        println!("{:?}", masks.get(2));
 
         Self {
             fonts: DashMap::new(),
@@ -181,19 +189,20 @@ impl FontSources {
             return Err(FontError::InvalidFontRange(start, end));
         }
 
-        let mut needed = self.masks[(start as usize) / CP_RANGE_SIZE].clone();
+        let needed = &self.masks[(start as usize) / CP_RANGE_SIZE];
         let fonts = ids
             .split(',')
             .filter_map(|id| match self.fonts.get(id) {
                 None => Some(Err(FontError::FontNotFound(id.to_string()))),
                 Some(v) => {
-                    let mut ds = needed.clone();
-                    ds.intersect_with(&v.codepoints);
-                    if ds.is_empty() {
+                    if needed.intersection(&v.codepoints).count() <= 0 {
                         None
                     } else {
-                        needed.difference_with(&v.codepoints);
-                        Some(Ok((id, v, ds)))
+                        let diff: BTreeSet<usize> = needed
+                            .difference(&v.codepoints)
+                            .cloned()
+                            .collect();
+                        Some(Ok((id, v, diff)))
                     }
                 }
             })
@@ -225,7 +234,7 @@ impl FontSources {
             // and https://www.freetype.org/freetype2/docs/tutorial/step1.html for details.
             face.set_char_size(0, CHAR_HEIGHT, 0, 0)?;
 
-            for cp in &ds {
+            for cp in ds {
                 let glyph = render_sdf_glyph(&face, cp as u32, BUFFER_SIZE, RADIUS, CUTOFF)?;
                 stack.glyphs.push(glyph);
             }
@@ -247,7 +256,7 @@ pub struct FontSource {
     /// Face index within the font file (for .ttc collections).
     face_index: isize,
     /// Unicode codepoints this font supports.
-    codepoints: BitSet,
+    codepoints: BTreeSet<usize>,
     /// Font metadata for the catalog.
     catalog_entry: CatalogFontEntry,
 }
