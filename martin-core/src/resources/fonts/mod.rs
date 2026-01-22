@@ -52,7 +52,7 @@ const RADIUS: usize = 8;
 const CUTOFF: f64 = 0.25_f64;
 /// Maximum Unicode codepoint range ID.
 ///
-/// Each range is 256 codepoints long, so the highest range ID is 0x10FFFF / 256 = 255.
+/// Each range is 256 codepoints long, so the highest range ID is 0x10FFFF / 256 = 4351.
 const MAX_UNICODE_CP_RANGE_ID: usize = MAX_UNICODE_CP / CP_RANGE_SIZE;
 
 mod error;
