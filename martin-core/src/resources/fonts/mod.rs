@@ -129,11 +129,6 @@ impl Default for FontSources {
     fn default() -> Self {
         let mut masks = Vec::with_capacity(MAX_UNICODE_CP_RANGE_ID + 1);
 
-        // for i in 0..MAX_UNICODE_CP_RANGE_ID {
-        //     masks.push(BitSet::from_bytes(&[
-        //         0, 0, 0, 0, 0, 0, 0, 0,
-        //     ]));
-        // }
         let mut bs = BTreeSet::new();
         for v in 0..=MAX_UNICODE_CP {
             bs.insert(v);
@@ -142,10 +137,6 @@ impl Default for FontSources {
                 bs = BTreeSet::new();
             }
         }
-
-        println!("{:?}", masks.get(0));
-        println!("{:?}", masks.get(1));
-        println!("{:?}", masks.get(2));
 
         Self {
             fonts: DashMap::new(),
@@ -189,17 +180,17 @@ impl FontSources {
             return Err(FontError::InvalidFontRange(start, end));
         }
 
-        let needed = &self.masks[(start as usize) / CP_RANGE_SIZE];
+        let needed: &BTreeSet<usize> = &self.masks[(start as usize) / CP_RANGE_SIZE];
         let fonts = ids
             .split(',')
             .filter_map(|id| match self.fonts.get(id) {
                 None => Some(Err(FontError::FontNotFound(id.to_string()))),
                 Some(v) => {
-                    if needed.intersection(&v.codepoints).count() <= 0 {
+                    if needed.intersection(&v.codepoints).count() == 0 {
                         None
                     } else {
                         let diff: BTreeSet<usize> =
-                            needed.difference(&v.codepoints).cloned().collect();
+                            needed.difference(&v.codepoints).copied().collect();
                         Some(Ok((id, v, diff)))
                     }
                 }
