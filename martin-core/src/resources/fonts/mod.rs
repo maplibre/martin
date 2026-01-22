@@ -198,10 +198,8 @@ impl FontSources {
                     if needed.intersection(&v.codepoints).count() <= 0 {
                         None
                     } else {
-                        let diff: BTreeSet<usize> = needed
-                            .difference(&v.codepoints)
-                            .cloned()
-                            .collect();
+                        let diff: BTreeSet<usize> =
+                            needed.difference(&v.codepoints).cloned().collect();
                         Some(Ok((id, v, diff)))
                     }
                 }
