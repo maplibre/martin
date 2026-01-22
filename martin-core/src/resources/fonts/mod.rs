@@ -189,8 +189,7 @@ impl FontSources {
                     if needed.intersection(&v.codepoints).count() == 0 {
                         None
                     } else {
-                        let diff: Vec<usize> =
-                            v.codepoints.difference(needed).copied().collect();
+                        let diff: Vec<usize> = v.codepoints.difference(needed).copied().collect();
                         Some(Ok((id, v, diff)))
                     }
                 }
