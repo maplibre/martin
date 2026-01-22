@@ -381,14 +381,13 @@ mod tests {
         // U+3320: SQUARE SANTIIMU, U+1F60A: SMILING FACE WITH SMILING EYES
         for codepoint in [0x3320, 0x1f60a] {
             let font_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-                .join(format!("src/resources/fonts/tests/u+{codepoint:x}.ttf"));
-            assert!(font_path.is_file()); // make sure the file path is correct
-
+                .join(format!("../tests/fixtures/fonts2/u+{codepoint:x}.ttf"));
+            assert!(font_path.is_file(), "{}", font_path.display());
             let mut face = lib.new_face(&font_path, 0).unwrap();
 
             let (_codepoints, count, _ranges, first, last) =
                 get_available_codepoints(&mut face).unwrap();
-            assert_eq!(count, 1);
+            assert_eq!(count, 2);
             assert_eq!(format!("U+{first:X}"), format!("U+{codepoint:X}"));
             assert_eq!(format!("U+{last:X}"), format!("U+{codepoint:X}"));
         }
