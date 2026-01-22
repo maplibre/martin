@@ -20,7 +20,7 @@ use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::fmt::Debug;
 use std::path::PathBuf;
-use std::sync::LazyLock;
+use std::sync::{Arc, LazyLock};
 
 use bit_set::BitSet;
 use dashmap::{DashMap, Entry};
@@ -123,7 +123,7 @@ pub struct FontSources {
     /// Map of font name to font source data.
     fonts: DashMap<String, FontSource>,
     /// Pre-computed bitmasks for each 256-character Unicode range.
-    masks: Vec<BitSet>,
+    masks: Arc<Vec<BitSet>>,
 }
 
 impl Default for FontSources {
@@ -141,7 +141,7 @@ impl Default for FontSources {
 
         Self {
             fonts: DashMap::new(),
-            masks,
+            masks: Arc::new(masks),
         }
     }
 }
