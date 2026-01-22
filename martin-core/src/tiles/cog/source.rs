@@ -41,7 +41,7 @@ impl CogSource {
             File::open(&path).map_err(|e: std::io::Error| CogError::IoError(e, path.clone()))?;
         let mut decoder = Decoder::new(tif_file)
             .map_err(|e| CogError::InvalidTiffFile(e, path.clone()))?
-            .with_limits(tiff::decoder::Limits::unlimited());
+            .with_limits(tiff::decoder::Limits::default());
         let model = ModelInfo::decode(&mut decoder, &path);
         verify_requirements(&mut decoder, &model, &path.clone())?;
         let nodata: Option<f64> = if let Ok(no_data) = decoder.get_tag_ascii_string(GdalNodata) {
@@ -96,8 +96,11 @@ impl CogSource {
             ifd_index += 1;
             let next_res = decoder.seek_to_image(ifd_index);
             if next_res.is_err() {
+                // @todo: this is always reached as the last seek moves
+                // to an empty image
                 warn!(
-                    "Failed to seek to image. Any further images will be missed. IFD={ifd_index}",
+                    "Failed to seek to image. Any further images will be missed. IFD={ifd_index} err={:?}",
+                    next_res
                 );
                 break;
             }
