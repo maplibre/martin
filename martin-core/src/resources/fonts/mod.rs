@@ -129,12 +129,12 @@ impl Default for FontSources {
     fn default() -> Self {
         let mut masks = Vec::with_capacity(MAX_UNICODE_CP_RANGE_ID + 1);
 
-        let mut bs = BTreeSet::new();
+        let mut set = BTreeSet::new();
         for v in 0..=MAX_UNICODE_CP {
-            bs.insert(v);
+            set.insert(v);
             if (v % CP_RANGE_SIZE) == (CP_RANGE_SIZE - 1) {
-                masks.push(bs);
-                bs = BTreeSet::new();
+                masks.push(set);
+                set = BTreeSet::new();
             }
         }
 
