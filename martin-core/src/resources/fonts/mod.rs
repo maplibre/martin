@@ -71,27 +71,34 @@ fn get_available_codepoints(face: &mut Face) -> Option<GetGlyphInfo> {
     let mut codepoints = BTreeSet::new();
     let mut spans = Vec::new();
     let mut first: Option<usize> = None;
-    let mut count = 0;
+    let mut last = 0;
 
-    for cp in 0..=MAX_UNICODE_CP {
-        if face.get_char_index(cp).is_ok() {
-            codepoints.insert(cp);
-            count += 1;
-            if first.is_none() {
+    for (cp, _) in face.chars() {
+        codepoints.insert(cp);
+        if let Some(start) = first {
+            if cp != last + 1 {
+                spans.push((start, last));
                 first = Some(cp);
             }
-        } else if let Some(start) = first {
-            spans.push((start, cp - 1));
-            first = None;
+        } else {
+            first = Some(cp);
         }
+        last = cp;
     }
 
-    if count == 0 {
-        None
-    } else {
+    if let Some(first) = first {
+        spans.push((first, last));
         let start = spans[0].0;
         let end = spans[spans.len() - 1].1;
-        Some((codepoints, count, spans, start, end))
+        Some((
+            codepoints,
+            usize::try_from(face.num_glyphs()).unwrap(),
+            spans,
+            start,
+            end,
+        ))
+    } else {
+        None
     }
 }
 
