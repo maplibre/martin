@@ -88,13 +88,9 @@ fn get_available_codepoints(face: &mut Face) -> Option<GetGlyphInfo> {
 
     if let Some(first) = first {
         spans.push((first, last));
-        Some((
-            codepoints,
-            usize::try_from(face.num_glyphs()).unwrap(),
-            spans,
-            spans[0].0,
-            last,
-        ))
+        let count = usize::try_from(face.num_glyphs()).unwrap();
+        let start = spans[0].0;
+        Some((codepoints, count, spans, start, last))
     } else {
         None
     }
