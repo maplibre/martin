@@ -36,6 +36,7 @@ postgres = [
 unstable-cog = ["dep:png", "dep:tiff", "_tiles"]
 unstable-rendering = ["styles", "dep:maplibre_native", "dep:image"]
 fonts = [
+    "dep:bit-set",
     "dep:pbf_font_tools",
     "dep:regex",
     "dep:itertools",
@@ -62,6 +63,7 @@ maplibre_native = { workspace = true, optional = true }
 actix-web = { workspace = true, optional = true }
 async-trait.workspace = true
 base64  = { workspace = true, optional = true }
+bit-set = { workspace = true, optional = true }
 dashmap = { workspace = true, optional = true }
 deadpool-postgres = { workspace = true, optional = true }
 futures = { workspace = true, optional = true }

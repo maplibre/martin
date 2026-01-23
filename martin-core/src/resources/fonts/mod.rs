@@ -16,12 +16,13 @@
 //! let font_data = sources.get_font_range("Arial,Helvetica", 0, 255).unwrap();
 //! ```
 
-use std::collections::{BTreeSet, HashMap};
+use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::fmt::Debug;
 use std::path::PathBuf;
 use std::sync::LazyLock;
 
+use bit_set::BitSet;
 use dashmap::{DashMap, Entry};
 use itertools::Itertools as _;
 use pbf_font_tools::freetype::{Face, Library};
@@ -31,6 +32,12 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 use tracing::{debug, info, warn};
 
+/// Maximum Unicode codepoint supported.
+///
+/// Although U+FFFF covers the Basic Multilingual Plane, the Unicode standard
+/// allows to use up to U+10FFFF, including for private use.
+/// (cf. <https://en.wikipedia.org/wiki/Unicode_block>)
+const MAX_UNICODE_CP: u32 = 0x0010_FFFF;
 /// Size of each Unicode codepoint range (256 characters).
 const CP_RANGE_SIZE: usize = 256;
 /// Font size in pixels for SDF glyph rendering.
@@ -52,19 +59,19 @@ mod cache;
 pub use cache::{FontCache, NO_FONT_CACHE, OptFontCache};
 
 /// Glyph information: (codepoints, count, ranges, first, last).
-type GetGlyphInfo = (BTreeSet<u32>, usize, Vec<(usize, usize)>, usize, usize);
+type GetGlyphInfo = (BitSet, u32, Vec<(usize, usize)>, usize, usize);
 
 /// Extracts available codepoints from a font face.
 ///
 /// Returns `None` if the font contains no usable glyphs.
 fn get_available_codepoints(face: &mut Face) -> Option<GetGlyphInfo> {
-    let mut codepoints = BTreeSet::new();
+    let mut codepoints = BitSet::new();
     let mut spans = Vec::new();
     let mut first: Option<usize> = None;
     let mut last = 0;
 
     for (cp, _) in face.chars() {
-        codepoints.insert(u32::try_from(cp).expect("all unicode codepoints should be u32"));
+        codepoints.insert(cp);
         if let Some(start) = first {
             if cp != last + 1 {
                 spans.push((start, last));
@@ -78,7 +85,7 @@ fn get_available_codepoints(face: &mut Face) -> Option<GetGlyphInfo> {
 
     if let Some(first) = first {
         spans.push((first, last));
-        let count = usize::try_from(face.num_glyphs()).unwrap();
+        let count = u32::try_from(face.num_glyphs()).unwrap_or(0);
         let start = spans[0].0;
         Some((codepoints, count, spans, start, last))
     } else {
@@ -100,7 +107,7 @@ pub struct CatalogFontEntry {
     /// None for regular style.
     pub style: Option<String>,
     /// Total number of glyphs in this font.
-    pub glyphs: usize,
+    pub glyphs: u32,
     /// First Unicode codepoint available.
     pub start: usize,
     /// Last Unicode codepoint available.
@@ -108,18 +115,10 @@ pub struct CatalogFontEntry {
 }
 
 /// Thread-safe font manager for discovery, cataloging, and serving fonts as Protocol Buffers.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct FontSources {
     /// Map of font name to font source data.
     fonts: DashMap<String, FontSource>,
-}
-
-impl Default for FontSources {
-    fn default() -> Self {
-        Self {
-            fonts: DashMap::new(),
-        }
-    }
 }
 
 impl FontSources {
@@ -144,6 +143,9 @@ impl FontSources {
     /// Range must be exactly 256 characters (e.g., 0-255, 256-511).
     #[expect(clippy::cast_possible_truncation)]
     pub fn get_font_range(&self, ids: &str, start: u32, end: u32) -> Result<Vec<u8>, FontError> {
+        if start > MAX_UNICODE_CP || end > MAX_UNICODE_CP {
+            return Err(FontError::InvalidFontRangeStartEnd(start, end));
+        }
         if start > end {
             return Err(FontError::InvalidFontRangeStartEnd(start, end));
         }
@@ -199,7 +201,7 @@ impl FontSources {
             face.set_char_size(0, CHAR_HEIGHT, 0, 0)?;
 
             for codepoint in start..=end {
-                if !font.codepoints.contains(&codepoint) {
+                if !font.codepoints.contains(codepoint as usize) {
                     continue;
                 }
                 let g = render_sdf_glyph(&face, codepoint, BUFFER_SIZE, RADIUS, CUTOFF)?;
@@ -223,7 +225,7 @@ pub struct FontSource {
     /// Face index within the font file (for .ttc collections).
     face_index: isize,
     /// Unicode codepoints this font supports.
-    codepoints: BTreeSet<u32>,
+    codepoints: BitSet,
     /// Font metadata for the catalog.
     catalog_entry: CatalogFontEntry,
 }
