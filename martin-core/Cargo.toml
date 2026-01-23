@@ -20,7 +20,9 @@ default = [
     "sprites",
     "styles",
     "unstable-cog",
+    "geojson",
 ]
+geojson = ["dep:geojson", "dep:geo-index"]
 postgres = [
     "dep:deadpool-postgres",
     "dep:postgres",
@@ -62,11 +64,13 @@ maplibre_native = { workspace = true, optional = true }
 [dependencies]
 actix-web = { workspace = true, optional = true }
 async-trait.workspace = true
-base64  = { workspace = true, optional = true }
+base64 = { workspace = true, optional = true }
 bit-set = { workspace = true, optional = true }
 dashmap = { workspace = true, optional = true }
 deadpool-postgres = { workspace = true, optional = true }
 futures = { workspace = true, optional = true }
+geo-index = { workspace = true, optional = true }
+geojson = { workspace = true, optional = true }
 itertools = { workspace = true, optional = true }
 martin-tile-utils.workspace = true
 mbtiles = { workspace = true, optional = true }
