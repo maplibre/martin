@@ -20,7 +20,7 @@ use std::collections::{BTreeSet, HashMap};
 use std::ffi::OsStr;
 use std::fmt::Debug;
 use std::path::PathBuf;
-use std::sync::{LazyLock};
+use std::sync::LazyLock;
 
 use dashmap::{DashMap, Entry};
 use itertools::Itertools as _;
@@ -161,7 +161,7 @@ impl FontSources {
             .split(',')
             .map(|id| {
                 if self.fonts.get(id).is_none() {
-                    return Err(FontError::FontNotFound(id.to_string()))
+                    return Err(FontError::FontNotFound(id.to_string()));
                 }
 
                 Ok(id)
