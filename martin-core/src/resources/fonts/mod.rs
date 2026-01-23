@@ -20,7 +20,7 @@ use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::fmt::Debug;
 use std::path::PathBuf;
-use std::sync::LazyLock;
+use std::sync::{Arc, LazyLock};
 
 use bit_set::BitSet;
 use dashmap::{DashMap, Entry};
@@ -225,7 +225,7 @@ pub struct FontSource {
     /// Face index within the font file (for .ttc collections).
     face_index: isize,
     /// Unicode codepoints this font supports.
-    codepoints: BitSet,
+    codepoints: Arc<BitSet>,
     /// Font metadata for the catalog.
     catalog_entry: CatalogFontEntry,
 }
@@ -334,7 +334,7 @@ fn parse_font(
                 v.insert(FontSource {
                     path: path.clone(),
                     face_index,
-                    codepoints,
+                    codepoints: Arc::new(codepoints),
                     catalog_entry: CatalogFontEntry {
                         family,
                         style,
