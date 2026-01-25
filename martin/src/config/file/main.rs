@@ -8,9 +8,9 @@ use clap::ValueEnum;
 #[cfg(feature = "_tiles")]
 use futures::future::{BoxFuture, try_join_all};
 #[cfg(feature = "_tiles")]
-use martin_core::config::IdResolver;
+use crate::config::primitives::IdResolver;
 #[cfg(feature = "postgres")]
-use martin_core::config::OptOneMany;
+use crate::config::primitives::OptOneMany;
 #[cfg(feature = "_tiles")]
 use martin_core::tiles::OptTileCache;
 #[cfg(feature = "pmtiles")]

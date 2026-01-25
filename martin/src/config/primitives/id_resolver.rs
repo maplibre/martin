@@ -34,7 +34,7 @@ impl IdResolver {
     ///
     /// ```
     /// let reserved = &["catalog"];
-    /// let r = martin_core::config::IdResolver::new(reserved);
+    /// let r = crate::config::primitives::IdResolver::new(reserved);
     ///
     /// // catalog is a reserved name => needs renaming
     /// assert_eq!(r.resolve("catalog", "catalog1".to_string()), "catalog.1");

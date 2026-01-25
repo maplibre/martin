@@ -8,7 +8,7 @@
 //!
 //! ```rust,no_run
 //! use martin_core::fonts::FontSources;
-//! use martin_core::config::OptOneMany;
+//! use crate::config::primitives::OptOneMany;
 //! use std::path::PathBuf;
 //!
 //! let mut sources = FontSources::default();

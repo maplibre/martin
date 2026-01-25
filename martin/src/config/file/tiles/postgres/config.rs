@@ -3,7 +3,7 @@ use std::time::Duration;
 
 use futures::future::try_join;
 use futures::pin_mut;
-use martin_core::config::{IdResolver, OptBoolObj, OptOneMany};
+use crate::config::primitives::{IdResolver, OptBoolObj, OptOneMany};
 use martin_core::tiles::BoxedSource;
 use serde::{Deserialize, Serialize};
 use tilejson::TileJSON;
@@ -285,8 +285,8 @@ mod tests {
     use std::path::Path;
 
     use indoc::indoc;
-    use martin_core::config::OptOneMany::{Many, One};
-    use martin_core::config::env::FauxEnv;
+    use crate::config::primitives::OptOneMany::{Many, One};
+    use crate::config::primitives::env::FauxEnv;
     use tilejson::Bounds;
 
     use super::*;

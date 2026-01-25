@@ -1,9 +1,9 @@
 use std::time::Duration;
 
+use crate::config::primitives::env::Env;
+use crate::config::primitives::{OptBoolObj, OptOneMany};
 use clap::ValueEnum;
 use enum_display::EnumDisplay;
-use martin_core::config::env::Env;
-use martin_core::config::{OptBoolObj, OptOneMany};
 use serde::{Deserialize, Serialize};
 use tracing::{info, warn};
 
@@ -237,7 +237,7 @@ mod tests {
     use std::ffi::OsString;
     use std::path::PathBuf;
 
-    use martin_core::config::env::FauxEnv;
+    use crate::config::primitives::env::FauxEnv;
 
     use super::*;
     use crate::MartinError;

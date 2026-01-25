@@ -4,9 +4,9 @@ use clap::Parser;
 use martin::MartinResult;
 use martin::config::args::Args;
 use martin::config::file::{Config, read_config};
+use martin::config::primitives::env::OsEnv;
 use martin::logging::{ensure_martin_core_log_level_matches, init_tracing};
 use martin::srv::new_server;
-use martin_core::config::env::OsEnv;
 use tracing::{error, info};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");

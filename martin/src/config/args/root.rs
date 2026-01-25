@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use clap::Parser;
 use clap::builder::Styles;
 use clap::builder::styling::AnsiColor;
-use martin_core::config::env::Env;
+use crate::config::primitives::env::Env;
 
 use super::connections::Arguments;
 use super::srv::SrvArgs;
@@ -222,7 +222,7 @@ pub fn parse_file_args<T: crate::config::file::ConfigurationLivecycleHooks>(
 
 #[cfg(test)]
 mod tests {
-    use martin_core::config::env::FauxEnv;
+    use crate::config::primitives::env::FauxEnv;
 
     use super::*;
     use crate::MartinError::UnrecognizableConnections;
@@ -246,7 +246,7 @@ mod tests {
     #[cfg(feature = "postgres")]
     #[test]
     fn cli_with_config() {
-        use martin_core::config::OptOneMany;
+        use crate::config::primitives::OptOneMany;
 
         use crate::config::file::postgres::PostgresConfig;
 
