@@ -4,7 +4,7 @@
 // project originally written by Kaveh Karimi and licensed under MIT OR Apache-2.0
 
 use std::f64::consts::PI;
-use std::fmt::{Display, Formatter, Result};
+use std::fmt::{Display, Formatter};
 
 /// circumference of the earth in meters
 pub const EARTH_CIRCUMFERENCE: f64 = 40_075_016.685_578_5;
@@ -32,7 +32,7 @@ pub type TileData = Vec<u8>;
 pub type Tile = (TileCoord, Option<TileData>);
 
 impl Display for TileCoord {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         if f.alternate() {
             write!(f, "{}/{}/{}", self.z, self.x, self.y)
         } else {
@@ -145,7 +145,7 @@ impl Format {
 }
 
 impl Display for Format {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.write_str(match *self {
             Self::Gif => "gif",
             Self::Jpeg => "jpeg",
@@ -265,7 +265,7 @@ impl TileInfo {
     fn detect_vectorish_format(value: &[u8]) -> Format {
         match value {
             v if is_valid_json(v) => Format::Json,
-            v if is_7bit_and_then(v, 0x1) => Format::Mlt,
+            v if decode_7bit_length_and_tag(v, &[0x1]).is_ok() => Format::Mlt,
             // If we can't detect the format, we assume MVT.
             // Reasoning:
             //- it's the most common format and
@@ -298,7 +298,7 @@ impl From<Format> for TileInfo {
 }
 
 impl Display for TileInfo {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.format.content_type())?;
         if let Some(encoding) = self.encoding.content_encoding() {
             write!(f, "; encoding={encoding}")?;
@@ -309,19 +309,66 @@ impl Display for TileInfo {
     }
 }
 
-/// MLTs start with a 7-bit encoded length field followed by a version byte
-fn is_7bit_and_then(tile: &[u8], version: u8) -> bool {
-    let mut i = 0;
+#[derive(thiserror::Error, Debug, PartialEq, Eq)]
+enum SevenBitDecodingError {
+    /// Expected a tag, but got nothing
+    #[error("Expected a tag, but got nothing")]
+    TruncatedTag,
+    /// Expected a size, but got nothing
+    #[error("Expected a size, but got nothing")]
+    TruncatedSize,
+    /// Expected data accoding to the size, but got nothing
+    #[error("Expected {0} bytes of data in layer accoding to the size, but got only {1}")]
+    TruncatedData(usize, usize),
+    /// Got unexpected tag
+    #[error("Got tag {0} instead of the expected")]
+    UnexpectedTag(u8),
+}
 
-    while i < tile.len() {
-        let b = tile[i];
-        i += 1;
-
-        if b & 0x80 == 0 {
-            return tile.get(i) == Some(&version);
+/// Tries to validate that the tile consists of a valid concatination of (size_7_bit, one_of_expected_tag, data)
+fn decode_7bit_length_and_tag(tile: &[u8], versions: &'static [u8]) -> Result<(), SevenBitDecodingError> {
+    if tile.is_empty() {
+        return Err(SevenBitDecodingError::TruncatedSize);
+    }
+    let mut tile_iter = tile.iter().peekable();
+    while tile_iter.peek().is_some() {
+        // need to parse size
+        let mut size = 0_usize;
+        let mut already_consumed_size = 0_usize;
+        loop {
+            already_consumed_size += 1;
+            let Some(b) = tile_iter.next() else {
+                return Err(SevenBitDecodingError::TruncatedSize);
+            };
+            // decode size
+            size <<= 7;
+            let seven_bit_mask = !0x80;
+            size |= (*b & seven_bit_mask) as usize;
+            // 0 => no further size
+            if b & 0x80 == 0 {
+                // need to check tag
+                already_consumed_size += 1;
+                let Some(tag) = tile_iter.next() else {
+                    return Err(SevenBitDecodingError::TruncatedTag);
+                };
+                if !versions.iter().any(|v| tag == v) {
+                    return Err(SevenBitDecodingError::UnexpectedTag(*tag));
+                }
+                // need to check data-length
+                let expected_data_length = size - already_consumed_size;
+                for i in 0..expected_data_length {
+                    if tile_iter.next().is_none() {
+                        return Err(SevenBitDecodingError::TruncatedData(
+                            expected_data_length,
+                            i,
+                        ));
+                    }
+                }
+                break;
+            }
         }
     }
-    false
+    Ok(())
 }
 
 /// Detects if the given tile is a valid JSON tile.
@@ -483,7 +530,7 @@ mod tests {
         use flate2::write::ZlibEncoder;
 
         // MLT tile: length=5 (0x05), version=1 (0x01), plus some data
-        let mlt_data = &[0x05, 0x01, 0xaa, 0xbb];
+        let mlt_data = &[0x05, 0x01, 0xaa, 0xbb, 0xcc];
         let mut encoder = ZlibEncoder::new(Vec::new(), flate2::Compression::default());
         encoder.write_all(mlt_data).unwrap();
         let compressed = encoder.finish().unwrap();
@@ -526,18 +573,31 @@ mod tests {
         assert_eq!(result, TileInfo::new(Format::Mvt, Encoding::Gzip));
     }
 
-    /// MLTs start with a 7-bit encoded length field followed by a version byte
     #[rstest]
-    #[case::minimal_tile(&[0x02, 0x01], 0x01, true)]
-    #[case::one_byte_length(&[0x05, 0x01, 0xaa, 0xbb], 0x01, true)]
-    #[case::two_byte_length(&[0x80, 0x01, 0x01, 0xcc], 0x01, true)]
-    #[case::multi_byte_length(&[0xff, 0xff, 0x03, 0x02, 0xdd], 0x02, true)]
-    #[case::wrong_version(&[0x05, 0x02, 0xaa], 0x01, false)]
-    #[case::unterminated_length(&[0x80, 0x80, 0x80], 0x01, false)]
-    #[case::missing_version_byte(&[0x05], 0x01, false)]
-    #[case::empty_input(&[], 0x01, false)]
-    fn test_is_7bit_and_then(#[case] tile: &[u8], #[case] version: u8, #[case] expected: bool) {
-        assert_eq!(is_7bit_and_then(tile, version), expected);
+    #[case::minimal_tile(&[0x02, 0x01], Ok(()))]
+    #[case::one_byte_length(&[0x03, 0x01, 0xaa], Ok(()))]
+    #[case::two_byte_length(&[0x80, 0x04, 0x01, 0xaa], Ok(()))]
+    #[case::multi_byte_length(&[0x80, 0x80, 0x05, 0x01, 0xdd], Ok(()))]
+    #[case::wrong_version(&[0x03, 0x02, 0xaa], Err(SevenBitDecodingError::UnexpectedTag(0x02)))]
+    #[case::empty_input(&[], Err(SevenBitDecodingError::TruncatedSize))]
+    #[case::unterminated_length(&[0x80], Err(SevenBitDecodingError::TruncatedSize))]
+    #[case::missing_version_byte(&[0x05], Err(SevenBitDecodingError::TruncatedTag))]
+    #[case::wrong_length(&[0x03, 0x01], Err(SevenBitDecodingError::TruncatedData(1, 0)))]
+    fn test_decode_7bit_length_and_tag(
+        #[case] tile: &[u8],
+        #[case] expected: Result<(), SevenBitDecodingError>,
+    ) {
+        let allowed_versions = &[0x01_u8];
+        let decoded = decode_7bit_length_and_tag(tile, allowed_versions);
+        assert_eq!(decoded, expected, "can decode one layer correctly");
+
+        if tile.is_empty() {
+            return;
+        }
+        let mut tile_with_two_layers = vec![0x02, 0x01];
+        tile_with_two_layers.extend_from_slice(tile);
+        let decoded = decode_7bit_length_and_tag(&tile_with_two_layers, allowed_versions);
+        assert_eq!(decoded, expected, "can decode two layers correctly");
     }
 
     #[rstest]
