@@ -22,7 +22,7 @@ default = [
     "unstable-cog",
     "geojson",
 ]
-geojson = ["dep:geojson", "dep:geo-index"]
+geojson = ["dep:geojson", "dep:geo-index", "dep:geozero"]
 postgres = [
     "dep:deadpool-postgres",
     "dep:postgres",
@@ -71,6 +71,7 @@ deadpool-postgres = { workspace = true, optional = true }
 futures = { workspace = true, optional = true }
 geo-index = { workspace = true, optional = true }
 geojson = { workspace = true, optional = true }
+geozero = { workspace = true, optional = true }
 itertools = { workspace = true, optional = true }
 martin-tile-utils.workspace = true
 mbtiles = { workspace = true, optional = true }

@@ -300,7 +300,7 @@ pub fn xyz_to_bbox(zoom: u8, min_x: u32, min_y: u32, max_x: u32, max_y: u32) -> 
 }
 
 #[expect(clippy::cast_lossless)]
-fn tile_bbox(x: u32, y: u32, tile_length: f64) -> [f64; 4] {
+pub fn tile_bbox(x: u32, y: u32, tile_length: f64) -> [f64; 4] {
     let min_x = EARTH_CIRCUMFERENCE * -0.5 + x as f64 * tile_length;
     let max_y = EARTH_CIRCUMFERENCE * 0.5 - y as f64 * tile_length;
 
