@@ -1,9 +1,9 @@
 use std::ops::Add;
 use std::time::Duration;
 
+use crate::config::primitives::{IdResolver, OptBoolObj, OptOneMany};
 use futures::future::try_join;
 use futures::pin_mut;
-use crate::config::primitives::{IdResolver, OptBoolObj, OptOneMany};
 use martin_core::tiles::BoxedSource;
 use serde::{Deserialize, Serialize};
 use tilejson::TileJSON;
@@ -284,9 +284,9 @@ mod tests {
     use std::collections::BTreeMap;
     use std::path::Path;
 
-    use indoc::indoc;
     use crate::config::primitives::OptOneMany::{Many, One};
     use crate::config::primitives::env::FauxEnv;
+    use indoc::indoc;
     use tilejson::Bounds;
 
     use super::*;
