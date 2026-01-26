@@ -326,7 +326,10 @@ enum SevenBitDecodingError {
 }
 
 /// Tries to validate that the tile consists of a valid concatination of (size_7_bit, one_of_expected_tag, data)
-fn decode_7bit_length_and_tag(tile: &[u8], versions: &'static [u8]) -> Result<(), SevenBitDecodingError> {
+fn decode_7bit_length_and_tag(
+    tile: &[u8],
+    versions: &'static [u8],
+) -> Result<(), SevenBitDecodingError> {
     if tile.is_empty() {
         return Err(SevenBitDecodingError::TruncatedSize);
     }
