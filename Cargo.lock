@@ -3840,7 +3840,6 @@ dependencies = [
  "serde_json",
  "serde_with",
  "spreet",
- "subst",
  "testcontainers-modules",
  "thiserror 2.0.17",
  "tiff",
