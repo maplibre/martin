@@ -44,6 +44,17 @@ pub struct SrvArgs {
     #[arg(long)]
     #[cfg(feature = "_tiles")]
     pub tilejson_url_version_param: Option<String>,
+    /// Base URL for TileJSON tile URLs when behind a proxy or CloudFront.
+    ///
+    /// When set, this overrides the scheme and host in TileJSON responses.
+    /// This is useful when Martin is running behind a proxy, load balancer, or CloudFront,
+    /// and you want tile URLs to point to the public-facing URL instead of the internal service URL.
+    ///
+    /// Must be a valid URL with scheme and host. Path is optional.
+    /// Examples: `https://example.com`, `https://tiles.example.com`, `https://example.com/tiles`
+    #[arg(long)]
+    #[cfg(feature = "_tiles")]
+    pub base_url: Option<String>,
     /// Main cache size (in MB)
     #[arg(short = 'C', long)]
     pub cache_size: Option<u64>,
@@ -101,6 +112,10 @@ impl SrvArgs {
         #[cfg(feature = "_tiles")]
         if self.tilejson_url_version_param.is_some() {
             srv_config.tilejson_url_version_param = self.tilejson_url_version_param;
+        }
+        #[cfg(feature = "_tiles")]
+        if self.base_url.is_some() {
+            srv_config.base_url = self.base_url;
         }
     }
 }

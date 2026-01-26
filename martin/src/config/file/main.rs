@@ -130,6 +130,10 @@ impl Config {
         if let Some(path) = &self.srv.base_path {
             self.srv.base_path = Some(parse_base_path(path)?);
         }
+        #[cfg(feature = "_tiles")]
+        if let Some(url) = &self.srv.base_url {
+            self.srv.base_url = Some(parse_base_url(url)?);
+        }
         #[cfg(feature = "postgres")]
         {
             let pg_prefix = if matches!(self.postgres, OptOneMany::One(_)) {
@@ -478,6 +482,29 @@ pub fn parse_base_path(path: &str) -> MartinResult<String> {
     Err(MartinError::BasePathError(path.to_string()))
 }
 
+#[cfg(feature = "_tiles")]
+pub fn parse_base_url(url: &str) -> MartinResult<String> {
+    // Parse the URL to validate it
+    match url.parse::<actix_web::http::Uri>() {
+        Ok(uri) => {
+            // Ensure the URL has a scheme and authority (host)
+            if uri.scheme().is_none() {
+                return Err(MartinError::BaseUrlError(format!(
+                    "{url} - missing scheme (e.g., https://)"
+                )));
+            }
+            if uri.authority().is_none() {
+                return Err(MartinError::BaseUrlError(format!(
+                    "{url} - missing host"
+                )));
+            }
+            // Return the URL without trailing slash for consistency
+            Ok(url.trim_end_matches('/').to_string())
+        }
+        Err(_) => Err(MartinError::BaseUrlError(url.to_string())),
+    }
+}
+
 pub fn init_aws_lc_tls() {
     // https://github.com/rustls/rustls/issues/1877
     static INIT_TLS: LazyLock<()> = LazyLock::new(|| {
@@ -504,5 +531,48 @@ mod tests {
     fn parse_base_path_rejects_invalid_paths() {
         assert!(parse_base_path("").is_err());
         assert!(parse_base_path("foo/bar").is_err());
+    }
+
+    #[cfg(feature = "_tiles")]
+    #[test]
+    fn parse_base_url_accepts_valid_urls() {
+        assert_eq!(
+            "https://example.com",
+            parse_base_url("https://example.com").unwrap()
+        );
+        assert_eq!(
+            "https://example.com",
+            parse_base_url("https://example.com/").unwrap()
+        );
+        assert_eq!(
+            "https://tiles.example.com",
+            parse_base_url("https://tiles.example.com").unwrap()
+        );
+        assert_eq!(
+            "https://example.com/tiles",
+            parse_base_url("https://example.com/tiles").unwrap()
+        );
+        assert_eq!(
+            "https://example.com/tiles",
+            parse_base_url("https://example.com/tiles/").unwrap()
+        );
+        assert_eq!(
+            "http://localhost:3000",
+            parse_base_url("http://localhost:3000").unwrap()
+        );
+    }
+
+    #[cfg(feature = "_tiles")]
+    #[test]
+    fn parse_base_url_rejects_invalid_urls() {
+        // Missing scheme
+        assert!(parse_base_url("example.com").is_err());
+        assert!(parse_base_url("//example.com").is_err());
+        // Missing host
+        assert!(parse_base_url("https://").is_err());
+        // Just a path
+        assert!(parse_base_url("/tiles").is_err());
+        // Empty
+        assert!(parse_base_url("").is_err());
     }
 }

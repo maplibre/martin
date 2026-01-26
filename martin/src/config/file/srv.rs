@@ -28,6 +28,11 @@ pub struct SrvConfig {
     pub observability: Option<ObservabilityConfig>,
     #[cfg(feature = "_tiles")]
     pub tilejson_url_version_param: Option<String>,
+    /// Base URL for TileJSON responses when behind a proxy or CloudFront.
+    /// If set, this overrides the scheme and host in TileJSON tile URLs.
+    /// Must be a valid URL with scheme and host (e.g., "https://example.com" or "https://example.com/tiles").
+    #[cfg(feature = "_tiles")]
+    pub base_url: Option<String>,
 }
 
 impl ConfigurationLivecycleHooks for SrvConfig {
@@ -224,6 +229,39 @@ mod tests {
                     max_age: None,
                     unrecognized: UnrecognizedValues::default()
                 })),
+                ..Default::default()
+            }
+        );
+    }
+
+    #[cfg(feature = "_tiles")]
+    #[test]
+    fn parse_config_base_url() {
+        assert_eq!(
+            serde_yaml::from_str::<SrvConfig>(indoc! {"
+                keep_alive: 75
+                listen_addresses: '0.0.0.0:3000'
+                base_url: 'https://example.com'
+            "})
+            .unwrap(),
+            SrvConfig {
+                keep_alive: Some(75),
+                listen_addresses: Some("0.0.0.0:3000".to_string()),
+                base_url: Some("https://example.com".to_string()),
+                ..Default::default()
+            }
+        );
+        assert_eq!(
+            serde_yaml::from_str::<SrvConfig>(indoc! {"
+                keep_alive: 75
+                listen_addresses: '0.0.0.0:3000'
+                base_url: 'https://tiles.example.com/path'
+            "})
+            .unwrap(),
+            SrvConfig {
+                keep_alive: Some(75),
+                listen_addresses: Some("0.0.0.0:3000".to_string()),
+                base_url: Some("https://tiles.example.com/path".to_string()),
                 ..Default::default()
             }
         );

@@ -80,14 +80,20 @@ async fn get_source_info(
     };
 
     // Construct a tiles URL from the request info, including the query string if present.
-    let info = req.connection_info();
-    let tiles_url = Uri::builder()
-        .scheme(info.scheme())
-        .authority(info.host())
-        .path_and_query(path_and_query)
-        .build()
-        .map(|tiles_url| tiles_url.to_string())
-        .map_err(|e| ErrorBadRequest(format!("Can't build tiles URL: {e}")))?;
+    let tiles_url = if let Some(base_url) = &srv_config.base_url {
+        // When base_url is configured, use it for the scheme and authority
+        format!("{base_url}{path_and_query}")
+    } else {
+        // Default behavior: construct URL from request connection info
+        let info = req.connection_info();
+        Uri::builder()
+            .scheme(info.scheme())
+            .authority(info.host())
+            .path_and_query(path_and_query.clone())
+            .build()
+            .map(|tiles_url| tiles_url.to_string())
+            .map_err(|e| ErrorBadRequest(format!("Can't build tiles URL: {e}")))?
+    };
 
     Ok(HttpResponse::Ok().json(merge_tilejson(&sources, tiles_url)))
 }

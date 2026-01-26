@@ -35,6 +35,9 @@ pub enum MartinError {
     #[error("Base path must be a valid URL path, and must begin with a '/' symbol, but is '{0}'")]
     BasePathError(String),
 
+    #[error("Base URL must be a valid URL with scheme and host, but is '{0}'")]
+    BaseUrlError(String),
+
     #[error("Unrecognizable connection strings: {0:?}")]
     UnrecognizableConnections(Vec<String>),
 
