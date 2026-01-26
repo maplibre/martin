@@ -36,6 +36,7 @@ postgres = [
 unstable-cog = [
     "dep:png",
     "dep:tiff",
+    "dep:tokio",
     "_tiles",
     "dep:image",
     "dep:imageproc",

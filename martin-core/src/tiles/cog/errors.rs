@@ -57,6 +57,10 @@ pub enum CogError {
     #[error("The color type {0:?} and its bit depth of the tiff file {1} is not supported yet")]
     NotSupportedColorTypeAndBitDepth(tiff::ColorType, PathBuf),
 
+    /// Unsupported compression.
+    #[error("The compression type {0:?} of the tiff file {1} is not supported yet")]
+    NotSupportedCompression(u16, PathBuf),
+
     /// Striped TIFF format not supported.
     #[error("Striped tiff file is not supported, the tiff file is {0}")]
     NotSupportedChunkType(PathBuf),
@@ -90,4 +94,10 @@ pub enum CogError {
     /// IO error.
     #[error("IO error {0}: {1}")]
     IoError(#[source] std::io::Error, PathBuf),
+
+    /// Images are not tiled consistently within the file.
+    #[error(
+        "The size of each tile is not consistent."
+    )]
+    InconsistentTiling(PathBuf),
 }

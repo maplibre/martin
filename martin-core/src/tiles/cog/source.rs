@@ -6,18 +6,28 @@ use std::vec;
 
 use async_trait::async_trait;
 use martin_tile_utils::{
-    EARTH_CIRCUMFERENCE, Format, MAX_ZOOM, TileCoord, TileData, TileInfo, webmercator_to_wgs84,
+    EARTH_CIRCUMFERENCE, Format, MAX_ZOOM, TileCoord, TileData, TileInfo, webmercator_to_wgs84
 };
 use serde_json::Value;
 use tiff::decoder::{ChunkType, Decoder};
-use tiff::tags::Tag::{self, GdalNodata};
+use tiff::tags::PlanarConfiguration;
+use tiff::tags::Tag::{self};
 use tilejson::{Bounds, TileJSON, tilejson};
-use tracing::warn;
 
 use crate::tiles::cog::CogError;
 use crate::tiles::cog::image::Image;
 use crate::tiles::cog::model::ModelInfo;
 use crate::tiles::{MartinCoreResult, Source, UrlQuery};
+
+/// Compression has not been done on the tiles within the TIFF.
+pub const TIFF_COMPRESSION_NONE: u16 = 1;
+/// Compression of each tile within the TIFF is done with the LZW algorithm.
+pub const TIFF_COMPRESSION_LZW: u16 = 5;
+/// Compression of each tile within the TIFF is done with the DEFLATE algorithm.
+pub const TIFF_COMPRESSION_DEFLATE: u16 = 8;
+
+/// Maximum allowed difference from a matching WebMercatorQuad tile matrix zoom level.
+pub const MAX_RESOLUTION_ERROR: f64 = 1e-12;
 
 /// Tile source that reads from `Cloud Optimized GeoTIFF` files.
 #[derive(Clone, Debug)]
@@ -27,7 +37,6 @@ pub struct CogSource {
     min_zoom: u8,
     max_zoom: u8,
     images: HashMap<u8, Image>,
-    nodata: Option<f64>,
     tilejson: TileJSON,
     tileinfo: TileInfo,
 }
@@ -36,7 +45,6 @@ impl CogSource {
     /// Creates a new COG tile source from a file path.
     #[allow(clippy::too_many_lines)]
     pub fn new(id: String, path: PathBuf) -> Result<Self, CogError> {
-        let tileinfo = TileInfo::new(Format::Png, martin_tile_utils::Encoding::Uncompressed);
         let tif_file =
             File::open(&path).map_err(|e: std::io::Error| CogError::IoError(e, path.clone()))?;
         let mut decoder = Decoder::new(tif_file)
@@ -44,11 +52,6 @@ impl CogSource {
             .with_limits(tiff::decoder::Limits::default());
         let model = ModelInfo::decode(&mut decoder, &path);
         verify_requirements(&mut decoder, &model, &path.clone())?;
-        let nodata: Option<f64> = if let Ok(no_data) = decoder.get_tag_ascii_string(GdalNodata) {
-            no_data.parse().ok()
-        } else {
-            None
-        };
         let origin = get_origin(
             model.tie_points.as_deref(),
             model.transformation.as_deref(),
@@ -73,50 +76,51 @@ impl CogSource {
         let mut ifd_index = 0;
 
         loop {
-            let is_image = decoder
-                .get_tag_u32(Tag::NewSubfileType)
-                .map_or_else(|_| true, |v| v & 4 != 4); // see https://www.verypdf.com/document/tiff6/pg_0036.htm
-            if is_image {
-                // TODO: We should not ignore mask in the next PRs
+            if !decoder.more_images() {
+                break;
+            }
+            if decoder.seek_to_image(ifd_index).is_err() {
+                break;
+            }
+
+            let subfile_type_tag = decoder
+                .get_tag_u32(Tag::NewSubfileType);
+            let is_source_image = subfile_type_tag.is_err();
+            let is_reduced_resolution_subfile = subfile_type_tag
+                .map_or_else(|_| false, |v| v == 0b001);
+            if is_source_image || is_reduced_resolution_subfile {
+                let image_width = dimensions_in_pixel(&mut decoder, &path, ifd_index)?.0;
+                let resolution = full_width / f64::from(image_width);
                 images.push(get_image(
                     &mut decoder,
                     &path,
                     ifd_index,
                     origin,
-                    extent,
-                    (full_width, full_length),
+                    resolution,
                 )?);
-            } else {
-                warn!(
-                    "A subfile of {} is ignored in the tiff file as Martin currently does not support mask subfile in tiff. IFD={ifd_index}",
-                    path.display(),
-                );
             }
 
             ifd_index += 1;
-            let next_res = decoder.seek_to_image(ifd_index);
-            if next_res.is_err() {
-                // @todo: this is always reached as the last seek moves
-                // to an empty image
-                warn!(
-                    "Failed to seek to image. Any further images will be missed. IFD={ifd_index} err={:?}",
-                    next_res
-                );
-                break;
-            }
         }
 
         let images: HashMap<u8, Image> = images
             .into_iter()
-            .map(|image| {
-                (
-                    nearest_web_mercator_zoom(image.resolution(), image.tile_size()),
-                    image,
-                )
-            })
+            .map(|image| (image.zoom_level(), image))
             .collect();
 
-        let tile_size = images.values().fold(512u32, |_, x| x.tile_size().0);
+        let mut tile_size = None;
+        for image in images.values() {
+            match tile_size {
+                Some(current_tile_size) => {
+                    if current_tile_size != image.tile_size() {
+                        Err(CogError::InconsistentTiling(path.clone()))?;
+                    }
+                },
+                None => {
+                    tile_size = Some(image.tile_size());
+                }
+            }
+        }
         let min_zoom = *images
             .keys()
             .min()
@@ -141,35 +145,34 @@ impl CogSource {
         tilejson
             .other
             .insert("tileSize".to_string(), Value::from(tile_size));
+        let center = webmercator_to_wgs84((extent[0] + extent[2]) / 2.0, (extent[1] + extent[3]) / 2.0);
+        tilejson
+            .other
+            .insert("center".to_string(), Value::from(vec![center.0, center.1]));
         Ok(CogSource {
             id,
             path,
             min_zoom,
             max_zoom,
             images,
-            nodata,
             tilejson,
-            tileinfo,
+            tileinfo: TileInfo::new(Format::Png, martin_tile_utils::Encoding::Internal),
         })
     }
 }
 
-/// find a zoom level of [WebMercatorQuad](https://docs.ogc.org/is/17-083r2/17-083r2.html#72) that is closest to the given resolution
-fn nearest_web_mercator_zoom(resolution: (f64, f64), tile_size: (u32, u32)) -> u8 {
-    let tile_width_in_model = resolution.0 * f64::from(tile_size.0);
-    let mut nearest_zoom = 0u8;
-    let mut min_diff = f64::INFINITY;
-
-    for zoom in 0..MAX_ZOOM {
-        let tile_length = EARTH_CIRCUMFERENCE / f64::from(1_u32 << zoom);
-        let current_diff = (tile_width_in_model - tile_length).abs();
-
-        if current_diff < min_diff {
-            min_diff = current_diff;
-            nearest_zoom = zoom;
+/// Find a zoom level of [WebMercatorQuad](https://docs.ogc.org/is/17-083r2/17-083r2.html#72) that
+/// is within the error tolerance difference from expected WebMercatorQuad zoom levels.
+fn web_mercator_zoom(model_resolution: f64, tile_size: u32) -> Option<u8> {
+    for z in 0..=MAX_ZOOM {
+        let resolution_in_web_mercator = EARTH_CIRCUMFERENCE / f64::from(1_u32 << z) / f64::from(tile_size);
+        println!("{z:?} {resolution_in_web_mercator:?}");
+        if (model_resolution - resolution_in_web_mercator).abs() < MAX_RESOLUTION_ERROR {
+            return Some(z)
         }
-    }
-    nearest_zoom
+    };
+
+    None
 }
 
 #[async_trait]
@@ -207,17 +210,13 @@ impl Source for CogSource {
         if xyz.z < self.min_zoom || xyz.z > self.max_zoom {
             return Ok(Vec::new());
         }
-        let tif_file =
-            File::open(&self.path).map_err(|e| CogError::IoError(e, self.path.clone()))?;
-        let mut decoder =
-            Decoder::new(tif_file).map_err(|e| CogError::InvalidTiffFile(e, self.path.clone()))?;
-        decoder = decoder.with_limits(tiff::decoder::Limits::unlimited());
-
         let image = self.images.get(&(xyz.z)).ok_or_else(|| {
             CogError::ZoomOutOfRange(xyz.z, self.path.clone(), self.min_zoom, self.max_zoom)
         })?;
 
-        let bytes = image.get_tile(&mut decoder, xyz, self.nodata, &self.path)?;
+        let file = File::open(&self.path).map_err(|e| CogError::IoError(e, self.path.clone()))?;
+        let mut decoder = Decoder::new(file).map_err(|e| CogError::InvalidTiffFile(e, self.path.clone()))?;
+        let bytes = image.get_tile(&mut decoder, xyz, &self.path)?;
         Ok(bytes)
     }
 }
@@ -227,14 +226,12 @@ fn verify_requirements(
     model: &ModelInfo,
     path: &Path,
 ) -> Result<(), CogError> {
-    let chunk_type = decoder.get_chunk_type();
     // see requirement 2 in https://docs.ogc.org/is/21-026/21-026.html#_tiles
-    if chunk_type != ChunkType::Tile {
+    if decoder.get_chunk_type() != ChunkType::Tile {
         Err(CogError::NotSupportedChunkType(path.to_path_buf()))?;
     }
 
-    // see https://docs.ogc.org/is/21-026/21-026.html#_planar_configuration_considerations and https://www.verypdf.com/document/tiff6/pg_0038.htm
-    // we might support planar configuration 2 in the future
+    // see note https://docs.ogc.org/is/21-026/21-026.html#_planar_configuration_considerations
     decoder
         .get_tag_unsigned(Tag::PlanarConfiguration)
         .map_err(|e| {
@@ -246,7 +243,7 @@ fn verify_requirements(
             )
         })
         .and_then(|config| {
-            if config == 1 {
+            if config == PlanarConfiguration::Chunky.to_u16() {
                 Ok(())
             } else {
                 Err(CogError::PlanarConfigurationNotSupported(
@@ -257,19 +254,44 @@ fn verify_requirements(
             }
         })?;
 
-    let color_type = decoder
+    decoder
         .colortype()
-        .map_err(|e| CogError::InvalidTiffFile(e, path.to_path_buf()))?;
+        .map_err(|e| CogError::InvalidTiffFile(e, path.to_path_buf()))
+        .and_then(|color_type| {
+            if matches!(
+                color_type,
+                tiff::ColorType::RGB(8) | tiff::ColorType::RGBA(8)
+            ) {
+                Ok(())
+            } else {
+                Err(CogError::NotSupportedColorTypeAndBitDepth(
+                    color_type,
+                    path.to_path_buf(),
+                ))
+            }
+        })?;
 
-    if !matches!(
-        color_type,
-        tiff::ColorType::RGB(8) | tiff::ColorType::RGBA(8)
-    ) {
-        Err(CogError::NotSupportedColorTypeAndBitDepth(
-            color_type,
+    decoder
+        .get_tag_unsigned(Tag::Compression)
+        .map_err(|e| CogError::TagsNotFound(
+            e,
+            vec![Tag::Compression.to_u16()],
+            0,
             path.to_path_buf(),
-        ))?;
-    }
+        ))
+        .and_then(|compression| {
+            if matches!(
+                compression,
+                TIFF_COMPRESSION_NONE | TIFF_COMPRESSION_LZW | TIFF_COMPRESSION_DEFLATE,
+            ) {
+                Ok(())
+            } else {
+                Err(CogError::NotSupportedCompression(
+                    compression,
+                    path.to_path_buf(),
+                ))
+            }
+        })?;
 
     match (&model.pixel_scale, &model.tie_points, &model.transformation) {
         (Some(pixel_scale), Some(tie_points), _)
@@ -313,28 +335,39 @@ fn get_image(
     path: &Path,
     ifd_index: usize,
     origin: [f64; 3],
-    extent: [f64; 4],
-    (width_in_model, length_in_model): (f64, f64),
+    resolution: f64,
 ) -> Result<Image, CogError> {
-    let (tile_width, tile_height) = (decoder.chunk_dimensions().0, decoder.chunk_dimensions().1);
+    let tile_size = decoder.chunk_dimensions().0;
     let (image_width, image_length) = dimensions_in_pixel(decoder, path, ifd_index)?;
-    let tiles_across = image_width.div_ceil(tile_width);
-    let tiles_down = image_length.div_ceil(tile_height);
-    // all the images share a same extent, so to get resolution of current image,
-    // we can use the full width and length to divide the image width and length
-    let resolution = (
-        width_in_model / f64::from(image_width),
-        length_in_model / f64::from(image_length),
-    );
+    let zoom_level = web_mercator_zoom(resolution, tile_size)
+        .ok_or(CogError::GetOriginFailed(path.to_path_buf()))?;
+    let tiles_origin = get_tiles_origin(tile_size, resolution, [origin[0], origin[1]])
+        .ok_or(CogError::GetOriginFailed(path.to_path_buf()))?;
+    let tiles_across = image_width.div_ceil(tile_size);
+    let tiles_down = image_length.div_ceil(tile_size);
     Ok(Image::new(
         ifd_index,
-        extent,
-        origin,
+        zoom_level,
+        tiles_origin,
         tiles_across,
         tiles_down,
-        (tile_width, tile_height),
-        resolution,
+        tile_size,
     ))
+}
+
+/// Calculates the origin of the first tile
+fn get_tiles_origin(
+    tile_size: u32,
+    resolution: f64,
+    origin: [f64; 2],
+) -> Option<(u32, u32)> {
+    let tile_size_mercator_metres = f64::from(tile_size) * resolution;
+    let tile_origin_x_f = (origin[0] + (EARTH_CIRCUMFERENCE / 2.0)) / tile_size_mercator_metres;
+    let tile_origin_y_f = ((EARTH_CIRCUMFERENCE / 2.0) - origin[1]) / tile_size_mercator_metres;
+    let tile_origin_x = tile_origin_x_f.floor() as u32;
+    let tile_origin_y = tile_origin_y_f.floor() as u32;
+
+    Some((tile_origin_x, tile_origin_y))
 }
 
 /// Gets image pixel dimensions from TIFF decoder
@@ -654,15 +687,24 @@ mod tests {
     }
 
     #[rstest]
-    #[case((9.554_628_535_644_346,-9.554_628_535_646_77),(256,256), 14)]
-    fn test_nearest_web_mercator_zoom(
-        #[case] resolution: (f64, f64),
-        #[case] tile_size: (u32, u32),
-        #[case] expected_zoom: u8,
+    #[case(156543.03392804103, 256, Some(0))]
+    #[case(78271.51696402051, 256, Some(1))]
+    #[case(39135.75848201026, 256, Some(2))]
+    #[case(19567.87924100513, 256, Some(3))]
+    #[case(78271.51696402051, 512, Some(0))]
+    #[case(39135.75848201026, 512, Some(1))]
+    #[case(19567.87924100513, 512, Some(2))]
+    #[case(9783.939620502564, 512, Some(3))]
+    #[case(39135.75848201026, 1024, Some(0))]
+    #[case(19567.87924100513, 1024, Some(1))]
+    #[case(9783.939620502564, 1024, Some(2))]
+    #[case(4891.969810251282, 1024, Some(3))]
+    fn can_get_web_mercator_zoom(
+        #[case] resolution: f64,
+        #[case] tile_size: u32,
+        #[case] expected_zoom: Option<u8>,
     ) {
-        use crate::tiles::cog::source::nearest_web_mercator_zoom;
-
-        let result = nearest_web_mercator_zoom(resolution, tile_size);
-        assert_eq!(result, expected_zoom);
+        use crate::tiles::cog::source::web_mercator_zoom;
+        assert_eq!(web_mercator_zoom(resolution, tile_size), expected_zoom);
     }
 }
