@@ -377,7 +377,7 @@ async fn mbt_get_json_gzip() {
     assert_eq!(body.len(), 13);
 }
 
-/// Test that base_url configuration overrides the default URL construction
+/// Test that `base_url` configuration overrides the default URL construction
 #[actix_rt::test]
 #[tracing_test::traced_test]
 async fn mbt_get_tilejson_with_base_url() {

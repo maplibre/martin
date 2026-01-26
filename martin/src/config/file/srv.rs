@@ -28,9 +28,9 @@ pub struct SrvConfig {
     pub observability: Option<ObservabilityConfig>,
     #[cfg(feature = "_tiles")]
     pub tilejson_url_version_param: Option<String>,
-    /// Base URL for TileJSON responses when behind a proxy or CloudFront.
-    /// If set, this overrides the scheme and host in TileJSON tile URLs.
-    /// Must be a valid URL with scheme and host (e.g., "https://example.com" or "https://example.com/tiles").
+    /// Base URL for `TileJSON` responses when behind a proxy or `CloudFront`.
+    /// If set, this overrides the scheme and host in `TileJSON` tile URLs.
+    /// Must be a valid URL with scheme and host (e.g., `<https://example.com>` or `<https://example.com/tiles>`).
     #[cfg(feature = "_tiles")]
     pub base_url: Option<String>,
 }
