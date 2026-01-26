@@ -167,7 +167,6 @@ fn web_mercator_zoom(model_resolution: f64, tile_size: u32) -> Option<u8> {
     for z in 0..=MAX_ZOOM {
         let resolution_in_web_mercator =
             EARTH_CIRCUMFERENCE / f64::from(1_u32 << z) / f64::from(tile_size);
-        println!("{z:?} {resolution_in_web_mercator:?}");
         if (model_resolution - resolution_in_web_mercator).abs() < MAX_RESOLUTION_ERROR {
             return Some(z);
         }

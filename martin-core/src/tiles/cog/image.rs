@@ -58,10 +58,17 @@ impl Image {
         let Some(idx) = self.get_chunk_index(xyz) else {
             Err(CogError::NoImagesFound(path.to_path_buf()))?
         };
+        let color_type = decoder
+            .colortype()
+            .map_err(|e| CogError::InvalidTiffFile(e, path.to_path_buf()))?;
 
         // @todo: can we replace this with reading the raw bytes and
         // sending them over the wire with the correct header instead?
-        let mut target = vec![0; (self.tile_size * self.tile_size * 4) as usize];
+        let mut target = vec![
+            0;
+            (self.tile_size * self.tile_size * u32::from(color_type.num_samples()))
+                as usize
+        ];
         decoder
             .read_chunk_bytes(idx, &mut target)
             .map_err(|e| CogError::ReadChunkFailed(e, idx, self.ifd_index(), path.to_path_buf()))?;
