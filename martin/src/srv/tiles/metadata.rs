@@ -89,7 +89,7 @@ async fn get_source_info(
         Uri::builder()
             .scheme(info.scheme())
             .authority(info.host())
-            .path_and_query(path_and_query.clone())
+            .path_and_query(path_and_query)
             .build()
             .map(|tiles_url| tiles_url.to_string())
             .map_err(|e| ErrorBadRequest(format!("Can't build tiles URL: {e}")))?
