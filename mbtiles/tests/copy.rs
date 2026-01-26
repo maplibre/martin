@@ -605,7 +605,6 @@ const BIN_DIFF_GZ: BsDiffTileset = ("v1z", "v2z", "bdz", BinDiffGz);
 
 #[rstest]
 #[trace]
-#[ignore = "test used to run for a while, and then became too complicated to maintain and got out of whack. TODO: bring it back or deleete"]
 #[tokio::test(flavor = "multi_thread")]
 #[tracing_test::traced_test]
 async fn diff_and_patch_bsdiff(
@@ -627,7 +626,7 @@ async fn diff_and_patch_bsdiff(
     );
     let (dif_mbt, mut dif_cn) = open!(
         diff_and_patch_bsdiff,
-        "{a_db}_{short_a_type}--{b_db}_{short_b_type}={dif}_{patch_type}__{dif_db}"
+        "{a_db}_{short_a_type}--{b_db}_{short_b_type}={dif}_{patch_type}__dst{short_dst_type}__{dif_db}"
     );
     copy! {
         databases.path(a_db, a_type),
