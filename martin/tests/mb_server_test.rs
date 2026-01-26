@@ -418,7 +418,7 @@ async fn mbt_get_tilejson_with_base_url() {
     );
     assert!(
         tile_url.contains("/m_mvt/{z}/{x}/{y}"),
-        "Expected tile URL to contain '/m_mvt/{{z}}/{{x}}/{{y}}', got: {tile_url}"
+        "Expected tile URL to contain '/m_mvt/{{z}}/{{x}}/{{y}}' (template placeholders), got: {tile_url}"
     );
 }
 

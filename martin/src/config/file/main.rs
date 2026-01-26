@@ -498,7 +498,7 @@ pub fn parse_base_url(url: &str) -> MartinResult<String> {
                     "{url} - missing host"
                 )));
             }
-            // Return the URL without trailing slash for consistency
+            // Normalize by removing trailing slashes for consistent URL formatting
             Ok(url.trim_end_matches('/').to_string())
         }
         Err(_) => Err(MartinError::BaseUrlError(url.to_string())),
