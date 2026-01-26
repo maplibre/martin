@@ -317,8 +317,8 @@ enum SevenBitDecodingError {
     /// Expected a size, but got nothing
     #[error("Expected a size, but got nothing")]
     TruncatedSize,
-    /// Expected data accoding to the size, but got nothing
-    #[error("Expected {0} bytes of data in layer accoding to the size, but got only {1}")]
+    /// Expected data according to the size, but got nothing
+    #[error("Expected {0} bytes of data in layer according to the size, but got only {1}")]
     TruncatedData(usize, usize),
     /// Got unexpected tag
     #[error("Got tag {0} instead of the expected")]
