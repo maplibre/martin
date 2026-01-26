@@ -6,7 +6,7 @@ use std::vec;
 
 use async_trait::async_trait;
 use martin_tile_utils::{
-    EARTH_CIRCUMFERENCE, Format, MAX_ZOOM, TileCoord, TileData, TileInfo, webmercator_to_wgs84
+    EARTH_CIRCUMFERENCE, Format, MAX_ZOOM, TileCoord, TileData, TileInfo, webmercator_to_wgs84,
 };
 use serde_json::Value;
 use tiff::decoder::{ChunkType, Decoder};
@@ -83,11 +83,10 @@ impl CogSource {
                 break;
             }
 
-            let subfile_type_tag = decoder
-                .get_tag_u32(Tag::NewSubfileType);
+            let subfile_type_tag = decoder.get_tag_u32(Tag::NewSubfileType);
             let is_source_image = subfile_type_tag.is_err();
-            let is_reduced_resolution_subfile = subfile_type_tag
-                .map_or_else(|_| false, |v| v == 0b001);
+            let is_reduced_resolution_subfile =
+                subfile_type_tag.map_or_else(|_| false, |v| v == 0b001);
             if is_source_image || is_reduced_resolution_subfile {
                 let image_width = dimensions_in_pixel(&mut decoder, &path, ifd_index)?.0;
                 let resolution = full_width / f64::from(image_width);
@@ -115,7 +114,7 @@ impl CogSource {
                     if current_tile_size != image.tile_size() {
                         Err(CogError::InconsistentTiling(path.clone()))?;
                     }
-                },
+                }
                 None => {
                     tile_size = Some(image.tile_size());
                 }
@@ -145,7 +144,8 @@ impl CogSource {
         tilejson
             .other
             .insert("tileSize".to_string(), Value::from(tile_size));
-        let center = webmercator_to_wgs84((extent[0] + extent[2]) / 2.0, (extent[1] + extent[3]) / 2.0);
+        let center =
+            webmercator_to_wgs84((extent[0] + extent[2]) / 2.0, (extent[1] + extent[3]) / 2.0);
         tilejson
             .other
             .insert("center".to_string(), Value::from(vec![center.0, center.1]));
@@ -165,12 +165,13 @@ impl CogSource {
 /// is within the error tolerance difference from expected WebMercatorQuad zoom levels.
 fn web_mercator_zoom(model_resolution: f64, tile_size: u32) -> Option<u8> {
     for z in 0..=MAX_ZOOM {
-        let resolution_in_web_mercator = EARTH_CIRCUMFERENCE / f64::from(1_u32 << z) / f64::from(tile_size);
+        let resolution_in_web_mercator =
+            EARTH_CIRCUMFERENCE / f64::from(1_u32 << z) / f64::from(tile_size);
         println!("{z:?} {resolution_in_web_mercator:?}");
         if (model_resolution - resolution_in_web_mercator).abs() < MAX_RESOLUTION_ERROR {
-            return Some(z)
+            return Some(z);
         }
-    };
+    }
 
     None
 }
@@ -215,7 +216,8 @@ impl Source for CogSource {
         })?;
 
         let file = File::open(&self.path).map_err(|e| CogError::IoError(e, self.path.clone()))?;
-        let mut decoder = Decoder::new(file).map_err(|e| CogError::InvalidTiffFile(e, self.path.clone()))?;
+        let mut decoder =
+            Decoder::new(file).map_err(|e| CogError::InvalidTiffFile(e, self.path.clone()))?;
         let bytes = image.get_tile(&mut decoder, xyz, &self.path)?;
         Ok(bytes)
     }
@@ -273,12 +275,9 @@ fn verify_requirements(
 
     decoder
         .get_tag_unsigned(Tag::Compression)
-        .map_err(|e| CogError::TagsNotFound(
-            e,
-            vec![Tag::Compression.to_u16()],
-            0,
-            path.to_path_buf(),
-        ))
+        .map_err(|e| {
+            CogError::TagsNotFound(e, vec![Tag::Compression.to_u16()], 0, path.to_path_buf())
+        })
         .and_then(|compression| {
             if matches!(
                 compression,
@@ -356,11 +355,7 @@ fn get_image(
 }
 
 /// Calculates the origin of the first tile
-fn get_tiles_origin(
-    tile_size: u32,
-    resolution: f64,
-    origin: [f64; 2],
-) -> Option<(u32, u32)> {
+fn get_tiles_origin(tile_size: u32, resolution: f64, origin: [f64; 2]) -> Option<(u32, u32)> {
     let tile_size_mercator_metres = f64::from(tile_size) * resolution;
     let tile_origin_x_f = (origin[0] + (EARTH_CIRCUMFERENCE / 2.0)) / tile_size_mercator_metres;
     let tile_origin_y_f = ((EARTH_CIRCUMFERENCE / 2.0) - origin[1]) / tile_size_mercator_metres;

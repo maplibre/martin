@@ -96,8 +96,6 @@ pub enum CogError {
     IoError(#[source] std::io::Error, PathBuf),
 
     /// Images are not tiled consistently within the file.
-    #[error(
-        "The size of each tile is not consistent."
-    )]
+    #[error("The size of each tile is not consistent.")]
     InconsistentTiling(PathBuf),
 }

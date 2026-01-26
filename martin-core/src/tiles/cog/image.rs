@@ -2,7 +2,7 @@ use std::fs::File;
 use std::io::BufWriter;
 use std::path::Path;
 
-use martin_tile_utils::{TileData, TileCoord};
+use martin_tile_utils::{TileCoord, TileData};
 use tiff::decoder::Decoder;
 
 use crate::tiles::cog::CogError;
@@ -62,12 +62,12 @@ impl Image {
         // @todo: can we replace this with reading the raw bytes and
         // sending them over the wire with the correct header instead?
         let mut target = vec![0; (self.tile_size * self.tile_size * 4) as usize];
-        decoder.read_chunk_bytes(idx, &mut target).map_err(|e| {
-            CogError::ReadChunkFailed(e, idx, self.ifd_index(), path.to_path_buf())
-        })?;
+        decoder
+            .read_chunk_bytes(idx, &mut target)
+            .map_err(|e| CogError::ReadChunkFailed(e, idx, self.ifd_index(), path.to_path_buf()))?;
 
         let png = encode_rgba_as_png(self.tile_size(), &target, path)?;
-        return Ok(png)
+        return Ok(png);
     }
 
     /// Returns the Image File Directory index for this image.
@@ -90,8 +90,7 @@ impl Image {
 
         let x = i64::from(xyz.x) - i64::from(self.tiles_origin.0);
         let y = i64::from(xyz.y) - i64::from(self.tiles_origin.1);
-        if x < 0 || x >= i64::from(self.tiles_across) ||
-           y < 0 || y >= i64::from(self.tiles_down) {
+        if x < 0 || x >= i64::from(self.tiles_across) || y < 0 || y >= i64::from(self.tiles_down) {
             return None;
         }
 
@@ -101,11 +100,7 @@ impl Image {
 }
 
 /// Encodes RGBA pixel data to PNG format.
-fn encode_rgba_as_png(
-    tile_size: u32,
-    pixels: &[u8],
-    path: &Path,
-) -> Result<Vec<u8>, CogError> {
+fn encode_rgba_as_png(tile_size: u32, pixels: &[u8], path: &Path) -> Result<Vec<u8>, CogError> {
     let mut result_file_buffer = Vec::new();
 
     {
@@ -148,10 +143,7 @@ mod tests {
             Some(0),
             image.get_chunk_index(TileCoord { z: 0, x: 0, y: 0 })
         );
-        assert_eq!(
-            None,
-            image.get_chunk_index(TileCoord { z: 2, x: 2, y: 2 })
-        );
+        assert_eq!(None, image.get_chunk_index(TileCoord { z: 2, x: 2, y: 2 }));
         assert_eq!(None, image.get_chunk_index(TileCoord { z: 0, x: 3, y: 0 }));
         assert_eq!(None, image.get_chunk_index(TileCoord { z: 0, x: 1, y: 9 }));
     }
