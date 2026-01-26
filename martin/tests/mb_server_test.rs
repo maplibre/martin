@@ -376,3 +376,49 @@ async fn mbt_get_json_gzip() {
     let body = decode_gzip(&body).unwrap();
     assert_eq!(body.len(), 13);
 }
+
+/// Test that base_url configuration overrides the default URL construction
+#[actix_rt::test]
+#[tracing_test::traced_test]
+async fn mbt_get_tilejson_with_base_url() {
+    let (config, _conns) = config("mbt_get_tilejson_with_base_url").await;
+    
+    // Create a custom SrvConfig with base_url set
+    let srv_config = SrvConfig {
+        base_url: Some("https://example.com".to_string()),
+        ..Default::default()
+    };
+    
+    let state = mock_sources(mock_cfg(&config)).await.0;
+    let app = actix_web::test::init_service(
+        actix_web::App::new()
+            .app_data(actix_web::web::Data::new(
+                martin::srv::Catalog::new(&state).unwrap(),
+            ))
+            .app_data(actix_web::web::Data::new(
+                martin_core::tiles::NO_TILE_CACHE,
+            ))
+            .app_data(actix_web::web::Data::new(state.tiles))
+            .app_data(actix_web::web::Data::new(srv_config.clone()))
+            .configure(|c| martin::srv::router(c, &srv_config)),
+    )
+    .await;
+    
+    let req = test_get("/m_mvt").to_request();
+    let response = call_service(&app, req).await;
+    let response = assert_response(response).await;
+    let body: TileJSON = read_body_json(response).await;
+    
+    // Verify that the tiles URL uses the configured base_url
+    assert_eq!(body.tiles.len(), 1);
+    let tile_url = &body.tiles[0];
+    assert!(
+        tile_url.starts_with("https://example.com"),
+        "Expected tile URL to start with 'https://example.com', got: {tile_url}"
+    );
+    assert!(
+        tile_url.contains("/m_mvt/{z}/{x}/{y}"),
+        "Expected tile URL to contain '/m_mvt/{{z}}/{{x}}/{{y}}', got: {tile_url}"
+    );
+}
+
