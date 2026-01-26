@@ -17,5 +17,5 @@ Resources:
         - Ref: MartinLayer
       CodeUri: lambda-function/
       Handler: config.yaml
-      MemorySize: 350
-      Timeout: 10
+      MemorySize: 128
+      Timeout: 3
