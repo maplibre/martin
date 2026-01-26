@@ -344,7 +344,9 @@ fn decode_7bit_length_and_tag(
                 return Err(SevenBitDecodingError::TruncatedSize);
             };
             // decode size
-            size <<= 7;
+            size = size
+                .checked_shl(7)
+                .ok_or(SevenBitDecodingError::TruncatedSize)?;
             let seven_bit_mask = !0x80;
             size |= (*b & seven_bit_mask) as usize;
             // 0 => no further size
