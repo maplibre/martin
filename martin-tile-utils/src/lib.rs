@@ -325,7 +325,7 @@ enum SevenBitDecodingError {
     UnexpectedTag(u8),
 }
 
-/// Tries to validate that the tile consists of a valid concatination of (size_7_bit, one_of_expected_tag, data)
+/// Tries to validate that the tile consists of a valid concatination of (`size_7_bit`, `one_of_expected_version`, `data`)
 fn decode_7bit_length_and_tag(
     tile: &[u8],
     versions: &'static [u8],
