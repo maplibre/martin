@@ -127,6 +127,9 @@ impl Config {
         let mut res = self.srv.get_unrecognized_keys();
         copy_unrecognized_keys_from_config(&mut res, "", &self.unrecognized);
 
+        if let Some(path) = &self.srv.route_prefix {
+            self.srv.route_prefix = Some(parse_base_path(path)?);
+        }
         if let Some(path) = &self.srv.base_path {
             self.srv.base_path = Some(parse_base_path(path)?);
         }
