@@ -190,12 +190,12 @@ test_redirect() {
   # Use curl without --fail to allow 3xx responses
   HTTP_CODE=$(curl --silent --show-error --write-out "%{http_code}" --output /dev/null --head "$URL")
   LOCATION=$(curl --silent --show-error --head "$URL" | grep -i "^location:" | $SED 's/^[Ll]ocation: *//' | tr -d '\r')
-  
+
   if [ "$HTTP_CODE" != "301" ]; then
     echo "ERROR: Expected HTTP 301, got $HTTP_CODE for $URL"
     exit 1
   fi
-  
+
   if [ "$LOCATION" != "$EXPECTED_LOCATION" ]; then
     echo "ERROR: Expected location '$EXPECTED_LOCATION', got '$LOCATION' for $URL"
     exit 1
