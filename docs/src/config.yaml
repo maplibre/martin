@@ -17,7 +17,7 @@ route_prefix: null
 # If neither is set, the X-Rewrite-URL header is respected.
 # Must begin with a `/`.
 # Examples: `/`, `/tiles`
-base_path: /tiles
+base_path: null
 
 # Number of web server workers
 worker_processes: 8
