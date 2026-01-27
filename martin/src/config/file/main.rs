@@ -494,9 +494,7 @@ pub fn parse_base_url(url: &str) -> MartinResult<String> {
                 )));
             }
             if uri.authority().is_none() {
-                return Err(MartinError::BaseUrlError(format!(
-                    "{url} - missing host"
-                )));
+                return Err(MartinError::BaseUrlError(format!("{url} - missing host")));
             }
             // Normalize by removing trailing slashes for consistent URL formatting
             Ok(url.trim_end_matches('/').to_string())

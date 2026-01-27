@@ -49,4 +49,3 @@ base_url: https://proxy.example.com
 With this configuration, TileJSON responses will contain tile URLs like `https://example.com/source/{z}/{x}/{y}` instead of the internal service URL.
 
 **Note**: The `base_url` option only affects the URLs in TileJSON responses. It does not change Martin's API endpoints or listening address.
-
