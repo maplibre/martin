@@ -71,7 +71,6 @@ fn register_services(cfg: &mut web::ServiceConfig, #[allow(unused_variables)] us
     }
 
     #[cfg(feature = "sprites")]
-    {
         cfg.service(crate::srv::sprites::get_sprite_sdf_json)
             .service(crate::srv::sprites::redirect_sdf_sprites_json)
             .service(crate::srv::sprites::get_sprite_json)
@@ -80,19 +79,14 @@ fn register_services(cfg: &mut web::ServiceConfig, #[allow(unused_variables)] us
             .service(crate::srv::sprites::redirect_sdf_sprites_png)
             .service(crate::srv::sprites::get_sprite_png)
             .service(crate::srv::sprites::redirect_sprites_png);
-    }
 
     #[cfg(feature = "fonts")]
-    {
         cfg.service(crate::srv::fonts::get_font)
             .service(crate::srv::fonts::redirect_fonts);
-    }
 
     #[cfg(feature = "styles")]
-    {
         cfg.service(crate::srv::styles::get_style_json)
             .service(crate::srv::styles::redirect_styles);
-    }
 
     #[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
     cfg.service(crate::srv::styles_rendering::get_style_rendered);
