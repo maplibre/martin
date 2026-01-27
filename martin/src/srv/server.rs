@@ -42,6 +42,16 @@ async fn get_health() -> impl Responder {
 }
 
 pub fn router(cfg: &mut web::ServiceConfig, #[allow(unused_variables)] usr_cfg: &SrvConfig) {
+    // If route_prefix is configured, wrap all routes in a scope
+    if let Some(prefix) = &usr_cfg.route_prefix {
+        cfg.service(web::scope(prefix).configure(|cfg| register_services(cfg, usr_cfg)));
+    } else {
+        register_services(cfg, usr_cfg);
+    }
+}
+
+/// Helper function to register all services
+fn register_services(cfg: &mut web::ServiceConfig, #[allow(unused_variables)] usr_cfg: &SrvConfig) {
     cfg.service(get_health)
         .service(crate::srv::admin::get_catalog);
 
@@ -96,21 +106,28 @@ type Server = Pin<Box<dyn Future<Output = MartinResult<()>>>>;
 /// Create a future for an Actix web server together with the listening address.
 pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server, String)> {
     #[cfg(feature = "metrics")]
-    let prometheus = actix_web_prom::PrometheusMetricsBuilder::new("martin")
-        .endpoint("/_/metrics")
-        // `endpoint="UNKNOWN"` instead of `endpoint="/foo/bar"`
-        .mask_unmatched_patterns("UNKNOWN")
-        .const_labels(
-            config
-                .observability
-                .clone()
-                .unwrap_or_default()
-                .metrics
-                .unwrap_or_default()
-                .add_labels,
-        )
-        .build()
-        .map_err(|err| MartinError::MetricsIntialisationError(err))?;
+    let prometheus = {
+        let metrics_endpoint = if let Some(prefix) = &config.route_prefix {
+            format!("{prefix}/_/metrics")
+        } else {
+            "/_/metrics".to_string()
+        };
+        actix_web_prom::PrometheusMetricsBuilder::new("martin")
+            .endpoint(&metrics_endpoint)
+            // `endpoint="UNKNOWN"` instead of `endpoint="/foo/bar"`
+            .mask_unmatched_patterns("UNKNOWN")
+            .const_labels(
+                config
+                    .observability
+                    .clone()
+                    .unwrap_or_default()
+                    .metrics
+                    .unwrap_or_default()
+                    .add_labels,
+            )
+            .build()
+            .map_err(|err| MartinError::MetricsIntialisationError(err))?
+    };
     let catalog = Catalog::new(&state)?;
 
     let keep_alive = Duration::from_secs(config.keep_alive.unwrap_or(KEEP_ALIVE_DEFAULT));
