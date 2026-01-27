@@ -264,8 +264,8 @@ impl TileInfo {
     #[must_use]
     fn detect_vectorish_format(value: &[u8]) -> Format {
         match value {
-            v if is_valid_json(v) => Format::Json,
             v if decode_7bit_length_and_tag(v, &[0x1]).is_ok() => Format::Mlt,
+            v if is_valid_json(v) => Format::Json,
             // If we can't detect the format, we assume MVT.
             // Reasoning:
             //- it's the most common format and
@@ -314,59 +314,62 @@ enum SevenBitDecodingError {
     /// Expected a tag, but got nothing
     #[error("Expected a tag, but got nothing")]
     TruncatedTag,
+    /// The size of the tile is too large to be decoded
+    #[error("The size of the tile is too large to be decoded")]
+    SizeOverflow,
+    /// The size of the tile is lower than the number of bytes for the size and tag
+    #[error("The size of the tile is lower than the number of bytes for the size and tag")]
+    SizeUnderflow,
     /// Expected a size, but got nothing
     #[error("Expected a size, but got nothing")]
     TruncatedSize,
     /// Expected data according to the size, but got nothing
     #[error("Expected {0} bytes of data in layer according to the size, but got only {1}")]
-    TruncatedData(usize, usize),
+    TruncatedData(u64, u64),
     /// Got unexpected tag
     #[error("Got tag {0} instead of the expected")]
     UnexpectedTag(u8),
 }
 
-/// Tries to validate that the tile consists of a valid concatenation of (`size_7_bit`, `one_of_expected_version`, `data`)
-fn decode_7bit_length_and_tag(
-    tile: &[u8],
-    versions: &'static [u8],
-) -> Result<(), SevenBitDecodingError> {
+/// Tries to validate that the tile consists of a valid concatination of (`size_7_bit`, `one_of_expected_version`, `data`)
+fn decode_7bit_length_and_tag(tile: &[u8], versions: &[u8]) -> Result<(), SevenBitDecodingError> {
     if tile.is_empty() {
         return Err(SevenBitDecodingError::TruncatedSize);
     }
     let mut tile_iter = tile.iter().peekable();
     while tile_iter.peek().is_some() {
         // need to parse size
-        let mut size = 0_usize;
-        let mut already_consumed_size = 0_usize;
+        let mut size = 0_u64;
+        let mut header_bit_count = 0_u64;
         loop {
-            already_consumed_size += 1;
+            header_bit_count += 1;
             let Some(b) = tile_iter.next() else {
                 return Err(SevenBitDecodingError::TruncatedSize);
             };
+            if header_bit_count * 7 + 8 > 64 {
+                return Err(SevenBitDecodingError::SizeOverflow);
+            }
             // decode size
-            size = size
-                .checked_shl(7)
-                .ok_or(SevenBitDecodingError::TruncatedSize)?;
+            size <<= 7;
             let seven_bit_mask = !0x80;
-            size |= (*b & seven_bit_mask) as usize;
+            size |= (*b & seven_bit_mask) as u64;
             // 0 => no further size
             if b & 0x80 == 0 {
                 // need to check tag
-                already_consumed_size += 1;
+                header_bit_count += 1;
                 let Some(tag) = tile_iter.next() else {
                     return Err(SevenBitDecodingError::TruncatedTag);
                 };
-                if !versions.iter().any(|v| tag == v) {
+                if !versions.contains(&tag) {
                     return Err(SevenBitDecodingError::UnexpectedTag(*tag));
                 }
                 // need to check data-length
-                let expected_data_length = size - already_consumed_size;
-                for i in 0..expected_data_length {
+                let payload_len = size
+                    .checked_sub(header_bit_count)
+                    .ok_or(SevenBitDecodingError::SizeUnderflow)?;
+                for i in 0..payload_len {
                     if tile_iter.next().is_none() {
-                        return Err(SevenBitDecodingError::TruncatedData(
-                            expected_data_length,
-                            i,
-                        ));
+                        return Err(SevenBitDecodingError::TruncatedData(payload_len, i));
                     }
                 }
                 break;
@@ -382,7 +385,7 @@ fn decode_7bit_length_and_tag(
 fn is_valid_json(tile: &[u8]) -> bool {
     tile.starts_with(b"{")
         && tile.ends_with(b"}")
-        && serde_json::from_slice::<serde_json::Value>(tile).is_ok()
+        && serde_json::from_slice::<serde::de::IgnoredAny>(tile).is_ok()
 }
 
 /// Convert longitude and latitude to a tile (x,y) coordinates for a given zoom
@@ -585,6 +588,8 @@ mod tests {
     #[case::multi_byte_length(&[0x80, 0x80, 0x05, 0x01, 0xdd], Ok(()))]
     #[case::wrong_version(&[0x03, 0x02, 0xaa], Err(SevenBitDecodingError::UnexpectedTag(0x02)))]
     #[case::empty_input(&[], Err(SevenBitDecodingError::TruncatedSize))]
+    #[case::size_overflow(&[0xFF; 64], Err(SevenBitDecodingError::SizeOverflow))]
+    #[case::size_underflow(&[0x00, 0x01], Err(SevenBitDecodingError::SizeUnderflow))]
     #[case::unterminated_length(&[0x80], Err(SevenBitDecodingError::TruncatedSize))]
     #[case::missing_version_byte(&[0x05], Err(SevenBitDecodingError::TruncatedTag))]
     #[case::wrong_length(&[0x03, 0x01], Err(SevenBitDecodingError::TruncatedData(1, 0)))]
