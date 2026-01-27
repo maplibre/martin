@@ -50,7 +50,7 @@ pub fn router(cfg: &mut web::ServiceConfig, #[allow(unused_variables)] usr_cfg: 
         // Register tile format suffix redirects BEFORE the main tile route
         // because Actix-Web matches routes in registration order
         crate::srv::redirects::register_tile_suffix_redirects(cfg);
-        
+
         cfg.service(crate::srv::tiles::metadata::get_source_info)
             .service(crate::srv::tiles::content::get_tile);
     }

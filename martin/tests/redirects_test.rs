@@ -92,7 +92,12 @@ async fn assert_redirect(path: &str, expected_location: &str, config: &str) {
 #[actix_rt::test]
 #[cfg(feature = "styles")]
 async fn test_redirect_styles_to_style() {
-    assert_redirect("/styles/test_style", "/style/test_style", CONFIG_WITH_STYLES).await;
+    assert_redirect(
+        "/styles/test_style",
+        "/style/test_style",
+        CONFIG_WITH_STYLES,
+    )
+    .await;
 }
 
 #[actix_rt::test]
@@ -109,12 +114,7 @@ async fn test_redirect_sprites_json_to_sprite() {
 #[actix_rt::test]
 #[cfg(feature = "sprites")]
 async fn test_redirect_sprites_png_to_sprite() {
-    assert_redirect(
-        "/sprites/src1.png",
-        "/sprite/src1.png",
-        CONFIG_WITH_SPRITES,
-    )
-    .await;
+    assert_redirect("/sprites/src1.png", "/sprite/src1.png", CONFIG_WITH_SPRITES).await;
 }
 
 #[actix_rt::test]

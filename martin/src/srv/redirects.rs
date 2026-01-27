@@ -32,7 +32,10 @@ async fn redirect_sprites_json(
     req: HttpRequest,
     path: Path<SpriteJsonRedirectRequest>,
 ) -> HttpResponse {
-    redirect_with_query(&format!("/sprite/{}.json", path.source_ids), req.query_string())
+    redirect_with_query(
+        &format!("/sprite/{}.json", path.source_ids),
+        req.query_string(),
+    )
 }
 
 /// Redirect `/sprites/{source_ids}.png` to `/sprite/{source_ids}.png`
@@ -46,7 +49,10 @@ async fn redirect_sprites_png(
     req: HttpRequest,
     path: Path<SpritePngRedirectRequest>,
 ) -> HttpResponse {
-    redirect_with_query(&format!("/sprite/{}.png", path.source_ids), req.query_string())
+    redirect_with_query(
+        &format!("/sprite/{}.png", path.source_ids),
+        req.query_string(),
+    )
 }
 
 /// Redirect `/sdf_sprites/{source_ids}.json` to `/sdf_sprite/{source_ids}.json`
