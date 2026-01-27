@@ -10,21 +10,14 @@ use martin_tile_utils::{
 };
 use serde_json::Value;
 use tiff::decoder::{ChunkType, Decoder};
-use tiff::tags::PlanarConfiguration;
 use tiff::tags::Tag::{self};
-use tilejson::{Bounds, TileJSON, tilejson};
+use tiff::tags::{CompressionMethod, PlanarConfiguration};
+use tilejson::{Bounds, Center, TileJSON, tilejson};
 
 use crate::tiles::cog::CogError;
 use crate::tiles::cog::image::Image;
 use crate::tiles::cog::model::ModelInfo;
 use crate::tiles::{MartinCoreResult, Source, UrlQuery};
-
-/// Compression has not been done on the tiles within the TIFF.
-pub const TIFF_COMPRESSION_NONE: u16 = 1;
-/// Compression of each tile within the TIFF is done with the LZW algorithm.
-pub const TIFF_COMPRESSION_LZW: u16 = 5;
-/// Compression of each tile within the TIFF is done with the DEFLATE algorithm.
-pub const TIFF_COMPRESSION_DEFLATE: u16 = 8;
 
 /// Maximum allowed difference from a matching WebMercatorQuad tile matrix zoom level.
 pub const MAX_RESOLUTION_ERROR: f64 = 1e-12;
@@ -130,6 +123,8 @@ impl CogSource {
             .ok_or_else(|| CogError::NoImagesFound(path.clone()))?;
         let min = webmercator_to_wgs84(extent[0], extent[1]);
         let max = webmercator_to_wgs84(extent[2], extent[3]);
+        let center =
+            webmercator_to_wgs84((extent[0] + extent[2]) / 2.0, (extent[1] + extent[3]) / 2.0);
         let mut tilejson = tilejson! {
             tiles: vec![],
             bounds: Bounds::new(
@@ -138,17 +133,17 @@ impl CogSource {
                 max.0,
                 max.1,
             ),
+            center: Center{
+                longitude: center.0,
+                latitude: center.1,
+                zoom: (max_zoom + min_zoom) / 2,
+            },
             minzoom: min_zoom,
             maxzoom: max_zoom,
         };
         tilejson
             .other
             .insert("tileSize".to_string(), Value::from(tile_size));
-        let center =
-            webmercator_to_wgs84((extent[0] + extent[2]) / 2.0, (extent[1] + extent[3]) / 2.0);
-        tilejson
-            .other
-            .insert("center".to_string(), Value::from(vec![center.0, center.1]));
         Ok(CogSource {
             id,
             path,
@@ -277,11 +272,13 @@ fn verify_requirements(
         .map_err(|e| {
             CogError::TagsNotFound(e, vec![Tag::Compression.to_u16()], 0, path.to_path_buf())
         })
-        .and_then(|compression| {
-            if matches!(
-                compression,
-                TIFF_COMPRESSION_NONE | TIFF_COMPRESSION_LZW | TIFF_COMPRESSION_DEFLATE,
-            ) {
+        .and_then(|compression: u16| {
+            if matches! {
+                CompressionMethod::from_u16(compression),
+                Some(CompressionMethod::None) |
+                Some(CompressionMethod::LZW) |
+                Some(CompressionMethod::Deflate)
+            } {
                 Ok(())
             } else {
                 Err(CogError::NotSupportedCompression(
@@ -512,36 +509,54 @@ fn get_extent(
 
 #[cfg(test)]
 mod tests {
-    use std::fs::File;
-    use std::path::Path;
-
-    use insta::assert_yaml_snapshot;
+    use crate::tiles::cog::CogSource;
     use rstest::rstest;
-    use tiff::decoder::Decoder;
+    use std::path::Path;
+    use tilejson::{Bounds, Center};
 
-    use crate::tiles::cog::model::ModelInfo;
+    #[rstest]
+    #[case("usda_naip_256_lzw_z3".to_string(), Center {
+        longitude: -121.34674072265622,
+        latitude: 41.96765920367816,
+        zoom: 17,
+    }, Bounds {
+        left: -121.34948730468746,
+        top: 41.97174336327965,
+        right: -121.34399414062497,
+        bottom: 41.96357478222515,
+    }, 16, 18, 256)]
+    #[case("usda_naip_512_deflate_z2".to_string(), Center {
+        longitude: -121.34674072265622,
+        latitude: 41.96765920367816,
+        zoom: 16,
+    }, Bounds {
+        left: -121.34948730468746,
+        top: 41.97174336327965,
+        right: -121.34399414062497,
+        bottom: 41.96357478222515,
+    }, 16, 17, 512)]
+    fn can_generate_tilejson_from_source(
+        #[case] cog_file: String,
+        #[case] center: Center,
+        #[case] bounds: Bounds,
+        #[case] min_zoom: u8,
+        #[case] max_zoom: u8,
+        #[case] tile_size: u32,
+    ) {
+        let path = format!("../tests/fixtures/cog/{}.tif", cog_file);
+        let source = CogSource::new(cog_file, Path::new(&path).to_path_buf()).unwrap();
 
-    #[test]
-    fn can_get_model_info() {
-        let path = Path::new("../tests/fixtures/cog/rgb_u8.tif");
-        let tif_file = File::open(path).unwrap();
-        let mut decoder = Decoder::new(tif_file).unwrap();
-        let model = ModelInfo::decode(&mut decoder, path);
-
-        assert_yaml_snapshot!(model.pixel_scale, @r"
-        - 10
-        - 10
-        - 0
-        ");
-        assert_yaml_snapshot!(model.tie_points, @r"
-        - 0
-        - 0
-        - 0
-        - 1620750.2508
-        - 4277012.7153
-        - 0
-        ");
-        assert_yaml_snapshot!(model.transformation, @"~");
+        assert_eq!(source.max_zoom, max_zoom);
+        assert_eq!(source.min_zoom, min_zoom);
+        assert_eq!(
+            source.tilejson.center.unwrap().to_string(),
+            center.to_string()
+        );
+        assert_eq!(
+            source.tilejson.bounds.unwrap().to_string(),
+            bounds.to_string()
+        );
+        assert_eq!(source.tilejson.other.get("tileSize").unwrap(), tile_size);
     }
 
     #[rstest]

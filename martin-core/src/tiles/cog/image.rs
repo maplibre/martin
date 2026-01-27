@@ -131,10 +131,8 @@ fn encode_rgba_as_png(tile_size: u32, pixels: &[u8], path: &Path) -> Result<Vec<
 
 #[cfg(test)]
 mod tests {
-    use martin_tile_utils::{EARTH_CIRCUMFERENCE, TileCoord};
-    use rstest::rstest;
-
     use crate::tiles::cog::image::Image;
+    use martin_tile_utils::TileCoord;
 
     #[test]
     fn can_calculate_correct_chunk_index() {
