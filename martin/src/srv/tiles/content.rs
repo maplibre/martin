@@ -64,27 +64,27 @@ async fn get_tile(
 /// Redirect `/{source_ids}/{z}/{x}/{y}.pbf` to `/{source_ids}/{z}/{x}/{y}` (HTTP 301)
 /// Registered before main tile route to match more specific pattern first
 #[route("/{source_ids}/{z}/{x}/{y}.pbf", method = "GET", method = "HEAD")]
-pub(crate) async fn redirect_tile_pbf(req: HttpRequest, path: Path<TileRequest>) -> HttpResponse {
+pub async fn redirect_tile_pbf(req: HttpRequest, path: Path<TileRequest>) -> HttpResponse {
     redirect_tile_with_query(&path.source_ids, path.z, path.x, path.y, req.query_string())
 }
 
 /// Redirect `/{source_ids}/{z}/{x}/{y}.mvt` to `/{source_ids}/{z}/{x}/{y}` (HTTP 301)
 /// Registered before main tile route to match more specific pattern first
 #[route("/{source_ids}/{z}/{x}/{y}.mvt", method = "GET", method = "HEAD")]
-pub(crate) async fn redirect_tile_mvt(req: HttpRequest, path: Path<TileRequest>) -> HttpResponse {
+pub async fn redirect_tile_mvt(req: HttpRequest, path: Path<TileRequest>) -> HttpResponse {
     redirect_tile_with_query(&path.source_ids, path.z, path.x, path.y, req.query_string())
 }
 
 /// Redirect `/{source_ids}/{z}/{x}/{y}.mlt` to `/{source_ids}/{z}/{x}/{y}` (HTTP 301)
 /// Registered before main tile route to match more specific pattern first
 #[route("/{source_ids}/{z}/{x}/{y}.mlt", method = "GET", method = "HEAD")]
-pub(crate) async fn redirect_tile_mlt(req: HttpRequest, path: Path<TileRequest>) -> HttpResponse {
+pub async fn redirect_tile_mlt(req: HttpRequest, path: Path<TileRequest>) -> HttpResponse {
     redirect_tile_with_query(&path.source_ids, path.z, path.x, path.y, req.query_string())
 }
 
 /// Redirect `/tiles/{source_ids}/{z}/{x}/{y}` to `/{source_ids}/{z}/{x}/{y}` (HTTP 301)
 #[route("/tiles/{source_ids}/{z}/{x}/{y}", method = "GET", method = "HEAD")]
-pub(crate) async fn redirect_tiles(req: HttpRequest, path: Path<TileRequest>) -> HttpResponse {
+pub async fn redirect_tiles(req: HttpRequest, path: Path<TileRequest>) -> HttpResponse {
     redirect_tile_with_query(&path.source_ids, path.z, path.x, path.y, req.query_string())
 }
 

@@ -148,7 +148,7 @@ async fn get_sprite_sdf_json(
 
 /// Redirect `/sdf_sprites/{source_ids}.json` to `/sdf_sprite/{source_ids}.json` (HTTP 301)
 #[route("/sdf_sprites/{source_ids}.json", method = "GET", method = "HEAD")]
-pub(crate) async fn redirect_sdf_sprites_json(path: Path<SourceIDsRequest>) -> HttpResponse {
+pub async fn redirect_sdf_sprites_json(path: Path<SourceIDsRequest>) -> HttpResponse {
     HttpResponse::MovedPermanently()
         .insert_header((LOCATION, format!("/sdf_sprite/{}.json", path.source_ids)))
         .finish()
