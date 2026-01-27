@@ -146,6 +146,12 @@
       "content_type": "application/x-protobuf",
       "description": "materialized view comment"
     },
+    "mlt": {
+      "attribution": "<a href=\"https://www.openmaptiles.org/\" target=\"_blank\">&copy; OpenMapTiles</a> <a href=\"https://www.openstreetmap.org/copyright\" target=\"_blank\">&copy; OpenStreetMap contributors</a>",
+      "content_type": "application/vnd.maplibre-vector-tile",
+      "description": "A tileset showcasing all layers in OpenMapTiles. https://openmaptiles.org",
+      "name": "OpenMapTiles"
+    },
     "png": {
       "content_type": "image/png",
       "name": "ne2sr"
