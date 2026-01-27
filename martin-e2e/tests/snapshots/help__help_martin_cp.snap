@@ -26,7 +26,7 @@ Options:
       --mbtiles-type <SCHEMA>
           Output format of the new destination file. Ignored if the file exists. [DEFAULT:
           normalized]
-          
+
           [possible values: flat, flat-with-hash, normalized]
 
       --url-query <URL_QUERY>
@@ -35,32 +35,32 @@ Options:
 
       --encoding <ENCODING>
           Optional accepted encoding parameter as if the browser sent it in the HTTP request.
-          
+
           If set to multiple values like gzip,br, martin-cp will use the first encoding, or
           re-encode if the tile is already encoded and that encoding is not listed. Use identity to
           disable compression. Ignored for non-encodable tiles like PNG and JPEG.
-          
+
           [default: gzip]
 
       --on-duplicate <ON_DUPLICATE>
           Allow copying to existing files, and indicate what to do if a tile with the same Z/X/Y
           already exists
-          
+
           [possible values: override, ignore, abort]
 
       --concurrency <CONCURRENCY>
           Number of concurrent connections to use
-          
+
           [default: 1]
 
       --bbox <BBOX>
           Bounds to copy, in the format min_lon,min_lat,max_lon,max_lat. Can be specified multiple
           times with overlapping bounds being handled correctly. Maximum bounds follows mbtiles
           specification for xyz-compliant tile bounds.
-          
+
           If omitted, will first default to configured source bounds if present. Otherwise, will
           default to global xyz-compliant tile bounds.
-          
+
           [default: -180,-85.05112877980659,180,85.0511287798066]
 
       --min-zoom <MIN_ZOOM>
@@ -108,13 +108,13 @@ Options:
 
   -m, --max-feature-count <MAX_FEATURE_COUNT>
           Limit the number of geo features per tile.
-          
+
           If the source table has more features than set here, they will not be included in the tile
           and the result will look "cut off"/incomplete. This feature allows to put a maximum
           latency bound on tiles with extreme amount of detail at the cost of not returning all
           data. It is sensible to set this limit if you have user generated/untrusted geodata, e.g.
           a lot of data points at Null Island.
-          
+
           Can be either a positive integer or unlimited if omitted.
 
   -h, --help
