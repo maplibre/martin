@@ -5,7 +5,7 @@ use actix_web::error::{ErrorBadRequest, ErrorNotFound};
 use actix_web::http::header::LOCATION;
 use actix_web::middleware::Compress;
 use actix_web::web::{Data, Path};
-use actix_web::{HttpRequest, HttpResponse, Result as ActixResult, route};
+use actix_web::{HttpResponse, Result as ActixResult, route};
 use martin_core::fonts::{FontError, FontSources, OptFontCache};
 use serde::Deserialize;
 
