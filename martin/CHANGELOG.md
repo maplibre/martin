@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0](https://github.com/maplibre/martin/compare/martin-v1.2.0...martin-v1.3.0) - 2026-01-27
+
+### Added
+
+- *(srv)* Add `route_prefix` configuration for native subpath support without the need of a reverse proxy override ([#2523](https://github.com/maplibre/martin/pull/2523))
+- add MLT decoding support ([#2512](https://github.com/maplibre/martin/pull/2512))
+- migrate our log library to tracing ([#2494](https://github.com/maplibre/martin/pull/2494))
+- improve martin-cp progress output time estimate ([#2491](https://github.com/maplibre/martin/pull/2491))
+- *(pg)* include ID column info for tables ([#2485](https://github.com/maplibre/martin/pull/2485))
+- *(pg)* support PostgreSQL materialized views ([#2279](https://github.com/maplibre/martin/pull/2279))
+- *(martin-core)* Allow glyph ranges more than 0xFFFF ([#2438](https://github.com/maplibre/martin/pull/2438))
+
+### Fixed
+
+- *(ui)* clipboard copy for http://0.0.0.0:3000 and unify implementations ([#2487](https://github.com/maplibre/martin/pull/2487))
+- the `Copy` icon displaying nicely, next to the text and with enough padding ot all items ([#2483](https://github.com/maplibre/martin/pull/2483))
+- update copy text to include icon for better visibility ([#2482](https://github.com/maplibre/martin/pull/2482))
+- *(perf)* Remove FontSources.masks as they were consuming large amounts of memory even when no font sources were set ([#2519](https://github.com/maplibre/martin/pull/2519))
+- improve error message if no SVG sprite files are present ([#2516](https://github.com/maplibre/martin/pull/2516))
+
+### Other
+
+- move our request logging to tracing ([#2508](https://github.com/maplibre/martin/pull/2508))
+- move our imports to tracing ([#2500](https://github.com/maplibre/martin/pull/2500))
+- *(deps)* shear our dependencys ([#2497](https://github.com/maplibre/martin/pull/2497))
+- *(ui)* adjust margin for copy icon in URL component ([#2489](https://github.com/maplibre/martin/pull/2489))
+- unignore `diff_and_patch_bsdiff` test with unique SQLite database names ([#2480](https://github.com/maplibre/martin/pull/2480))
+- *(mbtiles)* remove the prefix-ism around how files are named for binary diff copy and simpify their naming ([#2478](https://github.com/maplibre/martin/pull/2478))
+- *(mbtiles)* add assertion messages what we are checking to the copy tests ([#2477](https://github.com/maplibre/martin/pull/2477))
+
 ## [1.2.0](https://github.com/maplibre/martin/compare/martin-v1.1.0...martin-v1.2.0) - 2026-01-03
 
 ### Optionally fail config loading/resolution for missing sources
