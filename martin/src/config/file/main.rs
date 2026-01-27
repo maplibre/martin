@@ -128,7 +128,13 @@ impl Config {
         copy_unrecognized_keys_from_config(&mut res, "", &self.unrecognized);
 
         if let Some(path) = &self.srv.route_prefix {
-            self.srv.route_prefix = Some(parse_base_path(path)?);
+            let normalized = parse_base_path(path)?;
+            // For route_prefix, an empty normalized path (from "/") means no prefix
+            self.srv.route_prefix = if normalized.is_empty() {
+                None
+            } else {
+                Some(normalized)
+            };
         }
         if let Some(path) = &self.srv.base_path {
             self.srv.base_path = Some(parse_base_path(path)?);

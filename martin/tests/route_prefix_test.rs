@@ -226,3 +226,30 @@ async fn test_nested_route_prefix() {
         "Tile URL should contain nested route_prefix: {tile_url}"
     );
 }
+
+#[actix_rt::test]
+#[tracing_test::traced_test]
+async fn test_route_prefix_root_path() {
+    let (config, _conns) = config("test_route_prefix_root_path").await;
+    // Setting route_prefix to "/" should be treated as no prefix after normalization
+    // Manually simulate what finalize() does
+    let srv_config = SrvConfig {
+        route_prefix: None,  // "/" gets normalized to None
+        ..Default::default()
+    };
+    let app = create_app_with_prefix!(&config, srv_config);
+
+    // Health endpoint should be accessible without prefix (root path means no prefix)
+    let req = test_get("/health").to_request();
+    let response = call_service(&app, req).await;
+    let response = assert_response(response).await;
+    let body = read_body(response).await;
+    assert_eq!(body, "OK");
+
+    // Catalog should also work without prefix
+    let req = test_get("/catalog").to_request();
+    let response = call_service(&app, req).await;
+    let response = assert_response(response).await;
+    let body: serde_json::Value = read_body_json(response).await;
+    assert!(body["tiles"]["m_json"].is_object());
+}
