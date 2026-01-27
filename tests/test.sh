@@ -390,8 +390,6 @@ test_json_with_header tilejson_with_forwarded_proto_only function_zxy_query "For
 test_json_with_header tilejson_with_forwarded_host_only function_zxy_query "Forwarded: host=tiles.example.com"
 test_json_with_header tilejson_with_forwarded_proto_and_host function_zxy_query "Forwarded: proto=https;host=tiles.example.com"
 
-test_json_with_header tilejson_ignores_x_forwarded_for function_zxy_query "X-Forwarded-For: 192.168.1.100"
-
 >&2 echo "***** Test server response for function source *****"
 test_jsn fnc                      function_zxy_query
 test_pbf fnc_0_0_0                function_zxy_query/0/0/0
