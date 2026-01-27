@@ -42,54 +42,54 @@ async fn get_health() -> impl Responder {
 }
 
 pub fn router(cfg: &mut web::ServiceConfig, #[allow(unused_variables)] usr_cfg: &SrvConfig) {
-    // Helper function to register all services
-    let register_services = |cfg: &mut web::ServiceConfig| {
-        cfg.service(get_health)
-            .service(crate::srv::admin::get_catalog);
-
-        #[cfg(feature = "_tiles")]
-        cfg.service(crate::srv::tiles::metadata::get_source_info)
-            .service(crate::srv::tiles::content::get_tile);
-
-        #[cfg(feature = "sprites")]
-        cfg.service(crate::srv::sprites::get_sprite_sdf_json)
-            .service(crate::srv::sprites::get_sprite_json)
-            .service(crate::srv::sprites::get_sprite_sdf_png)
-            .service(crate::srv::sprites::get_sprite_png);
-
-        #[cfg(feature = "fonts")]
-        cfg.service(crate::srv::fonts::get_font);
-
-        #[cfg(feature = "styles")]
-        cfg.service(crate::srv::styles::get_style_json);
-
-        #[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
-        cfg.service(crate::srv::styles_rendering::get_style_rendered);
-
-        #[cfg(all(feature = "webui", not(docsrs)))]
-        {
-            // TODO: this can probably be simplified with a wrapping middleware,
-            //       which would share usr_cfg from Data<> with all routes.
-            if usr_cfg.web_ui.unwrap_or_default() == WebUiMode::EnableForAll {
-                cfg.service(actix_web_static_files::ResourceFiles::new(
-                    "/",
-                    crate::srv::admin::webui::generate(),
-                ));
-            } else {
-                cfg.service(crate::srv::admin::get_index_ui_disabled);
-            }
-        }
-
-        #[cfg(any(not(feature = "webui"), docsrs))]
-        cfg.service(crate::srv::admin::get_index_no_ui);
-    };
-
     // If route_prefix is configured, wrap all routes in a scope
     if let Some(prefix) = &usr_cfg.route_prefix {
-        cfg.service(web::scope(prefix).configure(register_services));
+        cfg.service(web::scope(prefix).configure(|cfg| register_services(cfg, usr_cfg)));
     } else {
-        register_services(cfg);
+        register_services(cfg, usr_cfg);
     }
+}
+
+/// Helper function to register all services
+fn register_services(cfg: &mut web::ServiceConfig, usr_cfg: &SrvConfig) {
+    cfg.service(get_health)
+        .service(crate::srv::admin::get_catalog);
+
+    #[cfg(feature = "_tiles")]
+    cfg.service(crate::srv::tiles::metadata::get_source_info)
+        .service(crate::srv::tiles::content::get_tile);
+
+    #[cfg(feature = "sprites")]
+    cfg.service(crate::srv::sprites::get_sprite_sdf_json)
+        .service(crate::srv::sprites::get_sprite_json)
+        .service(crate::srv::sprites::get_sprite_sdf_png)
+        .service(crate::srv::sprites::get_sprite_png);
+
+    #[cfg(feature = "fonts")]
+    cfg.service(crate::srv::fonts::get_font);
+
+    #[cfg(feature = "styles")]
+    cfg.service(crate::srv::styles::get_style_json);
+
+    #[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
+    cfg.service(crate::srv::styles_rendering::get_style_rendered);
+
+    #[cfg(all(feature = "webui", not(docsrs)))]
+    {
+        // TODO: this can probably be simplified with a wrapping middleware,
+        //       which would share usr_cfg from Data<> with all routes.
+        if usr_cfg.web_ui.unwrap_or_default() == WebUiMode::EnableForAll {
+            cfg.service(actix_web_static_files::ResourceFiles::new(
+                "/",
+                crate::srv::admin::webui::generate(),
+            ));
+        } else {
+            cfg.service(crate::srv::admin::get_index_ui_disabled);
+        }
+    }
+
+    #[cfg(any(not(feature = "webui"), docsrs))]
+    cfg.service(crate::srv::admin::get_index_no_ui);
 }
 
 type Server = Pin<Box<dyn Future<Output = MartinResult<()>>>>;
