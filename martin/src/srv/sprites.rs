@@ -177,15 +177,3 @@ async fn get_index(source_ids: &str, sprites: &SpriteSources, as_sdf: bool) -> A
     let json = serde_json::to_vec(&sheet.get_index()).map_err(map_internal_error)?;
     Ok(Bytes::from(json))
 }
-
-/// Helper function to create a 301 redirect with query string preservation
-fn redirect_with_query(target_path: &str, query_string: &str) -> HttpResponse {
-    let location = if query_string.is_empty() {
-        target_path.to_string()
-    } else {
-        format!("{target_path}?{query_string}")
-    };
-    HttpResponse::MovedPermanently()
-        .insert_header((LOCATION, location))
-        .finish()
-}
