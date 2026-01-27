@@ -48,7 +48,10 @@ async fn get_font(
 #[route("/fonts/{fontstack}/{start}-{end}", method = "GET", method = "HEAD")]
 pub async fn redirect_fonts(path: Path<FontRequest>) -> HttpResponse {
     HttpResponse::MovedPermanently()
-        .insert_header((LOCATION, format!("/font/{}/{}-{}", path.fontstack, path.start, path.end)))
+        .insert_header((
+            LOCATION,
+            format!("/font/{}/{}-{}", path.fontstack, path.start, path.end),
+        ))
         .finish()
 }
 
