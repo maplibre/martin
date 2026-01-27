@@ -182,6 +182,16 @@ test_font() {
   clean_headers_dump "$FILENAME.headers"
 }
 
+test_json_with_header() {
+  FILENAME="$TEST_OUT_DIR/$1.json"
+  URL="$MARTIN_URL/$2"
+  HEADER="$3"
+
+  echo "Testing $(basename "$FILENAME") from $URL with header: $HEADER"
+  $CURL --dump-header "$FILENAME.headers" -H "$HEADER" "$URL" | jq --sort-keys > "$FILENAME"
+  clean_headers_dump "$FILENAME.headers"
+}
+
 # Delete line from a file $1 that matches parameter $2 and log the action
 remove_lines() {
   FILE="$1"
@@ -367,6 +377,7 @@ test_pbf cmp_18_235085_122323     table_source,points1,points2/18/235085/122323
 
 >&2 echo "***** Test server response for function source *****"
 test_jsn fnc                      function_zxy_query
+test_json_with_header tilejson_with_x_forwarded_for function_zxy_query "X-Forwarded-For: 192.168.1.100"
 test_pbf fnc_0_0_0                function_zxy_query/0/0/0
 test_pbf fnc_6_57_29              function_zxy_query/6/57/29
 test_pbf fnc_12_3673_1911         function_zxy_query/12/3673/1911
