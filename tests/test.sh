@@ -586,23 +586,23 @@ test_font font_3      font/Overpass%20Mono%20Regular,Overpass%20Mono%20Light/0-2
 >&2 echo "***** Test URL redirects (HTTP 301) *****"
 
 # Test pluralization redirects
-test_redirect styles/maplibre              /style/maplibre
-test_redirect sprites/src1.json            /sprite/src1.json
-test_redirect sprites/src1.png             /sprite/src1.png
-test_redirect sdf_sprites/src1.json        /sdf_sprite/src1.json
-test_redirect sdf_sprites/src1.png         /sdf_sprite/src1.png
-test_redirect "fonts/Overpass%20Mono%20Regular/0-255" "/font/Overpass%20Mono%20Regular/0-255"
+test_redirect styles/maplibre       /style/maplibre
+test_redirect sprites/src1.json     /sprite/src1.json
+test_redirect sprites/src1.png      /sprite/src1.png
+test_redirect sdf_sprites/src1.json /sdf_sprite/src1.json
+test_redirect sdf_sprites/src1.png  /sdf_sprite/src1.png
+test_redirect "fonts/Overpass%20Mono%20Regular/0-255" "/font/Overpass Mono Regular/0-255"
 
 # Test tile format suffix redirects
-test_redirect stamen_toner__raster_CC-BY-ODbL_z3/0/0/0.pbf  /stamen_toner__raster_CC-BY-ODbL_z3/0/0/0
-test_redirect stamen_toner__raster_CC-BY-ODbL_z3/0/0/0.mvt  /stamen_toner__raster_CC-BY-ODbL_z3/0/0/0
-test_redirect stamen_toner__raster_CC-BY-ODbL_z3/0/0/0.mlt  /stamen_toner__raster_CC-BY-ODbL_z3/0/0/0
+test_redirect table_source/0/0/0.pbf /table_source/0/0/0
+test_redirect table_source/0/0/0.mvt /table_source/0/0/0
+test_redirect table_source/0/0/0.mlt /table_source/0/0/0
 
 # Test /tiles/ prefix redirect
-test_redirect tiles/stamen_toner__raster_CC-BY-ODbL_z3/0/0/0  /stamen_toner__raster_CC-BY-ODbL_z3/0/0/0
+test_redirect tiles/table_source/0/0/0 /table_source/0/0/0
 
 # Test query string preservation for tiles
-test_redirect "stamen_toner__raster_CC-BY-ODbL_z3/0/0/0.pbf?test=123"  "/stamen_toner__raster_CC-BY-ODbL_z3/0/0/0?test=123"
+test_redirect "table_source/0/0/0.pbf?test=123" "/table_source/0/0/0?test=123"
 
 # Test comments override
 test_jsn tbl_comment_cfg  MixPoints
