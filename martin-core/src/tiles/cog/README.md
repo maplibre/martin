@@ -25,7 +25,7 @@ Due to the flexibility of the COG, GEOTIFF and TIFF file formats and the assumpt
 
 * File MUST define the ProjectedCRS GeoKey with a value of 3857 (EPSG:3857)
 * File MUST use PlanarConfiguration=1 aka. "Contiguous" or "Chunky"
-* File MUST use Compression=1 "None", 5 "LZW" or 8 "Deflate" [See GDAL comrpession tag definitions](https://github.com/OSGeo/gdal/blob/c7d41bf263a1a3951546c5cfa66872fc05dfc8cc/frmts/gtiff/libtiff/tiff.h#L182-L219)
+* File MUST use Compression=1 "None", 5 "LZW" or 8 "Deflate" [See GDAL compression tag definitions](https://github.com/OSGeo/gdal/blob/c7d41bf263a1a3951546c5cfa66872fc05dfc8cc/frmts/gtiff/libtiff/tiff.h#L182-L219)
 * File MUST use an 8-bit color depth
 * File MUST use 3 (RGB) or 4 (RGBA) bands
 * File MUST use tile blocks not strips (eg. TileWidth, TileHeight is defined, not StripOffsets, StripByteCounts, RowsPerStrip, etc.)
