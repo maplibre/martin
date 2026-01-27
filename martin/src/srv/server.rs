@@ -51,7 +51,7 @@ pub fn router(cfg: &mut web::ServiceConfig, #[allow(unused_variables)] usr_cfg: 
 }
 
 /// Helper function to register all services
-fn register_services(cfg: &mut web::ServiceConfig, usr_cfg: &SrvConfig) {
+fn register_services(cfg: &mut web::ServiceConfig, #[allow(unused_variables)] usr_cfg: &SrvConfig) {
     cfg.service(get_health)
         .service(crate::srv::admin::get_catalog);
 
