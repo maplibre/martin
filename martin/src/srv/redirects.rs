@@ -3,12 +3,11 @@ use actix_web::web::Path;
 use actix_web::{HttpRequest, HttpResponse, route};
 use serde::Deserialize;
 
-/// Redirect handlers for common pluralization mistakes and tile format suffixes.
-/// All redirects use HTTP 301 (Permanent Redirect) and preserve query strings.
-
 // ============================================================================
 // Pluralization Redirects
 // ============================================================================
+// Redirect handlers for common pluralization mistakes and tile format suffixes.
+// All redirects use HTTP 301 (Permanent Redirect) and preserve query strings.
 
 /// Redirect `/styles/{style_id}` to `/style/{style_id}`
 #[derive(Deserialize)]
@@ -186,7 +185,7 @@ fn redirect_with_query(target_path: &str, query_string: &str) -> HttpResponse {
     let location = if query_string.is_empty() {
         target_path.to_string()
     } else {
-        format!("{}?{}", target_path, query_string)
+        format!("{target_path}?{query_string}")
     };
 
     HttpResponse::MovedPermanently()
