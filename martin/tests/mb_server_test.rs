@@ -54,26 +54,13 @@ async fn config(
         temp_named_mbtiles(&format!("{test_name}_json"), json_script).await;
     let mvt_script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
     let (mvt_mbt, mvt_conn, mvt_file) =
-        temp_named_mbtiles(
-            &format!("{test_name}_mvt"),
-            mvt_script,
-        )
-        .await;
-    let raw_mvt_script =
-        include_str!("../../tests/fixtures/mbtiles/uncompressed_mvt.sql");
+        temp_named_mbtiles(&format!("{test_name}_mvt"), mvt_script).await;
+    let raw_mvt_script = include_str!("../../tests/fixtures/mbtiles/uncompressed_mvt.sql");
     let (raw_mvt_mbt, raw_mvt_conn, raw_mvt_file) =
-        temp_named_mbtiles(
-            &format!("{test_name}_raw_mvt"),
-            raw_mvt_script,
-        )
-        .await;
+        temp_named_mbtiles(&format!("{test_name}_raw_mvt"), raw_mvt_script).await;
     let raw_mlt_script = include_str!("../../tests/fixtures/mbtiles/mlt.sql");
     let (raw_mlt_mbt, raw_mlt_conn, raw_mlt_file) =
-        temp_named_mbtiles(
-            &format!("{test_name}_raw_mlt"),
-            raw_mlt_script,
-        )
-        .await;
+        temp_named_mbtiles(&format!("{test_name}_raw_mlt"), raw_mlt_script).await;
     let webp_script = include_str!("../../tests/fixtures/mbtiles/webp.sql");
     let (webp_mbt, webp_conn, webp_file) =
         temp_named_mbtiles(&format!("{test_name}_webp"), webp_script).await;
@@ -269,9 +256,7 @@ async fn mbt_get_mvt_gzip() {
     let (config, _conns) = config("mbt_get_mvt_gzip").await;
     let app = create_app!(&config);
     let accept = (ACCEPT_ENCODING, "gzip");
-    let req = test_get("/m_mvt/0/0/0")
-        .insert_header(accept)
-        .to_request();
+    let req = test_get("/m_mvt/0/0/0").insert_header(accept).to_request();
     let response = call_service(&app, req).await;
     let response = assert_response(response).await;
     assert_eq!(
@@ -292,9 +277,7 @@ async fn mbt_get_mvt_brotli() {
     let (config, _conns) = config("mbt_get_mvt_brotli").await;
     let app = create_app!(&config);
     let accept = (ACCEPT_ENCODING, "br");
-    let req = test_get("/m_mvt/0/0/0")
-        .insert_header(accept)
-        .to_request();
+    let req = test_get("/m_mvt/0/0/0").insert_header(accept).to_request();
     let response = call_service(&app, req).await;
     let response = assert_response(response).await;
     assert_eq!(
