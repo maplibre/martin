@@ -210,8 +210,9 @@ impl Source for CogSource {
         })?;
 
         let file = File::open(&self.path).map_err(|e| CogError::IoError(e, self.path.clone()))?;
-        let mut decoder =
-            Decoder::new(file).map_err(|e| CogError::InvalidTiffFile(e, self.path.clone()))?;
+        let mut decoder = Decoder::new(file)
+            .map_err(|e| CogError::InvalidTiffFile(e, self.path.clone()))?
+            .with_limits(tiff::decoder::Limits::default());
         let bytes = image.get_tile(&mut decoder, xyz, &self.path)?;
         Ok(bytes)
     }
