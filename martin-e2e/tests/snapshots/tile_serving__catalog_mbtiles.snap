@@ -1,0 +1,102 @@
+---
+source: martin-e2e/tests/tile_serving.rs
+expression: catalog
+---
+fonts: {}
+sprites: {}
+styles: {}
+tiles:
+  "-function.withweired---_-characters":
+    content_type: application/x-protobuf
+    description: a function source with special characters
+  ".-Points-----------quote":
+    content_type: application/x-protobuf
+    description: Escaping test table
+  MixPoints:
+    content_type: application/x-protobuf
+    description: a description from comment on table
+  antimeridian:
+    content_type: application/x-protobuf
+    description: public.antimeridian.geom
+  auto_table:
+    content_type: application/x-protobuf
+    description: autodetect.auto_table.geom
+  bigint_table:
+    content_type: application/x-protobuf
+    description: autodetect.bigint_table.geom
+  function_Mixed_Name:
+    content_type: application/x-protobuf
+    description: a function source with MixedCase name
+  function_null:
+    content_type: application/x-protobuf
+    description: public.function_null
+  function_null_row:
+    content_type: application/x-protobuf
+    description: public.function_null_row
+  function_null_row2:
+    content_type: application/x-protobuf
+    description: public.function_null_row2
+  function_zoom_xy:
+    content_type: application/x-protobuf
+    description: public.function_zoom_xy
+  function_zxy:
+    content_type: application/x-protobuf
+    description: public.function_zxy
+  function_zxy2:
+    content_type: application/x-protobuf
+    description: public.function_zxy2
+  function_zxy_query:
+    content_type: application/x-protobuf
+  function_zxy_query_jsonb:
+    content_type: application/x-protobuf
+    description: public.function_zxy_query_jsonb
+  function_zxy_query_test:
+    content_type: application/x-protobuf
+    description: public.function_zxy_query_test
+  function_zxy_row:
+    content_type: application/x-protobuf
+    description: public.function_zxy_row
+  function_zxy_row_key:
+    content_type: application/x-protobuf
+    description: public.function_zxy_row_key
+  monaco:
+    attribution: "<a href=\"https://www.openmaptiles.org/\" target=\"_blank\">&copy; OpenMapTiles</a> <a href=\"https://www.openstreetmap.org/copyright\" target=\"_blank\">&copy; OpenStreetMap contributors</a>"
+    content_encoding: gzip
+    content_type: application/x-protobuf
+    description: "A tileset showcasing all layers in OpenMapTiles. https://openmaptiles.org"
+    name: OpenMapTiles
+  points1:
+    content_type: application/x-protobuf
+    description: public.points1.geom
+  points1_vw:
+    attribution: some attribution from SQL comment
+    content_type: application/x-protobuf
+    description: description from SQL comment
+  points2:
+    content_type: application/x-protobuf
+    description: public.points2.geom
+  points3857:
+    content_type: application/x-protobuf
+    description: public.points3857.geom
+  table_name_existing_two_schemas:
+    content_type: application/x-protobuf
+    description: schema_a.table_name_existing_two_schemas.a_geom
+  table_name_existing_two_schemas.1:
+    content_type: application/x-protobuf
+    description: schema_b.table_name_existing_two_schemas.b_geom
+  table_source:
+    content_type: application/x-protobuf
+  table_source_geog:
+    content_type: application/x-protobuf
+  table_source_multiple_geom:
+    content_type: application/x-protobuf
+    description: public.table_source_multiple_geom.geom1
+  table_source_multiple_geom.1:
+    content_type: application/x-protobuf
+    description: public.table_source_multiple_geom.geom2
+  view_name_existing_two_schemas:
+    content_type: application/x-protobuf
+    description: schema_a.view_name_existing_two_schemas.a_geom
+  view_name_existing_two_schemas.1:
+    content_type: application/x-protobuf
+    description: schema_b.view_name_existing_two_schemas.b_geom
