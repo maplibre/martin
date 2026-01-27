@@ -375,9 +375,22 @@ test_pbf cmp_14_14692_7645        table_source,points1,points2/14/14692/7645
 test_pbf cmp_17_117542_61161      table_source,points1,points2/17/117542/61161
 test_pbf cmp_18_235085_122323     table_source,points1,points2/18/235085/122323
 
+>&2 echo "***** Test header effects on tilejson *****"
+test_json_with_header tilejson_no_forwarded_headers function_zxy_query "Host: localhost"
+
+test_json_with_header tilejson_with_x_forwarded_proto_https function_zxy_query "X-Forwarded-Proto: https"
+test_json_with_header tilejson_with_x_forwarded_proto_http function_zxy_query "X-Forwarded-Proto: http"
+
+test_json_with_header tilejson_with_x_forwarded_host function_zxy_query "X-Forwarded-Host: tiles.example.com"
+
+test_json_with_header tilejson_with_forwarded_proto_only function_zxy_query "Forwarded: proto=https"
+test_json_with_header tilejson_with_forwarded_host_only function_zxy_query "Forwarded: host=tiles.example.com"
+test_json_with_header tilejson_with_forwarded_proto_and_host function_zxy_query "Forwarded: proto=https;host=tiles.example.com"
+
+test_json_with_header tilejson_ignores_x_forwarded_for function_zxy_query "X-Forwarded-For: 192.168.1.100"
+
 >&2 echo "***** Test server response for function source *****"
 test_jsn fnc                      function_zxy_query
-test_json_with_header tilejson_with_x_forwarded_for function_zxy_query "X-Forwarded-For: 192.168.1.100"
 test_pbf fnc_0_0_0                function_zxy_query/0/0/0
 test_pbf fnc_6_57_29              function_zxy_query/6/57/29
 test_pbf fnc_12_3673_1911         function_zxy_query/12/3673/1911
