@@ -9,7 +9,7 @@ listen_addresses: "0.0.0.0:3000"
 # This allows Martin to be served under a subpath when behind a reverse proxy (e.g., Traefik).
 # Must begin with a `/`.
 # Examples: `/tiles`, `/api/v1/tiles`
-route_prefix: /tiles
+route_prefix: null
 
 # Set TileJSON URL path prefix.
 # This overrides the default path prefix for URLs in TileJSON responses.
