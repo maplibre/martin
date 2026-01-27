@@ -36,6 +36,7 @@ fn test_get(path: &str) -> TestRequest {
     TestRequest::get().uri(path)
 }
 
+#[expect(clippy::similar_names)]
 async fn config(
     test_name: &str,
 ) -> (
@@ -51,26 +52,26 @@ async fn config(
     let json_script = include_str!("../../tests/fixtures/mbtiles/json.sql");
     let (json_mbt, json_conn, json_file) =
         temp_named_mbtiles(&format!("{test_name}_json"), json_script).await;
-    let mapbox_vector_tiles_script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
-    let (mapbox_vector_tiles_mbt, mapbox_vector_tiles_conn, mapbox_vector_tiles_file) =
+    let mvt_script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
+    let (mvt_mbt, mvt_conn, mvt_file) =
         temp_named_mbtiles(
-            &format!("{test_name}_mapbox_vector_tiles"),
-            mapbox_vector_tiles_script,
+            &format!("{test_name}_mvt"),
+            mvt_script,
         )
         .await;
-    let raw_mapbox_vector_tiles_script =
+    let raw_mvt_script =
         include_str!("../../tests/fixtures/mbtiles/uncompressed_mvt.sql");
-    let (raw_mapbox_vector_tiles_mbt, raw_mapbox_vector_tiles_conn, raw_mapbox_vector_tiles_file) =
+    let (raw_mvt_mbt, raw_mvt_conn, raw_mvt_file) =
         temp_named_mbtiles(
-            &format!("{test_name}_raw_mapbox_vector_tiles"),
-            raw_mapbox_vector_tiles_script,
+            &format!("{test_name}_raw_mvt"),
+            raw_mvt_script,
         )
         .await;
-    let raw_maplibre_tiles_script = include_str!("../../tests/fixtures/mbtiles/mlt.sql");
-    let (raw_maplibre_tiles_mbt, raw_maplibre_tiles_conn, raw_maplibre_tiles_file) =
+    let raw_mlt_script = include_str!("../../tests/fixtures/mbtiles/mlt.sql");
+    let (raw_mlt_mbt, raw_mlt_conn, raw_mlt_file) =
         temp_named_mbtiles(
-            &format!("{test_name}_raw_maplibre_tiles"),
-            raw_maplibre_tiles_script,
+            &format!("{test_name}_raw_mlt"),
+            raw_mlt_script,
         )
         .await;
     let webp_script = include_str!("../../tests/fixtures/mbtiles/webp.sql");
@@ -82,22 +83,22 @@ async fn config(
     mbtiles:
         sources:
             m_json: {json}
-            m_mapbox_vector_tiles: {mapbox_vector_tiles}
-            m_raw_mapbox_vector_tiles: {raw_mapbox_vector_tiles}
-            m_raw_maplibre_tiles: {raw_maplibre_tiles}
+            m_mvt: {mvt}
+            m_raw_mvt: {raw_mvt}
+            m_raw_mlt: {raw_mlt}
             m_webp: {webp}
     ",
         json = json_file.display(),
-        mapbox_vector_tiles = mapbox_vector_tiles_file.display(),
-        raw_mapbox_vector_tiles = raw_mapbox_vector_tiles_file.display(),
-        raw_maplibre_tiles = raw_maplibre_tiles_file.display(),
+        mvt = mvt_file.display(),
+        raw_mvt = raw_mvt_file.display(),
+        raw_mlt = raw_mlt_file.display(),
         webp = webp_file.display()
         },
         (
             (json_mbt, json_conn),
-            (mapbox_vector_tiles_mbt, mapbox_vector_tiles_conn),
-            (raw_mapbox_vector_tiles_mbt, raw_mapbox_vector_tiles_conn),
-            (raw_maplibre_tiles_mbt, raw_maplibre_tiles_conn),
+            (mvt_mbt, mvt_conn),
+            (raw_mvt_mbt, raw_mvt_conn),
+            (raw_mlt_mbt, raw_mlt_conn),
             (webp_mbt, webp_conn),
         ),
     )
@@ -120,16 +121,16 @@ async fn mbt_get_catalog() {
       m_json:
         content_type: application/json
         name: Dummy json data
-      m_mapbox_vector_tiles:
+      m_mvt:
         content_encoding: gzip
         content_type: application/x-protobuf
         description: Major cities from Natural Earth data
         name: Major cities from Natural Earth data
-      m_raw_mapbox_vector_tiles:
+      m_raw_mvt:
         content_type: application/x-protobuf
         description: Major cities from Natural Earth data
         name: Major cities from Natural Earth data
-      m_raw_maplibre_tiles:
+      m_raw_mlt:
         attribution: "<a href=\"https://www.openmaptiles.org/\" target=\"_blank\">&copy; OpenMapTiles</a> <a href=\"https://www.openstreetmap.org/copyright\" target=\"_blank\">&copy; OpenStreetMap contributors</a>"
         content_type: application/vnd.maplibre-vector-tile
         description: "A tileset showcasing all layers in OpenMapTiles. https://openmaptiles.org"
@@ -159,16 +160,16 @@ async fn mbt_get_catalog_gzip() {
       m_json:
         content_type: application/json
         name: Dummy json data
-      m_mapbox_vector_tiles:
+      m_mvt:
         content_encoding: gzip
         content_type: application/x-protobuf
         description: Major cities from Natural Earth data
         name: Major cities from Natural Earth data
-      m_raw_mapbox_vector_tiles:
+      m_raw_mvt:
         content_type: application/x-protobuf
         description: Major cities from Natural Earth data
         name: Major cities from Natural Earth data
-      m_raw_maplibre_tiles:
+      m_raw_mlt:
         attribution: "<a href=\"https://www.openmaptiles.org/\" target=\"_blank\">&copy; OpenMapTiles</a> <a href=\"https://www.openstreetmap.org/copyright\" target=\"_blank\">&copy; OpenStreetMap contributors</a>"
         content_type: application/vnd.maplibre-vector-tile
         description: "A tileset showcasing all layers in OpenMapTiles. https://openmaptiles.org"
@@ -184,7 +185,7 @@ async fn mbt_get_catalog_gzip() {
 async fn mbt_get_tilejson() {
     let (config, _conns) = config("mbt_get_tilejson").await;
     let app = create_app!(&config);
-    let req = test_get("/m_mapbox_vector_tiles").to_request();
+    let req = test_get("/m_mvt").to_request();
     let response = call_service(&app, req).await;
     let response = assert_response(response).await;
     let headers = response.headers();
@@ -243,10 +244,10 @@ async fn mbt_get_raster_gzip() {
 
 #[actix_rt::test]
 #[tracing_test::traced_test]
-async fn mbt_get_mapbox_vector_tiles() {
-    let (config, _conns) = config("mbt_get_mapbox_vector_tiles").await;
+async fn mbt_get_mvt() {
+    let (config, _conns) = config("mbt_get_mvt").await;
     let app = create_app!(&config);
-    let req = test_get("/m_mapbox_vector_tiles/0/0/0").to_request();
+    let req = test_get("/m_mvt/0/0/0").to_request();
     let response = call_service(&app, req).await;
     let response = assert_response(response).await;
     println!("Status = {:?}", response.status());
@@ -264,11 +265,11 @@ async fn mbt_get_mapbox_vector_tiles() {
 /// get an MVT tile with accepted gzip enc
 #[actix_rt::test]
 #[tracing_test::traced_test]
-async fn mbt_get_mapbox_vector_tiles_gzip() {
-    let (config, _conns) = config("mbt_get_mapbox_vector_tiles_gzip").await;
+async fn mbt_get_mvt_gzip() {
+    let (config, _conns) = config("mbt_get_mvt_gzip").await;
     let app = create_app!(&config);
     let accept = (ACCEPT_ENCODING, "gzip");
-    let req = test_get("/m_mapbox_vector_tiles/0/0/0")
+    let req = test_get("/m_mvt/0/0/0")
         .insert_header(accept)
         .to_request();
     let response = call_service(&app, req).await;
@@ -287,11 +288,11 @@ async fn mbt_get_mapbox_vector_tiles_gzip() {
 /// get an MVT tile with accepted brotli enc
 #[actix_rt::test]
 #[tracing_test::traced_test]
-async fn mbt_get_mapbox_vector_tiles_brotli() {
-    let (config, _conns) = config("mbt_get_mapbox_vector_tiles_brotli").await;
+async fn mbt_get_mvt_brotli() {
+    let (config, _conns) = config("mbt_get_mvt_brotli").await;
     let app = create_app!(&config);
     let accept = (ACCEPT_ENCODING, "br");
-    let req = test_get("/m_mapbox_vector_tiles/0/0/0")
+    let req = test_get("/m_mvt/0/0/0")
         .insert_header(accept)
         .to_request();
     let response = call_service(&app, req).await;
@@ -310,10 +311,10 @@ async fn mbt_get_mapbox_vector_tiles_brotli() {
 /// get an uncompressed MVT tile
 #[actix_rt::test]
 #[tracing_test::traced_test]
-async fn mbt_get_raw_mapbox_vector_tiles() {
-    let (config, _conns) = config("mbt_get_raw_mapbox_vector_tiles").await;
+async fn mbt_get_raw_mvt() {
+    let (config, _conns) = config("mbt_get_raw_mvt").await;
     let app = create_app!(&config);
-    let req = test_get("/m_raw_mapbox_vector_tiles/0/0/0").to_request();
+    let req = test_get("/m_raw_mvt/0/0/0").to_request();
     let response = call_service(&app, req).await;
     let response = assert_response(response).await;
     assert_eq!(
@@ -328,10 +329,10 @@ async fn mbt_get_raw_mapbox_vector_tiles() {
 /// get an uncompressed MLT tile
 #[actix_rt::test]
 #[tracing_test::traced_test]
-async fn mbt_get_raw_maplibre_tiles() {
-    let (config, _conns) = config("mbt_get_raw_maplibre_tiles").await;
+async fn mbt_get_raw_mlt() {
+    let (config, _conns) = config("mbt_get_raw_mlt").await;
     let app = create_app!(&config);
-    let req = test_get("/m_raw_maplibre_tiles/0/0/0").to_request();
+    let req = test_get("/m_raw_mlt/0/0/0").to_request();
     let response = call_service(&app, req).await;
     let response = assert_response(response).await;
     assert_eq!(
@@ -346,11 +347,11 @@ async fn mbt_get_raw_maplibre_tiles() {
 /// get an uncompressed MVT tile with accepted gzip
 #[actix_rt::test]
 #[tracing_test::traced_test]
-async fn mbt_get_raw_mapbox_vector_tiles_gzip() {
-    let (config, _conns) = config("mbt_get_raw_mapbox_vector_tiles_gzip").await;
+async fn mbt_get_raw_mvt_gzip() {
+    let (config, _conns) = config("mbt_get_raw_mvt_gzip").await;
     let app = create_app!(&config);
     let accept = (ACCEPT_ENCODING, "gzip");
-    let req = test_get("/m_raw_mapbox_vector_tiles/0/0/0")
+    let req = test_get("/m_raw_mvt/0/0/0")
         .insert_header(accept)
         .to_request();
     let response = call_service(&app, req).await;
@@ -369,12 +370,12 @@ async fn mbt_get_raw_mapbox_vector_tiles_gzip() {
 /// get an uncompressed MVT tile with accepted both gzip and brotli enc
 #[actix_rt::test]
 #[tracing_test::traced_test]
-async fn mbt_get_raw_mapbox_vector_tiles_gzip_br() {
-    let (config, _conns) = config("mbt_get_raw_mapbox_vector_tiles_gzip_br").await;
+async fn mbt_get_raw_mvt_gzip_br() {
+    let (config, _conns) = config("mbt_get_raw_mvt_gzip_br").await;
     let app = create_app!(&config);
     // Sadly, most browsers prefer to ask for gzip - maybe we should force brotli if supported.
     let accept = (ACCEPT_ENCODING, "br, gzip, deflate");
-    let req = test_get("/m_raw_mapbox_vector_tiles/0/0/0")
+    let req = test_get("/m_raw_mvt/0/0/0")
         .insert_header(accept)
         .to_request();
     let response = call_service(&app, req).await;
