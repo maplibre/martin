@@ -381,7 +381,7 @@ async fn mbt_get_json_gzip() {
 #[actix_rt::test]
 #[tracing_test::traced_test]
 async fn mbt_get_tilejson_with_base_url() {
-    let (_config_str, _conns) = config("mbt_get_tilejson_with_base_url").await;
+    let (config_str, _conns) = config("mbt_get_tilejson_with_base_url").await;
 
     // Create a custom SrvConfig with base_url set
     let srv_config = SrvConfig {
@@ -389,7 +389,7 @@ async fn mbt_get_tilejson_with_base_url() {
         ..Default::default()
     };
 
-    let state = mock_sources(mock_cfg(&_config_str)).await.0;
+    let state = mock_sources(mock_cfg(&config_str)).await.0;
     let app = actix_web::test::init_service(
         actix_web::App::new()
             .app_data(actix_web::web::Data::new(
