@@ -68,7 +68,7 @@ bless:
     set -euo pipefail
 
     echo "Blessing unit tests"
-    for target in restart clean-test bless-insta-martin bless-insta-martin-core bless-insta-martin-tile-utils bless-insta-mbtiles bless-frontend; do
+    for target in restart clean-test bless-insta bless-frontend; do
       echo "::group::just $target"
       {{quote(just_executable())}} $target
       echo "::endgroup::"
@@ -84,21 +84,8 @@ bless-frontend:
     npm run test:update-snapshots
 
 # Run integration tests and save its output as the new expected output
-bless-insta-martin *args:  (cargo-install 'cargo-insta')
-    cargo insta test --accept --all-targets --package martin {{args}}
-
-# Run integration tests and save its output as the new expected output
-bless-insta-martin-core *args:  (cargo-install 'cargo-insta')
-    cargo insta test --accept --all-targets --package martin-core {{args}}
-
-# Run integration tests and save its output as the new expected output
-bless-insta-martin-tile-utils *args:  (cargo-install 'cargo-insta')
-    cargo insta test --accept --all-targets --package martin-tile-utils {{args}}
-
-# Run integration tests and save its output as the new expected output
-bless-insta-mbtiles *args:  (cargo-install 'cargo-insta')
-    #rm -rf mbtiles/tests/snapshots
-    cargo insta test --accept --all-targets --package mbtiles {{args}}
+bless-insta *args:  (cargo-install 'cargo-insta')
+    cargo insta test --accept --all-targets --workspace {{args}}
 
 # Bless integration tests
 bless-int:
