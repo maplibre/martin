@@ -46,8 +46,14 @@ pub fn router(cfg: &mut web::ServiceConfig, #[allow(unused_variables)] usr_cfg: 
         .service(crate::srv::admin::get_catalog);
 
     #[cfg(feature = "_tiles")]
-    cfg.service(crate::srv::tiles::metadata::get_source_info)
-        .service(crate::srv::tiles::content::get_tile);
+    {
+        // Register tile format suffix redirects BEFORE the main tile route
+        // because Actix-Web matches routes in registration order
+        crate::srv::redirects::register_tile_suffix_redirects(cfg);
+        
+        cfg.service(crate::srv::tiles::metadata::get_source_info)
+            .service(crate::srv::tiles::content::get_tile);
+    }
 
     #[cfg(feature = "sprites")]
     cfg.service(crate::srv::sprites::get_sprite_sdf_json)
@@ -80,6 +86,9 @@ pub fn router(cfg: &mut web::ServiceConfig, #[allow(unused_variables)] usr_cfg: 
 
     #[cfg(any(not(feature = "webui"), docsrs))]
     cfg.service(crate::srv::admin::get_index_no_ui);
+
+    // Register pluralization redirect routes last so they act as fallbacks for common mistakes
+    crate::srv::redirects::register_pluralization_redirects(cfg);
 }
 
 type Server = Pin<Box<dyn Future<Output = MartinResult<()>>>>;

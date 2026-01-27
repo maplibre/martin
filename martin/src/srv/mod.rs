@@ -22,3 +22,5 @@ mod styles;
 
 #[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
 mod styles_rendering;
+
+mod redirects;
