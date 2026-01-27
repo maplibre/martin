@@ -377,6 +377,7 @@ test_pbf cmp_18_235085_122323     table_source,points1,points2/18/235085/122323
 
 >&2 echo "***** Test header effects on tilejson *****"
 test_json_with_header tilejson_no_forwarded_headers function_zxy_query "Host: localhost"
+test_json_with_header tilejson_ignores_x_forwarded_for function_zxy_query "X-Forwarded-For: 192.168.1.100"
 test_json_with_header tilejson_with_host function_zxy_query "Host: example.com"
 test_json_with_header tilejson_with_host_and_port function_zxy_query "Host: example.com:6000"
 
