@@ -234,7 +234,7 @@ async fn test_route_prefix_root_path() {
     // Setting route_prefix to "/" should be treated as no prefix after normalization
     // Manually simulate what finalize() does
     let srv_config = SrvConfig {
-        route_prefix: None,  // "/" gets normalized to None
+        route_prefix: None, // "/" gets normalized to None
         ..Default::default()
     };
     let app = create_app_with_prefix!(&config, srv_config);
