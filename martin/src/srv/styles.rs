@@ -52,14 +52,8 @@ async fn get_style_json(path: Path<StyleRequest>, styles: Data<StyleSources>) ->
 /// Redirect `/styles/{style_id}` to `/style/{style_id}` (HTTP 301)
 /// This handles common pluralization mistakes
 #[route("/styles/{style_id}", method = "GET", method = "HEAD")]
-pub(crate) async fn redirect_styles(req: HttpRequest, path: Path<StyleRequest>) -> HttpResponse {
-    let location = format!("/style/{}", path.style_id);
-    let location = if req.query_string().is_empty() {
-        location
-    } else {
-        format!("{location}?{}", req.query_string())
-    };
+pub(crate) async fn redirect_styles(path: Path<StyleRequest>) -> HttpResponse {
     HttpResponse::MovedPermanently()
-        .insert_header((LOCATION, location))
+        .insert_header((LOCATION, format!("/style/{}", path.style_id)))
         .finish()
 }
