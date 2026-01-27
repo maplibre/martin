@@ -2,7 +2,7 @@ use actix_middleware_etag::Etag;
 use actix_web::http::header::{ContentType, LOCATION};
 use actix_web::middleware::Compress;
 use actix_web::web::{Data, Path};
-use actix_web::{HttpRequest, HttpResponse, route};
+use actix_web::{HttpResponse, route};
 use martin_core::styles::StyleSources;
 use serde::Deserialize;
 use tracing::error;

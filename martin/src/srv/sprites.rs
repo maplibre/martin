@@ -5,7 +5,7 @@ use actix_web::error::ErrorNotFound;
 use actix_web::http::header::{ContentType, LOCATION};
 use actix_web::middleware::Compress;
 use actix_web::web::{Bytes, Data, Path};
-use actix_web::{HttpRequest, HttpResponse, Result as ActixResult, route};
+use actix_web::{HttpResponse, Result as ActixResult, route};
 use martin_core::sprites::{OptSpriteCache, SpriteError, SpriteSources};
 use serde::Deserialize;
 
