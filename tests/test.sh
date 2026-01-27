@@ -389,6 +389,8 @@ test_json_with_header tilejson_with_x_forwarded_host function_zxy_query "X-Forwa
 test_json_with_header tilejson_with_forwarded_proto_only function_zxy_query "Forwarded: proto=https"
 test_json_with_header tilejson_with_forwarded_host_only function_zxy_query "Forwarded: host=tiles.example.com"
 test_json_with_header tilejson_with_forwarded_proto_and_host function_zxy_query "Forwarded: proto=https;host=tiles.example.com"
+test_json_with_header tilejson_with_x_forwarded_port_443 function_zxy_query "X-Forwarded-Port: 443"
+test_json_with_header tilejson_with_x_forwarded_port_8443 function_zxy_query "X-Forwarded-Port: 8443"
 
 >&2 echo "***** Test server response for function source *****"
 test_jsn fnc                      function_zxy_query
