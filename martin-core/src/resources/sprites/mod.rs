@@ -166,6 +166,10 @@ pub async fn get_spritesheet(
     for source in sources {
         let paths = get_svg_input_paths(&source.path, true)
             .map_err(|e| SpriteProcessingError(e, source.path.clone()))?;
+        // SpritesheetBuilder::generate will return None if the folder does not contain any SVGs
+        if paths.is_empty() {
+            return Err(SpriteError::NoSpriteFilesFound(source.path.clone()));
+        }
         for path in paths {
             let name = sprite_name(&path, &source.path)
                 .map_err(|e| SpriteProcessingError(e, source.path.clone()))?;

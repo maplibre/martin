@@ -4,13 +4,20 @@ keep_alive: 75
 # The socket address to bind [default: 0.0.0.0:3000]
 listen_addresses: "0.0.0.0:3000"
 
+# Set the URL path prefix for all API routes.
+# When set, Martin will serve all endpoints under this path prefix.
+# This allows Martin to be served under a subpath when behind a reverse proxy (e.g., Traefik).
+# Must begin with a `/`.
+# Examples: `/tiles`, `/api/v1/tiles`
+route_prefix: null
+
 # Set TileJSON URL path prefix.
-# This overrides the default of respecting the X-Rewrite-URL header.
-# Only modifies the JSON (TileJSON) returned; Martin's API-URLs remain unchanged.
-# If you need to rewrite URLs, please use a reverse proxy.
+# This overrides the default path prefix for URLs in TileJSON responses.
+# If both `route_prefix` and `base_path` are set, `base_path` takes priority for TileJSON URLs.
+# If neither is set, the X-Rewrite-URL header is respected.
 # Must begin with a `/`.
 # Examples: `/`, `/tiles`
-base_path: /tiles
+base_path: null
 
 # Number of web server workers
 worker_processes: 8
