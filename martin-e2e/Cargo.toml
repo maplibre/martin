@@ -1,0 +1,17 @@
+[package]
+name = "martin-e2e"
+version = "0.0.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish = false
+
+[dev-dependencies]
+anyhow.workspace = true
+insta = { workspace = true, features = ["json", "yaml", "redactions"] }
+insta-cmd = "0.6.0"
+reqwest = { workspace = true, features = ["json", "stream"] }
+serde_json.workspace = true
+tempfile.workspace = true
+tokio = { workspace = true, features = ["full"] }

@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["martin", "martin-core", "martin-tile-utils", "mbtiles"]
+members = ["martin", "martin-core", "martin-e2e", "martin-tile-utils", "mbtiles"]
 
 [workspace.package]
 edition = "2024"
@@ -58,6 +58,7 @@ futures = "0.3"
 image = "0.25.8"
 indoc = "2"
 insta = "1.44.3"
+insta-cmd = "0.6.0"
 itertools = "0.14"
 json-patch = "4"
 lambda-web = { version = "0.2.1", features = ["actix4"] }
@@ -78,6 +79,7 @@ postgres = { version = "0.19", features = ["with-time-0_3", "with-uuid-1", "with
 postgres-protocol = "0.6"
 pretty_assertions = "1"
 regex = "1"
+reqwest = "0.13"
 rstest = "0.26.1"
 rustls = "0.23.31"
 # ring feature does not require NASM windows executable, but works slower

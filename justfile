@@ -345,6 +345,16 @@ test-cargo *args:
 test-doc *args:
     cargo test --doc {{args}}
 
+# Run e2e tests
+test-e2e *args:
+    echo "::group::Building binaries"
+    cargo build --workspace --bins
+    echo "::endgroup::"
+
+    echo "::group::Running e2e tests"
+    cargo test -p martin-e2e -- --ignored {{args}}
+    echo "::endgroup::"
+
 # Test code formatting
 test-fmt: (cargo-install 'cargo-sort') && (fmt-toml '--check' '--check-format')
     cargo fmt --all -- --check
