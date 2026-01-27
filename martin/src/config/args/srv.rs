@@ -31,7 +31,7 @@ pub struct SrvArgs {
     /// Must begin with a `/`.
     ///
     /// Examples: `/`, `/tiles`
-    #[arg(long)]
+    #[arg(long, hide = true)]
     pub base_path: Option<String>,
     /// Number of web server workers
     #[arg(short = 'W', long)]
