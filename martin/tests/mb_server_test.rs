@@ -113,15 +113,15 @@ async fn mbt_get_catalog() {
         content_type: application/x-protobuf
         description: Major cities from Natural Earth data
         name: Major cities from Natural Earth data
-      m_raw_mvt:
-        content_type: application/x-protobuf
-        description: Major cities from Natural Earth data
-        name: Major cities from Natural Earth data
       m_raw_mlt:
         attribution: "<a href=\"https://www.openmaptiles.org/\" target=\"_blank\">&copy; OpenMapTiles</a> <a href=\"https://www.openstreetmap.org/copyright\" target=\"_blank\">&copy; OpenStreetMap contributors</a>"
         content_type: application/vnd.maplibre-vector-tile
         description: "A tileset showcasing all layers in OpenMapTiles. https://openmaptiles.org"
         name: OpenMapTiles
+      m_raw_mvt:
+        content_type: application/x-protobuf
+        description: Major cities from Natural Earth data
+        name: Major cities from Natural Earth data
       m_webp:
         content_type: image/webp
         name: ne2sr
