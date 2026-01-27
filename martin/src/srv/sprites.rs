@@ -44,8 +44,14 @@ async fn get_sprite_png(
 
 /// Redirect `/sprites/{source_ids}.png` to `/sprite/{source_ids}.png` (HTTP 301)
 #[route("/sprites/{source_ids}.png", method = "GET", method = "HEAD")]
-pub(crate) async fn redirect_sprites_png(req: HttpRequest, path: Path<SourceIDsRequest>) -> HttpResponse {
-    redirect_with_query(&format!("/sprite/{}.png", path.source_ids), req.query_string())
+pub(crate) async fn redirect_sprites_png(
+    req: HttpRequest,
+    path: Path<SourceIDsRequest>,
+) -> HttpResponse {
+    redirect_with_query(
+        &format!("/sprite/{}.png", path.source_ids),
+        req.query_string(),
+    )
 }
 
 #[route(
@@ -76,7 +82,10 @@ async fn get_sprite_sdf_png(
 
 /// Redirect `/sdf_sprites/{source_ids}.png` to `/sdf_sprite/{source_ids}.png` (HTTP 301)
 #[route("/sdf_sprites/{source_ids}.png", method = "GET", method = "HEAD")]
-pub(crate) async fn redirect_sdf_sprites_png(req: HttpRequest, path: Path<SourceIDsRequest>) -> HttpResponse {
+pub(crate) async fn redirect_sdf_sprites_png(
+    req: HttpRequest,
+    path: Path<SourceIDsRequest>,
+) -> HttpResponse {
     redirect_with_query(
         &format!("/sdf_sprite/{}.png", path.source_ids),
         req.query_string(),
@@ -112,7 +121,10 @@ async fn get_sprite_json(
 
 /// Redirect `/sprites/{source_ids}.json` to `/sprite/{source_ids}.json` (HTTP 301)
 #[route("/sprites/{source_ids}.json", method = "GET", method = "HEAD")]
-pub(crate) async fn redirect_sprites_json(req: HttpRequest, path: Path<SourceIDsRequest>) -> HttpResponse {
+pub(crate) async fn redirect_sprites_json(
+    req: HttpRequest,
+    path: Path<SourceIDsRequest>,
+) -> HttpResponse {
     redirect_with_query(
         &format!("/sprite/{}.json", path.source_ids),
         req.query_string(),
@@ -148,7 +160,10 @@ async fn get_sprite_sdf_json(
 
 /// Redirect `/sdf_sprites/{source_ids}.json` to `/sdf_sprite/{source_ids}.json` (HTTP 301)
 #[route("/sdf_sprites/{source_ids}.json", method = "GET", method = "HEAD")]
-pub(crate) async fn redirect_sdf_sprites_json(req: HttpRequest, path: Path<SourceIDsRequest>) -> HttpResponse {
+pub(crate) async fn redirect_sdf_sprites_json(
+    req: HttpRequest,
+    path: Path<SourceIDsRequest>,
+) -> HttpResponse {
     redirect_with_query(
         &format!("/sdf_sprite/{}.json", path.source_ids),
         req.query_string(),
