@@ -64,48 +64,35 @@ async fn config(
 
 #[actix_rt::test]
 #[tracing_test::traced_test]
-async fn test_route_prefix_health() {
-    let (config, _conns) = config("test_route_prefix_health").await;
+async fn test_route_prefix_basic_endpoints() {
+    let (config, _conns) = config("test_route_prefix_basic").await;
     let srv_config = SrvConfig {
         route_prefix: Some("/tiles".to_string()),
         ..Default::default()
     };
     let app = create_app_with_prefix!(&config, srv_config);
 
-    // Health endpoint should be accessible under the prefix
+    // Test health endpoint
     let req = test_get("/tiles/health").to_request();
     let response = call_service(&app, req).await;
     let response = assert_response(response).await;
     let body = read_body(response).await;
     assert_eq!(body, "OK");
 
-    // Health endpoint should NOT be accessible without the prefix
+    // Health without prefix should fail
     let req = test_get("/health").to_request();
     let response = call_service(&app, req).await;
     assert_eq!(response.status(), 404);
-}
 
-#[actix_rt::test]
-#[tracing_test::traced_test]
-async fn test_route_prefix_catalog() {
-    let (config, _conns) = config("test_route_prefix_catalog").await;
-    let srv_config = SrvConfig {
-        route_prefix: Some("/tiles".to_string()),
-        ..Default::default()
-    };
-    let app = create_app_with_prefix!(&config, srv_config);
-
-    // Catalog endpoint should be accessible under the prefix
+    // Test catalog endpoint
     let req = test_get("/tiles/catalog").to_request();
     let response = call_service(&app, req).await;
     let response = assert_response(response).await;
     let body: serde_json::Value = read_body_json(response).await;
-
-    // Verify that we got sources back
     assert!(body["tiles"]["m_json"].is_object());
     assert!(body["tiles"]["m_mvt"].is_object());
 
-    // Catalog endpoint should NOT be accessible without the prefix
+    // Catalog without prefix should fail
     let req = test_get("/catalog").to_request();
     let response = call_service(&app, req).await;
     assert_eq!(response.status(), 404);
@@ -113,15 +100,15 @@ async fn test_route_prefix_catalog() {
 
 #[actix_rt::test]
 #[tracing_test::traced_test]
-async fn test_route_prefix_tilejson() {
-    let (config, _conns) = config("test_route_prefix_tilejson").await;
+async fn test_route_prefix_tile_endpoints() {
+    let (config, _conns) = config("test_route_prefix_tiles").await;
     let srv_config = SrvConfig {
         route_prefix: Some("/tiles".to_string()),
         ..Default::default()
     };
     let app = create_app_with_prefix!(&config, srv_config);
 
-    // TileJSON endpoint should be accessible under the prefix
+    // Test TileJSON endpoint
     let req = test_get("/tiles/m_mvt").to_request();
     let response = call_service(&app, req).await;
     let response = assert_response(response).await;
@@ -135,29 +122,18 @@ async fn test_route_prefix_tilejson() {
         "Tile URL should contain route_prefix: {tile_url}"
     );
 
-    // TileJSON endpoint should NOT be accessible without the prefix
+    // TileJSON without prefix should fail
     let req = test_get("/m_mvt").to_request();
     let response = call_service(&app, req).await;
     assert_eq!(response.status(), 404);
-}
 
-#[actix_rt::test]
-#[tracing_test::traced_test]
-async fn test_route_prefix_tile() {
-    let (config, _conns) = config("test_route_prefix_tile").await;
-    let srv_config = SrvConfig {
-        route_prefix: Some("/tiles".to_string()),
-        ..Default::default()
-    };
-    let app = create_app_with_prefix!(&config, srv_config);
-
-    // Tile endpoint should be accessible under the prefix
+    // Test tile data endpoint
     let req = test_get("/tiles/m_mvt/0/0/0").to_request();
     let response = call_service(&app, req).await;
     let response = assert_response(response).await;
     assert!(response.status().is_success());
 
-    // Tile endpoint should NOT be accessible without the prefix
+    // Tile without prefix should fail
     let req = test_get("/m_mvt/0/0/0").to_request();
     let response = call_service(&app, req).await;
     assert_eq!(response.status(), 404);
@@ -166,7 +142,7 @@ async fn test_route_prefix_tile() {
 #[actix_rt::test]
 #[tracing_test::traced_test]
 async fn test_base_path_overrides_route_prefix() {
-    let (config, _conns) = config("test_base_path_overrides_route_prefix").await;
+    let (config, _conns) = config("test_base_path_override").await;
     let srv_config = SrvConfig {
         route_prefix: Some("/tiles".to_string()),
         base_path: Some("/custom".to_string()),
@@ -192,28 +168,26 @@ async fn test_base_path_overrides_route_prefix() {
 #[actix_rt::test]
 #[tracing_test::traced_test]
 async fn test_nested_route_prefix() {
-    let (config, _conns) = config("test_nested_route_prefix").await;
+    let (config, _conns) = config("test_nested_prefix").await;
     let srv_config = SrvConfig {
         route_prefix: Some("/api/v1/tiles".to_string()),
         ..Default::default()
     };
     let app = create_app_with_prefix!(&config, srv_config);
 
-    // Health endpoint should work with nested prefix
+    // Test multiple endpoints work with nested prefix
     let req = test_get("/api/v1/tiles/health").to_request();
     let response = call_service(&app, req).await;
     let response = assert_response(response).await;
     let body = read_body(response).await;
     assert_eq!(body, "OK");
 
-    // Catalog should work with nested prefix
     let req = test_get("/api/v1/tiles/catalog").to_request();
     let response = call_service(&app, req).await;
     let response = assert_response(response).await;
     let body: serde_json::Value = read_body_json(response).await;
     assert!(body["tiles"]["m_json"].is_object());
 
-    // TileJSON should work with nested prefix
     let req = test_get("/api/v1/tiles/m_mvt").to_request();
     let response = call_service(&app, req).await;
     let response = assert_response(response).await;
@@ -230,23 +204,21 @@ async fn test_nested_route_prefix() {
 #[actix_rt::test]
 #[tracing_test::traced_test]
 async fn test_route_prefix_root_path() {
-    let (config, _conns) = config("test_route_prefix_root_path").await;
+    let (config, _conns) = config("test_root_path").await;
     // Setting route_prefix to "/" should be treated as no prefix after normalization
-    // Manually simulate what finalize() does
     let srv_config = SrvConfig {
         route_prefix: None, // "/" gets normalized to None
         ..Default::default()
     };
     let app = create_app_with_prefix!(&config, srv_config);
 
-    // Health endpoint should be accessible without prefix (root path means no prefix)
+    // Endpoints should be accessible without prefix
     let req = test_get("/health").to_request();
     let response = call_service(&app, req).await;
     let response = assert_response(response).await;
     let body = read_body(response).await;
     assert_eq!(body, "OK");
 
-    // Catalog should also work without prefix
     let req = test_get("/catalog").to_request();
     let response = call_service(&app, req).await;
     let response = assert_response(response).await;
