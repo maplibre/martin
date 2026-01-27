@@ -52,7 +52,7 @@ async fn get_style_json(path: Path<StyleRequest>, styles: Data<StyleSources>) ->
 /// Redirect `/styles/{style_id}` to `/style/{style_id}` (HTTP 301)
 /// This handles common pluralization mistakes
 #[route("/styles/{style_id}", method = "GET", method = "HEAD")]
-pub async fn redirect_styles(req: HttpRequest, path: Path<StyleRequest>) -> HttpResponse {
+pub(crate) async fn redirect_styles(req: HttpRequest, path: Path<StyleRequest>) -> HttpResponse {
     let location = format!("/style/{}", path.style_id);
     let location = if req.query_string().is_empty() {
         location
