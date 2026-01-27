@@ -352,7 +352,7 @@ fn decode_7bit_length_and_tag(tile: &[u8], versions: &[u8]) -> Result<(), SevenB
             // decode size
             size <<= 7;
             let seven_bit_mask = !0x80;
-            size |= (*b & seven_bit_mask) as u64;
+            size |= u64::from(*b & seven_bit_mask);
             // 0 => no further size
             if b & 0x80 == 0 {
                 // need to check tag
@@ -360,7 +360,7 @@ fn decode_7bit_length_and_tag(tile: &[u8], versions: &[u8]) -> Result<(), SevenB
                 let Some(tag) = tile_iter.next() else {
                     return Err(SevenBitDecodingError::TruncatedTag);
                 };
-                if !versions.contains(&tag) {
+                if !versions.contains(tag) {
                     return Err(SevenBitDecodingError::UnexpectedTag(*tag));
                 }
                 // need to check data-length
