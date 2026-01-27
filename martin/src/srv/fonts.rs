@@ -2,9 +2,10 @@ use std::string::ToString;
 
 use actix_middleware_etag::Etag;
 use actix_web::error::{ErrorBadRequest, ErrorNotFound};
+use actix_web::http::header::LOCATION;
 use actix_web::middleware::Compress;
 use actix_web::web::{Data, Path};
-use actix_web::{HttpResponse, Result as ActixResult, route};
+use actix_web::{HttpRequest, HttpResponse, Result as ActixResult, route};
 use martin_core::fonts::{FontError, FontSources, OptFontCache};
 use serde::Deserialize;
 
@@ -41,6 +42,20 @@ async fn get_font(
     Ok(HttpResponse::Ok()
         .content_type("application/x-protobuf")
         .body(data))
+}
+
+/// Redirect `/fonts/{fontstack}/{start}-{end}` to `/font/{fontstack}/{start}-{end}` (HTTP 301)
+#[route("/fonts/{fontstack}/{start}-{end}", method = "GET", method = "HEAD")]
+pub async fn redirect_fonts(req: HttpRequest, path: Path<FontRequest>) -> HttpResponse {
+    let location = format!("/font/{}/{}-{}", path.fontstack, path.start, path.end);
+    let location = if req.query_string().is_empty() {
+        location
+    } else {
+        format!("{location}?{}", req.query_string())
+    };
+    HttpResponse::MovedPermanently()
+        .insert_header((LOCATION, location))
+        .finish()
 }
 
 pub fn map_font_error(e: FontError) -> actix_web::Error {

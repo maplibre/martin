@@ -1,8 +1,8 @@
 use actix_middleware_etag::Etag;
-use actix_web::http::header::ContentType;
+use actix_web::http::header::{ContentType, LOCATION};
 use actix_web::middleware::Compress;
 use actix_web::web::{Data, Path};
-use actix_web::{HttpResponse, route};
+use actix_web::{HttpRequest, HttpResponse, route};
 use martin_core::styles::StyleSources;
 use serde::Deserialize;
 use tracing::error;
@@ -47,4 +47,19 @@ async fn get_style_json(path: Path<StyleRequest>, styles: Data<StyleSources>) ->
                 ))
         }
     }
+}
+
+/// Redirect `/styles/{style_id}` to `/style/{style_id}` (HTTP 301)
+/// This handles common pluralization mistakes
+#[route("/styles/{style_id}", method = "GET", method = "HEAD")]
+pub async fn redirect_styles(req: HttpRequest, path: Path<StyleRequest>) -> HttpResponse {
+    let location = format!("/style/{}", path.style_id);
+    let location = if req.query_string().is_empty() {
+        location
+    } else {
+        format!("{location}?{}", req.query_string())
+    };
+    HttpResponse::MovedPermanently()
+        .insert_header((LOCATION, location))
+        .finish()
 }

@@ -59,23 +59,46 @@ fn register_services(cfg: &mut web::ServiceConfig, #[allow(unused_variables)] us
     {
         // Register tile format suffix redirects BEFORE the main tile route
         // because Actix-Web matches routes in registration order
-        crate::srv::redirects::register_tile_suffix_redirects(cfg);
+        cfg.service(crate::srv::tiles::content::redirect_tile_pbf)
+            .service(crate::srv::tiles::content::redirect_tile_mvt)
+            .service(crate::srv::tiles::content::redirect_tile_mlt);
 
         cfg.service(crate::srv::tiles::metadata::get_source_info)
             .service(crate::srv::tiles::content::get_tile);
+
+        // Register /tiles/ prefix redirect after main tile route
+        cfg.service(crate::srv::tiles::content::redirect_tiles);
     }
 
     #[cfg(feature = "sprites")]
-    cfg.service(crate::srv::sprites::get_sprite_sdf_json)
-        .service(crate::srv::sprites::get_sprite_json)
-        .service(crate::srv::sprites::get_sprite_sdf_png)
-        .service(crate::srv::sprites::get_sprite_png);
+    {
+        cfg.service(crate::srv::sprites::get_sprite_sdf_json)
+            .service(crate::srv::sprites::get_sprite_json)
+            .service(crate::srv::sprites::get_sprite_sdf_png)
+            .service(crate::srv::sprites::get_sprite_png);
+
+        // Register sprite plural redirects
+        cfg.service(crate::srv::sprites::redirect_sprites_json)
+            .service(crate::srv::sprites::redirect_sprites_png)
+            .service(crate::srv::sprites::redirect_sdf_sprites_json)
+            .service(crate::srv::sprites::redirect_sdf_sprites_png);
+    }
 
     #[cfg(feature = "fonts")]
-    cfg.service(crate::srv::fonts::get_font);
+    {
+        cfg.service(crate::srv::fonts::get_font);
+
+        // Register fonts plural redirect
+        cfg.service(crate::srv::fonts::redirect_fonts);
+    }
 
     #[cfg(feature = "styles")]
-    cfg.service(crate::srv::styles::get_style_json);
+    {
+        cfg.service(crate::srv::styles::get_style_json);
+
+        // Register styles plural redirect
+        cfg.service(crate::srv::styles::redirect_styles);
+    }
 
     #[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
     cfg.service(crate::srv::styles_rendering::get_style_rendered);
@@ -96,9 +119,6 @@ fn register_services(cfg: &mut web::ServiceConfig, #[allow(unused_variables)] us
 
     #[cfg(any(not(feature = "webui"), docsrs))]
     cfg.service(crate::srv::admin::get_index_no_ui);
-
-    // Register pluralization redirect routes last so they act as fallbacks for common mistakes
-    crate::srv::redirects::register_pluralization_redirects(cfg);
 }
 
 type Server = Pin<Box<dyn Future<Output = MartinResult<()>>>>;

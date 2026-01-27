@@ -2,10 +2,10 @@ use std::string::ToString;
 
 use actix_middleware_etag::Etag;
 use actix_web::error::ErrorNotFound;
-use actix_web::http::header::ContentType;
+use actix_web::http::header::{ContentType, LOCATION};
 use actix_web::middleware::Compress;
 use actix_web::web::{Bytes, Data, Path};
-use actix_web::{HttpResponse, Result as ActixResult, route};
+use actix_web::{HttpRequest, HttpResponse, Result as ActixResult, route};
 use martin_core::sprites::{OptSpriteCache, SpriteError, SpriteSources};
 use serde::Deserialize;
 
@@ -42,6 +42,12 @@ async fn get_sprite_png(
         .body(png))
 }
 
+/// Redirect `/sprites/{source_ids}.png` to `/sprite/{source_ids}.png` (HTTP 301)
+#[route("/sprites/{source_ids}.png", method = "GET", method = "HEAD")]
+pub async fn redirect_sprites_png(req: HttpRequest, path: Path<SourceIDsRequest>) -> HttpResponse {
+    redirect_with_query(&format!("/sprite/{}.png", path.source_ids), req.query_string())
+}
+
 #[route(
     "/sdf_sprite/{source_ids}.png",
     method = "GET",
@@ -66,6 +72,15 @@ async fn get_sprite_sdf_png(
     Ok(HttpResponse::Ok()
         .content_type(ContentType::png())
         .body(png))
+}
+
+/// Redirect `/sdf_sprites/{source_ids}.png` to `/sdf_sprite/{source_ids}.png` (HTTP 301)
+#[route("/sdf_sprites/{source_ids}.png", method = "GET", method = "HEAD")]
+pub async fn redirect_sdf_sprites_png(req: HttpRequest, path: Path<SourceIDsRequest>) -> HttpResponse {
+    redirect_with_query(
+        &format!("/sdf_sprite/{}.png", path.source_ids),
+        req.query_string(),
+    )
 }
 
 #[route(
@@ -95,6 +110,15 @@ async fn get_sprite_json(
         .body(json))
 }
 
+/// Redirect `/sprites/{source_ids}.json` to `/sprite/{source_ids}.json` (HTTP 301)
+#[route("/sprites/{source_ids}.json", method = "GET", method = "HEAD")]
+pub async fn redirect_sprites_json(req: HttpRequest, path: Path<SourceIDsRequest>) -> HttpResponse {
+    redirect_with_query(
+        &format!("/sprite/{}.json", path.source_ids),
+        req.query_string(),
+    )
+}
+
 #[route(
     "/sdf_sprite/{source_ids}.json",
     method = "GET",
@@ -122,6 +146,15 @@ async fn get_sprite_sdf_json(
         .body(json))
 }
 
+/// Redirect `/sdf_sprites/{source_ids}.json` to `/sdf_sprite/{source_ids}.json` (HTTP 301)
+#[route("/sdf_sprites/{source_ids}.json", method = "GET", method = "HEAD")]
+pub async fn redirect_sdf_sprites_json(req: HttpRequest, path: Path<SourceIDsRequest>) -> HttpResponse {
+    redirect_with_query(
+        &format!("/sdf_sprite/{}.json", path.source_ids),
+        req.query_string(),
+    )
+}
+
 async fn get_sprite(source_ids: &str, sprites: &SpriteSources, as_sdf: bool) -> ActixResult<Bytes> {
     let sheet = sprites
         .get_sprites(source_ids, as_sdf)
@@ -144,4 +177,16 @@ async fn get_index(source_ids: &str, sprites: &SpriteSources, as_sdf: bool) -> A
         })?;
     let json = serde_json::to_vec(&sheet.get_index()).map_err(map_internal_error)?;
     Ok(Bytes::from(json))
+}
+
+/// Helper function to create a 301 redirect with query string preservation
+fn redirect_with_query(target_path: &str, query_string: &str) -> HttpResponse {
+    let location = if query_string.is_empty() {
+        target_path.to_string()
+    } else {
+        format!("{target_path}?{query_string}")
+    };
+    HttpResponse::MovedPermanently()
+        .insert_header((LOCATION, location))
+        .finish()
 }
