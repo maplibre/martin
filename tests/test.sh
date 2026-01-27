@@ -182,6 +182,30 @@ test_font() {
   clean_headers_dump "$FILENAME.headers"
 }
 
+test_redirect() {
+  FILENAME="$TEST_OUT_DIR/$1.redirect"
+  URL="$MARTIN_URL/$2"
+  EXPECTED_LOCATION="$3"
+
+  echo "Testing redirect from $URL to $EXPECTED_LOCATION"
+  # Use curl without --fail to allow 3xx responses, and follow redirects with -L
+  HTTP_CODE=$(curl --silent --show-error --write-out "%{http_code}" --output /dev/null --head "$URL")
+  LOCATION=$(curl --silent --show-error --head "$URL" | grep -i "^location:" | $SED 's/^[Ll]ocation: *//' | tr -d '\r')
+  
+  echo "$HTTP_CODE" > "$FILENAME.code"
+  echo "$LOCATION" > "$FILENAME.location"
+  
+  if [ "$HTTP_CODE" != "301" ]; then
+    echo "ERROR: Expected HTTP 301, got $HTTP_CODE for $URL"
+    exit 1
+  fi
+  
+  if [ "$LOCATION" != "$EXPECTED_LOCATION" ]; then
+    echo "ERROR: Expected location '$EXPECTED_LOCATION', got '$LOCATION' for $URL"
+    exit 1
+  fi
+}
+
 # Delete line from a file $1 that matches parameter $2 and log the action
 remove_lines() {
   FILE="$1"
@@ -562,6 +586,28 @@ test_jsn style_maplibre_demo.1        style/maplibre.json
 test_font font_1      font/Overpass%20Mono%20Light/0-255
 test_font font_2      font/Overpass%20Mono%20Regular/0-255
 test_font font_3      font/Overpass%20Mono%20Regular,Overpass%20Mono%20Light/0-255
+
+>&2 echo "***** Test URL redirects (HTTP 301) *****"
+
+# Test pluralization redirects
+test_redirect redirect_styles              styles/maplibre              /style/maplibre
+test_redirect redirect_sprites_json        sprites/src1.json            /sprite/src1.json
+test_redirect redirect_sprites_png         sprites/src1.png             /sprite/src1.png
+test_redirect redirect_sdf_sprites_json    sdf_sprites/src1.json        /sdf_sprite/src1.json
+test_redirect redirect_sdf_sprites_png     sdf_sprites/src1.png         /sdf_sprite/src1.png
+test_redirect redirect_fonts               "fonts/Overpass%20Mono%20Regular/0-255" "/font/Overpass%20Mono%20Regular/0-255"
+
+# Test tile format suffix redirects
+test_redirect redirect_tile_pbf            stamen_toner__raster_CC-BY-ODbL_z3/0/0/0.pbf  /stamen_toner__raster_CC-BY-ODbL_z3/0/0/0
+test_redirect redirect_tile_mvt            stamen_toner__raster_CC-BY-ODbL_z3/0/0/0.mvt  /stamen_toner__raster_CC-BY-ODbL_z3/0/0/0
+test_redirect redirect_tile_mlt            stamen_toner__raster_CC-BY-ODbL_z3/0/0/0.mlt  /stamen_toner__raster_CC-BY-ODbL_z3/0/0/0
+
+# Test /tiles/ prefix redirect
+test_redirect redirect_tiles_prefix        tiles/stamen_toner__raster_CC-BY-ODbL_z3/0/0/0  /stamen_toner__raster_CC-BY-ODbL_z3/0/0/0
+
+# Test query string preservation
+test_redirect redirect_query_string        "styles/maplibre?version=1.0"  "/style/maplibre?version=1.0"
+test_redirect redirect_tile_query_string   "stamen_toner__raster_CC-BY-ODbL_z3/0/0/0.pbf?test=123"  "/stamen_toner__raster_CC-BY-ODbL_z3/0/0/0?test=123"
 
 # Test comments override
 test_jsn tbl_comment_cfg  MixPoints
