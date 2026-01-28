@@ -19,7 +19,7 @@ Done in [#2494](https://github.com/maplibre/martin/pull/2494), [#2508](https://g
 
 ### Glyph ranges beyond `0xFFFF`
 
-If you are using fonts which span beyond the `0xFFFF`
+If you are using fonts which span beyond the `0xFFFF` range, this release improves how Martin loads and renders those glyphs so they are handled correctly.
 
 Here is a short explanation of why this might matter to you based on <https://en.wikipedia.org/wiki/Unicode_block>.
 
