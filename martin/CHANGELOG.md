@@ -43,7 +43,7 @@ Done in ([#2523](https://github.com/maplibre/martin/pull/2523))
 
 Martin now supports the MapLibre Tiles Specification.
 This means that if you want to serve MLT based tiles with this tileserver, you now can.
-Read more about what the MapLibre Tile Specification is and why we are "reinventing the weel on this one" in our [blog post](https://maplibre.org/news/2026-01-23-mlt-release/).
+Read more about what the MapLibre Tile Specification is and why we are "reinventing the wheel on this one" in our [blog post](https://maplibre.org/news/2026-01-23-mlt-release/).
 
 Done in ([#2512](https://github.com/maplibre/martin/pull/2512))
 
