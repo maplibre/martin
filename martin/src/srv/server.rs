@@ -59,11 +59,8 @@ fn register_services(cfg: &mut web::ServiceConfig, #[allow(unused_variables)] us
     {
         // Register tile format suffix redirects BEFORE the main tile route
         // because Actix-Web matches routes in registration order
-        cfg.service(crate::srv::tiles::content::redirect_tile_pbf)
-            .service(crate::srv::tiles::content::redirect_tile_mvt)
-            .service(crate::srv::tiles::content::redirect_tile_mlt);
-
-        cfg.service(crate::srv::tiles::metadata::get_source_info)
+        cfg.service(crate::srv::tiles::content::redirect_tile_ext)
+            .service(crate::srv::tiles::metadata::get_source_info)
             .service(crate::srv::tiles::content::get_tile);
 
         // Register /tiles/ prefix redirect after main tile route

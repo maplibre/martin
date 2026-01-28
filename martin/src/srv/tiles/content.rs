@@ -1,3 +1,6 @@
+use std::sync::LazyLock;
+use std::time::{Duration, Instant};
+
 use actix_http::ContentEncoding;
 use actix_http::header::Quality;
 use actix_web::error::{ErrorBadRequest, ErrorNotAcceptable, ErrorNotFound};
@@ -14,6 +17,8 @@ use martin_tile_utils::{
     encode_gzip,
 };
 use serde::Deserialize;
+use tokio::sync::Mutex;
+use tracing::warn;
 
 use crate::config::args::PreferredEncoding;
 use crate::config::file::srv::SrvConfig;
@@ -61,31 +66,53 @@ async fn get_tile(
     .await
 }
 
-/// Redirect `/{source_ids}/{z}/{x}/{y}.pbf` to `/{source_ids}/{z}/{x}/{y}` (HTTP 301)
-/// Registered before main tile route to match more specific pattern first
-#[route("/{source_ids}/{z}/{x}/{y}.pbf", method = "GET", method = "HEAD")]
-pub async fn redirect_tile_pbf(req: HttpRequest, path: Path<TileRequest>) -> HttpResponse {
-    redirect_tile_with_query(&path.source_ids, path.z, path.x, path.y, req.query_string())
+#[derive(Deserialize, Clone)]
+pub struct RedirectTileRequest {
+    ids: String,
+    z: u8,
+    x: u32,
+    y: u32,
+    ext: String,
 }
 
-/// Redirect `/{source_ids}/{z}/{x}/{y}.mvt` to `/{source_ids}/{z}/{x}/{y}` (HTTP 301)
+/// Redirect `/{source_ids}/{z}/{x}/{y}.{extension}` to `/{source_ids}/{z}/{x}/{y}` (HTTP 301)
 /// Registered before main tile route to match more specific pattern first
-#[route("/{source_ids}/{z}/{x}/{y}.mvt", method = "GET", method = "HEAD")]
-pub async fn redirect_tile_mvt(req: HttpRequest, path: Path<TileRequest>) -> HttpResponse {
-    redirect_tile_with_query(&path.source_ids, path.z, path.x, path.y, req.query_string())
-}
+#[route("/{ids}/{z}/{x}/{y}.{ext}", method = "GET", method = "HEAD")]
+pub async fn redirect_tile_ext(req: HttpRequest, path: Path<RedirectTileRequest>) -> HttpResponse {
+    let RedirectTileRequest { ids, z, x, y, ext } = path.as_ref();
+    static LAST_WARNING: LazyLock<Mutex<Instant>> = LazyLock::new(|| Mutex::new(Instant::now()));
 
-/// Redirect `/{source_ids}/{z}/{x}/{y}.mlt` to `/{source_ids}/{z}/{x}/{y}` (HTTP 301)
-/// Registered before main tile route to match more specific pattern first
-#[route("/{source_ids}/{z}/{x}/{y}.mlt", method = "GET", method = "HEAD")]
-pub async fn redirect_tile_mlt(req: HttpRequest, path: Path<TileRequest>) -> HttpResponse {
-    redirect_tile_with_query(&path.source_ids, path.z, path.x, path.y, req.query_string())
+    let mut warning = LAST_WARNING.lock().await;
+    if warning.elapsed() >= Duration::from_hours(1) {
+        *warning = Instant::now();
+        warn!(
+            "Using /{ids}/{z}/{x}/{y}.{ext} endpoint which causes an unnecessary redirect. Use /{ids}/{z}/{x}/{y} directly to avoid extra round-trip latency.",
+        );
+    }
+
+    redirect_tile_with_query(ids, *z, *x, *y, req.query_string())
 }
 
 /// Redirect `/tiles/{source_ids}/{z}/{x}/{y}` to `/{source_ids}/{z}/{x}/{y}` (HTTP 301)
 #[route("/tiles/{source_ids}/{z}/{x}/{y}", method = "GET", method = "HEAD")]
 pub async fn redirect_tiles(req: HttpRequest, path: Path<TileRequest>) -> HttpResponse {
-    redirect_tile_with_query(&path.source_ids, path.z, path.x, path.y, req.query_string())
+    let TileRequest {
+        source_ids,
+        z,
+        x,
+        y,
+    } = path.as_ref();
+    static LAST_WARNING: LazyLock<Mutex<Instant>> = LazyLock::new(|| Mutex::new(Instant::now()));
+
+    let mut warning = LAST_WARNING.lock().await;
+    if warning.elapsed() >= Duration::from_hours(1) {
+        *warning = Instant::now();
+        warn!(
+            "Using /tiles/{source_ids}/{z}/{x}/{y} endpoint which causes an unnecessary redirect. Use /{source_ids}/{z}/{x}/{y} directly to avoid extra round-trip latency.",
+        );
+    }
+
+    redirect_tile_with_query(source_ids, *z, *x, *y, req.query_string())
 }
 
 /// Helper function to create a 301 redirect for tiles with query string preservation

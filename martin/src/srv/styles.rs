@@ -53,6 +53,16 @@ async fn get_style_json(path: Path<StyleRequest>, styles: Data<StyleSources>) ->
 /// This handles common pluralization mistakes
 #[route("/styles/{style_id}", method = "GET", method = "HEAD")]
 pub(crate) async fn redirect_styles(path: Path<StyleRequest>) -> HttpResponse {
+  static LAST_WARNING: LazyLock<Mutex<Instant>> = LazyLock::new(|| Mutex::new(Instant::now()));
+
+  let mut warning = LAST_WARNING.lock().await;
+  if warning.elapsed() >= Duration::from_hours(1) {
+      *warning = Instant::now();
+      warn!(
+          "Using /fonts/{{fontstack}}/{{start}}-{{end}} endpoint which causes an unnecessary redirect. Use /font/{{fontstack}}/{{start}}-{{end}} directly to avoid extra round-trip latency."
+      );
+  }
+  
     HttpResponse::MovedPermanently()
         .insert_header((LOCATION, format!("/style/{}", path.style_id)))
         .finish()
