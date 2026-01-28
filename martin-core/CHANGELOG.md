@@ -21,7 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Other
 
-- *(deps)* `cargo-shear` out unused dependencys ([#2497](https://github.com/maplibre/martin/pull/2497))
+- *(deps)* `cargo-shear` out unused dependencies ([#2497](https://github.com/maplibre/martin/pull/2497))
 
 ## [0.2.5](https://github.com/maplibre/martin/compare/martin-core-v0.2.4...martin-core-v0.2.5) - 2026-01-03
 
