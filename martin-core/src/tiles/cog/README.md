@@ -9,15 +9,15 @@
 
 ### COG IFD Structure
 
-Here is an example of a tile grid for a COG file with five images.
+Here is an example of a tile grid for a COG file with five images. See [wiki.openstreetmap.org](https://wiki.openstreetmap.org/wiki/Slippy_map_tilenames#Resolution_and_Scale) for more information on resolution.
 
-| ifd | image index | resolution | zoom |
-| --- | ----------- | ---------- | ---- |
-| 0   | 0           | 20         | 4    |
-| 1   | 1           | 40         | 3    |
-| 2   | 2           | 80         | 2    |
-| 3   | 3           | 160        | 1    |
-| 4   | 4           | 320        | 0    |
+| ifd | `tile_size`  | zoom | resolution (meters / px) |
+| --- | ---------- | ---- | ------------------------ |
+| 0   | 256        | 4    | 9783.94                  |
+| 1   | 256        | 3    | 19567.88                 |
+| 2   | 256        | 2    | 39135.76                 |
+| 3   | 256        | 1    | 78271.52                 |
+| 4   | 256        | 0    | 156543.03                |
 
 ### COG file requirements enforced by Martin
 
@@ -33,6 +33,6 @@ Due to the flexibility of the COG, GEOTIFF and TIFF file formats and the assumpt
 
 Using GDAL, you can create a COG file with 5 zoom levels which meets most of these requirements using:
 
-```
+```bash
 gdal_translate original.tif compatible.tif -b 1 -b 2 -b 3 -of COG -co BIGTIFF=YES -co TILING_SCHEME=GoogleMapsCompatible -co ADD_ALPHA=YES -co OVERVIEWS=IGNORE_EXISTING -co COMPRESS=LZW -co OVERVIEW_COUNT=4 -co ALIGNED_LEVELS=5 -co NUM_THREADS=ALL_CPUS -co ZOOM_LEVEL_STRATEGY=LOWER -co BLOCKSIZE=512 -co SPARSE_OK=TRUE
 ```

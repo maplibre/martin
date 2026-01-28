@@ -527,24 +527,24 @@ mod tests {
 
     #[rstest]
     #[case("usda_naip_256_lzw_z3".to_string(), Center {
-        longitude: -121.34674072265622,
-        latitude: 41.96765920367816,
+        longitude: -121.346_740_722_656_22,
+        latitude: 41.967_659_203_678_16,
         zoom: 17,
     }, Bounds {
-        left: -121.34948730468746,
-        top: 41.97174336327965,
-        right: -121.34399414062497,
-        bottom: 41.96357478222515,
+        left: -121.349_487_304_687_46,
+        top: 41.971_743_363_279_65,
+        right: -121.343_994_140_624_97,
+        bottom: 41.963_574_782_225_15,
     }, 16, 18, 256)]
     #[case("usda_naip_512_deflate_z2".to_string(), Center {
-        longitude: -121.34674072265622,
-        latitude: 41.96765920367816,
+        longitude: -121.346_740_722_656_22,
+        latitude: 41.967_659_203_678_16,
         zoom: 16,
     }, Bounds {
-        left: -121.34948730468746,
-        top: 41.97174336327965,
-        right: -121.34399414062497,
-        bottom: 41.96357478222515,
+        left: -121.349_487_304_687_46,
+        top: 41.971_743_363_279_65,
+        right: -121.343_994_140_624_97,
+        bottom: 41.963_574_782_225_15,
     }, 16, 17, 512)]
     fn can_generate_tilejson_from_source(
         #[case] cog_file: String,
@@ -554,7 +554,7 @@ mod tests {
         #[case] max_zoom: u8,
         #[case] tile_size: u32,
     ) {
-        let path = format!("../tests/fixtures/cog/{}.tif", cog_file);
+        let path = format!("../tests/fixtures/cog/{cog_file}.tif");
         let source = CogSource::new(cog_file, Path::new(&path).to_path_buf()).unwrap();
 
         assert_eq!(source.max_zoom, max_zoom);
@@ -707,18 +707,18 @@ mod tests {
     }
 
     #[rstest]
-    #[case(156543.03392804103, 256, Some(0))]
-    #[case(78271.51696402051, 256, Some(1))]
-    #[case(39135.75848201026, 256, Some(2))]
-    #[case(19567.87924100513, 256, Some(3))]
-    #[case(78271.51696402051, 512, Some(0))]
-    #[case(39135.75848201026, 512, Some(1))]
-    #[case(19567.87924100513, 512, Some(2))]
-    #[case(9783.939620502564, 512, Some(3))]
-    #[case(39135.75848201026, 1024, Some(0))]
-    #[case(19567.87924100513, 1024, Some(1))]
-    #[case(9783.939620502564, 1024, Some(2))]
-    #[case(4891.969810251282, 1024, Some(3))]
+    #[case(156_543.033_928_041_03, 256, Some(0))]
+    #[case(78_271.516_964_020_51, 256, Some(1))]
+    #[case(39_135.758_482_010_26, 256, Some(2))]
+    #[case(19_567.879_241_005_13, 256, Some(3))]
+    #[case(78_271.516_964_020_51, 512, Some(0))]
+    #[case(39_135.758_482_010_26, 512, Some(1))]
+    #[case(19_567.879_241_005_13, 512, Some(2))]
+    #[case(9_783.939_620_502_564, 512, Some(3))]
+    #[case(39_135.758_482_010_26, 1024, Some(0))]
+    #[case(19_567.879_241_005_13, 1024, Some(1))]
+    #[case(9_783.939_620_502_564, 1024, Some(2))]
+    #[case(4_891.969_810_251_282, 1024, Some(3))]
     fn can_get_web_mercator_zoom(
         #[case] resolution: f64,
         #[case] tile_size: u32,
