@@ -391,8 +391,8 @@ test_json_with_header tilejson_with_forwarded_host_only function_zxy_query "Forw
 test_json_with_header tilejson_with_forwarded_proto_and_host function_zxy_query "Forwarded: proto=https;host=tiles.example.com"
 test_json_with_header tilejson_with_x_forwarded_port_443 function_zxy_query "X-Forwarded-Port: 443"
 test_json_with_header tilejson_with_x_forwarded_port_8443 function_zxy_query "X-Forwarded-Port: 8443"
-test_json_with_header tilejson_with_x_forwarded_prefix function_zxy_query "X-Forwarded-Prefix: /tiles"
-test_json_with_header tilejson_with_x_rewrite_url function_zxy_query "X-Rewrite-URL: /footiles"
+test_json_with_header tilejson_with_x_forwarded_prefix function_zxy_query "X-Forwarded-Prefix: /tiles/function_zxy_query"
+test_json_with_header tilejson_with_x_rewrite_url function_zxy_query "X-Rewrite-URL: /footiles/function_zxy_query"
 
 
 >&2 echo "***** Test server response for function source *****"
