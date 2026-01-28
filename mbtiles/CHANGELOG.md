@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - add MLT decoding support ([#2512](https://github.com/maplibre/martin/pull/2512))
-- migrate our `log` library to `tracing`. For practical usecases this does not have an effect, since we enable the `log` feature by default ([#2494](https://github.com/maplibre/martin/pull/2494))
+- migrate our `log` library to `tracing`. For practical use cases this does not have an effect, since we enable the `log` feature by default ([#2494](https://github.com/maplibre/martin/pull/2494))
 
 ### Other
 
