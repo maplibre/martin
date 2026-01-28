@@ -583,6 +583,10 @@ test_font font_1      font/Overpass%20Mono%20Light/0-255
 test_font font_2      font/Overpass%20Mono%20Regular/0-255
 test_font font_3      font/Overpass%20Mono%20Regular,Overpass%20Mono%20Light/0-255
 
+# Test comments override
+test_jsn tbl_comment_cfg  MixPoints
+test_jsn fnc_comment_cfg  function_Mixed_Name
+
 >&2 echo "***** Test URL redirects (HTTP 301) *****"
 
 # Test pluralization redirects
@@ -604,9 +608,7 @@ test_redirect tiles/table_source/0/0/0 /table_source/0/0/0
 # Test query string preservation for tiles
 test_redirect "table_source/0/0/0.pbf?test=123" "/table_source/0/0/0?test=123"
 
-# Test comments override
-test_jsn tbl_comment_cfg  MixPoints
-test_jsn fnc_comment_cfg  function_Mixed_Name
+>&2 echo "***** Test observability outputs (metrics, logs) *****"
 
 test_metrics "metrics_1"
 
