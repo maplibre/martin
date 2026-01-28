@@ -202,7 +202,7 @@ postgres:
 
     let req = TestRequest::get()
         .uri("/table_source?token=martin")
-        .insert_header(("x-rewrite-url", "/tiles/table_source?token=martin"))
+        .insert_header(("X-Rewrite-URL", "/tiles/table_source?token=martin"))
         .to_request();
     let result: TileJSON = call_and_read_body_json(&app, req).await;
     assert_yaml_snapshot!(result, @r#"
@@ -872,7 +872,7 @@ postgres:
 
     let req = TestRequest::get()
         .uri("/function_zxy_query?token=martin")
-        .insert_header(("x-rewrite-url", "/tiles/function_zxy_query?token=martin"))
+        .insert_header(("X-Rewrite-URL", "/tiles/function_zxy_query?token=martin"))
         .to_request();
     let result: TileJSON = call_and_read_body_json(&app, req).await;
     assert_eq!(
