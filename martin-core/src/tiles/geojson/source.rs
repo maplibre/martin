@@ -4,6 +4,7 @@ use geozero::geojson::GeoJsonString;
 use geozero::mvt::{Message, MvtWriter, Tile};
 use core::f64;
 use std::path::PathBuf;
+use std::vec;
 use geo_index::rtree::sort::HilbertSort;
 use geo_index::rtree::{RTree, RTreeBuilder, RTreeIndex };
 use geojson::{Feature, FeatureCollection, GeoJson, Geometry, Value};
@@ -17,6 +18,8 @@ use tokio::fs::{self};
 use tracing::trace;
 
 use crate::tiles::{BoxedSource, MartinCoreResult, Source, UrlQuery};
+
+const EPS: f64 = 1e-9;
 
 /// A source for `GeoJSON` files
 /// 
@@ -252,7 +255,96 @@ impl Source for GeoJsonSource {
     }
 }
 
+/// Intersection of polygon with tile boundary
+/// 
+/// next_intersection is the index of the next point if it is an existing point of the polygon
+/// or None if the next point is a new intersection point
 #[derive(Debug)]
+struct Intersection {
+    coord: (f64, f64),
+    ring_index: usize,
+    segment_start: usize,
+    segment_end: usize,
+    next_intersection: Option<usize>
+}
+
+#[derive(Debug)]
+struct Intersections {
+    left: Vec<Intersection>,
+    bottom: Vec<Intersection>,
+    right: Vec<Intersection>,
+    top: Vec<Intersection>,
+    rect: Rect
+}
+
+impl Intersections {
+    /// Sort intersection points in counter clockwise order
+    fn sort(&mut self) {
+        self.left.sort_by(|a, b| {
+            b.coord.1.partial_cmp(&a.coord.1).unwrap_or(std::cmp::Ordering::Equal)
+        });
+
+        self.bottom.sort_by(|a, b| {
+            a.coord.0.partial_cmp(&b.coord.0).unwrap_or(std::cmp::Ordering::Equal)
+        });
+
+        self.right.sort_by(|a, b| {
+            a.coord.1.partial_cmp(&b.coord.1).unwrap_or(std::cmp::Ordering::Equal)
+        });
+
+        self.top.sort_by(|a, b| {
+            b.coord.0.partial_cmp(&a.coord.0).unwrap_or(std::cmp::Ordering::Equal)
+        });
+    }
+
+    fn build_polygons(&self, rings: &[Vec<Vec<f64>>]) -> Vec<Vec<Vec<f64>>> {
+        let mut polygons = vec![];
+        let mut visited_left = self.left.iter().map(|_| false).collect::<Vec<bool>>();
+        let mut start_polygon = true;
+        let mut ring = vec![];
+        for (index, intersection) in self.left.iter().enumerate() {
+            if visited_left[index] {
+                continue;
+            }
+            visited_left[index] = true;
+
+            if !ring.is_empty() {
+                ring = vec![];
+            }
+
+            let point = vec![intersection.coord.0, intersection.coord.1];
+            ring.push(point);
+
+
+            if let Some(k) = intersection.next_intersection {
+                let next_point = rings[intersection.ring_index][k].clone();
+                ring.push(next_point);
+
+            } else {
+                // next intersection point is not on polygon - check if there is another one on this side
+                if let Some(next) = self.left.get(index + 1) {
+                    ring.push(vec![next.coord.0, next.coord.1]);
+                    continue;
+                }
+
+
+                let prev = (rings[intersection.ring_index][intersection.segment_start][0], rings[intersection.ring_index][intersection.segment_start][1]);
+                let next = (rings[intersection.ring_index][intersection.segment_end][0], rings[intersection.ring_index][intersection.segment_end][1]);
+
+                // next point is a corner point
+                let corner = (self.rect.min_x, self.rect.min_y);
+                if ccw(prev, next, corner) {
+                    ring.push(vec![corner.0, corner.1]);
+                }
+            }
+
+            // ToDo: Return if ring is closed
+        }
+        polygons
+    }
+}
+
+#[derive(Debug, Clone)]
 struct Rect {
     min_x: f64,
     min_y: f64,
@@ -476,73 +568,6 @@ impl Rect {
         segments
     }
 
-    pub fn clip_ring(&self, ring: &[Vec<f64>]) -> Vec<Vec<f64>> {
-        if ring.is_empty() {
-            return vec![];
-        }
-
-        let mut input = ring.to_vec();
-
-        // Clip against each edge: Left, Right, Bottom, Top
-        input = Self::clip_edge(
-            &input,
-            |p| p[0] >= self.min_x,
-            |p1, p2| Self::intersect_x(p1, p2, self.min_x),
-        );
-        input = Self::clip_edge(
-            &input,
-            |p| p[0] <= self.max_x,
-            |p1, p2| Self::intersect_x(p1, p2, self.max_x),
-        );
-        input = Self::clip_edge(
-            &input,
-            |p| p[1] >= self.min_y,
-            |p1, p2| Self::intersect_y(p1, p2, self.min_y),
-        );
-        input = Self::clip_edge(
-            &input,
-            |p| p[1] <= self.max_y,
-            |p1, p2| Self::intersect_y(p1, p2, self.max_y),
-        );
-
-        // Ensure the ring is closed if it's not empty
-        if !input.is_empty() && input[0] != input[input.len() - 1] {
-            input.push(input[0].clone());
-        }
-
-        input
-    }
-
-    fn clip_edge<I, S>(input: &[Vec<f64>], inside: I, intersect: S) -> Vec<Vec<f64>>
-    where
-        I: Fn(&[f64]) -> bool,
-        S: Fn(&[f64], &[f64]) -> Vec<f64>,
-    {
-        let mut output = Vec::with_capacity(input.len());
-        if input.is_empty() {
-            return output;
-        }
-
-        for i in 0..input.len() {
-            let curr = &input[i];
-            let prev = if i == 0 {
-                &input[input.len() - 1]
-            } else {
-                &input[i - 1]
-            };
-
-            if inside(curr) {
-                if !inside(prev) {
-                    output.push(intersect(prev, curr));
-                }
-                output.push(curr.clone());
-            } else if inside(prev) {
-                output.push(intersect(prev, curr));
-            }
-        }
-        output
-    }
-
     // Helper to find intersection on vertical clip line at x
     fn intersect_x(p1: &[f64], p2: &[f64], x: f64) -> Vec<f64> {
         let t = (x - p1[0]) / (p2[0] - p1[0]);
@@ -553,6 +578,92 @@ impl Rect {
     fn intersect_y(p1: &[f64], p2: &[f64], y: f64) -> Vec<f64> {
         let t = (y - p1[1]) / (p2[1] - p1[1]);
         vec![p1[0] + t * (p2[0] - p1[0]), y]
+    }
+
+    fn clip_to_boundary_segment(&self, input: &[Vec<f64>], ring_index: usize, segment: ((f64, f64), (f64, f64))) -> Vec<Intersection> {
+        let len = input.len();
+        let mut output = Vec::with_capacity(len);
+        if len == 0 {
+            return output;
+        }
+
+        for j in 0..len  {
+            let i = if j == 0 { len - 1 } else { j - 1};
+            let k  = if j == len - 1 { 0 } else { j + 1};
+
+            let curr = (input[j][0], input[j][1]) ;
+            let next = (input[k][0], input[k][1]);
+
+            let prev_in = self.inside(&input[i]);
+            let curr_in = self.inside(&input[j]);
+            let next_in = self.inside(&input[k]);
+
+            if curr_in && next_in {
+                output.push(Intersection { coord: curr, ring_index, segment_start: j, segment_end: k, next_intersection: Some( k) })
+            }
+
+            if curr_in && !next_in {
+                let intersection = intersect_segments(curr, next, segment.0, segment.1);
+                if let Some(p) = intersection {
+                    // edge case: current point lies on boundary, prev and next points lie outside -> discard singular point
+                    if !prev_in && (p.0 - curr.0) < EPS && (p.1 - curr.1) < EPS {
+                        continue;
+                    }
+                    output.push(Intersection { coord: p, ring_index, segment_start: j, segment_end: k, next_intersection: None });
+                }
+            } 
+
+            if !curr_in && next_in {
+                let intersection = intersect_segments(curr, next, segment.0, segment.1);
+                if let Some(p) = intersection {
+                    // edge case: next point lies on the boundary of the tile -> decide in next iteration if it will be included
+                    if (p.0 - next.0) < EPS && (p.1 - next.1) < EPS {
+                        continue;
+                    }
+                    output.push(Intersection { coord: p, ring_index, segment_start: j, segment_end: k, next_intersection: Some(k) });
+                }
+            }
+
+            if !curr_in && !next_in {
+                let intersection = intersect_segments(curr, next, segment.0, segment.1);
+                if let Some(p) = intersection {
+                    output.push(Intersection { coord: p, ring_index, segment_start: j, segment_end: k, next_intersection: None });
+                    
+                }
+            }
+        }
+        output
+    }
+    
+
+    fn clip_ring(&self, ring: &[Vec<f64>], ring_index: usize, intersections: &mut Intersections) {
+        // Left edge
+        let segment = ((self.min_x, self.max_y), (self.min_x, self.min_y));
+        let ps = self.clip_to_boundary_segment(ring, ring_index, segment);
+        for p in ps {
+            intersections.left.push(p);
+        }
+
+        // Bottom edge
+        let segment = ((self.min_x, self.min_y), (self.max_x, self.min_y));
+        let ps = self.clip_to_boundary_segment(ring, ring_index, segment);
+        for p in ps {
+            intersections.bottom.push(p);
+        }
+
+        // Right edge
+        let segment = ((self.max_x, self.min_y), (self.max_x, self.max_y));
+        let ps = self.clip_to_boundary_segment(ring, ring_index, segment);
+        for p in ps {
+            intersections.right.push(p);
+        }
+
+        // Top edge
+        let segment = ((self.max_x, self.max_y), (self.min_x, self.max_y));
+        let ps = self.clip_to_boundary_segment(ring, ring_index, segment);
+        for p in ps {
+            intersections.top.push(p);
+        }
     }
 
     fn clip_geometry(&self, mut geom: Geometry) -> Option<Geometry> {
@@ -604,25 +715,16 @@ impl Rect {
                 }
             }
             Value::Polygon(rs) => {
-                let mut iter = rs.into_iter();
+                let mut intersections = Intersections { left: vec![], bottom: vec![], right: vec![], top: vec![], rect: self.clone() };
 
-                let exterior = iter.next()?;
-                let clipped_exterior = self.clip_ring(&exterior);
-
-                if clipped_exterior.is_empty() {
-                    return None;
+                for (ring_index, ring) in rs.iter().enumerate() {
+                    self.clip_ring(ring, ring_index, &mut intersections);
                 }
 
-                let mut clipped_rings = vec![clipped_exterior];
+                // sort ccw
+                intersections.sort();
 
-                for hole in iter {
-                    let clipped_hole = self.clip_ring(&hole);
-                    if !clipped_hole.is_empty() {
-                        clipped_rings.push(clipped_hole);
-                    }
-                }
-
-                geom.value = Value::Polygon(clipped_rings);
+                geom.value = Value::Polygon(vec![]);
                 Some(geom)
             }
             Value::MultiPolygon(ps) => {
@@ -668,6 +770,48 @@ impl Rect {
             }
         }
     }
+}
+
+/// Check if u -> v -> w is oriented counter-clock-wise
+fn ccw(u: (f64, f64), v: (f64, f64), w: (f64, f64)) -> bool {
+    let a = subtract(u, v);
+    let b = subtract(u, w);
+    cross_product(a, b) > 0.0
+}
+
+fn cross_product(u: (f64, f64), v: (f64, f64)) -> f64 {
+    u.0 * v.1 - u.1 * v.0
+}
+
+fn subtract(p: (f64, f64), q: (f64, f64)) -> (f64, f64) {
+    (q.0 - p.0, q.1 - p.1)
+}
+
+fn intersect_segments(p: (f64, f64), q: (f64, f64), r: (f64, f64), s: (f64, f64)) -> Option<(f64, f64)> {
+    let r_vec = subtract(p, q);
+    let s_vec = subtract(r, s);
+    let t_vec = subtract(p, r);
+
+    let r_cross_s = cross_product(r_vec, s_vec);
+    let t_cross_r  = cross_product(t_vec,  r_vec);
+
+    // If r_cross_s is 0, lines are parallel or collinear
+    if r_cross_s.abs() < 1e-9 {
+        return None; 
+    }
+
+    let t = cross_product(t_vec, s_vec) / r_cross_s;
+    let u = t_cross_r  / r_cross_s;
+
+    // Check if the intersection point lies within both segments
+    if t >= 0.0 && t <= 1.0 && u >= 0.0 && u <= 1.0 {
+        return Some((
+                p.0 + t * r_vec.0,
+                p.1 + t * r_vec.1,
+        ));
+    }
+
+    None
 }
 
 /// Transform geometry and bounding box from WGS84 to Web Mercator

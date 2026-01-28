@@ -2,10 +2,10 @@
 name = "martin"
 version = "1.2.0"
 authors = [
-    "Stepan Kuzmin <to.stepan.kuzmin@gmail.com>",
-    "Yuri Astrakhan <YuriAstrakhan@gmail.com>",
-    "Frank Elsinga <fr.elsinga+martin@gmail.com>",
-    "MapLibre contributors",
+  "Stepan Kuzmin <to.stepan.kuzmin@gmail.com>",
+  "Yuri Astrakhan <YuriAstrakhan@gmail.com>",
+  "Frank Elsinga <fr.elsinga+martin@gmail.com>",
+  "MapLibre contributors",
 ]
 description = "Blazing fast and lightweight tile server with PostGIS, MBTiles, and PMTiles support"
 keywords = ["maps", "tiles", "mbtiles", "pmtiles", "postgis"]
@@ -24,32 +24,32 @@ maintainer = "Yuri Astrakhan <YuriAstrakhan@gmail.com>, Stepan Kuzmin <to.stepan
 maintainer-scripts = "../debian"
 depends = "$auto"
 assets = [
-    [
+  [
     "target/release/martin",
     "/usr/bin/martin",
     "755",
   ],
-    [
+  [
     "target/release/martin-cp",
     "/usr/bin/martin-cp",
     "755",
   ],
-    [
+  [
     "target/release/mbtiles",
     "/usr/bin/mbtiles",
     "755",
   ],
-    [
+  [
     "../README.md",
     "/usr/share/doc/martin/README.md",
     "644",
   ],
-    [
+  [
     "../debian/config.yaml",
     "/usr/share/doc/martin/config.yaml",
     "644",
   ],
-    [
+  [
     "../debian/config.yaml",
     "/usr/local/etc/martin/config.yaml",
     "644",
@@ -88,15 +88,16 @@ required-features = ["postgres"]
 
 [features]
 default = [
-    "fonts",
-    "lambda",
-    "mbtiles",
-    "metrics",
-    "pmtiles",
-    "postgres",
-    "sprites",
-    "styles",
-    "webui",
+  "fonts",
+  "lambda",
+  "mbtiles",
+  "metrics",
+  "pmtiles",
+  "postgres",
+  "sprites",
+  "styles",
+  "webui",
+  "geojson",
 ]
 unstable-cog = ["martin-core/unstable-cog", "_tiles"]
 unstable-rendering = ["styles", "martin-core/unstable-rendering", "dep:image"]
@@ -106,13 +107,14 @@ mbtiles = ["martin-core/mbtiles", "dep:mbtiles", "_tiles"]
 metrics = ["dep:actix-web-prom"]
 pmtiles = ["martin-core/pmtiles", "dep:object_store", "_tiles"]
 postgres = [
-    "martin-core/postgres",
-    "dep:enum-display",
-    "dep:json-patch",
-    "dep:postgis",
-    "dep:postgres-protocol",
-    "_tiles",
+  "martin-core/postgres",
+  "dep:enum-display",
+  "dep:json-patch",
+  "dep:postgis",
+  "dep:postgres-protocol",
+  "_tiles",
 ]
+geojson = []
 sprites = ["martin-core/sprites"]
 styles = ["martin-core/styles", "dep:walkdir"]
 webui = ["dep:actix-web-static-files", "dep:static-files", "dep:walkdir"]
@@ -156,7 +158,14 @@ tokio = { workspace = true, features = ["io-std"] }
 tracing.workspace = true
 tracing-actix-web.workspace = true
 tracing-log = { workspace = true, features = ["interest-cache"] }
-tracing-subscriber = { workspace = true, default-features = false, features = ["env-filter", "json", "fmt", "std", "ansi", "chrono"] }
+tracing-subscriber = { workspace = true, default-features = false, features = [
+  "env-filter",
+  "json",
+  "fmt",
+  "std",
+  "ansi",
+  "chrono",
+] }
 url.workspace = true
 walkdir = { workspace = true, optional = true }
 

@@ -6,3 +6,5 @@ pub mod mbtiles;
 pub mod pmtiles;
 #[cfg(feature = "postgres")]
 pub mod postgres;
+#[cfg(feature = "geojson")]
+pub mod geojson;
