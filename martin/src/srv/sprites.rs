@@ -1,6 +1,5 @@
 use std::string::ToString;
 use std::sync::LazyLock;
-use std::time::{Duration, Instant};
 
 use actix_middleware_etag::Etag;
 use actix_web::error::ErrorNotFound;
@@ -10,10 +9,8 @@ use actix_web::web::{Bytes, Data, Path};
 use actix_web::{HttpResponse, Result as ActixResult, route};
 use martin_core::sprites::{OptSpriteCache, SpriteError, SpriteSources};
 use serde::Deserialize;
-use tokio::sync::Mutex;
-use tracing::warn;
 
-use crate::srv::server::map_internal_error;
+use crate::srv::server::{DebouncedWarning, map_internal_error};
 
 #[derive(Deserialize)]
 pub struct SourceIDsRequest {
@@ -49,17 +46,14 @@ async fn get_sprite_png(
 /// Redirect `/sprites/{source_ids}.png` to `/sprite/{source_ids}.png` (HTTP 301)
 #[route("/sprites/{source_ids}.png", method = "GET", method = "HEAD")]
 pub async fn redirect_sprites_png(path: Path<SourceIDsRequest>) -> HttpResponse {
+    static WARNING: LazyLock<DebouncedWarning> = LazyLock::new(DebouncedWarning::new);
     let SourceIDsRequest { source_ids } = path.as_ref();
 
-    static LAST_WARNING: LazyLock<Mutex<Instant>> = LazyLock::new(|| Mutex::new(Instant::now()));
-
-    let mut warning = LAST_WARNING.lock().await;
-    if warning.elapsed() >= Duration::from_hours(1) {
-        *warning = Instant::now();
-        warn!(
-            "Using /sprites/{source_ids}.png endpoint which causes an unnecessary redirect. Use /sprite/{source_ids}.png directly to avoid extra round-trip latency."
-        );
-    }
+    WARNING
+        .warn_once_per_hour(&format!(
+            "Request to /sprites/{source_ids}.png caused unnecessary redirect. Use /sprite/{source_ids}.png to avoid extra round-trip latency."
+        ))
+        .await;
 
     HttpResponse::MovedPermanently()
         .insert_header((LOCATION, format!("/sprite/{source_ids}.png")))
@@ -95,17 +89,14 @@ async fn get_sprite_sdf_png(
 /// Redirect `/sdf_sprites/{source_ids}.png` to `/sdf_sprite/{source_ids}.png` (HTTP 301)
 #[route("/sdf_sprites/{source_ids}.png", method = "GET", method = "HEAD")]
 pub async fn redirect_sdf_sprites_png(path: Path<SourceIDsRequest>) -> HttpResponse {
+    static WARNING: LazyLock<DebouncedWarning> = LazyLock::new(DebouncedWarning::new);
     let SourceIDsRequest { source_ids } = path.as_ref();
 
-    static LAST_WARNING: LazyLock<Mutex<Instant>> = LazyLock::new(|| Mutex::new(Instant::now()));
-
-    let mut warning = LAST_WARNING.lock().await;
-    if warning.elapsed() >= Duration::from_hours(1) {
-        *warning = Instant::now();
-        warn!(
-            "Using /sdf_sprites/{source_ids}.png endpoint which causes an unnecessary redirect. Use /sdf_sprite/{source_ids}.png directly to avoid extra round-trip latency."
-        );
-    }
+    WARNING
+        .warn_once_per_hour(&format!(
+            "Request to /sdf_sprites/{source_ids}.png caused unnecessary redirect. Use /sdf_sprite/{source_ids}.png to avoid extra round-trip latency."
+        ))
+        .await;
 
     HttpResponse::MovedPermanently()
         .insert_header((LOCATION, format!("/sdf_sprite/{source_ids}.png")))
@@ -142,17 +133,14 @@ async fn get_sprite_json(
 /// Redirect `/sprites/{source_ids}.json` to `/sprite/{source_ids}.json` (HTTP 301)
 #[route("/sprites/{source_ids}.json", method = "GET", method = "HEAD")]
 pub async fn redirect_sprites_json(path: Path<SourceIDsRequest>) -> HttpResponse {
+    static WARNING: LazyLock<DebouncedWarning> = LazyLock::new(DebouncedWarning::new);
     let SourceIDsRequest { source_ids } = path.as_ref();
 
-    static LAST_WARNING: LazyLock<Mutex<Instant>> = LazyLock::new(|| Mutex::new(Instant::now()));
-
-    let mut warning = LAST_WARNING.lock().await;
-    if warning.elapsed() >= Duration::from_hours(1) {
-        *warning = Instant::now();
-        warn!(
-            "Using /sprites/{source_ids}.json endpoint which causes an unnecessary redirect. Use /sprite/{source_ids}.json directly to avoid extra round-trip latency."
-        );
-    }
+    WARNING
+        .warn_once_per_hour(&format!(
+            "Request to /sprites/{source_ids}.json caused unnecessary redirect. Use /sprite/{source_ids}.json to avoid extra round-trip latency."
+        ))
+        .await;
 
     HttpResponse::MovedPermanently()
         .insert_header((LOCATION, format!("/sprite/{source_ids}.json")))
@@ -189,17 +177,14 @@ async fn get_sprite_sdf_json(
 /// Redirect `/sdf_sprites/{source_ids}.json` to `/sdf_sprite/{source_ids}.json` (HTTP 301)
 #[route("/sdf_sprites/{source_ids}.json", method = "GET", method = "HEAD")]
 pub async fn redirect_sdf_sprites_json(path: Path<SourceIDsRequest>) -> HttpResponse {
+    static WARNING: LazyLock<DebouncedWarning> = LazyLock::new(DebouncedWarning::new);
     let SourceIDsRequest { source_ids } = path.as_ref();
 
-    static LAST_WARNING: LazyLock<Mutex<Instant>> = LazyLock::new(|| Mutex::new(Instant::now()));
-
-    let mut warning = LAST_WARNING.lock().await;
-    if warning.elapsed() >= Duration::from_hours(1) {
-        *warning = Instant::now();
-        warn!(
-            "Using /sdf_sprites/{source_ids}.json endpoint which causes an unnecessary redirect. Use /sdf_sprite/{source_ids}.json directly to avoid extra round-trip latency."
-        );
-    }
+    WARNING
+        .warn_once_per_hour(&format!(
+            "Request to /sdf_sprites/{source_ids}.json caused unnecessary redirect. Use /sdf_sprite/{source_ids}.json to avoid extra round-trip latency."
+        ))
+        .await;
 
     HttpResponse::MovedPermanently()
         .insert_header((LOCATION, format!("/sdf_sprite/{source_ids}.json")))

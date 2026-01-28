@@ -1,6 +1,5 @@
 use std::string::ToString;
 use std::sync::LazyLock;
-use std::time::{Duration, Instant};
 
 use actix_middleware_etag::Etag;
 use actix_web::error::{ErrorBadRequest, ErrorNotFound};
@@ -10,10 +9,8 @@ use actix_web::web::{Data, Path};
 use actix_web::{HttpResponse, Result as ActixResult, route};
 use martin_core::fonts::{FontError, FontSources, OptFontCache};
 use serde::Deserialize;
-use tokio::sync::Mutex;
-use tracing::warn;
 
-use crate::srv::server::map_internal_error;
+use crate::srv::server::{DebouncedWarning, map_internal_error};
 
 #[derive(Deserialize, Debug)]
 struct FontRequest {
@@ -51,15 +48,14 @@ async fn get_font(
 /// Redirect `/fonts/{fontstack}/{start}-{end}` to `/font/{fontstack}/{start}-{end}` (HTTP 301)
 #[route("/fonts/{fontstack}/{start}-{end}", method = "GET", method = "HEAD")]
 pub async fn redirect_fonts(path: Path<FontRequest>) -> HttpResponse {
-    static LAST_WARNING: LazyLock<Mutex<Instant>> = LazyLock::new(|| Mutex::new(Instant::now()));
+    static WARNING: LazyLock<DebouncedWarning> = LazyLock::new(DebouncedWarning::new);
 
-    let mut warning = LAST_WARNING.lock().await;
-    if warning.elapsed() >= Duration::from_hours(1) {
-        *warning = Instant::now();
-        warn!(
-            "Using /fonts/{{fontstack}}/{{start}}-{{end}} endpoint which causes an unnecessary redirect. Use /font/{{fontstack}}/{{start}}-{{end}} directly to avoid extra round-trip latency."
-        );
-    }
+    WARNING
+        .warn_once_per_hour(&format!(
+            "Request to /fonts/{}/{}-{} caused unnecessary redirect. Use /font/{}/{}-{} to avoid extra round-trip latency.",
+            path.fontstack, path.start, path.end, path.fontstack, path.start, path.end
+        ))
+        .await;
 
     HttpResponse::MovedPermanently()
         .insert_header((

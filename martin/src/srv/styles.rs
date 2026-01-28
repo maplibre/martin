@@ -1,3 +1,5 @@
+use std::sync::LazyLock;
+
 use actix_middleware_etag::Etag;
 use actix_web::http::header::{ContentType, LOCATION};
 use actix_web::middleware::Compress;
@@ -6,6 +8,8 @@ use actix_web::{HttpResponse, route};
 use martin_core::styles::StyleSources;
 use serde::Deserialize;
 use tracing::error;
+
+use crate::srv::server::DebouncedWarning;
 
 #[derive(Deserialize, Debug)]
 struct StyleRequest {
@@ -53,15 +57,14 @@ async fn get_style_json(path: Path<StyleRequest>, styles: Data<StyleSources>) ->
 /// This handles common pluralization mistakes
 #[route("/styles/{style_id}", method = "GET", method = "HEAD")]
 pub(crate) async fn redirect_styles(path: Path<StyleRequest>) -> HttpResponse {
-    static LAST_WARNING: LazyLock<Mutex<Instant>> = LazyLock::new(|| Mutex::new(Instant::now()));
+    static WARNING: LazyLock<DebouncedWarning> = LazyLock::new(DebouncedWarning::new);
 
-    let mut warning = LAST_WARNING.lock().await;
-    if warning.elapsed() >= Duration::from_hours(1) {
-        *warning = Instant::now();
-        warn!(
-            "Using /fonts/{{fontstack}}/{{start}}-{{end}} endpoint which causes an unnecessary redirect. Use /font/{{fontstack}}/{{start}}-{{end}} directly to avoid extra round-trip latency."
-        );
-    }
+    WARNING
+        .warn_once_per_hour(&format!(
+            "Request to /styles/{} caused unnecessary redirect. Use /style/{} to avoid extra round-trip latency.",
+            path.style_id, path.style_id
+        ))
+        .await;
 
     HttpResponse::MovedPermanently()
         .insert_header((LOCATION, format!("/style/{}", path.style_id)))

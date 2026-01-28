@@ -1,5 +1,4 @@
 use std::sync::LazyLock;
-use std::time::{Duration, Instant};
 
 use actix_http::ContentEncoding;
 use actix_http::header::Quality;
@@ -17,12 +16,11 @@ use martin_tile_utils::{
     encode_gzip,
 };
 use serde::Deserialize;
-use tokio::sync::Mutex;
-use tracing::warn;
 
 use crate::config::args::PreferredEncoding;
 use crate::config::file::srv::SrvConfig;
 use crate::source::TileSources;
+use crate::srv::server::DebouncedWarning;
 use crate::srv::server::map_internal_error;
 
 const SUPPORTED_ENC: &[HeaderEnc] = &[
@@ -79,16 +77,14 @@ pub struct RedirectTileRequest {
 /// Registered before main tile route to match more specific pattern first
 #[route("/{ids}/{z}/{x}/{y}.{ext}", method = "GET", method = "HEAD")]
 pub async fn redirect_tile_ext(req: HttpRequest, path: Path<RedirectTileRequest>) -> HttpResponse {
+    static WARNING: LazyLock<DebouncedWarning> = LazyLock::new(DebouncedWarning::new);
     let RedirectTileRequest { ids, z, x, y, ext } = path.as_ref();
-    static LAST_WARNING: LazyLock<Mutex<Instant>> = LazyLock::new(|| Mutex::new(Instant::now()));
 
-    let mut warning = LAST_WARNING.lock().await;
-    if warning.elapsed() >= Duration::from_hours(1) {
-        *warning = Instant::now();
-        warn!(
-            "Using /{ids}/{z}/{x}/{y}.{ext} endpoint which causes an unnecessary redirect. Use /{ids}/{z}/{x}/{y} directly to avoid extra round-trip latency.",
-        );
-    }
+    WARNING
+        .warn_once_per_hour(&format!(
+            "Request to /{ids}/{z}/{x}/{y}.{ext} caused unnecessary redirect. Use /{ids}/{z}/{x}/{y} to avoid extra round-trip latency."
+        ))
+        .await;
 
     redirect_tile_with_query(ids, *z, *x, *y, req.query_string())
 }
@@ -96,21 +92,19 @@ pub async fn redirect_tile_ext(req: HttpRequest, path: Path<RedirectTileRequest>
 /// Redirect `/tiles/{source_ids}/{z}/{x}/{y}` to `/{source_ids}/{z}/{x}/{y}` (HTTP 301)
 #[route("/tiles/{source_ids}/{z}/{x}/{y}", method = "GET", method = "HEAD")]
 pub async fn redirect_tiles(req: HttpRequest, path: Path<TileRequest>) -> HttpResponse {
+    static WARNING: LazyLock<DebouncedWarning> = LazyLock::new(DebouncedWarning::new);
     let TileRequest {
         source_ids,
         z,
         x,
         y,
     } = path.as_ref();
-    static LAST_WARNING: LazyLock<Mutex<Instant>> = LazyLock::new(|| Mutex::new(Instant::now()));
 
-    let mut warning = LAST_WARNING.lock().await;
-    if warning.elapsed() >= Duration::from_hours(1) {
-        *warning = Instant::now();
-        warn!(
-            "Using /tiles/{source_ids}/{z}/{x}/{y} endpoint which causes an unnecessary redirect. Use /{source_ids}/{z}/{x}/{y} directly to avoid extra round-trip latency.",
-        );
-    }
+    WARNING
+        .warn_once_per_hour(&format!(
+            "Request to /tiles/{source_ids}/{z}/{x}/{y} caused unnecessary redirect. Use /{source_ids}/{z}/{x}/{y} to avoid extra round-trip latency."
+        ))
+        .await;
 
     redirect_tile_with_query(source_ids, *z, *x, *y, req.query_string())
 }

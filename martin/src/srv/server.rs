@@ -33,6 +33,34 @@ pub fn map_internal_error<T: std::fmt::Display>(e: T) -> actix_web::Error {
     actix_web::error::ErrorInternalServerError(e.to_string())
 }
 
+/// Helper struct for debounced warning messages in redirect handlers.
+/// Ensures warnings are logged no more than once per hour to avoid log spam.
+#[cfg(any(feature = "_tiles", feature = "fonts", feature = "sprites"))]
+pub struct DebouncedWarning {
+    last_warning: std::sync::LazyLock<tokio::sync::Mutex<std::time::Instant>>,
+}
+
+#[cfg(any(feature = "_tiles", feature = "fonts", feature = "sprites"))]
+impl DebouncedWarning {
+    /// Create a new `DebouncedWarning` instance
+    pub const fn new() -> Self {
+        Self {
+            last_warning: std::sync::LazyLock::new(|| {
+                tokio::sync::Mutex::new(std::time::Instant::now())
+            }),
+        }
+    }
+
+    /// Log a warning message if at least one hour has elapsed since the last warning
+    pub async fn warn_once_per_hour(&self, message: &str) {
+        let mut last = self.last_warning.lock().await;
+        if last.elapsed() >= Duration::from_secs(3600) {
+            *last = std::time::Instant::now();
+            tracing::warn!("{message}");
+        }
+    }
+}
+
 /// Return 200 OK if healthy. Used for readiness and liveness probes.
 #[route("/health", method = "GET", method = "HEAD")]
 async fn get_health() -> impl Responder {
