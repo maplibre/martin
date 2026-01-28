@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 We migrated our `log` library to `tracing`.
 This gives us a few internal improvements, but also allows us to introduce a new `RUST_LOG_FORMAT` environment variable.
-The avaliable values are: `json`, `full`, `compact` (default), `bare` or `pretty`.
+The available values are: `json`, `full`, `compact` (default), `bare` or `pretty`.
 
 Done in [#2494](https://github.com/maplibre/martin/pull/2494), [#2508](https://github.com/maplibre/martin/pull/2508), [#2500](https://github.com/maplibre/martin/pull/2500) by @CommanderStorm
 
