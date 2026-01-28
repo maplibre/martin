@@ -3,7 +3,7 @@ use std::io::BufWriter;
 use std::path::Path;
 
 use martin_tile_utils::{TileCoord, TileData};
-use tiff::decoder::Decoder;
+use tiff::{ColorType, decoder::Decoder};
 
 use crate::tiles::cog::CogError;
 
@@ -64,16 +64,16 @@ impl Image {
 
         // @todo: can we replace this with reading the raw bytes and
         // sending them over the wire with the correct header instead?
-        let mut target = vec![
+        let mut pixels = vec![
             0;
             (self.tile_size * self.tile_size * u32::from(color_type.num_samples()))
                 as usize
         ];
-        if decoder.read_chunk_bytes(idx, &mut target).is_err() {
+        if decoder.read_chunk_bytes(idx, &mut pixels).is_err() {
             return Ok(Vec::new());
         }
 
-        let png = encode_rgba_as_png(self.tile_size(), &target, path)?;
+        let png = encode_as_png(self.tile_size(), &pixels, path, color_type)?;
         Ok(png)
     }
 
@@ -102,8 +102,21 @@ impl Image {
 }
 
 /// Encodes RGBA pixel data to PNG format.
-fn encode_rgba_as_png(tile_size: u32, pixels: &[u8], path: &Path) -> Result<Vec<u8>, CogError> {
+fn encode_as_png(
+    tile_size: u32,
+    pixels: &[u8],
+    path: &Path,
+    color_type: ColorType,
+) -> Result<Vec<u8>, CogError> {
     let mut result_file_buffer = Vec::new();
+    let png_color_type = match color_type {
+        ColorType::RGB(8) => Ok(png::ColorType::Rgb),
+        ColorType::RGBA(8) => Ok(png::ColorType::Rgba),
+        c => Err(CogError::NotSupportedColorTypeAndBitDepth(
+            c,
+            path.to_path_buf(),
+        )),
+    }?;
 
     {
         let mut encoder = png::Encoder::new(
@@ -111,7 +124,7 @@ fn encode_rgba_as_png(tile_size: u32, pixels: &[u8], path: &Path) -> Result<Vec<
             tile_size,
             tile_size,
         );
-        encoder.set_color(png::ColorType::Rgba);
+        encoder.set_color(png_color_type);
         encoder.set_depth(png::BitDepth::Eight);
         let mut writer = encoder
             .write_header()
