@@ -61,7 +61,7 @@ Done in ([#2512](https://github.com/maplibre/martin/pull/2512))
 ### Other
 
 
-- *(deps)* `cargo-shear` our dependencys for improved compile times ([#2497](https://github.com/maplibre/martin/pull/2497))
+- *(deps)* `cargo-shear` our dependencies for improved compile times ([#2497](https://github.com/maplibre/martin/pull/2497))
 - *(mbtiles)* improve a few test cases ([#2478](https://github.com/maplibre/martin/pull/2478), [#2480](https://github.com/maplibre/martin/pull/2480), [#2477](https://github.com/maplibre/martin/pull/2477))
 
 ## [1.2.0](https://github.com/maplibre/martin/compare/martin-v1.1.0...martin-v1.2.0) - 2026-01-03
