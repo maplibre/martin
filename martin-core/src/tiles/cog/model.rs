@@ -66,6 +66,19 @@ pub struct ModelInfo {
     /// | 1 |     | m n o p |  | 1 |
     /// |- -|     |-       -|  |- -|
     pub transformation: Option<Vec<f64>>,
+    /// This key is used to specify the projected coordinate reference system from the `GeoTIFF` CRS register or to indicate that the Model CRS is a user-defined projected coordinate reference system.
+    ///
+    /// Requirement 12.3
+    /// <http://www.opengis.net/spec/GeoTIFF/1.1/req/ProjectedCRSGeoKey.reserved>
+    /// `ProjectedCRSGeoKey` values in the range 1-1023 SHALL be reserved.
+    ///
+    /// Requirement 12.4
+    /// <http://www.opengis.net/spec/GeoTIFF/1.1/req/ProjectedCRSGeoKey.EPSG>
+    /// `ProjectedCRSGeoKey` values in the range 1024-32766 SHALL be EPSG Projected CRS Codes
+    /// NOTE: In `GeoTIFF` v1.0 the range was 20000-32760. Several values in this range have been deprecated or deleted from the EPSG Dataset and should no longer be used. See Table G.1 - Deprecated and deleted EPSG Projected CRS codes
+    ///
+    /// Example: `Some(3857u16)` or `None`
+    pub projected_crs: Option<u16>,
 }
 
 impl ModelInfo {
@@ -104,10 +117,47 @@ impl ModelInfo {
                 )
             })
             .ok();
+
+        let mut projected_crs: Option<u16> = None;
+        // See: https://docs.ogc.org/is/19-008r4/19-008r4.html#_requirements_class_geokeydirectorytag
+        if let Ok(geokeys) = decoder.get_tag_u16_vec(Tag::GeoKeyDirectoryTag) {
+            let mut i = 0;
+            for chunk in geokeys.chunks_exact(4) {
+                if i == 0 {
+                    if chunk
+                        .first()
+                        .is_none_or(|key_directory_version| *key_directory_version != 1)
+                    {
+                        break;
+                    }
+                    if chunk.get(1).is_none_or(|key_revision| *key_revision != 1) {
+                        break;
+                    }
+                    if chunk
+                        .get(2)
+                        .is_none_or(|minor_revision| *minor_revision != 0)
+                    {
+                        break;
+                    }
+                    if chunk.get(3).is_none_or(|n_keys| *n_keys == 0) {
+                        break;
+                    }
+                } else {
+                    // See: https://docs.ogc.org/is/19-008r4/19-008r4.html#_requirements_class_projectedcrsgeokey
+                    if chunk.first().is_none_or(|key_id| *key_id != 3072) {
+                        continue;
+                    }
+                    projected_crs = chunk.get(3).copied();
+                }
+                i += 1;
+            }
+        }
+
         ModelInfo {
             pixel_scale,
             tie_points,
             transformation,
+            projected_crs,
         }
     }
 }
