@@ -19,7 +19,7 @@ use crate::tiles::cog::image::Image;
 use crate::tiles::cog::model::ModelInfo;
 use crate::tiles::{MartinCoreResult, Source, UrlQuery};
 
-/// Maximum allowed difference from a matching WebMercatorQuad tile matrix zoom level.
+/// Maximum allowed difference from a matching `WebMercatorQuad` tile matrix zoom level.
 pub const MAX_RESOLUTION_ERROR: f64 = 1e-12;
 
 /// Tile source that reads from `Cloud Optimized GeoTIFF` files.
@@ -123,8 +123,10 @@ impl CogSource {
             .ok_or_else(|| CogError::NoImagesFound(path.clone()))?;
         let min = webmercator_to_wgs84(extent[0], extent[1]);
         let max = webmercator_to_wgs84(extent[2], extent[3]);
-        let center =
-            webmercator_to_wgs84((extent[0] + extent[2]) / 2.0, (extent[1] + extent[3]) / 2.0);
+        let center = webmercator_to_wgs84(
+            f64::midpoint(extent[0], extent[2]),
+            f64::midpoint(extent[1], extent[3]),
+        );
         let mut tilejson = tilejson! {
             tiles: vec![],
             bounds: Bounds::new(
@@ -136,7 +138,7 @@ impl CogSource {
             center: Center{
                 longitude: center.0,
                 latitude: center.1,
-                zoom: (max_zoom + min_zoom) / 2,
+                zoom: u8::midpoint(max_zoom, min_zoom),
             },
             minzoom: min_zoom,
             maxzoom: max_zoom,
@@ -157,7 +159,7 @@ impl CogSource {
 }
 
 /// Find a zoom level of [WebMercatorQuad](https://docs.ogc.org/is/17-083r2/17-083r2.html#72) that
-/// is within the error tolerance difference from expected WebMercatorQuad zoom levels.
+/// is within the error tolerance difference from expected `WebMercatorQuad` zoom levels.
 fn web_mercator_zoom(model_resolution: f64, tile_size: u32) -> Option<u8> {
     for z in 0..=MAX_ZOOM {
         let resolution_in_web_mercator =
@@ -276,9 +278,7 @@ fn verify_requirements(
         .and_then(|compression: u16| {
             if matches! {
                 CompressionMethod::from_u16(compression),
-                Some(CompressionMethod::None) |
-                Some(CompressionMethod::LZW) |
-                Some(CompressionMethod::Deflate)
+                Some(CompressionMethod::None | CompressionMethod::LZW | CompressionMethod::Deflate)
             } {
                 Ok(())
             } else {
@@ -354,10 +354,20 @@ fn get_image(
 /// Calculates the origin of the first tile
 fn get_tiles_origin(tile_size: u32, resolution: f64, origin: [f64; 2]) -> Option<(u32, u32)> {
     let tile_size_mercator_metres = f64::from(tile_size) * resolution;
-    let tile_origin_x_f = (origin[0] + (EARTH_CIRCUMFERENCE / 2.0)) / tile_size_mercator_metres;
-    let tile_origin_y_f = ((EARTH_CIRCUMFERENCE / 2.0) - origin[1]) / tile_size_mercator_metres;
-    let tile_origin_x = tile_origin_x_f.floor() as u32;
-    let tile_origin_y = tile_origin_y_f.floor() as u32;
+    let xf = ((origin[0] + (EARTH_CIRCUMFERENCE / 2.0)) / tile_size_mercator_metres).floor();
+    let yf = (((EARTH_CIRCUMFERENCE / 2.0) - origin[1]) / tile_size_mercator_metres).floor();
+    let tile_origin_x = if xf.is_finite() && xf >= 0.0 && xf <= f64::from(u32::MAX) {
+        #[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
+        Some(xf as u32)
+    } else {
+        None
+    }?;
+    let tile_origin_y = if yf.is_finite() && yf >= 0.0 && yf <= f64::from(u32::MAX) {
+        #[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
+        Some(yf as u32)
+    } else {
+        None
+    }?;
 
     Some((tile_origin_x, tile_origin_y))
 }

@@ -69,17 +69,12 @@ impl Image {
             (self.tile_size * self.tile_size * u32::from(color_type.num_samples()))
                 as usize
         ];
-        decoder
-            .read_chunk_bytes(idx, &mut target)
-            .map_err(|e| CogError::ReadChunkFailed(e, idx, self.ifd_index(), path.to_path_buf()))?;
+        if decoder.read_chunk_bytes(idx, &mut target).is_err() {
+            return Ok(Vec::new());
+        }
 
         let png = encode_rgba_as_png(self.tile_size(), &target, path)?;
-        return Ok(png);
-    }
-
-    /// Returns the Image File Directory index for this image.
-    pub fn ifd_index(&self) -> usize {
-        self.ifd_index
+        Ok(png)
     }
 
     pub fn tile_size(&self) -> u32 {
