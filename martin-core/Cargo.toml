@@ -36,10 +36,8 @@ postgres = [
 unstable-cog = [
     "dep:png",
     "dep:tiff",
-    "dep:tokio",
     "_tiles",
     "dep:image",
-    "dep:imageproc",
     "dep:serde_json",
 ]
 unstable-rendering = ["styles", "dep:maplibre_native", "dep:image"]
@@ -76,7 +74,6 @@ dashmap = { workspace = true, optional = true }
 deadpool-postgres = { workspace = true, optional = true }
 futures = { workspace = true, optional = true }
 image = { workspace = true, optional = true }
-imageproc = { workspace = true, optional = true }
 itertools = { workspace = true, optional = true }
 martin-tile-utils.workspace = true
 mbtiles = { workspace = true, optional = true }
