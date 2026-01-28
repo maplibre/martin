@@ -21,7 +21,7 @@ Done in [#2494](https://github.com/maplibre/martin/pull/2494), [#2508](https://g
 
 If you are using fonts which span beyond the `0xFFFF`
 
-Here is a short explaination of why this might matter to you based on <https://en.wikipedia.org/wiki/Unicode_block>.
+Here is a short explanation of why this might matter to you based on <https://en.wikipedia.org/wiki/Unicode_block>.
 
 - `U+0000` - `U+FFFF` is Basic Multilingual Plane, which covers characters for almost all modern languages
 - `U+10000` - `U+3347F` covers minor characters such as historic scripts and emojis
