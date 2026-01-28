@@ -17,7 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Other
 
 - *(test)* unignore `diff_and_patch_bsdiff` test with unique SQLite database names ([#2480](https://github.com/maplibre/martin/pull/2480))
-- *(test)* remove the prefix-ism around how files are named for binary diff copy and simpify their naming ([#2478](https://github.com/maplibre/martin/pull/2478))
+- *(test)* remove the prefix-ism around how files are named for binary diff copy and simplify their naming ([#2478](https://github.com/maplibre/martin/pull/2478))
 - *(test)* add assertion messages what we are checking to the copy tests ([#2477](https://github.com/maplibre/martin/pull/2477))
 
 ## [0.15.0](https://github.com/maplibre/martin/compare/mbtiles-v0.14.3...mbtiles-v0.15.0) - 2026-01-03
