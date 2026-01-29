@@ -93,7 +93,7 @@ pub async fn redirect_tile_ext(req: HttpRequest, path: Path<RedirectTileRequest>
 /// Redirect `/tiles/{source_ids}/{z}/{x}/{y}` to `/{source_ids}/{z}/{x}/{y}` (HTTP 301)
 #[route("/tiles/{source_ids}/{z}/{x}/{y}", method = "GET", method = "HEAD")]
 pub async fn redirect_tiles(req: HttpRequest, path: Path<TileRequest>) -> HttpResponse {
-    static WARNING: LazyLock<DebouncedWarning> = LazyLock::new(DebouncedWarning::new);
+    static WARNING: DebouncedWarning = DebouncedWarning::new();
     let TileRequest {
         source_ids,
         z,
