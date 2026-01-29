@@ -51,12 +51,14 @@ impl DebouncedWarning {
         }
     }
 
-    /// Log a warning message if at least one hour has elapsed since the last warning
-    pub async fn warn_once_per_hour(&self, message: &str) {
+    /// Execute the provided closure at most once per hour.
+    /// This allows tracing's log filtering to work correctly by keeping the warn! call site
+    /// in the caller's context.
+    pub async fn once_per_hour<F: FnOnce()>(&self, f: F) {
         let mut last = self.last_warning.lock().await;
         if last.elapsed() >= Duration::from_secs(3600) {
             *last = std::time::Instant::now();
-            tracing::warn!("{message}");
+            f();
         }
     }
 }

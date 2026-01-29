@@ -16,6 +16,7 @@ use martin_tile_utils::{
     encode_gzip,
 };
 use serde::Deserialize;
+use tracing::warn;
 
 use crate::config::args::PreferredEncoding;
 use crate::config::file::srv::SrvConfig;
@@ -81,9 +82,11 @@ pub async fn redirect_tile_ext(req: HttpRequest, path: Path<RedirectTileRequest>
     let RedirectTileRequest { ids, z, x, y, ext } = path.as_ref();
 
     WARNING
-        .warn_once_per_hour(&format!(
-            "Request to /{ids}/{z}/{x}/{y}.{ext} caused unnecessary redirect. Use /{ids}/{z}/{x}/{y} to avoid extra round-trip latency."
-        ))
+        .once_per_hour(|| {
+            warn!(
+                "Request to /{ids}/{z}/{x}/{y}.{ext} caused unnecessary redirect. Use /{ids}/{z}/{x}/{y} to avoid extra round-trip latency."
+            );
+        })
         .await;
 
     redirect_tile_with_query(ids, *z, *x, *y, req.query_string())
@@ -101,9 +104,11 @@ pub async fn redirect_tiles(req: HttpRequest, path: Path<TileRequest>) -> HttpRe
     } = path.as_ref();
 
     WARNING
-        .warn_once_per_hour(&format!(
-            "Request to /tiles/{source_ids}/{z}/{x}/{y} caused unnecessary redirect. Use /{source_ids}/{z}/{x}/{y} to avoid extra round-trip latency."
-        ))
+        .once_per_hour(|| {
+            warn!(
+                "Request to /tiles/{source_ids}/{z}/{x}/{y} caused unnecessary redirect. Use /{source_ids}/{z}/{x}/{y} to avoid extra round-trip latency."
+            );
+        })
         .await;
 
     redirect_tile_with_query(source_ids, *z, *x, *y, req.query_string())

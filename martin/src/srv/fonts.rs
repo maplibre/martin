@@ -9,6 +9,7 @@ use actix_web::web::{Data, Path};
 use actix_web::{HttpResponse, Result as ActixResult, route};
 use martin_core::fonts::{FontError, FontSources, OptFontCache};
 use serde::Deserialize;
+use tracing::warn;
 
 use crate::srv::server::{DebouncedWarning, map_internal_error};
 
@@ -51,10 +52,12 @@ pub async fn redirect_fonts(path: Path<FontRequest>) -> HttpResponse {
     static WARNING: LazyLock<DebouncedWarning> = LazyLock::new(DebouncedWarning::new);
 
     WARNING
-        .warn_once_per_hour(&format!(
-            "Request to /fonts/{}/{}-{} caused unnecessary redirect. Use /font/{}/{}-{} to avoid extra round-trip latency.",
-            path.fontstack, path.start, path.end, path.fontstack, path.start, path.end
-        ))
+        .once_per_hour(|| {
+            warn!(
+                "Request to /fonts/{}/{}-{} caused unnecessary redirect. Use /font/{}/{}-{} to avoid extra round-trip latency.",
+                path.fontstack, path.start, path.end, path.fontstack, path.start, path.end
+            );
+        })
         .await;
 
     HttpResponse::MovedPermanently()

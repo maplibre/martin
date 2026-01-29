@@ -9,6 +9,7 @@ use actix_web::web::{Bytes, Data, Path};
 use actix_web::{HttpResponse, Result as ActixResult, route};
 use martin_core::sprites::{OptSpriteCache, SpriteError, SpriteSources};
 use serde::Deserialize;
+use tracing::warn;
 
 use crate::srv::server::{DebouncedWarning, map_internal_error};
 
@@ -50,9 +51,11 @@ pub async fn redirect_sprites_png(path: Path<SourceIDsRequest>) -> HttpResponse 
     let SourceIDsRequest { source_ids } = path.as_ref();
 
     WARNING
-        .warn_once_per_hour(&format!(
-            "Request to /sprites/{source_ids}.png caused unnecessary redirect. Use /sprite/{source_ids}.png to avoid extra round-trip latency."
-        ))
+        .once_per_hour(|| {
+            warn!(
+                "Request to /sprites/{source_ids}.png caused unnecessary redirect. Use /sprite/{source_ids}.png to avoid extra round-trip latency."
+            );
+        })
         .await;
 
     HttpResponse::MovedPermanently()
@@ -93,9 +96,11 @@ pub async fn redirect_sdf_sprites_png(path: Path<SourceIDsRequest>) -> HttpRespo
     let SourceIDsRequest { source_ids } = path.as_ref();
 
     WARNING
-        .warn_once_per_hour(&format!(
-            "Request to /sdf_sprites/{source_ids}.png caused unnecessary redirect. Use /sdf_sprite/{source_ids}.png to avoid extra round-trip latency."
-        ))
+        .once_per_hour(|| {
+            warn!(
+                "Request to /sdf_sprites/{source_ids}.png caused unnecessary redirect. Use /sdf_sprite/{source_ids}.png to avoid extra round-trip latency."
+            );
+        })
         .await;
 
     HttpResponse::MovedPermanently()
@@ -137,9 +142,11 @@ pub async fn redirect_sprites_json(path: Path<SourceIDsRequest>) -> HttpResponse
     let SourceIDsRequest { source_ids } = path.as_ref();
 
     WARNING
-        .warn_once_per_hour(&format!(
-            "Request to /sprites/{source_ids}.json caused unnecessary redirect. Use /sprite/{source_ids}.json to avoid extra round-trip latency."
-        ))
+        .once_per_hour(|| {
+            warn!(
+                "Request to /sprites/{source_ids}.json caused unnecessary redirect. Use /sprite/{source_ids}.json to avoid extra round-trip latency."
+            );
+        })
         .await;
 
     HttpResponse::MovedPermanently()
@@ -181,9 +188,11 @@ pub async fn redirect_sdf_sprites_json(path: Path<SourceIDsRequest>) -> HttpResp
     let SourceIDsRequest { source_ids } = path.as_ref();
 
     WARNING
-        .warn_once_per_hour(&format!(
-            "Request to /sdf_sprites/{source_ids}.json caused unnecessary redirect. Use /sdf_sprite/{source_ids}.json to avoid extra round-trip latency."
-        ))
+        .once_per_hour(|| {
+            warn!(
+                "Request to /sdf_sprites/{source_ids}.json caused unnecessary redirect. Use /sdf_sprite/{source_ids}.json to avoid extra round-trip latency."
+            );
+        })
         .await;
 
     HttpResponse::MovedPermanently()

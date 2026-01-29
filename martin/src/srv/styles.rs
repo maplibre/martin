@@ -7,7 +7,7 @@ use actix_web::web::{Data, Path};
 use actix_web::{HttpResponse, route};
 use martin_core::styles::StyleSources;
 use serde::Deserialize;
-use tracing::error;
+use tracing::{error, warn};
 
 use crate::srv::server::DebouncedWarning;
 
@@ -60,10 +60,12 @@ pub(crate) async fn redirect_styles(path: Path<StyleRequest>) -> HttpResponse {
     static WARNING: LazyLock<DebouncedWarning> = LazyLock::new(DebouncedWarning::new);
 
     WARNING
-        .warn_once_per_hour(&format!(
-            "Request to /styles/{} caused unnecessary redirect. Use /style/{} to avoid extra round-trip latency.",
-            path.style_id, path.style_id
-        ))
+        .once_per_hour(|| {
+            warn!(
+                "Request to /styles/{} caused unnecessary redirect. Use /style/{} to avoid extra round-trip latency.",
+                path.style_id, path.style_id
+            );
+        })
         .await;
 
     HttpResponse::MovedPermanently()
