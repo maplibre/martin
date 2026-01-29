@@ -49,7 +49,7 @@ async fn get_font(
 /// Redirect `/fonts/{fontstack}/{start}-{end}` to `/font/{fontstack}/{start}-{end}` (HTTP 301)
 #[route("/fonts/{fontstack}/{start}-{end}", method = "GET", method = "HEAD")]
 pub async fn redirect_fonts(path: Path<FontRequest>) -> HttpResponse {
-    static WARNING: LazyLock<DebouncedWarning> = LazyLock::new(DebouncedWarning::new);
+    static WARNING: DebouncedWarning = DebouncedWarning::new();
 
     WARNING
         .once_per_hour(|| {
