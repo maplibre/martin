@@ -1,17 +1,17 @@
 use async_trait::async_trait;
+use core::f64;
+use geo_index::rtree::sort::HilbertSort;
+use geo_index::rtree::{RTree, RTreeBuilder, RTreeIndex};
+use geojson::{Feature, FeatureCollection, GeoJson, Geometry, Value};
 use geozero::GeozeroDatasource;
 use geozero::geojson::GeoJsonString;
 use geozero::mvt::{Message, MvtWriter, Tile};
-use core::f64;
-use std::path::PathBuf;
-use std::vec;
-use geo_index::rtree::sort::HilbertSort;
-use geo_index::rtree::{RTree, RTreeBuilder, RTreeIndex };
-use geojson::{Feature, FeatureCollection, GeoJson, Geometry, Value};
 use martin_tile_utils::{
     EARTH_CIRCUMFERENCE, Encoding, Format, TileCoord, TileData, TileInfo, tile_bbox,
     wgs84_to_webmercator,
 };
+use std::path::PathBuf;
+use std::vec;
 use std::{fmt::Debug, fmt::Formatter};
 use tilejson::TileJSON;
 use tokio::fs::{self};
@@ -22,14 +22,14 @@ use crate::tiles::{BoxedSource, MartinCoreResult, Source, UrlQuery};
 const EPS: f64 = 1e-9;
 
 /// A source for `GeoJSON` files
-/// 
+///
 /// Steps to pre-process `GeoJSON` features that have a geometry:
-/// 
+///
 /// 1. Convert from WGS84 EPSG:4326 to Web Mercator EPSG:3857
 /// 2. Create spatial index using a packed Hilbert R-Tree
-/// 
+///
 /// This data source will be used to query features that overlap with a given tile:
-/// 
+///
 /// 1. Search for geometries that overlap with a given tile bounding box using the R-Tree
 /// 2. Clip geometries with tile bounding box (and optional buffer)
 /// 3. Transform into tile coordinate space and convert to MVT binary format
@@ -41,7 +41,7 @@ pub struct GeoJsonSource {
     rtree: RTree<f64>,
     tilejson: TileJSON,
     tile_info: TileInfo,
-    buffer_size: f64
+    buffer_size: f64,
 }
 
 impl GeoJsonSource {
@@ -50,7 +50,7 @@ impl GeoJsonSource {
         let geojson = geojson_str.parse::<GeoJson>().unwrap();
 
         let (geojson, rtree) = preprocess_geojson(geojson);
-        
+
         let tilejson = tilejson::tilejson! {
             tiles: vec![],
             minzoom: 0,
@@ -63,10 +63,9 @@ impl GeoJsonSource {
             rtree,
             tilejson,
             tile_info: TileInfo::new(Format::Json, Encoding::Uncompressed),
-            buffer_size: 256.0
+            buffer_size: 256.0,
         })
     }
-
 }
 
 #[expect(clippy::missing_fields_in_debug)]
@@ -105,18 +104,20 @@ fn preprocess_geojson(geojson: GeoJson) -> (GeoJson, RTree<f64>) {
 
             // Build spatial index
             let mut builder = RTreeBuilder::<f64>::new(transformed_fs.len().try_into().unwrap());
-            transformed_fs.iter().for_each(|f|if let Some(bb) = &f.bbox {
-                dbg!("adding feature with bbox: {:?}", &bbox);
-                builder.add(bb[0], bb[1], bb[2], bb[3]);
+            transformed_fs.iter().for_each(|f| {
+                if let Some(bb) = &f.bbox {
+                    dbg!("adding feature with bbox: {:?}", &bbox);
+                    builder.add(bb[0], bb[1], bb[2], bb[3]);
+                }
             });
 
-            fc.bbox =  Some(vec![bbox.min_x, bbox.min_y, bbox.max_x, bbox.max_y]);
-            fc.features= transformed_fs;
+            fc.bbox = Some(vec![bbox.min_x, bbox.min_y, bbox.max_x, bbox.max_y]);
+            fc.features = transformed_fs;
             let tree = builder.finish::<HilbertSort>();
             (GeoJson::FeatureCollection(fc), tree)
         }
         GeoJson::Feature(mut f) => {
-            let count = if f.geometry.is_some() { 1} else {0};
+            let count = if f.geometry.is_some() { 1 } else { 0 };
             let mut builder = RTreeBuilder::<f64>::new(count);
             let mut fc = FeatureCollection {
                 bbox: None,
@@ -126,14 +127,14 @@ fn preprocess_geojson(geojson: GeoJson) -> (GeoJson, RTree<f64>) {
             if f.geometry.is_some() {
                 let transformed_g = transform_geometry(f.geometry.unwrap());
                 if let Some(bb) = &transformed_g.bbox {
-                            builder.add(bb[0], bb[1], bb[2], bb[3]);
+                    builder.add(bb[0], bb[1], bb[2], bb[3]);
                 }
                 f.bbox = transformed_g.bbox.clone();
                 f.geometry = Some(transformed_g);
 
                 fc.bbox = f.bbox.clone();
                 fc.features.push(f);
-            } 
+            }
             let tree = builder.finish::<HilbertSort>();
             (GeoJson::FeatureCollection(fc), tree)
         }
@@ -141,9 +142,15 @@ fn preprocess_geojson(geojson: GeoJson) -> (GeoJson, RTree<f64>) {
             let mut builder = RTreeBuilder::<f64>::new(1);
             let g = transform_geometry(g);
             if let Some(bb) = &g.bbox {
-                        builder.add(bb[0], bb[1], bb[2], bb[3]);
+                builder.add(bb[0], bb[1], bb[2], bb[3]);
             }
-            let f = Feature { bbox: g.bbox.clone(), geometry: Some(g), id: None, properties: None, foreign_members: None };
+            let f = Feature {
+                bbox: g.bbox.clone(),
+                geometry: Some(g),
+                id: None,
+                properties: None,
+                foreign_members: None,
+            };
             let fc = FeatureCollection {
                 bbox: f.bbox.clone(),
                 features: vec![f],
@@ -154,7 +161,6 @@ fn preprocess_geojson(geojson: GeoJson) -> (GeoJson, RTree<f64>) {
         }
     }
 }
-
 
 #[async_trait]
 impl Source for GeoJsonSource {
@@ -189,7 +195,7 @@ impl Source for GeoJsonSource {
         let mut rect = Rect::from_xyz(xyz.x, xyz.y, xyz.z);
 
         // Add buffer
-        let buffer = self.buffer_size /4096.0;
+        let buffer = self.buffer_size / 4096.0;
         let buffer_x = (rect.max_x - rect.min_x) * buffer;
         let buffer_y = (rect.max_y - rect.min_y) * buffer;
         rect.min_x -= buffer_x;
@@ -198,7 +204,9 @@ impl Source for GeoJsonSource {
         rect.max_y += buffer_y;
 
         dbg!("get tile with bbox: {:?}", &rect);
-        let indices = self.rtree.search(rect.min_x, rect.min_y, rect.max_x, rect.max_y);
+        let indices = self
+            .rtree
+            .search(rect.min_x, rect.min_y, rect.max_x, rect.max_y);
         dbg!("found indices: {:?}", &indices);
 
         if indices.is_empty() {
@@ -210,8 +218,9 @@ impl Source for GeoJsonSource {
         }
 
         if let GeoJson::FeatureCollection(fc) = &self.geojson {
-            let selected_fs = indices.into_iter()
-                .map(|i| fc.features[i as usize].clone()) 
+            let selected_fs = indices
+                .into_iter()
+                .map(|i| fc.features[i as usize].clone())
                 .collect::<Vec<Feature>>();
 
             let mut bbox = Rect::default();
@@ -241,107 +250,29 @@ impl Source for GeoJsonSource {
 
             let geojson = GeoJson::FeatureCollection(fc);
             let mut geojson_string = GeoJsonString(geojson.to_string());
-            let mut mvt_writer = MvtWriter::new(4096, rect.min_x, rect.min_y, rect.max_x, rect.max_y).unwrap();
+            let mut mvt_writer =
+                MvtWriter::new(4096, rect.min_x, rect.min_y, rect.max_x, rect.max_y).unwrap();
             let _ = geojson_string.process(&mut mvt_writer);
             let mvt_layer = mvt_writer.layer("layer");
             let tile = Tile {
                 layers: vec![mvt_layer],
             };
             let v = tile.encode_to_vec();
-            return Ok(v)
-        } 
-        
-        Err(crate::tiles::MartinCoreError::OtherError("Could not fetch GeoJSON features".into()))
-    }
-}
-
-/// Intersection of polygon with tile boundary
-/// 
-/// next_intersection is the index of the next point if it is an existing point of the polygon
-/// or None if the next point is a new intersection point
-#[derive(Debug)]
-struct Intersection {
-    coord: (f64, f64),
-    ring_index: usize,
-    segment_start: usize,
-    segment_end: usize,
-    next_intersection: Option<usize>
-}
-
-#[derive(Debug)]
-struct Intersections {
-    left: Vec<Intersection>,
-    bottom: Vec<Intersection>,
-    right: Vec<Intersection>,
-    top: Vec<Intersection>,
-    rect: Rect
-}
-
-impl Intersections {
-    /// Sort intersection points in counter clockwise order
-    fn sort(&mut self) {
-        self.left.sort_by(|a, b| {
-            b.coord.1.partial_cmp(&a.coord.1).unwrap_or(std::cmp::Ordering::Equal)
-        });
-
-        self.bottom.sort_by(|a, b| {
-            a.coord.0.partial_cmp(&b.coord.0).unwrap_or(std::cmp::Ordering::Equal)
-        });
-
-        self.right.sort_by(|a, b| {
-            a.coord.1.partial_cmp(&b.coord.1).unwrap_or(std::cmp::Ordering::Equal)
-        });
-
-        self.top.sort_by(|a, b| {
-            b.coord.0.partial_cmp(&a.coord.0).unwrap_or(std::cmp::Ordering::Equal)
-        });
-    }
-
-    fn build_polygons(&self, rings: &[Vec<Vec<f64>>]) -> Vec<Vec<Vec<f64>>> {
-        let mut polygons = vec![];
-        let mut visited_left = self.left.iter().map(|_| false).collect::<Vec<bool>>();
-        let mut start_polygon = true;
-        let mut ring = vec![];
-        for (index, intersection) in self.left.iter().enumerate() {
-            if visited_left[index] {
-                continue;
-            }
-            visited_left[index] = true;
-
-            if !ring.is_empty() {
-                ring = vec![];
-            }
-
-            let point = vec![intersection.coord.0, intersection.coord.1];
-            ring.push(point);
-
-
-            if let Some(k) = intersection.next_intersection {
-                let next_point = rings[intersection.ring_index][k].clone();
-                ring.push(next_point);
-
-            } else {
-                // next intersection point is not on polygon - check if there is another one on this side
-                if let Some(next) = self.left.get(index + 1) {
-                    ring.push(vec![next.coord.0, next.coord.1]);
-                    continue;
-                }
-
-
-                let prev = (rings[intersection.ring_index][intersection.segment_start][0], rings[intersection.ring_index][intersection.segment_start][1]);
-                let next = (rings[intersection.ring_index][intersection.segment_end][0], rings[intersection.ring_index][intersection.segment_end][1]);
-
-                // next point is a corner point
-                let corner = (self.rect.min_x, self.rect.min_y);
-                if ccw(prev, next, corner) {
-                    ring.push(vec![corner.0, corner.1]);
-                }
-            }
-
-            // ToDo: Return if ring is closed
+            return Ok(v);
         }
-        polygons
+
+        Err(crate::tiles::MartinCoreError::OtherError(
+            "Could not fetch GeoJSON features".into(),
+        ))
     }
+}
+
+#[derive(Debug)]
+struct Node {
+    coord: (f64, f64),
+    link_id: Option<usize>,
+    inside: bool,
+    visited: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -580,38 +511,94 @@ impl Rect {
         vec![p1[0] + t * (p2[0] - p1[0]), y]
     }
 
-    fn clip_to_boundary_segment(&self, input: &[Vec<f64>], ring_index: usize, segment: ((f64, f64), (f64, f64))) -> Vec<Intersection> {
-        let len = input.len();
+    fn clip_ring(&self, ring: &[Vec<f64>]) -> Vec<Vec<f64>> {
+        let len = ring.len();
         let mut output = Vec::with_capacity(len);
         if len == 0 {
             return output;
         }
 
-        for j in 0..len  {
-            let i = if j == 0 { len - 1 } else { j - 1};
-            let k  = if j == len - 1 { 0 } else { j + 1};
+        let mut new_ring = Vec::with_capacity(len);
+        let segments = vec![
+            ((self.min_x, self.max_y), (self.min_x, self.min_y)),
+            ((self.min_x, self.min_y), (self.max_x, self.min_y)),
+            ((self.max_x, self.min_y), (self.max_x, self.max_y)),
+            ((self.max_x, self.max_y), (self.min_x, self.max_y)),
+        ];
+        let mut boundary = vec![
+            Node {
+                coord: (self.min_x, self.max_y),
+                link_id: None,
+                inside: is_point_in_polygon(&[self.min_x, self.max_y], ring),
+                visited: false,
+            },
+            Node {
+                coord: (self.min_x, self.min_y),
+                link_id: None,
+                inside: is_point_in_polygon(&[self.min_x, self.min_y], ring),
+                visited: false,
+            },
+            Node {
+                coord: (self.max_x, self.min_y),
+                link_id: None,
+                inside: is_point_in_polygon(&[self.max_x, self.min_y], ring),
+                visited: false,
+            },
+            Node {
+                coord: (self.max_x, self.max_y),
+                link_id: None,
+                inside: is_point_in_polygon(&[self.max_x, self.max_y], ring),
+                visited: false,
+            },
+        ];
 
-            let curr = (input[j][0], input[j][1]) ;
-            let next = (input[k][0], input[k][1]);
+        for j in 0..len {
+            let i = if j == 0 { len - 1 } else { j - 1 };
+            let k = if j == len - 1 { 0 } else { j + 1 };
 
-            let prev_in = self.inside(&input[i]);
-            let curr_in = self.inside(&input[j]);
-            let next_in = self.inside(&input[k]);
+            let curr = (ring[j][0], ring[j][1]);
+            let next = (ring[k][0], ring[k][1]);
+
+            let prev_in = self.inside(&ring[i]);
+            let curr_in = self.inside(&ring[j]);
+            let next_in = self.inside(&ring[k]);
+
+            let segment = ((self.min_x, self.max_y), (self.min_x, self.min_y));
 
             if curr_in && next_in {
-                output.push(Intersection { coord: curr, ring_index, segment_start: j, segment_end: k, next_intersection: Some( k) })
+                new_ring.push(Node {
+                    coord: curr,
+                    link_id: None,
+                    inside: true,
+                    visited: false,
+                })
             }
 
             if curr_in && !next_in {
                 let intersection = intersect_segments(curr, next, segment.0, segment.1);
                 if let Some(p) = intersection {
+                    let mut node = Node {
+                        coord: p,
+                        link_id: None,
+                        inside: false,
+                        visited: false,
+                    };
+
                     // edge case: current point lies on boundary, prev and next points lie outside -> discard singular point
                     if !prev_in && (p.0 - curr.0) < EPS && (p.1 - curr.1) < EPS {
+                        new_ring.push(node);
                         continue;
                     }
-                    output.push(Intersection { coord: p, ring_index, segment_start: j, segment_end: k, next_intersection: None });
+
+                    node.link_id = Some(new_ring.len());
+                    new_ring.push(node);
+
+                    // push point to boundary
+                    let pos = boundary
+                        .iter()
+                        .position(|b| b.coord.0 - p.0 < EPS && b.coord.1 < p.1);
                 }
-            } 
+            }
 
             if !curr_in && next_in {
                 let intersection = intersect_segments(curr, next, segment.0, segment.1);
@@ -620,50 +607,30 @@ impl Rect {
                     if (p.0 - next.0) < EPS && (p.1 - next.1) < EPS {
                         continue;
                     }
-                    output.push(Intersection { coord: p, ring_index, segment_start: j, segment_end: k, next_intersection: Some(k) });
+                    output.push(Intersection {
+                        coord: p,
+                        ring_index,
+                        segment_start: j,
+                        segment_end: k,
+                        next_intersection: Some(k),
+                    });
                 }
             }
 
             if !curr_in && !next_in {
                 let intersection = intersect_segments(curr, next, segment.0, segment.1);
                 if let Some(p) = intersection {
-                    output.push(Intersection { coord: p, ring_index, segment_start: j, segment_end: k, next_intersection: None });
-                    
+                    output.push(Intersection {
+                        coord: p,
+                        ring_index,
+                        segment_start: j,
+                        segment_end: k,
+                        next_intersection: None,
+                    });
                 }
             }
         }
         output
-    }
-    
-
-    fn clip_ring(&self, ring: &[Vec<f64>], ring_index: usize, intersections: &mut Intersections) {
-        // Left edge
-        let segment = ((self.min_x, self.max_y), (self.min_x, self.min_y));
-        let ps = self.clip_to_boundary_segment(ring, ring_index, segment);
-        for p in ps {
-            intersections.left.push(p);
-        }
-
-        // Bottom edge
-        let segment = ((self.min_x, self.min_y), (self.max_x, self.min_y));
-        let ps = self.clip_to_boundary_segment(ring, ring_index, segment);
-        for p in ps {
-            intersections.bottom.push(p);
-        }
-
-        // Right edge
-        let segment = ((self.max_x, self.min_y), (self.max_x, self.max_y));
-        let ps = self.clip_to_boundary_segment(ring, ring_index, segment);
-        for p in ps {
-            intersections.right.push(p);
-        }
-
-        // Top edge
-        let segment = ((self.max_x, self.max_y), (self.min_x, self.max_y));
-        let ps = self.clip_to_boundary_segment(ring, ring_index, segment);
-        for p in ps {
-            intersections.top.push(p);
-        }
     }
 
     fn clip_geometry(&self, mut geom: Geometry) -> Option<Geometry> {
@@ -715,7 +682,13 @@ impl Rect {
                 }
             }
             Value::Polygon(rs) => {
-                let mut intersections = Intersections { left: vec![], bottom: vec![], right: vec![], top: vec![], rect: self.clone() };
+                let mut intersections = Intersections {
+                    left: vec![],
+                    bottom: vec![],
+                    right: vec![],
+                    top: vec![],
+                    rect: self.clone(),
+                };
 
                 for (ring_index, ring) in rs.iter().enumerate() {
                     self.clip_ring(ring, ring_index, &mut intersections);
@@ -787,31 +760,60 @@ fn subtract(p: (f64, f64), q: (f64, f64)) -> (f64, f64) {
     (q.0 - p.0, q.1 - p.1)
 }
 
-fn intersect_segments(p: (f64, f64), q: (f64, f64), r: (f64, f64), s: (f64, f64)) -> Option<(f64, f64)> {
+fn intersect_segments(
+    p: (f64, f64),
+    q: (f64, f64),
+    r: (f64, f64),
+    s: (f64, f64),
+) -> Option<(f64, f64)> {
     let r_vec = subtract(p, q);
     let s_vec = subtract(r, s);
     let t_vec = subtract(p, r);
 
     let r_cross_s = cross_product(r_vec, s_vec);
-    let t_cross_r  = cross_product(t_vec,  r_vec);
+    let t_cross_r = cross_product(t_vec, r_vec);
 
     // If r_cross_s is 0, lines are parallel or collinear
     if r_cross_s.abs() < 1e-9 {
-        return None; 
+        return None;
     }
 
     let t = cross_product(t_vec, s_vec) / r_cross_s;
-    let u = t_cross_r  / r_cross_s;
+    let u = t_cross_r / r_cross_s;
 
     // Check if the intersection point lies within both segments
     if t >= 0.0 && t <= 1.0 && u >= 0.0 && u <= 1.0 {
-        return Some((
-                p.0 + t * r_vec.0,
-                p.1 + t * r_vec.1,
-        ));
+        return Some((p.0 + t * r_vec.0, p.1 + t * r_vec.1));
     }
 
     None
+}
+
+fn is_point_in_polygon(point: &[f64], polygon: &[Vec<f64>]) -> bool {
+    let mut inside = false;
+    let n = polygon.len();
+
+    // We need at least 3 points for a polygon
+    if n < 3 {
+        return false;
+    }
+
+    let mut j = n - 1;
+    for i in 0..n {
+        let pi = &polygon[i];
+        let pj = &polygon[j];
+
+        // Check if the point is between the y-coordinates of the edge's endpoints
+        // and if the point is to the left of the line segment
+        if ((pi[1] > point[1]) != (pj[1] > point[1]))
+            && (point[0] < (pj[0] - pi[0]) * (point[1] - pi[1]) / (pj[1] - pi[1]) + pi[0])
+        {
+            inside = !inside;
+        }
+        j = i;
+    }
+
+    inside
 }
 
 /// Transform geometry and bounding box from WGS84 to Web Mercator
@@ -963,8 +965,6 @@ fn tile_length_from_zoom(zoom: u8) -> f64 {
     EARTH_CIRCUMFERENCE / f64::from(1_u32 << zoom)
 }
 
-
-
 #[cfg(test)]
 mod tests {
     use std::path::PathBuf;
@@ -982,11 +982,12 @@ mod tests {
     async fn test_get_tile() {
         let filename = "fc1.json";
         let path = fixtures_dir().join(filename);
-        let geojson_source = GeoJsonSource::new("test-source-1".to_string(), &path).await.unwrap();
+        let geojson_source = GeoJsonSource::new("test-source-1".to_string(), &path)
+            .await
+            .unwrap();
 
         let tile_coord = TileCoord { z: 1, x: 1, y: 0 };
         let tile = geojson_source.get_tile(tile_coord, None).await.unwrap();
         print!("{:?}", tile);
     }
-
 }
