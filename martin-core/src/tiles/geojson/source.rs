@@ -267,7 +267,7 @@ impl Source for GeoJsonSource {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Node {
     coord: (f64, f64),
     link_id: Option<usize>,
@@ -275,6 +275,13 @@ struct Node {
     visited: bool,
 }
 
+#[derive(Debug, Clone)]
+struct BoundaryNode {
+    coord: (f64, f64),
+    link_id: Option<usize>,
+    inside: bool,
+    t: f64,
+}
 #[derive(Debug, Clone)]
 struct Rect {
     min_x: f64,
@@ -526,29 +533,29 @@ impl Rect {
             ((self.max_x, self.max_y), (self.min_x, self.max_y)),
         ];
         let mut boundary = vec![
-            Node {
+            BoundaryNode {
                 coord: (self.min_x, self.max_y),
                 link_id: None,
                 inside: is_point_in_polygon(&[self.min_x, self.max_y], ring),
-                visited: false,
+                t: 0.0,
             },
-            Node {
+            BoundaryNode {
                 coord: (self.min_x, self.min_y),
                 link_id: None,
                 inside: is_point_in_polygon(&[self.min_x, self.min_y], ring),
-                visited: false,
+                t: 0.0,
             },
-            Node {
+            BoundaryNode {
                 coord: (self.max_x, self.min_y),
                 link_id: None,
                 inside: is_point_in_polygon(&[self.max_x, self.min_y], ring),
-                visited: false,
+                t: 0.0,
             },
-            Node {
+            BoundaryNode {
                 coord: (self.max_x, self.max_y),
                 link_id: None,
                 inside: is_point_in_polygon(&[self.max_x, self.max_y], ring),
-                visited: false,
+                t: 0.0,
             },
         ];
 
@@ -563,20 +570,20 @@ impl Rect {
             let curr_in = self.inside(&ring[j]);
             let next_in = self.inside(&ring[k]);
 
-            let segment = ((self.min_x, self.max_y), (self.min_x, self.min_y));
-
             if curr_in && next_in {
                 new_ring.push(Node {
                     coord: curr,
                     link_id: None,
                     inside: true,
                     visited: false,
-                })
+                });
+                continue;
             }
 
+            let segment = ((self.min_x, self.max_y), (self.min_x, self.min_y));
             if curr_in && !next_in {
                 let intersection = intersect_segments(curr, next, segment.0, segment.1);
-                if let Some(p) = intersection {
+                if let Some((p, t)) = intersection {
                     let mut node = Node {
                         coord: p,
                         link_id: None,
@@ -590,43 +597,88 @@ impl Rect {
                         continue;
                     }
 
+                    node.inside = true;
                     node.link_id = Some(new_ring.len());
-                    new_ring.push(node);
+                    new_ring.push(node.clone());
 
                     // push point to boundary
                     let pos = boundary
                         .iter()
-                        .position(|b| b.coord.0 - p.0 < EPS && b.coord.1 < p.1);
+                        .position(|b| b.coord.0 - p.0 < EPS && b.t >= t);
+                    if let Some(pos) = pos {
+                        // check if boundary point is a corner point
+                        let boundary_point = &mut boundary[pos];
+
+                        if t < EPS {
+                            boundary_point.link_id = node.link_id;
+                        } else {
+                            boundary.insert(pos, node);
+                        }
+                    } else {
+                        // point is next corner point (t = 1)
+                        let boundary_point = &mut boundary[pos + 1];
+                    }
                 }
             }
 
             if !curr_in && next_in {
                 let intersection = intersect_segments(curr, next, segment.0, segment.1);
-                if let Some(p) = intersection {
+                if let Some((p, t)) = intersection {
                     // edge case: next point lies on the boundary of the tile -> decide in next iteration if it will be included
                     if (p.0 - next.0) < EPS && (p.1 - next.1) < EPS {
                         continue;
                     }
-                    output.push(Intersection {
+
+                    let node = Node {
                         coord: p,
-                        ring_index,
-                        segment_start: j,
-                        segment_end: k,
-                        next_intersection: Some(k),
-                    });
+                        link_id: Some(new_ring.len()),
+                        inside: true,
+                        visited: false,
+                    };
+
+                    new_ring.push(node.clone());
+
+                    // push point to boundary
+                    let pos = boundary
+                        .iter()
+                        .position(|b| b.coord.0 - p.0 < EPS && b.coord.1 < p.1);
+                    if let Some(pos) = pos {
+                        // check if boundary point is a corner point
+                        let boundary_point = &mut boundary[pos];
+                        if boundary_point.coord.1 - p.1 < EPS {
+                            boundary_point.link_id = node.link_id;
+                        } else {
+                            boundary.insert(pos, node);
+                        }
+                    }
                 }
             }
 
             if !curr_in && !next_in {
                 let intersection = intersect_segments(curr, next, segment.0, segment.1);
-                if let Some(p) = intersection {
-                    output.push(Intersection {
+                if let Some((p, t)) = intersection {
+                    let node = Node {
                         coord: p,
-                        ring_index,
-                        segment_start: j,
-                        segment_end: k,
-                        next_intersection: None,
-                    });
+                        link_id: Some(new_ring.len()),
+                        inside: true,
+                        visited: false,
+                    };
+
+                    new_ring.push(node.clone());
+
+                    // push point to boundary
+                    let pos = boundary
+                        .iter()
+                        .position(|b| b.coord.0 - p.0 < EPS && b.coord.1 < p.1);
+                    if let Some(pos) = pos {
+                        // check if boundary point is a corner point
+                        let boundary_point = &mut boundary[pos];
+                        if boundary_point.coord.1 - p.1 < EPS {
+                            boundary_point.link_id = node.link_id;
+                        } else {
+                            boundary.insert(pos, node);
+                        }
+                    }
                 }
             }
         }
@@ -682,20 +734,9 @@ impl Rect {
                 }
             }
             Value::Polygon(rs) => {
-                let mut intersections = Intersections {
-                    left: vec![],
-                    bottom: vec![],
-                    right: vec![],
-                    top: vec![],
-                    rect: self.clone(),
-                };
-
                 for (ring_index, ring) in rs.iter().enumerate() {
-                    self.clip_ring(ring, ring_index, &mut intersections);
+                    // self.clip_ring(ring, ring_index, &mut intersections);
                 }
-
-                // sort ccw
-                intersections.sort();
 
                 geom.value = Value::Polygon(vec![]);
                 Some(geom)
@@ -765,7 +806,7 @@ fn intersect_segments(
     q: (f64, f64),
     r: (f64, f64),
     s: (f64, f64),
-) -> Option<(f64, f64)> {
+) -> Option<((f64, f64), f64)> {
     let r_vec = subtract(p, q);
     let s_vec = subtract(r, s);
     let t_vec = subtract(p, r);
@@ -783,7 +824,7 @@ fn intersect_segments(
 
     // Check if the intersection point lies within both segments
     if t >= 0.0 && t <= 1.0 && u >= 0.0 && u <= 1.0 {
-        return Some((p.0 + t * r_vec.0, p.1 + t * r_vec.1));
+        return Some(((p.0 + t * r_vec.0, p.1 + t * r_vec.1), u));
     }
 
     None
