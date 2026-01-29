@@ -35,12 +35,22 @@ pub fn map_internal_error<T: std::fmt::Display>(e: T) -> actix_web::Error {
 
 /// Helper struct for debounced warning messages in redirect handlers.
 /// Ensures warnings are logged no more than once per hour to avoid log spam.
-#[cfg(any(feature = "_tiles", feature = "fonts", feature = "sprites", feature = "styles"))]
+#[cfg(any(
+    feature = "_tiles",
+    feature = "fonts",
+    feature = "sprites",
+    feature = "styles"
+))]
 pub struct DebouncedWarning {
     last_warning: std::sync::LazyLock<tokio::sync::Mutex<std::time::Instant>>,
 }
 
-#[cfg(any(feature = "_tiles", feature = "fonts", feature = "sprites", feature = "styles"))]
+#[cfg(any(
+    feature = "_tiles",
+    feature = "fonts",
+    feature = "sprites",
+    feature = "styles"
+))]
 impl DebouncedWarning {
     /// Create a new `DebouncedWarning` instance
     pub const fn new() -> Self {
