@@ -2,11 +2,11 @@ use std::borrow::Cow;
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, HashSet};
 
+use crate::config::primitives::IdResolver;
+use crate::config::primitives::OptBoolObj::{Bool, NoValue, Object};
+use crate::config::primitives::OptOneMany::NoVals;
 use futures::future::join_all;
 use itertools::Itertools as _;
-use martin_core::config::IdResolver;
-use martin_core::config::OptBoolObj::{Bool, NoValue, Object};
-use martin_core::config::OptOneMany::NoVals;
 use martin_core::tiles::BoxedSource;
 use martin_core::tiles::postgres::{
     PostgresError, PostgresPool, PostgresResult, PostgresSource, PostgresSqlInfo,
