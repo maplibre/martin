@@ -76,7 +76,7 @@ pub struct RedirectTileRequest {
 /// Registered before main tile route to match more specific pattern first
 #[route("/{ids}/{z}/{x}/{y}.{ext}", method = "GET", method = "HEAD")]
 pub async fn redirect_tile_ext(req: HttpRequest, path: Path<RedirectTileRequest>) -> HttpResponse {
-    static WARNING: LazyLock<DebouncedWarning> = LazyLock::new(DebouncedWarning::new);
+    static WARNING: DebouncedWarning = DebouncedWarning::new();
     let RedirectTileRequest { ids, z, x, y, ext } = path.as_ref();
 
     WARNING
