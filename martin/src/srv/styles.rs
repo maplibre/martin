@@ -58,7 +58,7 @@ async fn get_style_json(path: Path<StyleRequest>, styles: Data<StyleSources>) ->
 #[route("/styles/{style_id}", method = "GET", method = "HEAD")]
 pub(crate) async fn redirect_styles(path: Path<StyleRequest>) -> HttpResponse {
     static WARNING: DebouncedWarning = DebouncedWarning::new();
-
+    let StyleRequest { style_id } = path.as_ref();
     WARNING
         .once_per_hour(|| {
             warn!(
