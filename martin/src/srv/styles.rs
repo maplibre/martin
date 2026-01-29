@@ -57,18 +57,17 @@ async fn get_style_json(path: Path<StyleRequest>, styles: Data<StyleSources>) ->
 /// This handles common pluralization mistakes
 #[route("/styles/{style_id}", method = "GET", method = "HEAD")]
 pub(crate) async fn redirect_styles(path: Path<StyleRequest>) -> HttpResponse {
-    static WARNING: LazyLock<DebouncedWarning> = LazyLock::new(DebouncedWarning::new);
+    static WARNING: DebouncedWarning = DebouncedWarning::new();
 
     WARNING
         .once_per_hour(|| {
             warn!(
-                "Request to /styles/{} caused unnecessary redirect. Use /style/{} to avoid extra round-trip latency.",
-                path.style_id, path.style_id
+                "Request to /styles/{style_id} caused unnecessary redirect. Use /style/{style_id} to avoid extra round-trip latency."
             );
         })
         .await;
 
     HttpResponse::MovedPermanently()
-        .insert_header((LOCATION, format!("/style/{}", path.style_id)))
+        .insert_header((LOCATION, format!("/style/{style_id}")))
         .finish()
 }

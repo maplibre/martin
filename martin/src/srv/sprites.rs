@@ -47,7 +47,7 @@ async fn get_sprite_png(
 /// Redirect `/sprites/{source_ids}.png` to `/sprite/{source_ids}.png` (HTTP 301)
 #[route("/sprites/{source_ids}.png", method = "GET", method = "HEAD")]
 pub async fn redirect_sprites_png(path: Path<SourceIDsRequest>) -> HttpResponse {
-    static WARNING: LazyLock<DebouncedWarning> = LazyLock::new(DebouncedWarning::new);
+    static WARNING: DebouncedWarning = DebouncedWarning::new();
     let SourceIDsRequest { source_ids } = path.as_ref();
 
     WARNING
@@ -92,7 +92,7 @@ async fn get_sprite_sdf_png(
 /// Redirect `/sdf_sprites/{source_ids}.png` to `/sdf_sprite/{source_ids}.png` (HTTP 301)
 #[route("/sdf_sprites/{source_ids}.png", method = "GET", method = "HEAD")]
 pub async fn redirect_sdf_sprites_png(path: Path<SourceIDsRequest>) -> HttpResponse {
-    static WARNING: LazyLock<DebouncedWarning> = LazyLock::new(DebouncedWarning::new);
+    static WARNING: DebouncedWarning = DebouncedWarning::new();
     let SourceIDsRequest { source_ids } = path.as_ref();
 
     WARNING
@@ -138,7 +138,7 @@ async fn get_sprite_json(
 /// Redirect `/sprites/{source_ids}.json` to `/sprite/{source_ids}.json` (HTTP 301)
 #[route("/sprites/{source_ids}.json", method = "GET", method = "HEAD")]
 pub async fn redirect_sprites_json(path: Path<SourceIDsRequest>) -> HttpResponse {
-    static WARNING: LazyLock<DebouncedWarning> = LazyLock::new(DebouncedWarning::new);
+    static WARNING: DebouncedWarning = DebouncedWarning::new();
     let SourceIDsRequest { source_ids } = path.as_ref();
 
     WARNING
@@ -184,7 +184,7 @@ async fn get_sprite_sdf_json(
 /// Redirect `/sdf_sprites/{source_ids}.json` to `/sdf_sprite/{source_ids}.json` (HTTP 301)
 #[route("/sdf_sprites/{source_ids}.json", method = "GET", method = "HEAD")]
 pub async fn redirect_sdf_sprites_json(path: Path<SourceIDsRequest>) -> HttpResponse {
-    static WARNING: LazyLock<DebouncedWarning> = LazyLock::new(DebouncedWarning::new);
+    static WARNING: DebouncedWarning = DebouncedWarning::new();
     let SourceIDsRequest { source_ids } = path.as_ref();
 
     WARNING
