@@ -1,5 +1,3 @@
-use std::sync::LazyLock;
-
 use actix_http::ContentEncoding;
 use actix_http::header::Quality;
 use actix_web::error::{ErrorBadRequest, ErrorNotAcceptable, ErrorNotFound};
