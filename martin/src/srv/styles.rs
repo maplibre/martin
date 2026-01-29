@@ -1,5 +1,3 @@
-use std::sync::LazyLock;
-
 use actix_middleware_etag::Etag;
 use actix_web::http::header::{ContentType, LOCATION};
 use actix_web::middleware::Compress;
