@@ -820,6 +820,8 @@ impl Rect {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
+    #[allow(clippy::too_many_lines)]
     fn intersect_segment_boundary<F, G>(
         &self,
         curr: (f64, f64),
