@@ -1,5 +1,4 @@
 use std::string::ToString;
-use std::sync::LazyLock;
 
 use actix_middleware_etag::Etag;
 use actix_web::error::{ErrorBadRequest, ErrorNotFound};
