@@ -511,15 +511,13 @@ impl Rect {
         vec![p1[0] + t * (p2[0] - p1[0]), y]
     }
 
-    fn clip_ring(&self, ring: &[Vec<f64>]) -> Vec<Vec<Vec<f64>>> {
-        let mut output = Vec::new();
-
+    fn prepare_ring(&self, ring: &[Vec<f64>], hole: bool) -> Option<(Vec<Node>, Vec<Node>)> {
         let len = ring.len();
         if len == 0 {
-            return output;
+            return None;
         }
 
-        let mut new_ring = Vec::with_capacity(len);
+        let mut new_ring = Vec::<Node>::with_capacity(len);
         let mut boundary = vec![
             Node {
                 coord: (self.min_x, self.max_y),
@@ -558,166 +556,112 @@ impl Rect {
             let curr_in = self.inside(&ring[j]);
             let next_in = self.inside(&ring[k]);
 
+            // Left
             let segment = ((self.min_x, self.max_y), (self.min_x, self.min_y));
+            let f = |b:&Node, p:(f64, f64)| b.coord.0 - p.0 < EPS && p.1 >= b.coord.1;
+            let g = |b:&Node, p:(f64, f64)| b.coord.1 - p.1 < EPS;
+            self.intersect_segment_boundary(curr, next,  curr_in, next_in, prev_in, segment, &mut boundary, &mut new_ring, f, g);
 
-            if curr_in && next_in {
-                let mut node = Node {
-                    coord: curr,
-                    link_id: None,
-                    inside: true,
-                    visited: false,
-                };
+            // Bottom
+            let segment = ((self.min_x, self.min_y), (self.max_x, self.min_y));
+            let f = |b:&Node, p:(f64, f64)| b.coord.1 - p.1 < EPS && p.0 <= b.coord.0;
+            let g = |b:&Node, p:(f64, f64)| b.coord.0 - p.0 < EPS;
+            self.intersect_segment_boundary(curr, next,  curr_in, next_in, prev_in, segment, &mut boundary, &mut new_ring, f, g);
 
-                // edge case: current point on boundary and previous point was outside
-                if !prev_in
-                    && let Some(p) = intersect_segments(curr, next, segment.0, segment.1)
-                    && p.0 - curr.0 < EPS
-                    && p.1 - curr.1 < EPS
-                {
-                    // push point to boundary
-                    let pos = boundary
-                        .iter()
-                        .position(|b| b.coord.0 - p.0 < EPS && b.coord.1 <= p.1);
-                    if let Some(pos) = pos {
-                        // check if boundary point is a corner point
-                        let boundary_point = &mut boundary[pos];
+            // Right
+            let segment = ((self.max_x, self.min_y), (self.max_x, self.max_y));
+            let f = |b:&Node, p:(f64, f64)| b.coord.0 - p.0 < EPS && p.1 <= b.coord.1;
+            let g = |b:&Node, p:(f64, f64)| b.coord.1 - p.1 < EPS;
+            self.intersect_segment_boundary(curr, next,  curr_in, next_in, prev_in, segment, &mut boundary, &mut new_ring, f, g);
 
-                        if boundary_point.coord.1 - p.1 < EPS {
-                            boundary_point.link_id = node.link_id;
-                        } else {
-                            node.link_id = Some(new_ring.len());
-                            boundary.insert(pos, node.clone());
-                        }
-                    }
-                }
+            // Top
+            let segment = ((self.max_x, self.max_y), (self.min_y, self.max_y));
+            let f = |b:&Node, p:(f64, f64)| b.coord.1 - p.1 < EPS && p.0 >= b.coord.0;
+            let g = |b:&Node, p:(f64, f64)| b.coord.0 - p.0 < EPS;
+            self.intersect_segment_boundary(curr, next,  curr_in, next_in, prev_in, segment, &mut boundary, &mut new_ring, f, g);
+        }
 
-                new_ring.push(node);
+        // reverse boundary order for holes
+        if hole {
+            boundary.reverse();
+        }
+
+        Some((new_ring, boundary))
+    }
+
+    // ToDo: holes - build!
+    fn build_new_rings(mut polygon: Vec<Node>, boundary: Vec<Node>) -> Vec<Vec<Vec<f64>>> {
+        let mut rings = vec![];
+
+        // edge cases: check if all nodes are inside or all nodes are outside
+        if polygon.iter().all(|p|!p.inside) {
+            let ring = boundary.iter().filter(|b|b.inside).map(|b|vec![b.coord.0, b.coord.1]).collect();
+            rings.push(ring);
+            return rings;
+        }
+
+        if polygon.iter().all(|p|p.inside) {
+            let ring = polygon.into_iter().map(|p|vec![p.coord.0, p.coord.1]).collect();
+            rings.push(ring);
+            return rings;
+        }
+
+        let mut ring: Vec<Vec<f64>> = vec![];
+        for i in 0..polygon.len() {
+            let node = &mut polygon[i];
+            if node.visited || !node.inside {
+                continue;
             }
 
-            if curr_in
-                && !next_in
-                && let Some(p) = intersect_segments(curr, next, segment.0, segment.1)
-            {
-                let mut node = Node {
-                    coord: p,
-                    link_id: None,
-                    inside: false,
-                    visited: false,
-                };
+            Self::iterate_node(i, &mut polygon, &boundary, &mut ring);
 
-                // edge case: current point lies on boundary, prev and next points lie outside -> discard singular point
-                if !prev_in && p.0 - curr.0 < EPS && p.1 - curr.1 < EPS {
-                    new_ring.push(node);
-                    continue;
-                }
-
-                node.inside = true;
-                node.link_id = Some(new_ring.len());
-
-                // push point to boundary
-                let pos = boundary
-                    .iter()
-                    .position(|b| b.coord.0 - p.0 < EPS && b.coord.1 <= p.1);
-                if let Some(pos) = pos {
-                    // check if boundary point is a corner point
-                    let boundary_point = &mut boundary[pos];
-
-                    if boundary_point.coord.1 - p.1 < EPS {
-                        boundary_point.link_id = node.link_id;
-                    } else {
-                        boundary.insert(pos, node.clone());
-                    }
-                }
-
-                // intersection is different than current
-                if p.0 - curr.0 > EPS || p.1 - curr.1 > EPS {
-                    new_ring.push(Node {
-                        coord: curr,
-                        link_id: None,
-                        inside: true,
-                        visited: false,
-                    });
-                }
-
-                new_ring.push(node);
-            }
-
-            if !curr_in
-                && next_in
-                && let Some(p) = intersect_segments(curr, next, segment.0, segment.1)
-            {
-                new_ring.push(Node {
-                    coord: curr,
-                    link_id: None,
-                    inside: false,
-                    visited: false,
-                });
-
-                // edge case: next point lies on the boundary -> decide in next iteration if it will be included
-                if (p.0 - next.0) < EPS && (p.1 - next.1) < EPS {
-                    continue;
-                }
-
-                let node = Node {
-                    coord: p,
-                    link_id: Some(new_ring.len()),
-                    inside: true,
-                    visited: false,
-                };
-
-                // push point to boundary
-                let pos = boundary
-                    .iter()
-                    .position(|b| b.coord.0 - p.0 < EPS && b.coord.1 <= p.1);
-                if let Some(pos) = pos {
-                    // check if boundary point is a corner point
-                    let boundary_point = &mut boundary[pos];
-                    if boundary_point.coord.1 - p.1 < EPS {
-                        boundary_point.link_id = node.link_id;
-                    } else {
-                        boundary.insert(pos, node.clone());
-                    }
-                }
-
-                new_ring.push(node);
-            }
-
-            if !curr_in && !next_in {
-                new_ring.push(Node {
-                    coord: curr,
-                    link_id: None,
-                    inside: false,
-                    visited: false,
-                });
-
-                if let Some(p) = intersect_segments(curr, next, segment.0, segment.1) {
-                    let node = Node {
-                        coord: p,
-                        link_id: Some(new_ring.len()),
-                        inside: true,
-                        visited: false,
-                    };
-
-                    // push point to boundary
-                    let pos = boundary
-                        .iter()
-                        .position(|b| b.coord.0 - p.0 < EPS && b.coord.1 <= p.1);
-                    if let Some(pos) = pos {
-                        // check if boundary point is a corner point
-                        let boundary_point = &mut boundary[pos];
-                        if boundary_point.coord.1 - p.1 < EPS {
-                            boundary_point.link_id = node.link_id;
-                        } else {
-                            boundary.insert(pos, node.clone());
-                        }
-                    }
-
-                    new_ring.push(node);
-                }
+            if !ring.is_empty() {
+                rings.push(ring);
+                ring = vec![];
             }
         }
 
-        output
+        rings
+    }
+
+    fn iterate_node(index: usize, polygon: &mut Vec<Node>, boundary: &Vec<Node>, ring: &mut Vec<Vec<f64>>) {
+        let node = &mut polygon[index];
+        if node.visited {
+            // close ring - first must equal last node
+            ring.push(vec![node.coord.0, node.coord.1]);
+            return;
+        }
+
+        node.visited = true;
+        ring.push(vec![node.coord.0, node.coord.1]);
+
+        // maybe switch to boundary traversal
+        if node.link_id.is_some() {
+            let  pos = boundary.iter().position(|b|b.link_id == node.link_id);
+            if let Some(mut pos) = pos {
+                pos = if pos == boundary.len() - 1 { 0 } else { pos + 1 };
+        
+                // iterate over boundary nodes
+                while let Some(boundary_node) = boundary.get(pos) && boundary_node.link_id.is_none() {
+                    if boundary_node.inside {
+                        ring.push(vec![boundary_node.coord.0, boundary_node.coord.1]);
+                    }
+                    pos = if pos == boundary.len() - 1 { 0 } else { pos + 1 };
+                }
+
+                // switch to polygon nodes
+                if let Some(boundary_node) = boundary.get(pos) {
+                    if  let Some(index) = boundary_node.link_id {
+                        // continue
+                        Self::iterate_node(index, polygon, boundary, ring);
+                    }
+                }
+            }
+        } else {
+            // continue
+            let index = if index == polygon.len() - 1 { 0 } else { index + 1 };
+            Self::iterate_node(index, polygon, boundary, ring);
+        }
     }
 
     fn clip_geometry(&self, mut geom: Geometry) -> Option<Geometry> {
@@ -783,19 +727,19 @@ impl Rect {
                     let mut rings_iter = rings.into_iter();
 
                     if let Some(exterior) = rings_iter.next() {
-                        let clipped_exterior = self.clip_ring(&exterior);
+                        // let clipped_exterior = self.clip_ring(&exterior);
 
-                        if !clipped_exterior.is_empty() {
-                            let mut current_poly = clipped_exterior;
+                        // if !clipped_exterior.is_empty() {
+                        //     let mut current_poly = clipped_exterior;
 
-                            for hole in rings_iter {
-                                let clipped_hole = self.clip_ring(&hole);
-                                if !clipped_hole.is_empty() {
-                                    // current_poly.push(clipped_hole);
-                                }
-                            }
-                            clipped_polygons.push(current_poly);
-                        }
+                        //     for hole in rings_iter {
+                        //         let clipped_hole = self.clip_ring(&hole);
+                        //         if !clipped_hole.is_empty() {
+                        //             // current_poly.push(clipped_hole);
+                        //         }
+                        //     }
+                        //     clipped_polygons.push(current_poly);
+                        // }
                     }
                 }
 
@@ -826,20 +770,18 @@ impl Rect {
         &self,
         curr: (f64, f64),
         next: (f64, f64),
-        prev: (f64, f64),
+        curr_in: bool,
+        next_in: bool,
+        prev_in: bool,
         segment: ((f64, f64), (f64, f64)),
         boundary: &mut Vec<Node>,
         new_ring: &mut Vec<Node>,
         f: F,
         g: G,
     ) where
-        F: Fn((f64, f64), (f64, f64)) -> bool, // b.coord.0 - p.0 < EPS && b.coord.1 <= p.1
-        G: Fn((f64, f64), (f64, f64)) -> bool, // boundary_point.coord.1 - p.1 < EPS
+        F: Fn(&Node, (f64, f64)) -> bool, // b.coord.0 - p.0 < EPS && b.coord.1 <= p.1
+        G: Fn(&Node, (f64, f64)) -> bool, // boundary_point.coord.1 - p.1 < EPS
     {
-        let curr_in = self.inside(&[curr.0, curr.1]);
-        let next_in = self.inside(&[next.0, next.1]);
-        let prev_in = self.inside(&[prev.0, prev.1]);
-
         if curr_in && next_in {
             let mut node = Node {
                 coord: curr,
@@ -848,30 +790,40 @@ impl Rect {
                 visited: false,
             };
 
-            // edge case: current point on boundary and previous point was outside
-            if !prev_in
-                && let Some(p) = intersect_segments(curr, next, segment.0, segment.1)
+            // edge case: current point on boundary and previous was not in
+            if !prev_in && let Some(p) = intersect_segments(curr, next, segment.0, segment.1)
                 && p.0 - curr.0 < EPS
                 && p.1 - curr.1 < EPS
             {
                 // push point to boundary
                 let pos = boundary
                     .iter()
-                    .position(|b| b.coord.0 - p.0 < EPS && b.coord.1 <= p.1);
+                    .position(|b| f(b, p));
                 if let Some(pos) = pos {
                     // check if boundary point is a corner point
                     let boundary_point = &mut boundary[pos];
 
-                    if boundary_point.coord.1 - p.1 < EPS {
-                        boundary_point.link_id = node.link_id;
+                    if g(boundary_point, p) {
+                        // set link once
+                        if boundary_point.link_id.is_none() {
+                            node.link_id = Some(new_ring.len());
+                            boundary_point.link_id = node.link_id;
+                        } 
                     } else {
                         node.link_id = Some(new_ring.len());
                         boundary.insert(pos, node.clone());
                     }
                 }
+
+                // push once 
+                if node.link_id.is_some() {
+                    new_ring.push(node);
+                }
+            } else {
+                // not on boundary or previous was in too
+                new_ring.push(node);
             }
 
-            new_ring.push(node);
         }
 
         if curr_in
@@ -879,68 +831,39 @@ impl Rect {
             && let Some(p) = intersect_segments(curr, next, segment.0, segment.1)
         {
             let mut node = Node {
-                coord: p,
+                coord: curr,
                 link_id: None,
-                inside: false,
+                inside: true,
                 visited: false,
             };
 
-            // edge case: current point lies on boundary, prev and next points lie outside -> discard singular point
+            // edge case: current point lies on boundary, prev and next points lie outside -> do not add boundary point
             if !prev_in && p.0 - curr.0 < EPS && p.1 - curr.1 < EPS {
-                new_ring.push(node);
-                return;
-            }
-
-            node.inside = true;
-            node.link_id = Some(new_ring.len());
-
-            // push point to boundary
-            let pos = boundary
-                .iter()
-                .position(|b| b.coord.0 - p.0 < EPS && b.coord.1 <= p.1);
-            if let Some(pos) = pos {
-                // check if boundary point is a corner point
-                let boundary_point = &mut boundary[pos];
-
-                if boundary_point.coord.1 - p.1 < EPS {
-                    boundary_point.link_id = node.link_id;
+                node.inside = false;
+                // push regular polygon point once
+                if let Some(last) = new_ring.last() {
+                    if last.coord.0 - curr.0 > EPS || last.coord.1 - curr.1 > EPS {
+                        new_ring.push(node);
+                    }
                 } else {
-                    boundary.insert(pos, node.clone());
+                    new_ring.push(node);
                 }
-            }
-
-            // intersection is different than current
-            if p.0 - curr.0 > EPS || p.1 - curr.1 > EPS {
-                new_ring.push(Node {
-                    coord: curr,
-                    link_id: None,
-                    inside: true,
-                    visited: false,
-                });
-            }
-
-            new_ring.push(node);
-        }
-
-        if !curr_in
-            && next_in
-            && let Some(p) = intersect_segments(curr, next, segment.0, segment.1)
-        {
-            new_ring.push(Node {
-                coord: curr,
-                link_id: None,
-                inside: false,
-                visited: false,
-            });
-
-            // edge case: next point lies on the boundary -> decide in next iteration if it will be included
-            if (p.0 - next.0) < EPS && (p.1 - next.1) < EPS {
                 return;
             }
 
-            let node = Node {
+            // push regular polygon point once
+            if let Some(last) = new_ring.last() {
+                if last.coord.0 - curr.0 > EPS || last.coord.1 - curr.1 > EPS {
+                    new_ring.push(node);
+                }
+            } else {
+                new_ring.push(node);
+            }
+
+            // new node for intersection point
+            let mut node = Node {
                 coord: p,
-                link_id: Some(new_ring.len()),
+                link_id: None,
                 inside: true,
                 visited: false,
             };
@@ -948,32 +871,106 @@ impl Rect {
             // push point to boundary
             let pos = boundary
                 .iter()
-                .position(|b| b.coord.0 - p.0 < EPS && b.coord.1 <= p.1);
+                .position(|b| f(b, p));
             if let Some(pos) = pos {
                 // check if boundary point is a corner point
                 let boundary_point = &mut boundary[pos];
-                if boundary_point.coord.1 - p.1 < EPS {
-                    boundary_point.link_id = node.link_id;
+
+                if g(boundary_point, p) {
+                    // set link once
+                    if boundary_point.link_id.is_none() {
+                        node.link_id = Some(new_ring.len());
+                        boundary_point.link_id = node.link_id;
+                    } 
                 } else {
+                    node.link_id = Some(new_ring.len());
                     boundary.insert(pos, node.clone());
                 }
             }
 
-            new_ring.push(node);
+            // push once
+            if node.link_id.is_some() {
+                new_ring.push(node);
+            }
         }
 
-        if !curr_in && !next_in {
-            new_ring.push(Node {
+        if !curr_in && next_in {
+            let node = Node {
                 coord: curr,
                 link_id: None,
                 inside: false,
                 visited: false,
-            });
+            };
+
+            // push regular polygon point once
+            if let Some(last) = new_ring.last() {
+                if last.coord.0 - curr.0 > EPS || last.coord.1 - curr.1 > EPS {
+                    new_ring.push(node);
+                }
+            } else {
+                new_ring.push(node);
+            }
 
             if let Some(p) = intersect_segments(curr, next, segment.0, segment.1) {
-                let node = Node {
+                // edge case: next point lies on the boundary -> decide in next iteration if it will be included
+                if p.0 - next.0 < EPS && p.1 - next.1 < EPS {
+                    return;
+                }
+
+                let mut node = Node {
                     coord: p,
-                    link_id: Some(new_ring.len()),
+                    link_id: None,
+                    inside: true,
+                    visited: false,
+                };
+                // push point to boundary
+                let pos = boundary
+                    .iter()
+                    .position(|b| f(b, p));
+                if let Some(pos) = pos {
+                    // check if boundary point is a corner point
+                    let boundary_point = &mut boundary[pos];
+                    if g(boundary_point, p) {
+                        // set link once
+                        if boundary_point.link_id.is_none() {
+                            node.link_id = Some(new_ring.len());
+                            boundary_point.inside = true;
+                            boundary_point.link_id = node.link_id;
+                        }
+                    } else {
+                        node.link_id = Some(new_ring.len());
+                        boundary.insert(pos, node.clone());
+                    }
+                }
+
+                // push intersection point once
+                if node.link_id.is_some() {
+                    new_ring.push(node);
+                }
+            }
+        }
+
+        if !curr_in && !next_in {
+            let node = Node {
+                coord: curr,
+                link_id: None,
+                inside: false,
+                visited: false,
+            };
+            
+            // push regular polygon point once
+            if let Some(last) = new_ring.last() {
+                if last.coord.0 - curr.0 > EPS || last.coord.1 - curr.1 > EPS {
+                    new_ring.push(node.clone());
+                }
+            } else {
+                new_ring.push(node.clone());
+            }
+
+            if let Some(p) = intersect_segments(curr, next, segment.0, segment.1) {
+                let mut node = Node {
+                    coord: p,
+                    link_id: None,
                     inside: true,
                     visited: false,
                 };
@@ -981,18 +978,22 @@ impl Rect {
                 // push point to boundary
                 let pos = boundary
                     .iter()
-                    .position(|b| b.coord.0 - p.0 < EPS && b.coord.1 <= p.1);
+                    .position(|b| f(b, p));
                 if let Some(pos) = pos {
                     // check if boundary point is a corner point
                     let boundary_point = &mut boundary[pos];
-                    if boundary_point.coord.1 - p.1 < EPS {
-                        boundary_point.link_id = node.link_id;
+                    if g(boundary_point, p) {
+                        boundary_point.inside = true;
                     } else {
+                        node.link_id = Some(new_ring.len());
                         boundary.insert(pos, node.clone());
                     }
                 }
 
-                new_ring.push(node);
+                // only add intersection point if not a corner point
+                if node.link_id.is_some() {
+                    new_ring.push(node);
+                }
             }
         }
     }
