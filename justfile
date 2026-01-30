@@ -97,6 +97,14 @@ bless-int:
 book:  (cargo-install 'mdbook') (cargo-install 'mdbook-tabs')
     mdbook serve docs --open --port 8321
 
+# Build release binaries for a target with debug info stripped
+build-release target:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    export CARGO_TARGET_{{shoutysnakecase(target)}}_RUSTFLAGS='-C strip=debuginfo'
+    cargo build --release --target {{target}} --package mbtiles --locked
+    cargo build --release --target {{target}} --package martin --locked
+
 # Quick compile without building a binary
 check: (cargo-install 'cargo-hack')
     cargo hack --exclude-features _tiles check --all-targets --each-feature --workspace
@@ -104,8 +112,44 @@ check: (cargo-install 'cargo-hack')
 # Test documentation generation
 check-doc:  (docs '')
 
-# Run all tests as expected by CI
-ci-test: env-info restart test-fmt clippy check-doc test check && assert-git-is-clean
+# Run all CI checks locally as single command 
+ci: ci-lint ci-test ci-test-publish && assert-git-is-clean
+
+# Run all CI lint checks
+ci-lint: test-fmt ci-lint-js ci-lint-rust ci-lint-deps
+
+# Lint Rust dependencies 
+ci-lint-deps: shear
+
+# Lint and type-check the frontend 
+ci-lint-js: ci-npm-install biomejs-martin-ui type-check
+
+# Lint Rust code 
+ci-lint-rust: env-info clippy check check-doc
+
+# Install frontend npm dependencies
+[working-directory: 'martin/martin-ui']
+ci-npm-install:
+    npm clean-install --no-fund
+
+# Run all CI tests
+ci-test: restart ci-test-js ci-test-rust test-int
+
+# Run frontend tests 
+ci-test-js: ci-npm-install test-frontend
+
+# Test that packages can be published 
+ci-test-publish:
+    cargo publish --workspace --dry-run
+
+# Run Rust unit tests by package 
+ci-test-rust: start
+    cargo test --package martin-tile-utils
+    cargo test --package mbtiles --no-default-features
+    cargo test --package mbtiles
+    cargo test --package martin
+    cargo test --package martin-core
+    cargo test --doc
 
 # Perform  cargo clean  to delete all build files
 clean: clean-test stop && clean-martin-ui
@@ -147,6 +191,18 @@ coverage *args='--no-clean --open':  (cargo-install 'cargo-llvm-cov') clean star
     {{just}} test-int
 
     cargo llvm-cov report {{args}}
+
+# Collect build artifacts to target_releases directory
+collect-artifacts target ext='':
+    mkdir -p target_releases
+    mv target/{{target}}/release/martin{{ext}} target_releases/
+    mv target/{{target}}/release/martin-cp{{ext}} target_releases/
+    mv target/{{target}}/release/mbtiles{{ext}} target_releases/
+
+# Collect Debian package to target_releases directory
+collect-deb-artifact:
+    mkdir -p target_releases
+    mv target/debian/debian-x86_64.deb target_releases/
 
 # Start Martin server
 cp *args:
@@ -259,6 +315,28 @@ mbtiles *args:
 # Build debian package
 package-deb:  (cargo-install 'cargo-deb')
     cargo deb -v -p martin --output target/debian/martin.deb
+
+# Move Debian package to release files directory
+package-deb-release:
+    mkdir -p target/files
+    mv target/debian-x86_64/debian-x86_64.deb target/files/martin-Debian-x86_64.deb
+
+# Create .tar.gz package for Unix targets
+package-tar target:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    mkdir -p target/files
+    cd target/{{target}}
+    chmod +x martin martin-cp mbtiles
+    tar czvf ../files/martin-{{target}}.tar.gz martin martin-cp mbtiles
+
+# Create .zip package for Windows
+package-zip:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    mkdir -p target/files
+    cd target/x86_64-pc-windows-msvc
+    7z a ../files/martin-x86_64-pc-windows-msvc.zip martin.exe martin-cp.exe mbtiles.exe
 
 # Run pg_dump utility against the test database
 pg_dump *args:
