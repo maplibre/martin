@@ -105,6 +105,15 @@ build-release target:
     cargo build --release --target {{target}} --package mbtiles --locked
     cargo build --release --target {{target}} --package martin --locked
 
+# Build for musl target using zigbuild
+build-release-musl target:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    export CARGO_TARGET_{{shoutysnakecase(target)}}_RUSTFLAGS='-C strip=debuginfo'
+    cargo zigbuild --release --target {{target}} --package mbtiles --locked
+    cargo zigbuild --release --target {{target}} --package martin --locked   
+    
+
 # Quick compile without building a binary
 check: (cargo-install 'cargo-hack')
     cargo hack --exclude-features _tiles check --all-targets --each-feature --workspace
@@ -112,7 +121,7 @@ check: (cargo-install 'cargo-hack')
 # Test documentation generation
 check-doc:  (docs '')
 
-# Run all CI checks locally as single command 
+# Run all CI checks locally as a single command 
 ci: ci-lint ci-test ci-test-publish && assert-git-is-clean
 
 # Run all CI lint checks
@@ -125,7 +134,7 @@ ci-lint-deps: shear
 ci-lint-js: ci-npm-install biomejs-martin-ui type-check
 
 # Lint Rust code 
-ci-lint-rust: env-info clippy check check-doc
+ci-lint-rust: clippy check check-doc
 
 # Install frontend npm dependencies
 [working-directory: 'martin/martin-ui']
@@ -133,7 +142,7 @@ ci-npm-install:
     npm clean-install --no-fund
 
 # Run all CI tests
-ci-test: restart ci-test-js ci-test-rust test-int
+ci-test: restart ci-test-js ci-test-rust test-int env-info
 
 # Run frontend tests 
 ci-test-js: ci-npm-install test-frontend
@@ -331,12 +340,12 @@ package-tar target:
     tar czvf ../files/martin-{{target}}.tar.gz martin martin-cp mbtiles
 
 # Create .zip package for Windows
-package-zip:
+package-zip target='x86_64-pc-windows-msvc':
     #!/usr/bin/env bash
     set -euo pipefail
     mkdir -p target/files
-    cd target/x86_64-pc-windows-msvc
-    7z a ../files/martin-x86_64-pc-windows-msvc.zip martin.exe martin-cp.exe mbtiles.exe
+    cd target/{{target}}
+    7z a ../files/martin-{{target}}.zip martin.exe martin-cp.exe mbtiles.exe
 
 # Run pg_dump utility against the test database
 pg_dump *args:
