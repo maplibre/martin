@@ -62,7 +62,7 @@ impl Image {
             .colortype()
             .map_err(|e| CogError::InvalidTiffFile(e, path.to_path_buf()))?;
 
-        // @todo: can we replace this with reading the raw bytes and
+        // TODO: can we replace this with reading the raw bytes and
         // sending them over the wire with the correct header instead?
         let mut pixels = vec![
             0;
