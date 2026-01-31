@@ -111,8 +111,8 @@ build-release-musl target:
     set -euo pipefail
     export CARGO_TARGET_{{shoutysnakecase(target)}}_RUSTFLAGS='-C strip=debuginfo'
     cargo zigbuild --release --target {{target}} --package mbtiles --locked
-    cargo zigbuild --release --target {{target}} --package martin --locked   
-   
+    cargo zigbuild --release --target {{target}} --package martin --locked
+
 
 # Move release build artifacts to target_releases directory
 move-artifacts target:
@@ -129,19 +129,19 @@ check: (cargo-install 'cargo-hack')
 # Test documentation generation
 check-doc:  (docs '')
 
-# Run all CI checks locally as a single command 
+# Run all CI checks locally as a single command
 ci: ci-lint ci-test ci-test-publish && assert-git-is-clean
 
 # Run all CI lint checks
 ci-lint: test-fmt ci-lint-js ci-lint-rust ci-lint-deps
 
-# Lint Rust dependencies 
+# Lint Rust dependencies
 ci-lint-deps: shear
 
-# Lint and type-check the frontend 
+# Lint and type-check the frontend
 ci-lint-js: ci-npm-install biomejs-martin-ui type-check
 
-# Lint Rust code 
+# Lint Rust code
 ci-lint-rust: clippy check check-doc
 
 # Install frontend npm dependencies
@@ -152,14 +152,14 @@ ci-npm-install:
 # Run all CI tests
 ci-test: restart ci-test-js ci-test-rust test-int env-info
 
-# Run frontend tests 
+# Run frontend tests
 ci-test-js: ci-npm-install test-frontend
 
-# Test that packages can be published 
+# Test that packages can be published
 ci-test-publish:
     cargo publish --workspace --dry-run
 
-# Run Rust unit tests by package 
+# Run Rust unit tests by package
 ci-test-rust: start
     cargo test --package martin-tile-utils
     cargo test --package mbtiles --no-default-features
