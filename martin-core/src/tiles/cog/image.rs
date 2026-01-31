@@ -92,7 +92,7 @@ impl Image {
 
         let x = i64::from(xyz.x) - i64::from(self.tiles_origin.0);
         let y = i64::from(xyz.y) - i64::from(self.tiles_origin.1);
-        if x < 0 || x >= i64::from(self.tiles_across) || y < 0 || y >= i64::from(self.tiles_down) {
+        if 0 > x || x >= i64::from(self.tiles_across) || 0 > y || y >= i64::from(self.tiles_down) {
             return None;
         }
 
