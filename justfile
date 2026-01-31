@@ -112,7 +112,15 @@ build-release-musl target:
     export CARGO_TARGET_{{shoutysnakecase(target)}}_RUSTFLAGS='-C strip=debuginfo'
     cargo zigbuild --release --target {{target}} --package mbtiles --locked
     cargo zigbuild --release --target {{target}} --package martin --locked   
-    
+   
+
+# Move release build artifacts to target_releases directory
+move-artifacts target:
+    mkdir -p target_releases
+    mv target/{{target}}/release/martin target_releases/
+    mv target/{{target}}/release/martin-cp target_releases/
+    mv target/{{target}}/release/mbtiles target_releases/
+
 
 # Quick compile without building a binary
 check: (cargo-install 'cargo-hack')
