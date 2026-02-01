@@ -127,6 +127,14 @@ impl CogSource {
             f64::midpoint(extent[0], extent[2]),
             f64::midpoint(extent[1], extent[3]),
         );
+        // Determine output format from the first image's compression
+        let output_format = images
+            .values()
+            .next()
+            .map(Image::output_format)
+            .ok_or(CogError::NoImagesFound(path.clone()))?
+            .ok_or(CogError::NotSupportedCompression(0, path.clone()))?;
+
         let mut tilejson = tilejson! {
             tiles: vec![],
             bounds: Bounds::new(
@@ -146,14 +154,9 @@ impl CogSource {
         tilejson
             .other
             .insert("tileSize".to_string(), Value::from(tile_size));
-
-        // Determine output format from the first image's compression
-        let output_format = images
-            .values()
-            .next()
-            .map(Image::output_format)
-            .ok_or(CogError::NoImagesFound(path.clone()))?
-            .ok_or(CogError::NotSupportedCompression(0, path.clone()))?;
+        tilejson
+            .other
+            .insert("format".to_string(), Value::from(output_format.to_string()));
 
         Ok(CogSource {
             id,
@@ -556,7 +559,7 @@ mod tests {
         top: 41.971_743_363_279_65,
         right: -121.343_994_140_624_97,
         bottom: 41.963_574_782_225_15,
-    }, 16, 18, 256)]
+    }, 16, 18, 256, "png")]
     #[case("usda_naip_512_deflate_z2".to_string(), Center {
         longitude: -121.346_740_722_656_22,
         latitude: 41.967_659_203_678_16,
@@ -566,7 +569,7 @@ mod tests {
         top: 41.971_743_363_279_65,
         right: -121.343_994_140_624_97,
         bottom: 41.963_574_782_225_15,
-    }, 16, 17, 512)]
+    }, 16, 17, 512, "png")]
     #[case("usda_naip_512_jpeg_z5".to_string(), Center {
         longitude: -121.354_980_468_749_96,
         latitude: 41.967_659_203_678_146,
@@ -576,7 +579,7 @@ mod tests {
         top: 42.000_325_148_316_2,
         right: -121.333_007_812_499_96,
         bottom: 41.934_976_500_546_576,
-    }, 13, 17, 512)]
+    }, 13, 17, 512, "jpeg")]
     #[case("usda_naip_512_webp_z5".to_string(), Center {
         longitude: -121.354_980_468_749_96,
         latitude: 41.967_659_203_678_146,
@@ -586,7 +589,7 @@ mod tests {
         top: 42.000_325_148_316_2,
         right: -121.333_007_812_499_96,
         bottom: 41.934_976_500_546_576,
-    }, 13, 17, 512)]
+    }, 13, 17, 512, "webp")]
     #[case("usda_naip_128_none_z2".to_string(), Center {
         longitude: -121.343_650_817_871_05,
         latitude: 41.968_680_268_127_26,
@@ -596,7 +599,7 @@ mod tests {
         top: 41.969_190_794_214_65,
         right: -121.343_307_495_117_16,
         bottom: 41.968_169_737_948_43,
-    }, 18, 19, 128)]
+    }, 18, 19, 128, "png")]
     fn can_generate_tilejson_from_source(
         #[case] cog_file: String,
         #[case] center: Center,
@@ -604,6 +607,7 @@ mod tests {
         #[case] min_zoom: u8,
         #[case] max_zoom: u8,
         #[case] tile_size: u32,
+        #[case] format: String,
     ) {
         let path = format!("../tests/fixtures/cog/{cog_file}.tif");
         let source = CogSource::new(cog_file, Path::new(&path).to_path_buf()).unwrap();
@@ -619,6 +623,10 @@ mod tests {
             bounds.to_string()
         );
         assert_eq!(source.tilejson.other.get("tileSize").unwrap(), tile_size);
+        assert_eq!(
+            source.tilejson.other.get("format").unwrap().as_str(),
+            Some(format.as_str())
+        );
     }
 
     #[rstest]
