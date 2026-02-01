@@ -44,7 +44,6 @@ impl Image {
         }
     }
 
-    #[expect(clippy::cast_possible_truncation)]
     pub fn get_tile(
         &self,
         decoder: &mut Decoder<File>,
