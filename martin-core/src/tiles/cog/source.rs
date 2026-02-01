@@ -284,13 +284,16 @@ fn verify_requirements(
         .map_err(|e| {
             CogError::TagsNotFound(e, vec![Tag::Compression.to_u16()], 0, path.to_path_buf())
         })
-        .and_then(
-            |compression: u16| if let Some(
-                    CompressionMethod::ModernJPEG
-                    | CompressionMethod::Deflate
-                    | CompressionMethod::LZW
-                    | CompressionMethod::None,
-                ) = CompressionMethod::from_u16(compression) { Ok(()) } else {
+        .and_then(|compression: u16| {
+            if let Some(
+                CompressionMethod::ModernJPEG
+                | CompressionMethod::Deflate
+                | CompressionMethod::LZW
+                | CompressionMethod::None,
+            ) = CompressionMethod::from_u16(compression)
+            {
+                Ok(())
+            } else {
                 if compression == COMPRESSION_WEBP {
                     return Ok(());
                 }
@@ -299,8 +302,8 @@ fn verify_requirements(
                     compression,
                     path.to_path_buf(),
                 ))
-            },
-        )?;
+            }
+        })?;
 
     match (&model.pixel_scale, &model.tie_points, &model.transformation) {
         (Some(pixel_scale), Some(tie_points), _)
