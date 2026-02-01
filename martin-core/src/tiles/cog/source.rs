@@ -6,7 +6,7 @@ use std::vec;
 
 use async_trait::async_trait;
 use martin_tile_utils::{
-    EARTH_CIRCUMFERENCE, Format, MAX_ZOOM, TileCoord, TileData, TileInfo, webmercator_to_wgs84,
+    EARTH_CIRCUMFERENCE, MAX_ZOOM, TileCoord, TileData, TileInfo, webmercator_to_wgs84,
 };
 use serde_json::Value;
 use tiff::decoder::{ChunkType, Decoder};
@@ -15,7 +15,7 @@ use tiff::tags::{CompressionMethod, PlanarConfiguration};
 use tilejson::{Bounds, Center, TileJSON, tilejson};
 
 use crate::tiles::cog::CogError;
-use crate::tiles::cog::image::Image;
+use crate::tiles::cog::image::{COMPRESSION_WEBP, Image};
 use crate::tiles::cog::model::ModelInfo;
 use crate::tiles::{MartinCoreResult, Source, UrlQuery};
 
@@ -146,6 +146,15 @@ impl CogSource {
         tilejson
             .other
             .insert("tileSize".to_string(), Value::from(tile_size));
+
+        // Determine output format from the first image's compression
+        let output_format = images
+            .values()
+            .next()
+            .map(Image::output_format)
+            .ok_or(CogError::NoImagesFound(path.clone()))?
+            .ok_or(CogError::NotSupportedCompression(0, path.clone()))?;
+
         Ok(CogSource {
             id,
             path,
@@ -153,7 +162,7 @@ impl CogSource {
             max_zoom,
             images,
             tilejson,
-            tileinfo: TileInfo::new(Format::Png, martin_tile_utils::Encoding::Internal),
+            tileinfo: TileInfo::new(output_format, martin_tile_utils::Encoding::Internal),
         })
     }
 }
@@ -259,7 +268,7 @@ fn verify_requirements(
         .and_then(|color_type| {
             if matches!(
                 color_type,
-                tiff::ColorType::RGB(8) | tiff::ColorType::RGBA(8)
+                tiff::ColorType::RGB(8) | tiff::ColorType::RGBA(8) | tiff::ColorType::YCbCr(_),
             ) {
                 Ok(())
             } else {
@@ -275,19 +284,23 @@ fn verify_requirements(
         .map_err(|e| {
             CogError::TagsNotFound(e, vec![Tag::Compression.to_u16()], 0, path.to_path_buf())
         })
-        .and_then(|compression: u16| {
-            if matches! {
-                CompressionMethod::from_u16(compression),
-                Some(CompressionMethod::None | CompressionMethod::LZW | CompressionMethod::Deflate)
-            } {
-                Ok(())
-            } else {
+        .and_then(
+            |compression: u16| if let Some(
+                    CompressionMethod::ModernJPEG
+                    | CompressionMethod::Deflate
+                    | CompressionMethod::LZW
+                    | CompressionMethod::None,
+                ) = CompressionMethod::from_u16(compression) { Ok(()) } else {
+                if compression == COMPRESSION_WEBP {
+                    return Ok(());
+                }
+
                 Err(CogError::NotSupportedCompression(
                     compression,
                     path.to_path_buf(),
                 ))
-            }
-        })?;
+            },
+        )?;
 
     match (&model.pixel_scale, &model.tie_points, &model.transformation) {
         (Some(pixel_scale), Some(tie_points), _)
@@ -341,6 +354,10 @@ fn get_image(
         .ok_or(CogError::GetOriginFailed(path.to_path_buf()))?;
     let tiles_across = image_width.div_ceil(tile_size);
     let tiles_down = image_length.div_ceil(tile_size);
+
+    // Get compression method for this IFD
+    let compression: u16 = decoder.get_tag_unsigned(Tag::Compression).unwrap_or(1); // Default to None (1) if not found
+
     Ok(Image::new(
         ifd_index,
         zoom_level,
@@ -348,6 +365,7 @@ fn get_image(
         tiles_across,
         tiles_down,
         tile_size,
+        compression,
     ))
 }
 
