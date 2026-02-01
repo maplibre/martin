@@ -567,6 +567,36 @@ mod tests {
         right: -121.343_994_140_624_97,
         bottom: 41.963_574_782_225_15,
     }, 16, 17, 512)]
+    #[case("usda_naip_512_jpeg_z5".to_string(), Center {
+        longitude: -121.354_980_468_749_96,
+        latitude: 41.967_659_203_678_146,
+        zoom: 15,
+    }, Bounds {
+        left: -121.376_953_124_999_94,
+        top: 42.000_325_148_316_2,
+        right: -121.333_007_812_499_96,
+        bottom: 41.934_976_500_546_576,
+    }, 13, 17, 512)]
+    #[case("usda_naip_512_webp_z5".to_string(), Center {
+        longitude: -121.354_980_468_749_96,
+        latitude: 41.967_659_203_678_146,
+        zoom: 15,
+    }, Bounds {
+        left: -121.376_953_124_999_94,
+        top: 42.000_325_148_316_2,
+        right: -121.333_007_812_499_96,
+        bottom: 41.934_976_500_546_576,
+    }, 13, 17, 512)]
+    #[case("usda_naip_128_none_z2".to_string(), Center {
+        longitude: -121.343_650_817_871_05,
+        latitude: 41.968_680_268_127_26,
+        zoom: 18,
+    }, Bounds {
+        left: -121.343_994_140_624_97,
+        top: 41.969_190_794_214_65,
+        right: -121.343_307_495_117_16,
+        bottom: 41.968_169_737_948_43,
+    }, 18, 19, 128)]
     fn can_generate_tilejson_from_source(
         #[case] cog_file: String,
         #[case] center: Center,

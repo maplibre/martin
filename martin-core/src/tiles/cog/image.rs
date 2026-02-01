@@ -90,7 +90,7 @@ impl Image {
             .map_err(|e| CogError::IfdSeekFailed(e, self.ifd_index, path.to_path_buf()))?;
 
         let Some(idx) = self.get_chunk_index(xyz) else {
-            Err(CogError::NoImagesFound(path.to_path_buf()))?
+            return Ok(Vec::new());
         };
 
         // For WEBP and JPEG compression, return the raw tile bytes directly
