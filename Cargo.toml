@@ -70,6 +70,7 @@ image = "0.25.8"
 indoc = "2"
 insta = "1.44.3"
 itertools = "0.14"
+i_overlay = "4.3.0"
 json-patch = "4"
 lambda-web = { version = "0.2.1", features = ["actix4"] }
 log = "0.4"

@@ -3313,6 +3313,48 @@ dependencies = [
 ]
 
 [[package]]
+name = "i_float"
+version = "1.16.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "813145bb0ad5b60f55cbbf3c74cdceda1c0a9d253b35c4cc36ae0df7887cb78f"
+dependencies = [
+ "libm",
+]
+
+[[package]]
+name = "i_key_sort"
+version = "0.10.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3c4d36ff9fb73dc62e163e25a07523ca5c2126660fb2485cdecf063e59b58f29"
+
+[[package]]
+name = "i_overlay"
+version = "4.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "34a1e10431520ad96074046b5248d238d1836c3290d688d7234a6d3351e3c50c"
+dependencies = [
+ "i_float",
+ "i_key_sort",
+ "i_shape",
+ "i_tree",
+]
+
+[[package]]
+name = "i_shape"
+version = "1.16.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7722ecde565c0b5845a8850934b18a4c08cda242a116e7ce1676ae990feea0e8"
+dependencies = [
+ "i_float",
+]
+
+[[package]]
+name = "i_tree"
+version = "0.17.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7d92c9b16087de49894d0ba611039196964c1d34280f312b01db5d4aae6a0272"
+
+[[package]]
 name = "iana-time-zone"
 version = "0.1.64"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4002,6 +4044,7 @@ dependencies = [
  "geo-index",
  "geojson",
  "geozero",
+ "i_overlay",
  "image",
  "insta",
  "itertools 0.14.0",

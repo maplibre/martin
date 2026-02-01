@@ -6,6 +6,11 @@ use geojson::{Feature, FeatureCollection, GeoJson, Geometry, Value};
 use geozero::GeozeroDatasource;
 use geozero::geojson::GeoJsonString;
 use geozero::mvt::{Message, MvtWriter, Tile};
+use i_overlay::core::fill_rule::FillRule;
+use i_overlay::core::overlay_rule::OverlayRule;
+use i_overlay::float::clip::FloatClip;
+use i_overlay::float::single::SingleFloatOverlay;
+use i_overlay::string::clip::ClipRule;
 use martin_tile_utils::{
     EARTH_CIRCUMFERENCE, Encoding, Format, TileCoord, TileData, TileInfo, tile_bbox,
     wgs84_to_webmercator,
@@ -17,9 +22,11 @@ use tilejson::TileJSON;
 use tokio::fs::{self};
 use tracing::trace;
 
+use crate::tiles::geojson::convert::{
+    line_string_to_shape_path, multi_line_string_from_paths, multi_line_string_to_shape_path,
+    multi_polygon_from_shapes, multi_polygon_to_shape_path, polygon_to_shape_path,
+};
 use crate::tiles::{BoxedSource, MartinCoreResult, Source, UrlQuery};
-
-const EPS: f64 = 1e-9;
 
 /// A source for `GeoJSON` files
 ///
@@ -45,6 +52,7 @@ pub struct GeoJsonSource {
 }
 
 impl GeoJsonSource {
+    /// Create a new `GeoJSON` source
     pub async fn new(id: String, path: &PathBuf) -> Result<Self, Box<dyn std::error::Error>> {
         let geojson_str = fs::read_to_string(path).await?;
         let geojson = geojson_str.parse::<GeoJson>().unwrap();
@@ -96,7 +104,7 @@ fn preprocess_geojson(geojson: GeoJson) -> (GeoJson, RTree<f64>) {
                         bbox.extend(bb[0], bb[1]);
                         bbox.extend(bb[2], bb[3]);
                     }
-                    f.bbox = g.bbox.clone();
+                    f.bbox.clone_from(&g.bbox);
                     f.geometry = Some(g);
                     f
                 })
@@ -104,12 +112,12 @@ fn preprocess_geojson(geojson: GeoJson) -> (GeoJson, RTree<f64>) {
 
             // Build spatial index
             let mut builder = RTreeBuilder::<f64>::new(transformed_fs.len().try_into().unwrap());
-            transformed_fs.iter().for_each(|f| {
+            for f in &transformed_fs {
                 if let Some(bb) = &f.bbox {
                     dbg!("adding feature with bbox: {:?}", &bbox);
                     builder.add(bb[0], bb[1], bb[2], bb[3]);
                 }
-            });
+            }
 
             fc.bbox = Some(vec![bbox.min_x, bbox.min_y, bbox.max_x, bbox.max_y]);
             fc.features = transformed_fs;
@@ -117,7 +125,7 @@ fn preprocess_geojson(geojson: GeoJson) -> (GeoJson, RTree<f64>) {
             (GeoJson::FeatureCollection(fc), tree)
         }
         GeoJson::Feature(mut f) => {
-            let count = if f.geometry.is_some() { 1 } else { 0 };
+            let count = u32::from(f.geometry.is_some());
             let mut builder = RTreeBuilder::<f64>::new(count);
             let mut fc = FeatureCollection {
                 bbox: None,
@@ -129,10 +137,10 @@ fn preprocess_geojson(geojson: GeoJson) -> (GeoJson, RTree<f64>) {
                 if let Some(bb) = &transformed_g.bbox {
                     builder.add(bb[0], bb[1], bb[2], bb[3]);
                 }
-                f.bbox = transformed_g.bbox.clone();
+                f.bbox.clone_from(&transformed_g.bbox);
                 f.geometry = Some(transformed_g);
 
-                fc.bbox = f.bbox.clone();
+                fc.bbox.clone_from(&f.bbox);
                 fc.features.push(f);
             }
             let tree = builder.finish::<HilbertSort>();
@@ -227,13 +235,14 @@ impl Source for GeoJsonSource {
             let clipped_fs = selected_fs
                 .into_iter()
                 .filter_map(|mut f| {
-                    let g = rect.clip_geometry(f.geometry.unwrap());
+                    let geom = f.geometry.unwrap();
+                    let g = rect.clip_geometry(geom);
                     if let Some(geom) = g {
                         if let Some(bb) = &geom.bbox {
                             bbox.extend(bb[0], bb[1]);
                             bbox.extend(bb[2], bb[3]);
                         }
-                        f.bbox = geom.bbox.clone();
+                        f.bbox.clone_from(&geom.bbox);
                         f.geometry = Some(geom);
                         return Some(f);
                     }
@@ -265,14 +274,6 @@ impl Source for GeoJsonSource {
             "Could not fetch GeoJSON features".into(),
         ))
     }
-}
-
-#[derive(Debug, Clone)]
-struct Node {
-    coord: (f64, f64),
-    link_id: Option<usize>,
-    inside: bool,
-    visited: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -335,7 +336,7 @@ impl Rect {
         let mut rect = Rect::default();
 
         for p in ps {
-            if let (Some(&x), Some(&y)) = (p.get(0), p.get(1)) {
+            if let (Some(&x), Some(&y)) = (p.first(), p.get(1)) {
                 rect.extend(x, y);
             }
         }
@@ -347,7 +348,7 @@ impl Rect {
 
         for l in ls {
             for p in l {
-                if let (Some(&x), Some(&y)) = (p.get(0), p.get(1)) {
+                if let (Some(&x), Some(&y)) = (p.first(), p.get(1)) {
                     rect.extend(x, y);
                 }
             }
@@ -369,299 +370,17 @@ impl Rect {
         rect
     }
 
-    pub fn get_intersection(&self, p1: &[f64], p2: &[f64], p1_in: bool) -> Vec<f64> {
-        let (x1, y1) = (p1[0], p1[1]);
-        let (x2, y2) = (p2[0], p2[1]);
-
-        if p1_in {
-            if x2 < self.min_x {
-                return Self::intersect_x(p1, p2, self.min_x);
-            }
-
-            if x2 > self.max_x {
-                return Self::intersect_x(p1, p2, self.max_x);
-            }
-
-            if y2 < self.min_y {
-                return Self::intersect_y(p1, p2, self.min_y);
-            }
-
-            return Self::intersect_y(p1, p2, self.max_y);
-        }
-
-        if x1 < self.min_x {
-            return Self::intersect_x(p1, p2, self.min_x);
-        }
-
-        if x1 > self.max_x {
-            return Self::intersect_x(p1, p2, self.max_x);
-        }
-
-        if y1 < self.min_y {
-            return Self::intersect_y(p1, p2, self.min_y);
-        }
-
-        Self::intersect_y(p1, p2, self.max_y)
-    }
-
-    fn clip_exterior_segment(&self, p1: &[f64], p2: &[f64]) -> Option<Vec<Vec<f64>>> {
-        let (x1, y1) = (p1[0], p1[1]);
-        let (x2, y2) = (p2[0], p2[1]);
-
-        let mut is = vec![];
-
-        if x1 < self.min_x && x2 > self.min_x || x2 < self.min_x && x1 > self.min_x {
-            let i = Self::intersect_x(p1, p2, self.min_x);
-            if i[1] >= self.min_y && i[1] <= self.max_y {
-                is.push(i);
-            }
-        }
-
-        if x1 < self.max_x && x2 > self.max_x || x2 < self.max_x && x1 > self.max_x {
-            let i = Self::intersect_x(p1, p2, self.max_x);
-            if i[1] >= self.min_y && i[1] <= self.max_y {
-                is.push(i);
-            }
-        }
-
-        if y1 < self.min_y && y2 > self.min_y || y2 < self.min_y && y1 > self.min_y {
-            let i = Self::intersect_y(p1, p2, self.min_y);
-            if i[0] >= self.min_x && i[0] <= self.max_x {
-                is.push(i);
-            }
-        }
-
-        if y1 < self.max_y && y2 > self.max_y || y2 < self.max_y && y1 > self.max_y {
-            let i = Self::intersect_y(p1, p2, self.max_y);
-            if i[0] >= self.min_x && i[0] <= self.max_x {
-                is.push(i);
-            }
-        }
-
-        // remove duplicate entries
-        is.sort_by(|a, b| a[0].partial_cmp(&b[0]).unwrap_or(std::cmp::Ordering::Equal));
-        is.dedup_by(|a, b| (a[0] - b[0]).abs() < 1e-9 && (a[1] - b[1]).abs() < 1e-9);
-        if is.len() != 2 {
-            return None;
-        }
-
-        Some(is)
-    }
-
-    /// Clip line at bounding box - may result in multilinestring
-    pub fn clip_linestring(&self, line: &[Vec<f64>]) -> Vec<Vec<Vec<f64>>> {
-        let mut segments = Vec::new();
-        let mut current_segment = Vec::new();
-
-        for i in 0..line.len() - 1 {
-            let p1 = &line[i];
-            let p2 = &line[i + 1];
-
-            let p1_in = self.inside(p1);
-            let p2_in = self.inside(p2);
-
-            if p1_in && p2_in {
-                // Both inside
-                if current_segment.is_empty() {
-                    current_segment.push(p1.clone());
-                }
-                current_segment.push(p2.clone());
-                continue;
-            }
-
-            if p1_in && !p2_in {
-                // Leaving the box: find intersection, end segment
-                if current_segment.is_empty() {
-                    current_segment.push(p1.clone());
-                }
-                current_segment.push(self.get_intersection(p1, p2, p1_in));
-                segments.push(current_segment);
-                current_segment = Vec::new();
-                continue;
-            }
-
-            if !p1_in && p2_in {
-                // Entering the box: find intersection, start new segment
-                current_segment.push(self.get_intersection(p1, p2, p1_in));
-                current_segment.push(p2.clone());
-                continue;
-            }
-
-            // Both outside
-            if let Some(is) = self.clip_exterior_segment(p1, p2) {
-                segments.push(is);
-            }
-        }
-
-        if !current_segment.is_empty() {
-            segments.push(current_segment);
-        }
-        segments
-    }
-
-    // Helper to find intersection on vertical clip line at x
-    fn intersect_x(p1: &[f64], p2: &[f64], x: f64) -> Vec<f64> {
-        let t = (x - p1[0]) / (p2[0] - p1[0]);
-        vec![x, p1[1] + t * (p2[1] - p1[1])]
-    }
-
-    // Helper to find intersection on horizontal clip line at y
-    fn intersect_y(p1: &[f64], p2: &[f64], y: f64) -> Vec<f64> {
-        let t = (y - p1[1]) / (p2[1] - p1[1]);
-        vec![p1[0] + t * (p2[0] - p1[0]), y]
-    }
-
-    fn prepare_ring(&self, ring: &[Vec<f64>], hole: bool) -> Option<(Vec<Node>, Vec<Node>)> {
-        let len = ring.len();
-        if len == 0 {
-            return None;
-        }
-
-        let mut new_ring = Vec::<Node>::with_capacity(len);
-        let mut boundary = vec![
-            Node {
-                coord: (self.min_x, self.max_y),
-                link_id: None,
-                inside: is_point_in_polygon(&[self.min_x, self.max_y], ring),
-                visited: false,
-            },
-            Node {
-                coord: (self.min_x, self.min_y),
-                link_id: None,
-                inside: is_point_in_polygon(&[self.min_x, self.min_y], ring),
-                visited: false,
-            },
-            Node {
-                coord: (self.max_x, self.min_y),
-                link_id: None,
-                inside: is_point_in_polygon(&[self.max_x, self.min_y], ring),
-                visited: false,
-            },
-            Node {
-                coord: (self.max_x, self.max_y),
-                link_id: None,
-                inside: is_point_in_polygon(&[self.max_x, self.max_y], ring),
-                visited: false,
-            },
+    fn rings(&self) -> Vec<Vec<[f64; 2]>> {
+        let mut rings = vec![];
+        let ring = vec![
+            [self.min_x, self.max_y],
+            [self.min_x, self.min_y],
+            [self.max_x, self.min_y],
+            [self.max_x, self.max_y],
         ];
 
-        for j in 0..len {
-            let i = if j == 0 { len - 1 } else { j - 1 };
-            let k = if j == len - 1 { 0 } else { j + 1 };
-
-            let curr = (ring[j][0], ring[j][1]);
-            let next = (ring[k][0], ring[k][1]);
-
-            let prev_in = self.inside(&ring[i]);
-            let curr_in = self.inside(&ring[j]);
-            let next_in = self.inside(&ring[k]);
-
-            // Left
-            let segment = ((self.min_x, self.max_y), (self.min_x, self.min_y));
-            let f = |b:&Node, p:(f64, f64)| b.coord.0 - p.0 < EPS && p.1 >= b.coord.1;
-            let g = |b:&Node, p:(f64, f64)| b.coord.1 - p.1 < EPS;
-            self.intersect_segment_boundary(curr, next,  curr_in, next_in, prev_in, segment, &mut boundary, &mut new_ring, f, g);
-
-            // Bottom
-            let segment = ((self.min_x, self.min_y), (self.max_x, self.min_y));
-            let f = |b:&Node, p:(f64, f64)| b.coord.1 - p.1 < EPS && p.0 <= b.coord.0;
-            let g = |b:&Node, p:(f64, f64)| b.coord.0 - p.0 < EPS;
-            self.intersect_segment_boundary(curr, next,  curr_in, next_in, prev_in, segment, &mut boundary, &mut new_ring, f, g);
-
-            // Right
-            let segment = ((self.max_x, self.min_y), (self.max_x, self.max_y));
-            let f = |b:&Node, p:(f64, f64)| b.coord.0 - p.0 < EPS && p.1 <= b.coord.1;
-            let g = |b:&Node, p:(f64, f64)| b.coord.1 - p.1 < EPS;
-            self.intersect_segment_boundary(curr, next,  curr_in, next_in, prev_in, segment, &mut boundary, &mut new_ring, f, g);
-
-            // Top
-            let segment = ((self.max_x, self.max_y), (self.min_y, self.max_y));
-            let f = |b:&Node, p:(f64, f64)| b.coord.1 - p.1 < EPS && p.0 >= b.coord.0;
-            let g = |b:&Node, p:(f64, f64)| b.coord.0 - p.0 < EPS;
-            self.intersect_segment_boundary(curr, next,  curr_in, next_in, prev_in, segment, &mut boundary, &mut new_ring, f, g);
-        }
-
-        // reverse boundary order for holes
-        if hole {
-            boundary.reverse();
-        }
-
-        Some((new_ring, boundary))
-    }
-
-    // ToDo: holes - build!
-    fn build_new_rings(mut polygon: Vec<Node>, boundary: Vec<Node>) -> Vec<Vec<Vec<f64>>> {
-        let mut rings = vec![];
-
-        // edge cases: check if all nodes are inside or all nodes are outside
-        if polygon.iter().all(|p|!p.inside) {
-            let ring = boundary.iter().filter(|b|b.inside).map(|b|vec![b.coord.0, b.coord.1]).collect();
-            rings.push(ring);
-            return rings;
-        }
-
-        if polygon.iter().all(|p|p.inside) {
-            let ring = polygon.into_iter().map(|p|vec![p.coord.0, p.coord.1]).collect();
-            rings.push(ring);
-            return rings;
-        }
-
-        let mut ring: Vec<Vec<f64>> = vec![];
-        for i in 0..polygon.len() {
-            let node = &mut polygon[i];
-            if node.visited || !node.inside {
-                continue;
-            }
-
-            Self::iterate_node(i, &mut polygon, &boundary, &mut ring);
-
-            if !ring.is_empty() {
-                rings.push(ring);
-                ring = vec![];
-            }
-        }
-
+        rings.push(ring);
         rings
-    }
-
-    fn iterate_node(index: usize, polygon: &mut Vec<Node>, boundary: &Vec<Node>, ring: &mut Vec<Vec<f64>>) {
-        let node = &mut polygon[index];
-        if node.visited {
-            // close ring - first must equal last node
-            ring.push(vec![node.coord.0, node.coord.1]);
-            return;
-        }
-
-        node.visited = true;
-        ring.push(vec![node.coord.0, node.coord.1]);
-
-        // maybe switch to boundary traversal
-        if node.link_id.is_some() {
-            let  pos = boundary.iter().position(|b|b.link_id == node.link_id);
-            if let Some(mut pos) = pos {
-                pos = if pos == boundary.len() - 1 { 0 } else { pos + 1 };
-        
-                // iterate over boundary nodes
-                while let Some(boundary_node) = boundary.get(pos) && boundary_node.link_id.is_none() {
-                    if boundary_node.inside {
-                        ring.push(vec![boundary_node.coord.0, boundary_node.coord.1]);
-                    }
-                    pos = if pos == boundary.len() - 1 { 0 } else { pos + 1 };
-                }
-
-                // switch to polygon nodes
-                if let Some(boundary_node) = boundary.get(pos) {
-                    if  let Some(index) = boundary_node.link_id {
-                        // continue
-                        Self::iterate_node(index, polygon, boundary, ring);
-                    }
-                }
-            }
-        } else {
-            // continue
-            let index = if index == polygon.len() - 1 { 0 } else { index + 1 };
-            Self::iterate_node(index, polygon, boundary, ring);
-        }
     }
 
     fn clip_geometry(&self, mut geom: Geometry) -> Option<Geometry> {
@@ -684,71 +403,57 @@ impl Rect {
                     Some(geom)
                 }
             }
-            Value::LineString(ps) => {
-                let ls = self.clip_linestring(&ps);
-
-                match ls.len() {
-                    0 => None,
-                    1 => {
-                        geom.value = Value::LineString(ls.into_iter().next().unwrap());
-                        Some(geom)
-                    }
-                    _ => {
-                        geom.value = Value::MultiLineString(ls);
-                        Some(geom)
-                    }
-                }
-            }
-            Value::MultiLineString(ls) => {
-                let clipped_ls: Vec<Vec<Vec<f64>>> = ls
-                    .into_iter()
-                    .flat_map(|l| self.clip_linestring(&l))
-                    .collect();
+            Value::LineString(ls) => {
+                let string_line = line_string_to_shape_path(ls);
+                let clip = self.rings();
+                let clipped_ls = string_line.clip_by(
+                    &clip,
+                    FillRule::NonZero,
+                    ClipRule {
+                        invert: false,
+                        boundary_included: false,
+                    },
+                );
 
                 if clipped_ls.is_empty() {
                     None
                 } else {
-                    geom.value = Value::MultiLineString(clipped_ls);
+                    geom.value = Value::MultiLineString(multi_line_string_from_paths(clipped_ls));
                     Some(geom)
                 }
             }
-            Value::Polygon(rs) => {
-                for (ring_index, ring) in rs.iter().enumerate() {
-                    // self.clip_ring(ring, ring_index, &mut intersections);
-                }
+            Value::MultiLineString(ls) => {
+                let string_line = multi_line_string_to_shape_path(ls);
+                let clip = self.rings();
+                let clipped_ls = string_line.clip_by(
+                    &clip,
+                    FillRule::NonZero,
+                    ClipRule {
+                        invert: false,
+                        boundary_included: false,
+                    },
+                );
 
-                geom.value = Value::Polygon(vec![]);
-                Some(geom)
-            }
-            Value::MultiPolygon(ps) => {
-                let mut clipped_polygons = vec![];
-
-                for rings in ps {
-                    let mut rings_iter = rings.into_iter();
-
-                    if let Some(exterior) = rings_iter.next() {
-                        // let clipped_exterior = self.clip_ring(&exterior);
-
-                        // if !clipped_exterior.is_empty() {
-                        //     let mut current_poly = clipped_exterior;
-
-                        //     for hole in rings_iter {
-                        //         let clipped_hole = self.clip_ring(&hole);
-                        //         if !clipped_hole.is_empty() {
-                        //             // current_poly.push(clipped_hole);
-                        //         }
-                        //     }
-                        //     clipped_polygons.push(current_poly);
-                        // }
-                    }
-                }
-
-                if clipped_polygons.is_empty() {
+                if clipped_ls.is_empty() {
                     None
                 } else {
-                    geom.value = Value::MultiPolygon(clipped_polygons);
+                    geom.value = Value::MultiLineString(multi_line_string_from_paths(clipped_ls));
                     Some(geom)
                 }
+            }
+            Value::Polygon(polygon) => {
+                let subject = self.rings();
+                let clip = polygon_to_shape_path(polygon);
+                let shapes = subject.overlay(&clip, OverlayRule::Intersect, FillRule::EvenOdd);
+                geom.value = multi_polygon_from_shapes(shapes);
+                Some(geom)
+            }
+            Value::MultiPolygon(polygons) => {
+                let subject = self.rings();
+                let clip = multi_polygon_to_shape_path(polygons);
+                let shapes = subject.overlay(&clip, OverlayRule::Intersect, FillRule::EvenOdd);
+                geom.value = multi_polygon_from_shapes(shapes);
+                Some(geom)
             }
             Value::GeometryCollection(gs) => {
                 let mut geometries = vec![];
@@ -763,311 +468,16 @@ impl Rect {
             }
         }
     }
-
-    #[allow(clippy::too_many_arguments)]
-    #[allow(clippy::too_many_lines)]
-    fn intersect_segment_boundary<F, G>(
-        &self,
-        curr: (f64, f64),
-        next: (f64, f64),
-        curr_in: bool,
-        next_in: bool,
-        prev_in: bool,
-        segment: ((f64, f64), (f64, f64)),
-        boundary: &mut Vec<Node>,
-        new_ring: &mut Vec<Node>,
-        f: F,
-        g: G,
-    ) where
-        F: Fn(&Node, (f64, f64)) -> bool, // b.coord.0 - p.0 < EPS && b.coord.1 <= p.1
-        G: Fn(&Node, (f64, f64)) -> bool, // boundary_point.coord.1 - p.1 < EPS
-    {
-        if curr_in && next_in {
-            let mut node = Node {
-                coord: curr,
-                link_id: None,
-                inside: true,
-                visited: false,
-            };
-
-            // edge case: current point on boundary and previous was not in
-            if !prev_in && let Some(p) = intersect_segments(curr, next, segment.0, segment.1)
-                && p.0 - curr.0 < EPS
-                && p.1 - curr.1 < EPS
-            {
-                // push point to boundary
-                let pos = boundary
-                    .iter()
-                    .position(|b| f(b, p));
-                if let Some(pos) = pos {
-                    // check if boundary point is a corner point
-                    let boundary_point = &mut boundary[pos];
-
-                    if g(boundary_point, p) {
-                        // set link once
-                        if boundary_point.link_id.is_none() {
-                            node.link_id = Some(new_ring.len());
-                            boundary_point.link_id = node.link_id;
-                        } 
-                    } else {
-                        node.link_id = Some(new_ring.len());
-                        boundary.insert(pos, node.clone());
-                    }
-                }
-
-                // push once 
-                if node.link_id.is_some() {
-                    new_ring.push(node);
-                }
-            } else {
-                // not on boundary or previous was in too
-                new_ring.push(node);
-            }
-
-        }
-
-        if curr_in
-            && !next_in
-            && let Some(p) = intersect_segments(curr, next, segment.0, segment.1)
-        {
-            let mut node = Node {
-                coord: curr,
-                link_id: None,
-                inside: true,
-                visited: false,
-            };
-
-            // edge case: current point lies on boundary, prev and next points lie outside -> do not add boundary point
-            if !prev_in && p.0 - curr.0 < EPS && p.1 - curr.1 < EPS {
-                node.inside = false;
-                // push regular polygon point once
-                if let Some(last) = new_ring.last() {
-                    if last.coord.0 - curr.0 > EPS || last.coord.1 - curr.1 > EPS {
-                        new_ring.push(node);
-                    }
-                } else {
-                    new_ring.push(node);
-                }
-                return;
-            }
-
-            // push regular polygon point once
-            if let Some(last) = new_ring.last() {
-                if last.coord.0 - curr.0 > EPS || last.coord.1 - curr.1 > EPS {
-                    new_ring.push(node);
-                }
-            } else {
-                new_ring.push(node);
-            }
-
-            // new node for intersection point
-            let mut node = Node {
-                coord: p,
-                link_id: None,
-                inside: true,
-                visited: false,
-            };
-
-            // push point to boundary
-            let pos = boundary
-                .iter()
-                .position(|b| f(b, p));
-            if let Some(pos) = pos {
-                // check if boundary point is a corner point
-                let boundary_point = &mut boundary[pos];
-
-                if g(boundary_point, p) {
-                    // set link once
-                    if boundary_point.link_id.is_none() {
-                        node.link_id = Some(new_ring.len());
-                        boundary_point.link_id = node.link_id;
-                    } 
-                } else {
-                    node.link_id = Some(new_ring.len());
-                    boundary.insert(pos, node.clone());
-                }
-            }
-
-            // push once
-            if node.link_id.is_some() {
-                new_ring.push(node);
-            }
-        }
-
-        if !curr_in && next_in {
-            let node = Node {
-                coord: curr,
-                link_id: None,
-                inside: false,
-                visited: false,
-            };
-
-            // push regular polygon point once
-            if let Some(last) = new_ring.last() {
-                if last.coord.0 - curr.0 > EPS || last.coord.1 - curr.1 > EPS {
-                    new_ring.push(node);
-                }
-            } else {
-                new_ring.push(node);
-            }
-
-            if let Some(p) = intersect_segments(curr, next, segment.0, segment.1) {
-                // edge case: next point lies on the boundary -> decide in next iteration if it will be included
-                if p.0 - next.0 < EPS && p.1 - next.1 < EPS {
-                    return;
-                }
-
-                let mut node = Node {
-                    coord: p,
-                    link_id: None,
-                    inside: true,
-                    visited: false,
-                };
-                // push point to boundary
-                let pos = boundary
-                    .iter()
-                    .position(|b| f(b, p));
-                if let Some(pos) = pos {
-                    // check if boundary point is a corner point
-                    let boundary_point = &mut boundary[pos];
-                    if g(boundary_point, p) {
-                        // set link once
-                        if boundary_point.link_id.is_none() {
-                            node.link_id = Some(new_ring.len());
-                            boundary_point.inside = true;
-                            boundary_point.link_id = node.link_id;
-                        }
-                    } else {
-                        node.link_id = Some(new_ring.len());
-                        boundary.insert(pos, node.clone());
-                    }
-                }
-
-                // push intersection point once
-                if node.link_id.is_some() {
-                    new_ring.push(node);
-                }
-            }
-        }
-
-        if !curr_in && !next_in {
-            let node = Node {
-                coord: curr,
-                link_id: None,
-                inside: false,
-                visited: false,
-            };
-            
-            // push regular polygon point once
-            if let Some(last) = new_ring.last() {
-                if last.coord.0 - curr.0 > EPS || last.coord.1 - curr.1 > EPS {
-                    new_ring.push(node.clone());
-                }
-            } else {
-                new_ring.push(node.clone());
-            }
-
-            if let Some(p) = intersect_segments(curr, next, segment.0, segment.1) {
-                let mut node = Node {
-                    coord: p,
-                    link_id: None,
-                    inside: true,
-                    visited: false,
-                };
-
-                // push point to boundary
-                let pos = boundary
-                    .iter()
-                    .position(|b| f(b, p));
-                if let Some(pos) = pos {
-                    // check if boundary point is a corner point
-                    let boundary_point = &mut boundary[pos];
-                    if g(boundary_point, p) {
-                        boundary_point.inside = true;
-                    } else {
-                        node.link_id = Some(new_ring.len());
-                        boundary.insert(pos, node.clone());
-                    }
-                }
-
-                // only add intersection point if not a corner point
-                if node.link_id.is_some() {
-                    new_ring.push(node);
-                }
-            }
-        }
-    }
 }
 
-/// Check if u -> v -> w is oriented counter-clock-wise
-fn ccw(u: (f64, f64), v: (f64, f64), w: (f64, f64)) -> bool {
-    let a = subtract(u, v);
-    let b = subtract(u, w);
-    cross_product(a, b) > 0.0
-}
-
-fn cross_product(u: (f64, f64), v: (f64, f64)) -> f64 {
-    u.0 * v.1 - u.1 * v.0
-}
-
-fn subtract(p: (f64, f64), q: (f64, f64)) -> (f64, f64) {
-    (q.0 - p.0, q.1 - p.1)
-}
-
-fn intersect_segments(
-    p: (f64, f64),
-    q: (f64, f64),
-    r: (f64, f64),
-    s: (f64, f64),
-) -> Option<(f64, f64)> {
-    let r_vec = subtract(p, q);
-    let s_vec = subtract(r, s);
-    let t_vec = subtract(p, r);
-
-    let r_cross_s = cross_product(r_vec, s_vec);
-    let t_cross_r = cross_product(t_vec, r_vec);
-
-    // If r_cross_s is 0, lines are parallel or collinear
-    if r_cross_s.abs() < 1e-9 {
-        return None;
-    }
-
-    let t = cross_product(t_vec, s_vec) / r_cross_s;
-    let u = t_cross_r / r_cross_s;
-
-    // Check if the intersection point lies within both segments
-    if t >= 0.0 && t <= 1.0 && u >= 0.0 && u <= 1.0 {
-        return Some((p.0 + t * r_vec.0, p.1 + t * r_vec.1));
-    }
-
-    None
-}
-
-fn is_point_in_polygon(point: &[f64], polygon: &[Vec<f64>]) -> bool {
-    let mut inside = false;
-    let n = polygon.len();
-
-    // We need at least 3 points for a polygon
-    if n < 3 {
-        return false;
-    }
-
-    let mut j = n - 1;
-    for i in 0..n {
-        let pi = &polygon[i];
-        let pj = &polygon[j];
-
-        // Check if the point is between the y-coordinates of the edge's endpoints
-        // and if the point is to the left of the line segment
-        if ((pi[1] > point[1]) != (pj[1] > point[1]))
-            && (point[0] < (pj[0] - pi[0]) * (point[1] - pi[1]) / (pj[1] - pi[1]) + pi[0])
-        {
-            inside = !inside;
-        }
-        j = i;
-    }
-
-    inside
+fn bbox_from(rect: Rect, mut geom: Geometry) {
+    geom.bbox = geom.bbox.map_or(
+        Some(vec![rect.min_x, rect.min_y, rect.max_x, rect.max_y]),
+        |mut bbox| {
+            wgs84_to_webmercator_bbox(&mut bbox);
+            Some(bbox)
+        },
+    );
 }
 
 /// Transform geometry and bounding box from WGS84 to Web Mercator
@@ -1242,6 +652,6 @@ mod tests {
 
         let tile_coord = TileCoord { z: 1, x: 1, y: 0 };
         let tile = geojson_source.get_tile(tile_coord, None).await.unwrap();
-        print!("{:?}", tile);
+        print!("{tile:?}");
     }
 }
