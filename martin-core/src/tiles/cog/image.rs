@@ -173,6 +173,10 @@ impl Image {
         Ok(tile_data)
     }
 
+    pub fn compression(&self) -> u16 {
+        self.compression
+    }
+
     pub fn tile_size(&self) -> u32 {
         self.tile_size
     }

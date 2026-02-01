@@ -127,13 +127,13 @@ impl CogSource {
             f64::midpoint(extent[0], extent[2]),
             f64::midpoint(extent[1], extent[3]),
         );
-        // Determine output format from the first image's compression
-        let output_format = images
+        let first_img = images
             .values()
             .next()
-            .map(Image::output_format)
-            .ok_or(CogError::NoImagesFound(path.clone()))?
-            .ok_or(CogError::NotSupportedCompression(0, path.clone()))?;
+            .ok_or_else(|| CogError::NoImagesFound(path.clone()))?;
+        let output_format = first_img.output_format().ok_or_else(|| {
+            CogError::NotSupportedCompression(first_img.compression(), path.clone())
+        })?;
 
         let mut tilejson = tilejson! {
             tiles: vec![],
