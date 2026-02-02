@@ -23,9 +23,9 @@ use tokio::fs::{self};
 use tracing::trace;
 
 use crate::tiles::geojson::convert::{
-    line_string_to_shape_path, multi_line_string_from_paths, multi_line_string_to_shape_path,
-    multi_polygon_from_shapes, multi_polygon_to_shape_path, polygon_to_shape_path,
+    line_string_to_shape_path, multi_line_string_from_paths, multi_line_string_to_shape_paths, multi_polygon_from_shapes, multi_polygon_to_shape_paths,  polygon_to_shape_paths
 };
+use crate::tiles::geojson::error::GeoJsonError;
 use crate::tiles::{BoxedSource, MartinCoreResult, Source, UrlQuery};
 
 /// A source for `GeoJSON` files
@@ -53,8 +53,8 @@ pub struct GeoJsonSource {
 
 impl GeoJsonSource {
     /// Create a new `GeoJSON` source
-    pub async fn new(id: String, path: &PathBuf) -> Result<Self, Box<dyn std::error::Error>> {
-        let geojson_str = fs::read_to_string(path).await?;
+    pub async fn new(id: String, path: PathBuf) -> Result<Self, GeoJsonError> {
+        let geojson_str = fs::read_to_string(&path).await.map_err(|err|GeoJsonError::IoError(err, path))?;
         let geojson = geojson_str.parse::<GeoJson>().unwrap();
 
         let (geojson, rtree) = preprocess_geojson(geojson);
@@ -85,90 +85,6 @@ impl Debug for GeoJsonSource {
     }
 }
 
-// 1. Filter features - only features that have a geometry can be processed
-// 2. Transform geometries from WGS84 to Web Mercator
-// 3. Add bboxes to R-tree
-// 4. Build spatial index for queries
-fn preprocess_geojson(geojson: GeoJson) -> (GeoJson, RTree<f64>) {
-    match geojson {
-        GeoJson::FeatureCollection(mut fc) => {
-            let mut bbox = Rect::default();
-            let transformed_fs = fc
-                .features
-                .into_iter()
-                .filter(|f| f.geometry.is_some())
-                .map(|mut f| {
-                    let g = transform_geometry(f.geometry.unwrap());
-                    // after transform_geometry every geometry is guaranteed to have a bbox
-                    if let Some(bb) = &g.bbox {
-                        bbox.extend(bb[0], bb[1]);
-                        bbox.extend(bb[2], bb[3]);
-                    }
-                    f.bbox.clone_from(&g.bbox);
-                    f.geometry = Some(g);
-                    f
-                })
-                .collect::<Vec<Feature>>();
-
-            // Build spatial index
-            let mut builder = RTreeBuilder::<f64>::new(transformed_fs.len().try_into().unwrap());
-            for f in &transformed_fs {
-                if let Some(bb) = &f.bbox {
-                    dbg!("adding feature with bbox: {:?}", &bbox);
-                    builder.add(bb[0], bb[1], bb[2], bb[3]);
-                }
-            }
-
-            fc.bbox = Some(vec![bbox.min_x, bbox.min_y, bbox.max_x, bbox.max_y]);
-            fc.features = transformed_fs;
-            let tree = builder.finish::<HilbertSort>();
-            (GeoJson::FeatureCollection(fc), tree)
-        }
-        GeoJson::Feature(mut f) => {
-            let count = u32::from(f.geometry.is_some());
-            let mut builder = RTreeBuilder::<f64>::new(count);
-            let mut fc = FeatureCollection {
-                bbox: None,
-                features: vec![],
-                foreign_members: None,
-            };
-            if f.geometry.is_some() {
-                let transformed_g = transform_geometry(f.geometry.unwrap());
-                if let Some(bb) = &transformed_g.bbox {
-                    builder.add(bb[0], bb[1], bb[2], bb[3]);
-                }
-                f.bbox.clone_from(&transformed_g.bbox);
-                f.geometry = Some(transformed_g);
-
-                fc.bbox.clone_from(&f.bbox);
-                fc.features.push(f);
-            }
-            let tree = builder.finish::<HilbertSort>();
-            (GeoJson::FeatureCollection(fc), tree)
-        }
-        GeoJson::Geometry(g) => {
-            let mut builder = RTreeBuilder::<f64>::new(1);
-            let g = transform_geometry(g);
-            if let Some(bb) = &g.bbox {
-                builder.add(bb[0], bb[1], bb[2], bb[3]);
-            }
-            let f = Feature {
-                bbox: g.bbox.clone(),
-                geometry: Some(g),
-                id: None,
-                properties: None,
-                foreign_members: None,
-            };
-            let fc = FeatureCollection {
-                bbox: f.bbox.clone(),
-                features: vec![f],
-                foreign_members: None,
-            };
-            let tree = builder.finish::<HilbertSort>();
-            (GeoJson::FeatureCollection(fc), tree)
-        }
-    }
-}
 
 #[async_trait]
 impl Source for GeoJsonSource {
@@ -211,11 +127,9 @@ impl Source for GeoJsonSource {
         rect.min_y -= buffer_y;
         rect.max_y += buffer_y;
 
-        dbg!("get tile with bbox: {:?}", &rect);
         let indices = self
             .rtree
             .search(rect.min_x, rect.min_y, rect.max_x, rect.max_y);
-        dbg!("found indices: {:?}", &indices);
 
         if indices.is_empty() {
             trace!(
@@ -423,7 +337,7 @@ impl Rect {
                 }
             }
             Value::MultiLineString(ls) => {
-                let string_line = multi_line_string_to_shape_path(ls);
+                let string_line = multi_line_string_to_shape_paths(ls);
                 let clip = self.rings();
                 let clipped_ls = string_line.clip_by(
                     &clip,
@@ -443,14 +357,14 @@ impl Rect {
             }
             Value::Polygon(polygon) => {
                 let subject = self.rings();
-                let clip = polygon_to_shape_path(polygon);
+                let clip = polygon_to_shape_paths(polygon);
                 let shapes = subject.overlay(&clip, OverlayRule::Intersect, FillRule::EvenOdd);
                 geom.value = multi_polygon_from_shapes(shapes);
                 Some(geom)
             }
             Value::MultiPolygon(polygons) => {
                 let subject = self.rings();
-                let clip = multi_polygon_to_shape_path(polygons);
+                let clip = multi_polygon_to_shape_paths(polygons);
                 let shapes = subject.overlay(&clip, OverlayRule::Intersect, FillRule::EvenOdd);
                 geom.value = multi_polygon_from_shapes(shapes);
                 Some(geom)
@@ -470,14 +384,90 @@ impl Rect {
     }
 }
 
-fn bbox_from(rect: Rect, mut geom: Geometry) {
-    geom.bbox = geom.bbox.map_or(
-        Some(vec![rect.min_x, rect.min_y, rect.max_x, rect.max_y]),
-        |mut bbox| {
-            wgs84_to_webmercator_bbox(&mut bbox);
-            Some(bbox)
-        },
-    );
+// 1. Filter features - only features that have a geometry can be processed
+// 2. Transform geometries from WGS84 to Web Mercator
+// 3. Add bounding boxes to R-tree
+// 4. Build spatial index for queries
+fn preprocess_geojson(geojson: GeoJson) -> (GeoJson, RTree<f64>) {
+    match geojson {
+        GeoJson::FeatureCollection(mut fc) => {
+            // bounding box for entire feature collection
+            let mut bbox = Rect::default();
+            let transformed_fs = fc
+                .features
+                .into_iter()
+                .filter(|f| f.geometry.is_some())
+                .map(|mut f| {
+                    let g = transform_geometry(f.geometry.unwrap());
+                    // after transform_geometry every geometry is guaranteed to have a bbox
+                    if let Some(bb) = &g.bbox {
+                        bbox.extend(bb[0], bb[1]);
+                        bbox.extend(bb[2], bb[3]);
+                    }
+                    f.bbox.clone_from(&g.bbox);
+                    f.geometry = Some(g);
+                    f
+                })
+                .collect::<Vec<Feature>>();
+
+            // Build spatial index
+            let mut builder = RTreeBuilder::<f64>::new(transformed_fs.len().try_into().unwrap());
+            for f in &transformed_fs {
+                if let Some(bb) = &f.bbox {
+                    dbg!("adding feature with bbox: {:?}", &bbox);
+                    builder.add(bb[0], bb[1], bb[2], bb[3]);
+                }
+            }
+
+            fc.bbox = Some(vec![bbox.min_x, bbox.min_y, bbox.max_x, bbox.max_y]);
+            fc.features = transformed_fs;
+            let tree = builder.finish::<HilbertSort>();
+            (GeoJson::FeatureCollection(fc), tree)
+        }
+        GeoJson::Feature(mut f) => {
+            let count = u32::from(f.geometry.is_some());
+            let mut builder = RTreeBuilder::<f64>::new(count);
+            let mut fc = FeatureCollection {
+                bbox: None,
+                features: vec![],
+                foreign_members: None,
+            };
+            if f.geometry.is_some() {
+                let transformed_g = transform_geometry(f.geometry.unwrap());
+                if let Some(bb) = &transformed_g.bbox {
+                    builder.add(bb[0], bb[1], bb[2], bb[3]);
+                }
+                f.bbox.clone_from(&transformed_g.bbox);
+                f.geometry = Some(transformed_g);
+
+                fc.bbox.clone_from(&f.bbox);
+                fc.features.push(f);
+            }
+            let tree = builder.finish::<HilbertSort>();
+            (GeoJson::FeatureCollection(fc), tree)
+        }
+        GeoJson::Geometry(g) => {
+            let mut builder = RTreeBuilder::<f64>::new(1);
+            let g = transform_geometry(g);
+            if let Some(bb) = &g.bbox {
+                builder.add(bb[0], bb[1], bb[2], bb[3]);
+            }
+            let f = Feature {
+                bbox: g.bbox.clone(),
+                geometry: Some(g),
+                id: None,
+                properties: None,
+                foreign_members: None,
+            };
+            let fc = FeatureCollection {
+                bbox: f.bbox.clone(),
+                features: vec![f],
+                foreign_members: None,
+            };
+            let tree = builder.finish::<HilbertSort>();
+            (GeoJson::FeatureCollection(fc), tree)
+        }
+    }
 }
 
 /// Transform geometry and bounding box from WGS84 to Web Mercator
@@ -485,10 +475,7 @@ fn transform_geometry(mut geom: Geometry) -> Geometry {
     match geom.value {
         Value::Point(mut p) => {
             wgs84_to_webmercator_mut_sliced(&mut p);
-            let bbox = if let Some(mut bbox) = geom.bbox {
-                wgs84_to_webmercator_bbox(&mut bbox);
-                bbox
-            } else {
+            let bbox = {
                 let rect = Rect::from_position(&p);
                 vec![rect.min_x, rect.min_y, rect.max_x, rect.max_y]
             };
@@ -500,10 +487,7 @@ fn transform_geometry(mut geom: Geometry) -> Geometry {
             for p in &mut ps {
                 wgs84_to_webmercator_mut_sliced(p);
             }
-            let bbox = if let Some(mut bbox) = geom.bbox {
-                wgs84_to_webmercator_bbox(&mut bbox);
-                bbox
-            } else {
+            let bbox = {
                 let rect = Rect::from_positions(&ps);
                 vec![rect.min_x, rect.min_y, rect.max_x, rect.max_y]
             };
@@ -515,10 +499,7 @@ fn transform_geometry(mut geom: Geometry) -> Geometry {
             for p in &mut ps {
                 wgs84_to_webmercator_mut_sliced(p);
             }
-            let bbox = if let Some(mut bbox) = geom.bbox {
-                wgs84_to_webmercator_bbox(&mut bbox);
-                bbox
-            } else {
+            let bbox = {
                 let rect = Rect::from_positions(&ps);
                 vec![rect.min_x, rect.min_y, rect.max_x, rect.max_y]
             };
@@ -532,10 +513,7 @@ fn transform_geometry(mut geom: Geometry) -> Geometry {
                     wgs84_to_webmercator_mut_sliced(p);
                 }
             }
-            let bbox = if let Some(mut bbox) = geom.bbox {
-                wgs84_to_webmercator_bbox(&mut bbox);
-                bbox
-            } else {
+            let bbox = {
                 let rect = Rect::from_linestrings(&ls);
                 vec![rect.min_x, rect.min_y, rect.max_x, rect.max_y]
             };
@@ -549,10 +527,7 @@ fn transform_geometry(mut geom: Geometry) -> Geometry {
                     wgs84_to_webmercator_mut_sliced(p);
                 }
             }
-            let bbox = if let Some(mut bbox) = geom.bbox {
-                wgs84_to_webmercator_bbox(&mut bbox);
-                bbox
-            } else {
+            let bbox = {
                 let rect = Rect::from_linestrings(&rs);
                 vec![rect.min_x, rect.min_y, rect.max_x, rect.max_y]
             };
@@ -568,10 +543,7 @@ fn transform_geometry(mut geom: Geometry) -> Geometry {
                     }
                 }
             }
-            let bbox = if let Some(mut bbox) = geom.bbox {
-                wgs84_to_webmercator_bbox(&mut bbox);
-                bbox
-            } else {
+            let bbox = {
                 let rect = Rect::from_polygons(&ps);
                 vec![rect.min_x, rect.min_y, rect.max_x, rect.max_y]
             };
@@ -585,10 +557,7 @@ fn transform_geometry(mut geom: Geometry) -> Geometry {
                 let g = transform_geometry(g);
                 geometries.push(g);
             }
-            let bbox = if let Some(mut bbox) = geom.bbox {
-                wgs84_to_webmercator_bbox(&mut bbox);
-                bbox
-            } else {
+            let bbox = {
                 let mut rect = Rect::default();
                 for g in &geometries {
                     if let Some(bbox) = &g.bbox {
@@ -604,18 +573,6 @@ fn transform_geometry(mut geom: Geometry) -> Geometry {
             geom
         }
     }
-}
-
-fn wgs84_to_webmercator_bbox(bbox: &mut [f64]) {
-    assert_eq!(bbox.len(), 4);
-
-    let (min_x, min_y) = wgs84_to_webmercator(bbox[0], bbox[1]);
-    bbox[0] = min_x;
-    bbox[1] = min_y;
-
-    let (max_x, max_y) = wgs84_to_webmercator(bbox[2], bbox[3]);
-    bbox[2] = max_x;
-    bbox[3] = max_y;
 }
 
 fn wgs84_to_webmercator_mut_sliced(v: &mut [f64]) {
@@ -646,7 +603,7 @@ mod tests {
     async fn test_get_tile() {
         let filename = "fc1.json";
         let path = fixtures_dir().join(filename);
-        let geojson_source = GeoJsonSource::new("test-source-1".to_string(), &path)
+        let geojson_source = GeoJsonSource::new("test-source-1".to_string(), path)
             .await
             .unwrap();
 

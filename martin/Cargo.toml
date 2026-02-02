@@ -114,7 +114,7 @@ postgres = [
   "dep:postgres-protocol",
   "_tiles",
 ]
-geojson = []
+geojson = ["martin-core/geojson", "_tiles"]
 sprites = ["martin-core/sprites"]
 styles = ["martin-core/styles", "dep:walkdir"]
 webui = ["dep:actix-web-static-files", "dep:static-files", "dep:walkdir"]

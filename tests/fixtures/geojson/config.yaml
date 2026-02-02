@@ -1,0 +1,55 @@
+---
+warning: "due to not expected"
+# Connection keep alive timeout [default: 75]
+keep_alive: 75
+
+# The socket address to bind [default: 0.0.0.0:3000]
+listen_addresses: "0.0.0.0:3000"
+
+# Number of web server workers
+worker_processes: 8
+
+# Amount of memory (in MB) to use for caching tiles [default: 512, 0 to disable]
+cache_size_mb: 8
+
+# Advanced monitoring options
+observability:
+  warning: "due to not expected"
+  # Configure metrics reported under `/_/metrics`
+  metrics:
+    warning: "due to not expected"
+    # Add these labels to every metric
+    # Example: `{ env: prod, server: martin }`
+    add_labels: {}
+
+# CORS Configuration
+#
+# Defaults to `cors: true`, which allows all origins.
+# Sending/Acting on CORS headers can be completely disabled via `cors: false`
+cors:
+  warning: "due to not expected"
+  # Sets the `Access-Control-Allow-Origin` header [default: *]
+  # '*' will use the requests `ORIGIN` header
+  origin:
+    - "*"
+  # Sets `Access-Control-Max-Age` Header. [default: null]
+  # null means not setting the header for preflight requests
+  max_age: null
+
+geojson:
+  warning: "due to not expected"
+  paths:
+    - tests/fixtures/geojson/feature_collection_1.json
+
+fonts:
+  - tests/fixtures/fonts/overpass-mono-regular.ttf
+  - tests/fixtures/fonts
+
+styles:
+  warning: "due to not expected"
+  sources:
+    maplibre: tests/fixtures/styles/maplibre_demo.json
+  paths:
+    - tests/fixtures/styles/src2
+
+tilejson_url_version_param: version

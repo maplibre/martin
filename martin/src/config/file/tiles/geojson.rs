@@ -2,7 +2,7 @@ use std::fmt::Debug;
 use std::path::PathBuf;
 
 use martin_core::tiles::BoxedSource;
-use martin_core::tiles::cog::CogSource;
+use martin_core::tiles::geojson::source::GeoJsonSource;
 use serde::{Deserialize, Serialize};
 use url::Url;
 
@@ -23,14 +23,14 @@ impl ConfigurationLivecycleHooks for GeoJsonConfig {
     }
 }
 
-impl TileSourceConfiguration for CogConfig {
+impl TileSourceConfiguration for GeoJsonConfig {
     fn parse_urls() -> bool {
         false
     }
 
     async fn new_sources(&self, id: String, path: PathBuf) -> MartinResult<BoxedSource> {
-        let cog = CogSource::new(id, path)?;
-        Ok(Box::new(cog))
+        let geojson_source = GeoJsonSource::new(id, path).await?;
+        Ok(Box::new(geojson_source))
     }
 
     async fn new_sources_url(&self, _id: String, _url: Url) -> MartinResult<BoxedSource> {

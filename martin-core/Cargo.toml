@@ -22,7 +22,13 @@ default = [
     "unstable-cog",
     "geojson",
 ]
-geojson = ["dep:geojson", "dep:geo-index", "dep:geozero", "dep:i_overlay"]
+geojson = [
+    "dep:geojson",
+    "dep:geo-index",
+    "dep:geozero",
+    "dep:i_overlay",
+    "_tiles",
+]
 postgres = [
     "dep:deadpool-postgres",
     "dep:postgres",

@@ -22,6 +22,11 @@ pub enum MartinCoreError {
     #[error(transparent)]
     CogError(#[from] super::cog::CogError),
 
+    /// Errors that can occur during [`geojson`](crate::tiles::geojson) processing operations.
+    #[cfg(feature = "geojson")]
+    #[error(transparent)]
+    GeoJsonError(#[from] super::geojson::GeoJsonError),
+
     /// Errors occurring from other sources, not implemented by `martin-core`.
     #[error(transparent)]
     OtherError(#[from] Box<dyn std::error::Error>),

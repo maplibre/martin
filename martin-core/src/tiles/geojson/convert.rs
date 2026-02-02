@@ -17,7 +17,7 @@ pub fn line_string_to_shape_path(line_string: Vec<Vec<f64>>) -> Vec<[f64; 2]> {
     line_string.iter().map(|v| [v[0], v[1]]).collect()
 }
 
-pub fn multi_line_string_to_shape_path(line_strings: Vec<Vec<Vec<f64>>>) -> Vec<Vec<[f64; 2]>> {
+pub fn multi_line_string_to_shape_paths(line_strings: Vec<Vec<Vec<f64>>>) -> Vec<Vec<[f64; 2]>> {
     line_strings
         .into_iter()
         .map(line_string_to_shape_path)
@@ -37,11 +37,6 @@ pub fn rings_from_shape(shape: Vec<Vec<[f64; 2]>>) -> Vec<Vec<Vec<f64>>> {
         .collect()
 }
 
-pub fn polygon_from_shape(shape: Vec<Vec<[f64; 2]>>) -> Value {
-    let rings = rings_from_shape(shape);
-    Value::Polygon(rings)
-}
-
 pub fn multi_polygon_from_shapes(shapes: Vec<Vec<Vec<[f64; 2]>>>) -> Value {
     let polygons = shapes.into_iter().map(|s| rings_from_shape(s));
     Value::MultiPolygon(polygons.collect())
@@ -51,24 +46,23 @@ pub fn ring_to_shape_path(line_string: Vec<Vec<f64>>) -> Vec<[f64; 2]> {
     if line_string.is_empty() {
         return vec![];
     }
-    // In geo, Polygon rings are explicitly closed LineStrings — their final coordinate is the same as their first coordinate,
-    // however in i_overlay, shape paths are implicitly closed, so we skip the last coordinate.
+    // i_overlay does not explicitly close rings - skip last coordinate
     let coords = &line_string[..line_string.len() - 1];
     coords.iter().map(|p| [p[0], p[1]]).collect()
 }
 
-pub fn polygon_to_shape_path(polygon: Vec<Vec<Vec<f64>>>) -> Vec<Vec<[f64; 2]>> {
+pub fn polygon_to_shape_paths(polygon: Vec<Vec<Vec<f64>>>) -> Vec<Vec<[f64; 2]>> {
     polygon
         .into_iter()
         .map(ring_to_shape_path)
         .collect::<Vec<_>>()
 }
 
-pub fn multi_polygon_to_shape_path(
+pub fn multi_polygon_to_shape_paths(
     multi_polygon: Vec<Vec<Vec<Vec<f64>>>>,
 ) -> Vec<Vec<Vec<[f64; 2]>>> {
     multi_polygon
         .into_iter()
-        .map(polygon_to_shape_path)
+        .map(polygon_to_shape_paths)
         .collect::<Vec<_>>()
 }
