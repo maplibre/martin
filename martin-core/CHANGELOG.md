@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.6](https://github.com/maplibre/martin/compare/martin-core-v0.2.5...martin-core-v0.2.6) - 2026-01-27
+
+### Added
+
+- migrate our log library to tracing ([#2494](https://github.com/maplibre/martin/pull/2494), [#2500](https://github.com/maplibre/martin/pull/2500))
+- *(martin-core)* Allow glyph ranges more than 0xFFFF ([#2438](https://github.com/maplibre/martin/pull/2438))
+
+### Fixed
+
+- *(perf)* Remove FontSources.masks as constructing it was consuming large amounts of memory and some startup time even when no font sources were set ([#2519](https://github.com/maplibre/martin/pull/2519))
+- improve error message if no SVG sprite files are present ([#2516](https://github.com/maplibre/martin/pull/2516))
+
+### Other
+
+- *(deps)* `cargo-shear` out unused dependencies ([#2497](https://github.com/maplibre/martin/pull/2497))
+
 ## [0.2.5](https://github.com/maplibre/martin/compare/martin-core-v0.2.4...martin-core-v0.2.5) - 2026-01-03
 
 - *(deps)* bump spreet to fix Scale SDF buffer and radius by pixel ratio leading to weird artefacts when using retina sdf sprites ([#2458](https://github.com/maplibre/martin/pull/2458))
