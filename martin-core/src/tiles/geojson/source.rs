@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use core::f64;
-use geo_index::rtree::{RTree,  RTreeIndex};
+use geo_index::rtree::{RTree, RTreeIndex};
 use geojson::{Feature, FeatureCollection, GeoJson, Geometry, Value};
 use geozero::mvt::{Message, MvtWriter, Tile};
 use i_overlay::core::fill_rule::FillRule;
@@ -8,9 +8,7 @@ use i_overlay::core::overlay_rule::OverlayRule;
 use i_overlay::float::clip::FloatClip;
 use i_overlay::float::single::SingleFloatOverlay;
 use i_overlay::string::clip::ClipRule;
-use martin_tile_utils::{
-     Encoding, Format, TileCoord, TileData, TileInfo, tile_bbox,
-};
+use martin_tile_utils::{Encoding, Format, TileCoord, TileData, TileInfo, tile_bbox};
 use std::path::PathBuf;
 use std::vec;
 use std::{fmt::Debug, fmt::Formatter};
@@ -19,7 +17,8 @@ use tokio::fs::{self};
 use tracing::trace;
 
 use crate::tiles::geojson::convert::{
-    line_string_to_shape_path, multi_line_string_from_paths, multi_line_string_to_shape_paths, multi_polygon_from_shapes, multi_polygon_to_shape_paths,  polygon_to_shape_paths
+    line_string_to_shape_path, multi_line_string_from_paths, multi_line_string_to_shape_paths,
+    multi_polygon_from_shapes, multi_polygon_to_shape_paths, polygon_to_shape_paths,
 };
 use crate::tiles::geojson::error::GeoJsonError;
 use crate::tiles::geojson::process::{preprocess_geojson, process_geojson, tile_length_from_zoom};
@@ -51,8 +50,12 @@ pub struct GeoJsonSource {
 impl GeoJsonSource {
     /// Create a new `GeoJSON` source
     pub async fn new(id: String, path: PathBuf) -> Result<Self, GeoJsonError> {
-        let geojson_str = fs::read_to_string(&path).await.map_err(|err|GeoJsonError::IoError(err, path))?;
-        let geojson = geojson_str.parse::<GeoJson>().map_err(|err|GeoJsonError::GeoJsonError(err))?;
+        let geojson_str = fs::read_to_string(&path)
+            .await
+            .map_err(|err| GeoJsonError::IoError(err, path))?;
+        let geojson = geojson_str
+            .parse::<GeoJson>()
+            .map_err(|err| GeoJsonError::GeoJsonError(err))?;
 
         let (geojson, rtree) = preprocess_geojson(geojson);
 
@@ -81,7 +84,6 @@ impl Debug for GeoJsonSource {
             .finish()
     }
 }
-
 
 #[async_trait]
 impl Source for GeoJsonSource {
@@ -173,9 +175,9 @@ impl Source for GeoJsonSource {
             let geojson = GeoJson::FeatureCollection(fc);
             let mut mvt_writer =
                 MvtWriter::new(4096, rect.min_x, rect.min_y, rect.max_x, rect.max_y).unwrap();
-            process_geojson(&geojson, &mut mvt_writer).
-                map_err(|err|GeoJsonError::GeozeroError(err)).
-                map_err(|err|MartinCoreError::GeoJsonError(err))?;
+            process_geojson(&geojson, &mut mvt_writer)
+                .map_err(|err| GeoJsonError::GeozeroError(err))
+                .map_err(|err| MartinCoreError::GeoJsonError(err))?;
             let mvt_layer = mvt_writer.layer("layer");
             let tile = Tile {
                 layers: vec![mvt_layer],
@@ -218,7 +220,7 @@ impl Rect {
     }
 
     /// Extend rectangle by point
-    pub(crate) fn extend(&mut self, point:&[f64]) {
+    pub(crate) fn extend(&mut self, point: &[f64]) {
         let (x, y) = (point[0], point[1]);
         self.min_x = self.min_x.min(x);
         self.min_y = self.min_y.min(y);
@@ -227,7 +229,7 @@ impl Rect {
     }
 
     /// Extend with bounding box
-    pub(crate) fn extend_by_bbox(&mut self, bbox:&[f64]) {
+    pub(crate) fn extend_by_bbox(&mut self, bbox: &[f64]) {
         // min_x and min_y
         let (x, y) = (bbox[0], bbox[1]);
         self.extend(&[x, y]);
@@ -388,8 +390,6 @@ impl Rect {
         }
     }
 }
-
-
 
 #[cfg(test)]
 mod tests {

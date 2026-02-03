@@ -16,5 +16,5 @@ pub enum GeoJsonError {
 
     /// Geozero processing error
     #[error("Geozero processing error: {0}")]
-    GeozeroError(#[source] geozero::error::GeozeroError)
+    GeozeroError(#[source] geozero::error::GeozeroError),
 }

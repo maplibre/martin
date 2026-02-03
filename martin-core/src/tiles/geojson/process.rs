@@ -1,11 +1,11 @@
-use geo_index::rtree::{RTree, RTreeBuilder};
 use geo_index::rtree::sort::HilbertSort;
+use geo_index::rtree::{RTree, RTreeBuilder};
 use geojson::{Feature, FeatureCollection, GeoJson, Geometry, JsonValue, Value};
-use geozero::{ColumnValue, FeatureProcessor, GeomProcessor, PropertyProcessor};
 use geozero::error::GeozeroError;
+use geozero::{ColumnValue, FeatureProcessor, GeomProcessor, PropertyProcessor};
+use martin_tile_utils::EARTH_CIRCUMFERENCE;
 use martin_tile_utils::wgs84_to_webmercator;
 use serde_json::Map;
-use martin_tile_utils::EARTH_CIRCUMFERENCE;
 
 use crate::tiles::geojson::source::Rect;
 
@@ -207,13 +207,16 @@ pub(crate) fn tile_length_from_zoom(zoom: u8) -> f64 {
     EARTH_CIRCUMFERENCE / f64::from(1_u32 << zoom)
 }
 
-// Processing of GeoJSON features - copy of code from geozero crate since there is no implementation of 
+// Processing of GeoJSON features - copy of code from geozero crate since there is no implementation of
 // GeozeroDatasource for GeoJson!
 // Another solution would be to convert to GeoJsonString and then do the processing, but this would result
 // in unnecessary string conversions
 
 /// Process top-level GeoJSON items
-pub(crate) fn process_geojson<P: FeatureProcessor>(gj: &GeoJson, processor: &mut P) -> Result<(), GeozeroError> {
+pub(crate) fn process_geojson<P: FeatureProcessor>(
+    gj: &GeoJson,
+    processor: &mut P,
+) -> Result<(), GeozeroError> {
     match *gj {
         GeoJson::FeatureCollection(ref collection) => {
             processor.dataset_begin(None)?;
@@ -393,4 +396,3 @@ fn process_polygon<P: GeomProcessor>(
     }
     processor.polygon_end(tagged, idx)
 }
-
