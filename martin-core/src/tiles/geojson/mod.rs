@@ -5,3 +5,5 @@ pub mod source;
 
 mod error;
 pub use error::GeoJsonError;
+
+mod process;

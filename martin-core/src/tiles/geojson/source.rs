@@ -1,10 +1,7 @@
 use async_trait::async_trait;
 use core::f64;
-use geo_index::rtree::sort::HilbertSort;
-use geo_index::rtree::{RTree, RTreeBuilder, RTreeIndex};
+use geo_index::rtree::{RTree,  RTreeIndex};
 use geojson::{Feature, FeatureCollection, GeoJson, Geometry, Value};
-use geozero::GeozeroDatasource;
-use geozero::geojson::GeoJsonString;
 use geozero::mvt::{Message, MvtWriter, Tile};
 use i_overlay::core::fill_rule::FillRule;
 use i_overlay::core::overlay_rule::OverlayRule;
@@ -12,8 +9,7 @@ use i_overlay::float::clip::FloatClip;
 use i_overlay::float::single::SingleFloatOverlay;
 use i_overlay::string::clip::ClipRule;
 use martin_tile_utils::{
-    EARTH_CIRCUMFERENCE, Encoding, Format, TileCoord, TileData, TileInfo, tile_bbox,
-    wgs84_to_webmercator,
+     Encoding, Format, TileCoord, TileData, TileInfo, tile_bbox,
 };
 use std::path::PathBuf;
 use std::vec;
@@ -26,7 +22,8 @@ use crate::tiles::geojson::convert::{
     line_string_to_shape_path, multi_line_string_from_paths, multi_line_string_to_shape_paths, multi_polygon_from_shapes, multi_polygon_to_shape_paths,  polygon_to_shape_paths
 };
 use crate::tiles::geojson::error::GeoJsonError;
-use crate::tiles::{BoxedSource, MartinCoreResult, Source, UrlQuery};
+use crate::tiles::geojson::process::{preprocess_geojson, process_geojson, tile_length_from_zoom};
+use crate::tiles::{BoxedSource, MartinCoreError, MartinCoreResult, Source, UrlQuery};
 
 /// A source for `GeoJSON` files
 ///
@@ -55,7 +52,7 @@ impl GeoJsonSource {
     /// Create a new `GeoJSON` source
     pub async fn new(id: String, path: PathBuf) -> Result<Self, GeoJsonError> {
         let geojson_str = fs::read_to_string(&path).await.map_err(|err|GeoJsonError::IoError(err, path))?;
-        let geojson = geojson_str.parse::<GeoJson>().unwrap();
+        let geojson = geojson_str.parse::<GeoJson>().map_err(|err|GeoJsonError::GeoJsonError(err))?;
 
         let (geojson, rtree) = preprocess_geojson(geojson);
 
@@ -118,13 +115,13 @@ impl Source for GeoJsonSource {
     ) -> MartinCoreResult<TileData> {
         let mut rect = Rect::from_xyz(xyz.x, xyz.y, xyz.z);
 
-        // Add buffer
+        // Add buffer for query and clipping
         let buffer = self.buffer_size / 4096.0;
         let buffer_x = (rect.max_x - rect.min_x) * buffer;
         let buffer_y = (rect.max_y - rect.min_y) * buffer;
         rect.min_x -= buffer_x;
-        rect.max_x += buffer_x;
         rect.min_y -= buffer_y;
+        rect.max_x += buffer_x;
         rect.max_y += buffer_y;
 
         let indices = self
@@ -139,6 +136,7 @@ impl Source for GeoJsonSource {
             return Ok(Vec::new());
         }
 
+        // Preprocessing converts any GeoJson input into a FeatureCollection
         if let GeoJson::FeatureCollection(fc) = &self.geojson {
             let selected_fs = indices
                 .into_iter()
@@ -153,8 +151,7 @@ impl Source for GeoJsonSource {
                     let g = rect.clip_geometry(geom);
                     if let Some(geom) = g {
                         if let Some(bb) = &geom.bbox {
-                            bbox.extend(bb[0], bb[1]);
-                            bbox.extend(bb[2], bb[3]);
+                            bbox.extend_by_bbox(bb);
                         }
                         f.bbox.clone_from(&geom.bbox);
                         f.geometry = Some(geom);
@@ -171,11 +168,14 @@ impl Source for GeoJsonSource {
                 foreign_members: None,
             };
 
+            // Create new rectangle for MvtWriter since it needs the boundary without buffer
+            let rect = Rect::from_xyz(xyz.x, xyz.y, xyz.z);
             let geojson = GeoJson::FeatureCollection(fc);
-            let mut geojson_string = GeoJsonString(geojson.to_string());
             let mut mvt_writer =
                 MvtWriter::new(4096, rect.min_x, rect.min_y, rect.max_x, rect.max_y).unwrap();
-            let _ = geojson_string.process(&mut mvt_writer);
+            process_geojson(&geojson, &mut mvt_writer).
+                map_err(|err|GeoJsonError::GeozeroError(err)).
+                map_err(|err|MartinCoreError::GeoJsonError(err))?;
             let mvt_layer = mvt_writer.layer("layer");
             let tile = Tile {
                 layers: vec![mvt_layer],
@@ -184,18 +184,18 @@ impl Source for GeoJsonSource {
             return Ok(v);
         }
 
-        Err(crate::tiles::MartinCoreError::OtherError(
+        Err(MartinCoreError::OtherError(
             "Could not fetch GeoJSON features".into(),
         ))
     }
 }
 
 #[derive(Debug, Clone)]
-struct Rect {
-    min_x: f64,
-    min_y: f64,
-    max_x: f64,
-    max_y: f64,
+pub(crate) struct Rect {
+    pub(crate) min_x: f64,
+    pub(crate) min_y: f64,
+    pub(crate) max_x: f64,
+    pub(crate) max_y: f64,
 }
 
 impl Default for Rect {
@@ -211,20 +211,33 @@ impl Default for Rect {
 
 impl Rect {
     /// Test if point is inside rectangle
-    fn inside(&self, p: &[f64]) -> bool {
-        let (x, y) = (p[0], p[1]);
+    fn inside(&self, point: &[f64]) -> bool {
+        // Point has to have at least two coordinates
+        let (x, y) = (point[0], point[1]);
         x >= self.min_x && x <= self.max_x && y >= self.min_y && y <= self.max_y
     }
 
     /// Extend rectangle by point
-    fn extend(&mut self, x: f64, y: f64) {
+    pub(crate) fn extend(&mut self, point:&[f64]) {
+        let (x, y) = (point[0], point[1]);
         self.min_x = self.min_x.min(x);
         self.min_y = self.min_y.min(y);
         self.max_x = self.max_x.max(x);
         self.max_y = self.max_y.max(y);
     }
 
-    fn from_xyz(x: u32, y: u32, zoom: u8) -> Self {
+    /// Extend with bounding box
+    pub(crate) fn extend_by_bbox(&mut self, bbox:&[f64]) {
+        // min_x and min_y
+        let (x, y) = (bbox[0], bbox[1]);
+        self.extend(&[x, y]);
+
+        // max_x and max_y
+        let (x, y) = (bbox[2], bbox[3]);
+        self.extend(&[x, y]);
+    }
+
+    pub(crate) fn from_xyz(x: u32, y: u32, zoom: u8) -> Self {
         let tile_length = tile_length_from_zoom(zoom);
         let [min_x, min_y, max_x, max_y] = tile_bbox(x, y, tile_length);
         Rect {
@@ -235,9 +248,8 @@ impl Rect {
         }
     }
 
-    fn from_position(p: &[f64]) -> Self {
-        assert!(p.len() >= 2, "Position must have at least 2 elements");
-        let (x, y) = (p[0], p[1]);
+    pub(crate) fn from_position(position: &[f64]) -> Self {
+        let (x, y) = (position[0], position[1]);
         Self {
             min_x: x,
             min_y: y,
@@ -246,38 +258,31 @@ impl Rect {
         }
     }
 
-    fn from_positions(ps: &[Vec<f64>]) -> Self {
+    pub(crate) fn from_positions(positions: &[Vec<f64>]) -> Self {
         let mut rect = Rect::default();
-
-        for p in ps {
-            if let (Some(&x), Some(&y)) = (p.first(), p.get(1)) {
-                rect.extend(x, y);
-            }
+        for p in positions {
+            rect.extend(p);
         }
         rect
     }
 
-    fn from_linestrings(ls: &[Vec<Vec<f64>>]) -> Self {
+    pub(crate) fn from_linestrings(linestrings: &[Vec<Vec<f64>>]) -> Self {
         let mut rect = Rect::default();
 
-        for l in ls {
+        for l in linestrings {
             for p in l {
-                if let (Some(&x), Some(&y)) = (p.first(), p.get(1)) {
-                    rect.extend(x, y);
-                }
+                rect.extend(p);
             }
         }
         rect
     }
 
-    fn from_polygons(ps: &[Vec<Vec<Vec<f64>>>]) -> Self {
+    pub(crate) fn from_polygons(polygons: &[Vec<Vec<Vec<f64>>>]) -> Self {
         let mut rect = Rect::default();
-        for p in ps {
-            if let Some(rs) = p.first() {
-                for r in rs {
-                    if let (Some(&x), Some(&y)) = (r.first(), r.get(1)) {
-                        rect.extend(x, y);
-                    }
+        for polygon in polygons {
+            if let Some(rings) = polygon.first() {
+                for point in rings {
+                    rect.extend(point);
                 }
             }
         }
@@ -384,207 +389,7 @@ impl Rect {
     }
 }
 
-// 1. Filter features - only features that have a geometry can be processed
-// 2. Transform geometries from WGS84 to Web Mercator
-// 3. Add bounding boxes to R-tree
-// 4. Build spatial index for queries
-fn preprocess_geojson(geojson: GeoJson) -> (GeoJson, RTree<f64>) {
-    match geojson {
-        GeoJson::FeatureCollection(mut fc) => {
-            // bounding box for entire feature collection
-            let mut bbox = Rect::default();
-            let transformed_fs = fc
-                .features
-                .into_iter()
-                .filter(|f| f.geometry.is_some())
-                .map(|mut f| {
-                    let g = transform_geometry(f.geometry.unwrap());
-                    // after transform_geometry every geometry is guaranteed to have a bbox
-                    if let Some(bb) = &g.bbox {
-                        bbox.extend(bb[0], bb[1]);
-                        bbox.extend(bb[2], bb[3]);
-                    }
-                    f.bbox.clone_from(&g.bbox);
-                    f.geometry = Some(g);
-                    f
-                })
-                .collect::<Vec<Feature>>();
 
-            // Build spatial index
-            let mut builder = RTreeBuilder::<f64>::new(transformed_fs.len().try_into().unwrap());
-            for f in &transformed_fs {
-                if let Some(bb) = &f.bbox {
-                    dbg!("adding feature with bbox: {:?}", &bbox);
-                    builder.add(bb[0], bb[1], bb[2], bb[3]);
-                }
-            }
-
-            fc.bbox = Some(vec![bbox.min_x, bbox.min_y, bbox.max_x, bbox.max_y]);
-            fc.features = transformed_fs;
-            let tree = builder.finish::<HilbertSort>();
-            (GeoJson::FeatureCollection(fc), tree)
-        }
-        GeoJson::Feature(mut f) => {
-            let count = u32::from(f.geometry.is_some());
-            let mut builder = RTreeBuilder::<f64>::new(count);
-            let mut fc = FeatureCollection {
-                bbox: None,
-                features: vec![],
-                foreign_members: None,
-            };
-            if f.geometry.is_some() {
-                let transformed_g = transform_geometry(f.geometry.unwrap());
-                if let Some(bb) = &transformed_g.bbox {
-                    builder.add(bb[0], bb[1], bb[2], bb[3]);
-                }
-                f.bbox.clone_from(&transformed_g.bbox);
-                f.geometry = Some(transformed_g);
-
-                fc.bbox.clone_from(&f.bbox);
-                fc.features.push(f);
-            }
-            let tree = builder.finish::<HilbertSort>();
-            (GeoJson::FeatureCollection(fc), tree)
-        }
-        GeoJson::Geometry(g) => {
-            let mut builder = RTreeBuilder::<f64>::new(1);
-            let g = transform_geometry(g);
-            if let Some(bb) = &g.bbox {
-                builder.add(bb[0], bb[1], bb[2], bb[3]);
-            }
-            let f = Feature {
-                bbox: g.bbox.clone(),
-                geometry: Some(g),
-                id: None,
-                properties: None,
-                foreign_members: None,
-            };
-            let fc = FeatureCollection {
-                bbox: f.bbox.clone(),
-                features: vec![f],
-                foreign_members: None,
-            };
-            let tree = builder.finish::<HilbertSort>();
-            (GeoJson::FeatureCollection(fc), tree)
-        }
-    }
-}
-
-/// Transform geometry and bounding box from WGS84 to Web Mercator
-fn transform_geometry(mut geom: Geometry) -> Geometry {
-    match geom.value {
-        Value::Point(mut p) => {
-            wgs84_to_webmercator_mut_sliced(&mut p);
-            let bbox = {
-                let rect = Rect::from_position(&p);
-                vec![rect.min_x, rect.min_y, rect.max_x, rect.max_y]
-            };
-            geom.value = Value::Point(p);
-            geom.bbox = Some(bbox);
-            geom
-        }
-        Value::MultiPoint(mut ps) => {
-            for p in &mut ps {
-                wgs84_to_webmercator_mut_sliced(p);
-            }
-            let bbox = {
-                let rect = Rect::from_positions(&ps);
-                vec![rect.min_x, rect.min_y, rect.max_x, rect.max_y]
-            };
-            geom.value = Value::MultiPoint(ps);
-            geom.bbox = Some(bbox);
-            geom
-        }
-        Value::LineString(mut ps) => {
-            for p in &mut ps {
-                wgs84_to_webmercator_mut_sliced(p);
-            }
-            let bbox = {
-                let rect = Rect::from_positions(&ps);
-                vec![rect.min_x, rect.min_y, rect.max_x, rect.max_y]
-            };
-            geom.value = Value::LineString(ps);
-            geom.bbox = Some(bbox);
-            geom
-        }
-        Value::MultiLineString(mut ls) => {
-            for ps in &mut ls {
-                for p in ps {
-                    wgs84_to_webmercator_mut_sliced(p);
-                }
-            }
-            let bbox = {
-                let rect = Rect::from_linestrings(&ls);
-                vec![rect.min_x, rect.min_y, rect.max_x, rect.max_y]
-            };
-            geom.value = Value::MultiLineString(ls);
-            geom.bbox = Some(bbox);
-            geom
-        }
-        Value::Polygon(mut rs) => {
-            for r in &mut rs {
-                for p in r {
-                    wgs84_to_webmercator_mut_sliced(p);
-                }
-            }
-            let bbox = {
-                let rect = Rect::from_linestrings(&rs);
-                vec![rect.min_x, rect.min_y, rect.max_x, rect.max_y]
-            };
-            geom.value = Value::Polygon(rs);
-            geom.bbox = Some(bbox);
-            geom
-        }
-        Value::MultiPolygon(mut ps) => {
-            for poly in &mut ps {
-                for ring in poly {
-                    for p in ring {
-                        wgs84_to_webmercator_mut_sliced(p);
-                    }
-                }
-            }
-            let bbox = {
-                let rect = Rect::from_polygons(&ps);
-                vec![rect.min_x, rect.min_y, rect.max_x, rect.max_y]
-            };
-            geom.value = Value::MultiPolygon(ps);
-            geom.bbox = Some(bbox);
-            geom
-        }
-        Value::GeometryCollection(gs) => {
-            let mut geometries = vec![];
-            for g in gs {
-                let g = transform_geometry(g);
-                geometries.push(g);
-            }
-            let bbox = {
-                let mut rect = Rect::default();
-                for g in &geometries {
-                    if let Some(bbox) = &g.bbox {
-                        assert_eq!(bbox.len(), 4);
-                        rect.extend(bbox[0], bbox[1]);
-                        rect.extend(bbox[2], bbox[3]);
-                    }
-                }
-                vec![rect.min_x, rect.min_y, rect.max_x, rect.max_y]
-            };
-            geom.value = Value::GeometryCollection(geometries);
-            geom.bbox = Some(bbox);
-            geom
-        }
-    }
-}
-
-fn wgs84_to_webmercator_mut_sliced(v: &mut [f64]) {
-    assert!(v.len() >= 2);
-    let (x, y) = wgs84_to_webmercator(v[0], v[1]);
-    v[0] = x;
-    v[1] = y;
-}
-
-fn tile_length_from_zoom(zoom: u8) -> f64 {
-    EARTH_CIRCUMFERENCE / f64::from(1_u32 << zoom)
-}
 
 #[cfg(test)]
 mod tests {
@@ -601,7 +406,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_tile() {
-        let filename = "fc1.json";
+        let filename = "feature_collection_1.json";
         let path = fixtures_dir().join(filename);
         let geojson_source = GeoJsonSource::new("test-source-1".to_string(), path)
             .await
