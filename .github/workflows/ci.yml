@@ -423,7 +423,7 @@ jobs:
       - if: matrix.target == 'x86_64-apple-darwin' && github.event_name != 'release' && github.event_name != 'workflow_dispatch'
         uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
       - name: Rust Versions
-        run: just env-info
+        run: rustc --version && cargo --version
       - name: Install NASM for rustls/aws-lc-rs on Windows
         if: runner.os == 'Windows'
         uses: ilammy/setup-nasm@72793074d3c8cdda771dba85f6deafe00623038b # v1.5.2
