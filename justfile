@@ -102,7 +102,7 @@ build-release target:
     set -euo pipefail
     # on debian we need to build a deb package
     if [[ "{{target}}" == "debian-x86_64" ]]; then
-        {{quote(just_executable())}} build-deb
+        {{quote(just_executable())}} build-deb target/debian/martin-Debian-x86_64.deb
     else
         rustup target add {{target}}
         export CARGO_TARGET_{{shoutysnakecase(target)}}_RUSTFLAGS='-C strip=debuginfo'
@@ -111,9 +111,9 @@ build-release target:
     fi
 
 # Build debian package
-build-deb: (cargo-install 'cargo-deb')
+build-deb output: (cargo-install 'cargo-deb')
     sudo apt-get install -y dpkg dpkg-dev liblzma-dev
-    cargo deb -v -p martin --output target/debian/martin.deb
+    cargo deb -v -p martin --output {{output}}
 
 # Build for musl target using zigbuild
 build-release-musl target:
@@ -131,7 +131,7 @@ move-artifacts target:
     mkdir -p target_releases
 
     if [[ "{{target}}" == "debian-x86_64" ]]; then
-        mv target/debian/debian-x86_64.deb target_releases/
+        mv target/debian/*.deb target_releases/
     else
         mv target/{{target}}/release/martin target_releases/
         mv target/{{target}}/release/martin-cp target_releases/
@@ -307,7 +307,7 @@ package-assets target:
     if [[ '{{target}}' == 'x86_64-pc-windows-msvc' ]]; then
         7z a ../files/martin-{{target}}.zip martin.exe martin-cp.exe mbtiles.exe
     elif [[ '{{target}}' == 'debian-x86_64' ]]; then
-        mv debian-x86_64.deb ../files/martin-Debian-x86_64.deb
+        mv *.deb ../files/
     else
         chmod +x martin martin-cp mbtiles
         tar czvf ../files/martin-{{target}}.tar.gz martin martin-cp mbtiles
