@@ -101,9 +101,14 @@ book:  (cargo-install 'mdbook') (cargo-install 'mdbook-tabs')
 build-release target:
     #!/usr/bin/env bash
     set -euo pipefail
-    export CARGO_TARGET_{{shoutysnakecase(target)}}_RUSTFLAGS='-C strip=debuginfo'
-    cargo build --release --target {{target}} --package mbtiles --locked
-    cargo build --release --target {{target}} --package martin --locked
+    # on debian we need to build a deb package
+    if [[ "{{target}}" == "debian-x86_64" ]]; then
+        {{quote(just_executable())}} package-deb
+    else
+        export CARGO_TARGET_{{shoutysnakecase(target)}}_RUSTFLAGS='-C strip=debuginfo'
+        cargo build --release --target {{target}} --package mbtiles --locked
+        cargo build --release --target {{target}} --package martin --locked
+    fi
 
 # Build for musl target using zigbuild
 build-release-musl target:
@@ -117,9 +122,14 @@ build-release-musl target:
 # Move release build artifacts to target_releases directory
 move-artifacts target:
     mkdir -p target_releases
-    mv target/{{target}}/release/martin target_releases/
-    mv target/{{target}}/release/martin-cp target_releases/
-    mv target/{{target}}/release/mbtiles target_releases/
+
+    if [[ "{{target}}" == "debian-x86_64" ]]; then
+        mv target/debian/debian-x86_64.deb target_releases/
+    else
+        mv target/{{target}}/release/martin target_releases/
+        mv target/{{target}}/release/martin-cp target_releases/
+        mv target/{{target}}/release/mbtiles target_releases/
+    fi
 
 
 # Quick compile without building a binary
@@ -208,18 +218,6 @@ coverage *args='--no-clean --open':  (cargo-install 'cargo-llvm-cov') clean star
     {{just}} test-int
 
     cargo llvm-cov report {{args}}
-
-# Collect build artifacts to target_releases directory
-collect-artifacts target ext='':
-    mkdir -p target_releases
-    mv target/{{target}}/release/martin{{ext}} target_releases/
-    mv target/{{target}}/release/martin-cp{{ext}} target_releases/
-    mv target/{{target}}/release/mbtiles{{ext}} target_releases/
-
-# Collect Debian package to target_releases directory
-collect-deb-artifact:
-    mkdir -p target_releases
-    mv target/debian/debian-x86_64.deb target_releases/
 
 # Start Martin server
 cp *args:
@@ -332,11 +330,6 @@ mbtiles *args:
 # Build debian package
 package-deb:  (cargo-install 'cargo-deb')
     cargo deb -v -p martin --output target/debian/martin.deb
-
-# Move Debian package to release files directory
-package-deb-release:
-    mkdir -p target/files
-    mv target/debian-x86_64/debian-x86_64.deb target/files/martin-Debian-x86_64.deb
 
 # Create .tar.gz package for Unix targets
 package-tar target:
