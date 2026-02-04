@@ -151,7 +151,6 @@ jobs:
       - name: Install zig
         uses: mlugg/setup-zig@fa65c4058643678a4e4a9a60513944a7d8d35440 # v2.1.0
         with: { version: '0.15.1' }
-
       - name: Build ${{ matrix.target }}
         run: just build-release-musl ${{ matrix.target }}
       - name: Move ${{ matrix.target }} artefacts to the target_releases directory
