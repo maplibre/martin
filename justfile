@@ -133,9 +133,15 @@ move-artifacts target:
     if [[ "{{target}}" == "debian-x86_64" ]]; then
         mv target/debian/*.deb target_releases/
     else
-        mv target/{{target}}/release/martin target_releases/
-        mv target/{{target}}/release/martin-cp target_releases/
-        mv target/{{target}}/release/mbtiles target_releases/
+        if [[ "{{target}}" == "x86_64-pc-windows-msvc" ]]; then
+            mv target/{{target}}/release/martin.exe target_releases/
+            mv target/{{target}}/release/martin-cp.exe target_releases/
+            mv target/{{target}}/release/mbtiles.exe target_releases/
+        else
+            mv target/{{target}}/release/martin target_releases/
+            mv target/{{target}}/release/martin-cp target_releases/
+            mv target/{{target}}/release/mbtiles target_releases/
+        fi
     fi
 
 
