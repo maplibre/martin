@@ -5,7 +5,6 @@ set shell := ['bash', '-c']
 # How to call the current just executable.
 # Note that just_executable() may have `\` in Windows paths, so we need to quote it.
 just := quote(just_executable())
-dockercompose := `if docker-compose --version &> /dev/null; then echo "docker-compose"; else echo "docker compose"; fi`
 
 # if running in CI, treat warnings as errors by setting RUSTFLAGS and RUSTDOCFLAGS to '-D warnings' unless they are already set
 # Use `CI=true just ci-test` to run the same tests as in GitHub CI.
@@ -358,7 +357,7 @@ start-legacy:  (docker-up 'db-legacy') docker-is-ready
 
 # Start test server for testing HTTP pmtiles
 start-pmtiles-server:
-    {{dockercompose}} up -d fileserver
+    docker compose up -d fileserver
 
 # Start an ssl-enabled test database
 start-ssl:  (docker-up 'db-ssl') docker-is-ready
@@ -368,7 +367,7 @@ start-ssl-cert:  (docker-up 'db-ssl-cert') docker-is-ready
 
 # Stop the test database
 stop:
-    {{dockercompose}} down --remove-orphans
+    docker compose down --remove-orphans
 
 # runs cargo-shear to lint Rust dependencies
 shear:
@@ -592,12 +591,12 @@ clean-test:
 # Wait for the test database to be ready
 [private]
 docker-is-ready:
-    {{dockercompose}} run -T --rm db-is-ready
+    docker compose run -T --rm db-is-ready
 
 # Start a specific test database, e.g. db or db-legacy
 [private]
 docker-up name: start-pmtiles-server
-    {{dockercompose}} up -d {{name}}
+    docker compose up -d {{name}}
 
 # Install SQLX cli if not already installed.
 [private]
