@@ -105,6 +105,7 @@ build-release target:
     if [[ "{{target}}" == "debian-x86_64" ]]; then
         {{quote(just_executable())}} build-deb
     else
+        rustup target add {{target}}
         export CARGO_TARGET_{{shoutysnakecase(target)}}_RUSTFLAGS='-C strip=debuginfo'
         cargo build --release --target {{target}} --package mbtiles --locked
         cargo build --release --target {{target}} --package martin --locked
