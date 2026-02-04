@@ -126,6 +126,8 @@ build-release-musl target:
 
 # Move release build artifacts to target_releases directory
 move-artifacts target:
+    #!/usr/bin/env bash
+    set -euo pipefail
     mkdir -p target_releases
 
     if [[ "{{target}}" == "debian-x86_64" ]]; then
