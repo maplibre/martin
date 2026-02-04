@@ -119,6 +119,7 @@ build-deb output: (cargo-install 'cargo-deb')
 build-release-musl target:
     #!/usr/bin/env bash
     set -euo pipefail
+    rustup target add {{target}}
     export CARGO_TARGET_{{shoutysnakecase(target)}}_RUSTFLAGS='-C strip=debuginfo'
     cargo zigbuild --release --target {{target}} --package mbtiles --locked
     cargo zigbuild --release --target {{target}} --package martin --locked
