@@ -1,18 +1,19 @@
+#[cfg(any(feature = "_tiles", feature = "fonts", feature = "sprites"))]
+use std::num::NonZeroU64;
+#[cfg(any(feature = "_tiles", feature = "sprites", feature = "fonts"))]
+use std::time::Duration;
+
 /// Configuration for all cache types.
 #[derive(Debug, Clone)]
 pub struct CacheConfig {
-    /// Maximum size for tile cache in MB (0 to disable).
     #[cfg(feature = "_tiles")]
-    pub tile_cache_size_mb: u64,
-    /// Maximum size for `PMTiles` directory cache in MB (0 to disable).
+    pub tiles: Option<SubCacheSetting>,
     #[cfg(feature = "pmtiles")]
-    pub pmtiles_cache_size_mb: u64,
-    /// Maximum size for sprite cache in MB (0 to disable).
+    pub pmtiles: Option<SubCacheSetting>,
     #[cfg(feature = "sprites")]
-    pub sprite_cache_size_mb: u64,
-    /// Maximum size for font cache in MB (0 to disable).
+    pub sprites: Option<SubCacheSetting>,
     #[cfg(feature = "fonts")]
-    pub font_cache_size_mb: u64,
+    pub fonts: Option<SubCacheSetting>,
 }
 
 impl CacheConfig {
@@ -20,13 +21,18 @@ impl CacheConfig {
     #[cfg(feature = "_tiles")]
     #[must_use]
     pub fn create_tile_cache(&self) -> Option<martin_core::tiles::TileCache> {
-        if self.tile_cache_size_mb > 0 {
+        if let Some(setting) = &self.tiles {
             tracing::info!(
                 "Initializing tile cache with maximum size {} MB",
-                self.tile_cache_size_mb
+                setting.size_mb
             );
-            let size = self.tile_cache_size_mb * 1000 * 1000;
-            Some(martin_core::tiles::TileCache::new(size))
+
+            let size = setting.size_mb.get() * 1000 * 1000;
+            Some(martin_core::tiles::TileCache::new(
+                size,
+                setting.expiry,
+                setting.idle_timeout,
+            ))
         } else {
             tracing::info!("Tile caching is disabled");
             None
@@ -37,17 +43,18 @@ impl CacheConfig {
     #[cfg(feature = "pmtiles")]
     #[must_use]
     pub fn create_pmtiles_cache(&self) -> martin_core::tiles::pmtiles::PmtCache {
-        // TODO: make this actually disabled, not just zero sized cached
-        if self.pmtiles_cache_size_mb > 0 {
+        if let Some(setting) = &self.pmtiles {
             tracing::info!(
                 "Initializing PMTiles directory cache with maximum size {} MB",
-                self.pmtiles_cache_size_mb
+                setting.size_mb
             );
-            let size = self.pmtiles_cache_size_mb * 1000 * 1000;
-            martin_core::tiles::pmtiles::PmtCache::new(size)
+            let size = setting.size_mb.get() * 1000 * 1000;
+
+            martin_core::tiles::pmtiles::PmtCache::new(size, setting.expiry, setting.idle_timeout)
         } else {
             tracing::debug!("PMTiles directory caching is disabled");
-            martin_core::tiles::pmtiles::PmtCache::new(0)
+            // TODO: make this actually disabled, not just zero sized cached
+            martin_core::tiles::pmtiles::PmtCache::new(0, None, None)
         }
     }
 
@@ -55,13 +62,18 @@ impl CacheConfig {
     #[cfg(feature = "sprites")]
     #[must_use]
     pub fn create_sprite_cache(&self) -> martin_core::sprites::OptSpriteCache {
-        if self.sprite_cache_size_mb > 0 {
+        if let Some(setting) = &self.sprites {
             tracing::info!(
                 "Initializing sprite cache with maximum size {} MB",
-                self.sprite_cache_size_mb
+                setting.size_mb
             );
-            let size = self.sprite_cache_size_mb * 1000 * 1000;
-            Some(martin_core::sprites::SpriteCache::new(size))
+            let size = setting.size_mb.get() * 1000 * 1000;
+
+            Some(martin_core::sprites::SpriteCache::new(
+                size,
+                setting.expiry,
+                setting.idle_timeout,
+            ))
         } else {
             tracing::info!("Sprite caching is disabled");
             None
@@ -72,16 +84,35 @@ impl CacheConfig {
     #[cfg(feature = "fonts")]
     #[must_use]
     pub fn create_font_cache(&self) -> martin_core::fonts::OptFontCache {
-        if self.font_cache_size_mb > 0 {
+        if let Some(setting) = &self.fonts {
             tracing::info!(
                 "Initializing font cache with maximum size {} MB",
-                self.font_cache_size_mb
+                setting.size_mb
             );
-            let size = self.font_cache_size_mb * 1000 * 1000;
-            Some(martin_core::fonts::FontCache::new(size))
+            let size = setting.size_mb.get() * 1000 * 1000;
+
+            Some(martin_core::fonts::FontCache::new(
+                size,
+                setting.expiry,
+                setting.idle_timeout,
+            ))
         } else {
             tracing::info!("Font caching is disabled");
             None
         }
     }
+}
+
+/// Settings for one cache
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(any(feature = "_tiles", feature = "fonts", feature = "sprites"))]
+pub struct SubCacheSetting {
+    /// Maximum size for cache in MB
+    pub size_mb: NonZeroU64,
+    /// Maximum lifetime for cached items (TTL - time to live from creation).
+    /// If not set, items don't expire based on age.
+    pub expiry: Option<Duration>,
+    /// Maximum idle time for cached items (TTI - time to idle since last access).
+    /// If not set, items don't expire based on idle time.
+    pub idle_timeout: Option<Duration>,
 }

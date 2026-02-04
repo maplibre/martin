@@ -97,6 +97,14 @@ impl Args {
             config.cache_size_mb = self.srv.cache_size;
         }
 
+        if self.srv.cache_expiry.is_some() {
+            config.cache_expiry = self.srv.cache_expiry;
+        }
+
+        if self.srv.cache_idle_timeout.is_some() {
+            config.cache_idle_timeout = self.srv.cache_idle_timeout;
+        }
+
         self.srv.merge_into_config(&mut config.srv);
 
         #[allow(unused_mut)]
@@ -359,6 +367,29 @@ mod tests {
         let err = args.merge_into_config(&mut config, &env).unwrap_err();
         let bad = vec!["foobar".to_string()];
         assert!(matches!(err, UnrecognizableConnections(v) if v == bad));
+    }
+
+    #[test]
+    fn cli_cache_expiry_arguments() {
+        use std::time::Duration;
+
+        let args = Args::parse_from([
+            "martin",
+            "--cache-size",
+            "512",
+            "--cache-expiry",
+            "2h",
+            "--cache-idle-timeout",
+            "15m",
+        ]);
+
+        let env = FauxEnv::default();
+        let mut config = Config::default();
+        args.merge_into_config(&mut config, &env).unwrap();
+
+        assert_eq!(config.cache_size_mb, Some(512));
+        assert_eq!(config.cache_expiry, Some(Duration::from_secs(7200)));
+        assert_eq!(config.cache_idle_timeout, Some(Duration::from_secs(900)));
     }
 
     #[cfg(all(feature = "pmtiles", feature = "mbtiles", feature = "unstable-cog"))]

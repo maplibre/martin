@@ -33,7 +33,7 @@ async fn create_source(filename: &str, id: &str, cache: PmtCacheInstance) -> Pmt
 
 fn test_cache_bytes(size_bytes: u64) -> PmtCacheInstance {
     let cache_id = NEXT_CACHE_ID.fetch_add(1, Ordering::SeqCst);
-    let cache = PmtCache::new(size_bytes);
+    let cache = PmtCache::new(size_bytes, None, None);
     PmtCacheInstance::new(cache_id, cache)
 }
 
@@ -409,7 +409,7 @@ async fn cache_entry_only_root_directory() {
     // This test validates the cache infrastructure (tracking, sharing, invalidation) works
     // correctly, even though it won't actually populate with these test files.
 
-    let shared_cache = PmtCache::new(CACHE_SIZE_10MB);
+    let shared_cache = PmtCache::new(CACHE_SIZE_10MB, None, None);
     let cache = PmtCacheInstance::new(0, shared_cache.clone());
     assert_eq!(cache.entry_count(), 0, "Cache should start empty");
 
@@ -443,7 +443,7 @@ async fn cache_entry_only_root_directory() {
 
 #[tokio::test]
 async fn shared_cache_with_unique_instance_ids_can_fetch_same_tile() {
-    let shared_cache = PmtCache::new(CACHE_SIZE_10MB);
+    let shared_cache = PmtCache::new(CACHE_SIZE_10MB, None, None);
 
     let cache_id_1 = NEXT_CACHE_ID.fetch_add(1, Ordering::SeqCst);
     let cache_id_2 = NEXT_CACHE_ID.fetch_add(1, Ordering::SeqCst);
