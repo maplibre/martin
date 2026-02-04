@@ -102,7 +102,7 @@ build-release target:
     set -euo pipefail
     # on debian we need to build a deb package
     if [[ "{{target}}" == "debian-x86_64" ]]; then
-        {{quote(just_executable())}} build-deb target/debian/martin-Debian-x86_64.deb
+        {{quote(just_executable())}} build-deb target/debian/debian-x86_64.deb
     else
         rustup target add {{target}}
         export CARGO_TARGET_{{shoutysnakecase(target)}}_RUSTFLAGS='-C strip=debuginfo'
