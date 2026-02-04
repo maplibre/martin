@@ -110,6 +110,11 @@ build-release target:
         cargo build --release --target {{target}} --package martin --locked
     fi
 
+# Build debian package
+build-deb: (cargo-install 'cargo-deb')
+    sudo apt-get install -y dpkg dpkg-dev liblzma-dev
+    cargo deb -v -p martin --output target/debian/martin.deb
+
 # Build for musl target using zigbuild
 build-release-musl target:
     #!/usr/bin/env bash
@@ -327,26 +332,21 @@ lint: fmt clippy biomejs-martin-ui type-check
 mbtiles *args:
     cargo run -p mbtiles -- {{args}}
 
-# Build debian package
-package-deb:  (cargo-install 'cargo-deb')
-    cargo deb -v -p martin --output target/debian/martin.deb
-
-# Create .tar.gz package for Unix targets
-package-tar target:
+# Create assets package
+package-assets target:
     #!/usr/bin/env bash
     set -euo pipefail
     mkdir -p target/files
     cd target/{{target}}
-    chmod +x martin martin-cp mbtiles
-    tar czvf ../files/martin-{{target}}.tar.gz martin martin-cp mbtiles
-
-# Create .zip package for Windows
-package-zip target='x86_64-pc-windows-msvc':
-    #!/usr/bin/env bash
-    set -euo pipefail
-    mkdir -p target/files
-    cd target/{{target}}
-    7z a ../files/martin-{{target}}.zip martin.exe martin-cp.exe mbtiles.exe
+    if [[ '{{target}}' == 'x86_64-pc-windows-msvc' ]]; then
+        7z a ../files/martin-{{target}}.zip martin.exe martin-cp.exe mbtiles.exe
+    elif [[ '{{target}}' == 'debian-x86_64' ]]; then
+        mv debian-x86_64.deb ../files/martin-Debian-x86_64.deb
+    else
+        chmod +x martin martin-cp mbtiles
+        tar czvf ../files/martin-{{target}}.tar.gz martin martin-cp mbtiles
+    fi
+    cd ../..
 
 # Run pg_dump utility against the test database
 pg_dump *args:
