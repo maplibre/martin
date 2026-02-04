@@ -144,44 +144,8 @@ check: (cargo-install 'cargo-hack')
 # Test documentation generation
 check-doc:  (docs '')
 
-# Run all CI checks locally as a single command
-ci: ci-lint ci-test ci-test-publish && assert-git-is-clean
-
-# Run all CI lint checks
-ci-lint: test-fmt ci-lint-js ci-lint-rust ci-lint-deps
-
-# Lint Rust dependencies
-ci-lint-deps: shear
-
-# Lint and type-check the frontend
-ci-lint-js: ci-npm-install biomejs-martin-ui type-check
-
-# Lint Rust code
-ci-lint-rust: clippy check check-doc
-
-# Install frontend npm dependencies
-[working-directory: 'martin/martin-ui']
-ci-npm-install:
-    npm clean-install --no-fund
-
-# Run all CI tests
-ci-test: restart ci-test-js ci-test-rust test-int env-info
-
-# Run frontend tests
-ci-test-js: ci-npm-install test-frontend
-
-# Test that packages can be published
-ci-test-publish:
-    cargo publish --workspace --dry-run
-
-# Run Rust unit tests by package
-ci-test-rust: start
-    cargo test --package martin-tile-utils
-    cargo test --package mbtiles --no-default-features
-    cargo test --package mbtiles
-    cargo test --package martin
-    cargo test --package martin-core
-    cargo test --doc
+# Run all tests as expected by CI
+ci-test: env-info restart test-fmt clippy check-doc test check && assert-git-is-clean
 
 # Perform  cargo clean  to delete all build files
 clean: clean-test stop && clean-martin-ui
