@@ -103,7 +103,7 @@ build-release target:
     set -euo pipefail
     # on debian we need to build a deb package
     if [[ "{{target}}" == "debian-x86_64" ]]; then
-        {{quote(just_executable())}} package-deb
+        {{quote(just_executable())}} build-deb
     else
         export CARGO_TARGET_{{shoutysnakecase(target)}}_RUSTFLAGS='-C strip=debuginfo'
         cargo build --release --target {{target}} --package mbtiles --locked
