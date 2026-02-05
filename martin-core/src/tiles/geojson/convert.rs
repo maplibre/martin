@@ -2,6 +2,7 @@ use geojson::Value;
 
 pub fn line_string_from_path(path: Vec<[f64; 2]>) -> Vec<Vec<f64>> {
     path.into_iter()
+        .rev()
         .map(|coord| vec![coord[0], coord[1]])
         .collect()
 }
