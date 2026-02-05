@@ -3,8 +3,7 @@ use geo_index::rtree::{RTree, RTreeBuilder};
 use geojson::{Feature, FeatureCollection, GeoJson, Geometry, JsonValue, Value};
 use geozero::error::GeozeroError;
 use geozero::{ColumnValue, FeatureProcessor, GeomProcessor, PropertyProcessor};
-use martin_tile_utils::EARTH_CIRCUMFERENCE;
-use martin_tile_utils::wgs84_to_webmercator;
+use martin_tile_utils::{EARTH_CIRCUMFERENCE, wgs84_to_webmercator};
 use serde_json::Map;
 
 use crate::tiles::geojson::source::Rect;

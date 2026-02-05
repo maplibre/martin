@@ -1,5 +1,9 @@
-use async_trait::async_trait;
 use core::f64;
+use std::fmt::{Debug, Formatter};
+use std::path::PathBuf;
+use std::vec;
+
+use async_trait::async_trait;
 use geo_index::rtree::{RTree, RTreeIndex};
 use geojson::{Feature, FeatureCollection, GeoJson, Geometry, Value};
 use geozero::mvt::{Message, MvtWriter, Tile};
@@ -9,9 +13,6 @@ use i_overlay::float::clip::FloatClip;
 use i_overlay::float::single::SingleFloatOverlay;
 use i_overlay::string::clip::ClipRule;
 use martin_tile_utils::{Encoding, Format, TileCoord, TileData, TileInfo, tile_bbox};
-use std::path::PathBuf;
-use std::vec;
-use std::{fmt::Debug, fmt::Formatter};
 use tilejson::TileJSON;
 use tokio::fs::{self};
 use tracing::trace;
