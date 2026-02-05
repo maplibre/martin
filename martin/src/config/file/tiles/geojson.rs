@@ -37,3 +37,77 @@ impl TileSourceConfiguration for GeoJsonConfig {
         unreachable!()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::collections::BTreeMap;
+    use std::path::PathBuf;
+
+    use indoc::indoc;
+
+    use crate::config::file::geojson::GeoJsonConfig;
+    use crate::config::file::{
+        ConfigurationLivecycleHooks, FileConfigEnum, FileConfigSource, FileConfigSrc,
+    };
+
+    #[test]
+    fn parse() {
+        let mut cfg = serde_yaml::from_str::<FileConfigEnum<GeoJsonConfig>>(indoc! {"
+            paths:
+              - /dir-path
+              - /path/to/file2.ext
+              - http://example.org/file.ext
+            sources:
+                pm-src1: /tmp/file.ext
+                pm-src2:
+                  path: /tmp/file.ext
+                pm-src3: https://example.org/file3.ext
+                pm-src4:
+                  path: https://example.org/file4.ext
+        "})
+        .unwrap();
+        cfg.finalize().unwrap();
+        let unrecognised = cfg.get_unrecognized_keys();
+        assert!(
+            unrecognised.is_empty(),
+            "unrecognized config: {unrecognised:?}"
+        );
+        let FileConfigEnum::Config(cfg) = cfg else {
+            panic!();
+        };
+        let paths = cfg.paths.clone().into_iter().collect::<Vec<_>>();
+        assert_eq!(
+            paths,
+            vec![
+                PathBuf::from("/dir-path"),
+                PathBuf::from("/path/to/file2.ext"),
+                PathBuf::from("http://example.org/file.ext"),
+            ]
+        );
+        assert_eq!(
+            cfg.sources,
+            Some(BTreeMap::from_iter(vec![
+                (
+                    "pm-src1".to_string(),
+                    FileConfigSrc::Path(PathBuf::from("/tmp/file.ext"))
+                ),
+                (
+                    "pm-src2".to_string(),
+                    FileConfigSrc::Obj(FileConfigSource {
+                        path: PathBuf::from("/tmp/file.ext"),
+                    })
+                ),
+                (
+                    "pm-src3".to_string(),
+                    FileConfigSrc::Path(PathBuf::from("https://example.org/file3.ext"))
+                ),
+                (
+                    "pm-src4".to_string(),
+                    FileConfigSrc::Obj(FileConfigSource {
+                        path: PathBuf::from("https://example.org/file4.ext"),
+                    })
+                ),
+            ]))
+        );
+    }
+}
