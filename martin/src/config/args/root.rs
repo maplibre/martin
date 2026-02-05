@@ -115,12 +115,17 @@ impl Args {
 
         #[cfg(feature = "pmtiles")]
         if !cli_strings.is_empty() {
-            config.pmtiles = parse_file_args(&mut cli_strings, &["pmtiles"], true);
-        }
-
+          config.pmtiles = parse_file_args(&mut cli_strings, &["pmtiles"], true);
+      }
+        
         #[cfg(feature = "mbtiles")]
         if !cli_strings.is_empty() {
             config.mbtiles = parse_file_args(&mut cli_strings, &["mbtiles"], false);
+        }
+        
+        #[cfg(feature = "geojson")]
+        if !cli_strings.is_empty() {
+            config.mbtiles = parse_file_args(&mut cli_strings, &["geojson"], false);
         }
 
         #[cfg(feature = "unstable-cog")]
