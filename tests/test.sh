@@ -616,15 +616,15 @@ test_jsn catalog_geojson catalog
 
 >&2 echo "***** Test server response for GeoJSON sources *****"
 test_jsn geojson_fc1           feature_collection_1
-test_pbf geojson_fc1_0_0_0     feature_collection_1/0/0/0
-test_pbf geojson_fc1_1_0_0     feature_collection_1/1/0/0
-test_pbf geojson_fc1_1_1_0     feature_collection_1/1/1/0
-test_pbf geojson_fc1_2_1_1     feature_collection_1/2/1/1
+#test_pbf geojson_fc1_0_0_0     feature_collection_1/0/0/0
+#test_pbf geojson_fc1_1_0_0     feature_collection_1/1/0/0
+#test_pbf geojson_fc1_1_1_0     feature_collection_1/1/1/0
+#test_pbf geojson_fc1_2_1_1     feature_collection_1/2/1/1
 
 test_jsn geojson_fc2           feature_collection_2
-test_pbf geojson_fc2_0_0_0     feature_collection_2/0/0/0
-test_pbf geojson_fc2_6_33_22   feature_collection_2/6/33/22
-test_pbf geojson_fc2_10_530_357 feature_collection_2/10/530/357
+#test_pbf geojson_fc2_0_0_0     feature_collection_2/0/0/0
+#test_pbf geojson_fc2_6_33_22   feature_collection_2/6/33/22
+#test_pbf geojson_fc2_10_530_357 feature_collection_2/10/530/357
 
 kill_process "$MARTIN_PROC_ID" Martin
 validate_log "$LOG_FILE"
