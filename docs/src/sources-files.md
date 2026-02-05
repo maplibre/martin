@@ -22,8 +22,6 @@ it and use it with `--config my-config.yaml` option.
 > - **PMTiles** requires less memory in extreme cases as sqlite has a small in-memory cache.
 >
 > The choice depends on your specific usecase and requirements.
-
-
 ### Autodiscovery
 
 For mbtiles or local pmtiles files, we support auto discovering at startup.
