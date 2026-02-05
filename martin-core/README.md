@@ -14,6 +14,7 @@ The library providing the basic building blocks for [Martin](https://maplibre.or
   - [x] mbtiles
   - [x] pmtiles
   - [x] cog
+  - [x] geojson
   - [x] postgres tables
   - [x] postgres functions
 - resources

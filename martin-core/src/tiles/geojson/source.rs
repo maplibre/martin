@@ -36,7 +36,6 @@ use crate::tiles::{BoxedSource, MartinCoreError, MartinCoreResult, Source, UrlQu
 /// 1. Search for geometries that overlap with a given tile bounding box using the R-Tree
 /// 2. Clip geometries with tile bounding box (and optional buffer)
 /// 3. Transform into tile coordinate space and convert to MVT binary format
-
 #[derive(Clone)]
 pub struct GeoJsonSource {
     id: String,
