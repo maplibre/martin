@@ -119,7 +119,7 @@ impl Source for GeoJsonSource {
         let mut rect = Rect::from_xyz(xyz.x, xyz.y, xyz.z);
 
         // Add buffer for query and clipping
-        let buffer = BUFFER_SIZE as f64 / EXTENT as f64;
+        let buffer = f64::from(BUFFER_SIZE) / f64::from(EXTENT);
         let buffer_x = (rect.max_x - rect.min_x) * buffer;
         let buffer_y = (rect.max_y - rect.min_y) * buffer;
         rect.min_x -= buffer_x;
