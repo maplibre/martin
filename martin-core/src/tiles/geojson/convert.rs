@@ -7,14 +7,11 @@ pub fn line_string_from_path(path: Vec<[f64; 2]>) -> Vec<Vec<f64>> {
 }
 
 pub fn multi_line_string_from_paths(paths: Vec<Vec<[f64; 2]>>) -> Vec<Vec<Vec<f64>>> {
-    paths
-        .into_iter()
-        .map(|p| line_string_from_path(p))
-        .collect()
+    paths.into_iter().map(line_string_from_path).collect()
 }
 
 pub fn line_string_to_shape_path(line_string: Vec<Vec<f64>>) -> Vec<[f64; 2]> {
-    line_string.iter().map(|v| [v[0], v[1]]).collect()
+    line_string.into_iter().map(|v| [v[0], v[1]]).collect()
 }
 
 pub fn multi_line_string_to_shape_paths(line_strings: Vec<Vec<Vec<f64>>>) -> Vec<Vec<[f64; 2]>> {
@@ -38,17 +35,17 @@ pub fn rings_from_shape(shape: Vec<Vec<[f64; 2]>>) -> Vec<Vec<Vec<f64>>> {
 }
 
 pub fn multi_polygon_from_shapes(shapes: Vec<Vec<Vec<[f64; 2]>>>) -> Value {
-    let polygons = shapes.into_iter().map(|s| rings_from_shape(s));
+    let polygons = shapes.into_iter().map(rings_from_shape);
     Value::MultiPolygon(polygons.collect())
 }
 
-pub fn ring_to_shape_path(line_string: Vec<Vec<f64>>) -> Vec<[f64; 2]> {
+pub fn ring_to_shape_path(mut line_string: Vec<Vec<f64>>) -> Vec<[f64; 2]> {
     if line_string.is_empty() {
         return vec![];
     }
     // i_overlay does not explicitly close rings - skip last coordinate
-    let coords = &line_string[..line_string.len() - 1];
-    coords.iter().map(|p| [p[0], p[1]]).collect()
+    let _ = line_string.pop();
+    line_string.into_iter().map(|v| [v[0], v[1]]).collect()
 }
 
 pub fn polygon_to_shape_paths(polygon: Vec<Vec<Vec<f64>>>) -> Vec<Vec<[f64; 2]>> {

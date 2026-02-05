@@ -93,7 +93,7 @@ pub(crate) fn preprocess_geojson(geojson: GeoJson) -> (GeoJson, RTree<f64>) {
     }
 }
 
-/// Transform GeoJSON geometry and bounding box from WGS84 to Web Mercator
+/// Transform `GeoJSON` geometry and bounding box from WGS84 to Web Mercator
 fn transform_geometry(mut geom: Geometry) -> Geometry {
     match geom.value {
         Value::Point(mut p) => {
@@ -212,7 +212,7 @@ pub(crate) fn tile_length_from_zoom(zoom: u8) -> f64 {
 // Another solution would be to convert to GeoJsonString and then do the processing, but this would result
 // in unnecessary string conversions
 
-/// Process top-level GeoJSON items
+/// Process top-level `GeoJSON` items
 pub(crate) fn process_geojson<P: FeatureProcessor>(
     gj: &GeoJson,
     processor: &mut P,
@@ -241,7 +241,7 @@ pub(crate) fn process_geojson<P: FeatureProcessor>(
     }
 }
 
-/// Process top-level GeoJSON items
+/// Process top-level `GeoJSON` items
 fn process_geojson_feature<P: FeatureProcessor>(
     feature: &Feature,
     idx: usize,
@@ -265,7 +265,7 @@ fn process_geojson_feature<P: FeatureProcessor>(
     processor.dataset_end()
 }
 
-/// Process GeoJSON geometries
+/// Process `GeoJSON` geometries
 pub(crate) fn process_geojson_geom_n<P: GeomProcessor>(
     geom: &Geometry,
     idx: usize,
@@ -311,7 +311,7 @@ pub(crate) fn process_geojson_geom_n<P: GeomProcessor>(
     }
 }
 
-/// Process GeoJSON properties
+/// Process `GeoJSON` properties
 pub(crate) fn process_properties<P: PropertyProcessor>(
     properties: &Map<String, JsonValue>,
     processor: &mut P,
@@ -350,7 +350,7 @@ pub(crate) fn process_properties<P: PropertyProcessor>(
 }
 
 fn process_coord<P: GeomProcessor>(
-    point_type: &Vec<f64>,
+    point_type: &[f64],
     multi_dim: bool,
     idx: usize,
     processor: &mut P,
@@ -371,7 +371,7 @@ fn process_coord<P: GeomProcessor>(
 }
 
 fn process_linestring<P: GeomProcessor>(
-    linestring_type: &Vec<Vec<f64>>,
+    linestring_type: &[Vec<f64>],
     tagged: bool,
     idx: usize,
     processor: &mut P,
@@ -385,7 +385,7 @@ fn process_linestring<P: GeomProcessor>(
 }
 
 fn process_polygon<P: GeomProcessor>(
-    polygon_type: &Vec<Vec<Vec<f64>>>,
+    polygon_type: &[Vec<Vec<f64>>],
     tagged: bool,
     idx: usize,
     processor: &mut P,

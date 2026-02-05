@@ -2780,7 +2780,7 @@ dependencies = [
  "log",
  "serde",
  "serde_json",
- "thiserror 2.0.17",
+ "thiserror 2.0.18",
 ]
 
 [[package]]
@@ -2797,7 +2797,7 @@ dependencies = [
  "prost",
  "prost-build",
  "serde_json",
- "thiserror 2.0.17",
+ "thiserror 2.0.18",
  "wkt",
 ]
 

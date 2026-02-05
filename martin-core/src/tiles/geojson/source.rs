@@ -55,7 +55,7 @@ impl GeoJsonSource {
             .map_err(|err| GeoJsonError::IoError(err, path))?;
         let geojson = geojson_str
             .parse::<GeoJson>()
-            .map_err(|err| GeoJsonError::GeoJsonError(err))?;
+            .map_err(|err| GeoJsonError::GeoJsonError(Box::new(err)))?;
 
         let (geojson, rtree) = preprocess_geojson(geojson);
 
@@ -176,8 +176,8 @@ impl Source for GeoJsonSource {
             let mut mvt_writer =
                 MvtWriter::new(4096, rect.min_x, rect.min_y, rect.max_x, rect.max_y).unwrap();
             process_geojson(&geojson, &mut mvt_writer)
-                .map_err(|err| GeoJsonError::GeozeroError(err))
-                .map_err(|err| MartinCoreError::GeoJsonError(err))?;
+                .map_err(GeoJsonError::GeozeroError)
+                .map_err(MartinCoreError::GeoJsonError)?;
             let mvt_layer = mvt_writer.layer("layer");
             let tile = Tile {
                 layers: vec![mvt_layer],
