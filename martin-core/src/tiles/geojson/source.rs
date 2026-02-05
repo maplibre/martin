@@ -24,6 +24,9 @@ use crate::tiles::geojson::error::GeoJsonError;
 use crate::tiles::geojson::process::{preprocess_geojson, process_geojson, tile_length_from_zoom};
 use crate::tiles::{BoxedSource, MartinCoreError, MartinCoreResult, Source, UrlQuery};
 
+const BUFFER_SIZE: i32 = 256;
+const EXTENT: i32 = 4096;
+
 /// A source for `GeoJSON` files
 ///
 /// Steps to pre-process `GeoJSON` features that have a geometry:
@@ -43,7 +46,6 @@ pub struct GeoJsonSource {
     rtree: RTree<f64>,
     tilejson: TileJSON,
     tile_info: TileInfo,
-    buffer_size: f64,
 }
 
 impl GeoJsonSource {
@@ -69,8 +71,7 @@ impl GeoJsonSource {
             geojson,
             rtree,
             tilejson,
-            tile_info: TileInfo::new(Format::Json, Encoding::Uncompressed),
-            buffer_size: 256.0,
+            tile_info: TileInfo::new(Format::Mvt, Encoding::Uncompressed),
         })
     }
 }
@@ -117,7 +118,7 @@ impl Source for GeoJsonSource {
         let mut rect = Rect::from_xyz(xyz.x, xyz.y, xyz.z);
 
         // Add buffer for query and clipping
-        let buffer = self.buffer_size / 4096.0;
+        let buffer = BUFFER_SIZE as f64 / EXTENT as f64;
         let buffer_x = (rect.max_x - rect.min_x) * buffer;
         let buffer_y = (rect.max_y - rect.min_y) * buffer;
         rect.min_x -= buffer_x;
@@ -137,57 +138,53 @@ impl Source for GeoJsonSource {
             return Ok(Vec::new());
         }
 
-        // Preprocessing converts any GeoJson input into a FeatureCollection
-        if let GeoJson::FeatureCollection(fc) = &self.geojson {
-            let selected_fs = indices
-                .into_iter()
-                .map(|i| fc.features[i as usize].clone())
-                .collect::<Vec<Feature>>();
+        let GeoJson::FeatureCollection(fc) = &self.geojson else {
+            unreachable!("Preprocessing converts any GeoJson input into a FeatureCollection")
+        };
+        let selected_fs = indices
+            .into_iter()
+            .map(|i| fc.features[i as usize].clone())
+            .collect::<Vec<Feature>>();
 
-            let mut bbox = Rect::default();
-            let clipped_fs = selected_fs
-                .into_iter()
-                .filter_map(|mut f| {
-                    let geom = f.geometry.unwrap();
-                    let g = rect.clip_geometry(geom);
-                    if let Some(geom) = g {
-                        if let Some(bb) = &geom.bbox {
-                            bbox.extend_by_bbox(bb);
-                        }
-                        f.bbox.clone_from(&geom.bbox);
-                        f.geometry = Some(geom);
-                        return Some(f);
+        let mut bbox = Rect::default();
+        let clipped_fs = selected_fs
+            .into_iter()
+            .filter_map(|mut f| {
+                let geom = f.geometry.unwrap();
+                let g = rect.clip_geometry(geom);
+                if let Some(geom) = g {
+                    if let Some(bb) = &geom.bbox {
+                        bbox.extend_by_bbox(bb);
                     }
+                    f.bbox.clone_from(&geom.bbox);
+                    f.geometry = Some(geom);
+                    return Some(f);
+                }
 
-                    None
-                })
-                .collect::<Vec<Feature>>();
+                None
+            })
+            .collect::<Vec<Feature>>();
 
-            let fc = FeatureCollection {
-                bbox: Some(vec![bbox.min_x, bbox.min_y, bbox.max_x, bbox.max_y]),
-                features: clipped_fs,
-                foreign_members: None,
-            };
+        let fc = FeatureCollection {
+            bbox: Some(vec![bbox.min_x, bbox.min_y, bbox.max_x, bbox.max_y]),
+            features: clipped_fs,
+            foreign_members: None,
+        };
 
-            // Create new rectangle for MvtWriter since it needs the boundary without buffer
-            let rect = Rect::from_xyz(xyz.x, xyz.y, xyz.z);
-            let geojson = GeoJson::FeatureCollection(fc);
-            let mut mvt_writer =
-                MvtWriter::new(4096, rect.min_x, rect.min_y, rect.max_x, rect.max_y).unwrap();
-            process_geojson(&geojson, &mut mvt_writer)
-                .map_err(GeoJsonError::GeozeroError)
-                .map_err(MartinCoreError::GeoJsonError)?;
-            let mvt_layer = mvt_writer.layer("layer");
-            let tile = Tile {
-                layers: vec![mvt_layer],
-            };
-            let v = tile.encode_to_vec();
-            return Ok(v);
-        }
-
-        Err(MartinCoreError::OtherError(
-            "Could not fetch GeoJSON features".into(),
-        ))
+        // Create new rectangle for MvtWriter since it needs the boundary without buffer
+        let rect = Rect::from_xyz(xyz.x, xyz.y, xyz.z);
+        let geojson = GeoJson::FeatureCollection(fc);
+        let mut mvt_writer =
+            MvtWriter::new(4096, rect.min_x, rect.min_y, rect.max_x, rect.max_y).unwrap();
+        process_geojson(&geojson, &mut mvt_writer)
+            .map_err(GeoJsonError::GeozeroError)
+            .map_err(MartinCoreError::GeoJsonError)?;
+        let mvt_layer = mvt_writer.layer("layer");
+        let tile = Tile {
+            layers: vec![mvt_layer],
+        };
+        let v = tile.encode_to_vec();
+        Ok(v)
     }
 }
 
