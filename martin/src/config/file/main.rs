@@ -4,13 +4,13 @@ use std::io::prelude::*;
 use std::path::Path;
 use std::sync::LazyLock;
 
+#[cfg(feature = "_tiles")]
+use crate::config::primitives::IdResolver;
+#[cfg(feature = "postgres")]
+use crate::config::primitives::OptOneMany;
 use clap::ValueEnum;
 #[cfg(feature = "_tiles")]
 use futures::future::{BoxFuture, try_join_all};
-#[cfg(feature = "_tiles")]
-use martin_core::config::IdResolver;
-#[cfg(feature = "postgres")]
-use martin_core::config::OptOneMany;
 #[cfg(feature = "_tiles")]
 use martin_core::tiles::OptTileCache;
 #[cfg(feature = "pmtiles")]

@@ -2,27 +2,6 @@ use std::vec::IntoIter;
 
 use serde::{Deserialize, Serialize};
 
-/// A serde helper to store a boolean as an object.
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum OptBoolObj<T> {
-    /// No value present.
-    #[default]
-    #[serde(skip)]
-    NoValue,
-    /// A boolean value.
-    Bool(bool),
-    /// An object value.
-    Object(T),
-}
-
-impl<T> OptBoolObj<T> {
-    /// Returns `true` if this contains no value.
-    pub fn is_none(&self) -> bool {
-        matches!(self, Self::NoValue)
-    }
-}
-
 /// An enum that can hold no values, one value, or many values of type T.
 #[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
@@ -124,18 +103,21 @@ impl<T> OptOneMany<T> {
 
 #[cfg(test)]
 mod tests {
+    use super::OptOneMany::{Many, NoVals, One};
     use super::*;
-    use crate::config::OptOneMany::{Many, NoVals, One};
 
     #[test]
-    fn test_one_or_many() {
-        let mut noval: OptOneMany<i32> = NoVals;
-        let mut one = One(1);
-        let mut many = Many(vec![1, 2, 3]);
-
+    fn test_one_or_many_new() {
         assert_eq!(OptOneMany::new(vec![1, 2, 3]), Many(vec![1, 2, 3]));
         assert_eq!(OptOneMany::new(vec![1]), One(1));
         assert_eq!(OptOneMany::new(Vec::<i32>::new()), NoVals);
+    }
+
+    #[test]
+    fn test_one_or_many_iter() {
+        let mut noval: OptOneMany<i32> = NoVals;
+        let mut one = One(1);
+        let mut many = Many(vec![1, 2, 3]);
 
         assert_eq!(noval.iter_mut().collect::<Vec<_>>(), Vec::<&i32>::new());
         assert_eq!(one.iter_mut().collect::<Vec<_>>(), vec![&1]);
@@ -152,12 +134,16 @@ mod tests {
             Some(vec![&1, &2, &3])
         );
 
-        assert_eq!(noval.as_slice(), Vec::<i32>::new().as_slice());
-        assert_eq!(one.as_slice(), &[1]);
-        assert_eq!(many.as_slice(), &[1, 2, 3]);
-
         assert_eq!(noval.into_iter().collect::<Vec<_>>(), Vec::<i32>::new());
         assert_eq!(one.into_iter().collect::<Vec<_>>(), vec![1]);
         assert_eq!(many.into_iter().collect::<Vec<_>>(), vec![1, 2, 3]);
+    }
+
+    #[test]
+    fn test_one_or_many_as_slice() {
+        let noval: OptOneMany<i32> = NoVals;
+        assert_eq!(noval.as_slice(), Vec::<i32>::new().as_slice());
+        assert_eq!(One(1).as_slice(), &[1]);
+        assert_eq!(Many(vec![1, 2, 3]).as_slice(), &[1, 2, 3]);
     }
 }

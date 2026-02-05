@@ -3,7 +3,7 @@ use std::env;
 use std::path::{Path, PathBuf};
 
 #[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
-use martin_core::config::OptBoolObj;
+use crate::config::primitives::OptBoolObj;
 use martin_core::styles::StyleSources;
 use serde::{Deserialize, Serialize};
 use tracing::warn;
