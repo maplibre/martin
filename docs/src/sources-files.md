@@ -13,9 +13,9 @@ it and use it with `--config my-config.yaml` option.
 
 > [!TIP]
 > See [our tile sources explanation](sources-tiles.md) for a more detailed explanation on the difference between our available data sources.
-> 
+>
 > The difference between MBTiles and PMTiles is that:
-> 
+>
 > - **MBTiles** require the entire archive to be on the same machine. **PMTiles** can utilise a remote HTTP-Range request supporting server or a local file.
 > - Performance wise, **MBTiles** is slightly faster than **PMTiles**, but with caching this is negligible.
 > - Disk size wise, **MBTiles** is slightly (10-15%) higher than **PMTiles**.
