@@ -45,6 +45,8 @@ bench:
 bench-http:  (cargo-install 'oha')
     @echo "ATTENTION: Make sure Martin was started with    just bench-server"
     @echo "Warming up..."
+    oha --latency-correction -z 5s --no-tui http://localhost:3000/feature_collection_1/0/0/0 > /dev/null
+    oha --latency-correction -z 60s         http://localhost:3000/feature_collection_1/0/0/0
     oha --latency-correction -z 5s --no-tui http://localhost:3000/function_zxy_query/18/235085/122323 > /dev/null
     oha --latency-correction -z 60s         http://localhost:3000/function_zxy_query/18/235085/122323
     oha --latency-correction -z 5s --no-tui http://localhost:3000/png/0/0/0 > /dev/null
@@ -54,7 +56,7 @@ bench-http:  (cargo-install 'oha')
 
 # Start release-compiled Martin server and a test database
 bench-server: start
-    cargo run --release -- tests/fixtures/mbtiles tests/fixtures/pmtiles
+    cargo run --release -- tests/fixtures/mbtiles tests/fixtures/pmtiles tests/fixtures/geojson
 
 # Run biomejs on the dashboard (martin/martin-ui)
 [working-directory: 'martin/martin-ui']
