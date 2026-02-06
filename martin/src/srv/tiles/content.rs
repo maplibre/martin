@@ -6,7 +6,7 @@ use actix_web::http::header::{
     Preference,
 };
 use actix_web::web::{Data, Path, Query};
-use actix_web::{HttpMessage, HttpRequest, HttpResponse, Result as ActixResult, route};
+use actix_web::{HttpMessage as _, HttpRequest, HttpResponse, Result as ActixResult, route};
 use futures::future::try_join_all;
 use martin_core::tiles::{BoxedSource, OptTileCache, Tile, TileCache, UrlQuery};
 use martin_tile_utils::{
@@ -323,7 +323,7 @@ pub fn to_encoding(val: ContentEncoding) -> Option<Encoding> {
 
 #[cfg(test)]
 mod tests {
-    use actix_http::header::TryIntoHeaderValue;
+    use actix_http::header::TryIntoHeaderValue as _;
     use rstest::rstest;
     use tilejson::tilejson;
 
