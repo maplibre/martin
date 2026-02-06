@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.1](https://github.com/maplibre/martin/compare/martin-v1.3.0...martin-v1.3.1) - 2026-02-06
+
+### Other
+
+- restrict `unused_trait_names` for trait imports ([#2542](https://github.com/maplibre/martin/pull/2542))
+- *(deps)* Bump the all-npm-version-updates group across 2 directories with 12 updates ([#2533](https://github.com/maplibre/martin/pull/2533))
+
 ## [1.3.0](https://github.com/maplibre/martin/compare/martin-v1.2.0...martin-v1.3.0) - 2026-01-27
 
 ### More flexible log formatting
