@@ -5,7 +5,7 @@ import { defineConfig } from 'vite';
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  base: '',  // A relative path supports the `route-prefix` config
+  base: '', // A relative path supports the `route-prefix` config
   build: {
     // assets can also be the name of a tile source
     // so we use /_/assets to avoid conflicts
