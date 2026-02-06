@@ -79,8 +79,8 @@ deadpool-postgres = { workspace = true, optional = true }
 futures = { workspace = true, optional = true }
 geo = { workspace = true, optional = true }
 geo-index = { workspace = true, optional = true }
-geojson = { workspace = true, optional = true }
 geo-types = { workspace = true, optional = true }
+geojson = { workspace = true, optional = true }
 geozero = { workspace = true, optional = true }
 i_overlay = { workspace = true, optional = true }
 itertools = { workspace = true, optional = true }
