@@ -230,4 +230,7 @@ styles:
   paths:
     - tests/fixtures/styles/src2
 
+geojson:
+  warning: 'due to not expected'
+
 tilejson_url_version_param: version

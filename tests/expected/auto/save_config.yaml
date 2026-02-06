@@ -366,6 +366,10 @@ mbtiles:
     world_cities_diff: tests/fixtures/mbtiles/world_cities_diff.mbtiles
     world_cities_modified: tests/fixtures/mbtiles/world_cities_modified.mbtiles
     zoomed_world_cities: tests/fixtures/mbtiles/zoomed_world_cities.mbtiles
+geojson:
+- tests/fixtures/mbtiles
+- tests/fixtures/pmtiles
+- tests/fixtures/cog
 sprites: tests/fixtures/sprites/src1
 styles:
 - tests/fixtures/styles/maplibre_demo.json

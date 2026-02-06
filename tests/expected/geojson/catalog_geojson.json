@@ -1,0 +1,19 @@
+{
+  "fonts": {},
+  "sprites": {},
+  "styles": {},
+  "tiles": {
+    "feature_1": {
+      "content_type": "application/x-protobuf"
+    },
+    "feature_collection_1": {
+      "content_type": "application/x-protobuf"
+    },
+    "feature_collection_2": {
+      "content_type": "application/x-protobuf"
+    },
+    "feature_collection_3": {
+      "content_type": "application/x-protobuf"
+    }
+  }
+}

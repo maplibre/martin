@@ -54,6 +54,10 @@ pub enum MartinError {
     #[error(transparent)]
     CogError(#[from] martin_core::tiles::cog::CogError),
 
+    #[cfg(feature = "geojson")]
+    #[error(transparent)]
+    GeoJsonError(#[from] martin_core::tiles::geojson::GeoJsonError),
+
     #[error(transparent)]
     ConfigFileError(#[from] crate::config::file::ConfigFileError),
 

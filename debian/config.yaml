@@ -35,6 +35,13 @@ cache_size_mb: 512
 #   sources:
 #     mb-src1: /path/to/mbtiles1.mbtiles
 
+# geojson:
+#   paths:
+#    - /dir-path
+#     - /path/to/geojson.geojson
+#   sources:
+#     geo-src1: /path/to/geojson1.geojson
+
 # sprites:
 #   paths:
 #     - /path/to/sprites_dir

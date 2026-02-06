@@ -123,6 +123,11 @@ impl Args {
             config.mbtiles = parse_file_args(&mut cli_strings, &["mbtiles"], false);
         }
 
+        #[cfg(feature = "geojson")]
+        if !cli_strings.is_empty() {
+            config.geojson = parse_file_args(&mut cli_strings, &["geojson"], false);
+        }
+
         #[cfg(feature = "unstable-cog")]
         if !cli_strings.is_empty() {
             config.cog = parse_file_args(&mut cli_strings, &["tif", "tiff"], false);
@@ -401,6 +406,22 @@ mod tests {
         pmtiles: "../tests/fixtures/"
         mbtiles: "../tests/fixtures/"
         cog: "../tests/fixtures/"
+        "#);
+    }
+
+    #[cfg(feature = "geojson")]
+    #[test]
+    fn cli_geojson_file() {
+        let args = Args::parse_from([
+            "martin",
+            "../tests/fixtures/geojson/feature_collection_1.geojson",
+        ]);
+
+        let env = FauxEnv::default();
+        let mut config = Config::default();
+        args.merge_into_config(&mut config, &env).unwrap();
+        insta::assert_yaml_snapshot!(config, @r#"
+        geojson: "../tests/fixtures/geojson/feature_collection_1.geojson"
         "#);
     }
 }
