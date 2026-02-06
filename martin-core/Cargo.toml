@@ -27,8 +27,7 @@ geojson = [
     "dep:geo-index",
     "dep:geozero",
     "dep:i_overlay",
-    "dep:geo",
-    "dep:geo-types",
+    "dep:geos",
     "_tiles",
 ]
 postgres = [
@@ -77,10 +76,9 @@ bit-set = { workspace = true, optional = true }
 dashmap = { workspace = true, optional = true }
 deadpool-postgres = { workspace = true, optional = true }
 futures = { workspace = true, optional = true }
-geo = { workspace = true, optional = true }
 geo-index = { workspace = true, optional = true }
-geo-types = { workspace = true, optional = true }
 geojson = { workspace = true, optional = true }
+geos = { workspace = true, optional = true }
 geozero = { workspace = true, optional = true }
 i_overlay = { workspace = true, optional = true }
 itertools = { workspace = true, optional = true }

@@ -4,9 +4,8 @@ use std::path::PathBuf;
 use std::vec;
 
 use async_trait::async_trait;
-use geo::Validation;
 use geo_index::rtree::{RTree, RTreeIndex};
-use geojson::{Feature, FeatureCollection, GeoJson, Geometry, Value};
+use geojson::{FeatureCollection, GeoJson, Geometry, Value};
 use geozero::mvt::{Message, MvtWriter, Tile};
 use i_overlay::core::fill_rule::FillRule;
 use i_overlay::core::overlay_rule::OverlayRule;
@@ -19,8 +18,9 @@ use tokio::fs::{self};
 use tracing::trace;
 
 use crate::tiles::geojson::convert::{
-    line_string_to_shape_path, multi_line_string_from_paths, multi_line_string_to_shape_paths,
-    multi_polygon_from_shapes, multi_polygon_to_shape_paths, polygon_to_shape_paths,
+    convert_validate_simplify_geom, line_string_to_shape_path, multi_line_string_from_paths,
+    multi_line_string_to_shape_paths, multi_polygon_from_shapes, multi_polygon_to_shape_paths,
+    polygon_to_shape_paths,
 };
 use crate::tiles::geojson::error::GeoJsonError;
 use crate::tiles::geojson::process::{preprocess_geojson, process_geojson, tile_length_from_zoom};
@@ -144,15 +144,14 @@ impl Source for GeoJsonSource {
         let selected_fs = indices
             .into_iter()
             .map(|i| fc.features[i as usize].clone())
-            .collect::<Vec<Feature>>();
+            .collect::<Vec<_>>();
 
-        // rect for clipping must be without buffer
-        // let rect = Rect::from_xyz(xyz.x, xyz.y, xyz.z);
         let clipped_fs = selected_fs
             .into_iter()
-            .filter_map(|mut f| {
+            .enumerate()
+            .filter_map(|(i, mut f)| {
                 let geom = f.geometry.unwrap();
-                let g = rect.clip_transform_validate_geometry(geom);
+                let g = rect.clip_transform_validate_geometry(geom, i);
                 if let Some(geom) = g {
                     f.geometry = Some(geom);
                     return Some(f);
@@ -160,7 +159,7 @@ impl Source for GeoJsonSource {
 
                 None
             })
-            .collect::<Vec<Feature>>();
+            .collect::<Vec<_>>();
 
         let fc = FeatureCollection {
             bbox: None,
@@ -295,7 +294,7 @@ impl Rect {
         rings
     }
 
-    fn clip_transform_validate_geometry(&self, mut geom: Geometry) -> Option<Geometry> {
+    fn clip_transform_validate_geometry(&self, mut geom: Geometry, idx: usize) -> Option<Geometry> {
         match geom.value {
             Value::Point(p) => {
                 if self.inside(&p) {
@@ -312,19 +311,20 @@ impl Rect {
                     ps.into_iter().filter(|p| self.inside(p)).collect();
 
                 if filtered_ps.is_empty() {
-                    None
-                } else {
-                    // transform to tile coordinate system
-                    let transformed_ps = filtered_ps
-                        .iter()
-                        .map(|p| {
-                            let coords = self.transform_to_tile_coordinates(p);
-                            coords.to_vec()
-                        })
-                        .collect();
-                    geom.value = Value::MultiPoint(transformed_ps);
-                    Some(geom)
+                    return None;
                 }
+
+                // transform to tile coordinate system
+                let transformed_ps = filtered_ps
+                    .iter()
+                    .map(|p| {
+                        let coords = self.transform_to_tile_coordinates(p);
+                        coords.to_vec()
+                    })
+                    .collect();
+
+                geom.value = Value::MultiPoint(transformed_ps);
+                Some(geom)
             }
             Value::LineString(ls) => {
                 let string_line = line_string_to_shape_path(ls);
@@ -339,32 +339,28 @@ impl Rect {
                 );
 
                 if clipped_ls.is_empty() {
-                    None
-                } else {
-                    // transform to tile coordinate system
-                    let transformed_ls = clipped_ls
-                        .iter()
-                        .map(|vec| {
-                            vec.iter()
-                                .map(|p| self.transform_to_tile_coordinates(p))
-                                .collect()
-                        })
-                        .collect();
-                    geom.value =
-                        Value::MultiLineString(multi_line_string_from_paths(transformed_ls));
-
-                    // convert to geo-types geometry
-                    let geo_geom = geo_types::Geometry::<f64>::try_from(geom.clone());
-
-                    // validate geometry
-                    if let Ok(geo_geom) = geo_geom
-                        && geo_geom.is_valid()
-                    {
-                        return Some(geom);
-                    }
-
-                    None
+                    return None;
                 }
+
+                // transform to tile coordinate system
+                let transformed_ls = clipped_ls
+                    .iter()
+                    .map(|vec| {
+                        vec.iter()
+                            .map(|p| self.transform_to_tile_coordinates(p))
+                            .collect()
+                    })
+                    .collect();
+
+                geom.value = Value::MultiLineString(multi_line_string_from_paths(transformed_ls));
+
+                // validate and simplify (remove duplicate points)
+                let geom_validated = convert_validate_simplify_geom(geom, idx);
+                if let Ok(geom_validated) = geom_validated {
+                    return Some(geom_validated);
+                }
+
+                None
             }
             Value::MultiLineString(ls) => {
                 let string_line = multi_line_string_to_shape_paths(ls);
@@ -379,37 +375,36 @@ impl Rect {
                 );
 
                 if clipped_ls.is_empty() {
-                    None
-                } else {
-                    // transform to tile coordinate system
-                    let transformed_ls = clipped_ls
-                        .iter()
-                        .map(|vec| {
-                            vec.iter()
-                                .map(|p| self.transform_to_tile_coordinates(p))
-                                .collect()
-                        })
-                        .collect();
-                    geom.value =
-                        Value::MultiLineString(multi_line_string_from_paths(transformed_ls));
-
-                    // convert to geo-types geometry
-                    let geo_geom = geo_types::Geometry::<f64>::try_from(geom.clone());
-
-                    // validate geometry
-                    if let Ok(geo_geom) = geo_geom
-                        && geo_geom.is_valid()
-                    {
-                        return Some(geom);
-                    }
-
-                    None
+                    return None;
                 }
+
+                // transform to tile coordinate system
+                let transformed_ls = clipped_ls
+                    .iter()
+                    .map(|vec| {
+                        vec.iter()
+                            .map(|p| self.transform_to_tile_coordinates(p))
+                            .collect()
+                    })
+                    .collect();
+                geom.value = Value::MultiLineString(multi_line_string_from_paths(transformed_ls));
+
+                // validate and simplify (remove duplicate points)
+                let geom_validated = convert_validate_simplify_geom(geom, idx);
+                if let Ok(geom_validated) = geom_validated {
+                    return Some(geom_validated);
+                }
+
+                None
             }
             Value::Polygon(polygon) => {
                 let subject = self.rings();
                 let clip = polygon_to_shape_paths(polygon);
                 let polygons = subject.overlay(&clip, OverlayRule::Intersect, FillRule::EvenOdd);
+
+                if polygons.is_empty() {
+                    return None;
+                }
 
                 // transform to tile coordinate system
                 let transformed_polygons = polygons
@@ -425,16 +420,13 @@ impl Rect {
                             .collect()
                     })
                     .collect();
+
                 geom.value = multi_polygon_from_shapes(transformed_polygons);
 
-                // convert to geo-types geometry
-                let geo_geom = geo_types::Geometry::<f64>::try_from(geom.clone());
-
-                // validate geometry
-                if let Ok(geo_geom) = geo_geom
-                    && geo_geom.is_valid()
-                {
-                    return Some(geom);
+                // validate and simplify (remove duplicate points)
+                let geom_validated = convert_validate_simplify_geom(geom, idx);
+                if let Ok(geom_validated) = geom_validated {
+                    return Some(geom_validated);
                 }
 
                 None
@@ -444,6 +436,10 @@ impl Rect {
                 let clip = multi_polygon_to_shape_paths(polygons);
                 let polygons = subject.overlay(&clip, OverlayRule::Intersect, FillRule::EvenOdd);
 
+                if polygons.is_empty() {
+                    return None;
+                }
+
                 // transform to tile coordinate system
                 let transformed_polygons = polygons
                     .iter()
@@ -458,26 +454,27 @@ impl Rect {
                             .collect()
                     })
                     .collect();
+
                 geom.value = multi_polygon_from_shapes(transformed_polygons);
 
-                // convert to geo-types geometry
-                let geo_geom = geo_types::Geometry::<f64>::try_from(geom.clone());
-
-                // validate geometry
-                if let Ok(geo_geom) = geo_geom
-                    && geo_geom.is_valid()
-                {
-                    return Some(geom);
+                // validate and simplify (remove duplicate points)
+                let geom_validated = convert_validate_simplify_geom(geom, idx);
+                if let Ok(geom_validated) = geom_validated {
+                    return Some(geom_validated);
                 }
 
                 None
             }
             Value::GeometryCollection(gs) => {
                 let mut geometries = vec![];
-                for g in gs {
-                    if let Some(value) = self.clip_transform_validate_geometry(g) {
+                for (idx, g) in gs.into_iter().enumerate() {
+                    if let Some(value) = self.clip_transform_validate_geometry(g, idx) {
                         geometries.push(value);
                     }
+                }
+
+                if geometries.is_empty() {
+                    return None;
                 }
 
                 geom.value = Value::GeometryCollection(geometries);
@@ -500,11 +497,11 @@ impl Rect {
         let max_y = ((1.0 + buffer) * self.max_y + buffer * self.min_y) / (1.0 + 2.0 * buffer);
         let min_y = (self.min_y + max_y * buffer) / (1.0 + buffer);
 
-        let x_multiplier = (EXTENT as f64) / (max_x - min_x);
-        let y_multiplier = (EXTENT as f64) / (max_y - min_y);
+        let x_multiplier = f64::from(EXTENT) / (max_x - min_x);
+        let y_multiplier = f64::from(EXTENT) / (max_y - min_y);
 
         let x = ((x - min_x) * x_multiplier).floor();
-        let y = (EXTENT as f64) - ((y - min_y) * y_multiplier).floor();
+        let y = f64::from(EXTENT) - ((y - min_y) * y_multiplier).floor();
 
         [x, y]
     }
@@ -538,7 +535,7 @@ mod tests {
 
     #[test]
     fn test_transform_to_tile_coordinates() {
-        let point = [1962772.0, 6300000.0];
+        let point = [1_962_772.0, 6_300_000.0];
         let mut rect = Rect::from_xyz(70, 43, 7);
         let buffer = f64::from(BUFFER_SIZE) / f64::from(EXTENT);
         let buffer_x = (rect.max_x - rect.min_x) * buffer;
