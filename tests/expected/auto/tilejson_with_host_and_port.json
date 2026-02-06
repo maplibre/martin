@@ -1,0 +1,10 @@
+{
+  "foo": {
+    "bar": "foo"
+  },
+  "name": "function_zxy_query",
+  "tilejson": "3.0.0",
+  "tiles": [
+    "http://example.com:6000/function_zxy_query/{z}/{x}/{y}"
+  ]
+}

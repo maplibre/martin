@@ -23,7 +23,7 @@ This file is currently not maintained. See [release](https://github.com/maplibre
 ### Bug Fixes
 
 * fix invalid json escaping ([#224](https://github.com/maplibre/martin/issues/224)) (h/t [@gbip](https://github.com/gbip)) ([4994273](https://github.com/maplibre/martin/commit/49942734af5fcaffa4b4430e48600a0e4183d1bc))
-* fix tiles attribute in tilejson when using x-rewrite-url ([#266](https://github.com/maplibre/martin/issues/266)) ([f2d56c2](https://github.com/maplibre/martin/commit/f2d56c2f7d28d858c09cab90ff13789d595ba6da))
+* fix tiles attribute in tilejson when using `X-Rewrite-URL` ([#266](https://github.com/maplibre/martin/issues/266)) ([f2d56c2](https://github.com/maplibre/martin/commit/f2d56c2f7d28d858c09cab90ff13789d595ba6da))
 
 <!-- next-url -->
 [Unreleased]: https://github.com/maplibre/martin/compare/v0.5.0...HEAD
@@ -94,7 +94,7 @@ This file is currently not maintained. See [release](https://github.com/maplibre
 - pass query string from tilejson endpoint to tiles ([ef7ddace](https://github.com/maplibre/martin/commit/ef7ddace17cc11433824942c2ae68ffecb00538a))
 - add schema to function_sources ([a7092bc3](https://github.com/maplibre/martin/commit/a7092bc3b86c35c4f7d2d14d699e1239b19d875b))
 - properly encode query as json into function_sources ([cc75ab4a](https://github.com/maplibre/martin/commit/cc75ab4a8e68c8291b33badb80fd8065ea4476d7))
-- handle x-rewrite-url header ([63c976e8](https://github.com/maplibre/martin/commit/63c976e8b9a598783150f9ef957e926d20ccf825))
+- handle `X-Rewrite-URL` header ([63c976e8](https://github.com/maplibre/martin/commit/63c976e8b9a598783150f9ef957e926d20ccf825))
 - handle tables with no properties ([d6aee81b](https://github.com/maplibre/martin/commit/d6aee81b1bff47a7c3f46e4c26a07a2843a9c707))
 - skip tables with SRID 0 ([241dda31](https://github.com/maplibre/martin/commit/241dda318453fb3bfc656793a1cef0fa6923114e))
 - set default tile buffer to 64 ([612ecddb](https://github.com/maplibre/martin/commit/612ecddb99f33420077dcd3f1ca0ac9666e741b6))
