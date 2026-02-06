@@ -3,7 +3,7 @@
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use martin_core::tiles::Source;
+use martin_core::tiles::Source as _;
 use martin_core::tiles::pmtiles::{PmtCache, PmtCacheInstance, PmtilesError, PmtilesSource};
 use martin_tile_utils::{Encoding, Format, TileCoord};
 use object_store::local::LocalFileSystem;
@@ -479,7 +479,7 @@ async fn shared_cache_with_unique_instance_ids_can_fetch_same_tile() {
 
 #[tokio::test]
 async fn cache_invalidation_clears_entries() {
-    use pmtiles::DirectoryCache;
+    use pmtiles::DirectoryCache as _;
 
     let cache = test_cache_bytes(CACHE_SIZE_10MB);
     let tile_id = pmtiles::TileId::new(1).unwrap();

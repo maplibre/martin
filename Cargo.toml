@@ -17,10 +17,12 @@ unused_qualifications = "warn"
 
 [workspace.lints.clippy]
 # Restrictions
-unimplemented = "warn"
-panic_in_result_fn = "warn"
 panic = "warn"
+panic_in_result_fn = "warn"
 todo = "warn"
+unimplemented = "warn"
+unused_trait_names = "warn"
+
 # Pedantics without being too noisy
 pedantic = { level = "warn", priority = -1 }
 derive_partial_eq_without_eq = "allow"

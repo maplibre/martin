@@ -5,8 +5,8 @@ use martin::config::file::init_aws_lc_tls;
 use martin::config::file::postgres::{PostgresAutoDiscoveryBuilder, PostgresConfig};
 use martin_core::config::IdResolver;
 use testcontainers_modules::postgres::Postgres;
-use testcontainers_modules::testcontainers::ImageExt;
-use testcontainers_modules::testcontainers::runners::SyncRunner;
+use testcontainers_modules::testcontainers::ImageExt as _;
+use testcontainers_modules::testcontainers::runners::SyncRunner as _;
 
 // Benchmark sizes
 const SIZES: &[usize] = &[10, 100, 200];
