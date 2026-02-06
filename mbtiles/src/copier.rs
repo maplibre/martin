@@ -6,7 +6,7 @@ use log::{debug, info, trace, warn};
 use martin_tile_utils::{MAX_ZOOM, bbox_to_xyz};
 use serde::{Deserialize, Serialize};
 use sqlite_hashes::rusqlite::Connection;
-use sqlx::{Connection as _, Executor as _, Row, SqliteConnection, query};
+use sqlx::{Connection as _, Executor as _, Row as _, SqliteConnection, query};
 use tilejson::Bounds;
 
 use crate::AggHashType::Verify;

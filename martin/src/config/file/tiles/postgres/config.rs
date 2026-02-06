@@ -1,4 +1,4 @@
-use std::ops::Add;
+use std::ops::Add as _;
 use std::time::Duration;
 
 use futures::future::try_join;

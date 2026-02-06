@@ -2,7 +2,7 @@ use std::fs::File;
 use std::io;
 use std::io::BufReader;
 use std::path::PathBuf;
-use std::str::FromStr;
+use std::str::FromStr as _;
 
 use deadpool_postgres::tokio_postgres::Config;
 use deadpool_postgres::tokio_postgres::config::SslMode;

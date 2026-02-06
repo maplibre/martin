@@ -7,7 +7,7 @@ use martin_tile_utils::{Format, MAX_ZOOM, TileInfo};
 use serde::Serialize;
 use serde_json::Value;
 use sqlx::sqlite::SqliteRow;
-use sqlx::{Row, SqliteConnection, SqliteExecutor, query};
+use sqlx::{Row as _, SqliteConnection, SqliteExecutor, query};
 use tilejson::TileJSON;
 
 use crate::MbtError::{
