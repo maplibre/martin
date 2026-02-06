@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.7](https://github.com/maplibre/martin/compare/martin-core-v0.2.6...martin-core-v0.2.7) - 2026-02-06
+
+### Other
+
+- restrict `unused_trait_names` for trait imports ([#2542](https://github.com/maplibre/martin/pull/2542))
+
 ## [0.2.6](https://github.com/maplibre/martin/compare/martin-core-v0.2.5...martin-core-v0.2.6) - 2026-01-27
 
 ### Added
