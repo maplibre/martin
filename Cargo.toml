@@ -63,10 +63,12 @@ env_logger = "0.11"
 flate2 = "1"
 flume = "0.12"
 futures = "0.3"
+geo = { version = "0.32.0" }
 geo-index = { version = "0.3.2", features = ["rayon"] }
 geojson = { version = "0.24.2", features = ["geo-types"] }
+geo-types = { version = "0.7.18" }
 geozero = { version = "0.15.1", features = ["with-mvt"] }
-i_overlay = "4.3.0"
+i_overlay = "4.0.7"
 image = "0.25.8"
 indoc = "2"
 insta = "1.44.3"
@@ -81,7 +83,13 @@ mbtiles = { path = "./mbtiles", version = "0.15.1" }
 md5 = "0.8.0"
 moka = { version = "0.12", features = ["future"] }
 num_cpus = "1"
-object_store = { version = "0.13.1", features = ["gcp", "aws", "azure", "fs", "http"] }
+object_store = { version = "0.13.1", features = [
+    "gcp",
+    "aws",
+    "azure",
+    "fs",
+    "http",
+] }
 pbf_font_tools = { version = "3.0.0", features = ["freetype"] }
 pmtiles = { version = "0.19.1", features = ["tilejson", "object-store"] }
 png = "0.18.0"

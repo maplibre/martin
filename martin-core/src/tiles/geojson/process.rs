@@ -270,13 +270,13 @@ pub(crate) fn process_geojson_geom_n<P: GeomProcessor>(
     idx: usize,
     processor: &mut P,
 ) -> Result<(), GeozeroError> {
-    match geom.value {
-        Value::Point(ref geometry) => {
+    match &geom.value {
+        Value::Point(geometry) => {
             processor.point_begin(idx)?;
             process_coord(geometry, processor.multi_dim(), 0, processor)?;
             processor.point_end(idx)
         }
-        Value::MultiPoint(ref geometry) => {
+        Value::MultiPoint(geometry) => {
             processor.multipoint_begin(geometry.len(), idx)?;
             let multi_dim = processor.multi_dim();
             for (idxc, point_type) in geometry.iter().enumerate() {
@@ -284,23 +284,23 @@ pub(crate) fn process_geojson_geom_n<P: GeomProcessor>(
             }
             processor.multipoint_end(idx)
         }
-        Value::LineString(ref geometry) => process_linestring(geometry, true, idx, processor),
-        Value::MultiLineString(ref geometry) => {
+        Value::LineString(geometry) => process_linestring(geometry, true, idx, processor),
+        Value::MultiLineString(geometry) => {
             processor.multilinestring_begin(geometry.len(), idx)?;
             for (idx2, linestring_type) in geometry.iter().enumerate() {
                 process_linestring(linestring_type, false, idx2, processor)?;
             }
             processor.multilinestring_end(idx)
         }
-        Value::Polygon(ref geometry) => process_polygon(geometry, true, idx, processor),
-        Value::MultiPolygon(ref geometry) => {
+        Value::Polygon(geometry) => process_polygon(geometry, true, idx, processor),
+        Value::MultiPolygon(geometry) => {
             processor.multipolygon_begin(geometry.len(), idx)?;
             for (idx2, polygon_type) in geometry.iter().enumerate() {
                 process_polygon(polygon_type, false, idx2, processor)?;
             }
             processor.multipolygon_end(idx)
         }
-        Value::GeometryCollection(ref collection) => {
+        Value::GeometryCollection(collection) => {
             processor.geometrycollection_begin(collection.len(), idx)?;
             for (idx2, geometry) in collection.iter().enumerate() {
                 process_geojson_geom_n(geometry, idx2, processor)?;
