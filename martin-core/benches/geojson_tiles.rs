@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use criterion::{Criterion, criterion_group, criterion_main};
 use martin_core::tiles::Source as _;
 use martin_core::tiles::geojson::source::GeoJsonSource;
-use mbtiles::TileCoord;
+use martin_tile_utils::TileCoord;
 use tokio::runtime::Runtime;
 
 fn fixtures_dir() -> PathBuf {
