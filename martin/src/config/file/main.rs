@@ -29,7 +29,7 @@ use tracing::{error, info, warn};
 ))]
 use crate::config::file::FileConfigEnum;
 #[cfg(any(feature = "_tiles", feature = "sprites", feature = "fonts"))]
-use crate::config::file::cache::CacheConfig;
+use crate::config::file::cache::{CacheConfig, ResolvedCacheConfig};
 use crate::config::file::{
     ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks as _, UnrecognizedKeys,
     UnrecognizedValues, copy_unrecognized_keys_from_config,
@@ -73,15 +73,15 @@ pub struct ServerState {
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct Config {
-    /// Maximum size of the tile cache in megabytes (0 to disable)
-    ///
-    /// Can be overridden by [`tile_cache_size_mb`](Self::tile_cache_size_mb) or similar configuration options.
+    /// DEPRECATED. USE `cache.size` instead
     pub cache_size_mb: Option<u64>,
-
-    /// Maximum size of the tile cache in megabytes (0 to disable)
-    ///
-    /// Overrides [`cache_size_mb`](Self::cache_size_mb)
+    /// DEPRECATED. USE `cache.tiles.size` instead
     pub tile_cache_size_mb: Option<u64>,
+
+    /// How the caching should be handled by martin
+    #[serde(default)]
+    #[cfg(any(feature = "_tiles", feature = "sprites", feature = "fonts"))]
+    pub cache: CacheConfig,
 
     #[serde(default)]
     pub on_invalid: Option<OnInvalid>,
@@ -240,14 +240,14 @@ impl Config {
         let cache_config = self.resolve_cache_config();
 
         #[cfg(feature = "pmtiles")]
-        let pmtiles_cache = cache_config.create_pmtiles_cache();
+        let pmtile_directorys_cache = cache_config.create_pmtile_directorys_cache();
 
         #[cfg(feature = "_tiles")]
         let (tiles, warnings) = self
             .resolve_tile_sources(
                 &resolver,
                 #[cfg(feature = "pmtiles")]
-                pmtiles_cache,
+                pmtile_directorys_cache,
             )
             .await?;
 
@@ -277,57 +277,83 @@ impl Config {
         })
     }
 
-    // cache_config is still respected, but can be overridden by individual cache sizes
-    //
-    // `cache_config: 0` disables caching, unless overridden by individual cache sizes
+    /// Resolves which cache gets how much memory
+    ///
+    /// Before the decision to centralise cache configuration in self.cache, we had caching in different places
+    /// For backwards compatibility, we need to ensure that the cache configuration is resolved correctly
+    /// This also handles the default states and overrides
     #[cfg(any(feature = "_tiles", feature = "sprites", feature = "fonts"))]
-    fn resolve_cache_config(&self) -> CacheConfig {
-        if let Some(cache_size_mb) = self.cache_size_mb {
-            #[cfg(feature = "pmtiles")]
-            let pmtiles_cache_size_mb = if let FileConfigEnum::Config(cfg) = &self.pmtiles {
-                cfg.custom
-                    .directory_cache_size_mb
-                    .unwrap_or(cache_size_mb / 4) // Default: 25% for PMTiles directories
-            } else {
-                cache_size_mb / 4 // Default: 25% for PMTiles directories
-            };
+    fn resolve_cache_config(&mut self) -> ResolvedCacheConfig {
+        #[cfg(any(feature = "_tiles", feature = "sprites", feature = "fonts"))]
+        {
+            self.cache.size = Self::legacy_cache_config_item_helper(
+                self.cache.size,
+                "cache.size",
+                self.cache_size_mb,
+                "cache_size_mb",
+            );
+        }
+        #[cfg(feature = "_tiles")]
+        {
+            self.cache.tiles.size = Self::legacy_cache_config_item_helper(
+                self.cache.tiles.size,
+                "cache.tiles.size",
+                self.tile_cache_size_mb,
+                "cache_tile_size_mb",
+            );
+        }
+        #[cfg(feature = "pmtiles")]
+        {
+            self.cache.pmtile_directorys.size = Self::legacy_cache_config_item_helper(
+                self.cache.pmtile_directorys.size,
+                "cache.pmtile_directorys.size",
+                self.pmtiles.as_config_opt().and_then(|c| c.directory_cache_size_mb),
+                "pmtiles_directory_cache",
+            );
+        }
+        #[cfg(feature = "sprites")]
+        {
+            self.cache.sprites.size = Self::legacy_cache_config_item_helper(
+                self.cache.sprites.size,
+                "cache.sprites.size",
+                self.sprites.as_config_opt().and_then(|c| c.cache_size_mb),
+                "sprites.cache_size_mb",
+            );
+        }
+        #[cfg(feature = "fonts")]
+        {
+            self.cache.fonts.size = Self::legacy_cache_config_item_helper(
+                self.cache.fonts.size,
+                "cache.fonts.size",
+                self.fonts.as_config_opt().and_then(|c| c.cache_size_mb),
+                "sprites.cache_size_mb",
+            );
+        }
 
-            #[cfg(feature = "sprites")]
-            let sprite_cache_size_mb = if let FileConfigEnum::Config(cfg) = &self.sprites {
-                cfg.custom.cache_size_mb.unwrap_or(cache_size_mb / 8) // Default: 12.5% for sprites
-            } else {
-                cache_size_mb / 8 // Default: 12.5% for sprites
-            };
-
-            #[cfg(feature = "fonts")]
-            let font_cache_size_mb = if let FileConfigEnum::Config(cfg) = &self.fonts {
-                cfg.custom.cache_size_mb.unwrap_or(cache_size_mb / 8) // Default: 12.5% for fonts
-            } else {
-                cache_size_mb / 8 // Default: 12.5% for fonts
-            };
-
-            CacheConfig {
-                #[cfg(feature = "_tiles")]
-                tile_cache_size_mb: self.tile_cache_size_mb.unwrap_or(cache_size_mb / 2), // Default: 50% for tiles
-                #[cfg(feature = "pmtiles")]
-                pmtiles_cache_size_mb,
-                #[cfg(feature = "sprites")]
-                sprite_cache_size_mb,
-                #[cfg(feature = "fonts")]
-                font_cache_size_mb,
+        ResolvedCacheConfig::from(self.cache)
+    }
+    #[cfg(any(feature = "_tiles", feature = "sprites", feature = "fonts"))]
+    fn legacy_cache_config_item_helper(
+        intended_size_bytes: Option<u64>,
+        intended_label: &'static str,
+        old_size_mb: Option<u64>,
+        old_label: &'static str,
+    ) -> Option<u64> {
+        match (intended_size_bytes, old_size_mb) {
+            (Some(size_bytes), Some(_)) => {
+                warn!(
+                    "Both {intended_label} and {old_label} are set. Using {intended_label} and ignoring {old_label}."
+                );
+                Some(size_bytes)
             }
-        } else {
-            // TODO: the defaults could be smarter. If I don't have pmtiles sources, don't reserve cache for it
-            CacheConfig {
-                #[cfg(feature = "_tiles")]
-                tile_cache_size_mb: 256,
-                #[cfg(feature = "pmtiles")]
-                pmtiles_cache_size_mb: 128,
-                #[cfg(feature = "sprites")]
-                sprite_cache_size_mb: 64,
-                #[cfg(feature = "fonts")]
-                font_cache_size_mb: 64,
+            (Some(size_bytes), None) => Some(size_bytes),
+            (None, Some(size_mb)) => {
+                warn!(
+                    "{old_label} configuration is deprecated. Please consider using `{intended_label}: {size_mb}MB` instead."
+                );
+                Some(size_mb * 1000 * 1000)
             }
+            (None, None) => None,
         }
     }
 

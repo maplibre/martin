@@ -150,6 +150,7 @@ serde_with.workspace = true
 serde_yaml.workspace = true
 static-files = { workspace = true, optional = true }
 subst.workspace = true
+humanize-rs.workspace = true
 thiserror.workspace = true
 tilejson.workspace = true
 tokio = { workspace = true, features = ["io-std"] }

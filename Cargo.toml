@@ -47,6 +47,7 @@ async-trait = "0.1"
 base64 = "0.22.1"
 bit-set = "0.8"
 brotli = ">=5, <9"
+humanize-rs = "0.1.5"
 bytes = "1"
 clap = { version = "4", features = ["derive", "unstable-markdown", "wrap_help"] }
 criterion = { version = "0.8", features = ["async_futures", "async_tokio", "html_reports"] }

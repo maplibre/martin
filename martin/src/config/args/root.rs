@@ -93,8 +93,9 @@ impl Args {
             return Err(ConfigAndConnectionsError(self.meta.connection));
         }
 
+        #[cfg(any(feature = "_tiles", feature = "sprites", feature = "fonts"))]
         if self.srv.cache_size.is_some() {
-            config.cache_size_mb = self.srv.cache_size;
+            config.cache.size = self.srv.cache_size;
         }
 
         self.srv.merge_into_config(&mut config.srv);
