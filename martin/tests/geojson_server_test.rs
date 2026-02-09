@@ -94,7 +94,7 @@ async fn geojson_get_tilejson() {
     assert_eq!(headers.get(CONTENT_TYPE).unwrap(), "application/json");
     assert!(headers.get(CONTENT_ENCODING).is_none());
     let body: TileJSON = read_body_json(response).await;
-    assert!(body.maxzoom.is_some());
+    assert!(body.maxzoom.is_none());
 }
 
 #[actix_rt::test]
@@ -110,7 +110,7 @@ async fn geojson_get_tilejson_gzip() {
     assert_eq!(headers.get(CONTENT_ENCODING).unwrap(), "gzip");
     let body = decode_gzip(&read_body(response).await).unwrap();
     let body: TileJSON = serde_json::from_slice(body.as_slice()).unwrap();
-    assert!(body.maxzoom.is_some());
+    assert!(body.maxzoom.is_none());
 }
 
 #[actix_rt::test]
