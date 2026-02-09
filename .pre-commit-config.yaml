@@ -68,7 +68,7 @@ repos:
         pass_filenames: false
 
   - repo: https://github.com/sqlfluff/sqlfluff
-    rev: 4.0.0
+    rev: 4.0.4
     hooks:
         # 1. Postgres dialect for general .sql files, excluding sqlite dirs
       - id: sqlfluff-fix
@@ -88,7 +88,7 @@ repos:
 
   # NPM hooks for JavaScript/TypeScript formatting and linting
   - repo: https://github.com/biomejs/pre-commit
-    rev: "v2.3.10"  # tag is auto-updated by pre-commit.ci and synced by sync-biome-version to all the places it needs to be
+    rev: "v2.3.14"  # tag is auto-updated by pre-commit.ci and synced by sync-biome-version to all the places it needs to be
     hooks:
       - id: biome-check
         additional_dependencies: [ "@biomejs/biome@2.3.10" ]
