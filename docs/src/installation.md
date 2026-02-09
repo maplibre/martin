@@ -99,7 +99,7 @@ When building from source on Windows, please note the following feature limitati
   ```bash
   # Build without geojson feature if you don't need it
   cargo install martin --locked --no-default-features --features fonts,lambda,mbtiles,metrics,pmtiles,postgres,sprites,styles,webui
-  
+
   # Or build with geojson if you have C++ tools installed
   cargo install martin --locked
   ```
