@@ -295,6 +295,7 @@ impl Rect {
         rings
     }
 
+    #[expect(clippy::too_many_lines)]
     fn clip_transform_validate_geometry(&self, mut geom: Geometry, idx: usize) -> Option<Geometry> {
         match geom.value {
             Value::Point(p) => {
