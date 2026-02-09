@@ -6,7 +6,7 @@
 
 use std::fmt::{Display, Formatter};
 use std::path::PathBuf;
-use std::str::FromStr;
+use std::str::FromStr as _;
 
 use martin_tile_utils::{get_zoom_precision, xyz_to_bbox};
 use serde::Serialize;

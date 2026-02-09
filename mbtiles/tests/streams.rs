@@ -1,4 +1,4 @@
-use futures::{StreamExt, TryStreamExt};
+use futures::{StreamExt as _, TryStreamExt as _};
 use martin_tile_utils::{Tile, TileCoord};
 use mbtiles::{MbtError, Mbtiles, create_metadata_table};
 use sqlx::{Executor as _, SqliteConnection, query};

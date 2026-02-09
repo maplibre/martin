@@ -510,7 +510,7 @@ mod tests {
 
     #[test]
     fn test_compressed_json_zlib() {
-        use std::io::Write;
+        use std::io::Write as _;
 
         use flate2::write::ZlibEncoder;
 
@@ -534,7 +534,7 @@ mod tests {
 
     #[test]
     fn test_compressed_mlt_zlib() {
-        use std::io::Write;
+        use std::io::Write as _;
 
         use flate2::write::ZlibEncoder;
 
@@ -559,7 +559,7 @@ mod tests {
 
     #[test]
     fn test_compressed_mvt_zlib_fallback() {
-        use std::io::Write;
+        use std::io::Write as _;
 
         use flate2::write::ZlibEncoder;
 

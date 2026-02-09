@@ -1,13 +1,13 @@
 use std::future::Future;
 use std::pin::Pin;
-use std::string::ToString;
+use std::string::ToString as _;
 use std::time::Duration;
 
 use actix_web::http::header::CACHE_CONTROL;
 use actix_web::middleware::{NormalizePath, TrailingSlash};
 use actix_web::web::Data;
 use actix_web::{App, HttpResponse, HttpServer, Responder, middleware, route, web};
-use futures::TryFutureExt;
+use futures::TryFutureExt as _;
 #[cfg(feature = "lambda")]
 use lambda_web::{is_running_on_lambda, run_actix_on_lambda};
 use tracing_actix_web::TracingLogger;
