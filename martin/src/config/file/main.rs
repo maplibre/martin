@@ -4,10 +4,6 @@ use std::io::prelude::*;
 use std::path::Path;
 use std::sync::LazyLock;
 
-#[cfg(feature = "_tiles")]
-use crate::config::primitives::IdResolver;
-#[cfg(feature = "postgres")]
-use crate::config::primitives::OptOneMany;
 use clap::ValueEnum;
 #[cfg(feature = "_tiles")]
 use futures::future::{BoxFuture, try_join_all};
@@ -34,6 +30,10 @@ use crate::config::file::{
     ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks, UnrecognizedKeys,
     UnrecognizedValues, copy_unrecognized_keys_from_config,
 };
+#[cfg(feature = "_tiles")]
+use crate::config::primitives::IdResolver;
+#[cfg(feature = "postgres")]
+use crate::config::primitives::OptOneMany;
 #[cfg(feature = "_tiles")]
 use crate::source::TileSources;
 #[cfg(feature = "_tiles")]

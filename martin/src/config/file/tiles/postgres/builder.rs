@@ -2,9 +2,6 @@ use std::borrow::Cow;
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, HashSet};
 
-use crate::config::primitives::IdResolver;
-use crate::config::primitives::OptBoolObj::{Bool, NoValue, Object};
-use crate::config::primitives::OptOneMany::NoVals;
 use futures::future::join_all;
 use itertools::Itertools as _;
 use martin_core::tiles::BoxedSource;
@@ -23,6 +20,9 @@ use crate::config::file::postgres::{
     PostgresConfig, PostgresInfo, TableInfo, TableInfoSources,
 };
 use crate::config::file::{ConfigFileError, ConfigFileResult, TileSourceWarning};
+use crate::config::primitives::IdResolver;
+use crate::config::primitives::OptBoolObj::{Bool, NoValue, Object};
+use crate::config::primitives::OptOneMany::NoVals;
 
 /// Builder for [`PostgresSource`]' auto-discovery of functions and tables.
 #[derive(Debug)]

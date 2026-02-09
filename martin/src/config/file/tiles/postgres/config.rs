@@ -1,7 +1,6 @@
 use std::ops::Add;
 use std::time::Duration;
 
-use crate::config::primitives::{IdResolver, OptBoolObj, OptOneMany};
 use futures::future::try_join;
 use futures::pin_mut;
 use martin_core::tiles::BoxedSource;
@@ -18,6 +17,7 @@ use crate::config::file::{
     ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks, TileSourceWarning,
     UnrecognizedKeys, UnrecognizedValues, copy_unrecognized_keys_from_config,
 };
+use crate::config::primitives::{IdResolver, OptBoolObj, OptOneMany};
 
 pub trait PostgresInfo {
     fn format_id(&self) -> String;
@@ -284,14 +284,14 @@ mod tests {
     use std::collections::BTreeMap;
     use std::path::Path;
 
-    use crate::config::primitives::OptOneMany::{Many, One};
-    use crate::config::primitives::env::FauxEnv;
     use indoc::indoc;
     use tilejson::Bounds;
 
     use super::*;
     use crate::config::file::postgres::{FunctionInfo, TableInfo};
     use crate::config::file::{Config, parse_config};
+    use crate::config::primitives::OptOneMany::{Many, One};
+    use crate::config::primitives::env::FauxEnv;
 
     pub fn parse_cfg(yaml: &str) -> Config {
         parse_config(yaml, &FauxEnv::default(), Path::new("<test>")).unwrap()
