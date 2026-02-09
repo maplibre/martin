@@ -108,14 +108,19 @@ build-release target:
     else
         rustup target add {{target}}
         export CARGO_TARGET_{{shoutysnakecase(target)}}_RUSTFLAGS='-C strip=debuginfo'
-        # Windows builds exclude geojson feature due to geos C++ dependency
-        if [[ "{{target}}" == "x86_64-pc-windows-msvc" ]]; then
-            cargo build --release --target {{target}} --package mbtiles --locked
+
+        cargo build --release --target {{target}} --package mbtiles --locked
+
+        # geos is hard to build on Windows or macos
+        if [[ "{{target}}" =~ .+-pc-windows-msvc ]]; then
+            cargo build --release --target {{target}} --package martin --locked \
+                --no-default-features \
+                --features fonts,lambda,mbtiles,metrics,pmtiles,postgres,sprites,styles,webui
+        elif [[ "{{target}}" =~ .+-apple-darwin ]]; then
             cargo build --release --target {{target}} --package martin --locked \
                 --no-default-features \
                 --features fonts,lambda,mbtiles,metrics,pmtiles,postgres,sprites,styles,webui
         else
-            cargo build --release --target {{target}} --package mbtiles --locked
             cargo build --release --target {{target}} --package martin --locked
         fi
     fi
