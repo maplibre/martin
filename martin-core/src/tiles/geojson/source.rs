@@ -551,7 +551,7 @@ mod tests {
         let transformed_point = rect.transform_to_tile_coordinates(&point);
         let expected_point = [1102.0, 3596.0];
         assert_eq!(transformed_point.len(), expected_point.len());
-        for (actual_point, expected_point) in transformed_point.into_iter().zip(expected_point){
+        for (actual_point, expected_point) in transformed_point.into_iter().zip(expected_point) {
             assert_abs_diff_eq!(actual_point, expected_point);
         }
     }
