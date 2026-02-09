@@ -11,6 +11,10 @@ repository.workspace = true
 rust-version.workspace = true
 homepage.workspace = true
 
+[[bench]]
+name = "geojson_tiles"
+harness = false
+
 [features]
 default = [
     "fonts",
@@ -130,7 +134,3 @@ required-features = ["pmtiles"]
 
 [lints]
 workspace = true
-
-[[bench]]
-name = "geojson_tiles"
-harness = false
