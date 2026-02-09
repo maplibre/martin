@@ -5,7 +5,6 @@ set shell := ['bash', '-c']
 # How to call the current just executable.
 # Note that just_executable() may have `\` in Windows paths, so we need to quote it.
 just := quote(just_executable())
-dockercompose := `if docker-compose --version &> /dev/null; then echo "docker-compose"; else echo "docker compose"; fi`
 
 # if running in CI, treat warnings as errors by setting RUSTFLAGS and RUSTDOCFLAGS to '-D warnings' unless they are already set
 # Use `CI=true just ci-test` to run the same tests as in GitHub CI.
@@ -97,6 +96,56 @@ bless-int:
 book:  (cargo-install 'mdbook') (cargo-install 'mdbook-tabs')
     mdbook serve docs --open --port 8321
 
+# Build release binaries for a target with debug info stripped
+build-release target:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # on debian we need to build a deb package
+    if [[ "{{target}}" == "debian-x86_64" ]]; then
+        {{quote(just_executable())}} build-deb target/debian/debian-x86_64.deb
+    else
+        rustup target add {{target}}
+        export CARGO_TARGET_{{shoutysnakecase(target)}}_RUSTFLAGS='-C strip=debuginfo'
+        cargo build --release --target {{target}} --package mbtiles --locked
+        cargo build --release --target {{target}} --package martin --locked
+    fi
+
+# Build debian package
+build-deb output: (cargo-install 'cargo-deb')
+    sudo apt-get install -y dpkg dpkg-dev liblzma-dev
+    cargo deb -v -p martin --output {{output}}
+
+# Build for musl target using zigbuild
+build-release-musl target:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    rustup target add {{target}}
+    export CARGO_TARGET_{{shoutysnakecase(target)}}_RUSTFLAGS='-C strip=debuginfo'
+    cargo zigbuild --release --target {{target}} --package mbtiles --locked
+    cargo zigbuild --release --target {{target}} --package martin --locked
+
+
+# Move release build artifacts to target_releases directory
+move-artifacts target:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    mkdir -p target_releases
+
+    if [[ "{{target}}" == "debian-x86_64" ]]; then
+        mv target/debian/*.deb target_releases/
+    else
+        if [[ "{{target}}" == "x86_64-pc-windows-msvc" ]]; then
+            mv target/{{target}}/release/martin.exe target_releases/
+            mv target/{{target}}/release/martin-cp.exe target_releases/
+            mv target/{{target}}/release/mbtiles.exe target_releases/
+        else
+            mv target/{{target}}/release/martin target_releases/
+            mv target/{{target}}/release/martin-cp target_releases/
+            mv target/{{target}}/release/mbtiles target_releases/
+        fi
+    fi
+
+
 # Quick compile without building a binary
 check: (cargo-install 'cargo-hack')
     cargo hack --exclude-features _tiles check --all-targets --each-feature --workspace
@@ -159,7 +208,7 @@ debug-page *args: start
 
 # Build and run martin docker image
 docker-run *args:
-    docker run -it --rm --net host -e DATABASE_URL -v $PWD/tests:/tests ghcr.io/maplibre/martin:1.2.0 {{args}}
+    docker run -it --rm --net host -e DATABASE_URL -v $PWD/tests:/tests ghcr.io/maplibre/martin:1.3.0 {{args}}
 
 # Build and open code documentation
 docs *args='--open':
@@ -256,9 +305,21 @@ lint: fmt clippy biomejs-martin-ui type-check
 mbtiles *args:
     cargo run -p mbtiles -- {{args}}
 
-# Build debian package
-package-deb:  (cargo-install 'cargo-deb')
-    cargo deb -v -p martin --output target/debian/martin.deb
+# Create assets package
+package-assets target:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    mkdir -p target/files
+    cd target/{{target}}
+    if [[ '{{target}}' == 'x86_64-pc-windows-msvc' ]]; then
+        7z a ../files/martin-{{target}}.zip martin.exe martin-cp.exe mbtiles.exe
+    elif [[ '{{target}}' == 'debian-x86_64' ]]; then
+        mv *.deb ../files/
+    else
+        chmod +x martin martin-cp mbtiles
+        tar czvf ../files/martin-{{target}}.tar.gz martin martin-cp mbtiles
+    fi
+    cd ../..
 
 # Run pg_dump utility against the test database
 pg_dump *args:
@@ -303,7 +364,7 @@ start-legacy:  (docker-up 'db-legacy') docker-is-ready
 
 # Start test server for testing HTTP pmtiles
 start-pmtiles-server:
-    {{dockercompose}} up -d fileserver
+    docker compose up -d fileserver
 
 # Start an ssl-enabled test database
 start-ssl:  (docker-up 'db-ssl') docker-is-ready
@@ -313,7 +374,7 @@ start-ssl-cert:  (docker-up 'db-ssl-cert') docker-is-ready
 
 # Stop the test database
 stop:
-    {{dockercompose}} down --remove-orphans
+    docker compose down --remove-orphans
 
 # runs cargo-shear to lint Rust dependencies
 shear:
@@ -537,12 +598,12 @@ clean-test:
 # Wait for the test database to be ready
 [private]
 docker-is-ready:
-    {{dockercompose}} run -T --rm db-is-ready
+    docker compose run -T --rm db-is-ready
 
 # Start a specific test database, e.g. db or db-legacy
 [private]
 docker-up name: start-pmtiles-server
-    {{dockercompose}} up -d {{name}}
+    docker compose up -d {{name}}
 
 # Install SQLX cli if not already installed.
 [private]

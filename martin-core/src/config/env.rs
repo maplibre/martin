@@ -110,7 +110,7 @@ mod tests {
     #[cfg(unix)]
     fn test_bad_os_str() {
         use std::ffi::OsStr;
-        use std::os::unix::ffi::OsStrExt;
+        use std::os::unix::ffi::OsStrExt as _;
 
         let bad_utf8 = [0x66, 0x6f, 0x80, 0x6f];
         let os_str = OsStr::from_bytes(&bad_utf8[..]);

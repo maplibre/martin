@@ -1,14 +1,16 @@
-use std::string::ToString;
+use std::string::ToString as _;
 
 use actix_middleware_etag::Etag;
 use actix_web::error::{ErrorBadRequest, ErrorNotFound};
+use actix_web::http::header::LOCATION;
 use actix_web::middleware::Compress;
 use actix_web::web::{Data, Path};
 use actix_web::{HttpResponse, Result as ActixResult, route};
 use martin_core::fonts::{FontError, FontSources, OptFontCache};
 use serde::Deserialize;
+use tracing::warn;
 
-use crate::srv::server::map_internal_error;
+use crate::srv::server::{DebouncedWarning, map_internal_error};
 
 #[derive(Deserialize, Debug)]
 struct FontRequest {
@@ -41,6 +43,28 @@ async fn get_font(
     Ok(HttpResponse::Ok()
         .content_type("application/x-protobuf")
         .body(data))
+}
+
+/// Redirect `/fonts/{fontstack}/{start}-{end}` to `/font/{fontstack}/{start}-{end}` (HTTP 301)
+#[route("/fonts/{fontstack}/{start}-{end}", method = "GET", method = "HEAD")]
+pub async fn redirect_fonts(path: Path<FontRequest>) -> HttpResponse {
+    static WARNING: DebouncedWarning = DebouncedWarning::new();
+
+    WARNING
+        .once_per_hour(|| {
+            warn!(
+                "Request to /fonts/{}/{}-{} caused unnecessary redirect. Use /font/{}/{}-{} to avoid extra round-trip latency.",
+                path.fontstack, path.start, path.end, path.fontstack, path.start, path.end
+            );
+        })
+        .await;
+
+    HttpResponse::MovedPermanently()
+        .insert_header((
+            LOCATION,
+            format!("/font/{}/{}-{}", path.fontstack, path.start, path.end),
+        ))
+        .finish()
 }
 
 pub fn map_font_error(e: FontError) -> actix_web::Error {

@@ -17,10 +17,12 @@ unused_qualifications = "warn"
 
 [workspace.lints.clippy]
 # Restrictions
-unimplemented = "warn"
-panic_in_result_fn = "warn"
 panic = "warn"
+panic_in_result_fn = "warn"
 todo = "warn"
+unimplemented = "warn"
+unused_trait_names = "warn"
+
 # Pedantics without being too noisy
 pedantic = { level = "warn", priority = -1 }
 derive_partial_eq_without_eq = "allow"
@@ -63,9 +65,9 @@ json-patch = "4"
 lambda-web = { version = "0.2.1", features = ["actix4"] }
 log = "0.4"
 maplibre_native = "0.4.1"
-martin-core = { path = "./martin-core", version = "0.2.5", default-features = false }
-martin-tile-utils = { path = "./martin-tile-utils", version = "0.6.8" }
-mbtiles = { path = "./mbtiles", version = "0.15.0" }
+martin-core = { path = "./martin-core", version = "0.2.6", default-features = false }
+martin-tile-utils = { path = "./martin-tile-utils", version = "0.6.9" }
+mbtiles = { path = "./mbtiles", version = "0.15.1" }
 md5 = "0.8.0"
 moka = { version = "0.12", features = ["future"] }
 num_cpus = "1"

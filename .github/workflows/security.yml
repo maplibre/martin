@@ -19,10 +19,10 @@ jobs:
         actions: read
       steps:
         - name: Checkout repository
-          uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+          uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
           with: { persist-credentials: false }
         - name: Run zizmor
-          uses: zizmorcore/zizmor-action@e639db99335bc9038abc0e066dfcd72e23d26fb4 # v0.3.0
+          uses: zizmorcore/zizmor-action@135698455da5c3b3e55f73f4419e481ab68cdd95 # v0.4.1
   audit:
     runs-on: ubuntu-latest
     permissions:
@@ -30,22 +30,24 @@ jobs:
       issues: write
       checks: write
     steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with: { persist-credentials: false }
       - uses: rustsec/audit-check@69366f33c96575abad1ee0dba8212993eecbe998 # v2.0.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          ignore: RUSTSEC-2023-0071,RUSTSEC-2025-0111,RUSTSEC-2025-0134
+          ignore: RUSTSEC-2023-0071,RUSTSEC-2024-0436,RUSTSEC-2025-0134,RUSTSEC-2026-0002,RUSTSEC-2026-0007
           # RUSTSEC-2023-0071 = Marvin Attack: potential key recovery through timing side channels => not used exploitably
-          # RUSTSEC-2025-0111 = tokio-tar parses PAX extended headers incorrectly, allows file smuggling => only used in testcontainer-rs, so not exploitably
+          # RUSTSEC-2024-0436 = paste - no longer maintained
           # RUSTSEC-2025-0134 = rustls-pemfile is unmaintained, but only used in development dependencies
+          # RUSTSEC-2026-0002 = unsound stack borrow in lru
+          # RUSTSEC-2026-0007 = inter overflow in bytes
   dependency-review:
     runs-on: ubuntu-latest
     permissions:
       contents: read
     if: github.event_name == 'pull_request'
     steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with: { persist-credentials: false }
       - name: Dependency Review
         uses: actions/dependency-review-action@3c4e3dcb1aa7874d2c16be7d79418e9b7efd6261 # v4.8.2
@@ -55,7 +57,7 @@ jobs:
           show-openssf-scorecard: true
           warn-on-openssf-scorecard-level: 5
       # actions/dependency-review-action does not find all licenses -> we use cargo-deny for this in addition to dependency-review-action
-      - uses: EmbarkStudios/cargo-deny-action@76cd80eb775d7bbbd2d80292136d74d39e1b4918 # v2.0.14
+      - uses: EmbarkStudios/cargo-deny-action@3fd3802e88374d3fe9159b834c7714ec57d6c979 # v2.0.15
         with:
           command: check bans licenses sources
   codeql:
@@ -81,7 +83,7 @@ jobs:
         - language: rust
     steps:
     - name: Checkout repository
-      uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       with: { persist-credentials: false }
     - name: Initialize CodeQL
       uses: github/codeql-action/init@5d4e8d1aca955e8d8589aabd499c5cae939e33c7 # v4.31.9

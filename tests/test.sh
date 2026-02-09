@@ -192,6 +192,26 @@ test_json_with_header() {
   clean_headers_dump "$FILENAME.headers"
 }
 
+test_redirect() {
+  URL="$MARTIN_URL/$1"
+  EXPECTED_LOCATION="$2"
+
+  echo "Testing redirect from $URL to $EXPECTED_LOCATION"
+  # Use curl without --fail to allow 3xx responses
+  HTTP_CODE=$(curl --silent --show-error --write-out "%{http_code}" --output /dev/null --head "$URL")
+  LOCATION=$(curl --silent --show-error --head "$URL" | grep -i "^location:" | $SED 's/^[Ll]ocation: *//' | tr -d '\r')
+
+  if [ "$HTTP_CODE" != "301" ]; then
+    echo "ERROR: Expected HTTP 301, got $HTTP_CODE for $URL"
+    exit 1
+  fi
+
+  if [ "$LOCATION" != "$EXPECTED_LOCATION" ]; then
+    echo "ERROR: Expected location '$EXPECTED_LOCATION', got '$LOCATION' for $URL"
+    exit 1
+  fi
+}
+
 # Delete line from a file $1 that matches parameter $2 and log the action
 remove_lines() {
   FILE="$1"
@@ -594,6 +614,29 @@ test_font font_3      font/Overpass%20Mono%20Regular,Overpass%20Mono%20Light/0-2
 # Test comments override
 test_jsn tbl_comment_cfg  MixPoints
 test_jsn fnc_comment_cfg  function_Mixed_Name
+
+>&2 echo "***** Test URL redirects (HTTP 301) *****"
+
+# Test pluralization redirects
+test_redirect styles/maplibre       /style/maplibre
+test_redirect sprites/src1.json     /sprite/src1.json
+test_redirect sprites/src1.png      /sprite/src1.png
+test_redirect sdf_sprites/src1.json /sdf_sprite/src1.json
+test_redirect sdf_sprites/src1.png  /sdf_sprite/src1.png
+test_redirect "fonts/Overpass%20Mono%20Regular/0-255" "/font/Overpass Mono Regular/0-255"
+
+# Test tile format suffix redirects
+test_redirect table_source/0/0/0.pbf /table_source/0/0/0
+test_redirect table_source/0/0/0.mvt /table_source/0/0/0
+test_redirect table_source/0/0/0.mlt /table_source/0/0/0
+
+# Test /tiles/ prefix redirect
+test_redirect tiles/table_source/0/0/0 /table_source/0/0/0
+
+# Test query string preservation for tiles
+test_redirect "table_source/0/0/0.pbf?test=123" "/table_source/0/0/0?test=123"
+
+>&2 echo "***** Test observability outputs (metrics, logs) *****"
 
 test_metrics "metrics_1"
 

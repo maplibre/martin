@@ -1,6 +1,6 @@
 use std::env;
 
-use clap::Parser;
+use clap::Parser as _;
 use martin::MartinResult;
 use martin::config::args::Args;
 use martin::config::file::{Config, read_config};
