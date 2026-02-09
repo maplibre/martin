@@ -33,6 +33,9 @@ geojson = [
     "dep:i_overlay",
     "dep:geos",
     "dep:rayon",
+    "dep:serde_json",
+    "dep:tokio",
+    "tokio/fs",
     "_tiles",
 ]
 postgres = [
@@ -70,7 +73,7 @@ pmtiles = ["dep:pmtiles", "dep:object_store", "_tiles"]
 _tiles = ["dep:base64"]
 
 [target.'cfg(target_os = "linux")'.dependencies]
-image = { workspace = true, optional = true }
+geos = { workspace = true, optional = true }
 maplibre_native = { workspace = true, optional = true }
 
 [dependencies]
@@ -83,9 +86,9 @@ deadpool-postgres = { workspace = true, optional = true }
 futures = { workspace = true, optional = true }
 geo-index = { workspace = true, optional = true }
 geojson = { workspace = true, optional = true }
-geos = { workspace = true, optional = true }
 geozero = { workspace = true, optional = true }
 i_overlay = { workspace = true, optional = true }
+image = { workspace = true, optional = true }
 itertools = { workspace = true, optional = true }
 martin-tile-utils.workspace = true
 mbtiles = { workspace = true, optional = true }

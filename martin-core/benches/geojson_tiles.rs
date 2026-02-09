@@ -1,7 +1,10 @@
+use std::hint::black_box;
+use std::path::PathBuf;
+
 use criterion::{Criterion, criterion_group, criterion_main};
-use martin_core::tiles::{Source as _, geojson::source::GeoJsonSource};
+use martin_core::tiles::Source as _;
+use martin_core::tiles::geojson::source::GeoJsonSource;
 use mbtiles::TileCoord;
-use std::{hint::black_box, path::PathBuf};
 use tokio::runtime::Runtime;
 
 fn fixtures_dir() -> PathBuf {
