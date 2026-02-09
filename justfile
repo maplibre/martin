@@ -44,6 +44,8 @@ bench:
 bench-http:  (cargo-install 'oha')
     @echo "ATTENTION: Make sure Martin was started with    just bench-server"
     @echo "Warming up..."
+    oha --latency-correction -z 5s --no-tui http://localhost:3000/feature_collection_1/0/0/0 > /dev/null
+    oha --latency-correction -z 60s         http://localhost:3000/feature_collection_1/0/0/0
     oha --latency-correction -z 5s --no-tui http://localhost:3000/function_zxy_query/18/235085/122323 > /dev/null
     oha --latency-correction -z 60s         http://localhost:3000/function_zxy_query/18/235085/122323
     oha --latency-correction -z 5s --no-tui http://localhost:3000/png/0/0/0 > /dev/null
@@ -53,7 +55,7 @@ bench-http:  (cargo-install 'oha')
 
 # Start release-compiled Martin server and a test database
 bench-server: start
-    cargo run --release -- tests/fixtures/mbtiles tests/fixtures/pmtiles
+    cargo run --release -- tests/fixtures/mbtiles tests/fixtures/pmtiles tests/fixtures/geojson
 
 # Run biomejs on the dashboard (martin/martin-ui)
 [working-directory: 'martin/martin-ui']
@@ -106,8 +108,21 @@ build-release target:
     else
         rustup target add {{target}}
         export CARGO_TARGET_{{shoutysnakecase(target)}}_RUSTFLAGS='-C strip=debuginfo'
+
         cargo build --release --target {{target}} --package mbtiles --locked
-        cargo build --release --target {{target}} --package martin --locked
+
+        # geos is hard to build on Windows or macos
+        if [[ "{{target}}" =~ .+-pc-windows-msvc ]]; then
+            cargo build --release --target {{target}} --package martin --locked \
+                --no-default-features \
+                --features fonts,lambda,mbtiles,metrics,pmtiles,postgres,sprites,styles,webui
+        elif [[ "{{target}}" =~ .+-apple-darwin ]]; then
+            cargo build --release --target {{target}} --package martin --locked \
+                --no-default-features \
+                --features fonts,lambda,mbtiles,metrics,pmtiles,postgres,sprites,styles,webui
+        else
+            cargo build --release --target {{target}} --package martin --locked
+        fi
     fi
 
 # Build debian package
@@ -281,7 +296,8 @@ install-dependencies backend='vulkan':
       libcurl4-openssl-dev \
       libglfw3-dev \
       libuv1-dev \
-      libz-dev
+      libz-dev \
+      libgeos-dev
 
 # Install macOS dependencies via Homebrew
 [macos]
@@ -291,12 +307,13 @@ install-dependencies backend='vulkan':
         curl \
         glfw \
         libuv \
-        zlib
+        zlib \
+        geos
 
 # Install Windows dependencies
 [windows]
 install-dependencies backend='vulkan':
-    @echo "rendering styles is not currently supported on windows"
+    @echo "Windows: No additional dependencies needed (rendering not supported on Windows)"
 
 # Run cargo fmt and cargo clippy
 lint: fmt clippy biomejs-martin-ui type-check
@@ -558,8 +575,8 @@ validate-tools:
         echo "✓ All required tools are installed"
     else
         echo "✗ Missing tools: ${missing_tools[*]}"
-        echo "  Ubuntu/Debian: sudo apt install -y jq file curl grep sqlite3-tools gdal-bin"
-        echo "  macOS: brew install jq file curl grep sqlite gdal gsed"
+        echo "  Ubuntu/Debian: sudo apt install -y jq file curl grep sqlite3-tools gdal-bin libgeos-dev"
+        echo "  macOS: brew install jq file curl grep sqlite gdal gsed geos"
         echo ""
         exit 1
     fi

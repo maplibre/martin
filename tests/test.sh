@@ -630,6 +630,7 @@ test_log_has_str "$LOG_FILE" "WARN Ignoring unrecognized configuration key 'post
 test_log_has_str "$LOG_FILE" "WARN Ignoring unrecognized configuration key 'postgres.functions.function_zxy_query.warning'. Please check your configuration file for typos."
 test_log_has_str "$LOG_FILE" "WARN Ignoring unrecognized configuration key 'pmtiles.warning'. Please check your configuration file for typos."
 test_log_has_str "$LOG_FILE" "WARN Ignoring unrecognized configuration key 'sprites.warning'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" "WARN Ignoring unrecognized configuration key 'geojson.warning'. Please check your configuration file for typos."
 # TODO: below should be changed to cog.warning once unstable-cog is made stable
 test_log_has_str "$LOG_FILE" "WARN Ignoring unrecognized configuration key 'cog'. Please check your configuration file for typos."
 test_log_has_str "$LOG_FILE" "WARN Ignoring unrecognized configuration key 'styles.warning'. Please check your configuration file for typos."
@@ -638,6 +639,43 @@ test_log_has_str "$LOG_FILE" 'WARN Environment variable AWS_SKIP_CREDENTIALS is 
 test_log_has_str "$LOG_FILE" 'WARN Environment variable AWS_REGION is deprecated. Please use pmtiles.region in the configuration file instead.'
 validate_log "$LOG_FILE"
 remove_lines "${TEST_OUT_DIR}/save_config.yaml" " connection_string: "
+echo "::endgroup::"
+
+echo "::group::Test GeoJSON source"
+TEST_NAME="geojson"
+LOG_FILE="${LOG_DIR}/${TEST_NAME}.txt"
+TEST_OUT_DIR="${TEST_OUT_BASE_DIR}/${TEST_NAME}"
+mkdir -p "$TEST_OUT_DIR"
+
+ARG=(--save-config "${TEST_OUT_DIR}/save_config.yaml" tests/fixtures/geojson)
+set -x
+$MARTIN_BIN "${ARG[@]}" 2>&1 | tee "$LOG_FILE" &
+MARTIN_PROC_ID=$(jobs -p | tail -n 1)
+{ set +x; } 2> /dev/null
+trap "echo 'Stopping Martin server $MARTIN_PROC_ID...'; kill -9 $MARTIN_PROC_ID 2> /dev/null || true; echo 'Stopped Martin server $MARTIN_PROC_ID';" EXIT HUP INT TERM
+wait_for "$MARTIN_PROC_ID" Martin "$MARTIN_URL/health"
+
+>&2 echo "Test GeoJSON catalog"
+test_jsn catalog_geojson catalog
+
+>&2 echo "***** Test server response for GeoJSON sources *****"
+test_jsn geojson_fc1       feature_collection_1
+test_pbf geojson_fc1_0_0_0 feature_collection_1/0/0/0
+
+test_jsn geojson_fc2       feature_collection_2
+test_pbf geojson_fc2_0_0_0 feature_collection_2/0/0/0
+
+test_jsn geojson_fc3       feature_collection_3
+test_pbf geojson_fc2_0_0_0 feature_collection_2/0/0/0
+
+test_jsn geojson_f1        feature_1
+test_pbf geojson_f1_0_0_0  feature_1/0/0/0
+
+kill_process "$MARTIN_PROC_ID" Martin
+test_log_has_str "$LOG_FILE" 'WARN Defaulting `pmtiles.allow_http` to `true`. This is likely to become an error in the future for better security.'
+test_log_has_str "$LOG_FILE" 'WARN Environment variable AWS_SKIP_CREDENTIALS is deprecated. Please use pmtiles.skip_signature in the configuration file instead.'
+test_log_has_str "$LOG_FILE" 'WARN Environment variable AWS_REGION is deprecated. Please use pmtiles.region in the configuration file instead.'
+validate_log "$LOG_FILE"
 echo "::endgroup::"
 
 if [[ "$MARTIN_CP_BIN" != "-" ]]; then

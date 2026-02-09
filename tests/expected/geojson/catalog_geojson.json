@@ -1,0 +1,25 @@
+{
+  "fonts": {},
+  "sprites": {},
+  "styles": {},
+  "tiles": {
+    "countries": {
+      "content_type": "application/x-protobuf"
+    },
+    "feature_1": {
+      "content_type": "application/x-protobuf"
+    },
+    "feature_collection_1": {
+      "content_type": "application/x-protobuf"
+    },
+    "feature_collection_2": {
+      "content_type": "application/x-protobuf"
+    },
+    "feature_collection_3": {
+      "content_type": "application/x-protobuf"
+    },
+    "items": {
+      "content_type": "application/x-protobuf"
+    }
+  }
+}

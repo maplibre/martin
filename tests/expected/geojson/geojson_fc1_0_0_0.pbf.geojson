@@ -1,0 +1,108 @@
+{
+  "features": [
+    {
+      "geometry": {
+        "coordinates": [
+          [
+            [
+              2230,
+              2672
+            ],
+            [
+              2230,
+              2638
+            ],
+            [
+              2195,
+              2638
+            ],
+            [
+              2195,
+              2672
+            ],
+            [
+              2230,
+              2672
+            ]
+          ]
+        ],
+        "type": "Polygon"
+      },
+      "properties": {
+        "id": 0,
+        "source_mvt_layer": "layer"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          [
+            [
+              1194,
+              2706
+            ],
+            [
+              1194,
+              2406
+            ],
+            [
+              910,
+              2406
+            ],
+            [
+              910,
+              2706
+            ],
+            [
+              1194,
+              2706
+            ]
+          ]
+        ],
+        "type": "Polygon"
+      },
+      "properties": {
+        "id": 1,
+        "source_mvt_layer": "layer"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          [
+            [
+              2332,
+              2706
+            ],
+            [
+              2332,
+              1389
+            ],
+            [
+              1763,
+              1389
+            ],
+            [
+              1763,
+              2706
+            ],
+            [
+              2332,
+              2706
+            ]
+          ]
+        ],
+        "type": "Polygon"
+      },
+      "properties": {
+        "id": 3,
+        "source_mvt_layer": "layer"
+      },
+      "type": "Feature"
+    }
+  ],
+  "name": "merged",
+  "type": "FeatureCollection"
+}

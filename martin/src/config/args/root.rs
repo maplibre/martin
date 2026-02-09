@@ -18,6 +18,7 @@ use crate::config::file::Config;
     feature = "pmtiles",
     feature = "sprites",
     feature = "styles",
+    feature = "geojson",
 ))]
 use crate::config::file::FileConfigEnum;
 #[cfg(feature = "fonts")]
@@ -123,6 +124,11 @@ impl Args {
             config.mbtiles = parse_file_args(&mut cli_strings, &["mbtiles"], false);
         }
 
+        #[cfg(feature = "geojson")]
+        if !cli_strings.is_empty() {
+            config.geojson = parse_file_args(&mut cli_strings, &["geojson"], false);
+        }
+
         #[cfg(feature = "unstable-cog")]
         if !cli_strings.is_empty() {
             config.cog = parse_file_args(&mut cli_strings, &["tif", "tiff"], false);
@@ -148,7 +154,12 @@ impl Args {
 }
 
 /// Check if a string is a valid [`url::Url`] with a specified extension.
-#[cfg(any(feature = "unstable-cog", feature = "mbtiles", feature = "pmtiles"))]
+#[cfg(any(
+    feature = "unstable-cog",
+    feature = "mbtiles",
+    feature = "pmtiles",
+    feature = "geojson"
+))]
 fn is_url(s: &str, extension: &[&str]) -> bool {
     let Ok(url) = url::Url::parse(s) else {
         return false;
@@ -174,7 +185,12 @@ fn is_url(s: &str, extension: &[&str]) -> bool {
 /// Check if a string is a `file:` scheme URI with a specified extension.
 ///
 /// This is used for `SQLite` connection strings like `file:name.mbtiles?mode=memory&cache=shared`
-#[cfg(any(feature = "unstable-cog", feature = "mbtiles", feature = "pmtiles"))]
+#[cfg(any(
+    feature = "unstable-cog",
+    feature = "mbtiles",
+    feature = "pmtiles",
+    feature = "geojson"
+))]
 fn is_file_scheme_uri(s: &str, extensions: &[&str]) -> bool {
     let Ok(url) = url::Url::parse(s) else {
         return false;
@@ -188,7 +204,12 @@ fn is_file_scheme_uri(s: &str, extensions: &[&str]) -> bool {
         .is_some_and(|ext| extensions.contains(&ext))
 }
 
-#[cfg(any(feature = "unstable-cog", feature = "mbtiles", feature = "pmtiles"))]
+#[cfg(any(
+    feature = "unstable-cog",
+    feature = "mbtiles",
+    feature = "pmtiles",
+    feature = "geojson"
+))]
 pub fn parse_file_args<T: crate::config::file::ConfigurationLivecycleHooks>(
     cli_strings: &mut Arguments,
     extensions: &[&str],
@@ -401,6 +422,22 @@ mod tests {
         pmtiles: "../tests/fixtures/"
         mbtiles: "../tests/fixtures/"
         cog: "../tests/fixtures/"
+        "#);
+    }
+
+    #[cfg(feature = "geojson")]
+    #[test]
+    fn cli_geojson_file() {
+        let args = Args::parse_from([
+            "martin",
+            "../tests/fixtures/geojson/feature_collection_1.geojson",
+        ]);
+
+        let env = FauxEnv::default();
+        let mut config = Config::default();
+        args.merge_into_config(&mut config, &env).unwrap();
+        insta::assert_yaml_snapshot!(config, @r#"
+        geojson: "../tests/fixtures/geojson/feature_collection_1.geojson"
         "#);
     }
 }
