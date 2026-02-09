@@ -283,7 +283,8 @@ install-dependencies backend='vulkan':
       libcurl4-openssl-dev \
       libglfw3-dev \
       libuv1-dev \
-      libz-dev
+      libz-dev \
+      libgeos-dev
 
 # Install macOS dependencies via Homebrew
 [macos]
@@ -293,7 +294,8 @@ install-dependencies backend='vulkan':
         curl \
         glfw \
         libuv \
-        zlib
+        zlib \
+        geos
 
 # Install Windows dependencies
 [windows]
@@ -560,8 +562,8 @@ validate-tools:
         echo "✓ All required tools are installed"
     else
         echo "✗ Missing tools: ${missing_tools[*]}"
-        echo "  Ubuntu/Debian: sudo apt install -y jq file curl grep sqlite3-tools gdal-bin"
-        echo "  macOS: brew install jq file curl grep sqlite gdal gsed"
+        echo "  Ubuntu/Debian: sudo apt install -y jq file curl grep sqlite3-tools gdal-bin libgeos-dev"
+        echo "  macOS: brew install jq file curl grep sqlite gdal gsed geos"
         echo ""
         exit 1
     fi
