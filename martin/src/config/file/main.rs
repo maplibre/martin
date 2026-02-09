@@ -31,7 +31,7 @@ use crate::config::file::FileConfigEnum;
 #[cfg(any(feature = "_tiles", feature = "sprites", feature = "fonts"))]
 use crate::config::file::cache::CacheConfig;
 use crate::config::file::{
-    ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks, UnrecognizedKeys,
+    ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks as _, UnrecognizedKeys,
     UnrecognizedValues, copy_unrecognized_keys_from_config,
 };
 #[cfg(feature = "_tiles")]
