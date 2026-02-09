@@ -108,8 +108,16 @@ build-release target:
     else
         rustup target add {{target}}
         export CARGO_TARGET_{{shoutysnakecase(target)}}_RUSTFLAGS='-C strip=debuginfo'
-        cargo build --release --target {{target}} --package mbtiles --locked
-        cargo build --release --target {{target}} --package martin --locked
+        # Windows builds exclude geojson feature due to geos C++ dependency
+        if [[ "{{target}}" == "x86_64-pc-windows-msvc" ]]; then
+            cargo build --release --target {{target}} --package mbtiles --locked
+            cargo build --release --target {{target}} --package martin --locked \
+                --no-default-features \
+                --features fonts,lambda,mbtiles,metrics,pmtiles,postgres,sprites,styles,webui
+        else
+            cargo build --release --target {{target}} --package mbtiles --locked
+            cargo build --release --target {{target}} --package martin --locked
+        fi
     fi
 
 # Build debian package
@@ -300,7 +308,7 @@ install-dependencies backend='vulkan':
 # Install Windows dependencies
 [windows]
 install-dependencies backend='vulkan':
-    @echo "rendering styles is not currently supported on windows"
+    @echo "Windows: No additional dependencies needed (rendering not supported on Windows)"
 
 # Run cargo fmt and cargo clippy
 lint: fmt clippy biomejs-martin-ui type-check
