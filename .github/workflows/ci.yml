@@ -425,6 +425,8 @@ jobs:
       - name: Install NASM for rustls/aws-lc-rs on Windows
         if: runner.os == 'Windows'
         uses: ilammy/setup-nasm@72793074d3c8cdda771dba85f6deafe00623038b # v1.5.2
+      - name: Setup cmake
+        uses: jwlawson/actions-setup-cmake@3a6cbe35ba64df7ca70c51365c4aff65db9a9037 # v2.1.1
 
       - name: Build ${{ matrix.target }}
         run: just build-release ${{ matrix.target }}
