@@ -36,9 +36,9 @@ postgres = [
 unstable-cog = [
     "dep:png",
     "dep:tiff",
-    "_tiles",
     "dep:image",
     "dep:serde_json",
+    "_tiles",
 ]
 unstable-rendering = ["styles", "dep:maplibre_native", "dep:image"]
 fonts = [
