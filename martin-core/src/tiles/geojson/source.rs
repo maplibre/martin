@@ -13,6 +13,7 @@ use i_overlay::float::clip::FloatClip;
 use i_overlay::float::single::SingleFloatOverlay;
 use i_overlay::string::clip::ClipRule;
 use martin_tile_utils::{Encoding, Format, TileCoord, TileData, TileInfo, tile_bbox};
+use rayon::prelude::*;
 use tilejson::TileJSON;
 use tokio::fs::{self};
 use tracing::trace;
@@ -147,7 +148,7 @@ impl Source for GeoJsonSource {
             .collect::<Vec<_>>();
 
         let clipped_fs = selected_fs
-            .into_iter()
+            .into_par_iter()
             .enumerate()
             .filter_map(|(i, mut f)| {
                 let geom = f.geometry.unwrap();

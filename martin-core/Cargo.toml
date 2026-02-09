@@ -28,6 +28,7 @@ geojson = [
     "dep:geozero",
     "dep:i_overlay",
     "dep:geos",
+    "dep:rayon",
     "_tiles",
 ]
 postgres = [
@@ -90,6 +91,7 @@ pbf_font_tools = { workspace = true, optional = true }
 pmtiles = { workspace = true, optional = true }
 png = { workspace = true, optional = true }
 postgres = { workspace = true, optional = true }
+rayon = { workspace = true, optional = true }
 regex = { workspace = true, optional = true }
 rustls = { workspace = true, optional = true }
 rustls-native-certs = { workspace = true, optional = true }
@@ -112,6 +114,7 @@ xxhash-rust.workspace = true
 actix-web.workspace = true
 approx.workspace = true
 bytes.workspace = true
+criterion = { workspace = true }
 env_logger.workspace = true
 futures.workspace = true
 insta = { workspace = true, features = ["json", "yaml"] }
@@ -127,3 +130,7 @@ required-features = ["pmtiles"]
 
 [lints]
 workspace = true
+
+[[bench]]
+name = "geojson_tiles"
+harness = false
