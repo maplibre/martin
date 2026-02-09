@@ -4,7 +4,7 @@
 // project originally written by Kaveh Karimi and licensed under MIT OR Apache-2.0
 
 use std::f64::consts::PI;
-use std::fmt::{Display, Formatter, Result};
+use std::fmt::{Display, Formatter};
 
 /// circumference of the earth in meters
 pub const EARTH_CIRCUMFERENCE: f64 = 40_075_016.685_578_5;
@@ -32,7 +32,7 @@ pub type TileData = Vec<u8>;
 pub type Tile = (TileCoord, Option<TileData>);
 
 impl Display for TileCoord {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         if f.alternate() {
             write!(f, "{}/{}/{}", self.z, self.x, self.y)
         } else {
@@ -77,6 +77,7 @@ pub enum Format {
     Jpeg,
     Json,
     Mvt,
+    Mlt,
     Png,
     Webp,
     Avif,
@@ -90,6 +91,7 @@ impl Format {
             "jpg" | "jpeg" => Self::Jpeg,
             "json" => Self::Json,
             "pbf" | "mvt" => Self::Mvt,
+            "mlt" => Self::Mlt,
             "png" => Self::Png,
             "webp" => Self::Webp,
             "avif" => Self::Avif,
@@ -106,6 +108,7 @@ impl Format {
             Self::Json => "json",
             // QGIS uses `pbf` instead of `mvt` for some reason
             Self::Mvt => "pbf",
+            Self::Mlt => "mlt",
             Self::Png => "png",
             Self::Webp => "webp",
             Self::Avif => "avif",
@@ -119,6 +122,7 @@ impl Format {
             Self::Jpeg => "image/jpeg",
             Self::Json => "application/json",
             Self::Mvt => "application/x-protobuf",
+            Self::Mlt => "application/vnd.maplibre-vector-tile",
             Self::Png => "image/png",
             Self::Webp => "image/webp",
             Self::Avif => "image/avif",
@@ -128,22 +132,26 @@ impl Format {
     #[must_use]
     pub fn is_detectable(self) -> bool {
         match self {
-            Self::Png | Self::Jpeg | Self::Gif | Self::Webp | Self::Avif => true,
-            // TODO: Json can be detected, but currently we only detect it
-            //       when it's not compressed, so to avoid a warning, keeping it as false for now.
-            //       Once we can detect it inside a compressed data, change it to true.
-            Self::Mvt | Self::Json => false,
+            Self::Png
+            | Self::Jpeg
+            | Self::Gif
+            | Self::Webp
+            | Self::Avif
+            | Self::Json
+            | Self::Mlt => true,
+            Self::Mvt => false,
         }
     }
 }
 
 impl Display for Format {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.write_str(match *self {
             Self::Gif => "gif",
             Self::Jpeg => "jpeg",
             Self::Json => "json",
             Self::Mvt => "mvt",
+            Self::Mlt => "mlt",
             Self::Png => "png",
             Self::Webp => "webp",
             Self::Avif => "avif",
@@ -210,29 +218,60 @@ impl TileInfo {
 
     /// Try to figure out the format and encoding of the raw tile data
     #[must_use]
-    pub fn detect(value: &[u8]) -> Option<Self> {
-        // TODO: Make detection slower but more accurate:
-        //  - uncompress gzip/zlib/... and run detection again. If detection fails, assume MVT
-        //  - detect json inside a compressed data
-        //  - json should be fully parsed
-        //  - possibly keep the current `detect()` available as a fast path for those who may need it
-        Some(match value {
-            // Compressed prefixes assume MVT content
-            v if v.starts_with(b"\x1f\x8b") => Self::new(Format::Mvt, Encoding::Gzip),
-            v if v.starts_with(b"\x78\x9c") => Self::new(Format::Mvt, Encoding::Zlib),
-            v if v.starts_with(b"\x89\x50\x4E\x47\x0D\x0A\x1A\x0A") => {
-                Self::new(Format::Png, Encoding::Internal)
+    pub fn detect(value: &[u8]) -> Self {
+        // Try GZIP decompression
+        if value.starts_with(b"\x1f\x8b") {
+            if let Ok(decompressed) = decode_gzip(value) {
+                let inner_format = Self::detect_vectorish_format(&decompressed);
+                return Self::new(inner_format, Encoding::Gzip);
             }
-            v if v.starts_with(b"\x47\x49\x46\x38\x39\x61") => {
-                Self::new(Format::Gif, Encoding::Internal)
+            // If decompression fails or format is unknown, assume MVT
+            return Self::new(Format::Mvt, Encoding::Gzip);
+        }
+
+        // Try Zlib decompression
+        if value.starts_with(b"\x78\x9c") {
+            if let Ok(decompressed) = decode_zlib(value) {
+                let inner_format = Self::detect_vectorish_format(&decompressed);
+                return Self::new(inner_format, Encoding::Zlib);
             }
-            v if v.starts_with(b"\xFF\xD8\xFF") => Self::new(Format::Jpeg, Encoding::Internal),
+            // If decompression fails or format is unknown, assume MVT
+            return Self::new(Format::Mvt, Encoding::Zlib);
+        }
+        if let Some(raster_format) = Self::detect_raster_formats(value) {
+            Self::new(raster_format, Encoding::Internal)
+        } else {
+            let inner_format = Self::detect_vectorish_format(value);
+            Self::new(inner_format, Encoding::Uncompressed)
+        }
+    }
+
+    /// Fast-path detection without decompression
+    #[must_use]
+    fn detect_raster_formats(value: &[u8]) -> Option<Format> {
+        match value {
+            v if v.starts_with(b"\x89\x50\x4E\x47\x0D\x0A\x1A\x0A") => Some(Format::Png),
+            v if v.starts_with(b"\x47\x49\x46\x38\x39\x61") => Some(Format::Gif),
+            v if v.starts_with(b"\xFF\xD8\xFF") => Some(Format::Jpeg),
             v if v.starts_with(b"RIFF") && v.len() > 8 && v[8..].starts_with(b"WEBP") => {
-                Self::new(Format::Webp, Encoding::Internal)
+                Some(Format::Webp)
             }
-            v if v.starts_with(b"{") => Self::new(Format::Json, Encoding::Uncompressed),
-            _ => None?,
-        })
+            _ => None,
+        }
+    }
+
+    /// Detect the format of vector (or json) data after decompression
+    #[must_use]
+    fn detect_vectorish_format(value: &[u8]) -> Format {
+        match value {
+            v if decode_7bit_length_and_tag(v, &[0x1]).is_ok() => Format::Mlt,
+            v if is_valid_json(v) => Format::Json,
+            // If we can't detect the format, we assume MVT.
+            // Reasoning:
+            //- it's the most common format and
+            //- we don't have a detector for it
+            _ => Format::Mvt,
+        }
     }
 
     #[must_use]
@@ -246,9 +285,12 @@ impl From<Format> for TileInfo {
         Self::new(
             format,
             match format {
-                Format::Png | Format::Jpeg | Format::Webp | Format::Gif | Format::Avif => {
-                    Encoding::Internal
-                }
+                Format::Mlt
+                | Format::Png
+                | Format::Jpeg
+                | Format::Webp
+                | Format::Gif
+                | Format::Avif => Encoding::Internal,
                 Format::Mvt | Format::Json => Encoding::Uncompressed,
             },
         )
@@ -256,7 +298,7 @@ impl From<Format> for TileInfo {
 }
 
 impl Display for TileInfo {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.format.content_type())?;
         if let Some(encoding) = self.encoding.content_encoding() {
             write!(f, "; encoding={encoding}")?;
@@ -265,6 +307,85 @@ impl Display for TileInfo {
         }
         Ok(())
     }
+}
+
+#[derive(thiserror::Error, Debug, PartialEq, Eq)]
+enum SevenBitDecodingError {
+    /// Expected a tag, but got nothing
+    #[error("Expected a tag, but got nothing")]
+    TruncatedTag,
+    /// The size of the tile is too large to be decoded
+    #[error("The size of the tile is too large to be decoded")]
+    SizeOverflow,
+    /// The size of the tile is lower than the number of bytes for the size and tag
+    #[error("The size of the tile is lower than the number of bytes for the size and tag")]
+    SizeUnderflow,
+    /// Expected a size, but got nothing
+    #[error("Expected a size, but got nothing")]
+    TruncatedSize,
+    /// Expected data according to the size, but got nothing
+    #[error("Expected {0} bytes of data in layer according to the size, but got only {1}")]
+    TruncatedData(u64, u64),
+    /// Got unexpected tag
+    #[error("Got tag {0} instead of the expected")]
+    UnexpectedTag(u8),
+}
+
+/// Tries to validate that the tile consists of a valid concatination of (`size_7_bit`, `one_of_expected_version`, `data`)
+fn decode_7bit_length_and_tag(tile: &[u8], versions: &[u8]) -> Result<(), SevenBitDecodingError> {
+    if tile.is_empty() {
+        return Err(SevenBitDecodingError::TruncatedSize);
+    }
+    let mut tile_iter = tile.iter().peekable();
+    while tile_iter.peek().is_some() {
+        // need to parse size
+        let mut size = 0_u64;
+        let mut header_bit_count = 0_u64;
+        loop {
+            header_bit_count += 1;
+            let Some(b) = tile_iter.next() else {
+                return Err(SevenBitDecodingError::TruncatedSize);
+            };
+            if header_bit_count * 7 + 8 > 64 {
+                return Err(SevenBitDecodingError::SizeOverflow);
+            }
+            // decode size
+            size <<= 7;
+            let seven_bit_mask = !0x80;
+            size |= u64::from(*b & seven_bit_mask);
+            // 0 => no further size
+            if b & 0x80 == 0 {
+                // need to check tag
+                header_bit_count += 1;
+                let Some(tag) = tile_iter.next() else {
+                    return Err(SevenBitDecodingError::TruncatedTag);
+                };
+                if !versions.contains(tag) {
+                    return Err(SevenBitDecodingError::UnexpectedTag(*tag));
+                }
+                // need to check data-length
+                let payload_len = size
+                    .checked_sub(header_bit_count)
+                    .ok_or(SevenBitDecodingError::SizeUnderflow)?;
+                for i in 0..payload_len {
+                    if tile_iter.next().is_none() {
+                        return Err(SevenBitDecodingError::TruncatedData(payload_len, i));
+                    }
+                }
+                break;
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Detects if the given tile is a valid JSON tile.
+///
+/// The check for a dictionary is used to speed up the validation process.
+fn is_valid_json(tile: &[u8]) -> bool {
+    tile.starts_with(b"{")
+        && tile.ends_with(b"}")
+        && serde_json::from_slice::<serde::de::IgnoredAny>(tile).is_ok()
 }
 
 /// Convert longitude and latitude to a tile (x,y) coordinates for a given zoom
@@ -348,48 +469,145 @@ pub fn wgs84_to_webmercator(lon: f64, lat: f64) -> (f64, f64) {
 
 #[cfg(test)]
 mod tests {
-    #![expect(clippy::unreadable_literal)]
-
-    use std::fs::read;
-
-    use Encoding::{Internal, Uncompressed};
-    use Format::{Jpeg, Json, Png, Webp};
     use approx::assert_relative_eq;
     use rstest::rstest;
 
     use super::*;
 
-    fn detect(path: &str) -> Option<TileInfo> {
-        TileInfo::detect(&read(path).unwrap())
+    #[rstest]
+    #[case::png(
+        include_bytes!("../fixtures/world.png"),
+        TileInfo::new(Format::Png, Encoding::Internal)
+    )]
+    #[case::jpg(
+        include_bytes!("../fixtures/world.jpg"),
+        TileInfo::new(Format::Jpeg, Encoding::Internal)
+    )]
+    #[case::webp(
+        include_bytes!("../fixtures/dc.webp"),
+        TileInfo::new(Format::Webp, Encoding::Internal)
+    )]
+    #[case::json(
+        br#"{"foo":"bar"}"#,
+        TileInfo::new(Format::Json, Encoding::Uncompressed)
+    )]
+    // we have no way of knowing what is an MVT -> we just say it is out of the
+    // fact that it is not something else
+    #[case::invalid_webp_header(b"RIFF", TileInfo::new(Format::Mvt, Encoding::Uncompressed))]
+    fn test_data_format_detect(#[case] data: &[u8], #[case] expected: TileInfo) {
+        assert_eq!(TileInfo::detect(data), expected);
     }
 
-    #[expect(clippy::unnecessary_wraps)]
-    fn info(format: Format, encoding: Encoding) -> Option<TileInfo> {
-        Some(TileInfo::new(format, encoding))
+    /// Test detection of compressed content (JSON, MLT, MVT)
+    #[test]
+    fn test_compressed_json_gzip() {
+        let json_data = br#"{"type":"FeatureCollection","features":[]}"#;
+        let compressed = encode_gzip(json_data).unwrap();
+        let result = TileInfo::detect(&compressed);
+        assert_eq!(result, TileInfo::new(Format::Json, Encoding::Gzip));
     }
 
     #[test]
-    fn test_data_format_png() {
-        assert_eq!(detect("./fixtures/world.png"), info(Png, Internal));
+    fn test_compressed_json_zlib() {
+        use std::io::Write as _;
+
+        use flate2::write::ZlibEncoder;
+
+        let json_data = br#"{"type":"FeatureCollection","features":[]}"#;
+        let mut encoder = ZlibEncoder::new(Vec::new(), flate2::Compression::default());
+        encoder.write_all(json_data).unwrap();
+        let compressed = encoder.finish().unwrap();
+
+        let result = TileInfo::detect(&compressed);
+        assert_eq!(result, TileInfo::new(Format::Json, Encoding::Zlib));
     }
 
     #[test]
-    fn test_data_format_jpg() {
-        assert_eq!(detect("./fixtures/world.jpg"), info(Jpeg, Internal));
+    fn test_compressed_mlt_gzip() {
+        // MLT tile: length=2 (0x02), version=1 (0x01)
+        let mlt_data = &[0x02, 0x01];
+        let compressed = encode_gzip(mlt_data).unwrap();
+        let result = TileInfo::detect(&compressed);
+        assert_eq!(result, TileInfo::new(Format::Mlt, Encoding::Gzip));
     }
 
     #[test]
-    fn test_data_format_webp() {
-        assert_eq!(detect("./fixtures/dc.webp"), info(Webp, Internal));
-        assert_eq!(TileInfo::detect(br"RIFF"), None);
+    fn test_compressed_mlt_zlib() {
+        use std::io::Write as _;
+
+        use flate2::write::ZlibEncoder;
+
+        // MLT tile: length=5 (0x05), version=1 (0x01), plus some data
+        let mlt_data = &[0x05, 0x01, 0xaa, 0xbb, 0xcc];
+        let mut encoder = ZlibEncoder::new(Vec::new(), flate2::Compression::default());
+        encoder.write_all(mlt_data).unwrap();
+        let compressed = encoder.finish().unwrap();
+
+        let result = TileInfo::detect(&compressed);
+        assert_eq!(result, TileInfo::new(Format::Mlt, Encoding::Zlib));
     }
 
     #[test]
-    fn test_data_format_json() {
-        assert_eq!(
-            TileInfo::detect(br#"{"foo":"bar"}"#),
-            info(Json, Uncompressed)
-        );
+    fn test_compressed_mvt_gzip_fallback() {
+        // Random data that doesn't match any known format => should be detected as MVT
+        let random_data = &[0x1a, 0x2b, 0x3c, 0x4d];
+        let compressed = encode_gzip(random_data).unwrap();
+        let result = TileInfo::detect(&compressed);
+        assert_eq!(result, TileInfo::new(Format::Mvt, Encoding::Gzip));
+    }
+
+    #[test]
+    fn test_compressed_mvt_zlib_fallback() {
+        use std::io::Write as _;
+
+        use flate2::write::ZlibEncoder;
+
+        // Random data that doesn't match any known format => should be detected as MVT
+        let random_data = &[0xaa, 0xbb, 0xcc, 0xdd];
+        let mut encoder = ZlibEncoder::new(Vec::new(), flate2::Compression::default());
+        encoder.write_all(random_data).unwrap();
+        let compressed = encoder.finish().unwrap();
+
+        let result = TileInfo::detect(&compressed);
+        assert_eq!(result, TileInfo::new(Format::Mvt, Encoding::Zlib));
+    }
+
+    #[test]
+    fn test_invalid_json_in_gzip() {
+        // Data that looks like JSON but isn't valid => should fall back to MVT
+        let invalid_json = b"{this is not valid json}";
+        let compressed = encode_gzip(invalid_json).unwrap();
+        let result = TileInfo::detect(&compressed);
+        assert_eq!(result, TileInfo::new(Format::Mvt, Encoding::Gzip));
+    }
+
+    #[rstest]
+    #[case::minimal_tile(&[0x02, 0x01], Ok(()))]
+    #[case::one_byte_length(&[0x03, 0x01, 0xaa], Ok(()))]
+    #[case::two_byte_length(&[0x80, 0x04, 0x01, 0xaa], Ok(()))]
+    #[case::multi_byte_length(&[0x80, 0x80, 0x05, 0x01, 0xdd], Ok(()))]
+    #[case::wrong_version(&[0x03, 0x02, 0xaa], Err(SevenBitDecodingError::UnexpectedTag(0x02)))]
+    #[case::empty_input(&[], Err(SevenBitDecodingError::TruncatedSize))]
+    #[case::size_overflow(&[0xFF; 64], Err(SevenBitDecodingError::SizeOverflow))]
+    #[case::size_underflow(&[0x00, 0x01], Err(SevenBitDecodingError::SizeUnderflow))]
+    #[case::unterminated_length(&[0x80], Err(SevenBitDecodingError::TruncatedSize))]
+    #[case::missing_version_byte(&[0x05], Err(SevenBitDecodingError::TruncatedTag))]
+    #[case::wrong_length(&[0x03, 0x01], Err(SevenBitDecodingError::TruncatedData(1, 0)))]
+    fn test_decode_7bit_length_and_tag(
+        #[case] tile: &[u8],
+        #[case] expected: Result<(), SevenBitDecodingError>,
+    ) {
+        let allowed_versions = &[0x01_u8];
+        let decoded = decode_7bit_length_and_tag(tile, allowed_versions);
+        assert_eq!(decoded, expected, "can decode one layer correctly");
+
+        if tile.is_empty() {
+            return;
+        }
+        let mut tile_with_two_layers = vec![0x02, 0x01];
+        tile_with_two_layers.extend_from_slice(tile);
+        let decoded = decode_7bit_length_and_tag(&tile_with_two_layers, allowed_versions);
+        assert_eq!(decoded, expected, "can decode two layers correctly");
     }
 
     #[rstest]
@@ -417,10 +635,10 @@ mod tests {
 
     #[rstest]
     // you could easily get test cases from maptiler: https://www.maptiler.com/google-maps-coordinates-tile-bounds-projection/#4/-118.82/71.02
-    #[case(0, 0, 0, 0, 0, [-180.0,-85.0511287798066,180.0,85.0511287798066])]
-    #[case(1, 0, 0, 0, 0, [-180.0,0.0,0.0,85.0511287798066])]
-    #[case(5, 1, 1, 2, 2, [-168.75,81.09321385260837,-146.25,83.97925949886205])]
-    #[case(5, 1, 3, 2, 5, [-168.75,74.01954331150226,-146.25,81.09321385260837])]
+    #[case(0, 0, 0, 0, 0, [-180.0,-85.051_128_779_806_6,180.0,85.051_128_779_806_6])]
+    #[case(1, 0, 0, 0, 0, [-180.0,0.0,0.0,85.051_128_779_806_6])]
+    #[case(5, 1, 1, 2, 2, [-168.75,81.093_213_852_608_37,-146.25,83.979_259_498_862_05])]
+    #[case(5, 1, 3, 2, 5, [-168.75,74.019_543_311_502_26,-146.25,81.093_213_852_608_37])]
     fn test_xyz_to_bbox(
         #[case] zoom: u8,
         #[case] min_x: u32,
@@ -447,33 +665,33 @@ mod tests {
     #[case(7, (0, 116, 11, 126))]
     #[case(8, (0, 233, 23, 253))]
     #[case(9, (0, 466, 47, 507))]
-    #[case(10, (1, 933, 94, 1014))]
-    #[case(11, (3, 1866, 188, 2029))]
-    #[case(12, (6, 3732, 377, 4059))]
-    #[case(13, (12, 7465, 755, 8119))]
-    #[case(14, (25, 14931, 1510, 16239))]
-    #[case(15, (51, 29863, 3020, 32479))]
-    #[case(16, (102, 59727, 6041, 64958))]
-    #[case(17, (204, 119455, 12083, 129917))]
-    #[case(18, (409, 238911, 24166, 259834))]
-    #[case(19, (819, 477823, 48332, 519669))]
-    #[case(20, (1638, 955647, 96665, 1039339))]
-    #[case(21, (3276, 1911295, 193331, 2078678))]
-    #[case(22, (6553, 3822590, 386662, 4157356))]
-    #[case(23, (13107, 7645181, 773324, 8314713))]
-    #[case(24, (26214, 15290363, 1546649, 16629427))]
-    #[case(25, (52428, 30580726, 3093299, 33258855))]
-    #[case(26, (104857, 61161453, 6186598, 66517711))]
-    #[case(27, (209715, 122322907, 12373196, 133035423))]
-    #[case(28, (419430, 244645814, 24746393, 266070846))]
-    #[case(29, (838860, 489291628, 49492787, 532141692))]
-    #[case(30, (1677721, 978583256, 98985574, 1064283385))]
+    #[case(10, (1, 933, 94, 1_014))]
+    #[case(11, (3, 1_866, 188, 2_029))]
+    #[case(12, (6, 3_732, 377, 4_059))]
+    #[case(13, (12, 7_465, 755, 8_119))]
+    #[case(14, (25, 14_931, 1_510, 16_239))]
+    #[case(15, (51, 29_863, 3_020, 32_479))]
+    #[case(16, (102, 59_727, 6_041, 64_958))]
+    #[case(17, (204, 119_455, 12_083, 129_917))]
+    #[case(18, (409, 238_911, 24_166, 259_834))]
+    #[case(19, (819, 477_823, 48_332, 519_669))]
+    #[case(20, (1_638, 955_647, 96_665, 1_039_339))]
+    #[case(21, (3_276, 1_911_295, 193_331, 2_078_678))]
+    #[case(22, (6_553, 3_822_590, 386_662, 4_157_356))]
+    #[case(23, (13_107, 7_645_181, 773_324, 8_314_713))]
+    #[case(24, (26_214, 15_290_363, 1_546_649, 16_629_427))]
+    #[case(25, (52_428, 30_580_726, 3_093_299, 33_258_855))]
+    #[case(26, (104_857, 61_161_453, 6_186_598, 66_517_711))]
+    #[case(27, (209_715, 122_322_907, 12_373_196, 133_035_423))]
+    #[case(28, (419_430, 244_645_814, 24_746_393, 266_070_846))]
+    #[case(29, (838_860, 489_291_628, 49_492_787, 532_141_692))]
+    #[case(30, (1_677_721, 978_583_256, 98_985_574, 1_064_283_385))]
     fn test_box_to_xyz(#[case] zoom: u8, #[case] expected_xyz: (u32, u32, u32, u32)) {
         let actual_xyz = bbox_to_xyz(
-            -179.43749999999955,
-            -84.76987877980656,
-            -146.8124999999996,
-            -81.37446385260833,
+            -179.437_499_999_999_55,
+            -84.769_878_779_806_56,
+            -146.812_499_999_999_6,
+            -81.374_463_852_608_33,
             zoom,
         );
         assert_eq!(
@@ -485,14 +703,14 @@ mod tests {
     #[rstest]
     // test data via https://epsg.io/transform#s_srs=4326&t_srs=3857
     #[case((0.0,0.0), (0.0,0.0))]
-    #[case((30.0,0.0), (3339584.723798207,0.0))]
-    #[case((-30.0,0.0), (-3339584.723798207,0.0))]
-    #[case((0.0,30.0), (0.0,3503549.8435043753))]
-    #[case((0.0,-30.0), (0.0,-3503549.8435043753))]
-    #[case((38.897957,-77.036560), (4330100.766138651, -13872207.775755845))] // white house
-    #[case((-180.0,-85.0), (-20037508.342789244, -19971868.880408566))]
-    #[case((180.0,85.0), (20037508.342789244, 19971868.880408566))]
-    #[case((0.026949458523585632,0.08084834874097367), (3000.0, 9000.0))]
+    #[case((30.0,0.0), (3_339_584.723_798_207,0.0))]
+    #[case((-30.0,0.0), (-3_339_584.723_798_207,0.0))]
+    #[case((0.0,30.0), (0.0,3_503_549.843_504_375_3))]
+    #[case((0.0,-30.0), (0.0,-3_503_549.843_504_375_3))]
+    #[case((38.897_957,-77.036_560), (4_330_100.766_138_651, -13_872_207.775_755_845))] // white house
+    #[case((-180.0,-85.0), (-20_037_508.342_789_244, -19_971_868.880_408_566))]
+    #[case((180.0,85.0), (20_037_508.342_789_244, 19_971_868.880_408_566))]
+    #[case((0.026_949_458_523_585_632,0.080_848_348_740_973_67), (3000.0, 9000.0))]
     fn test_coordinate_syste_conversion(
         #[case] wgs84: (f64, f64),
         #[case] webmercator: (f64, f64),

@@ -25,7 +25,7 @@ use bit_set::BitSet;
 use dashmap::{DashMap, Entry};
 use itertools::Itertools as _;
 use pbf_font_tools::freetype::{Face, Library};
-use pbf_font_tools::prost::Message;
+use pbf_font_tools::prost::Message as _;
 use pbf_font_tools::{Fontstack, Glyphs, render_sdf_glyph};
 use regex::Regex;
 use serde::{Deserialize, Serialize};

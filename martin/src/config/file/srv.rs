@@ -17,6 +17,10 @@ pub const LISTEN_ADDRESSES_DEFAULT: &str = "0.0.0.0:3000";
 pub struct SrvConfig {
     pub keep_alive: Option<u64>,
     pub listen_addresses: Option<String>,
+    /// The prefix under which we are served under
+    pub route_prefix: Option<String>,
+    /// The prefix under which we claim in the tileJSON to be served under
+    /// Defaults to `route_prefix` or the contents of the `X-Rewrite-Path` header
     pub base_path: Option<String>,
     pub worker_processes: Option<usize>,
     pub preferred_encoding: Option<PreferredEncoding>,

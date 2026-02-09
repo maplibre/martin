@@ -9,7 +9,6 @@ tilejson:
   format: pbf
   generator: martin-cp v0.0.0
 agg_tiles_hash: 9B931A386D6075D1DA55323BD4DBEDAE
-[INFO ] Using 'mvt' tile format from metadata table in file cp_flat-with-hash
 tile_info:
   format: mvt
   encoding: ''

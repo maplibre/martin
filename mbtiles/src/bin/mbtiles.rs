@@ -368,7 +368,7 @@ async fn meta_set_value(file: &Path, key: &str, value: Option<&str>) -> MbtResul
 mod tests {
     use std::path::PathBuf;
 
-    use clap::Parser;
+    use clap::Parser as _;
     use clap::error::ErrorKind;
     use mbtiles::CopyDuplicateMode;
 

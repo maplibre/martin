@@ -27,7 +27,7 @@ use crate::config::file::FileConfigEnum;
 #[cfg(any(feature = "_tiles", feature = "sprites", feature = "fonts"))]
 use crate::config::file::cache::CacheConfig;
 use crate::config::file::{
-    ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks, UnrecognizedKeys,
+    ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks as _, UnrecognizedKeys,
     UnrecognizedValues, copy_unrecognized_keys_from_config,
 };
 #[cfg(feature = "_tiles")]
@@ -127,6 +127,15 @@ impl Config {
         let mut res = self.srv.get_unrecognized_keys();
         copy_unrecognized_keys_from_config(&mut res, "", &self.unrecognized);
 
+        if let Some(path) = &self.srv.route_prefix {
+            let normalized = parse_base_path(path)?;
+            // For route_prefix, an empty normalized path (from "/") means no prefix
+            self.srv.route_prefix = if normalized.is_empty() {
+                None
+            } else {
+                Some(normalized)
+            };
+        }
         if let Some(path) = &self.srv.base_path {
             self.srv.base_path = Some(parse_base_path(path)?);
         }

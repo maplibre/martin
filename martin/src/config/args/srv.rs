@@ -14,6 +14,15 @@ pub struct SrvArgs {
     pub keep_alive: Option<u64>,
     #[arg(help = format!("The socket address to bind. [DEFAULT: {LISTEN_ADDRESSES_DEFAULT}]"), short, long)]
     pub listen_addresses: Option<String>,
+    /// Set URL path prefix for all API routes.
+    ///
+    /// When set, Martin will serve all endpoints under this path prefix (e.g., `/tiles/health`, `/tiles/catalog`).
+    /// This allows Martin to be served under a subpath when behind a reverse proxy.
+    /// Must begin with a `/`.
+    ///
+    /// Examples: `/tiles`, `/api/v1/tiles`
+    #[arg(long)]
+    pub route_prefix: Option<String>,
     /// Set TileJSON URL path prefix.
     ///
     /// This overrides the default of respecting the X-Rewrite-URL header.
@@ -22,7 +31,7 @@ pub struct SrvArgs {
     /// Must begin with a `/`.
     ///
     /// Examples: `/`, `/tiles`
-    #[arg(long)]
+    #[arg(long, hide = true)]
     pub base_path: Option<String>,
     /// Number of web server workers
     #[arg(short = 'W', long)]
@@ -84,6 +93,9 @@ impl SrvArgs {
         }
         if self.listen_addresses.is_some() {
             srv_config.listen_addresses = self.listen_addresses;
+        }
+        if self.route_prefix.is_some() {
+            srv_config.route_prefix = self.route_prefix;
         }
         if self.base_path.is_some() {
             srv_config.base_path = self.base_path;
