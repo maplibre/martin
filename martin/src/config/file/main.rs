@@ -284,12 +284,13 @@ impl Config {
     /// This also handles the default states and overrides
     #[cfg(any(feature = "_tiles", feature = "sprites", feature = "fonts"))]
     fn resolve_cache_config(&mut self) -> ResolvedCacheConfig {
+        // we .take() below in case the configuration is serialized
         #[cfg(any(feature = "_tiles", feature = "sprites", feature = "fonts"))]
         {
             self.cache.size = Self::legacy_cache_config_item_helper(
                 self.cache.size,
                 "cache.size",
-                self.cache_size_mb,
+                self.cache_size_mb.take(),
                 "cache_size_mb",
             );
         }
@@ -298,7 +299,7 @@ impl Config {
             self.cache.tiles.size = Self::legacy_cache_config_item_helper(
                 self.cache.tiles.size,
                 "cache.tiles.size",
-                self.tile_cache_size_mb,
+                self.tile_cache_size_mb.take(),
                 "cache_tile_size_mb",
             );
         }
@@ -307,7 +308,9 @@ impl Config {
             self.cache.pmtile_directorys.size = Self::legacy_cache_config_item_helper(
                 self.cache.pmtile_directorys.size,
                 "cache.pmtile_directorys.size",
-                self.pmtiles.as_config_opt().and_then(|c| c.directory_cache_size_mb),
+                self.pmtiles
+                    .as_config_opt_mut()
+                    .and_then(|c| c.directory_cache_size_mb.take()),
                 "pmtiles_directory_cache",
             );
         }
@@ -316,7 +319,9 @@ impl Config {
             self.cache.sprites.size = Self::legacy_cache_config_item_helper(
                 self.cache.sprites.size,
                 "cache.sprites.size",
-                self.sprites.as_config_opt().and_then(|c| c.cache_size_mb),
+                self.sprites
+                    .as_config_opt_mut()
+                    .and_then(|c| c.cache_size_mb.take()),
                 "sprites.cache_size_mb",
             );
         }
@@ -325,7 +330,9 @@ impl Config {
             self.cache.fonts.size = Self::legacy_cache_config_item_helper(
                 self.cache.fonts.size,
                 "cache.fonts.size",
-                self.fonts.as_config_opt().and_then(|c| c.cache_size_mb),
+                self.fonts
+                    .as_config_opt_mut()
+                    .and_then(|c| c.cache_size_mb.take()),
                 "sprites.cache_size_mb",
             );
         }
@@ -539,5 +546,171 @@ mod tests {
     fn parse_base_path_rejects_invalid_paths() {
         assert!(parse_base_path("").is_err());
         assert!(parse_base_path("foo/bar").is_err());
+    }
+
+    #[cfg(all(
+        feature = "_tiles",
+        feature = "pmtiles",
+        feature = "sprites",
+        feature = "fonts"
+    ))]
+    mod cache_config {
+        use indoc::indoc;
+
+        use super::*;
+
+        #[test]
+        fn default() {
+            let mut cfg = serde_yaml::from_str::<Config>(indoc! {"
+            "})
+            .unwrap();
+            let cache = cfg.resolve_cache_config();
+            insta::assert_debug_snapshot!(cache, @"
+            ResolvedCacheConfig {
+                tiles: None,
+                pmtile_directorys: None,
+                sprites: None,
+                fonts: None,
+            }
+            ");
+            insta::assert_yaml_snapshot!(cfg, @"
+            cache:
+              size: ~
+              tiles:
+                size: ~
+              pmtile_directorys:
+                size: ~
+              sprites:
+                size: ~
+              fonts:
+                size: ~
+            ");
+        }
+
+        #[test]
+        fn old_cache_config() {
+            let mut cfg = serde_yaml::from_str::<Config>(indoc! {"
+                      # legacy
+                      tile_cache_size_mb: 5
+                      pmtiles:
+                        directory_cache_size_mb: 6
+                      fonts:
+                        cache_size_mb: 7
+                      sprites:
+                        cache_size_mb: 8
+                    "})
+            .unwrap();
+            let cache = cfg.resolve_cache_config();
+            insta::assert_debug_snapshot!(cache, @"
+            ResolvedCacheConfig {
+                tiles: None,
+                pmtile_directorys: None,
+                sprites: None,
+                fonts: None,
+            }
+            ");
+            insta::assert_yaml_snapshot!(cfg, @"
+                    cache:
+                      size: ~
+                      tiles:
+                        size: 5000000B
+                      pmtile_directorys:
+                        size: 6000000B
+                      sprites:
+                        size: 8000000B
+                      fonts:
+                        size: 7000000B
+                    pmtiles: {}
+                    sprites: {}
+                    fonts: {}
+                    ");
+        }
+
+        #[test]
+        fn new_cache_config() {
+            let mut cfg = serde_yaml::from_str::<Config>(indoc! {"
+                      cache:
+                        pmtile_directorys:
+                          size: 1KiB
+                        tiles:
+                          size: 2KiB
+                        fonts:
+                          size: 3KiB
+                        sprites:
+                          size: 4KiB
+                    "})
+            .unwrap();
+            let cache = cfg.resolve_cache_config();
+            insta::assert_debug_snapshot!(cache, @"
+            ResolvedCacheConfig {
+                tiles: None,
+                pmtile_directorys: None,
+                sprites: None,
+                fonts: None,
+            }
+            ");
+            insta::assert_yaml_snapshot!(cfg, @"
+                    cache:
+                      size: ~
+                      tiles:
+                        size: 2048B
+                      pmtile_directorys:
+                        size: 1024B
+                      sprites:
+                        size: 4096B
+                      fonts:
+                        size: 3072B
+                    ");
+        }
+
+        #[test]
+        fn new_and_old_config_defautls_to_new() {
+            let mut cfg = serde_yaml::from_str::<Config>(indoc! {"
+            # new
+            cache:
+              pmtile_directorys:
+                size: 1KiB
+              tiles:
+                size: 2KiB
+              fonts:
+                size: 3KiB
+              sprites:
+                size: 4KiB
+
+            # legacy
+            tile_cache_size_mb: 5
+            pmtiles:
+              directory_cache_size_mb: 6
+            fonts:
+              cache_size_mb: 7
+            sprites:
+              cache_size_mb: 8
+          "})
+            .unwrap();
+            let cache = cfg.resolve_cache_config();
+            insta::assert_debug_snapshot!(cache, @"
+            ResolvedCacheConfig {
+                tiles: None,
+                pmtile_directorys: None,
+                sprites: None,
+                fonts: None,
+            }
+            ");
+            insta::assert_yaml_snapshot!(cfg, @"
+                    cache:
+                      size: ~
+                      tiles:
+                        size: 2048B
+                      pmtile_directorys:
+                        size: 1024B
+                      sprites:
+                        size: 4096B
+                      fonts:
+                        size: 3072B
+                    pmtiles: {}
+                    sprites: {}
+                    fonts: {}
+                    ");
+        }
     }
 }

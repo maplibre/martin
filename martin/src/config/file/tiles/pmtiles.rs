@@ -18,8 +18,8 @@ use crate::config::file::{
 #[serde_with::skip_serializing_none]
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct PmtConfig {
-  /// DEPRECATED. USE `cache.pmtile_directorys.size` instead
-  pub directory_cache_size_mb: Option<u64>,
+    /// DEPRECATED. USE `cache.pmtile_directorys.size` instead
+    pub directory_cache_size_mb: Option<u64>,
 
     // if the key is the allowed set, we assume it is there for a purpose
     // settings and unreconginsed values are partitioned from each other in the init_parsing step

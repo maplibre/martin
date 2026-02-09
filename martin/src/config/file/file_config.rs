@@ -167,9 +167,9 @@ impl<T: ConfigurationLivecycleHooks> FileConfigEnum<T> {
 
     /// Get access to the inner configuration if it exists
     #[must_use]
-    pub fn as_config_opt(&self) -> Option<&T> {
+    pub fn as_config_opt_mut(&mut self) -> Option<&mut T> {
         if let FileConfigEnum::Config(c) = self {
-            Some(&c.custom)
+            Some(&mut c.custom)
         } else {
             None
         }

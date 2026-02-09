@@ -48,8 +48,8 @@ impl SpriteConfig {
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct InnerSpriteConfig {
-  /// DEPRECATED. USE `cache.sprites.size` instead
-  pub cache_size_mb: Option<u64>,
+    /// DEPRECATED. USE `cache.sprites.size` instead
+    pub cache_size_mb: Option<u64>,
 
     #[serde(flatten, skip_serializing)]
     pub unrecognized: UnrecognizedValues,

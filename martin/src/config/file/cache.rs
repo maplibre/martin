@@ -105,6 +105,7 @@ impl ResolvedSubCacheSetting {
 ///
 /// This is different from [`ResolvedCacheConfig`] as this still contains the override logic and not just the final values
 #[derive(Deserialize, Serialize, Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[serde_with::skip_serializing_none]
 pub struct CacheConfig {
     /// Amount of memory (in Bytes) to use for caching [default: 512, 0 to disable]
     ///
@@ -119,7 +120,8 @@ pub struct CacheConfig {
     /// For example, we may change the split between sources to improve efficiency.
     #[serde(
         serialize_with = "serialize_bytes",
-        deserialize_with = "deserialize_bytes"
+        deserialize_with = "deserialize_bytes",
+        default
     )]
     pub size: Option<u64>,
 
@@ -135,18 +137,7 @@ pub struct CacheConfig {
 
 impl From<CacheConfig> for ResolvedCacheConfig {
     fn from(config: CacheConfig) -> Self {
-        if let Some(0) = config.size {
-            ResolvedCacheConfig {
-                #[cfg(feature = "_tiles")]
-                tiles: None,
-                #[cfg(feature = "pmtiles")]
-                pmtile_directorys: None,
-                #[cfg(feature = "sprites")]
-                sprites: None,
-                #[cfg(feature = "fonts")]
-                fonts: None,
-            }
-        } else if let Some(cache_size_bytes) = config.size {
+        if let Some(cache_size_bytes) = config.size {
             // Default: 50% for tiles
             #[cfg(feature = "_tiles")]
             let tile_cache_size_bytes = config.tiles.size.unwrap_or(cache_size_bytes / 2);
@@ -194,6 +185,7 @@ impl From<CacheConfig> for ResolvedCacheConfig {
 
 /// Settings for one cache
 #[derive(Deserialize, Serialize, Default, Debug, Clone, Copy, PartialEq, Eq)]
+#[serde_with::skip_serializing_none]
 pub struct SubCacheSetting {
     /// Maximum size for cache in Bytes
     #[serde(
