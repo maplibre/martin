@@ -1,6 +1,6 @@
 use geojson::{Geometry, Value};
-use geos::Geom;
-use geozero::{ToGeo, error::GeozeroError, geos::GeosWriter};
+use geos::Geom as _;
+use geozero::{ToGeo as _, error::GeozeroError, geos::GeosWriter};
 
 use crate::tiles::geojson::process::process_geojson_geom_n;
 

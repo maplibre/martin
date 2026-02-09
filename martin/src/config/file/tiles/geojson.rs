@@ -47,7 +47,7 @@ mod tests {
 
     use crate::config::file::geojson::GeoJsonConfig;
     use crate::config::file::{
-        ConfigurationLivecycleHooks, FileConfigEnum, FileConfigSource, FileConfigSrc,
+        ConfigurationLivecycleHooks as _, FileConfigEnum, FileConfigSource, FileConfigSrc,
     };
 
     #[test]

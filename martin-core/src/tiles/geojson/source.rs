@@ -4,13 +4,13 @@ use std::path::PathBuf;
 use std::vec;
 
 use async_trait::async_trait;
-use geo_index::rtree::{RTree, RTreeIndex};
+use geo_index::rtree::{RTree, RTreeIndex as _};
 use geojson::{FeatureCollection, GeoJson, Geometry, Value};
-use geozero::mvt::{Message, MvtWriter, Tile};
+use geozero::mvt::{Message as _, MvtWriter, Tile};
 use i_overlay::core::fill_rule::FillRule;
 use i_overlay::core::overlay_rule::OverlayRule;
-use i_overlay::float::clip::FloatClip;
-use i_overlay::float::single::SingleFloatOverlay;
+use i_overlay::float::clip::FloatClip as _;
+use i_overlay::float::single::SingleFloatOverlay as _;
 use i_overlay::string::clip::ClipRule;
 use martin_tile_utils::{Encoding, Format, TileCoord, TileData, TileInfo, tile_bbox};
 use rayon::prelude::*;
@@ -512,6 +512,8 @@ impl Rect {
 mod tests {
     use std::path::PathBuf;
 
+    use approx::assert_abs_diff_eq;
+
     use super::*;
 
     fn fixtures_dir() -> PathBuf {
@@ -547,6 +549,9 @@ mod tests {
         rect.max_y += buffer_y;
         let transformed_point = rect.transform_to_tile_coordinates(&point);
         let expected_point = [1102.0, 3596.0];
-        assert_eq!(transformed_point, expected_point);
+        assert_eq!(transformed_point.len(), expected_point.len());
+        for (actual_point, expected_point) in transformed_point.into_iter().zip(expected_point){
+            assert_abs_diff_eq!(actual_point, expected_point);
+        }
     }
 }

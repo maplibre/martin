@@ -1,5 +1,5 @@
 use criterion::{Criterion, criterion_group, criterion_main};
-use martin_core::tiles::{Source, geojson::source::GeoJsonSource};
+use martin_core::tiles::{Source as _, geojson::source::GeoJsonSource};
 use mbtiles::TileCoord;
 use std::{hint::black_box, path::PathBuf};
 use tokio::runtime::Runtime;
@@ -24,7 +24,7 @@ fn bench_fetching(c: &mut Criterion) {
             let tile_coord = TileCoord::new_unchecked(0, 0, 0);
             let tile = geojson_source.get_tile(tile_coord, None).await.unwrap();
             black_box(tile);
-        })
+        });
     });
 }
 
