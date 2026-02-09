@@ -14,6 +14,7 @@ homepage.workspace = true
 [[bench]]
 name = "geojson_tiles"
 harness = false
+required-features = ["geojson"]
 
 [features]
 default = [
