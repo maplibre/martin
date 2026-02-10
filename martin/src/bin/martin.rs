@@ -55,7 +55,7 @@ async fn start(args: Args) -> MartinResult<()> {
             "Web UI is disabled. Use `--webui enable-for-all` in CLI or a config value to enable it for all connections."
         );
     }
-tracing::warn!("Martin server is now active at {base_url}/");
+    tracing::warn!("Martin server is now active at {base_url}/");
     server.await
 }
 
