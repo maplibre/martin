@@ -94,8 +94,8 @@ impl Args {
         }
 
         #[cfg(any(feature = "_tiles", feature = "sprites", feature = "fonts"))]
-        if self.srv.cache_size.is_some() {
-            config.cache.size = self.srv.cache_size;
+        if let Some(cache_size_mb) = self.srv.cache_size {
+            config.cache.set_size(cache_size_mb * 1000 * 1000);
         }
 
         self.srv.merge_into_config(&mut config.srv);

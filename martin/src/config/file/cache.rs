@@ -1,5 +1,6 @@
 use std::num::NonZeroU64;
 
+use martin_core::config::OptBoolObj;
 use serde::{Deserialize, Serialize};
 
 /// Configuration for all cache types.
@@ -104,9 +105,53 @@ impl ResolvedSubCacheSetting {
 /// The cache configuration used in the configuration file
 ///
 /// This is different from [`ResolvedCacheConfig`] as this still contains the override logic and not just the final values
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct CacheConfig(OptBoolObj<InnerCacheConfig>);
+
+impl CacheConfig {
+    pub fn set_size(&mut self, size_bytes: u64) {
+        match (size_bytes, &mut self.0) {
+            (0, i) => {
+                *i = OptBoolObj::Bool(false);
+            }
+            (size_bytes, &mut OptBoolObj::Object(ref mut c)) => {
+                c.size = Some(size_bytes);
+            }
+            (size_bytes, i) => {
+                *i = OptBoolObj::Object(InnerCacheConfig::new(size_bytes));
+            }
+        };
+    }
+    pub fn as_object_mut(&mut self) -> Option<&mut InnerCacheConfig> {
+        match self.0 {
+            OptBoolObj::Object(ref mut c) => Some(c),
+            _ => None,
+        }
+    }
+}
+
+impl From<CacheConfig> for ResolvedCacheConfig {
+    fn from(config: CacheConfig) -> Self {
+        let inner_cfg = match config.0 {
+            OptBoolObj::NoValue => InnerCacheConfig::default(),
+            OptBoolObj::Bool(true) => InnerCacheConfig::default(),
+            OptBoolObj::Bool(false) => InnerCacheConfig {
+                size: Some(0),
+                tiles: SubCacheSetting::default(),
+                pmtile_directorys: SubCacheSetting::default(),
+                sprites: SubCacheSetting::default(),
+                fonts: SubCacheSetting::default(),
+            },
+            OptBoolObj::Object(c) => c,
+        };
+        ResolvedCacheConfig::from(inner_cfg)
+    }
+}
+
+/// Cache configuration if the user has enabled it
 #[derive(Deserialize, Serialize, Debug, Clone, Copy, PartialEq, Eq, Default)]
 #[serde_with::skip_serializing_none]
-pub struct CacheConfig {
+pub struct InnerCacheConfig {
     /// Amount of memory (in Bytes) to use for caching [default: 512, 0 to disable]
     ///
     /// This is the total amount of cache we use.
@@ -135,50 +180,51 @@ pub struct CacheConfig {
     pub fonts: SubCacheSetting,
 }
 
-impl From<CacheConfig> for ResolvedCacheConfig {
-    fn from(config: CacheConfig) -> Self {
-        if let Some(cache_size_bytes) = config.size {
-            // Default: 50% for tiles
+impl InnerCacheConfig {
+    pub fn new(size_bytes: u64) -> Self {
+        Self {
+            size: Some(size_bytes),
+            tiles: SubCacheSetting::default(),
+            pmtile_directorys: SubCacheSetting::default(),
+            sprites: SubCacheSetting::default(),
+            fonts: SubCacheSetting::default(),
+        }
+    }
+}
+
+impl From<InnerCacheConfig> for ResolvedCacheConfig {
+    fn from(config: InnerCacheConfig) -> Self {
+        let cache_size_bytes = config.size.unwrap_or(512 * 1024 * 1024);
+
+        // TODO: the defaults could be smarter. If I don't have pmtiles sources, don't reserve cache for it
+        // Default: 50% for tiles
+        #[cfg(feature = "_tiles")]
+        let tile_cache_size_bytes = config.tiles.size.unwrap_or(cache_size_bytes / 2);
+
+        // Default: 25% for PMTiles directories;
+        #[cfg(feature = "pmtiles")]
+        let pmtiles_cache_size_bytes = config
+            .pmtile_directorys
+            .size
+            .unwrap_or(cache_size_bytes / 4);
+
+        // Default: 12.5% for sprites
+        #[cfg(feature = "sprites")]
+        let sprite_cache_size_bytes = config.sprites.size.unwrap_or(cache_size_bytes / 8);
+
+        // Default: 12.5% for fonts
+        #[cfg(feature = "fonts")]
+        let font_cache_size_bytes = config.fonts.size.unwrap_or(cache_size_bytes / 8);
+
+        ResolvedCacheConfig {
             #[cfg(feature = "_tiles")]
-            let tile_cache_size_bytes = config.tiles.size.unwrap_or(cache_size_bytes / 2);
-
-            // Default: 25% for PMTiles directories;
+            tiles: ResolvedSubCacheSetting::new_opt(tile_cache_size_bytes),
             #[cfg(feature = "pmtiles")]
-            let pmtiles_cache_size_bytes = config
-                .pmtile_directorys
-                .size
-                .unwrap_or(cache_size_bytes / 4);
-
-            // Default: 12.5% for sprites
+            pmtile_directorys: ResolvedSubCacheSetting::new_opt(pmtiles_cache_size_bytes),
             #[cfg(feature = "sprites")]
-            let sprite_cache_size_bytes = config.sprites.size.unwrap_or(cache_size_bytes / 8);
-
-            // Default: 12.5% for fonts
+            sprites: ResolvedSubCacheSetting::new_opt(sprite_cache_size_bytes),
             #[cfg(feature = "fonts")]
-            let font_cache_size_bytes = config.fonts.size.unwrap_or(cache_size_bytes / 8);
-
-            ResolvedCacheConfig {
-                #[cfg(feature = "_tiles")]
-                tiles: ResolvedSubCacheSetting::new_opt(tile_cache_size_bytes),
-                #[cfg(feature = "pmtiles")]
-                pmtile_directorys: ResolvedSubCacheSetting::new_opt(pmtiles_cache_size_bytes),
-                #[cfg(feature = "sprites")]
-                sprites: ResolvedSubCacheSetting::new_opt(sprite_cache_size_bytes),
-                #[cfg(feature = "fonts")]
-                fonts: ResolvedSubCacheSetting::new_opt(font_cache_size_bytes),
-            }
-        } else {
-            // TODO: the defaults could be smarter. If I don't have pmtiles sources, don't reserve cache for it
-            ResolvedCacheConfig {
-                #[cfg(feature = "_tiles")]
-                tiles: ResolvedSubCacheSetting::new_opt(256),
-                #[cfg(feature = "pmtiles")]
-                pmtile_directorys: ResolvedSubCacheSetting::new_opt(128),
-                #[cfg(feature = "sprites")]
-                sprites: ResolvedSubCacheSetting::new_opt(64),
-                #[cfg(feature = "fonts")]
-                fonts: ResolvedSubCacheSetting::new_opt(64),
-            }
+            fonts: ResolvedSubCacheSetting::new_opt(font_cache_size_bytes),
         }
     }
 }
@@ -200,10 +246,14 @@ where
     S: serde::Serializer,
 {
     match value {
-        Some(size) => serializer.serialize_str(&format!("{size}B")),
+        Some(size) => {
+            let size = size_format::SizeFormatterSI::new(*size);
+            serializer.serialize_str(&format!("{size}B"))
+        }
         None => serializer.serialize_none(),
     }
 }
+
 fn deserialize_bytes<'de, D>(deserializer: D) -> Result<Option<u64>, D::Error>
 where
     D: serde::Deserializer<'de>,
