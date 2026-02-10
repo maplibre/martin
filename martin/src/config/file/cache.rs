@@ -123,11 +123,21 @@ impl CacheConfig {
         };
     }
 
-    pub fn as_object_mut(&mut self) -> Option<&mut InnerCacheConfig> {
-        match self.0 {
-            OptBoolObj::Object(ref mut c) => Some(c),
-            _ => None,
+    /// Returns a mutable reference to the inner cache configuration
+    ///
+    /// This may enable the cache if it was disabled before
+    pub fn object_mut(&mut self) -> &mut InnerCacheConfig {
+        if !matches!(self.0, OptBoolObj::Object(_)) {
+            *self = Self(OptBoolObj::Object(InnerCacheConfig::default()));
         }
+        match self.0 {
+            OptBoolObj::Object(ref mut c) => c,
+            _ => unreachable!(),
+        }
+    }
+
+    pub fn is_none(&self) -> bool {
+        matches!(self.0, OptBoolObj::NoValue)
     }
 }
 
