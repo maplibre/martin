@@ -1,9 +1,9 @@
 PRAGMA foreign_keys=OFF;
 BEGIN TRANSACTION;
 CREATE TABLE map (
-    zoom_level INTEGER,
-    tile_column INTEGER,
-    tile_row INTEGER,
+    zoom_level INT,
+    tile_column INT,
+    tile_row INT,
     tile_id TEXT,
     grid_id TEXT
 );
