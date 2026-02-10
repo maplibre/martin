@@ -40,7 +40,7 @@ cache:
   #
   # Specify each cache size individually for finer cache size control:
   # - Tiles: `cache.tiles.size`
-  # - Pmtiles: `cache.pmtile_directorys.size`
+  # - Pmtiles: `cache.pmtile_directories.size`
   # - Fonts: `cache.fonts.size`
   # - Sprites: `cache.sprites.size`
   size: 512MB
@@ -50,8 +50,8 @@ cache:
     # Defaults to `cache.size` / 2
     size: 256MB
 
-  pmtile_directorys:
-    # Size of the pmtile-directorys cache
+  pmtile_directories:
+    # Size of the pmtile-directories cache
     # Defaults to cache.size / 4
     #
     # Note:

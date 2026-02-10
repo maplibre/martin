@@ -240,14 +240,14 @@ impl Config {
         let cache_config = self.resolve_cache_config();
 
         #[cfg(feature = "pmtiles")]
-        let pmtile_directorys_cache = cache_config.create_pmtile_directorys_cache();
+        let pmtile_directories_cache = cache_config.create_pmtile_directories_cache();
 
         #[cfg(feature = "_tiles")]
         let (tiles, warnings) = self
             .resolve_tile_sources(
                 &resolver,
                 #[cfg(feature = "pmtiles")]
-                pmtile_directorys_cache,
+                pmtile_directories_cache,
             )
             .await?;
 
@@ -313,9 +313,9 @@ impl Config {
             .and_then(|c| c.directory_cache_size_mb.take())
         {
             let cache = self.cache.object_mut();
-            cache.pmtile_directorys.size = Self::legacy_cache_config_item_helper(
-                cache.pmtile_directorys.size,
-                "cache.pmtile_directorys.size",
+            cache.pmtile_directories.size = Self::legacy_cache_config_item_helper(
+                cache.pmtile_directories.size,
+                "cache.pmtile_directories.size",
                 old_size_mb,
                 "pmtiles.directory_cache_size_mb",
             );
@@ -579,7 +579,7 @@ mod tests {
                         size_mb: 256,
                     },
                 ),
-                pmtile_directorys: Some(
+                pmtile_directories: Some(
                     ResolvedSubCacheSetting {
                         size_mb: 128,
                     },
@@ -609,7 +609,7 @@ mod tests {
             insta::assert_debug_snapshot!(cache, @"
               ResolvedCacheConfig {
                   tiles: None,
-                  pmtile_directorys: None,
+                  pmtile_directories: None,
                   sprites: None,
                   fonts: None,
               }
@@ -631,7 +631,7 @@ mod tests {
                         size_mb: 256,
                     },
                 ),
-                pmtile_directorys: Some(
+                pmtile_directories: Some(
                     ResolvedSubCacheSetting {
                         size_mb: 128,
                     },
@@ -671,7 +671,7 @@ mod tests {
                         size_mb: 5,
                     },
                 ),
-                pmtile_directorys: Some(
+                pmtile_directories: Some(
                     ResolvedSubCacheSetting {
                         size_mb: 6,
                     },
@@ -693,7 +693,7 @@ mod tests {
             cache:
               tiles:
                 size: 5.0MB
-              pmtile_directorys:
+              pmtile_directories:
                 size: 6.0MB
               sprites:
                 size: 7.0MB
@@ -711,7 +711,7 @@ mod tests {
               cache:
                 tiles:
                   size: 1MB
-                pmtile_directorys:
+                pmtile_directories:
                   size: 2MB
                 sprites:
                   size: 3MB
@@ -727,7 +727,7 @@ mod tests {
                         size_mb: 1,
                     },
                 ),
-                pmtile_directorys: Some(
+                pmtile_directories: Some(
                     ResolvedSubCacheSetting {
                         size_mb: 2,
                     },
@@ -748,7 +748,7 @@ mod tests {
             cache:
               tiles:
                 size: 1.0MB
-              pmtile_directorys:
+              pmtile_directories:
                 size: 2.0MB
               sprites:
                 size: 3.0MB
@@ -764,7 +764,7 @@ mod tests {
               cache:
                 tiles:
                   size: 1MB
-                pmtile_directorys:
+                pmtile_directories:
                   size: 2MB
                 sprites:
                   size: 3MB
@@ -789,7 +789,7 @@ mod tests {
                         size_mb: 1,
                     },
                 ),
-                pmtile_directorys: Some(
+                pmtile_directories: Some(
                     ResolvedSubCacheSetting {
                         size_mb: 2,
                     },
@@ -810,7 +810,7 @@ mod tests {
             cache:
               tiles:
                 size: 1.0MB
-              pmtile_directorys:
+              pmtile_directories:
                 size: 2.0MB
               sprites:
                 size: 3.0MB
@@ -829,7 +829,7 @@ mod tests {
                 size: 1GB
                 tiles:
                   size: 0B
-                pmtile_directorys:
+                pmtile_directories:
                   size: 0B
                 sprites:
                   size: 0B
@@ -841,7 +841,7 @@ mod tests {
             insta::assert_debug_snapshot!(cache, @"
               ResolvedCacheConfig {
                   tiles: None,
-                  pmtile_directorys: None,
+                  pmtile_directories: None,
                   sprites: None,
                   fonts: None,
               }
@@ -851,7 +851,7 @@ mod tests {
                 size: 1.0GB
                 tiles:
                   size: 0B
-                pmtile_directorys:
+                pmtile_directories:
                   size: 0B
                 sprites:
                   size: 0B
@@ -867,7 +867,7 @@ mod tests {
                 size: 0B
                 tiles:
                   size: 1MB
-                pmtile_directorys:
+                pmtile_directories:
                   size: 2MB
                 sprites:
                   size: 3MB
@@ -883,7 +883,7 @@ mod tests {
                         size_mb: 1,
                     },
                 ),
-                pmtile_directorys: Some(
+                pmtile_directories: Some(
                     ResolvedSubCacheSetting {
                         size_mb: 2,
                     },
@@ -905,7 +905,7 @@ mod tests {
               size: 0B
               tiles:
                 size: 1.0MB
-              pmtile_directorys:
+              pmtile_directories:
                 size: 2.0MB
               sprites:
                 size: 3.0MB

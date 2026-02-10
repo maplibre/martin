@@ -9,7 +9,7 @@ pub struct ResolvedCacheConfig {
     #[cfg(feature = "_tiles")]
     pub tiles: Option<ResolvedSubCacheSetting>,
     #[cfg(feature = "pmtiles")]
-    pub pmtile_directorys: Option<ResolvedSubCacheSetting>,
+    pub pmtile_directories: Option<ResolvedSubCacheSetting>,
     #[cfg(feature = "sprites")]
     pub sprites: Option<ResolvedSubCacheSetting>,
     #[cfg(feature = "fonts")]
@@ -37,9 +37,9 @@ impl ResolvedCacheConfig {
     /// Creates `PMTiles` directory cache if configured.
     #[cfg(feature = "pmtiles")]
     #[must_use]
-    pub fn create_pmtile_directorys_cache(&self) -> martin_core::tiles::pmtiles::PmtCache {
+    pub fn create_pmtile_directories_cache(&self) -> martin_core::tiles::pmtiles::PmtCache {
         // TODO: make this actually disabled, not just zero sized cached
-        if let Some(setting) = &self.pmtile_directorys {
+        if let Some(setting) = &self.pmtile_directories {
             tracing::info!(
                 "Initializing PMTiles directory cache with maximum size {} MB",
                 setting.size_mb
@@ -149,7 +149,7 @@ impl From<CacheConfig> for ResolvedCacheConfig {
             OptBoolObj::Bool(false) => InnerCacheConfig {
                 size: Some(0),
                 tiles: SubCacheSetting::default(),
-                pmtile_directorys: SubCacheSetting::default(),
+                pmtile_directories: SubCacheSetting::default(),
                 sprites: SubCacheSetting::default(),
                 fonts: SubCacheSetting::default(),
             },
@@ -184,7 +184,7 @@ pub struct InnerCacheConfig {
     #[serde(default, skip_serializing_if = "SubCacheSetting::is_none")]
     pub tiles: SubCacheSetting,
     #[serde(default, skip_serializing_if = "SubCacheSetting::is_none")]
-    pub pmtile_directorys: SubCacheSetting,
+    pub pmtile_directories: SubCacheSetting,
     #[serde(default, skip_serializing_if = "SubCacheSetting::is_none")]
     pub sprites: SubCacheSetting,
     #[serde(default, skip_serializing_if = "SubCacheSetting::is_none")]
@@ -196,7 +196,7 @@ impl InnerCacheConfig {
         Self {
             size: Some(size_bytes),
             tiles: SubCacheSetting::default(),
-            pmtile_directorys: SubCacheSetting::default(),
+            pmtile_directories: SubCacheSetting::default(),
             sprites: SubCacheSetting::default(),
             fonts: SubCacheSetting::default(),
         }
@@ -215,7 +215,7 @@ impl From<InnerCacheConfig> for ResolvedCacheConfig {
         // Default: 25% for PMTiles directories;
         #[cfg(feature = "pmtiles")]
         let pmtiles_cache_size_bytes = config
-            .pmtile_directorys
+            .pmtile_directories
             .size
             .unwrap_or(cache_size_bytes / 4);
 
@@ -231,7 +231,7 @@ impl From<InnerCacheConfig> for ResolvedCacheConfig {
             #[cfg(feature = "_tiles")]
             tiles: ResolvedSubCacheSetting::new_opt(tile_cache_size_bytes),
             #[cfg(feature = "pmtiles")]
-            pmtile_directorys: ResolvedSubCacheSetting::new_opt(pmtiles_cache_size_bytes),
+            pmtile_directories: ResolvedSubCacheSetting::new_opt(pmtiles_cache_size_bytes),
             #[cfg(feature = "sprites")]
             sprites: ResolvedSubCacheSetting::new_opt(sprite_cache_size_bytes),
             #[cfg(feature = "fonts")]
