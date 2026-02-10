@@ -861,7 +861,7 @@ mod tests {
         }
 
         #[test]
-        fn individual_sizes_overide_global_size() {
+        fn individual_sizes_override_global_size() {
             let mut cfg = serde_yaml::from_str::<Config>(indoc! {"
               cache:
                 size: 0B
