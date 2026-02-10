@@ -7,7 +7,7 @@ use actix_web::test::read_body;
 #[cfg(feature = "postgres")]
 use martin::config::file::postgres::TableInfo;
 use martin::config::file::{Config, ServerState};
-use martin_core::config::env::FauxEnv;
+use martin::config::primitives::env::FauxEnv;
 #[cfg(feature = "_tiles")]
 use martin_core::tiles::BoxedSource;
 use tracing::warn;

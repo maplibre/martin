@@ -2,8 +2,6 @@ use std::collections::BTreeMap;
 use std::env;
 use std::path::{Path, PathBuf};
 
-#[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
-use martin_core::config::OptBoolObj;
 use martin_core::styles::StyleSources;
 use serde::{Deserialize, Serialize};
 use tracing::warn;
@@ -12,6 +10,8 @@ use crate::config::file::{
     ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks, FileConfigEnum,
     UnrecognizedKeys, UnrecognizedValues,
 };
+#[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
+use crate::config::primitives::OptBoolObj;
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct InnerStyleConfig {
