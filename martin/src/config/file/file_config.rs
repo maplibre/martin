@@ -6,9 +6,6 @@ use std::path::Path;
 use std::path::PathBuf;
 
 #[cfg(feature = "_tiles")]
-use martin_core::config::IdResolver;
-use martin_core::config::OptOneMany;
-#[cfg(feature = "_tiles")]
 use martin_core::tiles::BoxedSource;
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "_tiles")]
@@ -19,6 +16,9 @@ use url::Url;
 #[cfg(feature = "_tiles")]
 use crate::config::file::TileSourceWarning;
 use crate::config::file::{ConfigFileError, ConfigFileResult};
+#[cfg(feature = "_tiles")]
+use crate::config::primitives::IdResolver;
+use crate::config::primitives::OptOneMany;
 #[cfg(feature = "_tiles")]
 use crate::{MartinError, MartinResult};
 
@@ -512,10 +512,9 @@ pub fn copy_unrecognized_keys_from_config(
 
 #[cfg(all(test, feature = "mbtiles"))]
 mod mbtiles_tests {
-    use martin_core::config::IdResolver;
-
     use super::*;
     use crate::config::file::tiles::mbtiles::MbtConfig;
+    use crate::config::primitives::IdResolver;
 
     #[tokio::test]
     #[tracing_test::traced_test]
@@ -544,10 +543,9 @@ mod mbtiles_tests {
 
 #[cfg(all(test, feature = "pmtiles"))]
 mod pmtiles_tests {
-    use martin_core::config::IdResolver;
-
     use super::*;
     use crate::config::file::tiles::pmtiles::PmtConfig;
+    use crate::config::primitives::IdResolver;
 
     #[tokio::test]
     #[tracing_test::traced_test]

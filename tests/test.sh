@@ -182,6 +182,36 @@ test_font() {
   clean_headers_dump "$FILENAME.headers"
 }
 
+test_json_with_header() {
+  FILENAME="$TEST_OUT_DIR/$1.json"
+  URL="$MARTIN_URL/$2"
+  HEADER="$3"
+
+  echo "Testing $(basename "$FILENAME") from $URL with header: $HEADER"
+  $CURL --dump-header "$FILENAME.headers" -H "$HEADER" "$URL" | jq --sort-keys > "$FILENAME"
+  clean_headers_dump "$FILENAME.headers"
+}
+
+test_redirect() {
+  URL="$MARTIN_URL/$1"
+  EXPECTED_LOCATION="$2"
+
+  echo "Testing redirect from $URL to $EXPECTED_LOCATION"
+  # Use curl without --fail to allow 3xx responses
+  HTTP_CODE=$(curl --silent --show-error --write-out "%{http_code}" --output /dev/null --head "$URL")
+  LOCATION=$(curl --silent --show-error --head "$URL" | grep -i "^location:" | $SED 's/^[Ll]ocation: *//' | tr -d '\r')
+
+  if [ "$HTTP_CODE" != "301" ]; then
+    echo "ERROR: Expected HTTP 301, got $HTTP_CODE for $URL"
+    exit 1
+  fi
+
+  if [ "$LOCATION" != "$EXPECTED_LOCATION" ]; then
+    echo "ERROR: Expected location '$EXPECTED_LOCATION', got '$LOCATION' for $URL"
+    exit 1
+  fi
+}
+
 # Delete line from a file $1 that matches parameter $2 and log the action
 remove_lines() {
   FILE="$1"
@@ -364,6 +394,24 @@ test_pbf cmp_13_7346_3822         table_source,points1,points2/13/7346/3822
 test_pbf cmp_14_14692_7645        table_source,points1,points2/14/14692/7645
 test_pbf cmp_17_117542_61161      table_source,points1,points2/17/117542/61161
 test_pbf cmp_18_235085_122323     table_source,points1,points2/18/235085/122323
+
+>&2 echo "***** Test header effects on tilejson *****"
+test_json_with_header tilejson_no_forwarded_headers function_zxy_query "Host: localhost"
+test_json_with_header tilejson_ignores_x_forwarded_for function_zxy_query "X-Forwarded-For: 192.168.1.100"
+test_json_with_header tilejson_with_host function_zxy_query "Host: example.com"
+test_json_with_header tilejson_with_host_and_port function_zxy_query "Host: example.com:6000"
+
+test_json_with_header tilejson_with_x_forwarded_proto_https function_zxy_query "X-Forwarded-Proto: https"
+test_json_with_header tilejson_with_x_forwarded_proto_http function_zxy_query "X-Forwarded-Proto: http"
+
+test_json_with_header tilejson_with_x_forwarded_host function_zxy_query "X-Forwarded-Host: tiles.example.com"
+
+test_json_with_header tilejson_with_forwarded_proto_only function_zxy_query "Forwarded: proto=https"
+test_json_with_header tilejson_with_forwarded_host_only function_zxy_query "Forwarded: host=tiles.example.com"
+test_json_with_header tilejson_with_forwarded_proto_and_host function_zxy_query "Forwarded: proto=https;host=tiles.example.com"
+test_json_with_header tilejson_with_x_forwarded_prefix function_zxy_query "X-Forwarded-Prefix: /tiles/function_zxy_query"
+test_json_with_header tilejson_with_x_rewrite_url function_zxy_query "X-Rewrite-URL: /footiles/function_zxy_query"
+
 
 >&2 echo "***** Test server response for function source *****"
 test_jsn fnc                      function_zxy_query
@@ -566,6 +614,29 @@ test_font font_3      font/Overpass%20Mono%20Regular,Overpass%20Mono%20Light/0-2
 # Test comments override
 test_jsn tbl_comment_cfg  MixPoints
 test_jsn fnc_comment_cfg  function_Mixed_Name
+
+>&2 echo "***** Test URL redirects (HTTP 301) *****"
+
+# Test pluralization redirects
+test_redirect styles/maplibre       /style/maplibre
+test_redirect sprites/src1.json     /sprite/src1.json
+test_redirect sprites/src1.png      /sprite/src1.png
+test_redirect sdf_sprites/src1.json /sdf_sprite/src1.json
+test_redirect sdf_sprites/src1.png  /sdf_sprite/src1.png
+test_redirect "fonts/Overpass%20Mono%20Regular/0-255" "/font/Overpass Mono Regular/0-255"
+
+# Test tile format suffix redirects
+test_redirect table_source/0/0/0.pbf /table_source/0/0/0
+test_redirect table_source/0/0/0.mvt /table_source/0/0/0
+test_redirect table_source/0/0/0.mlt /table_source/0/0/0
+
+# Test /tiles/ prefix redirect
+test_redirect tiles/table_source/0/0/0 /table_source/0/0/0
+
+# Test query string preservation for tiles
+test_redirect "table_source/0/0/0.pbf?test=123" "/table_source/0/0/0?test=123"
+
+>&2 echo "***** Test observability outputs (metrics, logs) *****"
 
 test_metrics "metrics_1"
 

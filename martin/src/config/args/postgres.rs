@@ -2,8 +2,6 @@ use std::time::Duration;
 
 use clap::ValueEnum;
 use enum_display::EnumDisplay;
-use martin_core::config::env::Env;
-use martin_core::config::{OptBoolObj, OptOneMany};
 use serde::{Deserialize, Serialize};
 use tracing::{info, warn};
 
@@ -11,6 +9,8 @@ use super::connections::Arguments;
 use super::connections::State::{Ignore, Take};
 use crate::config::file::UnrecognizedValues;
 use crate::config::file::postgres::{POOL_SIZE_DEFAULT, PostgresConfig, PostgresSslCerts};
+use crate::config::primitives::env::Env;
+use crate::config::primitives::{OptBoolObj, OptOneMany};
 // Must match the help string for BoundsType::Quick
 pub const DEFAULT_BOUNDS_TIMEOUT: Duration = Duration::from_secs(5);
 
@@ -237,10 +237,9 @@ mod tests {
     use std::ffi::OsString;
     use std::path::PathBuf;
 
-    use martin_core::config::env::FauxEnv;
-
     use super::*;
     use crate::MartinError;
+    use crate::config::primitives::env::FauxEnv;
 
     #[test]
     fn test_extract_conn_strings() {

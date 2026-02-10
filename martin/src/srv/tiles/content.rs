@@ -3,7 +3,7 @@ use actix_http::header::Quality;
 use actix_web::error::{ErrorBadRequest, ErrorNotAcceptable, ErrorNotFound};
 use actix_web::http::header::{
     AcceptEncoding, CONTENT_ENCODING, ETAG, Encoding as HeaderEnc, EntityTag, IfNoneMatch,
-    Preference,
+    LOCATION, Preference,
 };
 use actix_web::web::{Data, Path, Query};
 use actix_web::{HttpMessage as _, HttpRequest, HttpResponse, Result as ActixResult, route};
@@ -14,10 +14,12 @@ use martin_tile_utils::{
     encode_gzip,
 };
 use serde::Deserialize;
+use tracing::warn;
 
 use crate::config::args::PreferredEncoding;
 use crate::config::file::srv::SrvConfig;
 use crate::source::TileSources;
+use crate::srv::server::DebouncedWarning;
 use crate::srv::server::map_internal_error;
 
 const SUPPORTED_ENC: &[HeaderEnc] = &[
@@ -59,6 +61,74 @@ async fn get_tile(
         y: path.y,
     })
     .await
+}
+
+#[derive(Deserialize, Clone)]
+pub struct RedirectTileRequest {
+    ids: String,
+    z: u8,
+    x: u32,
+    y: u32,
+    ext: String,
+}
+
+/// Redirect `/{source_ids}/{z}/{x}/{y}.{extension}` to `/{source_ids}/{z}/{x}/{y}` (HTTP 301)
+/// Registered before main tile route to match more specific pattern first
+#[route("/{ids}/{z}/{x}/{y}.{ext}", method = "GET", method = "HEAD")]
+pub async fn redirect_tile_ext(req: HttpRequest, path: Path<RedirectTileRequest>) -> HttpResponse {
+    static WARNING: DebouncedWarning = DebouncedWarning::new();
+    let RedirectTileRequest { ids, z, x, y, ext } = path.as_ref();
+
+    WARNING
+        .once_per_hour(|| {
+            warn!(
+                "Request to /{ids}/{z}/{x}/{y}.{ext} caused unnecessary redirect. Use /{ids}/{z}/{x}/{y} to avoid extra round-trip latency."
+            );
+        })
+        .await;
+
+    redirect_tile_with_query(ids, *z, *x, *y, req.query_string())
+}
+
+/// Redirect `/tiles/{source_ids}/{z}/{x}/{y}` to `/{source_ids}/{z}/{x}/{y}` (HTTP 301)
+#[route("/tiles/{source_ids}/{z}/{x}/{y}", method = "GET", method = "HEAD")]
+pub async fn redirect_tiles(req: HttpRequest, path: Path<TileRequest>) -> HttpResponse {
+    static WARNING: DebouncedWarning = DebouncedWarning::new();
+    let TileRequest {
+        source_ids,
+        z,
+        x,
+        y,
+    } = path.as_ref();
+
+    WARNING
+        .once_per_hour(|| {
+            warn!(
+                "Request to /tiles/{source_ids}/{z}/{x}/{y} caused unnecessary redirect. Use /{source_ids}/{z}/{x}/{y} to avoid extra round-trip latency."
+            );
+        })
+        .await;
+
+    redirect_tile_with_query(source_ids, *z, *x, *y, req.query_string())
+}
+
+/// Helper function to create a 301 redirect for tiles with query string preservation
+fn redirect_tile_with_query(
+    source_ids: &str,
+    z: u8,
+    x: u32,
+    y: u32,
+    query_string: &str,
+) -> HttpResponse {
+    let location = format!("/{source_ids}/{z}/{x}/{y}");
+    let location = if query_string.is_empty() {
+        location
+    } else {
+        format!("{location}?{query_string}")
+    };
+    HttpResponse::MovedPermanently()
+        .insert_header((LOCATION, location))
+        .finish()
 }
 
 pub struct DynTileSource<'a> {
