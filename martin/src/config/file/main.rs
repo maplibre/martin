@@ -802,9 +802,9 @@ mod tests {
             cache:
               size: ~
               tiles:
-                size: 2.0kB
-              pmtile_directorys:
                 size: 1.0kB
+              pmtile_directorys:
+                size: 2.0kB
               sprites:
                 size: 4.0kB
               fonts:
@@ -881,9 +881,9 @@ mod tests {
             cache:
               size: 0B
               tiles:
-                size: 2B
-              pmtile_directorys:
                 size: 1B
+              pmtile_directorys:
+                size: 2B
               sprites:
                 size: 4B
               fonts:
