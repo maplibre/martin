@@ -22,8 +22,11 @@ base_path: null
 # Number of web server workers
 worker_processes: 8
 
+# Allows configuring the cache
+#
+# To disable, you can use the `cache: false` shorthand or set `size: 0B`
 cache:
-  # Amount of memory (in MB) to use for caching [default: 512, 0 to disable]
+  # Amount of memory to use for caching [default: 512, 0 to disable]
   #
   # This is the total amount of cache we use.
   # By default, this is split up between:
@@ -48,7 +51,7 @@ cache:
     size: 256MB
 
   pmtile_directorys:
-    # Size of the directory cache (in MB).
+    # Size of the pmtile-directorys cache
     # Defaults to cache.size / 4
     #
     # Note:
@@ -59,12 +62,12 @@ cache:
     size: 128MB
 
   sprites:
-    # Size of the sprite cache (in MB).
+    # Size of the sprite cache
     # Defaults to cache.size / 8
     size: 64MB
 
   fonts:
-    # Size of the sprite cache (in MB).
+    # Size of the font cache
     # Defaults to cache.size / 4
     size: 64MB
 
