@@ -317,7 +317,7 @@ impl Config {
                 cache.pmtile_directorys.size,
                 "cache.pmtile_directorys.size",
                 old_size_mb,
-                "pmtiles_directory_cache",
+                "pmtiles.directory_cache_size_mb",
             );
         }
         #[cfg(feature = "sprites")]
