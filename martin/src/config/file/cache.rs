@@ -122,6 +122,7 @@ impl CacheConfig {
             }
         };
     }
+
     pub fn as_object_mut(&mut self) -> Option<&mut InnerCacheConfig> {
         match self.0 {
             OptBoolObj::Object(ref mut c) => Some(c),

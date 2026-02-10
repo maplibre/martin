@@ -770,9 +770,9 @@ mod tests {
             let mut cfg = serde_yaml::from_str::<Config>(indoc! {"
               # new
               cache:
-                pmtile_directorys:
-                  size: 1KiB
                 tiles:
+                  size: 1KiB
+                pmtile_directorys:
                   size: 2KiB
                 fonts:
                   size: 3KiB
@@ -820,9 +820,9 @@ mod tests {
             let mut cfg = serde_yaml::from_str::<Config>(indoc! {"
               cache:
                 size: 1GB
-                pmtile_directorys:
-                  size: 0B
                 tiles:
+                  size: 0B
+                pmtile_directorys:
                   size: 0B
                 fonts:
                   size: 0B
@@ -858,9 +858,9 @@ mod tests {
             let mut cfg = serde_yaml::from_str::<Config>(indoc! {"
               cache:
                 size: 0B
-                pmtile_directorys:
-                  size: 1B
                 tiles:
+                  size: 1B
+                pmtile_directorys:
                   size: 2B
                 fonts:
                   size: 3B
