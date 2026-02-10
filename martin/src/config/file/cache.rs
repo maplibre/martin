@@ -90,15 +90,30 @@ impl ResolvedCacheConfig {
 /// Settings for one cache
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ResolvedSubCacheSetting {
-    /// Maximum size for cache in Bytes
+    /// Maximum size for cache in megabytes
     pub size_mb: NonZeroU64,
 }
 
 impl ResolvedSubCacheSetting {
+    /// Construct a cache setting from a size in bytes.
+    ///
+    /// Returns `None` if `size_bytes` is zero. Any non-zero size is
+    /// rounded up to the next whole megabyte so that small non-zero
+    /// sizes do not accidentally disable caching.
     pub fn new_opt(size_bytes: u64) -> Option<Self> {
-        let size_mb = size_bytes / 1000 / 1000;
-        let size = NonZeroU64::try_from(size_mb).ok();
-        size.map(|size_mb| Self { size_mb })
+        if size_bytes == 0 {
+            return None;
+        }
+
+        // Round up from bytes to whole megabytes (10^6), avoiding overflow.
+       let size_mb = size_bytes
+            .saturating_add(1_000_000 - 1)
+            / 1_000_000;
+
+        // `size_mb` is guaranteed to be at least 1 here.
+        Some(Self {
+            size_mb: NonZeroU64::new(size_mb).expect("size_mb is non-zero after rounding"),
+        })
     }
 }
 
