@@ -47,13 +47,6 @@ async fn start(args: Args) -> MartinResult<()> {
         format!("http://{listen_addresses}")
     };
 
-    if let Some(ref prefix) = route_prefix {
-        info!("Martin has been started on {listen_addresses} with route prefix '{prefix}'.");
-    } else {
-        info!("Martin has been started on {listen_addresses}.");
-    }
-    info!("Use {base_url}/catalog to get the list of available sources.");
-
     #[cfg(all(feature = "webui", not(docsrs)))]
     if web_ui_mode == martin::config::args::WebUiMode::EnableForAll {
         tracing::warn!("Web UI is enabled for all connections at {base_url}/");
