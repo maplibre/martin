@@ -587,22 +587,22 @@ mod tests {
             ResolvedCacheConfig {
                 tiles: Some(
                     ResolvedSubCacheSetting {
-                        size_mb: 268,
+                        size_mb: 256,
                     },
                 ),
                 pmtile_directorys: Some(
                     ResolvedSubCacheSetting {
-                        size_mb: 134,
+                        size_mb: 128,
                     },
                 ),
                 sprites: Some(
                     ResolvedSubCacheSetting {
-                        size_mb: 67,
+                        size_mb: 64,
                     },
                 ),
                 fonts: Some(
                     ResolvedSubCacheSetting {
-                        size_mb: 67,
+                        size_mb: 64,
                     },
                 ),
             }
@@ -650,22 +650,22 @@ mod tests {
             ResolvedCacheConfig {
                 tiles: Some(
                     ResolvedSubCacheSetting {
-                        size_mb: 268,
+                        size_mb: 256,
                     },
                 ),
                 pmtile_directorys: Some(
                     ResolvedSubCacheSetting {
-                        size_mb: 134,
+                        size_mb: 128,
                     },
                 ),
                 sprites: Some(
                     ResolvedSubCacheSetting {
-                        size_mb: 67,
+                        size_mb: 64,
                     },
                 ),
                 fonts: Some(
                     ResolvedSubCacheSetting {
-                        size_mb: 67,
+                        size_mb: 64,
                     },
                 ),
             }
@@ -676,14 +676,13 @@ mod tests {
         #[test]
         fn old_cache_config() {
             let mut cfg = serde_yaml::from_str::<Config>(indoc! {"
-                      # legacy
-                      tile_cache_size_mb: 5
-                      pmtiles:
-                        directory_cache_size_mb: 6
-                      fonts:
-                        cache_size_mb: 7
-                      sprites:
-                        cache_size_mb: 8
+              tile_cache_size_mb: 5
+              pmtiles:
+                directory_cache_size_mb: 6
+              sprites:
+                cache_size_mb: 7
+              fonts:
+                cache_size_mb: 8
                     "})
             .unwrap();
             let cache = cfg.resolve_cache_config();
@@ -691,22 +690,22 @@ mod tests {
             ResolvedCacheConfig {
                 tiles: Some(
                     ResolvedSubCacheSetting {
-                        size_mb: 268,
+                        size_mb: 256,
                     },
                 ),
                 pmtile_directorys: Some(
                     ResolvedSubCacheSetting {
-                        size_mb: 134,
+                        size_mb: 128,
                     },
                 ),
                 sprites: Some(
                     ResolvedSubCacheSetting {
-                        size_mb: 67,
+                        size_mb: 64,
                     },
                 ),
                 fonts: Some(
                     ResolvedSubCacheSetting {
-                        size_mb: 67,
+                        size_mb: 64,
                     },
                 ),
             }
@@ -731,15 +730,15 @@ mod tests {
         #[test]
         fn new_cache_config() {
             let mut cfg = serde_yaml::from_str::<Config>(indoc! {"
-                      cache:
-                        pmtile_directorys:
-                          size: 1KiB
-                        tiles:
-                          size: 2KiB
-                        fonts:
-                          size: 3KiB
-                        sprites:
-                          size: 4KiB
+              cache:
+                tiles:
+                  size: 1KiB
+                pmtile_directorys:
+                  size: 2KiB
+                sprites:
+                  size: 3KiB
+                fonts:
+                  size: 4KiB
                     "})
             .unwrap();
             let cache = cfg.resolve_cache_config();
@@ -753,15 +752,14 @@ mod tests {
             ");
             insta::assert_yaml_snapshot!(cfg, @"
             cache:
-              size: ~
               tiles:
-                size: 2.0kB
-              pmtile_directorys:
                 size: 1.0kB
+              pmtile_directorys:
+                size: 2.0kB
               sprites:
-                size: 4.0kB
-              fonts:
                 size: 3.0kB
+              fonts:
+                size: 4.0kB
             ");
         }
 
@@ -774,18 +772,18 @@ mod tests {
                   size: 1KiB
                 pmtile_directorys:
                   size: 2KiB
-                fonts:
-                  size: 3KiB
                 sprites:
+                  size: 3KiB
+                fonts:
                   size: 4KiB
 
               # legacy
               tile_cache_size_mb: 5
               pmtiles:
                 directory_cache_size_mb: 6
-              fonts:
-                cache_size_mb: 7
               sprites:
+                cache_size_mb: 7
+              fonts:
                 cache_size_mb: 8
             "})
             .unwrap();
@@ -800,15 +798,14 @@ mod tests {
               ");
             insta::assert_yaml_snapshot!(cfg, @"
             cache:
-              size: ~
               tiles:
                 size: 1.0kB
               pmtile_directorys:
                 size: 2.0kB
               sprites:
-                size: 4.0kB
-              fonts:
                 size: 3.0kB
+              fonts:
+                size: 4.0kB
             pmtiles: {}
             sprites: {}
             fonts: {}

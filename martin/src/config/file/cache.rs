@@ -151,7 +151,6 @@ impl From<CacheConfig> for ResolvedCacheConfig {
 
 /// Cache configuration if the user has enabled it
 #[derive(Deserialize, Serialize, Debug, Clone, Copy, PartialEq, Eq, Default)]
-#[serde_with::skip_serializing_none]
 pub struct InnerCacheConfig {
     /// Amount of memory (in Bytes) to use for caching [default: 512, 0 to disable]
     ///
@@ -167,17 +166,18 @@ pub struct InnerCacheConfig {
     #[serde(
         serialize_with = "serialize_bytes",
         deserialize_with = "deserialize_bytes",
-        default
+        default,
+        skip_serializing_if = "Option::is_none"
     )]
     pub size: Option<u64>,
 
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "SubCacheSetting::is_none")]
     pub tiles: SubCacheSetting,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "SubCacheSetting::is_none")]
     pub pmtile_directorys: SubCacheSetting,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "SubCacheSetting::is_none")]
     pub sprites: SubCacheSetting,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "SubCacheSetting::is_none")]
     pub fonts: SubCacheSetting,
 }
 
@@ -195,7 +195,7 @@ impl InnerCacheConfig {
 
 impl From<InnerCacheConfig> for ResolvedCacheConfig {
     fn from(config: InnerCacheConfig) -> Self {
-        let cache_size_bytes = config.size.unwrap_or(512 * 1024 * 1024);
+        let cache_size_bytes = config.size.unwrap_or(512 * 1000 * 1000);
 
         // TODO: the defaults could be smarter. If I don't have pmtiles sources, don't reserve cache for it
         // Default: 50% for tiles
@@ -232,7 +232,6 @@ impl From<InnerCacheConfig> for ResolvedCacheConfig {
 
 /// Settings for one cache
 #[derive(Deserialize, Serialize, Default, Debug, Clone, Copy, PartialEq, Eq)]
-#[serde_with::skip_serializing_none]
 pub struct SubCacheSetting {
     /// Maximum size for cache in Bytes
     #[serde(
@@ -240,6 +239,12 @@ pub struct SubCacheSetting {
         deserialize_with = "deserialize_bytes"
     )]
     pub size: Option<u64>,
+}
+
+impl SubCacheSetting {
+    fn is_none(&self) -> bool {
+        self.size.is_none()
+    }
 }
 
 fn serialize_bytes<S>(value: &Option<u64>, serializer: S) -> Result<S::Ok, S::Error>
