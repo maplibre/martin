@@ -303,7 +303,7 @@ impl Config {
                 cache.tiles.size,
                 "cache.tiles.size",
                 old_size_mb,
-                "cache_tile_size_mb",
+                "tile_cache_size_mb",
             );
         }
         #[cfg(feature = "pmtiles")]
