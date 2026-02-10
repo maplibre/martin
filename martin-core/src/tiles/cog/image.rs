@@ -1,5 +1,5 @@
 use std::fs::File;
-use std::io::{BufWriter, Read, Seek, SeekFrom};
+use std::io::{BufWriter, Read as _, Seek as _, SeekFrom};
 use std::path::Path;
 
 use martin_tile_utils::{Format, TileCoord, TileData};
