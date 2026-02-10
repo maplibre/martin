@@ -182,6 +182,16 @@ test_font() {
   clean_headers_dump "$FILENAME.headers"
 }
 
+test_json_with_header() {
+  FILENAME="$TEST_OUT_DIR/$1.json"
+  URL="$MARTIN_URL/$2"
+  HEADER="$3"
+
+  echo "Testing $(basename "$FILENAME") from $URL with header: $HEADER"
+  $CURL --dump-header "$FILENAME.headers" -H "$HEADER" "$URL" | jq --sort-keys > "$FILENAME"
+  clean_headers_dump "$FILENAME.headers"
+}
+
 test_redirect() {
   URL="$MARTIN_URL/$1"
   EXPECTED_LOCATION="$2"
@@ -384,6 +394,24 @@ test_pbf cmp_13_7346_3822         table_source,points1,points2/13/7346/3822
 test_pbf cmp_14_14692_7645        table_source,points1,points2/14/14692/7645
 test_pbf cmp_17_117542_61161      table_source,points1,points2/17/117542/61161
 test_pbf cmp_18_235085_122323     table_source,points1,points2/18/235085/122323
+
+>&2 echo "***** Test header effects on tilejson *****"
+test_json_with_header tilejson_no_forwarded_headers function_zxy_query "Host: localhost"
+test_json_with_header tilejson_ignores_x_forwarded_for function_zxy_query "X-Forwarded-For: 192.168.1.100"
+test_json_with_header tilejson_with_host function_zxy_query "Host: example.com"
+test_json_with_header tilejson_with_host_and_port function_zxy_query "Host: example.com:6000"
+
+test_json_with_header tilejson_with_x_forwarded_proto_https function_zxy_query "X-Forwarded-Proto: https"
+test_json_with_header tilejson_with_x_forwarded_proto_http function_zxy_query "X-Forwarded-Proto: http"
+
+test_json_with_header tilejson_with_x_forwarded_host function_zxy_query "X-Forwarded-Host: tiles.example.com"
+
+test_json_with_header tilejson_with_forwarded_proto_only function_zxy_query "Forwarded: proto=https"
+test_json_with_header tilejson_with_forwarded_host_only function_zxy_query "Forwarded: host=tiles.example.com"
+test_json_with_header tilejson_with_forwarded_proto_and_host function_zxy_query "Forwarded: proto=https;host=tiles.example.com"
+test_json_with_header tilejson_with_x_forwarded_prefix function_zxy_query "X-Forwarded-Prefix: /tiles/function_zxy_query"
+test_json_with_header tilejson_with_x_rewrite_url function_zxy_query "X-Rewrite-URL: /footiles/function_zxy_query"
+
 
 >&2 echo "***** Test server response for function source *****"
 test_jsn fnc                      function_zxy_query
