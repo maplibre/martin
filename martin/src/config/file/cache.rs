@@ -106,9 +106,7 @@ impl ResolvedSubCacheSetting {
         }
 
         // Round up from bytes to whole megabytes (10^6), avoiding overflow.
-       let size_mb = size_bytes
-            .saturating_add(1_000_000 - 1)
-            / 1_000_000;
+        let size_mb = size_bytes.saturating_add(1_000_000 - 1) / 1_000_000;
 
         // `size_mb` is guaranteed to be at least 1 here.
         Some(Self {
