@@ -758,7 +758,7 @@ mod tests {
         }
 
         #[test]
-        fn new_and_old_config_defautls_to_new() {
+        fn new_and_old_config_defaults_to_new() {
             let mut cfg = serde_yaml::from_str::<Config>(indoc! {"
               # new
               cache:
