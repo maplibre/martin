@@ -68,7 +68,7 @@ cache:
 
   fonts:
     # Size of the font cache
-    # Defaults to cache.size / 4
+    # Defaults to cache.size / 8
     size: 64MB
 
 # Which compression should be used if the
