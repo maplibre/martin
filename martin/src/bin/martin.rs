@@ -38,22 +38,22 @@ async fn start(args: Args) -> MartinResult<()> {
     let web_ui_mode = config.srv.web_ui.unwrap_or_default();
 
     let base_url = if let Some(ref prefix) = config.srv.route_prefix {
-        format!("http://{listen_addresses}{prefix}")
+        format!("http://{listen_addresses}{prefix}/")
     } else {
-        format!("http://{listen_addresses}")
+        format!("http://{listen_addresses}/")
     };
 
     let (server, listen_addresses) = new_server(config.srv, sources)?;
 
     #[cfg(all(feature = "webui", not(docsrs)))]
     if web_ui_mode == martin::config::args::WebUiMode::EnableForAll {
-        tracing::info!("Martin server is now active at {base_url}/");
+        tracing::info!("Martin server is now active at {base_url}");
     } else {
         info!(
             "Web UI is disabled. Use `--webui enable-for-all` in CLI or a config value to enable it for all connections."
         );
         info!(
-            "Martin server is now active. Visit {base_url}/catalog to see all the sources avaliable"
+            "Martin server is now active. See {base_url}catalog to see available services"
         );
     }
     server.await
