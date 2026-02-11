@@ -52,9 +52,9 @@ async fn start(args: Args) -> MartinResult<()> {
         info!(
             "Web UI is disabled. Use `--webui enable-for-all` in CLI or a config value to enable it for all connections."
         );
-}
-#[cfg(not(all(feature = "webui", not(docsrs))))]
-        info!("Martin server is now active. See {base_url}catalog to see available services");
+    }
+    #[cfg(not(all(feature = "webui", not(docsrs))))]
+    info!("Martin server is now active. See {base_url}catalog to see available services");
     server.await
 }
 
