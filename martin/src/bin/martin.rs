@@ -41,9 +41,14 @@ async fn start(args: Args) -> MartinResult<()> {
         format!("http://{listen_addresses}{prefix}/")
     } else {
         format!("http://{listen_addresses}/")
-    };
+    let route_prefix = config.srv.route_prefix.clone();
 
     let (server, listen_addresses) = new_server(config.srv, sources)?;
+let base_url = if let Some(ref prefix) = route_prefix {
+        format!("http://{listen_addresses}{prefix}/")
+    } else {
+        format!("http://{listen_addresses}/")
+    };
 
     #[cfg(all(feature = "webui", not(docsrs)))]
     if web_ui_mode == martin::config::args::WebUiMode::EnableForAll {
