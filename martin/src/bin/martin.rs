@@ -49,8 +49,12 @@ async fn start(args: Args) -> MartinResult<()> {
     if web_ui_mode == martin::config::args::WebUiMode::EnableForAll {
         tracing::info!("Martin server is now active at {base_url}/");
     } else {
-        info!("Web UI is disabled. Use `--webui enable-for-all` in CLI or a config value to enable it for all connections.");
-        info!("Martin server is now active. Visit {base_url}/catalog to see all the sources avaliable");
+        info!(
+            "Web UI is disabled. Use `--webui enable-for-all` in CLI or a config value to enable it for all connections."
+        );
+        info!(
+            "Martin server is now active. Visit {base_url}/catalog to see all the sources avaliable"
+        );
     }
     server.await
 }
