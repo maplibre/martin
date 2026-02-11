@@ -3,7 +3,6 @@ use std::path::PathBuf;
 use clap::Parser;
 use clap::builder::Styles;
 use clap::builder::styling::AnsiColor;
-use martin_core::config::env::Env;
 
 use super::connections::Arguments;
 use super::srv::SrvArgs;
@@ -22,6 +21,7 @@ use crate::config::file::Config;
 use crate::config::file::FileConfigEnum;
 #[cfg(feature = "fonts")]
 use crate::config::file::fonts::FontConfig;
+use crate::config::primitives::env::Env;
 
 /// Defines the styles used for the CLI help output.
 const HELP_STYLES: Styles = Styles::styled()
@@ -222,11 +222,10 @@ pub fn parse_file_args<T: crate::config::file::ConfigurationLivecycleHooks>(
 
 #[cfg(test)]
 mod tests {
-    use martin_core::config::env::FauxEnv;
-
     use super::*;
     use crate::MartinError::UnrecognizableConnections;
     use crate::config::args::PreferredEncoding;
+    use crate::config::primitives::env::FauxEnv;
 
     fn parse(args: &[&str]) -> MartinResult<(Config, MetaArgs)> {
         let args = Args::parse_from(args);
@@ -246,9 +245,8 @@ mod tests {
     #[cfg(feature = "postgres")]
     #[test]
     fn cli_with_config() {
-        use martin_core::config::OptOneMany;
-
         use crate::config::file::postgres::PostgresConfig;
+        use crate::config::primitives::OptOneMany;
 
         let args = parse(&["martin", "--config", "c.toml"]).unwrap();
         let meta = MetaArgs {
