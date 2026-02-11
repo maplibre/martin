@@ -55,6 +55,7 @@ async fn start(args: Args) -> MartinResult<()> {
     }
     #[cfg(not(all(feature = "webui", not(docsrs))))]
     info!("Martin server is now active. See {base_url}catalog to see available services");
+
     server.await
 }
 
