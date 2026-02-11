@@ -37,10 +37,6 @@ async fn start(args: Args) -> MartinResult<()> {
     #[cfg(all(feature = "webui", not(docsrs)))]
     let web_ui_mode = config.srv.web_ui.unwrap_or_default();
 
-    let base_url = if let Some(ref prefix) = config.srv.route_prefix {
-        format!("http://{listen_addresses}{prefix}/")
-    } else {
-        format!("http://{listen_addresses}/")
     let route_prefix = config.srv.route_prefix.clone();
 
     let (server, listen_addresses) = new_server(config.srv, sources)?;
