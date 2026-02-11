@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0](https://github.com/maplibre/martin/compare/martin-v1.3.0...martin-v2.0.0) - 2026-02-11
+
+### Added
+
+- *(srv)* Add HTTP 301 redirects for common URL mistakes ([#2528](https://github.com/maplibre/martin/pull/2528))
+- *(unstable-cog)* Change tile path semantics for COG sources to match other sources, expose COG bounds, center and tileSize in TileJSON ([#2510](https://github.com/maplibre/martin/pull/2510))
+
+### Fixed
+
+- logs not being integrated with the `path-prefix` correctly ([#2549](https://github.com/maplibre/martin/pull/2549))
+- Make sure that `route-prefix` does not break the UI when using trailing slash urls ([#2541](https://github.com/maplibre/martin/pull/2541))
+
+### Other
+
+- *(deps)* Bump the all-npm-version-updates group across 2 directories with 7 updates ([#2553](https://github.com/maplibre/martin/pull/2553))
+- Add test coverage for header handling in tilejson requests ([#2529](https://github.com/maplibre/martin/pull/2529))
+- *(martin-core)* [**breaking**] remove the configration from the martin-core crate ([#2521](https://github.com/maplibre/martin/pull/2521))
+- *(deps)* autoupdate pre-commit ([#2545](https://github.com/maplibre/martin/pull/2545))
+- restrict `unused_trait_names` for trait imports ([#2542](https://github.com/maplibre/martin/pull/2542))
+- *(deps)* Bump the all-npm-version-updates group across 2 directories with 12 updates ([#2533](https://github.com/maplibre/martin/pull/2533))
+
 ## [1.3.0](https://github.com/maplibre/martin/compare/martin-v1.2.0...martin-v1.3.0) - 2026-01-27
 
 ### More flexible log formatting
