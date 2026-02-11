@@ -55,6 +55,7 @@ pub struct SrvArgs {
     pub tilejson_url_version_param: Option<String>,
     /// Main cache size (in MB)
     #[arg(short = 'C', long)]
+    #[cfg(any(feature = "_tiles", feature = "sprites", feature = "fonts"))]
     pub cache_size: Option<u64>,
 }
 

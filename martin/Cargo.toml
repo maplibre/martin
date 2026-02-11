@@ -100,7 +100,7 @@ default = [
 ]
 unstable-cog = ["martin-core/unstable-cog", "_tiles"]
 unstable-rendering = ["styles", "martin-core/unstable-rendering", "dep:image"]
-fonts = ["martin-core/fonts"]
+fonts = ["martin-core/fonts", "dep:size_format", "dep:humanize-rs"]
 lambda = ["dep:lambda-web"]
 mbtiles = ["martin-core/mbtiles", "dep:mbtiles", "_tiles"]
 metrics = ["dep:actix-web-prom"]
@@ -113,10 +113,10 @@ postgres = [
     "dep:postgres-protocol",
     "_tiles",
 ]
-sprites = ["martin-core/sprites"]
+sprites = ["martin-core/sprites", "dep:size_format", "dep:humanize-rs"]
 styles = ["martin-core/styles", "dep:walkdir"]
 webui = ["dep:actix-web-static-files", "dep:static-files", "dep:walkdir"]
-_tiles = ["martin-core/_tiles"]
+_tiles = ["martin-core/_tiles", "dep:size_format", "dep:humanize-rs"]
 
 [dependencies]
 actix-cors.workspace = true
@@ -131,6 +131,7 @@ clap.workspace = true
 dashmap.workspace = true
 enum-display = { workspace = true, optional = true }
 futures.workspace = true
+humanize-rs = { workspace = true, optional = true }
 image = { workspace = true, optional = true }
 itertools.workspace = true
 json-patch = { workspace = true, optional = true }
@@ -148,6 +149,7 @@ serde.workspace = true
 serde_json.workspace = true
 serde_with.workspace = true
 serde_yaml.workspace = true
+size_format = { workspace = true, optional = true }
 static-files = { workspace = true, optional = true }
 subst.workspace = true
 thiserror.workspace = true

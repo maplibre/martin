@@ -3,6 +3,7 @@ pub use file_config::*;
 
 mod main;
 pub use main::*;
+#[cfg(any(feature = "_tiles", feature = "sprites", feature = "fonts"))]
 pub mod cache;
 pub mod cors;
 pub mod srv;

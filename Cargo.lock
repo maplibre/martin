@@ -2987,6 +2987,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "df3b46402a9d5adb4c86a0cf463f42e19994e3ee891101b1841f30a545cb49a9"
 
 [[package]]
+name = "humanize-rs"
+version = "0.1.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "016b02deb8b0c415d8d56a6f0ab265e50c22df61194e37f9be75ed3a722de8a6"
+
+[[package]]
 name = "humantime"
 version = "2.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3791,6 +3797,7 @@ dependencies = [
  "dashmap",
  "enum-display",
  "futures",
+ "humanize-rs",
  "image",
  "indoc",
  "insta",
@@ -3811,6 +3818,7 @@ dependencies = [
  "serde_json",
  "serde_with",
  "serde_yaml",
+ "size_format",
  "static-files 0.2.5",
  "subst",
  "tempfile",
