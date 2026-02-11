@@ -387,7 +387,9 @@ test: start (test-cargo "--all-targets" "--features" "test-pg") test-doc test-fr
 
 # Run PostgreSQL-requiring tests only
 test-pg: start
-    cargo test --features test-pg
+    cargo test --features test-pg --test pg_function_source_test --test pg_server_test --test pg_table_source_test
+    cargo test --features test-pg --package martin --lib
+    cargo test --features test-pg --package martin-core --lib
 
 # Run Rust unit tests (cargo test)
 test-cargo *args:
