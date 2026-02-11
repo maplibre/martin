@@ -1,6 +1,6 @@
 [package]
 name = "martin-core"
-version = "0.2.6"
+version = "0.3.0"
 authors = ["Yuri Astrakhan <YuriAstrakhan@gmail.com>", "MapLibre contributors"]
 description = "Basic building blocks of MapLibre's Martin tile server."
 keywords = ["maps", "tiles", "mvt", "tileserver"]
