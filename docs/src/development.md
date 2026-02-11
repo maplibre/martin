@@ -154,12 +154,6 @@ cargo test
 # Run all tests including PostgreSQL tests (requires PostgreSQL running)
 just test                                 # starts PostgreSQL and runs all tests
 just test-pg                              # starts PostgreSQL and runs only PostgreSQL-requiring tests
-
-# Run specific test suites
-cargo test --package martin-tile-utils    # no PostgreSQL needed
-cargo test --package mbtiles              # no PostgreSQL needed
-cargo test --package martin               # no PostgreSQL needed by default
-cargo test --package martin-core          # no PostgreSQL needed by default
 ```
 
 The `test-pg` feature gates tests that require a live PostgreSQL connection. This allows developers to run most tests locally without setting up PostgreSQL, while CI and integration testing can enable these tests explicitly.
