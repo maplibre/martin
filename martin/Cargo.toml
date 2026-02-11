@@ -117,8 +117,6 @@ sprites = ["martin-core/sprites"]
 styles = ["martin-core/styles", "dep:walkdir"]
 webui = ["dep:actix-web-static-files", "dep:static-files", "dep:walkdir"]
 _tiles = ["martin-core/_tiles"]
-# Feature for tests that require PostgreSQL to be running. Not included in default features.
-# Use `cargo test --features test-pg` to run PostgreSQL integration tests.
 test-pg = ["postgres"]
 
 [dependencies]
