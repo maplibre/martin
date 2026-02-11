@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.15.2](https://github.com/maplibre/martin/compare/mbtiles-v0.15.1...mbtiles-v0.15.2) - 2026-02-11
+
+### Other
+
+- restrict `unused_trait_names` for trait imports ([#2542](https://github.com/maplibre/martin/pull/2542))
+
 ## [0.15.1](https://github.com/maplibre/martin/compare/mbtiles-v0.15.0...mbtiles-v0.15.1) - 2026-01-27
 
 ### Added
