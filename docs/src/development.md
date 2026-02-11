@@ -143,6 +143,27 @@ just book        # build documentation
 just stop        # stop test database
 ```
 
+### Testing
+
+Martin's test suite includes tests that require PostgreSQL to be running and tests that don't.
+
+```bash
+# Run tests that don't require PostgreSQL (no external dependencies)
+cargo test
+
+# Run all tests including PostgreSQL tests (requires PostgreSQL running)
+just test                        # starts PostgreSQL and runs all tests
+cargo test --features test-pg    # run with PostgreSQL tests only
+
+# Run specific test suites
+cargo test --package martin-tile-utils  # no PostgreSQL needed
+cargo test --package mbtiles            # no PostgreSQL needed
+cargo test --package martin             # no PostgreSQL needed by default
+cargo test --package martin-core        # no PostgreSQL needed by default
+```
+
+The `test-pg` feature gates tests that require a live PostgreSQL connection. This allows developers to run most tests locally without setting up PostgreSQL, while CI and integration testing can enable these tests explicitly.
+
 ### Pass arguments to commands
 
 ```bash
