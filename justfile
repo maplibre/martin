@@ -385,6 +385,10 @@ shear:
 # Run all tests using a test database
 test: start (test-cargo "--all-targets" "--features" "test-pg") test-doc test-frontend test-int
 
+# Run PostgreSQL-requiring tests only
+test-pg: start
+    cargo test --features test-pg
+
 # Run Rust unit tests (cargo test)
 test-cargo *args:
     cargo test {{args}}

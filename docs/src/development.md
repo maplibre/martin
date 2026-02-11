@@ -153,6 +153,7 @@ cargo test
 
 # Run all tests including PostgreSQL tests (requires PostgreSQL running)
 just test                                 # starts PostgreSQL and runs all tests
+just test-pg                              # starts PostgreSQL and runs only PostgreSQL-requiring tests
 cargo test --features test-pg             # runs all tests with PostgreSQL tests enabled
                                           # requires DATABASE_URL env var set
 
