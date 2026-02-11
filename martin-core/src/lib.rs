@@ -3,9 +3,6 @@
 #![warn(missing_docs)]
 #![warn(missing_debug_implementations)]
 
-/// Configuration utilities.
-pub mod config;
-
 /// Tile sources
 #[cfg(feature = "_tiles")]
 pub mod tiles;
