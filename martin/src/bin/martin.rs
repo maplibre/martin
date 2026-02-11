@@ -57,7 +57,6 @@ info!(
 info!(
 "Martin server is now active. Visit {base_url}/catalog to see all the sources avaliable");
     }
-    tracing::warn!("Martin server is now active at {base_url}/");
     server.await
 }
 
