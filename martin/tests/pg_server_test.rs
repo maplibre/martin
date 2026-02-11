@@ -1,4 +1,4 @@
-#![cfg(feature = "postgres")]
+#![cfg(feature = "test-pg")]
 
 use actix_http::Request;
 use actix_web::http::StatusCode;

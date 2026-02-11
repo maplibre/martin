@@ -60,6 +60,9 @@ styles = ["tokio/fs", "dep:dashmap"]
 mbtiles = ["dep:mbtiles", "_tiles"]
 pmtiles = ["dep:pmtiles", "dep:object_store", "_tiles"]
 _tiles = ["dep:base64"]
+# Feature for tests that require PostgreSQL to be running. Not included in default features.
+# Use `cargo test --features test-pg` to run PostgreSQL integration tests.
+test-pg = ["postgres"]
 
 [target.'cfg(target_os = "linux")'.dependencies]
 image = { workspace = true, optional = true }
