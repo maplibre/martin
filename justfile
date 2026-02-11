@@ -186,7 +186,8 @@ coverage *args='--no-clean --open':  (cargo-install 'cargo-llvm-cov') clean star
     cargo llvm-cov clean --workspace
 
     echo "::group::Unit tests"
-    {{just}} test-cargo --all-targets --features test-pg
+    {{just}} test-cargo --all-targets
+    {{just}} test-pg
     echo "::endgroup::"
 
     # echo "::group::Documentation tests"

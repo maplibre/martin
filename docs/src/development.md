@@ -149,10 +149,10 @@ Martin's test suite includes tests that require PostgreSQL to be running and tes
 
 ```bash
 # Run tests that don't require PostgreSQL (no external dependencies)
-cargo test
+just test-cargo
 
 # Run all tests including PostgreSQL tests (requires PostgreSQL running)
-just test                                 # starts PostgreSQL and runs all tests
+just test                                 # runs all tests
 just test-pg                              # starts PostgreSQL and runs only PostgreSQL-requiring tests
 ```
 
