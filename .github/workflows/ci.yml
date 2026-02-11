@@ -92,8 +92,9 @@ jobs:
           cargo test --package martin-tile-utils
           cargo test --package mbtiles --no-default-features
           cargo test --package mbtiles
-          cargo test --package martin --features test-pg
-          cargo test --package martin-core --features test-pg
+          cargo test --package martin
+          cargo test --package martin-core
+          just test-pg
         env:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=require
           AWS_SKIP_CREDENTIALS: 1
