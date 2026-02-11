@@ -740,7 +740,8 @@ jobs:
           echo "Same but as base64 to prevent GitHub obfuscation (this is not a secret):"
           echo "$DATABASE_URL" | base64
           set -x
-          cargo test --package martin --features test-pg
+          cargo test --package martin
+          just test-pg
           cargo clean
         env:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=${{ matrix.sslmode }}
