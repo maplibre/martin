@@ -124,22 +124,18 @@ impl Source for MbtSource {
         xyz: TileCoord,
         _url_query: Option<&UrlQuery>,
     ) -> MartinCoreResult<Tile> {
-        // Try to get tile with hash from mbtiles
         if let Some((data, hash)) = self
             .mbtiles
             .get_tile_and_hash(self.mbt_type, xyz.z, xyz.x, xyz.y)
             .await
             .map_err(MbtilesError::MbtilesLibraryError)?
         {
-            // If hash is available, use it as etag; otherwise compute it
             if let Some(hash_str) = hash {
                 Ok(Tile::new_with_etag(data, self.tile_info, hash_str))
             } else {
                 Ok(Tile::new_hash_etag(data, self.tile_info))
             }
         } else {
-            // Tile not found - return empty tile with computed etag
-            // This matches the behavior of get_tile() for consistency
             trace!(
                 "Couldn't find tile data in {}/{}/{} of {}",
                 xyz.z, xyz.x, xyz.y, &self.id
