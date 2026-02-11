@@ -16,17 +16,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- logs not being integrated with the `path-prefix` correctly ([#2549](https://github.com/maplibre/martin/pull/2549))
-- Make sure that `route-prefix` does not break the UI when using trailing slash urls ([#2541](https://github.com/maplibre/martin/pull/2541))
+- Fixed the `path-prefix` feature when it comes to frontend assets and log output ([#2549](https://github.com/maplibre/martin/pull/2549), [#2541](https://github.com/maplibre/martin/pull/2541))
 
 ### Other
 
-- *(deps)* Bump the all-npm-version-updates group across 2 directories with 7 updates ([#2553](https://github.com/maplibre/martin/pull/2553))
 - Add test coverage for header handling in tilejson requests ([#2529](https://github.com/maplibre/martin/pull/2529))
 - *(martin-core)* [**breaking**] remove the configration from the martin-core crate ([#2521](https://github.com/maplibre/martin/pull/2521))
-- *(deps)* autoupdate pre-commit ([#2545](https://github.com/maplibre/martin/pull/2545))
 - restrict `unused_trait_names` for trait imports ([#2542](https://github.com/maplibre/martin/pull/2542))
-- *(deps)* Bump the all-npm-version-updates group across 2 directories with 12 updates ([#2533](https://github.com/maplibre/martin/pull/2533))
+- *(deps)* Bump various dependencys ([#2553](https://github.com/maplibre/martin/pull/2553), [#2545](https://github.com/maplibre/martin/pull/2545), [#2533](https://github.com/maplibre/martin/pull/2533))
 
 ## [1.3.0](https://github.com/maplibre/martin/compare/martin-v1.2.0...martin-v1.3.0) - 2026-01-27
 
