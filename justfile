@@ -383,7 +383,7 @@ shear:
     # https://github.com/Boshen/cargo-shear/pull/386
 
 # Run all tests using a test database
-test: start (test-cargo '--all-targets --features test-pg') test-doc test-frontend test-int
+test: start (test-cargo --all-targets --features test-pg) test-doc test-frontend test-int
 
 # Run Rust unit tests (cargo test)
 test-cargo *args:
