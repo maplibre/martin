@@ -59,7 +59,7 @@ flume = "0.12"
 futures = "0.3"
 image = "0.25.8"
 indoc = "2"
-insta = "1.44.3"
+insta = "1.46.3"
 itertools = "0.14"
 json-patch = "4"
 lambda-web = { version = "0.2.1", features = ["actix4"] }
@@ -73,7 +73,7 @@ moka = { version = "0.12", features = ["future"] }
 num_cpus = "1"
 object_store = { version = "0.13.1", features = ["gcp", "aws", "azure", "fs", "http"] }
 pbf_font_tools = { version = "3.0.0", features = ["freetype"] }
-pmtiles = { version = "0.19.1", features = ["tilejson", "object-store"] }
+pmtiles = { version = "0.19.2", features = ["tilejson", "object-store"] }
 png = "0.18.0"
 postgis = "0.9"
 postgres = { version = "0.19", features = ["with-time-0_3", "with-uuid-1", "with-serde_json-1"] }
