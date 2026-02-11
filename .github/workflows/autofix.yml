@@ -25,7 +25,7 @@ jobs:
       - name: Format Cargo.toml
         run: just fmt-toml
 
-      - uses: autofix-ci/action@635ffb0c9798bd160680f18fd73371e355b85f27 # v1.3.2
+      - uses: autofix-ci/action@7a166d7532b277f34e16238930461bf77f9d7ed8 # v1.3.3
         with: {commit-message: "chore: sort Cargo.toml"}
   bless:
     name: Bless test output
@@ -77,5 +77,5 @@ jobs:
       - run: uvx pre-commit run --all-files
         continue-on-error: true
 
-      - uses: autofix-ci/action@635ffb0c9798bd160680f18fd73371e355b85f27 # v1.3.2
+      - uses: autofix-ci/action@7a166d7532b277f34e16238930461bf77f9d7ed8 # v1.3.3
         with: {commit-message: "chore: update blessed test snapshots across all components"}
