@@ -61,7 +61,7 @@ async fn config(
     let raw_mlt_script = include_str!("../../tests/fixtures/mbtiles/mlt.sql");
     let (raw_mlt_mbt, raw_mlt_conn, raw_mlt_file) =
         temp_named_mbtiles(&format!("{test_name}_raw_mlt"), raw_mlt_script).await;
-    let webp_script = include_str!("../../tests/fixtures/mbtiles/webp_valid.sql");
+    let webp_script = include_str!("../../tests/fixtures/mbtiles/webp.sql");
     let (webp_mbt, webp_conn, webp_file) =
         temp_named_mbtiles(&format!("{test_name}_webp"), webp_script).await;
 
