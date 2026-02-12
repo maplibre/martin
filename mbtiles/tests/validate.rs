@@ -163,3 +163,67 @@ fn test_box() {
     // assert_snapshot!(tst(-179.43749999999955,-84.76987877980656,-146.8124999999996,-81.37446385260833, 29), @"(536870911, 536870911, 536870911, 536870911)");
     // assert_snapshot!(tst(-179.43749999999955,-84.76987877980656,-146.8124999999996,-81.37446385260833, 30), @"(1073741823, 1073741823, 1073741823, 1073741823)");
 }
+
+#[actix_rt::test]
+#[tracing_test::traced_test]
+async fn int_type_detection() {
+    use mbtiles::{is_flat_tables_type, is_normalized_tables_type};
+
+    // Test flat tables with INT type (not INTEGER)
+    let mbtiles = Mbtiles::new(":memory:").unwrap();
+    let mut conn = mbtiles.open().await.unwrap();
+    create_metadata_table(&mut conn).await.unwrap();
+
+    // Create flat table with INT type instead of INTEGER
+    conn.execute(
+        "CREATE TABLE tiles (
+             zoom_level int NOT NULL,
+             tile_column int NOT NULL,
+             tile_row int NOT NULL,
+             tile_data blob,
+             PRIMARY KEY(zoom_level, tile_column, tile_row));",
+    )
+    .await
+    .unwrap();
+
+    // Verify that is_flat_tables_type accepts INT type
+    let result = is_flat_tables_type(&mut conn).await;
+    assert!(
+        result.is_ok() && result.unwrap(),
+        "is_flat_tables_type should accept INT type"
+    );
+
+    // Test normalized tables with INT type
+    let mbtiles_normalized = Mbtiles::new(":memory:").unwrap();
+    let mut conn_norm = mbtiles_normalized.open().await.unwrap();
+    create_metadata_table(&mut conn_norm).await.unwrap();
+
+    // Create normalized tables with INT type
+    conn_norm
+        .execute(
+            "CREATE TABLE map (
+                 zoom_level int NOT NULL,
+                 tile_column int NOT NULL,
+                 tile_row int NOT NULL,
+                 tile_id text,
+                 PRIMARY KEY(zoom_level, tile_column, tile_row));",
+        )
+        .await
+        .unwrap();
+
+    conn_norm
+        .execute(
+            "CREATE TABLE images (
+                 tile_id text NOT NULL PRIMARY KEY,
+                 tile_data blob);",
+        )
+        .await
+        .unwrap();
+
+    // Verify that is_normalized_tables_type accepts INT type
+    let result_norm = is_normalized_tables_type(&mut conn_norm).await;
+    assert!(
+        result_norm.is_ok() && result_norm.unwrap(),
+        "is_normalized_tables_type should accept INT type"
+    );
+}
