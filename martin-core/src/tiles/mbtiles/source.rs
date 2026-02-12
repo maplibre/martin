@@ -55,20 +55,8 @@ impl MbtSource {
             .and_then(|v| v.ok_or(MbtError::NoTilesFound))
             .map_err(|e| MbtilesError::InvalidMetadata(e.to_string(), path.clone()))?;
 
-        // Detect the MBTiles schema type.
-        // If detection fails (for example, due to missing uniqueness constraints on the `tiles`
-        // table), do not fail source initialization. Instead, log and fall back to a default
-        // MBTiles type so that previously working files continue to be served.
-        let mbt_type = match mbt.detect_type().await {
-            Ok(mbt_type) => mbt_type,
-            Err(err) => {
-                trace!(
-                    "Failed to detect MBTiles schema type for {}: {err:?}; falling back to flat schema",
-                    path.display()
-                );
-                MbtType::Flat
-            }
-        };
+        let mbt_type = match mbt.detect_type().await
+            .map_err(|e| MbtilesError::InvalidMetadata(e.to_string(), path.clone()))?;
 
         Ok(Self {
             id,
@@ -80,9 +68,9 @@ impl MbtSource {
     }
 
     /// Maps `MbtError` to `MbtilesError`, preserving source ID context for `SqlxError`.
-    fn map_mbt_error(&self, error: MbtError) -> MbtilesError {
+    fn map_mbt_error(error: MbtError, id: String) -> MbtilesError {
         match error {
-            MbtError::SqlxError(_) => MbtilesError::AcquireConnError(self.id.clone()),
+            MbtError::SqlxError(_) => MbtilesError::AcquireConnError(id),
             other => MbtilesError::MbtilesLibraryError(other),
         }
     }
@@ -145,7 +133,7 @@ impl Source for MbtSource {
             .mbtiles
             .get_tile_and_hash(self.mbt_type, xyz.z, xyz.x, xyz.y)
             .await
-            .map_err(|e| self.map_mbt_error(e))?
+            .map_err(|e| Self::map_mbt_error(e, self.id.clone()))?
         {
             if let Some(hash_str) = hash {
                 Ok(Tile::new_with_etag(data, self.tile_info, hash_str))
