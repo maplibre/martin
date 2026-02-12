@@ -3,8 +3,9 @@ use std::io::{BufWriter, Read as _, Seek as _, SeekFrom};
 use std::path::Path;
 
 use martin_tile_utils::{Format, TileCoord, TileData};
+use tiff::ColorType;
+use tiff::decoder::Decoder;
 use tiff::tags::CompressionMethod;
-use tiff::{ColorType, decoder::Decoder};
 
 use crate::tiles::cog::CogError;
 
@@ -281,8 +282,9 @@ fn encode_as_png(
 
 #[cfg(test)]
 mod tests {
-    use crate::tiles::cog::image::{Image, merge_jpeg_tables_with_tile};
     use martin_tile_utils::TileCoord;
+
+    use crate::tiles::cog::image::{Image, merge_jpeg_tables_with_tile};
 
     #[test]
     fn can_calculate_correct_chunk_index() {

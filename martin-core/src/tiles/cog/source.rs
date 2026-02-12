@@ -544,10 +544,12 @@ fn get_extent(
 
 #[cfg(test)]
 mod tests {
-    use crate::tiles::cog::CogSource;
-    use rstest::rstest;
     use std::path::Path;
+
+    use rstest::rstest;
     use tilejson::{Bounds, Center};
+
+    use crate::tiles::cog::CogSource;
 
     #[rstest]
     #[case("usda_naip_256_lzw_z3".to_string(), Center {
