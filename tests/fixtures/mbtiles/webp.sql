@@ -16,8 +16,7 @@ CREATE TABLE tiles (
     zoom_level integer,
     tile_column integer,
     tile_row integer,
-    tile_data blob,
-    PRIMARY KEY(zoom_level, tile_column, tile_row)
+    tile_data blob
 );
 INSERT INTO tiles VALUES(0,0,0,x'524946463A000000574542505650380A0000002F000000');
 CREATE UNIQUE INDEX name ON metadata (name);
