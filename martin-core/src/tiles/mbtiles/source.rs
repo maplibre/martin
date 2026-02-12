@@ -55,7 +55,9 @@ impl MbtSource {
             .and_then(|v| v.ok_or(MbtError::NoTilesFound))
             .map_err(|e| MbtilesError::InvalidMetadata(e.to_string(), path.clone()))?;
 
-        let mbt_type = mbt.detect_type().await
+        let mbt_type = mbt
+            .detect_type()
+            .await
             .map_err(|e| MbtilesError::InvalidMetadata(e.to_string(), path.clone()))?;
 
         Ok(Self {
