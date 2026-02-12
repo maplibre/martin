@@ -60,6 +60,7 @@ styles = ["tokio/fs", "dep:dashmap"]
 mbtiles = ["dep:mbtiles", "_tiles"]
 pmtiles = ["dep:pmtiles", "dep:object_store", "_tiles"]
 _tiles = ["dep:base64"]
+test-pg = ["postgres"]
 
 [target.'cfg(target_os = "linux")'.dependencies]
 image = { workspace = true, optional = true }

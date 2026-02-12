@@ -117,6 +117,7 @@ sprites = ["martin-core/sprites"]
 styles = ["martin-core/styles", "dep:walkdir"]
 webui = ["dep:actix-web-static-files", "dep:static-files", "dep:walkdir"]
 _tiles = ["martin-core/_tiles"]
+test-pg = ["postgres"]
 
 [dependencies]
 actix-cors.workspace = true

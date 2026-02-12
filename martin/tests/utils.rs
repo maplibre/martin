@@ -4,7 +4,7 @@ use std::env;
 
 use actix_web::dev::ServiceResponse;
 use actix_web::test::read_body;
-#[cfg(feature = "postgres")]
+#[cfg(feature = "test-pg")]
 use martin::config::file::postgres::TableInfo;
 use martin::config::file::{Config, ServerState};
 use martin::config::primitives::env::FauxEnv;
@@ -56,7 +56,7 @@ pub fn source(mock: &MockSource, name: &str) -> BoxedSource {
     sources.tiles.get_source(name).expect("source can be found")
 }
 
-#[cfg(feature = "postgres")]
+#[cfg(feature = "test-pg")]
 #[must_use]
 pub fn mock_pgcfg(yaml: &str) -> Config {
     mock_cfg(&indoc::formatdoc! {"
@@ -65,7 +65,7 @@ pub fn mock_pgcfg(yaml: &str) -> Config {
     ", yaml.replace('\n', "\n  ")})
 }
 
-#[cfg(feature = "postgres")]
+#[cfg(feature = "test-pg")]
 #[must_use]
 pub fn table<'a>(mock: &'a MockSource, name: &str) -> &'a TableInfo {
     let (_, config) = mock;

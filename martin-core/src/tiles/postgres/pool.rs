@@ -219,7 +219,7 @@ SELECT (regexp_matches(
     Ok(version)
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "test-pg"))]
 mod tests {
     use deadpool_postgres::tokio_postgres::Config;
     use postgres::NoTls;
