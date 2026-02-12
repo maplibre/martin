@@ -55,11 +55,20 @@ impl MbtSource {
             .and_then(|v| v.ok_or(MbtError::NoTilesFound))
             .map_err(|e| MbtilesError::InvalidMetadata(e.to_string(), path.clone()))?;
 
-        // Detect the MBTiles schema type
-        let mbt_type = mbt
-            .detect_type()
-            .await
-            .map_err(MbtilesError::MbtilesLibraryError)?;
+        // Detect the MBTiles schema type.
+        // If detection fails (for example, due to missing uniqueness constraints on the `tiles`
+        // table), do not fail source initialization. Instead, log and fall back to a default
+        // MBTiles type so that previously working files continue to be served.
+        let mbt_type = match mbt.detect_type().await {
+            Ok(mbt_type) => mbt_type,
+            Err(err) => {
+                trace!(
+                    "Failed to detect MBTiles schema type for {}: {err:?}; falling back to flat schema",
+                    path.display()
+                );
+                MbtType::Flat
+            }
+        };
 
         Ok(Self {
             id,
