@@ -100,7 +100,7 @@ impl Args {
         self.srv.merge_into_config(&mut config.srv);
 
         #[cfg_attr(
-            not(feature = "postgres"),
+            not(feature = "_tiles"),
             expect(
                 clippy::unused_mut,
                 reason = "postgres may modify the cli strings to process input params"
