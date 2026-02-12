@@ -257,9 +257,7 @@ pub fn new_server(
 
         app.wrap(TracingLogger::default())
             .wrap(NormalizePath::new(TrailingSlash::MergeOnly))
-            .configure(|c| {
-                router(c, &config);
-            })
+            .configure(|c| router(c, &config))
     };
 
     #[cfg(feature = "lambda")]

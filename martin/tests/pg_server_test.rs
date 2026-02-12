@@ -1136,9 +1136,7 @@ tables:
             ))
             .app_data(actix_web::web::Data::new(state.tiles))
             .app_data(actix_web::web::Data::new(SrvConfig::default()))
-            .configure(|c| {
-                ::martin::srv::router(c, &SrvConfig::default());
-            }),
+            .configure(|c| ::martin::srv::router(c, &SrvConfig::default())),
     )
     .await;
 
