@@ -29,7 +29,6 @@ macro_rules! create_app {
                 .configure(|c| {
                     ::martin::srv::router(
                         c,
-                        #[cfg(all(feature = "webui", not(docsrs)))]
                         &SrvConfig::default(),
                     )
                 }),

@@ -25,7 +25,6 @@ macro_rules! create_app_with_prefix {
                 .configure(|c| {
                     ::martin::srv::router(
                         c,
-                        #[cfg(all(feature = "webui", not(docsrs)))]
                         &$srv_config,
                     )
                 }),

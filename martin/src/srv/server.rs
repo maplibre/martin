@@ -81,10 +81,7 @@ async fn get_health() -> impl Responder {
         .message_body("OK")
 }
 
-pub fn router(
-    cfg: &mut web::ServiceConfig,
-    #[cfg(all(feature = "webui", not(docsrs)))] usr_cfg: &SrvConfig,
-) {
+pub fn router(cfg: &mut web::ServiceConfig, usr_cfg: &SrvConfig) {
     // If route_prefix is configured, wrap all routes in a scope
     if let Some(prefix) = &usr_cfg.route_prefix {
         cfg.service(web::scope(prefix).configure(|cfg| {
@@ -95,7 +92,11 @@ pub fn router(
             );
         }));
     } else {
-        register_services(cfg, usr_cfg);
+        register_services(
+            cfg,
+            #[cfg(all(feature = "webui", not(docsrs)))]
+            usr_cfg,
+        );
     }
 }
 
@@ -253,7 +254,6 @@ pub fn new_server(
             .configure(|c| {
                 router(
                     c,
-                    #[cfg(all(feature = "webui", not(docsrs)))]
                     &config,
                 );
             })
