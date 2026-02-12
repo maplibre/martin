@@ -226,4 +226,28 @@ async fn int_type_detection() {
         result_norm.is_ok() && result_norm.unwrap(),
         "is_normalized_tables_type should accept INT type"
     );
+
+    // Test with other INT-containing types (BIGINT, SMALLINT, TINYINT, etc.)
+    let mbtiles_bigint = Mbtiles::new(":memory:").unwrap();
+    let mut conn_bigint = mbtiles_bigint.open().await.unwrap();
+    create_metadata_table(&mut conn_bigint).await.unwrap();
+
+    conn_bigint
+        .execute(
+            "CREATE TABLE tiles (
+                 zoom_level bigint NOT NULL,
+                 tile_column smallint NOT NULL,
+                 tile_row tinyint NOT NULL,
+                 tile_data blob,
+                 PRIMARY KEY(zoom_level, tile_column, tile_row));",
+        )
+        .await
+        .unwrap();
+
+    // Verify that is_flat_tables_type accepts various INT-containing types
+    let result_bigint = is_flat_tables_type(&mut conn_bigint).await;
+    assert!(
+        result_bigint.is_ok() && result_bigint.unwrap(),
+        "is_flat_tables_type should accept BIGINT, SMALLINT, TINYINT types"
+    );
 }
