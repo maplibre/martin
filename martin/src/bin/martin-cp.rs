@@ -181,7 +181,11 @@ async fn start(copy_args: CopierArgs) -> MartinCpResult<()> {
         pg: copy_args.pg,
     };
 
-    args.merge_into_config(&mut config, &env)?;
+    args.merge_into_config(
+        &mut config,
+        #[cfg(feature = "postgres")]
+        &env,
+    )?;
     config.finalize()?;
 
     let sources = config.resolve().await?;

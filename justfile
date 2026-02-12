@@ -148,7 +148,7 @@ move-artifacts target:
 
 # Quick compile without building a binary
 check: (cargo-install 'cargo-hack')
-    cargo hack --exclude-features _tiles check --all-targets --each-feature --workspace
+    cargo hack --exclude-features _tiles,_catalog check --all-targets --each-feature --workspace
 
 # Test documentation generation
 check-doc:  (docs '')

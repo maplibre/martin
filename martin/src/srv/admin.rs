@@ -3,6 +3,7 @@ use actix_web::{HttpResponse, Responder, middleware, route};
 use serde::{Deserialize, Serialize};
 
 use crate::MartinResult;
+#[cfg(feature = "_catalog")]
 use crate::config::file::ServerState;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -18,7 +19,7 @@ pub struct Catalog {
 }
 
 impl Catalog {
-    pub fn new(#[allow(unused_variables)] state: &ServerState) -> MartinResult<Self> {
+    pub fn new(#[cfg(feature = "_catalog")] state: &ServerState) -> MartinResult<Self> {
         Ok(Self {
             #[cfg(feature = "_tiles")]
             tiles: state.tiles.get_catalog(),
