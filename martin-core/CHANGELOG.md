@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0](https://github.com/maplibre/martin/compare/martin-core-v0.2.6...martin-core-v0.3.0) - 2026-02-11
+
+### Added
+
+- *(unstable-cog)* Change tile path semantics for COG sources to match other sources, expose COG bounds, center and tileSize in TileJSON ([#2510](https://github.com/maplibre/martin/pull/2510))
+
+### Other
+
+- *(martin-core)* [**breaking**] remove the configration from the martin-core crate ([#2521](https://github.com/maplibre/martin/pull/2521))
+- restrict `unused_trait_names` for trait imports ([#2542](https://github.com/maplibre/martin/pull/2542))
+
 ## [0.2.6](https://github.com/maplibre/martin/compare/martin-core-v0.2.5...martin-core-v0.2.6) - 2026-01-27
 
 ### Added
