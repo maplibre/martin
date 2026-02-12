@@ -599,7 +599,7 @@ fn by_key<T>(a: &(String, T), b: &(String, T)) -> Ordering {
     a.0.cmp(&b.0)
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "test-pg"))]
 mod tests {
     use indoc::indoc;
     use insta::assert_yaml_snapshot;
