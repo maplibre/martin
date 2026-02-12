@@ -347,7 +347,7 @@ async fn patch_tables_accept_int_type() {
 #[actix_rt::test]
 #[tracing_test::traced_test]
 async fn flat_without_primary_key_can_be_read() {
-    use mbtiles::{Mbtiles, MbtType, MbtError};
+    use mbtiles::{Mbtiles, MbtError};
 
     // Create a flat table without PRIMARY KEY
     let mbtiles = Mbtiles::new(":memory:").unwrap();
@@ -392,7 +392,22 @@ async fn flat_without_primary_key_can_be_read() {
     let tilejson = TileJSON {
         tilejson: "3.0.0".to_string(),
         tiles: vec![],
-        ..Default::default()
+        bounds: None,
+        center: None,
+        data: None,
+        description: None,
+        fillzoom: None,
+        grids: None,
+        legend: None,
+        maxzoom: None,
+        minzoom: None,
+        name: None,
+        scheme: None,
+        template: None,
+        version: None,
+        attribution: None,
+        vector_layers: None,
+        other: Default::default(),
     };
     let format = mbtiles.detect_format(&tilejson, &mut conn).await;
     assert!(

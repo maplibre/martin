@@ -314,7 +314,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_metadata_invalid() {
-        let script = include_str!("../../tests/fixtures/mbtiles/webp.sql");
+        let script = include_str!("../../tests/fixtures/mbtiles/webp-no-primary.sql");
         let (_mbt, _conn, file) = temp_named_mbtiles("test_metadata_invalid", script).await;
 
         let pool = MbtilesPool::open_readonly(file).await.unwrap();
@@ -350,7 +350,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_contains_invalid() {
-        let script = include_str!("../../tests/fixtures/mbtiles/webp.sql");
+        let script = include_str!("../../tests/fixtures/mbtiles/webp-no-primary.sql");
         let (_mbt, _conn, file) = temp_named_mbtiles("test_contains_invalid", script).await;
 
         let pool = MbtilesPool::open_readonly(file).await.unwrap();
@@ -368,7 +368,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_invalid_type() {
-        let script = include_str!("../../tests/fixtures/mbtiles/webp.sql");
+        let script = include_str!("../../tests/fixtures/mbtiles/webp-no-primary.sql");
         let (_mbt, _conn, file) = temp_named_mbtiles("test_invalid_type", script).await;
 
         let pool = MbtilesPool::open_readonly(file).await.unwrap();
@@ -666,6 +666,31 @@ mod tests {
             pool.get_tile_and_hash(MbtType::Normalized { hash_view: false }, 0, 0, 0)
                 .await
                 .is_err()
+        );
+    }
+
+    #[tokio::test]
+    async fn test_webp_with_primary_key() {
+        let script = include_str!("../../tests/fixtures/mbtiles/webp.sql");
+        let (_mbt, _conn, file) = temp_named_mbtiles("test_webp_with_primary_key", script).await;
+
+        let pool = MbtilesPool::open_readonly(file).await.unwrap();
+        
+        // webp.sql now has PRIMARY KEY, so detect_type should succeed
+        assert_eq!(
+            pool.detect_type().await.unwrap(),
+            MbtType::Flat
+        );
+        
+        // Should be able to read tiles
+        let t1 = pool.get_tile(0, 0, 0).await.unwrap().unwrap();
+        assert!(!t1.is_empty());
+        
+        // Format detection should work
+        let metadata = pool.get_metadata().await.unwrap();
+        assert_eq!(
+            pool.detect_format(&metadata.tilejson).await.unwrap(),
+            Some(TileInfo::new(Format::Webp, Encoding::Internal))
         );
     }
 }
