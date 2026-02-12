@@ -29,20 +29,22 @@ pub struct InnerStyleConfig {
 
 impl ConfigurationLivecycleHooks for InnerStyleConfig {
     fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
-        #[allow(unused_mut)]
-        let mut keys = self
+        let keys = self
             .unrecognized
             .keys()
             .cloned()
             .collect::<UnrecognizedKeys>();
         #[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
-        match &self.rendering {
-            OptBoolObj::NoValue | OptBoolObj::Bool(_) => {}
-            OptBoolObj::Object(o) => keys.extend(
-                o.get_unrecognized_keys()
-                    .iter()
-                    .map(|k| format!("rendering.{k}")),
-            ),
+        {
+            let mut keys = keys;
+            if let OptBoolObj::Object(o) = &self.rendering {
+                keys.extend(
+                    o.get_unrecognized_keys()
+                        .iter()
+                        .map(|k| format!("rendering.{k}")),
+                );
+            };
+            return keys;
         }
         keys
     }
