@@ -1,4 +1,4 @@
-#![cfg(feature = "postgres")]
+#![cfg(feature = "test-pg")]
 
 use indoc::indoc;
 use insta::assert_yaml_snapshot;

@@ -187,6 +187,7 @@ coverage *args='--no-clean --open':  (cargo-install 'cargo-llvm-cov') clean star
 
     echo "::group::Unit tests"
     {{just}} test-cargo --all-targets
+    {{just}} test-pg
     echo "::endgroup::"
 
     # echo "::group::Documentation tests"
@@ -383,7 +384,13 @@ shear:
     # https://github.com/Boshen/cargo-shear/pull/386
 
 # Run all tests using a test database
-test: start (test-cargo '--all-targets') test-doc test-frontend test-int
+test: start (test-cargo "--all-targets") test-pg test-doc test-frontend test-int
+
+# Run PostgreSQL-requiring tests only
+test-pg: start
+    cargo test --features test-pg --test pg_function_source_test --test pg_server_test --test pg_table_source_test
+    cargo test --features test-pg --package martin --lib
+    cargo test --features test-pg --package martin-core --lib
 
 # Run Rust unit tests (cargo test)
 test-cargo *args:
@@ -473,10 +480,10 @@ test-lambda martin_bin='target/debug/martin':
 
 
 # Run all tests using the oldest supported version of the database
-test-legacy: start-legacy (test-cargo '--all-targets') test-doc test-int
+test-legacy: start-legacy (test-cargo "--all-targets") test-pg test-doc test-int
 
 # Run all tests using an SSL connection to a test database. Expected output won't match.
-test-ssl: start-ssl (test-cargo '--all-targets') test-doc clean-test
+test-ssl: start-ssl (test-cargo "--all-targets") test-pg test-doc clean-test
     tests/test.sh
 
 # Run all tests using an SSL connection with client cert to a test database. Expected output won't match.
@@ -602,7 +609,7 @@ docker-is-ready:
 
 # Start a specific test database, e.g. db or db-legacy
 [private]
-docker-up name: start-pmtiles-server
+docker-up name:
     docker compose up -d {{name}}
 
 # Install SQLX cli if not already installed.
