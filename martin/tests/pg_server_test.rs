@@ -26,7 +26,13 @@ macro_rules! create_app {
                 ))
                 .app_data(actix_web::web::Data::new(state.tiles))
                 .app_data(actix_web::web::Data::new(SrvConfig::default()))
-                .configure(|c| ::martin::srv::router(c, &SrvConfig::default())),
+                .configure(|c| {
+                    ::martin::srv::router(
+                        c,
+                        #[cfg(all(feature = "webui", not(docsrs)))]
+                        &SrvConfig::default(),
+                    )
+                }),
         )
         .await
     }};
@@ -1136,7 +1142,13 @@ tables:
             ))
             .app_data(actix_web::web::Data::new(state.tiles))
             .app_data(actix_web::web::Data::new(SrvConfig::default()))
-            .configure(|c| ::martin::srv::router(c, &SrvConfig::default())),
+            .configure(|c| {
+                ::martin::srv::router(
+                    c,
+                    #[cfg(all(feature = "webui", not(docsrs)))]
+                    &SrvConfig::default(),
+                );
+            }),
     )
     .await;
 

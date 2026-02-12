@@ -22,7 +22,13 @@ macro_rules! create_app_with_prefix {
                 ))
                 .app_data(actix_web::web::Data::new(state.tiles))
                 .app_data(actix_web::web::Data::new($srv_config.clone()))
-                .configure(|c| ::martin::srv::router(c, &$srv_config)),
+                .configure(|c| {
+                    ::martin::srv::router(
+                        c,
+                        #[cfg(all(feature = "webui", not(docsrs)))]
+                        &$srv_config,
+                    )
+                }),
         )
         .await
     }};

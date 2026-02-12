@@ -87,7 +87,7 @@ impl Args {
     pub fn merge_into_config<'a>(
         self,
         config: &mut Config,
-        #[allow(unused_variables)] env: &impl Env<'a>,
+        #[cfg(feature = "postgres")] env: &impl Env<'a>,
     ) -> MartinResult<()> {
         if self.meta.config.is_some() && !self.meta.connection.is_empty() {
             return Err(ConfigAndConnectionsError(self.meta.connection));
@@ -231,7 +231,11 @@ mod tests {
         let args = Args::parse_from(args);
         let meta = args.meta.clone();
         let mut config = Config::default();
-        args.merge_into_config(&mut config, &FauxEnv::default())?;
+        args.merge_into_config(
+            &mut config,
+            #[cfg(feature = "postgres")]
+            &FauxEnv::default(),
+        )?;
         Ok((config, meta))
     }
 
@@ -344,7 +348,13 @@ mod tests {
 
         let env = FauxEnv::default();
         let mut config = Config::default();
-        let err = args.merge_into_config(&mut config, &env).unwrap_err();
+        let err = args
+            .merge_into_config(
+                &mut config,
+                #[cfg(feature = "postgres")]
+                &env,
+            )
+            .unwrap_err();
         assert!(matches!(err, ConfigAndConnectionsError(..)));
     }
 
@@ -354,7 +364,13 @@ mod tests {
 
         let env = FauxEnv::default();
         let mut config = Config::default();
-        let err = args.merge_into_config(&mut config, &env).unwrap_err();
+        let err = args
+            .merge_into_config(
+                &mut config,
+                #[cfg(feature = "postgres")]
+                &env,
+            )
+            .unwrap_err();
         let bad = vec!["foobar".to_string()];
         assert!(matches!(err, UnrecognizableConnections(v) if v == bad));
     }
@@ -376,7 +392,12 @@ mod tests {
 
         let env = FauxEnv::default();
         let mut config = Config::default();
-        args.merge_into_config(&mut config, &env).unwrap();
+        args.merge_into_config(
+            &mut config,
+            #[cfg(feature = "postgres")]
+            &env,
+        )
+        .unwrap();
         insta::assert_yaml_snapshot!(config, @r#"
         pmtiles: "../tests/fixtures/pmtiles/png.pmtiles"
         mbtiles: "file:json.mbtiles?mode=memory&cache=shared"
@@ -393,7 +414,11 @@ mod tests {
 
         let env = FauxEnv::default();
         let mut config = Config::default();
-        let err = args.merge_into_config(&mut config, &env);
+        let err = args.merge_into_config(
+            &mut config,
+            #[cfg(feature = "postgres")]
+            &env,
+        );
         assert!(err.is_ok());
         insta::assert_yaml_snapshot!(config, @r#"
         pmtiles: "../tests/fixtures/"

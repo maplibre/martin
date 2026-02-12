@@ -81,17 +81,29 @@ async fn get_health() -> impl Responder {
         .message_body("OK")
 }
 
-pub fn router(cfg: &mut web::ServiceConfig, #[allow(unused_variables)] usr_cfg: &SrvConfig) {
+pub fn router(
+    cfg: &mut web::ServiceConfig,
+    #[cfg(all(feature = "webui", not(docsrs)))] usr_cfg: &SrvConfig,
+) {
     // If route_prefix is configured, wrap all routes in a scope
     if let Some(prefix) = &usr_cfg.route_prefix {
-        cfg.service(web::scope(prefix).configure(|cfg| register_services(cfg, usr_cfg)));
+        cfg.service(web::scope(prefix).configure(|cfg| {
+            register_services(
+                cfg,
+                #[cfg(all(feature = "webui", not(docsrs)))]
+                usr_cfg,
+            );
+        }));
     } else {
         register_services(cfg, usr_cfg);
     }
 }
 
 /// Helper function to register all services
-fn register_services(cfg: &mut web::ServiceConfig, #[allow(unused_variables)] usr_cfg: &SrvConfig) {
+fn register_services(
+    cfg: &mut web::ServiceConfig,
+    #[cfg(all(feature = "webui", not(docsrs)))] usr_cfg: &SrvConfig,
+) {
     cfg.service(get_health)
         .service(crate::srv::admin::get_catalog);
 
@@ -149,7 +161,16 @@ fn register_services(cfg: &mut web::ServiceConfig, #[allow(unused_variables)] us
 type Server = Pin<Box<dyn Future<Output = MartinResult<()>>>>;
 
 /// Create a future for an Actix web server together with the listening address.
-pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server, String)> {
+pub fn new_server(
+    config: SrvConfig,
+    #[cfg(any(
+        feature = "_tiles",
+        feature = "sprites",
+        feature = "fonts",
+        feature = "styles"
+    ))]
+    state: ServerState,
+) -> MartinResult<(Server, String)> {
     #[cfg(feature = "metrics")]
     let prometheus = {
         let metrics_endpoint = if let Some(prefix) = &config.route_prefix {
@@ -173,7 +194,15 @@ pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server
             .build()
             .map_err(|err| MartinError::MetricsIntialisationError(err))?
     };
-    let catalog = Catalog::new(&state)?;
+    let catalog = Catalog::new(
+        #[cfg(any(
+            feature = "_tiles",
+            feature = "sprites",
+            feature = "fonts",
+            feature = "styles"
+        ))]
+        &state,
+    )?;
 
     let keep_alive = Duration::from_secs(config.keep_alive.unwrap_or(KEEP_ALIVE_DEFAULT));
     let worker_processes = config.worker_processes.unwrap_or_else(num_cpus::get);
@@ -221,7 +250,13 @@ pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server
 
         app.wrap(TracingLogger::default())
             .wrap(NormalizePath::new(TrailingSlash::MergeOnly))
-            .configure(|c| router(c, &config))
+            .configure(|c| {
+                router(
+                    c,
+                    #[cfg(all(feature = "webui", not(docsrs)))]
+                    &config,
+                );
+            })
     };
 
     #[cfg(feature = "lambda")]

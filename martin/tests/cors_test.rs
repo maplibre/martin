@@ -34,7 +34,13 @@ macro_rules! create_app {
                     cors_middleware.is_some(),
                     cors_middleware.unwrap_or_default(),
                 ))
-                .configure(|c| ::martin::srv::router(c, &srv_config)),
+                .configure(|c| {
+                    ::martin::srv::router(
+                        c,
+                        #[cfg(all(feature = "webui", not(docsrs)))]
+                        &srv_config,
+                    )
+                }),
         )
         .await
     }};

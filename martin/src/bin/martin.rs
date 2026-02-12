@@ -24,7 +24,11 @@ async fn start(args: Args) -> MartinResult<()> {
         Config::default()
     };
 
-    args.merge_into_config(&mut config, &env)?;
+    args.merge_into_config(
+        &mut config,
+        #[cfg(feature = "postgres")]
+        &env,
+    )?;
     config.finalize()?;
     let sources = config.resolve().await?;
 
@@ -38,7 +42,16 @@ async fn start(args: Args) -> MartinResult<()> {
     let web_ui_mode = config.srv.web_ui.unwrap_or_default();
 
     let route_prefix = config.srv.route_prefix.clone();
-    let (server, listen_addresses) = new_server(config.srv, sources)?;
+    let (server, listen_addresses) = new_server(
+        config.srv,
+        #[cfg(any(
+            feature = "_tiles",
+            feature = "sprites",
+            feature = "fonts",
+            feature = "styles"
+        ))]
+        sources,
+    )?;
     let base_url = if let Some(ref prefix) = route_prefix {
         format!("http://{listen_addresses}{prefix}/")
     } else {
