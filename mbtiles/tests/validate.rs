@@ -166,15 +166,13 @@ fn test_box() {
 
 #[actix_rt::test]
 #[tracing_test::traced_test]
-async fn int_type_detection() {
-    use mbtiles::{is_flat_tables_type, is_normalized_tables_type};
+async fn flat_tables_accept_int_type() {
+    use mbtiles::is_flat_tables_type;
 
-    // Test flat tables with INT type (not INTEGER)
     let mbtiles = Mbtiles::new(":memory:").unwrap();
     let mut conn = mbtiles.open().await.unwrap();
     create_metadata_table(&mut conn).await.unwrap();
 
-    // Create flat table with INT type instead of INTEGER
     conn.execute(
         "CREATE TABLE tiles (
              zoom_level int NOT NULL,
@@ -186,25 +184,87 @@ async fn int_type_detection() {
     .await
     .unwrap();
 
-    // Verify that is_flat_tables_type accepts INT type
     let result = is_flat_tables_type(&mut conn).await;
     assert!(
-        result.is_ok() && result.unwrap(),
-        "is_flat_tables_type should accept INT type"
+        matches!(result, Ok(true)),
+        "is_flat_tables_type should accept INT type, got: {result:?}"
+    );
+}
+
+#[actix_rt::test]
+#[tracing_test::traced_test]
+async fn normalized_tables_accept_int_type() {
+    use mbtiles::is_normalized_tables_type;
+
+    let mbtiles = Mbtiles::new(":memory:").unwrap();
+    let mut conn = mbtiles.open().await.unwrap();
+    create_metadata_table(&mut conn).await.unwrap();
+
+    conn.execute(
+        "CREATE TABLE map (
+             zoom_level int NOT NULL,
+             tile_column int NOT NULL,
+             tile_row int NOT NULL,
+             tile_id text,
+             PRIMARY KEY(zoom_level, tile_column, tile_row));",
+    )
+    .await
+    .unwrap();
+
+    conn.execute(
+        "CREATE TABLE images (
+             tile_id text NOT NULL PRIMARY KEY,
+             tile_data blob);",
+    )
+    .await
+    .unwrap();
+
+    let result = is_normalized_tables_type(&mut conn).await;
+    assert!(
+        matches!(result, Ok(true)),
+        "is_normalized_tables_type should accept INT type, got: {result:?}"
+    );
+}
+
+#[actix_rt::test]
+#[tracing_test::traced_test]
+async fn int_containing_types_accepted() {
+    use mbtiles::{is_flat_tables_type, is_normalized_tables_type};
+
+    // Test flat tables with BIGINT, SMALLINT, TINYINT
+    let mbtiles_flat = Mbtiles::new(":memory:").unwrap();
+    let mut conn_flat = mbtiles_flat.open().await.unwrap();
+    create_metadata_table(&mut conn_flat).await.unwrap();
+
+    conn_flat
+        .execute(
+            "CREATE TABLE tiles (
+                 zoom_level bigint NOT NULL,
+                 tile_column smallint NOT NULL,
+                 tile_row tinyint NOT NULL,
+                 tile_data blob,
+                 PRIMARY KEY(zoom_level, tile_column, tile_row));",
+        )
+        .await
+        .unwrap();
+
+    let result_flat = is_flat_tables_type(&mut conn_flat).await;
+    assert!(
+        matches!(result_flat, Ok(true)),
+        "is_flat_tables_type should accept BIGINT/SMALLINT/TINYINT, got: {result_flat:?}"
     );
 
-    // Test normalized tables with INT type
-    let mbtiles_normalized = Mbtiles::new(":memory:").unwrap();
-    let mut conn_norm = mbtiles_normalized.open().await.unwrap();
+    // Test normalized tables with BIGINT, SMALLINT, TINYINT
+    let mbtiles_norm = Mbtiles::new(":memory:").unwrap();
+    let mut conn_norm = mbtiles_norm.open().await.unwrap();
     create_metadata_table(&mut conn_norm).await.unwrap();
 
-    // Create normalized tables with INT type
     conn_norm
         .execute(
             "CREATE TABLE map (
-                 zoom_level int NOT NULL,
-                 tile_column int NOT NULL,
-                 tile_row int NOT NULL,
+                 zoom_level bigint NOT NULL,
+                 tile_column smallint NOT NULL,
+                 tile_row tinyint NOT NULL,
                  tile_id text,
                  PRIMARY KEY(zoom_level, tile_column, tile_row));",
         )
@@ -220,34 +280,66 @@ async fn int_type_detection() {
         .await
         .unwrap();
 
-    // Verify that is_normalized_tables_type accepts INT type
     let result_norm = is_normalized_tables_type(&mut conn_norm).await;
     assert!(
-        result_norm.is_ok() && result_norm.unwrap(),
-        "is_normalized_tables_type should accept INT type"
+        matches!(result_norm, Ok(true)),
+        "is_normalized_tables_type should accept BIGINT/SMALLINT/TINYINT, got: {result_norm:?}"
     );
+}
 
-    // Test with other INT-containing types (BIGINT, SMALLINT, TINYINT, etc.)
-    let mbtiles_bigint = Mbtiles::new(":memory:").unwrap();
-    let mut conn_bigint = mbtiles_bigint.open().await.unwrap();
-    create_metadata_table(&mut conn_bigint).await.unwrap();
+#[actix_rt::test]
+#[tracing_test::traced_test]
+async fn tiles_with_hash_accepts_int_type() {
+    use mbtiles::has_tiles_with_hash;
 
-    conn_bigint
-        .execute(
-            "CREATE TABLE tiles (
-                 zoom_level bigint NOT NULL,
-                 tile_column smallint NOT NULL,
-                 tile_row tinyint NOT NULL,
-                 tile_data blob,
-                 PRIMARY KEY(zoom_level, tile_column, tile_row));",
-        )
-        .await
-        .unwrap();
+    let mbtiles = Mbtiles::new(":memory:").unwrap();
+    let mut conn = mbtiles.open().await.unwrap();
+    create_metadata_table(&mut conn).await.unwrap();
 
-    // Verify that is_flat_tables_type accepts various INT-containing types
-    let result_bigint = is_flat_tables_type(&mut conn_bigint).await;
+    conn.execute(
+        "CREATE TABLE tiles_with_hash (
+             zoom_level int NOT NULL,
+             tile_column int NOT NULL,
+             tile_row int NOT NULL,
+             tile_data blob,
+             tile_hash text,
+             PRIMARY KEY(zoom_level, tile_column, tile_row));",
+    )
+    .await
+    .unwrap();
+
+    let result = has_tiles_with_hash(&mut conn).await;
     assert!(
-        result_bigint.is_ok() && result_bigint.unwrap(),
-        "is_flat_tables_type should accept BIGINT, SMALLINT, TINYINT types"
+        matches!(result, Ok(true)),
+        "has_tiles_with_hash should accept INT type, got: {result:?}"
+    );
+}
+
+#[actix_rt::test]
+#[tracing_test::traced_test]
+async fn patch_tables_accept_int_type() {
+    use mbtiles::get_patch_type;
+
+    // Test bsdiffraw with INT-containing types
+    let mbtiles = Mbtiles::new(":memory:").unwrap();
+    let mut conn = mbtiles.open().await.unwrap();
+    create_metadata_table(&mut conn).await.unwrap();
+
+    conn.execute(
+        "CREATE TABLE bsdiffraw (
+             zoom_level bigint NOT NULL,
+             tile_column smallint NOT NULL,
+             tile_row tinyint NOT NULL,
+             patch_data blob,
+             tile_xxh3_64_hash int,
+             PRIMARY KEY(zoom_level, tile_column, tile_row));",
+    )
+    .await
+    .unwrap();
+
+    let result = get_patch_type(&mut conn).await;
+    assert!(
+        matches!(result, Ok(Some(_))),
+        "get_patch_type should accept INT-containing types, got: {result:?}"
     );
 }
