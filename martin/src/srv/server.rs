@@ -14,6 +14,12 @@ use tracing_actix_web::TracingLogger;
 
 #[cfg(all(feature = "webui", not(docsrs)))]
 use crate::config::args::WebUiMode;
+#[cfg(any(
+    feature = "_tiles",
+    feature = "sprites",
+    feature = "fonts",
+    feature = "styles"
+))]
 use crate::config::file::ServerState;
 use crate::config::file::srv::{KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT, SrvConfig};
 use crate::srv::admin::Catalog;

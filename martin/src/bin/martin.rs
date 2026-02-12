@@ -30,6 +30,12 @@ async fn start(args: Args) -> MartinResult<()> {
         &env,
     )?;
     config.finalize()?;
+    #[cfg(any(
+        feature = "_tiles",
+        feature = "sprites",
+        feature = "fonts",
+        feature = "styles"
+    ))]
     let sources = config.resolve().await?;
 
     if let Some(file_name) = save_config {

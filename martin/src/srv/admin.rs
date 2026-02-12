@@ -3,6 +3,12 @@ use actix_web::{HttpResponse, Responder, middleware, route};
 use serde::{Deserialize, Serialize};
 
 use crate::MartinResult;
+#[cfg(any(
+    feature = "_tiles",
+    feature = "sprites",
+    feature = "fonts",
+    feature = "styles"
+))]
 use crate::config::file::ServerState;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
