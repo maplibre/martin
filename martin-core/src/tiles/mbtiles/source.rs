@@ -136,8 +136,6 @@ impl Source for MbtSource {
                 Ok(Tile::new_hash_etag(data, self.tile_info))
             }
         } else {
-            // Tile not found - return empty tile with computed etag
-            // This matches the behavior of get_tile() for consistency
             trace!(
                 "Couldn't find tile data in {}/{}/{} of {}",
                 xyz.z, xyz.x, xyz.y, &self.id
