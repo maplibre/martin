@@ -138,7 +138,10 @@ impl Source for MbtSource {
             .mbtiles
             .get_tile_and_hash(self.mbt_type, xyz.z, xyz.x, xyz.y)
             .await
-            .map_err(MbtilesError::MbtilesLibraryError)?
+            .map_err(|e| match e {
+                MbtError::SqlxError(_) => MbtilesError::AcquireConnError(self.id.clone()),
+                other => MbtilesError::MbtilesLibraryError(other),
+            })?
         {
             if let Some(hash_str) = hash {
                 Ok(Tile::new_with_etag(data, self.tile_info, hash_str))
