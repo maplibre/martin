@@ -121,7 +121,6 @@ impl Source for MbtSource {
         xyz: TileCoord,
         _url_query: Option<&UrlQuery>,
     ) -> MartinCoreResult<Tile> {
-        // Use the detected type to get tile and hash efficiently
         if let Some((data, hash)) = self
             .mbtiles
             .get_tile_and_hash(self.mbt_type, xyz.z, xyz.x, xyz.y)
