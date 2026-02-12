@@ -30,12 +30,7 @@ async fn start(args: Args) -> MartinResult<()> {
         &env,
     )?;
     config.finalize()?;
-    #[cfg(any(
-        feature = "_tiles",
-        feature = "sprites",
-        feature = "fonts",
-        feature = "styles"
-    ))]
+    #[cfg(feature = "_catalog")]
     let sources = config.resolve().await?;
 
     if let Some(file_name) = save_config {
@@ -50,12 +45,7 @@ async fn start(args: Args) -> MartinResult<()> {
     let route_prefix = config.srv.route_prefix.clone();
     let (server, listen_addresses) = new_server(
         config.srv,
-        #[cfg(any(
-            feature = "_tiles",
-            feature = "sprites",
-            feature = "fonts",
-            feature = "styles"
-        ))]
+        #[cfg(feature = "_catalog")]
         sources,
     )?;
     let base_url = if let Some(ref prefix) = route_prefix {

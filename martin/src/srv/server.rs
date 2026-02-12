@@ -14,12 +14,7 @@ use tracing_actix_web::TracingLogger;
 
 #[cfg(all(feature = "webui", not(docsrs)))]
 use crate::config::args::WebUiMode;
-#[cfg(any(
-    feature = "_tiles",
-    feature = "sprites",
-    feature = "fonts",
-    feature = "styles"
-))]
+#[cfg(feature = "_catalog")]
 use crate::config::file::ServerState;
 use crate::config::file::srv::{KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT, SrvConfig};
 use crate::srv::admin::Catalog;
@@ -41,22 +36,12 @@ pub fn map_internal_error<T: std::fmt::Display>(e: T) -> actix_web::Error {
 
 /// Helper struct for debounced warning messages in redirect handlers.
 /// Ensures warnings are logged no more than once per hour to avoid log spam.
-#[cfg(any(
-    feature = "_tiles",
-    feature = "fonts",
-    feature = "sprites",
-    feature = "styles"
-))]
+#[cfg(feature = "_catalog")]
 pub struct DebouncedWarning {
     last_warning: std::sync::LazyLock<tokio::sync::Mutex<std::time::Instant>>,
 }
 
-#[cfg(any(
-    feature = "_tiles",
-    feature = "fonts",
-    feature = "sprites",
-    feature = "styles"
-))]
+#[cfg(feature = "_catalog")]
 impl DebouncedWarning {
     /// Create a new `DebouncedWarning` instance
     pub const fn new() -> Self {
@@ -170,12 +155,7 @@ type Server = Pin<Box<dyn Future<Output = MartinResult<()>>>>;
 /// Create a future for an Actix web server together with the listening address.
 pub fn new_server(
     config: SrvConfig,
-    #[cfg(any(
-        feature = "_tiles",
-        feature = "sprites",
-        feature = "fonts",
-        feature = "styles"
-    ))]
+    #[cfg(feature = "_catalog")]
     state: ServerState,
 ) -> MartinResult<(Server, String)> {
     #[cfg(feature = "metrics")]
@@ -202,12 +182,7 @@ pub fn new_server(
             .map_err(|err| MartinError::MetricsIntialisationError(err))?
     };
     let catalog = Catalog::new(
-        #[cfg(any(
-            feature = "_tiles",
-            feature = "sprites",
-            feature = "fonts",
-            feature = "styles"
-        ))]
+      #[cfg(feature = "_catalog")]
         &state,
     )?;
 
