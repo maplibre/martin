@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-518929f2.js";
+            window.path_to_searchindex_js = "searchindex-4b437de4.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-da940ac3.js"></script>
@@ -4339,6 +4339,17 @@ just clippy      # lint code
 just book        # build documentation
 just stop        # stop test database
 </code></pre>
+<h3 id="testing"><a class="header" href="#testing">Testing</a></h3>
+<p>Martin’s test suite includes tests that require PostgreSQL to be running and tests that don’t.</p>
+<pre><code class="language-bash"># Run tests that don't require PostgreSQL (no external dependencies)
+just test-cargo
+
+# Run all tests including PostgreSQL tests (requires PostgreSQL running)
+just test     # runs all tests
+just test-pg  # starts PostgreSQL and runs only PostgreSQL-requiring tests
+</code></pre>
+<p>The <code>test-pg</code> feature gates tests that require a live PostgreSQL connection.
+This allows developers to run most tests locally without setting up PostgreSQL, while CI and integration testing can enable these tests explicitly.</p>
 <h3 id="pass-arguments-to-commands"><a class="header" href="#pass-arguments-to-commands">Pass arguments to commands</a></h3>
 <pre><code class="language-bash">just test-cargo -- --test integration_test
 just run --config /path/to/config.yaml
