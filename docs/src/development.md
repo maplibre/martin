@@ -152,12 +152,13 @@ Martin's test suite includes tests that require PostgreSQL to be running and tes
 just test-cargo
 
 # Run all tests including PostgreSQL tests (requires PostgreSQL running)
-just test     # runs all tests
-just test-pg  # starts PostgreSQL and runs only PostgreSQL-requiring tests
+just test                                 # runs all tests
+just test-pg                              # starts PostgreSQL and runs only PostgreSQL-requiring tests
 ```
 
 The `test-pg` feature gates tests that require a live PostgreSQL connection.
 This allows developers to run most tests locally without setting up PostgreSQL, while CI and integration testing can enable these tests explicitly.
+```
 
 ### Pass arguments to commands
 
