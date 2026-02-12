@@ -155,8 +155,7 @@ type Server = Pin<Box<dyn Future<Output = MartinResult<()>>>>;
 /// Create a future for an Actix web server together with the listening address.
 pub fn new_server(
     config: SrvConfig,
-    #[cfg(feature = "_catalog")]
-    state: ServerState,
+    #[cfg(feature = "_catalog")] state: ServerState,
 ) -> MartinResult<(Server, String)> {
     #[cfg(feature = "metrics")]
     let prometheus = {
@@ -182,7 +181,7 @@ pub fn new_server(
             .map_err(|err| MartinError::MetricsIntialisationError(err))?
     };
     let catalog = Catalog::new(
-      #[cfg(feature = "_catalog")]
+        #[cfg(feature = "_catalog")]
         &state,
     )?;
 

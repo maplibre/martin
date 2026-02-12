@@ -19,10 +19,7 @@ pub struct Catalog {
 }
 
 impl Catalog {
-    pub fn new(
-      #[cfg(feature = "_catalog")]
-        state: &ServerState,
-    ) -> MartinResult<Self> {
+    pub fn new(#[cfg(feature = "_catalog")] state: &ServerState) -> MartinResult<Self> {
         Ok(Self {
             #[cfg(feature = "_tiles")]
             tiles: state.tiles.get_catalog(),
