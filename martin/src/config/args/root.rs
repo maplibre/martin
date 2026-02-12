@@ -102,7 +102,7 @@ impl Args {
         #[cfg_attr(
             not(feature = "_tiles"),
             expect(
-                clippy::unused_mut,
+                unused_mut,
                 reason = "postgres may modify the cli strings to process input params"
             )
         )]
