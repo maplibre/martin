@@ -112,7 +112,7 @@ impl Source for MbtSource {
             .mbtiles
             .get_tile(xyz.z, xyz.x, xyz.y)
             .await
-            .map_err(|e| self.map_mbt_error(e))?
+            .map_err(|e| Self::map_mbt_error(e, self.id.clone()))?
         {
             Ok(tile)
         } else {
