@@ -12,10 +12,10 @@ INSERT INTO metadata VALUES
 ('center','0,0,0'),
 ('minzoom','0'),
 ('maxzoom','0');
-CREATE TABLE IF NOT EXISTS "tiles"(
-    zoom_level int,
-    tile_column int,
-    tile_row int,
+CREATE TABLE tiles (
+    zoom_level integer,
+    tile_column integer,
+    tile_row integer,
     tile_data blob
 );
 INSERT INTO tiles VALUES(0,0,0,x'524946463A000000574542505650380A0000002F000000');

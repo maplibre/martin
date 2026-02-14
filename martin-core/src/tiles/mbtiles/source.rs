@@ -7,12 +7,12 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use martin_tile_utils::{TileCoord, TileData, TileInfo};
-use mbtiles::{MbtError, MbtilesPool};
+use mbtiles::{MbtError, MbtType, MbtilesPool};
 use tilejson::TileJSON;
 use tracing::trace;
 
 use crate::tiles::mbtiles::MbtilesError;
-use crate::tiles::{BoxedSource, MartinCoreResult, Source, UrlQuery};
+use crate::tiles::{BoxedSource, MartinCoreResult, Source, Tile, UrlQuery};
 
 /// Tile source that reads from `MBTiles` files.
 #[derive(Clone)]
@@ -21,6 +21,7 @@ pub struct MbtSource {
     mbtiles: Arc<MbtilesPool>,
     tilejson: TileJSON,
     tile_info: TileInfo,
+    mbt_type: MbtType,
 }
 
 #[expect(clippy::missing_fields_in_debug)]
@@ -29,6 +30,7 @@ impl Debug for MbtSource {
         f.debug_struct("MbtSource")
             .field("id", &self.id)
             .field("path", &self.mbtiles.as_ref())
+            .field("mbt_type", &self.mbt_type)
             .finish()
     }
 }
@@ -51,14 +53,28 @@ impl MbtSource {
             .detect_format(&meta.tilejson)
             .await
             .and_then(|v| v.ok_or(MbtError::NoTilesFound))
-            .map_err(|e| MbtilesError::InvalidMetadata(e.to_string(), path))?;
+            .map_err(|e| MbtilesError::InvalidMetadata(e.to_string(), path.clone()))?;
+
+        let mbt_type = mbt
+            .detect_type()
+            .await
+            .map_err(|e| MbtilesError::InvalidMetadata(e.to_string(), path.clone()))?;
 
         Ok(Self {
             id,
             mbtiles: Arc::new(mbt),
             tilejson: meta.tilejson,
             tile_info,
+            mbt_type,
         })
+    }
+
+    /// Maps `MbtError` to `MbtilesError`, preserving source ID context for `SqlxError`.
+    fn map_mbt_error(error: MbtError, id: String) -> MbtilesError {
+        match error {
+            MbtError::SqlxError(_) => MbtilesError::AcquireConnError(id),
+            other => MbtilesError::MbtilesLibraryError(other),
+        }
     }
 }
 
@@ -98,7 +114,7 @@ impl Source for MbtSource {
             .mbtiles
             .get_tile(xyz.z, xyz.x, xyz.y)
             .await
-            .map_err(|_| MbtilesError::AcquireConnError(self.id.clone()))?
+            .map_err(|e| Self::map_mbt_error(e, self.id.clone()))?
         {
             Ok(tile)
         } else {
@@ -107,6 +123,31 @@ impl Source for MbtSource {
                 xyz.z, xyz.x, xyz.y, &self.id
             );
             Ok(Vec::new())
+        }
+    }
+
+    async fn get_tile_with_etag(
+        &self,
+        xyz: TileCoord,
+        _url_query: Option<&UrlQuery>,
+    ) -> MartinCoreResult<Tile> {
+        if let Some((data, hash)) = self
+            .mbtiles
+            .get_tile_and_hash(self.mbt_type, xyz.z, xyz.x, xyz.y)
+            .await
+            .map_err(|e| Self::map_mbt_error(e, self.id.clone()))?
+        {
+            if let Some(hash_str) = hash {
+                Ok(Tile::new_with_etag(data, self.tile_info, hash_str))
+            } else {
+                Ok(Tile::new_hash_etag(data, self.tile_info))
+            }
+        } else {
+            trace!(
+                "Couldn't find tile data in {}/{}/{} of {}",
+                xyz.z, xyz.x, xyz.y, &self.id
+            );
+            Ok(Tile::new_hash_etag(Vec::new(), self.tile_info))
         }
     }
 }
