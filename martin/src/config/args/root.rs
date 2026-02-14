@@ -99,7 +99,13 @@ impl Args {
 
         self.srv.merge_into_config(&mut config.srv);
 
-        #[allow(unused_mut)]
+        #[cfg_attr(
+            not(feature = "_tiles"),
+            expect(
+                unused_mut,
+                reason = "postgres may modify the cli strings to process input params"
+            )
+        )]
         let mut cli_strings = Arguments::new(self.meta.connection);
 
         #[cfg(feature = "postgres")]
