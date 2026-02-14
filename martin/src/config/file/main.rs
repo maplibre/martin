@@ -334,7 +334,7 @@ impl Config {
     #[cfg(feature = "_tiles")]
     async fn resolve_tile_sources(
         &mut self,
-        #[allow(unused_variables)] idr: &IdResolver,
+        idr: &IdResolver,
         #[cfg(feature = "pmtiles")] pmtiles_cache: PmtCache,
     ) -> MartinResult<(TileSources, Vec<TileSourceWarning>)> {
         let mut sources_and_warnings: Vec<BoxFuture<_>> = Vec::new();
