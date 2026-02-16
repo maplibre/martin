@@ -36,7 +36,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-4b437de4.js";
+            window.path_to_searchindex_js = "searchindex-f764b292.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-da940ac3.js"></script>
@@ -878,14 +878,11 @@ Read it when you’re curious <em>why</em> certain choices were made.</p>
 <button class="mdbook-tab" data-tabname="Logging">Logging</button>
 </nav>
 <div class="mdbook-tab-content" data-tabname="Metrics">
-<p>Martin exposes Prometheus metrics via <code>/metrics</code>:</p>
+<p>Martin exposes Prometheus metrics via <code>/_/metrics</code>:</p>
 <ul>
 <li>HTTP request counters and histograms</li>
-<li>Tile generation time histograms</li>
-<li>Cache hit/miss rates</li>
-<li>Database connection pool stats</li>
-<li>Error rates by type</li>
 </ul>
+<p>If you need more in-depth observability, we would be happy to review PRs that add additional metrics; the current implementation is intentionally minimal.</p>
 </div>
 
 <div class="mdbook-tab-content hidden" data-tabname="Health Checks">
