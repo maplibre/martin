@@ -651,7 +651,7 @@ Martin doesn't include built-in auth, but supports:
 {{#tabs }}
 {{#tab name="Metrics" }}
 
-Martin exposes Prometheus metrics via `/metrics`:
+Martin exposes Prometheus metrics via `/_/metrics`:
 
 - HTTP request counters and histograms
 
