@@ -88,7 +88,7 @@ repos:
 
   # NPM hooks for JavaScript/TypeScript formatting and linting
   - repo: https://github.com/biomejs/pre-commit
-    rev: "v2.3.14"  # tag is auto-updated by pre-commit.ci and synced by sync-biome-version to all the places it needs to be
+    rev: "v2.3.15"  # tag is auto-updated by pre-commit.ci and synced by sync-biome-version to all the places it needs to be
     hooks:
       - id: biome-check
         additional_dependencies: [ "@biomejs/biome@2.3.14" ]
