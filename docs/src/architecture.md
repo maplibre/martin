@@ -655,6 +655,8 @@ Martin exposes Prometheus metrics via `/metrics`:
 
 - HTTP request counters and histograms
 
+If you need more in-depth observability, we would be very open to having your PR to add more metrics, this is currently very barebones.
+
 {{#endtab }}
 {{#tab name="Health Checks" }}
 
