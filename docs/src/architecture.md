@@ -651,13 +651,11 @@ Martin doesn't include built-in auth, but supports:
 {{#tabs }}
 {{#tab name="Metrics" }}
 
-Martin exposes Prometheus metrics via `/metrics`:
+Martin exposes Prometheus metrics via `/_/metrics`:
 
 - HTTP request counters and histograms
-- Tile generation time histograms
-- Cache hit/miss rates
-- Database connection pool stats
-- Error rates by type
+
+If you need more in-depth observability, we would be happy to review PRs that add additional metrics; the current implementation is intentionally minimal.
 
 {{#endtab }}
 {{#tab name="Health Checks" }}

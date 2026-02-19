@@ -307,9 +307,11 @@ fn write_duration(f: &mut impl std::fmt::Write, secs: f32) -> std::fmt::Result {
     } else if secs < 1. {
         write!(f, "<1s")
     } else {
-        // we've already handled cases of inf, or negative
-        #[allow(clippy::cast_possible_truncation)]
-        #[allow(clippy::cast_sign_loss)]
+        #[expect(
+            clippy::cast_possible_truncation,
+            clippy::cast_sign_loss,
+            reason = "we've already handled cases of inf, or negative"
+        )]
         let secs = secs.ceil() as u64;
 
         let (mins, secs) = (secs / 60, secs % 60);
