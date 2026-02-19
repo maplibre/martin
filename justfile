@@ -611,9 +611,10 @@ docker-is-ready:
 fileserver-is-ready:
     #!/usr/bin/env bash
     set -euo pipefail
-    echo "Waiting for fileserver to be ready..."
+    FILESERVER_URL="${STATICS_URL:-http://localhost:5412}"
+    echo "Waiting for fileserver to be ready at ${FILESERVER_URL}..."
     for i in {1..30}; do
-        if curl --silent --head http://localhost:5412/ >/dev/null 2>&1; then
+        if curl --silent --fail --head --connect-timeout 2 --max-time 5 "${FILESERVER_URL}/webp2.pmtiles" >/dev/null 2>&1; then
             echo "Fileserver is ready!"
             exit 0
         fi
