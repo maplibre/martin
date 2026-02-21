@@ -69,19 +69,20 @@ pub(crate) fn multi_polygon_to_shape_paths(
         .collect::<Vec<_>>()
 }
 
+const EPS: f64 = 1e-9;
 fn simplify_geo(geom: geo_types::Geometry<f64>) -> geo_types::Geometry<f64> {
     match geom {
         point @ geo::Geometry::Point(_) => point,
         points @ geo::Geometry::MultiPoint(_) => points,
         geo::Geometry::LineString(linestring) => {
-            geo::Geometry::LineString(linestring.simplify(1e-9))
+            geo::Geometry::LineString(linestring.simplify(EPS))
         }
         geo::Geometry::MultiLineString(multi_linestring) => {
-            geo::Geometry::MultiLineString(multi_linestring.simplify(1e-9))
+            geo::Geometry::MultiLineString(multi_linestring.simplify(EPS))
         }
-        geo::Geometry::Polygon(polygon) => geo::Geometry::Polygon(polygon.simplify(1e-9)),
+        geo::Geometry::Polygon(polygon) => geo::Geometry::Polygon(polygon.simplify(EPS)),
         geo::Geometry::MultiPolygon(multi_polygon) => {
-            geo::Geometry::MultiPolygon(multi_polygon.simplify(1e-9))
+            geo::Geometry::MultiPolygon(multi_polygon.simplify(EPS))
         }
         rest => rest,
     }
