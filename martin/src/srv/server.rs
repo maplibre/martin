@@ -14,6 +14,7 @@ use tracing_actix_web::TracingLogger;
 
 #[cfg(all(feature = "webui", not(docsrs)))]
 use crate::config::args::WebUiMode;
+#[cfg(feature = "_catalog")]
 use crate::config::file::ServerState;
 use crate::config::file::srv::{KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT, SrvConfig};
 use crate::srv::admin::Catalog;
@@ -35,22 +36,12 @@ pub fn map_internal_error<T: std::fmt::Display>(e: T) -> actix_web::Error {
 
 /// Helper struct for debounced warning messages in redirect handlers.
 /// Ensures warnings are logged no more than once per hour to avoid log spam.
-#[cfg(any(
-    feature = "_tiles",
-    feature = "fonts",
-    feature = "sprites",
-    feature = "styles"
-))]
+#[cfg(feature = "_catalog")]
 pub struct DebouncedWarning {
     last_warning: std::sync::LazyLock<tokio::sync::Mutex<std::time::Instant>>,
 }
 
-#[cfg(any(
-    feature = "_tiles",
-    feature = "fonts",
-    feature = "sprites",
-    feature = "styles"
-))]
+#[cfg(feature = "_catalog")]
 impl DebouncedWarning {
     /// Create a new `DebouncedWarning` instance
     pub const fn new() -> Self {
@@ -81,17 +72,30 @@ async fn get_health() -> impl Responder {
         .message_body("OK")
 }
 
-pub fn router(cfg: &mut web::ServiceConfig, #[allow(unused_variables)] usr_cfg: &SrvConfig) {
+pub fn router(cfg: &mut web::ServiceConfig, usr_cfg: &SrvConfig) {
     // If route_prefix is configured, wrap all routes in a scope
     if let Some(prefix) = &usr_cfg.route_prefix {
-        cfg.service(web::scope(prefix).configure(|cfg| register_services(cfg, usr_cfg)));
+        cfg.service(web::scope(prefix).configure(|cfg| {
+            register_services(
+                cfg,
+                #[cfg(all(feature = "webui", not(docsrs)))]
+                usr_cfg,
+            );
+        }));
     } else {
-        register_services(cfg, usr_cfg);
+        register_services(
+            cfg,
+            #[cfg(all(feature = "webui", not(docsrs)))]
+            usr_cfg,
+        );
     }
 }
 
 /// Helper function to register all services
-fn register_services(cfg: &mut web::ServiceConfig, #[allow(unused_variables)] usr_cfg: &SrvConfig) {
+fn register_services(
+    cfg: &mut web::ServiceConfig,
+    #[cfg(all(feature = "webui", not(docsrs)))] usr_cfg: &SrvConfig,
+) {
     cfg.service(get_health)
         .service(crate::srv::admin::get_catalog);
 
@@ -149,7 +153,10 @@ fn register_services(cfg: &mut web::ServiceConfig, #[allow(unused_variables)] us
 type Server = Pin<Box<dyn Future<Output = MartinResult<()>>>>;
 
 /// Create a future for an Actix web server together with the listening address.
-pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server, String)> {
+pub fn new_server(
+    config: SrvConfig,
+    #[cfg(feature = "_catalog")] state: ServerState,
+) -> MartinResult<(Server, String)> {
     #[cfg(feature = "metrics")]
     let prometheus = {
         let metrics_endpoint = if let Some(prefix) = &config.route_prefix {
@@ -173,7 +180,10 @@ pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server
             .build()
             .map_err(|err| MartinError::MetricsIntialisationError(err))?
     };
-    let catalog = Catalog::new(&state)?;
+    let catalog = Catalog::new(
+        #[cfg(feature = "_catalog")]
+        &state,
+    )?;
 
     let keep_alive = Duration::from_secs(config.keep_alive.unwrap_or(KEEP_ALIVE_DEFAULT));
     let worker_processes = config.worker_processes.unwrap_or_else(num_cpus::get);
