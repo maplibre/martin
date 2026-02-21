@@ -86,3 +86,23 @@ If you [install Rust](https://www.rust-lang.org/tools/install), you can build ma
 cargo install martin --locked
 martin --help
 ```
+
+#### Platform-Specific Build Notes
+
+##### Windows
+
+When building from source on Windows, please note the following feature limitations:
+
+- **`unstable-rendering`**: This feature is **not available on Windows**. It requires `maplibre_native` which currently only supports MacOS and Linux. For updates, see [`maplibre/maplibre-native-rs`](https://github.com/maplibre/maplibre-native-rs).
+
+- **`geojson`**: This feature works on Windows but requires **C++ build tools** (CMake and a C++ compiler) because the `geos` dependency is compiled from source. Install [Visual Studio Build Tools](https://visualstudio.microsoft.com/downloads/) with C++ support before building:
+
+  ```bash
+  # Build without geojson feature if you don't need it
+  cargo install martin --locked --no-default-features --features fonts,lambda,mbtiles,metrics,pmtiles,postgres,sprites,styles,webui
+
+  # Or build with geojson if you have C++ tools installed
+  cargo install martin --locked
+  ```
+
+The pre-built Windows binaries from the releases page include all supported features for Windows (including `geojson`).

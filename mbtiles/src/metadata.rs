@@ -1,8 +1,8 @@
 use std::fmt::Display;
 use std::path::PathBuf;
-use std::str::FromStr;
+use std::str::FromStr as _;
 
-use futures::TryStreamExt;
+use futures::TryStreamExt as _;
 use log::{info, warn};
 use serde::Serialize;
 use serde_json::{Value as JSONValue, Value, json};

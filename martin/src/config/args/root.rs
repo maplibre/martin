@@ -18,6 +18,7 @@ use crate::config::file::Config;
     feature = "pmtiles",
     feature = "sprites",
     feature = "styles",
+    feature = "geojson",
 ))]
 use crate::config::file::FileConfigEnum;
 #[cfg(feature = "fonts")]
@@ -153,7 +154,12 @@ impl Args {
 }
 
 /// Check if a string is a valid [`url::Url`] with a specified extension.
-#[cfg(any(feature = "unstable-cog", feature = "mbtiles", feature = "pmtiles"))]
+#[cfg(any(
+    feature = "unstable-cog",
+    feature = "mbtiles",
+    feature = "pmtiles",
+    feature = "geojson"
+))]
 fn is_url(s: &str, extension: &[&str]) -> bool {
     let Ok(url) = url::Url::parse(s) else {
         return false;
@@ -179,7 +185,12 @@ fn is_url(s: &str, extension: &[&str]) -> bool {
 /// Check if a string is a `file:` scheme URI with a specified extension.
 ///
 /// This is used for `SQLite` connection strings like `file:name.mbtiles?mode=memory&cache=shared`
-#[cfg(any(feature = "unstable-cog", feature = "mbtiles", feature = "pmtiles"))]
+#[cfg(any(
+    feature = "unstable-cog",
+    feature = "mbtiles",
+    feature = "pmtiles",
+    feature = "geojson"
+))]
 fn is_file_scheme_uri(s: &str, extensions: &[&str]) -> bool {
     let Ok(url) = url::Url::parse(s) else {
         return false;
@@ -193,7 +204,12 @@ fn is_file_scheme_uri(s: &str, extensions: &[&str]) -> bool {
         .is_some_and(|ext| extensions.contains(&ext))
 }
 
-#[cfg(any(feature = "unstable-cog", feature = "mbtiles", feature = "pmtiles"))]
+#[cfg(any(
+    feature = "unstable-cog",
+    feature = "mbtiles",
+    feature = "pmtiles",
+    feature = "geojson"
+))]
 pub fn parse_file_args<T: crate::config::file::ConfigurationLivecycleHooks>(
     cli_strings: &mut Arguments,
     extensions: &[&str],

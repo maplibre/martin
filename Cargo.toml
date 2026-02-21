@@ -17,10 +17,12 @@ unused_qualifications = "warn"
 
 [workspace.lints.clippy]
 # Restrictions
-unimplemented = "warn"
-panic_in_result_fn = "warn"
 panic = "warn"
+panic_in_result_fn = "warn"
 todo = "warn"
+unimplemented = "warn"
+unused_trait_names = "warn"
+
 # Pedantics without being too noisy
 pedantic = { level = "warn", priority = -1 }
 derive_partial_eq_without_eq = "allow"
@@ -101,6 +103,7 @@ postgres = { version = "0.19", features = [
 ] }
 postgres-protocol = "0.6"
 pretty_assertions = "1"
+rayon = "1.11.0"
 regex = "1"
 rstest = "0.26.1"
 rustls = "0.23.36"

@@ -1,4 +1,4 @@
-use geo::{Simplify, Validation};
+use geo::{Simplify as _, Validation as _};
 use geojson::{Geometry, Value};
 use geozero::error::GeozeroError;
 

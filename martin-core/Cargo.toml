@@ -11,6 +11,11 @@ repository.workspace = true
 rust-version.workspace = true
 homepage.workspace = true
 
+[[bench]]
+name = "geojson_tiles"
+harness = false
+required-features = ["geojson"]
+
 [features]
 default = [
     "fonts",
@@ -27,8 +32,12 @@ geojson = [
     "dep:geo-index",
     "dep:geozero",
     "dep:i_overlay",
-    "dep:geo",
     "dep:geo-types",
+    "dep:geo",
+    "dep:rayon",
+    "dep:serde_json",
+    "dep:tokio",
+    "tokio/fs",
     "_tiles",
 ]
 postgres = [
@@ -66,7 +75,6 @@ pmtiles = ["dep:pmtiles", "dep:object_store", "_tiles"]
 _tiles = ["dep:base64"]
 
 [target.'cfg(target_os = "linux")'.dependencies]
-image = { workspace = true, optional = true }
 maplibre_native = { workspace = true, optional = true }
 
 [dependencies]
@@ -83,6 +91,7 @@ geojson = { workspace = true, optional = true }
 geo-types = { workspace = true, optional = true }
 geozero = { workspace = true, optional = true }
 i_overlay = { workspace = true, optional = true }
+image = { workspace = true, optional = true }
 itertools = { workspace = true, optional = true }
 martin-tile-utils.workspace = true
 mbtiles = { workspace = true, optional = true }
@@ -92,6 +101,7 @@ pbf_font_tools = { workspace = true, optional = true }
 pmtiles = { workspace = true, optional = true }
 png = { workspace = true, optional = true }
 postgres = { workspace = true, optional = true }
+rayon = { workspace = true, optional = true }
 regex = { workspace = true, optional = true }
 rustls = { workspace = true, optional = true }
 rustls-native-certs = { workspace = true, optional = true }
@@ -114,6 +124,7 @@ xxhash-rust.workspace = true
 actix-web.workspace = true
 approx.workspace = true
 bytes.workspace = true
+criterion = { workspace = true }
 env_logger.workspace = true
 futures.workspace = true
 insta = { workspace = true, features = ["json", "yaml"] }

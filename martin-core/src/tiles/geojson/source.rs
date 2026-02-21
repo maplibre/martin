@@ -4,15 +4,16 @@ use std::path::PathBuf;
 use std::vec;
 
 use async_trait::async_trait;
-use geo_index::rtree::{RTree, RTreeIndex};
+use geo_index::rtree::{RTree, RTreeIndex as _};
 use geojson::{FeatureCollection, GeoJson, Geometry, Value};
-use geozero::mvt::{Message, MvtWriter, Tile};
+use geozero::mvt::{Message as _, MvtWriter, Tile};
 use i_overlay::core::fill_rule::FillRule;
 use i_overlay::core::overlay_rule::OverlayRule;
-use i_overlay::float::clip::FloatClip;
-use i_overlay::float::single::SingleFloatOverlay;
+use i_overlay::float::clip::FloatClip as _;
+use i_overlay::float::single::SingleFloatOverlay as _;
 use i_overlay::string::clip::ClipRule;
 use martin_tile_utils::{Encoding, Format, TileCoord, TileData, TileInfo, tile_bbox};
+use rayon::prelude::*;
 use tilejson::TileJSON;
 use tokio::fs::{self};
 use tracing::trace;
@@ -147,7 +148,7 @@ impl Source for GeoJsonSource {
             .collect::<Vec<_>>();
 
         let clipped_fs = selected_fs
-            .into_iter()
+            .into_par_iter()
             .enumerate()
             .filter_map(|(i, mut f)| {
                 let geom = f.geometry.unwrap();
@@ -294,6 +295,7 @@ impl Rect {
         rings
     }
 
+    #[expect(clippy::too_many_lines)]
     fn clip_transform_validate_geometry(&self, mut geom: Geometry, idx: usize) -> Option<Geometry> {
         match geom.value {
             Value::Point(p) => {
@@ -489,9 +491,8 @@ impl Rect {
 
 #[cfg(test)]
 mod tests {
-    use std::path::PathBuf;
-
     use super::*;
+    use std::path::PathBuf;
 
     fn fixtures_dir() -> PathBuf {
         PathBuf::from(env!("CARGO_MANIFEST_DIR"))

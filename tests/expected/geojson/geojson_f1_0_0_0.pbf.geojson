@@ -1,0 +1,21 @@
+{
+  "features": [
+    {
+      "geometry": {
+        "coordinates": [
+          2200,
+          2752
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "id": 1,
+        "name": "test-point",
+        "source_mvt_layer": "layer"
+      },
+      "type": "Feature"
+    }
+  ],
+  "name": "merged",
+  "type": "FeatureCollection"
+}

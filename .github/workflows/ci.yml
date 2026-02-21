@@ -147,22 +147,15 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with: { persist-credentials: false }
       - uses: taiki-e/install-action@763e3324d4fd026c9bd284c504378585777a87d5 # v2.62.57
-        with: { tool: cargo-zigbuild }
+        with: { tool: "cargo-zigbuild,just" }
       - name: Install zig
         uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
         with: { version: '0.15.1' }
-      - run: rustup target add ${{ matrix.target }}
       - name: Build ${{ matrix.target }}
-        run: |
-          export "CARGO_TARGET_$(echo ${{ matrix.target }} | tr 'a-z-' 'A-Z_')_RUSTFLAGS"='-C strip=debuginfo'
-          cargo zigbuild --release --target ${{ matrix.target }} --workspace --locked
+        run: just build-release-musl ${{ matrix.target }}
+      - name: Move ${{ matrix.target }} artefacts to the target_releases directory
+        run: just move-artifacts ${{ matrix.target }}
 
-      - name: Move the artefacts to the expected place
-        run: |
-          mkdir -p target_releases/
-          mv target/${{ matrix.target }}/release/martin target_releases/
-          mv target/${{ matrix.target }}/release/martin-cp target_releases/
-          mv target/${{ matrix.target }}/release/mbtiles target_releases/
       - name: Save build artifacts to build-${{ matrix.target }}
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
@@ -420,6 +413,8 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with: { persist-credentials: false }
+      - uses: taiki-e/install-action@763e3324d4fd026c9bd284c504378585777a87d5 # v2.62.57
+        with: { tool: "just" }
       # the macOS x86 runners are 3x slower than all other runners.
       # We need to cache here to not spend 30 minutes on each build.
       # We cannot cache the others as well because we only have 10GB of cache
@@ -430,27 +425,14 @@ jobs:
       - name: Install NASM for rustls/aws-lc-rs on Windows
         if: runner.os == 'Windows'
         uses: ilammy/setup-nasm@72793074d3c8cdda771dba85f6deafe00623038b # v1.5.2
-      - name: Build (.deb)
-        if: matrix.target == 'debian-x86_64'
-        run: |
-          set -x
-          sudo apt-get install -y dpkg dpkg-dev liblzma-dev
-          cargo install cargo-deb --locked
-          cargo deb -v -p martin --output target/debian/debian-x86_64.deb
-          mkdir -p target_releases
-          mv target/debian/debian-x86_64.deb target_releases/
-      - name: Build
-        if: matrix.target != 'debian-x86_64'
-        run: |
-          set -x
-          rustup target add "${{ matrix.target }}"
-          export RUSTFLAGS='-C strip=debuginfo'
-          cargo build --release --target ${{ matrix.target }} --package mbtiles --locked
-          cargo build --release --target ${{ matrix.target }} --package martin --locked
-          mkdir -p target_releases
-          mv target/${{ matrix.target }}/release/martin${{ matrix.ext }} target_releases/
-          mv target/${{ matrix.target }}/release/martin-cp${{ matrix.ext }} target_releases/
-          mv target/${{ matrix.target }}/release/mbtiles${{ matrix.ext }} target_releases/
+      - name: Install dependencies
+        if: runner.os != 'Windows'
+        run: just install-dependencies
+
+      - name: Build ${{ matrix.target }}
+        run: just build-release ${{ matrix.target }}
+      - name: Move ${{ matrix.target }} artefacts to the target_releases directory
+        run: just move-artifacts ${{ matrix.target }}
 
       - name: Save build artifacts to build-${{ matrix.target }}
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
@@ -801,6 +783,8 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with: { persist-credentials: false }
+      - uses: taiki-e/install-action@763e3324d4fd026c9bd284c504378585777a87d5 # v2.62.57
+        with: { tool: 'just' }
       - name: Download build artifact build-aarch64-apple-darwin
         uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with: { name: 'build-aarch64-apple-darwin', path: 'target/aarch64-apple-darwin' }
@@ -830,30 +814,10 @@ jobs:
         run: |
           set -x
 
-          cd target
-          mkdir files
-
-          for target in aarch64-apple-darwin x86_64-apple-darwin aarch64-unknown-linux-gnu x86_64-unknown-linux-gnu aarch64-unknown-linux-musl x86_64-unknown-linux-musl;
+          for target in aarch64-apple-darwin x86_64-apple-darwin aarch64-unknown-linux-gnu x86_64-unknown-linux-gnu aarch64-unknown-linux-musl x86_64-unknown-linux-musl x86_64-pc-windows-msvc debian-x86_64;
           do
-            cd "$target"
-            chmod +x martin martin-cp mbtiles
-            tar czvf ../files/martin-${target}.tar.gz martin martin-cp mbtiles
-            cd ..
+            just package-assets "$target"
           done
-
-          #
-          # Special case for Windows
-          #
-          cd x86_64-pc-windows-msvc
-          7z a ../files/martin-x86_64-pc-windows-msvc.zip martin.exe martin-cp.exe mbtiles.exe
-          cd ..
-
-          #
-          # Special case for Debian .deb package
-          #
-          cd debian-x86_64
-          mv debian-x86_64.deb ../files/martin-Debian-x86_64.deb
-          cd ..
 
       - name: Create Homebrew config
         run: |

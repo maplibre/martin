@@ -3,6 +3,11 @@
 A simple way to add geospatial data to a map can be to serve the content of [GeoJSON files](https://geojson.org/) as specified by [RFC7946](https://datatracker.ietf.org/doc/html/rfc7946).
 Instead of incurring the overhead of serving them directly, we serve them as Vector tiles.
 
+> [!NOTE]
+> **Windows Users**: The GeoJSON feature requires C++ build tools (CMake and a C++ compiler) when building from source on Windows, as the `geos` dependency is compiled from source.
+> Pre-built Windows binaries from the [releases page](https://github.com/maplibre/martin/releases) already include this feature.
+> If building from source, install [Visual Studio Build Tools](https://visualstudio.microsoft.com/downloads/) with C++ support, or build without the `geojson` feature using `--no-default-features`.
+
 To serve a file from CLI, simply put the path to the file or the directory with `*.geojson` files.
 For example:
 

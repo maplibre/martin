@@ -1,6 +1,4 @@
 {
-  "maxzoom": 20,
-  "minzoom": 0,
   "tilejson": "3.0.0",
   "tiles": [
     "http://localhost:3111/feature_1/{z}/{x}/{y}"

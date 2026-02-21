@@ -1,4 +1,4 @@
-use std::string::ToString;
+use std::string::ToString as _;
 
 use actix_middleware_etag::Etag;
 use actix_web::error::ErrorNotFound;
