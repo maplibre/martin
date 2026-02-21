@@ -33,7 +33,6 @@ pub struct Image {
 }
 
 impl Image {
-    #[allow(clippy::too_many_arguments)]
     pub fn new(
         ifd_index: usize,
         zoom_level: u8,

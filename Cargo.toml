@@ -17,6 +17,7 @@ unused_qualifications = "warn"
 
 [workspace.lints.clippy]
 # Restrictions
+as_underscore = "warn"
 panic = "warn"
 panic_in_result_fn = "warn"
 todo = "warn"

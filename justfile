@@ -364,8 +364,7 @@ start:  (docker-up 'db') docker-is-ready
 start-legacy:  (docker-up 'db-legacy') docker-is-ready
 
 # Start test server for testing HTTP pmtiles
-start-pmtiles-server:
-    docker compose up -d fileserver
+start-pmtiles-server:  (docker-up 'fileserver') fileserver-is-ready
 
 # Start an ssl-enabled test database
 start-ssl:  (docker-up 'db-ssl') docker-is-ready
@@ -410,7 +409,7 @@ test-frontend:
     npm run test
 
 # Run integration tests
-test-int: clean-test install-sqlx
+test-int: clean-test install-sqlx start-pmtiles-server
     #!/usr/bin/env bash
     set -euo pipefail
     tests/test.sh
@@ -606,6 +605,24 @@ clean-test:
 [private]
 docker-is-ready:
     docker compose run -T --rm db-is-ready
+
+# Wait for the fileserver to be ready
+[private]
+fileserver-is-ready:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    FILESERVER_URL="${STATICS_URL:-http://localhost:5412}"
+    echo "Waiting for fileserver to be ready at ${FILESERVER_URL}..."
+    for i in {1..30}; do
+        if curl --silent --fail --head --connect-timeout 2 --max-time 5 "${FILESERVER_URL}/webp2.pmtiles" >/dev/null 2>&1; then
+            echo "Fileserver is ready!"
+            exit 0
+        fi
+        echo "Waiting for fileserver... (attempt $i/30)"
+        sleep 1
+    done
+    echo "Fileserver did not start in time"
+    exit 1
 
 # Start a specific test database, e.g. db or db-legacy
 [private]

@@ -36,7 +36,7 @@ pub struct CogSource {
 
 impl CogSource {
     /// Creates a new COG tile source from a file path.
-    #[allow(clippy::too_many_lines)]
+    #[expect(clippy::too_many_lines)]
     pub fn new(id: String, path: PathBuf) -> Result<Self, CogError> {
         let tif_file =
             File::open(&path).map_err(|e: std::io::Error| CogError::IoError(e, path.clone()))?;
@@ -381,13 +381,13 @@ fn get_tiles_origin(tile_size: u32, resolution: f64, origin: [f64; 2]) -> Option
     let xf = ((origin[0] + (EARTH_CIRCUMFERENCE / 2.0)) / tile_size_mercator_metres).floor();
     let yf = (((EARTH_CIRCUMFERENCE / 2.0) - origin[1]) / tile_size_mercator_metres).floor();
     let tile_origin_x = if xf.is_finite() && xf >= 0.0 && xf <= f64::from(u32::MAX) {
-        #[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
+        #[expect(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
         Some(xf as u32)
     } else {
         None
     }?;
     let tile_origin_y = if yf.is_finite() && yf >= 0.0 && yf <= f64::from(u32::MAX) {
-        #[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
+        #[expect(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
         Some(yf as u32)
     } else {
         None

@@ -279,7 +279,10 @@ impl BinDiffer<DifferBefore, DifferAfter> for BinDiffDiffer {
     }
 
     async fn insert(&self, value: DifferAfter, conn: &mut SqliteConnection) -> MbtResult<()> {
-        #[expect(clippy::cast_possible_wrap)]
+        #[expect(
+            clippy::cast_possible_wrap,
+            reason = "the hash wrapping does not change the invariants and sqlite does not support u64"
+        )]
         query(self.insert_sql.as_str())
             .bind(value.coord.z)
             .bind(value.coord.x)
