@@ -1,8 +1,6 @@
+use geo::{Simplify, Validation};
 use geojson::{Geometry, Value};
-use geos::Geom;
-use geozero::{ToGeo, error::GeozeroError, geos::GeosWriter};
-
-use crate::tiles::geojson::process::process_geojson_geom_n;
+use geozero::error::GeozeroError;
 
 pub(crate) fn line_string_from_path(path: Vec<[f64; 2]>) -> Vec<Vec<f64>> {
     path.into_iter()
@@ -71,32 +69,35 @@ pub(crate) fn multi_polygon_to_shape_paths(
         .collect::<Vec<_>>()
 }
 
-pub(crate) fn geojson_to_geos_writer(
-    geom: &Geometry,
-    idx: usize,
-) -> Result<GeosWriter, GeozeroError> {
-    let mut geos_writer = GeosWriter::new();
-    process_geojson_geom_n(geom, idx, &mut geos_writer)?;
-    Ok(geos_writer)
+fn simplify_geo(geom: geo_types::Geometry<f64>) -> geo_types::Geometry<f64> {
+    match geom {
+        point @ geo::Geometry::Point(_) => point,
+        points @ geo::Geometry::MultiPoint(_) => points,
+        geo::Geometry::LineString(linestring) => {
+            geo::Geometry::LineString(linestring.simplify(1e-9))
+        }
+        geo::Geometry::MultiLineString(multi_linestring) => {
+            geo::Geometry::MultiLineString(multi_linestring.simplify(1e-9))
+        }
+        geo::Geometry::Polygon(polygon) => geo::Geometry::Polygon(polygon.simplify(1e-9)),
+        geo::Geometry::MultiPolygon(multi_polygon) => {
+            geo::Geometry::MultiPolygon(multi_polygon.simplify(1e-9))
+        }
+        rest => rest,
+    }
 }
 
-pub(crate) fn geos_to_geojson(geos_geom: &geos::Geometry) -> Result<Value, GeozeroError> {
-    let geo_types_geom = geos_geom.to_geo()?;
-    Ok(Value::from(&geo_types_geom))
-}
-
-pub(crate) fn convert_validate_simplify_geom(
+pub(crate) fn convert_validate_simplify_geom_geo(
     mut geom: Geometry,
-    idx: usize,
+    _idx: usize,
 ) -> Result<Geometry, GeozeroError> {
-    // convert to GEOS geometry
-    let geos_writer = geojson_to_geos_writer(&geom, idx)?;
+    // convert to geo geometry
+    let geo_geom = geo_types::Geometry::<f64>::try_from(geom.value)?;
 
-    // validate and simplify geometry
-    if geos_writer.geometry().is_valid() {
-        let geos_geom_simplified = geos_writer.geometry().simplify(0.0)?;
-        let value = geos_to_geojson(&geos_geom_simplified)?;
-        geom.value = value;
+    // validate and simplify (remove duplicates) geometry
+    if geo_geom.is_valid() {
+        let geo_geom_simplified = simplify_geo(geo_geom);
+        geom.value = Value::from(&geo_geom_simplified);
         return Ok(geom);
     }
 

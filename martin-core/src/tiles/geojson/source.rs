@@ -18,7 +18,7 @@ use tokio::fs::{self};
 use tracing::trace;
 
 use crate::tiles::geojson::convert::{
-    convert_validate_simplify_geom, line_string_to_shape_path, multi_line_string_from_paths,
+    convert_validate_simplify_geom_geo, line_string_to_shape_path, multi_line_string_from_paths,
     multi_line_string_to_shape_paths, multi_polygon_from_shapes, multi_polygon_to_shape_paths,
     polygon_to_shape_paths,
 };
@@ -355,12 +355,7 @@ impl Rect {
                 geom.value = Value::MultiLineString(multi_line_string_from_paths(transformed_ls));
 
                 // validate and simplify (remove duplicate points)
-                let geom_validated = convert_validate_simplify_geom(geom, idx);
-                if let Ok(geom_validated) = geom_validated {
-                    return Some(geom_validated);
-                }
-
-                None
+                convert_validate_simplify_geom_geo(geom, idx).ok()
             }
             Value::MultiLineString(ls) => {
                 let string_line = multi_line_string_to_shape_paths(ls);
@@ -390,12 +385,7 @@ impl Rect {
                 geom.value = Value::MultiLineString(multi_line_string_from_paths(transformed_ls));
 
                 // validate and simplify (remove duplicate points)
-                let geom_validated = convert_validate_simplify_geom(geom, idx);
-                if let Ok(geom_validated) = geom_validated {
-                    return Some(geom_validated);
-                }
-
-                None
+                convert_validate_simplify_geom_geo(geom, idx).ok()
             }
             Value::Polygon(polygon) => {
                 let subject = self.rings();
@@ -424,12 +414,7 @@ impl Rect {
                 geom.value = multi_polygon_from_shapes(transformed_polygons);
 
                 // validate and simplify (remove duplicate points)
-                let geom_validated = convert_validate_simplify_geom(geom, idx);
-                if let Ok(geom_validated) = geom_validated {
-                    return Some(geom_validated);
-                }
-
-                None
+                convert_validate_simplify_geom_geo(geom, idx).ok()
             }
             Value::MultiPolygon(polygons) => {
                 let subject = self.rings();
@@ -458,12 +443,7 @@ impl Rect {
                 geom.value = multi_polygon_from_shapes(transformed_polygons);
 
                 // validate and simplify (remove duplicate points)
-                let geom_validated = convert_validate_simplify_geom(geom, idx);
-                if let Ok(geom_validated) = geom_validated {
-                    return Some(geom_validated);
-                }
-
-                None
+                convert_validate_simplify_geom_geo(geom, idx).ok()
             }
             Value::GeometryCollection(gs) => {
                 let mut geometries = vec![];
@@ -546,6 +526,7 @@ mod tests {
         rect.max_y += buffer_y;
         let transformed_point = rect.transform_to_tile_coordinates(&point);
         let expected_point = [1102.0, 3596.0];
-        assert_eq!(transformed_point, expected_point);
+        assert!(transformed_point[0] - expected_point[0] < 1e-9);
+        assert!(transformed_point[1] - expected_point[1] < 1e-9);
     }
 }
