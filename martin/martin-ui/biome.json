@@ -3,10 +3,10 @@
   "extends": "//",
   "files": {
     "includes": [
-      "*.{tsx,ts,mjs,json,jsonc,yaml,yml}",
-      "{__tests__,__mocks__,types,app,components,hooks,public,lib,src}/**/*.{tsx,ts,mjs,json,jsonc,yaml,yml}",
-      "!node_modules",
-      "!dist"
+      "martin/martin-ui/*.{tsx,ts,mjs,json,jsonc,yaml,yml}",
+      "martin/martin-ui/{__tests__,__mocks__,types,app,components,hooks,public,lib,src}/**/*.{tsx,ts,mjs,json,jsonc,yaml,yml}",
+      "!martin/martin-ui/node_modules",
+      "!martin/martin-ui/dist"
     ]
   },
   "linter": {
