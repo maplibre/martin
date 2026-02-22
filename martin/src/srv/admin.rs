@@ -1,10 +1,14 @@
 use actix_web::web::Data;
-use actix_web::{HttpResponse, Responder, middleware, route};
+use actix_web::{HttpResponse, Responder, middleware, post, route};
 use serde::{Deserialize, Serialize};
+use serde_json::json;
+use tracing::info;
 
 use crate::MartinResult;
 #[cfg(feature = "_catalog")]
 use crate::config::file::ServerState;
+#[cfg(feature = "_tiles")]
+use crate::source::TileSources;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Catalog {
@@ -41,6 +45,47 @@ impl Catalog {
 )]
 async fn get_catalog(catalog: Data<Catalog>) -> impl Responder {
     HttpResponse::Ok().json(catalog)
+}
+
+/// Refresh endpoint to re-discover tile sources.
+///
+/// Re-runs table/function discovery and updates the catalog
+/// without requiring a server restart.
+///
+/// # Current Implementation
+/// This endpoint provides the infrastructure for dynamic catalog updates.
+/// Currently returns the current catalog state. Full `PostgreSQL` re-discovery
+/// requires passing the database configuration and pool to this endpoint,
+/// which will be implemented in a follow-up PR.
+///
+/// The `TileSources` struct now includes `upsert_sources()` and `remove_sources()`
+/// methods that enable thread-safe catalog updates using the underlying `DashMap`.
+///
+/// # Security
+/// Should be restricted to localhost or internal networks only in production.
+#[cfg(feature = "_tiles")]
+#[post("/_/refresh", wrap = "middleware::Compress::default()")]
+async fn post_refresh(tiles: Data<TileSources>) -> impl Responder {
+    info!("Refresh endpoint called");
+
+    // TODO: Re-run PostgreSQL discovery when config/pool are available
+    // For now, return current state to prove endpoint works
+    // Example future implementation:
+    // let builder = PostgresAutoDiscoveryBuilder::new(&config, id_resolver).await?;
+    // let (new_sources, _, _) = builder.instantiate_tables().await?;
+    // let (added, updated) = tiles.upsert_sources(new_sources);
+
+    let source_count = tiles.source_names().len();
+    let sources = tiles.source_names();
+
+    info!("Refresh complete - {source_count} sources in catalog");
+
+    HttpResponse::Ok().json(json!({
+        "status": "ok",
+        "message": "Refresh endpoint is operational. Full PostgreSQL re-discovery will be added in a follow-up PR.",
+        "source_count": source_count,
+        "sources": sources,
+    }))
 }
 
 #[cfg(all(feature = "webui", not(docsrs)))]

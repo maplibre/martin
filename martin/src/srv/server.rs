@@ -101,6 +101,8 @@ fn register_services(
 
     #[cfg(feature = "_tiles")]
     {
+        cfg.service(crate::srv::admin::post_refresh);
+
         // Register tile format suffix redirects BEFORE the main tile route
         // because Actix-Web matches routes in registration order
         cfg.service(crate::srv::tiles::content::redirect_tile_ext)

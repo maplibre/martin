@@ -108,4 +108,44 @@ impl TileSources {
     pub fn benefits_from_concurrent_scraping(&self) -> bool {
         self.0.iter().any(|s| s.benefits_from_concurrent_scraping())
     }
+
+    /// Adds or updates multiple sources in the catalog.
+    ///
+    /// This is used by the refresh endpoint to dynamically update
+    /// the catalog without restarting the server. Sources are identified
+    /// by their ID and will be inserted or replaced if they already exist.
+    ///
+    /// Returns the number of sources that were added (new) and updated (existing).
+    #[must_use]
+    pub fn upsert_sources(&self, sources: Vec<BoxedSource>) -> (usize, usize) {
+        let mut added = 0;
+        let mut updated = 0;
+
+        for source in sources {
+            let id = source.get_id().to_string();
+            if self.0.contains_key(&id) {
+                updated += 1;
+            } else {
+                added += 1;
+            }
+            self.0.insert(id, source);
+        }
+
+        (added, updated)
+    }
+
+    /// Removes sources by ID.
+    ///
+    /// Useful for cleaning up stale sources after refresh.
+    /// Returns the number of sources that were actually removed.
+    #[must_use]
+    pub fn remove_sources(&self, ids: &[String]) -> usize {
+        let mut removed = 0;
+        for id in ids {
+            if self.0.remove(id).is_some() {
+                removed += 1;
+            }
+        }
+        removed
+    }
 }
