@@ -1,7 +1,11 @@
+#[cfg(feature = "_tiles")]
+use actix_web::post;
 use actix_web::web::Data;
-use actix_web::{HttpResponse, Responder, middleware, post, route};
+use actix_web::{HttpResponse, Responder, middleware, route};
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "_tiles")]
 use serde_json::json;
+#[cfg(feature = "_tiles")]
 use tracing::info;
 
 use crate::MartinResult;
