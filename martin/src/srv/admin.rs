@@ -53,8 +53,7 @@ impl Catalog {
 )]
 async fn get_catalog(
     catalog: Data<Catalog>,
-    #[cfg(feature = "_tiles")]
-    tiles: Data<TileSources>,
+    #[cfg(feature = "_tiles")] tiles: Data<TileSources>,
 ) -> impl Responder {
     // Build a fresh catalog from current sources to reflect any refresh updates
     #[cfg(feature = "_tiles")]
@@ -67,10 +66,10 @@ async fn get_catalog(
         #[cfg(feature = "styles")]
         styles: catalog.styles.clone(),
     };
-    
+
     #[cfg(not(feature = "_tiles"))]
     let fresh_catalog = catalog.as_ref();
-    
+
     HttpResponse::Ok().json(fresh_catalog)
 }
 
@@ -119,7 +118,9 @@ async fn post_reload(
                         total_updated += updated;
 
                         let current_count = tiles.source_names().len();
-                        info!("Discovered {added} new sources, updated {updated} existing sources, total now: {current_count}");
+                        info!(
+                            "Discovered {added} new sources, updated {updated} existing sources, total now: {current_count}"
+                        );
                     }
                     Err(e) => {
                         tracing::error!("Failed to instantiate tables: {e}");
@@ -143,9 +144,9 @@ async fn post_reload(
     let source_count = tiles.source_names().len();
     let sources = tiles.source_names();
 
-        info!(
-            "Reload complete - {total_added} added, {total_updated} updated, {source_count} total sources"
-        );
+    info!(
+        "Reload complete - {total_added} added, {total_updated} updated, {source_count} total sources"
+    );
 
     Ok(HttpResponse::Ok().json(json!({
         "status": "success",
