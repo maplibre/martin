@@ -68,6 +68,9 @@ pub struct ServerState {
 
     #[cfg(feature = "styles")]
     pub styles: martin_core::styles::StyleSources,
+
+    #[cfg(feature = "postgres")]
+    pub postgres_configs: OptOneMany<super::postgres::PostgresConfig>,
 }
 
 #[serde_with::skip_serializing_none]
@@ -274,6 +277,9 @@ impl Config {
 
             #[cfg(feature = "styles")]
             styles: self.styles.resolve()?,
+
+            #[cfg(feature = "postgres")]
+            postgres_configs: self.postgres.clone(),
         })
     }
 

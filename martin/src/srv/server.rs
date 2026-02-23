@@ -101,7 +101,7 @@ fn register_services(
 
     #[cfg(feature = "_tiles")]
     {
-        cfg.service(crate::srv::admin::post_refresh);
+        cfg.service(crate::srv::admin::post_reload);
 
         // Register tile format suffix redirects BEFORE the main tile route
         // because Actix-Web matches routes in registration order
@@ -209,6 +209,9 @@ pub fn new_server(
         let app = app
             .app_data(Data::new(state.tiles.clone()))
             .app_data(Data::new(state.tile_cache.clone()));
+
+        #[cfg(feature = "postgres")]
+        let app = app.app_data(Data::new(state.postgres_configs.clone()));
 
         #[cfg(feature = "sprites")]
         let app = app

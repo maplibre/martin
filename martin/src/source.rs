@@ -3,25 +3,28 @@ use dashmap::DashMap;
 use martin_core::tiles::catalog::TileCatalog;
 use martin_core::tiles::{BoxedSource, Source};
 use martin_tile_utils::TileInfo;
+use std::sync::Arc;
 use tracing::debug;
 
 /// Thread-safe registry of tile sources indexed by ID.
 ///
-/// Uses a [`DashMap`] for concurrent access without explicit locking.
+/// Uses a [`DashMap`] wrapped in [`Arc`] for concurrent access across threads.
+/// The [`Arc`] ensures all Actix-web worker threads share the same source registry,
+/// allowing dynamic updates (e.g., via reload endpoint) to be visible across all workers.
 #[derive(Default, Clone)]
-pub struct TileSources(DashMap<String, BoxedSource>);
+pub struct TileSources(Arc<DashMap<String, BoxedSource>>);
 
 impl TileSources {
     /// Creates a new registry from flattened source collections.
     #[must_use]
     pub fn new(sources: Vec<Vec<BoxedSource>>) -> Self {
-        Self(
+        Self(Arc::new(
             sources
                 .into_iter()
                 .flatten()
                 .map(|src| (src.get_id().to_string(), src))
                 .collect(),
-        )
+        ))
     }
 
     /// Returns a catalog of all sources with their metadata.
