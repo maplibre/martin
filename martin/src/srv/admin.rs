@@ -11,6 +11,10 @@ use tracing::info;
 use crate::MartinResult;
 #[cfg(feature = "_catalog")]
 use crate::config::file::ServerState;
+#[cfg(feature = "postgres")]
+use crate::config::file::postgres::{PostgresAutoDiscoveryBuilder, PostgresConfig};
+#[cfg(feature = "postgres")]
+use crate::config::primitives::{IdResolver, OptOneMany};
 #[cfg(feature = "_tiles")]
 use crate::source::TileSources;
 
@@ -47,46 +51,123 @@ impl Catalog {
     method = "HEAD",
     wrap = "middleware::Compress::default()"
 )]
-async fn get_catalog(catalog: Data<Catalog>) -> impl Responder {
-    HttpResponse::Ok().json(catalog)
+async fn get_catalog(
+    catalog: Data<Catalog>,
+    #[cfg(feature = "_tiles")]
+    tiles: Data<TileSources>,
+) -> impl Responder {
+    // Build a fresh catalog from current sources to reflect any refresh updates
+    #[cfg(feature = "_tiles")]
+    let fresh_catalog = Catalog {
+        tiles: tiles.get_catalog(),
+        #[cfg(feature = "sprites")]
+        sprites: catalog.sprites.clone(),
+        #[cfg(feature = "fonts")]
+        fonts: catalog.fonts.clone(),
+        #[cfg(feature = "styles")]
+        styles: catalog.styles.clone(),
+    };
+    
+    #[cfg(not(feature = "_tiles"))]
+    let fresh_catalog = catalog.as_ref();
+    
+    HttpResponse::Ok().json(fresh_catalog)
 }
 
-/// Refresh endpoint to re-discover tile sources.
+/// Reload endpoint to re-discover tile sources.
 ///
 /// Re-runs table/function discovery and updates the catalog
 /// without requiring a server restart.
 ///
-/// # Current Implementation
-/// This endpoint provides the infrastructure for dynamic catalog updates.
-/// Currently returns the current catalog state. Full `PostgreSQL` re-discovery
-/// requires passing the database configuration and pool to this endpoint,
-/// which will be implemented in a follow-up PR.
+/// # Implementation
+/// This endpoint re-discovers `PostgreSQL` tables and functions by:
+/// 1. Re-running the discovery process for each configured `PostgreSQL` connection
+/// 2. Updating the `Arc<DashMap>`-based catalog with newly discovered sources
+/// 3. Returning statistics about added and updated sources
 ///
-/// The `TileSources` struct now includes `upsert_sources()` and `remove_sources()`
-/// methods that enable thread-safe catalog updates using the underlying `DashMap`.
+/// The catalog is updated atomically using `DashMap`, ensuring thread-safety
+/// without explicit locking.
 ///
 /// # Security
 /// Should be restricted to localhost or internal networks only in production.
-#[cfg(feature = "_tiles")]
-#[post("/_/refresh", wrap = "middleware::Compress::default()")]
-async fn post_refresh(tiles: Data<TileSources>) -> impl Responder {
-    info!("Refresh endpoint called");
+#[cfg(all(feature = "_tiles", feature = "postgres"))]
+#[post("/_/reload", wrap = "middleware::Compress::default()")]
+async fn post_reload(
+    tiles: Data<TileSources>,
+    postgres_configs: Data<OptOneMany<PostgresConfig>>,
+) -> actix_web::Result<impl Responder> {
+    info!("Reload endpoint called - re-discovering PostgreSQL sources");
 
-    // TODO: Re-run PostgreSQL discovery when config/pool are available
-    // For now, return current state to prove endpoint works
-    // Example future implementation:
-    // let builder = PostgresAutoDiscoveryBuilder::new(&config, id_resolver).await?;
-    // let (new_sources, _, _) = builder.instantiate_tables().await?;
-    // let (added, updated) = tiles.upsert_sources(new_sources);
+    let mut total_added = 0;
+    let mut total_updated = 0;
+    let id_resolver = IdResolver::default();
+
+    // Re-discover sources for each PostgreSQL configuration
+    for config in postgres_configs.iter() {
+        match PostgresAutoDiscoveryBuilder::new(config, id_resolver.clone()).await {
+            Ok(builder) => {
+                match builder.instantiate_tables().await {
+                    Ok((new_sources, _, warnings)) => {
+                        // Log any warnings
+                        for warning in warnings {
+                            tracing::warn!("Discovery warning: {warning}");
+                        }
+
+                        // Update the catalog
+                        let (added, updated) = tiles.upsert_sources(new_sources);
+                        total_added += added;
+                        total_updated += updated;
+
+                        let current_count = tiles.source_names().len();
+                        info!("Discovered {added} new sources, updated {updated} existing sources, total now: {current_count}");
+                    }
+                    Err(e) => {
+                        tracing::error!("Failed to instantiate tables: {e}");
+                        return Ok(HttpResponse::InternalServerError().json(json!({
+                            "status": "error",
+                            "message": format!("Failed to discover tables: {e}"),
+                        })));
+                    }
+                }
+            }
+            Err(e) => {
+                tracing::error!("Failed to create PostgreSQL builder: {e}");
+                return Ok(HttpResponse::InternalServerError().json(json!({
+                    "status": "error",
+                    "message": format!("Failed to connect to PostgreSQL: {e}"),
+                })));
+            }
+        }
+    }
 
     let source_count = tiles.source_names().len();
     let sources = tiles.source_names();
 
-    info!("Refresh complete - {source_count} sources in catalog");
+        info!(
+            "Reload complete - {total_added} added, {total_updated} updated, {source_count} total sources"
+        );
+
+    Ok(HttpResponse::Ok().json(json!({
+        "status": "success",
+        "added": total_added,
+        "updated": total_updated,
+        "total_sources": source_count,
+        "sources": sources,
+    })))
+}
+
+// Stub endpoint when postgres feature is not enabled
+#[cfg(all(feature = "_tiles", not(feature = "postgres")))]
+#[post("/_/reload", wrap = "middleware::Compress::default()")]
+async fn post_reload(tiles: Data<TileSources>) -> impl Responder {
+    info!("Reload endpoint called (PostgreSQL feature not enabled)");
+
+    let source_count = tiles.source_names().len();
+    let sources = tiles.source_names();
 
     HttpResponse::Ok().json(json!({
         "status": "ok",
-        "message": "Refresh endpoint is operational. Full PostgreSQL re-discovery will be added in a follow-up PR.",
+        "message": "Reload endpoint requires PostgreSQL feature to be enabled",
         "source_count": source_count,
         "sources": sources,
     }))
