@@ -4,13 +4,14 @@ use std::fmt::{Debug, Formatter};
 use std::io;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::thread::sleep;
+use std::time::Duration;
 
 use async_trait::async_trait;
 use martin_tile_utils::{TileCoord, TileData, TileInfo};
 use mbtiles::sqlx::error::DatabaseError;
 use mbtiles::{MbtError, MbtilesPool};
 use tilejson::TileJSON;
-use tokio::time::{Duration, sleep};
 use tracing::{trace, warn};
 
 use crate::tiles::mbtiles::MbtilesError;
@@ -71,7 +72,7 @@ impl MbtSource {
                     warn!(
                         "Database file {path:?} locked (SQLITE_BUSY), likely monopolised by a connection in a seperate process. Retrying in {delay_sec:.2}s..."
                     );
-                    sleep(delay).await;
+                    sleep(delay);
                     attempt += 1;
                 }
 
