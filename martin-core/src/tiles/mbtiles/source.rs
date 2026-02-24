@@ -7,9 +7,11 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use martin_tile_utils::{TileCoord, TileData, TileInfo};
+use mbtiles::sqlx::error::DatabaseError;
 use mbtiles::{MbtError, MbtilesPool};
 use tilejson::TileJSON;
-use tracing::trace;
+use tokio::time::{Duration, sleep};
+use tracing::{trace, warn};
 
 use crate::tiles::mbtiles::MbtilesError;
 use crate::tiles::{BoxedSource, MartinCoreResult, Source, UrlQuery};
@@ -41,10 +43,43 @@ impl MbtSource {
             .map_err(|e| io::Error::other(format!("{e:?}: Cannot open file {}", path.display())))
             .map_err(|e| MbtilesError::IoError(e, path.clone()))?;
 
-        let meta = mbt
-            .get_metadata()
-            .await
-            .map_err(|e| MbtilesError::InvalidMetadata(e.to_string(), path.clone()))?;
+        let max_retries = 8;
+        let mut attempt = 0;
+
+        // Attempt to fetch metadata with exponential backoff (50ms to 6.4s delay)
+        // if the database is busy.
+        let meta = loop {
+            match mbt.get_metadata().await {
+                Ok(meta) => break meta,
+                // SQLITE_BUSY (code: 5)
+                // https://sqlite.org/rescode.html#busy
+                Err(MbtError::SqlxError(ref se))
+                    if se
+                        .as_database_error()
+                        .and_then(DatabaseError::code)
+                        .is_some_and(|code| code == "5") =>
+                {
+                    if attempt >= max_retries {
+                        return Err(MbtilesError::InvalidMetadata(
+                            format!("SQLite still busy after {max_retries} retries"),
+                            path.clone(),
+                        ));
+                    }
+
+                    let delay = Duration::from_millis(50 * (1 << attempt));
+                    let delay_sec = delay.as_secs_f64();
+                    warn!(
+                        "Database file {path:?} locked (SQLITE_BUSY), likely monopolised by a connection in a seperate process. Retrying in {delay_sec:.2}s..."
+                    );
+                    sleep(delay).await;
+                    attempt += 1;
+                }
+
+                Err(err) => {
+                    return Err(MbtilesError::InvalidMetadata(err.to_string(), path.clone()));
+                }
+            }
+        };
 
         // Empty mbtiles should cause an error
         let tile_info = mbt
