@@ -314,7 +314,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_metadata_invalid() {
-        let script = include_str!("../../tests/fixtures/mbtiles/webp.sql");
+        let script = include_str!("../../tests/fixtures/mbtiles/webp-no-primary.sql");
         let (_mbt, _conn, file) = temp_named_mbtiles("test_metadata_invalid", script).await;
 
         let pool = MbtilesPool::open_readonly(file).await.unwrap();
@@ -350,7 +350,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_contains_invalid() {
-        let script = include_str!("../../tests/fixtures/mbtiles/webp.sql");
+        let script = include_str!("../../tests/fixtures/mbtiles/webp-no-primary.sql");
         let (_mbt, _conn, file) = temp_named_mbtiles("test_contains_invalid", script).await;
 
         let pool = MbtilesPool::open_readonly(file).await.unwrap();
@@ -368,7 +368,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_invalid_type() {
-        let script = include_str!("../../tests/fixtures/mbtiles/webp.sql");
+        let script = include_str!("../../tests/fixtures/mbtiles/webp-no-primary.sql");
         let (_mbt, _conn, file) = temp_named_mbtiles("test_invalid_type", script).await;
 
         let pool = MbtilesPool::open_readonly(file).await.unwrap();
