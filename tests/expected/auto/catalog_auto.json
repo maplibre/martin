@@ -227,7 +227,7 @@
       "content_type": "application/x-protobuf",
       "description": "schema_b.view_name_existing_two_schemas.b_geom"
     },
-    "webp": {
+    "webp-no-primary": {
       "content_type": "image/webp",
       "name": "ne2sr"
     },
