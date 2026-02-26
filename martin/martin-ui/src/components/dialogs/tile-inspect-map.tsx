@@ -62,11 +62,18 @@ export function TileInspectDialogMap({ name, source }: TileInspectDialogMapProps
     }
     const map = mapRef.current.getMap();
     const tileJson: TileJson = tileJsonOperation.data;
-    //Error when first value set to -180. it gets resolved on setting to -179 or lower. Other values work fine.
-    map.setMaxBounds([
-      [tileJson.bounds[0] === -180 ? -179 : tileJson.bounds[0], tileJson.bounds[1]],
-      [tileJson.bounds[2], tileJson.bounds[3]],
-    ]);
+    if (tileJson.bounds) {
+      const [west, south, east, north] = tileJson.bounds;
+      const isWorld =
+        west <= -179 &&
+        east >= 179;
+      if (!isWorld) {
+          map.setMaxBounds([
+            [west, south],
+            [east, north],
+          ]);
+      }
+    }
     if (tileJson.minzoom) {
       map.setMinZoom(tileJson.minzoom);
       map.setZoom(tileJson.minzoom);
