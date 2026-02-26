@@ -64,14 +64,12 @@ export function TileInspectDialogMap({ name, source }: TileInspectDialogMapProps
     const tileJson: TileJson = tileJsonOperation.data;
     if (tileJson.bounds) {
       const [west, south, east, north] = tileJson.bounds;
-      const isWorld =
-        west <= -179 &&
-        east >= 179;
+      const isWorld = west <= -179 && east >= 179;
       if (!isWorld) {
-          map.setMaxBounds([
-            [west, south],
-            [east, north],
-          ]);
+        map.setMaxBounds([
+          [west, south],
+          [east, north],
+        ]);
       }
     }
     if (tileJson.minzoom) {
