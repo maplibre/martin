@@ -47,11 +47,12 @@ export function TileInspectDialogMap({ name, source }: TileInspectDialogMapProps
     source.content_type,
   );
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: if we list tileJson below, this is an infinte loop
   useEffect(() => {
     tileJsonOperation.execute();
   }, []);
 
-  const configureMap = () => {
+  const configureMap = useCallback(() => {
     if (!tileJsonOperation.data) {
       return;
     }
@@ -63,7 +64,7 @@ export function TileInspectDialogMap({ name, source }: TileInspectDialogMapProps
     const tileJson: TileJson = tileJsonOperation.data;
     //Error when first value set to -180. it gets resolved on setting to -179 or lower. Other values work fine.
     map.setMaxBounds([
-      [tileJson.bounds[0] == -180 ? -179 : tileJson.bounds[0], tileJson.bounds[1]],
+      [tileJson.bounds[0] === -180 ? -179 : tileJson.bounds[0], tileJson.bounds[1]],
       [tileJson.bounds[2], tileJson.bounds[3]],
     ]);
     if (tileJson.minzoom) {
@@ -76,7 +77,7 @@ export function TileInspectDialogMap({ name, source }: TileInspectDialogMapProps
     if (tileJson.center) {
       map.setCenter([tileJson.center[0], tileJson.center[1]]);
     }
-  };
+  }, [tileJsonOperation.data]);
 
   const addInspectorToMap = useCallback(() => {
     if (!mapRef.current) {
@@ -106,7 +107,7 @@ export function TileInspectDialogMap({ name, source }: TileInspectDialogMapProps
     map.addControl(inspectControlRef.current);
 
     configureMap();
-  }, [name]);
+  }, [name, configureMap]);
 
   return (
     <ErrorBoundary
