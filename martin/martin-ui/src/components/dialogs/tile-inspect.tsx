@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useId, useRef } from 'react';
+import { Suspense } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -10,12 +10,9 @@ import {
 } from '@/components/ui/dialog';
 import type { TileSource } from '@/lib/types';
 import '@maplibre/maplibre-gl-inspect/dist/maplibre-gl-inspect.css';
-import MaplibreInspect from '@maplibre/maplibre-gl-inspect';
-import type { MapRef } from '@vis.gl/react-maplibre';
-import { Layer, Map as MapLibreMap, Source } from '@vis.gl/react-maplibre';
 import { Database } from 'lucide-react';
-import { Popup } from 'maplibre-gl';
-import { buildMartinUrl } from '@/lib/api';
+import { TileInspectDialogMap } from './tile-inspect-map';
+import { LoadingSpinner } from '../loading/loading-spinner';
 
 interface TileInspectDialogProps {
   name: string;
@@ -23,41 +20,16 @@ interface TileInspectDialogProps {
   onCloseAction: () => void;
 }
 
+function TileMapLoading() {
+  return (
+    <div className='flex justify-center items-center text-white text-3xl w-full h-125'>
+      <LoadingSpinner/>
+    </div>
+  )
+}
+
 export function TileInspectDialog({ name, source, onCloseAction }: TileInspectDialogProps) {
-  const id = useId();
-  const mapRef = useRef<MapRef>(null);
-  const inspectControlRef = useRef<MaplibreInspect>(null);
 
-  const addInspectorToMap = useCallback(() => {
-    if (!mapRef.current) {
-      console.error('Map not found despite being initialized, this cannot happen');
-      return;
-    }
-    const map = mapRef.current.getMap();
-
-    map.addSource(name, { type: 'vector', url: buildMartinUrl(`/${name}`) });
-    // Import and add the inspect control
-    if (inspectControlRef.current) {
-      map.removeControl(inspectControlRef.current);
-    }
-
-    inspectControlRef.current = new MaplibreInspect({
-      popup: new Popup({
-        closeButton: false,
-        closeOnClick: false,
-      }),
-      showInspectButton: false,
-      showInspectMap: true,
-      showInspectMapPopup: true,
-      showInspectMapPopupOnHover: true,
-      showMapPopup: true,
-    });
-
-    map.addControl(inspectControlRef.current);
-  }, [name]);
-  const isImageSource = ['image/gif', 'image/jpeg', 'image/png', 'image/webp'].includes(
-    source.content_type,
-  );
   return (
     <Dialog onOpenChange={(v) => !v && onCloseAction()} open={true}>
       <DialogContent className="max-w-6xl w-full p-6 max-h-[90vh] overflow-auto">
@@ -74,29 +46,9 @@ export function TileInspectDialog({ name, source, onCloseAction }: TileInspectDi
 
         <div className="space-y-4">
           <section className="border rounded-lg overflow-hidden">
-            {isImageSource ? (
-              <MapLibreMap
-                ref={mapRef}
-                reuseMaps={false}
-                style={{
-                  height: '500px',
-                  width: '100%',
-                }}
-              >
-                <Source id={`${id}tile-source`} type="raster" url={buildMartinUrl(`/${name}`)} />
-                <Layer id={`${id}tile-layer`} source={`${id}tile-source`} type="raster" />
-              </MapLibreMap>
-            ) : (
-              <MapLibreMap
-                onLoad={addInspectorToMap}
-                ref={mapRef}
-                reuseMaps={false}
-                style={{
-                  height: '500px',
-                  width: '100%',
-                }}
-              ></MapLibreMap>
-            )}
+            <Suspense fallback={<TileMapLoading/>}>
+              <TileInspectDialogMap name={name} source={source}/>
+            </Suspense>
           </section>
           {/* Source Information */}
           <section className="bg-muted/30 p-4 rounded-lg">
