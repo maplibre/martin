@@ -1,16 +1,16 @@
-"use client";
+'use client';
 
-import { type ErrorInfo, useCallback, useId, useRef, useEffect } from "react";
-import { useAsyncOperation } from "@/hooks/use-async-operation";
-import { Layer, Map as MapLibreMap, Source } from "@vis.gl/react-maplibre";
-import { buildMartinUrl } from "@/lib/api";
-import type { MapRef } from "@vis.gl/react-maplibre";
-import MaplibreInspect from "@maplibre/maplibre-gl-inspect";
-import { Popup } from "maplibre-gl";
-import { TileSource } from "@/lib/types";
-import { ErrorBoundary } from "../error/error-boundary";
-import { Toaster } from "@/components/ui/toaster";
-import { useToast } from "@/hooks/use-toast";
+import MaplibreInspect from '@maplibre/maplibre-gl-inspect';
+import type { MapRef } from '@vis.gl/react-maplibre';
+import { Layer, Map as MapLibreMap, Source } from '@vis.gl/react-maplibre';
+import { Popup } from 'maplibre-gl';
+import { type ErrorInfo, useCallback, useEffect, useId, useRef } from 'react';
+import { Toaster } from '@/components/ui/toaster';
+import { useAsyncOperation } from '@/hooks/use-async-operation';
+import { useToast } from '@/hooks/use-toast';
+import { buildMartinUrl } from '@/lib/api';
+import type { TileSource } from '@/lib/types';
+import { ErrorBoundary } from '../error/error-boundary';
 
 interface TileInspectDialogMapProps {
   name: string;
@@ -32,29 +32,20 @@ const fetchTileJson = async (endpoint: string): Promise<TileJson> => {
   return response.json();
 };
 
-export function TileInspectDialogMap({
-  name,
-  source,
-}: TileInspectDialogMapProps) {
+export function TileInspectDialogMap({ name, source }: TileInspectDialogMapProps) {
   const { toast } = useToast();
   const id = useId();
   const mapRef = useRef<MapRef>(null);
   const inspectControlRef = useRef<MaplibreInspect>(null);
 
-  const tileJsonOperation = useAsyncOperation<TileJson>(
-    () => fetchTileJson(name),
-    {
-      onError: (error: Error) => console.error("TileJson Fetch Failed:", error),
-      showErrorToast: false,
-    },
-  );
+  const tileJsonOperation = useAsyncOperation<TileJson>(() => fetchTileJson(name), {
+    onError: (error: Error) => console.error('TileJson Fetch Failed:', error),
+    showErrorToast: false,
+  });
 
-  const isImageSource = [
-    "image/gif",
-    "image/jpeg",
-    "image/png",
-    "image/webp",
-  ].includes(source.content_type);
+  const isImageSource = ['image/gif', 'image/jpeg', 'image/png', 'image/webp'].includes(
+    source.content_type,
+  );
 
   useEffect(() => {
     tileJsonOperation.execute();
@@ -65,19 +56,14 @@ export function TileInspectDialogMap({
       return;
     }
     if (!mapRef.current) {
-      console.error(
-        "Map not found despite being initialized, this cannot happen",
-      );
+      console.error('Map not found despite being initialized, this cannot happen');
       return;
     }
     const map = mapRef.current.getMap();
     const tileJson: TileJson = tileJsonOperation.data;
     //Error when first value set to -180. it gets resolved on setting to -179 or lower. Other values work fine.
     map.setMaxBounds([
-      [
-        tileJson.bounds[0] == -180 ? -179 : tileJson.bounds[0],
-        tileJson.bounds[1],
-      ],
+      [tileJson.bounds[0] == -180 ? -179 : tileJson.bounds[0], tileJson.bounds[1]],
       [tileJson.bounds[2], tileJson.bounds[3]],
     ]);
     if (tileJson.minzoom) {
@@ -94,14 +80,12 @@ export function TileInspectDialogMap({
 
   const addInspectorToMap = useCallback(() => {
     if (!mapRef.current) {
-      console.error(
-        "Map not found despite being initialized, this cannot happen",
-      );
+      console.error('Map not found despite being initialized, this cannot happen');
       return;
     }
     const map = mapRef.current.getMap();
 
-    map.addSource(name, { type: "vector", url: buildMartinUrl(`/${name}`) });
+    map.addSource(name, { type: 'vector', url: buildMartinUrl(`/${name}`) });
     // Import and add the inspect control
     if (inspectControlRef.current) {
       map.removeControl(inspectControlRef.current);
@@ -127,12 +111,11 @@ export function TileInspectDialogMap({
   return (
     <ErrorBoundary
       onError={(error: Error, errorInfo: ErrorInfo) => {
-        console.error("Application error:", error, errorInfo);
+        console.error('Application error:', error, errorInfo);
         toast({
-          description:
-            "An unexpected error occurred. The page will reload automatically.",
-          title: "Application Error",
-          variant: "destructive",
+          description: 'An unexpected error occurred. The page will reload automatically.',
+          title: 'Application Error',
+          variant: 'destructive',
         });
 
         // Auto-reload after 3 seconds
@@ -147,20 +130,12 @@ export function TileInspectDialogMap({
           ref={mapRef}
           reuseMaps={false}
           style={{
-            height: "500px",
-            width: "100%",
+            height: '500px',
+            width: '100%',
           }}
         >
-          <Source
-            id={`${id}tile-source`}
-            type="raster"
-            url={buildMartinUrl(`/${name}`)}
-          />
-          <Layer
-            id={`${id}tile-layer`}
-            source={`${id}tile-source`}
-            type="raster"
-          />
+          <Source id={`${id}tile-source`} type="raster" url={buildMartinUrl(`/${name}`)} />
+          <Layer id={`${id}tile-layer`} source={`${id}tile-source`} type="raster" />
         </MapLibreMap>
       ) : (
         <MapLibreMap
@@ -168,8 +143,8 @@ export function TileInspectDialogMap({
           ref={mapRef}
           reuseMaps={false}
           style={{
-            height: "500px",
-            width: "100%",
+            height: '500px',
+            width: '100%',
           }}
         ></MapLibreMap>
       )}

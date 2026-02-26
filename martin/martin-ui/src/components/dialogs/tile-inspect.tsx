@@ -11,8 +11,8 @@ import {
 import type { TileSource } from '@/lib/types';
 import '@maplibre/maplibre-gl-inspect/dist/maplibre-gl-inspect.css';
 import { Database } from 'lucide-react';
-import { TileInspectDialogMap } from './tile-inspect-map';
 import { LoadingSpinner } from '../loading/loading-spinner';
+import { TileInspectDialogMap } from './tile-inspect-map';
 
 interface TileInspectDialogProps {
   name: string;
@@ -22,14 +22,13 @@ interface TileInspectDialogProps {
 
 function TileMapLoading() {
   return (
-    <div className='flex justify-center items-center text-white text-3xl w-full h-125'>
-      <LoadingSpinner/>
+    <div className="flex justify-center items-center text-white text-3xl w-full h-125">
+      <LoadingSpinner />
     </div>
-  )
+  );
 }
 
 export function TileInspectDialog({ name, source, onCloseAction }: TileInspectDialogProps) {
-
   return (
     <Dialog onOpenChange={(v) => !v && onCloseAction()} open={true}>
       <DialogContent className="max-w-6xl w-full p-6 max-h-[90vh] overflow-auto">
@@ -46,8 +45,8 @@ export function TileInspectDialog({ name, source, onCloseAction }: TileInspectDi
 
         <div className="space-y-4">
           <section className="border rounded-lg overflow-hidden">
-            <Suspense fallback={<TileMapLoading/>}>
-              <TileInspectDialogMap name={name} source={source}/>
+            <Suspense fallback={<TileMapLoading />}>
+              <TileInspectDialogMap name={name} source={source} />
             </Suspense>
           </section>
           {/* Source Information */}
