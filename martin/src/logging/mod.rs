@@ -10,7 +10,7 @@ use tracing::Level;
 use tracing::level_filters::LevelFilter;
 use tracing_subscriber::EnvFilter;
 use tracing_subscriber::fmt::format::FmtSpan;
-use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::layer::SubscriberExt as _;
 
 pub mod progress;
 

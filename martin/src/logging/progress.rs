@@ -63,7 +63,7 @@ impl MaybeInteractiveProgressBar {
         }
     }
     fn is_interactive() -> bool {
-        use std::io::IsTerminal;
+        use std::io::IsTerminal as _;
         std::io::stdout().is_terminal() && std::io::stderr().is_terminal()
     }
     fn increment(&self, amount: u64) {
