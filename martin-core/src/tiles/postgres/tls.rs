@@ -2,11 +2,10 @@ use std::fs::File;
 use std::io;
 use std::io::BufReader;
 use std::path::PathBuf;
-use std::str::FromStr;
+use std::str::FromStr as _;
 
 use deadpool_postgres::tokio_postgres::Config;
 use deadpool_postgres::tokio_postgres::config::SslMode;
-use log::{info, warn};
 use regex::Regex;
 use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
 use rustls::crypto::aws_lc_rs::default_provider;
@@ -16,6 +15,7 @@ use rustls::{DigitallySignedStruct, Error, SignatureScheme};
 use rustls_native_certs::load_native_certs;
 use rustls_pemfile::Item::Pkcs1Key;
 use tokio_postgres_rustls::MakeRustlsConnect;
+use tracing::{info, warn};
 
 use crate::tiles::postgres::PostgresError::{
     BadConnectionString, CannotLoadRoots, CannotOpenCert, CannotParseCert, CannotUseClientKey,

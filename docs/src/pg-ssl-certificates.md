@@ -210,7 +210,7 @@ export PGSSLROOTCERT=./ca-cert.pem
 psql -h localhost -U postgres -d postgres -v
 
 # Debug Martin
-RUST_LOG=debug martin postgres://...
+RUST_LOG=debug RUST_LOG_FORMAT=pretty martin postgres://...
 ```
 
 These are the errors that can occur:

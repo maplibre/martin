@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use std::fmt::Write as _;
 use std::sync::{Arc, Mutex};
 
-use log::warn;
+use tracing::warn;
 
 /// Resolver for transforming names into unique, non-reserved names
 #[derive(Debug, Default, Clone)]
@@ -34,7 +34,7 @@ impl IdResolver {
     ///
     /// ```
     /// let reserved = &["catalog"];
-    /// let r = martin_core::config::IdResolver::new(reserved);
+    /// let r = martin::config::primitives::IdResolver::new(reserved);
     ///
     /// // catalog is a reserved name => needs renaming
     /// assert_eq!(r.resolve("catalog", "catalog1".to_string()), "catalog.1");

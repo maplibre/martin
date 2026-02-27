@@ -2,7 +2,6 @@
 
 use actix_web::http::header::{ACCEPT_ENCODING, CONTENT_ENCODING, CONTENT_TYPE};
 use actix_web::test::{TestRequest, call_service, read_body, read_body_json};
-use ctor::ctor;
 use indoc::formatdoc;
 use insta::assert_yaml_snapshot;
 use martin::config::file::srv::SrvConfig;
@@ -13,11 +12,6 @@ use tilejson::TileJSON;
 
 pub mod utils;
 pub use utils::*;
-
-#[ctor]
-fn init() {
-    let _ = env_logger::builder().is_test(true).try_init();
-}
 
 macro_rules! create_app {
     ($sources:expr) => {{
@@ -42,11 +36,13 @@ fn test_get(path: &str) -> TestRequest {
     TestRequest::get().uri(path)
 }
 
+#[expect(clippy::similar_names)]
 async fn config(
     test_name: &str,
 ) -> (
     String,
     (
+        (Mbtiles, SqliteConnection),
         (Mbtiles, SqliteConnection),
         (Mbtiles, SqliteConnection),
         (Mbtiles, SqliteConnection),
@@ -62,7 +58,10 @@ async fn config(
     let raw_mvt_script = include_str!("../../tests/fixtures/mbtiles/uncompressed_mvt.sql");
     let (raw_mvt_mbt, raw_mvt_conn, raw_mvt_file) =
         temp_named_mbtiles(&format!("{test_name}_raw_mvt"), raw_mvt_script).await;
-    let webp_script = include_str!("../../tests/fixtures/mbtiles/webp.sql");
+    let raw_mlt_script = include_str!("../../tests/fixtures/mbtiles/mlt.sql");
+    let (raw_mlt_mbt, raw_mlt_conn, raw_mlt_file) =
+        temp_named_mbtiles(&format!("{test_name}_raw_mlt"), raw_mlt_script).await;
+    let webp_script = include_str!("../../tests/fixtures/mbtiles/webp-no-primary.sql");
     let (webp_mbt, webp_conn, webp_file) =
         temp_named_mbtiles(&format!("{test_name}_webp"), webp_script).await;
 
@@ -73,23 +72,27 @@ async fn config(
             m_json: {json}
             m_mvt: {mvt}
             m_raw_mvt: {raw_mvt}
+            m_raw_mlt: {raw_mlt}
             m_webp: {webp}
     ",
         json = json_file.display(),
         mvt = mvt_file.display(),
         raw_mvt = raw_mvt_file.display(),
+        raw_mlt = raw_mlt_file.display(),
         webp = webp_file.display()
         },
         (
             (json_mbt, json_conn),
             (mvt_mbt, mvt_conn),
             (raw_mvt_mbt, raw_mvt_conn),
+            (raw_mlt_mbt, raw_mlt_conn),
             (webp_mbt, webp_conn),
         ),
     )
 }
 
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn mbt_get_catalog() {
     let (config, _conns) = config("mbt_get_catalog").await;
     let app = create_app!(&config);
@@ -97,7 +100,7 @@ async fn mbt_get_catalog() {
     let response = call_service(&app, req).await;
     let response = assert_response(response).await;
     let body: serde_json::Value = read_body_json(response).await;
-    assert_yaml_snapshot!(body, @r"
+    assert_yaml_snapshot!(body, @r#"
     fonts: {}
     sprites: {}
     styles: {}
@@ -110,6 +113,11 @@ async fn mbt_get_catalog() {
         content_type: application/x-protobuf
         description: Major cities from Natural Earth data
         name: Major cities from Natural Earth data
+      m_raw_mlt:
+        attribution: "<a href=\"https://www.openmaptiles.org/\" target=\"_blank\">&copy; OpenMapTiles</a> <a href=\"https://www.openstreetmap.org/copyright\" target=\"_blank\">&copy; OpenStreetMap contributors</a>"
+        content_type: application/vnd.maplibre-vector-tile
+        description: "A tileset showcasing all layers in OpenMapTiles. https://openmaptiles.org"
+        name: OpenMapTiles
       m_raw_mvt:
         content_type: application/x-protobuf
         description: Major cities from Natural Earth data
@@ -117,10 +125,11 @@ async fn mbt_get_catalog() {
       m_webp:
         content_type: image/webp
         name: ne2sr
-    ");
+    "#);
 }
 
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn mbt_get_catalog_gzip() {
     let (config, _conns) = config("mbt_get_catalog_gzip").await;
     let app = create_app!(&config);
@@ -130,7 +139,7 @@ async fn mbt_get_catalog_gzip() {
     let response = assert_response(response).await;
     let body = decode_gzip(&read_body(response).await).unwrap();
     let body: serde_json::Value = serde_json::from_slice(&body).unwrap();
-    assert_yaml_snapshot!(body, @r"
+    assert_yaml_snapshot!(body, @r#"
     fonts: {}
     sprites: {}
     styles: {}
@@ -143,6 +152,11 @@ async fn mbt_get_catalog_gzip() {
         content_type: application/x-protobuf
         description: Major cities from Natural Earth data
         name: Major cities from Natural Earth data
+      m_raw_mlt:
+        attribution: "<a href=\"https://www.openmaptiles.org/\" target=\"_blank\">&copy; OpenMapTiles</a> <a href=\"https://www.openstreetmap.org/copyright\" target=\"_blank\">&copy; OpenStreetMap contributors</a>"
+        content_type: application/vnd.maplibre-vector-tile
+        description: "A tileset showcasing all layers in OpenMapTiles. https://openmaptiles.org"
+        name: OpenMapTiles
       m_raw_mvt:
         content_type: application/x-protobuf
         description: Major cities from Natural Earth data
@@ -150,10 +164,11 @@ async fn mbt_get_catalog_gzip() {
       m_webp:
         content_type: image/webp
         name: ne2sr
-    ");
+    "#);
 }
 
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn mbt_get_tilejson() {
     let (config, _conns) = config("mbt_get_tilejson").await;
     let app = create_app!(&config);
@@ -168,6 +183,7 @@ async fn mbt_get_tilejson() {
 }
 
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn mbt_get_tilejson_gzip() {
     let (config, _conns) = config("mbt_get_tilejson_gzip").await;
     let app = create_app!(&config);
@@ -184,6 +200,7 @@ async fn mbt_get_tilejson_gzip() {
 }
 
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn mbt_get_raster() {
     let (config, _conns) = config("mbt_get_raster").await;
     let app = create_app!(&config);
@@ -198,6 +215,7 @@ async fn mbt_get_raster() {
 
 /// get a raster tile with accepted gzip enc, but should still be non-gzipped
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn mbt_get_raster_gzip() {
     let (config, _conns) = config("mbt_get_raster_gzip").await;
     let app = create_app!(&config);
@@ -212,6 +230,7 @@ async fn mbt_get_raster_gzip() {
 }
 
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn mbt_get_mvt() {
     let (config, _conns) = config("mbt_get_mvt").await;
     let app = create_app!(&config);
@@ -232,6 +251,7 @@ async fn mbt_get_mvt() {
 
 /// get an MVT tile with accepted gzip enc
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn mbt_get_mvt_gzip() {
     let (config, _conns) = config("mbt_get_mvt_gzip").await;
     let app = create_app!(&config);
@@ -252,6 +272,7 @@ async fn mbt_get_mvt_gzip() {
 
 /// get an MVT tile with accepted brotli enc
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn mbt_get_mvt_brotli() {
     let (config, _conns) = config("mbt_get_mvt_brotli").await;
     let app = create_app!(&config);
@@ -272,6 +293,7 @@ async fn mbt_get_mvt_brotli() {
 
 /// get an uncompressed MVT tile
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn mbt_get_raw_mvt() {
     let (config, _conns) = config("mbt_get_raw_mvt").await;
     let app = create_app!(&config);
@@ -287,8 +309,27 @@ async fn mbt_get_raw_mvt() {
     assert_eq!(body.len(), 2);
 }
 
+/// get an uncompressed MLT tile
+#[actix_rt::test]
+#[tracing_test::traced_test]
+async fn mbt_get_raw_mlt() {
+    let (config, _conns) = config("mbt_get_raw_mlt").await;
+    let app = create_app!(&config);
+    let req = test_get("/m_raw_mlt/0/0/0").to_request();
+    let response = call_service(&app, req).await;
+    let response = assert_response(response).await;
+    assert_eq!(
+        response.headers().get(CONTENT_TYPE).unwrap(),
+        "application/vnd.maplibre-vector-tile"
+    );
+    assert_eq!(response.headers().get(CONTENT_ENCODING), None);
+    let body = read_body(response).await;
+    assert_eq!(body.iter().as_slice(), &[0x02, 0x01]);
+}
+
 /// get an uncompressed MVT tile with accepted gzip
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn mbt_get_raw_mvt_gzip() {
     let (config, _conns) = config("mbt_get_raw_mvt_gzip").await;
     let app = create_app!(&config);
@@ -311,6 +352,7 @@ async fn mbt_get_raw_mvt_gzip() {
 
 /// get an uncompressed MVT tile with accepted both gzip and brotli enc
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn mbt_get_raw_mvt_gzip_br() {
     let (config, _conns) = config("mbt_get_raw_mvt_gzip_br").await;
     let app = create_app!(&config);
@@ -334,6 +376,7 @@ async fn mbt_get_raw_mvt_gzip_br() {
 
 /// get a JSON tile
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn mbt_get_json() {
     let (config, _conns) = config("mbt_get_json").await;
     let app = create_app!(&config);
@@ -351,6 +394,7 @@ async fn mbt_get_json() {
 
 /// get a JSON tile with accepted gzip
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn mbt_get_json_gzip() {
     let (config, _conns) = config("mbt_get_json_gzip").await;
     let app = create_app!(&config);

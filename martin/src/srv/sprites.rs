@@ -1,15 +1,16 @@
-use std::string::ToString;
+use std::string::ToString as _;
 
 use actix_middleware_etag::Etag;
 use actix_web::error::ErrorNotFound;
-use actix_web::http::header::ContentType;
+use actix_web::http::header::{ContentType, LOCATION};
 use actix_web::middleware::Compress;
 use actix_web::web::{Bytes, Data, Path};
 use actix_web::{HttpResponse, Result as ActixResult, route};
 use martin_core::sprites::{OptSpriteCache, SpriteError, SpriteSources};
 use serde::Deserialize;
+use tracing::warn;
 
-use crate::srv::server::map_internal_error;
+use crate::srv::server::{DebouncedWarning, map_internal_error};
 
 #[derive(Deserialize)]
 pub struct SourceIDsRequest {
@@ -42,6 +43,25 @@ async fn get_sprite_png(
         .body(png))
 }
 
+/// Redirect `/sprites/{source_ids}.png` to `/sprite/{source_ids}.png` (HTTP 301)
+#[route("/sprites/{source_ids}.png", method = "GET", method = "HEAD")]
+pub async fn redirect_sprites_png(path: Path<SourceIDsRequest>) -> HttpResponse {
+    static WARNING: DebouncedWarning = DebouncedWarning::new();
+    let SourceIDsRequest { source_ids } = path.as_ref();
+
+    WARNING
+        .once_per_hour(|| {
+            warn!(
+                "Request to /sprites/{source_ids}.png caused unnecessary redirect. Use /sprite/{source_ids}.png to avoid extra round-trip latency."
+            );
+        })
+        .await;
+
+    HttpResponse::MovedPermanently()
+        .insert_header((LOCATION, format!("/sprite/{source_ids}.png")))
+        .finish()
+}
+
 #[route(
     "/sdf_sprite/{source_ids}.png",
     method = "GET",
@@ -66,6 +86,25 @@ async fn get_sprite_sdf_png(
     Ok(HttpResponse::Ok()
         .content_type(ContentType::png())
         .body(png))
+}
+
+/// Redirect `/sdf_sprites/{source_ids}.png` to `/sdf_sprite/{source_ids}.png` (HTTP 301)
+#[route("/sdf_sprites/{source_ids}.png", method = "GET", method = "HEAD")]
+pub async fn redirect_sdf_sprites_png(path: Path<SourceIDsRequest>) -> HttpResponse {
+    static WARNING: DebouncedWarning = DebouncedWarning::new();
+    let SourceIDsRequest { source_ids } = path.as_ref();
+
+    WARNING
+        .once_per_hour(|| {
+            warn!(
+                "Request to /sdf_sprites/{source_ids}.png caused unnecessary redirect. Use /sdf_sprite/{source_ids}.png to avoid extra round-trip latency."
+            );
+        })
+        .await;
+
+    HttpResponse::MovedPermanently()
+        .insert_header((LOCATION, format!("/sdf_sprite/{source_ids}.png")))
+        .finish()
 }
 
 #[route(
@@ -95,6 +134,25 @@ async fn get_sprite_json(
         .body(json))
 }
 
+/// Redirect `/sprites/{source_ids}.json` to `/sprite/{source_ids}.json` (HTTP 301)
+#[route("/sprites/{source_ids}.json", method = "GET", method = "HEAD")]
+pub async fn redirect_sprites_json(path: Path<SourceIDsRequest>) -> HttpResponse {
+    static WARNING: DebouncedWarning = DebouncedWarning::new();
+    let SourceIDsRequest { source_ids } = path.as_ref();
+
+    WARNING
+        .once_per_hour(|| {
+            warn!(
+                "Request to /sprites/{source_ids}.json caused unnecessary redirect. Use /sprite/{source_ids}.json to avoid extra round-trip latency."
+            );
+        })
+        .await;
+
+    HttpResponse::MovedPermanently()
+        .insert_header((LOCATION, format!("/sprite/{source_ids}.json")))
+        .finish()
+}
+
 #[route(
     "/sdf_sprite/{source_ids}.json",
     method = "GET",
@@ -120,6 +178,25 @@ async fn get_sprite_sdf_json(
     Ok(HttpResponse::Ok()
         .content_type(ContentType::json())
         .body(json))
+}
+
+/// Redirect `/sdf_sprites/{source_ids}.json` to `/sdf_sprite/{source_ids}.json` (HTTP 301)
+#[route("/sdf_sprites/{source_ids}.json", method = "GET", method = "HEAD")]
+pub async fn redirect_sdf_sprites_json(path: Path<SourceIDsRequest>) -> HttpResponse {
+    static WARNING: DebouncedWarning = DebouncedWarning::new();
+    let SourceIDsRequest { source_ids } = path.as_ref();
+
+    WARNING
+        .once_per_hour(|| {
+            warn!(
+                "Request to /sdf_sprites/{source_ids}.json caused unnecessary redirect. Use /sdf_sprite/{source_ids}.json to avoid extra round-trip latency."
+            );
+        })
+        .await;
+
+    HttpResponse::MovedPermanently()
+        .insert_header((LOCATION, format!("/sdf_sprite/{source_ids}.json")))
+        .finish()
 }
 
 async fn get_sprite(source_ids: &str, sprites: &SpriteSources, as_sdf: bool) -> ActixResult<Bytes> {

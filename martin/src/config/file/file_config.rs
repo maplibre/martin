@@ -6,19 +6,19 @@ use std::path::Path;
 use std::path::PathBuf;
 
 #[cfg(feature = "_tiles")]
-use log::{info, warn};
-#[cfg(feature = "_tiles")]
-use martin_core::config::IdResolver;
-use martin_core::config::OptOneMany;
-#[cfg(feature = "_tiles")]
 use martin_core::tiles::BoxedSource;
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "_tiles")]
+use tracing::{info, warn};
 #[cfg(feature = "_tiles")]
 use url::Url;
 
 #[cfg(feature = "_tiles")]
 use crate::config::file::TileSourceWarning;
 use crate::config::file::{ConfigFileError, ConfigFileResult};
+#[cfg(feature = "_tiles")]
+use crate::config::primitives::IdResolver;
+use crate::config::primitives::OptOneMany;
 #[cfg(feature = "_tiles")]
 use crate::{MartinError, MartinResult};
 
@@ -512,15 +512,13 @@ pub fn copy_unrecognized_keys_from_config(
 
 #[cfg(all(test, feature = "mbtiles"))]
 mod mbtiles_tests {
-    use martin_core::config::IdResolver;
-
     use super::*;
     use crate::config::file::tiles::mbtiles::MbtConfig;
+    use crate::config::primitives::IdResolver;
 
     #[tokio::test]
+    #[tracing_test::traced_test]
     async fn test_invalid_path_warns_instead_of_failing() {
-        let _ = env_logger::builder().is_test(true).try_init();
-
         let invalid_path = PathBuf::from("/nonexistent/path/");
         let invalid_source = PathBuf::from("/nonexistent/path/to/file.mbtiles");
         let mut file_sources = BTreeMap::new();
@@ -545,15 +543,13 @@ mod mbtiles_tests {
 
 #[cfg(all(test, feature = "pmtiles"))]
 mod pmtiles_tests {
-    use martin_core::config::IdResolver;
-
     use super::*;
     use crate::config::file::tiles::pmtiles::PmtConfig;
+    use crate::config::primitives::IdResolver;
 
     #[tokio::test]
+    #[tracing_test::traced_test]
     async fn test_invalid_path_warns_instead_of_failing() {
-        let _ = env_logger::builder().is_test(true).try_init();
-
         let invalid_path = PathBuf::from("/nonexistent/path/");
         let invalid_source = PathBuf::from("/nonexistent/path/to/file.pmtiles");
         let mut file_sources = BTreeMap::new();

@@ -5,7 +5,6 @@ set shell := ['bash', '-c']
 # How to call the current just executable.
 # Note that just_executable() may have `\` in Windows paths, so we need to quote it.
 just := quote(just_executable())
-dockercompose := `if docker-compose --version &> /dev/null; then echo "docker-compose"; else echo "docker compose"; fi`
 
 # if running in CI, treat warnings as errors by setting RUSTFLAGS and RUSTDOCFLAGS to '-D warnings' unless they are already set
 # Use `CI=true just ci-test` to run the same tests as in GitHub CI.
@@ -63,7 +62,19 @@ biomejs-martin-ui:
     npm run lint
 
 # Run integration tests and save its output as the new expected output (ordering is important)
-bless: restart clean-test bless-insta-martin bless-insta-martin-core bless-insta-mbtiles bless-frontend bless-int
+bless:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    echo "Blessing unit tests"
+    for target in restart clean-test bless-insta bless-frontend; do
+      echo "::group::just $target"
+      {{quote(just_executable())}} $target
+      echo "::endgroup::"
+    done
+
+    echo "Blessing integration tests"
+    {{quote(just_executable())}} bless-int
 
 # Bless the frontend tests
 [working-directory: 'martin/martin-ui']
@@ -72,21 +83,8 @@ bless-frontend:
     npm run test:update-snapshots
 
 # Run integration tests and save its output as the new expected output
-bless-insta-cp *args:  (cargo-install 'cargo-insta')
-    cargo insta test --accept --bin martin-cp {{args}}
-
-# Run integration tests and save its output as the new expected output
-bless-insta-martin *args:  (cargo-install 'cargo-insta')
-    cargo insta test --accept --bin martin {{args}}
-
-# Run integration tests and save its output as the new expected output
-bless-insta-martin-core *args:  (cargo-install 'cargo-insta')
-    cargo insta test --accept -p martin-core {{args}}
-
-# Run integration tests and save its output as the new expected output
-bless-insta-mbtiles *args:  (cargo-install 'cargo-insta')
-    #rm -rf mbtiles/tests/snapshots
-    cargo insta test --accept -p mbtiles {{args}}
+bless-insta *args:  (cargo-install 'cargo-insta')
+    cargo insta test --accept --all-targets --workspace {{args}}
 
 # Bless integration tests
 bless-int:
@@ -98,9 +96,59 @@ bless-int:
 book:  (cargo-install 'mdbook') (cargo-install 'mdbook-tabs')
     mdbook serve docs --open --port 8321
 
+# Build release binaries for a target with debug info stripped
+build-release target:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # on debian we need to build a deb package
+    if [[ "{{target}}" == "debian-x86_64" ]]; then
+        {{quote(just_executable())}} build-deb target/debian/debian-x86_64.deb
+    else
+        rustup target add {{target}}
+        export CARGO_TARGET_{{shoutysnakecase(target)}}_RUSTFLAGS='-C strip=debuginfo'
+        cargo build --release --target {{target}} --package mbtiles --locked
+        cargo build --release --target {{target}} --package martin --locked
+    fi
+
+# Build debian package
+build-deb output: (cargo-install 'cargo-deb')
+    sudo apt-get install -y dpkg dpkg-dev liblzma-dev
+    cargo deb -v -p martin --output {{output}}
+
+# Build for musl target using zigbuild
+build-release-musl target:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    rustup target add {{target}}
+    export CARGO_TARGET_{{shoutysnakecase(target)}}_RUSTFLAGS='-C strip=debuginfo'
+    cargo zigbuild --release --target {{target}} --package mbtiles --locked
+    cargo zigbuild --release --target {{target}} --package martin --locked
+
+
+# Move release build artifacts to target_releases directory
+move-artifacts target:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    mkdir -p target_releases
+
+    if [[ "{{target}}" == "debian-x86_64" ]]; then
+        mv target/debian/*.deb target_releases/
+    else
+        if [[ "{{target}}" == "x86_64-pc-windows-msvc" ]]; then
+            mv target/{{target}}/release/martin.exe target_releases/
+            mv target/{{target}}/release/martin-cp.exe target_releases/
+            mv target/{{target}}/release/mbtiles.exe target_releases/
+        else
+            mv target/{{target}}/release/martin target_releases/
+            mv target/{{target}}/release/martin-cp target_releases/
+            mv target/{{target}}/release/mbtiles target_releases/
+        fi
+    fi
+
+
 # Quick compile without building a binary
 check: (cargo-install 'cargo-hack')
-    cargo hack --exclude-features _tiles check --all-targets --each-feature --workspace
+    cargo hack --exclude-features _tiles,_catalog check --all-targets --each-feature --workspace
 
 # Test documentation generation
 check-doc:  (docs '')
@@ -139,6 +187,7 @@ coverage *args='--no-clean --open':  (cargo-install 'cargo-llvm-cov') clean star
 
     echo "::group::Unit tests"
     {{just}} test-cargo --all-targets
+    {{just}} test-pg
     echo "::endgroup::"
 
     # echo "::group::Documentation tests"
@@ -160,7 +209,7 @@ debug-page *args: start
 
 # Build and run martin docker image
 docker-run *args:
-    docker run -it --rm --net host -e DATABASE_URL -v $PWD/tests:/tests ghcr.io/maplibre/martin:1.2.0 {{args}}
+    docker run -it --rm --net host -e DATABASE_URL -v $PWD/tests:/tests ghcr.io/maplibre/martin:1.3.1 {{args}}
 
 # Build and open code documentation
 docs *args='--open':
@@ -257,9 +306,21 @@ lint: fmt clippy biomejs-martin-ui type-check
 mbtiles *args:
     cargo run -p mbtiles -- {{args}}
 
-# Build debian package
-package-deb:  (cargo-install 'cargo-deb')
-    cargo deb -v -p martin --output target/debian/martin.deb
+# Create assets package
+package-assets target:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    mkdir -p target/files
+    cd target/{{target}}
+    if [[ '{{target}}' == 'x86_64-pc-windows-msvc' ]]; then
+        7z a ../files/martin-{{target}}.zip martin.exe martin-cp.exe mbtiles.exe
+    elif [[ '{{target}}' == 'debian-x86_64' ]]; then
+        mv *.deb ../files/
+    else
+        chmod +x martin martin-cp mbtiles
+        tar czvf ../files/martin-{{target}}.tar.gz martin martin-cp mbtiles
+    fi
+    cd ../..
 
 # Run pg_dump utility against the test database
 pg_dump *args:
@@ -313,8 +374,7 @@ start:  (docker-up 'db') docker-is-ready
 start-legacy:  (docker-up 'db-legacy') docker-is-ready
 
 # Start test server for testing HTTP pmtiles
-start-pmtiles-server:
-    {{dockercompose}} up -d fileserver
+start-pmtiles-server:  (docker-up 'fileserver') fileserver-is-ready
 
 # Start an ssl-enabled test database
 start-ssl:  (docker-up 'db-ssl') docker-is-ready
@@ -324,10 +384,22 @@ start-ssl-cert:  (docker-up 'db-ssl-cert') docker-is-ready
 
 # Stop the test database
 stop:
-    {{dockercompose}} down --remove-orphans
+    docker compose down --remove-orphans
+
+# runs cargo-shear to lint Rust dependencies
+shear:
+    cargo shear --expand
+    # in the future: add --deny-warnings
+    # https://github.com/Boshen/cargo-shear/pull/386
 
 # Run all tests using a test database
-test: start (test-cargo '--all-targets') test-doc test-frontend test-int
+test: start (test-cargo "--all-targets") test-pg test-doc test-frontend test-int
+
+# Run PostgreSQL-requiring tests only
+test-pg: start
+    cargo test --features test-pg --test pg_function_source_test --test pg_server_test --test pg_table_source_test
+    cargo test --features test-pg --package martin --lib
+    cargo test --features test-pg --package martin-core --lib
 
 # Run Rust unit tests (cargo test)
 test-cargo *args:
@@ -347,7 +419,7 @@ test-frontend:
     npm run test
 
 # Run integration tests
-test-int: clean-test install-sqlx
+test-int: clean-test install-sqlx start-pmtiles-server
     #!/usr/bin/env bash
     set -euo pipefail
     tests/test.sh
@@ -433,10 +505,10 @@ test-lambda martin_bin='target/debug/martin':
     jq -ne 'input.statusCode == 200' <<<"$response"
 
 # Run all tests using the oldest supported version of the database
-test-legacy: start-legacy (test-cargo '--all-targets') test-doc test-int
+test-legacy: start-legacy (test-cargo "--all-targets") test-pg test-doc test-int
 
 # Run all tests using an SSL connection to a test database. Expected output won't match.
-test-ssl: start-ssl (test-cargo '--all-targets') test-doc clean-test
+test-ssl: start-ssl (test-cargo "--all-targets") test-pg test-doc clean-test
     tests/test.sh
 
 # Run all tests using an SSL connection with client cert to a test database. Expected output won't match.
@@ -558,12 +630,30 @@ clean-test:
 # Wait for the test database to be ready
 [private]
 docker-is-ready:
-    {{dockercompose}} run -T --rm db-is-ready
+    docker compose run -T --rm db-is-ready
+
+# Wait for the fileserver to be ready
+[private]
+fileserver-is-ready:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    FILESERVER_URL="${STATICS_URL:-http://localhost:5412}"
+    echo "Waiting for fileserver to be ready at ${FILESERVER_URL}..."
+    for i in {1..30}; do
+        if curl --silent --fail --head --connect-timeout 2 --max-time 5 "${FILESERVER_URL}/webp2.pmtiles" >/dev/null 2>&1; then
+            echo "Fileserver is ready!"
+            exit 0
+        fi
+        echo "Waiting for fileserver... (attempt $i/30)"
+        sleep 1
+    done
+    echo "Fileserver did not start in time"
+    exit 1
 
 # Start a specific test database, e.g. db or db-legacy
 [private]
-docker-up name: start-pmtiles-server
-    {{dockercompose}} up -d {{name}}
+docker-up name:
+    docker compose up -d {{name}}
 
 # Install SQLX cli if not already installed.
 [private]

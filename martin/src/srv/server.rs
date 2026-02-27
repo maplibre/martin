@@ -1,18 +1,20 @@
 use std::future::Future;
 use std::pin::Pin;
-use std::string::ToString;
+use std::string::ToString as _;
 use std::time::Duration;
 
 use actix_web::http::header::CACHE_CONTROL;
-use actix_web::middleware::{Logger, NormalizePath, TrailingSlash};
+use actix_web::middleware::{NormalizePath, TrailingSlash};
 use actix_web::web::Data;
 use actix_web::{App, HttpResponse, HttpServer, Responder, middleware, route, web};
-use futures::TryFutureExt;
+use futures::TryFutureExt as _;
 #[cfg(feature = "lambda")]
 use lambda_web::{is_running_on_lambda, run_actix_on_lambda};
+use tracing_actix_web::TracingLogger;
 
 #[cfg(all(feature = "webui", not(docsrs)))]
 use crate::config::args::WebUiMode;
+#[cfg(feature = "_catalog")]
 use crate::config::file::ServerState;
 use crate::config::file::srv::{KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT, SrvConfig};
 use crate::srv::admin::Catalog;
@@ -28,8 +30,38 @@ pub const RESERVED_KEYWORDS: &[&str] = &[
 
 #[cfg(any(feature = "_tiles", feature = "fonts", feature = "sprites"))]
 pub fn map_internal_error<T: std::fmt::Display>(e: T) -> actix_web::Error {
-    log::error!("{e}");
+    tracing::error!("{e}");
     actix_web::error::ErrorInternalServerError(e.to_string())
+}
+
+/// Helper struct for debounced warning messages in redirect handlers.
+/// Ensures warnings are logged no more than once per hour to avoid log spam.
+#[cfg(feature = "_catalog")]
+pub struct DebouncedWarning {
+    last_warning: std::sync::LazyLock<tokio::sync::Mutex<std::time::Instant>>,
+}
+
+#[cfg(feature = "_catalog")]
+impl DebouncedWarning {
+    /// Create a new `DebouncedWarning` instance
+    pub const fn new() -> Self {
+        Self {
+            last_warning: std::sync::LazyLock::new(|| {
+                tokio::sync::Mutex::new(std::time::Instant::now())
+            }),
+        }
+    }
+
+    /// Execute the provided closure at most once per hour.
+    /// This allows tracing's log filtering to work correctly by keeping the warn! call site
+    /// in the caller's context.
+    pub async fn once_per_hour<F: FnOnce()>(&self, f: F) {
+        let mut last = self.last_warning.lock().await;
+        if last.elapsed() >= Duration::from_secs(3600) {
+            *last = std::time::Instant::now();
+            f();
+        }
+    }
 }
 
 /// Return 200 OK if healthy. Used for readiness and liveness probes.
@@ -40,25 +72,62 @@ async fn get_health() -> impl Responder {
         .message_body("OK")
 }
 
-pub fn router(cfg: &mut web::ServiceConfig, #[allow(unused_variables)] usr_cfg: &SrvConfig) {
+pub fn router(cfg: &mut web::ServiceConfig, usr_cfg: &SrvConfig) {
+    // If route_prefix is configured, wrap all routes in a scope
+    if let Some(prefix) = &usr_cfg.route_prefix {
+        cfg.service(web::scope(prefix).configure(|cfg| {
+            register_services(
+                cfg,
+                #[cfg(all(feature = "webui", not(docsrs)))]
+                usr_cfg,
+            );
+        }));
+    } else {
+        register_services(
+            cfg,
+            #[cfg(all(feature = "webui", not(docsrs)))]
+            usr_cfg,
+        );
+    }
+}
+
+/// Helper function to register all services
+fn register_services(
+    cfg: &mut web::ServiceConfig,
+    #[cfg(all(feature = "webui", not(docsrs)))] usr_cfg: &SrvConfig,
+) {
     cfg.service(get_health)
         .service(crate::srv::admin::get_catalog);
 
     #[cfg(feature = "_tiles")]
-    cfg.service(crate::srv::tiles::metadata::get_source_info)
-        .service(crate::srv::tiles::content::get_tile);
+    {
+        // Register tile format suffix redirects BEFORE the main tile route
+        // because Actix-Web matches routes in registration order
+        cfg.service(crate::srv::tiles::content::redirect_tile_ext)
+            .service(crate::srv::tiles::metadata::get_source_info)
+            .service(crate::srv::tiles::content::get_tile);
+
+        // Register /tiles/ prefix redirect after main tile route
+        cfg.service(crate::srv::tiles::content::redirect_tiles);
+    }
 
     #[cfg(feature = "sprites")]
     cfg.service(crate::srv::sprites::get_sprite_sdf_json)
+        .service(crate::srv::sprites::redirect_sdf_sprites_json)
         .service(crate::srv::sprites::get_sprite_json)
+        .service(crate::srv::sprites::redirect_sprites_json)
         .service(crate::srv::sprites::get_sprite_sdf_png)
-        .service(crate::srv::sprites::get_sprite_png);
+        .service(crate::srv::sprites::redirect_sdf_sprites_png)
+        .service(crate::srv::sprites::get_sprite_png)
+        .service(crate::srv::sprites::redirect_sprites_png);
 
     #[cfg(feature = "fonts")]
-    cfg.service(crate::srv::fonts::get_font);
+    cfg.service(crate::srv::fonts::get_font)
+        .service(crate::srv::fonts::redirect_fonts);
 
     #[cfg(feature = "styles")]
-    cfg.service(crate::srv::styles::get_style_json);
+    cfg.service(crate::srv::styles::get_style_json)
+        .service(crate::srv::styles::redirect_styles);
 
     #[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
     cfg.service(crate::srv::styles_rendering::get_style_rendered);
@@ -84,24 +153,37 @@ pub fn router(cfg: &mut web::ServiceConfig, #[allow(unused_variables)] usr_cfg: 
 type Server = Pin<Box<dyn Future<Output = MartinResult<()>>>>;
 
 /// Create a future for an Actix web server together with the listening address.
-pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server, String)> {
+pub fn new_server(
+    config: SrvConfig,
+    #[cfg(feature = "_catalog")] state: ServerState,
+) -> MartinResult<(Server, String)> {
     #[cfg(feature = "metrics")]
-    let prometheus = actix_web_prom::PrometheusMetricsBuilder::new("martin")
-        .endpoint("/_/metrics")
-        // `endpoint="UNKNOWN"` instead of `endpoint="/foo/bar"`
-        .mask_unmatched_patterns("UNKNOWN")
-        .const_labels(
-            config
-                .observability
-                .clone()
-                .unwrap_or_default()
-                .metrics
-                .unwrap_or_default()
-                .add_labels,
-        )
-        .build()
-        .map_err(|err| MartinError::MetricsIntialisationError(err))?;
-    let catalog = Catalog::new(&state)?;
+    let prometheus = {
+        let metrics_endpoint = if let Some(prefix) = &config.route_prefix {
+            format!("{prefix}/_/metrics")
+        } else {
+            "/_/metrics".to_string()
+        };
+        actix_web_prom::PrometheusMetricsBuilder::new("martin")
+            .endpoint(&metrics_endpoint)
+            // `endpoint="UNKNOWN"` instead of `endpoint="/foo/bar"`
+            .mask_unmatched_patterns("UNKNOWN")
+            .const_labels(
+                config
+                    .observability
+                    .clone()
+                    .unwrap_or_default()
+                    .metrics
+                    .unwrap_or_default()
+                    .add_labels,
+            )
+            .build()
+            .map_err(|err| MartinError::MetricsIntialisationError(err))?
+    };
+    let catalog = Catalog::new(
+        #[cfg(feature = "_catalog")]
+        &state,
+    )?;
 
     let keep_alive = Duration::from_secs(config.keep_alive.unwrap_or(KEEP_ALIVE_DEFAULT));
     let worker_processes = config.worker_processes.unwrap_or_else(num_cpus::get);
@@ -147,7 +229,7 @@ pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server
         #[cfg(feature = "metrics")]
         let app = app.wrap(prometheus.clone());
 
-        app.wrap(Logger::default())
+        app.wrap(TracingLogger::default())
             .wrap(NormalizePath::new(TrailingSlash::MergeOnly))
             .configure(|c| router(c, &config))
     };

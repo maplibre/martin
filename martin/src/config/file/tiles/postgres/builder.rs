@@ -4,14 +4,11 @@ use std::collections::{BTreeMap, HashSet};
 
 use futures::future::join_all;
 use itertools::Itertools as _;
-use log::{debug, error, info, warn};
-use martin_core::config::IdResolver;
-use martin_core::config::OptBoolObj::{Bool, NoValue, Object};
-use martin_core::config::OptOneMany::NoVals;
 use martin_core::tiles::BoxedSource;
 use martin_core::tiles::postgres::{
     PostgresError, PostgresPool, PostgresResult, PostgresSource, PostgresSqlInfo,
 };
+use tracing::{debug, error, info, warn};
 
 use crate::config::args::BoundsCalcType;
 use crate::config::file::postgres::resolver::{
@@ -23,6 +20,9 @@ use crate::config::file::postgres::{
     PostgresConfig, PostgresInfo, TableInfo, TableInfoSources,
 };
 use crate::config::file::{ConfigFileError, ConfigFileResult, TileSourceWarning};
+use crate::config::primitives::IdResolver;
+use crate::config::primitives::OptBoolObj::{Bool, NoValue, Object};
+use crate::config::primitives::OptOneMany::NoVals;
 
 /// Builder for [`PostgresSource`]' auto-discovery of functions and tables.
 #[derive(Debug)]
@@ -599,7 +599,7 @@ fn by_key<T>(a: &(String, T), b: &(String, T)) -> Ordering {
     a.0.cmp(&b.0)
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "test-pg"))]
 mod tests {
     use indoc::indoc;
     use insta::assert_yaml_snapshot;
@@ -764,12 +764,11 @@ mod tests {
     }
 
     #[tokio::test]
+    #[tracing_test::traced_test]
     async fn test_nonexistent_tables_functions_generate_warning() {
         use testcontainers_modules::postgres::Postgres;
-        use testcontainers_modules::testcontainers::ImageExt;
-        use testcontainers_modules::testcontainers::runners::AsyncRunner;
-
-        let _ = env_logger::builder().is_test(true).try_init();
+        use testcontainers_modules::testcontainers::ImageExt as _;
+        use testcontainers_modules::testcontainers::runners::AsyncRunner as _;
 
         let container = Postgres::default()
             .with_name("postgis/postgis")

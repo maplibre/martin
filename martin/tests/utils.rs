@@ -1,18 +1,20 @@
 #![cfg(test)]
 
+use std::env;
+
 use actix_web::dev::ServiceResponse;
 use actix_web::test::read_body;
-use log::warn;
-#[cfg(feature = "postgres")]
+#[cfg(feature = "test-pg")]
 use martin::config::file::postgres::TableInfo;
 use martin::config::file::{Config, ServerState};
-use martin_core::config::env::FauxEnv;
+use martin::config::primitives::env::FauxEnv;
 #[cfg(feature = "_tiles")]
 use martin_core::tiles::BoxedSource;
+use tracing::warn;
 
 #[must_use]
 pub fn mock_cfg(yaml: &str) -> Config {
-    let env = if let Ok(db_url) = std::env::var("DATABASE_URL") {
+    let env = if let Ok(db_url) = env::var("DATABASE_URL") {
         FauxEnv(vec![("DATABASE_URL", db_url.into())].into_iter().collect())
     } else {
         warn!("DATABASE_URL env var is not set. Might not be able to do integration tests");
@@ -38,7 +40,12 @@ pub async fn assert_response(response: ServiceResponse) -> ServiceResponse {
 pub type MockSource = (ServerState, Config);
 pub async fn mock_sources(mut config: Config) -> MockSource {
     let res = config.resolve().await;
-    let res = res.unwrap_or_else(|e| panic!("Failed to resolve config {config:?}: {e}"));
+    let res = res.unwrap_or_else(|e| {
+        panic!(
+            "Failed to resolve config:\n{config}\nBecause {e}",
+            config = serde_yaml::to_string(&config).unwrap()
+        )
+    });
     (res, config)
 }
 
@@ -49,7 +56,7 @@ pub fn source(mock: &MockSource, name: &str) -> BoxedSource {
     sources.tiles.get_source(name).expect("source can be found")
 }
 
-#[cfg(feature = "postgres")]
+#[cfg(feature = "test-pg")]
 #[must_use]
 pub fn mock_pgcfg(yaml: &str) -> Config {
     mock_cfg(&indoc::formatdoc! {"
@@ -58,7 +65,7 @@ pub fn mock_pgcfg(yaml: &str) -> Config {
     ", yaml.replace('\n', "\n  ")})
 }
 
-#[cfg(feature = "postgres")]
+#[cfg(feature = "test-pg")]
 #[must_use]
 pub fn table<'a>(mock: &'a MockSource, name: &str) -> &'a TableInfo {
     let (_, config) = mock;

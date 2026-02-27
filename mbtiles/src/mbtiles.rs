@@ -11,7 +11,10 @@ use serde::{Deserialize, Serialize};
 use sqlite_compressions::{register_bsdiffraw_functions, register_gzip_functions};
 use sqlite_hashes::register_md5_functions;
 use sqlx::sqlite::SqliteConnectOptions;
-use sqlx::{Connection as _, Executor, Row, SqliteConnection, SqliteExecutor, Statement, query};
+use sqlx::{
+    Connection as _, Executor as _, Row as _, SqliteConnection, SqliteExecutor, Statement as _,
+    query,
+};
 
 use crate::bindiff::PatchType;
 use crate::errors::{MbtError, MbtResult};
@@ -334,7 +337,7 @@ impl Mbtiles {
     where
         &'e mut T: SqliteExecutor<'e>,
     {
-        use futures::StreamExt;
+        use futures::StreamExt as _;
 
         let query = query! {"SELECT zoom_level, tile_column, tile_row FROM tiles"};
         let stream = query.fetch(conn);
@@ -381,7 +384,7 @@ impl Mbtiles {
     where
         &'e mut T: SqliteExecutor<'e>,
     {
-        use futures::StreamExt;
+        use futures::StreamExt as _;
 
         let query = query! {"SELECT zoom_level, tile_column, tile_row, tile_data FROM tiles"};
         let stream = query.fetch(conn);

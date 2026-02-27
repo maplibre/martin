@@ -4,6 +4,8 @@ set -euo pipefail
 MARTIN_DATABASE_URL="${DATABASE_URL:-postgres://postgres@localhost/db}"
 unset DATABASE_URL
 
+export RUST_LOG_FORMAT=bare
+
 # TODO: use  --fail-with-body  to get the response body on failure
 CURL=${CURL:-curl --silent --show-error --fail --compressed}
 
@@ -178,6 +180,36 @@ test_font() {
   echo "Testing $(basename "$FILENAME") from $URL"
   $CURL --dump-header  "$FILENAME.headers" "$URL" > "$FILENAME"
   clean_headers_dump "$FILENAME.headers"
+}
+
+test_json_with_header() {
+  FILENAME="$TEST_OUT_DIR/$1.json"
+  URL="$MARTIN_URL/$2"
+  HEADER="$3"
+
+  echo "Testing $(basename "$FILENAME") from $URL with header: $HEADER"
+  $CURL --dump-header "$FILENAME.headers" -H "$HEADER" "$URL" | jq --sort-keys > "$FILENAME"
+  clean_headers_dump "$FILENAME.headers"
+}
+
+test_redirect() {
+  URL="$MARTIN_URL/$1"
+  EXPECTED_LOCATION="$2"
+
+  echo "Testing redirect from $URL to $EXPECTED_LOCATION"
+  # Use curl without --fail to allow 3xx responses
+  HTTP_CODE=$(curl --silent --show-error --write-out "%{http_code}" --output /dev/null --head "$URL")
+  LOCATION=$(curl --silent --show-error --head "$URL" | grep -i "^location:" | $SED 's/^[Ll]ocation: *//' | tr -d '\r')
+
+  if [ "$HTTP_CODE" != "301" ]; then
+    echo "ERROR: Expected HTTP 301, got $HTTP_CODE for $URL"
+    exit 1
+  fi
+
+  if [ "$LOCATION" != "$EXPECTED_LOCATION" ]; then
+    echo "ERROR: Expected location '$EXPECTED_LOCATION', got '$LOCATION' for $URL"
+    exit 1
+  fi
 }
 
 # Delete line from a file $1 that matches parameter $2 and log the action
@@ -363,6 +395,24 @@ test_pbf cmp_14_14692_7645        table_source,points1,points2/14/14692/7645
 test_pbf cmp_17_117542_61161      table_source,points1,points2/17/117542/61161
 test_pbf cmp_18_235085_122323     table_source,points1,points2/18/235085/122323
 
+>&2 echo "***** Test header effects on tilejson *****"
+test_json_with_header tilejson_no_forwarded_headers function_zxy_query "Host: localhost"
+test_json_with_header tilejson_ignores_x_forwarded_for function_zxy_query "X-Forwarded-For: 192.168.1.100"
+test_json_with_header tilejson_with_host function_zxy_query "Host: example.com"
+test_json_with_header tilejson_with_host_and_port function_zxy_query "Host: example.com:6000"
+
+test_json_with_header tilejson_with_x_forwarded_proto_https function_zxy_query "X-Forwarded-Proto: https"
+test_json_with_header tilejson_with_x_forwarded_proto_http function_zxy_query "X-Forwarded-Proto: http"
+
+test_json_with_header tilejson_with_x_forwarded_host function_zxy_query "X-Forwarded-Host: tiles.example.com"
+
+test_json_with_header tilejson_with_forwarded_proto_only function_zxy_query "Forwarded: proto=https"
+test_json_with_header tilejson_with_forwarded_host_only function_zxy_query "Forwarded: host=tiles.example.com"
+test_json_with_header tilejson_with_forwarded_proto_and_host function_zxy_query "Forwarded: proto=https;host=tiles.example.com"
+test_json_with_header tilejson_with_x_forwarded_prefix function_zxy_query "X-Forwarded-Prefix: /tiles/function_zxy_query"
+test_json_with_header tilejson_with_x_rewrite_url function_zxy_query "X-Rewrite-URL: /footiles/function_zxy_query"
+
+
 >&2 echo "***** Test server response for function source *****"
 test_jsn fnc                      function_zxy_query
 test_pbf fnc_0_0_0                function_zxy_query/0/0/0
@@ -453,10 +503,10 @@ test_pbf table_and_view_two_schemas2_0_0_0  table_and_view_two_schemas.1/0/0/0
 
 kill_process "$MARTIN_PROC_ID" Martin
 
-test_log_has_str "$LOG_FILE" 'WARN  martin::config::file::tiles::postgres::resolver::query_tables] Table public.table_source has no spatial index on column geom'
-test_log_has_str "$LOG_FILE" 'WARN  martin::config::file::tiles::postgres::resolver::query_tables] Table public.table_source_geog has no spatial index on column geog'
-test_log_has_str "$LOG_FILE" 'WARN  martin::config::file::tiles::postgres::resolver::query_tables] Table public.mat_view has no spatial index on column geom'
-test_log_has_str "$LOG_FILE" 'WARN  martin_core::resources::fonts] Ignoring duplicate font Overpass Mono Regular from tests'
+test_log_has_str "$LOG_FILE" 'WARN Table public.table_source has no spatial index on column geom'
+test_log_has_str "$LOG_FILE" 'WARN Table public.table_source_geog has no spatial index on column geog'
+test_log_has_str "$LOG_FILE" 'WARN Table public.mat_view has no spatial index on column geom'
+test_log_has_str "$LOG_FILE" 'WARN Ignoring duplicate font Overpass Mono Regular from tests'
 test_log_has_str "$LOG_FILE" 'was renamed to `stamen_toner__raster_CC-BY-ODbL_z3`'
 test_log_has_str "$LOG_FILE" 'was renamed to `table_source_multiple_geom.1`'
 test_log_has_str "$LOG_FILE" 'was renamed to `-function.withweired---_-characters`'
@@ -464,9 +514,9 @@ test_log_has_str "$LOG_FILE" 'was renamed to `.-Points-----------quote`'
 test_log_has_str "$LOG_FILE" 'was renamed to `table_name_existing_two_schemas.1`'
 test_log_has_str "$LOG_FILE" 'was renamed to `view_name_existing_two_schemas.1`'
 test_log_has_str "$LOG_FILE" 'was renamed to `table_and_view_two_schemas.1`'
-test_log_has_str "$LOG_FILE" 'WARN  martin::config::file::tiles::pmtiles] Defaulting `pmtiles.allow_http` to `true`. This is likely to become an error in the future for better security.'
-test_log_has_str "$LOG_FILE" 'WARN  martin::config::file::tiles::pmtiles] Environment variable AWS_SKIP_CREDENTIALS is deprecated. Please use pmtiles.skip_signature in the configuration file instead.'
-test_log_has_str "$LOG_FILE" 'WARN  martin::config::file::tiles::pmtiles] Environment variable AWS_REGION is deprecated. Please use pmtiles.region in the configuration file instead.'
+test_log_has_str "$LOG_FILE" 'WARN Defaulting `pmtiles.allow_http` to `true`. This is likely to become an error in the future for better security.'
+test_log_has_str "$LOG_FILE" 'WARN Environment variable AWS_SKIP_CREDENTIALS is deprecated. Please use pmtiles.skip_signature in the configuration file instead.'
+test_log_has_str "$LOG_FILE" 'WARN Environment variable AWS_REGION is deprecated. Please use pmtiles.region in the configuration file instead.'
 validate_log "$LOG_FILE"
 remove_lines "${TEST_OUT_DIR}/save_config.yaml" " connection_string: "
 echo "::endgroup::"
@@ -490,9 +540,9 @@ wait_for "$MARTIN_PROC_ID" Martin "$MARTIN_URL/health"
 test_jsn catalog_auto catalog
 
 kill_process "$MARTIN_PROC_ID" Martin
-test_log_has_str "$LOG_FILE" 'WARN  martin::config::file::tiles::pmtiles] Defaulting `pmtiles.allow_http` to `true`. This is likely to become an error in the future for better security.'
-test_log_has_str "$LOG_FILE" 'WARN  martin::config::file::tiles::pmtiles] Environment variable AWS_SKIP_CREDENTIALS is deprecated. Please use pmtiles.skip_signature in the configuration file instead.'
-test_log_has_str "$LOG_FILE" 'WARN  martin::config::file::tiles::pmtiles] Environment variable AWS_REGION is deprecated. Please use pmtiles.region in the configuration file instead.'
+test_log_has_str "$LOG_FILE" 'WARN Defaulting `pmtiles.allow_http` to `true`. This is likely to become an error in the future for better security.'
+test_log_has_str "$LOG_FILE" 'WARN Environment variable AWS_SKIP_CREDENTIALS is deprecated. Please use pmtiles.skip_signature in the configuration file instead.'
+test_log_has_str "$LOG_FILE" 'WARN Environment variable AWS_REGION is deprecated. Please use pmtiles.region in the configuration file instead.'
 validate_log "$LOG_FILE"
 echo "::endgroup::"
 
@@ -565,32 +615,55 @@ test_font font_3      font/Overpass%20Mono%20Regular,Overpass%20Mono%20Light/0-2
 test_jsn tbl_comment_cfg  MixPoints
 test_jsn fnc_comment_cfg  function_Mixed_Name
 
+>&2 echo "***** Test URL redirects (HTTP 301) *****"
+
+# Test pluralization redirects
+test_redirect styles/maplibre       /style/maplibre
+test_redirect sprites/src1.json     /sprite/src1.json
+test_redirect sprites/src1.png      /sprite/src1.png
+test_redirect sdf_sprites/src1.json /sdf_sprite/src1.json
+test_redirect sdf_sprites/src1.png  /sdf_sprite/src1.png
+test_redirect "fonts/Overpass%20Mono%20Regular/0-255" "/font/Overpass Mono Regular/0-255"
+
+# Test tile format suffix redirects
+test_redirect table_source/0/0/0.pbf /table_source/0/0/0
+test_redirect table_source/0/0/0.mvt /table_source/0/0/0
+test_redirect table_source/0/0/0.mlt /table_source/0/0/0
+
+# Test /tiles/ prefix redirect
+test_redirect tiles/table_source/0/0/0 /table_source/0/0/0
+
+# Test query string preservation for tiles
+test_redirect "table_source/0/0/0.pbf?test=123" "/table_source/0/0/0?test=123"
+
+>&2 echo "***** Test observability outputs (metrics, logs) *****"
+
 test_metrics "metrics_1"
 
 kill_process "$MARTIN_PROC_ID" Martin
-test_log_has_str "$LOG_FILE" 'WARN  martin::config::file::tiles::postgres::resolver::query_tables] Table public.table_source has no spatial index on column geom'
-test_log_has_str "$LOG_FILE" 'WARN  martin::config::file::tiles::postgres::resolver::query_tables] Table public.table_source_geog has no spatial index on column geog'
-test_log_has_str "$LOG_FILE" 'WARN  martin::config::file::tiles::postgres::resolver::query_tables] Table public.mat_view has no spatial index on column geom'
-test_log_has_str "$LOG_FILE" 'WARN  martin_core::resources::fonts] Ignoring duplicate font Overpass Mono Regular from tests'
-test_log_has_str "$LOG_FILE" "WARN  martin::config::file::main] Ignoring unrecognized configuration key 'warning'. Please check your configuration file for typos."
-test_log_has_str "$LOG_FILE" "WARN  martin::config::file::main] Ignoring unrecognized configuration key 'observability.warning'. Please check your configuration file for typos."
-test_log_has_str "$LOG_FILE" "WARN  martin::config::file::main] Ignoring unrecognized configuration key 'observability.metrics.warning'. Please check your configuration file for typos."
-test_log_has_str "$LOG_FILE" "WARN  martin::config::file::main] Ignoring unrecognized configuration key 'cors.warning'. Please check your configuration file for typos."
-test_log_has_str "$LOG_FILE" "WARN  martin::config::file::main] Ignoring unrecognized configuration key 'postgres.warning'. Please check your configuration file for typos."
-test_log_has_str "$LOG_FILE" "WARN  martin::config::file::main] Ignoring unrecognized configuration key 'postgres.ssl_certificates.warning'. Please check your configuration file for typos."
-test_log_has_str "$LOG_FILE" "WARN  martin::config::file::main] Ignoring unrecognized configuration key 'postgres.auto_publish.warning'. Please check your configuration file for typos."
-test_log_has_str "$LOG_FILE" "WARN  martin::config::file::main] Ignoring unrecognized configuration key 'postgres.auto_publish.tables.warning'. Please check your configuration file for typos."
-test_log_has_str "$LOG_FILE" "WARN  martin::config::file::main] Ignoring unrecognized configuration key 'postgres.auto_publish.functions.warning'. Please check your configuration file for typos."
-test_log_has_str "$LOG_FILE" "WARN  martin::config::file::main] Ignoring unrecognized configuration key 'postgres.tables.table_source.warning'. Please check your configuration file for typos."
-test_log_has_str "$LOG_FILE" "WARN  martin::config::file::main] Ignoring unrecognized configuration key 'postgres.functions.function_zxy_query.warning'. Please check your configuration file for typos."
-test_log_has_str "$LOG_FILE" "WARN  martin::config::file::main] Ignoring unrecognized configuration key 'pmtiles.warning'. Please check your configuration file for typos."
-test_log_has_str "$LOG_FILE" "WARN  martin::config::file::main] Ignoring unrecognized configuration key 'sprites.warning'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" 'WARN Table public.table_source has no spatial index on column geom'
+test_log_has_str "$LOG_FILE" 'WARN Table public.table_source_geog has no spatial index on column geog'
+test_log_has_str "$LOG_FILE" 'WARN Table public.mat_view has no spatial index on column geom'
+test_log_has_str "$LOG_FILE" 'WARN Ignoring duplicate font Overpass Mono Regular from tests'
+test_log_has_str "$LOG_FILE" "WARN Ignoring unrecognized configuration key 'warning'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" "WARN Ignoring unrecognized configuration key 'observability.warning'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" "WARN Ignoring unrecognized configuration key 'observability.metrics.warning'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" "WARN Ignoring unrecognized configuration key 'cors.warning'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" "WARN Ignoring unrecognized configuration key 'postgres.warning'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" "WARN Ignoring unrecognized configuration key 'postgres.ssl_certificates.warning'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" "WARN Ignoring unrecognized configuration key 'postgres.auto_publish.warning'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" "WARN Ignoring unrecognized configuration key 'postgres.auto_publish.tables.warning'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" "WARN Ignoring unrecognized configuration key 'postgres.auto_publish.functions.warning'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" "WARN Ignoring unrecognized configuration key 'postgres.tables.table_source.warning'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" "WARN Ignoring unrecognized configuration key 'postgres.functions.function_zxy_query.warning'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" "WARN Ignoring unrecognized configuration key 'pmtiles.warning'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" "WARN Ignoring unrecognized configuration key 'sprites.warning'. Please check your configuration file for typos."
 # TODO: below should be changed to cog.warning once unstable-cog is made stable
-test_log_has_str "$LOG_FILE" "WARN  martin::config::file::main] Ignoring unrecognized configuration key 'cog'. Please check your configuration file for typos."
-test_log_has_str "$LOG_FILE" "WARN  martin::config::file::main] Ignoring unrecognized configuration key 'styles.warning'. Please check your configuration file for typos."
-test_log_has_str "$LOG_FILE" 'WARN  martin::config::file::tiles::pmtiles] Defaulting `pmtiles.allow_http` to `true`. This is likely to become an error in the future for better security.'
-test_log_has_str "$LOG_FILE" 'WARN  martin::config::file::tiles::pmtiles] Environment variable AWS_SKIP_CREDENTIALS is deprecated. Please use pmtiles.skip_signature in the configuration file instead.'
-test_log_has_str "$LOG_FILE" 'WARN  martin::config::file::tiles::pmtiles] Environment variable AWS_REGION is deprecated. Please use pmtiles.region in the configuration file instead.'
+test_log_has_str "$LOG_FILE" "WARN Ignoring unrecognized configuration key 'cog'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" "WARN Ignoring unrecognized configuration key 'styles.warning'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" 'WARN Defaulting `pmtiles.allow_http` to `true`. This is likely to become an error in the future for better security.'
+test_log_has_str "$LOG_FILE" 'WARN Environment variable AWS_SKIP_CREDENTIALS is deprecated. Please use pmtiles.skip_signature in the configuration file instead.'
+test_log_has_str "$LOG_FILE" 'WARN Environment variable AWS_REGION is deprecated. Please use pmtiles.region in the configuration file instead.'
 validate_log "$LOG_FILE"
 remove_lines "${TEST_OUT_DIR}/save_config.yaml" " connection_string: "
 echo "::endgroup::"

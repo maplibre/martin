@@ -1,12 +1,13 @@
-use std::fmt::Write;
+use std::env;
 
-use clap::Parser;
-use log::{error, info, log_enabled};
+use clap::Parser as _;
 use martin::MartinResult;
 use martin::config::args::Args;
 use martin::config::file::{Config, read_config};
+use martin::config::primitives::env::OsEnv;
+use martin::logging::{ensure_martin_core_log_level_matches, init_tracing};
 use martin::srv::new_server;
-use martin_core::config::env::OsEnv;
+use tracing::{error, info};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -23,8 +24,13 @@ async fn start(args: Args) -> MartinResult<()> {
         Config::default()
     };
 
-    args.merge_into_config(&mut config, &env)?;
+    args.merge_into_config(
+        &mut config,
+        #[cfg(feature = "postgres")]
+        &env,
+    )?;
     config.finalize()?;
+    #[cfg(feature = "_catalog")]
     let sources = config.resolve().await?;
 
     if let Some(file_name) = save_config {
@@ -36,40 +42,41 @@ async fn start(args: Args) -> MartinResult<()> {
     #[cfg(all(feature = "webui", not(docsrs)))]
     let web_ui_mode = config.srv.web_ui.unwrap_or_default();
 
-    let (server, listen_addresses) = new_server(config.srv, sources)?;
-    info!("Martin has been started on {listen_addresses}.");
-    info!("Use http://{listen_addresses}/catalog to get the list of available sources.");
+    let route_prefix = config.srv.route_prefix.clone();
+    let (server, listen_addresses) = new_server(
+        config.srv,
+        #[cfg(feature = "_catalog")]
+        sources,
+    )?;
+    let base_url = if let Some(ref prefix) = route_prefix {
+        format!("http://{listen_addresses}{prefix}/")
+    } else {
+        format!("http://{listen_addresses}/")
+    };
 
     #[cfg(all(feature = "webui", not(docsrs)))]
     if web_ui_mode == martin::config::args::WebUiMode::EnableForAll {
-        log::warn!("Web UI is enabled for all connections at http://{listen_addresses}/");
+        tracing::info!("Martin server is now active at {base_url}");
     } else {
         info!(
             "Web UI is disabled. Use `--webui enable-for-all` in CLI or a config value to enable it for all connections."
         );
     }
+    #[cfg(not(all(feature = "webui", not(docsrs))))]
+    info!("Martin server is now active. See {base_url}catalog to see available services");
 
     server.await
 }
 
-#[actix_web::main]
+#[tokio::main]
 async fn main() {
-    let mut log_filter = std::env::var("RUST_LOG").unwrap_or("martin=info".to_string());
-    // if we don't have martin_core set, this can hide parts of our logs unintentionally
-    if log_filter.contains("martin=")
-        && !log_filter.contains("martin_core=")
-        && let Some(level) = log_filter
-            .split(',')
-            .find_map(|s| s.strip_prefix("martin="))
-    {
-        let level = level.to_string();
-        let _ = write!(log_filter, ",martin_core={level}");
-    }
-    env_logger::builder().parse_filters(&log_filter).init();
+    let filter = ensure_martin_core_log_level_matches(env::var("RUST_LOG").ok(), "martin=");
+    init_tracing(&filter, env::var("RUST_LOG_FORMAT").ok());
 
-    if let Err(e) = start(Args::parse()).await {
+    let args = Args::parse();
+    if let Err(e) = start(args).await {
         // Ensure the message is printed, even if the logging is disabled
-        if log_enabled!(log::Level::Error) {
+        if tracing::event_enabled!(tracing::Level::ERROR) {
             error!("{e}");
         } else {
             eprintln!("{e}");

@@ -7,17 +7,13 @@ use std::sync::LazyLock;
 use clap::ValueEnum;
 #[cfg(feature = "_tiles")]
 use futures::future::{BoxFuture, try_join_all};
-use log::{Level, info, log, warn};
-#[cfg(feature = "_tiles")]
-use martin_core::config::IdResolver;
-#[cfg(feature = "postgres")]
-use martin_core::config::OptOneMany;
 #[cfg(feature = "_tiles")]
 use martin_core::tiles::OptTileCache;
 #[cfg(feature = "pmtiles")]
 use martin_core::tiles::pmtiles::PmtCache;
 use serde::{Deserialize, Serialize};
 use subst::VariableMap;
+use tracing::{error, info, warn};
 
 #[cfg(any(
     feature = "pmtiles",
@@ -31,9 +27,13 @@ use crate::config::file::FileConfigEnum;
 #[cfg(any(feature = "_tiles", feature = "sprites", feature = "fonts"))]
 use crate::config::file::cache::CacheConfig;
 use crate::config::file::{
-    ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks, UnrecognizedKeys,
+    ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks as _, UnrecognizedKeys,
     UnrecognizedValues, copy_unrecognized_keys_from_config,
 };
+#[cfg(feature = "_tiles")]
+use crate::config::primitives::IdResolver;
+#[cfg(feature = "postgres")]
+use crate::config::primitives::OptOneMany;
 #[cfg(feature = "_tiles")]
 use crate::source::TileSources;
 #[cfg(feature = "_tiles")]
@@ -127,6 +127,15 @@ impl Config {
         let mut res = self.srv.get_unrecognized_keys();
         copy_unrecognized_keys_from_config(&mut res, "", &self.unrecognized);
 
+        if let Some(path) = &self.srv.route_prefix {
+            let normalized = parse_base_path(path)?;
+            // For route_prefix, an empty normalized path (from "/") means no prefix
+            self.srv.route_prefix = if normalized.is_empty() {
+                None
+            } else {
+                Some(normalized)
+            };
+        }
         if let Some(path) = &self.srv.base_path {
             self.srv.base_path = Some(parse_base_path(path)?);
         }
@@ -325,7 +334,7 @@ impl Config {
     #[cfg(feature = "_tiles")]
     async fn resolve_tile_sources(
         &mut self,
-        #[allow(unused_variables)] idr: &IdResolver,
+        idr: &IdResolver,
         #[cfg(feature = "pmtiles")] pmtiles_cache: PmtCache,
     ) -> MartinResult<(TileSources, Vec<TileSourceWarning>)> {
         let mut sources_and_warnings: Vec<BoxFuture<_>> = Vec::new();
@@ -413,24 +422,29 @@ pub enum OnInvalid {
     Abort,
 }
 
+fn fmt_warnings(warnings: &[TileSourceWarning]) -> String {
+    warnings
+        .iter()
+        .map(|w| format!("  - {w}"))
+        .collect::<Vec<String>>()
+        .join("\n")
+}
+
 impl OnInvalid {
     /// Handle warnings based on `policy`
     pub fn handle_tile_warnings(self, warnings: &[TileSourceWarning]) -> MartinResult<()> {
         if warnings.is_empty() {
             return Ok(());
         }
-        let level = match self {
-            OnInvalid::Warn => Level::Warn,
-            OnInvalid::Abort => Level::Error,
-        };
         match warnings {
-            [warning] => log!(level, "Tile source resolution warning: {warning}"),
-            warnings => {
-                log!(level, "Tile source resolution warnings:");
-                for warning in warnings {
-                    log!(level, "  - {warning}");
-                }
-            }
+            [warning] => match self {
+                OnInvalid::Warn => warn!("Tile source resolution warning: {warning}"),
+                OnInvalid::Abort => error!("Tile source resolution warning: {warning}"),
+            },
+            warnings => match self {
+                OnInvalid::Warn => warn!("Tile source resolutions:\n{}", fmt_warnings(warnings)),
+                OnInvalid::Abort => error!("Tile source resolutions:\n{}", fmt_warnings(warnings)),
+            },
         }
 
         match self {

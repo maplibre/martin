@@ -1,6 +1,6 @@
 [package]
 name = "mbtiles"
-version = "0.15.0"
+version = "0.15.2"
 authors = ["Yuri Astrakhan <YuriAstrakhan@gmail.com>", "MapLibre contributors"]
 description = "A simple low-level MbTiles access and processing library, with some tile format detection and other relevant heuristics."
 keywords = ["mbtiles", "maps", "tiles", "mvt", "tilejson"]
@@ -51,11 +51,12 @@ xxhash-rust.workspace = true
 [dev-dependencies]
 # For testing, might as well use the same async framework as the Martin itself
 actix-rt.workspace = true
-ctor.workspace = true
 env_logger.workspace = true
 insta = { workspace = true, features = ["toml", "yaml"] }
 pretty_assertions.workspace = true
 rstest.workspace = true
+tracing.workspace = true
+tracing-test.workspace = true
 
 [lints]
 workspace = true

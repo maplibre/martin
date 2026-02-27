@@ -1,6 +1,6 @@
 use actix_web::{App, HttpResponse, HttpServer, Result as ActixResult, web};
 use martin_core::tiles::pmtiles::{PmtCache, PmtCacheInstance, PmtilesSource};
-use martin_core::tiles::{Source, UrlQuery};
+use martin_core::tiles::{Source as _, UrlQuery};
 use martin_tile_utils::TileCoord;
 use serde::Deserialize;
 

@@ -1,11 +1,13 @@
 use actix_middleware_etag::Etag;
-use actix_web::http::header::ContentType;
+use actix_web::http::header::{ContentType, LOCATION};
 use actix_web::middleware::Compress;
 use actix_web::web::{Data, Path};
 use actix_web::{HttpResponse, route};
-use log::error;
 use martin_core::styles::StyleSources;
 use serde::Deserialize;
+use tracing::{error, warn};
+
+use crate::srv::server::DebouncedWarning;
 
 #[derive(Deserialize, Debug)]
 struct StyleRequest {
@@ -47,4 +49,23 @@ async fn get_style_json(path: Path<StyleRequest>, styles: Data<StyleSources>) ->
                 ))
         }
     }
+}
+
+/// Redirect `/styles/{style_id}` to `/style/{style_id}` (HTTP 301)
+/// This handles common pluralization mistakes
+#[route("/styles/{style_id}", method = "GET", method = "HEAD")]
+pub(crate) async fn redirect_styles(path: Path<StyleRequest>) -> HttpResponse {
+    static WARNING: DebouncedWarning = DebouncedWarning::new();
+    let StyleRequest { style_id } = path.as_ref();
+    WARNING
+        .once_per_hour(|| {
+            warn!(
+                "Request to /styles/{style_id} caused unnecessary redirect. Use /style/{style_id} to avoid extra round-trip latency."
+            );
+        })
+        .await;
+
+    HttpResponse::MovedPermanently()
+        .insert_header((LOCATION, format!("/style/{style_id}")))
+        .finish()
 }

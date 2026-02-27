@@ -1,16 +1,17 @@
 use std::collections::BTreeMap;
+use std::env;
 use std::path::{Path, PathBuf};
 
-use log::warn;
-#[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
-use martin_core::config::OptBoolObj;
 use martin_core::styles::StyleSources;
 use serde::{Deserialize, Serialize};
+use tracing::warn;
 
 use crate::config::file::{
     ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks, FileConfigEnum,
     UnrecognizedKeys, UnrecognizedValues,
 };
+#[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
+use crate::config::primitives::OptBoolObj;
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct InnerStyleConfig {
@@ -28,20 +29,22 @@ pub struct InnerStyleConfig {
 
 impl ConfigurationLivecycleHooks for InnerStyleConfig {
     fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
-        #[allow(unused_mut)]
+        #[cfg_attr(
+            not(all(feature = "unstable-rendering", target_os = "linux")),
+            expect(unused_mut, reason = "to warn for unrecognized keys")
+        )]
         let mut keys = self
             .unrecognized
             .keys()
             .cloned()
             .collect::<UnrecognizedKeys>();
         #[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
-        match &self.rendering {
-            OptBoolObj::NoValue | OptBoolObj::Bool(_) => {}
-            OptBoolObj::Object(o) => keys.extend(
+        if let OptBoolObj::Object(o) = &self.rendering {
+            keys.extend(
                 o.get_unrecognized_keys()
                     .iter()
                     .map(|k| format!("rendering.{k}")),
-            ),
+            );
         }
         keys
     }
@@ -148,7 +151,7 @@ fn list_contained_files(
     source_path: &Path,
     filter_extension: &str,
 ) -> Result<Vec<PathBuf>, ConfigFileError> {
-    let working_directory = std::env::current_dir().ok();
+    let working_directory = env::current_dir().ok();
     let mut contained_files = Vec::new();
     let it = walkdir::WalkDir::new(source_path)
         .follow_links(true)

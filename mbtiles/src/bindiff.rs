@@ -6,12 +6,12 @@ use std::time::Instant;
 
 use enum_display::EnumDisplay;
 use flume::{Receiver, Sender, bounded};
-use futures::TryStreamExt;
+use futures::TryStreamExt as _;
 use log::{debug, error, info};
 use martin_tile_utils::{TileCoord, decode_brotli, decode_gzip, encode_brotli, encode_gzip};
 use serde::{Deserialize, Serialize};
 use sqlite_compressions::{BsdiffRawDiffer, Differ as _};
-use sqlx::{Executor, Row, SqliteConnection, query};
+use sqlx::{Executor as _, Row as _, SqliteConnection, query};
 use xxhash_rust::xxh3::xxh3_64;
 
 use crate::MbtType::{Flat, FlatWithHash, Normalized};
@@ -279,7 +279,10 @@ impl BinDiffer<DifferBefore, DifferAfter> for BinDiffDiffer {
     }
 
     async fn insert(&self, value: DifferAfter, conn: &mut SqliteConnection) -> MbtResult<()> {
-        #[expect(clippy::cast_possible_wrap)]
+        #[expect(
+            clippy::cast_possible_wrap,
+            reason = "the hash wrapping does not change the invariants and sqlite does not support u64"
+        )]
         query(self.insert_sql.as_str())
             .bind(value.coord.z)
             .bind(value.coord.x)

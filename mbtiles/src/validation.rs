@@ -7,7 +7,7 @@ use martin_tile_utils::{Format, MAX_ZOOM, TileInfo};
 use serde::Serialize;
 use serde_json::Value;
 use sqlx::sqlite::SqliteRow;
-use sqlx::{Row, SqliteConnection, SqliteExecutor, query};
+use sqlx::{Row as _, SqliteConnection, SqliteExecutor, query};
 use tilejson::TileJSON;
 
 use crate::MbtError::{
@@ -241,20 +241,18 @@ impl Mbtiles {
     ) -> Option<TileInfo> {
         if let (Some(z), Some(x), Some(y), Some(tile)) = (z, x, y, tile) {
             let info = TileInfo::detect(&tile);
-            if let Some(info) = info {
-                debug!(
-                    "Tile {z}/{x}/{} is detected as {info} in file {}",
-                    {
-                        if let (Ok(z), Ok(y)) = (u8::try_from(z), u32::try_from(y)) {
-                            invert_y_value(z, y).to_string()
-                        } else {
-                            format!("{y} (invalid values, cannot invert Y)")
-                        }
-                    },
-                    self.filename(),
-                );
-            }
-            info
+            debug!(
+                "Tile {z}/{x}/{} is detected as {info} in file {}",
+                {
+                    if let (Ok(z), Ok(y)) = (u8::try_from(z), u32::try_from(y)) {
+                        invert_y_value(z, y).to_string()
+                    } else {
+                        format!("{y} (invalid values, cannot invert Y)")
+                    }
+                },
+                self.filename(),
+            );
+            Some(info)
         } else {
             None
         }

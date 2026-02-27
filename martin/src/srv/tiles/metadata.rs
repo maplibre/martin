@@ -1,4 +1,4 @@
-use std::string::ToString;
+use std::string::ToString as _;
 
 use actix_middleware_etag::Etag;
 use actix_web::error::ErrorBadRequest;
@@ -35,11 +35,19 @@ async fn get_source_info(
 ) -> ActixResult<HttpResponse> {
     let sources = sources.get_sources(&path.source_ids, None)?.0;
 
+    // Determine the path prefix for tile URLs in TileJSON responses
+    // Priority: base_path (explicit override) > route_prefix (where Martin is mounted) > X-Rewrite-URL header > request path
     let tiles_path = if let Some(base_path) = &srv_config.base_path {
+        // If base_path is explicitly set, use it directly
         format!("{base_path}/{}", path.source_ids)
+    } else if let Some(route_prefix) = &srv_config.route_prefix {
+        // If route_prefix is set, use it (Martin is mounted under a subpath)
+        format!("{route_prefix}/{}", path.source_ids)
     } else {
+        // Fall back to X-Rewrite-URL header if present, otherwise use request path
         req.headers()
-            .get("x-rewrite-url")
+            .get("X-Rewrite-URL")
+            .or(req.headers().get("X-Forwarded-Prefix"))
             .and_then(|v| v.to_str().ok())
             .and_then(|v| v.parse::<Uri>().ok())
             .map_or_else(|| req.path().to_string(), |v| v.path().to_string())

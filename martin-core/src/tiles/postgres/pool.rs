@@ -3,9 +3,9 @@
 use std::path::PathBuf;
 
 use deadpool_postgres::{Manager, ManagerConfig, Object, Pool, RecyclingMethod};
-use log::{info, warn};
 use postgres::config::SslMode;
 use semver::Version;
+use tracing::{info, warn};
 
 use crate::tiles::postgres::PostgresError::{
     BadPostgisVersion, BadPostgresVersion, PostgisTooOld, PostgresError, PostgresPoolBuildError,
@@ -219,7 +219,7 @@ SELECT (regexp_matches(
     Ok(version)
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "test-pg"))]
 mod tests {
     use deadpool_postgres::tokio_postgres::Config;
     use postgres::NoTls;

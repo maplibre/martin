@@ -4,11 +4,11 @@ use std::collections::BTreeMap;
 use std::fmt::Write as _;
 use std::iter::zip;
 
-use log::{debug, warn};
 use martin_core::tiles::postgres::PostgresError::PostgresError;
 use martin_core::tiles::postgres::{PostgresPool, PostgresResult, PostgresSqlInfo};
 use postgres_protocol::escape::escape_identifier;
 use serde_json::Value;
+use tracing::{debug, warn};
 
 use crate::config::file::postgres::FunctionInfo;
 

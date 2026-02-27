@@ -3,7 +3,6 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 use futures::pin_mut;
-use log::{debug, warn};
 use martin_core::tiles::postgres::PostgresError::PostgresError;
 use martin_core::tiles::postgres::{PostgresPool, PostgresResult, PostgresSqlInfo};
 use martin_tile_utils::EARTH_CIRCUMFERENCE_DEGREES;
@@ -12,9 +11,10 @@ use postgres_protocol::escape::{escape_identifier, escape_literal};
 use serde_json::Value;
 use tilejson::Bounds;
 use tokio::time::timeout;
+use tracing::{debug, warn};
 
 use crate::config::args::{BoundsCalcType, DEFAULT_BOUNDS_TIMEOUT};
-use crate::config::file::postgres::{PostgresInfo, TableInfo};
+use crate::config::file::postgres::{PostgresInfo as _, TableInfo};
 
 /// Map of `PostgreSQL` tables organized by schema, table, and geometry column.
 pub type SqlTableInfoMapMapMap = BTreeMap<String, BTreeMap<String, BTreeMap<String, TableInfo>>>;
@@ -281,7 +281,7 @@ FROM {schema}.{table};
 
 #[must_use]
 pub fn polygon_to_bbox(polygon: &ewkb::Polygon) -> Option<Bounds> {
-    use postgis::{LineString, Point, Polygon};
+    use postgis::{LineString as _, Point as _, Polygon as _};
 
     polygon.rings().next().and_then(|linestring| {
         let mut points = linestring.points();
