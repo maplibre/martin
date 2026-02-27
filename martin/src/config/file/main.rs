@@ -8,10 +8,6 @@ use clap::ValueEnum;
 #[cfg(feature = "_tiles")]
 use futures::future::{BoxFuture, try_join_all};
 #[cfg(feature = "_tiles")]
-use martin_core::config::IdResolver;
-#[cfg(feature = "postgres")]
-use martin_core::config::OptOneMany;
-#[cfg(feature = "_tiles")]
 use martin_core::tiles::OptTileCache;
 #[cfg(feature = "pmtiles")]
 use martin_core::tiles::pmtiles::PmtCache;
@@ -31,9 +27,13 @@ use crate::config::file::FileConfigEnum;
 #[cfg(any(feature = "_tiles", feature = "sprites", feature = "fonts"))]
 use crate::config::file::cache::CacheConfig;
 use crate::config::file::{
-    ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks, UnrecognizedKeys,
+    ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks as _, UnrecognizedKeys,
     UnrecognizedValues, copy_unrecognized_keys_from_config,
 };
+#[cfg(feature = "_tiles")]
+use crate::config::primitives::IdResolver;
+#[cfg(feature = "postgres")]
+use crate::config::primitives::OptOneMany;
 #[cfg(feature = "_tiles")]
 use crate::source::TileSources;
 #[cfg(feature = "_tiles")]
@@ -334,7 +334,7 @@ impl Config {
     #[cfg(feature = "_tiles")]
     async fn resolve_tile_sources(
         &mut self,
-        #[allow(unused_variables)] idr: &IdResolver,
+        idr: &IdResolver,
         #[cfg(feature = "pmtiles")] pmtiles_cache: PmtCache,
     ) -> MartinResult<(TileSources, Vec<TileSourceWarning>)> {
         let mut sources_and_warnings: Vec<BoxFuture<_>> = Vec::new();

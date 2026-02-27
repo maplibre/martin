@@ -8,7 +8,6 @@
 //!
 //! ```rust,no_run
 //! use martin_core::fonts::FontSources;
-//! use martin_core::config::OptOneMany;
 //! use std::path::PathBuf;
 //!
 //! let mut sources = FontSources::default();
@@ -26,7 +25,7 @@ use bit_set::BitSet;
 use dashmap::{DashMap, Entry};
 use itertools::Itertools as _;
 use pbf_font_tools::freetype::{Face, Library};
-use pbf_font_tools::prost::Message;
+use pbf_font_tools::prost::Message as _;
 use pbf_font_tools::{Fontstack, Glyphs, render_sdf_glyph};
 use regex::Regex;
 use serde::{Deserialize, Serialize};

@@ -18,7 +18,7 @@ use mbtiles::{
 use pretty_assertions::assert_eq as pretty_assert_eq;
 use rstest::{fixture, rstest};
 use serde::Serialize;
-use sqlx::{Executor as _, Row, SqliteConnection, query, query_as};
+use sqlx::{Executor as _, Row as _, SqliteConnection, query, query_as};
 use tokio::runtime::Handle;
 
 const GZIP_TILES: &str = "UPDATE tiles SET tile_data = gzip(tile_data);";

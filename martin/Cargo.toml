@@ -1,6 +1,6 @@
 [package]
 name = "martin"
-version = "1.2.0"
+version = "1.3.1"
 authors = [
     "Stepan Kuzmin <to.stepan.kuzmin@gmail.com>",
     "Yuri Astrakhan <YuriAstrakhan@gmail.com>",
@@ -100,7 +100,7 @@ default = [
 ]
 unstable-cog = ["martin-core/unstable-cog", "_tiles"]
 unstable-rendering = ["styles", "martin-core/unstable-rendering", "dep:image"]
-fonts = ["martin-core/fonts"]
+fonts = ["martin-core/fonts", "_catalog"]
 lambda = ["dep:lambda-web"]
 mbtiles = ["martin-core/mbtiles", "dep:mbtiles", "_tiles"]
 metrics = ["dep:actix-web-prom"]
@@ -113,10 +113,12 @@ postgres = [
     "dep:postgres-protocol",
     "_tiles",
 ]
-sprites = ["martin-core/sprites"]
-styles = ["martin-core/styles", "dep:walkdir"]
+sprites = ["martin-core/sprites", "_catalog"]
+styles = ["martin-core/styles", "dep:walkdir", "_catalog"]
 webui = ["dep:actix-web-static-files", "dep:static-files", "dep:walkdir"]
-_tiles = ["martin-core/_tiles"]
+_tiles = ["martin-core/_tiles", "_catalog"]
+_catalog = []
+test-pg = ["postgres"]
 
 [dependencies]
 actix-cors.workspace = true

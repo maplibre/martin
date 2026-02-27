@@ -12,15 +12,15 @@ use actix_web::http::header::{ACCEPT_ENCODING, AcceptEncoding, Header as _};
 use clap::Parser;
 use clap::builder::Styles;
 use clap::builder::styling::AnsiColor;
-use futures::TryStreamExt;
-use futures::stream::{self, StreamExt};
+use futures::TryStreamExt as _;
+use futures::stream::{self, StreamExt as _};
 use martin::config::args::{Args, ExtraArgs, MetaArgs, SrvArgs};
 use martin::config::file::{Config, ServerState, read_config};
 use martin::logging::progress::TileCopyProgress;
+use martin::config::primitives::env::OsEnv;
 use martin::logging::{ensure_martin_core_log_level_matches, init_tracing};
 use martin::srv::{DynTileSource, merge_tilejson};
 use martin::{MartinError, MartinResult};
-use martin_core::config::env::OsEnv;
 use martin_core::tiles::BoxedSource;
 use martin_core::tiles::mbtiles::MbtilesError;
 use martin_tile_utils::{TileCoord, TileData, TileInfo, TileRect, append_rect, bbox_to_xyz};
@@ -181,7 +181,11 @@ async fn start(copy_args: CopierArgs) -> MartinCpResult<()> {
         pg: copy_args.pg,
     };
 
-    args.merge_into_config(&mut config, &env)?;
+    args.merge_into_config(
+        &mut config,
+        #[cfg(feature = "postgres")]
+        &env,
+    )?;
     config.finalize()?;
 
     let sources = config.resolve().await?;
@@ -544,7 +548,7 @@ async fn main() {
 
 #[cfg(test)]
 mod tests {
-    use std::str::FromStr;
+    use std::str::FromStr as _;
 
     use async_trait::async_trait;
     use insta::assert_yaml_snapshot;
@@ -695,7 +699,7 @@ mod tests {
     #[case("-120.0,-90.0,-110.0,40.0", Err("latitude".to_string()))]
     #[case("-120.0,30.0,-110.0,90.0", Err("latitude".to_string()))]
     fn test_check_bboxes(#[case] bbox_str: &str, #[case] expected: Result<String, String>) {
-        use std::str::FromStr;
+        use std::str::FromStr as _;
 
         let bbox_vec = if bbox_str.is_empty() {
             vec![]

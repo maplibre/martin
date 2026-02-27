@@ -1,12 +1,12 @@
 use std::env;
 
-use clap::Parser;
+use clap::Parser as _;
 use martin::MartinResult;
 use martin::config::args::Args;
 use martin::config::file::{Config, read_config};
+use martin::config::primitives::env::OsEnv;
 use martin::logging::{ensure_martin_core_log_level_matches, init_tracing};
 use martin::srv::new_server;
-use martin_core::config::env::OsEnv;
 use tracing::{error, info};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -24,8 +24,13 @@ async fn start(args: Args) -> MartinResult<()> {
         Config::default()
     };
 
-    args.merge_into_config(&mut config, &env)?;
+    args.merge_into_config(
+        &mut config,
+        #[cfg(feature = "postgres")]
+        &env,
+    )?;
     config.finalize()?;
+    #[cfg(feature = "_catalog")]
     let sources = config.resolve().await?;
 
     if let Some(file_name) = save_config {
@@ -37,18 +42,28 @@ async fn start(args: Args) -> MartinResult<()> {
     #[cfg(all(feature = "webui", not(docsrs)))]
     let web_ui_mode = config.srv.web_ui.unwrap_or_default();
 
-    let (server, listen_addresses) = new_server(config.srv, sources)?;
-    info!("Martin has been started on {listen_addresses}.");
-    info!("Use http://{listen_addresses}/catalog to get the list of available sources.");
+    let route_prefix = config.srv.route_prefix.clone();
+    let (server, listen_addresses) = new_server(
+        config.srv,
+        #[cfg(feature = "_catalog")]
+        sources,
+    )?;
+    let base_url = if let Some(ref prefix) = route_prefix {
+        format!("http://{listen_addresses}{prefix}/")
+    } else {
+        format!("http://{listen_addresses}/")
+    };
 
     #[cfg(all(feature = "webui", not(docsrs)))]
     if web_ui_mode == martin::config::args::WebUiMode::EnableForAll {
-        tracing::warn!("Web UI is enabled for all connections at http://{listen_addresses}/");
+        tracing::info!("Martin server is now active at {base_url}");
     } else {
         info!(
             "Web UI is disabled. Use `--webui enable-for-all` in CLI or a config value to enable it for all connections."
         );
     }
+    #[cfg(not(all(feature = "webui", not(docsrs))))]
+    info!("Martin server is now active. See {base_url}catalog to see available services");
 
     server.await
 }

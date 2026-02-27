@@ -7,6 +7,81 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.1](https://github.com/maplibre/martin/compare/martin-v1.3.0...martin-v1.3.1) - 2026-02-11
+
+### Added
+
+- *(srv)* Add HTTP 301 redirects for common URL mistakes ([#2528](https://github.com/maplibre/martin/pull/2528))
+- *(unstable-cog)* Change tile path semantics for COG sources to match other sources, expose COG bounds, center and tileSize in TileJSON ([#2510](https://github.com/maplibre/martin/pull/2510))
+
+### Fixed
+
+- Fixed the `path-prefix` feature when it comes to frontend assets and log output ([#2549](https://github.com/maplibre/martin/pull/2549), [#2541](https://github.com/maplibre/martin/pull/2541))
+
+### Other
+
+- Add test coverage for header handling in tilejson requests ([#2529](https://github.com/maplibre/martin/pull/2529))
+- *(martin-core)* [**breaking**] remove the configration from the martin-core crate ([#2521](https://github.com/maplibre/martin/pull/2521))
+- restrict `unused_trait_names` for trait imports ([#2542](https://github.com/maplibre/martin/pull/2542))
+- *(deps)* Bump various dependencys ([#2553](https://github.com/maplibre/martin/pull/2553), [#2545](https://github.com/maplibre/martin/pull/2545), [#2533](https://github.com/maplibre/martin/pull/2533))
+
+## [1.3.0](https://github.com/maplibre/martin/compare/martin-v1.2.0...martin-v1.3.0) - 2026-01-27
+
+### More flexible log formatting
+
+We migrated our `log` library to `tracing`.
+This gives us a few internal improvements, but also allows us to introduce a new `RUST_LOG_FORMAT` environment variable.
+The available values are: `json`, `full`, `compact` (default), `bare` or `pretty`.
+
+Done in [#2494](https://github.com/maplibre/martin/pull/2494), [#2508](https://github.com/maplibre/martin/pull/2508), [#2500](https://github.com/maplibre/martin/pull/2500) by @CommanderStorm
+
+### Glyph ranges beyond `0xFFFF`
+
+If you are using fonts which span beyond the `0xFFFF` range, this release improves how Martin loads and renders those glyphs so they are handled correctly.
+
+Here is a short explanation of why this might matter to you based on <https://en.wikipedia.org/wiki/Unicode_block>.
+
+- `U+0000` - `U+FFFF` is Basic Multilingual Plane, which covers characters for almost all modern languages
+- `U+10000` - `U+3347F` covers minor characters such as historic scripts and emojis
+- `U+E0000` - `U+E01EF` is for tags and variation selectors
+- `U+F0000` - `U+10FFFF` is for private use (i.e. can be assigned arbitrary custom characters without worrying about possible conflict with the future standards)
+
+Done in ([#2438](https://github.com/maplibre/martin/pull/2438)) by @yutannihilation
+
+As a related performance optimisation, we also removed `FontSources.masks` as it was consuming large amounts of memory and some startup time, even when no font sources were set ([#2519](https://github.com/maplibre/martin/pull/2519)) by @Auspicus
+
+### Simpler native subpath support
+
+We added the `route_prefix` configuration and `--route-prefix` cli arguments.
+This allows you to configure the subpath martin is serving from without the need for your reverse proxy to strip these subpaths before getting to us.
+
+Done in ([#2523](https://github.com/maplibre/martin/pull/2523))
+
+### MLT decoding support
+
+Martin now supports the MapLibre Tiles Specification.
+This means that if you want to serve MLT based tiles with this tileserver, you now can.
+Read more about what the MapLibre Tile Specification is and why we are "reinventing the wheel on this one" in our [blog post](https://maplibre.org/news/2026-01-23-mlt-release/).
+
+Done in ([#2512](https://github.com/maplibre/martin/pull/2512))
+
+### Added
+
+- improve martin-cp progress output time estimate by displaying in human time instead of seconds ([#2491](https://github.com/maplibre/martin/pull/2491))
+- *(pg)* support PostgreSQL materialized views ([#2279](https://github.com/maplibre/martin/pull/2279))
+- *(pg)* include ID column info for tables ([#2485](https://github.com/maplibre/martin/pull/2485))
+
+### Fixed
+
+- improve error message if no SVG sprite files are present ([#2516](https://github.com/maplibre/martin/pull/2516))
+- *(ui)* Fix clipboard copy for <http://0.0.0.0:3000> and unify implementations and their design ([#2487](https://github.com/maplibre/martin/pull/2487), [#2489](https://github.com/maplibre/martin/pull/2489), [#2483](https://github.com/maplibre/martin/pull/2483), [#2482](https://github.com/maplibre/martin/pull/2482))
+
+### Other
+
+
+- *(deps)* `cargo-shear` our dependencies for improved compile times ([#2497](https://github.com/maplibre/martin/pull/2497))
+- *(mbtiles)* improve a few test cases ([#2478](https://github.com/maplibre/martin/pull/2478), [#2480](https://github.com/maplibre/martin/pull/2480), [#2477](https://github.com/maplibre/martin/pull/2477))
+
 ## [1.2.0](https://github.com/maplibre/martin/compare/martin-v1.1.0...martin-v1.2.0) - 2026-01-03
 
 ### Optionally fail config loading/resolution for missing sources

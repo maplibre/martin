@@ -1,6 +1,6 @@
 [package]
 name = "martin-core"
-version = "0.2.5"
+version = "0.3.0"
 authors = ["Yuri Astrakhan <YuriAstrakhan@gmail.com>", "MapLibre contributors"]
 description = "Basic building blocks of MapLibre's Martin tile server."
 keywords = ["maps", "tiles", "mvt", "tileserver"]
@@ -33,7 +33,13 @@ postgres = [
     "dep:serde_json",
     "_tiles",
 ]
-unstable-cog = ["dep:png", "dep:tiff", "_tiles"]
+unstable-cog = [
+    "dep:png",
+    "dep:tiff",
+    "dep:image",
+    "dep:serde_json",
+    "_tiles",
+]
 unstable-rendering = ["styles", "dep:maplibre_native", "dep:image"]
 fonts = [
     "dep:bit-set",
@@ -54,6 +60,7 @@ styles = ["tokio/fs", "dep:dashmap"]
 mbtiles = ["dep:mbtiles", "_tiles"]
 pmtiles = ["dep:pmtiles", "dep:object_store", "_tiles"]
 _tiles = ["dep:base64"]
+test-pg = ["postgres"]
 
 [target.'cfg(target_os = "linux")'.dependencies]
 image = { workspace = true, optional = true }
@@ -67,6 +74,7 @@ bit-set = { workspace = true, optional = true }
 dashmap = { workspace = true, optional = true }
 deadpool-postgres = { workspace = true, optional = true }
 futures = { workspace = true, optional = true }
+image = { workspace = true, optional = true }
 itertools = { workspace = true, optional = true }
 martin-tile-utils.workspace = true
 mbtiles = { workspace = true, optional = true }
@@ -85,7 +93,6 @@ serde.workspace = true
 serde_json = { workspace = true, optional = true }
 serde_with.workspace = true
 spreet = { workspace = true, optional = true }
-subst.workspace = true
 thiserror.workspace = true
 tiff = { workspace = true, optional = true }
 tilejson.workspace = true
