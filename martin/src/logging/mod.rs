@@ -11,7 +11,6 @@ use tracing::level_filters::LevelFilter;
 use tracing_subscriber::EnvFilter;
 use tracing_subscriber::fmt::format::FmtSpan;
 use tracing_subscriber::layer::SubscriberExt;
-use tracing_subscriber::util::SubscriberInitExt;
 
 pub mod progress;
 
@@ -41,46 +40,48 @@ pub enum LogFormat {
 impl LogFormat {
     /// Initialize logging according to the selected format.
     pub fn init(self, env_filter: EnvFilter) {
-        match self {
-            LogFormat::Full => {
-                tracing_subscriber::fmt()
-                    .with_span_events(FmtSpan::NONE)
-                    .with_env_filter(env_filter)
-                    .init();
-            }
-            LogFormat::Compact => {
-                tracing_subscriber::fmt()
-                    .compact()
-                    .with_span_events(FmtSpan::NONE)
-                    .with_env_filter(env_filter)
-                    .init();
-            }
-            LogFormat::Pretty => {
-                tracing_subscriber::fmt()
-                    .pretty()
-                    .with_env_filter(env_filter)
-                    .init();
-            }
-            LogFormat::Bare => {
-                tracing_subscriber::fmt()
-                    .compact()
-                    .with_span_events(FmtSpan::NONE)
-                    .without_time()
-                    .with_target(false)
-                    .with_ansi(false)
-                    .with_env_filter(env_filter)
-                    .init();
-            }
-            LogFormat::Json => {
-                tracing_subscriber::fmt()
-                    .json()
-                    .with_span_events(FmtSpan::NONE)
-                    .with_env_filter(env_filter)
-                    .init();
-            }
-        }
+        let dispatch = match self {
+            LogFormat::Full => tracing_subscriber::fmt()
+                .with_span_events(FmtSpan::NONE)
+                .with_env_filter(env_filter)
+                .finish()
+                .into(),
+            LogFormat::Compact => tracing_subscriber::fmt()
+                .compact()
+                .with_span_events(FmtSpan::NONE)
+                .with_env_filter(env_filter)
+                .finish()
+                .into(),
+            LogFormat::Pretty => tracing_subscriber::fmt()
+                .pretty()
+                .with_env_filter(env_filter)
+                .finish()
+                .into(),
+            LogFormat::Bare => tracing_subscriber::fmt()
+                .compact()
+                .with_span_events(FmtSpan::NONE)
+                .without_time()
+                .with_target(false)
+                .with_ansi(false)
+                .with_env_filter(env_filter)
+                .finish()
+                .into(),
+            LogFormat::Json => tracing_subscriber::fmt()
+                .json()
+                .with_span_events(FmtSpan::NONE)
+                .with_env_filter(env_filter)
+                .finish()
+                .into(),
+        };
+        tracing::dispatcher::set_global_default(dispatch)
+            .expect("failed to set global default subscriber");
     }
     /// Initialize logging according to the selected format with a progress bar.
+    ///
+    /// Uses `tracing::dispatcher::set_global_default` directly instead of
+    /// `SubscriberInitExt::init()` for the same reason as [`Self::init`]:
+    /// to prevent `tracing-subscriber`'s `tracing-log` feature from installing
+    /// its own `LogTracer`, which would conflict with `init_log_bridge`.
     pub fn init_with_progress(self, env_filter: EnvFilter) {
         use tracing_subscriber::fmt::layer as fmt_layer;
 
@@ -88,7 +89,7 @@ impl LogFormat {
 
         // code below looks duplicated, but it has to be this way due to how types currently work.
         // maybe there is a better way that I can not see
-        match self {
+        let dispatch = match self {
             LogFormat::Full => {
                 let indicatif_layer = tracing_indicatif::IndicatifLayer::new();
                 registry
@@ -98,7 +99,7 @@ impl LogFormat {
                             .with_writer(indicatif_layer.get_stderr_writer()),
                     )
                     .with(indicatif_layer)
-                    .init();
+                    .into()
             }
             LogFormat::Compact => {
                 let indicatif_layer = tracing_indicatif::IndicatifLayer::new();
@@ -110,7 +111,7 @@ impl LogFormat {
                             .with_writer(indicatif_layer.get_stderr_writer()),
                     )
                     .with(indicatif_layer)
-                    .init();
+                    .into()
             }
             LogFormat::Pretty => {
                 let indicatif_layer = tracing_indicatif::IndicatifLayer::new();
@@ -121,7 +122,7 @@ impl LogFormat {
                             .with_writer(indicatif_layer.get_stderr_writer()),
                     )
                     .with(indicatif_layer)
-                    .init();
+                    .into()
             }
             LogFormat::Bare => {
                 let indicatif_layer = tracing_indicatif::IndicatifLayer::new();
@@ -136,7 +137,7 @@ impl LogFormat {
                             .with_writer(indicatif_layer.get_stderr_writer()),
                     )
                     .with(indicatif_layer)
-                    .init();
+                    .into()
             }
             LogFormat::Json => {
                 let indicatif_layer = tracing_indicatif::IndicatifLayer::new();
@@ -148,9 +149,13 @@ impl LogFormat {
                             .with_writer(indicatif_layer.get_stderr_writer()),
                     )
                     .with(indicatif_layer)
-                    .init();
+                    .into()
             }
-        }
+        };
+        // Uses `tracing::dispatcher::set_global_default` directly instead of
+        // `SubscriberInitExt::init()`, because the latter also calls `tracing_log::LogTracer::init()
+        tracing::dispatcher::set_global_default(dispatch)
+            .expect("failed to set global default subscriber");
     }
 }
 
@@ -197,7 +202,9 @@ fn init_log_bridge(env_filter: &EnvFilter) {
         };
         log_builder = log_builder.with_max_level(max_level);
     }
-    let _ = log_builder.init();
+    log_builder
+        .init()
+        .expect("failed to initialize log -> tracing bridge: LogTracer already set");
 }
 
 /// Initialize the global tracing subscriber for the given filter and format.
@@ -230,14 +237,13 @@ pub fn init_tracing(filter: &str, format: Option<String>, use_progress: bool) {
         })
         .unwrap_or_default();
 
-    if use_progress {
-        log_format.init_with_progress(env_filter.clone());
-    } else {
-        log_format.init(env_filter.clone());
-    }
-
     // Initialize log -> tracing bridge
     init_log_bridge(&env_filter);
+    if use_progress {
+        log_format.init_with_progress(env_filter);
+    } else {
+        log_format.init(env_filter);
+    }
 }
 
 /// Ensures that the log level for `martin_core` matches the log level for `replacement`.
