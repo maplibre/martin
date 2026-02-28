@@ -43,7 +43,7 @@ The value is computed by hashing the combined value for all rows in the `tiles` 
 is computed using the following SQL expression, which uses a custom `md5_concat_hex` function
 from [sqlite-hashes crate](https://crates.io/crates/sqlite-hashes):
 
-```sql, ignore
+```sql
 md5_concat_hex(
     CAST(zoom_level  AS TEXT),
     CAST(tile_column AS TEXT),

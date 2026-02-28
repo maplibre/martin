@@ -387,7 +387,20 @@ toggle.name = "Switch to light mode"
 anchor_linenums = true
 line_spans = "__span"
 pygments_lang_class = true
+
 [project.markdown_extensions.pymdownx.inlinehilite]
+
 [project.markdown_extensions.pymdownx.snippets]
 base_path = ["src", "../"]
+
 [project.markdown_extensions.pymdownx.superfences]
+custom_fences = [
+  { name = "mermaid", class = "mermaid", format = "pymdownx.superfences.fence_code_format" }
+]
+
+[project.markdown_extensions.admonition]
+
+[project.markdown_extensions.pymdownx.tabbed]
+alternate_style = true
+
+[project.markdown_extensions.pymdownx.details]

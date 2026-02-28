@@ -4,36 +4,36 @@ It's time to get involved once you have the [fork and all required software](dev
 This guide covers IDE setup and debugging.
 While we use Visual Studio Code as an example, Martin can be developed with any editor that supports Rust.
 
-<details>
-<summary>Editor-specific Guides (click to expand)</summary>
 
-### Visual Studio Code
+??? "Editor-specific Guides (click to expand)"
 
-Install these essential extensions:
+    ### Visual Studio Code
 
-* [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer) - Rust language server
-* [CodeLLDB](https://marketplace.visualstudio.com/items?itemName=vadimcn.vscode-lldb) - Debugger for Rust
-* [Even Better TOML](https://marketplace.visualstudio.com/items?itemName=tamasfe.even-better-toml) - TOML syntax highlighting
-* [GitLens](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens) - Git integration (optional)
+    Install these essential extensions:
 
-### Vim/Neovim
+    * [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer) - Rust language server
+    * [CodeLLDB](https://marketplace.visualstudio.com/items?itemName=vadimcn.vscode-lldb) - Debugger for Rust
+    * [Even Better TOML](https://marketplace.visualstudio.com/items?itemName=tamasfe.even-better-toml) - TOML syntax highlighting
+    * [GitLens](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens) - Git integration (optional)
 
-Use [rustaceanvim](https://github.com/mrcjkb/rustaceanvim)
+    ### Vim/Neovim
 
-### Emacs
+    Use [rustaceanvim](https://github.com/mrcjkb/rustaceanvim)
 
-Use either
+    ### Emacs
 
-* [rustic](https://github.com/brotzeit/rustic) or
-* [rust-mode](https://github.com/rust-lang/rust-mode)
+    Use either
 
-### RustRover
+    * [rustic](https://github.com/brotzeit/rustic) or
+    * [rust-mode](https://github.com/rust-lang/rust-mode)
 
-[RustRover](https://jetbrains.com/rust/) supports rust out of the box
+    ### RustRover
 
-### Zed
+    [RustRover](https://jetbrains.com/rust/) supports rust out of the box
 
-[Zed](https://zed.dev/) supports rust out of the box
+    ### Zed
+
+    [Zed](https://zed.dev/) supports rust out of the box
 
 </details>
 
@@ -123,7 +123,7 @@ Go to any part you're interested in of martin code and add a breakpoint.
 
 We add a breakpoint here in the [start of martin](https://github.com/maplibre/martin/blob/e628c3973f193a432d3d1282c5893e2339e806b6/martin/src/bin/martin.rs#L10).
 
-```rust, ignore
+```rust
 use clap::Parser;
 use tracing::{error, info};
 use martin::args::{Args, OsEnv};
