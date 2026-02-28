@@ -1,4 +1,4 @@
-### View map with QGIS
+# View map with QGIS
 
 1. Download, install, and run [QGIS](https://qgis.org/en/site/forusers/download.html) for your platform
 

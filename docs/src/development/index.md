@@ -67,7 +67,7 @@ cd martin
 git remote add origin https://github.com/nyurik/martin.git
 ```
 
-For further setup instructions for IDEs, please see the [Getting Involved](getting-involved.md) step after you have installed the necessary tools below.
+For further setup instructions for IDEs, please see the [Getting Involved](../getting-involved.md) step after you have installed the necessary tools below.
 <details><summary>If you have already cloned the repo locally, use this guide to update your setup (click to expand)</summary>
 
 If you already cloned the repo locally, you can update it to use the new setup. This assumes you have a local clone of the repo, the remote name is `origin`, and you have already forked the repo on GitHub.

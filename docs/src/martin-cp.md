@@ -53,5 +53,5 @@ You should also consider
 Use `martin-cp --help` to see a list of available options:
 
 ```text
-{{#include help/martin-cp.txt}}
+--8<-- "help/martin-cp.txt"
 ```

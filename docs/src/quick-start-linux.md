@@ -1,4 +1,4 @@
-## Quick start on Linux
+# Quick start on Linux
 
 ```bash
 mkdir martin

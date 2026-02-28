@@ -1,4 +1,4 @@
-## Using with Mapbox
+# Using with Mapbox
 
 [Mapbox GL JS](https://github.com/mapbox/mapbox-gl-js) is a JavaScript library for interactive, customizable vector maps on the web.
 Mapbox GL JS v1.x was open source, and it was forked as MapLibre, so [using Martin with Mapbox is similar to MapLibre](using-with-maplibre.md).

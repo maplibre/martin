@@ -1,4 +1,4 @@
-## MBTiles and PMTiles File Sources
+# MBTiles and PMTiles File Sources
 
 Martin can serve any type of tiles from [PMTile](https://protomaps.com/blog/pmtiles-v3-whats-new)
 and [MBTile](https://github.com/mapbox/mbtiles-spec) files. To serve a file from CLI, simply put the path to the file or
@@ -83,7 +83,7 @@ pmtiles:
 
 ### Available http client settings
 
-{{#include pmtiles/client.md}}
+--8<-- "pmtiles/client.md"
 
 {{#endtab }}
 {{#tab name="Amazon S3" }}
@@ -121,9 +121,9 @@ pmtiles:
 
 ### Available AWS S3 settings
 
-{{#include pmtiles/aws.md}}
+--8<-- "pmtiles/aws.md"
 
-{{#include pmtiles/client.md}}
+--8<-- "pmtiles/client.md"
 
 {{#endtab }}
 {{#tab name="Google Cloud Storage" }}
@@ -154,9 +154,9 @@ pmtiles:
 
 ### Available google settings
 
-{{#include pmtiles/google.md}}
+--8<-- "pmtiles/google.md"
 
-{{#include pmtiles/client.md}}
+--8<-- "pmtiles/client.md"
 
 {{#endtab }}
 {{#tab name="Microsoft Azure" }}
@@ -199,9 +199,9 @@ pmtiles:
 
 ### Available azure settings
 
-{{#include pmtiles/azure.md}}
+--8<-- "pmtiles/azure.md"
 
-{{#include pmtiles/client.md}}
+--8<-- "pmtiles/client.md"
 
 {{#endtab }}
 {{#endtabs}}

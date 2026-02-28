@@ -1,4 +1,4 @@
-## Environment Variables
+# Environment Variables
 
 You can configure Martin using environment variables, but only if the configuration file is not used.
 The configuration file itself can use environment variables if needed.
