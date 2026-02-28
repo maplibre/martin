@@ -67,7 +67,7 @@ nav = [
     ]},
     {"Reverse Proxies" = [
         "run-with-reverse-proxy/index.md",
-        {"NGINX" = "run-with-nginx.md"}, 
+        {"NGINX" = "run-with-nginx.md"},
         {"Apache" = "run-with-apache.md"}
     ]},
     {"Troubleshooting" = "troubleshooting.md"}

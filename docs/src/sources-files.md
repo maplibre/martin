@@ -11,7 +11,7 @@ martin  /path/to/mbtiles/file.mbtiles  /path/to/directory   https://example.org/
 You may also want to generate a [config file](config-file.md) using the `--save-config my-config.yaml`, and later edit
 it and use it with `--config my-config.yaml` option.
 
-!!! tip 
+!!! tip
     > See [our tile sources explanation](sources-tiles.md) for a more detailed explanation on the difference between our available data sources.
 
 ### Autodiscovery
@@ -197,4 +197,3 @@ The settings avaliable for a PMTiles source depend on the backend:
     --8<-- "pmtiles/azure.md"
 
     --8<-- "pmtiles/client.md"
-
