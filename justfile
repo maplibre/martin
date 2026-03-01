@@ -349,6 +349,16 @@ restart:
 run *args='--webui enable-for-all':
     cargo run -p martin -- {{args}}
 
+# Run a specified entrypoint of a docker image
+run-in-docker-image PLATFORM image entrypoint *args='':
+    docker run --rm --net host \
+      --platform {{PLATFORM}} \
+      -e DATABASE_URL \
+      -e AWS_REGION=eu-central-1 -e AWS_SKIP_CREDENTIALS=1 \
+      -v "$PWD/tests:/tests" \
+      --entrypoint /usr/local/bin/{{entrypoint}} \
+      {{image}} {{args}}
+
 # Start release-compiled Martin server and a test database
 run-release *args='--webui enable-for-all': start
     cargo run -p martin --release -- {{args}}
@@ -431,6 +441,23 @@ test-int: clean-test install-sqlx start-pmtiles-server
         fi
     fi
 
+# Run integration tests against a docker container
+test-int-in-docker-image platform image:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    if ! command -v docker >/dev/null 2>&1; then
+      echo "Docker is missing -> https://docs.docker.com/get-docker/"
+      exit 1
+    fi
+
+    export MARTIN_BUILD_ALL="-"
+    export MARTIN_BIN="{{just_executable()}} run-in-docker-image {{platform}} {{image}} martin"
+    export MARTIN_CP_BIN="{{just_executable()}} run-in-docker-image {{platform}} {{image}} martin-cp"
+    export MBTILES_BIN="{{just_executable()}} run-in-docker-image {{platform}} {{image}} mbtiles"
+
+    {{just}} test-int
+
 # Run AWS Lambda smoke test against SAM local
 test-lambda martin_bin='target/debug/martin':
     #!/usr/bin/env bash
@@ -476,7 +503,6 @@ test-lambda martin_bin='target/debug/martin':
     echo "::endgroup::"
 
     jq -ne 'input.statusCode == 200' <<<"$response"
-
 
 # Run all tests using the oldest supported version of the database
 test-legacy: start-legacy (test-cargo "--all-targets") test-pg test-doc test-int
