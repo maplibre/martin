@@ -37,9 +37,9 @@ jobs:
       - name: Install Chromium
         uses: browser-actions/setup-chrome@4f8e94349a351df0f048634f25fec36c3c91eded # v2.1.1
       - uses: taiki-e/install-action@69e777b377e4ec209ddad9426ae3e0c1008b0ef3 # v2.64.0
-        with: { tool: 'mdbook,mdbook-tabs,mdbook-mermaid-ssr' }
+        with: { tool: 'just,cargo-binstall' }
 
-      - run: mdbook build docs
+      - run: just -v docs-build
 
       - name: Deploy
         uses: peaceiris/actions-gh-pages@4f9cc6602d3f66b9c108549d475ec49e8ef4d45e # v4.0.0

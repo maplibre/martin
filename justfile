@@ -92,10 +92,6 @@ bless-int:
     tests/test.sh
     rm -rf tests/expected && mv tests/output tests/expected
 
-# Build and open mdbook documentation
-book:  (cargo-install 'mdbook') (cargo-install 'mdbook-tabs')
-    mdbook serve docs --open --port 8321
-
 # Build release binaries for a target with debug info stripped
 build-release target:
     #!/usr/bin/env bash
@@ -151,7 +147,7 @@ check: (cargo-install 'cargo-hack')
     cargo hack --exclude-features _tiles,_catalog check --all-targets --each-feature --workspace
 
 # Test documentation generation
-check-doc:  (docs '')
+check-doc:  (docs)
 
 # Run all tests as expected by CI
 ci-test: env-info restart test-fmt clippy check-doc test check && assert-git-is-clean
@@ -211,10 +207,13 @@ debug-page *args: start
 docker-run *args:
     docker run -it --rm --net host -e DATABASE_URL -v $PWD/tests:/tests ghcr.io/maplibre/martin:1.3.1 {{args}}
 
-# Build and open code documentation
-docs *args='--open':
-    DOCS_RS=1 cargo doc --no-deps {{args}} --workspace
+# Build and run martin documentation
+docs:
+	docker run --rm -it -p 8000:8000 -v ${PWD}:/docs zensical/zensical:latest
 
+# Build martin documentation
+docs-build:
+    docker run --rm -v ${PWD}:/docs zensical/zensical:latest build
 # Print environment info
 env-info:
     @echo "Running {{if ci_mode == '1' {'in CI mode'} else {'in dev mode'} }} on {{os()}} / {{arch()}}"
