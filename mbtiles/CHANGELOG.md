@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.15.3](https://github.com/maplibre/martin/compare/mbtiles-v0.15.2...mbtiles-v0.15.3) - 2026-03-02
+
+### Fixed
+
+- Accept any INT-containing type in MBTiles validation to be an integer ([#2560](https://github.com/maplibre/martin/pull/2560))
+
+### Other
+
+- rename the `webp.sql` fixture to `webp-no-primary.sql` ([#2564](https://github.com/maplibre/martin/pull/2564))
+- More restrictive expects ([#2562](https://github.com/maplibre/martin/pull/2562))
+
 ## [0.15.2](https://github.com/maplibre/martin/compare/mbtiles-v0.15.1...mbtiles-v0.15.2) - 2026-02-11
 
 ### Other

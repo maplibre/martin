@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.0](https://github.com/maplibre/martin/compare/martin-v1.3.1...martin-v1.4.0) - 2026-03-02
+
+### Added
+
+- *(martin-cp)* indicativ based progress bar ([#2495](https://github.com/maplibre/martin/pull/2495))
+
+### Fixed
+
+- restrict zooming and panning on data inspector ([#2574](https://github.com/maplibre/martin/pull/2574))
+- Accept any INT-containing type in MBTiles validation to be an integer ([#2560](https://github.com/maplibre/martin/pull/2560))
+
+### Other
+
+- *(deps)* Bump the all-npm-version-updates group across 2 directories with 13 updates ([#2577](https://github.com/maplibre/martin/pull/2577))
+- *(deps)* Bump the all-npm-security-updates group across 2 directories with 1 update ([#2575](https://github.com/maplibre/martin/pull/2575))
+- *(deps)* autoupdate pre-commit ([#2567](https://github.com/maplibre/martin/pull/2567))
+- rename the `webp.sql` fixture to `webp-no-primary.sql` ([#2564](https://github.com/maplibre/martin/pull/2564))
+- more cfg magic instead of #[allow(unused_variables)] ([#2563](https://github.com/maplibre/martin/pull/2563))
+- More restrictive expects ([#2562](https://github.com/maplibre/martin/pull/2562))
+- feature-gate PostgreSQL tests to remove external dependencies from `cargo test` ([#2558](https://github.com/maplibre/martin/pull/2558))
+
 ## [1.3.1](https://github.com/maplibre/martin/compare/martin-v1.3.0...martin-v1.3.1) - 2026-02-11
 
 ### Added
