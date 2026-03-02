@@ -109,5 +109,3 @@ location ~ ^/font/ {
     proxy_set_header X-Rewrite-URL $request_uri;
     proxy_set_header X-Forwarded-Host $http_host;
 }
-
-
