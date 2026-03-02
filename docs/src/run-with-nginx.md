@@ -93,3 +93,21 @@ http {
 ```
 
 You can [find an example NGINX configuration file here](https://github.com/maplibre/martin/blob/main/demo/frontend/nginx.conf).
+
+## Troubleshooting
+
+### Font URLs returning HTTP 400
+When serving fonts through NGINX, requests may fail with HTTP 400
+because font names contain spaces (e.g. `Open Sans Regular`).
+NGINX does not escape spaces in URLs by default.
+
+Add this to your NGINX config to fix it:
+
+```nginx
+location ~ ^/font/ {
+    proxy_pass http://martin;
+    proxy_set_header X-Rewrite-URL $request_uri;
+    proxy_set_header X-Forwarded-Host $http_host;
+}
+
+
