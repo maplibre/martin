@@ -1,4 +1,4 @@
-## Using with Apache
+# Using with Apache
 
 You can run Martin behind Apache "kind of" proxy, so you can use HTTPs with it. Here is an example of the configuration file that runs Martin with Apache.
 

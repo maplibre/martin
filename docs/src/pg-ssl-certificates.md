@@ -123,19 +123,19 @@ services:
 docker compose up
 ```
 
-> [!TIP]
-> Postgres requires specific file permissions and ownership for SSL certificates.
-> In docker this can be a bit tricky:
->
-> alpine images have `70:70` as the default `user:group`
-> debian images have `999:999` as the default `user:group`
->
-> You can change this by running the following commands:
->
-> ```bash
-> chown 999:999 *.pem
-> chmod 400 *.pem
-> ```
+!!! tip
+    > Postgres requires specific file permissions and ownership for SSL certificates.
+    > In docker this can be a bit tricky:
+    >
+    > alpine images have `70:70` as the default `user:group`
+    > debian images have `999:999` as the default `user:group`
+    >
+    > You can change this by running the following commands:
+    >
+    > ```bash
+    > chown 999:999 *.pem
+    > chmod 400 *.pem
+    >```
 
 ## Testing with psql
 
@@ -146,9 +146,9 @@ export PGSSLROOTCERT=ca-cert.pem
 psql "postgres://postgres:password@localhost:5432/postgres?sslmode=verify-full"
 ```
 
-> [!TIP]
-> If you get file permission errors, make sure the current user can access the files.
-> The previous step may set them to not readable by the current user.
+!!! tip
+    > If you get file permission errors, make sure the current user can access the files.
+    > The previous step may set them to not readable by the current user.
 
 Then, verify SSL Status by
 
@@ -169,35 +169,25 @@ Martin can be configured using environment variables, the CLI, or the configurat
 Which of them you choose is up to you.
 You do not need to configure things twice.
 
-- <details>
-  <summary>Environment Variables (click to expand)</summary>
+??? "Environment Variables (click to expand)"
+    ```bash
+    export PGSSLROOTCERT=./ca-cert.pem
+    export DATABASE_URL="postgres://postgres:password@localhost:5432/postgres?sslmode=verify-full"
+    martin
+    ```
 
-  ```bash
-  export PGSSLROOTCERT=./ca-cert.pem
-  export DATABASE_URL="postgres://postgres:password@localhost:5432/postgres?sslmode=verify-full"
-  martin
-  ```
+??? "Configuration File (click to expand)"
+    ```yaml
+    postgres:
+      ssl_root_cert: './ca-cert.pem'
+      connection_string: 'postgres://postgres:password@localhost:5432/postgres?sslmode=verify-full'
+    ```
 
-  </details>
-- <details>
-  <summary>Configuration File (click to expand)</summary>
-
-  ```yaml
-  postgres:
-    ssl_root_cert: './ca-cert.pem'
-    connection_string: 'postgres://postgres:password@localhost:5432/postgres?sslmode=verify-full'
-  ```
-
-  </details>
-- <details>
-  <summary>Command Line (click to expand)</summary>
-
-  ```bash
-  martin --ca-root-file ./ca-cert.pem \
-        "postgres://postgres:password@localhost:5432/postgres?sslmode=verify-full"
-  ```
-
-  </details>
+??? "Command Line (click to expand)"
+    ```bash
+    martin --ca-root-file ./ca-cert.pem \
+          "postgres://postgres:password@localhost:5432/postgres?sslmode=verify-full"
+    ```
 
 ## Troubleshooting
 
@@ -215,35 +205,22 @@ RUST_LOG=debug RUST_LOG_FORMAT=pretty martin postgres://...
 
 These are the errors that can occur:
 
-- <details>
-  <summary>Certificate verification failed (click to expand)</summary>
+??? "Certificate verification failed (click to expand)"
+    - Check server certificate is signed by the CA
+    - Verify CA certificate path in `PGSSLROOTCERT`
+    - Ensure certificate files are readable
 
-  - Check server certificate is signed by the CA
-  - Verify CA certificate path in `PGSSLROOTCERT`
-  - Ensure certificate files are readable
+??? "Hostname verification failed (click to expand)"
+    - Server certificate CN/SAN must match hostname
+    - Use `verify-ca` instead of `verify-full` if hostname doesn't match
 
-  </details>
-- <details>
-  <summary>Hostname verification failed (click to expand)</summary>
+??? "Permission denied (click to expand)"
+    - Check certificate file permissions
+    - Private keys should be `chmod 400` and readable by the user running the application
 
-  - Server certificate CN/SAN must match hostname
-  - Use `verify-ca` instead of `verify-full` if hostname doesn't match
-
-  </details>
-- <details>
-  <summary>Permission denied (click to expand)</summary>
-
-  - Check certificate file permissions
-  - Private keys should be `chmod 400` and readable by the user running the application
-
-  </details>
-- <details>
-  <summary>Connection refused (click to expand)</summary>
-
-  - Verify PostgreSQL accepts SSL connections
-  - Check `pg_hba.conf` allows SSL from your IP
-
-  </details>
+??? "Connection refused (click to expand)"
+    - Verify PostgreSQL accepts SSL connections
+    - Check `pg_hba.conf` allows SSL from your IP
 
 ## Security Best Practices if using postgres via SSL
 

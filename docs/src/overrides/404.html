@@ -1,0 +1,15 @@
+{% extends "main.html" %}
+
+{% block htmltitle %}
+  <title>Page Not Found</title>
+{% endblock %}
+
+{% block scripts %}
+    <script>
+      const path = window.location.pathname;
+      if (path.endsWith('.html')) {
+        const newPath = path.replace('.html', '/');
+        window.location.replace(newPath);
+      }
+    </script>
+{% endblock %}

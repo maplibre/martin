@@ -1,4 +1,4 @@
-## PostgreSQL Connections
+# PostgreSQL Connections
 
 Martin supports standard PostgreSQL connection string settings including `host`, `port`, `user`, `password`, `dbname`, `sslmode`, `connect_timeout`, `keepalives`, `keepalives_idle`, etc.
 See the [PostgreSQL docs](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNSTRING) for more details.

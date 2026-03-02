@@ -1,4 +1,4 @@
-## Using with NGINX
+# Using with NGINX
 
 You can run Martin behind NGINX proxy, so you can cache frequently accessed tiles with custom logic.
 Here is an example `docker-compose.yml` file that runs Martin with NGINX and PostgreSQL.

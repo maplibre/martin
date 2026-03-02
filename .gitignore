@@ -13,6 +13,7 @@
 .env.local
 .idea/
 .vscode/
+.cache
 cache.sqlite*
 config.yml
 coverage
@@ -23,7 +24,7 @@ tests/mbtiles_temp_files/
 tests/output/
 tmp/
 tsconfig.tsbuildinfo
-
+site/
 ####
 #### Above content must match .dockerignore ####
 ####

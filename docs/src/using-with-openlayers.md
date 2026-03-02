@@ -1,4 +1,4 @@
-## Using with OpenLayers
+# Using with OpenLayers
 
 [OpenLayers](https://github.com/openlayers/openlayers) is an open source library for creating interactive maps on the web. Similar to [MapLibre GL JS](https://maplibre.org/), it can also display image and vector map tiles served by Martin Tile Server.
 

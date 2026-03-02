@@ -1,4 +1,4 @@
-## Martin Endpoints
+# Martin Endpoints
 
 Martin data is available via the HTTP `GET` endpoints:
 

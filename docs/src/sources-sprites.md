@@ -1,4 +1,4 @@
-## Sprite Sources
+# Sprite Sources
 
 Given a directory with SVG images, Martin will generate a sprite -- a JSON index and a PNG image, for both low and highresolution displays.
 The SVG filenames without extension will be used as the sprites' image IDs (remember that one sprite and thus `sprite_id` contains multiple images).
