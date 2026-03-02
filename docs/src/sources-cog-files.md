@@ -8,7 +8,7 @@
     >
     > ```bash
     > cargo install martin --features=unstable-cog
-    > ```
+    >```
     >
     > It is unstable due to the limitations of our current implementation:
     >

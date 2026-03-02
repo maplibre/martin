@@ -31,7 +31,7 @@ A restart of Martin is required to see new styles.
     >
     > ```bash
     > cargo build --features=unstable-rendering
-    > ```
+    >```
     >
     > It is unstable due to the limitations of our current implementation:
     >

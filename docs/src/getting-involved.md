@@ -4,7 +4,6 @@ It's time to get involved once you have the [fork and all required software](dev
 This guide covers IDE setup and debugging.
 While we use Visual Studio Code as an example, Martin can be developed with any editor that supports Rust.
 
-
 ??? "Editor-specific Guides (click to expand)"
 
     ### Visual Studio Code

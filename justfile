@@ -147,7 +147,7 @@ check: (cargo-install 'cargo-hack')
     cargo hack --exclude-features _tiles,_catalog check --all-targets --each-feature --workspace
 
 # Test documentation generation
-check-doc:  (docs)
+check-doc:  (docs-build)
 
 # Run all tests as expected by CI
 ci-test: env-info restart test-fmt clippy check-doc test check && assert-git-is-clean

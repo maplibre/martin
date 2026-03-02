@@ -148,7 +148,6 @@ Martin's architecture is organized into four main Rust crates, each with distinc
     - Tile format utilities
     - Bounding box calculations
 
-
 ## Data Flow
 
 === "Tile Request Flows"
@@ -250,7 +249,6 @@ Martin's architecture is organized into four main Rust crates, each with distinc
 
 ### Rust for Performance and Safety
 
-
 ??? "<b>Why Rust</b>: Martin is written in Rust to balance high performance with strong safety guarantees.<i>(click to expand)</i>"
     - Near-C performance without manual memory management
     - Memory safety (no null pointers or buffer overflows)
@@ -261,7 +259,6 @@ Martin's architecture is organized into four main Rust crates, each with distinc
 
 ### Actix-Web Framework
 
-
 ??? "<b>Why Actix-Web</b>: It offers a fast, production-ready async HTTP stack.<i>(click to expand)</i>"
     - High-performance async request handling
     - Mature middleware ecosystem
@@ -269,7 +266,6 @@ Martin's architecture is organized into four main Rust crates, each with distinc
     - Easy Prometheus metrics integration
 
 ### Async/Await Throughout
-
 
 ??? "<b>Why async/await</b>: Allows Martin to handle many concurrent requests efficiently.<i>(click to expand)</i>"
     - Handles thousands of concurrent connections
@@ -293,7 +289,6 @@ Martin's architecture is organized into four main Rust crates, each with distinc
 
 ### PostgreSQL Connection Pooling
 
-
 ??? "<b>Why connection pooling</b>: Reuse database connections instead of reconnecting per request.<i>(click to expand)</i>"
 
     - Uses `deadpool-postgres`
@@ -302,7 +297,6 @@ Martin's architecture is organized into four main Rust crates, each with distinc
     - Automatic connection health checks
 
 ### In-Memory Tile Caching
-
 
 ??? "<b>Why caching</b>: Avoid regenerating frequently requested tiles.<i>(click to expand)</i>"
 
@@ -342,7 +336,6 @@ Martin's architecture is organized into four main Rust crates, each with distinc
 
 ### On-the-Fly Resource Generation
 
-
 ??? "<b>Why generate resources dynamically</b>: Sprites, fonts, and styles are created on demand.<i>(click to expand)</i>"
 
     - No pre-processing step required
@@ -351,7 +344,6 @@ Martin's architecture is organized into four main Rust crates, each with distinc
     - Less storage overhead
 
 ### Modular Configuration
-
 
 ??? "<b>Why layered configuration</b>: Martin supports multiple configuration sources.<i>(click to expand)</i>"
 
@@ -479,7 +471,6 @@ Martin supports multiple deployment patterns:
 
     - **Bottleneck**: Large tile cache size
     - **Optimization**: LRU eviction, configurable cache size, streaming responses
-
 
 <!-- New Tab Group -->
 

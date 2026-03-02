@@ -135,7 +135,7 @@ docker compose up
     > ```bash
     > chown 999:999 *.pem
     > chmod 400 *.pem
-    > ```
+    >```
 
 ## Testing with psql
 
@@ -204,7 +204,6 @@ RUST_LOG=debug RUST_LOG_FORMAT=pretty martin postgres://...
 ```
 
 These are the errors that can occur:
-
 
 ??? "Certificate verification failed (click to expand)"
     - Check server certificate is signed by the CA
