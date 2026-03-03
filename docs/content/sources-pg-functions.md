@@ -67,37 +67,35 @@ Lets explain a few of the aspects of the function:
 !!! note
     The planning mode `IMMUTABLE STRICT PARALLEL SAFE` allows postgres further freedom to optimize our function.
     Your function is likely to be the same category as the example, but be careful to not cause unexpected behavior.
-    >
+    
     - [`IMMUTABLE`](https://www.postgresql.org/docs/current/sql-createfunction.html#:~:text=existing%20function%20definition.-,IMMUTABLE,-STABLE%0AVOLATILE)
       The function does not have side effects.
-    >
-      > Indicates that the function cannot modify the database and always returns the same result when given the same argument values;
-      > that is, it does not do database lookups or otherwise use information not directly present in its argument list.
-      > If this option is given, any call of the function with all-constant arguments can be immediately replaced with the function value.
+      Indicates that the function cannot modify the database and always returns the same result when given the same argument values;
+      that is, it does not do database lookups or otherwise use information not directly present in its argument list.
+      If this option is given, any call of the function with all-constant arguments can be immediately replaced with the function value.
     - `STRICT`: Our function will not be called if any of the arguments are `NULL`.
     - [`PARALLEL SAFE`](https://www.postgresql.org/docs/current/parallel-safety.html):
       Our function is safe to call in parallel as it does not modify the database, nor use randomness or temporary tables.
-    >
-      > Functions should be labeled parallel unsafe if they
-      > - modify any database state,
-      > - change the transaction state (other than by using a subtransaction for error recovery),
-      > - access sequences (e.g., by calling currval) or
-      > - make persistent changes to settings.
-      >
-      > They should be labeled parallel restricted if they
-      > - access temporary tables,
-      > - client connection state,
-      > - cursors,
-      > - prepared statements, or
-      > - miscellaneous backend-local state which the system cannot synchronize in parallel mode
-      >   (e.g., setseed cannot be executed other than by the group leader because a change made by another process
-      >    would not be reflected in the leader).
-      >
-      > In general, if a function is labeled as being safe when it is restricted or unsafe, or if it is labeled as being restricted
-      > when it is in fact unsafe, it may throw errors or produce wrong answers when used in a parallel query.
-      > C-language functions could in theory exhibit totally undefined behavior if mislabeled, since there is no way for the system
-      > to protect itself against arbitrary C code, but in most likely cases the result will be no worse than for any other function.
-      > If in doubt, functions should be labeled as UNSAFE, which is the default.
+      Functions should be labeled parallel unsafe if they
+      
+        - modify any database state,
+        - change the transaction state (other than by using a subtransaction for error recovery),
+        - access sequences (e.g., by calling currval) or
+        - make persistent changes to settings.
+        They should be labeled parallel restricted if they
+        - access temporary tables,
+        - client connection state,
+        - cursors,
+        - prepared statements, or
+        - miscellaneous backend-local state which the system cannot synchronize in parallel mode
+          (e.g., setseed cannot be executed other than by the group leader because a change made by another process
+          would not be reflected in the leader).
+        
+        In general, if a function is labeled as being safe when it is restricted or unsafe, or if it is labeled as being restricted
+        when it is in fact unsafe, it may throw errors or produce wrong answers when used in a parallel query.
+        C-language functions could in theory exhibit totally undefined behavior if mislabeled, since there is no way for the system
+        to protect itself against arbitrary C code, but in most likely cases the result will be no worse than for any other function.
+        If in doubt, functions should be labeled as `PARALLEL UNSAFE`, which is the default.
 
 ### Function with Query Parameters
 
