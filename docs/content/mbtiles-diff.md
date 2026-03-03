@@ -75,7 +75,6 @@ sqlite3 src_file.mbtiles \
   "  SELECT * FROM diffDb.tiles WHERE tile_data NOTNULL;"
 ```
 
-
 ## Binary Diff Support for MBTiles
 
 The `mbtiles diff` command supports binary patching via the `--patch-type` flag,
@@ -88,7 +87,7 @@ portions have changed.
 Three patch types are available through the `--patch-type` flag:
 
 | Option | Description | Use Case |
-|---|---|---|
+| --- | --- | --- |
 | `whole` | Original behavior — stores full tiles | Simple diffs, maximum compatibility |
 | `bin-diff-raw` | Binary diff of raw tiles, Brotli-compressed | General purpose, best for most cases |
 | `bin-diff-gz` | Decompresses gzip tiles before diffing | When tiles are gzip-compressed |
@@ -106,6 +105,7 @@ You can also use the alias via `mbtiles copy`:
 ```bash
 mbtiles copy original.mbtiles diff.mbtiles --diff-with-file updated.mbtiles --patch-type bin-diff-raw
 ```
+
 !!! note
 
     `mbtiles apply-patch` does not currently support binary patching. Use `mbtiles copy --apply-patch` instead
@@ -134,5 +134,6 @@ mbtiles copy --apply-patch diff.mbtiles target.mbtiles
 ```
 
 !!! note
+
     `mbtiles apply-patch` does not currently support binary patching.
     Use `mbtiles copy --apply-patch` instead.
