@@ -136,7 +136,7 @@ nav = [
 # Read more:
 # - https://zensical.org/docs/customization/#extending-the-theme
 #
-custom_dir = "docs/content/overrides"
+custom_dir = "docs/overrides"
 favicon = "images/favicon.ico"
 
 # Zensical supports more than 60 different languages. This means that the
