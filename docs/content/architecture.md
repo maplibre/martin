@@ -248,7 +248,7 @@ Read it when you’re curious **why** certain choices were made.
 
 ??? "Why Rust"
     Martin is written in Rust to balance high performance with strong safety guarantees.
-    
+
     - Near-C performance without manual memory management
     - Memory safety (no null pointers or buffer overflows)
     - Safe concurrency without data races
@@ -256,7 +256,7 @@ Read it when you’re curious **why** certain choices were made.
 
 ??? "Actix-Web as the chosen web framework"
     It offers a fast, production-ready async HTTP stack.
-    
+
     - High-performance async request handling
     - Mature middleware ecosystem
     - Built-in compression and caching headers
@@ -264,7 +264,7 @@ Read it when you’re curious **why** certain choices were made.
 
 ??? "Async-first architecture"
     Allows Martin to handle many concurrent requests efficiently.
-    
+
     - Handles hundreds of thousdands of concurrent connections
     - Avoids blocking database queries
     - Enables efficient file and network I/O
@@ -272,7 +272,7 @@ Read it when you’re curious **why** certain choices were made.
 
 ??? "Specifc crates splitting"
     The codebase is split into crates with clear responsibilities
-    
+
     - **martin-core** — reusable core logic and tile sources
     - **mbtiles** — standalone MBTiles tooling
     - **martin** — HTTP server, configuration, and runtime wiring
@@ -286,7 +286,7 @@ Read it when you’re curious **why** certain choices were made.
 
 ??? "Why connection pooling"
     Reuse database connections instead of reconnecting per request
-    
+
     - Uses `deadpool-postgres`
     - Avoids per-request connection overhead
     - Configurable pool sizing
@@ -317,16 +317,16 @@ Read it when you’re curious **why** certain choices were made.
 
     Different workloads benefit from different storage models.
     This lets operators pick the best format for their use case:
-      
+
     === "PostgreSQL"
           Dynamic tiles generated from live data. Best for frequently changing datasets.
-      
+
     === "MBTiles"
         Pre-generated tile archives. Simple and fast for static datasets.
-      
+
     === "PMTiles"
         Single-file, cloud-native archives optimized for HTTP range requests.
-      
+
     === "COG"
         Direct tile serving from Cloud Optimized GeoTIFFs.
 
@@ -511,14 +511,14 @@ Martin supports multiple deployment patterns:
 === "Adding New Tile Sources"
 
     To add a new tile source type:
-    
+
     1. Implement the `Source` trait in `martin-core`
     2. Add configuration parsing in `martin`
     3. Register source in the catalog
     4. Add integration tests
-    
+
     Example source types that could be added:
-    
+
     - Direct GeoJSON file serving
     - Vector tile rendering from raster data
     - Integration with other spatial databases
@@ -526,7 +526,7 @@ Martin supports multiple deployment patterns:
 === "Adding New Resource Types"
 
     To add new resource endpoints:
-    
+
     1. Implement resource generator in `martin-core`
     2. Add HTTP handler in `martin/src/srv/`
     3. Add configuration support
@@ -535,7 +535,7 @@ Martin supports multiple deployment patterns:
 === "Custom Authentication/Authorization"
 
     Martin doesn't include built-in auth, but supports:
-    
+
     - Reverse proxy authentication (recommended)
     - Custom Actix-Web middleware
     - Token-based access control via proxy

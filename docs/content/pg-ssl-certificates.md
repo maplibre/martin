@@ -126,12 +126,12 @@ docker compose up
 !!! tip
     Postgres requires specific file permissions and ownership for SSL certificates.
     In docker this can be a bit tricky:
-    
+
     alpine images have `70:70` as the default `user:group`
     debian images have `999:999` as the default `user:group`
-    
+
     You can change this by running the following commands:
-    
+
     ```bash
     chown 999:999 *.pem
     chmod 400 *.pem
