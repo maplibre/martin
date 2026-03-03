@@ -76,7 +76,7 @@ sqlite3 src_file.mbtiles \
 
 ---
 
-```markdown
+
 ## Binary Diff Support for MBTiles
 
 The `mbtiles diff` command supports binary patching via the `--patch-type` flag,
@@ -111,11 +111,13 @@ mbtiles copy original.mbtiles diff.mbtiles --diff-with-file updated.mbtiles --pa
 ### How It Works
 
 **`bin-diff-raw`**
+
 - Computes binary differences between tiles
 - Stores results Brotli-encoded in a `bsdiffraw` table
 - Includes a `xxh3_64` hash for integrity verification
 
 **`bin-diff-gz`**
+
 - First decompresses gzip-compressed tiles
 - Computes binary differences on the decompressed data
 - Stores results in a `bsdiffrawgz` table with a `xxh3_64` hash
@@ -131,4 +133,3 @@ mbtiles copy --apply-patch diff.mbtiles target.mbtiles
 
 > **Note:** `mbtiles apply-patch` does not currently support binary patching.
 > Use `mbtiles copy --apply-patch` instead.
-```
