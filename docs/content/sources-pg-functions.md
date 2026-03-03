@@ -1,6 +1,6 @@
 # PostgreSQL Function Sources
 
-Function Source is a database function which can be used to
+A Function Source is a database function which can be used to
 query [vector tiles](https://github.com/mapbox/vector-tile-spec). When started, Martin will look for the functions with
 a suitable signature.
 
