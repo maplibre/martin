@@ -7,7 +7,7 @@
 # ============================================================================
 
 [project]
-docs_dir = "docs/src"
+docs_dir = "docs/content"
 site_dir = "target/book"
 site_name = "Martin Tile Server Documentation"
 site_description = "Documentation for Martin Tile Server"
@@ -136,17 +136,8 @@ nav = [
 # Read more:
 # - https://zensical.org/docs/customization/#extending-the-theme
 #
-custom_dir = "docs/src/overrides"
-
-# With the "favicon" option you can set your own image to use as the icon
-# browsers will use in the browser title bar or tab bar. The path provided
-# must be relative to the "docs_dir".
-#
-# Read more:
-# - https://zensical.org/docs/setup/logo-and-icons/#favicon
-# - https://developer.mozilla.org/en-US/docs/Glossary/Favicon
-#
-#favicon = "images/favicon.png"
+custom_dir = "docs/content/overrides"
+favicon = "images/favicon.ico"
 
 # Zensical supports more than 60 different languages. This means that the
 # labels and tooltips that Zensical's templates produce are translated.
@@ -376,7 +367,7 @@ pygments_lang_class = true
 [project.markdown_extensions.pymdownx.inlinehilite]
 
 [project.markdown_extensions.pymdownx.snippets]
-base_path = ["docs/src", "/"]
+base_path = ["docs/content", "/"]
 
 [project.markdown_extensions.pymdownx.superfences]
 custom_fences = [
