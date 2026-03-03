@@ -19,7 +19,7 @@ services:
       - martin
 
   martin:
-    image: maplibre/martin:v0.7.0
+    image: ghcr.io/maplibre/martin:1.3.1
     restart: unless-stopped
     environment:
       - DATABASE_URL=postgres://postgres:password@db/db

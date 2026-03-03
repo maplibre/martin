@@ -56,6 +56,7 @@ repos:
             VERSION=$(grep "^version = " martin/Cargo.toml | sed "s/version = \"\(.*\)\"/\1/")
             sed -i "s/version\": \".*\"/version\": \"$VERSION\"/" martin/martin-ui/package.json
             sed -i "s%ghcr.io/maplibre/martin:[^[:space:]]*%ghcr.io/maplibre/martin:$VERSION%" docs/content/run-with-docker-compose.md
+            sed -i "s%ghcr.io/maplibre/martin:[^[:space:]]*%ghcr.io/maplibre/martin:$VERSION%" docs/content/run-with-docker-compose.md
             sed -i "s%ghcr.io/maplibre/martin:[^[:space:]]*%ghcr.io/maplibre/martin:$VERSION%" docs/content/run-with-docker.md
             sed -i "s%ghcr.io/maplibre/martin:[^[:space:]]* %ghcr.io/maplibre/martin:$VERSION %" docs/content/installation.md
             sed -i "s%ghcr.io/maplibre/martin:[^[:space:]]* %ghcr.io/maplibre/martin:$VERSION %" docs/content/run-with-lambda.md
