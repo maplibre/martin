@@ -74,104 +74,64 @@ sqlite3 src_file.mbtiles \
   "INSERT OR REPLACE INTO tiles (zoom_level, tile_column, tile_row, tile_data) "\
   "  SELECT * FROM diffDb.tiles WHERE tile_data NOTNULL;"
 
-Binary Diff Support for MBTiles
+---
 
-The MBTiles diff command now supports binary patching, significantly reducing the size of difference files between tile sets. This is especially useful when working with large tile archives where only small portions have changed.
+```markdown
+## Binary Diff Support for MBTiles
 
-Quick Overview
+The `mbtiles diff` command supports binary patching via the `--patch-type` flag,
+which can significantly reduce the size of difference files between tile sets.
+This is especially useful when working with large tile archives where only small
+portions have changed.
 
-Three patch types are available through the --patch-type flag:
+### Patch Types
 
-Option Description Use Case
-whole Original behavior - stores full tiles Simple diffs, maximum compatibility
-bin-diff-raw Binary diff of raw tiles, brotli-compressed General purpose, best for most cases
-bin-diff-gz Decompresses gzip tiles before diffing When tiles are gzip-compressed and you want minimal diff size
+Three patch types are available through the `--patch-type` flag:
 
-Creating Binary Diffs
+| Option | Description | Use Case |
+|---|---|---|
+| `whole` | Original behavior — stores full tiles | Simple diffs, maximum compatibility |
+| `bin-diff-raw` | Binary diff of raw tiles, Brotli-compressed | General purpose, best for most cases |
+| `bin-diff-gz` | Decompresses gzip tiles before diffing | When tiles are gzip-compressed |
 
-Basic Diff Command
-
-```bash
-# Create a binary diff (recommended)
-mbtiles diff original.mbtiles updated.mbtiles --patch-type bin-diff-raw
-
-# Create a gzip-aware binary diff
-mbtiles diff original.mbtiles updated.mbtiles --patch-type bin-diff-gz
-
-# Traditional full-tile diff (original behavior)
-mbtiles diff original.mbtiles updated.mbtiles --patch-type whole
-```
-
-Using the Alias
-
-The mbtiles copy --diff-with-file command serves as a convenient alias:
+### Creating Binary Diffs
 
 ```bash
-# These commands are equivalent:
-mbtiles copy --diff-with-file original.mbtiles updated.mbtiles --patch-type bin-diff-raw
-mbtiles diff original.mbtiles updated.mbtiles --patch-type bin-diff-raw
+mbtiles diff original.mbtiles updated.mbtiles diff.mbtiles --patch-type whole
+mbtiles diff original.mbtiles updated.mbtiles diff.mbtiles --patch-type bin-diff-raw
+mbtiles diff original.mbtiles updated.mbtiles diff.mbtiles --patch-type bin-diff-gz
 ```
 
-How It Works
-
-bin-diff-raw
-
-· Computes binary differences between tiles
-· Stores results brotli-encoded in a bsdiffraw table
-· Includes xxh3_64 hash for integrity verification
-
-bin-diff-gz
-
-· First decompresses gzip-compressed tiles
-· Computes binary differences on the decompressed data
-· Stores results in a bsdiffrawgz table
-· Ideal for tile sets with gzip compression where changes are small relative to decompressed size
-
-Applying Patches
-
-Automatic Detection
-
-When copying with --apply-patch, Martin automatically detects and applies binary patches:
+You can also use the alias via `mbtiles copy`:
 
 ```bash
-# Automatically uses bsdiffraw or bsdiffrawgz if available
-mbtiles copy --apply-patch diff.mbtiles patched.mbtiles
+mbtiles copy original.mbtiles diff.mbtiles --diff-with-file updated.mbtiles --patch-type bin-diff-raw
 ```
 
-The tool checks for patch tables in this order:
+### How It Works
 
-1. bsdiffraw (for bin-diff-raw patches)
-2. bsdiffrawgz (for bin-diff-gz patches)
-3. Falls back to original tiles if no patch tables exist
+**`bin-diff-raw`**
+- Computes binary differences between tiles
+- Stores results Brotli-encoded in a `bsdiffraw` table
+- Includes a `xxh3_64` hash for integrity verification
 
-Important Notes
+**`bin-diff-gz`**
+- First decompresses gzip-compressed tiles
+- Computes binary differences on the decompressed data
+- Stores results in a `bsdiffrawgz` table with a `xxh3_64` hash
 
-· ✅ Automatic detection works: Just use --apply-patch as before
-· ⚠️ mbtiles apply-patch command does NOT yet support binary patching - use mbtiles copy --apply-patch instead
-· Binary patches are significantly smaller but require more processing time
+### Applying Binary Patches
 
-Storage Efficiency
-
-Binary diffs can reduce storage requirements dramatically:
+When copying with `--apply-patch`, the `mbtiles` CLI automatically detects
+and applies binary patches if `bsdiffraw` or `bsdiffrawgz` tables are present:
 
 ```bash
-# Example size comparison
-$ ls -lh
--rw-r--r--  diff-whole.mbtiles   850M  # Full tile storage
--rw-r--r--  diff-binary.mbtiles  120M  # Binary diff (bin-diff-raw)
--rw-r--r--  diff-binary-gz.mbtiles 95M # Gzip-aware diff (bin-diff-gz)
+mbtiles copy --apply-patch diff.mbtiles target.mbtiles
 ```
 
-The actual savings depend on how much the data changed between versions. Small changes in large tiles yield the best compression ratios.
+> **Note:** `mbtiles apply-patch` does not currently support binary patching.
+> Use `mbtiles copy --apply-patch` instead.
+```
 
-Technical Details
 
-· Hashing: xxh3_64 ensures patch integrity without significant performance impact
-· Compression: Brotli provides excellent compression for binary patches
-· Storage: Separate tables maintain backward compatibility with older tools
 
-References
-
-· Pull Request #1358 - Original implementation
-· bsdiff format - Binary diff algorithm
-· xxHash - Fast non-cryptographic hash function
