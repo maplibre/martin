@@ -120,12 +120,12 @@ nav = [
         {"Validating MBTiles" = "mbtiles-validation.md"}
     ]}
   ]},
-  {"Architecture" = "architecture.md"},
   {"Development" = [
     "development/index.md",
     {"Getting involved" = "getting-involved.md"},
     {"Provided Tools" = "tools.md"},
-    {"Martin as a library" = "martin-as-a-library.md"}
+    {"Martin as a library" = "martin-as-a-library.md"},
+    {"Architecture" = "architecture.md"}
   ]}
 ]
 

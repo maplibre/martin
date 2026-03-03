@@ -242,40 +242,37 @@ Martin's architecture is organized into four main Rust crates, each with distinc
 
 ## Key Design Decisions
 
-!!! note
-    > 🧠 This section provides **background and context**, not required knowledge.
-    > You don’t need to understand or remember all of this to use or contribute to Martin.
-    > Read it when you’re curious *why* certain choices were made.
+🧠 This section provides **background and context**, not required knowledge.
+You don’t need to understand or remember all of this to use or contribute to Martin.
+Read it when you’re curious **why** certain choices were made.
 
-### Rust for Performance and Safety
-
-??? "<b>Why Rust</b>: Martin is written in Rust to balance high performance with strong safety guarantees.<i>(click to expand)</i>"
+??? "Why Rust"
+    Martin is written in Rust to balance high performance with strong safety guarantees.
+    
     - Near-C performance without manual memory management
     - Memory safety (no null pointers or buffer overflows)
     - Safe concurrency without data races
     - Zero-cost abstractions that compile to efficient code
 
-</details>
-
-### Actix-Web Framework
-
-??? "<b>Why Actix-Web</b>: It offers a fast, production-ready async HTTP stack.<i>(click to expand)</i>"
+??? "Actix-Web as the chosen web framework"
+    It offers a fast, production-ready async HTTP stack.
+    
     - High-performance async request handling
     - Mature middleware ecosystem
     - Built-in compression and caching headers
     - Easy Prometheus metrics integration
 
-### Async/Await Throughout
-
-??? "<b>Why async/await</b>: Allows Martin to handle many concurrent requests efficiently.<i>(click to expand)</i>"
-    - Handles thousands of concurrent connections
+??? "Async-first architecture"
+    Allows Martin to handle many concurrent requests efficiently.
+    
+    - Handles hundreds of thousdands of concurrent connections
     - Avoids blocking database queries
     - Enables efficient file and network I/O
     - Keeps thread usage low under load
 
-### Crate Separation
-
-??? "<b>Why multiple crates</b>: The codebase is split into crates with clear responsibilities.<i>(click to expand)</i>"
+??? "Specifc crates splitting"
+    The codebase is split into crates with clear responsibilities
+    
     - **martin-core** — reusable core logic and tile sources
     - **mbtiles** — standalone MBTiles tooling
     - **martin** — HTTP server, configuration, and runtime wiring
@@ -287,18 +284,17 @@ Martin's architecture is organized into four main Rust crates, each with distinc
     - Use MBTiles tools independently
     - Maintain clear API boundaries and versioning
 
-### PostgreSQL Connection Pooling
-
-??? "<b>Why connection pooling</b>: Reuse database connections instead of reconnecting per request.<i>(click to expand)</i>"
-
+??? "Why connection pooling"
+    Reuse database connections instead of reconnecting per request
+    
     - Uses `deadpool-postgres`
     - Avoids per-request connection overhead
     - Configurable pool sizing
     - Automatic connection health checks
 
-### In-Memory Tile Caching
+??? "In-Memory Tile Caching"
 
-??? "<b>Why caching</b>: Avoid regenerating frequently requested tiles.<i>(click to expand)</i>"
+    Avoid regenerating frequently requested tiles.
 
     - Fast LRU cache with optional TTLs
     - Automatic eviction of least-used entries
@@ -306,10 +302,9 @@ Martin's architecture is organized into four main Rust crates, each with distinc
     - Thread-safe concurrent access
     - Significant performance improvements for repeated requests
 
-### Automatic Source Discovery
+??? "Automatic Source Discovery"
 
-??? "<b>Why auto-discovery</b>: Martin tries to work out of the box with minimal configuration.<i>(click to expand)</i>"
-
+    Martin tries to work out of the box with minimal configuration.
     It can currently automatically detect:
 
     - PostgreSQL tables with geometry columns
@@ -318,34 +313,35 @@ Martin's architecture is organized into four main Rust crates, each with distinc
 
     This keeps common setups close to zero-config.
 
-### Multi-Protocol Tile Support
+??? "Multi-Protocol Tile Support"
 
-**Why multiple formats**: Different workloads benefit from different storage models. This lets operators pick the best format for their use case:
+    Different workloads benefit from different storage models.
+    This lets operators pick the best format for their use case:
+      
+    === "PostgreSQL"
+          Dynamic tiles generated from live data. Best for frequently changing datasets.
+      
+    === "MBTiles"
+        Pre-generated tile archives. Simple and fast for static datasets.
+      
+    === "PMTiles"
+        Single-file, cloud-native archives optimized for HTTP range requests.
+      
+    === "COG"
+        Direct tile serving from Cloud Optimized GeoTIFFs.
 
-=== "PostgreSQL"
-    Dynamic tiles generated from live data. Best for frequently changing datasets.
+??? "Why generate resources (sprites, fonts) dynamically"
 
-=== "MBTiles"
-    Pre-generated tile archives. Simple and fast for static datasets.
-
-=== "PMTiles"
-    Single-file, cloud-native archives optimized for HTTP range requests.
-
-=== "COG"
-    Direct tile serving from Cloud Optimized GeoTIFFs.
-
-### On-the-Fly Resource Generation
-
-??? "<b>Why generate resources dynamically</b>: Sprites, fonts, and styles are created on demand.<i>(click to expand)</i>"
+    Sprites, fonts, and styles are created on demand.
 
     - No pre-processing step required
     - Simpler deployments (just provide source files)
     - URL-based customization
     - Less storage overhead
 
-### Modular Configuration
+??? "Why layered configuration"
 
-??? "<b>Why layered configuration</b>: Martin supports multiple configuration sources.<i>(click to expand)</i>"
+    Martin supports multiple configuration sources.
 
     - CLI flags for quick testing and overrides
     - Environment variables for containerized deployments
@@ -487,7 +483,7 @@ Martin supports multiple deployment patterns:
     - Shared PostgreSQL database with connection pooling
     - CDN for tile distribution
 
-<!-- New Tab Group -->
+## Security considerations
 
 === "Input Validation"
 
@@ -512,39 +508,41 @@ Martin supports multiple deployment patterns:
 
 ## Extensibility Points
 
-### Adding New Tile Sources
+=== "Adding New Tile Sources"
 
-To add a new tile source type:
+    To add a new tile source type:
+    
+    1. Implement the `Source` trait in `martin-core`
+    2. Add configuration parsing in `martin`
+    3. Register source in the catalog
+    4. Add integration tests
+    
+    Example source types that could be added:
+    
+    - Direct GeoJSON file serving
+    - Vector tile rendering from raster data
+    - Integration with other spatial databases
 
-1. Implement the `Source` trait in `martin-core`
-2. Add configuration parsing in `martin`
-3. Register source in the catalog
-4. Add integration tests
+=== "Adding New Resource Types"
 
-Example source types that could be added:
+    To add new resource endpoints:
+    
+    1. Implement resource generator in `martin-core`
+    2. Add HTTP handler in `martin/src/srv/`
+    3. Add configuration support
+    4. Update catalog/discovery
 
-- Direct GeoJSON file serving
-- Vector tile rendering from raster data
-- Integration with other spatial databases
+=== "Custom Authentication/Authorization"
 
-### Adding New Resource Types
+    Martin doesn't include built-in auth, but supports:
+    
+    - Reverse proxy authentication (recommended)
+    - Custom Actix-Web middleware
+    - Token-based access control via proxy
 
-To add new resource endpoints:
+## Operations considerations
 
-1. Implement resource generator in `martin-core`
-2. Add HTTP handler in `martin/src/srv/`
-3. Add configuration support
-4. Update catalog/discovery
-
-### Custom Authentication/Authorization
-
-Martin doesn't include built-in auth, but supports:
-
-- Reverse proxy authentication (recommended)
-- Custom Actix-Web middleware
-- Token-based access control via proxy
-
-## Monitoring and Observability
+These are the current monitoring and observability options:
 
 === "Metrics"
 
