@@ -12,7 +12,7 @@ You may also want to generate a [config file](config-file.md) using the `--save-
 it and use it with `--config my-config.yaml` option.
 
 !!! tip
-    > See [our tile sources explanation](sources-tiles.md) for a more detailed explanation on the difference between our available data sources.
+    See [our tile sources explanation](sources-tiles.md) for a more detailed explanation on the difference between our available data sources.
 
 ### Autodiscovery
 
@@ -24,11 +24,11 @@ martin  /path/to/directory
 ```
 
 !!! warning
-    > For remote PMTiles, we don't currently support auto-discovery.
-    > If you want to implement this feature, please see <https://github.com/maplibre/martin/issues/2180>
+    For remote PMTiles, we don't currently support auto-discovery.
+    If you want to implement this feature, please see <https://github.com/maplibre/martin/issues/2180>
     >
-    > We also don't currently support refreshing the catalog at runtime.
-    > If you want to implement this feature, please see <https://github.com/maplibre/martin/issues/288> instead.
+    We also don't currently support refreshing the catalog at runtime.
+    If you want to implement this feature, please see <https://github.com/maplibre/martin/issues/288> instead.
 
 ### Serving PMTiles from local file systems, http or Object Storage
 
@@ -86,7 +86,7 @@ The settings avaliable for a PMTiles source depend on the backend:
 === "Amazon S3"
 
     !!! info "Important"
-        > Even though we name this section `Amazon S3`, it also works with other providers that support the S3 API, such as [MinIO](https://www.min.io/), [Ceph](https://docs.ceph.com/en/latest/radosgw/s3/), [Cloudflare R2](https://developers.cloudflare.com/r2/), [hetzner object storage](https://www.hetzner.com/de/storage/object-storage/) and many more.
+        Even though we name this section `Amazon S3`, it also works with other providers that support the S3 API, such as [MinIO](https://www.min.io/), [Ceph](https://docs.ceph.com/en/latest/radosgw/s3/), [Cloudflare R2](https://developers.cloudflare.com/r2/), [hetzner object storage](https://www.hetzner.com/de/storage/object-storage/) and many more.
 
     For AWS, you need to provide the bucket name and the prefix of the object key.
     For example:
@@ -113,8 +113,8 @@ The settings avaliable for a PMTiles source depend on the backend:
     ```
 
     !!! tip
-        > All settings are also available under the `aws_` prefix.
-        > This can be useful if you want to have different cloud providers.
+        All settings are also available under the `aws_` prefix.
+        This can be useful if you want to have different cloud providers.
 
     ### Available AWS S3 settings
 
@@ -145,8 +145,8 @@ The settings avaliable for a PMTiles source depend on the backend:
     ```
 
     !!! tip
-        > All settings are also available under the `google_` prefix.
-        > This can be useful if you want to have different cloud providers.
+        All settings are also available under the `google_` prefix.
+        This can be useful if you want to have different cloud providers.
 
     ### Available google settings
 
@@ -189,8 +189,8 @@ The settings avaliable for a PMTiles source depend on the backend:
     ```
 
     !!! tip
-        > All settings are also available under the `azure_` prefix.
-        > This can be useful if you want to have different cloud providers.
+        All settings are also available under the `azure_` prefix.
+        This can be useful if you want to have different cloud providers.
 
     ### Available azure settings
 

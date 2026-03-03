@@ -124,17 +124,17 @@ docker compose up
 ```
 
 !!! tip
-    > Postgres requires specific file permissions and ownership for SSL certificates.
-    > In docker this can be a bit tricky:
+    Postgres requires specific file permissions and ownership for SSL certificates.
+    In docker this can be a bit tricky:
     >
-    > alpine images have `70:70` as the default `user:group`
-    > debian images have `999:999` as the default `user:group`
+    alpine images have `70:70` as the default `user:group`
+    debian images have `999:999` as the default `user:group`
     >
-    > You can change this by running the following commands:
+    You can change this by running the following commands:
     >
-    > ```bash
-    > chown 999:999 *.pem
-    > chmod 400 *.pem
+    ```bash
+    chown 999:999 *.pem
+    chmod 400 *.pem
     >```
 
 ## Testing with psql
@@ -147,8 +147,8 @@ psql "postgres://postgres:password@localhost:5432/postgres?sslmode=verify-full"
 ```
 
 !!! tip
-    > If you get file permission errors, make sure the current user can access the files.
-    > The previous step may set them to not readable by the current user.
+    If you get file permission errors, make sure the current user can access the files.
+    The previous step may set them to not readable by the current user.
 
 Then, verify SSL Status by
 

@@ -5,8 +5,8 @@
 Install [docker](https://docs.docker.com/get-docker/) and [docker-compose](https://docs.docker.com/compose/)
 
 !!! tip
-    > Alternative container hosts/runtimes work, but you need to set the `DOCKER_HOST` environment variable to let [the testcontainers module](https://docs.rs/testcontainers/latest/testcontainers/index.html#docker-host-resolution) detect your container.
-    > For example, [Colima uses a different socket location](https://github.com/abiosoft/colima/blob/main/docs/FAQ.md#cannot-connect-to-the-docker-daemon-at-unixvarrundockersock-is-the-docker-daemon-running).
+    Alternative container hosts/runtimes work, but you need to set the `DOCKER_HOST` environment variable to let [the testcontainers module](https://docs.rs/testcontainers/latest/testcontainers/index.html#docker-host-resolution) detect your container.
+    [For example Colima uses a different socket location](https://github.com/abiosoft/colima/blob/main/docs/FAQ.md#cannot-connect-to-the-docker-daemon-at-unixvarrundockersock-is-the-docker-daemon-running).
 
 ## just
 
@@ -106,7 +106,7 @@ git push -u origin my-new-feature
 ```
 
 !!! tip
-    > When developing MBTiles SQL code, you may need to use `just prepare-sqlite` whenever SQL queries are modified.
+    When developing MBTiles SQL code, you may need to use `just prepare-sqlite` whenever SQL queries are modified.
 
 ## Quick Start
 
