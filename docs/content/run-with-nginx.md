@@ -4,37 +4,7 @@ You can run Martin behind NGINX proxy, so you can cache frequently accessed tile
 Here is an example `docker-compose.yml` file that runs Martin with NGINX and PostgreSQL.
 
 ```yml
-version: '3'
-
-services:
-  nginx:
-    image: nginx:alpine
-    restart: unless-stopped
-    ports:
-      - "80:80"
-    volumes:
-      - ./cache:/var/cache/nginx
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
-    depends_on:
-      - martin
-
-  martin:
-    image: maplibre/martin:v0.7.0
-    restart: unless-stopped
-    environment:
-      - DATABASE_URL=postgres://postgres:password@db/db
-    depends_on:
-      - db
-
-  db:
-    image: postgis/postgis:14-3.3-alpine
-    restart: unless-stopped
-    environment:
-      - POSTGRES_DB=db
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=password
-    volumes:
-      - ./pg_data:/var/lib/postgresql/data
+--8<-- "files/compose.nginx.yaml"
 ```
 
 You can [find an example NGINX configuration file here](https://github.com/maplibre/martin/blob/main/demo/frontend/nginx.conf).

@@ -20,5 +20,5 @@ martin  ... ... ...  --save-config config.yaml
 ## Config Example
 
 ```yaml
---8<-- "config.yaml"
+--8<-- "files/config.yaml"
 ```
