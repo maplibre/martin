@@ -73,8 +73,7 @@ sqlite3 src_file.mbtiles \
   "    WHERE tile_data ISNULL); "\
   "INSERT OR REPLACE INTO tiles (zoom_level, tile_column, tile_row, tile_data) "\
   "  SELECT * FROM diffDb.tiles WHERE tile_data NOTNULL;"
-
----
+```
 
 
 ## Binary Diff Support for MBTiles
@@ -107,6 +106,9 @@ You can also use the alias via `mbtiles copy`:
 ```bash
 mbtiles copy original.mbtiles diff.mbtiles --diff-with-file updated.mbtiles --patch-type bin-diff-raw
 ```
+!!! note
+
+    `mbtiles apply-patch` does not currently support binary patching. Use `mbtiles copy --apply-patch` instead
 
 ### How It Works
 
@@ -131,5 +133,6 @@ and applies binary patches if `bsdiffraw` or `bsdiffrawgz` tables are present:
 mbtiles copy --apply-patch diff.mbtiles target.mbtiles
 ```
 
-> **Note:** `mbtiles apply-patch` does not currently support binary patching.
-> Use `mbtiles copy --apply-patch` instead.
+!!! note
+    `mbtiles apply-patch` does not currently support binary patching.
+    Use `mbtiles copy --apply-patch` instead.
