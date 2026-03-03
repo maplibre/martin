@@ -30,7 +30,7 @@ jobs:
         with:
           use-quiet-mode: 'yes' # only of the checks that failed
           use-verbose-mode: 'yes' # show status codes
-          folder-path: 'docs/src'
+          folder-path: 'docs/content'
           file-path: './README.md'
           config-file: '.github/files/markdown.links.config.json'
 

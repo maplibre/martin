@@ -15,5 +15,5 @@
     "relative-links": true
   },
   // globs expression. See https://github.com/DavidAnson/markdownlint-cli2#command-line
-  "globs": ["README.md", "!CHANGELOG.md", "docs/src/*.md"]
+  "globs": ["README.md", "!CHANGELOG.md", "docs/content/*.md"]
 }
