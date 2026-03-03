@@ -4,9 +4,9 @@ It's time to get involved once you have the [fork and all required software](dev
 This guide covers IDE setup and debugging.
 While we use Visual Studio Code as an example, Martin can be developed with any editor that supports Rust.
 
-??? "Editor-specific Guides (click to expand)"
+## Editor-specific Guides
 
-    ### Visual Studio Code
+=== "Visual Studio Code"
 
     Install these essential extensions:
 
@@ -15,26 +15,24 @@ While we use Visual Studio Code as an example, Martin can be developed with any 
     * [Even Better TOML](https://marketplace.visualstudio.com/items?itemName=tamasfe.even-better-toml) - TOML syntax highlighting
     * [GitLens](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens) - Git integration (optional)
 
-    ### Vim/Neovim
+=== "Vim/Neovim"
 
     Use [rustaceanvim](https://github.com/mrcjkb/rustaceanvim)
 
-    ### Emacs
+=== "Emacs"
 
     Use either
 
     * [rustic](https://github.com/brotzeit/rustic) or
     * [rust-mode](https://github.com/rust-lang/rust-mode)
 
-    ### RustRover
+=== "RustRover"
 
     [RustRover](https://jetbrains.com/rust/) supports rust out of the box
 
-    ### Zed
+=== "Zed"
 
     [Zed](https://zed.dev/) supports rust out of the box
-
-</details>
 
 ## Quick Development Setup
 
