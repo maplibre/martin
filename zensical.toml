@@ -38,7 +38,6 @@ nav = [
     {"Command Line Interface" = "run-with-cli.md"},
     {"Environment Variables" = "env-vars.md"},
     {"Hosting Environment-specific Guides" = [
-        "run-hosting-environment/index.md",
         {"Docker" = "run-with-docker.md"},
         {"Docker Compose" = "run-with-docker-compose.md"},
         {"AWS Lambda" = "run-with-lambda.md"}
@@ -64,7 +63,6 @@ nav = [
         {"Composite Sources" = "sources-composite.md"}
     ]},
     {"Supporting Resources" = [
-        "sources-resources/index.md",
         {"Sprites" = "sources-sprites.md"},
         {"Styles" = "sources-styles.md"},
         {"Fonts" = "sources-fonts.md"}
