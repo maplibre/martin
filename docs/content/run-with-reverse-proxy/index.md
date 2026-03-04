@@ -17,4 +17,4 @@ Doing so has a few downsides:
     - [Apache](https://httpd.apache.org/)
 - You may need to host more than just tiles/resources on the domain name.
 - Martin has a fixed public API, but your site may require a different structure.
-  For example, you may want to serve tiles from `/source?z=z&x=x&y=y`.
+  For example, you may want to serve tiles from `/{sourceID}/tiles?z={z}&x={x}&y={y}` instead of `/{sourceID}/{z}/{x}/{y}`.
