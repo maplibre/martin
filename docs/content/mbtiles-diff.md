@@ -75,65 +75,56 @@ sqlite3 src_file.mbtiles \
   "  SELECT * FROM diffDb.tiles WHERE tile_data NOTNULL;"
 ```
 
-## Binary Diff Support for MBTiles
+## Binary Diff Support
 
 The `mbtiles diff` command supports binary patching via the `--patch-type` flag,
-which can significantly reduce the size of difference files between tile sets.
-This is especially useful when working with large tile archives where only small
-portions have changed.
+which can significantly reduce the size of difference files.
 
-### Patch Types
+The flag combines two choices:
 
-Three patch types are available through the `--patch-type` flag:
+- **Input type** — whether the tiles are raw or gzip-compressed
+- **Output type** — whether to store whole tiles (`whole`) or binary diffs (`bin-diff`)
 
-| Option | Description | Use Case |
-| --- | --- | --- |
-| `whole` | Original behavior — stores full tiles | Simple diffs, maximum compatibility |
-| `bin-diff-raw` | Binary diff of raw tiles, Brotli-compressed | General purpose, best for most cases |
-| `bin-diff-gz` | Decompresses gzip tiles before diffing | When tiles are gzip-compressed |
+The key distinction is between `whole` and `bin-diff`:
 
-### Creating Binary Diffs
+| `--patch-type`  | Input      | Output                           |
+| --------------- | ---------- | -------------------------------- |
+| `whole`         | any        | Full tile stored as-is           |
+| `bin-diff-raw`  | raw        | Brotli-compressed binary diff    |
+| `bin-diff-gz`   | gzip       | Binary diff of decompressed data |
+
+Using `bin-diff` instead of `whole` produces much smaller diff files,
+because only the changed bytes between tiles are stored.
+
+### When to use `bin-diff-gz`
+
+Use `bin-diff-gz` when your tiles are gzip-compressed. It decompresses
+each tile before computing the diff, then stores the result in a
+`bsdiffrawgz` table with a `xxh3_64` hash.
+
+Note
+    `bin-diff-gz` skips `agg_tiles_hash_after_apply` validation after
+    patching, because re-compressing gzip tiles may produce different bytes.
+    Use `bin-diff-raw` if you need aggregate hash validation.
+
+### Creating a diff
 
 ```bash
-mbtiles diff original.mbtiles updated.mbtiles diff.mbtiles --patch-type whole
 mbtiles diff original.mbtiles updated.mbtiles diff.mbtiles --patch-type bin-diff-raw
-mbtiles diff original.mbtiles updated.mbtiles diff.mbtiles --patch-type bin-diff-gz
 ```
 
-You can also use the alias via `mbtiles copy`:
+### Applying a patch
+
+The `mbtiles` CLI automatically detects and applies binary patches
+if `bsdiffraw` or `bsdiffrawgz` tables are present:
 
 ```bash
-mbtiles copy original.mbtiles diff.mbtiles --diff-with-file updated.mbtiles --patch-type bin-diff-raw
+mbtiles copy diff.mbtiles original.mbtiles target.mbtiles --apply-patch
 ```
 
 !!! note
-
-    `mbtiles apply-patch` does not currently support binary patching. Use `mbtiles copy --apply-patch` instead
-
-### How It Works
-
-**`bin-diff-raw`**
-
-- Computes binary differences between tiles
-- Stores results Brotli-encoded in a `bsdiffraw` table
-- Includes a `xxh3_64` hash for integrity verification
-
-**`bin-diff-gz`**
-
-- First decompresses gzip-compressed tiles
-- Computes binary differences on the decompressed data
-- Stores results in a `bsdiffrawgz` table with a `xxh3_64` hash
-
-### Applying Binary Patches
-
-When copying with `--apply-patch`, the `mbtiles` CLI automatically detects
-and applies binary patches if `bsdiffraw` or `bsdiffrawgz` tables are present:
-
-```bash
-mbtiles copy --apply-patch diff.mbtiles target.mbtiles
-```
-
-!!! note
-
     `mbtiles apply-patch` does not currently support binary patching.
     Use `mbtiles copy --apply-patch` instead.
+
+
+
