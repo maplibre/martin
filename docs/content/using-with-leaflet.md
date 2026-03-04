@@ -16,3 +16,6 @@ L.vectorGrid
   })
   .addTo(map);
 ```
+
+!!! warning
+    Style serving is specific to [maplibre](https://maplibre.org/martin/using-with-maplibre/) or [deck.gl](https://maplibre.org/martin/using-with-deckgl/).
