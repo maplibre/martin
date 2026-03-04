@@ -57,8 +57,7 @@ impl MbtSource {
             .map_err(|e| io::Error::other(format!("{e:?}: Cannot open file {}", path.display())))
             .map_err(|e| MbtilesError::IoError(e, path.clone()))?;
 
-        // Attempt to fetch metadata with Fibonacci backoff & jitter
-        // Attempt to fetch metadata
+        // Attempt to fetch metadata with backoff
         let start_delay = Duration::from_millis(50);
         let max_attempts = 10; // from 50ms to 2.75s
         let meta = (|| async { mbt.get_metadata().await })
