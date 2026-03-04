@@ -1,0 +1,1 @@
+../../../mbtiles/sql/init-flat-with-hash.sql
