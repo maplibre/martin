@@ -16,4 +16,4 @@ map.addLayer(layer);
 ```
 
 !!! warning
-    Style serving is specific to [maplibre](https://maplibre.org/martin/using-with-maplibre/) or [deck.gl](https://maplibre.org/martin/using-with-deckgl/).
+    Style serving is specific to [maplibre](https://maplibre.org/martin/using-with-maplibre/) or [deck.gl](https://maplibre.org/martin/using-with-deck-gl/).
