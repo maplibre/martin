@@ -4,10 +4,10 @@ use std::fmt::{Debug, Formatter};
 use std::io;
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::thread::sleep;
 use std::time::Duration;
 
 use async_trait::async_trait;
+use backon::{FibonacciBuilder, Retryable as _};
 use martin_tile_utils::{TileCoord, TileData, TileInfo};
 use mbtiles::sqlx::error::DatabaseError;
 use mbtiles::{MbtError, MbtilesPool};
@@ -36,6 +36,19 @@ impl Debug for MbtSource {
     }
 }
 
+// SQLITE_BUSY (code: 5)
+// https://sqlite.org/rescode.html#busy
+fn is_sqlite_busy(err: &MbtError) -> bool {
+    matches!(
+        err,
+        MbtError::SqlxError(se)
+            if se
+                .as_database_error()
+                .and_then(DatabaseError::code)
+                .is_some_and(|code| code == "5")
+    )
+}
+
 impl MbtSource {
     /// Creates a new `MBTiles` source from the given file path.
     pub async fn new(id: String, path: PathBuf) -> Result<Self, MbtilesError> {
@@ -44,45 +57,34 @@ impl MbtSource {
             .map_err(|e| io::Error::other(format!("{e:?}: Cannot open file {}", path.display())))
             .map_err(|e| MbtilesError::IoError(e, path.clone()))?;
 
-        let max_retries = 8;
-        let mut attempt = 0;
+        // Attempt to fetch metadata with Fibonacci backoff & jitter
+        // if the database is busy
+        let start_delay = Duration::from_millis(50);
+        let max_attempts = 10; // from 50ms to 2.75s
+        let meta = (|| async { mbt.get_metadata().await })
+            .retry(
+                FibonacciBuilder::default()
+                    .with_min_delay(start_delay)
+                    .with_max_times(max_attempts)
+                    .with_jitter(),
+            )
+            .sleep(tokio::time::sleep)
+            .when(is_sqlite_busy)
+            .notify(|_err, dur| {
+                warn!(
+                    "Database file {:?} locked (SQLITE_BUSY). Retrying in {:.2}s...",
+                    path.display(),
+                    dur.as_secs_f64()
+                );
+            })
+            .await
+            .map_err(|_err| {
+                MbtilesError::InvalidMetadata(
+                    format!("SQLite still busy after {max_attempts} attempts"),
+                    path.clone(),
+                )
+            })?;
 
-        // Attempt to fetch metadata with exponential backoff (50ms to 6.4s delay)
-        // if the database is busy.
-        let meta = loop {
-            match mbt.get_metadata().await {
-                Ok(meta) => break meta,
-                // SQLITE_BUSY (code: 5)
-                // https://sqlite.org/rescode.html#busy
-                Err(MbtError::SqlxError(ref se))
-                    if se
-                        .as_database_error()
-                        .and_then(DatabaseError::code)
-                        .is_some_and(|code| code == "5") =>
-                {
-                    if attempt >= max_retries {
-                        return Err(MbtilesError::InvalidMetadata(
-                            format!("SQLite still busy after {max_retries} retries"),
-                            path.clone(),
-                        ));
-                    }
-
-                    let delay = Duration::from_millis(50 * (1 << attempt));
-                    let delay_sec = delay.as_secs_f64();
-                    warn!(
-                        "Database file {path:?} locked (SQLITE_BUSY), likely monopolised by a connection in a seperate process. Retrying in {delay_sec:.2}s..."
-                    );
-                    sleep(delay);
-                    attempt += 1;
-                }
-
-                Err(err) => {
-                    return Err(MbtilesError::InvalidMetadata(err.to_string(), path.clone()));
-                }
-            }
-        };
-
-        // Empty mbtiles should cause an error
         let tile_info = mbt
             .detect_format(&meta.tilejson)
             .await
