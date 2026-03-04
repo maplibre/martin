@@ -29,56 +29,9 @@ as `/points`, `/points.1`, etc.
 Some source IDs are reserved for internal use. If you try to use them, they will be automatically renamed to a unique ID
 the same way as duplicate source IDs are handled, e.g. a `catalog` source will become `catalog.1`.
 
-Some of the reserved IDs: `_`, `catalog`, `config`, `font`, `health`, `help`, `index`, `manifest`, `metrics`, `refresh`,
+Here are the reserved source IDs:
+`_`, `catalog`, `config`, `font`, `health`, `help`, `index`, `manifest`, `metrics`, `refresh`,
 `reload`, `sprite`, `status`.
-
-### Catalog
-
-A list of all available sources is available via catalogue endpoint:
-
-```bash
-curl localhost:3000/catalog | jq
-```
-
-```yaml
-{
-  "tiles" {
-    "function_zxy_query": {
-      "name": "public.function_zxy_query",
-      "content_type": "application/x-protobuf"
-    },
-    "points1": {
-      "name": "public.points1.geom",
-      "content_type": "image/webp"
-    },
-    ...
-  },
-  "sprites": {
-    "cool_icons": {
-      "images": [
-        "bicycle",
-        "bear",
-      ]
-    },
-    ...
-  },
-  "fonts": {
-    "Noto Mono Regular": {
-      "family": "Noto Mono",
-      "style": "Regular",
-      "glyphs": 875,
-      "start": 0,
-      "end": 65533
-    },
-    ...
-  },
-  "styles": {
-    "maplibre_demo": {
-      "path": "path/to/maplibre_demo.json",
-    },
-  },
-}
-```
 
 ### Source TileJSON
 
@@ -91,3 +44,53 @@ and `lines` sources will be available at `/points,lines` endpoint.
 curl localhost:3000/points | jq
 curl localhost:3000/points,lines | jq
 ```
+
+### Catalog
+
+A list of all available sources is available via catalogue endpoint
+
+```bash
+curl localhost:3000/catalog | jq
+```
+
+??? example "Example"
+
+    ```yaml
+    {
+      "tiles" {
+        "function_zxy_query": {
+          "name": "public.function_zxy_query",
+          "content_type": "application/x-protobuf"
+        },
+        "points1": {
+          "name": "public.points1.geom",
+          "content_type": "image/webp"
+        },
+        ...
+      },
+      "sprites": {
+        "cool_icons": {
+          "images": [
+            "bicycle",
+            "bear",
+          ]
+        },
+        ...
+      },
+      "fonts": {
+        "Noto Mono Regular": {
+          "family": "Noto Mono",
+          "style": "Regular",
+          "glyphs": 875,
+          "start": 0,
+          "end": 65533
+        },
+        ...
+      },
+      "styles": {
+        "maplibre_demo": {
+          "path": "path/to/maplibre_demo.json",
+        },
+      },
+    }
+    ```
