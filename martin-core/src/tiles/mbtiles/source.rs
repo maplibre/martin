@@ -78,12 +78,7 @@ impl MbtSource {
                 );
             })
             .await
-            .map_err(|_err| {
-                MbtilesError::InvalidMetadata(
-                    format!("SQLite still busy after {max_attempts} attempts"),
-                    path.clone(),
-                )
-            })?;
+            .map_err(|e| MbtilesError::InvalidMetadata(e.to_string(), path.clone()))?;
 
         let tile_info = mbt
             .detect_format(&meta.tilejson)
