@@ -58,7 +58,7 @@ impl MbtSource {
             .map_err(|e| MbtilesError::IoError(e, path.clone()))?;
 
         // Attempt to fetch metadata with Fibonacci backoff & jitter
-        // if the database is busy
+        // Attempt to fetch metadata
         let start_delay = Duration::from_millis(50);
         let max_attempts = 10; // from 50ms to 2.75s
         let meta = (|| async { mbt.get_metadata().await })
