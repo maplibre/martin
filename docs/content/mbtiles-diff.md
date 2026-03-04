@@ -87,25 +87,11 @@ The flag combines two choices:
 
 The key distinction is between `whole` and `bin-diff`:
 
-| `--patch-type`  | Input      | Output                           |
-| --------------- | ---------- | -------------------------------- |
-| `whole`         | any        | Full tile stored as-is           |
-| `bin-diff-raw`  | raw        | Brotli-compressed binary diff    |
-| `bin-diff-gz`   | gzip       | Binary diff of decompressed data |
-
-Using `bin-diff` instead of `whole` produces much smaller diff files,
-because only the changed bytes between tiles are stored.
-
-### When to use `bin-diff-gz`
-
-Use `bin-diff-gz` when your tiles are gzip-compressed. It decompresses
-each tile before computing the diff, then stores the result in a
-`bsdiffrawgz` table with a `xxh3_64` hash.
-
-Note
-    `bin-diff-gz` skips `agg_tiles_hash_after_apply` validation after
-    patching, because re-compressing gzip tiles may produce different bytes.
-    Use `bin-diff-raw` if you need aggregate hash validation.
+| `--patch-type`  | Input        | Output                           |
+| --------------- | ------------ | -------------------------------- |
+| `whole`         | any          | Full tile stored as-is           |
+| `bin-diff-raw`  | uncompressed | Brotli-compressed binary diff    |
+| `bin-diff-gz`   | gzip         | Binary diff of decompressed data |
 
 ### Creating a diff
 
@@ -121,6 +107,11 @@ if `bsdiffraw` or `bsdiffrawgz` tables are present:
 ```bash
 mbtiles copy diff.mbtiles original.mbtiles target.mbtiles --apply-patch
 ```
+
+!!! note
+    `bin-diff-gz` skips `agg_tiles_hash_after_apply` validation after
+    patching, because re-compressing gzip tiles may produce different bytes.
+    Use `bin-diff-raw` if you need aggregate hash validation.
 
 !!! note
     `mbtiles apply-patch` does not currently support binary patching.
