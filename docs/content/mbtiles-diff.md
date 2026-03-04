@@ -125,6 +125,3 @@ mbtiles copy diff.mbtiles original.mbtiles target.mbtiles --apply-patch
 !!! note
     `mbtiles apply-patch` does not currently support binary patching.
     Use `mbtiles copy --apply-patch` instead.
-
-
-
