@@ -735,10 +735,6 @@
     
       
         
-          
-        
-      
-        
       
         
       
@@ -767,9 +763,8 @@
         <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4_4" >
         
           
-          <div class="md-nav__link md-nav__container">
-            <a href="../run-hosting-environment/" class="md-nav__link ">
-              
+          <label class="md-nav__link" for="__nav_4_4" id="__nav_4_4_label" tabindex="">
+            
   
   
   <span class="md-ellipsis">
@@ -783,14 +778,8 @@
   
   
 
-            </a>
-            
-              
-              <label class="md-nav__link " for="__nav_4_4" id="__nav_4_4_label" tabindex="">
-                <span class="md-nav__icon md-icon"></span>
-              </label>
-            
-          </div>
+            <span class="md-nav__icon md-icon"></span>
+          </label>
         
         <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_4_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_4_4">
@@ -802,8 +791,6 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
-            
-              
             
               
                 
@@ -1388,7 +1375,7 @@
 
 
 <h1 id="reverse-proxies">Reverse Proxies</h1>
-<p>Martin can run without a reverse proxy.</p>
+<p>Martin <strong>can run without</strong> a reverse proxy.</p>
 <p>Doing so has a few downsides:</p>
 <ul>
 <li>Martin does not support HTTPS connections (TLS termination).</li>
@@ -1396,10 +1383,17 @@
   This means anybody can point their dns record to your server and serve to all requests going to the port Martin is running on.
   Using a reverse proxy makes this abuse obvious.</li>
 <li>Martin only supports a simple in-memory caching.
-  If you need more advanced caching options, you can use a reverse proxy like <a href="https://nginx.org/">Nginx</a>, <a href="https://varnish-cache.org/">Varnish</a>, or <a href="https://httpd.apache.org/">Apache</a> with custom rules.
-  For example, you may choose to only cache zoom 0..10.</li>
-<li>You may need to host more than just tiles at a single domain name.</li>
-<li>Martin has a fixed public API, but your site may require a different structure, e.g. serving tiles with from a sub-path like <code>/tiles/source/z/x/y</code>.</li>
+  If you need more advanced caching options, you can use a reverse proxy with custom rules.
+  You may for example only want to cache zoom <code>0..10</code>.
+  Here are some reverse proxy options:<ul>
+<li><a href="https://nginx.org/">Nginx</a></li>
+<li><a href="https://varnish-cache.org/">Varnish</a></li>
+<li><a href="https://httpd.apache.org/">Apache</a></li>
+</ul>
+</li>
+<li>You may need to host more than just tiles/resources on the domain name.</li>
+<li>Martin has a fixed public API, but your site may require a different structure.
+  For example, you may want to serve tiles from <code>/{sourceID}/tiles?z={z}&amp;x={x}&amp;y={y}</code> instead of <code>/{sourceID}/{z}/{x}/{y}</code>.</li>
 </ul>
 
 
