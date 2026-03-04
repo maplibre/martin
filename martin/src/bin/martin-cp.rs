@@ -1,10 +1,9 @@
 use std::borrow::Cow;
 use std::env;
-use std::fmt::{Debug, Display, Formatter};
+use std::fmt::{Debug, Formatter};
 use std::num::NonZeroUsize;
 use std::ops::RangeInclusive;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 
 use actix_http::error::ParseError;
@@ -18,6 +17,7 @@ use futures::stream::{self, StreamExt as _};
 use martin::config::args::{Args, ExtraArgs, MetaArgs, SrvArgs};
 use martin::config::file::{Config, ServerState, read_config};
 use martin::config::primitives::env::OsEnv;
+use martin::logging::progress::TileCopyProgress;
 use martin::logging::{ensure_martin_core_log_level_matches, init_tracing};
 use martin::srv::{DynTileSource, merge_tilejson};
 use martin::{MartinError, MartinResult};
@@ -260,26 +260,6 @@ impl Debug for TileXyz {
     }
 }
 
-struct Progress {
-    // needed to compute elapsed time
-    start_time: Instant,
-    total: u64,
-    empty: AtomicU64,
-    non_empty: AtomicU64,
-}
-
-impl Progress {
-    pub fn new(tiles: &[TileRect]) -> Self {
-        let total = tiles.iter().map(TileRect::size).sum();
-        Progress {
-            start_time: Instant::now(),
-            total,
-            empty: AtomicU64::default(),
-            non_empty: AtomicU64::default(),
-        }
-    }
-}
-
 type MartinCpResult<T> = Result<T, MartinCpError>;
 
 #[derive(thiserror::Error, Debug)]
@@ -302,83 +282,6 @@ enum MartinCpError {
         "{0} of bounding box '{1}' must fit into {2:?}. Please check that your bounding box is in the `min_lon,min_lat,max_lon,max_lat` format."
     )]
     InvalidBoundingBox(&'static str, Bounds, RangeInclusive<f64>),
-}
-
-fn write_duration(f: &mut impl std::fmt::Write, secs: f32) -> std::fmt::Result {
-    if !secs.is_normal() || secs < 0. {
-        // Nonsense input
-        f.write_str("???")
-    } else if secs < 1. {
-        write!(f, "<1s")
-    } else {
-        #[expect(
-            clippy::cast_possible_truncation,
-            clippy::cast_sign_loss,
-            reason = "we've already handled cases of inf, or negative"
-        )]
-        let secs = secs.ceil() as u64;
-
-        let (mins, secs) = (secs / 60, secs % 60);
-        let (hrs, mins) = (mins / 60, mins % 60);
-        let (days, hrs) = (hrs / 24, hrs % 24);
-
-        // yes, the order is different. Calc years & days, then calc weeks
-        let (years, days) = (days / 365, days % 365);
-        let (weeks, days) = (days / 7, days % 7);
-
-        if years > 0 {
-            write!(
-                f,
-                "{years}y{weeks:02}w{days:02}d{hrs:02}h{mins:02}m{secs:02}s"
-            )
-        } else if weeks > 0 {
-            write!(f, "{weeks}w{days:02}d{hrs:02}h{mins:02}m{secs:02}s")
-        } else if days > 0 {
-            write!(f, "{days}d{hrs:02}h{mins:02}m{secs:02}s")
-        } else if hrs > 0 {
-            write!(f, "{hrs}h{mins:02}m{secs:02}s")
-        } else if mins > 0 {
-            write!(f, "{mins}m{secs:02}s")
-        } else {
-            write!(f, "{secs}s")
-        }
-    }
-}
-
-impl Display for Progress {
-    #[expect(clippy::cast_precision_loss)]
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let elapsed = self.start_time.elapsed();
-        let elapsed_s = elapsed.as_secs_f32();
-        let non_empty = self.non_empty.load(Ordering::Relaxed);
-        let empty = self.empty.load(Ordering::Relaxed);
-        let done = non_empty + empty;
-        let percent = done * 100 / self.total;
-        let speed = if elapsed_s > 0.0 {
-            done as f32 / elapsed_s
-        } else {
-            0.0
-        };
-        write!(f, "[")?;
-        write_duration(f, elapsed_s)?;
-
-        write!(
-            f,
-            "] {percent:.2}% @ {speed:.1}/s | ✓ {non_empty} □ {empty}"
-        )?;
-
-        let left = self.total - done;
-        f.write_str(" | ")?;
-        if left == 0 {
-            f.write_str("done")
-        } else if done == 0 {
-            f.write_str("??? left")
-        } else {
-            let secs = elapsed_s * left as f32 / done as f32;
-            write_duration(f, secs)?;
-            f.write_str(" left")
-        }
-    }
 }
 
 /// Given a list of tile ranges, iterate over all tiles in the ranges
@@ -486,14 +389,12 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()>
         CopyDuplicateMode::Override
     };
     let mbt_type = init_schema(&mbt, &mut conn, src.sources.as_slice(), src.info, &args).await?;
-
-    let progress = Progress::new(&tiles);
+    let total_size = tiles.iter().map(TileRect::size).sum();
+    let progress = TileCopyProgress::new(total_size);
     info!(
-        "Copying {} {} tiles from {} to {}",
-        progress.total,
-        src.info,
-        source_id,
-        args.output_file.display()
+        "Copying {total_size} {info} tiles from the source {source_id} to {out}",
+        info = src.info,
+        out = args.output_file.display()
     );
 
     let (tx, mut rx) = channel::<TileXyz>(500);
@@ -521,8 +422,8 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()>
             let mut batch = Vec::with_capacity(BATCH_SIZE);
             while let Some(tile) = rx.recv().await {
                 debug!("Generated tile {tile:?}");
-                let done = if tile.data.is_empty() {
-                    progress.empty.fetch_add(1, Ordering::Relaxed)
+                if tile.data.is_empty() {
+                    progress.increment_empty();
                 } else {
                     batch.push((tile.xyz.z, tile.xyz.x, tile.xyz.y, tile.data));
                     if batch.len() >= BATCH_SIZE || last_saved.elapsed() > SAVE_EVERY {
@@ -532,12 +433,14 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()>
                         batch.clear();
                         last_saved = Instant::now();
                     }
-                    progress.non_empty.fetch_add(1, Ordering::Relaxed)
-                };
+                    progress.increment_non_empty();
+                }
+
+                let done = progress.position();
                 if done % PROGRESS_REPORT_AFTER == (PROGRESS_REPORT_AFTER - 1)
                     && last_reported.elapsed() > PROGRESS_REPORT_EVERY
                 {
-                    info!("{progress}");
+                    progress.update_message();
                     last_reported = Instant::now();
                 }
             }
@@ -550,7 +453,7 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()>
         }
     )?;
 
-    info!("{progress}");
+    progress.finish();
 
     mbt.update_metadata(&mut conn, GrowOnly).await?;
 
@@ -560,11 +463,11 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()>
     }
 
     if !args.skip_agg_tiles_hash {
-        if progress.non_empty.load(Ordering::Relaxed) == 0 {
-            info!("No tiles were copied, skipping agg_tiles_hash computation");
-        } else {
+        if progress.did_copy_tiles() {
             info!("Computing agg_tiles_hash value...");
             mbt.update_agg_tiles_hash(&mut conn).await?;
+        } else {
+            info!("No tiles were copied, skipping agg_tiles_hash computation");
         }
     }
 
@@ -629,7 +532,7 @@ async fn init_schema(
 #[tokio::main]
 async fn main() {
     let filter = ensure_martin_core_log_level_matches(env::var("RUST_LOG").ok(), "martin_cp=");
-    init_tracing(&filter, env::var("RUST_LOG_FORMAT").ok());
+    init_tracing(&filter, env::var("RUST_LOG_FORMAT").ok(), true);
 
     let args = CopierArgs::parse();
     if let Err(e) = start(args).await {

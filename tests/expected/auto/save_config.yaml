@@ -360,7 +360,7 @@ mbtiles:
     json: tests/fixtures/mbtiles/json.mbtiles
     mlt: tests/fixtures/mbtiles/mlt.mbtiles
     uncompressed_mvt: tests/fixtures/mbtiles/uncompressed_mvt.mbtiles
-    webp: tests/fixtures/mbtiles/webp.mbtiles
+    webp-no-primary: tests/fixtures/mbtiles/webp-no-primary.mbtiles
     world_cities: tests/fixtures/mbtiles/world_cities.mbtiles
     world_cities_bindiff: tests/fixtures/mbtiles/world_cities_bindiff.mbtiles
     world_cities_diff: tests/fixtures/mbtiles/world_cities_diff.mbtiles

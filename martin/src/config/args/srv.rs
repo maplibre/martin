@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::config::file::srv::{KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT, SrvConfig};
 
-#[expect(
+#[allow(
     clippy::doc_markdown,
     reason = "for command line arguments, formatting `TileJSON` is awkward"
 )]

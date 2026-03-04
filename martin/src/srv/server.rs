@@ -22,7 +22,7 @@ use crate::{MartinError, MartinResult};
 
 /// List of keywords that cannot be used as source IDs. Some of these are reserved for future use.
 /// Reserved keywords must never end in a "dot number" (e.g. ".1").
-/// This list is documented in the `docs/src/using.md` file, which should be kept in sync.
+/// This list is documented in the `docs/content/using.md` file, which should be kept in sync.
 pub const RESERVED_KEYWORDS: &[&str] = &[
     "_", "catalog", "config", "font", "health", "help", "index", "manifest", "metrics", "refresh",
     "reload", "sprite", "status",

@@ -308,7 +308,7 @@ jobs:
         env:
           DOCKER_METADATA_ANNOTATIONS_LEVELS: manifest,index
       - name: Build linux/arm64,linux/amd64 Docker image
-        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         # https://github.com/docker/build-push-action
         with:
           provenance: mode=max
@@ -367,7 +367,7 @@ jobs:
       - name: Push the Docker image
         id: docker_push
         if: github.event_name == 'push' || (github.event_name == 'release' && startsWith(github.event.release.tag_name, 'martin-v'))
-        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           provenance: mode=max
           sbom: true
@@ -952,14 +952,14 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with: { fetch-depth: 0, persist-credentials: false }
       - name: Publish to crates.io if crate's version is newer
-        uses: release-plz/action@e592230ad39e3ec735402572601fc621aa24355c # v0.5.124
+        uses: release-plz/action@f708778669256143d984cce4b23592637532e040 # v0.5.127
         id: release
         with: { command: release }
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN }}
       - if: ${{ steps.release.outputs.releases_created == 'false' }}
         name: If version is the same, create a PR proposing new version and changelog for the next release
-        uses: release-plz/action@e592230ad39e3ec735402572601fc621aa24355c # v0.5.124
+        uses: release-plz/action@f708778669256143d984cce4b23592637532e040 # v0.5.127
         with: { command: release-pr }
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN }}
