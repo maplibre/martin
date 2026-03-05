@@ -82,8 +82,8 @@ which can significantly reduce the size of difference files.
 
 The flag combines two choices:
 
-- **Input type** — whether the tiles are raw or gzip-compressed
-- **Output type** — whether to store whole tiles (`whole`) or binary diffs (`bin-diff`)
+- **Input type** - whether the tiles are raw or gzip-compressed
+- **Output type** - whether to store whole tiles (`whole`) or binary diffs (`bin-diff`)
 
 The key distinction is between `whole` and `bin-diff`:
 
