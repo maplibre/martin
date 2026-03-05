@@ -1549,6 +1549,45 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#binary-diff-support" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Binary Diff Support
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Binary Diff Support">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#creating-a-diff" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Creating a diff
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#applying-a-patch" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Applying a patch
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1816,6 +1855,60 @@ not update the <code>agg_tiles_hash</code> metadata value, so it will be incorre
 </span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">  </span><span class="s2">&quot;INSERT OR REPLACE INTO tiles (zoom_level, tile_column, tile_row, tile_data) &quot;</span><span class="se">\</span>
 </span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="w">  </span><span class="s2">&quot;  SELECT * FROM diffDb.tiles WHERE tile_data NOTNULL;&quot;</span>
 </span></code></pre></div>
+<h2 id="binary-diff-support">Binary Diff Support</h2>
+<p>The <code>mbtiles diff</code> command supports binary patching via the <code>--patch-type</code> flag,
+which can significantly reduce the size of difference files.</p>
+<p>The flag combines two choices:</p>
+<ul>
+<li><strong>Input type</strong> - whether the tiles are raw or gzip-compressed</li>
+<li><strong>Output type</strong> - whether to store whole tiles (<code>whole</code>) or binary diffs (<code>bin-diff</code>)</li>
+</ul>
+<p>The key distinction is between <code>whole</code> and <code>bin-diff</code>:</p>
+<table>
+<thead>
+<tr>
+<th><code>--patch-type</code></th>
+<th>Input</th>
+<th>Output</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>whole</code></td>
+<td>any</td>
+<td>Full tile stored as-is</td>
+</tr>
+<tr>
+<td><code>bin-diff-raw</code></td>
+<td>uncompressed</td>
+<td>Brotli-compressed binary diff</td>
+</tr>
+<tr>
+<td><code>bin-diff-gz</code></td>
+<td>gzip</td>
+<td>Binary diff of decompressed data</td>
+</tr>
+</tbody>
+</table>
+<h3 id="creating-a-diff">Creating a diff</h3>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>mbtiles<span class="w"> </span>diff<span class="w"> </span>original.mbtiles<span class="w"> </span>updated.mbtiles<span class="w"> </span>diff.mbtiles<span class="w"> </span>--patch-type<span class="w"> </span>bin-diff-raw
+</span></code></pre></div>
+<h3 id="applying-a-patch">Applying a patch</h3>
+<p>The <code>mbtiles</code> CLI automatically detects and applies binary patches
+if <code>bsdiffraw</code> or <code>bsdiffrawgz</code> tables are present:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>mbtiles<span class="w"> </span>copy<span class="w"> </span>diff.mbtiles<span class="w"> </span>original.mbtiles<span class="w"> </span>target.mbtiles<span class="w"> </span>--apply-patch
+</span></code></pre></div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><code>bin-diff-gz</code> skips <code>agg_tiles_hash_after_apply</code> validation after
+patching, because re-compressing gzip tiles may produce different bytes.
+Use <code>bin-diff-raw</code> if you need aggregate hash validation.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><code>mbtiles apply-patch</code> does not currently support binary patching.
+Use <code>mbtiles copy --apply-patch</code> instead.</p>
+</div>
 
 
 
