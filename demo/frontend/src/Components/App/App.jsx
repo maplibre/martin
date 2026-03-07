@@ -17,7 +17,7 @@ const App = () => (
     <Features />
     <TryIt>
       <p>
-       This demo uses a 2017 New York City taxi trips dataset — 114 million records served as vector tiles.
+       This demo uses a 2017 New York City taxi trips dataset - 114 million records served as vector tiles.
       </p>
       <p>
        Martin uses a database function to filter data by date, day of week, and hour, and to aggregate values by area.
