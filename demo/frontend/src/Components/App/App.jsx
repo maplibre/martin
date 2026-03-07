@@ -17,12 +17,10 @@ const App = () => (
     <Features />
     <TryIt>
       <p>
-        This is a demo of how Martin works. We used 2017 New York City taxi trips dataset: about 114
-        million records and a 13GB database.
+       This demo uses a 2017 New York City taxi trips dataset - 114 million records served as vector tiles.
       </p>
       <p>
-        Martin uses a database function to filter the data by selected dates, days of the week, and
-        hours and to sum or average the numbers by areas.
+       Martin uses a database function to filter data by date, day of week, and hour, and to aggregate values by area.
       </p>
     </TryIt>
     <MaplibreMap />
