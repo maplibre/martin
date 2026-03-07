@@ -22,7 +22,6 @@ const App = () => (
       <p>
        Martin uses a database function to filter data by date, day of week, and hour, and to aggregate values by area.
       </p>
-
     </TryIt>
     <MaplibreMap />
     <Development />
