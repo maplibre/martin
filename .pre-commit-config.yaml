@@ -92,9 +92,9 @@ repos:
     rev: "v2.4.6"  # tag is auto-updated by pre-commit.ci and synced by sync-biome-version to all the places it needs to be
     hooks:
       - id: biome-check
-        additional_dependencies: [ "@biomejs/biome@2.4.4" ]
+        additional_dependencies: [ "@biomejs/biome@2.4.6" ]
       - id: biome-format
-        additional_dependencies: [ "@biomejs/biome@2.4.4" ]
+        additional_dependencies: [ "@biomejs/biome@2.4.6" ]
 
   - repo: local
     hooks:
