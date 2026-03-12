@@ -52,5 +52,5 @@ pub fn decode_zstd(data: &[u8]) -> Result<Vec<u8>, std::io::Error> {
 pub fn encode_zstd(data: &[u8]) -> Result<Vec<u8>, std::io::Error> {
     let mut encoder = zstd::Encoder::new(Vec::new(), 0)?;
     encoder.write_all(data)?;
-    Ok(encoder.finish()?)
+    encoder.finish()
 }

@@ -26,6 +26,7 @@ const SUPPORTED_ENC: &[HeaderEnc] = &[
     HeaderEnc::gzip(),
     HeaderEnc::brotli(),
     HeaderEnc::zstd(),
+    HeaderEnc::deflate(),
     HeaderEnc::identity(),
 ];
 
@@ -242,9 +243,10 @@ impl<'a> DynTileSource<'a> {
                 let can_join = self.info.format == Format::Mvt
                     && tiles.iter().all(|t| t.info.format == Format::Mvt);
                 if !can_join {
-                    return Err(ErrorBadRequest(
-                        "Cannot merge tiles with incompatible formats",
-                    ));
+                    return Err(ErrorBadRequest(format!(
+                        "Cannot merge non-MVT formats. Format is {:?} with encoding {:?} ",
+                        self.info.format, self.info.encoding,
+                    )));
                 }
 
                 // Build combined etag before consuming tiles
@@ -258,13 +260,17 @@ impl<'a> DynTileSource<'a> {
                     || self.info.encoding == Encoding::Gzip
                 {
                     // Gzip multi-stream is valid; uncompressed concat is fine
-                    let data = tiles.into_iter().map(|t| t.data).collect::<Vec<_>>().concat();
+                    let data = tiles
+                        .into_iter()
+                        .map(|t| t.data)
+                        .collect::<Vec<_>>()
+                        .concat();
                     (data, self.info)
                 } else {
                     // Decompress first, concat raw MVT, let recompress re-encode
                     let mut raw = Vec::new();
                     for tile_data in tiles {
-                        let t = Tile::new_hash_etag(tile_data.data, tile_data.info);
+                        let t = Tile::new_with_etag(tile_data.data, tile_data.info, tile_data.etag);
                         let decoded = decode(t)?;
                         raw.extend_from_slice(&decoded.data);
                     }
@@ -303,11 +309,17 @@ impl<'a> DynTileSource<'a> {
         }
         if let (Some(qg), Some(qb)) = (q_gzip, q_brotli) {
             let qz = q_zstd.unwrap_or(Quality::ZERO);
-            let max_q = if qg >= qb && qg >= qz { qg } else if qb >= qz { qb } else { qz };
+            let max_q = if qg >= qb && qg >= qz {
+                qg
+            } else if qb >= qz {
+                qb
+            } else {
+                qz
+            };
             if max_q == Quality::ZERO {
                 return Ok(None);
             }
-            let at_max = (qg == max_q) as u8 + (qb == max_q) as u8 + (qz == max_q) as u8;
+            let at_max = u8::from(qg == max_q) + u8::from(qb == max_q) + u8::from(qz == max_q);
             return Ok(Some(if at_max > 1 {
                 self.get_preferred_enc()
             } else if qb == max_q {
