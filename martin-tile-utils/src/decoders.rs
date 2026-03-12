@@ -10,6 +10,12 @@ pub fn decode_gzip(data: &[u8]) -> Result<Vec<u8>, std::io::Error> {
     Ok(decompressed)
 }
 
+pub fn encode_zlib(data: &[u8]) -> Result<Vec<u8>, std::io::Error> {
+    let mut encoder = flate2::write::ZlibEncoder::new(Vec::new(), flate2::Compression::default());
+    encoder.write_all(data)?;
+    encoder.finish()
+}
+
 pub fn decode_zlib(data: &[u8]) -> Result<Vec<u8>, std::io::Error> {
     let mut decoder = ZlibDecoder::new(data);
     let mut decompressed = Vec::new();
@@ -34,4 +40,17 @@ pub fn encode_brotli(data: &[u8]) -> Result<Vec<u8>, std::io::Error> {
     let mut encoder = brotli::CompressorWriter::new(Vec::new(), 4096, 11, 22);
     encoder.write_all(data)?;
     Ok(encoder.into_inner())
+}
+
+pub fn decode_zstd(data: &[u8]) -> Result<Vec<u8>, std::io::Error> {
+    let mut decoder = zstd::Decoder::new(data)?;
+    let mut decompressed = Vec::new();
+    decoder.read_to_end(&mut decompressed)?;
+    Ok(decompressed)
+}
+
+pub fn encode_zstd(data: &[u8]) -> Result<Vec<u8>, std::io::Error> {
+    let mut encoder = zstd::Encoder::new(Vec::new(), 0)?;
+    encoder.write_all(data)?;
+    Ok(encoder.finish()?)
 }

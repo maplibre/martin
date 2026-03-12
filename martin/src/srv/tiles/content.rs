@@ -20,10 +20,12 @@ use crate::config::args::PreferredEncoding;
 use crate::config::file::srv::SrvConfig;
 use crate::source::TileSources;
 use crate::srv::server::{DebouncedWarning, map_internal_error};
+use martin_tile_utils::{decode_zlib, decode_zstd, encode_zlib, encode_zstd};
 
 const SUPPORTED_ENC: &[HeaderEnc] = &[
     HeaderEnc::gzip(),
     HeaderEnc::brotli(),
+    HeaderEnc::zstd(),
     HeaderEnc::identity(),
 ];
 
@@ -230,42 +232,51 @@ impl<'a> DynTileSource<'a> {
         }
 
         // Minor optimization to prevent concatenation if there are less than 2 tiles
-        let (data, etag) = match layer_count {
+        let (data, etag, effective_info) = match layer_count {
             0 => return Ok(Tile::new_hash_etag(Vec::new(), self.info)),
             1 => {
                 let tile = tiles.swap_remove(last_non_empty_layer);
-                (tile.data, tile.etag)
+                (tile.data, tile.etag, tile.info)
             }
             _ => {
-                // Make sure tiles can be concatenated, or if not, that there is only one non-empty tile for each zoom level
-                // TODO: can zlib, brotli, or zstd be concatenated?
-                // TODO: implement decompression step for other concatenate-able formats
                 let can_join = self.info.format == Format::Mvt
-                    && (self.info.encoding == Encoding::Uncompressed
-                        || self.info.encoding == Encoding::Gzip);
+                    && tiles.iter().all(|t| t.info.format == Format::Mvt);
                 if !can_join {
-                    return Err(ErrorBadRequest(format!(
-                        "Can't merge {} tiles. Make sure there is only one non-empty tile source at zoom level {}",
-                        self.info, xyz.z
-                    )))?;
+                    return Err(ErrorBadRequest(
+                        "Cannot merge tiles with incompatible formats",
+                    ));
                 }
-                // When concatenating tiles, we can't use pre-computed etags since the data changes
-                let total_etag_len = tiles.iter().map(|t| t.etag.len()).sum();
-                let mut concatenated_hash = String::with_capacity(total_etag_len);
+
+                // Build combined etag before consuming tiles
+                let total_etag_len: usize = tiles.iter().map(|t| t.etag.len()).sum();
+                let mut combined_etag = String::with_capacity(total_etag_len);
                 for tile in &tiles {
-                    concatenated_hash.push_str(&tile.etag);
+                    combined_etag.push_str(&tile.etag);
                 }
-                let concatenated_data = tiles
-                    .into_iter()
-                    .map(|t| t.data)
-                    .collect::<Vec<_>>()
-                    .concat();
-                (concatenated_data, concatenated_hash)
+
+                let (concat_data, effective_info) = if self.info.encoding == Encoding::Uncompressed
+                    || self.info.encoding == Encoding::Gzip
+                {
+                    // Gzip multi-stream is valid; uncompressed concat is fine
+                    let data = tiles.into_iter().map(|t| t.data).collect::<Vec<_>>().concat();
+                    (data, self.info)
+                } else {
+                    // Decompress first, concat raw MVT, let recompress re-encode
+                    let mut raw = Vec::new();
+                    for tile_data in tiles {
+                        let t = Tile::new_hash_etag(tile_data.data, tile_data.info);
+                        let decoded = decode(t)?;
+                        raw.extend_from_slice(&decoded.data);
+                    }
+                    (raw, self.info.encoding(Encoding::Uncompressed))
+                };
+
+                (concat_data, combined_etag, effective_info)
             }
         };
 
         // decide if (re-)encoding of the tile data is needed, and recompress if so
-        let mut tile = self.recompress(data)?;
+        let mut tile = self.recompress(data, effective_info)?;
         // Set the etag for the final tile
         tile.etag = etag;
         Ok(tile)
@@ -275,36 +286,43 @@ impl<'a> DynTileSource<'a> {
     fn decide_encoding(&self, accept_enc: &AcceptEncoding) -> ActixResult<Option<ContentEncoding>> {
         let mut q_gzip = None;
         let mut q_brotli = None;
+        let mut q_zstd = None;
         for enc in accept_enc.iter() {
             if let Preference::Specific(HeaderEnc::Known(e)) = enc.item {
                 match e {
                     ContentEncoding::Gzip => q_gzip = Some(enc.quality),
                     ContentEncoding::Brotli => q_brotli = Some(enc.quality),
+                    ContentEncoding::Zstd => q_zstd = Some(enc.quality),
                     _ => {}
                 }
             } else if let Preference::Any = enc.item {
                 q_gzip.get_or_insert(enc.quality);
                 q_brotli.get_or_insert(enc.quality);
+                q_zstd.get_or_insert(enc.quality);
             }
         }
-        Ok(match (q_gzip, q_brotli) {
-            (Some(q_gzip), Some(q_brotli)) if q_gzip == q_brotli => {
-                if q_gzip > Quality::ZERO {
-                    Some(self.get_preferred_enc())
-                } else {
-                    None
-                }
+        if let (Some(qg), Some(qb)) = (q_gzip, q_brotli) {
+            let qz = q_zstd.unwrap_or(Quality::ZERO);
+            let max_q = if qg >= qb && qg >= qz { qg } else if qb >= qz { qb } else { qz };
+            if max_q == Quality::ZERO {
+                return Ok(None);
             }
-            (Some(q_gzip), Some(q_brotli)) if q_brotli > q_gzip => Some(ContentEncoding::Brotli),
-            (Some(_), Some(_)) => Some(ContentEncoding::Gzip),
-            _ => {
-                if let Some(HeaderEnc::Known(enc)) = accept_enc.negotiate(SUPPORTED_ENC.iter()) {
-                    Some(enc)
-                } else {
-                    return Err(ErrorNotAcceptable("No supported encoding found"));
-                }
-            }
-        })
+            let at_max = (qg == max_q) as u8 + (qb == max_q) as u8 + (qz == max_q) as u8;
+            return Ok(Some(if at_max > 1 {
+                self.get_preferred_enc()
+            } else if qb == max_q {
+                ContentEncoding::Brotli
+            } else if qz == max_q {
+                ContentEncoding::Zstd
+            } else {
+                ContentEncoding::Gzip
+            }));
+        }
+        if let Some(HeaderEnc::Known(enc)) = accept_enc.negotiate(SUPPORTED_ENC.iter()) {
+            Ok(Some(enc))
+        } else {
+            Err(ErrorNotAcceptable("No supported encoding found"))
+        }
     }
 
     fn get_preferred_enc(&self) -> ContentEncoding {
@@ -314,10 +332,10 @@ impl<'a> DynTileSource<'a> {
         }
     }
 
-    fn recompress(&self, tile: TileData) -> ActixResult<Tile> {
-        let mut tile = Tile::new_hash_etag(tile, self.info);
+    fn recompress(&self, tile: TileData, info: TileInfo) -> ActixResult<Tile> {
+        let mut tile = Tile::new_hash_etag(tile, info);
         if let Some(accept_enc) = &self.accept_enc {
-            if self.info.encoding.is_encoded() {
+            if info.encoding.is_encoded() {
                 // already compressed, see if we can send it as is, or need to re-compress
                 if !accept_enc.iter().any(|e| {
                     if let Preference::Specific(HeaderEnc::Known(enc)) = e.item {
@@ -337,7 +355,6 @@ impl<'a> DynTileSource<'a> {
                 // (re-)compress the tile into the preferred encoding
                 tile = encode(tile, enc)?;
             }
-
             Ok(tile)
         } else {
             // no accepted-encoding header, decode the tile if compressed
@@ -355,6 +372,12 @@ fn encode(tile: Tile, enc: ContentEncoding) -> ActixResult<Tile> {
         ContentEncoding::Gzip => {
             Tile::new_hash_etag(encode_gzip(&tile.data)?, tile.info.encoding(Encoding::Gzip))
         }
+        ContentEncoding::Deflate => {
+            Tile::new_hash_etag(encode_zlib(&tile.data)?, tile.info.encoding(Encoding::Zlib))
+        }
+        ContentEncoding::Zstd => {
+            Tile::new_hash_etag(encode_zstd(&tile.data)?, tile.info.encoding(Encoding::Zstd))
+        }
         _ => tile,
     })
 }
@@ -371,8 +394,16 @@ fn decode(tile: Tile) -> ActixResult<Tile> {
                 decode_brotli(&tile.data)?,
                 info.encoding(Encoding::Uncompressed),
             ),
+            Encoding::Zlib => Tile::new_hash_etag(
+                decode_zlib(&tile.data)?,
+                info.encoding(Encoding::Uncompressed),
+            ),
+            Encoding::Zstd => Tile::new_hash_etag(
+                decode_zstd(&tile.data)?,
+                info.encoding(Encoding::Uncompressed),
+            ),
             _ => Err(ErrorBadRequest(format!(
-                "Tile is is stored as {info}, but the client does not accept this encoding"
+                "Tile is stored as {info}, but the client does not accept this encoding"
             )))?,
         }
     } else {
@@ -385,7 +416,8 @@ pub fn to_encoding(val: ContentEncoding) -> Option<Encoding> {
         ContentEncoding::Identity => Encoding::Uncompressed,
         ContentEncoding::Gzip => Encoding::Gzip,
         ContentEncoding::Brotli => Encoding::Brotli,
-        // TODO: Deflate => Encoding::Zstd or Encoding::Zlib ?
+        ContentEncoding::Deflate => Encoding::Zlib,
+        ContentEncoding::Zstd => Encoding::Zstd,
         _ => None?,
     })
 }
@@ -398,11 +430,6 @@ mod tests {
 
     use super::*;
     use crate::srv::tiles::tests::TestSource;
-
-    #[actix_rt::test]
-    async fn test_deleteme() {
-        test_enc_preference(&["gzip", "deflate", "br", "zstd"], None, Encoding::Gzip).await;
-    }
 
     #[rstest]
     #[trace]
