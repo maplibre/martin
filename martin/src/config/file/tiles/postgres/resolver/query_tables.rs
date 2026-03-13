@@ -265,7 +265,7 @@ async fn calc_bounds(
 WITH real_bounds AS (SELECT ST_SetSRID(ST_Extent({geometry_column}::geometry), {srid}) AS rb FROM {schema}.{table})
 SELECT ST_Transform(
             CASE
-                WHEN (SELECT ST_GeometryType(rb) FROM real_bounds LIMIT 1) = 'ST_Point'
+                WHEN (SELECT ST_GeometryType(rb) FROM real_bounds LIMIT 1) IN ('ST_Point', 'ST_LineString')
                 THEN ST_SetSRID(ST_Extent(ST_Expand({geometry_column}::geometry, 1)), {srid})
                 ELSE (SELECT * FROM real_bounds)
             END,

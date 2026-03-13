@@ -29,6 +29,9 @@ async fn table_source() {
     bigint_table:
       content_type: application/x-protobuf
       description: autodetect.bigint_table.geom
+    empty_bounds:
+      content_type: application/x-protobuf
+      description: public.empty_bounds.geom
     function_Mixed_Name:
       content_type: application/x-protobuf
       description: a function source with MixedCase name
@@ -64,6 +67,15 @@ async fn table_source() {
     function_zxy_row_key:
       content_type: application/x-protobuf
       description: public.function_zxy_row_key
+    linestring_bounds:
+      content_type: application/x-protobuf
+      description: public.linestring_bounds.geom
+    linestring_bounds_vertical:
+      content_type: application/x-protobuf
+      description: public.linestring_bounds_vertical.geom
+    point_bounds:
+      content_type: application/x-protobuf
+      description: public.point_bounds.geom
     points1:
       content_type: application/x-protobuf
       description: public.points1.geom
@@ -231,4 +243,78 @@ async fn table_source_schemas() {
       content_type: application/x-protobuf
       description: a description from comment on table
     ");
+}
+
+/// Regression test: Martin crashed at startup when the bounds query returned
+/// a LineString instead of a Polygon (e.g., when all data is collinear).
+/// This test covers a **horizontal** LineString extent (equal y coordinates).
+#[actix_rt::test]
+async fn table_bounds_linestring_horizontal_ok() {
+    let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL")).await;
+    let source = table(&mock, "linestring_bounds");
+    // The table contains a single horizontal LineString.  ST_Extent used to
+    // return an ST_LineString geometry for this case, causing a panic.
+    // After the fix, bounds must be present and have a positive area.
+    assert!(
+        source.bounds.is_some(),
+        "bounds must be computed for a table whose extent is a horizontal LineString"
+    );
+    let bounds = source.bounds.unwrap();
+    assert!(
+        bounds.left < bounds.right && bounds.bottom < bounds.top,
+        "bounds must have positive area for a horizontal LineString extent, got {bounds:?}"
+    );
+}
+
+/// Regression test: Martin crashed at startup when the bounds query returned
+/// a LineString instead of a Polygon (e.g., when all data is collinear).
+/// This test covers a **vertical** LineString extent (equal x coordinates).
+#[actix_rt::test]
+async fn table_bounds_linestring_vertical_ok() {
+    let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL")).await;
+    let source = table(&mock, "linestring_bounds_vertical");
+    // The table contains a single vertical LineString.  ST_Extent used to
+    // return an ST_LineString geometry for this case, causing a panic.
+    // After the fix, bounds must be present and have a positive area.
+    assert!(
+        source.bounds.is_some(),
+        "bounds must be computed for a table whose extent is a vertical LineString"
+    );
+    let bounds = source.bounds.unwrap();
+    assert!(
+        bounds.left < bounds.right && bounds.bottom < bounds.top,
+        "bounds must have positive area for a vertical LineString extent, got {bounds:?}"
+    );
+}
+
+/// Verifies that the existing ST_Point degenerate case (single point, or all
+/// data sharing the same coordinates) still returns valid expanded bounds.
+#[actix_rt::test]
+async fn table_bounds_single_point_ok() {
+    let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL")).await;
+    let source = table(&mock, "point_bounds");
+    // A table with only a single point has a degenerate ST_Point extent.
+    // The query expands it by 1 unit so the result is a valid bounding box.
+    assert!(
+        source.bounds.is_some(),
+        "bounds must be computed for a table whose extent is a single Point"
+    );
+    let bounds = source.bounds.unwrap();
+    assert!(
+        bounds.left < bounds.right && bounds.bottom < bounds.top,
+        "bounds must have positive area for a point extent, got {bounds:?}"
+    );
+}
+
+/// Verifies that a completely empty table returns None for bounds (no crash).
+#[actix_rt::test]
+async fn table_bounds_empty_table_ok() {
+    let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL")).await;
+    let source = table(&mock, "empty_bounds");
+    // An empty table has a NULL extent; bounds should be None, not a panic.
+    assert!(
+        source.bounds.is_none(),
+        "an empty table must produce None bounds, got {:?}",
+        source.bounds
+    );
 }
