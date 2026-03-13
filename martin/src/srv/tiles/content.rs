@@ -577,7 +577,9 @@ mod tests {
             Encoding::Brotli => decode_brotli(data).unwrap(),
             Encoding::Zlib => decode_zlib(data).unwrap(),
             Encoding::Zstd => decode_zstd(data).unwrap(),
-            enc => panic!("decompress_tile: unsupported encoding {enc:?}"),
+            Encoding::Internal => {
+                panic!("decompress_tile: cannot decompress tile with internal encoding")
+            }
         }
     }
 
