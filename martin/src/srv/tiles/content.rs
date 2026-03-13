@@ -26,7 +26,7 @@ const SUPPORTED_ENC: &[HeaderEnc] = &[
     HeaderEnc::gzip(),
     HeaderEnc::brotli(),
     HeaderEnc::zstd(),
-    HeaderEnc::deflate(),
+    //probably dont need deflate here, most clients don't support
     HeaderEnc::identity(),
 ];
 
@@ -240,8 +240,8 @@ impl<'a> DynTileSource<'a> {
                 (tile.data, tile.etag, tile.info)
             }
             _ => {
-                let can_join = self.info.format == Format::Mvt
-                    && tiles.iter().all(|t| t.info.format == Format::Mvt);
+                let can_join = (self.info.format == Format::Mvt || self.info.format == Format::Mlt)
+                    && tiles.iter().all(|t| t.info.format == self.info.format);
                 if !can_join {
                     return Err(ErrorBadRequest(format!(
                         "Cannot merge non-MVT formats. Format is {:?} with encoding {:?} ",
@@ -441,7 +441,7 @@ mod tests {
     use tilejson::tilejson;
 
     use super::*;
-    use crate::srv::tiles::tests::TestSource;
+    use crate::srv::tiles::tests::{CompressedTestSource, TestSource};
 
     #[rstest]
     #[trace]
@@ -451,6 +451,8 @@ mod tests {
     #[case(&["br;q=1", "gzip;q=1"], Some(PreferredEncoding::Gzip), Encoding::Gzip)]
     #[case(&["gzip;q=1", "br;q=1"], Some(PreferredEncoding::Brotli), Encoding::Brotli)]
     #[case(&["gzip;q=1", "br;q=0.5"], Some(PreferredEncoding::Brotli), Encoding::Gzip)]
+    #[case(&["gzip;q=0.5", "br;q=0.5", "zstd;q=1.0"], None, Encoding::Zstd)]
+    #[case(&["gzip;q=0.5", "br;q=0.5", "zstd;q=1.0"], Some(PreferredEncoding::Brotli), Encoding::Zstd)]
     #[actix_rt::test]
     async fn test_enc_preference(
         #[case] accept_enc: &[&'static str],
@@ -557,5 +559,87 @@ mod tests {
             let xyz = TileCoord { z: 0, x: 0, y: 0 };
             assert_eq!(expected, &src.get_tile_content(xyz).await.unwrap().data);
         }
+    }
+
+    fn compress_with(data: &[u8], encoding: Encoding) -> Vec<u8> {
+        match encoding {
+            Encoding::Brotli => encode_brotli(data).unwrap(),
+            Encoding::Zlib => encode_zlib(data).unwrap(),
+            Encoding::Zstd => encode_zstd(data).unwrap(),
+            _ => panic!("compress_with: unsupported encoding {encoding:?}"),
+        }
+    }
+
+    fn decompress_tile(data: &[u8], encoding: Encoding) -> Vec<u8> {
+        match encoding {
+            Encoding::Uncompressed => data.to_vec(),
+            Encoding::Gzip => decode_gzip(data).unwrap(),
+            Encoding::Brotli => decode_brotli(data).unwrap(),
+            Encoding::Zlib => decode_zlib(data).unwrap(),
+            Encoding::Zstd => decode_zstd(data).unwrap(),
+            enc => panic!("decompress_tile: unsupported encoding {enc:?}"),
+        }
+    }
+
+    #[rstest]
+    #[case(Encoding::Brotli, None, Encoding::Uncompressed)]
+    #[case(Encoding::Zlib, None, Encoding::Uncompressed)]
+    #[case(Encoding::Zstd, None, Encoding::Uncompressed)]
+    #[case(Encoding::Brotli, Some("zstd"), Encoding::Zstd)]
+    #[case(Encoding::Zlib, Some("br"), Encoding::Brotli)]
+    #[case(Encoding::Zstd, Some("gzip"), Encoding::Gzip)]
+    #[actix_rt::test]
+    async fn test_compressed_mvt_merge(
+        #[case] src_enc: Encoding,
+        #[case] accept: Option<&str>,
+        #[case] expected_enc: Encoding,
+    ) {
+        let raw1: Vec<u8> = vec![1, 2, 3];
+        let raw2: Vec<u8> = vec![4, 5, 6];
+
+        let src1 = CompressedTestSource {
+            id: "src1",
+            tj: tilejson! { tiles: vec![] },
+            data: compress_with(&raw1, src_enc),
+            encoding: src_enc,
+        };
+        let src2 = CompressedTestSource {
+            id: "src2",
+            tj: tilejson! { tiles: vec![] },
+            data: compress_with(&raw2, src_enc),
+            encoding: src_enc,
+        };
+
+        let sources = TileSources::new(vec![vec![Box::new(src1), Box::new(src2)]]);
+
+        let accept_enc = accept.map(|s| AcceptEncoding(vec![s.parse().unwrap()]));
+        let src = DynTileSource::new(
+            &sources,
+            "src1,src2",
+            None,
+            "",
+            accept_enc,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        let tile = src
+            .get_tile_content(TileCoord { z: 0, x: 0, y: 0 })
+            .await
+            .unwrap();
+
+        assert_eq!(
+            tile.info.encoding, expected_enc,
+            "wrong output encoding for src={src_enc:?}, accept={accept:?}"
+        );
+
+        let decoded = decompress_tile(&tile.data, tile.info.encoding);
+        let expected_raw: Vec<u8> = raw1.iter().chain(raw2.iter()).copied().collect();
+        assert_eq!(
+            decoded, expected_raw,
+            "decoded content mismatch for src={src_enc:?}, accept={accept:?}"
+        );
     }
 }
