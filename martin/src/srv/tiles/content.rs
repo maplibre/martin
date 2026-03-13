@@ -74,7 +74,11 @@ pub struct RedirectTileRequest {
 /// Redirect `/{source_ids}/{z}/{x}/{y}.{extension}` to `/{source_ids}/{z}/{x}/{y}` (HTTP 301)
 /// Registered before main tile route to match more specific pattern first
 #[route("/{ids}/{z}/{x}/{y}.{ext}", method = "GET", method = "HEAD")]
-pub async fn redirect_tile_ext(req: HttpRequest, path: Path<RedirectTileRequest>) -> HttpResponse {
+pub async fn redirect_tile_ext(
+    req: HttpRequest,
+    path: Path<RedirectTileRequest>,
+    srv_config: Data<SrvConfig>,
+) -> HttpResponse {
     static WARNING: DebouncedWarning = DebouncedWarning::new();
     let RedirectTileRequest { ids, z, x, y, ext } = path.as_ref();
 
@@ -86,12 +90,23 @@ pub async fn redirect_tile_ext(req: HttpRequest, path: Path<RedirectTileRequest>
         })
         .await;
 
-    redirect_tile_with_query(ids, *z, *x, *y, req.query_string())
+    redirect_tile_with_query(
+        ids,
+        *z,
+        *x,
+        *y,
+        req.query_string(),
+        srv_config.route_prefix.as_deref(),
+    )
 }
 
 /// Redirect `/tiles/{source_ids}/{z}/{x}/{y}` to `/{source_ids}/{z}/{x}/{y}` (HTTP 301)
 #[route("/tiles/{source_ids}/{z}/{x}/{y}", method = "GET", method = "HEAD")]
-pub async fn redirect_tiles(req: HttpRequest, path: Path<TileRequest>) -> HttpResponse {
+pub async fn redirect_tiles(
+    req: HttpRequest,
+    path: Path<TileRequest>,
+    srv_config: Data<SrvConfig>,
+) -> HttpResponse {
     static WARNING: DebouncedWarning = DebouncedWarning::new();
     let TileRequest {
         source_ids,
@@ -108,7 +123,14 @@ pub async fn redirect_tiles(req: HttpRequest, path: Path<TileRequest>) -> HttpRe
         })
         .await;
 
-    redirect_tile_with_query(source_ids, *z, *x, *y, req.query_string())
+    redirect_tile_with_query(
+        source_ids,
+        *z,
+        *x,
+        *y,
+        req.query_string(),
+        srv_config.route_prefix.as_deref(),
+    )
 }
 
 /// Helper function to create a 301 redirect for tiles with query string preservation
@@ -118,8 +140,13 @@ fn redirect_tile_with_query(
     x: u32,
     y: u32,
     query_string: &str,
+    route_prefix: Option<&str>,
 ) -> HttpResponse {
-    let location = format!("/{source_ids}/{z}/{x}/{y}");
+    let location = if let Some(prefix) = route_prefix {
+        format!("{prefix}/{source_ids}/{z}/{x}/{y}")
+    } else {
+        format!("/{source_ids}/{z}/{x}/{y}")
+    };
     let location = if query_string.is_empty() {
         location
     } else {
