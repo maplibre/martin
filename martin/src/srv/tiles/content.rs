@@ -86,7 +86,15 @@ pub async fn redirect_tile_ext(req: HttpRequest, path: Path<RedirectTileRequest>
         })
         .await;
 
-    redirect_tile_with_query(ids, *z, *x, *y, req.query_string())
+    redirect_tile_with_query(
+        ids,
+        *z,
+        *x,
+        *y,
+        req.query_string(),
+        req.app_data::<Data<SrvConfig>>()
+            .and_then(|cfg| cfg.route_prefix.as_deref()),
+    )
 }
 
 /// Redirect `/tiles/{source_ids}/{z}/{x}/{y}` to `/{source_ids}/{z}/{x}/{y}` (HTTP 301)
@@ -108,7 +116,15 @@ pub async fn redirect_tiles(req: HttpRequest, path: Path<TileRequest>) -> HttpRe
         })
         .await;
 
-    redirect_tile_with_query(source_ids, *z, *x, *y, req.query_string())
+    redirect_tile_with_query(
+        source_ids,
+        *z,
+        *x,
+        *y,
+        req.query_string(),
+        req.app_data::<Data<SrvConfig>>()
+            .and_then(|cfg| cfg.route_prefix.as_deref()),
+    )
 }
 
 /// Helper function to create a 301 redirect for tiles with query string preservation
@@ -118,8 +134,13 @@ fn redirect_tile_with_query(
     x: u32,
     y: u32,
     query_string: &str,
+    route_prefix: Option<&str>,
 ) -> HttpResponse {
-    let location = format!("/{source_ids}/{z}/{x}/{y}");
+    let location = if let Some(prefix) = route_prefix {
+        format!("{prefix}/{source_ids}/{z}/{x}/{y}")
+    } else {
+        format!("/{source_ids}/{z}/{x}/{y}")
+    };
     let location = if query_string.is_empty() {
         location
     } else {
