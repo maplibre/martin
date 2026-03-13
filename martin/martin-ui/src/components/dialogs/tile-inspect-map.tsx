@@ -3,6 +3,7 @@
 import MaplibreInspect from '@maplibre/maplibre-gl-inspect';
 import type { MapRef } from '@vis.gl/react-maplibre';
 import { Layer, Map as MapLibreMap, Source } from '@vis.gl/react-maplibre';
+import type { VectorSourceSpecification } from 'maplibre-gl';
 import { Popup } from 'maplibre-gl';
 import { type ErrorInfo, useCallback, useEffect, useId, useRef } from 'react';
 import { Toaster } from '@/components/ui/toaster';
@@ -46,6 +47,8 @@ export function TileInspectDialogMap({ name, source }: TileInspectDialogMapProps
   const isImageSource = ['image/gif', 'image/jpeg', 'image/png', 'image/webp'].includes(
     source.content_type,
   );
+
+  const isMltSource = source.content_type === 'application/vnd.maplibre-vector-tile';
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: if we list tileJson below, this is an infinte loop
   useEffect(() => {
@@ -91,7 +94,12 @@ export function TileInspectDialogMap({ name, source }: TileInspectDialogMapProps
     }
     const map = mapRef.current.getMap();
 
-    map.addSource(name, { type: 'vector', url: buildMartinUrl(`/${name}`) });
+    map.addSource(name, {
+      type: 'vector',
+      url: buildMartinUrl(`/${name}`),
+      // MLT tiles require explicit encoding; MapLibre GL JS defaults to 'mvt'
+      ...(isMltSource && { encoding: 'mlt' }),
+    } as VectorSourceSpecification);
     // Import and add the inspect control
     if (inspectControlRef.current) {
       map.removeControl(inspectControlRef.current);
@@ -112,7 +120,7 @@ export function TileInspectDialogMap({ name, source }: TileInspectDialogMapProps
     map.addControl(inspectControlRef.current);
 
     configureMap();
-  }, [name, configureMap]);
+  }, [name, configureMap, isMltSource]);
 
   return (
     <ErrorBoundary
