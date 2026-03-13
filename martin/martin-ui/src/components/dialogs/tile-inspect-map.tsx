@@ -117,7 +117,7 @@ export function TileInspectDialogMap({ name, source }: TileInspectDialogMapProps
     map.addControl(inspectControlRef.current);
 
     configureMap();
-  }, [name, configureMap]);
+  }, [name, configureMap, source.content_type]);
 
   return (
     <ErrorBoundary
