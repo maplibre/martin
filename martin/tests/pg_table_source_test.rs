@@ -245,16 +245,10 @@ async fn table_source_schemas() {
     ");
 }
 
-/// Regression test: Martin crashed at startup when the bounds query returned
-/// a LineString instead of a Polygon (e.g., when all data is collinear).
-/// This test covers a **horizontal** LineString extent (equal y coordinates).
 #[actix_rt::test]
 async fn table_bounds_linestring_horizontal_ok() {
     let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL")).await;
     let source = table(&mock, "linestring_bounds");
-    // The table contains a single horizontal LineString.  ST_Extent used to
-    // return an ST_LineString geometry for this case, causing a panic.
-    // After the fix, bounds must be present and have a positive area.
     assert!(
         source.bounds.is_some(),
         "bounds must be computed for a table whose extent is a horizontal LineString"
@@ -266,16 +260,10 @@ async fn table_bounds_linestring_horizontal_ok() {
     );
 }
 
-/// Regression test: Martin crashed at startup when the bounds query returned
-/// a LineString instead of a Polygon (e.g., when all data is collinear).
-/// This test covers a **vertical** LineString extent (equal x coordinates).
 #[actix_rt::test]
 async fn table_bounds_linestring_vertical_ok() {
     let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL")).await;
     let source = table(&mock, "linestring_bounds_vertical");
-    // The table contains a single vertical LineString.  ST_Extent used to
-    // return an ST_LineString geometry for this case, causing a panic.
-    // After the fix, bounds must be present and have a positive area.
     assert!(
         source.bounds.is_some(),
         "bounds must be computed for a table whose extent is a vertical LineString"
@@ -287,14 +275,10 @@ async fn table_bounds_linestring_vertical_ok() {
     );
 }
 
-/// Verifies that the existing ST_Point degenerate case (single point, or all
-/// data sharing the same coordinates) still returns valid expanded bounds.
 #[actix_rt::test]
 async fn table_bounds_single_point_ok() {
     let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL")).await;
     let source = table(&mock, "point_bounds");
-    // A table with only a single point has a degenerate ST_Point extent.
-    // The query expands it by 1 unit so the result is a valid bounding box.
     assert!(
         source.bounds.is_some(),
         "bounds must be computed for a table whose extent is a single Point"
@@ -306,7 +290,6 @@ async fn table_bounds_single_point_ok() {
     );
 }
 
-/// Verifies that a completely empty table returns None for bounds (no crash).
 #[actix_rt::test]
 async fn table_bounds_empty_table_ok() {
     let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL")).await;

@@ -1,6 +1,4 @@
--- Table with a single point geometry.
--- ST_Extent on this data returns an ST_Point, which is handled by expanding
--- the extent by 1 unit to produce a valid bounding polygon.
+-- Table with a single point geometry
 CREATE TABLE point_bounds
 (
     gid SERIAL PRIMARY KEY,

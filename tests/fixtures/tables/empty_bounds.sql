@@ -1,5 +1,4 @@
--- Table with no rows. ST_Extent on an empty table returns NULL, so bounds
--- should be None without any crash.
+-- Table with no rows
 CREATE TABLE empty_bounds
 (
     gid SERIAL PRIMARY KEY,

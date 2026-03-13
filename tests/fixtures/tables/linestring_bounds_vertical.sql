@@ -1,6 +1,4 @@
--- Table with a single vertical LineString (same x, different y coordinates).
--- ST_Extent on this data returns a vertical ST_LineString, which previously
--- caused Martin to crash at startup.
+-- Table with a single vertical LineString
 CREATE TABLE linestring_bounds_vertical
 (
     gid SERIAL PRIMARY KEY,

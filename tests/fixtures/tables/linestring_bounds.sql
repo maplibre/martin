@@ -1,6 +1,4 @@
--- This table reproduces the issue where ST_Extent returns a LineString
--- instead of a Polygon when all geometries are collinear.
--- See: https://github.com/maplibre/martin/issues/XXXX
+-- ST_Extent returns a LineString
 CREATE TABLE linestring_bounds
 (
     gid SERIAL PRIMARY KEY,
