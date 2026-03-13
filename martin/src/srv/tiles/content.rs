@@ -74,7 +74,11 @@ pub struct RedirectTileRequest {
 /// Redirect `/{source_ids}/{z}/{x}/{y}.{extension}` to `/{source_ids}/{z}/{x}/{y}` (HTTP 301)
 /// Registered before main tile route to match more specific pattern first
 #[route("/{ids}/{z}/{x}/{y}.{ext}", method = "GET", method = "HEAD")]
-pub async fn redirect_tile_ext(req: HttpRequest, path: Path<RedirectTileRequest>) -> HttpResponse {
+pub async fn redirect_tile_ext(
+    req: HttpRequest,
+    path: Path<RedirectTileRequest>,
+    srv_config: Data<SrvConfig>,
+) -> HttpResponse {
     static WARNING: DebouncedWarning = DebouncedWarning::new();
     let RedirectTileRequest { ids, z, x, y, ext } = path.as_ref();
 
@@ -92,14 +96,17 @@ pub async fn redirect_tile_ext(req: HttpRequest, path: Path<RedirectTileRequest>
         *x,
         *y,
         req.query_string(),
-        req.app_data::<Data<SrvConfig>>()
-            .and_then(|cfg| cfg.route_prefix.as_deref()),
+        srv_config.route_prefix.as_deref(),
     )
 }
 
 /// Redirect `/tiles/{source_ids}/{z}/{x}/{y}` to `/{source_ids}/{z}/{x}/{y}` (HTTP 301)
 #[route("/tiles/{source_ids}/{z}/{x}/{y}", method = "GET", method = "HEAD")]
-pub async fn redirect_tiles(req: HttpRequest, path: Path<TileRequest>) -> HttpResponse {
+pub async fn redirect_tiles(
+    req: HttpRequest,
+    path: Path<TileRequest>,
+    srv_config: Data<SrvConfig>,
+) -> HttpResponse {
     static WARNING: DebouncedWarning = DebouncedWarning::new();
     let TileRequest {
         source_ids,
@@ -122,8 +129,7 @@ pub async fn redirect_tiles(req: HttpRequest, path: Path<TileRequest>) -> HttpRe
         *x,
         *y,
         req.query_string(),
-        req.app_data::<Data<SrvConfig>>()
-            .and_then(|cfg| cfg.route_prefix.as_deref()),
+        srv_config.route_prefix.as_deref(),
     )
 }
 
