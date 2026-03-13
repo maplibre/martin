@@ -2,7 +2,7 @@
 CREATE TABLE linestring_bounds
 (
     gid SERIAL PRIMARY KEY,
-    geom GEOMETRY(Geometry, 4326)
+    geom GEOMETRY (GEOMETRY, 4326)
 );
 
 INSERT INTO linestring_bounds (geom)

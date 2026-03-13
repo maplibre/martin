@@ -2,7 +2,7 @@
 CREATE TABLE empty_bounds
 (
     gid SERIAL PRIMARY KEY,
-    geom GEOMETRY(Geometry, 4326)
+    geom GEOMETRY (GEOMETRY, 4326)
 );
 
 CREATE INDEX ON empty_bounds USING gist (geom);
