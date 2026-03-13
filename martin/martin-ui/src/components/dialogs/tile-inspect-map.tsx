@@ -48,8 +48,6 @@ export function TileInspectDialogMap({ name, source }: TileInspectDialogMapProps
     source.content_type,
   );
 
-  const isMltSource = source.content_type === 'application/vnd.maplibre-vector-tile';
-
   // biome-ignore lint/correctness/useExhaustiveDependencies: if we list tileJson below, this is an infinte loop
   useEffect(() => {
     tileJsonOperation.execute();
@@ -97,8 +95,7 @@ export function TileInspectDialogMap({ name, source }: TileInspectDialogMapProps
     map.addSource(name, {
       type: 'vector',
       url: buildMartinUrl(`/${name}`),
-      // MLT tiles require explicit encoding; MapLibre GL JS defaults to 'mvt'
-      ...(isMltSource && { encoding: 'mlt' }),
+      ...(source.content_type === 'application/vnd.maplibre-vector-tile' && { encoding: 'mlt' }),
     } as VectorSourceSpecification);
     // Import and add the inspect control
     if (inspectControlRef.current) {
@@ -120,7 +117,7 @@ export function TileInspectDialogMap({ name, source }: TileInspectDialogMapProps
     map.addControl(inspectControlRef.current);
 
     configureMap();
-  }, [name, configureMap, isMltSource]);
+  }, [name, configureMap]);
 
   return (
     <ErrorBoundary
