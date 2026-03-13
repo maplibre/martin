@@ -1,5 +1,6 @@
 #![cfg(feature = "mbtiles")]
 
+use actix_web::http::header::LOCATION;
 use actix_web::test::{TestRequest, call_service, read_body, read_body_json};
 use indoc::formatdoc;
 use martin::config::file::srv::SrvConfig;
@@ -137,6 +138,30 @@ async fn test_route_prefix_tile_endpoints() {
     let req = test_get("/m_mvt/0/0/0").to_request();
     let response = call_service(&app, req).await;
     assert_eq!(response.status(), 404);
+}
+
+#[actix_rt::test]
+#[tracing_test::traced_test]
+async fn test_route_prefix_pbf_redirect_location() {
+    let (config, _conns) = config("test_route_prefix_pbf_redirect").await;
+    let srv_config = SrvConfig {
+        route_prefix: Some("/geotile".to_string()),
+        ..Default::default()
+    };
+    let app = create_app_with_prefix!(&config, srv_config);
+
+    let req = test_get("/geotile/m_mvt/0/0/0.pbf?foo=bar").to_request();
+    let response = call_service(&app, req).await;
+    assert_eq!(response.status(), 301);
+
+    let location = response
+        .headers()
+        .get(LOCATION)
+        .expect("Location header should be set")
+        .to_str()
+        .expect("Location header should be valid UTF-8");
+
+    assert_eq!(location, "/geotile/m_mvt/0/0/0?foo=bar");
 }
 
 #[actix_rt::test]
