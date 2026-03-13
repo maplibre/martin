@@ -249,55 +249,73 @@ async fn table_source_schemas() {
 async fn table_bounds_linestring_horizontal_ok() {
     let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL")).await;
     let source = table(&mock, "linestring_bounds");
-    assert!(
-        source.bounds.is_some(),
-        "bounds must be computed for a table whose extent is a horizontal LineString"
-    );
-    let bounds = source.bounds.unwrap();
-    assert!(
-        bounds.left < bounds.right && bounds.bottom < bounds.top,
-        "bounds must have positive area for a horizontal LineString extent, got {bounds:?}"
-    );
+    assert_yaml_snapshot!(source, @r"
+    schema: public
+    table: linestring_bounds
+    srid: 4326
+    geometry_column: geom
+    bounds:
+      - 8.9581704
+      - 9.0370178
+      - 10.9675324
+      - 11.0370178
+    geometry_type: GEOMETRY
+    properties:
+      gid: int4
+    ");
 }
 
 #[actix_rt::test]
 async fn table_bounds_linestring_vertical_ok() {
     let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL")).await;
     let source = table(&mock, "linestring_bounds_vertical");
-    assert!(
-        source.bounds.is_some(),
-        "bounds must be computed for a table whose extent is a vertical LineString"
-    );
-    let bounds = source.bounds.unwrap();
-    assert!(
-        bounds.left < bounds.right && bounds.bottom < bounds.top,
-        "bounds must have positive area for a vertical LineString extent, got {bounds:?}"
-    );
+    assert_yaml_snapshot!(source, @r"
+    schema: public
+    table: linestring_bounds_vertical
+    srid: 4326
+    geometry_column: geom
+    bounds:
+      - 9
+      - 8.9581704
+      - 11
+      - 10.9675324
+    geometry_type: GEOMETRY
+    properties:
+      gid: int4
+    ");
 }
 
 #[actix_rt::test]
 async fn table_bounds_single_point_ok() {
     let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL")).await;
     let source = table(&mock, "point_bounds");
-    assert!(
-        source.bounds.is_some(),
-        "bounds must be computed for a table whose extent is a single Point"
-    );
-    let bounds = source.bounds.unwrap();
-    assert!(
-        bounds.left < bounds.right && bounds.bottom < bounds.top,
-        "bounds must have positive area for a point extent, got {bounds:?}"
-    );
+    assert_yaml_snapshot!(source, @r"
+    schema: public
+    table: point_bounds
+    srid: 4326
+    geometry_column: geom
+    bounds:
+      - 9
+      - 19
+      - 11
+      - 21
+    geometry_type: GEOMETRY
+    properties:
+      gid: int4
+    ");
 }
 
 #[actix_rt::test]
 async fn table_bounds_empty_table_ok() {
     let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL")).await;
     let source = table(&mock, "empty_bounds");
-    // An empty table has a NULL extent; bounds should be None, not a panic.
-    assert!(
-        source.bounds.is_none(),
-        "an empty table must produce None bounds, got {:?}",
-        source.bounds
-    );
+    assert_yaml_snapshot!(source, @r"
+    schema: public
+    table: empty_bounds
+    srid: 4326
+    geometry_column: geom
+    geometry_type: GEOMETRY
+    properties:
+      gid: int4
+    ");
 }
