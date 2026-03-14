@@ -82,6 +82,9 @@ jobs:
         with: { persist-credentials: false }
       - uses: taiki-e/install-action@763e3324d4fd026c9bd284c504378585777a87d5 # v2.62.57
         with: { tool: 'just' }
+      - name: Install build dependencies
+        if: runner.os == 'Linux'
+        run: just install-build-deps
       - name: Init database
         run: tests/fixtures/initdb.sh
         env:
@@ -113,6 +116,9 @@ jobs:
         with: { persist-credentials: false }
       - uses: taiki-e/install-action@763e3324d4fd026c9bd284c504378585777a87d5 # v2.62.57
         with: { tool: 'just' }
+      - name: Install build dependencies
+        if: runner.os == 'Linux'
+        run: just install-build-deps
       - uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
         if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
       - run: just env-info
@@ -418,6 +424,9 @@ jobs:
         with: { persist-credentials: false }
       - uses: taiki-e/install-action@763e3324d4fd026c9bd284c504378585777a87d5 # v2.62.57
         with: { tool: "just" }
+      - name: Install build dependencies
+        if: runner.os == 'Linux'
+        run: just install-build-deps
       # the macOS x86 runners are 3x slower than all other runners.
       # We need to cache here to not spend 30 minutes on each build.
       # We cannot cache the others as well because we only have 10GB of cache
@@ -670,6 +679,9 @@ jobs:
         with: { persist-credentials: false }
       - uses: taiki-e/install-action@763e3324d4fd026c9bd284c504378585777a87d5 # v2.62.57
         with: { tool: 'just' }
+      - name: Install build dependencies
+        if: runner.os == 'Linux'
+        run: just install-build-deps
       # cache for the unit-test to be run against postgres to be acceptably slow
       - uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
         if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
@@ -769,6 +781,11 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with: { persist-credentials: false }
+      - uses: taiki-e/install-action@763e3324d4fd026c9bd284c504378585777a87d5 # v2.62.57
+        with: { tool: 'just' }
+      - name: Install build dependencies
+        if: runner.os == 'Linux'
+        run: just install-build-deps
       - name: Test packaging
         run: cargo publish --workspace --dry-run
 

@@ -108,7 +108,7 @@ build-release target:
 
 # Build debian package
 build-deb output: (cargo-install 'cargo-deb')
-    sudo apt-get install -y dpkg dpkg-dev liblzma-dev
+    sudo apt-get install -y dpkg dpkg-dev liblzma-dev zlib1g-dev
     cargo deb -v -p martin --output {{output}}
 
 # Build for musl target using zigbuild
@@ -269,6 +269,19 @@ help:
     @echo "  just book              # Build documentation"
     @echo ""
     @echo "Full list: just --list"
+
+# Install minimal system deps required to build the Rust workspace (e.g. zlib for freetype). Used by CI on Linux.
+[linux]
+install-build-deps:
+    sudo apt-get update && sudo apt-get install -y zlib1g-dev
+
+[macos]
+install-build-deps:
+    @echo "No extra build deps needed on macOS"
+
+[windows]
+install-build-deps:
+    @echo "No extra build deps needed on Windows"
 
 # Install Linux dependencies (Ubuntu/Debian). Supports 'vulkan' and 'opengl' backends.
 [linux]
