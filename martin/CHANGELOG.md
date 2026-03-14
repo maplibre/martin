@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.0](https://github.com/maplibre/martin/compare/martin-v1.3.1...martin-v1.4.0) - 2026-03-14
+
+### Added
+
+- *(srv)* resolve some compression TODOS ([#2597](https://github.com/maplibre/martin/pull/2597))
+- Migrate mdbooks to zensical ([#2576](https://github.com/maplibre/martin/pull/2576))
+- *(martin-cp)* indicativ based progress bar ([#2495](https://github.com/maplibre/martin/pull/2495))
+- Add retry mechanism on locked/busy mbtiles files ([#2572](https://github.com/maplibre/martin/pull/2572))
+
+### Fixed
+
+- *(ui)* render MLT tiles correctly in Tile Inspector ([#2601](https://github.com/maplibre/martin/pull/2601))
+- redirect ignoring `--route-prefix` for .pbf tile requests ([#2599](https://github.com/maplibre/martin/pull/2599))
+- restrict zooming and panning on data inspector ([#2574](https://github.com/maplibre/martin/pull/2574))
+- Accept any INT-containing type in MBTiles validation to be an integer ([#2560](https://github.com/maplibre/martin/pull/2560))
+
+### Other
+
+- *(deps)* Bump the all-npm-version-updates group across 2 directories with 9 updates ([#2608](https://github.com/maplibre/martin/pull/2608))
+- *(deps-dev)* Bump undici from 7.21.0 to 7.24.1 in /martin/martin-ui in the all-npm-security-updates group across 1 directory ([#2602](https://github.com/maplibre/martin/pull/2602))
+- *(deps)* autoupdate pre-commit ([#2592](https://github.com/maplibre/martin/pull/2592))
+- *(deps)* Bump the all-npm-version-updates group across 2 directories with 13 updates ([#2577](https://github.com/maplibre/martin/pull/2577))
+- *(deps)* Bump the all-npm-security-updates group across 2 directories with 1 update ([#2575](https://github.com/maplibre/martin/pull/2575))
+- *(deps)* autoupdate pre-commit ([#2567](https://github.com/maplibre/martin/pull/2567))
+- rename the `webp.sql` fixture to `webp-no-primary.sql` ([#2564](https://github.com/maplibre/martin/pull/2564))
+- more cfg magic instead of #[allow(unused_variables)] ([#2563](https://github.com/maplibre/martin/pull/2563))
+- More restrictive expects ([#2562](https://github.com/maplibre/martin/pull/2562))
+- feature-gate PostgreSQL tests to remove external dependencies from `cargo test` ([#2558](https://github.com/maplibre/martin/pull/2558))
+
 ## [1.3.1](https://github.com/maplibre/martin/compare/martin-v1.3.0...martin-v1.3.1) - 2026-02-11
 
 ### Added
