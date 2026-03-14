@@ -111,12 +111,13 @@ build-deb output: (cargo-install 'cargo-deb')
     sudo apt-get install -y dpkg dpkg-dev liblzma-dev zlib1g-dev
     cargo deb -v -p martin --output {{output}}
 
-# Build for musl target using zigbuild
+# Build for musl target using zigbuild. LIBZ_SYS_USE_VENDORED=1 so libz-sys vendors zlib and freetype-sys (libpng) finds zlib.h when cross-compiling.
 build-release-musl target:
     #!/usr/bin/env bash
     set -euo pipefail
     rustup target add {{target}}
     export CARGO_TARGET_{{shoutysnakecase(target)}}_RUSTFLAGS='-C strip=debuginfo'
+    export LIBZ_SYS_USE_VENDORED=1
     cargo zigbuild --release --target {{target}} --package mbtiles --locked
     cargo zigbuild --release --target {{target}} --package martin --locked
 
