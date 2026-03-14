@@ -558,6 +558,15 @@ validate-tools:
         fi
     fi
 
+    # Check FreeBSD-specific tools
+    if [[ "$OSTYPE" == "freebsd"* ]]; then
+        # This should eventually go away if the upstream pbf_glyph_tools can vendor the source artifacts
+        # (no more need for protoc). Other platforms automatically install a vendored binary.
+        if ! command -v protoc >/dev/null 2>&1; then
+            missing_tools+=("protoc")
+        fi
+    fi
+
     # Report results
     if [[ ${#missing_tools[@]} -eq 0 ]]; then
         echo "✓ All required tools are installed"
@@ -565,6 +574,7 @@ validate-tools:
         echo "✗ Missing tools: ${missing_tools[*]}"
         echo "  Ubuntu/Debian: sudo apt install -y jq file curl grep sqlite3-tools gdal-bin"
         echo "  macOS: brew install jq file curl grep sqlite gdal gsed"
+        echo "  FreeBSD: pkg install jq curl sqlite3 gdal protobuf"
         echo ""
         exit 1
     fi
