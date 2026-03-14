@@ -80,6 +80,7 @@ impl PmtilesSource {
             TileType::Jpeg => Format::Jpeg.into(),
             TileType::Webp => Format::Webp.into(),
             TileType::Avif => Format::Avif.into(),
+            TileType::Mlt => Format::Mlt.into(),
             TileType::Unknown => {
                 return Err(PmtilesError::UnknownTileType(
                     id.clone(),
