@@ -25,6 +25,12 @@ updates:
       all-cargo-version-updates:
         applies-to: version-updates
         patterns: [ '*' ]
+        # These crates are intentionally excluded because specific versions
+        # fail to compile (see deny.toml). Each gets its own PR for manual review.
+        exclude-patterns:
+          - 'libdeflater'
+          - 'libdeflate-sys'
+          - 'insta'
       all-cargo-security-updates:
         applies-to: security-updates
         patterns: [ '*' ]
