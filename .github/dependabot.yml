@@ -25,8 +25,10 @@ updates:
       all-cargo-version-updates:
         applies-to: version-updates
         patterns: [ '*' ]
-        # These crates are intentionally excluded because specific versions
-        # fail to compile (see deny.toml). Each gets its own PR for manual review.
+        # These crates are intentionally excluded because specific newer versions
+        # are broken (see deny.toml): libdeflater/libdeflate-sys@1.25.0 fail to
+        # compile under musl; insta@1.45.0/1.45.1 fail `cargo test -- diff_and_patch`.
+        # Keeping them out of the group gives each its own PR for manual review.
         exclude-patterns:
           - 'libdeflater'
           - 'libdeflate-sys'
