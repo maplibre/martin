@@ -8,10 +8,10 @@
   "dependencies": {
     "date-fns": "^4.1.0",
     "debounce": "3.0.0",
-    "maplibre-gl": "^5.18.0",
+    "maplibre-gl": "^5.19.0",
     "normalize.css": "8.0.1",
     "react": "19.2.4",
-    "react-day-picker": "^9.13.2",
+    "react-day-picker": "^9.14.0",
     "react-dom": "19.2.4",
     "react-map-gl": "^8.1.0",
     "react-scroll-parallax": "3.5.0",
@@ -20,13 +20,13 @@
   "devDependencies": {
     "@biomejs/biome": "2.4.6",
     "@types/debounce": "^1.2.4",
-    "@types/node": "^25.3.0",
+    "@types/node": "^25.3.5",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.4",
     "typescript": "^5.9.3",
     "vite": "^7.3.1",
-    "vite-plugin-mkcert": "^1.17.9",
+    "vite-plugin-mkcert": "^1.17.10",
     "vite-tsconfig-paths": "^6.1.1"
   },
   "name": "martin-landing",
