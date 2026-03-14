@@ -1,0 +1,49 @@
+{
+  "allowedParameters": [
+    {
+      "default": "2017-01-01",
+      "label": "From date",
+      "name": "date_from",
+      "type": "string"
+    },
+    {
+      "default": "2017-01-31",
+      "label": "To date",
+      "name": "date_to",
+      "type": "string"
+    },
+    {
+      "default": -1,
+      "label": "Hour (-1 = all)",
+      "max": 23,
+      "min": -1,
+      "name": "hour",
+      "type": "number"
+    }
+  ],
+  "id": "get_trips",
+  "label": "NYC taxi trips",
+  "layerType": "fill",
+  "paint": {
+    "fill-color": [
+      "interpolate",
+      ["linear"],
+      ["get", "trips"],
+      0,
+      "#1a2d48",
+      100,
+      "#1e4080",
+      500,
+      "#285DAA",
+      2000,
+      "#5b95e0",
+      5000,
+      "#95BEFA"
+    ],
+    "fill-opacity": 0.85,
+    "fill-outline-color": "#95BEFA"
+  },
+  "sourceLayer": "trips",
+  "sqlTemplate": "Function get_trips(z, x, y, query_params) returns MVT with layer 'trips' and properties locationid, trips, trips_price, trips_duration.",
+  "url": "/get_trips/{z}/{x}/{y}"
+}

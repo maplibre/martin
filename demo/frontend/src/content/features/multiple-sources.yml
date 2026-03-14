@@ -1,0 +1,3 @@
+title: Multiple sources
+body: Serve tiles from PostGIS tables, MBTiles files, PMTiles archives, or plain directories — all configured in a single YAML file.
+icon: Database

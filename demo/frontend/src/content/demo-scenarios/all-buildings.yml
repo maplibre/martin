@@ -1,0 +1,7 @@
+id: all-buildings
+label: All buildings
+layerId: buildings
+preset:
+  min_height: 0
+  max_height: 500
+  building_type: ""

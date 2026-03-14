@@ -1,0 +1,21 @@
+{
+  "id": "ne_10m_roads",
+  "label": "Roads",
+  "layerType": "line",
+  "paint": {
+    "line-color": [
+      "match",
+      ["get", "type"],
+      "Major Highway",
+      "#95BEFA",
+      "Secondary Highway",
+      "#5b95e0",
+      "#285DAA"
+    ],
+    "line-opacity": 0.85,
+    "line-width": ["interpolate", ["linear"], ["zoom"], 2, 0.5, 6, 1.5, 10, 3]
+  },
+  "sourceLayer": "ne_10m_roads",
+  "sqlTemplate": "SELECT ST_AsMVT(q, 'ne_10m_roads', 4096, 'geom')\nFROM (\n  SELECT\n    name, type, continent,\n    ST_AsMVTGeom(geom, TileBBox({z},{x},{y})) geom\n  FROM ne_10m_roads\n  WHERE geom && TileBBox({z},{x},{y})\n) q",
+  "url": "/ne_10m_roads/{z}/{x}/{y}"
+}

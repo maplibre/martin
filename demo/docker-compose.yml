@@ -1,8 +1,11 @@
 services:
   frontend:
     build:
-      context: ./frontend
-      dockerfile: Dockerfile
+      # Repo root context so COPY graphics can satisfy public/*.svg symlinks (../../../graphics/)
+      context: ..
+      dockerfile: demo/frontend/Dockerfile
+      args:
+        PUBLIC_MARTIN_BASE_URL: /api/martin
     restart: unless-stopped
     depends_on:
       - tiles
@@ -13,7 +16,10 @@ services:
       - ./certs:/etc/ssl/certs
 
   tiles:
-    image: ghcr.io/maplibre/martin:1.4.0
+    build:
+      context: .
+      dockerfile: tiles/Dockerfile
+    image: martin-demo-tiles
     restart: unless-stopped
     ports:
       - "3000:3000"
@@ -39,11 +45,14 @@ services:
       - POSTGRES_USER=postgres
       - POSTGRES_HOST_AUTH_METHOD=trust
     volumes:
-      - ./db/db:/var/lib/postgresql/data
+      - pgdata:/var/lib/postgresql
       - ./db/initdb:/docker-entrypoint-initdb.d
     healthcheck:
-      test: [ "CMD", "pg_isready", "-U", "${POSTGRES_USER}" ]
+      test: [ "CMD", "pg_isready", "-U", "postgres" ]
       retries: 5
       interval: 10s
       start_interval: 500ms
       start_period: 20s
+
+volumes:
+  pgdata:

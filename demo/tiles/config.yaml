@@ -1,0 +1,21 @@
+# Demo tiles service: Oberbayern pmtiles + Toner/Positron styles + fonts + Postgres
+listen_addresses: "0.0.0.0:3000"
+
+postgres:
+  connection_string: $DATABASE_URL
+  auto_publish:
+    tables:
+      id_columns: [id]
+
+pmtiles:
+  sources:
+    oberbayern: /data/oberbayern.pmtiles
+
+styles:
+  sources:
+    toner: /data/styles/toner.json
+    positron: /data/styles/positron.json
+
+fonts:
+  paths:
+    - /data/fonts

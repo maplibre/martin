@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://martin.maplibre.org/sitemap-index.xml

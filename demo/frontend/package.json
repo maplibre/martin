@@ -1,45 +1,38 @@
 {
-  "browserslist": [
-    ">0.2%",
-    "not dead",
-    "not ie <= 11",
-    "not op_mini all"
-  ],
   "dependencies": {
-    "date-fns": "^4.1.0",
-    "debounce": "3.0.0",
-    "maplibre-gl": "^5.19.0",
-    "normalize.css": "8.0.1",
+    "@astrojs/sitemap": "3.7.1",
+    "@radix-ui/react-tooltip": "1.2.8",
+    "astro": "5.0.0",
+    "clsx": "2.1.1",
+    "lucide-react": "0.564.0",
+    "maplibre-gl": "5.20.1",
     "react": "19.2.4",
-    "react-day-picker": "^9.14.0",
     "react-dom": "19.2.4",
-    "react-map-gl": "^8.1.0",
-    "react-scroll-parallax": "3.5.0",
-    "styled-components": "6.3.11"
+    "tailwind-merge": "^3.3.1"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.4.6",
-    "@types/debounce": "^1.2.4",
-    "@types/node": "^25.3.5",
-    "@types/react": "^19.2.14",
-    "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^5.1.4",
-    "typescript": "^5.9.3",
-    "vite": "^7.3.1",
-    "vite-plugin-mkcert": "^1.17.10",
-    "vite-tsconfig-paths": "^6.1.1"
+    "@astrojs/react": "5.0.0",
+    "@biomejs/biome": "2.4.7",
+    "@tailwindcss/vite": "4.2.0",
+    "@types/node": "22",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "tailwindcss": "4.2.0",
+    "tw-animate-css": "1.3.3",
+    "typescript": "5.7.3"
   },
-  "name": "martin-landing",
-  "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e",
+  "name": "martin-demo",
+  "packageManager": "pnpm@10.14.0+sha512.ad27a79641b49c3e481a16a805baa71817a04bbe06a38d17e60e2eaee83f6a146c6a688125f5792e48dd5ba30e7da52a5cda4c3992b9ccf333f9ce223af84748",
   "private": true,
-  "proxy": "https://maplibre.org",
   "scripts": {
-    "build": "tsc && vite build",
-    "dev": "vite --port 8080 --host",
-    "format": "biome check --write",
-    "lint": "biome lint --write",
-    "preview": "vite preview --port 8080 --host",
-    "type-check": "tsc --noEmit"
+    "build": "astro build",
+    "check": "biome check --write .",
+    "dev": "astro dev",
+    "format": "biome format --write .",
+    "lint": "biome lint .",
+    "preview": "astro preview",
+    "start": "astro preview"
   },
+  "type": "module",
   "version": "0.1.0"
 }

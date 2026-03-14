@@ -1,0 +1,27 @@
+{
+  "id": "countries",
+  "label": "Countries",
+  "layerType": "fill",
+  "paint": {
+    "fill-color": [
+      "interpolate",
+      ["linear"],
+      ["get", "pop_est"],
+      0,
+      "#1a2d48",
+      50000000,
+      "#1e4080",
+      200000000,
+      "#285DAA",
+      800000000,
+      "#5b95e0",
+      1500000000,
+      "#95BEFA"
+    ],
+    "fill-opacity": 0.85,
+    "fill-outline-color": "#95BEFA"
+  },
+  "sourceLayer": "countries",
+  "sqlTemplate": "SELECT ST_AsMVT(q, 'countries', 4096, 'geom', 'id')\nFROM (\n  SELECT\n    id, name, pop_est, continent,\n    ST_AsMVTGeom(geom, TileBBox({z},{x},{y})) geom\n  FROM countries\n  WHERE geom && TileBBox({z},{x},{y})\n) q",
+  "url": "/countries/{z}/{x}/{y}"
+}
