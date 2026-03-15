@@ -66,12 +66,18 @@ jobs:
 
       - name: Build ${{ inputs.target }}
         if: ${{ !inputs.musl }}
-        run: just build-release ${{ inputs.target }}
+        env:
+          TARGET: ${{ inputs.target }}
+        run: just build-release "$TARGET"
       - name: Build ${{ inputs.target }} (musl)
         if: inputs.musl
-        run: just build-release-musl ${{ inputs.target }}
+        env:
+          TARGET: ${{ inputs.target }}
+        run: just build-release-musl "$TARGET"
       - name: Move ${{ inputs.target }} artefacts to the target_releases directory
-        run: just move-artifacts ${{ inputs.target }}
+        env:
+          TARGET: ${{ inputs.target }}
+        run: just move-artifacts "$TARGET"
 
       - name: Save build artifacts to build-${{ inputs.target }}
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
