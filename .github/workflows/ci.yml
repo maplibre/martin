@@ -669,9 +669,6 @@ jobs:
         with: { persist-credentials: false }
       - uses: taiki-e/install-action@a57ddfbcd928cf9406a78dcc300dacc5d367a547 # v2.68.31
         with: { tool: 'just' }
-      # cache for the unit-test to be run against postgres to be acceptably slow
-      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
-        if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
       - name: Init database
         run: tests/fixtures/initdb.sh
         env:
