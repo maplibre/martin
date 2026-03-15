@@ -2573,24 +2573,23 @@ dependencies = [
 
 [[package]]
 name = "freetype-rs"
-version = "0.38.0"
+version = "0.32.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6d228d6de56c90dd7585341f341849441b3490180c62d27133e525eb726809b4"
+checksum = "d59c337e64822dd56a3a83ed75a662a470736bdb3a9fabfb588dff276b94a4e0"
 dependencies = [
- "bitflags 2.11.0",
+ "bitflags 1.3.2",
  "freetype-sys",
  "libc",
 ]
 
 [[package]]
 name = "freetype-sys"
-version = "0.23.0"
+version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eab537ce43cab850c64b4cdc390ce7e4f47f877485ddc323208e268280c308ae"
+checksum = "643148ca6cbad6bec384b52fbe1968547d578c4efe83109e035c43a71734ff88"
 dependencies = [
  "cc",
- "libz-sys",
- "pkg-config",
+ "libc",
 ]
 
 [[package]]
@@ -3744,18 +3743,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2e99fb7a497b1e3339bc746195567ed8d3e24945ecd636e3619d20b9de9e9149"
 dependencies = [
  "cc",
- "pkg-config",
- "vcpkg",
-]
-
-[[package]]
-name = "libz-sys"
-version = "1.1.25"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d52f4c29e2a68ac30c9087e1b772dc9f44a2b66ed44edf2266cf2be9b03dafc1"
-dependencies = [
- "cc",
- "libc",
  "pkg-config",
  "vcpkg",
 ]
@@ -6016,12 +6003,12 @@ dependencies = [
 
 [[package]]
 name = "sdf_glyph_renderer"
-version = "1.1.0"
+version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "672e58ce949c46be42fae549e86cc32c869a292fb40913d5f985decb45c5bde3"
+checksum = "8b05c114d181e20b509e03b05856cc5823bc6189d581c276fe37c5ebc5e3b3b9"
 dependencies = [
  "freetype-rs",
- "thiserror 2.0.18",
+ "thiserror 1.0.69",
 ]
 
 [[package]]
