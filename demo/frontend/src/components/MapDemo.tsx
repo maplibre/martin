@@ -43,6 +43,15 @@ export default function MapDemo({ tileSources, demoScenarios, martinBaseUrl }: M
     setFilterState(getInitialFilterState(activeLayerConfig));
   }, [activeLayerConfig]);
 
+  useEffect(() => {
+    if (!showSql) return;
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setShowSql(false);
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [showSql]);
+
   const handleFilterChange = useCallback((name: string, value: string | number) => {
     setFilterState((prev) => ({ ...prev, [name]: value }));
   }, []);
@@ -261,13 +270,11 @@ export default function MapDemo({ tileSources, demoScenarios, martinBaseUrl }: M
           aria-modal="true"
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
           onClick={() => setShowSql(false)}
-          onKeyDown={(e) => e.key === 'Escape' && setShowSql(false)}
           role="dialog"
         >
           <div
             className="bg-background border border-border rounded-xl shadow-xl max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col"
             onClick={(e) => e.stopPropagation()}
-            onKeyDown={(e) => e.stopPropagation()}
             role="document"
           >
             <div className="flex items-center justify-between px-4 py-2 border-b border-border shrink-0">

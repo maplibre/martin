@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Download toner/positron style JSONs and fonts; rewrite styles (oberbayern, MLT, martin glyphs)."""
 import json
+import urllib.error
 import urllib.request
 
 STYLES = (
@@ -21,10 +22,20 @@ STYLES_DIR = "/out/styles"
 FONTS_DIR = "/out/fonts"
 
 
+TIMEOUT_SECS = 30
+
+
 def download(url: str) -> bytes:
     req = urllib.request.Request(url, headers={"User-Agent": "Martin-demo-build/1.0"})
-    with urllib.request.urlopen(req) as r:
-        return r.read()
+    try:
+        with urllib.request.urlopen(req, timeout=TIMEOUT_SECS) as r:
+            if r.status != 200:
+                raise RuntimeError(f"HTTP {r.status} fetching {url}")
+            return r.read()
+    except urllib.error.HTTPError as e:
+        raise RuntimeError(f"HTTP {e.code} fetching {url}: {e.reason}") from e
+    except urllib.error.URLError as e:
+        raise RuntimeError(f"Failed to fetch {url}: {e.reason}") from e
 
 
 def main():
