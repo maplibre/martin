@@ -4,6 +4,10 @@
   <title>Page Not Found</title>
 {% endblock %}
 
+{% block extrahead %}
+  <base href="{{ config.site_url }}">
+{% endblock %}
+
 {% block scripts %}
     <script>
       const path = window.location.pathname;
@@ -12,4 +16,5 @@
         window.location.replace(newPath);
       }
     </script>
+    {{ super() }}
 {% endblock %}
