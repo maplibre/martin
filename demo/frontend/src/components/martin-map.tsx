@@ -91,6 +91,7 @@ export default function MartinMap({
   const [mapLoaded, setMapLoaded] = useState(false);
   const [mapLoadError, setMapLoadError] = useState<string | null>(null);
   const [tileSourceError, setTileSourceError] = useState(false);
+  const [webglError, setWebglError] = useState(false);
   const [, setHovered] = useState<HoveredFeature | null>(null);
 
   const onHoveredChangeRef = useRef(onHoveredChange);
@@ -177,9 +178,10 @@ export default function MartinMap({
 
     setMapLoadError(null);
     setTileSourceError(false);
+    setWebglError(false);
     mapLoadFiredRef.current = false;
 
-    let map: MapLibreMap;
+    let map: MapLibreMap | undefined;
     let cancelTour: (() => void) | undefined;
     const hoveredIds: Record<string, string | number | null> = {};
 
@@ -191,13 +193,27 @@ export default function MartinMap({
           ? `${martinBaseUrl.replace(/\/$/, '')}/style/positron`
           : `${martinBaseUrl.replace(/\/$/, '')}/style/toner`;
 
-      map = new ml.Map({
-        attributionControl: false,
-        center: [10, 25],
-        container,
-        style: styleUrl,
-        zoom: 3.2,
-      });
+      try {
+        map = new ml.Map({
+          attributionControl: false,
+          center: [10, 25],
+          container,
+          style: styleUrl,
+          zoom: 3.2,
+        });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        try {
+          const structured = JSON.parse(message) as { type?: string };
+          if (structured.type === 'webglcontextcreationerror') {
+            setWebglError(true);
+            return;
+          }
+        } catch {
+          // not JSON or parse failed
+        }
+        throw err;
+      }
 
       map.on('error', (e: { error?: Error }) => {
         const msg = e.error?.message ?? 'Map failed to load';
@@ -388,7 +404,27 @@ export default function MartinMap({
     <div className="absolute inset-x-0" style={{ bottom: '-33%', top: 0 }}>
       <div className="relative w-full h-full">
         <div className="w-full h-full" ref={containerRef} />
-        {mapLoadError && (
+        {webglError && (
+          <div
+            className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-sky-100 dark:bg-sky-950/90 text-sky-800 dark:text-sky-200 p-4 text-center"
+            role="alert"
+          >
+            <p className="text-sm max-w-md leading-relaxed">
+              We are sorry, but it seems that <strong>your browser does not support WebGL</strong>, a
+              technology for rendering 3D graphics on the web.
+            </p>
+            <p className="text-sm font-semibold">WebGL is required to display this map.</p>
+            <a
+              className="text-sm font-bold text-sky-700 dark:text-sky-300 underline hover:no-underline"
+              href="https://wiki.openstreetmap.org/wiki/This_map_requires_WebGL"
+              rel="noopener noreferrer"
+              target="_blank"
+            >
+              Read more
+            </a>
+          </div>
+        )}
+        {mapLoadError && !webglError && (
           <div
             className="absolute inset-0 flex items-center justify-center bg-muted/95 p-4 text-center"
             role="alert"
@@ -398,7 +434,7 @@ export default function MartinMap({
             </p>
           </div>
         )}
-        {tileSourceError && !mapLoadError && (
+        {tileSourceError && !mapLoadError && !webglError && (
           <div
             className="absolute bottom-2 left-1/2 -translate-x-1/2 rounded bg-foreground/90 px-3 py-2 text-[11px] text-background shadow"
             role="status"
