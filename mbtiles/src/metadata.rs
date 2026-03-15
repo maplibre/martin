@@ -531,26 +531,19 @@ mod tests {
     }
 
     #[actix_rt::test]
-    async fn metadata_compression_field() {
+    async fn metadata_mlt() {
         let script = include_str!("../../tests/fixtures/mbtiles/mlt.sql");
         let (mbt, mut conn) = anonymous_mbtiles(script).await;
         let meta = mbt.get_metadata(&mut conn).await.unwrap();
+        // compression=none must round-trip through tilejson.other
+        insta::assert_yaml_snapshot!(meta.tilejson.other, @r#"
+        compression: none
+        format: application/vnd.maplibre-vector-tile
+        "#);
+        let tile_info = mbt.detect_format(&meta.tilejson, &mut conn).await.unwrap();
         assert_eq!(
-            meta.tilejson.other.get("compression"),
-            Some(&serde_json::Value::String("none".to_string())),
-            "compression=none should appear in tilejson.other"
-        );
-    }
-
-    #[actix_rt::test]
-    async fn detect_format_compression_none() {
-        let script = include_str!("../../tests/fixtures/mbtiles/mlt.sql");
-        let (mbt, mut conn) = anonymous_mbtiles(script).await;
-        let meta = mbt.get_metadata(&mut conn).await.unwrap();
-        let tile_info = mbt.detect_format(&meta.tilejson, &mut conn).await;
-        assert!(
-            tile_info.is_ok(),
-            "detect_format should succeed for mlt.sql with compression=none"
+            tile_info,
+            Some(TileInfo::new(Format::Mlt, Encoding::Uncompressed))
         );
     }
 
@@ -580,22 +573,14 @@ mod tests {
         mbt.set_metadata_value(&mut conn, "compression", "gzip")
             .await
             .unwrap();
-        assert_eq!(
-            mbt.get_metadata_value(&mut conn, "compression")
-                .await
-                .unwrap()
-                .as_deref(),
-            Some("gzip")
-        );
 
         mbt.update_compression(&mut conn).await.unwrap();
 
-        let compression = mbt
-            .get_metadata_value(&mut conn, "compression")
-            .await
-            .unwrap();
         assert_eq!(
-            compression, None,
+            mbt.get_metadata_value(&mut conn, "compression")
+                .await
+                .unwrap(),
+            None,
             "JPEG tiles use internal compression; the compression metadata key should be absent"
         );
     }
