@@ -106,6 +106,7 @@ jobs:
       target: aarch64-unknown-linux-musl
       os: ubuntu-latest
       musl: true
+      release_mode: ${{ github.event_name != 'pull_request' }}
 
   build-x86_64-unknown-linux-musl:
     uses: ./.github/workflows/build-binary.yml
@@ -113,6 +114,7 @@ jobs:
       target: x86_64-unknown-linux-musl
       os: ubuntu-latest
       musl: true
+      release_mode: ${{ github.event_name != 'pull_request' }}
 
   docker-build-test:
     name: Build and test docker images
@@ -343,6 +345,7 @@ jobs:
     with:
       target: aarch64-apple-darwin
       os: macos-latest # M-series CPU
+      release_mode: ${{ github.event_name != 'pull_request' }}
 
   build-debian-x86_64:
     uses: ./.github/workflows/build-binary.yml
@@ -351,6 +354,7 @@ jobs:
       # downgraded to have lower libc support. Debian-12 (stable at the time of writing) does not support the same version ubuntu does.
       # TODO: update to ubuntu-latest again once debian 13 launches
       os: ubuntu-22.04
+      release_mode: ${{ github.event_name != 'pull_request' }}
 
   build-x86_64-apple-darwin:
     uses: ./.github/workflows/build-binary.yml
@@ -358,24 +362,28 @@ jobs:
       target: x86_64-apple-darwin
       os: macos-15-intel # x64 CPU, available until August 2027, see https://github.com/actions/runner-images/issues/13045
       use_cache: ${{ github.event_name != 'release' && github.event_name != 'workflow_dispatch' }}
+      release_mode: ${{ github.event_name != 'pull_request' }}
 
   build-x86_64-pc-windows-msvc:
     uses: ./.github/workflows/build-binary.yml
     with:
       target: x86_64-pc-windows-msvc
       os: windows-latest
+      release_mode: ${{ github.event_name != 'pull_request' }}
 
   build-x86_64-unknown-linux-gnu:
     uses: ./.github/workflows/build-binary.yml
     with:
       target: x86_64-unknown-linux-gnu
       os: ubuntu-latest
+      release_mode: ${{ github.event_name != 'pull_request' }}
 
   build-aarch64-unknown-linux-gnu:
     uses: ./.github/workflows/build-binary.yml
     with:
       target: aarch64-unknown-linux-gnu
       os: ubuntu-24.04-arm
+      release_mode: ${{ github.event_name != 'pull_request' }}
 
   test-aws-lambda:
     name: Test AWS Lambda

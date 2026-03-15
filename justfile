@@ -10,6 +10,9 @@ just := quote(just_executable())
 # Use `CI=true just ci-test` to run the same tests as in GitHub CI.
 # Use `just env-info` to see the current values of RUSTFLAGS and RUSTDOCFLAGS
 ci_mode := if env('CI', '') != '' {'1'} else {''}
+# Build in release mode by default. Set RELEASE_MODE='' to build in debug mode (used for PRs in CI to reduce build time).
+# Use `RELEASE_MODE= just build-release <target>` to build in debug mode locally.
+release_mode := if env('RELEASE_MODE', '1') != '' {'1'} else {''}
 # cargo-binstall needs a workaround due to caching
 # ci_mode might be manually set by user, so re-check the env var
 binstall_args := if env('CI', '') != '' {'--no-confirm --no-track --disable-telemetry'} else {''}
@@ -97,7 +100,8 @@ bless-pg: start  (cargo-install 'cargo-insta')
     cargo insta test --accept --features test-pg --no-default-features --package martin --lib
     cargo insta test --accept --features test-pg --package martin-core --no-default-features --lib
 
-# Build release binaries for a target with debug info stripped
+# Build binaries for a target. In release mode (default), strips debug info.
+# Set RELEASE_MODE='' to build in debug mode (used for PRs in CI to reduce build time).
 build-release target:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -106,43 +110,49 @@ build-release target:
         {{quote(just_executable())}} build-deb target/debian/debian-x86_64.deb
     else
         rustup target add {{target}}
-        export CARGO_TARGET_{{shoutysnakecase(target)}}_RUSTFLAGS='-C strip=debuginfo'
-        cargo build --release --target {{target}} --package mbtiles --locked
-        cargo build --release --target {{target}} --package martin --locked
+        if [[ "{{release_mode}}" == "1" ]]; then
+            export CARGO_TARGET_{{shoutysnakecase(target)}}_RUSTFLAGS='-C strip=debuginfo'
+        fi
+        cargo build {{if release_mode == '1' {'--release'} else {''}}} --target {{target}} --package mbtiles --locked
+        cargo build {{if release_mode == '1' {'--release'} else {''}}} --target {{target}} --package martin --locked
     fi
 
 # Build debian package
 build-deb output: (cargo-install 'cargo-deb')
     sudo apt-get install -y dpkg dpkg-dev liblzma-dev
-    cargo deb -v -p martin --output {{output}}
+    cargo deb -v -p martin --profile {{if release_mode == '1' {'release'} else {'dev'}}} --output {{output}}
 
 # Build for musl target using zigbuild
+# Set RELEASE_MODE='' to build in debug mode (used for PRs in CI to reduce build time).
 build-release-musl target:
     #!/usr/bin/env bash
     set -euo pipefail
     rustup target add {{target}}
-    export CARGO_TARGET_{{shoutysnakecase(target)}}_RUSTFLAGS='-C strip=debuginfo'
-    cargo zigbuild --release --target {{target}} --package mbtiles --locked
-    cargo zigbuild --release --target {{target}} --package martin --locked
+    if [[ "{{release_mode}}" == "1" ]]; then
+        export CARGO_TARGET_{{shoutysnakecase(target)}}_RUSTFLAGS='-C strip=debuginfo'
+    fi
+    cargo zigbuild {{if release_mode == '1' {'--release'} else {''}}} --target {{target}} --package mbtiles --locked
+    cargo zigbuild {{if release_mode == '1' {'--release'} else {''}}} --target {{target}} --package martin --locked
 
 
-# Move release build artifacts to target_releases directory
+# Move build artifacts to target_releases directory
 move-artifacts target:
     #!/usr/bin/env bash
     set -euo pipefail
     mkdir -p target_releases
+    build_dir={{if release_mode == '1' {'release'} else {'debug'}}}
 
     if [[ "{{target}}" == "debian-x86_64" ]]; then
         mv target/debian/*.deb target_releases/
     else
         if [[ "{{target}}" == "x86_64-pc-windows-msvc" ]]; then
-            mv target/{{target}}/release/martin.exe target_releases/
-            mv target/{{target}}/release/martin-cp.exe target_releases/
-            mv target/{{target}}/release/mbtiles.exe target_releases/
+            mv target/{{target}}/"$build_dir"/martin.exe target_releases/
+            mv target/{{target}}/"$build_dir"/martin-cp.exe target_releases/
+            mv target/{{target}}/"$build_dir"/mbtiles.exe target_releases/
         else
-            mv target/{{target}}/release/martin target_releases/
-            mv target/{{target}}/release/martin-cp target_releases/
-            mv target/{{target}}/release/mbtiles target_releases/
+            mv target/{{target}}/"$build_dir"/martin target_releases/
+            mv target/{{target}}/"$build_dir"/martin-cp target_releases/
+            mv target/{{target}}/"$build_dir"/mbtiles target_releases/
         fi
     fi
 
@@ -221,7 +231,7 @@ docs-build:
     docker run --rm -v ${PWD}:/docs zensical/zensical:latest build
 # Print environment info
 env-info:
-    @echo "Running {{if ci_mode == '1' {'in CI mode'} else {'in dev mode'} }} on {{os()}} / {{arch()}}"
+    @echo "Running {{if ci_mode == '1' {'in CI mode'} else {'in dev mode'} }} / {{if release_mode == '1' {'release mode'} else {'debug mode'} }} on {{os()}} / {{arch()}}"
     @echo "PWD {{justfile_directory()}}"
     {{just}} --version
     rustc --version
