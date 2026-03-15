@@ -8,8 +8,9 @@ import type { DemoScenarioItem } from '@/components/demo/ScenarioSelector';
 import ScenarioSelector from '@/components/demo/ScenarioSelector';
 import StylingPanel from '@/components/demo/StylingPanel';
 import TimeSlider from '@/components/demo/TimeSlider';
-import type { HoveredFeature, MapStylingOptions } from '@/components/martin-map';
+import type { MapStylingOptions } from '@/components/martin-map';
 import MartinMap from '@/components/martin-map';
+import type { HoveredFeature } from '@/types/demo';
 import { getSqlDisplay } from '@/lib/demo-utils';
 import { useMediaQueryMinHeight, useMediaQuerySm } from '@/lib/useMediaQuery';
 import type { DemoLayerEntry } from '@/types/demo';
@@ -111,10 +112,10 @@ export default function MapDemo({ tileSources, demoScenarios, martinBaseUrl }: M
               {hovered != null && (
                 <span className="ml-auto text-[10px] font-mono text-accent truncate max-w-[140px] shrink-0">
                   ↗ {hovered.name}
-                  {hovered.trips != null
-                    ? ` · ${hovered.trips} trips${hovered.trips_price != null ? ` · $${hovered.trips_price} avg` : ''}`
-                    : hovered.pop_est != null
-                      ? ` · ${(hovered.pop_est / 1_000_000).toFixed(1)}M`
+                  {hovered.properties.trips != null
+                    ? ` · ${hovered.properties.trips} trips${hovered.properties.trips_price != null ? ` · $${hovered.properties.trips_price} avg` : ''}`
+                    : hovered.properties.pop_est != null
+                      ? ` · ${((hovered.properties.pop_est as number) / 1_000_000).toFixed(1)}M`
                       : ''}
                 </span>
               )}

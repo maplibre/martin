@@ -28,13 +28,20 @@ const allowedParameterSchema = z.object({
 
 const demoLayerSchema = z.object({
   allowedParameters: z.array(allowedParameterSchema).optional(),
+  hoverNameField: z.string().optional(),
   id: z.string(),
   label: z.string(),
   layerType: z.enum(['fill', 'line']),
   paint: z.record(z.any()),
+  promoteIdField: z.string().optional(),
   sourceLayer: z.string(),
   sqlTemplate: z.string(),
   url: z.string(),
+  viewBounds: z
+    .tuple([z.tuple([z.number(), z.number()]), z.tuple([z.number(), z.number()])])
+    .optional(),
+  viewCenter: z.tuple([z.number(), z.number()]).optional(),
+  viewZoom: z.number().optional(),
 });
 
 const demoLayers = defineCollection({

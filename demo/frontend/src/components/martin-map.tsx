@@ -1,39 +1,48 @@
-import type {
-  FillLayerSpecification,
-  LineLayerSpecification,
-  Map as MapLibreMap,
-  Popup,
-} from 'maplibre-gl';
+import type { Map as MapLibreMap, Popup } from 'maplibre-gl';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { buildMartinTileUrl } from '@/lib/demo-config';
-import type { DemoLayerEntry } from '@/types/demo';
 import type { FilterState } from './demo/FilterPanel';
+import { buildHoveredFeature } from '@/lib/map-hover';
+import { useMapLayers } from '@/lib/use-map-layers';
+import { useMapTour } from '@/lib/use-map-tour';
+import type { DemoLayerEntry, HoveredFeature } from '@/types/demo';
 
-function buildTileUrl(
-  layer: DemoLayerEntry,
-  martinBaseUrl: string,
-  filterState: FilterState,
-): string {
-  const base = buildMartinTileUrl(martinBaseUrl, layer.url);
-  if (!layer.allowedParameters?.length) return base;
-  const params = new URLSearchParams();
-  for (const param of layer.allowedParameters) {
-    const v = filterState[param.name];
-    if (v !== undefined && v !== '') params.set(param.name, String(v));
+export type { HoveredFeature } from '@/types/demo';
+
+const DEMO_SPRITE_ID = 'icons';
+
+/** Font stack id -> MapLibre text-font value when overriding layers */
+const FONT_STACK_LAYER_FONT: Record<string, string[]> = {
+  noto: ['Noto Sans Regular'],
+};
+
+function rewriteStyleForDemo(
+  style: Record<string, unknown>,
+  baseUrl: string,
+  styling: { spriteType: 'sdf' | 'plain'; fontStack: string },
+): void {
+  const base = baseUrl.replace(/\/$/, '');
+
+  if (style.sprite != null && typeof style.sprite === 'string') {
+    const path =
+      styling.spriteType === 'sdf' ? `/sdf_sprite/${DEMO_SPRITE_ID}` : `/sprite/${DEMO_SPRITE_ID}`;
+    style.sprite = `${base}${path}`;
   }
-  const qs = params.toString();
-  return qs ? `${base}?${qs}` : base;
-}
 
-export interface HoveredFeature {
-  name: string;
-  pop_est?: number;
-  continent?: string;
-  /** Trip stats from get_trips layer */
-  locationid?: number;
-  trips?: number;
-  trips_price?: number;
-  trips_duration?: number;
+  if (style.glyphs != null && typeof style.glyphs === 'string') {
+    style.glyphs = `${base}/font/{fontstack}/{range}`;
+  }
+
+  if (styling.fontStack !== 'default') {
+    const layerFont = FONT_STACK_LAYER_FONT[styling.fontStack];
+    if (layerFont && Array.isArray(style.layers)) {
+      for (const layer of style.layers as Record<string, unknown>[]) {
+        if (layer.type === 'symbol' && layer.layout && typeof layer.layout === 'object') {
+          const layout = layer.layout as Record<string, unknown>;
+          layout['text-font'] = layerFont;
+        }
+      }
+    }
+  }
 }
 
 export interface MapStylingOptions {
@@ -52,25 +61,6 @@ export interface MartinMapProps {
   styling?: MapStylingOptions;
 }
 
-const NYC_CENTER: [number, number] = [-74.01, 40.71];
-const NYC_BOUNDS: [[number, number], [number, number]] = [
-  [-74.26, 40.48], // SW
-  [-73.7, 40.93], // NE
-];
-const NYC_ZOOM = 10;
-
-const TOUR_CITIES: ReadonlyArray<{ center: [number, number] }> = [
-  { center: [11.58, 48.14] }, // Munich
-  { center: [72.58, 23.03] }, // Ahmedabad
-  { center: [81.63, 21.25] }, // Raipur
-  { center: [139.69, 35.69] }, // Tokyo
-  { center: [-73.25, -3.75] }, // Iquitos
-  { center: [-74.01, 40.71] }, // NYC
-];
-
-const TOUR_CITY_ZOOM = 13;
-const TOUR_TRANSITION_ZOOM = 5;
-
 export default function MartinMap({
   tileSources,
   filterState = {},
@@ -83,97 +73,32 @@ export default function MartinMap({
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const popupRef = useRef<Popup | null>(null);
-  const userHasMovedMapRef = useRef(false);
-  const tourTimeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const mapLoadFiredRef = useRef(false);
+
   const [internalLayer, setInternalLayer] = useState(() => tileSources[0]?.id ?? '');
   const activeLayer = activeLayerProp !== undefined ? activeLayerProp : internalLayer;
   const [mapLoaded, setMapLoaded] = useState(false);
   const [mapLoadError, setMapLoadError] = useState<string | null>(null);
   const [tileSourceError, setTileSourceError] = useState(false);
   const [webglError, setWebglError] = useState(false);
-  const [, setHovered] = useState<HoveredFeature | null>(null);
 
   const onHoveredChangeRef = useRef(onHoveredChange);
   onHoveredChangeRef.current = onHoveredChange;
-  const setHoveredAndNotify = useCallback((value: HoveredFeature | null) => {
-    setHovered(value);
+  const notifyHovered = useCallback((value: HoveredFeature | null) => {
     onHoveredChangeRef.current?.(value);
   }, []);
-
-  const tileSourcesRef = useRef(tileSources);
-  const filterStateRef = useRef(filterState);
-  const martinBaseUrlRef = useRef(martinBaseUrl);
-  tileSourcesRef.current = tileSources;
-  filterStateRef.current = filterState;
-  martinBaseUrlRef.current = martinBaseUrl;
 
   const sources = tileSources.length > 0 ? tileSources : [];
   const activeSrc = sources.find((s) => s.id === activeLayer) ?? sources[0];
 
-  const setLayer = useCallback(
-    async (map: MapLibreMap, layerId: string, mlModule?: typeof import('maplibre-gl')) => {
-      const ml = mlModule ?? (await import('maplibre-gl'));
-      const src = tileSourcesRef.current.find((s) => s.id === layerId);
-      if (!src) return;
+  const { setLayer } = useMapLayers({ filterState, martinBaseUrl, tileSources });
+  const { startTour, cancelTour } = useMapTour();
 
-      const all = tileSourcesRef.current;
-      for (const s of all) {
-        if (map.getLayer(`martin-${s.id}`)) map.removeLayer(`martin-${s.id}`);
-        if (map.getLayer(`martin-${s.id}-hover`)) map.removeLayer(`martin-${s.id}-hover`);
-        if (map.getSource(`martin-${s.id}`)) map.removeSource(`martin-${s.id}`);
-      }
-
-      const tileUrl = buildTileUrl(src, martinBaseUrlRef.current, filterStateRef.current);
-      const promoteId =
-        src.id === 'get_trips' ? { [src.sourceLayer]: 'locationid' } : { [src.sourceLayer]: 'id' };
-      map.addSource(`martin-${src.id}`, {
-        maxzoom: 14,
-        minzoom: 0,
-        promoteId,
-        tiles: [tileUrl],
-        type: 'vector',
-      });
-
-      if (src.layerType === 'line') {
-        map.addLayer({
-          id: `martin-${src.id}`,
-          paint: src.paint as LineLayerSpecification['paint'],
-          source: `martin-${src.id}`,
-          'source-layer': src.sourceLayer,
-          type: 'line',
-        });
-      } else {
-        map.addLayer({
-          id: `martin-${src.id}`,
-          paint: src.paint as FillLayerSpecification['paint'],
-          source: `martin-${src.id}`,
-          'source-layer': src.sourceLayer,
-          type: 'fill',
-        });
-        map.addLayer({
-          id: `martin-${src.id}-hover`,
-          paint: {
-            'fill-color': '#95BEFA',
-            'fill-opacity': ['case', ['boolean', ['feature-state', 'hover'], false], 0.35, 0],
-          },
-          source: `martin-${src.id}`,
-          'source-layer': src.sourceLayer,
-          type: 'fill',
-        });
-      }
-
-      void ml;
-    },
-    [],
-  );
-
-  // biome-ignore lint/correctness/useExhaustiveDependencies: re-creates the map when source count or styling changes; sources content, activeLayer, and setLayer are accessed via stable refs inside the effect
+  // biome-ignore lint/correctness/useExhaustiveDependencies: re-creates the map when source count or styling changes; sources content, activeLayer, and setLayer are accessed via stable refs or closures inside the effect
   useEffect(() => {
-    const currentSources = tileSourcesRef.current;
     const container = containerRef.current;
-    if (!container || currentSources.length === 0) return;
-    const initialActiveLayer = currentSources[0]?.id ?? '';
+    if (!container || sources.length === 0) return;
+    const initialActiveLayer = sources[0]?.id ?? '';
     if (activeLayerProp === undefined) setInternalLayer(initialActiveLayer);
 
     setMapLoadError(null);
@@ -182,23 +107,36 @@ export default function MartinMap({
     mapLoadFiredRef.current = false;
 
     let map: MapLibreMap | undefined;
-    let cancelTour: (() => void) | undefined;
     const hoveredIds: Record<string, string | number | null> = {};
 
     const init = async () => {
       const ml = await import('maplibre-gl');
-
+      const base = martinBaseUrl.replace(/\/$/, '');
       const styleUrl =
-        styling.styleId === 'light'
-          ? `${martinBaseUrl.replace(/\/$/, '')}/style/positron`
-          : `${martinBaseUrl.replace(/\/$/, '')}/style/toner`;
+        styling.styleId === 'light' ? `${base}/style/positron` : `${base}/style/toner`;
+
+      let styleObj: Record<string, unknown>;
+      try {
+        const res = await fetch(styleUrl);
+        if (!res.ok) {
+          setMapLoadError(`Style failed to load (${res.status})`);
+          return;
+        }
+        styleObj = (await res.json()) as Record<string, unknown>;
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        setMapLoadError(message);
+        return;
+      }
+
+      rewriteStyleForDemo(styleObj, base, styling);
 
       try {
         map = new ml.Map({
           attributionControl: false,
           center: [10, 25],
           container,
-          style: styleUrl,
+          style: styleObj,
           zoom: 3.2,
         });
       } catch (err) {
@@ -210,21 +148,21 @@ export default function MartinMap({
             return;
           }
         } catch {
-          // not JSON or parse failed
+          // not JSON
         }
         throw err;
       }
 
-      map.on('error', (e: { error?: Error }) => {
+      // From here on `map` is definitely assigned; capture as const for closure safety.
+      const m = map;
+
+      m.on('error', (e: { error?: Error }) => {
         const msg = e.error?.message ?? 'Map failed to load';
-        if (!mapLoadFiredRef.current) {
-          setMapLoadError(msg);
-        } else {
-          setTileSourceError(true);
-        }
+        if (!mapLoadFiredRef.current) setMapLoadError(msg);
+        else setTileSourceError(true);
       });
 
-      map.addControl(new ml.AttributionControl({ compact: true }), 'bottom-right');
+      m.addControl(new ml.AttributionControl({ compact: true }), 'bottom-right');
 
       popupRef.current = new ml.Popup({
         className: 'martin-popup',
@@ -232,16 +170,17 @@ export default function MartinMap({
         closeOnClick: false,
       });
 
-      for (const src of currentSources) {
+      for (const src of sources) {
         if (src.layerType !== 'fill') continue;
         const layerId = `martin-${src.id}`;
-        map.on('mousemove', layerId, (e) => {
+
+        m.on('mousemove', layerId, (e) => {
           if (!e.features?.length) return;
-          map.getCanvas().style.cursor = 'pointer';
+          m.getCanvas().style.cursor = 'pointer';
           const feat = e.features[0];
           const prevId = hoveredIds[src.id];
           if (prevId !== null && prevId !== undefined) {
-            map.setFeatureState(
+            m.setFeatureState(
               { id: prevId, source: `martin-${src.id}`, sourceLayer: src.sourceLayer },
               { hover: false },
             );
@@ -249,126 +188,54 @@ export default function MartinMap({
           const nextId = feat.id ?? null;
           hoveredIds[src.id] = nextId;
           if (nextId !== null) {
-            map.setFeatureState(
+            m.setFeatureState(
               { id: nextId, source: `martin-${src.id}`, sourceLayer: src.sourceLayer },
               { hover: true },
             );
           }
-          const props = feat.properties as Record<string, unknown>;
-          const locationid = props.locationid as number | undefined;
-          const trips = props.trips as number | undefined;
-          const tripsPrice = props.trips_price as number | undefined;
-          const tripsDuration = props.trips_duration as number | undefined;
-          if (
-            typeof locationid !== 'undefined' ||
-            typeof trips !== 'undefined' ||
-            typeof tripsPrice !== 'undefined' ||
-            typeof tripsDuration !== 'undefined'
-          ) {
-            setHoveredAndNotify({
-              locationid,
-              name: typeof locationid !== 'undefined' ? `Zone ${locationid}` : 'Zone',
-              trips,
-              trips_duration: tripsDuration,
-              trips_price: tripsPrice,
-            });
-          } else {
-            setHoveredAndNotify({
-              continent: props.continent as string | undefined,
-              name: String(props.name ?? ''),
-              pop_est: props.pop_est as number | undefined,
-            });
-          }
+          notifyHovered(buildHoveredFeature(src, feat.properties as Record<string, unknown>));
         });
-        map.on('mouseleave', layerId, () => {
-          map.getCanvas().style.cursor = '';
+
+        m.on('mouseleave', layerId, () => {
+          m.getCanvas().style.cursor = '';
           const prevId = hoveredIds[src.id];
           if (prevId !== null && prevId !== undefined) {
-            map.setFeatureState(
+            m.setFeatureState(
               { id: prevId, source: `martin-${src.id}`, sourceLayer: src.sourceLayer },
               { hover: false },
             );
           }
           hoveredIds[src.id] = null;
-          setHoveredAndNotify(null);
+          notifyHovered(null);
         });
       }
 
-      map.on('style.load', () => {
-        map.setProjection({ type: 'globe' });
+      m.on('style.load', () => {
+        m.setProjection({ type: 'globe' });
       });
 
-      map.on('sourcedata', (e: { sourceId?: string; isSourceLoaded?: boolean }) => {
-        if (e.isSourceLoaded && e.sourceId?.startsWith('martin-')) {
-          setTileSourceError(false);
-        }
+      m.on('sourcedata', (e: { sourceId?: string; isSourceLoaded?: boolean }) => {
+        if (e.isSourceLoaded && e.sourceId?.startsWith('martin-')) setTileSourceError(false);
       });
 
-      map.on('load', async () => {
+      m.on('load', async () => {
         mapLoadFiredRef.current = true;
-        mapRef.current = map;
-        await setLayer(map, initialActiveLayer, ml);
+        mapRef.current = m;
+        await setLayer(m, initialActiveLayer, ml);
         setMapLoaded(true);
 
-        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-        userHasMovedMapRef.current = false;
-        tourTimeoutsRef.current = [];
-
-        cancelTour = () => {
-          userHasMovedMapRef.current = true;
-          for (const id of tourTimeoutsRef.current) clearTimeout(id);
-          tourTimeoutsRef.current = [];
-        };
-        map.on('dragstart', cancelTour);
-        map.getContainer().addEventListener('touchstart', cancelTour, { passive: true });
-        map.getContainer().addEventListener('wheel', cancelTour, { passive: true });
-
-        const FLY_DURATION_MS = 5500;
-        const PAUSE_BETWEEN_MS = 2200;
-        const TRANSITION_ZOOM_START_MS = 4000; // Start zoom-in before we fully stop at transition zoom
-        let index = 0;
-        const runTour = () => {
-          const go = () => {
-            if (userHasMovedMapRef.current) return;
-            const city = TOUR_CITIES[index % TOUR_CITIES.length];
-            index += 1;
-            // Fly to city at transition zoom (zoomed out) so users keep sense of direction
-            map.flyTo({
-              center: city.center,
-              duration: FLY_DURATION_MS,
-              zoom: TOUR_TRANSITION_ZOOM,
-            });
-            // Start zooming in before we fully stop at 5 so the motion flows continuously
-            const zoomInTimeoutId = setTimeout(() => {
-              if (userHasMovedMapRef.current) return;
-              map.flyTo({
-                center: city.center,
-                duration: FLY_DURATION_MS,
-                zoom: TOUR_CITY_ZOOM,
-              });
-              map.once('moveend', () => {
-                if (userHasMovedMapRef.current) return;
-                const id = setTimeout(go, PAUSE_BETWEEN_MS);
-                tourTimeoutsRef.current.push(id);
-              });
-            }, TRANSITION_ZOOM_START_MS);
-            tourTimeoutsRef.current.push(zoomInTimeoutId);
-          };
-          go();
-        };
-        runTour();
+        const onCancel = () => cancelTour();
+        m.on('dragstart', onCancel);
+        m.getContainer().addEventListener('touchstart', onCancel, { passive: true });
+        m.getContainer().addEventListener('wheel', onCancel, { passive: true });
+        startTour(m);
       });
     };
 
     init();
 
     return () => {
-      for (const id of tourTimeoutsRef.current) clearTimeout(id);
-      tourTimeoutsRef.current = [];
-      if (cancelTour != null) {
-        map?.getContainer().removeEventListener('touchstart', cancelTour);
-        map?.getContainer().removeEventListener('wheel', cancelTour);
-      }
+      cancelTour();
       map?.remove();
       mapRef.current = null;
     };
@@ -386,17 +253,14 @@ export default function MartinMap({
 
     setLayer(map, activeLayer);
 
-    if (activeLayer === 'get_trips') {
-      // Cancel the city tour and lock the view to NYC
-      userHasMovedMapRef.current = true;
-      for (const id of tourTimeoutsRef.current) clearTimeout(id);
-      tourTimeoutsRef.current = [];
-      map.setMaxBounds(NYC_BOUNDS);
-      map.flyTo({ center: NYC_CENTER, zoom: NYC_ZOOM });
+    if (activeSrc.viewCenter) {
+      cancelTour();
+      if (activeSrc.viewBounds) map.setMaxBounds(activeSrc.viewBounds);
+      map.flyTo({ center: activeSrc.viewCenter, zoom: activeSrc.viewZoom });
     } else {
       map.setMaxBounds(undefined);
     }
-  }, [activeLayer, mapLoaded, setLayer, activeSrc]);
+  }, [activeLayer, mapLoaded, setLayer, activeSrc, cancelTour]);
 
   if (sources.length === 0) return <div className="relative w-full h-full bg-muted/20" />;
 

@@ -12,7 +12,8 @@ import StylingPanel from '@/components/demo/StylingPanel';
 import TimeSlider from '@/components/demo/TimeSlider';
 import HeroTitleBlock from '@/components/HeroTitleBlock';
 import InstallBox from '@/components/install-box';
-import MartinMap, { type HoveredFeature, type MapStylingOptions } from '@/components/martin-map';
+import MartinMap, { type MapStylingOptions } from '@/components/martin-map';
+import type { HoveredFeature } from '@/types/demo';
 import NavTooltip from '@/components/nav-tooltip';
 import { getSqlDisplay } from '@/lib/demo-utils';
 import { useMediaQueryMinHeight, useMediaQuerySm } from '@/lib/useMediaQuery';
@@ -226,10 +227,10 @@ export default function PageContent({
                   {hovered != null && (
                     <span className="ml-auto text-[10px] font-mono text-accent truncate max-w-[140px] shrink-0">
                       ↗ {hovered.name}
-                      {hovered.trips != null
-                        ? ` · ${hovered.trips} trips${hovered.trips_price != null ? ` · $${hovered.trips_price} avg` : ''}`
-                        : hovered.pop_est != null
-                          ? ` · ${(hovered.pop_est / 1_000_000).toFixed(1)}M`
+                      {hovered.properties.trips != null
+                        ? ` · ${hovered.properties.trips} trips${hovered.properties.trips_price != null ? ` · $${hovered.properties.trips_price} avg` : ''}`
+                        : hovered.properties.pop_est != null
+                          ? ` · ${((hovered.properties.pop_est as number) / 1_000_000).toFixed(1)}M`
                           : ''}
                     </span>
                   )}
@@ -340,10 +341,10 @@ export default function PageContent({
                       {hovered != null && (
                         <span className="ml-auto text-[10px] font-mono text-accent truncate max-w-[140px] shrink-0">
                           ↗ {hovered.name}
-                          {hovered.trips != null
-                            ? ` · ${hovered.trips} trips${hovered.trips_price != null ? ` · $${hovered.trips_price} avg` : ''}`
-                            : hovered.pop_est != null
-                              ? ` · ${(hovered.pop_est / 1_000_000).toFixed(1)}M`
+                          {hovered.properties.trips != null
+                            ? ` · ${hovered.properties.trips} trips${hovered.properties.trips_price != null ? ` · $${hovered.properties.trips_price} avg` : ''}`
+                            : hovered.properties.pop_est != null
+                              ? ` · ${((hovered.properties.pop_est as number) / 1_000_000).toFixed(1)}M`
                               : ''}
                         </span>
                       )}
