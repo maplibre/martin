@@ -67,7 +67,7 @@ bless:
     set -euo pipefail
 
     echo "Blessing unit tests"
-    for target in restart clean-test bless-insta bless-frontend; do
+    for target in restart clean-test bless-insta bless-frontend bless-pg; do
       echo "::group::just $target"
       {{quote(just_executable())}} $target
       echo "::endgroup::"
@@ -91,6 +91,11 @@ bless-int:
     rm -rf tests/temp
     tests/test.sh
     rm -rf tests/expected && mv tests/output tests/expected
+
+bless-pg: start  (cargo-install 'cargo-insta')
+    cargo insta test --accept --features test-pg --no-default-features --test pg_function_source_test --test pg_server_test --test pg_table_source_test
+    cargo insta test --accept --features test-pg --no-default-features --package martin --lib
+    cargo insta test --accept --features test-pg --package martin-core --no-default-features --lib
 
 # Build release binaries for a target with debug info stripped
 build-release target:
@@ -386,9 +391,9 @@ test: start (test-cargo "--all-targets") test-pg test-doc test-frontend test-int
 
 # Run PostgreSQL-requiring tests only
 test-pg: start
-    cargo test --features test-pg --test pg_function_source_test --test pg_server_test --test pg_table_source_test
-    cargo test --features test-pg --package martin --lib
-    cargo test --features test-pg --package martin-core --lib
+    cargo test --features test-pg --no-default-features --test pg_function_source_test --test pg_server_test --test pg_table_source_test
+    cargo test --features test-pg --no-default-features --package martin --lib
+    cargo test --features test-pg --package martin-core --no-default-features --lib
 
 # Run Rust unit tests (cargo test)
 test-cargo *args:
