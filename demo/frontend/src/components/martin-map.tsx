@@ -85,9 +85,12 @@ export default function MartinMap({
   const popupRef = useRef<Popup | null>(null);
   const userHasMovedMapRef = useRef(false);
   const tourTimeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const mapLoadFiredRef = useRef(false);
   const [internalLayer, setInternalLayer] = useState(() => tileSources[0]?.id ?? '');
   const activeLayer = activeLayerProp !== undefined ? activeLayerProp : internalLayer;
   const [mapLoaded, setMapLoaded] = useState(false);
+  const [mapLoadError, setMapLoadError] = useState<string | null>(null);
+  const [tileSourceError, setTileSourceError] = useState(false);
   const [, setHovered] = useState<HoveredFeature | null>(null);
 
   const onHoveredChangeRef = useRef(onHoveredChange);
@@ -172,6 +175,10 @@ export default function MartinMap({
     const initialActiveLayer = currentSources[0]?.id ?? '';
     if (activeLayerProp === undefined) setInternalLayer(initialActiveLayer);
 
+    setMapLoadError(null);
+    setTileSourceError(false);
+    mapLoadFiredRef.current = false;
+
     let map: MapLibreMap;
     let cancelTour: (() => void) | undefined;
     const hoveredIds: Record<string, string | number | null> = {};
@@ -190,6 +197,15 @@ export default function MartinMap({
         container,
         style: styleUrl,
         zoom: 3.2,
+      });
+
+      map.on('error', (e: { error?: Error }) => {
+        const msg = e.error?.message ?? 'Map failed to load';
+        if (!mapLoadFiredRef.current) {
+          setMapLoadError(msg);
+        } else {
+          setTileSourceError(true);
+        }
       });
 
       map.addControl(new ml.AttributionControl({ compact: true }), 'bottom-right');
@@ -266,7 +282,14 @@ export default function MartinMap({
         map.setProjection({ type: 'globe' });
       });
 
+      map.on('sourcedata', (e: { sourceId?: string; isSourceLoaded?: boolean }) => {
+        if (e.isSourceLoaded && e.sourceId?.startsWith('martin-')) {
+          setTileSourceError(false);
+        }
+      });
+
       map.on('load', async () => {
+        mapLoadFiredRef.current = true;
         mapRef.current = map;
         await setLayer(map, initialActiveLayer, ml);
         setMapLoaded(true);
@@ -363,7 +386,27 @@ export default function MartinMap({
 
   return (
     <div className="absolute inset-x-0" style={{ bottom: '-33%', top: 0 }}>
-      <div className="w-full h-full" ref={containerRef} />
+      <div className="relative w-full h-full">
+        <div className="w-full h-full" ref={containerRef} />
+        {mapLoadError && (
+          <div
+            className="absolute inset-0 flex items-center justify-center bg-muted/95 p-4 text-center"
+            role="alert"
+          >
+            <p className="text-sm text-foreground max-w-md">
+              Map style could not be loaded. Tile server may be unavailable.
+            </p>
+          </div>
+        )}
+        {tileSourceError && !mapLoadError && (
+          <div
+            className="absolute bottom-2 left-1/2 -translate-x-1/2 rounded bg-foreground/90 px-3 py-2 text-[11px] text-background shadow"
+            role="status"
+          >
+            Tiles are not loading. Check connection to the tile server.
+          </div>
+        )}
+      </div>
     </div>
   );
 }

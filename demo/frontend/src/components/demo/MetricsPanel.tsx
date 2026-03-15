@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { aggregateTileMetrics, parsePrometheusMetrics } from '@/lib/prometheus';
 
 interface MetricsPanelProps {
@@ -20,35 +20,44 @@ export default function MetricsPanel({
 }: MetricsPanelProps) {
   const [metrics, setMetrics] = useState<MetricsData | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const fetchMetricsRef = useRef<(() => Promise<void>) | null>(null);
+
+  const fetchMetrics = useCallback(async () => {
+    const url = `${martinBaseUrl.replace(/\/$/, '')}/_/metrics`;
+    try {
+      const res = await fetch(url);
+      if (!res.ok) {
+        setError(`HTTP ${res.status}`);
+        return;
+      }
+      const text = await res.text();
+      const { sum, count } = parsePrometheusMetrics(text);
+      const tile = aggregateTileMetrics(sum, count);
+      setMetrics({
+        averageDurationMs: tile.averageDurationMs,
+        requestCount: tile.requestCount,
+      });
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to fetch');
+      // Do not clear metrics so we can show "Connection lost" with stale data
+    }
+  }, [martinBaseUrl]);
 
   useEffect(() => {
-    const url = `${martinBaseUrl.replace(/\/$/, '')}/_/metrics`;
+    fetchMetricsRef.current = fetchMetrics;
+  }, [fetchMetrics]);
 
-    const fetchMetrics = async () => {
-      try {
-        const res = await fetch(url);
-        if (!res.ok) {
-          setError(`HTTP ${res.status}`);
-          return;
-        }
-        const text = await res.text();
-        const { sum, count } = parsePrometheusMetrics(text);
-        const tile = aggregateTileMetrics(sum, count);
-        setMetrics({
-          averageDurationMs: tile.averageDurationMs,
-          requestCount: tile.requestCount,
-        });
-        setError(null);
-      } catch (e) {
-        setError(e instanceof Error ? e.message : 'Failed to fetch');
-        setMetrics(null);
-      }
-    };
-
+  useEffect(() => {
     fetchMetrics();
-    const id = setInterval(fetchMetrics, refreshIntervalMs);
+    const id = setInterval(() => fetchMetricsRef.current?.(), refreshIntervalMs);
     return () => clearInterval(id);
-  }, [martinBaseUrl, refreshIntervalMs]);
+  }, [fetchMetrics, refreshIntervalMs]);
+
+  const handleRetry = useCallback(() => {
+    setError(null);
+    void fetchMetrics();
+  }, [fetchMetrics]);
 
   if (error && !metrics) {
     return (
@@ -59,6 +68,13 @@ export default function MetricsPanel({
           </span>
         )}
         <p className="text-[11px] text-muted-foreground">Unable to fetch: {error}</p>
+        <button
+          className="mt-2 text-[11px] font-mono text-accent hover:text-foreground underline"
+          onClick={handleRetry}
+          type="button"
+        >
+          Retry
+        </button>
       </div>
     );
   }
@@ -70,7 +86,12 @@ export default function MetricsPanel({
           Live metrics
         </span>
       )}
-      <div className={hideTitle ? 'flex gap-4' : 'mt-2 flex gap-4'}>
+      {error && metrics && (
+        <p className="text-[11px] text-amber-600 dark:text-amber-500 mb-1">
+          Connection lost. Showing last known data.
+        </p>
+      )}
+      <div className={hideTitle && !error ? 'flex gap-4' : 'mt-2 flex gap-4'}>
         <div>
           <span className="block text-lg font-mono font-bold text-accent">
             {metrics?.requestCount ?? '–'}

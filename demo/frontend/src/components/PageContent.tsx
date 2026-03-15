@@ -280,11 +280,6 @@ export default function PageContent({
           <>
             <section className="border-b border-border">
               <HeroTitleBlock standalone />
-              {!isWide && (
-                <div className="px-6 pb-6 pt-2">
-                  <MetricsPanel martinBaseUrl={martinBaseUrl} />
-                </div>
-              )}
             </section>
             <section
               className="relative border-b border-border overflow-hidden"
