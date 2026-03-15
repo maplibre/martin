@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- *(srv)* resolve some compression TODOS ([#2597](https://github.com/maplibre/martin/pull/2597))
+- *(srv)* resolve some compression TODOS which adds zstd support ([#2597](https://github.com/maplibre/martin/pull/2597))
 
 ### Fixed
 
