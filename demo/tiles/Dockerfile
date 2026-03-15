@@ -25,7 +25,7 @@ COPY tiles/rewrite_styles.py /build/rewrite_styles.py
 RUN mkdir -p /out/styles /out/fonts && python3 /build/rewrite_styles.py
 
 # Stage 3: Martin (final) — no wget, only COPY from previous stages
-FROM ghcr.io/maplibre/martin:1.3.1
+FROM ghcr.io/maplibre/martin:1.4.0
 # Copy pmtiles from planetiler stage
 COPY --from=planetiler /build/data/oberbayern.pmtiles /data/oberbayern.pmtiles
 # Copy fonts and rewritten styles from fonts stage

@@ -62,7 +62,7 @@ repos:
             sed -i "s%ghcr.io/maplibre/martin:[^[:space:]]* %ghcr.io/maplibre/martin:$VERSION %" docs/content/installation.md
             sed -i "s%ghcr.io/maplibre/martin:[^[:space:]]* %ghcr.io/maplibre/martin:$VERSION %" docs/content/run-with-lambda.md
             sed -i "s%ghcr.io/maplibre/martin:[^[:space:]]* %ghcr.io/maplibre/martin:$VERSION %" justfile
-            sed -i "s%ghcr.io/maplibre/martin:[^[:space:]]*%ghcr.io/maplibre/martin:$VERSION%" demo/docker-compose.yml
+            sed -i "s%ghcr.io/maplibre/martin:[^\n]*%ghcr.io/maplibre/martin:$VERSION%" demo/tiles/Dockerfile
             echo "Synced version to $VERSION"
           '
         language: system
