@@ -546,13 +546,12 @@ jobs:
             target/test_logs/*
           retention-days: 5
 
-  test-with-svc:
-    name: Test postgis:${{ matrix.img_ver }} sslmode=${{ matrix.sslmode }}
+  unit-test-svc-pg:
+    name: Unit test postgis:${{ matrix.img_ver }} sslmode=${{ matrix.sslmode }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    needs: [ build-x86_64-unknown-linux-gnu, build-debian-x86_64 ]
-    strategy:
+    strategy: &svc-strategy
       fail-fast: true
       matrix:
         include:
@@ -576,13 +575,13 @@ jobs:
           #- img_ver: 15-3.3
           #  args: postgres -c ssl=on -c ssl_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem -c ssl_key_file=/etc/ssl/private/ssl-cert-snakeoil.key
           #  sslmode: verify-full
-    env:
+    env: &svc-env
       PGDATABASE: test
       PGHOST: localhost
       PGUSER: postgres
       PGPASSWORD: postgres
     services:
-      postgres:
+      postgres: &svc-postgres
         image: postgis/postgis:${{ matrix.img_ver }}
         ports:
           - 5432/tcp
@@ -607,9 +606,34 @@ jobs:
         with: { persist-credentials: false }
       - uses: taiki-e/install-action@a57ddfbcd928cf9406a78dcc300dacc5d367a547 # v2.68.31
         with: { tool: 'just' }
-      # cache for the unit-test to be run against postgres to be acceptably slow
-      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
-        if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
+      - name: Init database
+        run: tests/fixtures/initdb.sh
+        env:
+          PGPORT: ${{ job.services.postgres.ports[5432] }}
+      - name: Unit Tests
+        if: matrix.sslmode != 'verify-ca' && matrix.sslmode != 'verify-full'
+        run: |
+          echo "Running unit tests, connecting to DATABASE_URL=$DATABASE_URL"
+          echo "Same but as base64 to prevent GitHub obfuscation (this is not a secret):"
+          echo "$DATABASE_URL" | base64
+          just test-pg
+        env:
+          DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=${{ matrix.sslmode }}
+
+  test-with-svc:
+    name: Test postgis:${{ matrix.img_ver }} sslmode=${{ matrix.sslmode }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    needs: [ build-x86_64-unknown-linux-gnu, build-debian-x86_64, unit-test-svc-pg ]
+    strategy: *svc-strategy
+    env: *svc-env
+    services:
+      postgres: *svc-postgres
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with: { persist-credentials: false }
       - name: Run NGINX
         uses: nyurik/action-setup-nginx@612ee9cb839ad727832cda16359452e7e14dd521 # v1.1
         id: nginx
@@ -670,16 +694,6 @@ jobs:
           tests/test.sh
           sudo dpkg -P martin
           rm -rf target_releases
-        env:
-          DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=${{ matrix.sslmode }}
-      - name: Unit Tests
-        if: matrix.sslmode != 'verify-ca' && matrix.sslmode != 'verify-full'
-        run: |
-          echo "Running unit tests, connecting to DATABASE_URL=$DATABASE_URL"
-          echo "Same but as base64 to prevent GitHub obfuscation (this is not a secret):"
-          echo "$DATABASE_URL" | base64
-          set -x
-          just test-pg
         env:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=${{ matrix.sslmode }}
       - name: Save test output (on error)
