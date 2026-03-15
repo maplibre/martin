@@ -872,7 +872,13 @@ jobs:
   done:
     name: CI Finished
     runs-on: ubuntu-latest
-    needs: [ package, docker-build-test, unit-test-rust, lint-rust-dependencies ]
+    needs:
+      - package
+      - docker-build-test
+      - unit-test-rust
+      - lint-rust-dependencies
+      - lint-unit-test-js
+      - lint-rust
     if: always()
     permissions: {}
     steps:
