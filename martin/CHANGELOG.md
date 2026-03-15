@@ -12,17 +12,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### ZSTD support
 
 If your browser prefers this, we will now start sending ZSTD (or deflate) compressed tiles your way.
-Done in [#2597](https://github.com/maplibre/martin/pull/2597) by [@
-nuts-rice](https://github.com/
-nuts-rice)
+Done in [#2597](https://github.com/maplibre/martin/pull/2597) by [@nuts-rice](https://github.com/nuts-rice)
 
 ### A new documentation site
 
 We migrated our documentation to zenzical, a more modern documentation platform.
 Just have a look for yourself, does it not look pretty? -> https://maplibre.org/martin
 Done in [#2576](https://github.com/maplibre/martin/pull/2576) by [@
-nuts-rice](https://github.com/
-nuts-rice)
+manbhav234](https://github.com/
+manbhav234)
 
 ### Added
 
