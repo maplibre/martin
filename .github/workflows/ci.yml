@@ -121,7 +121,7 @@ jobs:
   docker-build-test:
     name: Build and test docker images
     runs-on: ubuntu-latest
-    needs: [ build-aarch64-unknown-linux-musl, build-x86_64-unknown-linux-musl, lint-unit-test-js, lint-rust ]
+    needs: [ build-aarch64-unknown-linux-musl, build-x86_64-unknown-linux-musl ]
     permissions:
       id-token: write
       attestations: write
