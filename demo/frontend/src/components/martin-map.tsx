@@ -122,9 +122,7 @@ export default function MartinMap({
 
       const tileUrl = buildTileUrl(src, martinBaseUrlRef.current, filterStateRef.current);
       const promoteId =
-        src.id === 'get_trips'
-          ? { [src.sourceLayer]: 'locationid' }
-          : { [src.sourceLayer]: 'id' };
+        src.id === 'get_trips' ? { [src.sourceLayer]: 'locationid' } : { [src.sourceLayer]: 'id' };
       map.addSource(`martin-${src.id}`, {
         maxzoom: 14,
         minzoom: 0,
