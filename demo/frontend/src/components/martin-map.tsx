@@ -410,8 +410,8 @@ export default function MartinMap({
             role="alert"
           >
             <p className="text-sm max-w-md leading-relaxed">
-              We are sorry, but it seems that <strong>your browser does not support WebGL</strong>, a
-              technology for rendering 3D graphics on the web.
+              We are sorry, but it seems that <strong>your browser does not support WebGL</strong>,
+              a technology for rendering 3D graphics on the web.
             </p>
             <p className="text-sm font-semibold">WebGL is required to display this map.</p>
             <a
