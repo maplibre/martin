@@ -472,6 +472,12 @@ export default function PageContent({
                           </button>
                         </div>
                       </section>
+                      <section>
+                        <h3 className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider mb-3">
+                          Observability
+                        </h3>
+                        <MetricsPanel hideTitle martinBaseUrl={martinBaseUrl} />
+                      </section>
                     </div>
                   </BottomSheet>
                 </>
