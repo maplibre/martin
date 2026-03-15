@@ -1,4 +1,9 @@
-#![cfg(all(feature = "test-pg", not(feature = "fonts"), not(feature = "sprites"), not(feature = "styles")))]
+#![cfg(all(
+    feature = "test-pg",
+    not(feature = "fonts"),
+    not(feature = "sprites"),
+    not(feature = "styles")
+))]
 
 use actix_http::Request;
 use actix_web::http::StatusCode;
