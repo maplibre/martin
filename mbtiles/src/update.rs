@@ -72,12 +72,9 @@ impl Mbtiles {
         Ok(())
     }
 
-    /// Detect and persist the tile compression type in the metadata table.
-    ///
-    /// Samples a tile from the database to detect the encoding and writes the
-    /// corresponding `compression` metadata value (e.g. `"gzip"`, `"br"`, `"zstd"`).
-    /// If tiles are uncompressed or use only internal (format-level) compression
-    /// (e.g. PNG/JPEG), the `compression` key is removed from the metadata table.
+    /// Samples a tile to detect the encoding and updates the `compression` metadata key.
+    /// For uncompressed or internally-compressed formats (e.g. PNG/JPEG), the key is
+    /// *removed* from the metadata table rather than being set to `"none"`.
     pub async fn update_compression<T>(&self, conn: &mut T) -> MbtResult<()>
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,

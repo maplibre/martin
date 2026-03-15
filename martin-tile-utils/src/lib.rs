@@ -172,8 +172,6 @@ pub enum Encoding {
 }
 
 impl Encoding {
-    /// Parse an encoding from a string. Handles both internal names and HTTP content-encoding names.
-    ///
     /// Recognized values (case-insensitive):
     /// - `"none"`, `"identity"` → [`Encoding::Uncompressed`]
     /// - `"gzip"` → [`Encoding::Gzip`]
@@ -192,11 +190,8 @@ impl Encoding {
         })
     }
 
-    /// Returns the value to store in the `MBTiles` metadata table `compression` field,
-    /// using HTTP content-encoding names for maximum compatibility.
-    ///
-    /// Returns `None` for [`Encoding::Uncompressed`] and [`Encoding::Internal`],
-    /// as these do not require a `compression` entry in the metadata table.
+    /// Returns `None` for [`Encoding::Uncompressed`] and [`Encoding::Internal`]:
+    /// absence of the `compression` key in the metadata table means no external encoding.
     #[must_use]
     pub fn metadata_compression_value(self) -> Option<&'static str> {
         match self {
@@ -819,7 +814,6 @@ mod tests {
         assert_eq!(format!("{xyz:#}"), "1/2/3");
     }
 
-    /// Verify that `Encoding::parse` handles both internal names and HTTP content-encoding names.
     #[rstest]
     #[case("none", Some(Encoding::Uncompressed))]
     #[case("identity", Some(Encoding::Uncompressed))]
@@ -837,8 +831,6 @@ mod tests {
         assert_eq!(Encoding::parse(input), expected);
     }
 
-    /// Verify that `metadata_compression_value` returns HTTP content-encoding names
-    /// (for use as the `compression` metadata field).
     #[rstest]
     #[case(Encoding::Uncompressed, None)]
     #[case(Encoding::Internal, None)]

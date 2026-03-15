@@ -530,10 +530,8 @@ mod tests {
         assert_eq!(tile_info, None);
     }
 
-    /// Test that the `compression` metadata key is read and stored in `tilejson.other`.
     #[actix_rt::test]
     async fn metadata_compression_field() {
-        // `mlt.sql` has `compression=none`
         let script = include_str!("../../tests/fixtures/mbtiles/mlt.sql");
         let (mbt, mut conn) = anonymous_mbtiles(script).await;
         let meta = mbt.get_metadata(&mut conn).await.unwrap();
@@ -544,15 +542,11 @@ mod tests {
         );
     }
 
-    /// Test that `compression=none` in metadata is treated as uncompressed, and does not
-    /// cause a mismatch warning when tiles are also uncompressed.
     #[actix_rt::test]
     async fn detect_format_compression_none() {
-        // `mlt.sql` has `compression=none` and tiny uncompressed tiles
         let script = include_str!("../../tests/fixtures/mbtiles/mlt.sql");
         let (mbt, mut conn) = anonymous_mbtiles(script).await;
         let meta = mbt.get_metadata(&mut conn).await.unwrap();
-        // detect_format should succeed and not error even with compression=none
         let tile_info = mbt.detect_format(&meta.tilejson, &mut conn).await;
         assert!(
             tile_info.is_ok(),
@@ -560,7 +554,6 @@ mod tests {
         );
     }
 
-    /// Test that `update_compression` writes the correct compression value for gzip tiles.
     #[actix_rt::test]
     async fn update_compression_gzip() {
         let script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
@@ -579,13 +572,11 @@ mod tests {
         );
     }
 
-    /// Test that `update_compression` removes the compression key for uncompressed (PNG) tiles.
     #[actix_rt::test]
     async fn update_compression_internal() {
         let script = include_str!("../../tests/fixtures/mbtiles/geography-class-jpg.sql");
         let (mbt, mut conn) = anonymous_mbtiles(script).await;
 
-        // First artificially set compression to something non-empty
         mbt.set_metadata_value(&mut conn, "compression", "gzip")
             .await
             .unwrap();
@@ -597,7 +588,6 @@ mod tests {
             Some("gzip")
         );
 
-        // Running update_compression should remove it since JPEG tiles use internal compression
         mbt.update_compression(&mut conn).await.unwrap();
 
         let compression = mbt

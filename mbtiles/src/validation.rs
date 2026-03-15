@@ -210,7 +210,6 @@ impl Mbtiles {
         }
     }
 
-    /// Cross-check the `format` metadata field against detected tile info.
     fn check_format_metadata(
         &self,
         tilejson: &TileJSON,
@@ -247,7 +246,6 @@ impl Mbtiles {
         tile_info
     }
 
-    /// Cross-check the `compression` metadata field against detected tile info.
     fn check_compression_metadata(
         &self,
         tilejson: &TileJSON,
@@ -262,14 +260,12 @@ impl Mbtiles {
                 }
                 Some(enc) => match tile_info {
                     None => {
-                        // No tiles and no format metadata: encoding alone cannot determine tile info.
                         info!(
                             "Metadata table sets tile compression to '{cmp}', but it could not be verified for file {file}"
                         );
                     }
                     Some(info) if tiles_detected => {
-                        // Tile bytes are the source of truth for encoding.
-                        // Both `Uncompressed` and `Internal` mean "no external compression
+                        // `Uncompressed` and `Internal` both mean "no external compression
                         // algorithm", so treat them as equivalent when validating the metadata.
                         // `Internal` means the format compresses data natively (PNG/JPEG/WebP);
                         // `Uncompressed` is the metadata spelling of "no external encoding".
@@ -286,7 +282,6 @@ impl Mbtiles {
                         }
                     }
                     Some(info) => {
-                        // tile_info was set from metadata (no actual tiles); apply encoding.
                         info!("Using '{cmp}' tile compression from metadata table in file {file}");
                         tile_info = Some(info.encoding(enc));
                     }
