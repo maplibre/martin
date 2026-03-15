@@ -1,11 +1,21 @@
 {% extends "main.html" %}
 
 {% block htmltitle %}
-  <title>Page Not Found</title>
+  <title>Page Not Found – {{ config.site_name }}</title>
 {% endblock %}
 
 {% block extrahead %}
   <base href="{{ config.site_url }}">
+{% endblock %}
+
+{% block content %}
+  <div class="md-content" data-md-component="content">
+    <article class="md-content__inner md-typeset">
+      <h1>404 – Page not found</h1>
+      <p>The page you requested could not be found.</p>
+      <p><a href="{{ config.site_url }}">Take me home</a></p>
+    </article>
+  </div>
 {% endblock %}
 
 {% block scripts %}
