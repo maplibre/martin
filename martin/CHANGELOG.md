@@ -9,12 +9,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.4.0](https://github.com/maplibre/martin/compare/martin-v1.3.1...martin-v1.4.0) - 2026-03-14
 
+### ZSTD support
+
+If your browser prefers this, we will now start sending ZSTD (or deflate) compressed tiles your way.
+Done in [#2597](https://github.com/maplibre/martin/pull/2597) by [@
+nuts-rice](https://github.com/
+nuts-rice)
+
+### A new documentation site
+
+We migrated our documentation to zenzical, a more modern documentation platform.
+Just have a look for yourself, does it not look pretty? -> https://maplibre.org/martin
+Done in [#2576](https://github.com/maplibre/martin/pull/2576) by [@
+nuts-rice](https://github.com/
+nuts-rice)
+
 ### Added
 
-- *(srv)* resolve some compression TODOS ([#2597](https://github.com/maplibre/martin/pull/2597))
-- Migrate mdbooks to zensical ([#2576](https://github.com/maplibre/martin/pull/2576))
-- *(martin-cp)* indicativ based progress bar ([#2495](https://github.com/maplibre/martin/pull/2495))
-- Add retry mechanism on locked/busy mbtiles files ([#2572](https://github.com/maplibre/martin/pull/2572))
+- *(martin-cp)* now has a prettier, indicativ based progress bar ([#2495](https://github.com/maplibre/martin/pull/2495))
+- Add retry mechanism on locked/busy mbtiles files was added ([#2572](https://github.com/maplibre/martin/pull/2572))
 
 ### Fixed
 
@@ -25,16 +38,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Other
 
-- *(deps)* Bump the all-npm-version-updates group across 2 directories with 9 updates ([#2608](https://github.com/maplibre/martin/pull/2608))
-- *(deps-dev)* Bump undici from 7.21.0 to 7.24.1 in /martin/martin-ui in the all-npm-security-updates group across 1 directory ([#2602](https://github.com/maplibre/martin/pull/2602))
-- *(deps)* autoupdate pre-commit ([#2592](https://github.com/maplibre/martin/pull/2592))
-- *(deps)* Bump the all-npm-version-updates group across 2 directories with 13 updates ([#2577](https://github.com/maplibre/martin/pull/2577))
-- *(deps)* Bump the all-npm-security-updates group across 2 directories with 1 update ([#2575](https://github.com/maplibre/martin/pull/2575))
-- *(deps)* autoupdate pre-commit ([#2567](https://github.com/maplibre/martin/pull/2567))
 - rename the `webp.sql` fixture to `webp-no-primary.sql` ([#2564](https://github.com/maplibre/martin/pull/2564))
 - more cfg magic instead of #[allow(unused_variables)] ([#2563](https://github.com/maplibre/martin/pull/2563))
 - More restrictive expects ([#2562](https://github.com/maplibre/martin/pull/2562))
 - feature-gate PostgreSQL tests to remove external dependencies from `cargo test` ([#2558](https://github.com/maplibre/martin/pull/2558))
+- Bump some dependencys ([#2608](https://github.com/maplibre/martin/pull/2608), [#2602](https://github.com/maplibre/martin/pull/2602), [#2592](https://github.com/maplibre/martin/pull/2592), [#2577](https://github.com/maplibre/martin/pull/2577), [#2575](https://github.com/maplibre/martin/pull/2575), [#2567](https://github.com/maplibre/martin/pull/2567))
 
 ## [1.3.1](https://github.com/maplibre/martin/compare/martin-v1.3.0...martin-v1.3.1) - 2026-02-11
 
