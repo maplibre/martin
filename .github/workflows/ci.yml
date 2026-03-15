@@ -685,7 +685,6 @@ jobs:
           set -x
           cargo test --package martin
           just test-pg
-          cargo clean
         env:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=${{ matrix.sslmode }}
           AWS_SKIP_CREDENTIALS: 1
