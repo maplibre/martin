@@ -1,5 +1,5 @@
 # Stage 1: Planetiler — download Oberbayern and build oberbayern.pmtiles (MLT, Z0-13)
-FROM ghcr.io/onthegomap/planetiler:v0.10.0 AS planetiler
+FROM ghcr.io/onthegomap/planetiler:0.10.1 AS planetiler
 WORKDIR /build
 # Use same invocation as image entrypoint: java -cp @/app/jib-classpath-file com.onthegomap.planetiler.Main
 ENV JAVA_TOOL_OPTIONS="-Xmx2g"
