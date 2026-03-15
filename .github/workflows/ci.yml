@@ -390,14 +390,13 @@ jobs:
     with:
       target: x86_64-apple-darwin
       os: macos-15-intel # x64 CPU, available until August 2027, see https://github.com/actions/runner-images/issues/13045
-      use_cache: true
+      use_cache: ${{ github.event_name != 'release' && github.event_name != 'workflow_dispatch' }}
 
   build-x86_64-pc-windows-msvc:
     uses: ./.github/workflows/build-binary.yml
     with:
       target: x86_64-pc-windows-msvc
       os: windows-latest
-      ext: '.exe'
 
   build-x86_64-unknown-linux-gnu:
     uses: ./.github/workflows/build-binary.yml
