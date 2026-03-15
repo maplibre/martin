@@ -204,11 +204,6 @@ impl Encoding {
     }
 
     #[must_use]
-    pub fn content_encoding(&self) -> Option<&str> {
-        self.metadata_compression_value()
-    }
-
-    #[must_use]
     pub fn is_encoded(self) -> bool {
         match self {
             Self::Uncompressed | Self::Internal => false,
