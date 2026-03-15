@@ -1,0 +1,7 @@
+id: nyc-january-trips
+label: NYC January 2017 (all hours)
+layerId: get_trips
+preset:
+  date_from: "2017-01-01"
+  date_to: "2017-01-31"
+  hour: -1

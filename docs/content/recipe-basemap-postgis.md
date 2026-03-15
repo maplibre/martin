@@ -52,7 +52,7 @@ docker run \
   -e JAVA_TOOL_OPTIONS="-Xmx1g" \
   -v "$(pwd)/data":/data \
   --rm \
-  ghcr.io/onthegomap/planetiler:latest \
+  ghcr.io/onthegomap/planetiler:0.10.1 \
   --download \
   --minzoom=0 \
   --maxzoom=14 \

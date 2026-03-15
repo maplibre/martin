@@ -1,0 +1,373 @@
+---
+import { getCollection } from 'astro:content';
+import type { DemoScenarioItem } from '../components/demo/ScenarioSelector';
+import InstallBox from '../components/install-box';
+import MapDemo from '../components/MapDemo';
+import Layout from '../layouts/Layout.astro';
+import { MARTIN_BASE_URL } from '../lib/demo-config';
+
+function fmt(n: number): string {
+  if (n >= 1000) return `${(n / 1000).toFixed(1).replace(/\.0$/, '')}k`;
+  return String(n);
+}
+
+interface GithubStats {
+  stars: string;
+  contributors: string;
+  forks: string;
+  latestVersion: string;
+}
+
+async function getGithubStats(): Promise<GithubStats> {
+  try {
+    const headers: HeadersInit = {
+      Accept: 'application/vnd.github+json',
+      'X-GitHub-Api-Version': '2022-11-28',
+    };
+    if (typeof process !== 'undefined' && process.env?.GITHUB_TOKEN) {
+      headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
+    }
+
+    const [repoRes, contribRes, releaseRes] = await Promise.all([
+      fetch('https://api.github.com/repos/maplibre/martin', { headers }),
+      fetch('https://api.github.com/repos/maplibre/martin/contributors?per_page=1&anon=true', { headers }),
+      fetch('https://api.github.com/repos/maplibre/martin/releases/latest', { headers }),
+    ]);
+
+    if (!repoRes.ok) {
+      return { contributors: '100+', forks: '400+', latestVersion: 'v0.x', stars: '4k+' };
+    }
+
+    const repo = (await repoRes.json()) as { stargazers_count: number; forks_count: number };
+    const link = contribRes.headers.get('link') ?? '';
+    const match = link.match(/page=(\d+)>; rel="last"/);
+    const contributors = match ? parseInt(match[1], 10) : null;
+    const release = releaseRes.ok
+      ? ((await releaseRes.json()) as { tag_name: string | null })
+      : null;
+
+    return {
+      contributors: contributors != null ? `${fmt(contributors)}+` : '100+',
+      forks: fmt(repo.forks_count),
+      latestVersion: release?.tag_name ?? 'v0.x',
+      stars: fmt(repo.stargazers_count),
+    };
+  } catch {
+    return { contributors: '100+', forks: '400+', latestVersion: 'v0.x', stars: '4k+' };
+  }
+}
+
+const stats = await getGithubStats();
+const featuresCollection = await getCollection('features');
+const demoLayers = await getCollection('demoLayers');
+const demoScenarios = await getCollection('demoScenarios');
+const tileSources = demoLayers.map((e) => e.data);
+const scenarios: DemoScenarioItem[] = demoScenarios.map((e) => ({ data: e.data, id: e.id }));
+const features = featuresCollection.map((e) => e.data);
+
+const STATS = [
+  { label: 'GitHub stars', value: stats.stars },
+  { label: 'Contributors', value: stats.contributors },
+  { label: 'Forks', value: stats.forks },
+  { label: 'Latest release', value: stats.latestVersion?.replace('martin-', '') ?? 'v0.x' },
+  { label: 'License', value: 'Apache 2.0 + MIT' },
+  { label: 'Tile formats', value: 'MVT + MLT + Raster' },
+];
+
+const FEATURE_ICONS: Record<string, string> = {
+  Database: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5V19A9 3 0 0 0 21 19V5"/><path d="M3 12A9 3 0 0 0 21 12"/></svg>`,
+  Layers: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>`,
+  Shield: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>`,
+  Users: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`,
+  Zap: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`,
+};
+
+const latestVersion = stats.latestVersion?.replace('martin-', '') ?? 'v0.x';
+---
+
+<Layout latestVersion={latestVersion}>
+  <div class="min-h-screen bg-background text-foreground flex flex-col font-sans">
+
+    <header class="border-b border-border px-6 py-4">
+      <div class="max-w-4xl mx-auto flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <img alt="Martin tile server" class="h-7 w-auto" src="/logo.svg" width="28" height="28" />
+          <a
+            class="text-xs font-mono text-muted-foreground border border-border rounded px-1.5 py-0.5 hover:text-foreground hover:border-primary/50 transition-colors"
+            href="https://maplibre.org/"
+            rel="noopener noreferrer"
+            target="_blank"
+            title="Martin is part of the MapLibre open-source ecosystem — community governed, vendor neutral."
+          >
+            by MapLibre
+          </a>
+        </div>
+        <nav aria-label="Main navigation" class="flex items-center gap-5">
+          <a
+            class="text-sm text-muted-foreground hover:text-foreground transition-colors"
+            href="https://maplibre.org/martin/introduction.html"
+            rel="noopener noreferrer"
+            target="_blank"
+          >
+            Docs
+          </a>
+          <a
+            class="text-sm text-muted-foreground hover:text-foreground transition-colors hidden sm:block"
+            href="https://github.com/maplibre/martin/releases"
+            rel="noopener noreferrer"
+            target="_blank"
+          >
+            Releases
+          </a>
+          <a
+            class="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            href="https://github.com/maplibre/martin"
+            rel="noopener noreferrer"
+            target="_blank"
+            aria-label="Martin on GitHub"
+          >
+            <!-- GitHub icon -->
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+            <span class="hidden sm:inline">GitHub</span>
+          </a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="flex flex-col flex-1">
+
+      <!-- Hero: on desktop, map fills background behind text; on mobile, text then map stacked -->
+      <section class="border-b border-border" aria-label="Martin tile server hero">
+        <!-- Text block: always visible above the map on mobile, overlaid on desktop -->
+        <div class="px-6 pt-12 pb-8 max-w-4xl mx-auto sm:hidden">
+          <p class="text-xs font-mono text-accent uppercase tracking-widest mb-4">
+            Open source vector tile server
+          </p>
+          <h1 class="text-4xl font-mono font-bold tracking-tight text-balance leading-tight mb-5">
+            Your tile server.<br />
+            <span class="text-accent">No ceremony.</span>
+          </h1>
+          <p class="text-base leading-relaxed text-foreground/90 mb-8 max-w-xl text-pretty">
+            Martin serves vector and raster tiles from your data — PostGIS tables, MBTiles,
+            PMTiles, and more — with a single Rust binary and a simple config. Fast by default,
+            zero dependencies.
+          </p>
+          <div class="flex flex-wrap gap-3">
+            <a
+              class="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-mono bg-primary text-primary-foreground rounded hover:opacity-90 transition-opacity shadow-lg"
+              href="https://maplibre.org/martin/"
+              rel="noopener noreferrer"
+              target="_blank"
+            >
+              Get started
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+            </a>
+            <a
+              class="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-mono bg-background/80 text-foreground border border-border rounded hover:border-primary/50 transition-colors shadow-lg"
+              href="https://github.com/maplibre/martin"
+              rel="noopener noreferrer"
+              target="_blank"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+              View on GitHub
+            </a>
+            <a
+              class="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-mono bg-background/80 text-foreground border border-border rounded hover:border-primary/50 transition-colors shadow-lg"
+              href="https://github.com/maplibre/martin/releases"
+              rel="noopener noreferrer"
+              target="_blank"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Download
+            </a>
+          </div>
+        </div>
+
+        <!-- Map container: full-height on desktop (with text overlay), fixed height on mobile (below text) -->
+        <div class="relative overflow-hidden sm:h-[clamp(560px,85vh,880px)] h-[clamp(300px,50vh,420px)]">
+          <MapDemo
+            tileSources={tileSources}
+            demoScenarios={scenarios}
+            martinBaseUrl={MARTIN_BASE_URL}
+            client:load
+          />
+          <!-- Gradient and text overlay: desktop only -->
+          <div class="absolute inset-0 bg-gradient-to-b from-background/95 via-background/60 to-transparent pointer-events-none hidden sm:block" />
+          <div class="relative z-10 px-6 pt-12 pb-8 max-w-4xl mx-auto pointer-events-none hidden sm:block">
+            <p class="text-xs font-mono text-accent uppercase tracking-widest mb-4 drop-shadow-md">
+              Open source vector tile server
+            </p>
+            <h1 id="hero-heading" class="text-4xl sm:text-5xl lg:text-6xl font-mono font-bold tracking-tight text-balance leading-tight mb-5 drop-shadow-lg">
+              Your tile server.<br />
+              <span class="text-accent">No ceremony.</span>
+            </h1>
+            <p class="text-base sm:text-lg leading-relaxed text-foreground/90 mb-8 max-w-xl text-pretty drop-shadow-md">
+              Martin serves vector and raster tiles from your data — PostGIS tables, MBTiles,
+              PMTiles, and more — with a single Rust binary and a simple config. Fast by default,
+              zero dependencies.
+            </p>
+            <div class="flex flex-wrap gap-3 pointer-events-auto">
+              <a
+                class="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-mono bg-primary text-primary-foreground rounded hover:opacity-90 transition-opacity shadow-lg"
+                href="https://maplibre.org/martin/"
+                rel="noopener noreferrer"
+                target="_blank"
+              >
+                Get started
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+              </a>
+              <a
+                class="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-mono bg-background/80 backdrop-blur-sm text-foreground border border-border rounded hover:border-primary/50 transition-colors shadow-lg"
+                href="https://github.com/maplibre/martin"
+                rel="noopener noreferrer"
+                target="_blank"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+                View on GitHub
+              </a>
+              <a
+                class="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-mono bg-background/80 backdrop-blur-sm text-foreground border border-border rounded hover:border-primary/50 transition-colors shadow-lg"
+                href="https://github.com/maplibre/martin/releases"
+                rel="noopener noreferrer"
+                target="_blank"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Download
+              </a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Stats -->
+      <section class="border-b border-border px-6 py-6" aria-labelledby="stats-heading">
+        <h2 id="stats-heading" class="sr-only">Martin project statistics</h2>
+        <div class="grid grid-cols-3 gap-x-6 gap-y-8 max-w-4xl mx-auto">
+          {STATS.map(({ value, label }) => (
+            <div class="flex flex-col gap-1" key={label}>
+              <span class="text-2xl font-mono font-bold text-accent">{value}</span>
+              <span class="text-xs text-muted-foreground">{label}</span>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <!-- Features -->
+      <section class="px-6 py-12 border-b border-border" aria-labelledby="features-heading">
+        <div class="max-w-4xl mx-auto">
+          <h2 id="features-heading" class="text-xs font-mono text-muted-foreground uppercase tracking-widest mb-6">
+            Why Martin
+          </h2>
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {features.map(({ icon: iconKey, title, body }) => (
+              <div class="bg-card border border-border rounded-lg p-5 flex flex-col gap-3" key={title}>
+                <div class="flex items-center gap-2.5">
+                  <div class="p-1.5 rounded bg-primary/15 text-accent" set:html={FEATURE_ICONS[iconKey] ?? ''} />
+                  <span class="text-sm font-mono font-semibold text-foreground leading-snug">
+                    {title}
+                  </span>
+                </div>
+                <p class="text-xs leading-relaxed text-muted-foreground">{body}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <!-- Quick start / Install -->
+      <section class="px-6 py-12 border-b border-border" aria-labelledby="install-heading">
+        <div class="max-w-4xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+          <div>
+            <h2 id="install-heading" class="text-xs font-mono text-muted-foreground uppercase tracking-widest mb-3">
+              Quick start
+            </h2>
+            <h3 class="text-xl font-mono font-bold text-foreground mb-3">Up in seconds</h3>
+            <p class="text-sm leading-relaxed text-muted-foreground mb-4">
+              Install with Cargo, Homebrew, Docker, or grab a pre-built binary. Point Martin at
+              your data source and you have a tile server.
+            </p>
+            <a
+              class="inline-flex items-center gap-2 text-sm font-mono text-accent hover:text-foreground transition-colors"
+              href="https://maplibre.org/martin/installation"
+              rel="noopener noreferrer"
+              target="_blank"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+              Full installation guide
+            </a>
+          </div>
+          <InstallBox client:load />
+        </div>
+      </section>
+
+      <!-- Community / Get involved -->
+      <section class="px-6 py-14" aria-labelledby="community-heading">
+        <div class="max-w-4xl mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+          <div>
+            <h2 id="community-heading" class="text-xl font-mono font-bold text-foreground mb-2">Get involved</h2>
+            <p class="text-sm leading-relaxed text-muted-foreground max-w-sm text-pretty">
+              Martin is built by the community. File issues, submit PRs, or join the discussion on
+              GitHub and the MapLibre Slack.
+            </p>
+          </div>
+          <div class="flex flex-wrap gap-3 shrink-0">
+            <a
+              class="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-mono bg-primary text-primary-foreground rounded hover:opacity-90 transition-opacity"
+              href="https://github.com/maplibre/martin/issues"
+              rel="noopener noreferrer"
+              target="_blank"
+            >
+              Open an issue
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+            </a>
+            <a
+              class="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-mono bg-secondary text-secondary-foreground border border-border rounded hover:border-primary/50 transition-colors"
+              href="https://maplibre.org/martin/development/"
+              rel="noopener noreferrer"
+              target="_blank"
+            >
+              Contributing guide
+            </a>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <footer class="border-t border-border px-6 py-5">
+      <div class="max-w-4xl mx-auto flex flex-wrap items-center justify-between gap-3">
+        <div class="flex items-center gap-3">
+          <img alt="Martin tile server" class="h-5 w-auto" src="/logo.svg" width="20" height="20" />
+          <span class="text-xs text-muted-foreground">© MapLibre contributors</span>
+        </div>
+        <nav aria-label="Footer navigation" class="flex items-center gap-5 text-xs font-mono text-muted-foreground">
+          <a
+            class="hover:text-foreground transition-colors"
+            href="https://maplibre.org/martin/introduction.html"
+            rel="noopener noreferrer"
+            target="_blank"
+          >
+            Docs
+          </a>
+          <a
+            class="hover:text-foreground transition-colors"
+            href="https://github.com/maplibre/martin/releases"
+            rel="noopener noreferrer"
+            target="_blank"
+          >
+            Releases
+          </a>
+          <a
+            class="hover:text-foreground transition-colors"
+            href="https://maplibre.org/"
+            rel="noopener noreferrer"
+            target="_blank"
+          >
+            MapLibre
+          </a>
+        </nav>
+      </div>
+    </footer>
+
+  </div>
+</Layout>

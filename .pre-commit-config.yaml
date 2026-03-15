@@ -4,7 +4,8 @@
 # exclusions should be separated with a pipe (|) character and a newline
 exclude: |
   (?x)^(
-      tests/expected/.*
+      tests/expected/.*|
+      demo/frontend/\.astro/.*
   )$
 
 ci:
@@ -61,7 +62,7 @@ repos:
             sed -i "s%ghcr.io/maplibre/martin:[^[:space:]]* %ghcr.io/maplibre/martin:$VERSION %" docs/content/installation.md
             sed -i "s%ghcr.io/maplibre/martin:[^[:space:]]* %ghcr.io/maplibre/martin:$VERSION %" docs/content/run-with-lambda.md
             sed -i "s%ghcr.io/maplibre/martin:[^[:space:]]* %ghcr.io/maplibre/martin:$VERSION %" justfile
-            sed -i "s%ghcr.io/maplibre/martin:[^[:space:]]*%ghcr.io/maplibre/martin:$VERSION%" demo/docker-compose.yml
+            sed -i "s%ghcr.io/maplibre/martin:[^\n]*%ghcr.io/maplibre/martin:$VERSION%" demo/tiles/Dockerfile
             echo "Synced version to $VERSION"
           '
         language: system
@@ -111,7 +112,7 @@ repos:
           # Update package.json and lockfiles only if version changed
           if ! grep -q "\"@biomejs/biome\": \"$VERSION\"" demo/frontend/package.json; then
             sed -i "s%\"@biomejs/biome\": \"[0-9.]*\"%\"@biomejs/biome\": \"$VERSION\"%" demo/frontend/package.json
-            (cd demo/frontend && yarn install --no-immutable)
+            (cd demo/frontend && pnpm install --no-frozen-lockfile)
           fi
 
           if ! grep -q "\"@biomejs/biome\": \"$VERSION\"" martin/martin-ui/package.json; then

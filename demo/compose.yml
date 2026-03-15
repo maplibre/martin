@@ -1,0 +1,58 @@
+services:
+  frontend:
+    build:
+      # Repo root context so COPY graphics can satisfy public/*.svg symlinks (../../../graphics/)
+      context: ..
+      dockerfile: demo/frontend/Dockerfile
+      args:
+        PUBLIC_MARTIN_BASE_URL: /api/martin
+    restart: unless-stopped
+    depends_on:
+      - tiles
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./certs:/etc/ssl/certs
+
+  tiles:
+    build:
+      context: .
+      dockerfile: tiles/Dockerfile
+    image: martin-demo-tiles
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=postgres://postgres@db/db
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: wget --spider http://0.0.0.0:3000/health || exit 1
+      retries: 10
+      interval: 1s
+      start_period: 1s
+      start_interval: 500ms
+
+  db:
+    build:
+      context: ./db
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=db
+      - POSTGRES_USER=postgres
+      - POSTGRES_HOST_AUTH_METHOD=trust
+    volumes:
+      - pgdata:/var/lib/postgresql
+      - ./db/initdb:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: [ "CMD", "pg_isready", "-U", "postgres" ]
+      retries: 5
+      interval: 10s
+      start_interval: 500ms
+      start_period: 20s
+
+volumes:
+  pgdata:
