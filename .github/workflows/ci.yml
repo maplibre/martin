@@ -22,6 +22,8 @@ jobs:
     permissions:
       contents: read
     runs-on: ubuntu-latest
+    needs:
+      - lint-rust # not because it is needed, but because we want less concurrent jobs competing
     steps:
       - name: Checkout sources
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -90,6 +92,8 @@ jobs:
     name: Lint Rust dependencies
     permissions:
       contents: read
+    needs:
+      - lint-rust # not because it is needed, but because we want less concurrent jobs competing
     runs-on: ubuntu-latest
     steps:
       - run: rustup default nightly
@@ -117,7 +121,7 @@ jobs:
   docker-build-test:
     name: Build and test docker images
     runs-on: ubuntu-latest
-    needs: [ build-aarch64-unknown-linux-musl, build-x86_64-unknown-linux-musl, lint-unit-test-js, unit-test-rust, lint-rust, lint-rust-dependencies ]
+    needs: [ build-aarch64-unknown-linux-musl, build-x86_64-unknown-linux-musl ]
     permissions:
       id-token: write
       attestations: write
@@ -868,7 +872,13 @@ jobs:
   done:
     name: CI Finished
     runs-on: ubuntu-latest
-    needs: [ package, docker-build-test ]
+    needs:
+      - package
+      - docker-build-test
+      - unit-test-rust
+      - lint-rust-dependencies
+      - lint-unit-test-js
+      - lint-rust
     if: always()
     permissions: {}
     steps:
