@@ -133,41 +133,24 @@ jobs:
         with: { tool: 'cargo-shear,just' }
 
       - run: just shear
-  musl-build:
-    name: Build ${{ matrix.target }}
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    strategy:
-      fail-fast: true
-      matrix:
-        include:
-          - target: aarch64-unknown-linux-musl
-          - target: x86_64-unknown-linux-musl
-    steps:
-      - run: rustup update stable && rustup default stable
-      - name: Checkout sources
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with: { persist-credentials: false }
-      - uses: taiki-e/install-action@a57ddfbcd928cf9406a78dcc300dacc5d367a547 # v2.68.31
-        with: { tool: "cargo-zigbuild,just" }
-      - name: Install zig
-        uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
-        with: { version: '0.15.1' }
-      - name: Build ${{ matrix.target }}
-        run: just build-release-musl ${{ matrix.target }}
-      - name: Move ${{ matrix.target }} artefacts to the target_releases directory
-        run: just move-artifacts ${{ matrix.target }}
+  build-aarch64-unknown-linux-musl:
+    uses: ./.github/workflows/build-binary.yml
+    with:
+      target: aarch64-unknown-linux-musl
+      os: ubuntu-latest
+      musl: true
 
-      - name: Save build artifacts to build-${{ matrix.target }}
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
-        with:
-          name: build-${{ matrix.target }}
-          path: target_releases/
+  build-x86_64-unknown-linux-musl:
+    uses: ./.github/workflows/build-binary.yml
+    with:
+      target: x86_64-unknown-linux-musl
+      os: ubuntu-latest
+      musl: true
+
   docker-build-test:
     name: Build and test docker images
     runs-on: ubuntu-latest
-    needs: [ musl-build, lint-unit-test-js, unit-test-rust, lint-rust, lint-rust-dependencies ]
+    needs: [ build-aarch64-unknown-linux-musl, build-x86_64-unknown-linux-musl, lint-unit-test-js, unit-test-rust, lint-rust, lint-rust-dependencies ]
     permissions:
       id-token: write
       attestations: write
@@ -388,64 +371,51 @@ jobs:
           subject-digest: ${{ steps.docker_push.outputs.digest }}
           push-to-registry: true
 
-  build:
-    name: Build ${{ matrix.target }}
-    runs-on: ${{ matrix.os }}
-    permissions:
-      contents: read
-    strategy:
-      fail-fast: true
-      matrix:
-        include:
-          - target: aarch64-apple-darwin
-            os: macos-latest # M-series CPU
-          - target: debian-x86_64
-            os: ubuntu-22.04 # downgraded to have lower libc support. Debian-12 (stable at the time of writing) does not support the same version ubuntu does.
-            # TODO: update to ubuntu-latest again once debian 13 launches
-          - target: x86_64-apple-darwin
-            os: macos-15-intel # x64 CPU, available until August 2027, see https://github.com/actions/runner-images/issues/13045
-          - target: x86_64-pc-windows-msvc
-            os: windows-latest
-            ext: '.exe'
-          - target: x86_64-unknown-linux-gnu
-            os: ubuntu-latest
-          - target: aarch64-unknown-linux-gnu
-            os: ubuntu-24.04-arm
-    steps:
-      - run: rustup update stable && rustup default stable
-      - name: Checkout sources
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with: { persist-credentials: false }
-      - uses: taiki-e/install-action@a57ddfbcd928cf9406a78dcc300dacc5d367a547 # v2.68.31
-        with: { tool: "just" }
-      # the macOS x86 runners are 3x slower than all other runners.
-      # We need to cache here to not spend 30 minutes on each build.
-      # We cannot cache the others as well because we only have 10GB of cache
-      - if: matrix.target == 'x86_64-apple-darwin' && github.event_name != 'release' && github.event_name != 'workflow_dispatch'
-        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
-      - name: Rust Versions
-        run: rustc --version && cargo --version
-      - name: Install NASM for rustls/aws-lc-rs on Windows
-        if: runner.os == 'Windows'
-        uses: ilammy/setup-nasm@72793074d3c8cdda771dba85f6deafe00623038b # v1.5.2
+  build-aarch64-apple-darwin:
+    uses: ./.github/workflows/build-binary.yml
+    with:
+      target: aarch64-apple-darwin
+      os: macos-latest # M-series CPU
 
-      - name: Build ${{ matrix.target }}
-        run: just build-release ${{ matrix.target }}
-      - name: Move ${{ matrix.target }} artefacts to the target_releases directory
-        run: just move-artifacts ${{ matrix.target }}
+  build-debian-x86_64:
+    uses: ./.github/workflows/build-binary.yml
+    with:
+      target: debian-x86_64
+      # downgraded to have lower libc support. Debian-12 (stable at the time of writing) does not support the same version ubuntu does.
+      # TODO: update to ubuntu-latest again once debian 13 launches
+      os: ubuntu-22.04
 
-      - name: Save build artifacts to build-${{ matrix.target }}
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
-        with:
-          name: build-${{ matrix.target }}
-          path: target_releases/*
+  build-x86_64-apple-darwin:
+    uses: ./.github/workflows/build-binary.yml
+    with:
+      target: x86_64-apple-darwin
+      os: macos-15-intel # x64 CPU, available until August 2027, see https://github.com/actions/runner-images/issues/13045
+      use_cache: ${{ github.event_name != 'release' && github.event_name != 'workflow_dispatch' }}
+
+  build-x86_64-pc-windows-msvc:
+    uses: ./.github/workflows/build-binary.yml
+    with:
+      target: x86_64-pc-windows-msvc
+      os: windows-latest
+
+  build-x86_64-unknown-linux-gnu:
+    uses: ./.github/workflows/build-binary.yml
+    with:
+      target: x86_64-unknown-linux-gnu
+      os: ubuntu-latest
+
+  build-aarch64-unknown-linux-gnu:
+    uses: ./.github/workflows/build-binary.yml
+    with:
+      target: aarch64-unknown-linux-gnu
+      os: ubuntu-24.04-arm
 
   test-aws-lambda:
     name: Test AWS Lambda
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    needs: [ musl-build ]
+    needs: [ build-x86_64-unknown-linux-musl ]
     steps:
       - name: Checkout sources
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -462,7 +432,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     permissions:
       contents: read
-    needs: [ build ]
+    needs: [ build-x86_64-pc-windows-msvc, build-x86_64-unknown-linux-gnu, build-debian-x86_64 ]
     env:
       # PG_* variables are used by psql
       PGDATABASE: test
@@ -692,7 +662,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    needs: [ build, unit-test-svc-pg ]
+    needs: [ build-x86_64-unknown-linux-gnu, build-debian-x86_64, unit-test-svc-pg ]
     strategy: *svc-strategy
     env: *svc-env
     services:
@@ -795,7 +765,7 @@ jobs:
       attestations: write
       # for writing release artifacts
       contents: write
-    needs: [ lint-unit-test-js, unit-test-rust, lint-rust, lint-rust-dependencies, test-multi-os, test-with-svc, test-aws-lambda, test-publish ]
+    needs: [ lint-unit-test-js, unit-test-rust, lint-rust, lint-rust-dependencies, test-multi-os, test-with-svc, test-aws-lambda, test-publish, build-aarch64-apple-darwin, build-x86_64-apple-darwin, build-aarch64-unknown-linux-gnu, build-aarch64-unknown-linux-musl ]
     steps:
       - name: Checkout sources
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2

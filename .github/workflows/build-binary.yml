@@ -1,0 +1,81 @@
+name: Build Binary
+
+on:
+  workflow_call:
+    inputs:
+      target:
+        description: 'Build target triple'
+        required: true
+        type: string
+      os:
+        description: 'Runner OS label'
+        required: true
+        type: string
+      musl:
+        description: 'Use cargo-zigbuild / zig for a musl static build'
+        required: false
+        type: boolean
+        default: false
+      use_cache:
+        description: 'Enable Rust build cache (Swatinem/rust-cache)'
+        required: false
+        type: boolean
+        default: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build:
+    name: Build ${{ inputs.target }}
+    runs-on: ${{ inputs.os }}
+    permissions:
+      contents: read
+    steps:
+      - run: rustup update stable && rustup default stable
+      - name: Checkout sources
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with: { persist-credentials: false }
+      - name: Install just
+        uses: taiki-e/install-action@a57ddfbcd928cf9406a78dcc300dacc5d367a547 # v2.68.31
+        with: { tool: 'just' }
+      - name: Install cargo-zigbuild (musl only)
+        if: inputs.musl
+        uses: taiki-e/install-action@a57ddfbcd928cf9406a78dcc300dacc5d367a547 # v2.68.31
+        with: { tool: 'cargo-zigbuild' }
+      - name: Install zig (musl only)
+        if: inputs.musl
+        uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
+        with: { version: '0.15.1' }
+      # the macOS x86 runners are 3x slower than all other runners.
+      # We need to cache here to not spend 30 minutes on each build.
+      # We cannot cache the others as well because we only have 10GB of cache
+      - if: inputs.use_cache
+        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+      - name: Rust Versions
+        run: rustc --version && cargo --version
+      - name: Install NASM for rustls/aws-lc-rs on Windows
+        if: runner.os == 'Windows'
+        uses: ilammy/setup-nasm@72793074d3c8cdda771dba85f6deafe00623038b # v1.5.2
+
+      - name: Build ${{ inputs.target }}
+        if: ${{ !inputs.musl }}
+        env:
+          TARGET: ${{ inputs.target }}
+        run: just build-release "$TARGET"
+      - name: Build ${{ inputs.target }} (musl)
+        if: inputs.musl
+        env:
+          TARGET: ${{ inputs.target }}
+        run: just build-release-musl "$TARGET"
+      - name: Move ${{ inputs.target }} artefacts to the target_releases directory
+        env:
+          TARGET: ${{ inputs.target }}
+        run: just move-artifacts "$TARGET"
+
+      - name: Save build artifacts to build-${{ inputs.target }}
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: build-${{ inputs.target }}
+          path: target_releases/
