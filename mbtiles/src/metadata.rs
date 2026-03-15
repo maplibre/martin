@@ -605,8 +605,7 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(
-            compression,
-            None,
+            compression, None,
             "JPEG tiles use internal compression; the compression metadata key should be absent"
         );
     }

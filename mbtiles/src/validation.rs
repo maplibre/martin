@@ -194,6 +194,28 @@ impl Mbtiles {
             }
         }
 
+        tile_info = self.check_format_metadata(tilejson, tile_info);
+        tile_info = self.check_compression_metadata(tilejson, tile_info, tiles_detected);
+
+        if let Some(info) = tile_info {
+            if info.format != Format::Mvt && tilejson.vector_layers.is_some() {
+                warn!(
+                    "{} has vector_layers metadata value, but the tiles are not MVT",
+                    self.filename()
+                );
+            }
+            Ok(Some(info))
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// Cross-check the `format` metadata field against detected tile info.
+    fn check_format_metadata(
+        &self,
+        tilejson: &TileJSON,
+        mut tile_info: Option<TileInfo>,
+    ) -> Option<TileInfo> {
         if let Some(Value::String(fmt)) = tilejson.other.get("format") {
             let file = self.filename();
             match (tile_info, Format::parse(fmt)) {
@@ -222,7 +244,16 @@ impl Mbtiles {
                 }
             }
         }
+        tile_info
+    }
 
+    /// Cross-check the `compression` metadata field against detected tile info.
+    fn check_compression_metadata(
+        &self,
+        tilejson: &TileJSON,
+        mut tile_info: Option<TileInfo>,
+        tiles_detected: bool,
+    ) -> Option<TileInfo> {
         if let Some(Value::String(cmp)) = tilejson.other.get("compression") {
             let file = self.filename();
             match Encoding::parse(cmp) {
@@ -242,7 +273,8 @@ impl Mbtiles {
                         // algorithm", so treat them as equivalent when validating the metadata.
                         // `Internal` means the format compresses data natively (PNG/JPEG/WebP);
                         // `Uncompressed` is the metadata spelling of "no external encoding".
-                        if enc == info.encoding || (!enc.is_encoded() && !info.encoding.is_encoded())
+                        if enc == info.encoding
+                            || (!enc.is_encoded() && !info.encoding.is_encoded())
                         {
                             debug!(
                                 "Detected tile encoding {info} matches metadata.compression '{cmp}' in file {file}"
@@ -255,26 +287,13 @@ impl Mbtiles {
                     }
                     Some(info) => {
                         // tile_info was set from metadata (no actual tiles); apply encoding.
-                        info!(
-                            "Using '{cmp}' tile compression from metadata table in file {file}"
-                        );
+                        info!("Using '{cmp}' tile compression from metadata table in file {file}");
                         tile_info = Some(info.encoding(enc));
                     }
                 },
             }
         }
-
-        if let Some(info) = tile_info {
-            if info.format != Format::Mvt && tilejson.vector_layers.is_some() {
-                warn!(
-                    "{} has vector_layers metadata value, but the tiles are not MVT",
-                    self.filename()
-                );
-            }
-            Ok(Some(info))
-        } else {
-            Ok(None)
-        }
+        tile_info
     }
 
     /// Detects the format of a tile and returns its information if none of the values are `None`

@@ -846,10 +846,7 @@ mod tests {
     #[case(Encoding::Zlib, Some("deflate"))]
     #[case(Encoding::Brotli, Some("br"))]
     #[case(Encoding::Zstd, Some("zstd"))]
-    fn test_metadata_compression_value(
-        #[case] encoding: Encoding,
-        #[case] expected: Option<&str>,
-    ) {
+    fn test_metadata_compression_value(#[case] encoding: Encoding, #[case] expected: Option<&str>) {
         assert_eq!(encoding.metadata_compression_value(), expected);
     }
 }
