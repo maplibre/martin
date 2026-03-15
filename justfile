@@ -113,14 +113,20 @@ build-release target:
         if [[ "{{release_mode}}" == "1" ]]; then
             export CARGO_TARGET_{{shoutysnakecase(target)}}_RUSTFLAGS='-C strip=debuginfo'
         fi
-        cargo build {{if release_mode == '1' {'--release'} else {''}}} --target {{target}} --package mbtiles --locked
-        cargo build {{if release_mode == '1' {'--release'} else {''}}} --target {{target}} --package martin --locked
+        cargo build {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package mbtiles --locked
+        cargo build {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package martin --locked
     fi
 
 # Build debian package
 build-deb output: (cargo-install 'cargo-deb')
+    #!/usr/bin/env bash
+    set -euo pipefail
     sudo apt-get install -y dpkg dpkg-dev liblzma-dev
-    cargo deb -v -p martin --profile {{if release_mode == '1' {'release'} else {'dev'}}} --output {{output}}
+    if [[ "{{release_mode}}" == "1" ]]; then
+        cargo deb -v -p martin --output {{output}}
+    else
+        cargo deb -v -p martin --profile dev --output {{output}}
+    fi
 
 # Build for musl target using zigbuild
 # Set RELEASE_MODE='' to build in debug mode (used for PRs in CI to reduce build time).
@@ -131,8 +137,8 @@ build-release-musl target:
     if [[ "{{release_mode}}" == "1" ]]; then
         export CARGO_TARGET_{{shoutysnakecase(target)}}_RUSTFLAGS='-C strip=debuginfo'
     fi
-    cargo zigbuild {{if release_mode == '1' {'--release'} else {''}}} --target {{target}} --package mbtiles --locked
-    cargo zigbuild {{if release_mode == '1' {'--release'} else {''}}} --target {{target}} --package martin --locked
+    cargo zigbuild {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package mbtiles --locked
+    cargo zigbuild {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package martin --locked
 
 
 # Move build artifacts to target_releases directory
@@ -140,7 +146,7 @@ move-artifacts target:
     #!/usr/bin/env bash
     set -euo pipefail
     mkdir -p target_releases
-    build_dir={{if release_mode == '1' {'release'} else {'debug'}}}
+    build_dir={{if release_mode == '1' {'release'} else {'debug'} }}
 
     if [[ "{{target}}" == "debian-x86_64" ]]; then
         mv target/debian/*.deb target_releases/
