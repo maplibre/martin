@@ -38,33 +38,6 @@ jobs:
     permissions:
       contents: read
     runs-on: ubuntu-latest
-    env:
-      PGDATABASE: test
-      PGHOST: localhost
-      PGUSER: postgres
-      PGPASSWORD: postgres
-    services:
-      postgres:
-        image: postgis/postgis:18-3.6
-        ports:
-          # will assign a random free host port
-          - 5432/tcp
-        # Sadly there is currently no way to pass arguments to the service image other than this hack
-        # See also https://stackoverflow.com/a/62720566/177275
-        options: >-
-          -e POSTGRES_DB=test
-          -e POSTGRES_USER=postgres
-          -e POSTGRES_PASSWORD=postgres
-          -e PGDATABASE=test
-          -e PGUSER=postgres
-          -e PGPASSWORD=postgres
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-          --entrypoint sh
-          postgis/postgis:18-3.6
-          -c "exec docker-entrypoint.sh postgres -c ssl=on -c ssl_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem -c ssl_key_file=/etc/ssl/private/ssl-cert-snakeoil.key"
     steps:
       - run: rustup update stable && rustup default stable
       - uses: BRAINSia/free-disk-space@7048ffbf50819342ac964ef3998a51c2564a8a75 # v2.1.3
@@ -82,10 +55,6 @@ jobs:
         with: { persist-credentials: false }
       - uses: taiki-e/install-action@a57ddfbcd928cf9406a78dcc300dacc5d367a547 # v2.68.31
         with: { tool: 'just' }
-      - name: Init database
-        run: tests/fixtures/initdb.sh
-        env:
-          PGPORT: ${{ job.services.postgres.ports[5432] }}
       - name: Run cargo test
         run: |
           set -x
@@ -94,9 +63,7 @@ jobs:
           cargo test --package mbtiles
           cargo test --package martin
           cargo test --package martin-core
-          just test-pg
         env:
-          DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=require
           AWS_SKIP_CREDENTIALS: 1
           AWS_REGION: eu-central-1
       - run: cargo test --doc
@@ -712,13 +679,9 @@ jobs:
           echo "Same but as base64 to prevent GitHub obfuscation (this is not a secret):"
           echo "$DATABASE_URL" | base64
           set -x
-          cargo test --package martin
           just test-pg
-          cargo clean
         env:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=${{ matrix.sslmode }}
-          AWS_SKIP_CREDENTIALS: 1
-          AWS_REGION: eu-central-1
       - name: Save test output (on error)
         if: failure()
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
