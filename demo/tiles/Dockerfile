@@ -31,6 +31,8 @@ COPY --from=planetiler /build/data/oberbayern.pmtiles /data/oberbayern.pmtiles
 # Copy fonts and rewritten styles from fonts stage
 COPY --from=fonts /out/styles /data/styles
 COPY --from=fonts /out/fonts /data/fonts
+# Sprites for demo (SDF/plain control)
+COPY tiles/sprites/icons /data/sprites/icons
 # Config from build context (context is demo/, so tiles/config.yaml)
 COPY tiles/config.yaml /data/config.yaml
 

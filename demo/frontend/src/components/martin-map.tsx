@@ -1,10 +1,10 @@
-import type { Map as MapLibreMap, Popup } from 'maplibre-gl';
+import type { Map as MapLibreMap, Popup, StyleSpecification } from 'maplibre-gl';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { FilterState } from './demo/FilterPanel';
 import { buildHoveredFeature } from '@/lib/map-hover';
 import { useMapLayers } from '@/lib/use-map-layers';
 import { useMapTour } from '@/lib/use-map-tour';
 import type { DemoLayerEntry, HoveredFeature } from '@/types/demo';
+import type { FilterState } from './demo/FilterPanel';
 
 export type { HoveredFeature } from '@/types/demo';
 
@@ -136,7 +136,7 @@ export default function MartinMap({
           attributionControl: false,
           center: [10, 25],
           container,
-          style: styleObj,
+          style: styleObj as StyleSpecification,
           zoom: 3.2,
         });
       } catch (err) {

@@ -10,10 +10,9 @@ import StylingPanel from '@/components/demo/StylingPanel';
 import TimeSlider from '@/components/demo/TimeSlider';
 import type { MapStylingOptions } from '@/components/martin-map';
 import MartinMap from '@/components/martin-map';
-import type { HoveredFeature } from '@/types/demo';
 import { getSqlDisplay } from '@/lib/demo-utils';
 import { useMediaQueryMinHeight, useMediaQuerySm } from '@/lib/useMediaQuery';
-import type { DemoLayerEntry } from '@/types/demo';
+import type { DemoLayerEntry, HoveredFeature } from '@/types/demo';
 
 interface MapDemoProps {
   tileSources: DemoLayerEntry[];

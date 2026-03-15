@@ -4,9 +4,9 @@ import type {
   Map as MapLibreMap,
 } from 'maplibre-gl';
 import { useCallback, useRef } from 'react';
+import type { FilterState } from '@/components/demo/FilterPanel';
 import { buildMartinTileUrl } from '@/lib/demo-config';
 import type { DemoLayerEntry } from '@/types/demo';
-import type { FilterState } from '@/components/demo/FilterPanel';
 
 function buildTileUrl(
   layer: DemoLayerEntry,

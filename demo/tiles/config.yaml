@@ -17,6 +17,10 @@ styles:
     toner: /data/styles/toner.json
     positron: /data/styles/positron.json
 
+sprites:
+  sources:
+    icons: /data/sprites/icons
+
 fonts:
   paths:
     - /data/fonts

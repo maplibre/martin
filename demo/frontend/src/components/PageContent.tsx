@@ -13,11 +13,10 @@ import TimeSlider from '@/components/demo/TimeSlider';
 import HeroTitleBlock from '@/components/HeroTitleBlock';
 import InstallBox from '@/components/install-box';
 import MartinMap, { type MapStylingOptions } from '@/components/martin-map';
-import type { HoveredFeature } from '@/types/demo';
 import NavTooltip from '@/components/nav-tooltip';
 import { getSqlDisplay } from '@/lib/demo-utils';
 import { useMediaQueryMinHeight, useMediaQuerySm } from '@/lib/useMediaQuery';
-import type { DemoLayerEntry } from '@/types/demo';
+import type { DemoLayerEntry, HoveredFeature } from '@/types/demo';
 
 const ICON_MAP = {
   Database,
