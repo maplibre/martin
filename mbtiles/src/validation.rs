@@ -3,7 +3,7 @@ use std::str::from_utf8;
 
 use enum_display::EnumDisplay;
 use log::{debug, info, warn};
-use martin_tile_utils::{Format, MAX_ZOOM, TileInfo};
+use martin_tile_utils::{Encoding, Format, MAX_ZOOM, TileInfo};
 use serde::Serialize;
 use serde_json::Value;
 use sqlx::sqlite::SqliteRow;
@@ -156,6 +156,7 @@ impl Mbtiles {
     {
         let mut tile_info = None;
         let mut tested_zoom = -1_i64;
+        let mut tiles_detected = false;
 
         // First, pick any random tile
         let query = query!(
@@ -165,6 +166,7 @@ impl Mbtiles {
         if let Some(r) = row {
             tile_info = self.parse_tile(r.zoom_level, r.tile_column, r.tile_row, r.tile_data);
             tested_zoom = r.zoom_level.unwrap_or(-1);
+            tiles_detected = tile_info.is_some();
         }
 
         // Afterward, iterate over tiles in all allowed zooms and check for consistency
@@ -180,7 +182,10 @@ impl Mbtiles {
                     self.parse_tile(Some(z.into()), r.tile_column, r.tile_row, r.tile_data),
                 ) {
                     (_, None) => {}
-                    (None, new) => tile_info = new,
+                    (None, new) => {
+                        tile_info = new;
+                        tiles_detected = true;
+                    }
                     (Some(old), Some(new)) if old == new => {}
                     (Some(old), Some(new)) => {
                         return Err(MbtError::InconsistentMetadata(old, new));
@@ -215,6 +220,47 @@ impl Mbtiles {
                         "Found inconsistency: metadata.format='{fmt}', but tiles were detected as {info:?} in file {file}. Tiles will be returned as {info:?}."
                     );
                 }
+            }
+        }
+
+        if let Some(Value::String(cmp)) = tilejson.other.get("compression") {
+            let file = self.filename();
+            match Encoding::parse(cmp) {
+                None => {
+                    warn!("Unknown compression value in metadata: {cmp}");
+                }
+                Some(enc) => match tile_info {
+                    None => {
+                        // No tiles and no format metadata: encoding alone cannot determine tile info.
+                        info!(
+                            "Metadata table sets tile compression to '{cmp}', but it could not be verified for file {file}"
+                        );
+                    }
+                    Some(info) if tiles_detected => {
+                        // Tile bytes are the source of truth for encoding.
+                        // Both `Uncompressed` and `Internal` mean "no external compression
+                        // algorithm", so treat them as equivalent when validating the metadata.
+                        // `Internal` means the format compresses data natively (PNG/JPEG/WebP);
+                        // `Uncompressed` is the metadata spelling of "no external encoding".
+                        if enc == info.encoding || (!enc.is_encoded() && !info.encoding.is_encoded())
+                        {
+                            debug!(
+                                "Detected tile encoding {info} matches metadata.compression '{cmp}' in file {file}"
+                            );
+                        } else {
+                            warn!(
+                                "Found inconsistency: metadata.compression='{cmp}', but tiles were detected as {info:?} in file {file}. Tiles will be returned as {info:?}."
+                            );
+                        }
+                    }
+                    Some(info) => {
+                        // tile_info was set from metadata (no actual tiles); apply encoding.
+                        info!(
+                            "Using '{cmp}' tile compression from metadata table in file {file}"
+                        );
+                        tile_info = Some(info.encoding(enc));
+                    }
+                },
             }
         }
 

@@ -1,6 +1,7 @@
 use enum_display::EnumDisplay;
-use log::{info, warn};
-use sqlx::SqliteExecutor;
+use log::{debug, info, warn};
+use martin_tile_utils::TileInfo;
+use sqlx::{SqliteExecutor, query};
 
 use self::UpdateZoomType::{GrowOnly, Reset, Skip};
 use crate::MbtError::InvalidZoomValue;
@@ -71,6 +72,42 @@ impl Mbtiles {
         Ok(())
     }
 
+    /// Detect and persist the tile compression type in the metadata table.
+    ///
+    /// Samples a tile from the database to detect the encoding and writes the
+    /// corresponding `compression` metadata value (e.g. `"gzip"`, `"br"`, `"zstd"`).
+    /// If tiles are uncompressed or use only internal (format-level) compression
+    /// (e.g. PNG/JPEG), the `compression` key is removed from the metadata table.
+    pub async fn update_compression<T>(&self, conn: &mut T) -> MbtResult<()>
+    where
+        for<'e> &'e mut T: SqliteExecutor<'e>,
+    {
+        let row = query!("SELECT tile_data FROM tiles WHERE tile_data IS NOT NULL LIMIT 1")
+            .fetch_optional(&mut *conn)
+            .await?;
+
+        if let Some(r) = row {
+            if let Some(tile_data) = r.tile_data {
+                let tile_info = TileInfo::detect(&tile_data);
+                debug!("Detected tile info for compression update: {tile_info}");
+                if let Some(compression) = tile_info.encoding.metadata_compression_value() {
+                    info!("Setting metadata compression to '{compression}'");
+                    self.set_metadata_value(conn, "compression", compression)
+                        .await?;
+                } else {
+                    info!(
+                        "Tiles use no external compression; removing 'compression' from metadata if present"
+                    );
+                    self.delete_metadata_value(conn, "compression").await?;
+                }
+            }
+        } else {
+            debug!("No tiles found, skipping compression metadata update");
+        }
+
+        Ok(())
+    }
+
     /// Update the metadata table with the min and max zoom levels
     /// from the tiles table.
     /// If `grow_only` is true, only update the metadata if the
@@ -99,6 +136,8 @@ impl Mbtiles {
                 self.delete_metadata_value(&mut *conn, "maxzoom").await?;
             }
         }
+
+        self.update_compression(&mut *conn).await?;
 
         Ok(())
     }
