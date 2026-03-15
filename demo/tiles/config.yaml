@@ -6,6 +6,7 @@ postgres:
   auto_publish:
     tables:
       id_columns: [id]
+    functions: {}
 
 pmtiles:
   sources:

@@ -1,7 +1,0 @@
-id: tall-buildings
-label: Tall buildings (50–300 m)
-layerId: buildings
-preset:
-  min_height: 50
-  max_height: 300
-  building_type: ""
