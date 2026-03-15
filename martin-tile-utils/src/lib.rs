@@ -172,21 +172,29 @@ pub enum Encoding {
 }
 
 impl Encoding {
+    /// Recognized values (case-insensitive):
+    /// - `"none"`, `"identity"` → [`Encoding::Uncompressed`]
+    /// - `"gzip"` → [`Encoding::Gzip`]
+    /// - `"deflate"`, `"zlib"` → [`Encoding::Zlib`]
+    /// - `"br"`, `"brotli"` → [`Encoding::Brotli`]
+    /// - `"zstd"` → [`Encoding::Zstd`]
     #[must_use]
     pub fn parse(value: &str) -> Option<Self> {
         Some(match value.to_ascii_lowercase().as_str() {
-            "none" => Self::Uncompressed,
+            "none" | "identity" => Self::Uncompressed,
             "gzip" => Self::Gzip,
-            "zlib" => Self::Zlib,
-            "brotli" => Self::Brotli,
+            "deflate" | "zlib" => Self::Zlib,
+            "br" | "brotli" => Self::Brotli,
             "zstd" => Self::Zstd,
             _ => None?,
         })
     }
 
+    /// Returns `None` for [`Encoding::Uncompressed`] and [`Encoding::Internal`]:
+    /// absence of the `compression` key in the metadata table means no external encoding.
     #[must_use]
-    pub fn content_encoding(&self) -> Option<&str> {
-        match *self {
+    pub fn metadata_compression_value(self) -> Option<&'static str> {
+        match self {
             Self::Uncompressed | Self::Internal => None,
             Self::Gzip => Some("gzip"),
             Self::Zlib => Some("deflate"),
@@ -799,5 +807,33 @@ mod tests {
         let xyz = TileCoord { z: 1, x: 2, y: 3 };
         assert_eq!(format!("{xyz}"), "1,2,3");
         assert_eq!(format!("{xyz:#}"), "1/2/3");
+    }
+
+    #[rstest]
+    #[case("none", Some(Encoding::Uncompressed))]
+    #[case("identity", Some(Encoding::Uncompressed))]
+    #[case("IDENTITY", Some(Encoding::Uncompressed))]
+    #[case("gzip", Some(Encoding::Gzip))]
+    #[case("GZIP", Some(Encoding::Gzip))]
+    #[case("deflate", Some(Encoding::Zlib))]
+    #[case("zlib", Some(Encoding::Zlib))]
+    #[case("br", Some(Encoding::Brotli))]
+    #[case("brotli", Some(Encoding::Brotli))]
+    #[case("zstd", Some(Encoding::Zstd))]
+    #[case("unknown", None)]
+    #[case("", None)]
+    fn test_encoding_parse(#[case] input: &str, #[case] expected: Option<Encoding>) {
+        assert_eq!(Encoding::parse(input), expected);
+    }
+
+    #[rstest]
+    #[case(Encoding::Uncompressed, None)]
+    #[case(Encoding::Internal, None)]
+    #[case(Encoding::Gzip, Some("gzip"))]
+    #[case(Encoding::Zlib, Some("deflate"))]
+    #[case(Encoding::Brotli, Some("br"))]
+    #[case(Encoding::Zstd, Some("zstd"))]
+    fn test_metadata_compression_value(#[case] encoding: Encoding, #[case] expected: Option<&str>) {
+        assert_eq!(encoding.metadata_compression_value(), expected);
     }
 }
