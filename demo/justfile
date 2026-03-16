@@ -13,7 +13,7 @@ build:
 # Build the PMTiles data file locally (requires sufficient RAM).
 # Then rsync to prod, for example:
 #   rsync --verbose --human-readable --partial --progress tiles/data/output.mbtiles user@host:~/martin/demo/tiles/data/
-build-data bound='basemap':
+build-data bound='monaco':
     mkdir -p tiles/data
     docker run --rm --user=$UID -d --cpu-shares 512 --pull always \
       --memory="50G" --memory-swap="50G" -e JAVA_TOOL_OPTIONS="-Xmx25g" \
