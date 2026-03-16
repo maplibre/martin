@@ -1186,33 +1186,46 @@ If you already cloned the repo locally, you can update it to use the new setup. 
 </span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>just<span class="w"> </span><span class="nb">test</span><span class="w">   </span><span class="c1"># verify setup</span>
 </span></code></pre></div>
 <h2 id="working-with-just">Working with Just</h2>
+<p>The project uses a workspaced justfile setup: the root <code>justfile</code> imports sub-modules for
+the web UI (<code>martin/martin-ui/</code>) and the demo (<code>demo/</code>).</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>just<span class="w"> </span><span class="nb">help</span><span class="w">        </span><span class="c1"># common commands</span>
 </span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>just<span class="w"> </span>--list<span class="w">      </span><span class="c1"># all commands</span>
 </span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>just<span class="w"> </span>validate-tools<span class="w">  </span><span class="c1"># check setup</span>
 </span></code></pre></div>
+<h3 id="sub-projects">Sub-projects</h3>
+<p>Sub-project recipes are namespaced with <code>::</code> and can be run from the repository root:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># Web UI (martin/martin-ui/)</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>just<span class="w"> </span>ui::test<span class="w">        </span><span class="c1"># run frontend tests</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>just<span class="w"> </span>ui::biome<span class="w">       </span><span class="c1"># run BiomeJS formatter and linter</span>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>just<span class="w"> </span>ui::type-check<span class="w">  </span><span class="c1"># TypeScript type checking</span>
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>
+</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="c1"># Demo (demo/)</span>
+</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>just<span class="w"> </span>demo::up<span class="w">        </span><span class="c1"># start the demo with Docker Compose</span>
+</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>just<span class="w"> </span>demo::build<span class="w">     </span><span class="c1"># build demo Docker images</span>
+</span></code></pre></div>
 <h3 id="development-workflow">Development workflow</h3>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>just<span class="w"> </span>start<span class="w">       </span><span class="c1"># start test database</span>
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>just<span class="w"> </span>run<span class="w">         </span><span class="c1"># start Martin server</span>
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>just<span class="w"> </span><span class="nb">test</span><span class="w">        </span><span class="c1"># run all tests</span>
-</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>just<span class="w"> </span>fmt<span class="w">         </span><span class="c1"># format code</span>
-</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>just<span class="w"> </span>clippy<span class="w">      </span><span class="c1"># lint code</span>
-</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>just<span class="w"> </span>book<span class="w">        </span><span class="c1"># build documentation</span>
-</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>just<span class="w"> </span>stop<span class="w">        </span><span class="c1"># stop test database</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>just<span class="w"> </span>start<span class="w">       </span><span class="c1"># start test database</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>just<span class="w"> </span>run<span class="w">         </span><span class="c1"># start Martin server</span>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>just<span class="w"> </span><span class="nb">test</span><span class="w">        </span><span class="c1"># run all tests</span>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>just<span class="w"> </span>fmt<span class="w">         </span><span class="c1"># format code</span>
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>just<span class="w"> </span>clippy<span class="w">      </span><span class="c1"># lint code</span>
+</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>just<span class="w"> </span>book<span class="w">        </span><span class="c1"># build documentation</span>
+</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>just<span class="w"> </span>stop<span class="w">        </span><span class="c1"># stop test database</span>
 </span></code></pre></div>
 <h3 id="testing">Testing</h3>
 <p>Martin's test suite includes tests that require PostgreSQL to be running and tests that don't.</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1"># Run tests that don&#39;t require PostgreSQL (no external dependencies)</span>
-</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>just<span class="w"> </span>test-cargo
-</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>
-</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="c1"># Run all tests including PostgreSQL tests (requires PostgreSQL running)</span>
-</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>just<span class="w"> </span><span class="nb">test</span><span class="w">     </span><span class="c1"># runs all tests</span>
-</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>just<span class="w"> </span>test-pg<span class="w">  </span><span class="c1"># starts PostgreSQL and runs only PostgreSQL-requiring tests</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="c1"># Run tests that don&#39;t require PostgreSQL (no external dependencies)</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>just<span class="w"> </span>test-cargo
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="c1"># Run all tests including PostgreSQL tests (requires PostgreSQL running)</span>
+</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>just<span class="w"> </span><span class="nb">test</span><span class="w">     </span><span class="c1"># runs all tests</span>
+</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>just<span class="w"> </span>test-pg<span class="w">  </span><span class="c1"># starts PostgreSQL and runs only PostgreSQL-requiring tests</span>
 </span></code></pre></div>
 <p>The <code>test-pg</code> feature gates tests that require a live PostgreSQL connection.
 This allows developers to run most tests locally without setting up PostgreSQL, while CI and integration testing can enable these tests explicitly.</p>
 <h3 id="pass-arguments-to-commands">Pass arguments to commands</h3>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>just<span class="w"> </span>test-cargo<span class="w"> </span>--<span class="w"> </span>--test<span class="w"> </span>integration_test
-</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>just<span class="w"> </span>run<span class="w"> </span>--config<span class="w"> </span>/path/to/config.yaml
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>just<span class="w"> </span>test-cargo<span class="w"> </span>--<span class="w"> </span>--test<span class="w"> </span>integration_test
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>just<span class="w"> </span>run<span class="w"> </span>--config<span class="w"> </span>/path/to/config.yaml
 </span></code></pre></div>
 
 
