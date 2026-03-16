@@ -1,5 +1,6 @@
 services:
   frontend:
+    image: ghcr.io/maplibre/martin-demo-frontend:latest
     build:
       # Repo root context so COPY graphics can satisfy public/*.svg symlinks (../../../graphics/)
       context: ..
@@ -19,12 +20,14 @@ services:
     build:
       context: .
       dockerfile: tiles/Dockerfile
-    image: martin-demo-tiles
+    image: ghcr.io/maplibre/martin-demo-tiles:latest
     restart: unless-stopped
     ports:
       - "3000:3000"
     environment:
       - DATABASE_URL=postgres://postgres@db/db
+    volumes:
+      - ./tiles/data/oberbayern.pmtiles:/data/oberbayern.pmtiles:ro
     depends_on:
       db:
         condition: service_healthy
@@ -39,6 +42,7 @@ services:
     build:
       context: ./db
       dockerfile: Dockerfile
+    image: ghcr.io/maplibre/martin-demo-db:latest
     restart: unless-stopped
     environment:
       - POSTGRES_DB=db

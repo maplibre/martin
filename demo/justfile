@@ -10,6 +10,28 @@ dockercompose := `if docker-compose --version &> /dev/null; then echo "docker-co
 build:
     {{dockercompose}} build
 
+# Build the PMTiles data file locally (requires sufficient RAM).
+# Then rsync to prod, for example:
+#   rsync -avz tiles/data/oberbayern.pmtiles user@host:<repo_root>/demo/tiles/data/
+build-data:
+    mkdir -p tiles/data
+    docker run --rm \
+      -v "$(pwd)/tiles/data:/data" \
+      ghcr.io/onthegomap/planetiler:0.10.1 \
+      --download --download-threads=10 --download-chunk-size-mb=1000 \
+      --free_natural_earth_after_read=true --free_water_polygons_after_read=true --free_lake_centerlines_after_read=true \
+      --languages=en \
+      --area=oberbayern --bound=oberbayern \
+      --output=/data/oberbayern.pmtiles \
+      --tile_format=mlt --tile_compression=none \
+      --mlt_advanced=true --mlt_fastpfor=true --mlt_fsst=true \
+      --mlt_reorder_features=true --mlt_tessellate_polygons=false --mlt_shared_dict=false \
+      --exclude_ids=true --skip_filled_tiles=true --transportation_name_brunnel=true \
+      "--exclude_layers=building,housenumber,poi,transportation_name,water_name,aerodrome_label,aeroway,mountain_peak,place,park" \
+      --min_feature_size=2 --min_feature_size_at_max_zoom=0.25 \
+      --simplify_tolerance=0.2 --simplify_tolerance_at_max_zoom=0.125 \
+      --max_zoom=13
+
 clean:
     rm -rf frontend/node_modules
 
