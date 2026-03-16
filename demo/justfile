@@ -12,8 +12,8 @@ build:
 
 # Build the PMTiles data file locally (requires sufficient RAM).
 # Then rsync to prod, for example:
-#   rsync --verbose --human-readable --partial --progress tiles/data/output.pmtiles user@host:~/martin/demo/tiles/data/
-build-data bound='oberbayern':
+#   rsync --verbose --human-readable --partial --progress tiles/data/output.mbtiles user@host:~/martin/demo/tiles/data/
+build-data bound='basemap':
     mkdir -p tiles/data
     docker run --rm --user=$UID -d --cpu-shares 512 --pull always \
       --memory="50G" --memory-swap="50G" -e JAVA_TOOL_OPTIONS="-Xmx25g" \
@@ -24,7 +24,7 @@ build-data bound='oberbayern':
       --languages=en \
       --Xmx25g --nodemap-type=array --storage=mmap \
       --area={{bound}} --bound={{bound}} --force=true \
-      --output=/data/output.pmtiles \
+      --output=/data/output.mbtiles \
       --tile_format=mlt --tile_compression=none \
       --mlt_advanced=true --mlt_fastpfor=true --mlt_fsst=true \
       --mlt_reorder_features=true --mlt_tessellate_polygons=false --mlt_shared_dict=false \

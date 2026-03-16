@@ -27,7 +27,7 @@ services:
     environment:
       - DATABASE_URL=postgres://postgres@db/db
     volumes:
-      - ./tiles/data/output.pmtiles:/mnt/output.pmtiles:ro
+      - ./tiles/data/output.mbtiles:/mnt/output.mbtiles:ro
     depends_on:
       db:
         condition: service_healthy

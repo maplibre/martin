@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Download toner/positron style JSONs and fonts; rewrite styles (oberbayern, MLT, martin glyphs)."""
+"""Download toner/positron style JSONs and fonts; rewrite styles (basemap, MLT, martin glyphs)."""
 import json
 import urllib.error
 import urllib.request
@@ -42,8 +42,9 @@ def main():
     for name, url in STYLES:
         path = f"{STYLES_DIR}/{name}.json"
         d = json.loads(download(url).decode())
-        d["sources"]["openmaptiles"]["url"] = "../oberbayern"
-        d["sources"]["openmaptiles"]["encoding"] = "mlt"
+        d["sources"]["openmaptiles"]["url"] = "../basemap"
+        # FIXME
+        #d["sources"]["openmaptiles"]["encoding"] = "mlt"
         d["glyphs"] = "../font/{fontstack}/{range}"
         with open(path, "w") as f:
             json.dump(d, f, indent=1)
