@@ -147,13 +147,6 @@ just demo::up        # start the demo with Docker Compose
 just demo::build     # build demo Docker images
 ```
 
-You can also `cd` into a sub-project directory and run `just` recipes directly:
-
-```bash
-cd martin/martin-ui && just test
-cd demo && just up
-```
-
 ### Development workflow
 
 ```bash
