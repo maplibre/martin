@@ -123,10 +123,35 @@ just test   # verify setup
 
 ## Working with Just
 
+The project uses a workspaced justfile setup: the root `justfile` imports sub-modules for
+the web UI (`martin/martin-ui/`) and the demo (`demo/`).
+
 ```bash
 just help        # common commands
 just --list      # all commands
 just validate-tools  # check setup
+```
+
+### Sub-projects
+
+Sub-project recipes are namespaced with `::` and can be run from the repository root:
+
+```bash
+# Web UI (martin/martin-ui/)
+just ui::test        # run frontend tests
+just ui::biome       # run BiomeJS formatter and linter
+just ui::type-check  # TypeScript type checking
+
+# Demo (demo/)
+just demo::up        # start the demo with Docker Compose
+just demo::build     # build demo Docker images
+```
+
+You can also `cd` into a sub-project directory and run `just` recipes directly:
+
+```bash
+cd martin/martin-ui && just test
+cd demo && just up
 ```
 
 ### Development workflow

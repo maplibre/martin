@@ -32,9 +32,9 @@ jobs:
         with: { tool: 'just' }
       - run: npm clean-install --no-fund
         working-directory: martin/martin-ui
-      - run: just biomejs-martin-ui
-      - run: just test-frontend
-      - run: just type-check
+      - run: just ui::biome
+      - run: just ui::test
+      - run: just ui::type-check
   unit-test-rust:
     name: Unit test the server
     permissions:
