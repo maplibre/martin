@@ -2,6 +2,12 @@
 
 set shell := ['bash', '-c']
 
+# Import demo sub-justfile as a module
+mod demo 'demo/justfile'
+
+# Import martin-ui sub-justfile as a module
+mod ui 'martin/martin-ui/justfile'
+
 # How to call the current just executable.
 # Note that just_executable() may have `\` in Windows paths, so we need to quote it.
 just := quote(just_executable())
@@ -58,19 +64,13 @@ bench-http:  (cargo-install 'oha')
 bench-server: start
     cargo run --release -- tests/fixtures/mbtiles tests/fixtures/pmtiles
 
-# Run biomejs on the dashboard (martin/martin-ui)
-[working-directory: 'martin/martin-ui']
-biomejs-martin-ui:
-    npm run format
-    npm run lint
-
 # Run integration tests and save its output as the new expected output (ordering is important)
 bless:
     #!/usr/bin/env bash
     set -euo pipefail
 
     echo "Blessing unit tests"
-    for target in restart clean-test bless-insta bless-frontend bless-pg; do
+    for target in restart clean-test bless-insta ui::bless bless-pg; do
       echo "::group::just $target"
       {{quote(just_executable())}} $target
       echo "::endgroup::"
@@ -78,12 +78,6 @@ bless:
 
     echo "Blessing integration tests"
     {{quote(just_executable())}} bless-int
-
-# Bless the frontend tests
-[working-directory: 'martin/martin-ui']
-bless-frontend:
-    npm clean-install
-    npm run test:update-snapshots
 
 # Run integration tests and save its output as the new expected output
 bless-insta *args:  (cargo-install 'cargo-insta')
@@ -174,12 +168,9 @@ check-doc:  (docs-build)
 ci-test: env-info restart test-fmt clippy check-doc test check && assert-git-is-clean
 
 # Perform  cargo clean  to delete all build files
-clean: clean-test stop && clean-martin-ui
-    cargo clean
-
-clean-martin-ui:
-    rm -rf martin/martin-ui/dist martin/martin-ui/node_modules
+clean: clean-test stop ui::clean
     cargo clean -p static-files
+    cargo clean
 
 # Run cargo clippy to lint the code
 clippy *args:
@@ -320,7 +311,7 @@ install-dependencies backend='vulkan':
     @echo "rendering styles is not currently supported on windows"
 
 # Run cargo fmt and cargo clippy
-lint: fmt clippy biomejs-martin-ui type-check
+lint: fmt clippy ui::biome ui::type-check
 
 # Run mbtiles command
 mbtiles *args:
@@ -403,7 +394,7 @@ shear:
     # https://github.com/Boshen/cargo-shear/pull/386
 
 # Run all tests using a test database
-test: start (test-cargo "--all-targets") test-pg test-doc test-frontend test-int
+test: start (test-cargo "--all-targets") test-pg test-doc ui::test test-int
 
 # Run PostgreSQL-requiring tests only
 test-pg: start
@@ -422,11 +413,6 @@ test-doc *args:
 # Test code formatting
 test-fmt: (cargo-install 'cargo-sort') && (fmt-toml '--check' '--check-format')
     cargo fmt --all -- --check
-
-# Run frontend tests
-[working-directory: 'martin/martin-ui']
-test-frontend:
-    npm run test
 
 # Run integration tests
 test-int: clean-test install-sqlx start-pmtiles-server
@@ -522,11 +508,6 @@ test-ssl-cert: start-ssl-cert
     {{just}} clean-test
     {{just}} test-doc
     tests/test.sh
-
-# Run typescript typechecking on the frontend
-[working-directory: 'martin/martin-ui']
-type-check:
-    npm run type-check
 
 # Update all dependencies, including breaking changes. Requires nightly toolchain (install with `rustup install nightly`)
 update:

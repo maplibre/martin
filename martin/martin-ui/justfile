@@ -1,0 +1,28 @@
+#!/usr/bin/env just --justfile
+
+set shell := ['bash', '-c']
+
+@_default:
+    just --list
+
+# Run BiomeJS formatter and linter
+biome:
+    npm run format
+    npm run lint
+
+# Update frontend test snapshots
+bless:
+    npm clean-install
+    npm run test:update-snapshots
+
+# Clean build artifacts
+clean:
+    rm -rf dist node_modules
+
+# Run frontend tests
+test:
+    npm run test
+
+# Run TypeScript type checking
+type-check:
+    npm run type-check
