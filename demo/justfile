@@ -32,7 +32,8 @@ build-data:
       "--exclude_layers=building,housenumber,poi,transportation_name,water_name,aerodrome_label,aeroway,mountain_peak,place,park" \
       --min_feature_size=2 --min_feature_size_at_max_zoom=0.25 \
       --simplify_tolerance=0.2 --simplify_tolerance_at_max_zoom=0.125 \
-      --max_zoom=13
+      --maxzoom=13 \
+      --render_maxzoom=14
 
 clean:
     rm -rf frontend/node_modules
