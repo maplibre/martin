@@ -12,7 +12,7 @@ build:
 
 # Build the PMTiles data file locally (requires sufficient RAM).
 # Then rsync to prod, for example:
-#   rsync -avz tiles/data/output.pmtiles user@host:<repo_root>/demo/tiles/data/
+#   rsync --verbose --human-readable --partial --progress tiles/data/output.pmtiles user@host:~/martin/demo/tiles/data/
 build-data bound='oberbayern':
     mkdir -p tiles/data
     docker run --rm --user=$UID -d --cpu-shares 512 --pull always \
