@@ -21,6 +21,11 @@ on:
         required: false
         type: boolean
         default: false
+      release_mode:
+        description: 'Build in release mode with debug info stripped. Set to false for PR builds to reduce build time.'
+        required: false
+        type: boolean
+        default: true
 
 defaults:
   run:
@@ -32,6 +37,10 @@ jobs:
     runs-on: ${{ inputs.os }}
     permissions:
       contents: read
+    env:
+      # Set RELEASE_MODE to '1' for release builds (push to main, releases, and manual workflow dispatches),
+      # or empty for PR debug builds to reduce CI build time.
+      RELEASE_MODE: ${{ inputs.release_mode && '1' || '' }}
     steps:
       - run: rustup update stable && rustup default stable
       - name: Checkout sources
