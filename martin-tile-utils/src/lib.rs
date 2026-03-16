@@ -308,7 +308,7 @@ impl From<Format> for TileInfo {
 impl Display for TileInfo {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.format.content_type())?;
-        if let Some(encoding) = self.encoding.content_encoding() {
+        if let Some(encoding) = self.encoding.metadata_compression_value() {
             write!(f, "; encoding={encoding}")?;
         } else if self.encoding != Encoding::Uncompressed {
             f.write_str("; uncompressed")?;
