@@ -10,7 +10,7 @@ postgres:
 
 pmtiles:
   sources:
-    oberbayern: /data/output.pmtiles
+    oberbayern: /mnt/output.pmtiles
 
 styles:
   sources:
