@@ -12,17 +12,19 @@ build:
 
 # Build the PMTiles data file locally (requires sufficient RAM).
 # Then rsync to prod, for example:
-#   rsync -avz tiles/data/oberbayern.pmtiles user@host:<repo_root>/demo/tiles/data/
+#   rsync -avz tiles/data/output.pmtiles user@host:<repo_root>/demo/tiles/data/
 build-data:
     mkdir -p tiles/data
-    docker run --rm \
+    docker run --rm --user=$UID -d --cpu-shares 512 --pull always \
+      --memory="50G" --memory-swap="50G" -e JAVA_TOOL_OPTIONS="-Xmx25g" \
       -v "$(pwd)/tiles/data:/data" \
-      ghcr.io/onthegomap/planetiler:0.10.1 \
+      ghcr.io/onthegomap/planetiler:latest \
       --download --download-threads=10 --download-chunk-size-mb=1000 \
       --free_natural_earth_after_read=true --free_water_polygons_after_read=true --free_lake_centerlines_after_read=true \
       --languages=en \
-      --area=oberbayern --bound=oberbayern \
-      --output=/data/oberbayern.pmtiles \
+      --Xmx25g --nodemap-type=array --storage=mmap \
+      --area=oberbayern --bound=oberbayern --force=true \
+      --output=/data/output.pmtiles \
       --tile_format=mlt --tile_compression=none \
       --mlt_advanced=true --mlt_fastpfor=true --mlt_fsst=true \
       --mlt_reorder_features=true --mlt_tessellate_polygons=false --mlt_shared_dict=false \

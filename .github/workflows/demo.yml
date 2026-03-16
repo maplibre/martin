@@ -36,4 +36,4 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Push demo images
         if: github.event_name != 'pull_request'
-        run: cd demo && docker compose push
+        run: cd demo && just push
