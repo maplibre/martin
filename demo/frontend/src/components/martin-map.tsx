@@ -299,12 +299,9 @@ export default function MartinMap({
           </div>
         )}
         {tileSourceError && !mapLoadError && !webglError && (
-          <div
-            className="absolute bottom-2 left-1/2 -translate-x-1/2 rounded bg-foreground/90 px-3 py-2 text-[11px] text-background shadow"
-            role="status"
-          >
+          <output className="absolute bottom-2 left-1/2 -translate-x-1/2 rounded bg-foreground/90 px-3 py-2 text-[11px] text-background shadow">
             Tiles are not loading. Check connection to the tile server.
-          </div>
+          </output>
         )}
       </div>
     </div>
