@@ -10,6 +10,9 @@ just := quote(just_executable())
 # Use `CI=true just ci-test` to run the same tests as in GitHub CI.
 # Use `just env-info` to see the current values of RUSTFLAGS and RUSTDOCFLAGS
 ci_mode := if env('CI', '') != '' {'1'} else {''}
+# Build in release mode by default. Set RELEASE_MODE='' to build in debug mode (used for PRs in CI to reduce build time).
+# Use `RELEASE_MODE= just build-release <target>` to build in debug mode locally.
+release_mode := if env('RELEASE_MODE', '1') != '' {'1'} else {''}
 # cargo-binstall needs a workaround due to caching
 # ci_mode might be manually set by user, so re-check the env var
 binstall_args := if env('CI', '') != '' {'--no-confirm --no-track --disable-telemetry'} else {''}
@@ -67,7 +70,7 @@ bless:
     set -euo pipefail
 
     echo "Blessing unit tests"
-    for target in restart clean-test bless-insta bless-frontend; do
+    for target in restart clean-test bless-insta bless-frontend bless-pg; do
       echo "::group::just $target"
       {{quote(just_executable())}} $target
       echo "::endgroup::"
@@ -92,7 +95,13 @@ bless-int:
     tests/test.sh
     rm -rf tests/expected && mv tests/output tests/expected
 
-# Build release binaries for a target with debug info stripped
+bless-pg: start  (cargo-install 'cargo-insta')
+    cargo insta test --accept --features test-pg --no-default-features --test pg_function_source_test --test pg_server_test --test pg_table_source_test
+    cargo insta test --accept --features test-pg --no-default-features --package martin --lib
+    cargo insta test --accept --features test-pg --package martin-core --no-default-features --lib
+
+# Build binaries for a target. In release mode (default), strips debug info.
+# Set RELEASE_MODE='' to build in debug mode (used for PRs in CI to reduce build time).
 build-release target:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -101,43 +110,55 @@ build-release target:
         {{quote(just_executable())}} build-deb target/debian/debian-x86_64.deb
     else
         rustup target add {{target}}
-        export CARGO_TARGET_{{shoutysnakecase(target)}}_RUSTFLAGS='-C strip=debuginfo'
-        cargo build --release --target {{target}} --package mbtiles --locked
-        cargo build --release --target {{target}} --package martin --locked
+        if [[ "{{release_mode}}" == "1" ]]; then
+            export CARGO_TARGET_{{shoutysnakecase(target)}}_RUSTFLAGS='-C strip=debuginfo'
+        fi
+        cargo build {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package mbtiles --locked
+        cargo build {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package martin --locked
     fi
 
 # Build debian package
 build-deb output: (cargo-install 'cargo-deb')
+    #!/usr/bin/env bash
+    set -euo pipefail
     sudo apt-get install -y dpkg dpkg-dev liblzma-dev
-    cargo deb -v -p martin --output {{output}}
+    if [[ "{{release_mode}}" == "1" ]]; then
+        cargo deb -v -p martin --output {{output}}
+    else
+        cargo deb -v -p martin --profile dev --output {{output}}
+    fi
 
 # Build for musl target using zigbuild
+# Set RELEASE_MODE='' to build in debug mode (used for PRs in CI to reduce build time).
 build-release-musl target:
     #!/usr/bin/env bash
     set -euo pipefail
     rustup target add {{target}}
-    export CARGO_TARGET_{{shoutysnakecase(target)}}_RUSTFLAGS='-C strip=debuginfo'
-    cargo zigbuild --release --target {{target}} --package mbtiles --locked
-    cargo zigbuild --release --target {{target}} --package martin --locked
+    if [[ "{{release_mode}}" == "1" ]]; then
+        export CARGO_TARGET_{{shoutysnakecase(target)}}_RUSTFLAGS='-C strip=debuginfo'
+    fi
+    cargo zigbuild {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package mbtiles --locked
+    cargo zigbuild {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package martin --locked
 
 
-# Move release build artifacts to target_releases directory
+# Move build artifacts to target_releases directory
 move-artifacts target:
     #!/usr/bin/env bash
     set -euo pipefail
     mkdir -p target_releases
+    build_dir={{if release_mode == '1' {'release'} else {'debug'} }}
 
     if [[ "{{target}}" == "debian-x86_64" ]]; then
         mv target/debian/*.deb target_releases/
     else
         if [[ "{{target}}" == "x86_64-pc-windows-msvc" ]]; then
-            mv target/{{target}}/release/martin.exe target_releases/
-            mv target/{{target}}/release/martin-cp.exe target_releases/
-            mv target/{{target}}/release/mbtiles.exe target_releases/
+            mv target/{{target}}/"$build_dir"/martin.exe target_releases/
+            mv target/{{target}}/"$build_dir"/martin-cp.exe target_releases/
+            mv target/{{target}}/"$build_dir"/mbtiles.exe target_releases/
         else
-            mv target/{{target}}/release/martin target_releases/
-            mv target/{{target}}/release/martin-cp target_releases/
-            mv target/{{target}}/release/mbtiles target_releases/
+            mv target/{{target}}/"$build_dir"/martin target_releases/
+            mv target/{{target}}/"$build_dir"/martin-cp target_releases/
+            mv target/{{target}}/"$build_dir"/mbtiles target_releases/
         fi
     fi
 
@@ -205,7 +226,7 @@ debug-page *args: start
 
 # Build and run martin docker image
 docker-run *args:
-    docker run -it --rm --net host -e DATABASE_URL -v $PWD/tests:/tests ghcr.io/maplibre/martin:1.3.1 {{args}}
+    docker run -it --rm --net host -e DATABASE_URL -v $PWD/tests:/tests ghcr.io/maplibre/martin:1.4.0 {{args}}
 
 # Build and run martin documentation
 docs:
@@ -216,7 +237,7 @@ docs-build:
     docker run --rm -v ${PWD}:/docs zensical/zensical:latest build
 # Print environment info
 env-info:
-    @echo "Running {{if ci_mode == '1' {'in CI mode'} else {'in dev mode'} }} on {{os()}} / {{arch()}}"
+    @echo "Running {{if ci_mode == '1' {'in CI mode'} else {'in dev mode'} }} / {{if release_mode == '1' {'release mode'} else {'debug mode'} }} on {{os()}} / {{arch()}}"
     @echo "PWD {{justfile_directory()}}"
     {{just}} --version
     rustc --version
@@ -386,9 +407,9 @@ test: start (test-cargo "--all-targets") test-pg test-doc test-frontend test-int
 
 # Run PostgreSQL-requiring tests only
 test-pg: start
-    cargo test --features test-pg --test pg_function_source_test --test pg_server_test --test pg_table_source_test
-    cargo test --features test-pg --package martin --lib
-    cargo test --features test-pg --package martin-core --lib
+    cargo test --features test-pg --no-default-features --test pg_function_source_test --test pg_server_test --test pg_table_source_test
+    cargo test --features test-pg --no-default-features --package martin --lib
+    cargo test --features test-pg --package martin-core --no-default-features --lib
 
 # Run Rust unit tests (cargo test)
 test-cargo *args:
@@ -558,6 +579,15 @@ validate-tools:
         fi
     fi
 
+    # Check FreeBSD-specific tools
+    if [[ "$OSTYPE" == "freebsd"* ]]; then
+        # This should eventually go away if the upstream pbf_glyph_tools can vendor the source artifacts
+        # (no more need for protoc). Other platforms automatically install a vendored binary.
+        if ! command -v protoc >/dev/null 2>&1; then
+            missing_tools+=("protoc")
+        fi
+    fi
+
     # Report results
     if [[ ${#missing_tools[@]} -eq 0 ]]; then
         echo "✓ All required tools are installed"
@@ -565,6 +595,7 @@ validate-tools:
         echo "✗ Missing tools: ${missing_tools[*]}"
         echo "  Ubuntu/Debian: sudo apt install -y jq file curl grep sqlite3-tools gdal-bin"
         echo "  macOS: brew install jq file curl grep sqlite gdal gsed"
+        echo "  FreeBSD: pkg install jq curl sqlite3 gdal protobuf"
         echo ""
         exit 1
     fi

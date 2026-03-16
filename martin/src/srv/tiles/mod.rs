@@ -41,4 +41,40 @@ pub mod tests {
             Ok(self.data.clone())
         }
     }
+
+    /// A test source that serves pre-compressed MVT data with a configurable encoding.
+    #[derive(Debug, Clone)]
+    pub struct CompressedTestSource {
+        pub id: &'static str,
+        pub tj: TileJSON,
+        pub data: TileData,
+        pub encoding: Encoding,
+    }
+
+    #[async_trait]
+    impl Source for CompressedTestSource {
+        fn get_id(&self) -> &str {
+            self.id
+        }
+
+        fn get_tilejson(&self) -> &TileJSON {
+            &self.tj
+        }
+
+        fn get_tile_info(&self) -> TileInfo {
+            TileInfo::new(Format::Mvt, self.encoding)
+        }
+
+        fn clone_source(&self) -> BoxedSource {
+            Box::new(self.clone())
+        }
+
+        async fn get_tile(
+            &self,
+            _xyz: TileCoord,
+            _url_query: Option<&UrlQuery>,
+        ) -> MartinCoreResult<TileData> {
+            Ok(self.data.clone())
+        }
+    }
 }

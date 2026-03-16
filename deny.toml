@@ -67,6 +67,9 @@ deny = [
     { crate = "libdeflate-sys@1.25.0", reason = "does not compile under musl" },
     { crate = "insta@1.45.0", reason = "fails cargo test -- diff_and_patch" },
     { crate = "insta@1.45.1", reason = "fails cargo test -- diff_and_patch" },
+    { crate = "freetype-sys@0.23.0", reason = "libpng fails to compile (missing zlib.h) on musl and Windows" },
+    { crate = "freetype-rs@0.38.0", reason = "depends on freetype-sys@0.23.0 which fails to compile on musl and Windows" },
+    { crate = "sdf_glyph_renderer@1.1.0", reason = "depends on freetype-rs@0.38.0 which fails to compile on musl and Windows" },
 ]
 
 [sources]
