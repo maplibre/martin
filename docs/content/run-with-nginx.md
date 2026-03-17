@@ -14,6 +14,21 @@ You can [find an example NGINX configuration file here](https://github.com/mapli
 If you are running Martin behind NGINX proxy, you may want to rewrite the request URL to properly handle tile URLs in [TileJSON](using.md#source-tilejson).
 
 ```nginx
+location ~ /tiles/(?<fwd_path>.*) {
+    proxy_set_header  X-Rewrite-URL $uri;
+    proxy_set_header  X-Forwarded-Host $host:$server_port;
+    proxy_set_header  X-Forwarded-Proto $scheme;
+    proxy_redirect    off;
+    proxy_pass        http://martin:3000/$fwd_path$is_args$args;
+}
+```
+## Serving Fonts
+
+Font names may contain spaces (e.g. `Open Sans Regular`), which must be
+URL-encoded as `%20` when proxied through NGINX. Without this block,
+font requests will result in HTTP 400 errors.
+
+```nginx
 location ~ /font/(?<fwd_path>.*) {
     proxy_set_header  X-Rewrite-URL $uri;
     proxy_set_header  X-Forwarded-Host $host:$server_port;
@@ -22,7 +37,6 @@ location ~ /font/(?<fwd_path>.*) {
     proxy_pass        http://martin:3000/$fwd_path$is_args$args;
 }
 ```
-
 ### Caching tiles
 
 You can also use NGINX to cache tiles. In the example, the maximum cache size is set to 10GB, and caching time is set to 1 hour for responses with codes 200, 204, and 302 and 1 minute for responses with code 404.
