@@ -1,4 +1,4 @@
-# Demo tiles service: Oberbayern pmtiles + Toner/Positron styles + fonts + Postgres
+# Demo tiles service: mbtiles + Toner/Positron styles + fonts + Postgres
 listen_addresses: "0.0.0.0:3000"
 
 postgres:
@@ -8,7 +8,7 @@ postgres:
       id_columns: [id]
     functions: {}
 
-pmtiles:
+mbtiles:
   sources:
     basemap: /mnt/output.mbtiles
 
