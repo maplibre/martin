@@ -22,19 +22,13 @@ location ~ /tiles/(?<fwd_path>.*) {
     proxy_pass        http://martin:3000/$fwd_path$is_args$args;
 }
 ```
-## Serving Fonts
-
-Font names may contain spaces (e.g. `Open Sans Regular`), which must be
-URL-encoded as `%20` when proxied through NGINX. Without this block,
-font requests will result in HTTP 400 errors.
+### Serving Fonts
+If your font names contain spaces (e.g., Open Sans), NGINX may decode the %20 in the URL into a literal space before forwarding it, causing Martin to return an HTTP 400 Bad Request. To prevent this, use a specific location block that preserves the encoding:
 
 ```nginx
-location ~ /font/(?<fwd_path>.*) {
-    proxy_set_header  X-Rewrite-URL $uri;
-    proxy_set_header  X-Forwarded-Host $host:$server_port;
-    proxy_set_header  X-Forwarded-Proto $scheme;
-    proxy_redirect    off;
-    proxy_pass        http://martin:3000/$fwd_path$is_args$args;
+location ~* /font/(?<fwd_path>.*) {
+    # Use the captured path without an extra slash to preserve %20
+    proxy_pass http://martin:3000/font/$fwd_path$is_args$args;
 }
 ```
 ### Caching tiles
