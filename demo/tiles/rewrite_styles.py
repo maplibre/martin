@@ -43,7 +43,8 @@ def main():
         path = f"{STYLES_DIR}/{name}.json"
         d = json.loads(download(url).decode())
         d["sources"]["openmaptiles"]["url"] = "/api/martin/basemap"
-        d["sources"]["openmaptiles"]["encoding"] = "mlt"
+        # FIXME
+        #d["sources"]["openmaptiles"]["encoding"] = "mlt"
         d["glyphs"] = "../font/{fontstack}/{range}"
         with open(path, "w") as f:
             json.dump(d, f, indent=1)

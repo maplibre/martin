@@ -25,15 +25,16 @@ build-data bound='monaco':
       --Xmx25g --nodemap-type=array --storage=mmap \
       --area={{bound}} --bound={{bound}} --force=true \
       --output=/data/output.mbtiles \
-      --tile_format=mlt --tile_compression=none \
-      --mlt_advanced=true --mlt_fastpfor=true --mlt_fsst=true \
-      --mlt_reorder_features=true --mlt_tessellate_polygons=false --mlt_shared_dict=false \
       --exclude_ids=true --skip_filled_tiles=true --transportation_name_brunnel=true \
-      "--exclude_layers=building,housenumber,poi,transportation_name,water_name,aerodrome_label,aeroway,mountain_peak,place,park" \
+      "--exclude_layers=housenumber,poi,transportation_name,water_name,aerodrome_label,aeroway,mountain_peak,place,park" \
       --min_feature_size=2 --min_feature_size_at_max_zoom=0.25 \
       --simplify_tolerance=0.2 --simplify_tolerance_at_max_zoom=0.125 \
       --maxzoom=13 \
-      --render_maxzoom=14
+      --render_maxzoom=13
+      # FIXME: Uncomment once production ready
+      #--tile_format=mlt --tile_compression=none \
+      #--mlt_advanced=true --mlt_fastpfor=true --mlt_fsst=true \
+      #--mlt_reorder_features=true --mlt_tessellate_polygons=false --mlt_shared_dict=false \
 
 clean:
     rm -rf frontend/node_modules
