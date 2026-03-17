@@ -19,7 +19,6 @@ location ~ /font/(?<fwd_path>.*) {
     proxy_set_header  X-Forwarded-Host $host:$server_port;
     proxy_set_header  X-Forwarded-Proto $scheme;
     proxy_redirect    off;
-
     proxy_pass        http://martin:3000/$fwd_path$is_args$args;
 }
 ```
