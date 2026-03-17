@@ -14,7 +14,7 @@ You can [find an example NGINX configuration file here](https://github.com/mapli
 If you are running Martin behind NGINX proxy, you may want to rewrite the request URL to properly handle tile URLs in [TileJSON](using.md#source-tilejson).
 
 ```nginx
-location ~ /tiles/(?<fwd_path>.*) {
+location ~ /font/(?<fwd_path>.*) {
     proxy_set_header  X-Rewrite-URL $uri;
     proxy_set_header  X-Forwarded-Host $host:$server_port;
     proxy_set_header  X-Forwarded-Proto $scheme;
