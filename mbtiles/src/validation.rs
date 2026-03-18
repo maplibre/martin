@@ -276,7 +276,8 @@ impl Mbtiles {
                             || (!enc.is_encoded() && !info.encoding.is_encoded())
                         {
                             debug!(
-                                "Detected tile encoding {info} matches metadata.compression '{cmp}' in file {file}"
+                                "Detected tile encoding {} matches metadata.compression '{cmp}' in file {file}",
+                                info.encoding
                             );
                         } else {
                             warn!(
