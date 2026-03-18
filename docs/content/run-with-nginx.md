@@ -23,6 +23,7 @@ location ~ /tiles/(?<fwd_path>.*) {
     proxy_pass        http://martin:3000/$fwd_path$is_args$args;
 }
 ```
+
 ## Serving Fonts
 
 If your font names contain spaces (e.g. `Open Sans Regular`), NGINX may
