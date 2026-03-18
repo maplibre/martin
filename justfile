@@ -2,6 +2,12 @@
 
 set shell := ['bash', '-c']
 
+# Import demo sub-justfile as a module
+mod demo 'demo/justfile'
+
+# Import martin-ui sub-justfile as a module
+mod ui 'martin/martin-ui/justfile'
+
 # How to call the current just executable.
 # Note that just_executable() may have `\` in Windows paths, so we need to quote it.
 just := quote(just_executable())
@@ -10,6 +16,9 @@ just := quote(just_executable())
 # Use `CI=true just ci-test` to run the same tests as in GitHub CI.
 # Use `just env-info` to see the current values of RUSTFLAGS and RUSTDOCFLAGS
 ci_mode := if env('CI', '') != '' {'1'} else {''}
+# Build in release mode by default. Set RELEASE_MODE='' to build in debug mode (used for PRs in CI to reduce build time).
+# Use `RELEASE_MODE= just build-release <target>` to build in debug mode locally.
+release_mode := if env('RELEASE_MODE', '1') != '' {'1'} else {''}
 # cargo-binstall needs a workaround due to caching
 # ci_mode might be manually set by user, so re-check the env var
 binstall_args := if env('CI', '') != '' {'--no-confirm --no-track --disable-telemetry'} else {''}
@@ -55,19 +64,13 @@ bench-http:  (cargo-install 'oha')
 bench-server: start
     cargo run --release -- tests/fixtures/mbtiles tests/fixtures/pmtiles
 
-# Run biomejs on the dashboard (martin/martin-ui)
-[working-directory: 'martin/martin-ui']
-biomejs-martin-ui:
-    npm run format
-    npm run lint
-
 # Run integration tests and save its output as the new expected output (ordering is important)
 bless:
     #!/usr/bin/env bash
     set -euo pipefail
 
     echo "Blessing unit tests"
-    for target in restart clean-test bless-insta bless-frontend bless-pg; do
+    for target in restart clean-test bless-insta ui::bless bless-pg; do
       echo "::group::just $target"
       {{quote(just_executable())}} $target
       echo "::endgroup::"
@@ -75,12 +78,6 @@ bless:
 
     echo "Blessing integration tests"
     {{quote(just_executable())}} bless-int
-
-# Bless the frontend tests
-[working-directory: 'martin/martin-ui']
-bless-frontend:
-    npm clean-install
-    npm run test:update-snapshots
 
 # Run integration tests and save its output as the new expected output
 bless-insta *args:  (cargo-install 'cargo-insta')
@@ -97,7 +94,8 @@ bless-pg: start  (cargo-install 'cargo-insta')
     cargo insta test --accept --features test-pg --no-default-features --package martin --lib
     cargo insta test --accept --features test-pg --package martin-core --no-default-features --lib
 
-# Build release binaries for a target with debug info stripped
+# Build binaries for a target. In release mode (default), strips debug info.
+# Set RELEASE_MODE='' to build in debug mode (used for PRs in CI to reduce build time).
 build-release target:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -106,43 +104,55 @@ build-release target:
         {{quote(just_executable())}} build-deb target/debian/debian-x86_64.deb
     else
         rustup target add {{target}}
-        export CARGO_TARGET_{{shoutysnakecase(target)}}_RUSTFLAGS='-C strip=debuginfo'
-        cargo build --release --target {{target}} --package mbtiles --locked
-        cargo build --release --target {{target}} --package martin --locked
+        if [[ "{{release_mode}}" == "1" ]]; then
+            export CARGO_TARGET_{{shoutysnakecase(target)}}_RUSTFLAGS='-C strip=debuginfo'
+        fi
+        cargo build {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package mbtiles --locked
+        cargo build {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package martin --locked
     fi
 
 # Build debian package
 build-deb output: (cargo-install 'cargo-deb')
+    #!/usr/bin/env bash
+    set -euo pipefail
     sudo apt-get install -y dpkg dpkg-dev liblzma-dev
-    cargo deb -v -p martin --output {{output}}
+    if [[ "{{release_mode}}" == "1" ]]; then
+        cargo deb -v -p martin --output {{output}}
+    else
+        cargo deb -v -p martin --profile dev --output {{output}}
+    fi
 
 # Build for musl target using zigbuild
+# Set RELEASE_MODE='' to build in debug mode (used for PRs in CI to reduce build time).
 build-release-musl target:
     #!/usr/bin/env bash
     set -euo pipefail
     rustup target add {{target}}
-    export CARGO_TARGET_{{shoutysnakecase(target)}}_RUSTFLAGS='-C strip=debuginfo'
-    cargo zigbuild --release --target {{target}} --package mbtiles --locked
-    cargo zigbuild --release --target {{target}} --package martin --locked
+    if [[ "{{release_mode}}" == "1" ]]; then
+        export CARGO_TARGET_{{shoutysnakecase(target)}}_RUSTFLAGS='-C strip=debuginfo'
+    fi
+    cargo zigbuild {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package mbtiles --locked
+    cargo zigbuild {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package martin --locked
 
 
-# Move release build artifacts to target_releases directory
+# Move build artifacts to target_releases directory
 move-artifacts target:
     #!/usr/bin/env bash
     set -euo pipefail
     mkdir -p target_releases
+    build_dir={{if release_mode == '1' {'release'} else {'debug'} }}
 
     if [[ "{{target}}" == "debian-x86_64" ]]; then
         mv target/debian/*.deb target_releases/
     else
         if [[ "{{target}}" == "x86_64-pc-windows-msvc" ]]; then
-            mv target/{{target}}/release/martin.exe target_releases/
-            mv target/{{target}}/release/martin-cp.exe target_releases/
-            mv target/{{target}}/release/mbtiles.exe target_releases/
+            mv target/{{target}}/"$build_dir"/martin.exe target_releases/
+            mv target/{{target}}/"$build_dir"/martin-cp.exe target_releases/
+            mv target/{{target}}/"$build_dir"/mbtiles.exe target_releases/
         else
-            mv target/{{target}}/release/martin target_releases/
-            mv target/{{target}}/release/martin-cp target_releases/
-            mv target/{{target}}/release/mbtiles target_releases/
+            mv target/{{target}}/"$build_dir"/martin target_releases/
+            mv target/{{target}}/"$build_dir"/martin-cp target_releases/
+            mv target/{{target}}/"$build_dir"/mbtiles target_releases/
         fi
     fi
 
@@ -158,12 +168,9 @@ check-doc:  (docs-build)
 ci-test: env-info restart test-fmt clippy check-doc test check && assert-git-is-clean
 
 # Perform  cargo clean  to delete all build files
-clean: clean-test stop && clean-martin-ui
-    cargo clean
-
-clean-martin-ui:
-    rm -rf martin/martin-ui/dist martin/martin-ui/node_modules
+clean: clean-test stop ui::clean
     cargo clean -p static-files
+    cargo clean
 
 # Run cargo clippy to lint the code
 clippy *args:
@@ -221,7 +228,7 @@ docs-build:
     docker run --rm -v ${PWD}:/docs zensical/zensical:latest build
 # Print environment info
 env-info:
-    @echo "Running {{if ci_mode == '1' {'in CI mode'} else {'in dev mode'} }} on {{os()}} / {{arch()}}"
+    @echo "Running {{if ci_mode == '1' {'in CI mode'} else {'in dev mode'} }} / {{if release_mode == '1' {'release mode'} else {'debug mode'} }} on {{os()}} / {{arch()}}"
     @echo "PWD {{justfile_directory()}}"
     {{just}} --version
     rustc --version
@@ -304,7 +311,7 @@ install-dependencies backend='vulkan':
     @echo "rendering styles is not currently supported on windows"
 
 # Run cargo fmt and cargo clippy
-lint: fmt clippy biomejs-martin-ui type-check
+lint: fmt clippy ui::biome ui::type-check
 
 # Run mbtiles command
 mbtiles *args:
@@ -387,7 +394,7 @@ shear:
     # https://github.com/Boshen/cargo-shear/pull/386
 
 # Run all tests using a test database
-test: start (test-cargo "--all-targets") test-pg test-doc test-frontend test-int
+test: start (test-cargo "--all-targets") test-pg test-doc ui::test test-int
 
 # Run PostgreSQL-requiring tests only
 test-pg: start
@@ -406,11 +413,6 @@ test-doc *args:
 # Test code formatting
 test-fmt: (cargo-install 'cargo-sort') && (fmt-toml '--check' '--check-format')
     cargo fmt --all -- --check
-
-# Run frontend tests
-[working-directory: 'martin/martin-ui']
-test-frontend:
-    npm run test
 
 # Run integration tests
 test-int: clean-test install-sqlx start-pmtiles-server
@@ -506,11 +508,6 @@ test-ssl-cert: start-ssl-cert
     {{just}} clean-test
     {{just}} test-doc
     tests/test.sh
-
-# Run typescript typechecking on the frontend
-[working-directory: 'martin/martin-ui']
-type-check:
-    npm run type-check
 
 # Update all dependencies, including breaking changes. Requires nightly toolchain (install with `rustup install nightly`)
 update:
