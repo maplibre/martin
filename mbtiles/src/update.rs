@@ -75,7 +75,7 @@ impl Mbtiles {
     /// Samples a tile to detect the encoding and updates the `compression` metadata key.
     /// For uncompressed or internally-compressed formats (e.g. PNG/JPEG), the key is
     /// *removed* from the metadata table rather than being set to `"none"`.
-    pub async fn update_compression<T>(&self, conn: &mut T) -> MbtResult<()>
+    pub async fn update_content_encoding<T>(&self, conn: &mut T) -> MbtResult<()>
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
@@ -87,7 +87,7 @@ impl Mbtiles {
             if let Some(tile_data) = r.tile_data {
                 let tile_info = TileInfo::detect(&tile_data);
                 debug!("Detected tile info for compression update: {tile_info}");
-                if let Some(compression) = tile_info.encoding.content_encoding() {
+                if let Some(compression) = tile_info.encoding.compression() {
                     info!("Setting metadata compression to '{compression}'");
                     self.set_metadata_value(conn, "compression", compression)
                         .await?;

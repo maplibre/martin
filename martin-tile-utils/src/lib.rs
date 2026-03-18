@@ -188,7 +188,7 @@ impl Encoding {
     /// Returns `None` for [`Encoding::Uncompressed`] and [`Encoding::Internal`]:
     /// absence of the `compression` key in the metadata table means no external encoding.
     #[must_use]
-    pub fn content_encoding(self) -> Option<&'static str> {
+    pub fn compression(self) -> Option<&'static str> {
         match self {
             Self::Uncompressed | Self::Internal => None,
             Self::Gzip => Some("gzip"),
@@ -303,7 +303,7 @@ impl From<Format> for TileInfo {
 impl Display for TileInfo {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.format.content_type())?;
-        if let Some(encoding) = self.encoding.content_encoding() {
+        if let Some(encoding) = self.encoding.compression() {
             write!(f, "; encoding={encoding}")?;
         } else if self.encoding != Encoding::Uncompressed {
             f.write_str("; uncompressed")?;
@@ -828,7 +828,7 @@ mod tests {
     #[case(Encoding::Zlib, Some("deflate"))]
     #[case(Encoding::Brotli, Some("br"))]
     #[case(Encoding::Zstd, Some("zstd"))]
-    fn test_content_encoding(#[case] encoding: Encoding, #[case] expected: Option<&str>) {
-        assert_eq!(encoding.content_encoding(), expected);
+    fn test_compression(#[case] encoding: Encoding, #[case] expected: Option<&str>) {
+        assert_eq!(encoding.compression(), expected);
     }
 }
