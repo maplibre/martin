@@ -548,7 +548,7 @@ mod tests {
     }
 
     #[actix_rt::test]
-    async fn update_content_encoding_gzip() {
+    async fn update_compression_gzip() {
         let script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
         let (mbt, mut conn) = anonymous_mbtiles(script).await;
 
@@ -566,7 +566,7 @@ mod tests {
     }
 
     #[actix_rt::test]
-    async fn update_content_encoding_internal() {
+    async fn update_compression_internal() {
         let script = include_str!("../../tests/fixtures/mbtiles/geography-class-jpg.sql");
         let (mbt, mut conn) = anonymous_mbtiles(script).await;
 
