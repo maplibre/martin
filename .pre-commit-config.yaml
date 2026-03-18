@@ -108,15 +108,15 @@ repos:
           sed -i "s%biomejs.dev/schemas/[^/]*/%biomejs.dev/schemas/$VERSION/%" demo/frontend/biome.json
           sed -i "s%biomejs.dev/schemas/[^/]*/%biomejs.dev/schemas/$VERSION/%" martin/martin-ui/biome.json
 
-          # Update package.json and lockfiles only if version changed
-          if ! grep -q "\"@biomejs/biome\": \"$VERSION\"" demo/frontend/package.json; then
+          # Update package.json and lockfiles if version changed or lockfile is missing
+          if ! grep -q "\"@biomejs/biome\": \"$VERSION\"" demo/frontend/package.json || [ ! -f demo/frontend/yarn.lock ]; then
             sed -i "s%\"@biomejs/biome\": \"[0-9.]*\"%\"@biomejs/biome\": \"$VERSION\"%" demo/frontend/package.json
             (cd demo/frontend && yarn install --no-immutable)
           fi
 
-          if ! grep -q "\"@biomejs/biome\": \"$VERSION\"" martin/martin-ui/package.json; then
+          if ! grep -q "\"@biomejs/biome\": \"$VERSION\"" martin/martin-ui/package.json || [ ! -f martin/martin-ui/package-lock.json ]; then
             sed -i "s%\"@biomejs/biome\": \"[0-9.]*\"%\"@biomejs/biome\": \"$VERSION\"%" martin/martin-ui/package.json
-            (cd martin/martin-ui && npm install --lockfile-only)
+            (cd martin/martin-ui && npm install --package-lock-only)
           fi
 
           sed -i "/repo: https:\/\/github.com\/biomejs\/pre-commit/,$ s/@biomejs\/biome@[0-9.]*/@biomejs\/biome@$VERSION/g" .pre-commit-config.yaml
