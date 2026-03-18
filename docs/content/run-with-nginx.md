@@ -22,15 +22,19 @@ location ~ /tiles/(?<fwd_path>.*) {
     proxy_pass        http://martin:3000/$fwd_path$is_args$args;
 }
 ```
-### Serving Fonts
-If your font names contain spaces (e.g., Open Sans), NGINX may decode the %20 in the URL into a literal space before forwarding it, causing Martin to return an HTTP 400 Bad Request. To prevent this, use a specific location block that preserves the encoding:
+## Serving Fonts
+
+If your font names contain spaces (e.g. `Open Sans Regular`), NGINX may
+decode the `%20` in the URL into a literal space before forwarding it,
+causing Martin to return an HTTP 400 error. Add this location block to
+prevent that:
 
 ```nginx
-location ~* /font/(?<fwd_path>.*) {
-    # Use the captured path without an extra slash to preserve %20
+location ~ /font/(?<fwd_path>.*) {
     proxy_pass http://martin:3000/font/$fwd_path$is_args$args;
 }
 ```
+
 ### Caching tiles
 
 You can also use NGINX to cache tiles. In the example, the maximum cache size is set to 10GB, and caching time is set to 1 hour for responses with codes 200, 204, and 302 and 1 minute for responses with code 404.
