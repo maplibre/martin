@@ -172,7 +172,7 @@ pub enum Encoding {
 }
 
 impl Encoding {
-    /// Parse The encoding from common names if they match
+    /// Parse the encoding from common names if they match
     #[must_use]
     pub fn parse(value: &str) -> Option<Self> {
         Some(match value.to_ascii_lowercase().as_str() {
