@@ -13,6 +13,7 @@ site_name = "Martin Tile Server Documentation"
 site_description = "Documentation for Martin Tile Server"
 repo_url = "https://github.com/maplibre/martin"
 edit_uri = "edit/main/docs/content"
+site_url = "https://maplibre.org/martin/"
 site_author = "Maplibre Contributors"
 copyright = "Copyright &copy; 2026 MapLibre Contributors"
 

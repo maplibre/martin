@@ -26,7 +26,7 @@ jobs:
         with: { persist-credentials: false }
       - uses: taiki-e/install-action@cbb1dcaa26e1459e2876c39f61c1e22a1258aac5 # v2.68.33
         with: { tool: just }
-      - run: cd demo && just build
+      - run: just demo::build
       - name: Log in to GHCR
         if: github.event_name != 'pull_request'
         uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
@@ -36,4 +36,4 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Push demo images
         if: github.event_name != 'pull_request'
-        run: cd demo && just push
+        run: just demo::push

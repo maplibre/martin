@@ -22,6 +22,8 @@ jobs:
     permissions:
       contents: read
     runs-on: ubuntu-latest
+    needs:
+      - lint-rust # not because it is needed, but because we want less concurrent jobs competing
     steps:
       - name: Checkout sources
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -30,41 +32,14 @@ jobs:
         with: { tool: 'just' }
       - run: npm clean-install --no-fund
         working-directory: martin/martin-ui
-      - run: just biomejs-martin-ui
-      - run: just test-frontend
-      - run: just type-check
+      - run: just ui::biome
+      - run: just ui::test
+      - run: just ui::type-check
   unit-test-rust:
     name: Unit test the server
     permissions:
       contents: read
     runs-on: ubuntu-latest
-    env:
-      PGDATABASE: test
-      PGHOST: localhost
-      PGUSER: postgres
-      PGPASSWORD: postgres
-    services:
-      postgres:
-        image: postgis/postgis:18-3.6
-        ports:
-          # will assign a random free host port
-          - 5432/tcp
-        # Sadly there is currently no way to pass arguments to the service image other than this hack
-        # See also https://stackoverflow.com/a/62720566/177275
-        options: >-
-          -e POSTGRES_DB=test
-          -e POSTGRES_USER=postgres
-          -e POSTGRES_PASSWORD=postgres
-          -e PGDATABASE=test
-          -e PGUSER=postgres
-          -e PGPASSWORD=postgres
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-          --entrypoint sh
-          postgis/postgis:18-3.6
-          -c "exec docker-entrypoint.sh postgres -c ssl=on -c ssl_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem -c ssl_key_file=/etc/ssl/private/ssl-cert-snakeoil.key"
     steps:
       - run: rustup update stable && rustup default stable
       - uses: BRAINSia/free-disk-space@7048ffbf50819342ac964ef3998a51c2564a8a75 # v2.1.3
@@ -82,10 +57,6 @@ jobs:
         with: { persist-credentials: false }
       - uses: taiki-e/install-action@a57ddfbcd928cf9406a78dcc300dacc5d367a547 # v2.68.31
         with: { tool: 'just' }
-      - name: Init database
-        run: tests/fixtures/initdb.sh
-        env:
-          PGPORT: ${{ job.services.postgres.ports[5432] }}
       - name: Run cargo test
         run: |
           set -x
@@ -94,9 +65,7 @@ jobs:
           cargo test --package mbtiles
           cargo test --package martin
           cargo test --package martin-core
-          just test-pg
         env:
-          DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=require
           AWS_SKIP_CREDENTIALS: 1
           AWS_REGION: eu-central-1
       - run: cargo test --doc
@@ -123,6 +92,8 @@ jobs:
     name: Lint Rust dependencies
     permissions:
       contents: read
+    needs:
+      - lint-rust # not because it is needed, but because we want less concurrent jobs competing
     runs-on: ubuntu-latest
     steps:
       - run: rustup default nightly
@@ -133,41 +104,26 @@ jobs:
         with: { tool: 'cargo-shear,just' }
 
       - run: just shear
-  musl-build:
-    name: Build ${{ matrix.target }}
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    strategy:
-      fail-fast: true
-      matrix:
-        include:
-          - target: aarch64-unknown-linux-musl
-          - target: x86_64-unknown-linux-musl
-    steps:
-      - run: rustup update stable && rustup default stable
-      - name: Checkout sources
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with: { persist-credentials: false }
-      - uses: taiki-e/install-action@a57ddfbcd928cf9406a78dcc300dacc5d367a547 # v2.68.31
-        with: { tool: "cargo-zigbuild,just" }
-      - name: Install zig
-        uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
-        with: { version: '0.15.1' }
-      - name: Build ${{ matrix.target }}
-        run: just build-release-musl ${{ matrix.target }}
-      - name: Move ${{ matrix.target }} artefacts to the target_releases directory
-        run: just move-artifacts ${{ matrix.target }}
+  build-aarch64-unknown-linux-musl:
+    uses: ./.github/workflows/build-binary.yml
+    with:
+      target: aarch64-unknown-linux-musl
+      os: ubuntu-latest
+      musl: true
+      release_mode: ${{ github.event_name != 'pull_request' }}
 
-      - name: Save build artifacts to build-${{ matrix.target }}
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
-        with:
-          name: build-${{ matrix.target }}
-          path: target_releases/
+  build-x86_64-unknown-linux-musl:
+    uses: ./.github/workflows/build-binary.yml
+    with:
+      target: x86_64-unknown-linux-musl
+      os: ubuntu-latest
+      musl: true
+      release_mode: ${{ github.event_name != 'pull_request' }}
+
   docker-build-test:
     name: Build and test docker images
     runs-on: ubuntu-latest
-    needs: [ musl-build, lint-unit-test-js, unit-test-rust, lint-rust, lint-rust-dependencies ]
+    needs: [ build-aarch64-unknown-linux-musl, build-x86_64-unknown-linux-musl ]
     permissions:
       id-token: write
       attestations: write
@@ -388,64 +344,57 @@ jobs:
           subject-digest: ${{ steps.docker_push.outputs.digest }}
           push-to-registry: true
 
-  build:
-    name: Build ${{ matrix.target }}
-    runs-on: ${{ matrix.os }}
-    permissions:
-      contents: read
-    strategy:
-      fail-fast: true
-      matrix:
-        include:
-          - target: aarch64-apple-darwin
-            os: macos-latest # M-series CPU
-          - target: debian-x86_64
-            os: ubuntu-22.04 # downgraded to have lower libc support. Debian-12 (stable at the time of writing) does not support the same version ubuntu does.
-            # TODO: update to ubuntu-latest again once debian 13 launches
-          - target: x86_64-apple-darwin
-            os: macos-15-intel # x64 CPU, available until August 2027, see https://github.com/actions/runner-images/issues/13045
-          - target: x86_64-pc-windows-msvc
-            os: windows-latest
-            ext: '.exe'
-          - target: x86_64-unknown-linux-gnu
-            os: ubuntu-latest
-          - target: aarch64-unknown-linux-gnu
-            os: ubuntu-24.04-arm
-    steps:
-      - run: rustup update stable && rustup default stable
-      - name: Checkout sources
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with: { persist-credentials: false }
-      - uses: taiki-e/install-action@a57ddfbcd928cf9406a78dcc300dacc5d367a547 # v2.68.31
-        with: { tool: "just" }
-      # the macOS x86 runners are 3x slower than all other runners.
-      # We need to cache here to not spend 30 minutes on each build.
-      # We cannot cache the others as well because we only have 10GB of cache
-      - if: matrix.target == 'x86_64-apple-darwin' && github.event_name != 'release' && github.event_name != 'workflow_dispatch'
-        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
-      - name: Rust Versions
-        run: rustc --version && cargo --version
-      - name: Install NASM for rustls/aws-lc-rs on Windows
-        if: runner.os == 'Windows'
-        uses: ilammy/setup-nasm@72793074d3c8cdda771dba85f6deafe00623038b # v1.5.2
+  build-aarch64-apple-darwin:
+    uses: ./.github/workflows/build-binary.yml
+    with:
+      target: aarch64-apple-darwin
+      os: macos-latest # M-series CPU
+      release_mode: ${{ github.event_name != 'pull_request' }}
 
-      - name: Build ${{ matrix.target }}
-        run: just build-release ${{ matrix.target }}
-      - name: Move ${{ matrix.target }} artefacts to the target_releases directory
-        run: just move-artifacts ${{ matrix.target }}
+  build-debian-x86_64:
+    uses: ./.github/workflows/build-binary.yml
+    with:
+      target: debian-x86_64
+      # downgraded to have lower libc support. Debian-12 (stable at the time of writing) does not support the same version ubuntu does.
+      # TODO: update to ubuntu-latest again once debian 13 launches
+      os: ubuntu-22.04
+      release_mode: ${{ github.event_name != 'pull_request' }}
 
-      - name: Save build artifacts to build-${{ matrix.target }}
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
-        with:
-          name: build-${{ matrix.target }}
-          path: target_releases/*
+  build-x86_64-apple-darwin:
+    uses: ./.github/workflows/build-binary.yml
+    with:
+      target: x86_64-apple-darwin
+      os: macos-15-intel # x64 CPU, available until August 2027, see https://github.com/actions/runner-images/issues/13045
+      use_cache: ${{ github.event_name != 'release' && github.event_name != 'workflow_dispatch' }}
+      release_mode: ${{ github.event_name != 'pull_request' }}
+
+  build-x86_64-pc-windows-msvc:
+    uses: ./.github/workflows/build-binary.yml
+    with:
+      target: x86_64-pc-windows-msvc
+      os: windows-latest
+      release_mode: ${{ github.event_name != 'pull_request' }}
+
+  build-x86_64-unknown-linux-gnu:
+    uses: ./.github/workflows/build-binary.yml
+    with:
+      target: x86_64-unknown-linux-gnu
+      os: ubuntu-latest
+      release_mode: ${{ github.event_name != 'pull_request' }}
+
+  build-aarch64-unknown-linux-gnu:
+    uses: ./.github/workflows/build-binary.yml
+    with:
+      target: aarch64-unknown-linux-gnu
+      os: ubuntu-24.04-arm
+      release_mode: ${{ github.event_name != 'pull_request' }}
 
   test-aws-lambda:
     name: Test AWS Lambda
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    needs: [ musl-build ]
+    needs: [ build-x86_64-unknown-linux-musl ]
     steps:
       - name: Checkout sources
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -462,7 +411,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     permissions:
       contents: read
-    needs: [ build ]
+    needs: [ build-x86_64-pc-windows-msvc, build-x86_64-unknown-linux-gnu, build-debian-x86_64 ]
     env:
       # PG_* variables are used by psql
       PGDATABASE: test
@@ -609,13 +558,12 @@ jobs:
             target/test_logs/*
           retention-days: 5
 
-  test-with-svc:
-    name: Test postgis:${{ matrix.img_ver }} sslmode=${{ matrix.sslmode }}
+  unit-test-svc-pg:
+    name: Unit test postgis:${{ matrix.img_ver }} sslmode=${{ matrix.sslmode }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    needs: [ build ]
-    strategy:
+    strategy: &svc-strategy
       fail-fast: true
       matrix:
         include:
@@ -639,13 +587,13 @@ jobs:
           #- img_ver: 15-3.3
           #  args: postgres -c ssl=on -c ssl_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem -c ssl_key_file=/etc/ssl/private/ssl-cert-snakeoil.key
           #  sslmode: verify-full
-    env:
+    env: &svc-env
       PGDATABASE: test
       PGHOST: localhost
       PGUSER: postgres
       PGPASSWORD: postgres
     services:
-      postgres:
+      postgres: &svc-postgres
         image: postgis/postgis:${{ matrix.img_ver }}
         ports:
           - 5432/tcp
@@ -670,9 +618,34 @@ jobs:
         with: { persist-credentials: false }
       - uses: taiki-e/install-action@a57ddfbcd928cf9406a78dcc300dacc5d367a547 # v2.68.31
         with: { tool: 'just' }
-      # cache for the unit-test to be run against postgres to be acceptably slow
-      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
-        if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
+      - name: Init database
+        run: tests/fixtures/initdb.sh
+        env:
+          PGPORT: ${{ job.services.postgres.ports[5432] }}
+      - name: Unit Tests
+        if: matrix.sslmode != 'verify-ca' && matrix.sslmode != 'verify-full'
+        run: |
+          echo "Running unit tests, connecting to DATABASE_URL=$DATABASE_URL"
+          echo "Same but as base64 to prevent GitHub obfuscation (this is not a secret):"
+          echo "$DATABASE_URL" | base64
+          just test-pg
+        env:
+          DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=${{ matrix.sslmode }}
+
+  test-with-svc:
+    name: Test postgis:${{ matrix.img_ver }} sslmode=${{ matrix.sslmode }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    needs: [ build-x86_64-unknown-linux-gnu, build-debian-x86_64, unit-test-svc-pg ]
+    strategy: *svc-strategy
+    env: *svc-env
+    services:
+      postgres: *svc-postgres
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with: { persist-credentials: false }
       - name: Run NGINX
         uses: nyurik/action-setup-nginx@612ee9cb839ad727832cda16359452e7e14dd521 # v1.1
         id: nginx
@@ -735,20 +708,6 @@ jobs:
           rm -rf target_releases
         env:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=${{ matrix.sslmode }}
-      - name: Unit Tests
-        if: matrix.sslmode != 'verify-ca' && matrix.sslmode != 'verify-full'
-        run: |
-          echo "Running unit tests, connecting to DATABASE_URL=$DATABASE_URL"
-          echo "Same but as base64 to prevent GitHub obfuscation (this is not a secret):"
-          echo "$DATABASE_URL" | base64
-          set -x
-          cargo test --package martin
-          just test-pg
-          cargo clean
-        env:
-          DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=${{ matrix.sslmode }}
-          AWS_SKIP_CREDENTIALS: 1
-          AWS_REGION: eu-central-1
       - name: Save test output (on error)
         if: failure()
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
@@ -781,7 +740,7 @@ jobs:
       attestations: write
       # for writing release artifacts
       contents: write
-    needs: [ lint-unit-test-js, unit-test-rust, lint-rust, lint-rust-dependencies, test-multi-os, test-with-svc, test-aws-lambda, test-publish ]
+    needs: [ lint-unit-test-js, unit-test-rust, lint-rust, lint-rust-dependencies, test-multi-os, test-with-svc, test-aws-lambda, test-publish, build-aarch64-apple-darwin, build-x86_64-apple-darwin, build-aarch64-unknown-linux-gnu, build-aarch64-unknown-linux-musl ]
     steps:
       - name: Checkout sources
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -921,7 +880,13 @@ jobs:
   done:
     name: CI Finished
     runs-on: ubuntu-latest
-    needs: [ package, docker-build-test ]
+    needs:
+      - package
+      - docker-build-test
+      - unit-test-rust
+      - lint-rust-dependencies
+      - lint-unit-test-js
+      - lint-rust
     if: always()
     permissions: {}
     steps:

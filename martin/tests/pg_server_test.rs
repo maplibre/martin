@@ -1,4 +1,9 @@
-#![cfg(feature = "test-pg")]
+#![cfg(all(
+    feature = "test-pg",
+    not(feature = "fonts"),
+    not(feature = "sprites"),
+    not(feature = "styles")
+))]
 
 use actix_http::Request;
 use actix_web::http::StatusCode;
@@ -50,9 +55,6 @@ postgres:
     let body = read_body(response).await;
     let body: serde_json::Value = serde_json::from_slice(&body).unwrap();
     assert_yaml_snapshot!(body, @r#"
-    fonts: {}
-    sprites: {}
-    styles: {}
     tiles:
       "-function.withweired---_-characters":
         content_type: application/x-protobuf

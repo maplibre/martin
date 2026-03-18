@@ -5,7 +5,7 @@
 The frontend is built from `frontend/Dockerfile` (multi-stage: pnpm build, then nginx serves the static output). Ensure you have the Dockerfile and `frontend/nginx.conf` in place before running:
 
 ```shell
-just up
+just demo::up
 ```
 
 Then open https://localhost in your browser.
