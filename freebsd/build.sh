@@ -1,5 +1,6 @@
 #!/bin/sh
 set -x
+ARTIFACT_DIR=/data/builds/martin
 
 echo "build martin binaries"
 cd ..
@@ -15,3 +16,6 @@ chmod ugo+x ./scripts/freebsd/stage/usr/local/libexec/martin/martin-cp
 
 echo "create freebsd package"
 pkg create -M ./scripts/freebsd/+MANIFEST -r ./scripts/freebsd/stage -p ./scripts/freebsd/pkg-plist
+
+echo "deploy binary"
+cp martin*.pgk $ARTIFACT_DIR/.
