@@ -27,3 +27,4 @@ yarn-error.log*
 .idea
 data
 db/db
+tiles/data/

@@ -1,0 +1,26 @@
+# Demo tiles service: mbtiles + Toner/Positron styles + fonts + Postgres
+listen_addresses: "0.0.0.0:3000"
+
+postgres:
+  connection_string: $DATABASE_URL
+  auto_publish:
+    tables:
+      id_columns: [id]
+    functions: {}
+
+mbtiles:
+  sources:
+    basemap: /mnt/output.mbtiles
+
+styles:
+  sources:
+    toner: /data/styles/toner.json
+    positron: /data/styles/positron.json
+
+sprites:
+  sources:
+    icons: /data/sprites/icons
+
+fonts:
+  paths:
+    - /data/fonts

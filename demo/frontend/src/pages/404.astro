@@ -1,0 +1,106 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="404 — Page not found · Martin" description="The page you're looking for doesn't exist.">
+  <div class="min-h-screen bg-background text-foreground flex flex-col font-sans">
+
+    <header class="border-b border-border px-6 py-4">
+      <div class="max-w-4xl mx-auto flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <img alt="Martin tile server" class="h-7 w-auto" src="/logo.svg" width="28" height="28" />
+          <a
+            class="text-xs font-mono text-muted-foreground border border-border rounded px-1.5 py-0.5 hover:text-foreground hover:border-primary/50 transition-colors"
+            href="https://maplibre.org/"
+            rel="noopener noreferrer"
+            target="_blank"
+            title="Martin is part of the MapLibre open-source ecosystem — community governed, vendor neutral."
+          >
+            by MapLibre
+          </a>
+        </div>
+        <nav aria-label="Main navigation" class="flex items-center gap-5">
+          <a
+            class="text-sm text-muted-foreground hover:text-foreground transition-colors"
+            href="https://maplibre.org/martin/introduction.html"
+            rel="noopener noreferrer"
+            target="_blank"
+          >
+            Docs
+          </a>
+          <a
+            class="text-sm text-muted-foreground hover:text-foreground transition-colors hidden sm:block"
+            href="https://github.com/maplibre/martin/releases"
+            rel="noopener noreferrer"
+            target="_blank"
+          >
+            Releases
+          </a>
+          <a
+            class="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            href="https://github.com/maplibre/martin"
+            rel="noopener noreferrer"
+            target="_blank"
+            aria-label="Martin on GitHub"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+            <span class="hidden sm:inline">GitHub</span>
+          </a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="flex flex-col flex-1 items-center justify-center px-6 py-20">
+      <div class="max-w-md w-full text-center">
+        <p class="text-8xl font-mono font-bold text-accent mb-6 leading-none">404</p>
+        <h1 class="text-xl font-mono font-bold text-foreground mb-3">Page not found</h1>
+        <p class="text-sm leading-relaxed text-muted-foreground mb-10 text-pretty">
+          The page you're looking for doesn't exist or has been moved. Check the URL or head back to the home page.
+        </p>
+        <a
+          class="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-mono bg-primary text-primary-foreground rounded hover:opacity-90 transition-opacity"
+          href="/"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          Go home
+        </a>
+      </div>
+    </main>
+
+    <footer class="border-t border-border px-6 py-5">
+      <div class="max-w-4xl mx-auto flex flex-wrap items-center justify-between gap-3">
+        <div class="flex items-center gap-3">
+          <img alt="Martin tile server" class="h-5 w-auto" src="/logo.svg" width="20" height="20" />
+          <span class="text-xs text-muted-foreground">© MapLibre contributors</span>
+        </div>
+        <nav aria-label="Footer navigation" class="flex items-center gap-5 text-xs font-mono text-muted-foreground">
+          <a
+            class="hover:text-foreground transition-colors"
+            href="https://maplibre.org/martin/introduction.html"
+            rel="noopener noreferrer"
+            target="_blank"
+          >
+            Docs
+          </a>
+          <a
+            class="hover:text-foreground transition-colors"
+            href="https://github.com/maplibre/martin/releases"
+            rel="noopener noreferrer"
+            target="_blank"
+          >
+            Releases
+          </a>
+          <a
+            class="hover:text-foreground transition-colors"
+            href="https://maplibre.org/"
+            rel="noopener noreferrer"
+            target="_blank"
+          >
+            MapLibre
+          </a>
+        </nav>
+      </div>
+    </footer>
+
+  </div>
+</Layout>

@@ -8,6 +8,32 @@ set shell := ['bash', '-c']
 build:
     docker compose build
 
+# Build the PMTiles data file locally (requires sufficient RAM).
+# Then rsync to prod, for example:
+#   rsync --verbose --human-readable --partial --progress tiles/data/output.mbtiles user@host:~/martin/demo/tiles/data/
+build-data bound='monaco':
+    mkdir -p tiles/data
+    docker run --rm --user=$UID -d --cpu-shares 512 --pull always \
+      --memory="50G" --memory-swap="50G" -e JAVA_TOOL_OPTIONS="-Xmx25g" \
+      -v "$(pwd)/tiles/data:/data" \
+      ghcr.io/onthegomap/planetiler:latest \
+      --download --download-threads=10 --download-chunk-size-mb=1000 \
+      --free_natural_earth_after_read=true --free_water_polygons_after_read=true --free_lake_centerlines_after_read=true \
+      --languages=en \
+      --Xmx25g --nodemap-type=array --storage=mmap \
+      --area={{bound}} --bound={{bound}} --force=true \
+      --output=/data/output.mbtiles \
+      --exclude_ids=true --skip_filled_tiles=true --transportation_name_brunnel=true \
+      "--exclude_layers=housenumber,poi,transportation_name,water_name,aerodrome_label,aeroway,mountain_peak,place,park" \
+      --min_feature_size=2 --min_feature_size_at_max_zoom=0.25 \
+      --simplify_tolerance=0.2 --simplify_tolerance_at_max_zoom=0.125 \
+      --maxzoom=13 \
+      --render_maxzoom=13
+    # FIXME: Uncomment once production ready
+    #--tile_format=mlt --tile_compression=none \
+    #--mlt_advanced=true --mlt_fastpfor=true --mlt_fsst=true \
+    #--mlt_reorder_features=true --mlt_tessellate_polygons=false --mlt_shared_dict=false \
+
 clean:
     rm -rf frontend/node_modules
 

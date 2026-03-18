@@ -1,0 +1,3 @@
+title: Vector & raster
+body: Outputs Mapbox Vector Tiles (MVT) and raster tiles. Drop-in compatible with MapLibre, Mapbox GL JS, and Leaflet.
+icon: Layers
