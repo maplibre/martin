@@ -337,7 +337,7 @@ async fn meta_print_all(file: &Path) -> anyhow::Result<()> {
     if let Some(tile_info) = tile_info {
         let encoding = tile_info
             .encoding
-            .metadata_compression_value()
+            .content_encoding()
             .unwrap_or("''");
         println!("tile_info:");
         println!("  format: {}", tile_info.format);

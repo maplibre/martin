@@ -89,7 +89,7 @@ pub trait Source: Send + Sync + Debug {
             content_type: info.format.content_type().to_string(),
             content_encoding: info
                 .encoding
-                .metadata_compression_value()
+                .content_encoding()
                 .map(ToString::to_string),
             name: tilejson.name.as_ref().filter(|v| *v != id).cloned(),
             description: tilejson.description.clone(),
