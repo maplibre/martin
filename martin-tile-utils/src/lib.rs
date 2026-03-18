@@ -172,12 +172,7 @@ pub enum Encoding {
 }
 
 impl Encoding {
-    /// Recognized values (case-insensitive):
-    /// - `"none"`, `"identity"` → [`Encoding::Uncompressed`]
-    /// - `"gzip"` → [`Encoding::Gzip`]
-    /// - `"deflate"`, `"zlib"` → [`Encoding::Zlib`]
-    /// - `"br"`, `"brotli"` → [`Encoding::Brotli`]
-    /// - `"zstd"` → [`Encoding::Zstd`]
+    /// Parse The encoding from common names if they match
     #[must_use]
     pub fn parse(value: &str) -> Option<Self> {
         Some(match value.to_ascii_lowercase().as_str() {
