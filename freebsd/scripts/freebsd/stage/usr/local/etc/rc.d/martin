@@ -18,6 +18,8 @@ logfile="/var/log/${name}.log"
 martin_env_file="/usr/local/etc/martin.d/martin.env"
 
 command="/usr/local/libexec/martin/martin"
+command_args=" --config /config/martin_config.toml"
+
 start_precmd="${name}_prestart"
 start_postcmd="${name}_poststart"
 start_cmd="${name}_start"
