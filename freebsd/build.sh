@@ -18,4 +18,4 @@ echo "create freebsd package"
 pkg create -M ./scripts/freebsd/+MANIFEST -r ./scripts/freebsd/stage -p ./scripts/freebsd/pkg-plist
 
 echo "deploy binary"
-cp martin*.pgk $ARTIFACT_DIR/.
+cp martin*.pkg $ARTIFACT_DIR/.
