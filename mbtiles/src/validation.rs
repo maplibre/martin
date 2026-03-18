@@ -200,7 +200,7 @@ impl Mbtiles {
         if let Some(info) = tile_info {
             if info.format != Format::Mvt && tilejson.vector_layers.is_some() {
                 warn!(
-                    "{} has vector_layers metadata value, but the tiles are not MVT",
+                    "{} has vector_layers metadata value, but the tiles are not MVT/MLT",
                     self.filename()
                 );
             }
