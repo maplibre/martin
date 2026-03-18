@@ -43,7 +43,7 @@ martin_poststart()
 
 martin_start()
 {
-  export MARTIN_CONF_DIR RELEASE_TMP 
+  export MARTIN_CONF_DIR RELEASE_TMP
 
   rm -f ${pidfile}
 
