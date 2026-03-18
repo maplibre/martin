@@ -259,7 +259,7 @@ impl Mbtiles {
             let file = self.filename();
             match Encoding::parse(cmp) {
                 None => {
-                    warn!("Unknown compression value in metadata: {cmp}");
+                    warn!("Unknown compression value in metadata: {cmp} in file {file}");
                 }
                 Some(enc) => match tile_info {
                     None => {
