@@ -198,7 +198,10 @@ impl Mbtiles {
         tile_info = self.check_compression_metadata(tilejson, tile_info, tiles_detected);
 
         if let Some(info) = tile_info {
-            if info.format != Format::Mvt && tilejson.vector_layers.is_some() {
+            if info.format != Format::Mvt
+                && info.format != Format::Mlt
+                && tilejson.vector_layers.is_some()
+            {
                 warn!(
                     "{} has vector_layers metadata value, but the tiles are not MVT/MLT",
                     self.filename()

@@ -19,6 +19,7 @@ tilejson:
   maxzoom: 6
   minzoom: 0
   name: composite
+  compression: gzip
   format: pbf
   generator: martin-cp v0.0.0
 agg_tiles_hash: B088BC997177702E850E8E0F172D93F5
