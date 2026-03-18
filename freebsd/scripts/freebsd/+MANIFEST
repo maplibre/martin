@@ -1,0 +1,19 @@
+{
+  "name": "martin",
+  "version": "1.0.0",
+  "origin": "devel/martin",
+  "comment": "vector tile server integrated with postgres",
+  "www": "https://github.com/ToddG/martin/tree/main",
+  "maintainer": "toddg@zwrob.com",
+  "prefix": "/usr/local",
+  "desc": "Martin is a tile server and a set of tools able to generate vector tiles on the fly from large PostgreSQL databases, and serve tiles from PMTiles and MBTiles files. Martin optimizes for speed and heavy traffic, and is written in Rust.",
+  "scripts": {
+    "pre-deinstall": "CONFIG_DIR=\"/usr/local/etc/martin.d\"\n\n\nPKG_USER=\"martin\"\n\nif [ -n \"${PKG_ROOTDIR}\" ] && [ \"${PKG_ROOTDIR}\" != \"/\" ]; then\n  PW=\"/usr/sbin/pw -R ${PKG_ROOTDIR}\"\nelse\n  PW=/usr/sbin/pw\nfi\nif ${PW} usershow ${PKG_USER} >/dev/null 2>&1; then\n  echo \"==> pkg user '${PKG_USER}' should be manually removed.\"\n  echo \"  ${PW} userdel ${PKG_USER}\"\nfi\n\n\nif [ -d \"${CONFIG_DIR}\" ]\nthen\n  echo \"==> config directory '${CONFIG_DIR}' should be manually removed.\"\n  echo \"  rm -rf ${CONFIG_DIR}\"\nfi\n\nif [ -d \"/var/run/martin\" ]\nthen\n  echo \"==> run directory '/var/run/martin' should be manually removed.\"\n  echo \"  rm -rf /var/run/martin\"\nfi\n",
+    "post-install": "PKG_NAME=\"martin\"\nCONFIG_DIR=\"/usr/local/etc/martin.d\"\nCONFIG_FILE=\"/usr/local/etc/martin.d/martin.env\"\n\n\nPKG_USER=\"martin\"\n\nif [ -n \"${PKG_ROOTDIR}\" ] && [ \"${PKG_ROOTDIR}\" != \"/\" ]; then\n  PW=\"/usr/sbin/pw -R ${PKG_ROOTDIR}\"\nelse\n  PW=/usr/sbin/pw\nfi\n\necho \"===> Creating user.\"\nif ! ${PW} groupshow ${PKG_USER} >/dev/null 2>&1; then\n  echo \"Group: '${PKG_USER}'.\"\n  ${PW} groupadd ${PKG_USER}\nelse\n  echo \"Using existing group: '${PKG_USER}'.\"\nfi\n\nif ! ${PW} usershow ${PKG_USER} >/dev/null 2>&1; then\n  echo \"User: '${PKG_USER}'.\"\n  ${PW} useradd ${PKG_USER} -g ${PKG_USER} -c \"${PKG_NAME} user\" -d /nonexistent -s /usr/sbin/nologin\nelse\n  echo \"Using existing user: '${PKG_USER}'.\"\nfi\n\n\nif [ ! -f $CONFIG_FILE ]\nthen\n  echo \"===> Creating config in ${CONFIG_FILE}\"\n  echo \"# martin config file\" > $CONFIG_FILE\n  echo 'FOO=\"bar\"' >> $CONFIG_FILE\n  chmod 0444 $CONFIG_FILE\nfi\n"
+  },
+  "deps": {}
+  },
+  "users": [
+    "martin"
+  ]
+}

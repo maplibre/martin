@@ -1,0 +1,54 @@
+#!/bin/sh
+#
+# PROVIDE: martin
+# REQUIRE: DAEMON
+# KEYWORD: shutdown
+
+. /etc/rc.subr
+
+name=martin
+rcvar=${name}_enable
+
+load_rc_config $name
+
+pidfile="/var/run/${name}.pid"
+confdir="/usr/local/etc/martin.d"
+logfile="/var/log/${name}.log"
+
+martin_env_file="/usr/local/etc/martin.d/martin.env"
+
+command="/usr/local/libexec/martin/martin"
+start_precmd="${name}_prestart"
+start_postcmd="${name}_poststart"
+start_cmd="${name}_start"
+
+MARTIN_CONF_DIR="${confdir}"
+: ${RELEASE_TMP:="/var/run/${name}"}
+
+martin_prestart()
+{
+  if [ ! -d "${RELEASE_TMP}" ]; then
+    echo "Creating ${RELEASE_TMP}."
+    mkdir $RELEASE_TMP
+    chmod 740 $RELEASE_TMP
+
+  fi
+}
+
+martin_poststart()
+{
+  pid="$(cat ${pidfile})"
+  echo "Service ${name} started as pid ${pid}."
+}
+
+martin_start()
+{
+  export MARTIN_CONF_DIR RELEASE_TMP 
+
+  rm -f ${pidfile}
+
+  daemon -t $name -p $pidfile -f -H -o $logfile -u martin $command $command_args
+
+}
+
+run_rc_command "$@"
