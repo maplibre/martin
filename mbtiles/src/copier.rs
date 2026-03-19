@@ -229,8 +229,7 @@ impl MbtileCopierInt {
         dif_mbt.attach_to(&mut conn, "diffDb").await?;
 
         let dst_type = self.options.dst_type().unwrap_or(src_info.mbt_type);
-        if patch_type.is_some()
-            && matches!(dst_type, NormalizedImage { .. } | NormalizedVectorTile)
+        if patch_type.is_some() && matches!(dst_type, NormalizedImage { .. } | NormalizedVectorTile)
         {
             return Err(MbtError::BinDiffRequiresFlatWithHash(dst_type));
         }

@@ -9,12 +9,12 @@ INSERT INTO metadata VALUES
 ('version','1.0.0');
 CREATE UNIQUE INDEX name ON metadata (name);
 CREATE TABLE tiles_shallow (
-  zoom_level integer,
-  tile_column integer,
-  tile_row integer,
-  tile_data_id integer,
-  primary key(zoom_level,tile_column,tile_row)
-) without rowid;
+    zoom_level integer,
+    tile_column integer,
+    tile_row integer,
+    tile_data_id integer,
+    PRIMARY KEY(zoom_level,tile_column,tile_row)
+) WITHOUT ROWID;
 INSERT INTO tiles_shallow VALUES
 (0,0,0,1),
 (1,0,0,2),
@@ -22,8 +22,8 @@ INSERT INTO tiles_shallow VALUES
 (1,1,0,4),
 (1,1,1,5);
 CREATE TABLE tiles_data (
-  tile_data_id integer primary key,
-  tile_data blob
+    tile_data_id integer PRIMARY KEY,
+    tile_data blob
 );
 INSERT INTO tiles_data VALUES
 (1,X'89504E470D0A1A0A01'),
@@ -32,12 +32,12 @@ INSERT INTO tiles_data VALUES
 (4,X'89504E470D0A1A0A04'),
 (5,X'89504E470D0A1A0A05');
 CREATE VIEW tiles AS
-select
-  tiles_shallow.zoom_level as zoom_level,
-  tiles_shallow.tile_column as tile_column,
-  tiles_shallow.tile_row as tile_row,
-  tiles_data.tile_data as tile_data
-from tiles_shallow
-join tiles_data on tiles_shallow.tile_data_id = tiles_data.tile_data_id
-/* tiles(zoom_level,tile_column,tile_row,tile_data) */;
+SELECT
+    tiles_shallow.zoom_level,
+    tiles_shallow.tile_column,
+    tiles_shallow.tile_row,
+    tiles_data.tile_data
+FROM tiles_shallow
+INNER JOIN tiles_data ON tiles_shallow.tile_data_id = tiles_data.tile_data_id;
+/* tiles(zoom_level,tile_column,tile_row,tile_data) */
 COMMIT;

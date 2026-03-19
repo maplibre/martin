@@ -519,7 +519,9 @@ const DB_EMPTY_DIFF: RegularTileset = ("v1", "v1_clone", "dif_empty");
 async fn diff_and_patch(
     #[values(Flat, FlatWithHash, NormalizedImage)] a_type: MbtTypeCli,
     #[values(Flat, FlatWithHash, NormalizedImage)] b_type: MbtTypeCli,
-    #[values(None, Some(Flat), Some(FlatWithHash), Some(NormalizedImage))] dif_type: Option<MbtTypeCli>,
+    #[values(None, Some(Flat), Some(FlatWithHash), Some(NormalizedImage))] dif_type: Option<
+        MbtTypeCli,
+    >,
     #[values(DB_WITH_DIFF, DB_EMPTY_DIFF)] tilesets: RegularTileset,
     #[notrace] databases: &Databases,
 ) -> MbtResult<()> {
@@ -669,7 +671,9 @@ async fn diff_and_patch_bsdiff(
 async fn patch_on_copy(
     #[values(Flat, FlatWithHash, NormalizedImage)] v1_type: MbtTypeCli,
     #[values(Flat, FlatWithHash, NormalizedImage)] dif_type: MbtTypeCli,
-    #[values(None, Some(Flat), Some(FlatWithHash), Some(NormalizedImage))] v2_type: Option<MbtTypeCli>,
+    #[values(None, Some(Flat), Some(FlatWithHash), Some(NormalizedImage))] v2_type: Option<
+        MbtTypeCli,
+    >,
     #[notrace] databases: &Databases,
 ) -> MbtResult<()> {
     let (v1, dif) = (shorten(v1_type), shorten(dif_type));
