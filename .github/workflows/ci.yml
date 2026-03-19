@@ -83,7 +83,7 @@ jobs:
       - uses: taiki-e/install-action@a57ddfbcd928cf9406a78dcc300dacc5d367a547 # v2.68.31
         with: { tool: 'just' }
       - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
-        if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
+        if: github.event_name != 'release' && github.event_name != 'workflow_dispatch' && github.ref != 'refs/heads/main'
       - run: just env-info
       - run: just clippy
       - run: just check
