@@ -497,7 +497,7 @@ async fn init_schema(
                 MbtTypeCli::Flat => MbtType::Flat,
                 MbtTypeCli::FlatWithHash => MbtType::FlatWithHash,
                 MbtTypeCli::NormalizedImage => MbtType::NormalizedImage { hash_view: true },
-                MbtTypeCli::NormalizedVectorTiles => MbtType::NormalizedVectorTiles,
+                MbtTypeCli::NormalizedVectorTile => MbtType::NormalizedVectorTile,
             };
             init_mbtiles_schema(&mut *conn, mbt_type)
                 .await

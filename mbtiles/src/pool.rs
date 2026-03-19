@@ -180,7 +180,7 @@ impl MbtilesPool {
     ///     MbtType::Flat => println!("Simple flat schema"),
     ///     MbtType::FlatWithHash => println!("Flat schema with hashes"),
     ///     MbtType::NormalizedImage { .. } => println!("Normalized schema with deduplication"),
-    ///     MbtType::NormalizedVectorTiles => println!("Planetiler normalized schema"),
+    ///     MbtType::NormalizedVectorTile => println!("Planetiler normalized schema"),
     /// }
     /// # Ok(())
     /// # }
@@ -494,7 +494,7 @@ mod tests {
         let pool = MbtilesPool::open_readonly(file).await.unwrap();
         assert_eq!(
             pool.detect_type().await.unwrap(),
-            MbtType::NormalizedVectorTiles
+            MbtType::NormalizedVectorTile
         );
     }
 
@@ -507,16 +507,16 @@ mod tests {
         let pool = MbtilesPool::open_readonly(file).await.unwrap();
         assert_eq!(
             pool.detect_type().await.unwrap(),
-            MbtType::NormalizedVectorTiles
+            MbtType::NormalizedVectorTile
         );
 
         // Getting a tile works
         let t1 = pool.get_tile(0, 0, 0).await.unwrap().unwrap();
         assert!(!t1.is_empty());
 
-        // NormalizedVectorTiles returns tile_data_id as hash; Flat has no hash
+        // NormalizedVectorTile returns tile_data_id as hash; Flat has no hash
         let (t2, h2) = pool
-            .get_tile_and_hash(MbtType::NormalizedVectorTiles, 0, 0, 0)
+            .get_tile_and_hash(MbtType::NormalizedVectorTile, 0, 0, 0)
             .await
             .unwrap()
             .unwrap();
@@ -542,10 +542,10 @@ mod tests {
         let pool = MbtilesPool::open_readonly(file).await.unwrap();
         assert_eq!(
             pool.detect_type().await.unwrap(),
-            MbtType::NormalizedVectorTiles
+            MbtType::NormalizedVectorTile
         );
 
-        for working_mbt_type in [MbtType::NormalizedVectorTiles, MbtType::Flat] {
+        for working_mbt_type in [MbtType::NormalizedVectorTile, MbtType::Flat] {
             assert!(pool.contains(working_mbt_type, 0, 0, 0).await.unwrap());
         }
         // Using FlatWithHash is unsupported for tiles_shallow
@@ -562,7 +562,7 @@ mod tests {
         let pool = MbtilesPool::open_readonly(file).await.unwrap();
         assert_eq!(
             pool.detect_type().await.unwrap(),
-            MbtType::NormalizedVectorTiles
+            MbtType::NormalizedVectorTile
         );
         let metadata = pool.get_metadata().await.unwrap();
         insta::assert_yaml_snapshot!(metadata, @r#"

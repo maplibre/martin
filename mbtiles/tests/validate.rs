@@ -194,7 +194,7 @@ async fn flat_tables_accept_int_type() {
 #[actix_rt::test]
 #[tracing_test::traced_test]
 async fn normalized_tables_accept_int_type() {
-    use mbtiles::is_normalized_tables_type;
+    use mbtiles::is_normalized_with_image_tables_type;
 
     let mbtiles = Mbtiles::new(":memory:").unwrap();
     let mut conn = mbtiles.open().await.unwrap();
@@ -219,17 +219,17 @@ async fn normalized_tables_accept_int_type() {
     .await
     .unwrap();
 
-    let result = is_normalized_tables_type(&mut conn).await;
+    let result = is_normalized_with_image_tables_type(&mut conn).await;
     assert!(
         matches!(result, Ok(true)),
-        "is_normalized_tables_type should accept INT type, got: {result:?}"
+        "is_normalized_with_image_tables_type should accept INT type, got: {result:?}"
     );
 }
 
 #[actix_rt::test]
 #[tracing_test::traced_test]
 async fn int_containing_types_accepted() {
-    use mbtiles::{is_flat_tables_type, is_normalized_tables_type};
+    use mbtiles::{is_flat_tables_type, is_normalized_with_image_tables_type};
 
     // Test flat tables with BIGINT, SMALLINT, TINYINT
     let mbtiles_flat = Mbtiles::new(":memory:").unwrap();
@@ -280,10 +280,10 @@ async fn int_containing_types_accepted() {
         .await
         .unwrap();
 
-    let result_norm = is_normalized_tables_type(&mut conn_norm).await;
+    let result_norm = is_normalized_with_image_tables_type(&mut conn_norm).await;
     assert!(
         matches!(result_norm, Ok(true)),
-        "is_normalized_tables_type should accept BIGINT/SMALLINT/TINYINT, got: {result_norm:?}"
+        "is_normalized_with_image_tables_type should accept BIGINT/SMALLINT/TINYINT, got: {result_norm:?}"
     );
 }
 
@@ -318,7 +318,7 @@ async fn tiles_with_hash_accepts_int_type() {
 #[actix_rt::test]
 #[tracing_test::traced_test]
 async fn normalized_with_view_tables_detect_correctly() {
-    use mbtiles::is_normalized_with_view_tables_type;
+    use mbtiles::is_normalized_with_vector_tile_tables_type;
 
     let mbtiles = Mbtiles::new(":memory:").unwrap();
     let mut conn = mbtiles.open().await.unwrap();
@@ -351,17 +351,17 @@ async fn normalized_with_view_tables_detect_correctly() {
     .await
     .unwrap();
 
-    let result = is_normalized_with_view_tables_type(&mut conn).await;
+    let result = is_normalized_with_vector_tile_tables_type(&mut conn).await;
     assert!(
         matches!(result, Ok(true)),
-        "is_normalized_with_view_tables_type should detect planetiler schema, got: {result:?}"
+        "is_normalized_with_vector_tile_tables_type should detect planetiler schema, got: {result:?}"
     );
 }
 
 #[actix_rt::test]
 #[tracing_test::traced_test]
 async fn normalized_with_view_tables_accept_int_type() {
-    use mbtiles::is_normalized_with_view_tables_type;
+    use mbtiles::is_normalized_with_vector_tile_tables_type;
 
     let mbtiles = Mbtiles::new(":memory:").unwrap();
     let mut conn = mbtiles.open().await.unwrap();
@@ -387,10 +387,10 @@ async fn normalized_with_view_tables_accept_int_type() {
     .await
     .unwrap();
 
-    let result = is_normalized_with_view_tables_type(&mut conn).await;
+    let result = is_normalized_with_vector_tile_tables_type(&mut conn).await;
     assert!(
         matches!(result, Ok(true)),
-        "is_normalized_with_view_tables_type should accept INT-containing types, got: {result:?}"
+        "is_normalized_with_vector_tile_tables_type should accept INT-containing types, got: {result:?}"
     );
 }
 
@@ -411,8 +411,8 @@ async fn planetiler_fixture_detected_as_normalized_with_view() {
     let detected = mbtiles.detect_type(&mut conn).await.unwrap();
     assert_eq!(
         detected,
-        mbtiles::MbtType::NormalizedVectorTiles,
-        "Planetiler fixture should be detected as NormalizedVectorTiles"
+        mbtiles::MbtType::NormalizedVectorTile,
+        "Planetiler fixture should be detected as NormalizedVectorTile"
     );
 }
 

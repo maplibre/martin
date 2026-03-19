@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use log::{debug, info, warn};
 use sqlx::{Connection as _, query};
 
-use crate::MbtType::{Flat, FlatWithHash, NormalizedImage, NormalizedVectorTiles};
+use crate::MbtType::{Flat, FlatWithHash, NormalizedImage, NormalizedVectorTile};
 use crate::queries::detach_db;
 use crate::{
     AGG_TILES_HASH, AGG_TILES_HASH_AFTER_APPLY, AGG_TILES_HASH_BEFORE_APPLY, MbtError, MbtResult,
@@ -50,7 +50,7 @@ pub async fn apply_patch(base_file: PathBuf, patch_file: PathBuf, force: bool) -
         base_type = base_info.mbt_type
     );
 
-    if base_info.mbt_type == NormalizedVectorTiles {
+    if base_info.mbt_type == NormalizedVectorTile {
         return Err(MbtError::UnsupportedCopyOperation {
             reason: "Applying a patch to a normalized-with-view (Planetiler) MBTiles file is not supported. Convert to another format first with `mbtiles copy`.".to_string(),
         });
@@ -109,7 +109,7 @@ fn get_select_from(src_type: MbtType, patch_type: MbtType) -> &'static str {
         "SELECT zoom_level, tile_column, tile_row, tile_data FROM patchDb.tiles"
     } else {
         match patch_type {
-            Flat | NormalizedVectorTiles => {
+            Flat | NormalizedVectorTile => {
                 "
         SELECT zoom_level, tile_column, tile_row, tile_data, md5_hex(tile_data) as hash
         FROM patchDb.tiles"
@@ -164,8 +164,8 @@ fn get_insert_sql(src_type: MbtType, select_from: &str) -> (&'static str, String
     FROM ({select_from})"
             )),
         ),
-        NormalizedVectorTiles => {
-            unreachable!("Applying a patch to NormalizedVectorTiles is blocked in apply_patch")
+        NormalizedVectorTile => {
+            unreachable!("Applying a patch to NormalizedVectorTile is blocked in apply_patch")
         }
     }
 }

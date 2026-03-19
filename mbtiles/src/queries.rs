@@ -19,7 +19,7 @@ where
         .is_none())
 }
 
-pub async fn is_normalized_tables_type<T>(conn: &mut T) -> MbtResult<bool>
+pub async fn is_normalized_with_image_tables_type<T>(conn: &mut T) -> MbtResult<bool>
 where
     for<'e> &'e mut T: SqliteExecutor<'e>,
 {
@@ -66,7 +66,7 @@ where
 
 /// Check if an `MBTiles` database uses the Planetiler-style normalized schema
 /// with `tiles_shallow` and `tiles_data` tables and a `tiles` view.
-pub async fn is_normalized_with_view_tables_type<T>(conn: &mut T) -> MbtResult<bool>
+pub async fn is_normalized_with_vector_tile_tables_type<T>(conn: &mut T) -> MbtResult<bool>
 where
     for<'e> &'e mut T: SqliteExecutor<'e>,
 {
@@ -437,7 +437,7 @@ where
             }
             Ok(())
         }
-        MbtType::NormalizedVectorTiles => create_normalized_with_view_tables(&mut *conn).await,
+        MbtType::NormalizedVectorTile => create_normalized_with_view_tables(&mut *conn).await,
     }
 }
 

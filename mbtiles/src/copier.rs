@@ -11,7 +11,7 @@ use tilejson::Bounds;
 
 use crate::AggHashType::Verify;
 use crate::IntegrityCheckType::Quick;
-use crate::MbtType::{Flat, FlatWithHash, NormalizedImage, NormalizedVectorTiles};
+use crate::MbtType::{Flat, FlatWithHash, NormalizedImage, NormalizedVectorTile};
 use crate::PatchType::BinDiffRaw;
 use crate::bindiff::PatchType::BinDiffGz;
 use crate::bindiff::{BinDiffDiffer, BinDiffPatcher, BinDiffer as _, PatchType};
@@ -98,7 +98,7 @@ impl MbtilesCopier {
                 MbtTypeCli::Flat => Flat,
                 MbtTypeCli::FlatWithHash => FlatWithHash,
                 MbtTypeCli::NormalizedImage => NormalizedImage { hash_view: true },
-                MbtTypeCli::NormalizedVectorTiles => NormalizedVectorTiles,
+                MbtTypeCli::NormalizedVectorTile => NormalizedVectorTile,
             })
         })
     }
@@ -230,7 +230,7 @@ impl MbtileCopierInt {
 
         let dst_type = self.options.dst_type().unwrap_or(src_info.mbt_type);
         if patch_type.is_some()
-            && matches!(dst_type, NormalizedImage { .. } | NormalizedVectorTiles)
+            && matches!(dst_type, NormalizedImage { .. } | NormalizedVectorTile)
         {
             return Err(MbtError::BinDiffRequiresFlatWithHash(dst_type));
         }
@@ -299,7 +299,7 @@ impl MbtileCopierInt {
         let src_type = self.validate_src_file().await?.mbt_type;
         let dst_type = self.options.dst_type().unwrap_or(src_type);
         if dif_info.patch_type.is_some()
-            && matches!(dst_type, NormalizedImage { .. } | NormalizedVectorTiles)
+            && matches!(dst_type, NormalizedImage { .. } | NormalizedVectorTile)
         {
             return Err(MbtError::BinDiffRequiresFlatWithHash(dst_type));
         }
@@ -533,7 +533,7 @@ impl MbtileCopierInt {
     FROM ({select_from} {where_clause} {sql_cond})"
                 )
             }
-            NormalizedVectorTiles => {
+            NormalizedVectorTile => {
                 return Err(MbtError::UnsupportedCopyOperation {
                     reason: "Writing to normalized-with-view (Planetiler) schema is not supported. Convert to another format first.".to_string(),
                 });
@@ -553,7 +553,7 @@ impl MbtileCopierInt {
                 (Flat, Flat)
                 | (FlatWithHash, FlatWithHash)
                 | (NormalizedImage { .. }, NormalizedImage { .. })
-                | (NormalizedVectorTiles, NormalizedVectorTiles) => {}
+                | (NormalizedVectorTile, NormalizedVectorTile) => {}
                 (cli, dst) => {
                     return Err(MbtError::MismatchedTargetType(
                         self.options.dst_file.clone(),
@@ -619,7 +619,7 @@ impl MbtileCopierInt {
                     Flat => ("tiles", "tile_data"),
                     FlatWithHash => ("tiles_with_hash", "tile_data"),
                     NormalizedImage { .. } => ("map", "tile_id"),
-                    NormalizedVectorTiles => ("tiles_shallow", "tile_data_id"),
+                    NormalizedVectorTile => ("tiles_shallow", "tile_data_id"),
                 };
 
                 format!(
@@ -695,9 +695,9 @@ fn get_select_from_apply_patch(
         match to_type {
             // Both schemas expose tile bytes via the same `tiles` view shape:
             // (zoom_level, tile_column, tile_row, tile_data)
-            Flat | NormalizedVectorTiles => format!("{frm_db}.tiles"),
+            Flat | NormalizedVectorTile => format!("{frm_db}.tiles"),
             FlatWithHash | NormalizedImage { .. } => match frm_type {
-                Flat | NormalizedVectorTiles => format!(
+                Flat | NormalizedVectorTile => format!(
                     "
         (SELECT zoom_level, tile_column, tile_row, tile_data, md5_hex(tile_data) AS tile_hash
          FROM {frm_db}.tiles)"
@@ -723,7 +723,7 @@ fn get_select_from_apply_patch(
     } else {
         fn get_tile_hash_expr(tbl: &str, typ: MbtType) -> String {
             match typ {
-                Flat | NormalizedVectorTiles => {
+                Flat | NormalizedVectorTile => {
                     format!("IIF({tbl}.tile_data ISNULL, NULL, md5_hex({tbl}.tile_data))")
                 }
                 FlatWithHash | NormalizedImage { .. } => format!("{tbl}.tile_hash"),
@@ -787,7 +787,7 @@ fn get_select_from_with_diff(
         diff_tiles = "diffDb.tiles";
     } else {
         tile_hash_expr = match dif_type {
-            Flat | NormalizedVectorTiles => {
+            Flat | NormalizedVectorTile => {
                 ", COALESCE(md5_hex(difTiles.tile_data), '') as tile_hash"
             }
             FlatWithHash | NormalizedImage { .. } => {
@@ -795,7 +795,7 @@ fn get_select_from_with_diff(
             }
         };
         diff_tiles = match dif_type {
-            Flat | NormalizedVectorTiles => "diffDb.tiles",
+            Flat | NormalizedVectorTile => "diffDb.tiles",
             FlatWithHash => "diffDb.tiles_with_hash",
             NormalizedImage { .. } => {
                 "
@@ -832,7 +832,7 @@ fn get_select_from(src_type: MbtType, dst_type: MbtType) -> &'static str {
         "SELECT zoom_level, tile_column, tile_row, tile_data FROM sourceDb.tiles WHERE TRUE"
     } else {
         match src_type {
-            Flat | NormalizedVectorTiles => {
+            Flat | NormalizedVectorTile => {
                 "
         SELECT zoom_level, tile_column, tile_row, tile_data, md5_hex(tile_data) as tile_hash
         FROM sourceDb.tiles

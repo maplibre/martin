@@ -27,7 +27,7 @@ pub enum MbtTypeCli {
     Flat,
     FlatWithHash,
     NormalizedImage,
-    NormalizedVectorTiles,
+    NormalizedVectorTile,
 }
 
 #[derive(Default, Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize, EnumDisplay)]
@@ -488,7 +488,7 @@ impl Mbtiles {
     /// - [`MbtType::Flat`]: Hash is always `None` (no hash column exists)
     /// - [`MbtType::FlatWithHash`]: Returns the stored MD5 hash
     /// - [`MbtType::NormalizedImage`]: Returns the `tile_id` (MD5 hash) from the images table
-    /// - [`MbtType::NormalizedVectorTiles`]: Returns the `tile_data_id` from the `tiles_shallow` table
+    /// - [`MbtType::NormalizedVectorTile`]: Returns the `tile_data_id` from the `tiles_shallow` table
     ///
     /// # Returns
     ///
@@ -570,7 +570,7 @@ impl Mbtiles {
             MbtType::NormalizedImage { hash_view: false } => {
                 "SELECT images.tile_data, images.tile_id AS tile_hash FROM map JOIN images ON map.tile_id = images.tile_id  where map.zoom_level = ? AND map.tile_column = ? AND map.tile_row = ?"
             }
-            MbtType::NormalizedVectorTiles => {
+            MbtType::NormalizedVectorTile => {
                 // This schema stores integer tile_data_id keys (not MD5 hashes).
                 // We still surface it through the `tile_hash` API field for compatibility.
                 "SELECT tiles_data.tile_data, CAST(tiles_shallow.tile_data_id AS TEXT) AS tile_hash \
@@ -652,7 +652,7 @@ impl Mbtiles {
             MbtType::Flat => "tiles",
             MbtType::FlatWithHash => "tiles_with_hash",
             MbtType::NormalizedImage { .. } => "map",
-            MbtType::NormalizedVectorTiles => "tiles_shallow",
+            MbtType::NormalizedVectorTile => "tiles_shallow",
         };
         let sql = format!(
             "SELECT 1 from {table} where zoom_level = ? AND tile_column = ? AND tile_row = ?"
@@ -700,7 +700,7 @@ impl Mbtiles {
     VALUES (md5_hex(?1), ?1);"
                 )),
             ),
-            MbtType::NormalizedVectorTiles => {
+            MbtType::NormalizedVectorTile => {
                 // Use a single CTE with RETURNING so tiles_data and tiles_shallow
                 // reference the same auto-assigned tile_data_id.
                 let sql = format!(

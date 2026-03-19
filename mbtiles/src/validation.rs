@@ -18,7 +18,7 @@ use crate::errors::{MbtError, MbtResult};
 use crate::mbtiles::PatchFileInfo;
 use crate::queries::{
     has_tiles_with_hash, is_flat_tables_type, is_flat_with_hash_tables_type,
-    is_normalized_tables_type, is_normalized_with_view_tables_type,
+    is_normalized_with_image_tables_type, is_normalized_with_vector_tile_tables_type,
 };
 use crate::{Mbtiles, get_patch_type, invert_y_value};
 
@@ -69,7 +69,7 @@ pub enum MbtType {
     ///
     /// Unlike [`MbtType::NormalizedImage`], the tile identifier is an integer `tile_data_id` key
     /// (not an MD5 hash of tile bytes).
-    NormalizedVectorTiles,
+    NormalizedVectorTile,
 }
 
 impl MbtType {
@@ -80,7 +80,7 @@ impl MbtType {
 
     #[must_use]
     pub fn is_normalized_with_view(self) -> bool {
-        matches!(self, Self::NormalizedVectorTiles)
+        matches!(self, Self::NormalizedVectorTile)
     }
 }
 
@@ -276,12 +276,12 @@ impl Mbtiles {
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
         debug!("Detecting MBTiles type for {self}");
-        let typ = if is_normalized_tables_type(&mut *conn).await? {
+        let typ = if is_normalized_with_image_tables_type(&mut *conn).await? {
             MbtType::NormalizedImage {
                 hash_view: has_tiles_with_hash(&mut *conn).await?,
             }
-        } else if is_normalized_with_view_tables_type(&mut *conn).await? {
-            MbtType::NormalizedVectorTiles
+        } else if is_normalized_with_vector_tile_tables_type(&mut *conn).await? {
+            MbtType::NormalizedVectorTile
         } else if is_flat_with_hash_tables_type(&mut *conn).await? {
             MbtType::FlatWithHash
         } else if is_flat_tables_type(&mut *conn).await? {
@@ -308,7 +308,7 @@ impl Mbtiles {
             MbtType::Flat => "tiles",
             MbtType::FlatWithHash => "tiles_with_hash",
             MbtType::NormalizedImage { .. } => "map",
-            MbtType::NormalizedVectorTiles => "tiles_shallow",
+            MbtType::NormalizedVectorTile => "tiles_shallow",
         };
 
         let indexes = query("SELECT name FROM pragma_index_list(?) WHERE [unique] = 1")
@@ -492,7 +492,7 @@ LIMIT 1;"
                 info!("Skipping per-tile hash validation because this is a flat MBTiles file");
                 return Ok(());
             }
-            MbtType::NormalizedVectorTiles => {
+            MbtType::NormalizedVectorTile => {
                 info!(
                     "Skipping MD5 per-tile hash validation because normalized-vector-tiles uses integer tile_data_id keys"
                 );
