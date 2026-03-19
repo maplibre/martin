@@ -74,6 +74,9 @@ postgres:
       bigint_table:
         content_type: application/x-protobuf
         description: autodetect.bigint_table.geom
+      empty_bounds:
+        content_type: application/x-protobuf
+        description: public.empty_bounds.geom
       function_Mixed_Name:
         content_type: application/x-protobuf
         description: a function source with MixedCase name
@@ -109,6 +112,15 @@ postgres:
       function_zxy_row_key:
         content_type: application/x-protobuf
         description: public.function_zxy_row_key
+      linestring_bounds:
+        content_type: application/x-protobuf
+        description: public.linestring_bounds.geom
+      linestring_bounds_vertical:
+        content_type: application/x-protobuf
+        description: public.linestring_bounds_vertical.geom
+      point_bounds:
+        content_type: application/x-protobuf
+        description: public.point_bounds.geom
       points1:
         content_type: application/x-protobuf
         description: public.points1.geom
