@@ -14,7 +14,7 @@ use sqlite_compressions::{BsdiffRawDiffer, Differ as _};
 use sqlx::{Executor as _, Row as _, SqliteConnection, query};
 use xxhash_rust::xxh3::xxh3_64;
 
-use crate::MbtType::{Flat, FlatWithHash, Normalized};
+use crate::MbtType::{Flat, FlatWithHash, Normalized, NormalizedWithView};
 use crate::PatchType::{BinDiffGz, BinDiffRaw};
 use crate::{MbtError, MbtResult, MbtType, Mbtiles, create_bsdiffraw_tables, get_bsdiff_tbl_name};
 
@@ -206,7 +206,7 @@ impl BinDiffDiffer {
 impl BinDiffer<DifferBefore, DifferAfter> for BinDiffDiffer {
     async fn query(&self, sql_where: String, tx_wrk: Sender<DifferBefore>) -> MbtResult<()> {
         let diff_tiles = match self.dif_type {
-            Flat => "diffDb.tiles",
+            Flat | NormalizedWithView => "diffDb.tiles",
             FlatWithHash => "diffDb.tiles_with_hash",
             Normalized { .. } => {
                 "
@@ -421,9 +421,9 @@ impl BinDiffer<ApplierBefore, ApplierAfter> for BinDiffPatcher {
     async fn insert(&self, value: ApplierAfter, conn: &mut SqliteConnection) -> MbtResult<()> {
         let mut q = query(
             match self.dst_type {
-                Flat =>"INSERT INTO tiles (zoom_level, tile_column, tile_row, tile_data) VALUES (?, ?, ?, ?)",
+                Flat => "INSERT INTO tiles (zoom_level, tile_column, tile_row, tile_data) VALUES (?, ?, ?, ?)",
                 FlatWithHash => "INSERT INTO tiles_with_hash (zoom_level, tile_column, tile_row, tile_data, tile_hash) VALUES (?, ?, ?, ?, ?)",
-                v @ Normalized { .. } => return Err(MbtError::BinDiffRequiresFlatWithHash(v)),
+                v @ (Normalized { .. } | NormalizedWithView) => return Err(MbtError::BinDiffRequiresFlatWithHash(v)),
             })
         .bind(value.coord.z)
         .bind(value.coord.x)

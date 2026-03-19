@@ -64,6 +64,53 @@ where
     Ok(sql.fetch_one(&mut *conn).await?.is_valid == 1)
 }
 
+/// Check if an `MBTiles` database uses the Planetiler-style normalized schema
+/// with `tiles_shallow` and `tiles_data` tables and a `tiles` view.
+pub async fn is_normalized_with_view_tables_type<T>(conn: &mut T) -> MbtResult<bool>
+where
+    for<'e> &'e mut T: SqliteExecutor<'e>,
+{
+    let sql = query!(
+        "SELECT (
+             -- Has a 'tiles_shallow' table
+             SELECT COUNT(*) = 1
+             FROM sqlite_master
+             WHERE name = 'tiles_shallow'
+                 AND type = 'table'
+             --
+         ) AND (
+             -- 'tiles_shallow' table's columns and their types are as expected:
+             -- 4 columns (zoom_level, tile_column, tile_row, tile_data_id).
+             -- The order is not important
+             SELECT COUNT(*) = 4
+             FROM pragma_table_info('tiles_shallow')
+             WHERE ((name = 'zoom_level' AND type LIKE '%INT%')
+                 OR (name = 'tile_column' AND type LIKE '%INT%')
+                 OR (name = 'tile_row' AND type LIKE '%INT%')
+                 OR (name = 'tile_data_id' AND type LIKE '%INT%'))
+             --
+         ) AND (
+             -- Has a 'tiles_data' table
+             SELECT COUNT(*) = 1
+             FROM sqlite_master
+             WHERE name = 'tiles_data'
+                 AND type = 'table'
+             --
+         ) AND (
+             -- 'tiles_data' table's columns and their types are as expected:
+             -- 2 columns (tile_data_id, tile_data).
+             -- The order is not important
+             SELECT COUNT(*) = 2
+             FROM pragma_table_info('tiles_data')
+             WHERE ((name = 'tile_data_id' AND type LIKE '%INT%')
+                 OR (name = 'tile_data' AND type = 'BLOB'))
+             --
+         ) AS is_valid;"
+    );
+
+    Ok(sql.fetch_one(&mut *conn).await?.is_valid == 1)
+}
+
 /// Check if `MBTiles` has a table or a view named `tiles_with_hash` with needed fields
 pub async fn has_tiles_with_hash<T>(conn: &mut T) -> MbtResult<bool>
 where
@@ -302,6 +349,44 @@ where
     Ok(())
 }
 
+pub async fn create_normalized_with_view_tables<T>(conn: &mut T) -> MbtResult<()>
+where
+    for<'e> &'e mut T: SqliteExecutor<'e>,
+{
+    debug!("Creating if needed normalized-with-view table: tiles_shallow(z,x,y,tile_data_id)");
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS tiles_shallow (
+             zoom_level integer NOT NULL,
+             tile_column integer NOT NULL,
+             tile_row integer NOT NULL,
+             tile_data_id integer NOT NULL,
+             PRIMARY KEY(zoom_level, tile_column, tile_row)) WITHOUT ROWID;",
+    )
+    .await?;
+
+    debug!("Creating if needed normalized-with-view table: tiles_data(tile_data_id,tile_data)");
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS tiles_data (
+             tile_data_id integer NOT NULL PRIMARY KEY,
+             tile_data blob);",
+    )
+    .await?;
+
+    debug!("Creating if needed tiles view for normalized-with-view");
+    conn.execute(
+        "CREATE VIEW IF NOT EXISTS tiles AS
+             SELECT tiles_shallow.zoom_level AS zoom_level,
+                    tiles_shallow.tile_column AS tile_column,
+                    tiles_shallow.tile_row AS tile_row,
+                    tiles_data.tile_data AS tile_data
+             FROM tiles_shallow
+             JOIN tiles_data ON tiles_shallow.tile_data_id = tiles_data.tile_data_id;",
+    )
+    .await?;
+
+    Ok(())
+}
+
 pub async fn create_tiles_with_hash_view<T>(conn: &mut T) -> MbtResult<()>
 where
     for<'e> &'e mut T: SqliteExecutor<'e>,
@@ -352,6 +437,7 @@ where
             }
             Ok(())
         }
+        MbtType::NormalizedWithView => create_normalized_with_view_tables(&mut *conn).await,
     }
 }
 

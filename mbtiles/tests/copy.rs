@@ -9,7 +9,7 @@ use itertools::Itertools as _;
 use martin_tile_utils::xyz_to_bbox;
 use mbtiles::AggHashType::Verify;
 use mbtiles::IntegrityCheckType::Off;
-use mbtiles::MbtTypeCli::{Flat, FlatWithHash, Normalized};
+use mbtiles::MbtTypeCli::{Flat, FlatWithHash, Normalized, NormalizedWithView};
 use mbtiles::PatchTypeCli::{BinDiffGz, BinDiffRaw};
 use mbtiles::{
     CopyType, MbtResult, MbtTypeCli, Mbtiles, MbtilesCopier, PatchTypeCli, UpdateZoomType,
@@ -92,6 +92,7 @@ fn shorten(v: MbtTypeCli) -> &'static str {
         Flat => "flat",
         FlatWithHash => "hash",
         Normalized => "norm",
+        NormalizedWithView => "normview",
     }
 }
 

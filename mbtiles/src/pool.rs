@@ -180,6 +180,7 @@ impl MbtilesPool {
     ///     MbtType::Flat => println!("Simple flat schema"),
     ///     MbtType::FlatWithHash => println!("Flat schema with hashes"),
     ///     MbtType::Normalized { .. } => println!("Normalized schema with deduplication"),
+    ///     MbtType::NormalizedWithView => println!("Planetiler normalized schema"),
     /// }
     /// # Ok(())
     /// # }
@@ -481,6 +482,99 @@ mod tests {
         ] {
             assert!(pool.get_tile_and_hash(error_types, 0, 0, 0).await.is_err());
         }
+    }
+
+    #[tokio::test]
+    async fn test_detect_type_normalized_with_view() {
+        let script = include_str!("../../tests/fixtures/mbtiles/geography-class-png-planetiler.sql");
+        let (_mbt, _conn, file) =
+            temp_named_mbtiles("test_detect_type_normalized_with_view", script).await;
+
+        let pool = MbtilesPool::open_readonly(file).await.unwrap();
+        assert_eq!(
+            pool.detect_type().await.unwrap(),
+            MbtType::NormalizedWithView
+        );
+    }
+
+    #[tokio::test]
+    async fn test_normalized_with_view() {
+        let script = include_str!("../../tests/fixtures/mbtiles/geography-class-png-planetiler.sql");
+        let (_mbt, _conn, file) = temp_named_mbtiles("test_normalized_with_view", script).await;
+
+        let pool = MbtilesPool::open_readonly(file).await.unwrap();
+        assert_eq!(
+            pool.detect_type().await.unwrap(),
+            MbtType::NormalizedWithView
+        );
+
+        // Getting a tile works
+        let t1 = pool.get_tile(0, 0, 0).await.unwrap().unwrap();
+        assert!(!t1.is_empty());
+
+        // NormalizedWithView and Flat both return NULL hash (no hash stored in planetiler schema)
+        let (t2, h2) = pool
+            .get_tile_and_hash(MbtType::NormalizedWithView, 0, 0, 0)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(t2, t1);
+        assert_eq!(h2, None);
+
+        let (t3, h3) = pool
+            .get_tile_and_hash(MbtType::Flat, 0, 0, 0)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(t3, t1);
+        assert_eq!(h3, None);
+    }
+
+    #[tokio::test]
+    async fn test_contains_normalized_with_view() {
+        let script = include_str!("../../tests/fixtures/mbtiles/geography-class-png-planetiler.sql");
+        let (_mbt, _conn, file) =
+            temp_named_mbtiles("test_contains_normalized_with_view", script).await;
+
+        let pool = MbtilesPool::open_readonly(file).await.unwrap();
+        assert_eq!(
+            pool.detect_type().await.unwrap(),
+            MbtType::NormalizedWithView
+        );
+
+        for working_mbt_type in [
+            MbtType::NormalizedWithView,
+            MbtType::Flat,
+        ] {
+            assert!(pool.contains(working_mbt_type, 0, 0, 0).await.unwrap());
+        }
+        // Using FlatWithHash is unsupported for tiles_shallow
+        assert!(pool.contains(MbtType::FlatWithHash, 0, 0, 0).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_metadata_normalized_with_view() {
+        let script = include_str!("../../tests/fixtures/mbtiles/geography-class-png-planetiler.sql");
+        let (_mbt, _conn, file) =
+            temp_named_mbtiles("test_metadata_normalized_with_view", script).await;
+
+        let pool = MbtilesPool::open_readonly(file).await.unwrap();
+        assert_eq!(
+            pool.detect_type().await.unwrap(),
+            MbtType::NormalizedWithView
+        );
+        let metadata = pool.get_metadata().await.unwrap();
+        insta::assert_yaml_snapshot!(metadata, @r#"
+        id: "file:test_metadata_normalized_with_view?mode=memory&cache=shared"
+        tilejson:
+          tilejson: 3.0.0
+          tiles: []
+          description: "One of the example maps that comes with TileMill - a bright & colorful world map that blends retro and high-tech with its folded paper texture and interactive flag tooltips. "
+          maxzoom: 1
+          minzoom: 0
+          name: Geography Class
+          version: 1.0.0
+        "#);
     }
 
     #[expect(clippy::too_many_lines)]

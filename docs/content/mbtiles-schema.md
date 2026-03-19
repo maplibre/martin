@@ -31,3 +31,31 @@ Optionally, `.mbtiles` files with `normalized` schema can include a `tiles_with_
 ```sql
 --8<-- "files/init-normalized.sql:30:39"
 ```
+
+## normalized-with-view
+
+This is an alternative normalized schema produced by [Planetiler](https://github.com/onthegomap/planetiler). Like the `normalized` schema, it deduplicates tiles, but uses `tiles_shallow` and `tiles_data` tables with integer IDs instead of `map` and `images` tables with text MD5 hash IDs. Tile data is accessible through a `tiles` view.
+
+Unlike the `normalized` schema, individual tile hashes are not stored, so per-tile hash verification is not available for this schema type.
+
+The `mbtiles` tool supports reading (summary, verification, tile serving) from `normalized-with-view` files. Writing to this format is not supported; use `mbtiles copy` to convert to another schema.
+
+```sql
+CREATE TABLE metadata (name text, value text);
+CREATE UNIQUE INDEX name ON metadata (name);
+CREATE TABLE tiles_shallow (
+  zoom_level integer,
+  tile_column integer,
+  tile_row integer,
+  tile_data_id integer,
+  PRIMARY KEY(zoom_level, tile_column, tile_row)
+) WITHOUT ROWID;
+CREATE TABLE tiles_data (
+  tile_data_id integer PRIMARY KEY,
+  tile_data blob
+);
+CREATE VIEW tiles AS
+  SELECT tiles_shallow.zoom_level, tiles_shallow.tile_column, tiles_shallow.tile_row, tiles_data.tile_data
+  FROM tiles_shallow
+  JOIN tiles_data ON tiles_shallow.tile_data_id = tiles_data.tile_data_id;
+```

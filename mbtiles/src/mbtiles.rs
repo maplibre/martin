@@ -27,6 +27,7 @@ pub enum MbtTypeCli {
     Flat,
     FlatWithHash,
     Normalized,
+    NormalizedWithView,
 }
 
 #[derive(Default, Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize, EnumDisplay)]
@@ -556,10 +557,10 @@ impl Mbtiles {
 
     /// sql query for getting tile and hash
     ///
-    /// For [`MbtType::Flat`] accessing the hash is not possible, so the SQL query explicitly returns `NULL as tile_hash`.
+    /// For [`MbtType::Flat`] and [`MbtType::NormalizedWithView`] accessing the hash is not possible, so the SQL query explicitly returns `NULL as tile_hash`.
     fn get_tile_and_hash_sql(mbt_type: MbtType) -> &'static str {
         match mbt_type {
-            MbtType::Flat => {
+            MbtType::Flat | MbtType::NormalizedWithView => {
                 "SELECT tile_data, NULL as tile_hash from tiles where zoom_level = ? AND tile_column = ? AND tile_row = ?"
             }
             MbtType::FlatWithHash | MbtType::Normalized { hash_view: true } => {
@@ -643,6 +644,7 @@ impl Mbtiles {
             MbtType::Flat => "tiles",
             MbtType::FlatWithHash => "tiles_with_hash",
             MbtType::Normalized { .. } => "map",
+            MbtType::NormalizedWithView => "tiles_shallow",
         };
         let sql = format!(
             "SELECT 1 from {table} where zoom_level = ? AND tile_column = ? AND tile_row = ?"
@@ -690,6 +692,21 @@ impl Mbtiles {
     VALUES (md5_hex(?1), ?1);"
                 )),
             ),
+            MbtType::NormalizedWithView => {
+                // Use a single CTE with RETURNING so tiles_data and tiles_shallow
+                // reference the same auto-assigned tile_data_id.
+                let sql = format!(
+                    "
+    WITH new_data AS (
+        INSERT INTO tiles_data (tile_data)
+        VALUES (?4)
+        RETURNING tile_data_id
+    )
+    INSERT {on_duplicate} INTO tiles_shallow (zoom_level, tile_column, tile_row, tile_data_id)
+    SELECT ?1, ?2, ?3, tile_data_id FROM new_data;"
+                );
+                (sql, None)
+            }
         }
     }
 }

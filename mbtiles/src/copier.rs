@@ -11,7 +11,7 @@ use tilejson::Bounds;
 
 use crate::AggHashType::Verify;
 use crate::IntegrityCheckType::Quick;
-use crate::MbtType::{Flat, FlatWithHash, Normalized};
+use crate::MbtType::{Flat, FlatWithHash, Normalized, NormalizedWithView};
 use crate::PatchType::BinDiffRaw;
 use crate::bindiff::PatchType::BinDiffGz;
 use crate::bindiff::{BinDiffDiffer, BinDiffPatcher, BinDiffer as _, PatchType};
@@ -98,6 +98,7 @@ impl MbtilesCopier {
                 MbtTypeCli::Flat => Flat,
                 MbtTypeCli::FlatWithHash => FlatWithHash,
                 MbtTypeCli::Normalized => Normalized { hash_view: true },
+                MbtTypeCli::NormalizedWithView => NormalizedWithView,
             })
         })
     }
@@ -228,7 +229,7 @@ impl MbtileCopierInt {
         dif_mbt.attach_to(&mut conn, "diffDb").await?;
 
         let dst_type = self.options.dst_type().unwrap_or(src_info.mbt_type);
-        if patch_type.is_some() && matches!(dst_type, Normalized { .. }) {
+        if patch_type.is_some() && matches!(dst_type, Normalized { .. } | NormalizedWithView) {
             return Err(MbtError::BinDiffRequiresFlatWithHash(dst_type));
         }
 
@@ -295,7 +296,7 @@ impl MbtileCopierInt {
 
         let src_type = self.validate_src_file().await?.mbt_type;
         let dst_type = self.options.dst_type().unwrap_or(src_type);
-        if dif_info.patch_type.is_some() && matches!(dst_type, Normalized { .. }) {
+        if dif_info.patch_type.is_some() && matches!(dst_type, Normalized { .. } | NormalizedWithView) {
             return Err(MbtError::BinDiffRequiresFlatWithHash(dst_type));
         }
 
@@ -528,6 +529,11 @@ impl MbtileCopierInt {
     FROM ({select_from} {where_clause} {sql_cond})"
                 )
             }
+            NormalizedWithView => {
+                return Err(MbtError::UnsupportedCopyOperation {
+                    reason: "Writing to normalized-with-view (Planetiler) schema is not supported. Convert to another format first.".to_string(),
+                });
+            }
         };
 
         debug!("Copying to {dst_type} with {sql}");
@@ -543,6 +549,7 @@ impl MbtileCopierInt {
                 (Flat, Flat)
                 | (FlatWithHash, FlatWithHash)
                 | (Normalized { .. }, Normalized { .. }) => {}
+                (NormalizedWithView, NormalizedWithView) => {}
                 (cli, dst) => {
                     return Err(MbtError::MismatchedTargetType(
                         self.options.dst_file.clone(),
@@ -569,7 +576,7 @@ impl MbtileCopierInt {
                 .fetch_all(
                     "SELECT sql, tbl_name, type
                      FROM sourceDb.sqlite_schema
-                     WHERE tbl_name IN ('metadata', 'tiles', 'map', 'images', 'tiles_with_hash')
+                     WHERE tbl_name IN ('metadata', 'tiles', 'map', 'images', 'tiles_with_hash', 'tiles_shallow', 'tiles_data')
                        AND type     IN ('table', 'view', 'trigger', 'index')
                      ORDER BY CASE
                          WHEN type = 'table' THEN 1
@@ -608,6 +615,7 @@ impl MbtileCopierInt {
                     Flat => ("tiles", "tile_data"),
                     FlatWithHash => ("tiles_with_hash", "tile_data"),
                     Normalized { .. } => ("map", "tile_id"),
+                    NormalizedWithView => ("tiles_shallow", "tile_data_id"),
                 };
 
                 format!(
@@ -683,7 +691,7 @@ fn get_select_from_apply_patch(
         match to_type {
             Flat => format!("{frm_db}.tiles"),
             FlatWithHash | Normalized { .. } => match frm_type {
-                Flat => format!(
+                Flat | NormalizedWithView => format!(
                     "
         (SELECT zoom_level, tile_column, tile_row, tile_data, md5_hex(tile_data) AS tile_hash
          FROM {frm_db}.tiles)"
@@ -701,6 +709,7 @@ fn get_select_from_apply_patch(
                     }
                 }
             },
+            NormalizedWithView => format!("{frm_db}.tiles"),
         }
     }
 
@@ -709,7 +718,9 @@ fn get_select_from_apply_patch(
     } else {
         fn get_tile_hash_expr(tbl: &str, typ: MbtType) -> String {
             match typ {
-                Flat => format!("IIF({tbl}.tile_data ISNULL, NULL, md5_hex({tbl}.tile_data))"),
+                Flat | NormalizedWithView => {
+                    format!("IIF({tbl}.tile_data ISNULL, NULL, md5_hex({tbl}.tile_data))")
+                }
                 FlatWithHash | Normalized { .. } => format!("{tbl}.tile_hash"),
             }
         }
@@ -771,11 +782,11 @@ fn get_select_from_with_diff(
         diff_tiles = "diffDb.tiles";
     } else {
         tile_hash_expr = match dif_type {
-            Flat => ", COALESCE(md5_hex(difTiles.tile_data), '') as tile_hash",
+            Flat | NormalizedWithView => ", COALESCE(md5_hex(difTiles.tile_data), '') as tile_hash",
             FlatWithHash | Normalized { .. } => ", COALESCE(difTiles.tile_hash, '') as tile_hash",
         };
         diff_tiles = match dif_type {
-            Flat => "diffDb.tiles",
+            Flat | NormalizedWithView => "diffDb.tiles",
             FlatWithHash => "diffDb.tiles_with_hash",
             Normalized { .. } => {
                 "
@@ -829,6 +840,12 @@ fn get_select_from(src_type: MbtType, dst_type: MbtType) -> &'static str {
         SELECT zoom_level, tile_column, tile_row, tile_data, map.tile_id AS tile_hash
         FROM sourceDb.map JOIN sourceDb.images
           ON sourceDb.map.tile_id = sourceDb.images.tile_id
+        WHERE TRUE"
+            }
+            NormalizedWithView => {
+                "
+        SELECT zoom_level, tile_column, tile_row, tile_data, md5_hex(tile_data) as tile_hash
+        FROM sourceDb.tiles
         WHERE TRUE"
             }
         }

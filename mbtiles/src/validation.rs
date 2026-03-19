@@ -18,7 +18,7 @@ use crate::errors::{MbtError, MbtResult};
 use crate::mbtiles::PatchFileInfo;
 use crate::queries::{
     has_tiles_with_hash, is_flat_tables_type, is_flat_with_hash_tables_type,
-    is_normalized_tables_type,
+    is_normalized_tables_type, is_normalized_with_view_tables_type,
 };
 use crate::{Mbtiles, get_patch_type, invert_y_value};
 
@@ -60,6 +60,16 @@ pub enum MbtType {
     ///
     /// See <https://maplibre.org/martin/mbtiles-schema.html#normalized> for the concrete schema.
     Normalized { hash_view: bool },
+    /// Planetiler-style normalized `MBTiles` file
+    ///
+    /// An alternative normalized schema produced by [Planetiler](https://github.com/onthegomap/planetiler).
+    /// Like [`MbtType::Normalized`], it deduplicates tiles, but uses `tiles_shallow` and `tiles_data`
+    /// tables with integer IDs instead of `map` and `images` tables with text MD5 hash IDs.
+    /// Tile data is accessible through a `tiles` view.
+    ///
+    /// Unlike [`MbtType::Normalized`], individual tile hashes are not stored, so per-tile hash
+    /// verification is not available.
+    NormalizedWithView,
 }
 
 impl MbtType {
@@ -270,6 +280,8 @@ impl Mbtiles {
             MbtType::Normalized {
                 hash_view: has_tiles_with_hash(&mut *conn).await?,
             }
+        } else if is_normalized_with_view_tables_type(&mut *conn).await? {
+            MbtType::NormalizedWithView
         } else if is_flat_with_hash_tables_type(&mut *conn).await? {
             MbtType::FlatWithHash
         } else if is_flat_tables_type(&mut *conn).await? {
@@ -296,6 +308,7 @@ impl Mbtiles {
             MbtType::Flat => "tiles",
             MbtType::FlatWithHash => "tiles_with_hash",
             MbtType::Normalized { .. } => "map",
+            MbtType::NormalizedWithView => "tiles_shallow",
         };
 
         let indexes = query("SELECT name FROM pragma_index_list(?) WHERE [unique] = 1")
@@ -475,7 +488,7 @@ LIMIT 1;"
     {
         // Note that hex() always returns upper-case HEX values
         let sql = match self.detect_type(&mut *conn).await? {
-            MbtType::Flat => {
+            MbtType::Flat | MbtType::NormalizedWithView => {
                 info!("Skipping per-tile hash validation because this is a flat MBTiles file");
                 return Ok(());
             }
