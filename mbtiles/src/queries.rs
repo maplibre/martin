@@ -430,14 +430,14 @@ where
     match mbt_type {
         MbtType::Flat => create_flat_tables(&mut *conn).await,
         MbtType::FlatWithHash => create_flat_with_hash_tables(&mut *conn).await,
-        MbtType::Normalized { hash_view } => {
+        MbtType::NormalizedImage { hash_view } => {
             create_normalized_tables(&mut *conn).await?;
             if hash_view {
                 create_tiles_with_hash_view(&mut *conn).await?;
             }
             Ok(())
         }
-        MbtType::NormalizedWithView => create_normalized_with_view_tables(&mut *conn).await,
+        MbtType::NormalizedVectorTiles => create_normalized_with_view_tables(&mut *conn).await,
     }
 }
 

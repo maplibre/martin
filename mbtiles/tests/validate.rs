@@ -400,8 +400,7 @@ async fn planetiler_fixture_detected_as_normalized_with_view() {
     let mbtiles = Mbtiles::new(":memory:").unwrap();
     let mut conn = mbtiles.open().await.unwrap();
 
-    let script =
-        include_str!("../../tests/fixtures/mbtiles/geography-class-png-planetiler.sql");
+    let script = include_str!("../../tests/fixtures/mbtiles/geography-class-png-planetiler.sql");
     for stmt in script.split(";\n") {
         let stmt: &str = stmt.trim();
         if !stmt.is_empty() {
@@ -412,8 +411,8 @@ async fn planetiler_fixture_detected_as_normalized_with_view() {
     let detected = mbtiles.detect_type(&mut conn).await.unwrap();
     assert_eq!(
         detected,
-        mbtiles::MbtType::NormalizedWithView,
-        "Planetiler fixture should be detected as NormalizedWithView"
+        mbtiles::MbtType::NormalizedVectorTiles,
+        "Planetiler fixture should be detected as NormalizedVectorTiles"
     );
 }
 

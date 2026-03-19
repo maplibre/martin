@@ -36,7 +36,7 @@ Optionally, `.mbtiles` files with `normalized` schema can include a `tiles_with_
 
 This is an alternative normalized schema produced by [Planetiler](https://github.com/onthegomap/planetiler). Like the `normalized` schema, it deduplicates tiles, but uses `tiles_shallow` and `tiles_data` tables with integer IDs instead of `map` and `images` tables with text MD5 hash IDs. Tile data is accessible through a `tiles` view.
 
-Unlike the `normalized` schema, individual tile hashes are not stored, so per-tile hash verification is not available for this schema type.
+Unlike the `normalized` schema, this variant uses integer `tile_data_id` keys (the primary key in `tiles_data`) rather than MD5 hashes of tile bytes.
 
 The `mbtiles` tool supports reading (summary, verification, tile serving) from `normalized-with-view` files. Writing to this format is not supported; use `mbtiles copy` to convert to another schema.
 

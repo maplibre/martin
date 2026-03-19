@@ -158,7 +158,7 @@ impl MbtilesPool {
     /// schema types is in use:
     /// - [`MbtType::Flat`] - Single `tiles` table
     /// - [`MbtType::FlatWithHash`] - `tiles_with_hash` table
-    /// - [`MbtType::Normalized`] - Separate `map` and `images` tables
+    /// - [`MbtType::NormalizedImage`] - Separate `map` and `images` tables
     ///
     /// You typically need the schema type for operations like [`get_tile_and_hash`](Self::get_tile_and_hash)
     /// or [`contains`](Self::contains) that behave differently based on the schema.
@@ -179,8 +179,8 @@ impl MbtilesPool {
     /// match mbt_type {
     ///     MbtType::Flat => println!("Simple flat schema"),
     ///     MbtType::FlatWithHash => println!("Flat schema with hashes"),
-    ///     MbtType::Normalized { .. } => println!("Normalized schema with deduplication"),
-    ///     MbtType::NormalizedWithView => println!("Planetiler normalized schema"),
+    ///     MbtType::NormalizedImage { .. } => println!("Normalized schema with deduplication"),
+    ///     MbtType::NormalizedVectorTiles => println!("Planetiler normalized schema"),
     /// }
     /// # Ok(())
     /// # }
@@ -359,8 +359,8 @@ mod tests {
 
         assert!(pool.contains(MbtType::Flat, 0, 0, 0).await.unwrap());
         for error_mbt_type in [
-            MbtType::Normalized { hash_view: false },
-            MbtType::Normalized { hash_view: true },
+            MbtType::NormalizedImage { hash_view: false },
+            MbtType::NormalizedImage { hash_view: true },
             MbtType::FlatWithHash,
         ] {
             assert!(pool.contains(error_mbt_type, 0, 0, 0).await.is_err());
@@ -388,8 +388,8 @@ mod tests {
         assert_eq!(h2, None);
         for error_types in [
             MbtType::FlatWithHash,
-            MbtType::Normalized { hash_view: false },
-            MbtType::Normalized { hash_view: true },
+            MbtType::NormalizedImage { hash_view: false },
+            MbtType::NormalizedImage { hash_view: true },
         ] {
             assert!(pool.get_tile_and_hash(error_types, 0, 0, 0).await.is_err());
         }
@@ -403,7 +403,7 @@ mod tests {
         let pool = MbtilesPool::open_readonly(file).await.unwrap();
         assert_eq!(
             pool.detect_type().await.unwrap(),
-            MbtType::Normalized { hash_view: false }
+            MbtType::NormalizedImage { hash_view: false }
         );
         let metadata = pool.get_metadata().await.unwrap();
         insta::assert_yaml_snapshot!(metadata, @r#"
@@ -433,12 +433,12 @@ mod tests {
         let pool = MbtilesPool::open_readonly(file).await.unwrap();
         assert_eq!(
             pool.detect_type().await.unwrap(),
-            MbtType::Normalized { hash_view: false }
+            MbtType::NormalizedImage { hash_view: false }
         );
 
         for working_mbt_type in [
-            MbtType::Normalized { hash_view: false },
-            MbtType::Normalized { hash_view: true },
+            MbtType::NormalizedImage { hash_view: false },
+            MbtType::NormalizedImage { hash_view: true },
             MbtType::Flat,
         ] {
             assert!(pool.contains(working_mbt_type, 0, 0, 0).await.unwrap());
@@ -454,14 +454,14 @@ mod tests {
         let pool = MbtilesPool::open_readonly(file).await.unwrap();
         assert_eq!(
             pool.detect_type().await.unwrap(),
-            MbtType::Normalized { hash_view: false }
+            MbtType::NormalizedImage { hash_view: false }
         );
 
         let t1 = pool.get_tile(0, 0, 0).await.unwrap().unwrap();
         assert!(!t1.is_empty());
 
         let (t2, h2) = pool
-            .get_tile_and_hash(MbtType::Normalized { hash_view: false }, 0, 0, 0)
+            .get_tile_and_hash(MbtType::NormalizedImage { hash_view: false }, 0, 0, 0)
             .await
             .unwrap()
             .unwrap();
@@ -478,7 +478,7 @@ mod tests {
         assert_eq!(h3, None);
         for error_types in [
             MbtType::FlatWithHash,
-            MbtType::Normalized { hash_view: true },
+            MbtType::NormalizedImage { hash_view: true },
         ] {
             assert!(pool.get_tile_and_hash(error_types, 0, 0, 0).await.is_err());
         }
@@ -486,40 +486,42 @@ mod tests {
 
     #[tokio::test]
     async fn test_detect_type_normalized_with_view() {
-        let script = include_str!("../../tests/fixtures/mbtiles/geography-class-png-planetiler.sql");
+        let script =
+            include_str!("../../tests/fixtures/mbtiles/geography-class-png-planetiler.sql");
         let (_mbt, _conn, file) =
             temp_named_mbtiles("test_detect_type_normalized_with_view", script).await;
 
         let pool = MbtilesPool::open_readonly(file).await.unwrap();
         assert_eq!(
             pool.detect_type().await.unwrap(),
-            MbtType::NormalizedWithView
+            MbtType::NormalizedVectorTiles
         );
     }
 
     #[tokio::test]
     async fn test_normalized_with_view() {
-        let script = include_str!("../../tests/fixtures/mbtiles/geography-class-png-planetiler.sql");
+        let script =
+            include_str!("../../tests/fixtures/mbtiles/geography-class-png-planetiler.sql");
         let (_mbt, _conn, file) = temp_named_mbtiles("test_normalized_with_view", script).await;
 
         let pool = MbtilesPool::open_readonly(file).await.unwrap();
         assert_eq!(
             pool.detect_type().await.unwrap(),
-            MbtType::NormalizedWithView
+            MbtType::NormalizedVectorTiles
         );
 
         // Getting a tile works
         let t1 = pool.get_tile(0, 0, 0).await.unwrap().unwrap();
         assert!(!t1.is_empty());
 
-        // NormalizedWithView and Flat both return NULL hash (no hash stored in planetiler schema)
+        // NormalizedVectorTiles returns tile_data_id as hash; Flat has no hash
         let (t2, h2) = pool
-            .get_tile_and_hash(MbtType::NormalizedWithView, 0, 0, 0)
+            .get_tile_and_hash(MbtType::NormalizedVectorTiles, 0, 0, 0)
             .await
             .unwrap()
             .unwrap();
         assert_eq!(t2, t1);
-        assert_eq!(h2, None);
+        assert_eq!(h2, Some("1".to_string()));
 
         let (t3, h3) = pool
             .get_tile_and_hash(MbtType::Flat, 0, 0, 0)
@@ -532,20 +534,18 @@ mod tests {
 
     #[tokio::test]
     async fn test_contains_normalized_with_view() {
-        let script = include_str!("../../tests/fixtures/mbtiles/geography-class-png-planetiler.sql");
+        let script =
+            include_str!("../../tests/fixtures/mbtiles/geography-class-png-planetiler.sql");
         let (_mbt, _conn, file) =
             temp_named_mbtiles("test_contains_normalized_with_view", script).await;
 
         let pool = MbtilesPool::open_readonly(file).await.unwrap();
         assert_eq!(
             pool.detect_type().await.unwrap(),
-            MbtType::NormalizedWithView
+            MbtType::NormalizedVectorTiles
         );
 
-        for working_mbt_type in [
-            MbtType::NormalizedWithView,
-            MbtType::Flat,
-        ] {
+        for working_mbt_type in [MbtType::NormalizedVectorTiles, MbtType::Flat] {
             assert!(pool.contains(working_mbt_type, 0, 0, 0).await.unwrap());
         }
         // Using FlatWithHash is unsupported for tiles_shallow
@@ -554,14 +554,15 @@ mod tests {
 
     #[tokio::test]
     async fn test_metadata_normalized_with_view() {
-        let script = include_str!("../../tests/fixtures/mbtiles/geography-class-png-planetiler.sql");
+        let script =
+            include_str!("../../tests/fixtures/mbtiles/geography-class-png-planetiler.sql");
         let (_mbt, _conn, file) =
             temp_named_mbtiles("test_metadata_normalized_with_view", script).await;
 
         let pool = MbtilesPool::open_readonly(file).await.unwrap();
         assert_eq!(
             pool.detect_type().await.unwrap(),
-            MbtType::NormalizedWithView
+            MbtType::NormalizedVectorTiles
         );
         let metadata = pool.get_metadata().await.unwrap();
         insta::assert_yaml_snapshot!(metadata, @r#"
@@ -715,8 +716,8 @@ mod tests {
             assert!(pool.contains(working_mbt_type, 6, 38, 19).await.unwrap());
         }
         for error_mbt_type in [
-            MbtType::Normalized { hash_view: false },
-            MbtType::Normalized { hash_view: true },
+            MbtType::NormalizedImage { hash_view: false },
+            MbtType::NormalizedImage { hash_view: true },
         ] {
             assert!(pool.contains(error_mbt_type, 6, 38, 19).await.is_err());
         }
@@ -748,7 +749,7 @@ mod tests {
         assert_eq!(t3, t1);
         assert_eq!(h3, None);
         let (t3, h3) = pool
-            .get_tile_and_hash(MbtType::Normalized { hash_view: true }, 6, 38, 19)
+            .get_tile_and_hash(MbtType::NormalizedImage { hash_view: true }, 6, 38, 19)
             .await
             .unwrap()
             .unwrap();
@@ -757,7 +758,7 @@ mod tests {
 
         // no map table
         assert!(
-            pool.get_tile_and_hash(MbtType::Normalized { hash_view: false }, 0, 0, 0)
+            pool.get_tile_and_hash(MbtType::NormalizedImage { hash_view: false }, 0, 0, 0)
                 .await
                 .is_err()
         );

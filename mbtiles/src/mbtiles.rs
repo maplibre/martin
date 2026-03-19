@@ -26,8 +26,8 @@ use crate::{CopyDuplicateMode, MbtType, invert_y_value};
 pub enum MbtTypeCli {
     Flat,
     FlatWithHash,
-    Normalized,
-    NormalizedWithView,
+    NormalizedImage,
+    NormalizedVectorTiles,
 }
 
 #[derive(Default, Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize, EnumDisplay)]
@@ -70,7 +70,7 @@ pub struct PatchFileInfo {
 /// `MBTiles` files can use one of three schema types (see [`MbtType`]):
 /// - [`MbtType::Flat`] - Single table with all tiles, no deduplication
 /// - [`MbtType::FlatWithHash`] - Single table with tiles and MD5 hashes
-/// - [`MbtType::Normalized`] - Separate tables for deduplication via hashing
+/// - [`MbtType::NormalizedImage`] - Separate tables for deduplication via hashing
 ///
 /// Use [`detect_type`](Self::detect_type) to determine which schema a file uses.
 ///
@@ -487,7 +487,8 @@ impl Mbtiles {
     ///
     /// - [`MbtType::Flat`]: Hash is always `None` (no hash column exists)
     /// - [`MbtType::FlatWithHash`]: Returns the stored MD5 hash
-    /// - [`MbtType::Normalized`]: Returns the `tile_id` (MD5 hash) from the images table
+    /// - [`MbtType::NormalizedImage`]: Returns the `tile_id` (MD5 hash) from the images table
+    /// - [`MbtType::NormalizedVectorTiles`]: Returns the `tile_data_id` from the `tiles_shallow` table
     ///
     /// # Returns
     ///
@@ -557,17 +558,24 @@ impl Mbtiles {
 
     /// sql query for getting tile and hash
     ///
-    /// For [`MbtType::Flat`] and [`MbtType::NormalizedWithView`] accessing the hash is not possible, so the SQL query explicitly returns `NULL as tile_hash`.
+    /// For [`MbtType::Flat`] accessing the hash is not possible, so the SQL query explicitly returns `NULL as tile_hash`.
     fn get_tile_and_hash_sql(mbt_type: MbtType) -> &'static str {
         match mbt_type {
-            MbtType::Flat | MbtType::NormalizedWithView => {
+            MbtType::Flat => {
                 "SELECT tile_data, NULL as tile_hash from tiles where zoom_level = ? AND tile_column = ? AND tile_row = ?"
             }
-            MbtType::FlatWithHash | MbtType::Normalized { hash_view: true } => {
+            MbtType::FlatWithHash | MbtType::NormalizedImage { hash_view: true } => {
                 "SELECT tile_data, tile_hash from tiles_with_hash where zoom_level = ? AND tile_column = ? AND tile_row = ?"
             }
-            MbtType::Normalized { hash_view: false } => {
+            MbtType::NormalizedImage { hash_view: false } => {
                 "SELECT images.tile_data, images.tile_id AS tile_hash FROM map JOIN images ON map.tile_id = images.tile_id  where map.zoom_level = ? AND map.tile_column = ? AND map.tile_row = ?"
+            }
+            MbtType::NormalizedVectorTiles => {
+                // This schema stores integer tile_data_id keys (not MD5 hashes).
+                // We still surface it through the `tile_hash` API field for compatibility.
+                "SELECT tiles_data.tile_data, CAST(tiles_shallow.tile_data_id AS TEXT) AS tile_hash \
+                 FROM tiles_shallow JOIN tiles_data ON tiles_shallow.tile_data_id = tiles_data.tile_data_id \
+                 WHERE tiles_shallow.zoom_level = ? AND tiles_shallow.tile_column = ? AND tiles_shallow.tile_row = ?"
             }
         }
     }
@@ -643,8 +651,8 @@ impl Mbtiles {
         let table = match mbt_type {
             MbtType::Flat => "tiles",
             MbtType::FlatWithHash => "tiles_with_hash",
-            MbtType::Normalized { .. } => "map",
-            MbtType::NormalizedWithView => "tiles_shallow",
+            MbtType::NormalizedImage { .. } => "map",
+            MbtType::NormalizedVectorTiles => "tiles_shallow",
         };
         let sql = format!(
             "SELECT 1 from {table} where zoom_level = ? AND tile_column = ? AND tile_row = ?"
@@ -680,7 +688,7 @@ impl Mbtiles {
                 ),
                 None,
             ),
-            MbtType::Normalized { .. } => (
+            MbtType::NormalizedImage { .. } => (
                 format!(
                     "
     INSERT {on_duplicate} INTO map (zoom_level, tile_column, tile_row, tile_id)
@@ -692,7 +700,7 @@ impl Mbtiles {
     VALUES (md5_hex(?1), ?1);"
                 )),
             ),
-            MbtType::NormalizedWithView => {
+            MbtType::NormalizedVectorTiles => {
                 // Use a single CTE with RETURNING so tiles_data and tiles_shallow
                 // reference the same auto-assigned tile_data_id.
                 let sql = format!(

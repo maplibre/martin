@@ -9,7 +9,7 @@ use itertools::Itertools as _;
 use martin_tile_utils::xyz_to_bbox;
 use mbtiles::AggHashType::Verify;
 use mbtiles::IntegrityCheckType::Off;
-use mbtiles::MbtTypeCli::{Flat, FlatWithHash, Normalized, NormalizedWithView};
+use mbtiles::MbtTypeCli::{Flat, FlatWithHash, NormalizedImage, NormalizedVectorTiles};
 use mbtiles::PatchTypeCli::{BinDiffGz, BinDiffRaw};
 use mbtiles::{
     CopyType, MbtResult, MbtTypeCli, Mbtiles, MbtilesCopier, PatchTypeCli, UpdateZoomType,
@@ -91,8 +91,8 @@ fn shorten(v: MbtTypeCli) -> &'static str {
     match v {
         Flat => "flat",
         FlatWithHash => "hash",
-        Normalized => "norm",
-        NormalizedWithView => "normview",
+        NormalizedImage => "norm",
+        NormalizedVectorTiles => "normview",
     }
 }
 
@@ -232,7 +232,7 @@ fn databases() -> Databases {
     tokio::task::block_in_place(|| {
         Handle::current().block_on(async {
             let mut result = Databases::default();
-            for &mbt_typ in &[Flat, FlatWithHash, Normalized] {
+            for &mbt_typ in &[Flat, FlatWithHash, NormalizedImage] {
                 let typ = shorten(mbt_typ);
 
                 // ----------------- empty_no_hash -----------------
@@ -424,8 +424,8 @@ async fn update() -> MbtResult<()> {
 #[tokio::test(flavor = "multi_thread")]
 #[tracing_test::traced_test]
 async fn convert(
-    #[values(Flat, FlatWithHash, Normalized)] frm_type: MbtTypeCli,
-    #[values(Flat, FlatWithHash, Normalized)] dst_type: MbtTypeCli,
+    #[values(Flat, FlatWithHash, NormalizedImage)] frm_type: MbtTypeCli,
+    #[values(Flat, FlatWithHash, NormalizedImage)] dst_type: MbtTypeCli,
     #[notrace] databases: &Databases,
 ) -> MbtResult<()> {
     let (frm, to) = (shorten(frm_type), shorten(dst_type));
@@ -517,9 +517,9 @@ const DB_EMPTY_DIFF: RegularTileset = ("v1", "v1_clone", "dif_empty");
 #[tokio::test(flavor = "multi_thread")]
 #[tracing_test::traced_test]
 async fn diff_and_patch(
-    #[values(Flat, FlatWithHash, Normalized)] a_type: MbtTypeCli,
-    #[values(Flat, FlatWithHash, Normalized)] b_type: MbtTypeCli,
-    #[values(None, Some(Flat), Some(FlatWithHash), Some(Normalized))] dif_type: Option<MbtTypeCli>,
+    #[values(Flat, FlatWithHash, NormalizedImage)] a_type: MbtTypeCli,
+    #[values(Flat, FlatWithHash, NormalizedImage)] b_type: MbtTypeCli,
+    #[values(None, Some(Flat), Some(FlatWithHash), Some(NormalizedImage))] dif_type: Option<MbtTypeCli>,
     #[values(DB_WITH_DIFF, DB_EMPTY_DIFF)] tilesets: RegularTileset,
     #[notrace] databases: &Databases,
 ) -> MbtResult<()> {
@@ -547,7 +547,7 @@ async fn diff_and_patch(
         "Diff file should contain only the changes between {a_db} and {b_db}",
     );
 
-    for dst_type in [Flat, FlatWithHash, Normalized] {
+    for dst_type in [Flat, FlatWithHash, NormalizedImage] {
         let short_dst_type = shorten(dst_type);
         let expected_b = databases.dump(b_db, dst_type);
 
@@ -667,9 +667,9 @@ async fn diff_and_patch_bsdiff(
 #[tokio::test(flavor = "multi_thread")]
 #[tracing_test::traced_test]
 async fn patch_on_copy(
-    #[values(Flat, FlatWithHash, Normalized)] v1_type: MbtTypeCli,
-    #[values(Flat, FlatWithHash, Normalized)] dif_type: MbtTypeCli,
-    #[values(None, Some(Flat), Some(FlatWithHash), Some(Normalized))] v2_type: Option<MbtTypeCli>,
+    #[values(Flat, FlatWithHash, NormalizedImage)] v1_type: MbtTypeCli,
+    #[values(Flat, FlatWithHash, NormalizedImage)] dif_type: MbtTypeCli,
+    #[values(None, Some(Flat), Some(FlatWithHash), Some(NormalizedImage))] v2_type: Option<MbtTypeCli>,
     #[notrace] databases: &Databases,
 ) -> MbtResult<()> {
     let (v1, dif) = (shorten(v1_type), shorten(dif_type));

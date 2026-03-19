@@ -59,28 +59,28 @@ pub enum MbtType {
     /// The `hash_view` argument specifies whether to create/assume a `tiles_with_hash` view exists.
     ///
     /// See <https://maplibre.org/martin/mbtiles-schema.html#normalized> for the concrete schema.
-    Normalized { hash_view: bool },
+    NormalizedImage { hash_view: bool },
     /// Planetiler-style normalized `MBTiles` file
     ///
     /// An alternative normalized schema produced by [Planetiler](https://github.com/onthegomap/planetiler).
-    /// Like [`MbtType::Normalized`], it deduplicates tiles, but uses `tiles_shallow` and `tiles_data`
+    /// Like [`MbtType::NormalizedImage`], it deduplicates tiles, but uses `tiles_shallow` and `tiles_data`
     /// tables with integer IDs instead of `map` and `images` tables with text MD5 hash IDs.
     /// Tile data is accessible through a `tiles` view.
     ///
-    /// Unlike [`MbtType::Normalized`], individual tile hashes are not stored, so per-tile hash
-    /// verification is not available.
-    NormalizedWithView,
+    /// Unlike [`MbtType::NormalizedImage`], the tile identifier is an integer `tile_data_id` key
+    /// (not an MD5 hash of tile bytes).
+    NormalizedVectorTiles,
 }
 
 impl MbtType {
     #[must_use]
     pub fn is_normalized(self) -> bool {
-        matches!(self, Self::Normalized { .. })
+        matches!(self, Self::NormalizedImage { .. })
     }
 
     #[must_use]
     pub fn is_normalized_with_view(self) -> bool {
-        matches!(self, Self::Normalized { hash_view: true })
+        matches!(self, Self::NormalizedVectorTiles)
     }
 }
 
@@ -277,11 +277,11 @@ impl Mbtiles {
     {
         debug!("Detecting MBTiles type for {self}");
         let typ = if is_normalized_tables_type(&mut *conn).await? {
-            MbtType::Normalized {
+            MbtType::NormalizedImage {
                 hash_view: has_tiles_with_hash(&mut *conn).await?,
             }
         } else if is_normalized_with_view_tables_type(&mut *conn).await? {
-            MbtType::NormalizedWithView
+            MbtType::NormalizedVectorTiles
         } else if is_flat_with_hash_tables_type(&mut *conn).await? {
             MbtType::FlatWithHash
         } else if is_flat_tables_type(&mut *conn).await? {
@@ -307,8 +307,8 @@ impl Mbtiles {
         let table_name = match mbt_type {
             MbtType::Flat => "tiles",
             MbtType::FlatWithHash => "tiles_with_hash",
-            MbtType::Normalized { .. } => "map",
-            MbtType::NormalizedWithView => "tiles_shallow",
+            MbtType::NormalizedImage { .. } => "map",
+            MbtType::NormalizedVectorTiles => "tiles_shallow",
         };
 
         let indexes = query("SELECT name FROM pragma_index_list(?) WHERE [unique] = 1")
@@ -488,8 +488,14 @@ LIMIT 1;"
     {
         // Note that hex() always returns upper-case HEX values
         let sql = match self.detect_type(&mut *conn).await? {
-            MbtType::Flat | MbtType::NormalizedWithView => {
+            MbtType::Flat => {
                 info!("Skipping per-tile hash validation because this is a flat MBTiles file");
+                return Ok(());
+            }
+            MbtType::NormalizedVectorTiles => {
+                info!(
+                    "Skipping MD5 per-tile hash validation because normalized-vector-tiles uses integer tile_data_id keys"
+                );
                 return Ok(());
             }
             MbtType::FlatWithHash => {
@@ -502,7 +508,7 @@ LIMIT 1;"
                 WHERE expected != computed
                 LIMIT 1;"
             }
-            MbtType::Normalized { .. } => {
+            MbtType::NormalizedImage { .. } => {
                 "SELECT expected, computed FROM (
                     SELECT
                         upper(tile_id) AS expected,
@@ -653,7 +659,7 @@ pub(crate) mod tests {
         let script = include_str!("../../tests/fixtures/mbtiles/geography-class-jpg.sql");
         let (mbt, mut conn) = anonymous_mbtiles(script).await;
         let res = mbt.detect_type(&mut conn).await.unwrap();
-        assert_eq!(res, MbtType::Normalized { hash_view: false });
+        assert_eq!(res, MbtType::NormalizedImage { hash_view: false });
 
         let (mut conn, mbt) = open(":memory:").await.unwrap();
         let res = mbt.detect_type(&mut conn).await;

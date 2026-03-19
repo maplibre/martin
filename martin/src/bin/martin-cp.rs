@@ -493,10 +493,11 @@ async fn init_schema(
             .await
             .map_err(MbtilesError::from)?
         {
-            let mbt_type = match args.mbt_type.unwrap_or(MbtTypeCli::Normalized) {
+            let mbt_type = match args.mbt_type.unwrap_or(MbtTypeCli::NormalizedImage) {
                 MbtTypeCli::Flat => MbtType::Flat,
                 MbtTypeCli::FlatWithHash => MbtType::FlatWithHash,
-                MbtTypeCli::Normalized => MbtType::Normalized { hash_view: true },
+                MbtTypeCli::NormalizedImage => MbtType::NormalizedImage { hash_view: true },
+                MbtTypeCli::NormalizedVectorTiles => MbtType::NormalizedVectorTiles,
             };
             init_mbtiles_schema(&mut *conn, mbt_type)
                 .await
