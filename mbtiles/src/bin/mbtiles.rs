@@ -370,7 +370,7 @@ mod tests {
 
     use clap::Parser as _;
     use clap::error::ErrorKind;
-    use mbtiles::CopyDuplicateMode;
+    use mbtiles::{CopyDuplicateMode, MbtTypeCli};
 
     use super::*;
     use crate::Commands::{ApplyPatch, Copy, Diff, MetaGetValue, MetaSetValue, Validate};
@@ -395,6 +395,58 @@ mod tests {
                 command: Copy(CopyArgs {
                     src_file: PathBuf::from("src_file"),
                     dst_file: PathBuf::from("dst_file"),
+                    ..Default::default()
+                })
+            }
+        );
+    }
+
+    #[test]
+    fn test_copy_normalised_schema_alias() {
+        assert_eq!(
+            Args::parse_from([
+                "mbtiles",
+                "copy",
+                "src_file",
+                "dst_file",
+                "--mbtiles-type",
+                "normalised",
+            ]),
+            Args {
+                verbose: false,
+                command: Copy(CopyArgs {
+                    src_file: PathBuf::from("src_file"),
+                    dst_file: PathBuf::from("dst_file"),
+                    options: SharedCopyOpts {
+                        mbtiles_type: Some(MbtTypeCli::NormalizedImage),
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                })
+            }
+        );
+    }
+
+    #[test]
+    fn test_copy_normalised_image_schema_alias() {
+        assert_eq!(
+            Args::parse_from([
+                "mbtiles",
+                "copy",
+                "src_file",
+                "dst_file",
+                "--mbtiles-type",
+                "normalised-image",
+            ]),
+            Args {
+                verbose: false,
+                command: Copy(CopyArgs {
+                    src_file: PathBuf::from("src_file"),
+                    dst_file: PathBuf::from("dst_file"),
+                    options: SharedCopyOpts {
+                        mbtiles_type: Some(MbtTypeCli::NormalizedImage),
+                        ..Default::default()
+                    },
                     ..Default::default()
                 })
             }
