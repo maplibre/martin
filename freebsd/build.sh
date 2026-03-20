@@ -4,7 +4,7 @@ ARTIFACT_DIR=/data/builds/martin
 
 echo "build martin binaries"
 cd ..
-cargo install martin --locked --no-default-features --features mbtiles,sprites,metrics,pmtiles,postgres,styles,webui
+RUSTFLAGS="-Ctarget-cpu=native" cargo install martin --locked --no-default-features --features mbtiles,sprites,metrics,pmtiles,postgres,styles,webui
 cd freebsd
 
 echo "copy martin binaries to scripts dir"
