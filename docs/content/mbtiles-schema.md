@@ -32,7 +32,7 @@ Optionally, `.mbtiles` files with `normalized` schema can include a `tiles_with_
 --8<-- "files/init-normalized.sql:30:39"
 ```
 
-## normalized-with-view
+## normalized-with-vector-tile
 
 This is an alternative normalized schema produced by [Planetiler](https://github.com/onthegomap/planetiler). Like the `normalized` schema, it deduplicates tiles, but uses `tiles_shallow` and `tiles_data` tables with integer IDs instead of `map` and `images` tables with text MD5 hash IDs. Tile data is accessible through a `tiles` view.
 
