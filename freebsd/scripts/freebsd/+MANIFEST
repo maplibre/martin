@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "origin": "devel/martin",
   "comment": "vector tile server integrated with postgres",
-  "www": "https://github.com/ToddG/martin/tree/main",
+  "www": "https://github.com/maplibre/martin/tree/main",
   "maintainer": "toddg@zwrob.com",
   "prefix": "/usr/local",
   "desc": "Martin is a tile server and a set of tools able to generate vector tiles on the fly from large PostgreSQL databases, and serve tiles from PMTiles and MBTiles files. Martin optimizes for speed and heavy traffic, and is written in Rust.",
