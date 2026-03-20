@@ -1,6 +1,9 @@
 #!/bin/sh
-set -x
-ARTIFACT_DIR=/data/builds/martin
+ARTIFACT_DIR=/opt/builds/martin
+
+if [ ! -d $ARTIFACT_DIR ]; then
+  mkdir -p $ARTIFACT_DIR
+fi
 
 echo "build martin binaries"
 cd ..
@@ -13,6 +16,12 @@ cp /root/.cargo/bin/martin-cp ./scripts/freebsd/stage/usr/local/libexec/martin/m
 chmod ugo+x ./scripts/freebsd/stage/usr/local/libexec/martin/martin
 chmod ugo+x ./scripts/freebsd/stage/usr/local/libexec/martin/martin-cp
 
+# get the martin version"
+VERSION=$(grep "^version = " ../martin/Cargo.toml | sed "s/version = \"\(.*\)\"/\1/")
+echo "martin version = $VERSION"
+
+# update the martin version in the pkg manifest
+sed -i '' -e "s/version\": \".*\"/version\": \"$VERSION\"/" ./scripts/freebsd/+MANIFEST
 
 echo "create freebsd package"
 pkg create -M ./scripts/freebsd/+MANIFEST -r ./scripts/freebsd/stage -p ./scripts/freebsd/pkg-plist
