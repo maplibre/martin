@@ -18,7 +18,7 @@ Similar to the `flat` schema, but also includes a `tile_hash` column that contai
 --8<-- "files/init-flat-with-hash.sql"
 ```
 
-## normalized
+## normalized-with-image
 
 Normalized schema is the most efficient when the tileset contains duplicate tiles. It stores all tile blobs in the `images` table, and stores the tile Z,X,Y coordinates in a `map` table. The `map` table contains a `tile_id` column that is a foreign key to the `images` table. The `tile_id` column is a hash of the `tile_data` column, making it possible to both validate each individual tile like in the `flat-with-hash` schema, and also to optimize storage by storing each unique tile only once.
 
