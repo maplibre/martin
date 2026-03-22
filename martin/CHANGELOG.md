@@ -7,11 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.5.0](https://github.com/maplibre/martin/compare/martin-v1.4.0...martin-v1.5.0) - 2026-03-21
-
-### Added
-
-- migrate to workspaced justfiles using `mod` for demo and martin-ui ([#2623](https://github.com/maplibre/martin/pull/2623))
+## [1.4.1](https://github.com/maplibre/martin/compare/martin-v1.4.0...martin-v1.4.1) - 2026-03-21
 
 ### Fixed
 
@@ -19,8 +15,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Other
 
+- migrate to workspaced justfiles using `mod` for demo and martin-ui ([#2623](https://github.com/maplibre/martin/pull/2623))
+- *(ci-perf)* don't test pg twice ([#2619](https://github.com/maplibre/martin/pull/2619))
 - *(deps-dev)* Bump flatted from 3.3.3 to 3.4.2 in /martin/martin-ui in the all-npm-security-updates group across 1 directory ([#2640](https://github.com/maplibre/martin/pull/2640))
-- *(perf)* don't test pg twice ([#2619](https://github.com/maplibre/martin/pull/2619))
 
 ## [1.4.0](https://github.com/maplibre/martin/compare/martin-v1.3.1...martin-v1.4.0) - 2026-03-14
 
