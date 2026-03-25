@@ -127,7 +127,7 @@ pub struct CopyArgs {
 
 impl Default for CopyArgs {
     fn default() -> Self {
-        CopyArgs {
+        Self {
             bbox: Vec::new(),
             source: None,
             output_file: PathBuf::new(),

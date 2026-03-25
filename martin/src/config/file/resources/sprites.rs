@@ -39,7 +39,7 @@ impl SpriteConfig {
             results.add_source(name.to_string_lossy().to_string(), path);
         }
 
-        *self = FileConfigEnum::new_extended(directories, configs, cfg.custom);
+        *self = Self::new_extended(directories, configs, cfg.custom);
 
         Ok(results)
     }
