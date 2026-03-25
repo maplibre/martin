@@ -89,8 +89,8 @@ impl PostgresInfo for FunctionInfo {
 impl FunctionInfo {
     /// For a given function info discovered from the database, append the configuration info provided by the user
     #[must_use]
-    pub fn append_cfg_info(&self, cfg_inf: &FunctionInfo) -> FunctionInfo {
-        FunctionInfo {
+    pub fn append_cfg_info(&self, cfg_inf: &Self) -> Self {
+        Self {
             // TileJson does not need to be merged because it cannot be de-serialized from config
             tilejson: self.tilejson.clone(),
             ..cfg_inf.clone()

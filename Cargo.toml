@@ -23,6 +23,7 @@ panic_in_result_fn = "warn"
 todo = "warn"
 unimplemented = "warn"
 unused_trait_names = "warn"
+use_self = "warn"
 
 # Pedantics without being too noisy
 pedantic = { level = "warn", priority = -1 }

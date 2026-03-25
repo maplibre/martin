@@ -438,18 +438,18 @@ impl OnInvalid {
         }
         match warnings {
             [warning] => match self {
-                OnInvalid::Warn => warn!("Tile source resolution warning: {warning}"),
-                OnInvalid::Abort => error!("Tile source resolution warning: {warning}"),
+                Self::Warn => warn!("Tile source resolution warning: {warning}"),
+                Self::Abort => error!("Tile source resolution warning: {warning}"),
             },
             warnings => match self {
-                OnInvalid::Warn => warn!("Tile source resolutions:\n{}", fmt_warnings(warnings)),
-                OnInvalid::Abort => error!("Tile source resolutions:\n{}", fmt_warnings(warnings)),
+                Self::Warn => warn!("Tile source resolutions:\n{}", fmt_warnings(warnings)),
+                Self::Abort => error!("Tile source resolutions:\n{}", fmt_warnings(warnings)),
             },
         }
 
         match self {
-            OnInvalid::Abort => Err(MartinError::TileResolutionWarningsIssued),
-            OnInvalid::Warn => Ok(()),
+            Self::Abort => Err(MartinError::TileResolutionWarningsIssued),
+            Self::Warn => Ok(()),
         }
     }
 }

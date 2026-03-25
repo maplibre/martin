@@ -41,23 +41,23 @@ impl LogFormat {
     /// Initialize logging according to the selected format.
     pub fn init(self, env_filter: EnvFilter) {
         let dispatch = match self {
-            LogFormat::Full => tracing_subscriber::fmt()
+            Self::Full => tracing_subscriber::fmt()
                 .with_span_events(FmtSpan::NONE)
                 .with_env_filter(env_filter)
                 .finish()
                 .into(),
-            LogFormat::Compact => tracing_subscriber::fmt()
+            Self::Compact => tracing_subscriber::fmt()
                 .compact()
                 .with_span_events(FmtSpan::NONE)
                 .with_env_filter(env_filter)
                 .finish()
                 .into(),
-            LogFormat::Pretty => tracing_subscriber::fmt()
+            Self::Pretty => tracing_subscriber::fmt()
                 .pretty()
                 .with_env_filter(env_filter)
                 .finish()
                 .into(),
-            LogFormat::Bare => tracing_subscriber::fmt()
+            Self::Bare => tracing_subscriber::fmt()
                 .compact()
                 .with_span_events(FmtSpan::NONE)
                 .without_time()
@@ -66,7 +66,7 @@ impl LogFormat {
                 .with_env_filter(env_filter)
                 .finish()
                 .into(),
-            LogFormat::Json => tracing_subscriber::fmt()
+            Self::Json => tracing_subscriber::fmt()
                 .json()
                 .with_span_events(FmtSpan::NONE)
                 .with_env_filter(env_filter)
@@ -90,7 +90,7 @@ impl LogFormat {
         // code below looks duplicated, but it has to be this way due to how types currently work.
         // maybe there is a better way that I can not see
         let dispatch = match self {
-            LogFormat::Full => {
+            Self::Full => {
                 let indicatif_layer = tracing_indicatif::IndicatifLayer::new();
                 registry
                     .with(
@@ -101,7 +101,7 @@ impl LogFormat {
                     .with(indicatif_layer)
                     .into()
             }
-            LogFormat::Compact => {
+            Self::Compact => {
                 let indicatif_layer = tracing_indicatif::IndicatifLayer::new();
                 registry
                     .with(
@@ -113,7 +113,7 @@ impl LogFormat {
                     .with(indicatif_layer)
                     .into()
             }
-            LogFormat::Pretty => {
+            Self::Pretty => {
                 let indicatif_layer = tracing_indicatif::IndicatifLayer::new();
                 registry
                     .with(
@@ -124,7 +124,7 @@ impl LogFormat {
                     .with(indicatif_layer)
                     .into()
             }
-            LogFormat::Bare => {
+            Self::Bare => {
                 let indicatif_layer = tracing_indicatif::IndicatifLayer::new();
                 registry
                     .with(
@@ -139,7 +139,7 @@ impl LogFormat {
                     .with(indicatif_layer)
                     .into()
             }
-            LogFormat::Json => {
+            Self::Json => {
                 let indicatif_layer = tracing_indicatif::IndicatifLayer::new();
                 registry
                     .with(

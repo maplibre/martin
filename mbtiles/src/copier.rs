@@ -39,9 +39,9 @@ impl CopyDuplicateMode {
     #[must_use]
     pub fn to_sql(self) -> &'static str {
         match self {
-            CopyDuplicateMode::Override => "OR REPLACE",
-            CopyDuplicateMode::Ignore => "OR IGNORE",
-            CopyDuplicateMode::Abort => "OR ABORT",
+            Self::Override => "OR REPLACE",
+            Self::Ignore => "OR IGNORE",
+            Self::Abort => "OR ABORT",
         }
     }
 }
@@ -133,7 +133,7 @@ impl MbtileCopierInt {
             return Err(MbtError::SamePatchAndDestination(options.src_file));
         }
 
-        Ok(MbtileCopierInt {
+        Ok(Self {
             src_mbt: Mbtiles::new(&options.src_file)?,
             dst_mbt: Mbtiles::new(&options.dst_file)?,
             options,

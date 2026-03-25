@@ -47,7 +47,7 @@ impl TileCoord {
     ///
     /// Check [`Self::new_unchecked`] if you are sure that your inputs are possible.
     #[must_use]
-    pub fn new_checked(z: u8, x: u32, y: u32) -> Option<TileCoord> {
+    pub fn new_checked(z: u8, x: u32, y: u32) -> Option<Self> {
         Self::is_possible_on_zoom_level(z, x, y).then_some(Self { z, x, y })
     }
 
@@ -55,7 +55,7 @@ impl TileCoord {
     ///
     /// Check [`Self::new_checked`] if you are unsure if your inputs are possible.
     #[must_use]
-    pub fn new_unchecked(z: u8, x: u32, y: u32) -> TileCoord {
+    pub fn new_unchecked(z: u8, x: u32, y: u32) -> Self {
         Self { z, x, y }
     }
 

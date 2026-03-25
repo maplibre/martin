@@ -158,7 +158,7 @@ impl CogSource {
             .other
             .insert("format".to_string(), Value::from(output_format.to_string()));
 
-        Ok(CogSource {
+        Ok(Self {
             id,
             path,
             min_zoom,

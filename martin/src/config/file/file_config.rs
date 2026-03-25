@@ -88,7 +88,7 @@ pub enum FileConfigEnum<T> {
 
 impl<T: ConfigurationLivecycleHooks> FileConfigEnum<T> {
     #[must_use]
-    pub fn new(paths: Vec<PathBuf>) -> FileConfigEnum<T> {
+    pub fn new(paths: Vec<PathBuf>) -> Self {
         Self::new_extended(paths, BTreeMap::new(), T::default())
     }
 
@@ -100,12 +100,12 @@ impl<T: ConfigurationLivecycleHooks> FileConfigEnum<T> {
     ) -> Self {
         if configs.is_empty() {
             match paths.len() {
-                0 => FileConfigEnum::None,
-                1 => FileConfigEnum::Path(paths.into_iter().next().expect("one path exists")),
-                _ => FileConfigEnum::Paths(paths),
+                0 => Self::None,
+                1 => Self::Path(paths.into_iter().next().expect("one path exists")),
+                _ => Self::Paths(paths),
             }
         } else {
-            FileConfigEnum::Config(FileConfig {
+            Self::Config(FileConfig {
                 paths: OptOneMany::new(paths),
                 sources: if configs.is_empty() {
                     None
@@ -134,29 +134,29 @@ impl<T: ConfigurationLivecycleHooks> FileConfigEnum<T> {
 
     pub fn extract_file_config(&mut self) -> Option<FileConfig<T>> {
         match self {
-            FileConfigEnum::None => None,
-            FileConfigEnum::Path(path) => Some(FileConfig {
+            Self::None => None,
+            Self::Path(path) => Some(FileConfig {
                 paths: OptOneMany::One(mem::take(path)),
                 ..FileConfig::default()
             }),
-            FileConfigEnum::Paths(paths) => Some(FileConfig {
+            Self::Paths(paths) => Some(FileConfig {
                 paths: OptOneMany::Many(mem::take(paths)),
                 ..Default::default()
             }),
-            FileConfigEnum::Config(cfg) => Some(mem::take(cfg)),
+            Self::Config(cfg) => Some(mem::take(cfg)),
         }
     }
 
     /// convert path/paths and the config enums
     #[must_use]
-    pub fn into_config(self) -> FileConfigEnum<T> {
+    pub fn into_config(self) -> Self {
         match self {
-            FileConfigEnum::Path(path) => FileConfigEnum::Config(FileConfig {
+            Self::Path(path) => Self::Config(FileConfig {
                 paths: OptOneMany::One(path),
                 sources: None,
                 custom: T::default(),
             }),
-            FileConfigEnum::Paths(paths) => FileConfigEnum::Config(FileConfig {
+            Self::Paths(paths) => Self::Config(FileConfig {
                 paths: OptOneMany::Many(paths),
                 sources: None,
                 custom: T::default(),
