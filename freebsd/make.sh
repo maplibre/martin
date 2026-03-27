@@ -11,6 +11,7 @@ RUSTFLAGS="-Ctarget-cpu=native" cargo install martin --locked --no-default-featu
 cd freebsd
 
 echo "copy martin binaries to scripts dir"
+mkdir -p ./scripts/freebsd/stage/usr/local/libexec/martin
 cp /root/.cargo/bin/martin ./scripts/freebsd/stage/usr/local/libexec/martin/martin
 cp /root/.cargo/bin/martin-cp ./scripts/freebsd/stage/usr/local/libexec/martin/martin-cp
 chmod ugo+x ./scripts/freebsd/stage/usr/local/libexec/martin/martin
