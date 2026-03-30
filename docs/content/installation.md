@@ -72,10 +72,10 @@ martin --help
 #### Debian Packages(x86_64) manually
 
 ```bash
-curl -O https://github.com/maplibre/martin/releases/latest/download/martin-Debian-x86_64.deb
-sudo dpkg -i ./martin-Debian-x86_64.deb
+curl -O https://github.com/maplibre/martin/releases/latest/download/debian-x86_64.deb
+sudo dpkg -i ./debian-x86_64.deb
 martin --help
-rm ./martin-Debian-x86_64.deb
+rm ./debian-x86_64.deb
 ```
 
 ### Building From source
