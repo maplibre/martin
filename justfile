@@ -278,7 +278,7 @@ help:
     @echo "  just run               # Start Martin server"
     @echo "  just test              # Run all tests"
     @echo "  just fmt               # Format code"
-    @echo "  just book              # Build documentation"
+    @echo "  just docs              # Serve documentation preview"
     @echo ""
     @echo "Full list: just --list"
 
