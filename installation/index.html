@@ -25,7 +25,7 @@
       
       
       <link rel="icon" href="../images/favicon.ico">
-      <meta name="generator" content="zensical-0.0.29">
+      <meta name="generator" content="zensical-0.0.30">
     
     
       
@@ -36,7 +36,7 @@
       
         
       
-      <link rel="stylesheet" href="../assets/stylesheets/modern/main.6f2fbb28.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/modern/main.3b031116.min.css">
       
         
           
@@ -570,28 +570,6 @@
   
     <li class="md-nav__item md-nav__item--active">
       
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Installation
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
       <a href="././" class="md-nav__link md-nav__link--active">
         
   
@@ -608,107 +586,6 @@
   
 
       </a>
-      
-        
-
-
-<nav class="md-nav md-nav--secondary" aria-label="On this page">
-  
-  
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      On this page
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#prerequisites" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Prerequisites
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#docker" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Docker
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#from-binary-distributions-manually" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        From Binary Distributions Manually
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#from-package" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        From package
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="From package">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#homebrew" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Homebrew
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#debian-packagesx86_64-manually" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Debian Packages(x86_64) manually
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#building-from-source" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Building From source
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
       
     </li>
   
@@ -1068,7 +945,7 @@ passing <code>DATABASE_URL</code> or specifying the .mbtiles/.pmtiles files or U
 <tbody>
 <tr>
 <td>Linux</td>
-<td><a href="https://github.com/maplibre/martin/releases/latest/download/martin-x86_64-unknown-linux-gnu.tar.gz">.tar.gz</a> (gnu)<br><a href="https://github.com/maplibre/martin/releases/latest/download/martin-x86_64-unknown-linux-musl.tar.gz">.tar.gz</a> (musl)<br><a href="https://github.com/maplibre/martin/releases/latest/download/martin-Debian-x86_64.deb">.deb</a></td>
+<td><a href="https://github.com/maplibre/martin/releases/latest/download/martin-x86_64-unknown-linux-gnu.tar.gz">.tar.gz</a> (gnu)<br><a href="https://github.com/maplibre/martin/releases/latest/download/martin-x86_64-unknown-linux-musl.tar.gz">.tar.gz</a> (musl)<br><a href="https://github.com/maplibre/martin/releases/latest/download/debian-x86_64.deb">.deb</a></td>
 <td><a href="https://github.com/maplibre/martin/releases/latest/download/martin-aarch64-unknown-linux-gnu.tar.gz">.tar.gz</a> (gnu)<br><a href="https://github.com/maplibre/martin/releases/latest/download/martin-aarch64-unknown-linux-musl.tar.gz">.tar.gz</a> (musl)</td>
 </tr>
 <tr>
@@ -1099,10 +976,10 @@ to <a href="https://github.com/maplibre/martin/issues/578">improve packaging for
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>martin<span class="w"> </span>--help
 </span></code></pre></div>
 <h4 id="debian-packagesx86_64-manually">Debian Packages(x86_64) manually</h4>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>curl<span class="w"> </span>-O<span class="w"> </span>https://github.com/maplibre/martin/releases/latest/download/martin-Debian-x86_64.deb
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>sudo<span class="w"> </span>dpkg<span class="w"> </span>-i<span class="w"> </span>./martin-Debian-x86_64.deb
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>curl<span class="w"> </span>-O<span class="w"> </span>https://github.com/maplibre/martin/releases/latest/download/debian-x86_64.deb
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>sudo<span class="w"> </span>dpkg<span class="w"> </span>-i<span class="w"> </span>./debian-x86_64.deb
 </span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>martin<span class="w"> </span>--help
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>rm<span class="w"> </span>./martin-Debian-x86_64.deb
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>rm<span class="w"> </span>./debian-x86_64.deb
 </span></code></pre></div>
 <h3 id="building-from-source">Building From source</h3>
 <p>If you <a href="https://www.rust-lang.org/tools/install">install Rust</a>, you can build martin from source with Cargo:</p>
@@ -1233,7 +1110,7 @@ to <a href="https://github.com/maplibre/martin/issues/578">improve packaging for
       <script id="__config" type="application/json">{"annotate":null,"base":"..","features":["announce.dismiss","content.action.edit","content.code.annotate","content.code.copy","content.code.select","content.footnote.tooltips","content.tabs.link","content.tooltips","header.autohide","navigation.expand","navigation.footer","navigation.indexes","navigation.instant","navigation.instant.prefetch","navigation.instant.progress","navigation.path","navigation.prune","navigation.sections","navigation.tabs","navigation.tabs.sticky","navigation.top","navigation.tracking","search.highlight","toc.follow","toc.integrate"],"search":"../assets/javascripts/workers/search.e2d2d235.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":null}</script>
     
     
-      <script src="../assets/javascripts/bundle.c2b142ea.min.js"></script>
+      <script src="../assets/javascripts/bundle.66be65ca.min.js"></script>
       
     
   </body>
