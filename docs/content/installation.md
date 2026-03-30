@@ -33,7 +33,7 @@ You can download martin from [GitHub releases page](https://github.com/maplibre/
 
 [rl-linux-x64-musl]: https://github.com/maplibre/martin/releases/latest/download/martin-x86_64-unknown-linux-musl.tar.gz
 
-[rl-linux-x64-deb]: https://github.com/maplibre/martin/releases/latest/download/martin-Debian-x86_64.deb
+[rl-linux-x64-deb]: https://github.com/maplibre/martin/releases/latest/download/debian-x86_64.deb
 
 [rl-linux-a64-gnu]: https://github.com/maplibre/martin/releases/latest/download/martin-aarch64-unknown-linux-gnu.tar.gz
 
