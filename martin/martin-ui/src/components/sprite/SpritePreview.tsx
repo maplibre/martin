@@ -2,6 +2,7 @@ import type React from 'react';
 import { useEffect, useState } from 'react';
 import { buildMartinUrl } from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { SdfMapPreview } from './SdfMapPreview';
 import { fetchSpriteImage, fetchSpriteIndex, type SpriteMeta } from './SpriteCache';
 import SpriteCanvas from './SpriteCanvas';
 
@@ -23,6 +24,24 @@ type SpritePreviewProps = {
    * Optional className for the container.
    */
   className?: string;
+  /**
+   * When true, render using MapLibre GL with the SDF sprite endpoint for dynamic icon/halo coloring.
+   */
+  sdfMode?: boolean;
+  /**
+   * Display size in px for each sprite icon. Falls back to previewMode/full-size defaults.
+   */
+  displaySize?: number;
+  /** Icon fill color for SDF mode */
+  iconColor?: string;
+  /** Halo color for SDF mode */
+  haloColor?: string;
+  /** Halo width in pixels for SDF mode */
+  haloWidth?: number;
+  /** Halo blur in pixels for SDF mode */
+  haloBlur?: number;
+  /** Icon scale factor for SDF mode (1.0 = native size) */
+  iconSize?: number;
 };
 
 type SpriteState =
@@ -39,6 +58,13 @@ export const SpritePreview: React.FC<SpritePreviewProps> = ({
   spriteIds,
   previewMode,
   className,
+  sdfMode = false,
+  displaySize,
+  iconColor,
+  haloColor,
+  haloWidth,
+  haloBlur,
+  iconSize,
 }) => {
   const PREVIEW_LIMIT = 18;
   const [state, setState] = useState<SpriteState>({ status: 'loading' });
@@ -85,6 +111,21 @@ export const SpritePreview: React.FC<SpritePreviewProps> = ({
     ids = ids.slice(0, PREVIEW_LIMIT - 1);
   }
 
+  // --- SDF mode: render via MapLibre GL ---
+  if (sdfMode) {
+    return (
+      <SdfMapPreview
+        haloBlur={haloBlur ?? 0}
+        haloColor={haloColor ?? '#ffffff'}
+        haloWidth={haloWidth ?? 0}
+        iconColor={iconColor ?? '#1a1a2e'}
+        iconSize={iconSize ?? 1}
+        spriteIds={ids}
+        spriteUrl={spriteUrl}
+      />
+    );
+  }
+
   // --- Main grid of sprites ---
   if (state.status === 'error') {
     return (
@@ -110,6 +151,7 @@ export const SpritePreview: React.FC<SpritePreviewProps> = ({
     <div className={cn(`flex flex-wrap gap-3 justify-start items-start min-h-[120px]`, className)}>
       {ids.map((id) => (
         <SpriteCanvas
+          displaySize={displaySize}
           image={state.status === 'ready' ? state.image : undefined}
           key={id}
           label={id}
