@@ -117,10 +117,8 @@ export function SdfMapPreview({
     const map = new maplibregl.Map({
       center: [0, 0],
       container: containerRef.current,
-      // pixelRatio: 2,
       interactive: false,
       style: {
-        glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
         layers: [
           {
             id: 'background',
@@ -137,7 +135,7 @@ export function SdfMapPreview({
               'text-allow-overlap': true,
               'text-anchor': 'top',
               'text-field': ['get', 'label'],
-              'text-font': ['Open Sans Regular', 'Arial Unicode MS Regular'],
+              'text-font': ['Arial Regular', 'Helvetica Regular'],
               'text-ignore-placement': true,
               'text-max-width': 8,
               'text-offset': [0, TEXT_OFFSET_Y],
@@ -149,6 +147,8 @@ export function SdfMapPreview({
               'icon-halo-color': styleRef.current.haloColor,
               'icon-halo-width': styleRef.current.haloWidth,
               'text-color': '#6b7280',
+              'text-halo-color': '#f9fafb',
+              'text-halo-width': 1,
             },
             source: SOURCE_ID,
             type: 'symbol',
