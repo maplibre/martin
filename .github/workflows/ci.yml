@@ -812,7 +812,7 @@ jobs:
         with: { subject-path: 'target/files/*' }
       - name: Publish with artifacts
         if: ${{ github.event_name == 'release' && startsWith(github.event.release.tag_name, 'martin-v') }}
-        uses: softprops/action-gh-release@1853d73993c8ca1b2c9c1a7fede39682d0ab5c2a # v2.5.3
+        uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe # v2.6.1
         with:
           files: 'target/files/*'
           generate_release_notes: false
@@ -823,7 +823,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Publish without artifacts
         if: ${{ github.event_name == 'release' && !startsWith(github.event.release.tag_name, 'martin-v') }}
-        uses: softprops/action-gh-release@1853d73993c8ca1b2c9c1a7fede39682d0ab5c2a # v2.5.3
+        uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe # v2.6.1
         with:
           generate_release_notes: false
           draft: false
