@@ -75,7 +75,7 @@ export function DashboardContent() {
     [updateParam],
   );
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: if we list analyticsOperation.execute below, this is an infinte loop
+  // biome-ignore lint/correctness/useExhaustiveDependencies: if we list analyticsOperation.execute below, this is an infinite loop
   useEffect(() => {
     catalogOperation.execute();
   }, []);

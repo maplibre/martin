@@ -157,7 +157,7 @@ impl Config {
             // if a pmtiles source were to keep being configured like this,
             // we would not be able to migrate defaults/deprecate settings
             //
-            // pmiles intialisation after this in resolve_tile_sources depends on this behaviour and will panic otherwise
+            // pmiles initialisation after this in resolve_tile_sources depends on this behaviour and will panic otherwise
             self.pmtiles = self.pmtiles.clone().into_config();
             self.pmtiles.finalize()?;
             res.extend(self.pmtiles.get_unrecognized_keys_with_prefix("pmtiles."));

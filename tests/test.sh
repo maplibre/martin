@@ -236,7 +236,7 @@ clean_headers_dump() {
   # the http version is not an "header" that we want to assert
   $SED --regexp-extended --in-place "s/HTTP.+//" "$FILE"
   # need to remove entirely empty lines, \r\n and leading/trailing whitespace
-  # sorting is arbitrairy => sort here
+  # sorting is arbitrary => sort here
   tr -s '\r\n' '\n' < "$FILE" | sort > "$FILE.tmp"
   mv "$FILE.tmp" "$FILE"
   # we need to remove the first line as squeezing repeat newlines makes does not remove this empty line

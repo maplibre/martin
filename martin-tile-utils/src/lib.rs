@@ -331,7 +331,7 @@ enum SevenBitDecodingError {
     UnexpectedTag(u8),
 }
 
-/// Tries to validate that the tile consists of a valid concatination of (`size_7_bit`, `one_of_expected_version`, `data`)
+/// Tries to validate that the tile consists of a valid concatenation of (`size_7_bit`, `one_of_expected_version`, `data`)
 fn decode_7bit_length_and_tag(tile: &[u8], versions: &[u8]) -> Result<(), SevenBitDecodingError> {
     if tile.is_empty() {
         return Err(SevenBitDecodingError::TruncatedSize);
@@ -696,7 +696,7 @@ mod tests {
         );
         assert_eq!(
             actual_xyz, expected_xyz,
-            "zoom {zoom} does not have te right xyz"
+            "zoom {zoom} does not have the right xyz"
         );
     }
 

@@ -57,7 +57,7 @@ impl ConfigurationLivecycleHooks for SrvConfig {
     }
 }
 
-/// More advanced monitoring montoring options
+/// More advanced monitoring options
 #[cfg(feature = "metrics")]
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Default)]

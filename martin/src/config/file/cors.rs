@@ -72,7 +72,7 @@ impl CorsConfig {
         }
     }
 
-    /// Checks that that if cors is configured explicitely (instead of via `true`/`false`), `origin` is configured
+    /// Checks that that if cors is configured explicitly (instead of via `true`/`false`), `origin` is configured
     pub fn validate(&self) -> MartinResult<()> {
         match self {
             Self::SimpleFlag(_) => Ok(()),
