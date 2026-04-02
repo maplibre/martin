@@ -828,9 +828,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_TAG_NAME: ${{ github.event.release.tag_name }}
-        run: |
-          set -euo pipefail
-          gh release edit "$RELEASE_TAG_NAME" --verify-tag --latest=false
+        run: gh release edit "$RELEASE_TAG_NAME" --verify-tag --latest=false
 
         # Create a personal access token
         #     Gen:  https://github.com/settings/personal-access-tokens/new
