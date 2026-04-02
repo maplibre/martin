@@ -812,24 +812,24 @@ jobs:
         with: { subject-path: 'target/files/*' }
       - name: Publish with artifacts
         if: ${{ github.event_name == 'release' && startsWith(github.event.release.tag_name, 'martin-v') }}
-        uses: softprops/action-gh-release@1853d73993c8ca1b2c9c1a7fede39682d0ab5c2a # v2.5.3
-        with:
-          files: 'target/files/*'
-          generate_release_notes: false
-          draft: false
-          make_latest: true
-          fail_on_unmatched_files: true
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG_NAME: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          if ! compgen -G "target/files/*" > /dev/null; then
+            echo "No release artifacts matched target/files/*" >&2
+            exit 1
+          fi
+          gh release create "$RELEASE_TAG_NAME" target/files/* --verify-tag --latest=true
       - name: Publish without artifacts
         if: ${{ github.event_name == 'release' && !startsWith(github.event.release.tag_name, 'martin-v') }}
-        uses: softprops/action-gh-release@1853d73993c8ca1b2c9c1a7fede39682d0ab5c2a # v2.5.3
-        with:
-          generate_release_notes: false
-          draft: false
-          make_latest: false
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG_NAME: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          gh release create "$RELEASE_TAG_NAME" --verify-tag --latest=false
 
         # Create a personal access token
         #     Gen:  https://github.com/settings/personal-access-tokens/new
