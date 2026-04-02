@@ -40,7 +40,7 @@ manbhav234)
 - more cfg magic instead of #[allow(unused_variables)] ([#2563](https://github.com/maplibre/martin/pull/2563))
 - More restrictive expects ([#2562](https://github.com/maplibre/martin/pull/2562))
 - feature-gate PostgreSQL tests to remove external dependencies from `cargo test` ([#2558](https://github.com/maplibre/martin/pull/2558))
-- Bump some dependencys ([#2608](https://github.com/maplibre/martin/pull/2608), [#2602](https://github.com/maplibre/martin/pull/2602), [#2592](https://github.com/maplibre/martin/pull/2592), [#2577](https://github.com/maplibre/martin/pull/2577), [#2575](https://github.com/maplibre/martin/pull/2575), [#2567](https://github.com/maplibre/martin/pull/2567))
+- Bump some dependencies ([#2608](https://github.com/maplibre/martin/pull/2608), [#2602](https://github.com/maplibre/martin/pull/2602), [#2592](https://github.com/maplibre/martin/pull/2592), [#2577](https://github.com/maplibre/martin/pull/2577), [#2575](https://github.com/maplibre/martin/pull/2575), [#2567](https://github.com/maplibre/martin/pull/2567))
 
 ## [1.3.1](https://github.com/maplibre/martin/compare/martin-v1.3.0...martin-v1.3.1) - 2026-02-11
 
@@ -56,9 +56,9 @@ manbhav234)
 ### Other
 
 - Add test coverage for header handling in tilejson requests ([#2529](https://github.com/maplibre/martin/pull/2529))
-- *(martin-core)* [**breaking**] remove the configration from the martin-core crate ([#2521](https://github.com/maplibre/martin/pull/2521))
+- *(martin-core)* [**breaking**] remove the configuration from the martin-core crate ([#2521](https://github.com/maplibre/martin/pull/2521))
 - restrict `unused_trait_names` for trait imports ([#2542](https://github.com/maplibre/martin/pull/2542))
-- *(deps)* Bump various dependencys ([#2553](https://github.com/maplibre/martin/pull/2553), [#2545](https://github.com/maplibre/martin/pull/2545), [#2533](https://github.com/maplibre/martin/pull/2533))
+- *(deps)* Bump various dependencies ([#2553](https://github.com/maplibre/martin/pull/2553), [#2545](https://github.com/maplibre/martin/pull/2545), [#2533](https://github.com/maplibre/martin/pull/2533))
 
 ## [1.3.0](https://github.com/maplibre/martin/compare/martin-v1.2.0...martin-v1.3.0) - 2026-01-27
 
@@ -160,12 +160,12 @@ Done in [#2427](https://github.com/maplibre/martin/pull/2427) by @todtb
 
 - *(config)* move the resolve impl to a different function ([#2397](https://github.com/maplibre/martin/pull/2397))
 - *(docs)* fix martin-cp bbox docs ([#2387](https://github.com/maplibre/martin/pull/2387))
-- *(deps)* miscelaneous dependency bumps ([#2403](https://github.com/maplibre/martin/pull/2403), [#2404](https://github.com/maplibre/martin/pull/2404), [#2373](https://github.com/maplibre/martin/pull/2373), [#2375](https://github.com/maplibre/martin/pull/2375), [#2374](https://github.com/maplibre/martin/pull/2374))
+- *(deps)* miscellaneous dependency bumps ([#2403](https://github.com/maplibre/martin/pull/2403), [#2404](https://github.com/maplibre/martin/pull/2404), [#2373](https://github.com/maplibre/martin/pull/2373), [#2375](https://github.com/maplibre/martin/pull/2375), [#2374](https://github.com/maplibre/martin/pull/2374))
 
 ## [1.0.0](https://github.com/maplibre/martin/compare/martin-v0.20.2...martin-v1.0.0) - 2025-11-10
 
 🎉🎉🎉 **After 8 years in developmen, we are excited to release v1.0.0 of martin.** 🎉🎉🎉
-Functionally, it is the same as `v0.20.2`, just with our releses further automated.
+Functionally, it is the same as `v0.20.2`, just with our releases further automated.
 There are no breaking changes between `v0.20.X` and `v1.X.X`
 
 ### Fixed
@@ -175,7 +175,7 @@ There are no breaking changes between `v0.20.X` and `v1.X.X`
 ## [0.20.2](https://github.com/maplibre/martin/compare/martin-v0.20.1...martin-v0.20.2) - 2025-11-07
 
 In 0.20.1 we clamed to have fixed the bug regarding how our release script determines versions for docker containers.
-This was incorrect and is fixed now with a more manual appraoch instead of relying on `docker/metadata-action`.
+This was incorrect and is fixed now with a more manual approach instead of relying on `docker/metadata-action`.
 Done in [#2348](https://github.com/maplibre/martin/pull/2348)
 
 ### Other
@@ -253,7 +253,7 @@ We asked for community feedback on Slack (see [here](https://maplibre.org/commun
 If you depend on `AWS_PROFILE`, we opened the following issue to discuss details:
 - https://github.com/maplibre/martin/issues/2286
 
-For further details on the now avaliable options, please [see our documentation](https://maplibre.org/martin/sources-files.html).
+For further details on the now available options, please [see our documentation](https://maplibre.org/martin/sources-files.html).
 
 Done in [#2251](https://github.com/maplibre/martin/pull/2251)
 
@@ -291,8 +291,8 @@ Done in [#2294](https://github.com/maplibre/martin/pull/2294)
 - *(admin)* move functionality into better modules ([#2315](https://github.com/maplibre/martin/pull/2315))
 - move config files to new folders ([#2298](https://github.com/maplibre/martin/pull/2298))
 - *(core)* add a `_tiles` feature  to simplify our feature configuration ([#2296](https://github.com/maplibre/martin/pull/2296))
-- *(config)* refactor the livecycle hooks to be cleaner and better documented ([#2282](https://github.com/maplibre/martin/pull/2282))
-- *(lints)* applly tighter clippy lints like `clippy::panic_in_result_fn`, `clippy::todo` or similar [#2284](https://github.com/maplibre/martin/pull/2284 [#2283](https://github.com/maplibre/martin/pull/2283), [#2288](https://github.com/maplibre/martin/pull/2288), [#2287](https://github.com/maplibre/martin/pull/2287)
+- *(config)* refactor the lifecycle hooks to be cleaner and better documented ([#2282](https://github.com/maplibre/martin/pull/2282))
+- *(lints)* apply tighter clippy lints like `clippy::panic_in_result_fn`, `clippy::todo` or similar [#2284](https://github.com/maplibre/martin/pull/2284 [#2283](https://github.com/maplibre/martin/pull/2283), [#2288](https://github.com/maplibre/martin/pull/2288), [#2287](https://github.com/maplibre/martin/pull/2287)
 - *(mbtiles)* Generate mbtiles dynamically from SQL files to increase debuggability, transparency and supply chain trust/security ([#1868](https://github.com/maplibre/martin/pull/1868))
 - A number of dependency updates [#2277](https://github.com/maplibre/martin/pull/2277), [#2308](https://github.com/maplibre/martin/pull/2308)
 
@@ -347,7 +347,7 @@ Done in [#2294](https://github.com/maplibre/martin/pull/2294)
 - document public parts of the  `cog`-module ([#2166](https://github.com/maplibre/martin/pull/2166))
 - document the exposed parts of the `pg` module ([#2165](https://github.com/maplibre/martin/pull/2165))
 - improve `IdResolver::resolve` warnings ([#2066](https://github.com/maplibre/martin/pull/2066))
-- improve doc comment for `IdResolver::resolve` to remove ambiguitiy if we should log for reserved names ([#2065](https://github.com/maplibre/martin/pull/2065))
+- improve doc comment for `IdResolver::resolve` to remove ambiguity if we should log for reserved names ([#2065](https://github.com/maplibre/martin/pull/2065))
 
 ### Other
 
@@ -361,4 +361,4 @@ Done in [#2294](https://github.com/maplibre/martin/pull/2294)
 - *(ui)* move from eslint to biomejs for formatting/linting ([#1909](https://github.com/maplibre/martin/pull/1909))
 - *(ci)* add cargo-sort to consistently sort our `Cargo.toml` ([#2020](https://github.com/maplibre/martin/pull/2020))
 - *(ci)* Split tests and lints in CI ([#2225](https://github.com/maplibre/martin/pull/2225))
-- *dependencys* And a bunch of dependency updates ([#2218](https://github.com/maplibre/martin/pull/2218), [#2189](https://github.com/maplibre/martin/pull/2189)), [#2161](https://github.com/maplibre/martin/pull/2161), [#2143](https://github.com/maplibre/martin/pull/2143), [#2147](https://github.com/maplibre/martin/pull/2147), [#2139](https://github.com/maplibre/martin/pull/2139), [#2128](https://github.com/maplibre/martin/pull/2128), [#2135](https://github.com/maplibre/martin/pull/2135), [#2125](https://github.com/maplibre/martin/pull/2125), [#2126](https://github.com/maplibre/martin/pull/2126), [#2120](https://github.com/maplibre/martin/pull/2120), [#2119](https://github.com/maplibre/martin/pull/2119), [#2111](https://github.com/maplibre/martin/pull/2111), [#2082](https://github.com/maplibre/martin/pull/2082), [#2093](https://github.com/maplibre/martin/pull/2093), [#2084](https://github.com/maplibre/martin/pull/2084), [#2081](https://github.com/maplibre/martin/pull/2081), [#2069](https://github.com/maplibre/martin/pull/2069), [#2070](https://github.com/maplibre/martin/pull/2070), [#2013](https://github.com/maplibre/martin/pull/2013), [#2106](https://github.com/maplibre/martin/pull/2106), [#2104](https://github.com/maplibre/martin/pull/2104), [#2050](https://github.com/maplibre/martin/pull/2050), [#2049](https://github.com/maplibre/martin/pull/2049), [#2100](https://github.com/maplibre/martin/pull/2100), [#2232](https://github.com/maplibre/martin/pull/2232))
+- *dependencies* And a bunch of dependency updates ([#2218](https://github.com/maplibre/martin/pull/2218), [#2189](https://github.com/maplibre/martin/pull/2189)), [#2161](https://github.com/maplibre/martin/pull/2161), [#2143](https://github.com/maplibre/martin/pull/2143), [#2147](https://github.com/maplibre/martin/pull/2147), [#2139](https://github.com/maplibre/martin/pull/2139), [#2128](https://github.com/maplibre/martin/pull/2128), [#2135](https://github.com/maplibre/martin/pull/2135), [#2125](https://github.com/maplibre/martin/pull/2125), [#2126](https://github.com/maplibre/martin/pull/2126), [#2120](https://github.com/maplibre/martin/pull/2120), [#2119](https://github.com/maplibre/martin/pull/2119), [#2111](https://github.com/maplibre/martin/pull/2111), [#2082](https://github.com/maplibre/martin/pull/2082), [#2093](https://github.com/maplibre/martin/pull/2093), [#2084](https://github.com/maplibre/martin/pull/2084), [#2081](https://github.com/maplibre/martin/pull/2081), [#2069](https://github.com/maplibre/martin/pull/2069), [#2070](https://github.com/maplibre/martin/pull/2070), [#2013](https://github.com/maplibre/martin/pull/2013), [#2106](https://github.com/maplibre/martin/pull/2106), [#2104](https://github.com/maplibre/martin/pull/2104), [#2050](https://github.com/maplibre/martin/pull/2050), [#2049](https://github.com/maplibre/martin/pull/2049), [#2100](https://github.com/maplibre/martin/pull/2100), [#2232](https://github.com/maplibre/martin/pull/2232))

@@ -54,5 +54,5 @@ After doing so, you can use the `/style/<style_id>/{z}/{x}/{y}.{filetype}` API t
 
 ### Static image prepraration
 
-We currently do not have the same [capabilites as Tileserver-GL](https://tileserver.readthedocs.io/en/latest/endpoints.html#static-images) to layout images.
+We currently do not have the same [capabilities as Tileserver-GL](https://tileserver.readthedocs.io/en/latest/endpoints.html#static-images) to layout images.
 We are working on adding this feature and are very open to contributions.

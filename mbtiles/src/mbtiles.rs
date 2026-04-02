@@ -83,7 +83,7 @@ pub struct PatchFileInfo {
 /// ## Reading tiles from an existing file
 ///
 /// > [!NOTE]
-/// > Note that there are both [osgeos' Tile Map Service](https://wiki.openstreetmap.org/wiki/TMS) and [xyz Slippy map tilenames](https://wiki.openstreetmap.org/wiki/Slippy_map_tilenames) tiling shemes.
+/// > Note that there are both [osgeos' Tile Map Service](https://wiki.openstreetmap.org/wiki/TMS) and [xyz Slippy map tilenames](https://wiki.openstreetmap.org/wiki/Slippy_map_tilenames) tiling schemes.
 /// > They differ only in if the y coordinate direction.
 /// > **The default in mapbox and maplibre is xyz.***
 /// > **The default in mbtiles generation like plantitler is tms.***

@@ -14,7 +14,7 @@ See [environment vars](env-vars.md) for details.
 By default, `sslmode` is `prefer` - encrypt (don't check certificates) if the server supports it, but the connection proceeds without SSL if not supported.
 This matches `psql` default behavior.
 
-If you require guarnatees regarding [eavesdropping](https://en.wikipedia.org/wiki/Eavesdropping) or [MITM protection](https://en.wikipedia.org/wiki/Man-in-the-middle_attack), you need a different option.
+If you require guarantees regarding [eavesdropping](https://en.wikipedia.org/wiki/Eavesdropping) or [MITM protection](https://en.wikipedia.org/wiki/Man-in-the-middle_attack), you need a different option.
 Use the `sslmode` parameter to specify a different mode:
 
 ```bash
