@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.0](https://github.com/maplibre/martin/compare/martin-v1.4.0...martin-v1.5.0) - 2026-04-02
+
+### Added
+
+- migrate to workspaced justfiles using `mod` for demo and martin-ui ([#2623](https://github.com/maplibre/martin/pull/2623))
+
+### Fixed
+
+- typos ([#2651](https://github.com/maplibre/martin/pull/2651))
+- *(postgres)* startup crash when ST_Extent returns LineString instead of Polygon ([#2600](https://github.com/maplibre/martin/pull/2600))
+
+### Other
+
+- *(deps)* Bump the all-npm-security-updates group across 2 directories with 1 update ([#2647](https://github.com/maplibre/martin/pull/2647))
+- Enable `clippy::use_self` at workspace level and resolve all violations ([#2645](https://github.com/maplibre/martin/pull/2645))
+- *(deps-dev)* Bump flatted from 3.3.3 to 3.4.2 in /martin/martin-ui in the all-npm-security-updates group across 1 directory ([#2640](https://github.com/maplibre/martin/pull/2640))
+- *(perf)* don't test pg twice ([#2619](https://github.com/maplibre/martin/pull/2619))
+
 ## [1.4.0](https://github.com/maplibre/martin/compare/martin-v1.3.1...martin-v1.4.0) - 2026-03-14
 
 ### ZSTD support
