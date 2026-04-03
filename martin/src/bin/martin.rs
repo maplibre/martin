@@ -36,6 +36,25 @@ async fn start(args: Args) -> MartinResult<()> {
     #[cfg(feature = "_catalog")]
     let sources = config.resolve().await?;
 
+    #[cfg(feature = "mbtiles")]
+    {
+        use martin::config::file::{FileConfigEnum, reload::mbtiles::MBTilesReloader};
+        use std::collections::BTreeMap;
+        use tracing::warn;
+
+        if let FileConfigEnum::Config(cfg) = config.mbtiles.clone() {
+            let mgr = sources.tile_manager.clone();
+            let reloader = MBTilesReloader::new(mgr.id_resolver(), BTreeMap::new());
+            tokio::spawn(async move {
+                if let Err(e) = reloader
+                    .watch(&mgr, cfg.paths.clone().into_iter().to_owned().collect())
+                {
+                    warn!("failed to stop MBTilesReloader {e:?}")
+                }
+            });
+        }
+    }
+
     if let Some(file_name) = save_config {
         config.save_to_file(file_name.as_path())?;
     } else {

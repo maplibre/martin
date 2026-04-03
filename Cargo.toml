@@ -80,6 +80,7 @@ mbtiles = { path = "./mbtiles", version = "0.17.0" }
 md5 = "0.8.0"
 moka = { version = "0.12", default-features = false }
 num_cpus = "1"
+notify = "8.2.0"
 object_store = { version = "0.13.2", features = ["gcp", "aws", "azure", "fs", "http"] }
 pbf_font_tools = { version = "3.1.1", features = ["freetype"] }
 pixelmatch = "0.1"

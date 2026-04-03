@@ -9,6 +9,7 @@ use martin_core::tiles::mbtiles::MbtilesError;
 use martin_core::tiles::pmtiles::PmtilesError;
 #[cfg(feature = "postgres")]
 use martin_core::tiles::postgres::PostgresError;
+use tokio::task::JoinError;
 
 use crate::config::file::ConfigFileError;
 
@@ -88,4 +89,10 @@ pub enum MartinError {
 
     #[error("warnings issued during tile source resolution")]
     TileResolutionWarningsIssued,
+
+    #[error("could not create a watcher for directories configured for tile source discovery")]
+    DirectoryWatchError(notify::ErrorKind),
+
+    #[error("could not stop a watcher for directories configured for tile source discovery")]
+    DirectoryWatchCloseError(JoinError),
 }
