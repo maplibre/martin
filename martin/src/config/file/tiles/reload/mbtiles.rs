@@ -1,6 +1,6 @@
 use std::{collections::BTreeMap, path::PathBuf, time::UNIX_EPOCH};
 
-use martin_core::tiles::{mbtiles::MbtSource};
+use martin_core::tiles::{BoxedSource, mbtiles::MbtSource};
 use notify::{
     Config, Event, EventKind, RecommendedWatcher, Watcher,
     event::{AccessKind, AccessMode},
@@ -17,21 +17,18 @@ pub struct MBTilesReloader {
     /// ID resolver that ensures a unique ID is assigned to each source.
     id_resolver: IdResolver,
     /// Map of Source ID => modified timestamp.
-    sources: BTreeMap<String, u64>,
-    /// Map of Source ID => absolute file path.
-    paths: BTreeMap<String, PathBuf>,
+    sources: BTreeMap<String, (PathBuf, u64)>,
 }
 
 impl MBTilesReloader {
-    pub fn new(id_resolver: IdResolver, initial_sources: BTreeMap<String, u64>) -> Self {
+    pub fn new(id_resolver: IdResolver, initial_sources: BTreeMap<String, (PathBuf, u64)>) -> Self {
         MBTilesReloader {
             id_resolver: id_resolver,
             sources: initial_sources,
-            paths: BTreeMap::new(),
         }
     }
 
-    pub fn watch(mut self, _tsm: &TileSourceManager, directories: Vec<PathBuf>) -> MartinResult<()> {
+    pub fn watch(mut self, tsm: TileSourceManager, directories: Vec<PathBuf>) -> MartinResult<()> {
         let (tx, mut rx) = mpsc::channel::<Event>(256);
         let mut watcher = RecommendedWatcher::new(
             move |result: notify::Result<Event>| {
@@ -52,6 +49,7 @@ impl MBTilesReloader {
 
         tokio::spawn(async move {
             let _watcher = watcher;
+            let _tsm = tsm;
 
             while let Some(event) = rx.recv().await {
                 // rediscover in the configured paths. do not use the event for anything other than notification.
@@ -66,54 +64,49 @@ impl MBTilesReloader {
                     continue;
                 }
 
-                let (versions, paths) = match self.discover_sources(&directories).await {
+                let sources = match self.discover_sources(&directories).await {
                     Ok(v) => v,
                     Err(e) => {
                         warn!("failed to rediscover sources from directories {e:?}");
                         continue;
                     }
                 };
-                self.paths = paths;
 
-                let mut adv = ReloadAdvisory::from_maps(&self.sources, &versions);
-                for addition in adv.additions.iter_mut() {
-                    if let Some(path) = &self.paths.get(&addition.name) {
-                        if let Ok(src) =
-                            MbtSource::new(addition.name.to_string(), path.to_path_buf()).await
-                        {
-                            addition.source = Some(Box::new(src));
-                        }
-                    }
-                }
-                for update in adv.updates.iter_mut() {
-                    if let Some(path) = &self.paths.get(&update.name) {
-                        if let Ok(src) =
-                            MbtSource::new(update.name.to_string(), path.to_path_buf()).await
-                        {
-                            update.source = Some(Box::new(src));
-                        }
-                    }
-                }
-                info!("produced advisory {adv:?}")
+                let prev: BTreeMap<String, u64> = (&self.sources)
+                    .into_iter()
+                    .map(|(k, v)| (k.clone(), v.1))
+                    .collect::<_>();
+                let next: BTreeMap<String, u64> = (&sources)
+                    .into_iter()
+                    .map(|(k, v)| (k.clone(), v.1))
+                    .collect::<_>();
+                self.sources = sources;
+                let sources_clone = self.sources.clone();
+
+                let adv = ReloadAdvisory::from_maps(&prev, &next, async move |id| -> Option<BoxedSource> {
+                    let Some(p) = sources_clone.get(&id) else {
+                        return None
+                    };
+
+                    let Ok(src) = MbtSource::new(id, p.0.clone()).await else {
+                        return None
+                    };
+
+                    Some(Box::new(src) as BoxedSource)
+                }).await;
+
+                _tsm.apply_changes(adv).await
             }
         });
 
         Ok(())
     }
 
-    // pub async fn resolve_discoveries(&mut self, discoveries: &Vec<Discovery>) -> MartinResult<BTreeMap<String, (PathBuf, u64)>> {
-    //     let new_map: BTreeMap<String, (PathBuf, u64)> = BTreeMap::new();
-    //     for discovery in discoveries {
-    //     }
-    //     return Ok(new_map)
-    // }
-
     pub async fn discover_sources(
         &mut self,
         directories: &Vec<PathBuf>,
-    ) -> MartinResult<(BTreeMap<String, u64>, BTreeMap<String, PathBuf>)> {
-        let mut versions: BTreeMap<String, u64> = BTreeMap::new();
-        let mut paths: BTreeMap<String, PathBuf> = BTreeMap::new();
+    ) -> MartinResult<(BTreeMap<String, (PathBuf, u64)>)> {
+        let mut out: BTreeMap<String, (PathBuf, u64)> = BTreeMap::new();
 
         for directory in directories {
             for result in directory.read_dir().map_err(|e| MartinError::IoError(e))? {
@@ -141,12 +134,11 @@ impl MBTilesReloader {
                     };
 
                     let id = self.id_resolver.resolve(stem, path_str.clone());
-                    versions.insert(id.clone(), unix_epoch_delta.as_millis() as u64);
-                    paths.insert(id, path);
+                    out.insert(id, (path, unix_epoch_delta.as_millis() as u64));
                 }
             }
         }
 
-        Ok((versions, paths))
+        Ok(out)
     }
 }

@@ -45,13 +45,11 @@ async fn start(args: Args) -> MartinResult<()> {
         if let FileConfigEnum::Config(cfg) = config.mbtiles.clone() {
             let mgr = sources.tile_manager.clone();
             let reloader = MBTilesReloader::new(mgr.id_resolver(), BTreeMap::new());
-            tokio::spawn(async move {
-                if let Err(e) = reloader
-                    .watch(&mgr, cfg.paths.clone().into_iter().to_owned().collect())
-                {
-                    warn!("failed to stop MBTilesReloader {e:?}")
-                }
-            });
+            if let Err(e) = reloader
+                .watch(mgr, cfg.paths.clone().into_iter().to_owned().collect())
+            {
+                warn!("failed to stop MBTilesReloader {e:?}")
+            }
         }
     }
 
