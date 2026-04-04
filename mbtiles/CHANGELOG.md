@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.15.4](https://github.com/maplibre/martin/compare/mbtiles-v0.15.3...mbtiles-v0.15.4) - 2026-04-02
+
+### Fixed
+
+- typos ([#2651](https://github.com/maplibre/martin/pull/2651))
+
+### Other
+
+- Enable `clippy::use_self` at workspace level and resolve all violations ([#2645](https://github.com/maplibre/martin/pull/2645))
+
 ## [0.15.3](https://github.com/maplibre/martin/compare/mbtiles-v0.15.2...mbtiles-v0.15.3) - 2026-03-14
 
 ### Added
