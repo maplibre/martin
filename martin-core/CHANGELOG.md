@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.2](https://github.com/maplibre/martin/compare/martin-core-v0.3.1...martin-core-v0.3.2) - 2026-04-02
+
+### Fixed
+
+- typos ([#2651](https://github.com/maplibre/martin/pull/2651))
+
+### Other
+
+- Enable `clippy::use_self` at workspace level and resolve all violations ([#2645](https://github.com/maplibre/martin/pull/2645))
+
 ## [0.3.1](https://github.com/maplibre/martin/compare/martin-core-v0.3.0...martin-core-v0.3.1) - 2026-03-14
 
 ### Added
