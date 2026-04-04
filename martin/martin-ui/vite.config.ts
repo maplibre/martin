@@ -11,13 +11,6 @@ export default defineConfig({
     // so we use /_/assets to avoid conflicts
     assetsDir: '_/assets',
     outDir: 'dist',
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          maplibre: ['maplibre-gl', '@vis.gl/react-maplibre', '@maplibre/maplibre-gl-inspect'],
-        },
-      },
-    },
     sourcemap: true,
   },
   envPrefix: 'VITE_',
