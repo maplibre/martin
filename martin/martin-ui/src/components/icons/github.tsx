@@ -5,7 +5,7 @@ type Props = {
 export default function GithubIcon({ size = 24 }: Props) {
   return (
     <svg
-      aria-abel="GitHub logo"
+      aria-label="GitHub logo"
       fill="none"
       height={size}
       stroke="currentColor"
