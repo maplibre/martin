@@ -1,5 +1,6 @@
-import { BookOpen, Github, Info } from 'lucide-react';
-import Logo from '@/components/logo';
+import { BookOpen, Info } from 'lucide-react';
+import Github from '@/components/icons/github';
+import Logo from '@/components/icons/logo';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
