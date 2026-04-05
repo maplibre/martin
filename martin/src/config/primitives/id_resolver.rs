@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use std::fmt::Write as _;
 use std::sync::{Arc, Mutex};
 
-use tracing::warn;
+use tracing::{info, warn};
 
 /// Resolver for transforming names into unique, non-reserved names
 #[derive(Debug, Default, Clone)]
@@ -56,6 +56,7 @@ impl IdResolver {
     /// ```
     #[must_use]
     pub fn resolve(&self, name: &str, unique_name: String) -> String {
+        info!("resolving for {name} with {unique_name}");
         let info = if name == unique_name {
             None
         } else {

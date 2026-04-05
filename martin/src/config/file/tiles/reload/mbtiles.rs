@@ -9,8 +9,7 @@ use tokio::sync::mpsc;
 use tracing::{info, warn};
 
 use crate::{
-    MartinError, MartinResult, ReloadAdvisory, TileSourceManager,
-    config::primitives::IdResolver,
+    MartinError, MartinResult, ReloadAdvisory, TileSourceManager, config::primitives::IdResolver,
 };
 
 pub struct MBTilesReloader {
@@ -83,17 +82,22 @@ impl MBTilesReloader {
                 self.sources = sources;
                 let sources_clone = self.sources.clone();
 
-                let adv = ReloadAdvisory::from_maps(&prev, &next, async move |id| -> Option<BoxedSource> {
-                    let Some(p) = sources_clone.get(&id) else {
-                        return None
-                    };
+                let adv = ReloadAdvisory::from_maps(
+                    &prev,
+                    &next,
+                    async move |id| -> Option<BoxedSource> {
+                        let Some(p) = sources_clone.get(&id) else {
+                            return None;
+                        };
 
-                    let Ok(src) = MbtSource::new(id, p.0.clone()).await else {
-                        return None
-                    };
+                        let Ok(src) = MbtSource::new(id, p.0.clone()).await else {
+                            return None;
+                        };
 
-                    Some(Box::new(src) as BoxedSource)
-                }).await;
+                        Some(Box::new(src) as BoxedSource)
+                    },
+                )
+                .await;
 
                 _tsm.apply_changes(adv).await
             }
@@ -117,6 +121,9 @@ impl MBTilesReloader {
                     .map_err(|e| MartinError::IoError(e))?;
 
                 if path.is_file() && path.extension().is_some_and(|e| e == "mbtiles") {
+                    if !path.is_absolute() {
+                        continue;
+                    };
                     let Some(stem) = path.file_stem().and_then(|o| o.to_str()) else {
                         continue;
                     };

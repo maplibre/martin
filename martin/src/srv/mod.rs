@@ -5,7 +5,7 @@ mod server;
 pub use server::{RESERVED_KEYWORDS, new_server, router};
 
 mod admin;
-pub use admin::Catalog;
+pub use admin::{Catalog, StaticCatalog};
 
 #[cfg(feature = "_tiles")]
 mod tiles;

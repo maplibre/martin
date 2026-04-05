@@ -39,16 +39,58 @@ async fn start(args: Args) -> MartinResult<()> {
     #[cfg(feature = "mbtiles")]
     {
         use martin::config::file::{FileConfigEnum, reload::mbtiles::MBTilesReloader};
-        use std::collections::BTreeMap;
+        use std::{collections::BTreeMap, path::PathBuf};
+        use std::time::UNIX_EPOCH;
         use tracing::warn;
 
-        if let FileConfigEnum::Config(cfg) = config.mbtiles.clone() {
+        let mut watch_paths: Vec<PathBuf> = vec![];
+        match &config.mbtiles {
+            FileConfigEnum::Config(c) => {
+                watch_paths.extend(c.paths.clone());
+            }
+            FileConfigEnum::Path(p) => {
+                watch_paths.push(p.clone());
+            }
+            FileConfigEnum::Paths(ps) => {
+                watch_paths.extend(ps.clone());
+            }
+            _ => {}
+        }
+
+        let init: BTreeMap<String, (PathBuf, u64)> = match &config.mbtiles {
+            FileConfigEnum::Config(cfg) => {
+                let mut m = BTreeMap::new();
+                if let Some(s) = &cfg.sources {
+                    for (id, src) in s {
+                        let path = src.get_path();
+                        let Ok(metadata) = path.metadata() else {
+                            continue;
+                        };
+                        let Ok(modified) = metadata.modified() else {
+                            continue;
+                        };
+                        let Ok(unix_epoch_delta) = modified.duration_since(UNIX_EPOCH) else {
+                            continue;
+                        };
+
+                        m.insert(
+                            id.clone(),
+                            (path.clone(), unix_epoch_delta.as_millis() as u64),
+                        );
+                    }
+                }
+                m
+            }
+            _ => BTreeMap::new(),
+        };
+
+        if !watch_paths.is_empty() {
             let mgr = sources.tile_manager.clone();
-            let reloader = MBTilesReloader::new(mgr.id_resolver(), BTreeMap::new());
-            if let Err(e) = reloader
-                .watch(mgr, cfg.paths.clone().into_iter().to_owned().collect())
+            let reloader = MBTilesReloader::new(mgr.id_resolver(), init);
+            if let Err(e) =
+                reloader.watch(mgr, watch_paths.clone().into_iter().to_owned().collect())
             {
-                warn!("failed to stop MBTilesReloader {e:?}")
+                warn!("failed to start MBTilesReloader {e:?}")
             }
         }
     }
