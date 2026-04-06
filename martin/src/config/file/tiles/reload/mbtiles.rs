@@ -6,7 +6,7 @@ use notify::{
     event::{AccessKind, AccessMode},
 };
 use tokio::sync::mpsc;
-use tracing::{info, warn};
+use tracing::warn;
 
 use crate::{
     MartinError, MartinResult, ReloadAdvisory, TileSourceManager, config::primitives::IdResolver,
@@ -39,8 +39,12 @@ impl MBTilesReloader {
         )
         .map_err(|e| MartinError::DirectoryWatchError(e.kind))?;
 
-        for dir in directories.iter().map(|d| d.canonicalize()).flatten() {
-            info!("watching {dir:?} for changes");
+        for dir in directories
+            .iter()
+            .map(|d| d.canonicalize())
+            .flatten()
+            .filter(|d| d.is_absolute())
+        {
             watcher
                 .watch(&dir.clone(), notify::RecursiveMode::NonRecursive)
                 .map_err(|e| MartinError::DirectoryWatchError(e.kind))?;
@@ -51,7 +55,8 @@ impl MBTilesReloader {
             let _tsm = tsm;
 
             while let Some(event) = rx.recv().await {
-                // rediscover in the configured paths. do not use the event for anything other than notification.
+                // rediscover in the configured paths.
+                // do not use the event for anything other than notification.
                 let should_discover = match event.kind {
                     EventKind::Create(_)
                     | EventKind::Remove(_)
@@ -89,7 +94,6 @@ impl MBTilesReloader {
                         let Some(p) = sources_clone.get(&id) else {
                             return None;
                         };
-
                         let Ok(src) = MbtSource::new(id, p.0.clone()).await else {
                             return None;
                         };
@@ -109,7 +113,7 @@ impl MBTilesReloader {
     pub async fn discover_sources(
         &mut self,
         directories: &Vec<PathBuf>,
-    ) -> MartinResult<(BTreeMap<String, (PathBuf, u64)>)> {
+    ) -> MartinResult<BTreeMap<String, (PathBuf, u64)>> {
         let mut out: BTreeMap<String, (PathBuf, u64)> = BTreeMap::new();
 
         for directory in directories {

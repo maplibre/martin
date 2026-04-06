@@ -39,8 +39,8 @@ async fn start(args: Args) -> MartinResult<()> {
     #[cfg(feature = "mbtiles")]
     {
         use martin::config::file::{FileConfigEnum, reload::mbtiles::MBTilesReloader};
-        use std::{collections::BTreeMap, path::PathBuf};
         use std::time::UNIX_EPOCH;
+        use std::{collections::BTreeMap, path::PathBuf};
         use tracing::warn;
 
         let mut watch_paths: Vec<PathBuf> = vec![];
