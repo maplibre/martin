@@ -7,8 +7,6 @@ use std::sync::LazyLock;
 use clap::ValueEnum;
 #[cfg(feature = "_tiles")]
 use futures::future::{BoxFuture, try_join_all};
-#[cfg(feature = "_tiles")]
-use martin_core::tiles::OptTileCache;
 #[cfg(feature = "pmtiles")]
 use martin_core::tiles::pmtiles::PmtCache;
 use serde::{Deserialize, Serialize};
@@ -35,9 +33,9 @@ use crate::config::primitives::IdResolver;
 #[cfg(feature = "postgres")]
 use crate::config::primitives::OptOneMany;
 #[cfg(feature = "_tiles")]
-use crate::source::TileSources;
-#[cfg(feature = "_tiles")]
 use crate::srv::RESERVED_KEYWORDS;
+#[cfg(feature = "_tiles")]
+use crate::tile_source_manager::TileSourceManager;
 use crate::{MartinError, MartinResult};
 
 /// Warnings that can occur during tile source resolution
@@ -52,9 +50,7 @@ pub enum TileSourceWarning {
 
 pub struct ServerState {
     #[cfg(feature = "_tiles")]
-    pub tiles: TileSources,
-    #[cfg(feature = "_tiles")]
-    pub tile_cache: OptTileCache,
+    pub tile_manager: TileSourceManager,
 
     #[cfg(feature = "sprites")]
     pub sprites: martin_core::sprites::SpriteSources,
@@ -243,7 +239,7 @@ impl Config {
         let pmtiles_cache = cache_config.create_pmtiles_cache();
 
         #[cfg(feature = "_tiles")]
-        let (tiles, warnings) = self
+        let (tile_sources, warnings) = self
             .resolve_tile_sources(
                 &resolver,
                 #[cfg(feature = "pmtiles")]
@@ -258,9 +254,10 @@ impl Config {
 
         Ok(ServerState {
             #[cfg(feature = "_tiles")]
-            tiles,
-            #[cfg(feature = "_tiles")]
-            tile_cache: cache_config.create_tile_cache(),
+            tile_manager: TileSourceManager::from_sources(
+                cache_config.create_tile_cache(),
+                tile_sources,
+            ),
 
             #[cfg(feature = "sprites")]
             sprites: self.sprites.resolve()?,
@@ -336,7 +333,10 @@ impl Config {
         &mut self,
         idr: &IdResolver,
         #[cfg(feature = "pmtiles")] pmtiles_cache: PmtCache,
-    ) -> MartinResult<(TileSources, Vec<TileSourceWarning>)> {
+    ) -> MartinResult<(
+        Vec<Vec<martin_core::tiles::BoxedSource>>,
+        Vec<TileSourceWarning>,
+    )> {
         let mut sources_and_warnings: Vec<BoxFuture<_>> = Vec::new();
 
         #[cfg(feature = "postgres")]
@@ -379,7 +379,7 @@ impl Config {
             all_results.into_iter().unzip();
 
         Ok((
-            TileSources::new(all_tile_sources),
+            all_tile_sources,
             all_tile_warnings.into_iter().flatten().collect(),
         ))
     }

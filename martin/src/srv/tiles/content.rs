@@ -8,7 +8,7 @@ use actix_web::http::header::{
 use actix_web::web::{Data, Path, Query};
 use actix_web::{HttpMessage as _, HttpRequest, HttpResponse, Result as ActixResult, route};
 use futures::future::try_join_all;
-use martin_core::tiles::{BoxedSource, OptTileCache, Tile, TileCache, UrlQuery};
+use martin_core::tiles::{BoxedSource, Tile, TileCache, UrlQuery};
 use martin_tile_utils::{
     Encoding, Format, TileCoord, TileData, TileInfo, decode_brotli, decode_gzip, encode_brotli,
     encode_gzip,
@@ -18,8 +18,8 @@ use tracing::warn;
 
 use crate::config::args::PreferredEncoding;
 use crate::config::file::srv::SrvConfig;
-use crate::source::TileSources;
 use crate::srv::server::{DebouncedWarning, map_internal_error};
+use crate::tile_source_manager::TileSourceManager;
 use martin_tile_utils::{decode_zlib, decode_zstd, encode_zlib, encode_zstd};
 
 const SUPPORTED_ENC: &[HeaderEnc] = &[
@@ -43,18 +43,16 @@ async fn get_tile(
     req: HttpRequest,
     srv_config: Data<SrvConfig>,
     path: Path<TileRequest>,
-    sources: Data<TileSources>,
-    cache: Data<OptTileCache>,
+    manager: Data<TileSourceManager>,
 ) -> ActixResult<HttpResponse> {
     let src = DynTileSource::new(
-        sources.as_ref(),
+        &manager,
         &path.source_ids,
         Some(path.z),
         req.query_string(),
         req.get_header::<AcceptEncoding>(),
         req.get_header::<IfNoneMatch>(),
         srv_config.preferred_encoding,
-        cache.as_ref().as_ref(),
     )?;
 
     src.get_http_response(TileCoord {
@@ -172,18 +170,18 @@ pub struct DynTileSource<'a> {
 }
 
 impl<'a> DynTileSource<'a> {
-    #[expect(clippy::too_many_arguments)]
     pub fn new(
-        sources: &'a TileSources,
+        manager: &'a TileSourceManager,
         source_ids: &str,
         zoom: Option<u8>,
         query: &'a str,
         accept_enc: Option<AcceptEncoding>,
         if_none_match: Option<IfNoneMatch>,
         preferred_enc: Option<PreferredEncoding>,
-        cache: Option<&'a TileCache>,
     ) -> ActixResult<Self> {
-        let (sources, use_url_query, info) = sources.get_sources(source_ids, zoom)?;
+        let tile_sources = manager.tile_sources();
+        let (sources, use_url_query, info) = tile_sources.get_sources(source_ids, zoom)?;
+        let cache = manager.tile_cache().as_ref();
 
         if sources.is_empty() {
             return Err(ErrorNotFound("No valid sources found"));
@@ -470,6 +468,10 @@ mod tests {
     use super::*;
     use crate::srv::tiles::tests::{CompressedTestSource, TestSource};
 
+    fn test_manager(sources: Vec<Vec<BoxedSource>>) -> TileSourceManager {
+        TileSourceManager::from_sources(None, sources)
+    }
+
     #[rstest]
     #[trace]
     #[case(&["gzip", "deflate", "br", "zstd"], None, Encoding::Gzip)]
@@ -486,7 +488,7 @@ mod tests {
         #[case] preferred_enc: Option<PreferredEncoding>,
         #[case] expected_enc: Encoding,
     ) {
-        let sources = TileSources::new(vec![vec![Box::new(TestSource {
+        let mgr = test_manager(vec![vec![Box::new(TestSource {
             id: "test_source",
             tj: tilejson! { tiles: vec![] },
             data: vec![1_u8, 2, 3],
@@ -497,14 +499,13 @@ mod tests {
         ));
 
         let src = DynTileSource::new(
-            &sources,
+            &mgr,
             "test_source",
             None,
             "",
             accept_enc,
             None,
             preferred_enc,
-            None,
         )
         .unwrap();
 
@@ -529,19 +530,9 @@ mod tests {
             tj: tilejson! { tiles: vec![] },
             data: vec![1_u8, 2, 3],
         };
-        let sources = TileSources::new(vec![vec![Box::new(source1)]]);
+        let mgr = test_manager(vec![vec![Box::new(source1)]]);
 
-        let src = DynTileSource::new(
-            &sources,
-            source_id,
-            None,
-            "",
-            None,
-            if_none_match,
-            None,
-            None,
-        )
-        .unwrap();
+        let src = DynTileSource::new(&mgr, source_id, None, "", None, if_none_match, None).unwrap();
         let resp = &src
             .get_http_response(TileCoord { z: 0, x: 0, y: 0 })
             .await
@@ -566,7 +557,7 @@ mod tests {
             tj: tilejson! { tiles: vec![] },
             data: Vec::default(),
         };
-        let sources = TileSources::new(vec![vec![
+        let mgr = test_manager(vec![vec![
             Box::new(non_empty_source),
             Box::new(empty_source),
         ]]);
@@ -581,8 +572,7 @@ mod tests {
             ("empty,non-empty", vec![1_u8, 2, 3]),
             ("empty,non-empty,empty", vec![1_u8, 2, 3]),
         ] {
-            let src =
-                DynTileSource::new(&sources, source_id, None, "", None, None, None, None).unwrap();
+            let src = DynTileSource::new(&mgr, source_id, None, "", None, None, None).unwrap();
             let xyz = TileCoord { z: 0, x: 0, y: 0 };
             assert_eq!(expected, &src.get_tile_content(xyz).await.unwrap().data);
         }
@@ -639,20 +629,10 @@ mod tests {
             encoding: src_enc,
         };
 
-        let sources = TileSources::new(vec![vec![Box::new(src1), Box::new(src2)]]);
+        let mgr = test_manager(vec![vec![Box::new(src1), Box::new(src2)]]);
 
         let accept_enc = accept.map(|s| AcceptEncoding(vec![s.parse().unwrap()]));
-        let src = DynTileSource::new(
-            &sources,
-            "src1,src2",
-            None,
-            "",
-            accept_enc,
-            None,
-            None,
-            None,
-        )
-        .unwrap();
+        let src = DynTileSource::new(&mgr, "src1,src2", None, "", accept_enc, None, None).unwrap();
 
         let tile = src
             .get_tile_content(TileCoord { z: 0, x: 0, y: 0 })

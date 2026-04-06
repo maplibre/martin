@@ -19,6 +19,7 @@ impl TileCache {
                     value.data.len().try_into().unwrap_or(u32::MAX)
                 })
                 .max_capacity(max_size_bytes)
+                .support_invalidation_closures()
                 .build(),
         )
     }
