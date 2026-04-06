@@ -153,6 +153,7 @@ fn register_services(
 type Server = Pin<Box<dyn Future<Output = MartinResult<()>>>>;
 
 /// Create a future for an Actix web server together with the listening address.
+#[cfg_attr(feature = "__hotpath", hotpath::measure)]
 pub fn new_server(
     config: SrvConfig,
     #[cfg(feature = "_catalog")] state: ServerState,

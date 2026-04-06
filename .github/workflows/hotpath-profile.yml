@@ -1,0 +1,130 @@
+name: hotpath-profile
+
+on:
+  pull_request:
+    paths-ignore:
+      - '**.md'
+      - 'demo/**'
+      - 'docs/**'
+
+defaults:
+  run:
+    shell: bash
+
+permissions:
+  contents: read
+
+jobs:
+  profile:
+    runs-on: ubuntu-latest
+    env:
+      PGDATABASE: test
+      PGHOST: localhost
+      PGUSER: postgres
+      PGPASSWORD: postgres
+    services:
+      postgres:
+        image: postgis/postgis:18-3.6
+        ports:
+          - 5432/tcp
+        options: >-
+          -e POSTGRES_DB=test
+          -e POSTGRES_USER=postgres
+          -e POSTGRES_PASSWORD=postgres
+          -e PGDATABASE=test
+          -e PGUSER=postgres
+          -e PGPASSWORD=postgres
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+          --entrypoint sh
+          postgis/postgis:18-3.6
+          -c "exec docker-entrypoint.sh postgres"
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - run: rustup update stable && rustup default stable
+      - uses: Swatinem/rust-cache@9d47c6ad4b02e050fd481d890b2ea34778fd09d6 # v2.7.8
+      - uses: taiki-e/install-action@a57ddfbcd928cf9406a78dcc300dacc5d367a547 # v2.68.31
+        with: { tool: 'just,oha' }
+
+      - name: Init database
+        run: tests/fixtures/initdb.sh
+        env:
+          PGPORT: ${{ job.services.postgres.ports[5432] }}
+
+      - name: Create metrics directory
+        run: mkdir -p /tmp/metrics
+
+      - name: Build and benchmark head
+        env:
+          HOTPATH_OUTPUT_FORMAT: json
+          HOTPATH_OUTPUT_PATH: /tmp/metrics/head_timing.json
+          DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGPASSWORD }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}
+        run: |
+          set -euo pipefail
+          just bench-server-hotpath &
+          MARTIN_PID=$!
+
+          for i in {1..1000}; do
+            if curl -sf http://localhost:3000/health > /dev/null 2>&1; then break; fi
+            sleep 1
+          done
+          curl -sf http://localhost:3000/health > /dev/null 2>&1 || { echo "::error::Martin failed to start"; kill $MARTIN_PID 2>/dev/null; exit 1; }
+
+          just bench-http 10s
+
+          kill $MARTIN_PID
+          wait $MARTIN_PID || true
+      - name: Checkout base
+        run: git checkout ${{ github.event.pull_request.base.sha }}
+      - name: Build and benchmark base
+        env:
+          HOTPATH_OUTPUT_FORMAT: json
+          HOTPATH_OUTPUT_PATH: /tmp/metrics/base_timing.json
+          DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGPASSWORD }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}
+        run: |
+          set -euo pipefail
+          git checkout ${{ github.event.pull_request.base.sha }}
+
+          # Skip base profiling if __hotpath feature does not exist yet
+          if ! grep -q '__hotpath' martin/Cargo.toml; then
+            echo "::notice::Base branch does not have __hotpath feature, skipping base benchmark"
+            echo '{}' > "$HOTPATH_OUTPUT_PATH"
+            exit 0
+          fi
+
+          just bench-server-hotpath &
+          MARTIN_PID=$!
+
+          for i in {1..1000}; do
+            if curl -sf http://localhost:3000/health > /dev/null 2>&1; then break; fi
+            sleep 1
+          done
+          curl -sf http://localhost:3000/health > /dev/null 2>&1 || { echo "::error::Martin failed to start"; kill $MARTIN_PID 2>/dev/null; exit 1; }
+
+          just bench-http 10s
+
+          kill $MARTIN_PID
+          wait $MARTIN_PID || true
+
+      - name: Save PR metadata
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          BASE_REF: ${{ github.base_ref }}
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          echo "$PR_NUMBER" > /tmp/metrics/pr_number.txt
+          echo "$BASE_REF" > /tmp/metrics/base_ref.txt
+          echo "$HEAD_REF" > /tmp/metrics/head_ref.txt
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: profile-metrics
+          path: /tmp/metrics/
+          retention-days: 1

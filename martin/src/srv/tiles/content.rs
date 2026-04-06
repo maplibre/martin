@@ -39,6 +39,7 @@ pub struct TileRequest {
 }
 
 #[route("/{source_ids}/{z}/{x}/{y}", method = "GET", method = "HEAD")]
+#[cfg_attr(feature = "__hotpath", hotpath::measure)]
 async fn get_tile(
     req: HttpRequest,
     srv_config: Data<SrvConfig>,
@@ -173,6 +174,7 @@ pub struct DynTileSource<'a> {
 
 impl<'a> DynTileSource<'a> {
     #[expect(clippy::too_many_arguments)]
+    #[cfg_attr(feature = "__hotpath", hotpath::measure)]
     pub fn new(
         sources: &'a TileSources,
         source_ids: &str,
@@ -208,6 +210,7 @@ impl<'a> DynTileSource<'a> {
         })
     }
 
+    #[cfg_attr(feature = "__hotpath", hotpath::measure)]
     pub async fn get_http_response(&self, xyz: TileCoord) -> ActixResult<HttpResponse> {
         let tile = self.get_tile_content(xyz).await?;
         if tile.data.is_empty() {
@@ -232,6 +235,7 @@ impl<'a> DynTileSource<'a> {
         Ok(response.body(tile.data))
     }
 
+    #[cfg_attr(feature = "__hotpath", hotpath::measure)]
     pub async fn get_tile_content(&self, xyz: TileCoord) -> ActixResult<Tile> {
         let mut tiles = try_join_all(self.sources.iter().map(|s| async {
             if let Some(cache) = self.cache {
@@ -371,6 +375,7 @@ impl<'a> DynTileSource<'a> {
         }
     }
 
+    #[cfg_attr(feature = "__hotpath", hotpath::measure)]
     fn recompress(&self, tile: TileData, info: TileInfo) -> ActixResult<Tile> {
         let mut tile = Tile::new_hash_etag(tile, info);
         if let Some(accept_enc) = &self.accept_enc {
@@ -402,6 +407,7 @@ impl<'a> DynTileSource<'a> {
     }
 }
 
+#[cfg_attr(feature = "__hotpath", hotpath::measure)]
 fn encode(tile: Tile, enc: ContentEncoding) -> ActixResult<Tile> {
     Ok(match enc {
         ContentEncoding::Brotli => Tile::new_hash_etag(
@@ -421,6 +427,7 @@ fn encode(tile: Tile, enc: ContentEncoding) -> ActixResult<Tile> {
     })
 }
 
+#[cfg_attr(feature = "__hotpath", hotpath::measure)]
 fn decode(tile: Tile) -> ActixResult<Tile> {
     let info = tile.info;
     Ok(if info.encoding.is_encoded() {
