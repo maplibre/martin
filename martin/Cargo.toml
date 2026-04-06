@@ -118,7 +118,12 @@ styles = ["martin-core/styles", "dep:walkdir", "_catalog"]
 webui = ["dep:actix-web-static-files", "dep:static-files", "dep:walkdir"]
 _tiles = ["martin-core/_tiles", "_catalog"]
 _catalog = []
-__hotpath = ["dep:hotpath", "hotpath/hotpath", "hotpath/hotpath-alloc", "hotpath/hotpath-mcp"]
+__hotpath = [
+    "dep:hotpath",
+    "hotpath/hotpath",
+    "hotpath/hotpath-alloc",
+    "hotpath/hotpath-mcp",
+]
 __hotpath_tui = ["__hotpath", "hotpath/tui"]
 test-pg = ["postgres"]
 
