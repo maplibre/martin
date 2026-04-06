@@ -38,9 +38,6 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
-          --entrypoint sh
-          postgis/postgis:18-3.6
-          -c "exec docker-entrypoint.sh postgres"
 
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
