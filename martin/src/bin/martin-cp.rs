@@ -18,9 +18,13 @@ use futures::stream::{self, StreamExt as _};
 use martin::config::args::PostgresArgs;
 use martin::config::args::{Args, ExtraArgs, MetaArgs, SrvArgs};
 use martin::config::file::{Config, ServerState, read_config};
+#[cfg(feature = "_tiles")]
+use martin::config::primitives::IdResolver;
 use martin::config::primitives::env::OsEnv;
 use martin::logging::progress::TileCopyProgress;
 use martin::logging::{ensure_martin_core_log_level_matches, init_tracing};
+#[cfg(feature = "_tiles")]
+use martin::srv::RESERVED_KEYWORDS;
 use martin::srv::{DynTileSource, TileRequestHeaders, merge_tilejson};
 use martin::{MartinError, MartinResult};
 use martin_core::tiles::BoxedSource;
@@ -190,7 +194,10 @@ async fn start(copy_args: CopierArgs) -> MartinCpResult<()> {
     )?;
     config.finalize()?;
 
-    let sources = config.resolve().await?;
+    #[cfg(feature = "_tiles")]
+    let resolver = IdResolver::new(RESERVED_KEYWORDS);
+
+    let sources = config.resolve(&resolver).await?;
 
     if let Some(file_name) = save_config {
         config

@@ -7,6 +7,7 @@ use actix_web::test::read_body;
 #[cfg(feature = "test-pg")]
 use martin::config::file::postgres::TableInfo;
 use martin::config::file::{Config, ServerState};
+use martin::config::primitives::IdResolver;
 use martin::config::primitives::env::FauxEnv;
 #[cfg(feature = "_tiles")]
 use martin_core::tiles::BoxedSource;
@@ -39,7 +40,8 @@ pub async fn assert_response(response: ServiceResponse) -> ServiceResponse {
 
 pub type MockSource = (ServerState, Config);
 pub async fn mock_sources(mut config: Config) -> MockSource {
-    let res = config.resolve().await;
+    let idr = IdResolver::new(&[]);
+    let res = config.resolve(&idr).await;
     let res = res.unwrap_or_else(|e| {
         panic!(
             "Failed to resolve config:\n{config}\nBecause {e}",

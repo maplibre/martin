@@ -6,8 +6,12 @@ use martin::config::args::Args;
 #[cfg(all(feature = "webui", not(docsrs)))]
 use martin::config::args::WebUiMode;
 use martin::config::file::{Config, read_config};
+#[cfg(feature = "_tiles")]
+use martin::config::primitives::IdResolver;
 use martin::config::primitives::env::OsEnv;
 use martin::logging::{ensure_martin_core_log_level_matches, init_tracing};
+#[cfg(feature = "_tiles")]
+use martin::srv::RESERVED_KEYWORDS;
 use martin::srv::new_server;
 use tracing::{error, info};
 
@@ -33,8 +37,13 @@ async fn start(args: Args) -> MartinResult<()> {
         &env,
     )?;
     config.finalize()?;
+
+    #[cfg(feature = "_tiles")]
+    let resolver = IdResolver::new(RESERVED_KEYWORDS);
+
     #[cfg(feature = "_catalog")]
-    let sources = config.resolve().await?;
+    let sources = config.resolve(&resolver).await?;
+    let mgr = sources.tile_manager.clone();
 
     #[cfg(feature = "mbtiles")]
     {
@@ -85,8 +94,7 @@ async fn start(args: Args) -> MartinResult<()> {
         };
 
         if !watch_paths.is_empty() {
-            let mgr = sources.tile_manager.clone();
-            let reloader = MBTilesReloader::new(mgr.id_resolver(), init);
+            let reloader = MBTilesReloader::new(resolver, init);
             if let Err(e) =
                 reloader.watch(mgr, watch_paths.clone().into_iter().to_owned().collect())
             {

@@ -241,11 +241,8 @@ impl Config {
         }
     }
 
-    pub async fn resolve(&mut self) -> MartinResult<ServerState> {
+    pub async fn resolve(&mut self, idr: &IdResolver) -> MartinResult<ServerState> {
         init_aws_lc_tls();
-
-        #[cfg(feature = "_tiles")]
-        let resolver = IdResolver::new(RESERVED_KEYWORDS);
 
         #[cfg(any(feature = "_tiles", feature = "sprites", feature = "fonts"))]
         let cache_config = self.resolve_cache_config();
@@ -256,7 +253,7 @@ impl Config {
         #[cfg(feature = "_tiles")]
         let (tile_sources, warnings) = self
             .resolve_tile_sources(
-                &resolver,
+                &idr,
                 #[cfg(feature = "pmtiles")]
                 pmtiles_cache,
             )

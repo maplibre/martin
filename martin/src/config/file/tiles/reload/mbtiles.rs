@@ -103,7 +103,7 @@ impl MBTilesReloader {
                 )
                 .await;
 
-                _tsm.apply_changes(adv).await
+                _tsm.apply_changes(adv)
             }
         });
 
