@@ -88,6 +88,7 @@ struct MbtileCopierInt {
 }
 
 impl MbtilesCopier {
+    #[hotpath::measure]
     pub async fn run(self) -> MbtResult<SqliteConnection> {
         MbtileCopierInt::new(self)?.run().await
     }
@@ -140,6 +141,7 @@ impl MbtileCopierInt {
         })
     }
 
+    #[hotpath::measure]
     pub async fn run(self) -> MbtResult<SqliteConnection> {
         if let Some((diff_file, patch_type)) = &self.options.diff_with_file {
             let mbt = Mbtiles::new(diff_file)?;
@@ -153,6 +155,7 @@ impl MbtileCopierInt {
         }
     }
 
+    #[hotpath::measure]
     async fn run_simple(self) -> MbtResult<SqliteConnection> {
         let mut conn = self.src_mbt.open_readonly().await?;
         let src_type = self.src_mbt.detect_type(&mut conn).await?;
@@ -207,6 +210,7 @@ impl MbtileCopierInt {
     }
 
     /// Compare two files, and write their difference to the diff file
+    #[hotpath::measure]
     async fn run_with_diff(
         self,
         dif_mbt: Mbtiles,
@@ -286,6 +290,7 @@ impl MbtileCopierInt {
     }
 
     /// Apply a patch file to the source file and write the result to the destination file
+    #[hotpath::measure]
     async fn run_with_patch(self, dif_mbt: Mbtiles) -> MbtResult<SqliteConnection> {
         let mut dif_conn = dif_mbt.open_readonly().await?;
         let dif_info = dif_mbt.examine_diff(&mut dif_conn).await?;

@@ -75,6 +75,7 @@ impl Mbtiles {
     /// from the tiles table.
     /// If `grow_only` is true, only update the metadata if the
     /// new min or max zoom is outside the current range.
+    #[hotpath::measure]
     pub async fn update_metadata<T>(
         &self,
         conn: &mut T,
