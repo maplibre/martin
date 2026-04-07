@@ -119,10 +119,11 @@ webui = ["dep:actix-web-static-files", "dep:static-files", "dep:walkdir"]
 _tiles = ["martin-core/_tiles", "_catalog"]
 _catalog = []
 __hotpath = [
-    "dep:hotpath",
     "hotpath/hotpath",
     "hotpath/hotpath-alloc",
     "hotpath/hotpath-mcp",
+    "hotpath/tokio",
+    "hotpath/futures",
 ]
 __hotpath_tui = ["__hotpath", "hotpath/tui"]
 test-pg = ["postgres"]
@@ -140,7 +141,7 @@ clap.workspace = true
 dashmap.workspace = true
 enum-display = { workspace = true, optional = true }
 futures.workspace = true
-hotpath = { workspace = true, optional = true }
+hotpath.workspace = true
 image = { workspace = true, optional = true }
 indicatif.workspace = true
 itertools.workspace = true

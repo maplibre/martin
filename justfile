@@ -66,7 +66,7 @@ bench-server: start
 
 # Build martin with hotpath profiling support
 build-hotpath:
-    cargo build --release --features __hotpath
+    RUSTFLAGS="$RUSTFLAGS --cfg tokio_unstable" cargo build --release --features __hotpath
 
 # Start release-compiled Martin server with hotpath profiling (MCP on port 6771)
 bench-server-hotpath: start build-hotpath

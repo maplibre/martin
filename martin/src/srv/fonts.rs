@@ -25,7 +25,7 @@ struct FontRequest {
     wrap = "Etag::default()",
     wrap = "Compress::default()"
 )]
-#[cfg_attr(feature = "__hotpath", hotpath::measure)]
+#[hotpath::measure]
 async fn get_font(
     path: Path<FontRequest>,
     fonts: Data<FontSources>,

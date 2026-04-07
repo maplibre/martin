@@ -39,7 +39,7 @@ impl Catalog {
     method = "HEAD",
     wrap = "middleware::Compress::default()"
 )]
-#[cfg_attr(feature = "__hotpath", hotpath::measure)]
+#[hotpath::measure]
 async fn get_catalog(catalog: Data<Catalog>) -> impl Responder {
     HttpResponse::Ok().json(catalog)
 }

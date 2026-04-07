@@ -23,7 +23,7 @@ pub struct SourceIDsRequest {
     method = "HEAD",
     wrap = "Etag::default()"
 )]
-#[cfg_attr(feature = "__hotpath", hotpath::measure)]
+#[hotpath::measure]
 async fn get_sprite_png(
     path: Path<SourceIDsRequest>,
     sprites: Data<SpriteSources>,
@@ -69,7 +69,7 @@ pub async fn redirect_sprites_png(path: Path<SourceIDsRequest>) -> HttpResponse 
     method = "HEAD",
     wrap = "Etag::default()"
 )]
-#[cfg_attr(feature = "__hotpath", hotpath::measure)]
+#[hotpath::measure]
 async fn get_sprite_sdf_png(
     path: Path<SourceIDsRequest>,
     sprites: Data<SpriteSources>,
@@ -116,7 +116,7 @@ pub async fn redirect_sdf_sprites_png(path: Path<SourceIDsRequest>) -> HttpRespo
     wrap = "Etag::default()",
     wrap = "Compress::default()"
 )]
-#[cfg_attr(feature = "__hotpath", hotpath::measure)]
+#[hotpath::measure]
 async fn get_sprite_json(
     path: Path<SourceIDsRequest>,
     sprites: Data<SpriteSources>,
@@ -163,7 +163,7 @@ pub async fn redirect_sprites_json(path: Path<SourceIDsRequest>) -> HttpResponse
     wrap = "Etag::default()",
     wrap = "Compress::default()"
 )]
-#[cfg_attr(feature = "__hotpath", hotpath::measure)]
+#[hotpath::measure]
 async fn get_sprite_sdf_json(
     path: Path<SourceIDsRequest>,
     sprites: Data<SpriteSources>,
@@ -203,7 +203,7 @@ pub async fn redirect_sdf_sprites_json(path: Path<SourceIDsRequest>) -> HttpResp
         .finish()
 }
 
-#[cfg_attr(feature = "__hotpath", hotpath::measure)]
+#[hotpath::measure]
 async fn get_sprite(source_ids: &str, sprites: &SpriteSources, as_sdf: bool) -> ActixResult<Bytes> {
     let sheet = sprites
         .get_sprites(source_ids, as_sdf)
@@ -216,7 +216,7 @@ async fn get_sprite(source_ids: &str, sprites: &SpriteSources, as_sdf: bool) -> 
     Ok(Bytes::from(json))
 }
 
-#[cfg_attr(feature = "__hotpath", hotpath::measure)]
+#[hotpath::measure]
 async fn get_index(source_ids: &str, sprites: &SpriteSources, as_sdf: bool) -> ActixResult<Bytes> {
     let sheet = sprites
         .get_sprites(source_ids, as_sdf)
