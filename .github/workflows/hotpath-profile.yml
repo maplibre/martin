@@ -122,8 +122,8 @@ jobs:
 
           just bench-http 10s
 
-          kill $MARTIN_PID
-          wait $MARTIN_PID || true
+          kill "$MARTIN_PID" 2>/dev/null || true
+          wait "$MARTIN_PID" || true
 
       - name: Save PR metadata
         env:
