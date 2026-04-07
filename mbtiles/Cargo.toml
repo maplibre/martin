@@ -39,6 +39,7 @@ env_logger = { workspace = true, optional = true }
 flume.workspace = true
 hotpath.workspace = true
 futures.workspace = true
+hotpath.workspace = true
 itertools.workspace = true
 log.workspace = true
 martin-tile-utils.workspace = true

@@ -50,15 +50,15 @@ bench:
     open target/criterion/report/index.html
 
 # Run HTTP requests benchmark using OHA tool. Use with `just bench-server`
-bench-http duration='60s':  (cargo-install 'oha')
+bench-http requests='10m' pg_requests='500k':  (cargo-install 'oha')
     @echo "ATTENTION: Make sure Martin was started with    just bench-server"
     @echo "Warming up..."
-    oha --latency-correction -z 5s --no-tui http://localhost:3000/function_zxy_query/18/235085/122323 > /dev/null
-    oha --latency-correction -z {{duration}}         http://localhost:3000/function_zxy_query/18/235085/122323
-    oha --latency-correction -z 5s --no-tui http://localhost:3000/png/0/0/0 > /dev/null
-    oha --latency-correction -z {{duration}}         http://localhost:3000/png/0/0/0
-    oha --latency-correction -z 5s --no-tui http://localhost:3000/stamen_toner__raster_CC-BY-ODbL_z3/0/0/0 > /dev/null
-    oha --latency-correction -z {{duration}}         http://localhost:3000/stamen_toner__raster_CC-BY-ODbL_z3/0/0/0
+    oha --latency-correction -n 100            --no-tui http://localhost:3000/function_zxy_query/18/235085/122323 > /dev/null
+    oha --latency-correction -n {{pg_requests}}         http://localhost:3000/function_zxy_query/18/235085/122323
+    oha --latency-correction -n 200            --no-tui http://localhost:3000/png/0/0/0 > /dev/null
+    oha --latency-correction -n {{requests}}            http://localhost:3000/png/0/0/0
+    oha --latency-correction -n 200            --no-tui http://localhost:3000/stamen_toner__raster_CC-BY-ODbL_z3/0/0/0 > /dev/null
+    oha --latency-correction -n {{requests}}            http://localhost:3000/stamen_toner__raster_CC-BY-ODbL_z3/0/0/0
 
 # Start release-compiled Martin server and a test database
 bench-server: start

@@ -81,7 +81,7 @@ const MaplibreMap = () => {
 
   // Update map when state changes (equivalent to componentDidUpdate)
   useEffect(() => {
-    if (!mapRef.current || !mapRef.current.isStyleLoaded()) return;
+    if (!mapRef.current?.isStyleLoaded()) return;
 
     const newStyle = mapRef.current.getStyle();
     if (newStyle?.sources?.trips_source) {
