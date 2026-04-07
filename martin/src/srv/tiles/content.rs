@@ -171,7 +171,6 @@ pub struct DynTileSource<'a> {
 }
 
 impl<'a> DynTileSource<'a> {
-    #[expect(clippy::too_many_arguments)]
     #[hotpath::measure]
     pub fn new(
         manager: &'a TileSourceManager,
