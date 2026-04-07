@@ -1,10 +1,9 @@
 name: Hotpath comment
 
-# zizmor: ignore[dangerous-triggers] -- intentional two-workflow split: the profile
-# workflow runs untrusted PR code with read-only permissions, and this comment
-# workflow only reads uploaded artifacts and posts a PR comment. Artifact contents
-# are validated against the workflow_run event metadata before use.
 on:
+  # zizmor: ignore[dangerous-triggers] intentional two-workflow split: profile
+  # workflow has read-only permissions, this one only reads artifacts and posts
+  # a PR comment. PR number is validated against event metadata before use.
   workflow_run:
     workflows: ["Hotpath profile"]
     types:
