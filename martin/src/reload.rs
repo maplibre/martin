@@ -114,6 +114,7 @@ impl ReloadAdvisory {
 #[cfg(test)]
 mod tests {
     use async_trait::async_trait;
+    use insta::assert_yaml_snapshot;
     use martin_core::tiles::{BoxedSource, MartinCoreResult, Source, UrlQuery};
     use martin_tile_utils::{Encoding, Format, TileCoord, TileData, TileInfo};
     use tilejson::{TileJSON, tilejson};
@@ -162,12 +163,33 @@ mod tests {
         }))
     }
 
+    #[derive(serde::Serialize)]
+    struct AdvisorySnapshot {
+        additions: Vec<String>,
+        updates: Vec<String>,
+        removals: Vec<String>,
+    }
+
+    impl From<&ReloadAdvisory> for AdvisorySnapshot {
+        fn from(advisory: &ReloadAdvisory) -> Self {
+            Self {
+                additions: advisory.additions.iter().map(|s| s.id.clone()).collect(),
+                updates: advisory.updates.iter().map(|s| s.id.clone()).collect(),
+                removals: advisory.removals.iter().map(|s| s.id.clone()).collect(),
+            }
+        }
+    }
+
     #[tokio::test]
     async fn from_sets_empty_to_empty() {
         let prev = BTreeSet::new();
         let next = BTreeSet::new();
         let advisory = ReloadAdvisory::from_sets(&prev, &next, make_source).await;
-        assert!(advisory.is_empty());
+        assert_yaml_snapshot!(AdvisorySnapshot::from(&advisory), @r"
+        additions: []
+        updates: []
+        removals: []
+        ");
     }
 
     #[tokio::test]
@@ -175,9 +197,13 @@ mod tests {
         let prev = BTreeSet::new();
         let next: BTreeSet<String> = ["a", "b"].into_iter().map(String::from).collect();
         let advisory = ReloadAdvisory::from_sets(&prev, &next, make_source).await;
-        assert_eq!(advisory.additions.len(), 2);
-        assert!(advisory.removals.is_empty());
-        assert!(advisory.updates.is_empty());
+        assert_yaml_snapshot!(AdvisorySnapshot::from(&advisory), @r"
+        additions:
+          - a
+          - b
+        updates: []
+        removals: []
+        ");
     }
 
     #[tokio::test]
@@ -185,8 +211,13 @@ mod tests {
         let prev: BTreeSet<String> = ["a", "b"].into_iter().map(String::from).collect();
         let next = BTreeSet::new();
         let advisory = ReloadAdvisory::from_sets(&prev, &next, make_source).await;
-        assert!(advisory.additions.is_empty());
-        assert_eq!(advisory.removals.len(), 2);
+        assert_yaml_snapshot!(AdvisorySnapshot::from(&advisory), @r"
+        additions: []
+        updates: []
+        removals:
+          - a
+          - b
+        ");
     }
 
     #[tokio::test]
@@ -194,12 +225,13 @@ mod tests {
         let prev: BTreeSet<String> = ["a", "b", "c"].into_iter().map(String::from).collect();
         let next: BTreeSet<String> = ["b", "c", "d"].into_iter().map(String::from).collect();
         let advisory = ReloadAdvisory::from_sets(&prev, &next, make_source).await;
-        assert_eq!(advisory.additions.len(), 1);
-        assert_eq!(advisory.additions[0].id, "d");
-        assert_eq!(advisory.removals.len(), 1);
-        assert!(advisory.removals.contains(&DeletedSource {
-            id: "a".to_string(),
-        }));
+        assert_yaml_snapshot!(AdvisorySnapshot::from(&advisory), @r"
+        additions:
+          - d
+        updates: []
+        removals:
+          - a
+        ");
     }
 
     #[tokio::test]
@@ -207,10 +239,13 @@ mod tests {
         let prev: BTreeMap<String, u64> = [("a".into(), 1), ("b".into(), 2)].into_iter().collect();
         let next: BTreeMap<String, u64> = [("b".into(), 2), ("c".into(), 3)].into_iter().collect();
         let advisory = ReloadAdvisory::from_maps(&prev, &next, make_source).await;
-        assert_eq!(advisory.additions.len(), 1);
-        assert_eq!(advisory.additions[0].id, "c");
-        assert_eq!(advisory.removals.len(), 1);
-        assert!(advisory.updates.is_empty()); // b unchanged
+        assert_yaml_snapshot!(AdvisorySnapshot::from(&advisory), @r"
+        additions:
+          - c
+        updates: []
+        removals:
+          - a
+        ");
     }
 
     #[tokio::test]
@@ -218,10 +253,12 @@ mod tests {
         let prev: BTreeMap<String, u64> = [("a".into(), 1), ("b".into(), 2)].into_iter().collect();
         let next: BTreeMap<String, u64> = [("a".into(), 1), ("b".into(), 5)].into_iter().collect();
         let advisory = ReloadAdvisory::from_maps(&prev, &next, make_source).await;
-        assert!(advisory.additions.is_empty());
-        assert!(advisory.removals.is_empty());
-        assert_eq!(advisory.updates.len(), 1);
-        assert_eq!(advisory.updates[0].id, "b");
+        assert_yaml_snapshot!(AdvisorySnapshot::from(&advisory), @r"
+        additions: []
+        updates:
+          - b
+        removals: []
+        ");
     }
 
     #[tokio::test]
@@ -233,11 +270,13 @@ mod tests {
             .into_iter()
             .collect();
         let advisory = ReloadAdvisory::from_maps(&prev, &next, make_source).await;
-        // a removed, b updated, c unchanged, d added
-        assert_eq!(advisory.removals.len(), 1);
-        assert_eq!(advisory.updates.len(), 1);
-        assert_eq!(advisory.updates[0].id, "b");
-        assert_eq!(advisory.additions.len(), 1);
-        assert_eq!(advisory.additions[0].id, "d");
+        assert_yaml_snapshot!(AdvisorySnapshot::from(&advisory), @r"
+        additions:
+          - d
+        updates:
+          - b
+        removals:
+          - a
+        ");
     }
 }

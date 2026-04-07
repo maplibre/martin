@@ -110,6 +110,7 @@ impl TileSourceManager {
 #[cfg(test)]
 mod tests {
     use async_trait::async_trait;
+    use insta::assert_yaml_snapshot;
     use martin_core::tiles::{MartinCoreResult, Source, TileCache, UrlQuery};
     use martin_tile_utils::{Encoding, Format, TileCoord, TileData, TileInfo};
     use tilejson::{TileJSON, tilejson};
@@ -161,6 +162,12 @@ mod tests {
         }
     }
 
+    fn sorted_source_names(mgr: &TileSourceManager) -> Vec<String> {
+        let mut names = mgr.tile_sources().source_names();
+        names.sort();
+        names
+    }
+
     #[test]
     fn apply_additions() {
         let mgr = make_manager();
@@ -169,22 +176,25 @@ mod tests {
             ..Default::default()
         };
         mgr.apply_changes(advisory);
-        let sources = mgr.tile_sources();
-        assert_eq!(sources.source_names().len(), 2);
+        assert_yaml_snapshot!(sorted_source_names(&mgr), @r"
+        - src_a
+        - src_b
+        ");
     }
 
     #[test]
     fn apply_removals() {
         let mgr = make_manager();
-        // First add
         let add = ReloadAdvisory {
             additions: vec![new_source("src_a"), new_source("src_b")],
             ..Default::default()
         };
         mgr.apply_changes(add);
-        assert_eq!(mgr.tile_sources().source_names().len(), 2);
+        assert_yaml_snapshot!(sorted_source_names(&mgr), @r"
+        - src_a
+        - src_b
+        ");
 
-        // Then remove one
         let mut removals = std::collections::BTreeSet::new();
         removals.insert(DeletedSource {
             id: "src_a".to_string(),
@@ -194,7 +204,9 @@ mod tests {
             ..Default::default()
         };
         mgr.apply_changes(remove);
-        assert_eq!(mgr.tile_sources().source_names().len(), 1);
+        assert_yaml_snapshot!(sorted_source_names(&mgr), @r"
+        - src_b
+        ");
     }
 
     #[test]
@@ -206,21 +218,21 @@ mod tests {
         };
         mgr.apply_changes(add);
 
-        // Update with new data
         let update = ReloadAdvisory {
             updates: vec![new_source("src_a")],
             ..Default::default()
         };
         mgr.apply_changes(update);
-        // source still exists
-        assert_eq!(mgr.tile_sources().source_names().len(), 1);
+        assert_yaml_snapshot!(sorted_source_names(&mgr), @r"
+        - src_a
+        ");
     }
 
     #[test]
     fn empty_advisory_is_noop() {
         let mgr = make_manager();
         mgr.apply_changes(ReloadAdvisory::default());
-        assert!(mgr.tile_sources().source_names().is_empty());
+        assert_yaml_snapshot!(sorted_source_names(&mgr), @"[]");
     }
 
     #[test]
@@ -230,7 +242,9 @@ mod tests {
             tj: tilejson! { tiles: vec![] },
         }) as BoxedSource;
         let mgr = TileSourceManager::from_sources(None, vec![vec![src]]);
-        assert_eq!(mgr.tile_sources().source_names(), vec!["x"]);
+        assert_yaml_snapshot!(sorted_source_names(&mgr), @r"
+        - x
+        ");
         assert!(mgr.tile_cache().is_none());
     }
 
@@ -241,8 +255,9 @@ mod tests {
             additions: vec![new_source("a")],
             ..Default::default()
         };
-        // Should not panic even without a cache
         mgr.apply_changes(advisory);
-        assert_eq!(mgr.tile_sources().source_names().len(), 1);
+        assert_yaml_snapshot!(sorted_source_names(&mgr), @r"
+        - a
+        ");
     }
 }
