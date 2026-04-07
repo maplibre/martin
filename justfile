@@ -64,9 +64,13 @@ bench-http duration='60s':  (cargo-install 'oha')
 bench-server: start
     cargo run --release -- tests/fixtures/mbtiles tests/fixtures/pmtiles
 
+# Build martin with hotpath profiling support
+build-hotpath:
+    cargo build --release --features __hotpath
+
 # Start release-compiled Martin server with hotpath profiling (MCP on port 6771)
-bench-server-hotpath: start
-    cargo run --release --features __hotpath -- tests/fixtures/mbtiles tests/fixtures/pmtiles
+bench-server-hotpath: start build-hotpath
+    exec target/release/martin tests/fixtures/mbtiles tests/fixtures/pmtiles
 
 # Run integration tests and save its output as the new expected output (ordering is important)
 bless:

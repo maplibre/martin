@@ -1,4 +1,4 @@
-name: hotpath-comment
+name: Hotpath comment
 
 # zizmor: ignore[dangerous-triggers] -- intentional two-workflow split: the profile
 # workflow runs untrusted PR code with read-only permissions, and this comment
@@ -6,7 +6,7 @@ name: hotpath-comment
 # are validated against the workflow_run event metadata before use.
 on:
   workflow_run:
-    workflows: ["hotpath-profile"]
+    workflows: ["Hotpath profile"]
     types:
       - completed
 

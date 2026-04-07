@@ -1,4 +1,4 @@
-name: hotpath-profile
+name: Hotpath profile
 
 on:
   pull_request:
@@ -58,7 +58,10 @@ jobs:
       - name: Create metrics directory
         run: mkdir -p /tmp/metrics
 
-      - name: Build and benchmark head
+      - name: Build head
+        run: just build-hotpath
+
+      - name: Benchmark head
         env:
           HOTPATH_OUTPUT_FORMAT: json
           HOTPATH_OUTPUT_PATH: /tmp/metrics/head_timing.json
@@ -78,26 +81,36 @@ jobs:
 
           kill $MARTIN_PID
           wait $MARTIN_PID || true
+
       - name: Checkout base
         run: git checkout ${{ github.event.pull_request.base.sha }}
+
       - name: Clean slate to not have codegen cache artefact bias
         run: cargo clean
-      - name: Build and benchmark base
+
+      - name: Check base has hotpath support
+        id: base-check
+        run: |
+          if grep -q '__hotpath' martin/Cargo.toml; then
+            echo "supported=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::Base branch does not have __hotpath feature, skipping base benchmark"
+            echo '{}' > /tmp/metrics/base_timing.json
+            echo "supported=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build base
+        if: steps.base-check.outputs.supported == 'true'
+        run: just build-hotpath
+
+      - name: Benchmark base
+        if: steps.base-check.outputs.supported == 'true'
         env:
           HOTPATH_OUTPUT_FORMAT: json
           HOTPATH_OUTPUT_PATH: /tmp/metrics/base_timing.json
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGPASSWORD }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}
         run: |
           set -euo pipefail
-          git checkout ${{ github.event.pull_request.base.sha }}
-
-          # Skip base profiling if __hotpath feature does not exist yet
-          if ! grep -q '__hotpath' martin/Cargo.toml; then
-            echo "::notice::Base branch does not have __hotpath feature, skipping base benchmark"
-            echo '{}' > "$HOTPATH_OUTPUT_PATH"
-            exit 0
-          fi
-
           just bench-server-hotpath &
           MARTIN_PID=$!
 
