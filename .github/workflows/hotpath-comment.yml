@@ -3,7 +3,9 @@ name: Hotpath comment
 on:
   # zizmor: ignore[dangerous-triggers] intentional two-workflow split: profile
   # workflow has read-only permissions, this one only reads artifacts and posts
-  # a PR comment. PR number is validated against event metadata before use.
+  # a PR comment. PR metadata is read from artifacts written by the profile
+  # workflow using github.event.pull_request context (set by GitHub, not the
+  # PR author).
   workflow_run:
     workflows: ["Hotpath profile"]
     types:
@@ -34,31 +36,19 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           run-id: ${{ github.event.workflow_run.id }}
 
-      - name: Validate artifact PR number against event metadata
-        env:
-          EXPECTED_PR: ${{ github.event.workflow_run.pull_requests[0].number }}
-        run: |
-          set -euo pipefail
-          ARTIFACT_PR=$(cat /tmp/metrics/pr_number.txt)
-          if [[ "$ARTIFACT_PR" != "$EXPECTED_PR" ]]; then
-            echo "::error::Artifact PR number ($ARTIFACT_PR) does not match event metadata ($EXPECTED_PR)"
-            exit 1
-          fi
-
       - name: Install hotpath-utils CLI
         run: cargo install hotpath --features=utils --bin hotpath-utils --locked
 
       - name: Post PR comment
         env:
           GH_TOKEN: ${{ github.token }}
-          GITHUB_BASE_REF: ${{ github.event.workflow_run.head_branch }}
-          GITHUB_HEAD_REF: ${{ github.event.workflow_run.head_branch }}
-          PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
         run: |
           set -euo pipefail
+          export GITHUB_BASE_REF=$(cat /tmp/metrics/base_ref.txt)
+          export GITHUB_HEAD_REF=$(cat /tmp/metrics/head_ref.txt)
           hotpath-utils profile-pr \
             --head-metrics /tmp/metrics/head_timing.json \
             --base-metrics /tmp/metrics/base_timing.json \
             --github-token "$GH_TOKEN" \
-            --pr-number "$PR_NUMBER" \
+            --pr-number "$(cat /tmp/metrics/pr_number.txt)" \
             --benchmark-id "timing"
