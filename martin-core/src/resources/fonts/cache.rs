@@ -33,12 +33,14 @@ impl FontCache {
         let result = self.cache.get(key).await;
 
         if result.is_some() {
+            hotpath::gauge!("font_cache_hits").inc(1.0);
             trace!(
                 "Font cache HIT for {key:?} (entries={}, size={})",
                 self.cache.entry_count(),
                 self.cache.weighted_size()
             );
         } else {
+            hotpath::gauge!("font_cache_misses").inc(1.0);
             trace!("Font cache MISS for {key:?}");
         }
 

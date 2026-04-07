@@ -28,12 +28,14 @@ impl TileCache {
         let result = self.0.get(key).await;
 
         if result.is_some() {
+            hotpath::gauge!("tile_cache_hits").inc(1.0);
             trace!(
                 "Tile cache HIT for {key:?} (entries={entries}, size={size}B)",
                 entries = self.0.entry_count(),
                 size = self.0.weighted_size()
             );
         } else {
+            hotpath::gauge!("tile_cache_misses").inc(1.0);
             trace!("Tile cache MISS for {key:?}");
         }
 

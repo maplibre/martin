@@ -115,6 +115,7 @@ impl Display for Summary {
 
 impl Mbtiles {
     /// Compute `MBTiles` file summary
+    #[hotpath::measure]
     pub async fn summary<T>(&self, conn: &mut T) -> MbtResult<Summary>
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,

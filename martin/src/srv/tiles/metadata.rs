@@ -27,6 +27,7 @@ pub struct SourceIDsRequest {
     wrap = "Etag::default()",
     wrap = "Compress::default()"
 )]
+#[hotpath::measure]
 async fn get_source_info(
     req: HttpRequest,
     path: Path<SourceIDsRequest>,

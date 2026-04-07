@@ -50,19 +50,27 @@ bench:
     open target/criterion/report/index.html
 
 # Run HTTP requests benchmark using OHA tool. Use with `just bench-server`
-bench-http:  (cargo-install 'oha')
+bench-http duration='60s':  (cargo-install 'oha')
     @echo "ATTENTION: Make sure Martin was started with    just bench-server"
     @echo "Warming up..."
     oha --latency-correction -z 5s --no-tui http://localhost:3000/function_zxy_query/18/235085/122323 > /dev/null
-    oha --latency-correction -z 60s         http://localhost:3000/function_zxy_query/18/235085/122323
+    oha --latency-correction -z {{duration}}         http://localhost:3000/function_zxy_query/18/235085/122323
     oha --latency-correction -z 5s --no-tui http://localhost:3000/png/0/0/0 > /dev/null
-    oha --latency-correction -z 60s         http://localhost:3000/png/0/0/0
+    oha --latency-correction -z {{duration}}         http://localhost:3000/png/0/0/0
     oha --latency-correction -z 5s --no-tui http://localhost:3000/stamen_toner__raster_CC-BY-ODbL_z3/0/0/0 > /dev/null
-    oha --latency-correction -z 60s         http://localhost:3000/stamen_toner__raster_CC-BY-ODbL_z3/0/0/0
+    oha --latency-correction -z {{duration}}         http://localhost:3000/stamen_toner__raster_CC-BY-ODbL_z3/0/0/0
 
 # Start release-compiled Martin server and a test database
 bench-server: start
     cargo run --release -- tests/fixtures/mbtiles tests/fixtures/pmtiles
+
+# Build martin with hotpath profiling support
+build-hotpath:
+    RUSTFLAGS="$RUSTFLAGS --cfg tokio_unstable" cargo build --release --features __hotpath
+
+# Start release-compiled Martin server with hotpath profiling (MCP on port 6771)
+bench-server-hotpath: start build-hotpath
+    exec target/release/martin tests/fixtures/mbtiles tests/fixtures/pmtiles
 
 # Run integration tests and save its output as the new expected output (ordering is important)
 bless:
@@ -159,7 +167,7 @@ move-artifacts target:
 
 # Quick compile without building a binary
 check: (cargo-install 'cargo-hack')
-    cargo hack --exclude-features _tiles,_catalog check --all-targets --each-feature --workspace
+    cargo hack --exclude-features _tiles,_catalog,__hotpath,__hotpath_tui check --all-targets --each-feature --workspace
 
 # Test documentation generation
 check-doc:  (docs-build)

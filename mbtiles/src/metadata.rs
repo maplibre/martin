@@ -173,6 +173,7 @@ impl Mbtiles {
     /// # Ok(())
     /// # }
     /// ```
+    #[hotpath::measure]
     pub async fn get_metadata<T>(&self, conn: &mut T) -> MbtResult<Metadata>
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
@@ -283,6 +284,7 @@ impl Mbtiles {
     /// # Ok(())
     /// # }
     /// ```
+    #[hotpath::measure]
     pub async fn insert_metadata<T>(&self, conn: &mut T, tile_json: &TileJSON) -> MbtResult<()>
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,

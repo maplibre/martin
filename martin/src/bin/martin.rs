@@ -11,6 +11,7 @@ use tracing::{error, info};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
+#[hotpath::measure]
 async fn start(args: Args) -> MartinResult<()> {
     info!("Starting Martin v{VERSION}");
 
@@ -69,6 +70,7 @@ async fn start(args: Args) -> MartinResult<()> {
 }
 
 #[tokio::main]
+#[hotpath::main]
 async fn main() {
     let filter = ensure_martin_core_log_level_matches(env::var("RUST_LOG").ok(), "martin=");
     init_tracing(&filter, env::var("RUST_LOG_FORMAT").ok(), false);

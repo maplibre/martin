@@ -10,6 +10,7 @@ use crate::{
     MbtType, Mbtiles,
 };
 
+#[hotpath::measure]
 pub async fn apply_patch(base_file: PathBuf, patch_file: PathBuf, force: bool) -> MbtResult<()> {
     let base_mbt = Mbtiles::new(base_file)?;
     let patch_mbt = Mbtiles::new(patch_file)?;

@@ -38,12 +38,14 @@ impl SpriteCache {
         let result = self.cache.get(key).await;
 
         if result.is_some() {
+            hotpath::gauge!("sprite_cache_hits").inc(1.0);
             trace!(
                 "Sprite cache HIT for {key:?} (entries={}, size={})",
                 self.cache.entry_count(),
                 self.cache.weighted_size()
             );
         } else {
+            hotpath::gauge!("sprite_cache_misses").inc(1.0);
             trace!("Sprite cache MISS for {key:?}");
         }
 
