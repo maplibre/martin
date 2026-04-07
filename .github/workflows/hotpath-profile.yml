@@ -79,7 +79,7 @@ jobs:
 
           just bench-http 10s
 
-          kill $MARTIN_PID
+          kill $MARTIN_PID 2>/dev/null || true
           wait $MARTIN_PID || true
 
       - name: Checkout base
