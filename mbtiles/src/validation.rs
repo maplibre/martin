@@ -99,6 +99,7 @@ pub enum AggHashType {
 
 impl Mbtiles {
     /// Open the mbtiles file and validate its integrity.
+    #[hotpath::measure]
     pub async fn open_and_validate(
         &self,
         check_type: IntegrityCheckType,
@@ -118,6 +119,7 @@ impl Mbtiles {
     /// - each tile has the correct hash stored
     ///
     /// Depending on the `agg_hash` parameter, the function will either verify or update the aggregate tiles hash value.
+    #[hotpath::measure]
     pub async fn validate<T>(
         &self,
         conn: &mut T,
@@ -146,6 +148,7 @@ impl Mbtiles {
     }
 
     /// Detect tile format and verify that it is consistent across some tiles
+    #[hotpath::measure]
     pub async fn detect_format<T>(
         &self,
         tilejson: &TileJSON,
@@ -261,6 +264,7 @@ impl Mbtiles {
     /// Detect the type of the `MBTiles` file.
     ///
     /// See [`MbtType`] for more information.
+    #[hotpath::measure]
     pub async fn detect_type<T>(&self, conn: &mut T) -> MbtResult<MbtType>
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
@@ -334,6 +338,7 @@ impl Mbtiles {
     }
 
     /// Perform `SQLite` internal integrity check
+    #[hotpath::measure]
     pub async fn check_integrity<T>(
         &self,
         conn: &mut T,
@@ -372,6 +377,7 @@ impl Mbtiles {
     }
 
     /// Check that the tiles table has the expected column, row, zoom, and data values
+    #[hotpath::measure]
     pub async fn check_tiles_type_validity<T>(&self, conn: &mut T) -> MbtResult<()>
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
@@ -429,6 +435,7 @@ LIMIT 1;"
         Ok(())
     }
 
+    #[hotpath::measure]
     pub async fn check_agg_tiles_hashes<T>(&self, conn: &mut T) -> MbtResult<String>
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
@@ -447,6 +454,7 @@ LIMIT 1;"
     }
 
     /// Compute new aggregate tiles hash and save it to the metadata table (if needed)
+    #[hotpath::measure]
     pub async fn update_agg_tiles_hash<T>(&self, conn: &mut T) -> MbtResult<String>
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
@@ -469,6 +477,7 @@ LIMIT 1;"
         Ok(hash)
     }
 
+    #[hotpath::measure]
     pub async fn check_each_tile_hash<T>(&self, conn: &mut T) -> MbtResult<()>
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
@@ -590,6 +599,7 @@ LIMIT 1;"
 
 /// Compute the hash of the combined tiles in the mbtiles file tiles table/view.
 /// This should work on all mbtiles files perf `MBTiles` specification.
+#[hotpath::measure]
 pub async fn calc_agg_tiles_hash<T>(conn: &mut T) -> MbtResult<String>
 where
     for<'e> &'e mut T: SqliteExecutor<'e>,

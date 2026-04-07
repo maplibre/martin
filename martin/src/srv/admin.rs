@@ -44,6 +44,7 @@ impl Catalog {
     method = "HEAD",
     wrap = "middleware::Compress::default()"
 )]
+#[hotpath::measure]
 async fn get_catalog(
     catalog: Data<Catalog>,
     #[cfg(feature = "_tiles")] tile_manager: Data<crate::tile_source_manager::TileSourceManager>,

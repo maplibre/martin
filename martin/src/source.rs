@@ -63,6 +63,7 @@ impl TileSources {
     /// format/encoding. Optionally filters by zoom level support.
     ///
     /// Returns (`sources`, `supports_url_query`, `merged_tile_info`).
+    #[hotpath::measure]
     pub fn get_sources(
         &self,
         source_ids: &str,
