@@ -75,7 +75,10 @@ impl LogFormat {
         tracing::dispatcher::set_global_default(dispatch)
             .expect("failed to set global default subscriber");
     }
-    /// Initialize logging according to the selected format with progress enabled.
+    /// Initialize logging for progress mode.
+    ///
+    /// Progress-aware tracing output is currently unavailable, so this
+    /// delegates to [`Self::init`].
     pub fn init_with_progress(self, env_filter: EnvFilter) {
         self.init(env_filter);
     }
@@ -136,7 +139,7 @@ fn init_log_bridge(env_filter: &EnvFilter) {
 /// 2. Uses the provided filter string for log filtering
 /// 3. Uses the provided format for output
 /// 4. Sets up the global tracing subscriber
-/// 5. Optionally enables progress-aware logging mode
+/// 5. Optionally enables progress mode (currently uses standard logging output)
 pub fn init_tracing(filter: &str, format: Option<String>, use_progress: bool) {
     // Set up the filter from the provided string
     let env_filter = EnvFilter::from_str(filter).unwrap_or_else(|_| {
@@ -162,6 +165,7 @@ pub fn init_tracing(filter: &str, format: Option<String>, use_progress: bool) {
     // Initialize log -> tracing bridge
     init_log_bridge(&env_filter);
     if use_progress {
+        eprintln!("Warning: progress-aware tracing output is unavailable; using standard logging");
         log_format.init_with_progress(env_filter);
     } else {
         log_format.init(env_filter);
