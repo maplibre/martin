@@ -10,7 +10,6 @@ use tracing::Level;
 use tracing::level_filters::LevelFilter;
 use tracing_subscriber::EnvFilter;
 use tracing_subscriber::fmt::format::FmtSpan;
-use tracing_subscriber::layer::SubscriberExt as _;
 
 pub mod progress;
 
@@ -76,86 +75,9 @@ impl LogFormat {
         tracing::dispatcher::set_global_default(dispatch)
             .expect("failed to set global default subscriber");
     }
-    /// Initialize logging according to the selected format with a progress bar.
-    ///
-    /// Uses `tracing::dispatcher::set_global_default` directly instead of
-    /// `SubscriberInitExt::init()` for the same reason as [`Self::init`]:
-    /// to prevent `tracing-subscriber`'s `tracing-log` feature from installing
-    /// its own `LogTracer`, which would conflict with `init_log_bridge`.
+    /// Initialize logging according to the selected format with progress enabled.
     pub fn init_with_progress(self, env_filter: EnvFilter) {
-        use tracing_subscriber::fmt::layer as fmt_layer;
-
-        let registry = tracing_subscriber::registry().with(env_filter);
-
-        // code below looks duplicated, but it has to be this way due to how types currently work.
-        // maybe there is a better way that I can not see
-        let dispatch = match self {
-            Self::Full => {
-                let indicatif_layer = tracing_indicatif::IndicatifLayer::new();
-                registry
-                    .with(
-                        fmt_layer()
-                            .with_span_events(FmtSpan::NONE)
-                            .with_writer(indicatif_layer.get_stderr_writer()),
-                    )
-                    .with(indicatif_layer)
-                    .into()
-            }
-            Self::Compact => {
-                let indicatif_layer = tracing_indicatif::IndicatifLayer::new();
-                registry
-                    .with(
-                        fmt_layer()
-                            .compact()
-                            .with_span_events(FmtSpan::NONE)
-                            .with_writer(indicatif_layer.get_stderr_writer()),
-                    )
-                    .with(indicatif_layer)
-                    .into()
-            }
-            Self::Pretty => {
-                let indicatif_layer = tracing_indicatif::IndicatifLayer::new();
-                registry
-                    .with(
-                        fmt_layer()
-                            .pretty()
-                            .with_writer(indicatif_layer.get_stderr_writer()),
-                    )
-                    .with(indicatif_layer)
-                    .into()
-            }
-            Self::Bare => {
-                let indicatif_layer = tracing_indicatif::IndicatifLayer::new();
-                registry
-                    .with(
-                        fmt_layer()
-                            .compact()
-                            .with_span_events(FmtSpan::NONE)
-                            .without_time()
-                            .with_target(false)
-                            .with_ansi(false)
-                            .with_writer(indicatif_layer.get_stderr_writer()),
-                    )
-                    .with(indicatif_layer)
-                    .into()
-            }
-            Self::Json => {
-                let indicatif_layer = tracing_indicatif::IndicatifLayer::new();
-                registry
-                    .with(
-                        fmt_layer()
-                            .json()
-                            .with_span_events(FmtSpan::NONE)
-                            .with_writer(indicatif_layer.get_stderr_writer()),
-                    )
-                    .with(indicatif_layer)
-                    .into()
-            }
-        };
-        // Uses `tracing::dispatcher::set_global_default` directly instead of
-        // `SubscriberInitExt::init()`, because the latter also calls `tracing_log::LogTracer::init()
-        tracing::dispatcher::set_global_default(dispatch)
-            .expect("failed to set global default subscriber");
+        self.init(env_filter);
     }
 }
 
@@ -214,7 +136,7 @@ fn init_log_bridge(env_filter: &EnvFilter) {
 /// 2. Uses the provided filter string for log filtering
 /// 3. Uses the provided format for output
 /// 4. Sets up the global tracing subscriber
-/// 5. Optionally includes `IndicatifLayer` for progress bar support
+/// 5. Optionally enables progress-aware logging mode
 pub fn init_tracing(filter: &str, format: Option<String>, use_progress: bool) {
     // Set up the filter from the provided string
     let env_filter = EnvFilter::from_str(filter).unwrap_or_else(|_| {
