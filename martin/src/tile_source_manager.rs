@@ -4,6 +4,8 @@ use dashmap::DashMap;
 use martin_core::tiles::{BoxedSource, OptTileCache};
 use tracing::info;
 
+use crate::MartinResult;
+use crate::config::file::OnInvalid;
 use crate::reload::ReloadAdvisory;
 use crate::source::TileSources;
 
@@ -18,21 +20,27 @@ use crate::source::TileSources;
 pub struct TileSourceManager {
     tile_sources: Arc<DashMap<String, BoxedSource>>,
     tile_cache: OptTileCache,
+    on_invalid: OnInvalid,
 }
 
 impl TileSourceManager {
-    /// Creates a new empty manager with the given cache and resolver.
+    /// Creates a new empty manager with the given cache and invalidation policy.
     #[must_use]
-    pub fn new(tile_cache: OptTileCache) -> Self {
+    pub fn new(tile_cache: OptTileCache, on_invalid: OnInvalid) -> Self {
         Self {
             tile_sources: Arc::new(DashMap::new()),
             tile_cache,
+            on_invalid,
         }
     }
 
     /// Creates a manager pre-populated with the given sources.
     #[must_use]
-    pub fn from_sources(tile_cache: OptTileCache, sources: Vec<Vec<BoxedSource>>) -> Self {
+    pub fn from_sources(
+        tile_cache: OptTileCache,
+        on_invalid: OnInvalid,
+        sources: Vec<Vec<BoxedSource>>,
+    ) -> Self {
         let map: DashMap<String, BoxedSource> = sources
             .into_iter()
             .flatten()
@@ -41,6 +49,7 @@ impl TileSourceManager {
         Self {
             tile_sources: Arc::new(map),
             tile_cache,
+            on_invalid,
         }
     }
 
@@ -58,42 +67,59 @@ impl TileSourceManager {
 
     /// Applies a [`ReloadAdvisory`] to the live source set.
     ///
+    /// When a source fails to initialize, the configured [`OnInvalid`] policy
+    /// controls the behavior:
+    /// - [`OnInvalid::Abort`] — return the error immediately.
+    /// - [`OnInvalid::Warn`] — log a warning and skip the source.
+    ///
     /// Order of operations:
     /// 1. **Updates** — time-critical; invalidate cache then replace the source.
     /// 2. **Additions** — make new sources available.
     /// 3. **Removals** — garbage-collect stale sources and their cached tiles.
-    pub fn apply_changes(&self, advisory: ReloadAdvisory) {
+    pub async fn apply_changes(&self, advisory: ReloadAdvisory) -> MartinResult<()> {
         if advisory.is_empty() {
-            return;
+            return Ok(());
         }
 
         // 1. Updates: time-critical, invalidate cache then swap
         for new_source in advisory.updates {
-            let Some(src) = new_source.source else {
-                tracing::warn!(
-                    "Skipping update for {:?}: source failed to initialize",
-                    new_source.id
-                );
-                continue;
-            };
-            if let Some(cache) = &self.tile_cache {
-                cache.invalidate_source(&new_source.id);
+            match new_source.source {
+                Ok(src) => {
+                    if let Some(cache) = &self.tile_cache {
+                        cache.invalidate_source(&new_source.id);
+                    }
+                    self.tile_sources.insert(new_source.id.clone(), src);
+                    info!("Updated source: {:?}", new_source.id);
+                }
+                Err(err) => match self.on_invalid {
+                    OnInvalid::Abort => return Err(err),
+                    OnInvalid::Warn => {
+                        tracing::warn!(
+                            "Skipping update for {:?}: {err}",
+                            new_source.id
+                        );
+                    }
+                },
             }
-            self.tile_sources.insert(new_source.id.clone(), src);
-            info!("Updated source: {:?}", new_source.id);
         }
 
         // 2. Additions: make new sources available
         for new_source in advisory.additions {
-            let Some(src) = new_source.source else {
-                tracing::warn!(
-                    "Skipping addition of {:?}: source failed to initialize",
-                    new_source.id
-                );
-                continue;
-            };
-            self.tile_sources.insert(new_source.id.clone(), src);
-            info!("Added source: {:?}", new_source.id);
+            match new_source.source {
+                Ok(src) => {
+                    self.tile_sources.insert(new_source.id.clone(), src);
+                    info!("Added source: {:?}", new_source.id);
+                }
+                Err(err) => match self.on_invalid {
+                    OnInvalid::Abort => return Err(err),
+                    OnInvalid::Warn => {
+                        tracing::warn!(
+                            "Skipping addition of {:?}: {err}",
+                            new_source.id
+                        );
+                    }
+                },
+            }
         }
 
         // 3. Removals: GC stale sources
@@ -104,6 +130,13 @@ impl TileSourceManager {
             }
             info!("Removed source: {:?}", deleted_source.id);
         }
+
+        // 4. Flush pending cache maintenance (e.g. invalidation predicates)
+        if let Some(cache) = &self.tile_cache {
+            cache.run_pending_tasks().await;
+        }
+
+        Ok(())
     }
 }
 
@@ -149,13 +182,13 @@ mod tests {
 
     fn make_manager() -> TileSourceManager {
         let cache = TileCache::new(1024 * 1024); // 1 MB
-        TileSourceManager::new(Some(cache))
+        TileSourceManager::new(Some(cache), OnInvalid::Abort)
     }
 
     fn new_source(name: &str) -> NewSource {
         NewSource {
             id: name.to_string(),
-            source: Some(Box::new(TestSource {
+            source: Ok(Box::new(TestSource {
                 id: name.to_string(),
                 tj: tilejson! { tiles: vec![] },
             })),
@@ -168,28 +201,28 @@ mod tests {
         names
     }
 
-    #[test]
-    fn apply_additions() {
+    #[tokio::test]
+    async fn apply_additions() {
         let mgr = make_manager();
         let advisory = ReloadAdvisory {
             additions: vec![new_source("src_a"), new_source("src_b")],
             ..Default::default()
         };
-        mgr.apply_changes(advisory);
+        mgr.apply_changes(advisory).await.unwrap();
         assert_yaml_snapshot!(sorted_source_names(&mgr), @r"
         - src_a
         - src_b
         ");
     }
 
-    #[test]
-    fn apply_removals() {
+    #[tokio::test]
+    async fn apply_removals() {
         let mgr = make_manager();
         let add = ReloadAdvisory {
             additions: vec![new_source("src_a"), new_source("src_b")],
             ..Default::default()
         };
-        mgr.apply_changes(add);
+        mgr.apply_changes(add).await.unwrap();
         assert_yaml_snapshot!(sorted_source_names(&mgr), @r"
         - src_a
         - src_b
@@ -203,35 +236,35 @@ mod tests {
             removals,
             ..Default::default()
         };
-        mgr.apply_changes(remove);
+        mgr.apply_changes(remove).await.unwrap();
         assert_yaml_snapshot!(sorted_source_names(&mgr), @r"
         - src_b
         ");
     }
 
-    #[test]
-    fn apply_updates() {
+    #[tokio::test]
+    async fn apply_updates() {
         let mgr = make_manager();
         let add = ReloadAdvisory {
             additions: vec![new_source("src_a")],
             ..Default::default()
         };
-        mgr.apply_changes(add);
+        mgr.apply_changes(add).await.unwrap();
 
         let update = ReloadAdvisory {
             updates: vec![new_source("src_a")],
             ..Default::default()
         };
-        mgr.apply_changes(update);
+        mgr.apply_changes(update).await.unwrap();
         assert_yaml_snapshot!(sorted_source_names(&mgr), @r"
         - src_a
         ");
     }
 
-    #[test]
-    fn empty_advisory_is_noop() {
+    #[tokio::test]
+    async fn empty_advisory_is_noop() {
         let mgr = make_manager();
-        mgr.apply_changes(ReloadAdvisory::default());
+        mgr.apply_changes(ReloadAdvisory::default()).await.unwrap();
         assert_yaml_snapshot!(sorted_source_names(&mgr), @"[]");
     }
 
@@ -241,21 +274,21 @@ mod tests {
             id: "x".to_string(),
             tj: tilejson! { tiles: vec![] },
         }) as BoxedSource;
-        let mgr = TileSourceManager::from_sources(None, vec![vec![src]]);
+        let mgr = TileSourceManager::from_sources(None, OnInvalid::Abort, vec![vec![src]]);
         assert_yaml_snapshot!(sorted_source_names(&mgr), @r"
         - x
         ");
         assert!(mgr.tile_cache().is_none());
     }
 
-    #[test]
-    fn apply_changes_without_cache() {
-        let mgr = TileSourceManager::new(None);
+    #[tokio::test]
+    async fn apply_changes_without_cache() {
+        let mgr = TileSourceManager::new(None, OnInvalid::Abort);
         let advisory = ReloadAdvisory {
             additions: vec![new_source("a")],
             ..Default::default()
         };
-        mgr.apply_changes(advisory);
+        mgr.apply_changes(advisory).await.unwrap();
         assert_yaml_snapshot!(sorted_source_names(&mgr), @r"
         - a
         ");

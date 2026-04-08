@@ -254,8 +254,13 @@ impl Config {
 
         Ok(ServerState {
             #[cfg(feature = "_tiles")]
+            // TODO: hard-coded to Warn so that a single source failure during
+            // reload doesn't abort the running server. This should be revisited
+            // once we decide whether on_invalid_reload deserves its own config
+            // knob (some operators may prefer aborting over serving degraded).
             tile_manager: TileSourceManager::from_sources(
                 cache_config.create_tile_cache(),
+                OnInvalid::Warn,
                 tile_sources,
             ),
 

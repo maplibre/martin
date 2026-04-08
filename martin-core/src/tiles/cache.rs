@@ -91,6 +91,11 @@ impl TileCache {
     pub fn weighted_size(&self) -> u64 {
         self.0.weighted_size()
     }
+
+    /// Runs pending maintenance tasks (e.g. processing invalidation predicates).
+    pub async fn run_pending_tasks(&self) {
+        self.0.run_pending_tasks().await;
+    }
 }
 
 /// Optional wrapper for `TileCache`.

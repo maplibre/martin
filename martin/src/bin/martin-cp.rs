@@ -560,6 +560,7 @@ mod tests {
     use async_trait::async_trait;
     use insta::assert_yaml_snapshot;
     use martin::TileSourceManager;
+    use martin::config::file::OnInvalid;
     use martin_core::tiles::{MartinCoreResult, Source, UrlQuery};
     use martin_tile_utils::{Encoding, Format};
     use rstest::{fixture, rstest};
@@ -602,7 +603,7 @@ mod tests {
     }
 
     fn test_manager(sources: Vec<Vec<BoxedSource>>) -> TileSourceManager {
-        TileSourceManager::from_sources(None, sources)
+        TileSourceManager::from_sources(None, OnInvalid::Abort, sources)
     }
 
     #[fixture]

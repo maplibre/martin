@@ -2,13 +2,15 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use martin_core::tiles::BoxedSource;
 
+use crate::MartinResult;
+
 /// A source to be added or updated in the [`TileSourceManager`](super::TileSourceManager).
 #[derive(Debug)]
 pub struct NewSource {
     /// Resolved source ID.
     pub id: String,
-    /// The tile source implementation.
-    pub source: Option<BoxedSource>,
+    /// The tile source implementation, or an error if initialization failed.
+    pub source: MartinResult<BoxedSource>,
 }
 
 /// A source to be removed from the [`TileSourceManager`](super::TileSourceManager).
@@ -41,7 +43,7 @@ impl ReloadAdvisory {
         initializer: F,
     ) -> Self
     where
-        F: AsyncFn(String) -> Option<BoxedSource>,
+        F: AsyncFn(String) -> MartinResult<BoxedSource>,
     {
         let removals = previous_ids
             .difference(next_ids)
@@ -73,7 +75,7 @@ impl ReloadAdvisory {
         initializer: F,
     ) -> Self
     where
-        F: AsyncFn(String) -> Option<BoxedSource>,
+        F: AsyncFn(String) -> MartinResult<BoxedSource>,
     {
         let mut advisory = Self::default();
 
@@ -150,8 +152,8 @@ mod tests {
         }
     }
 
-    async fn make_source(id: String) -> Option<BoxedSource> {
-        Some(Box::new(TestSource {
+    async fn make_source(id: String) -> MartinResult<BoxedSource> {
+        Ok(Box::new(TestSource {
             id,
             tj: tilejson! {
                 tilejson: "3.0.0".to_string(),

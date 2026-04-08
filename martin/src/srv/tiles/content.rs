@@ -474,10 +474,11 @@ mod tests {
     use tilejson::tilejson;
 
     use super::*;
+    use crate::config::file::OnInvalid;
     use crate::srv::tiles::tests::{CompressedTestSource, TestSource};
 
     fn test_manager(sources: Vec<Vec<BoxedSource>>) -> TileSourceManager {
-        TileSourceManager::from_sources(None, sources)
+        TileSourceManager::from_sources(None, OnInvalid::Abort, sources)
     }
 
     #[rstest]
