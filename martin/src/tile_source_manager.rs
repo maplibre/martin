@@ -94,10 +94,7 @@ impl TileSourceManager {
                 Err(err) => match self.on_invalid {
                     OnInvalid::Abort => return Err(err),
                     OnInvalid::Warn => {
-                        tracing::warn!(
-                            "Skipping update for {:?}: {err}",
-                            new_source.id
-                        );
+                        tracing::warn!("Skipping update for {:?}: {err}", new_source.id);
                     }
                 },
             }
@@ -113,10 +110,7 @@ impl TileSourceManager {
                 Err(err) => match self.on_invalid {
                     OnInvalid::Abort => return Err(err),
                     OnInvalid::Warn => {
-                        tracing::warn!(
-                            "Skipping addition of {:?}: {err}",
-                            new_source.id
-                        );
+                        tracing::warn!("Skipping addition of {:?}: {err}", new_source.id);
                     }
                 },
             }
