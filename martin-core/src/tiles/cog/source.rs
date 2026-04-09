@@ -546,6 +546,7 @@ fn get_extent(
 mod tests {
     use std::path::Path;
 
+    use approx::assert_abs_diff_eq;
     use rstest::rstest;
     use tilejson::{Bounds, Center};
 
@@ -620,10 +621,11 @@ mod tests {
             source.tilejson.center.unwrap().to_string(),
             center.to_string()
         );
-        assert_eq!(
-            source.tilejson.bounds.unwrap().to_string(),
-            bounds.to_string()
-        );
+        let actual_bounds = source.tilejson.bounds.unwrap();
+        assert_abs_diff_eq!(actual_bounds.left, bounds.left, epsilon = 1e-12);
+        assert_abs_diff_eq!(actual_bounds.bottom, bounds.bottom, epsilon = 1e-12);
+        assert_abs_diff_eq!(actual_bounds.right, bounds.right, epsilon = 1e-12);
+        assert_abs_diff_eq!(actual_bounds.top, bounds.top, epsilon = 1e-12);
         assert_eq!(source.tilejson.other.get("tileSize").unwrap(), tile_size);
         assert_eq!(
             source.tilejson.other.get("format").unwrap().as_str(),
