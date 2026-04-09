@@ -91,7 +91,11 @@ impl TileSources {
         }
 
         // format is guaranteed to be Some() because any error in the loop would have been propagated via ?
-        Ok((sources, use_url_query, info.expect("source_ids is non-empty since any failure in the loop propagates via ?")))
+        Ok((
+            sources,
+            use_url_query,
+            info.expect("source_ids is non-empty since any failure in the loop propagates via ?"),
+        ))
     }
 
     /// Validates zoom level support for a source
