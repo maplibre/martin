@@ -259,5 +259,6 @@ END $do$;
 ```
 
 !!! note
-    The `content_type` field is a Martin-specific extension to the SQL comment JSON.
-    It is not part of the TileJSON specification, but it is harmlessly passed through to the TileJSON output.
+    `content_type` is not a standard TileJSON field. Martin reads it from the SQL comment
+    to determine how to serve tiles with the correct MIME type. It is also preserved in the
+    TileJSON output so clients can inspect the tile format.
