@@ -429,8 +429,8 @@ LIMIT 1;"
             return Err(InvalidTileIndex(
                 self.filepath().to_string(),
                 zoom_level,
-+               tile_column,
-+               tile_row,
+                tile_column,
+                tile_row,
             ));
         }
 
