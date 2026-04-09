@@ -64,7 +64,10 @@ impl IdResolver {
         let stanitised_name = Self::sanitise(name);
 
         let is_reserved_name = self.reserved.contains(stanitised_name.as_str());
-        let mut names = self.names.lock().expect("IdResolver mutex should not be poisoned");
+        let mut names = self
+            .names
+            .lock()
+            .expect("IdResolver mutex should not be poisoned");
         // simple case if names need not be renamed
         if !is_reserved_name {
             match names.entry(stanitised_name.clone()) {
