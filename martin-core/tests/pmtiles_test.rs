@@ -1,4 +1,5 @@
 #![cfg(feature = "pmtiles")]
+#![allow(clippy::unwrap_used)]
 
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};

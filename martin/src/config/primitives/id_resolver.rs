@@ -92,8 +92,8 @@ impl IdResolver {
         let mut new_name = String::new();
         loop {
             new_name.clear();
-            write!(&mut new_name, "{stanitised_name}.{index}").unwrap();
-            index = index.checked_add(1).unwrap();
+            write!(&mut new_name, "{stanitised_name}.{index}").expect("writing to String is infallible");
+            index = index.checked_add(1).expect("more than i32::MAX source name collisions is impossible in practice");
             match names.entry(new_name.clone()) {
                 // found new name
                 Entry::Vacant(e) => {

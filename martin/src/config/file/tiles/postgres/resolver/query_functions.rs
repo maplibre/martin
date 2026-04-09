@@ -80,7 +80,7 @@ pub async fn query_available_function(pool: &PostgresPool) -> PostgresResult<Sql
                 }
                 // This could also be done as "{name} => ${index}::{typ}"
                 // where the name must be passed through escape_identifier
-                write!(query, "${index}::{typ}", index = idx + 1).unwrap();
+                write!(query, "${index}::{typ}", index = idx + 1).expect("writing to String is infallible");
             }
             query.push(')');
 
@@ -127,9 +127,13 @@ pub async fn query_available_function(pool: &PostgresPool) -> PostgresResult<Sql
 fn jsonb_to_vec(jsonb: Option<Value>) -> Option<Vec<String>> {
     jsonb.map(|json| {
         json.as_array()
-            .unwrap()
+            .expect("PostgreSQL returns function parameter names as a JSON array")
             .iter()
-            .map(|v| v.as_str().unwrap().to_string())
+            .map(|v| {
+                v.as_str()
+                    .expect("PostgreSQL returns each function parameter name as a JSON string")
+                    .to_string()
+            })
             .collect()
     })
 }

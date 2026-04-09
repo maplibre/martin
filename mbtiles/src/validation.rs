@@ -425,9 +425,9 @@ LIMIT 1;"
 
             return Err(InvalidTileIndex(
                 self.filepath().to_string(),
-                res.pop().unwrap(),
-                res.pop().unwrap(),
-                res.pop().unwrap(),
+                res.pop().expect("the for loop above pushes exactly 3 items into res"),
+                res.pop().expect("the for loop above pushes exactly 3 items into res"),
+                res.pop().expect("the for loop above pushes exactly 3 items into res"),
             ));
         }
 

@@ -22,6 +22,7 @@ panic = "warn"
 panic_in_result_fn = "warn"
 todo = "warn"
 unimplemented = "warn"
+unwrap_used = "warn"
 unused_trait_names = "warn"
 use_self = "warn"
 

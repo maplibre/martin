@@ -94,7 +94,7 @@ impl PostgresAutoDiscoveryBuilder {
     /// Duplicate names are deterministically converted to unique names.
     pub async fn new(config: &PostgresConfig, id_resolver: IdResolver) -> ConfigFileResult<Self> {
         let pool = PostgresPool::new(
-            config.connection_string.as_ref().unwrap().as_str(),
+            config.connection_string.as_ref().expect("connection_string is validated to be Some by PostgresConfig::finalize() before calling new()").as_str(),
             config.ssl_certificates.ssl_cert.as_ref(),
             config.ssl_certificates.ssl_key.as_ref(),
             config.ssl_certificates.ssl_root_cert.as_ref(),
@@ -195,7 +195,7 @@ impl PostgresAutoDiscoveryBuilder {
                 let Some(schema) = normalize_key(&db_tables_info, schema, "schema", "") else {
                     continue;
                 };
-                let db_tables = db_tables_info.remove(&schema).unwrap();
+                let db_tables = db_tables_info.remove(&schema).expect("schema was just found in db_tables_info by normalize_key, so remove cannot fail");
                 for (table, geoms) in db_tables.into_iter().sorted_by(by_key) {
                     for (geom_column, mut db_inf) in geoms.into_iter().sorted_by(by_key) {
                         if used.contains(&(schema.as_str(), table.as_str(), geom_column.as_str())) {
@@ -292,7 +292,7 @@ impl PostgresAutoDiscoveryBuilder {
                 let Some(schema) = normalize_key(&db_funcs_info, schema, "schema", "") else {
                     continue;
                 };
-                let db_funcs = db_funcs_info.remove(&schema).unwrap();
+                let db_funcs = db_funcs_info.remove(&schema).expect("schema was just found in db_funcs_info by normalize_key, so remove cannot fail");
                 for (func, (pg_sql, db_inf)) in db_funcs.into_iter().sorted_by(by_key) {
                     if used.contains(&(schema.as_str(), func.as_str())) {
                         continue;
@@ -442,7 +442,7 @@ fn update_auto_fields(
                     info!(
                         "For source {id}, id_column '{key}' was not found, but found '{result}' instead."
                     );
-                    (result, props.get(result).unwrap())
+                    (result, props.get(result).expect("result key was found in props by find_kv_ignore_case, so it must be present"))
                 }
                 Ok(None) => continue,
                 Err(multiple) => {

@@ -160,7 +160,7 @@ impl Mbtiles {
         let zoom_info: Vec<ZoomInfo> = zoom_info
             .into_iter()
             .map(|r| {
-                let zoom = u8::try_from(r.zoom.unwrap()).expect("zoom_level is not a u8");
+                let zoom = u8::try_from(r.zoom.expect("zoom_level is NOT NULL in the mbtiles spec")).expect("zoom_level is not a u8");
                 ZoomInfo {
                     zoom,
                     tile_count: r.count as u64,
