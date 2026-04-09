@@ -28,12 +28,24 @@ impl TileSourceConfiguration for CogConfig {
         false
     }
 
-    async fn new_sources(&self, id: String, path: PathBuf) -> MartinResult<BoxedSource> {
-        let cog = CogSource::new(id, path)?;
+    async fn new_sources(
+        &self,
+        id: String,
+        path: PathBuf,
+        cache_minzoom: Option<u8>,
+        cache_maxzoom: Option<u8>,
+    ) -> MartinResult<BoxedSource> {
+        let cog = CogSource::new(id, path, cache_minzoom, cache_maxzoom)?;
         Ok(Box::new(cog))
     }
 
-    async fn new_sources_url(&self, _id: String, _url: Url) -> MartinResult<BoxedSource> {
+    async fn new_sources_url(
+        &self,
+        _id: String,
+        _url: Url,
+        _cache_minzoom: Option<u8>,
+        _cache_maxzoom: Option<u8>,
+    ) -> MartinResult<BoxedSource> {
         unreachable!()
     }
 }

@@ -21,6 +21,8 @@ pub struct PmtilesSource {
     pmtiles: Arc<AsyncPmTilesReader<ObjectStoreBackend, PmtCacheInstance>>,
     tilejson: TileJSON,
     tile_info: TileInfo,
+    cache_minzoom: Option<u8>,
+    cache_maxzoom: Option<u8>,
 }
 
 #[expect(clippy::missing_fields_in_debug)]
@@ -39,6 +41,8 @@ impl PmtilesSource {
         id: String,
         store: Box<dyn ObjectStore>,
         path: impl Into<object_store::path::Path>,
+        cache_minzoom: Option<u8>,
+        cache_maxzoom: Option<u8>,
     ) -> Result<Self, PmtilesError> {
         let path = path.into();
         let store_to_string = store.to_string();
@@ -100,6 +104,8 @@ impl PmtilesSource {
             pmtiles: Arc::new(reader),
             tilejson,
             tile_info: format,
+            cache_minzoom,
+            cache_maxzoom,
         })
     }
 }
@@ -126,6 +132,14 @@ impl Source for PmtilesSource {
 
     fn benefits_from_concurrent_scraping(&self) -> bool {
         true
+    }
+
+    fn cache_minzoom(&self) -> Option<u8> {
+        self.cache_minzoom
+    }
+
+    fn cache_maxzoom(&self) -> Option<u8> {
+        self.cache_maxzoom
     }
 
     async fn get_tile(

@@ -27,7 +27,7 @@ async fn create_source(filename: &str, id: &str, cache: PmtCacheInstance) -> Pmt
     let path = object_store::path::Path::from_filesystem_path(&path)
         .expect("Failed to convert filesystem path");
 
-    PmtilesSource::new(cache, id.to_string(), store, path)
+    PmtilesSource::new(cache, id.to_string(), store, path, None, None)
         .await
         .expect("Failed to create PMTiles source")
 }
@@ -94,7 +94,7 @@ async fn nonexistent_file_returns_error() {
     let store = Box::new(LocalFileSystem::new());
     let path = object_store::path::Path::from("nonexistent/file.pmtiles");
 
-    let result = PmtilesSource::new(cache, "invalid".to_string(), store, path).await;
+    let result = PmtilesSource::new(cache, "invalid".to_string(), store, path, None, None).await;
 
     let err = result.expect_err("Expected error for nonexistent file");
     assert!(

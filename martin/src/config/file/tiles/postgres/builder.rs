@@ -30,6 +30,10 @@ pub struct PostgresAutoDiscoveryBuilder {
     pool: PostgresPool,
     /// If a spatial table has SRID 0, then this SRID will be used as a fallback
     default_srid: Option<i32>,
+    /// Fallback minimum cache zoom for sources that don't set their own
+    default_cache_minzoom: Option<u8>,
+    /// Fallback maximum cache zoom for sources that don't set their own
+    default_cache_maxzoom: Option<u8>,
     /// Specify how bounds should be computed for the spatial PG tables
     auto_bounds: BoundsCalcType,
     /// Limit the number of geo features per tile.
@@ -92,7 +96,12 @@ impl PostgresAutoDiscoveryBuilder {
     /// Creates a new `PostgreSQL` source builder from the [`PostgresConfig`].
     ///
     /// Duplicate names are deterministically converted to unique names.
-    pub async fn new(config: &PostgresConfig, id_resolver: IdResolver) -> ConfigFileResult<Self> {
+    pub async fn new(
+        config: &PostgresConfig,
+        id_resolver: IdResolver,
+        default_cache_minzoom: Option<u8>,
+        default_cache_maxzoom: Option<u8>,
+    ) -> ConfigFileResult<Self> {
         let pool = PostgresPool::new(
             config
                 .connection_string
@@ -112,6 +121,8 @@ impl PostgresAutoDiscoveryBuilder {
         Ok(Self {
             pool,
             default_srid: config.default_srid,
+            default_cache_minzoom,
+            default_cache_maxzoom,
             auto_bounds: config.auto_bounds.unwrap_or_default(),
             max_feature_count: config.max_feature_count,
             id_resolver,
@@ -242,7 +253,14 @@ impl PostgresAutoDiscoveryBuilder {
                 }
                 Ok((id, pg_sql, src_inf)) => {
                     debug!("{id} query: {}", pg_sql.sql_query);
-                    self.add_func_src(&mut res, id.clone(), &src_inf, pg_sql.clone());
+                    self.add_func_src(
+                        &mut res,
+                        id.clone(),
+                        &src_inf,
+                        pg_sql.clone(),
+                        src_inf.cache_minzoom,
+                        src_inf.cache_maxzoom,
+                    );
                     info_map.insert(id, src_inf);
                 }
             }
@@ -267,7 +285,14 @@ impl PostgresAutoDiscoveryBuilder {
                     let dup = !used.insert((&cfg_inf.schema, &cfg_inf.function));
                     let dup = if dup { "duplicate " } else { "" };
                     let id2 = self.resolve_id(id, &merged_inf);
-                    self.add_func_src(&mut res, id2.clone(), &merged_inf, pg_sql_info.clone());
+                    self.add_func_src(
+                        &mut res,
+                        id2.clone(),
+                        &merged_inf,
+                        pg_sql_info.clone(),
+                        merged_inf.cache_minzoom,
+                        merged_inf.cache_maxzoom,
+                    );
                     warn_on_rename(id, &id2, "Function");
                     let signature = &pg_sql_info.signature;
                     info!("Configured {dup}source {id2} from the function {signature}");
@@ -311,7 +336,14 @@ impl PostgresAutoDiscoveryBuilder {
                         .replace("{schema}", &schema)
                         .replace("{function}", &func);
                     let id2 = self.resolve_id(&source_id, &db_inf);
-                    self.add_func_src(&mut res, id2.clone(), &db_inf, pg_sql.clone());
+                    self.add_func_src(
+                        &mut res,
+                        id2.clone(),
+                        &db_inf,
+                        pg_sql.clone(),
+                        db_inf.cache_minzoom,
+                        db_inf.cache_maxzoom,
+                    );
                     info!("Discovered source {id2} from function {}", pg_sql.signature);
                     debug!("{id2} query: {}", pg_sql.sql_query);
                     info_map.insert(id2, db_inf);
@@ -404,9 +436,18 @@ impl PostgresAutoDiscoveryBuilder {
         id: String,
         pg_info: &impl PostgresInfo,
         sql_info: PostgresSqlInfo,
+        cache_minzoom: Option<u8>,
+        cache_maxzoom: Option<u8>,
     ) {
         let tilejson = pg_info.to_tilejson(id.clone());
-        let source = PostgresSource::new(id, sql_info, tilejson, self.pool.clone());
+        let source = PostgresSource::new(
+            id,
+            sql_info,
+            tilejson,
+            self.pool.clone(),
+            cache_minzoom.or(self.default_cache_minzoom),
+            cache_maxzoom.or(self.default_cache_maxzoom),
+        );
         sources.push(Box::new(source));
     }
 
@@ -810,7 +851,7 @@ mod tests {
         let mut config: PostgresConfig = serde_yaml::from_str(config_yaml).unwrap();
         config.connection_string = Some(connection_string);
 
-        let builder = PostgresAutoDiscoveryBuilder::new(&config, IdResolver::default())
+        let builder = PostgresAutoDiscoveryBuilder::new(&config, IdResolver::default(), None, None)
             .await
             .expect("Failed to create builder");
 

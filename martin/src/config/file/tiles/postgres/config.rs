@@ -171,8 +171,16 @@ impl PostgresConfig {
     pub async fn resolve(
         &mut self,
         id_resolver: IdResolver,
+        default_cache_minzoom: Option<u8>,
+        default_cache_maxzoom: Option<u8>,
     ) -> MartinResult<(Vec<BoxedSource>, Vec<TileSourceWarning>)> {
-        let pg = PostgresAutoDiscoveryBuilder::new(self, id_resolver).await?;
+        let pg = PostgresAutoDiscoveryBuilder::new(
+            self,
+            id_resolver,
+            default_cache_minzoom,
+            default_cache_maxzoom,
+        )
+        .await?;
         let inst_tables = on_slow(
             pg.instantiate_tables(),
             // warn only if default bounds timeout has already passed

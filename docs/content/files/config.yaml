@@ -45,6 +45,18 @@ cache_size_mb: 512
 # Defaults to `cache_size_mb` / 2
 tile_cache_size_mb: 256
 
+# Default minimum zoom level (inclusive) for tile caching.
+# Tiles below this zoom will bypass the cache entirely.
+# Can be overridden per-source (e.g. cache_minzoom on an individual source).
+# default: null (no lower bound, all zoom levels cached)
+default_cache_minzoom: null
+
+# Default maximum zoom level (inclusive) for tile caching.
+# Tiles above this zoom will bypass the cache entirely.
+# Can be overridden per-source.
+# default: null (no upper bound, all zoom levels cached)
+default_cache_maxzoom: null
+
 # Which compression should be used if the
 # - client accepts multiple compression formats, and
 # - tile source is not pre-compressed.
@@ -235,6 +247,16 @@ postgres:
       properties:
         gid: int4
 
+      # Minimum zoom level (inclusive) at which tiles from this source are cached.
+      # Overrides the top-level default_cache_minzoom.
+      # default: null (inherit from top-level default)
+      cache_minzoom: null
+
+      # Maximum zoom level (inclusive) at which tiles from this source are cached.
+      # Overrides the top-level default_cache_maxzoom.
+      # default: null (inherit from top-level default)
+      cache_maxzoom: null
+
   # Associative arrays of function sources
   functions:
     function_source_id:
@@ -292,6 +314,11 @@ pmtiles:
     pm-src1: /path/to/pmt.pmtiles
     # A named source to a web server with a PMTiles file that supports range requests
     pm-web2: https://example.org/path/tiles.pmtiles
+    # A source with per-source cache zoom range
+    pm-with-cache:
+      path: /path/to/pmt2.pmtiles
+      cache_minzoom: 0
+      cache_maxzoom: 6
 
 # Publish MBTiles files
 mbtiles:

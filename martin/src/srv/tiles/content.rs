@@ -10,8 +10,8 @@ use actix_web::{HttpMessage as _, HttpRequest, HttpResponse, Result as ActixResu
 use futures::future::try_join_all;
 use martin_core::tiles::{BoxedSource, OptTileCache, Tile, TileCache, UrlQuery};
 use martin_tile_utils::{
-    Encoding, Format, TileCoord, TileData, TileInfo, decode_brotli, decode_gzip, encode_brotli,
-    encode_gzip,
+    Encoding, Format, TileCoord, TileData, TileInfo, decode_brotli, decode_gzip, decode_zlib,
+    decode_zstd, encode_brotli, encode_gzip, encode_zlib, encode_zstd,
 };
 use serde::Deserialize;
 use tracing::warn;
@@ -20,7 +20,6 @@ use crate::config::args::PreferredEncoding;
 use crate::config::file::srv::SrvConfig;
 use crate::source::TileSources;
 use crate::srv::server::{DebouncedWarning, map_internal_error};
-use martin_tile_utils::{decode_zlib, decode_zstd, encode_zlib, encode_zstd};
 
 const SUPPORTED_ENC: &[HeaderEnc] = &[
     HeaderEnc::gzip(),
@@ -238,7 +237,9 @@ impl<'a> DynTileSource<'a> {
     #[hotpath::measure]
     pub async fn get_tile_content(&self, xyz: TileCoord) -> ActixResult<Tile> {
         let mut tiles = try_join_all(self.sources.iter().map(|s| async {
-            if let Some(cache) = self.cache {
+            let cache_zoom_ok = s.cache_minzoom().is_none_or(|m| xyz.z >= m)
+                && s.cache_maxzoom().is_none_or(|m| xyz.z <= m);
+            if let (Some(cache), true) = (self.cache, cache_zoom_ok) {
                 cache
                     .get_or_insert(
                         s.get_id().to_string(),

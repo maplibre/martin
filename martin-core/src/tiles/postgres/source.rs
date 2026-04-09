@@ -20,17 +20,28 @@ pub struct PostgresSource {
     info: PostgresSqlInfo,
     pool: PostgresPool,
     tilejson: TileJSON,
+    cache_minzoom: Option<u8>,
+    cache_maxzoom: Option<u8>,
 }
 
 impl PostgresSource {
     /// Creates a new `PostgreSQL` tile source.
     #[must_use]
-    pub fn new(id: String, info: PostgresSqlInfo, tilejson: TileJSON, pool: PostgresPool) -> Self {
+    pub fn new(
+        id: String,
+        info: PostgresSqlInfo,
+        tilejson: TileJSON,
+        pool: PostgresPool,
+        cache_minzoom: Option<u8>,
+        cache_maxzoom: Option<u8>,
+    ) -> Self {
         Self {
             id,
             info,
             pool,
             tilejson,
+            cache_minzoom,
+            cache_maxzoom,
         }
     }
 }
@@ -60,6 +71,14 @@ impl Source for PostgresSource {
     fn benefits_from_concurrent_scraping(&self) -> bool {
         // pg does not parallelize queries well internally and having more requests in flight is thus beneficial
         true
+    }
+
+    fn cache_minzoom(&self) -> Option<u8> {
+        self.cache_minzoom
+    }
+
+    fn cache_maxzoom(&self) -> Option<u8> {
+        self.cache_maxzoom
     }
 
     async fn get_tile(

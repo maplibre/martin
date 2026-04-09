@@ -10,7 +10,6 @@ use crate::MartinError::ConfigAndConnectionsError;
 use crate::MartinResult;
 #[cfg(feature = "postgres")]
 use crate::config::args::PostgresArgs;
-use crate::config::file::Config;
 #[cfg(any(
     feature = "unstable-cog",
     feature = "mbtiles",
@@ -19,9 +18,9 @@ use crate::config::file::Config;
     feature = "styles",
 ))]
 use crate::config::file::FileConfigEnum;
-use crate::config::file::OnInvalid;
 #[cfg(feature = "fonts")]
 use crate::config::file::fonts::FontConfig;
+use crate::config::file::{Config, OnInvalid};
 #[cfg(feature = "postgres")]
 use crate::config::primitives::env::Env;
 

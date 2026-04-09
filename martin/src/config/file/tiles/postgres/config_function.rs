@@ -30,6 +30,14 @@ pub struct FunctionInfo {
     /// Values may be integers or floating point numbers.
     pub bounds: Option<Bounds>,
 
+    /// Minimum zoom level (inclusive) at which tiles from this source should be cached.
+    /// If unset, no lower bound is applied.
+    pub cache_minzoom: Option<u8>,
+
+    /// Maximum zoom level (inclusive) at which tiles from this source should be cached.
+    /// If unset, no upper bound is applied.
+    pub cache_maxzoom: Option<u8>,
+
     /// `TileJSON` provided by the SQL function comment. Not serialized.
     #[serde(skip)]
     pub tilejson: Option<serde_json::Value>,

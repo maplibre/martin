@@ -27,11 +27,25 @@ impl TileSourceConfiguration for MbtConfig {
     fn parse_urls() -> bool {
         false
     }
-    async fn new_sources(&self, id: String, path: PathBuf) -> MartinResult<BoxedSource> {
-        Ok(Box::new(MbtSource::new(id, path).await?))
+    async fn new_sources(
+        &self,
+        id: String,
+        path: PathBuf,
+        cache_minzoom: Option<u8>,
+        cache_maxzoom: Option<u8>,
+    ) -> MartinResult<BoxedSource> {
+        Ok(Box::new(
+            MbtSource::new(id, path, cache_minzoom, cache_maxzoom).await?,
+        ))
     }
 
-    async fn new_sources_url(&self, _id: String, _url: Url) -> MartinResult<BoxedSource> {
+    async fn new_sources_url(
+        &self,
+        _id: String,
+        _url: Url,
+        _cache_minzoom: Option<u8>,
+        _cache_maxzoom: Option<u8>,
+    ) -> MartinResult<BoxedSource> {
         unreachable!()
     }
 }
@@ -62,6 +76,10 @@ mod tests {
                 pm-src3: https://example.org/file3.ext
                 pm-src4:
                   path: https://example.org/file4.ext
+                pm-src5:
+                  path: /tmp/cached.ext
+                  cache_minzoom: 0
+                  cache_maxzoom: 6
         "})
         .unwrap();
         cfg.finalize().unwrap();
@@ -93,6 +111,8 @@ mod tests {
                     "pm-src2".to_string(),
                     FileConfigSrc::Obj(FileConfigSource {
                         path: PathBuf::from("/tmp/file.ext"),
+                        cache_minzoom: None,
+                        cache_maxzoom: None,
                     })
                 ),
                 (
@@ -103,6 +123,16 @@ mod tests {
                     "pm-src4".to_string(),
                     FileConfigSrc::Obj(FileConfigSource {
                         path: PathBuf::from("https://example.org/file4.ext"),
+                        cache_minzoom: None,
+                        cache_maxzoom: None,
+                    })
+                ),
+                (
+                    "pm-src5".to_string(),
+                    FileConfigSrc::Obj(FileConfigSource {
+                        path: PathBuf::from("/tmp/cached.ext"),
+                        cache_minzoom: Some(0),
+                        cache_maxzoom: Some(6),
                     })
                 ),
             ]))

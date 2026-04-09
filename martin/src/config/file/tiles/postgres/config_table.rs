@@ -66,6 +66,14 @@ pub struct TableInfo {
     /// Geometry type
     pub geometry_type: Option<String>,
 
+    /// Minimum zoom level (inclusive) at which tiles from this source should be cached.
+    /// If unset, no lower bound is applied.
+    pub cache_minzoom: Option<u8>,
+
+    /// Maximum zoom level (inclusive) at which tiles from this source should be cached.
+    /// If unset, no upper bound is applied.
+    pub cache_maxzoom: Option<u8>,
+
     /// List of columns, that should be encoded as tile properties
     pub properties: Option<BTreeMap<String, String>>,
 

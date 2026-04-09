@@ -32,12 +32,19 @@ pub struct CogSource {
     images: HashMap<u8, Image>,
     tilejson: TileJSON,
     tileinfo: TileInfo,
+    cache_minzoom: Option<u8>,
+    cache_maxzoom: Option<u8>,
 }
 
 impl CogSource {
     /// Creates a new COG tile source from a file path.
     #[expect(clippy::too_many_lines)]
-    pub fn new(id: String, path: PathBuf) -> Result<Self, CogError> {
+    pub fn new(
+        id: String,
+        path: PathBuf,
+        cache_minzoom: Option<u8>,
+        cache_maxzoom: Option<u8>,
+    ) -> Result<Self, CogError> {
         let tif_file =
             File::open(&path).map_err(|e: std::io::Error| CogError::IoError(e, path.clone()))?;
         let mut decoder = Decoder::new(tif_file)
@@ -166,6 +173,8 @@ impl CogSource {
             images,
             tilejson,
             tileinfo: TileInfo::new(output_format, martin_tile_utils::Encoding::Internal),
+            cache_minzoom,
+            cache_maxzoom,
         })
     }
 }
@@ -209,6 +218,14 @@ impl Source for CogSource {
         // if we copy from one local file to another, we are likely not bottlenecked by CPU
         // TODO: benchmark this assumption, decoding might be a bottleneck
         false
+    }
+
+    fn cache_minzoom(&self) -> Option<u8> {
+        self.cache_minzoom
+    }
+
+    fn cache_maxzoom(&self) -> Option<u8> {
+        self.cache_maxzoom
     }
 
     async fn get_tile(
@@ -613,7 +630,7 @@ mod tests {
         #[case] format: String,
     ) {
         let path = format!("../tests/fixtures/cog/{cog_file}.tif");
-        let source = CogSource::new(cog_file, Path::new(&path).to_path_buf()).unwrap();
+        let source = CogSource::new(cog_file, Path::new(&path).to_path_buf(), None, None).unwrap();
 
         assert_eq!(source.max_zoom, max_zoom);
         assert_eq!(source.min_zoom, min_zoom);

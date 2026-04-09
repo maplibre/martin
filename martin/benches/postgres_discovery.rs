@@ -243,7 +243,7 @@ async fn populate_functions(connection_string: &str, count: usize) {
 }
 
 async fn discover_tables(config: &PostgresConfig) {
-    let builder = PostgresAutoDiscoveryBuilder::new(config, IdResolver::default())
+    let builder = PostgresAutoDiscoveryBuilder::new(config, IdResolver::default(), None, None)
         .await
         .expect("Failed to create builder");
 
@@ -255,7 +255,7 @@ async fn discover_tables(config: &PostgresConfig) {
 }
 
 async fn discover_functions(config: &PostgresConfig) {
-    let builder = PostgresAutoDiscoveryBuilder::new(config, IdResolver::default())
+    let builder = PostgresAutoDiscoveryBuilder::new(config, IdResolver::default(), None, None)
         .await
         .expect("Failed to create builder");
 

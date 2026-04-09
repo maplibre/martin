@@ -60,19 +60,27 @@ pub trait TileSourceConfiguration: ConfigurationLivecycleHooks {
     /// Asynchronously creates a new `BoxedSource` from a **local** file `path` using the given `id`.
     ///
     /// This function is called for each discovered file path that is not a URL.
+    /// `cache_minzoom`/`cache_maxzoom` come from the per-source config (if any) and
+    /// override the backend-wide defaults.
     fn new_sources(
         &self,
         id: String,
         path: PathBuf,
+        cache_minzoom: Option<u8>,
+        cache_maxzoom: Option<u8>,
     ) -> impl Future<Output = MartinResult<BoxedSource>> + Send;
 
     /// Asynchronously creates a new `BoxedSource` from a **remote** `url` using the given `id`.
     ///
     /// This function is called for each discovered source path that is a valid URL.
+    /// `cache_minzoom`/`cache_maxzoom` come from the per-source config (if any) and
+    /// override the backend-wide defaults.
     fn new_sources_url(
         &self,
         id: String,
         url: Url,
+        cache_minzoom: Option<u8>,
+        cache_maxzoom: Option<u8>,
     ) -> impl Future<Output = MartinResult<BoxedSource>> + Send;
 }
 
@@ -238,6 +246,22 @@ impl FileConfigSrc {
         }
     }
 
+    #[must_use]
+    pub fn cache_minzoom(&self) -> Option<u8> {
+        match self {
+            Self::Path(_) => None,
+            Self::Obj(o) => o.cache_minzoom,
+        }
+    }
+
+    #[must_use]
+    pub fn cache_maxzoom(&self) -> Option<u8> {
+        match self {
+            Self::Path(_) => None,
+            Self::Obj(o) => o.cache_maxzoom,
+        }
+    }
+
     pub fn abs_path(&self) -> ConfigFileResult<PathBuf> {
         let path = self.get_path();
 
@@ -261,9 +285,14 @@ fn is_sqlite_memory_uri(path: &Path) -> bool {
     }
 }
 
+#[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct FileConfigSource {
     pub path: PathBuf,
+    /// Minimum zoom level (inclusive) at which tiles from this source should be cached.
+    pub cache_minzoom: Option<u8>,
+    /// Maximum zoom level (inclusive) at which tiles from this source should be cached.
+    pub cache_maxzoom: Option<u8>,
 }
 
 #[cfg(feature = "_tiles")]
@@ -271,8 +300,17 @@ pub async fn resolve_files<T: TileSourceConfiguration>(
     config: &mut FileConfigEnum<T>,
     idr: &IdResolver,
     extension: &[&str],
+    default_cache_minzoom: Option<u8>,
+    default_cache_maxzoom: Option<u8>,
 ) -> MartinResult<(Vec<BoxedSource>, Vec<TileSourceWarning>)> {
-    resolve_int(config, idr, extension).await
+    resolve_int(
+        config,
+        idr,
+        extension,
+        default_cache_minzoom,
+        default_cache_maxzoom,
+    )
+    .await
 }
 
 #[cfg(feature = "_tiles")]
@@ -280,6 +318,8 @@ async fn resolve_int<T: TileSourceConfiguration>(
     config: &mut FileConfigEnum<T>,
     idr: &IdResolver,
     extension: &[&str],
+    default_cache_minzoom: Option<u8>,
+    default_cache_maxzoom: Option<u8>,
 ) -> MartinResult<(Vec<BoxedSource>, Vec<TileSourceWarning>)> {
     let Some(cfg) = config.extract_file_config() else {
         return Ok((vec![], vec![]));
@@ -293,8 +333,17 @@ async fn resolve_int<T: TileSourceConfiguration>(
 
     if let Some(sources) = cfg.sources {
         for (id, source) in sources {
-            match resolve_one_source_int(&cfg.custom, idr, &id, source, &mut files, &mut configs)
-                .await
+            match resolve_one_source_int(
+                &cfg.custom,
+                idr,
+                &id,
+                source,
+                &mut files,
+                &mut configs,
+                default_cache_minzoom,
+                default_cache_maxzoom,
+            )
+            .await
             {
                 Ok(src) => results.push(src),
                 Err(err) => {
@@ -316,6 +365,8 @@ async fn resolve_int<T: TileSourceConfiguration>(
             &mut files,
             &mut directories,
             &mut configs,
+            default_cache_minzoom,
+            default_cache_maxzoom,
         )
         .await
         {
@@ -340,6 +391,7 @@ async fn resolve_int<T: TileSourceConfiguration>(
 /// `TileSourceConfiguration` and resolves its ID using `IdResolver`.
 /// It determines if the source is a URL or a file path, configures the source accordingly.
 #[cfg(feature = "_tiles")]
+#[expect(clippy::too_many_arguments)]
 async fn resolve_one_source_int<T: TileSourceConfiguration>(
     custom: &T,
     idr: &IdResolver,
@@ -347,14 +399,20 @@ async fn resolve_one_source_int<T: TileSourceConfiguration>(
     source: FileConfigSrc,
     files: &mut HashSet<PathBuf>,
     configs: &mut BTreeMap<String, FileConfigSrc>,
+    default_cache_minzoom: Option<u8>,
+    default_cache_maxzoom: Option<u8>,
 ) -> MartinResult<BoxedSource> {
+    let cache_minzoom = source.cache_minzoom().or(default_cache_minzoom);
+    let cache_maxzoom = source.cache_maxzoom().or(default_cache_maxzoom);
     let result;
     if let Some(url) = parse_url(T::parse_urls(), source.get_path())? {
         let dup = !files.insert(source.get_path().clone());
         let dup = if dup { "duplicate " } else { "" };
         let id = idr.resolve(id, url.to_string());
         configs.insert(id.clone(), source);
-        result = custom.new_sources_url(id.clone(), url.clone()).await?;
+        result = custom
+            .new_sources_url(id.clone(), url.clone(), cache_minzoom, cache_maxzoom)
+            .await?;
         info!("Configured {dup}source {id} from {}", sanitize_url(&url));
     } else {
         let can = source.abs_path()?;
@@ -363,7 +421,9 @@ async fn resolve_one_source_int<T: TileSourceConfiguration>(
         let id = idr.resolve(id, can.to_string_lossy().to_string());
         info!("Configured {dup}source {id} from {}", can.display());
         configs.insert(id.clone(), source.clone());
-        result = custom.new_sources(id, source.into_path()).await?;
+        result = custom
+            .new_sources(id, source.into_path(), cache_minzoom, cache_maxzoom)
+            .await?;
     }
     Ok(result)
 }
@@ -373,6 +433,7 @@ async fn resolve_one_source_int<T: TileSourceConfiguration>(
 /// This function processes a given `PathBuf`, checking if it represents a file, directory,
 /// or a URL, and then it performs the necessary steps to configure tile sources.
 #[cfg(feature = "_tiles")]
+#[expect(clippy::too_many_arguments)]
 async fn resolve_one_path_int<T: TileSourceConfiguration>(
     custom: &T,
     idr: &IdResolver,
@@ -381,6 +442,8 @@ async fn resolve_one_path_int<T: TileSourceConfiguration>(
     files: &mut HashSet<PathBuf>,
     directories: &mut Vec<PathBuf>,
     configs: &mut BTreeMap<String, FileConfigSrc>,
+    default_cache_minzoom: Option<u8>,
+    default_cache_maxzoom: Option<u8>,
 ) -> MartinResult<Vec<BoxedSource>> {
     let mut results = Vec::new();
 
@@ -402,7 +465,16 @@ async fn resolve_one_path_int<T: TileSourceConfiguration>(
 
         let id = idr.resolve(id, url.to_string());
         configs.insert(id.clone(), FileConfigSrc::Path(path));
-        results.push(custom.new_sources_url(id.clone(), url.clone()).await?);
+        results.push(
+            custom
+                .new_sources_url(
+                    id.clone(),
+                    url.clone(),
+                    default_cache_minzoom,
+                    default_cache_maxzoom,
+                )
+                .await?,
+        );
         info!("Configured source {id} from URL {}", sanitize_url(&url));
     } else {
         let is_dir = path.is_dir();
@@ -435,7 +507,11 @@ async fn resolve_one_path_int<T: TileSourceConfiguration>(
             info!("Configured source {id} from {}", can.display());
             files.insert(can);
             configs.insert(id.clone(), FileConfigSrc::Path(path.clone()));
-            results.push(custom.new_sources(id, path).await?);
+            results.push(
+                custom
+                    .new_sources(id, path, default_cache_minzoom, default_cache_maxzoom)
+                    .await?,
+            );
         }
     }
     Ok(results)
@@ -533,7 +609,7 @@ mod mbtiles_tests {
         });
 
         let idr = IdResolver::new(&[]);
-        let result = resolve_files(&mut config, &idr, &["mbtiles"]).await;
+        let result = resolve_files(&mut config, &idr, &["mbtiles"], None, None).await;
 
         let (sources, warnings) = result.unwrap();
         assert_eq!(sources.len(), 0);
@@ -564,7 +640,7 @@ mod pmtiles_tests {
         });
 
         let idr = IdResolver::new(&[]);
-        let result = resolve_files(&mut config, &idr, &["pmtiles"]).await;
+        let result = resolve_files(&mut config, &idr, &["pmtiles"], None, None).await;
 
         let (sources, warnings) = result.unwrap();
         assert_eq!(sources.len(), 0);

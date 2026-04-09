@@ -38,7 +38,9 @@ pub struct PmtConfig {
 
 impl PartialEq for PmtConfig {
     fn eq(&self, other: &Self) -> bool {
-        self.options == other.options && self.unrecognized == other.unrecognized
+        self.directory_cache_size_mb == other.directory_cache_size_mb
+            && self.options == other.options
+            && self.unrecognized == other.unrecognized
         // pmtiles_directory_cache is intentionally excluded from equality check
     }
 }
@@ -209,7 +211,13 @@ impl TileSourceConfiguration for PmtConfig {
         true
     }
 
-    async fn new_sources(&self, id: String, path: PathBuf) -> MartinResult<BoxedSource> {
+    async fn new_sources(
+        &self,
+        id: String,
+        path: PathBuf,
+        cache_minzoom: Option<u8>,
+        cache_maxzoom: Option<u8>,
+    ) -> MartinResult<BoxedSource> {
         // canonicalize to resolve symlinks
         let path = path
             .canonicalize()
@@ -225,10 +233,17 @@ impl TileSourceConfiguration for PmtConfig {
             "Pmtiles source {id} ({}) will be loaded as {url}",
             path.display()
         );
-        self.new_sources_url(id, url).await
+        self.new_sources_url(id, url, cache_minzoom, cache_maxzoom)
+            .await
     }
 
-    async fn new_sources_url(&self, id: String, url: Url) -> MartinResult<BoxedSource> {
+    async fn new_sources_url(
+        &self,
+        id: String,
+        url: Url,
+        cache_minzoom: Option<u8>,
+        cache_maxzoom: Option<u8>,
+    ) -> MartinResult<BoxedSource> {
         use std::sync::LazyLock;
         use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -238,7 +253,8 @@ impl TileSourceConfiguration for PmtConfig {
         let (store, path) = object_store::parse_url_opts(&url, &self.options)
             .map_err(|e| ConfigFileError::ObjectStoreUrlParsing(e, id.clone()))?;
         let cache = PmtCacheInstance::new(cache_id, self.pmtiles_directory_cache.clone());
-        let source = PmtilesSource::new(cache, id, store, path).await?;
+        let source =
+            PmtilesSource::new(cache, id, store, path, cache_minzoom, cache_maxzoom).await?;
         Ok(Box::new(source))
     }
 }

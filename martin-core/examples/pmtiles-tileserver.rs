@@ -86,7 +86,7 @@ async fn main() -> std::io::Result<()> {
         .expect("Failed to parse object store URL");
 
     let cache = PmtCacheInstance::new(0, PmtCache::default());
-    let source = PmtilesSource::new(cache, "webp2".to_string(), store, path)
+    let source = PmtilesSource::new(cache, "webp2".to_string(), store, path, None, None)
         .await
         .expect("Failed to create PMTiles source");
 

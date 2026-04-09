@@ -83,6 +83,14 @@ pub struct Config {
     /// Overrides [`cache_size_mb`](Self::cache_size_mb)
     pub tile_cache_size_mb: Option<u64>,
 
+    /// Default minimum zoom level (inclusive) at which tiles should be cached.
+    /// Applied as a fallback to any tile source that does not configure its own value.
+    pub default_cache_minzoom: Option<u8>,
+
+    /// Default maximum zoom level (inclusive) at which tiles should be cached.
+    /// Applied as a fallback to any tile source that does not configure its own value.
+    pub default_cache_maxzoom: Option<u8>,
+
     #[serde(default)]
     pub on_invalid: Option<OnInvalid>,
 
@@ -339,9 +347,16 @@ impl Config {
     ) -> MartinResult<(TileSources, Vec<TileSourceWarning>)> {
         let mut sources_and_warnings: Vec<BoxFuture<_>> = Vec::new();
 
+        let default_cache_minzoom = self.default_cache_minzoom;
+        let default_cache_maxzoom = self.default_cache_maxzoom;
+
         #[cfg(feature = "postgres")]
         for s in self.postgres.iter_mut() {
-            sources_and_warnings.push(Box::pin(s.resolve(idr.clone())));
+            sources_and_warnings.push(Box::pin(s.resolve(
+                idr.clone(),
+                default_cache_minzoom,
+                default_cache_maxzoom,
+            )));
         }
 
         #[cfg(feature = "pmtiles")]
@@ -356,21 +371,39 @@ impl Config {
                     file_config.custom.pmtiles_directory_cache = pmtiles_cache;
                 }
             }
-            let val = crate::config::file::resolve_files(cfg, idr, &["pmtiles"]);
+            let val = crate::config::file::resolve_files(
+                cfg,
+                idr,
+                &["pmtiles"],
+                default_cache_minzoom,
+                default_cache_maxzoom,
+            );
             sources_and_warnings.push(Box::pin(val));
         }
 
         #[cfg(feature = "mbtiles")]
         if !self.mbtiles.is_empty() {
             let cfg = &mut self.mbtiles;
-            let val = crate::config::file::resolve_files(cfg, idr, &["mbtiles"]);
+            let val = crate::config::file::resolve_files(
+                cfg,
+                idr,
+                &["mbtiles"],
+                default_cache_minzoom,
+                default_cache_maxzoom,
+            );
             sources_and_warnings.push(Box::pin(val));
         }
 
         #[cfg(feature = "unstable-cog")]
         if !self.cog.is_empty() {
             let cfg = &mut self.cog;
-            let val = crate::config::file::resolve_files(cfg, idr, &["tif", "tiff"]);
+            let val = crate::config::file::resolve_files(
+                cfg,
+                idr,
+                &["tif", "tiff"],
+                default_cache_minzoom,
+                default_cache_maxzoom,
+            );
             sources_and_warnings.push(Box::pin(val));
         }
 
