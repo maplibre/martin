@@ -94,7 +94,7 @@ impl PostgresAutoDiscoveryBuilder {
     /// Duplicate names are deterministically converted to unique names.
     pub async fn new(config: &PostgresConfig, id_resolver: IdResolver) -> ConfigFileResult<Self> {
         let pool = PostgresPool::new(
-            config.connection_string.as_ref().expect("connection_string should be set after PostgresConfig::finalize()").as_str()
+            config.connection_string.as_ref().expect("connection_string should be set after PostgresConfig::finalize()").as_str(),
             config.ssl_certificates.ssl_cert.as_ref(),
             config.ssl_certificates.ssl_key.as_ref(),
             config.ssl_certificates.ssl_root_cert.as_ref(),
