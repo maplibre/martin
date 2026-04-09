@@ -44,7 +44,7 @@ jobs:
       fail-fast: false
       matrix:
         # 1. Linux-only for PRs (faster feedback)
-        # 2. Run on all three OS platforms when merging to main 
+        # 2. Run on all three OS platforms when merging to main
         os: ${{ fromJSON('["ubuntu-latest", "macos-latest"]') || (github.ref == 'refs/heads/main' && fromJSON('["ubuntu-latest", "macos-latest", "windows-latest"]')) }}
     steps:
       - run: rustup update stable && rustup default stable
