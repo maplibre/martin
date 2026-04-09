@@ -423,14 +423,14 @@ LIMIT 1;"
                 }
             }
 
+            let [tile_row, tile_column, zoom_level]: [String; 3] = res
+                .try_into()
+                .expect("res should contain exactly 3 items");
             return Err(InvalidTileIndex(
                 self.filepath().to_string(),
-                res.pop()
-                    .expect("the for loop above pushes exactly 3 items into res"),
-                res.pop()
-                    .expect("the for loop above pushes exactly 3 items into res"),
-                res.pop()
-                    .expect("the for loop above pushes exactly 3 items into res"),
+                zoom_level,
++               tile_column,
++               tile_row,
             ));
         }
 

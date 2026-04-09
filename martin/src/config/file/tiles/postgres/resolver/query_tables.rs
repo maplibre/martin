@@ -79,7 +79,7 @@ pub async fn query_available_tables(
             srid: row.get("srid"), // casting i32 to u32?
             geometry_type: row.get("type"),
             properties: Some(serde_json::from_value(row.get("properties")).expect(
-                "properties is a valid jsonb column containing a JSON object with string values",
+                "properties column should be a valid JSON object with string values",
             )),
             tilejson,
             ..Default::default()
