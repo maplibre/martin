@@ -40,6 +40,8 @@ jobs:
     permissions:
       contents: read
     runs-on: ${{ matrix.os }}
+    needs:
+      - lint-rust # not because it is needed, but because we want less concurrent jobs competing
     strategy:
       fail-fast: false
       matrix:
