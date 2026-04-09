@@ -377,6 +377,9 @@ postgres:
     function_zxy_query_test:
       schema: public
       function: function_zxy_query_test
+    function_zxy_raster:
+      schema: public
+      function: function_zxy_raster
     function_zxy_row:
       schema: public
       function: function_zxy_row

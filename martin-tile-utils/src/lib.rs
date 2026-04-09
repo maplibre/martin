@@ -129,6 +129,35 @@ impl Format {
         }
     }
 
+    /// Parse a MIME content-type string into a [`Format`].
+    ///
+    /// Returns `None` if the content type is not recognized.
+    ///
+    /// # Examples
+    /// ```
+    /// # use martin_tile_utils::Format;
+    /// assert_eq!(Format::from_content_type("image/jpeg"), Some(Format::Jpeg));
+    /// assert_eq!(Format::from_content_type("image/png"), Some(Format::Png));
+    /// assert_eq!(Format::from_content_type("application/x-protobuf"), Some(Format::Mvt));
+    /// assert_eq!(Format::from_content_type("unknown/type"), None);
+    /// ```
+    #[must_use]
+    pub fn from_content_type(value: &str) -> Option<Self> {
+        // Strip optional parameters like "; charset=utf-8"
+        let mime = value.split(';').next().unwrap_or(value).trim();
+        Some(match mime.to_ascii_lowercase().as_str() {
+            "image/gif" => Self::Gif,
+            "image/jpeg" | "image/jpg" => Self::Jpeg,
+            "application/json" => Self::Json,
+            "application/x-protobuf" | "application/vnd.mapbox-vector-tile" => Self::Mvt,
+            "application/vnd.maplibre-vector-tile" => Self::Mlt,
+            "image/png" => Self::Png,
+            "image/webp" => Self::Webp,
+            "image/avif" => Self::Avif,
+            _ => None?,
+        })
+    }
+
     #[must_use]
     pub fn is_detectable(self) -> bool {
         match self {
@@ -799,5 +828,66 @@ mod tests {
         let xyz = TileCoord { z: 1, x: 2, y: 3 };
         assert_eq!(format!("{xyz}"), "1,2,3");
         assert_eq!(format!("{xyz:#}"), "1/2/3");
+    }
+
+    #[test]
+    fn test_format_from_content_type() {
+        // Standard MIME types
+        assert_eq!(Format::from_content_type("image/gif"), Some(Format::Gif));
+        assert_eq!(Format::from_content_type("image/jpeg"), Some(Format::Jpeg));
+        assert_eq!(Format::from_content_type("image/jpg"), Some(Format::Jpeg));
+        assert_eq!(Format::from_content_type("application/json"), Some(Format::Json));
+        assert_eq!(
+            Format::from_content_type("application/x-protobuf"),
+            Some(Format::Mvt)
+        );
+        assert_eq!(
+            Format::from_content_type("application/vnd.mapbox-vector-tile"),
+            Some(Format::Mvt)
+        );
+        assert_eq!(
+            Format::from_content_type("application/vnd.maplibre-vector-tile"),
+            Some(Format::Mlt)
+        );
+        assert_eq!(Format::from_content_type("image/png"), Some(Format::Png));
+        assert_eq!(Format::from_content_type("image/webp"), Some(Format::Webp));
+        assert_eq!(Format::from_content_type("image/avif"), Some(Format::Avif));
+
+        // Case-insensitive matching
+        assert_eq!(Format::from_content_type("IMAGE/JPEG"), Some(Format::Jpeg));
+        assert_eq!(Format::from_content_type("Image/Png"), Some(Format::Png));
+
+        // With optional parameters
+        assert_eq!(
+            Format::from_content_type("image/jpeg; charset=utf-8"),
+            Some(Format::Jpeg)
+        );
+
+        // Unknown types
+        assert_eq!(Format::from_content_type("unknown/type"), None);
+        assert_eq!(Format::from_content_type("text/html"), None);
+        assert_eq!(Format::from_content_type(""), None);
+    }
+
+    #[test]
+    fn test_format_content_type_roundtrip() {
+        // Verify that from_content_type(content_type()) returns the same format
+        let formats = [
+            Format::Gif,
+            Format::Jpeg,
+            Format::Json,
+            Format::Mvt,
+            Format::Mlt,
+            Format::Png,
+            Format::Webp,
+            Format::Avif,
+        ];
+        for format in formats {
+            assert_eq!(
+                Format::from_content_type(format.content_type()),
+                Some(format),
+                "Round-trip failed for {format}"
+            );
+        }
     }
 }

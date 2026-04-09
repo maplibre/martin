@@ -1,7 +1,9 @@
 use std::collections::BTreeMap;
 
+use martin_tile_utils::{Encoding, Format, TileInfo};
 use serde::{Deserialize, Serialize};
 use tilejson::{Bounds, TileJSON};
+use tracing::warn;
 
 use super::config::PostgresInfo;
 use crate::config::file::UnrecognizedValues;
@@ -83,6 +85,26 @@ impl PostgresInfo for FunctionInfo {
         tilejson.maxzoom = self.maxzoom;
         tilejson.bounds = self.bounds;
         patch_json(tilejson, self.tilejson.as_ref())
+    }
+
+    /// Extract the tile format from the `content_type` field in the SQL comment JSON.
+    /// Falls back to the default MVT format if `content_type` is absent or unrecognized.
+    fn tile_info(&self) -> TileInfo {
+        let Some(tj) = &self.tilejson else {
+            return TileInfo::new(Format::Mvt, Encoding::Uncompressed);
+        };
+        let Some(content_type) = tj.get("content_type").and_then(|v| v.as_str()) else {
+            return TileInfo::new(Format::Mvt, Encoding::Uncompressed);
+        };
+        if let Some(format) = Format::from_content_type(content_type) {
+            TileInfo::from(format)
+        } else {
+            warn!(
+                "Unrecognized content_type '{}' in SQL comment for {}.{}, defaulting to MVT",
+                content_type, self.schema, self.function
+            );
+            TileInfo::new(Format::Mvt, Encoding::Uncompressed)
+        }
     }
 }
 

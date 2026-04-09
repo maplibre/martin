@@ -20,17 +20,31 @@ pub struct PostgresSource {
     info: PostgresSqlInfo,
     pool: PostgresPool,
     tilejson: TileJSON,
+    tile_info: TileInfo,
 }
 
 impl PostgresSource {
-    /// Creates a new `PostgreSQL` tile source.
+    /// Creates a new `PostgreSQL` tile source with the default MVT tile format.
     #[must_use]
     pub fn new(id: String, info: PostgresSqlInfo, tilejson: TileJSON, pool: PostgresPool) -> Self {
+        Self::new_with_tile_info(id, info, tilejson, pool, TileInfo::new(Mvt, Uncompressed))
+    }
+
+    /// Creates a new `PostgreSQL` tile source with a custom tile format.
+    #[must_use]
+    pub fn new_with_tile_info(
+        id: String,
+        info: PostgresSqlInfo,
+        tilejson: TileJSON,
+        pool: PostgresPool,
+        tile_info: TileInfo,
+    ) -> Self {
         Self {
             id,
             info,
             pool,
             tilejson,
+            tile_info,
         }
     }
 }
@@ -46,7 +60,7 @@ impl Source for PostgresSource {
     }
 
     fn get_tile_info(&self) -> TileInfo {
-        TileInfo::new(Mvt, Uncompressed)
+        self.tile_info
     }
 
     fn clone_source(&self) -> BoxedSource {
