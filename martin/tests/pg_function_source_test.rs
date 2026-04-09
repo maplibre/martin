@@ -69,8 +69,8 @@ async fn function_source_raster_content_type() {
     assert_yaml_snapshot!(src.get_tilejson(), @r"
     tilejson: 3.0.0
     tiles: []
-    name: function_zxy_raster
     description: a raster tile function source
+    name: function_zxy_raster
     content_type: image/png
     ");
 }

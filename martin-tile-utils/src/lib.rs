@@ -830,64 +830,40 @@ mod tests {
         assert_eq!(format!("{xyz:#}"), "1/2/3");
     }
 
-    #[test]
-    fn test_format_from_content_type() {
-        // Standard MIME types
-        assert_eq!(Format::from_content_type("image/gif"), Some(Format::Gif));
-        assert_eq!(Format::from_content_type("image/jpeg"), Some(Format::Jpeg));
-        assert_eq!(Format::from_content_type("image/jpg"), Some(Format::Jpeg));
-        assert_eq!(Format::from_content_type("application/json"), Some(Format::Json));
-        assert_eq!(
-            Format::from_content_type("application/x-protobuf"),
-            Some(Format::Mvt)
-        );
-        assert_eq!(
-            Format::from_content_type("application/vnd.mapbox-vector-tile"),
-            Some(Format::Mvt)
-        );
-        assert_eq!(
-            Format::from_content_type("application/vnd.maplibre-vector-tile"),
-            Some(Format::Mlt)
-        );
-        assert_eq!(Format::from_content_type("image/png"), Some(Format::Png));
-        assert_eq!(Format::from_content_type("image/webp"), Some(Format::Webp));
-        assert_eq!(Format::from_content_type("image/avif"), Some(Format::Avif));
-
-        // Case-insensitive matching
-        assert_eq!(Format::from_content_type("IMAGE/JPEG"), Some(Format::Jpeg));
-        assert_eq!(Format::from_content_type("Image/Png"), Some(Format::Png));
-
-        // With optional parameters
-        assert_eq!(
-            Format::from_content_type("image/jpeg; charset=utf-8"),
-            Some(Format::Jpeg)
-        );
-
-        // Unknown types
-        assert_eq!(Format::from_content_type("unknown/type"), None);
-        assert_eq!(Format::from_content_type("text/html"), None);
-        assert_eq!(Format::from_content_type(""), None);
+    #[rstest]
+    #[case::gif("image/gif", Some(Format::Gif))]
+    #[case::jpeg("image/jpeg", Some(Format::Jpeg))]
+    #[case::jpg_alias("image/jpg", Some(Format::Jpeg))]
+    #[case::json("application/json", Some(Format::Json))]
+    #[case::mvt_protobuf("application/x-protobuf", Some(Format::Mvt))]
+    #[case::mvt_mapbox("application/vnd.mapbox-vector-tile", Some(Format::Mvt))]
+    #[case::mlt("application/vnd.maplibre-vector-tile", Some(Format::Mlt))]
+    #[case::png("image/png", Some(Format::Png))]
+    #[case::webp("image/webp", Some(Format::Webp))]
+    #[case::avif("image/avif", Some(Format::Avif))]
+    #[case::case_insensitive_jpeg("IMAGE/JPEG", Some(Format::Jpeg))]
+    #[case::case_insensitive_png("Image/Png", Some(Format::Png))]
+    #[case::with_params("image/jpeg; charset=utf-8", Some(Format::Jpeg))]
+    #[case::unknown("unknown/type", None)]
+    #[case::text_html("text/html", None)]
+    #[case::empty("", None)]
+    fn test_format_from_content_type(#[case] input: &str, #[case] expected: Option<Format>) {
+        assert_eq!(Format::from_content_type(input), expected);
     }
 
-    #[test]
-    fn test_format_content_type_roundtrip() {
-        // Verify that from_content_type(content_type()) returns the same format
-        let formats = [
-            Format::Gif,
-            Format::Jpeg,
-            Format::Json,
-            Format::Mvt,
-            Format::Mlt,
-            Format::Png,
-            Format::Webp,
-            Format::Avif,
-        ];
-        for format in formats {
-            assert_eq!(
-                Format::from_content_type(format.content_type()),
-                Some(format),
-                "Round-trip failed for {format}"
-            );
-        }
+    #[rstest]
+    #[case::gif(Format::Gif)]
+    #[case::jpeg(Format::Jpeg)]
+    #[case::json(Format::Json)]
+    #[case::mvt(Format::Mvt)]
+    #[case::mlt(Format::Mlt)]
+    #[case::png(Format::Png)]
+    #[case::webp(Format::Webp)]
+    #[case::avif(Format::Avif)]
+    fn test_format_content_type_roundtrip(#[case] format: Format) {
+        assert_eq!(
+            Format::from_content_type(format.content_type()),
+            Some(format)
+        );
     }
 }
