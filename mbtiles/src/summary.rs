@@ -169,7 +169,7 @@ impl Mbtiles {
                     avg_tile_size: r.average.unwrap_or(0.0),
                     bbox: xyz_to_bbox(
                         zoom,
-                        r.min_tile_x.expect("min_tile_x should not be None"") as u32,
+                        r.min_tile_x.expect("min_tile_x should not be None") as u32,
                         invert_y_value(zoom, r.max_tile_y.expect("max_tile_y should not be None") as u32),
                         r.max_tile_x.expect("max_tile_x should not be None") as u32,
                         invert_y_value(zoom, r.min_tile_y.expect("min_tile_y should not be None") as u32),
