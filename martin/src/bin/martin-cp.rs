@@ -6,9 +6,11 @@
 use std::borrow::Cow;
 use std::env;
 use std::fmt::{Debug, Formatter};
+use std::future::Future;
 use std::num::NonZeroUsize;
 use std::ops::RangeInclusive;
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::time::Duration;
 
 use actix_http::error::ParseError;
@@ -18,7 +20,9 @@ use clap::Parser;
 use clap::builder::Styles;
 use clap::builder::styling::AnsiColor;
 use futures::TryStreamExt as _;
+use futures::future::{Either, select as select_future};
 use futures::stream::{self, StreamExt as _};
+use hotpath::wrap::tokio::sync::mpsc::{Receiver, Sender};
 #[cfg(feature = "postgres")]
 use martin::config::args::PostgresArgs;
 use martin::config::args::{Args, ExtraArgs, MetaArgs, SrvArgs};
@@ -34,6 +38,8 @@ use martin::srv::{DynTileSource, TileRequestHeaders, merge_tilejson};
 use martin::{MartinError, MartinResult};
 use martin_core::tiles::BoxedSource;
 use martin_core::tiles::mbtiles::MbtilesError;
+#[cfg(feature = "postgres")]
+use martin_core::tiles::postgres::ActiveQueryRegistry;
 use martin_tile_utils::{TileCoord, TileData, TileInfo, TileRect, append_rect, bbox_to_xyz};
 use mbtiles::UpdateZoomType::GrowOnly;
 use mbtiles::sqlx::SqliteConnection;
@@ -43,8 +49,8 @@ use mbtiles::{
 };
 use tilejson::Bounds;
 use tokio::sync::mpsc::channel;
+use tokio::task::JoinHandle;
 use tokio::time::Instant;
-use tokio::try_join;
 use tracing::{debug, error, info, warn};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -52,6 +58,7 @@ const SAVE_EVERY: Duration = Duration::from_mins(1);
 const PROGRESS_REPORT_AFTER: u64 = 100;
 const PROGRESS_REPORT_EVERY: Duration = Duration::from_secs(2);
 const BATCH_SIZE: usize = 1000;
+const INTERRUPT_DRAIN_TIMEOUT: Duration = Duration::from_secs(10);
 /// Defines the styles used for the CLI help output.
 const HELP_STYLES: Styles = Styles::styled()
     .header(AnsiColor::Blue.on_default().bold())
@@ -360,8 +367,131 @@ fn default_bounds(src: &DynTileSource) -> Vec<Bounds> {
     }
 }
 
-#[expect(clippy::too_many_lines)]
+/// Consumer task: read tiles from the channel and write them to `MBTiles`.
+///
+/// `conn` for sqlite is moved in and returned so the caller can update metadata afterward.
+async fn write_tiles_to_mbtiles(
+    mut rx: Receiver<TileXyz>,
+    mbt: Mbtiles,
+    mut conn: SqliteConnection,
+    mbt_type: MbtType,
+    on_duplicate: CopyDuplicateMode,
+    progress: Arc<TileCopyProgress>,
+) -> Result<SqliteConnection, MbtilesError> {
+    let mut last_saved = Instant::now();
+    let mut last_reported = Instant::now();
+    let mut batch = Vec::with_capacity(BATCH_SIZE);
+    while let Some(tile) = rx.recv().await {
+        debug!("Generated tile {tile:?}");
+        if tile.data.is_empty() {
+            // Empty tiles are counted but never written to disk.
+            progress.increment_empty();
+        } else {
+            batch.push((tile.xyz.z, tile.xyz.x, tile.xyz.y, tile.data));
+            hotpath::gauge!("cp_batch_size").set(f64::from(
+                u32::try_from(batch.len()).expect("batch size should be <= 1000"),
+            ));
+            if batch.len() >= BATCH_SIZE || last_saved.elapsed() > SAVE_EVERY {
+                mbt.insert_tiles(&mut conn, mbt_type, on_duplicate, &batch)
+                    .await
+                    .map_err(MbtilesError::from)?;
+                batch.clear();
+                last_saved = Instant::now();
+            }
+            progress.increment_non_empty();
+        }
+        // Throttle on-screen progress updates.
+        let done = progress.position();
+        if done % PROGRESS_REPORT_AFTER == (PROGRESS_REPORT_AFTER - 1)
+            && last_reported.elapsed() > PROGRESS_REPORT_EVERY
+        {
+            progress.update_message();
+            last_reported = Instant::now();
+        }
+    }
+    // Flush whatever is left once the channel closes (all senders dropped).
+    if !batch.is_empty() {
+        mbt.insert_tiles(&mut conn, mbt_type, on_duplicate, &batch)
+            .await
+            .map_err(MbtilesError::from)?;
+    }
+    Ok(conn)
+}
+
+/// Fetches tiles concurrently and sends them to the consumer via `tx`.
+async fn produce_tiles(
+    src: &DynTileSource<'_>,
+    tiles: Vec<TileRect>,
+    concurrency: usize,
+    tx: Sender<TileXyz>,
+) -> MartinResult<()> {
+    stream::iter(iterate_tiles(tiles))
+        .map(MartinResult::Ok)
+        .try_for_each_concurrent(concurrency, |xyz| {
+            let tx = tx.clone();
+            async move {
+                let tile = src
+                    .get_tile_content(xyz)
+                    .await
+                    .map_err(|e| std::io::Error::other(e.to_string()))?;
+                tx.send(TileXyz {
+                    xyz,
+                    data: tile.data,
+                })
+                .await
+                .expect("The receive half of the channel is not closed");
+                Ok(())
+            }
+        })
+        .await
+}
+
+/// Waits for the spawned consumer task to finish and return the `SQLite` connection.
+async fn join_consumer(
+    consumer_task: JoinHandle<Result<SqliteConnection, MbtilesError>>,
+    interrupted: bool,
+) -> MartinCpResult<Option<SqliteConnection>> {
+    let join_result = if interrupted {
+        // Ctrl + c path
+        let abort = consumer_task.abort_handle();
+        if let Ok(join) = tokio::time::timeout(INTERRUPT_DRAIN_TIMEOUT, consumer_task).await {
+            join
+        } else {
+            abort.abort();
+            warn!("Timed out draining tiles after Ctrl+C, exiting");
+            return Ok(None);
+        }
+    } else {
+        // Normal path
+        consumer_task.await
+    };
+    let conn = join_result
+        .map_err(|e| {
+            MartinError::from(std::io::Error::other(format!(
+                "consumer task panicked: {e}"
+            )))
+        })?
+        .map_err(MartinError::from)?;
+    Ok(Some(conn))
+}
+
 async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()> {
+    run_tile_copy_with_interrupt(args, state, async {
+        let _ = tokio::signal::ctrl_c().await;
+    })
+    .await
+}
+
+#[expect(clippy::too_many_lines)]
+async fn run_tile_copy_with_interrupt<F>(
+    args: CopyArgs,
+    state: ServerState,
+    interrupt: F,
+) -> MartinCpResult<()>
+where
+    F: Future<Output = ()>,
+{
+    // 1. Validate and resolve the tile source
     let output_file = &args.output_file;
     let concurrency = args.concurrency.get();
     // we only warn that the concurrency might be too low if:
@@ -377,9 +507,7 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()>
             "Using `--concurrency 1`. Increasing it may improve performance for your tile sources. See https://docs.martin.rs/cli/usage.html#concurrency for further details."
         );
     }
-
     let source_id = check_sources(&args, &state)?;
-
     let src = DynTileSource::new(
         &state.tile_manager,
         &source_id,
@@ -391,108 +519,100 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()>
         },
     )?;
 
+    // Track in-flight postgres queries so ctrl+c can abort them.
+    #[cfg(feature = "postgres")]
+    let registries: Vec<ActiveQueryRegistry> = src
+        .sources
+        .iter()
+        .filter_map(|(s, _)| s.cancel_registry())
+        .collect();
+
+    // 2. Compute tile ranges
     let inferred_bboxes = if args.bbox.is_empty() {
         default_bounds(&src)
     } else {
         args.bbox.clone()
     };
     let bboxes = check_bboxes(inferred_bboxes)?;
+    let tiles = compute_tile_ranges(&bboxes, &get_zooms(&args));
 
-    // parallel async below uses move, so we must only use copyable types
-    let src = &src;
-
-    let zooms = get_zooms(&args);
-    let tiles = compute_tile_ranges(&bboxes, &zooms);
+    // 3. Open or initialise the output MBTiles file
     let mbt = Mbtiles::new(output_file)?;
     let mut conn = mbt.open_or_new().await?;
-    let on_duplicate = if let Some(on_duplicate) = args.on_duplicate {
-        on_duplicate
+    let on_duplicate = if let Some(mode) = args.on_duplicate {
+        mode
     } else if !is_empty_database(&mut conn).await? {
         return Err(MbtError::DestinationFileExists(output_file.clone()).into());
     } else {
         CopyDuplicateMode::Override
     };
+
+    // parallel async below uses move, so we must only use copyable types
+    let src = &src;
     let just_sources: Vec<_> = src.sources.iter().map(|(s, _)| s.clone()).collect();
     let mbt_type = init_schema(&mbt, &mut conn, &just_sources, src.info, &args).await?;
     let total_size = tiles.iter().map(TileRect::size).sum();
-    let progress = TileCopyProgress::new(total_size);
+    // Shared with the spawned consumer (updates) and this task (finish / stats).
+    let progress = Arc::new(TileCopyProgress::new(total_size));
     info!(
         "Copying {total_size} {info} tiles from the source {source_id} to {out}",
         info = src.info,
         out = args.output_file.display()
     );
 
-    let (tx, mut rx) = hotpath::channel!(channel::<TileXyz>(500), label = "tile_copy");
-    try_join!(
-        // Note: for some reason, tests hang here without the `move` keyword
-        async move {
-            stream::iter(iterate_tiles(tiles))
-                .map(MartinResult::Ok)
-                .try_for_each_concurrent(concurrency, |xyz| {
-                    let tx = tx.clone();
-                    async move {
-                        let tile = src
-                            .get_tile_content(xyz)
-                            .await
-                            .map_err(|e| std::io::Error::other(e.to_string()))?;
-                        let data = tile.data;
-                        tx.send(TileXyz { xyz, data })
-                            .await
-                            .expect("The receive half of the channel is not closed");
-                        Ok(())
-                    }
-                })
-                .await
-        },
-        async {
-            let mut last_saved = Instant::now();
-            let mut last_reported = Instant::now();
-            let mut batch = Vec::with_capacity(BATCH_SIZE);
-            while let Some(tile) = rx.recv().await {
-                debug!("Generated tile {tile:?}");
-                if tile.data.is_empty() {
-                    progress.increment_empty();
-                } else {
-                    batch.push((tile.xyz.z, tile.xyz.x, tile.xyz.y, tile.data));
-                    hotpath::gauge!("cp_batch_size").set(f64::from(
-                        u32::try_from(batch.len()).expect("batch size should be <= 1000"),
-                    ));
-                    if batch.len() >= BATCH_SIZE || last_saved.elapsed() > SAVE_EVERY {
-                        mbt.insert_tiles(&mut conn, mbt_type, on_duplicate, &batch)
-                            .await
-                            .map_err(MbtilesError::from)?;
-                        batch.clear();
-                        last_saved = Instant::now();
-                    }
-                    progress.increment_non_empty();
-                }
+    // 4. Spawn the consumer: read tiles from the channel and write them to MBTiles.
+    // Runs in the background so this task can do other work (step 5: fetch tiles and ctrl+c).
+    let (tx, rx) = hotpath::channel!(channel::<TileXyz>(500), label = "tile_copy");
+    let consumer_task = tokio::spawn(write_tiles_to_mbtiles(
+        rx,
+        mbt.clone(),
+        conn,
+        mbt_type,
+        on_duplicate,
+        Arc::clone(&progress),
+    ));
 
-                let done = progress.position();
-                if done % PROGRESS_REPORT_AFTER == (PROGRESS_REPORT_AFTER - 1)
-                    && last_reported.elapsed() > PROGRESS_REPORT_EVERY
-                {
-                    progress.update_message();
-                    last_reported = Instant::now();
-                }
-            }
-            if !batch.is_empty() {
-                mbt.insert_tiles(&mut conn, mbt_type, on_duplicate, &batch)
-                    .await
-                    .map_err(MbtilesError::from)?;
-            }
-            Ok(())
+    // 5. Producer: concurrently fetch all tiles or stop early on interrupt.
+    let produce = produce_tiles(src, tiles, concurrency, tx.clone());
+    tokio::pin!(produce);
+    tokio::pin!(interrupt);
+    let interrupted = match select_future(produce, interrupt).await {
+        Either::Left((res, _)) => {
+            res?;
+            false
         }
-    )?;
+        Either::Right(((), _produce)) => {
+            warn!("Received Ctrl+C, cancelling active PostgreSQL queries...");
+            #[cfg(feature = "postgres")]
+            for registry in &registries {
+                registry.cancel_all().await;
+            }
+            info!("Queries cancelled. Draining remaining queued tiles...");
+            true
+        }
+    };
+    // Dropping every sender closes the channel, which causes the consumer's
+    // `rx.recv()` to return `None` and ends the loop
+    drop(tx);
 
+    // 6. Wait for the spawned consumer to finish with a timeout on interrupt
+    let Some(reclaimed_conn) = join_consumer(consumer_task, interrupted).await? else {
+        // Interrupt drain timed out: consumer aborted, exit without metadata.
+        return Ok(());
+    };
+    conn = reclaimed_conn;
     progress.finish();
+    if interrupted {
+        info!("Interrupted, skipping metadata updates");
+        return Ok(());
+    }
 
+    // 7. Finalise the output file
     mbt.update_metadata(&mut conn, GrowOnly).await?;
-
     for (key, value) in args.set_meta {
         info!("Setting metadata key={key} value={value}");
         mbt.set_metadata_value(&mut conn, &key, value).await?;
     }
-
     if !args.skip_agg_tiles_hash {
         if progress.did_copy_tiles() {
             info!("Computing agg_tiles_hash value...");
@@ -501,7 +621,6 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()>
             info!("No tiles were copied, skipping agg_tiles_hash computation");
         }
     }
-
     Ok(())
 }
 
@@ -586,15 +705,19 @@ async fn main() {
 
 #[cfg(test)]
 mod tests {
+    use std::path::Path;
     use std::str::FromStr as _;
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicBool, Ordering};
 
     use async_trait::async_trait;
     use insta::assert_yaml_snapshot;
     use martin::TileSourceManager;
-    use martin::config::file::{OnInvalid, ProcessConfig};
+    use martin::config::file::{OnInvalid, ProcessConfig, ServerState};
     use martin_core::CacheZoomRange;
     use martin_core::tiles::{MartinCoreResult, Source, UrlQuery};
     use martin_tile_utils::{Encoding, Format};
+    use mbtiles::Mbtiles;
     use rstest::{fixture, rstest};
     use tilejson::{TileJSON, tilejson};
 
@@ -605,6 +728,8 @@ mod tests {
         pub id: &'static str,
         pub tj: TileJSON,
         pub data: TileData,
+        // When set, `get_tile` sets this flag then blocks forever (for interrupt tests).
+        pub block_after_fetch: Option<Arc<AtomicBool>>,
     }
 
     #[async_trait]
@@ -634,6 +759,10 @@ mod tests {
             _xyz: TileCoord,
             _url_query: Option<&UrlQuery>,
         ) -> MartinCoreResult<TileData> {
+            if let Some(flag) = &self.block_after_fetch {
+                flag.store(true, Ordering::Release);
+                std::future::pending::<()>().await;
+            }
             Ok(self.data.clone())
         }
     }
@@ -650,6 +779,22 @@ mod tests {
         TileSourceManager::from_sources(None, OnInvalid::Abort, sources)
     }
 
+    fn test_state(sources: Vec<Vec<BoxedSource>>) -> ServerState {
+        ServerState {
+            tile_manager: test_manager(sources),
+            #[cfg(feature = "sprites")]
+            sprites: martin_core::sprites::SpriteSources::default(),
+            #[cfg(feature = "sprites")]
+            sprite_cache: None,
+            #[cfg(feature = "fonts")]
+            fonts: martin_core::fonts::FontSources::default(),
+            #[cfg(feature = "fonts")]
+            font_cache: None,
+            #[cfg(feature = "styles")]
+            styles: martin_core::styles::StyleSources::default(),
+        }
+    }
+
     #[fixture]
     fn many_sources() -> TileSourceManager {
         test_manager(vec![vec![
@@ -657,21 +802,25 @@ mod tests {
                 id: "test_source",
                 tj: tilejson! { tiles: vec![], bounds: Bounds::from_str("-110.0,20.0,-120.0,80.0").unwrap() },
                 data: Vec::default(),
+                block_after_fetch: None,
             }),
             Box::new(MockSource {
                 id: "test_source2",
                 tj: tilejson! { tiles: vec![], bounds: Bounds::from_str("-130.0,40.0,-170.0,10.0").unwrap() },
                 data: Vec::default(),
+                block_after_fetch: None,
             }),
             Box::new(MockSource {
                 id: "unrequested_source",
                 tj: tilejson! { tiles: vec![], bounds: Bounds::from_str("-150.0,40.0,-120.0,10.0").unwrap() },
                 data: Vec::default(),
+                block_after_fetch: None,
             }),
             Box::new(MockSource {
                 id: "unbounded_source",
                 tj: tilejson! { tiles: vec![] },
                 data: Vec::default(),
+                block_after_fetch: None,
             }),
         ]])
     }
@@ -682,6 +831,7 @@ mod tests {
             id: "test_source",
             tj: tilejson! { tiles: vec![], bounds: Bounds::from_str("-120.0,30.0,-110.0,40.0").unwrap() },
             data: Vec::default(),
+            block_after_fetch: None,
         })]])
     }
 
@@ -691,6 +841,7 @@ mod tests {
             id: "test_source",
             tj: tilejson! { tiles: vec![] },
             data: Vec::default(),
+            block_after_fetch: None,
         })]])
     }
 
@@ -802,5 +953,79 @@ mod tests {
         };
 
         assert_eq!(get_zooms(&args).as_ref(), expected.as_slice());
+    }
+
+    async fn read_metadata(output_file: &Path, key: &str) -> MartinCpResult<Option<String>> {
+        let mbt = Mbtiles::new(output_file)?;
+        let mut conn = mbt.open().await?;
+        Ok(mbt.get_metadata_value(&mut conn, key).await?)
+    }
+
+    #[tokio::test]
+    async fn run_tile_copy_without_interrupt_writes_metadata() {
+        let state = test_state(vec![vec![Box::new(MockSource {
+            id: "test_source",
+            tj: tilejson! { tiles: vec![] },
+            data: Vec::default(),
+            block_after_fetch: None,
+        })]]);
+        let output_dir = tempfile::tempdir().unwrap();
+        let output_file = output_dir.path().join("completed.mbtiles");
+        let status = "status";
+        let expected_status = "completed";
+        let args = CopyArgs {
+            source: Some("test_source".to_string()),
+            output_file: output_file.clone(),
+            max_zoom: Some(0),
+            min_zoom: Some(0),
+            set_meta: vec![(status.into(), expected_status.into())],
+            ..Default::default()
+        };
+
+        run_tile_copy_with_interrupt(args, state, std::future::pending::<()>())
+            .await
+            .unwrap();
+        assert_eq!(
+            read_metadata(&output_file, status)
+                .await
+                .unwrap()
+                .as_deref(),
+            Some(expected_status),
+        );
+    }
+
+    #[tokio::test]
+    async fn run_tile_copy_interrupt_skips_metadata_finalization() {
+        let fetch_started = Arc::new(AtomicBool::new(false));
+        let state = test_state(vec![vec![Box::new(MockSource {
+            id: "test_source",
+            tj: tilejson! { tiles: vec![] },
+            data: Vec::default(),
+            // nonstop fetching for testing interruption
+            block_after_fetch: Some(Arc::clone(&fetch_started)),
+        })]]);
+        let output_dir = tempfile::tempdir().unwrap();
+        let output_file = output_dir.path().join("interrupted.mbtiles");
+        let status = "status";
+        let expected_status = "interruption";
+        let args = CopyArgs {
+            source: Some("test_source".to_string()),
+            output_file: output_file.clone(),
+            max_zoom: Some(0),
+            min_zoom: Some(0),
+            set_meta: vec![(status.into(), expected_status.into())],
+            ..Default::default()
+        };
+
+        run_tile_copy_with_interrupt(args, state, async {
+            // wait for starting get_tile
+            while !fetch_started.load(Ordering::Acquire) {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .unwrap();
+        // metadata should be none due to interruption
+        assert!(read_metadata(&output_file, status).await.unwrap().is_none());
     }
 }

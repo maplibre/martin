@@ -7,7 +7,7 @@ pub use errors::{PostgresError, PostgresResult};
 mod tls;
 
 mod pool;
-pub use pool::PostgresPool;
+pub use pool::{ActiveQueryRegistry, PostgresPool};
 
 mod source;
 pub use source::{PostgresSource, PostgresSqlInfo};
