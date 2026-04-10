@@ -4,7 +4,7 @@ use std::time::Duration;
 use futures::future::try_join;
 use futures::pin_mut;
 use martin_core::tiles::BoxedSource;
-use martin_tile_utils::{Encoding, Format, TileInfo};
+use martin_tile_utils::TileInfo;
 use serde::{Deserialize, Serialize};
 use tilejson::TileJSON;
 use tokio::time::timeout;

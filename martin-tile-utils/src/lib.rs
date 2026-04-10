@@ -144,7 +144,7 @@ impl Format {
     #[must_use]
     pub fn from_content_type(value: &str) -> Option<Self> {
         // Strip optional parameters like "; charset=utf-8"
-        let mime = value.split(';').next().unwrap().trim();
+        let mime = value.split(';').next().expect("split always yields at least one element").trim();
         Some(match mime.to_ascii_lowercase().as_str() {
             "image/gif" => Self::Gif,
             "image/jpeg" | "image/jpg" => Self::Jpeg,
