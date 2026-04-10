@@ -1,0 +1,1 @@
+vary: Origin, Access-Control-Request-Method, Access-Control-Request-Headers

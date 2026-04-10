@@ -1,7 +1,5 @@
 use async_trait::async_trait;
 use deadpool_postgres::tokio_postgres::types::{ToSql, Type};
-use martin_tile_utils::Encoding::Uncompressed;
-use martin_tile_utils::Format::Mvt;
 use martin_tile_utils::{TileCoord, TileData, TileInfo};
 use tilejson::TileJSON;
 use tracing::debug;
@@ -24,15 +22,9 @@ pub struct PostgresSource {
 }
 
 impl PostgresSource {
-    /// Creates a new `PostgreSQL` tile source with the default MVT tile format.
+    /// Creates a new `PostgreSQL` tile source.
     #[must_use]
-    pub fn new(id: String, info: PostgresSqlInfo, tilejson: TileJSON, pool: PostgresPool) -> Self {
-        Self::new_with_tile_info(id, info, tilejson, pool, TileInfo::new(Mvt, Uncompressed))
-    }
-
-    /// Creates a new `PostgreSQL` tile source with a custom tile format.
-    #[must_use]
-    pub fn new_with_tile_info(
+    pub fn new(
         id: String,
         info: PostgresSqlInfo,
         tilejson: TileJSON,
