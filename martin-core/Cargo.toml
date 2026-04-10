@@ -35,6 +35,8 @@ postgres = [
     "dep:semver",
     "dep:tokio-postgres-rustls",
     "dep:serde_json",
+    "dep:tokio",
+    "tokio/sync",
     "_tiles",
 ]
 unstable-cog = ["dep:png", "dep:tiff", "dep:image", "dep:serde_json", "_tiles"]

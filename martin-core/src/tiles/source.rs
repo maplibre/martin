@@ -7,6 +7,8 @@ use tilejson::TileJSON;
 
 use crate::CacheZoomRange;
 use crate::tiles::catalog::CatalogSourceEntry;
+#[cfg(feature = "postgres")]
+use crate::tiles::postgres::ActiveQueryRegistry;
 use crate::tiles::{MartinCoreResult, Tile};
 
 /// URL query parameters for dynamic tile generation.
@@ -44,6 +46,14 @@ pub trait Source: Send + Sync + Debug {
     /// Whether martin-cp should use concurrent scraping. Default: false.
     fn benefits_from_concurrent_scraping(&self) -> bool {
         false
+    }
+
+    /// Returnes the cancellation registry for queries
+    ///
+    /// Only works for postgresql sources for now
+    #[cfg(feature = "postgres")]
+    fn cancel_registery(&self) -> Option<ActiveQueryRegistry> {
+        None
     }
 
     /// Zoom-level bounds for tile caching.
