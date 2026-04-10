@@ -33,6 +33,14 @@ pub mod tests {
             Box::new(self.clone())
         }
 
+        fn cache_minzoom(&self) -> Option<u8> {
+            None
+        }
+
+        fn cache_maxzoom(&self) -> Option<u8> {
+            None
+        }
+
         async fn get_tile(
             &self,
             _xyz: TileCoord,
@@ -67,6 +75,14 @@ pub mod tests {
 
         fn clone_source(&self) -> BoxedSource {
             Box::new(self.clone())
+        }
+
+        fn cache_minzoom(&self) -> Option<u8> {
+            None
+        }
+
+        fn cache_maxzoom(&self) -> Option<u8> {
+            None
         }
 
         async fn get_tile(

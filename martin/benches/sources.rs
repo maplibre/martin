@@ -43,6 +43,14 @@ mod sources {
             Box::new(self.clone())
         }
 
+        fn cache_minzoom(&self) -> Option<u8> {
+            None
+        }
+
+        fn cache_maxzoom(&self) -> Option<u8> {
+            None
+        }
+
         fn support_url_query(&self) -> bool {
             false
         }
@@ -89,6 +97,14 @@ mod sources {
 
         fn clone_source(&self) -> Box<dyn Source> {
             Box::new(self.clone())
+        }
+
+        fn cache_minzoom(&self) -> Option<u8> {
+            None
+        }
+
+        fn cache_maxzoom(&self) -> Option<u8> {
+            None
         }
 
         fn support_url_query(&self) -> bool {

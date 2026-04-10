@@ -46,16 +46,10 @@ pub trait Source: Send + Sync + Debug {
     }
 
     /// Minimum zoom level (inclusive) at which tiles from this source should be cached.
-    /// `None` means no lower bound. Default: None.
-    fn cache_minzoom(&self) -> Option<u8> {
-        None
-    }
+    fn cache_minzoom(&self) -> Option<u8>;
 
     /// Maximum zoom level (inclusive) at which tiles from this source should be cached.
-    /// `None` means no upper bound. Default: None.
-    fn cache_maxzoom(&self) -> Option<u8> {
-        None
-    }
+    fn cache_maxzoom(&self) -> Option<u8>;
 
     /// Retrieves tile data for the given coordinates.
     ///

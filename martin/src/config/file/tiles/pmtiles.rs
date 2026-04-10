@@ -11,8 +11,8 @@ use url::Url;
 
 use crate::MartinResult;
 use crate::config::file::{
-    ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks, TileSourceConfiguration,
-    UnrecognizedKeys, UnrecognizedValues,
+    CacheZoom, ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks,
+    TileSourceConfiguration, UnrecognizedKeys, UnrecognizedValues,
 };
 
 #[serde_with::skip_serializing_none]
@@ -215,8 +215,7 @@ impl TileSourceConfiguration for PmtConfig {
         &self,
         id: String,
         path: PathBuf,
-        cache_minzoom: Option<u8>,
-        cache_maxzoom: Option<u8>,
+        cache: CacheZoom,
     ) -> MartinResult<BoxedSource> {
         // canonicalize to resolve symlinks
         let path = path
@@ -233,16 +232,14 @@ impl TileSourceConfiguration for PmtConfig {
             "Pmtiles source {id} ({}) will be loaded as {url}",
             path.display()
         );
-        self.new_sources_url(id, url, cache_minzoom, cache_maxzoom)
-            .await
+        self.new_sources_url(id, url, cache).await
     }
 
     async fn new_sources_url(
         &self,
         id: String,
         url: Url,
-        cache_minzoom: Option<u8>,
-        cache_maxzoom: Option<u8>,
+        cache: CacheZoom,
     ) -> MartinResult<BoxedSource> {
         use std::sync::LazyLock;
         use std::sync::atomic::{AtomicUsize, Ordering};
@@ -252,9 +249,9 @@ impl TileSourceConfiguration for PmtConfig {
 
         let (store, path) = object_store::parse_url_opts(&url, &self.options)
             .map_err(|e| ConfigFileError::ObjectStoreUrlParsing(e, id.clone()))?;
-        let cache = PmtCacheInstance::new(cache_id, self.pmtiles_directory_cache.clone());
+        let dir_cache = PmtCacheInstance::new(cache_id, self.pmtiles_directory_cache.clone());
         let source =
-            PmtilesSource::new(cache, id, store, path, cache_minzoom, cache_maxzoom).await?;
+            PmtilesSource::new(dir_cache, id, store, path, cache.minzoom, cache.maxzoom).await?;
         Ok(Box::new(source))
     }
 }
