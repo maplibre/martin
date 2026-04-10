@@ -90,8 +90,11 @@ impl TileSources {
             }
         }
 
-        // format is guaranteed to be Some() here
-        Ok((sources, use_url_query, info.unwrap()))
+        Ok((
+            sources,
+            use_url_query,
+            info.expect("source_ids should be non-empty and contain at least one valid source"),
+        ))
     }
 
     /// Validates zoom level support for a source
