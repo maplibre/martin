@@ -17,7 +17,7 @@ CREATE TABLE "MixedCase"."MixPoints"
 --        md5(random()::text)    as "TABLE",
 --        (ST_DUMP(ST_GENERATEPOINTS(st_transform(st_tileenvelope(0, 0, 0), 4326), 27))).Geom;
 --
--- To dump the data above, uncomment code the above, comment the INSERT code bellow, and run:
+-- To dump the data above, uncomment code the above, comment the INSERT code below, and run:
 --   just restart
 --   just pg_dump --data-only --inserts --rows-per-insert=100 --table="MixedCase"."MixPoints"
 

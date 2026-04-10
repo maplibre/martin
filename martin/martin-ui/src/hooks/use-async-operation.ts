@@ -59,7 +59,7 @@ export function useAsyncOperation<T>(
 
   const execute = useCallback(async () => {
     setState((prev) => ({ ...prev, error: null }));
-    // we set it to loading after 2s, while preserving the intial (loaded, unloaded) state
+    // we set it to loading after 2s, while preserving the initial (loaded, unloaded) state
     const timeout = setTimeout(() => setState((prev) => ({ ...prev, isLoading: true })), 2000);
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {

@@ -270,7 +270,7 @@ Read it when you’re curious **why** certain choices were made.
     - Enables efficient file and network I/O
     - Keeps thread usage low under load
 
-??? "Specifc crates splitting"
+??? "Specific crates splitting"
     The codebase is split into crates with clear responsibilities
 
     - **martin-core** — reusable core logic and tile sources

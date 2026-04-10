@@ -83,7 +83,7 @@ pub struct PatchFileInfo {
 /// ## Reading tiles from an existing file
 ///
 /// > [!NOTE]
-/// > Note that there are both [osgeos' Tile Map Service](https://wiki.openstreetmap.org/wiki/TMS) and [xyz Slippy map tilenames](https://wiki.openstreetmap.org/wiki/Slippy_map_tilenames) tiling shemes.
+/// > Note that there are both [osgeos' Tile Map Service](https://wiki.openstreetmap.org/wiki/TMS) and [xyz Slippy map tilenames](https://wiki.openstreetmap.org/wiki/Slippy_map_tilenames) tiling schemes.
 /// > They differ only in if the y coordinate direction.
 /// > **The default in mapbox and maplibre is xyz.***
 /// > **The default in mbtiles generation like plantitler is tms.***
@@ -212,6 +212,7 @@ impl Mbtiles {
     /// # Ok(())
     /// # }
     /// ```
+    #[hotpath::measure]
     pub async fn open(&self) -> MbtResult<SqliteConnection> {
         debug!("Opening w/ defaults {self}");
         let opt = SqliteConnectOptions::new().filename(self.filepath());
@@ -243,6 +244,7 @@ impl Mbtiles {
     /// # Ok(())
     /// # }
     /// ```
+    #[hotpath::measure]
     pub async fn open_or_new(&self) -> MbtResult<SqliteConnection> {
         debug!("Opening or creating {self}");
         let opt = SqliteConnectOptions::new()
@@ -280,6 +282,7 @@ impl Mbtiles {
     /// # Ok(())
     /// # }
     /// ```
+    #[hotpath::measure]
     pub async fn open_readonly(&self) -> MbtResult<SqliteConnection> {
         debug!("Opening as readonly {self}");
         let opt = SqliteConnectOptions::new()
@@ -307,6 +310,7 @@ impl Mbtiles {
     }
 
     /// Attach this `MBTiles` file to the given `SQLite` connection as a given name
+    #[hotpath::measure]
     pub async fn attach_to<T>(&self, conn: &mut T, name: &str) -> MbtResult<()>
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
@@ -458,6 +462,7 @@ impl Mbtiles {
     /// # Ok(())
     /// # }
     /// ```
+    #[hotpath::measure]
     pub async fn get_tile<T>(
         &self,
         conn: &mut T,
@@ -532,6 +537,7 @@ impl Mbtiles {
     /// # Ok(())
     /// # }
     /// ```
+    #[hotpath::measure]
     pub async fn get_tile_and_hash(
         &self,
         conn: &mut SqliteConnection,
@@ -592,6 +598,7 @@ impl Mbtiles {
     /// mbtiles.insert_tiles(&mut conn, mbt_type, CopyDuplicateMode::Ignore, &batch).await.unwrap();
     /// # }
     /// ```
+    #[hotpath::measure]
     pub async fn insert_tiles(
         &self,
         conn: &mut SqliteConnection,
@@ -631,6 +638,7 @@ impl Mbtiles {
     /// This method is slightly faster than [`Mbtiles::get_tile_and_hash`] and [`Mbtiles::get_tile`]
     /// because it only checks if the tile exists but does not retrieve tile data.
     /// Most of the time you would want to use the other two functions.
+    #[hotpath::measure]
     pub async fn contains(
         &self,
         conn: &mut SqliteConnection,

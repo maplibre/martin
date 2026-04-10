@@ -127,7 +127,7 @@ pub struct CopyArgs {
 
 impl Default for CopyArgs {
     fn default() -> Self {
-        CopyArgs {
+        Self {
             bbox: Vec::new(),
             source: None,
             output_file: PathBuf::new(),
@@ -397,7 +397,7 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()>
         out = args.output_file.display()
     );
 
-    let (tx, mut rx) = channel::<TileXyz>(500);
+    let (tx, mut rx) = hotpath::channel!(channel::<TileXyz>(500), label = "tile_copy");
     try_join!(
         // Note: for some reason, tests hang here without the `move` keyword
         async move {
@@ -426,6 +426,9 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()>
                     progress.increment_empty();
                 } else {
                     batch.push((tile.xyz.z, tile.xyz.x, tile.xyz.y, tile.data));
+                    hotpath::gauge!("cp_batch_size").set(f64::from(
+                        u32::try_from(batch.len()).expect("batch size should be <= 1000"),
+                    ));
                     if batch.len() >= BATCH_SIZE || last_saved.elapsed() > SAVE_EVERY {
                         mbt.insert_tiles(&mut conn, mbt_type, on_duplicate, &batch)
                             .await

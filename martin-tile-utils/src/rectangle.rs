@@ -71,7 +71,7 @@ impl TileRect {
     pub fn new(zoom: u8, min_x: u32, min_y: u32, max_x: u32, max_y: u32) -> Self {
         assert!(min_x <= max_x);
         assert!(min_y <= max_y);
-        TileRect {
+        Self {
             zoom,
             min_x,
             min_y,
@@ -136,24 +136,24 @@ impl TileRect {
         if o.min_x < self.min_x {
             // take the left part of the other rect, entire height
             let min_x = self.min_x - 1;
-            result[0] = Some(TileRect::new(o.zoom, o.min_x, o.min_y, min_x, o.max_y));
+            result[0] = Some(Self::new(o.zoom, o.min_x, o.min_y, min_x, o.max_y));
         }
         if o.max_x > self.max_x {
             // take the right part of the other rect, entire height
             let max_x = self.max_x + 1;
-            result[1] = Some(TileRect::new(o.zoom, max_x, o.min_y, o.max_x, o.max_y));
+            result[1] = Some(Self::new(o.zoom, max_x, o.min_y, o.max_x, o.max_y));
         }
         if o.min_y < self.min_y {
             // take the top part of the other rect, width of self
             let min_x = o.min_x.max(self.min_x);
             let max_x = o.max_x.min(self.max_x);
-            result[2] = Some(TileRect::new(o.zoom, min_x, o.min_y, max_x, self.min_y - 1));
+            result[2] = Some(Self::new(o.zoom, min_x, o.min_y, max_x, self.min_y - 1));
         }
         if o.max_y > self.max_y {
             // take the bottom part of the other rect, width of self
             let min_x = o.min_x.max(self.min_x);
             let max_x = o.max_x.min(self.max_x);
-            result[3] = Some(TileRect::new(o.zoom, min_x, self.max_y + 1, max_x, o.max_y));
+            result[3] = Some(Self::new(o.zoom, min_x, self.max_y + 1, max_x, o.max_y));
         }
         result
     }

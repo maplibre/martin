@@ -48,7 +48,7 @@ export function TileInspectDialogMap({ name, source }: TileInspectDialogMapProps
     source.content_type,
   );
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: if we list tileJson below, this is an infinte loop
+  // biome-ignore lint/correctness/useExhaustiveDependencies: if we list tileJson below, this is an infinite loop
   useEffect(() => {
     tileJsonOperation.execute();
   }, []);

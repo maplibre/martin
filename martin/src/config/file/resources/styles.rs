@@ -133,7 +133,7 @@ impl StyleConfig {
         paths_with_names.sort_unstable();
         paths_with_names.dedup();
 
-        *self = FileConfigEnum::new_extended(paths_with_names, configs, cfg.custom);
+        *self = Self::new_extended(paths_with_names, configs, cfg.custom);
 
         Ok(results)
     }

@@ -32,7 +32,7 @@ martin  /path/to/directory
 
 ### Serving PMTiles from local file systems, http or Object Storage
 
-The settings avaliable for a PMTiles source depend on the backend:
+The settings available for a PMTiles source depend on the backend:
 
 === "Local File System"
 

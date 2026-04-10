@@ -1,3 +1,4 @@
+#![allow(clippy::unwrap_used)]
 use std::collections::HashMap;
 use std::fmt::Write as _;
 use std::path::PathBuf;

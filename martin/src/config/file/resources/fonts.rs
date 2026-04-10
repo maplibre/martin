@@ -54,7 +54,7 @@ impl FontConfig {
                 .map_err(|e| ConfigFileError::FontResolutionFailed(e, base_path.clone()))?;
         }
 
-        *self = FileConfigEnum::new_extended(directories, configs, cfg.custom);
+        *self = Self::new_extended(directories, configs, cfg.custom);
 
         Ok(results)
     }
