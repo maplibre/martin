@@ -6,7 +6,7 @@ use tracing::{info, warn};
 
 use super::PostgresInfo;
 use crate::config::file::postgres::utils::{normalize_key, patch_json};
-use crate::config::file::{CacheZoom, UnrecognizedValues};
+use crate::config::file::{CachePolicy, UnrecognizedValues};
 
 pub type TableInfoSources = BTreeMap<String, TableInfo>;
 
@@ -67,7 +67,7 @@ pub struct TableInfo {
     pub geometry_type: Option<String>,
 
     /// Zoom-level bounds for tile caching.
-    pub cache: Option<CacheZoom>,
+    pub cache: Option<CachePolicy>,
 
     /// List of columns, that should be encoded as tile properties
     pub properties: Option<BTreeMap<String, String>>,

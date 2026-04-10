@@ -11,7 +11,7 @@ use url::Url;
 
 use crate::MartinResult;
 use crate::config::file::{
-    CacheZoom, ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks,
+    CachePolicy, ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks,
     TileSourceConfiguration, UnrecognizedKeys, UnrecognizedValues,
 };
 
@@ -215,7 +215,7 @@ impl TileSourceConfiguration for PmtConfig {
         &self,
         id: String,
         path: PathBuf,
-        cache: CacheZoom,
+        cache: CachePolicy,
     ) -> MartinResult<BoxedSource> {
         // canonicalize to resolve symlinks
         let path = path
@@ -239,7 +239,7 @@ impl TileSourceConfiguration for PmtConfig {
         &self,
         id: String,
         url: Url,
-        cache: CacheZoom,
+        cache: CachePolicy,
     ) -> MartinResult<BoxedSource> {
         use std::sync::LazyLock;
         use std::sync::atomic::{AtomicUsize, Ordering};

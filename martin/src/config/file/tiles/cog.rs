@@ -8,7 +8,7 @@ use url::Url;
 
 use crate::MartinResult;
 use crate::config::file::{
-    CacheZoom, ConfigurationLivecycleHooks, TileSourceConfiguration, UnrecognizedKeys,
+    CachePolicy, ConfigurationLivecycleHooks, TileSourceConfiguration, UnrecognizedKeys,
     UnrecognizedValues,
 };
 
@@ -33,7 +33,7 @@ impl TileSourceConfiguration for CogConfig {
         &self,
         id: String,
         path: PathBuf,
-        cache: CacheZoom,
+        cache: CachePolicy,
     ) -> MartinResult<BoxedSource> {
         let cog = CogSource::new(id, path, cache.minzoom, cache.maxzoom)?;
         Ok(Box::new(cog))
@@ -43,7 +43,7 @@ impl TileSourceConfiguration for CogConfig {
         &self,
         _id: String,
         _url: Url,
-        _cache: CacheZoom,
+        _cache: CachePolicy,
     ) -> MartinResult<BoxedSource> {
         unreachable!()
     }

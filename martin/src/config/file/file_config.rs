@@ -65,7 +65,7 @@ pub trait TileSourceConfiguration: ConfigurationLivecycleHooks {
         &self,
         id: String,
         path: PathBuf,
-        cache: CacheZoom,
+        cache: CachePolicy,
     ) -> impl Future<Output = MartinResult<BoxedSource>> + Send;
 
     /// Asynchronously creates a new `BoxedSource` from a **remote** `url` using the given `id`.
@@ -76,7 +76,7 @@ pub trait TileSourceConfiguration: ConfigurationLivecycleHooks {
         &self,
         id: String,
         url: Url,
-        cache: CacheZoom,
+        cache: CachePolicy,
     ) -> impl Future<Output = MartinResult<BoxedSource>> + Send;
 }
 
@@ -243,9 +243,9 @@ impl FileConfigSrc {
     }
 
     #[must_use]
-    pub fn cache_zoom(&self) -> CacheZoom {
+    pub fn cache_zoom(&self) -> CachePolicy {
         match self {
-            Self::Path(_) => CacheZoom::default(),
+            Self::Path(_) => CachePolicy::default(),
             Self::Obj(o) => o.cache,
         }
     }
@@ -277,8 +277,8 @@ fn is_sqlite_memory_uri(path: &Path) -> bool {
 pub struct FileConfigSource {
     pub path: PathBuf,
     /// Zoom-level bounds for tile caching.
-    #[serde(default, skip_serializing_if = "CacheZoom::is_empty")]
-    pub cache: CacheZoom,
+    #[serde(default, skip_serializing_if = "CachePolicy::is_empty")]
+    pub cache: CachePolicy,
 }
 
 #[cfg(feature = "_tiles")]
@@ -286,7 +286,7 @@ pub async fn resolve_files<T: TileSourceConfiguration>(
     config: &mut FileConfigEnum<T>,
     idr: &IdResolver,
     extension: &[&str],
-    default_cache: CacheZoom,
+    default_cache: CachePolicy,
 ) -> MartinResult<(Vec<BoxedSource>, Vec<TileSourceWarning>)> {
     resolve_int(config, idr, extension, default_cache).await
 }
@@ -296,7 +296,7 @@ async fn resolve_int<T: TileSourceConfiguration>(
     config: &mut FileConfigEnum<T>,
     idr: &IdResolver,
     extension: &[&str],
-    default_cache: CacheZoom,
+    default_cache: CachePolicy,
 ) -> MartinResult<(Vec<BoxedSource>, Vec<TileSourceWarning>)> {
     let Some(cfg) = config.extract_file_config() else {
         return Ok((vec![], vec![]));
@@ -373,7 +373,7 @@ async fn resolve_one_source_int<T: TileSourceConfiguration>(
     source: FileConfigSrc,
     files: &mut HashSet<PathBuf>,
     configs: &mut BTreeMap<String, FileConfigSrc>,
-    default_cache: CacheZoom,
+    default_cache: CachePolicy,
 ) -> MartinResult<BoxedSource> {
     let cache = source.cache_zoom().or(default_cache);
     let result;
@@ -412,7 +412,7 @@ async fn resolve_one_path_int<T: TileSourceConfiguration>(
     files: &mut HashSet<PathBuf>,
     directories: &mut Vec<PathBuf>,
     configs: &mut BTreeMap<String, FileConfigSrc>,
-    default_cache: CacheZoom,
+    default_cache: CachePolicy,
 ) -> MartinResult<Vec<BoxedSource>> {
     let mut results = Vec::new();
 
@@ -539,12 +539,12 @@ fn parse_url(is_enabled: bool, path: &Path) -> Result<Option<Url>, ConfigFileErr
 /// at backend level, and per-source to control which zoom levels are cached.
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Serialize, Deserialize)]
-pub struct CacheZoom {
+pub struct CachePolicy {
     pub minzoom: Option<u8>,
     pub maxzoom: Option<u8>,
 }
 
-impl CacheZoom {
+impl CachePolicy {
     #[must_use]
     #[expect(clippy::trivially_copy_pass_by_ref)]
     pub fn is_empty(&self) -> bool {
@@ -595,7 +595,7 @@ mod mbtiles_tests {
         });
 
         let idr = IdResolver::new(&[]);
-        let result = resolve_files(&mut config, &idr, &["mbtiles"], CacheZoom::default()).await;
+        let result = resolve_files(&mut config, &idr, &["mbtiles"], CachePolicy::default()).await;
 
         let (sources, warnings) = result.unwrap();
         assert_eq!(sources.len(), 0);
@@ -626,7 +626,7 @@ mod pmtiles_tests {
         });
 
         let idr = IdResolver::new(&[]);
-        let result = resolve_files(&mut config, &idr, &["pmtiles"], CacheZoom::default()).await;
+        let result = resolve_files(&mut config, &idr, &["pmtiles"], CachePolicy::default()).await;
 
         let (sources, warnings) = result.unwrap();
         assert_eq!(sources.len(), 0);

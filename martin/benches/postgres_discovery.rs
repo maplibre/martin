@@ -3,7 +3,7 @@ use std::time::Duration;
 
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use martin::config::file::postgres::{PostgresAutoDiscoveryBuilder, PostgresConfig};
-use martin::config::file::{CacheZoom, init_aws_lc_tls};
+use martin::config::file::{CachePolicy, init_aws_lc_tls};
 use martin::config::primitives::IdResolver;
 use testcontainers_modules::postgres::Postgres;
 use testcontainers_modules::testcontainers::ImageExt as _;
@@ -244,7 +244,7 @@ async fn populate_functions(connection_string: &str, count: usize) {
 
 async fn discover_tables(config: &PostgresConfig) {
     let builder =
-        PostgresAutoDiscoveryBuilder::new(config, IdResolver::default(), CacheZoom::default())
+        PostgresAutoDiscoveryBuilder::new(config, IdResolver::default(), CachePolicy::default())
             .await
             .expect("Failed to create builder");
 
@@ -257,7 +257,7 @@ async fn discover_tables(config: &PostgresConfig) {
 
 async fn discover_functions(config: &PostgresConfig) {
     let builder =
-        PostgresAutoDiscoveryBuilder::new(config, IdResolver::default(), CacheZoom::default())
+        PostgresAutoDiscoveryBuilder::new(config, IdResolver::default(), CachePolicy::default())
             .await
             .expect("Failed to create builder");
 

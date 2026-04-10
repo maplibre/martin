@@ -27,7 +27,7 @@ use crate::config::file::FileConfigEnum;
 #[cfg(any(feature = "_tiles", feature = "sprites", feature = "fonts"))]
 use crate::config::file::cache::CacheConfig;
 use crate::config::file::{
-    CacheZoom, ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks as _,
+    CachePolicy, ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks as _,
     UnrecognizedKeys, UnrecognizedValues, copy_unrecognized_keys_from_config,
 };
 #[cfg(feature = "_tiles")]
@@ -86,7 +86,7 @@ pub struct Config {
     /// Default zoom-level bounds for tile caching.
     /// Applied as a fallback to any tile source that does not configure its own value.
     #[serde(default)]
-    pub cache: Option<CacheZoom>,
+    pub cache: Option<CachePolicy>,
 
     #[serde(default)]
     pub on_invalid: Option<OnInvalid>,

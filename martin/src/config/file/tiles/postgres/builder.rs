@@ -19,7 +19,7 @@ use crate::config::file::postgres::{
     FuncInfoSources, FunctionInfo, POOL_SIZE_DEFAULT, PostgresCfgPublish, PostgresCfgPublishFuncs,
     PostgresConfig, PostgresInfo, TableInfo, TableInfoSources,
 };
-use crate::config::file::{CacheZoom, ConfigFileError, ConfigFileResult, TileSourceWarning};
+use crate::config::file::{CachePolicy, ConfigFileError, ConfigFileResult, TileSourceWarning};
 use crate::config::primitives::IdResolver;
 use crate::config::primitives::OptBoolObj::{Bool, NoValue, Object};
 use crate::config::primitives::OptOneMany::NoVals;
@@ -31,7 +31,7 @@ pub struct PostgresAutoDiscoveryBuilder {
     /// If a spatial table has SRID 0, then this SRID will be used as a fallback
     default_srid: Option<i32>,
     /// Fallback cache zoom bounds for sources that don't set their own
-    default_cache: CacheZoom,
+    default_cache: CachePolicy,
     /// Specify how bounds should be computed for the spatial PG tables
     auto_bounds: BoundsCalcType,
     /// Limit the number of geo features per tile.
@@ -97,7 +97,7 @@ impl PostgresAutoDiscoveryBuilder {
     pub async fn new(
         config: &PostgresConfig,
         id_resolver: IdResolver,
-        default_cache: CacheZoom,
+        default_cache: CachePolicy,
     ) -> ConfigFileResult<Self> {
         let pool = PostgresPool::new(
             config
@@ -330,7 +330,13 @@ impl PostgresAutoDiscoveryBuilder {
                         .replace("{schema}", &schema)
                         .replace("{function}", &func);
                     let id2 = self.resolve_id(&source_id, &db_inf);
-                    self.add_func_src(&mut res, id2.clone(), &db_inf, pg_sql.clone(), db_inf.cache.unwrap_or_default());
+                    self.add_func_src(
+                        &mut res,
+                        id2.clone(),
+                        &db_inf,
+                        pg_sql.clone(),
+                        db_inf.cache.unwrap_or_default(),
+                    );
                     info!("Discovered source {id2} from function {}", pg_sql.signature);
                     debug!("{id2} query: {}", pg_sql.sql_query);
                     info_map.insert(id2, db_inf);
@@ -423,7 +429,7 @@ impl PostgresAutoDiscoveryBuilder {
         id: String,
         pg_info: &impl PostgresInfo,
         sql_info: PostgresSqlInfo,
-        cache: CacheZoom,
+        cache: CachePolicy,
     ) {
         let tilejson = pg_info.to_tilejson(id.clone());
         let cache = cache.or(self.default_cache);
@@ -838,9 +844,13 @@ mod tests {
         let mut config: PostgresConfig = serde_yaml::from_str(config_yaml).unwrap();
         config.connection_string = Some(connection_string);
 
-        let builder = PostgresAutoDiscoveryBuilder::new(&config, IdResolver::default(), CacheZoom::default())
-            .await
-            .expect("Failed to create builder");
+        let builder = PostgresAutoDiscoveryBuilder::new(
+            &config,
+            IdResolver::default(),
+            CachePolicy::default(),
+        )
+        .await
+        .expect("Failed to create builder");
 
         let (table_sources, _info_map, table_warnings) = builder
             .instantiate_tables()

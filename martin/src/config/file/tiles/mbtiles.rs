@@ -8,7 +8,7 @@ use url::Url;
 
 use crate::MartinResult;
 use crate::config::file::{
-    CacheZoom, ConfigurationLivecycleHooks, TileSourceConfiguration, UnrecognizedKeys,
+    CachePolicy, ConfigurationLivecycleHooks, TileSourceConfiguration, UnrecognizedKeys,
     UnrecognizedValues,
 };
 
@@ -32,7 +32,7 @@ impl TileSourceConfiguration for MbtConfig {
         &self,
         id: String,
         path: PathBuf,
-        cache: CacheZoom,
+        cache: CachePolicy,
     ) -> MartinResult<BoxedSource> {
         Ok(Box::new(
             MbtSource::new(id, path, cache.minzoom, cache.maxzoom).await?,
@@ -43,7 +43,7 @@ impl TileSourceConfiguration for MbtConfig {
         &self,
         _id: String,
         _url: Url,
-        _cache: CacheZoom,
+        _cache: CachePolicy,
     ) -> MartinResult<BoxedSource> {
         unreachable!()
     }
@@ -58,7 +58,7 @@ mod tests {
 
     use crate::config::file::mbtiles::MbtConfig;
     use crate::config::file::{
-        CacheZoom, ConfigurationLivecycleHooks as _, FileConfigEnum, FileConfigSource,
+        CachePolicy, ConfigurationLivecycleHooks as _, FileConfigEnum, FileConfigSource,
         FileConfigSrc,
     };
 
@@ -112,7 +112,7 @@ mod tests {
                     "pm-src2".to_string(),
                     FileConfigSrc::Obj(FileConfigSource {
                         path: PathBuf::from("/tmp/file.ext"),
-                        cache: CacheZoom::default(),
+                        cache: CachePolicy::default(),
                     })
                 ),
                 (
@@ -123,14 +123,14 @@ mod tests {
                     "pm-src4".to_string(),
                     FileConfigSrc::Obj(FileConfigSource {
                         path: PathBuf::from("https://example.org/file4.ext"),
-                        cache: CacheZoom::default(),
+                        cache: CachePolicy::default(),
                     })
                 ),
                 (
                     "pm-src5".to_string(),
                     FileConfigSrc::Obj(FileConfigSource {
                         path: PathBuf::from("/tmp/cached.ext"),
-                        cache: CacheZoom {
+                        cache: CachePolicy {
                             minzoom: Some(0),
                             maxzoom: Some(6),
                         },
