@@ -160,7 +160,8 @@ impl Mbtiles {
         let zoom_info: Vec<ZoomInfo> = zoom_info
             .into_iter()
             .map(|r| {
-                let zoom = u8::try_from(r.zoom.expect("zoom_level should not be NULL")).expect("zoom_level should fit in a u8");
+                let zoom = u8::try_from(r.zoom.expect("zoom_level should not be NULL"))
+                    .expect("zoom_level should fit in a u8");
                 ZoomInfo {
                     zoom,
                     tile_count: r.count as u64,
@@ -170,9 +171,15 @@ impl Mbtiles {
                     bbox: xyz_to_bbox(
                         zoom,
                         r.min_tile_x.expect("min_tile_x should not be None") as u32,
-                        invert_y_value(zoom, r.max_tile_y.expect("max_tile_y should not be None") as u32),
+                        invert_y_value(
+                            zoom,
+                            r.max_tile_y.expect("max_tile_y should not be None") as u32,
+                        ),
                         r.max_tile_x.expect("max_tile_x should not be None") as u32,
-                        invert_y_value(zoom, r.min_tile_y.expect("min_tile_y should not be None") as u32),
+                        invert_y_value(
+                            zoom,
+                            r.min_tile_y.expect("min_tile_y should not be None") as u32,
+                        ),
                     )
                     .into(),
                 }

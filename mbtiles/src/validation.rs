@@ -423,9 +423,8 @@ LIMIT 1;"
                 }
             }
 
-            let [tile_row, tile_column, zoom_level]: [String; 3] = res
-                .try_into()
-                .expect("res should contain exactly 3 items");
+            let [tile_row, tile_column, zoom_level]: [String; 3] =
+                res.try_into().expect("res should contain exactly 3 items");
             return Err(InvalidTileIndex(
                 self.filepath().to_string(),
                 zoom_level,
