@@ -398,8 +398,13 @@ impl PostgresAutoDiscoveryBuilder {
     ) {
         let tilejson = pg_info.to_tilejson(id.clone());
         let tile_info = pg_info.tile_info();
-        let source =
-            PostgresSource::new_with_tile_info(id, sql_info, tilejson, self.pool.clone(), tile_info);
+        let source = PostgresSource::new_with_tile_info(
+            id,
+            sql_info,
+            tilejson,
+            self.pool.clone(),
+            tile_info,
+        );
         sources.push(Box::new(source));
     }
 

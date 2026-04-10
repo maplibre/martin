@@ -74,4 +74,3 @@ async fn function_source_raster_content_type() {
     content_type: image/png
     ");
 }
-
