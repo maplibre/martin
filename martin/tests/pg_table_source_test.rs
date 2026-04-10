@@ -61,6 +61,9 @@ async fn table_source() {
     function_zxy_query_test:
       content_type: application/x-protobuf
       description: public.function_zxy_query_test
+    function_zxy_raster:
+      content_type: image/png
+      description: a raster tile function source
     function_zxy_row:
       content_type: application/x-protobuf
       description: public.function_zxy_row
