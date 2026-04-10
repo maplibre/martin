@@ -135,6 +135,7 @@ impl PostgresAutoDiscoveryBuilder {
     }
 
     /// Discovers and instantiates table-based tile sources.
+    #[expect(clippy::too_many_lines, reason = "fixme")]
     pub async fn instantiate_tables(
         &self,
     ) -> PostgresResult<(Vec<BoxedSource>, TableInfoSources, Vec<TileSourceWarning>)> {
