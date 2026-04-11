@@ -26,7 +26,15 @@ use crate::{CopyDuplicateMode, MbtType, invert_y_value};
 pub enum MbtTypeCli {
     Flat,
     FlatWithHash,
-    #[cfg_attr(feature = "cli", value(alias("normalised"), alias("normalised-image")))]
+    #[cfg_attr(
+        feature = "cli",
+        value(
+            alias("normalized"),
+            alias("normalized-image"),
+            alias("normalised"),
+            alias("normalised-image")
+        )
+    )]
     NormalizedImage,
     NormalizedVectorTile,
 }

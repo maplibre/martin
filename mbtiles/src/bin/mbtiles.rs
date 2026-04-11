@@ -402,6 +402,32 @@ mod tests {
     }
 
     #[test]
+    fn test_copy_normalized_schema_alias() {
+        assert_eq!(
+            Args::parse_from([
+                "mbtiles",
+                "copy",
+                "src_file",
+                "dst_file",
+                "--mbtiles-type",
+                "normalized",
+            ]),
+            Args {
+                verbose: false,
+                command: Copy(CopyArgs {
+                    src_file: PathBuf::from("src_file"),
+                    dst_file: PathBuf::from("dst_file"),
+                    options: SharedCopyOpts {
+                        mbtiles_type: Some(MbtTypeCli::NormalizedImage),
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                })
+            }
+        );
+    }
+
+    #[test]
     fn test_copy_normalised_schema_alias() {
         assert_eq!(
             Args::parse_from([
