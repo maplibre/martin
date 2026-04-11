@@ -111,6 +111,7 @@ impl MbtilesPool {
     /// # Ok(())
     /// # }
     /// ```
+    #[hotpath::measure]
     pub async fn open_readonly<P: AsRef<Path>>(filepath: P) -> MbtResult<Self> {
         let mbtiles = Mbtiles::new(filepath)?;
         let opt = SqliteConnectOptions::new()
@@ -147,6 +148,7 @@ impl MbtilesPool {
     /// # Ok(())
     /// # }
     /// ```
+    #[hotpath::measure]
     pub async fn get_metadata(&self) -> MbtResult<Metadata> {
         let mut conn = self.pool.acquire().await?;
         self.mbtiles.get_metadata(&mut *conn).await
@@ -185,6 +187,7 @@ impl MbtilesPool {
     /// # Ok(())
     /// # }
     /// ```
+    #[hotpath::measure]
     pub async fn detect_type(&self) -> MbtResult<MbtType> {
         let mut conn = self.pool.acquire().await?;
         self.mbtiles.detect_type(&mut *conn).await
@@ -222,6 +225,7 @@ impl MbtilesPool {
     /// # Ok(())
     /// # }
     /// ```
+    #[hotpath::measure]
     pub async fn detect_format(&self, tilejson: &TileJSON) -> MbtResult<Option<TileInfo>> {
         let mut conn = self.pool.acquire().await?;
         self.mbtiles.detect_format(tilejson, &mut *conn).await
@@ -275,6 +279,7 @@ impl MbtilesPool {
     /// # Ok(())
     /// # }
     /// ```
+    #[hotpath::measure]
     pub async fn get_tile(&self, z: u8, x: u32, y: u32) -> MbtResult<Option<Vec<u8>>> {
         let mut conn = self.pool.acquire().await?;
         self.mbtiles.get_tile(&mut *conn, z, x, y).await
@@ -283,6 +288,7 @@ impl MbtilesPool {
     /// Get a tile from the pool
     ///
     /// See [`MbtilesPool::get_tile`] if you don't need the tiles' hash.
+    #[hotpath::measure]
     pub async fn get_tile_and_hash(
         &self,
         mbt_type: MbtType,
@@ -300,6 +306,7 @@ impl MbtilesPool {
     /// This method is slightly faster than [`Mbtiles::get_tile_and_hash`] and [`Mbtiles::get_tile`]
     /// because it only checks if the tile exists but does not retrieve tile data.
     /// Most of the time you would want to use the other two functions.
+    #[hotpath::measure]
     pub async fn contains(&self, mbt_type: MbtType, z: u8, x: u32, y: u32) -> MbtResult<bool> {
         let mut conn = self.pool.acquire().await?;
         self.mbtiles.contains(&mut conn, mbt_type, z, x, y).await

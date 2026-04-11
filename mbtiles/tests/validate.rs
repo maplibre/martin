@@ -1,4 +1,5 @@
 #![expect(clippy::unreadable_literal)]
+#![allow(clippy::unwrap_used)]
 
 use insta::assert_snapshot;
 use martin_tile_utils::{MAX_ZOOM, bbox_to_xyz};

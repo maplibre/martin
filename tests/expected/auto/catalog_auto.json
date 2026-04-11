@@ -66,6 +66,10 @@
       "description": "cb_2018_us_zcta510_500k.mbtiles",
       "name": "cb_2018_us_zcta510_500k.mbtiles"
     },
+    "empty_bounds": {
+      "content_type": "application/x-protobuf",
+      "description": "public.empty_bounds.geom"
+    },
     "function_Mixed_Name": {
       "content_type": "application/x-protobuf",
       "description": "a function source with MixedCase name"
@@ -142,6 +146,14 @@
       "content_type": "application/json",
       "name": "Dummy json data"
     },
+    "linestring_bounds": {
+      "content_type": "application/x-protobuf",
+      "description": "public.linestring_bounds.geom"
+    },
+    "linestring_bounds_vertical": {
+      "content_type": "application/x-protobuf",
+      "description": "public.linestring_bounds_vertical.geom"
+    },
     "mat_view": {
       "content_type": "application/x-protobuf",
       "description": "materialized view comment"
@@ -155,6 +167,10 @@
     "png": {
       "content_type": "image/png",
       "name": "ne2sr"
+    },
+    "point_bounds": {
+      "content_type": "application/x-protobuf",
+      "description": "public.point_bounds.geom"
     },
     "points1": {
       "content_type": "application/x-protobuf",

@@ -19,6 +19,7 @@ use crate::config::file::Config;
     feature = "styles",
 ))]
 use crate::config::file::FileConfigEnum;
+use crate::config::file::OnInvalid;
 #[cfg(feature = "fonts")]
 use crate::config::file::fonts::FontConfig;
 #[cfg(feature = "postgres")]
@@ -65,6 +66,9 @@ pub struct MetaArgs {
     pub save_config: Option<PathBuf>,
     /// Connection strings, e.g. `postgres://...` or `/path/to/files`
     pub connection: Vec<String>,
+    /// Action to take when a source is found to be invalid during startup. [DEFAULT: abort]
+    #[arg(long)]
+    pub on_invalid: Option<OnInvalid>,
 }
 
 #[derive(Parser, Debug, Clone, PartialEq, Default)]
@@ -96,6 +100,10 @@ impl Args {
 
         if self.srv.cache_size.is_some() {
             config.cache_size_mb = self.srv.cache_size;
+        }
+
+        if self.meta.on_invalid.is_some() {
+            config.on_invalid = self.meta.on_invalid;
         }
 
         self.srv.merge_into_config(&mut config.srv);

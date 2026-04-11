@@ -24,6 +24,7 @@ enum ImageFormatRequest {
 }
 
 #[route("/style/{style_id}/{z}/{x}/{y}.{format}", method = "GET")]
+#[hotpath::measure]
 pub async fn get_style_rendered(
     path: Path<StyleRenderRequest>,
     styles: Data<StyleSources>,

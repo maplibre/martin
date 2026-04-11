@@ -11,7 +11,7 @@ CREATE TABLE points3857
 -- SELECT generate_series(4, 30) as id,
 --        (ST_DUMP(ST_GENERATEPOINTS(st_tileenvelope(0, 0, 0), 27))).geom;
 --
--- To dump the data above, uncomment code the above, comment the INSERT code bellow, and run:
+-- To dump the data above, uncomment code the above, comment the INSERT code below, and run:
 --   just restart
 --   just pg_dump --data-only --inserts --rows-per-insert=100 --table=points3857
 

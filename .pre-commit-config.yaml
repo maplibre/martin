@@ -69,7 +69,7 @@ repos:
         pass_filenames: false
 
   - repo: https://github.com/sqlfluff/sqlfluff
-    rev: 4.0.4
+    rev: 4.1.0
     hooks:
         # 1. Postgres dialect for general .sql files, excluding sqlite dirs
       - id: sqlfluff-fix
@@ -89,12 +89,12 @@ repos:
 
   # NPM hooks for JavaScript/TypeScript formatting and linting
   - repo: https://github.com/biomejs/pre-commit
-    rev: "v2.4.6"  # tag is auto-updated by pre-commit.ci and synced by sync-biome-version to all the places it needs to be
+    rev: "v2.4.10"  # tag is auto-updated by pre-commit.ci and synced by sync-biome-version to all the places it needs to be
     hooks:
       - id: biome-check
-        additional_dependencies: [ "@biomejs/biome@2.4.6" ]
+        additional_dependencies: [ "@biomejs/biome@2.4.10" ]
       - id: biome-format
-        additional_dependencies: [ "@biomejs/biome@2.4.6" ]
+        additional_dependencies: [ "@biomejs/biome@2.4.10" ]
 
   - repo: local
     hooks:
@@ -108,15 +108,15 @@ repos:
           sed -i "s%biomejs.dev/schemas/[^/]*/%biomejs.dev/schemas/$VERSION/%" demo/frontend/biome.json
           sed -i "s%biomejs.dev/schemas/[^/]*/%biomejs.dev/schemas/$VERSION/%" martin/martin-ui/biome.json
 
-          # Update package.json and lockfiles only if version changed
-          if ! grep -q "\"@biomejs/biome\": \"$VERSION\"" demo/frontend/package.json; then
+          # Update package.json and lockfiles if version changed or lockfile is missing
+          if ! grep -q "\"@biomejs/biome\": \"$VERSION\"" demo/frontend/package.json || [ ! -f demo/frontend/package-lock.json ]; then
             sed -i "s%\"@biomejs/biome\": \"[0-9.]*\"%\"@biomejs/biome\": \"$VERSION\"%" demo/frontend/package.json
-            (cd demo/frontend && yarn install --no-immutable)
+            (cd demo/frontend && npm install --package-lock-only)
           fi
 
-          if ! grep -q "\"@biomejs/biome\": \"$VERSION\"" martin/martin-ui/package.json; then
+          if ! grep -q "\"@biomejs/biome\": \"$VERSION\"" martin/martin-ui/package.json || [ ! -f martin/martin-ui/package-lock.json ]; then
             sed -i "s%\"@biomejs/biome\": \"[0-9.]*\"%\"@biomejs/biome\": \"$VERSION\"%" martin/martin-ui/package.json
-            (cd martin/martin-ui && npm install --lockfile-only)
+            (cd martin/martin-ui && npm install --package-lock-only)
           fi
 
           sed -i "/repo: https:\/\/github.com\/biomejs\/pre-commit/,$ s/@biomejs\/biome@[0-9.]*/@biomejs\/biome@$VERSION/g" .pre-commit-config.yaml

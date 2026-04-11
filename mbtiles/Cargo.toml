@@ -1,6 +1,6 @@
 [package]
 name = "mbtiles"
-version = "0.15.3"
+version = "0.15.4"
 authors = ["Yuri Astrakhan <YuriAstrakhan@gmail.com>", "MapLibre contributors"]
 description = "A simple low-level MbTiles access and processing library, with some tile format detection and other relevant heuristics."
 keywords = ["mbtiles", "maps", "tiles", "mvt", "tilejson"]
@@ -22,6 +22,14 @@ required-features = ["cli"]
 [features]
 default = ["cli"]
 cli = ["dep:anyhow", "dep:clap", "dep:env_logger", "dep:serde_yaml"]
+__hotpath = [
+    "hotpath/hotpath",
+    "hotpath/hotpath-alloc",
+    "hotpath/hotpath-mcp",
+    "hotpath/tokio",
+    "hotpath/futures",
+]
+__hotpath_tui = ["__hotpath", "hotpath/tui"]
 
 [dependencies]
 anyhow = { workspace = true, optional = true }
@@ -30,6 +38,7 @@ enum-display.workspace = true
 env_logger = { workspace = true, optional = true }
 flume.workspace = true
 futures.workspace = true
+hotpath.workspace = true
 itertools.workspace = true
 log.workspace = true
 martin-tile-utils.workspace = true

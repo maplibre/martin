@@ -1,6 +1,6 @@
 [package]
 name = "martin-core"
-version = "0.3.1"
+version = "0.3.2"
 authors = ["Yuri Astrakhan <YuriAstrakhan@gmail.com>", "MapLibre contributors"]
 description = "Basic building blocks of MapLibre's Martin tile server."
 keywords = ["maps", "tiles", "mvt", "tileserver"]
@@ -75,6 +75,7 @@ bit-set = { workspace = true, optional = true }
 dashmap = { workspace = true, optional = true }
 deadpool-postgres = { workspace = true, optional = true }
 futures = { workspace = true, optional = true }
+hotpath.workspace = true
 image = { workspace = true, optional = true }
 itertools = { workspace = true, optional = true }
 martin-tile-utils.workspace = true

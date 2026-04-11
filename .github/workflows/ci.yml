@@ -36,13 +36,22 @@ jobs:
       - run: just ui::test
       - run: just ui::type-check
   unit-test-rust:
-    name: Unit test the server
+    name: Unit test the server (${{ matrix.os }})
     permissions:
       contents: read
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    needs:
+      - lint-rust # not because it is needed, but because we want less concurrent jobs competing
+    strategy:
+      fail-fast: false
+      matrix:
+        # 1. Linux-only for PRs (faster feedback)
+        # 2. Run on all three OS platforms when merging to main
+        os: ${{ fromJSON('["ubuntu-latest", "macos-latest"]') || (github.ref == 'refs/heads/main' && fromJSON('["ubuntu-latest", "macos-latest", "windows-latest"]')) }}
     steps:
       - run: rustup update stable && rustup default stable
       - uses: BRAINSia/free-disk-space@7048ffbf50819342ac964ef3998a51c2564a8a75 # v2.1.3
+        if: runner.os == 'Linux'
         with:
           tool-cache: false
           mandb:   true
@@ -55,6 +64,10 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with: { persist-credentials: false }
+      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
+        with:
+          key: ${{ matrix.os }}
       - uses: taiki-e/install-action@a57ddfbcd928cf9406a78dcc300dacc5d367a547 # v2.68.31
         with: { tool: 'just' }
       - name: Run cargo test
@@ -83,7 +96,7 @@ jobs:
       - uses: taiki-e/install-action@a57ddfbcd928cf9406a78dcc300dacc5d367a547 # v2.68.31
         with: { tool: 'just' }
       - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
-        if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
+        if: github.event_name != 'release' && github.event_name != 'workflow_dispatch' && github.ref != 'refs/heads/main'
       - run: just env-info
       - run: just clippy
       - run: just check
@@ -812,24 +825,23 @@ jobs:
         with: { subject-path: 'target/files/*' }
       - name: Publish with artifacts
         if: ${{ github.event_name == 'release' && startsWith(github.event.release.tag_name, 'martin-v') }}
-        uses: softprops/action-gh-release@1853d73993c8ca1b2c9c1a7fede39682d0ab5c2a # v2.5.3
-        with:
-          files: 'target/files/*'
-          generate_release_notes: false
-          draft: false
-          make_latest: true
-          fail_on_unmatched_files: true
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG_NAME: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          if ! compgen -G "target/files/*" > /dev/null; then
+            echo "No release artifacts matched target/files/*" >&2
+            exit 1
+          fi
+          gh release upload "$RELEASE_TAG_NAME" target/files/* --clobber
+          gh release edit "$RELEASE_TAG_NAME" --verify-tag --latest
       - name: Publish without artifacts
         if: ${{ github.event_name == 'release' && !startsWith(github.event.release.tag_name, 'martin-v') }}
-        uses: softprops/action-gh-release@1853d73993c8ca1b2c9c1a7fede39682d0ab5c2a # v2.5.3
-        with:
-          generate_release_notes: false
-          draft: false
-          make_latest: false
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG_NAME: ${{ github.event.release.tag_name }}
+        run: gh release edit "$RELEASE_TAG_NAME" --verify-tag --latest=false
 
         # Create a personal access token
         #     Gen:  https://github.com/settings/personal-access-tokens/new

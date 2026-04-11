@@ -122,12 +122,12 @@ impl TableInfo {
     #[must_use]
     pub fn append_cfg_info(
         &self,
-        cfg_inf: &TableInfo,
+        cfg_inf: &Self,
         new_id: &String,
         default_srid: Option<i32>,
     ) -> Option<Self> {
         // Assume cfg_inf and self have the same schema/table/geometry_column
-        let mut inf = TableInfo {
+        let mut inf = Self {
             // These values must match the database exactly
             schema: self.schema.clone(),
             table: self.table.clone(),
