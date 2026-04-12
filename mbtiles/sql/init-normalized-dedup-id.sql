@@ -22,11 +22,11 @@ CREATE TABLE tiles_shallow (
 
 CREATE VIEW tiles AS
 SELECT
-    tiles_shallow.zoom_level AS zoom_level,
-    tiles_shallow.tile_column AS tile_column,
-    tiles_shallow.tile_row AS tile_row,
-    tiles_data.tile_data AS tile_data
+    tiles_shallow.zoom_level,
+    tiles_shallow.tile_column,
+    tiles_shallow.tile_row,
+    tiles_data.tile_data
 FROM
     tiles_shallow
-    JOIN tiles_data
-        ON tiles_shallow.tile_data_id = tiles_data.tile_data_id;
+INNER JOIN tiles_data
+    ON tiles_shallow.tile_data_id = tiles_data.tile_data_id;

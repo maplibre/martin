@@ -756,6 +756,7 @@ if [[ "$MBTILES_BIN" != "-" ]]; then
   $MBTILES_BIN meta-get ./tests/fixtures/mbtiles/world_cities.mbtiles name 2>&1 | tee "$TEST_OUT_DIR/meta-get_name.txt"
   $MBTILES_BIN meta-get ./tests/fixtures/mbtiles/world_cities.mbtiles missing_value 2>&1 | tee "$TEST_OUT_DIR/meta-get_missing_value.txt"
   $MBTILES_BIN validate ./tests/fixtures/mbtiles/zoomed_world_cities.mbtiles 2>&1 | tee "$TEST_OUT_DIR/validate-ok.txt"
+  $MBTILES_BIN validate ./tests/fixtures/mbtiles/normalized-dedup-id.mbtiles 2>&1 | tee "$TEST_OUT_DIR/validate-dedup-id-ok.txt"
 
   if $MBTILES_BIN validate ./tests/fixtures/files/invalid-tile-idx.mbtiles 2>&1 | tee "$TEST_OUT_DIR/validate-bad-tiles.txt"; then
     echo "ERROR: validate with invalid-tile-idx.mbtiles should have failed"
