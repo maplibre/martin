@@ -31,6 +31,7 @@ INSERT INTO metadata VALUES('maxzoom','1');
 INSERT INTO metadata VALUES('name','Normalized DedupId Test');
 INSERT INTO metadata VALUES('description','Test fixture for normalized schema with integer tile_data_id');
 INSERT INTO metadata VALUES('format','jpeg');
+INSERT INTO metadata VALUES('agg_tiles_hash','3CE4DB27DDC5A385756CC384CDAFC3D5');
 CREATE VIEW tiles AS
 SELECT
     tiles_shallow.zoom_level,
