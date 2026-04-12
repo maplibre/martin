@@ -32,6 +32,11 @@ pub use update::UpdateZoomType;
 
 mod bindiff;
 
+#[cfg(feature = "transcode")]
+mod transcoder;
+#[cfg(feature = "transcode")]
+pub use transcoder::{MbtilesTranscoder, TranscodeStats};
+
 mod validation;
 
 pub use martin_tile_utils::{Tile, TileCoord};

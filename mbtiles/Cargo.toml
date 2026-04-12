@@ -29,6 +29,7 @@ __hotpath = [
     "hotpath/tokio",
     "hotpath/futures",
 ]
+transcode = ["dep:rayon", "dep:moka"]
 __hotpath_tui = ["__hotpath", "hotpath/tui"]
 
 [dependencies]
@@ -43,6 +44,9 @@ itertools.workspace = true
 log.workspace = true
 martin-tile-utils.workspace = true
 md5.workspace = true
+
+moka = { workspace = true, features = ["sync"], optional = true }
+rayon = { workspace = true, optional = true }
 num_cpus.workspace = true
 serde.workspace = true
 serde_json.workspace = true
@@ -60,12 +64,19 @@ xxhash-rust.workspace = true
 [dev-dependencies]
 # For testing, might as well use the same async framework as the Martin itself
 actix-rt.workspace = true
+criterion.workspace = true
 env_logger.workspace = true
 insta = { workspace = true, features = ["toml", "yaml"] }
 pretty_assertions.workspace = true
 rstest.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
 tracing.workspace = true
 tracing-test.workspace = true
+
+[[bench]]
+name = "transcode"
+harness = false
+required-features = ["transcode"]
 
 [lints]
 workspace = true

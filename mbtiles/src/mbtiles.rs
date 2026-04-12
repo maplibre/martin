@@ -726,7 +726,11 @@ pub async fn attach_sqlite_fn(conn: &mut SqliteConnection) -> MbtResult<()> {
     Ok(())
 }
 
-fn parse_tile_index(z: Option<i64>, x: Option<i64>, y: Option<i64>) -> Option<TileCoord> {
+pub(crate) fn parse_tile_index(
+    z: Option<i64>,
+    x: Option<i64>,
+    y: Option<i64>,
+) -> Option<TileCoord> {
     let z: u8 = z?.try_into().ok()?;
     let x: u32 = x?.try_into().ok()?;
     let y: u32 = y?.try_into().ok()?;

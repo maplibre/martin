@@ -113,11 +113,18 @@ fn get_select_from(src_type: MbtType, patch_type: MbtType) -> String {
         SELECT zoom_level, tile_column, tile_row, tile_data, md5_hex(tile_data) as hash
         FROM patchDb.tiles"
                 .to_string(),
-            FlatWithHash | Normalized { schema:_, hash_view: true } => "
+            FlatWithHash
+            | Normalized {
+                schema: _,
+                hash_view: true,
+            } => "
         SELECT zoom_level, tile_column, tile_row, tile_data, tile_hash AS hash
         FROM patchDb.tiles_with_hash"
                 .to_string(),
-            Normalized { schema, hash_view: false } => schema.select_tiles_sql("patchDb", "hash", "LEFT JOIN"),
+            Normalized {
+                schema,
+                hash_view: false,
+            } => schema.select_tiles_sql("patchDb", "hash", "LEFT JOIN"),
         }
     }
 }

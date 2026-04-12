@@ -708,8 +708,15 @@ fn get_select_from_apply_patch(
         (SELECT zoom_level, tile_column, tile_row, tile_data, md5_hex(tile_data) AS tile_hash
          FROM {frm_db}.tiles)"
                 ),
-                Normalized { hash_view: true, schema: _ } | FlatWithHash => format!("{frm_db}.tiles_with_hash"),
-                Normalized { hash_view: false, schema } => format!("({})", schema.select_tiles_sql(frm_db, "tile_hash", "JOIN")),
+                Normalized {
+                    hash_view: true,
+                    schema: _,
+                }
+                | FlatWithHash => format!("{frm_db}.tiles_with_hash"),
+                Normalized {
+                    hash_view: false,
+                    schema,
+                } => format!("({})", schema.select_tiles_sql(frm_db, "tile_hash", "JOIN")),
             },
         }
     }
@@ -786,8 +793,18 @@ fn get_select_from_with_diff(
         };
         diff_tiles = match dif_type {
             Flat => "diffDb.tiles".to_string(),
-            Normalized { hash_view: true, schema: _ } | FlatWithHash => "diffDb.tiles_with_hash".to_string(),
-            Normalized { hash_view: false, schema } => format!("({})", schema.select_tiles_sql("diffDb", "tile_hash", "JOIN")),
+            Normalized {
+                hash_view: true,
+                schema: _,
+            }
+            | FlatWithHash => "diffDb.tiles_with_hash".to_string(),
+            Normalized {
+                hash_view: false,
+                schema,
+            } => format!(
+                "({})",
+                schema.select_tiles_sql("diffDb", "tile_hash", "JOIN")
+            ),
         };
     }
 
