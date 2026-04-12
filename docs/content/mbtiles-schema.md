@@ -37,18 +37,7 @@ Optionally, `.mbtiles` files with `normalized` schema can include a `tiles_with_
 Some tools (e.g. [Planetiler](https://github.com/onthegomap/planetiler)) produce a variation of the normalized schema that uses `tiles_shallow` and `tiles_data` tables with an integer `tile_data_id` column instead of the text-based `tile_id` (MD5 hash).
 
 ```sql
-CREATE TABLE tiles_shallow (
-    zoom_level  integer NOT NULL,
-    tile_column integer NOT NULL,
-    tile_row    integer NOT NULL,
-    tile_data_id integer,
-    PRIMARY KEY (zoom_level, tile_column, tile_row)
-);
-
-CREATE TABLE tiles_data (
-    tile_data_id integer PRIMARY KEY,
-    tile_data    blob
-);
+--8<-- "files/init-normalized-dedup-id.sql"
 ```
 
 Since tile IDs are integers rather than content hashes, per-tile validation checks foreign key integrity (every `tile_data_id` in `tiles_shallow` must exist in `tiles_data`) instead of recomputing content hashes.
