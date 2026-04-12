@@ -64,6 +64,56 @@ where
     Ok(sql.fetch_one(&mut *conn).await?.is_valid == 1)
 }
 
+/// Check if `MBTiles` has an alternative normalized schema with `tiles_shallow` + `tiles_data`
+/// tables using integer `tile_data_id` instead of text `tile_id`.
+pub async fn is_dedup_id_normalized_tables_type<T>(conn: &mut T) -> MbtResult<bool>
+where
+    for<'e> &'e mut T: SqliteExecutor<'e>,
+{
+    let sql = "SELECT (
+             -- Has a 'tiles_shallow' table
+             SELECT COUNT(*) = 1
+             FROM sqlite_master
+             WHERE name = 'tiles_shallow'
+                 AND type = 'table'
+             --
+         ) AND (
+             -- 'tiles_shallow' table's columns and their types are as expected:
+             -- 4 columns (zoom_level, tile_column, tile_row, tile_data_id).
+             -- The order is not important
+             SELECT COUNT(*) = 4
+             FROM pragma_table_info('tiles_shallow')
+             WHERE ((name = 'zoom_level' AND type LIKE '%INT%')
+                 OR (name = 'tile_column' AND type LIKE '%INT%')
+                 OR (name = 'tile_row' AND type LIKE '%INT%')
+                 OR (name = 'tile_data_id' AND type LIKE '%INT%'))
+             --
+         ) AND (
+             -- Has a 'tiles_data' table
+             SELECT COUNT(*) = 1
+             FROM sqlite_master
+             WHERE name = 'tiles_data'
+                 AND type = 'table'
+             --
+         ) AND (
+             -- 'tiles_data' table's columns and their types are as expected:
+             -- 2 columns (tile_data_id, tile_data).
+             -- The order is not important
+             SELECT COUNT(*) = 2
+             FROM pragma_table_info('tiles_data')
+             WHERE ((name = 'tile_data_id' AND type LIKE '%INT%')
+                 OR (name = 'tile_data' AND type = 'BLOB'))
+             --
+         ) AS is_valid;";
+
+    Ok(query(sql)
+        .fetch_one(&mut *conn)
+        .await?
+        .get::<Option<i32>, _>(0)
+        .unwrap_or_default()
+        == 1)
+}
+
 /// Check if `MBTiles` has a table or a view named `tiles_with_hash` with needed fields
 pub async fn has_tiles_with_hash<T>(conn: &mut T) -> MbtResult<bool>
 where
@@ -345,7 +395,7 @@ where
     match mbt_type {
         MbtType::Flat => create_flat_tables(&mut *conn).await,
         MbtType::FlatWithHash => create_flat_with_hash_tables(&mut *conn).await,
-        MbtType::Normalized { hash_view } => {
+        MbtType::Normalized { hash_view, .. } => {
             create_normalized_tables(&mut *conn).await?;
             if hash_view {
                 create_tiles_with_hash_view(&mut *conn).await?;

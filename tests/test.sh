@@ -455,6 +455,8 @@ test_jsn mb_jpg       geography-class-jpg
 test_jpg mb_jpg_0_0_0 geography-class-jpg/0/0/0
 test_jsn mb_png       geography-class-png
 test_png mb_png_0_0_0 geography-class-png/0/0/0
+test_jsn mb_dedup_id       normalized-dedup-id
+test_jpg mb_dedup_id_0_0_0 normalized-dedup-id/0/0/0
 test_jsn mb_mvt       world_cities
 test_pbf mb_mvt_2_3_1 world_cities/2/3/1
 
