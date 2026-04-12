@@ -22,8 +22,8 @@ use crate::queries::{
 };
 use crate::{
     AGG_TILES_HASH, AGG_TILES_HASH_AFTER_APPLY, AGG_TILES_HASH_BEFORE_APPLY, AggHashType, CopyType,
-    MbtError, MbtType, MbtTypeCli, Mbtiles, action_with_rusqlite, get_bsdiff_tbl_name,
-    invert_y_value, reset_db_settings,
+    MbtError, MbtType, MbtTypeCli, Mbtiles, NormalizedSchema, action_with_rusqlite,
+    get_bsdiff_tbl_name, invert_y_value, reset_db_settings,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, EnumDisplay)]
@@ -100,7 +100,7 @@ impl MbtilesCopier {
                 MbtTypeCli::FlatWithHash => FlatWithHash,
                 MbtTypeCli::Normalized => Normalized {
                     hash_view: true,
-                    schema: crate::NormalizedSchema::Hash,
+                    schema: NormalizedSchema::Hash,
                 },
             })
         })
@@ -182,12 +182,12 @@ impl MbtileCopierInt {
             // When copying from a DedupId source, always create standard Hash schema in destination
             if let Normalized {
                 hash_view,
-                schema: crate::NormalizedSchema::DedupId,
+                schema: NormalizedSchema::DedupId,
             } = dt
             {
                 dt = Normalized {
                     hash_view,
-                    schema: crate::NormalizedSchema::Hash,
+                    schema: NormalizedSchema::Hash,
                 };
             }
             dt
@@ -887,7 +887,7 @@ mod tests {
     const NORM_CLI: Option<MbtTypeCli> = Some(MbtTypeCli::Normalized);
     const NORM_WITH_VIEW: MbtType = Normalized {
         hash_view: true,
-        schema: crate::NormalizedSchema::Hash,
+        schema: NormalizedSchema::Hash,
     };
 
     async fn get_one<T>(conn: &mut SqliteConnection, sql: &str) -> T
