@@ -49,9 +49,7 @@ pub enum MbtError {
     )]
     IncorrectTileHash(String, String, String),
 
-    #[error(
-        "Map table references tile id `{1}` that does not exist in `{2}` in MBTile file {0}"
-    )]
+    #[error("Map table references tile id `{1}` that does not exist in `{2}` in MBTile file {0}")]
     MissingTileReference(String, String, &'static str),
 
     #[error(
