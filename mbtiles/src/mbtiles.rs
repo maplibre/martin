@@ -18,7 +18,7 @@ use sqlx::{
 
 use crate::bindiff::PatchType;
 use crate::errors::{MbtError, MbtResult};
-use crate::{CopyDuplicateMode, MbtType, invert_y_value};
+use crate::{CopyDuplicateMode, MbtType, NormalizedSchema, invert_y_value};
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize, EnumDisplay)]
 #[enum_display(case = "Kebab")]
@@ -576,13 +576,13 @@ impl Mbtiles {
             }
             MbtType::Normalized {
                 hash_view: false,
-                schema: crate::NormalizedSchema::Hash,
+                schema: NormalizedSchema::Hash,
             } => {
                 "SELECT images.tile_data, images.tile_id AS tile_hash FROM map JOIN images ON map.tile_id = images.tile_id  where map.zoom_level = ? AND map.tile_column = ? AND map.tile_row = ?"
             }
             MbtType::Normalized {
                 hash_view: false,
-                schema: crate::NormalizedSchema::DedupId,
+                schema: NormalizedSchema::DedupId,
             } => {
                 "SELECT tiles_data.tile_data, NULL AS tile_hash FROM tiles_shallow JOIN tiles_data ON tiles_shallow.tile_data_id = tiles_data.tile_data_id  where tiles_shallow.zoom_level = ? AND tiles_shallow.tile_column = ? AND tiles_shallow.tile_row = ?"
             }
