@@ -580,8 +580,9 @@ LIMIT 1;"
                 let map = schema.map_table();
                 let data_table = schema.content_table();
                 let id = schema.tile_id_column();
+                // Check that all tile references in the map table exist in the data table
                 let sql = format!(
-                    "SELECT CAST(m.{id} AS TEXT) AS expected, 'missing' AS computed
+                    "SELECT CAST(m.{id} AS TEXT)
                      FROM {map} m
                      WHERE m.{id} IS NOT NULL
                        AND NOT EXISTS (
@@ -592,10 +593,11 @@ LIMIT 1;"
                      LIMIT 1;"
                 );
                 if let Some(row) = query(&sql).fetch_optional(&mut *conn).await? {
-                    return Err(IncorrectTileHash(
+                    let missing_id: String = row.get(0);
+                    return Err(MbtError::MissingTileReference(
                         self.filepath().to_string(),
-                        row.get(0),
-                        row.get(1),
+                        missing_id,
+                        data_table,
                     ));
                 }
                 info!("All tile references are valid for {self}");

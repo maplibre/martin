@@ -79,7 +79,9 @@ pub async fn apply_patch(base_file: PathBuf, patch_file: PathBuf, force: bool) -
             schema.content_table(),
             schema.tile_id_column(),
         );
-        let sql = format!("DELETE FROM {img} WHERE {id} NOT IN (SELECT {id} FROM {map})");
+        let sql = format!(
+            "DELETE FROM {img} WHERE NOT EXISTS (SELECT 1 FROM {map} WHERE {map}.{id} = {img}.{id})"
+        );
         query(&sql).execute(&mut conn).await?;
     }
 
