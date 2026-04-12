@@ -5,6 +5,8 @@ use sqlx::sqlite::SqliteConnectOptions;
 use sqlx::{Pool, Sqlite, SqlitePool};
 use tilejson::TileJSON;
 
+#[cfg(test)]
+use crate::NormalizedSchema;
 use crate::errors::MbtResult;
 use crate::{MbtType, Mbtiles, Metadata};
 
@@ -160,7 +162,7 @@ impl MbtilesPool {
     /// schema types is in use:
     /// - [`MbtType::Flat`] - Single `tiles` table
     /// - [`MbtType::FlatWithHash`] - `tiles_with_hash` table
-    /// - [`MbtType::Normalized`] - Separate `map` and `images` tables
+    /// - [`MbtType::Normalized`] - Separate mapping and content tables (table names vary)
     ///
     /// You typically need the schema type for operations like [`get_tile_and_hash`](Self::get_tile_and_hash)
     /// or [`contains`](Self::contains) that behave differently based on the schema.
@@ -365,8 +367,14 @@ mod tests {
 
         assert!(pool.contains(MbtType::Flat, 0, 0, 0).await.unwrap());
         for error_mbt_type in [
-            MbtType::Normalized { hash_view: false },
-            MbtType::Normalized { hash_view: true },
+            MbtType::Normalized {
+                hash_view: false,
+                schema: NormalizedSchema::Hash,
+            },
+            MbtType::Normalized {
+                hash_view: true,
+                schema: NormalizedSchema::Hash,
+            },
             MbtType::FlatWithHash,
         ] {
             assert!(pool.contains(error_mbt_type, 0, 0, 0).await.is_err());
@@ -394,8 +402,14 @@ mod tests {
         assert_eq!(h2, None);
         for error_types in [
             MbtType::FlatWithHash,
-            MbtType::Normalized { hash_view: false },
-            MbtType::Normalized { hash_view: true },
+            MbtType::Normalized {
+                hash_view: false,
+                schema: NormalizedSchema::Hash,
+            },
+            MbtType::Normalized {
+                hash_view: true,
+                schema: NormalizedSchema::Hash,
+            },
         ] {
             assert!(pool.get_tile_and_hash(error_types, 0, 0, 0).await.is_err());
         }
@@ -409,7 +423,10 @@ mod tests {
         let pool = MbtilesPool::open_readonly(file).await.unwrap();
         assert_eq!(
             pool.detect_type().await.unwrap(),
-            MbtType::Normalized { hash_view: false }
+            MbtType::Normalized {
+                hash_view: false,
+                schema: NormalizedSchema::Hash
+            }
         );
         let metadata = pool.get_metadata().await.unwrap();
         insta::assert_yaml_snapshot!(metadata, @r#"
@@ -439,12 +456,21 @@ mod tests {
         let pool = MbtilesPool::open_readonly(file).await.unwrap();
         assert_eq!(
             pool.detect_type().await.unwrap(),
-            MbtType::Normalized { hash_view: false }
+            MbtType::Normalized {
+                hash_view: false,
+                schema: NormalizedSchema::Hash
+            }
         );
 
         for working_mbt_type in [
-            MbtType::Normalized { hash_view: false },
-            MbtType::Normalized { hash_view: true },
+            MbtType::Normalized {
+                hash_view: false,
+                schema: NormalizedSchema::Hash,
+            },
+            MbtType::Normalized {
+                hash_view: true,
+                schema: NormalizedSchema::Hash,
+            },
             MbtType::Flat,
         ] {
             assert!(pool.contains(working_mbt_type, 0, 0, 0).await.unwrap());
@@ -460,14 +486,25 @@ mod tests {
         let pool = MbtilesPool::open_readonly(file).await.unwrap();
         assert_eq!(
             pool.detect_type().await.unwrap(),
-            MbtType::Normalized { hash_view: false }
+            MbtType::Normalized {
+                hash_view: false,
+                schema: NormalizedSchema::Hash
+            }
         );
 
         let t1 = pool.get_tile(0, 0, 0).await.unwrap().unwrap();
         assert!(!t1.is_empty());
 
         let (t2, h2) = pool
-            .get_tile_and_hash(MbtType::Normalized { hash_view: false }, 0, 0, 0)
+            .get_tile_and_hash(
+                MbtType::Normalized {
+                    hash_view: false,
+                    schema: NormalizedSchema::Hash,
+                },
+                0,
+                0,
+                0,
+            )
             .await
             .unwrap()
             .unwrap();
@@ -484,7 +521,10 @@ mod tests {
         assert_eq!(h3, None);
         for error_types in [
             MbtType::FlatWithHash,
-            MbtType::Normalized { hash_view: true },
+            MbtType::Normalized {
+                hash_view: true,
+                schema: NormalizedSchema::Hash,
+            },
         ] {
             assert!(pool.get_tile_and_hash(error_types, 0, 0, 0).await.is_err());
         }
@@ -628,8 +668,14 @@ mod tests {
             assert!(pool.contains(working_mbt_type, 6, 38, 19).await.unwrap());
         }
         for error_mbt_type in [
-            MbtType::Normalized { hash_view: false },
-            MbtType::Normalized { hash_view: true },
+            MbtType::Normalized {
+                hash_view: false,
+                schema: NormalizedSchema::Hash,
+            },
+            MbtType::Normalized {
+                hash_view: true,
+                schema: NormalizedSchema::Hash,
+            },
         ] {
             assert!(pool.contains(error_mbt_type, 6, 38, 19).await.is_err());
         }
@@ -661,7 +707,15 @@ mod tests {
         assert_eq!(t3, t1);
         assert_eq!(h3, None);
         let (t3, h3) = pool
-            .get_tile_and_hash(MbtType::Normalized { hash_view: true }, 6, 38, 19)
+            .get_tile_and_hash(
+                MbtType::Normalized {
+                    hash_view: true,
+                    schema: NormalizedSchema::Hash,
+                },
+                6,
+                38,
+                19,
+            )
             .await
             .unwrap()
             .unwrap();
@@ -670,9 +724,17 @@ mod tests {
 
         // no map table
         assert!(
-            pool.get_tile_and_hash(MbtType::Normalized { hash_view: false }, 0, 0, 0)
-                .await
-                .is_err()
+            pool.get_tile_and_hash(
+                MbtType::Normalized {
+                    hash_view: false,
+                    schema: NormalizedSchema::Hash
+                },
+                0,
+                0,
+                0
+            )
+            .await
+            .is_err()
         );
     }
 }

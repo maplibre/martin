@@ -568,11 +568,23 @@ impl Mbtiles {
             MbtType::Flat => {
                 "SELECT tile_data, NULL as tile_hash from tiles where zoom_level = ? AND tile_column = ? AND tile_row = ?"
             }
-            MbtType::FlatWithHash | MbtType::Normalized { hash_view: true } => {
+            MbtType::FlatWithHash
+            | MbtType::Normalized {
+                hash_view: true, ..
+            } => {
                 "SELECT tile_data, tile_hash from tiles_with_hash where zoom_level = ? AND tile_column = ? AND tile_row = ?"
             }
-            MbtType::Normalized { hash_view: false } => {
+            MbtType::Normalized {
+                hash_view: false,
+                schema: crate::NormalizedSchema::Hash,
+            } => {
                 "SELECT images.tile_data, images.tile_id AS tile_hash FROM map JOIN images ON map.tile_id = images.tile_id  where map.zoom_level = ? AND map.tile_column = ? AND map.tile_row = ?"
+            }
+            MbtType::Normalized {
+                hash_view: false,
+                schema: crate::NormalizedSchema::DedupId,
+            } => {
+                "SELECT tiles_data.tile_data, NULL AS tile_hash FROM tiles_shallow JOIN tiles_data ON tiles_shallow.tile_data_id = tiles_data.tile_data_id  where tiles_shallow.zoom_level = ? AND tiles_shallow.tile_column = ? AND tiles_shallow.tile_row = ?"
             }
         }
     }
@@ -650,7 +662,7 @@ impl Mbtiles {
         let table = match mbt_type {
             MbtType::Flat => "tiles",
             MbtType::FlatWithHash => "tiles_with_hash",
-            MbtType::Normalized { .. } => "map",
+            MbtType::Normalized { schema, .. } => schema.map_table(),
         };
         let sql = format!(
             "SELECT 1 from {table} where zoom_level = ? AND tile_column = ? AND tile_row = ?"
