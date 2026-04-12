@@ -583,7 +583,12 @@ LIMIT 1;"
                 let sql = format!(
                     "SELECT CAST(m.{id} AS TEXT) AS expected, 'missing' AS computed
                      FROM {map} m
-                     WHERE m.{id} NOT IN (SELECT {id} FROM {data_table})
+                     WHERE m.{id} IS NOT NULL
+                       AND NOT EXISTS (
+                           SELECT 1
+                           FROM {data_table} d
+                           WHERE d.{id} = m.{id}
+                       )
                      LIMIT 1;"
                 );
                 if let Some(row) = query(&sql).fetch_optional(&mut *conn).await? {
