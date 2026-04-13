@@ -90,20 +90,22 @@ impl MBTilesReloader {
                 let adv = ReloadAdvisory::from_maps(
                     &prev,
                     &next,
-                    async move |id| -> Option<BoxedSource> {
-                        let Some(p) = sources_clone.get(&id) else {
-                            return None;
-                        };
-                        let Ok(src) = MbtSource::new(id, p.0.clone()).await else {
-                            return None;
-                        };
+                    async move |id| -> MartinResult<BoxedSource> {
+                        let p = sources_clone.get(&id).ok_or(
+                            MartinError::DirectoryWatchError(notify::ErrorKind::Generic(
+                                format!("Source {id} not found in discovered sources"),
+                            )),
+                        )?;
+                        let src = MbtSource::new(id, p.0.clone()).await?;
 
-                        Some(Box::new(src) as BoxedSource)
+                        Ok(Box::new(src) as BoxedSource)
                     },
                 )
                 .await;
 
-                _tsm.apply_changes(adv)
+                if let Err(e) = _tsm.apply_changes(adv).await {
+                    warn!("failed to apply reload changes: {e:?}");
+                }
             }
         });
 
