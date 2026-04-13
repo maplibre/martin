@@ -13,6 +13,21 @@ use serde::{Deserialize, Serialize};
 use subst::VariableMap;
 use tracing::{error, info, warn};
 
+#[cfg(feature = "unstable-cog")]
+use super::cog::CogConfig;
+#[cfg(feature = "fonts")]
+use super::fonts::FontConfig;
+#[cfg(feature = "mbtiles")]
+use super::mbtiles::MbtConfig;
+#[cfg(feature = "pmtiles")]
+use super::pmtiles::PmtConfig;
+#[cfg(feature = "postgres")]
+use super::postgres::PostgresConfig;
+#[cfg(feature = "sprites")]
+use super::sprites::SpriteConfig;
+use super::srv::SrvConfig;
+#[cfg(feature = "styles")]
+use super::styles::StyleConfig;
 #[cfg(any(
     feature = "pmtiles",
     feature = "mbtiles",
@@ -30,21 +45,6 @@ use crate::config::file::{
     ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks as _, UnrecognizedKeys,
     UnrecognizedValues, copy_unrecognized_keys_from_config,
 };
-#[cfg(feature = "unstable-cog")]
-use super::cog::CogConfig;
-#[cfg(feature = "fonts")]
-use super::fonts::FontConfig;
-#[cfg(feature = "mbtiles")]
-use super::mbtiles::MbtConfig;
-#[cfg(feature = "pmtiles")]
-use super::pmtiles::PmtConfig;
-#[cfg(feature = "postgres")]
-use super::postgres::PostgresConfig;
-use super::srv::SrvConfig;
-#[cfg(feature = "sprites")]
-use super::sprites::SpriteConfig;
-#[cfg(feature = "styles")]
-use super::styles::StyleConfig;
 #[cfg(feature = "_tiles")]
 use crate::config::primitives::IdResolver;
 #[cfg(feature = "postgres")]
