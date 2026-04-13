@@ -17,11 +17,11 @@ use crate::config::args::WebUiMode;
 #[cfg(feature = "_catalog")]
 use crate::config::file::ServerState;
 use crate::config::file::srv::{KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT, SrvConfig};
+#[cfg(any(not(feature = "webui"), docsrs))]
+use crate::srv::admin::get_index_no_ui;
 use crate::srv::admin::{Catalog, get_catalog};
 #[cfg(all(feature = "webui", not(docsrs)))]
 use crate::srv::admin::{get_index_ui_disabled, webui};
-#[cfg(any(not(feature = "webui"), docsrs))]
-use crate::srv::admin::get_index_no_ui;
 #[cfg(feature = "fonts")]
 use crate::srv::fonts;
 #[cfg(feature = "sprites")]
@@ -135,8 +135,7 @@ fn register_services(
         .service(sprites::redirect_sprites_png);
 
     #[cfg(feature = "fonts")]
-    cfg.service(fonts::get_font)
-        .service(fonts::redirect_fonts);
+    cfg.service(fonts::get_font).service(fonts::redirect_fonts);
 
     #[cfg(feature = "styles")]
     cfg.service(styles::get_style_json)
