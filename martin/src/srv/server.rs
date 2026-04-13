@@ -182,7 +182,7 @@ pub fn new_server(
             .map_err(|err| MartinError::MetricsIntialisationError(err))?
     };
     let catalog = Catalog::new(
-        #[cfg(feature = "_catalog")]
+        #[cfg(any(feature = "sprites", feature = "fonts", feature = "styles"))]
         &state,
     )?;
 
@@ -205,9 +205,7 @@ pub fn new_server(
             .app_data(Data::new(config.clone()));
 
         #[cfg(feature = "_tiles")]
-        let app = app
-            .app_data(Data::new(state.tiles.clone()))
-            .app_data(Data::new(state.tile_cache.clone()));
+        let app = app.app_data(Data::new(state.tile_manager.clone()));
 
         #[cfg(feature = "sprites")]
         let app = app

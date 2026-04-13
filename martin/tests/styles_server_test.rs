@@ -13,16 +13,24 @@ pub use utils::*;
 macro_rules! create_app {
     ($sources:expr) => {{
         let state = mock_sources(mock_cfg($sources)).await.0;
-        ::actix_web::test::init_service(
-            ::actix_web::App::new()
-                .app_data(actix_web::web::Data::new(
-                    ::martin::srv::Catalog::new(&state).unwrap(),
-                ))
-                .app_data(actix_web::web::Data::new(state.styles))
-                .app_data(actix_web::web::Data::new(SrvConfig::default()))
-                .configure(|c| ::martin::srv::router(c, &SrvConfig::default())),
-        )
-        .await
+        let app = ::actix_web::App::new()
+            .app_data(actix_web::web::Data::new(
+                ::martin::srv::Catalog::new(
+                    #[cfg(any(feature = "sprites", feature = "fonts", feature = "styles"))]
+                    &state,
+                )
+                .unwrap(),
+            ))
+            .app_data(actix_web::web::Data::new(SrvConfig::default()));
+
+        #[cfg(feature = "_tiles")]
+        let app = app.app_data(actix_web::web::Data::new(state.tile_manager.clone()));
+
+        let app = app
+            .app_data(actix_web::web::Data::new(state.styles))
+            .configure(|c| ::martin::srv::router(c, &SrvConfig::default()));
+
+        ::actix_web::test::init_service(app).await
     }};
 }
 
