@@ -69,12 +69,12 @@ xxhash-rust.workspace = true
 [dev-dependencies]
 # For testing, might as well use the same async framework as the Martin itself
 actix-rt.workspace = true
-tempfile.workspace = true
 criterion.workspace = true
 env_logger.workspace = true
 insta = { workspace = true, features = ["toml", "yaml"] }
 pretty_assertions.workspace = true
 rstest.workspace = true
+tempfile.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
 tracing.workspace = true
 tracing-test.workspace = true
