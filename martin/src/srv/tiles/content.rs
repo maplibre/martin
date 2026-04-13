@@ -20,7 +20,6 @@ use crate::config::args::PreferredEncoding;
 use crate::config::file::srv::SrvConfig;
 use crate::srv::server::{DebouncedWarning, map_internal_error};
 use crate::tile_source_manager::TileSourceManager;
-use martin_tile_utils::{decode_zlib, decode_zstd, encode_zlib, encode_zstd};
 
 const SUPPORTED_ENC: &[HeaderEnc] = &[
     HeaderEnc::gzip(),
