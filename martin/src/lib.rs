@@ -9,6 +9,16 @@ mod source;
 #[cfg(feature = "_tiles")]
 pub use source::TileSources;
 
+#[cfg(feature = "_tiles")]
+mod reload;
+#[cfg(feature = "_tiles")]
+pub use reload::{DeletedSource, NewSource, ReloadAdvisory};
+
+#[cfg(feature = "_tiles")]
+mod tile_source_manager;
+#[cfg(feature = "_tiles")]
+pub use tile_source_manager::TileSourceManager;
+
 mod error;
 pub use error::{MartinError, MartinResult};
 

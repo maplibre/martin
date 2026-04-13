@@ -19,6 +19,7 @@ impl TileCache {
                     value.data.len().try_into().unwrap_or(u32::MAX)
                 })
                 .max_capacity(max_size_bytes)
+                .support_invalidation_closures()
                 .build(),
         )
     }
@@ -89,6 +90,11 @@ impl TileCache {
     #[must_use]
     pub fn weighted_size(&self) -> u64 {
         self.0.weighted_size()
+    }
+
+    /// Runs pending maintenance tasks (e.g. processing invalidation predicates).
+    pub async fn run_pending_tasks(&self) {
+        self.0.run_pending_tasks().await;
     }
 }
 
