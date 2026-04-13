@@ -96,41 +96,40 @@ fn register_services(
     cfg: &mut web::ServiceConfig,
     #[cfg(all(feature = "webui", not(docsrs)))] usr_cfg: &SrvConfig,
 ) {
-    cfg.service(get_health)
-        .service(crate::srv::admin::get_catalog);
+    cfg.service(get_health).service(super::admin::get_catalog);
 
     #[cfg(feature = "_tiles")]
     {
         // Register tile format suffix redirects BEFORE the main tile route
         // because Actix-Web matches routes in registration order
-        cfg.service(crate::srv::tiles::content::redirect_tile_ext)
-            .service(crate::srv::tiles::metadata::get_source_info)
-            .service(crate::srv::tiles::content::get_tile);
+        cfg.service(super::tiles::content::redirect_tile_ext)
+            .service(super::tiles::metadata::get_source_info)
+            .service(super::tiles::content::get_tile);
 
         // Register /tiles/ prefix redirect after main tile route
-        cfg.service(crate::srv::tiles::content::redirect_tiles);
+        cfg.service(super::tiles::content::redirect_tiles);
     }
 
     #[cfg(feature = "sprites")]
-    cfg.service(crate::srv::sprites::get_sprite_sdf_json)
-        .service(crate::srv::sprites::redirect_sdf_sprites_json)
-        .service(crate::srv::sprites::get_sprite_json)
-        .service(crate::srv::sprites::redirect_sprites_json)
-        .service(crate::srv::sprites::get_sprite_sdf_png)
-        .service(crate::srv::sprites::redirect_sdf_sprites_png)
-        .service(crate::srv::sprites::get_sprite_png)
-        .service(crate::srv::sprites::redirect_sprites_png);
+    cfg.service(super::sprites::get_sprite_sdf_json)
+        .service(super::sprites::redirect_sdf_sprites_json)
+        .service(super::sprites::get_sprite_json)
+        .service(super::sprites::redirect_sprites_json)
+        .service(super::sprites::get_sprite_sdf_png)
+        .service(super::sprites::redirect_sdf_sprites_png)
+        .service(super::sprites::get_sprite_png)
+        .service(super::sprites::redirect_sprites_png);
 
     #[cfg(feature = "fonts")]
-    cfg.service(crate::srv::fonts::get_font)
-        .service(crate::srv::fonts::redirect_fonts);
+    cfg.service(super::fonts::get_font)
+        .service(super::fonts::redirect_fonts);
 
     #[cfg(feature = "styles")]
-    cfg.service(crate::srv::styles::get_style_json)
-        .service(crate::srv::styles::redirect_styles);
+    cfg.service(super::styles::get_style_json)
+        .service(super::styles::redirect_styles);
 
     #[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
-    cfg.service(crate::srv::styles_rendering::get_style_rendered);
+    cfg.service(super::styles_rendering::get_style_rendered);
 
     #[cfg(all(feature = "webui", not(docsrs)))]
     {
@@ -139,15 +138,15 @@ fn register_services(
         if usr_cfg.web_ui.unwrap_or_default() == WebUiMode::EnableForAll {
             cfg.service(actix_web_static_files::ResourceFiles::new(
                 "/",
-                crate::srv::admin::webui::generate(),
+                super::admin::webui::generate(),
             ));
         } else {
-            cfg.service(crate::srv::admin::get_index_ui_disabled);
+            cfg.service(super::admin::get_index_ui_disabled);
         }
     }
 
     #[cfg(any(not(feature = "webui"), docsrs))]
-    cfg.service(crate::srv::admin::get_index_no_ui);
+    cfg.service(super::admin::get_index_no_ui);
 }
 
 type Server = Pin<Box<dyn Future<Output = MartinResult<()>>>>;

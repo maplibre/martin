@@ -357,21 +357,21 @@ impl Config {
                     file_config.custom.pmtiles_directory_cache = pmtiles_cache;
                 }
             }
-            let val = crate::config::file::resolve_files(cfg, idr, &["pmtiles"]);
+            let val = super::resolve_files(cfg, idr, &["pmtiles"]);
             sources_and_warnings.push(Box::pin(val));
         }
 
         #[cfg(feature = "mbtiles")]
         if !self.mbtiles.is_empty() {
             let cfg = &mut self.mbtiles;
-            let val = crate::config::file::resolve_files(cfg, idr, &["mbtiles"]);
+            let val = super::resolve_files(cfg, idr, &["mbtiles"]);
             sources_and_warnings.push(Box::pin(val));
         }
 
         #[cfg(feature = "unstable-cog")]
         if !self.cog.is_empty() {
             let cfg = &mut self.cog;
-            let val = crate::config::file::resolve_files(cfg, idr, &["tif", "tiff"]);
+            let val = super::resolve_files(cfg, idr, &["tif", "tiff"]);
             sources_and_warnings.push(Box::pin(val));
         }
 
@@ -489,9 +489,11 @@ pub fn parse_base_path(path: &str) -> MartinResult<String> {
 }
 
 pub fn init_aws_lc_tls() {
+    use rustls::crypto::aws_lc_rs;
+
     // https://github.com/rustls/rustls/issues/1877
     static INIT_TLS: LazyLock<()> = LazyLock::new(|| {
-        rustls::crypto::aws_lc_rs::default_provider()
+        aws_lc_rs::default_provider()
             .install_default()
             .expect("Unable to init rustls: {e:?}");
     });
