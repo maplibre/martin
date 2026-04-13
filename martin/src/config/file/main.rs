@@ -24,12 +24,12 @@ use tracing::{error, info, warn};
 use crate::config::file::FileConfigEnum;
 #[cfg(any(feature = "_tiles", feature = "sprites", feature = "fonts"))]
 use crate::config::file::cache::CacheConfig;
+#[cfg(feature = "_tiles")]
+use crate::config::file::resolve_files;
 use crate::config::file::{
     ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks as _, UnrecognizedKeys,
     UnrecognizedValues, copy_unrecognized_keys_from_config,
 };
-#[cfg(feature = "_tiles")]
-use crate::config::file::resolve_files;
 #[cfg(feature = "_tiles")]
 use crate::config::primitives::IdResolver;
 #[cfg(feature = "postgres")]
