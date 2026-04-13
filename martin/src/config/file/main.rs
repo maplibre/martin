@@ -30,6 +30,21 @@ use crate::config::file::{
     ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks as _, UnrecognizedKeys,
     UnrecognizedValues, copy_unrecognized_keys_from_config,
 };
+#[cfg(feature = "unstable-cog")]
+use super::cog::CogConfig;
+#[cfg(feature = "fonts")]
+use super::fonts::FontConfig;
+#[cfg(feature = "mbtiles")]
+use super::mbtiles::MbtConfig;
+#[cfg(feature = "pmtiles")]
+use super::pmtiles::PmtConfig;
+#[cfg(feature = "postgres")]
+use super::postgres::PostgresConfig;
+use super::srv::SrvConfig;
+#[cfg(feature = "sprites")]
+use super::sprites::SpriteConfig;
+#[cfg(feature = "styles")]
+use super::styles::StyleConfig;
 #[cfg(feature = "_tiles")]
 use crate::config::primitives::IdResolver;
 #[cfg(feature = "postgres")]
@@ -85,35 +100,35 @@ pub struct Config {
     pub on_invalid: Option<OnInvalid>,
 
     #[serde(flatten)]
-    pub srv: super::srv::SrvConfig,
+    pub srv: SrvConfig,
 
     #[cfg(feature = "postgres")]
     #[serde(default, skip_serializing_if = "OptOneMany::is_none")]
-    pub postgres: OptOneMany<super::postgres::PostgresConfig>,
+    pub postgres: OptOneMany<PostgresConfig>,
 
     #[cfg(feature = "pmtiles")]
     #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
-    pub pmtiles: FileConfigEnum<super::pmtiles::PmtConfig>,
+    pub pmtiles: FileConfigEnum<PmtConfig>,
 
     #[cfg(feature = "mbtiles")]
     #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
-    pub mbtiles: FileConfigEnum<super::mbtiles::MbtConfig>,
+    pub mbtiles: FileConfigEnum<MbtConfig>,
 
     #[cfg(feature = "unstable-cog")]
     #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
-    pub cog: FileConfigEnum<super::cog::CogConfig>,
+    pub cog: FileConfigEnum<CogConfig>,
 
     #[cfg(feature = "sprites")]
     #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
-    pub sprites: super::sprites::SpriteConfig,
+    pub sprites: SpriteConfig,
 
     #[cfg(feature = "styles")]
     #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
-    pub styles: super::styles::StyleConfig,
+    pub styles: StyleConfig,
 
     #[cfg(feature = "fonts")]
     #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
-    pub fonts: super::fonts::FontConfig,
+    pub fonts: FontConfig,
 
     #[serde(flatten, skip_serializing)]
     pub unrecognized: UnrecognizedValues,
