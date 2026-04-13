@@ -26,7 +26,7 @@ use crate::config::file::FileConfigEnum;
 use crate::config::file::cache::CacheConfig;
 use crate::config::file::{
     ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks as _, UnrecognizedKeys,
-    UnrecognizedValues, copy_unrecognized_keys_from_config,
+    UnrecognizedValues, copy_unrecognized_keys_from_config, resolve_files,
 };
 #[cfg(feature = "_tiles")]
 use crate::config::primitives::IdResolver;
@@ -357,21 +357,21 @@ impl Config {
                     file_config.custom.pmtiles_directory_cache = pmtiles_cache;
                 }
             }
-            let val = super::resolve_files(cfg, idr, &["pmtiles"]);
+            let val = resolve_files(cfg, idr, &["pmtiles"]);
             sources_and_warnings.push(Box::pin(val));
         }
 
         #[cfg(feature = "mbtiles")]
         if !self.mbtiles.is_empty() {
             let cfg = &mut self.mbtiles;
-            let val = super::resolve_files(cfg, idr, &["mbtiles"]);
+            let val = resolve_files(cfg, idr, &["mbtiles"]);
             sources_and_warnings.push(Box::pin(val));
         }
 
         #[cfg(feature = "unstable-cog")]
         if !self.cog.is_empty() {
             let cfg = &mut self.cog;
-            let val = super::resolve_files(cfg, idr, &["tif", "tiff"]);
+            let val = resolve_files(cfg, idr, &["tif", "tiff"]);
             sources_and_warnings.push(Box::pin(val));
         }
 

@@ -17,7 +17,21 @@ use crate::config::args::WebUiMode;
 #[cfg(feature = "_catalog")]
 use crate::config::file::ServerState;
 use crate::config::file::srv::{KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT, SrvConfig};
-use crate::srv::admin::Catalog;
+use crate::srv::admin::{Catalog, get_catalog};
+#[cfg(all(feature = "webui", not(docsrs)))]
+use crate::srv::admin::{get_index_ui_disabled, webui};
+#[cfg(any(not(feature = "webui"), docsrs))]
+use crate::srv::admin::get_index_no_ui;
+#[cfg(feature = "fonts")]
+use crate::srv::fonts;
+#[cfg(feature = "sprites")]
+use crate::srv::sprites;
+#[cfg(feature = "styles")]
+use crate::srv::styles;
+#[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
+use crate::srv::styles_rendering;
+#[cfg(feature = "_tiles")]
+use crate::srv::tiles;
 use crate::{MartinError, MartinResult};
 
 /// List of keywords that cannot be used as source IDs. Some of these are reserved for future use.
@@ -96,40 +110,40 @@ fn register_services(
     cfg: &mut web::ServiceConfig,
     #[cfg(all(feature = "webui", not(docsrs)))] usr_cfg: &SrvConfig,
 ) {
-    cfg.service(get_health).service(super::admin::get_catalog);
+    cfg.service(get_health).service(get_catalog);
 
     #[cfg(feature = "_tiles")]
     {
         // Register tile format suffix redirects BEFORE the main tile route
         // because Actix-Web matches routes in registration order
-        cfg.service(super::tiles::content::redirect_tile_ext)
-            .service(super::tiles::metadata::get_source_info)
-            .service(super::tiles::content::get_tile);
+        cfg.service(tiles::content::redirect_tile_ext)
+            .service(tiles::metadata::get_source_info)
+            .service(tiles::content::get_tile);
 
         // Register /tiles/ prefix redirect after main tile route
-        cfg.service(super::tiles::content::redirect_tiles);
+        cfg.service(tiles::content::redirect_tiles);
     }
 
     #[cfg(feature = "sprites")]
-    cfg.service(super::sprites::get_sprite_sdf_json)
-        .service(super::sprites::redirect_sdf_sprites_json)
-        .service(super::sprites::get_sprite_json)
-        .service(super::sprites::redirect_sprites_json)
-        .service(super::sprites::get_sprite_sdf_png)
-        .service(super::sprites::redirect_sdf_sprites_png)
-        .service(super::sprites::get_sprite_png)
-        .service(super::sprites::redirect_sprites_png);
+    cfg.service(sprites::get_sprite_sdf_json)
+        .service(sprites::redirect_sdf_sprites_json)
+        .service(sprites::get_sprite_json)
+        .service(sprites::redirect_sprites_json)
+        .service(sprites::get_sprite_sdf_png)
+        .service(sprites::redirect_sdf_sprites_png)
+        .service(sprites::get_sprite_png)
+        .service(sprites::redirect_sprites_png);
 
     #[cfg(feature = "fonts")]
-    cfg.service(super::fonts::get_font)
-        .service(super::fonts::redirect_fonts);
+    cfg.service(fonts::get_font)
+        .service(fonts::redirect_fonts);
 
     #[cfg(feature = "styles")]
-    cfg.service(super::styles::get_style_json)
-        .service(super::styles::redirect_styles);
+    cfg.service(styles::get_style_json)
+        .service(styles::redirect_styles);
 
     #[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
-    cfg.service(super::styles_rendering::get_style_rendered);
+    cfg.service(styles_rendering::get_style_rendered);
 
     #[cfg(all(feature = "webui", not(docsrs)))]
     {
@@ -138,15 +152,15 @@ fn register_services(
         if usr_cfg.web_ui.unwrap_or_default() == WebUiMode::EnableForAll {
             cfg.service(actix_web_static_files::ResourceFiles::new(
                 "/",
-                super::admin::webui::generate(),
+                webui::generate(),
             ));
         } else {
-            cfg.service(super::admin::get_index_ui_disabled);
+            cfg.service(get_index_ui_disabled);
         }
     }
 
     #[cfg(any(not(feature = "webui"), docsrs))]
-    cfg.service(super::admin::get_index_no_ui);
+    cfg.service(get_index_no_ui);
 }
 
 type Server = Pin<Box<dyn Future<Output = MartinResult<()>>>>;
