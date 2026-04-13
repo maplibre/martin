@@ -26,8 +26,10 @@ use crate::config::file::FileConfigEnum;
 use crate::config::file::cache::CacheConfig;
 use crate::config::file::{
     ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks as _, UnrecognizedKeys,
-    UnrecognizedValues, copy_unrecognized_keys_from_config, resolve_files,
+    UnrecognizedValues, copy_unrecognized_keys_from_config,
 };
+#[cfg(feature = "_tiles")]
+use crate::config::file::resolve_files;
 #[cfg(feature = "_tiles")]
 use crate::config::primitives::IdResolver;
 #[cfg(feature = "postgres")]
