@@ -31,8 +31,8 @@ fn bench_transcode(c: &mut Criterion) {
 
     group.bench_function("flat_to_flat", |b| {
         b.to_async(&rt).iter(|| async {
-            let dst = std::env::temp_dir().join("bench_flat_to_flat.mbtiles");
-            let _ = std::fs::remove_file(&dst);
+            let dir = tempfile::tempdir().unwrap();
+            let dst = dir.path().join("bench_flat_to_flat.mbtiles");
             MbtilesTranscoder::new(flat_src.clone(), dst, |data| Ok(data))
                 .dst_type(MbtType::Flat)
                 .run()
@@ -43,8 +43,8 @@ fn bench_transcode(c: &mut Criterion) {
 
     group.bench_function("flat_to_normalized", |b| {
         b.to_async(&rt).iter(|| async {
-            let dst = std::env::temp_dir().join("bench_flat_to_norm.mbtiles");
-            let _ = std::fs::remove_file(&dst);
+            let dir = tempfile::tempdir().unwrap();
+            let dst = dir.path().join("bench_flat_to_norm.mbtiles");
             MbtilesTranscoder::new(flat_src.clone(), dst, |data| Ok(data))
                 .dst_type(NORM_WITH_VIEW)
                 .run()
@@ -55,8 +55,8 @@ fn bench_transcode(c: &mut Criterion) {
 
     group.bench_function("normalized_to_normalized", |b| {
         b.to_async(&rt).iter(|| async {
-            let dst = std::env::temp_dir().join("bench_norm_to_norm.mbtiles");
-            let _ = std::fs::remove_file(&dst);
+            let dir = tempfile::tempdir().unwrap();
+            let dst = dir.path().join("bench_norm_to_norm.mbtiles");
             MbtilesTranscoder::new(norm_src.clone(), dst, |data| Ok(data))
                 .dst_type(NORM_WITH_VIEW)
                 .run()
@@ -67,8 +67,8 @@ fn bench_transcode(c: &mut Criterion) {
 
     group.bench_function("normalized_to_flat", |b| {
         b.to_async(&rt).iter(|| async {
-            let dst = std::env::temp_dir().join("bench_norm_to_flat.mbtiles");
-            let _ = std::fs::remove_file(&dst);
+            let dir = tempfile::tempdir().unwrap();
+            let dst = dir.path().join("bench_norm_to_flat.mbtiles");
             MbtilesTranscoder::new(norm_src.clone(), dst, |data| Ok(data))
                 .dst_type(MbtType::Flat)
                 .run()
