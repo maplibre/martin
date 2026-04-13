@@ -503,7 +503,10 @@ async fn init_schema(
             let mbt_type = match args.mbt_type.unwrap_or(MbtTypeCli::Normalized) {
                 MbtTypeCli::Flat => MbtType::Flat,
                 MbtTypeCli::FlatWithHash => MbtType::FlatWithHash,
-                MbtTypeCli::Normalized => MbtType::Normalized { hash_view: true },
+                MbtTypeCli::Normalized => MbtType::Normalized {
+                    hash_view: true,
+                    schema: mbtiles::NormalizedSchema::Hash,
+                },
             };
             init_mbtiles_schema(&mut *conn, mbt_type)
                 .await

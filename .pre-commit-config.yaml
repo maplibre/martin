@@ -79,13 +79,13 @@ repos:
         # If you update this rule, please also update the rules in justfile, the fmt-sql recipe
         args: [ --dialect=postgres, "--exclude-rules=AL07,LT05,LT12" ]
         files: \.sql$
-        exclude: ^tests/fixtures/(mbtiles|files)/.*\.sql$
+        exclude: ^(tests/fixtures/(mbtiles|files)|mbtiles/sql)/.*\.sql$
 
         # 2. SQLite dialect for .sql files in specific directories
       - id: sqlfluff-fix
         # LT01: Layout spacing adds space between x and 'blob' breaking the blobs
         args: [--dialect=sqlite, "--exclude-rules=LT01,LT05"]
-        files: ^tests/fixtures/(mbtiles|files)/.*\.sql$
+        files: ^(tests/fixtures/(mbtiles|files)|mbtiles/sql)/.*\.sql$
 
   # NPM hooks for JavaScript/TypeScript formatting and linting
   - repo: https://github.com/biomejs/pre-commit

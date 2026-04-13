@@ -10,8 +10,8 @@ use actix_web::{HttpMessage as _, HttpRequest, HttpResponse, Result as ActixResu
 use futures::future::try_join_all;
 use martin_core::tiles::{BoxedSource, Tile, TileCache, UrlQuery};
 use martin_tile_utils::{
-    Encoding, Format, TileCoord, TileData, TileInfo, decode_brotli, decode_gzip, encode_brotli,
-    encode_gzip,
+    Encoding, Format, TileCoord, TileData, TileInfo, decode_brotli, decode_gzip, decode_zlib,
+    decode_zstd, encode_brotli, encode_gzip, encode_zlib, encode_zstd,
 };
 use serde::Deserialize;
 use tracing::warn;
@@ -20,7 +20,6 @@ use crate::config::args::PreferredEncoding;
 use crate::config::file::srv::SrvConfig;
 use crate::srv::server::{DebouncedWarning, map_internal_error};
 use crate::tile_source_manager::TileSourceManager;
-use martin_tile_utils::{decode_zlib, decode_zstd, encode_zlib, encode_zstd};
 
 const SUPPORTED_ENC: &[HeaderEnc] = &[
     HeaderEnc::gzip(),

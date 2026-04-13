@@ -17,8 +17,8 @@ use crate::MbtError::{
 use crate::errors::{MbtError, MbtResult};
 use crate::mbtiles::PatchFileInfo;
 use crate::queries::{
-    has_tiles_with_hash, is_flat_tables_type, is_flat_with_hash_tables_type,
-    is_normalized_tables_type,
+    has_tiles_with_hash, is_dedup_id_normalized_tables_type, is_flat_tables_type,
+    is_flat_with_hash_tables_type, is_normalized_tables_type,
 };
 use crate::{Mbtiles, get_patch_type, invert_y_value};
 
@@ -30,6 +30,58 @@ pub const AGG_TILES_HASH_AFTER_APPLY: &str = "agg_tiles_hash_after_apply";
 
 /// Metadata key for a diff file, describing the expected [`AGG_TILES_HASH`] value of the tileset to which the diff will be applied.
 pub const AGG_TILES_HASH_BEFORE_APPLY: &str = "agg_tiles_hash_before_apply";
+
+/// Describes the naming convention used by a normalized `MBTiles` schema.
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize)]
+pub enum NormalizedSchema {
+    /// Standard: `map` + `images` tables, `tile_id` TEXT (md5 hash of `tile_data`)
+    Hash,
+    /// Alternative: `tiles_shallow` + `tiles_data` tables, `tile_data_id` INTEGER
+    DedupId,
+}
+
+impl NormalizedSchema {
+    /// Name of the table storing tile coordinates (the "map" table).
+    #[must_use]
+    pub fn map_table(self) -> &'static str {
+        match self {
+            Self::Hash => "map",
+            Self::DedupId => "tiles_shallow",
+        }
+    }
+
+    /// Name of the table storing tile blobs (the "images" table).
+    #[must_use]
+    pub fn content_table(self) -> &'static str {
+        match self {
+            Self::Hash => "images",
+            Self::DedupId => "tiles_data",
+        }
+    }
+
+    /// Name of the foreign key column linking the map table to the images table.
+    #[must_use]
+    pub fn tile_id_column(self) -> &'static str {
+        match self {
+            Self::Hash => "tile_id",
+            Self::DedupId => "tile_data_id",
+        }
+    }
+
+    /// Build a `SELECT zoom_level, tile_column, tile_row, tile_data, <id> AS <alias>`
+    /// subquery joining the map and images tables for the given database prefix.
+    /// Use `join_type` to control `JOIN` vs `LEFT JOIN`.
+    #[must_use]
+    pub(crate) fn select_tiles_sql(self, db_prefix: &str, alias: &str, join_type: &str) -> String {
+        let map = self.map_table();
+        let data_table = self.content_table();
+        let id = self.tile_id_column();
+        format!(
+            "SELECT zoom_level, tile_column, tile_row, tile_data, {map}.{id} AS {alias} \
+             FROM {db_prefix}.{map} {join_type} {db_prefix}.{data_table} ON {map}.{id} = {data_table}.{id}"
+        )
+    }
+}
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, EnumDisplay, Serialize)]
 #[enum_display(case = "Kebab")]
@@ -52,14 +104,17 @@ pub enum MbtType {
     /// Normalized `MBTiles` file
     ///
     /// The most efficient when the tileset contains duplicate tiles.
-    /// It stores all tile blobs in the `images` table, and stores the tile Z,X,Y coordinates in a `map` table.
-    /// The `map` table contains a `tile_id` column that is a foreign key to the `images` table.
-    /// The `tile_id` column is a hash of the `tile_data` column, making it possible to both validate each individual tile like in the [`MbtType::FlatWithHash`] schema, and also to optimize storage by storing each unique tile only once.
+    /// It stores all tile blobs in a separate table, and stores the tile Z,X,Y coordinates in a mapping table.
+    /// The mapping table contains a foreign key column linking to the tile data table.
     ///
     /// The `hash_view` argument specifies whether to create/assume a `tiles_with_hash` view exists.
+    /// The `schema` argument describes the naming convention (standard `map`/`images` or alternative `tiles_shallow`/`tiles_data`).
     ///
     /// See <https://maplibre.org/martin/mbtiles-schema.html#normalized> for the concrete schema.
-    Normalized { hash_view: bool },
+    Normalized {
+        hash_view: bool,
+        schema: NormalizedSchema,
+    },
 }
 
 impl MbtType {
@@ -70,7 +125,22 @@ impl MbtType {
 
     #[must_use]
     pub fn is_normalized_with_view(self) -> bool {
-        matches!(self, Self::Normalized { hash_view: true })
+        matches!(
+            self,
+            Self::Normalized {
+                hash_view: true,
+                ..
+            }
+        )
+    }
+
+    /// Returns the [`NormalizedSchema`] if this is a normalized type, `None` otherwise.
+    #[must_use]
+    pub fn normalized_schema(self) -> Option<NormalizedSchema> {
+        match self {
+            Self::Normalized { schema, .. } => Some(schema),
+            _ => None,
+        }
     }
 }
 
@@ -273,6 +343,12 @@ impl Mbtiles {
         let typ = if is_normalized_tables_type(&mut *conn).await? {
             MbtType::Normalized {
                 hash_view: has_tiles_with_hash(&mut *conn).await?,
+                schema: NormalizedSchema::Hash,
+            }
+        } else if is_dedup_id_normalized_tables_type(&mut *conn).await? {
+            MbtType::Normalized {
+                hash_view: false,
+                schema: NormalizedSchema::DedupId,
             }
         } else if is_flat_with_hash_tables_type(&mut *conn).await? {
             MbtType::FlatWithHash
@@ -299,7 +375,7 @@ impl Mbtiles {
         let table_name = match mbt_type {
             MbtType::Flat => "tiles",
             MbtType::FlatWithHash => "tiles_with_hash",
-            MbtType::Normalized { .. } => "map",
+            MbtType::Normalized { schema, .. } => schema.map_table(),
         };
 
         let indexes = query("SELECT name FROM pragma_index_list(?) WHERE [unique] = 1")
@@ -500,15 +576,32 @@ LIMIT 1;"
                 WHERE expected != computed
                 LIMIT 1;"
             }
-            MbtType::Normalized { .. } => {
-                "SELECT expected, computed FROM (
-                    SELECT
-                        upper(tile_id) AS expected,
-                        md5_hex(tile_data) AS computed
-                    FROM images
-                ) AS t
-                WHERE expected != computed
-                LIMIT 1;"
+            MbtType::Normalized { schema, .. } => {
+                let map = schema.map_table();
+                let data_table = schema.content_table();
+                let id = schema.tile_id_column();
+                // Check that all tile references in the map table exist in the data table
+                let sql = format!(
+                    "SELECT CAST(m.{id} AS TEXT)
+                     FROM {map} m
+                     WHERE m.{id} IS NOT NULL
+                       AND NOT EXISTS (
+                           SELECT 1
+                           FROM {data_table} d
+                           WHERE d.{id} = m.{id}
+                       )
+                     LIMIT 1;"
+                );
+                if let Some(row) = query(&sql).fetch_optional(&mut *conn).await? {
+                    let missing_id: String = row.get(0);
+                    return Err(MbtError::MissingTileReference(
+                        self.filepath().to_string(),
+                        missing_id,
+                        data_table,
+                    ));
+                }
+                info!("All tile references are valid for {self}");
+                return Ok(());
             }
         };
 
@@ -652,7 +745,24 @@ pub(crate) mod tests {
         let script = include_str!("../../tests/fixtures/mbtiles/geography-class-jpg.sql");
         let (mbt, mut conn) = anonymous_mbtiles(script).await;
         let res = mbt.detect_type(&mut conn).await.unwrap();
-        assert_eq!(res, MbtType::Normalized { hash_view: false });
+        assert_eq!(
+            res,
+            MbtType::Normalized {
+                hash_view: false,
+                schema: NormalizedSchema::Hash
+            }
+        );
+
+        let script = include_str!("../../tests/fixtures/mbtiles/normalized-dedup-id.sql");
+        let (mbt, mut conn) = anonymous_mbtiles(script).await;
+        let res = mbt.detect_type(&mut conn).await.unwrap();
+        assert_eq!(
+            res,
+            MbtType::Normalized {
+                hash_view: false,
+                schema: NormalizedSchema::DedupId
+            }
+        );
 
         let (mut conn, mbt) = open(":memory:").await.unwrap();
         let res = mbt.detect_type(&mut conn).await;
