@@ -1769,7 +1769,8 @@ the <code>tile_data</code> column matches the  <code>tile_hash</code> or <code>t
 use MD5 hash in the <code>tile_id</code> column. The Martin's <code>mbtiles</code> tool can use this hash to verify the content of each tile.
 We also define a new <a href="../mbtiles-schema/#flat-with-hash">flat-with-hash</a> schema that stores the hash and tile data in the
 same table, allowing per-tile validation without the multiple table layout.</p>
-<p>Per-tile validation is not available for the <code>flat</code> schema, and will be skipped.</p>
+<p>Per-tile validation is not available for the <code>flat</code> schema and will be skipped.
+For the <a href="../mbtiles-schema/#alternative-normalized-schema-dedup-id">dedup-id normalized</a> schema variant, foreign key integrity is validated instead — every <code>tile_data_id</code> in <code>tiles_shallow</code> must have a matching entry in <code>tiles_data</code>.</p>
 <h2 id="aggregate-content-validation">Aggregate Content Validation</h2>
 <p>Per-tile validation will catch individual tile corruption, but it will not detect overall datastore corruption such as
 missing tiles, tiles that should not exist, or tiles with incorrect z/x/y values. For that, the <code>mbtiles</code> tool defines a
