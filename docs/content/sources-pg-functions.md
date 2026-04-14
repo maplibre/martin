@@ -226,17 +226,19 @@ By default, Martin assumes all PostgreSQL function sources produce vector tiles 
 To serve **raster tiles** (PNG, JPEG, WebP, etc.) from a function, add a `content_type` field to the SQL comment JSON.
 Martin will read this field and serve the tiles with the correct MIME type.
 
-Supported `content_type` values:
+Common supported `content_type` values include:
 
-| `content_type`                           | Format       |
-|------------------------------------------|--------------|
-| `image/png`                              | PNG          |
-| `image/jpeg`                             | JPEG         |
-| `image/gif`                              | GIF          |
-| `image/webp`                             | WebP         |
-| `image/avif`                             | AVIF         |
-| `application/x-protobuf`                 | MVT (default)|
-| `application/vnd.maplibre-vector-tile`   | MLT          |
+| `content_type`                           | Format        |
+|------------------------------------------|---------------|
+| `image/png`                              | PNG           |
+| `image/jpeg`                             | JPEG          |
+| `image/jpg`                              | JPEG (alias)  |
+| `image/gif`                              | GIF           |
+| `image/webp`                             | WebP          |
+| `image/avif`                             | AVIF          |
+| `application/x-protobuf`                 | MVT (default) |
+| `application/vnd.mapbox-vector-tile`     | MVT (alias)   |
+| `application/vnd.maplibre-vector-tile`   | MLT           |
 
 The following example creates a function that returns raster PNG tiles and sets the `content_type`:
 
