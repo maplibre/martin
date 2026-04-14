@@ -53,22 +53,20 @@ impl SpriteCache {
             .entry(key.clone())
             .or_try_insert_with(async move { compute().await })
             .await?;
-        let is_hit = !entry.is_fresh();
-        let data = entry.into_value();
 
-        if is_hit {
+        if entry.is_fresh() {
+            hotpath::gauge!("sprite_cache_misses").inc(1.0);
+            trace!("Sprite cache MISS for {key:?}");
+        } else {
             hotpath::gauge!("sprite_cache_hits").inc(1.0);
             trace!(
                 "Sprite cache HIT for {key:?} (entries={}, size={})",
                 self.cache.entry_count(),
                 self.cache.weighted_size()
             );
-        } else {
-            hotpath::gauge!("sprite_cache_misses").inc(1.0);
-            trace!("Sprite cache MISS for {key:?}");
         }
 
-        Ok(data)
+        Ok(entry.into_value())
     }
 
     /// Invalidates all cached sprites that use the specified source ID.
