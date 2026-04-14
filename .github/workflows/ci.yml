@@ -593,8 +593,9 @@ jobs:
           # - freetype2 for font rendering to SDF
           # - cmake for aws-lc-sys
           # - just for running standardized test suites
+          # - bash because the justfile has a lot of scripts that assume bash
           prepare: |
-            pkg install -y rust sqlite3 freetype2 cmake just
+            pkg install -y rust sqlite3 freetype2 cmake just bash
           run: |
             just env-info
             just test
