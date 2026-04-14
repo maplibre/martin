@@ -594,8 +594,10 @@ jobs:
           # - cmake for aws-lc-sys
           # - just for running standardized test suites
           # - bash because the justfile has a lot of scripts that assume bash
+          # - node and npm are not currently used (we don't run the JS tests on FreeBSD),
+          #   but they are here in case we want them later.
           prepare: |
-            pkg install -y rust sqlite3 freetype2 cmake just bash
+            pkg install -y rust sqlite3 freetype2 cmake just bash node npm
           run: |
             just env-info
             just test-freebsd
