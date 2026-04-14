@@ -1,7 +1,6 @@
 use actix_web::web::Bytes;
 use moka::future::Cache;
-use moka::ops::compute::{CompResult, Op};
-use std::sync::Mutex;
+use std::sync::Arc;
 use tracing::{info, trace};
 
 /// Sprite cache for storing generated sprite sheets.
@@ -42,54 +41,20 @@ impl SpriteCache {
         as_sdf: bool,
         as_json: bool,
         compute: F,
-    ) -> Result<Bytes, E>
+    ) -> Result<Bytes, Arc<E>>
     where
         F: FnOnce() -> Fut,
         Fut: Future<Output = Result<Bytes, E>>,
+        E: Send + Sync + 'static,
     {
         let key = SpriteCacheKey::new(ids, as_sdf, as_json);
-        let error = Mutex::new(None);
-        let result = self
+        let entry = self
             .cache
             .entry(key.clone())
-            .and_compute_with(|maybe_entry| {
-                let error = &error;
-                async move {
-                    if maybe_entry.is_some() {
-                        Op::Nop
-                    } else {
-                        match compute().await {
-                            Ok(data) => Op::Put(data),
-                            Err(err) => {
-                                *error.lock().expect(
-                                    "sprite cache compute error mutex poisoned during sprite cache insertion",
-                                ) = Some(err);
-                                Op::Nop
-                            }
-                        }
-                    }
-                }
-            })
-            .await;
-
-        if let Some(err) = error
-            .into_inner()
-            .expect("sprite cache compute error mutex poisoned after sprite cache insertion")
-        {
-            return Err(err);
-        }
-
-        let (data, is_hit) = match result {
-            CompResult::Inserted(entry) | CompResult::ReplacedWith(entry) => {
-                (entry.into_value(), false)
-            }
-            CompResult::Unchanged(entry) => (entry.into_value(), true),
-            CompResult::Removed(_) | CompResult::StillNone(_) => {
-                unreachable!(
-                    "sprite cache entry compute only uses Op::Put/Op::Nop, so Op::Remove/StillNone are unreachable"
-                )
-            }
-        };
+            .or_try_insert_with(async move { compute().await })
+            .await?;
+        let is_hit = !entry.is_fresh();
+        let data = entry.into_value();
 
         if is_hit {
             hotpath::gauge!("sprite_cache_hits").inc(1.0);

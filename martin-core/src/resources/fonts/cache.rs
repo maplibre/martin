@@ -48,16 +48,16 @@ impl FontCache {
             .or_try_insert_with(async move { compute() })
             .await?;
 
-        if !entry.is_fresh() {
+        if entry.is_fresh() {
+            hotpath::gauge!("font_cache_misses").inc(1.0);
+            trace!("Font cache MISS for {key:?}");
+        } else {
             hotpath::gauge!("font_cache_hits").inc(1.0);
             trace!(
                 "Font cache HIT for {key:?} (entries={}, size={})",
                 self.cache.entry_count(),
                 self.cache.weighted_size()
             );
-        } else {
-            hotpath::gauge!("font_cache_misses").inc(1.0);
-            trace!("Font cache MISS for {key:?}");
         }
 
         Ok(entry.into_value())
