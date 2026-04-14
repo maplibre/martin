@@ -526,7 +526,7 @@ fn migrate_deprecated_config(value: &mut serde_yaml::Value) {
 /// e.g. `&["cache", "size_mb"]` means `cache.size_mb`.
 ///
 /// If the new key already exists, the old value is dropped with a warning.
-/// If only the old key exists, it is moved and a deprecation warning is emitted.
+/// If only the old key exists, it is moved to the new location.
 fn migrate_yaml_key(mapping: &mut serde_yaml::Mapping, old_key: &str, new_path: &[&str]) {
     debug_assert!(!new_path.is_empty(), "new_path must not be empty");
 
