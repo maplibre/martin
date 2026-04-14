@@ -629,7 +629,6 @@ pub struct CacheSizeConfig {
     pub size_mb: Option<u64>,
 }
 
-
 pub type UnrecognizedValues = HashMap<String, serde_yaml::Value>;
 pub type UnrecognizedKeys = HashSet<String>;
 

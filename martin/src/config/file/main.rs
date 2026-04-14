@@ -527,11 +527,7 @@ fn migrate_deprecated_config(value: &mut serde_yaml::Value) {
 ///
 /// If the new key already exists, the old value is dropped with a warning.
 /// If only the old key exists, it is moved and a deprecation warning is emitted.
-fn migrate_yaml_key(
-    mapping: &mut serde_yaml::Mapping,
-    old_key: &str,
-    new_path: &[&str],
-) {
+fn migrate_yaml_key(mapping: &mut serde_yaml::Mapping, old_key: &str, new_path: &[&str]) {
     debug_assert!(!new_path.is_empty(), "new_path must not be empty");
 
     let old_yaml_key = serde_yaml::Value::String(old_key.into());
@@ -548,12 +544,12 @@ fn migrate_yaml_key(
     let mut current = &mut *mapping;
     for &segment in parents {
         if !current.contains_key(segment) {
-            current.insert(serde_yaml::Value::String(segment.into()), serde_yaml::Value::Mapping(serde_yaml::Mapping::default()));
+            current.insert(
+                serde_yaml::Value::String(segment.into()),
+                serde_yaml::Value::Mapping(serde_yaml::Mapping::default()),
+            );
         }
-        let Some(nested) = current
-            .get_mut(&segment)
-            .and_then(|v| v.as_mapping_mut())
-        else {
+        let Some(nested) = current.get_mut(&segment).and_then(|v| v.as_mapping_mut()) else {
             warn!(
                 "deprecated config: `{old_key}` is ignored because `{segment}` is already set. \
                  Please remove `{old_key}` from your configuration"
@@ -602,7 +598,12 @@ mod tests {
     use super::*;
 
     fn parse_yaml(yaml: &str) -> Config {
-        parse_config(yaml, &HashMap::<String, String>::new(), Path::new("test.yaml")).unwrap()
+        parse_config(
+            yaml,
+            &HashMap::<String, String>::new(),
+            Path::new("test.yaml"),
+        )
+        .unwrap()
     }
 
     #[test]
@@ -646,7 +647,8 @@ mod tests {
 
     #[test]
     fn new_cache_format_works_directly() {
-        let config = parse_yaml("cache:\n  size_mb: 512\n  tile_size_mb: 256\n  minzoom: 2\n  maxzoom: 10");
+        let config =
+            parse_yaml("cache:\n  size_mb: 512\n  tile_size_mb: 256\n  minzoom: 2\n  maxzoom: 10");
         assert_eq!(config.cache.size_mb, Some(512));
         assert_eq!(config.cache.tile_size_mb, Some(256));
     }
