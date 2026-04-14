@@ -704,7 +704,10 @@ mod tests {
         let policy: CachePolicy = serde_yaml::from_str("disable").unwrap();
         assert_eq!(policy, CachePolicy::disabled());
         for zoom in 0..=u8::MAX {
-            assert!(!policy.zoom().contains(zoom), "A disabled policy should never match any zoom level");
+            assert!(
+                !policy.zoom().contains(zoom),
+                "A disabled policy should never match any zoom level"
+            );
         }
     }
 
