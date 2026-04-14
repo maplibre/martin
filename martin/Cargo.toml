@@ -142,6 +142,7 @@ dashmap.workspace = true
 enum-display = { workspace = true, optional = true }
 futures.workspace = true
 hotpath.workspace = true
+humantime-serde.workspace = true
 image = { workspace = true, optional = true }
 indicatif.workspace = true
 itertools.workspace = true

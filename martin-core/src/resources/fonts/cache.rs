@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use moka::future::Cache;
 use tracing::{info, trace};
 
@@ -16,15 +18,25 @@ pub struct FontCache {
 impl FontCache {
     /// Creates a new font cache with the specified maximum size in bytes.
     #[must_use]
-    pub fn new(max_size_bytes: u64) -> Self {
+    pub fn new(
+        max_size_bytes: u64,
+        expiry: Option<Duration>,
+        idle_timeout: Option<Duration>,
+    ) -> Self {
+        let mut builder = Cache::builder()
+            .name("font_cache")
+            .weigher(|_key: &FontCacheKey, value: &Vec<u8>| -> u32 {
+                value.len().try_into().unwrap_or(u32::MAX)
+            })
+            .max_capacity(max_size_bytes);
+        if let Some(ttl) = expiry {
+            builder = builder.time_to_live(ttl);
+        }
+        if let Some(tti) = idle_timeout {
+            builder = builder.time_to_idle(tti);
+        }
         Self {
-            cache: Cache::builder()
-                .name("font_cache")
-                .weigher(|_key: &FontCacheKey, value: &Vec<u8>| -> u32 {
-                    value.len().try_into().unwrap_or(u32::MAX)
-                })
-                .max_capacity(max_size_bytes)
-                .build(),
+            cache: builder.build(),
         }
     }
 
