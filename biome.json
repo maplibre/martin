@@ -25,6 +25,9 @@
     "enabled": true,
     "includes": ["**"],
     "rules": {
+      "correctness": {
+        "useExhaustiveDependencies": "off"
+      },
       "recommended": true
     }
   },

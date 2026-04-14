@@ -41,7 +41,6 @@ export function DashboardContent() {
 
   const handleSearchChange = (query: string) => updateParam('search', query);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: if we list analyticsOperation.execute below, this is an infinite loop
   useEffect(() => {
     catalogOperation.execute();
   }, []);

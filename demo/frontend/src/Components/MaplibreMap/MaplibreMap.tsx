@@ -77,7 +77,6 @@ const MaplibreMap = () => {
         mapRef.current.remove();
       }
     };
-    // biome-ignore lint/correctness/useExhaustiveDependencies: React Compiler handles memoization of mapOnLoad
   }, [mapOnLoad]);
 
   // Update map when state changes (equivalent to componentDidUpdate)
@@ -89,7 +88,6 @@ const MaplibreMap = () => {
       newStyle.sources.trips_source.url = `/tiles/get_trips?${getQueryParams()}`;
       mapRef.current.setStyle(newStyle);
     }
-    // biome-ignore lint/correctness/useExhaustiveDependencies: React Compiler handles memoization of getQueryParams
   }, [getQueryParams]);
 
   return (
