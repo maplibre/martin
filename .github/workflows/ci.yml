@@ -586,8 +586,13 @@ jobs:
         id: test
         uses: vmactions/freebsd-vm@7ca82f79fe3078fecded6d3a2bff094995447bbd # v1
         with:
-          release: "14.2"
+          release: "15.0"
           envs: "AWS_SKIP_CREDENTIALS AWS_REGION"
+          # Dependencies (FreeBSD base systems come more bare):
+          # - sqlite3 for MBTiles support
+          # - freetype2 for font rendering to SDF
+          # - cmake for aws-lc-sys
+          # - just for running standardized test suites
           prepare: |
             pkg install -y rust sqlite3 freetype2 cmake just
           run: |
@@ -925,6 +930,7 @@ jobs:
       - lint-rust-dependencies
       - lint-unit-test-js
       - lint-rust
+      - test-freebsd
     if: always()
     permissions: {}
     steps:
