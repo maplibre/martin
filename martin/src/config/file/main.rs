@@ -306,49 +306,46 @@ impl Config {
 
             #[cfg(feature = "pmtiles")]
             let pmtiles = {
-                let (size, expiry, idle) =
-                    if let FileConfigEnum::Config(cfg) = &self.pmtiles {
-                        (
-                            cfg.custom
-                                .directory_cache
-                                .size_mb
-                                .unwrap_or(cache_size_mb / 4),
-                            cfg.custom.directory_cache.expiry.or(global_expiry),
-                            cfg.custom.directory_cache.idle_timeout.or(global_idle),
-                        )
-                    } else {
-                        (cache_size_mb / 4, global_expiry, global_idle)
-                    };
+                let (size, expiry, idle) = if let FileConfigEnum::Config(cfg) = &self.pmtiles {
+                    (
+                        cfg.custom
+                            .directory_cache
+                            .size_mb
+                            .unwrap_or(cache_size_mb / 4),
+                        cfg.custom.directory_cache.expiry.or(global_expiry),
+                        cfg.custom.directory_cache.idle_timeout.or(global_idle),
+                    )
+                } else {
+                    (cache_size_mb / 4, global_expiry, global_idle)
+                };
                 Self::make_sub_cache(size, expiry, idle)
             };
 
             #[cfg(feature = "sprites")]
             let sprites = {
-                let (size, expiry, idle) =
-                    if let FileConfigEnum::Config(cfg) = &self.sprites {
-                        (
-                            cfg.custom.cache.size_mb.unwrap_or(cache_size_mb / 8),
-                            cfg.custom.cache.expiry.or(global_expiry),
-                            cfg.custom.cache.idle_timeout.or(global_idle),
-                        )
-                    } else {
-                        (cache_size_mb / 8, global_expiry, global_idle)
-                    };
+                let (size, expiry, idle) = if let FileConfigEnum::Config(cfg) = &self.sprites {
+                    (
+                        cfg.custom.cache.size_mb.unwrap_or(cache_size_mb / 8),
+                        cfg.custom.cache.expiry.or(global_expiry),
+                        cfg.custom.cache.idle_timeout.or(global_idle),
+                    )
+                } else {
+                    (cache_size_mb / 8, global_expiry, global_idle)
+                };
                 Self::make_sub_cache(size, expiry, idle)
             };
 
             #[cfg(feature = "fonts")]
             let fonts = {
-                let (size, expiry, idle) =
-                    if let FileConfigEnum::Config(cfg) = &self.fonts {
-                        (
-                            cfg.custom.cache.size_mb.unwrap_or(cache_size_mb / 8),
-                            cfg.custom.cache.expiry.or(global_expiry),
-                            cfg.custom.cache.idle_timeout.or(global_idle),
-                        )
-                    } else {
-                        (cache_size_mb / 8, global_expiry, global_idle)
-                    };
+                let (size, expiry, idle) = if let FileConfigEnum::Config(cfg) = &self.fonts {
+                    (
+                        cfg.custom.cache.size_mb.unwrap_or(cache_size_mb / 8),
+                        cfg.custom.cache.expiry.or(global_expiry),
+                        cfg.custom.cache.idle_timeout.or(global_idle),
+                    )
+                } else {
+                    (cache_size_mb / 8, global_expiry, global_idle)
+                };
                 Self::make_sub_cache(size, expiry, idle)
             };
 
@@ -827,14 +824,8 @@ mod tests {
     fn cache_expiry_global_config() {
         let config = parse_yaml("cache:\n  size_mb: 512\n  expiry: 1h\n  idle_timeout: 15m");
         assert_eq!(config.cache.size_mb, Some(512));
-        assert_eq!(
-            config.cache.expiry,
-            Some(Duration::from_secs(3600))
-        );
-        assert_eq!(
-            config.cache.idle_timeout,
-            Some(Duration::from_secs(900))
-        );
+        assert_eq!(config.cache.expiry, Some(Duration::from_secs(3600)));
+        assert_eq!(config.cache.idle_timeout, Some(Duration::from_secs(900)));
     }
 
     #[test]
@@ -842,14 +833,8 @@ mod tests {
         let config = parse_yaml(
             "cache:\n  expiry: 1h\n  idle_timeout: 15m\n  tile_expiry: 30m\n  tile_idle_timeout: 5m",
         );
-        assert_eq!(
-            config.cache.expiry,
-            Some(Duration::from_secs(3600))
-        );
-        assert_eq!(
-            config.cache.tile_expiry,
-            Some(Duration::from_secs(1800))
-        );
+        assert_eq!(config.cache.expiry, Some(Duration::from_secs(3600)));
+        assert_eq!(config.cache.tile_expiry, Some(Duration::from_secs(1800)));
         assert_eq!(
             config.cache.tile_idle_timeout,
             Some(Duration::from_secs(300))
@@ -868,16 +853,14 @@ mod tests {
     #[cfg(feature = "sprites")]
     #[test]
     fn cache_expiry_sprites() {
-        let config =
-            parse_yaml("sprites:\n  cache:\n    size_mb: 64\n    expiry: 2h\n    idle_timeout: 30m\n  paths: /tmp");
+        let config = parse_yaml(
+            "sprites:\n  cache:\n    size_mb: 64\n    expiry: 2h\n    idle_timeout: 30m\n  paths: /tmp",
+        );
         let FileConfigEnum::Config(cfg) = &config.sprites else {
             panic!("expected sprites config");
         };
         assert_eq!(cfg.custom.cache.size_mb, Some(64));
-        assert_eq!(
-            cfg.custom.cache.expiry,
-            Some(Duration::from_secs(7200))
-        );
+        assert_eq!(cfg.custom.cache.expiry, Some(Duration::from_secs(7200)));
         assert_eq!(
             cfg.custom.cache.idle_timeout,
             Some(Duration::from_secs(1800))
