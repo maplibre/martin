@@ -1,7 +1,5 @@
 {
   "permissions": {
-    "allow": [
-      "Bash(just clippy:*)"
-    ]
+    "allow": ["Bash(just clippy:*)"]
   }
 }
