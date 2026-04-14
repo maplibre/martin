@@ -56,7 +56,7 @@ impl FontCache {
                             Ok(data) => Op::Put(data),
                             Err(err) => {
                                 *error.lock().expect(
-                                    "font cache compute error mutex should not be poisoned",
+                                    "font cache compute error mutex poisoned during font cache insertion",
                                 ) = Some(err);
                                 Op::Nop
                             }
@@ -68,7 +68,7 @@ impl FontCache {
 
         if let Some(err) = error
             .into_inner()
-            .expect("font cache compute error mutex should not be poisoned")
+            .expect("font cache compute error mutex poisoned after font cache insertion")
         {
             return Err(err);
         }
@@ -79,7 +79,9 @@ impl FontCache {
             }
             CompResult::Unchanged(entry) => (entry.into_value(), true),
             CompResult::Removed(_) | CompResult::StillNone(_) => {
-                unreachable!("font cache entry compute should not remove or remain empty")
+                unreachable!(
+                    "font cache entry compute only uses Op::Put/Op::Nop, so Op::Remove/StillNone are unreachable"
+                )
             }
         };
 

@@ -62,7 +62,7 @@ impl SpriteCache {
                             Ok(data) => Op::Put(data),
                             Err(err) => {
                                 *error.lock().expect(
-                                    "sprite cache compute error mutex should not be poisoned",
+                                    "sprite cache compute error mutex poisoned during sprite cache insertion",
                                 ) = Some(err);
                                 Op::Nop
                             }
@@ -74,7 +74,7 @@ impl SpriteCache {
 
         if let Some(err) = error
             .into_inner()
-            .expect("sprite cache compute error mutex should not be poisoned")
+            .expect("sprite cache compute error mutex poisoned after sprite cache insertion")
         {
             return Err(err);
         }
@@ -85,7 +85,9 @@ impl SpriteCache {
             }
             CompResult::Unchanged(entry) => (entry.into_value(), true),
             CompResult::Removed(_) | CompResult::StillNone(_) => {
-                unreachable!("sprite cache entry compute should not remove or remain empty")
+                unreachable!(
+                    "sprite cache entry compute only uses Op::Put/Op::Nop, so Op::Remove/StillNone are unreachable"
+                )
             }
         };
 

@@ -53,7 +53,7 @@ impl TileCache {
                             Ok(tile) => Op::Put(tile),
                             Err(err) => {
                                 *error.lock().expect(
-                                    "tile cache compute error mutex should not be poisoned",
+                                    "tile cache compute error mutex poisoned during tile cache insertion",
                                 ) = Some(err);
                                 Op::Nop
                             }
@@ -65,7 +65,7 @@ impl TileCache {
 
         if let Some(err) = error
             .into_inner()
-            .expect("tile cache compute error mutex should not be poisoned")
+            .expect("tile cache compute error mutex poisoned after tile cache insertion")
         {
             return Err(err);
         }
@@ -76,7 +76,9 @@ impl TileCache {
             }
             CompResult::Unchanged(entry) => (entry.into_value(), true),
             CompResult::Removed(_) | CompResult::StillNone(_) => {
-                unreachable!("tile cache entry compute should not remove or remain empty")
+                unreachable!(
+                    "tile cache entry compute only uses Op::Put/Op::Nop, so Op::Remove/StillNone are unreachable"
+                )
             }
         };
 
