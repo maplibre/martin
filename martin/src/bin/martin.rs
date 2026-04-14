@@ -3,6 +3,8 @@ use std::env;
 use clap::Parser as _;
 use martin::MartinResult;
 use martin::config::args::Args;
+#[cfg(all(feature = "webui", not(docsrs)))]
+use martin::config::args::WebUiMode;
 use martin::config::file::{Config, read_config};
 use martin::config::primitives::env::OsEnv;
 use martin::logging::{ensure_martin_core_log_level_matches, init_tracing};
@@ -56,7 +58,7 @@ async fn start(args: Args) -> MartinResult<()> {
     };
 
     #[cfg(all(feature = "webui", not(docsrs)))]
-    if web_ui_mode == martin::config::args::WebUiMode::EnableForAll {
+    if web_ui_mode == WebUiMode::EnableForAll {
         tracing::info!("Martin server is now active at {base_url}");
     } else {
         info!(

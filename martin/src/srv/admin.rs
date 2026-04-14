@@ -1,15 +1,20 @@
+#[cfg(feature = "_tiles")]
+use std::collections::HashMap;
+
 use actix_web::web::Data;
 use actix_web::{HttpResponse, Responder, middleware, route};
+#[cfg(feature = "_tiles")]
+use martin_core::tiles::catalog::TileCatalog;
 use serde::{Deserialize, Serialize};
 
 use crate::MartinResult;
-#[cfg(feature = "_catalog")]
+#[cfg(any(feature = "sprites", feature = "fonts", feature = "styles"))]
 use crate::config::file::ServerState;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Catalog {
     #[cfg(feature = "_tiles")]
-    pub tiles: martin_core::tiles::catalog::TileCatalog,
+    pub tiles: TileCatalog,
     #[cfg(feature = "sprites")]
     pub sprites: martin_core::sprites::SpriteCatalog,
     #[cfg(feature = "fonts")]
@@ -19,10 +24,12 @@ pub struct Catalog {
 }
 
 impl Catalog {
-    pub fn new(#[cfg(feature = "_catalog")] state: &ServerState) -> MartinResult<Self> {
+    pub fn new(
+        #[cfg(any(feature = "sprites", feature = "fonts", feature = "styles"))] state: &ServerState,
+    ) -> MartinResult<Self> {
         Ok(Self {
             #[cfg(feature = "_tiles")]
-            tiles: state.tiles.get_catalog(),
+            tiles: HashMap::default(),
             #[cfg(feature = "sprites")]
             sprites: state.sprites.get_catalog()?,
             #[cfg(feature = "fonts")]
@@ -40,7 +47,19 @@ impl Catalog {
     wrap = "middleware::Compress::default()"
 )]
 #[hotpath::measure]
-async fn get_catalog(catalog: Data<Catalog>) -> impl Responder {
+async fn get_catalog(
+    catalog: Data<Catalog>,
+    #[cfg(feature = "_tiles")] tile_manager: Data<crate::tile_source_manager::TileSourceManager>,
+) -> impl Responder {
+    #[cfg(feature = "_tiles")]
+    let catalog = {
+        let mut catalog = catalog.as_ref().clone();
+        catalog.tiles = tile_manager.tile_sources().get_catalog();
+        catalog
+    };
+    #[cfg(not(feature = "_tiles"))]
+    let catalog = catalog.as_ref();
+
     HttpResponse::Ok().json(catalog)
 }
 
