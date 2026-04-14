@@ -138,6 +138,7 @@ impl TileSourceManager {
 mod tests {
     use async_trait::async_trait;
     use insta::assert_yaml_snapshot;
+    use martin_core::CacheZoomRange;
     use martin_core::tiles::{MartinCoreResult, Source, TileCache, UrlQuery};
     use martin_tile_utils::{Encoding, Format, TileCoord, TileData, TileInfo};
     use tilejson::{TileJSON, tilejson};
@@ -164,6 +165,9 @@ mod tests {
         }
         fn clone_source(&self) -> BoxedSource {
             Box::new(self.clone())
+        }
+        fn cache_zoom(&self) -> CacheZoomRange {
+            CacheZoomRange::default()
         }
         async fn get_tile(
             &self,

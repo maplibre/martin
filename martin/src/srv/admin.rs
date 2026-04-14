@@ -3,6 +3,8 @@ use std::collections::HashMap;
 
 use actix_web::web::Data;
 use actix_web::{HttpResponse, Responder, middleware, route};
+#[cfg(feature = "_tiles")]
+use martin_core::tiles::catalog::TileCatalog;
 use serde::{Deserialize, Serialize};
 
 use crate::MartinResult;
@@ -12,7 +14,7 @@ use crate::config::file::ServerState;
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Catalog {
     #[cfg(feature = "_tiles")]
-    pub tiles: martin_core::tiles::catalog::TileCatalog,
+    pub tiles: TileCatalog,
     #[cfg(feature = "sprites")]
     pub sprites: martin_core::sprites::SpriteCatalog,
     #[cfg(feature = "fonts")]

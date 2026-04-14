@@ -1,4 +1,7 @@
-cache_size_mb: 8
+cache:
+  size_mb: 8
+  minzoom: 0
+  maxzoom: 20
 keep_alive: 75
 listen_addresses: localhost:3111
 worker_processes: 1
@@ -144,6 +147,9 @@ postgres:
       buffer: 64
       clip_geom: true
       geometry_type: GEOMETRY
+      cache:
+        minzoom: 2
+        maxzoom: 14
       properties:
         gid: int4
   functions:
@@ -172,7 +178,11 @@ postgres:
       - 90.0
 pmtiles:
   sources:
-    pmt: tests/fixtures/pmtiles/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles
+    pmt:
+      path: tests/fixtures/pmtiles/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles
+      cache:
+        minzoom: 0
+        maxzoom: 3
     pmt2: http://localhost:5412/webp2.pmtiles
     webp2: http://localhost:5412/webp2.pmtiles
 sprites:

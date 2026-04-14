@@ -10,6 +10,7 @@ use pmtiles::{AsyncPmTilesReader, Compression, ObjectStoreBackend, TileType};
 use tilejson::TileJSON;
 use tracing::{trace, warn};
 
+use crate::CacheZoomRange;
 use crate::tiles::pmtiles::PmtCacheInstance;
 use crate::tiles::pmtiles::PmtilesError::{self, InvalidMetadata};
 use crate::tiles::{BoxedSource, MartinCoreResult, Source, UrlQuery};
@@ -21,6 +22,7 @@ pub struct PmtilesSource {
     pmtiles: Arc<AsyncPmTilesReader<ObjectStoreBackend, PmtCacheInstance>>,
     tilejson: TileJSON,
     tile_info: TileInfo,
+    cache_zoom: CacheZoomRange,
 }
 
 #[expect(clippy::missing_fields_in_debug)]
@@ -39,6 +41,7 @@ impl PmtilesSource {
         id: String,
         store: Box<dyn ObjectStore>,
         path: impl Into<object_store::path::Path>,
+        cache_zoom: CacheZoomRange,
     ) -> Result<Self, PmtilesError> {
         let path = path.into();
         let store_to_string = store.to_string();
@@ -100,6 +103,7 @@ impl PmtilesSource {
             pmtiles: Arc::new(reader),
             tilejson,
             tile_info: format,
+            cache_zoom,
         })
     }
 }
@@ -126,6 +130,10 @@ impl Source for PmtilesSource {
 
     fn benefits_from_concurrent_scraping(&self) -> bool {
         true
+    }
+
+    fn cache_zoom(&self) -> CacheZoomRange {
+        self.cache_zoom
     }
 
     async fn get_tile(

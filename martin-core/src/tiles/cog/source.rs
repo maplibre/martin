@@ -14,6 +14,7 @@ use tiff::tags::Tag::{self};
 use tiff::tags::{CompressionMethod, PlanarConfiguration};
 use tilejson::{Bounds, Center, TileJSON, tilejson};
 
+use crate::CacheZoomRange;
 use crate::tiles::cog::CogError;
 use crate::tiles::cog::image::{COMPRESSION_WEBP, Image};
 use crate::tiles::cog::model::ModelInfo;
@@ -32,12 +33,13 @@ pub struct CogSource {
     images: HashMap<u8, Image>,
     tilejson: TileJSON,
     tileinfo: TileInfo,
+    cache_zoom: CacheZoomRange,
 }
 
 impl CogSource {
     /// Creates a new COG tile source from a file path.
     #[expect(clippy::too_many_lines)]
-    pub fn new(id: String, path: PathBuf) -> Result<Self, CogError> {
+    pub fn new(id: String, path: PathBuf, cache_zoom: CacheZoomRange) -> Result<Self, CogError> {
         let tif_file =
             File::open(&path).map_err(|e: std::io::Error| CogError::IoError(e, path.clone()))?;
         let mut decoder = Decoder::new(tif_file)
@@ -166,6 +168,7 @@ impl CogSource {
             images,
             tilejson,
             tileinfo: TileInfo::new(output_format, martin_tile_utils::Encoding::Internal),
+            cache_zoom,
         })
     }
 }
@@ -209,6 +212,10 @@ impl Source for CogSource {
         // if we copy from one local file to another, we are likely not bottlenecked by CPU
         // TODO: benchmark this assumption, decoding might be a bottleneck
         false
+    }
+
+    fn cache_zoom(&self) -> CacheZoomRange {
+        self.cache_zoom
     }
 
     async fn get_tile(
@@ -550,6 +557,7 @@ mod tests {
     use rstest::rstest;
     use tilejson::{Bounds, Center};
 
+    use crate::CacheZoomRange;
     use crate::tiles::cog::CogSource;
 
     #[rstest]
@@ -613,7 +621,12 @@ mod tests {
         #[case] format: String,
     ) {
         let path = format!("../tests/fixtures/cog/{cog_file}.tif");
-        let source = CogSource::new(cog_file, Path::new(&path).to_path_buf()).unwrap();
+        let source = CogSource::new(
+            cog_file,
+            Path::new(&path).to_path_buf(),
+            CacheZoomRange::default(),
+        )
+        .unwrap();
 
         assert_eq!(source.max_zoom, max_zoom);
         assert_eq!(source.min_zoom, min_zoom);

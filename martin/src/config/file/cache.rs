@@ -1,3 +1,12 @@
+#[cfg(feature = "fonts")]
+use martin_core::fonts::{FontCache, OptFontCache};
+#[cfg(feature = "sprites")]
+use martin_core::sprites::{OptSpriteCache, SpriteCache};
+#[cfg(feature = "_tiles")]
+use martin_core::tiles::TileCache;
+#[cfg(feature = "pmtiles")]
+use martin_core::tiles::pmtiles::PmtCache;
+
 /// Configuration for all cache types.
 #[derive(Debug, Clone)]
 pub struct CacheConfig {
@@ -19,14 +28,14 @@ impl CacheConfig {
     /// Creates tile cache if configured.
     #[cfg(feature = "_tiles")]
     #[must_use]
-    pub fn create_tile_cache(&self) -> Option<martin_core::tiles::TileCache> {
+    pub fn create_tile_cache(&self) -> Option<TileCache> {
         if self.tile_cache_size_mb > 0 {
             tracing::info!(
                 "Initializing tile cache with maximum size {} MB",
                 self.tile_cache_size_mb
             );
             let size = self.tile_cache_size_mb * 1000 * 1000;
-            Some(martin_core::tiles::TileCache::new(size))
+            Some(TileCache::new(size))
         } else {
             tracing::info!("Tile caching is disabled");
             None
@@ -36,7 +45,7 @@ impl CacheConfig {
     /// Creates `PMTiles` directory cache if configured.
     #[cfg(feature = "pmtiles")]
     #[must_use]
-    pub fn create_pmtiles_cache(&self) -> martin_core::tiles::pmtiles::PmtCache {
+    pub fn create_pmtiles_cache(&self) -> PmtCache {
         // TODO: make this actually disabled, not just zero sized cached
         if self.pmtiles_cache_size_mb > 0 {
             tracing::info!(
@@ -44,24 +53,24 @@ impl CacheConfig {
                 self.pmtiles_cache_size_mb
             );
             let size = self.pmtiles_cache_size_mb * 1000 * 1000;
-            martin_core::tiles::pmtiles::PmtCache::new(size)
+            PmtCache::new(size)
         } else {
             tracing::debug!("PMTiles directory caching is disabled");
-            martin_core::tiles::pmtiles::PmtCache::new(0)
+            PmtCache::new(0)
         }
     }
 
     /// Creates sprite cache if configured.
     #[cfg(feature = "sprites")]
     #[must_use]
-    pub fn create_sprite_cache(&self) -> martin_core::sprites::OptSpriteCache {
+    pub fn create_sprite_cache(&self) -> OptSpriteCache {
         if self.sprite_cache_size_mb > 0 {
             tracing::info!(
                 "Initializing sprite cache with maximum size {} MB",
                 self.sprite_cache_size_mb
             );
             let size = self.sprite_cache_size_mb * 1000 * 1000;
-            Some(martin_core::sprites::SpriteCache::new(size))
+            Some(SpriteCache::new(size))
         } else {
             tracing::info!("Sprite caching is disabled");
             None
@@ -71,14 +80,14 @@ impl CacheConfig {
     /// Creates font cache if configured.
     #[cfg(feature = "fonts")]
     #[must_use]
-    pub fn create_font_cache(&self) -> martin_core::fonts::OptFontCache {
+    pub fn create_font_cache(&self) -> OptFontCache {
         if self.font_cache_size_mb > 0 {
             tracing::info!(
                 "Initializing font cache with maximum size {} MB",
                 self.font_cache_size_mb
             );
             let size = self.font_cache_size_mb * 1000 * 1000;
-            Some(martin_core::fonts::FontCache::new(size))
+            Some(FontCache::new(size))
         } else {
             tracing::info!("Font caching is disabled");
             None

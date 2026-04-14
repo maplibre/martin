@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 
 // A helper function to introduce a delay, which is useful for backoff strategies.
@@ -57,7 +57,7 @@ export function useAsyncOperation<T>(
     isLoading: true,
   });
 
-  const execute = useCallback(async () => {
+  const execute = async () => {
     setState((prev) => ({ ...prev, error: null }));
     // we set it to loading after 2s, while preserving the initial (loaded, unloaded) state
     const timeout = setTimeout(() => setState((prev) => ({ ...prev, isLoading: true })), 2000);
@@ -108,21 +108,11 @@ export function useAsyncOperation<T>(
         await sleep(backoffDelay + jitter);
       }
     }
-  }, [
-    asyncFunction,
-    maxRetries,
-    initialBackoffDelay,
-    onSuccess,
-    onError,
-    showSuccessToast,
-    successMessage,
-    showErrorToast,
-    toast,
-  ]);
+  };
 
-  const reset = useCallback(() => {
+  const reset = () => {
     setState({ data: undefined, error: null, isLoading: true });
-  }, []);
+  };
 
   return { ...state, execute, reset };
 }
