@@ -1,9 +1,16 @@
 use std::ffi::OsStr;
 use std::fs::File;
 use std::io::prelude::*;
+#[cfg(any(feature = "_tiles", feature = "sprites", feature = "fonts"))]
 use std::num::NonZeroU64;
 use std::path::Path;
 use std::sync::LazyLock;
+#[cfg(any(
+    test,
+    feature = "_tiles",
+    feature = "sprites",
+    feature = "fonts"
+))]
 use std::time::Duration;
 
 use clap::ValueEnum;
