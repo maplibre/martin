@@ -660,13 +660,6 @@ async fn general_writer(
     dst_type: MbtType,
     batch_size: usize,
 ) -> MbtResult<usize> {
-    sqlx::query("PRAGMA journal_mode=WAL")
-        .execute(&mut dst_conn)
-        .await?;
-    sqlx::query("PRAGMA synchronous=NORMAL")
-        .execute(&mut dst_conn)
-        .await?;
-
     let mut total = 0usize;
     let mut pending: Vec<(u8, u32, u32, Vec<u8>)> = Vec::with_capacity(batch_size);
     let mut last_flush = Instant::now();
