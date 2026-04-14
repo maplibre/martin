@@ -350,23 +350,15 @@ where
             max_tile_track_size,
         );
         let writer = general_writer(dst, dst_conn, enc_rx, dst_type, batch_size);
-
         let ((), (), tiles_written) = tokio::try_join!(reader, compute, writer)?;
-
-        let hits = stats.hits.load(Ordering::Relaxed);
-        let encoded = stats.encoded.load(Ordering::Relaxed);
 
         Ok(TranscodeStats {
             tiles_written,
-            cache_hits: hits,
-            cache_encoded: encoded,
+            cache_hits: stats.hits.load(Ordering::Relaxed),
+            cache_encoded: stats.encoded.load(Ordering::Relaxed),
         })
     }
 }
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
 
 /// Construct a weighted `moka` cache bounded by `max_bytes` of encoded payload.
 fn make_cache(max_bytes: u64) -> EncodedCache {
@@ -393,10 +385,6 @@ async fn copy_metadata(src: &Mbtiles, dst_conn: &mut SqliteConnection) -> MbtRes
     detach_db(dst_conn, "srcMetaDb").await?;
     Ok(())
 }
-
-// ---------------------------------------------------------------------------
-// Normalized path stages
-// ---------------------------------------------------------------------------
 
 /// Reader: stream `tiles` rows into batches.
 async fn normalized_reader(
@@ -508,10 +496,6 @@ async fn normalized_writer(
 
     Ok(total)
 }
-
-// ---------------------------------------------------------------------------
-// General path stages
-// ---------------------------------------------------------------------------
 
 /// Reader: stream tiles from Flat/FlatWithHash source into batches.
 async fn general_reader(
