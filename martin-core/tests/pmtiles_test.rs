@@ -685,11 +685,7 @@ fn ttl_tile_id() -> TileId {
     TileId::new(1).unwrap()
 }
 
-
-fn ttl_cache(
-    ttl: Option<Duration>,
-    tti: Option<Duration>,
-) -> PmtCacheInstance {
+fn ttl_cache(ttl: Option<Duration>, tti: Option<Duration>) -> PmtCacheInstance {
     let cache_id = NEXT_CACHE_ID.fetch_add(1, Ordering::SeqCst);
     PmtCacheInstance::new(cache_id, PmtCache::new(CACHE_SIZE_10MB, ttl, tti))
 }
@@ -701,9 +697,11 @@ async fn wait_and_flush(cache: &PmtCacheInstance, duration: Duration) {
 
 async fn dir_insert(cache: &PmtCacheInstance, offset: usize) {
     cache
-        .get_dir_entry_or_insert(offset, ttl_tile_id(), async move {
-            create_test_directory()
-        })
+        .get_dir_entry_or_insert(
+            offset,
+            ttl_tile_id(),
+            async move { create_test_directory() },
+        )
         .await
         .unwrap();
 }
@@ -727,8 +725,5 @@ async fn dir_assert_miss(cache: &PmtCacheInstance, offset: usize) {
         })
         .await
         .unwrap();
-    assert!(
-        rx.try_recv().is_ok(),
-        "expected cache miss, but got a hit"
-    );
+    assert!(rx.try_recv().is_ok(), "expected cache miss, but got a hit");
 }

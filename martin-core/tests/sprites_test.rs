@@ -174,13 +174,7 @@ async fn wait_and_flush(cache: &SpriteCache, duration: Duration) {
     cache.run_pending_tasks().await;
 }
 
-async fn insert(
-    cache: &SpriteCache,
-    ids: &str,
-    as_sdf: bool,
-    as_json: bool,
-    data: &[u8],
-) -> Bytes {
+async fn insert(cache: &SpriteCache, ids: &str, as_sdf: bool, as_json: bool, data: &[u8]) -> Bytes {
     let data = Bytes::from(data.to_vec());
     cache
         .get_or_insert(ids.into(), as_sdf, as_json, || async {
@@ -199,13 +193,7 @@ async fn assert_hit(cache: &SpriteCache, ids: &str, as_sdf: bool, as_json: bool)
         .unwrap()
 }
 
-async fn assert_miss(
-    cache: &SpriteCache,
-    ids: &str,
-    as_sdf: bool,
-    as_json: bool,
-    new_data: &[u8],
-) {
+async fn assert_miss(cache: &SpriteCache, ids: &str, as_sdf: bool, as_json: bool, new_data: &[u8]) {
     let mut recomputed = false;
     let data = Bytes::from(new_data.to_vec());
     cache

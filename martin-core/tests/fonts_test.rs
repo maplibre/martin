@@ -173,13 +173,7 @@ async fn wait_and_flush(cache: &FontCache, duration: Duration) {
     cache.run_pending_tasks().await;
 }
 
-async fn insert(
-    cache: &FontCache,
-    ids: &str,
-    start: u32,
-    end: u32,
-    data: &[u8],
-) -> Vec<u8> {
+async fn insert(cache: &FontCache, ids: &str, start: u32, end: u32, data: &[u8]) -> Vec<u8> {
     let data = data.to_vec();
     cache
         .get_or_insert(ids.into(), start, end, || Ok::<_, Infallible>(data.clone()))
@@ -198,13 +192,7 @@ async fn assert_hit(cache: &FontCache, ids: &str, start: u32, end: u32) -> Vec<u
         .unwrap()
 }
 
-async fn assert_miss(
-    cache: &FontCache,
-    ids: &str,
-    start: u32,
-    end: u32,
-    new_data: &[u8],
-) {
+async fn assert_miss(cache: &FontCache, ids: &str, start: u32, end: u32, new_data: &[u8]) {
     let mut recomputed = false;
     let data = new_data.to_vec();
     cache
