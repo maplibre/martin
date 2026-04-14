@@ -509,20 +509,14 @@ fn migrate_deprecated_config(value: &mut serde_yaml::Value) {
     // Global: tile_cache_size_mb -> cache.tile_size_mb
     migrate_yaml_key(root, "tile_cache_size_mb", &["cache", "tile_size_mb"]);
 
-    // Sprites: sprites.cache_size_mb -> sprites.cache.size_mb
-    if let Some(sprites) = root
-        .get_mut(serde_yaml::Value::String("sprites".into()))
-        .and_then(|v| v.as_mapping_mut())
-    {
-        migrate_yaml_key(sprites, "cache_size_mb", &["cache", "size_mb"]);
-    }
-
-    // Fonts: fonts.cache_size_mb -> fonts.cache.size_mb
-    if let Some(fonts) = root
-        .get_mut(serde_yaml::Value::String("fonts".into()))
-        .and_then(|v| v.as_mapping_mut())
-    {
-        migrate_yaml_key(fonts, "cache_size_mb", &["cache", "size_mb"]);
+    // Source-type level: {section}.cache_size_mb -> {section}.cache.size_mb
+    for section in ["sprites", "fonts"] {
+        if let Some(mapping) = root
+            .get_mut(serde_yaml::Value::String(section.into()))
+            .and_then(|v| v.as_mapping_mut())
+        {
+            migrate_yaml_key(mapping, "cache_size_mb", &["cache", "size_mb"]);
+        }
     }
 }
 
@@ -538,6 +532,8 @@ fn migrate_yaml_key(
     old_key: &str,
     new_path: &[&str],
 ) {
+    debug_assert!(!new_path.is_empty(), "new_path must not be empty");
+
     let old_yaml_key = serde_yaml::Value::String(old_key.into());
     let Some(old_value) = mapping.remove(&old_yaml_key) else {
         return;
@@ -545,34 +541,35 @@ fn migrate_yaml_key(
 
     let new_key_display = new_path.join(".");
 
-    // Walk down to the parent of the target key, creating intermediate mappings as needed
-    let (parent_path, leaf_key) = new_path.split_at(new_path.len() - 1);
-    let leaf_key = leaf_key[0];
-
+    // Walk down to the parent of the leaf key, creating intermediate mappings as needed
+    let [parents @ .., leaf] = new_path else {
+        return;
+    };
     let mut current = &mut *mapping;
-    for &segment in parent_path {
-        let seg_val = serde_yaml::Value::String(segment.into());
-        if !current.contains_key(&seg_val) {
-            current.insert(seg_val.clone(), serde_yaml::Value::Mapping(serde_yaml::Mapping::default()));
+    for &segment in parents {
+        if !current.contains_key(segment) {
+            current.insert(serde_yaml::Value::String(segment.into()), serde_yaml::Value::Mapping(serde_yaml::Mapping::default()));
         }
-        current = current
-            .get_mut(&seg_val)
+        let Some(nested) = current
+            .get_mut(&segment)
             .and_then(|v| v.as_mapping_mut())
-            .expect("just inserted a mapping");
+        else {
+            warn!(
+                "deprecated config: `{old_key}` is ignored because `{segment}` is already set. \
+                 Please remove `{old_key}` from your configuration"
+            );
+            return;
+        };
+        current = nested;
     }
 
-    let leaf_yaml_key = serde_yaml::Value::String(leaf_key.into());
-    if current.contains_key(&leaf_yaml_key) {
+    if current.contains_key(&leaf) {
         warn!(
             "deprecated config: `{old_key}` is ignored in favor of `{new_key_display}`. \
              Please remove `{old_key}` from your configuration"
         );
     } else {
-        warn!(
-            "deprecated config: `{old_key}` has been renamed to `{new_key_display}`, \
-             and will be removed in a future release"
-        );
-        current.insert(leaf_yaml_key, old_value);
+        current.insert(serde_yaml::Value::String((*leaf).into()), old_value);
     }
 }
 
@@ -672,5 +669,20 @@ mod tests {
             panic!("expected fonts config");
         };
         assert_eq!(cfg.custom.cache.size_mb, Some(32));
+    }
+
+    #[test]
+    fn migrate_skips_non_mapping_intermediate() {
+        // `cache: true` is not a mapping, so migration of cache_size_mb should
+        // gracefully skip rather than panic, and the parse should still succeed
+        // (cache will be deserialized from whatever value it has).
+        let result = parse_config(
+            "cache: true\ncache_size_mb: 100",
+            &HashMap::<String, String>::new(),
+            Path::new("test.yaml"),
+        );
+        // The parse may fail (cache: true is not a valid GlobalCacheConfig),
+        // but it must not panic.
+        let _ = result;
     }
 }
