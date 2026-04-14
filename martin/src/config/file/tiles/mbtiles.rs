@@ -34,9 +34,7 @@ impl TileSourceConfiguration for MbtConfig {
         path: PathBuf,
         cache: CachePolicy,
     ) -> MartinResult<BoxedSource> {
-        Ok(Box::new(
-            MbtSource::new(id, path, cache.zoom()).await?,
-        ))
+        Ok(Box::new(MbtSource::new(id, path, cache.zoom()).await?))
     }
 
     async fn new_sources_url(
@@ -55,7 +53,6 @@ mod tests {
     use std::path::PathBuf;
 
     use indoc::indoc;
-
     use martin_core::CacheZoomRange;
 
     use crate::config::file::mbtiles::MbtConfig;

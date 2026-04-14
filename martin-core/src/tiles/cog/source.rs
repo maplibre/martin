@@ -14,10 +14,10 @@ use tiff::tags::Tag::{self};
 use tiff::tags::{CompressionMethod, PlanarConfiguration};
 use tilejson::{Bounds, Center, TileJSON, tilejson};
 
+use crate::CacheZoomRange;
 use crate::tiles::cog::CogError;
 use crate::tiles::cog::image::{COMPRESSION_WEBP, Image};
 use crate::tiles::cog::model::ModelInfo;
-use crate::CacheZoomRange;
 use crate::tiles::{MartinCoreResult, Source, UrlQuery};
 
 /// Maximum allowed difference from a matching `WebMercatorQuad` tile matrix zoom level.
@@ -39,11 +39,7 @@ pub struct CogSource {
 impl CogSource {
     /// Creates a new COG tile source from a file path.
     #[expect(clippy::too_many_lines)]
-    pub fn new(
-        id: String,
-        path: PathBuf,
-        cache_zoom: CacheZoomRange,
-    ) -> Result<Self, CogError> {
+    pub fn new(id: String, path: PathBuf, cache_zoom: CacheZoomRange) -> Result<Self, CogError> {
         let tif_file =
             File::open(&path).map_err(|e: std::io::Error| CogError::IoError(e, path.clone()))?;
         let mut decoder = Decoder::new(tif_file)
@@ -625,7 +621,12 @@ mod tests {
         #[case] format: String,
     ) {
         let path = format!("../tests/fixtures/cog/{cog_file}.tif");
-        let source = CogSource::new(cog_file, Path::new(&path).to_path_buf(), CacheZoomRange::default()).unwrap();
+        let source = CogSource::new(
+            cog_file,
+            Path::new(&path).to_path_buf(),
+            CacheZoomRange::default(),
+        )
+        .unwrap();
 
         assert_eq!(source.max_zoom, max_zoom);
         assert_eq!(source.min_zoom, min_zoom);

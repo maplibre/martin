@@ -250,8 +250,7 @@ impl TileSourceConfiguration for PmtConfig {
         let (store, path) = object_store::parse_url_opts(&url, &self.options)
             .map_err(|e| ConfigFileError::ObjectStoreUrlParsing(e, id.clone()))?;
         let dir_cache = PmtCacheInstance::new(cache_id, self.pmtiles_directory_cache.clone());
-        let source =
-            PmtilesSource::new(dir_cache, id, store, path, cache.zoom()).await?;
+        let source = PmtilesSource::new(dir_cache, id, store, path, cache.zoom()).await?;
         Ok(Box::new(source))
     }
 }

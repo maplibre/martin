@@ -1,8 +1,9 @@
 use criterion::async_executor::FuturesExecutor;
 use criterion::{Criterion, criterion_group, criterion_main};
-#[cfg(feature = "_tiles")]
-use martin::TileSources;
+use martin::TileSourceManager;
+use martin::config::file::OnInvalid;
 use martin::srv::DynTileSource;
+use martin_core::tiles::NO_TILE_CACHE;
 use martin_tile_utils::TileCoord;
 
 mod sources {
@@ -119,16 +120,16 @@ mod sources {
     }
 }
 
-async fn process_null_tile(sources: &TileSources) {
-    let src = DynTileSource::new(sources, "null", Some(0), "", None, None, None, None)
+async fn process_null_tile(manager: &TileSourceManager) {
+    let src = DynTileSource::new(manager, "null", Some(0), "", None, None, None)
         .expect("null source can be created");
     src.get_http_response(TileCoord { z: 0, x: 0, y: 0 })
         .await
         .expect("null source returns empty tile");
 }
 
-async fn process_error_tile(sources: &TileSources) {
-    let src = DynTileSource::new(sources, "error", Some(0), "", None, None, None, None)
+async fn process_error_tile(manager: &TileSourceManager) {
+    let src = DynTileSource::new(manager, "error", Some(0), "", None, None, None)
         .expect("error source can be created");
     src.get_http_response(TileCoord { z: 0, x: 0, y: 0 })
         .await
@@ -136,10 +137,13 @@ async fn process_error_tile(sources: &TileSources) {
 }
 
 fn bench_null_source(c: &mut Criterion) {
-    let sources = TileSources::new(vec![vec![Box::new(sources::NullSource::new())]]);
+    let mgr = TileSourceManager::from_sources(
+        NO_TILE_CACHE,
+        OnInvalid::Abort,
+        vec![vec![Box::new(sources::NullSource::new())]],
+    );
     c.bench_function("get_table_source_tile", |b| {
-        b.to_async(FuturesExecutor)
-            .iter(|| process_null_tile(&sources));
+        b.to_async(FuturesExecutor).iter(|| process_null_tile(&mgr));
     });
 }
 
@@ -150,10 +154,14 @@ criterion_group! {
 }
 
 fn bench_error_source(c: &mut Criterion) {
-    let sources = TileSources::new(vec![vec![Box::new(sources::ErrorSource::new())]]);
+    let mgr = TileSourceManager::from_sources(
+        NO_TILE_CACHE,
+        OnInvalid::Abort,
+        vec![vec![Box::new(sources::ErrorSource::new())]],
+    );
     c.bench_function("get_table_source_error", |b| {
         b.to_async(FuturesExecutor)
-            .iter(|| process_error_tile(&sources));
+            .iter(|| process_error_tile(&mgr));
     });
 }
 

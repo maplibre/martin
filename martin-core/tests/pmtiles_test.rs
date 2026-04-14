@@ -4,11 +4,11 @@
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
+use martin_core::CacheZoomRange;
 use martin_core::tiles::Source as _;
 use martin_core::tiles::pmtiles::{PmtCache, PmtCacheInstance, PmtilesError, PmtilesSource};
 use martin_tile_utils::{Encoding, Format, TileCoord};
 use object_store::local::LocalFileSystem;
-use martin_core::CacheZoomRange;
 use rstest::rstest;
 
 const PNG_MAGIC: &[u8] = &[0x89, 0x50, 0x4E, 0x47];
@@ -28,9 +28,15 @@ async fn create_source(filename: &str, id: &str, cache: PmtCacheInstance) -> Pmt
     let path = object_store::path::Path::from_filesystem_path(&path)
         .expect("Failed to convert filesystem path");
 
-    PmtilesSource::new(cache, id.to_string(), store, path, CacheZoomRange::default())
-        .await
-        .expect("Failed to create PMTiles source")
+    PmtilesSource::new(
+        cache,
+        id.to_string(),
+        store,
+        path,
+        CacheZoomRange::default(),
+    )
+    .await
+    .expect("Failed to create PMTiles source")
 }
 
 fn test_cache_bytes(size_bytes: u64) -> PmtCacheInstance {
@@ -95,7 +101,14 @@ async fn nonexistent_file_returns_error() {
     let store = Box::new(LocalFileSystem::new());
     let path = object_store::path::Path::from("nonexistent/file.pmtiles");
 
-    let result = PmtilesSource::new(cache, "invalid".to_string(), store, path, CacheZoomRange::default()).await;
+    let result = PmtilesSource::new(
+        cache,
+        "invalid".to_string(),
+        store,
+        path,
+        CacheZoomRange::default(),
+    )
+    .await;
 
     let err = result.expect_err("Expected error for nonexistent file");
     assert!(

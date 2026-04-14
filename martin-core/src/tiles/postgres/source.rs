@@ -6,12 +6,12 @@ use martin_tile_utils::{TileCoord, TileData, TileInfo};
 use tilejson::TileJSON;
 use tracing::debug;
 
+use crate::CacheZoomRange;
 use crate::tiles::postgres::PostgresError::{
     GetTileError, GetTileWithQueryError, PrepareQueryError,
 };
 use crate::tiles::postgres::PostgresPool;
 use crate::tiles::postgres::utils::query_to_json;
-use crate::CacheZoomRange;
 use crate::tiles::{BoxedSource, MartinCoreResult, Source, UrlQuery};
 
 #[derive(Clone, Debug)]

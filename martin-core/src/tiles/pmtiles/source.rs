@@ -10,9 +10,9 @@ use pmtiles::{AsyncPmTilesReader, Compression, ObjectStoreBackend, TileType};
 use tilejson::TileJSON;
 use tracing::{trace, warn};
 
+use crate::CacheZoomRange;
 use crate::tiles::pmtiles::PmtCacheInstance;
 use crate::tiles::pmtiles::PmtilesError::{self, InvalidMetadata};
-use crate::CacheZoomRange;
 use crate::tiles::{BoxedSource, MartinCoreResult, Source, UrlQuery};
 
 /// A source for `PMTiles` files using `ObjectStoreBackend`

@@ -53,7 +53,7 @@ pub async fn apply_patch(base_file: PathBuf, patch_file: PathBuf, force: bool) -
 
     patch_mbt.attach_to(&mut conn, "patchDb").await?;
     let select_from = get_select_from(base_info.mbt_type, patch_type);
-    let (main_table, insert1, insert2) = get_insert_sql(base_info.mbt_type, select_from);
+    let (main_table, insert1, insert2) = get_insert_sql(base_info.mbt_type, &select_from);
 
     let sql = format!("{insert1} WHERE tile_data NOTNULL");
     query(&sql).execute(&mut conn).await?;
@@ -72,10 +72,17 @@ pub async fn apply_patch(base_file: PathBuf, patch_file: PathBuf, force: bool) -
     );
     query(&sql).execute(&mut conn).await?;
 
-    if base_info.mbt_type.is_normalized() {
+    if let Some(schema) = base_info.mbt_type.normalized_schema() {
         debug!("Removing unused tiles from the images table (normalized schema)");
-        let sql = "DELETE FROM images WHERE tile_id NOT IN (SELECT tile_id FROM map)";
-        query(sql).execute(&mut conn).await?;
+        let (map, img, id) = (
+            schema.map_table(),
+            schema.content_table(),
+            schema.tile_id_column(),
+        );
+        let sql = format!(
+            "DELETE FROM {img} WHERE NOT EXISTS (SELECT 1 FROM {map} WHERE {map}.{id} = {img}.{id})"
+        );
+        query(&sql).execute(&mut conn).await?;
     }
 
     // Copy metadata from patchDb to the destination file, replacing existing values
@@ -99,35 +106,35 @@ pub async fn apply_patch(base_file: PathBuf, patch_file: PathBuf, force: bool) -
     detach_db(&mut conn, "patchDb").await
 }
 
-fn get_select_from(src_type: MbtType, patch_type: MbtType) -> &'static str {
+fn get_select_from(src_type: MbtType, patch_type: MbtType) -> String {
     if src_type == Flat {
-        "SELECT zoom_level, tile_column, tile_row, tile_data FROM patchDb.tiles"
+        "SELECT zoom_level, tile_column, tile_row, tile_data FROM patchDb.tiles".to_string()
     } else {
         match patch_type {
-            Flat => {
-                "
+            Flat => "
         SELECT zoom_level, tile_column, tile_row, tile_data, md5_hex(tile_data) as hash
         FROM patchDb.tiles"
-            }
-            FlatWithHash => {
-                "
+                .to_string(),
+            FlatWithHash
+            | Normalized {
+                schema: _,
+                hash_view: true,
+            } => "
         SELECT zoom_level, tile_column, tile_row, tile_data, tile_hash AS hash
         FROM patchDb.tiles_with_hash"
-            }
-            Normalized { .. } => {
-                "
-        SELECT zoom_level, tile_column, tile_row, tile_data, map.tile_id AS hash
-        FROM patchDb.map LEFT JOIN patchDb.images
-          ON patchDb.map.tile_id = patchDb.images.tile_id"
-            }
+                .to_string(),
+            Normalized {
+                schema,
+                hash_view: false,
+            } => schema.select_tiles_sql("patchDb", "hash", "LEFT JOIN"),
         }
     }
 }
 
-fn get_insert_sql(src_type: MbtType, select_from: &str) -> (&'static str, String, Option<String>) {
+fn get_insert_sql(src_type: MbtType, select_from: &str) -> (String, String, Option<String>) {
     match src_type {
         Flat => (
-            "tiles",
+            "tiles".to_string(),
             format!(
                 "
     INSERT OR REPLACE INTO tiles (zoom_level, tile_column, tile_row, tile_data)
@@ -136,7 +143,7 @@ fn get_insert_sql(src_type: MbtType, select_from: &str) -> (&'static str, String
             None,
         ),
         FlatWithHash => (
-            "tiles_with_hash",
+            "tiles_with_hash".to_string(),
             format!(
                 "
     INSERT OR REPLACE INTO tiles_with_hash (zoom_level, tile_column, tile_row, tile_data, tile_hash)
@@ -144,21 +151,28 @@ fn get_insert_sql(src_type: MbtType, select_from: &str) -> (&'static str, String
             ),
             None,
         ),
-        Normalized { .. } => (
-            "map",
-            format!(
-                "
-    INSERT OR REPLACE INTO map (zoom_level, tile_column, tile_row, tile_id)
-    SELECT zoom_level, tile_column, tile_row, hash as tile_id
+        Normalized { schema, .. } => {
+            let (map, img, id) = (
+                schema.map_table(),
+                schema.content_table(),
+                schema.tile_id_column(),
+            );
+            (
+                map.to_string(),
+                format!(
+                    "
+    INSERT OR REPLACE INTO {map} (zoom_level, tile_column, tile_row, {id})
+    SELECT zoom_level, tile_column, tile_row, hash as {id}
     FROM ({select_from})"
-            ),
-            Some(format!(
-                "
-    INSERT OR REPLACE INTO images (tile_id, tile_data)
-    SELECT hash as tile_id, tile_data
+                ),
+                Some(format!(
+                    "
+    INSERT OR REPLACE INTO {img} ({id}, tile_data)
+    SELECT hash as {id}, tile_data
     FROM ({select_from})"
-            )),
-        ),
+                )),
+            )
+        }
     }
 }
 

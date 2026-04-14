@@ -14,8 +14,8 @@ use mbtiles::{MbtError, MbtilesPool};
 use tilejson::TileJSON;
 use tracing::{trace, warn};
 
-use crate::tiles::mbtiles::MbtilesError;
 use crate::CacheZoomRange;
+use crate::tiles::mbtiles::MbtilesError;
 use crate::tiles::{BoxedSource, MartinCoreResult, Source, UrlQuery};
 
 /// Tile source that reads from `MBTiles` files.
