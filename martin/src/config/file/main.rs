@@ -709,13 +709,38 @@ mod tests {
     }
 
     #[test]
-    fn cache_disable_not_overridden_by_defaults() {
+    fn cache_disable_per_source_ignores_global_defaults() {
+        // Per-source disable is not overridden by global defaults
         let disabled = CachePolicy::disabled();
         let defaults = CachePolicy::new(CacheZoomRange::new(Some(0), Some(20)));
-        // disabled policy already has both bounds set, so `or` won't override
         let merged = disabled.or(defaults);
-        assert!(!merged.zoom().contains(0));
-        assert!(!merged.zoom().contains(10));
+        for zoom in 0..=u8::MAX {
+            assert!(!merged.zoom().contains(zoom));
+        }
+    }
+
+    #[test]
+    fn cache_disable_global_can_be_overridden_per_source() {
+        // Per-source config re-enables caching despite global disable
+        let source = CachePolicy::new(CacheZoomRange::new(Some(0), Some(10)));
+        let global_disabled = CachePolicy::disabled();
+        let merged = source.or(global_disabled);
+        assert!(merged.zoom().contains(0));
+        assert!(merged.zoom().contains(5));
+        assert!(merged.zoom().contains(10));
+        assert!(!merged.zoom().contains(11));
+    }
+
+    #[test]
+    fn cache_disable_global_propagates_to_unconfigured_source() {
+        // Parse a global `cache: disable` and verify it propagates to a source with no cache config
+        let config = parse_yaml("cache: disable");
+        let global_policy = config.cache.policy();
+        let unconfigured_source = CachePolicy::default();
+        let merged = unconfigured_source.or(global_policy);
+        for zoom in 0..=u8::MAX {
+            assert!(!merged.zoom().contains(zoom));
+        }
     }
 
     #[cfg(feature = "sprites")]

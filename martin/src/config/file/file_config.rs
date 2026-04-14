@@ -612,11 +612,11 @@ impl<'de> Deserialize<'de> for CachePolicy {
         }
 
         match CachePolicyHelper::deserialize(deserializer)? {
-            CachePolicyHelper::String(s) if s == "disable" => Ok(CachePolicy::disabled()),
+            CachePolicyHelper::String(s) if s == "disable" => Ok(Self::disabled()),
             CachePolicyHelper::String(s) => Err(serde::de::Error::custom(format!(
                 "invalid cache policy string: {s:?}, expected \"disable\""
             ))),
-            CachePolicyHelper::Struct { zoom } => Ok(CachePolicy { zoom }),
+            CachePolicyHelper::Struct { zoom } => Ok(Self { zoom }),
         }
     }
 }
@@ -691,7 +691,7 @@ impl<'de> Deserialize<'de> for GlobalCacheConfig {
         }
 
         match Helper::deserialize(deserializer)? {
-            Helper::String(s) if s == "disable" => Ok(GlobalCacheConfig::disabled()),
+            Helper::String(s) if s == "disable" => Ok(Self::disabled()),
             Helper::String(s) => Err(serde::de::Error::custom(format!(
                 "invalid cache config string: {s:?}, expected \"disable\""
             ))),
@@ -699,7 +699,7 @@ impl<'de> Deserialize<'de> for GlobalCacheConfig {
                 size_mb,
                 tile_size_mb,
                 zoom,
-            } => Ok(GlobalCacheConfig {
+            } => Ok(Self {
                 size_mb,
                 tile_size_mb,
                 zoom,
