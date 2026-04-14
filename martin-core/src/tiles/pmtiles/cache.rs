@@ -100,7 +100,9 @@ impl pmtiles::DirectoryCache for PmtCacheInstance {
             .entry(key)
             .or_try_insert_with(fetcher)
             .await
-            .map_err(|e| pmtiles::PmtError::DirectoryCacheError(format!("Moka cache fetch error: {e}")))?
+            .map_err(|e| {
+                pmtiles::PmtError::DirectoryCacheError(format!("Moka cache fetch error: {e}"))
+            })?
             .into_value();
         Ok(directory.find_tile_id(tile_id).cloned())
     }

@@ -1,6 +1,7 @@
 use martin_tile_utils::TileCoord;
 use moka::future::Cache;
 use moka::ops::compute::{CompResult, Op};
+use std::sync::Mutex;
 use tracing::{info, trace};
 
 use crate::tiles::Tile;
@@ -36,20 +37,38 @@ impl TileCache {
     where
         F: FnOnce() -> Fut,
         Fut: Future<Output = Result<Tile, E>>,
-        E: Send + Sync + 'static,
     {
         let key = TileCacheKey::new(source_id, xyz, query);
+        let error = Mutex::new(None);
         let result = self
             .0
             .entry(key.clone())
-            .and_try_compute_with(|maybe_entry| async move {
-                if maybe_entry.is_some() {
-                    Ok(Op::Nop)
-                } else {
-                    compute().await.map(Op::Put)
+            .and_compute_with(|maybe_entry| {
+                let error = &error;
+                async move {
+                    if maybe_entry.is_some() {
+                        Op::Nop
+                    } else {
+                        match compute().await {
+                            Ok(tile) => Op::Put(tile),
+                            Err(err) => {
+                                *error.lock().expect(
+                                    "tile cache compute error mutex should not be poisoned",
+                                ) = Some(err);
+                                Op::Nop
+                            }
+                        }
+                    }
                 }
             })
-            .await?;
+            .await;
+
+        if let Some(err) = error
+            .into_inner()
+            .expect("tile cache compute error mutex should not be poisoned")
+        {
+            return Err(err);
+        }
 
         let (tile, is_hit) = match result {
             CompResult::Inserted(entry) | CompResult::ReplacedWith(entry) => {
@@ -57,7 +76,7 @@ impl TileCache {
             }
             CompResult::Unchanged(entry) => (entry.into_value(), true),
             CompResult::Removed(_) | CompResult::StillNone(_) => {
-                unreachable!("tile cache entry compute should not remove or stay empty")
+                unreachable!("tile cache entry compute should not remove or remain empty")
             }
         };
 

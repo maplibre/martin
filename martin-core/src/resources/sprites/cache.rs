@@ -1,6 +1,7 @@
 use actix_web::web::Bytes;
 use moka::future::Cache;
 use moka::ops::compute::{CompResult, Op};
+use std::sync::Mutex;
 use tracing::{info, trace};
 
 /// Sprite cache for storing generated sprite sheets.
@@ -45,20 +46,38 @@ impl SpriteCache {
     where
         F: FnOnce() -> Fut,
         Fut: Future<Output = Result<Bytes, E>>,
-        E: Send + Sync + 'static,
     {
         let key = SpriteCacheKey::new(ids, as_sdf, as_json);
+        let error = Mutex::new(None);
         let result = self
             .cache
             .entry(key.clone())
-            .and_try_compute_with(|maybe_entry| async move {
-                if maybe_entry.is_some() {
-                    Ok(Op::Nop)
-                } else {
-                    compute().await.map(Op::Put)
+            .and_compute_with(|maybe_entry| {
+                let error = &error;
+                async move {
+                    if maybe_entry.is_some() {
+                        Op::Nop
+                    } else {
+                        match compute().await {
+                            Ok(data) => Op::Put(data),
+                            Err(err) => {
+                                *error.lock().expect(
+                                    "sprite cache compute error mutex should not be poisoned",
+                                ) = Some(err);
+                                Op::Nop
+                            }
+                        }
+                    }
                 }
             })
-            .await?;
+            .await;
+
+        if let Some(err) = error
+            .into_inner()
+            .expect("sprite cache compute error mutex should not be poisoned")
+        {
+            return Err(err);
+        }
 
         let (data, is_hit) = match result {
             CompResult::Inserted(entry) | CompResult::ReplacedWith(entry) => {
@@ -66,7 +85,7 @@ impl SpriteCache {
             }
             CompResult::Unchanged(entry) => (entry.into_value(), true),
             CompResult::Removed(_) | CompResult::StillNone(_) => {
-                unreachable!("sprite cache entry compute should not remove or stay empty")
+                unreachable!("sprite cache entry compute should not remove or remain empty")
             }
         };
 
