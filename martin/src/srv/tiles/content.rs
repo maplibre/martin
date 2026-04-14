@@ -19,10 +19,7 @@ use tracing::warn;
 use crate::config::args::PreferredEncoding;
 use crate::config::file::srv::SrvConfig;
 use crate::srv::server::{DebouncedWarning, map_internal_error};
-<<<<<<< transcoder
-=======
 use crate::tile_source_manager::TileSourceManager;
->>>>>>> main
 
 const SUPPORTED_ENC: &[HeaderEnc] = &[
     HeaderEnc::gzip(),
