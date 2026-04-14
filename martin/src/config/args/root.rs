@@ -10,6 +10,8 @@ use crate::MartinError::ConfigAndConnectionsError;
 use crate::MartinResult;
 #[cfg(feature = "postgres")]
 use crate::config::args::PostgresArgs;
+#[cfg(any(feature = "unstable-cog", feature = "mbtiles", feature = "pmtiles"))]
+use crate::config::file::ConfigurationLivecycleHooks;
 #[cfg(any(
     feature = "unstable-cog",
     feature = "mbtiles",
@@ -203,7 +205,7 @@ fn is_file_scheme_uri(s: &str, extensions: &[&str]) -> bool {
 }
 
 #[cfg(any(feature = "unstable-cog", feature = "mbtiles", feature = "pmtiles"))]
-pub fn parse_file_args<T: crate::config::file::ConfigurationLivecycleHooks>(
+pub fn parse_file_args<T: ConfigurationLivecycleHooks>(
     cli_strings: &mut Arguments,
     extensions: &[&str],
     allow_url: bool,

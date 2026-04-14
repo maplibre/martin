@@ -13,6 +13,21 @@ use serde::{Deserialize, Serialize};
 use subst::VariableMap;
 use tracing::{error, info, warn};
 
+#[cfg(feature = "unstable-cog")]
+use super::cog::CogConfig;
+#[cfg(feature = "fonts")]
+use super::fonts::FontConfig;
+#[cfg(feature = "mbtiles")]
+use super::mbtiles::MbtConfig;
+#[cfg(feature = "pmtiles")]
+use super::pmtiles::PmtConfig;
+#[cfg(feature = "postgres")]
+use super::postgres::PostgresConfig;
+#[cfg(feature = "sprites")]
+use super::sprites::SpriteConfig;
+use super::srv::SrvConfig;
+#[cfg(feature = "styles")]
+use super::styles::StyleConfig;
 #[cfg(any(
     feature = "pmtiles",
     feature = "mbtiles",
@@ -24,6 +39,8 @@ use tracing::{error, info, warn};
 use crate::config::file::FileConfigEnum;
 #[cfg(any(feature = "_tiles", feature = "sprites", feature = "fonts"))]
 use crate::config::file::cache::CacheConfig;
+#[cfg(any(feature = "pmtiles", feature = "mbtiles", feature = "unstable-cog"))]
+use crate::config::file::resolve_files;
 use crate::config::file::{
     ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks as _, UnrecognizedKeys,
     UnrecognizedValues, copy_unrecognized_keys_from_config,
@@ -83,35 +100,35 @@ pub struct Config {
     pub on_invalid: Option<OnInvalid>,
 
     #[serde(flatten)]
-    pub srv: super::srv::SrvConfig,
+    pub srv: SrvConfig,
 
     #[cfg(feature = "postgres")]
     #[serde(default, skip_serializing_if = "OptOneMany::is_none")]
-    pub postgres: OptOneMany<super::postgres::PostgresConfig>,
+    pub postgres: OptOneMany<PostgresConfig>,
 
     #[cfg(feature = "pmtiles")]
     #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
-    pub pmtiles: FileConfigEnum<super::pmtiles::PmtConfig>,
+    pub pmtiles: FileConfigEnum<PmtConfig>,
 
     #[cfg(feature = "mbtiles")]
     #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
-    pub mbtiles: FileConfigEnum<super::mbtiles::MbtConfig>,
+    pub mbtiles: FileConfigEnum<MbtConfig>,
 
     #[cfg(feature = "unstable-cog")]
     #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
-    pub cog: FileConfigEnum<super::cog::CogConfig>,
+    pub cog: FileConfigEnum<CogConfig>,
 
     #[cfg(feature = "sprites")]
     #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
-    pub sprites: super::sprites::SpriteConfig,
+    pub sprites: SpriteConfig,
 
     #[cfg(feature = "styles")]
     #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
-    pub styles: super::styles::StyleConfig,
+    pub styles: StyleConfig,
 
     #[cfg(feature = "fonts")]
     #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
-    pub fonts: super::fonts::FontConfig,
+    pub fonts: FontConfig,
 
     #[serde(flatten, skip_serializing)]
     pub unrecognized: UnrecognizedValues,
@@ -357,21 +374,21 @@ impl Config {
                     file_config.custom.pmtiles_directory_cache = pmtiles_cache;
                 }
             }
-            let val = crate::config::file::resolve_files(cfg, idr, &["pmtiles"]);
+            let val = resolve_files(cfg, idr, &["pmtiles"]);
             sources_and_warnings.push(Box::pin(val));
         }
 
         #[cfg(feature = "mbtiles")]
         if !self.mbtiles.is_empty() {
             let cfg = &mut self.mbtiles;
-            let val = crate::config::file::resolve_files(cfg, idr, &["mbtiles"]);
+            let val = resolve_files(cfg, idr, &["mbtiles"]);
             sources_and_warnings.push(Box::pin(val));
         }
 
         #[cfg(feature = "unstable-cog")]
         if !self.cog.is_empty() {
             let cfg = &mut self.cog;
-            let val = crate::config::file::resolve_files(cfg, idr, &["tif", "tiff"]);
+            let val = resolve_files(cfg, idr, &["tif", "tiff"]);
             sources_and_warnings.push(Box::pin(val));
         }
 
@@ -489,9 +506,11 @@ pub fn parse_base_path(path: &str) -> MartinResult<String> {
 }
 
 pub fn init_aws_lc_tls() {
+    use rustls::crypto::aws_lc_rs;
+
     // https://github.com/rustls/rustls/issues/1877
     static INIT_TLS: LazyLock<()> = LazyLock::new(|| {
-        rustls::crypto::aws_lc_rs::default_provider()
+        aws_lc_rs::default_provider()
             .install_default()
             .expect("Unable to init rustls: {e:?}");
     });

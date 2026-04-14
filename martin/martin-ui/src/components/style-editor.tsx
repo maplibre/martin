@@ -1,5 +1,5 @@
 import { ArrowLeft, X } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -22,13 +22,13 @@ export function StyleEditor({ styleName, style, onClose }: StyleEditorProps) {
   // Add the style URL as a parameter for Maputnik to load
   maputnikUrl.searchParams.set('style', buildMartinUrl(`/style/${styleName}`));
 
-  const handleIframeLoad = useCallback(() => {
+  const handleIframeLoad = () => {
     setError(null);
-  }, []);
+  };
 
-  const handleIframeError = useCallback(() => {
+  const handleIframeError = () => {
     setError('Failed to load Maputnik editor');
-  }, []);
+  };
 
   // Listen for messages from Maputnik iframe
   useEffect(() => {

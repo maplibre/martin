@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 type URLParamsState = Record<string, string | undefined>;
 
@@ -51,14 +51,14 @@ export function useURLParams(initialParams: URLParamsState = {}) {
     return () => window.removeEventListener('popstate', handlePopState);
   }, [initialParams]);
 
-  const updateParam = useCallback((key: string, value: string | undefined) => {
+  const updateParam = (key: string, value: string | undefined) => {
     setParams((prev) => ({
       ...prev,
       [key]: value,
     }));
-  }, []);
+  };
 
-  const updateParams = useCallback((updates: Partial<URLParamsState>) => {
+  const updateParams = (updates: Partial<URLParamsState>) => {
     setParams((prev) => {
       const newParams: URLParamsState = { ...prev };
       for (const [key, value] of Object.entries(updates)) {
@@ -68,7 +68,7 @@ export function useURLParams(initialParams: URLParamsState = {}) {
       }
       return newParams;
     });
-  }, []);
+  };
 
   return {
     params,
