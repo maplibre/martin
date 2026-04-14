@@ -577,6 +577,59 @@ impl CachePolicy {
     }
 }
 
+/// Global-level cache configuration with both size limits and zoom-level bounds.
+///
+/// Used at the root of the config file:
+/// ```yaml
+/// cache:
+///   size_mb: 512
+///   tile_size_mb: 256
+///   minzoom: 0
+///   maxzoom: 20
+/// ```
+#[serde_with::skip_serializing_none]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct GlobalCacheConfig {
+    /// Total cache budget in megabytes (0 to disable).
+    /// Split across tile, pmtiles, sprite, and font caches by default.
+    pub size_mb: Option<u64>,
+    /// Tile cache size override in megabytes.
+    /// Defaults to `size_mb / 2`.
+    pub tile_size_mb: Option<u64>,
+    #[serde(flatten, default)]
+    zoom: CacheZoomRange,
+}
+
+impl GlobalCacheConfig {
+    /// Returns the zoom-level bounds as a [`CachePolicy`].
+    #[must_use]
+    pub fn policy(self) -> CachePolicy {
+        CachePolicy::new(self.zoom)
+    }
+
+    /// Returns `true` if no cache settings are configured.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.size_mb.is_none() && self.tile_size_mb.is_none() && self.zoom.is_empty()
+    }
+}
+
+/// Cache size configuration for a source type (sprites, fonts, pmtiles).
+///
+/// Used at the source-type level:
+/// ```yaml
+/// sprites:
+///   cache:
+///     size_mb: 64
+/// ```
+#[serde_with::skip_serializing_none]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct CacheSizeConfig {
+    /// Cache size in megabytes for this source type (0 to disable).
+    pub size_mb: Option<u64>,
+}
+
+
 pub type UnrecognizedValues = HashMap<String, serde_yaml::Value>;
 pub type UnrecognizedKeys = HashSet<String>;
 

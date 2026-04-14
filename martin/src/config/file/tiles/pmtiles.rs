@@ -18,9 +18,9 @@ use crate::config::file::{
 #[serde_with::skip_serializing_none]
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct PmtConfig {
-    /// Size of the directory cache in megabytes (0 to disable)
+    /// Size of the directory cache in megabytes (0 to disable).
     ///
-    /// Overrides [`cache_size_mb`](crate::config::file::Config::cache_size_mb).
+    /// Overrides [`cache.size_mb`](crate::config::file::Config::cache).
     pub directory_cache_size_mb: Option<u64>,
 
     // if the key is the allowed set, we assume it is there for a purpose
@@ -97,7 +97,9 @@ impl PmtConfig {
     fn migrate_deprecated_keys(&mut self) {
         if self.unrecognized.contains_key("dir_cache_size_mb") {
             warn!(
-                "dir_cache_size_mb is no longer used. Instead, use cache_size_mb param in the root of the config file."
+                "deprecated config: `pmtiles.dir_cache_size_mb` is no longer used. \
+                 Use `cache.size_mb` in the root of the config file, \
+                 or `pmtiles.directory_cache_size_mb` to override the PMTiles directory cache size"
             );
         }
 

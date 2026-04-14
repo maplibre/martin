@@ -100,7 +100,7 @@ impl Args {
         }
 
         if self.srv.cache_size.is_some() {
-            config.cache_size_mb = self.srv.cache_size;
+            config.cache.size_mb = self.srv.cache_size;
         }
 
         if self.meta.on_invalid.is_some() {

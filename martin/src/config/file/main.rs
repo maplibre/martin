@@ -42,7 +42,7 @@ use crate::config::file::cache::CacheConfig;
 #[cfg(any(feature = "pmtiles", feature = "mbtiles", feature = "unstable-cog"))]
 use crate::config::file::resolve_files;
 use crate::config::file::{
-    CachePolicy, ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks as _,
+    ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks as _, GlobalCacheConfig,
     UnrecognizedKeys, UnrecognizedValues, copy_unrecognized_keys_from_config,
 };
 #[cfg(feature = "_tiles")]
@@ -86,19 +86,9 @@ pub struct ServerState {
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct Config {
-    /// Maximum size of the tile cache in megabytes (0 to disable)
-    ///
-    /// Can be overridden by [`tile_cache_size_mb`](Self::tile_cache_size_mb) or similar configuration options.
-    pub cache_size_mb: Option<u64>,
-
-    /// Maximum size of the tile cache in megabytes (0 to disable)
-    ///
-    /// Overrides [`cache_size_mb`](Self::cache_size_mb)
-    pub tile_cache_size_mb: Option<u64>,
-
-    /// Defaults for how our cache works
+    /// Cache configuration: size limits and default zoom-level bounds.
     #[serde(default)]
-    pub cache: CachePolicy,
+    pub cache: GlobalCacheConfig,
 
     #[serde(default)]
     pub on_invalid: Option<OnInvalid>,
@@ -296,12 +286,12 @@ impl Config {
         })
     }
 
-    // cache_config is still respected, but can be overridden by individual cache sizes
+    // cache.size_mb is still respected, but can be overridden by individual cache sizes
     //
-    // `cache_config: 0` disables caching, unless overridden by individual cache sizes
+    // `cache.size_mb: 0` disables caching, unless overridden by individual cache sizes
     #[cfg(any(feature = "_tiles", feature = "sprites", feature = "fonts"))]
     fn resolve_cache_config(&self) -> CacheConfig {
-        if let Some(cache_size_mb) = self.cache_size_mb {
+        if let Some(cache_size_mb) = self.cache.size_mb {
             #[cfg(feature = "pmtiles")]
             let pmtiles_cache_size_mb = if let FileConfigEnum::Config(cfg) = &self.pmtiles {
                 cfg.custom
@@ -313,21 +303,21 @@ impl Config {
 
             #[cfg(feature = "sprites")]
             let sprite_cache_size_mb = if let FileConfigEnum::Config(cfg) = &self.sprites {
-                cfg.custom.cache_size_mb.unwrap_or(cache_size_mb / 8) // Default: 12.5% for sprites
+                cfg.custom.cache.size_mb.unwrap_or(cache_size_mb / 8) // Default: 12.5% for sprites
             } else {
                 cache_size_mb / 8 // Default: 12.5% for sprites
             };
 
             #[cfg(feature = "fonts")]
             let font_cache_size_mb = if let FileConfigEnum::Config(cfg) = &self.fonts {
-                cfg.custom.cache_size_mb.unwrap_or(cache_size_mb / 8) // Default: 12.5% for fonts
+                cfg.custom.cache.size_mb.unwrap_or(cache_size_mb / 8) // Default: 12.5% for fonts
             } else {
                 cache_size_mb / 8 // Default: 12.5% for fonts
             };
 
             CacheConfig {
                 #[cfg(feature = "_tiles")]
-                tile_cache_size_mb: self.tile_cache_size_mb.unwrap_or(cache_size_mb / 2), // Default: 50% for tiles
+                tile_cache_size_mb: self.cache.tile_size_mb.unwrap_or(cache_size_mb / 2), // Default: 50% for tiles
                 #[cfg(feature = "pmtiles")]
                 pmtiles_cache_size_mb,
                 #[cfg(feature = "sprites")]
@@ -363,7 +353,7 @@ impl Config {
 
         #[cfg(feature = "postgres")]
         for s in self.postgres.iter_mut() {
-            sources_and_warnings.push(Box::pin(s.resolve(idr.clone(), self.cache)));
+            sources_and_warnings.push(Box::pin(s.resolve(idr.clone(), self.cache.policy())));
         }
 
         #[cfg(feature = "pmtiles")]
@@ -378,21 +368,21 @@ impl Config {
                     file_config.custom.pmtiles_directory_cache = pmtiles_cache;
                 }
             }
-            let val = resolve_files(cfg, idr, &["pmtiles"], self.cache);
+            let val = resolve_files(cfg, idr, &["pmtiles"], self.cache.policy());
             sources_and_warnings.push(Box::pin(val));
         }
 
         #[cfg(feature = "mbtiles")]
         if !self.mbtiles.is_empty() {
             let cfg = &mut self.mbtiles;
-            let val = resolve_files(cfg, idr, &["mbtiles"], self.cache);
+            let val = resolve_files(cfg, idr, &["mbtiles"], self.cache.policy());
             sources_and_warnings.push(Box::pin(val));
         }
 
         #[cfg(feature = "unstable-cog")]
         if !self.cog.is_empty() {
             let cfg = &mut self.cog;
-            let val = resolve_files(cfg, idr, &["tif", "tiff"], self.cache);
+            let val = resolve_files(cfg, idr, &["tif", "tiff"], self.cache.policy());
             sources_and_warnings.push(Box::pin(val));
         }
 
@@ -495,8 +485,95 @@ where
     M: VariableMap<'a>,
     M::Value: AsRef<str>,
 {
-    subst::yaml::from_str(contents, env)
-        .map_err(|e| ConfigFileError::ConfigParseError(e, file_name.into()))
+    let mut value: serde_yaml::Value = subst::yaml::from_str(contents, env)
+        .map_err(|e| ConfigFileError::ConfigParseError(e, file_name.into()))?;
+    migrate_deprecated_config(&mut value);
+    serde_yaml::from_value(value).map_err(|e| {
+        let e: subst::yaml::Error = e.into();
+        ConfigFileError::ConfigParseError(e, file_name.into())
+    })
+}
+
+/// Migrates deprecated cache configuration keys in raw YAML before deserialization.
+///
+/// This runs on the `serde_yaml::Value` directly, so the `Config` struct
+/// never needs to know about deprecated field names.
+fn migrate_deprecated_config(value: &mut serde_yaml::Value) {
+    let Some(root) = value.as_mapping_mut() else {
+        return;
+    };
+
+    // Global: cache_size_mb -> cache.size_mb
+    migrate_yaml_key(root, "cache_size_mb", &["cache", "size_mb"]);
+
+    // Global: tile_cache_size_mb -> cache.tile_size_mb
+    migrate_yaml_key(root, "tile_cache_size_mb", &["cache", "tile_size_mb"]);
+
+    // Sprites: sprites.cache_size_mb -> sprites.cache.size_mb
+    if let Some(sprites) = root
+        .get_mut(serde_yaml::Value::String("sprites".into()))
+        .and_then(|v| v.as_mapping_mut())
+    {
+        migrate_yaml_key(sprites, "cache_size_mb", &["cache", "size_mb"]);
+    }
+
+    // Fonts: fonts.cache_size_mb -> fonts.cache.size_mb
+    if let Some(fonts) = root
+        .get_mut(serde_yaml::Value::String("fonts".into()))
+        .and_then(|v| v.as_mapping_mut())
+    {
+        migrate_yaml_key(fonts, "cache_size_mb", &["cache", "size_mb"]);
+    }
+}
+
+/// Moves a deprecated key in a YAML mapping to a new nested location.
+///
+/// `new_path` is a slice of keys describing the nested destination,
+/// e.g. `&["cache", "size_mb"]` means `cache.size_mb`.
+///
+/// If the new key already exists, the old value is dropped with a warning.
+/// If only the old key exists, it is moved and a deprecation warning is emitted.
+fn migrate_yaml_key(
+    mapping: &mut serde_yaml::Mapping,
+    old_key: &str,
+    new_path: &[&str],
+) {
+    let old_yaml_key = serde_yaml::Value::String(old_key.into());
+    let Some(old_value) = mapping.remove(&old_yaml_key) else {
+        return;
+    };
+
+    let new_key_display = new_path.join(".");
+
+    // Walk down to the parent of the target key, creating intermediate mappings as needed
+    let (parent_path, leaf_key) = new_path.split_at(new_path.len() - 1);
+    let leaf_key = leaf_key[0];
+
+    let mut current = &mut *mapping;
+    for &segment in parent_path {
+        let seg_val = serde_yaml::Value::String(segment.into());
+        if !current.contains_key(&seg_val) {
+            current.insert(seg_val.clone(), serde_yaml::Value::Mapping(serde_yaml::Mapping::default()));
+        }
+        current = current
+            .get_mut(&seg_val)
+            .and_then(|v| v.as_mapping_mut())
+            .expect("just inserted a mapping");
+    }
+
+    let leaf_yaml_key = serde_yaml::Value::String(leaf_key.into());
+    if current.contains_key(&leaf_yaml_key) {
+        warn!(
+            "deprecated config: `{old_key}` is ignored in favor of `{new_key_display}`. \
+             Please remove `{old_key}` from your configuration"
+        );
+    } else {
+        warn!(
+            "deprecated config: `{old_key}` has been renamed to `{new_key_display}`, \
+             and will be removed in a future release"
+        );
+        current.insert(leaf_yaml_key, old_value);
+    }
 }
 
 pub fn parse_base_path(path: &str) -> MartinResult<String> {

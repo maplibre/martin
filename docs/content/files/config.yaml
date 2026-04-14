@@ -22,31 +22,29 @@ base_path: null
 # Number of web server workers
 worker_processes: 8
 
-# Amount of memory (in MB) to use for caching [default: 512, 0 to disable]
-#
-# This is the total amount of cache we use.
-# By default, this is split up between:
-# - Tiles 50% -> 256 MB
-# - Pmtiles' directories 25% -> 128 MB
-# - Fonts 12.5% -> 64 MB
-# - Sprites 12.5% -> 64 MB
-#
-# How the cache works internally is unstable and may change to improve performance/efficiency.
-# For example, we may change the split between sources to improve efficiency.
-#
-# Specify each cache size individually for finer cache size control:
-# - Tiles: `tile_cache_size_mb`
-# - Pmtiles: `pmtiles.directory_cache_size_mb`
-# - Fonts: `fonts.cache_size_mb`
-# - Sprites: `sprites.cache_size_mb`
-cache_size_mb: 512
-
-# Allows overriding the size of the tile cache.
-# Defaults to `cache_size_mb` / 2
-tile_cache_size_mb: 256
-
-# Defaults for how to configure the cache
+# Cache configuration
 cache:
+  # Total amount of cache we use [default: 512, 0 to disable]
+  # By default, this is split up between:
+  # - Tiles 50% -> 256 MB
+  # - Pmtiles' directories 25% -> 128 MB
+  # - Fonts 12.5% -> 64 MB
+  # - Sprites 12.5% -> 64 MB
+  #
+  # How the cache works internally is unstable and may change to improve performance/efficiency.
+  # For example, we may change the split between sources to improve efficiency.
+  #
+  # Specify each cache size individually for finer cache size control:
+  # - Tiles: `cache.tile_size_mb`
+  # - Pmtiles: `pmtiles.cache.size_mb`
+  # - Fonts: `fonts.cache.size_mb`
+  # - Sprites: `sprites.cache.size_mb`
+  size_mb: 512
+
+  # Allows overriding the size of the tile cache.
+  # Defaults to `cache.size_mb` / 2
+  tile_size_mb: 256
+
   # Default minimum zoom level (inclusive) for tile caching.
   # Tiles further zoomed out than this will bypass the cache entirely.
   # Can be overridden per-source (e.g. cache.minzoom on a type of source or an individual source).
@@ -279,7 +277,7 @@ postgres:
 # Publish PMTiles files from local disk or proxy to a web server
 pmtiles:
   # Size of the directory cache (in MB).
-  # Defaults to cache_size_mb / 4
+  # Defaults to cache.size_mb / 4
   #
   # Note:
   # Tile and directory caching are complementary.
@@ -332,9 +330,10 @@ mbtiles:
 
 # Sprite configuration
 sprites:
-  # Size of the sprite cache (in MB).
-  # Defaults to cache_size_mb / 8
-  cache_size_mb: 64
+  # Cache configuration for sprites.
+  # Defaults to cache.size_mb / 8
+  cache:
+    size_mb: 64
 
   paths:
     # all SVG files in this dir will be published as a "my_images" sprite source
@@ -345,9 +344,10 @@ sprites:
 
 # Font configuration
 fonts:
-  # Size of the sprite cache (in MB).
-  # Defaults to cache_size_mb / 4
-  cache_size_mb: 64
+  # Cache configuration for fonts.
+  # Defaults to cache.size_mb / 8
+  cache:
+    size_mb: 64
 
   # A list of *.otf, *.ttf, and *.ttc font files and dirs to search recursively.
   paths:

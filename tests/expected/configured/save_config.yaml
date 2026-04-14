@@ -1,5 +1,5 @@
-cache_size_mb: 8
 cache:
+  size_mb: 8
   minzoom: 0
   maxzoom: 20
 keep_alive: 75
