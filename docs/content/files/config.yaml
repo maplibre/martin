@@ -37,7 +37,7 @@ cache:
   #
   # Specify each cache size individually for finer cache size control:
   # - Tiles: `cache.tile_size_mb`
-  # - Pmtiles: `pmtiles.cache.size_mb`
+  # - Pmtiles: `pmtiles.directory_cache_size_mb`
   # - Fonts: `fonts.cache.size_mb`
   # - Sprites: `sprites.cache.size_mb`
   size_mb: 512
