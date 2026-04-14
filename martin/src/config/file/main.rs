@@ -624,7 +624,7 @@ mod tests {
     }
 
     #[test]
-    fn migrate_cache_size_mb_to_cache_size_mb() {
+    fn cache_migrates_old_to_new_cache_config_key() {
         let config = parse_yaml("cache_size_mb: 512");
         assert_eq!(config.cache.size_mb, Some(512));
     }
