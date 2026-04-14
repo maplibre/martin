@@ -21,7 +21,7 @@ pub struct PmtConfig {
     /// Cache configuration for `PMTiles` directory cache (size, expiry, idle timeout).
     ///
     /// Overrides the global [`cache`](crate::config::file::Config::cache) settings.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "CacheSizeConfig::is_empty")]
     pub directory_cache: CacheSizeConfig,
 
     // if the key is the allowed set, we assume it is there for a purpose

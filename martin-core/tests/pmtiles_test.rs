@@ -1,19 +1,19 @@
 #![cfg(feature = "pmtiles")]
 #![allow(clippy::unwrap_used)]
+#![expect(clippy::panic)]
 
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::time::Duration;
 
 use martin_core::CacheZoomRange;
 use martin_core::tiles::Source as _;
 use martin_core::tiles::pmtiles::{PmtCache, PmtCacheInstance, PmtilesError, PmtilesSource};
 use martin_tile_utils::{Encoding, Format, TileCoord};
 use object_store::local::LocalFileSystem;
-use pmtiles::TileId;
+use pmtiles::{DirectoryCache as _, TileId};
 use rstest::rstest;
-use std::time::Duration;
-
-use pmtiles::DirectoryCache as _;
+use tokio::sync::oneshot;
 
 const TTL_CACHE_OFFSET: usize = 0;
 const PNG_MAGIC: &[u8] = &[0x89, 0x50, 0x4E, 0x47];
@@ -717,7 +717,7 @@ async fn dir_assert_hit(cache: &PmtCacheInstance, offset: usize) {
 }
 
 async fn dir_assert_miss(cache: &PmtCacheInstance, offset: usize) {
-    let (tx, mut rx) = tokio::sync::oneshot::channel::<()>();
+    let (tx, mut rx) = oneshot::channel();
     cache
         .get_dir_entry_or_insert(offset, ttl_tile_id(), async move {
             let _ = tx.send(());

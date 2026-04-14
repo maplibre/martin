@@ -181,13 +181,11 @@ async fn insert(cache: &FontCache, ids: &str, start: u32, end: u32, data: &[u8])
         .unwrap()
 }
 
-fn assert_hit_compute() -> Result<Vec<u8>, Infallible> {
-    panic!("expected cache hit, but compute was called");
-}
-
 async fn assert_hit(cache: &FontCache, ids: &str, start: u32, end: u32) -> Vec<u8> {
     cache
-        .get_or_insert(ids.into(), start, end, assert_hit_compute)
+        .get_or_insert::<_, Infallible>(ids.into(), start, end, || {
+            panic!("expected cache hit, but compute was called");
+        })
         .await
         .unwrap()
 }
