@@ -20,15 +20,14 @@ impl CacheZoomRange {
 
     /// Returns `true` if neither bound is set.
     #[must_use]
-    #[expect(clippy::trivially_copy_pass_by_ref)]
-    pub fn is_empty(&self) -> bool {
+    pub fn is_empty(self) -> bool {
         self.minzoom.is_none() && self.maxzoom.is_none()
     }
 
     /// Returns `true` if `zoom` is within the configured bounds (inclusive).
     /// Missing bounds are treated as unbounded.
     #[must_use]
-    pub fn contains(&self, zoom: u8) -> bool {
+    pub fn contains(self, zoom: u8) -> bool {
         self.minzoom.is_none_or(|m| zoom >= m) && self.maxzoom.is_none_or(|m| zoom <= m)
     }
 

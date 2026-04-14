@@ -554,12 +554,13 @@ impl CachePolicy {
 
     /// Returns the zoom-level bounds for caching.
     #[must_use]
-    pub fn zoom(&self) -> CacheZoomRange {
+    pub fn zoom(self) -> CacheZoomRange {
         self.zoom
     }
 
+    /// Returns `true` if no cache bounds are configured.
     #[must_use]
-    #[expect(clippy::trivially_copy_pass_by_ref)]
+    #[expect(clippy::trivially_copy_pass_by_ref, reason = "serde skip_serializing_if requires &self")]
     pub fn is_empty(&self) -> bool {
         self.zoom.is_empty()
     }
