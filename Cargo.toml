@@ -76,7 +76,7 @@ martin-core = { path = "./martin-core", version = "0.3.2", default-features = fa
 martin-tile-utils = { path = "./martin-tile-utils", version = "0.6.12" }
 mbtiles = { path = "./mbtiles", version = "0.15.4" }
 md5 = "0.8.0"
-moka = { version = "0.12", features = ["future"] }
+moka = { version = "0.12", features = ["future", "quanta"] }
 num_cpus = "1"
 object_store = { version = "0.13.2", features = ["gcp", "aws", "azure", "fs", "http"] }
 pbf_font_tools = { version = "3.1.1", features = ["freetype"] }

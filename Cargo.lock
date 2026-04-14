@@ -4455,6 +4455,7 @@ dependencies = [
  "futures-util",
  "parking_lot",
  "portable-atomic",
+ "quanta",
  "smallvec",
  "tagptr",
  "uuid",
