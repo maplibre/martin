@@ -1,7 +1,6 @@
 use martin_tile_utils::TileCoord;
 use moka::future::Cache;
-use moka::ops::compute::{CompResult, Op};
-use std::sync::Mutex;
+use std::sync::Arc;
 use tracing::{info, trace};
 
 use crate::tiles::Tile;
@@ -33,54 +32,20 @@ impl TileCache {
         xyz: TileCoord,
         query: Option<String>,
         compute: F,
-    ) -> Result<Tile, E>
+    ) -> Result<Tile, Arc<E>>
     where
         F: FnOnce() -> Fut,
         Fut: Future<Output = Result<Tile, E>>,
+        E: Send + Sync + 'static,
     {
         let key = TileCacheKey::new(source_id, xyz, query);
-        let error = Mutex::new(None);
-        let result = self
+        let entry = self
             .0
             .entry(key.clone())
-            .and_compute_with(|maybe_entry| {
-                let error = &error;
-                async move {
-                    if maybe_entry.is_some() {
-                        Op::Nop
-                    } else {
-                        match compute().await {
-                            Ok(tile) => Op::Put(tile),
-                            Err(err) => {
-                                *error.lock().expect(
-                                    "tile cache compute error mutex poisoned during tile cache insertion",
-                                ) = Some(err);
-                                Op::Nop
-                            }
-                        }
-                    }
-                }
-            })
-            .await;
-
-        if let Some(err) = error
-            .into_inner()
-            .expect("tile cache compute error mutex poisoned after tile cache insertion")
-        {
-            return Err(err);
-        }
-
-        let (tile, is_hit) = match result {
-            CompResult::Inserted(entry) | CompResult::ReplacedWith(entry) => {
-                (entry.into_value(), false)
-            }
-            CompResult::Unchanged(entry) => (entry.into_value(), true),
-            CompResult::Removed(_) | CompResult::StillNone(_) => {
-                unreachable!(
-                    "tile cache entry compute only uses Op::Put/Op::Nop, so Op::Remove/StillNone are unreachable"
-                )
-            }
-        };
+            .or_try_insert_with(async move { compute().await })
+            .await?;
+        let is_hit = !entry.is_fresh();
+        let tile = entry.into_value();
 
         if is_hit {
             hotpath::gauge!("tile_cache_hits").inc(1.0);
