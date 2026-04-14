@@ -895,7 +895,7 @@ use tempfile::NamedTempFile;
 
         let call_count = Arc::new(AtomicUsize::new(0));
         let call_count_clone = Arc::clone(&call_count);
-        
+
         let (_mbt, _conn, src_file) = temp_named_mbtiles("tc_dedup", script).await;
         let dst_file = NamedTempFile::with_suffix("mbtiles").unwrap();
 
@@ -918,7 +918,7 @@ use tempfile::NamedTempFile;
         .run()
         .await
         .unwrap();
-        
+
         insta::assert_snapshot!(stats, @"tiles_written=5, cache_hits=0, cache_encoded=2");
         let calls = call_count.load(Ordering::Relaxed);
         assert_eq!(calls, 2, "transform must be called once per unique image, not per map entry");
