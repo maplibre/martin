@@ -47,10 +47,8 @@ impl FontCache {
             .entry(key.clone())
             .or_try_insert_with(async move { compute() })
             .await?;
-        let is_hit = !entry.is_fresh();
-        let data = entry.into_value();
 
-        if is_hit {
+        if !entry.is_fresh() {
             hotpath::gauge!("font_cache_hits").inc(1.0);
             trace!(
                 "Font cache HIT for {key:?} (entries={}, size={})",
@@ -62,7 +60,7 @@ impl FontCache {
             trace!("Font cache MISS for {key:?}");
         }
 
-        Ok(data)
+        Ok(entry.into_value())
     }
 
     /// Invalidates all cached font ranges that use the specified font ID.
