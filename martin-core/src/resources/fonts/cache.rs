@@ -106,6 +106,11 @@ impl FontCache {
     pub fn weighted_size(&self) -> u64 {
         self.cache.weighted_size()
     }
+
+    /// Runs pending maintenance tasks (e.g. processing invalidation predicates).
+    pub async fn run_pending_tasks(&self) {
+        self.cache.run_pending_tasks().await;
+    }
 }
 
 /// Cache key for font data.

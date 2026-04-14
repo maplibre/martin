@@ -1,7 +1,0 @@
----
-source: martin-core/src/resources/styles/mod.rs
-assertion_line: 241
-expression: img_buffer.into_inner()
-extension: png
-snapshot_kind: binary
----
