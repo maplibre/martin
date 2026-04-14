@@ -1,5 +1,4 @@
 use std::string::ToString as _;
-use std::sync::Arc;
 
 use actix_middleware_etag::Etag;
 use actix_web::error::ErrorNotFound;
@@ -51,8 +50,7 @@ async fn get_sprite_png(
     } else {
         get_sprite(&path.source_ids, &sprites, is_sdf)
             .await
-            .map_err(Arc::new)
-            .map_err(|e| map_sprite_compute_error(e.as_ref()))?
+            .map_err(|e| map_sprite_compute_error(&e))?
     };
     Ok(HttpResponse::Ok()
         .content_type(ContentType::png())
@@ -101,8 +99,7 @@ async fn get_sprite_sdf_png(
     } else {
         get_sprite(&path.source_ids, &sprites, is_sdf)
             .await
-            .map_err(Arc::new)
-            .map_err(|e| map_sprite_compute_error(e.as_ref()))?
+            .map_err(|e| map_sprite_compute_error(&e))?
     };
     Ok(HttpResponse::Ok()
         .content_type(ContentType::png())
@@ -152,8 +149,7 @@ async fn get_sprite_json(
     } else {
         get_index(&path.source_ids, &sprites, is_sdf)
             .await
-            .map_err(Arc::new)
-            .map_err(|e| map_sprite_compute_error(e.as_ref()))?
+            .map_err(|e| map_sprite_compute_error(&e))?
     };
     Ok(HttpResponse::Ok()
         .content_type(ContentType::json())
@@ -203,8 +199,7 @@ async fn get_sprite_sdf_json(
     } else {
         get_index(&path.source_ids, &sprites, is_sdf)
             .await
-            .map_err(Arc::new)
-            .map_err(|e| map_sprite_compute_error(e.as_ref()))?
+            .map_err(|e| map_sprite_compute_error(&e))?
     };
     Ok(HttpResponse::Ok()
         .content_type(ContentType::json())
