@@ -44,22 +44,20 @@ impl TileCache {
             .entry(key.clone())
             .or_try_insert_with(async move { compute().await })
             .await?;
-        let is_hit = !entry.is_fresh();
-        let tile = entry.into_value();
 
-        if is_hit {
+        if entry.is_fresh() {
+            hotpath::gauge!("tile_cache_misses").inc(1.0);
+            trace!("Tile cache MISS for {key:?}");
+        } else {
             hotpath::gauge!("tile_cache_hits").inc(1.0);
             trace!(
                 "Tile cache HIT for {key:?} (entries={entries}, size={size}B)",
                 entries = self.0.entry_count(),
                 size = self.0.weighted_size()
             );
-        } else {
-            hotpath::gauge!("tile_cache_misses").inc(1.0);
-            trace!("Tile cache MISS for {key:?}");
         }
 
-        Ok(tile)
+        Ok(entry.into_value())
     }
 
     /// Invalidates all cached tiles for a specific source.
