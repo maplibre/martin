@@ -729,6 +729,18 @@ pub struct CacheSizeConfig {
     pub size_mb: Option<u64>,
 }
 
+impl CacheSizeConfig {
+    /// Returns `true` if no cache size is configured.
+    #[must_use]
+    #[expect(
+        clippy::trivially_copy_pass_by_ref,
+        reason = "serde skip_serializing_if requires &self"
+    )]
+    pub fn is_empty(&self) -> bool {
+        self.size_mb.is_none()
+    }
+}
+
 impl<'de> Deserialize<'de> for CacheSizeConfig {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where

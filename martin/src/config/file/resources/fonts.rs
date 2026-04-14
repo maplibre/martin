@@ -12,7 +12,7 @@ use crate::config::file::{
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct InnerFontConfig {
     /// Cache configuration for fonts.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "CacheSizeConfig::is_empty")]
     pub cache: CacheSizeConfig,
 
     #[serde(flatten, skip_serializing)]

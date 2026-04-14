@@ -87,7 +87,7 @@ pub struct ServerState {
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct Config {
     /// Cache configuration: size limits and default zoom-level bounds.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "GlobalCacheConfig::is_empty")]
     pub cache: GlobalCacheConfig,
 
     #[serde(default)]

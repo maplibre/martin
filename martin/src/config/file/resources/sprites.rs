@@ -49,7 +49,7 @@ impl SpriteConfig {
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct InnerSpriteConfig {
     /// Cache configuration for sprites.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "CacheSizeConfig::is_empty")]
     pub cache: CacheSizeConfig,
 
     #[serde(flatten, skip_serializing)]
