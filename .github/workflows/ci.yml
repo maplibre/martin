@@ -590,8 +590,9 @@ jobs:
           envs: "AWS_SKIP_CREDENTIALS AWS_REGION"
           prepare: |
             pkg install -y rust sqlite3 freetype2 cmake just
-          run: just env-info
-          run: just test
+          run: |
+            just env-info
+            just test
         env:
           AWS_SKIP_CREDENTIALS: 1
           AWS_REGION: eu-central-1
