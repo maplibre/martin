@@ -718,22 +718,19 @@ mod tests {
 
     use super::*;
     use crate::NormalizedSchema;
+use tempfile::NamedTempFile;
     use crate::metadata::temp_named_mbtiles;
 
-    /// Helper: create a source in-memory db from SQL, write to a temp file on disk,
-    /// run the transcoder, then open the result for verification.
+    /// Helper: create a source in-memory db from SQL, run the transcoder to a
+    /// temp file, and open the result for verification.
     async fn transcode_identity(
         src_script: &str,
         src_name: &str,
-        dst_name: &str,
         dst_type: Option<MbtType>,
-    ) -> (TranscodeStats, SqliteConnection) {
+    ) -> (TranscodeStats, SqliteConnection, tempfile::TempDir) {
         let (_mbt, _conn, src_file) = temp_named_mbtiles(src_name, src_script).await;
 
-        // Use a temp file for destination so it persists after the transcoder drops its conn.
-        let dst_file = std::env::temp_dir().join(format!("{dst_name}.mbtiles"));
-        // Clean up any leftover from a previous run.
-        let _ = std::fs::remove_file(&dst_file);
+                    let dst_file = NamedTempFile::with_suffix("mbtiles").unwrap();
 
         let mut builder = MbtilesTranscoder::new(src_file, dst_file.clone(), |data| Ok(data));
         if let Some(dt) = dst_type {
@@ -743,54 +740,72 @@ mod tests {
 
         let dst_mbt = Mbtiles::new(&dst_file).unwrap();
         let conn = dst_mbt.open_readonly().await.unwrap();
-        (stats, conn)
+        (stats, conn, dir)
+    }
+
+    /// Helper for tests needing a real source file (e.g. DedupId with
+    /// `WITHOUT ROWID` tables that conflict with shared-cache locking).
+    async fn transcode_identity_file(
+        src_script: &str,
+        dst_type: Option<MbtType>,
+    ) -> (TranscodeStats, SqliteConnection, tempfile::TempDir) {
+        let dir = tempfile::tempdir().expect("failed to create temp dir");
+        let src_file = dir.path().join("source.mbtiles");
+        let dst_file = dir.path().join("output.mbtiles");
+
+        let src_mbt = Mbtiles::new(&src_file).unwrap();
+        let mut src_conn = src_mbt.open_or_new().await.unwrap();
+        sqlx::raw_sql(src_script)
+            .execute(&mut src_conn)
+            .await
+            .unwrap();
+        drop(src_conn);
+
+        let mut builder = MbtilesTranscoder::new(src_file, dst_file.clone(), |data| Ok(data));
+        if let Some(dt) = dst_type {
+            builder = builder.dst_type(dt);
+        }
+        let stats = builder.run().await.unwrap();
+
+        let dst_mbt = Mbtiles::new(&dst_file).unwrap();
+        let conn = dst_mbt.open_readonly().await.unwrap();
+        (stats, conn, dir)
     }
 
     #[actix_rt::test]
     async fn transcode_flat_to_flat() {
         let script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
-        let (stats, mut conn) = transcode_identity(
-            script,
-            "tc_src_flat_flat",
-            "tc_dst_flat_flat",
-            Some(MbtType::Flat),
-        )
-        .await;
+        let (stats, mut conn, _dir) =
+            transcode_identity(script, "tc_flat_flat", Some(MbtType::Flat)).await;
 
-        assert!(stats.tiles_written > 0);
+        assert!(stats.tiles_written, 8);
         let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM tiles")
             .fetch_one(&mut conn)
             .await
             .unwrap();
-        assert_eq!(count as usize, stats.tiles_written);
+        assert_eq!(count, 8);
     }
 
     #[actix_rt::test]
     async fn transcode_flat_to_flat_with_hash() {
         let script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
-        let (stats, mut conn) = transcode_identity(
-            script,
-            "tc_src_flat_fwh",
-            "tc_dst_flat_fwh",
-            Some(MbtType::FlatWithHash),
-        )
-        .await;
+        let (stats, mut conn, _dir) =
+            transcode_identity(script, "tc_flat_fwh", Some(MbtType::FlatWithHash)).await;
 
-        assert!(stats.tiles_written > 0);
+        assert_eq!(stats.tiles_written, 8);
         let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM tiles_with_hash")
             .fetch_one(&mut conn)
             .await
             .unwrap();
-        assert_eq!(count as usize, stats.tiles_written);
+        assert_eq!(count, 8);
     }
 
     #[actix_rt::test]
     async fn transcode_normalized_to_normalized() {
         let script = include_str!("../../tests/fixtures/mbtiles/geography-class-png.sql");
-        let (stats, mut conn) = transcode_identity(
+        let (stats, mut conn, _dir) = transcode_identity(
             script,
-            "tc_src_norm_norm",
-            "tc_dst_norm_norm",
+            "tc_norm_norm",
             Some(MbtType::Normalized {
                 hash_view: true,
                 schema: NormalizedSchema::Hash,
@@ -798,45 +813,127 @@ mod tests {
         )
         .await;
 
-        assert!(stats.tiles_written > 0);
+        assert_eq!(stats.tiles_written, 5);
         let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM map")
             .fetch_one(&mut conn)
             .await
             .unwrap();
-        assert_eq!(count as usize, stats.tiles_written);
+        assert_eq!(count, 5);
     }
 
     #[actix_rt::test]
     async fn transcode_normalized_to_flat() {
         let script = include_str!("../../tests/fixtures/mbtiles/geography-class-png.sql");
-        let (stats, mut conn) = transcode_identity(
+        let (stats, mut conn, _dir) =
+            transcode_identity(script, "tc_norm_flat", Some(MbtType::Flat)).await;
+
+        assert_eq!(stats.tiles_written, 5);
+        let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM tiles")
+            .fetch_one(&mut conn)
+            .await
+            .unwrap();
+        assert_eq!(count, 5);
+    }
+
+    #[actix_rt::test]
+    async fn transcode_dedup_id_to_hash_normalized() {
+        let script = include_str!("../../tests/fixtures/mbtiles/normalized-dedup-id.sql");
+        let (stats, mut conn, _dir) = transcode_identity_file(
             script,
-            "tc_src_norm_flat",
-            "tc_dst_norm_flat",
-            Some(MbtType::Flat),
+            Some(MbtType::Normalized {
+                hash_view: true,
+                schema: NormalizedSchema::Hash,
+            }),
         )
         .await;
+
+        assert_eq!(stats.tiles_written, 5);
+        let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM map")
+            .fetch_one(&mut conn)
+            .await
+            .unwrap();
+        assert_eq!(count, 5);
+    }
+
+    #[actix_rt::test]
+    async fn transcode_dedup_id_to_flat() {
+        let script = include_str!("../../tests/fixtures/mbtiles/normalized-dedup-id.sql");
+        let (stats, mut conn, _dir) = transcode_identity_file(script, Some(MbtType::Flat)).await;
 
         assert!(stats.tiles_written > 0);
         let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM tiles")
             .fetch_one(&mut conn)
             .await
             .unwrap();
-        assert_eq!(count as usize, stats.tiles_written);
+        assert_eq!(count, 5);
+    }
+
+    #[actix_rt::test]
+    async fn transcode_normalized_no_redundant_transforms() {
+        // 2 unique images, each > 1KB (to exceed max_tile_track_size),
+        // referenced by 5 map entries. The transform must be called
+        // exactly 2 times — once per unique image.
+        let tile_a: String = format!("X'{}'", "AA".repeat(2048));
+        let tile_b: String = format!("X'{}'", "BB".repeat(2048));
+        let script = format!(
+            "CREATE TABLE map (zoom_level INTEGER, tile_column INTEGER, \
+                              tile_row INTEGER, tile_id TEXT);\
+             INSERT INTO map VALUES(0,0,0,'aaa');\
+             INSERT INTO map VALUES(1,0,0,'aaa');\
+             INSERT INTO map VALUES(1,0,1,'bbb');\
+             INSERT INTO map VALUES(1,1,0,'bbb');\
+             INSERT INTO map VALUES(1,1,1,'aaa');\
+             CREATE TABLE images (tile_data BLOB, tile_id TEXT);\
+             INSERT INTO images VALUES({tile_a},'aaa');\
+             INSERT INTO images VALUES({tile_b},'bbb');\
+             CREATE TABLE metadata (name TEXT, value TEXT);\
+             CREATE UNIQUE INDEX map_index ON map (zoom_level, tile_column, tile_row);\
+             CREATE UNIQUE INDEX images_id ON images (tile_id);\
+             INSERT INTO metadata VALUES('name','test');\
+             INSERT INTO metadata VALUES('format','pbf');"
+        );
+
+        let call_count = Arc::new(AtomicUsize::new(0));
+        let call_count_clone = Arc::clone(&call_count);
+        
+        let (_mbt, _conn, src_file) = temp_named_mbtiles("tc_dedup", script).await;
+        let dst_file = NamedTempFile::with_suffix("mbtiles").unwrap();
+
+        let src_mbt = Mbtiles::new(src_file.path()).unwrap();
+        let mut src_conn = src_mbt.open_or_new().await.unwrap();
+        sqlx::raw_sql(&script)
+            .execute(&mut src_conn)
+            .await
+            .unwrap();
+        drop(src_conn);
+
+        let stats = MbtilesTranscoder::new(src_file.path(), dst_file.path(), move |data| {
+            call_count_clone.fetch_add(1, Ordering::Relaxed);
+            Ok(data)
+        })
+        .dst_type(MbtType::Normalized {
+            hash_view: true,
+            schema: NormalizedSchema::Hash,
+        })
+        .run()
+        .await
+        .unwrap();
+        
+        insta::assert_snapshot!(stats, @"tiles_written=5, cache_hits=0, cache_encoded=2");
+        let calls = call_count.load(Ordering::Relaxed);
+        assert_eq!(calls, 2, "transform must be called once per unique image, not per map entry");
     }
 
     #[actix_rt::test]
     async fn transcode_dedup_cache_avoids_redundant_transforms() {
-        let script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
+        let script = ;
         let call_count = Arc::new(AtomicUsize::new(0));
         let call_count_clone = Arc::clone(&call_count);
 
-        let (_mbt, _conn, src_file) = temp_named_mbtiles("tc_src_dedup", script).await;
+        let (_mbt, _conn, src_file) = temp_named_mbtiles("tc_dedup", include_str!("../../tests/fixtures/mbtiles/world_cities.sql")).await;
+        let dst_file = NamedTempFile::with_suffix("mbtiles").unwrap();
 
-        let dst_file = std::env::temp_dir().join("tc_dst_dedup.mbtiles");
-        let _ = std::fs::remove_file(&dst_file);
-
-        let stats = MbtilesTranscoder::new(src_file, dst_file, move |data| {
+        let stats = MbtilesTranscoder::new(src_file, dst_file.path(), move |data| {
             call_count_clone.fetch_add(1, Ordering::Relaxed);
             Ok(data)
         })
@@ -845,8 +942,8 @@ mod tests {
         .await
         .unwrap();
 
+        insta::assert_snapshot!(stats, @"tiles_written=8, cache_hits=4, cache_encoded=4");
         let calls = call_count.load(Ordering::Relaxed);
-        assert!(stats.tiles_written > 0);
         assert_eq!(calls as u64, stats.cache_encoded);
     }
 }
