@@ -39,7 +39,7 @@ use super::styles::StyleConfig;
 use crate::config::file::FileConfigEnum;
 #[cfg(any(feature = "_tiles", feature = "sprites", feature = "fonts"))]
 use crate::config::file::cache::CacheConfig;
-#[cfg(feature = "_tiles")]
+#[cfg(any(feature = "pmtiles", feature = "mbtiles", feature = "unstable-cog"))]
 use crate::config::file::resolve_files;
 use crate::config::file::{
     ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks as _, UnrecognizedKeys,
