@@ -35,7 +35,7 @@ impl TileSourceConfiguration for CogConfig {
         path: PathBuf,
         cache: CachePolicy,
     ) -> MartinResult<BoxedSource> {
-        let cog = CogSource::new(id, path, cache.minzoom, cache.maxzoom)?;
+        let cog = CogSource::new(id, path, cache.zoom())?;
         Ok(Box::new(cog))
     }
 

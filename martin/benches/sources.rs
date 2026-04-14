@@ -7,6 +7,7 @@ use martin_tile_utils::TileCoord;
 
 mod sources {
     use async_trait::async_trait;
+    use martin_core::CacheZoomRange;
     use martin_core::tiles::catalog::CatalogSourceEntry;
     use martin_core::tiles::{MartinCoreError, MartinCoreResult, Source, UrlQuery};
     use martin_tile_utils::{Encoding, Format, TileCoord, TileData, TileInfo};
@@ -43,12 +44,8 @@ mod sources {
             Box::new(self.clone())
         }
 
-        fn cache_minzoom(&self) -> Option<u8> {
-            None
-        }
-
-        fn cache_maxzoom(&self) -> Option<u8> {
-            None
+        fn cache_zoom(&self) -> CacheZoomRange {
+            CacheZoomRange::default()
         }
 
         fn support_url_query(&self) -> bool {
@@ -99,12 +96,8 @@ mod sources {
             Box::new(self.clone())
         }
 
-        fn cache_minzoom(&self) -> Option<u8> {
-            None
-        }
-
-        fn cache_maxzoom(&self) -> Option<u8> {
-            None
+        fn cache_zoom(&self) -> CacheZoomRange {
+            CacheZoomRange::default()
         }
 
         fn support_url_query(&self) -> bool {

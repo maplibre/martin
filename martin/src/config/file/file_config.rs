@@ -5,6 +5,7 @@ use std::mem;
 use std::path::Path;
 use std::path::PathBuf;
 
+use martin_core::CacheZoomRange;
 #[cfg(feature = "_tiles")]
 use martin_core::tiles::BoxedSource;
 use serde::{Deserialize, Serialize};
@@ -535,28 +536,39 @@ fn parse_url(is_enabled: bool, path: &Path) -> Result<Option<Url>, ConfigFileErr
         .transpose()
 }
 
-/// Zoom-level bounds for tile caching. Used at the top level (as a global default),
-/// at backend level, and per-source to control which zoom levels are cached.
+/// Cache configuration for a tile source. Currently holds zoom-level bounds;
+/// may be extended with additional cache settings in the future.
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct CachePolicy {
-    pub minzoom: Option<u8>,
-    pub maxzoom: Option<u8>,
+    #[serde(flatten, default)]
+    zoom: CacheZoomRange,
 }
 
 impl CachePolicy {
+    /// Creates a new `CachePolicy` with the given zoom range.
+    #[must_use]
+    pub fn new(zoom: CacheZoomRange) -> Self {
+        Self { zoom }
+    }
+
+    /// Returns the zoom-level bounds for caching.
+    #[must_use]
+    pub fn zoom(&self) -> CacheZoomRange {
+        self.zoom
+    }
+
     #[must_use]
     #[expect(clippy::trivially_copy_pass_by_ref)]
     pub fn is_empty(&self) -> bool {
-        self.minzoom.is_none() && self.maxzoom.is_none()
+        self.zoom.is_empty()
     }
 
     /// Fills in any `None` fields from `other`.
     #[must_use]
     pub fn or(self, other: Self) -> Self {
         Self {
-            minzoom: self.minzoom.or(other.minzoom),
-            maxzoom: self.maxzoom.or(other.maxzoom),
+            zoom: self.zoom.or(other.zoom),
         }
     }
 }

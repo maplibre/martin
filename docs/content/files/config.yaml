@@ -48,13 +48,13 @@ tile_cache_size_mb: 256
 # Defaults for how to configure the cache
 cache:
   # Default minimum zoom level (inclusive) for tile caching.
-  # Tiles below this zoom will bypass the cache entirely.
-  # Can be overridden per-source (e.g. cache_minzoom on an individual source).
+  # Tiles further zoomed out than this will bypass the cache entirely.
+  # Can be overridden per-source (e.g. cache.minzoom on a type of source or an individual source).
   # default: null (no lower bound, all zoom levels cached)
   minzoom: null
 
   # Default maximum zoom level (inclusive) for tile caching.
-  # Tiles above this zoom will bypass the cache entirely.
+  # Tiles further zoomed in than this will bypass the cache entirely.
   # Can be overridden per-source.
   # default: null (no upper bound, all zoom levels cached)
   maxzoom: null

@@ -11,6 +11,7 @@ use crate::tiles::postgres::PostgresError::{
 };
 use crate::tiles::postgres::PostgresPool;
 use crate::tiles::postgres::utils::query_to_json;
+use crate::CacheZoomRange;
 use crate::tiles::{BoxedSource, MartinCoreResult, Source, UrlQuery};
 
 #[derive(Clone, Debug)]
@@ -20,8 +21,7 @@ pub struct PostgresSource {
     info: PostgresSqlInfo,
     pool: PostgresPool,
     tilejson: TileJSON,
-    cache_minzoom: Option<u8>,
-    cache_maxzoom: Option<u8>,
+    cache_zoom: CacheZoomRange,
 }
 
 impl PostgresSource {
@@ -32,16 +32,14 @@ impl PostgresSource {
         info: PostgresSqlInfo,
         tilejson: TileJSON,
         pool: PostgresPool,
-        cache_minzoom: Option<u8>,
-        cache_maxzoom: Option<u8>,
+        cache_zoom: CacheZoomRange,
     ) -> Self {
         Self {
             id,
             info,
             pool,
             tilejson,
-            cache_minzoom,
-            cache_maxzoom,
+            cache_zoom,
         }
     }
 }
@@ -73,12 +71,8 @@ impl Source for PostgresSource {
         true
     }
 
-    fn cache_minzoom(&self) -> Option<u8> {
-        self.cache_minzoom
-    }
-
-    fn cache_maxzoom(&self) -> Option<u8> {
-        self.cache_maxzoom
+    fn cache_zoom(&self) -> CacheZoomRange {
+        self.cache_zoom
     }
 
     async fn get_tile(

@@ -12,6 +12,7 @@ use tracing::{trace, warn};
 
 use crate::tiles::pmtiles::PmtCacheInstance;
 use crate::tiles::pmtiles::PmtilesError::{self, InvalidMetadata};
+use crate::CacheZoomRange;
 use crate::tiles::{BoxedSource, MartinCoreResult, Source, UrlQuery};
 
 /// A source for `PMTiles` files using `ObjectStoreBackend`
@@ -21,8 +22,7 @@ pub struct PmtilesSource {
     pmtiles: Arc<AsyncPmTilesReader<ObjectStoreBackend, PmtCacheInstance>>,
     tilejson: TileJSON,
     tile_info: TileInfo,
-    cache_minzoom: Option<u8>,
-    cache_maxzoom: Option<u8>,
+    cache_zoom: CacheZoomRange,
 }
 
 #[expect(clippy::missing_fields_in_debug)]
@@ -41,8 +41,7 @@ impl PmtilesSource {
         id: String,
         store: Box<dyn ObjectStore>,
         path: impl Into<object_store::path::Path>,
-        cache_minzoom: Option<u8>,
-        cache_maxzoom: Option<u8>,
+        cache_zoom: CacheZoomRange,
     ) -> Result<Self, PmtilesError> {
         let path = path.into();
         let store_to_string = store.to_string();
@@ -104,8 +103,7 @@ impl PmtilesSource {
             pmtiles: Arc::new(reader),
             tilejson,
             tile_info: format,
-            cache_minzoom,
-            cache_maxzoom,
+            cache_zoom,
         })
     }
 }
@@ -134,12 +132,8 @@ impl Source for PmtilesSource {
         true
     }
 
-    fn cache_minzoom(&self) -> Option<u8> {
-        self.cache_minzoom
-    }
-
-    fn cache_maxzoom(&self) -> Option<u8> {
-        self.cache_maxzoom
+    fn cache_zoom(&self) -> CacheZoomRange {
+        self.cache_zoom
     }
 
     async fn get_tile(

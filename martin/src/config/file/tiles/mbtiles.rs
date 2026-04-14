@@ -35,7 +35,7 @@ impl TileSourceConfiguration for MbtConfig {
         cache: CachePolicy,
     ) -> MartinResult<BoxedSource> {
         Ok(Box::new(
-            MbtSource::new(id, path, cache.minzoom, cache.maxzoom).await?,
+            MbtSource::new(id, path, cache.zoom()).await?,
         ))
     }
 
@@ -55,6 +55,8 @@ mod tests {
     use std::path::PathBuf;
 
     use indoc::indoc;
+
+    use martin_core::CacheZoomRange;
 
     use crate::config::file::mbtiles::MbtConfig;
     use crate::config::file::{
@@ -130,10 +132,7 @@ mod tests {
                     "pm-src5".to_string(),
                     FileConfigSrc::Obj(FileConfigSource {
                         path: PathBuf::from("/tmp/cached.ext"),
-                        cache: CachePolicy {
-                            minzoom: Some(0),
-                            maxzoom: Some(6),
-                        },
+                        cache: CachePolicy::new(CacheZoomRange::new(Some(0), Some(6))),
                     })
                 ),
             ]))

@@ -17,6 +17,7 @@ use tilejson::{Bounds, Center, TileJSON, tilejson};
 use crate::tiles::cog::CogError;
 use crate::tiles::cog::image::{COMPRESSION_WEBP, Image};
 use crate::tiles::cog::model::ModelInfo;
+use crate::CacheZoomRange;
 use crate::tiles::{MartinCoreResult, Source, UrlQuery};
 
 /// Maximum allowed difference from a matching `WebMercatorQuad` tile matrix zoom level.
@@ -32,8 +33,7 @@ pub struct CogSource {
     images: HashMap<u8, Image>,
     tilejson: TileJSON,
     tileinfo: TileInfo,
-    cache_minzoom: Option<u8>,
-    cache_maxzoom: Option<u8>,
+    cache_zoom: CacheZoomRange,
 }
 
 impl CogSource {
@@ -42,8 +42,7 @@ impl CogSource {
     pub fn new(
         id: String,
         path: PathBuf,
-        cache_minzoom: Option<u8>,
-        cache_maxzoom: Option<u8>,
+        cache_zoom: CacheZoomRange,
     ) -> Result<Self, CogError> {
         let tif_file =
             File::open(&path).map_err(|e: std::io::Error| CogError::IoError(e, path.clone()))?;
@@ -173,8 +172,7 @@ impl CogSource {
             images,
             tilejson,
             tileinfo: TileInfo::new(output_format, martin_tile_utils::Encoding::Internal),
-            cache_minzoom,
-            cache_maxzoom,
+            cache_zoom,
         })
     }
 }
@@ -220,12 +218,8 @@ impl Source for CogSource {
         false
     }
 
-    fn cache_minzoom(&self) -> Option<u8> {
-        self.cache_minzoom
-    }
-
-    fn cache_maxzoom(&self) -> Option<u8> {
-        self.cache_maxzoom
+    fn cache_zoom(&self) -> CacheZoomRange {
+        self.cache_zoom
     }
 
     async fn get_tile(
@@ -567,6 +561,7 @@ mod tests {
     use rstest::rstest;
     use tilejson::{Bounds, Center};
 
+    use crate::CacheZoomRange;
     use crate::tiles::cog::CogSource;
 
     #[rstest]
@@ -630,7 +625,7 @@ mod tests {
         #[case] format: String,
     ) {
         let path = format!("../tests/fixtures/cog/{cog_file}.tif");
-        let source = CogSource::new(cog_file, Path::new(&path).to_path_buf(), None, None).unwrap();
+        let source = CogSource::new(cog_file, Path::new(&path).to_path_buf(), CacheZoomRange::default()).unwrap();
 
         assert_eq!(source.max_zoom, max_zoom);
         assert_eq!(source.min_zoom, min_zoom);

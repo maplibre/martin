@@ -556,6 +556,7 @@ mod tests {
     use async_trait::async_trait;
     use insta::assert_yaml_snapshot;
     use martin::TileSources;
+    use martin_core::CacheZoomRange;
     use martin_core::tiles::{MartinCoreResult, Source, UrlQuery};
     use martin_tile_utils::{Encoding, Format};
     use rstest::{fixture, rstest};
@@ -588,12 +589,8 @@ mod tests {
             Box::new(self.clone())
         }
 
-        fn cache_minzoom(&self) -> Option<u8> {
-            None
-        }
-
-        fn cache_maxzoom(&self) -> Option<u8> {
-            None
+        fn cache_zoom(&self) -> CacheZoomRange {
+            CacheZoomRange::default()
         }
 
         async fn get_tile(

@@ -15,6 +15,7 @@ use tilejson::TileJSON;
 use tracing::{trace, warn};
 
 use crate::tiles::mbtiles::MbtilesError;
+use crate::CacheZoomRange;
 use crate::tiles::{BoxedSource, MartinCoreResult, Source, UrlQuery};
 
 /// Tile source that reads from `MBTiles` files.
@@ -24,8 +25,7 @@ pub struct MbtSource {
     mbtiles: Arc<MbtilesPool>,
     tilejson: TileJSON,
     tile_info: TileInfo,
-    cache_minzoom: Option<u8>,
-    cache_maxzoom: Option<u8>,
+    cache_zoom: CacheZoomRange,
 }
 
 #[expect(clippy::missing_fields_in_debug)]
@@ -56,8 +56,7 @@ impl MbtSource {
     pub async fn new(
         id: String,
         path: PathBuf,
-        cache_minzoom: Option<u8>,
-        cache_maxzoom: Option<u8>,
+        cache_zoom: CacheZoomRange,
     ) -> Result<Self, MbtilesError> {
         let mbt = MbtilesPool::open_readonly(&path)
             .await
@@ -97,8 +96,7 @@ impl MbtSource {
             mbtiles: Arc::new(mbt),
             tilejson: meta.tilejson,
             tile_info,
-            cache_minzoom,
-            cache_maxzoom,
+            cache_zoom,
         })
     }
 }
@@ -130,12 +128,8 @@ impl Source for MbtSource {
         false
     }
 
-    fn cache_minzoom(&self) -> Option<u8> {
-        self.cache_minzoom
-    }
-
-    fn cache_maxzoom(&self) -> Option<u8> {
-        self.cache_maxzoom
+    fn cache_zoom(&self) -> CacheZoomRange {
+        self.cache_zoom
     }
 
     async fn get_tile(

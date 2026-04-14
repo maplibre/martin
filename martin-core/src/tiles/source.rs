@@ -5,6 +5,7 @@ use async_trait::async_trait;
 use martin_tile_utils::{TileCoord, TileData, TileInfo};
 use tilejson::TileJSON;
 
+use crate::CacheZoomRange;
 use crate::tiles::catalog::CatalogSourceEntry;
 use crate::tiles::{MartinCoreResult, Tile};
 
@@ -45,11 +46,8 @@ pub trait Source: Send + Sync + Debug {
         false
     }
 
-    /// Minimum zoom level (inclusive) at which tiles from this source should be cached.
-    fn cache_minzoom(&self) -> Option<u8>;
-
-    /// Maximum zoom level (inclusive) at which tiles from this source should be cached.
-    fn cache_maxzoom(&self) -> Option<u8>;
+    /// Zoom-level bounds for tile caching.
+    fn cache_zoom(&self) -> CacheZoomRange;
 
     /// Retrieves tile data for the given coordinates.
     ///

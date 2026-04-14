@@ -83,10 +83,9 @@ pub struct Config {
     /// Overrides [`cache_size_mb`](Self::cache_size_mb)
     pub tile_cache_size_mb: Option<u64>,
 
-    /// Default zoom-level bounds for tile caching.
-    /// Applied as a fallback to any tile source that does not configure its own value.
+    /// Defaults for how our cache works
     #[serde(default)]
-    pub cache: Option<CachePolicy>,
+    pub cache: CachePolicy,
 
     #[serde(default)]
     pub on_invalid: Option<OnInvalid>,
@@ -344,11 +343,9 @@ impl Config {
     ) -> MartinResult<(TileSources, Vec<TileSourceWarning>)> {
         let mut sources_and_warnings: Vec<BoxFuture<_>> = Vec::new();
 
-        let default_cache = self.cache.unwrap_or_default();
-
         #[cfg(feature = "postgres")]
         for s in self.postgres.iter_mut() {
-            sources_and_warnings.push(Box::pin(s.resolve(idr.clone(), default_cache)));
+            sources_and_warnings.push(Box::pin(s.resolve(idr.clone(), self.cache)));
         }
 
         #[cfg(feature = "pmtiles")]
@@ -363,21 +360,21 @@ impl Config {
                     file_config.custom.pmtiles_directory_cache = pmtiles_cache;
                 }
             }
-            let val = crate::config::file::resolve_files(cfg, idr, &["pmtiles"], default_cache);
+            let val = crate::config::file::resolve_files(cfg, idr, &["pmtiles"], self.cache);
             sources_and_warnings.push(Box::pin(val));
         }
 
         #[cfg(feature = "mbtiles")]
         if !self.mbtiles.is_empty() {
             let cfg = &mut self.mbtiles;
-            let val = crate::config::file::resolve_files(cfg, idr, &["mbtiles"], default_cache);
+            let val = crate::config::file::resolve_files(cfg, idr, &["mbtiles"], self.cache);
             sources_and_warnings.push(Box::pin(val));
         }
 
         #[cfg(feature = "unstable-cog")]
         if !self.cog.is_empty() {
             let cfg = &mut self.cog;
-            let val = crate::config::file::resolve_files(cfg, idr, &["tif", "tiff"], default_cache);
+            let val = crate::config::file::resolve_files(cfg, idr, &["tif", "tiff"], self.cache);
             sources_and_warnings.push(Box::pin(val));
         }
 
