@@ -14,6 +14,8 @@ use clap::builder::Styles;
 use clap::builder::styling::AnsiColor;
 use futures::TryStreamExt as _;
 use futures::stream::{self, StreamExt as _};
+#[cfg(feature = "postgres")]
+use martin::config::args::PostgresArgs;
 use martin::config::args::{Args, ExtraArgs, MetaArgs, SrvArgs};
 use martin::config::file::{Config, ServerState, read_config};
 use martin::config::primitives::env::OsEnv;
@@ -62,7 +64,7 @@ pub struct CopierArgs {
     pub meta: MetaArgs,
     #[cfg(feature = "postgres")]
     #[command(flatten)]
-    pub pg: Option<martin::config::args::PostgresArgs>,
+    pub pg: Option<PostgresArgs>,
 }
 
 #[serde_with::serde_as]
