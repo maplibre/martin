@@ -600,7 +600,13 @@ pub fn init_aws_lc_tls() {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
     use super::*;
+
+    fn parse_yaml(yaml: &str) -> Config {
+        parse_config(yaml, &HashMap::<String, String>::new(), Path::new("test.yaml")).unwrap()
+    }
 
     #[test]
     fn parse_base_path_accepts_valid_paths() {
@@ -614,5 +620,57 @@ mod tests {
     fn parse_base_path_rejects_invalid_paths() {
         assert!(parse_base_path("").is_err());
         assert!(parse_base_path("foo/bar").is_err());
+    }
+
+    #[test]
+    fn migrate_cache_size_mb_to_cache_size_mb() {
+        let config = parse_yaml("cache_size_mb: 512");
+        assert_eq!(config.cache.size_mb, Some(512));
+    }
+
+    #[test]
+    fn migrate_tile_cache_size_mb_to_cache_tile_size_mb() {
+        let config = parse_yaml("tile_cache_size_mb: 256");
+        assert_eq!(config.cache.tile_size_mb, Some(256));
+    }
+
+    #[test]
+    fn migrate_both_old_cache_keys() {
+        let config = parse_yaml("cache_size_mb: 512\ntile_cache_size_mb: 256");
+        assert_eq!(config.cache.size_mb, Some(512));
+        assert_eq!(config.cache.tile_size_mb, Some(256));
+    }
+
+    #[test]
+    fn new_cache_key_overrides_old() {
+        let config = parse_yaml("cache_size_mb: 100\ncache:\n  size_mb: 200");
+        assert_eq!(config.cache.size_mb, Some(200));
+    }
+
+    #[test]
+    fn new_cache_format_works_directly() {
+        let config = parse_yaml("cache:\n  size_mb: 512\n  tile_size_mb: 256\n  minzoom: 2\n  maxzoom: 10");
+        assert_eq!(config.cache.size_mb, Some(512));
+        assert_eq!(config.cache.tile_size_mb, Some(256));
+    }
+
+    #[cfg(feature = "sprites")]
+    #[test]
+    fn migrate_sprites_cache_size_mb() {
+        let config = parse_yaml("sprites:\n  cache_size_mb: 64\n  paths: /tmp");
+        let FileConfigEnum::Config(cfg) = &config.sprites else {
+            panic!("expected sprites config");
+        };
+        assert_eq!(cfg.custom.cache.size_mb, Some(64));
+    }
+
+    #[cfg(feature = "fonts")]
+    #[test]
+    fn migrate_fonts_cache_size_mb() {
+        let config = parse_yaml("fonts:\n  cache_size_mb: 32\n  paths: /tmp");
+        let FileConfigEnum::Config(cfg) = &config.fonts else {
+            panic!("expected fonts config");
+        };
+        assert_eq!(cfg.custom.cache.size_mb, Some(32));
     }
 }
