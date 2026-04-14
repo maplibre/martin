@@ -235,7 +235,10 @@ where
         let batch_size = self.batch_size;
         let transform = Arc::new(self.transform);
 
-        let sql = format!("SELECT {tile_id_col}, tile_data FROM {content_table}", content_table = src_schema.content_table());
+        let sql = format!(
+            "SELECT {tile_id_col}, tile_data FROM {content_table}",
+            content_table = src_schema.content_table()
+        );
         let reader = normalized_reader(src_conn, &sql, raw_tx, batch_size);
 
         let compute = normalized_compute(raw_rx, enc_tx, transform);
