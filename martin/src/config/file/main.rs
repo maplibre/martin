@@ -595,7 +595,10 @@ pub fn init_aws_lc_tls() {
 mod tests {
     use std::collections::HashMap;
 
+    use martin_core::CacheZoomRange;
+
     use super::*;
+    use crate::config::file::CachePolicy;
 
     fn parse_yaml(yaml: &str) -> Config {
         parse_config(
@@ -686,5 +689,42 @@ mod tests {
         // The parse may fail (cache: true is not a valid GlobalCacheConfig),
         // but it must not panic.
         let _ = result;
+    }
+
+    #[test]
+    fn cache_disable_global() {
+        let config = parse_yaml("cache: disable");
+        assert_eq!(config.cache, GlobalCacheConfig::disabled());
+        assert_eq!(config.cache.size_mb, Some(0));
+        assert_eq!(config.cache.tile_size_mb, Some(0));
+    }
+
+    #[test]
+    fn cache_disable_per_source() {
+        let policy: CachePolicy = serde_yaml::from_str("disable").unwrap();
+        assert_eq!(policy, CachePolicy::disabled());
+        for zoom in 0..=u8::MAX {
+            assert!(!policy.zoom().contains(zoom), "A disabled policy should never match any zoom level");
+        }
+    }
+
+    #[test]
+    fn cache_disable_not_overridden_by_defaults() {
+        let disabled = CachePolicy::disabled();
+        let defaults = CachePolicy::new(CacheZoomRange::new(Some(0), Some(20)));
+        // disabled policy already has both bounds set, so `or` won't override
+        let merged = disabled.or(defaults);
+        assert!(!merged.zoom().contains(0));
+        assert!(!merged.zoom().contains(10));
+    }
+
+    #[cfg(feature = "sprites")]
+    #[test]
+    fn cache_disable_sprites() {
+        let config = parse_yaml("sprites:\n  cache: disable\n  paths: /tmp");
+        let FileConfigEnum::Config(cfg) = &config.sprites else {
+            panic!("expected sprites config");
+        };
+        assert_eq!(cfg.custom.cache.size_mb, Some(0));
     }
 }

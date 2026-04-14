@@ -18,6 +18,16 @@ impl CacheZoomRange {
         Self { minzoom, maxzoom }
     }
 
+    /// Creates a disabled `CacheZoomRange` where `minzoom > maxzoom`,
+    /// so `contains()` always returns `false`.
+    #[must_use]
+    pub fn disabled() -> Self {
+        Self {
+            minzoom: Some(u8::MAX),
+            maxzoom: Some(0),
+        }
+    }
+
     /// Returns `true` if neither bound is set.
     #[must_use]
     pub fn is_empty(self) -> bool {
@@ -38,5 +48,49 @@ impl CacheZoomRange {
             minzoom: self.minzoom.or(other.minzoom),
             maxzoom: self.maxzoom.or(other.maxzoom),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn disabled_never_contains() {
+        let disabled = CacheZoomRange::disabled();
+        assert!(!disabled.contains(0));
+        assert!(!disabled.contains(10));
+        assert!(!disabled.contains(u8::MAX));
+    }
+
+    #[test]
+    fn disabled_is_not_empty() {
+        assert!(!CacheZoomRange::disabled().is_empty());
+    }
+
+    #[test]
+    fn disabled_not_overridden_by_or() {
+        let disabled = CacheZoomRange::disabled();
+        let defaults = CacheZoomRange::new(Some(0), Some(20));
+        // disabled has both fields set, so `or` won't replace them
+        let merged = disabled.or(defaults);
+        assert!(!merged.contains(0));
+        assert!(!merged.contains(10));
+    }
+
+    #[test]
+    fn default_contains_all() {
+        let range = CacheZoomRange::default();
+        assert!(range.contains(0));
+        assert!(range.contains(u8::MAX));
+    }
+
+    #[test]
+    fn bounded_range() {
+        let range = CacheZoomRange::new(Some(2), Some(10));
+        assert!(!range.contains(1));
+        assert!(range.contains(2));
+        assert!(range.contains(10));
+        assert!(!range.contains(11));
     }
 }

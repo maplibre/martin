@@ -23,6 +23,7 @@ base_path: null
 worker_processes: 8
 
 # Cache configuration
+# Use `cache: disable` to disable all caching entirely.
 cache:
   # Total amount of cache we use [default: 512, 0 to disable]
   # By default, this is split up between:
@@ -249,6 +250,7 @@ postgres:
 
       # Zoom-level bounds for tile caching (overrides top-level cache).
       # default: null (inherit from top-level default)
+      # Use `cache: disable` to disable caching for this source.
       cache:
         minzoom: null
         maxzoom: null
@@ -332,6 +334,7 @@ mbtiles:
 sprites:
   # Cache configuration for sprites.
   # Defaults to cache.size_mb / 8
+  # Use `cache: disable` to disable sprite caching.
   cache:
     size_mb: 64
 
@@ -346,6 +349,7 @@ sprites:
 fonts:
   # Cache configuration for fonts.
   # Defaults to cache.size_mb / 8
+  # Use `cache: disable` to disable font caching.
   cache:
     size_mb: 64
 

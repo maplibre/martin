@@ -538,10 +538,20 @@ fn parse_url(is_enabled: bool, path: &Path) -> Result<Option<Url>, ConfigFileErr
 
 /// Cache configuration for a tile source. Currently holds zoom-level bounds;
 /// may be extended with additional cache settings in the future.
-#[serde_with::skip_serializing_none]
-#[derive(Clone, Copy, Debug, Default, PartialEq, Serialize, Deserialize)]
+///
+/// Accepts either a struct with zoom bounds or the string `"disable"` to disable caching:
+/// ```yaml
+/// cache: disable
+/// ```
+///
+/// ```yaml
+/// cache:
+///   minzoom: 0
+///   maxzoom: 10
+/// ```
+#[derive(Clone, Copy, Debug, Default, PartialEq, Serialize)]
 pub struct CachePolicy {
-    #[serde(flatten, default)]
+    #[serde(flatten)]
     zoom: CacheZoomRange,
 }
 
@@ -550,6 +560,14 @@ impl CachePolicy {
     #[must_use]
     pub fn new(zoom: CacheZoomRange) -> Self {
         Self { zoom }
+    }
+
+    /// Creates a disabled `CachePolicy` where caching is turned off.
+    #[must_use]
+    pub fn disabled() -> Self {
+        Self {
+            zoom: CacheZoomRange::disabled(),
+        }
     }
 
     /// Returns the zoom-level bounds for caching.
@@ -569,10 +587,36 @@ impl CachePolicy {
     }
 
     /// Fills in any `None` fields from `other`.
+    /// A disabled cache policy (with both bounds set) is not overridden by defaults.
     #[must_use]
     pub fn or(self, other: Self) -> Self {
         Self {
             zoom: self.zoom.or(other.zoom),
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for CachePolicy {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum CachePolicyHelper {
+            String(String),
+            Struct {
+                #[serde(flatten, default)]
+                zoom: CacheZoomRange,
+            },
+        }
+
+        match CachePolicyHelper::deserialize(deserializer)? {
+            CachePolicyHelper::String(s) if s == "disable" => Ok(CachePolicy::disabled()),
+            CachePolicyHelper::String(s) => Err(serde::de::Error::custom(format!(
+                "invalid cache policy string: {s:?}, expected \"disable\""
+            ))),
+            CachePolicyHelper::Struct { zoom } => Ok(CachePolicy { zoom }),
         }
     }
 }
@@ -587,8 +631,13 @@ impl CachePolicy {
 ///   minzoom: 0
 ///   maxzoom: 20
 /// ```
+///
+/// Or disabled entirely:
+/// ```yaml
+/// cache: disable
+/// ```
 #[serde_with::skip_serializing_none]
-#[derive(Clone, Copy, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Serialize)]
 pub struct GlobalCacheConfig {
     /// Total cache budget in megabytes (0 to disable).
     /// Split across tile, pmtiles, sprite, and font caches by default.
@@ -596,11 +645,21 @@ pub struct GlobalCacheConfig {
     /// Tile cache size override in megabytes.
     /// Defaults to `size_mb / 2`.
     pub tile_size_mb: Option<u64>,
-    #[serde(flatten, default)]
+    #[serde(flatten)]
     zoom: CacheZoomRange,
 }
 
 impl GlobalCacheConfig {
+    /// Creates a disabled `GlobalCacheConfig` with size 0 and minzoom > maxzoom.
+    #[must_use]
+    pub fn disabled() -> Self {
+        Self {
+            size_mb: Some(0),
+            tile_size_mb: Some(0),
+            zoom: CacheZoomRange::disabled(),
+        }
+    }
+
     /// Returns the zoom-level bounds as a [`CachePolicy`].
     #[must_use]
     pub fn policy(self) -> CachePolicy {
@@ -614,6 +673,41 @@ impl GlobalCacheConfig {
     }
 }
 
+impl<'de> Deserialize<'de> for GlobalCacheConfig {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum Helper {
+            String(String),
+            Struct {
+                size_mb: Option<u64>,
+                tile_size_mb: Option<u64>,
+                #[serde(flatten, default)]
+                zoom: CacheZoomRange,
+            },
+        }
+
+        match Helper::deserialize(deserializer)? {
+            Helper::String(s) if s == "disable" => Ok(GlobalCacheConfig::disabled()),
+            Helper::String(s) => Err(serde::de::Error::custom(format!(
+                "invalid cache config string: {s:?}, expected \"disable\""
+            ))),
+            Helper::Struct {
+                size_mb,
+                tile_size_mb,
+                zoom,
+            } => Ok(GlobalCacheConfig {
+                size_mb,
+                tile_size_mb,
+                zoom,
+            }),
+        }
+    }
+}
+
 /// Cache size configuration for a source type (sprites, fonts, pmtiles).
 ///
 /// Used at the source-type level:
@@ -622,11 +716,39 @@ impl GlobalCacheConfig {
 ///   cache:
 ///     size_mb: 64
 /// ```
+///
+/// Or disabled entirely:
+/// ```yaml
+/// sprites:
+///   cache: disable
+/// ```
 #[serde_with::skip_serializing_none]
-#[derive(Clone, Copy, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Serialize)]
 pub struct CacheSizeConfig {
     /// Cache size in megabytes for this source type (0 to disable).
     pub size_mb: Option<u64>,
+}
+
+impl<'de> Deserialize<'de> for CacheSizeConfig {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum Helper {
+            String(String),
+            Struct { size_mb: Option<u64> },
+        }
+
+        match Helper::deserialize(deserializer)? {
+            Helper::String(s) if s == "disable" => Ok(Self { size_mb: Some(0) }),
+            Helper::String(s) => Err(serde::de::Error::custom(format!(
+                "invalid cache config string: {s:?}, expected \"disable\""
+            ))),
+            Helper::Struct { size_mb } => Ok(Self { size_mb }),
+        }
+    }
 }
 
 pub type UnrecognizedValues = HashMap<String, serde_yaml::Value>;
