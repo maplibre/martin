@@ -598,7 +598,7 @@ jobs:
             pkg install -y rust sqlite3 freetype2 cmake just bash
           run: |
             just env-info
-            just test
+            just test-freebsd
         env:
           AWS_SKIP_CREDENTIALS: 1
           AWS_REGION: eu-central-1
