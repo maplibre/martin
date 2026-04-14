@@ -5,7 +5,7 @@ import type { MapRef } from '@vis.gl/react-maplibre';
 import { Layer, Map as MapLibreMap, Source } from '@vis.gl/react-maplibre';
 import type { VectorSourceSpecification } from 'maplibre-gl';
 import { Popup } from 'maplibre-gl';
-import { type ErrorInfo, useCallback, useEffect, useId, useRef } from 'react';
+import { type ErrorInfo, useEffect, useId, useRef } from 'react';
 import { Toaster } from '@/components/ui/toaster';
 import { useAsyncOperation } from '@/hooks/use-async-operation';
 import { useToast } from '@/hooks/use-toast';
@@ -53,7 +53,7 @@ export function TileInspectDialogMap({ name, source }: TileInspectDialogMapProps
     tileJsonOperation.execute();
   }, []);
 
-  const configureMap = useCallback(() => {
+  const configureMap = () => {
     if (!tileJsonOperation.data) {
       return;
     }
@@ -83,9 +83,9 @@ export function TileInspectDialogMap({ name, source }: TileInspectDialogMapProps
     if (tileJson.center) {
       map.setCenter([tileJson.center[0], tileJson.center[1]]);
     }
-  }, [tileJsonOperation.data]);
+  };
 
-  const addInspectorToMap = useCallback(() => {
+  const addInspectorToMap = () => {
     if (!mapRef.current) {
       console.error('Map not found despite being initialized, this cannot happen');
       return;
@@ -117,7 +117,7 @@ export function TileInspectDialogMap({ name, source }: TileInspectDialogMapProps
     map.addControl(inspectControlRef.current);
 
     configureMap();
-  }, [name, configureMap, source.content_type]);
+  };
 
   return (
     <ErrorBoundary

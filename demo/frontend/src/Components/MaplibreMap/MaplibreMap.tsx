@@ -1,6 +1,6 @@
 /* biome-ignore-all lint/suspicious/noExplicitAny: this is a legacy component and needs to be redone */
 import maplibregl from 'maplibre-gl';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
 import type { DateRange } from 'react-day-picker';
@@ -23,15 +23,15 @@ const MaplibreMap = () => {
   });
   const [visibleLayer, setVisibleLayer] = useState('trips');
 
-  const getQueryParams = useCallback(() => {
+  const getQueryParams = () => {
     // has to be in dd.mm.yyyy format
     const dateFrom = rangeFilter.from.toLocaleDateString('de');
     const dateTo = rangeFilter.to?.toLocaleDateString('de') || dateFrom;
 
     return encodeURI(`date_from=${dateFrom}&date_to=${dateTo}&hour=${hourFilter}`);
-  }, [rangeFilter, hourFilter]);
+  };
 
-  const mapOnLoad = useCallback(() => {
+  const mapOnLoad = () => {
     const queryParams = getQueryParams();
 
     mapRef.current.addSource('trips_source', {
@@ -41,7 +41,7 @@ const MaplibreMap = () => {
     layers.forEach(({ maplibreLayer }) => {
       mapRef.current.addLayer(maplibreLayer, 'place_town');
     });
-  }, [getQueryParams]);
+  };
 
   const toggleLayer = (layerId: string) => {
     layers.forEach(({ id }) => {
@@ -77,6 +77,7 @@ const MaplibreMap = () => {
         mapRef.current.remove();
       }
     };
+    // biome-ignore lint/correctness/useExhaustiveDependencies: React Compiler handles memoization of mapOnLoad
   }, [mapOnLoad]);
 
   // Update map when state changes (equivalent to componentDidUpdate)
@@ -88,6 +89,7 @@ const MaplibreMap = () => {
       newStyle.sources.trips_source.url = `/tiles/get_trips?${getQueryParams()}`;
       mapRef.current.setStyle(newStyle);
     }
+    // biome-ignore lint/correctness/useExhaustiveDependencies: React Compiler handles memoization of getQueryParams
   }, [getQueryParams]);
 
   return (
