@@ -549,7 +549,7 @@ fn migrate_yaml_key(mapping: &mut serde_yaml::Mapping, old_key: &str, new_path: 
                 serde_yaml::Value::Mapping(serde_yaml::Mapping::default()),
             );
         }
-        let Some(nested) = current.get_mut(&segment).and_then(|v| v.as_mapping_mut()) else {
+        let Some(nested) = current.get_mut(segment).and_then(|v| v.as_mapping_mut()) else {
             warn!(
                 "deprecated config: `{old_key}` is ignored because `{segment}` is already set. \
                  Please remove `{old_key}` from your configuration"
@@ -559,7 +559,7 @@ fn migrate_yaml_key(mapping: &mut serde_yaml::Mapping, old_key: &str, new_path: 
         current = nested;
     }
 
-    if current.contains_key(&leaf) {
+    if current.contains_key(leaf) {
         warn!(
             "deprecated config: `{old_key}` is ignored in favor of `{new_key_display}`. \
              Please remove `{old_key}` from your configuration"

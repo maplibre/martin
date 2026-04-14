@@ -578,10 +578,6 @@ impl CachePolicy {
 
     /// Returns `true` if no cache bounds are configured.
     #[must_use]
-    #[expect(
-        clippy::trivially_copy_pass_by_ref,
-        reason = "serde skip_serializing_if requires &self"
-    )]
     pub fn is_empty(&self) -> bool {
         self.zoom.is_empty()
     }
