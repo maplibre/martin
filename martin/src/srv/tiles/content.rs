@@ -235,7 +235,8 @@ impl<'a> DynTileSource<'a> {
     #[hotpath::measure]
     pub async fn get_tile_content(&self, xyz: TileCoord) -> ActixResult<Tile> {
         let mut tiles = try_join_all(self.sources.iter().map(|s| async {
-            if let Some(cache) = self.cache {
+            let cache_zoom_ok = s.cache_zoom().contains(xyz.z);
+            if let (Some(cache), true) = (self.cache, cache_zoom_ok) {
                 cache
                     .get_or_insert(
                         s.get_id().to_string(),

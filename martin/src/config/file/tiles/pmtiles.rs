@@ -11,16 +11,16 @@ use url::Url;
 
 use crate::MartinResult;
 use crate::config::file::{
-    ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks, TileSourceConfiguration,
-    UnrecognizedKeys, UnrecognizedValues,
+    CachePolicy, ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks,
+    TileSourceConfiguration, UnrecognizedKeys, UnrecognizedValues,
 };
 
 #[serde_with::skip_serializing_none]
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct PmtConfig {
-    /// Size of the directory cache in megabytes (0 to disable)
+    /// Size of the directory cache in megabytes (0 to disable).
     ///
-    /// Overrides [`cache_size_mb`](crate::config::file::Config::cache_size_mb).
+    /// Overrides [`cache.size_mb`](crate::config::file::Config::cache).
     pub directory_cache_size_mb: Option<u64>,
 
     // if the key is the allowed set, we assume it is there for a purpose
@@ -38,7 +38,9 @@ pub struct PmtConfig {
 
 impl PartialEq for PmtConfig {
     fn eq(&self, other: &Self) -> bool {
-        self.options == other.options && self.unrecognized == other.unrecognized
+        self.directory_cache_size_mb == other.directory_cache_size_mb
+            && self.options == other.options
+            && self.unrecognized == other.unrecognized
         // pmtiles_directory_cache is intentionally excluded from equality check
     }
 }
@@ -95,7 +97,9 @@ impl PmtConfig {
     fn migrate_deprecated_keys(&mut self) {
         if self.unrecognized.contains_key("dir_cache_size_mb") {
             warn!(
-                "dir_cache_size_mb is no longer used. Instead, use cache_size_mb param in the root of the config file."
+                "deprecated config: `pmtiles.dir_cache_size_mb` is no longer used. \
+                 Use `cache.size_mb` in the root of the config file, \
+                 or `pmtiles.directory_cache_size_mb` to override the PMTiles directory cache size"
             );
         }
 
@@ -209,7 +213,12 @@ impl TileSourceConfiguration for PmtConfig {
         true
     }
 
-    async fn new_sources(&self, id: String, path: PathBuf) -> MartinResult<BoxedSource> {
+    async fn new_sources(
+        &self,
+        id: String,
+        path: PathBuf,
+        cache: CachePolicy,
+    ) -> MartinResult<BoxedSource> {
         // canonicalize to resolve symlinks
         let path = path
             .canonicalize()
@@ -225,10 +234,15 @@ impl TileSourceConfiguration for PmtConfig {
             "Pmtiles source {id} ({}) will be loaded as {url}",
             path.display()
         );
-        self.new_sources_url(id, url).await
+        self.new_sources_url(id, url, cache).await
     }
 
-    async fn new_sources_url(&self, id: String, url: Url) -> MartinResult<BoxedSource> {
+    async fn new_sources_url(
+        &self,
+        id: String,
+        url: Url,
+        cache: CachePolicy,
+    ) -> MartinResult<BoxedSource> {
         use std::sync::LazyLock;
         use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -237,8 +251,8 @@ impl TileSourceConfiguration for PmtConfig {
 
         let (store, path) = object_store::parse_url_opts(&url, &self.options)
             .map_err(|e| ConfigFileError::ObjectStoreUrlParsing(e, id.clone()))?;
-        let cache = PmtCacheInstance::new(cache_id, self.pmtiles_directory_cache.clone());
-        let source = PmtilesSource::new(cache, id, store, path).await?;
+        let dir_cache = PmtCacheInstance::new(cache_id, self.pmtiles_directory_cache.clone());
+        let source = PmtilesSource::new(dir_cache, id, store, path, cache.zoom()).await?;
         Ok(Box::new(source))
     }
 }
