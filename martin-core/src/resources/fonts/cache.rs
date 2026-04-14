@@ -1,4 +1,5 @@
 use moka::future::Cache;
+use moka::ops::compute::{CompResult, Op};
 use tracing::{info, trace};
 
 /// Optional wrapper for `FontCache`.
@@ -28,11 +29,42 @@ impl FontCache {
         }
     }
 
-    /// Retrieves a font range from cache if present.
-    async fn get(&self, key: &FontCacheKey) -> Option<Vec<u8>> {
-        let result = self.cache.get(key).await;
+    /// Gets a font range from cache or computes it using the provided function.
+    pub async fn get_or_insert<F, E>(
+        &self,
+        ids: String,
+        start: u32,
+        end: u32,
+        compute: F,
+    ) -> Result<Vec<u8>, E>
+    where
+        F: FnOnce() -> Result<Vec<u8>, E>,
+        E: Send + Sync + 'static,
+    {
+        let key = FontCacheKey::new(ids, start, end);
+        let result = self
+            .cache
+            .entry(key.clone())
+            .and_try_compute_with(|maybe_entry| async move {
+                if maybe_entry.is_some() {
+                    Ok(Op::Nop)
+                } else {
+                    compute().map(Op::Put)
+                }
+            })
+            .await?;
 
-        if result.is_some() {
+        let (data, is_hit) = match result {
+            CompResult::Inserted(entry) | CompResult::ReplacedWith(entry) => {
+                (entry.into_value(), false)
+            }
+            CompResult::Unchanged(entry) => (entry.into_value(), true),
+            CompResult::Removed(_) | CompResult::StillNone(_) => {
+                unreachable!("font cache entry compute should not remove or stay empty")
+            }
+        };
+
+        if is_hit {
             hotpath::gauge!("font_cache_hits").inc(1.0);
             trace!(
                 "Font cache HIT for {key:?} (entries={}, size={})",
@@ -44,27 +76,6 @@ impl FontCache {
             trace!("Font cache MISS for {key:?}");
         }
 
-        result
-    }
-
-    /// Gets a font range from cache or computes it using the provided function.
-    pub async fn get_or_insert<F, E>(
-        &self,
-        ids: String,
-        start: u32,
-        end: u32,
-        compute: F,
-    ) -> Result<Vec<u8>, E>
-    where
-        F: FnOnce() -> Result<Vec<u8>, E>,
-    {
-        let key = FontCacheKey::new(ids, start, end);
-        if let Some(data) = self.get(&key).await {
-            return Ok(data);
-        }
-
-        let data = compute()?;
-        self.cache.insert(key, data.clone()).await;
         Ok(data)
     }
 

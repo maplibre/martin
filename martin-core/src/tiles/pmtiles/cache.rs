@@ -94,9 +94,14 @@ impl pmtiles::DirectoryCache for PmtCacheInstance {
         fetcher: impl Future<Output = pmtiles::PmtResult<pmtiles::Directory>> + Send,
     ) -> pmtiles::PmtResult<Option<pmtiles::DirEntry>> {
         let key = PmtCacheKey::new(self.id, offset);
-        let directory = self.cache.0.try_get_with(key, fetcher).await.map_err(|e| {
-            pmtiles::PmtError::DirectoryCacheError(format!("Moka cache fetch error: {e}"))
-        })?;
+        let directory = self
+            .cache
+            .0
+            .entry(key)
+            .or_try_insert_with(fetcher)
+            .await
+            .map_err(|e| pmtiles::PmtError::DirectoryCacheError(format!("Moka cache fetch error: {e}")))?
+            .into_value();
         Ok(directory.find_tile_id(tile_id).cloned())
     }
 }

@@ -1,5 +1,6 @@
 use actix_web::web::Bytes;
 use moka::future::Cache;
+use moka::ops::compute::{CompResult, Op};
 use tracing::{info, trace};
 
 /// Sprite cache for storing generated sprite sheets.
@@ -33,25 +34,6 @@ impl SpriteCache {
         }
     }
 
-    /// Retrieves a sprite sheet from cache if present.
-    async fn get(&self, key: &SpriteCacheKey) -> Option<Bytes> {
-        let result = self.cache.get(key).await;
-
-        if result.is_some() {
-            hotpath::gauge!("sprite_cache_hits").inc(1.0);
-            trace!(
-                "Sprite cache HIT for {key:?} (entries={}, size={})",
-                self.cache.entry_count(),
-                self.cache.weighted_size()
-            );
-        } else {
-            hotpath::gauge!("sprite_cache_misses").inc(1.0);
-            trace!("Sprite cache MISS for {key:?}");
-        }
-
-        result
-    }
-
     /// Gets a json sprite sheet from cache or computes it using the provided function.
     pub async fn get_or_insert<F, Fut, E>(
         &self,
@@ -63,14 +45,43 @@ impl SpriteCache {
     where
         F: FnOnce() -> Fut,
         Fut: Future<Output = Result<Bytes, E>>,
+        E: Send + Sync + 'static,
     {
         let key = SpriteCacheKey::new(ids, as_sdf, as_json);
-        if let Some(data) = self.get(&key).await {
-            return Ok(data);
+        let result = self
+            .cache
+            .entry(key.clone())
+            .and_try_compute_with(|maybe_entry| async move {
+                if maybe_entry.is_some() {
+                    Ok(Op::Nop)
+                } else {
+                    compute().await.map(Op::Put)
+                }
+            })
+            .await?;
+
+        let (data, is_hit) = match result {
+            CompResult::Inserted(entry) | CompResult::ReplacedWith(entry) => {
+                (entry.into_value(), false)
+            }
+            CompResult::Unchanged(entry) => (entry.into_value(), true),
+            CompResult::Removed(_) | CompResult::StillNone(_) => {
+                unreachable!("sprite cache entry compute should not remove or stay empty")
+            }
+        };
+
+        if is_hit {
+            hotpath::gauge!("sprite_cache_hits").inc(1.0);
+            trace!(
+                "Sprite cache HIT for {key:?} (entries={}, size={})",
+                self.cache.entry_count(),
+                self.cache.weighted_size()
+            );
+        } else {
+            hotpath::gauge!("sprite_cache_misses").inc(1.0);
+            trace!("Sprite cache MISS for {key:?}");
         }
 
-        let data = compute().await?;
-        self.cache.insert(key, data.clone()).await;
         Ok(data)
     }
 

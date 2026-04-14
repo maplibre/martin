@@ -1,5 +1,6 @@
 use martin_tile_utils::TileCoord;
 use moka::future::Cache;
+use moka::ops::compute::{CompResult, Op};
 use tracing::{info, trace};
 
 use crate::tiles::Tile;
@@ -24,25 +25,6 @@ impl TileCache {
         )
     }
 
-    /// Retrieves a tile from cache if present.
-    async fn get(&self, key: &TileCacheKey) -> Option<Tile> {
-        let result = self.0.get(key).await;
-
-        if result.is_some() {
-            hotpath::gauge!("tile_cache_hits").inc(1.0);
-            trace!(
-                "Tile cache HIT for {key:?} (entries={entries}, size={size}B)",
-                entries = self.0.entry_count(),
-                size = self.0.weighted_size()
-            );
-        } else {
-            hotpath::gauge!("tile_cache_misses").inc(1.0);
-            trace!("Tile cache MISS for {key:?}");
-        }
-
-        result
-    }
-
     /// Gets a tile from cache or computes it using the provided function.
     pub async fn get_or_insert<F, Fut, E>(
         &self,
@@ -54,15 +36,44 @@ impl TileCache {
     where
         F: FnOnce() -> Fut,
         Fut: Future<Output = Result<Tile, E>>,
+        E: Send + Sync + 'static,
     {
         let key = TileCacheKey::new(source_id, xyz, query);
-        if let Some(data) = self.get(&key).await {
-            return Ok(data);
+        let result = self
+            .0
+            .entry(key.clone())
+            .and_try_compute_with(|maybe_entry| async move {
+                if maybe_entry.is_some() {
+                    Ok(Op::Nop)
+                } else {
+                    compute().await.map(Op::Put)
+                }
+            })
+            .await?;
+
+        let (tile, is_hit) = match result {
+            CompResult::Inserted(entry) | CompResult::ReplacedWith(entry) => {
+                (entry.into_value(), false)
+            }
+            CompResult::Unchanged(entry) => (entry.into_value(), true),
+            CompResult::Removed(_) | CompResult::StillNone(_) => {
+                unreachable!("tile cache entry compute should not remove or stay empty")
+            }
+        };
+
+        if is_hit {
+            hotpath::gauge!("tile_cache_hits").inc(1.0);
+            trace!(
+                "Tile cache HIT for {key:?} (entries={entries}, size={size}B)",
+                entries = self.0.entry_count(),
+                size = self.0.weighted_size()
+            );
+        } else {
+            hotpath::gauge!("tile_cache_misses").inc(1.0);
+            trace!("Tile cache MISS for {key:?}");
         }
 
-        let data = compute().await?;
-        self.0.insert(key, data.clone()).await;
-        Ok(data)
+        Ok(tile)
     }
 
     /// Invalidates all cached tiles for a specific source.
