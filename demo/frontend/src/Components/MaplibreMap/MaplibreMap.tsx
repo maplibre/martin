@@ -93,8 +93,8 @@ const MaplibreMap = () => {
   return (
     <Container>
       <Filters
-        changeHourFilter={(value: number) => setHourFilter(value)}
-        changeRangeFilter={(value) => setRangeFilter(value)}
+        changeHourFilter={setHourFilter}
+        changeRangeFilter={setRangeFilter}
         hour={hourFilter}
         range={rangeFilter}
         toggleLayer={toggleLayer}
