@@ -44,6 +44,7 @@ PMtiles can also be served **without martin**, but this has a few caveats:
 - If not set up separately and used maliciously, being able to connect and download the planet could incurr network costs on some cloud providers.
 - PMTiles sligtly overfetches each tile to avoid needing to do multiple requests
 - Cannot be mixed with dynamic datasources (=PostGIS) as simple
+- Caching is likely less effective
 
 The choice depends on your specific usecase and requirements.
 
