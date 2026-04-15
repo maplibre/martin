@@ -11,17 +11,18 @@ use url::Url;
 
 use crate::MartinResult;
 use crate::config::file::{
-    CachePolicy, ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks,
+    CachePolicy, CacheSizeConfig, ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks,
     TileSourceConfiguration, UnrecognizedKeys, UnrecognizedValues,
 };
 
 #[serde_with::skip_serializing_none]
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct PmtConfig {
-    /// Size of the directory cache in megabytes (0 to disable).
+    /// Cache configuration for `PMTiles` directory cache (size, expiry, idle timeout).
     ///
-    /// Overrides [`cache.size_mb`](crate::config::file::Config::cache).
-    pub directory_cache_size_mb: Option<u64>,
+    /// Overrides the global [`cache`](crate::config::file::Config::cache) settings.
+    #[serde(default, skip_serializing_if = "CacheSizeConfig::is_empty")]
+    pub directory_cache: CacheSizeConfig,
 
     // if the key is the allowed set, we assume it is there for a purpose
     // settings and unreconginsed values are partitioned from each other in the init_parsing step
@@ -38,7 +39,7 @@ pub struct PmtConfig {
 
 impl PartialEq for PmtConfig {
     fn eq(&self, other: &Self) -> bool {
-        self.directory_cache_size_mb == other.directory_cache_size_mb
+        self.directory_cache == other.directory_cache
             && self.options == other.options
             && self.unrecognized == other.unrecognized
         // pmtiles_directory_cache is intentionally excluded from equality check
@@ -99,7 +100,7 @@ impl PmtConfig {
             warn!(
                 "deprecated config: `pmtiles.dir_cache_size_mb` is no longer used. \
                  Use `cache.size_mb` in the root of the config file, \
-                 or `pmtiles.directory_cache_size_mb` to override the PMTiles directory cache size"
+                 or `pmtiles.directory_cache.size_mb` to override the PMTiles directory cache size"
             );
         }
 

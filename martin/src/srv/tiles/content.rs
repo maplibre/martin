@@ -14,6 +14,7 @@ use martin_tile_utils::{
     decode_zstd, encode_brotli, encode_gzip, encode_zlib, encode_zstd,
 };
 use serde::Deserialize;
+use std::sync::Arc;
 use tracing::warn;
 
 use crate::config::args::PreferredEncoding;
@@ -246,11 +247,13 @@ impl<'a> DynTileSource<'a> {
                     )
                     .await
             } else {
-                s.get_tile_with_etag(xyz, self.query_obj.as_ref()).await
+                s.get_tile_with_etag(xyz, self.query_obj.as_ref())
+                    .await
+                    .map_err(Arc::new)
             }
         }))
         .await
-        .map_err(map_internal_error)?;
+        .map_err(|e| map_internal_error(e.as_ref()))?;
 
         let mut layer_count = 0;
         let mut last_non_empty_layer = 0;
