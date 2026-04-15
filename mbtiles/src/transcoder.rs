@@ -1,5 +1,5 @@
 use std::mem;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
@@ -109,10 +109,10 @@ where
         + 'static,
 {
     /// Create a new transcoder with required parameters and sensible defaults.
-    pub fn new(src_file: PathBuf, dst_file: PathBuf, transform: F) -> Self {
+    pub fn new(src_file: impl AsRef<Path>, dst_file: impl AsRef<Path>, transform: F) -> Self {
         Self {
-            src_file,
-            dst_file,
+            src_file: src_file.as_ref().to_path_buf(),
+            dst_file: dst_file.as_ref().to_path_buf(),
             transform,
             dst_type: None,
             batch_size: DEFAULT_BATCH_SIZE,
@@ -738,21 +738,21 @@ mod tests {
         src_script: &str,
         src_name: &str,
         dst_type: Option<MbtType>,
-    ) -> (TranscodeStats, SqliteConnection, tempfile::TempDir) {
+    ) -> (TranscodeStats, SqliteConnection, NamedTempFile) {
         let (_mbt, _conn, src_file) = temp_named_mbtiles(src_name, src_script).await;
 
         let dst_file = NamedTempFile::with_suffix("mbtiles").unwrap();
 
         let mut builder =
-            MbtilesTranscoder::new(src_file, dst_file.clone(), |data| Ok(Bytes::from(data)));
+            MbtilesTranscoder::new(&src_file, &dst_file, |data| Ok(Bytes::from(data)));
         if let Some(dt) = dst_type {
             builder = builder.dst_type(dt);
         }
         let stats = builder.run().await.unwrap();
 
-        let dst_mbt = Mbtiles::new(&dst_file).unwrap();
+        let dst_mbt = Mbtiles::new(dst_file.path()).unwrap();
         let conn = dst_mbt.open_readonly().await.unwrap();
-        (stats, conn, dir)
+        (stats, conn, dst_file)
     }
 
     /// Helper for tests needing a real source file (e.g. DedupId with
@@ -909,15 +909,10 @@ mod tests {
         let call_count = Arc::new(AtomicUsize::new(0));
         let call_count_clone = Arc::clone(&call_count);
 
-        let (_mbt, _conn, src_file) = temp_named_mbtiles("tc_dedup", script).await;
+        let (_mbt, _conn, src_file) = temp_named_mbtiles("tc_dedup", &script).await;
         let dst_file = NamedTempFile::with_suffix("mbtiles").unwrap();
 
-        let src_mbt = Mbtiles::new(src_file.path()).unwrap();
-        let mut src_conn = src_mbt.open_or_new().await.unwrap();
-        sqlx::raw_sql(&script).execute(&mut src_conn).await.unwrap();
-        drop(src_conn);
-
-        let stats = MbtilesTranscoder::new(src_file.path(), dst_file.path(), move |data| {
+        let stats = MbtilesTranscoder::new(&src_file, &dst_file, move |data| {
             call_count_clone.fetch_add(1, Ordering::Relaxed);
             Ok(Bytes::from(data))
         })
@@ -929,7 +924,13 @@ mod tests {
         .await
         .unwrap();
 
-        insta::assert_snapshot!(stats, @"tiles_written=5, cache_hits=0, cache_encoded=2");
+        insta::assert_debug_snapshot!(stats, @r#"
+        TranscodeStats {
+            tiles_written: 5,
+            cache_hits: 0,
+            cache_encoded: 2,
+        }
+        "#);
         let calls = call_count.load(Ordering::Relaxed);
         assert_eq!(
             calls, 2,
@@ -958,7 +959,13 @@ mod tests {
         .await
         .unwrap();
 
-        insta::assert_snapshot!(stats, @"tiles_written=8, cache_hits=4, cache_encoded=4");
+        insta::assert_debug_snapshot!(stats, @r#"
+        TranscodeStats {
+            tiles_written: 8,
+            cache_hits: 4,
+            cache_encoded: 4,
+        }
+        "#);
         let calls = call_count.load(Ordering::Relaxed);
         assert_eq!(calls as u64, stats.cache_encoded);
     }
