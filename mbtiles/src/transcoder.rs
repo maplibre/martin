@@ -781,7 +781,7 @@ use tempfile::NamedTempFile;
         let (stats, mut conn, _dir) =
             transcode_identity(script, "tc_flat_flat", Some(MbtType::Flat)).await;
 
-        assert!(stats.tiles_written, 8);
+        assert_eq!(stats.tiles_written, 8);
         let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM tiles")
             .fetch_one(&mut conn)
             .await
@@ -863,7 +863,7 @@ use tempfile::NamedTempFile;
         let script = include_str!("../../tests/fixtures/mbtiles/normalized-dedup-id.sql");
         let (stats, mut conn, _dir) = transcode_identity_file(script, Some(MbtType::Flat)).await;
 
-        assert!(stats.tiles_written > 0);
+        assert_eq!(stats.tiles_written, 5);
         let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM tiles")
             .fetch_one(&mut conn)
             .await
