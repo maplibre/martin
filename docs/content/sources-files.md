@@ -38,7 +38,8 @@ MBTiles and PMTiles are both formats for storing tiled geospatial data, but they
 
 * **Deployment model**
   **MBTiles** archives must be stored locally on the same machine as the tile server.
-  **PMTiles** archives can be accessed either locally or remotely via HTTP range requests, enabling direct use from object storage (e.g., S3-compatible systems).
+  **PMTiles** archives can be accessed either locally or remotely via HTTP range requests, e.g. from an object storage like S3.
+  **PMTiles** allows simpler production deployment with Kubernetes, as it allows the large data file to reside in S3 and shared by multiple pods, but restricted from direct user access.
 * **Performance**
   **MBTiles** typically provide slightly lower latency due to local access and SQLite indexing.
   **PMTiles** may introduce additional latency when accessed remotely, but this is usually mitigated by HTTP caching and CDN usage.
