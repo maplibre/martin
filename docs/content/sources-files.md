@@ -67,7 +67,6 @@ The choice between MBTiles and PMTiles depends on system requirements:
 * Use **MBTiles** for local, self-contained deployments with minimal external dependencies.
 * Use **PMTiles** for cloud-native or distributed setups where remote access, CDN integration, or object storage is preferred.
 
-
 ### Serving PMTiles from local file systems, http or Object Storage
 
 The settings available for a PMTiles source depend on the backend:
