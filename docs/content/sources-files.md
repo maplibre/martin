@@ -47,7 +47,6 @@ PMtiles can also be served **without martin**, but this has a few caveats:
 
 The choice depends on your specific usecase and requirements.
 
-
 ### Serving PMTiles from local file systems, http or Object Storage
 
 The settings available for a PMTiles source depend on the backend:
