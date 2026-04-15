@@ -4,6 +4,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 
+use bytes::Bytes;
 use flume::{Receiver, Sender, bounded};
 use futures::TryStreamExt as _;
 use log::{debug, info, warn};
@@ -41,15 +42,15 @@ const SQLITE_MAX_PARAMS: usize = 900;
 /// Raw tile batch: `(coord, optional_cache_key, tile_data)`.
 type RawBatch = Vec<(TileCoord, Option<u128>, Vec<u8>)>;
 /// Encoded tile batch: `(coord, encoded_data)`.
-type EncodedBatch = Vec<(TileCoord, Vec<u8>)>;
+type EncodedBatch = Vec<(TileCoord, Bytes)>;
 
 /// Normalized tiles batch: `(tile_id_string, tile_data)`.
 type NormRawBatch = Vec<(String, Vec<u8>)>;
 /// Normalized encoded batch: `(tile_id_string, encoded_data)`.
-type NormEncBatch = Vec<(String, Vec<u8>)>;
+type NormEncBatch = Vec<(String, Bytes)>;
 
 /// Weighted dedup cache: maps content hash -> encoded tile bytes.
-type EncodedCache = Cache<u128, Vec<u8>>;
+type EncodedCache = Cache<u128, Bytes>;
 
 /// Statistics returned after transcoding completes.
 #[derive(Debug, Clone)]
@@ -102,7 +103,7 @@ pub struct MbtilesTranscoder<F> {
 
 impl<F> MbtilesTranscoder<F>
 where
-    F: Fn(Vec<u8>) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>>
+    F: Fn(Vec<u8>) -> Result<Bytes, Box<dyn std::error::Error + Send + Sync>>
         + Send
         + Sync
         + 'static,
@@ -316,7 +317,7 @@ where
 fn make_cache(max_bytes: u64) -> EncodedCache {
     Cache::builder()
         .max_capacity(max_bytes)
-        .weigher(|_key, value: &Vec<u8>| u32::try_from(value.len()).unwrap_or(u32::MAX))
+        .weigher(|_key, value: &Bytes| u32::try_from(value.len()).unwrap_or(u32::MAX))
         .build()
 }
 
@@ -376,7 +377,7 @@ async fn normalized_compute<F>(
     transform: Arc<F>,
 ) -> MbtResult<()>
 where
-    F: Fn(Vec<u8>) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>>
+    F: Fn(Vec<u8>) -> Result<Bytes, Box<dyn std::error::Error + Send + Sync>>
         + Send
         + Sync
         + 'static,
@@ -470,7 +471,7 @@ async fn normalized_writer(
 /// the fan-out as part of the same statement.
 async fn write_normalized_chunk(
     tx: &mut SqliteConnection,
-    chunk: &[(String, Vec<u8>)],
+    chunk: &[(String, Bytes)],
     dst_type: MbtType,
     src_map: &str,
     tile_id_col: &str,
@@ -510,7 +511,7 @@ async fn write_normalized_chunk(
 
     let mut q = sqlx::query(&sql);
     for (tile_id, data) in chunk {
-        q = q.bind(tile_id).bind(data);
+        q = q.bind(tile_id).bind(&data[..]);
     }
     let res = q.execute(&mut *tx).await?;
     Ok(usize::try_from(res.rows_affected()).unwrap_or(0))
@@ -582,7 +583,7 @@ async fn general_compute<F>(
     max_tile_track_size: usize,
 ) -> MbtResult<()>
 where
-    F: Fn(Vec<u8>) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>>
+    F: Fn(Vec<u8>) -> Result<Bytes, Box<dyn std::error::Error + Send + Sync>>
         + Send
         + Sync
         + 'static,
@@ -630,9 +631,9 @@ fn transcode_cached<F>(
     cache: &EncodedCache,
     stats: &DedupStats,
     max_tile_track_size: usize,
-) -> Option<(TileCoord, Vec<u8>)>
+) -> Option<(TileCoord, Bytes)>
 where
-    F: Fn(Vec<u8>) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>>,
+    F: Fn(Vec<u8>) -> Result<Bytes, Box<dyn std::error::Error + Send + Sync>>,
 {
     // Skip the cache for large tiles — they are almost certainly unique, so
     // caching them just evicts smaller, more valuable entries.
@@ -655,7 +656,7 @@ where
     let entry = cache
         .entry(key)
         .or_try_insert_with(
-            || -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
+            || -> Result<Bytes, Box<dyn std::error::Error + Send + Sync>> {
                 Ok((transform)(data)?)
             },
         )
@@ -681,7 +682,7 @@ async fn general_writer(
     batch_size: usize,
 ) -> MbtResult<usize> {
     let mut total = 0usize;
-    let mut pending: Vec<(u8, u32, u32, Vec<u8>)> = Vec::with_capacity(batch_size);
+    let mut pending: Vec<(u8, u32, u32, Bytes)> = Vec::with_capacity(batch_size);
     let mut last_flush = Instant::now();
 
     while let Ok(batch) = enc_rx.recv_async().await {
@@ -734,7 +735,7 @@ use tempfile::NamedTempFile;
 
                     let dst_file = NamedTempFile::with_suffix("mbtiles").unwrap();
 
-        let mut builder = MbtilesTranscoder::new(src_file, dst_file.clone(), |data| Ok(data));
+        let mut builder = MbtilesTranscoder::new(src_file, dst_file.clone(), |data| Ok(Bytes::from(data)));
         if let Some(dt) = dst_type {
             builder = builder.dst_type(dt);
         }
@@ -763,7 +764,7 @@ use tempfile::NamedTempFile;
             .unwrap();
         drop(src_conn);
 
-        let mut builder = MbtilesTranscoder::new(src_file, dst_file.clone(), |data| Ok(data));
+        let mut builder = MbtilesTranscoder::new(src_file, dst_file.clone(), |data| Ok(Bytes::from(data)));
         if let Some(dt) = dst_type {
             builder = builder.dst_type(dt);
         }
@@ -911,7 +912,7 @@ use tempfile::NamedTempFile;
 
         let stats = MbtilesTranscoder::new(src_file.path(), dst_file.path(), move |data| {
             call_count_clone.fetch_add(1, Ordering::Relaxed);
-            Ok(data)
+            Ok(Bytes::from(data))
         })
         .dst_type(MbtType::Normalized {
             hash_view: true,
@@ -936,7 +937,7 @@ use tempfile::NamedTempFile;
 
         let stats = MbtilesTranscoder::new(src_file, dst_file.path(), move |data| {
             call_count_clone.fetch_add(1, Ordering::Relaxed);
-            Ok(data)
+            Ok(Bytes::from(data))
         })
         .dst_type(MbtType::Flat)
         .run()

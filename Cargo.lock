@@ -4341,6 +4341,7 @@ version = "0.15.4"
 dependencies = [
  "actix-rt",
  "anyhow",
+ "bytes",
  "clap",
  "criterion",
  "enum-display",

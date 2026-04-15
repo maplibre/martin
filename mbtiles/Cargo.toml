@@ -34,11 +34,12 @@ __hotpath = [
     "hotpath/tokio",
     "hotpath/futures",
 ]
-transcode = ["dep:rayon", "dep:moka"]
+transcode = ["dep:bytes", "dep:rayon", "dep:moka"]
 __hotpath_tui = ["__hotpath", "hotpath/tui"]
 
 [dependencies]
 anyhow = { workspace = true, optional = true }
+bytes = { workspace = true, optional = true }
 clap = { workspace = true, optional = true }
 enum-display.workspace = true
 env_logger = { workspace = true, optional = true }
@@ -69,6 +70,7 @@ xxhash-rust.workspace = true
 [dev-dependencies]
 # For testing, might as well use the same async framework as the Martin itself
 actix-rt.workspace = true
+bytes.workspace = true
 criterion.workspace = true
 env_logger.workspace = true
 insta = { workspace = true, features = ["toml", "yaml"] }

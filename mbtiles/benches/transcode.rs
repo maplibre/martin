@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use bytes::Bytes;
 use criterion::{Criterion, criterion_group, criterion_main};
 use mbtiles::{MbtType, Mbtiles, MbtilesTranscoder, NormalizedSchema};
 use sqlx::SqliteConnection;
@@ -33,7 +34,7 @@ fn bench_transcode(c: &mut Criterion) {
     group.bench_function("flat_to_flat", |b| {
         b.to_async(&rt).iter(|| async {
             let dst = NamedTempFile::with_suffix("mbtiles").unwrap();
-            MbtilesTranscoder::new(flat_src.clone(), dst.path(), |data| Ok(data))
+            MbtilesTranscoder::new(flat_src.clone(), dst.path(), |data| Ok(Bytes::from(data)))
                 .dst_type(MbtType::Flat)
                 .run()
                 .await
@@ -44,7 +45,7 @@ fn bench_transcode(c: &mut Criterion) {
     group.bench_function("flat_to_normalized", |b| {
         b.to_async(&rt).iter(|| async {
             let dst = NamedTempFile::with_suffix("mbtiles").unwrap();
-            MbtilesTranscoder::new(flat_src.clone(), dst.path(), |data| Ok(data))
+            MbtilesTranscoder::new(flat_src.clone(), dst.path(), |data| Ok(Bytes::from(data)))
                 .dst_type(NORM_WITH_VIEW)
                 .run()
                 .await
@@ -55,7 +56,7 @@ fn bench_transcode(c: &mut Criterion) {
     group.bench_function("normalized_to_normalized", |b| {
         b.to_async(&rt).iter(|| async {
             let dst = NamedTempFile::with_suffix("mbtiles").unwrap();
-            MbtilesTranscoder::new(norm_src.clone(), dst.path(), |data| Ok(data))
+            MbtilesTranscoder::new(norm_src.clone(), dst.path(), |data| Ok(Bytes::from(data)))
                 .dst_type(NORM_WITH_VIEW)
                 .run()
                 .await
@@ -66,7 +67,7 @@ fn bench_transcode(c: &mut Criterion) {
     group.bench_function("normalized_to_flat", |b| {
         b.to_async(&rt).iter(|| async {
             let dst = NamedTempFile::with_suffix("mbtiles").unwrap();
-            MbtilesTranscoder::new(norm_src.clone(), dst.path(), |data| Ok(data))
+            MbtilesTranscoder::new(norm_src.clone(), dst.path(), |data| Ok(Bytes::from(data)))
                 .dst_type(MbtType::Flat)
                 .run()
                 .await
