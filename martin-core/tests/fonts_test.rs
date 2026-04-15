@@ -1,5 +1,6 @@
 #![cfg(feature = "fonts")]
 #![expect(clippy::panic)]
+#![expect(clippy::unwrap_used)]
 
 use std::convert::Infallible;
 use std::time::Duration;
