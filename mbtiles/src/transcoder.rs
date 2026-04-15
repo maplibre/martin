@@ -16,7 +16,7 @@ use xxhash_rust::xxh3::xxh3_128;
 use crate::errors::MbtResult;
 use crate::mbtiles::parse_tile_index;
 use crate::queries::{detach_db, init_mbtiles_schema};
-use crate::{CopyDuplicateMode, MbtError, MbtType, Mbtiles, TileCoord};
+use crate::{CopyDuplicateMode, MbtError, MbtType, Mbtiles, NormalizedSchema, TileCoord};
 
 /// Default number of tiles per batch in the pipeline.
 const DEFAULT_BATCH_SIZE: usize = 500;
@@ -41,8 +41,7 @@ const SQLITE_MAX_PARAMS: usize = 900;
 /// Raw tile batch: `(coord, optional_cache_key, tile_data)`.
 type RawBatch = Vec<(TileCoord, Option<u128>, Vec<u8>)>;
 /// Encoded tile batch: `(coord, encoded_data)`.
-/// Uses `Arc` to avoid cloning tile bytes on dedup cache hits.
-type EncodedBatch = Vec<(TileCoord, Arc<Vec<u8>>)>;
+type EncodedBatch = Vec<(TileCoord, Vec<u8>)>;
 
 /// Normalized tiles batch: `(tile_id_string, tile_data)`.
 type NormRawBatch = Vec<(String, Vec<u8>)>;
@@ -50,7 +49,7 @@ type NormRawBatch = Vec<(String, Vec<u8>)>;
 type NormEncBatch = Vec<(String, Vec<u8>)>;
 
 /// Weighted dedup cache: maps content hash -> encoded tile bytes.
-type EncodedCache = Cache<u128, Arc<Vec<u8>>>;
+type EncodedCache = Cache<u128, Vec<u8>>;
 
 /// Statistics returned after transcoding completes.
 #[derive(Debug, Clone)]
@@ -179,10 +178,10 @@ where
         // WAL + relaxed sync gives a large boost for bulk inserts; the worst
         // case on crash is losing the in-flight transaction, which is fine here.
         sqlx::query("PRAGMA journal_mode=WAL")
-            .execute(&mut *dst_conn)
+            .execute(&mut dst_conn)
             .await?;
         sqlx::query("PRAGMA synchronous=NORMAL")
-            .execute(&mut *dst_conn)
+            .execute(&mut dst_conn)
             .await?;
 
         info!("Transcoding {src} ({src_type}) to {dst} ({dst_type})");
@@ -191,12 +190,12 @@ where
         // normalized writer's join. The general path doesn't need it.
         let needs_src_attached = src_type.normalized_schema().is_some() || self.copy_metadata;
         if needs_src_attached {
-            src.attach_to(&mut *dst_conn, "srcDb").await?;
+            src.attach_to(&mut dst_conn, "srcDb").await?;
         }
 
         if self.copy_metadata {
             sqlx::query("INSERT OR REPLACE INTO metadata SELECT name, value FROM srcDb.metadata")
-                .execute(&mut *dst_conn)
+                .execute(&mut dst_conn)
                 .await?;
         }
 
@@ -205,7 +204,7 @@ where
                 .await?
         } else {
             if needs_src_attached {
-                detach_db(&mut *dst_conn, "srcDb").await?;
+                detach_db(&mut dst_conn, "srcDb").await?;
             }
             self.run_general_path(src_conn, src_type, dst, dst_conn, dst_type)
                 .await?
@@ -317,7 +316,7 @@ where
 fn make_cache(max_bytes: u64) -> EncodedCache {
     Cache::builder()
         .max_capacity(max_bytes)
-        .weigher(|_key, value: &Arc<Vec<u8>>| u32::try_from(value.len()).unwrap_or(u32::MAX))
+        .weigher(|_key, value: &Vec<u8>| u32::try_from(value.len()).unwrap_or(u32::MAX))
         .build()
 }
 
@@ -470,7 +469,7 @@ async fn normalized_writer(
 /// tiles are wrapped in a CTE and joined against the source map so SQLite does
 /// the fan-out as part of the same statement.
 async fn write_normalized_chunk(
-    tx: &mut sqlx::SqliteConnection,
+    tx: &mut SqliteConnection,
     chunk: &[(String, Vec<u8>)],
     dst_type: MbtType,
     src_map: &str,
@@ -513,7 +512,7 @@ async fn write_normalized_chunk(
     for (tile_id, data) in chunk {
         q = q.bind(tile_id).bind(data);
     }
-    let res = q.execute(&mut **tx).await?;
+    let res = q.execute(&mut *tx).await?;
     Ok(usize::try_from(res.rows_affected()).unwrap_or(0))
 }
 
@@ -631,7 +630,7 @@ fn transcode_cached<F>(
     cache: &EncodedCache,
     stats: &DedupStats,
     max_tile_track_size: usize,
-) -> Option<(TileCoord, Arc<Vec<u8>>)>
+) -> Option<(TileCoord, Vec<u8>)>
 where
     F: Fn(Vec<u8>) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>>,
 {
@@ -641,7 +640,7 @@ where
         return match (transform)(data) {
             Ok(encoded) => {
                 stats.record_encode();
-                Some((coord, Arc::new(encoded)))
+                Some((coord, encoded))
             }
             Err(e) => {
                 warn!("skipping tile {coord}: {e:#}");
@@ -656,27 +655,24 @@ where
     let entry = cache
         .entry(key)
         .or_try_insert_with(
-            || -> Result<Arc<Vec<u8>>, Box<dyn std::error::Error + Send + Sync>> {
-                Ok(Arc::new((transform)(data)?))
+            || -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
+                Ok((transform)(data)?)
             },
         )
         .inspect_err(|e| warn!("skipping tile {coord}: {e:#}"))
         .ok()?;
 
     let is_fresh = entry.is_fresh();
-    let arc = entry.into_value();
+    let encoded = entry.into_value();
     if is_fresh {
         stats.record_encode();
     } else {
         stats.record_hit();
     }
-    Some((coord, arc))
+    Some((coord, encoded))
 }
 
 /// Writer: batch-insert encoded tiles into the destination.
-///
-/// Tiles stay behind `Arc` until SQL bind, so deduplicated payloads (cache
-/// hits) are never copied — `insert_tiles` takes `&[u8]` slices through the Arc.
 async fn general_writer(
     dst: Mbtiles,
     mut dst_conn: SqliteConnection,
@@ -685,7 +681,7 @@ async fn general_writer(
     batch_size: usize,
 ) -> MbtResult<usize> {
     let mut total = 0usize;
-    let mut pending: Vec<(u8, u32, u32, Arc<Vec<u8>>)> = Vec::with_capacity(batch_size);
+    let mut pending: Vec<(u8, u32, u32, Vec<u8>)> = Vec::with_capacity(batch_size);
     let mut last_flush = Instant::now();
 
     while let Ok(batch) = enc_rx.recv_async().await {
@@ -694,7 +690,10 @@ async fn general_writer(
         }
 
         if pending.len() >= batch_size || last_flush.elapsed() >= FLUSH_INTERVAL {
-            total += flush_pending(&dst, &mut dst_conn, dst_type, &mut pending).await?;
+            dst.insert_tiles(&mut dst_conn, dst_type, CopyDuplicateMode::Override, &pending)
+                .await?;
+            total += pending.len();
+            pending.clear();
             last_flush = Instant::now();
             debug!("{total} tiles written");
         }
@@ -702,7 +701,10 @@ async fn general_writer(
 
     // Final flush.
     if !pending.is_empty() {
-        total += flush_pending(&dst, &mut dst_conn, dst_type, &mut pending).await?;
+        dst.insert_tiles(&mut dst_conn, dst_type, CopyDuplicateMode::Override, &pending)
+            .await?;
+        total += pending.len();
+        pending.clear();
     }
 
     sqlx::query("PRAGMA wal_checkpoint(TRUNCATE)")
@@ -710,26 +712,6 @@ async fn general_writer(
         .await?;
 
     Ok(total)
-}
-
-async fn flush_pending(
-    dst: &Mbtiles,
-    dst_conn: &mut SqliteConnection,
-    dst_type: MbtType,
-    pending: &mut Vec<(u8, u32, u32, Arc<Vec<u8>>)>,
-) -> MbtResult<usize> {
-    // Borrowed view: `&[u8]` slices through the Arcs — zero copies of payload bytes.
-    let view: Vec<(u8, u32, u32, &[u8])> = pending
-        .iter()
-        .map(|(z, x, y, d)| (*z, *x, *y, d.as_slice()))
-        .collect();
-
-    dst.insert_tiles(dst_conn, dst_type, CopyDuplicateMode::Override, &view)
-        .await?;
-
-    let n = pending.len();
-    pending.clear();
-    Ok(n)
 }
 
 #[cfg(test)]
@@ -946,7 +928,6 @@ use tempfile::NamedTempFile;
 
     #[actix_rt::test]
     async fn transcode_dedup_cache_avoids_redundant_transforms() {
-        let script = ;
         let call_count = Arc::new(AtomicUsize::new(0));
         let call_count_clone = Arc::clone(&call_count);
 

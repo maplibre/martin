@@ -611,12 +611,12 @@ impl Mbtiles {
     /// # }
     /// ```
     #[hotpath::measure]
-    pub async fn insert_tiles(
+    pub async fn insert_tiles<D: AsRef<[u8]>>(
         &self,
         conn: &mut SqliteConnection,
         mbt_type: MbtType,
         on_duplicate: CopyDuplicateMode,
-        batch: &[(u8, u32, u32, Vec<u8>)],
+        batch: &[(u8, u32, u32, D)],
     ) -> MbtResult<()> {
         debug!(
             "Inserting a batch of {} tiles into {mbt_type} / {on_duplicate}",
@@ -627,7 +627,10 @@ impl Mbtiles {
         if let Some(sql2) = sql2 {
             let sql2 = tx.prepare(&sql2).await?;
             for (_, _, _, tile_data) in batch {
-                sql2.query().bind(tile_data).execute(&mut *tx).await?;
+                sql2.query()
+                    .bind(tile_data.as_ref())
+                    .execute(&mut *tx)
+                    .await?;
             }
         }
         let sql1 = tx.prepare(&sql1).await?;
@@ -637,7 +640,7 @@ impl Mbtiles {
                 .bind(z)
                 .bind(x)
                 .bind(y)
-                .bind(tile_data)
+                .bind(tile_data.as_ref())
                 .execute(&mut *tx)
                 .await?;
         }

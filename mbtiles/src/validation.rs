@@ -59,6 +59,12 @@ impl NormalizedSchema {
         }
     }
 
+    /// Returns `true` if the tile id column is an integer (`DedupId` schema).
+    #[must_use]
+    pub fn uses_integer_tile_id(self) -> bool {
+        matches!(self, Self::DedupId)
+    }
+
     /// Name of the foreign key column linking the map table to the images table.
     #[must_use]
     pub fn tile_id_column(self) -> &'static str {
