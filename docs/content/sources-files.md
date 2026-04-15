@@ -30,6 +30,24 @@ martin  /path/to/directory
     We also don't currently support refreshing the catalog at runtime.
     If you want to implement this feature, please see <https://github.com/maplibre/martin/issues/288> instead.
 
+## MBtiles vs PMTiles
+
+The difference between MBTiles and PMTiles is that:
+
+- **MBTiles** require the entire archive to be on the same machine. **PMTiles** can utilise a remote HTTP-Range request supporting server or a local file.
+- Performance wise, **MBTiles** is slightly faster than **PMTiles**, but with caching this is negligible.
+- Disk size wise, **MBTiles** is slightly (10-15%) higher than **PMTiles**.
+- **PMTiles** requires less memory in extreme cases as sqlite has a small in-memory cache.
+
+PMtiles can also be served **without martin**, but this has a few caveats:
+
+- If not set up separately and used maliciously, being able to connect and download the planet could incurr network costs on some cloud providers.
+- PMTiles sligtly overfetches each tile to avoid needing to do multiple requests
+- Cannot be mixed with dynamic datasources (=PostGIS) as simple
+
+The choice depends on your specific usecase and requirements.
+
+
 ### Serving PMTiles from local file systems, http or Object Storage
 
 The settings available for a PMTiles source depend on the backend:
