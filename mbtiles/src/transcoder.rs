@@ -25,8 +25,8 @@ const DEFAULT_BATCH_SIZE: usize = 500;
 /// Only small tiles (empty ocean, backgrounds) tend to repeat.
 const DEFAULT_MAX_TILE_TRACK_SIZE: usize = 1024;
 
-/// Default maximum cache weight in bytes (512 MiB).
-const DEFAULT_CACHE_MAX_BYTES: u64 = 512 * 1024 * 1024;
+/// Default maximum cache weight in bytes (2 MiB).
+const DEFAULT_CACHE_MAX_BYTES: u64 = 2 * 1024 * 1024;
 
 /// Default channel buffer depth (backpressure).
 const DEFAULT_CHANNEL_BUFFER: usize = 4;
