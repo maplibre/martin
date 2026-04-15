@@ -636,6 +636,7 @@ fn by_key<T>(a: &(String, T), b: &(String, T)) -> Ordering {
 }
 
 #[cfg(all(test, feature = "test-pg"))]
+#[expect(clippy::unwrap_used)]
 mod tests {
     use indoc::indoc;
     use insta::assert_yaml_snapshot;

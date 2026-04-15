@@ -1,4 +1,4 @@
 [INFO ] Quick integrity check passed for ./tests/fixtures/mbtiles/normalized-dedup-id.mbtiles
 [INFO ] All values in the `tiles` table/view are valid for ./tests/fixtures/mbtiles/normalized-dedup-id.mbtiles
-[INFO ] All tile references are valid for ./tests/fixtures/mbtiles/normalized-dedup-id.mbtiles
+[INFO ] All tile hashes are valid for ./tests/fixtures/mbtiles/normalized-dedup-id.mbtiles
 [INFO ] The agg_tiles_hashes=3CE4DB27DDC5A385756CC384CDAFC3D5 has been verified for ./tests/fixtures/mbtiles/normalized-dedup-id.mbtiles

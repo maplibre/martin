@@ -59,6 +59,12 @@ impl NormalizedSchema {
         }
     }
 
+    /// Returns `true` if the tile id column is an integer (`DedupId` schema).
+    #[must_use]
+    pub fn uses_integer_tile_id(self) -> bool {
+        matches!(self, Self::DedupId)
+    }
+
     /// Name of the foreign key column linking the map table to the images table.
     #[must_use]
     pub fn tile_id_column(self) -> &'static str {
@@ -600,7 +606,29 @@ LIMIT 1;"
                         data_table,
                     ));
                 }
-                info!("All tile references are valid for {self}");
+
+                // For Hash schema, also verify that tile_id == md5_hex(tile_data)
+                if matches!(schema, NormalizedSchema::Hash) {
+                    let sql = format!(
+                        "SELECT expected, computed FROM (
+                            SELECT
+                                upper(CAST(d.{id} AS TEXT)) AS expected,
+                                md5_hex(d.tile_data) AS computed
+                            FROM {data_table} d
+                        ) AS t
+                        WHERE expected != computed
+                        LIMIT 1;"
+                    );
+                    if let Some(row) = query(&sql).fetch_optional(&mut *conn).await? {
+                        return Err(IncorrectTileHash(
+                            self.filepath().to_string(),
+                            row.get(0),
+                            row.get(1),
+                        ));
+                    }
+                }
+
+                info!("All tile hashes are valid for {self}");
                 return Ok(());
             }
         };
@@ -784,5 +812,34 @@ pub(crate) mod tests {
         let (mbt, mut conn) = anonymous_mbtiles(script).await;
         let result = mbt.check_agg_tiles_hashes(&mut conn).await;
         assert!(matches!(result, Err(AggHashMismatch(..))));
+    }
+
+    #[actix_rt::test]
+    async fn check_tile_hash_valid_normalized_hash() {
+        let script = include_str!("../../tests/fixtures/mbtiles/geography-class-png.sql");
+        let (mbt, mut conn) = anonymous_mbtiles(script).await;
+        // Should pass — tile_id values in images match md5_hex(tile_data)
+        mbt.check_each_tile_hash(&mut conn).await.unwrap();
+    }
+
+    #[actix_rt::test]
+    async fn check_tile_hash_detects_corrupted_normalized_hash() {
+        let (mbt, mut conn) = anonymous_mbtiles(
+            "CREATE TABLE map (zoom_level INTEGER, tile_column INTEGER, tile_row INTEGER, tile_id TEXT);
+             CREATE TABLE images (tile_data BLOB, tile_id TEXT);
+             CREATE TABLE metadata (name TEXT, value TEXT);
+             CREATE UNIQUE INDEX map_index ON map (zoom_level, tile_column, tile_row);
+             CREATE UNIQUE INDEX images_id ON images (tile_id);
+             INSERT INTO metadata VALUES('name','test');
+             INSERT INTO images VALUES(X'0102030405', 'wrong_hash_value');
+             INSERT INTO map VALUES(0, 0, 0, 'wrong_hash_value');
+             CREATE VIEW tiles AS SELECT map.zoom_level, map.tile_column, map.tile_row, images.tile_data FROM map JOIN images ON map.tile_id = images.tile_id;",
+        )
+        .await;
+        let result = mbt.check_each_tile_hash(&mut conn).await;
+        assert!(
+            matches!(result, Err(IncorrectTileHash(..))),
+            "should detect that tile_id != md5_hex(tile_data), got {result:?}"
+        );
     }
 }
