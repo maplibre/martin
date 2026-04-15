@@ -37,7 +37,7 @@ cache:
   #
   # Specify each cache size individually for finer cache size control:
   # - Tiles: `cache.tile_size_mb`
-  # - Pmtiles: `pmtiles.directory_cache_size_mb`
+  # - Pmtiles: `pmtiles.directory_cache.size_mb`
   # - Fonts: `fonts.cache.size_mb`
   # - Sprites: `sprites.cache.size_mb`
   size_mb: 512
@@ -45,6 +45,25 @@ cache:
   # Allows overriding the size of the tile cache.
   # Defaults to `cache.size_mb` / 2
   tile_size_mb: 256
+
+  # Maximum lifetime for all cache entries (time-to-live from creation).
+  # Entries are evicted after this duration regardless of access.
+  # Supports human-readable formats: "1h", "30m", "1d", "3600s".
+  # default: null (no expiry, entries only evicted by size pressure)
+  expiry: null
+
+  # Maximum idle time for all cache entries (time-to-idle since last access).
+  # Entries are evicted if not accessed within this duration.
+  # default: null (no idle timeout)
+  idle_timeout: null
+
+  # Tile-specific TTL override. Takes precedence over `cache.expiry` for tiles.
+  # default: null (inherits from `cache.expiry`)
+  tile_expiry: null
+
+  # Tile-specific idle timeout override. Takes precedence over `cache.idle_timeout` for tiles.
+  # default: null (inherits from `cache.idle_timeout`)
+  tile_idle_timeout: null
 
   # Default minimum zoom level (inclusive) for tile caching.
   # Tiles further zoomed out than this will bypass the cache entirely.
@@ -286,7 +305,18 @@ pmtiles:
   # For good performance, you want
   # - directory caching (to not resolve the directory on each request) and
   # - tile caching (for high access tiles)
-  directory_cache_size_mb: 128
+  #
+  # Use `directory_cache: disable` to disable
+  directory_cache:
+    # Size of the directory cache in MB (0 to disable).
+    # default: cache.size_mb / 4
+    size_mb: 128
+    # Maximum lifetime for directory cache entries.
+    # default: null (inherits from cache.expiry)
+    expiry: null
+    # Maximum idle time for directory cache entries.
+    # default: null (inherits from cache.idle_timeout)
+    idle_timeout: null
 
   # You can pass options for pmtiles files located on remote storages here.
   #
@@ -333,10 +363,17 @@ mbtiles:
 # Sprite configuration
 sprites:
   # Cache configuration for sprites.
-  # Defaults to cache.size_mb / 8
   # Use `cache: disable` to disable sprite caching.
   cache:
+    # Size of the sprite cache in MB (0 to disable).
+    # default: cache.size_mb / 8
     size_mb: 64
+    # Maximum lifetime for sprite cache entries.
+    # default: null (inherits from cache.expiry)
+    expiry: null
+    # Maximum idle time for sprite cache entries.
+    # default: null (inherits from cache.idle_timeout)
+    idle_timeout: null
 
   paths:
     # all SVG files in this dir will be published as a "my_images" sprite source
@@ -348,10 +385,17 @@ sprites:
 # Font configuration
 fonts:
   # Cache configuration for fonts.
-  # Defaults to cache.size_mb / 8
   # Use `cache: disable` to disable font caching.
   cache:
+    # Size of the font cache in MB (0 to disable).
+    # default: cache.size_mb / 8
     size_mb: 64
+    # Maximum lifetime for font cache entries.
+    # default: null (inherits from cache.expiry)
+    expiry: null
+    # Maximum idle time for font cache entries.
+    # default: null (inherits from cache.idle_timeout)
+    idle_timeout: null
 
   # A list of *.otf, *.ttf, and *.ttc font files and dirs to search recursively.
   paths:

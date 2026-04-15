@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use martin_tile_utils::TileCoord;
 use moka::future::Cache;
 use tracing::{info, trace};
@@ -11,17 +13,25 @@ pub struct TileCache(Cache<TileCacheKey, Tile>);
 impl TileCache {
     /// Creates a new tile cache with the specified maximum size in bytes.
     #[must_use]
-    pub fn new(max_size_bytes: u64) -> Self {
-        Self(
-            Cache::builder()
-                .name("tile_cache")
-                .weigher(|_key: &TileCacheKey, value: &Tile| -> u32 {
-                    value.data.len().try_into().unwrap_or(u32::MAX)
-                })
-                .max_capacity(max_size_bytes)
-                .support_invalidation_closures()
-                .build(),
-        )
+    pub fn new(
+        max_size_bytes: u64,
+        expiry: Option<Duration>,
+        idle_timeout: Option<Duration>,
+    ) -> Self {
+        let mut builder = Cache::builder()
+            .name("tile_cache")
+            .weigher(|_key: &TileCacheKey, value: &Tile| -> u32 {
+                value.data.len().try_into().unwrap_or(u32::MAX)
+            })
+            .max_capacity(max_size_bytes)
+            .support_invalidation_closures();
+        if let Some(ttl) = expiry {
+            builder = builder.time_to_live(ttl);
+        }
+        if let Some(tti) = idle_timeout {
+            builder = builder.time_to_idle(tti);
+        }
+        Self(builder.build())
     }
 
     /// Retrieves a tile from cache if present.

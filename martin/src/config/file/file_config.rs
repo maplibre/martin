@@ -4,6 +4,7 @@ use std::mem;
 #[cfg(feature = "_tiles")]
 use std::path::Path;
 use std::path::PathBuf;
+use std::time::Duration;
 
 use martin_core::CacheZoomRange;
 #[cfg(feature = "_tiles")]
@@ -628,6 +629,10 @@ impl<'de> Deserialize<'de> for CachePolicy {
 /// cache:
 ///   size_mb: 512
 ///   tile_size_mb: 256
+///   expiry: 1h
+///   idle_timeout: 15m
+///   tile_expiry: 30m
+///   tile_idle_timeout: 5m
 ///   minzoom: 0
 ///   maxzoom: 20
 /// ```
@@ -645,6 +650,35 @@ pub struct GlobalCacheConfig {
     /// Tile cache size override in megabytes.
     /// Defaults to `size_mb / 2`.
     pub tile_size_mb: Option<u64>,
+    /// Maximum lifetime for all cache entries (time-to-live from creation).
+    /// Supports human-readable formats: "1h", "30m", "1d".
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "humantime_serde"
+    )]
+    pub expiry: Option<Duration>,
+    /// Maximum idle time for all cache entries (time-to-idle since last access).
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "humantime_serde"
+    )]
+    pub idle_timeout: Option<Duration>,
+    /// Tile-specific TTL override. Takes precedence over `expiry` for tiles.
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "humantime_serde"
+    )]
+    pub tile_expiry: Option<Duration>,
+    /// Tile-specific idle timeout override. Takes precedence over `idle_timeout` for tiles.
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "humantime_serde"
+    )]
+    pub tile_idle_timeout: Option<Duration>,
     #[serde(flatten)]
     zoom: CacheZoomRange,
 }
@@ -656,6 +690,10 @@ impl GlobalCacheConfig {
         Self {
             size_mb: Some(0),
             tile_size_mb: Some(0),
+            expiry: None,
+            idle_timeout: None,
+            tile_expiry: None,
+            tile_idle_timeout: None,
             zoom: CacheZoomRange::disabled(),
         }
     }
@@ -669,7 +707,13 @@ impl GlobalCacheConfig {
     /// Returns `true` if no cache settings are configured.
     #[must_use]
     pub fn is_empty(&self) -> bool {
-        self.size_mb.is_none() && self.tile_size_mb.is_none() && self.zoom.is_empty()
+        self.size_mb.is_none()
+            && self.tile_size_mb.is_none()
+            && self.expiry.is_none()
+            && self.idle_timeout.is_none()
+            && self.tile_expiry.is_none()
+            && self.tile_idle_timeout.is_none()
+            && self.zoom.is_empty()
     }
 }
 
@@ -685,6 +729,30 @@ impl<'de> Deserialize<'de> for GlobalCacheConfig {
             Struct {
                 size_mb: Option<u64>,
                 tile_size_mb: Option<u64>,
+                #[serde(
+                    default,
+                    skip_serializing_if = "Option::is_none",
+                    with = "humantime_serde"
+                )]
+                expiry: Option<Duration>,
+                #[serde(
+                    default,
+                    skip_serializing_if = "Option::is_none",
+                    with = "humantime_serde"
+                )]
+                idle_timeout: Option<Duration>,
+                #[serde(
+                    default,
+                    skip_serializing_if = "Option::is_none",
+                    with = "humantime_serde"
+                )]
+                tile_expiry: Option<Duration>,
+                #[serde(
+                    default,
+                    skip_serializing_if = "Option::is_none",
+                    with = "humantime_serde"
+                )]
+                tile_idle_timeout: Option<Duration>,
                 #[serde(flatten, default)]
                 zoom: CacheZoomRange,
             },
@@ -698,10 +766,18 @@ impl<'de> Deserialize<'de> for GlobalCacheConfig {
             Helper::Struct {
                 size_mb,
                 tile_size_mb,
+                expiry,
+                idle_timeout,
+                tile_expiry,
+                tile_idle_timeout,
                 zoom,
             } => Ok(Self {
                 size_mb,
                 tile_size_mb,
+                expiry,
+                idle_timeout,
+                tile_expiry,
+                tile_idle_timeout,
                 zoom,
             }),
         }
@@ -727,13 +803,27 @@ impl<'de> Deserialize<'de> for GlobalCacheConfig {
 pub struct CacheSizeConfig {
     /// Cache size in megabytes for this source type (0 to disable).
     pub size_mb: Option<u64>,
+    /// Maximum lifetime of cache entries (time-to-live from creation).
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "humantime_serde"
+    )]
+    pub expiry: Option<Duration>,
+    /// Maximum idle time before cache entries are evicted (time-to-idle since last access).
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "humantime_serde"
+    )]
+    pub idle_timeout: Option<Duration>,
 }
 
 impl CacheSizeConfig {
-    /// Returns `true` if no cache size is configured.
+    /// Returns `true` if no cache settings are configured.
     #[must_use]
     pub fn is_empty(&self) -> bool {
-        self.size_mb.is_none()
+        self.size_mb.is_none() && self.expiry.is_none() && self.idle_timeout.is_none()
     }
 }
 
@@ -746,15 +836,41 @@ impl<'de> Deserialize<'de> for CacheSizeConfig {
         #[serde(untagged)]
         enum Helper {
             String(String),
-            Struct { size_mb: Option<u64> },
+            Struct {
+                size_mb: Option<u64>,
+                #[serde(
+                    default,
+                    skip_serializing_if = "Option::is_none",
+                    with = "humantime_serde"
+                )]
+                expiry: Option<Duration>,
+                #[serde(
+                    default,
+                    skip_serializing_if = "Option::is_none",
+                    with = "humantime_serde"
+                )]
+                idle_timeout: Option<Duration>,
+            },
         }
 
         match Helper::deserialize(deserializer)? {
-            Helper::String(s) if s == "disable" => Ok(Self { size_mb: Some(0) }),
+            Helper::String(s) if s == "disable" => Ok(Self {
+                size_mb: Some(0),
+                expiry: None,
+                idle_timeout: None,
+            }),
             Helper::String(s) => Err(serde::de::Error::custom(format!(
                 "invalid cache config string: {s:?}, expected \"disable\""
             ))),
-            Helper::Struct { size_mb } => Ok(Self { size_mb }),
+            Helper::Struct {
+                size_mb,
+                expiry,
+                idle_timeout,
+            } => Ok(Self {
+                size_mb,
+                expiry,
+                idle_timeout,
+            }),
         }
     }
 }

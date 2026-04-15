@@ -179,7 +179,7 @@ mod tests {
     }
 
     fn make_manager() -> TileSourceManager {
-        let cache = TileCache::new(1024 * 1024); // 1 MB
+        let cache = TileCache::new(1024 * 1024, None, None); // 1 MB
         TileSourceManager::new(Some(cache), OnInvalid::Abort)
     }
 
