@@ -1,6 +1,7 @@
 use std::time::Duration;
 
 use moka::future::Cache;
+use std::sync::Arc;
 use tracing::{info, trace};
 
 /// Optional wrapper for `FontCache`.
@@ -40,25 +41,6 @@ impl FontCache {
         }
     }
 
-    /// Retrieves a font range from cache if present.
-    async fn get(&self, key: &FontCacheKey) -> Option<Vec<u8>> {
-        let result = self.cache.get(key).await;
-
-        if result.is_some() {
-            hotpath::gauge!("font_cache_hits").inc(1.0);
-            trace!(
-                "Font cache HIT for {key:?} (entries={}, size={})",
-                self.cache.entry_count(),
-                self.cache.weighted_size()
-            );
-        } else {
-            hotpath::gauge!("font_cache_misses").inc(1.0);
-            trace!("Font cache MISS for {key:?}");
-        }
-
-        result
-    }
-
     /// Gets a font range from cache or computes it using the provided function.
     pub async fn get_or_insert<F, E>(
         &self,
@@ -66,18 +48,31 @@ impl FontCache {
         start: u32,
         end: u32,
         compute: F,
-    ) -> Result<Vec<u8>, E>
+    ) -> Result<Vec<u8>, Arc<E>>
     where
         F: FnOnce() -> Result<Vec<u8>, E>,
+        E: Send + Sync + 'static,
     {
         let key = FontCacheKey::new(ids, start, end);
-        if let Some(data) = self.get(&key).await {
-            return Ok(data);
+        let entry = self
+            .cache
+            .entry(key.clone())
+            .or_try_insert_with(async move { compute() })
+            .await?;
+
+        if entry.is_fresh() {
+            hotpath::gauge!("font_cache_misses").inc(1.0);
+            trace!("Font cache MISS for {key:?}");
+        } else {
+            hotpath::gauge!("font_cache_hits").inc(1.0);
+            trace!(
+                "Font cache HIT for {key:?} (entries={}, size={})",
+                self.cache.entry_count(),
+                self.cache.weighted_size()
+            );
         }
 
-        let data = compute()?;
-        self.cache.insert(key, data.clone()).await;
-        Ok(data)
+        Ok(entry.into_value())
     }
 
     /// Invalidates all cached font ranges that use the specified font ID.

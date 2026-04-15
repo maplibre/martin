@@ -2,6 +2,7 @@ use std::time::Duration;
 
 use martin_tile_utils::TileCoord;
 use moka::future::Cache;
+use std::sync::Arc;
 use tracing::{info, trace};
 
 use crate::tiles::Tile;
@@ -34,25 +35,6 @@ impl TileCache {
         Self(builder.build())
     }
 
-    /// Retrieves a tile from cache if present.
-    async fn get(&self, key: &TileCacheKey) -> Option<Tile> {
-        let result = self.0.get(key).await;
-
-        if result.is_some() {
-            hotpath::gauge!("tile_cache_hits").inc(1.0);
-            trace!(
-                "Tile cache HIT for {key:?} (entries={entries}, size={size}B)",
-                entries = self.0.entry_count(),
-                size = self.0.weighted_size()
-            );
-        } else {
-            hotpath::gauge!("tile_cache_misses").inc(1.0);
-            trace!("Tile cache MISS for {key:?}");
-        }
-
-        result
-    }
-
     /// Gets a tile from cache or computes it using the provided function.
     pub async fn get_or_insert<F, Fut, E>(
         &self,
@@ -60,19 +42,32 @@ impl TileCache {
         xyz: TileCoord,
         query: Option<String>,
         compute: F,
-    ) -> Result<Tile, E>
+    ) -> Result<Tile, Arc<E>>
     where
         F: FnOnce() -> Fut,
         Fut: Future<Output = Result<Tile, E>>,
+        E: Send + Sync + 'static,
     {
         let key = TileCacheKey::new(source_id, xyz, query);
-        if let Some(data) = self.get(&key).await {
-            return Ok(data);
+        let entry = self
+            .0
+            .entry(key.clone())
+            .or_try_insert_with(async move { compute().await })
+            .await?;
+
+        if entry.is_fresh() {
+            hotpath::gauge!("tile_cache_misses").inc(1.0);
+            trace!("Tile cache MISS for {key:?}");
+        } else {
+            hotpath::gauge!("tile_cache_hits").inc(1.0);
+            trace!(
+                "Tile cache HIT for {key:?} (entries={entries}, size={size}B)",
+                entries = self.0.entry_count(),
+                size = self.0.weighted_size()
+            );
         }
 
-        let data = compute().await?;
-        self.0.insert(key, data.clone()).await;
-        Ok(data)
+        Ok(entry.into_value())
     }
 
     /// Invalidates all cached tiles for a specific source.

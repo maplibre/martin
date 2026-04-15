@@ -2,6 +2,7 @@ use std::time::Duration;
 
 use actix_web::web::Bytes;
 use moka::future::Cache;
+use std::sync::Arc;
 use tracing::{info, trace};
 
 /// Sprite cache for storing generated sprite sheets.
@@ -45,25 +46,6 @@ impl SpriteCache {
         }
     }
 
-    /// Retrieves a sprite sheet from cache if present.
-    async fn get(&self, key: &SpriteCacheKey) -> Option<Bytes> {
-        let result = self.cache.get(key).await;
-
-        if result.is_some() {
-            hotpath::gauge!("sprite_cache_hits").inc(1.0);
-            trace!(
-                "Sprite cache HIT for {key:?} (entries={}, size={})",
-                self.cache.entry_count(),
-                self.cache.weighted_size()
-            );
-        } else {
-            hotpath::gauge!("sprite_cache_misses").inc(1.0);
-            trace!("Sprite cache MISS for {key:?}");
-        }
-
-        result
-    }
-
     /// Gets a json sprite sheet from cache or computes it using the provided function.
     pub async fn get_or_insert<F, Fut, E>(
         &self,
@@ -71,19 +53,32 @@ impl SpriteCache {
         as_sdf: bool,
         as_json: bool,
         compute: F,
-    ) -> Result<Bytes, E>
+    ) -> Result<Bytes, Arc<E>>
     where
         F: FnOnce() -> Fut,
         Fut: Future<Output = Result<Bytes, E>>,
+        E: Send + Sync + 'static,
     {
         let key = SpriteCacheKey::new(ids, as_sdf, as_json);
-        if let Some(data) = self.get(&key).await {
-            return Ok(data);
+        let entry = self
+            .cache
+            .entry(key.clone())
+            .or_try_insert_with(async move { compute().await })
+            .await?;
+
+        if entry.is_fresh() {
+            hotpath::gauge!("sprite_cache_misses").inc(1.0);
+            trace!("Sprite cache MISS for {key:?}");
+        } else {
+            hotpath::gauge!("sprite_cache_hits").inc(1.0);
+            trace!(
+                "Sprite cache HIT for {key:?} (entries={}, size={})",
+                self.cache.entry_count(),
+                self.cache.weighted_size()
+            );
         }
 
-        let data = compute().await?;
-        self.cache.insert(key, data.clone()).await;
-        Ok(data)
+        Ok(entry.into_value())
     }
 
     /// Invalidates all cached sprites that use the specified source ID.
