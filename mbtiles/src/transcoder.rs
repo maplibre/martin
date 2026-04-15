@@ -34,6 +34,10 @@ const DEFAULT_CHANNEL_BUFFER: usize = 4;
 /// Maximum time between forced flushes in the writer.
 const FLUSH_INTERVAL: Duration = Duration::from_secs(60);
 
+/// Conservative cap on bound parameters per statement. SQLite's default is
+/// 32766, but older builds capped at 999 — staying under that is free safety.
+const SQLITE_MAX_PARAMS: usize = 900;
+
 /// Raw tile batch: `(coord, optional_cache_key, tile_data)`.
 type RawBatch = Vec<(TileCoord, Option<u128>, Vec<u8>)>;
 /// Encoded tile batch: `(coord, encoded_data)`.
@@ -79,31 +83,12 @@ impl DedupStats {
 /// schema types:
 ///
 /// - **Normalized source**: encodes only the deduplicated `tiles` table, then
-///   fans out to any destination type via SQL joins.
+///   fans out to any destination type by joining encoded tiles against the
+///   source map table inside the writer's INSERT.
 /// - **Flat/FlatWithHash source**: uses a weighted dedup cache keyed by content
 ///   hash to avoid redundant transforms.
 ///
 /// CPU-bound work runs on a rayon thread pool via [`tokio::task::spawn_blocking`].
-///
-/// # Example
-/// ```no_run
-/// # async fn example() -> mbtiles::MbtResult<()> {
-/// use std::path::PathBuf;
-/// use mbtiles::MbtilesTranscoder;
-///
-/// let stats = MbtilesTranscoder::new(
-///     PathBuf::from("input.mbtiles"),
-///     PathBuf::from("output.mbtiles"),
-///     |data| Ok(data), // identity transform
-/// )
-/// .batch_size(1000)
-/// .run()
-/// .await?;
-///
-/// println!("Wrote {} tiles", stats.tiles_written);
-/// # Ok(())
-/// # }
-/// ```
 pub struct MbtilesTranscoder<F> {
     src_file: PathBuf,
     dst_file: PathBuf,
@@ -191,7 +176,8 @@ where
         let mut dst_conn = dst.open_or_new().await?;
         init_mbtiles_schema(&mut dst_conn, dst_type).await?;
 
-        // Set WAL mode for better write throughput.
+        // WAL + relaxed sync gives a large boost for bulk inserts; the worst
+        // case on crash is losing the in-flight transaction, which is fine here.
         sqlx::query("PRAGMA journal_mode=WAL")
             .execute(&mut *dst_conn)
             .await?;
@@ -199,16 +185,28 @@ where
             .execute(&mut *dst_conn)
             .await?;
 
-        if self.copy_metadata {
-            copy_metadata(&src, &mut dst_conn).await?;
-        }
-
         info!("Transcoding {src} ({src_type}) to {dst} ({dst_type})");
 
-        let stats = if let Some(src_type) = src_type.normalized_schema() {
-            self.run_normalized_path(src, &mut src_conn, src_type, &mut dst_conn, dst_type)
+        // Attach source ONCE and reuse it for both metadata copy and the
+        // normalized writer's join. The general path doesn't need it.
+        let needs_src_attached = src_type.normalized_schema().is_some() || self.copy_metadata;
+        if needs_src_attached {
+            src.attach_to(&mut *dst_conn, "srcDb").await?;
+        }
+
+        if self.copy_metadata {
+            sqlx::query("INSERT OR REPLACE INTO metadata SELECT name, value FROM srcDb.metadata")
+                .execute(&mut *dst_conn)
+                .await?;
+        }
+
+        let stats = if let Some(src_schema) = src_type.normalized_schema() {
+            self.run_normalized_path(&mut src_conn, src_schema, &mut dst_conn, dst_type)
                 .await?
         } else {
+            if needs_src_attached {
+                detach_db(&mut *dst_conn, "srcDb").await?;
+            }
             self.run_general_path(src_conn, src_type, dst, dst_conn, dst_type)
                 .await?
         };
@@ -216,10 +214,15 @@ where
         Ok(stats)
     }
 
-    /// Normalized -> Any: encode only unique tiles, then fan out via SQL.
+    /// Normalized -> Any.
+    ///
+    /// Each unique payload is encoded exactly once, then the writer streams
+    /// directly into the destination — no staging temp table. For Flat /
+    /// FlatWithHash destinations, each insert joins against the source map
+    /// (via the attached `srcDb`) so SQLite expands one encoded tile to all
+    /// its (z, x, y) destinations in a single statement.
     async fn run_normalized_path(
         self,
-        src: Mbtiles,
         src_conn: &mut SqliteConnection,
         src_schema: NormalizedSchema,
         dst_conn: &mut SqliteConnection,
@@ -227,82 +230,37 @@ where
     ) -> MbtResult<TranscodeStats> {
         let tile_id_col = src_schema.tile_id_column();
         let src_map = src_schema.map_table();
+        let content_table = src_schema.content_table();
 
-        // Phase 1: Stream-encode unique tiles via the 3-stage pipeline.
+        // Detect the id column shape ONCE, outside the hot loop. DedupId
+        // schemas use INTEGER `tile_data_id`; everything else uses TEXT
+        // `tile_id`. Per-row try_get fallback would re-allocate an error
+        // string every miss.
+        let id_is_integer = src_schema.uses_integer_tile_id();
+        let select_col = if id_is_integer { "tile_data_id" } else { "tile_id" };
+
         let (raw_tx, raw_rx) = bounded::<NormRawBatch>(self.channel_buffer);
         let (enc_tx, enc_rx) = bounded::<NormEncBatch>(self.channel_buffer);
 
         let batch_size = self.batch_size;
         let transform = Arc::new(self.transform);
 
-        let sql = format!(
-            "SELECT {tile_id_col}, tile_data FROM {content_table}",
-            content_table = src_schema.content_table()
-        );
-        let reader = normalized_reader(src_conn, &sql, raw_tx, batch_size);
-
+        let sql = format!("SELECT {select_col}, tile_data FROM {content_table}");
+        let reader = normalized_reader(src_conn, &sql, raw_tx, batch_size, id_is_integer);
         let compute = normalized_compute(raw_rx, enc_tx, transform);
+        let writer = normalized_writer(
+            dst_conn,
+            enc_rx,
+            dst_type,
+            src_map,
+            tile_id_col,
+            batch_size,
+        );
 
-        let writer = normalized_writer(dst_conn, enc_rx);
+        let ((), (), (unique_encoded, tiles_written)) =
+            tokio::try_join!(reader, compute, writer)?;
 
-        let ((), (), tiles_written) = tokio::try_join!(reader, compute, writer)?;
-
-        info!("Encoded {tiles_written} unique tiles");
-
-        src.attach_to(&mut *dst_conn, "srcDb").await?;
-
-        match dst_type {
-            MbtType::Normalized { .. } => {
-                let dst_schema = dst_type.normalized_schema().expect("dst is normalized");
-                let dst_tiles = dst_schema.content_table();
-                let dst_id = dst_schema.tile_id_column();
-                let dst_map = dst_schema.map_table();
-
-                sqlx::query(&format!(
-                    "INSERT OR REPLACE INTO {dst_tiles} ({dst_id}, tile_data)
-                     SELECT tile_id, tile_data FROM _transcoded_tiles"
-                ))
-                .execute(&mut *dst_conn)
-                .await?;
-
-                sqlx::query(&format!(
-                    "INSERT OR REPLACE INTO {dst_map} (zoom_level, tile_column, tile_row, {dst_id})
-                     SELECT zoom_level, tile_column, tile_row, {tile_id_col}
-                     FROM srcDb.{src_map}"
-                ))
-                .execute(&mut *dst_conn)
-                .await?;
-            }
-            MbtType::Flat => {
-                sqlx::query(&format!(
-                    "INSERT OR REPLACE INTO tiles (zoom_level, tile_column, tile_row, tile_data)
-                     SELECT m.zoom_level, m.tile_column, m.tile_row, t.tile_data
-                     FROM srcDb.{src_map} m
-                     JOIN _transcoded_tiles t ON m.{tile_id_col} = t.tile_id"
-                ))
-                .execute(&mut *dst_conn)
-                .await?;
-            }
-            MbtType::FlatWithHash => {
-                sqlx::query(&format!(
-                    "INSERT OR REPLACE INTO tiles_with_hash (zoom_level, tile_column, tile_row, tile_data, tile_hash)
-                     SELECT m.zoom_level, m.tile_column, m.tile_row, t.tile_data, md5_hex(t.tile_data)
-                     FROM srcDb.{src_map} m
-                     JOIN _transcoded_tiles t ON m.{tile_id_col} = t.tile_id"
-                ))
-                .execute(&mut *dst_conn)
-                .await?;
-            }
-        }
-
-        let tiles_written: i64 =
-            sqlx::query_scalar(&format!("SELECT COUNT(*) FROM srcDb.{src_map}"))
-                .fetch_one(&mut *dst_conn)
-                .await?;
-
-        sqlx::query("DROP TABLE IF EXISTS _transcoded_tiles")
-            .execute(&mut *dst_conn)
-            .await?;
+        info!("Encoded {unique_encoded} unique tiles, wrote {tiles_written} rows");
 
         detach_db(&mut *dst_conn, "srcDb").await?;
 
@@ -310,15 +268,10 @@ where
             .execute(&mut *dst_conn)
             .await?;
 
-        #[expect(
-            clippy::cast_sign_loss,
-            clippy::cast_possible_truncation,
-            reason = "COUNT(*) is always non-negative and fits in usize for realistic tilesets"
-        )]
         Ok(TranscodeStats {
-            tiles_written: tiles_written as usize,
+            tiles_written,
             cache_hits: 0,
-            cache_encoded: tiles_written as u64,
+            cache_encoded: unique_encoded as u64,
         })
     }
 
@@ -376,36 +329,28 @@ fn hex_md5_to_u128(s: &str) -> Option<u128> {
     u128::from_str_radix(s, 16).ok()
 }
 
-/// Copy all metadata rows from source to destination via ATTACH.
-async fn copy_metadata(src: &Mbtiles, dst_conn: &mut SqliteConnection) -> MbtResult<()> {
-    src.attach_to(dst_conn, "srcMetaDb").await?;
-    sqlx::query("INSERT OR REPLACE INTO metadata SELECT name, value FROM srcMetaDb.metadata")
-        .execute(&mut *dst_conn)
-        .await?;
-    detach_db(dst_conn, "srcMetaDb").await?;
-    Ok(())
-}
-
-/// Reader: stream `tiles` rows into batches.
+/// Reader: stream content rows into batches.
 async fn normalized_reader(
     src_conn: &mut SqliteConnection,
     sql: &str,
     raw_tx: Sender<NormRawBatch>,
     batch_size: usize,
+    id_is_integer: bool,
 ) -> MbtResult<()> {
     let mut stream = sqlx::query(sql).fetch(&mut *src_conn);
     let mut batch: NormRawBatch = Vec::with_capacity(batch_size);
 
     while let Some(row) = stream.try_next().await? {
-        let tile_id: String =
-            row.try_get::<String, _>("tile_id")
-                .or_else(|_| -> Result<String, sqlx::Error> {
-                    // DedupId schema uses integer tile_data_id
-                    let id: i64 = row.try_get("tile_data_id")?;
-                    Ok(id.to_string())
-                })?;
+        // Cheap field first: skip NULL-payload rows without touching the id column.
         let data: Option<Vec<u8>> = row.try_get("tile_data")?;
         let Some(data) = data else { continue };
+
+        let tile_id = if id_is_integer {
+            let id: i64 = row.try_get("tile_data_id")?;
+            id.to_string()
+        } else {
+            row.try_get::<String, _>("tile_id")?
+        };
 
         batch.push((tile_id, data));
         if batch.len() >= batch_size {
@@ -464,37 +409,112 @@ where
     Ok(())
 }
 
-/// Writer: insert encoded tiles into a temp table.
+/// Writer: stream encoded tiles directly into the destination — no staging.
+///
+/// Returns `(unique_tiles_encoded, total_rows_written)`. For Normalized
+/// destinations these are usually equal; for Flat/FlatWithHash the row count
+/// is larger because each unique tile fans out to every coordinate that
+/// references it.
+///
+/// For Flat/FlatWithHash destinations we bind each batch as a values-list CTE
+/// and JOIN it against `srcDb.<map>` in a single statement, letting SQLite do
+/// the fan-out without materializing intermediate rows.
 async fn normalized_writer(
     dst_conn: &mut SqliteConnection,
     enc_rx: Receiver<NormEncBatch>,
-) -> MbtResult<usize> {
-    sqlx::query(
-        "CREATE TEMP TABLE _transcoded_tiles (tile_id TEXT PRIMARY KEY, tile_data BLOB NOT NULL)",
-    )
-    .execute(&mut *dst_conn)
-    .await?;
+    dst_type: MbtType,
+    src_map: &str,
+    tile_id_col: &str,
+    batch_size: usize,
+) -> MbtResult<(usize, usize)> {
+    // 2 params per row (id, data). Keep chunks under the SQLite param cap.
+    let chunk_rows = (SQLITE_MAX_PARAMS / 2).min(batch_size).max(1);
 
-    let mut total = 0usize;
+    let mut unique_encoded = 0usize;
+    let mut rows_written = 0usize;
 
     while let Ok(batch) = enc_rx.recv_async().await {
-        let n = batch.len();
         let mut tx = dst_conn.begin().await?;
-        for (tile_id, data) in batch {
-            sqlx::query(
-                "INSERT OR REPLACE INTO _transcoded_tiles (tile_id, tile_data) VALUES (?, ?)",
-            )
-            .bind(&tile_id)
-            .bind(&data)
-            .execute(&mut *tx)
-            .await?;
+        for chunk in batch.chunks(chunk_rows) {
+            rows_written +=
+                write_normalized_chunk(&mut tx, chunk, dst_type, src_map, tile_id_col).await?;
+            unique_encoded += chunk.len();
         }
         tx.commit().await?;
-        total += n;
-        debug!("{total} tiles encoded");
+        debug!("{unique_encoded} unique encoded, {rows_written} rows written");
     }
 
-    Ok(total)
+    // Normalized destination still needs its map table populated. One
+    // INSERT...SELECT against the attached source is far cheaper than doing
+    // the join per batch in Rust.
+    if let MbtType::Normalized { .. } = dst_type {
+        let dst_schema = dst_type.normalized_schema().expect("dst is normalized");
+        let dst_id = dst_schema.tile_id_column();
+        let dst_map = dst_schema.map_table();
+        let res = sqlx::query(&format!(
+            "INSERT OR REPLACE INTO {dst_map} (zoom_level, tile_column, tile_row, {dst_id})
+             SELECT zoom_level, tile_column, tile_row, {tile_id_col}
+             FROM srcDb.{src_map}"
+        ))
+        .execute(&mut *dst_conn)
+        .await?;
+        rows_written = usize::try_from(res.rows_affected()).unwrap_or(usize::MAX);
+    }
+
+    Ok((unique_encoded, rows_written))
+}
+
+/// Write a single chunk of encoded unique tiles to the destination.
+///
+/// Builds one multi-row INSERT for the chunk; for Flat/FlatWithHash the unique
+/// tiles are wrapped in a CTE and joined against the source map so SQLite does
+/// the fan-out as part of the same statement.
+async fn write_normalized_chunk(
+    tx: &mut sqlx::SqliteConnection,
+    chunk: &[(String, Vec<u8>)],
+    dst_type: MbtType,
+    src_map: &str,
+    tile_id_col: &str,
+) -> MbtResult<usize> {
+    // Build the VALUES placeholder list once: "(?,?),(?,?),..."
+    let mut values = String::with_capacity(chunk.len() * 6);
+    for i in 0..chunk.len() {
+        if i > 0 {
+            values.push(',');
+        }
+        values.push_str("(?,?)");
+    }
+
+    let sql = match dst_type {
+        MbtType::Normalized { .. } => {
+            let dst_schema = dst_type.normalized_schema().expect("dst is normalized");
+            let dst_tiles = dst_schema.content_table();
+            let dst_id = dst_schema.tile_id_column();
+            format!("INSERT OR REPLACE INTO {dst_tiles} ({dst_id}, tile_data) VALUES {values}")
+        }
+        MbtType::Flat => format!(
+            "WITH new_tiles(tile_id, tile_data) AS (VALUES {values})
+             INSERT OR REPLACE INTO tiles (zoom_level, tile_column, tile_row, tile_data)
+             SELECT m.zoom_level, m.tile_column, m.tile_row, n.tile_data
+             FROM new_tiles n
+             JOIN srcDb.{src_map} m ON m.{tile_id_col} = n.tile_id"
+        ),
+        MbtType::FlatWithHash => format!(
+            "WITH new_tiles(tile_id, tile_data) AS (VALUES {values})
+             INSERT OR REPLACE INTO tiles_with_hash
+                 (zoom_level, tile_column, tile_row, tile_data, tile_hash)
+             SELECT m.zoom_level, m.tile_column, m.tile_row, n.tile_data, md5_hex(n.tile_data)
+             FROM new_tiles n
+             JOIN srcDb.{src_map} m ON m.{tile_id_col} = n.tile_id"
+        ),
+    };
+
+    let mut q = sqlx::query(&sql);
+    for (tile_id, data) in chunk {
+        q = q.bind(tile_id).bind(data);
+    }
+    let res = q.execute(&mut **tx).await?;
+    Ok(usize::try_from(res.rows_affected()).unwrap_or(0))
 }
 
 /// Reader: stream tiles from Flat/FlatWithHash source into batches.
@@ -504,32 +524,31 @@ async fn general_reader(
     raw_tx: Sender<RawBatch>,
     batch_size: usize,
 ) -> MbtResult<()> {
+    let is_flat_with_hash = matches!(src_type, MbtType::FlatWithHash);
     let sql = match src_type {
         MbtType::Flat => "SELECT zoom_level, tile_column, tile_row, tile_data FROM tiles",
         MbtType::FlatWithHash => {
             "SELECT zoom_level, tile_column, tile_row, tile_data, tile_hash FROM tiles_with_hash"
         }
-        MbtType::Normalized { .. } => {
-            unreachable!("general_reader called with normalized source")
-        }
+        MbtType::Normalized { .. } => unreachable!("general_reader called with normalized source"),
     };
 
     let mut stream = sqlx::query(sql).fetch(&mut src_conn);
     let mut batch: RawBatch = Vec::with_capacity(batch_size);
 
     while let Some(row) = stream.try_next().await? {
+        // Drop NULL-payload rows before paying for any other column reads.
+        let data: Option<Vec<u8>> = row.try_get("tile_data")?;
+        let Some(data) = data else { continue };
+
         let z: Option<i64> = row.try_get("zoom_level")?;
         let x: Option<i64> = row.try_get("tile_column")?;
         let y: Option<i64> = row.try_get("tile_row")?;
-
         let Some(coord) = parse_tile_index(z, x, y) else {
             continue;
         };
 
-        let data: Option<Vec<u8>> = row.try_get("tile_data")?;
-        let Some(data) = data else { continue };
-
-        let key = if src_type == MbtType::FlatWithHash {
+        let key = if is_flat_with_hash {
             let hash: Option<String> = row.try_get("tile_hash")?;
             hash.as_deref().and_then(hex_md5_to_u128)
         } else {
@@ -616,7 +635,8 @@ fn transcode_cached<F>(
 where
     F: Fn(Vec<u8>) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>>,
 {
-    // Skip cache for large tiles — they are almost certainly unique.
+    // Skip the cache for large tiles — they are almost certainly unique, so
+    // caching them just evicts smaller, more valuable entries.
     if data.len() > max_tile_track_size {
         return match (transform)(data) {
             Ok(encoded) => {
@@ -630,6 +650,7 @@ where
         };
     }
 
+    // FlatWithHash provides a content hash we can reuse; otherwise compute one.
     let key = key.unwrap_or_else(|| xxh3_128(&data));
 
     let entry = cache
@@ -653,6 +674,9 @@ where
 }
 
 /// Writer: batch-insert encoded tiles into the destination.
+///
+/// Tiles stay behind `Arc` until SQL bind, so deduplicated payloads (cache
+/// hits) are never copied — `insert_tiles` takes `&[u8]` slices through the Arc.
 async fn general_writer(
     dst: Mbtiles,
     mut dst_conn: SqliteConnection,
@@ -661,25 +685,16 @@ async fn general_writer(
     batch_size: usize,
 ) -> MbtResult<usize> {
     let mut total = 0usize;
-    let mut pending: Vec<(u8, u32, u32, Vec<u8>)> = Vec::with_capacity(batch_size);
+    let mut pending: Vec<(u8, u32, u32, Arc<Vec<u8>>)> = Vec::with_capacity(batch_size);
     let mut last_flush = Instant::now();
 
     while let Ok(batch) = enc_rx.recv_async().await {
         for (coord, data) in batch {
-            pending.push((coord.z, coord.x, coord.y, Arc::unwrap_or_clone(data)));
+            pending.push((coord.z, coord.x, coord.y, data));
         }
 
         if pending.len() >= batch_size || last_flush.elapsed() >= FLUSH_INTERVAL {
-            let n = pending.len();
-            dst.insert_tiles(
-                &mut dst_conn,
-                dst_type,
-                CopyDuplicateMode::Override,
-                &pending,
-            )
-            .await?;
-            pending.clear();
-            total += n;
+            total += flush_pending(&dst, &mut dst_conn, dst_type, &mut pending).await?;
             last_flush = Instant::now();
             debug!("{total} tiles written");
         }
@@ -687,15 +702,7 @@ async fn general_writer(
 
     // Final flush.
     if !pending.is_empty() {
-        let n = pending.len();
-        dst.insert_tiles(
-            &mut dst_conn,
-            dst_type,
-            CopyDuplicateMode::Override,
-            &pending,
-        )
-        .await?;
-        total += n;
+        total += flush_pending(&dst, &mut dst_conn, dst_type, &mut pending).await?;
     }
 
     sqlx::query("PRAGMA wal_checkpoint(TRUNCATE)")
@@ -703,6 +710,26 @@ async fn general_writer(
         .await?;
 
     Ok(total)
+}
+
+async fn flush_pending(
+    dst: &Mbtiles,
+    dst_conn: &mut SqliteConnection,
+    dst_type: MbtType,
+    pending: &mut Vec<(u8, u32, u32, Arc<Vec<u8>>)>,
+) -> MbtResult<usize> {
+    // Borrowed view: `&[u8]` slices through the Arcs — zero copies of payload bytes.
+    let view: Vec<(u8, u32, u32, &[u8])> = pending
+        .iter()
+        .map(|(z, x, y, d)| (*z, *x, *y, d.as_slice()))
+        .collect();
+
+    dst.insert_tiles(dst_conn, dst_type, CopyDuplicateMode::Override, &view)
+        .await?;
+
+    let n = pending.len();
+    pending.clear();
+    Ok(n)
 }
 
 #[cfg(test)]
@@ -811,7 +838,7 @@ use tempfile::NamedTempFile;
             .fetch_one(&mut conn)
             .await
             .unwrap();
-        assert_eq!(count, 5);
+        assert_eq!(count, 6);
     }
 
     #[actix_rt::test]
