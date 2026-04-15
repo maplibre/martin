@@ -53,7 +53,8 @@ MBTiles and PMTiles are both formats for storing tiled geospatial data, but they
 PMTiles archives can be served directly from HTTP range–capable storage without a dedicated tile server. This approach has several limitations:
 
 * **Unrestricted access risk**
-  Without proper access controls, clients may download large portions (or all) of an archive, potentially incurring significant network egress costs.
+  Without proper access controls, clients may download large portions (or all) of an archive, leading to significant egress costs.
+  A tile server restricts access to tile requests, but bulk extraction remains possible via many requests, which are generally easier to detect and block.
 * **Over-fetching**
   PMTiles may fetch more data than strictly required per tile request to minimize the number of HTTP requests.
 * **Lack of source composition**
