@@ -540,9 +540,7 @@ async fn write_normalized_chunk(
                      SELECT md5_hex(tile_data), tile_data FROM new_tiles"
                 )
             } else {
-                format!(
-                    "INSERT OR REPLACE INTO {dst_tiles} ({dst_id}, tile_data) VALUES {values}"
-                )
+                format!("INSERT OR REPLACE INTO {dst_tiles} ({dst_id}, tile_data) VALUES {values}")
             }
         }
         MbtType::Flat => format!(
