@@ -71,9 +71,9 @@ xxhash-rust.workspace = true
 # For testing, might as well use the same async framework as the Martin itself
 actix-rt.workspace = true
 bytes.workspace = true
-flate2.workspace = true
 criterion.workspace = true
 env_logger.workspace = true
+flate2.workspace = true
 insta = { workspace = true, features = ["toml", "yaml"] }
 pretty_assertions.workspace = true
 rstest.workspace = true
