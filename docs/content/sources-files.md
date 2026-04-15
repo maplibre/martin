@@ -41,7 +41,7 @@ The difference between MBTiles and PMTiles is that:
 
 PMtiles can also be served **without martin**, but this has a few caveats:
 
-- If not set up separately and used maliciously, being able to connect and download the planet could incurr network costs on some cloud providers.
+- If not set up separately and used maliciously, being able to connect and download the planet could incur network costs on some cloud providers.
 - PMTiles sligtly overfetches each tile to avoid needing to do multiple requests
 - When you serve PMTiles without Martin, you cannot combine those archive sources with dynamic datasources such as PostGIS in a single unified server or catalog; use Martin as the tile server when you need to serve both archive sources and PostGIS together.
 - Caching is likely less effective
