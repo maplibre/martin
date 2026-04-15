@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.0](https://github.com/maplibre/martin/compare/martin-v1.5.0...martin-v1.6.0) - 2026-04-15
+
+### Added
+
+- *(mbtiles)* Add a transcoder API ([#2682](https://github.com/maplibre/martin/pull/2682))
+- make internal cache expiry configurable ([#2691](https://github.com/maplibre/martin/pull/2691))
+- support per-source cache zoom level ([#2673](https://github.com/maplibre/martin/pull/2673))
+- *(ui)* add React Compiler to martin-ui and demo/frontend ([#2686](https://github.com/maplibre/martin/pull/2686))
+- *(mbtiles)* Support planetilers' normalised schema ([#2681](https://github.com/maplibre/martin/pull/2681))
+- expose `on_invalid` as a CLI argument ([#2668](https://github.com/maplibre/martin/pull/2668))
+
+### Fixed
+
+- correct npm lockfile-only flag and handle missing lockfiles in sync-biome-version hook ([#2627](https://github.com/maplibre/martin/pull/2627))
+
+### Other
+
+- Use moka entry API for deduplicating cache inserts + retrievals ([#2688](https://github.com/maplibre/martin/pull/2688))
+- add a formatting restriction when something should be an import vs path ([#2685](https://github.com/maplibre/martin/pull/2685))
+- *(deps)* autoupdate pre-commit ([#2684](https://github.com/maplibre/martin/pull/2684))
+- introduce `TileSourceManager` and `ReloadAdvisory` ([#2661](https://github.com/maplibre/martin/pull/2661))
+- Enable `clippy::unwrap_used` workspace lint ([#2670](https://github.com/maplibre/martin/pull/2670))
+- *(deps)* autoupdate pre-commit ([#2624](https://github.com/maplibre/martin/pull/2624))
+- hotpath based profiling integration ([#2663](https://github.com/maplibre/martin/pull/2663))
+- *(deps-dev)* Bump the all-npm-security-updates group across 2 directories with 1 update ([#2662](https://github.com/maplibre/martin/pull/2662))
+- *(deps-dev)* Bump @biomejs/biome from 2.4.6 to 2.4.9 in /martin/martin-ui ([#2657](https://github.com/maplibre/martin/pull/2657))
+- make sure our unit tests run under macos too ([#2648](https://github.com/maplibre/martin/pull/2648))
+
 ## [1.5.0](https://github.com/maplibre/martin/compare/martin-v1.4.0...martin-v1.5.0) - 2026-04-02
 
 ### Fixed

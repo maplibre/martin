@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.16.0](https://github.com/maplibre/martin/compare/mbtiles-v0.15.4...mbtiles-v0.16.0) - 2026-04-15
+
+### Added
+
+- *(mbtiles)* Add a transcoder API ([#2682](https://github.com/maplibre/martin/pull/2682))
+- *(mbtiles)* Support planetilers' normalised schema ([#2681](https://github.com/maplibre/martin/pull/2681))
+
+### Other
+
+- Enable `clippy::unwrap_used` workspace lint ([#2670](https://github.com/maplibre/martin/pull/2670))
+- hotpath based profiling integration ([#2663](https://github.com/maplibre/martin/pull/2663))
+
 ## [0.15.4](https://github.com/maplibre/martin/compare/mbtiles-v0.15.3...mbtiles-v0.15.4) - 2026-04-02
 
 ### Fixed

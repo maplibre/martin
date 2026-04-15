@@ -4192,7 +4192,7 @@ dependencies = [
 
 [[package]]
 name = "martin"
-version = "1.5.0"
+version = "1.6.0"
 dependencies = [
  "actix-cors",
  "actix-http",
@@ -4249,7 +4249,7 @@ dependencies = [
 
 [[package]]
 name = "martin-core"
-version = "0.3.2"
+version = "0.4.0"
 dependencies = [
  "actix-web",
  "approx",
@@ -4348,7 +4348,7 @@ dependencies = [
 
 [[package]]
 name = "mbtiles"
-version = "0.15.4"
+version = "0.16.0"
 dependencies = [
  "actix-rt",
  "anyhow",
