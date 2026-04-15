@@ -53,7 +53,7 @@ type NormEncBatch = Vec<(String, Bytes)>;
 type EncodedCache = Cache<u128, Bytes>;
 
 /// Statistics returned after transcoding completes.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TranscodeStats {
     pub tiles_written: usize,
     pub cache_hits: u64,
@@ -137,7 +137,7 @@ where
         self
     }
 
-    /// Set maximum cache weight in bytes. Default: 512 MiB.
+    /// Set maximum cache weight in bytes. Default: 2 MiB.
     #[must_use]
     pub fn cache_max_bytes(mut self, n: u64) -> Self {
         self.cache_max_bytes = n;
@@ -427,6 +427,26 @@ async fn normalized_writer(
     // 2 params per row (id, data). Keep chunks under the SQLite param cap.
     let chunk_rows = (SQLITE_MAX_PARAMS / 2).min(batch_size).max(1);
 
+    let is_hash_dst = matches!(
+        dst_type,
+        MbtType::Normalized {
+            schema: NormalizedSchema::Hash,
+            ..
+        }
+    );
+
+    // For Hash schema destinations, the transform may change tile data, so
+    // tile_id (= md5 of data) must be recomputed. We maintain a temp mapping
+    // from source tile_id to new md5-based tile_id so the map INSERT can
+    // reference the correct IDs.
+    if is_hash_dst {
+        sqlx::query(
+            "CREATE TEMP TABLE _tile_id_map (old_id TEXT PRIMARY KEY, new_id TEXT NOT NULL)",
+        )
+        .execute(&mut *dst_conn)
+        .await?;
+    }
+
     let mut unique_encoded = 0usize;
     let mut rows_written = 0usize;
 
@@ -448,14 +468,31 @@ async fn normalized_writer(
         let dst_schema = dst_type.normalized_schema().expect("dst is normalized");
         let dst_id = dst_schema.tile_id_column();
         let dst_map = dst_schema.map_table();
-        let res = sqlx::query(&format!(
-            "INSERT OR REPLACE INTO {dst_map} (zoom_level, tile_column, tile_row, {dst_id})
-             SELECT zoom_level, tile_column, tile_row, {tile_id_col}
-             FROM srcDb.{src_map}"
-        ))
-        .execute(&mut *dst_conn)
-        .await?;
+
+        let sql = if is_hash_dst {
+            // Join through the temp mapping to get the recomputed tile_id
+            format!(
+                "INSERT OR REPLACE INTO {dst_map} (zoom_level, tile_column, tile_row, {dst_id})
+                 SELECT m.zoom_level, m.tile_column, m.tile_row, idm.new_id
+                 FROM srcDb.{src_map} m
+                 JOIN _tile_id_map idm ON idm.old_id = CAST(m.{tile_id_col} AS TEXT)"
+            )
+        } else {
+            format!(
+                "INSERT OR REPLACE INTO {dst_map} (zoom_level, tile_column, tile_row, {dst_id})
+                 SELECT zoom_level, tile_column, tile_row, {tile_id_col}
+                 FROM srcDb.{src_map}"
+            )
+        };
+
+        let res = sqlx::query(&sql).execute(&mut *dst_conn).await?;
         rows_written = usize::try_from(res.rows_affected()).unwrap_or(usize::MAX);
+    }
+
+    if is_hash_dst {
+        sqlx::query("DROP TABLE IF EXISTS _tile_id_map")
+            .execute(&mut *dst_conn)
+            .await?;
     }
 
     Ok((unique_encoded, rows_written))
@@ -482,12 +519,31 @@ async fn write_normalized_chunk(
         values.push_str("(?,?)");
     }
 
+    let is_hash_dst = matches!(
+        dst_type,
+        MbtType::Normalized {
+            schema: NormalizedSchema::Hash,
+            ..
+        }
+    );
+
     let sql = match dst_type {
         MbtType::Normalized { .. } => {
             let dst_schema = dst_type.normalized_schema().expect("dst is normalized");
             let dst_tiles = dst_schema.content_table();
             let dst_id = dst_schema.tile_id_column();
-            format!("INSERT OR REPLACE INTO {dst_tiles} ({dst_id}, tile_data) VALUES {values}")
+            if is_hash_dst {
+                // Recompute tile_id from the (possibly transformed) tile_data
+                format!(
+                    "WITH new_tiles(old_id, tile_data) AS (VALUES {values})
+                     INSERT OR REPLACE INTO {dst_tiles} ({dst_id}, tile_data)
+                     SELECT md5_hex(tile_data), tile_data FROM new_tiles"
+                )
+            } else {
+                format!(
+                    "INSERT OR REPLACE INTO {dst_tiles} ({dst_id}, tile_data) VALUES {values}"
+                )
+            }
         }
         MbtType::Flat => format!(
             "WITH new_tiles(tile_id, tile_data) AS (VALUES {values})
@@ -511,7 +567,24 @@ async fn write_normalized_chunk(
         q = q.bind(tile_id).bind(&data[..]);
     }
     let res = q.execute(&mut *tx).await?;
-    Ok(usize::try_from(res.rows_affected()).unwrap_or(0))
+    let rows = usize::try_from(res.rows_affected()).unwrap_or(0);
+
+    // For Hash destinations, record old_id → new_id mapping so the map
+    // table INSERT can reference the recomputed tile_ids.
+    if is_hash_dst {
+        let map_sql = format!(
+            "WITH new_tiles(old_id, tile_data) AS (VALUES {values})
+             INSERT OR REPLACE INTO _tile_id_map (old_id, new_id)
+             SELECT old_id, md5_hex(tile_data) FROM new_tiles"
+        );
+        let mut mq = sqlx::query(&map_sql);
+        for (tile_id, data) in chunk {
+            mq = mq.bind(tile_id).bind(&data[..]);
+        }
+        mq.execute(&mut *tx).await?;
+    }
+
+    Ok(rows)
 }
 
 /// Reader: stream tiles from Flat/FlatWithHash source into batches.
@@ -723,6 +796,7 @@ async fn general_writer(
 }
 
 #[cfg(test)]
+#[expect(clippy::unwrap_used)]
 mod tests {
     use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -826,7 +900,7 @@ mod tests {
         )
         .await;
 
-        assert_eq!(stats.tiles_written, 5);
+        assert_eq!(stats.tiles_written, 6);
         let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM map")
             .fetch_one(&mut conn)
             .await
@@ -840,12 +914,12 @@ mod tests {
         let (stats, mut conn, _dir) =
             transcode_identity(script, "tc_norm_flat", Some(MbtType::Flat)).await;
 
-        assert_eq!(stats.tiles_written, 5);
+        assert_eq!(stats.tiles_written, 6);
         let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM tiles")
             .fetch_one(&mut conn)
             .await
             .unwrap();
-        assert_eq!(count, 5);
+        assert_eq!(count, 6);
     }
 
     #[actix_rt::test]
@@ -924,13 +998,14 @@ mod tests {
         .await
         .unwrap();
 
-        insta::assert_debug_snapshot!(stats, @r#"
-        TranscodeStats {
-            tiles_written: 5,
-            cache_hits: 0,
-            cache_encoded: 2,
-        }
-        "#);
+        assert_eq!(
+            stats,
+            TranscodeStats {
+                tiles_written: 5,
+                cache_hits: 0,
+                cache_encoded: 2,
+            }
+        );
         let calls = call_count.load(Ordering::Relaxed);
         assert_eq!(
             calls, 2,
@@ -959,13 +1034,14 @@ mod tests {
         .await
         .unwrap();
 
-        insta::assert_debug_snapshot!(stats, @r#"
-        TranscodeStats {
-            tiles_written: 8,
-            cache_hits: 4,
-            cache_encoded: 4,
-        }
-        "#);
+        assert_eq!(
+            stats,
+            TranscodeStats {
+                tiles_written: 8,
+                cache_hits: 4,
+                cache_encoded: 4,
+            }
+        );
         let calls = call_count.load(Ordering::Relaxed);
         assert_eq!(calls as u64, stats.cache_encoded);
     }
