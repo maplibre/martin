@@ -237,7 +237,11 @@ where
         // `tile_id`. Per-row try_get fallback would re-allocate an error
         // string every miss.
         let id_is_integer = src_schema.uses_integer_tile_id();
-        let select_col = if id_is_integer { "tile_data_id" } else { "tile_id" };
+        let select_col = if id_is_integer {
+            "tile_data_id"
+        } else {
+            "tile_id"
+        };
 
         let (raw_tx, raw_rx) = bounded::<NormRawBatch>(self.channel_buffer);
         let (enc_tx, enc_rx) = bounded::<NormEncBatch>(self.channel_buffer);
@@ -248,17 +252,10 @@ where
         let sql = format!("SELECT {select_col}, tile_data FROM {content_table}");
         let reader = normalized_reader(src_conn, &sql, raw_tx, batch_size, id_is_integer);
         let compute = normalized_compute(raw_rx, enc_tx, transform);
-        let writer = normalized_writer(
-            dst_conn,
-            enc_rx,
-            dst_type,
-            src_map,
-            tile_id_col,
-            batch_size,
-        );
+        let writer =
+            normalized_writer(dst_conn, enc_rx, dst_type, src_map, tile_id_col, batch_size);
 
-        let ((), (), (unique_encoded, tiles_written)) =
-            tokio::try_join!(reader, compute, writer)?;
+        let ((), (), (unique_encoded, tiles_written)) = tokio::try_join!(reader, compute, writer)?;
 
         info!("Encoded {unique_encoded} unique tiles, wrote {tiles_written} rows");
 
@@ -691,8 +688,13 @@ async fn general_writer(
         }
 
         if pending.len() >= batch_size || last_flush.elapsed() >= FLUSH_INTERVAL {
-            dst.insert_tiles(&mut dst_conn, dst_type, CopyDuplicateMode::Override, &pending)
-                .await?;
+            dst.insert_tiles(
+                &mut dst_conn,
+                dst_type,
+                CopyDuplicateMode::Override,
+                &pending,
+            )
+            .await?;
             total += pending.len();
             pending.clear();
             last_flush = Instant::now();
@@ -702,8 +704,13 @@ async fn general_writer(
 
     // Final flush.
     if !pending.is_empty() {
-        dst.insert_tiles(&mut dst_conn, dst_type, CopyDuplicateMode::Override, &pending)
-            .await?;
+        dst.insert_tiles(
+            &mut dst_conn,
+            dst_type,
+            CopyDuplicateMode::Override,
+            &pending,
+        )
+        .await?;
         total += pending.len();
         pending.clear();
     }
@@ -719,9 +726,10 @@ async fn general_writer(
 mod tests {
     use std::sync::atomic::{AtomicUsize, Ordering};
 
+    use tempfile::NamedTempFile;
+
     use super::*;
     use crate::NormalizedSchema;
-use tempfile::NamedTempFile;
     use crate::metadata::temp_named_mbtiles;
 
     /// Helper: create a source in-memory db from SQL, run the transcoder to a
@@ -733,9 +741,10 @@ use tempfile::NamedTempFile;
     ) -> (TranscodeStats, SqliteConnection, tempfile::TempDir) {
         let (_mbt, _conn, src_file) = temp_named_mbtiles(src_name, src_script).await;
 
-                    let dst_file = NamedTempFile::with_suffix("mbtiles").unwrap();
+        let dst_file = NamedTempFile::with_suffix("mbtiles").unwrap();
 
-        let mut builder = MbtilesTranscoder::new(src_file, dst_file.clone(), |data| Ok(Bytes::from(data)));
+        let mut builder =
+            MbtilesTranscoder::new(src_file, dst_file.clone(), |data| Ok(Bytes::from(data)));
         if let Some(dt) = dst_type {
             builder = builder.dst_type(dt);
         }
@@ -764,7 +773,8 @@ use tempfile::NamedTempFile;
             .unwrap();
         drop(src_conn);
 
-        let mut builder = MbtilesTranscoder::new(src_file, dst_file.clone(), |data| Ok(Bytes::from(data)));
+        let mut builder =
+            MbtilesTranscoder::new(src_file, dst_file.clone(), |data| Ok(Bytes::from(data)));
         if let Some(dt) = dst_type {
             builder = builder.dst_type(dt);
         }
@@ -904,10 +914,7 @@ use tempfile::NamedTempFile;
 
         let src_mbt = Mbtiles::new(src_file.path()).unwrap();
         let mut src_conn = src_mbt.open_or_new().await.unwrap();
-        sqlx::raw_sql(&script)
-            .execute(&mut src_conn)
-            .await
-            .unwrap();
+        sqlx::raw_sql(&script).execute(&mut src_conn).await.unwrap();
         drop(src_conn);
 
         let stats = MbtilesTranscoder::new(src_file.path(), dst_file.path(), move |data| {
@@ -924,7 +931,10 @@ use tempfile::NamedTempFile;
 
         insta::assert_snapshot!(stats, @"tiles_written=5, cache_hits=0, cache_encoded=2");
         let calls = call_count.load(Ordering::Relaxed);
-        assert_eq!(calls, 2, "transform must be called once per unique image, not per map entry");
+        assert_eq!(
+            calls, 2,
+            "transform must be called once per unique image, not per map entry"
+        );
     }
 
     #[actix_rt::test]
@@ -932,7 +942,11 @@ use tempfile::NamedTempFile;
         let call_count = Arc::new(AtomicUsize::new(0));
         let call_count_clone = Arc::clone(&call_count);
 
-        let (_mbt, _conn, src_file) = temp_named_mbtiles("tc_dedup", include_str!("../../tests/fixtures/mbtiles/world_cities.sql")).await;
+        let (_mbt, _conn, src_file) = temp_named_mbtiles(
+            "tc_dedup",
+            include_str!("../../tests/fixtures/mbtiles/world_cities.sql"),
+        )
+        .await;
         let dst_file = NamedTempFile::with_suffix("mbtiles").unwrap();
 
         let stats = MbtilesTranscoder::new(src_file, dst_file.path(), move |data| {

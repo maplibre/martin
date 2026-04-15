@@ -56,11 +56,13 @@ fn bench_transcode(c: &mut Criterion) {
             |dst| {
                 let src = src.clone();
                 async move {
-                    MbtilesTranscoder::new(src, dst.path().to_path_buf(), |data| Ok(Bytes::from(data)))
-                        .dst_type(MbtType::Flat)
-                        .run()
-                        .await
-                        .unwrap();
+                    MbtilesTranscoder::new(src, dst.path().to_path_buf(), |data| {
+                        Ok(Bytes::from(data))
+                    })
+                    .dst_type(MbtType::Flat)
+                    .run()
+                    .await
+                    .unwrap();
                 }
             },
             BatchSize::PerIteration,
@@ -74,11 +76,13 @@ fn bench_transcode(c: &mut Criterion) {
             |dst| {
                 let src = src.clone();
                 async move {
-                    MbtilesTranscoder::new(src, dst.path().to_path_buf(), |data| Ok(Bytes::from(data)))
-                        .dst_type(NORM_WITH_VIEW)
-                        .run()
-                        .await
-                        .unwrap();
+                    MbtilesTranscoder::new(src, dst.path().to_path_buf(), |data| {
+                        Ok(Bytes::from(data))
+                    })
+                    .dst_type(NORM_WITH_VIEW)
+                    .run()
+                    .await
+                    .unwrap();
                 }
             },
             BatchSize::PerIteration,
@@ -92,11 +96,13 @@ fn bench_transcode(c: &mut Criterion) {
             |dst| {
                 let src = src.clone();
                 async move {
-                    MbtilesTranscoder::new(src, dst.path().to_path_buf(), |data| Ok(Bytes::from(data)))
-                        .dst_type(NORM_WITH_VIEW)
-                        .run()
-                        .await
-                        .unwrap();
+                    MbtilesTranscoder::new(src, dst.path().to_path_buf(), |data| {
+                        Ok(Bytes::from(data))
+                    })
+                    .dst_type(NORM_WITH_VIEW)
+                    .run()
+                    .await
+                    .unwrap();
                 }
             },
             BatchSize::PerIteration,
@@ -110,11 +116,13 @@ fn bench_transcode(c: &mut Criterion) {
             |dst| {
                 let src = src.clone();
                 async move {
-                    MbtilesTranscoder::new(src, dst.path().to_path_buf(), |data| Ok(Bytes::from(data)))
-                        .dst_type(MbtType::Flat)
-                        .run()
-                        .await
-                        .unwrap();
+                    MbtilesTranscoder::new(src, dst.path().to_path_buf(), |data| {
+                        Ok(Bytes::from(data))
+                    })
+                    .dst_type(MbtType::Flat)
+                    .run()
+                    .await
+                    .unwrap();
                 }
             },
             BatchSize::PerIteration,
@@ -128,11 +136,13 @@ fn bench_transcode(c: &mut Criterion) {
             |dst| {
                 let src = src.clone();
                 async move {
-                    MbtilesTranscoder::new(src, dst.path().to_path_buf(), |data| Ok(Bytes::from(data)))
-                        .dst_type(MbtType::FlatWithHash)
-                        .run()
-                        .await
-                        .unwrap();
+                    MbtilesTranscoder::new(src, dst.path().to_path_buf(), |data| {
+                        Ok(Bytes::from(data))
+                    })
+                    .dst_type(MbtType::FlatWithHash)
+                    .run()
+                    .await
+                    .unwrap();
                 }
             },
             BatchSize::PerIteration,
@@ -146,11 +156,13 @@ fn bench_transcode(c: &mut Criterion) {
             |dst| {
                 let src = src.clone();
                 async move {
-                    MbtilesTranscoder::new(src, dst.path().to_path_buf(), |data| Ok(Bytes::from(data)))
-                        .dst_type(MbtType::FlatWithHash)
-                        .run()
-                        .await
-                        .unwrap();
+                    MbtilesTranscoder::new(src, dst.path().to_path_buf(), |data| {
+                        Ok(Bytes::from(data))
+                    })
+                    .dst_type(MbtType::FlatWithHash)
+                    .run()
+                    .await
+                    .unwrap();
                 }
             },
             BatchSize::PerIteration,
