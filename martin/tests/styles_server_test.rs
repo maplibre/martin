@@ -63,13 +63,13 @@ async fn catalog_multiple_styles() {
     let body: Value = read_body_json(response).await;
 
     insta::with_settings!({sort_maps => true}, {
-        assert_json_snapshot!(body["styles"], @r###"
+        assert_json_snapshot!(body["styles"], @r#"
         {
           "maplibre_demo": {
             "path": "../tests/fixtures/styles/maplibre_demo.json"
           }
         }
-        "###);
+        "#);
     });
 }
 

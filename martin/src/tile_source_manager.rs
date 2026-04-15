@@ -207,7 +207,7 @@ mod tests {
             ..Default::default()
         };
         mgr.apply_changes(advisory).await.unwrap();
-        assert_yaml_snapshot!(sorted_source_names(&mgr), @r"
+        assert_yaml_snapshot!(sorted_source_names(&mgr), @"
         - src_a
         - src_b
         ");
@@ -221,7 +221,7 @@ mod tests {
             ..Default::default()
         };
         mgr.apply_changes(add).await.unwrap();
-        assert_yaml_snapshot!(sorted_source_names(&mgr), @r"
+        assert_yaml_snapshot!(sorted_source_names(&mgr), @"
         - src_a
         - src_b
         ");
@@ -235,9 +235,7 @@ mod tests {
             ..Default::default()
         };
         mgr.apply_changes(remove).await.unwrap();
-        assert_yaml_snapshot!(sorted_source_names(&mgr), @r"
-        - src_b
-        ");
+        assert_yaml_snapshot!(sorted_source_names(&mgr), @"- src_b");
     }
 
     #[tokio::test]
@@ -254,9 +252,7 @@ mod tests {
             ..Default::default()
         };
         mgr.apply_changes(update).await.unwrap();
-        assert_yaml_snapshot!(sorted_source_names(&mgr), @r"
-        - src_a
-        ");
+        assert_yaml_snapshot!(sorted_source_names(&mgr), @"- src_a");
     }
 
     #[tokio::test]
@@ -273,9 +269,7 @@ mod tests {
             tj: tilejson! { tiles: vec![] },
         }) as BoxedSource;
         let mgr = TileSourceManager::from_sources(None, OnInvalid::Abort, vec![vec![src]]);
-        assert_yaml_snapshot!(sorted_source_names(&mgr), @r"
-        - x
-        ");
+        assert_yaml_snapshot!(sorted_source_names(&mgr), @"- x");
         assert!(mgr.tile_cache().is_none());
     }
 
@@ -287,8 +281,6 @@ mod tests {
             ..Default::default()
         };
         mgr.apply_changes(advisory).await.unwrap();
-        assert_yaml_snapshot!(sorted_source_names(&mgr), @r"
-        - a
-        ");
+        assert_yaml_snapshot!(sorted_source_names(&mgr), @"- a");
     }
 }
