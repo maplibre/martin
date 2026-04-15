@@ -30,23 +30,43 @@ martin  /path/to/directory
     We also don't currently support refreshing the catalog at runtime.
     If you want to implement this feature, please see <https://github.com/maplibre/martin/issues/288> instead.
 
-## MBtiles vs PMTiles
+## MBTiles vs PMTiles
 
-The difference between MBTiles and PMTiles is that:
+MBTiles and PMTiles are both formats for storing tiled geospatial data, but they differ in architecture, deployment, and operational characteristics.
 
-- **MBTiles** require the entire archive to be on the same machine. **PMTiles** can utilise a remote HTTP-Range request supporting server or a local file.
-- Performance wise, **MBTiles** is slightly faster than **PMTiles**, but with caching this is negligible.
-- Disk size wise, **MBTiles** is slightly (10-15%) higher than **PMTiles**.
-- In extreme cases, **PMTiles** may require less memory than **MBTiles**, because **MBTiles** uses sqlite, which has a small in-memory cache.
+### Key Differences
 
-PMtiles can also be served **without martin**, but this has a few caveats:
+* **Deployment model**
+  **MBTiles** archives must be stored locally on the same machine as the tile server.
+  **PMTiles** archives can be accessed either locally or remotely via HTTP range requests, enabling direct use from object storage (e.g., S3-compatible systems).
+* **Performance**
+  **MBTiles** typically provide slightly lower latency due to local access and SQLite indexing.
+  **PMTiles** may introduce additional latency when accessed remotely, but this is usually mitigated by HTTP caching and CDN usage.
+* **Storage efficiency**
+  **PMTiles** archives are generally more space-efficient, typically ~10–15% smaller than equivalent **MBTiles** archives.
+* **Memory usage**
+  **MBTiles** relies on SQLite, which maintains an internal page cache and may increase memory usage under load.
+  **PMTiles** can, in some cases, operate with lower memory overhead, depending on access patterns and caching configuration.
 
-- If not set up separately and used maliciously, being able to connect and download the planet could incur network costs on some cloud providers.
-- PMTiles slightly overfetches each tile to avoid needing to do multiple requests
-- When you serve PMTiles without Martin, you cannot combine those archive sources with dynamic datasources such as PostGIS in a single unified server or catalog; use Martin as the tile server when you need to serve both archive sources and PostGIS together.
-- Caching is likely less effective
+### Serving PMTiles without a Tile Server
 
-The choice depends on your specific usecase and requirements.
+PMTiles archives can be served directly from HTTP range–capable storage without a dedicated tile server. This approach has several limitations:
+
+* **Unrestricted access risk**
+  Without proper access controls, clients may download large portions (or all) of an archive, potentially incurring significant network egress costs.
+* **Over-fetching**
+  PMTiles may fetch more data than strictly required per tile request to minimize the number of HTTP requests.
+* **Lack of source composition**
+  Direct serving does not support combining PMTiles with dynamic data sources (e.g., PostGIS) into a unified tile service.
+  A tile server (e.g, Martin) is required for this.
+* **Caching behavior**
+  Cache efficiency may be reduced compared to setups with a dedicated tile server that can optimize request patterns.
+
+The choice between MBTiles and PMTiles depends on system requirements:
+
+* Use **MBTiles** for local, self-contained deployments with minimal external dependencies.
+* Use **PMTiles** for cloud-native or distributed setups where remote access, CDN integration, or object storage is preferred.
+
 
 ### Serving PMTiles from local file systems, http or Object Storage
 
