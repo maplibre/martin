@@ -71,7 +71,7 @@ impl DebouncedWarning {
     /// in the caller's context.
     pub async fn once_per_hour<F: FnOnce()>(&self, f: F) {
         let mut last = self.last_warning.lock().await;
-        if last.elapsed() >= Duration::from_secs(3600) {
+        if last.elapsed() >= Duration::from_hours(1) {
             *last = std::time::Instant::now();
             f();
         }

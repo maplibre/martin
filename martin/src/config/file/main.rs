@@ -826,8 +826,8 @@ mod tests {
     fn cache_expiry_global_config() {
         let config = parse_yaml("cache:\n  size_mb: 512\n  expiry: 1h\n  idle_timeout: 15m");
         assert_eq!(config.cache.size_mb, Some(512));
-        assert_eq!(config.cache.expiry, Some(Duration::from_secs(3600)));
-        assert_eq!(config.cache.idle_timeout, Some(Duration::from_secs(900)));
+        assert_eq!(config.cache.expiry, Some(Duration::from_hours(1)));
+        assert_eq!(config.cache.idle_timeout, Some(Duration::from_mins(15)));
     }
 
     #[test]
@@ -835,12 +835,9 @@ mod tests {
         let config = parse_yaml(
             "cache:\n  expiry: 1h\n  idle_timeout: 15m\n  tile_expiry: 30m\n  tile_idle_timeout: 5m",
         );
-        assert_eq!(config.cache.expiry, Some(Duration::from_secs(3600)));
-        assert_eq!(config.cache.tile_expiry, Some(Duration::from_secs(1800)));
-        assert_eq!(
-            config.cache.tile_idle_timeout,
-            Some(Duration::from_secs(300))
-        );
+        assert_eq!(config.cache.expiry, Some(Duration::from_hours(1)));
+        assert_eq!(config.cache.tile_expiry, Some(Duration::from_mins(30)));
+        assert_eq!(config.cache.tile_idle_timeout, Some(Duration::from_mins(5)));
     }
 
     #[test]
@@ -862,10 +859,7 @@ mod tests {
             panic!("expected sprites config");
         };
         assert_eq!(cfg.custom.cache.size_mb, Some(64));
-        assert_eq!(cfg.custom.cache.expiry, Some(Duration::from_secs(7200)));
-        assert_eq!(
-            cfg.custom.cache.idle_timeout,
-            Some(Duration::from_secs(1800))
-        );
+        assert_eq!(cfg.custom.cache.expiry, Some(Duration::from_hours(2)));
+        assert_eq!(cfg.custom.cache.idle_timeout, Some(Duration::from_mins(30)));
     }
 }
