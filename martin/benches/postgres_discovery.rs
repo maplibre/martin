@@ -107,7 +107,7 @@ async fn populate_tables(connection_string: &str, count: usize) {
 
         // Insert sample data
         let sample_geom = match geometry_type {
-            "Point" => format!("ST_SetSRID(ST_MakePoint(-73.9857, 40.7484), {srid})",),
+            "Point" => format!("ST_SetSRID(ST_MakePoint(-73.9857, 40.7484), {srid})"),
             "LineString" => {
                 format!(
                     "ST_SetSRID(ST_MakeLine(ST_MakePoint(-73.9857, 40.7484), ST_MakePoint(-73.9757, 40.7584)), {srid})",

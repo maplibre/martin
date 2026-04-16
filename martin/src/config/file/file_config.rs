@@ -496,12 +496,11 @@ fn collect_files_with_extension(
         .filter(|f| {
             f.path()
                 .extension()
-                .filter(|actual_ext| {
+                .is_some_and(|actual_ext| {
                     allowed_extension
                         .iter()
-                        .any(|expected_ext| expected_ext == actual_ext)
+                        .any(|expected_ext| *expected_ext == actual_ext)
                 })
-                .is_some()
                 && f.path().is_file()
         })
         .map(|f| f.path())
