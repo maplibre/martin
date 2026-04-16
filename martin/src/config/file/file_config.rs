@@ -494,14 +494,11 @@ fn collect_files_with_extension(
         .map_err(|e| ConfigFileError::IoError(e, base_path.to_path_buf()))?
         .filter_map(Result::ok)
         .filter(|f| {
-            f.path()
-                .extension()
-                .is_some_and(|actual_ext| {
-                    allowed_extension
-                        .iter()
-                        .any(|expected_ext| *expected_ext == actual_ext)
-                })
-                && f.path().is_file()
+            f.path().extension().is_some_and(|actual_ext| {
+                allowed_extension
+                    .iter()
+                    .any(|expected_ext| *expected_ext == actual_ext)
+            }) && f.path().is_file()
         })
         .map(|f| f.path())
         .collect())

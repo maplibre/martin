@@ -837,10 +837,7 @@ mod tests {
         );
         assert_eq!(config.cache.expiry, Some(Duration::from_hours(1)));
         assert_eq!(config.cache.tile_expiry, Some(Duration::from_mins(30)));
-        assert_eq!(
-            config.cache.tile_idle_timeout,
-            Some(Duration::from_mins(5))
-        );
+        assert_eq!(config.cache.tile_idle_timeout, Some(Duration::from_mins(5)));
     }
 
     #[test]
@@ -863,9 +860,6 @@ mod tests {
         };
         assert_eq!(cfg.custom.cache.size_mb, Some(64));
         assert_eq!(cfg.custom.cache.expiry, Some(Duration::from_hours(2)));
-        assert_eq!(
-            cfg.custom.cache.idle_timeout,
-            Some(Duration::from_mins(30))
-        );
+        assert_eq!(cfg.custom.cache.idle_timeout, Some(Duration::from_mins(30)));
     }
 }
