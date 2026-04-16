@@ -895,6 +895,40 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#mbtiles-vs-pmtiles" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        MBTiles vs PMTiles
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="MBTiles vs PMTiles">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#key-differences" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Differences
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#serving-pmtiles-without-a-tile-server" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Serving PMTiles without a Tile Server
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#serving-pmtiles-from-local-file-systems-http-or-object-storage" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -904,8 +938,8 @@
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
+        
+          <li class="md-nav__item">
   <a href="#available-http-client-settings" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -954,8 +988,8 @@
     </nav>
   
 </li>
-      
-        <li class="md-nav__item">
+        
+          <li class="md-nav__item">
   <a href="#available-aws-s3-settings" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1048,8 +1082,8 @@
     </nav>
   
 </li>
-      
-        <li class="md-nav__item">
+        
+          <li class="md-nav__item">
   <a href="#available-google-settings" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1109,8 +1143,8 @@
     </nav>
   
 </li>
-      
-        <li class="md-nav__item">
+        
+          <li class="md-nav__item">
   <a href="#available-azure-settings" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1185,6 +1219,11 @@
       
     </span>
   </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
         
@@ -1770,6 +1809,42 @@ If you want to implement this feature, please see <a href="https://github.com/ma
 <p>We also don't currently support refreshing the catalog at runtime.
 If you want to implement this feature, please see <a href="https://github.com/maplibre/martin/issues/288">https://github.com/maplibre/martin/issues/288</a> instead.</p>
 </div>
+<h2 id="mbtiles-vs-pmtiles">MBTiles vs PMTiles</h2>
+<p>MBTiles and PMTiles are both formats for storing tiled geospatial data, but they differ in architecture, deployment, and operational characteristics.</p>
+<h3 id="key-differences">Key Differences</h3>
+<ul>
+<li><strong>Deployment model</strong>
+  <strong>MBTiles</strong> archives must be stored locally on the same machine as the tile server.
+  <strong>PMTiles</strong> archives can be accessed either locally or remotely via HTTP range requests, e.g. from an object storage like S3.
+  <strong>PMTiles</strong> allows simpler production deployment with Kubernetes, as it allows the large data file to reside in S3 and shared by multiple pods, but restricted from direct user access.</li>
+<li><strong>Performance</strong>
+  <strong>MBTiles</strong> typically provide slightly lower latency due to local access and SQLite indexing.
+  <strong>PMTiles</strong> may introduce additional latency when accessed remotely, but this is usually mitigated by HTTP caching and CDN usage.</li>
+<li><strong>Storage efficiency</strong>
+  <strong>PMTiles</strong> archives are generally more space-efficient, typically ~10–15% smaller than equivalent <strong>MBTiles</strong> archives.</li>
+<li><strong>Memory usage</strong>
+  <strong>MBTiles</strong> relies on SQLite, which maintains an internal page cache and may increase memory usage under load.
+  <strong>PMTiles</strong> can, in some cases, operate with lower memory overhead, depending on access patterns and caching configuration.</li>
+</ul>
+<h3 id="serving-pmtiles-without-a-tile-server">Serving PMTiles without a Tile Server</h3>
+<p>PMTiles archives can be served directly from HTTP range–capable storage without a dedicated tile server. This approach has several limitations:</p>
+<ul>
+<li><strong>Unrestricted access risk</strong>
+  Without proper access controls, clients may download large portions (or all) of an archive, leading to significant egress costs.
+  A tile server restricts access to tile requests, but bulk extraction remains possible via many requests, which are generally easier to detect and block.</li>
+<li><strong>Over-fetching</strong>
+  PMTiles may fetch more data than strictly required per tile request to minimize the number of HTTP requests.</li>
+<li><strong>Lack of source composition</strong>
+  Direct serving does not support combining PMTiles with dynamic data sources (e.g., PostGIS) into a unified tile service.
+  A tile server (e.g, Martin) is required for this.</li>
+<li><strong>Caching behavior</strong>
+  Cache efficiency may be reduced compared to setups with a dedicated tile server that can optimize request patterns.</li>
+</ul>
+<p>The choice between MBTiles and PMTiles depends on system requirements:</p>
+<ul>
+<li>Use <strong>MBTiles</strong> for local, self-contained deployments with minimal external dependencies.</li>
+<li>Use <strong>PMTiles</strong> for cloud-native or distributed setups where remote access, CDN integration, or object storage is preferred.</li>
+</ul>
 <h3 id="serving-pmtiles-from-local-file-systems-http-or-object-storage">Serving PMTiles from local file systems, http or Object Storage</h3>
 <p>The settings available for a PMTiles source depend on the backend:</p>
 <div class="tabbed-set tabbed-alternate" data-tabs="1:5"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><input id="__tabbed_1_3" name="__tabbed_1" type="radio" /><input id="__tabbed_1_4" name="__tabbed_1" type="radio" /><input id="__tabbed_1_5" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Local File System</label><label for="__tabbed_1_2">Http(s)</label><label for="__tabbed_1_3">Amazon S3</label><label for="__tabbed_1_4">Google Cloud Storage</label><label for="__tabbed_1_5">Microsoft Azure</label></div>
