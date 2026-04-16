@@ -35,13 +35,14 @@ jobs:
       - uses: rustsec/audit-check@69366f33c96575abad1ee0dba8212993eecbe998 # v2.0.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          ignore: RUSTSEC-2023-0071,RUSTSEC-2024-0436,RUSTSEC-2025-0134,RUSTSEC-2026-0002,RUSTSEC-2026-0007,RUSTSEC-2026-0049
+          ignore: RUSTSEC-2023-0071,RUSTSEC-2024-0436,RUSTSEC-2025-0134,RUSTSEC-2026-0002,RUSTSEC-2026-0007,RUSTSEC-2026-0098,RUSTSEC-2026-0099
           # RUSTSEC-2023-0071 = Marvin Attack: potential key recovery through timing side channels => not used exploitably
           # RUSTSEC-2024-0436 = paste - no longer maintained
           # RUSTSEC-2025-0134 = rustls-pemfile is unmaintained, but only used in development dependencies
           # RUSTSEC-2026-0002 = unsound stack borrow in lru
           # RUSTSEC-2026-0007 = integer overflow in bytes
-          # RUSTSEC-2026-0049 = rustls-webpki@0.101.7 CRL matching bug; stuck in aws-smithy-http-client's legacy rustls@0.21 chain, cannot be upgraded without an upstream aws-sdk-s3 release
+          # RUSTSEC-2026-0098 = rustls-webpki name constraints for URI names; remaining finding is rustls-webpki@0.101.7 in aws-smithy-http-client's legacy rustls@0.21 chain
+          # RUSTSEC-2026-0099 = rustls-webpki wildcard name constraints; remaining finding is rustls-webpki@0.101.7 in aws-smithy-http-client's legacy rustls@0.21 chain
   dependency-review:
     runs-on: ubuntu-latest
     permissions:
