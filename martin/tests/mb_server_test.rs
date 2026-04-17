@@ -116,7 +116,7 @@ async fn mbt_get_catalog() {
         name: Major cities from Natural Earth data
       m_raw_mlt:
         attribution: "<a href=\"https://www.openmaptiles.org/\" target=\"_blank\">&copy; OpenMapTiles</a> <a href=\"https://www.openstreetmap.org/copyright\" target=\"_blank\">&copy; OpenStreetMap contributors</a>"
-        content_type: application/vnd.maplibre-vector-tile
+        content_type: application/vnd.maplibre-tile
         description: "A tileset showcasing all layers in OpenMapTiles. https://openmaptiles.org"
         name: OpenMapTiles
       m_raw_mvt:
@@ -155,7 +155,7 @@ async fn mbt_get_catalog_gzip() {
         name: Major cities from Natural Earth data
       m_raw_mlt:
         attribution: "<a href=\"https://www.openmaptiles.org/\" target=\"_blank\">&copy; OpenMapTiles</a> <a href=\"https://www.openstreetmap.org/copyright\" target=\"_blank\">&copy; OpenStreetMap contributors</a>"
-        content_type: application/vnd.maplibre-vector-tile
+        content_type: application/vnd.maplibre-tile
         description: "A tileset showcasing all layers in OpenMapTiles. https://openmaptiles.org"
         name: OpenMapTiles
       m_raw_mvt:
@@ -321,7 +321,7 @@ async fn mbt_get_raw_mlt() {
     let response = assert_response(response).await;
     assert_eq!(
         response.headers().get(CONTENT_TYPE).unwrap(),
-        "application/vnd.maplibre-vector-tile"
+        "application/vnd.maplibre-tile"
     );
     assert_eq!(response.headers().get(CONTENT_ENCODING), None);
     let body = read_body(response).await;

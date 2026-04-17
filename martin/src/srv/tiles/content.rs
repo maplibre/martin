@@ -85,12 +85,13 @@ pub struct TileRequestHeaders {
 ///
 /// Returns `Ok(None)` (= accept anything) when
 /// - the header is absent,
-/// - is empty,
-/// - contains a `*/*` wildcard or
-/// - `image/*` is expanded into all image formats
+/// - is empty, or
+/// - contains a `*/*` wildcard.
+///
+/// `image/*` is expanded into all image formats.
 ///
 /// Returns `Err(406)` if
-/// - the header is present but contains no recognized tile formats
+/// - the header is present but contains no recognized tile formats.
 fn parse_accept(accept: Option<Accept>) -> ActixResult<Option<Vec<Format>>> {
     let Some(accept) = accept else {
         return Ok(None);
@@ -785,6 +786,7 @@ mod tests {
     #[rstest]
     #[case::mvt_exact(&["application/x-protobuf"], Format::Mvt)]
     #[case::mlt_exact(&["application/vnd.maplibre-vector-tile"], Format::Mlt)]
+    #[case::mlt_short(&["application/vnd.maplibre-tile"], Format::Mlt)]
     #[case::png_exact(&["image/png"], Format::Png)]
     #[case::image_wildcard_png(&["image/*"], Format::Png)]
     #[case::image_wildcard_jpeg(&["image/*"], Format::Jpeg)]
@@ -804,6 +806,7 @@ mod tests {
     #[case::mvt_vs_png(&["application/x-protobuf"], Format::Png)]
     #[case::mvt_vs_mlt(&["application/x-protobuf"], Format::Mlt)]
     #[case::mlt_vs_mvt(&["application/vnd.maplibre-vector-tile"], Format::Mvt)]
+    #[case::mlt_short_vs_mvt(&["application/vnd.maplibre-tile"], Format::Mvt)]
     fn test_accept_406(#[case] accept_values: &[&str], #[case] source_format: Format) {
         let parsed = parse_accept_header(accept_values);
         let result = DynTileSource::resolve_accepted_format(parsed.as_deref(), source_format);

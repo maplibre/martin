@@ -642,6 +642,7 @@ test_accept_header table_source/0/0/0 "application/x-protobuf, image/png" 200
 test_accept_header table_source/0/0/0 "image/png" 406
 test_accept_header table_source/0/0/0 "image/*" 406
 test_accept_header table_source/0/0/0 "application/vnd.maplibre-vector-tile" 406
+test_accept_header table_source/0/0/0 "application/vnd.maplibre-tile" 406
 test_accept_header table_source/0/0/0 "text/html" 406
 
 # PNG source
@@ -650,6 +651,7 @@ test_accept_header pmt/0/0/0 "image/*" 200
 test_accept_header pmt/0/0/0 "*/*" 200
 test_accept_header pmt/0/0/0 "application/x-protobuf" 406
 test_accept_header pmt/0/0/0 "application/vnd.maplibre-vector-tile" 406
+test_accept_header pmt/0/0/0 "application/vnd.maplibre-tile" 406
 
 >&2 echo "***** Test URL redirects (HTTP 301) *****"
 

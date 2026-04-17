@@ -94,7 +94,7 @@ export function TileInspectDialogMap({ name, source }: TileInspectDialogMapProps
     map.addSource(name, {
       type: 'vector',
       url: buildMartinUrl(`/${name}`),
-      ...(source.content_type === 'application/vnd.maplibre-vector-tile' && { encoding: 'mlt' }),
+      ...((source.content_type === 'application/vnd.maplibre-tile' || source.content_type === 'application/vnd.maplibre-vector-tile') && { encoding: 'mlt' }),
     } as VectorSourceSpecification);
     // Import and add the inspect control
     if (inspectControlRef.current) {
