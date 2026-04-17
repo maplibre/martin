@@ -12,8 +12,18 @@
     {
       "filter": [
         "all",
-        ["==", "$type", "Polygon"],
-        ["in", "class", "residential", "suburb", "neighbourhood"]
+        [
+          "==",
+          "$type",
+          "Polygon"
+        ],
+        [
+          "in",
+          "class",
+          "residential",
+          "suburb",
+          "neighbourhood"
+        ]
       ],
       "id": "landuse-residential",
       "layout": {
@@ -28,7 +38,11 @@
       "type": "fill"
     },
     {
-      "filter": ["==", "class", "grass"],
+      "filter": [
+        "==",
+        "class",
+        "grass"
+      ],
       "id": "landcover_grass",
       "paint": {
         "fill-color": "hsl(82, 46%, 72%)",
@@ -39,13 +53,26 @@
       "type": "fill"
     },
     {
-      "filter": ["==", "class", "wood"],
+      "filter": [
+        "==",
+        "class",
+        "wood"
+      ],
       "id": "landcover_wood",
       "paint": {
         "fill-color": "hsl(82, 46%, 72%)",
         "fill-opacity": {
           "base": 1,
-          "stops": [[8, 0.6], [22, 1]]
+          "stops": [
+            [
+              8,
+              0.6
+            ],
+            [
+              22,
+              1
+            ]
+          ]
         }
       },
       "source": "openmaptiles",
@@ -55,9 +82,21 @@
     {
       "filter": [
         "all",
-        ["==", "$type", "Polygon"],
-        ["!=", "intermittent", 1],
-        ["!=", "brunnel", "tunnel"]
+        [
+          "==",
+          "$type",
+          "Polygon"
+        ],
+        [
+          "!=",
+          "intermittent",
+          1
+        ],
+        [
+          "!=",
+          "brunnel",
+          "tunnel"
+        ]
       ],
       "id": "water",
       "layout": {
@@ -71,7 +110,19 @@
       "type": "fill"
     },
     {
-      "filter": ["all", ["==", "$type", "Polygon"], ["==", "intermittent", 1]],
+      "filter": [
+        "all",
+        [
+          "==",
+          "$type",
+          "Polygon"
+        ],
+        [
+          "==",
+          "intermittent",
+          1
+        ]
+      ],
       "id": "water_intermittent",
       "layout": {
         "visibility": "visible"
@@ -85,7 +136,11 @@
       "type": "fill"
     },
     {
-      "filter": ["==", "subclass", "ice_shelf"],
+      "filter": [
+        "==",
+        "subclass",
+        "ice_shelf"
+      ],
       "id": "landcover-ice-shelf",
       "layout": {
         "visibility": "visible"
@@ -99,7 +154,11 @@
       "type": "fill"
     },
     {
-      "filter": ["==", "subclass", "glacier"],
+      "filter": [
+        "==",
+        "subclass",
+        "glacier"
+      ],
       "id": "landcover-glacier",
       "layout": {
         "visibility": "visible"
@@ -108,7 +167,16 @@
         "fill-color": "hsl(47, 22%, 94%)",
         "fill-opacity": {
           "base": 1,
-          "stops": [[0, 1], [8, 0.5]]
+          "stops": [
+            [
+              0,
+              1
+            ],
+            [
+              8,
+              0.5
+            ]
+          ]
         }
       },
       "source": "openmaptiles",
@@ -116,7 +184,14 @@
       "type": "fill"
     },
     {
-      "filter": ["all", ["in", "class", "sand"]],
+      "filter": [
+        "all",
+        [
+          "in",
+          "class",
+          "sand"
+        ]
+      ],
       "id": "landcover_sand",
       "metadata": {},
       "paint": {
@@ -129,7 +204,11 @@
       "type": "fill"
     },
     {
-      "filter": ["==", "class", "agriculture"],
+      "filter": [
+        "==",
+        "class",
+        "agriculture"
+      ],
       "id": "landuse",
       "layout": {
         "visibility": "visible"
@@ -142,13 +221,26 @@
       "type": "fill"
     },
     {
-      "filter": ["==", "class", "national_park"],
+      "filter": [
+        "==",
+        "class",
+        "national_park"
+      ],
       "id": "landuse_overlay_national_park",
       "paint": {
         "fill-color": "#E1EBB0",
         "fill-opacity": {
           "base": 1,
-          "stops": [[5, 0], [9, 0.75]]
+          "stops": [
+            [
+              5,
+              0
+            ],
+            [
+              9,
+              0.75
+            ]
+          ]
         }
       },
       "source": "openmaptiles",
@@ -162,10 +254,28 @@
         "fill-color": "rgba(222, 211, 190, 1)",
         "fill-opacity": {
           "base": 1,
-          "stops": [[13, 0], [15, 1]]
+          "stops": [
+            [
+              13,
+              0
+            ],
+            [
+              15,
+              1
+            ]
+          ]
         },
         "fill-outline-color": {
-          "stops": [[15, "rgba(212, 177, 146, 0)"], [16, "rgba(212, 177, 146, 0.5)"]]
+          "stops": [
+            [
+              15,
+              "rgba(212, 177, 146, 0)"
+            ],
+            [
+              16,
+              "rgba(212, 177, 146, 0.5)"
+            ]
+          ]
         }
       },
       "source": "openmaptiles",
@@ -173,7 +283,19 @@
       "type": "fill"
     },
     {
-      "filter": ["all", ["==", "$type", "Polygon"], ["==", "class", "pier"]],
+      "filter": [
+        "all",
+        [
+          "==",
+          "$type",
+          "Polygon"
+        ],
+        [
+          "==",
+          "class",
+          "pier"
+        ]
+      ],
       "id": "road_area_pier",
       "layout": {
         "visibility": "visible"
@@ -188,7 +310,19 @@
       "type": "fill"
     },
     {
-      "filter": ["all", ["==", "$type", "Polygon"], ["in", "brunnel", "bridge"]],
+      "filter": [
+        "all",
+        [
+          "==",
+          "$type",
+          "Polygon"
+        ],
+        [
+          "in",
+          "brunnel",
+          "bridge"
+        ]
+      ],
       "id": "road_bridge_area",
       "layout": {},
       "paint": {

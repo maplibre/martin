@@ -1,11 +1,16 @@
 {
   "bearing": 0,
-  "center": [17.6543171043, 32.9541203267],
+  "center": [
+    17.6543171043,
+    32.9541203267
+  ],
   "glyphs": "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf",
   "id": "43f36e14-e3f5-43c1-84c0-50a9c80dc5c7",
   "layers": [
     {
-      "filter": ["all"],
+      "filter": [
+        "all"
+      ],
       "id": "background",
       "layout": {
         "visibility": "visible"
@@ -17,7 +22,9 @@
       "type": "background"
     },
     {
-      "filter": ["all"],
+      "filter": [
+        "all"
+      ],
       "id": "coastline",
       "layout": {
         "line-cap": "round",
@@ -30,7 +37,24 @@
         "line-blur": 0.5,
         "line-color": "#198EC8",
         "line-width": {
-          "stops": [[0, 2], [6, 6], [14, 9], [22, 18]]
+          "stops": [
+            [
+              0,
+              2
+            ],
+            [
+              6,
+              6
+            ],
+            [
+              14,
+              9
+            ],
+            [
+              22,
+              18
+            ]
+          ]
         }
       },
       "source": "maplibre",
@@ -38,7 +62,9 @@
       "type": "line"
     },
     {
-      "filter": ["all"],
+      "filter": [
+        "all"
+      ],
       "id": "countries-fill",
       "layout": {
         "visibility": "visible"
@@ -47,7 +73,10 @@
       "paint": {
         "fill-color": [
           "match",
-          ["get", "ADM0_A3"],
+          [
+            "get",
+            "ADM0_A3"
+          ],
           [
             "ARM",
             "ATG",
@@ -281,7 +310,10 @@
             "ZAF"
           ],
           "#B1BBF9",
-          ["ATA", "GRL"],
+          [
+            "ATA",
+            "GRL"
+          ],
           "#FFFFFF",
           "#EAB38F"
         ]
@@ -301,10 +333,36 @@
       "paint": {
         "line-color": "rgba(255, 255, 255, 1)",
         "line-opacity": {
-          "stops": [[3, 0.5], [6, 1]]
+          "stops": [
+            [
+              3,
+              0.5
+            ],
+            [
+              6,
+              1
+            ]
+          ]
         },
         "line-width": {
-          "stops": [[1, 1], [6, 2], [14, 6], [22, 12]]
+          "stops": [
+            [
+              1,
+              1
+            ],
+            [
+              6,
+              2
+            ],
+            [
+              14,
+              6
+            ],
+            [
+              22,
+              12
+            ]
+          ]
         }
       },
       "source": "maplibre",
@@ -312,7 +370,14 @@
       "type": "line"
     },
     {
-      "filter": ["all", ["!=", "name", "International Date Line"]],
+      "filter": [
+        "all",
+        [
+          "!=",
+          "name",
+          "International Date Line"
+        ]
+      ],
       "id": "geolines",
       "layout": {
         "visibility": "visible"
@@ -320,7 +385,10 @@
       "maxzoom": 24,
       "paint": {
         "line-color": "#1077B0",
-        "line-dasharray": [3, 3],
+        "line-dasharray": [
+          3,
+          3
+        ],
         "line-opacity": 1
       },
       "source": "maplibre",
@@ -328,14 +396,32 @@
       "type": "line"
     },
     {
-      "filter": ["all", ["!=", "name", "International Date Line"]],
+      "filter": [
+        "all",
+        [
+          "!=",
+          "name",
+          "International Date Line"
+        ]
+      ],
       "id": "geolines-label",
       "layout": {
         "symbol-placement": "line",
         "text-field": "{name}",
-        "text-font": ["Open Sans Semibold"],
+        "text-font": [
+          "Open Sans Semibold"
+        ],
         "text-size": {
-          "stops": [[2, 12], [6, 16]]
+          "stops": [
+            [
+              2,
+              12
+            ],
+            [
+              6,
+              16
+            ]
+          ]
         },
         "visibility": "visible"
       },
@@ -352,19 +438,54 @@
       "type": "symbol"
     },
     {
-      "filter": ["all"],
+      "filter": [
+        "all"
+      ],
       "id": "countries-label",
       "layout": {
         "text-field": {
-          "stops": [[2, "{ABBREV}"], [4, "{NAME}"]]
+          "stops": [
+            [
+              2,
+              "{ABBREV}"
+            ],
+            [
+              4,
+              "{NAME}"
+            ]
+          ]
         },
-        "text-font": ["Open Sans Semibold"],
+        "text-font": [
+          "Open Sans Semibold"
+        ],
         "text-max-width": 10,
         "text-size": {
-          "stops": [[2, 10], [4, 12], [6, 16]]
+          "stops": [
+            [
+              2,
+              10
+            ],
+            [
+              4,
+              12
+            ],
+            [
+              6,
+              16
+            ]
+          ]
         },
         "text-transform": {
-          "stops": [[0, "uppercase"], [2, "none"]]
+          "stops": [
+            [
+              0,
+              "uppercase"
+            ],
+            [
+              2,
+              "none"
+            ]
+          ]
         },
         "visibility": "visible"
       },
@@ -373,11 +494,29 @@
       "paint": {
         "text-color": "rgba(8, 37, 77, 1)",
         "text-halo-blur": {
-          "stops": [[2, 0.2], [6, 0]]
+          "stops": [
+            [
+              2,
+              0.2
+            ],
+            [
+              6,
+              0
+            ]
+          ]
         },
         "text-halo-color": "rgba(255, 255, 255, 1)",
         "text-halo-width": {
-          "stops": [[2, 1], [6, 1.6]]
+          "stops": [
+            [
+              2,
+              1
+            ],
+            [
+              6,
+              1.6
+            ]
+          ]
         }
       },
       "source": "maplibre",
