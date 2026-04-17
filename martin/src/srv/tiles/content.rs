@@ -85,10 +85,12 @@ pub struct TileRequestHeaders {
 ///
 /// Returns `Ok(None)` (= accept anything) when
 /// - the header is absent,
-/// - is empty, or
-/// - contains a `*/*` wildcard.
-/// - `image/*` is expanded into all image formats.
-/// Returns `Err(406)` if the header is present but contains no recognized tile formats.
+/// - is empty,
+/// - contains a `*/*` wildcard or
+/// - `image/*` is expanded into all image formats
+/// 
+/// Returns `Err(406)` if
+/// - the header is present but contains no recognized tile formats
 fn parse_accept(accept: Option<Accept>) -> ActixResult<Option<Vec<Format>>> {
     let Some(accept) = accept else {
         return Ok(None);
