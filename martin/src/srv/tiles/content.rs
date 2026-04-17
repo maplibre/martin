@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use actix_http::ContentEncoding;
 use actix_http::header::Quality;
 use actix_web::error::{ErrorBadRequest, ErrorNotAcceptable, ErrorNotFound};
@@ -14,7 +16,6 @@ use martin_tile_utils::{
     decode_zstd, encode_brotli, encode_gzip, encode_zlib, encode_zstd,
 };
 use serde::Deserialize;
-use std::sync::Arc;
 use tracing::warn;
 
 use crate::config::args::PreferredEncoding;

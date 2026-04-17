@@ -63,4 +63,8 @@ pub enum ConfigFileError {
     #[cfg(feature = "pmtiles")]
     #[error("Failed to parse object store URL of {1}: {0}")]
     ObjectStoreUrlParsing(object_store::Error, String),
+
+    #[cfg(feature = "pmtiles")]
+    #[error("Failed to list object store prefix {1}: {0}")]
+    ObjectStoreListing(object_store::Error, String),
 }

@@ -1,8 +1,8 @@
+use std::sync::Arc;
 use std::time::Duration;
 
 use martin_tile_utils::TileCoord;
 use moka::future::Cache;
-use std::sync::Arc;
 use tracing::{info, trace};
 
 use crate::tiles::Tile;

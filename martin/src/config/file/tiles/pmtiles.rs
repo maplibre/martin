@@ -3,6 +3,7 @@ use std::env;
 use std::path::PathBuf;
 use std::str::FromStr as _;
 
+use futures::StreamExt as _;
 use martin_core::tiles::BoxedSource;
 use martin_core::tiles::pmtiles::{PmtCache, PmtCacheInstance, PmtilesSource};
 use serde::{Deserialize, Serialize};
@@ -255,5 +256,100 @@ impl TileSourceConfiguration for PmtConfig {
         let dir_cache = PmtCacheInstance::new(cache_id, self.pmtiles_directory_cache.clone());
         let source = PmtilesSource::new(dir_cache, id, store, path, cache.zoom()).await?;
         Ok(Box::new(source))
+    }
+
+    async fn expand_url(&self, url: Url, allowed_extension: &[&str]) -> MartinResult<Vec<Url>> {
+        // If the URL path already ends in a known extension, treat it as a single object
+        // and skip the list call — this preserves the previous behavior for direct file URLs.
+        if allowed_extension.iter().any(|e| url.path().ends_with(e)) {
+            return Ok(vec![url]);
+        }
+
+        // The URL points at a prefix/"directory". Use object_store to enumerate children.
+        // `parse_url_opts` returns (store, path) where `path` is the key prefix relative to
+        // the store's root (e.g. bucket-relative for s3/gs/az, fs-root-relative for file://).
+        // Listed `ObjectMeta.location` values are in the same coordinate system.
+        let (store, prefix) = object_store::parse_url_opts(&url, &self.options)
+            .map_err(|e| ConfigFileError::ObjectStoreUrlParsing(e, url.to_string()))?;
+
+        let mut stream = store.list(Some(&prefix));
+        let mut results = Vec::new();
+        while let Some(meta) = stream.next().await {
+            let meta = meta.map_err(|e| ConfigFileError::ObjectStoreListing(e, url.to_string()))?;
+            let loc = meta.location.as_ref();
+            if !allowed_extension.iter().any(|ext| loc.ends_with(ext)) {
+                continue;
+            }
+            // Reconstruct a child URL by keeping the original scheme/host and replacing the
+            // path with the listed object's full key. This round-trips through
+            // `parse_url_opts` for every backend object_store exposes via URL (s3, gs, az,
+            // file), because in all of those the URL path component *is* the store key.
+            let mut child = url.clone();
+            child.set_path(&format!("/{loc}"));
+            results.push(child);
+        }
+        Ok(results)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::fs;
+
+    use super::*;
+
+    // Exercise expand_url against the file:// object_store backend by populating a tempdir
+    // with a mix of pmtiles and unrelated files. We use file:// because object_store only
+    // dispatches URL parsing for its built-in schemes (s3/gs/az/file/http), and file:// is
+    // the only one that works without a network or external mock.
+    #[tokio::test]
+    async fn expand_url_lists_pmtiles_in_prefix() {
+        let dir = tempfile::tempdir().unwrap();
+        fs::write(dir.path().join("a.pmtiles"), b"").unwrap();
+        fs::write(dir.path().join("b.pmtiles"), b"").unwrap();
+        fs::write(dir.path().join("ignore.txt"), b"").unwrap();
+
+        let url = Url::from_directory_path(dir.path()).unwrap();
+        let cfg = PmtConfig::default();
+        let mut expanded: Vec<String> = cfg
+            .expand_url(url, &["pmtiles"])
+            .await
+            .unwrap()
+            .into_iter()
+            .map(|u| u.to_string())
+            .collect();
+        expanded.sort();
+
+        assert_eq!(expanded.len(), 2);
+        assert!(expanded[0].ends_with("/a.pmtiles"), "{expanded:?}");
+        assert!(expanded[1].ends_with("/b.pmtiles"), "{expanded:?}");
+    }
+
+    #[tokio::test]
+    async fn expand_url_returns_single_file_url_unchanged() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("one.pmtiles");
+        fs::write(&file, b"").unwrap();
+
+        let url = Url::from_file_path(&file).unwrap();
+        let cfg = PmtConfig::default();
+        let expanded = cfg.expand_url(url.clone(), &["pmtiles"]).await.unwrap();
+
+        // The URL already looks like a single pmtiles file; no listing should happen and the
+        // URL should round-trip unmodified (important because the caller derives the source
+        // ID from the URL's filename).
+        assert_eq!(expanded, vec![url]);
+    }
+
+    #[tokio::test]
+    async fn expand_url_empty_prefix_returns_empty() {
+        let dir = tempfile::tempdir().unwrap();
+        fs::write(dir.path().join("other.txt"), b"").unwrap();
+
+        let url = Url::from_directory_path(dir.path()).unwrap();
+        let cfg = PmtConfig::default();
+        let expanded = cfg.expand_url(url, &["pmtiles"]).await.unwrap();
+
+        assert!(expanded.is_empty());
     }
 }

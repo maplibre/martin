@@ -80,6 +80,20 @@ pub trait TileSourceConfiguration: ConfigurationLivecycleHooks {
         url: Url,
         cache: CachePolicy,
     ) -> impl Future<Output = MartinResult<BoxedSource>> + Send;
+
+    /// Expand a URL that may refer to a remote "directory" (prefix) into one URL per object.
+    ///
+    /// The default implementation treats the URL as a single object and returns it unchanged.
+    /// Source types that support remote listing (e.g. `PMTiles` via `object_store`) may override
+    /// this to enumerate objects matching `allowed_extension` under a prefix.
+    #[allow(unused_variables)]
+    fn expand_url(
+        &self,
+        url: Url,
+        allowed_extension: &[&str],
+    ) -> impl Future<Output = MartinResult<Vec<Url>>> + Send {
+        async move { Ok(vec![url]) }
+    }
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -419,29 +433,54 @@ async fn resolve_one_path_int<T: TileSourceConfiguration>(
     let mut results = Vec::new();
 
     if let Some(url) = parse_url(T::parse_urls(), &path)? {
-        let target_ext = extension.iter().find(|&e| url.to_string().ends_with(e));
-        let id = if let Some(ext) = target_ext {
-            url.path_segments()
-                .and_then(Iterator::last)
-                .and_then(|s| {
-                    // Strip extension and trailing dot, or keep the original string
-                    s.strip_suffix(ext)
-                        .and_then(|s| s.strip_suffix('.'))
-                        .or(Some(s))
-                })
-                .unwrap_or("web_source")
-        } else {
-            "web_source"
-        };
+        let expanded = custom.expand_url(url.clone(), extension).await?;
+        // If expansion returned anything other than the original single URL, the user gave us
+        // a prefix/directory — remember it as a "directory" so the round-tripped config still
+        // scans it on reload, mirroring the local-directory branch below.
+        let was_prefix = expanded.len() != 1 || expanded[0] != url;
+        if was_prefix {
+            directories.push(path.clone());
+        }
+        if expanded.is_empty() {
+            warn!(
+                "No files matching {extension:?} found under {}",
+                sanitize_url(&url)
+            );
+        }
+        for child_url in expanded {
+            let target_ext = extension
+                .iter()
+                .find(|&e| child_url.to_string().ends_with(e));
+            let id = if let Some(ext) = target_ext {
+                child_url
+                    .path_segments()
+                    .and_then(Iterator::last)
+                    .and_then(|s| {
+                        // Strip extension and trailing dot, or keep the original string
+                        s.strip_suffix(ext)
+                            .and_then(|s| s.strip_suffix('.'))
+                            .or(Some(s))
+                    })
+                    .unwrap_or("web_source")
+            } else {
+                "web_source"
+            };
 
-        let id = idr.resolve(id, url.to_string());
-        configs.insert(id.clone(), FileConfigSrc::Path(path));
-        results.push(
-            custom
-                .new_sources_url(id.clone(), url.clone(), default_cache)
-                .await?,
-        );
-        info!("Configured source {id} from URL {}", sanitize_url(&url));
+            let id = idr.resolve(id, child_url.to_string());
+            configs.insert(
+                id.clone(),
+                FileConfigSrc::Path(PathBuf::from(child_url.as_str())),
+            );
+            results.push(
+                custom
+                    .new_sources_url(id.clone(), child_url.clone(), default_cache)
+                    .await?,
+            );
+            info!(
+                "Configured source {id} from URL {}",
+                sanitize_url(&child_url)
+            );
+        }
     } else {
         let is_dir = path.is_dir();
         let dir_files = if is_dir {
