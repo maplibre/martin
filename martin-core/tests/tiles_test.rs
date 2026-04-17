@@ -232,3 +232,68 @@ async fn assert_miss(
         .unwrap();
     assert!(recomputed, "expected cache miss, but got a hit");
 }
+
+#[tokio::test]
+async fn cache_differentiates_by_format() {
+    let cache = TileCache::new(CACHE_SIZE, None, None);
+
+    let tile_a = Tile::new_hash_etag(
+        b"mvt-data".to_vec(),
+        TileInfo::new(Format::Mvt, Encoding::Uncompressed),
+    );
+    let tile_b = Tile::new_hash_etag(
+        b"png-data".to_vec(),
+        TileInfo::new(Format::Png, Encoding::Internal),
+    );
+
+    // Insert with format=Mvt
+    let got_a = cache
+        .get_or_insert::<_, _, Infallible>("src".into(), ORIGIN, None, Some(Format::Mvt), || {
+            let t = tile_a.clone();
+            async move { Ok(t) }
+        })
+        .await
+        .unwrap();
+    assert_eq!(got_a.data, b"mvt-data");
+
+    // Same source/xyz/query but format=Png → must be a miss
+    let mut recomputed = false;
+    let got_b = cache
+        .get_or_insert::<_, _, Infallible>("src".into(), ORIGIN, None, Some(Format::Png), || {
+            recomputed = true;
+            let t = tile_b.clone();
+            async move { Ok(t) }
+        })
+        .await
+        .unwrap();
+    assert!(recomputed, "different format should produce a cache miss");
+    assert_eq!(got_b.data, b"png-data");
+
+    // Requesting format=Mvt again → must be a hit (returns original data)
+    let got_a2 = cache
+        .get_or_insert::<_, _, Infallible>(
+            "src".into(),
+            ORIGIN,
+            None,
+            Some(Format::Mvt),
+            || async { panic!("expected cache hit for Mvt") },
+        )
+        .await
+        .unwrap();
+    assert_eq!(got_a2.data, b"mvt-data");
+
+    // format=None is a separate key from format=Some(Mvt)
+    let mut recomputed_none = false;
+    cache
+        .get_or_insert::<_, _, Infallible>("src".into(), ORIGIN, None, None, || {
+            recomputed_none = true;
+            let t = tile_a.clone();
+            async move { Ok(t) }
+        })
+        .await
+        .unwrap();
+    assert!(
+        recomputed_none,
+        "format=None should be a separate cache entry from format=Some(Mvt)"
+    );
+}

@@ -98,6 +98,9 @@ fn parse_accept(accept: Option<Accept>) -> ActixResult<Option<Vec<Format>>> {
     }
     let mut formats = Vec::new();
     for qi in &accept.0 {
+        if qi.quality == Quality::ZERO {
+            continue;
+        }
         let mt = &qi.item;
         let (supertype, subtype) = (mt.type_().as_str(), mt.subtype().as_str());
         match (supertype, subtype) {
@@ -754,6 +757,16 @@ mod tests {
     #[test]
     fn test_parse_accept_unknown_type() {
         let accept = Some(Accept(vec![QualityItem::max("text/html".parse().unwrap())]));
+        assert!(parse_accept(accept).is_err());
+    }
+
+    #[test]
+    fn test_parse_accept_q_zero_rejected() {
+        // A known format with q=0 means "do not want" — should 406
+        let accept = Some(Accept(vec![QualityItem::new(
+            "application/x-protobuf".parse().unwrap(),
+            Quality::ZERO,
+        )]));
         assert!(parse_accept(accept).is_err());
     }
 
