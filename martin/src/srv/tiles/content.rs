@@ -88,7 +88,7 @@ pub struct TileRequestHeaders {
 /// - is empty,
 /// - contains a `*/*` wildcard or
 /// - `image/*` is expanded into all image formats
-/// 
+///
 /// Returns `Err(406)` if
 /// - the header is present but contains no recognized tile formats
 fn parse_accept(accept: Option<Accept>) -> ActixResult<Option<Vec<Format>>> {
