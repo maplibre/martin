@@ -140,7 +140,7 @@ impl Format {
             ("image", "jpeg") => Self::Jpeg,
             ("application", "json") => Self::Json,
             ("application", "x-protobuf" | "vnd.mapbox-vector-tile") => Self::Mvt,
-            ("application", "vnd.maplibre-vector-tile") => Self::Mlt,
+            ("application", "vnd.maplibre-tile") => Self::Mlt,
             ("image", "png") => Self::Png,
             ("image", "webp") => Self::Webp,
             ("image", "avif") => Self::Avif,
