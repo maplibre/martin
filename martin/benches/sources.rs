@@ -2,7 +2,7 @@ use criterion::async_executor::FuturesExecutor;
 use criterion::{Criterion, criterion_group, criterion_main};
 use martin::TileSourceManager;
 use martin::config::file::OnInvalid;
-use martin::srv::DynTileSource;
+use martin::srv::{DynTileSource, TileRequestHeaders};
 use martin_core::tiles::NO_TILE_CACHE;
 use martin_tile_utils::TileCoord;
 
@@ -121,7 +121,7 @@ mod sources {
 }
 
 async fn process_null_tile(manager: &TileSourceManager) {
-    let src = DynTileSource::new(manager, "null", Some(0), "", None, None, None)
+    let src = DynTileSource::new(manager, "null", Some(0), "", TileRequestHeaders::default())
         .expect("null source can be created");
     src.get_http_response(TileCoord { z: 0, x: 0, y: 0 })
         .await
@@ -129,7 +129,7 @@ async fn process_null_tile(manager: &TileSourceManager) {
 }
 
 async fn process_error_tile(manager: &TileSourceManager) {
-    let src = DynTileSource::new(manager, "error", Some(0), "", None, None, None)
+    let src = DynTileSource::new(manager, "error", Some(0), "", TileRequestHeaders::default())
         .expect("error source can be created");
     src.get_http_response(TileCoord { z: 0, x: 0, y: 0 })
         .await

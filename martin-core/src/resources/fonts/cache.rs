@@ -1,7 +1,7 @@
+use std::sync::Arc;
 use std::time::Duration;
 
 use moka::future::Cache;
-use std::sync::Arc;
 use tracing::{info, trace};
 
 /// Optional wrapper for `FontCache`.

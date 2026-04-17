@@ -197,7 +197,7 @@ async fn insert(
 ) -> Tile {
     let tile = test_tile(data);
     cache
-        .get_or_insert(source.into(), xyz, query.map(Into::into), || async {
+        .get_or_insert(source.into(), xyz, query.map(Into::into), None, || async {
             Ok::<_, Infallible>(tile.clone())
         })
         .await
@@ -206,7 +206,7 @@ async fn insert(
 
 async fn assert_hit(cache: &TileCache, source: &str, xyz: TileCoord) -> Tile {
     cache
-        .get_or_insert::<_, _, Infallible>(source.into(), xyz, None, || async {
+        .get_or_insert::<_, _, Infallible>(source.into(), xyz, None, None, || async {
             panic!("expected cache hit, but compute was called");
         })
         .await
@@ -223,7 +223,7 @@ async fn assert_miss(
     let mut recomputed = false;
     let tile = test_tile(new_data);
     cache
-        .get_or_insert(source.into(), xyz, query.map(Into::into), || {
+        .get_or_insert(source.into(), xyz, query.map(Into::into), None, || {
             recomputed = true;
             let tile = tile.clone();
             async move { Ok::<_, Infallible>(tile) }

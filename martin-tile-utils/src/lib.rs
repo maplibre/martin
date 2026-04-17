@@ -71,7 +71,7 @@ impl TileCoord {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 pub enum Format {
     Gif,
     Jpeg,
@@ -84,6 +84,9 @@ pub enum Format {
 }
 
 impl Format {
+    /// All image formats.
+    pub const IMAGE_FORMATS: &[Self] = &[Self::Gif, Self::Jpeg, Self::Png, Self::Webp, Self::Avif];
+
     #[must_use]
     pub fn parse(value: &str) -> Option<Self> {
         Some(match value.to_ascii_lowercase().as_str() {
@@ -127,6 +130,22 @@ impl Format {
             Self::Webp => "image/webp",
             Self::Avif => "image/avif",
         }
+    }
+
+    /// Parse a content type string back to a `Format`.
+    #[must_use]
+    pub fn from_content_type(supertype: &str, subtype: &str) -> Option<Self> {
+        Some(match (supertype, subtype) {
+            ("image", "gif") => Self::Gif,
+            ("image", "jpeg") => Self::Jpeg,
+            ("application", "json") => Self::Json,
+            ("application", "x-protobuf" | "vnd.mapbox-vector-tile") => Self::Mvt,
+            ("application", "vnd.maplibre-vector-tile") => Self::Mlt,
+            ("image", "png") => Self::Png,
+            ("image", "webp") => Self::Webp,
+            ("image", "avif") => Self::Avif,
+            _ => None?,
+        })
     }
 
     #[must_use]

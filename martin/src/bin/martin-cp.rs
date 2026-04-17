@@ -21,7 +21,7 @@ use martin::config::file::{Config, ServerState, read_config};
 use martin::config::primitives::env::OsEnv;
 use martin::logging::progress::TileCopyProgress;
 use martin::logging::{ensure_martin_core_log_level_matches, init_tracing};
-use martin::srv::{DynTileSource, merge_tilejson};
+use martin::srv::{DynTileSource, TileRequestHeaders, merge_tilejson};
 use martin::{MartinError, MartinResult};
 use martin_core::tiles::BoxedSource;
 use martin_core::tiles::mbtiles::MbtilesError;
@@ -368,9 +368,10 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()>
         &source_id,
         None,
         args.url_query.as_deref().unwrap_or_default(),
-        Some(parse_encoding(args.encoding.as_str())?),
-        None,
-        None,
+        TileRequestHeaders {
+            accept_enc: Some(parse_encoding(args.encoding.as_str())?),
+            ..Default::default()
+        },
     )?;
 
     let inferred_bboxes = if args.bbox.is_empty() {
@@ -673,7 +674,7 @@ mod tests {
         #[case] ids: &str,
         #[case] expected: Vec<Bounds>,
     ) {
-        let dts = DynTileSource::new(&src, ids, None, "", None, None, None).unwrap();
+        let dts = DynTileSource::new(&src, ids, None, "", TileRequestHeaders::default()).unwrap();
 
         assert_eq!(default_bounds(&dts), expected);
     }
