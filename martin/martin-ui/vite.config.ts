@@ -14,11 +14,7 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: (id) => {
-          if (
-            id.includes('maplibre-gl') ||
-            id.includes('@vis.gl/react-maplibre') ||
-            id.includes('@maplibre/maplibre-gl-inspect')
-          ) {
+          if (id.includes('maplibre')) {
             return 'maplibre';
           }
           return undefined;
