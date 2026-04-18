@@ -10,6 +10,7 @@
     "moduleResolution": "bundler",
     "noEmit": true,
     "noImplicitAny": false,
+    // Temporary workaround for TypeScript 6 + third-party declaration incompatibilities in the React Compiler toolchain.
     "skipLibCheck": true,
     "strict": true,
     "strictNullChecks": false,
