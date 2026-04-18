@@ -335,7 +335,7 @@ async fn meta_print_all(file: &Path) -> anyhow::Result<()> {
     let tile_info = mbt.detect_format(&metadata.tilejson, &mut conn).await?;
     // For compatibility, pretend tile_info is part of metadata YAML output
     if let Some(tile_info) = tile_info {
-        let encoding = tile_info.encoding.content_encoding().unwrap_or("''");
+        let encoding = tile_info.encoding.compression().unwrap_or("''");
         println!("tile_info:");
         println!("  format: {}", tile_info.format);
         println!("  encoding: {encoding}");
