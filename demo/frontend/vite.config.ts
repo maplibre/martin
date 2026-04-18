@@ -10,7 +10,6 @@ export default defineConfig({
   },
   plugins: [
     react(),
-    // plugin-react v6 removed the old `babel` option; React Compiler now runs via Rolldown Babel plugin.
     babel({
       presets: [reactCompilerPreset()],
     }),
