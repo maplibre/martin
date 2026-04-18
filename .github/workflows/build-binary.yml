@@ -47,11 +47,11 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with: { persist-credentials: false }
       - name: Install just
-        uses: taiki-e/install-action@a57ddfbcd928cf9406a78dcc300dacc5d367a547 # v2.68.31
+        uses: taiki-e/install-action@0abfcd587b70a713fdaa7fb502c885e2112acb15 # v2.75.7
         with: { tool: 'just' }
       - name: Install cargo-zigbuild (musl only)
         if: inputs.musl
-        uses: taiki-e/install-action@a57ddfbcd928cf9406a78dcc300dacc5d367a547 # v2.68.31
+        uses: taiki-e/install-action@0abfcd587b70a713fdaa7fb502c885e2112acb15 # v2.75.7
         with: { tool: 'cargo-zigbuild' }
       - name: Install zig (musl only)
         if: inputs.musl
@@ -84,7 +84,7 @@ jobs:
         run: just move-artifacts "$TARGET"
 
       - name: Save build artifacts to build-${{ inputs.target }}
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: build-${{ inputs.target }}
           path: target_releases/
