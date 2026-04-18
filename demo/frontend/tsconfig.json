@@ -10,6 +10,7 @@
     "moduleResolution": "bundler",
     "noEmit": true,
     "noImplicitAny": false,
+    "skipLibCheck": true,
     "strict": true,
     "strictNullChecks": false,
     "target": "ESNext",
