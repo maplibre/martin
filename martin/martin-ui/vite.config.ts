@@ -13,8 +13,14 @@ export default defineConfig({
     outDir: 'dist',
     rollupOptions: {
       output: {
-        manualChunks: {
-          maplibre: ['maplibre-gl', '@vis.gl/react-maplibre', '@maplibre/maplibre-gl-inspect'],
+        manualChunks: (id) => {
+          if (
+            id.includes('maplibre-gl') ||
+            id.includes('@vis.gl/react-maplibre') ||
+            id.includes('@maplibre/maplibre-gl-inspect')
+          ) {
+            return 'maplibre';
+          }
         },
       },
     },
@@ -22,11 +28,7 @@ export default defineConfig({
   },
   envPrefix: 'VITE_',
   plugins: [
-    react({
-      babel: {
-        plugins: ['babel-plugin-react-compiler'],
-      },
-    }),
+    react(),
     tailwindcss(),
   ],
   resolve: {
