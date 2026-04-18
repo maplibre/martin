@@ -64,7 +64,7 @@ hotpath = "0.14"
 image = "0.25.8"
 indicatif = "0.18.3"
 indoc = "2"
-insta = "1.47.2"
+insta = "=1.46.3"
 itertools = "0.14"
 json-patch = "4"
 lambda-web = { version = "0.2.1", features = ["actix4"] }
