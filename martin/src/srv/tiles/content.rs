@@ -307,7 +307,7 @@ impl<'a> DynTileSource<'a> {
         let mut response = HttpResponse::Ok();
         response.content_type(tile.info.format.content_type());
         response.insert_header((ETAG, etag));
-        if let Some(val) = tile.info.encoding.content_encoding() {
+        if let Some(val) = tile.info.encoding.compression() {
             response.insert_header((CONTENT_ENCODING, val));
         }
         Ok(response.body(tile.data))

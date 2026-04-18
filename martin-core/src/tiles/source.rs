@@ -91,7 +91,7 @@ pub trait Source: Send + Sync + Debug {
         let info = self.get_tile_info();
         CatalogSourceEntry {
             content_type: info.format.content_type().to_string(),
-            content_encoding: info.encoding.content_encoding().map(ToString::to_string),
+            content_encoding: info.encoding.compression().map(ToString::to_string),
             name: tilejson.name.as_ref().filter(|v| *v != id).cloned(),
             description: tilejson.description.clone(),
             attribution: tilejson.attribution.clone(),
