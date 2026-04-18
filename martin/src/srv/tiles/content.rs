@@ -12,15 +12,17 @@ use actix_web::{HttpMessage as _, HttpRequest, HttpResponse, Result as ActixResu
 use futures::future::try_join_all;
 use martin_core::tiles::{BoxedSource, Tile, TileCache, UrlQuery};
 use martin_tile_utils::{
-    Encoding, Format, TileCoord, TileData, TileInfo, decode_brotli, decode_gzip, decode_zlib,
-    decode_zstd, encode_brotli, encode_gzip, encode_zlib, encode_zstd,
+    Encoding, Format, TileCoord, TileInfo, decode_brotli, decode_gzip, decode_zlib, decode_zstd,
+    encode_brotli, encode_gzip, encode_zlib, encode_zstd,
 };
 use serde::Deserialize;
 use tracing::{instrument, warn};
 
 use crate::config::args::PreferredEncoding;
+use crate::config::file::ProcessConfig;
 use crate::config::file::srv::SrvConfig;
 use crate::srv::server::{DebouncedWarning, map_internal_error};
+use crate::srv::tiles::process::apply_pre_cache_processors;
 use crate::tile_source_manager::TileSourceManager;
 
 const SUPPORTED_ENC: &[HeaderEnc] = &[
@@ -249,7 +251,7 @@ fn redirect_tile_with_query(
 }
 
 pub struct DynTileSource<'a> {
-    pub sources: Vec<BoxedSource>,
+    pub sources: Vec<(BoxedSource, ProcessConfig)>,
     pub info: TileInfo,
     pub query_str: Option<&'a str>,
     pub query_obj: Option<UrlQuery>,
@@ -270,26 +272,28 @@ impl<'a> DynTileSource<'a> {
         headers: TileRequestHeaders,
     ) -> ActixResult<Self> {
         let tile_sources = manager.tile_sources();
-        let (sources, use_url_query, info) = tile_sources.get_sources(source_ids, zoom)?;
+        let resolved = tile_sources.get_sources(source_ids, zoom)?;
         let cache = manager.tile_cache().as_ref();
 
-        if sources.is_empty() {
+        if resolved.sources.is_empty() {
             return Err(ErrorNotFound("No valid sources found"));
         }
 
-        let accepted_format =
-            Self::resolve_accepted_format(headers.accepted_formats.as_deref(), info.format)?;
+        let accepted_format = Self::resolve_accepted_format(
+            headers.accepted_formats.as_deref(),
+            resolved.info.format,
+        )?;
 
         let mut query_obj = None;
         let mut query_str = None;
-        if use_url_query && !query.is_empty() {
+        if resolved.use_url_query && !query.is_empty() {
             query_obj = Some(Query::<UrlQuery>::from_query(query)?.into_inner());
             query_str = Some(query);
         }
 
         Ok(Self {
-            sources,
-            info,
+            sources: resolved.sources,
+            info: resolved.info,
             query_str,
             query_obj,
             accepted_format,
@@ -298,7 +302,10 @@ impl<'a> DynTileSource<'a> {
         })
     }
 
-    /// Checks the pre-parsed accepted formats against the source format.
+    /// Checks the pre-parsed accepted formats against the source format. If an
+    /// Accept header lists MLT and the source produces MVT, MLT wins — the
+    /// pre-cache pipeline will encode on first miss. Otherwise the source
+    /// format must be in the accepted list verbatim.
     fn resolve_accepted_format(
         accepted: Option<&[Format]>,
         source_format: Format,
@@ -307,13 +314,16 @@ impl<'a> DynTileSource<'a> {
             return Ok(None);
         };
         if formats.contains(&source_format) {
-            Ok(Some(source_format))
-        } else {
-            Err(ErrorNotAcceptable(format!(
-                "Source produces {}, which does not match the Accept header",
-                source_format.content_type()
-            )))
+            return Ok(Some(source_format));
         }
+        #[cfg(feature = "mlt")]
+        if source_format == Format::Mvt && formats.contains(&Format::Mlt) {
+            return Ok(Some(Format::Mlt));
+        }
+        Err(ErrorNotAcceptable(format!(
+            "Source produces {}, which does not match the Accept header",
+            source_format.content_type()
+        )))
     }
 
     #[hotpath::measure]
@@ -330,11 +340,13 @@ impl<'a> DynTileSource<'a> {
         }
         let etag = EntityTag::new_strong(tile.etag.clone());
 
-        if let Some(IfNoneMatch::Items(expected_etags)) = &self.headers.if_none_match {
-            for expected_etag in expected_etags {
-                if etag.strong_eq(expected_etag) {
-                    return Ok(HttpResponse::NotModified().finish());
-                }
+        if let Some(if_none_match) = &self.headers.if_none_match {
+            let dominated_by = match if_none_match {
+                IfNoneMatch::Any => true,
+                IfNoneMatch::Items(items) => items.iter().any(|e| e.strong_eq(&etag)),
+            };
+            if dominated_by {
+                return Ok(HttpResponse::NotModified().finish());
             }
         }
 
@@ -360,26 +372,29 @@ impl<'a> DynTileSource<'a> {
         err(Debug),
     )]
     pub async fn get_tile_content(&self, xyz: TileCoord) -> ActixResult<Tile> {
-        let mut tiles = try_join_all(self.sources.iter().map(|s| async {
+        let mut tiles = try_join_all(self.sources.iter().map(|(s, pc)| async {
+            let fetch_and_process = || async {
+                let tile = s.get_tile_with_etag(xyz, self.query_obj.as_ref()).await?;
+                apply_pre_cache_processors(tile, pc, self.accepted_format)
+                    .map_err(|e| martin_core::tiles::MartinCoreError::OtherError(Box::new(e)))
+            };
             let cache_zoom_ok = s.cache_zoom().contains(xyz.z);
-            if let (Some(cache), true) = (self.cache, cache_zoom_ok) {
+            let tile = if let (Some(cache), true) = (self.cache, cache_zoom_ok) {
                 cache
                     .get_or_insert(
                         s.get_id().to_string(),
                         xyz,
                         self.query_str.map(ToString::to_string),
                         self.accepted_format,
-                        || s.get_tile_with_etag(xyz, self.query_obj.as_ref()),
+                        fetch_and_process,
                     )
                     .await
             } else {
-                s.get_tile_with_etag(xyz, self.query_obj.as_ref())
-                    .await
-                    .map_err(Arc::new)
-            }
+                fetch_and_process().await.map_err(Arc::new)
+            };
+            tile.map_err(|e| map_internal_error(e.as_ref()))
         }))
-        .await
-        .map_err(|e| map_internal_error(e.as_ref()))?;
+        .await?;
 
         let mut layer_count = 0;
         let mut last_non_empty_layer = 0;
@@ -390,20 +405,24 @@ impl<'a> DynTileSource<'a> {
             }
         }
 
-        // Minor optimization to prevent concatenation if there are less than 2 tiles
-        let (data, etag, effective_info) = match layer_count {
+        let tile = match layer_count {
             0 => return Ok(Tile::new_hash_etag(Vec::new(), self.info)),
-            1 => {
-                let tile = tiles.swap_remove(last_non_empty_layer);
-                (tile.data, tile.etag, tile.info)
-            }
+            1 => tiles.swap_remove(last_non_empty_layer),
             _ => {
-                let can_join = (self.info.format == Format::Mvt || self.info.format == Format::Mlt)
-                    && tiles.iter().all(|t| t.info.format == self.info.format);
+                // Pre-cache processors may have flipped each tile's format
+                // (e.g. MVT→MLT for `Accept: application/vnd.maplibre-tile`),
+                // so resolve the merge target from the actual tiles rather
+                // than the source's native `self.info`.
+                let merged_info = tiles[last_non_empty_layer].info;
+                // Both MVT (protobuf) and MLT layers are independent binary blobs
+                // that can be concatenated to form a valid composite tile.
+                let can_join = (merged_info.format == Format::Mvt
+                    || merged_info.format == Format::Mlt)
+                    && tiles.iter().all(|t| t.info == merged_info);
                 if !can_join {
                     return Err(ErrorBadRequest(format!(
-                        "Cannot merge non-MVT formats. Format is {:?} with encoding {:?} ",
-                        self.info.format, self.info.encoding,
+                        "Cannot merge non-vector-tile formats. Format is {:?} with encoding {:?} ",
+                        merged_info.format, merged_info.encoding,
                     )));
                 }
 
@@ -414,36 +433,38 @@ impl<'a> DynTileSource<'a> {
                     combined_etag.push_str(&tile.etag);
                 }
 
-                let (concat_data, effective_info) = if self.info.encoding == Encoding::Uncompressed
-                    || self.info.encoding == Encoding::Gzip
-                {
-                    // Gzip multi-stream is valid; uncompressed concat is fine
+                if matches!(
+                    merged_info.encoding,
+                    Encoding::Uncompressed | Encoding::Gzip | Encoding::Zstd
+                ) {
+                    // Gzip (RFC 1952 §2.2) and Zstd (RFC 8878 §3.1.1) support
+                    // multi-stream/multi-frame concatenation, so we can avoid
+                    // decompressing and recompressing entirely.
                     let data = tiles
                         .into_iter()
                         .map(|t| t.data)
                         .collect::<Vec<_>>()
                         .concat();
-                    (data, self.info)
+                    Tile::new_with_etag(data, merged_info, combined_etag)
                 } else {
-                    // Decompress first, concat raw MVT, let recompress re-encode
-                    let mut raw = Vec::new();
-                    for tile_data in tiles {
-                        let t = Tile::new_with_etag(tile_data.data, tile_data.info, tile_data.etag);
-                        let decoded = decode(t)?;
-                        raw.extend_from_slice(&decoded.data);
+                    // Brotli, zlib, etc. don't support stream concatenation,
+                    // so decompress all tiles, concat raw, and leave uncompressed
+                    // for later recompression.
+                    let mut combined = Vec::new();
+                    for tile in tiles {
+                        let decoded = decode(tile)?;
+                        combined.extend_from_slice(&decoded.data);
                     }
-                    (raw, self.info.encoding(Encoding::Uncompressed))
-                };
-
-                (concat_data, combined_etag, effective_info)
+                    Tile::new_with_etag(
+                        combined,
+                        TileInfo::new(merged_info.format, Encoding::Uncompressed),
+                        combined_etag,
+                    )
+                }
             }
         };
 
-        // decide if (re-)encoding of the tile data is needed, and recompress if so
-        let mut tile = self.recompress(data, effective_info)?;
-        // Set the etag for the final tile
-        tile.etag = etag;
-        Ok(tile)
+        self.recompress(tile)
     }
 
     /// Decide which encoding to use for the uncompressed tile data, based on the client's Accept-Encoding header
@@ -503,8 +524,8 @@ impl<'a> DynTileSource<'a> {
     }
 
     #[hotpath::measure]
-    fn recompress(&self, tile: TileData, info: TileInfo) -> ActixResult<Tile> {
-        let mut tile = Tile::new_hash_etag(tile, info);
+    fn recompress(&self, mut tile: Tile) -> ActixResult<Tile> {
+        let info = tile.info;
         if let Some(accept_enc) = &self.headers.accept_enc {
             if info.encoding.is_encoded() {
                 // already compressed, see if we can send it as is, or need to re-compress
@@ -537,44 +558,57 @@ impl<'a> DynTileSource<'a> {
 #[hotpath::measure]
 fn encode(tile: Tile, enc: ContentEncoding) -> ActixResult<Tile> {
     hotpath::dbg!("encode", enc);
+    let etag = tile.etag;
     Ok(match enc {
-        ContentEncoding::Brotli => Tile::new_hash_etag(
+        ContentEncoding::Brotli => Tile::new_with_etag(
             encode_brotli(&tile.data)?,
             tile.info.encoding(Encoding::Brotli),
+            etag,
         ),
-        ContentEncoding::Gzip => {
-            Tile::new_hash_etag(encode_gzip(&tile.data)?, tile.info.encoding(Encoding::Gzip))
-        }
-        ContentEncoding::Deflate => {
-            Tile::new_hash_etag(encode_zlib(&tile.data)?, tile.info.encoding(Encoding::Zlib))
-        }
-        ContentEncoding::Zstd => {
-            Tile::new_hash_etag(encode_zstd(&tile.data)?, tile.info.encoding(Encoding::Zstd))
-        }
-        _ => tile,
+        ContentEncoding::Gzip => Tile::new_with_etag(
+            encode_gzip(&tile.data)?,
+            tile.info.encoding(Encoding::Gzip),
+            etag,
+        ),
+        ContentEncoding::Deflate => Tile::new_with_etag(
+            encode_zlib(&tile.data)?,
+            tile.info.encoding(Encoding::Zlib),
+            etag,
+        ),
+        ContentEncoding::Zstd => Tile::new_with_etag(
+            encode_zstd(&tile.data)?,
+            tile.info.encoding(Encoding::Zstd),
+            etag,
+        ),
+        _ => Tile::new_with_etag(tile.data, tile.info, etag),
     })
 }
 
 #[hotpath::measure]
-fn decode(tile: Tile) -> ActixResult<Tile> {
+pub(crate) fn decode(tile: Tile) -> ActixResult<Tile> {
     let info = tile.info;
     Ok(if info.encoding.is_encoded() {
+        let etag = tile.etag;
         match info.encoding {
-            Encoding::Gzip => Tile::new_hash_etag(
+            Encoding::Gzip => Tile::new_with_etag(
                 decode_gzip(&tile.data)?,
                 info.encoding(Encoding::Uncompressed),
+                etag,
             ),
-            Encoding::Brotli => Tile::new_hash_etag(
+            Encoding::Brotli => Tile::new_with_etag(
                 decode_brotli(&tile.data)?,
                 info.encoding(Encoding::Uncompressed),
+                etag,
             ),
-            Encoding::Zlib => Tile::new_hash_etag(
+            Encoding::Zlib => Tile::new_with_etag(
                 decode_zlib(&tile.data)?,
                 info.encoding(Encoding::Uncompressed),
+                etag,
             ),
-            Encoding::Zstd => Tile::new_hash_etag(
+            Encoding::Zstd => Tile::new_with_etag(
                 decode_zstd(&tile.data)?,
                 info.encoding(Encoding::Uncompressed),
+                etag,
             ),
             _ => Err(ErrorBadRequest(format!(
                 "Tile is stored as {info}, but the client does not accept this encoding"
@@ -631,6 +665,7 @@ mod tests {
             id: "test_source",
             tj: tilejson! { tiles: vec![] },
             data: vec![1_u8, 2, 3],
+            format: Format::Mvt,
         })]]);
 
         let headers = TileRequestHeaders {
@@ -663,6 +698,7 @@ mod tests {
             id: source_id,
             tj: tilejson! { tiles: vec![] },
             data: vec![1_u8, 2, 3],
+            format: Format::Mvt,
         };
         let mgr = test_manager(vec![vec![Box::new(source1)]]);
 
@@ -689,11 +725,13 @@ mod tests {
             id: "non-empty",
             tj: tilejson! { tiles: vec![] },
             data: vec![1_u8, 2, 3],
+            format: Format::Mvt,
         };
         let empty_source = TestSource {
             id: "empty",
             tj: tilejson! { tiles: vec![] },
             data: Vec::default(),
+            format: Format::Mvt,
         };
         let mgr = test_manager(vec![vec![
             Box::new(non_empty_source),
@@ -719,6 +757,7 @@ mod tests {
 
     fn compress_with(data: &[u8], encoding: Encoding) -> Vec<u8> {
         match encoding {
+            Encoding::Gzip => encode_gzip(data).unwrap(),
             Encoding::Brotli => encode_brotli(data).unwrap(),
             Encoding::Zlib => encode_zlib(data).unwrap(),
             Encoding::Zstd => encode_zstd(data).unwrap(),
@@ -741,9 +780,11 @@ mod tests {
 
     #[rstest]
     #[case(Encoding::Brotli, None, Encoding::Uncompressed)]
+    #[case(Encoding::Gzip, None, Encoding::Uncompressed)]
     #[case(Encoding::Zlib, None, Encoding::Uncompressed)]
     #[case(Encoding::Zstd, None, Encoding::Uncompressed)]
     #[case(Encoding::Brotli, Some("zstd"), Encoding::Zstd)]
+    #[case(Encoding::Gzip, Some("br"), Encoding::Brotli)]
     #[case(Encoding::Zlib, Some("br"), Encoding::Brotli)]
     #[case(Encoding::Zstd, Some("gzip"), Encoding::Gzip)]
     #[actix_rt::test]
@@ -850,11 +891,48 @@ mod tests {
     #[case::png_vs_mvt(&["image/png"], Format::Mvt)]
     #[case::mvt_vs_png(&["application/x-protobuf"], Format::Png)]
     #[case::mvt_vs_mlt(&["application/x-protobuf"], Format::Mlt)]
-    #[case::mlt_vs_mvt(&["application/vnd.maplibre-vector-tile"], Format::Mvt)]
-    #[case::mlt_short_vs_mvt(&["application/vnd.maplibre-tile"], Format::Mvt)]
     fn test_accept_406(#[case] accept_values: &[&str], #[case] source_format: Format) {
         let parsed = parse_accept_header(accept_values);
         let result = DynTileSource::resolve_accepted_format(parsed.as_deref(), source_format);
         assert!(result.is_err());
+    }
+
+    /// `Accept: mlt` against an MVT source resolves to MLT — the pre-cache
+    /// pipeline encodes on first miss. Conversion is implicit; no `process.mlt`
+    /// configuration is required to enable it.
+    #[cfg(feature = "mlt")]
+    #[rstest]
+    #[case::mlt_long(&["application/vnd.maplibre-vector-tile"])]
+    #[case::mlt_short(&["application/vnd.maplibre-tile"])]
+    #[case::mlt_with_other(&["image/png", "application/vnd.maplibre-tile"])]
+    fn test_accept_mlt_on_mvt_source_converts(#[case] accept_values: &[&str]) {
+        let parsed = parse_accept_header(accept_values);
+        let result = DynTileSource::resolve_accepted_format(parsed.as_deref(), Format::Mvt);
+        assert_eq!(result.unwrap(), Some(Format::Mlt));
+    }
+
+    /// Compositing sources with mismatched formats (MVT + MLT) should return an error.
+    #[actix_rt::test]
+    async fn test_mixed_mvt_mlt_merge_fails() {
+        let mvt_source = TestSource {
+            id: "mvt",
+            tj: tilejson! { tiles: vec![] },
+            data: vec![1_u8, 2, 3],
+            format: Format::Mvt,
+        };
+        let mlt_source = TestSource {
+            id: "mlt",
+            tj: tilejson! { tiles: vec![] },
+            data: vec![4_u8, 5, 6],
+            format: Format::Mlt,
+        };
+        let mgr = test_manager(vec![vec![Box::new(mvt_source), Box::new(mlt_source)]]);
+
+        // Mixed MVT+MLT composite should fail at source validation (format mismatch)
+        let result = DynTileSource::new(&mgr, "mvt,mlt", None, "", TileRequestHeaders::default());
+        assert!(
+            result.is_err(),
+            "Compositing MVT and MLT sources should return an error"
+        );
     }
 }

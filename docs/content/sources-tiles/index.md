@@ -24,3 +24,5 @@ The difference between MBTiles and PMTiles is that:
 - **PMTiles** requires less memory in extreme cases as sqlite has a small in-memory cache.
 
 The choice depends on your specific usecase and requirements.
+
+All tile sources support optional [postprocessing](../config-file/index.md#postprocessing) (MLT conversion, compression override) via the `process` configuration block.

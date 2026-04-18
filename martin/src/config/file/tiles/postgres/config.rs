@@ -13,6 +13,8 @@ use tracing::warn;
 use super::{FuncInfoSources, TableInfoSources};
 use crate::MartinResult;
 use crate::config::args::{BoundsCalcType, DEFAULT_BOUNDS_TIMEOUT};
+#[cfg(feature = "mlt")]
+use crate::config::file::ProcessConfig;
 use crate::config::file::postgres::PostgresAutoDiscoveryBuilder;
 use crate::config::file::{
     CachePolicy, ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks, TileSourceWarning,
@@ -99,6 +101,12 @@ pub struct PostgresConfig {
     pub tables: Option<TableInfoSources>,
     /// Associative arrays of function sources
     pub functions: Option<FuncInfoSources>,
+
+    /// Postprocessing pipeline for all sources from this connection.
+    /// Overrides global `process`; overridden by per-source `process`.
+    #[cfg(feature = "mlt")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub process: Option<ProcessConfig>,
 
     #[serde(flatten, skip_serializing)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]

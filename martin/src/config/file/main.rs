@@ -1,3 +1,5 @@
+#[cfg(all(feature = "_tiles", feature = "mlt"))]
+use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::fs::File;
 use std::io::prelude::*;
@@ -11,6 +13,8 @@ use std::time::Duration;
 use clap::ValueEnum;
 #[cfg(feature = "_tiles")]
 use futures::future::{BoxFuture, try_join_all};
+#[cfg(feature = "_tiles")]
+use martin_core::tiles::BoxedSource;
 #[cfg(feature = "pmtiles")]
 use martin_core::tiles::pmtiles::PmtCache;
 use serde::{Deserialize, Serialize};
@@ -43,6 +47,8 @@ use super::styles::StyleConfig;
 use crate::config::file::FileConfigEnum;
 #[cfg(any(feature = "_tiles", feature = "sprites", feature = "fonts"))]
 use crate::config::file::cache::{CacheConfig, SubCacheSetting};
+#[cfg(feature = "_tiles")]
+use crate::config::file::process::ProcessConfig;
 #[cfg(any(feature = "pmtiles", feature = "mbtiles", feature = "unstable-cog"))]
 use crate::config::file::resolve_files;
 use crate::config::file::{
@@ -156,6 +162,12 @@ pub struct Config {
     #[cfg(feature = "fonts")]
     #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
     pub fonts: FontConfig,
+
+    /// Postprocessing pipeline configuration (global level).
+    /// Overridden by source-type or per-source `process` blocks.
+    #[cfg(feature = "mlt")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub process: Option<ProcessConfig>,
 
     #[serde(flatten, skip_serializing)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
@@ -298,12 +310,36 @@ impl Config {
             .unwrap_or_default()
             .handle_tile_warnings(&warnings)?;
 
+        #[cfg(all(feature = "_tiles", feature = "mlt"))]
+        let process_map = self.build_process_config_map();
+        #[cfg(all(feature = "_tiles", feature = "mlt"))]
+        let global_process = self.process.clone().unwrap_or_default();
+        #[cfg(feature = "_tiles")]
+        let tile_sources_with_process: Vec<Vec<(BoxedSource, ProcessConfig)>> = tile_sources
+            .into_iter()
+            .map(|group| {
+                group
+                    .into_iter()
+                    .map(|src| {
+                        #[cfg(feature = "mlt")]
+                        let pc = process_map
+                            .get(src.get_id())
+                            .cloned()
+                            .unwrap_or_else(|| global_process.clone());
+                        #[cfg(not(feature = "mlt"))]
+                        let pc = ProcessConfig::default();
+                        (src, pc)
+                    })
+                    .collect()
+            })
+            .collect();
+
         Ok(ServerState {
             #[cfg(feature = "_tiles")]
-            tile_manager: TileSourceManager::from_sources(
+            tile_manager: TileSourceManager::from_sources_with_process(
                 cache_config.create_tile_cache(),
                 self.on_invalid.unwrap_or_default(),
-                tile_sources,
+                tile_sources_with_process,
             ),
 
             #[cfg(feature = "sprites")]
@@ -429,13 +465,23 @@ impl Config {
     #[instrument(skip_all, err(Debug))]
     async fn resolve_tile_sources(
         &mut self,
+        #[cfg_attr(
+            not(any(
+                feature = "postgres",
+                feature = "pmtiles",
+                feature = "mbtiles",
+                feature = "unstable-cog"
+            )),
+            allow(unused_variables)
+        )]
         idr: &IdResolver,
         #[cfg(feature = "pmtiles")] pmtiles_cache: PmtCache,
-    ) -> MartinResult<(
-        Vec<Vec<martin_core::tiles::BoxedSource>>,
-        Vec<TileSourceWarning>,
-    )> {
-        let mut sources_and_warnings: Vec<BoxFuture<_>> = Vec::new();
+    ) -> MartinResult<(Vec<Vec<BoxedSource>>, Vec<TileSourceWarning>)> {
+        #[allow(unused_mut)]
+        #[expect(clippy::type_complexity)]
+        let mut sources_and_warnings: Vec<
+            BoxFuture<MartinResult<(Vec<BoxedSource>, Vec<TileSourceWarning>)>>,
+        > = Vec::new();
 
         #[cfg(feature = "postgres")]
         for s in self.postgres.iter_mut() {
@@ -480,6 +526,76 @@ impl Config {
             all_tile_sources,
             all_tile_warnings.into_iter().flatten().collect(),
         ))
+    }
+
+    /// Build a map from source ID → resolved [`ProcessConfig`].
+    ///
+    /// Uses full-override semantics: per-source > source-type > global > default.
+    #[cfg(all(feature = "_tiles", feature = "mlt"))]
+    fn build_process_config_map(&self) -> HashMap<String, ProcessConfig> {
+        #[cfg(feature = "postgres")]
+        use crate::config::file::process::resolve_process_config;
+
+        #[cfg(any(feature = "postgres", feature = "pmtiles", feature = "mbtiles"))]
+        let global = self.process.as_ref();
+        #[allow(unused_mut)]
+        let mut map = HashMap::new();
+
+        #[cfg(feature = "postgres")]
+        for pg in self.postgres.iter() {
+            let source_type = pg.process.as_ref();
+            if let Some(tables) = &pg.tables {
+                for (id, info) in tables {
+                    let resolved =
+                        resolve_process_config(global, source_type, info.process.as_ref());
+                    map.insert(id.clone(), resolved);
+                }
+            }
+            if let Some(functions) = &pg.functions {
+                for (id, info) in functions {
+                    let resolved =
+                        resolve_process_config(global, source_type, info.process.as_ref());
+                    map.insert(id.clone(), resolved);
+                }
+            }
+        }
+
+        #[cfg(feature = "pmtiles")]
+        Self::insert_file_source_configs(&mut map, global, &self.pmtiles, |c| c.process.as_ref());
+
+        #[cfg(feature = "mbtiles")]
+        Self::insert_file_source_configs(&mut map, global, &self.mbtiles, |c| c.process.as_ref());
+
+        // COG sources produce raster tiles (TIFF), not vector tiles (MVT),
+        // so process config (MLT conversion, compression) does not apply.
+        // They fall through to the global default, which is a no-op for raster formats.
+
+        map
+    }
+
+    /// Helper to resolve process configs for file-based source types (pmtiles, mbtiles).
+    #[cfg(all(feature = "mlt", any(feature = "pmtiles", feature = "mbtiles")))]
+    fn insert_file_source_configs<T: super::ConfigurationLivecycleHooks>(
+        map: &mut HashMap<String, ProcessConfig>,
+        global: Option<&ProcessConfig>,
+        file_cfg: &FileConfigEnum<T>,
+        get_source_type_process: impl Fn(&T) -> Option<&ProcessConfig>,
+    ) {
+        use crate::config::file::process::resolve_process_config;
+
+        if let FileConfigEnum::Config(cfg) = file_cfg {
+            let source_type = get_source_type_process(&cfg.custom);
+            if let Some(sources) = &cfg.sources {
+                for (id, src) in sources {
+                    let per_source = match src {
+                        super::FileConfigSrc::Obj(obj) => obj.process.as_ref(),
+                        super::FileConfigSrc::Path(_) => None,
+                    };
+                    let resolved = resolve_process_config(global, source_type, per_source);
+                    map.insert(id.clone(), resolved);
+                }
+            }
+        }
     }
 
     pub fn save_to_file(&self, file_name: &Path) -> ConfigFileResult<()> {

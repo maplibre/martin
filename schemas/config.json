@@ -125,6 +125,17 @@
           "$ref": "#/$defs/OptOneMany2",
           "description": "A list of file paths"
         },
+        "process": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ProcessConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Postprocessing pipeline for all `PMTiles` sources.\nOverrides global `process`; overridden by per-source `process`."
+        },
         "sources": {
           "additionalProperties": {
             "$ref": "#/$defs/FileConfigSrc"
@@ -140,6 +151,17 @@
         "paths": {
           "$ref": "#/$defs/OptOneMany2",
           "description": "A list of file paths"
+        },
+        "process": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ProcessConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Postprocessing pipeline for all `MBTiles` sources.\nOverrides global `process`; overridden by per-source `process`."
         },
         "sources": {
           "additionalProperties": {
@@ -310,6 +332,17 @@
         },
         "path": {
           "type": "string"
+        },
+        "process": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ProcessConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Postprocessing pipeline for this source.\nOverrides source-type and global `process`."
         }
       },
       "required": ["path"],
@@ -370,6 +403,17 @@
           "maximum": 255,
           "minimum": 0,
           "type": ["integer", "null"]
+        },
+        "process": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ProcessConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Postprocessing pipeline for this source.\nOverrides source-type and global `process`."
         },
         "schema": {
           "description": "Schema name (required)",
@@ -452,6 +496,53 @@
         }
       },
       "type": "object"
+    },
+    "MltEncoderConfig": {
+      "description": "Explicit encoder configuration for MLT conversion.\nAll fields are optional; unset fields use `mlt-core`'s defaults.",
+      "properties": {
+        "allow_fpf": {
+          "description": "Allow `FastPFOR` integer compression.",
+          "type": ["boolean", "null"]
+        },
+        "allow_fsst": {
+          "description": "Allow FSST string compression.",
+          "type": ["boolean", "null"]
+        },
+        "allow_shared_dict": {
+          "description": "Allow string grouping into shared dictionaries.",
+          "type": ["boolean", "null"]
+        },
+        "tessellate": {
+          "description": "Generate tessellation data for polygons and multi-polygons.",
+          "type": ["boolean", "null"]
+        },
+        "try_id_sort": {
+          "description": "Try sorting features by their feature ID in ascending order.",
+          "type": ["boolean", "null"]
+        },
+        "try_spatial_hilbert_sort": {
+          "description": "Try sorting features by Hilbert curve index of their first vertex.",
+          "type": ["boolean", "null"]
+        },
+        "try_spatial_morton_sort": {
+          "description": "Try sorting features by Z-order (Morton) curve index of their first vertex.",
+          "type": ["boolean", "null"]
+        }
+      },
+      "type": "object"
+    },
+    "MltProcessConfig": {
+      "description": "Configuration for MVT-to-MLT format conversion.\n\n- `\"auto\"` — use `mlt-core`'s default `EncoderConfig`\n- An object with explicit fields — override specific encoder settings",
+      "oneOf": [
+        {
+          "const": "auto",
+          "description": "Use default encoder settings.",
+          "type": "string"
+        },
+        {
+          "$ref": "#/$defs/MltEncoderConfig"
+        }
+      ]
     },
     "ObservabilityConfig": {
       "description": "More advanced monitoring options",
@@ -679,6 +770,17 @@
           "minimum": 0,
           "type": ["integer", "null"]
         },
+        "process": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ProcessConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Postprocessing pipeline for all sources from this connection.\nOverrides global `process`; overridden by per-source `process`."
+        },
         "ssl_cert": {
           "description": "Same as `PGSSLCERT` for `psql`",
           "examples": ["./postgresql.crt"],
@@ -707,6 +809,23 @@
     "PreferredEncoding": {
       "enum": ["brotli", "gzip"],
       "type": "string"
+    },
+    "ProcessConfig": {
+      "description": "Encoder settings used by the post-processing pipeline.\n\n`process` does not enable conversion — clients drive that via the `Accept`\nheader (e.g. `Accept: application/vnd.maplibre-tile` triggers MVT→MLT). This\nblock only tunes *how* a conversion encodes when it fires. Can appear at\nthree levels: global, source-type, and per-source. Merge strategy is full\noverride: if a lower level specifies `process`, it completely replaces the\ninherited config.",
+      "properties": {
+        "mlt": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MltProcessConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Encoder settings for MVT→MLT conversion. Conversion fires when a client\nsends `Accept: application/vnd.maplibre-tile`; this block only changes\nthe encoder configuration used for that conversion.\n- `mlt: auto` — use `mlt-core`'s default `EncoderConfig` (same as omitting the block)\n- `mlt: { tessellate: true, ... }` — explicit encoder config overrides"
+        }
+      },
+      "type": "object"
     },
     "TableInfo": {
       "properties": {
@@ -785,6 +904,17 @@
           "maximum": 255,
           "minimum": 0,
           "type": ["integer", "null"]
+        },
+        "process": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ProcessConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Postprocessing pipeline for this source.\nOverrides source-type and global `process`."
         },
         "properties": {
           "additionalProperties": {
@@ -895,6 +1025,17 @@
         }
       ],
       "description": "Which compression should be used if the\n- client accepts multiple compression formats, and\n- tile source is not pre-compressed.\n\n`gzip` is faster, but `brotli` is smaller, and may be faster with caching.\nDefault could be different depending on Martin version."
+    },
+    "process": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ProcessConfig"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Postprocessing pipeline configuration (global level).\nOverridden by source-type or per-source `process` blocks."
     },
     "route_prefix": {
       "description": "Set the URL path prefix for all API routes.\nWhen set, Martin will serve all endpoints under this path prefix.\nThis allows Martin to be served under a subpath when behind a reverse proxy (e.g., Traefik).\nMust begin with a `/`.\nExamples: `/tiles`, `/api/v1/tiles`",

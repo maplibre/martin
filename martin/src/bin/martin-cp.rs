@@ -21,9 +21,8 @@ use martin::config::file::{Config, ServerState, read_config};
 #[cfg(feature = "_tiles")]
 use martin::config::primitives::IdResolver;
 use martin::config::primitives::env::OsEnv;
-use martin::logging::LogFormat;
 use martin::logging::progress::TileCopyProgress;
-use martin::logging::{ensure_martin_core_log_level_matches, init_tracing};
+use martin::logging::{LogFormat, ensure_martin_core_log_level_matches, init_tracing};
 #[cfg(feature = "_tiles")]
 use martin::srv::RESERVED_KEYWORDS;
 use martin::srv::{DynTileSource, TileRequestHeaders, merge_tilejson};
@@ -331,7 +330,7 @@ fn default_bounds(src: &DynTileSource) -> Vec<Bounds> {
         let mut source_bounds = src
             .sources
             .iter()
-            .map(|source| source.get_tilejson().bounds.unwrap_or(Bounds::MAX_TILED))
+            .map(|(source, _)| source.get_tilejson().bounds.unwrap_or(Bounds::MAX_TILED))
             .collect::<Vec<Bounds>>();
 
         source_bounds.dedup_by_key(|bounds| bounds.to_string());
@@ -408,7 +407,8 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()>
     } else {
         CopyDuplicateMode::Override
     };
-    let mbt_type = init_schema(&mbt, &mut conn, src.sources.as_slice(), src.info, &args).await?;
+    let just_sources: Vec<_> = src.sources.iter().map(|(s, _)| s.clone()).collect();
+    let mbt_type = init_schema(&mbt, &mut conn, &just_sources, src.info, &args).await?;
     let total_size = tiles.iter().map(TileRect::size).sum();
     let progress = TileCopyProgress::new(total_size);
     info!(

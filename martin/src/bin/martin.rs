@@ -11,8 +11,7 @@ use martin::config::file::{Config, read_config};
 #[cfg(feature = "_tiles")]
 use martin::config::primitives::IdResolver;
 use martin::config::primitives::env::OsEnv;
-use martin::logging::LogFormat;
-use martin::logging::{ensure_martin_core_log_level_matches, init_tracing};
+use martin::logging::{LogFormat, ensure_martin_core_log_level_matches, init_tracing};
 #[cfg(feature = "_tiles")]
 use martin::srv::RESERVED_KEYWORDS;
 use martin::srv::new_server;
@@ -56,7 +55,11 @@ async fn start(args: Args) -> MartinResult<()> {
 
     #[cfg(feature = "mbtiles")]
     {
-        let reloader = MBTilesReloader::new(mgr, resolver, &config.mbtiles);
+        #[cfg(feature = "mlt")]
+        let global_process = config.process.as_ref();
+        #[cfg(not(feature = "mlt"))]
+        let global_process = None;
+        let reloader = MBTilesReloader::new(mgr, resolver, &config.mbtiles, global_process);
         if let Err(e) = reloader.start() {
             tracing::warn!("failed to start MBTilesReloader {e:?}");
         }

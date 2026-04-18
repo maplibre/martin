@@ -10,6 +10,8 @@ use tracing::{trace, warn};
 use url::Url;
 
 use crate::MartinResult;
+#[cfg(feature = "mlt")]
+use crate::config::file::ProcessConfig;
 use crate::config::file::{
     CachePolicy, CacheSizeConfig, ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks,
     TileSourceConfiguration, UnrecognizedKeys, UnrecognizedValues,
@@ -42,6 +44,12 @@ pub struct PmtConfig {
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub options: HashMap<String, String>,
 
+    /// Postprocessing pipeline for all `PMTiles` sources.
+    /// Overrides global `process`; overridden by per-source `process`.
+    #[cfg(feature = "mlt")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub process: Option<ProcessConfig>,
+
     #[serde(flatten, skip_serializing)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub unrecognized: UnrecognizedValues,
@@ -54,10 +62,13 @@ pub struct PmtConfig {
 
 impl PartialEq for PmtConfig {
     fn eq(&self, other: &Self) -> bool {
-        self.directory_cache == other.directory_cache
+        let base = self.directory_cache == other.directory_cache
             && self.options == other.options
-            && self.unrecognized == other.unrecognized
+            && self.unrecognized == other.unrecognized;
+        #[cfg(feature = "mlt")]
+        let base = base && self.process == other.process;
         // pmtiles_directory_cache is intentionally excluded from equality check
+        base
     }
 }
 

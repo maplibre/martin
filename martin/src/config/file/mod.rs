@@ -10,6 +10,11 @@ pub mod srv;
 mod error;
 pub use error::{ConfigFileError, ConfigFileResult};
 
+pub mod process;
+#[cfg(feature = "mlt")]
+pub use process::{MltEncoderConfig, MltProcessConfig};
+pub use process::{ProcessConfig, resolve_process_config};
+
 #[cfg(any(feature = "fonts", feature = "sprites", feature = "styles"))]
 mod resources;
 #[cfg(any(feature = "fonts", feature = "sprites", feature = "styles"))]
@@ -18,4 +23,8 @@ pub use resources::*;
 #[cfg(feature = "_tiles")]
 mod tiles;
 #[cfg(feature = "_tiles")]
+#[allow(
+    unused_imports,
+    reason = "mlt feature enables _tiles without any tile source sub-features"
+)]
 pub use tiles::*;

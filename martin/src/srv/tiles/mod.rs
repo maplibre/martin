@@ -1,5 +1,6 @@
 pub mod content;
 pub mod metadata;
+pub mod process;
 
 #[cfg(test)]
 pub mod tests {
@@ -14,6 +15,7 @@ pub mod tests {
         pub id: &'static str,
         pub tj: TileJSON,
         pub data: TileData,
+        pub format: Format,
     }
 
     #[async_trait]
@@ -27,7 +29,7 @@ pub mod tests {
         }
 
         fn get_tile_info(&self) -> TileInfo {
-            TileInfo::new(Format::Mvt, Encoding::Uncompressed)
+            TileInfo::new(self.format, Encoding::Uncompressed)
         }
 
         fn clone_source(&self) -> BoxedSource {

@@ -7,14 +7,23 @@ use serde::{Deserialize, Serialize};
 use url::Url;
 
 use crate::MartinResult;
+#[cfg(feature = "mlt")]
+use crate::config::file::ProcessConfig;
 use crate::config::file::{
     CachePolicy, ConfigurationLivecycleHooks, TileSourceConfiguration, UnrecognizedKeys,
     UnrecognizedValues,
 };
 
+#[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct MbtConfig {
+    /// Postprocessing pipeline for all `MBTiles` sources.
+    /// Overrides global `process`; overridden by per-source `process`.
+    #[cfg(feature = "mlt")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub process: Option<ProcessConfig>,
+
     #[serde(flatten, skip_serializing)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub unrecognized: UnrecognizedValues,
@@ -113,6 +122,8 @@ mod tests {
                     "pm-src2".to_string(),
                     FileConfigSrc::Obj(FileConfigSource {
                         path: PathBuf::from("/tmp/file.ext"),
+                        #[cfg(feature = "mlt")]
+                        process: None,
                         cache: CachePolicy::default(),
                     })
                 ),
@@ -124,6 +135,8 @@ mod tests {
                     "pm-src4".to_string(),
                     FileConfigSrc::Obj(FileConfigSource {
                         path: PathBuf::from("https://example.org/file4.ext"),
+                        #[cfg(feature = "mlt")]
+                        process: None,
                         cache: CachePolicy::default(),
                     })
                 ),
@@ -131,6 +144,8 @@ mod tests {
                     "pm-src5".to_string(),
                     FileConfigSrc::Obj(FileConfigSource {
                         path: PathBuf::from("/tmp/cached.ext"),
+                        #[cfg(feature = "mlt")]
+                        process: None,
                         cache: CachePolicy::new(CacheZoomRange::new(Some(0), Some(6))),
                     })
                 ),

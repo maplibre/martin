@@ -49,12 +49,17 @@ bench:
     cargo bench --bench sources
     open target/criterion/report/index.html
 
-# Run HTTP requests benchmark using OHA tool. Use with `just bench-server`
+# Run HTTP requests benchmark using OHA tool. Use with `just bench-server`.
+# The MVT-vs-MLT pair on `function_zxy_query` measures the steady-state cost of
+# server-side MVT→MLT conversion: same source, two `Accept` headers, two cache
+# entries. The delta between the two runs is the cache-hit cost of serving MLT.
 bench-http requests='10m' pg_requests='500k':  (cargo-install 'oha')
     @echo "ATTENTION: Make sure Martin was started with    just bench-server"
     @echo "Warming up..."
     oha --latency-correction -n 100            --no-tui http://localhost:3000/function_zxy_query/18/235085/122323 > /dev/null
     oha --latency-correction -n {{pg_requests}}         http://localhost:3000/function_zxy_query/18/235085/122323
+    oha --latency-correction -n 100            --no-tui -H 'Accept: application/vnd.maplibre-tile' http://localhost:3000/function_zxy_query/18/235085/122323 > /dev/null
+    oha --latency-correction -n {{pg_requests}}         -H 'Accept: application/vnd.maplibre-tile' http://localhost:3000/function_zxy_query/18/235085/122323
     oha --latency-correction -n 200            --no-tui http://localhost:3000/png/0/0/0 > /dev/null
     oha --latency-correction -n {{requests}}            http://localhost:3000/png/0/0/0
     oha --latency-correction -n 200            --no-tui http://localhost:3000/stamen_toner__raster_CC-BY-ODbL_z3/0/0/0 > /dev/null

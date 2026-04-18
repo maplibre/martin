@@ -1,0 +1,98 @@
+=== Layer 0 ===
+Tag01(
+    Layer01 {
+        name: "table_source",
+        extent: 4096,
+        id: None,
+        geometry: Raw(
+            RawGeometry {
+                meta: RawStream {
+                    meta: StreamMeta {
+                        stream_type: Length(VarBinary),
+                        logical_encoding: Rle(RleMeta { runs: 12, num_rle_values: 28 }),
+                        physical_encoding: VarInt,
+                        num_values: 24,
+                    },
+                    data: [0x02020101020201020301010A030103010503040501050403; 24],
+                },
+                items: [
+                    RawStream {
+                        meta: StreamMeta {
+                            stream_type: Length(Geometries),
+                            logical_encoding: Rle(RleMeta { runs: 6, num_rle_values: 22 }),
+                            physical_encoding: VarInt,
+                            num_values: 12,
+                        },
+                        data: [0x05020301010A010402010201; 12],
+                    },
+                    RawStream {
+                        meta: StreamMeta {
+                            stream_type: Length(Parts),
+                            logical_encoding: Delta,
+                            physical_encoding: VarInt,
+                            num_values: 7,
+                        },
+                        data: [0x02020100020102; 7],
+                    },
+                    RawStream {
+                        meta: StreamMeta {
+                            stream_type: Length(Rings),
+                            logical_encoding: None,
+                            physical_encoding: VarInt,
+                            num_values: 20,
+                        },
+                        data: [0x0202030404030304040305030302271F4F040416; 20],
+                    },
+                    RawStream {
+                        meta: StreamMeta {
+                            stream_type: Length(Triangles),
+                            logical_encoding: None,
+                            physical_encoding: VarInt,
+                            num_values: 5,
+                        },
+                        data: [0x0207030953; 5],
+                    },
+                    RawStream {
+                        meta: StreamMeta {
+                            stream_type: Offset(Index),
+                            logical_encoding: Delta,
+                            physical_encoding: FastPFor256,
+                            num_values: 312,
+                        },
+                        data: [0x00000100000000199AB9215452D06D1C42A9D8480B4906B2D510482E0D068682904822D20682492048241249924120922412090441249048120904822090482509248241904824122904E920504814060491412049240A0981412492835209044180C06A1048060000000018100815033F3C3B17AFAE5343E9E8E7B6F5F1EEEBFDFCFAF70000001000000015C7210421110E621C8421086400000010888086889A888088828B8281808E810F8E808C8E8E8C8C8C81A290809AE782899A828288810187B08082A29A8584B29CA49A8109810F84CE84F2809A; 216],
+                    },
+                    RawStream {
+                        meta: StreamMeta {
+                            stream_type: Data(Vertex),
+                            logical_encoding: ComponentwiseDelta,
+                            physical_encoding: VarInt,
+                            num_values: 490,
+                        },
+                        data: [0x802080202D2D2E2E161518171615E6049F010000C503E703AA059502A9059204E4019104C60300E301FE05D6029907E3019A07B704EB01729104C6038E01D3028801E201FC01C5039104E4019204E201EC01E401E703A9059502E4019204E201EC01E401E703A905E803E401EB01E3019104AA0500E3019602E401FC01E301EC01C503EB01AA05EC01B70472E30171B804EB01C50391049C0600B7048E01B8048403D502DE02C5037100E703E401800100F201E20175E101AD05C6039C01729602A307C404445B890172000C020200080204000202040004020402020204020202040C0C04020202080402020402040002020800040216000201040004010400020108030201040104030401020102030401020302019F0144010100010100000D02000003020000010200020104000001060002020400000202000002020000020200000402020006010000040102000201001515071502010C000202060002020400020202001010000202020004020200060202000A010200040100000401000002010000020100010201000002110000010100010101000001010000010100000101010001010101020002010200020100000201000002010001020100000211000001010001010100000101000001010000030100000301010009020100050201000302010001100F02000201040002010E161516160B160C5C712D00002E43000044040002020C000201040002010400000102000807000102000001020100030200000502010007010100058419E301000000000000000000000000000000000000; 581],
+                    },
+                ],
+            },
+        ),
+        properties: [
+            Raw(
+                U64(
+                    RawScalar {
+                        name: "gid",
+                        presence: RawPresence(
+                            None,
+                        ),
+                        data: RawStream {
+                            meta: StreamMeta {
+                                stream_type: Data(None),
+                                logical_encoding: DeltaRle(RleMeta { runs: 1, num_rle_values: 28 }),
+                                physical_encoding: VarInt,
+                                num_values: 2,
+                            },
+                            data: [0x1C02; 2],
+                        },
+                    },
+                ),
+            ),
+        ],
+    },
+)

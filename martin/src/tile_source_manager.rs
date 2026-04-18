@@ -5,7 +5,7 @@ use martin_core::tiles::{BoxedSource, OptTileCache};
 use tracing::{info, warn};
 
 use crate::MartinResult;
-use crate::config::file::OnInvalid;
+use crate::config::file::{OnInvalid, ProcessConfig};
 use crate::reload::ReloadAdvisory;
 use crate::source::TileSources;
 
@@ -18,7 +18,7 @@ use crate::source::TileSources;
 /// `TileSourceManager` is cheap to clone.
 #[derive(Clone)]
 pub struct TileSourceManager {
-    tile_sources: Arc<DashMap<String, BoxedSource>>,
+    tile_sources: Arc<DashMap<String, (BoxedSource, ProcessConfig)>>,
     tile_cache: OptTileCache,
     on_invalid: OnInvalid,
 }
@@ -35,16 +35,37 @@ impl TileSourceManager {
     }
 
     /// Creates a manager pre-populated with the given sources.
+    ///
+    /// All sources receive the default [`ProcessConfig`].
     #[must_use]
     pub fn from_sources(
         tile_cache: OptTileCache,
         on_invalid: OnInvalid,
         sources: Vec<Vec<BoxedSource>>,
     ) -> Self {
-        let map: DashMap<String, BoxedSource> = sources
+        let with_defaults = sources
+            .into_iter()
+            .map(|group| {
+                group
+                    .into_iter()
+                    .map(|src| (src, ProcessConfig::default()))
+                    .collect()
+            })
+            .collect();
+        Self::from_sources_with_process(tile_cache, on_invalid, with_defaults)
+    }
+
+    /// Creates a manager pre-populated with sources paired with their process configs.
+    #[must_use]
+    pub fn from_sources_with_process(
+        tile_cache: OptTileCache,
+        on_invalid: OnInvalid,
+        sources: Vec<Vec<(BoxedSource, ProcessConfig)>>,
+    ) -> Self {
+        let map: DashMap<String, (BoxedSource, ProcessConfig)> = sources
             .into_iter()
             .flatten()
-            .map(|src| (src.get_id().to_string(), src))
+            .map(|(src, pc)| (src.get_id().to_string(), (src, pc)))
             .collect();
         Self {
             tile_sources: Arc::new(map),
@@ -88,7 +109,8 @@ impl TileSourceManager {
                     if let Some(cache) = &self.tile_cache {
                         cache.invalidate_source(&new_source.id);
                     }
-                    self.tile_sources.insert(new_source.id.clone(), src);
+                    self.tile_sources
+                        .insert(new_source.id.clone(), (src, new_source.process));
                     info!(source.id = %new_source.id, "Updated source");
                 }
                 Err(err) => match self.on_invalid {
@@ -104,7 +126,8 @@ impl TileSourceManager {
         for new_source in advisory.additions {
             match new_source.source {
                 Ok(src) => {
-                    self.tile_sources.insert(new_source.id.clone(), src);
+                    self.tile_sources
+                        .insert(new_source.id.clone(), (src, new_source.process));
                     info!(source.id = %new_source.id, "Added source");
                 }
                 Err(err) => match self.on_invalid {
@@ -190,6 +213,7 @@ mod tests {
                 id: name.to_string(),
                 tj: tilejson! { tiles: vec![] },
             })),
+            process: ProcessConfig::default(),
         }
     }
 
@@ -282,5 +306,92 @@ mod tests {
         };
         mgr.apply_changes(advisory).await.unwrap();
         assert_yaml_snapshot!(sorted_source_names(&mgr), @"- a");
+    }
+
+    /// Regression test for <https://github.com/maplibre/martin/discussions/2767>:
+    /// a persistently-failing source must not block later additions or removals
+    /// from reaching the live catalog when `OnInvalid::Warn` is in effect.
+    ///
+    /// Simulates the directory-watcher loop:
+    /// 1. Watch a directory with one bad file → catalog empty.
+    /// 2. Add a valid file → catalog gains it.
+    /// 3. Delete the valid file → catalog drops it.
+    #[tokio::test]
+    async fn watcher_loop_around_persistent_bad_file() {
+        use std::collections::BTreeMap;
+        use std::path::{Path, PathBuf};
+
+        use tempfile::TempDir;
+
+        use crate::MartinError;
+        use crate::config::file::{ConfigFileError, ProcessConfig};
+
+        const BAD_PREFIX: &str = "bad_";
+
+        fn scan(dir: &Path) -> BTreeMap<String, u64> {
+            let mut out = BTreeMap::new();
+            for entry in std::fs::read_dir(dir).expect("read tempdir").flatten() {
+                if !entry.file_type().is_ok_and(|t| t.is_file()) {
+                    continue;
+                }
+                let id = entry
+                    .path()
+                    .file_stem()
+                    .and_then(|s| s.to_str())
+                    .map(str::to_string)
+                    .expect("file stem is valid utf-8");
+                out.insert(id, 1);
+            }
+            out
+        }
+
+        #[expect(
+            clippy::unused_async,
+            reason = "must satisfy AsyncFn for ReloadAdvisory::from_maps"
+        )]
+        async fn build(id: String, dir: PathBuf) -> MartinResult<BoxedSource> {
+            if id.starts_with(BAD_PREFIX) {
+                return Err(MartinError::from(ConfigFileError::InvalidFilePath(
+                    dir.join(format!("{id}.tiles")),
+                )));
+            }
+            Ok(Box::new(TestSource {
+                id,
+                tj: tilejson! { tiles: vec![] },
+            }))
+        }
+
+        let dir = TempDir::new().expect("create tempdir");
+        let dir_path = dir.path().to_path_buf();
+        let mgr = TileSourceManager::new(None, OnInvalid::Warn);
+        let mut state: BTreeMap<String, u64> = BTreeMap::new();
+
+        // Reconciles the manager with the current on-disk state and advances `state`.
+        let tick = async |state: &mut BTreeMap<String, u64>| {
+            let next = scan(&dir_path);
+            let advisory = ReloadAdvisory::from_maps(
+                state,
+                &next,
+                async |id| build(id, dir_path.clone()).await,
+                ProcessConfig::default(),
+            )
+            .await;
+            mgr.apply_changes(advisory)
+                .await
+                .expect("warn policy must not abort on a bad file");
+            *state = next;
+        };
+
+        std::fs::write(dir.path().join("bad_a.tiles"), b"").unwrap();
+        tick(&mut state).await;
+        assert_yaml_snapshot!(sorted_source_names(&mgr), @"[]");
+
+        std::fs::write(dir.path().join("good_x.tiles"), b"").unwrap();
+        tick(&mut state).await;
+        assert_yaml_snapshot!(sorted_source_names(&mgr), @"- good_x");
+
+        std::fs::remove_file(dir.path().join("good_x.tiles")).unwrap();
+        tick(&mut state).await;
+        assert_yaml_snapshot!(sorted_source_names(&mgr), @"[]");
     }
 }

@@ -77,6 +77,8 @@ impl PostgresArgs {
                 auto_publish: OptBoolObj::NoValue,
                 tables: None,
                 functions: None,
+                #[cfg(feature = "mlt")]
+                process: None,
                 unrecognized: UnrecognizedValues::default(),
             })
             .collect();

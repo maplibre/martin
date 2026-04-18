@@ -22,13 +22,18 @@ impl Arguments {
         }
     }
 
-    #[cfg(feature = "_tiles")]
+    #[cfg(any(feature = "pmtiles", feature = "mbtiles", feature = "unstable-cog"))]
     #[must_use]
     pub fn is_empty(&self) -> bool {
         self.values.is_empty()
     }
 
-    #[cfg(feature = "_tiles")]
+    #[cfg(any(
+        feature = "postgres",
+        feature = "pmtiles",
+        feature = "mbtiles",
+        feature = "unstable-cog"
+    ))]
     /// Process input params in the original order, but only if no prior consumer has claimed it.
     /// Each consumer can either take it (no other consumer will see it),
     /// share it (other consumers will see it too),

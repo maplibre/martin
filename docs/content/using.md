@@ -18,6 +18,12 @@ Martin data is available via the HTTP `GET` endpoints:
 | `/health`                                | Martin server health check: returns 200 `OK`   |
 | `/_/metrics`                             | Martin server Prometheus metrics               |
 
+### Postprocessing
+
+Martin can postprocess tiles before serving - for example, converting MVT to [MLT format](using-guides/mlt.md) or overriding the compression preference.
+Postprocessing is configured via the `process` block in the [configuration file](config-file/index.md#postprocessing), not through the HTTP API.
+Clients receive the postprocessed tiles transparently.
+
 ### Duplicate Source ID
 
 In case there is more than one source that has the same name, e.g. a PG function is available in two

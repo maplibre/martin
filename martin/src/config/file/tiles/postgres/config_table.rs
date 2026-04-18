@@ -6,6 +6,8 @@ use tilejson::{Bounds, TileJSON, VectorLayer};
 use tracing::{info, warn};
 
 use super::PostgresInfo;
+#[cfg(feature = "mlt")]
+use crate::config::file::ProcessConfig;
 use crate::config::file::postgres::utils::{normalize_key, patch_json};
 use crate::config::file::{CachePolicy, UnrecognizedValues};
 
@@ -112,6 +114,12 @@ pub struct TableInfo {
     #[serde(skip)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub prop_mapping: HashMap<String, String>,
+
+    /// Postprocessing pipeline for this source.
+    /// Overrides source-type and global `process`.
+    #[cfg(feature = "mlt")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub process: Option<ProcessConfig>,
 
     #[serde(flatten, skip_serializing)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]

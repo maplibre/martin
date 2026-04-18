@@ -103,6 +103,7 @@ default = [
     "sprites",
     "styles",
     "webui",
+    "mlt",
 ]
 unstable-cog = ["martin-core/unstable-cog", "_tiles"]
 rendering = ["styles", "martin-core/rendering", "dep:image"]
@@ -122,6 +123,7 @@ postgres = [
 sprites = ["martin-core/sprites", "_catalog"]
 styles = ["martin-core/styles", "dep:walkdir", "_catalog"]
 webui = ["dep:actix-web-static-files", "dep:static-files", "dep:walkdir"]
+mlt = ["dep:mlt-core", "_tiles"]
 _tiles = ["martin-core/_tiles", "_catalog"]
 _catalog = []
 unstable-schemas = [
@@ -132,6 +134,7 @@ unstable-schemas = [
     "fonts",
     "mbtiles",
     "metrics",
+    "mlt",
     "pmtiles",
     "postgres",
     "sprites",
@@ -172,6 +175,7 @@ martin-core.workspace = true
 martin-tile-utils.workspace = true
 mbtiles = { workspace = true, optional = true }
 miette.workspace = true
+mlt-core = { workspace = true, optional = true }
 notify = { workspace = true }
 num_cpus.workspace = true
 object_store = { workspace = true, optional = true }

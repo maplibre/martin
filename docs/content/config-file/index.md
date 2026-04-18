@@ -17,6 +17,39 @@ all of your configuration, which you can edit to remove any sources you don't wa
 martin  ... ... ...  --save-config config.yaml
 ```
 
+## Postprocessing
+
+Martin can postprocess tiles before serving them. The `process` block allows inserting the following optional steps:
+
+- **MLT conversion** — convert MVT tiles to [MapLibre Tiles](using-guides/mlt.md) format on the fly
+- more to follow
+
+The `process` block can appear at three levels. The most specific level wins entirely (no merging between levels):
+
+1. **Global** — applies to all sources
+2. **Source-type** — applies to all sources of that type (e.g. all PMTiles sources)
+3. **Per-source** — applies to a single source
+
+```yaml
+# Global: convert all MVT sources to MLT
+process:
+  mlt: auto
+
+postgres:
+  connection_string: postgresql://localhost/mydb
+  # Source-type: override for all PG sources (disables MLT for all pg sources)
+  process: {}
+  tables:
+    my_table:
+      # Per-source: this table gets MLT conversion
+      process:
+        mlt: auto
+mbtiles: # gets global default
+  - some/file.mbtiles
+```
+
+See the [MLT usage guide](using-guides/mlt.md) for encoder tuning options.
+
 ## Config Example
 
 --8<-- "files/generated_config.md"
