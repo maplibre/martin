@@ -2,6 +2,7 @@
   "compilerOptions": {
     "allowJs": true,
     "esModuleInterop": false,
+    "ignoreDeprecations": "6.0",
     "incremental": true,
     "isolatedModules": true,
     "jsx": "react-jsx",
