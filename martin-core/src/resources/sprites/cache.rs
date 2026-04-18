@@ -1,8 +1,8 @@
+use std::sync::Arc;
 use std::time::Duration;
 
 use actix_web::web::Bytes;
 use moka::future::Cache;
-use std::sync::Arc;
 use tracing::{info, trace};
 
 /// Sprite cache for storing generated sprite sheets.

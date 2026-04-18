@@ -10,7 +10,7 @@ pub use admin::Catalog;
 #[cfg(feature = "_tiles")]
 mod tiles;
 #[cfg(feature = "_tiles")]
-pub use tiles::content::DynTileSource;
+pub use tiles::content::{DynTileSource, TileRequestHeaders};
 #[cfg(feature = "_tiles")]
 pub use tiles::metadata::merge_tilejson;
 

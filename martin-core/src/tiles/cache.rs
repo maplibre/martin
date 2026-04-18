@@ -1,8 +1,8 @@
+use std::sync::Arc;
 use std::time::Duration;
 
-use martin_tile_utils::TileCoord;
+use martin_tile_utils::{Format, TileCoord};
 use moka::future::Cache;
-use std::sync::Arc;
 use tracing::{info, trace};
 
 use crate::tiles::Tile;
@@ -41,6 +41,7 @@ impl TileCache {
         source_id: String,
         xyz: TileCoord,
         query: Option<String>,
+        format: Option<Format>,
         compute: F,
     ) -> Result<Tile, Arc<E>>
     where
@@ -48,7 +49,7 @@ impl TileCache {
         Fut: Future<Output = Result<Tile, E>>,
         E: Send + Sync + 'static,
     {
-        let key = TileCacheKey::new(source_id, xyz, query);
+        let key = TileCacheKey::new(source_id, xyz, query, format);
         let entry = self
             .0
             .entry(key.clone())
@@ -115,14 +116,23 @@ struct TileCacheKey {
     source_id: String,
     xyz: TileCoord,
     query: Option<String>,
+    /// The format requested via the `Accept` header.
+    /// `None` means no `Accept` header was present.
+    format: Option<Format>,
 }
 
 impl TileCacheKey {
-    fn new(source_id: String, xyz: TileCoord, query: Option<String>) -> Self {
+    fn new(
+        source_id: String,
+        xyz: TileCoord,
+        query: Option<String>,
+        format: Option<Format>,
+    ) -> Self {
         Self {
             source_id,
             xyz,
             query,
+            format,
         }
     }
 }
