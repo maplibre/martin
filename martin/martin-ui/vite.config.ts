@@ -21,6 +21,7 @@ export default defineConfig({
           ) {
             return 'maplibre';
           }
+          return undefined;
         },
       },
     },
