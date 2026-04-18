@@ -10,31 +10,13 @@ import { TooltipCopyText } from '@/components/ui/tooltip-copy-text';
 import { buildMartinUrl } from '@/lib/api';
 import type { Style } from '@/lib/types';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import {
-  FullscreenControl,
-  Map as MapLibreMap,
-  type ViewStateChangeEvent,
-} from '@vis.gl/react-maplibre';
-import { useCallback, useState } from 'react';
+import { FullscreenControl, Map as MapLibreMap } from '@vis.gl/react-maplibre';
 
 function StylePreviewMap({ styleName }: { styleName: string }) {
-  const [viewState, setViewState] = useState<{
-    latitude: number;
-    longitude: number;
-    zoom: number;
-  } | null>(null);
-
-  const handleMove = useCallback((evt: ViewStateChangeEvent) => {
-    const { latitude, longitude, zoom } = evt.viewState;
-    setViewState({ latitude, longitude, zoom });
-  }, []);
-
   return (
     <MapLibreMap
-      reuseMaps
-      {...(viewState ?? {})}
       mapStyle={buildMartinUrl(`/style/${styleName}`)}
-      onMove={handleMove}
+      reuseMaps
       style={{
         aspectRatio: 16 / 9,
         backgroundColor: '#E5E7EB',
