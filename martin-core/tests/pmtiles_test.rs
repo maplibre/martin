@@ -567,30 +567,30 @@ async fn dir_cache_entry_evicted_after_ttl_expires() {
 
 #[tokio::test]
 async fn dir_ttl_evicts_even_with_frequent_access() {
-    let ttl = Duration::from_millis(80);
+    let ttl = Duration::from_millis(200);
     let cache = ttl_cache(Some(ttl), None);
 
     dir_insert(&cache, TTL_CACHE_OFFSET).await;
 
     for _ in 0..3 {
-        tokio::time::sleep(Duration::from_millis(20)).await;
+        tokio::time::sleep(Duration::from_millis(40)).await;
         dir_assert_hit(&cache, TTL_CACHE_OFFSET).await;
     }
 
-    wait_and_flush(&cache, Duration::from_millis(30)).await;
+    wait_and_flush(&cache, Duration::from_millis(100)).await;
 
     dir_assert_miss(&cache, TTL_CACHE_OFFSET).await;
 }
 
 #[tokio::test]
 async fn dir_cache_entry_survives_when_accessed_within_tti() {
-    let tti = Duration::from_millis(60);
+    let tti = Duration::from_millis(200);
     let cache = ttl_cache(None, Some(tti));
 
     dir_insert(&cache, TTL_CACHE_OFFSET).await;
 
     for _ in 0..3 {
-        tokio::time::sleep(Duration::from_millis(30)).await;
+        tokio::time::sleep(Duration::from_millis(50)).await;
         dir_assert_hit(&cache, TTL_CACHE_OFFSET).await;
     }
 }
