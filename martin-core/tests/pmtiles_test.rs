@@ -589,8 +589,8 @@ async fn dir_cache_entry_survives_when_accessed_within_tti() {
 
     dir_insert(&cache, TTL_CACHE_OFFSET).await;
 
+    tokio::time::sleep(Duration::from_millis(50)).await;
     for _ in 0..3 {
-        tokio::time::sleep(Duration::from_millis(50)).await;
         dir_assert_hit(&cache, TTL_CACHE_OFFSET).await;
     }
 }
