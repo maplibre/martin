@@ -157,7 +157,6 @@ function toast({ ...props }: Toast) {
 function useToast() {
   const [state, setState] = React.useState<State>(memoryState);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: this is necessary as otherwise this does not re-render when it should
   React.useEffect(() => {
     listeners.push(setState);
     return () => {
@@ -175,4 +174,4 @@ function useToast() {
   };
 }
 
-export { useToast, toast };
+export { toast, useToast };

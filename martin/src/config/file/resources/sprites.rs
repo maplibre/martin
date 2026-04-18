@@ -5,8 +5,8 @@ use serde::{Deserialize, Serialize};
 use tracing::warn;
 
 use crate::config::file::{
-    ConfigFileResult, ConfigurationLivecycleHooks, FileConfigEnum, UnrecognizedKeys,
-    UnrecognizedValues,
+    CacheSizeConfig, ConfigFileResult, ConfigurationLivecycleHooks, FileConfigEnum,
+    UnrecognizedKeys, UnrecognizedValues,
 };
 
 pub type SpriteConfig = FileConfigEnum<InnerSpriteConfig>;
@@ -48,10 +48,9 @@ impl SpriteConfig {
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct InnerSpriteConfig {
-    /// Size of the sprite cache in megabytes (0 to disable)
-    ///
-    /// Overrides [`cache_size_mb`](crate::config::file::Config::cache_size_mb).
-    pub cache_size_mb: Option<u64>,
+    /// Cache configuration for sprites.
+    #[serde(default, skip_serializing_if = "CacheSizeConfig::is_empty")]
+    pub cache: CacheSizeConfig,
 
     #[serde(flatten, skip_serializing)]
     pub unrecognized: UnrecognizedValues,

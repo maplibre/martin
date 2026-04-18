@@ -192,6 +192,19 @@ test_json_with_header() {
   clean_headers_dump "$FILENAME.headers"
 }
 
+test_accept_header() {
+  URL="$MARTIN_URL/$1"
+  ACCEPT_HEADER="$2"
+  EXPECTED_CODE="$3"
+
+  echo "Testing Accept header: $ACCEPT_HEADER on $URL (expect $EXPECTED_CODE)"
+  HTTP_CODE=$(curl --silent --show-error --write-out "%{http_code}" --output /dev/null -H "Accept: $ACCEPT_HEADER" "$URL")
+  if [ "$HTTP_CODE" != "$EXPECTED_CODE" ]; then
+    echo "ERROR: Expected HTTP $EXPECTED_CODE, got $HTTP_CODE for $URL with Accept: $ACCEPT_HEADER"
+    exit 1
+  fi
+}
+
 test_redirect() {
   URL="$MARTIN_URL/$1"
   EXPECTED_LOCATION="$2"
@@ -455,6 +468,8 @@ test_jsn mb_jpg       geography-class-jpg
 test_jpg mb_jpg_0_0_0 geography-class-jpg/0/0/0
 test_jsn mb_png       geography-class-png
 test_png mb_png_0_0_0 geography-class-png/0/0/0
+test_jsn mb_dedup_id       normalized-dedup-id
+test_jpg mb_dedup_id_0_0_0 normalized-dedup-id/0/0/0
 test_jsn mb_mvt       world_cities
 test_pbf mb_mvt_2_3_1 world_cities/2/3/1
 
@@ -617,6 +632,27 @@ test_font font_3      font/Overpass%20Mono%20Regular,Overpass%20Mono%20Light/0-2
 test_jsn tbl_comment_cfg  MixPoints
 test_jsn fnc_comment_cfg  function_Mixed_Name
 
+>&2 echo "***** Test Accept header content negotiation (HTTP 406) *****"
+
+# MVT source
+test_accept_header table_source/0/0/0 "application/x-protobuf" 200
+test_accept_header table_source/0/0/0 "*/*" 200
+test_accept_header table_source/0/0/0 "image/png, application/x-protobuf" 200
+test_accept_header table_source/0/0/0 "application/x-protobuf, image/png" 200
+test_accept_header table_source/0/0/0 "image/png" 406
+test_accept_header table_source/0/0/0 "image/*" 406
+test_accept_header table_source/0/0/0 "application/vnd.maplibre-vector-tile" 406
+test_accept_header table_source/0/0/0 "application/vnd.maplibre-tile" 406
+test_accept_header table_source/0/0/0 "text/html" 406
+
+# PNG source
+test_accept_header pmt/0/0/0 "image/png" 200
+test_accept_header pmt/0/0/0 "image/*" 200
+test_accept_header pmt/0/0/0 "*/*" 200
+test_accept_header pmt/0/0/0 "application/x-protobuf" 406
+test_accept_header pmt/0/0/0 "application/vnd.maplibre-vector-tile" 406
+test_accept_header pmt/0/0/0 "application/vnd.maplibre-tile" 406
+
 >&2 echo "***** Test URL redirects (HTTP 301) *****"
 
 # Test pluralization redirects
@@ -754,6 +790,7 @@ if [[ "$MBTILES_BIN" != "-" ]]; then
   $MBTILES_BIN meta-get ./tests/fixtures/mbtiles/world_cities.mbtiles name 2>&1 | tee "$TEST_OUT_DIR/meta-get_name.txt"
   $MBTILES_BIN meta-get ./tests/fixtures/mbtiles/world_cities.mbtiles missing_value 2>&1 | tee "$TEST_OUT_DIR/meta-get_missing_value.txt"
   $MBTILES_BIN validate ./tests/fixtures/mbtiles/zoomed_world_cities.mbtiles 2>&1 | tee "$TEST_OUT_DIR/validate-ok.txt"
+  $MBTILES_BIN validate ./tests/fixtures/mbtiles/normalized-dedup-id.mbtiles 2>&1 | tee "$TEST_OUT_DIR/validate-dedup-id-ok.txt"
 
   if $MBTILES_BIN validate ./tests/fixtures/files/invalid-tile-idx.mbtiles 2>&1 | tee "$TEST_OUT_DIR/validate-bad-tiles.txt"; then
     echo "ERROR: validate with invalid-tile-idx.mbtiles should have failed"

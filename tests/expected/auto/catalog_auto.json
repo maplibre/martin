@@ -160,9 +160,14 @@
     },
     "mlt": {
       "attribution": "<a href=\"https://www.openmaptiles.org/\" target=\"_blank\">&copy; OpenMapTiles</a> <a href=\"https://www.openstreetmap.org/copyright\" target=\"_blank\">&copy; OpenStreetMap contributors</a>",
-      "content_type": "application/vnd.maplibre-vector-tile",
+      "content_type": "application/vnd.maplibre-tile",
       "description": "A tileset showcasing all layers in OpenMapTiles. https://openmaptiles.org",
       "name": "OpenMapTiles"
+    },
+    "normalized-dedup-id": {
+      "content_type": "image/jpeg",
+      "description": "Test fixture for normalized schema with integer tile_data_id",
+      "name": "Normalized DedupId Test"
     },
     "png": {
       "content_type": "image/png",

@@ -18,12 +18,13 @@
     "styled-components": "6.3.11"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.4.6",
+    "@biomejs/biome": "2.4.11",
     "@types/debounce": "^1.2.4",
     "@types/node": "^25.3.5",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.4",
+    "babel-plugin-react-compiler": "^1.0.0",
     "typescript": "^5.9.3",
     "vite": "^7.3.2",
     "vite-plugin-mkcert": "^1.17.10",

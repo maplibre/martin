@@ -31,7 +31,8 @@ use MD5 hash in the `tile_id` column. The Martin's `mbtiles` tool can use this h
 We also define a new [flat-with-hash](mbtiles-schema.md#flat-with-hash) schema that stores the hash and tile data in the
 same table, allowing per-tile validation without the multiple table layout.
 
-Per-tile validation is not available for the `flat` schema, and will be skipped.
+Per-tile validation is not available for the `flat` schema and will be skipped.
+For the [dedup-id normalized](mbtiles-schema.md#alternative-normalized-schema-dedup-id) schema variant, foreign key integrity is validated instead — every `tile_data_id` in `tiles_shallow` must have a matching entry in `tiles_data`.
 
 ## Aggregate Content Validation
 

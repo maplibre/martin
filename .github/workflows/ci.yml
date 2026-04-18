@@ -36,13 +36,22 @@ jobs:
       - run: just ui::test
       - run: just ui::type-check
   unit-test-rust:
-    name: Unit test the server
+    name: Unit test the server (${{ matrix.os }})
     permissions:
       contents: read
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    needs:
+      - lint-rust # not because it is needed, but because we want less concurrent jobs competing
+    strategy:
+      fail-fast: false
+      matrix:
+        # 1. Linux-only for PRs (faster feedback)
+        # 2. Run on all three OS platforms when merging to main
+        os: ${{ fromJSON('["ubuntu-latest", "macos-latest"]') || (github.ref == 'refs/heads/main' && fromJSON('["ubuntu-latest", "macos-latest", "windows-latest"]')) }}
     steps:
       - run: rustup update stable && rustup default stable
       - uses: BRAINSia/free-disk-space@7048ffbf50819342ac964ef3998a51c2564a8a75 # v2.1.3
+        if: runner.os == 'Linux'
         with:
           tool-cache: false
           mandb:   true
@@ -55,6 +64,10 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with: { persist-credentials: false }
+      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
+        with:
+          key: ${{ matrix.os }}
       - uses: taiki-e/install-action@a57ddfbcd928cf9406a78dcc300dacc5d367a547 # v2.68.31
         with: { tool: 'just' }
       - name: Run cargo test
@@ -558,6 +571,40 @@ jobs:
             target/test_logs/*
           retention-days: 5
 
+  test-freebsd:
+    name: Unit test on FreeBSD
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    needs:
+      - lint-rust
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with: { persist-credentials: false }
+      - name: Test in FreeBSD
+        id: test
+        uses: vmactions/freebsd-vm@7ca82f79fe3078fecded6d3a2bff094995447bbd # v1
+        with:
+          release: "15.0"
+          envs: "AWS_SKIP_CREDENTIALS AWS_REGION"
+          # Dependencies (FreeBSD base systems come more bare):
+          # - sqlite3 for MBTiles support
+          # - freetype2 for font rendering to SDF
+          # - cmake for aws-lc-sys
+          # - just for running standardized test suites
+          # - bash because the justfile has a lot of scripts that assume bash
+          # - node and npm are not currently used (we don't run the JS tests on FreeBSD),
+          #   but they are here in case we want them later.
+          prepare: |
+            pkg install -y rust sqlite3 freetype2 cmake just bash node npm
+          run: |
+            just env-info
+            just test-freebsd
+        env:
+          AWS_SKIP_CREDENTIALS: 1
+          AWS_REGION: eu-central-1
+
   unit-test-svc-pg:
     name: Unit test postgis:${{ matrix.img_ver }} sslmode=${{ matrix.sslmode }}
     runs-on: ubuntu-latest
@@ -740,7 +787,7 @@ jobs:
       attestations: write
       # for writing release artifacts
       contents: write
-    needs: [ lint-unit-test-js, unit-test-rust, lint-rust, lint-rust-dependencies, test-multi-os, test-with-svc, test-aws-lambda, test-publish, build-aarch64-apple-darwin, build-x86_64-apple-darwin, build-aarch64-unknown-linux-gnu, build-aarch64-unknown-linux-musl ]
+    needs: [ lint-unit-test-js, unit-test-rust, lint-rust, lint-rust-dependencies, test-multi-os, test-with-svc, test-aws-lambda, test-freebsd, test-publish, build-aarch64-apple-darwin, build-x86_64-apple-darwin, build-aarch64-unknown-linux-gnu, build-aarch64-unknown-linux-musl ]
     steps:
       - name: Checkout sources
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -886,6 +933,7 @@ jobs:
       - lint-rust-dependencies
       - lint-unit-test-js
       - lint-rust
+      - test-freebsd
     if: always()
     permissions: {}
     steps:

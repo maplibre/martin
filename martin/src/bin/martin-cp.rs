@@ -14,12 +14,14 @@ use clap::builder::Styles;
 use clap::builder::styling::AnsiColor;
 use futures::TryStreamExt as _;
 use futures::stream::{self, StreamExt as _};
+#[cfg(feature = "postgres")]
+use martin::config::args::PostgresArgs;
 use martin::config::args::{Args, ExtraArgs, MetaArgs, SrvArgs};
 use martin::config::file::{Config, ServerState, read_config};
 use martin::config::primitives::env::OsEnv;
 use martin::logging::progress::TileCopyProgress;
 use martin::logging::{ensure_martin_core_log_level_matches, init_tracing};
-use martin::srv::{DynTileSource, merge_tilejson};
+use martin::srv::{DynTileSource, TileRequestHeaders, merge_tilejson};
 use martin::{MartinError, MartinResult};
 use martin_core::tiles::BoxedSource;
 use martin_core::tiles::mbtiles::MbtilesError;
@@ -37,7 +39,7 @@ use tokio::try_join;
 use tracing::{debug, error, info, warn};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
-const SAVE_EVERY: Duration = Duration::from_secs(60);
+const SAVE_EVERY: Duration = Duration::from_mins(1);
 const PROGRESS_REPORT_AFTER: u64 = 100;
 const PROGRESS_REPORT_EVERY: Duration = Duration::from_secs(2);
 const BATCH_SIZE: usize = 1000;
@@ -62,7 +64,7 @@ pub struct CopierArgs {
     pub meta: MetaArgs,
     #[cfg(feature = "postgres")]
     #[command(flatten)]
-    pub pg: Option<martin::config::args::PostgresArgs>,
+    pub pg: Option<PostgresArgs>,
 }
 
 #[serde_with::serde_as]
@@ -297,7 +299,7 @@ fn check_sources(args: &CopyArgs, state: &ServerState) -> Result<String, MartinC
     if let Some(source_id) = &args.source {
         Ok(source_id.clone())
     } else {
-        let source_ids = state.tiles.source_names();
+        let source_ids = state.tile_manager.tile_sources().source_names();
         if let Some(source_id) = source_ids.first() {
             if source_ids.len() > 1 {
                 return Err(MartinCpError::MultipleSources(source_ids.join(", ")));
@@ -348,7 +350,12 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()>
     // we only warn that the concurrency might be too low if:
     // - a user has concurrency at the default
     // - there is at least one pg or remote pmtiles source
-    if concurrency == 1 && state.tiles.benefits_from_concurrent_scraping() {
+    if concurrency == 1
+        && state
+            .tile_manager
+            .tile_sources()
+            .benefits_from_concurrent_scraping()
+    {
         warn!(
             "Using `--concurrency 1`. Increasing it may improve performance for your tile sources. See https://docs.martin.rs/cli/usage.html#concurrency for further details."
         );
@@ -357,14 +364,14 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()>
     let source_id = check_sources(&args, &state)?;
 
     let src = DynTileSource::new(
-        &state.tiles,
+        &state.tile_manager,
         &source_id,
         None,
         args.url_query.as_deref().unwrap_or_default(),
-        Some(parse_encoding(args.encoding.as_str())?),
-        None,
-        None,
-        None,
+        TileRequestHeaders {
+            accept_enc: Some(parse_encoding(args.encoding.as_str())?),
+            ..Default::default()
+        },
     )?;
 
     let inferred_bboxes = if args.bbox.is_empty() {
@@ -427,7 +434,7 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()>
                 } else {
                     batch.push((tile.xyz.z, tile.xyz.x, tile.xyz.y, tile.data));
                     hotpath::gauge!("cp_batch_size").set(f64::from(
-                        u32::try_from(batch.len()).expect("batch size <= 1000"),
+                        u32::try_from(batch.len()).expect("batch size should be <= 1000"),
                     ));
                     if batch.len() >= BATCH_SIZE || last_saved.elapsed() > SAVE_EVERY {
                         mbt.insert_tiles(&mut conn, mbt_type, on_duplicate, &batch)
@@ -499,7 +506,10 @@ async fn init_schema(
             let mbt_type = match args.mbt_type.unwrap_or(MbtTypeCli::Normalized) {
                 MbtTypeCli::Flat => MbtType::Flat,
                 MbtTypeCli::FlatWithHash => MbtType::FlatWithHash,
-                MbtTypeCli::Normalized => MbtType::Normalized { hash_view: true },
+                MbtTypeCli::Normalized => MbtType::Normalized {
+                    hash_view: true,
+                    schema: mbtiles::NormalizedSchema::Hash,
+                },
             };
             init_mbtiles_schema(&mut *conn, mbt_type)
                 .await
@@ -555,7 +565,9 @@ mod tests {
 
     use async_trait::async_trait;
     use insta::assert_yaml_snapshot;
-    use martin::TileSources;
+    use martin::TileSourceManager;
+    use martin::config::file::OnInvalid;
+    use martin_core::CacheZoomRange;
     use martin_core::tiles::{MartinCoreResult, Source, UrlQuery};
     use martin_tile_utils::{Encoding, Format};
     use rstest::{fixture, rstest};
@@ -588,6 +600,10 @@ mod tests {
             Box::new(self.clone())
         }
 
+        fn cache_zoom(&self) -> CacheZoomRange {
+            CacheZoomRange::default()
+        }
+
         async fn get_tile(
             &self,
             _xyz: TileCoord,
@@ -597,9 +613,13 @@ mod tests {
         }
     }
 
+    fn test_manager(sources: Vec<Vec<BoxedSource>>) -> TileSourceManager {
+        TileSourceManager::from_sources(None, OnInvalid::Abort, sources)
+    }
+
     #[fixture]
-    fn many_sources() -> TileSources {
-        TileSources::new(vec![vec![
+    fn many_sources() -> TileSourceManager {
+        test_manager(vec![vec![
             Box::new(MockSource {
                 id: "test_source",
                 tj: tilejson! { tiles: vec![], bounds: Bounds::from_str("-110.0,20.0,-120.0,80.0").unwrap() },
@@ -624,8 +644,8 @@ mod tests {
     }
 
     #[fixture]
-    fn one_source() -> TileSources {
-        TileSources::new(vec![vec![Box::new(MockSource {
+    fn one_source() -> TileSourceManager {
+        test_manager(vec![vec![Box::new(MockSource {
             id: "test_source",
             tj: tilejson! { tiles: vec![], bounds: Bounds::from_str("-120.0,30.0,-110.0,40.0").unwrap() },
             data: Vec::default(),
@@ -633,8 +653,8 @@ mod tests {
     }
 
     #[fixture]
-    fn source_wo_bounds() -> TileSources {
-        TileSources::new(vec![vec![Box::new(MockSource {
+    fn source_wo_bounds() -> TileSourceManager {
+        test_manager(vec![vec![Box::new(MockSource {
             id: "test_source",
             tj: tilejson! { tiles: vec![] },
             data: Vec::default(),
@@ -650,11 +670,11 @@ mod tests {
     #[case::many_sources_bounded_and_unbounded_rev(many_sources(), "unbounded_source,test_source", vec![Bounds::MAX_TILED, Bounds::from_str("-110.0,20.0,-120.0,80.0").unwrap()])]
     #[case::source_wo_bounds(source_wo_bounds(), "test_source", vec![Bounds::MAX_TILED])]
     fn test_default_bounds(
-        #[case] src: TileSources,
+        #[case] src: TileSourceManager,
         #[case] ids: &str,
         #[case] expected: Vec<Bounds>,
     ) {
-        let dts = DynTileSource::new(&src, ids, None, "", None, None, None, None).unwrap();
+        let dts = DynTileSource::new(&src, ids, None, "", TileRequestHeaders::default()).unwrap();
 
         assert_eq!(default_bounds(&dts), expected);
     }

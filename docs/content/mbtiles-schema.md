@@ -31,3 +31,15 @@ Optionally, `.mbtiles` files with `normalized` schema can include a `tiles_with_
 ```sql
 --8<-- "files/init-normalized.sql:30:39"
 ```
+
+### Alternative normalized schema (dedup-id)
+
+Some tools (e.g. [Planetiler](https://github.com/onthegomap/planetiler)) produce a variation of the normalized schema that uses `tiles_shallow` and `tiles_data` tables with an integer `tile_data_id` column instead of the text-based `tile_id` (MD5 hash).
+
+```sql
+--8<-- "files/init-normalized-dedup-id.sql"
+```
+
+Since tile IDs are integers rather than content hashes, per-tile validation checks foreign key integrity (every `tile_data_id` in `tiles_shallow` must exist in `tiles_data`) instead of recomputing content hashes.
+When copying from this schema to a new file, the `mbtiles` tool will produce the standard `map` + `images` normalized schema in the destination.
+In our next semver major, we plan to switch this default and produce `tiles_shallow`/`tiles_data` by default as well.

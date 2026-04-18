@@ -205,14 +205,20 @@ impl BinDiffDiffer {
 
 impl BinDiffer<DifferBefore, DifferAfter> for BinDiffDiffer {
     async fn query(&self, sql_where: String, tx_wrk: Sender<DifferBefore>) -> MbtResult<()> {
-        let diff_tiles = match self.dif_type {
-            Flat => "diffDb.tiles",
-            FlatWithHash => "diffDb.tiles_with_hash",
-            Normalized { .. } => {
-                "
-        (SELECT zoom_level, tile_column, tile_row, tile_data, map.tile_id AS tile_hash
-        FROM diffDb.map JOIN diffDb.images ON diffDb.map.tile_id = diffDb.images.tile_id)"
-            }
+        let diff_tiles: String = match self.dif_type {
+            Flat => "diffDb.tiles".to_string(),
+            FlatWithHash
+            | Normalized {
+                schema: _,
+                hash_view: true,
+            } => "diffDb.tiles_with_hash".to_string(),
+            Normalized {
+                schema,
+                hash_view: false,
+            } => format!(
+                "({})",
+                schema.select_tiles_sql("diffDb", "tile_hash", "JOIN")
+            ),
         };
 
         let sql = format!(

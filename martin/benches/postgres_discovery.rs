@@ -1,9 +1,11 @@
+#![allow(clippy::unwrap_used)]
 use std::time::Duration;
 
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
-use martin::config::file::init_aws_lc_tls;
 use martin::config::file::postgres::{PostgresAutoDiscoveryBuilder, PostgresConfig};
+use martin::config::file::{CachePolicy, init_aws_lc_tls};
 use martin::config::primitives::IdResolver;
+use martin_core::tiles::postgres::PostgresPool;
 use testcontainers_modules::postgres::Postgres;
 use testcontainers_modules::testcontainers::ImageExt as _;
 use testcontainers_modules::testcontainers::runners::SyncRunner as _;
@@ -39,10 +41,9 @@ fn setup_postgres_container() -> (
 
 /// Create test tables with various geometries
 async fn populate_tables(connection_string: &str, count: usize) {
-    let pool =
-        martin_core::tiles::postgres::PostgresPool::new(connection_string, None, None, None, 10)
-            .await
-            .expect("Failed to create pool");
+    let pool = PostgresPool::new(connection_string, None, None, None, 10)
+        .await
+        .expect("Failed to create pool");
 
     let client = pool.get().await.expect("Failed to get client");
 
@@ -106,7 +107,7 @@ async fn populate_tables(connection_string: &str, count: usize) {
 
         // Insert sample data
         let sample_geom = match geometry_type {
-            "Point" => format!("ST_SetSRID(ST_MakePoint(-73.9857, 40.7484), {srid})",),
+            "Point" => format!("ST_SetSRID(ST_MakePoint(-73.9857, 40.7484), {srid})"),
             "LineString" => {
                 format!(
                     "ST_SetSRID(ST_MakeLine(ST_MakePoint(-73.9857, 40.7484), ST_MakePoint(-73.9757, 40.7584)), {srid})",
@@ -132,10 +133,9 @@ async fn populate_tables(connection_string: &str, count: usize) {
 
 /// Create test MVT functions
 async fn populate_functions(connection_string: &str, count: usize) {
-    let pool =
-        martin_core::tiles::postgres::PostgresPool::new(connection_string, None, None, None, 10)
-            .await
-            .expect("Failed to create pool");
+    let pool = PostgresPool::new(connection_string, None, None, None, 10)
+        .await
+        .expect("Failed to create pool");
 
     let client = pool.get().await.expect("Failed to get client");
 
@@ -242,9 +242,10 @@ async fn populate_functions(connection_string: &str, count: usize) {
 }
 
 async fn discover_tables(config: &PostgresConfig) {
-    let builder = PostgresAutoDiscoveryBuilder::new(config, IdResolver::default())
-        .await
-        .expect("Failed to create builder");
+    let builder =
+        PostgresAutoDiscoveryBuilder::new(config, IdResolver::default(), CachePolicy::default())
+            .await
+            .expect("Failed to create builder");
 
     let tables = builder
         .instantiate_tables()
@@ -254,9 +255,10 @@ async fn discover_tables(config: &PostgresConfig) {
 }
 
 async fn discover_functions(config: &PostgresConfig) {
-    let builder = PostgresAutoDiscoveryBuilder::new(config, IdResolver::default())
-        .await
-        .expect("Failed to create builder");
+    let builder =
+        PostgresAutoDiscoveryBuilder::new(config, IdResolver::default(), CachePolicy::default())
+            .await
+            .expect("Failed to create builder");
 
     let functions = builder
         .instantiate_functions()

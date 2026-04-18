@@ -13,7 +13,7 @@ use tilejson::{TileJSON, tilejson};
 use url::form_urlencoded;
 
 use crate::config::file::srv::SrvConfig;
-use crate::source::TileSources;
+use crate::tile_source_manager::TileSourceManager;
 
 #[derive(Deserialize)]
 pub struct SourceIDsRequest {
@@ -31,10 +31,13 @@ pub struct SourceIDsRequest {
 async fn get_source_info(
     req: HttpRequest,
     path: Path<SourceIDsRequest>,
-    sources: Data<TileSources>,
+    manager: Data<TileSourceManager>,
     srv_config: Data<SrvConfig>,
 ) -> ActixResult<HttpResponse> {
-    let sources = sources.get_sources(&path.source_ids, None)?.0;
+    let sources = manager
+        .tile_sources()
+        .get_sources(&path.source_ids, None)?
+        .0;
 
     // Determine the path prefix for tile URLs in TileJSON responses
     // Priority: base_path (explicit override) > route_prefix (where Martin is mounted) > X-Rewrite-URL header > request path

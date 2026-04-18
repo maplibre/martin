@@ -2,7 +2,7 @@
 
 Martin can serve glyph ranges from `otf`, `ttf`, and `ttc` fonts as needed by MapLibre text rendering. Martin will
 generate them dynamically on the fly.
-The glyph range generation is cached and the size of this cache can be configured via `fonts.cache_size_mb` in the config file.
+The glyph range generation is cached and the size of this cache can be configured via `fonts.cache.size_mb` in the config file.
 
 ## API
 

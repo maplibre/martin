@@ -8,7 +8,11 @@ export default defineConfig({
     target: 'esnext',
   },
   plugins: [
-    react(),
+    react({
+      babel: {
+        plugins: ['babel-plugin-react-compiler'],
+      },
+    }),
     viteTsConfigPaths({
       root: './',
     }),

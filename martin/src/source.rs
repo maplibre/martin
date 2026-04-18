@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use actix_web::error::ErrorNotFound;
 use dashmap::DashMap;
 use martin_core::tiles::catalog::TileCatalog;
@@ -9,19 +11,25 @@ use tracing::debug;
 ///
 /// Uses a [`DashMap`] for concurrent access without explicit locking.
 #[derive(Default, Clone)]
-pub struct TileSources(DashMap<String, BoxedSource>);
+pub struct TileSources(Arc<DashMap<String, BoxedSource>>);
 
 impl TileSources {
     /// Creates a new registry from flattened source collections.
     #[must_use]
     pub fn new(sources: Vec<Vec<BoxedSource>>) -> Self {
-        Self(
+        Self(Arc::new(
             sources
                 .into_iter()
                 .flatten()
                 .map(|src| (src.get_id().to_string(), src))
                 .collect(),
-        )
+        ))
+    }
+
+    /// Creates a registry backed by an existing shared `DashMap`.
+    #[must_use]
+    pub(crate) fn from_dashmap(map: Arc<DashMap<String, BoxedSource>>) -> Self {
+        Self(map)
     }
 
     /// Returns a catalog of all sources with their metadata.
@@ -90,8 +98,11 @@ impl TileSources {
             }
         }
 
-        // format is guaranteed to be Some() here
-        Ok((sources, use_url_query, info.unwrap()))
+        Ok((
+            sources,
+            use_url_query,
+            info.expect("source_ids should be non-empty and contain at least one valid source"),
+        ))
     }
 
     /// Validates zoom level support for a source

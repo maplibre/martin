@@ -18,7 +18,7 @@ use sqlx::{
 
 use crate::bindiff::PatchType;
 use crate::errors::{MbtError, MbtResult};
-use crate::{CopyDuplicateMode, MbtType, invert_y_value};
+use crate::{CopyDuplicateMode, MbtType, NormalizedSchema, invert_y_value};
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize, EnumDisplay)]
 #[enum_display(case = "Kebab")]
@@ -568,11 +568,23 @@ impl Mbtiles {
             MbtType::Flat => {
                 "SELECT tile_data, NULL as tile_hash from tiles where zoom_level = ? AND tile_column = ? AND tile_row = ?"
             }
-            MbtType::FlatWithHash | MbtType::Normalized { hash_view: true } => {
+            MbtType::FlatWithHash
+            | MbtType::Normalized {
+                hash_view: true, ..
+            } => {
                 "SELECT tile_data, tile_hash from tiles_with_hash where zoom_level = ? AND tile_column = ? AND tile_row = ?"
             }
-            MbtType::Normalized { hash_view: false } => {
+            MbtType::Normalized {
+                hash_view: false,
+                schema: NormalizedSchema::Hash,
+            } => {
                 "SELECT images.tile_data, images.tile_id AS tile_hash FROM map JOIN images ON map.tile_id = images.tile_id  where map.zoom_level = ? AND map.tile_column = ? AND map.tile_row = ?"
+            }
+            MbtType::Normalized {
+                hash_view: false,
+                schema: NormalizedSchema::DedupId,
+            } => {
+                "SELECT tiles_data.tile_data, NULL AS tile_hash FROM tiles_shallow JOIN tiles_data ON tiles_shallow.tile_data_id = tiles_data.tile_data_id  where tiles_shallow.zoom_level = ? AND tiles_shallow.tile_column = ? AND tiles_shallow.tile_row = ?"
             }
         }
     }
@@ -599,12 +611,12 @@ impl Mbtiles {
     /// # }
     /// ```
     #[hotpath::measure]
-    pub async fn insert_tiles(
+    pub async fn insert_tiles<D: AsRef<[u8]>>(
         &self,
         conn: &mut SqliteConnection,
         mbt_type: MbtType,
         on_duplicate: CopyDuplicateMode,
-        batch: &[(u8, u32, u32, Vec<u8>)],
+        batch: &[(u8, u32, u32, D)],
     ) -> MbtResult<()> {
         debug!(
             "Inserting a batch of {} tiles into {mbt_type} / {on_duplicate}",
@@ -615,7 +627,10 @@ impl Mbtiles {
         if let Some(sql2) = sql2 {
             let sql2 = tx.prepare(&sql2).await?;
             for (_, _, _, tile_data) in batch {
-                sql2.query().bind(tile_data).execute(&mut *tx).await?;
+                sql2.query()
+                    .bind(tile_data.as_ref())
+                    .execute(&mut *tx)
+                    .await?;
             }
         }
         let sql1 = tx.prepare(&sql1).await?;
@@ -625,7 +640,7 @@ impl Mbtiles {
                 .bind(z)
                 .bind(x)
                 .bind(y)
-                .bind(tile_data)
+                .bind(tile_data.as_ref())
                 .execute(&mut *tx)
                 .await?;
         }
@@ -650,7 +665,7 @@ impl Mbtiles {
         let table = match mbt_type {
             MbtType::Flat => "tiles",
             MbtType::FlatWithHash => "tiles_with_hash",
-            MbtType::Normalized { .. } => "map",
+            MbtType::Normalized { schema, .. } => schema.map_table(),
         };
         let sql = format!(
             "SELECT 1 from {table} where zoom_level = ? AND tile_column = ? AND tile_row = ?"
@@ -714,7 +729,11 @@ pub async fn attach_sqlite_fn(conn: &mut SqliteConnection) -> MbtResult<()> {
     Ok(())
 }
 
-fn parse_tile_index(z: Option<i64>, x: Option<i64>, y: Option<i64>) -> Option<TileCoord> {
+pub(crate) fn parse_tile_index(
+    z: Option<i64>,
+    x: Option<i64>,
+    y: Option<i64>,
+) -> Option<TileCoord> {
     let z: u8 = z?.try_into().ok()?;
     let x: u32 = x?.try_into().ok()?;
     let y: u32 = y?.try_into().ok()?;

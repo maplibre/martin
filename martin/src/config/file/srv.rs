@@ -4,6 +4,8 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 
 use crate::config::args::PreferredEncoding;
+#[cfg(all(feature = "webui", not(docsrs)))]
+use crate::config::args::WebUiMode;
 #[cfg(feature = "metrics")]
 use crate::config::file::UnrecognizedValues;
 use crate::config::file::cors::CorsConfig;
@@ -25,7 +27,7 @@ pub struct SrvConfig {
     pub worker_processes: Option<usize>,
     pub preferred_encoding: Option<PreferredEncoding>,
     #[cfg(all(feature = "webui", not(docsrs)))]
-    pub web_ui: Option<crate::config::args::WebUiMode>,
+    pub web_ui: Option<WebUiMode>,
     pub cors: Option<CorsConfig>,
     /// Advanced monitoring options
     #[cfg(feature = "metrics")]

@@ -69,7 +69,7 @@ repos:
         pass_filenames: false
 
   - repo: https://github.com/sqlfluff/sqlfluff
-    rev: 4.0.4
+    rev: 4.1.0
     hooks:
         # 1. Postgres dialect for general .sql files, excluding sqlite dirs
       - id: sqlfluff-fix
@@ -79,22 +79,22 @@ repos:
         # If you update this rule, please also update the rules in justfile, the fmt-sql recipe
         args: [ --dialect=postgres, "--exclude-rules=AL07,LT05,LT12" ]
         files: \.sql$
-        exclude: ^tests/fixtures/(mbtiles|files)/.*\.sql$
+        exclude: ^(tests/fixtures/(mbtiles|files)|mbtiles/sql)/.*\.sql$
 
         # 2. SQLite dialect for .sql files in specific directories
       - id: sqlfluff-fix
         # LT01: Layout spacing adds space between x and 'blob' breaking the blobs
         args: [--dialect=sqlite, "--exclude-rules=LT01,LT05"]
-        files: ^tests/fixtures/(mbtiles|files)/.*\.sql$
+        files: ^(tests/fixtures/(mbtiles|files)|mbtiles/sql)/.*\.sql$
 
   # NPM hooks for JavaScript/TypeScript formatting and linting
   - repo: https://github.com/biomejs/pre-commit
-    rev: "v2.4.6"  # tag is auto-updated by pre-commit.ci and synced by sync-biome-version to all the places it needs to be
+    rev: "v2.4.11"  # tag is auto-updated by pre-commit.ci and synced by sync-biome-version to all the places it needs to be
     hooks:
       - id: biome-check
-        additional_dependencies: [ "@biomejs/biome@2.4.6" ]
+        additional_dependencies: [ "@biomejs/biome@2.4.11" ]
       - id: biome-format
-        additional_dependencies: [ "@biomejs/biome@2.4.6" ]
+        additional_dependencies: [ "@biomejs/biome@2.4.11" ]
 
   - repo: local
     hooks:
@@ -103,20 +103,25 @@ repos:
       description: "Update biome.json schema versions and additional_dependencies from pre-commit biome rev"
       entry: |
         bash -c '
+          set -euo pipefail
           VERSION=$(grep "repo: https://github.com/biomejs" -A 1 .pre-commit-config.yaml | grep -v "VERSION=" | grep "rev:" | sed "s/.*rev: \"v\([0-9\.]*\)\".*/\1/")
           sed -i "s%biomejs.dev/schemas/[^/]*/%biomejs.dev/schemas/$VERSION/%" biome.json
           sed -i "s%biomejs.dev/schemas/[^/]*/%biomejs.dev/schemas/$VERSION/%" demo/frontend/biome.json
           sed -i "s%biomejs.dev/schemas/[^/]*/%biomejs.dev/schemas/$VERSION/%" martin/martin-ui/biome.json
 
-          # Update package.json and lockfiles only if version changed
-          if ! grep -q "\"@biomejs/biome\": \"$VERSION\"" demo/frontend/package.json; then
+          # Update package.json and lockfiles if either is out of sync or lockfile is missing
+          if ! grep -q "\"@biomejs/biome\": \"$VERSION\"" demo/frontend/package.json \
+             || ! grep -q "\"@biomejs/biome\": \"$VERSION\"" demo/frontend/package-lock.json \
+             || [ ! -f demo/frontend/package-lock.json ]; then
             sed -i "s%\"@biomejs/biome\": \"[0-9.]*\"%\"@biomejs/biome\": \"$VERSION\"%" demo/frontend/package.json
-            (cd demo/frontend && yarn install --no-immutable)
+            npm --prefix demo/frontend install --package-lock-only
           fi
 
-          if ! grep -q "\"@biomejs/biome\": \"$VERSION\"" martin/martin-ui/package.json; then
+          if ! grep -q "\"@biomejs/biome\": \"$VERSION\"" martin/martin-ui/package.json \
+             || ! grep -q "\"@biomejs/biome\": \"$VERSION\"" martin/martin-ui/package-lock.json \
+             || [ ! -f martin/martin-ui/package-lock.json ]; then
             sed -i "s%\"@biomejs/biome\": \"[0-9.]*\"%\"@biomejs/biome\": \"$VERSION\"%" martin/martin-ui/package.json
-            (cd martin/martin-ui && npm install --lockfile-only)
+            npm --prefix martin/martin-ui install --package-lock-only
           fi
 
           sed -i "/repo: https:\/\/github.com\/biomejs\/pre-commit/,$ s/@biomejs\/biome@[0-9.]*/@biomejs\/biome@$VERSION/g" .pre-commit-config.yaml

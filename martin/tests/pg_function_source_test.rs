@@ -47,7 +47,7 @@ async fn function_source_schemas() {
           functions:
             from_schemas: MixedCase
     "});
-    let sources = mock_sources(cfg).await.0.tiles;
+    let sources = mock_sources(cfg).await.0.tile_manager.tile_sources();
     assert_yaml_snapshot!(sources.get_catalog(), @r"
     function_Mixed_Name:
       content_type: application/x-protobuf

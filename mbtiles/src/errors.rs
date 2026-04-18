@@ -49,6 +49,9 @@ pub enum MbtError {
     )]
     IncorrectTileHash(String, String, String),
 
+    #[error("Map table references tile id `{1}` that does not exist in `{2}` in MBTile file {0}")]
+    MissingTileReference(String, String, &'static str),
+
     #[error(
         "At least one tile in the tiles table/view has an invalid value: zoom_level={1}, tile_column={2}, tile_row={3} in MBTile file {0}"
     )]
@@ -146,6 +149,10 @@ pub enum MbtError {
 
     #[error(transparent)]
     IoError(#[from] std::io::Error),
+
+    #[cfg(feature = "transcode")]
+    #[error("Transcoding error: {0}")]
+    TranscodeError(String),
 }
 
 pub type MbtResult<T> = Result<T, MbtError>;

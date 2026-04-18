@@ -1,3 +1,4 @@
+#![allow(clippy::unwrap_used)]
 use futures::{StreamExt as _, TryStreamExt as _};
 use martin_tile_utils::{Tile, TileCoord};
 use mbtiles::{MbtError, Mbtiles, create_metadata_table};

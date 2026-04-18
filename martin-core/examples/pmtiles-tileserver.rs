@@ -1,4 +1,5 @@
 use actix_web::{App, HttpResponse, HttpServer, Result as ActixResult, web};
+use martin_core::CacheZoomRange;
 use martin_core::tiles::pmtiles::{PmtCache, PmtCacheInstance, PmtilesSource};
 use martin_core::tiles::{Source as _, UrlQuery};
 use martin_tile_utils::TileCoord;
@@ -86,9 +87,15 @@ async fn main() -> std::io::Result<()> {
         .expect("Failed to parse object store URL");
 
     let cache = PmtCacheInstance::new(0, PmtCache::default());
-    let source = PmtilesSource::new(cache, "webp2".to_string(), store, path)
-        .await
-        .expect("Failed to create PMTiles source");
+    let source = PmtilesSource::new(
+        cache,
+        "webp2".to_string(),
+        store,
+        path,
+        CacheZoomRange::default(),
+    )
+    .await
+    .expect("Failed to create PMTiles source");
 
     let state = web::Data::new(source);
 

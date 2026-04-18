@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use moka::future::Cache;
 use tracing::info;
 
@@ -16,22 +18,31 @@ pub struct PmtCache(Cache<PmtCacheKey, pmtiles::Directory>);
 impl PmtCache {
     /// Creates a new `PMTiles` directory cache instance
     #[must_use]
-    pub fn new(max_size_bytes: u64) -> Self {
-        let cache = Cache::builder()
+    pub fn new(
+        max_size_bytes: u64,
+        expiry: Option<Duration>,
+        idle_timeout: Option<Duration>,
+    ) -> Self {
+        let mut builder = Cache::builder()
             .name("pmtiles_directory_cache")
             .weigher(|_key: &PmtCacheKey, value: &pmtiles::Directory| -> u32 {
                 value.get_approx_byte_size().try_into().unwrap_or(u32::MAX)
                     + size_of::<PmtCacheKey>().try_into().unwrap_or(u32::MAX)
             })
-            .max_capacity(max_size_bytes)
-            .build();
-        Self(cache)
+            .max_capacity(max_size_bytes);
+        if let Some(ttl) = expiry {
+            builder = builder.time_to_live(ttl);
+        }
+        if let Some(tti) = idle_timeout {
+            builder = builder.time_to_idle(tti);
+        }
+        Self(builder.build())
     }
 }
 
 impl Default for PmtCache {
     fn default() -> Self {
-        Self::new(0)
+        Self::new(0, None, None)
     }
 }
 
@@ -94,9 +105,16 @@ impl pmtiles::DirectoryCache for PmtCacheInstance {
         fetcher: impl Future<Output = pmtiles::PmtResult<pmtiles::Directory>> + Send,
     ) -> pmtiles::PmtResult<Option<pmtiles::DirEntry>> {
         let key = PmtCacheKey::new(self.id, offset);
-        let directory = self.cache.0.try_get_with(key, fetcher).await.map_err(|e| {
-            pmtiles::PmtError::DirectoryCacheError(format!("Moka cache fetch error: {e}"))
-        })?;
+        let directory = self
+            .cache
+            .0
+            .entry(key)
+            .or_try_insert_with(fetcher)
+            .await
+            .map_err(|e| {
+                pmtiles::PmtError::DirectoryCacheError(format!("Moka cache fetch error: {e}"))
+            })?
+            .into_value();
         Ok(directory.find_tile_id(tile_id).cloned())
     }
 }

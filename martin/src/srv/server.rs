@@ -17,7 +17,21 @@ use crate::config::args::WebUiMode;
 #[cfg(feature = "_catalog")]
 use crate::config::file::ServerState;
 use crate::config::file::srv::{KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT, SrvConfig};
-use crate::srv::admin::Catalog;
+#[cfg(any(not(feature = "webui"), docsrs))]
+use crate::srv::admin::get_index_no_ui;
+use crate::srv::admin::{Catalog, get_catalog};
+#[cfg(all(feature = "webui", not(docsrs)))]
+use crate::srv::admin::{get_index_ui_disabled, webui};
+#[cfg(feature = "fonts")]
+use crate::srv::fonts;
+#[cfg(feature = "sprites")]
+use crate::srv::sprites;
+#[cfg(feature = "styles")]
+use crate::srv::styles;
+#[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
+use crate::srv::styles_rendering;
+#[cfg(feature = "_tiles")]
+use crate::srv::tiles;
 use crate::{MartinError, MartinResult};
 
 /// List of keywords that cannot be used as source IDs. Some of these are reserved for future use.
@@ -57,7 +71,7 @@ impl DebouncedWarning {
     /// in the caller's context.
     pub async fn once_per_hour<F: FnOnce()>(&self, f: F) {
         let mut last = self.last_warning.lock().await;
-        if last.elapsed() >= Duration::from_secs(3600) {
+        if last.elapsed() >= Duration::from_hours(1) {
             *last = std::time::Instant::now();
             f();
         }
@@ -96,41 +110,39 @@ fn register_services(
     cfg: &mut web::ServiceConfig,
     #[cfg(all(feature = "webui", not(docsrs)))] usr_cfg: &SrvConfig,
 ) {
-    cfg.service(get_health)
-        .service(crate::srv::admin::get_catalog);
+    cfg.service(get_health).service(get_catalog);
 
     #[cfg(feature = "_tiles")]
     {
         // Register tile format suffix redirects BEFORE the main tile route
         // because Actix-Web matches routes in registration order
-        cfg.service(crate::srv::tiles::content::redirect_tile_ext)
-            .service(crate::srv::tiles::metadata::get_source_info)
-            .service(crate::srv::tiles::content::get_tile);
+        cfg.service(tiles::content::redirect_tile_ext)
+            .service(tiles::metadata::get_source_info)
+            .service(tiles::content::get_tile);
 
         // Register /tiles/ prefix redirect after main tile route
-        cfg.service(crate::srv::tiles::content::redirect_tiles);
+        cfg.service(tiles::content::redirect_tiles);
     }
 
     #[cfg(feature = "sprites")]
-    cfg.service(crate::srv::sprites::get_sprite_sdf_json)
-        .service(crate::srv::sprites::redirect_sdf_sprites_json)
-        .service(crate::srv::sprites::get_sprite_json)
-        .service(crate::srv::sprites::redirect_sprites_json)
-        .service(crate::srv::sprites::get_sprite_sdf_png)
-        .service(crate::srv::sprites::redirect_sdf_sprites_png)
-        .service(crate::srv::sprites::get_sprite_png)
-        .service(crate::srv::sprites::redirect_sprites_png);
+    cfg.service(sprites::get_sprite_sdf_json)
+        .service(sprites::redirect_sdf_sprites_json)
+        .service(sprites::get_sprite_json)
+        .service(sprites::redirect_sprites_json)
+        .service(sprites::get_sprite_sdf_png)
+        .service(sprites::redirect_sdf_sprites_png)
+        .service(sprites::get_sprite_png)
+        .service(sprites::redirect_sprites_png);
 
     #[cfg(feature = "fonts")]
-    cfg.service(crate::srv::fonts::get_font)
-        .service(crate::srv::fonts::redirect_fonts);
+    cfg.service(fonts::get_font).service(fonts::redirect_fonts);
 
     #[cfg(feature = "styles")]
-    cfg.service(crate::srv::styles::get_style_json)
-        .service(crate::srv::styles::redirect_styles);
+    cfg.service(styles::get_style_json)
+        .service(styles::redirect_styles);
 
     #[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
-    cfg.service(crate::srv::styles_rendering::get_style_rendered);
+    cfg.service(styles_rendering::get_style_rendered);
 
     #[cfg(all(feature = "webui", not(docsrs)))]
     {
@@ -139,15 +151,15 @@ fn register_services(
         if usr_cfg.web_ui.unwrap_or_default() == WebUiMode::EnableForAll {
             cfg.service(actix_web_static_files::ResourceFiles::new(
                 "/",
-                crate::srv::admin::webui::generate(),
+                webui::generate(),
             ));
         } else {
-            cfg.service(crate::srv::admin::get_index_ui_disabled);
+            cfg.service(get_index_ui_disabled);
         }
     }
 
     #[cfg(any(not(feature = "webui"), docsrs))]
-    cfg.service(crate::srv::admin::get_index_no_ui);
+    cfg.service(get_index_no_ui);
 }
 
 type Server = Pin<Box<dyn Future<Output = MartinResult<()>>>>;
@@ -182,7 +194,7 @@ pub fn new_server(
             .map_err(|err| MartinError::MetricsIntialisationError(err))?
     };
     let catalog = Catalog::new(
-        #[cfg(feature = "_catalog")]
+        #[cfg(any(feature = "sprites", feature = "fonts", feature = "styles"))]
         &state,
     )?;
 
@@ -205,9 +217,7 @@ pub fn new_server(
             .app_data(Data::new(config.clone()));
 
         #[cfg(feature = "_tiles")]
-        let app = app
-            .app_data(Data::new(state.tiles.clone()))
-            .app_data(Data::new(state.tile_cache.clone()));
+        let app = app.app_data(Data::new(state.tile_manager.clone()));
 
         #[cfg(feature = "sprites")]
         let app = app

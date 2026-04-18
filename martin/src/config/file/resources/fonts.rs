@@ -4,17 +4,16 @@ use martin_core::fonts::FontSources;
 use serde::{Deserialize, Serialize};
 
 use crate::config::file::{
-    ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks, FileConfigEnum,
-    UnrecognizedKeys, UnrecognizedValues,
+    CacheSizeConfig, ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks,
+    FileConfigEnum, UnrecognizedKeys, UnrecognizedValues,
 };
 
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct InnerFontConfig {
-    /// Size of the font cache in megabytes (0 to disable)
-    ///
-    /// Overrides [`cache_size_mb`](crate::config::file::Config::cache_size_mb).
-    pub cache_size_mb: Option<u64>,
+    /// Cache configuration for fonts.
+    #[serde(default, skip_serializing_if = "CacheSizeConfig::is_empty")]
+    pub cache: CacheSizeConfig,
 
     #[serde(flatten, skip_serializing)]
     pub unrecognized: UnrecognizedValues,

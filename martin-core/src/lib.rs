@@ -3,6 +3,9 @@
 #![warn(missing_docs)]
 #![warn(missing_debug_implementations)]
 
+mod cache_zoom_range;
+pub use cache_zoom_range::CacheZoomRange;
+
 /// Tile sources
 #[cfg(feature = "_tiles")]
 pub mod tiles;

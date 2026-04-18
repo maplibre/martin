@@ -1,14 +1,21 @@
 #![cfg(feature = "pmtiles")]
+#![allow(clippy::unwrap_used)]
+#![expect(clippy::panic)]
 
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::time::Duration;
 
+use martin_core::CacheZoomRange;
 use martin_core::tiles::Source as _;
 use martin_core::tiles::pmtiles::{PmtCache, PmtCacheInstance, PmtilesError, PmtilesSource};
 use martin_tile_utils::{Encoding, Format, TileCoord};
 use object_store::local::LocalFileSystem;
+use pmtiles::{DirectoryCache as _, TileId};
 use rstest::rstest;
+use tokio::sync::oneshot;
 
+const TTL_CACHE_OFFSET: usize = 0;
 const PNG_MAGIC: &[u8] = &[0x89, 0x50, 0x4E, 0x47];
 const CACHE_SIZE_10MB: u64 = 10 * 1024 * 1024;
 static NEXT_CACHE_ID: AtomicUsize = AtomicUsize::new(0);
@@ -26,14 +33,20 @@ async fn create_source(filename: &str, id: &str, cache: PmtCacheInstance) -> Pmt
     let path = object_store::path::Path::from_filesystem_path(&path)
         .expect("Failed to convert filesystem path");
 
-    PmtilesSource::new(cache, id.to_string(), store, path)
-        .await
-        .expect("Failed to create PMTiles source")
+    PmtilesSource::new(
+        cache,
+        id.to_string(),
+        store,
+        path,
+        CacheZoomRange::default(),
+    )
+    .await
+    .expect("Failed to create PMTiles source")
 }
 
 fn test_cache_bytes(size_bytes: u64) -> PmtCacheInstance {
     let cache_id = NEXT_CACHE_ID.fetch_add(1, Ordering::SeqCst);
-    let cache = PmtCache::new(size_bytes);
+    let cache = PmtCache::new(size_bytes, None, None);
     PmtCacheInstance::new(cache_id, cache)
 }
 
@@ -93,7 +106,14 @@ async fn nonexistent_file_returns_error() {
     let store = Box::new(LocalFileSystem::new());
     let path = object_store::path::Path::from("nonexistent/file.pmtiles");
 
-    let result = PmtilesSource::new(cache, "invalid".to_string(), store, path).await;
+    let result = PmtilesSource::new(
+        cache,
+        "invalid".to_string(),
+        store,
+        path,
+        CacheZoomRange::default(),
+    )
+    .await;
 
     let err = result.expect_err("Expected error for nonexistent file");
     assert!(
@@ -409,7 +429,7 @@ async fn cache_entry_only_root_directory() {
     // This test validates the cache infrastructure (tracking, sharing, invalidation) works
     // correctly, even though it won't actually populate with these test files.
 
-    let shared_cache = PmtCache::new(CACHE_SIZE_10MB);
+    let shared_cache = PmtCache::new(CACHE_SIZE_10MB, None, None);
     let cache = PmtCacheInstance::new(0, shared_cache.clone());
     assert_eq!(cache.entry_count(), 0, "Cache should start empty");
 
@@ -443,7 +463,7 @@ async fn cache_entry_only_root_directory() {
 
 #[tokio::test]
 async fn shared_cache_with_unique_instance_ids_can_fetch_same_tile() {
-    let shared_cache = PmtCache::new(CACHE_SIZE_10MB);
+    let shared_cache = PmtCache::new(CACHE_SIZE_10MB, None, None);
 
     let cache_id_1 = NEXT_CACHE_ID.fetch_add(1, Ordering::SeqCst);
     let cache_id_2 = NEXT_CACHE_ID.fetch_add(1, Ordering::SeqCst);
@@ -482,7 +502,7 @@ async fn cache_invalidation_clears_entries() {
     use pmtiles::DirectoryCache as _;
 
     let cache = test_cache_bytes(CACHE_SIZE_10MB);
-    let tile_id = pmtiles::TileId::new(1).unwrap();
+    let tile_id = TileId::new(1).unwrap();
 
     // Directly use DirectoryCache trait to insert directories at different offsets
     for offset in [1000, 2000, 3000] {
@@ -522,4 +542,188 @@ async fn cache_invalidation_clears_entries() {
         0,
         "Cache size should be zero after invalidation (was {initial_weighted_size} bytes before invalidation)"
     );
+}
+
+#[tokio::test]
+async fn dir_cache_entry_available_before_ttl_expires() {
+    let cache = ttl_cache(Some(Duration::from_millis(200)), None);
+
+    dir_insert(&cache, TTL_CACHE_OFFSET).await;
+
+    dir_assert_hit(&cache, TTL_CACHE_OFFSET).await;
+}
+
+#[tokio::test]
+async fn dir_cache_entry_evicted_after_ttl_expires() {
+    let ttl = Duration::from_millis(25);
+    let cache = ttl_cache(Some(ttl), None);
+
+    dir_insert(&cache, TTL_CACHE_OFFSET).await;
+
+    wait_and_flush(&cache, ttl + Duration::from_millis(25)).await;
+
+    dir_assert_miss(&cache, TTL_CACHE_OFFSET).await;
+}
+
+#[tokio::test]
+async fn dir_ttl_evicts_even_with_frequent_access() {
+    let ttl = Duration::from_millis(80);
+    let cache = ttl_cache(Some(ttl), None);
+
+    dir_insert(&cache, TTL_CACHE_OFFSET).await;
+
+    for _ in 0..3 {
+        tokio::time::sleep(Duration::from_millis(20)).await;
+        dir_assert_hit(&cache, TTL_CACHE_OFFSET).await;
+    }
+
+    wait_and_flush(&cache, Duration::from_millis(30)).await;
+
+    dir_assert_miss(&cache, TTL_CACHE_OFFSET).await;
+}
+
+#[tokio::test]
+async fn dir_cache_entry_survives_when_accessed_within_tti() {
+    let tti = Duration::from_millis(60);
+    let cache = ttl_cache(None, Some(tti));
+
+    dir_insert(&cache, TTL_CACHE_OFFSET).await;
+
+    for _ in 0..3 {
+        tokio::time::sleep(Duration::from_millis(30)).await;
+        dir_assert_hit(&cache, TTL_CACHE_OFFSET).await;
+    }
+}
+
+#[tokio::test]
+async fn dir_cache_entry_evicted_after_idle_timeout() {
+    let tti = Duration::from_millis(25);
+    let cache = ttl_cache(None, Some(tti));
+
+    dir_insert(&cache, TTL_CACHE_OFFSET).await;
+
+    wait_and_flush(&cache, tti + Duration::from_millis(25)).await;
+
+    dir_assert_miss(&cache, TTL_CACHE_OFFSET).await;
+}
+
+#[tokio::test]
+async fn dir_tti_evicts_before_ttl_when_idle() {
+    let ttl = Duration::from_millis(200);
+    let tti = Duration::from_millis(25);
+    let cache = ttl_cache(Some(ttl), Some(tti));
+
+    dir_insert(&cache, TTL_CACHE_OFFSET).await;
+
+    wait_and_flush(&cache, tti + Duration::from_millis(25)).await;
+
+    dir_assert_miss(&cache, TTL_CACHE_OFFSET).await;
+}
+
+#[tokio::test]
+async fn dir_ttl_evicts_despite_access_when_both_set() {
+    let ttl = Duration::from_millis(80);
+    let tti = Duration::from_millis(60);
+    let cache = ttl_cache(Some(ttl), Some(tti));
+
+    dir_insert(&cache, TTL_CACHE_OFFSET).await;
+
+    tokio::time::sleep(Duration::from_millis(40)).await;
+    dir_assert_hit(&cache, TTL_CACHE_OFFSET).await;
+
+    wait_and_flush(&cache, Duration::from_millis(60)).await;
+
+    dir_assert_miss(&cache, TTL_CACHE_OFFSET).await;
+}
+
+#[tokio::test]
+async fn dir_cache_entry_persists_without_ttl_or_tti() {
+    let cache = ttl_cache(None, None);
+
+    dir_insert(&cache, TTL_CACHE_OFFSET).await;
+
+    wait_and_flush(&cache, Duration::from_millis(50)).await;
+
+    dir_assert_hit(&cache, TTL_CACHE_OFFSET).await;
+}
+
+#[tokio::test]
+async fn dir_ttl_applies_independently_per_entry() {
+    let ttl = Duration::from_millis(80);
+    let cache = ttl_cache(Some(ttl), None);
+
+    dir_insert(&cache, TTL_CACHE_OFFSET).await;
+
+    tokio::time::sleep(Duration::from_millis(40)).await;
+    dir_insert(&cache, TTL_CACHE_OFFSET + 100).await;
+
+    wait_and_flush(&cache, Duration::from_millis(60)).await;
+
+    dir_assert_miss(&cache, TTL_CACHE_OFFSET).await;
+    dir_assert_hit(&cache, TTL_CACHE_OFFSET + 100).await;
+}
+
+#[tokio::test]
+async fn dir_different_instances_share_ttl_policy() {
+    let ttl = Duration::from_millis(25);
+    let pmt_cache = PmtCache::new(CACHE_SIZE_10MB, Some(ttl), None);
+    let id_a = NEXT_CACHE_ID.fetch_add(1, Ordering::SeqCst);
+    let id_b = NEXT_CACHE_ID.fetch_add(1, Ordering::SeqCst);
+    let instance_a = PmtCacheInstance::new(id_a, pmt_cache.clone());
+    let instance_b = PmtCacheInstance::new(id_b, pmt_cache);
+
+    dir_insert(&instance_a, TTL_CACHE_OFFSET).await;
+    dir_insert(&instance_b, TTL_CACHE_OFFSET).await;
+
+    wait_and_flush(&instance_a, ttl + Duration::from_millis(25)).await;
+
+    dir_assert_miss(&instance_a, TTL_CACHE_OFFSET).await;
+    dir_assert_miss(&instance_b, TTL_CACHE_OFFSET).await;
+}
+
+fn ttl_tile_id() -> TileId {
+    TileId::new(1).unwrap()
+}
+
+fn ttl_cache(ttl: Option<Duration>, tti: Option<Duration>) -> PmtCacheInstance {
+    let cache_id = NEXT_CACHE_ID.fetch_add(1, Ordering::SeqCst);
+    PmtCacheInstance::new(cache_id, PmtCache::new(CACHE_SIZE_10MB, ttl, tti))
+}
+
+async fn wait_and_flush(cache: &PmtCacheInstance, duration: Duration) {
+    tokio::time::sleep(duration).await;
+    cache.sync().await;
+}
+
+async fn dir_insert(cache: &PmtCacheInstance, offset: usize) {
+    cache
+        .get_dir_entry_or_insert(
+            offset,
+            ttl_tile_id(),
+            async move { create_test_directory() },
+        )
+        .await
+        .unwrap();
+}
+
+async fn dir_assert_hit(cache: &PmtCacheInstance, offset: usize) {
+    let result = cache
+        .get_dir_entry_or_insert(offset, ttl_tile_id(), async {
+            panic!("expected cache hit, but fetcher was called");
+        })
+        .await
+        .unwrap();
+    assert!(result.is_some(), "expected directory entry, got None");
+}
+
+async fn dir_assert_miss(cache: &PmtCacheInstance, offset: usize) {
+    let (tx, mut rx) = oneshot::channel();
+    cache
+        .get_dir_entry_or_insert(offset, ttl_tile_id(), async move {
+            let _ = tx.send(());
+            create_test_directory()
+        })
+        .await
+        .unwrap();
+    assert!(rx.try_recv().is_ok(), "expected cache miss, but got a hit");
 }

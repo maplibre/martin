@@ -3273,6 +3273,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "135b12329e5e3ce057a9f972339ea52bc954fe1e9358ef27f95e89716fbc5424"
 
 [[package]]
+name = "humantime-serde"
+version = "1.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "57a3db5ea5923d99402c94e9feb261dc5ee9b4efa158b0315f788cf549cc200c"
+dependencies = [
+ "humantime",
+ "serde",
+]
+
+[[package]]
 name = "hyper"
 version = "0.14.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4200,6 +4210,7 @@ dependencies = [
  "enum-display",
  "futures",
  "hotpath",
+ "humantime-serde",
  "image",
  "indicatif 0.18.4",
  "indoc",
@@ -4343,9 +4354,12 @@ version = "0.15.4"
 dependencies = [
  "actix-rt",
  "anyhow",
+ "bytes",
  "clap",
+ "criterion",
  "enum-display",
  "env_logger",
+ "flate2",
  "flume 0.12.0",
  "futures",
  "hotpath",
@@ -4354,8 +4368,10 @@ dependencies = [
  "log",
  "martin-tile-utils",
  "md5",
+ "moka",
  "num_cpus",
  "pretty_assertions",
+ "rayon",
  "rstest",
  "serde",
  "serde_json",
@@ -4365,6 +4381,7 @@ dependencies = [
  "sqlite-compressions",
  "sqlite-hashes",
  "sqlx",
+ "tempfile",
  "thiserror 2.0.18",
  "tilejson",
  "tokio",
@@ -4457,6 +4474,7 @@ dependencies = [
  "futures-util",
  "parking_lot",
  "portable-atomic",
+ "quanta",
  "smallvec",
  "tagptr",
  "uuid",
@@ -6252,7 +6270,7 @@ dependencies = [
  "once_cell",
  "ring",
  "rustls-pki-types",
- "rustls-webpki 0.103.10",
+ "rustls-webpki 0.103.12",
  "subtle",
  "zeroize",
 ]
@@ -6302,7 +6320,7 @@ dependencies = [
  "rustls 0.23.37",
  "rustls-native-certs",
  "rustls-platform-verifier-android",
- "rustls-webpki 0.103.10",
+ "rustls-webpki 0.103.12",
  "security-framework",
  "security-framework-sys",
  "webpki-root-certs",
@@ -6327,9 +6345,9 @@ dependencies = [
 
 [[package]]
 name = "rustls-webpki"
-version = "0.103.10"
+version = "0.103.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "df33b2b81ac578cabaf06b89b0631153a3f416b0a886e8a7a1707fb51abbd1ef"
+checksum = "8279bb85272c9f10811ae6a6c547ff594d6a7f3c6c6b02ee9726d1d0dcfcdd06"
 dependencies = [
  "aws-lc-rs",
  "ring",

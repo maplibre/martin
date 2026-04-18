@@ -1,20 +1,37 @@
 use std::ffi::OsStr;
 use std::fs::File;
 use std::io::prelude::*;
+#[cfg(any(feature = "_tiles", feature = "sprites", feature = "fonts"))]
+use std::num::NonZeroU64;
 use std::path::Path;
 use std::sync::LazyLock;
+#[cfg(any(test, feature = "_tiles", feature = "sprites", feature = "fonts"))]
+use std::time::Duration;
 
 use clap::ValueEnum;
 #[cfg(feature = "_tiles")]
 use futures::future::{BoxFuture, try_join_all};
-#[cfg(feature = "_tiles")]
-use martin_core::tiles::OptTileCache;
 #[cfg(feature = "pmtiles")]
 use martin_core::tiles::pmtiles::PmtCache;
 use serde::{Deserialize, Serialize};
 use subst::VariableMap;
 use tracing::{error, info, warn};
 
+#[cfg(feature = "unstable-cog")]
+use super::cog::CogConfig;
+#[cfg(feature = "fonts")]
+use super::fonts::FontConfig;
+#[cfg(feature = "mbtiles")]
+use super::mbtiles::MbtConfig;
+#[cfg(feature = "pmtiles")]
+use super::pmtiles::PmtConfig;
+#[cfg(feature = "postgres")]
+use super::postgres::PostgresConfig;
+#[cfg(feature = "sprites")]
+use super::sprites::SpriteConfig;
+use super::srv::SrvConfig;
+#[cfg(feature = "styles")]
+use super::styles::StyleConfig;
 #[cfg(any(
     feature = "pmtiles",
     feature = "mbtiles",
@@ -25,19 +42,21 @@ use tracing::{error, info, warn};
 ))]
 use crate::config::file::FileConfigEnum;
 #[cfg(any(feature = "_tiles", feature = "sprites", feature = "fonts"))]
-use crate::config::file::cache::CacheConfig;
+use crate::config::file::cache::{CacheConfig, SubCacheSetting};
+#[cfg(any(feature = "pmtiles", feature = "mbtiles", feature = "unstable-cog"))]
+use crate::config::file::resolve_files;
 use crate::config::file::{
-    ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks as _, UnrecognizedKeys,
-    UnrecognizedValues, copy_unrecognized_keys_from_config,
+    ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks as _, GlobalCacheConfig,
+    UnrecognizedKeys, UnrecognizedValues, copy_unrecognized_keys_from_config,
 };
 #[cfg(feature = "_tiles")]
 use crate::config::primitives::IdResolver;
 #[cfg(feature = "postgres")]
 use crate::config::primitives::OptOneMany;
 #[cfg(feature = "_tiles")]
-use crate::source::TileSources;
-#[cfg(feature = "_tiles")]
 use crate::srv::RESERVED_KEYWORDS;
+#[cfg(feature = "_tiles")]
+use crate::tile_source_manager::TileSourceManager;
 use crate::{MartinError, MartinResult};
 
 /// Warnings that can occur during tile source resolution
@@ -52,9 +71,7 @@ pub enum TileSourceWarning {
 
 pub struct ServerState {
     #[cfg(feature = "_tiles")]
-    pub tiles: TileSources,
-    #[cfg(feature = "_tiles")]
-    pub tile_cache: OptTileCache,
+    pub tile_manager: TileSourceManager,
 
     #[cfg(feature = "sprites")]
     pub sprites: martin_core::sprites::SpriteSources,
@@ -73,49 +90,43 @@ pub struct ServerState {
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct Config {
-    /// Maximum size of the tile cache in megabytes (0 to disable)
-    ///
-    /// Can be overridden by [`tile_cache_size_mb`](Self::tile_cache_size_mb) or similar configuration options.
-    pub cache_size_mb: Option<u64>,
-
-    /// Maximum size of the tile cache in megabytes (0 to disable)
-    ///
-    /// Overrides [`cache_size_mb`](Self::cache_size_mb)
-    pub tile_cache_size_mb: Option<u64>,
+    /// Cache configuration: size limits and default zoom-level bounds.
+    #[serde(default, skip_serializing_if = "GlobalCacheConfig::is_empty")]
+    pub cache: GlobalCacheConfig,
 
     #[serde(default)]
     pub on_invalid: Option<OnInvalid>,
 
     #[serde(flatten)]
-    pub srv: super::srv::SrvConfig,
+    pub srv: SrvConfig,
 
     #[cfg(feature = "postgres")]
     #[serde(default, skip_serializing_if = "OptOneMany::is_none")]
-    pub postgres: OptOneMany<super::postgres::PostgresConfig>,
+    pub postgres: OptOneMany<PostgresConfig>,
 
     #[cfg(feature = "pmtiles")]
     #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
-    pub pmtiles: FileConfigEnum<super::pmtiles::PmtConfig>,
+    pub pmtiles: FileConfigEnum<PmtConfig>,
 
     #[cfg(feature = "mbtiles")]
     #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
-    pub mbtiles: FileConfigEnum<super::mbtiles::MbtConfig>,
+    pub mbtiles: FileConfigEnum<MbtConfig>,
 
     #[cfg(feature = "unstable-cog")]
     #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
-    pub cog: FileConfigEnum<super::cog::CogConfig>,
+    pub cog: FileConfigEnum<CogConfig>,
 
     #[cfg(feature = "sprites")]
     #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
-    pub sprites: super::sprites::SpriteConfig,
+    pub sprites: SpriteConfig,
 
     #[cfg(feature = "styles")]
     #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
-    pub styles: super::styles::StyleConfig,
+    pub styles: StyleConfig,
 
     #[cfg(feature = "fonts")]
     #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
-    pub fonts: super::fonts::FontConfig,
+    pub fonts: FontConfig,
 
     #[serde(flatten, skip_serializing)]
     pub unrecognized: UnrecognizedValues,
@@ -243,7 +254,7 @@ impl Config {
         let pmtiles_cache = cache_config.create_pmtiles_cache();
 
         #[cfg(feature = "_tiles")]
-        let (tiles, warnings) = self
+        let (tile_sources, warnings) = self
             .resolve_tile_sources(
                 &resolver,
                 #[cfg(feature = "pmtiles")]
@@ -258,9 +269,11 @@ impl Config {
 
         Ok(ServerState {
             #[cfg(feature = "_tiles")]
-            tiles,
-            #[cfg(feature = "_tiles")]
-            tile_cache: cache_config.create_tile_cache(),
+            tile_manager: TileSourceManager::from_sources(
+                cache_config.create_tile_cache(),
+                self.on_invalid.unwrap_or_default(),
+                tile_sources,
+            ),
 
             #[cfg(feature = "sprites")]
             sprites: self.sprites.resolve()?,
@@ -277,58 +290,108 @@ impl Config {
         })
     }
 
-    // cache_config is still respected, but can be overridden by individual cache sizes
+    // cache.size_mb is still respected, but can be overridden by individual cache sizes
     //
-    // `cache_config: 0` disables caching, unless overridden by individual cache sizes
+    // `cache.size_mb: 0` disables caching, unless overridden by individual cache sizes
     #[cfg(any(feature = "_tiles", feature = "sprites", feature = "fonts"))]
     fn resolve_cache_config(&self) -> CacheConfig {
-        if let Some(cache_size_mb) = self.cache_size_mb {
+        let global_expiry = self.cache.expiry;
+        let global_idle = self.cache.idle_timeout;
+
+        if let Some(cache_size_mb) = self.cache.size_mb {
+            #[cfg(feature = "_tiles")]
+            let tiles = Self::make_sub_cache(
+                self.cache.tile_size_mb.unwrap_or(cache_size_mb / 2),
+                self.cache.tile_expiry.or(global_expiry),
+                self.cache.tile_idle_timeout.or(global_idle),
+            );
+
             #[cfg(feature = "pmtiles")]
-            let pmtiles_cache_size_mb = if let FileConfigEnum::Config(cfg) = &self.pmtiles {
-                cfg.custom
-                    .directory_cache_size_mb
-                    .unwrap_or(cache_size_mb / 4) // Default: 25% for PMTiles directories
-            } else {
-                cache_size_mb / 4 // Default: 25% for PMTiles directories
+            let pmtiles = {
+                let (size, expiry, idle) = if let FileConfigEnum::Config(cfg) = &self.pmtiles {
+                    (
+                        cfg.custom
+                            .directory_cache
+                            .size_mb
+                            .unwrap_or(cache_size_mb / 4),
+                        cfg.custom.directory_cache.expiry.or(global_expiry),
+                        cfg.custom.directory_cache.idle_timeout.or(global_idle),
+                    )
+                } else {
+                    (cache_size_mb / 4, global_expiry, global_idle)
+                };
+                Self::make_sub_cache(size, expiry, idle)
             };
 
             #[cfg(feature = "sprites")]
-            let sprite_cache_size_mb = if let FileConfigEnum::Config(cfg) = &self.sprites {
-                cfg.custom.cache_size_mb.unwrap_or(cache_size_mb / 8) // Default: 12.5% for sprites
-            } else {
-                cache_size_mb / 8 // Default: 12.5% for sprites
+            let sprites = {
+                let (size, expiry, idle) = if let FileConfigEnum::Config(cfg) = &self.sprites {
+                    (
+                        cfg.custom.cache.size_mb.unwrap_or(cache_size_mb / 8),
+                        cfg.custom.cache.expiry.or(global_expiry),
+                        cfg.custom.cache.idle_timeout.or(global_idle),
+                    )
+                } else {
+                    (cache_size_mb / 8, global_expiry, global_idle)
+                };
+                Self::make_sub_cache(size, expiry, idle)
             };
 
             #[cfg(feature = "fonts")]
-            let font_cache_size_mb = if let FileConfigEnum::Config(cfg) = &self.fonts {
-                cfg.custom.cache_size_mb.unwrap_or(cache_size_mb / 8) // Default: 12.5% for fonts
-            } else {
-                cache_size_mb / 8 // Default: 12.5% for fonts
+            let fonts = {
+                let (size, expiry, idle) = if let FileConfigEnum::Config(cfg) = &self.fonts {
+                    (
+                        cfg.custom.cache.size_mb.unwrap_or(cache_size_mb / 8),
+                        cfg.custom.cache.expiry.or(global_expiry),
+                        cfg.custom.cache.idle_timeout.or(global_idle),
+                    )
+                } else {
+                    (cache_size_mb / 8, global_expiry, global_idle)
+                };
+                Self::make_sub_cache(size, expiry, idle)
             };
 
             CacheConfig {
                 #[cfg(feature = "_tiles")]
-                tile_cache_size_mb: self.tile_cache_size_mb.unwrap_or(cache_size_mb / 2), // Default: 50% for tiles
+                tiles,
                 #[cfg(feature = "pmtiles")]
-                pmtiles_cache_size_mb,
+                pmtiles,
                 #[cfg(feature = "sprites")]
-                sprite_cache_size_mb,
+                sprites,
                 #[cfg(feature = "fonts")]
-                font_cache_size_mb,
+                fonts,
             }
         } else {
             // TODO: the defaults could be smarter. If I don't have pmtiles sources, don't reserve cache for it
             CacheConfig {
                 #[cfg(feature = "_tiles")]
-                tile_cache_size_mb: 256,
+                tiles: Self::make_sub_cache(
+                    256,
+                    self.cache.tile_expiry.or(global_expiry),
+                    self.cache.tile_idle_timeout.or(global_idle),
+                ),
                 #[cfg(feature = "pmtiles")]
-                pmtiles_cache_size_mb: 128,
+                pmtiles: Self::make_sub_cache(128, global_expiry, global_idle),
                 #[cfg(feature = "sprites")]
-                sprite_cache_size_mb: 64,
+                sprites: Self::make_sub_cache(64, global_expiry, global_idle),
                 #[cfg(feature = "fonts")]
-                font_cache_size_mb: 64,
+                fonts: Self::make_sub_cache(64, global_expiry, global_idle),
             }
         }
+    }
+
+    /// Helper to create a `SubCacheSetting` from size in MB. Returns `None` if size is 0.
+    #[cfg(any(feature = "_tiles", feature = "sprites", feature = "fonts"))]
+    fn make_sub_cache(
+        size_mb: u64,
+        expiry: Option<Duration>,
+        idle_timeout: Option<Duration>,
+    ) -> Option<SubCacheSetting> {
+        NonZeroU64::new(size_mb).map(|size_mb| SubCacheSetting {
+            size_mb,
+            expiry,
+            idle_timeout,
+        })
     }
 
     #[cfg(feature = "_tiles")]
@@ -336,12 +399,15 @@ impl Config {
         &mut self,
         idr: &IdResolver,
         #[cfg(feature = "pmtiles")] pmtiles_cache: PmtCache,
-    ) -> MartinResult<(TileSources, Vec<TileSourceWarning>)> {
+    ) -> MartinResult<(
+        Vec<Vec<martin_core::tiles::BoxedSource>>,
+        Vec<TileSourceWarning>,
+    )> {
         let mut sources_and_warnings: Vec<BoxFuture<_>> = Vec::new();
 
         #[cfg(feature = "postgres")]
         for s in self.postgres.iter_mut() {
-            sources_and_warnings.push(Box::pin(s.resolve(idr.clone())));
+            sources_and_warnings.push(Box::pin(s.resolve(idr.clone(), self.cache.policy())));
         }
 
         #[cfg(feature = "pmtiles")]
@@ -356,21 +422,21 @@ impl Config {
                     file_config.custom.pmtiles_directory_cache = pmtiles_cache;
                 }
             }
-            let val = crate::config::file::resolve_files(cfg, idr, &["pmtiles"]);
+            let val = resolve_files(cfg, idr, &["pmtiles"], self.cache.policy());
             sources_and_warnings.push(Box::pin(val));
         }
 
         #[cfg(feature = "mbtiles")]
         if !self.mbtiles.is_empty() {
             let cfg = &mut self.mbtiles;
-            let val = crate::config::file::resolve_files(cfg, idr, &["mbtiles"]);
+            let val = resolve_files(cfg, idr, &["mbtiles"], self.cache.policy());
             sources_and_warnings.push(Box::pin(val));
         }
 
         #[cfg(feature = "unstable-cog")]
         if !self.cog.is_empty() {
             let cfg = &mut self.cog;
-            let val = crate::config::file::resolve_files(cfg, idr, &["tif", "tiff"]);
+            let val = resolve_files(cfg, idr, &["tif", "tiff"], self.cache.policy());
             sources_and_warnings.push(Box::pin(val));
         }
 
@@ -379,7 +445,7 @@ impl Config {
             all_results.into_iter().unzip();
 
         Ok((
-            TileSources::new(all_tile_sources),
+            all_tile_sources,
             all_tile_warnings.into_iter().flatten().collect(),
         ))
     }
@@ -473,8 +539,100 @@ where
     M: VariableMap<'a>,
     M::Value: AsRef<str>,
 {
-    subst::yaml::from_str(contents, env)
-        .map_err(|e| ConfigFileError::ConfigParseError(e, file_name.into()))
+    let mut value: serde_yaml::Value = subst::yaml::from_str(contents, env)
+        .map_err(|e| ConfigFileError::ConfigParseError(e, file_name.into()))?;
+    migrate_deprecated_config(&mut value);
+    serde_yaml::from_value(value).map_err(|e| {
+        let e: subst::yaml::Error = e.into();
+        ConfigFileError::ConfigParseError(e, file_name.into())
+    })
+}
+
+/// Migrates deprecated cache configuration keys in raw YAML before deserialization.
+///
+/// This runs on the `serde_yaml::Value` directly, so the `Config` struct
+/// never needs to know about deprecated field names.
+fn migrate_deprecated_config(value: &mut serde_yaml::Value) {
+    let Some(root) = value.as_mapping_mut() else {
+        return;
+    };
+
+    // Global: cache_size_mb -> cache.size_mb
+    migrate_yaml_key(root, "cache_size_mb", &["cache", "size_mb"]);
+
+    // Global: tile_cache_size_mb -> cache.tile_size_mb
+    migrate_yaml_key(root, "tile_cache_size_mb", &["cache", "tile_size_mb"]);
+
+    // Source-type level: {section}.cache_size_mb -> {section}.cache.size_mb
+    for section in ["sprites", "fonts"] {
+        if let Some(mapping) = root
+            .get_mut(serde_yaml::Value::String(section.into()))
+            .and_then(|v| v.as_mapping_mut())
+        {
+            migrate_yaml_key(mapping, "cache_size_mb", &["cache", "size_mb"]);
+        }
+    }
+
+    // PMTiles: directory_cache_size_mb -> directory_cache.size_mb
+    if let Some(mapping) = root
+        .get_mut(serde_yaml::Value::String("pmtiles".into()))
+        .and_then(|v| v.as_mapping_mut())
+    {
+        migrate_yaml_key(
+            mapping,
+            "directory_cache_size_mb",
+            &["directory_cache", "size_mb"],
+        );
+    }
+}
+
+/// Moves a deprecated key in a YAML mapping to a new nested location.
+///
+/// `new_path` is a slice of keys describing the nested destination,
+/// e.g. `&["cache", "size_mb"]` means `cache.size_mb`.
+///
+/// If the new key already exists, the old value is dropped with a warning.
+/// If only the old key exists, it is moved to the new location.
+fn migrate_yaml_key(mapping: &mut serde_yaml::Mapping, old_key: &str, new_path: &[&str]) {
+    debug_assert!(!new_path.is_empty(), "new_path must not be empty");
+
+    let old_yaml_key = serde_yaml::Value::String(old_key.into());
+    let Some(old_value) = mapping.remove(&old_yaml_key) else {
+        return;
+    };
+
+    let new_key_display = new_path.join(".");
+
+    // Walk down to the parent of the leaf key, creating intermediate mappings as needed
+    let [parents @ .., leaf] = new_path else {
+        return;
+    };
+    let mut current = &mut *mapping;
+    for &segment in parents {
+        if !current.contains_key(segment) {
+            current.insert(
+                serde_yaml::Value::String(segment.into()),
+                serde_yaml::Value::Mapping(serde_yaml::Mapping::default()),
+            );
+        }
+        let Some(nested) = current.get_mut(segment).and_then(|v| v.as_mapping_mut()) else {
+            warn!(
+                "deprecated config: `{old_key}` is ignored because `{segment}` is already set. \
+                 Please remove `{old_key}` from your configuration"
+            );
+            return;
+        };
+        current = nested;
+    }
+
+    if current.contains_key(leaf) {
+        warn!(
+            "deprecated config: `{old_key}` is ignored in favor of `{new_key_display}`. \
+             Please remove `{old_key}` from your configuration"
+        );
+    } else {
+        current.insert(serde_yaml::Value::String((*leaf).into()), old_value);
+    }
 }
 
 pub fn parse_base_path(path: &str) -> MartinResult<String> {
@@ -488,9 +646,11 @@ pub fn parse_base_path(path: &str) -> MartinResult<String> {
 }
 
 pub fn init_aws_lc_tls() {
+    use rustls::crypto::aws_lc_rs;
+
     // https://github.com/rustls/rustls/issues/1877
     static INIT_TLS: LazyLock<()> = LazyLock::new(|| {
-        rustls::crypto::aws_lc_rs::default_provider()
+        aws_lc_rs::default_provider()
             .install_default()
             .expect("Unable to init rustls: {e:?}");
     });
@@ -499,7 +659,21 @@ pub fn init_aws_lc_tls() {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
+    use martin_core::CacheZoomRange;
+
     use super::*;
+    use crate::config::file::CachePolicy;
+
+    fn parse_yaml(yaml: &str) -> Config {
+        parse_config(
+            yaml,
+            &HashMap::<String, String>::new(),
+            Path::new("test.yaml"),
+        )
+        .unwrap()
+    }
 
     #[test]
     fn parse_base_path_accepts_valid_paths() {
@@ -513,5 +687,179 @@ mod tests {
     fn parse_base_path_rejects_invalid_paths() {
         assert!(parse_base_path("").is_err());
         assert!(parse_base_path("foo/bar").is_err());
+    }
+
+    #[test]
+    fn cache_migrates_old_to_new_cache_config_key() {
+        let config = parse_yaml("cache_size_mb: 512");
+        assert_eq!(config.cache.size_mb, Some(512));
+    }
+
+    #[test]
+    fn migrate_tile_cache_size_mb_to_cache_tile_size_mb() {
+        let config = parse_yaml("tile_cache_size_mb: 256");
+        assert_eq!(config.cache.tile_size_mb, Some(256));
+    }
+
+    #[test]
+    fn migrate_both_old_cache_keys() {
+        let config = parse_yaml("cache_size_mb: 512\ntile_cache_size_mb: 256");
+        assert_eq!(config.cache.size_mb, Some(512));
+        assert_eq!(config.cache.tile_size_mb, Some(256));
+    }
+
+    #[test]
+    fn new_cache_key_overrides_old() {
+        let config = parse_yaml("cache_size_mb: 100\ncache:\n  size_mb: 200");
+        assert_eq!(config.cache.size_mb, Some(200));
+    }
+
+    #[test]
+    fn new_cache_format_works_directly() {
+        let config =
+            parse_yaml("cache:\n  size_mb: 512\n  tile_size_mb: 256\n  minzoom: 2\n  maxzoom: 10");
+        assert_eq!(config.cache.size_mb, Some(512));
+        assert_eq!(config.cache.tile_size_mb, Some(256));
+    }
+
+    #[cfg(feature = "sprites")]
+    #[test]
+    fn migrate_sprites_cache_size_mb() {
+        let config = parse_yaml("sprites:\n  cache_size_mb: 64\n  paths: /tmp");
+        let FileConfigEnum::Config(cfg) = &config.sprites else {
+            panic!("expected sprites config");
+        };
+        assert_eq!(cfg.custom.cache.size_mb, Some(64));
+    }
+
+    #[cfg(feature = "fonts")]
+    #[test]
+    fn migrate_fonts_cache_size_mb() {
+        let config = parse_yaml("fonts:\n  cache_size_mb: 32\n  paths: /tmp");
+        let FileConfigEnum::Config(cfg) = &config.fonts else {
+            panic!("expected fonts config");
+        };
+        assert_eq!(cfg.custom.cache.size_mb, Some(32));
+    }
+
+    #[test]
+    fn migrate_skips_non_mapping_intermediate() {
+        // `cache: true` is not a mapping, so migration of cache_size_mb should
+        // gracefully skip rather than panic, and the parse should still succeed
+        // (cache will be deserialized from whatever value it has).
+        let result = parse_config(
+            "cache: true\ncache_size_mb: 100",
+            &HashMap::<String, String>::new(),
+            Path::new("test.yaml"),
+        );
+        // The parse may fail (cache: true is not a valid GlobalCacheConfig),
+        // but it must not panic.
+        let _ = result;
+    }
+
+    #[test]
+    fn cache_disable_global() {
+        let config = parse_yaml("cache: disable");
+        assert_eq!(config.cache, GlobalCacheConfig::disabled());
+        assert_eq!(config.cache.size_mb, Some(0));
+        assert_eq!(config.cache.tile_size_mb, Some(0));
+    }
+
+    #[test]
+    fn cache_disable_per_source() {
+        let policy: CachePolicy = serde_yaml::from_str("disable").unwrap();
+        assert_eq!(policy, CachePolicy::disabled());
+        for zoom in 0..=u8::MAX {
+            assert!(
+                !policy.zoom().contains(zoom),
+                "A disabled policy should never match any zoom level"
+            );
+        }
+    }
+
+    #[test]
+    fn cache_disable_per_source_ignores_global_defaults() {
+        // Per-source disable is not overridden by global defaults
+        let disabled = CachePolicy::disabled();
+        let defaults = CachePolicy::new(CacheZoomRange::new(Some(0), Some(20)));
+        let merged = disabled.or(defaults);
+        for zoom in 0..=u8::MAX {
+            assert!(!merged.zoom().contains(zoom));
+        }
+    }
+
+    #[test]
+    fn cache_disable_global_can_be_overridden_per_source() {
+        // Per-source config re-enables caching despite global disable
+        let source = CachePolicy::new(CacheZoomRange::new(Some(0), Some(10)));
+        let global_disabled = CachePolicy::disabled();
+        let merged = source.or(global_disabled);
+        assert!(merged.zoom().contains(0));
+        assert!(merged.zoom().contains(5));
+        assert!(merged.zoom().contains(10));
+        assert!(!merged.zoom().contains(11));
+    }
+
+    #[test]
+    fn cache_disable_global_propagates_to_unconfigured_source() {
+        // Parse a global `cache: disable` and verify it propagates to a source with no cache config
+        let config = parse_yaml("cache: disable");
+        let global_policy = config.cache.policy();
+        let unconfigured_source = CachePolicy::default();
+        let merged = unconfigured_source.or(global_policy);
+        for zoom in 0..=u8::MAX {
+            assert!(!merged.zoom().contains(zoom));
+        }
+    }
+
+    #[cfg(feature = "sprites")]
+    #[test]
+    fn cache_disable_sprites() {
+        let config = parse_yaml("sprites:\n  cache: disable\n  paths: /tmp");
+        let FileConfigEnum::Config(cfg) = &config.sprites else {
+            panic!("expected sprites config");
+        };
+        assert_eq!(cfg.custom.cache.size_mb, Some(0));
+    }
+
+    #[test]
+    fn cache_expiry_global_config() {
+        let config = parse_yaml("cache:\n  size_mb: 512\n  expiry: 1h\n  idle_timeout: 15m");
+        assert_eq!(config.cache.size_mb, Some(512));
+        assert_eq!(config.cache.expiry, Some(Duration::from_hours(1)));
+        assert_eq!(config.cache.idle_timeout, Some(Duration::from_mins(15)));
+    }
+
+    #[test]
+    fn cache_expiry_tile_specific() {
+        let config = parse_yaml(
+            "cache:\n  expiry: 1h\n  idle_timeout: 15m\n  tile_expiry: 30m\n  tile_idle_timeout: 5m",
+        );
+        assert_eq!(config.cache.expiry, Some(Duration::from_hours(1)));
+        assert_eq!(config.cache.tile_expiry, Some(Duration::from_mins(30)));
+        assert_eq!(config.cache.tile_idle_timeout, Some(Duration::from_mins(5)));
+    }
+
+    #[test]
+    fn cache_expiry_none_when_unset() {
+        let config = parse_yaml("cache:\n  size_mb: 512");
+        assert_eq!(config.cache.expiry, None);
+        assert_eq!(config.cache.idle_timeout, None);
+        assert_eq!(config.cache.tile_expiry, None);
+        assert_eq!(config.cache.tile_idle_timeout, None);
+    }
+
+    #[cfg(feature = "sprites")]
+    #[test]
+    fn cache_expiry_sprites() {
+        let config = parse_yaml(
+            "sprites:\n  cache:\n    size_mb: 64\n    expiry: 2h\n    idle_timeout: 30m\n  paths: /tmp",
+        );
+        let FileConfigEnum::Config(cfg) = &config.sprites else {
+            panic!("expected sprites config");
+        };
+        assert_eq!(cfg.custom.cache.size_mb, Some(64));
+        assert_eq!(cfg.custom.cache.expiry, Some(Duration::from_hours(2)));
+        assert_eq!(cfg.custom.cache.idle_timeout, Some(Duration::from_mins(30)));
     }
 }

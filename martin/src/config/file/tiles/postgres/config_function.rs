@@ -4,8 +4,8 @@ use serde::{Deserialize, Serialize};
 use tilejson::{Bounds, TileJSON};
 
 use super::config::PostgresInfo;
-use crate::config::file::UnrecognizedValues;
 use crate::config::file::postgres::utils::patch_json;
+use crate::config::file::{CachePolicy, UnrecognizedValues};
 
 pub type FuncInfoSources = BTreeMap<String, FunctionInfo>;
 
@@ -29,6 +29,9 @@ pub struct FunctionInfo {
     /// latitude and longitude values, in the order left, bottom, right, top.
     /// Values may be integers or floating point numbers.
     pub bounds: Option<Bounds>,
+
+    /// Zoom-level bounds for tile caching.
+    pub cache: Option<CachePolicy>,
 
     /// `TileJSON` provided by the SQL function comment. Not serialized.
     #[serde(skip)]

@@ -22,8 +22,8 @@ use crate::queries::{
 };
 use crate::{
     AGG_TILES_HASH, AGG_TILES_HASH_AFTER_APPLY, AGG_TILES_HASH_BEFORE_APPLY, AggHashType, CopyType,
-    MbtError, MbtType, MbtTypeCli, Mbtiles, action_with_rusqlite, get_bsdiff_tbl_name,
-    invert_y_value, reset_db_settings,
+    MbtError, MbtType, MbtTypeCli, Mbtiles, NormalizedSchema, action_with_rusqlite,
+    get_bsdiff_tbl_name, invert_y_value, reset_db_settings,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, EnumDisplay)]
@@ -98,7 +98,10 @@ impl MbtilesCopier {
             self.dst_type_cli.map(|t| match t {
                 MbtTypeCli::Flat => Flat,
                 MbtTypeCli::FlatWithHash => FlatWithHash,
-                MbtTypeCli::Normalized => Normalized { hash_view: true },
+                MbtTypeCli::Normalized => Normalized {
+                    hash_view: true,
+                    schema: NormalizedSchema::Hash,
+                },
             })
         })
     }
@@ -175,7 +178,19 @@ impl MbtileCopierInt {
         self.src_mbt.attach_to(&mut conn, "sourceDb").await?;
 
         let dst_type = if is_empty_db {
-            self.options.dst_type().unwrap_or(src_type)
+            let mut dt = self.options.dst_type().unwrap_or(src_type);
+            // When copying from a DedupId source, always create standard Hash schema in destination
+            if let Normalized {
+                hash_view,
+                schema: NormalizedSchema::DedupId,
+            } = dt
+            {
+                dt = Normalized {
+                    hash_view,
+                    schema: NormalizedSchema::Hash,
+                };
+            }
+            dt
         } else {
             self.validate_dst_type(self.dst_mbt.detect_type(&mut conn).await?)?
         };
@@ -196,7 +211,7 @@ impl MbtileCopierInt {
             &mut conn,
             on_duplicate,
             dst_type,
-            get_select_from(src_type, dst_type),
+            &get_select_from(src_type, dst_type),
         )
         .await?;
 
@@ -574,7 +589,7 @@ impl MbtileCopierInt {
                 .fetch_all(
                     "SELECT sql, tbl_name, type
                      FROM sourceDb.sqlite_schema
-                     WHERE tbl_name IN ('metadata', 'tiles', 'map', 'images', 'tiles_with_hash')
+                     WHERE tbl_name IN ('metadata', 'tiles', 'map', 'images', 'tiles_with_hash', 'tiles_shallow', 'tiles_data')
                        AND type     IN ('table', 'view', 'trigger', 'index')
                      ORDER BY CASE
                          WHEN type = 'table' THEN 1
@@ -612,7 +627,7 @@ impl MbtileCopierInt {
                 let (main_table, tile_identifier) = match dst_type {
                     Flat => ("tiles", "tile_data"),
                     FlatWithHash => ("tiles_with_hash", "tile_data"),
-                    Normalized { .. } => ("map", "tile_id"),
+                    Normalized { schema, .. } => (schema.map_table(), schema.tile_id_column()),
                 };
 
                 format!(
@@ -693,18 +708,15 @@ fn get_select_from_apply_patch(
         (SELECT zoom_level, tile_column, tile_row, tile_data, md5_hex(tile_data) AS tile_hash
          FROM {frm_db}.tiles)"
                 ),
-                FlatWithHash => format!("{frm_db}.tiles_with_hash"),
-                Normalized { hash_view } => {
-                    if hash_view {
-                        format!("{frm_db}.tiles_with_hash")
-                    } else {
-                        format!(
-                            "
-        (SELECT zoom_level, tile_column, tile_row, tile_data, map.tile_id AS tile_hash
-        FROM {frm_db}.map JOIN {frm_db}.images ON map.tile_id = images.tile_id)"
-                        )
-                    }
+                Normalized {
+                    hash_view: true,
+                    schema: _,
                 }
+                | FlatWithHash => format!("{frm_db}.tiles_with_hash"),
+                Normalized {
+                    hash_view: false,
+                    schema,
+                } => format!("({})", schema.select_tiles_sql(frm_db, "tile_hash", "JOIN")),
             },
         }
     }
@@ -770,23 +782,29 @@ fn get_select_from_with_diff(
     patch_type: Option<PatchType>,
 ) -> String {
     let tile_hash_expr;
-    let diff_tiles;
+    let diff_tiles: String;
     if dst_type == Flat {
         tile_hash_expr = "";
-        diff_tiles = "diffDb.tiles";
+        diff_tiles = "diffDb.tiles".to_string();
     } else {
         tile_hash_expr = match dif_type {
             Flat => ", COALESCE(md5_hex(difTiles.tile_data), '') as tile_hash",
             FlatWithHash | Normalized { .. } => ", COALESCE(difTiles.tile_hash, '') as tile_hash",
         };
         diff_tiles = match dif_type {
-            Flat => "diffDb.tiles",
-            FlatWithHash => "diffDb.tiles_with_hash",
-            Normalized { .. } => {
-                "
-        (SELECT zoom_level, tile_column, tile_row, tile_data, map.tile_id AS tile_hash
-        FROM diffDb.map JOIN diffDb.images ON diffDb.map.tile_id = diffDb.images.tile_id)"
+            Flat => "diffDb.tiles".to_string(),
+            Normalized {
+                hash_view: true,
+                schema: _,
             }
+            | FlatWithHash => "diffDb.tiles_with_hash".to_string(),
+            Normalized {
+                hash_view: false,
+                schema,
+            } => format!(
+                "({})",
+                schema.select_tiles_sql("diffDb", "tile_hash", "JOIN")
+            ),
         };
     }
 
@@ -812,29 +830,35 @@ fn get_select_from_with_diff(
     )
 }
 
-fn get_select_from(src_type: MbtType, dst_type: MbtType) -> &'static str {
+fn get_select_from(src_type: MbtType, dst_type: MbtType) -> String {
     if dst_type == Flat {
         "SELECT zoom_level, tile_column, tile_row, tile_data FROM sourceDb.tiles WHERE TRUE"
+            .to_string()
     } else {
         match src_type {
-            Flat => {
-                "
+            Flat => "
         SELECT zoom_level, tile_column, tile_row, tile_data, md5_hex(tile_data) as tile_hash
         FROM sourceDb.tiles
         WHERE TRUE"
-            }
-            FlatWithHash => {
-                "
+                .to_string(),
+            FlatWithHash => "
         SELECT zoom_level, tile_column, tile_row, tile_data, tile_hash
         FROM sourceDb.tiles_with_hash
         WHERE TRUE"
-            }
-            Normalized { .. } => {
-                "
-        SELECT zoom_level, tile_column, tile_row, tile_data, map.tile_id AS tile_hash
-        FROM sourceDb.map JOIN sourceDb.images
-          ON sourceDb.map.tile_id = sourceDb.images.tile_id
+                .to_string(),
+            Normalized { schema, .. } => {
+                let (map, img, id) = (
+                    schema.map_table(),
+                    schema.content_table(),
+                    schema.tile_id_column(),
+                );
+                format!(
+                    "
+        SELECT zoom_level, tile_column, tile_row, tile_data, {map}.{id} AS tile_hash
+        FROM sourceDb.{map} JOIN sourceDb.{img}
+          ON sourceDb.{map}.{id} = sourceDb.{img}.{id}
         WHERE TRUE"
+                )
             }
         }
     }
@@ -861,7 +885,10 @@ mod tests {
     const FLAT: Option<MbtTypeCli> = Some(MbtTypeCli::Flat);
     const FLAT_WITH_HASH: Option<MbtTypeCli> = Some(MbtTypeCli::FlatWithHash);
     const NORM_CLI: Option<MbtTypeCli> = Some(MbtTypeCli::Normalized);
-    const NORM_WITH_VIEW: MbtType = Normalized { hash_view: true };
+    const NORM_WITH_VIEW: MbtType = Normalized {
+        hash_view: true,
+        schema: NormalizedSchema::Hash,
+    };
 
     async fn get_one<T>(conn: &mut SqliteConnection, sql: &str) -> T
     where

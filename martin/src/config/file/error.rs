@@ -1,5 +1,10 @@
 use std::path::PathBuf;
 
+#[cfg(feature = "fonts")]
+use martin_core::fonts::FontError;
+#[cfg(feature = "postgres")]
+use martin_core::tiles::postgres::PostgresError;
+
 pub type ConfigFileResult<T> = Result<T, ConfigFileError>;
 
 #[derive(thiserror::Error, Debug)]
@@ -49,11 +54,11 @@ pub enum ConfigFileError {
 
     #[cfg(feature = "postgres")]
     #[error("Failed to create postgres pool: {0}")]
-    PostgresPoolCreationFailed(#[source] martin_core::tiles::postgres::PostgresError),
+    PostgresPoolCreationFailed(#[source] PostgresError),
 
     #[cfg(feature = "fonts")]
     #[error("Failed to load fonts from {1}: {0}")]
-    FontResolutionFailed(#[source] martin_core::fonts::FontError, PathBuf),
+    FontResolutionFailed(#[source] FontError, PathBuf),
 
     #[cfg(feature = "pmtiles")]
     #[error("Failed to parse object store URL of {1}: {0}")]
