@@ -24,10 +24,7 @@ export default defineConfig({
     sourcemap: true,
   },
   envPrefix: 'VITE_',
-  plugins: [
-    react(),
-    tailwindcss(),
-  ],
+  plugins: [react(), tailwindcss()],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
