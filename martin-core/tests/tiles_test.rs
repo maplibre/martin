@@ -37,18 +37,18 @@ async fn cache_entry_evicted_after_ttl_expires() {
 #[tokio::test]
 async fn ttl_evicts_even_with_frequent_access() {
     // TTL evicts entries regardless of access pattern (unlike TTI)
-    let ttl = Duration::from_millis(80);
+    let ttl = Duration::from_millis(200);
     let cache = TileCache::new(CACHE_SIZE, Some(ttl), None);
 
     insert(&cache, "src", ORIGIN, None, b"data").await;
 
     // Access repeatedly — this should NOT extend the TTL
     for _ in 0..3 {
-        tokio::time::sleep(Duration::from_millis(20)).await;
+        tokio::time::sleep(Duration::from_millis(30)).await;
         assert_hit(&cache, "src", ORIGIN).await;
     }
 
-    wait_and_flush(&cache, Duration::from_millis(30)).await;
+    wait_and_flush(&cache, Duration::from_millis(150)).await;
 
     assert_miss(&cache, "src", ORIGIN, None, b"new").await;
 }
