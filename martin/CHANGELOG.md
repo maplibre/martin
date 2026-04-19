@@ -9,35 +9,79 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.6.0](https://github.com/maplibre/martin/compare/martin-v1.5.0...martin-v1.6.0) - 2026-04-18
 
-### Added
+### Smarter, more configurable caching
 
-- store compression type in the MBTiles metadata table ([#2618](https://github.com/maplibre/martin/pull/2618))
-- *(mbtiles)* Add a transcoder API ([#2682](https://github.com/maplibre/martin/pull/2682))
-- make internal cache expiry configurable ([#2691](https://github.com/maplibre/martin/pull/2691))
-- support per-source cache zoom level ([#2673](https://github.com/maplibre/martin/pull/2673))
-- *(ui)* add React Compiler to martin-ui and demo/frontend ([#2686](https://github.com/maplibre/martin/pull/2686))
-- *(mbtiles)* Support planetilers' normalised schema ([#2681](https://github.com/maplibre/martin/pull/2681))
-- expose `on_invalid` as a CLI argument ([#2668](https://github.com/maplibre/martin/pull/2668))
+The tile cache received several improvements in this release:
 
-### Fixed
+- **Configurable cache expiry**
+  The in-memory tile cache Time To Live (TTL -> f.ex. `cache.expiry: 1h`) and Time To Idle (TTI ->  f.ex. `cache.idle_timeout: 20m`) was previously hardcoded to "∞" (aka never expiring).
+  You can now configure how long cached tiles stay in memory, allowing better trade-offs between freshness and performance for your specific workload.
 
-- new clippy lints introduced in Rust 1.95 ([#2701](https://github.com/maplibre/martin/pull/2701))
-- correct npm lockfile-only flag and handle missing lockfiles in sync-biome-version hook ([#2627](https://github.com/maplibre/martin/pull/2627))
+  ```yaml
+  cache:
+    # Maximum lifetime for all cache entries (time-to-live from creation).
+    # Entries are evicted after this duration regardless of access.
+    # Supports human-readable formats: "1h", "30m", "1d", "3600s".
+    # default: null (no expiry, entries only evicted by size pressure)
+    expiry: null
+    
+    # Maximum idle time for all cache entries (time-to-idle since last access).
+    # Entries are evicted if not accessed within this duration.
+    # default: null (no idle timeout)
+    idle_timeout: null
+  ```
+
+  Done in [#2691](https://github.com/maplibre/martin/pull/2691).
+- **Per-source cache zoom levels**
+  New `cache.minzoom` and `cache.maxzoom` options (both globally and per-source) let you skip caching at zoom levels that don't benefit from it.
+  For example, you can avoid filling the cache with rarely-reused high-zoom tiles or low-detail overviews.
+
+  ```yaml
+  cache:
+    # Default minimum zoom level (inclusive) for tile caching.
+    # Tiles further zoomed out than this will bypass the cache entirely.
+    # Can be overridden per-source (e.g. cache.minzoom on a type of source or an individual source).
+    # default: null (no lower bound, all zoom levels cached)
+    minzoom: null
+  
+    # Default maximum zoom level (inclusive) for tile caching.
+    # Tiles further zoomed in than this will bypass the cache entirely.
+    # Can be overridden per-source.
+    # default: null (no upper bound, all zoom levels cached)
+    maxzoom: null
+  ```
+
+  Done in [#2673](https://github.com/maplibre/martin/pull/2673) by [@carderne](https://github.com/carderne).
+- **Cache deduplication under concurrency**
+  Cache insertions now use moka's entry API, so concurrent requests for the same tile only compute it once instead of redundantly.
+  This is a meaningful performance win under thundering-herd scenarios.
+  Done in [#2688](https://github.com/maplibre/martin/pull/2688).
+- **Accept header in cache key** -- The sanitised `Accept` HTTP header is now part of the cache key, preventing a cached response encoded for one client from being incorrectly served to another.
+  This **previously did not have any effect and was also not incorrect**, but in the next release we will add MLT encoding support (which we worked hard for).
+  
+  This also has the side-effect that if your client now says that you only `Accept` a certain format, we now correctly abort requests early.
+  Done in [#2703](https://github.com/maplibre/martin/pull/2703).
+
+### Broader MBTiles compatibility
+
+- **Planetiler `normalized` schema alias** -- Martin now recognizes Planetiler's `normalized` and `normalized-with-view` schema names as aliases for its own `norm` schema type, so MBTiles files produced by Planetiler no longer trigger schema-detection warnings. Done in [#2681](https://github.com/maplibre/martin/pull/2681).
+- **Compression type stored in metadata** -- When writing tiles to MBTiles (e.g. via martin-cp), the compression method (gzip, brotli, etc.) is now recorded in the metadata table. Previously this information was lost, forcing consumers to guess. Done in [#2618](https://github.com/maplibre/martin/pull/2618).
+- **Transcoder API for library consumers** -- The `mbtiles` crate now exposes a public API for converting between MBTiles storage schemas (flat, normalized, deduplicated) programmatically. Done in [#2682](https://github.com/maplibre/martin/pull/2682).
+
+### `--on-invalid` CLI argument
+
+The `on_invalid` setting (which controls whether Martin warns or aborts when it encounters an invalid source at startup) was previously config-file-only. It is now available as `--on-invalid <warn|abort>` on the command line, which is especially handy in CI/CD and container environments.
+
+Done in [#2668](https://github.com/maplibre/martin/pull/2668) by [@Auspicus](https://github.com/Auspicus).
 
 ### Other
 
-- *(deps)* Bump the all-npm-security-updates group across 2 directories with 1 update ([#2702](https://github.com/maplibre/martin/pull/2702))
-- impl the accept header ([#2703](https://github.com/maplibre/martin/pull/2703))
-- Use moka entry API for deduplicating cache inserts + retrievals ([#2688](https://github.com/maplibre/martin/pull/2688))
-- add a formatting restriction when something should be an import vs path ([#2685](https://github.com/maplibre/martin/pull/2685))
-- *(deps)* autoupdate pre-commit ([#2684](https://github.com/maplibre/martin/pull/2684))
-- introduce `TileSourceManager` and `ReloadAdvisory` ([#2661](https://github.com/maplibre/martin/pull/2661))
-- Enable `clippy::unwrap_used` workspace lint ([#2670](https://github.com/maplibre/martin/pull/2670))
-- *(deps)* autoupdate pre-commit ([#2624](https://github.com/maplibre/martin/pull/2624))
-- hotpath based profiling integration ([#2663](https://github.com/maplibre/martin/pull/2663))
-- *(deps-dev)* Bump the all-npm-security-updates group across 2 directories with 1 update ([#2662](https://github.com/maplibre/martin/pull/2662))
-- *(deps-dev)* Bump @biomejs/biome from 2.4.6 to 2.4.9 in /martin/martin-ui ([#2657](https://github.com/maplibre/martin/pull/2657))
-- make sure our unit tests run under macos too ([#2648](https://github.com/maplibre/martin/pull/2648))
+- Introduced `TileSourceManager` and `ReloadAdvisory` as groundwork for future live-reload of tile sources ([#2661](https://github.com/maplibre/martin/pull/2661)) by [@Auspicus](https://github.com/Auspicus)
+- Added hotpath-based profiling integration ([#2663](https://github.com/maplibre/martin/pull/2663))
+- Enabled React Compiler for martin-ui and demo frontend ([#2686](https://github.com/maplibre/martin/pull/2686))
+- Enabled `clippy::unwrap_used` workspace lint ([#2670](https://github.com/maplibre/martin/pull/2670))
+- Ensured unit tests run on macOS ([#2648](https://github.com/maplibre/martin/pull/2648)) by [@Weixing-Zhang](https://github.com/Weixing-Zhang)
+- Various dependency bumps ([#2702](https://github.com/maplibre/martin/pull/2702), [#2684](https://github.com/maplibre/martin/pull/2684), [#2624](https://github.com/maplibre/martin/pull/2624), [#2662](https://github.com/maplibre/martin/pull/2662), [#2657](https://github.com/maplibre/martin/pull/2657))
 
 ## [1.5.0](https://github.com/maplibre/martin/compare/martin-v1.4.0...martin-v1.5.0) - 2026-04-02
 
