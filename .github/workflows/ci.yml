@@ -594,11 +594,15 @@ jobs:
           # - cmake for aws-lc-sys
           # - just for running standardized test suites
           # - bash because the justfile has a lot of scripts that assume bash
-          # - node and npm are not currently used (we don't run the JS tests on FreeBSD),
-          #   but they are here in case we want them later.
+          # - node and npm for building the webui
           prepare: |
             pkg install -y rust sqlite3 freetype2 cmake just bash node npm
           run: |
+            # Create swap space to prevent OOM during linking of test binaries
+            dd if=/dev/zero of=/tmp/swapfile bs=1M count=4096
+            chmod 0600 /tmp/swapfile
+            mdconfig -a -t vnode -f /tmp/swapfile -u 0
+            swapon /dev/md0
             just env-info
             just test-freebsd
         env:
@@ -933,7 +937,7 @@ jobs:
       - lint-rust-dependencies
       - lint-unit-test-js
       - lint-rust
-      # - test-freebsd Fixme, fails
+      - test-freebsd
     if: always()
     permissions: {}
     steps:

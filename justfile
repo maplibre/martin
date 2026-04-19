@@ -495,7 +495,8 @@ test-lambda martin_bin='target/debug/martin':
 # Notably, we have to skip the postgres tests because the current structure relies on running docker
 # within the test. Additionally, some of the benches that run with --all-targets
 # are also docker-based integration tests.
-test-freebsd: (test-cargo "--lib --bins --tests --examples") test-doc
+# We limit parallelism to prevent OOM during linking of large test binaries.
+test-freebsd: (test-cargo "-j 2 --lib --bins --tests --examples") test-doc
 
 # Run all tests using the oldest supported version of the database
 test-legacy: start-legacy (test-cargo "--all-targets") test-pg test-doc test-int
