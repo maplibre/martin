@@ -167,12 +167,13 @@ pub struct DiffArgs {
     reason = "for command line arguments, formatting `TileJSON` is awkward"
 )]
 #[derive(Clone, Default, PartialEq, Debug, clap::Args)]
+#[allow(clippy::struct_excessive_bools)]
 pub struct SharedCopyOpts {
     /// Limit what gets copied.
     /// When copying tiles only, the agg_tiles_hash will still be updated unless --skip-agg-tiles-hash is set.
     #[arg(long, value_name = "TYPE", default_value_t=CopyType::default())]
     copy: CopyType,
-    /// Use SQLite STRICT tables when creating a new destination file.
+    /// Use `SQLite` `STRICT` tables when creating a new destination file.
     #[arg(long)]
     strict: bool,
     /// Output format of the destination file, ignored if the file exists. If not specified, defaults to the type of source

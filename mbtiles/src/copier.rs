@@ -48,6 +48,7 @@ impl CopyDuplicateMode {
 }
 
 #[derive(Clone, Default, PartialEq, Debug)]
+#[allow(clippy::struct_excessive_bools)]
 pub struct MbtilesCopier {
     /// `MBTiles` file to read from
     pub src_file: PathBuf,
@@ -79,7 +80,7 @@ pub struct MbtilesCopier {
     pub force: bool,
     /// Perform `agg_hash` validation on the original and destination files.
     pub validate: bool,
-    /// Use SQLite STRICT tables when creating a new destination schema.
+    /// Use `SQLite` `STRICT` tables when creating a new destination schema.
     pub strict: bool,
 }
 
