@@ -18,7 +18,8 @@ use crate::bindiff::{BinDiffDiffer, BinDiffPatcher, BinDiffer as _, PatchType};
 use crate::errors::MbtResult;
 use crate::mbtiles::PatchFileInfo;
 use crate::queries::{
-    create_tiles_with_hash_view, detach_db, init_mbtiles_schema, is_empty_database,
+    create_tiles_with_hash_view, detach_db, init_mbtiles_schema_with_strict, is_empty_database,
+    maybe_make_table_strict,
 };
 use crate::{
     AGG_TILES_HASH, AGG_TILES_HASH_AFTER_APPLY, AGG_TILES_HASH_BEFORE_APPLY, AggHashType, CopyType,
@@ -78,6 +79,8 @@ pub struct MbtilesCopier {
     pub force: bool,
     /// Perform `agg_hash` validation on the original and destination files.
     pub validate: bool,
+    /// Use SQLite STRICT tables when creating a new destination schema.
+    pub strict: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -278,9 +281,15 @@ impl MbtileCopierInt {
         detach_db(&mut conn, "sourceDb").await?;
 
         if let Some(patch_type) = patch_type {
-            BinDiffDiffer::new(self.src_mbt.clone(), dif_mbt, dif_info.mbt_type, patch_type)
-                .run(&mut conn, self.get_where_clause("srcTiles."))
-                .await?;
+            BinDiffDiffer::new(
+                self.src_mbt.clone(),
+                dif_mbt,
+                dif_info.mbt_type,
+                patch_type,
+                self.options.strict,
+            )
+            .run(&mut conn, self.get_where_clause("srcTiles."))
+            .await?;
         }
 
         if let Some(hash) = src_info.agg_tiles_hash {
@@ -601,19 +610,25 @@ impl MbtileCopierInt {
                 .await?;
 
             for row in sql_objects {
-                debug!(
-                    "Creating {typ} {tbl_name}...",
-                    typ = row.get::<&str, _>(2),
-                    tbl_name = row.get::<&str, _>(1),
-                );
-                query(row.get(0)).execute(&mut *conn).await?;
+                let obj_type = row.get::<&str, _>(2);
+                let tbl_name = row.get::<&str, _>(1);
+                debug!("Creating {obj_type} {tbl_name}...");
+                let Some(sql) = row.get::<Option<String>, _>(0) else {
+                    continue;
+                };
+                let sql = if obj_type == "table" {
+                    maybe_make_table_strict(&sql, self.options.strict)
+                } else {
+                    sql
+                };
+                query(sql.as_str()).execute(&mut *conn).await?;
             }
             if dst.is_normalized() {
                 // Some normalized mbtiles files might not have this view, so even if src == dst, it might not exist
                 create_tiles_with_hash_view(&mut *conn).await?;
             }
         } else {
-            init_mbtiles_schema(&mut *conn, dst).await?;
+            init_mbtiles_schema_with_strict(&mut *conn, dst, self.options.strict).await?;
         }
 
         Ok(())
@@ -953,6 +968,15 @@ mod tests {
         );
     }
 
+    async fn get_table_sql(conn: &mut SqliteConnection, table: &str) -> String {
+        query("SELECT sql FROM sqlite_schema WHERE type = 'table' AND name = ?")
+            .bind(table)
+            .fetch_one(conn)
+            .await
+            .unwrap()
+            .get(0)
+    }
+
     #[actix_rt::test]
     async fn copy_flat_tables() {
         let src = PathBuf::from("file:src_copy_flat_mem_db?mode=memory&cache=shared");
@@ -1070,6 +1094,105 @@ mod tests {
             ..Default::default()
         };
         verify_copy_with_zoom_filter(opt, 2).await;
+    }
+
+    #[actix_rt::test]
+    async fn copy_same_type_uses_strict_tables_when_requested() {
+        let script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
+        let (_mbt, _conn, src_file) =
+            temp_named_mbtiles("src_copy_strict_same_type_mem_db", script).await;
+        let dst_file = PathBuf::from("file:copy_strict_same_type_mem_db?mode=memory&cache=shared");
+
+        let mut dst_conn = MbtilesCopier {
+            src_file,
+            dst_file,
+            strict: true,
+            ..Default::default()
+        }
+        .run()
+        .await
+        .unwrap();
+
+        assert!(
+            get_table_sql(&mut dst_conn, "metadata")
+                .await
+                .contains(" STRICT")
+        );
+        assert!(
+            get_table_sql(&mut dst_conn, "tiles")
+                .await
+                .contains(" STRICT")
+        );
+    }
+
+    #[actix_rt::test]
+    async fn copy_same_type_keeps_non_strict_tables_by_default() {
+        let script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
+        let (_mbt, _conn, src_file) =
+            temp_named_mbtiles("src_copy_default_non_strict_mem_db", script).await;
+        let dst_file =
+            PathBuf::from("file:copy_default_non_strict_mem_db?mode=memory&cache=shared");
+
+        let mut dst_conn = MbtilesCopier {
+            src_file,
+            dst_file,
+            ..Default::default()
+        }
+        .run()
+        .await
+        .unwrap();
+
+        assert!(
+            !get_table_sql(&mut dst_conn, "metadata")
+                .await
+                .contains(" STRICT")
+        );
+        assert!(
+            !get_table_sql(&mut dst_conn, "tiles")
+                .await
+                .contains(" STRICT")
+        );
+    }
+
+    #[actix_rt::test]
+    async fn diff_with_bindiff_uses_strict_patch_tables_when_requested() {
+        let script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
+        let (_mbt, _conn, src_file) =
+            temp_named_mbtiles("src_diff_strict_bindiff_mem_db", script).await;
+
+        let script = include_str!("../../tests/fixtures/mbtiles/world_cities_modified.sql");
+        let (_mbt, _conn, diff_file) =
+            temp_named_mbtiles("diff_strict_bindiff_mem_db", script).await;
+
+        let dst_file = PathBuf::from("file:strict_bindiff_patch_mem_db?mode=memory&cache=shared");
+
+        let mut dst_conn = MbtilesCopier {
+            src_file,
+            dst_file,
+            diff_with_file: Some((diff_file, Some(BinDiffRaw))),
+            force: true,
+            strict: true,
+            ..Default::default()
+        }
+        .run()
+        .await
+        .unwrap();
+
+        assert!(
+            get_table_sql(&mut dst_conn, "metadata")
+                .await
+                .contains(" STRICT")
+        );
+        assert!(
+            get_table_sql(&mut dst_conn, "tiles")
+                .await
+                .contains(" STRICT")
+        );
+        assert!(
+            get_table_sql(&mut dst_conn, "bsdiffraw")
+                .await
+                .contains(" STRICT")
+        );
     }
 
     #[actix_rt::test]

@@ -16,7 +16,8 @@ use xxhash_rust::xxh3::xxh3_64;
 
 use crate::MbtType::{Flat, FlatWithHash, Normalized};
 use crate::PatchType::{BinDiffGz, BinDiffRaw};
-use crate::{MbtError, MbtResult, MbtType, Mbtiles, create_bsdiffraw_tables, get_bsdiff_tbl_name};
+use crate::queries::create_bsdiffraw_tables_with_strict;
+use crate::{MbtError, MbtResult, MbtType, Mbtiles, get_bsdiff_tbl_name};
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, EnumDisplay)]
 #[enum_display(case = "Kebab")]
@@ -179,6 +180,7 @@ pub struct BinDiffDiffer {
     dif_mbt: Mbtiles,
     dif_type: MbtType,
     patch_type: PatchType,
+    strict: bool,
     insert_sql: String,
 }
 
@@ -188,6 +190,7 @@ impl BinDiffDiffer {
         dif_mbt: Mbtiles,
         dif_type: MbtType,
         patch_type: PatchType,
+        strict: bool,
     ) -> Self {
         let insert_sql = format!(
             "INSERT INTO {}(zoom_level, tile_column, tile_row, patch_data, tile_xxh3_64_hash) VALUES (?, ?, ?, ?, ?)",
@@ -198,6 +201,7 @@ impl BinDiffDiffer {
             dif_mbt,
             dif_type,
             patch_type,
+            strict,
             insert_sql,
         }
     }
@@ -281,7 +285,7 @@ impl BinDiffer<DifferBefore, DifferAfter> for BinDiffDiffer {
     }
 
     async fn before_insert(&self, conn: &mut SqliteConnection) -> MbtResult<()> {
-        create_bsdiffraw_tables(conn, self.patch_type).await
+        create_bsdiffraw_tables_with_strict(conn, self.patch_type, self.strict).await
     }
 
     async fn insert(&self, value: DifferAfter, conn: &mut SqliteConnection) -> MbtResult<()> {

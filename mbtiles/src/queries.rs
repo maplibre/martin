@@ -187,17 +187,42 @@ where
     Ok(sql.fetch_one(&mut *conn).await?.is_valid == 1)
 }
 
+#[must_use]
+pub(crate) fn maybe_make_table_strict(sql: &str, strict: bool) -> String {
+    if !strict || sql.contains(" STRICT") {
+        return sql.to_string();
+    }
+
+    let sql = sql.trim_end();
+    if let Some(sql) = sql.strip_suffix(';') {
+        format!("{sql} STRICT;")
+    } else {
+        format!("{sql} STRICT")
+    }
+}
+
 pub async fn create_metadata_table<T>(conn: &mut T) -> MbtResult<()>
 where
     for<'e> &'e mut T: SqliteExecutor<'e>,
 {
+    create_metadata_table_with_strict(conn, false).await
+}
+
+pub(crate) async fn create_metadata_table_with_strict<T>(
+    conn: &mut T,
+    strict: bool,
+) -> MbtResult<()>
+where
+    for<'e> &'e mut T: SqliteExecutor<'e>,
+{
     debug!("Creating metadata table if it doesn't already exist");
-    conn.execute(
+    let sql = maybe_make_table_strict(
         "CREATE TABLE IF NOT EXISTS metadata (
              name text NOT NULL PRIMARY KEY,
              value text);",
-    )
-    .await?;
+        strict,
+    );
+    conn.execute(sql.as_str()).await?;
 
     Ok(())
 }
@@ -206,16 +231,24 @@ pub async fn create_flat_tables<T>(conn: &mut T) -> MbtResult<()>
 where
     for<'e> &'e mut T: SqliteExecutor<'e>,
 {
+    create_flat_tables_with_strict(conn, false).await
+}
+
+pub(crate) async fn create_flat_tables_with_strict<T>(conn: &mut T, strict: bool) -> MbtResult<()>
+where
+    for<'e> &'e mut T: SqliteExecutor<'e>,
+{
     debug!("Creating if needed flat table: tiles(z,x,y,data)");
-    conn.execute(
+    let sql = maybe_make_table_strict(
         "CREATE TABLE IF NOT EXISTS tiles (
              zoom_level integer NOT NULL,
              tile_column integer NOT NULL,
              tile_row integer NOT NULL,
              tile_data blob,
              PRIMARY KEY(zoom_level, tile_column, tile_row));",
-    )
-    .await?;
+        strict,
+    );
+    conn.execute(sql.as_str()).await?;
 
     Ok(())
 }
@@ -224,8 +257,18 @@ pub async fn create_flat_with_hash_tables<T>(conn: &mut T) -> MbtResult<()>
 where
     for<'e> &'e mut T: SqliteExecutor<'e>,
 {
+    create_flat_with_hash_tables_with_strict(conn, false).await
+}
+
+pub(crate) async fn create_flat_with_hash_tables_with_strict<T>(
+    conn: &mut T,
+    strict: bool,
+) -> MbtResult<()>
+where
+    for<'e> &'e mut T: SqliteExecutor<'e>,
+{
     debug!("Creating if needed flat-with-hash table: tiles_with_hash(z,x,y,data,hash)");
-    conn.execute(
+    let sql = maybe_make_table_strict(
         "CREATE TABLE IF NOT EXISTS tiles_with_hash (
              zoom_level integer NOT NULL,
              tile_column integer NOT NULL,
@@ -233,8 +276,9 @@ where
              tile_data blob,
              tile_hash text,
              PRIMARY KEY(zoom_level, tile_column, tile_row));",
-    )
-    .await?;
+        strict,
+    );
+    conn.execute(sql.as_str()).await?;
 
     debug!("Creating if needed tiles view for flat-with-hash");
     conn.execute(
@@ -258,16 +302,30 @@ pub async fn create_bsdiffraw_tables<T>(conn: &mut T, patch_type: PatchType) -> 
 where
     for<'e> &'e mut T: SqliteExecutor<'e>,
 {
+    create_bsdiffraw_tables_with_strict(conn, patch_type, false).await
+}
+
+pub(crate) async fn create_bsdiffraw_tables_with_strict<T>(
+    conn: &mut T,
+    patch_type: PatchType,
+    strict: bool,
+) -> MbtResult<()>
+where
+    for<'e> &'e mut T: SqliteExecutor<'e>,
+{
     let tbl = get_bsdiff_tbl_name(patch_type);
     debug!("Creating if needed bin-diff table: {tbl}(z,x,y,data,hash)");
-    let sql = format!(
-        "CREATE TABLE IF NOT EXISTS {tbl} (
+    let sql = maybe_make_table_strict(
+        &format!(
+            "CREATE TABLE IF NOT EXISTS {tbl} (
              zoom_level integer NOT NULL,
              tile_column integer NOT NULL,
              tile_row integer NOT NULL,
              patch_data blob NOT NULL,
              tile_xxh3_64_hash integer NOT NULL,
              PRIMARY KEY(zoom_level, tile_column, tile_row));"
+        ),
+        strict,
     );
 
     conn.execute(sql.as_str()).await?;
@@ -318,24 +376,36 @@ pub async fn create_normalized_tables<T>(conn: &mut T) -> MbtResult<()>
 where
     for<'e> &'e mut T: SqliteExecutor<'e>,
 {
+    create_normalized_tables_with_strict(conn, false).await
+}
+
+pub(crate) async fn create_normalized_tables_with_strict<T>(
+    conn: &mut T,
+    strict: bool,
+) -> MbtResult<()>
+where
+    for<'e> &'e mut T: SqliteExecutor<'e>,
+{
     debug!("Creating if needed normalized table: map(z,x,y,id)");
-    conn.execute(
+    let sql = maybe_make_table_strict(
         "CREATE TABLE IF NOT EXISTS map (
              zoom_level integer NOT NULL,
              tile_column integer NOT NULL,
              tile_row integer NOT NULL,
              tile_id text,
              PRIMARY KEY(zoom_level, tile_column, tile_row));",
-    )
-    .await?;
+        strict,
+    );
+    conn.execute(sql.as_str()).await?;
 
     debug!("Creating if needed normalized table: images(id,data)");
-    conn.execute(
+    let sql = maybe_make_table_strict(
         "CREATE TABLE IF NOT EXISTS images (
              tile_id text NOT NULL PRIMARY KEY,
              tile_data blob);",
-    )
-    .await?;
+        strict,
+    );
+    conn.execute(sql.as_str()).await?;
 
     debug!("Creating if needed tiles view for flat-with-hash");
     conn.execute(
@@ -390,13 +460,24 @@ pub async fn init_mbtiles_schema<T>(conn: &mut T, mbt_type: MbtType) -> MbtResul
 where
     for<'e> &'e mut T: SqliteExecutor<'e>,
 {
+    init_mbtiles_schema_with_strict(conn, mbt_type, false).await
+}
+
+pub(crate) async fn init_mbtiles_schema_with_strict<T>(
+    conn: &mut T,
+    mbt_type: MbtType,
+    strict: bool,
+) -> MbtResult<()>
+where
+    for<'e> &'e mut T: SqliteExecutor<'e>,
+{
     reset_db_settings(conn).await?;
-    create_metadata_table(&mut *conn).await?;
+    create_metadata_table_with_strict(&mut *conn, strict).await?;
     match mbt_type {
-        MbtType::Flat => create_flat_tables(&mut *conn).await,
-        MbtType::FlatWithHash => create_flat_with_hash_tables(&mut *conn).await,
+        MbtType::Flat => create_flat_tables_with_strict(&mut *conn, strict).await,
+        MbtType::FlatWithHash => create_flat_with_hash_tables_with_strict(&mut *conn, strict).await,
         MbtType::Normalized { hash_view, .. } => {
-            create_normalized_tables(&mut *conn).await?;
+            create_normalized_tables_with_strict(&mut *conn, strict).await?;
             if hash_view {
                 create_tiles_with_hash_view(&mut *conn).await?;
             }
