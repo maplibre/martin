@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0](https://github.com/maplibre/martin/compare/martin-core-v0.3.2...martin-core-v0.4.0) - 2026-04-18
+
+### Added
+
+- store compression type in the MBTiles metadata table ([#2618](https://github.com/maplibre/martin/pull/2618))
+- *(mbtiles)* Add a transcoder API ([#2682](https://github.com/maplibre/martin/pull/2682))
+- make internal cache expiry configurable ([#2691](https://github.com/maplibre/martin/pull/2691))
+- support per-source cache zoom level ([#2673](https://github.com/maplibre/martin/pull/2673))
+
+### Other
+
+- impl the accept header ([#2703](https://github.com/maplibre/martin/pull/2703))
+- Use moka entry API for deduplicating cache inserts + retrievals ([#2688](https://github.com/maplibre/martin/pull/2688))
+- add a formatting restriction when something should be an import vs path ([#2685](https://github.com/maplibre/martin/pull/2685))
+- introduce `TileSourceManager` and `ReloadAdvisory` ([#2661](https://github.com/maplibre/martin/pull/2661))
+- Enable `clippy::unwrap_used` workspace lint ([#2670](https://github.com/maplibre/martin/pull/2670))
+- make sure our unit tests run under macos too ([#2648](https://github.com/maplibre/martin/pull/2648))
+- hotpath based profiling integration ([#2663](https://github.com/maplibre/martin/pull/2663))
+
 ## [0.3.2](https://github.com/maplibre/martin/compare/martin-core-v0.3.1...martin-core-v0.3.2) - 2026-04-02
 
 ### Fixed
