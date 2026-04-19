@@ -24,7 +24,7 @@ The tile cache received several improvements in this release:
     # Supports human-readable formats: "1h", "30m", "1d", "3600s".
     # default: null (no expiry, entries only evicted by size pressure)
     expiry: null
-    
+
     # Maximum idle time for all cache entries (time-to-idle since last access).
     # Entries are evicted if not accessed within this duration.
     # default: null (no idle timeout)
@@ -43,7 +43,7 @@ The tile cache received several improvements in this release:
     # Can be overridden per-source (e.g. cache.minzoom on a type of source or an individual source).
     # default: null (no lower bound, all zoom levels cached)
     minzoom: null
-  
+
     # Default maximum zoom level (inclusive) for tile caching.
     # Tiles further zoomed in than this will bypass the cache entirely.
     # Can be overridden per-source.
@@ -58,7 +58,7 @@ The tile cache received several improvements in this release:
   Done in [#2688](https://github.com/maplibre/martin/pull/2688).
 - **Accept header in cache key** -- The sanitised `Accept` HTTP header is now part of the cache key, preventing a cached response encoded for one client from being incorrectly served to another.
   This **previously did not have any effect and was also not incorrect**, but in the next release we will add MLT encoding support (which we worked hard for).
-  
+
   This also has the side-effect that if your client now says that you only `Accept` a certain format, we now correctly abort requests early.
   Done in [#2703](https://github.com/maplibre/martin/pull/2703).
 
