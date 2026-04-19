@@ -48,7 +48,11 @@ async fn ttl_evicts_even_with_frequent_access() {
         assert_hit(&cache, "src", ORIGIN).await;
     }
 
-    wait_and_flush(&cache, Duration::from_millis(150)).await;
+    // Still before TTL expiration.
+    tokio::time::sleep(Duration::from_millis(60)).await;
+    assert_hit(&cache, "src", ORIGIN).await;
+
+    wait_and_flush(&cache, Duration::from_millis(80)).await;
 
     assert_miss(&cache, "src", ORIGIN, None, b"new").await;
 }
