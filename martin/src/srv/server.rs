@@ -89,6 +89,7 @@ async fn get_health() -> impl Responder {
 pub fn router(cfg: &mut web::ServiceConfig, usr_cfg: &SrvConfig) {
     // If route_prefix is configured, wrap all routes in a scope
     if let Some(prefix) = &usr_cfg.route_prefix {
+        cfg.service(get_health);
         cfg.service(web::scope(prefix).configure(|cfg| {
             register_services(
                 cfg,

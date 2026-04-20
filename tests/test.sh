@@ -563,6 +563,26 @@ test_log_has_str "$LOG_FILE" 'WARN Environment variable AWS_REGION is deprecated
 validate_log "$LOG_FILE"
 echo "::endgroup::"
 
+echo "::group::Test route prefix health endpoint aliases"
+TEST_NAME="route_prefix_health"
+LOG_FILE="${LOG_DIR}/${TEST_NAME}.txt"
+TEST_OUT_DIR="${TEST_OUT_BASE_DIR}/${TEST_NAME}"
+mkdir -p "$TEST_OUT_DIR"
+
+ARG=(--route-prefix /foo tests/fixtures/pmtiles2)
+set -x
+$MARTIN_BIN "${ARG[@]}" 2>&1 | tee "$LOG_FILE" &
+MARTIN_PROC_ID=$(jobs -p | tail -n 1)
+
+{ set +x; } 2> /dev/null
+trap "echo 'Stopping Martin server $MARTIN_PROC_ID...'; kill -9 $MARTIN_PROC_ID 2> /dev/null || true; echo 'Stopped Martin server $MARTIN_PROC_ID';" EXIT HUP INT TERM
+wait_for "$MARTIN_PROC_ID" Martin "$MARTIN_URL/foo/health"
+$CURL "$MARTIN_URL/health" > /dev/null
+
+kill_process "$MARTIN_PROC_ID" Martin
+validate_log "$LOG_FILE"
+echo "::endgroup::"
+
 echo "::group::Test pre-configured Martin"
 TEST_NAME="configured"
 LOG_FILE="${LOG_DIR}/${TEST_NAME}.txt"
