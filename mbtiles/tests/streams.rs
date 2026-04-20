@@ -16,7 +16,7 @@ fn tile_key(tile: &Tile) -> (u8, u32, u32) {
 async fn new(rows: &[&str]) -> (Mbtiles, SqliteConnection) {
     let mbtiles = Mbtiles::new(":memory:").unwrap();
     let mut conn = mbtiles.open().await.unwrap();
-    create_metadata_table(&mut conn).await.unwrap();
+    create_metadata_table(&mut conn, false).await.unwrap();
 
     conn.execute(
         "CREATE TABLE tiles (

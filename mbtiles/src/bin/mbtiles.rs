@@ -167,11 +167,15 @@ pub struct DiffArgs {
     reason = "for command line arguments, formatting `TileJSON` is awkward"
 )]
 #[derive(Clone, Default, PartialEq, Debug, clap::Args)]
+#[expect(clippy::struct_excessive_bools, reason = "CLI interface")]
 pub struct SharedCopyOpts {
     /// Limit what gets copied.
     /// When copying tiles only, the agg_tiles_hash will still be updated unless --skip-agg-tiles-hash is set.
     #[arg(long, value_name = "TYPE", default_value_t=CopyType::default())]
     copy: CopyType,
+    /// Use `SQLite` `STRICT` tables when creating a new destination file.
+    #[arg(long)]
+    strict: bool,
     /// Output format of the destination file, ignored if the file exists. If not specified, defaults to the type of source
     #[arg(long, alias = "dst-type", alias = "dst_type", value_name = "SCHEMA")]
     mbtiles_type: Option<MbtTypeCli>,
@@ -227,6 +231,7 @@ impl SharedCopyOpts {
             skip_agg_tiles_hash: self.skip_agg_tiles_hash,
             force: self.force,
             validate: self.validate,
+            strict: self.strict,
             // Constants
             dst_type: None, // Taken from dst_type_cli
         }
@@ -423,6 +428,25 @@ mod tests {
                     options: SharedCopyOpts {
                         min_zoom: Some(1),
                         max_zoom: Some(100),
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                })
+            }
+        );
+    }
+
+    #[test]
+    fn test_copy_strict_argument() {
+        assert_eq!(
+            Args::parse_from(["mbtiles", "copy", "src_file", "dst_file", "--strict"]),
+            Args {
+                verbose: false,
+                command: Copy(CopyArgs {
+                    src_file: PathBuf::from("src_file"),
+                    dst_file: PathBuf::from("dst_file"),
+                    options: SharedCopyOpts {
+                        strict: true,
                         ..Default::default()
                     },
                     ..Default::default()

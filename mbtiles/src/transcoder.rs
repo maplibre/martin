@@ -174,7 +174,7 @@ where
 
         let dst = Mbtiles::new(&self.dst_file)?;
         let mut dst_conn = dst.open_or_new().await?;
-        init_mbtiles_schema(&mut dst_conn, dst_type).await?;
+        init_mbtiles_schema(&mut dst_conn, dst_type, false).await?;
 
         // WAL + relaxed sync gives a large boost for bulk inserts; the worst
         // case on crash is losing the in-flight transaction, which is fine here.

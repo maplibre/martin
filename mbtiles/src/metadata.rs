@@ -521,7 +521,9 @@ mod tests {
     async fn metadata_empty_tileset() {
         let mbt = Mbtiles::new(":memory:").unwrap();
         let mut conn = mbt.open().await.unwrap();
-        init_mbtiles_schema(&mut conn, MbtType::Flat).await.unwrap();
+        init_mbtiles_schema(&mut conn, MbtType::Flat, false)
+            .await
+            .unwrap();
 
         // get_metadata should work on empty tileset
         let meta = mbt.get_metadata(&mut conn).await;
