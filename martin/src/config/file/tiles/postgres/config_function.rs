@@ -99,7 +99,8 @@ impl PostgresInfo for FunctionInfo {
         let Some(content_type) = tj.get("content_type").and_then(|v| v.as_str()) else {
             return TileInfo::new(Format::Mvt, Encoding::Uncompressed);
         };
-        if let Some(format) = Format::from_content_type(content_type) {
+        let (supertype, subtype) = content_type.split_once('/').unwrap_or((content_type, ""));
+        if let Some(format) = Format::from_content_type(supertype, subtype) {
             TileInfo::from(format)
         } else {
             warn!(

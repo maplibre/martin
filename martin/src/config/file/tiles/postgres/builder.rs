@@ -439,8 +439,8 @@ impl PostgresAutoDiscoveryBuilder {
             sql_info,
             tilejson,
             self.pool.clone(),
-            cache.zoom(),
             tile_info,
+            cache.zoom(),
         );
         sources.push(Box::new(source));
     }
