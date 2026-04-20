@@ -221,6 +221,7 @@ SELECT (regexp_matches(
 
 #[cfg(all(test, feature = "test-pg"))]
 mod tests {
+    use backon::{ConstantBuilder, Retryable as _};
     use deadpool_postgres::tokio_postgres::Config;
     use postgres::NoTls;
     use testcontainers_modules::postgres::Postgres;
@@ -234,25 +235,23 @@ mod tests {
         const MAX_START_ATTEMPTS: usize = 3;
         const RETRY_DELAY: std::time::Duration = std::time::Duration::from_secs(2);
 
-        let mut last_error = String::new();
-        for attempt in 1..=MAX_START_ATTEMPTS {
-            match Postgres::default()
+        (|| async {
+            Postgres::default()
                 .with_name("postgis/postgis")
                 .with_tag("11-3.0") // purposely very old and stable
                 .start()
                 .await
-            {
-                Ok(container) => return container,
-                Err(err) => {
-                    last_error = err.to_string();
-                    if attempt < MAX_START_ATTEMPTS {
-                        tokio::time::sleep(RETRY_DELAY).await;
-                    }
-                }
-            }
-        }
-
-        panic!("failed to launch container after {MAX_START_ATTEMPTS} attempts: {last_error}");
+        })
+        .retry(
+            ConstantBuilder::default()
+                .with_delay(RETRY_DELAY)
+                .with_max_times(MAX_START_ATTEMPTS),
+        )
+        .sleep(tokio::time::sleep)
+        .await
+        .unwrap_or_else(|err| {
+            panic!("failed to launch container after {MAX_START_ATTEMPTS} attempts: {err}")
+        })
     }
 
     #[tokio::test]

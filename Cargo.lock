@@ -4204,6 +4204,7 @@ dependencies = [
  "actix-web-prom",
  "actix-web-static-files",
  "async-trait",
+ "backon",
  "clap",
  "criterion",
  "dashmap",
