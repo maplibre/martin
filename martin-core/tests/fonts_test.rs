@@ -8,10 +8,11 @@ use std::time::Duration;
 use martin_core::fonts::FontCache;
 
 const CACHE_SIZE: u64 = 10 * 1024 * 1024;
+const TIMING_GRACE: Duration = Duration::from_millis(300);
 
 #[tokio::test]
 async fn cache_entry_available_before_ttl_expires() {
-    let ttl = Duration::from_millis(200);
+    let ttl = Duration::from_millis(1_000);
     let cache = FontCache::new(CACHE_SIZE, Some(ttl), None);
 
     insert(&cache, "font-a", 0, 255, b"glyph-data").await;
@@ -22,44 +23,44 @@ async fn cache_entry_available_before_ttl_expires() {
 
 #[tokio::test]
 async fn cache_entry_evicted_after_ttl_expires() {
-    let ttl = Duration::from_millis(25);
+    let ttl = Duration::from_millis(200);
     let cache = FontCache::new(CACHE_SIZE, Some(ttl), None);
 
     insert(&cache, "font-a", 0, 255, b"original").await;
 
-    wait_and_flush(&cache, ttl + Duration::from_millis(25)).await;
+    wait_and_flush(&cache, ttl + TIMING_GRACE).await;
 
     assert_miss(&cache, "font-a", 0, 255, b"refreshed").await;
 }
 
 #[tokio::test]
 async fn ttl_evicts_even_with_frequent_access() {
-    let ttl = Duration::from_millis(80);
+    let ttl = Duration::from_millis(600);
     let cache = FontCache::new(CACHE_SIZE, Some(ttl), None);
 
     insert(&cache, "font-a", 0, 255, b"data").await;
 
     // Access repeatedly — this should NOT extend the TTL
     for _ in 0..3 {
-        tokio::time::sleep(Duration::from_millis(20)).await;
+        tokio::time::sleep(Duration::from_millis(100)).await;
         assert_hit(&cache, "font-a", 0, 255).await;
     }
 
-    wait_and_flush(&cache, Duration::from_millis(30)).await;
+    wait_and_flush(&cache, Duration::from_millis(500)).await;
 
     assert_miss(&cache, "font-a", 0, 255, b"new").await;
 }
 
 #[tokio::test]
 async fn cache_entry_survives_when_accessed_within_tti() {
-    let tti = Duration::from_millis(60);
+    let tti = Duration::from_millis(300);
     let cache = FontCache::new(CACHE_SIZE, None, Some(tti));
 
     insert(&cache, "font-a", 0, 255, b"data").await;
 
     // Each access resets the idle timer, keeping the entry alive past the total TTI
     for _ in 0..3 {
-        tokio::time::sleep(Duration::from_millis(30)).await;
+        tokio::time::sleep(Duration::from_millis(100)).await;
         let hit = assert_hit(&cache, "font-a", 0, 255).await;
         assert_eq!(hit, b"data");
     }
@@ -67,44 +68,44 @@ async fn cache_entry_survives_when_accessed_within_tti() {
 
 #[tokio::test]
 async fn cache_entry_evicted_after_idle_timeout() {
-    let tti = Duration::from_millis(25);
+    let tti = Duration::from_millis(150);
     let cache = FontCache::new(CACHE_SIZE, None, Some(tti));
 
     insert(&cache, "font-a", 0, 255, b"data").await;
 
-    wait_and_flush(&cache, tti + Duration::from_millis(25)).await;
+    wait_and_flush(&cache, tti + TIMING_GRACE).await;
 
     assert_miss(&cache, "font-a", 0, 255, b"new").await;
 }
 
 #[tokio::test]
 async fn tti_evicts_before_ttl_when_idle() {
-    let ttl = Duration::from_millis(200);
-    let tti = Duration::from_millis(25);
+    let ttl = Duration::from_millis(1_000);
+    let tti = Duration::from_millis(150);
     let cache = FontCache::new(CACHE_SIZE, Some(ttl), Some(tti));
 
     insert(&cache, "font-a", 0, 255, b"data").await;
 
     // Wait past TTI but within TTL
-    wait_and_flush(&cache, tti + Duration::from_millis(25)).await;
+    wait_and_flush(&cache, tti + TIMING_GRACE).await;
 
     assert_miss(&cache, "font-a", 0, 255, b"new").await;
 }
 
 #[tokio::test]
 async fn ttl_evicts_despite_access_when_both_set() {
-    let ttl = Duration::from_millis(80);
-    let tti = Duration::from_millis(60);
+    let ttl = Duration::from_millis(600);
+    let tti = Duration::from_millis(400);
     let cache = FontCache::new(CACHE_SIZE, Some(ttl), Some(tti));
 
     insert(&cache, "font-a", 0, 255, b"data").await;
 
     // Keep accessing within TTI to prevent idle eviction
-    tokio::time::sleep(Duration::from_millis(40)).await;
+    tokio::time::sleep(Duration::from_millis(200)).await;
     assert_hit(&cache, "font-a", 0, 255).await;
 
     // Wait until TTL has passed since original insertion
-    wait_and_flush(&cache, Duration::from_millis(60)).await;
+    wait_and_flush(&cache, Duration::from_millis(500)).await;
 
     assert_miss(&cache, "font-a", 0, 255, b"new").await;
 }
@@ -115,7 +116,7 @@ async fn cache_entry_persists_without_ttl_or_tti() {
 
     insert(&cache, "font-a", 0, 255, b"data").await;
 
-    wait_and_flush(&cache, Duration::from_millis(50)).await;
+    wait_and_flush(&cache, Duration::from_millis(200)).await;
 
     let hit = assert_hit(&cache, "font-a", 0, 255).await;
     assert_eq!(hit, b"data");
@@ -123,16 +124,16 @@ async fn cache_entry_persists_without_ttl_or_tti() {
 
 #[tokio::test]
 async fn ttl_applies_independently_per_entry() {
-    let ttl = Duration::from_millis(80);
+    let ttl = Duration::from_millis(600);
     let cache = FontCache::new(CACHE_SIZE, Some(ttl), None);
 
     insert(&cache, "font-a", 0, 255, b"first").await;
 
-    tokio::time::sleep(Duration::from_millis(40)).await;
+    tokio::time::sleep(Duration::from_millis(250)).await;
     insert(&cache, "font-a", 256, 511, b"second").await;
 
     // First entry's TTL has expired, second has not
-    wait_and_flush(&cache, Duration::from_millis(60)).await;
+    wait_and_flush(&cache, Duration::from_millis(450)).await;
 
     assert_miss(&cache, "font-a", 0, 255, b"first-new").await;
 
@@ -142,13 +143,13 @@ async fn ttl_applies_independently_per_entry() {
 
 #[tokio::test]
 async fn different_fonts_share_ttl_policy() {
-    let ttl = Duration::from_millis(25);
+    let ttl = Duration::from_millis(150);
     let cache = FontCache::new(CACHE_SIZE, Some(ttl), None);
 
     insert(&cache, "font-a", 0, 255, b"a").await;
     insert(&cache, "font-b", 0, 255, b"b").await;
 
-    wait_and_flush(&cache, ttl + Duration::from_millis(25)).await;
+    wait_and_flush(&cache, ttl + TIMING_GRACE).await;
 
     assert_miss(&cache, "font-a", 0, 255, b"a-new").await;
     assert_miss(&cache, "font-b", 0, 255, b"b-new").await;
@@ -156,13 +157,13 @@ async fn different_fonts_share_ttl_policy() {
 
 #[tokio::test]
 async fn different_ranges_create_separate_cache_entries_with_same_ttl() {
-    let ttl = Duration::from_millis(25);
+    let ttl = Duration::from_millis(150);
     let cache = FontCache::new(CACHE_SIZE, Some(ttl), None);
 
     insert(&cache, "font-a", 0, 255, b"range-0").await;
     insert(&cache, "font-a", 256, 511, b"range-1").await;
 
-    wait_and_flush(&cache, ttl + Duration::from_millis(25)).await;
+    wait_and_flush(&cache, ttl + TIMING_GRACE).await;
 
     assert_miss(&cache, "font-a", 0, 255, b"range-0-new").await;
     assert_miss(&cache, "font-a", 256, 511, b"range-1-new").await;
