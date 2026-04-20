@@ -11,7 +11,24 @@ import { buildMartinUrl } from '@/lib/api';
 import type { Style } from '@/lib/types';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { FullscreenControl, Map as MapLibreMap } from '@vis.gl/react-maplibre';
-import { useState } from 'react';
+
+function StylePreviewMap({ styleName }: { styleName: string }) {
+  return (
+    <MapLibreMap
+      mapStyle={buildMartinUrl(`/style/${styleName}`)}
+      reuseMaps
+      style={{
+        aspectRatio: 16 / 9,
+        backgroundColor: '#E5E7EB',
+        backgroundImage: 'linear-gradient(to bottom right, var(--tw-gradient-stops))',
+        borderRadius: 'var(--radius)',
+        width: '100%',
+      }}
+    >
+      <FullscreenControl />
+    </MapLibreMap>
+  );
+}
 
 interface StylesCatalogProps {
   styles?: { [name: string]: Style };
@@ -38,11 +55,6 @@ export function StylesCatalog({
   selectedStyleForGuide = undefined,
   onStyleGuide = () => {},
 }: StylesCatalogProps) {
-  const [viewState, setViewState] = useState({
-    latitude: 53,
-    longitude: 9,
-    zoom: 2,
-  });
   if (isLoading) {
     return (
       <CatalogSkeleton
@@ -110,21 +122,7 @@ export function StylesCatalog({
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                <MapLibreMap
-                  reuseMaps
-                  {...viewState}
-                  mapStyle={buildMartinUrl(`/style/${name}`)}
-                  onMove={(evt) => setViewState(evt.viewState)}
-                  style={{
-                    aspectRatio: 16 / 9,
-                    backgroundColor: '#E5E7EB',
-                    backgroundImage: 'linear-gradient(to bottom right, var(--tw-gradient-stops))',
-                    borderRadius: 'var(--radius)',
-                    width: '100%',
-                  }}
-                >
-                  <FullscreenControl />
-                </MapLibreMap>
+                <StylePreviewMap styleName={name} />
                 <div className="space-y-2 text-sm text-muted-foreground">
                   {style.versionHash && (
                     <div className="flex justify-between">

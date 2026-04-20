@@ -149,6 +149,10 @@ pub enum MbtError {
 
     #[error(transparent)]
     IoError(#[from] std::io::Error),
+
+    #[cfg(feature = "transcode")]
+    #[error("Transcoding error: {0}")]
+    TranscodeError(String),
 }
 
 pub type MbtResult<T> = Result<T, MbtError>;

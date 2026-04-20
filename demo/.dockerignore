@@ -14,6 +14,7 @@ db/initdb/taxi_zones
 db/initdb/taxi_trips
 
 # misc
+.claude
 .DS_Store
 .env.local
 .env.development.local

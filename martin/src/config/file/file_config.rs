@@ -4,7 +4,9 @@ use std::mem;
 #[cfg(feature = "_tiles")]
 use std::path::Path;
 use std::path::PathBuf;
+use std::time::Duration;
 
+use martin_core::CacheZoomRange;
 #[cfg(feature = "_tiles")]
 use martin_core::tiles::BoxedSource;
 use serde::{Deserialize, Serialize};
@@ -60,19 +62,23 @@ pub trait TileSourceConfiguration: ConfigurationLivecycleHooks {
     /// Asynchronously creates a new `BoxedSource` from a **local** file `path` using the given `id`.
     ///
     /// This function is called for each discovered file path that is not a URL.
+    /// `cache` contains per-source zoom bounds, already merged with defaults.
     fn new_sources(
         &self,
         id: String,
         path: PathBuf,
+        cache: CachePolicy,
     ) -> impl Future<Output = MartinResult<BoxedSource>> + Send;
 
     /// Asynchronously creates a new `BoxedSource` from a **remote** `url` using the given `id`.
     ///
     /// This function is called for each discovered source path that is a valid URL.
+    /// `cache` contains per-source zoom bounds, already merged with defaults.
     fn new_sources_url(
         &self,
         id: String,
         url: Url,
+        cache: CachePolicy,
     ) -> impl Future<Output = MartinResult<BoxedSource>> + Send;
 }
 
@@ -238,6 +244,14 @@ impl FileConfigSrc {
         }
     }
 
+    #[must_use]
+    pub fn cache_zoom(&self) -> CachePolicy {
+        match self {
+            Self::Path(_) => CachePolicy::default(),
+            Self::Obj(o) => o.cache,
+        }
+    }
+
     pub fn abs_path(&self) -> ConfigFileResult<PathBuf> {
         let path = self.get_path();
 
@@ -264,6 +278,9 @@ fn is_sqlite_memory_uri(path: &Path) -> bool {
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct FileConfigSource {
     pub path: PathBuf,
+    /// Zoom-level bounds for tile caching.
+    #[serde(default, skip_serializing_if = "CachePolicy::is_empty")]
+    pub cache: CachePolicy,
 }
 
 #[cfg(feature = "_tiles")]
@@ -271,8 +288,9 @@ pub async fn resolve_files<T: TileSourceConfiguration>(
     config: &mut FileConfigEnum<T>,
     idr: &IdResolver,
     extension: &[&str],
+    default_cache: CachePolicy,
 ) -> MartinResult<(Vec<BoxedSource>, Vec<TileSourceWarning>)> {
-    resolve_int(config, idr, extension).await
+    resolve_int(config, idr, extension, default_cache).await
 }
 
 #[cfg(feature = "_tiles")]
@@ -280,6 +298,7 @@ async fn resolve_int<T: TileSourceConfiguration>(
     config: &mut FileConfigEnum<T>,
     idr: &IdResolver,
     extension: &[&str],
+    default_cache: CachePolicy,
 ) -> MartinResult<(Vec<BoxedSource>, Vec<TileSourceWarning>)> {
     let Some(cfg) = config.extract_file_config() else {
         return Ok((vec![], vec![]));
@@ -293,8 +312,16 @@ async fn resolve_int<T: TileSourceConfiguration>(
 
     if let Some(sources) = cfg.sources {
         for (id, source) in sources {
-            match resolve_one_source_int(&cfg.custom, idr, &id, source, &mut files, &mut configs)
-                .await
+            match resolve_one_source_int(
+                &cfg.custom,
+                idr,
+                &id,
+                source,
+                &mut files,
+                &mut configs,
+                default_cache,
+            )
+            .await
             {
                 Ok(src) => results.push(src),
                 Err(err) => {
@@ -316,6 +343,7 @@ async fn resolve_int<T: TileSourceConfiguration>(
             &mut files,
             &mut directories,
             &mut configs,
+            default_cache,
         )
         .await
         {
@@ -347,14 +375,18 @@ async fn resolve_one_source_int<T: TileSourceConfiguration>(
     source: FileConfigSrc,
     files: &mut HashSet<PathBuf>,
     configs: &mut BTreeMap<String, FileConfigSrc>,
+    default_cache: CachePolicy,
 ) -> MartinResult<BoxedSource> {
+    let cache = source.cache_zoom().or(default_cache);
     let result;
     if let Some(url) = parse_url(T::parse_urls(), source.get_path())? {
         let dup = !files.insert(source.get_path().clone());
         let dup = if dup { "duplicate " } else { "" };
         let id = idr.resolve(id, url.to_string());
         configs.insert(id.clone(), source);
-        result = custom.new_sources_url(id.clone(), url.clone()).await?;
+        result = custom
+            .new_sources_url(id.clone(), url.clone(), cache)
+            .await?;
         info!("Configured {dup}source {id} from {}", sanitize_url(&url));
     } else {
         let can = source.abs_path()?;
@@ -363,7 +395,7 @@ async fn resolve_one_source_int<T: TileSourceConfiguration>(
         let id = idr.resolve(id, can.to_string_lossy().to_string());
         info!("Configured {dup}source {id} from {}", can.display());
         configs.insert(id.clone(), source.clone());
-        result = custom.new_sources(id, source.into_path()).await?;
+        result = custom.new_sources(id, source.into_path(), cache).await?;
     }
     Ok(result)
 }
@@ -373,6 +405,7 @@ async fn resolve_one_source_int<T: TileSourceConfiguration>(
 /// This function processes a given `PathBuf`, checking if it represents a file, directory,
 /// or a URL, and then it performs the necessary steps to configure tile sources.
 #[cfg(feature = "_tiles")]
+#[expect(clippy::too_many_arguments)]
 async fn resolve_one_path_int<T: TileSourceConfiguration>(
     custom: &T,
     idr: &IdResolver,
@@ -381,6 +414,7 @@ async fn resolve_one_path_int<T: TileSourceConfiguration>(
     files: &mut HashSet<PathBuf>,
     directories: &mut Vec<PathBuf>,
     configs: &mut BTreeMap<String, FileConfigSrc>,
+    default_cache: CachePolicy,
 ) -> MartinResult<Vec<BoxedSource>> {
     let mut results = Vec::new();
 
@@ -402,7 +436,11 @@ async fn resolve_one_path_int<T: TileSourceConfiguration>(
 
         let id = idr.resolve(id, url.to_string());
         configs.insert(id.clone(), FileConfigSrc::Path(path));
-        results.push(custom.new_sources_url(id.clone(), url.clone()).await?);
+        results.push(
+            custom
+                .new_sources_url(id.clone(), url.clone(), default_cache)
+                .await?,
+        );
         info!("Configured source {id} from URL {}", sanitize_url(&url));
     } else {
         let is_dir = path.is_dir();
@@ -435,7 +473,7 @@ async fn resolve_one_path_int<T: TileSourceConfiguration>(
             info!("Configured source {id} from {}", can.display());
             files.insert(can);
             configs.insert(id.clone(), FileConfigSrc::Path(path.clone()));
-            results.push(custom.new_sources(id, path).await?);
+            results.push(custom.new_sources(id, path, default_cache).await?);
         }
     }
     Ok(results)
@@ -456,15 +494,11 @@ fn collect_files_with_extension(
         .map_err(|e| ConfigFileError::IoError(e, base_path.to_path_buf()))?
         .filter_map(Result::ok)
         .filter(|f| {
-            f.path()
-                .extension()
-                .filter(|actual_ext| {
-                    allowed_extension
-                        .iter()
-                        .any(|expected_ext| expected_ext == actual_ext)
-                })
-                .is_some()
-                && f.path().is_file()
+            f.path().extension().is_some_and(|actual_ext| {
+                allowed_extension
+                    .iter()
+                    .any(|expected_ext| *expected_ext == actual_ext)
+            }) && f.path().is_file()
         })
         .map(|f| f.path())
         .collect())
@@ -497,6 +531,344 @@ fn parse_url(is_enabled: bool, path: &Path) -> Result<Option<Url>, ConfigFileErr
         .filter(|v| url_schemes.iter().any(|scheme| v.starts_with(scheme)))
         .map(|v| Url::parse(v).map_err(|e| ConfigFileError::InvalidSourceUrl(e, v.to_string())))
         .transpose()
+}
+
+/// Cache configuration for a tile source. Currently holds zoom-level bounds;
+/// may be extended with additional cache settings in the future.
+///
+/// Accepts either a struct with zoom bounds or the string `"disable"` to disable caching:
+/// ```yaml
+/// cache: disable
+/// ```
+///
+/// ```yaml
+/// cache:
+///   minzoom: 0
+///   maxzoom: 10
+/// ```
+#[derive(Clone, Copy, Debug, Default, PartialEq, Serialize)]
+pub struct CachePolicy {
+    #[serde(flatten)]
+    zoom: CacheZoomRange,
+}
+
+impl CachePolicy {
+    /// Creates a new `CachePolicy` with the given zoom range.
+    #[must_use]
+    pub fn new(zoom: CacheZoomRange) -> Self {
+        Self { zoom }
+    }
+
+    /// Creates a disabled `CachePolicy` where caching is turned off.
+    #[must_use]
+    pub fn disabled() -> Self {
+        Self {
+            zoom: CacheZoomRange::disabled(),
+        }
+    }
+
+    /// Returns the zoom-level bounds for caching.
+    #[must_use]
+    pub fn zoom(self) -> CacheZoomRange {
+        self.zoom
+    }
+
+    /// Returns `true` if no cache bounds are configured.
+    #[must_use]
+    #[expect(
+        clippy::trivially_copy_pass_by_ref,
+        reason = "serde skip_serializing_if requires &self"
+    )]
+    pub fn is_empty(&self) -> bool {
+        self.zoom.is_empty()
+    }
+
+    /// Fills in any `None` fields from `other`.
+    /// A disabled cache policy (with both bounds set) is not overridden by defaults.
+    #[must_use]
+    pub fn or(self, other: Self) -> Self {
+        Self {
+            zoom: self.zoom.or(other.zoom),
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for CachePolicy {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum CachePolicyHelper {
+            String(String),
+            Struct {
+                #[serde(flatten, default)]
+                zoom: CacheZoomRange,
+            },
+        }
+
+        match CachePolicyHelper::deserialize(deserializer)? {
+            CachePolicyHelper::String(s) if s == "disable" => Ok(Self::disabled()),
+            CachePolicyHelper::String(s) => Err(serde::de::Error::custom(format!(
+                "invalid cache policy string: {s:?}, expected \"disable\""
+            ))),
+            CachePolicyHelper::Struct { zoom } => Ok(Self { zoom }),
+        }
+    }
+}
+
+/// Global-level cache configuration with both size limits and zoom-level bounds.
+///
+/// Used at the root of the config file:
+/// ```yaml
+/// cache:
+///   size_mb: 512
+///   tile_size_mb: 256
+///   expiry: 1h
+///   idle_timeout: 15m
+///   tile_expiry: 30m
+///   tile_idle_timeout: 5m
+///   minzoom: 0
+///   maxzoom: 20
+/// ```
+///
+/// Or disabled entirely:
+/// ```yaml
+/// cache: disable
+/// ```
+#[serde_with::skip_serializing_none]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Serialize)]
+pub struct GlobalCacheConfig {
+    /// Total cache budget in megabytes (0 to disable).
+    /// Split across tile, pmtiles, sprite, and font caches by default.
+    pub size_mb: Option<u64>,
+    /// Tile cache size override in megabytes.
+    /// Defaults to `size_mb / 2`.
+    pub tile_size_mb: Option<u64>,
+    /// Maximum lifetime for all cache entries (time-to-live from creation).
+    /// Supports human-readable formats: "1h", "30m", "1d".
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "humantime_serde"
+    )]
+    pub expiry: Option<Duration>,
+    /// Maximum idle time for all cache entries (time-to-idle since last access).
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "humantime_serde"
+    )]
+    pub idle_timeout: Option<Duration>,
+    /// Tile-specific TTL override. Takes precedence over `expiry` for tiles.
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "humantime_serde"
+    )]
+    pub tile_expiry: Option<Duration>,
+    /// Tile-specific idle timeout override. Takes precedence over `idle_timeout` for tiles.
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "humantime_serde"
+    )]
+    pub tile_idle_timeout: Option<Duration>,
+    #[serde(flatten)]
+    zoom: CacheZoomRange,
+}
+
+impl GlobalCacheConfig {
+    /// Creates a disabled `GlobalCacheConfig` with size 0 and minzoom > maxzoom.
+    #[must_use]
+    pub fn disabled() -> Self {
+        Self {
+            size_mb: Some(0),
+            tile_size_mb: Some(0),
+            expiry: None,
+            idle_timeout: None,
+            tile_expiry: None,
+            tile_idle_timeout: None,
+            zoom: CacheZoomRange::disabled(),
+        }
+    }
+
+    /// Returns the zoom-level bounds as a [`CachePolicy`].
+    #[must_use]
+    pub fn policy(self) -> CachePolicy {
+        CachePolicy::new(self.zoom)
+    }
+
+    /// Returns `true` if no cache settings are configured.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.size_mb.is_none()
+            && self.tile_size_mb.is_none()
+            && self.expiry.is_none()
+            && self.idle_timeout.is_none()
+            && self.tile_expiry.is_none()
+            && self.tile_idle_timeout.is_none()
+            && self.zoom.is_empty()
+    }
+}
+
+impl<'de> Deserialize<'de> for GlobalCacheConfig {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum Helper {
+            String(String),
+            Struct {
+                size_mb: Option<u64>,
+                tile_size_mb: Option<u64>,
+                #[serde(
+                    default,
+                    skip_serializing_if = "Option::is_none",
+                    with = "humantime_serde"
+                )]
+                expiry: Option<Duration>,
+                #[serde(
+                    default,
+                    skip_serializing_if = "Option::is_none",
+                    with = "humantime_serde"
+                )]
+                idle_timeout: Option<Duration>,
+                #[serde(
+                    default,
+                    skip_serializing_if = "Option::is_none",
+                    with = "humantime_serde"
+                )]
+                tile_expiry: Option<Duration>,
+                #[serde(
+                    default,
+                    skip_serializing_if = "Option::is_none",
+                    with = "humantime_serde"
+                )]
+                tile_idle_timeout: Option<Duration>,
+                #[serde(flatten, default)]
+                zoom: CacheZoomRange,
+            },
+        }
+
+        match Helper::deserialize(deserializer)? {
+            Helper::String(s) if s == "disable" => Ok(Self::disabled()),
+            Helper::String(s) => Err(serde::de::Error::custom(format!(
+                "invalid cache config string: {s:?}, expected \"disable\""
+            ))),
+            Helper::Struct {
+                size_mb,
+                tile_size_mb,
+                expiry,
+                idle_timeout,
+                tile_expiry,
+                tile_idle_timeout,
+                zoom,
+            } => Ok(Self {
+                size_mb,
+                tile_size_mb,
+                expiry,
+                idle_timeout,
+                tile_expiry,
+                tile_idle_timeout,
+                zoom,
+            }),
+        }
+    }
+}
+
+/// Cache size configuration for a source type (sprites, fonts, pmtiles).
+///
+/// Used at the source-type level:
+/// ```yaml
+/// sprites:
+///   cache:
+///     size_mb: 64
+/// ```
+///
+/// Or disabled entirely:
+/// ```yaml
+/// sprites:
+///   cache: disable
+/// ```
+#[serde_with::skip_serializing_none]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Serialize)]
+pub struct CacheSizeConfig {
+    /// Cache size in megabytes for this source type (0 to disable).
+    pub size_mb: Option<u64>,
+    /// Maximum lifetime of cache entries (time-to-live from creation).
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "humantime_serde"
+    )]
+    pub expiry: Option<Duration>,
+    /// Maximum idle time before cache entries are evicted (time-to-idle since last access).
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "humantime_serde"
+    )]
+    pub idle_timeout: Option<Duration>,
+}
+
+impl CacheSizeConfig {
+    /// Returns `true` if no cache settings are configured.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.size_mb.is_none() && self.expiry.is_none() && self.idle_timeout.is_none()
+    }
+}
+
+impl<'de> Deserialize<'de> for CacheSizeConfig {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum Helper {
+            String(String),
+            Struct {
+                size_mb: Option<u64>,
+                #[serde(
+                    default,
+                    skip_serializing_if = "Option::is_none",
+                    with = "humantime_serde"
+                )]
+                expiry: Option<Duration>,
+                #[serde(
+                    default,
+                    skip_serializing_if = "Option::is_none",
+                    with = "humantime_serde"
+                )]
+                idle_timeout: Option<Duration>,
+            },
+        }
+
+        match Helper::deserialize(deserializer)? {
+            Helper::String(s) if s == "disable" => Ok(Self {
+                size_mb: Some(0),
+                expiry: None,
+                idle_timeout: None,
+            }),
+            Helper::String(s) => Err(serde::de::Error::custom(format!(
+                "invalid cache config string: {s:?}, expected \"disable\""
+            ))),
+            Helper::Struct {
+                size_mb,
+                expiry,
+                idle_timeout,
+            } => Ok(Self {
+                size_mb,
+                expiry,
+                idle_timeout,
+            }),
+        }
+    }
 }
 
 pub type UnrecognizedValues = HashMap<String, serde_yaml::Value>;
@@ -533,7 +905,7 @@ mod mbtiles_tests {
         });
 
         let idr = IdResolver::new(&[]);
-        let result = resolve_files(&mut config, &idr, &["mbtiles"]).await;
+        let result = resolve_files(&mut config, &idr, &["mbtiles"], CachePolicy::default()).await;
 
         let (sources, warnings) = result.unwrap();
         assert_eq!(sources.len(), 0);
@@ -564,7 +936,7 @@ mod pmtiles_tests {
         });
 
         let idr = IdResolver::new(&[]);
-        let result = resolve_files(&mut config, &idr, &["pmtiles"]).await;
+        let result = resolve_files(&mut config, &idr, &["pmtiles"], CachePolicy::default()).await;
 
         let (sources, warnings) = result.unwrap();
         assert_eq!(sources.len(), 0);

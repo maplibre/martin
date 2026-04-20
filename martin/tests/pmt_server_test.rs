@@ -54,7 +54,7 @@ async fn pmt_get_catalog() {
     let response = call_service(&app, req).await;
     let response = assert_response(response).await;
     let body: serde_json::Value = read_body_json(response).await;
-    assert_yaml_snapshot!(body, @r"
+    assert_yaml_snapshot!(body, @"
     fonts: {}
     sprites: {}
     styles: {}
@@ -74,7 +74,7 @@ async fn pmt_get_catalog_gzip() {
     let response = assert_response(response).await;
     let body = decode_gzip(&read_body(response).await).unwrap();
     let body: serde_json::Value = serde_json::from_slice(&body).unwrap();
-    assert_yaml_snapshot!(body, @r"
+    assert_yaml_snapshot!(body, @"
     fonts: {}
     sprites: {}
     styles: {}

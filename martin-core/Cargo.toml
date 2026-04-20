@@ -1,6 +1,6 @@
 [package]
 name = "martin-core"
-version = "0.3.2"
+version = "0.4.0"
 authors = ["Yuri Astrakhan <YuriAstrakhan@gmail.com>", "MapLibre contributors"]
 description = "Basic building blocks of MapLibre's Martin tile server."
 keywords = ["maps", "tiles", "mvt", "tileserver"]
@@ -33,13 +33,7 @@ postgres = [
     "dep:serde_json",
     "_tiles",
 ]
-unstable-cog = [
-    "dep:png",
-    "dep:tiff",
-    "dep:image",
-    "dep:serde_json",
-    "_tiles",
-]
+unstable-cog = ["dep:png", "dep:tiff", "dep:image", "dep:serde_json", "_tiles"]
 unstable-rendering = ["styles", "dep:maplibre_native", "dep:image"]
 fonts = [
     "dep:bit-set",
@@ -80,7 +74,7 @@ image = { workspace = true, optional = true }
 itertools = { workspace = true, optional = true }
 martin-tile-utils.workspace = true
 mbtiles = { workspace = true, optional = true }
-moka.workspace = true
+moka = { workspace = true, features = ["future", "quanta"] }
 object_store = { workspace = true, optional = true }
 pbf_font_tools = { workspace = true, optional = true }
 pmtiles = { workspace = true, optional = true }

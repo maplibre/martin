@@ -63,20 +63,21 @@ flate2 = "1"
 flume = "0.12"
 futures = "0.3"
 hotpath = "0.14"
+humantime-serde = "1.1.1"
 image = "0.25.8"
 indicatif = "0.18.3"
 indoc = "2"
-insta = "1.44.3"
+insta = "1.46.3"
 itertools = "0.14"
 json-patch = "4"
 lambda-web = { version = "0.2.1", features = ["actix4"] }
 log = "0.4"
 maplibre_native = "0.4.2"
-martin-core = { path = "./martin-core", version = "0.3.2", default-features = false }
-martin-tile-utils = { path = "./martin-tile-utils", version = "0.6.12" }
-mbtiles = { path = "./mbtiles", version = "0.15.4" }
+martin-core = { path = "./martin-core", version = "0.4.0", default-features = false }
+martin-tile-utils = { path = "./martin-tile-utils", version = "0.7.0" }
+mbtiles = { path = "./mbtiles", version = "0.16.0" }
 md5 = "0.8.0"
-moka = { version = "0.12", features = ["future"] }
+moka = { version = "0.12", default-features = false }
 num_cpus = "1"
 object_store = { version = "0.13.2", features = ["gcp", "aws", "azure", "fs", "http"] }
 pbf_font_tools = { version = "3.1.1", features = ["freetype"] }
@@ -86,6 +87,7 @@ postgis = "0.9"
 postgres = { version = "0.19", features = ["with-time-0_3", "with-uuid-1", "with-serde_json-1"] }
 postgres-protocol = "0.6"
 pretty_assertions = "1"
+rayon = "1"
 regex = "1"
 rstest = "0.26.1"
 rustls = "0.23.36"

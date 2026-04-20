@@ -100,7 +100,13 @@ impl Args {
         }
 
         if self.srv.cache_size.is_some() {
-            config.cache_size_mb = self.srv.cache_size;
+            config.cache.size_mb = self.srv.cache_size;
+        }
+        if self.srv.cache_expiry.is_some() {
+            config.cache.expiry = self.srv.cache_expiry;
+        }
+        if self.srv.cache_idle_timeout.is_some() {
+            config.cache.idle_timeout = self.srv.cache_idle_timeout;
         }
 
         if self.meta.on_invalid.is_some() {

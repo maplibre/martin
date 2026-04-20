@@ -21,7 +21,7 @@ use martin::config::file::{Config, ServerState, read_config};
 use martin::config::primitives::env::OsEnv;
 use martin::logging::progress::TileCopyProgress;
 use martin::logging::{ensure_martin_core_log_level_matches, init_tracing};
-use martin::srv::{DynTileSource, merge_tilejson};
+use martin::srv::{DynTileSource, TileRequestHeaders, merge_tilejson};
 use martin::{MartinError, MartinResult};
 use martin_core::tiles::BoxedSource;
 use martin_core::tiles::mbtiles::MbtilesError;
@@ -39,7 +39,7 @@ use tokio::try_join;
 use tracing::{debug, error, info, warn};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
-const SAVE_EVERY: Duration = Duration::from_secs(60);
+const SAVE_EVERY: Duration = Duration::from_mins(1);
 const PROGRESS_REPORT_AFTER: u64 = 100;
 const PROGRESS_REPORT_EVERY: Duration = Duration::from_secs(2);
 const BATCH_SIZE: usize = 1000;
@@ -368,9 +368,10 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()>
         &source_id,
         None,
         args.url_query.as_deref().unwrap_or_default(),
-        Some(parse_encoding(args.encoding.as_str())?),
-        None,
-        None,
+        TileRequestHeaders {
+            accept_enc: Some(parse_encoding(args.encoding.as_str())?),
+            ..Default::default()
+        },
     )?;
 
     let inferred_bboxes = if args.bbox.is_empty() {
@@ -510,7 +511,7 @@ async fn init_schema(
                     schema: mbtiles::NormalizedSchema::Hash,
                 },
             };
-            init_mbtiles_schema(&mut *conn, mbt_type)
+            init_mbtiles_schema(&mut *conn, mbt_type, false)
                 .await
                 .map_err(MbtilesError::from)?;
             let mut tj = merge_tilejson(sources, String::new());
@@ -566,6 +567,7 @@ mod tests {
     use insta::assert_yaml_snapshot;
     use martin::TileSourceManager;
     use martin::config::file::OnInvalid;
+    use martin_core::CacheZoomRange;
     use martin_core::tiles::{MartinCoreResult, Source, UrlQuery};
     use martin_tile_utils::{Encoding, Format};
     use rstest::{fixture, rstest};
@@ -596,6 +598,10 @@ mod tests {
 
         fn clone_source(&self) -> BoxedSource {
             Box::new(self.clone())
+        }
+
+        fn cache_zoom(&self) -> CacheZoomRange {
+            CacheZoomRange::default()
         }
 
         async fn get_tile(
@@ -668,7 +674,7 @@ mod tests {
         #[case] ids: &str,
         #[case] expected: Vec<Bounds>,
     ) {
-        let dts = DynTileSource::new(&src, ids, None, "", None, None, None).unwrap();
+        let dts = DynTileSource::new(&src, ids, None, "", TileRequestHeaders::default()).unwrap();
 
         assert_eq!(default_bounds(&dts), expected);
     }

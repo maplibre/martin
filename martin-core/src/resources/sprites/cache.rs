@@ -1,3 +1,6 @@
+use std::sync::Arc;
+use std::time::Duration;
+
 use actix_web::web::Bytes;
 use moka::future::Cache;
 use tracing::{info, trace};
@@ -20,36 +23,27 @@ impl std::fmt::Debug for SpriteCache {
 impl SpriteCache {
     /// Creates a new sprite cache with the specified maximum size in bytes.
     #[must_use]
-    pub fn new(max_size_bytes: u64) -> Self {
+    pub fn new(
+        max_size_bytes: u64,
+        expiry: Option<Duration>,
+        idle_timeout: Option<Duration>,
+    ) -> Self {
+        let mut builder = Cache::builder()
+            .name("sprite_cache")
+            .weigher(|key: &SpriteCacheKey, value: &Bytes| -> u32 {
+                size_of_val(key).try_into().unwrap_or(u32::MAX)
+                    + value.len().try_into().unwrap_or(u32::MAX)
+            })
+            .max_capacity(max_size_bytes);
+        if let Some(ttl) = expiry {
+            builder = builder.time_to_live(ttl);
+        }
+        if let Some(tti) = idle_timeout {
+            builder = builder.time_to_idle(tti);
+        }
         Self {
-            cache: Cache::builder()
-                .name("sprite_cache")
-                .weigher(|key: &SpriteCacheKey, value: &Bytes| -> u32 {
-                    size_of_val(key).try_into().unwrap_or(u32::MAX)
-                        + value.len().try_into().unwrap_or(u32::MAX)
-                })
-                .max_capacity(max_size_bytes)
-                .build(),
+            cache: builder.build(),
         }
-    }
-
-    /// Retrieves a sprite sheet from cache if present.
-    async fn get(&self, key: &SpriteCacheKey) -> Option<Bytes> {
-        let result = self.cache.get(key).await;
-
-        if result.is_some() {
-            hotpath::gauge!("sprite_cache_hits").inc(1.0);
-            trace!(
-                "Sprite cache HIT for {key:?} (entries={}, size={})",
-                self.cache.entry_count(),
-                self.cache.weighted_size()
-            );
-        } else {
-            hotpath::gauge!("sprite_cache_misses").inc(1.0);
-            trace!("Sprite cache MISS for {key:?}");
-        }
-
-        result
     }
 
     /// Gets a json sprite sheet from cache or computes it using the provided function.
@@ -59,19 +53,32 @@ impl SpriteCache {
         as_sdf: bool,
         as_json: bool,
         compute: F,
-    ) -> Result<Bytes, E>
+    ) -> Result<Bytes, Arc<E>>
     where
         F: FnOnce() -> Fut,
         Fut: Future<Output = Result<Bytes, E>>,
+        E: Send + Sync + 'static,
     {
         let key = SpriteCacheKey::new(ids, as_sdf, as_json);
-        if let Some(data) = self.get(&key).await {
-            return Ok(data);
+        let entry = self
+            .cache
+            .entry(key.clone())
+            .or_try_insert_with(async move { compute().await })
+            .await?;
+
+        if entry.is_fresh() {
+            hotpath::gauge!("sprite_cache_misses").inc(1.0);
+            trace!("Sprite cache MISS for {key:?}");
+        } else {
+            hotpath::gauge!("sprite_cache_hits").inc(1.0);
+            trace!(
+                "Sprite cache HIT for {key:?} (entries={}, size={})",
+                self.cache.entry_count(),
+                self.cache.weighted_size()
+            );
         }
 
-        let data = compute().await?;
-        self.cache.insert(key, data.clone()).await;
-        Ok(data)
+        Ok(entry.into_value())
     }
 
     /// Invalidates all cached sprites that use the specified source ID.
@@ -99,6 +106,11 @@ impl SpriteCache {
     #[must_use]
     pub fn weighted_size(&self) -> u64 {
         self.cache.weighted_size()
+    }
+
+    /// Runs pending maintenance tasks (e.g. processing invalidation predicates).
+    pub async fn run_pending_tasks(&self) {
+        self.cache.run_pending_tasks().await;
     }
 }
 

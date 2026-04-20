@@ -1,3 +1,6 @@
+use std::sync::Arc;
+use std::time::Duration;
+
 use moka::future::Cache;
 use tracing::{info, trace};
 
@@ -16,35 +19,26 @@ pub struct FontCache {
 impl FontCache {
     /// Creates a new font cache with the specified maximum size in bytes.
     #[must_use]
-    pub fn new(max_size_bytes: u64) -> Self {
+    pub fn new(
+        max_size_bytes: u64,
+        expiry: Option<Duration>,
+        idle_timeout: Option<Duration>,
+    ) -> Self {
+        let mut builder = Cache::builder()
+            .name("font_cache")
+            .weigher(|_key: &FontCacheKey, value: &Vec<u8>| -> u32 {
+                value.len().try_into().unwrap_or(u32::MAX)
+            })
+            .max_capacity(max_size_bytes);
+        if let Some(ttl) = expiry {
+            builder = builder.time_to_live(ttl);
+        }
+        if let Some(tti) = idle_timeout {
+            builder = builder.time_to_idle(tti);
+        }
         Self {
-            cache: Cache::builder()
-                .name("font_cache")
-                .weigher(|_key: &FontCacheKey, value: &Vec<u8>| -> u32 {
-                    value.len().try_into().unwrap_or(u32::MAX)
-                })
-                .max_capacity(max_size_bytes)
-                .build(),
+            cache: builder.build(),
         }
-    }
-
-    /// Retrieves a font range from cache if present.
-    async fn get(&self, key: &FontCacheKey) -> Option<Vec<u8>> {
-        let result = self.cache.get(key).await;
-
-        if result.is_some() {
-            hotpath::gauge!("font_cache_hits").inc(1.0);
-            trace!(
-                "Font cache HIT for {key:?} (entries={}, size={})",
-                self.cache.entry_count(),
-                self.cache.weighted_size()
-            );
-        } else {
-            hotpath::gauge!("font_cache_misses").inc(1.0);
-            trace!("Font cache MISS for {key:?}");
-        }
-
-        result
     }
 
     /// Gets a font range from cache or computes it using the provided function.
@@ -54,18 +48,31 @@ impl FontCache {
         start: u32,
         end: u32,
         compute: F,
-    ) -> Result<Vec<u8>, E>
+    ) -> Result<Vec<u8>, Arc<E>>
     where
         F: FnOnce() -> Result<Vec<u8>, E>,
+        E: Send + Sync + 'static,
     {
         let key = FontCacheKey::new(ids, start, end);
-        if let Some(data) = self.get(&key).await {
-            return Ok(data);
+        let entry = self
+            .cache
+            .entry(key.clone())
+            .or_try_insert_with(async move { compute() })
+            .await?;
+
+        if entry.is_fresh() {
+            hotpath::gauge!("font_cache_misses").inc(1.0);
+            trace!("Font cache MISS for {key:?}");
+        } else {
+            hotpath::gauge!("font_cache_hits").inc(1.0);
+            trace!(
+                "Font cache HIT for {key:?} (entries={}, size={})",
+                self.cache.entry_count(),
+                self.cache.weighted_size()
+            );
         }
 
-        let data = compute()?;
-        self.cache.insert(key, data.clone()).await;
-        Ok(data)
+        Ok(entry.into_value())
     }
 
     /// Invalidates all cached font ranges that use the specified font ID.
@@ -93,6 +100,11 @@ impl FontCache {
     #[must_use]
     pub fn weighted_size(&self) -> u64 {
         self.cache.weighted_size()
+    }
+
+    /// Runs pending maintenance tasks (e.g. processing invalidation predicates).
+    pub async fn run_pending_tasks(&self) {
+        self.cache.run_pending_tasks().await;
     }
 }
 

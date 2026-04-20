@@ -138,6 +138,7 @@ impl TileSourceManager {
 mod tests {
     use async_trait::async_trait;
     use insta::assert_yaml_snapshot;
+    use martin_core::CacheZoomRange;
     use martin_core::tiles::{MartinCoreResult, Source, TileCache, UrlQuery};
     use martin_tile_utils::{Encoding, Format, TileCoord, TileData, TileInfo};
     use tilejson::{TileJSON, tilejson};
@@ -165,6 +166,9 @@ mod tests {
         fn clone_source(&self) -> BoxedSource {
             Box::new(self.clone())
         }
+        fn cache_zoom(&self) -> CacheZoomRange {
+            CacheZoomRange::default()
+        }
         async fn get_tile(
             &self,
             _xyz: TileCoord,
@@ -175,7 +179,7 @@ mod tests {
     }
 
     fn make_manager() -> TileSourceManager {
-        let cache = TileCache::new(1024 * 1024); // 1 MB
+        let cache = TileCache::new(1024 * 1024, None, None); // 1 MB
         TileSourceManager::new(Some(cache), OnInvalid::Abort)
     }
 
@@ -203,7 +207,7 @@ mod tests {
             ..Default::default()
         };
         mgr.apply_changes(advisory).await.unwrap();
-        assert_yaml_snapshot!(sorted_source_names(&mgr), @r"
+        assert_yaml_snapshot!(sorted_source_names(&mgr), @"
         - src_a
         - src_b
         ");
@@ -217,7 +221,7 @@ mod tests {
             ..Default::default()
         };
         mgr.apply_changes(add).await.unwrap();
-        assert_yaml_snapshot!(sorted_source_names(&mgr), @r"
+        assert_yaml_snapshot!(sorted_source_names(&mgr), @"
         - src_a
         - src_b
         ");
@@ -231,9 +235,7 @@ mod tests {
             ..Default::default()
         };
         mgr.apply_changes(remove).await.unwrap();
-        assert_yaml_snapshot!(sorted_source_names(&mgr), @r"
-        - src_b
-        ");
+        assert_yaml_snapshot!(sorted_source_names(&mgr), @"- src_b");
     }
 
     #[tokio::test]
@@ -250,9 +252,7 @@ mod tests {
             ..Default::default()
         };
         mgr.apply_changes(update).await.unwrap();
-        assert_yaml_snapshot!(sorted_source_names(&mgr), @r"
-        - src_a
-        ");
+        assert_yaml_snapshot!(sorted_source_names(&mgr), @"- src_a");
     }
 
     #[tokio::test]
@@ -269,9 +269,7 @@ mod tests {
             tj: tilejson! { tiles: vec![] },
         }) as BoxedSource;
         let mgr = TileSourceManager::from_sources(None, OnInvalid::Abort, vec![vec![src]]);
-        assert_yaml_snapshot!(sorted_source_names(&mgr), @r"
-        - x
-        ");
+        assert_yaml_snapshot!(sorted_source_names(&mgr), @"- x");
         assert!(mgr.tile_cache().is_none());
     }
 
@@ -283,8 +281,6 @@ mod tests {
             ..Default::default()
         };
         mgr.apply_changes(advisory).await.unwrap();
-        assert_yaml_snapshot!(sorted_source_names(&mgr), @r"
-        - a
-        ");
+        assert_yaml_snapshot!(sorted_source_names(&mgr), @"- a");
     }
 }

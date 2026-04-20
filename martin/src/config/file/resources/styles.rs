@@ -206,13 +206,13 @@ mod tests {
         assert_eq!(styles.len(), 3);
         insta::with_settings!({sort_maps => true}, {
         insta::assert_yaml_snapshot!(styles.get_catalog(), @r#"
-            maplibre_demo:
-              path: "../tests/fixtures/styles/maplibre_demo.json"
-            maptiler_basic:
-              path: "../tests/fixtures/styles/src2/maptiler_basic.json"
-            osm-liberty-lite:
-              path: "../tests/fixtures/styles/src2/osm-liberty-lite.json"
-            "#);
+        maplibre_demo:
+          path: "../tests/fixtures/styles/maplibre_demo.json"
+        maptiler_basic:
+          path: "../tests/fixtures/styles/src2/maptiler_basic.json"
+        osm-liberty-lite:
+          path: "../tests/fixtures/styles/src2/osm-liberty-lite.json"
+        "#);
         });
     }
 
@@ -236,11 +236,11 @@ mod tests {
         assert_eq!(styles.len(), 2);
         insta::with_settings!({sort_maps => true}, {
         insta::assert_yaml_snapshot!(styles.get_catalog(), @r#"
-            maplibre_demo:
-              path: "../tests/fixtures/styles/maplibre_demo.json"
-            osm-liberty-lite:
-              path: "../tests/fixtures/styles/src2/osm-liberty-lite.json"
-            "#);
+        maplibre_demo:
+          path: "../tests/fixtures/styles/maplibre_demo.json"
+        osm-liberty-lite:
+          path: "../tests/fixtures/styles/src2/osm-liberty-lite.json"
+        "#);
         });
     }
 
@@ -259,18 +259,18 @@ mod tests {
 
         insta::with_settings!({sort_maps => true}, {
         insta::assert_json_snapshot!(catalog, @r#"
-            {
-              "maplibre_demo": {
-                "path": "../tests/fixtures/styles/maplibre_demo.json"
-              },
-              "maptiler_basic": {
-                "path": "../tests/fixtures/styles/src2/maptiler_basic.json"
-              },
-              "osm-liberty-lite": {
-                "path": "../tests/fixtures/styles/src2/osm-liberty-lite.json"
-              }
-            }
-            "#);
+        {
+          "maplibre_demo": {
+            "path": "../tests/fixtures/styles/maplibre_demo.json"
+          },
+          "maptiler_basic": {
+            "path": "../tests/fixtures/styles/src2/maptiler_basic.json"
+          },
+          "osm-liberty-lite": {
+            "path": "../tests/fixtures/styles/src2/osm-liberty-lite.json"
+          }
+        }
+        "#);
         });
     }
     #[test]

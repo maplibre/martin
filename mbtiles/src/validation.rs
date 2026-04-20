@@ -3,7 +3,7 @@ use std::str::from_utf8;
 
 use enum_display::EnumDisplay;
 use log::{debug, info, warn};
-use martin_tile_utils::{Format, MAX_ZOOM, TileInfo};
+use martin_tile_utils::{Encoding, Format, MAX_ZOOM, TileInfo};
 use serde::Serialize;
 use serde_json::Value;
 use sqlx::sqlite::SqliteRow;
@@ -57,6 +57,12 @@ impl NormalizedSchema {
             Self::Hash => "images",
             Self::DedupId => "tiles_data",
         }
+    }
+
+    /// Returns `true` if the tile id column is an integer (`DedupId` schema).
+    #[must_use]
+    pub fn uses_integer_tile_id(self) -> bool {
+        matches!(self, Self::DedupId)
     }
 
     /// Name of the foreign key column linking the map table to the images table.
@@ -229,6 +235,7 @@ impl Mbtiles {
     {
         let mut tile_info = None;
         let mut tested_zoom = -1_i64;
+        let mut tiles_detected = false;
 
         // First, pick any random tile
         let query = query!(
@@ -238,6 +245,7 @@ impl Mbtiles {
         if let Some(r) = row {
             tile_info = self.parse_tile(r.zoom_level, r.tile_column, r.tile_row, r.tile_data);
             tested_zoom = r.zoom_level.unwrap_or(-1);
+            tiles_detected = tile_info.is_some();
         }
 
         // Afterward, iterate over tiles in all allowed zooms and check for consistency
@@ -253,7 +261,10 @@ impl Mbtiles {
                     self.parse_tile(Some(z.into()), r.tile_column, r.tile_row, r.tile_data),
                 ) {
                     (_, None) => {}
-                    (None, new) => tile_info = new,
+                    (None, new) => {
+                        tile_info = new;
+                        tiles_detected = true;
+                    }
                     (Some(old), Some(new)) if old == new => {}
                     (Some(old), Some(new)) => {
                         return Err(MbtError::InconsistentMetadata(old, new));
@@ -262,6 +273,30 @@ impl Mbtiles {
             }
         }
 
+        tile_info = self.check_format_metadata(tilejson, tile_info);
+        tile_info = self.check_compression_metadata(tilejson, tile_info, tiles_detected);
+
+        if let Some(info) = tile_info {
+            if info.format != Format::Mvt
+                && info.format != Format::Mlt
+                && tilejson.vector_layers.is_some()
+            {
+                warn!(
+                    "{} has vector_layers metadata value, but the tiles are not MVT/MLT",
+                    self.filename()
+                );
+            }
+            Ok(Some(info))
+        } else {
+            Ok(None)
+        }
+    }
+
+    fn check_format_metadata(
+        &self,
+        tilejson: &TileJSON,
+        mut tile_info: Option<TileInfo>,
+    ) -> Option<TileInfo> {
         if let Some(Value::String(fmt)) = tilejson.other.get("format") {
             let file = self.filename();
             match (tile_info, Format::parse(fmt)) {
@@ -290,18 +325,53 @@ impl Mbtiles {
                 }
             }
         }
+        tile_info
+    }
 
-        if let Some(info) = tile_info {
-            if info.format != Format::Mvt && tilejson.vector_layers.is_some() {
-                warn!(
-                    "{} has vector_layers metadata value, but the tiles are not MVT",
-                    self.filename()
-                );
+    fn check_compression_metadata(
+        &self,
+        tilejson: &TileJSON,
+        mut tile_info: Option<TileInfo>,
+        tiles_detected: bool,
+    ) -> Option<TileInfo> {
+        if let Some(Value::String(cmp)) = tilejson.other.get("compression") {
+            let file = self.filename();
+            match Encoding::parse(cmp) {
+                None => {
+                    warn!("Unknown compression value in metadata: {cmp} in file {file}");
+                }
+                Some(enc) => match tile_info {
+                    None => {
+                        info!(
+                            "Metadata table sets tile compression to '{cmp}', but it could not be verified for file {file}"
+                        );
+                    }
+                    Some(info) if tiles_detected => {
+                        // `Uncompressed` and `Internal` both mean "no external compression
+                        // algorithm", so treat them as equivalent when validating the metadata.
+                        // `Internal` means the format compresses data natively (PNG/JPEG/WebP);
+                        // `Uncompressed` is the metadata spelling of "no external encoding".
+                        if enc == info.encoding
+                            || (!enc.is_encoded() && !info.encoding.is_encoded())
+                        {
+                            debug!(
+                                "Detected tile encoding {:?} matches metadata.compression '{cmp}' in file {file}",
+                                info.encoding
+                            );
+                        } else {
+                            warn!(
+                                "Found inconsistency: metadata.compression='{cmp}', but tiles were detected as {info:?} in file {file}. Tiles will be returned as {info:?}."
+                            );
+                        }
+                    }
+                    Some(info) => {
+                        info!("Using '{cmp}' tile compression from metadata table in file {file}");
+                        tile_info = Some(info.encoding(enc));
+                    }
+                },
             }
-            Ok(Some(info))
-        } else {
-            Ok(None)
         }
+        tile_info
     }
 
     /// Detects the format of a tile and returns its information if none of the values are `None`
@@ -600,7 +670,29 @@ LIMIT 1;"
                         data_table,
                     ));
                 }
-                info!("All tile references are valid for {self}");
+
+                // For Hash schema, also verify that tile_id == md5_hex(tile_data)
+                if matches!(schema, NormalizedSchema::Hash) {
+                    let sql = format!(
+                        "SELECT expected, computed FROM (
+                            SELECT
+                                upper(CAST(d.{id} AS TEXT)) AS expected,
+                                md5_hex(d.tile_data) AS computed
+                            FROM {data_table} d
+                        ) AS t
+                        WHERE expected != computed
+                        LIMIT 1;"
+                    );
+                    if let Some(row) = query(&sql).fetch_optional(&mut *conn).await? {
+                        return Err(IncorrectTileHash(
+                            self.filepath().to_string(),
+                            row.get(0),
+                            row.get(1),
+                        ));
+                    }
+                }
+
+                info!("All tile hashes are valid for {self}");
                 return Ok(());
             }
         };
@@ -784,5 +876,34 @@ pub(crate) mod tests {
         let (mbt, mut conn) = anonymous_mbtiles(script).await;
         let result = mbt.check_agg_tiles_hashes(&mut conn).await;
         assert!(matches!(result, Err(AggHashMismatch(..))));
+    }
+
+    #[actix_rt::test]
+    async fn check_tile_hash_valid_normalized_hash() {
+        let script = include_str!("../../tests/fixtures/mbtiles/geography-class-png.sql");
+        let (mbt, mut conn) = anonymous_mbtiles(script).await;
+        // Should pass — tile_id values in images match md5_hex(tile_data)
+        mbt.check_each_tile_hash(&mut conn).await.unwrap();
+    }
+
+    #[actix_rt::test]
+    async fn check_tile_hash_detects_corrupted_normalized_hash() {
+        let (mbt, mut conn) = anonymous_mbtiles(
+            "CREATE TABLE map (zoom_level INTEGER, tile_column INTEGER, tile_row INTEGER, tile_id TEXT);
+             CREATE TABLE images (tile_data BLOB, tile_id TEXT);
+             CREATE TABLE metadata (name TEXT, value TEXT);
+             CREATE UNIQUE INDEX map_index ON map (zoom_level, tile_column, tile_row);
+             CREATE UNIQUE INDEX images_id ON images (tile_id);
+             INSERT INTO metadata VALUES('name','test');
+             INSERT INTO images VALUES(X'0102030405', 'wrong_hash_value');
+             INSERT INTO map VALUES(0, 0, 0, 'wrong_hash_value');
+             CREATE VIEW tiles AS SELECT map.zoom_level, map.tile_column, map.tile_row, images.tile_data FROM map JOIN images ON map.tile_id = images.tile_id;",
+        )
+        .await;
+        let result = mbt.check_each_tile_hash(&mut conn).await;
+        assert!(
+            matches!(result, Err(IncorrectTileHash(..))),
+            "should detect that tile_id != md5_hex(tile_data), got {result:?}"
+        );
     }
 }

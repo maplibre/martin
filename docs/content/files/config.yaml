@@ -22,28 +22,60 @@ base_path: null
 # Number of web server workers
 worker_processes: 8
 
-# Amount of memory (in MB) to use for caching [default: 512, 0 to disable]
-#
-# This is the total amount of cache we use.
-# By default, this is split up between:
-# - Tiles 50% -> 256 MB
-# - Pmtiles' directories 25% -> 128 MB
-# - Fonts 12.5% -> 64 MB
-# - Sprites 12.5% -> 64 MB
-#
-# How the cache works internally is unstable and may change to improve performance/efficiency.
-# For example, we may change the split between sources to improve efficiency.
-#
-# Specify each cache size individually for finer cache size control:
-# - Tiles: `tile_cache_size_mb`
-# - Pmtiles: `pmtiles.directory_cache_size_mb`
-# - Fonts: `fonts.cache_size_mb`
-# - Sprites: `sprites.cache_size_mb`
-cache_size_mb: 512
+# Cache configuration
+# Use `cache: disable` to disable all caching entirely.
+cache:
+  # Total amount of cache we use [default: 512, 0 to disable]
+  # By default, this is split up between:
+  # - Tiles 50% -> 256 MB
+  # - Pmtiles' directories 25% -> 128 MB
+  # - Fonts 12.5% -> 64 MB
+  # - Sprites 12.5% -> 64 MB
+  #
+  # How the cache works internally is unstable and may change to improve performance/efficiency.
+  # For example, we may change the split between sources to improve efficiency.
+  #
+  # Specify each cache size individually for finer cache size control:
+  # - Tiles: `cache.tile_size_mb`
+  # - Pmtiles: `pmtiles.directory_cache.size_mb`
+  # - Fonts: `fonts.cache.size_mb`
+  # - Sprites: `sprites.cache.size_mb`
+  size_mb: 512
 
-# Allows overriding the size of the tile cache.
-# Defaults to `cache_size_mb` / 2
-tile_cache_size_mb: 256
+  # Allows overriding the size of the tile cache.
+  # Defaults to `cache.size_mb` / 2
+  tile_size_mb: 256
+
+  # Maximum lifetime for all cache entries (time-to-live from creation).
+  # Entries are evicted after this duration regardless of access.
+  # Supports human-readable formats: "1h", "30m", "1d", "3600s".
+  # default: null (no expiry, entries only evicted by size pressure)
+  expiry: null
+
+  # Maximum idle time for all cache entries (time-to-idle since last access).
+  # Entries are evicted if not accessed within this duration.
+  # default: null (no idle timeout)
+  idle_timeout: null
+
+  # Tile-specific TTL override. Takes precedence over `cache.expiry` for tiles.
+  # default: null (inherits from `cache.expiry`)
+  tile_expiry: null
+
+  # Tile-specific idle timeout override. Takes precedence over `cache.idle_timeout` for tiles.
+  # default: null (inherits from `cache.idle_timeout`)
+  tile_idle_timeout: null
+
+  # Default minimum zoom level (inclusive) for tile caching.
+  # Tiles further zoomed out than this will bypass the cache entirely.
+  # Can be overridden per-source (e.g. cache.minzoom on a type of source or an individual source).
+  # default: null (no lower bound, all zoom levels cached)
+  minzoom: null
+
+  # Default maximum zoom level (inclusive) for tile caching.
+  # Tiles further zoomed in than this will bypass the cache entirely.
+  # Can be overridden per-source.
+  # default: null (no upper bound, all zoom levels cached)
+  maxzoom: null
 
 # Which compression should be used if the
 # - client accepts multiple compression formats, and
@@ -235,6 +267,13 @@ postgres:
       properties:
         gid: int4
 
+      # Zoom-level bounds for tile caching (overrides top-level cache).
+      # default: null (inherit from top-level default)
+      # Use `cache: disable` to disable caching for this source.
+      cache:
+        minzoom: null
+        maxzoom: null
+
   # Associative arrays of function sources
   functions:
     function_source_id:
@@ -259,14 +298,25 @@ postgres:
 # Publish PMTiles files from local disk or proxy to a web server
 pmtiles:
   # Size of the directory cache (in MB).
-  # Defaults to cache_size_mb / 4
+  # Defaults to cache.size_mb / 4
   #
   # Note:
   # Tile and directory caching are complementary.
   # For good performance, you want
   # - directory caching (to not resolve the directory on each request) and
   # - tile caching (for high access tiles)
-  directory_cache_size_mb: 128
+  #
+  # Use `directory_cache: disable` to disable
+  directory_cache:
+    # Size of the directory cache in MB (0 to disable).
+    # default: cache.size_mb / 4
+    size_mb: 128
+    # Maximum lifetime for directory cache entries.
+    # default: null (inherits from cache.expiry)
+    expiry: null
+    # Maximum idle time for directory cache entries.
+    # default: null (inherits from cache.idle_timeout)
+    idle_timeout: null
 
   # You can pass options for pmtiles files located on remote storages here.
   #
@@ -292,6 +342,12 @@ pmtiles:
     pm-src1: /path/to/pmt.pmtiles
     # A named source to a web server with a PMTiles file that supports range requests
     pm-web2: https://example.org/path/tiles.pmtiles
+    # A source with per-source cache zoom range
+    pm-with-cache:
+      path: /path/to/pmt2.pmtiles
+      cache:
+        minzoom: 0
+        maxzoom: 6
 
 # Publish MBTiles files
 mbtiles:
@@ -306,9 +362,18 @@ mbtiles:
 
 # Sprite configuration
 sprites:
-  # Size of the sprite cache (in MB).
-  # Defaults to cache_size_mb / 8
-  cache_size_mb: 64
+  # Cache configuration for sprites.
+  # Use `cache: disable` to disable sprite caching.
+  cache:
+    # Size of the sprite cache in MB (0 to disable).
+    # default: cache.size_mb / 8
+    size_mb: 64
+    # Maximum lifetime for sprite cache entries.
+    # default: null (inherits from cache.expiry)
+    expiry: null
+    # Maximum idle time for sprite cache entries.
+    # default: null (inherits from cache.idle_timeout)
+    idle_timeout: null
 
   paths:
     # all SVG files in this dir will be published as a "my_images" sprite source
@@ -319,9 +384,18 @@ sprites:
 
 # Font configuration
 fonts:
-  # Size of the sprite cache (in MB).
-  # Defaults to cache_size_mb / 4
-  cache_size_mb: 64
+  # Cache configuration for fonts.
+  # Use `cache: disable` to disable font caching.
+  cache:
+    # Size of the font cache in MB (0 to disable).
+    # default: cache.size_mb / 8
+    size_mb: 64
+    # Maximum lifetime for font cache entries.
+    # default: null (inherits from cache.expiry)
+    expiry: null
+    # Maximum idle time for font cache entries.
+    # default: null (inherits from cache.idle_timeout)
+    idle_timeout: null
 
   # A list of *.otf, *.ttf, and *.ttc font files and dirs to search recursively.
   paths:

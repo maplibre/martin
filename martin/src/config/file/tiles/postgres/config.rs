@@ -15,7 +15,7 @@ use crate::MartinResult;
 use crate::config::args::{BoundsCalcType, DEFAULT_BOUNDS_TIMEOUT};
 use crate::config::file::postgres::PostgresAutoDiscoveryBuilder;
 use crate::config::file::{
-    ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks, TileSourceWarning,
+    CachePolicy, ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks, TileSourceWarning,
     UnrecognizedKeys, UnrecognizedValues, copy_unrecognized_keys_from_config,
 };
 use crate::config::primitives::{IdResolver, OptBoolObj, OptOneMany};
@@ -174,8 +174,9 @@ impl PostgresConfig {
     pub async fn resolve(
         &mut self,
         id_resolver: IdResolver,
+        default_cache: CachePolicy,
     ) -> MartinResult<(Vec<BoxedSource>, Vec<TileSourceWarning>)> {
-        let pg = PostgresAutoDiscoveryBuilder::new(self, id_resolver).await?;
+        let pg = PostgresAutoDiscoveryBuilder::new(self, id_resolver, default_cache).await?;
         let inst_tables = on_slow(
             pg.instantiate_tables(),
             // warn only if default bounds timeout has already passed

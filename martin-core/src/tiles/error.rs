@@ -33,7 +33,7 @@ pub enum MartinCoreError {
 
     /// Errors occurring from other sources, not implemented by `martin-core`.
     #[error(transparent)]
-    OtherError(#[from] Box<dyn std::error::Error>),
+    OtherError(#[from] Box<dyn std::error::Error + Send + Sync>),
 }
 
 /// A convenience [`Result`] for tiles coming from `martin-core`.

@@ -12,6 +12,16 @@ use tracing::warn;
 
 use crate::srv::server::{DebouncedWarning, map_internal_error};
 
+#[derive(thiserror::Error, Debug)]
+enum SpriteComputeError {
+    #[error(transparent)]
+    Sprite(#[from] SpriteError),
+    #[error("Failed to encode sprite PNG: {0}")]
+    EncodePng(String),
+    #[error(transparent)]
+    Serialize(#[from] serde_json::Error),
+}
+
 #[derive(Deserialize)]
 pub struct SourceIDsRequest {
     pub source_ids: String,
@@ -35,9 +45,12 @@ async fn get_sprite_png(
             .get_or_insert(path.source_ids.clone(), is_sdf, false, async || {
                 get_sprite(&path.source_ids, &sprites, is_sdf).await
             })
-            .await?
+            .await
+            .map_err(|e| map_sprite_compute_error(e.as_ref()))?
     } else {
-        get_sprite(&path.source_ids, &sprites, is_sdf).await?
+        get_sprite(&path.source_ids, &sprites, is_sdf)
+            .await
+            .map_err(|e| map_sprite_compute_error(&e))?
     };
     Ok(HttpResponse::Ok()
         .content_type(ContentType::png())
@@ -81,9 +94,12 @@ async fn get_sprite_sdf_png(
             .get_or_insert(path.source_ids.clone(), is_sdf, false, async || {
                 get_sprite(&path.source_ids, &sprites, is_sdf).await
             })
-            .await?
+            .await
+            .map_err(|e| map_sprite_compute_error(e.as_ref()))?
     } else {
-        get_sprite(&path.source_ids, &sprites, is_sdf).await?
+        get_sprite(&path.source_ids, &sprites, is_sdf)
+            .await
+            .map_err(|e| map_sprite_compute_error(&e))?
     };
     Ok(HttpResponse::Ok()
         .content_type(ContentType::png())
@@ -128,9 +144,12 @@ async fn get_sprite_json(
             .get_or_insert(path.source_ids.clone(), is_sdf, true, async || {
                 get_index(&path.source_ids, &sprites, is_sdf).await
             })
-            .await?
+            .await
+            .map_err(|e| map_sprite_compute_error(e.as_ref()))?
     } else {
-        get_index(&path.source_ids, &sprites, is_sdf).await?
+        get_index(&path.source_ids, &sprites, is_sdf)
+            .await
+            .map_err(|e| map_sprite_compute_error(&e))?
     };
     Ok(HttpResponse::Ok()
         .content_type(ContentType::json())
@@ -175,9 +194,12 @@ async fn get_sprite_sdf_json(
             .get_or_insert(path.source_ids.clone(), is_sdf, true, async || {
                 get_index(&path.source_ids, &sprites, is_sdf).await
             })
-            .await?
+            .await
+            .map_err(|e| map_sprite_compute_error(e.as_ref()))?
     } else {
-        get_index(&path.source_ids, &sprites, is_sdf).await?
+        get_index(&path.source_ids, &sprites, is_sdf)
+            .await
+            .map_err(|e| map_sprite_compute_error(&e))?
     };
     Ok(HttpResponse::Ok()
         .content_type(ContentType::json())
@@ -204,27 +226,34 @@ pub async fn redirect_sdf_sprites_json(path: Path<SourceIDsRequest>) -> HttpResp
 }
 
 #[hotpath::measure]
-async fn get_sprite(source_ids: &str, sprites: &SpriteSources, as_sdf: bool) -> ActixResult<Bytes> {
-    let sheet = sprites
-        .get_sprites(source_ids, as_sdf)
-        .await
-        .map_err(|e| match e {
-            SpriteError::SpriteNotFound(_) => ErrorNotFound(e.to_string()),
-            _ => map_internal_error(e),
-        })?;
-    let json = sheet.encode_png().map_err(map_internal_error)?;
-    Ok(Bytes::from(json))
+async fn get_sprite(
+    source_ids: &str,
+    sprites: &SpriteSources,
+    as_sdf: bool,
+) -> Result<Bytes, SpriteComputeError> {
+    let sheet = sprites.get_sprites(source_ids, as_sdf).await?;
+    let png = sheet
+        .encode_png()
+        .map_err(|e| SpriteComputeError::EncodePng(e.to_string()))?;
+    Ok(Bytes::from(png))
 }
 
 #[hotpath::measure]
-async fn get_index(source_ids: &str, sprites: &SpriteSources, as_sdf: bool) -> ActixResult<Bytes> {
-    let sheet = sprites
-        .get_sprites(source_ids, as_sdf)
-        .await
-        .map_err(|e| match e {
-            SpriteError::SpriteNotFound(_) => ErrorNotFound(e.to_string()),
-            _ => map_internal_error(e),
-        })?;
-    let json = serde_json::to_vec(&sheet.get_index()).map_err(map_internal_error)?;
+async fn get_index(
+    source_ids: &str,
+    sprites: &SpriteSources,
+    as_sdf: bool,
+) -> Result<Bytes, SpriteComputeError> {
+    let sheet = sprites.get_sprites(source_ids, as_sdf).await?;
+    let json = serde_json::to_vec(&sheet.get_index())?;
     Ok(Bytes::from(json))
+}
+
+fn map_sprite_compute_error(e: &SpriteComputeError) -> actix_web::Error {
+    match e {
+        SpriteComputeError::Sprite(err @ SpriteError::SpriteNotFound(_)) => {
+            ErrorNotFound(err.to_string())
+        }
+        other => map_internal_error(other),
+    }
 }

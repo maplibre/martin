@@ -71,7 +71,7 @@ impl TileCoord {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 pub enum Format {
     Gif,
     Jpeg,
@@ -84,6 +84,9 @@ pub enum Format {
 }
 
 impl Format {
+    /// All image formats.
+    pub const IMAGE_FORMATS: &[Self] = &[Self::Gif, Self::Jpeg, Self::Png, Self::Webp, Self::Avif];
+
     #[must_use]
     pub fn parse(value: &str) -> Option<Self> {
         Some(match value.to_ascii_lowercase().as_str() {
@@ -122,42 +125,25 @@ impl Format {
             Self::Jpeg => "image/jpeg",
             Self::Json => "application/json",
             Self::Mvt => "application/x-protobuf",
-            Self::Mlt => "application/vnd.maplibre-vector-tile",
+            Self::Mlt => "application/vnd.maplibre-tile",
             Self::Png => "image/png",
             Self::Webp => "image/webp",
             Self::Avif => "image/avif",
         }
     }
 
-    /// Parse a MIME content-type string into a [`Format`].
-    ///
-    /// Returns `None` if the content type is not recognized.
-    ///
-    /// # Examples
-    /// ```
-    /// # use martin_tile_utils::Format;
-    /// assert_eq!(Format::from_content_type("image/jpeg"), Some(Format::Jpeg));
-    /// assert_eq!(Format::from_content_type("image/png"), Some(Format::Png));
-    /// assert_eq!(Format::from_content_type("application/x-protobuf"), Some(Format::Mvt));
-    /// assert_eq!(Format::from_content_type("unknown/type"), None);
-    /// ```
+    /// Parse a content type string back to a `Format`.
     #[must_use]
-    pub fn from_content_type(value: &str) -> Option<Self> {
-        // Strip optional parameters like "; charset=utf-8"
-        let mime = value
-            .split(';')
-            .next()
-            .expect("content type string cannot be empty")
-            .trim();
-        Some(match mime.to_ascii_lowercase().as_str() {
-            "image/gif" => Self::Gif,
-            "image/jpeg" | "image/jpg" => Self::Jpeg,
-            "application/json" => Self::Json,
-            "application/x-protobuf" | "application/vnd.mapbox-vector-tile" => Self::Mvt,
-            "application/vnd.maplibre-vector-tile" => Self::Mlt,
-            "image/png" => Self::Png,
-            "image/webp" => Self::Webp,
-            "image/avif" => Self::Avif,
+    pub fn from_content_type(supertype: &str, subtype: &str) -> Option<Self> {
+        Some(match (supertype, subtype) {
+            ("image", "gif") => Self::Gif,
+            ("image", "jpeg") => Self::Jpeg,
+            ("application", "json") => Self::Json,
+            ("application", "x-protobuf" | "vnd.mapbox-vector-tile") => Self::Mvt,
+            ("application", "vnd.maplibre-vector-tile" | "vnd.maplibre-tile") => Self::Mlt,
+            ("image", "png") => Self::Png,
+            ("image", "webp") => Self::Webp,
+            ("image", "avif") => Self::Avif,
             _ => None?,
         })
     }
@@ -205,21 +191,24 @@ pub enum Encoding {
 }
 
 impl Encoding {
+    /// Parse the encoding from common names if they match
     #[must_use]
     pub fn parse(value: &str) -> Option<Self> {
         Some(match value.to_ascii_lowercase().as_str() {
-            "none" => Self::Uncompressed,
+            "none" | "identity" => Self::Uncompressed,
             "gzip" => Self::Gzip,
-            "zlib" => Self::Zlib,
-            "brotli" => Self::Brotli,
+            "deflate" | "zlib" => Self::Zlib,
+            "br" | "brotli" => Self::Brotli,
             "zstd" => Self::Zstd,
             _ => None?,
         })
     }
 
+    /// Returns `None` for [`Encoding::Uncompressed`] and [`Encoding::Internal`]:
+    /// absence of the `compression` key in the metadata table means no external encoding.
     #[must_use]
-    pub fn content_encoding(&self) -> Option<&str> {
-        match *self {
+    pub fn compression(self) -> Option<&'static str> {
+        match self {
             Self::Uncompressed | Self::Internal => None,
             Self::Gzip => Some("gzip"),
             Self::Zlib => Some("deflate"),
@@ -333,7 +322,7 @@ impl From<Format> for TileInfo {
 impl Display for TileInfo {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.format.content_type())?;
-        if let Some(encoding) = self.encoding.content_encoding() {
+        if let Some(encoding) = self.encoding.compression() {
             write!(f, "; encoding={encoding}")?;
         } else if self.encoding != Encoding::Uncompressed {
             f.write_str("; uncompressed")?;
@@ -835,39 +824,30 @@ mod tests {
     }
 
     #[rstest]
-    #[case::gif("image/gif", Some(Format::Gif))]
-    #[case::jpeg("image/jpeg", Some(Format::Jpeg))]
-    #[case::jpg_alias("image/jpg", Some(Format::Jpeg))]
-    #[case::json("application/json", Some(Format::Json))]
-    #[case::mvt_protobuf("application/x-protobuf", Some(Format::Mvt))]
-    #[case::mvt_mapbox("application/vnd.mapbox-vector-tile", Some(Format::Mvt))]
-    #[case::mlt("application/vnd.maplibre-vector-tile", Some(Format::Mlt))]
-    #[case::png("image/png", Some(Format::Png))]
-    #[case::webp("image/webp", Some(Format::Webp))]
-    #[case::avif("image/avif", Some(Format::Avif))]
-    #[case::case_insensitive_jpeg("IMAGE/JPEG", Some(Format::Jpeg))]
-    #[case::case_insensitive_png("Image/Png", Some(Format::Png))]
-    #[case::with_params("image/jpeg; charset=utf-8", Some(Format::Jpeg))]
-    #[case::unknown("unknown/type", None)]
-    #[case::text_html("text/html", None)]
-    #[case::empty("", None)]
-    fn test_format_from_content_type(#[case] input: &str, #[case] expected: Option<Format>) {
-        assert_eq!(Format::from_content_type(input), expected);
+    #[case("none", Some(Encoding::Uncompressed))]
+    #[case("identity", Some(Encoding::Uncompressed))]
+    #[case("IDENTITY", Some(Encoding::Uncompressed))]
+    #[case("gzip", Some(Encoding::Gzip))]
+    #[case("GZIP", Some(Encoding::Gzip))]
+    #[case("deflate", Some(Encoding::Zlib))]
+    #[case("zlib", Some(Encoding::Zlib))]
+    #[case("br", Some(Encoding::Brotli))]
+    #[case("brotli", Some(Encoding::Brotli))]
+    #[case("zstd", Some(Encoding::Zstd))]
+    #[case("unknown", None)]
+    #[case("", None)]
+    fn test_encoding_parse(#[case] input: &str, #[case] expected: Option<Encoding>) {
+        assert_eq!(Encoding::parse(input), expected);
     }
 
     #[rstest]
-    #[case::gif(Format::Gif)]
-    #[case::jpeg(Format::Jpeg)]
-    #[case::json(Format::Json)]
-    #[case::mvt(Format::Mvt)]
-    #[case::mlt(Format::Mlt)]
-    #[case::png(Format::Png)]
-    #[case::webp(Format::Webp)]
-    #[case::avif(Format::Avif)]
-    fn test_format_content_type_roundtrip(#[case] format: Format) {
-        assert_eq!(
-            Format::from_content_type(format.content_type()),
-            Some(format)
-        );
+    #[case(Encoding::Uncompressed, None)]
+    #[case(Encoding::Internal, None)]
+    #[case(Encoding::Gzip, Some("gzip"))]
+    #[case(Encoding::Zlib, Some("deflate"))]
+    #[case(Encoding::Brotli, Some("br"))]
+    #[case(Encoding::Zstd, Some("zstd"))]
+    fn test_compression(#[case] encoding: Encoding, #[case] expected: Option<&str>) {
+        assert_eq!(encoding.compression(), expected);
     }
 }

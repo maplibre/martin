@@ -4,6 +4,7 @@ use martin_tile_utils::{TileCoord, TileData, TileInfo};
 use tilejson::TileJSON;
 use tracing::debug;
 
+use crate::CacheZoomRange;
 use crate::tiles::postgres::PostgresError::{
     GetTileError, GetTileWithQueryError, PrepareQueryError,
 };
@@ -19,6 +20,7 @@ pub struct PostgresSource {
     pool: PostgresPool,
     tilejson: TileJSON,
     tile_info: TileInfo,
+    cache_zoom: CacheZoomRange,
 }
 
 impl PostgresSource {
@@ -30,6 +32,7 @@ impl PostgresSource {
         tilejson: TileJSON,
         pool: PostgresPool,
         tile_info: TileInfo,
+        cache_zoom: CacheZoomRange,
     ) -> Self {
         Self {
             id,
@@ -37,6 +40,7 @@ impl PostgresSource {
             pool,
             tilejson,
             tile_info,
+            cache_zoom,
         }
     }
 }
@@ -66,6 +70,10 @@ impl Source for PostgresSource {
     fn benefits_from_concurrent_scraping(&self) -> bool {
         // pg does not parallelize queries well internally and having more requests in flight is thus beneficial
         true
+    }
+
+    fn cache_zoom(&self) -> CacheZoomRange {
+        self.cache_zoom
     }
 
     async fn get_tile(

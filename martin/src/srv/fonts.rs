@@ -1,4 +1,5 @@
 use std::string::ToString as _;
+use std::sync::Arc;
 
 use actix_middleware_etag::Etag;
 use actix_web::error::{ErrorBadRequest, ErrorNotFound};
@@ -38,9 +39,11 @@ async fn get_font(
             })
             .await
     } else {
-        fonts.get_font_range(&path.fontstack, path.start, path.end)
+        fonts
+            .get_font_range(&path.fontstack, path.start, path.end)
+            .map_err(Arc::new)
     };
-    let data = result.map_err(map_font_error)?;
+    let data = result.map_err(|e| map_font_error(e.as_ref()))?;
     Ok(HttpResponse::Ok()
         .content_type("application/x-protobuf")
         .body(data))
@@ -68,7 +71,7 @@ pub async fn redirect_fonts(path: Path<FontRequest>) -> HttpResponse {
         .finish()
 }
 
-pub fn map_font_error(e: FontError) -> actix_web::Error {
+pub fn map_font_error(e: &FontError) -> actix_web::Error {
     match e {
         FontError::FontNotFound(_) => ErrorNotFound(e.to_string()),
         FontError::InvalidFontRangeStartEnd(_, _)

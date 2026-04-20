@@ -14,6 +14,7 @@ use mbtiles::{MbtError, MbtilesPool};
 use tilejson::TileJSON;
 use tracing::{trace, warn};
 
+use crate::CacheZoomRange;
 use crate::tiles::mbtiles::MbtilesError;
 use crate::tiles::{BoxedSource, MartinCoreResult, Source, UrlQuery};
 
@@ -24,6 +25,7 @@ pub struct MbtSource {
     mbtiles: Arc<MbtilesPool>,
     tilejson: TileJSON,
     tile_info: TileInfo,
+    cache_zoom: CacheZoomRange,
 }
 
 #[expect(clippy::missing_fields_in_debug)]
@@ -51,7 +53,11 @@ fn is_sqlite_busy(err: &MbtError) -> bool {
 
 impl MbtSource {
     /// Creates a new `MBTiles` source from the given file path.
-    pub async fn new(id: String, path: PathBuf) -> Result<Self, MbtilesError> {
+    pub async fn new(
+        id: String,
+        path: PathBuf,
+        cache_zoom: CacheZoomRange,
+    ) -> Result<Self, MbtilesError> {
         let mbt = MbtilesPool::open_readonly(&path)
             .await
             .map_err(|e| io::Error::other(format!("{e:?}: Cannot open file {}", path.display())))
@@ -90,6 +96,7 @@ impl MbtSource {
             mbtiles: Arc::new(mbt),
             tilejson: meta.tilejson,
             tile_info,
+            cache_zoom,
         })
     }
 }
@@ -119,6 +126,10 @@ impl Source for MbtSource {
     fn benefits_from_concurrent_scraping(&self) -> bool {
         // If we copy from one local file to another, we are likely not bottlenecked by CPU
         false
+    }
+
+    fn cache_zoom(&self) -> CacheZoomRange {
+        self.cache_zoom
     }
 
     async fn get_tile(

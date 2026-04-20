@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
 
@@ -56,6 +58,17 @@ pub struct SrvArgs {
     /// Main cache size (in MB)
     #[arg(short = 'C', long)]
     pub cache_size: Option<u64>,
+    /// Maximum lifetime for cache entries (e.g. "1h", "30m", "1d")
+    #[arg(long, value_parser = parse_duration)]
+    pub cache_expiry: Option<Duration>,
+    /// Maximum idle time before cache entries are evicted (e.g. "15m", "1h")
+    #[arg(long, value_parser = parse_duration)]
+    pub cache_idle_timeout: Option<Duration>,
+}
+
+fn parse_duration(s: &str) -> Result<Duration, String> {
+    use humantime_serde::re::humantime;
+    humantime::parse_duration(s).map_err(|e| e.to_string())
 }
 
 #[cfg(all(feature = "webui", not(docsrs)))]

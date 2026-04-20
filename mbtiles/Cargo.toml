@@ -1,6 +1,6 @@
 [package]
 name = "mbtiles"
-version = "0.15.4"
+version = "0.16.0"
 authors = ["Yuri Astrakhan <YuriAstrakhan@gmail.com>", "MapLibre contributors"]
 description = "A simple low-level MbTiles access and processing library, with some tile format detection and other relevant heuristics."
 keywords = ["mbtiles", "maps", "tiles", "mvt", "tilejson"]
@@ -19,6 +19,11 @@ name = "mbtiles"
 path = "src/bin/mbtiles.rs"
 required-features = ["cli"]
 
+[[bench]]
+name = "transcode"
+harness = false
+required-features = ["transcode"]
+
 [features]
 default = ["cli"]
 cli = ["dep:anyhow", "dep:clap", "dep:env_logger", "dep:serde_yaml"]
@@ -29,10 +34,12 @@ __hotpath = [
     "hotpath/tokio",
     "hotpath/futures",
 ]
+transcode = ["dep:bytes", "dep:rayon", "dep:moka"]
 __hotpath_tui = ["__hotpath", "hotpath/tui"]
 
 [dependencies]
 anyhow = { workspace = true, optional = true }
+bytes = { workspace = true, optional = true }
 clap = { workspace = true, optional = true }
 enum-display.workspace = true
 env_logger = { workspace = true, optional = true }
@@ -43,7 +50,10 @@ itertools.workspace = true
 log.workspace = true
 martin-tile-utils.workspace = true
 md5.workspace = true
+
+moka = { workspace = true, features = ["sync"], optional = true }
 num_cpus.workspace = true
+rayon = { workspace = true, optional = true }
 serde.workspace = true
 serde_json.workspace = true
 serde_with.workspace = true
@@ -60,10 +70,15 @@ xxhash-rust.workspace = true
 [dev-dependencies]
 # For testing, might as well use the same async framework as the Martin itself
 actix-rt.workspace = true
+bytes.workspace = true
+criterion.workspace = true
 env_logger.workspace = true
+flate2.workspace = true
 insta = { workspace = true, features = ["toml", "yaml"] }
 pretty_assertions.workspace = true
 rstest.workspace = true
+tempfile.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
 tracing.workspace = true
 tracing-test.workspace = true
 

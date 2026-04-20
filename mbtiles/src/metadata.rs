@@ -202,7 +202,7 @@ impl Mbtiles {
                     "legend" => tj.legend = Some(value),
                     "template" => tj.template = Some(value),
                     "json" => json = self.to_val(serde_json::from_str(&value), &name),
-                    "format" | "generator" => {
+                    "format" | "generator" | "compression" => {
                         tj.other.insert(name, Value::String(value));
                     }
                     "agg_tiles_hash" => agg_tiles_hash = Some(value),
@@ -521,7 +521,9 @@ mod tests {
     async fn metadata_empty_tileset() {
         let mbt = Mbtiles::new(":memory:").unwrap();
         let mut conn = mbt.open().await.unwrap();
-        init_mbtiles_schema(&mut conn, MbtType::Flat).await.unwrap();
+        init_mbtiles_schema(&mut conn, MbtType::Flat, false)
+            .await
+            .unwrap();
 
         // get_metadata should work on empty tileset
         let meta = mbt.get_metadata(&mut conn).await;
@@ -530,5 +532,60 @@ mod tests {
         // detect_format should return None for empty tileset
         let tile_info = mbt.detect_format(&meta.tilejson, &mut conn).await.unwrap();
         assert_eq!(tile_info, None);
+    }
+
+    #[actix_rt::test]
+    async fn metadata_mlt() {
+        let script = include_str!("../../tests/fixtures/mbtiles/mlt.sql");
+        let (mbt, mut conn) = anonymous_mbtiles(script).await;
+        let meta = mbt.get_metadata(&mut conn).await.unwrap();
+        // compression=none must round-trip through tilejson.other
+        insta::assert_yaml_snapshot!(meta.tilejson.other, @r#"
+        compression: none
+        format: application/vnd.maplibre-vector-tile
+        "#);
+        let tile_info = mbt.detect_format(&meta.tilejson, &mut conn).await.unwrap();
+        assert_eq!(
+            tile_info,
+            Some(TileInfo::new(Format::Mlt, Encoding::Uncompressed))
+        );
+    }
+
+    #[actix_rt::test]
+    async fn update_compression_gzip() {
+        let script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
+        let (mbt, mut conn) = anonymous_mbtiles(script).await;
+
+        mbt.update_compression(&mut conn).await.unwrap();
+
+        let compression = mbt
+            .get_metadata_value(&mut conn, "compression")
+            .await
+            .unwrap();
+        assert_eq!(
+            compression.as_deref(),
+            Some("gzip"),
+            "world_cities tiles are gzip-compressed; compression metadata should be 'gzip'"
+        );
+    }
+
+    #[actix_rt::test]
+    async fn update_compression_internal() {
+        let script = include_str!("../../tests/fixtures/mbtiles/geography-class-jpg.sql");
+        let (mbt, mut conn) = anonymous_mbtiles(script).await;
+
+        mbt.set_metadata_value(&mut conn, "compression", "gzip")
+            .await
+            .unwrap();
+
+        mbt.update_compression(&mut conn).await.unwrap();
+
+        assert_eq!(
+            mbt.get_metadata_value(&mut conn, "compression")
+                .await
+                .unwrap(),
+            None,
+            "JPEG tiles use internal compression; the compression metadata key should be absent"
+        );
     }
 }

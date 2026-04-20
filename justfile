@@ -225,7 +225,7 @@ debug-page *args: start
 
 # Build and run martin docker image
 docker-run *args:
-    docker run -it --rm --net host -e DATABASE_URL -v $PWD/tests:/tests ghcr.io/maplibre/martin:1.5.0 {{args}}
+    docker run -it --rm --net host -e DATABASE_URL -v $PWD/tests:/tests ghcr.io/maplibre/martin:1.6.0 {{args}}
 
 # Build and run martin documentation
 docs:
@@ -241,7 +241,7 @@ env-info:
     {{just}} --version
     rustc --version
     cargo --version
-    rustup --version
+    @if [ "$(uname)" != "FreeBSD" ]; then rustup --version; fi
     @echo "RUSTFLAGS='$RUSTFLAGS'"
     @echo "RUSTDOCFLAGS='$RUSTDOCFLAGS'"
     @echo "RUST_BACKTRACE='$RUST_BACKTRACE'"
@@ -491,6 +491,12 @@ test-lambda martin_bin='target/debug/martin':
 
     jq -ne 'input.statusCode == 200' <<<"$response"
 
+# Run tests that matter on FreeBSD.
+# Notably, we have to skip the postgres tests because the current structure relies on running docker
+# within the test. Additionally, some of the benches that run with --all-targets
+# are also docker-based integration tests.
+# We limit parallelism to prevent OOM during linking of large test binaries.
+test-freebsd: (test-cargo "-j 2 --lib --bins --tests --examples") test-doc
 
 # Run all tests using the oldest supported version of the database
 test-legacy: start-legacy (test-cargo "--all-targets") test-pg test-doc test-int
