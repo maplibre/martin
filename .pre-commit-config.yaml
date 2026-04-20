@@ -109,20 +109,12 @@ repos:
           sed -i "s%biomejs.dev/schemas/[^/]*/%biomejs.dev/schemas/$VERSION/%" demo/frontend/biome.json
           sed -i "s%biomejs.dev/schemas/[^/]*/%biomejs.dev/schemas/$VERSION/%" martin/martin-ui/biome.json
 
-          # Update package.json and lockfiles if either is out of sync or lockfile is missing
-          if ! grep -q "\"@biomejs/biome\": \"$VERSION\"" demo/frontend/package.json \
-             || ! grep -q "\"@biomejs/biome\": \"$VERSION\"" demo/frontend/package-lock.json \
-             || [ ! -f demo/frontend/package-lock.json ]; then
-            sed -i "s%\"@biomejs/biome\": \"[0-9.]*\"%\"@biomejs/biome\": \"$VERSION\"%" demo/frontend/package.json
-            npm --prefix demo/frontend install --package-lock-only
-          fi
+          # Always regenerate lockfiles after a biome rev update to avoid partial lock updates.
+          sed -i "s%\"@biomejs/biome\": \"[0-9.]*\"%\"@biomejs/biome\": \"$VERSION\"%" demo/frontend/package.json
+          npm --prefix demo/frontend install --package-lock-only
 
-          if ! grep -q "\"@biomejs/biome\": \"$VERSION\"" martin/martin-ui/package.json \
-             || ! grep -q "\"@biomejs/biome\": \"$VERSION\"" martin/martin-ui/package-lock.json \
-             || [ ! -f martin/martin-ui/package-lock.json ]; then
-            sed -i "s%\"@biomejs/biome\": \"[0-9.]*\"%\"@biomejs/biome\": \"$VERSION\"%" martin/martin-ui/package.json
-            npm --prefix martin/martin-ui install --package-lock-only
-          fi
+          sed -i "s%\"@biomejs/biome\": \"[0-9.]*\"%\"@biomejs/biome\": \"$VERSION\"%" martin/martin-ui/package.json
+          npm --prefix martin/martin-ui install --package-lock-only
 
           sed -i "/repo: https:\/\/github.com\/biomejs\/pre-commit/,$ s/@biomejs\/biome@[0-9.]*/@biomejs\/biome@$VERSION/g" .pre-commit-config.yaml
           echo "Synced Biome version to $VERSION"
