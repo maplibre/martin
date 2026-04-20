@@ -229,14 +229,35 @@ mod tests {
 
     use super::*;
 
+    async fn start_old_postgis_container()
+    -> testcontainers_modules::testcontainers::ContainerAsync<Postgres> {
+        const MAX_START_ATTEMPTS: usize = 3;
+        const RETRY_DELAY: std::time::Duration = std::time::Duration::from_secs(2);
+
+        let mut last_error = String::new();
+        for attempt in 1..=MAX_START_ATTEMPTS {
+            match Postgres::default()
+                .with_name("postgis/postgis")
+                .with_tag("11-3.0") // purposely very old and stable
+                .start()
+                .await
+            {
+                Ok(container) => return container,
+                Err(err) => {
+                    last_error = err.to_string();
+                    if attempt < MAX_START_ATTEMPTS {
+                        tokio::time::sleep(RETRY_DELAY).await;
+                    }
+                }
+            }
+        }
+
+        panic!("container launched after {MAX_START_ATTEMPTS} attempts: {last_error}");
+    }
+
     #[tokio::test]
     async fn parse_version() {
-        let node = Postgres::default()
-            .with_name("postgis/postgis")
-            .with_tag("11-3.0") // purposely very old and stable
-            .start()
-            .await
-            .expect("container launched");
+        let node = start_old_postgis_container().await;
 
         let pg_config = Config::new()
             .host(node.get_host().await.unwrap().to_string())

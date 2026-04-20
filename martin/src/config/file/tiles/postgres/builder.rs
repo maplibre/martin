@@ -640,8 +640,37 @@ fn by_key<T>(a: &(String, T), b: &(String, T)) -> Ordering {
 mod tests {
     use indoc::indoc;
     use insta::assert_yaml_snapshot;
+    use testcontainers_modules::postgres::Postgres;
+    use testcontainers_modules::testcontainers::ImageExt as _;
+    use testcontainers_modules::testcontainers::runners::AsyncRunner as _;
 
     use super::*;
+
+    async fn start_old_postgis_container()
+    -> testcontainers_modules::testcontainers::ContainerAsync<Postgres> {
+        const MAX_START_ATTEMPTS: usize = 3;
+        const RETRY_DELAY: std::time::Duration = std::time::Duration::from_secs(2);
+
+        let mut last_error = String::new();
+        for attempt in 1..=MAX_START_ATTEMPTS {
+            match Postgres::default()
+                .with_name("postgis/postgis")
+                .with_tag("11-3.0") // purposely very old and stable
+                .start()
+                .await
+            {
+                Ok(container) => return container,
+                Err(err) => {
+                    last_error = err.to_string();
+                    if attempt < MAX_START_ATTEMPTS {
+                        tokio::time::sleep(RETRY_DELAY).await;
+                    }
+                }
+            }
+        }
+
+        panic!("container launched after {MAX_START_ATTEMPTS} attempts: {last_error}");
+    }
 
     #[derive(serde::Serialize)]
     struct AutoCfg {
@@ -803,16 +832,7 @@ mod tests {
     #[tokio::test]
     #[tracing_test::traced_test]
     async fn test_nonexistent_tables_functions_generate_warning() {
-        use testcontainers_modules::postgres::Postgres;
-        use testcontainers_modules::testcontainers::ImageExt as _;
-        use testcontainers_modules::testcontainers::runners::AsyncRunner as _;
-
-        let container = Postgres::default()
-            .with_name("postgis/postgis")
-            .with_tag("11-3.0") // purposely very old and stable
-            .start()
-            .await
-            .expect("container launched");
+        let container = start_old_postgis_container().await;
 
         let host = container.get_host().await.unwrap();
         let port = container.get_host_port_ipv4(5432).await.unwrap();
