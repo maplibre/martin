@@ -18,8 +18,7 @@ use crate::bindiff::{BinDiffDiffer, BinDiffPatcher, BinDiffer as _, PatchType};
 use crate::errors::MbtResult;
 use crate::mbtiles::PatchFileInfo;
 use crate::queries::{
-    create_tiles_with_hash_view, detach_db, init_mbtiles_schema_with_strict, is_empty_database,
-    maybe_make_table_strict,
+    create_tiles_with_hash_view, detach_db, init_mbtiles_schema, is_empty_database,
 };
 use crate::{
     AGG_TILES_HASH, AGG_TILES_HASH_AFTER_APPLY, AGG_TILES_HASH_BEFORE_APPLY, AggHashType, CopyType,
@@ -617,8 +616,14 @@ impl MbtileCopierInt {
                 let Some(sql) = row.get::<Option<String>, _>(0) else {
                     continue;
                 };
-                let sql = if obj_type == "table" {
-                    maybe_make_table_strict(&sql, self.options.strict)
+                let sql = if obj_type == "table" && self.options.strict && !sql.contains(" STRICT")
+                {
+                    let trimmed = sql.trim_end();
+                    if let Some(stripped) = trimmed.strip_suffix(';') {
+                        format!("{stripped} STRICT;")
+                    } else {
+                        format!("{trimmed} STRICT")
+                    }
                 } else {
                     sql
                 };
@@ -629,7 +634,7 @@ impl MbtileCopierInt {
                 create_tiles_with_hash_view(&mut *conn).await?;
             }
         } else {
-            init_mbtiles_schema_with_strict(&mut *conn, dst, self.options.strict).await?;
+            init_mbtiles_schema(&mut *conn, dst, self.options.strict).await?;
         }
 
         Ok(())
@@ -893,6 +898,7 @@ fn patch_type_str(patch_type: Option<PatchType>) -> &'static str {
 
 #[cfg(test)]
 mod tests {
+    use insta::assert_snapshot;
     use sqlx::{Decode, Sqlite, SqliteConnection, Type};
 
     use super::*;
@@ -1114,15 +1120,13 @@ mod tests {
         .await
         .unwrap();
 
-        assert!(
-            get_table_sql(&mut dst_conn, "metadata")
-                .await
-                .contains(" STRICT")
+        assert_snapshot!(
+            get_table_sql(&mut dst_conn, "metadata").await,
+            @"CREATE TABLE metadata (name text, value text) STRICT"
         );
-        assert!(
-            get_table_sql(&mut dst_conn, "tiles")
-                .await
-                .contains(" STRICT")
+        assert_snapshot!(
+            get_table_sql(&mut dst_conn, "tiles").await,
+            @"CREATE TABLE tiles (zoom_level integer, tile_column integer, tile_row integer, tile_data blob) STRICT"
         );
     }
 
@@ -1143,15 +1147,13 @@ mod tests {
         .await
         .unwrap();
 
-        assert!(
-            !get_table_sql(&mut dst_conn, "metadata")
-                .await
-                .contains(" STRICT")
+        assert_snapshot!(
+            get_table_sql(&mut dst_conn, "metadata").await,
+            @"CREATE TABLE metadata (name text, value text)"
         );
-        assert!(
-            !get_table_sql(&mut dst_conn, "tiles")
-                .await
-                .contains(" STRICT")
+        assert_snapshot!(
+            get_table_sql(&mut dst_conn, "tiles").await,
+            @"CREATE TABLE tiles (zoom_level integer, tile_column integer, tile_row integer, tile_data blob)"
         );
     }
 
@@ -1179,20 +1181,25 @@ mod tests {
         .await
         .unwrap();
 
-        assert!(
-            get_table_sql(&mut dst_conn, "metadata")
-                .await
-                .contains(" STRICT")
+        assert_snapshot!(
+            get_table_sql(&mut dst_conn, "metadata").await,
+            @"CREATE TABLE metadata (name text, value text) STRICT"
         );
-        assert!(
-            get_table_sql(&mut dst_conn, "tiles")
-                .await
-                .contains(" STRICT")
+        assert_snapshot!(
+            get_table_sql(&mut dst_conn, "tiles").await,
+            @"CREATE TABLE tiles (zoom_level integer, tile_column integer, tile_row integer, tile_data blob) STRICT"
         );
-        assert!(
-            get_table_sql(&mut dst_conn, "bsdiffraw")
-                .await
-                .contains(" STRICT")
+        assert_snapshot!(
+            get_table_sql(&mut dst_conn, "bsdiffraw").await,
+            @r#"
+        CREATE TABLE bsdiffraw (
+                     zoom_level integer NOT NULL,
+                     tile_column integer NOT NULL,
+                     tile_row integer NOT NULL,
+                     patch_data blob NOT NULL,
+                     tile_xxh3_64_hash integer NOT NULL,
+                     PRIMARY KEY(zoom_level, tile_column, tile_row)) STRICT
+        "#
         );
     }
 

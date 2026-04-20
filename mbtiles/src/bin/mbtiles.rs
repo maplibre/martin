@@ -167,7 +167,7 @@ pub struct DiffArgs {
     reason = "for command line arguments, formatting `TileJSON` is awkward"
 )]
 #[derive(Clone, Default, PartialEq, Debug, clap::Args)]
-#[allow(clippy::struct_excessive_bools)]
+#[expect(clippy::struct_excessive_bools, reason = "CLI interface")]
 pub struct SharedCopyOpts {
     /// Limit what gets copied.
     /// When copying tiles only, the agg_tiles_hash will still be updated unless --skip-agg-tiles-hash is set.

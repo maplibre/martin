@@ -115,7 +115,7 @@ pub struct PatchFileInfo {
 /// let mut conn = mbt.open_or_new().await?;
 ///
 /// // Initialize with flat schema
-/// mbtiles::init_mbtiles_schema(&mut conn, MbtType::Flat).await?;
+/// mbtiles::init_mbtiles_schema(&mut conn, MbtType::Flat, false).await?;
 ///
 /// // Insert a batch of tiles
 /// let tiles = vec![
@@ -240,7 +240,7 @@ impl Mbtiles {
     /// let mut conn = mbtiles.open_or_new().await?;
     ///
     /// // Initialize schema for a new file
-    /// mbtiles::init_mbtiles_schema(&mut conn, MbtType::Flat).await?;
+    /// mbtiles::init_mbtiles_schema(&mut conn, MbtType::Flat, false).await?;
     /// # Ok(())
     /// # }
     /// ```

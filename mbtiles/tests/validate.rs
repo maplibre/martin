@@ -11,7 +11,7 @@ use sqlx::{Executor as _, SqliteConnection, query};
 async fn new(values: &str) -> (Mbtiles, SqliteConnection) {
     let mbtiles = Mbtiles::new(":memory:").unwrap();
     let mut conn = mbtiles.open().await.unwrap();
-    create_metadata_table(&mut conn).await.unwrap();
+    create_metadata_table(&mut conn, false).await.unwrap();
 
     conn.execute(
         "CREATE TABLE tiles (
@@ -172,7 +172,7 @@ async fn flat_tables_accept_int_type() {
 
     let mbtiles = Mbtiles::new(":memory:").unwrap();
     let mut conn = mbtiles.open().await.unwrap();
-    create_metadata_table(&mut conn).await.unwrap();
+    create_metadata_table(&mut conn, false).await.unwrap();
 
     conn.execute(
         "CREATE TABLE tiles (
@@ -199,7 +199,7 @@ async fn normalized_tables_accept_int_type() {
 
     let mbtiles = Mbtiles::new(":memory:").unwrap();
     let mut conn = mbtiles.open().await.unwrap();
-    create_metadata_table(&mut conn).await.unwrap();
+    create_metadata_table(&mut conn, false).await.unwrap();
 
     conn.execute(
         "CREATE TABLE map (
@@ -235,7 +235,7 @@ async fn int_containing_types_accepted() {
     // Test flat tables with BIGINT, SMALLINT, TINYINT
     let mbtiles_flat = Mbtiles::new(":memory:").unwrap();
     let mut conn_flat = mbtiles_flat.open().await.unwrap();
-    create_metadata_table(&mut conn_flat).await.unwrap();
+    create_metadata_table(&mut conn_flat, false).await.unwrap();
 
     conn_flat
         .execute(
@@ -258,7 +258,7 @@ async fn int_containing_types_accepted() {
     // Test normalized tables with BIGINT, SMALLINT, TINYINT
     let mbtiles_norm = Mbtiles::new(":memory:").unwrap();
     let mut conn_norm = mbtiles_norm.open().await.unwrap();
-    create_metadata_table(&mut conn_norm).await.unwrap();
+    create_metadata_table(&mut conn_norm, false).await.unwrap();
 
     conn_norm
         .execute(
@@ -295,7 +295,7 @@ async fn tiles_with_hash_accepts_int_type() {
 
     let mbtiles = Mbtiles::new(":memory:").unwrap();
     let mut conn = mbtiles.open().await.unwrap();
-    create_metadata_table(&mut conn).await.unwrap();
+    create_metadata_table(&mut conn, false).await.unwrap();
 
     conn.execute(
         "CREATE TABLE tiles_with_hash (
@@ -324,7 +324,7 @@ async fn patch_tables_accept_int_type() {
     // Test bsdiffraw with INT-containing types
     let mbtiles = Mbtiles::new(":memory:").unwrap();
     let mut conn = mbtiles.open().await.unwrap();
-    create_metadata_table(&mut conn).await.unwrap();
+    create_metadata_table(&mut conn, false).await.unwrap();
 
     conn.execute(
         "CREATE TABLE bsdiffraw (

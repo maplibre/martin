@@ -511,7 +511,7 @@ async fn init_schema(
                     schema: mbtiles::NormalizedSchema::Hash,
                 },
             };
-            init_mbtiles_schema(&mut *conn, mbt_type)
+            init_mbtiles_schema(&mut *conn, mbt_type, false)
                 .await
                 .map_err(MbtilesError::from)?;
             let mut tj = merge_tilejson(sources, String::new());
