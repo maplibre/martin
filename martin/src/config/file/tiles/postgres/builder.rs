@@ -669,7 +669,7 @@ mod tests {
             }
         }
 
-        panic!("container launched after {MAX_START_ATTEMPTS} attempts: {last_error}");
+        panic!("failed to launch container after {MAX_START_ATTEMPTS} attempts: {last_error}");
     }
 
     #[derive(serde::Serialize)]
