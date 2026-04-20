@@ -1,4 +1,4 @@
-# Map Renderer Specific Guides
+# Map renderer specific
 
 Martin can serve tiles to a variety of map rendering libraries.
 Below are guides for integrating Martin with some of the most popular renderers:
