@@ -575,7 +575,7 @@ async fn dir_ttl_evicts_even_with_frequent_access() {
     dir_insert(&cache, TTL_CACHE_OFFSET).await;
 
     for _ in 0..3 {
-        sleep(Duration::from_secs(1)).await;
+        sleep(Duration::from_millis(40)).await;
         dir_assert_hit(&cache, TTL_CACHE_OFFSET).await;
     }
 
