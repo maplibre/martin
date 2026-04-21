@@ -579,7 +579,7 @@ async fn dir_ttl_evicts_even_with_frequent_access() {
         dir_assert_hit(&cache, TTL_CACHE_OFFSET).await;
     }
 
-    wait_and_flush(&cache, Duration::from_secs(3)).await;
+    wait_and_flush(&cache, ttl + EXPIRY_BUFFER).await;
 
     dir_assert_miss(&cache, TTL_CACHE_OFFSET).await;
 }
