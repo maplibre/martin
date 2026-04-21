@@ -66,13 +66,13 @@ function wait_for {
         else
             echo "$PROC_NAME died!"
             ps au
-            lsof -i || true;
+            if command -v lsof > /dev/null; then lsof -i || true; fi
             exit 1
         fi
     done
     echo "$PROC_NAME did not start in time"
     ps au
-    lsof -i || true;
+    if command -v lsof > /dev/null; then lsof -i || true; fi
     exit 1
 }
 
@@ -571,13 +571,17 @@ mkdir -p "$TEST_OUT_DIR"
 
 ARG=(--route-prefix /foo tests/fixtures/pmtiles2)
 set -x
-$MARTIN_BIN "${ARG[@]}" 2>&1 | tee "$LOG_FILE" &
+MSYS_NO_PATHCONV=1 $MARTIN_BIN "${ARG[@]}" 2>&1 | tee "$LOG_FILE" &
 MARTIN_PROC_ID=$(jobs -p | tail -n 1)
 
 { set +x; } 2> /dev/null
 trap "echo 'Stopping Martin server $MARTIN_PROC_ID...'; kill -9 $MARTIN_PROC_ID 2> /dev/null || true; echo 'Stopped Martin server $MARTIN_PROC_ID';" EXIT HUP INT TERM
 wait_for "$MARTIN_PROC_ID" Martin "$MARTIN_URL/foo/health"
-if [ "$($CURL "$MARTIN_URL/health")" != "OK" ]; then
+if ! ROOT_HEALTH="$($CURL "$MARTIN_URL/health")"; then
+  echo "ERROR: Expected /health to return OK when --route-prefix is set"
+  exit 1
+fi
+if [ "$ROOT_HEALTH" != "OK" ]; then
   echo "ERROR: Expected /health to return OK when --route-prefix is set"
   exit 1
 fi
