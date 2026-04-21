@@ -666,9 +666,7 @@ mod tests {
         )
         .sleep(tokio::time::sleep)
         .await
-        .unwrap_or_else(|| {
-            panic!("failed to launch container after {MAX_START_ATTEMPTS} attempts: {err}")
-        })
+        .unwrap_or_else(|e|            panic!("failed to launch container after {MAX_START_ATTEMPTS} attempts: {e}"))
     }
 
     #[derive(serde::Serialize)]
