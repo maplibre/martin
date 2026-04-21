@@ -578,7 +578,7 @@ MARTIN_PROC_ID=$(jobs -p | tail -n 1)
 trap "echo 'Stopping Martin server $MARTIN_PROC_ID...'; kill -9 $MARTIN_PROC_ID 2> /dev/null || true; echo 'Stopped Martin server $MARTIN_PROC_ID';" EXIT HUP INT TERM
 wait_for "$MARTIN_PROC_ID" Martin "$MARTIN_URL/foo/health"
 if ! ROOT_HEALTH="$($CURL "$MARTIN_URL/health")"; then
-  echo "ERROR: Expected /health to return OK when --route-prefix is set"
+  echo "ERROR: Failed to reach /health when --route-prefix is set"
   exit 1
 fi
 if [ "$ROOT_HEALTH" != "OK" ]; then
