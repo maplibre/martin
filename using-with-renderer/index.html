@@ -12,13 +12,13 @@
         <meta name="author" content="Maplibre Contributors">
       
       
-        <link rel="canonical" href="https://maplibre.org/martin/recipes/">
+        <link rel="canonical" href="https://maplibre.org/martin/using-with-renderer/">
       
       
-        <link rel="prev" href="../using-with-data/">
+        <link rel="prev" href="../using-guides/">
       
       
-        <link rel="next" href="../recipe-basemap-postgis/">
+        <link rel="next" href="../using-with-maplibre/">
       
       
         
@@ -29,7 +29,7 @@
     
     
       
-        <title>Hosted PostgreSQL - Martin Tile Server Documentation</title>
+        <title>Map renderer specific - Martin Tile Server Documentation</title>
       
     
     
@@ -150,7 +150,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#hosted-postgresql" class="md-skip">
+        <a href="#map-renderer-specific" class="md-skip">
           Skip to content
         </a>
       
@@ -186,7 +186,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Hosted PostgreSQL
+              Map renderer specific
             
           </span>
         </div>
@@ -832,8 +832,10 @@
                 
   
   
+    
   
   
+  
     
     
       
@@ -865,17 +867,15 @@
     
       
     
-    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-          
-        
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_7_2" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_2" checked>
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../using-with-renderer/" class="md-nav__link ">
+            <a href="././" class="md-nav__link md-nav__link--active">
               
   
   
@@ -893,13 +893,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_7_2" id="__nav_7_2_label" tabindex="">
+              <label class="md-nav__link md-nav__link--active" for="__nav_7_2" id="__nav_7_2_label" tabindex="">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_2_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_2_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_7_2">
             <span class="md-nav__icon md-icon"></span>
             
@@ -1064,8 +1064,6 @@
                 
   
   
-    
-  
   
   
     
@@ -1095,11 +1093,13 @@
     
       
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_3" checked>
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_7_3" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -1127,7 +1127,7 @@
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_3_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_3_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_7_3">
             <span class="md-nav__icon md-icon"></span>
             
@@ -1144,37 +1144,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Using Hosted PostgreSQL
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="././" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../recipes/" class="md-nav__link">
         
   
   
@@ -1190,49 +1163,6 @@
   
 
       </a>
-      
-        
-
-
-<nav class="md-nav md-nav--secondary" aria-label="On this page">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      On this page
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#using-with-digitalocean-postgresql" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Using with DigitalOcean PostgreSQL
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#using-with-heroku-postgresql" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Using with Heroku PostgreSQL
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -1697,10 +1627,10 @@
     
     
       <li class="md-path__item">
-        <a href="../using-with-data/" class="md-path__link">
+        <a href="././" class="md-path__link">
           
   <span class="md-ellipsis">
-    Tile source specific
+    Map renderer specific
   </span>
 
         </a>
@@ -1717,7 +1647,7 @@
                 
                   
   
-    <a href="https://github.com/maplibre/martin/edit/main/docs/content/recipes.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+    <a href="https://github.com/maplibre/martin/edit/main/docs/content/using-with-renderer/index.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
       
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-file-pen" viewBox="0 0 24 24"><path d="M12.659 22H18a2 2 0 0 0 2-2V8a2.4 2.4 0 0 0-.706-1.706l-3.588-3.588A2.4 2.4 0 0 0 14 2H6a2 2 0 0 0-2 2v9.34"/><path d="M14 2v5a1 1 0 0 0 1 1h5M10.378 12.622a1 1 0 0 1 3 3.003L8.36 20.637a2 2 0 0 1-.854.506l-2.867.837a.5.5 0 0 1-.62-.62l.836-2.869a2 2 0 0 1 .506-.853z"/></svg>
     </a>
@@ -1725,31 +1655,16 @@
   
 
 
-<h1 id="hosted-postgresql">Hosted PostgreSQL</h1>
-<p>Some providers of PostgreSQL databases require additional configuration to work with Martin.
-We try to provide a guide for each provider, but we may not cover all of them.</p>
-<h2 id="using-with-digitalocean-postgresql">Using with DigitalOcean PostgreSQL</h2>
-<p>You can use Martin with <a href="https://www.digitalocean.com/products/managed-databases-postgresql/">Managed PostgreSQL from DigitalOcean</a> with PostGIS extension</p>
-<p>First, you need to download the CA certificate and get your cluster connection string from the <a href="https://cloud.digitalocean.com/databases">dashboard</a>.
-After that, you can use the connection string and the CA certificate to connect to the database</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>martin<span class="w"> </span>--ca-root-file<span class="w"> </span>./ca-certificate.crt<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">       </span>postgres://user:password@host:port/db?sslmode<span class="o">=</span>require
-</span></code></pre></div>
-<h2 id="using-with-heroku-postgresql">Using with Heroku PostgreSQL</h2>
-<p>You can use Martin with <a href="https://www.heroku.com/postgres">Managed PostgreSQL from Heroku</a> with the PostGIS extension</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>heroku<span class="w"> </span>pg:psql<span class="w"> </span>-a<span class="w"> </span>APP_NAME<span class="w"> </span>-c<span class="w"> </span><span class="s1">&#39;create extension postgis&#39;</span>
-</span></code></pre></div>
-<p>Use the same environment variables as Heroku <a href="https://devcenter.heroku.com/articles/heroku-postgres-via-mtls#step-2-configure-environment-variables">suggests for psql</a>.</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">DATABASE_URL</span><span class="o">=</span><span class="k">$(</span>heroku<span class="w"> </span>config:get<span class="w"> </span>DATABASE_URL<span class="w"> </span>-a<span class="w"> </span>APP_NAME<span class="k">)</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="nb">export</span><span class="w"> </span><span class="nv">PGSSLCERT</span><span class="o">=</span>DIRECTORY/PREFIXpostgresql.crt
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="nb">export</span><span class="w"> </span><span class="nv">PGSSLKEY</span><span class="o">=</span>DIRECTORY/PREFIXpostgresql.key
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="nb">export</span><span class="w"> </span><span class="nv">PGSSLROOTCERT</span><span class="o">=</span>DIRECTORY/PREFIXroot.crt
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>
-</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>martin
-</span></code></pre></div>
-<p>You may also be able to validate SSL certificate with an explicit sslmode, e.g.</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">DATABASE_URL</span><span class="o">=</span><span class="s2">&quot;</span><span class="k">$(</span>heroku<span class="w"> </span>config:get<span class="w"> </span>DATABASE_URL<span class="w"> </span>-a<span class="w"> </span>APP_NAME<span class="k">)</span><span class="s2">?sslmode=verify-ca&quot;</span>
-</span></code></pre></div>
+<h1 id="map-renderer-specific">Map renderer specific</h1>
+<p>Martin can serve tiles to a variety of map rendering libraries.
+Below are guides for integrating Martin with some of the most popular renderers:</p>
+<ul>
+<li><a href="../using-with-maplibre/">MapLibre GL JS</a></li>
+<li><a href="../using-with-leaflet/">Leaflet</a></li>
+<li><a href="../using-with-deck-gl/">deck.gl</a></li>
+<li><a href="../using-with-mapbox/">Mapbox GL JS</a></li>
+<li><a href="../using-with-openlayers/">OpenLayers</a></li>
+</ul>
 
 
 
@@ -1789,7 +1704,7 @@ After that, you can use the connection string and the CA certificate to connect 
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../using-with-data/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Tile source specific">
+          <a href="../using-guides/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Guides">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
@@ -1799,20 +1714,20 @@ After that, you can use the connection string and the CA certificate to connect 
                 Previous
               </span>
               <div class="md-ellipsis">
-                Tile source specific
+                Guides
               </div>
             </div>
           </a>
         
         
           
-          <a href="../recipe-basemap-postgis/" class="md-footer__link md-footer__link--next" aria-label="Next: Setting up a basemap and overlaying data">
+          <a href="../using-with-maplibre/" class="md-footer__link md-footer__link--next" aria-label="Next: MapLibre">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Setting up a basemap and overlaying data
+                MapLibre
               </div>
             </div>
             <div class="md-footer__button md-icon">
