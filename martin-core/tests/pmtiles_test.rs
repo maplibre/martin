@@ -591,7 +591,7 @@ async fn dir_cache_entry_survives_when_accessed_within_tti() {
 
     dir_insert(&cache, TTL_CACHE_OFFSET).await;
 
-    wait_and_flush(&cache, Duration::from_millis(50)).await;
+    wait_and_flush(&cache, Duration::from_secs(1)).await;
     for _ in 0..3 {
         sleep(Duration::from_secs(1)).await;
         dir_assert_hit(&cache, TTL_CACHE_OFFSET).await;
