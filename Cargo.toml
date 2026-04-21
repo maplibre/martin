@@ -81,6 +81,7 @@ moka = { version = "0.12", default-features = false }
 num_cpus = "1"
 object_store = { version = "0.13.2", features = ["gcp", "aws", "azure", "fs", "http"] }
 pbf_font_tools = { version = "3.1.1", features = ["freetype"] }
+pixelmatch = "0.1"
 pmtiles = { version = "0.21.0", features = ["tilejson", "object-store"] }
 png = "0.18.0"
 postgis = "0.9"

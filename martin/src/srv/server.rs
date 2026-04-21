@@ -28,7 +28,7 @@ use crate::srv::fonts;
 use crate::srv::sprites;
 #[cfg(feature = "styles")]
 use crate::srv::styles;
-#[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
+#[cfg(all(feature = "rendering", target_os = "linux"))]
 use crate::srv::styles_rendering;
 #[cfg(feature = "_tiles")]
 use crate::srv::tiles;
@@ -141,7 +141,7 @@ fn register_services(
     cfg.service(styles::get_style_json)
         .service(styles::redirect_styles);
 
-    #[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
+    #[cfg(all(feature = "rendering", target_os = "linux"))]
     cfg.service(styles_rendering::get_style_rendered);
 
     #[cfg(all(feature = "webui", not(docsrs)))]

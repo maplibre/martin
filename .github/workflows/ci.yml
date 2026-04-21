@@ -70,6 +70,9 @@ jobs:
           key: ${{ matrix.os }}
       - uses: taiki-e/install-action@0abfcd587b70a713fdaa7fb502c885e2112acb15 # v2.75.7
         with: { tool: 'just' }
+      - name: Install rendering dependencies
+        if: runner.os == 'Linux'
+        run: just install-dependencies
       - name: Run cargo test
         run: |
           set -x
@@ -97,6 +100,8 @@ jobs:
         with: { tool: 'just' }
       - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
         if: github.event_name != 'release' && github.event_name != 'workflow_dispatch' && github.ref != 'refs/heads/main'
+      - name: Install rendering dependencies
+        run: just install-dependencies
       - run: just env-info
       - run: just clippy
       - run: just check
@@ -454,6 +459,12 @@ jobs:
       - name: Set up gdal-bin and sqlite3-tools
         if: matrix.os == 'ubuntu-latest'
         run: sudo apt-get update && sudo apt-get install -y gdal-bin sqlite3-tools
+      - uses: taiki-e/install-action@0abfcd587b70a713fdaa7fb502c885e2112acb15 # v2.75.7
+        if: matrix.os == 'ubuntu-latest'
+        with: { tool: 'just' }
+      - name: Install rendering dependencies
+        if: matrix.os == 'ubuntu-latest'
+        run: just install-dependencies
       - name: Install sqlite3 and sqldiff on Windows
         if: matrix.os == 'windows-latest'
         run: choco install sqlite --yes
@@ -723,6 +734,10 @@ jobs:
         with: { name: 'build-x86_64-unknown-linux-gnu', path: 'target_releases/' }
       - name: Set up gdal-bin and sqlite3-tools
         run: sudo apt update && sudo apt-get install -y gdal-bin sqlite3-tools
+      - uses: taiki-e/install-action@0abfcd587b70a713fdaa7fb502c885e2112acb15 # v2.75.7
+        with: { tool: 'just' }
+      - name: Install rendering dependencies
+        run: just install-dependencies
       - name: Integration Tests
         run: |
           if [[ "${{ matrix.sslmode }}" == "verify-ca" || "${{ matrix.sslmode }}" == "verify-full" ]]; then
@@ -779,6 +794,10 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with: { persist-credentials: false }
+      - uses: taiki-e/install-action@0abfcd587b70a713fdaa7fb502c885e2112acb15 # v2.75.7
+        with: { tool: 'just' }
+      - name: Install rendering dependencies
+        run: just install-dependencies
       - name: Test packaging
         run: cargo publish --workspace --dry-run
 
