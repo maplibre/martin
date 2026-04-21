@@ -249,9 +249,7 @@ mod tests {
         )
         .sleep(tokio::time::sleep)
         .await
-        .unwrap_or_else(|err| {
-            panic!("failed to launch container after {MAX_START_ATTEMPTS} attempts: {err}")
-        })
+        .expect("failed to launch container after retry attempts")
     }
 
     #[tokio::test]
