@@ -244,14 +244,14 @@ mod tests {
         // Encode rendered image to the target format
         // JPEG doesn't support alpha, so convert RGBA→RGB when needed
         let encoded_img: image::DynamicImage = if format == image::ImageFormat::Jpeg {
-            image::DynamicImage::ImageRgb8(image::DynamicImage::ImageRgba8(rendered_img.clone()).to_rgb8())
+            image::DynamicImage::ImageRgb8(
+                image::DynamicImage::ImageRgba8(rendered_img.clone()).to_rgb8(),
+            )
         } else {
             image::DynamicImage::ImageRgba8(rendered_img.clone())
         };
         let mut rendered_buf = std::io::Cursor::new(Vec::new());
-        encoded_img
-            .write_to(&mut rendered_buf, format)
-            .unwrap();
+        encoded_img.write_to(&mut rendered_buf, format).unwrap();
         let rendered_bytes = rendered_buf.into_inner();
 
         // Verify format magic bytes
@@ -279,7 +279,8 @@ mod tests {
             x,
             y
         );
-        let reference_path = Path::new("../tests/fixtures/rendering_references").join(&reference_name);
+        let reference_path =
+            Path::new("../tests/fixtures/rendering_references").join(&reference_name);
 
         // Reference image MUST exist — if missing, the test fails with instructions to generate it.
         // To generate references: delete the file and run with BLESS_RENDERING=1
@@ -304,13 +305,15 @@ mod tests {
         });
 
         // For pixelmatch comparison, both images must be decoded to PNG
-        let rendered_for_cmp = image::load_from_memory_with_format(&rendered_bytes, format).unwrap();
+        let rendered_for_cmp =
+            image::load_from_memory_with_format(&rendered_bytes, format).unwrap();
         let mut rendered_png = std::io::Cursor::new(Vec::new());
         rendered_for_cmp
             .write_to(&mut rendered_png, image::ImageFormat::Png)
             .unwrap();
 
-        let reference_for_cmp = image::load_from_memory_with_format(&reference_bytes, format).unwrap();
+        let reference_for_cmp =
+            image::load_from_memory_with_format(&reference_bytes, format).unwrap();
         let mut reference_png = std::io::Cursor::new(Vec::new());
         reference_for_cmp
             .write_to(&mut reference_png, image::ImageFormat::Png)
@@ -333,7 +336,11 @@ mod tests {
         #[allow(clippy::cast_precision_loss)]
         let diff_pct = (diff_pixels as f64 / total_pixels as f64) * 100.0;
         // JPEG is lossy, so allow a higher threshold
-        let max_diff_pct = if format == image::ImageFormat::Jpeg { 5.0 } else { 1.0 };
+        let max_diff_pct = if format == image::ImageFormat::Jpeg {
+            5.0
+        } else {
+            1.0
+        };
         assert!(
             diff_pct < max_diff_pct,
             "Rendered image {reference_name} differs from reference by {diff_pct:.2}% ({diff_pixels}/{total_pixels} pixels). \

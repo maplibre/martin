@@ -119,7 +119,11 @@ mod render_tests {
         assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), "image/png");
 
         let body = read_body(response).await;
-        assert!(body.len() > 1000, "PNG should have reasonable size for {path}, got {}", body.len());
+        assert!(
+            body.len() > 1000,
+            "PNG should have reasonable size for {path}, got {}",
+            body.len()
+        );
 
         // Verify full PNG magic (8 bytes)
         assert_eq!(&body[..8], PNG_MAGIC, "Response is not a valid PNG");
@@ -127,7 +131,11 @@ mod render_tests {
         // Decode and verify dimensions
         let img = image::load_from_memory_with_format(&body, image::ImageFormat::Png)
             .expect("Failed to decode PNG response");
-        assert_eq!((img.width(), img.height()), (512, 512), "Tile must be 512x512");
+        assert_eq!(
+            (img.width(), img.height()),
+            (512, 512),
+            "Tile must be 512x512"
+        );
     }
 
     #[rstest]
@@ -146,7 +154,11 @@ mod render_tests {
         assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), "image/jpeg");
 
         let body = read_body(response).await;
-        assert!(body.len() > 1000, "JPEG should have reasonable size for {path}, got {}", body.len());
+        assert!(
+            body.len() > 1000,
+            "JPEG should have reasonable size for {path}, got {}",
+            body.len()
+        );
 
         // Verify JPEG magic bytes
         assert_eq!(&body[..3], JPEG_MAGIC, "Response is not a valid JPEG");
@@ -154,7 +166,11 @@ mod render_tests {
         // Decode and verify dimensions
         let img = image::load_from_memory_with_format(&body, image::ImageFormat::Jpeg)
             .expect("Failed to decode JPEG response");
-        assert_eq!((img.width(), img.height()), (512, 512), "Tile must be 512x512");
+        assert_eq!(
+            (img.width(), img.height()),
+            (512, 512),
+            "Tile must be 512x512"
+        );
     }
 
     #[tokio::test]
@@ -227,13 +243,23 @@ mod render_tests {
             let response = assert_response(response).await;
             assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), "image/png");
             let body = read_body(response).await;
-            assert!(body.len() > 1000, "Concurrent request {i} should produce a valid image");
-            assert_eq!(&body[..8], PNG_MAGIC, "Concurrent request {i} is not valid PNG");
+            assert!(
+                body.len() > 1000,
+                "Concurrent request {i} should produce a valid image"
+            );
+            assert_eq!(
+                &body[..8],
+                PNG_MAGIC,
+                "Concurrent request {i} is not valid PNG"
+            );
             bodies.push(body);
         }
 
         // Verify not all responses are identical (renderer isn't returning cached static image)
-        let unique_count = bodies.iter().collect::<std::collections::HashSet<_>>().len();
+        let unique_count = bodies
+            .iter()
+            .collect::<std::collections::HashSet<_>>()
+            .len();
         assert!(
             unique_count > 1,
             "All {0} concurrent responses are identical — renderer may be ignoring coordinates",
