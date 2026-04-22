@@ -282,10 +282,8 @@ mod tests {
         let reference_path =
             Path::new("../tests/fixtures/rendering_references").join(&reference_name);
 
-        // Reference image MUST exist — if missing, the test fails with instructions to generate it.
-        // To generate references: delete the file and run with BLESS_RENDERING=1
+        // Reference image MUST exist - if missing, the test fails and stores it on disk
         let reference_bytes = std::fs::read(&reference_path).unwrap_or_else(|e| {
-            if std::env::var("BLESS_RENDERING").is_ok() {
                 std::fs::create_dir_all(reference_path.parent().unwrap()).unwrap();
                 // Sanity check: refuse to bless tiny or blank images
                 assert!(
@@ -297,11 +295,6 @@ mod tests {
                 panic!(
                     "Created new reference image at {reference_path:?}. Commit this file and re-run the test."
                 );
-            }
-            panic!(
-                "Reference image not found at {reference_path:?}: {e}. \
-                 Run with BLESS_RENDERING=1 to generate it."
-            );
         });
 
         // For pixelmatch comparison, both images must be decoded to PNG
