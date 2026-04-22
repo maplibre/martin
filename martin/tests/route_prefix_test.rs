@@ -81,10 +81,12 @@ async fn test_route_prefix_basic_endpoints() {
     let body = read_body(response).await;
     assert_eq!(body, "OK");
 
-    // Health without prefix should fail
+    // Health without prefix should still work
     let req = test_get("/health").to_request();
     let response = call_service(&app, req).await;
-    assert_eq!(response.status(), 404);
+    let response = assert_response(response).await;
+    let body = read_body(response).await;
+    assert_eq!(body, "OK");
 
     // Test catalog endpoint
     let req = test_get("/tiles/catalog").to_request();
