@@ -44,6 +44,7 @@ function CopyableUrl({ label, url }: { label: string; url: string }) {
       <span className="flex items-center gap-2 mt-1">
         <code className="text-xs break-all flex-1">{url}</code>
         <button
+          type="button"
           onClick={handleCopy}
           className="shrink-0 p-1 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground cursor-pointer"
           title={`Copy ${label}`}
