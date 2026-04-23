@@ -221,6 +221,7 @@ SELECT (regexp_matches(
 
 #[cfg(all(test, feature = "test-pg"))]
 mod tests {
+    use backon::{ConstantBuilder, Retryable as _};
     use deadpool_postgres::tokio_postgres::Config;
     use postgres::NoTls;
     use testcontainers_modules::postgres::Postgres;
@@ -229,14 +230,31 @@ mod tests {
 
     use super::*;
 
+    async fn start_old_postgis_container()
+    -> testcontainers_modules::testcontainers::ContainerAsync<Postgres> {
+        const MAX_START_ATTEMPTS: usize = 3;
+        const RETRY_DELAY: std::time::Duration = std::time::Duration::from_secs(2);
+
+        (|| async {
+            Postgres::default()
+                .with_name("postgis/postgis")
+                .with_tag("11-3.0") // purposely very old and stable
+                .start()
+                .await
+        })
+        .retry(
+            ConstantBuilder::default()
+                .with_delay(RETRY_DELAY)
+                .with_max_times(MAX_START_ATTEMPTS),
+        )
+        .sleep(tokio::time::sleep)
+        .await
+        .expect("failed to launch container after retry attempts")
+    }
+
     #[tokio::test]
     async fn parse_version() {
-        let node = Postgres::default()
-            .with_name("postgis/postgis")
-            .with_tag("11-3.0") // purposely very old and stable
-            .start()
-            .await
-            .expect("container launched");
+        let node = start_old_postgis_container().await;
 
         let pg_config = Config::new()
             .host(node.get_host().await.unwrap().to_string())
