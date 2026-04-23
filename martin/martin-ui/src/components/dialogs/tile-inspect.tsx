@@ -1,6 +1,5 @@
 'use client';
-
-import { Suspense } from 'react';
+import { Suspense, useState, useCallback } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -10,7 +9,8 @@ import {
 } from '@/components/ui/dialog';
 import type { TileSource } from '@/lib/types';
 import '@maplibre/maplibre-gl-inspect/dist/maplibre-gl-inspect.css';
-import { Database } from 'lucide-react';
+import { buildMartinUrl } from '@/lib/api';
+import { Database, Link, Copy, Check } from 'lucide-react';
 import { LoadingSpinner } from '../loading/loading-spinner';
 import { TileInspectDialogMap } from './tile-inspect-map';
 
@@ -28,7 +28,37 @@ function TileMapLoading() {
   );
 }
 
+function CopyableUrl({ label, url }: { label: string; url: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = useCallback(async () => {
+    await navigator.clipboard.writeText(url);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }, [url]);
+
+  return (
+    <p>
+      <span className="font-medium">{label}:</span>
+      <br />
+      <span className="flex items-center gap-2 mt-1">
+        <code className="text-xs break-all flex-1">{url}</code>
+        <button
+          onClick={handleCopy}
+          className="shrink-0 p-1 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground cursor-pointer"
+          title={`Copy ${label}`}
+        >
+          {copied ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
+        </button>
+      </span>
+    </p>
+  );
+}
+
 export function TileInspectDialog({ name, source, onCloseAction }: TileInspectDialogProps) {
+  const tileJsonUrl = buildMartinUrl(`/${name}`);
+  const xyzUrl = buildMartinUrl(`/${name}/{z}/{x}/{y}`);
+
   return (
     <Dialog onOpenChange={(v) => !v && onCloseAction()} open={true}>
       <DialogContent className="max-w-6xl w-full p-6 max-h-[90vh] overflow-auto">
@@ -96,6 +126,18 @@ export function TileInspectDialog({ name, source, onCloseAction }: TileInspectDi
                   <span>{source.attribution}</span>
                 </p>
               )}
+            </div>
+          </section>
+
+          {/* Tile URLs */}
+          <section className="bg-muted/30 p-4 rounded-lg">
+            <div className="flex items-center gap-2 mb-2">
+              <Link className="w-5 h-5 text-muted-foreground" />
+              <h3 className="font-semibold">Tile URLs</h3>
+            </div>
+            <div className="flex flex-col gap-y-4 text-sm">
+              <CopyableUrl label="TileJSON" url={tileJsonUrl} />
+              <CopyableUrl label="XYZ Tiles" url={xyzUrl} />
             </div>
           </section>
         </div>
