@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/dialog';
 import type { TileSource } from '@/lib/types';
 import '@maplibre/maplibre-gl-inspect/dist/maplibre-gl-inspect.css';
-import { Database, Link } from 'lucide-react';
+import { Database, ExternalLink  } from 'lucide-react';
 import { CopyableUrl } from '@/components/ui/copyable-url';
 import { buildMartinUrl } from '@/lib/api';
 import { LoadingSpinner } from '../loading/loading-spinner';
@@ -105,7 +105,7 @@ export function TileInspectDialog({ name, source, onCloseAction }: TileInspectDi
           {/* Tile URLs */}
           <section className="bg-muted/30 p-4 rounded-lg">
             <div className="flex items-center gap-2 mb-2">
-              <Link className="w-5 h-5 text-muted-foreground" />
+              <ExternalLink  className="w-5 h-5 text-muted-foreground" />
               <h3 className="font-semibold">Tile URLs</h3>
             </div>
             <div className="flex flex-col gap-y-4 text-sm">
