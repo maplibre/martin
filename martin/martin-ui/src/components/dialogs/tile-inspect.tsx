@@ -1,5 +1,5 @@
 'use client';
-import { Suspense, useCallback, useState } from 'react';
+import { Suspense } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -9,10 +9,11 @@ import {
 } from '@/components/ui/dialog';
 import type { TileSource } from '@/lib/types';
 import '@maplibre/maplibre-gl-inspect/dist/maplibre-gl-inspect.css';
-import { Check, Copy, Database, Link } from 'lucide-react';
 import { buildMartinUrl } from '@/lib/api';
+import { Database, Link } from 'lucide-react';
 import { LoadingSpinner } from '../loading/loading-spinner';
 import { TileInspectDialogMap } from './tile-inspect-map';
+import { CopyableUrl } from '@/components/ui/copyable-url';
 
 interface TileInspectDialogProps {
   name: string;
@@ -25,38 +26,6 @@ function TileMapLoading() {
     <div className="flex justify-center items-center text-white text-3xl w-full h-125">
       <LoadingSpinner />
     </div>
-  );
-}
-
-function CopyableUrl({ label, url }: { label: string; url: string }) {
-  const [copied, setCopied] = useState(false);
-
-  const handleCopy = useCallback(async () => {
-    await navigator.clipboard.writeText(url);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  }, [url]);
-
-  return (
-    <p>
-      <span className="font-medium">{label}:</span>
-      <br />
-      <span className="flex items-center gap-2 mt-1">
-        <code className="text-xs break-all flex-1">{url}</code>
-        <button
-          className="shrink-0 p-1 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground cursor-pointer"
-          onClick={handleCopy}
-          title={`Copy ${label}`}
-          type="button"
-        >
-          {copied ? (
-            <Check className="w-3.5 h-3.5 text-green-500" />
-          ) : (
-            <Copy className="w-3.5 h-3.5" />
-          )}
-        </button>
-      </span>
-    </p>
   );
 }
 
@@ -77,7 +46,6 @@ export function TileInspectDialog({ name, source, onCloseAction }: TileInspectDi
             Inspect the tile source to explore tile boundaries and properties.
           </DialogDescription>
         </DialogHeader>
-
         <div className="space-y-4">
           <section className="border rounded-lg overflow-hidden">
             <Suspense fallback={<TileMapLoading />}>
