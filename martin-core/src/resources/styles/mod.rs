@@ -283,7 +283,7 @@ mod tests {
             Path::new("../tests/fixtures/rendering_references").join(&reference_name);
 
         // Reference image MUST exist - if missing, the test fails and stores it on disk
-        let reference_bytes = std::fs::read(&reference_path).unwrap_or_else(|e| {
+        let reference_bytes = std::fs::read(&reference_path).unwrap_or_else(|_| {
                 std::fs::create_dir_all(reference_path.parent().unwrap()).unwrap();
                 // Sanity check: refuse to bless tiny or blank images
                 assert!(
