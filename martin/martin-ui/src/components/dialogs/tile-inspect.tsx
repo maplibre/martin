@@ -1,5 +1,5 @@
 'use client';
-import { Suspense, useState, useCallback } from 'react';
+import { Suspense, useCallback, useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -9,8 +9,8 @@ import {
 } from '@/components/ui/dialog';
 import type { TileSource } from '@/lib/types';
 import '@maplibre/maplibre-gl-inspect/dist/maplibre-gl-inspect.css';
+import { Check, Copy, Database, Link } from 'lucide-react';
 import { buildMartinUrl } from '@/lib/api';
-import { Database, Link, Copy, Check } from 'lucide-react';
 import { LoadingSpinner } from '../loading/loading-spinner';
 import { TileInspectDialogMap } from './tile-inspect-map';
 
@@ -44,12 +44,16 @@ function CopyableUrl({ label, url }: { label: string; url: string }) {
       <span className="flex items-center gap-2 mt-1">
         <code className="text-xs break-all flex-1">{url}</code>
         <button
-          type="button"
-          onClick={handleCopy}
           className="shrink-0 p-1 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground cursor-pointer"
+          onClick={handleCopy}
           title={`Copy ${label}`}
+          type="button"
         >
-          {copied ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
+          {copied ? (
+            <Check className="w-3.5 h-3.5 text-green-500" />
+          ) : (
+            <Copy className="w-3.5 h-3.5" />
+          )}
         </button>
       </span>
     </p>
