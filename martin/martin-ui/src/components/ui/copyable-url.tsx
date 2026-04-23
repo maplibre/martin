@@ -12,7 +12,12 @@ export function CopyableUrl({ label, url }: CopyableUrlProps) {
       <br />
       <span className="flex items-center gap-2 mt-1">
         <code className="text-xs break-all flex-1">{url}</code>
-        <CopyLinkButton link={url} toastMessage={`${label} URL copied!`} size="sm" variant="ghost" />
+        <CopyLinkButton
+          link={url}
+          size="sm"
+          toastMessage={`${label} URL copied!`}
+          variant="ghost"
+        />
       </span>
     </p>
   );

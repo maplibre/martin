@@ -9,11 +9,11 @@ import {
 } from '@/components/ui/dialog';
 import type { TileSource } from '@/lib/types';
 import '@maplibre/maplibre-gl-inspect/dist/maplibre-gl-inspect.css';
-import { buildMartinUrl } from '@/lib/api';
 import { Database, Link } from 'lucide-react';
+import { CopyableUrl } from '@/components/ui/copyable-url';
+import { buildMartinUrl } from '@/lib/api';
 import { LoadingSpinner } from '../loading/loading-spinner';
 import { TileInspectDialogMap } from './tile-inspect-map';
-import { CopyableUrl } from '@/components/ui/copyable-url';
 
 interface TileInspectDialogProps {
   name: string;
