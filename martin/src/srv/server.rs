@@ -96,6 +96,7 @@ pub fn router(cfg: &mut web::ServiceConfig, usr_cfg: &SrvConfig) {
                 usr_cfg,
             );
         }));
+        cfg.service(get_health);
     } else {
         register_services(
             cfg,
