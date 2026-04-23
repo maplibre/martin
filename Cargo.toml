@@ -73,9 +73,9 @@ json-patch = "4"
 lambda-web = { version = "0.2.1", features = ["actix4"] }
 log = "0.4"
 maplibre_native = "0.4.2"
-martin-core = { path = "./martin-core", version = "0.4.0", default-features = false }
+martin-core = { path = "./martin-core", version = "0.4.1", default-features = false }
 martin-tile-utils = { path = "./martin-tile-utils", version = "0.7.0" }
-mbtiles = { path = "./mbtiles", version = "0.16.0" }
+mbtiles = { path = "./mbtiles", version = "0.17.0" }
 md5 = "0.8.0"
 moka = { version = "0.12", default-features = false }
 num_cpus = "1"

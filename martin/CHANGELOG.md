@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.7.0](https://github.com/maplibre/martin/compare/martin-v1.6.0...martin-v1.7.0) - 2026-04-23
+
+### Added
+
+- *(ui)* Add Tile URLs TileJSON and XYZ Tiles URLs ([#2731](https://github.com/maplibre/martin/pull/2731))
+- *(mbtiles)* add --strict flag to use STRICT SQLite tables ([#2712](https://github.com/maplibre/martin/pull/2712))
+
+### Fixed
+
+- Keep /health available with `--route-prefix foo` instead of just moving it to /foo/health to enable docker healthchecks ([#2723](https://github.com/maplibre/martin/pull/2723))
+
+### Other
+
+- add retries when starting PostGIS testcontainers ([#2724](https://github.com/maplibre/martin/pull/2724))
+- *(deps)* autoupdate pre-commit ([#2720](https://github.com/maplibre/martin/pull/2720))
+- Stabilize PMTiles directory cache TTL/TTI tests under scheduler jitter ([#2725](https://github.com/maplibre/martin/pull/2725))
+- Stabilize flaky ttl_evicts_even_with_frequent_access test in tiles_test ([#2715](https://github.com/maplibre/martin/pull/2715))
+
 ## [1.6.0](https://github.com/maplibre/martin/compare/martin-v1.5.0...martin-v1.6.0) - 2026-04-18
 
 ### Smarter, more configurable caching
