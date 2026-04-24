@@ -6,7 +6,6 @@ import { Layer, Map as MapLibreMap, Source } from '@vis.gl/react-maplibre';
 import type { VectorSourceSpecification } from 'maplibre-gl';
 import { Popup } from 'maplibre-gl';
 import { type ErrorInfo, useEffect, useId, useRef } from 'react';
-import { Toaster } from '@/components/ui/toaster';
 import { useAsyncOperation } from '@/hooks/use-async-operation';
 import { useToast } from '@/hooks/use-toast';
 import { buildMartinUrl } from '@/lib/api';
@@ -159,7 +158,6 @@ export function TileInspectDialogMap({ name, source }: TileInspectDialogMapProps
           }}
         ></MapLibreMap>
       )}
-      <Toaster />
     </ErrorBoundary>
   );
 }
