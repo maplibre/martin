@@ -238,7 +238,7 @@ Common supported `content_type` values include:
 | `image/avif`                             | AVIF          |
 | `application/x-protobuf`                 | MVT (default) |
 | `application/vnd.mapbox-vector-tile`     | MVT (alias)   |
-| `application/vnd.maplibre-vector-tile`   | MLT           |
+| `application/vnd.maplibre-tile`          | MLT           |
 
 The following example creates a function that returns raster PNG tiles and sets the `content_type`:
 
