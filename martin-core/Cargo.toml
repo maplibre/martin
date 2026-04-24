@@ -68,6 +68,7 @@ base64  = { workspace = true, optional = true }
 bit-set = { workspace = true, optional = true }
 dashmap = { workspace = true, optional = true }
 deadpool-postgres = { workspace = true, optional = true }
+derive-debug.workspace = true
 futures = { workspace = true, optional = true }
 hotpath.workspace = true
 image = { workspace = true, optional = true }
