@@ -337,7 +337,7 @@ mod tests {
         assert!(
             diff_pct < max_diff_pct,
             "Rendered image {reference_name} differs from reference by {diff_pct:.2}% ({diff_pixels}/{total_pixels} pixels). \
-             If this is expected, delete the reference and run with BLESS_RENDERING=1."
+             If this is expected, delete the existing reference file and regenerate it using the current rendering output."
         );
     }
 }
