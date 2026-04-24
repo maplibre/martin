@@ -91,11 +91,13 @@ impl MBTilesReloader {
                     &prev,
                     &next,
                     async move |id| -> MartinResult<BoxedSource> {
-                        let p = sources_clone.get(&id).ok_or(
-                            MartinError::DirectoryWatchError(notify::ErrorKind::Generic(
-                                format!("Source {id} not found in discovered sources"),
-                            )),
-                        )?;
+                        let p = sources_clone
+                            .get(&id)
+                            .ok_or(MartinError::DirectoryWatchError(
+                                notify::ErrorKind::Generic(format!(
+                                    "Source {id} not found in discovered sources"
+                                )),
+                            ))?;
                         let src = MbtSource::new(id, p.0.clone()).await?;
 
                         Ok(Box::new(src) as BoxedSource)
