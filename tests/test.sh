@@ -346,7 +346,11 @@ if [[ "$MARTIN_BUILD_ALL" != "-" ]]; then
 fi
 
 echo "::group::Check HTTP server is running"
-$CURL --head "$STATICS_URL/webp2.pmtiles"
+if ! $CURL --head "$STATICS_URL/webp2.pmtiles"; then
+    echo "ERROR: pmtiles fileserver is not reachable at $STATICS_URL."
+    echo "       Start it with 'just start-pmtiles-server' before running this script."
+    exit 1
+fi
 echo "::endgroup::"
 
 # Prepare MBTiles from SQL fixtures
