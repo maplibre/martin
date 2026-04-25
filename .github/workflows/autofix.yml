@@ -69,7 +69,6 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y gdal-bin sqlite3-tools
 
       - run: just bless
-        continue-on-error: true
 
       # run pre-commit as a formatting tiebreaker
       - name: Install uv
