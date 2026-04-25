@@ -1059,6 +1059,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#serving-raster-tiles-from-postgresql-functions" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Serving Raster Tiles from PostgreSQL Functions
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1797,6 +1808,80 @@ You can use other methods of creating SQL comments.</p>
 </span><span id="__span-7-16"><a id="__codelineno-7-16" name="__codelineno-7-16" href="#__codelineno-7-16"></a><span class="w">    </span><span class="err">$$</span><span class="p">::</span><span class="n">json</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="s1">&#39;$tj$&#39;</span><span class="p">;</span>
 </span><span id="__span-7-17"><a id="__codelineno-7-17" name="__codelineno-7-17" href="#__codelineno-7-17"></a><span class="k">END</span><span class="w"> </span><span class="err">$</span><span class="k">do</span><span class="err">$</span><span class="p">;</span>
 </span></code></pre></div>
+<h4 id="serving-raster-tiles-from-postgresql-functions">Serving Raster Tiles from PostgreSQL Functions</h4>
+<p>By default, Martin assumes all PostgreSQL function sources produce vector tiles (<code>application/x-protobuf</code>).
+To serve <strong>raster tiles</strong> (PNG, JPEG, WebP, etc.) from a function, add a <code>content_type</code> field to the SQL comment JSON.
+Martin will read this field and serve the tiles with the correct MIME type.</p>
+<p>Common supported <code>content_type</code> values include:</p>
+<table>
+<thead>
+<tr>
+<th><code>content_type</code></th>
+<th>Format</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>image/png</code></td>
+<td>PNG</td>
+</tr>
+<tr>
+<td><code>image/jpeg</code></td>
+<td>JPEG</td>
+</tr>
+<tr>
+<td><code>image/jpg</code></td>
+<td>JPEG (alias)</td>
+</tr>
+<tr>
+<td><code>image/gif</code></td>
+<td>GIF</td>
+</tr>
+<tr>
+<td><code>image/webp</code></td>
+<td>WebP</td>
+</tr>
+<tr>
+<td><code>image/avif</code></td>
+<td>AVIF</td>
+</tr>
+<tr>
+<td><code>application/x-protobuf</code></td>
+<td>MVT (default)</td>
+</tr>
+<tr>
+<td><code>application/vnd.mapbox-vector-tile</code></td>
+<td>MVT (alias)</td>
+</tr>
+<tr>
+<td><code>application/vnd.maplibre-tile</code></td>
+<td>MLT</td>
+</tr>
+</tbody>
+</table>
+<p>The following example creates a function that returns raster PNG tiles and sets the <code>content_type</code>:</p>
+<div class="language-sql highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="k">CREATE</span><span class="w"> </span><span class="k">OR</span><span class="w"> </span><span class="k">REPLACE</span><span class="w"> </span><span class="k">FUNCTION</span><span class="w"> </span><span class="k">public</span><span class="p">.</span><span class="n">my_raster_tiles</span><span class="p">(</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="w">    </span><span class="n">z</span><span class="w"> </span><span class="nb">integer</span><span class="p">,</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="nb">integer</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="w"> </span><span class="nb">integer</span>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="p">)</span><span class="w"> </span><span class="k">RETURNS</span><span class="w"> </span><span class="n">bytea</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="err">$$</span>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="w">    </span><span class="c1">-- Replace with your actual raster tile generation logic</span>
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="w">    </span><span class="k">SELECT</span><span class="w"> </span><span class="n">get_raster_tile</span><span class="p">(</span><span class="n">z</span><span class="p">,</span><span class="w"> </span><span class="n">x</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="p">);</span>
+</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="err">$$</span><span class="w"> </span><span class="k">LANGUAGE</span><span class="w"> </span><span class="k">sql</span><span class="w"> </span><span class="k">IMMUTABLE</span><span class="w"> </span><span class="k">STRICT</span><span class="w"> </span><span class="n">PARALLEL</span><span class="w"> </span><span class="n">SAFE</span><span class="p">;</span>
+</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>
+</span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="k">DO</span><span class="w"> </span><span class="err">$</span><span class="k">do</span><span class="err">$</span><span class="w"> </span><span class="k">BEGIN</span>
+</span><span id="__span-8-9"><a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="w">    </span><span class="k">EXECUTE</span><span class="w"> </span><span class="s1">&#39;COMMENT ON FUNCTION public.my_raster_tiles IS $tj$&#39;</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="err">$$</span>
+</span><span id="__span-8-10"><a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a><span class="w">    </span><span class="err">{</span>
+</span><span id="__span-8-11"><a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a><span class="w">        </span><span class="ss">&quot;description&quot;</span><span class="p">:</span><span class="w"> </span><span class="ss">&quot;My raster tile layer&quot;</span><span class="p">,</span>
+</span><span id="__span-8-12"><a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a><span class="w">        </span><span class="ss">&quot;content_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="ss">&quot;image/png&quot;</span>
+</span><span id="__span-8-13"><a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a><span class="w">    </span><span class="err">}</span>
+</span><span id="__span-8-14"><a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a><span class="w">    </span><span class="err">$$</span><span class="p">::</span><span class="n">json</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="s1">&#39;$tj$&#39;</span><span class="p">;</span>
+</span><span id="__span-8-15"><a id="__codelineno-8-15" name="__codelineno-8-15" href="#__codelineno-8-15"></a><span class="k">END</span><span class="w"> </span><span class="err">$</span><span class="k">do</span><span class="err">$</span><span class="p">;</span>
+</span></code></pre></div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><code>content_type</code> is not a standard TileJSON field. Martin reads it from the SQL comment
+to determine how to serve tiles with the correct MIME type. It is also preserved in the
+TileJSON output so clients can inspect the tile format.</p>
+</div>
 
 
 
