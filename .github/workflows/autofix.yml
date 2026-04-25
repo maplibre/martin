@@ -71,7 +71,6 @@ jobs:
         run: just install-dependencies
 
       - run: just bless
-        continue-on-error: true
 
       # run pre-commit as a formatting tiebreaker
       - name: Install uv

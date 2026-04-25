@@ -5,6 +5,9 @@ use actix_web::web::Bytes;
 use moka::future::Cache;
 use tracing::{info, trace};
 
+#[cfg(feature = "metrics")]
+use crate::metrics::CACHE_REQUESTS_TOTAL;
+
 /// Sprite cache for storing generated sprite sheets.
 #[derive(Clone)]
 pub struct SpriteCache {
@@ -67,9 +70,17 @@ impl SpriteCache {
             .await?;
 
         if entry.is_fresh() {
+            #[cfg(feature = "metrics")]
+            CACHE_REQUESTS_TOTAL
+                .with_label_values(&["sprite", "miss"])
+                .inc();
             hotpath::gauge!("sprite_cache_misses").inc(1.0);
             trace!("Sprite cache MISS for {key:?}");
         } else {
+            #[cfg(feature = "metrics")]
+            CACHE_REQUESTS_TOTAL
+                .with_label_values(&["sprite", "hit"])
+                .inc();
             hotpath::gauge!("sprite_cache_hits").inc(1.0);
             trace!(
                 "Sprite cache HIT for {key:?} (entries={}, size={})",

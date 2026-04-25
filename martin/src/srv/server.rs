@@ -179,6 +179,7 @@ pub fn new_server(
             "/_/metrics".to_string()
         };
         actix_web_prom::PrometheusMetricsBuilder::new("martin")
+            .registry(prometheus::default_registry().clone())
             .endpoint(&metrics_endpoint)
             // `endpoint="UNKNOWN"` instead of `endpoint="/foo/bar"`
             .mask_unmatched_patterns("UNKNOWN")

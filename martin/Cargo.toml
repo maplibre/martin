@@ -104,7 +104,7 @@ rendering = ["styles", "martin-core/rendering", "dep:image"]
 fonts = ["martin-core/fonts", "_catalog"]
 lambda = ["dep:lambda-web"]
 mbtiles = ["martin-core/mbtiles", "dep:mbtiles", "_tiles"]
-metrics = ["dep:actix-web-prom"]
+metrics = ["martin-core/metrics", "dep:actix-web-prom", "dep:prometheus"]
 pmtiles = ["martin-core/pmtiles", "dep:object_store", "_tiles"]
 postgres = [
     "martin-core/postgres",
@@ -157,6 +157,7 @@ num_cpus.workspace = true
 object_store = { workspace = true, optional = true }
 postgis = { workspace = true, optional = true }
 postgres-protocol = { workspace = true, optional = true }
+prometheus = { workspace = true, optional = true }
 rustls.workspace = true
 serde.workspace = true
 serde_json.workspace = true

@@ -4,6 +4,9 @@ use std::time::Duration;
 use moka::future::Cache;
 use tracing::{info, trace};
 
+#[cfg(feature = "metrics")]
+use crate::metrics::CACHE_REQUESTS_TOTAL;
+
 /// Optional wrapper for `FontCache`.
 pub type OptFontCache = Option<FontCache>;
 
@@ -61,9 +64,17 @@ impl FontCache {
             .await?;
 
         if entry.is_fresh() {
+            #[cfg(feature = "metrics")]
+            CACHE_REQUESTS_TOTAL
+                .with_label_values(&["font", "miss"])
+                .inc();
             hotpath::gauge!("font_cache_misses").inc(1.0);
             trace!("Font cache MISS for {key:?}");
         } else {
+            #[cfg(feature = "metrics")]
+            CACHE_REQUESTS_TOTAL
+                .with_label_values(&["font", "hit"])
+                .inc();
             hotpath::gauge!("font_cache_hits").inc(1.0);
             trace!(
                 "Font cache HIT for {key:?} (entries={}, size={})",
