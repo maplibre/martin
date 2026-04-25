@@ -66,12 +66,20 @@ pub async fn get_style_rendered(
 
     // Re-encode to target format
     let mut img_buffer = std::io::Cursor::new(Vec::new());
+    let rendered_img = image.as_image();
     let (image_format, content_type) = match path.format {
         ImageFormatRequest::Png => (image::ImageFormat::Png, ContentType::png()),
         ImageFormatRequest::Jpeg => (image::ImageFormat::Jpeg, ContentType::jpeg()),
     };
 
-    let image_encoding_result = image.as_image().write_to(&mut img_buffer, image_format);
+    // JPEG doesn't support alpha, so convert RGBA→RGB when needed
+    let dynamic_img = image::DynamicImage::ImageRgba8(rendered_img.clone());
+    let encoded_img: image::DynamicImage = if image_format == image::ImageFormat::Jpeg {
+        image::DynamicImage::ImageRgb8(dynamic_img.to_rgb8())
+    } else {
+        dynamic_img
+    };
+    let image_encoding_result = encoded_img.write_to(&mut img_buffer, image_format);
     match image_encoding_result {
         Ok(()) => HttpResponse::Ok()
             .content_type(content_type)

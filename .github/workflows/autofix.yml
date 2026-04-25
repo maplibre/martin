@@ -67,6 +67,8 @@ jobs:
 
       - name: Install system dependencies
         run: sudo apt-get update && sudo apt-get install -y gdal-bin sqlite3-tools
+      - name: Install rendering dependencies
+        run: just install-dependencies
 
       - run: just bless
 

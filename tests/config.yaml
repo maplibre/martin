@@ -239,6 +239,7 @@ fonts:
 
 styles:
   warning: 'due to not expected'
+  rendering: true
   sources:
     maplibre: tests/fixtures/styles/maplibre_demo.json
   paths:

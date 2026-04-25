@@ -94,12 +94,13 @@ default = [
     "metrics",
     "pmtiles",
     "postgres",
+    "rendering",
     "sprites",
     "styles",
     "webui",
 ]
 unstable-cog = ["martin-core/unstable-cog", "_tiles"]
-unstable-rendering = ["styles", "martin-core/unstable-rendering", "dep:image"]
+rendering = ["styles", "martin-core/rendering", "dep:image"]
 fonts = ["martin-core/fonts", "_catalog"]
 lambda = ["dep:lambda-web"]
 mbtiles = ["martin-core/mbtiles", "dep:mbtiles", "_tiles"]

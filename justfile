@@ -120,18 +120,21 @@ build-release target:
     fi
 
 # Build debian package
+# Note: rendering feature is excluded because the Debian build targets older glibc (ubuntu-22.04)
+# and maplibre_native pre-built libraries require newer glibc.
 build-deb output: (cargo-install 'cargo-deb')
     #!/usr/bin/env bash
     set -euo pipefail
     sudo apt-get install -y dpkg dpkg-dev liblzma-dev
     if [[ "{{release_mode}}" == "1" ]]; then
-        cargo deb -v -p martin --output {{output}}
+        cargo deb -v -p martin --output {{output}} -- --no-default-features --features fonts,lambda,mbtiles,metrics,pmtiles,postgres,sprites,styles,webui
     else
-        cargo deb -v -p martin --profile dev --output {{output}}
+        cargo deb -v -p martin --profile dev --output {{output}} -- --no-default-features --features fonts,lambda,mbtiles,metrics,pmtiles,postgres,sprites,styles,webui
     fi
 
 # Build for musl target using zigbuild
 # Set RELEASE_MODE='' to build in debug mode (used for PRs in CI to reduce build time).
+# Note: rendering feature is excluded because maplibre_native cannot be cross-compiled for musl targets.
 build-release-musl target:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -140,7 +143,7 @@ build-release-musl target:
         export CARGO_TARGET_{{shoutysnakecase(target)}}_RUSTFLAGS='-C strip=debuginfo'
     fi
     cargo zigbuild {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package mbtiles --locked
-    cargo zigbuild {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package martin --locked
+    cargo zigbuild {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package martin --locked --no-default-features --features fonts,lambda,mbtiles,metrics,pmtiles,postgres,sprites,styles,webui
 
 
 # Move build artifacts to target_releases directory

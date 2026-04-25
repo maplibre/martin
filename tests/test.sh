@@ -712,6 +712,22 @@ test_redirect "table_source/0/0/0.pbf?test=123" "/table_source/0/0/0?test=123"
 
 test_metrics "metrics_1"
 
+# Test style rendering (only available on Linux with the rendering feature)
+# Run AFTER metrics collection to avoid adding rendering-specific metric entries to expected output
+RENDERING_AVAILABLE=0
+if [[ $OSTYPE == linux* ]] && $CURL "$MARTIN_URL/style/maplibre/0/0/0.png" > /dev/null 2>&1; then
+  >&2 echo "***** Test server-side style rendering *****"
+  RENDERING_AVAILABLE=1
+  # PNG rendering
+  $CURL "$MARTIN_URL/style/maplibre/0/0/0.png" > /dev/null
+  $CURL "$MARTIN_URL/style/maplibre/1/0/0.png" > /dev/null
+  $CURL "$MARTIN_URL/style/maplibre/1/1/0.png" > /dev/null
+  # JPEG rendering
+  $CURL "$MARTIN_URL/style/maplibre/0/0/0.jpeg" > /dev/null
+  $CURL "$MARTIN_URL/style/maplibre/1/0/0.jpg" > /dev/null
+  echo "Style rendering smoke tests passed (PNG + JPEG)"
+fi
+
 kill_process "$MARTIN_PROC_ID" Martin
 test_log_has_str "$LOG_FILE" 'WARN Table public.table_source has no spatial index on column geom'
 test_log_has_str "$LOG_FILE" 'WARN Table public.table_source_geog has no spatial index on column geog'
@@ -733,6 +749,12 @@ test_log_has_str "$LOG_FILE" "WARN Ignoring unrecognized configuration key 'spri
 # TODO: below should be changed to cog.warning once unstable-cog is made stable
 test_log_has_str "$LOG_FILE" "WARN Ignoring unrecognized configuration key 'cog'. Please check your configuration file for typos."
 test_log_has_str "$LOG_FILE" "WARN Ignoring unrecognized configuration key 'styles.warning'. Please check your configuration file for typos."
+# rendering: true produces different warnings depending on whether the rendering feature is compiled in
+if [[ "$RENDERING_AVAILABLE" == "1" ]]; then
+  test_log_has_str "$LOG_FILE" 'WARN experimental feature rendering is enabled'
+else
+  test_log_has_str "$LOG_FILE" "WARN Ignoring unrecognized configuration key 'styles.rendering'. Please check your configuration file for typos."
+fi
 test_log_has_str "$LOG_FILE" 'WARN Defaulting `pmtiles.allow_http` to `true`. This is likely to become an error in the future for better security.'
 test_log_has_str "$LOG_FILE" 'WARN Environment variable AWS_SKIP_CREDENTIALS is deprecated. Please use pmtiles.skip_signature in the configuration file instead.'
 test_log_has_str "$LOG_FILE" 'WARN Environment variable AWS_REGION is deprecated. Please use pmtiles.region in the configuration file instead.'

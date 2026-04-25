@@ -57,6 +57,7 @@ clap = { version = "4", features = ["derive", "unstable-markdown", "wrap_help"] 
 criterion = { version = "0.8", features = ["async_futures", "async_tokio", "html_reports"] }
 dashmap = { version = "6.1.0", features = ["serde", "inline", "rayon"] }
 deadpool-postgres = "0.14"
+derive-debug = "0.1.2"
 enum-display = "0.2"
 env_logger = "0.11"
 flate2 = "1"
@@ -81,6 +82,7 @@ moka = { version = "0.12", default-features = false }
 num_cpus = "1"
 object_store = { version = "0.13.2", features = ["gcp", "aws", "azure", "fs", "http"] }
 pbf_font_tools = { version = "3.1.1", features = ["freetype"] }
+pixelmatch = "0.1"
 pmtiles = { version = "0.21.0", features = ["tilejson", "object-store"] }
 png = "0.18.0"
 postgis = "0.9"
