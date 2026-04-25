@@ -69,7 +69,10 @@ pub async fn get_style_rendered(
     let mut img_buffer = std::io::Cursor::new(Vec::new());
     let rendered_img = image.as_image();
     let (image_format, content_type) = match path.format {
-        ImageFormatRequest::Png => (image::ImageFormat::Png, HeaderValue::from_static("image/png")),
+        ImageFormatRequest::Png => (
+            image::ImageFormat::Png,
+            HeaderValue::from_static("image/png"),
+        ),
         ImageFormatRequest::Jpeg => (
             image::ImageFormat::Jpeg,
             HeaderValue::from_static("image/jpeg"),
