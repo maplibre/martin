@@ -92,7 +92,7 @@ bless-insta *args:  (cargo-install 'cargo-insta')
     cargo insta test --accept --all-targets --workspace {{args}}
 
 # Bless integration tests
-bless-int:
+bless-int: start
     rm -rf tests/temp
     tests/test.sh
     rm -rf tests/expected && mv tests/output tests/expected
@@ -377,7 +377,7 @@ semver *args:  (cargo-install 'cargo-semver-checks')
     cargo semver-checks {{args}}
 
 # Start a test database
-start:  (docker-up 'db') docker-is-ready
+start:  (docker-up 'db') docker-is-ready start-pmtiles-server
 
 # Start a legacy test database
 start-legacy:  (docker-up 'db-legacy') docker-is-ready
