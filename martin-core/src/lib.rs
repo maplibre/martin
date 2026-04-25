@@ -6,6 +6,8 @@
 mod cache_zoom_range;
 pub use cache_zoom_range::CacheZoomRange;
 
+pub mod metrics;
+
 /// Tile sources
 #[cfg(feature = "_tiles")]
 pub mod tiles;

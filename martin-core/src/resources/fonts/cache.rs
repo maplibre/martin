@@ -61,9 +61,15 @@ impl FontCache {
             .await?;
 
         if entry.is_fresh() {
+            crate::metrics::CACHE_REQUESTS_TOTAL
+                .with_label_values(&["font", "miss"])
+                .inc();
             hotpath::gauge!("font_cache_misses").inc(1.0);
             trace!("Font cache MISS for {key:?}");
         } else {
+            crate::metrics::CACHE_REQUESTS_TOTAL
+                .with_label_values(&["font", "hit"])
+                .inc();
             hotpath::gauge!("font_cache_hits").inc(1.0);
             trace!(
                 "Font cache HIT for {key:?} (entries={}, size={})",

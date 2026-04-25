@@ -7,11 +7,6 @@ tilejson:
   - id: table_source
     fields:
       gid: int4
-  bounds:
-  - -2.0
-  - -1.0
-  - 142.84131509869133
-  - 45.0
   maxzoom: 6
   minzoom: 0
   name: table_source

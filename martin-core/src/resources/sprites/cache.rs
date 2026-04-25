@@ -67,9 +67,15 @@ impl SpriteCache {
             .await?;
 
         if entry.is_fresh() {
+            crate::metrics::CACHE_REQUESTS_TOTAL
+                .with_label_values(&["sprite", "miss"])
+                .inc();
             hotpath::gauge!("sprite_cache_misses").inc(1.0);
             trace!("Sprite cache MISS for {key:?}");
         } else {
+            crate::metrics::CACHE_REQUESTS_TOTAL
+                .with_label_values(&["sprite", "hit"])
+                .inc();
             hotpath::gauge!("sprite_cache_hits").inc(1.0);
             trace!(
                 "Sprite cache HIT for {key:?} (entries={}, size={})",

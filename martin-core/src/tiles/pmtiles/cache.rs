@@ -105,7 +105,7 @@ impl pmtiles::DirectoryCache for PmtCacheInstance {
         fetcher: impl Future<Output = pmtiles::PmtResult<pmtiles::Directory>> + Send,
     ) -> pmtiles::PmtResult<Option<pmtiles::DirEntry>> {
         let key = PmtCacheKey::new(self.id, offset);
-        let directory = self
+        let entry = self
             .cache
             .0
             .entry(key)
@@ -113,9 +113,13 @@ impl pmtiles::DirectoryCache for PmtCacheInstance {
             .await
             .map_err(|e| {
                 pmtiles::PmtError::DirectoryCacheError(format!("Moka cache fetch error: {e}"))
-            })?
-            .into_value();
-        Ok(directory.find_tile_id(tile_id).cloned())
+            })?;
+        let result = if entry.is_fresh() { "miss" } else { "hit" };
+        let zoom = crate::metrics::ZOOM_LABELS[pmtiles::TileCoord::from(tile_id).z() as usize];
+        crate::metrics::TILE_CACHE_REQUESTS_TOTAL
+            .with_label_values(&["pmtiles_directory", result, zoom])
+            .inc();
+        Ok(entry.into_value().find_tile_id(tile_id).cloned())
     }
 }
 

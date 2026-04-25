@@ -1,4 +1,4 @@
-import type { HistogramBucket } from './prometheus';
+import type { CacheMetrics, HistogramBucket } from './prometheus';
 
 export interface CatalogSchema {
   tiles: { readonly [tile_id: string]: TileSource };
@@ -66,4 +66,5 @@ export interface AnalyticsData {
   tiles: EndpointAnalytics;
   fonts: EndpointAnalytics;
   styles: EndpointAnalytics;
+  caches: Record<string, CacheMetrics>;
 }
