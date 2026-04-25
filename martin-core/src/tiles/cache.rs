@@ -5,6 +5,8 @@ use martin_tile_utils::{Format, TileCoord};
 use moka::future::Cache;
 use tracing::{info, trace};
 
+#[cfg(feature = "metrics")]
+use crate::metrics::{TILE_CACHE_REQUESTS_TOTAL, ZOOM_LABELS};
 use crate::tiles::Tile;
 
 /// Tile cache for storing rendered tile data.
@@ -56,16 +58,17 @@ impl TileCache {
             .or_try_insert_with(async move { compute().await })
             .await?;
 
-        let zoom = crate::metrics::ZOOM_LABELS[key.xyz.z as usize];
         if entry.is_fresh() {
-            crate::metrics::TILE_CACHE_REQUESTS_TOTAL
-                .with_label_values(&["tile", "miss", zoom])
+            #[cfg(feature = "metrics")]
+            TILE_CACHE_REQUESTS_TOTAL
+                .with_label_values(&["tile", "miss", ZOOM_LABELS[key.xyz.z as usize]])
                 .inc();
             hotpath::gauge!("tile_cache_misses").inc(1.0);
             trace!("Tile cache MISS for {key:?}");
         } else {
-            crate::metrics::TILE_CACHE_REQUESTS_TOTAL
-                .with_label_values(&["tile", "hit", zoom])
+            #[cfg(feature = "metrics")]
+            TILE_CACHE_REQUESTS_TOTAL
+                .with_label_values(&["tile", "hit", ZOOM_LABELS[key.xyz.z as usize]])
                 .inc();
             hotpath::gauge!("tile_cache_hits").inc(1.0);
             trace!(

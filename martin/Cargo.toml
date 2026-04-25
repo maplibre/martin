@@ -103,7 +103,7 @@ unstable-rendering = ["styles", "martin-core/unstable-rendering", "dep:image"]
 fonts = ["martin-core/fonts", "_catalog"]
 lambda = ["dep:lambda-web"]
 mbtiles = ["martin-core/mbtiles", "dep:mbtiles", "_tiles"]
-metrics = ["dep:actix-web-prom", "dep:prometheus"]
+metrics = ["martin-core/metrics", "dep:actix-web-prom", "dep:prometheus"]
 pmtiles = ["martin-core/pmtiles", "dep:object_store", "_tiles"]
 postgres = [
     "martin-core/postgres",

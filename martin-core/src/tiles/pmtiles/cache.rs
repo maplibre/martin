@@ -3,6 +3,9 @@ use std::time::Duration;
 use moka::future::Cache;
 use tracing::info;
 
+#[cfg(feature = "metrics")]
+use crate::metrics::{TILE_CACHE_REQUESTS_TOTAL, ZOOM_LABELS};
+
 /// Optional wrapper for `PmtCache`.
 pub type OptPmtCache = Option<PmtCache>;
 
@@ -114,11 +117,14 @@ impl pmtiles::DirectoryCache for PmtCacheInstance {
             .map_err(|e| {
                 pmtiles::PmtError::DirectoryCacheError(format!("Moka cache fetch error: {e}"))
             })?;
-        let result = if entry.is_fresh() { "miss" } else { "hit" };
-        let zoom = crate::metrics::ZOOM_LABELS[pmtiles::TileCoord::from(tile_id).z() as usize];
-        crate::metrics::TILE_CACHE_REQUESTS_TOTAL
-            .with_label_values(&["pmtiles_directory", result, zoom])
-            .inc();
+        #[cfg(feature = "metrics")]
+        {
+            let result = if entry.is_fresh() { "miss" } else { "hit" };
+            let zoom = ZOOM_LABELS[pmtiles::TileCoord::from(tile_id).z() as usize];
+            TILE_CACHE_REQUESTS_TOTAL
+                .with_label_values(&["pmtiles_directory", result, zoom])
+                .inc();
+        }
         Ok(entry.into_value().find_tile_id(tile_id).cloned())
     }
 }
