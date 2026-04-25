@@ -7,6 +7,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.7.0](https://github.com/maplibre/martin/compare/martin-v1.6.0...martin-v1.7.0) - 2026-04-23
+
+### `martin_tile_cache_requests_total` and `martin_cache_requests_total` metrics
+
+We have added the following metrics, allowing for knowing what your cache hit rate.
+These are two metrics because for tiles we include the zoom while for fonts/sprites this does not make sense.
+
+```raw
+# HELP martin_cache_requests_total Martin cache lookups, labeled by cache type and hit/miss result
+# TYPE martin_cache_requests_total counter
+martin_cache_requests_total{cache="font",result="miss"} NUMBER
+martin_cache_requests_total{cache="sprite",result="miss"} NUMBER
+# HELP martin_tile_cache_requests_total Martin tile-coordinate cache lookups, labeled by cache type, hit/miss result, and zoom
+# TYPE martin_tile_cache_requests_total counter
+martin_tile_cache_requests_total{cache="tile",result="hit",zoom="0"} NUMBER
+martin_tile_cache_requests_total{cache="tile",result="miss",zoom="0"} NUMBER
+```
+
+> [!TIP]
+> If you have concrete needs for what metrics you would like to see, please open an issue.
+> The set of metrics we offer is quite early in its development livecycle.
+
+### Stabilised Server-side raster tile rendering backend
+
+We have stabilised our rendering backend, which means that you can now render images using MapLibre Native.
+We have some work planned to improve performance by prefetching and better paralelism, or to add capabilites like overlaying lines/text/shapes.. via query params.
+If you have needs/interests towards this area, we would also invite you to open a discussion/issue on the API that you would like to see.
+If you need configurability, we would also like to know what kind of configurability you need.
+
+To enable this feature, you need to add the following to your configuration file:
+
+```yaml
+styles:
+    rendering: true
+```
+
+### Added
+
+- *(ui)* Add Tile URLs TileJSON and XYZ Tiles URLs to the inspect UI ([#2731](https://github.com/maplibre/martin/pull/2731))
+- *(mbtiles)* add --strict flag to use STRICT SQLite tables ([#2712](https://github.com/maplibre/martin/pull/2712))
+
+### Fixed
+
+- Keep /health available with `--route-prefix foo` instead of just moving it to /foo/health to enable docker healthchecks ([#2723](https://github.com/maplibre/martin/pull/2723))
+
+### Other
+
+- Some refactorings to increase CI reliability ([#2724](https://github.com/maplibre/martin/pull/2724), [#2715](https://github.com/maplibre/martin/pull/2715), [#2725](https://github.com/maplibre/martin/pull/2725))
+- *(deps)* autoupdate pre-commit ([#2720](https://github.com/maplibre/martin/pull/2720))
+
 ## [1.6.0](https://github.com/maplibre/martin/compare/martin-v1.5.0...martin-v1.6.0) - 2026-04-18
 
 ### Smarter, more configurable caching

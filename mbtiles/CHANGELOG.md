@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.0](https://github.com/maplibre/martin/compare/mbtiles-v0.16.0...mbtiles-v0.17.0) - 2026-04-23
+
+### Added
+
+- *(mbtiles)* add --strict flag to use STRICT SQLite tables ([#2712](https://github.com/maplibre/martin/pull/2712))
+
 ## [0.16.0](https://github.com/maplibre/martin/compare/mbtiles-v0.15.4...mbtiles-v0.16.0) - 2026-04-18
 
 ### Added

@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1](https://github.com/maplibre/martin/compare/martin-core-v0.4.0...martin-core-v0.4.1) - 2026-04-23
+
+### Other
+
+- Stabilize PMTiles directory cache TTL/TTI tests under scheduler jitter ([#2725](https://github.com/maplibre/martin/pull/2725))
+- add retries when starting PostGIS testcontainers ([#2724](https://github.com/maplibre/martin/pull/2724))
+- Stabilize flaky ttl_evicts_even_with_frequent_access test in tiles_test ([#2715](https://github.com/maplibre/martin/pull/2715))
+
 ## [0.4.0](https://github.com/maplibre/martin/compare/martin-core-v0.3.2...martin-core-v0.4.0) - 2026-04-18
 
 ### Added
