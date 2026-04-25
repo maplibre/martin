@@ -448,6 +448,9 @@ test_pbf fnc_token_0_0_0          function_zxy_query_test/0/0/0?token=martin
 test_jsn fnc_b                    function_zxy_query_jsonb
 test_pbf fnc_b_6_38_20            function_zxy_query_jsonb/6/57/29
 
+test_jsn fnc_raster               function_zxy_raster
+test_png fnc_raster_0_0_0         function_zxy_raster/0/0/0
+
 >&2 echo "***** Test server response for different function call types *****"
 test_pbf fnc_zoom_xy_6_57_29      function_zoom_xy/6/57/29
 test_pbf fnc_zxy_6_57_29          function_zxy/6/57/29

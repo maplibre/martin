@@ -219,3 +219,48 @@ DO $do$ BEGIN
     $$::json || '$tj$';
 END $do$;
 ```
+
+#### Serving Raster Tiles from PostgreSQL Functions
+
+By default, Martin assumes all PostgreSQL function sources produce vector tiles (`application/x-protobuf`).
+To serve **raster tiles** (PNG, JPEG, WebP, etc.) from a function, add a `content_type` field to the SQL comment JSON.
+Martin will read this field and serve the tiles with the correct MIME type.
+
+Common supported `content_type` values include:
+
+| `content_type`                           | Format        |
+|------------------------------------------|---------------|
+| `image/png`                              | PNG           |
+| `image/jpeg`                             | JPEG          |
+| `image/jpg`                              | JPEG (alias)  |
+| `image/gif`                              | GIF           |
+| `image/webp`                             | WebP          |
+| `image/avif`                             | AVIF          |
+| `application/x-protobuf`                 | MVT (default) |
+| `application/vnd.mapbox-vector-tile`     | MVT (alias)   |
+| `application/vnd.maplibre-tile`          | MLT           |
+
+The following example creates a function that returns raster PNG tiles and sets the `content_type`:
+
+```sql
+CREATE OR REPLACE FUNCTION public.my_raster_tiles(
+    z integer, x integer, y integer
+) RETURNS bytea AS $$
+    -- Replace with your actual raster tile generation logic
+    SELECT get_raster_tile(z, x, y);
+$$ LANGUAGE sql IMMUTABLE STRICT PARALLEL SAFE;
+
+DO $do$ BEGIN
+    EXECUTE 'COMMENT ON FUNCTION public.my_raster_tiles IS $tj$' || $$
+    {
+        "description": "My raster tile layer",
+        "content_type": "image/png"
+    }
+    $$::json || '$tj$';
+END $do$;
+```
+
+!!! note
+    `content_type` is not a standard TileJSON field. Martin reads it from the SQL comment
+    to determine how to serve tiles with the correct MIME type. It is also preserved in the
+    TileJSON output so clients can inspect the tile format.

@@ -1,5 +1,6 @@
 use std::collections::{BTreeMap, HashMap};
 
+use martin_tile_utils::{Encoding, Format, TileInfo};
 use serde::{Deserialize, Serialize};
 use tilejson::{Bounds, TileJSON, VectorLayer};
 use tracing::{info, warn};
@@ -117,6 +118,10 @@ impl PostgresInfo for TableInfo {
         };
         tilejson.vector_layers = Some(vec![layer]);
         patch_json(tilejson, self.tilejson.as_ref())
+    }
+
+    fn tile_info(&self) -> TileInfo {
+        TileInfo::new(Format::Mvt, Encoding::Uncompressed)
     }
 }
 

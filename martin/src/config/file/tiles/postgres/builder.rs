@@ -432,8 +432,16 @@ impl PostgresAutoDiscoveryBuilder {
         cache: CachePolicy,
     ) {
         let tilejson = pg_info.to_tilejson(id.clone());
+        let tile_info = pg_info.tile_info();
         let cache = cache.or(self.default_cache);
-        let source = PostgresSource::new(id, sql_info, tilejson, self.pool.clone(), cache.zoom());
+        let source = PostgresSource::new(
+            id,
+            sql_info,
+            tilejson,
+            self.pool.clone(),
+            tile_info,
+            cache.zoom(),
+        );
         sources.push(Box::new(source));
     }
 
