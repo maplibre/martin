@@ -25,7 +25,7 @@
       
       
       <link rel="icon" href="../images/favicon.ico">
-      <meta name="generator" content="zensical-0.0.34">
+      <meta name="generator" content="zensical-0.0.36">
     
     
       
@@ -36,7 +36,7 @@
       
         
       
-      <link rel="stylesheet" href="../assets/stylesheets/modern/main.53a7feaf.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/modern/main.1e981d71.min.css">
       
         
           
@@ -1137,9 +1137,9 @@
         <li class="md-nav__item">
   <a href="#api" class="md-nav__link">
     <span class="md-ellipsis">
-      
+      <span class="md-typeset">
         API
-      
+      </span>
     </span>
   </a>
   
@@ -1148,9 +1148,9 @@
         <li class="md-nav__item">
   <a href="#map-style" class="md-nav__link">
     <span class="md-ellipsis">
-      
+      <span class="md-typeset">
         Map Style
-      
+      </span>
     </span>
   </a>
   
@@ -1159,9 +1159,9 @@
         <li class="md-nav__item">
   <a href="#server-side-raster-tile-rendering" class="md-nav__link">
     <span class="md-ellipsis">
-      
+      <span class="md-typeset">
         Server-side raster tile rendering
-      
+      </span>
     </span>
   </a>
   
@@ -1170,9 +1170,9 @@
         <li class="md-nav__item">
   <a href="#static-image-prepraration" class="md-nav__link">
     <span class="md-ellipsis">
-      
+      <span class="md-typeset">
         Static image prepraration
-      
+      </span>
     </span>
   </a>
   
@@ -1495,13 +1495,9 @@ A restart of Martin is required to see new styles.</p>
 <h3 id="server-side-raster-tile-rendering">Server-side raster tile rendering</h3>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
-<p>This feature is currently unstable and thus not included in the default build.
+<p>This feature is included in the default build on Linux.
 Its behaviour may change in patch releases.</p>
-<p>To experiment with it, <a href="https://rust-lang.org/tools/install/">install Rust</a> and run <code>just install-dependencies</code>.
-With these installed, run the following command to install martin with the unstable feature:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>cargo<span class="w"> </span>build<span class="w"> </span>--features<span class="o">=</span>unstable-rendering
-</span></code></pre></div>
-<p>It is unstable due to the limitations of our current implementation:</p>
+<p>Limitations of our current implementation:</p>
 <ul>
 <li>Rendering support is currently only available on Linux.
   To add support for macOS/Windows, please see <a href="https://github.com/maplibre/maplibre-native-rs">https://github.com/maplibre/maplibre-native-rs</a>.</li>
@@ -1512,8 +1508,8 @@ With these installed, run the following command to install martin with the unsta
 </div>
 <p>We support generating a rasterised image for an XYZ tile of a given style.</p>
 <p>To do so, you need to enable the feature in the configuration file:</p>
-<div class="language-yaml highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">styles</span><span class="p">:</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">    </span><span class="nt">rendering</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">styles</span><span class="p">:</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">    </span><span class="nt">rendering</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
 </span></code></pre></div>
 <p>After doing so, you can use the <code>/style/&lt;style_id&gt;/{z}/{x}/{y}.{filetype}</code> API to get a <code>&lt;style_id&gt;</code>'s rendered png/jpeg content.</p>
 <h3 id="static-image-prepraration">Static image prepraration</h3>
@@ -1643,7 +1639,7 @@ We are working on adding this feature and are very open to contributions.</p>
       <script id="__config" type="application/json">{"annotate":null,"base":"..","features":["announce.dismiss","content.action.edit","content.code.annotate","content.code.copy","content.code.select","content.footnote.tooltips","content.tabs.link","content.tooltips","header.autohide","navigation.expand","navigation.footer","navigation.indexes","navigation.instant","navigation.instant.prefetch","navigation.instant.progress","navigation.path","navigation.prune","navigation.sections","navigation.tabs","navigation.tabs.sticky","navigation.top","navigation.tracking","search.highlight","toc.follow","toc.integrate"],"search":"../assets/javascripts/workers/search.e2d2d235.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":null}</script>
     
     
-      <script src="../assets/javascripts/bundle.9f55f5b1.min.js"></script>
+      <script src="../assets/javascripts/bundle.dbc0afdc.min.js"></script>
       
     
   </body>
