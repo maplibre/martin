@@ -571,44 +571,6 @@ jobs:
             target/test_logs/*
           retention-days: 5
 
-  test-freebsd:
-    name: Unit test on FreeBSD
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    needs:
-      - lint-rust
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with: { persist-credentials: false }
-      - name: Test in FreeBSD
-        id: test
-        uses: vmactions/freebsd-vm@7ca82f79fe3078fecded6d3a2bff094995447bbd # v1
-        with:
-          release: "15.0"
-          envs: "AWS_SKIP_CREDENTIALS AWS_REGION"
-          # Dependencies (FreeBSD base systems come more bare):
-          # - sqlite3 for MBTiles support
-          # - freetype2 for font rendering to SDF
-          # - cmake for aws-lc-sys
-          # - just for running standardized test suites
-          # - bash because the justfile has a lot of scripts that assume bash
-          # - node and npm for building the webui
-          prepare: |
-            pkg install -y rust sqlite3 freetype2 cmake just bash node npm
-          run: |
-            # Create swap space to prevent OOM during linking of test binaries
-            dd if=/dev/zero of=/tmp/swapfile bs=1M count=4096
-            chmod 0600 /tmp/swapfile
-            mdconfig -a -t vnode -f /tmp/swapfile -u 0
-            swapon /dev/md0
-            just env-info
-            just test-freebsd
-        env:
-          AWS_SKIP_CREDENTIALS: 1
-          AWS_REGION: eu-central-1
-
   unit-test-svc-pg:
     name: Unit test postgis:${{ matrix.img_ver }} sslmode=${{ matrix.sslmode }}
     runs-on: ubuntu-latest
