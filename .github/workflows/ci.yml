@@ -918,7 +918,6 @@ jobs:
       - lint-rust-dependencies
       - lint-unit-test-js
       - lint-rust
-      - test-freebsd
     if: always()
     permissions: {}
     steps:
