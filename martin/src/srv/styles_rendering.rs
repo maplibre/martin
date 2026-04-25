@@ -1,4 +1,4 @@
-use actix_web::http::header::ContentType;
+use actix_web::http::header::{ContentType, HeaderValue};
 use actix_web::web::{Data, Path};
 use actix_web::{HttpResponse, route};
 use martin_core::styles::StyleSources;
@@ -21,6 +21,7 @@ enum ImageFormatRequest {
     Png,
     #[serde(alias = "jpg")]
     Jpeg,
+    Webp,
 }
 
 #[route("/style/{style_id}/{z}/{x}/{y}.{format}", method = "GET")]
@@ -68,8 +69,18 @@ pub async fn get_style_rendered(
     let mut img_buffer = std::io::Cursor::new(Vec::new());
     let rendered_img = image.as_image();
     let (image_format, content_type) = match path.format {
-        ImageFormatRequest::Png => (image::ImageFormat::Png, ContentType::png()),
-        ImageFormatRequest::Jpeg => (image::ImageFormat::Jpeg, ContentType::jpeg()),
+        ImageFormatRequest::Png => (
+            image::ImageFormat::Png,
+            HeaderValue::from_static("image/png"),
+        ),
+        ImageFormatRequest::Jpeg => (
+            image::ImageFormat::Jpeg,
+            HeaderValue::from_static("image/jpeg"),
+        ),
+        ImageFormatRequest::Webp => (
+            image::ImageFormat::WebP,
+            HeaderValue::from_static("image/webp"),
+        ),
     };
 
     // JPEG doesn't support alpha, so convert RGBA→RGB when needed
