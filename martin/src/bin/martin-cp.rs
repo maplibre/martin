@@ -420,7 +420,8 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()>
                 .try_for_each_concurrent(concurrency, |xyz| {
                     let tx = tx.clone();
                     async move {
-                        let tile = src.get_tile_content(xyz).await?;
+                        let tile = src.get_tile_content(xyz).await
+                            .map_err(|e| std::io::Error::other(e.to_string()))?;
                         let data = tile.data;
                         tx.send(TileXyz { xyz, data })
                             .await

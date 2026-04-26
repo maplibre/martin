@@ -311,6 +311,49 @@ validate_log() {
   fi
 }
 
+wait_for_catalog_source() {
+  SOURCE_ID="$1"
+  echo "Waiting for source '$SOURCE_ID' to appear in catalog..."
+  for _ in {1..30}; do
+    if $CURL "$MARTIN_URL/catalog" 2>/dev/null | jq -e --arg id "$SOURCE_ID" '.tiles | has($id)' > /dev/null 2>&1; then
+      echo "Source '$SOURCE_ID' is available in catalog."
+      return 0
+    fi
+    sleep 1
+  done
+  echo "ERROR: Source '$SOURCE_ID' did not appear in catalog within 30s"
+  exit 1
+}
+
+wait_for_catalog_source_removed() {
+  SOURCE_ID="$1"
+  echo "Waiting for source '$SOURCE_ID' to be removed from catalog..."
+  for _ in {1..30}; do
+    if ! $CURL "$MARTIN_URL/catalog" 2>/dev/null | jq -e --arg id "$SOURCE_ID" '.tiles | has($id)' > /dev/null 2>&1; then
+      echo "Source '$SOURCE_ID' has been removed from catalog."
+      return 0
+    fi
+    sleep 1
+  done
+  echo "ERROR: Source '$SOURCE_ID' was not removed from catalog within 30s"
+  exit 1
+}
+
+wait_for_log_str() {
+  WAIT_LOG_FILE="$1"
+  EXPECTED="$2"
+  echo "Waiting for '$EXPECTED' in $WAIT_LOG_FILE..."
+  for _ in {1..30}; do
+    if grep -q "$EXPECTED" "$WAIT_LOG_FILE" 2>/dev/null; then
+      echo "Found '$EXPECTED' in log."
+      return 0
+    fi
+    sleep 1
+  done
+  echo "ERROR: '$EXPECTED' not found in $WAIT_LOG_FILE within 30s"
+  exit 1
+}
+
 compare_sql_dbs() {
   DB_FILE="$1"
   EXPECTED_DB_FILE="$2"
@@ -959,6 +1002,50 @@ if [[ "$MBTILES_BIN" != "-" ]]; then
 else
   echo "Skipping mbtiles utility tests"
 fi
+
+echo "::group::Test MBTiles hot reload"
+TEST_NAME="mbtiles_reload"
+LOG_FILE="${LOG_DIR}/${TEST_NAME}.txt"
+TEST_OUT_DIR="${TEST_OUT_BASE_DIR}/${TEST_NAME}"
+RELOAD_WATCH_DIR="${TEST_TEMP_DIR}/reload_watch"
+mkdir -p "$TEST_OUT_DIR" "$RELOAD_WATCH_DIR"
+
+ARG=("$RELOAD_WATCH_DIR")
+set -x
+$MARTIN_BIN "${ARG[@]}" 2>&1 | tee "$LOG_FILE" &
+MARTIN_PROC_ID=$(jobs -p | tail -n 1)
+{ set +x; } 2> /dev/null
+trap "echo 'Stopping Martin server $MARTIN_PROC_ID...'; kill -9 $MARTIN_PROC_ID 2> /dev/null || true; echo 'Stopped Martin server $MARTIN_PROC_ID';" EXIT HUP INT TERM
+wait_for "$MARTIN_PROC_ID" Martin "$MARTIN_URL/health"
+
+>&2 echo "Test reload: catalog starts empty with no mbtiles in watch dir"
+$CURL "$MARTIN_URL/catalog" | jq --sort-keys > "$TEST_OUT_DIR/catalog_empty.json"
+
+>&2 echo "Test reload: adding a new MBTiles file triggers source addition"
+cp tests/fixtures/mbtiles/world_cities.mbtiles "$RELOAD_WATCH_DIR/world_cities.mbtiles"
+wait_for_catalog_source "world_cities"
+test_jsn reload_catalog_added catalog
+
+>&2 echo "Test reload: updating an MBTiles file triggers source update"
+touch "$RELOAD_WATCH_DIR/world_cities.mbtiles"
+wait_for_log_str "$LOG_FILE" 'Updated source: "world_cities"'
+test_jsn reload_catalog_updated catalog
+
+>&2 echo "Test reload: removing an MBTiles file triggers source removal"
+rm "$RELOAD_WATCH_DIR/world_cities.mbtiles"
+wait_for_catalog_source_removed "world_cities"
+$CURL "$MARTIN_URL/catalog" | jq --sort-keys > "$TEST_OUT_DIR/catalog_after_remove.json"
+
+kill_process "$MARTIN_PROC_ID" Martin
+
+test_log_has_str "$LOG_FILE" 'Added source: "world_cities"'
+test_log_has_str "$LOG_FILE" 'Updated source: "world_cities"'
+test_log_has_str "$LOG_FILE" 'Removed source: "world_cities"'
+test_log_has_str "$LOG_FILE" 'WARN Defaulting `pmtiles.allow_http` to `true`. This is likely to become an error in the future for better security.'
+test_log_has_str "$LOG_FILE" 'WARN Environment variable AWS_SKIP_CREDENTIALS is deprecated. Please use pmtiles.skip_signature in the configuration file instead.'
+test_log_has_str "$LOG_FILE" 'WARN Environment variable AWS_REGION is deprecated. Please use pmtiles.region in the configuration file instead.'
+validate_log "$LOG_FILE"
+echo "::endgroup::"
 
 rm -rf "$TEST_TEMP_DIR"
 
