@@ -87,6 +87,7 @@ impl MBTilesReloader {
             .filter(|d| d.is_absolute())
         {
             watcher
+                // FIXME: find a naming scheme for paths that makes sense under recursive and enable it
                 .watch(&dir.clone(), notify::RecursiveMode::NonRecursive)
                 .map_err(|e| MartinError::DirectoryWatchError(e.kind))?;
         }
