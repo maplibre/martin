@@ -12,6 +12,8 @@ use martin::config::primitives::env::OsEnv;
 use martin::logging::{ensure_martin_core_log_level_matches, init_tracing};
 #[cfg(feature = "_tiles")]
 use martin::srv::RESERVED_KEYWORDS;
+#[cfg(feature = "mbtiles")]
+use martin::config::file::reload::mbtiles::MBTilesReloader;
 use martin::srv::new_server;
 use tracing::{error, info};
 
