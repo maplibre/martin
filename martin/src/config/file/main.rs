@@ -54,8 +54,6 @@ use crate::config::primitives::IdResolver;
 #[cfg(feature = "postgres")]
 use crate::config::primitives::OptOneMany;
 #[cfg(feature = "_tiles")]
-use crate::srv::RESERVED_KEYWORDS;
-#[cfg(feature = "_tiles")]
 use crate::tile_source_manager::TileSourceManager;
 use crate::{MartinError, MartinResult};
 
