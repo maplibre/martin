@@ -278,8 +278,6 @@ enum MartinCpError {
     #[error("Unable to parse encodings argument: {0}")]
     EncodingParse(#[from] ParseError),
     #[error(transparent)]
-    Actix(#[from] actix_web::Error),
-    #[error(transparent)]
     Mbt(#[from] MbtError),
     #[error("No sources found")]
     NoSources,
