@@ -15,7 +15,7 @@ macro_rules! create_app {
         let state = mock_sources(mock_cfg($sources)).await.0;
         let app = ::actix_web::App::new()
             .app_data(actix_web::web::Data::new(
-                ::martin::srv::StaticCatalog::new(&state).unwrap(),
+                ::martin::srv::Catalog::new(&state).unwrap(),
             ))
             .app_data(actix_web::web::Data::new(SrvConfig::default()));
 

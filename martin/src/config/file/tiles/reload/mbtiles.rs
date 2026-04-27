@@ -4,7 +4,7 @@ use super::{path_modified_ms, resolve_dir_entry};
 
 use martin_core::tiles::{BoxedSource, mbtiles::MbtSource};
 use notify::{
-    Config, Event, EventKind, RecommendedWatcher, Watcher,
+    Config, Event, EventKind, RecommendedWatcher, Watcher as _,
     event::{AccessKind, AccessMode},
 };
 use tokio::fs;
@@ -17,7 +17,7 @@ use crate::{MartinError, MartinResult, ReloadAdvisory, TileSourceManager};
 pub struct MBTilesReloader {
     /// ID resolver that ensures a unique ID is assigned to each source.
     id_resolver: IdResolver,
-    /// Tile Source Manager to which we should send ReloadAdvisory messages.
+    /// Tile Source Manager to which we should send `ReloadAdvisory` messages.
     tile_source_manager: TileSourceManager,
     /// Map of Source ID => (path, modified timestamp, cache policy).
     sources: BTreeMap<String, (PathBuf, u128, CachePolicy)>,
@@ -34,6 +34,7 @@ impl MBTilesReloader {
     /// Snapshots the current modified timestamps of all explicitly configured sources so that
     /// changes can be detected on the first reload cycle. Collects all configured paths as
     /// directories to watch.
+    #[must_use]
     pub fn new(
         tsm: TileSourceManager,
         id_resolver: IdResolver,
@@ -43,23 +44,23 @@ impl MBTilesReloader {
         let mut directories: Vec<PathBuf> = vec![];
         let mut path_cache: BTreeMap<PathBuf, CachePolicy> = BTreeMap::new();
 
-        if let FileConfigEnum::Config(cfg) = config {
-            if let Some(s) = &cfg.sources {
-                for (id, src) in s {
-                    let path = src.get_path();
-                    let policy = src.cache_zoom();
+        if let FileConfigEnum::Config(cfg) = config
+            && let Some(s) = &cfg.sources
+        {
+            for (id, src) in s {
+                let path = src.get_path();
+                let policy = src.cache_zoom();
 
-                    if let Ok(canonical) = path.canonicalize() {
-                        path_cache.insert(canonical, policy);
-                    }
-
-                    let Some(modified_ms) = path_modified_ms(&path) else {
-                        continue;
-                    };
-                    sources.insert(id.clone(), (path.clone(), modified_ms, policy));
+                if let Ok(canonical) = path.canonicalize() {
+                    path_cache.insert(canonical, policy);
                 }
-            };
-        };
+
+                let Some(modified_ms) = path_modified_ms(path) else {
+                    continue;
+                };
+                sources.insert(id.clone(), (path.clone(), modified_ms, policy));
+            }
+        }
 
         let mut push_canonical = |path: &PathBuf| match path.canonicalize() {
             Ok(p) => directories.push(p),
@@ -67,22 +68,20 @@ impl MBTilesReloader {
         };
 
         match config {
-            FileConfigEnum::Config(cfg) => {
-                match &cfg.paths {
-                    OptOneMany::One(path) => push_canonical(path),
-                    OptOneMany::Many(paths) => paths.iter().for_each(|p| push_canonical(p)),
-                    _ => {}
-                };
-            }
+            FileConfigEnum::Config(cfg) => match &cfg.paths {
+                OptOneMany::One(path) => push_canonical(path),
+                OptOneMany::Many(paths) => paths.iter().for_each(&mut push_canonical),
+                OptOneMany::NoVals => {}
+            },
             FileConfigEnum::Path(path) => push_canonical(path),
-            FileConfigEnum::Paths(paths) => paths.iter().for_each(|p| push_canonical(p)),
+            FileConfigEnum::Paths(paths) => paths.iter().for_each(push_canonical),
             FileConfigEnum::None => {}
         }
 
         directories.sort();
         directories.dedup();
 
-        MBTilesReloader {
+        Self {
             tile_source_manager: tsm,
             id_resolver,
             sources,
@@ -122,10 +121,10 @@ impl MBTilesReloader {
 
         tokio::spawn(async move {
             let _watcher = watcher;
-            let mut _tsm = self.tile_source_manager.clone();
+            let mut tsm = self.tile_source_manager.clone();
 
             while let Some(event) = rx.recv().await {
-                self.process_event(&mut _tsm, event).await
+                self.process_event(&mut tsm, event).await;
             }
         });
 
@@ -145,16 +144,12 @@ impl MBTilesReloader {
         for directory in &self.directories {
             let mut entries = fs::read_dir(directory)
                 .await
-                .map_err(|e| MartinError::IoError(e))?;
-            while let Some(entry) = entries
-                .next_entry()
-                .await
-                .map_err(|e| MartinError::IoError(e))?
-            {
+                .map_err(MartinError::IoError)?;
+            while let Some(entry) = entries.next_entry().await.map_err(MartinError::IoError)? {
                 let Some(e) = resolve_dir_entry(&entry) else {
                     continue;
                 };
-                if !e.path.is_file() || !e.path.extension().is_some_and(|ext| ext == "mbtiles") {
+                if !e.path.is_file() || e.path.extension().is_none_or(|ext| ext != "mbtiles") {
                     continue;
                 }
 
@@ -174,14 +169,13 @@ impl MBTilesReloader {
     /// result in source changes. Logs and returns without updating state if rediscovery or
     /// [`TileSourceManager::apply_changes`] fails.
     async fn process_event(&mut self, tsm: &mut TileSourceManager, event: Event) -> () {
-        let should_discover = match event.kind {
+        if !matches!(
+            event.kind,
             EventKind::Create(_)
-            | EventKind::Remove(_)
-            | EventKind::Modify(_)
-            | EventKind::Access(AccessKind::Close(AccessMode::Write)) => true,
-            _ => false,
-        };
-        if !should_discover {
+                | EventKind::Remove(_)
+                | EventKind::Modify(_)
+                | EventKind::Access(AccessKind::Close(AccessMode::Write))
+        ) {
             return;
         }
 
@@ -193,14 +187,13 @@ impl MBTilesReloader {
             }
         };
 
-        let prev: BTreeMap<String, u128> = (&self.sources)
-            .into_iter()
+        let prev: BTreeMap<String, u128> = self
+            .sources
+            .iter()
             .map(|(k, v)| (k.clone(), v.1))
             .collect::<_>();
-        let next: BTreeMap<String, u128> = (&sources)
-            .into_iter()
-            .map(|(k, v)| (k.clone(), v.1))
-            .collect::<_>();
+        let next: BTreeMap<String, u128> =
+            sources.iter().map(|(k, v)| (k.clone(), v.1)).collect::<_>();
         let sources_clone = sources.clone();
 
         let adv =

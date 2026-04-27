@@ -251,7 +251,7 @@ impl Config {
         #[cfg(feature = "_tiles")]
         let (tile_sources, warnings) = self
             .resolve_tile_sources(
-                &idr,
+                idr,
                 #[cfg(feature = "pmtiles")]
                 pmtiles_cache,
             )
