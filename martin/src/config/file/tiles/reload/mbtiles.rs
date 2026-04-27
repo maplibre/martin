@@ -200,11 +200,7 @@ impl MBTilesReloader {
             ReloadAdvisory::from_maps(&prev, &next, async move |id| -> MartinResult<BoxedSource> {
                 let p = sources_clone
                     .get(&id)
-                    .ok_or(MartinError::DirectoryWatchError(
-                        notify::ErrorKind::Generic(format!(
-                            "Source {id} not found in discovered sources"
-                        )),
-                    ))?;
+                    .ok_or(MartinError::SourceNotFound(id.clone()))?;
                 let src = MbtSource::new(id, p.0.clone(), p.2.zoom()).await?;
 
                 Ok(Box::new(src) as BoxedSource)

@@ -88,4 +88,7 @@ pub enum MartinError {
 
     #[error("could not create a watcher for directories configured for tile source discovery")]
     DirectoryWatchError(notify::ErrorKind),
+
+    #[error("Source '{0}' not found in discovered sources")]
+    SourceNotFound(String),
 }
