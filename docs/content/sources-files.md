@@ -27,8 +27,34 @@ martin  /path/to/directory
     For remote PMTiles, we don't currently support auto-discovery.
     If you want to implement this feature, please see <https://github.com/maplibre/martin/issues/2180>
 
-    We also don't currently support refreshing the catalog at runtime.
-    If you want to implement this feature, please see <https://github.com/maplibre/martin/issues/288> instead.
+### MBTiles Hot Reload
+
+Martin watches directories configured under `mbtiles` for changes at runtime. When `.mbtiles` files are added, modified, or removed from a watched directory, Martin automatically updates the tile catalog — no restart required.
+
+```bash
+# Martin will watch this directory and reflect any *.mbtiles changes live
+martin  /path/to/mbtiles/directory
+```
+
+Or via config file:
+
+```yaml
+mbtiles:
+  paths:
+    - /path/to/mbtiles/directory
+```
+
+The following events are handled automatically:
+
+- **File added** — the new source appears in the catalog.
+- **File modified** — the source is reloaded and its tile cache is invalidated.
+- **File removed** — the source is removed from the catalog.
+
+!!! note
+    Hot reload applies to directories configured under `mbtiles.paths` (or passed on the CLI). Named sources listed under `mbtiles.sources` are snapshotted at startup and are not watched for changes.
+
+!!! note
+    PMTiles hot reload is not yet supported. If you want to help implement it, see <https://github.com/maplibre/martin/issues/2180>.
 
 ## MBTiles vs PMTiles
 
