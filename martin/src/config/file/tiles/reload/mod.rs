@@ -40,7 +40,10 @@ pub fn path_modified_ms(path: &std::path::Path) -> Option<u128> {
     match modified.duration_since(UNIX_EPOCH) {
         Ok(d) => Some(d.as_millis()),
         Err(_) => {
-            tracing::warn!("failed to resolve duration since unix epoch for path {:?}", path);
+            tracing::warn!(
+                "failed to resolve duration since unix epoch for path {:?}",
+                path
+            );
             None
         }
     }
@@ -75,5 +78,10 @@ pub fn resolve_dir_entry(entry: &DirEntry) -> Option<ResolvedEntry> {
 
     let modified_ms = path_modified_ms(&path)?;
 
-    Some(ResolvedEntry { path, stem, path_str, modified_ms })
+    Some(ResolvedEntry {
+        path,
+        stem,
+        path_str,
+        modified_ms,
+    })
 }
