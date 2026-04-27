@@ -47,9 +47,9 @@ async fn start(args: Args) -> MartinResult<()> {
 
     #[cfg(feature = "mbtiles")]
     {
-        let reloader = martin::config::file::reload::mbtiles::MBTilesReloader::new(resolver, &config.mbtiles);
+        let reloader = martin::config::file::reload::mbtiles::MBTilesReloader::new(mgr, resolver, &config.mbtiles);
         if let Err(e) =
-            reloader.watch(mgr)
+            reloader.start()
         {
             tracing::warn!("failed to start MBTilesReloader {e:?}")
         }
