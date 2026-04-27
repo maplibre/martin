@@ -43,10 +43,12 @@ pub type MockSource = (ServerState, Config);
 pub async fn mock_sources(mut config: Config) -> MockSource {
     #[cfg(feature = "_tiles")]
     let idr = IdResolver::new(&[]);
-    let res = config.resolve(
-        #[cfg(feature = "_tiles")]
-        &idr,
-    ).await;
+    let res = config
+        .resolve(
+            #[cfg(feature = "_tiles")]
+            &idr,
+        )
+        .await;
     let res = res.unwrap_or_else(|e| {
         panic!(
             "Failed to resolve config:\n{config}\nBecause {e}",

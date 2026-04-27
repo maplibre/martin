@@ -42,10 +42,12 @@ async fn start(args: Args) -> MartinResult<()> {
     let resolver = IdResolver::new(RESERVED_KEYWORDS);
 
     #[cfg(feature = "_catalog")]
-    let sources = config.resolve(
-        #[cfg(feature = "_tiles")]
-        &resolver,
-    ).await?;
+    let sources = config
+        .resolve(
+            #[cfg(feature = "_tiles")]
+            &resolver,
+        )
+        .await?;
     #[cfg(feature = "mbtiles")]
     let mgr = sources.tile_manager.clone();
 

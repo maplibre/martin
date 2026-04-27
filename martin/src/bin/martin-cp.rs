@@ -197,10 +197,12 @@ async fn start(copy_args: CopierArgs) -> MartinCpResult<()> {
     #[cfg(feature = "_tiles")]
     let resolver = IdResolver::new(RESERVED_KEYWORDS);
 
-    let sources = config.resolve(
-        #[cfg(feature = "_tiles")]
-        &resolver,
-    ).await?;
+    let sources = config
+        .resolve(
+            #[cfg(feature = "_tiles")]
+            &resolver,
+        )
+        .await?;
 
     if let Some(file_name) = save_config {
         config

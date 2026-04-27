@@ -51,7 +51,10 @@ impl MBTilesReloader {
                 let path = src.get_path();
                 let policy = src.cache_zoom();
                 let Ok(canonical) = path.canonicalize() else {
-                    tracing::warn!("failed to resolve canonical path for tile source {:?}", path);
+                    tracing::warn!(
+                        "failed to resolve canonical path for tile source {:?}",
+                        path
+                    );
                     continue;
                 };
                 let Some(modified_ms) = path_modified_ms(path) else {
