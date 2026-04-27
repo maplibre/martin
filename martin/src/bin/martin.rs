@@ -6,11 +6,11 @@ use martin::config::args::Args;
 #[cfg(all(feature = "webui", not(docsrs)))]
 use martin::config::args::WebUiMode;
 use martin::config::file::{Config, read_config};
-#[cfg(feature = "_catalog")]
+#[cfg(feature = "_tiles")]
 use martin::config::primitives::IdResolver;
 use martin::config::primitives::env::OsEnv;
 use martin::logging::{ensure_martin_core_log_level_matches, init_tracing};
-#[cfg(feature = "_catalog")]
+#[cfg(feature = "_tiles")]
 use martin::srv::RESERVED_KEYWORDS;
 use martin::srv::new_server;
 use tracing::{error, info};
@@ -38,11 +38,14 @@ async fn start(args: Args) -> MartinResult<()> {
     )?;
     config.finalize()?;
 
-    #[cfg(feature = "_catalog")]
+    #[cfg(feature = "_tiles")]
     let resolver = IdResolver::new(RESERVED_KEYWORDS);
 
     #[cfg(feature = "_catalog")]
-    let sources = config.resolve(&resolver).await?;
+    let sources = config.resolve(
+        #[cfg(feature = "_tiles")]
+        &resolver,
+    ).await?;
     #[cfg(feature = "mbtiles")]
     let mgr = sources.tile_manager.clone();
 

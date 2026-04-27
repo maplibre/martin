@@ -49,6 +49,7 @@ use crate::config::file::{
     ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks as _, GlobalCacheConfig,
     UnrecognizedKeys, UnrecognizedValues, copy_unrecognized_keys_from_config,
 };
+#[cfg(feature = "_tiles")]
 use crate::config::primitives::IdResolver;
 #[cfg(feature = "postgres")]
 use crate::config::primitives::OptOneMany;
@@ -238,9 +239,10 @@ impl Config {
         }
     }
 
-    pub async fn resolve(&mut self, idr: &IdResolver) -> MartinResult<ServerState> {
-        #[cfg(not(feature = "_tiles"))]
-        let _ = idr;
+    pub async fn resolve(
+        &mut self,
+        #[cfg(feature = "_tiles")] idr: &IdResolver,
+    ) -> MartinResult<ServerState> {
         init_aws_lc_tls();
 
         #[cfg(any(feature = "_tiles", feature = "sprites", feature = "fonts"))]

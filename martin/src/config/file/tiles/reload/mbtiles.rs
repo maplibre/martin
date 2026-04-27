@@ -50,15 +50,16 @@ impl MBTilesReloader {
             for (id, src) in s {
                 let path = src.get_path();
                 let policy = src.cache_zoom();
-
-                if let Ok(canonical) = path.canonicalize() {
-                    path_cache.insert(canonical, policy);
-                }
-
+                let Ok(canonical) = path.canonicalize() else {
+                    tracing::warn!("failed to resolve canonical path for tile source {:?}", path);
+                    continue;
+                };
                 let Some(modified_ms) = path_modified_ms(path) else {
                     continue;
                 };
-                sources.insert(id.clone(), (path.clone(), modified_ms, policy));
+
+                path_cache.insert(canonical.clone(), policy);
+                sources.insert(id.clone(), (canonical.clone(), modified_ms, policy));
             }
         }
 
