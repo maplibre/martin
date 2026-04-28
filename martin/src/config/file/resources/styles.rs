@@ -197,8 +197,6 @@ mod tests {
     use super::*;
     use crate::config::file::FileConfigSrc;
 
-    /// `styles: { paths: [...] }` without an explicit `rendering:` must parse, even when the
-    /// rendering feature compiles in the optional `rendering` field on `InnerStyleConfig`.
     #[test]
     fn test_styles_parse_paths_only_without_rendering_field() {
         let yaml = indoc! {"
