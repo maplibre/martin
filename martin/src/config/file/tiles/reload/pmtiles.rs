@@ -416,8 +416,8 @@ mod minio_tests {
     use std::collections::HashMap;
 
     use insta::assert_yaml_snapshot;
-    use object_store::PutPayload;
     use object_store::ObjectStoreExt as _;
+    use object_store::PutPayload;
     use object_store::path::Path as ObjPath;
     use tempfile::tempdir;
     use testcontainers_modules::minio::MinIO;
@@ -511,10 +511,7 @@ mod minio_tests {
         ");
 
         // Removing one s3 object and adding a new local file should reflect both.
-        s3_store
-            .delete(&ObjPath::from("b.pmtiles"))
-            .await
-            .unwrap();
+        s3_store.delete(&ObjPath::from("b.pmtiles")).await.unwrap();
         std::fs::write(local_dir.path().join("local2.pmtiles"), FIXTURE_A).unwrap();
         let after = reloader.discover_sources().await.unwrap();
         assert_yaml_snapshot!(sorted_ids(&after), @r"
