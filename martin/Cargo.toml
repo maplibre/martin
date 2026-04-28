@@ -1,6 +1,6 @@
 [package]
 name = "martin"
-version = "1.7.0"
+version = "1.8.0"
 authors = [
     "Stepan Kuzmin <to.stepan.kuzmin@gmail.com>",
     "Yuri Astrakhan <YuriAstrakhan@gmail.com>",
@@ -153,6 +153,7 @@ log.workspace = true
 martin-core.workspace = true
 martin-tile-utils.workspace = true
 mbtiles = { workspace = true, optional = true }
+notify = { workspace = true }
 num_cpus.workspace = true
 object_store = { workspace = true, optional = true }
 postgis = { workspace = true, optional = true }

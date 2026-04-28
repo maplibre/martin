@@ -193,7 +193,7 @@ pub fn new_server(
                     .add_labels,
             )
             .build()
-            .map_err(|err| MartinError::MetricsIntialisationError(err))?
+            .map_err(MartinError::MetricsIntialisationError)?
     };
     let catalog = Catalog::new(
         #[cfg(any(feature = "sprites", feature = "fonts", feature = "styles"))]
