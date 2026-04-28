@@ -1092,8 +1092,12 @@ test_jsn reload_catalog_added catalog
 
 >&2 echo "PMTiles reload: replacing a .pmtiles file with different bytes triggers source update"
 # Overwrite with a different fixture so the file's ETag (mtime+size for the local
-# object_store backend) changes and the reloader detects it.
+# object_store backend) changes. Updates are detected at tile-fetch time via pmtiles'
+# `SourceModified` signal, so we must hit a tile endpoint to trigger detection. The
+# request is expected to fail (the underlying reader is now invalid); the next request
+# after the reloader rebuilds the source will succeed.
 cp tests/fixtures/pmtiles/png.pmtiles "$PMT_RELOAD_WATCH_DIR/webp2.pmtiles"
+curl --silent --output /dev/null "$MARTIN_URL/webp2/0/0/0" || true
 wait_for_log_str "$LOG_FILE" 'Updated source: "webp2"'
 
 >&2 echo "PMTiles reload: removing a .pmtiles file triggers source removal"

@@ -1,12 +1,11 @@
-use std::collections::{BTreeMap, HashSet};
-use std::hash::{DefaultHasher, Hash as _, Hasher as _};
-use std::num::NonZeroU64;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
 use std::time::Duration;
 
 use futures::future::try_join_all;
 use futures::stream::TryStreamExt as _;
-use object_store::{ObjectStore as _, ObjectStoreExt as _};
+use object_store::ObjectStore as _;
+use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::time::{Instant, MissedTickBehavior};
 use url::Url;
 
@@ -23,68 +22,54 @@ const PMTILES_EXTENSION: &str = ".pmtiles";
 
 /// A periodic, polling-based reloader for `PMTiles` sources.
 ///
-/// On each tick (default every 600 s; configured via `PmtConfig::reload_interval_secs`) it:
-/// 1. Lists every directory in `pmtiles.paths` via `object_store`'s local backend, picking up
-///    `*.pmtiles` files. Each listed object's `ObjectMeta::e_tag` becomes its version.
-/// 2. Issues a HEAD against every individually-configured source in `pmtiles.sources` (any URL
-///    or local file) to refresh its `ETag`.
-/// 3. Diffs the resulting `id -> ETag` map against the previous tick via
-///    [`ReloadAdvisory::from_maps`] and hands the advisory to
-///    [`TileSourceManager::apply_changes`].
+/// On each tick (default every 600 s; configured via `PmtConfig::reload_interval_secs`) it
+/// lists every directory in `pmtiles.paths` via `object_store` (works uniformly for local
+/// dirs and remote prefixes such as `s3://bucket/`), then diffs the discovered ids against
+/// the previous tick to issue **add** and **remove** advisories via
+/// [`ReloadAdvisory::from_sets`] / [`TileSourceManager::apply_changes`].
 ///
-/// Inter-tick safety net: `pmtiles` 0.23 records each source's `data_version_string` at
-/// construction time and returns `PmtError::SourceModified` from `get_tile` if the underlying
-/// blob changes. The reloader then swaps in a fresh source on its next tick.
+/// **Updates are not detected by polling.** Each `PmtilesSource` carries a reload-signal
+/// channel back to this reloader. When `pmtiles` 0.23 detects that the underlying blob's
+/// `data_version_string` (`ETag`) changed at tile-fetch time (`PmtError::SourceModified`),
+/// the source kicks the channel and the reloader rebuilds that single source immediately
+/// — no waiting for the next tick, no per-source HEAD calls.
 pub struct PMTilesReloader {
     id_resolver: IdResolver,
     tile_source_manager: TileSourceManager,
     pmt_config: PmtConfig,
+    /// Local or URL-shaped prefixes to list each tick.
     prefixes: Vec<PathBuf>,
+    /// Individually-configured sources from `pmtiles.sources`. Carried through so the
+    /// listing-driven diff doesn't accidentally remove them; their updates are handled via
+    /// the signal channel.
     tracked_singles: BTreeMap<String, FileConfigSrc>,
+    /// Last-known `id -> (URL, cache policy)` map. Used both to diff against the next
+    /// listing and to look up the URL when rebuilding a single source on signal.
     sources: BTreeMap<String, TrackedSource>,
+    /// Receiver paired with the sender installed on each `PmtilesSource`. `take`n into the
+    /// spawned task on `start`.
+    signal_rx: Option<UnboundedReceiver<String>>,
 }
 
 #[derive(Clone, Debug)]
 struct TrackedSource {
     url: Url,
-    etag: EtagKey,
     cache: CachePolicy,
-}
-
-/// Wraps an `ETag` string as a `Copy` value usable with [`ReloadAdvisory::from_maps`].
-///
-/// `None` means the backend did not expose an `ETag`; two `None`s compare equal so missing
-/// `ETag` info never triggers spurious updates here. Such sources rely instead on the in-flight
-/// `PmtError::SourceModified` detection in `pmtiles` 0.23.
-#[derive(Copy, Clone, Eq, PartialEq, Debug)]
-struct EtagKey(Option<NonZeroU64>);
-
-impl EtagKey {
-    const UNKNOWN: Self = Self(None);
-
-    fn from_etag(etag: Option<&str>) -> Self {
-        match etag {
-            None | Some("") => Self::UNKNOWN,
-            Some(s) => {
-                let mut h = DefaultHasher::new();
-                s.hash(&mut h);
-                Self(NonZeroU64::new(h.finish()).or(NonZeroU64::new(1)))
-            }
-        }
-    }
 }
 
 impl PMTilesReloader {
     /// Builds a reloader from the post-`finalize` / post-`resolve` `PMTiles` config.
     ///
     /// Snapshots `pmtiles.paths` (local directories or URL-shaped prefixes such as
-    /// `s3://bucket/`) and `pmtiles.sources`. Source `ETag`s are discovered lazily on the
-    /// first tick.
+    /// `s3://bucket/`) and `pmtiles.sources`. `signal_rx` is the receiving end of the
+    /// channel whose sender was installed on `PmtConfig::reload_signal` before
+    /// `Config::resolve` ran.
     #[must_use]
     pub fn new(
         tsm: TileSourceManager,
         id_resolver: IdResolver,
         config: &FileConfigEnum<PmtConfig>,
+        signal_rx: UnboundedReceiver<String>,
     ) -> Self {
         let mut prefixes: Vec<PathBuf> = vec![];
         let mut tracked_singles: BTreeMap<String, FileConfigSrc> = BTreeMap::new();
@@ -121,6 +106,7 @@ impl PMTilesReloader {
             prefixes,
             tracked_singles,
             sources: BTreeMap::new(),
+            signal_rx: Some(signal_rx),
         }
     }
 
@@ -128,7 +114,7 @@ impl PMTilesReloader {
         Duration::from_secs(self.pmt_config.reload_interval_secs)
     }
 
-    /// Spawns the polling loop. Returns immediately.
+    /// Spawns the polling + signal loop. Returns immediately.
     ///
     /// No-op if the reload interval is zero or there is nothing to watch.
     pub fn start(mut self) {
@@ -142,6 +128,11 @@ impl PMTilesReloader {
         }
 
         let mut tsm = self.tile_source_manager.clone();
+        let mut signal_rx = self
+            .signal_rx
+            .take()
+            .expect("signal_rx is taken once on start");
+
         tokio::spawn(async move {
             match self.discover_sources().await {
                 Ok(initial) => self.sources = initial,
@@ -153,21 +144,84 @@ impl PMTilesReloader {
             ticker.set_missed_tick_behavior(MissedTickBehavior::Delay);
 
             loop {
-                ticker.tick().await;
-                self.tick(&mut tsm).await;
+                tokio::select! {
+                    _ = ticker.tick() => self.tick(&mut tsm).await,
+                    Some(id) = signal_rx.recv() => self.reload_one(&id, &mut tsm).await,
+                }
             }
         });
     }
 
-    /// Polls every prefix and every individually-configured source in parallel and returns
-    /// the current `id -> TrackedSource` map. Failures of individual lookups are logged and
-    /// treated as removals (except transient HEAD failures which preserve the previous version).
+    /// Periodic listing pass: discovers any current set of `id -> TrackedSource` and applies
+    /// add/remove diffs via `ReloadAdvisory::from_sets`.
+    async fn tick(&mut self, tsm: &mut TileSourceManager) {
+        let next = match self.discover_sources().await {
+            Ok(m) => m,
+            Err(e) => {
+                tracing::warn!("PMTilesReloader: discovery failed: {e:?}");
+                return;
+            }
+        };
+
+        let prev_ids: BTreeSet<String> = self.sources.keys().cloned().collect();
+        let next_ids: BTreeSet<String> = next.keys().cloned().collect();
+        let next_clone = next.clone();
+        let pmt_config = self.pmt_config.clone();
+
+        let adv = ReloadAdvisory::from_sets(&prev_ids, &next_ids, async move |id| {
+            let entry = next_clone.get(&id).ok_or_else(|| {
+                MartinError::from(ConfigFileError::InvalidSourceFilePath(
+                    id.clone(),
+                    PathBuf::new(),
+                ))
+            })?;
+            pmt_config
+                .new_sources_url(id, entry.url.clone(), entry.cache)
+                .await
+        })
+        .await;
+
+        match tsm.apply_changes(adv).await {
+            Ok(()) => self.sources = next,
+            Err(e) => tracing::warn!("PMTilesReloader: apply_changes failed: {e:?}"),
+        }
+    }
+
+    /// Signal-driven single-source rebuild: re-create the `BoxedSource` for `id` and apply
+    /// it as an `update` so the `TileSourceManager` invalidates the tile cache and swaps
+    /// the source atomically.
+    async fn reload_one(&mut self, id: &str, tsm: &mut TileSourceManager) {
+        let Some(entry) = self.sources.get(id).cloned() else {
+            tracing::warn!("PMTilesReloader: signal received for unknown source {id}");
+            return;
+        };
+        let new_source = self
+            .pmt_config
+            .new_sources_url(id.to_string(), entry.url.clone(), entry.cache)
+            .await;
+
+        let adv = ReloadAdvisory {
+            updates: vec![crate::reload::NewSource {
+                id: id.to_string(),
+                source: new_source,
+            }],
+            ..Default::default()
+        };
+        if let Err(e) = tsm.apply_changes(adv).await {
+            tracing::warn!("PMTilesReloader: signal-driven reload of {id} failed: {e:?}");
+        }
+    }
+
+    /// Lists every prefix in parallel and merges the results with the always-present
+    /// `tracked_singles`. Failures of individual prefix lists are logged and treated as
+    /// "this prefix contributed nothing this tick" (so a transient remote outage doesn't
+    /// flap the catalog).
     async fn discover_sources(&self) -> MartinResult<BTreeMap<String, TrackedSource>> {
         let prefix_results =
             try_join_all(self.prefixes.iter().map(|p| self.list_prefix(p))).await?;
 
         let mut out: BTreeMap<String, TrackedSource> = BTreeMap::new();
-        let mut seen_urls: HashSet<String> = HashSet::new();
+        let mut seen_urls: BTreeSet<String> = BTreeSet::new();
         for entries in prefix_results {
             for (id, ts) in entries {
                 seen_urls.insert(ts.url.to_string());
@@ -175,15 +229,28 @@ impl PMTilesReloader {
             }
         }
 
-        let single_results = futures::future::join_all(
-            self.tracked_singles
-                .iter()
-                .map(|(id, src)| self.head_single(id, src, &seen_urls)),
-        )
-        .await;
-        for entry in single_results.into_iter().flatten() {
-            let (id, ts) = entry;
-            out.insert(id, ts);
+        // Carry tracked singles through unchanged: their URL came from the user, they exist
+        // unconditionally, and updates to them flow through the signal channel.
+        for (id, src) in &self.tracked_singles {
+            let path = src.get_path();
+            let Some(url) = path
+                .to_str()
+                .and_then(|s| Url::parse(s).ok())
+                .or_else(|| Url::from_file_path(path).ok())
+            else {
+                tracing::warn!("cannot resolve URL for source {id} ({path:?})");
+                continue;
+            };
+            if seen_urls.contains(url.as_str()) {
+                continue;
+            }
+            out.insert(
+                id.clone(),
+                TrackedSource {
+                    url,
+                    cache: src.cache_zoom(),
+                },
+            );
         }
 
         Ok(out)
@@ -245,98 +312,11 @@ impl PMTilesReloader {
                 id,
                 TrackedSource {
                     url: object_url,
-                    etag: EtagKey::from_etag(meta.e_tag.as_deref()),
                     cache: CachePolicy::default(),
                 },
             ));
         }
         Ok(out)
-    }
-
-    async fn head_single(
-        &self,
-        id: &str,
-        src: &FileConfigSrc,
-        seen_urls: &HashSet<String>,
-    ) -> Option<(String, TrackedSource)> {
-        let path = src.get_path();
-        let Some(url) = path
-            .to_str()
-            .and_then(|s| Url::parse(s).ok())
-            .or_else(|| Url::from_file_path(path).ok())
-        else {
-            tracing::warn!("cannot resolve URL for source {id} ({path:?})");
-            return None;
-        };
-        if seen_urls.contains(url.as_str()) {
-            return None;
-        }
-        let (store, key) = match object_store::parse_url_opts(&url, &self.pmt_config.options) {
-            Ok(v) => v,
-            Err(e) => {
-                tracing::warn!("object_store parse failed for {url}: {e}");
-                return None;
-            }
-        };
-        let etag = match store.head(&key).await {
-            Ok(meta) => EtagKey::from_etag(meta.e_tag.as_deref()),
-            Err(e) => {
-                // Preserve previous etag so a transient HEAD failure does not flip the version.
-                tracing::warn!("HEAD failed for {id} ({url}): {e}");
-                self.sources.get(id).map_or(EtagKey::UNKNOWN, |s| s.etag)
-            }
-        };
-        Some((
-            id.to_string(),
-            TrackedSource {
-                url,
-                etag,
-                cache: src.cache_zoom(),
-            },
-        ))
-    }
-
-    async fn tick(&mut self, tsm: &mut TileSourceManager) {
-        let next = match self.discover_sources().await {
-            Ok(m) => m,
-            Err(e) => {
-                tracing::warn!("PMTilesReloader: discovery failed: {e:?}");
-                return;
-            }
-        };
-
-        let prev_versions: BTreeMap<String, EtagKey> = self
-            .sources
-            .iter()
-            .map(|(k, v)| (k.clone(), v.etag))
-            .collect();
-        let next_versions: BTreeMap<String, EtagKey> =
-            next.iter().map(|(k, v)| (k.clone(), v.etag)).collect();
-
-        let next_clone = next.clone();
-        let pmt_config = self.pmt_config.clone();
-
-        let adv = ReloadAdvisory::from_maps(&prev_versions, &next_versions, async move |id| {
-            let entry = next_clone.get(&id).ok_or_else(|| {
-                MartinError::from(ConfigFileError::InvalidSourceFilePath(
-                    id.clone(),
-                    PathBuf::new(),
-                ))
-            })?;
-            // Each call increments the global pmtiles cache id, so directory-cache entries
-            // from the prior PmtilesSource are unreachable from the new one. They age out via
-            // the moka TTL configured in `pmtiles.directory_cache.expiry`; without an expiry
-            // they remain in memory until the process exits.
-            pmt_config
-                .new_sources_url(id, entry.url.clone(), entry.cache)
-                .await
-        })
-        .await;
-
-        match tsm.apply_changes(adv).await {
-            Ok(()) => self.sources = next,
-            Err(e) => tracing::warn!("PMTilesReloader: apply_changes failed: {e:?}"),
-        }
     }
 }
 
@@ -345,7 +325,7 @@ mod tests {
     use std::collections::BTreeMap;
 
     use insta::assert_yaml_snapshot;
-    use rstest::rstest;
+    use tokio::sync::mpsc::unbounded_channel;
 
     use super::*;
     use crate::config::file::tiles::pmtiles::DEFAULT_RELOAD_INTERVAL_SECS;
@@ -355,28 +335,8 @@ mod tests {
     fn make_reloader(config: &FileConfigEnum<PmtConfig>) -> PMTilesReloader {
         let tsm = TileSourceManager::new(None, OnInvalid::Warn);
         let resolver = IdResolver::new(&[]);
-        PMTilesReloader::new(tsm, resolver, config)
-    }
-
-    #[rstest]
-    #[case::none_none(None, None, true)]
-    #[case::none_empty(None, Some(""), true)]
-    #[case::empty_empty(Some(""), Some(""), true)]
-    #[case::same_etag(Some("v1"), Some("v1"), true)]
-    #[case::different_etags(Some("abc"), Some("xyz"), false)]
-    #[case::known_vs_unknown(Some("anything"), None, false)]
-    fn etag_key_equality(
-        #[case] left: Option<&str>,
-        #[case] right: Option<&str>,
-        #[case] expected_eq: bool,
-    ) {
-        let l = EtagKey::from_etag(left);
-        let r = EtagKey::from_etag(right);
-        assert_eq!(
-            l == r,
-            expected_eq,
-            "EtagKey({left:?}) vs EtagKey({right:?})"
-        );
+        let (_tx, rx) = unbounded_channel();
+        PMTilesReloader::new(tsm, resolver, config, rx)
     }
 
     #[test]
@@ -457,25 +417,21 @@ mod minio_tests {
 
     use insta::assert_yaml_snapshot;
     use object_store::PutPayload;
+    use object_store::ObjectStoreExt as _;
     use object_store::path::Path as ObjPath;
     use tempfile::tempdir;
     use testcontainers_modules::minio::MinIO;
     use testcontainers_modules::testcontainers::core::{CmdWaitFor, ExecCommand};
     use testcontainers_modules::testcontainers::runners::AsyncRunner as _;
+    use tokio::sync::mpsc::unbounded_channel;
 
     use super::*;
     use crate::config::file::{FileConfig, OnInvalid};
-
-    fn sorted_ids(map: &BTreeMap<String, TrackedSource>) -> Vec<String> {
-        map.keys().cloned().collect()
-    }
 
     const BUCKET: &str = "pmt-bucket";
     /// A small valid `.pmtiles` blob (47 KB) used for upload payloads.
     const FIXTURE_A: &[u8] =
         include_bytes!("../../../../../../tests/fixtures/pmtiles2/webp2.pmtiles");
-    /// A different valid `.pmtiles` blob (~717 KB) used to force an `ETag` change on re-upload.
-    const FIXTURE_B: &[u8] = include_bytes!("../../../../../../tests/fixtures/pmtiles/png.pmtiles");
 
     fn s3_options(endpoint: &str) -> HashMap<String, String> {
         let mut o = HashMap::new();
@@ -488,8 +444,12 @@ mod minio_tests {
         o
     }
 
+    fn sorted_ids(map: &BTreeMap<String, TrackedSource>) -> Vec<String> {
+        map.keys().cloned().collect()
+    }
+
     #[tokio::test]
-    async fn lists_etag_changes_and_removals_across_s3_and_local() {
+    async fn discovery_handles_add_and_remove_across_s3_and_local() {
         // MinIO maps subdirectories of /data to buckets, so creating the directory creates
         // the bucket without needing an mc client or signed PUT request.
         let minio = MinIO::default().start().await.unwrap();
@@ -524,11 +484,8 @@ mod minio_tests {
             .unwrap();
 
         let local_dir = tempdir().unwrap();
-        let local_path = local_dir.path().join("local.pmtiles");
-        std::fs::write(&local_path, FIXTURE_A).unwrap();
+        std::fs::write(local_dir.path().join("local.pmtiles"), FIXTURE_A).unwrap();
 
-        // The interval is non-zero so the reloader is not "disabled," but we drive
-        // `discover_sources` manually rather than letting the spawned loop fire.
         let cfg = FileConfigEnum::Config(FileConfig {
             paths: OptOneMany::Many(vec![
                 local_dir.path().to_path_buf(),
@@ -543,7 +500,8 @@ mod minio_tests {
         });
         let tsm = TileSourceManager::new(None, OnInvalid::Warn);
         let resolver = IdResolver::new(&[]);
-        let reloader = PMTilesReloader::new(tsm, resolver, &cfg);
+        let (_tx, rx) = unbounded_channel();
+        let reloader = PMTilesReloader::new(tsm, resolver, &cfg, rx);
 
         let initial = reloader.discover_sources().await.unwrap();
         assert_yaml_snapshot!(sorted_ids(&initial), @r"
@@ -551,37 +509,15 @@ mod minio_tests {
         - b
         - local
         ");
-        for (id, ts) in &initial {
-            assert_ne!(ts.etag, EtagKey::UNKNOWN, "source {id} should have an ETag");
-        }
-        let etag_a_v1 = initial["a"].etag;
-        let etag_local_v1 = initial["local"].etag;
 
+        // Removing one s3 object and adding a new local file should reflect both.
         s3_store
-            .put(
-                &ObjPath::from("a.pmtiles"),
-                PutPayload::from_static(FIXTURE_B),
-            )
+            .delete(&ObjPath::from("b.pmtiles"))
             .await
             .unwrap();
-        let after_update = reloader.discover_sources().await.unwrap();
-        assert_ne!(
-            after_update["a"].etag, etag_a_v1,
-            "ETag for a.pmtiles should change after re-upload"
-        );
-        assert_eq!(
-            after_update["b"].etag, initial["b"].etag,
-            "ETag for unchanged b.pmtiles should be stable"
-        );
-        assert_eq!(
-            after_update["local"].etag, etag_local_v1,
-            "ETag for unchanged local file should be stable"
-        );
-
-        s3_store.delete(&ObjPath::from("b.pmtiles")).await.unwrap();
-        std::fs::write(local_dir.path().join("local2.pmtiles"), FIXTURE_B).unwrap();
-        let after_remove_and_add = reloader.discover_sources().await.unwrap();
-        assert_yaml_snapshot!(sorted_ids(&after_remove_and_add), @r"
+        std::fs::write(local_dir.path().join("local2.pmtiles"), FIXTURE_A).unwrap();
+        let after = reloader.discover_sources().await.unwrap();
+        assert_yaml_snapshot!(sorted_ids(&after), @r"
         - a
         - local
         - local2

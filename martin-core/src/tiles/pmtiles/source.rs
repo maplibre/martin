@@ -8,6 +8,7 @@ use martin_tile_utils::{Encoding, Format, TileCoord, TileData, TileInfo};
 use object_store::ObjectStore;
 use pmtiles::{AsyncPmTilesReader, Compression, ObjectStoreBackend, TileType};
 use tilejson::TileJSON;
+use tokio::sync::mpsc::UnboundedSender;
 use tracing::{trace, warn};
 
 use crate::CacheZoomRange;
@@ -27,6 +28,11 @@ pub struct PmtilesSource {
     tile_info: TileInfo,
     #[dbg(skip)]
     cache_zoom: CacheZoomRange,
+    /// Optional channel used to signal a reloader (e.g. `PMTilesReloader`) that this
+    /// source's underlying blob has changed and the source should be rebuilt right now,
+    /// rather than waiting for the reloader's next periodic tick.
+    #[dbg(skip)]
+    reload_signal: Option<UnboundedSender<String>>,
 }
 
 impl PmtilesSource {
@@ -99,7 +105,18 @@ impl PmtilesSource {
             tilejson,
             tile_info: format,
             cache_zoom,
+            reload_signal: None,
         })
+    }
+
+    /// Attach a reload signal channel. When `get_tile` detects `PmtError::SourceModified`
+    /// (the underlying blob's `data_version_string` changed since this reader was built),
+    /// the source's id is dispatched on this channel so the reloader can swap in a fresh
+    /// reader immediately rather than waiting for the next polling tick.
+    #[must_use]
+    pub fn with_reload_signal(mut self, signal: UnboundedSender<String>) -> Self {
+        self.reload_signal = Some(signal);
+        self
     }
 }
 #[async_trait]
@@ -147,10 +164,14 @@ impl Source for PmtilesSource {
                 Ok(Vec::new())
             }
             Err(e @ pmtiles::PmtError::SourceModified) => {
-                // Logged at debug to avoid spamming the warn channel on every tile request
-                // between modification and the reloader's next tick.
+                // Best-effort kick: notify the reloader so it can swap in a fresh source
+                // immediately. Subsequent requests will hit the rebuilt source. The receiver
+                // may be gone if the reloader is shutting down — silently ignore.
+                if let Some(tx) = &self.reload_signal {
+                    let _ = tx.send(self.id.clone());
+                }
                 trace!(
-                    "PMTiles source {} reports SourceModified; reloader will refresh",
+                    "PMTiles source {} reports SourceModified; reloader notified",
                     self.id
                 );
                 Err(PmtilesError::PmtError(e).into())

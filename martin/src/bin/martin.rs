@@ -42,6 +42,19 @@ async fn start(args: Args) -> MartinResult<()> {
     )?;
     config.finalize()?;
 
+    // Install the PMTiles reload-signal sender on the config BEFORE `resolve` so that any
+    // `PmtilesSource` built during the initial resolve pass also gets wired to the reloader.
+    #[cfg(feature = "pmtiles")]
+    let pmt_reload_rx = {
+        use martin::config::file::FileConfigEnum;
+        use tokio::sync::mpsc::unbounded_channel;
+        let (tx, rx) = unbounded_channel::<String>();
+        if let FileConfigEnum::Config(cfg) = &mut config.pmtiles {
+            cfg.custom.reload_signal = Some(tx);
+        }
+        rx
+    };
+
     #[cfg(feature = "_tiles")]
     let resolver = IdResolver::new(RESERVED_KEYWORDS);
 
@@ -70,6 +83,7 @@ async fn start(args: Args) -> MartinResult<()> {
             sources.tile_manager.clone(),
             resolver.clone(),
             &config.pmtiles,
+            pmt_reload_rx,
         );
         reloader.start();
     }

@@ -3,6 +3,8 @@ use std::env;
 use std::path::PathBuf;
 use std::str::FromStr as _;
 
+use tokio::sync::mpsc::UnboundedSender;
+
 use martin_core::tiles::BoxedSource;
 use martin_core::tiles::pmtiles::{PmtCache, PmtCacheInstance, PmtilesSource};
 use serde::{Deserialize, Serialize};
@@ -60,6 +62,13 @@ pub struct PmtConfig {
     /// `PMTiles` directory cache (internal state, not serialized)
     #[serde(skip)]
     pub pmtiles_directory_cache: PmtCache,
+
+    /// Channel that newly-constructed `PmtilesSource`s use to notify the reloader when
+    /// they detect their underlying blob has changed (`PmtError::SourceModified`).
+    /// Installed by `martin::start` before `Config::resolve` so that sources built during
+    /// the initial resolve pass also wire it through.
+    #[serde(skip)]
+    pub reload_signal: Option<UnboundedSender<String>>,
 }
 
 impl Default for PmtConfig {
@@ -70,6 +79,7 @@ impl Default for PmtConfig {
             options: HashMap::default(),
             unrecognized: UnrecognizedValues::default(),
             pmtiles_directory_cache: PmtCache::default(),
+            reload_signal: None,
         }
     }
 }
@@ -80,7 +90,7 @@ impl PartialEq for PmtConfig {
             && self.reload_interval_secs == other.reload_interval_secs
             && self.options == other.options
             && self.unrecognized == other.unrecognized
-        // pmtiles_directory_cache is intentionally excluded from equality check
+        // pmtiles_directory_cache and reload_signal are intentionally excluded
     }
 }
 
@@ -291,7 +301,10 @@ impl TileSourceConfiguration for PmtConfig {
         let (store, path) = object_store::parse_url_opts(&url, &self.options)
             .map_err(|e| ConfigFileError::ObjectStoreUrlParsing(e, id.clone()))?;
         let dir_cache = PmtCacheInstance::new(cache_id, self.pmtiles_directory_cache.clone());
-        let source = PmtilesSource::new(dir_cache, id, store, path, cache.zoom()).await?;
+        let mut source = PmtilesSource::new(dir_cache, id, store, path, cache.zoom()).await?;
+        if let Some(signal) = self.reload_signal.clone() {
+            source = source.with_reload_signal(signal);
+        }
         Ok(Box::new(source))
     }
 }
