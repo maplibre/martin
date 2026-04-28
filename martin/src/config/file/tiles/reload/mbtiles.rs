@@ -134,23 +134,11 @@ impl MBTilesReloader {
         Ok(())
     }
 
-    async fn discover_sources(
-        &self,
-    ) -> MartinResult<BTreeMap<String, (PathBuf, u128, CachePolicy)>> {
-        discover_sources_by_ext(
-            &self.directories,
-            &["mbtiles"],
-            &self.path_cache,
-            &self.id_resolver,
-        )
-        .await
-    }
-
     /// Handles a filesystem event by rediscovering sources and applying any changes.
     ///
     /// Uses the event only as a trigger — the actual diff is computed by comparing a fresh
-    /// [`discover_sources`] snapshot against the last known state. Skips event kinds that cannot
-    /// result in source changes. Logs and returns without updating state if rediscovery or
+    /// directory scan against the last known state. Skips event kinds that cannot result in source
+    /// changes. Logs and returns without updating state if rediscovery or
     /// [`TileSourceManager::apply_changes`] fails.
     async fn process_event(&mut self, tsm: &mut TileSourceManager, event: Event) -> () {
         if !matches!(
@@ -163,7 +151,14 @@ impl MBTilesReloader {
             return;
         }
 
-        let sources = match self.discover_sources().await {
+        let sources = match discover_sources_by_ext(
+            &self.directories,
+            &["mbtiles"],
+            &self.path_cache,
+            &self.id_resolver,
+        )
+        .await
+        {
             Ok(v) => v,
             Err(e) => {
                 tracing::warn!("failed to rediscover sources from directories {e:?}");
