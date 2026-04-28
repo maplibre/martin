@@ -50,7 +50,7 @@ approx = "0.5.1"
 async-trait = "0.1"
 backon = "1.6.0"
 base64 = "0.22.1"
-bit-set = "0.9"
+bit-set = "0.10"
 brotli = ">=5, <9"
 bytes = "1"
 clap = { version = "4", features = ["derive", "unstable-markdown", "wrap_help"] }
@@ -63,7 +63,7 @@ env_logger = "0.11"
 flate2 = "1"
 flume = "0.12"
 futures = "0.3"
-hotpath = "0.14"
+hotpath = "0.15"
 humantime-serde = "1.1.1"
 image = { version = "0.25.8", default-features = false, features = ["png", "jpeg", "webp"] }
 indicatif = "0.18.3"
@@ -73,7 +73,7 @@ itertools = "0.14"
 json-patch = "4"
 lambda-web = { version = "0.2.1", features = ["actix4"] }
 log = "0.4"
-maplibre_native = "0.4.2"
+maplibre_native = "0.4.4"
 martin-core = { path = "./martin-core", version = "0.5.1", default-features = false }
 martin-tile-utils = { path = "./martin-tile-utils", version = "0.7.1" }
 mbtiles = { path = "./mbtiles", version = "0.17.1" }
@@ -84,7 +84,7 @@ num_cpus = "1"
 object_store = { version = "0.13.2", features = ["gcp", "aws", "azure", "fs", "http"] }
 pbf_font_tools = { version = "3.1.1", features = ["freetype"] }
 pixelmatch = "0.1"
-pmtiles = { version = "0.21.0", default-features = false, features = ["tilejson", "object-store"] }
+pmtiles = { version = "0.23.0", default-features = false, features = ["tilejson", "object-store"] }
 png = "0.18.0"
 postgis = "0.9"
 postgres = { version = "0.19", features = ["with-time-0_3", "with-uuid-1", "with-serde_json-1"] }
@@ -94,7 +94,7 @@ prometheus = { version = "0.14", default-features = false }
 rayon = "1"
 regex = "1"
 rstest = "0.26.1"
-rustls = "0.23.36"
+rustls = "0.23.38"
 # ring feature does not require NASM windows executable, but works slower
 #rustls = { version = "0.23", default-features = false, features = ["logging", "std", "tls12", "ring"] }
 rustls-native-certs = "0.8"
