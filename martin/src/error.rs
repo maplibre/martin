@@ -143,8 +143,8 @@ impl MartinError {
         if format.is_json() {
             // Best-effort JSON envelope so machine consumers always receive a JSON document
             // even for non-spanned errors.
-            let message = serde_json::to_string(&self.to_string())
-                .unwrap_or_else(|_| "\"\"".to_string());
+            let message =
+                serde_json::to_string(&self.to_string()).unwrap_or_else(|_| "\"\"".to_string());
             return format!(r#"{{"message": {message}}}"#);
         }
         format!("{self}")
