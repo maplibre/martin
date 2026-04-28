@@ -11,12 +11,12 @@ use martin::config::file::{Config, read_config};
 #[cfg(feature = "_tiles")]
 use martin::config::primitives::IdResolver;
 use martin::config::primitives::env::OsEnv;
+use martin::logging::LogFormat;
 use martin::logging::{ensure_martin_core_log_level_matches, init_tracing};
 #[cfg(feature = "_tiles")]
 use martin::srv::RESERVED_KEYWORDS;
 use martin::srv::new_server;
 use tracing::{error, info};
-use martin::logging::LogFormat;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
