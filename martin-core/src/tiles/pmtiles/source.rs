@@ -137,19 +137,25 @@ impl Source for PmtilesSource {
         _url_query: Option<&UrlQuery>,
     ) -> MartinCoreResult<TileData> {
         let coord = pmtiles::TileCoord::new(xyz.z, xyz.x, xyz.y).map_err(PmtilesError::PmtError)?;
-        if let Some(t) = self
-            .pmtiles
-            .get_tile(coord)
-            .await
-            .map_err(PmtilesError::PmtError)?
-        {
-            Ok(t.to_vec())
-        } else {
-            trace!(
-                "Couldn't find tile data in {}/{}/{} of {}",
-                xyz.z, xyz.x, xyz.y, &self.id
-            );
-            Ok(Vec::new())
+        match self.pmtiles.get_tile(coord).await {
+            Ok(Some(t)) => Ok(t.to_vec()),
+            Ok(None) => {
+                trace!(
+                    "Couldn't find tile data in {}/{}/{} of {}",
+                    xyz.z, xyz.x, xyz.y, &self.id
+                );
+                Ok(Vec::new())
+            }
+            Err(e @ pmtiles::PmtError::SourceModified) => {
+                // Logged at debug to avoid spamming the warn channel on every tile request
+                // between modification and the reloader's next tick.
+                trace!(
+                    "PMTiles source {} reports SourceModified; reloader will refresh",
+                    self.id
+                );
+                Err(PmtilesError::PmtError(e).into())
+            }
+            Err(e) => Err(PmtilesError::PmtError(e).into()),
         }
     }
 }

@@ -15,14 +15,39 @@ use crate::config::file::{
     TileSourceConfiguration, UnrecognizedKeys, UnrecognizedValues,
 };
 
+/// Default polling interval for [`PMTilesReloader`](crate::config::file::reload::pmtiles::PMTilesReloader).
+pub const DEFAULT_RELOAD_INTERVAL_SECS: u64 = 600;
+
+fn default_reload_interval_secs() -> u64 {
+    DEFAULT_RELOAD_INTERVAL_SECS
+}
+
+#[expect(
+    clippy::trivially_copy_pass_by_ref,
+    reason = "serde skip_serializing_if requires fn(&T) -> bool"
+)]
+fn is_default_reload_interval_secs(v: &u64) -> bool {
+    *v == DEFAULT_RELOAD_INTERVAL_SECS
+}
+
 #[serde_with::skip_serializing_none]
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PmtConfig {
     /// Cache configuration for `PMTiles` directory cache (size, expiry, idle timeout).
     ///
     /// Overrides the global [`cache`](crate::config::file::Config::cache) settings.
     #[serde(default, skip_serializing_if = "CacheSizeConfig::is_empty")]
     pub directory_cache: CacheSizeConfig,
+
+    /// How often the `PMTilesReloader` re-lists configured prefixes and re-checks `ETag`s of
+    /// individually-configured sources.
+    ///
+    /// Defaults to 600 seconds (10 minutes). Set to `0` to disable reloading entirely.
+    #[serde(
+        default = "default_reload_interval_secs",
+        skip_serializing_if = "is_default_reload_interval_secs"
+    )]
+    pub reload_interval_secs: u64,
 
     // if the key is the allowed set, we assume it is there for a purpose
     // settings and unreconginsed values are partitioned from each other in the init_parsing step
@@ -37,9 +62,22 @@ pub struct PmtConfig {
     pub pmtiles_directory_cache: PmtCache,
 }
 
+impl Default for PmtConfig {
+    fn default() -> Self {
+        Self {
+            directory_cache: CacheSizeConfig::default(),
+            reload_interval_secs: DEFAULT_RELOAD_INTERVAL_SECS,
+            options: HashMap::default(),
+            unrecognized: UnrecognizedValues::default(),
+            pmtiles_directory_cache: PmtCache::default(),
+        }
+    }
+}
+
 impl PartialEq for PmtConfig {
     fn eq(&self, other: &Self) -> bool {
         self.directory_cache == other.directory_cache
+            && self.reload_interval_secs == other.reload_interval_secs
             && self.options == other.options
             && self.unrecognized == other.unrecognized
         // pmtiles_directory_cache is intentionally excluded from equality check

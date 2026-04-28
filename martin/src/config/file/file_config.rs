@@ -104,7 +104,11 @@ impl<T: ConfigurationLivecycleHooks> FileConfigEnum<T> {
         configs: BTreeMap<String, FileConfigSrc>,
         custom: T,
     ) -> Self {
-        if configs.is_empty() {
+        // Collapse to the simpler `Path` / `Paths` / `None` variants only when both `configs`
+        // and `custom` carry no information; otherwise preserve `custom` by emitting `Config`.
+        // Without this, custom settings such as `pmtiles.reload_interval_secs` would silently
+        // disappear after `resolve_files` rebuilds the enum for an empty source set.
+        if configs.is_empty() && custom == T::default() {
             match paths.len() {
                 0 => Self::None,
                 1 => Self::Path(paths.into_iter().next().expect("one path exists")),

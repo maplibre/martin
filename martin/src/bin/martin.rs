@@ -7,6 +7,8 @@ use martin::config::args::Args;
 use martin::config::args::WebUiMode;
 #[cfg(feature = "mbtiles")]
 use martin::config::file::reload::mbtiles::MBTilesReloader;
+#[cfg(feature = "pmtiles")]
+use martin::config::file::reload::pmtiles::PMTilesReloader;
 use martin::config::file::{Config, read_config};
 #[cfg(feature = "_tiles")]
 use martin::config::primitives::IdResolver;
@@ -51,14 +53,19 @@ async fn start(args: Args) -> MartinResult<()> {
         )
         .await?;
     #[cfg(feature = "mbtiles")]
-    let mgr = sources.tile_manager.clone();
-
-    #[cfg(feature = "mbtiles")]
     {
-        let reloader = MBTilesReloader::new(mgr, resolver, &config.mbtiles);
+        let reloader =
+            MBTilesReloader::new(sources.tile_manager.clone(), resolver.clone(), &config.mbtiles);
         if let Err(e) = reloader.start() {
             tracing::warn!("failed to start MBTilesReloader {e:?}");
         }
+    }
+
+    #[cfg(feature = "pmtiles")]
+    {
+        let reloader =
+            PMTilesReloader::new(sources.tile_manager.clone(), resolver.clone(), &config.pmtiles);
+        reloader.start();
     }
 
     if let Some(file_name) = save_config {

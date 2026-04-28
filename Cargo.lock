@@ -4747,9 +4747,9 @@ dependencies = [
 
 [[package]]
 name = "pmtiles"
-version = "0.21.0"
+version = "0.23.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e7bdf28ba26f64afe475f1f08f5f3b7b9d0388d1f267e411fb4352778432b1f3"
+checksum = "579153334aed2e066da3e2509b03c686b9d6e737ee2c3635f5baa90a57a762e1"
 dependencies = [
  "async-compression",
  "bytes",
