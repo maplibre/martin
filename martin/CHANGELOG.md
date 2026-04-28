@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.0](https://github.com/maplibre/martin/compare/martin-v1.7.0...martin-v1.8.0) - 2026-04-28
+
+### Added
+
+- Add MBTilesReloader (Tile Reload Phase 2) ([#2717](https://github.com/maplibre/martin/pull/2717))
+### MBTiles auto-reloading
+
+Previously, if you configured an directory with us, we would list it once and then serve this.
+This is no longer the case, we now can hot-reload (including updates clearing a sources cache) mbtiles (!).
+Work towards PMtiles, PG or COG is underway, but if you want this faster a PR to finish the plumbing would be appreciated.
+
+Done in [#2717](https://github.com/maplibre/martin/pull/2717) by by [@Auspicus](https://github.com/Auspicus)
+
+### Non-vector PG sources
+
+Some users, might want to serve non-MVT sources from postgres.
+We now support this via the `content_type` in PostgreSQL function source SQL comments.
+For further information see our docs or [#2671](https://github.com/maplibre/martin/pull/2671)
+
+### Other
+
+- remove a few unused deps from Cargo.toml to not waste time building them ([#2738](https://github.com/maplibre/martin/pull/2738))
+- update Cargo.toml dependencies
+
 ## [1.7.0](https://github.com/maplibre/martin/compare/martin-v1.6.0...martin-v1.7.0) - 2026-04-23
 
 ### `martin_tile_cache_requests_total` and `martin_cache_requests_total` metrics
