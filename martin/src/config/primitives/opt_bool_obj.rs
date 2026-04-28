@@ -73,7 +73,9 @@ mod tests {
     use serde::Deserialize;
 
     use super::*;
-    use crate::config::test_helpers::{parse_yaml, render_failure};
+    use crate::config::test_helpers::parse_yaml;
+    #[cfg(feature = "postgres")]
+    use crate::config::test_helpers::render_failure;
 
     #[derive(Debug, Default, Deserialize, PartialEq)]
     struct Sample {

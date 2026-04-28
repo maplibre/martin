@@ -182,7 +182,9 @@ impl<T> OptOneMany<T> {
 mod tests {
     use super::OptOneMany::{Many, NoVals, One};
     use super::*;
-    use crate::config::test_helpers::{parse_yaml, render_failure};
+    use crate::config::test_helpers::parse_yaml;
+    #[cfg(feature = "postgres")]
+    use crate::config::test_helpers::render_failure;
 
     // ----- Custom `Deserialize` impl: every accepted shape and every error path -----
     //
