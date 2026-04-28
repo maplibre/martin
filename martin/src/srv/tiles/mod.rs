@@ -4,6 +4,7 @@ pub mod metadata;
 #[cfg(test)]
 pub mod tests {
     use async_trait::async_trait;
+    use martin_core::CacheZoomRange;
     use martin_core::tiles::{BoxedSource, MartinCoreResult, Source, UrlQuery};
     use martin_tile_utils::{Encoding, Format, TileCoord, TileData, TileInfo};
     use tilejson::TileJSON;
@@ -31,6 +32,10 @@ pub mod tests {
 
         fn clone_source(&self) -> BoxedSource {
             Box::new(self.clone())
+        }
+
+        fn cache_zoom(&self) -> CacheZoomRange {
+            CacheZoomRange::default()
         }
 
         async fn get_tile(
@@ -67,6 +72,10 @@ pub mod tests {
 
         fn clone_source(&self) -> BoxedSource {
             Box::new(self.clone())
+        }
+
+        fn cache_zoom(&self) -> CacheZoomRange {
+            CacheZoomRange::default()
         }
 
         async fn get_tile(

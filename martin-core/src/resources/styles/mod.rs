@@ -18,14 +18,14 @@ use std::fmt::Debug;
 use std::path::PathBuf;
 
 use dashmap::{DashMap, Entry};
-#[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
+#[cfg(all(feature = "rendering", target_os = "linux"))]
 use maplibre_native::Image;
 use serde::{Deserialize, Serialize};
 use tracing::{info, warn};
 
-#[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
+#[cfg(all(feature = "rendering", target_os = "linux"))]
 mod error;
-#[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
+#[cfg(all(feature = "rendering", target_os = "linux"))]
 pub use error::StyleError;
 
 /// Style metadata.
@@ -43,7 +43,7 @@ pub type StyleCatalog = HashMap<String, CatalogStyleEntry>;
 pub struct StyleSources {
     sources: DashMap<String, StyleSource>,
     // if rendering is allowed
-    #[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
+    #[cfg(all(feature = "rendering", target_os = "linux"))]
     rendering_enabled: bool,
 }
 
@@ -121,7 +121,7 @@ impl StyleSources {
     ///
     /// For now, we only use a static renderer which is optimized for our kind of usage
     /// In the future, we may consider adding support for smarter rendering including a pool of renderers.
-    #[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
+    #[cfg(all(feature = "rendering", target_os = "linux"))]
     pub async fn render(&self, path: PathBuf, z: u8, x: u32, y: u32) -> Result<Image, StyleError> {
         if !self.rendering_enabled {
             return Err(StyleError::RenderingIsDisabled);
@@ -134,7 +134,7 @@ impl StyleSources {
     }
 
     /// Enable or disable rendering.
-    #[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
+    #[cfg(all(feature = "rendering", target_os = "linux"))]
     pub fn set_rendering_enabled(&mut self, arg: bool) {
         self.rendering_enabled = arg;
     }
@@ -144,7 +144,7 @@ impl StyleSources {
 mod tests {
     use std::path::Path;
 
-    #[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
+    #[cfg(all(feature = "rendering", target_os = "linux"))]
     use rstest::rstest;
 
     use super::*;
@@ -207,37 +207,137 @@ mod tests {
         );
     }
 
-    #[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
+    #[cfg(all(feature = "rendering", target_os = "linux"))]
     #[rstest]
-    #[case::maplibre_demo("maplibre_demo.json", (0, 0, 0))]
-    #[case::maplibre_demo_zoom1("maplibre_demo.json", (1, 0, 0))]
-    #[case::maptiler_basic("src2/maptiler_basic.json", (0, 0, 0))]
+    #[case::maplibre_demo_png("maplibre_demo.json", (0, 0, 0), image::ImageFormat::Png, "png")]
+    #[case::maplibre_demo_zoom1_png("maplibre_demo.json", (1, 0, 0), image::ImageFormat::Png, "png")]
+    #[case::maptiler_basic_png("src2/maptiler_basic.json", (0, 0, 0), image::ImageFormat::Png, "png")]
+    #[case::maplibre_demo_jpeg("maplibre_demo.json", (0, 0, 0), image::ImageFormat::Jpeg, "jpeg")]
+    #[case::maplibre_demo_zoom1_jpeg("maplibre_demo.json", (1, 0, 0), image::ImageFormat::Jpeg, "jpeg")]
+    #[case::maptiler_basic_jpeg("src2/maptiler_basic.json", (0, 0, 0), image::ImageFormat::Jpeg, "jpeg")]
     #[tokio::test]
     async fn test_render_tile_with_fixtures(
         #[case] style_file: &str,
         #[case] (z, x, y): (u8, u32, u32),
+        #[case] format: image::ImageFormat,
+        #[case] ext: &str,
     ) {
         let style_dir = Path::new("../tests/fixtures/styles/");
         let style_path = style_dir.join(style_file);
         let mut styles = StyleSources::default();
         styles.set_rendering_enabled(true);
 
-        let image = styles.render(style_path, z, x, y).await.unwrap();
+        let rendered = styles.render(style_path, z, x, y).await.unwrap();
+        let rendered_img = rendered.as_image();
+        let (width, height) = (rendered_img.width(), rendered_img.height());
 
-        let mut img_buffer = std::io::Cursor::new(Vec::new());
-        image
-            .as_image()
-            .write_to(&mut img_buffer, image::ImageFormat::Png)
-            .unwrap();
+        // Verify rendered tile dimensions are 512x512
+        assert_eq!((width, height), (512, 512), "Rendered tile must be 512x512");
 
-        // Create a snapshot name based on the style and coordinates
-        let snapshot_name = format!(
-            "{}_{}_{}_{}.png",
+        // Verify the image is not blank (has at least 2 distinct pixel values)
+        let pixels: std::collections::HashSet<_> = rendered_img.pixels().copied().collect();
+        assert!(
+            pixels.len() > 1,
+            "Rendered image is blank (all pixels identical)"
+        );
+
+        // Encode rendered image to the target format
+        // JPEG doesn't support alpha, so convert RGBA→RGB when needed
+        let encoded_img: image::DynamicImage = if format == image::ImageFormat::Jpeg {
+            image::DynamicImage::ImageRgb8(
+                image::DynamicImage::ImageRgba8(rendered_img.clone()).to_rgb8(),
+            )
+        } else {
+            image::DynamicImage::ImageRgba8(rendered_img.clone())
+        };
+        let mut rendered_buf = std::io::Cursor::new(Vec::new());
+        encoded_img.write_to(&mut rendered_buf, format).unwrap();
+        let rendered_bytes = rendered_buf.into_inner();
+
+        // Verify format magic bytes
+        match format {
+            image::ImageFormat::Png => {
+                assert!(
+                    rendered_bytes.starts_with(&[0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A]),
+                    "Encoded bytes are not valid PNG (wrong magic)"
+                );
+            }
+            image::ImageFormat::Jpeg => {
+                assert!(
+                    rendered_bytes.starts_with(&[0xFF, 0xD8, 0xFF]),
+                    "Encoded bytes are not valid JPEG (wrong magic)"
+                );
+            }
+            _ => {}
+        }
+
+        // Load reference image from git-tracked fixtures
+        let reference_name = format!(
+            "{}_{}_{}_{}.{ext}",
             style_file.replace('/', "_").replace(".json", ""),
             z,
             x,
             y
         );
-        insta::assert_binary_snapshot!(&snapshot_name, img_buffer.into_inner());
+        let reference_path =
+            Path::new("../tests/fixtures/rendering_references").join(&reference_name);
+
+        // Reference image MUST exist - if missing, the test fails and stores it on disk
+        let reference_bytes = std::fs::read(&reference_path).unwrap_or_else(|_| {
+                std::fs::create_dir_all(reference_path.parent().unwrap()).unwrap();
+                // Sanity check: refuse to bless tiny or blank images
+                assert!(
+                    rendered_bytes.len() > 1000,
+                    "Refusing to bless suspiciously small image ({} bytes)",
+                    rendered_bytes.len()
+                );
+                std::fs::write(&reference_path, &rendered_bytes).unwrap();
+                panic!(
+                    "Created new reference image at {reference_path:?}. Commit this file and re-run the test."
+                );
+        });
+
+        // For pixelmatch comparison, both images must be decoded to PNG
+        let rendered_for_cmp =
+            image::load_from_memory_with_format(&rendered_bytes, format).unwrap();
+        let mut rendered_png = std::io::Cursor::new(Vec::new());
+        rendered_for_cmp
+            .write_to(&mut rendered_png, image::ImageFormat::Png)
+            .unwrap();
+
+        let reference_for_cmp =
+            image::load_from_memory_with_format(&reference_bytes, format).unwrap();
+        let mut reference_png = std::io::Cursor::new(Vec::new());
+        reference_for_cmp
+            .write_to(&mut reference_png, image::ImageFormat::Png)
+            .unwrap();
+
+        let diff_pixels = pixelmatch::pixelmatch(
+            std::io::Cursor::new(reference_png.get_ref()),
+            std::io::Cursor::new(rendered_png.get_ref()),
+            None::<&mut std::io::Sink>,
+            Some(width),
+            Some(height),
+            Some(pixelmatch::Options {
+                threshold: 0.1,
+                ..Default::default()
+            }),
+        )
+        .unwrap_or_else(|e| panic!("pixelmatch failed: {e}"));
+
+        let total_pixels = (width * height) as usize;
+        #[allow(clippy::cast_precision_loss)]
+        let diff_pct = (diff_pixels as f64 / total_pixels as f64) * 100.0;
+        // JPEG is lossy, so allow a higher threshold
+        let max_diff_pct = if format == image::ImageFormat::Jpeg {
+            5.0
+        } else {
+            1.0
+        };
+        assert!(
+            diff_pct < max_diff_pct,
+            "Rendered image {reference_name} differs from reference by {diff_pct:.2}% ({diff_pixels}/{total_pixels} pixels). \
+             If this is expected, delete the existing reference file and regenerate it using the current rendering output."
+        );
     }
 }

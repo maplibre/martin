@@ -5,6 +5,7 @@ use async_trait::async_trait;
 use martin_tile_utils::{TileCoord, TileData, TileInfo};
 use tilejson::TileJSON;
 
+use crate::CacheZoomRange;
 use crate::tiles::catalog::CatalogSourceEntry;
 use crate::tiles::{MartinCoreResult, Tile};
 
@@ -44,6 +45,9 @@ pub trait Source: Send + Sync + Debug {
     fn benefits_from_concurrent_scraping(&self) -> bool {
         false
     }
+
+    /// Zoom-level bounds for tile caching.
+    fn cache_zoom(&self) -> CacheZoomRange;
 
     /// Retrieves tile data for the given coordinates.
     ///
@@ -87,7 +91,7 @@ pub trait Source: Send + Sync + Debug {
         let info = self.get_tile_info();
         CatalogSourceEntry {
             content_type: info.format.content_type().to_string(),
-            content_encoding: info.encoding.content_encoding().map(ToString::to_string),
+            content_encoding: info.encoding.compression().map(ToString::to_string),
             name: tilejson.name.as_ref().filter(|v| *v != id).cloned(),
             description: tilejson.description.clone(),
             attribution: tilejson.attribution.clone(),

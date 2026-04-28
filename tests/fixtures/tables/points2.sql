@@ -17,7 +17,7 @@ COMMENT ON COLUMN points2.geom IS 'The geometry column';
 -- SELECT generate_series(4, 30) as id,
 --        (ST_DUMP(ST_GENERATEPOINTS(st_transform(st_tileenvelope(0, 0, 0), 4326), 27))).geom;
 --
--- To dump the data above, uncomment code the above, comment the INSERT code bellow, and run:
+-- To dump the data above, uncomment code the above, comment the INSERT code below, and run:
 --   just restart
 --   just pg_dump --data-only --inserts --rows-per-insert=100 --table=points2
 

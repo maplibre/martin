@@ -1,0 +1,9 @@
+{
+  "content_type": "image/png",
+  "description": "a raster tile function source",
+  "name": "function_zxy_raster",
+  "tilejson": "3.0.0",
+  "tiles": [
+    "http://localhost:3111/function_zxy_raster/{z}/{x}/{y}"
+  ]
+}

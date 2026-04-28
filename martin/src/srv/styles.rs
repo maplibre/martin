@@ -20,6 +20,7 @@ struct StyleRequest {
     wrap = "Etag::default()",
     wrap = "Compress::default()"
 )]
+#[hotpath::measure]
 async fn get_style_json(path: Path<StyleRequest>, styles: Data<StyleSources>) -> HttpResponse {
     let style_id = &path.style_id;
     let Some(path) = styles.style_json_path(style_id) else {

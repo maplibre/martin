@@ -155,7 +155,7 @@ just run         # start Martin server
 just test        # run all tests
 just fmt         # format code
 just clippy      # lint code
-just book        # build documentation
+just docs        # serve documentation preview
 just stop        # stop test database
 ```
 

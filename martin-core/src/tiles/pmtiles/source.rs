@@ -1,35 +1,32 @@
 //! `PMTiles` tile source implementations.
 
-use std::fmt::{Debug, Formatter};
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use derive_debug::Dbg;
 use martin_tile_utils::{Encoding, Format, TileCoord, TileData, TileInfo};
 use object_store::ObjectStore;
 use pmtiles::{AsyncPmTilesReader, Compression, ObjectStoreBackend, TileType};
 use tilejson::TileJSON;
 use tracing::{trace, warn};
 
+use crate::CacheZoomRange;
 use crate::tiles::pmtiles::PmtCacheInstance;
 use crate::tiles::pmtiles::PmtilesError::{self, InvalidMetadata};
 use crate::tiles::{BoxedSource, MartinCoreResult, Source, UrlQuery};
 
 /// A source for `PMTiles` files using `ObjectStoreBackend`
-#[derive(Clone)]
+#[derive(Clone, Dbg)]
 pub struct PmtilesSource {
     id: String,
+    #[dbg(skip)]
     pmtiles: Arc<AsyncPmTilesReader<ObjectStoreBackend, PmtCacheInstance>>,
+    #[dbg(skip)]
     tilejson: TileJSON,
+    #[dbg(skip)]
     tile_info: TileInfo,
-}
-
-#[expect(clippy::missing_fields_in_debug)]
-impl Debug for PmtilesSource {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("PmtilesSource")
-            .field("id", &self.id)
-            .finish()
-    }
+    #[dbg(skip)]
+    cache_zoom: CacheZoomRange,
 }
 
 impl PmtilesSource {
@@ -39,6 +36,7 @@ impl PmtilesSource {
         id: String,
         store: Box<dyn ObjectStore>,
         path: impl Into<object_store::path::Path>,
+        cache_zoom: CacheZoomRange,
     ) -> Result<Self, PmtilesError> {
         let path = path.into();
         let store_to_string = store.to_string();
@@ -100,6 +98,7 @@ impl PmtilesSource {
             pmtiles: Arc::new(reader),
             tilejson,
             tile_info: format,
+            cache_zoom,
         })
     }
 }
@@ -126,6 +125,10 @@ impl Source for PmtilesSource {
 
     fn benefits_from_concurrent_scraping(&self) -> bool {
         true
+    }
+
+    fn cache_zoom(&self) -> CacheZoomRange {
+        self.cache_zoom
     }
 
     async fn get_tile(

@@ -1,0 +1,146 @@
+name: Hotpath profile
+
+on:
+  pull_request:
+    paths-ignore:
+      - '**.md'
+      - 'demo/**'
+      - 'docs/**'
+
+defaults:
+  run:
+    shell: bash
+
+permissions:
+  contents: read
+
+jobs:
+  profile:
+    runs-on: ubuntu-latest
+    env:
+      PGDATABASE: test
+      PGHOST: localhost
+      PGUSER: postgres
+      PGPASSWORD: postgres
+    services:
+      postgres:
+        image: postgis/postgis:18-3.6
+        ports:
+          - 5432/tcp
+        options: >-
+          -e POSTGRES_DB=test
+          -e POSTGRES_USER=postgres
+          -e POSTGRES_PASSWORD=postgres
+          -e PGDATABASE=test
+          -e PGUSER=postgres
+          -e PGPASSWORD=postgres
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - run: rustup update stable && rustup default stable
+      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+      - uses: taiki-e/install-action@5f57d6cb7cd20b14a8a27f522884c4bc8a187458 # v2.75.19
+        with: { tool: 'just,oha' }
+      - name: Install rendering dependencies
+        run: just install-dependencies
+
+      - name: Init database
+        run: tests/fixtures/initdb.sh
+        env:
+          PGPORT: ${{ job.services.postgres.ports[5432] }}
+
+      - name: Create metrics directory
+        run: mkdir -p /tmp/metrics
+
+      - name: Build head
+        run: just build-hotpath
+
+      - name: Benchmark head
+        env:
+          HOTPATH_OUTPUT_FORMAT: json
+          HOTPATH_OUTPUT_PATH: /tmp/metrics/head_timing.json
+          HOTPATH_ALLOC_SELF: true
+          DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGPASSWORD }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}
+        run: |
+          set -euo pipefail
+          just bench-server-hotpath &
+          MARTIN_PID=$!
+
+          for i in {1..1000}; do
+            if curl -sf http://localhost:3000/health > /dev/null 2>&1; then break; fi
+            sleep 1
+          done
+          curl -sf http://localhost:3000/health > /dev/null 2>&1 || { echo "::error::Martin failed to start"; kill $MARTIN_PID 2>/dev/null; exit 1; }
+
+          just bench-http 1m 100k
+
+          kill $MARTIN_PID 2>/dev/null || true
+          wait $MARTIN_PID || true
+
+      - name: Checkout base
+        run: git checkout ${{ github.event.pull_request.base.sha }}
+
+      - name: Clean slate to not have codegen cache artefact bias
+        run: cargo clean
+
+      - name: Check base has hotpath support
+        id: base-check
+        run: |
+          if grep -q '__hotpath' martin/Cargo.toml; then
+            echo "supported=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::Base branch does not have __hotpath feature, skipping base benchmark"
+            echo '{}' > /tmp/metrics/base_timing.json
+            echo "supported=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build base
+        if: steps.base-check.outputs.supported == 'true'
+        run: just build-hotpath
+
+      - name: Benchmark base
+        if: steps.base-check.outputs.supported == 'true'
+        env:
+          HOTPATH_OUTPUT_FORMAT: json
+          HOTPATH_OUTPUT_PATH: /tmp/metrics/base_timing.json
+          HOTPATH_ALLOC_SELF: true
+          DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGPASSWORD }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}
+        run: |
+          set -euo pipefail
+          just bench-server-hotpath &
+          MARTIN_PID=$!
+
+          for i in {1..1000}; do
+            if curl -sf http://localhost:3000/health > /dev/null 2>&1; then break; fi
+            sleep 1
+          done
+          curl -sf http://localhost:3000/health > /dev/null 2>&1 || { echo "::error::Martin failed to start"; kill $MARTIN_PID 2>/dev/null; exit 1; }
+
+          just bench-http 1m 100k
+
+          kill "$MARTIN_PID" 2>/dev/null || true
+          wait "$MARTIN_PID" || true
+
+      - name: Save PR metadata
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          BASE_REF: ${{ github.base_ref }}
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          echo "$PR_NUMBER" > /tmp/metrics/pr_number.txt
+          echo "$BASE_REF" > /tmp/metrics/base_ref.txt
+          echo "$HEAD_REF" > /tmp/metrics/head_ref.txt
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: profile-metrics
+          path: /tmp/metrics/
+          retention-days: 1

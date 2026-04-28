@@ -5,7 +5,7 @@ The SVG filenames without extension will be used as the sprites' image IDs (reme
 The images are searched recursively in the given directory, so subdirectory names will be used as prefixes for the image IDs.
 For example `icons/bicycle.svg` will be available as `icons/bicycle` sprite image.
 
-The spritesheet generation is cached and the size of this cache can be configured via `sprites.cache_size_mb` in the config file.
+The spritesheet generation is cached and the size of this cache can be configured via `sprites.cache.size_mb` in the config file.
 
 ### API
 

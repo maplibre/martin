@@ -13,8 +13,11 @@ export default defineConfig({
     outDir: 'dist',
     rollupOptions: {
       output: {
-        manualChunks: {
-          maplibre: ['maplibre-gl', '@vis.gl/react-maplibre', '@maplibre/maplibre-gl-inspect'],
+        manualChunks: (id) => {
+          if (id.includes('maplibre')) {
+            return 'maplibre';
+          }
+          return undefined;
         },
       },
     },

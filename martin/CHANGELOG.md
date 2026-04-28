@@ -7,6 +7,171 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.0](https://github.com/maplibre/martin/compare/martin-v1.7.0...martin-v1.8.0) - 2026-04-28
+
+### Added
+
+- Add MBTilesReloader (Tile Reload Phase 2) ([#2717](https://github.com/maplibre/martin/pull/2717))
+### MBTiles auto-reloading
+
+Previously, if you configured an directory with us, we would list it once and then serve this.
+This is no longer the case, we now can hot-reload (including updates clearing a sources cache) mbtiles (!).
+Work towards PMtiles, PG or COG is underway, but if you want this faster a PR to finish the plumbing would be appreciated.
+
+Done in [#2717](https://github.com/maplibre/martin/pull/2717) by by [@Auspicus](https://github.com/Auspicus)
+
+### Non-vector PG sources
+
+Some users, might want to serve non-MVT sources from postgres.
+We now support this via the `content_type` in PostgreSQL function source SQL comments.
+For further information see our docs or [#2671](https://github.com/maplibre/martin/pull/2671)
+
+### Other
+
+- remove a few unused deps from Cargo.toml to not waste time building them ([#2738](https://github.com/maplibre/martin/pull/2738))
+- update Cargo.toml dependencies
+
+## [1.7.0](https://github.com/maplibre/martin/compare/martin-v1.6.0...martin-v1.7.0) - 2026-04-23
+
+### `martin_tile_cache_requests_total` and `martin_cache_requests_total` metrics
+
+We have added the following metrics, allowing for knowing what your cache hit rate.
+These are two metrics because for tiles we include the zoom while for fonts/sprites this does not make sense.
+
+```raw
+# HELP martin_cache_requests_total Martin cache lookups, labeled by cache type and hit/miss result
+# TYPE martin_cache_requests_total counter
+martin_cache_requests_total{cache="font",result="miss"} NUMBER
+martin_cache_requests_total{cache="sprite",result="miss"} NUMBER
+# HELP martin_tile_cache_requests_total Martin tile-coordinate cache lookups, labeled by cache type, hit/miss result, and zoom
+# TYPE martin_tile_cache_requests_total counter
+martin_tile_cache_requests_total{cache="tile",result="hit",zoom="0"} NUMBER
+martin_tile_cache_requests_total{cache="tile",result="miss",zoom="0"} NUMBER
+```
+
+> [!TIP]
+> If you have concrete needs for what metrics you would like to see, please open an issue.
+> The set of metrics we offer is quite early in its development livecycle.
+
+### Stabilised Server-side raster tile rendering backend
+
+We have stabilised our rendering backend, which means that you can now render images using MapLibre Native.
+We have some work planned to improve performance by prefetching and better paralelism, or to add capabilites like overlaying lines/text/shapes.. via query params.
+If you have needs/interests towards this area, we would also invite you to open a discussion/issue on the API that you would like to see.
+If you need configurability, we would also like to know what kind of configurability you need.
+
+To enable this feature, you need to add the following to your configuration file:
+
+```yaml
+styles:
+    rendering: true
+```
+
+### Added
+
+- *(ui)* Add Tile URLs TileJSON and XYZ Tiles URLs to the inspect UI ([#2731](https://github.com/maplibre/martin/pull/2731))
+- *(mbtiles)* add --strict flag to use STRICT SQLite tables ([#2712](https://github.com/maplibre/martin/pull/2712))
+
+### Fixed
+
+- Keep /health available with `--route-prefix foo` instead of just moving it to /foo/health to enable docker healthchecks ([#2723](https://github.com/maplibre/martin/pull/2723))
+
+### Other
+
+- Some refactorings to increase CI reliability ([#2724](https://github.com/maplibre/martin/pull/2724), [#2715](https://github.com/maplibre/martin/pull/2715), [#2725](https://github.com/maplibre/martin/pull/2725))
+- *(deps)* autoupdate pre-commit ([#2720](https://github.com/maplibre/martin/pull/2720))
+
+## [1.6.0](https://github.com/maplibre/martin/compare/martin-v1.5.0...martin-v1.6.0) - 2026-04-18
+
+### Smarter, more configurable caching
+
+The tile cache received several improvements in this release:
+
+- **Configurable cache expiry**
+  The in-memory tile cache Time To Live (TTL -> f.ex. `cache.expiry: 1h`) and Time To Idle (TTI ->  f.ex. `cache.idle_timeout: 20m`) was previously hardcoded to "∞" (aka never expiring).
+  You can now configure how long cached tiles stay in memory, allowing better trade-offs between freshness and performance for your specific workload.
+
+  ```yaml
+  cache:
+    # Maximum lifetime for all cache entries (time-to-live from creation).
+    # Entries are evicted after this duration regardless of access.
+    # Supports human-readable formats: "1h", "30m", "1d", "3600s".
+    # default: null (no expiry, entries only evicted by size pressure)
+    expiry: null
+
+    # Maximum idle time for all cache entries (time-to-idle since last access).
+    # Entries are evicted if not accessed within this duration.
+    # default: null (no idle timeout)
+    idle_timeout: null
+  ```
+
+  Done in [#2691](https://github.com/maplibre/martin/pull/2691).
+- **Per-source cache zoom levels**
+  New `cache.minzoom` and `cache.maxzoom` options (both globally and per-source) let you skip caching at zoom levels that don't benefit from it.
+  For example, you can avoid filling the cache with rarely-reused high-zoom tiles or low-detail overviews.
+
+  ```yaml
+  cache:
+    # Default minimum zoom level (inclusive) for tile caching.
+    # Tiles further zoomed out than this will bypass the cache entirely.
+    # Can be overridden per-source (e.g. cache.minzoom on a type of source or an individual source).
+    # default: null (no lower bound, all zoom levels cached)
+    minzoom: null
+
+    # Default maximum zoom level (inclusive) for tile caching.
+    # Tiles further zoomed in than this will bypass the cache entirely.
+    # Can be overridden per-source.
+    # default: null (no upper bound, all zoom levels cached)
+    maxzoom: null
+  ```
+
+  Done in [#2673](https://github.com/maplibre/martin/pull/2673) by [@carderne](https://github.com/carderne).
+- **Cache deduplication under concurrency**
+  Cache insertions now use moka's entry API, so concurrent requests for the same tile only compute it once instead of redundantly.
+  This is a meaningful performance win under thundering-herd scenarios.
+  Done in [#2688](https://github.com/maplibre/martin/pull/2688).
+- **Accept header in cache key** -- The sanitised `Accept` HTTP header is now part of the cache key, preventing a cached response encoded for one client from being incorrectly served to another.
+  This **previously did not have any effect and was also not incorrect**, but in the next release we will add MLT encoding support (which we worked hard for).
+
+  This also has the side-effect that if your client now says that you only `Accept` a certain format, we now correctly abort requests early.
+  Done in [#2703](https://github.com/maplibre/martin/pull/2703).
+
+### Broader MBTiles compatibility
+
+- **Planetiler `normalized` schema alias** -- Martin now recognizes Planetiler's `normalized` and `normalized-with-view` schema names as aliases for its own `norm` schema type, so MBTiles files produced by Planetiler no longer trigger schema-detection warnings. Done in [#2681](https://github.com/maplibre/martin/pull/2681).
+- **Compression type stored in metadata** -- When writing tiles to MBTiles (e.g. via martin-cp), the compression method (gzip, brotli, etc.) is now recorded in the metadata table. Previously this information was lost, forcing consumers to guess. Done in [#2618](https://github.com/maplibre/martin/pull/2618).
+- **Transcoder API for library consumers** -- The `mbtiles` crate now exposes a public API for converting between MBTiles storage schemas (flat, normalized, deduplicated) programmatically. Done in [#2682](https://github.com/maplibre/martin/pull/2682).
+
+### `--on-invalid` CLI argument
+
+The `on_invalid` setting (which controls whether Martin warns or aborts when it encounters an invalid source at startup) was previously config-file-only. It is now available as `--on-invalid <warn|abort>` on the command line, which is especially handy in CI/CD and container environments.
+
+Done in [#2668](https://github.com/maplibre/martin/pull/2668) by [@Auspicus](https://github.com/Auspicus).
+
+### Other
+
+- Introduced `TileSourceManager` and `ReloadAdvisory` as groundwork for future live-reload of tile sources ([#2661](https://github.com/maplibre/martin/pull/2661)) by [@Auspicus](https://github.com/Auspicus)
+- Added hotpath-based profiling integration ([#2663](https://github.com/maplibre/martin/pull/2663))
+- Enabled React Compiler for martin-ui and demo frontend ([#2686](https://github.com/maplibre/martin/pull/2686))
+- Enabled `clippy::unwrap_used` workspace lint ([#2670](https://github.com/maplibre/martin/pull/2670))
+- Ensured unit tests run on macOS ([#2648](https://github.com/maplibre/martin/pull/2648)) by [@Weixing-Zhang](https://github.com/Weixing-Zhang)
+- Various dependency bumps ([#2702](https://github.com/maplibre/martin/pull/2702), [#2684](https://github.com/maplibre/martin/pull/2684), [#2624](https://github.com/maplibre/martin/pull/2624), [#2662](https://github.com/maplibre/martin/pull/2662), [#2657](https://github.com/maplibre/martin/pull/2657))
+
+## [1.5.0](https://github.com/maplibre/martin/compare/martin-v1.4.0...martin-v1.5.0) - 2026-04-02
+
+### Fixed
+
+- *(postgres)* startup crash when ST_Extent returns LineString instead of Polygon ([#2600](https://github.com/maplibre/martin/pull/2600))
+
+### Other
+
+- typos ([#2651](https://github.com/maplibre/martin/pull/2651))
+- migrate to workspaced justfiles using `mod` for demo and martin-ui ([#2623](https://github.com/maplibre/martin/pull/2623))
+- *(deps)* Bump the all-npm-security-updates group across 2 directories with 1 update ([#2647](https://github.com/maplibre/martin/pull/2647))
+- Enable `clippy::use_self` at workspace level and resolve all violations ([#2645](https://github.com/maplibre/martin/pull/2645))
+- *(deps-dev)* Bump flatted from 3.3.3 to 3.4.2 in /martin/martin-ui in the all-npm-security-updates group across 1 directory ([#2640](https://github.com/maplibre/martin/pull/2640))
+- *(perf)* don't test pg twice ([#2619](https://github.com/maplibre/martin/pull/2619))
+
 ## [1.4.0](https://github.com/maplibre/martin/compare/martin-v1.3.1...martin-v1.4.0) - 2026-03-14
 
 ### ZSTD support
@@ -40,7 +205,7 @@ manbhav234)
 - more cfg magic instead of #[allow(unused_variables)] ([#2563](https://github.com/maplibre/martin/pull/2563))
 - More restrictive expects ([#2562](https://github.com/maplibre/martin/pull/2562))
 - feature-gate PostgreSQL tests to remove external dependencies from `cargo test` ([#2558](https://github.com/maplibre/martin/pull/2558))
-- Bump some dependencys ([#2608](https://github.com/maplibre/martin/pull/2608), [#2602](https://github.com/maplibre/martin/pull/2602), [#2592](https://github.com/maplibre/martin/pull/2592), [#2577](https://github.com/maplibre/martin/pull/2577), [#2575](https://github.com/maplibre/martin/pull/2575), [#2567](https://github.com/maplibre/martin/pull/2567))
+- Bump some dependencies ([#2608](https://github.com/maplibre/martin/pull/2608), [#2602](https://github.com/maplibre/martin/pull/2602), [#2592](https://github.com/maplibre/martin/pull/2592), [#2577](https://github.com/maplibre/martin/pull/2577), [#2575](https://github.com/maplibre/martin/pull/2575), [#2567](https://github.com/maplibre/martin/pull/2567))
 
 ## [1.3.1](https://github.com/maplibre/martin/compare/martin-v1.3.0...martin-v1.3.1) - 2026-02-11
 
@@ -56,9 +221,9 @@ manbhav234)
 ### Other
 
 - Add test coverage for header handling in tilejson requests ([#2529](https://github.com/maplibre/martin/pull/2529))
-- *(martin-core)* [**breaking**] remove the configration from the martin-core crate ([#2521](https://github.com/maplibre/martin/pull/2521))
+- *(martin-core)* [**breaking**] remove the configuration from the martin-core crate ([#2521](https://github.com/maplibre/martin/pull/2521))
 - restrict `unused_trait_names` for trait imports ([#2542](https://github.com/maplibre/martin/pull/2542))
-- *(deps)* Bump various dependencys ([#2553](https://github.com/maplibre/martin/pull/2553), [#2545](https://github.com/maplibre/martin/pull/2545), [#2533](https://github.com/maplibre/martin/pull/2533))
+- *(deps)* Bump various dependencies ([#2553](https://github.com/maplibre/martin/pull/2553), [#2545](https://github.com/maplibre/martin/pull/2545), [#2533](https://github.com/maplibre/martin/pull/2533))
 
 ## [1.3.0](https://github.com/maplibre/martin/compare/martin-v1.2.0...martin-v1.3.0) - 2026-01-27
 
@@ -160,12 +325,12 @@ Done in [#2427](https://github.com/maplibre/martin/pull/2427) by @todtb
 
 - *(config)* move the resolve impl to a different function ([#2397](https://github.com/maplibre/martin/pull/2397))
 - *(docs)* fix martin-cp bbox docs ([#2387](https://github.com/maplibre/martin/pull/2387))
-- *(deps)* miscelaneous dependency bumps ([#2403](https://github.com/maplibre/martin/pull/2403), [#2404](https://github.com/maplibre/martin/pull/2404), [#2373](https://github.com/maplibre/martin/pull/2373), [#2375](https://github.com/maplibre/martin/pull/2375), [#2374](https://github.com/maplibre/martin/pull/2374))
+- *(deps)* miscellaneous dependency bumps ([#2403](https://github.com/maplibre/martin/pull/2403), [#2404](https://github.com/maplibre/martin/pull/2404), [#2373](https://github.com/maplibre/martin/pull/2373), [#2375](https://github.com/maplibre/martin/pull/2375), [#2374](https://github.com/maplibre/martin/pull/2374))
 
 ## [1.0.0](https://github.com/maplibre/martin/compare/martin-v0.20.2...martin-v1.0.0) - 2025-11-10
 
 🎉🎉🎉 **After 8 years in developmen, we are excited to release v1.0.0 of martin.** 🎉🎉🎉
-Functionally, it is the same as `v0.20.2`, just with our releses further automated.
+Functionally, it is the same as `v0.20.2`, just with our releases further automated.
 There are no breaking changes between `v0.20.X` and `v1.X.X`
 
 ### Fixed
@@ -175,7 +340,7 @@ There are no breaking changes between `v0.20.X` and `v1.X.X`
 ## [0.20.2](https://github.com/maplibre/martin/compare/martin-v0.20.1...martin-v0.20.2) - 2025-11-07
 
 In 0.20.1 we clamed to have fixed the bug regarding how our release script determines versions for docker containers.
-This was incorrect and is fixed now with a more manual appraoch instead of relying on `docker/metadata-action`.
+This was incorrect and is fixed now with a more manual approach instead of relying on `docker/metadata-action`.
 Done in [#2348](https://github.com/maplibre/martin/pull/2348)
 
 ### Other
@@ -253,7 +418,7 @@ We asked for community feedback on Slack (see [here](https://maplibre.org/commun
 If you depend on `AWS_PROFILE`, we opened the following issue to discuss details:
 - https://github.com/maplibre/martin/issues/2286
 
-For further details on the now avaliable options, please [see our documentation](https://maplibre.org/martin/sources-files.html).
+For further details on the now available options, please [see our documentation](https://maplibre.org/martin/sources-files.html).
 
 Done in [#2251](https://github.com/maplibre/martin/pull/2251)
 
@@ -291,8 +456,8 @@ Done in [#2294](https://github.com/maplibre/martin/pull/2294)
 - *(admin)* move functionality into better modules ([#2315](https://github.com/maplibre/martin/pull/2315))
 - move config files to new folders ([#2298](https://github.com/maplibre/martin/pull/2298))
 - *(core)* add a `_tiles` feature  to simplify our feature configuration ([#2296](https://github.com/maplibre/martin/pull/2296))
-- *(config)* refactor the livecycle hooks to be cleaner and better documented ([#2282](https://github.com/maplibre/martin/pull/2282))
-- *(lints)* applly tighter clippy lints like `clippy::panic_in_result_fn`, `clippy::todo` or similar [#2284](https://github.com/maplibre/martin/pull/2284 [#2283](https://github.com/maplibre/martin/pull/2283), [#2288](https://github.com/maplibre/martin/pull/2288), [#2287](https://github.com/maplibre/martin/pull/2287)
+- *(config)* refactor the lifecycle hooks to be cleaner and better documented ([#2282](https://github.com/maplibre/martin/pull/2282))
+- *(lints)* apply tighter clippy lints like `clippy::panic_in_result_fn`, `clippy::todo` or similar [#2284](https://github.com/maplibre/martin/pull/2284 [#2283](https://github.com/maplibre/martin/pull/2283), [#2288](https://github.com/maplibre/martin/pull/2288), [#2287](https://github.com/maplibre/martin/pull/2287)
 - *(mbtiles)* Generate mbtiles dynamically from SQL files to increase debuggability, transparency and supply chain trust/security ([#1868](https://github.com/maplibre/martin/pull/1868))
 - A number of dependency updates [#2277](https://github.com/maplibre/martin/pull/2277), [#2308](https://github.com/maplibre/martin/pull/2308)
 
@@ -347,7 +512,7 @@ Done in [#2294](https://github.com/maplibre/martin/pull/2294)
 - document public parts of the  `cog`-module ([#2166](https://github.com/maplibre/martin/pull/2166))
 - document the exposed parts of the `pg` module ([#2165](https://github.com/maplibre/martin/pull/2165))
 - improve `IdResolver::resolve` warnings ([#2066](https://github.com/maplibre/martin/pull/2066))
-- improve doc comment for `IdResolver::resolve` to remove ambiguitiy if we should log for reserved names ([#2065](https://github.com/maplibre/martin/pull/2065))
+- improve doc comment for `IdResolver::resolve` to remove ambiguity if we should log for reserved names ([#2065](https://github.com/maplibre/martin/pull/2065))
 
 ### Other
 
@@ -361,4 +526,4 @@ Done in [#2294](https://github.com/maplibre/martin/pull/2294)
 - *(ui)* move from eslint to biomejs for formatting/linting ([#1909](https://github.com/maplibre/martin/pull/1909))
 - *(ci)* add cargo-sort to consistently sort our `Cargo.toml` ([#2020](https://github.com/maplibre/martin/pull/2020))
 - *(ci)* Split tests and lints in CI ([#2225](https://github.com/maplibre/martin/pull/2225))
-- *dependencys* And a bunch of dependency updates ([#2218](https://github.com/maplibre/martin/pull/2218), [#2189](https://github.com/maplibre/martin/pull/2189)), [#2161](https://github.com/maplibre/martin/pull/2161), [#2143](https://github.com/maplibre/martin/pull/2143), [#2147](https://github.com/maplibre/martin/pull/2147), [#2139](https://github.com/maplibre/martin/pull/2139), [#2128](https://github.com/maplibre/martin/pull/2128), [#2135](https://github.com/maplibre/martin/pull/2135), [#2125](https://github.com/maplibre/martin/pull/2125), [#2126](https://github.com/maplibre/martin/pull/2126), [#2120](https://github.com/maplibre/martin/pull/2120), [#2119](https://github.com/maplibre/martin/pull/2119), [#2111](https://github.com/maplibre/martin/pull/2111), [#2082](https://github.com/maplibre/martin/pull/2082), [#2093](https://github.com/maplibre/martin/pull/2093), [#2084](https://github.com/maplibre/martin/pull/2084), [#2081](https://github.com/maplibre/martin/pull/2081), [#2069](https://github.com/maplibre/martin/pull/2069), [#2070](https://github.com/maplibre/martin/pull/2070), [#2013](https://github.com/maplibre/martin/pull/2013), [#2106](https://github.com/maplibre/martin/pull/2106), [#2104](https://github.com/maplibre/martin/pull/2104), [#2050](https://github.com/maplibre/martin/pull/2050), [#2049](https://github.com/maplibre/martin/pull/2049), [#2100](https://github.com/maplibre/martin/pull/2100), [#2232](https://github.com/maplibre/martin/pull/2232))
+- *dependencies* And a bunch of dependency updates ([#2218](https://github.com/maplibre/martin/pull/2218), [#2189](https://github.com/maplibre/martin/pull/2189)), [#2161](https://github.com/maplibre/martin/pull/2161), [#2143](https://github.com/maplibre/martin/pull/2143), [#2147](https://github.com/maplibre/martin/pull/2147), [#2139](https://github.com/maplibre/martin/pull/2139), [#2128](https://github.com/maplibre/martin/pull/2128), [#2135](https://github.com/maplibre/martin/pull/2135), [#2125](https://github.com/maplibre/martin/pull/2125), [#2126](https://github.com/maplibre/martin/pull/2126), [#2120](https://github.com/maplibre/martin/pull/2120), [#2119](https://github.com/maplibre/martin/pull/2119), [#2111](https://github.com/maplibre/martin/pull/2111), [#2082](https://github.com/maplibre/martin/pull/2082), [#2093](https://github.com/maplibre/martin/pull/2093), [#2084](https://github.com/maplibre/martin/pull/2084), [#2081](https://github.com/maplibre/martin/pull/2081), [#2069](https://github.com/maplibre/martin/pull/2069), [#2070](https://github.com/maplibre/martin/pull/2070), [#2013](https://github.com/maplibre/martin/pull/2013), [#2106](https://github.com/maplibre/martin/pull/2106), [#2104](https://github.com/maplibre/martin/pull/2104), [#2050](https://github.com/maplibre/martin/pull/2050), [#2049](https://github.com/maplibre/martin/pull/2049), [#2100](https://github.com/maplibre/martin/pull/2100), [#2232](https://github.com/maplibre/martin/pull/2232))

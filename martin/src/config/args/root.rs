@@ -10,7 +10,8 @@ use crate::MartinError::ConfigAndConnectionsError;
 use crate::MartinResult;
 #[cfg(feature = "postgres")]
 use crate::config::args::PostgresArgs;
-use crate::config::file::Config;
+#[cfg(any(feature = "unstable-cog", feature = "mbtiles", feature = "pmtiles"))]
+use crate::config::file::ConfigurationLivecycleHooks;
 #[cfg(any(
     feature = "unstable-cog",
     feature = "mbtiles",
@@ -21,6 +22,7 @@ use crate::config::file::Config;
 use crate::config::file::FileConfigEnum;
 #[cfg(feature = "fonts")]
 use crate::config::file::fonts::FontConfig;
+use crate::config::file::{Config, OnInvalid};
 #[cfg(feature = "postgres")]
 use crate::config::primitives::env::Env;
 
@@ -65,6 +67,9 @@ pub struct MetaArgs {
     pub save_config: Option<PathBuf>,
     /// Connection strings, e.g. `postgres://...` or `/path/to/files`
     pub connection: Vec<String>,
+    /// Action to take when a source is found to be invalid during startup. [DEFAULT: abort]
+    #[arg(long)]
+    pub on_invalid: Option<OnInvalid>,
 }
 
 #[derive(Parser, Debug, Clone, PartialEq, Default)]
@@ -95,7 +100,17 @@ impl Args {
         }
 
         if self.srv.cache_size.is_some() {
-            config.cache_size_mb = self.srv.cache_size;
+            config.cache.size_mb = self.srv.cache_size;
+        }
+        if self.srv.cache_expiry.is_some() {
+            config.cache.expiry = self.srv.cache_expiry;
+        }
+        if self.srv.cache_idle_timeout.is_some() {
+            config.cache.idle_timeout = self.srv.cache_idle_timeout;
+        }
+
+        if self.meta.on_invalid.is_some() {
+            config.on_invalid = self.meta.on_invalid;
         }
 
         self.srv.merge_into_config(&mut config.srv);
@@ -196,7 +211,7 @@ fn is_file_scheme_uri(s: &str, extensions: &[&str]) -> bool {
 }
 
 #[cfg(any(feature = "unstable-cog", feature = "mbtiles", feature = "pmtiles"))]
-pub fn parse_file_args<T: crate::config::file::ConfigurationLivecycleHooks>(
+pub fn parse_file_args<T: ConfigurationLivecycleHooks>(
     cli_strings: &mut Arguments,
     extensions: &[&str],
     allow_url: bool,

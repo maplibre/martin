@@ -24,12 +24,13 @@ macro_rules! create_app {
         ::actix_web::test::init_service(
             ::actix_web::App::new()
                 .app_data(actix_web::web::Data::new(
-                    ::martin::srv::Catalog::new(&state).unwrap(),
+                    ::martin::srv::Catalog::new(
+                        #[cfg(any(feature = "sprites", feature = "fonts", feature = "styles"))]
+                        &state,
+                    )
+                    .unwrap(),
                 ))
-                .app_data(actix_web::web::Data::new(
-                    ::martin_core::tiles::NO_TILE_CACHE,
-                ))
-                .app_data(actix_web::web::Data::new(state.tiles))
+                .app_data(actix_web::web::Data::new(state.tile_manager))
                 .app_data(actix_web::web::Data::new(SrvConfig::default()))
                 .configure(|c| ::martin::srv::router(c, &SrvConfig::default())),
         )
@@ -106,6 +107,9 @@ postgres:
       function_zxy_query_test:
         content_type: application/x-protobuf
         description: public.function_zxy_query_test
+      function_zxy_raster:
+        content_type: image/png
+        description: a raster tile function source
       function_zxy_row:
         content_type: application/x-protobuf
         description: public.function_zxy_row
@@ -1143,12 +1147,13 @@ tables:
     let app = ::actix_web::test::init_service(
         ::actix_web::App::new()
             .app_data(actix_web::web::Data::new(
-                ::martin::srv::Catalog::new(&state).unwrap(),
+                ::martin::srv::Catalog::new(
+                    #[cfg(any(feature = "sprites", feature = "fonts", feature = "styles"))]
+                    &state,
+                )
+                .unwrap(),
             ))
-            .app_data(actix_web::web::Data::new(
-                ::martin_core::tiles::NO_TILE_CACHE,
-            ))
-            .app_data(actix_web::web::Data::new(state.tiles))
+            .app_data(actix_web::web::Data::new(state.tile_manager))
             .app_data(actix_web::web::Data::new(SrvConfig::default()))
             .configure(|c| ::martin::srv::router(c, &SrvConfig::default())),
     )

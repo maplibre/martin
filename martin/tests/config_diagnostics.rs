@@ -50,7 +50,15 @@ fn syntax_error_unbalanced_quote() {
           listen_addresses: "0.0.0.0:3000
           worker_processes: 4
     "#};
-    insta::assert_snapshot!(render_failure(yaml));
+    insta::assert_snapshot!(render_failure(yaml), @r#"
+     × invalid indentation in multiline quoted scalar
+      ╭─[config.yaml:3:3]
+    2 │   listen_addresses: "0.0.0.0:3000
+    3 │   worker_processes: 4
+      ·   ┬
+      ·   ╰── invalid indentation in multiline quoted scalar
+      ╰────
+    "#);
 }
 
 #[test]
@@ -58,7 +66,15 @@ fn type_mismatch_cache_size_string() {
     let yaml = indoc! {r"
         cache_size_mb: not-a-number
     "};
-    insta::assert_snapshot!(render_failure(yaml));
+    insta::assert_snapshot!(render_failure(yaml), @"
+     × invalid u64
+      ╭─[config.yaml:2:12]
+    1 │ cache:
+    2 │   size_mb: not-a-number
+      ·            ──────┬─────
+      ·                  ╰── invalid u64
+      ╰────
+    ");
 }
 
 #[test]
@@ -70,7 +86,16 @@ fn type_mismatch_postgres_connection_string() {
             - first
             - second
     "};
-    insta::assert_snapshot!(render_failure(yaml));
+    insta::assert_snapshot!(render_failure(yaml), @"
+     × unexpected event: expected string scalar
+      ╭─[config.yaml:3:5]
+    2 │   connection_string:
+    3 │   - first
+      ·     ┬
+      ·     ╰── unexpected event: expected string scalar
+    4 │   - second
+      ╰────
+    ");
 }
 
 #[test]
@@ -78,7 +103,15 @@ fn cors_unsupported_scalar() {
     let yaml = indoc! {r"
         cors: 42
     "};
-    insta::assert_snapshot!(render_failure(yaml));
+    insta::assert_snapshot!(render_failure(yaml), @"
+     × invalid type: integer `42`, expected either a boolean (`cors: true` /
+     │ `cors: false`) or a properties map with at least an `origin` list
+      ╭─[config.yaml:1:1]
+    1 │ cors: 42
+      · ──┬─
+      ·   ╰── invalid type: integer `42`, expected either a boolean (`cors: true` / `cors: false`) or a properties map with at least an `origin` list
+      ╰────
+    ");
 }
 
 #[test]
@@ -89,7 +122,15 @@ fn pmtiles_path_list_with_nested_map() {
           paths:
             - { not_a_path: true }
     "};
-    insta::assert_snapshot!(render_failure(yaml));
+    insta::assert_snapshot!(render_failure(yaml), @"
+     × unexpected event: expected string scalar
+      ╭─[config.yaml:3:5]
+    2 │   paths:
+    3 │   - not_a_path: true
+      ·     ┬
+      ·     ╰── unexpected event: expected string scalar
+      ╰────
+    ");
 }
 
 #[test]
@@ -100,7 +141,16 @@ fn mbtiles_source_integer_value() {
           sources:
             foo: 5
     "};
-    insta::assert_snapshot!(render_failure(yaml));
+    insta::assert_snapshot!(render_failure(yaml), @"
+     × invalid type: integer `5`, expected a path string or a configuration map
+     │ with a `path` field
+      ╭─[config.yaml:3:5]
+    2 │   sources:
+    3 │     foo: 5
+      ·     ─┬─
+      ·      ╰── invalid type: integer `5`, expected a path string or a configuration map with a `path` field
+      ╰────
+    ");
 }
 
 #[test]
@@ -108,7 +158,15 @@ fn unknown_top_level_enum_variant() {
     let yaml = indoc! {r"
         on_invalid: maybe
     "};
-    insta::assert_snapshot!(render_failure(yaml));
+    insta::assert_snapshot!(render_failure(yaml), @"
+     × unknown variant `maybe`, expected one of continue, ignore, warn, warning,
+     │ warnings, abort
+      ╭─[config.yaml:1:13]
+    1 │ on_invalid: maybe
+      ·             ──┬──
+      ·               ╰── unknown variant `maybe`, expected one of continue, ignore, warn, warning, warnings, abort
+      ╰────
+    ");
 }
 
 #[test]
@@ -116,7 +174,19 @@ fn substitution_undefined_variable() {
     let yaml = indoc! {r"
         cache_size_mb: ${UNDEFINED_VAR}
     "};
-    insta::assert_snapshot!(render_failure(yaml));
+    insta::assert_snapshot!(render_failure(yaml), @"
+    martin::config::substitution
+
+      × Unable to substitute environment variables in config file config.yaml: No
+      │ such variable: $UNDEFINED_VAR
+       ╭─[config.yaml:1:18]
+     1 │ cache_size_mb: ${UNDEFINED_VAR}
+       ·                  ──────┬──────
+       ·                        ╰── No such variable: $UNDEFINED_VAR
+       ╰────
+      help: Make sure every ${VAR} reference resolves to an environment variable,
+            or supply a default with `${VAR:-fallback}`.
+    ");
 }
 
 #[test]
@@ -124,5 +194,17 @@ fn substitution_unclosed_brace() {
     let yaml = indoc! {r"
         cache_size_mb: ${BROKEN
     "};
-    insta::assert_snapshot!(render_failure(yaml));
+    insta::assert_snapshot!(render_failure(yaml), @r"
+    martin::config::substitution
+
+      × Unable to substitute environment variables in config file config.yaml:
+      │ Unexpected character: '\n', expected a closing brace ('}') or colon (':')
+       ╭─[config.yaml:1:24]
+     1 │ cache_size_mb: ${BROKEN
+       ·                        ┬
+       ·                        ╰── Unexpected character: '\n', expected a closing brace ('}') or colon (':')
+       ╰────
+      help: Make sure every ${VAR} reference resolves to an environment variable,
+            or supply a default with `${VAR:-fallback}`.
+    ");
 }

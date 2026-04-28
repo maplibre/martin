@@ -10,7 +10,7 @@ pub use admin::Catalog;
 #[cfg(feature = "_tiles")]
 mod tiles;
 #[cfg(feature = "_tiles")]
-pub use tiles::content::DynTileSource;
+pub use tiles::content::{DynTileSource, TileRequestHeaders};
 #[cfg(feature = "_tiles")]
 pub use tiles::metadata::merge_tilejson;
 
@@ -20,5 +20,5 @@ mod sprites;
 #[cfg(feature = "styles")]
 mod styles;
 
-#[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
+#[cfg(all(feature = "rendering", target_os = "linux"))]
 mod styles_rendering;

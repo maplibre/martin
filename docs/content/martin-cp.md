@@ -24,7 +24,7 @@ martin-cp  --output-file tileset.mbtiles                         \
 ```
 
 !!! tip
-    Next to regular sorces, `--source <SOURCE>` does support [composite sources](sources-composite.md).
+    Next to regular sources, `--source <SOURCE>` does support [composite sources](sources-composite.md).
     This means `martin-cp` can be used to merge two different sources into one `mbtiles` archive.
 
 If performance is a concern, you should also consider

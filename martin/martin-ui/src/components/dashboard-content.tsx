@@ -1,4 +1,4 @@
-import { type ErrorInfo, useCallback, useEffect } from 'react';
+import { type ErrorInfo, useEffect } from 'react';
 import { FontCatalog } from '@/components/catalogs/font';
 import { SpriteCatalog } from '@/components/catalogs/sprite';
 import { StylesCatalog } from '@/components/catalogs/styles';
@@ -39,43 +39,8 @@ export function DashboardContent() {
     showErrorToast: false,
   });
 
-  const handleEditStyle = useCallback(
-    (styleName: string) => {
-      updateParam('style', styleName);
-    },
-    [updateParam],
-  );
+  const handleSearchChange = (query: string) => updateParam('search', query);
 
-  const handleCloseEditor = useCallback(() => {
-    updateParam('style', undefined);
-  }, [updateParam]);
-
-  const handleSearchChange = useCallback(
-    (query: string) => updateParam('search', query),
-    [updateParam],
-  );
-
-  const handleInspectTile = useCallback(
-    (tileName: string | undefined) => updateParam('inspect', tileName),
-    [updateParam],
-  );
-
-  const handlePreviewSprite = useCallback(
-    (spriteName: string | undefined) => updateParam('preview', spriteName),
-    [updateParam],
-  );
-
-  const handleDownloadSprite = useCallback(
-    (spriteName: string | undefined) => updateParam('download', spriteName),
-    [updateParam],
-  );
-
-  const handleStyleGuide = useCallback(
-    (styleName: string | undefined) => updateParam('guide', styleName),
-    [updateParam],
-  );
-
-  // biome-ignore lint/correctness/useExhaustiveDependencies: if we list analyticsOperation.execute below, this is an infinte loop
   useEffect(() => {
     catalogOperation.execute();
   }, []);
@@ -84,7 +49,7 @@ export function DashboardContent() {
   if (params.style && catalogOperation.data?.styles?.[params.style]) {
     return (
       <StyleEditor
-        onClose={handleCloseEditor}
+        onClose={() => updateParam('style', undefined)}
         style={catalogOperation.data.styles[params.style]}
         styleName={params.style}
       />
@@ -131,7 +96,7 @@ export function DashboardContent() {
           <TilesCatalog
             error={catalogOperation.error}
             isLoading={catalogOperation.isLoading}
-            onInspectTile={handleInspectTile}
+            onInspectTile={(tileName) => updateParam('inspect', tileName)}
             onSearchChangeAction={handleSearchChange}
             searchQuery={params.search ?? ''}
             selectedTileForInspection={params.inspect}
@@ -143,9 +108,9 @@ export function DashboardContent() {
           <StylesCatalog
             error={catalogOperation.error}
             isLoading={catalogOperation.isLoading}
-            onEditStyle={handleEditStyle}
+            onEditStyle={(styleName) => updateParam('style', styleName)}
             onSearchChangeAction={handleSearchChange}
-            onStyleGuide={handleStyleGuide}
+            onStyleGuide={(styleName) => updateParam('guide', styleName)}
             searchQuery={params.search ?? ''}
             selectedStyleForGuide={params.guide}
             styles={catalogOperation.data?.styles}
@@ -167,8 +132,8 @@ export function DashboardContent() {
             downloadSprite={params.download}
             error={catalogOperation.error}
             isLoading={catalogOperation.isLoading}
-            onDownloadSprite={handleDownloadSprite}
-            onPreviewSprite={handlePreviewSprite}
+            onDownloadSprite={(spriteName) => updateParam('download', spriteName)}
+            onPreviewSprite={(spriteName) => updateParam('preview', spriteName)}
             onSearchChangeAction={handleSearchChange}
             searchQuery={params.search ?? ''}
             selectedSprite={params.preview}

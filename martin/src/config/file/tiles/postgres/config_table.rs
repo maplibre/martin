@@ -1,12 +1,13 @@
 use std::collections::{BTreeMap, HashMap};
 
+use martin_tile_utils::{Encoding, Format, TileInfo};
 use serde::{Deserialize, Serialize};
 use tilejson::{Bounds, TileJSON, VectorLayer};
 use tracing::{info, warn};
 
 use super::PostgresInfo;
-use crate::config::file::UnrecognizedValues;
 use crate::config::file::postgres::utils::{normalize_key, patch_json};
+use crate::config::file::{CachePolicy, UnrecognizedValues};
 
 pub type TableInfoSources = BTreeMap<String, TableInfo>;
 
@@ -66,6 +67,9 @@ pub struct TableInfo {
     /// Geometry type
     pub geometry_type: Option<String>,
 
+    /// Zoom-level bounds for tile caching.
+    pub cache: Option<CachePolicy>,
+
     /// List of columns, that should be encoded as tile properties
     pub properties: Option<BTreeMap<String, String>>,
 
@@ -115,6 +119,10 @@ impl PostgresInfo for TableInfo {
         tilejson.vector_layers = Some(vec![layer]);
         patch_json(tilejson, self.tilejson.as_ref())
     }
+
+    fn tile_info(&self) -> TileInfo {
+        TileInfo::new(Format::Mvt, Encoding::Uncompressed)
+    }
 }
 
 impl TableInfo {
@@ -122,12 +130,12 @@ impl TableInfo {
     #[must_use]
     pub fn append_cfg_info(
         &self,
-        cfg_inf: &TableInfo,
+        cfg_inf: &Self,
         new_id: &String,
         default_srid: Option<i32>,
     ) -> Option<Self> {
         // Assume cfg_inf and self have the same schema/table/geometry_column
-        let mut inf = TableInfo {
+        let mut inf = Self {
             // These values must match the database exactly
             schema: self.schema.clone(),
             table: self.table.clone(),

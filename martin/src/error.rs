@@ -1,6 +1,17 @@
 use std::fmt::Write as _;
 use std::io;
 
+#[cfg(feature = "unstable-cog")]
+use martin_core::tiles::cog::CogError;
+#[cfg(feature = "mbtiles")]
+use martin_core::tiles::mbtiles::MbtilesError;
+#[cfg(feature = "pmtiles")]
+use martin_core::tiles::pmtiles::PmtilesError;
+#[cfg(feature = "postgres")]
+use martin_core::tiles::postgres::PostgresError;
+
+use crate::config::file::ConfigFileError;
+
 /// A convenience [`Result`] for Martin crate.
 pub type MartinResult<T> = Result<T, MartinError>;
 
@@ -40,29 +51,26 @@ pub enum MartinError {
 
     #[cfg(feature = "postgres")]
     #[error(transparent)]
-    PostgresError(#[from] martin_core::tiles::postgres::PostgresError),
+    PostgresError(#[from] PostgresError),
 
     #[cfg(feature = "pmtiles")]
     #[error(transparent)]
-    PmtilesError(#[from] martin_core::tiles::pmtiles::PmtilesError),
+    PmtilesError(#[from] PmtilesError),
 
     #[cfg(feature = "mbtiles")]
     #[error(transparent)]
-    MbtilesError(#[from] martin_core::tiles::mbtiles::MbtilesError),
+    MbtilesError(#[from] MbtilesError),
 
     #[cfg(feature = "unstable-cog")]
     #[error(transparent)]
-    CogError(#[from] martin_core::tiles::cog::CogError),
+    CogError(#[from] CogError),
 
     #[error(transparent)]
-    ConfigFileError(#[from] crate::config::file::ConfigFileError),
+    ConfigFileError(#[from] ConfigFileError),
 
     #[cfg(feature = "sprites")]
     #[error(transparent)]
     SpriteError(#[from] martin_core::sprites::SpriteError),
-
-    #[error(transparent)]
-    WebError(#[from] actix_web::Error),
 
     #[error(transparent)]
     IoError(#[from] io::Error),
@@ -73,10 +81,16 @@ pub enum MartinError {
 
     #[cfg(feature = "metrics")]
     #[error("could not initialize metrics: {0}")]
-    MetricsIntialisationError(#[source] Box<dyn std::error::Error>),
+    MetricsIntialisationError(#[source] Box<dyn std::error::Error + Send + Sync>),
 
     #[error("warnings issued during tile source resolution")]
     TileResolutionWarningsIssued,
+
+    #[error("could not create a watcher for directories configured for tile source discovery")]
+    DirectoryWatchError(notify::ErrorKind),
+
+    #[error("Source '{0}' not found in discovered sources")]
+    SourceNotFound(String),
 }
 
 impl MartinError {

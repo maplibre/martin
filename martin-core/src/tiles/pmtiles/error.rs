@@ -14,7 +14,7 @@ pub enum PmtilesError {
     #[error(r"PMTiles error {0} processing {1}")]
     PmtErrorWithCtx(#[source] PmtError, String),
 
-    /// Invalid or unparseable metadata in the `PMTiles` source.
+    /// Invalid or unparsable metadata in the `PMTiles` source.
     #[error(r"Unable to parse metadata in file {1}: {0}")]
     InvalidMetadata(String, object_store::path::Path),
 

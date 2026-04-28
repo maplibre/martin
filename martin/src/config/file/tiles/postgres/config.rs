@@ -4,6 +4,7 @@ use std::time::Duration;
 use futures::future::try_join;
 use futures::pin_mut;
 use martin_core::tiles::BoxedSource;
+use martin_tile_utils::TileInfo;
 use serde::{Deserialize, Serialize};
 use tilejson::TileJSON;
 use tokio::time::timeout;
@@ -14,7 +15,7 @@ use crate::MartinResult;
 use crate::config::args::{BoundsCalcType, DEFAULT_BOUNDS_TIMEOUT};
 use crate::config::file::postgres::PostgresAutoDiscoveryBuilder;
 use crate::config::file::{
-    ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks, TileSourceWarning,
+    CachePolicy, ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks, TileSourceWarning,
     UnrecognizedKeys, UnrecognizedValues, copy_unrecognized_keys_from_config,
 };
 use crate::config::primitives::{IdResolver, OptBoolObj, OptOneMany};
@@ -22,6 +23,8 @@ use crate::config::primitives::{IdResolver, OptBoolObj, OptOneMany};
 pub trait PostgresInfo {
     fn format_id(&self) -> String;
     fn to_tilejson(&self, source_id: String) -> TileJSON;
+    /// Return the tile format and encoding for this source.
+    fn tile_info(&self) -> TileInfo;
 }
 
 #[serde_with::skip_serializing_none]
@@ -171,8 +174,9 @@ impl PostgresConfig {
     pub async fn resolve(
         &mut self,
         id_resolver: IdResolver,
+        default_cache: CachePolicy,
     ) -> MartinResult<(Vec<BoxedSource>, Vec<TileSourceWarning>)> {
-        let pg = PostgresAutoDiscoveryBuilder::new(self, id_resolver).await?;
+        let pg = PostgresAutoDiscoveryBuilder::new(self, id_resolver, default_cache).await?;
         let inst_tables = on_slow(
             pg.instantiate_tables(),
             // warn only if default bounds timeout has already passed

@@ -19,12 +19,13 @@ macro_rules! create_app {
         ::actix_web::test::init_service(
             ::actix_web::App::new()
                 .app_data(actix_web::web::Data::new(
-                    ::martin::srv::Catalog::new(&state).unwrap(),
+                    ::martin::srv::Catalog::new(
+                        #[cfg(any(feature = "sprites", feature = "fonts", feature = "styles"))]
+                        &state,
+                    )
+                    .unwrap(),
                 ))
-                .app_data(actix_web::web::Data::new(
-                    ::martin_core::tiles::NO_TILE_CACHE,
-                ))
-                .app_data(actix_web::web::Data::new(state.tiles))
+                .app_data(actix_web::web::Data::new(state.tile_manager))
                 .app_data(actix_web::web::Data::new(SrvConfig::default()))
                 .configure(|c| ::martin::srv::router(c, &SrvConfig::default())),
         )
@@ -115,7 +116,7 @@ async fn mbt_get_catalog() {
         name: Major cities from Natural Earth data
       m_raw_mlt:
         attribution: "<a href=\"https://www.openmaptiles.org/\" target=\"_blank\">&copy; OpenMapTiles</a> <a href=\"https://www.openstreetmap.org/copyright\" target=\"_blank\">&copy; OpenStreetMap contributors</a>"
-        content_type: application/vnd.maplibre-vector-tile
+        content_type: application/vnd.maplibre-tile
         description: "A tileset showcasing all layers in OpenMapTiles. https://openmaptiles.org"
         name: OpenMapTiles
       m_raw_mvt:
@@ -154,7 +155,7 @@ async fn mbt_get_catalog_gzip() {
         name: Major cities from Natural Earth data
       m_raw_mlt:
         attribution: "<a href=\"https://www.openmaptiles.org/\" target=\"_blank\">&copy; OpenMapTiles</a> <a href=\"https://www.openstreetmap.org/copyright\" target=\"_blank\">&copy; OpenStreetMap contributors</a>"
-        content_type: application/vnd.maplibre-vector-tile
+        content_type: application/vnd.maplibre-tile
         description: "A tileset showcasing all layers in OpenMapTiles. https://openmaptiles.org"
         name: OpenMapTiles
       m_raw_mvt:
@@ -320,7 +321,7 @@ async fn mbt_get_raw_mlt() {
     let response = assert_response(response).await;
     assert_eq!(
         response.headers().get(CONTENT_TYPE).unwrap(),
-        "application/vnd.maplibre-vector-tile"
+        "application/vnd.maplibre-tile"
     );
     assert_eq!(response.headers().get(CONTENT_ENCODING), None);
     let body = read_body(response).await;

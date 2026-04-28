@@ -1,11 +1,13 @@
 use std::collections::BTreeMap;
 
+use martin_tile_utils::{Encoding, Format, TileInfo};
 use serde::{Deserialize, Serialize};
 use tilejson::{Bounds, TileJSON};
+use tracing::warn;
 
 use super::config::PostgresInfo;
-use crate::config::file::UnrecognizedValues;
 use crate::config::file::postgres::utils::patch_json;
+use crate::config::file::{CachePolicy, UnrecognizedValues};
 
 pub type FuncInfoSources = BTreeMap<String, FunctionInfo>;
 
@@ -29,6 +31,9 @@ pub struct FunctionInfo {
     /// latitude and longitude values, in the order left, bottom, right, top.
     /// Values may be integers or floating point numbers.
     pub bounds: Option<Bounds>,
+
+    /// Zoom-level bounds for tile caching.
+    pub cache: Option<CachePolicy>,
 
     /// `TileJSON` provided by the SQL function comment. Not serialized.
     #[serde(skip)]
@@ -84,13 +89,34 @@ impl PostgresInfo for FunctionInfo {
         tilejson.bounds = self.bounds;
         patch_json(tilejson, self.tilejson.as_ref())
     }
+
+    /// Extract the tile format from the `content_type` field in the SQL comment JSON.
+    /// Falls back to the default MVT format if `content_type` is absent or unrecognized.
+    fn tile_info(&self) -> TileInfo {
+        let Some(tj) = &self.tilejson else {
+            return TileInfo::new(Format::Mvt, Encoding::Uncompressed);
+        };
+        let Some(content_type) = tj.get("content_type").and_then(|v| v.as_str()) else {
+            return TileInfo::new(Format::Mvt, Encoding::Uncompressed);
+        };
+        let (supertype, subtype) = content_type.split_once('/').unwrap_or((content_type, ""));
+        if let Some(format) = Format::from_content_type(supertype, subtype) {
+            TileInfo::from(format)
+        } else {
+            warn!(
+                "Unrecognized content_type '{}' in SQL comment for {}.{}, defaulting to MVT",
+                content_type, self.schema, self.function
+            );
+            TileInfo::new(Format::Mvt, Encoding::Uncompressed)
+        }
+    }
 }
 
 impl FunctionInfo {
     /// For a given function info discovered from the database, append the configuration info provided by the user
     #[must_use]
-    pub fn append_cfg_info(&self, cfg_inf: &FunctionInfo) -> FunctionInfo {
-        FunctionInfo {
+    pub fn append_cfg_info(&self, cfg_inf: &Self) -> Self {
+        Self {
             // TileJson does not need to be merged because it cannot be de-serialized from config
             tilejson: self.tilejson.clone(),
             ..cfg_inf.clone()

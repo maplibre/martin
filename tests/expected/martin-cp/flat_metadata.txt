@@ -15,6 +15,7 @@ tilejson:
   maxzoom: 6
   minzoom: 0
   name: table_source
+  compression: gzip
   foo: '{"bar":"foo"}'
   format: pbf
   generator: martin-cp v0.0.0

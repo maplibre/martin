@@ -3,14 +3,23 @@ use std::env;
 use clap::Parser as _;
 use martin::MartinResult;
 use martin::config::args::Args;
+#[cfg(all(feature = "webui", not(docsrs)))]
+use martin::config::args::WebUiMode;
+#[cfg(feature = "mbtiles")]
+use martin::config::file::reload::mbtiles::MBTilesReloader;
 use martin::config::file::{Config, read_config};
+#[cfg(feature = "_tiles")]
+use martin::config::primitives::IdResolver;
 use martin::config::primitives::env::OsEnv;
 use martin::logging::{ensure_martin_core_log_level_matches, init_tracing};
+#[cfg(feature = "_tiles")]
+use martin::srv::RESERVED_KEYWORDS;
 use martin::srv::new_server;
 use tracing::{error, info};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
+#[hotpath::measure]
 async fn start(args: Args) -> MartinResult<()> {
     info!("Starting Martin v{VERSION}");
 
@@ -30,8 +39,27 @@ async fn start(args: Args) -> MartinResult<()> {
         &env,
     )?;
     config.finalize()?;
+
+    #[cfg(feature = "_tiles")]
+    let resolver = IdResolver::new(RESERVED_KEYWORDS);
+
     #[cfg(feature = "_catalog")]
-    let sources = config.resolve().await?;
+    let sources = config
+        .resolve(
+            #[cfg(feature = "_tiles")]
+            &resolver,
+        )
+        .await?;
+    #[cfg(feature = "mbtiles")]
+    let mgr = sources.tile_manager.clone();
+
+    #[cfg(feature = "mbtiles")]
+    {
+        let reloader = MBTilesReloader::new(mgr, resolver, &config.mbtiles);
+        if let Err(e) = reloader.start() {
+            tracing::warn!("failed to start MBTilesReloader {e:?}");
+        }
+    }
 
     if let Some(file_name) = save_config {
         config.save_to_file(file_name.as_path())?;
@@ -55,7 +83,7 @@ async fn start(args: Args) -> MartinResult<()> {
     };
 
     #[cfg(all(feature = "webui", not(docsrs)))]
-    if web_ui_mode == martin::config::args::WebUiMode::EnableForAll {
+    if web_ui_mode == WebUiMode::EnableForAll {
         tracing::info!("Martin server is now active at {base_url}");
     } else {
         info!(
@@ -69,6 +97,7 @@ async fn start(args: Args) -> MartinResult<()> {
 }
 
 #[tokio::main]
+#[hotpath::main]
 async fn main() {
     let filter = ensure_martin_core_log_level_matches(env::var("RUST_LOG").ok(), "martin=");
     init_tracing(&filter, env::var("RUST_LOG_FORMAT").ok(), false);

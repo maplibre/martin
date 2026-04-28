@@ -64,6 +64,56 @@ where
     Ok(sql.fetch_one(&mut *conn).await?.is_valid == 1)
 }
 
+/// Check if `MBTiles` has an alternative normalized schema with `tiles_shallow` + `tiles_data`
+/// tables using integer `tile_data_id` instead of text `tile_id`.
+pub async fn is_dedup_id_normalized_tables_type<T>(conn: &mut T) -> MbtResult<bool>
+where
+    for<'e> &'e mut T: SqliteExecutor<'e>,
+{
+    let sql = "SELECT (
+             -- Has a 'tiles_shallow' table
+             SELECT COUNT(*) = 1
+             FROM sqlite_master
+             WHERE name = 'tiles_shallow'
+                 AND type = 'table'
+             --
+         ) AND (
+             -- 'tiles_shallow' table's columns and their types are as expected:
+             -- 4 columns (zoom_level, tile_column, tile_row, tile_data_id).
+             -- The order is not important
+             SELECT COUNT(*) = 4
+             FROM pragma_table_info('tiles_shallow')
+             WHERE ((name = 'zoom_level' AND type LIKE '%INT%')
+                 OR (name = 'tile_column' AND type LIKE '%INT%')
+                 OR (name = 'tile_row' AND type LIKE '%INT%')
+                 OR (name = 'tile_data_id' AND type LIKE '%INT%'))
+             --
+         ) AND (
+             -- Has a 'tiles_data' table
+             SELECT COUNT(*) = 1
+             FROM sqlite_master
+             WHERE name = 'tiles_data'
+                 AND type = 'table'
+             --
+         ) AND (
+             -- 'tiles_data' table's columns and their types are as expected:
+             -- 2 columns (tile_data_id, tile_data).
+             -- The order is not important
+             SELECT COUNT(*) = 2
+             FROM pragma_table_info('tiles_data')
+             WHERE ((name = 'tile_data_id' AND type LIKE '%INT%')
+                 OR (name = 'tile_data' AND type = 'BLOB'))
+             --
+         ) AS is_valid;";
+
+    Ok(query(sql)
+        .fetch_one(&mut *conn)
+        .await?
+        .get::<Option<i32>, _>(0)
+        .unwrap_or_default()
+        == 1)
+}
+
 /// Check if `MBTiles` has a table or a view named `tiles_with_hash` with needed fields
 pub async fn has_tiles_with_hash<T>(conn: &mut T) -> MbtResult<bool>
 where
@@ -137,54 +187,57 @@ where
     Ok(sql.fetch_one(&mut *conn).await?.is_valid == 1)
 }
 
-pub async fn create_metadata_table<T>(conn: &mut T) -> MbtResult<()>
+pub async fn create_metadata_table<T>(conn: &mut T, strict: bool) -> MbtResult<()>
 where
     for<'e> &'e mut T: SqliteExecutor<'e>,
 {
     debug!("Creating metadata table if it doesn't already exist");
-    conn.execute(
+    let s = if strict { " STRICT" } else { "" };
+    let sql = format!(
         "CREATE TABLE IF NOT EXISTS metadata (
              name text NOT NULL PRIMARY KEY,
-             value text);",
-    )
-    .await?;
+             value text){s};"
+    );
+    conn.execute(sql.as_str()).await?;
 
     Ok(())
 }
 
-pub async fn create_flat_tables<T>(conn: &mut T) -> MbtResult<()>
+pub async fn create_flat_tables<T>(conn: &mut T, strict: bool) -> MbtResult<()>
 where
     for<'e> &'e mut T: SqliteExecutor<'e>,
 {
     debug!("Creating if needed flat table: tiles(z,x,y,data)");
-    conn.execute(
+    let s = if strict { " STRICT" } else { "" };
+    let sql = format!(
         "CREATE TABLE IF NOT EXISTS tiles (
              zoom_level integer NOT NULL,
              tile_column integer NOT NULL,
              tile_row integer NOT NULL,
              tile_data blob,
-             PRIMARY KEY(zoom_level, tile_column, tile_row));",
-    )
-    .await?;
+             PRIMARY KEY(zoom_level, tile_column, tile_row)){s};"
+    );
+    conn.execute(sql.as_str()).await?;
 
     Ok(())
 }
 
-pub async fn create_flat_with_hash_tables<T>(conn: &mut T) -> MbtResult<()>
+pub async fn create_flat_with_hash_tables<T>(conn: &mut T, strict: bool) -> MbtResult<()>
 where
     for<'e> &'e mut T: SqliteExecutor<'e>,
 {
     debug!("Creating if needed flat-with-hash table: tiles_with_hash(z,x,y,data,hash)");
-    conn.execute(
+    let s = if strict { " STRICT" } else { "" };
+    let sql = format!(
         "CREATE TABLE IF NOT EXISTS tiles_with_hash (
              zoom_level integer NOT NULL,
              tile_column integer NOT NULL,
              tile_row integer NOT NULL,
              tile_data blob,
              tile_hash text,
-             PRIMARY KEY(zoom_level, tile_column, tile_row));",
-    )
-    .await?;
+             PRIMARY KEY(zoom_level, tile_column, tile_row)){s};"
+    );
+    conn.execute(sql.as_str()).await?;
 
     debug!("Creating if needed tiles view for flat-with-hash");
     conn.execute(
@@ -204,12 +257,17 @@ pub fn get_bsdiff_tbl_name(patch_type: PatchType) -> &'static str {
     }
 }
 
-pub async fn create_bsdiffraw_tables<T>(conn: &mut T, patch_type: PatchType) -> MbtResult<()>
+pub async fn create_bsdiffraw_tables<T>(
+    conn: &mut T,
+    patch_type: PatchType,
+    strict: bool,
+) -> MbtResult<()>
 where
     for<'e> &'e mut T: SqliteExecutor<'e>,
 {
     let tbl = get_bsdiff_tbl_name(patch_type);
     debug!("Creating if needed bin-diff table: {tbl}(z,x,y,data,hash)");
+    let s = if strict { " STRICT" } else { "" };
     let sql = format!(
         "CREATE TABLE IF NOT EXISTS {tbl} (
              zoom_level integer NOT NULL,
@@ -217,7 +275,7 @@ where
              tile_row integer NOT NULL,
              patch_data blob NOT NULL,
              tile_xxh3_64_hash integer NOT NULL,
-             PRIMARY KEY(zoom_level, tile_column, tile_row));"
+             PRIMARY KEY(zoom_level, tile_column, tile_row)){s};"
     );
 
     conn.execute(sql.as_str()).await?;
@@ -264,28 +322,29 @@ where
     Ok(None)
 }
 
-pub async fn create_normalized_tables<T>(conn: &mut T) -> MbtResult<()>
+pub async fn create_normalized_tables<T>(conn: &mut T, strict: bool) -> MbtResult<()>
 where
     for<'e> &'e mut T: SqliteExecutor<'e>,
 {
     debug!("Creating if needed normalized table: map(z,x,y,id)");
-    conn.execute(
+    let s = if strict { " STRICT" } else { "" };
+    let sql = format!(
         "CREATE TABLE IF NOT EXISTS map (
              zoom_level integer NOT NULL,
              tile_column integer NOT NULL,
              tile_row integer NOT NULL,
              tile_id text,
-             PRIMARY KEY(zoom_level, tile_column, tile_row));",
-    )
-    .await?;
+             PRIMARY KEY(zoom_level, tile_column, tile_row)){s};"
+    );
+    conn.execute(sql.as_str()).await?;
 
     debug!("Creating if needed normalized table: images(id,data)");
-    conn.execute(
+    let sql = format!(
         "CREATE TABLE IF NOT EXISTS images (
              tile_id text NOT NULL PRIMARY KEY,
-             tile_data blob);",
-    )
-    .await?;
+             tile_data blob){s};"
+    );
+    conn.execute(sql.as_str()).await?;
 
     debug!("Creating if needed tiles view for flat-with-hash");
     conn.execute(
@@ -336,17 +395,17 @@ where
     Ok(())
 }
 
-pub async fn init_mbtiles_schema<T>(conn: &mut T, mbt_type: MbtType) -> MbtResult<()>
+pub async fn init_mbtiles_schema<T>(conn: &mut T, mbt_type: MbtType, strict: bool) -> MbtResult<()>
 where
     for<'e> &'e mut T: SqliteExecutor<'e>,
 {
     reset_db_settings(conn).await?;
-    create_metadata_table(&mut *conn).await?;
+    create_metadata_table(&mut *conn, strict).await?;
     match mbt_type {
-        MbtType::Flat => create_flat_tables(&mut *conn).await,
-        MbtType::FlatWithHash => create_flat_with_hash_tables(&mut *conn).await,
-        MbtType::Normalized { hash_view } => {
-            create_normalized_tables(&mut *conn).await?;
+        MbtType::Flat => create_flat_tables(&mut *conn, strict).await,
+        MbtType::FlatWithHash => create_flat_with_hash_tables(&mut *conn, strict).await,
+        MbtType::Normalized { hash_view, .. } => {
+            create_normalized_tables(&mut *conn, strict).await?;
             if hash_view {
                 create_tiles_with_hash_view(&mut *conn).await?;
             }

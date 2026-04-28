@@ -19,7 +19,7 @@ use crate::config::file::postgres::{
     FuncInfoSources, FunctionInfo, POOL_SIZE_DEFAULT, PostgresCfgPublish, PostgresCfgPublishFuncs,
     PostgresConfig, PostgresInfo, TableInfo, TableInfoSources,
 };
-use crate::config::file::{ConfigFileError, ConfigFileResult, TileSourceWarning};
+use crate::config::file::{CachePolicy, ConfigFileError, ConfigFileResult, TileSourceWarning};
 use crate::config::primitives::IdResolver;
 use crate::config::primitives::OptBoolObj::{Bool, NoValue, Object};
 use crate::config::primitives::OptOneMany::NoVals;
@@ -30,6 +30,8 @@ pub struct PostgresAutoDiscoveryBuilder {
     pool: PostgresPool,
     /// If a spatial table has SRID 0, then this SRID will be used as a fallback
     default_srid: Option<i32>,
+    /// Fallback cache zoom bounds for sources that don't set their own
+    default_cache: CachePolicy,
     /// Specify how bounds should be computed for the spatial PG tables
     auto_bounds: BoundsCalcType,
     /// Limit the number of geo features per tile.
@@ -92,9 +94,17 @@ impl PostgresAutoDiscoveryBuilder {
     /// Creates a new `PostgreSQL` source builder from the [`PostgresConfig`].
     ///
     /// Duplicate names are deterministically converted to unique names.
-    pub async fn new(config: &PostgresConfig, id_resolver: IdResolver) -> ConfigFileResult<Self> {
+    pub async fn new(
+        config: &PostgresConfig,
+        id_resolver: IdResolver,
+        default_cache: CachePolicy,
+    ) -> ConfigFileResult<Self> {
         let pool = PostgresPool::new(
-            config.connection_string.as_ref().unwrap().as_str(),
+            config
+                .connection_string
+                .as_ref()
+                .expect("connection_string should be set after PostgresConfig::finalize()")
+                .as_str(),
             config.ssl_certificates.ssl_cert.as_ref(),
             config.ssl_certificates.ssl_key.as_ref(),
             config.ssl_certificates.ssl_root_cert.as_ref(),
@@ -108,6 +118,7 @@ impl PostgresAutoDiscoveryBuilder {
         Ok(Self {
             pool,
             default_srid: config.default_srid,
+            default_cache,
             auto_bounds: config.auto_bounds.unwrap_or_default(),
             max_feature_count: config.max_feature_count,
             id_resolver,
@@ -131,6 +142,7 @@ impl PostgresAutoDiscoveryBuilder {
     }
 
     /// Discovers and instantiates table-based tile sources.
+    #[expect(clippy::too_many_lines, reason = "fixme")]
     pub async fn instantiate_tables(
         &self,
     ) -> PostgresResult<(Vec<BoxedSource>, TableInfoSources, Vec<TileSourceWarning>)> {
@@ -195,7 +207,9 @@ impl PostgresAutoDiscoveryBuilder {
                 let Some(schema) = normalize_key(&db_tables_info, schema, "schema", "") else {
                     continue;
                 };
-                let db_tables = db_tables_info.remove(&schema).unwrap();
+                let db_tables = db_tables_info.remove(&schema).expect(
+                    "schema should be present in db_tables_info after normalize_key lookup",
+                );
                 for (table, geoms) in db_tables.into_iter().sorted_by(by_key) {
                     for (geom_column, mut db_inf) in geoms.into_iter().sorted_by(by_key) {
                         if used.contains(&(schema.as_str(), table.as_str(), geom_column.as_str())) {
@@ -235,7 +249,13 @@ impl PostgresAutoDiscoveryBuilder {
                 }
                 Ok((id, pg_sql, src_inf)) => {
                     debug!("{id} query: {}", pg_sql.sql_query);
-                    self.add_func_src(&mut res, id.clone(), &src_inf, pg_sql.clone());
+                    self.add_func_src(
+                        &mut res,
+                        id.clone(),
+                        &src_inf,
+                        pg_sql.clone(),
+                        src_inf.cache.unwrap_or_default(),
+                    );
                     info_map.insert(id, src_inf);
                 }
             }
@@ -260,7 +280,13 @@ impl PostgresAutoDiscoveryBuilder {
                     let dup = !used.insert((&cfg_inf.schema, &cfg_inf.function));
                     let dup = if dup { "duplicate " } else { "" };
                     let id2 = self.resolve_id(id, &merged_inf);
-                    self.add_func_src(&mut res, id2.clone(), &merged_inf, pg_sql_info.clone());
+                    self.add_func_src(
+                        &mut res,
+                        id2.clone(),
+                        &merged_inf,
+                        pg_sql_info.clone(),
+                        merged_inf.cache.unwrap_or_default(),
+                    );
                     warn_on_rename(id, &id2, "Function");
                     let signature = &pg_sql_info.signature;
                     info!("Configured {dup}source {id2} from the function {signature}");
@@ -292,7 +318,9 @@ impl PostgresAutoDiscoveryBuilder {
                 let Some(schema) = normalize_key(&db_funcs_info, schema, "schema", "") else {
                     continue;
                 };
-                let db_funcs = db_funcs_info.remove(&schema).unwrap();
+                let db_funcs = db_funcs_info
+                    .remove(&schema)
+                    .expect("schema should be present in db_funcs_info after normalize_key lookup");
                 for (func, (pg_sql, db_inf)) in db_funcs.into_iter().sorted_by(by_key) {
                     if used.contains(&(schema.as_str(), func.as_str())) {
                         continue;
@@ -302,7 +330,13 @@ impl PostgresAutoDiscoveryBuilder {
                         .replace("{schema}", &schema)
                         .replace("{function}", &func);
                     let id2 = self.resolve_id(&source_id, &db_inf);
-                    self.add_func_src(&mut res, id2.clone(), &db_inf, pg_sql.clone());
+                    self.add_func_src(
+                        &mut res,
+                        id2.clone(),
+                        &db_inf,
+                        pg_sql.clone(),
+                        db_inf.cache.unwrap_or_default(),
+                    );
                     info!("Discovered source {id2} from function {}", pg_sql.signature);
                     debug!("{id2} query: {}", pg_sql.sql_query);
                     info_map.insert(id2, db_inf);
@@ -395,9 +429,19 @@ impl PostgresAutoDiscoveryBuilder {
         id: String,
         pg_info: &impl PostgresInfo,
         sql_info: PostgresSqlInfo,
+        cache: CachePolicy,
     ) {
         let tilejson = pg_info.to_tilejson(id.clone());
-        let source = PostgresSource::new(id, sql_info, tilejson, self.pool.clone());
+        let tile_info = pg_info.tile_info();
+        let cache = cache.or(self.default_cache);
+        let source = PostgresSource::new(
+            id,
+            sql_info,
+            tilejson,
+            self.pool.clone(),
+            tile_info,
+            cache.zoom(),
+        );
         sources.push(Box::new(source));
     }
 
@@ -442,7 +486,7 @@ fn update_auto_fields(
                     info!(
                         "For source {id}, id_column '{key}' was not found, but found '{result}' instead."
                     );
-                    (result, props.get(result).unwrap())
+                    (result, props.get(result).expect("result key should be present in props after find_kv_ignore_case lookup"))
                 }
                 Ok(None) => continue,
                 Err(multiple) => {
@@ -600,11 +644,40 @@ fn by_key<T>(a: &(String, T), b: &(String, T)) -> Ordering {
 }
 
 #[cfg(all(test, feature = "test-pg"))]
+#[expect(clippy::unwrap_used)]
 mod tests {
+    use backon::{ConstantBuilder, Retryable as _};
     use indoc::indoc;
     use insta::assert_yaml_snapshot;
+    use testcontainers_modules::postgres::Postgres;
+    use testcontainers_modules::testcontainers::ImageExt as _;
+    use testcontainers_modules::testcontainers::runners::AsyncRunner as _;
 
     use super::*;
+
+    async fn start_old_postgis_container()
+    -> testcontainers_modules::testcontainers::ContainerAsync<Postgres> {
+        const MAX_START_ATTEMPTS: usize = 3;
+        const RETRY_DELAY: std::time::Duration = std::time::Duration::from_secs(2);
+
+        (|| async {
+            Postgres::default()
+                .with_name("postgis/postgis")
+                .with_tag("11-3.0") // purposely very old and stable
+                .start()
+                .await
+        })
+        .retry(
+            ConstantBuilder::default()
+                .with_delay(RETRY_DELAY)
+                .with_max_times(MAX_START_ATTEMPTS),
+        )
+        .sleep(tokio::time::sleep)
+        .await
+        .unwrap_or_else(|e| {
+            panic!("failed to launch container after {MAX_START_ATTEMPTS} attempts: {e}")
+        })
+    }
 
     #[derive(serde::Serialize)]
     struct AutoCfg {
@@ -766,16 +839,7 @@ mod tests {
     #[tokio::test]
     #[tracing_test::traced_test]
     async fn test_nonexistent_tables_functions_generate_warning() {
-        use testcontainers_modules::postgres::Postgres;
-        use testcontainers_modules::testcontainers::ImageExt as _;
-        use testcontainers_modules::testcontainers::runners::AsyncRunner as _;
-
-        let container = Postgres::default()
-            .with_name("postgis/postgis")
-            .with_tag("11-3.0") // purposely very old and stable
-            .start()
-            .await
-            .expect("container launched");
+        let container = start_old_postgis_container().await;
 
         let host = container.get_host().await.unwrap();
         let port = container.get_host_port_ipv4(5432).await.unwrap();
@@ -801,9 +865,13 @@ mod tests {
         let mut config: PostgresConfig = serde_yaml::from_str(config_yaml).unwrap();
         config.connection_string = Some(connection_string);
 
-        let builder = PostgresAutoDiscoveryBuilder::new(&config, IdResolver::default())
-            .await
-            .expect("Failed to create builder");
+        let builder = PostgresAutoDiscoveryBuilder::new(
+            &config,
+            IdResolver::default(),
+            CachePolicy::default(),
+        )
+        .await
+        .expect("Failed to create builder");
 
         let (table_sources, _info_map, table_warnings) = builder
             .instantiate_tables()

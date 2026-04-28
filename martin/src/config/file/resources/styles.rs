@@ -10,7 +10,7 @@ use crate::config::file::{
     ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks, FileConfigEnum,
     UnrecognizedKeys, UnrecognizedValues,
 };
-#[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
+#[cfg(all(feature = "rendering", target_os = "linux"))]
 use crate::config::primitives::OptBoolObj;
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -20,7 +20,7 @@ pub struct InnerStyleConfig {
     /// Note on EXPERIMENTAL status:
     /// We are not currently happy with the performance of this endpoint and intend to improve this in the future
     /// Marking this experimental means that we are not stuck with single threaded performance as a default until v2.0
-    #[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
+    #[cfg(all(feature = "rendering", target_os = "linux"))]
     pub rendering: OptBoolObj<RendererConfig>,
 
     #[serde(flatten, skip_serializing)]
@@ -30,7 +30,7 @@ pub struct InnerStyleConfig {
 impl ConfigurationLivecycleHooks for InnerStyleConfig {
     fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
         #[cfg_attr(
-            not(all(feature = "unstable-rendering", target_os = "linux")),
+            not(all(feature = "rendering", target_os = "linux")),
             expect(unused_mut, reason = "to warn for unrecognized keys")
         )]
         let mut keys = self
@@ -38,7 +38,7 @@ impl ConfigurationLivecycleHooks for InnerStyleConfig {
             .keys()
             .cloned()
             .collect::<UnrecognizedKeys>();
-        #[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
+        #[cfg(all(feature = "rendering", target_os = "linux"))]
         if let OptBoolObj::Object(o) = &self.rendering {
             keys.extend(
                 o.get_unrecognized_keys()
@@ -50,7 +50,7 @@ impl ConfigurationLivecycleHooks for InnerStyleConfig {
     }
 }
 
-#[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
+#[cfg(all(feature = "rendering", target_os = "linux"))]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct RendererConfig {
     // Same effect as rendering: true|false shorthands
@@ -59,7 +59,7 @@ pub struct RendererConfig {
     #[serde(flatten, skip_serializing)]
     pub unrecognized: UnrecognizedValues,
 }
-#[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
+#[cfg(all(feature = "rendering", target_os = "linux"))]
 impl ConfigurationLivecycleHooks for RendererConfig {
     fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
         self.unrecognized.keys().cloned().collect()
@@ -76,7 +76,7 @@ impl StyleConfig {
 
         let mut results = StyleSources::default();
 
-        #[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
+        #[cfg(all(feature = "rendering", target_os = "linux"))]
         match cfg.custom.rendering {
             OptBoolObj::NoValue | OptBoolObj::Bool(false) => results.set_rendering_enabled(false),
             OptBoolObj::Object(ref o) if !o.enabled => results.set_rendering_enabled(false),
@@ -133,7 +133,7 @@ impl StyleConfig {
         paths_with_names.sort_unstable();
         paths_with_names.dedup();
 
-        *self = FileConfigEnum::new_extended(paths_with_names, configs, cfg.custom);
+        *self = Self::new_extended(paths_with_names, configs, cfg.custom);
 
         Ok(results)
     }
@@ -206,13 +206,13 @@ mod tests {
         assert_eq!(styles.len(), 3);
         insta::with_settings!({sort_maps => true}, {
         insta::assert_yaml_snapshot!(styles.get_catalog(), @r#"
-            maplibre_demo:
-              path: "../tests/fixtures/styles/maplibre_demo.json"
-            maptiler_basic:
-              path: "../tests/fixtures/styles/src2/maptiler_basic.json"
-            osm-liberty-lite:
-              path: "../tests/fixtures/styles/src2/osm-liberty-lite.json"
-            "#);
+        maplibre_demo:
+          path: "../tests/fixtures/styles/maplibre_demo.json"
+        maptiler_basic:
+          path: "../tests/fixtures/styles/src2/maptiler_basic.json"
+        osm-liberty-lite:
+          path: "../tests/fixtures/styles/src2/osm-liberty-lite.json"
+        "#);
         });
     }
 
@@ -236,11 +236,11 @@ mod tests {
         assert_eq!(styles.len(), 2);
         insta::with_settings!({sort_maps => true}, {
         insta::assert_yaml_snapshot!(styles.get_catalog(), @r#"
-            maplibre_demo:
-              path: "../tests/fixtures/styles/maplibre_demo.json"
-            osm-liberty-lite:
-              path: "../tests/fixtures/styles/src2/osm-liberty-lite.json"
-            "#);
+        maplibre_demo:
+          path: "../tests/fixtures/styles/maplibre_demo.json"
+        osm-liberty-lite:
+          path: "../tests/fixtures/styles/src2/osm-liberty-lite.json"
+        "#);
         });
     }
 
@@ -259,18 +259,18 @@ mod tests {
 
         insta::with_settings!({sort_maps => true}, {
         insta::assert_json_snapshot!(catalog, @r#"
-            {
-              "maplibre_demo": {
-                "path": "../tests/fixtures/styles/maplibre_demo.json"
-              },
-              "maptiler_basic": {
-                "path": "../tests/fixtures/styles/src2/maptiler_basic.json"
-              },
-              "osm-liberty-lite": {
-                "path": "../tests/fixtures/styles/src2/osm-liberty-lite.json"
-              }
-            }
-            "#);
+        {
+          "maplibre_demo": {
+            "path": "../tests/fixtures/styles/maplibre_demo.json"
+          },
+          "maptiler_basic": {
+            "path": "../tests/fixtures/styles/src2/maptiler_basic.json"
+          },
+          "osm-liberty-lite": {
+            "path": "../tests/fixtures/styles/src2/osm-liberty-lite.json"
+          }
+        }
+        "#);
         });
     }
     #[test]

@@ -4,6 +4,7 @@ use std::io;
 use std::path::PathBuf;
 
 use deadpool_postgres::tokio_postgres::Error as TokioPostgresError;
+use deadpool_postgres::tokio_postgres::config::SslMode;
 use deadpool_postgres::{BuildError, PoolError};
 use martin_tile_utils::TileCoord;
 use semver::Version;
@@ -44,7 +45,7 @@ pub enum PostgresError {
 
     /// Unknown SSL mode specified.
     #[error("Unknown SSL mode: {0:?}")]
-    UnknownSslMode(deadpool_postgres::tokio_postgres::config::SslMode),
+    UnknownSslMode(SslMode),
 
     /// `PostgreSQL` database error.
     #[error("Postgres error while {1}: {0}")]

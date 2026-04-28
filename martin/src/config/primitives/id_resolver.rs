@@ -64,7 +64,10 @@ impl IdResolver {
         let stanitised_name = Self::sanitise(name);
 
         let is_reserved_name = self.reserved.contains(stanitised_name.as_str());
-        let mut names = self.names.lock().expect("IdResolver panicked");
+        let mut names = self
+            .names
+            .lock()
+            .expect("IdResolver mutex should not be poisoned");
         // simple case if names need not be renamed
         if !is_reserved_name {
             match names.entry(stanitised_name.clone()) {
@@ -92,8 +95,11 @@ impl IdResolver {
         let mut new_name = String::new();
         loop {
             new_name.clear();
-            write!(&mut new_name, "{stanitised_name}.{index}").unwrap();
-            index = index.checked_add(1).unwrap();
+            write!(&mut new_name, "{stanitised_name}.{index}")
+                .expect("writing to a String should not fail");
+            index = index
+                .checked_add(1)
+                .expect("source name collision count should not exceed i32::MAX");
             match names.entry(new_name.clone()) {
                 // found new name
                 Entry::Vacant(e) => {

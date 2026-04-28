@@ -1,7 +1,12 @@
-use martin_tile_utils::TileCoord;
+use std::sync::Arc;
+use std::time::Duration;
+
+use martin_tile_utils::{Format, TileCoord};
 use moka::future::Cache;
 use tracing::{info, trace};
 
+#[cfg(feature = "metrics")]
+use crate::metrics::{TILE_CACHE_REQUESTS_TOTAL, ZOOM_LABELS};
 use crate::tiles::Tile;
 
 /// Tile cache for storing rendered tile data.
@@ -11,33 +16,25 @@ pub struct TileCache(Cache<TileCacheKey, Tile>);
 impl TileCache {
     /// Creates a new tile cache with the specified maximum size in bytes.
     #[must_use]
-    pub fn new(max_size_bytes: u64) -> Self {
-        Self(
-            Cache::builder()
-                .name("tile_cache")
-                .weigher(|_key: &TileCacheKey, value: &Tile| -> u32 {
-                    value.data.len().try_into().unwrap_or(u32::MAX)
-                })
-                .max_capacity(max_size_bytes)
-                .build(),
-        )
-    }
-
-    /// Retrieves a tile from cache if present.
-    async fn get(&self, key: &TileCacheKey) -> Option<Tile> {
-        let result = self.0.get(key).await;
-
-        if result.is_some() {
-            trace!(
-                "Tile cache HIT for {key:?} (entries={entries}, size={size}B)",
-                entries = self.0.entry_count(),
-                size = self.0.weighted_size()
-            );
-        } else {
-            trace!("Tile cache MISS for {key:?}");
+    pub fn new(
+        max_size_bytes: u64,
+        expiry: Option<Duration>,
+        idle_timeout: Option<Duration>,
+    ) -> Self {
+        let mut builder = Cache::builder()
+            .name("tile_cache")
+            .weigher(|_key: &TileCacheKey, value: &Tile| -> u32 {
+                value.data.len().try_into().unwrap_or(u32::MAX)
+            })
+            .max_capacity(max_size_bytes)
+            .support_invalidation_closures();
+        if let Some(ttl) = expiry {
+            builder = builder.time_to_live(ttl);
         }
-
-        result
+        if let Some(tti) = idle_timeout {
+            builder = builder.time_to_idle(tti);
+        }
+        Self(builder.build())
     }
 
     /// Gets a tile from cache or computes it using the provided function.
@@ -46,20 +43,42 @@ impl TileCache {
         source_id: String,
         xyz: TileCoord,
         query: Option<String>,
+        format: Option<Format>,
         compute: F,
-    ) -> Result<Tile, E>
+    ) -> Result<Tile, Arc<E>>
     where
         F: FnOnce() -> Fut,
         Fut: Future<Output = Result<Tile, E>>,
+        E: Send + Sync + 'static,
     {
-        let key = TileCacheKey::new(source_id, xyz, query);
-        if let Some(data) = self.get(&key).await {
-            return Ok(data);
+        let key = TileCacheKey::new(source_id, xyz, query, format);
+        let entry = self
+            .0
+            .entry(key.clone())
+            .or_try_insert_with(async move { compute().await })
+            .await?;
+
+        if entry.is_fresh() {
+            #[cfg(feature = "metrics")]
+            TILE_CACHE_REQUESTS_TOTAL
+                .with_label_values(&["tile", "miss", ZOOM_LABELS[key.xyz.z as usize]])
+                .inc();
+            hotpath::gauge!("tile_cache_misses").inc(1.0);
+            trace!("Tile cache MISS for {key:?}");
+        } else {
+            #[cfg(feature = "metrics")]
+            TILE_CACHE_REQUESTS_TOTAL
+                .with_label_values(&["tile", "hit", ZOOM_LABELS[key.xyz.z as usize]])
+                .inc();
+            hotpath::gauge!("tile_cache_hits").inc(1.0);
+            trace!(
+                "Tile cache HIT for {key:?} (entries={entries}, size={size}B)",
+                entries = self.0.entry_count(),
+                size = self.0.weighted_size()
+            );
         }
 
-        let data = compute().await?;
-        self.0.insert(key, data.clone()).await;
-        Ok(data)
+        Ok(entry.into_value())
     }
 
     /// Invalidates all cached tiles for a specific source.
@@ -88,6 +107,11 @@ impl TileCache {
     pub fn weighted_size(&self) -> u64 {
         self.0.weighted_size()
     }
+
+    /// Runs pending maintenance tasks (e.g. processing invalidation predicates).
+    pub async fn run_pending_tasks(&self) {
+        self.0.run_pending_tasks().await;
+    }
 }
 
 /// Optional wrapper for `TileCache`.
@@ -102,14 +126,23 @@ struct TileCacheKey {
     source_id: String,
     xyz: TileCoord,
     query: Option<String>,
+    /// The format requested via the `Accept` header.
+    /// `None` means no `Accept` header was present.
+    format: Option<Format>,
 }
 
 impl TileCacheKey {
-    fn new(source_id: String, xyz: TileCoord, query: Option<String>) -> Self {
+    fn new(
+        source_id: String,
+        xyz: TileCoord,
+        query: Option<String>,
+        format: Option<Format>,
+    ) -> Self {
         Self {
             source_id,
             xyz,
             query,
+            format,
         }
     }
 }

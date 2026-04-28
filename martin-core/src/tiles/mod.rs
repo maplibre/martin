@@ -2,7 +2,7 @@
 //!
 //! This module provides core abstractions for working with map tiles.
 //! We split this into two parts:
-//! - a public facing [`catalog`](crate::tiles::catalog) for exposing which tile sources exsts
+//! - a public facing [`catalog`](crate::tiles::catalog) for exposing which tile sources exists
 //! - the [`Source`](crate::tiles::Source) for accessing tiles:
 //!   - [x] [`mbtiles`]
 //!   - [x] pmtiles

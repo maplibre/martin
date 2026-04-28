@@ -97,22 +97,22 @@ impl CorsConfig {
     /// Log the current configuration
     pub fn log_current_configuration(&self) {
         match &self {
-            CorsConfig::SimpleFlag(false) => info!("CORS is disabled"),
-            CorsConfig::SimpleFlag(true) => info!(
+            Self::SimpleFlag(false) => info!("CORS is disabled"),
+            Self::SimpleFlag(true) => info!(
                 "CORS enabled with defaults: {:?}",
                 CorsProperties::default()
             ),
-            CorsConfig::Properties(props) => {
+            Self::Properties(props) => {
                 info!("CORS enabled with custom properties: {props:?}");
             }
         }
     }
 
-    /// Checks that that if cors is configured explicitely (instead of via `true`/`false`), `origin` is configured
+    /// Checks that that if cors is configured explicitly (instead of via `true`/`false`), `origin` is configured
     pub fn validate(&self) -> MartinResult<()> {
         match self {
-            CorsConfig::SimpleFlag(_) => Ok(()),
-            CorsConfig::Properties(properties) => properties.validate().map_err(MartinError::from),
+            Self::SimpleFlag(_) => Ok(()),
+            Self::Properties(properties) => properties.validate().map_err(MartinError::from),
         }
     }
 
@@ -120,12 +120,12 @@ impl CorsConfig {
     /// Create [`actix_cors::Cors`] from the configuration
     pub fn make_cors_middleware(&self) -> Option<actix_cors::Cors> {
         match self {
-            CorsConfig::SimpleFlag(false) => None,
-            CorsConfig::SimpleFlag(true) => {
+            Self::SimpleFlag(false) => None,
+            Self::SimpleFlag(true) => {
                 let properties = CorsProperties::default();
                 Some(Self::create_cors(&properties))
             }
-            CorsConfig::Properties(properties) => Some(Self::create_cors(properties)),
+            Self::Properties(properties) => Some(Self::create_cors(properties)),
         }
     }
 

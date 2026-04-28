@@ -7,6 +7,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.1](https://github.com/maplibre/martin/compare/martin-core-v0.5.0...martin-core-v0.5.1) - 2026-04-28
+
+### Other
+
+- update Cargo.toml dependencies
+
+## [0.5.0](https://github.com/maplibre/martin/compare/martin-core-v0.4.0...martin-core-v0.5.0) - 2026-04-23
+
+### Other
+
+- Stabilize PMTiles directory cache TTL/TTI tests under scheduler jitter ([#2725](https://github.com/maplibre/martin/pull/2725))
+- add retries when starting PostGIS testcontainers ([#2724](https://github.com/maplibre/martin/pull/2724))
+- Stabilize flaky ttl_evicts_even_with_frequent_access test in tiles_test ([#2715](https://github.com/maplibre/martin/pull/2715))
+
+## [0.4.0](https://github.com/maplibre/martin/compare/martin-core-v0.3.2...martin-core-v0.4.0) - 2026-04-18
+
+### Added
+
+- store compression type in the MBTiles metadata table ([#2618](https://github.com/maplibre/martin/pull/2618))
+- *(mbtiles)* Add a transcoder API ([#2682](https://github.com/maplibre/martin/pull/2682))
+- make internal cache expiry configurable ([#2691](https://github.com/maplibre/martin/pull/2691))
+- support per-source cache zoom level ([#2673](https://github.com/maplibre/martin/pull/2673))
+
+### Other
+
+- impl the accept header ([#2703](https://github.com/maplibre/martin/pull/2703))
+- Use moka entry API for deduplicating cache inserts + retrievals ([#2688](https://github.com/maplibre/martin/pull/2688))
+- add a formatting restriction when something should be an import vs path ([#2685](https://github.com/maplibre/martin/pull/2685))
+- introduce `TileSourceManager` and `ReloadAdvisory` ([#2661](https://github.com/maplibre/martin/pull/2661))
+- Enable `clippy::unwrap_used` workspace lint ([#2670](https://github.com/maplibre/martin/pull/2670))
+- make sure our unit tests run under macos too ([#2648](https://github.com/maplibre/martin/pull/2648))
+- hotpath based profiling integration ([#2663](https://github.com/maplibre/martin/pull/2663))
+
+## [0.3.2](https://github.com/maplibre/martin/compare/martin-core-v0.3.1...martin-core-v0.3.2) - 2026-04-02
+
+### Fixed
+
+- typos ([#2651](https://github.com/maplibre/martin/pull/2651))
+
+### Other
+
+- Enable `clippy::use_self` at workspace level and resolve all violations ([#2645](https://github.com/maplibre/martin/pull/2645))
+
 ## [0.3.1](https://github.com/maplibre/martin/compare/martin-core-v0.3.0...martin-core-v0.3.1) - 2026-03-14
 
 ### Added
@@ -26,7 +69,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Other
 
-- *(martin-core)* [**breaking**] remove the configration from the martin-core crate ([#2521](https://github.com/maplibre/martin/pull/2521))
+- *(martin-core)* [**breaking**] remove the configuration from the martin-core crate ([#2521](https://github.com/maplibre/martin/pull/2521))
 - restrict `unused_trait_names` for trait imports ([#2542](https://github.com/maplibre/martin/pull/2542))
 
 ## [0.2.6](https://github.com/maplibre/martin/compare/martin-core-v0.2.5...martin-core-v0.2.6) - 2026-01-27
@@ -90,7 +133,7 @@ This release migrates to the new usage.
 
 ### Other
 
-- *(lints)* audit all allows, add reasons and remove unnessesary ones ([#2288](https://github.com/maplibre/martin/pull/2288))
+- *(lints)* audit all allows, add reasons and remove unnecessary ones ([#2288](https://github.com/maplibre/martin/pull/2288))
 - *(core)* add a `_tiles` feature  to simplify our feature configuration ([#2296](https://github.com/maplibre/martin/pull/2296))
 - move `MainCache` to be a `TileCache` ([#2297](https://github.com/maplibre/martin/pull/2297))
 - *(lints)* migrate a few of our expects to unwraps ([#2284](https://github.com/maplibre/martin/pull/2284))
@@ -119,7 +162,7 @@ This release migrates to the new usage.
 
 ## [0.1.0](https://github.com/maplibre/martin/releases/tag/martin-core-v0.1.0) - 2025-09-26
 
-This marks the v0.1 relese, where we moved over the largest part of the previous `martin` crate.
+This marks the v0.1 release, where we moved over the largest part of the previous `martin` crate.
 The motivation for this split is mostly to be able to not couple the SemVer promise for `martin` and `martin-core`, i.e. just because something gets refactored in `martin`, `martin-core` has a breaking release without breakage.
 
 ### Other
@@ -128,11 +171,11 @@ The motivation for this split is mostly to be able to not couple the SemVer prom
 - *(core)* remove the last bit of the onetime use utils ([#2227](https://github.com/maplibre/martin/pull/2227))
 - *(ci)* Split tests and lints in CI ([#2225](https://github.com/maplibre/martin/pull/2225))
 - *(core)* be consistent in posgres naming ([#2215](https://github.com/maplibre/martin/pull/2215))
-- *(core)* more consitently use `#[non_exhaustive]` and `#[source]` in our public `thiserror` errors ([#2217](https://github.com/maplibre/martin/pull/2217))
+- *(core)* more consistently use `#[non_exhaustive]` and `#[source]` in our public `thiserror` errors ([#2217](https://github.com/maplibre/martin/pull/2217))
 - *(core)* move error types to more appropriate places ([#2213](https://github.com/maplibre/martin/pull/2213))
 - *(core)* fix MartinCoreError being a `Box<dyn Error>` ([#2216](https://github.com/maplibre/martin/pull/2216))
 - *(core)* minimise the dependedncy Postgres needs for both core and non-core ([#2194](https://github.com/maplibre/martin/pull/2194))
-- apply the no `use super::..` execept in tests guidance ([#2193](https://github.com/maplibre/martin/pull/2193))
+- apply the no `use super::..` except in tests guidance ([#2193](https://github.com/maplibre/martin/pull/2193))
 - *(core)* move postgres' `PgPool` and `PgSource` to the core ([#2191](https://github.com/maplibre/martin/pull/2191))
 - *(core)* move config handling out of the pool ([#2185](https://github.com/maplibre/martin/pull/2185))
 - *(core)* move pmtiles to the new location ([#2182](https://github.com/maplibre/martin/pull/2182))
@@ -147,6 +190,6 @@ The motivation for this split is mostly to be able to not couple the SemVer prom
 - *(core)* move styles to `martin_core` ([#2106](https://github.com/maplibre/martin/pull/2106))
 - *(core)* migrate the configuration to be core capable ([#2104](https://github.com/maplibre/martin/pull/2104))
 - *(core)* Move fonts to `martin_core` ([#2050](https://github.com/maplibre/martin/pull/2050))
-- *(core)* move intial part of the tile catalog to be `martin_core` (3/n) ([#2049](https://github.com/maplibre/martin/pull/2049))
+- *(core)* move initial part of the tile catalog to be `martin_core` (3/n) ([#2049](https://github.com/maplibre/martin/pull/2049))
 - *(core)* migrate environment tracking and testing (2/n) ([#2048](https://github.com/maplibre/martin/pull/2048))
 - *(core)* moved the config utils to `martin-core` (1/n) ([#1944](https://github.com/maplibre/martin/pull/1944))

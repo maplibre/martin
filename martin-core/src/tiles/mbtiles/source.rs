@@ -1,6 +1,5 @@
 //! `MBTiles` tile source implementation.
 
-use std::fmt::{Debug, Formatter};
 use std::io;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -8,32 +7,29 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use backon::{FibonacciBuilder, Retryable as _};
+use derive_debug::Dbg;
 use martin_tile_utils::{TileCoord, TileData, TileInfo};
 use mbtiles::sqlx::error::DatabaseError;
 use mbtiles::{MbtError, MbtilesPool};
 use tilejson::TileJSON;
 use tracing::{trace, warn};
 
+use crate::CacheZoomRange;
 use crate::tiles::mbtiles::MbtilesError;
 use crate::tiles::{BoxedSource, MartinCoreResult, Source, UrlQuery};
 
 /// Tile source that reads from `MBTiles` files.
-#[derive(Clone)]
+#[derive(Clone, Dbg)]
 pub struct MbtSource {
     id: String,
+    #[dbg(alias = "path")]
     mbtiles: Arc<MbtilesPool>,
+    #[dbg(skip)]
     tilejson: TileJSON,
+    #[dbg(skip)]
     tile_info: TileInfo,
-}
-
-#[expect(clippy::missing_fields_in_debug)]
-impl Debug for MbtSource {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("MbtSource")
-            .field("id", &self.id)
-            .field("path", &self.mbtiles.as_ref())
-            .finish()
-    }
+    #[dbg(skip)]
+    cache_zoom: CacheZoomRange,
 }
 
 // SQLITE_BUSY (code: 5)
@@ -51,7 +47,11 @@ fn is_sqlite_busy(err: &MbtError) -> bool {
 
 impl MbtSource {
     /// Creates a new `MBTiles` source from the given file path.
-    pub async fn new(id: String, path: PathBuf) -> Result<Self, MbtilesError> {
+    pub async fn new(
+        id: String,
+        path: PathBuf,
+        cache_zoom: CacheZoomRange,
+    ) -> Result<Self, MbtilesError> {
         let mbt = MbtilesPool::open_readonly(&path)
             .await
             .map_err(|e| io::Error::other(format!("{e:?}: Cannot open file {}", path.display())))
@@ -90,6 +90,7 @@ impl MbtSource {
             mbtiles: Arc::new(mbt),
             tilejson: meta.tilejson,
             tile_info,
+            cache_zoom,
         })
     }
 }
@@ -119,6 +120,10 @@ impl Source for MbtSource {
     fn benefits_from_concurrent_scraping(&self) -> bool {
         // If we copy from one local file to another, we are likely not bottlenecked by CPU
         false
+    }
+
+    fn cache_zoom(&self) -> CacheZoomRange {
+        self.cache_zoom
     }
 
     async fn get_tile(

@@ -1,6 +1,6 @@
 [package]
 name = "martin"
-version = "1.4.0"
+version = "1.8.0"
 authors = [
     "Stepan Kuzmin <to.stepan.kuzmin@gmail.com>",
     "Yuri Astrakhan <YuriAstrakhan@gmail.com>",
@@ -94,16 +94,17 @@ default = [
     "metrics",
     "pmtiles",
     "postgres",
+    "rendering",
     "sprites",
     "styles",
     "webui",
 ]
 unstable-cog = ["martin-core/unstable-cog", "_tiles"]
-unstable-rendering = ["styles", "martin-core/unstable-rendering", "dep:image"]
+rendering = ["styles", "martin-core/rendering", "dep:image"]
 fonts = ["martin-core/fonts", "_catalog"]
 lambda = ["dep:lambda-web"]
 mbtiles = ["martin-core/mbtiles", "dep:mbtiles", "_tiles"]
-metrics = ["dep:actix-web-prom"]
+metrics = ["martin-core/metrics", "dep:actix-web-prom", "dep:prometheus"]
 pmtiles = ["martin-core/pmtiles", "dep:object_store", "_tiles"]
 postgres = [
     "martin-core/postgres",
@@ -118,6 +119,14 @@ styles = ["martin-core/styles", "dep:walkdir", "_catalog"]
 webui = ["dep:actix-web-static-files", "dep:static-files", "dep:walkdir"]
 _tiles = ["martin-core/_tiles", "_catalog"]
 _catalog = []
+__hotpath = [
+    "hotpath/hotpath",
+    "hotpath/hotpath-alloc",
+    "hotpath/hotpath-mcp",
+    "hotpath/tokio",
+    "hotpath/futures",
+]
+__hotpath_tui = ["__hotpath", "hotpath/tui"]
 test-pg = ["postgres"]
 
 [dependencies]
@@ -133,6 +142,8 @@ clap.workspace = true
 dashmap.workspace = true
 enum-display = { workspace = true, optional = true }
 futures.workspace = true
+hotpath.workspace = true
+humantime-serde.workspace = true
 image = { workspace = true, optional = true }
 indicatif.workspace = true
 itertools.workspace = true
@@ -143,10 +154,12 @@ miette.workspace = true
 martin-core.workspace = true
 martin-tile-utils.workspace = true
 mbtiles = { workspace = true, optional = true }
+notify = { workspace = true }
 num_cpus.workspace = true
 object_store = { workspace = true, optional = true }
 postgis = { workspace = true, optional = true }
 postgres-protocol = { workspace = true, optional = true }
+prometheus = { workspace = true, optional = true }
 rustls.workspace = true
 serde.workspace = true
 serde_json.workspace = true
@@ -171,6 +184,7 @@ static-files = { workspace = true, optional = true }
 walkdir = { workspace = true, optional = true }
 
 [dev-dependencies]
+backon.workspace = true
 criterion.workspace = true
 indoc.workspace = true
 insta = { workspace = true, features = ["json", "yaml", "redactions"] }

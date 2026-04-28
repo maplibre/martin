@@ -16,12 +16,13 @@ macro_rules! create_app_with_prefix {
         ::actix_web::test::init_service(
             ::actix_web::App::new()
                 .app_data(actix_web::web::Data::new(
-                    ::martin::srv::Catalog::new(&state).unwrap(),
+                    ::martin::srv::Catalog::new(
+                        #[cfg(any(feature = "sprites", feature = "fonts", feature = "styles"))]
+                        &state,
+                    )
+                    .unwrap(),
                 ))
-                .app_data(actix_web::web::Data::new(
-                    ::martin_core::tiles::NO_TILE_CACHE,
-                ))
-                .app_data(actix_web::web::Data::new(state.tiles))
+                .app_data(actix_web::web::Data::new(state.tile_manager))
                 .app_data(actix_web::web::Data::new($srv_config.clone()))
                 .configure(|c| ::martin::srv::router(c, &$srv_config)),
         )
@@ -80,10 +81,12 @@ async fn test_route_prefix_basic_endpoints() {
     let body = read_body(response).await;
     assert_eq!(body, "OK");
 
-    // Health without prefix should fail
+    // Health without prefix should still work
     let req = test_get("/health").to_request();
     let response = call_service(&app, req).await;
-    assert_eq!(response.status(), 404);
+    let response = assert_response(response).await;
+    let body = read_body(response).await;
+    assert_eq!(body, "OK");
 
     // Test catalog endpoint
     let req = test_get("/tiles/catalog").to_request();
