@@ -185,6 +185,69 @@ impl<T> OptOneMany<T> {
 mod tests {
     use super::OptOneMany::{Many, NoVals, One};
     use super::*;
+    use crate::config::test_helpers::{parse_yaml, render_error};
+
+    // ----- Custom `Deserialize` impl: every accepted shape and every error path -----
+
+    #[test]
+    fn deserialize_null_is_no_vals() {
+        let cfg = parse_yaml::<OptOneMany<String>>("null");
+        assert_eq!(cfg, NoVals);
+    }
+
+    #[test]
+    fn deserialize_string_is_one() {
+        let cfg = parse_yaml::<OptOneMany<String>>("hello");
+        assert_eq!(cfg, One("hello".to_string()));
+    }
+
+    #[test]
+    fn deserialize_quoted_string_is_one() {
+        let cfg = parse_yaml::<OptOneMany<String>>("\"hello world\"");
+        assert_eq!(cfg, One("hello world".to_string()));
+    }
+
+    #[test]
+    fn deserialize_empty_seq_is_no_vals() {
+        let cfg = parse_yaml::<OptOneMany<String>>("[]");
+        assert_eq!(cfg, NoVals);
+    }
+
+    #[test]
+    fn deserialize_singleton_seq_is_one() {
+        let cfg = parse_yaml::<OptOneMany<String>>("[only]");
+        assert_eq!(cfg, One("only".to_string()));
+    }
+
+    #[test]
+    fn deserialize_multi_seq_is_many() {
+        let cfg = parse_yaml::<OptOneMany<String>>("[a, b, c]");
+        assert_eq!(
+            cfg,
+            Many(vec!["a".to_string(), "b".to_string(), "c".to_string()])
+        );
+    }
+
+    #[test]
+    fn deserialize_seq_of_maps_into_strings_fails() {
+        // `OptOneMany<String>::visit_seq` delegates to `Vec<String>::deserialize`, and
+        // `String::deserialize` rejects a map element. The error is from the inner type,
+        // but our visitor is what dispatched the seq handling — so the user still sees a
+        // located, actionable message.
+        insta::assert_snapshot!(
+            render_error::<OptOneMany<String>>("[{ not_a_string: true }]"),
+            @"
+         × unexpected event: expected string scalar
+          ╭─[test.yaml:1:2]
+        1 │ [{ not_a_string: true }]
+          ·  ─┬
+          ·   ╰── unexpected event: expected string scalar
+          ╰────
+        "
+        );
+    }
+
+    // ----- Existing behavior tests -----
 
     #[test]
     fn test_one_or_many_new() {

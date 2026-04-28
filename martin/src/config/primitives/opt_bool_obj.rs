@@ -26,6 +26,76 @@ impl<T> OptBoolObj<T> {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use serde::Deserialize;
+
+    use super::*;
+    use crate::config::test_helpers::{parse_yaml, render_error};
+
+    #[derive(Debug, Default, Deserialize, PartialEq)]
+    struct Sample {
+        name: String,
+        #[serde(default)]
+        size: u32,
+    }
+
+    // ----- Custom `Deserialize` impl: every accepted shape and every error path -----
+
+    #[test]
+    fn deserialize_null_is_no_value() {
+        let cfg = parse_yaml::<OptBoolObj<Sample>>("null");
+        assert_eq!(cfg, OptBoolObj::NoValue);
+    }
+
+    #[test]
+    fn deserialize_bool_true() {
+        let cfg = parse_yaml::<OptBoolObj<Sample>>("true");
+        assert_eq!(cfg, OptBoolObj::Bool(true));
+    }
+
+    #[test]
+    fn deserialize_bool_false() {
+        let cfg = parse_yaml::<OptBoolObj<Sample>>("false");
+        assert_eq!(cfg, OptBoolObj::Bool(false));
+    }
+
+    #[test]
+    fn deserialize_object_map() {
+        let cfg = parse_yaml::<OptBoolObj<Sample>>("{ name: hello, size: 7 }");
+        assert_eq!(
+            cfg,
+            OptBoolObj::Object(Sample {
+                name: "hello".to_string(),
+                size: 7,
+            })
+        );
+    }
+
+    #[test]
+    fn deserialize_rejects_string() {
+        insta::assert_snapshot!(render_error::<OptBoolObj<Sample>>("hello"), @r#"
+        × invalid type: string "hello", expected either a boolean or a configuration
+        │ map
+        "#);
+    }
+
+    #[test]
+    fn deserialize_rejects_integer() {
+        insta::assert_snapshot!(render_error::<OptBoolObj<Sample>>("42"), @"
+        × invalid type: integer `42`, expected either a boolean or a configuration
+        │ map
+        ");
+    }
+
+    #[test]
+    fn deserialize_rejects_sequence() {
+        insta::assert_snapshot!(render_error::<OptBoolObj<Sample>>("[a, b]"), @"
+        × invalid type: sequence, expected either a boolean or a configuration map
+        ");
+    }
+}
+
 impl<'de, T> Deserialize<'de> for OptBoolObj<T>
 where
     T: Deserialize<'de>,

@@ -1012,6 +1012,214 @@ pub fn copy_unrecognized_keys_from_config(
     result.extend(unrecognized.keys().map(|k| format!("{prefix}{k}")));
 }
 
+#[cfg(test)]
+mod deserialize_tests {
+    use serde::Deserialize;
+
+    use super::*;
+    use crate::config::test_helpers::{parse_yaml, render_error};
+
+    /// Inner config used to instantiate `FileConfigEnum<T>` / `FileConfig<T>` in tests
+    /// without depending on a real source-type config.
+    #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+    struct TestCustom {
+        #[serde(default)]
+        flag: bool,
+    }
+
+    impl ConfigurationLivecycleHooks for TestCustom {
+        fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
+            UnrecognizedKeys::new()
+        }
+    }
+
+    // ----- FileConfigEnum<T> -----
+
+    #[test]
+    fn file_config_enum_null_is_none() {
+        let cfg = parse_yaml::<FileConfigEnum<TestCustom>>("null");
+        assert_eq!(cfg, FileConfigEnum::None);
+    }
+
+    #[test]
+    fn file_config_enum_string_is_path() {
+        let cfg = parse_yaml::<FileConfigEnum<TestCustom>>("/tmp/tiles");
+        assert_eq!(cfg, FileConfigEnum::Path(PathBuf::from("/tmp/tiles")));
+    }
+
+    #[test]
+    fn file_config_enum_seq_is_paths() {
+        let cfg = parse_yaml::<FileConfigEnum<TestCustom>>("[/a, /b]");
+        assert_eq!(
+            cfg,
+            FileConfigEnum::Paths(vec![PathBuf::from("/a"), PathBuf::from("/b")])
+        );
+    }
+
+    #[test]
+    fn file_config_enum_map_is_config() {
+        let cfg = parse_yaml::<FileConfigEnum<TestCustom>>("{ paths: [/a], flag: true }");
+        let FileConfigEnum::Config(file_config) = cfg else {
+            panic!("expected Config variant");
+        };
+        assert_eq!(file_config.paths, OptOneMany::One(PathBuf::from("/a")));
+        assert!(file_config.custom.flag);
+    }
+
+    #[test]
+    fn file_config_enum_rejects_integer() {
+        insta::assert_snapshot!(render_error::<FileConfigEnum<TestCustom>>("42"), @"
+        × invalid type: integer `42`, expected a path string, a list of path
+        │ strings, or a configuration map with `paths` and/or `sources`
+        ");
+    }
+
+    #[test]
+    fn file_config_enum_rejects_bool() {
+        insta::assert_snapshot!(render_error::<FileConfigEnum<TestCustom>>("true"), @"
+        × invalid type: boolean `true`, expected a path string, a list of path
+        │ strings, or a configuration map with `paths` and/or `sources`
+        ");
+    }
+
+    // ----- FileConfigSrc -----
+
+    #[test]
+    fn file_config_src_string_is_path() {
+        let cfg = parse_yaml::<FileConfigSrc>("/tmp/tile.pmtiles");
+        assert_eq!(cfg, FileConfigSrc::Path(PathBuf::from("/tmp/tile.pmtiles")));
+    }
+
+    #[test]
+    fn file_config_src_map_is_obj() {
+        let cfg = parse_yaml::<FileConfigSrc>("{ path: /tmp/tile.pmtiles }");
+        let FileConfigSrc::Obj(obj) = cfg else {
+            panic!("expected Obj variant");
+        };
+        assert_eq!(obj.path, PathBuf::from("/tmp/tile.pmtiles"));
+    }
+
+    #[test]
+    fn file_config_src_rejects_integer() {
+        insta::assert_snapshot!(render_error::<FileConfigSrc>("42"), @"
+        × invalid type: integer `42`, expected a path string or a configuration map
+        │ with a `path` field
+        ");
+    }
+
+    #[test]
+    fn file_config_src_rejects_bool() {
+        insta::assert_snapshot!(render_error::<FileConfigSrc>("true"), @"
+        × invalid type: boolean `true`, expected a path string or a configuration
+        │ map with a `path` field
+        ");
+    }
+
+    #[test]
+    fn file_config_src_rejects_sequence() {
+        insta::assert_snapshot!(render_error::<FileConfigSrc>("[a, b]"), @"
+        × invalid type: sequence, expected a path string or a configuration map with
+        │ a `path` field
+        ");
+    }
+
+    // ----- GlobalCacheConfig -----
+
+    #[test]
+    fn global_cache_disable_string() {
+        let cfg = parse_yaml::<GlobalCacheConfig>("disable");
+        assert_eq!(cfg, GlobalCacheConfig::disabled());
+    }
+
+    #[test]
+    fn global_cache_map() {
+        let cfg = parse_yaml::<GlobalCacheConfig>("{ size_mb: 512, tile_size_mb: 256 }");
+        assert_eq!(cfg.size_mb, Some(512));
+        assert_eq!(cfg.tile_size_mb, Some(256));
+    }
+
+    #[test]
+    fn global_cache_rejects_other_string() {
+        insta::assert_snapshot!(render_error::<GlobalCacheConfig>("enable"), @r#"
+        × invalid cache config string "enable"; the only accepted string form is
+        │ `disable`
+        "#);
+    }
+
+    #[test]
+    fn global_cache_rejects_integer() {
+        insta::assert_snapshot!(render_error::<GlobalCacheConfig>("42"), @"
+        × invalid type: integer `42`, expected either the literal `disable` or a
+        │ cache configuration map (e.g. `{ size_mb: 512, tile_size_mb: 256 }`)
+        ");
+    }
+
+    // ----- CacheSizeConfig -----
+
+    #[test]
+    fn cache_size_disable_string() {
+        let cfg = parse_yaml::<CacheSizeConfig>("disable");
+        assert_eq!(cfg.size_mb, Some(0));
+        assert_eq!(cfg.expiry, None);
+    }
+
+    #[test]
+    fn cache_size_map() {
+        let cfg = parse_yaml::<CacheSizeConfig>("{ size_mb: 64, expiry: 1h }");
+        assert_eq!(cfg.size_mb, Some(64));
+        assert_eq!(cfg.expiry, Some(std::time::Duration::from_secs(3600)));
+    }
+
+    #[test]
+    fn cache_size_rejects_other_string() {
+        insta::assert_snapshot!(render_error::<CacheSizeConfig>("on"), @"
+        × invalid type: boolean `true`, expected either the literal `disable` or a
+        │ cache configuration map (e.g. `{ size_mb: 64, expiry: 1h }`)
+        ");
+    }
+
+    #[test]
+    fn cache_size_rejects_integer() {
+        insta::assert_snapshot!(render_error::<CacheSizeConfig>("42"), @"
+        × invalid type: integer `42`, expected either the literal `disable` or a
+        │ cache configuration map (e.g. `{ size_mb: 64, expiry: 1h }`)
+        ");
+    }
+
+    // ----- CachePolicy -----
+
+    #[test]
+    fn cache_policy_disable_string() {
+        let cfg = parse_yaml::<CachePolicy>("disable");
+        assert_eq!(cfg, CachePolicy::disabled());
+    }
+
+    #[test]
+    fn cache_policy_map() {
+        let cfg = parse_yaml::<CachePolicy>("{ minzoom: 0, maxzoom: 14 }");
+        // Round-trip via Serialize to assert the parsed contents without touching private fields.
+        let dumped = serde_yaml::to_string(&cfg).unwrap();
+        assert!(dumped.contains("minzoom: 0"), "got: {dumped}");
+        assert!(dumped.contains("maxzoom: 14"), "got: {dumped}");
+    }
+
+    #[test]
+    fn cache_policy_rejects_other_string() {
+        insta::assert_snapshot!(render_error::<CachePolicy>("enable"), @r#"
+        × invalid cache policy string "enable"; the only accepted string form is
+        │ `disable`
+        "#);
+    }
+
+    #[test]
+    fn cache_policy_rejects_integer() {
+        insta::assert_snapshot!(render_error::<CachePolicy>("42"), @"
+        × invalid type: integer `42`, expected either the literal `disable` or a
+        │ zoom range (e.g. `{ minzoom: 0, maxzoom: 14 }`)
+        ");
+    }
+}
+
 #[cfg(all(test, feature = "mbtiles"))]
 mod mbtiles_tests {
     use super::*;

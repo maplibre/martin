@@ -157,6 +157,61 @@ mod tests {
     use indoc::indoc;
 
     use super::*;
+    use crate::config::test_helpers::{parse_yaml, render_error};
+
+    // ----- Custom `Deserialize` impl: every accepted shape and every error path -----
+
+    #[test]
+    fn deserialize_bool_true() {
+        let cfg = parse_yaml::<CorsConfig>("true");
+        assert_eq!(cfg, CorsConfig::SimpleFlag(true));
+    }
+
+    #[test]
+    fn deserialize_bool_false() {
+        let cfg = parse_yaml::<CorsConfig>("false");
+        assert_eq!(cfg, CorsConfig::SimpleFlag(false));
+    }
+
+    #[test]
+    fn deserialize_properties_map() {
+        let cfg = parse_yaml::<CorsConfig>(indoc! {"
+            origin:
+              - https://example.org
+            max_age: 3600
+        "});
+        let CorsConfig::Properties(props) = cfg else {
+            panic!("expected Properties variant");
+        };
+        assert_eq!(props.origin, vec!["https://example.org".to_string()]);
+        assert_eq!(props.max_age, Some(3600));
+    }
+
+    #[test]
+    fn deserialize_rejects_integer() {
+        insta::assert_snapshot!(render_error::<CorsConfig>("42"), @"
+        × invalid type: integer `42`, expected either a boolean (`cors: true` /
+        │ `cors: false`) or a properties map with at least an `origin` list
+        ");
+    }
+
+    #[test]
+    fn deserialize_rejects_string() {
+        insta::assert_snapshot!(render_error::<CorsConfig>("\"yes please\""), @r#"
+        × invalid type: string "yes please", expected either a boolean (`cors:
+        │ true` / `cors: false`) or a properties map with at least an `origin` list
+        "#);
+    }
+
+    #[test]
+    fn deserialize_rejects_sequence() {
+        insta::assert_snapshot!(render_error::<CorsConfig>("[https://example.org]"), @"
+        × invalid type: sequence, expected either a boolean (`cors: true` / `cors:
+        │ false`) or a properties map with at least an `origin` list
+        ");
+    }
+
+    // ----- Existing behavior tests (default values, validation, middleware) -----
 
     #[test]
     fn test_cors_config_default() {
