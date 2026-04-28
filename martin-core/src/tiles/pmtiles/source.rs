@@ -19,8 +19,8 @@ use tracing::{trace, warn};
 use url::Url;
 
 use crate::CacheZoomRange;
-use crate::tiles::pmtiles::{PmtCache, PmtCacheInstance};
 use crate::tiles::pmtiles::PmtilesError::{self, InvalidMetadata};
+use crate::tiles::pmtiles::{PmtCache, PmtCacheInstance};
 use crate::tiles::{BoxedSource, MartinCoreResult, Source, UrlQuery};
 
 /// Process-wide monotonically-increasing cache id minted on every `PMTiles` source (re)build.
@@ -174,8 +174,7 @@ impl PmtilesSource {
         let dir_cache = PmtCacheInstance::new(next_pmtiles_cache_id(), pmt_cache.clone());
         let (store, path) = object_store::parse_url_opts(&url, &options)
             .map_err(|e| PmtilesError::ObjectStoreParse(e, url.to_string()))?;
-        let source =
-            Self::new(dir_cache, id.clone(), store, path, cache_zoom).await?;
+        let source = Self::new(dir_cache, id.clone(), store, path, cache_zoom).await?;
 
         let rebuilder: ReaderRebuilder = Arc::new(move || {
             let url = url.clone();
@@ -190,7 +189,9 @@ impl PmtilesSource {
                 let backend = ObjectStoreBackend::new(store, path);
                 AsyncPmTilesReader::try_from_cached_source(backend, dir_cache)
                     .await
-                    .map_err(|e| PmtilesError::PmtErrorWithCtx(e, format!("{id} ({store_to_string})")))
+                    .map_err(|e| {
+                        PmtilesError::PmtErrorWithCtx(e, format!("{id} ({store_to_string})"))
+                    })
             })
         });
         Ok(source.with_rebuilder(rebuilder))
