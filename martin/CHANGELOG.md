@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.0](https://github.com/maplibre/martin/compare/martin-v1.7.0...martin-v1.8.0) - 2026-04-28
+
+### Added
+
+- Add MBTilesReloader (Tile Reload Phase 2) ([#2717](https://github.com/maplibre/martin/pull/2717))
+- support `content_type` in PostgreSQL function source SQL comments for raster tiles ([#2671](https://github.com/maplibre/martin/pull/2671))
+
+### Other
+
+- remove a few unused deps from Cargo.toml to not waste time building them ([#2738](https://github.com/maplibre/martin/pull/2738))
+- update Cargo.toml dependencies
+
 ## [1.7.0](https://github.com/maplibre/martin/compare/martin-v1.6.0...martin-v1.7.0) - 2026-04-23
 
 ### `martin_tile_cache_requests_total` and `martin_cache_requests_total` metrics
