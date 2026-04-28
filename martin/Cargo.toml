@@ -150,10 +150,10 @@ itertools.workspace = true
 json-patch = { workspace = true, optional = true }
 lambda-web = { workspace = true, optional = true }
 log.workspace = true
-miette.workspace = true
 martin-core.workspace = true
 martin-tile-utils.workspace = true
 mbtiles = { workspace = true, optional = true }
+miette.workspace = true
 notify = { workspace = true }
 num_cpus.workspace = true
 object_store = { workspace = true, optional = true }
@@ -162,10 +162,10 @@ postgres-protocol = { workspace = true, optional = true }
 prometheus = { workspace = true, optional = true }
 rustls.workspace = true
 serde.workspace = true
+serde-saphyr.workspace = true
 serde_json.workspace = true
 serde_with.workspace = true
 serde_yaml.workspace = true
-serde-saphyr.workspace = true
 static-files = { workspace = true, optional = true }
 subst.workspace = true
 thiserror.workspace = true
