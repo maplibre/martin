@@ -48,7 +48,10 @@ The following events are handled automatically:
 
 - **File added** — the new source appears in the catalog.
 - **File modified** — the source is reloaded and its tile cache is invalidated.
-- **File removed** — the source is removed from the catalog.
+- **File added** - the new source appears in the catalog.
+- **File modified** - the source is reloaded and its tile cache is invalidated.
+  Not avaliable on windows due to OS-limtations (SQLite not allowing `FILE_SHARE_DELETE`).
+- **File removed** - the source is removed from the catalog.
 
 !!! note
     Hot reload applies to directories configured under `mbtiles.paths` (or passed on the CLI). Named sources listed under `mbtiles.sources` are snapshotted at startup and are not watched for changes.
