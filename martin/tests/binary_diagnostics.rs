@@ -12,7 +12,7 @@ use std::process::Command;
 use tempfile::NamedTempFile;
 
 /// Path to the compiled `martin` binary, provided by Cargo for integration tests in this
-/// crate. See https://doc.rust-lang.org/cargo/reference/environment-variables.html.
+/// crate. See <https://doc.rust-lang.org/cargo/reference/environment-variables.html>.
 const MARTIN_BIN: &str = env!("CARGO_BIN_EXE_martin");
 
 /// Spawn `martin --config <yaml>` with `RUST_LOG=off` (so the rendered diagnostic reaches

@@ -540,7 +540,7 @@ where
     // Phase 1: substitute environment variables at the text level so saphyr's spans line up
     // with the post-substitution text the parser actually sees.
     let substituted = subst::substitute(contents, env)
-        .map_err(|e| ConfigFileError::substitution(e, contents.to_string(), file_name.into()))?;
+        .map_err(|e| ConfigFileError::substitution(e, contents.to_string(), file_name))?;
 
     // Phase 2: rewrite deprecated cache keys via a `serde_yaml::Value` round-trip — but only
     // if at least one deprecated token appears in the text. The common case (no deprecated
@@ -566,7 +566,7 @@ where
         with_snippet: false,
     };
     serde_saphyr::from_str_with_options::<Config>(&migrated, options)
-        .map_err(|e| ConfigFileError::yaml_parse(e, migrated, file_name.into()))
+        .map_err(|e| ConfigFileError::yaml_parse(e, migrated, file_name))
 }
 
 /// Cheap pre-check: does the substituted YAML mention any deprecated cache key?
@@ -696,7 +696,8 @@ mod tests {
 
     use super::*;
     use crate::config::file::CachePolicy;
-    use crate::config::test_helpers::render_failure;
+    use crate::config::test_helpers::{render_failure, render_failure_json};
+    use crate::logging::LogFormat;
 
     fn parse_yaml(yaml: &str) -> Config {
         parse_config(
@@ -766,7 +767,7 @@ mod tests {
         // Mirrors what the binary emits when `RUST_LOG_FORMAT=json` is set: a structured
         // JSON document instead of the graphical snippet, suitable for editor tooling and
         // log aggregators.
-        let json = crate::config::test_helpers::render_failure_json("cors: 42\n");
+        let json = render_failure_json("cors: 42\n");
         let parsed: serde_json::Value =
             serde_json::from_str(&json).unwrap_or_else(|e| panic!("not JSON: {e}\n{json}"));
 
@@ -794,8 +795,7 @@ mod tests {
     fn substitution_renders_as_json_with_code_help_url() {
         // The substitution path uses our own `SubstitutionDiagnostic`, which overrides
         // `code()`, `help()`, and `url()`. The JSON renderer surfaces all three.
-        let json =
-            crate::config::test_helpers::render_failure_json("cache_size_mb: ${UNDEFINED_VAR}\n");
+        let json = render_failure_json("cache_size_mb: ${UNDEFINED_VAR}\n");
         let parsed: serde_json::Value =
             serde_json::from_str(&json).unwrap_or_else(|e| panic!("not JSON: {e}\n{json}"));
 
@@ -820,7 +820,7 @@ mod tests {
         // document so downstream tools can keep parsing rather than choking on a free-form
         // log line.
         let envelope = MartinError::BasePathError("not-a-path".to_string())
-            .render_diagnostic_with(crate::logging::LogFormat::Json);
+            .render_diagnostic_with(LogFormat::Json);
         let parsed: serde_json::Value =
             serde_json::from_str(&envelope).unwrap_or_else(|e| panic!("not JSON: {e}\n{envelope}"));
         let msg = parsed.get("message").and_then(|m| m.as_str()).unwrap_or("");

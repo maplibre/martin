@@ -122,7 +122,7 @@ impl MartinError {
     /// render against.
     #[must_use]
     pub fn render_diagnostic_with(&self, format: crate::logging::LogFormat) -> String {
-        if let MartinError::ConfigFileError(cfg_err) = self
+        if let Self::ConfigFileError(cfg_err) = self
             && let Some(report) = cfg_err.to_miette_report()
         {
             if format.is_json() {

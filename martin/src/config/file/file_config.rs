@@ -686,7 +686,7 @@ impl CachePolicy {
 impl<'de> Deserialize<'de> for CachePolicy {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
-        D: serde::Deserializer<'de>,
+        D: Deserializer<'de>,
     {
         #[derive(Deserialize)]
         struct Inner {
@@ -827,7 +827,7 @@ impl GlobalCacheConfig {
 impl<'de> Deserialize<'de> for GlobalCacheConfig {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
-        D: serde::Deserializer<'de>,
+        D: Deserializer<'de>,
     {
         // Inner struct that handles the map case via the derive — we still get good error
         // messages (with spans) for unknown fields and type mismatches inside it.
@@ -937,7 +937,7 @@ impl CacheSizeConfig {
 impl<'de> Deserialize<'de> for CacheSizeConfig {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
-        D: serde::Deserializer<'de>,
+        D: Deserializer<'de>,
     {
         #[serde_with::skip_serializing_none]
         #[derive(Deserialize)]

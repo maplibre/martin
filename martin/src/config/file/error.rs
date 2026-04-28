@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 #[cfg(feature = "fonts")]
 use martin_core::fonts::FontError;
@@ -89,7 +89,7 @@ impl ConfigFileError {
     ///
     /// The source text is retained so miette diagnostics can render the offending snippet.
     #[must_use]
-    pub fn yaml_parse(error: serde_saphyr::Error, source_text: String, file_path: PathBuf) -> Self {
+    pub fn yaml_parse(error: serde_saphyr::Error, source_text: String, file_path: &Path) -> Self {
         Self::YamlParseError(Box::new(YamlParseDetails {
             error,
             named_source: NamedSource::new(file_path.display().to_string(), source_text),
@@ -98,7 +98,7 @@ impl ConfigFileError {
 
     /// Construct a substitution error, locating the failing variable token within the source.
     #[must_use]
-    pub fn substitution(source: subst::Error, source_text: String, file_path: PathBuf) -> Self {
+    pub fn substitution(source: subst::Error, source_text: String, file_path: &Path) -> Self {
         let primary_span = subst_error_span(&source, &source_text);
         Self::SubstitutionError(Box::new(SubstitutionDetails {
             source,
