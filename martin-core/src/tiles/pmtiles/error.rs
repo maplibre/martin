@@ -21,4 +21,8 @@ pub enum PmtilesError {
     /// Unknown tile type encountered while processing `PMTiles` file.
     #[error("Unknown tile type for source {0} ({1} at path {2})")]
     UnknownTileType(String, String, String),
+
+    /// Failed to parse an `object_store` URL while (re)building a source.
+    #[error("Failed to parse object_store URL {1}: {0}")]
+    ObjectStoreParse(#[source] object_store::Error, String),
 }

@@ -6,7 +6,7 @@ use std::str::FromStr as _;
 use tokio::sync::mpsc::UnboundedSender;
 
 use martin_core::tiles::BoxedSource;
-use martin_core::tiles::pmtiles::{PmtCache, PmtCacheInstance, PmtilesSource};
+use martin_core::tiles::pmtiles::{PmtCache, PmtilesSource};
 use serde::{Deserialize, Serialize};
 use tracing::{trace, warn};
 use url::Url;
@@ -292,16 +292,14 @@ impl TileSourceConfiguration for PmtConfig {
         url: Url,
         cache: CachePolicy,
     ) -> MartinResult<BoxedSource> {
-        use std::sync::LazyLock;
-        use std::sync::atomic::{AtomicUsize, Ordering};
-
-        static NEXT_CACHE_ID: LazyLock<AtomicUsize> = LazyLock::new(|| AtomicUsize::new(0));
-        let cache_id = NEXT_CACHE_ID.fetch_add(1, Ordering::SeqCst);
-
-        let (store, path) = object_store::parse_url_opts(&url, &self.options)
-            .map_err(|e| ConfigFileError::ObjectStoreUrlParsing(e, id.clone()))?;
-        let dir_cache = PmtCacheInstance::new(cache_id, self.pmtiles_directory_cache.clone());
-        let mut source = PmtilesSource::new(dir_cache, id, store, path, cache.zoom()).await?;
+        let mut source = PmtilesSource::from_object_store_url(
+            id,
+            url,
+            self.options.clone(),
+            self.pmtiles_directory_cache.clone(),
+            cache.zoom(),
+        )
+        .await?;
         if let Some(signal) = self.reload_signal.clone() {
             source = source.with_reload_signal(signal);
         }

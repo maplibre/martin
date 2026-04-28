@@ -187,28 +187,15 @@ impl PMTilesReloader {
         }
     }
 
-    /// Signal-driven single-source rebuild: re-create the `BoxedSource` for `id` and apply
-    /// it as an `update` so the `TileSourceManager` invalidates the tile cache and swaps
-    /// the source atomically.
+    /// Signal-driven cache invalidation. The `PmtilesSource` already rebuilt its inner reader
+    /// in place before sending the signal (so the request that detected the modification
+    /// gets a successful response). All this side has to do is purge any stale tile-cache
+    /// entries so future requests don't see them.
     async fn reload_one(&mut self, id: &str, tsm: &mut TileSourceManager) {
-        let Some(entry) = self.sources.get(id).cloned() else {
-            tracing::warn!("PMTilesReloader: signal received for unknown source {id}");
-            return;
-        };
-        let new_source = self
-            .pmt_config
-            .new_sources_url(id.to_string(), entry.url.clone(), entry.cache)
-            .await;
-
-        let adv = ReloadAdvisory {
-            updates: vec![crate::reload::NewSource {
-                id: id.to_string(),
-                source: new_source,
-            }],
-            ..Default::default()
-        };
-        if let Err(e) = tsm.apply_changes(adv).await {
-            tracing::warn!("PMTilesReloader: signal-driven reload of {id} failed: {e:?}");
+        if let Some(cache) = tsm.tile_cache() {
+            cache.invalidate_source(id);
+            cache.run_pending_tasks().await;
+            tracing::info!("Invalidated tile cache for self-rebuilt source: {id:?}");
         }
     }
 

@@ -1090,15 +1090,15 @@ cp tests/fixtures/pmtiles2/webp2.pmtiles "$PMT_RELOAD_WATCH_DIR/webp2.pmtiles"
 wait_for_catalog_source "webp2"
 test_jsn reload_catalog_added catalog
 
->&2 echo "PMTiles reload: replacing a .pmtiles file with different bytes triggers source update"
+>&2 echo "PMTiles reload: replacing a .pmtiles file with different bytes triggers in-source rebuild"
 # Overwrite with a different fixture so the file's ETag (mtime+size for the local
 # object_store backend) changes. Updates are detected at tile-fetch time via pmtiles'
-# `SourceModified` signal, so we must hit a tile endpoint to trigger detection. The
-# request is expected to fail (the underlying reader is now invalid); the next request
-# after the reloader rebuilds the source will succeed.
+# `SourceModified` error: the source rebuilds its inner reader in place and retries, so
+# the very request that triggered detection succeeds, and the reloader is signalled to
+# invalidate any cached tiles for that source.
 cp tests/fixtures/pmtiles/png.pmtiles "$PMT_RELOAD_WATCH_DIR/webp2.pmtiles"
-curl --silent --output /dev/null "$MARTIN_URL/webp2/0/0/0" || true
-wait_for_log_str "$LOG_FILE" 'Updated source: "webp2"'
+$CURL "$MARTIN_URL/webp2/0/0/0" -o /dev/null
+wait_for_log_str "$LOG_FILE" 'Invalidated tile cache for self-rebuilt source: "webp2"'
 
 >&2 echo "PMTiles reload: removing a .pmtiles file triggers source removal"
 rm "$PMT_RELOAD_WATCH_DIR/webp2.pmtiles"
@@ -1108,7 +1108,7 @@ $CURL "$MARTIN_URL/catalog" | jq --sort-keys > "$TEST_OUT_DIR/catalog_after_remo
 kill_process "$MARTIN_PROC_ID" Martin
 
 test_log_has_str "$LOG_FILE" 'Added source: "webp2"'
-test_log_has_str "$LOG_FILE" 'Updated source: "webp2"'
+test_log_has_str "$LOG_FILE" 'Invalidated tile cache for self-rebuilt source: "webp2"'
 test_log_has_str "$LOG_FILE" 'Removed source: "webp2"'
 test_log_has_str "$LOG_FILE" 'WARN Defaulting `pmtiles.allow_http` to `true`. This is likely to become an error in the future for better security.'
 test_log_has_str "$LOG_FILE" 'WARN Environment variable AWS_SKIP_CREDENTIALS is deprecated. Please use pmtiles.skip_signature in the configuration file instead.'
