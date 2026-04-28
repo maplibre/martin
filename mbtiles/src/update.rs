@@ -1,5 +1,5 @@
 use enum_display::EnumDisplay;
-use log::{debug, info, warn};
+use tracing::{debug, info, warn};
 use martin_tile_utils::TileInfo;
 use sqlx::{SqliteExecutor, query};
 

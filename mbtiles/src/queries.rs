@@ -1,4 +1,4 @@
-use log::debug;
+use tracing::debug;
 use martin_tile_utils::MAX_ZOOM;
 use sqlite_compressions::rusqlite::Connection;
 use sqlx::{Executor as _, Row as _, SqliteConnection, SqliteExecutor, query};

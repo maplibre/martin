@@ -2,7 +2,7 @@ use std::collections::HashSet;
 use std::str::from_utf8;
 
 use enum_display::EnumDisplay;
-use log::{debug, info, warn};
+use tracing::{debug, info, warn};
 use martin_tile_utils::{Encoding, Format, MAX_ZOOM, TileInfo};
 use serde::Serialize;
 use serde_json::Value;

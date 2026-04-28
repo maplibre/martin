@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use log::{debug, info, warn};
+use tracing::{debug, info, warn};
 use sqlx::{Connection as _, query};
 
 use crate::MbtType::{Flat, FlatWithHash, Normalized};

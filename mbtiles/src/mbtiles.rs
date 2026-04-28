@@ -5,7 +5,7 @@ use std::pin::Pin;
 
 use enum_display::EnumDisplay;
 use futures::Stream;
-use log::debug;
+use tracing::debug;
 use martin_tile_utils::{Tile, TileCoord};
 use serde::{Deserialize, Serialize};
 use sqlite_compressions::{register_bsdiffraw_functions, register_gzip_functions};

@@ -7,7 +7,7 @@ use std::time::{Duration, Instant};
 use bytes::Bytes;
 use flume::{Receiver, Sender, bounded};
 use futures::TryStreamExt as _;
-use log::{debug, info, warn};
+use tracing::{debug, info, warn};
 use moka::sync::Cache;
 use rayon::iter::{IntoParallelIterator as _, ParallelIterator as _};
 use sqlx::{Connection as _, Row as _, SqliteConnection};
