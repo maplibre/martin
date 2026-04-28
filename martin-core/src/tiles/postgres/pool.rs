@@ -95,7 +95,7 @@ impl PostgresPool {
         if postgis_ver < MISSING_GEOM_FIXED_POSTGIS_VERSION {
             warn!(
                 postgis.version = %postgis_ver,
-                "PostGIS is older than the recommended minimum {MISSING_GEOM_FIXED_POSTGIS_VERSION}. In the used version, some geometry may be hidden on some zoom levels. If You encounter this bug, please consider updating your postgis installation. For further details please refer to https://github.com/maplibre/martin/issues/1651#issuecomment-2628674788"
+                "PostGIS is older than the recommended minimum {MISSING_GEOM_FIXED_POSTGIS_VERSION}. In the used version, some geometry may be hidden on some zoom levels. If you encounter this bug, please consider updating your postgis installation. For further details please refer to https://github.com/maplibre/martin/issues/1651#issuecomment-2628674788"
             );
         }
         info!(source.id = %id, postgres.version = %pg_ver, postgis.version = %postgis_ver, "Connected to PostgreSQL/PostGIS");
