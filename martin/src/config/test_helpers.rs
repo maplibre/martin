@@ -1,13 +1,25 @@
 //! Test-only helpers for exercising custom `Deserialize` impls in this crate.
 //!
 //! Each custom deserializer's `tests` module uses [`parse_yaml`] for happy-path cases and
-//! [`render_error`] for snapshot-asserting the rendered miette diagnostic on failure.
+//! [`render_failure`] for snapshot-asserting the rendered miette diagnostic on failure.
+//!
+//! [`render_failure`] feeds the YAML through the full [`parse_config`] pipeline (variable
+//! substitution → saphyr deserialization → `ConfigFileError::to_miette_report`) so the
+//! resulting snapshots contain the same source-spanned, file-prefixed graphical diagnostics
+//! a user would see on the command line.
+
+use std::collections::HashMap;
+use std::path::Path;
 
 use serde::de::DeserializeOwned;
 
+use crate::MartinError;
+use crate::config::file::parse_config;
+
 /// Deserialize `yaml` into `T` via `serde_saphyr` and panic on error.
 ///
-/// Use for happy-path assertions (e.g. `assert_eq!(parse_yaml::<CorsConfig>("true"), …)`).
+/// Use for happy-path assertions on a *bare* deserializer (e.g.
+/// `assert_eq!(parse_yaml::<CorsConfig>("true"), CorsConfig::SimpleFlag(true))`).
 pub(crate) fn parse_yaml<T: DeserializeOwned>(yaml: &str) -> T {
     let opts = serde_saphyr::options! {
         with_snippet: false,
@@ -16,19 +28,20 @@ pub(crate) fn parse_yaml<T: DeserializeOwned>(yaml: &str) -> T {
         .unwrap_or_else(|e| panic!("expected `{yaml}` to parse, but got error:\n{e}"))
 }
 
-/// Deserialize `yaml` into `T` via `serde_saphyr`, render the resulting error through miette,
-/// and return the rendered diagnostic with ANSI escapes stripped (so snapshots are stable).
+/// Run `yaml` through the full [`parse_config`] pipeline, expect a failure, and return the
+/// rendered miette diagnostic with ANSI escapes stripped.
 ///
-/// Panics if deserialization succeeds.
-pub(crate) fn render_error<T: DeserializeOwned>(yaml: &str) -> String {
-    let opts = serde_saphyr::options! {
-        with_snippet: false,
-    };
-    let err = serde_saphyr::from_str_with_options::<T>(yaml, opts)
+/// This matches what the binary entry point shows the user, so each per-file failure-case
+/// snapshot exercises the same plumbing — variable substitution, deprecated-key migration,
+/// saphyr parsing, and `MartinError::render_diagnostic` — that produces the user-visible
+/// diagnostic in production.
+pub(crate) fn render_failure(yaml: &str) -> String {
+    let env: HashMap<String, String> = HashMap::new();
+    let err = parse_config(yaml, &env, Path::new("config.yaml"))
         .err()
-        .unwrap_or_else(|| panic!("expected `{yaml}` to fail to parse, but it succeeded"));
-    let report = serde_saphyr::miette::to_miette_report(&err, yaml, "test.yaml");
-    strip_ansi(&format!("{report:?}"))
+        .unwrap_or_else(|| panic!("expected configuration to fail to parse:\n{yaml}"));
+    let rendered = MartinError::ConfigFileError(err).render_diagnostic();
+    strip_ansi(&rendered)
 }
 
 /// Minimal ANSI-CSI stripper so rendered miette output is reproducible across terminals.

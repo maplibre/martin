@@ -157,9 +157,14 @@ mod tests {
     use indoc::indoc;
 
     use super::*;
-    use crate::config::test_helpers::{parse_yaml, render_error};
+    use crate::config::test_helpers::{parse_yaml, render_failure};
 
     // ----- Custom `Deserialize` impl: every accepted shape and every error path -----
+    //
+    // Failure cases run through the full `parse_config` pipeline so the snapshot includes
+    // the same graphical miette diagnostic (file path, line number, source snippet, caret,
+    // help text) the user sees on the command line. Success cases use `parse_yaml` directly
+    // since round-tripping through `Config` would obscure which variant was selected.
 
     #[test]
     fn deserialize_bool_true() {
@@ -189,25 +194,41 @@ mod tests {
 
     #[test]
     fn deserialize_rejects_integer() {
-        insta::assert_snapshot!(render_error::<CorsConfig>("42"), @"
-        × invalid type: integer `42`, expected either a boolean (`cors: true` /
-        │ `cors: false`) or a properties map with at least an `origin` list
+        insta::assert_snapshot!(render_failure("cors: 42\n"), @"
+         × invalid type: integer `42`, expected either a boolean (`cors: true` /
+         │ `cors: false`) or a properties map with at least an `origin` list
+          ╭─[config.yaml:1:1]
+        1 │ cors: 42
+          · ──┬─
+          ·   ╰── invalid type: integer `42`, expected either a boolean (`cors: true` / `cors: false`) or a properties map with at least an `origin` list
+          ╰────
         ");
     }
 
     #[test]
-    fn deserialize_rejects_string() {
-        insta::assert_snapshot!(render_error::<CorsConfig>("\"yes please\""), @r#"
-        × invalid type: string "yes please", expected either a boolean (`cors:
-        │ true` / `cors: false`) or a properties map with at least an `origin` list
+    fn deserialize_rejects_quoted_string() {
+        insta::assert_snapshot!(render_failure("cors: \"yes please\"\n"), @r#"
+         × invalid type: string "yes please", expected either a boolean (`cors:
+         │ true` / `cors: false`) or a properties map with at least an `origin` list
+          ╭─[config.yaml:1:1]
+        1 │ cors: yes please
+          · ──┬─
+          ·   ╰── invalid type: string "yes please", expected either a boolean (`cors: true` / `cors: false`) or a properties map with at least an `origin` list
+          ╰────
         "#);
     }
 
     #[test]
     fn deserialize_rejects_sequence() {
-        insta::assert_snapshot!(render_error::<CorsConfig>("[https://example.org]"), @"
-        × invalid type: sequence, expected either a boolean (`cors: true` / `cors:
-        │ false`) or a properties map with at least an `origin` list
+        insta::assert_snapshot!(render_failure("cors: [https://example.org]\n"), @"
+         × invalid type: sequence, expected either a boolean (`cors: true` / `cors:
+         │ false`) or a properties map with at least an `origin` list
+          ╭─[config.yaml:1:1]
+        1 │ cors:
+          · ──┬─
+          ·   ╰── invalid type: sequence, expected either a boolean (`cors: true` / `cors: false`) or a properties map with at least an `origin` list
+        2 │ - https://example.org
+          ╰────
         ");
     }
 

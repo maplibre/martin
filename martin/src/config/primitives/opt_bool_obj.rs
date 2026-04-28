@@ -31,7 +31,7 @@ mod tests {
     use serde::Deserialize;
 
     use super::*;
-    use crate::config::test_helpers::{parse_yaml, render_error};
+    use crate::config::test_helpers::{parse_yaml, render_failure};
 
     #[derive(Debug, Default, Deserialize, PartialEq)]
     struct Sample {
@@ -41,6 +41,10 @@ mod tests {
     }
 
     // ----- Custom `Deserialize` impl: every accepted shape and every error path -----
+    //
+    // Success cases use `parse_yaml::<OptBoolObj<Sample>>` directly. Failure cases run
+    // through the full `parse_config` pipeline; in production `OptBoolObj<...>` wraps
+    // resource configs (postgres `auto_publish`, etc.) — we use that for span context.
 
     #[test]
     fn deserialize_null_is_no_value() {
@@ -73,26 +77,72 @@ mod tests {
     }
 
     #[test]
-    fn deserialize_rejects_string() {
-        insta::assert_snapshot!(render_error::<OptBoolObj<Sample>>("hello"), @r#"
-        × invalid type: string "hello", expected either a boolean or a configuration
-        │ map
-        "#);
+    #[cfg(feature = "postgres")]
+    fn deserialize_postgres_auto_publish_string_fails() {
+        // `auto_publish` on a postgres source is `OptBoolObj<AutoPublish>`. A bare string
+        // hits `visit_str` on the visitor, which falls through to `de::Error::invalid_type`
+        // — saphyr attaches the location and we render a graphical diagnostic.
+        insta::assert_snapshot!(
+            render_failure(indoc::indoc! {"
+                postgres:
+                  connection_string: postgres://localhost/db
+                  auto_publish: yes-please
+            "}),
+            @r#"
+         × invalid type: string "yes-please", expected either a boolean or a
+         │ configuration map
+          ╭─[config.yaml:3:3]
+        2 │   connection_string: postgres://localhost/db
+        3 │   auto_publish: yes-please
+          ·   ──────┬─────
+          ·         ╰── invalid type: string "yes-please", expected either a boolean or a configuration map
+          ╰────
+        "#
+        );
     }
 
     #[test]
-    fn deserialize_rejects_integer() {
-        insta::assert_snapshot!(render_error::<OptBoolObj<Sample>>("42"), @"
-        × invalid type: integer `42`, expected either a boolean or a configuration
-        │ map
-        ");
+    #[cfg(feature = "postgres")]
+    fn deserialize_postgres_auto_publish_integer_fails() {
+        insta::assert_snapshot!(
+            render_failure(indoc::indoc! {"
+                postgres:
+                  connection_string: postgres://localhost/db
+                  auto_publish: 42
+            "}),
+            @"
+         × invalid type: integer `42`, expected either a boolean or a configuration
+         │ map
+          ╭─[config.yaml:3:3]
+        2 │   connection_string: postgres://localhost/db
+        3 │   auto_publish: 42
+          ·   ──────┬─────
+          ·         ╰── invalid type: integer `42`, expected either a boolean or a configuration map
+          ╰────
+        "
+        );
     }
 
     #[test]
-    fn deserialize_rejects_sequence() {
-        insta::assert_snapshot!(render_error::<OptBoolObj<Sample>>("[a, b]"), @"
-        × invalid type: sequence, expected either a boolean or a configuration map
-        ");
+    #[cfg(feature = "postgres")]
+    fn deserialize_postgres_auto_publish_sequence_fails() {
+        insta::assert_snapshot!(
+            render_failure(indoc::indoc! {"
+                postgres:
+                  connection_string: postgres://localhost/db
+                  auto_publish: [a, b]
+            "}),
+            @"
+         × invalid type: sequence, expected either a boolean or a configuration map
+          ╭─[config.yaml:3:3]
+        2 │   connection_string: postgres://localhost/db
+        3 │   auto_publish:
+          ·   ──────┬─────
+          ·         ╰── invalid type: sequence, expected either a boolean or a configuration map
+        4 │   - a
+          ╰────
+        "
+        );
     }
 }
 

@@ -182,9 +182,14 @@ impl<T> OptOneMany<T> {
 mod tests {
     use super::OptOneMany::{Many, NoVals, One};
     use super::*;
-    use crate::config::test_helpers::{parse_yaml, render_error};
+    use crate::config::test_helpers::{parse_yaml, render_failure};
 
     // ----- Custom `Deserialize` impl: every accepted shape and every error path -----
+    //
+    // Success cases use `parse_yaml::<OptOneMany<String>>` directly. Failure cases run
+    // through the full `parse_config` pipeline so the snapshot shows the same diagnostic
+    // a user sees: in production `OptOneMany<PostgresConfig>` is the `postgres` field on
+    // `Config`, so we use `postgres: …` as the wrapping context.
 
     #[test]
     fn deserialize_null_is_no_vals() {
@@ -226,19 +231,27 @@ mod tests {
     }
 
     #[test]
-    fn deserialize_seq_of_maps_into_strings_fails() {
-        // `OptOneMany<String>::visit_seq` delegates to `Vec<String>::deserialize`, and
-        // `String::deserialize` rejects a map element. The error is from the inner type,
-        // but our visitor is what dispatched the seq handling — so the user still sees a
-        // located, actionable message.
+    #[cfg(feature = "postgres")]
+    fn deserialize_postgres_connection_string_seq_fails() {
+        // The `postgres` field on `Config` is `OptOneMany<PostgresConfig>`. Giving the
+        // inner `connection_string` field a sequence (instead of a string) walks
+        // `OptOneMany`'s `visit_map` → `PostgresConfig::deserialize` → fails on the
+        // string field with a located span pointing at the offending sequence.
         insta::assert_snapshot!(
-            render_error::<OptOneMany<String>>("[{ not_a_string: true }]"),
+            render_failure(indoc::indoc! {"
+                postgres:
+                  connection_string:
+                    - first
+                    - second
+            "}),
             @"
          × unexpected event: expected string scalar
-          ╭─[test.yaml:1:2]
-        1 │ [{ not_a_string: true }]
-          ·  ─┬
-          ·   ╰── unexpected event: expected string scalar
+          ╭─[config.yaml:3:5]
+        2 │   connection_string:
+        3 │   - first
+          ·     ┬
+          ·     ╰── unexpected event: expected string scalar
+        4 │   - second
           ╰────
         "
         );
