@@ -303,6 +303,7 @@ install-dependencies backend='vulkan':
       build-essential \
       libcurl4-openssl-dev \
       libglfw3-dev \
+      libjpeg-dev \
       libuv1-dev \
       libz-dev
 
