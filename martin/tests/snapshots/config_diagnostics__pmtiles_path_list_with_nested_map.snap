@@ -1,0 +1,11 @@
+---
+source: martin/tests/config_diagnostics.rs
+expression: render_failure(yaml)
+---
+  × unexpected event: expected string scalar
+   ╭─[config.yaml:3:7]
+ 2 │   paths:
+ 3 │     - { not_a_path: true }
+   ·       ─┬
+   ·        ╰── unexpected event: expected string scalar
+   ╰────

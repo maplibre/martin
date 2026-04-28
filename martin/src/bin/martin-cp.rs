@@ -536,11 +536,14 @@ async fn main() {
 
     let args = CopierArgs::parse();
     if let Err(e) = start(args).await {
-        // Ensure the message is printed, even if the logging is disabled
+        let rendered: String = match e {
+            MartinCpError::Martin(martin_err) => martin_err.render_diagnostic(),
+            other => format!("{other}"),
+        };
         if tracing::event_enabled!(tracing::Level::ERROR) {
-            error!("{e}");
+            error!("{rendered}");
         } else {
-            eprintln!("{e}");
+            eprintln!("{rendered}");
         }
         std::process::exit(1);
     }

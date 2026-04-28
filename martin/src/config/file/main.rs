@@ -473,8 +473,16 @@ where
     M: VariableMap<'a>,
     M::Value: AsRef<str>,
 {
-    subst::yaml::from_str(contents, env)
-        .map_err(|e| ConfigFileError::ConfigParseError(e, file_name.into()))
+    let substituted = subst::substitute(contents, env)
+        .map_err(|e| ConfigFileError::substitution(e, contents.to_string(), file_name.into()))?;
+    // Disable saphyr's built-in snippet wrapper so its hardcoded "<input>" source name
+    // doesn't override the file path we display in diagnostics. We render our own snippet
+    // via miette in `ConfigFileError::to_miette_report`.
+    let options = serde_saphyr::options! {
+        with_snippet: false,
+    };
+    serde_saphyr::from_str_with_options::<Config>(&substituted, options)
+        .map_err(|e| ConfigFileError::yaml_parse(e, substituted, file_name.into()))
 }
 
 pub fn parse_base_path(path: &str) -> MartinResult<String> {

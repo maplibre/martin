@@ -20,7 +20,8 @@ pub fn mock_cfg(yaml: &str) -> Config {
         warn!("DATABASE_URL env var is not set. Might not be able to do integration tests");
         FauxEnv::default()
     };
-    let mut cfg: Config = subst::yaml::from_str(yaml, &env).expect("source can be parsed as yaml");
+    let mut cfg: Config = martin::config::file::parse_config(yaml, &env, std::path::Path::new("test.yaml"))
+        .expect("source can be parsed as yaml");
     let res = cfg.finalize().expect("source can be finalized");
     assert!(res.is_empty(), "unrecognized config: {res:?}");
     cfg

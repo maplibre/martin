@@ -1,5 +1,9 @@
+use std::fmt;
+
 use actix_http::Method;
-use serde::{Deserialize, Serialize};
+use serde::de::value::MapAccessDeserializer;
+use serde::de::{self, MapAccess, Visitor};
+use serde::{Deserialize, Deserializer, Serialize};
 use tracing::info;
 
 use crate::config::file::{
@@ -8,11 +12,43 @@ use crate::config::file::{
 };
 use crate::{MartinError, MartinResult};
 
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Serialize, PartialEq, Eq)]
 #[serde(untagged)]
 pub enum CorsConfig {
     Properties(CorsProperties),
     SimpleFlag(bool),
+}
+
+impl<'de> Deserialize<'de> for CorsConfig {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        struct CorsVisitor;
+
+        impl<'de> Visitor<'de> for CorsVisitor {
+            type Value = CorsConfig;
+
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str(
+                    "either a boolean (`cors: true` / `cors: false`) or a properties map \
+                     with at least an `origin` list",
+                )
+            }
+
+            fn visit_bool<E: de::Error>(self, value: bool) -> Result<CorsConfig, E> {
+                Ok(CorsConfig::SimpleFlag(value))
+            }
+
+            fn visit_map<M: MapAccess<'de>>(self, map: M) -> Result<CorsConfig, M::Error> {
+                let props = CorsProperties::deserialize(MapAccessDeserializer::new(map))?;
+                Ok(CorsConfig::Properties(props))
+            }
+
+            // Other inputs (string, number, sequence, …) fall through to serde's default,
+            // which emits `de::Error::invalid_type` — saphyr attaches the source span to that
+            // variant, so we get a labelled diagnostic for free.
+        }
+
+        deserializer.deserialize_any(CorsVisitor)
+    }
 }
 
 impl Default for CorsConfig {

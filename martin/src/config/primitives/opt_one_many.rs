@@ -1,9 +1,13 @@
+use std::fmt;
+use std::marker::PhantomData;
 use std::vec::IntoIter;
 
-use serde::{Deserialize, Serialize};
+use serde::de::value::{MapAccessDeserializer, SeqAccessDeserializer};
+use serde::de::{self, IntoDeserializer as _, MapAccess, SeqAccess, Visitor};
+use serde::{Deserialize, Deserializer, Serialize};
 
 /// An enum that can hold no values, one value, or many values of type T.
-#[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, PartialEq, Serialize)]
 #[serde(untagged)]
 pub enum OptOneMany<T> {
     /// No values present.
@@ -13,6 +17,82 @@ pub enum OptOneMany<T> {
     One(T),
     /// Multiple values present.
     Many(Vec<T>),
+}
+
+impl<'de, T> Deserialize<'de> for OptOneMany<T>
+where
+    T: Deserialize<'de>,
+{
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        struct OptOneManyVisitor<T>(PhantomData<T>);
+
+        impl<'de, T> Visitor<'de> for OptOneManyVisitor<T>
+        where
+            T: Deserialize<'de>,
+        {
+            type Value = OptOneMany<T>;
+
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("nothing, a single value, or a sequence of values")
+            }
+
+            fn visit_unit<E: de::Error>(self) -> Result<OptOneMany<T>, E> {
+                Ok(OptOneMany::NoVals)
+            }
+
+            fn visit_none<E: de::Error>(self) -> Result<OptOneMany<T>, E> {
+                Ok(OptOneMany::NoVals)
+            }
+
+            fn visit_some<D: Deserializer<'de>>(
+                self,
+                d: D,
+            ) -> Result<OptOneMany<T>, D::Error> {
+                d.deserialize_any(self)
+            }
+
+            fn visit_seq<S: SeqAccess<'de>>(self, seq: S) -> Result<OptOneMany<T>, S::Error> {
+                let vec: Vec<T> = Deserialize::deserialize(SeqAccessDeserializer::new(seq))?;
+                Ok(OptOneMany::new(vec))
+            }
+
+            fn visit_map<M: MapAccess<'de>>(self, map: M) -> Result<OptOneMany<T>, M::Error> {
+                let value = T::deserialize(MapAccessDeserializer::new(map))?;
+                Ok(OptOneMany::One(value))
+            }
+
+            fn visit_str<E: de::Error>(self, value: &str) -> Result<OptOneMany<T>, E> {
+                let value = T::deserialize(value.into_deserializer())?;
+                Ok(OptOneMany::One(value))
+            }
+
+            fn visit_string<E: de::Error>(self, value: String) -> Result<OptOneMany<T>, E> {
+                self.visit_str(&value)
+            }
+
+            fn visit_bool<E: de::Error>(self, value: bool) -> Result<OptOneMany<T>, E> {
+                let value = T::deserialize(value.into_deserializer())?;
+                Ok(OptOneMany::One(value))
+            }
+
+            fn visit_i64<E: de::Error>(self, value: i64) -> Result<OptOneMany<T>, E> {
+                let value = T::deserialize(value.into_deserializer())?;
+                Ok(OptOneMany::One(value))
+            }
+
+            fn visit_u64<E: de::Error>(self, value: u64) -> Result<OptOneMany<T>, E> {
+                let value = T::deserialize(value.into_deserializer())?;
+                Ok(OptOneMany::One(value))
+            }
+
+            fn visit_f64<E: de::Error>(self, value: f64) -> Result<OptOneMany<T>, E> {
+                let value = T::deserialize(value.into_deserializer())?;
+                Ok(OptOneMany::One(value))
+            }
+        }
+
+        deserializer.deserialize_any(OptOneManyVisitor(PhantomData))
+    }
 }
 
 impl<T> IntoIterator for OptOneMany<T> {

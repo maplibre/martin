@@ -1,0 +1,15 @@
+---
+source: martin/tests/config_diagnostics.rs
+expression: render_failure(yaml)
+---
+martin::config::substitution
+
+  × Unable to substitute environment variables in config file config.yaml: No
+  │ such variable: $UNDEFINED_VAR
+   ╭─[config.yaml:1:18]
+ 1 │ cache_size_mb: ${UNDEFINED_VAR}
+   ·                  ──────┬──────
+   ·                        ╰── No such variable: $UNDEFINED_VAR
+   ╰────
+  help: Make sure every ${VAR} reference resolves to an environment variable,
+        or supply a default with `${VAR:-fallback}`.

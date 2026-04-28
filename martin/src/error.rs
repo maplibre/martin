@@ -78,3 +78,20 @@ pub enum MartinError {
     #[error("warnings issued during tile source resolution")]
     TileResolutionWarningsIssued,
 }
+
+impl MartinError {
+    /// Format the error for end-user display.
+    ///
+    /// Configuration errors that carry source spans (YAML parse errors and substitution
+    /// failures) are rendered through miette's graphical reporter so the user sees a
+    /// pointer into the offending file. Other errors fall back to plain [`Display`].
+    #[must_use]
+    pub fn render_diagnostic(&self) -> String {
+        if let MartinError::ConfigFileError(cfg_err) = self
+            && let Some(report) = cfg_err.to_miette_report()
+        {
+            return format!("{report:?}");
+        }
+        format!("{self}")
+    }
+}

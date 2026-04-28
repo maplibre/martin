@@ -1,0 +1,12 @@
+---
+source: martin/tests/config_diagnostics.rs
+expression: render_failure(yaml)
+---
+  × unexpected event: expected string scalar
+   ╭─[config.yaml:3:5]
+ 2 │   connection_string:
+ 3 │     - first
+   ·     ┬
+   ·     ╰── unexpected event: expected string scalar
+ 4 │     - second
+   ╰────

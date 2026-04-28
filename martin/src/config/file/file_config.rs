@@ -1,5 +1,6 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
-use std::fmt::Debug;
+use std::fmt::{self, Debug};
+use std::marker::PhantomData;
 use std::mem;
 #[cfg(feature = "_tiles")]
 use std::path::Path;
@@ -7,7 +8,9 @@ use std::path::PathBuf;
 
 #[cfg(feature = "_tiles")]
 use martin_core::tiles::BoxedSource;
-use serde::{Deserialize, Serialize};
+use serde::de::value::{MapAccessDeserializer, SeqAccessDeserializer};
+use serde::de::{self, MapAccess, SeqAccess, Visitor};
+use serde::{Deserialize, Deserializer, Serialize};
 #[cfg(feature = "_tiles")]
 use tracing::{info, warn};
 #[cfg(feature = "_tiles")]
@@ -76,7 +79,7 @@ pub trait TileSourceConfiguration: ConfigurationLivecycleHooks {
     ) -> impl Future<Output = MartinResult<BoxedSource>> + Send;
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize)]
 #[serde(untagged)]
 pub enum FileConfigEnum<T> {
     #[default]
@@ -84,6 +87,67 @@ pub enum FileConfigEnum<T> {
     Path(PathBuf),
     Paths(Vec<PathBuf>),
     Config(FileConfig<T>),
+}
+
+impl<'de, T> Deserialize<'de> for FileConfigEnum<T>
+where
+    T: Deserialize<'de> + Default,
+{
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        struct FileConfigEnumVisitor<T>(PhantomData<T>);
+
+        impl<'de, T> Visitor<'de> for FileConfigEnumVisitor<T>
+        where
+            T: Deserialize<'de> + Default,
+        {
+            type Value = FileConfigEnum<T>;
+
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str(
+                    "a path string, a list of path strings, or a configuration map with \
+                     `paths` and/or `sources`",
+                )
+            }
+
+            fn visit_unit<E: de::Error>(self) -> Result<FileConfigEnum<T>, E> {
+                Ok(FileConfigEnum::None)
+            }
+
+            fn visit_none<E: de::Error>(self) -> Result<FileConfigEnum<T>, E> {
+                Ok(FileConfigEnum::None)
+            }
+
+            fn visit_str<E: de::Error>(self, value: &str) -> Result<FileConfigEnum<T>, E> {
+                Ok(FileConfigEnum::Path(PathBuf::from(value)))
+            }
+
+            fn visit_string<E: de::Error>(self, value: String) -> Result<FileConfigEnum<T>, E> {
+                Ok(FileConfigEnum::Path(PathBuf::from(value)))
+            }
+
+            fn visit_seq<S: SeqAccess<'de>>(
+                self,
+                seq: S,
+            ) -> Result<FileConfigEnum<T>, S::Error> {
+                let paths: Vec<PathBuf> =
+                    Deserialize::deserialize(SeqAccessDeserializer::new(seq))?;
+                Ok(FileConfigEnum::Paths(paths))
+            }
+
+            fn visit_map<M: MapAccess<'de>>(
+                self,
+                map: M,
+            ) -> Result<FileConfigEnum<T>, M::Error> {
+                let cfg = FileConfig::<T>::deserialize(MapAccessDeserializer::new(map))?;
+                Ok(FileConfigEnum::Config(cfg))
+            }
+
+            // Numbers / booleans fall through to serde's default `invalid_type` path,
+            // which is what attaches the source span via saphyr's deserializer.
+        }
+
+        deserializer.deserialize_any(FileConfigEnumVisitor(PhantomData))
+    }
 }
 
 impl<T: ConfigurationLivecycleHooks> FileConfigEnum<T> {
@@ -214,11 +278,43 @@ impl<T: ConfigurationLivecycleHooks> ConfigurationLivecycleHooks for FileConfig<
 }
 
 /// A serde helper to store a boolean as an object.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(untagged)]
 pub enum FileConfigSrc {
     Path(PathBuf),
     Obj(FileConfigSource),
+}
+
+impl<'de> Deserialize<'de> for FileConfigSrc {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        struct FileConfigSrcVisitor;
+
+        impl<'de> Visitor<'de> for FileConfigSrcVisitor {
+            type Value = FileConfigSrc;
+
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("a path string or a configuration map with a `path` field")
+            }
+
+            fn visit_str<E: de::Error>(self, value: &str) -> Result<FileConfigSrc, E> {
+                Ok(FileConfigSrc::Path(PathBuf::from(value)))
+            }
+
+            fn visit_string<E: de::Error>(self, value: String) -> Result<FileConfigSrc, E> {
+                Ok(FileConfigSrc::Path(PathBuf::from(value)))
+            }
+
+            fn visit_map<M: MapAccess<'de>>(self, map: M) -> Result<FileConfigSrc, M::Error> {
+                let obj = FileConfigSource::deserialize(MapAccessDeserializer::new(map))?;
+                Ok(FileConfigSrc::Obj(obj))
+            }
+
+            // Numbers / booleans / sequences fall through to serde's default `invalid_type`
+            // path, which carries a source span via saphyr's deserializer.
+        }
+
+        deserializer.deserialize_any(FileConfigSrcVisitor)
+    }
 }
 
 impl FileConfigSrc {
