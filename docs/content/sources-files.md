@@ -27,8 +27,35 @@ martin  /path/to/directory
     For remote PMTiles, we don't currently support auto-discovery.
     If you want to implement this feature, please see <https://github.com/maplibre/martin/issues/2180>
 
-    We also don't currently support refreshing the catalog at runtime.
-    If you want to implement this feature, please see <https://github.com/maplibre/martin/issues/288> instead.
+### MBTiles Hot Reload
+
+Martin watches directories configured under `mbtiles` for changes at runtime. When `.mbtiles` files are added, modified, or removed from a watched directory, Martin automatically updates the tile catalog — no restart required.
+
+```bash
+# Martin will watch this directory and reflect any *.mbtiles changes live
+martin  /path/to/mbtiles/directory
+```
+
+Or via config file:
+
+```yaml
+mbtiles:
+  paths:
+    - /path/to/mbtiles/directory
+```
+
+The following events are handled automatically:
+
+- **File added** - the new source appears in the catalog.
+- **File modified** - the source is reloaded and its tile cache is invalidated.
+  Not avaliable on windows due to OS-limtations (SQLite not allowing `FILE_SHARE_DELETE`).
+- **File removed** - the source is removed from the catalog.
+
+!!! note
+    Hot reload applies to directories configured under `mbtiles.paths` (or passed on the CLI). Named sources listed under `mbtiles.sources` are snapshotted at startup and are not watched for changes.
+
+!!! note
+    PMTiles hot reload is not yet supported. If you want to help implement it, see <https://github.com/maplibre/martin/issues/2180>.
 
 ## MBTiles vs PMTiles
 
@@ -36,16 +63,16 @@ MBTiles and PMTiles are both formats for storing tiled geospatial data, but they
 
 ### Key Differences
 
-* **Deployment model**
+- **Deployment model**
   **MBTiles** archives must be stored locally on the same machine as the tile server.
   **PMTiles** archives can be accessed either locally or remotely via HTTP range requests, e.g. from an object storage like S3.
   **PMTiles** allows simpler production deployment with Kubernetes, as it allows the large data file to reside in S3 and shared by multiple pods, but restricted from direct user access.
-* **Performance**
+- **Performance**
   **MBTiles** typically provide slightly lower latency due to local access and SQLite indexing.
   **PMTiles** may introduce additional latency when accessed remotely, but this is usually mitigated by HTTP caching and CDN usage.
-* **Storage efficiency**
+- **Storage efficiency**
   **PMTiles** archives are generally more space-efficient, typically ~10–15% smaller than equivalent **MBTiles** archives.
-* **Memory usage**
+- **Memory usage**
   **MBTiles** relies on SQLite, which maintains an internal page cache and may increase memory usage under load.
   **PMTiles** can, in some cases, operate with lower memory overhead, depending on access patterns and caching configuration.
 
@@ -53,21 +80,21 @@ MBTiles and PMTiles are both formats for storing tiled geospatial data, but they
 
 PMTiles archives can be served directly from HTTP range–capable storage without a dedicated tile server. This approach has several limitations:
 
-* **Unrestricted access risk**
+- **Unrestricted access risk**
   Without proper access controls, clients may download large portions (or all) of an archive, leading to significant egress costs.
   A tile server restricts access to tile requests, but bulk extraction remains possible via many requests, which are generally easier to detect and block.
-* **Over-fetching**
+- **Over-fetching**
   PMTiles may fetch more data than strictly required per tile request to minimize the number of HTTP requests.
-* **Lack of source composition**
+- **Lack of source composition**
   Direct serving does not support combining PMTiles with dynamic data sources (e.g., PostGIS) into a unified tile service.
   A tile server (e.g, Martin) is required for this.
-* **Caching behavior**
+- **Caching behavior**
   Cache efficiency may be reduced compared to setups with a dedicated tile server that can optimize request patterns.
 
 The choice between MBTiles and PMTiles depends on system requirements:
 
-* Use **MBTiles** for local, self-contained deployments with minimal external dependencies.
-* Use **PMTiles** for cloud-native or distributed setups where remote access, CDN integration, or object storage is preferred.
+- Use **MBTiles** for local, self-contained deployments with minimal external dependencies.
+- Use **PMTiles** for cloud-native or distributed setups where remote access, CDN integration, or object storage is preferred.
 
 ### Serving PMTiles from local file systems, http or Object Storage
 

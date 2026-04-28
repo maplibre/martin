@@ -73,9 +73,6 @@ pub enum MartinError {
     SpriteError(#[from] martin_core::sprites::SpriteError),
 
     #[error(transparent)]
-    WebError(#[from] actix_web::Error),
-
-    #[error(transparent)]
     IoError(#[from] io::Error),
 
     #[cfg(feature = "lambda")]
@@ -84,8 +81,14 @@ pub enum MartinError {
 
     #[cfg(feature = "metrics")]
     #[error("could not initialize metrics: {0}")]
-    MetricsIntialisationError(#[source] Box<dyn std::error::Error>),
+    MetricsIntialisationError(#[source] Box<dyn std::error::Error + Send + Sync>),
 
     #[error("warnings issued during tile source resolution")]
     TileResolutionWarningsIssued,
+
+    #[error("could not create a watcher for directories configured for tile source discovery")]
+    DirectoryWatchError(notify::ErrorKind),
+
+    #[error("Source '{0}' not found in discovered sources")]
+    SourceNotFound(String),
 }
