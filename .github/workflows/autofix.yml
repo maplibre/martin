@@ -27,6 +27,29 @@ jobs:
 
       - uses: autofix-ci/action@7a166d7532b277f34e16238930461bf77f9d7ed8 # v1.3.3
         with: {commit-message: "chore: sort Cargo.toml"}
+
+  sync-lockfiles:
+    name: Sync npm lock files
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    if: |
+      github.event.action == 'opened' ||
+      github.event.action == 'synchronize' ||
+      github.event.action == 'reopened'
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with: { persist-credentials: false }
+      - name: Setup Node.js
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
+      - name: Sync lock files
+        run: |
+          npm --prefix demo/frontend install --package-lock-only --no-fund
+          npm --prefix martin/martin-ui install --package-lock-only --no-fund
+      - uses: autofix-ci/action@7a166d7532b277f34e16238930461bf77f9d7ed8 # v1.3.3
+        with: {commit-message: "chore: sync npm lock files"}
+
   bless:
     name: Bless test output
     runs-on: ubuntu-latest
