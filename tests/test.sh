@@ -1057,6 +1057,110 @@ test_log_has_str "$LOG_FILE" 'WARN Environment variable AWS_REGION is deprecated
 validate_log "$LOG_FILE"
 echo "::endgroup::"
 
+echo "::group::Test PMTiles hot reload"
+TEST_NAME="pmtiles_reload"
+LOG_FILE="${LOG_DIR}/${TEST_NAME}.txt"
+TEST_OUT_DIR="${TEST_OUT_BASE_DIR}/${TEST_NAME}"
+PMTILES_RELOAD_WATCH_DIR="${TEST_TEMP_DIR}/pmtiles_reload_watch"
+mkdir -p "$TEST_OUT_DIR" "$PMTILES_RELOAD_WATCH_DIR"
+
+ARG=("$PMTILES_RELOAD_WATCH_DIR")
+set -x
+$MARTIN_BIN "${ARG[@]}" 2>&1 | tee "$LOG_FILE" &
+MARTIN_PROC_ID=$(jobs -p | tail -n 1)
+{ set +x; } 2> /dev/null
+trap "echo 'Stopping Martin server $MARTIN_PROC_ID...'; kill -9 $MARTIN_PROC_ID 2> /dev/null || true; echo 'Stopped Martin server $MARTIN_PROC_ID';" EXIT HUP INT TERM
+wait_for "$MARTIN_PROC_ID" Martin "$MARTIN_URL/health"
+
+>&2 echo "Test PMTiles reload: catalog starts empty with no pmtiles in watch dir"
+$CURL "$MARTIN_URL/catalog" | jq --sort-keys > "$TEST_OUT_DIR/catalog_empty.json"
+
+>&2 echo "Test PMTiles reload: adding a new PMTiles file triggers source addition"
+cp tests/fixtures/pmtiles/png.pmtiles "$PMTILES_RELOAD_WATCH_DIR/png.pmtiles"
+wait_for_catalog_source "png"
+test_jsn pmtiles_reload_catalog_added catalog
+
+>&2 echo "Test PMTiles reload: updating a PMTiles file triggers source update"
+touch "$PMTILES_RELOAD_WATCH_DIR/png.pmtiles"
+wait_for_log_str "$LOG_FILE" 'Updated source: "png"'
+test_jsn pmtiles_reload_catalog_updated catalog
+
+>&2 echo "Test PMTiles reload: removing a PMTiles file triggers source removal"
+rm "$PMTILES_RELOAD_WATCH_DIR/png.pmtiles"
+wait_for_catalog_source_removed "png"
+$CURL "$MARTIN_URL/catalog" | jq --sort-keys > "$TEST_OUT_DIR/catalog_after_remove.json"
+
+kill_process "$MARTIN_PROC_ID" Martin
+
+test_log_has_str "$LOG_FILE" 'Added source: "png"'
+test_log_has_str "$LOG_FILE" 'Updated source: "png"'
+test_log_has_str "$LOG_FILE" 'Removed source: "png"'
+test_log_has_str "$LOG_FILE" 'WARN Defaulting `pmtiles.allow_http` to `true`. This is likely to become an error in the future for better security.'
+test_log_has_str "$LOG_FILE" 'WARN Environment variable AWS_SKIP_CREDENTIALS is deprecated. Please use pmtiles.skip_signature in the configuration file instead.'
+test_log_has_str "$LOG_FILE" 'WARN Environment variable AWS_REGION is deprecated. Please use pmtiles.region in the configuration file instead.'
+validate_log "$LOG_FILE"
+echo "::endgroup::"
+
+# The COG reloader is only active when compiled with --features unstable-cog.
+# Detect this at runtime by copying a .tif file and checking whether it appears in the catalog.
+echo "::group::Test COG hot reload"
+TEST_NAME="cog_reload"
+LOG_FILE="${LOG_DIR}/${TEST_NAME}.txt"
+TEST_OUT_DIR="${TEST_OUT_BASE_DIR}/${TEST_NAME}"
+COG_RELOAD_WATCH_DIR="${TEST_TEMP_DIR}/cog_reload_watch"
+mkdir -p "$TEST_OUT_DIR" "$COG_RELOAD_WATCH_DIR"
+
+ARG=("$COG_RELOAD_WATCH_DIR")
+set -x
+$MARTIN_BIN "${ARG[@]}" 2>&1 | tee "$LOG_FILE" &
+MARTIN_PROC_ID=$(jobs -p | tail -n 1)
+{ set +x; } 2> /dev/null
+trap "echo 'Stopping Martin server $MARTIN_PROC_ID...'; kill -9 $MARTIN_PROC_ID 2> /dev/null || true; echo 'Stopped Martin server $MARTIN_PROC_ID';" EXIT HUP INT TERM
+wait_for "$MARTIN_PROC_ID" Martin "$MARTIN_URL/health"
+
+COG_SOURCE_ID="usda_naip_128_none_z2"
+cp "tests/fixtures/cog/${COG_SOURCE_ID}.tif" "$COG_RELOAD_WATCH_DIR/${COG_SOURCE_ID}.tif"
+
+COG_ENABLED=0
+for _ in {1..10}; do
+  if $CURL "$MARTIN_URL/catalog" 2>/dev/null | jq -e --arg id "$COG_SOURCE_ID" '.tiles | has($id)' > /dev/null 2>&1; then
+    COG_ENABLED=1
+    break
+  fi
+  sleep 1
+done
+
+if [[ "$COG_ENABLED" == "1" ]]; then
+  >&2 echo "COG reloader is active — running hot reload tests"
+  test_jsn cog_reload_catalog_added catalog
+
+  >&2 echo "Test COG reload: updating a COG file triggers source update"
+  touch "$COG_RELOAD_WATCH_DIR/${COG_SOURCE_ID}.tif"
+  wait_for_log_str "$LOG_FILE" "Updated source: \"${COG_SOURCE_ID}\""
+  test_jsn cog_reload_catalog_updated catalog
+
+  >&2 echo "Test COG reload: removing a COG file triggers source removal"
+  rm "$COG_RELOAD_WATCH_DIR/${COG_SOURCE_ID}.tif"
+  wait_for_catalog_source_removed "$COG_SOURCE_ID"
+  $CURL "$MARTIN_URL/catalog" | jq --sort-keys > "$TEST_OUT_DIR/catalog_after_remove.json"
+
+  kill_process "$MARTIN_PROC_ID" Martin
+
+  test_log_has_str "$LOG_FILE" "Added source: \"${COG_SOURCE_ID}\""
+  test_log_has_str "$LOG_FILE" "Updated source: \"${COG_SOURCE_ID}\""
+  test_log_has_str "$LOG_FILE" "Removed source: \"${COG_SOURCE_ID}\""
+else
+  >&2 echo "COG reloader not active (binary not compiled with unstable-cog) — skipping COG reload tests"
+  rm -f "$COG_RELOAD_WATCH_DIR/${COG_SOURCE_ID}.tif"
+  kill_process "$MARTIN_PROC_ID" Martin
+fi
+
+test_log_has_str "$LOG_FILE" 'WARN Defaulting `pmtiles.allow_http` to `true`. This is likely to become an error in the future for better security.'
+test_log_has_str "$LOG_FILE" 'WARN Environment variable AWS_SKIP_CREDENTIALS is deprecated. Please use pmtiles.skip_signature in the configuration file instead.'
+test_log_has_str "$LOG_FILE" 'WARN Environment variable AWS_REGION is deprecated. Please use pmtiles.region in the configuration file instead.'
+validate_log "$LOG_FILE"
+echo "::endgroup::"
+
 rm -rf "$TEST_TEMP_DIR"
 
 >&2 echo "All integration tests have passed"

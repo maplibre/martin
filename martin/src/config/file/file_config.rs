@@ -519,16 +519,21 @@ fn sanitize_url(url: &Url) -> String {
 }
 
 #[cfg(feature = "_tiles")]
-fn parse_url(is_enabled: bool, path: &Path) -> Result<Option<Url>, ConfigFileError> {
-    if !is_enabled {
-        return Ok(None);
-    }
-    let url_schemes = [
+pub fn is_remote_url(path: &Path) -> bool {
+    const REMOTE_SCHEMES: &[&str] = &[
         "s3://", "s3a://", "gs://", "az://", "adl://", "azure://", "abfs://", "abfss://",
         "http://", "https://", "file://",
     ];
     path.to_str()
-        .filter(|v| url_schemes.iter().any(|scheme| v.starts_with(scheme)))
+        .is_some_and(|s| REMOTE_SCHEMES.iter().any(|scheme| s.starts_with(scheme)))
+}
+
+#[cfg(feature = "_tiles")]
+fn parse_url(is_enabled: bool, path: &Path) -> Result<Option<Url>, ConfigFileError> {
+    if !is_enabled || !is_remote_url(path) {
+        return Ok(None);
+    }
+    path.to_str()
         .map(|v| Url::parse(v).map_err(|e| ConfigFileError::InvalidSourceUrl(e, v.to_string())))
         .transpose()
 }

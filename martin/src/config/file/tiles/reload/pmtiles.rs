@@ -2,42 +2,36 @@ use std::{collections::BTreeMap, path::PathBuf};
 
 use super::{discover_sources_by_ext, path_modified_ms};
 
-use martin_core::tiles::{BoxedSource, mbtiles::MbtSource};
+use martin_core::tiles::BoxedSource;
 use notify::{
     Config, Event, EventKind, RecommendedWatcher, Watcher as _,
     event::{AccessKind, AccessMode},
 };
 use tokio::sync::mpsc;
 
-use crate::config::file::{CachePolicy, FileConfigEnum, mbtiles::MbtConfig};
+use crate::config::file::{
+    CachePolicy, FileConfigEnum, TileSourceConfiguration, file_config::is_remote_url,
+    pmtiles::PmtConfig,
+};
 use crate::config::primitives::{IdResolver, OptOneMany};
 use crate::{MartinError, MartinResult, ReloadAdvisory, TileSourceManager};
 
-pub struct MBTilesReloader {
-    /// ID resolver that ensures a unique ID is assigned to each source.
+pub struct PMTilesReloader {
     id_resolver: IdResolver,
-    /// Tile Source Manager to which we should send `ReloadAdvisory` messages.
     tile_source_manager: TileSourceManager,
-    /// Map of Source ID => (path, modified timestamp, cache policy).
     sources: BTreeMap<String, (PathBuf, u128, CachePolicy)>,
-    /// Absolute path of all directories that are watched by this reloader.
     directories: Vec<PathBuf>,
-    /// Maps canonical paths of explicitly configured sources to their cache policy,
-    /// so that directory-discovered sources that match a configured path inherit its policy.
     path_cache: BTreeMap<PathBuf, CachePolicy>,
+    /// Retained to create new `PmtilesSource` instances; shares the directory cache Arc.
+    config: PmtConfig,
 }
 
-impl MBTilesReloader {
-    /// Creates a new `MBTilesReloader` from the given config.
-    ///
-    /// Snapshots the current modified timestamps of all explicitly configured sources so that
-    /// changes can be detected on the first reload cycle. Collects all configured paths as
-    /// directories to watch.
+impl PMTilesReloader {
     #[must_use]
     pub fn new(
         tsm: TileSourceManager,
         id_resolver: IdResolver,
-        config: &FileConfigEnum<MbtConfig>,
+        config: &FileConfigEnum<PmtConfig>,
     ) -> Self {
         let mut sources: BTreeMap<String, (PathBuf, u128, CachePolicy)> = BTreeMap::new();
         let mut directories: Vec<PathBuf> = vec![];
@@ -48,6 +42,10 @@ impl MBTilesReloader {
         {
             for (id, src) in s {
                 let path = src.get_path();
+                if is_remote_url(path) {
+                    tracing::debug!("skipping remote URL source {:?} in PMTilesReloader", path);
+                    continue;
+                }
                 let policy = src.cache_zoom();
                 let Ok(canonical) = path.canonicalize() else {
                     tracing::warn!(
@@ -65,9 +63,18 @@ impl MBTilesReloader {
             }
         }
 
-        let mut push_canonical = |path: &PathBuf| match path.canonicalize() {
-            Ok(p) => directories.push(p),
-            Err(e) => tracing::warn!("failed to canonicalize watch directory {:?}: {e}", path),
+        let mut push_canonical = |path: &PathBuf| {
+            if is_remote_url(path) {
+                tracing::debug!(
+                    "skipping remote URL directory {:?} in PMTilesReloader",
+                    path
+                );
+                return;
+            }
+            match path.canonicalize() {
+                Ok(p) => directories.push(p),
+                Err(e) => tracing::warn!("failed to canonicalize watch directory {:?}: {e}", path),
+            }
         };
 
         match config {
@@ -84,21 +91,22 @@ impl MBTilesReloader {
         directories.sort();
         directories.dedup();
 
+        let pmt_config = if let FileConfigEnum::Config(cfg) = config {
+            cfg.custom.clone()
+        } else {
+            PmtConfig::default()
+        };
+
         Self {
             tile_source_manager: tsm,
             id_resolver,
             sources,
             directories,
             path_cache,
+            config: pmt_config,
         }
     }
 
-    /// Starts watching configured directories for `.mbtiles` file changes.
-    ///
-    /// Spawns a background task that listens for filesystem events and calls
-    /// [`TileSourceManager::apply_changes`] with a [`ReloadAdvisory`] whenever sources are
-    /// added, removed, or modified. Returns immediately after the watcher and task are started.
-    /// Does nothing if no directories are configured.
     pub fn start(mut self) -> MartinResult<()> {
         if self.directories.is_empty() {
             return Ok(());
@@ -134,13 +142,7 @@ impl MBTilesReloader {
         Ok(())
     }
 
-    /// Handles a filesystem event by rediscovering sources and applying any changes.
-    ///
-    /// Uses the event only as a trigger — the actual diff is computed by comparing a fresh
-    /// directory scan against the last known state. Skips event kinds that cannot result in source
-    /// changes. Logs and returns without updating state if rediscovery or
-    /// [`TileSourceManager::apply_changes`] fails.
-    async fn process_event(&mut self, tsm: &mut TileSourceManager, event: Event) -> () {
+    async fn process_event(&mut self, tsm: &mut TileSourceManager, event: Event) {
         if !matches!(
             event.kind,
             EventKind::Create(_)
@@ -153,7 +155,7 @@ impl MBTilesReloader {
 
         let sources = match discover_sources_by_ext(
             &self.directories,
-            &["mbtiles"],
+            &["pmtiles"],
             &self.path_cache,
             &self.id_resolver,
         )
@@ -166,23 +168,18 @@ impl MBTilesReloader {
             }
         };
 
-        let prev: BTreeMap<String, u128> = self
-            .sources
-            .iter()
-            .map(|(k, v)| (k.clone(), v.1))
-            .collect::<_>();
-        let next: BTreeMap<String, u128> =
-            sources.iter().map(|(k, v)| (k.clone(), v.1)).collect::<_>();
+        let prev: BTreeMap<String, u128> =
+            self.sources.iter().map(|(k, v)| (k.clone(), v.1)).collect();
+        let next: BTreeMap<String, u128> = sources.iter().map(|(k, v)| (k.clone(), v.1)).collect();
         let sources_clone = sources.clone();
+        let config = self.config.clone();
 
         let adv =
             ReloadAdvisory::from_maps(&prev, &next, async move |id| -> MartinResult<BoxedSource> {
                 let p = sources_clone
                     .get(&id)
                     .ok_or(MartinError::SourceNotFound(id.clone()))?;
-                let src = MbtSource::new(id, p.0.clone(), p.2.zoom()).await?;
-
-                Ok(Box::new(src) as BoxedSource)
+                config.new_sources(id, p.0.clone(), p.2).await
             })
             .await;
 
