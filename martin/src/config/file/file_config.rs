@@ -1248,7 +1248,7 @@ mod deserialize_tests {
     fn cache_size_map() {
         let cfg = parse_yaml::<CacheSizeConfig>("{ size_mb: 64, expiry: 1h }");
         assert_eq!(cfg.size_mb, Some(64));
-        assert_eq!(cfg.expiry, Some(Duration::from_secs(3600)));
+        assert_eq!(cfg.expiry, Some(Duration::from_hours(1)));
     }
 
     #[test]
