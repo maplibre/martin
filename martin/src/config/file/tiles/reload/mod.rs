@@ -2,12 +2,12 @@ use std::{path::PathBuf, time::UNIX_EPOCH};
 
 use tokio::fs::DirEntry;
 
-// #[cfg(feature = "unstable-cog")]
-// pub mod cog;
+#[cfg(feature = "unstable-cog")]
+pub mod cog;
 #[cfg(feature = "mbtiles")]
 pub mod mbtiles;
-// #[cfg(feature = "pmtiles")]
-// pub mod pmtiles;
+#[cfg(feature = "pmtiles")]
+pub mod pmtiles;
 // #[cfg(feature = "postgres")]
 // pub mod postgres;
 
@@ -68,4 +68,45 @@ pub fn resolve_dir_entry(entry: &DirEntry) -> Option<ResolvedEntry> {
         path_str,
         modified_ms,
     })
+}
+
+/// Scans `directories` for files whose extension matches any entry in `extensions`.
+///
+/// Resolves source IDs via `id_resolver` and inherits cache policies from `path_cache`
+/// (falling back to [`CachePolicy::default`] for paths not explicitly configured).
+/// Entries that cannot be resolved are skipped with a warning.
+#[cfg(any(feature = "mbtiles", feature = "unstable-cog", feature = "pmtiles"))]
+pub async fn discover_sources_by_ext(
+    directories: &[PathBuf],
+    extensions: &[&str],
+    path_cache: &std::collections::BTreeMap<PathBuf, crate::config::file::CachePolicy>,
+    id_resolver: &crate::config::primitives::IdResolver,
+) -> crate::MartinResult<
+    std::collections::BTreeMap<String, (PathBuf, u128, crate::config::file::CachePolicy)>,
+> {
+    use crate::MartinError;
+    use tokio::fs;
+
+    let mut out = std::collections::BTreeMap::new();
+    for directory in directories {
+        let mut entries = fs::read_dir(directory)
+            .await
+            .map_err(MartinError::IoError)?;
+        while let Some(entry) = entries.next_entry().await.map_err(MartinError::IoError)? {
+            let Some(e) = resolve_dir_entry(&entry) else {
+                continue;
+            };
+            if !e.path.is_file()
+                || e.path
+                    .extension()
+                    .is_none_or(|ext| !extensions.iter().any(|ex| *ex == ext))
+            {
+                continue;
+            }
+            let policy = path_cache.get(&e.path).copied().unwrap_or_default();
+            let id = id_resolver.resolve(&e.stem, e.path_str.clone());
+            out.insert(id, (e.path, e.modified_ms, policy));
+        }
+    }
+    Ok(out)
 }
