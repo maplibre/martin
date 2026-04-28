@@ -211,7 +211,7 @@ mod tests {
          × invalid type: string "yes please", expected either a boolean (`cors:
          │ true` / `cors: false`) or a properties map with at least an `origin` list
           ╭─[config.yaml:1:1]
-        1 │ cors: yes please
+        1 │ cors: "yes please"
           · ──┬─
           ·   ╰── invalid type: string "yes please", expected either a boolean (`cors: true` / `cors: false`) or a properties map with at least an `origin` list
           ╰────
@@ -224,10 +224,9 @@ mod tests {
          × invalid type: sequence, expected either a boolean (`cors: true` / `cors:
          │ false`) or a properties map with at least an `origin` list
           ╭─[config.yaml:1:1]
-        1 │ cors:
+        1 │ cors: [https://example.org]
           · ──┬─
           ·   ╰── invalid type: sequence, expected either a boolean (`cors: true` / `cors: false`) or a properties map with at least an `origin` list
-        2 │ - https://example.org
           ╰────
         ");
     }

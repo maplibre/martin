@@ -542,19 +542,21 @@ where
     let substituted = subst::substitute(contents, env)
         .map_err(|e| ConfigFileError::substitution(e, contents.to_string(), file_name.into()))?;
 
-    // Phase 2: walk the substituted YAML once via serde_yaml::Value to migrate deprecated keys.
-    // We do this on a `Value` (not on saphyr's tree) so the migration logic is shared with
-    // anything else that reads `serde_yaml::Value`. The migrated text is then re-emitted and
-    // fed to saphyr, so any subsequent diagnostics span into the migrated form (which is
-    // typically identical to the input unless deprecated keys are in play).
-    let migrated = match serde_yaml::from_str::<serde_yaml::Value>(&substituted) {
-        Ok(mut value) => {
-            migrate_deprecated_config(&mut value);
-            serde_yaml::to_string(&value).unwrap_or_else(|_| substituted.clone())
+    // Phase 2: rewrite deprecated cache keys via a `serde_yaml::Value` round-trip — but only
+    // if at least one deprecated token appears in the text. The common case (no deprecated
+    // keys) skips a full YAML parse + serialize.
+    let migrated = if needs_deprecated_migration(&substituted) {
+        match serde_yaml::from_str::<serde_yaml::Value>(&substituted) {
+            Ok(mut value) => {
+                migrate_deprecated_config(&mut value);
+                serde_yaml::to_string(&value).unwrap_or(substituted)
+            }
+            // If serde_yaml itself can't parse, hand the original to saphyr — its diagnostics
+            // are richer, so let it produce the user-facing error.
+            Err(_) => substituted,
         }
-        // If serde_yaml itself can't parse, hand the original substituted text to saphyr —
-        // saphyr's diagnostics are richer, so let it produce the user-facing error.
-        Err(_) => substituted.clone(),
+    } else {
+        substituted
     };
 
     // Phase 3: parse to the typed `Config` via saphyr. We disable saphyr's built-in snippet
@@ -565,6 +567,16 @@ where
     };
     serde_saphyr::from_str_with_options::<Config>(&migrated, options)
         .map_err(|e| ConfigFileError::yaml_parse(e, migrated, file_name.into()))
+}
+
+/// Cheap pre-check: does the substituted YAML mention any deprecated cache key?
+///
+/// False positives are harmless (the fast path is identical to the slow path's no-op
+/// migration), so a substring search is sufficient.
+fn needs_deprecated_migration(yaml: &str) -> bool {
+    yaml.contains("cache_size_mb")
+        || yaml.contains("tile_cache_size_mb")
+        || yaml.contains("directory_cache_size_mb")
 }
 
 /// Migrates deprecated cache configuration keys in raw YAML before deserialization.

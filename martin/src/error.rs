@@ -125,26 +125,21 @@ impl MartinError {
         if let MartinError::ConfigFileError(cfg_err) = self
             && let Some(report) = cfg_err.to_miette_report()
         {
-            return if format.is_json() {
+            if format.is_json() {
                 let mut buf = String::new();
-                let handler = miette::JSONReportHandler::new();
-                // `JSONReportHandler::render_report` only fails when the underlying
-                // `Write` impl fails, and `String::write_*` is infallible — but treat any
-                // unexpected error defensively by falling through to Display.
-                if handler.render_report(&mut buf, report.as_ref()).is_ok() {
-                    buf
-                } else {
-                    format!("{self}")
-                }
-            } else {
-                format!("{report:?}")
-            };
+                miette::JSONReportHandler::new()
+                    .render_report(&mut buf, report.as_ref())
+                    .expect("rendering into a String is infallible");
+                return buf;
+            }
+            return format!("{report:?}");
         }
         if format.is_json() {
             // Best-effort JSON envelope so machine consumers always receive a JSON document
-            // even for non-spanned errors.
-            let message =
-                serde_json::to_string(&self.to_string()).unwrap_or_else(|_| "\"\"".to_string());
+            // even for non-spanned errors. `serde_json::to_string` on a `String` is
+            // infallible — strings are always valid JSON.
+            let message = serde_json::to_string(&self.to_string())
+                .expect("string serialization is infallible");
             return format!(r#"{{"message": {message}}}"#);
         }
         format!("{self}")

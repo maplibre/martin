@@ -16,10 +16,10 @@ pub enum ConfigFileError {
     #[error("Unable to load config file {1}: {0}")]
     ConfigLoadError(#[source] std::io::Error, PathBuf),
 
-    #[error("Unable to parse YAML in config file {}: {}", .0.file_path.display(), .0.error)]
+    #[error("Unable to parse YAML in config file {}: {}", .0.named_source.name(), .0.error)]
     YamlParseError(Box<YamlParseDetails>),
 
-    #[error("Unable to substitute environment variables in config file {}: {}", .0.file_path.display(), .0.source)]
+    #[error("Unable to substitute environment variables in config file {}: {}", .0.named_source.name(), .0.source)]
     SubstitutionError(Box<SubstitutionDetails>),
 
     #[error("Unable to write config file {1}: {0}")]
@@ -72,18 +72,16 @@ pub enum ConfigFileError {
 /// Boxed payload for [`ConfigFileError::YamlParseError`].
 #[derive(Debug)]
 pub struct YamlParseDetails {
-    pub error: serde_saphyr::Error,
-    pub named_source: NamedSource<String>,
-    pub file_path: PathBuf,
+    pub(crate) error: serde_saphyr::Error,
+    pub(crate) named_source: NamedSource<String>,
 }
 
 /// Boxed payload for [`ConfigFileError::SubstitutionError`].
 #[derive(Debug)]
 pub struct SubstitutionDetails {
-    pub source: subst::Error,
-    pub named_source: NamedSource<String>,
-    pub primary_span: Option<SourceSpan>,
-    pub file_path: PathBuf,
+    pub(crate) source: subst::Error,
+    pub(crate) named_source: NamedSource<String>,
+    pub(crate) primary_span: Option<SourceSpan>,
 }
 
 impl ConfigFileError {
@@ -92,11 +90,9 @@ impl ConfigFileError {
     /// The source text is retained so miette diagnostics can render the offending snippet.
     #[must_use]
     pub fn yaml_parse(error: serde_saphyr::Error, source_text: String, file_path: PathBuf) -> Self {
-        let display_name = file_path.display().to_string();
         Self::YamlParseError(Box::new(YamlParseDetails {
             error,
-            named_source: NamedSource::new(display_name, source_text),
-            file_path,
+            named_source: NamedSource::new(file_path.display().to_string(), source_text),
         }))
     }
 
@@ -104,83 +100,71 @@ impl ConfigFileError {
     #[must_use]
     pub fn substitution(source: subst::Error, source_text: String, file_path: PathBuf) -> Self {
         let primary_span = subst_error_span(&source, &source_text);
-        let display_name = file_path.display().to_string();
         Self::SubstitutionError(Box::new(SubstitutionDetails {
             source,
-            named_source: NamedSource::new(display_name, source_text),
+            named_source: NamedSource::new(file_path.display().to_string(), source_text),
             primary_span,
-            file_path,
         }))
     }
 
     /// Render this error as a [`miette::Report`] for graphical display, when applicable.
     ///
-    /// Returns `Some(_)` for spanned errors (YAML parse and substitution failures) where a
-    /// graphical snippet is more useful than plain text. Returns `None` for errors that
-    /// don't carry source location information; callers should fall back to [`Display`].
+    /// For YAML parse errors we delegate to `serde_saphyr::miette::to_miette_report`, which
+    /// builds a richer diagnostic (snippet windows, nested labels) than our manual
+    /// `Diagnostic` impl below. The substitution path uses an owned [`SubstitutionReport`]
+    /// because `miette::Report::new` requires `'static` data and `subst::Error` isn't
+    /// `Clone`, so we can't put `self` inside the report directly.
     #[must_use]
     pub fn to_miette_report(&self) -> Option<miette::Report> {
         match self {
-            Self::YamlParseError(details) => {
-                let file = details.file_path.display().to_string();
-                Some(serde_saphyr::miette::to_miette_report(
-                    &details.error,
-                    details.named_source.inner(),
-                    &file,
-                ))
-            }
-            Self::SubstitutionError(_) => Some(miette::Report::new(
-                SubstitutionDiagnostic::from_error(self),
+            Self::YamlParseError(details) => Some(serde_saphyr::miette::to_miette_report(
+                &details.error,
+                details.named_source.inner(),
+                details.named_source.name(),
             )),
+            Self::SubstitutionError(details) => {
+                Some(miette::Report::new(SubstitutionReport {
+                    message: format!("{self}"),
+                    named_source: NamedSource::new(
+                        details.named_source.name(),
+                        details.named_source.inner().clone(),
+                    ),
+                    primary_span: details.primary_span,
+                    label_text: details.source.to_string(),
+                }))
+            }
             _ => None,
         }
     }
 }
 
-/// Self-contained [`miette::Diagnostic`] for a substitution error, owning its source text
-/// so it can produce a `'static` [`miette::Report`].
+/// Self-contained `Diagnostic` for a substitution error, owning all its data so it can
+/// power a `'static miette::Report` without having to make `ConfigFileError: Clone`.
 #[derive(Debug)]
-struct SubstitutionDiagnostic {
+struct SubstitutionReport {
     message: String,
-    help: &'static str,
     named_source: NamedSource<String>,
     primary_span: Option<SourceSpan>,
     label_text: String,
 }
 
-impl SubstitutionDiagnostic {
-    fn from_error(err: &ConfigFileError) -> Self {
-        let ConfigFileError::SubstitutionError(details) = err else {
-            unreachable!("SubstitutionDiagnostic::from_error called on non-substitution error")
-        };
-        Self {
-            message: format!("{err}"),
-            help: "Make sure every ${VAR} reference resolves to an environment variable, or supply a default with `${VAR:-fallback}`.",
-            named_source: NamedSource::new(
-                details.named_source.name(),
-                details.named_source.inner().clone(),
-            ),
-            primary_span: details.primary_span,
-            label_text: details.source.to_string(),
-        }
-    }
-}
-
-impl std::fmt::Display for SubstitutionDiagnostic {
+impl std::fmt::Display for SubstitutionReport {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(&self.message)
     }
 }
 
-impl std::error::Error for SubstitutionDiagnostic {}
+impl std::error::Error for SubstitutionReport {}
 
-impl Diagnostic for SubstitutionDiagnostic {
+impl Diagnostic for SubstitutionReport {
     fn code<'a>(&'a self) -> Option<Box<dyn std::fmt::Display + 'a>> {
         Some(Box::new("martin::config::substitution"))
     }
 
     fn help<'a>(&'a self) -> Option<Box<dyn std::fmt::Display + 'a>> {
-        Some(Box::new(self.help))
+        Some(Box::new(
+            "Make sure every ${VAR} reference resolves to an environment variable, or supply a default with `${VAR:-fallback}`.",
+        ))
     }
 
     fn url<'a>(&'a self) -> Option<Box<dyn std::fmt::Display + 'a>> {
@@ -251,60 +235,33 @@ impl Diagnostic for ConfigFileError {
         Some(Box::new(help))
     }
 
-    /// Documentation URL surfaced by miette as the `Diagnostic`'s `url:` field.
-    ///
-    /// Every config-file error points the user at the canonical reference; the renderer
-    /// shows it under the snippet so the tip is easy to spot.
     fn url<'a>(&'a self) -> Option<Box<dyn std::fmt::Display + 'a>> {
         Some(Box::new("https://maplibre.org/martin/config-file/"))
     }
 
     fn source_code(&self) -> Option<&dyn SourceCode> {
+        // `YamlParseError` is rendered through `serde_saphyr::miette::to_miette_report` in
+        // `to_miette_report`, which carries its own source/labels — we only surface
+        // `source_code` for the substitution path so direct consumers of the `Diagnostic`
+        // trait still get useful output.
         match self {
-            Self::YamlParseError(details) => Some(&details.named_source),
             Self::SubstitutionError(details) => Some(&details.named_source),
             _ => None,
         }
     }
 
     fn labels(&self) -> Option<Box<dyn Iterator<Item = LabeledSpan> + '_>> {
-        match self {
-            Self::YamlParseError(details) => {
-                let location = details.error.location()?;
-                let span = location.span();
-                let offset = usize::try_from(span.byte_offset()?).ok()?;
-                let raw_len = usize::try_from(span.byte_len().unwrap_or(1)).ok()?;
-                // Clamp to source length so a one-past-end span (often emitted at EOF) still lands on
-                // a visible character.
-                let source_len = details.named_source.inner().len();
-                let length = if offset >= source_len {
-                    0
-                } else {
-                    raw_len.min(source_len - offset).max(1)
-                };
-                let label = LabeledSpan::new_primary_with_span(
-                    Some(details.error.to_string()),
-                    SourceSpan::new(offset.into(), length),
-                );
-                Some(Box::new(std::iter::once(label)))
-            }
-            Self::SubstitutionError(details) => {
-                let span = details.primary_span?;
-                let label =
-                    LabeledSpan::new_primary_with_span(Some(details.source.to_string()), span);
-                Some(Box::new(std::iter::once(label)))
-            }
-            _ => None,
-        }
+        let Self::SubstitutionError(details) = self else {
+            return None;
+        };
+        let span = details.primary_span?;
+        let label = LabeledSpan::new_primary_with_span(Some(details.source.to_string()), span);
+        Some(Box::new(std::iter::once(label)))
     }
 }
 
 /// Locate the failing token in `source_text` that corresponds to a substitution failure.
 fn subst_error_span(error: &subst::Error, source_text: &str) -> Option<SourceSpan> {
     let range = error.source_range();
-    if range.start >= source_text.len() {
-        return None;
-    }
-    let length = range.len().max(1).min(source_text.len() - range.start);
-    Some(SourceSpan::new(range.start.into(), length))
+    (range.start < source_text.len()).then(|| SourceSpan::new(range.start.into(), range.len()))
 }

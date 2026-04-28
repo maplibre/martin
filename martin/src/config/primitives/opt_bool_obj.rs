@@ -136,10 +136,9 @@ mod tests {
          × invalid type: sequence, expected either a boolean or a configuration map
           ╭─[config.yaml:3:3]
         2 │   connection_string: postgres://localhost/db
-        3 │   auto_publish:
+        3 │   auto_publish: [a, b]
           ·   ──────┬─────
           ·         ╰── invalid type: sequence, expected either a boolean or a configuration map
-        4 │   - a
           ╰────
         "
         );

@@ -248,10 +248,10 @@ mod tests {
          × unexpected event: expected string scalar
           ╭─[config.yaml:3:5]
         2 │   connection_string:
-        3 │   - first
+        3 │     - first
           ·     ┬
           ·     ╰── unexpected event: expected string scalar
-        4 │   - second
+        4 │     - second
           ╰────
         "
         );

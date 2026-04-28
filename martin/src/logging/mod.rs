@@ -170,15 +170,20 @@ impl Default for LogFormat {
 }
 
 impl LogFormat {
-    /// Resolve the [`LogFormat`] from a `RUST_LOG_FORMAT`-style environment value, falling
-    /// back to [`LogFormat::default`] if the value is `None` or doesn't parse.
+    /// Read `RUST_LOG_FORMAT` and resolve it to a [`LogFormat`].
     ///
-    /// Used by the binary entry points to share one parsed format between
-    /// [`init_tracing`] and [`crate::MartinError::render_diagnostic_with`] so log output
-    /// and error diagnostics use a consistent format.
+    /// Falls back to [`LogFormat::default`] when the variable is unset, empty, or invalid.
+    /// On invalid values, a warning is written to stderr.
     #[must_use]
-    pub fn from_env_var(value: Option<String>) -> Self {
-        value.and_then(|s| s.parse().ok()).unwrap_or_default()
+    pub fn from_env() -> Self {
+        match std::env::var("RUST_LOG_FORMAT").ok().as_deref() {
+            None | Some("") => Self::default(),
+            Some(s) => s.parse().unwrap_or_else(|e| {
+                eprintln!("Warning: {e}");
+                eprintln!("Falling back to default format ({:?})", Self::default());
+                Self::default()
+            }),
+        }
     }
 
     /// Returns `true` if this format is JSON (`json` / `jsonl`).
@@ -234,27 +239,12 @@ fn init_log_bridge(env_filter: &EnvFilter) {
 /// 3. Uses the provided format for output
 /// 4. Sets up the global tracing subscriber
 /// 5. Optionally includes `IndicatifLayer` for progress bar support
-pub fn init_tracing(filter: &str, format: Option<String>, use_progress: bool) {
+pub fn init_tracing(filter: &str, log_format: LogFormat, use_progress: bool) {
     // Set up the filter from the provided string
     let env_filter = EnvFilter::from_str(filter).unwrap_or_else(|_| {
       eprintln!("Warning: Invalid filter string '{filter}' passed. Since you passed a filter, you likely want to debug us, so we set the filter to debug");
       EnvFilter::new("debug")
     });
-
-    // Determine the format
-    let log_format = format
-        .and_then(|s| {
-            s.parse::<LogFormat>()
-                .map_err(|e| {
-                    eprintln!("Warning: {e}");
-                    eprintln!(
-                        "Falling back to default format ({:?})",
-                        LogFormat::default()
-                    );
-                })
-                .ok()
-        })
-        .unwrap_or_default();
 
     // Initialize log -> tracing bridge
     init_log_bridge(&env_filter);

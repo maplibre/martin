@@ -560,9 +560,8 @@ async fn init_schema(
 #[tokio::main]
 async fn main() {
     let filter = ensure_martin_core_log_level_matches(env::var("RUST_LOG").ok(), "martin_cp=");
-    let log_format_var = env::var("RUST_LOG_FORMAT").ok();
-    let log_format = martin::logging::LogFormat::from_env_var(log_format_var.clone());
-    init_tracing(&filter, log_format_var, true);
+    let log_format = martin::logging::LogFormat::from_env();
+    init_tracing(&filter, log_format, true);
 
     let args = CopierArgs::parse();
     if let Err(e) = start(args).await {

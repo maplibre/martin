@@ -1101,11 +1101,11 @@ mod deserialize_tests {
             "}),
             @"
          × unexpected event: expected string scalar
-          ╭─[config.yaml:3:5]
+          ╭─[config.yaml:3:7]
         2 │   paths:
-        3 │   - not_a_path: true
-          ·     ┬
-          ·     ╰── unexpected event: expected string scalar
+        3 │     - { not_a_path: true }
+          ·       ─┬
+          ·        ╰── unexpected event: expected string scalar
           ╰────
         "
         );
@@ -1186,10 +1186,9 @@ mod deserialize_tests {
          │ a `path` field
           ╭─[config.yaml:3:5]
         2 │   sources:
-        3 │     foo:
+        3 │     foo: [a, b]
           ·     ─┬─
           ·      ╰── invalid type: sequence, expected a path string or a configuration map with a `path` field
-        4 │     - a
           ╰────
         "
         );
