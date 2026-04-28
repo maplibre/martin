@@ -46,8 +46,6 @@ mbtiles:
 
 The following events are handled automatically:
 
-- **File added** — the new source appears in the catalog.
-- **File modified** — the source is reloaded and its tile cache is invalidated.
 - **File added** - the new source appears in the catalog.
 - **File modified** - the source is reloaded and its tile cache is invalidated.
   Not avaliable on windows due to OS-limtations (SQLite not allowing `FILE_SHARE_DELETE`).
