@@ -28,6 +28,7 @@ use martin::srv::RESERVED_KEYWORDS;
 use martin::srv::{DynTileSource, TileRequestHeaders, merge_tilejson};
 use martin::{MartinError, MartinResult};
 use martin_core::tiles::BoxedSource;
+use martin::logging::LogFormat;
 use martin_core::tiles::mbtiles::MbtilesError;
 use martin_tile_utils::{TileCoord, TileData, TileInfo, TileRect, append_rect, bbox_to_xyz};
 use mbtiles::UpdateZoomType::GrowOnly;
@@ -560,7 +561,7 @@ async fn init_schema(
 #[tokio::main]
 async fn main() {
     let filter = ensure_martin_core_log_level_matches(env::var("RUST_LOG").ok(), "martin_cp=");
-    let log_format = martin::logging::LogFormat::from_env();
+    let log_format = LogFormat::from_env();
     init_tracing(&filter, log_format, true);
 
     let args = CopierArgs::parse();
