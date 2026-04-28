@@ -92,9 +92,9 @@ repos:
     rev: "v2.4.13"  # tag is auto-updated by pre-commit.ci and synced by sync-biome-version to all the places it needs to be
     hooks:
       - id: biome-check
-        additional_dependencies: [ "@biomejs/biome@2.4.12" ]
+        additional_dependencies: [ "@biomejs/biome@2.4.13" ]
       - id: biome-format
-        additional_dependencies: [ "@biomejs/biome@2.4.12" ]
+        additional_dependencies: [ "@biomejs/biome@2.4.13" ]
 
   - repo: local
     hooks:
@@ -105,18 +105,20 @@ repos:
         bash -c '
           set -euo pipefail
           VERSION=$(grep "repo: https://github.com/biomejs" -A 1 .pre-commit-config.yaml | grep -v "VERSION=" | grep "rev:" | sed "s/.*rev: \"v\([0-9\.]*\)\".*/\1/")
+
+          # Update all version references atomically before running npm, so a
+          # failed npm install does not leave the repo in a half-updated state.
           sed -i "s%biomejs.dev/schemas/[^/]*/%biomejs.dev/schemas/$VERSION/%" biome.json
           sed -i "s%biomejs.dev/schemas/[^/]*/%biomejs.dev/schemas/$VERSION/%" demo/frontend/biome.json
           sed -i "s%biomejs.dev/schemas/[^/]*/%biomejs.dev/schemas/$VERSION/%" martin/martin-ui/biome.json
+          sed -i "s%\"@biomejs/biome\": \"[0-9.]*\"%\"@biomejs/biome\": \"$VERSION\"%" demo/frontend/package.json
+          sed -i "s%\"@biomejs/biome\": \"[0-9.]*\"%\"@biomejs/biome\": \"$VERSION\"%" martin/martin-ui/package.json
+          sed -i "/repo: https:\/\/github.com\/biomejs\/pre-commit/,$ s/@biomejs\/biome@[0-9.]*/@biomejs\/biome@$VERSION/g" .pre-commit-config.yaml
 
           # Always regenerate lockfiles after a biome rev update to avoid partial lock updates.
-          sed -i "s%\"@biomejs/biome\": \"[0-9.]*\"%\"@biomejs/biome\": \"$VERSION\"%" demo/frontend/package.json
           npm --prefix demo/frontend install --package-lock-only
-
-          sed -i "s%\"@biomejs/biome\": \"[0-9.]*\"%\"@biomejs/biome\": \"$VERSION\"%" martin/martin-ui/package.json
           npm --prefix martin/martin-ui install --package-lock-only
 
-          sed -i "/repo: https:\/\/github.com\/biomejs\/pre-commit/,$ s/@biomejs\/biome@[0-9.]*/@biomejs\/biome@$VERSION/g" .pre-commit-config.yaml
           echo "Synced Biome version to $VERSION"
         '
       language: system
