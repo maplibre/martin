@@ -16,6 +16,7 @@ use martin::logging::{ensure_martin_core_log_level_matches, init_tracing};
 use martin::srv::RESERVED_KEYWORDS;
 use martin::srv::new_server;
 use tracing::{error, info};
+use martin::logging::LogFormat;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -100,7 +101,7 @@ async fn start(args: Args) -> MartinResult<()> {
 #[hotpath::main]
 async fn main() {
     let filter = ensure_martin_core_log_level_matches(env::var("RUST_LOG").ok(), "martin=");
-    let log_format = martin::logging::LogFormat::from_env();
+    let log_format = LogFormat::from_env();
     init_tracing(&filter, log_format, false);
 
     let args = Args::parse();
