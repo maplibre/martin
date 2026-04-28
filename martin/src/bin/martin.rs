@@ -100,11 +100,13 @@ async fn start(args: Args) -> MartinResult<()> {
 #[hotpath::main]
 async fn main() {
     let filter = ensure_martin_core_log_level_matches(env::var("RUST_LOG").ok(), "martin=");
-    init_tracing(&filter, env::var("RUST_LOG_FORMAT").ok(), false);
+    let log_format_var = env::var("RUST_LOG_FORMAT").ok();
+    let log_format = martin::logging::LogFormat::from_env_var(log_format_var.clone());
+    init_tracing(&filter, log_format_var, false);
 
     let args = Args::parse();
     if let Err(e) = start(args).await {
-        let rendered = e.render_diagnostic();
+        let rendered = e.render_diagnostic_with(log_format);
         if tracing::event_enabled!(tracing::Level::ERROR) {
             error!("{rendered}");
         } else {

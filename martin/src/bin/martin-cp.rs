@@ -58,7 +58,7 @@ const HELP_STYLES: Styles = Styles::styled()
 #[command(
     about = "A tool to bulk copy tiles from any Martin-supported sources into an mbtiles file",
     version,
-    after_help = "Use RUST_LOG environment variable to control logging level, e.g. RUST_LOG=debug or RUST_LOG=martin_cp=debug.\nUse RUST_LOG_FORMAT environment variable to control output format: json, full, compact (default), bare or pretty.\nSee https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.EnvFilter.html for more information.",
+    after_help = "Use RUST_LOG environment variable to control logging level, e.g. RUST_LOG=debug or RUST_LOG=martin_cp=debug.\nUse RUST_LOG_FORMAT environment variable to control output format: json, full, compact (default), bare or pretty. With RUST_LOG_FORMAT=json, configuration error diagnostics are also emitted as structured JSON for editor tooling and log aggregation.\nSee https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.EnvFilter.html for more information.",
     styles = HELP_STYLES
 )]
 pub struct CopierArgs {
@@ -560,12 +560,14 @@ async fn init_schema(
 #[tokio::main]
 async fn main() {
     let filter = ensure_martin_core_log_level_matches(env::var("RUST_LOG").ok(), "martin_cp=");
-    init_tracing(&filter, env::var("RUST_LOG_FORMAT").ok(), true);
+    let log_format_var = env::var("RUST_LOG_FORMAT").ok();
+    let log_format = martin::logging::LogFormat::from_env_var(log_format_var.clone());
+    init_tracing(&filter, log_format_var, true);
 
     let args = CopierArgs::parse();
     if let Err(e) = start(args).await {
         let rendered: String = match e {
-            MartinCpError::Martin(martin_err) => martin_err.render_diagnostic(),
+            MartinCpError::Martin(martin_err) => martin_err.render_diagnostic_with(log_format),
             other => format!("{other}"),
         };
         if tracing::event_enabled!(tracing::Level::ERROR) {

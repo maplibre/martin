@@ -15,6 +15,7 @@ use serde::de::DeserializeOwned;
 
 use crate::MartinError;
 use crate::config::file::parse_config;
+use crate::logging::LogFormat;
 
 /// Deserialize `yaml` into `T` via `serde_saphyr` and panic on error.
 ///
@@ -42,6 +43,19 @@ pub(crate) fn render_failure(yaml: &str) -> String {
         .unwrap_or_else(|| panic!("expected configuration to fail to parse:\n{yaml}"));
     let rendered = MartinError::ConfigFileError(err).render_diagnostic();
     strip_ansi(&rendered)
+}
+
+/// Same as [`render_failure`] but routes through `MartinError::render_diagnostic_with` in
+/// JSON mode, mirroring what the binary emits when `RUST_LOG_FORMAT=json` is set.
+///
+/// JSON output has no ANSI to strip but we still pass it through `strip_ansi` for
+/// consistency with the graphical helper (it's a no-op).
+pub(crate) fn render_failure_json(yaml: &str) -> String {
+    let env: HashMap<String, String> = HashMap::new();
+    let err = parse_config(yaml, &env, Path::new("config.yaml"))
+        .err()
+        .unwrap_or_else(|| panic!("expected configuration to fail to parse:\n{yaml}"));
+    MartinError::ConfigFileError(err).render_diagnostic_with(LogFormat::Json)
 }
 
 /// Minimal ANSI-CSI stripper so rendered miette output is reproducible across terminals.

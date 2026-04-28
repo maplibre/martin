@@ -169,6 +169,25 @@ impl Default for LogFormat {
     }
 }
 
+impl LogFormat {
+    /// Resolve the [`LogFormat`] from a `RUST_LOG_FORMAT`-style environment value, falling
+    /// back to [`LogFormat::default`] if the value is `None` or doesn't parse.
+    ///
+    /// Used by the binary entry points to share one parsed format between
+    /// [`init_tracing`] and [`crate::MartinError::render_diagnostic_with`] so log output
+    /// and error diagnostics use a consistent format.
+    #[must_use]
+    pub fn from_env_var(value: Option<String>) -> Self {
+        value.and_then(|s| s.parse().ok()).unwrap_or_default()
+    }
+
+    /// Returns `true` if this format is JSON (`json` / `jsonl`).
+    #[must_use]
+    pub fn is_json(self) -> bool {
+        matches!(self, Self::Json)
+    }
+}
+
 impl FromStr for LogFormat {
     type Err = String;
 

@@ -750,6 +750,75 @@ mod tests {
     }
 
     #[test]
+    fn cors_unsupported_scalar_renders_as_json() {
+        // Mirrors what the binary emits when `RUST_LOG_FORMAT=json` is set: a structured
+        // JSON document instead of the graphical snippet, suitable for editor tooling and
+        // log aggregators.
+        let json = crate::config::test_helpers::render_failure_json("cors: 42\n");
+        let parsed: serde_json::Value =
+            serde_json::from_str(&json).unwrap_or_else(|e| panic!("not JSON: {e}\n{json}"));
+
+        let message = parsed.get("message").and_then(|m| m.as_str()).unwrap_or("");
+        assert!(
+            message.contains("invalid type: integer `42`"),
+            "unexpected message in JSON output: {message}"
+        );
+        assert_eq!(
+            parsed.get("severity").and_then(|s| s.as_str()),
+            Some("error")
+        );
+        assert_eq!(
+            parsed.get("filename").and_then(|f| f.as_str()),
+            Some("config.yaml")
+        );
+        let labels = parsed.get("labels").and_then(|l| l.as_array()).unwrap();
+        assert_eq!(labels.len(), 1, "expected one label, got {labels:?}");
+        let span = labels[0].get("span").unwrap();
+        assert!(span.get("offset").is_some(), "label missing offset");
+        assert!(span.get("length").is_some(), "label missing length");
+    }
+
+    #[test]
+    fn substitution_renders_as_json_with_code_help_url() {
+        // The substitution path uses our own `SubstitutionDiagnostic`, which overrides
+        // `code()`, `help()`, and `url()`. The JSON renderer surfaces all three.
+        let json =
+            crate::config::test_helpers::render_failure_json("cache_size_mb: ${UNDEFINED_VAR}\n");
+        let parsed: serde_json::Value =
+            serde_json::from_str(&json).unwrap_or_else(|e| panic!("not JSON: {e}\n{json}"));
+
+        assert_eq!(
+            parsed.get("code").and_then(|c| c.as_str()),
+            Some("martin::config::substitution")
+        );
+        let help = parsed.get("help").and_then(|h| h.as_str()).unwrap_or("");
+        assert!(
+            help.contains("${VAR}"),
+            "expected help text mentioning ${{VAR}}, got: {help}"
+        );
+        assert_eq!(
+            parsed.get("url").and_then(|u| u.as_str()),
+            Some("https://maplibre.org/martin/config-file/")
+        );
+    }
+
+    #[test]
+    fn non_spanned_error_renders_as_json_envelope() {
+        // For errors that don't carry source location info, JSON mode still emits a JSON
+        // document so downstream tools can keep parsing rather than choking on a free-form
+        // log line.
+        let envelope = MartinError::BasePathError("not-a-path".to_string())
+            .render_diagnostic_with(crate::logging::LogFormat::Json);
+        let parsed: serde_json::Value =
+            serde_json::from_str(&envelope).unwrap_or_else(|e| panic!("not JSON: {e}\n{envelope}"));
+        let msg = parsed.get("message").and_then(|m| m.as_str()).unwrap_or("");
+        assert!(
+            msg.contains("not-a-path"),
+            "expected envelope to include the error message; got: {envelope}"
+        );
+    }
+
+    #[test]
     fn substitution_unclosed_brace() {
         insta::assert_snapshot!(render_failure("cache_size_mb: ${BROKEN\n"), @r"
         martin::config::substitution (https://maplibre.org/martin/config-file/)
