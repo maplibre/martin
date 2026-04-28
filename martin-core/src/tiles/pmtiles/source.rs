@@ -6,6 +6,7 @@ use std::sync::Arc;
 use std::sync::LazyLock;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
+use arc_swap::ArcSwap;
 use async_trait::async_trait;
 use derive_debug::Dbg;
 use futures::Future;
@@ -13,7 +14,6 @@ use martin_tile_utils::{Encoding, Format, TileCoord, TileData, TileInfo};
 use object_store::ObjectStore;
 use pmtiles::{AsyncPmTilesReader, Compression, ObjectStoreBackend, TileType};
 use tilejson::TileJSON;
-use tokio::sync::RwLock;
 use tokio::sync::mpsc::UnboundedSender;
 use tracing::{trace, warn};
 use url::Url;
@@ -52,10 +52,12 @@ pub type ReaderRebuilder = Arc<
 #[derive(Clone, Dbg)]
 pub struct PmtilesSource {
     id: String,
-    /// Hot-swappable reader. Wrapping in `Arc<RwLock<Arc<…>>>` lets clones share the same
-    /// rebuildable instance: a successful in-source rebuild on one clone is visible to all.
+    /// Hot-swappable reader. `ArcSwap` lets `get_tile` load the current reader with a single
+    /// atomic pointer load (no contention with concurrent fetches) and lets a rebuild
+    /// install a fresh reader with one atomic store. Cloning the outer `Arc<ArcSwap<…>>`
+    /// gives every `clone_source` a shared view of the same rebuildable cell.
     #[dbg(skip)]
-    reader: Arc<RwLock<Arc<AsyncPmTilesReader<ObjectStoreBackend, PmtCacheInstance>>>>,
+    reader: Arc<ArcSwap<AsyncPmTilesReader<ObjectStoreBackend, PmtCacheInstance>>>,
     /// Set at construction; not refreshed on rebuild. Tile metadata changes are uncommon for
     /// a logical tileset, so the trade-off favours a sync `get_tilejson(&self) -> &TileJSON`.
     #[dbg(skip)]
@@ -141,7 +143,7 @@ impl PmtilesSource {
 
         Ok(Self {
             id,
-            reader: Arc::new(RwLock::new(Arc::new(reader))),
+            reader: Arc::new(ArcSwap::from_pointee(reader)),
             tilejson,
             tile_info: format,
             cache_zoom,
@@ -205,23 +207,16 @@ impl PmtilesSource {
         self
     }
 
-    /// Acquire a write lock and replace the inner reader with a fresh one. Uses
-    /// double-checked equality on the held `Arc` so concurrent `SourceModified` detections
-    /// don't all rebuild redundantly.
-    async fn rebuild_if_stale(
-        &self,
-        previous: &Arc<AsyncPmTilesReader<ObjectStoreBackend, PmtCacheInstance>>,
-    ) -> Result<(), PmtilesError> {
+    /// Atomically install a freshly-built reader. Concurrent `SourceModified` detections
+    /// may each rebuild; the redundant rebuilds are rare and harmless (the last winner
+    /// installs the up-to-date reader and the others quickly observe an unchanged
+    /// `data_version_string`).
+    async fn rebuild_inner(&self) -> Result<(), PmtilesError> {
         let Some(rebuilder) = &self.rebuilder else {
             return Err(PmtilesError::PmtError(pmtiles::PmtError::SourceModified));
         };
-        let mut guard = self.reader.write().await;
-        if !Arc::ptr_eq(&*guard, previous) {
-            // Another concurrent caller already rebuilt; nothing to do.
-            return Ok(());
-        }
         let fresh = (rebuilder)().await?;
-        *guard = Arc::new(fresh);
+        self.reader.store(Arc::new(fresh));
         Ok(())
     }
 }
@@ -262,13 +257,7 @@ impl Source for PmtilesSource {
     ) -> MartinCoreResult<TileData> {
         let coord = pmtiles::TileCoord::new(xyz.z, xyz.x, xyz.y).map_err(PmtilesError::PmtError)?;
 
-        // Snapshot the current reader Arc out of the lock so the actual fetch happens unlocked.
-        let reader = {
-            let guard = self.reader.read().await;
-            guard.clone()
-        };
-
-        match reader.get_tile(coord).await {
+        match self.reader.load().get_tile(coord).await {
             Ok(Some(t)) => Ok(t.to_vec()),
             Ok(None) => {
                 trace!(
@@ -282,17 +271,11 @@ impl Source for PmtilesSource {
                     "PMTiles source {} reports SourceModified; rebuilding in place",
                     self.id
                 );
-                self.rebuild_if_stale(&reader).await?;
-                // Best-effort: notify any registered reloader so it can invalidate stale
-                // tile-cache entries for this source id.
+                self.rebuild_inner().await?;
                 if let Some(tx) = &self.reload_signal {
                     let _ = tx.send(self.id.clone());
                 }
-                let fresh = {
-                    let guard = self.reader.read().await;
-                    guard.clone()
-                };
-                match fresh.get_tile(coord).await {
+                match self.reader.load().get_tile(coord).await {
                     Ok(Some(t)) => Ok(t.to_vec()),
                     Ok(None) => Ok(Vec::new()),
                     Err(e) => Err(PmtilesError::PmtError(e).into()),
