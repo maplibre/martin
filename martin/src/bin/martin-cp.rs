@@ -21,6 +21,7 @@ use martin::config::file::{Config, ServerState, read_config};
 #[cfg(feature = "_tiles")]
 use martin::config::primitives::IdResolver;
 use martin::config::primitives::env::OsEnv;
+use martin::logging::LogFormat;
 use martin::logging::progress::TileCopyProgress;
 use martin::logging::{ensure_martin_core_log_level_matches, init_tracing};
 #[cfg(feature = "_tiles")]
@@ -28,7 +29,6 @@ use martin::srv::RESERVED_KEYWORDS;
 use martin::srv::{DynTileSource, TileRequestHeaders, merge_tilejson};
 use martin::{MartinError, MartinResult};
 use martin_core::tiles::BoxedSource;
-use martin::logging::LogFormat;
 use martin_core::tiles::mbtiles::MbtilesError;
 use martin_tile_utils::{TileCoord, TileData, TileInfo, TileRect, append_rect, bbox_to_xyz};
 use mbtiles::UpdateZoomType::GrowOnly;
