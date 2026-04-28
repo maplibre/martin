@@ -131,19 +131,13 @@ where
                 Ok(FileConfigEnum::Path(PathBuf::from(value)))
             }
 
-            fn visit_seq<S: SeqAccess<'de>>(
-                self,
-                seq: S,
-            ) -> Result<FileConfigEnum<T>, S::Error> {
+            fn visit_seq<S: SeqAccess<'de>>(self, seq: S) -> Result<FileConfigEnum<T>, S::Error> {
                 let paths: Vec<PathBuf> =
                     Deserialize::deserialize(SeqAccessDeserializer::new(seq))?;
                 Ok(FileConfigEnum::Paths(paths))
             }
 
-            fn visit_map<M: MapAccess<'de>>(
-                self,
-                map: M,
-            ) -> Result<FileConfigEnum<T>, M::Error> {
+            fn visit_map<M: MapAccess<'de>>(self, map: M) -> Result<FileConfigEnum<T>, M::Error> {
                 let cfg = FileConfig::<T>::deserialize(MapAccessDeserializer::new(map))?;
                 Ok(FileConfigEnum::Config(cfg))
             }
@@ -879,10 +873,7 @@ impl<'de> Deserialize<'de> for GlobalCacheConfig {
                 self.visit_str(&value)
             }
 
-            fn visit_map<M: MapAccess<'de>>(
-                self,
-                map: M,
-            ) -> Result<GlobalCacheConfig, M::Error> {
+            fn visit_map<M: MapAccess<'de>>(self, map: M) -> Result<GlobalCacheConfig, M::Error> {
                 let inner = Inner::deserialize(MapAccessDeserializer::new(map))?;
                 Ok(GlobalCacheConfig {
                     size_mb: inner.size_mb,

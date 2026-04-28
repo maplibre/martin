@@ -91,11 +91,7 @@ impl ConfigFileError {
     ///
     /// The source text is retained so miette diagnostics can render the offending snippet.
     #[must_use]
-    pub fn yaml_parse(
-        error: serde_saphyr::Error,
-        source_text: String,
-        file_path: PathBuf,
-    ) -> Self {
+    pub fn yaml_parse(error: serde_saphyr::Error, source_text: String, file_path: PathBuf) -> Self {
         let display_name = file_path.display().to_string();
         Self::YamlParseError(Box::new(YamlParseDetails {
             error,
@@ -106,11 +102,7 @@ impl ConfigFileError {
 
     /// Construct a substitution error, locating the failing variable token within the source.
     #[must_use]
-    pub fn substitution(
-        source: subst::Error,
-        source_text: String,
-        file_path: PathBuf,
-    ) -> Self {
+    pub fn substitution(source: subst::Error, source_text: String, file_path: PathBuf) -> Self {
         let primary_span = subst_error_span(&source, &source_text);
         let display_name = file_path.display().to_string();
         Self::SubstitutionError(Box::new(SubstitutionDetails {
@@ -286,10 +278,8 @@ impl Diagnostic for ConfigFileError {
             }
             Self::SubstitutionError(details) => {
                 let span = details.primary_span?;
-                let label = LabeledSpan::new_primary_with_span(
-                    Some(details.source.to_string()),
-                    span,
-                );
+                let label =
+                    LabeledSpan::new_primary_with_span(Some(details.source.to_string()), span);
                 Some(Box::new(std::iter::once(label)))
             }
             _ => None,

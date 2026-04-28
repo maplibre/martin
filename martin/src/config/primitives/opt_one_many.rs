@@ -44,10 +44,7 @@ where
                 Ok(OptOneMany::NoVals)
             }
 
-            fn visit_some<D: Deserializer<'de>>(
-                self,
-                d: D,
-            ) -> Result<OptOneMany<T>, D::Error> {
+            fn visit_some<D: Deserializer<'de>>(self, d: D) -> Result<OptOneMany<T>, D::Error> {
                 d.deserialize_any(self)
             }
 
