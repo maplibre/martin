@@ -65,7 +65,10 @@ impl PMTilesReloader {
 
         let mut push_canonical = |path: &PathBuf| {
             if is_remote_url(path) {
-                tracing::debug!("skipping remote URL directory {:?} in PMTilesReloader", path);
+                tracing::debug!(
+                    "skipping remote URL directory {:?} in PMTilesReloader",
+                    path
+                );
                 return;
             }
             match path.canonicalize() {
@@ -165,13 +168,9 @@ impl PMTilesReloader {
             }
         };
 
-        let prev: BTreeMap<String, u128> = self
-            .sources
-            .iter()
-            .map(|(k, v)| (k.clone(), v.1))
-            .collect();
-        let next: BTreeMap<String, u128> =
-            sources.iter().map(|(k, v)| (k.clone(), v.1)).collect();
+        let prev: BTreeMap<String, u128> =
+            self.sources.iter().map(|(k, v)| (k.clone(), v.1)).collect();
+        let next: BTreeMap<String, u128> = sources.iter().map(|(k, v)| (k.clone(), v.1)).collect();
         let sources_clone = sources.clone();
         let config = self.config.clone();
 

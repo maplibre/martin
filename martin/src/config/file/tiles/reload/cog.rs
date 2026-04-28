@@ -143,13 +143,9 @@ impl COGReloader {
             }
         };
 
-        let prev: BTreeMap<String, u128> = self
-            .sources
-            .iter()
-            .map(|(k, v)| (k.clone(), v.1))
-            .collect();
-        let next: BTreeMap<String, u128> =
-            sources.iter().map(|(k, v)| (k.clone(), v.1)).collect();
+        let prev: BTreeMap<String, u128> =
+            self.sources.iter().map(|(k, v)| (k.clone(), v.1)).collect();
+        let next: BTreeMap<String, u128> = sources.iter().map(|(k, v)| (k.clone(), v.1)).collect();
         let sources_clone = sources.clone();
 
         let adv =
