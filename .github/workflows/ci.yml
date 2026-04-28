@@ -120,6 +120,8 @@ jobs:
         with: { persist-credentials: false }
       - uses: taiki-e/install-action@0abfcd587b70a713fdaa7fb502c885e2112acb15 # v2.75.7
         with: { tool: 'cargo-shear,just' }
+      - name: Install rendering dependencies
+        run: just install-dependencies
 
       - run: just shear
   build-aarch64-unknown-linux-musl:
