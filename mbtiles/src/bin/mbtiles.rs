@@ -241,8 +241,8 @@ impl SharedCopyOpts {
 
 #[tokio::main]
 async fn main() {
-    let env_filter = EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| EnvFilter::new("mbtiles=info"));
+    let env_filter =
+        EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("mbtiles=info"));
     tracing_subscriber::fmt()
         .compact()
         .without_time()

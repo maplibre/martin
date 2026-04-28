@@ -7,11 +7,11 @@ use std::time::{Duration, Instant};
 use bytes::Bytes;
 use flume::{Receiver, Sender, bounded};
 use futures::TryStreamExt as _;
-use tracing::{debug, info, warn};
 use moka::sync::Cache;
 use rayon::iter::{IntoParallelIterator as _, ParallelIterator as _};
 use sqlx::{Connection as _, Row as _, SqliteConnection};
 use tokio::task::spawn_blocking;
+use tracing::{debug, info, warn};
 use xxhash_rust::xxh3::xxh3_128;
 
 use crate::errors::MbtResult;
