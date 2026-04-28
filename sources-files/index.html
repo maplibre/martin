@@ -25,7 +25,7 @@
       
       
       <link rel="icon" href="../images/favicon.ico">
-      <meta name="generator" content="zensical-0.0.36">
+      <meta name="generator" content="zensical-0.0.37">
     
     
       
@@ -888,6 +888,17 @@
     <span class="md-ellipsis">
       <span class="md-typeset">
         Autodiscovery
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#mbtiles-hot-reload" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        MBTiles Hot Reload
       </span>
     </span>
   </a>
@@ -1806,8 +1817,31 @@ This means that the following will discover all mbtiles and pmtiles files in the
 <p class="admonition-title">Warning</p>
 <p>For remote PMTiles, we don't currently support auto-discovery.
 If you want to implement this feature, please see <a href="https://github.com/maplibre/martin/issues/2180">https://github.com/maplibre/martin/issues/2180</a></p>
-<p>We also don't currently support refreshing the catalog at runtime.
-If you want to implement this feature, please see <a href="https://github.com/maplibre/martin/issues/288">https://github.com/maplibre/martin/issues/288</a> instead.</p>
+</div>
+<h3 id="mbtiles-hot-reload">MBTiles Hot Reload</h3>
+<p>Martin watches directories configured under <code>mbtiles</code> for changes at runtime. When <code>.mbtiles</code> files are added, modified, or removed from a watched directory, Martin automatically updates the tile catalog — no restart required.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Martin will watch this directory and reflect any *.mbtiles changes live</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>martin<span class="w">  </span>/path/to/mbtiles/directory
+</span></code></pre></div>
+<p>Or via config file:</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nt">mbtiles</span><span class="p">:</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="nt">paths</span><span class="p">:</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/path/to/mbtiles/directory</span>
+</span></code></pre></div>
+<p>The following events are handled automatically:</p>
+<ul>
+<li><strong>File added</strong> - the new source appears in the catalog.</li>
+<li><strong>File modified</strong> - the source is reloaded and its tile cache is invalidated.
+  Not avaliable on windows due to OS-limtations (SQLite not allowing <code>FILE_SHARE_DELETE</code>).</li>
+<li><strong>File removed</strong> - the source is removed from the catalog.</li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Hot reload applies to directories configured under <code>mbtiles.paths</code> (or passed on the CLI). Named sources listed under <code>mbtiles.sources</code> are snapshotted at startup and are not watched for changes.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>PMTiles hot reload is not yet supported. If you want to help implement it, see <a href="https://github.com/maplibre/martin/issues/2180">https://github.com/maplibre/martin/issues/2180</a>.</p>
 </div>
 <h2 id="mbtiles-vs-pmtiles">MBTiles vs PMTiles</h2>
 <p>MBTiles and PMTiles are both formats for storing tiled geospatial data, but they differ in architecture, deployment, and operational characteristics.</p>
@@ -1852,7 +1886,7 @@ If you want to implement this feature, please see <a href="https://github.com/ma
 <div class="tabbed-block">
 <p>For local sources, you need to provide the path or URL.
 For example:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>martin<span class="w">  </span>path/to/tiles.pmtiles
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>martin<span class="w">  </span>path/to/tiles.pmtiles
 </span></code></pre></div>
 <p>The available schemes are:</p>
 <ul>
@@ -1860,15 +1894,15 @@ For example:</p>
 <li><code>path/to/my/file.pmtiles</code></li>
 </ul>
 <p>You can also configure this via the configuration file:</p>
-<div class="language-yaml highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nt">pmtiles</span><span class="p">:</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="nt">sources</span><span class="p">:</span>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">    </span><span class="nt">tiles</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">file:///path/to/my/file.pmtiles</span>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nt">pmtiles</span><span class="p">:</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span><span class="nt">sources</span><span class="p">:</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">    </span><span class="nt">tiles</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">file:///path/to/my/file.pmtiles</span>
 </span></code></pre></div>
 </div>
 <div class="tabbed-block">
 <p>For HTTP(s), you need to provide the url.
 For example:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>martin<span class="w">  </span>https://example.com/tiles.pmtiles
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>martin<span class="w">  </span>https://example.com/tiles.pmtiles
 </span></code></pre></div>
 <p>The available url schemes are:</p>
 <ul>
@@ -1876,10 +1910,10 @@ For example:</p>
 <li><code>https://example.com/path.pmtiles</code></li>
 </ul>
 <p>If you want more control over your requests, you can configure additional options here as such:</p>
-<div class="language-yaml highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nt">pmtiles</span><span class="p">:</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span><span class="nt">allow_http</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">  </span><span class="nt">sources</span><span class="p">:</span>
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">    </span><span class="nt">tiles</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">s3://bucket/path/to/tiles.pmtiles</span>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nt">pmtiles</span><span class="p">:</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">  </span><span class="nt">allow_http</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">  </span><span class="nt">sources</span><span class="p">:</span>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">    </span><span class="nt">tiles</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">s3://bucket/path/to/tiles.pmtiles</span>
 </span></code></pre></div>
 <h3 id="available-http-client-settings">Available http client settings</h3>
 <h4 id="security-options">Security options</h4>
@@ -2011,7 +2045,7 @@ For example:</p>
 </div>
 <p>For AWS, you need to provide the bucket name and the prefix of the object key.
 For example:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>martin<span class="w">  </span>s3://my-bucket/tiles.pmtiles
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>martin<span class="w">  </span>s3://my-bucket/tiles.pmtiles
 </span></code></pre></div>
 <p>The available url schemes are:</p>
 <ul>
@@ -2022,10 +2056,10 @@ For example:</p>
 <li><code>https://ACCOUNT_ID.r2.cloudflarestorage.com/bucket</code></li>
 </ul>
 <p>If you want more control over your requests, you can configure additional options here as such:</p>
-<div class="language-yaml highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nt">pmtiles</span><span class="p">:</span>
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">  </span><span class="nt">allow_http</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">  </span><span class="nt">sources</span><span class="p">:</span>
-</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">    </span><span class="nt">tiles</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">s3://bucket/path/to/tiles.pmtiles</span>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="nt">pmtiles</span><span class="p">:</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="w">  </span><span class="nt">allow_http</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="w">  </span><span class="nt">sources</span><span class="p">:</span>
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="w">    </span><span class="nt">tiles</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">s3://bucket/path/to/tiles.pmtiles</span>
 </span></code></pre></div>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
@@ -2336,17 +2370,17 @@ This can be useful if you want to have different cloud providers.</p>
 <div class="tabbed-block">
 <p>For Google Cloud, you need to provide the bucket name and the prefix of the object key.
 For example:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>martin<span class="w">  </span>gs://my-bucket/tiles.pmtiles
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>martin<span class="w">  </span>gs://my-bucket/tiles.pmtiles
 </span></code></pre></div>
 <p>The available url scheme is:</p>
 <ul>
 <li><code>gs://bucket/path</code></li>
 </ul>
 <p>If you want more control over your requests, you can configure additional options here as such:</p>
-<div class="language-yaml highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="nt">pmtiles</span><span class="p">:</span>
-</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="w">  </span><span class="nt">allow_http</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="w">  </span><span class="nt">sources</span><span class="p">:</span>
-</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="w">    </span><span class="nt">tiles</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gs://bucket/path/to/tiles.pmtiles</span>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="nt">pmtiles</span><span class="p">:</span>
+</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="w">  </span><span class="nt">allow_http</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="w">  </span><span class="nt">sources</span><span class="p">:</span>
+</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="w">    </span><span class="nt">tiles</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gs://bucket/path/to/tiles.pmtiles</span>
 </span></code></pre></div>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
@@ -2521,7 +2555,7 @@ This can be useful if you want to have different cloud providers.</p>
 <div class="tabbed-block">
 <p>For Azure, you need to provide the account name, container and path.
 For example:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>martin<span class="w">  </span>az://my-container/tiles.pmtiles
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>martin<span class="w">  </span>az://my-container/tiles.pmtiles
 </span></code></pre></div>
 <p>The available url schemes are:</p>
 <ul>
@@ -2540,10 +2574,10 @@ For example:</p>
 <li><code>https://&lt;account&gt;.blob.fabric.microsoft.com/&lt;container&gt;</code></li>
 </ul>
 <p>If you want more control over your requests, you can configure additional options here as such:</p>
-<div class="language-yaml highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="nt">pmtiles</span><span class="p">:</span>
-</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="w">  </span><span class="nt">allow_http</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="w">  </span><span class="nt">sources</span><span class="p">:</span>
-</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="w">    </span><span class="nt">tiles</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">az://my-container/tiles.pmtiles</span>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="nt">pmtiles</span><span class="p">:</span>
+</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="w">  </span><span class="nt">allow_http</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="w">  </span><span class="nt">sources</span><span class="p">:</span>
+</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="w">    </span><span class="nt">tiles</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">az://my-container/tiles.pmtiles</span>
 </span></code></pre></div>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
