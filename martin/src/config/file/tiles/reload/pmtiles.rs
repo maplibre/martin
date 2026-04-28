@@ -10,7 +10,8 @@ use notify::{
 use tokio::sync::mpsc;
 
 use crate::config::file::{
-    CachePolicy, FileConfigEnum, TileSourceConfiguration, pmtiles::PmtConfig,
+    CachePolicy, FileConfigEnum, TileSourceConfiguration, file_config::is_remote_url,
+    pmtiles::PmtConfig,
 };
 use crate::config::primitives::{IdResolver, OptOneMany};
 use crate::{MartinError, MartinResult, ReloadAdvisory, TileSourceManager};
@@ -41,6 +42,10 @@ impl PMTilesReloader {
         {
             for (id, src) in s {
                 let path = src.get_path();
+                if is_remote_url(path) {
+                    tracing::debug!("skipping remote URL source {:?} in PMTilesReloader", path);
+                    continue;
+                }
                 let policy = src.cache_zoom();
                 let Ok(canonical) = path.canonicalize() else {
                     tracing::warn!(
@@ -58,9 +63,15 @@ impl PMTilesReloader {
             }
         }
 
-        let mut push_canonical = |path: &PathBuf| match path.canonicalize() {
-            Ok(p) => directories.push(p),
-            Err(e) => tracing::warn!("failed to canonicalize watch directory {:?}: {e}", path),
+        let mut push_canonical = |path: &PathBuf| {
+            if is_remote_url(path) {
+                tracing::debug!("skipping remote URL directory {:?} in PMTilesReloader", path);
+                return;
+            }
+            match path.canonicalize() {
+                Ok(p) => directories.push(p),
+                Err(e) => tracing::warn!("failed to canonicalize watch directory {:?}: {e}", path),
+            }
         };
 
         match config {

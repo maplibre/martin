@@ -1,6 +1,15 @@
-use std::{path::PathBuf, time::UNIX_EPOCH};
+use std::{collections::BTreeMap, path::PathBuf, time::UNIX_EPOCH};
 
-use tokio::fs::DirEntry;
+use tokio::fs::{self, DirEntry};
+
+#[cfg(any(feature = "mbtiles", feature = "unstable-cog", feature = "pmtiles"))]
+use crate::MartinError;
+#[cfg(any(feature = "mbtiles", feature = "unstable-cog", feature = "pmtiles"))]
+use crate::MartinResult;
+#[cfg(any(feature = "mbtiles", feature = "unstable-cog", feature = "pmtiles"))]
+use crate::config::file::CachePolicy;
+#[cfg(any(feature = "mbtiles", feature = "unstable-cog", feature = "pmtiles"))]
+use crate::config::primitives::IdResolver;
 
 #[cfg(feature = "unstable-cog")]
 pub mod cog;
@@ -79,15 +88,10 @@ pub fn resolve_dir_entry(entry: &DirEntry) -> Option<ResolvedEntry> {
 pub async fn discover_sources_by_ext(
     directories: &[PathBuf],
     extensions: &[&str],
-    path_cache: &std::collections::BTreeMap<PathBuf, crate::config::file::CachePolicy>,
-    id_resolver: &crate::config::primitives::IdResolver,
-) -> crate::MartinResult<
-    std::collections::BTreeMap<String, (PathBuf, u128, crate::config::file::CachePolicy)>,
-> {
-    use crate::MartinError;
-    use tokio::fs;
-
-    let mut out = std::collections::BTreeMap::new();
+    path_cache: &BTreeMap<PathBuf, CachePolicy>,
+    id_resolver: &IdResolver,
+) -> MartinResult<BTreeMap<String, (PathBuf, u128, CachePolicy)>> {
+    let mut out = BTreeMap::new();
     for directory in directories {
         let mut entries = fs::read_dir(directory)
             .await
