@@ -303,8 +303,11 @@ install-dependencies backend='vulkan':
       build-essential \
       libcurl4-openssl-dev \
       libglfw3-dev \
+      libicu-dev \
       libjpeg-dev \
+      libpng-dev \
       libuv1-dev \
+      libwebp-dev \
       libz-dev
 
 # Install macOS dependencies via Homebrew
@@ -314,7 +317,11 @@ install-dependencies backend='vulkan':
         {{if backend == 'vulkan' {'molten-vk vulkan-headers'} else {''} }} \
         curl \
         glfw \
+        icu4c \
+        jpeg-turbo \
+        libpng \
         libuv \
+        webp \
         zlib
 
 # Install Windows dependencies
