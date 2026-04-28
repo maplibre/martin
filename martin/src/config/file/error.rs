@@ -122,17 +122,15 @@ impl ConfigFileError {
                 details.named_source.inner(),
                 details.named_source.name(),
             )),
-            Self::SubstitutionError(details) => {
-                Some(miette::Report::new(SubstitutionReport {
-                    message: format!("{self}"),
-                    named_source: NamedSource::new(
-                        details.named_source.name(),
-                        details.named_source.inner().clone(),
-                    ),
-                    primary_span: details.primary_span,
-                    label_text: details.source.to_string(),
-                }))
-            }
+            Self::SubstitutionError(details) => Some(miette::Report::new(SubstitutionReport {
+                message: format!("{self}"),
+                named_source: NamedSource::new(
+                    details.named_source.name(),
+                    details.named_source.inner().clone(),
+                ),
+                primary_span: details.primary_span,
+                label_text: details.source.to_string(),
+            })),
             _ => None,
         }
     }
