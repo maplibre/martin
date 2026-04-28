@@ -65,7 +65,9 @@ impl MBTilesReloader {
 
         let mut push_canonical = |path: &PathBuf| match path.canonicalize() {
             Ok(p) => directories.push(p),
-            Err(e) => tracing::warn!(directory = ?path, error = %e, "failed to canonicalize watch directory"),
+            Err(e) => {
+                tracing::warn!(directory = ?path, error = %e, "failed to canonicalize watch directory")
+            }
         };
 
         match config {
