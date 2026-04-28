@@ -54,8 +54,11 @@ async fn start(args: Args) -> MartinResult<()> {
         .await?;
     #[cfg(feature = "mbtiles")]
     {
-        let reloader =
-            MBTilesReloader::new(sources.tile_manager.clone(), resolver.clone(), &config.mbtiles);
+        let reloader = MBTilesReloader::new(
+            sources.tile_manager.clone(),
+            resolver.clone(),
+            &config.mbtiles,
+        );
         if let Err(e) = reloader.start() {
             tracing::warn!("failed to start MBTilesReloader {e:?}");
         }
@@ -63,8 +66,11 @@ async fn start(args: Args) -> MartinResult<()> {
 
     #[cfg(feature = "pmtiles")]
     {
-        let reloader =
-            PMTilesReloader::new(sources.tile_manager.clone(), resolver.clone(), &config.pmtiles);
+        let reloader = PMTilesReloader::new(
+            sources.tile_manager.clone(),
+            resolver.clone(),
+            &config.pmtiles,
+        );
         reloader.start();
     }
 

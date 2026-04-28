@@ -11,8 +11,8 @@ use tokio::time::{Instant, MissedTickBehavior};
 use url::Url;
 
 use crate::config::file::{
-    CachePolicy, ConfigFileError, FileConfigEnum, FileConfigSrc,
-    TileSourceConfiguration as _, tiles::pmtiles::PmtConfig,
+    CachePolicy, ConfigFileError, FileConfigEnum, FileConfigSrc, TileSourceConfiguration as _,
+    tiles::pmtiles::PmtConfig,
 };
 use crate::config::primitives::{IdResolver, OptOneMany};
 use crate::reload::ReloadAdvisory;
@@ -163,7 +163,8 @@ impl PMTilesReloader {
     /// the current `id -> TrackedSource` map. Failures of individual lookups are logged and
     /// treated as removals (except transient HEAD failures which preserve the previous version).
     async fn discover_sources(&self) -> MartinResult<BTreeMap<String, TrackedSource>> {
-        let prefix_results = try_join_all(self.prefixes.iter().map(|p| self.list_prefix(p))).await?;
+        let prefix_results =
+            try_join_all(self.prefixes.iter().map(|p| self.list_prefix(p))).await?;
 
         let mut out: BTreeMap<String, TrackedSource> = BTreeMap::new();
         let mut seen_urls: HashSet<String> = HashSet::new();
@@ -198,7 +199,9 @@ impl PMTilesReloader {
             .and_then(|s| Url::parse(s).ok())
             .or_else(|| Url::from_file_path(prefix_path).ok())
         else {
-            tracing::warn!("prefix {prefix_path:?} is neither a URL nor an absolute path; skipping");
+            tracing::warn!(
+                "prefix {prefix_path:?} is neither a URL nor an absolute path; skipping"
+            );
             return Ok(Vec::new());
         };
         let (store, base) = object_store::parse_url_opts(&url, &self.pmt_config.options)
@@ -369,7 +372,11 @@ mod tests {
     ) {
         let l = EtagKey::from_etag(left);
         let r = EtagKey::from_etag(right);
-        assert_eq!(l == r, expected_eq, "EtagKey({left:?}) vs EtagKey({right:?})");
+        assert_eq!(
+            l == r,
+            expected_eq,
+            "EtagKey({left:?}) vs EtagKey({right:?})"
+        );
     }
 
     #[test]
@@ -411,10 +418,7 @@ mod tests {
             }),
         );
         let cfg = FileConfigEnum::Config(FileConfig {
-            paths: OptOneMany::Many(vec![
-                PathBuf::from("/tmp/dir1"),
-                PathBuf::from("/tmp/dir2"),
-            ]),
+            paths: OptOneMany::Many(vec![PathBuf::from("/tmp/dir1"), PathBuf::from("/tmp/dir2")]),
             sources: Some(sources),
             custom: PmtConfig {
                 reload_interval_secs: 30,
@@ -433,10 +437,7 @@ mod tests {
     #[test]
     fn new_dedups_prefixes() {
         let cfg = FileConfigEnum::Config(FileConfig {
-            paths: OptOneMany::Many(vec![
-                PathBuf::from("/tmp/dir"),
-                PathBuf::from("/tmp/dir"),
-            ]),
+            paths: OptOneMany::Many(vec![PathBuf::from("/tmp/dir"), PathBuf::from("/tmp/dir")]),
             sources: None,
             custom: PmtConfig::default(),
         });
@@ -455,8 +456,8 @@ mod minio_tests {
     use std::collections::HashMap;
 
     use insta::assert_yaml_snapshot;
-    use object_store::path::Path as ObjPath;
     use object_store::PutPayload;
+    use object_store::path::Path as ObjPath;
     use tempfile::tempdir;
     use testcontainers_modules::minio::MinIO;
     use testcontainers_modules::testcontainers::core::{CmdWaitFor, ExecCommand};
@@ -474,8 +475,7 @@ mod minio_tests {
     const FIXTURE_A: &[u8] =
         include_bytes!("../../../../../../tests/fixtures/pmtiles2/webp2.pmtiles");
     /// A different valid `.pmtiles` blob (~717 KB) used to force an `ETag` change on re-upload.
-    const FIXTURE_B: &[u8] =
-        include_bytes!("../../../../../../tests/fixtures/pmtiles/png.pmtiles");
+    const FIXTURE_B: &[u8] = include_bytes!("../../../../../../tests/fixtures/pmtiles/png.pmtiles");
 
     fn s3_options(endpoint: &str) -> HashMap<String, String> {
         let mut o = HashMap::new();
@@ -509,11 +509,17 @@ mod minio_tests {
         let s3_url: Url = format!("s3://{BUCKET}/").parse().unwrap();
         let (s3_store, _base) = object_store::parse_url_opts(&s3_url, &options).unwrap();
         s3_store
-            .put(&ObjPath::from("a.pmtiles"), PutPayload::from_static(FIXTURE_A))
+            .put(
+                &ObjPath::from("a.pmtiles"),
+                PutPayload::from_static(FIXTURE_A),
+            )
             .await
             .unwrap();
         s3_store
-            .put(&ObjPath::from("b.pmtiles"), PutPayload::from_static(FIXTURE_A))
+            .put(
+                &ObjPath::from("b.pmtiles"),
+                PutPayload::from_static(FIXTURE_A),
+            )
             .await
             .unwrap();
 
@@ -552,7 +558,10 @@ mod minio_tests {
         let etag_local_v1 = initial["local"].etag;
 
         s3_store
-            .put(&ObjPath::from("a.pmtiles"), PutPayload::from_static(FIXTURE_B))
+            .put(
+                &ObjPath::from("a.pmtiles"),
+                PutPayload::from_static(FIXTURE_B),
+            )
             .await
             .unwrap();
         let after_update = reloader.discover_sources().await.unwrap();
@@ -569,10 +578,7 @@ mod minio_tests {
             "ETag for unchanged local file should be stable"
         );
 
-        s3_store
-            .delete(&ObjPath::from("b.pmtiles"))
-            .await
-            .unwrap();
+        s3_store.delete(&ObjPath::from("b.pmtiles")).await.unwrap();
         std::fs::write(local_dir.path().join("local2.pmtiles"), FIXTURE_B).unwrap();
         let after_remove_and_add = reloader.discover_sources().await.unwrap();
         assert_yaml_snapshot!(sorted_ids(&after_remove_and_add), @r"
