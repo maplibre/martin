@@ -183,6 +183,10 @@ impl Diagnostic for SubstitutionDiagnostic {
         Some(Box::new(self.help))
     }
 
+    fn url<'a>(&'a self) -> Option<Box<dyn std::fmt::Display + 'a>> {
+        Some(Box::new("https://maplibre.org/martin/config-file/"))
+    }
+
     fn source_code(&self) -> Option<&dyn SourceCode> {
         Some(&self.named_source)
     }
@@ -245,6 +249,14 @@ impl Diagnostic for ConfigFileError {
             _ => return None,
         };
         Some(Box::new(help))
+    }
+
+    /// Documentation URL surfaced by miette as the `Diagnostic`'s `url:` field.
+    ///
+    /// Every config-file error points the user at the canonical reference; the renderer
+    /// shows it under the snippet so the tip is easy to spot.
+    fn url<'a>(&'a self) -> Option<Box<dyn std::fmt::Display + 'a>> {
+        Some(Box::new("https://maplibre.org/martin/config-file/"))
     }
 
     fn source_code(&self) -> Option<&dyn SourceCode> {

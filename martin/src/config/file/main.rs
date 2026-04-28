@@ -735,7 +735,7 @@ mod tests {
     #[test]
     fn substitution_undefined_variable() {
         insta::assert_snapshot!(render_failure("cache_size_mb: ${UNDEFINED_VAR}\n"), @"
-        martin::config::substitution
+        martin::config::substitution (https://maplibre.org/martin/config-file/)
 
           × Unable to substitute environment variables in config file config.yaml: No
           │ such variable: $UNDEFINED_VAR
@@ -752,7 +752,7 @@ mod tests {
     #[test]
     fn substitution_unclosed_brace() {
         insta::assert_snapshot!(render_failure("cache_size_mb: ${BROKEN\n"), @r"
-        martin::config::substitution
+        martin::config::substitution (https://maplibre.org/martin/config-file/)
 
           × Unable to substitute environment variables in config file config.yaml:
           │ Unexpected character: '\n', expected a closing brace ('}') or colon (':')
