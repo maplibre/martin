@@ -51,10 +51,7 @@ impl MBTilesReloader {
                 let path = src.get_path();
                 let policy = src.cache_zoom();
                 let Ok(canonical) = path.canonicalize() else {
-                    tracing::warn!(
-                        "failed to resolve canonical path for tile source {:?}",
-                        path
-                    );
+                    tracing::warn!(source.id = %id, path = ?path, "failed to resolve canonical path for tile source");
                     continue;
                 };
                 let Some(modified_ms) = path_modified_ms(path) else {
@@ -68,7 +65,7 @@ impl MBTilesReloader {
 
         let mut push_canonical = |path: &PathBuf| match path.canonicalize() {
             Ok(p) => directories.push(p),
-            Err(e) => tracing::warn!("failed to canonicalize watch directory {:?}: {e}", path),
+            Err(e) => tracing::warn!(directory = ?path, error = %e, "failed to canonicalize watch directory"),
         };
 
         match config {
@@ -186,7 +183,7 @@ impl MBTilesReloader {
         let sources = match self.discover_sources().await {
             Ok(v) => v,
             Err(e) => {
-                tracing::warn!("failed to rediscover sources from directories {e:?}");
+                tracing::warn!(error = ?e, "failed to rediscover sources from directories");
                 return;
             }
         };
@@ -213,7 +210,7 @@ impl MBTilesReloader {
 
         match tsm.apply_changes(adv).await {
             Ok(()) => self.sources = sources,
-            Err(e) => tracing::warn!("failed to apply reload changes: {e:?}"),
+            Err(e) => tracing::warn!(error = ?e, "failed to apply reload changes"),
         }
     }
 }

@@ -81,21 +81,24 @@ impl PostgresPool {
         // This is not ideal for reasons explained in the warnings
         if pg_ver < RECOMMENDED_POSTGRES_VERSION {
             warn!(
-                "PostgreSQL {pg_ver} is older than the recommended minimum {RECOMMENDED_POSTGRES_VERSION}."
+                postgres.version = %pg_ver,
+                "PostgreSQL is older than the recommended minimum {RECOMMENDED_POSTGRES_VERSION}."
             );
         }
         res.supports_tile_margin = postgis_ver >= ST_TILE_ENVELOPE_POSTGIS_VERSION;
         if !res.supports_tile_margin {
             warn!(
-                "PostGIS {postgis_ver} is older than {ST_TILE_ENVELOPE_POSTGIS_VERSION}. Margin parameter in ST_TileEnvelope is not supported, so tiles may be cut off at the edges."
+                postgis.version = %postgis_ver,
+                "PostGIS is older than {ST_TILE_ENVELOPE_POSTGIS_VERSION}. Margin parameter in ST_TileEnvelope is not supported, so tiles may be cut off at the edges."
             );
         }
         if postgis_ver < MISSING_GEOM_FIXED_POSTGIS_VERSION {
             warn!(
-                "PostGIS {postgis_ver} is older than the recommended minimum {MISSING_GEOM_FIXED_POSTGIS_VERSION}. In the used version, some geometry may be hidden on some zoom levels. If You encounter this bug, please consider updating your postgis installation. For further details please refer to https://github.com/maplibre/martin/issues/1651#issuecomment-2628674788"
+                postgis.version = %postgis_ver,
+                "PostGIS is older than the recommended minimum {MISSING_GEOM_FIXED_POSTGIS_VERSION}. In the used version, some geometry may be hidden on some zoom levels. If You encounter this bug, please consider updating your postgis installation. For further details please refer to https://github.com/maplibre/martin/issues/1651#issuecomment-2628674788"
             );
         }
-        info!("Connected to PostgreSQL {pg_ver} / PostGIS {postgis_ver} for source {id}");
+        info!(source.id = %id, postgres.version = %pg_ver, postgis.version = %postgis_ver, "Connected to PostgreSQL/PostGIS");
         Ok(res)
     }
 
@@ -124,19 +127,19 @@ impl PostgresPool {
         };
 
         let mgr = if pg_cfg.get_ssl_mode() == SslMode::Disable {
-            info!("Connecting without SSL support: {pg_cfg:?}");
+            info!(postgres.config = ?pg_cfg, "Connecting without SSL support");
             let connector = deadpool_postgres::tokio_postgres::NoTls {};
             Manager::from_config(pg_cfg, connector, mgr_config)
         } else {
             match ssl_mode {
                 SslModeOverride::Unmodified(_) => {
-                    info!("Connecting with SSL support: {pg_cfg:?}");
+                    info!(postgres.config = ?pg_cfg, "Connecting with SSL support");
                 }
                 SslModeOverride::VerifyCa => {
-                    info!("Using sslmode=verify-ca to connect: {pg_cfg:?}");
+                    info!(postgres.config = ?pg_cfg, "Using sslmode=verify-ca to connect");
                 }
                 SslModeOverride::VerifyFull => {
-                    info!("Using sslmode=verify-full to connect: {pg_cfg:?}");
+                    info!(postgres.config = ?pg_cfg, "Using sslmode=verify-full to connect");
                 }
             }
             let connector = make_connector(ssl_cert, ssl_key, ssl_root_cert, ssl_mode)?;
