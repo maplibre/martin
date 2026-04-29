@@ -126,48 +126,29 @@ impl PostgresPool {
             recycling_method: RecyclingMethod::Fast,
         };
 
+        let sslmode_label: &str = match &ssl_mode {
+            SslModeOverride::Unmodified(m) => match m {
+                SslMode::Disable => "disable",
+                SslMode::Prefer => "prefer",
+                SslMode::Require => "require",
+                _ => "unknown",
+            },
+            SslModeOverride::VerifyCa => "verify-ca",
+            SslModeOverride::VerifyFull => "verify-full",
+        };
+        info!(
+            postgres.host = ?pg_cfg.get_hosts(),
+            postgres.port = ?pg_cfg.get_ports(),
+            postgres.user = ?pg_cfg.get_user(),
+            postgres.dbname = ?pg_cfg.get_dbname(),
+            postgres.sslmode = %sslmode_label,
+            "Connecting to PostgreSQL"
+        );
+
         let mgr = if pg_cfg.get_ssl_mode() == SslMode::Disable {
-            info!(
-                postgres.host = ?pg_cfg.get_hosts(),
-                postgres.port = ?pg_cfg.get_ports(),
-                postgres.user = ?pg_cfg.get_user(),
-                postgres.dbname = ?pg_cfg.get_dbname(),
-                postgres.sslmode = ?pg_cfg.get_ssl_mode(),
-                "Connecting without SSL support"
-            );
             let connector = deadpool_postgres::tokio_postgres::NoTls {};
             Manager::from_config(pg_cfg, connector, mgr_config)
         } else {
-            match ssl_mode {
-                SslModeOverride::Unmodified(_) => {
-                    info!(
-                        postgres.host = ?pg_cfg.get_hosts(),
-                        postgres.port = ?pg_cfg.get_ports(),
-                        postgres.user = ?pg_cfg.get_user(),
-                        postgres.dbname = ?pg_cfg.get_dbname(),
-                        postgres.sslmode = ?pg_cfg.get_ssl_mode(),
-                        "Connecting with SSL support"
-                    );
-                }
-                SslModeOverride::VerifyCa => {
-                    info!(
-                        postgres.host = ?pg_cfg.get_hosts(),
-                        postgres.port = ?pg_cfg.get_ports(),
-                        postgres.user = ?pg_cfg.get_user(),
-                        postgres.dbname = ?pg_cfg.get_dbname(),
-                        "Using sslmode=verify-ca to connect"
-                    );
-                }
-                SslModeOverride::VerifyFull => {
-                    info!(
-                        postgres.host = ?pg_cfg.get_hosts(),
-                        postgres.port = ?pg_cfg.get_ports(),
-                        postgres.user = ?pg_cfg.get_user(),
-                        postgres.dbname = ?pg_cfg.get_dbname(),
-                        "Using sslmode=verify-full to connect"
-                    );
-                }
-            }
             let connector = make_connector(ssl_cert, ssl_key, ssl_root_cert, ssl_mode)?;
             Manager::from_config(pg_cfg, connector, mgr_config)
         };
