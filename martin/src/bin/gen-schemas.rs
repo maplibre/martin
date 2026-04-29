@@ -12,39 +12,32 @@
 
 use std::io::Write as _;
 
+use clap::{Parser, ValueEnum};
 use martin::schemas::{config_json_schema, openapi_spec};
 
-#[derive(Debug)]
+/// Which schema document to emit on stdout.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, ValueEnum)]
+#[clap(rename_all = "lowercase")]
 enum Target {
+    /// JSON Schema for the on-disk Martin config file (`config.yaml`).
     Config,
+    /// `OpenAPI` 3.1 document for Martin's HTTP API.
     Openapi,
 }
 
-fn parse_args() -> Result<Target, String> {
-    let mut args = std::env::args().skip(1);
-    while let Some(arg) = args.next() {
-        if arg == "--target" {
-            return match args.next().as_deref() {
-                Some("config") => Ok(Target::Config),
-                Some("openapi") => Ok(Target::Openapi),
-                Some(other) => Err(format!("unknown --target {other:?}")),
-                None => Err("--target requires a value".to_string()),
-            };
-        }
-    }
-    Err("missing --target {config|openapi}".to_string())
+/// Emit a generated schema document to stdout as pretty-printed JSON.
+#[derive(Debug, Parser)]
+#[command(version, about)]
+struct Args {
+    /// Document to emit.
+    #[arg(long, value_enum)]
+    target: Target,
 }
 
 fn main() {
-    let target = match parse_args() {
-        Ok(t) => t,
-        Err(e) => {
-            eprintln!("error: {e}");
-            std::process::exit(2);
-        }
-    };
+    let args = Args::parse();
 
-    let value = match target {
+    let value = match args.target {
         Target::Config => config_json_schema(),
         Target::Openapi => openapi_spec(),
     };

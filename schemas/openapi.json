@@ -29,10 +29,18 @@
                 },
                 "style": {
                   "description": "Font style (e.g., \"Bold\", \"Italic\").\n\nNone for regular style.",
-                  "type": ["string", "null"]
+                  "type": [
+                    "string",
+                    "null"
+                  ]
                 }
               },
-              "required": ["family", "glyphs", "start", "end"],
+              "required": [
+                "family",
+                "glyphs",
+                "start",
+                "end"
+              ],
               "type": "object"
             },
             "propertyNames": {
@@ -52,7 +60,9 @@
                   "type": "array"
                 }
               },
-              "required": ["images"],
+              "required": [
+                "images"
+              ],
               "type": "object"
             },
             "propertyNames": {
@@ -69,7 +79,9 @@
                   "type": "string"
                 }
               },
-              "required": ["path"],
+              "required": [
+                "path"
+              ],
               "type": "object"
             },
             "propertyNames": {
@@ -83,11 +95,17 @@
               "properties": {
                 "attribution": {
                   "description": "Attribution text for the data source",
-                  "type": ["string", "null"]
+                  "type": [
+                    "string",
+                    "null"
+                  ]
                 },
                 "content_encoding": {
                   "description": "Optional content encoding (e.g., \"gzip\", \"deflate\")",
-                  "type": ["string", "null"]
+                  "type": [
+                    "string",
+                    "null"
+                  ]
                 },
                 "content_type": {
                   "description": "MIME type for the tile data (e.g., \"application/x-protobuf\", \"image/png\")",
@@ -95,14 +113,22 @@
                 },
                 "description": {
                   "description": "Description of the tile source content",
-                  "type": ["string", "null"]
+                  "type": [
+                    "string",
+                    "null"
+                  ]
                 },
                 "name": {
                   "description": "Human-readable name for the tile source",
-                  "type": ["string", "null"]
+                  "type": [
+                    "string",
+                    "null"
+                  ]
                 }
               },
-              "required": ["content_type"],
+              "required": [
+                "content_type"
+              ],
               "type": "object"
             },
             "propertyNames": {
@@ -111,7 +137,12 @@
             "type": "object"
           }
         },
-        "required": ["tiles", "sprites", "fonts", "styles"],
+        "required": [
+          "tiles",
+          "sprites",
+          "fonts",
+          "styles"
+        ],
         "type": "object"
       }
     }
@@ -145,7 +176,9 @@
             "description": "Catalog of all configured sources"
           }
         },
-        "tags": ["crate::srv"]
+        "tags": [
+          "crate::srv"
+        ]
       }
     },
     "/health": {
@@ -164,7 +197,9 @@
           }
         },
         "summary": "Return 200 OK if healthy. Used for readiness and liveness probes.",
-        "tags": ["crate::srv"]
+        "tags": [
+          "crate::srv"
+        ]
       }
     }
   }
