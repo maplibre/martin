@@ -241,19 +241,15 @@ impl SharedCopyOpts {
 
 #[tokio::main]
 async fn main() {
-    let env_filter = match EnvFilter::try_from_default_env() {
-        Ok(env_filter) => env_filter,
-        Err(err) => {
-            eprintln!(
-                "Invalid log filter from environment: {err}. Falling back to `mbtiles=info`."
-            );
-            EnvFilter::new("mbtiles=info")
-        }
-    };
+    let env_filter = EnvFilter::builder()
+        .with_default_directive("mbtiles=info".parse().expect("valid default directive"))
+        .from_env_lossy();
     tracing_subscriber::fmt()
         .compact()
         .without_time()
         .with_target(false)
+        .with_ansi(false)
+        .with_writer(std::io::stderr)
         .with_env_filter(env_filter)
         .init();
 
