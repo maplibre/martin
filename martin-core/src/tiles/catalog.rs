@@ -35,6 +35,10 @@ pub type TileCatalog = HashMap<String, CatalogSourceEntry>;
 /// including HTTP headers and human-readable metadata.
 #[serde_with::skip_serializing_none]
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "unstable-schemas",
+    derive(schemars::JsonSchema, utoipa::ToSchema)
+)]
 pub struct CatalogSourceEntry {
     /// MIME type for the tile data (e.g., "application/x-protobuf", "image/png")
     pub content_type: String,

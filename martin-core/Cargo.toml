@@ -1,6 +1,6 @@
 [package]
 name = "martin-core"
-version = "0.5.2"
+version = "0.5.3"
 authors = ["Yuri Astrakhan <YuriAstrakhan@gmail.com>", "MapLibre contributors"]
 description = "Basic building blocks of MapLibre's Martin tile server."
 keywords = ["maps", "tiles", "mvt", "tileserver"]
@@ -57,6 +57,7 @@ mbtiles = ["dep:backon", "dep:mbtiles", "dep:tokio", "_tiles"]
 pmtiles = ["dep:pmtiles", "dep:object_store", "_tiles"]
 _tiles = ["dep:base64"]
 test-pg = ["postgres"]
+unstable-schemas = ["dep:schemars", "dep:utoipa"]
 
 [target.'cfg(target_os = "linux")'.dependencies]
 image = { workspace = true, optional = true }
@@ -88,6 +89,7 @@ regex = { workspace = true, optional = true }
 rustls = { workspace = true, optional = true }
 rustls-native-certs = { workspace = true, optional = true }
 rustls-pemfile = { workspace = true, optional = true }
+schemars = { workspace = true, optional = true }
 semver = { workspace = true, optional = true }
 serde.workspace = true
 serde_json = { workspace = true, optional = true }
@@ -99,6 +101,7 @@ tilejson.workspace = true
 tokio = { workspace = true, optional = true }
 tokio-postgres-rustls = { workspace = true, optional = true }
 tracing.workspace = true
+utoipa = { workspace = true, optional = true }
 xxhash-rust.workspace = true
 
 [dev-dependencies]

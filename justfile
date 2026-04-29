@@ -72,6 +72,93 @@ build-hotpath:
 bench-server-hotpath: start build-hotpath
     exec target/release/martin tests/fixtures/mbtiles tests/fixtures/pmtiles
 
+# Regenerate the experimental config JSON Schema and HTTP OpenAPI spec.
+# Output is written to ./schemas/ and is committed to the repo by the
+# `gen-schemas` job in .github/workflows/autofix.yml on every PR push.
+gen-schemas:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    mkdir -p schemas
+    # `unstable-schemas` already implies the source-type features; we just
+    # disable defaults so we don't pull in `rendering` (slow C++ build).
+    cargo run --quiet --no-default-features --features unstable-schemas \
+        --bin gen-schemas -- --target config      > schemas/config.json
+    cargo run --quiet --no-default-features --features unstable-schemas \
+        --bin gen-schemas -- --target openapi     > schemas/openapi.json
+    # The annotated config doc (markdown wrapping a fenced YAML block) is
+    # derived from `schemas/config.json` and the `#[schemars(example = ...)]`
+    # attributes — keep it generated and version-controlled so editors can lean
+    # on it as a starting point.
+    cargo run --quiet --no-default-features --features unstable-schemas \
+        --bin gen-schemas -- --target config-doc  > docs/content/files/generated_config.md
+
+# Validate the generated config + OpenAPI schemas: that they are themselves
+# well-formed (against the JSON Schema 2020-12 metaschema and the OpenAPI 3.1
+# spec), and that the real config fixtures shipped with martin pass the
+# generated config schema. Requires `uv` (provides `uvx`).
+test-schemas:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [[ ! -f schemas/config.json || ! -f schemas/openapi.json ]]; then
+        echo "schemas/config.json or schemas/openapi.json missing — run 'just gen-schemas' first" >&2
+        exit 1
+    fi
+
+    echo "::group::Validate config JSON Schema is itself a valid JSON Schema"
+    uvx --from check-jsonschema check-jsonschema \
+        --check-metaschema schemas/config.json
+    echo "::endgroup::"
+
+    echo "::group::Validate OpenAPI document against the OpenAPI 3.1 spec"
+    uvx --from openapi-spec-validator openapi-spec-validator \
+        schemas/openapi.json
+    echo "::endgroup::"
+
+    echo "::group::Validate real config fixtures against the config schema"
+    # `tests/expected/*/save_config.yaml` are the post-resolved configs Martin
+    # writes via `--save-config`, with no env-substitution placeholders, so they
+    # are clean inputs for schema validation. If a real config doesn't validate,
+    # the schema is wrong, not the config.
+    fixtures=(
+        tests/expected/auto/save_config.yaml
+        tests/expected/auto_mini/save_config.yaml
+        tests/expected/configured/save_config.yaml
+    )
+    for f in "${fixtures[@]}"; do
+        if [[ -f "$f" ]]; then
+            echo "  -> $f"
+            uvx --from check-jsonschema check-jsonschema \
+                --schemafile schemas/config.json "$f"
+        else
+            echo "missing $f aborting"
+            exit -1
+        fi
+    done
+    echo "::endgroup::"
+
+    # The auto-generated docs example is markdown wrapping a fenced YAML
+    # block; extract the YAML and validate it so we catch drift between the
+    # schemars derives and the codegen renderer.
+    echo "::group::Validate the generated docs example against the config schema"
+    doc='docs/content/files/generated_config.md'
+    if [[ -f "$doc" ]]; then
+        tmp=$(mktemp --suffix=.yaml)
+        # Strip everything outside the first ```yaml ... ``` fence.
+        awk '
+            /^```yaml/  { in_block=1; next }
+            /^```/      { if (in_block) { exit } }
+            in_block    { print }
+        ' "$doc" > "$tmp"
+        echo "  -> $doc (YAML extracted to $tmp)"
+        uvx --from check-jsonschema check-jsonschema \
+            --schemafile schemas/config.json "$tmp"
+        rm -f "$tmp"
+    else
+        echo "missing $doc aborting"
+        exit -1
+    fi
+    echo "::endgroup::"
+
 # Run integration tests and save its output as the new expected output (ordering is important)
 bless:
     #!/usr/bin/env bash
@@ -228,7 +315,7 @@ debug-page *args: start
 
 # Build and run martin docker image
 docker-run *args:
-    docker run -it --rm --net host -e DATABASE_URL -v $PWD/tests:/tests ghcr.io/maplibre/martin:1.8.1 {{args}}
+    docker run -it --rm --net host -e DATABASE_URL -v $PWD/tests:/tests ghcr.io/maplibre/martin:1.8.2 {{args}}
 
 # Build and run martin documentation
 docs:

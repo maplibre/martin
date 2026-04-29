@@ -30,8 +30,16 @@ pub use error::StyleError;
 
 /// Style metadata.
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "unstable-schemas",
+    derive(schemars::JsonSchema, utoipa::ToSchema)
+)]
 pub struct CatalogStyleEntry {
     /// Path to the style JSON file.
+    // utoipa 5.4 has no native `PathBuf` support — present it as a `String`
+    // (the on-the-wire form) for both schema generators.
+    #[cfg_attr(feature = "unstable-schemas", schemars(with = "String"))]
+    #[cfg_attr(feature = "unstable-schemas", schema(value_type = String))]
     pub path: PathBuf,
 }
 

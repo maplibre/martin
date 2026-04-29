@@ -12,14 +12,26 @@ use crate::MartinResult;
 use crate::config::file::ServerState;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[cfg_attr(
+    feature = "unstable-schemas",
+    derive(schemars::JsonSchema, utoipa::ToSchema)
+)]
 pub struct Catalog {
+    // utoipa <=5.4 names every `HashMap<K, V>` as `HashMap`, so the four
+    // catalog fields would collide on a single `$ref` if we let them factor
+    // out — `#[schema(inline)]` keeps the schema for each field inline and
+    // distinct.
     #[cfg(feature = "_tiles")]
+    #[cfg_attr(feature = "unstable-schemas", schema(inline))]
     pub tiles: TileCatalog,
     #[cfg(feature = "sprites")]
+    #[cfg_attr(feature = "unstable-schemas", schema(inline))]
     pub sprites: martin_core::sprites::SpriteCatalog,
     #[cfg(feature = "fonts")]
+    #[cfg_attr(feature = "unstable-schemas", schema(inline))]
     pub fonts: martin_core::fonts::FontCatalog,
     #[cfg(feature = "styles")]
+    #[cfg_attr(feature = "unstable-schemas", schema(inline))]
     pub styles: martin_core::styles::StyleCatalog,
 }
 
@@ -40,6 +52,14 @@ impl Catalog {
     }
 }
 
+#[cfg_attr(
+    feature = "unstable-schemas",
+    utoipa::path(
+        get,
+        path = "/catalog",
+        responses((status = 200, description = "Catalog of all configured sources", body = Catalog)),
+    )
+)]
 #[route(
     "/catalog",
     method = "GET",
@@ -47,7 +67,7 @@ impl Catalog {
     wrap = "middleware::Compress::default()"
 )]
 #[hotpath::measure]
-async fn get_catalog(
+pub async fn get_catalog(
     catalog: Data<Catalog>,
     #[cfg(feature = "_tiles")] tile_manager: Data<crate::tile_source_manager::TileSourceManager>,
 ) -> impl Responder {

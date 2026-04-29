@@ -11,22 +11,36 @@ use crate::config::file::{CachePolicy, UnrecognizedValues};
 
 pub type TableInfoSources = BTreeMap<String, TableInfo>;
 
+/// Example bounds covering the whole world, shared between table and function
+/// configs so the rendered docs example matches what the curated `config.yaml`
+/// used to ship.
+#[cfg(feature = "unstable-schemas")]
+pub(crate) fn bounds_world_example() -> [f64; 4] {
+    [-180.0, -90.0, 180.0, 90.0]
+}
+
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Default)]
+#[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct TableInfo {
-    /// ID of the layer as specified in a tile (`ST_AsMVT` parameter)
+    /// ID of the MVT layer (optional, defaults to table name)
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &"table_source"))]
     pub layer_id: Option<String>,
 
-    /// Table schema
+    /// Table schema (required)
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &"public"))]
     pub schema: String,
 
-    /// Table name
+    /// Table name (required)
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &"table_source"))]
     pub table: String,
 
-    /// Geometry SRID
+    /// Geometry SRID (required)
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &4326i32))]
     pub srid: i32,
 
-    /// Geometry column name
+    /// Geometry column name (required)
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &"geom"))]
     pub geometry_column: String,
 
     /// Geometry column has a spatial index
@@ -44,44 +58,68 @@ pub struct TableInfo {
     pub id_column: Option<String>,
 
     /// An integer specifying the minimum zoom level
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &0u8))]
     pub minzoom: Option<u8>,
 
     /// An integer specifying the maximum zoom level. MUST be >= minzoom
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &30u8))]
     pub maxzoom: Option<u8>,
 
     /// The maximum extent of available map tiles. Bounds MUST define an area
-    /// covered by all zoom levels. The bounds are represented in WGS:84
-    /// latitude and longitude values, in the order left, bottom, right, top.
-    /// Values may be integers or floating point numbers.
+    /// covered by all zoom levels. The bounds are represented in WGS:84 latitude
+    /// and longitude values, in the order left, bottom, right, top. Values may
+    /// be integers or floating point numbers.
+    #[cfg_attr(feature = "unstable-schemas", schemars(with = "Option<[f64; 4]>"))]
+    #[cfg_attr(
+        feature = "unstable-schemas",
+        schemars(example = bounds_world_example())
+    )]
     pub bounds: Option<Bounds>,
 
     /// Tile extent in tile coordinate space
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &4096u32))]
     pub extent: Option<u32>,
 
     /// Buffer distance in tile coordinate space to optionally clip geometries
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &64u32))]
     pub buffer: Option<u32>,
 
     /// Boolean to control if geometries should be clipped or encoded as is
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &true))]
     pub clip_geom: Option<bool>,
 
     /// Geometry type
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &"GEOMETRY"))]
     pub geometry_type: Option<String>,
 
-    /// Zoom-level bounds for tile caching.
+    /// Zoom-level bounds for tile caching (overrides top-level cache).
+    /// default: null (inherit from top-level default)
+    /// Use `cache: disable` to disable caching for this source.
+    #[cfg_attr(
+        feature = "unstable-schemas",
+        schemars(with = "Option<crate::config::file::CachePolicyShape>")
+    )]
     pub cache: Option<CachePolicy>,
 
-    /// List of columns, that should be encoded as tile properties
+    /// List of columns, that should be encoded as tile properties (required)
+    ///
+    /// Keys and values are the names and descriptions of attributes available in this layer.
+    /// Each value (description) must be a string that describes the underlying data.
+    /// If no fields (=just the geometry) should be encoded, an empty object is allowed.
     pub properties: Option<BTreeMap<String, String>>,
 
     /// Mapping of properties to the actual table columns
     #[serde(skip)]
+    #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub prop_mapping: HashMap<String, String>,
 
     #[serde(flatten, skip_serializing)]
+    #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub unrecognized: UnrecognizedValues,
 
     /// `TileJSON` provider by the SQL comment. Shouldn't be serialized
     #[serde(skip)]
+    #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub tilejson: Option<serde_json::Value>,
 }
 

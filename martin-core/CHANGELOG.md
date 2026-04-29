@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.3](https://github.com/maplibre/martin/compare/martin-core-v0.5.2...martin-core-v0.5.3) - 2026-04-29
+
+### Added
+
+- add #[tracing::instrument] to hot-path entry points ([#2759](https://github.com/maplibre/martin/pull/2759))
+
 ## [0.5.2](https://github.com/maplibre/martin/compare/martin-core-v0.5.1...martin-core-v0.5.2) - 2026-04-29
 
 ### Other

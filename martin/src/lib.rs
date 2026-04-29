@@ -24,6 +24,9 @@ pub use error::{MartinError, MartinResult};
 
 pub mod srv;
 
+#[cfg(feature = "unstable-schemas")]
+pub mod schemas;
+
 // Ensure README.md contains valid code
 #[cfg(doctest)]
 mod test_readme {
