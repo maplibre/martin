@@ -241,8 +241,15 @@ impl SharedCopyOpts {
 
 #[tokio::main]
 async fn main() {
-    let env_filter =
-        EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("mbtiles=info"));
+    let env_filter = match EnvFilter::try_from_default_env() {
+        Ok(env_filter) => env_filter,
+        Err(err) => {
+            eprintln!(
+                "Invalid log filter from environment: {err}. Falling back to `mbtiles=info`."
+            );
+            EnvFilter::new("mbtiles=info")
+        }
+    };
     tracing_subscriber::fmt()
         .compact()
         .without_time()
