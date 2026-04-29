@@ -642,22 +642,23 @@ fn parse_url(is_enabled: bool, path: &Path) -> Result<Option<Url>, ConfigFileErr
 ///   maxzoom: 10
 /// ```
 #[derive(Clone, Copy, Debug, Default, PartialEq, Serialize)]
+#[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct CachePolicy {
     #[serde(flatten)]
     zoom: CacheZoomRange,
 }
 
-/// Schema-only proxy for [`CachePolicy`]'s on-disk form: literal `"disable"` or
-/// a zoom-range object. Referenced via `#[schemars(with = ...)]` on each field
-/// holding a [`CachePolicy`], so the JSON Schema derive captures both shapes
-/// without us writing a hand-rolled `JsonSchema` impl.
+/// Schema-only proxy for [`CachePolicy`]'s on-disk form: literal `"disable"`
+/// or the real [`CachePolicy`] struct. Referenced via `#[schemars(with = ...)]`
+/// on each field holding a [`CachePolicy`] so the schema for the map shape
+/// comes from the real struct's derive.
 #[cfg(feature = "unstable-schemas")]
 #[derive(serde::Serialize, schemars::JsonSchema)]
 #[serde(untagged)]
 #[expect(dead_code, reason = "schema generator sees this through `with = ...`")]
 pub(crate) enum CachePolicyShape {
     Disable(DisableLiteral),
-    ZoomRange(CacheZoomRange),
+    Policy(CachePolicy),
 }
 
 /// `serde(rename = "disable")` lets schemars emit `enum: ["disable"]` for
@@ -708,35 +709,6 @@ impl CachePolicy {
         Self {
             zoom: self.zoom.or(other.zoom),
         }
-    }
-}
-
-#[cfg(feature = "unstable-schemas")]
-impl schemars::JsonSchema for CachePolicy {
-    fn schema_name() -> std::borrow::Cow<'static, str> {
-        std::borrow::Cow::Borrowed("CachePolicy")
-    }
-
-    fn schema_id() -> std::borrow::Cow<'static, str> {
-        std::borrow::Cow::Borrowed("martin::config::file::file_config::CachePolicy")
-    }
-
-    fn json_schema(_generator: &mut schemars::SchemaGenerator) -> schemars::Schema {
-        // Mirrors the custom Deserialize: literal `"disable"` string OR a zoom-range map
-        // (`minzoom`/`maxzoom`, both optional u8).
-        schemars::json_schema!({
-            "description": "Either the literal string `\"disable\"` or a zoom-range object.",
-            "oneOf": [
-                { "type": "string", "enum": ["disable"] },
-                {
-                    "type": "object",
-                    "properties": {
-                        "minzoom": { "type": "integer", "minimum": 0, "maximum": 255 },
-                        "maxzoom": { "type": "integer", "minimum": 0, "maximum": 255 }
-                    }
-                }
-            ]
-        })
     }
 }
 
@@ -807,6 +779,7 @@ impl<'de> Deserialize<'de> for CachePolicy {
 /// ```
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Serialize)]
+#[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct GlobalCacheConfig {
     /// Total cache budget in megabytes (0 to disable).
     /// Split across tile, pmtiles, sprite, and font caches by default.
@@ -821,6 +794,7 @@ pub struct GlobalCacheConfig {
         skip_serializing_if = "Option::is_none",
         with = "humantime_serde"
     )]
+    #[cfg_attr(feature = "unstable-schemas", schemars(with = "Option<String>"))]
     pub expiry: Option<Duration>,
     /// Maximum idle time for all cache entries (time-to-idle since last access).
     #[serde(
@@ -828,6 +802,7 @@ pub struct GlobalCacheConfig {
         skip_serializing_if = "Option::is_none",
         with = "humantime_serde"
     )]
+    #[cfg_attr(feature = "unstable-schemas", schemars(with = "Option<String>"))]
     pub idle_timeout: Option<Duration>,
     /// Tile-specific TTL override. Takes precedence over `expiry` for tiles.
     #[serde(
@@ -835,6 +810,7 @@ pub struct GlobalCacheConfig {
         skip_serializing_if = "Option::is_none",
         with = "humantime_serde"
     )]
+    #[cfg_attr(feature = "unstable-schemas", schemars(with = "Option<String>"))]
     pub tile_expiry: Option<Duration>,
     /// Tile-specific idle timeout override. Takes precedence over `idle_timeout` for tiles.
     #[serde(
@@ -842,6 +818,7 @@ pub struct GlobalCacheConfig {
         skip_serializing_if = "Option::is_none",
         with = "humantime_serde"
     )]
+    #[cfg_attr(feature = "unstable-schemas", schemars(with = "Option<String>"))]
     pub tile_idle_timeout: Option<Duration>,
     #[serde(flatten)]
     zoom: CacheZoomRange,
@@ -881,36 +858,17 @@ impl GlobalCacheConfig {
     }
 }
 
-/// Schema-only proxy for [`GlobalCacheConfig`]: literal `"disable"` or a cache
-/// configuration map. Referenced via `#[schemars(with = ...)]` on the field
-/// in [`crate::config::file::Config`].
+/// Schema-only proxy for [`GlobalCacheConfig`]'s on-disk form: literal
+/// `"disable"` or the real [`GlobalCacheConfig`] struct. Referenced via
+/// `#[schemars(with = ...)]` on the field in [`crate::config::file::Config`]
+/// so the schema for the map shape comes from the real struct's derive.
 #[cfg(feature = "unstable-schemas")]
 #[derive(serde::Serialize, schemars::JsonSchema)]
 #[serde(untagged)]
 #[expect(dead_code, reason = "schema generator sees this through `with = ...`")]
 pub(crate) enum GlobalCacheConfigShape {
     Disable(DisableLiteral),
-    Config(GlobalCacheConfigMap),
-}
-
-#[cfg(feature = "unstable-schemas")]
-#[serde_with::skip_serializing_none]
-#[derive(serde::Serialize, schemars::JsonSchema)]
-pub(crate) struct GlobalCacheConfigMap {
-    /// Total cache budget in megabytes (0 to disable).
-    pub size_mb: Option<u64>,
-    /// Tile cache size override in megabytes; defaults to `size_mb / 2`.
-    pub tile_size_mb: Option<u64>,
-    /// Maximum lifetime for cache entries (humantime, e.g. "1h").
-    pub expiry: Option<String>,
-    /// Maximum idle time for cache entries (humantime, e.g. "15m").
-    pub idle_timeout: Option<String>,
-    /// Tile-specific TTL override (humantime).
-    pub tile_expiry: Option<String>,
-    /// Tile-specific idle-timeout override (humantime).
-    pub tile_idle_timeout: Option<String>,
-    pub minzoom: Option<u8>,
-    pub maxzoom: Option<u8>,
+    Config(GlobalCacheConfig),
 }
 
 impl<'de> Deserialize<'de> for GlobalCacheConfig {
@@ -996,6 +954,7 @@ impl<'de> Deserialize<'de> for GlobalCacheConfig {
 /// ```
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Serialize)]
+#[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct CacheSizeConfig {
     /// Cache size in megabytes for this source type (0 to disable).
     pub size_mb: Option<u64>,
@@ -1005,6 +964,7 @@ pub struct CacheSizeConfig {
         skip_serializing_if = "Option::is_none",
         with = "humantime_serde"
     )]
+    #[cfg_attr(feature = "unstable-schemas", schemars(with = "Option<String>"))]
     pub expiry: Option<Duration>,
     /// Maximum idle time before cache entries are evicted (time-to-idle since last access).
     #[serde(
@@ -1012,6 +972,7 @@ pub struct CacheSizeConfig {
         skip_serializing_if = "Option::is_none",
         with = "humantime_serde"
     )]
+    #[cfg_attr(feature = "unstable-schemas", schemars(with = "Option<String>"))]
     pub idle_timeout: Option<Duration>,
 }
 
@@ -1023,27 +984,18 @@ impl CacheSizeConfig {
     }
 }
 
-/// Schema-only proxy for [`CacheSizeConfig`]: literal `"disable"` or a sized
-/// cache map (size + TTL + idle).
+/// Schema-only proxy for [`CacheSizeConfig`]'s on-disk form: literal
+/// `"disable"` or the real [`CacheSizeConfig`] struct. Referenced via
+/// `#[schemars(with = ...)]` on the fields that hold a [`CacheSizeConfig`]
+/// (sprites/fonts/pmtiles) so the schema for the map shape comes from the
+/// real struct's derive.
 #[cfg(feature = "unstable-schemas")]
 #[derive(serde::Serialize, schemars::JsonSchema)]
 #[serde(untagged)]
 #[expect(dead_code, reason = "schema generator sees this through `with = ...`")]
 pub(crate) enum CacheSizeConfigShape {
     Disable(DisableLiteral),
-    Config(CacheSizeConfigMap),
-}
-
-#[cfg(feature = "unstable-schemas")]
-#[serde_with::skip_serializing_none]
-#[derive(serde::Serialize, schemars::JsonSchema)]
-pub(crate) struct CacheSizeConfigMap {
-    /// Cache size in megabytes for this source type (0 to disable).
-    pub size_mb: Option<u64>,
-    /// Maximum lifetime of cache entries (humantime, e.g. "1h").
-    pub expiry: Option<String>,
-    /// Maximum idle time before eviction (humantime, e.g. "15m").
-    pub idle_timeout: Option<String>,
+    Config(CacheSizeConfig),
 }
 
 impl<'de> Deserialize<'de> for CacheSizeConfig {

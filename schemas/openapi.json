@@ -29,10 +29,18 @@
                 },
                 "style": {
                   "description": "Font style (e.g., \"Bold\", \"Italic\").\n\nNone for regular style.",
-                  "type": ["string", "null"]
+                  "type": [
+                    "string",
+                    "null"
+                  ]
                 }
               },
-              "required": ["family", "glyphs", "start", "end"],
+              "required": [
+                "family",
+                "glyphs",
+                "start",
+                "end"
+              ],
               "type": "object"
             },
             "propertyNames": {
@@ -52,7 +60,9 @@
                   "type": "array"
                 }
               },
-              "required": ["images"],
+              "required": [
+                "images"
+              ],
               "type": "object"
             },
             "propertyNames": {
@@ -69,7 +79,9 @@
                   "type": "string"
                 }
               },
-              "required": ["path"],
+              "required": [
+                "path"
+              ],
               "type": "object"
             },
             "propertyNames": {
@@ -83,11 +95,17 @@
               "properties": {
                 "attribution": {
                   "description": "Attribution text for the data source",
-                  "type": ["string", "null"]
+                  "type": [
+                    "string",
+                    "null"
+                  ]
                 },
                 "content_encoding": {
                   "description": "Optional content encoding (e.g., \"gzip\", \"deflate\")",
-                  "type": ["string", "null"]
+                  "type": [
+                    "string",
+                    "null"
+                  ]
                 },
                 "content_type": {
                   "description": "MIME type for the tile data (e.g., \"application/x-protobuf\", \"image/png\")",
@@ -95,14 +113,22 @@
                 },
                 "description": {
                   "description": "Description of the tile source content",
-                  "type": ["string", "null"]
+                  "type": [
+                    "string",
+                    "null"
+                  ]
                 },
                 "name": {
                   "description": "Human-readable name for the tile source",
-                  "type": ["string", "null"]
+                  "type": [
+                    "string",
+                    "null"
+                  ]
                 }
               },
-              "required": ["content_type"],
+              "required": [
+                "content_type"
+              ],
               "type": "object"
             },
             "propertyNames": {
@@ -111,7 +137,12 @@
             "type": "object"
           }
         },
-        "required": ["tiles", "sprites", "fonts", "styles"],
+        "required": [
+          "tiles",
+          "sprites",
+          "fonts",
+          "styles"
+        ],
         "type": "object"
       }
     }
@@ -130,6 +161,247 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/catalog": {
+      "get": {
+        "operationId": "get_catalog",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Catalog"
+                }
+              }
+            },
+            "description": "Catalog of all configured sources"
+          }
+        },
+        "tags": [
+          "crate::srv"
+        ]
+      }
+    },
+    "/font/{fontstack}/{start}-{end}": {
+      "get": {
+        "operationId": "get_font",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "fontstack",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "start",
+            "required": true,
+            "schema": {
+              "format": "int32",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "end",
+            "required": true,
+            "schema": {
+              "format": "int32",
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/x-protobuf": {}
+            },
+            "description": "Glyph PBF range"
+          },
+          "400": {
+            "description": "Invalid glyph range"
+          },
+          "404": {
+            "description": "No matching font"
+          }
+        },
+        "tags": [
+          "crate::srv"
+        ]
+      }
+    },
+    "/health": {
+      "get": {
+        "operationId": "get_health",
+        "responses": {
+          "200": {
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Service healthy"
+          }
+        },
+        "summary": "Return 200 OK if healthy. Used for readiness and liveness probes.",
+        "tags": [
+          "crate::srv"
+        ]
+      }
+    },
+    "/sdf_sprite/{source_ids}.json": {
+      "get": {
+        "operationId": "get_sprite_sdf_json",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source_ids",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {}
+            },
+            "description": "SDF sprite index JSON"
+          },
+          "404": {
+            "description": "No matching sprite source"
+          }
+        },
+        "tags": [
+          "crate::srv"
+        ]
+      }
+    },
+    "/sdf_sprite/{source_ids}.png": {
+      "get": {
+        "operationId": "get_sprite_sdf_png",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source_ids",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "image/png": {}
+            },
+            "description": "Combined signed-distance-field sprite image"
+          },
+          "404": {
+            "description": "No matching sprite source"
+          }
+        },
+        "tags": [
+          "crate::srv"
+        ]
+      }
+    },
+    "/sprite/{source_ids}.json": {
+      "get": {
+        "operationId": "get_sprite_json",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source_ids",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {}
+            },
+            "description": "Sprite index JSON"
+          },
+          "404": {
+            "description": "No matching sprite source"
+          }
+        },
+        "tags": [
+          "crate::srv"
+        ]
+      }
+    },
+    "/sprite/{source_ids}.png": {
+      "get": {
+        "operationId": "get_sprite_png",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source_ids",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "image/png": {}
+            },
+            "description": "Combined sprite image"
+          },
+          "404": {
+            "description": "No matching sprite source"
+          }
+        },
+        "tags": [
+          "crate::srv"
+        ]
+      }
+    },
+    "/style/{style_id}": {
+      "get": {
+        "operationId": "get_style_json",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "style_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {}
+            },
+            "description": "MapLibre Style Spec JSON document"
+          },
+          "400": {
+            "description": "Style file is malformed"
+          },
+          "404": {
+            "description": "No matching style"
+          }
+        },
+        "tags": [
+          "crate::srv"
+        ]
+      }
+    },
     "/{source_ids}": {
       "get": {
         "operationId": "get_source_info",
@@ -154,7 +426,9 @@
             "description": "No matching source"
           }
         },
-        "tags": ["crate::srv"]
+        "tags": [
+          "crate::srv"
+        ]
       }
     },
     "/{source_ids}/{z}/{x}/{y}": {
@@ -217,232 +491,9 @@
             "description": "No supported tile format in Accept header"
           }
         },
-        "tags": ["crate::srv"]
-      }
-    },
-    "/catalog": {
-      "get": {
-        "operationId": "get_catalog",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Catalog"
-                }
-              }
-            },
-            "description": "Catalog of all configured sources"
-          }
-        },
-        "tags": ["crate::srv"]
-      }
-    },
-    "/font/{fontstack}/{start}-{end}": {
-      "get": {
-        "operationId": "get_font",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "fontstack",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "start",
-            "required": true,
-            "schema": {
-              "format": "int32",
-              "minimum": 0,
-              "type": "integer"
-            }
-          },
-          {
-            "in": "path",
-            "name": "end",
-            "required": true,
-            "schema": {
-              "format": "int32",
-              "minimum": 0,
-              "type": "integer"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/x-protobuf": {}
-            },
-            "description": "Glyph PBF range"
-          },
-          "400": {
-            "description": "Invalid glyph range"
-          },
-          "404": {
-            "description": "No matching font"
-          }
-        },
-        "tags": ["crate::srv"]
-      }
-    },
-    "/health": {
-      "get": {
-        "operationId": "get_health",
-        "responses": {
-          "200": {
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "type": "string"
-                }
-              }
-            },
-            "description": "Service healthy"
-          }
-        },
-        "summary": "Return 200 OK if healthy. Used for readiness and liveness probes.",
-        "tags": ["crate::srv"]
-      }
-    },
-    "/sdf_sprite/{source_ids}.json": {
-      "get": {
-        "operationId": "get_sprite_sdf_json",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "source_ids",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {}
-            },
-            "description": "SDF sprite index JSON"
-          },
-          "404": {
-            "description": "No matching sprite source"
-          }
-        },
-        "tags": ["crate::srv"]
-      }
-    },
-    "/sdf_sprite/{source_ids}.png": {
-      "get": {
-        "operationId": "get_sprite_sdf_png",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "source_ids",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "image/png": {}
-            },
-            "description": "Combined signed-distance-field sprite image"
-          },
-          "404": {
-            "description": "No matching sprite source"
-          }
-        },
-        "tags": ["crate::srv"]
-      }
-    },
-    "/sprite/{source_ids}.json": {
-      "get": {
-        "operationId": "get_sprite_json",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "source_ids",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {}
-            },
-            "description": "Sprite index JSON"
-          },
-          "404": {
-            "description": "No matching sprite source"
-          }
-        },
-        "tags": ["crate::srv"]
-      }
-    },
-    "/sprite/{source_ids}.png": {
-      "get": {
-        "operationId": "get_sprite_png",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "source_ids",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "image/png": {}
-            },
-            "description": "Combined sprite image"
-          },
-          "404": {
-            "description": "No matching sprite source"
-          }
-        },
-        "tags": ["crate::srv"]
-      }
-    },
-    "/style/{style_id}": {
-      "get": {
-        "operationId": "get_style_json",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "style_id",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {}
-            },
-            "description": "MapLibre Style Spec JSON document"
-          },
-          "400": {
-            "description": "Style file is malformed"
-          },
-          "404": {
-            "description": "No matching style"
-          }
-        },
-        "tags": ["crate::srv"]
+        "tags": [
+          "crate::srv"
+        ]
       }
     }
   }
