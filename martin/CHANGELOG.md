@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.0](https://github.com/maplibre/martin/compare/martin-v1.8.1...martin-v1.9.0) - 2026-04-29
+
+### Added
+
+- derive JSON Schema (config) + OpenAPI (HTTP API) behind `unstable-schemas` ([#2760](https://github.com/maplibre/martin/pull/2760))
+
+### Other
+
+- add #[tracing::instrument] to hot-path entry points ([#2759](https://github.com/maplibre/martin/pull/2759))
+- *(deps)* Bump the all-npm-version-updates group across 2 directories with 5 updates ([#2756](https://github.com/maplibre/martin/pull/2756))
+- *(mbtiles)* migrate from log/env_logger to tracing ([#2755](https://github.com/maplibre/martin/pull/2755))
+
 ## [1.8.1](https://github.com/maplibre/martin/compare/martin-v1.8.0...martin-v1.8.1) - 2026-04-29
 
 ### Fixed
