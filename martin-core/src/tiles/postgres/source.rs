@@ -77,13 +77,15 @@ impl Source for PostgresSource {
     }
 
     #[instrument(
+        level = "debug",
         skip_all,
         fields(
             source.id = %self.id,
             tile.z = xyz.z,
             tile.x = xyz.x,
             tile.y = xyz.y,
-        )
+        ),
+        err(Debug),
     )]
     async fn get_tile(
         &self,

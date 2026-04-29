@@ -39,13 +39,14 @@ impl TileCache {
 
     /// Gets a tile from cache or computes it using the provided function.
     #[instrument(
+        level = "debug",
         skip_all,
         fields(
             source.id = %source_id,
             tile.z = xyz.z,
             tile.x = xyz.x,
             tile.y = xyz.y,
-        )
+        ),
     )]
     pub async fn get_or_insert<F, Fut, E>(
         &self,

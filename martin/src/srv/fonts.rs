@@ -28,12 +28,14 @@ struct FontRequest {
 )]
 #[hotpath::measure]
 #[instrument(
+    level = "debug",
     skip_all,
     fields(
         font.fontstack = %path.fontstack,
         font.range.start = path.start,
         font.range.end = path.end,
-    )
+    ),
+    err(Debug),
 )]
 async fn get_font(
     path: Path<FontRequest>,

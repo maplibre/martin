@@ -142,12 +142,14 @@ impl FontSources {
     /// Range must be exactly 256 characters (e.g., 0-255, 256-511).
     #[expect(clippy::cast_possible_truncation)]
     #[instrument(
+        level = "debug",
         skip(self),
         fields(
             font.fontstack = %ids,
             font.range.start = start,
             font.range.end = end,
-        )
+        ),
+        err(Debug),
     )]
     pub fn get_font_range(&self, ids: &str, start: u32, end: u32) -> Result<Vec<u8>, FontError> {
         if start > MAX_UNICODE_CP || end > MAX_UNICODE_CP {
@@ -239,7 +241,7 @@ pub struct FontSource {
 
 /// Recursively discovers fonts in directories and individual files.
 /// Supports `.ttf`, `.otf`, and `.ttc` files.
-#[instrument(skip(lib, fonts), fields(path = ?path, is_top_level))]
+#[instrument(skip(lib, fonts), fields(path = ?path, is_top_level), err(Debug))]
 fn recurse_dirs(
     lib: &Library,
     path: PathBuf,
@@ -276,7 +278,7 @@ fn recurse_dirs(
 
 /// Parses a font file and extracts all faces.
 /// Font names are normalized (family + style, e.g., "Arial Bold").
-#[instrument(skip(lib, fonts), fields(path = ?path))]
+#[instrument(skip(lib, fonts), fields(path = ?path), err(Debug))]
 fn parse_font(
     lib: &Library,
     fonts: &mut DashMap<String, FontSource>,

@@ -34,7 +34,12 @@ pub struct SourceIDsRequest {
     wrap = "Etag::default()"
 )]
 #[hotpath::measure]
-#[instrument(skip_all, fields(source.ids = %path.source_ids, sprite.sdf = false))]
+#[instrument(
+    level = "debug",
+    skip_all,
+    fields(source.ids = %path.source_ids, sprite.sdf = false),
+    err(Debug),
+)]
 async fn get_sprite_png(
     path: Path<SourceIDsRequest>,
     sprites: Data<SpriteSources>,
@@ -84,7 +89,12 @@ pub async fn redirect_sprites_png(path: Path<SourceIDsRequest>) -> HttpResponse 
     wrap = "Etag::default()"
 )]
 #[hotpath::measure]
-#[instrument(skip_all, fields(source.ids = %path.source_ids, sprite.sdf = true))]
+#[instrument(
+    level = "debug",
+    skip_all,
+    fields(source.ids = %path.source_ids, sprite.sdf = true),
+    err(Debug),
+)]
 async fn get_sprite_sdf_png(
     path: Path<SourceIDsRequest>,
     sprites: Data<SpriteSources>,
@@ -135,7 +145,12 @@ pub async fn redirect_sdf_sprites_png(path: Path<SourceIDsRequest>) -> HttpRespo
     wrap = "Compress::default()"
 )]
 #[hotpath::measure]
-#[instrument(skip_all, fields(source.ids = %path.source_ids, sprite.sdf = false))]
+#[instrument(
+    level = "debug",
+    skip_all,
+    fields(source.ids = %path.source_ids, sprite.sdf = false),
+    err(Debug),
+)]
 async fn get_sprite_json(
     path: Path<SourceIDsRequest>,
     sprites: Data<SpriteSources>,
@@ -186,7 +201,12 @@ pub async fn redirect_sprites_json(path: Path<SourceIDsRequest>) -> HttpResponse
     wrap = "Compress::default()"
 )]
 #[hotpath::measure]
-#[instrument(skip_all, fields(source.ids = %path.source_ids, sprite.sdf = true))]
+#[instrument(
+    level = "debug",
+    skip_all,
+    fields(source.ids = %path.source_ids, sprite.sdf = true),
+    err(Debug),
+)]
 async fn get_sprite_sdf_json(
     path: Path<SourceIDsRequest>,
     sprites: Data<SpriteSources>,

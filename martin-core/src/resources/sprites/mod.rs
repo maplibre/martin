@@ -99,7 +99,12 @@ impl SpriteSources {
     ///
     /// Append "@2x" for high-DPI sprites.
     /// Set `as_sdf` for SDF sprites.
-    #[instrument(skip(self), fields(source.ids = %ids, sprite.sdf = as_sdf))]
+    #[instrument(
+        level = "debug",
+        skip(self),
+        fields(source.ids = %ids, sprite.sdf = as_sdf),
+        err(Debug),
+    )]
     pub async fn get_sprites(&self, ids: &str, as_sdf: bool) -> Result<Spritesheet, SpriteError> {
         let (ids, dpi) = if let Some(ids) = ids.strip_suffix("@2x") {
             (ids, 2)
@@ -157,7 +162,12 @@ async fn parse_sprite(
 }
 
 /// Generates spritesheet from sprite sources.
-#[instrument(skip_all, fields(sprite.pixel_ratio = pixel_ratio, sprite.sdf = as_sdf))]
+#[instrument(
+    level = "debug",
+    skip_all,
+    fields(sprite.pixel_ratio = pixel_ratio, sprite.sdf = as_sdf),
+    err(Debug),
+)]
 pub async fn get_spritesheet(
     sources: impl Iterator<Item = &SpriteSource>,
     pixel_ratio: u8,

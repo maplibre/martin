@@ -239,7 +239,7 @@ impl Config {
         }
     }
 
-    #[instrument(skip_all)]
+    #[instrument(skip_all, err(Debug))]
     pub async fn resolve(
         &mut self,
         #[cfg(feature = "_tiles")] idr: &IdResolver,
@@ -394,7 +394,7 @@ impl Config {
     }
 
     #[cfg(feature = "_tiles")]
-    #[instrument(skip_all)]
+    #[instrument(skip_all, err(Debug))]
     async fn resolve_tile_sources(
         &mut self,
         idr: &IdResolver,
@@ -498,7 +498,7 @@ fn fmt_warnings(warnings: &[TileSourceWarning]) -> String {
 
 impl OnInvalid {
     /// Handle warnings based on `policy`
-    #[instrument(skip_all, fields(warnings.count = warnings.len()))]
+    #[instrument(skip_all, fields(warnings.count = warnings.len()), err(Debug))]
     pub fn handle_tile_warnings(self, warnings: &[TileSourceWarning]) -> MartinResult<()> {
         if warnings.is_empty() {
             return Ok(());
