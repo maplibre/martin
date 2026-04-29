@@ -1057,6 +1057,65 @@ test_log_has_str "$LOG_FILE" 'WARN Environment variable AWS_REGION is deprecated
 validate_log "$LOG_FILE"
 echo "::endgroup::"
 
+echo "::group::Test PMTiles hot reload"
+TEST_NAME="pmtiles_reload"
+LOG_FILE="${LOG_DIR}/${TEST_NAME}.txt"
+TEST_OUT_DIR="${TEST_OUT_BASE_DIR}/${TEST_NAME}"
+PMT_RELOAD_WATCH_DIR="${TEST_TEMP_DIR}/pmt_reload_watch"
+PMT_RELOAD_CFG="${TEST_TEMP_DIR}/pmt_reload.yaml"
+mkdir -p "$TEST_OUT_DIR" "$PMT_RELOAD_WATCH_DIR"
+
+# `reload_interval_secs: 1` makes the polling loop tick every second; the catalog/log helpers
+# already have a 30 s wait budget, which is plenty.
+cat > "$PMT_RELOAD_CFG" <<EOF
+pmtiles:
+  reload_interval_secs: 1
+  paths:
+    - ${PMT_RELOAD_WATCH_DIR}
+EOF
+
+ARG=(--config "$PMT_RELOAD_CFG")
+set -x
+$MARTIN_BIN "${ARG[@]}" 2>&1 | tee "$LOG_FILE" &
+MARTIN_PROC_ID=$(jobs -p | tail -n 1)
+{ set +x; } 2> /dev/null
+trap "echo 'Stopping Martin server $MARTIN_PROC_ID...'; kill -9 $MARTIN_PROC_ID 2> /dev/null || true; echo 'Stopped Martin server $MARTIN_PROC_ID';" EXIT HUP INT TERM
+wait_for "$MARTIN_PROC_ID" Martin "$MARTIN_URL/health"
+
+>&2 echo "PMTiles reload: catalog starts empty with no .pmtiles in watch dir"
+$CURL "$MARTIN_URL/catalog" | jq --sort-keys > "$TEST_OUT_DIR/catalog_empty.json"
+
+>&2 echo "PMTiles reload: adding a new .pmtiles file triggers source addition"
+cp tests/fixtures/pmtiles2/webp2.pmtiles "$PMT_RELOAD_WATCH_DIR/webp2.pmtiles"
+wait_for_catalog_source "webp2"
+test_jsn reload_catalog_added catalog
+
+>&2 echo "PMTiles reload: replacing a .pmtiles file with different bytes triggers in-source rebuild"
+# Overwrite with a different fixture so the file's ETag (mtime+size for the local
+# object_store backend) changes. Updates are detected at tile-fetch time via pmtiles'
+# `SourceModified` error: the source rebuilds its inner reader in place and retries, so
+# the very request that triggered detection succeeds, and the reloader is signalled to
+# invalidate any cached tiles for that source.
+cp tests/fixtures/pmtiles/png.pmtiles "$PMT_RELOAD_WATCH_DIR/webp2.pmtiles"
+$CURL "$MARTIN_URL/webp2/0/0/0" -o /dev/null
+wait_for_log_str "$LOG_FILE" 'Invalidated tile cache for self-rebuilt source: "webp2"'
+
+>&2 echo "PMTiles reload: removing a .pmtiles file triggers source removal"
+rm "$PMT_RELOAD_WATCH_DIR/webp2.pmtiles"
+wait_for_catalog_source_removed "webp2"
+$CURL "$MARTIN_URL/catalog" | jq --sort-keys > "$TEST_OUT_DIR/catalog_after_remove.json"
+
+kill_process "$MARTIN_PROC_ID" Martin
+
+test_log_has_str "$LOG_FILE" 'Added source: "webp2"'
+test_log_has_str "$LOG_FILE" 'Invalidated tile cache for self-rebuilt source: "webp2"'
+test_log_has_str "$LOG_FILE" 'Removed source: "webp2"'
+test_log_has_str "$LOG_FILE" 'WARN Defaulting `pmtiles.allow_http` to `true`. This is likely to become an error in the future for better security.'
+test_log_has_str "$LOG_FILE" 'WARN Environment variable AWS_SKIP_CREDENTIALS is deprecated. Please use pmtiles.skip_signature in the configuration file instead.'
+test_log_has_str "$LOG_FILE" 'WARN Environment variable AWS_REGION is deprecated. Please use pmtiles.region in the configuration file instead.'
+validate_log "$LOG_FILE"
+echo "::endgroup::"
+
 rm -rf "$TEST_TEMP_DIR"
 
 >&2 echo "All integration tests have passed"

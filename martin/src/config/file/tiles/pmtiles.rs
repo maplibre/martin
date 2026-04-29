@@ -3,8 +3,10 @@ use std::env;
 use std::path::PathBuf;
 use std::str::FromStr as _;
 
+use tokio::sync::mpsc::UnboundedSender;
+
 use martin_core::tiles::BoxedSource;
-use martin_core::tiles::pmtiles::{PmtCache, PmtCacheInstance, PmtilesSource};
+use martin_core::tiles::pmtiles::{PmtCache, PmtilesSource};
 use serde::{Deserialize, Serialize};
 use tracing::{trace, warn};
 use url::Url;
@@ -15,14 +17,39 @@ use crate::config::file::{
     TileSourceConfiguration, UnrecognizedKeys, UnrecognizedValues,
 };
 
+/// Default polling interval for [`PMTilesReloader`](crate::config::file::reload::pmtiles::PMTilesReloader).
+pub const DEFAULT_RELOAD_INTERVAL_SECS: u64 = 600;
+
+fn default_reload_interval_secs() -> u64 {
+    DEFAULT_RELOAD_INTERVAL_SECS
+}
+
+#[expect(
+    clippy::trivially_copy_pass_by_ref,
+    reason = "serde skip_serializing_if requires fn(&T) -> bool"
+)]
+fn is_default_reload_interval_secs(v: &u64) -> bool {
+    *v == DEFAULT_RELOAD_INTERVAL_SECS
+}
+
 #[serde_with::skip_serializing_none]
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PmtConfig {
     /// Cache configuration for `PMTiles` directory cache (size, expiry, idle timeout).
     ///
     /// Overrides the global [`cache`](crate::config::file::Config::cache) settings.
     #[serde(default, skip_serializing_if = "CacheSizeConfig::is_empty")]
     pub directory_cache: CacheSizeConfig,
+
+    /// How often the `PMTilesReloader` re-lists configured prefixes and re-checks `ETag`s of
+    /// individually-configured sources.
+    ///
+    /// Defaults to 600 seconds (10 minutes). Set to `0` to disable reloading entirely.
+    #[serde(
+        default = "default_reload_interval_secs",
+        skip_serializing_if = "is_default_reload_interval_secs"
+    )]
+    pub reload_interval_secs: u64,
 
     // if the key is the allowed set, we assume it is there for a purpose
     // settings and unreconginsed values are partitioned from each other in the init_parsing step
@@ -35,14 +62,35 @@ pub struct PmtConfig {
     /// `PMTiles` directory cache (internal state, not serialized)
     #[serde(skip)]
     pub pmtiles_directory_cache: PmtCache,
+
+    /// Channel that newly-constructed `PmtilesSource`s use to notify the reloader when
+    /// they detect their underlying blob has changed (`PmtError::SourceModified`).
+    /// Installed by `martin::start` before `Config::resolve` so that sources built during
+    /// the initial resolve pass also wire it through.
+    #[serde(skip)]
+    pub reload_signal: Option<UnboundedSender<String>>,
+}
+
+impl Default for PmtConfig {
+    fn default() -> Self {
+        Self {
+            directory_cache: CacheSizeConfig::default(),
+            reload_interval_secs: DEFAULT_RELOAD_INTERVAL_SECS,
+            options: HashMap::default(),
+            unrecognized: UnrecognizedValues::default(),
+            pmtiles_directory_cache: PmtCache::default(),
+            reload_signal: None,
+        }
+    }
 }
 
 impl PartialEq for PmtConfig {
     fn eq(&self, other: &Self) -> bool {
         self.directory_cache == other.directory_cache
+            && self.reload_interval_secs == other.reload_interval_secs
             && self.options == other.options
             && self.unrecognized == other.unrecognized
-        // pmtiles_directory_cache is intentionally excluded from equality check
+        // pmtiles_directory_cache and reload_signal are intentionally excluded
     }
 }
 
@@ -244,16 +292,17 @@ impl TileSourceConfiguration for PmtConfig {
         url: Url,
         cache: CachePolicy,
     ) -> MartinResult<BoxedSource> {
-        use std::sync::LazyLock;
-        use std::sync::atomic::{AtomicUsize, Ordering};
-
-        static NEXT_CACHE_ID: LazyLock<AtomicUsize> = LazyLock::new(|| AtomicUsize::new(0));
-        let cache_id = NEXT_CACHE_ID.fetch_add(1, Ordering::SeqCst);
-
-        let (store, path) = object_store::parse_url_opts(&url, &self.options)
-            .map_err(|e| ConfigFileError::ObjectStoreUrlParsing(e, id.clone()))?;
-        let dir_cache = PmtCacheInstance::new(cache_id, self.pmtiles_directory_cache.clone());
-        let source = PmtilesSource::new(dir_cache, id, store, path, cache.zoom()).await?;
+        let mut source = PmtilesSource::from_object_store_url(
+            id,
+            url,
+            self.options.clone(),
+            self.pmtiles_directory_cache.clone(),
+            cache.zoom(),
+        )
+        .await?;
+        if let Some(signal) = self.reload_signal.clone() {
+            source = source.with_reload_signal(signal);
+        }
         Ok(Box::new(source))
     }
 }

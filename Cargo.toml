@@ -47,6 +47,7 @@ actix-web-prom = "0.10.0"
 actix-web-static-files = "4"
 anyhow = "1.0"
 approx = "0.5.1"
+arc-swap = "1.9"
 async-trait = "0.1"
 backon = "1.6.0"
 base64 = "0.22.1"
@@ -114,7 +115,7 @@ sqlx = { version = "0.8.6", features = ["sqlite", "runtime-tokio"] }
 static-files = "0.2"
 subst = "0.3"
 tempfile = "3.21.0"
-testcontainers-modules = { version = "0.15.0", features = ["postgres", "blocking"] }
+testcontainers-modules = { version = "0.15.0", features = ["postgres", "blocking", "minio"] }
 thiserror = "2"
 tiff = "0.11.1"
 tilejson = "0.4"

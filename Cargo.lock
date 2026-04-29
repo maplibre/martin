@@ -3953,6 +3953,7 @@ version = "0.5.2"
 dependencies = [
  "actix-web",
  "approx",
+ "arc-swap",
  "async-trait",
  "backon",
  "base64 0.22.1",

@@ -7,6 +7,8 @@ use martin::config::args::Args;
 use martin::config::args::WebUiMode;
 #[cfg(feature = "mbtiles")]
 use martin::config::file::reload::mbtiles::MBTilesReloader;
+#[cfg(feature = "pmtiles")]
+use martin::config::file::reload::pmtiles::PMTilesReloader;
 use martin::config::file::{Config, read_config};
 #[cfg(feature = "_tiles")]
 use martin::config::primitives::IdResolver;
@@ -41,6 +43,19 @@ async fn start(args: Args) -> MartinResult<()> {
     )?;
     config.finalize()?;
 
+    // Install the PMTiles reload-signal sender on the config BEFORE `resolve` so that any
+    // `PmtilesSource` built during the initial resolve pass also gets wired to the reloader.
+    #[cfg(feature = "pmtiles")]
+    let pmt_reload_rx = {
+        use martin::config::file::FileConfigEnum;
+        use tokio::sync::mpsc::unbounded_channel;
+        let (tx, rx) = unbounded_channel::<String>();
+        if let FileConfigEnum::Config(cfg) = &mut config.pmtiles {
+            cfg.custom.reload_signal = Some(tx);
+        }
+        rx
+    };
+
     #[cfg(feature = "_tiles")]
     let resolver = IdResolver::new(RESERVED_KEYWORDS);
 
@@ -52,14 +67,26 @@ async fn start(args: Args) -> MartinResult<()> {
         )
         .await?;
     #[cfg(feature = "mbtiles")]
-    let mgr = sources.tile_manager.clone();
-
-    #[cfg(feature = "mbtiles")]
     {
-        let reloader = MBTilesReloader::new(mgr, resolver, &config.mbtiles);
+        let reloader = MBTilesReloader::new(
+            sources.tile_manager.clone(),
+            resolver.clone(),
+            &config.mbtiles,
+        );
         if let Err(e) = reloader.start() {
             tracing::warn!("failed to start MBTilesReloader {e:?}");
         }
+    }
+
+    #[cfg(feature = "pmtiles")]
+    {
+        let reloader = PMTilesReloader::new(
+            sources.tile_manager.clone(),
+            resolver.clone(),
+            &config.pmtiles,
+            pmt_reload_rx,
+        );
+        reloader.start();
     }
 
     if let Some(file_name) = save_config {

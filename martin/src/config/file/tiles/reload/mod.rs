@@ -7,8 +7,8 @@ use tokio::fs::DirEntry;
 // pub mod cog;
 #[cfg(feature = "mbtiles")]
 pub mod mbtiles;
-// #[cfg(feature = "pmtiles")]
-// pub mod pmtiles;
+#[cfg(feature = "pmtiles")]
+pub mod pmtiles;
 // #[cfg(feature = "postgres")]
 // pub mod postgres;
 

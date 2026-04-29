@@ -1,32 +1,80 @@
 //! `PMTiles` tile source implementations.
 
+use std::collections::HashMap;
+use std::pin::Pin;
 use std::sync::Arc;
+use std::sync::LazyLock;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
+use arc_swap::ArcSwap;
 use async_trait::async_trait;
 use derive_debug::Dbg;
+use futures::Future;
 use martin_tile_utils::{Encoding, Format, TileCoord, TileData, TileInfo};
 use object_store::ObjectStore;
 use pmtiles::{AsyncPmTilesReader, Compression, ObjectStoreBackend, TileType};
 use tilejson::TileJSON;
+use tokio::sync::mpsc::UnboundedSender;
 use tracing::{trace, warn};
+use url::Url;
 
 use crate::CacheZoomRange;
-use crate::tiles::pmtiles::PmtCacheInstance;
 use crate::tiles::pmtiles::PmtilesError::{self, InvalidMetadata};
+use crate::tiles::pmtiles::{PmtCache, PmtCacheInstance};
 use crate::tiles::{BoxedSource, MartinCoreResult, Source, UrlQuery};
 
-/// A source for `PMTiles` files using `ObjectStoreBackend`
+/// Process-wide monotonically-increasing cache id minted on every `PMTiles` source (re)build.
+/// The shared [`PmtCache`] is keyed on `(cache_id, offset)`, so unique ids guarantee that
+/// directory entries from a prior reader are unreachable from a freshly-built one.
+fn next_pmtiles_cache_id() -> usize {
+    static NEXT_CACHE_ID: LazyLock<AtomicUsize> = LazyLock::new(|| AtomicUsize::new(0));
+    NEXT_CACHE_ID.fetch_add(1, Ordering::SeqCst)
+}
+
+/// Async closure that yields a fresh `AsyncPmTilesReader` each time it is invoked, used by
+/// [`PmtilesSource`] to rebuild itself in place when the underlying blob's
+/// `data_version_string` (`ETag`) changes.
+pub type ReaderRebuilder = Arc<
+    dyn Fn() -> Pin<
+            Box<
+                dyn Future<
+                        Output = Result<
+                            AsyncPmTilesReader<ObjectStoreBackend, PmtCacheInstance>,
+                            PmtilesError,
+                        >,
+                    > + Send,
+            >,
+        > + Send
+        + Sync,
+>;
+
+/// A source for `PMTiles` files using `ObjectStoreBackend`.
 #[derive(Clone, Dbg)]
 pub struct PmtilesSource {
     id: String,
+    /// Hot-swappable reader. `ArcSwap` lets `get_tile` load the current reader with a single
+    /// atomic pointer load (no contention with concurrent fetches) and lets a rebuild
+    /// install a fresh reader with one atomic store. Cloning the outer `Arc<ArcSwap<…>>`
+    /// gives every `clone_source` a shared view of the same rebuildable cell.
     #[dbg(skip)]
-    pmtiles: Arc<AsyncPmTilesReader<ObjectStoreBackend, PmtCacheInstance>>,
+    reader: Arc<ArcSwap<AsyncPmTilesReader<ObjectStoreBackend, PmtCacheInstance>>>,
+    /// Set at construction; not refreshed on rebuild. Tile metadata changes are uncommon for
+    /// a logical tileset, so the trade-off favours a sync `get_tilejson(&self) -> &TileJSON`.
     #[dbg(skip)]
     tilejson: TileJSON,
     #[dbg(skip)]
     tile_info: TileInfo,
     #[dbg(skip)]
     cache_zoom: CacheZoomRange,
+    /// Optional rebuilder closure. If set, `get_tile` will rebuild the reader on
+    /// `PmtError::SourceModified` and retry the fetch once before returning to the caller.
+    #[dbg(skip)]
+    rebuilder: Option<ReaderRebuilder>,
+    /// Optional channel kicked after a successful in-source rebuild so a reloader can
+    /// invalidate any stale tile-cache entries for this source. The receiver may be gone if
+    /// the reloader is shutting down — sends are best-effort.
+    #[dbg(skip)]
+    reload_signal: Option<UnboundedSender<String>>,
 }
 
 impl PmtilesSource {
@@ -95,13 +143,84 @@ impl PmtilesSource {
 
         Ok(Self {
             id,
-            pmtiles: Arc::new(reader),
+            reader: Arc::new(ArcSwap::from_pointee(reader)),
             tilejson,
             tile_info: format,
             cache_zoom,
+            rebuilder: None,
+            reload_signal: None,
         })
     }
+
+    /// Attach a rebuilder closure. With one configured, `get_tile` transparently rebuilds the
+    /// reader and retries on `PmtError::SourceModified` (the underlying blob's
+    /// `data_version_string` changed since this reader was constructed), so callers see a
+    /// successful response on the very same request that triggered detection.
+    #[must_use]
+    pub fn with_rebuilder(mut self, rebuilder: ReaderRebuilder) -> Self {
+        self.rebuilder = Some(rebuilder);
+        self
+    }
+
+    /// Build a `PmtilesSource` from an `object_store` URL plus options, with self-rebuild
+    /// already wired up. Each rebuild parses the URL afresh and mints a fresh
+    /// [`PmtCacheInstance`] so directory entries from the prior reader are unreachable from
+    /// the new one and age out via the moka TTL.
+    pub async fn from_object_store_url(
+        id: String,
+        url: Url,
+        options: HashMap<String, String>,
+        pmt_cache: PmtCache,
+        cache_zoom: CacheZoomRange,
+    ) -> Result<Self, PmtilesError> {
+        let dir_cache = PmtCacheInstance::new(next_pmtiles_cache_id(), pmt_cache.clone());
+        let (store, path) = object_store::parse_url_opts(&url, &options)
+            .map_err(|e| PmtilesError::ObjectStoreParse(e, url.to_string()))?;
+        let source = Self::new(dir_cache, id.clone(), store, path, cache_zoom).await?;
+
+        let rebuilder: ReaderRebuilder = Arc::new(move || {
+            let url = url.clone();
+            let options = options.clone();
+            let pmt_cache = pmt_cache.clone();
+            let id = id.clone();
+            Box::pin(async move {
+                let (store, path) = object_store::parse_url_opts(&url, &options)
+                    .map_err(|e| PmtilesError::ObjectStoreParse(e, url.to_string()))?;
+                let dir_cache = PmtCacheInstance::new(next_pmtiles_cache_id(), pmt_cache);
+                let store_to_string = store.to_string();
+                let backend = ObjectStoreBackend::new(store, path);
+                AsyncPmTilesReader::try_from_cached_source(backend, dir_cache)
+                    .await
+                    .map_err(|e| {
+                        PmtilesError::PmtErrorWithCtx(e, format!("{id} ({store_to_string})"))
+                    })
+            })
+        });
+        Ok(source.with_rebuilder(rebuilder))
+    }
+
+    /// Attach a reload-signal channel. Kicked (best-effort) on every in-source rebuild so a
+    /// reloader can invalidate stale tile-cache entries for this source's id.
+    #[must_use]
+    pub fn with_reload_signal(mut self, signal: UnboundedSender<String>) -> Self {
+        self.reload_signal = Some(signal);
+        self
+    }
+
+    /// Atomically install a freshly-built reader. Concurrent `SourceModified` detections
+    /// may each rebuild; the redundant rebuilds are rare and harmless (the last winner
+    /// installs the up-to-date reader and the others quickly observe an unchanged
+    /// `data_version_string`).
+    async fn rebuild_inner(&self) -> Result<(), PmtilesError> {
+        let Some(rebuilder) = &self.rebuilder else {
+            return Err(PmtilesError::PmtError(pmtiles::PmtError::SourceModified));
+        };
+        let fresh = (rebuilder)().await?;
+        self.reader.store(Arc::new(fresh));
+        Ok(())
+    }
 }
+
 #[async_trait]
 impl Source for PmtilesSource {
     fn get_id(&self) -> &str {
@@ -137,19 +256,32 @@ impl Source for PmtilesSource {
         _url_query: Option<&UrlQuery>,
     ) -> MartinCoreResult<TileData> {
         let coord = pmtiles::TileCoord::new(xyz.z, xyz.x, xyz.y).map_err(PmtilesError::PmtError)?;
-        if let Some(t) = self
-            .pmtiles
-            .get_tile(coord)
-            .await
-            .map_err(PmtilesError::PmtError)?
-        {
-            Ok(t.to_vec())
-        } else {
-            trace!(
-                "Couldn't find tile data in {}/{}/{} of {}",
-                xyz.z, xyz.x, xyz.y, &self.id
-            );
-            Ok(Vec::new())
+
+        match self.reader.load().get_tile(coord).await {
+            Ok(Some(t)) => Ok(t.to_vec()),
+            Ok(None) => {
+                trace!(
+                    "Couldn't find tile data in {}/{}/{} of {}",
+                    xyz.z, xyz.x, xyz.y, &self.id
+                );
+                Ok(Vec::new())
+            }
+            Err(pmtiles::PmtError::SourceModified) => {
+                trace!(
+                    "PMTiles source {} reports SourceModified; rebuilding in place",
+                    self.id
+                );
+                self.rebuild_inner().await?;
+                if let Some(tx) = &self.reload_signal {
+                    let _ = tx.send(self.id.clone());
+                }
+                match self.reader.load().get_tile(coord).await {
+                    Ok(Some(t)) => Ok(t.to_vec()),
+                    Ok(None) => Ok(Vec::new()),
+                    Err(e) => Err(PmtilesError::PmtError(e).into()),
+                }
+            }
+            Err(e) => Err(PmtilesError::PmtError(e).into()),
         }
     }
 }

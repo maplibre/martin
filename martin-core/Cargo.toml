@@ -54,7 +54,7 @@ sprites = [
 ]
 styles = ["tokio/fs", "dep:dashmap"]
 mbtiles = ["dep:backon", "dep:mbtiles", "dep:tokio", "_tiles"]
-pmtiles = ["dep:pmtiles", "dep:object_store", "_tiles"]
+pmtiles = ["dep:pmtiles", "dep:object_store", "dep:url", "dep:arc-swap", "_tiles"]
 _tiles = ["dep:base64"]
 test-pg = ["postgres"]
 
@@ -64,6 +64,7 @@ maplibre_native = { workspace = true, optional = true }
 
 [dependencies]
 actix-web = { workspace = true, optional = true }
+arc-swap = { workspace = true, optional = true }
 async-trait.workspace = true
 backon = { workspace = true, optional = true }
 base64  = { workspace = true, optional = true }
@@ -99,6 +100,7 @@ tilejson.workspace = true
 tokio = { workspace = true, optional = true }
 tokio-postgres-rustls = { workspace = true, optional = true }
 tracing.workspace = true
+url = { workspace = true, optional = true }
 xxhash-rust.workspace = true
 
 [dev-dependencies]
