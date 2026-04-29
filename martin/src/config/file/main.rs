@@ -87,25 +87,52 @@ pub struct ServerState {
 
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct Config {
-    /// Cache configuration: size limits and default zoom-level bounds.
+    /// Cache configuration
+    /// Use `cache: disable` to disable all caching entirely.
     #[serde(default, skip_serializing_if = "GlobalCacheConfig::is_empty")]
+    #[cfg_attr(
+        feature = "unstable-schemas",
+        schemars(with = "crate::config::file::GlobalCacheConfigShape")
+    )]
     pub cache: GlobalCacheConfig,
 
+    /// The policy for handling invalid sources during startup. \[default: abort\]
+    ///
+    /// Invalid sources are those that are missing (file not found, table doesn't exist, ...),
+    /// reference columns that don't exist, and so on.
+    /// Currently limited to tile sources; broader rollout is planned.
+    ///
+    /// Options:
+    /// - `warn`: log warning messages
+    /// - `abort`: log warnings as error messages, abort startup
     #[serde(default)]
     pub on_invalid: Option<OnInvalid>,
 
     #[serde(flatten)]
     pub srv: SrvConfig,
 
+    /// Database configuration
+    ///
+    /// This can also be a list of PG configs, for example:
+    /// ```yaml
+    /// postgres:
+    ///   - connection_string:  postgres://postgres:postgres@localhost:5432/db
+    ///     default_srid: 4326
+    ///   - connection_string:  postgres://postgres:postgres@another_host:5432/another_db
+    ///     default_srid: 3857
+    /// ```
     #[cfg(feature = "postgres")]
     #[serde(default, skip_serializing_if = "OptOneMany::is_none")]
     pub postgres: OptOneMany<PostgresConfig>,
 
+    /// Publish `PMTiles` files from local disk or proxy to a web server
     #[cfg(feature = "pmtiles")]
     #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
     pub pmtiles: FileConfigEnum<PmtConfig>,
 
+    /// Publish `MBTiles` files
     #[cfg(feature = "mbtiles")]
     #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
     pub mbtiles: FileConfigEnum<MbtConfig>,
@@ -114,19 +141,24 @@ pub struct Config {
     #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
     pub cog: FileConfigEnum<CogConfig>,
 
+    /// Sprite configuration
     #[cfg(feature = "sprites")]
     #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
     pub sprites: SpriteConfig,
 
+    /// Publish `MapLibre` style files
+    /// You can also configure us to render the styles on the server side.
     #[cfg(feature = "styles")]
     #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
     pub styles: StyleConfig,
 
+    /// Font configuration
     #[cfg(feature = "fonts")]
     #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
     pub fonts: FontConfig,
 
     #[serde(flatten, skip_serializing)]
+    #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub unrecognized: UnrecognizedValues,
 }
 
@@ -473,6 +505,7 @@ impl Config {
 /// Describes the action to take during startup when configuration is found to be invalid
 /// but Martin could still startup in a degraded state (ie, some sources not served).
 #[derive(PartialEq, Eq, Debug, Clone, Copy, Default, Serialize, Deserialize, ValueEnum)]
+#[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 #[serde(rename_all = "lowercase")]
 pub enum OnInvalid {
     /// Log warning messages, abort if the error is critical

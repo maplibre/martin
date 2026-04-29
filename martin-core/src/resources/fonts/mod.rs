@@ -98,6 +98,10 @@ pub type FontCatalog = HashMap<String, CatalogFontEntry>;
 /// Font metadata including family, style, glyph count, and Unicode range.
 #[serde_with::skip_serializing_none]
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "unstable-schemas",
+    derive(schemars::JsonSchema, utoipa::ToSchema)
+)]
 pub struct CatalogFontEntry {
     /// Font family name (e.g., "Arial").
     pub family: String,

@@ -106,6 +106,27 @@ jobs:
       - run: just clippy
       - run: just check
       - run: just check-doc
+  validate-schemas:
+    name: Validate generated config + OpenAPI schemas
+    permissions:
+      contents: read
+    # Run after lint-rust just to keep CI lane concurrency reasonable. The
+    # `schemas/` files this validates are kept up to date by the `gen-schemas`
+    # job in `.github/workflows/autofix.yml`, which regenerates and commits
+    # them on every PR push — so this job only needs to read the committed
+    # files, no Rust toolchain required.
+    needs:
+      - lint-rust
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with: { persist-credentials: false }
+      - uses: taiki-e/install-action@5f57d6cb7cd20b14a8a27f522884c4bc8a187458 # v2.75.19
+        with: { tool: 'just' }
+      - name: Install uv
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+      - run: just test-schemas
   lint-rust-dependencies:
     name: Lint Rust dependencies
     permissions:
@@ -774,7 +795,7 @@ jobs:
       attestations: write
       # for writing release artifacts
       contents: write
-    needs: [ lint-unit-test-js, unit-test-rust, lint-rust, lint-rust-dependencies, test-multi-os, test-with-svc, test-aws-lambda, test-publish, build-aarch64-apple-darwin, build-x86_64-apple-darwin, build-aarch64-unknown-linux-gnu, build-aarch64-unknown-linux-musl ]
+    needs: [ lint-unit-test-js, unit-test-rust, lint-rust, lint-rust-dependencies, validate-schemas, test-multi-os, test-with-svc, test-aws-lambda, test-publish, build-aarch64-apple-darwin, build-x86_64-apple-darwin, build-aarch64-unknown-linux-gnu, build-aarch64-unknown-linux-musl ]
     steps:
       - name: Checkout sources
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2

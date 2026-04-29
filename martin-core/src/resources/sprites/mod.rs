@@ -39,6 +39,10 @@ pub use cache::{NO_SPRITE_CACHE, OptSpriteCache, SpriteCache};
 
 /// Sprite source metadata.
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "unstable-schemas",
+    derive(schemars::JsonSchema, utoipa::ToSchema)
+)]
 pub struct CatalogSpriteEntry {
     /// Available sprite image names.
     pub images: Vec<String>,

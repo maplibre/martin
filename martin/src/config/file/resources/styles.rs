@@ -14,6 +14,7 @@ use crate::config::file::{
 use crate::config::primitives::OptBoolObj;
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct InnerStyleConfig {
     /// Allows static, server side, style rendering
     ///
@@ -25,6 +26,7 @@ pub struct InnerStyleConfig {
     pub rendering: OptBoolObj<RendererConfig>,
 
     #[serde(flatten, skip_serializing)]
+    #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub unrecognized: UnrecognizedValues,
 }
 
@@ -53,11 +55,13 @@ impl ConfigurationLivecycleHooks for InnerStyleConfig {
 
 #[cfg(all(feature = "rendering", target_os = "linux"))]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct RendererConfig {
     // Same effect as rendering: true|false shorthands
     enabled: bool,
 
     #[serde(flatten, skip_serializing)]
+    #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub unrecognized: UnrecognizedValues,
 }
 #[cfg(all(feature = "rendering", target_os = "linux"))]

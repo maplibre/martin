@@ -17,23 +17,38 @@ use crate::config::file::{
 
 #[serde_with::skip_serializing_none]
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct PmtConfig {
-    /// Cache configuration for `PMTiles` directory cache (size, expiry, idle timeout).
+    /// Size of the directory cache (in MB).
+    /// Defaults to `cache.size_mb` / 4
     ///
-    /// Overrides the global [`cache`](crate::config::file::Config::cache) settings.
+    /// Note:
+    /// Tile and directory caching are complementary.
+    /// For good performance, you want
+    /// - directory caching (to not resolve the directory on each request) and
+    /// - tile caching (for high access tiles)
+    ///
+    /// Use `directory_cache: disable` to disable
     #[serde(default, skip_serializing_if = "CacheSizeConfig::is_empty")]
+    #[cfg_attr(
+        feature = "unstable-schemas",
+        schemars(with = "crate::config::file::CacheSizeConfigShape")
+    )]
     pub directory_cache: CacheSizeConfig,
 
     // if the key is the allowed set, we assume it is there for a purpose
     // settings and unreconginsed values are partitioned from each other in the init_parsing step
     #[serde(skip)]
+    #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub options: HashMap<String, String>,
 
     #[serde(flatten, skip_serializing)]
+    #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub unrecognized: UnrecognizedValues,
 
     /// `PMTiles` directory cache (internal state, not serialized)
     #[serde(skip)]
+    #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub pmtiles_directory_cache: PmtCache,
 }
 

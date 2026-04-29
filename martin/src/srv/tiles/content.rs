@@ -32,6 +32,8 @@ const SUPPORTED_ENC: &[HeaderEnc] = &[
 ];
 
 #[derive(Deserialize, Clone)]
+#[cfg_attr(feature = "unstable-schemas", derive(utoipa::IntoParams))]
+#[cfg_attr(feature = "unstable-schemas", into_params(parameter_in = Path))]
 pub struct TileRequest {
     source_ids: String,
     z: u8,
@@ -39,6 +41,21 @@ pub struct TileRequest {
     y: u32,
 }
 
+#[cfg_attr(
+    feature = "unstable-schemas",
+    utoipa::path(
+        get,
+        path = "/{source_ids}/{z}/{x}/{y}",
+        params(TileRequest),
+        responses(
+            (status = 200, description = "Encoded vector or raster tile"),
+            (status = 204, description = "Source(s) returned an empty tile"),
+            (status = 304, description = "ETag matched If-None-Match"),
+            (status = 404, description = "No matching source"),
+            (status = 406, description = "No supported tile format in Accept header"),
+        ),
+    )
+)]
 #[route("/{source_ids}/{z}/{x}/{y}", method = "GET", method = "HEAD")]
 #[hotpath::measure]
 #[instrument(
@@ -52,7 +69,7 @@ pub struct TileRequest {
     ),
     err(Debug),
 )]
-async fn get_tile(
+pub async fn get_tile(
     req: HttpRequest,
     srv_config: Data<SrvConfig>,
     path: Path<TileRequest>,
