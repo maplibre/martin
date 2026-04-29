@@ -27,14 +27,20 @@
           "format": "uint8",
           "maximum": 255,
           "minimum": 0,
-          "type": ["integer", "null"]
+          "type": [
+            "integer",
+            "null"
+          ]
         },
         "minzoom": {
           "description": "Default minimum zoom level (inclusive) for tile caching.\nTiles further zoomed out than this will bypass the cache entirely.\nCan be overridden per-source (e.g. `cache.minzoom` on a type of source or an individual source).\ndefault: null (no lower bound, all zoom levels cached)",
           "format": "uint8",
           "maximum": 255,
           "minimum": 0,
-          "type": ["integer", "null"]
+          "type": [
+            "integer",
+            "null"
+          ]
         }
       },
       "type": "object"
@@ -54,18 +60,29 @@
       "properties": {
         "expiry": {
           "description": "Maximum lifetime for cache entries.\ndefault: null (inherits from `cache.expiry`)",
-          "type": ["string", "null"]
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "idle_timeout": {
           "description": "Maximum idle time for cache entries.\ndefault: null (inherits from `cache.idle_timeout`)",
-          "type": ["string", "null"]
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "size_mb": {
           "description": "Size of the cache in MB (0 to disable).\ndefault: inherits from `cache.size_mb` (with a per-source split)",
-          "examples": [64],
+          "examples": [
+            64
+          ],
           "format": "uint64",
           "minimum": 0,
-          "type": ["integer", "null"]
+          "type": [
+            "integer",
+            "null"
+          ]
         }
       },
       "type": "object"
@@ -94,15 +111,24 @@
       "properties": {
         "max_age": {
           "description": "Sets `Access-Control-Max-Age` Header. \\[default: null\\]\nnull means not setting the header for preflight requests",
-          "examples": [3600],
+          "examples": [
+            3600
+          ],
           "format": "uint",
           "minimum": 0,
-          "type": ["integer", "null"]
+          "type": [
+            "integer",
+            "null"
+          ]
         },
         "origin": {
           "default": [],
           "description": "Sets the `Access-Control-Allow-Origin` header \\[default: *\\]\n'*' will use the requests `ORIGIN` header",
-          "examples": [["https://example.org"]],
+          "examples": [
+            [
+              "https://example.org"
+            ]
+          ],
           "items": {
             "type": "string"
           },
@@ -112,7 +138,9 @@
       "type": "object"
     },
     "DisableLiteral": {
-      "enum": ["disable"],
+      "enum": [
+        "disable"
+      ],
       "type": "string"
     },
     "FileConfig": {
@@ -130,7 +158,10 @@
             "$ref": "#/$defs/FileConfigSrc"
           },
           "description": "A map of source IDs to file paths or config objects",
-          "type": ["object", "null"]
+          "type": [
+            "object",
+            "null"
+          ]
         }
       },
       "type": "object"
@@ -146,7 +177,10 @@
             "$ref": "#/$defs/FileConfigSrc"
           },
           "description": "A map of source IDs to file paths or config objects",
-          "type": ["object", "null"]
+          "type": [
+            "object",
+            "null"
+          ]
         }
       },
       "type": "object"
@@ -166,7 +200,10 @@
             "$ref": "#/$defs/FileConfigSrc"
           },
           "description": "A map of source IDs to file paths or config objects",
-          "type": ["object", "null"]
+          "type": [
+            "object",
+            "null"
+          ]
         }
       },
       "type": "object"
@@ -182,7 +219,10 @@
             "$ref": "#/$defs/FileConfigSrc"
           },
           "description": "A map of source IDs to file paths or config objects",
-          "type": ["object", "null"]
+          "type": [
+            "object",
+            "null"
+          ]
         }
       },
       "type": "object"
@@ -202,7 +242,10 @@
             "$ref": "#/$defs/FileConfigSrc"
           },
           "description": "A map of source IDs to file paths or config objects",
-          "type": ["object", "null"]
+          "type": [
+            "object",
+            "null"
+          ]
         }
       },
       "type": "object"
@@ -312,7 +355,9 @@
           "type": "string"
         }
       },
-      "required": ["path"],
+      "required": [
+        "path"
+      ],
       "type": "object"
     },
     "FileConfigSrc": {
@@ -330,14 +375,24 @@
       "properties": {
         "bounds": {
           "description": "The maximum extent of available map tiles. Bounds MUST define an area\ncovered by all zoom levels. The bounds are represented in WGS:84\nlatitude and longitude values, in the order left, bottom, right, top.\nValues may be integers or floating point numbers.",
-          "examples": [[-180.0, -90.0, 180.0, 90.0]],
+          "examples": [
+            [
+              -180.0,
+              -90.0,
+              180.0,
+              90.0
+            ]
+          ],
           "items": {
             "format": "double",
             "type": "number"
           },
           "maxItems": 4,
           "minItems": 4,
-          "type": ["array", "null"]
+          "type": [
+            "array",
+            "null"
+          ]
         },
         "cache": {
           "anyOf": [
@@ -352,32 +407,49 @@
         },
         "function": {
           "description": "Function name (required)",
-          "examples": ["function_zxy_query"],
+          "examples": [
+            "function_zxy_query"
+          ],
           "type": "string"
         },
         "maxzoom": {
           "description": "An integer specifying the maximum zoom level. MUST be >= minzoom",
-          "examples": [21],
+          "examples": [
+            21
+          ],
           "format": "uint8",
           "maximum": 255,
           "minimum": 0,
-          "type": ["integer", "null"]
+          "type": [
+            "integer",
+            "null"
+          ]
         },
         "minzoom": {
           "description": "An integer specifying the minimum zoom level",
-          "examples": [0],
+          "examples": [
+            0
+          ],
           "format": "uint8",
           "maximum": 255,
           "minimum": 0,
-          "type": ["integer", "null"]
+          "type": [
+            "integer",
+            "null"
+          ]
         },
         "schema": {
           "description": "Schema name (required)",
-          "examples": ["public"],
+          "examples": [
+            "public"
+          ],
           "type": "string"
         }
       },
-      "required": ["schema", "function"],
+      "required": [
+        "schema",
+        "function"
+      ],
       "type": "object"
     },
     "GlobalCacheConfig": {
@@ -385,47 +457,75 @@
       "properties": {
         "expiry": {
           "description": "Maximum lifetime for all cache entries (time-to-live from creation).\nEntries are evicted after this duration regardless of access.\nSupports human-readable formats: \"1h\", \"30m\", \"1d\", \"3600s\".\ndefault: null (no expiry, entries only evicted by size pressure)",
-          "type": ["string", "null"]
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "idle_timeout": {
           "description": "Maximum idle time for all cache entries (time-to-idle since last access).\nEntries are evicted if not accessed within this duration.\ndefault: null (no idle timeout)",
-          "type": ["string", "null"]
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "maxzoom": {
           "description": "Default maximum zoom level (inclusive) for tile caching.\nTiles further zoomed in than this will bypass the cache entirely.\nCan be overridden per-source.\ndefault: null (no upper bound, all zoom levels cached)",
           "format": "uint8",
           "maximum": 255,
           "minimum": 0,
-          "type": ["integer", "null"]
+          "type": [
+            "integer",
+            "null"
+          ]
         },
         "minzoom": {
           "description": "Default minimum zoom level (inclusive) for tile caching.\nTiles further zoomed out than this will bypass the cache entirely.\nCan be overridden per-source (e.g. `cache.minzoom` on a type of source or an individual source).\ndefault: null (no lower bound, all zoom levels cached)",
           "format": "uint8",
           "maximum": 255,
           "minimum": 0,
-          "type": ["integer", "null"]
+          "type": [
+            "integer",
+            "null"
+          ]
         },
         "size_mb": {
           "description": "Total amount of cache we use \\[default: 512, 0 to disable\\]\nBy default, this is split up between:\n- Tiles 50% -> 256 MB\n- Pmtiles' directories 25% -> 128 MB\n- Fonts 12.5% -> 64 MB\n- Sprites 12.5% -> 64 MB\n\nHow the cache works internally is unstable and may change to improve performance/efficiency.\nFor example, we may change the split between sources to improve efficiency.\n\nSpecify each cache size individually for finer cache size control:\n- Tiles: `cache.tile_size_mb`\n- Pmtiles: `pmtiles.directory_cache.size_mb`\n- Fonts: `fonts.cache.size_mb`\n- Sprites: `sprites.cache.size_mb`",
-          "examples": [512],
+          "examples": [
+            512
+          ],
           "format": "uint64",
           "minimum": 0,
-          "type": ["integer", "null"]
+          "type": [
+            "integer",
+            "null"
+          ]
         },
         "tile_expiry": {
           "description": "Tile-specific TTL override. Takes precedence over `cache.expiry` for tiles.\ndefault: null (inherits from `cache.expiry`)",
-          "type": ["string", "null"]
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "tile_idle_timeout": {
           "description": "Tile-specific idle timeout override. Takes precedence over `cache.idle_timeout` for tiles.\ndefault: null (inherits from `cache.idle_timeout`)",
-          "type": ["string", "null"]
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "tile_size_mb": {
           "description": "Allows overriding the size of the tile cache.\nDefaults to `cache.size_mb` / 2",
-          "examples": [256],
+          "examples": [
+            256
+          ],
           "format": "uint64",
           "minimum": 0,
-          "type": ["integer", "null"]
+          "type": [
+            "integer",
+            "null"
+          ]
         }
       },
       "type": "object"
@@ -588,8 +688,13 @@
         },
         "source_id_format": {
           "description": "Optionally set how source ID should be generated based on the function's\nname and schema",
-          "examples": ["{schema}.{function}"],
-          "type": ["string", "null"]
+          "examples": [
+            "{schema}.{function}"
+          ],
+          "type": [
+            "string",
+            "null"
+          ]
         }
       },
       "type": "object"
@@ -598,22 +703,37 @@
       "properties": {
         "buffer": {
           "description": "Buffer distance in tile coordinate space to optionally clip geometries,\noptional, default to 64",
-          "examples": [64],
+          "examples": [
+            64
+          ],
           "format": "uint32",
           "minimum": 0,
-          "type": ["integer", "null"]
+          "type": [
+            "integer",
+            "null"
+          ]
         },
         "clip_geom": {
           "description": "Controls if geometries should be clipped or encoded as is \\[default: true\\]",
-          "examples": [true],
-          "type": ["boolean", "null"]
+          "examples": [
+            true
+          ],
+          "type": [
+            "boolean",
+            "null"
+          ]
         },
         "extent": {
           "description": "Tile extent in tile coordinate space, optional, default to 4096",
-          "examples": [4096],
+          "examples": [
+            4096
+          ],
           "format": "uint32",
           "minimum": 0,
-          "type": ["integer", "null"]
+          "type": [
+            "integer",
+            "null"
+          ]
         },
         "from_schemas": {
           "$ref": "#/$defs/OptOneMany2",
@@ -625,8 +745,13 @@
         },
         "source_id_format": {
           "description": "Optionally set how source ID should be generated based on the table's name,\nschema, and geometry column",
-          "examples": ["table.{schema}.{table}.{column}"],
-          "type": ["string", "null"]
+          "examples": [
+            "table.{schema}.{table}.{column}"
+          ],
+          "type": [
+            "string",
+            "null"
+          ]
         }
       },
       "type": "object"
@@ -650,83 +775,140 @@
         },
         "connection_string": {
           "description": "Database connection string.\n\nYou can use environment variables too, for example:\n`connection_string: $DATABASE_URL`\n`connection_string: ${DATABASE_URL:-postgres://postgres@localhost/db}`",
-          "examples": ["postgres://postgres@localhost:5432/db"],
-          "type": ["string", "null"]
+          "examples": [
+            "postgres://postgres@localhost:5432/db"
+          ],
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "default_srid": {
           "description": "If a spatial table has SRID 0, then this SRID will be used as a fallback",
-          "examples": [4326],
+          "examples": [
+            4326
+          ],
           "format": "int32",
-          "type": ["integer", "null"]
+          "type": [
+            "integer",
+            "null"
+          ]
         },
         "functions": {
           "additionalProperties": {
             "$ref": "#/$defs/FunctionInfo"
           },
           "description": "Associative arrays of function sources",
-          "type": ["object", "null"]
+          "type": [
+            "object",
+            "null"
+          ]
         },
         "max_feature_count": {
           "description": "Limit the number of geo features per tile.\n\nIf the source table has more features than set here, they will not be\nincluded in the tile and the result will look \"cut off\"/incomplete.\nThis feature allows you to put a maximum latency bound on tiles with an\nextreme amount of detail at the cost of not returning all data.\nIt is sensible to set this limit if you have user generated/untrusted\ngeodata, e.g. a lot of data points at [Null Island]\n(<https://en.wikipedia.org/wiki/Null_Island>).\n\neither a positive integer, or null=unlimited (default)",
           "format": "uint",
           "minimum": 0,
-          "type": ["integer", "null"]
+          "type": [
+            "integer",
+            "null"
+          ]
         },
         "pool_size": {
           "description": "Maximum Postgres connections pool size \\[default: 20\\]",
-          "examples": [20],
+          "examples": [
+            20
+          ],
           "format": "uint",
           "minimum": 0,
-          "type": ["integer", "null"]
+          "type": [
+            "integer",
+            "null"
+          ]
         },
         "ssl_cert": {
           "description": "Same as `PGSSLCERT` for `psql`",
-          "examples": ["./postgresql.crt"],
-          "type": ["string", "null"]
+          "examples": [
+            "./postgresql.crt"
+          ],
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "ssl_key": {
           "description": "Same as `PGSSLKEY` for `psql`",
-          "examples": ["./postgresql.key"],
-          "type": ["string", "null"]
+          "examples": [
+            "./postgresql.key"
+          ],
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "ssl_root_cert": {
           "description": "Same as `PGSSLROOTCERT` for `psql`",
-          "examples": ["./root.crt"],
-          "type": ["string", "null"]
+          "examples": [
+            "./root.crt"
+          ],
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "tables": {
           "additionalProperties": {
             "$ref": "#/$defs/TableInfo"
           },
           "description": "Associative arrays of table sources",
-          "type": ["object", "null"]
+          "type": [
+            "object",
+            "null"
+          ]
         }
       },
       "type": "object"
     },
     "PreferredEncoding": {
-      "enum": ["brotli", "gzip"],
+      "enum": [
+        "brotli",
+        "gzip"
+      ],
       "type": "string"
     },
     "TableInfo": {
       "properties": {
         "bounds": {
           "description": "The maximum extent of available map tiles. Bounds MUST define an area\ncovered by all zoom levels. The bounds are represented in WGS:84 latitude\nand longitude values, in the order left, bottom, right, top. Values may\nbe integers or floating point numbers.",
-          "examples": [[-180.0, -90.0, 180.0, 90.0]],
+          "examples": [
+            [
+              -180.0,
+              -90.0,
+              180.0,
+              90.0
+            ]
+          ],
           "items": {
             "format": "double",
             "type": "number"
           },
           "maxItems": 4,
           "minItems": 4,
-          "type": ["array", "null"]
+          "type": [
+            "array",
+            "null"
+          ]
         },
         "buffer": {
           "description": "Buffer distance in tile coordinate space to optionally clip geometries",
-          "examples": [64],
+          "examples": [
+            64
+          ],
           "format": "uint32",
           "minimum": 0,
-          "type": ["integer", "null"]
+          "type": [
+            "integer",
+            "null"
+          ]
         },
         "cache": {
           "anyOf": [
@@ -741,76 +923,125 @@
         },
         "clip_geom": {
           "description": "Boolean to control if geometries should be clipped or encoded as is",
-          "examples": [true],
-          "type": ["boolean", "null"]
+          "examples": [
+            true
+          ],
+          "type": [
+            "boolean",
+            "null"
+          ]
         },
         "extent": {
           "description": "Tile extent in tile coordinate space",
-          "examples": [4096],
+          "examples": [
+            4096
+          ],
           "format": "uint32",
           "minimum": 0,
-          "type": ["integer", "null"]
+          "type": [
+            "integer",
+            "null"
+          ]
         },
         "geometry_column": {
           "description": "Geometry column name (required)",
-          "examples": ["geom"],
+          "examples": [
+            "geom"
+          ],
           "type": "string"
         },
         "geometry_type": {
           "description": "Geometry type",
-          "examples": ["GEOMETRY"],
-          "type": ["string", "null"]
+          "examples": [
+            "GEOMETRY"
+          ],
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "id_column": {
           "description": "Feature id column name",
-          "type": ["string", "null"]
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "layer_id": {
           "description": "ID of the MVT layer (optional, defaults to table name)",
-          "examples": ["table_source"],
-          "type": ["string", "null"]
+          "examples": [
+            "table_source"
+          ],
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "maxzoom": {
           "description": "An integer specifying the maximum zoom level. MUST be >= minzoom",
-          "examples": [30],
+          "examples": [
+            30
+          ],
           "format": "uint8",
           "maximum": 255,
           "minimum": 0,
-          "type": ["integer", "null"]
+          "type": [
+            "integer",
+            "null"
+          ]
         },
         "minzoom": {
           "description": "An integer specifying the minimum zoom level",
-          "examples": [0],
+          "examples": [
+            0
+          ],
           "format": "uint8",
           "maximum": 255,
           "minimum": 0,
-          "type": ["integer", "null"]
+          "type": [
+            "integer",
+            "null"
+          ]
         },
         "properties": {
           "additionalProperties": {
             "type": "string"
           },
           "description": "List of columns, that should be encoded as tile properties (required)\n\nKeys and values are the names and descriptions of attributes available in this layer.\nEach value (description) must be a string that describes the underlying data.\nIf no fields (=just the geometry) should be encoded, an empty object is allowed.",
-          "type": ["object", "null"]
+          "type": [
+            "object",
+            "null"
+          ]
         },
         "schema": {
           "description": "Table schema (required)",
-          "examples": ["public"],
+          "examples": [
+            "public"
+          ],
           "type": "string"
         },
         "srid": {
           "description": "Geometry SRID (required)",
-          "examples": [4326],
+          "examples": [
+            4326
+          ],
           "format": "int32",
           "type": "integer"
         },
         "table": {
           "description": "Table name (required)",
-          "examples": ["table_source"],
+          "examples": [
+            "table_source"
+          ],
           "type": "string"
         }
       },
-      "required": ["schema", "table", "srid", "geometry_column"],
+      "required": [
+        "schema",
+        "table",
+        "srid",
+        "geometry_column"
+      ],
       "type": "object"
     }
   },
@@ -818,7 +1049,10 @@
   "properties": {
     "base_path": {
       "description": "Set `TileJSON` URL path prefix.\nThis overrides the default path prefix for URLs in `TileJSON` responses.\nIf both `route_prefix` and `base_path` are set, `base_path` takes priority for `TileJSON` URLs.\nIf neither is set, the `X-Rewrite-URL` header is respected.\nMust begin with a `/`.\nExamples: `/`, `/tiles`",
-      "type": ["string", "null"]
+      "type": [
+        "string",
+        "null"
+      ]
     },
     "cache": {
       "$ref": "#/$defs/GlobalCacheConfigShape",
@@ -841,15 +1075,25 @@
     },
     "keep_alive": {
       "description": "Connection keep alive timeout \\[default: 75\\]",
-      "examples": [75],
+      "examples": [
+        75
+      ],
       "format": "uint64",
       "minimum": 0,
-      "type": ["integer", "null"]
+      "type": [
+        "integer",
+        "null"
+      ]
     },
     "listen_addresses": {
       "description": "The socket address to bind \\[default: `0.0.0.0:3000`\\]",
-      "examples": ["0.0.0.0:3000"],
-      "type": ["string", "null"]
+      "examples": [
+        "0.0.0.0:3000"
+      ],
+      "type": [
+        "string",
+        "null"
+      ]
     },
     "mbtiles": {
       "$ref": "#/$defs/FileConfigEnum2",
@@ -898,7 +1142,10 @@
     },
     "route_prefix": {
       "description": "Set the URL path prefix for all API routes.\nWhen set, Martin will serve all endpoints under this path prefix.\nThis allows Martin to be served under a subpath when behind a reverse proxy (e.g., Traefik).\nMust begin with a `/`.\nExamples: `/tiles`, `/api/v1/tiles`",
-      "type": ["string", "null"]
+      "type": [
+        "string",
+        "null"
+      ]
     },
     "sprites": {
       "$ref": "#/$defs/FileConfigEnum3",
@@ -910,15 +1157,25 @@
     },
     "tilejson_url_version_param": {
       "description": "If set, the version of the tileset (as specified in the `MBTiles` or `PMTiles` metadata)\nwill be embedded in the `TileJSON` `tiles` URL, with the set identifier.\nThis is useful to give clients a better way to cache-bust a CDN:\n1. maplibre requests tilejson, tilejson contains the tiles URL. This is always up-to-date.\n2. maplibre requests each tile it requires, with the tiles URL in the tilejson.\n3. Add `Control: public, max-age=..., immutable` on the tile responses\n   optimize browser/CDN cache hit rates, while also making sure that\n   old tiles aren't served when a new tileset is deployed.\n\nThe CDN must handle query parameters for caching to work correctly.\nMany CDNs ignore them by default.\n\nFor example, if\n- the setting here is `version`, and\n- the `PMTiles` tileset version is `1.0.0`, the\n`TileJSON` will be:\n`{ ..., \"tiles\": [\".../{z}/{x}/{y}?version=1.0.0\"], ... }`",
-      "examples": ["version"],
-      "type": ["string", "null"]
+      "examples": [
+        "version"
+      ],
+      "type": [
+        "string",
+        "null"
+      ]
     },
     "worker_processes": {
       "description": "Number of web server workers",
-      "examples": [8],
+      "examples": [
+        8
+      ],
       "format": "uint",
       "minimum": 0,
-      "type": ["integer", "null"]
+      "type": [
+        "integer",
+        "null"
+      ]
     }
   },
   "title": "Config",
