@@ -1,4 +1,4 @@
-//! Emit the generated JSON Schema (config) and OpenAPI spec (HTTP API) to
+//! Emit the generated JSON Schema (config) and `OpenAPI` spec (HTTP API) to
 //! stdout, one document per `--target` invocation.
 //!
 //! Usage:

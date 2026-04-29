@@ -4,36 +4,114 @@
       "Catalog": {
         "properties": {
           "fonts": {
-            "$ref": "#/components/schemas/HashMap"
+            "additionalProperties": {
+              "description": "Font metadata including family, style, glyph count, and Unicode range.",
+              "properties": {
+                "end": {
+                  "description": "Last Unicode codepoint available.",
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "family": {
+                  "description": "Font family name (e.g., \"Arial\").",
+                  "type": "string"
+                },
+                "glyphs": {
+                  "description": "Total number of glyphs in this font.",
+                  "format": "int32",
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "start": {
+                  "description": "First Unicode codepoint available.",
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "style": {
+                  "description": "Font style (e.g., \"Bold\", \"Italic\").\n\nNone for regular style.",
+                  "type": ["string", "null"]
+                }
+              },
+              "required": ["family", "glyphs", "start", "end"],
+              "type": "object"
+            },
+            "propertyNames": {
+              "type": "string"
+            },
+            "type": "object"
           },
           "sprites": {
-            "$ref": "#/components/schemas/HashMap"
+            "additionalProperties": {
+              "description": "Sprite source metadata.",
+              "properties": {
+                "images": {
+                  "description": "Available sprite image names.",
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                }
+              },
+              "required": ["images"],
+              "type": "object"
+            },
+            "propertyNames": {
+              "type": "string"
+            },
+            "type": "object"
           },
           "styles": {
-            "$ref": "#/components/schemas/HashMap"
+            "additionalProperties": {
+              "description": "Style metadata.",
+              "properties": {
+                "path": {
+                  "description": "Path to the style JSON file.",
+                  "type": "string"
+                }
+              },
+              "required": ["path"],
+              "type": "object"
+            },
+            "propertyNames": {
+              "type": "string"
+            },
+            "type": "object"
           },
           "tiles": {
-            "$ref": "#/components/schemas/HashMap"
+            "additionalProperties": {
+              "description": "Metadata for a tile source in the catalog.\n\nContains information needed to properly serve tiles from a source,\nincluding HTTP headers and human-readable metadata.",
+              "properties": {
+                "attribution": {
+                  "description": "Attribution text for the data source",
+                  "type": ["string", "null"]
+                },
+                "content_encoding": {
+                  "description": "Optional content encoding (e.g., \"gzip\", \"deflate\")",
+                  "type": ["string", "null"]
+                },
+                "content_type": {
+                  "description": "MIME type for the tile data (e.g., \"application/x-protobuf\", \"image/png\")",
+                  "type": "string"
+                },
+                "description": {
+                  "description": "Description of the tile source content",
+                  "type": ["string", "null"]
+                },
+                "name": {
+                  "description": "Human-readable name for the tile source",
+                  "type": ["string", "null"]
+                }
+              },
+              "required": ["content_type"],
+              "type": "object"
+            },
+            "propertyNames": {
+              "type": "string"
+            },
+            "type": "object"
           }
         },
         "required": ["tiles", "sprites", "fonts", "styles"],
-        "type": "object"
-      },
-      "HashMap": {
-        "additionalProperties": {
-          "description": "Style metadata.",
-          "properties": {
-            "path": {
-              "description": "Path to the style JSON file.",
-              "type": "string"
-            }
-          },
-          "required": ["path"],
-          "type": "object"
-        },
-        "propertyNames": {
-          "type": "string"
-        },
         "type": "object"
       }
     }
@@ -67,7 +145,7 @@
             "description": "Catalog of all configured sources"
           }
         },
-        "tags": ["crate::srv::admin"]
+        "tags": ["crate::srv"]
       }
     },
     "/health": {
@@ -86,7 +164,7 @@
           }
         },
         "summary": "Return 200 OK if healthy. Used for readiness and liveness probes.",
-        "tags": ["crate::srv::server"]
+        "tags": ["crate::srv"]
       }
     }
   }

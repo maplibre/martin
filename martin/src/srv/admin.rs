@@ -17,13 +17,21 @@ use crate::config::file::ServerState;
     derive(schemars::JsonSchema, utoipa::ToSchema)
 )]
 pub struct Catalog {
+    // utoipa <=5.4 names every `HashMap<K, V>` as `HashMap`, so the four
+    // catalog fields would collide on a single `$ref` if we let them factor
+    // out — `#[schema(inline)]` keeps the schema for each field inline and
+    // distinct.
     #[cfg(feature = "_tiles")]
+    #[cfg_attr(feature = "unstable-schemas", schema(inline))]
     pub tiles: TileCatalog,
     #[cfg(feature = "sprites")]
+    #[cfg_attr(feature = "unstable-schemas", schema(inline))]
     pub sprites: martin_core::sprites::SpriteCatalog,
     #[cfg(feature = "fonts")]
+    #[cfg_attr(feature = "unstable-schemas", schema(inline))]
     pub fonts: martin_core::fonts::FontCatalog,
     #[cfg(feature = "styles")]
+    #[cfg_attr(feature = "unstable-schemas", schema(inline))]
     pub styles: martin_core::styles::StyleCatalog,
 }
 

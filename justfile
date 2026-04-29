@@ -85,6 +85,49 @@ gen-schemas:
     cargo run --quiet --no-default-features --features "$features" \
         --bin gen-schemas -- --target openapi > schemas/openapi.json
 
+# Validate the generated config + OpenAPI schemas: that they are themselves
+# well-formed (against the JSON Schema 2020-12 metaschema and the OpenAPI 3.1
+# spec), and that the real config fixtures shipped with martin pass the
+# generated config schema. Requires `uv` (provides `uvx`).
+test-schemas:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [[ ! -f schemas/config.json || ! -f schemas/openapi.json ]]; then
+        echo "schemas/config.json or schemas/openapi.json missing — run 'just gen-schemas' first" >&2
+        exit 1
+    fi
+
+    echo "::group::Validate config JSON Schema is itself a valid JSON Schema"
+    uvx --from check-jsonschema check-jsonschema \
+        --check-metaschema schemas/config.json
+    echo "::endgroup::"
+
+    echo "::group::Validate OpenAPI document against the OpenAPI 3.1 spec"
+    uvx --from openapi-spec-validator openapi-spec-validator \
+        schemas/openapi.json
+    echo "::endgroup::"
+
+    echo "::group::Validate real config fixtures against the config schema"
+    # `tests/expected/*/save_config.yaml` are the post-resolved configs Martin
+    # writes via `--save-config`, with no env-substitution placeholders, so they
+    # are clean inputs for schema validation. If a real config doesn't validate,
+    # the schema is wrong, not the config.
+    fixtures=(
+        tests/expected/auto/save_config.yaml
+        tests/expected/auto_mini/save_config.yaml
+        tests/expected/configured/save_config.yaml
+    )
+    for f in "${fixtures[@]}"; do
+        if [[ -f "$f" ]]; then
+            echo "  -> $f"
+            uvx --from check-jsonschema check-jsonschema \
+                --schemafile schemas/config.json "$f"
+        else
+            echo "  -- skipping missing $f"
+        fi
+    done
+    echo "::endgroup::"
+
 # Run integration tests and save its output as the new expected output (ordering is important)
 bless:
     #!/usr/bin/env bash

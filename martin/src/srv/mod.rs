@@ -1,13 +1,20 @@
 #[cfg(feature = "fonts")]
 mod fonts;
 
-// `pub mod` so the `unstable-schemas` feature can name `get_health` and
-// `get_catalog` from `martin::schemas` for utoipa's `#[openapi(paths(...))]`.
-pub mod server;
+mod server;
 pub use server::{RESERVED_KEYWORDS, new_server, router};
+// utoipa's `#[utoipa::path(...)]` macro generates a sibling `__path_<fn>`
+// struct that `#[derive(OpenApi)]` resolves at the same import path as the
+// handler. Re-export both so `martin::schemas` can address them via
+// `crate::srv::get_health` without making `mod server` itself `pub` (that
+// would expose private helpers to clippy::pedantic / `must_use_candidate`).
+#[cfg(feature = "unstable-schemas")]
+pub use server::{__path_get_health, get_health};
 
-pub mod admin;
+mod admin;
 pub use admin::Catalog;
+#[cfg(feature = "unstable-schemas")]
+pub use admin::{__path_get_catalog, get_catalog};
 
 #[cfg(feature = "_tiles")]
 mod tiles;

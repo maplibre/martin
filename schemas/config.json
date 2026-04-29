@@ -437,7 +437,6 @@
           "type": "object"
         }
       },
-      "required": ["add_labels"],
       "type": "object"
     },
     "ObservabilityConfig": {

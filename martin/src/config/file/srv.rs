@@ -105,7 +105,7 @@ pub struct MetricsConfig {
     /// ```json
     /// { env: prod, server: martin }
     /// ```
-    #[serde(skip_serializing_if = "HashMap::is_empty")]
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
     pub add_labels: HashMap<String, String>,
 
     #[serde(flatten, skip_serializing)]
