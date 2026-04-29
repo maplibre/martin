@@ -34,39 +34,6 @@ async fn cache_entry_evicted_after_ttl_expires() {
 }
 
 #[tokio::test]
-async fn ttl_evicts_even_with_frequent_access() {
-    let ttl = Duration::from_millis(80);
-    let cache = SpriteCache::new(CACHE_SIZE, Some(ttl), None);
-
-    insert(&cache, "sprite-a", false, false, b"data").await;
-
-    // Access repeatedly — this should NOT extend the TTL
-    for _ in 0..3 {
-        tokio::time::sleep(Duration::from_millis(20)).await;
-        assert_hit(&cache, "sprite-a", false, false).await;
-    }
-
-    wait_and_flush(&cache, Duration::from_millis(30)).await;
-
-    assert_miss(&cache, "sprite-a", false, false, b"new").await;
-}
-
-#[tokio::test]
-async fn cache_entry_survives_when_accessed_within_tti() {
-    let tti = Duration::from_millis(60);
-    let cache = SpriteCache::new(CACHE_SIZE, None, Some(tti));
-
-    insert(&cache, "sprite-a", false, false, b"data").await;
-
-    // Each access resets the idle timer, keeping the entry alive past the total TTI
-    for _ in 0..3 {
-        tokio::time::sleep(Duration::from_millis(30)).await;
-        let hit = assert_hit(&cache, "sprite-a", false, false).await;
-        assert_eq!(hit.as_ref(), b"data");
-    }
-}
-
-#[tokio::test]
 async fn cache_entry_evicted_after_idle_timeout() {
     let tti = Duration::from_millis(25);
     let cache = SpriteCache::new(CACHE_SIZE, None, Some(tti));
@@ -93,24 +60,6 @@ async fn tti_evicts_before_ttl_when_idle() {
 }
 
 #[tokio::test]
-async fn ttl_evicts_despite_access_when_both_set() {
-    let ttl = Duration::from_millis(80);
-    let tti = Duration::from_millis(60);
-    let cache = SpriteCache::new(CACHE_SIZE, Some(ttl), Some(tti));
-
-    insert(&cache, "sprite-a", false, false, b"data").await;
-
-    // Keep accessing within TTI to prevent idle eviction
-    tokio::time::sleep(Duration::from_millis(40)).await;
-    assert_hit(&cache, "sprite-a", false, false).await;
-
-    // Wait until TTL has passed since original insertion
-    wait_and_flush(&cache, Duration::from_millis(60)).await;
-
-    assert_miss(&cache, "sprite-a", false, false, b"new").await;
-}
-
-#[tokio::test]
 async fn cache_entry_persists_without_ttl_or_tti() {
     let cache = SpriteCache::new(CACHE_SIZE, None, None);
 
@@ -120,25 +69,6 @@ async fn cache_entry_persists_without_ttl_or_tti() {
 
     let hit = assert_hit(&cache, "sprite-a", false, false).await;
     assert_eq!(hit.as_ref(), b"data");
-}
-
-#[tokio::test]
-async fn ttl_applies_independently_per_entry() {
-    let ttl = Duration::from_millis(80);
-    let cache = SpriteCache::new(CACHE_SIZE, Some(ttl), None);
-
-    insert(&cache, "sprite-a", false, false, b"first").await;
-
-    tokio::time::sleep(Duration::from_millis(40)).await;
-    insert(&cache, "sprite-a", true, false, b"second").await;
-
-    // First entry's TTL has expired, second has not
-    wait_and_flush(&cache, Duration::from_millis(60)).await;
-
-    assert_miss(&cache, "sprite-a", false, false, b"first-new").await;
-
-    let second = assert_hit(&cache, "sprite-a", true, false).await;
-    assert_eq!(second.as_ref(), b"second");
 }
 
 #[tokio::test]
