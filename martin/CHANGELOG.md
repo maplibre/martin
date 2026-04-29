@@ -11,11 +11,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- derive JSON Schema (config) + OpenAPI (HTTP API) behind `unstable-schemas` ([#2760](https://github.com/maplibre/martin/pull/2760))
+### Added
+
+- We now publish an JSONSchema for our configuration and OpenAPI documentation for our HTTP API ([#2760](https://github.com/maplibre/martin/pull/2760))
+
+### Fixed
+
+- The last release had some aretefact not get attached, so this release fixes this
 
 ### Other
 
-- add #[tracing::instrument] to hot-path entry points ([#2759](https://github.com/maplibre/martin/pull/2759))
+- add debug-only `#[tracing::instrument]` to hot-path entry points ([#2759](https://github.com/maplibre/martin/pull/2759))
 - *(deps)* Bump the all-npm-version-updates group across 2 directories with 5 updates ([#2756](https://github.com/maplibre/martin/pull/2756))
 - *(mbtiles)* migrate from log/env_logger to tracing ([#2755](https://github.com/maplibre/martin/pull/2755))
 
