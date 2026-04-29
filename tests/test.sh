@@ -297,7 +297,7 @@ validate_log() {
 
   # Older versions of PostGIS don't support the margin parameter, so we need to remove it from the log
   remove_lines "$LOG_FILE" 'Margin parameter in ST_TileEnvelope is not supported'
-  remove_lines "$LOG_FILE" 'PostgreSQL 11.10.0 is older than the recommended minimum 12.0.0'
+  remove_lines "$LOG_FILE" 'PostgreSQL is older than the recommended minimum 12.0.0'
   remove_lines "$LOG_FILE" 'In the used version, some geometry may be hidden on some zoom levels.'
   remove_lines "$LOG_FILE" 'Unable to deserialize SQL comment on public.points2 as tilejson, the automatically generated tilejson would be used: expected value at line 1 column 1'
   remove_lines "$LOG_FILE" 'Environment variable AWS_PROFILE not supported anymore. Supporting this is in scope, but would need more work.'
@@ -574,13 +574,13 @@ test_log_has_str "$LOG_FILE" 'Table public.table_source has no spatial index on 
 test_log_has_str "$LOG_FILE" 'Table public.table_source_geog has no spatial index on column geog'
 test_log_has_str "$LOG_FILE" 'Table public.mat_view has no spatial index on column geom'
 test_log_has_str "$LOG_FILE" 'Ignoring duplicate font Overpass Mono Regular from tests'
-test_log_has_str "$LOG_FILE" 'was renamed to `stamen_toner__raster_CC-BY-ODbL_z3`'
-test_log_has_str "$LOG_FILE" 'was renamed to `table_source_multiple_geom.1`'
-test_log_has_str "$LOG_FILE" 'was renamed to `-function.withweired---_-characters`'
-test_log_has_str "$LOG_FILE" 'was renamed to `.-Points-----------quote`'
-test_log_has_str "$LOG_FILE" 'was renamed to `table_name_existing_two_schemas.1`'
-test_log_has_str "$LOG_FILE" 'was renamed to `view_name_existing_two_schemas.1`'
-test_log_has_str "$LOG_FILE" 'was renamed to `table_and_view_two_schemas.1`'
+test_log_has_str "$LOG_FILE" 'source.id.new=stamen_toner__raster_CC-BY-ODbL_z3'
+test_log_has_str "$LOG_FILE" 'source.id.new=table_source_multiple_geom.1'
+test_log_has_str "$LOG_FILE" 'source.id.new=-function.withweired---_-characters'
+test_log_has_str "$LOG_FILE" 'source.id.new=.-Points-----------quote'
+test_log_has_str "$LOG_FILE" 'source.id.new=table_name_existing_two_schemas.1'
+test_log_has_str "$LOG_FILE" 'source.id.new=view_name_existing_two_schemas.1'
+test_log_has_str "$LOG_FILE" 'source.id.new=table_and_view_two_schemas.1'
 test_log_has_str "$LOG_FILE" 'Defaulting `pmtiles.allow_http` to `true`. This is likely to become an error in the future for better security.'
 test_log_has_str "$LOG_FILE" 'Environment variable AWS_SKIP_CREDENTIALS is deprecated. Please use pmtiles.skip_signature in the configuration file instead.'
 test_log_has_str "$LOG_FILE" 'Environment variable AWS_REGION is deprecated. Please use pmtiles.region in the configuration file instead.'
@@ -1028,7 +1028,7 @@ test_jsn reload_catalog_added catalog
 
 >&2 echo "Test reload: updating an MBTiles file triggers source update"
 touch "$RELOAD_WATCH_DIR/world_cities.mbtiles"
-wait_for_log_str "$LOG_FILE" 'Updated source: "world_cities"'
+wait_for_log_str "$LOG_FILE" 'Updated source source.id=world_cities'
 test_jsn reload_catalog_updated catalog
 
 >&2 echo "Test reload: removing an MBTiles file triggers source removal"
@@ -1038,7 +1038,7 @@ if [[ "$OSTYPE" == cygwin* || "$OSTYPE" == msys* || "$OSTYPE" == win32* ]]; then
   # on it due to SQLite not allowing FILE_SHARE_DELETE on Windows.
   # Fake the "Removed source" log entry that would normally be emitted by the file watcher.
   # NOTE!: This does not properly test the delete mechanism on Windows.
-  echo 'Removed source: "world_cities"' >> "$LOG_FILE"
+  echo 'Removed source source.id=world_cities' >> "$LOG_FILE"
   cp "$TEST_OUT_DIR/catalog_empty.json" "$TEST_OUT_DIR/catalog_after_remove.json"
 else
   rm "$RELOAD_WATCH_DIR/world_cities.mbtiles"
@@ -1048,9 +1048,9 @@ fi
 
 kill_process "$MARTIN_PROC_ID" Martin
 
-test_log_has_str "$LOG_FILE" 'Added source: "world_cities"'
-test_log_has_str "$LOG_FILE" 'Updated source: "world_cities"'
-test_log_has_str "$LOG_FILE" 'Removed source: "world_cities"'
+test_log_has_str "$LOG_FILE" 'Added source source.id=world_cities'
+test_log_has_str "$LOG_FILE" 'Updated source source.id=world_cities'
+test_log_has_str "$LOG_FILE" 'Removed source source.id=world_cities'
 test_log_has_str "$LOG_FILE" 'Defaulting `pmtiles.allow_http` to `true`. This is likely to become an error in the future for better security.'
 test_log_has_str "$LOG_FILE" 'Environment variable AWS_SKIP_CREDENTIALS is deprecated. Please use pmtiles.skip_signature in the configuration file instead.'
 test_log_has_str "$LOG_FILE" 'Environment variable AWS_REGION is deprecated. Please use pmtiles.region in the configuration file instead.'

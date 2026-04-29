@@ -23,20 +23,17 @@ pub struct ResolvedEntry {
 /// Returns `None` and logs a warning if any step fails.
 pub fn path_modified_ms(path: &std::path::Path) -> Option<u128> {
     let Ok(metadata) = path.metadata() else {
-        tracing::warn!("failed to resolve metadata for path {:?}", path);
+        tracing::warn!(path = ?path, "failed to resolve metadata");
         return None;
     };
 
     let Ok(modified) = metadata.modified() else {
-        tracing::warn!("failed to resolve modified timestamp for path {:?}", path);
+        tracing::warn!(path = ?path, "failed to resolve modified timestamp");
         return None;
     };
 
     let Ok(duration) = modified.duration_since(UNIX_EPOCH) else {
-        tracing::warn!(
-            "failed to resolve duration since unix epoch for path {:?}",
-            path
-        );
+        tracing::warn!(path = ?path, "failed to resolve duration since unix epoch");
         return None;
     };
 
@@ -47,17 +44,17 @@ pub fn resolve_dir_entry(entry: &DirEntry) -> Option<ResolvedEntry> {
     let raw = entry.path();
 
     let Ok(path) = raw.canonicalize() else {
-        tracing::warn!("failed to canonicalize path {:?}", raw);
+        tracing::warn!(path = ?raw, "failed to canonicalize path");
         return None;
     };
 
     let Some(stem) = path.file_stem().and_then(|o| o.to_str()) else {
-        tracing::warn!("failed to resolve file stem for path {:?}", path);
+        tracing::warn!(path = ?path, "failed to resolve file stem");
         return None;
     };
 
     let Ok(path_str) = path.clone().into_os_string().into_string() else {
-        tracing::warn!("failed to resolve path string for path {:?}", path);
+        tracing::warn!(path = ?path, "failed to resolve path string");
         return None;
     };
 

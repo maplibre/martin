@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use dashmap::DashMap;
 use martin_core::tiles::{BoxedSource, OptTileCache};
-use tracing::info;
+use tracing::{info, warn};
 
 use crate::MartinResult;
 use crate::config::file::OnInvalid;
@@ -89,12 +89,12 @@ impl TileSourceManager {
                         cache.invalidate_source(&new_source.id);
                     }
                     self.tile_sources.insert(new_source.id.clone(), src);
-                    info!("Updated source: {:?}", new_source.id);
+                    info!(source.id = %new_source.id, "Updated source");
                 }
                 Err(err) => match self.on_invalid {
                     OnInvalid::Abort => return Err(err),
                     OnInvalid::Warn => {
-                        tracing::warn!("Skipping update for {:?}: {err}", new_source.id);
+                        warn!(source.id = %new_source.id, error = %err, "Skipping update");
                     }
                 },
             }
@@ -105,12 +105,12 @@ impl TileSourceManager {
             match new_source.source {
                 Ok(src) => {
                     self.tile_sources.insert(new_source.id.clone(), src);
-                    info!("Added source: {:?}", new_source.id);
+                    info!(source.id = %new_source.id, "Added source");
                 }
                 Err(err) => match self.on_invalid {
                     OnInvalid::Abort => return Err(err),
                     OnInvalid::Warn => {
-                        tracing::warn!("Skipping addition of {:?}: {err}", new_source.id);
+                        warn!(source.id = %new_source.id, error = %err, "Skipping addition");
                     }
                 },
             }
@@ -122,7 +122,7 @@ impl TileSourceManager {
             if let Some(cache) = &self.tile_cache {
                 cache.invalidate_source(&deleted_source.id);
             }
-            info!("Removed source: {:?}", deleted_source.id);
+            info!(source.id = %deleted_source.id, "Removed source");
         }
 
         // 4. Flush pending cache maintenance (e.g. invalidation predicates)

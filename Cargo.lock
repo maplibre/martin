@@ -3887,7 +3887,7 @@ dependencies = [
 
 [[package]]
 name = "martin"
-version = "1.9.0"
+version = "1.8.2"
 dependencies = [
  "actix-cors",
  "actix-http",

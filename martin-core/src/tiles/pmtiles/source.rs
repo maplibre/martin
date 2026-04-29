@@ -64,7 +64,10 @@ impl PmtilesSource {
                     Compression::None => Encoding::Uncompressed,
                     Compression::Unknown => {
                         warn!(
-                            "MVT tiles of source {id} ({store_to_string} at {path}) has unknown compression"
+                            source.id = %id,
+                            store = %store_to_string,
+                            path = %path,
+                            "MVT tiles have unknown compression"
                         );
                         Encoding::Uncompressed
                     }
@@ -89,7 +92,7 @@ impl PmtilesSource {
         };
 
         let tilejson = reader.parse_tilejson(Vec::new()).await.unwrap_or_else(|e| {
-            warn!("{e:?}: Unable to parse metadata for {path}");
+            warn!(path = %path, error = ?e, "Unable to parse metadata");
             hdr.get_tilejson(Vec::new())
         });
 
@@ -146,8 +149,11 @@ impl Source for PmtilesSource {
             Ok(t.to_vec())
         } else {
             trace!(
-                "Couldn't find tile data in {}/{}/{} of {}",
-                xyz.z, xyz.x, xyz.y, &self.id
+                source.id = %self.id,
+                tile.z = xyz.z,
+                tile.x = xyz.x,
+                tile.y = xyz.y,
+                "Couldn't find tile data"
             );
             Ok(Vec::new())
         }
