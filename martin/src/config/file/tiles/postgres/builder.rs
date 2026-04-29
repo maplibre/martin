@@ -509,7 +509,7 @@ fn update_auto_fields(
             warn!(
                 schema = %inf.schema,
                 table = %inf.table,
-                column = %key,
+                column = %column,
                 column.type = %typ,
                 "Unable to use column as a tile feature ID because it has a non-integer type"
             );
