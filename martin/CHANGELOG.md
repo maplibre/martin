@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.1](https://github.com/maplibre/martin/compare/martin-v1.8.0...martin-v1.8.1) - 2026-04-29
+
+### Fixed
+
+- *(styles)* default the optional `rendering` field so configs without it parse ([#2752](https://github.com/maplibre/martin/pull/2752))
+
+### Other
+
+- *(deps)* autoupdate pre-commit ([#2743](https://github.com/maplibre/martin/pull/2743))
+- *(deps)* Bump the all-npm-version-updates group across 2 directories with 6 updates ([#2745](https://github.com/maplibre/martin/pull/2745))
+- update Cargo.toml dependencies
+
 ## [1.8.0](https://github.com/maplibre/martin/compare/martin-v1.7.0...martin-v1.8.0) - 2026-04-28
 
 ### Added
