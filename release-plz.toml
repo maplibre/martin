@@ -2,10 +2,10 @@
 dependencies_update = false # sounds good but only works if this were not to pull in incompatible versions
 changelog_update = true
 # Our process goes as follows:
-# - We first release as a non-latest draft
-# - the binaries are built (in GHA, attested) and
+# - We first release as a non-latest draft and publish it
+# - the binaries are build (in GHA, attested) and
 # - attached to the release
-# - the release is then automatically published (draft=false) and marked as latest for martin
+# - the release is marked as non-draft (and latest for martin).
 # => Our releases are fully attested and immutable
 git_release_latest = false
 git_release_draft = true

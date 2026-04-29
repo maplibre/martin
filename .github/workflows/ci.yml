@@ -6,7 +6,7 @@ on:
   pull_request:
     branches: [ main ]
   release:
-    types: [ created ]
+    types: [ published ]
   workflow_dispatch:
 
 defaults:
@@ -877,13 +877,13 @@ jobs:
             exit 1
           fi
           gh release upload "$RELEASE_TAG_NAME" target/files/* --clobber
-          gh release edit "$RELEASE_TAG_NAME" --verify-tag --draft=false --latest
+          gh release edit "$RELEASE_TAG_NAME" --verify-tag --latest
       - name: Publish without artifacts
         if: ${{ github.event_name == 'release' && !startsWith(github.event.release.tag_name, 'martin-v') }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_TAG_NAME: ${{ github.event.release.tag_name }}
-        run: gh release edit "$RELEASE_TAG_NAME" --verify-tag --draft=false --latest=false
+        run: gh release edit "$RELEASE_TAG_NAME" --verify-tag --latest=false
 
         # Create a personal access token
         #     Gen:  https://github.com/settings/personal-access-tokens/new
