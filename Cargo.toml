@@ -78,6 +78,7 @@ martin-core = { path = "./martin-core", version = "0.5.1", default-features = fa
 martin-tile-utils = { path = "./martin-tile-utils", version = "0.7.1" }
 mbtiles = { path = "./mbtiles", version = "0.17.1" }
 md5 = "0.8.0"
+miette = { version = "7.6", features = ["fancy"] }
 moka = { version = "0.12", default-features = false }
 notify = "8.2.0"
 num_cpus = "1"
@@ -101,6 +102,7 @@ rustls-native-certs = "0.8"
 rustls-pemfile = "2"
 semver = "1"
 serde = { version = "1", features = ["derive"] }
+serde-saphyr = { version = "0.0.25", features = ["miette"] }
 serde_json = "1"
 serde_with = { version = "3", default-features = false, features = ["macros"] }
 serde_yaml = "0.9"
@@ -110,7 +112,7 @@ sqlite-compressions = { version = "0.3", default-features = false, features = ["
 sqlite-hashes = { version = "0.10.6", default-features = false, features = ["md5", "aggregate", "hex"] }
 sqlx = { version = "0.8.6", features = ["sqlite", "runtime-tokio"] }
 static-files = "0.2"
-subst = { version = "0.3", features = ["yaml"] }
+subst = "0.3"
 tempfile = "3.21.0"
 testcontainers-modules = { version = "0.15.0", features = ["postgres", "blocking"] }
 thiserror = "2"
