@@ -72,6 +72,19 @@ build-hotpath:
 bench-server-hotpath: start build-hotpath
     exec target/release/martin tests/fixtures/mbtiles tests/fixtures/pmtiles
 
+# Regenerate the experimental config JSON Schema and HTTP OpenAPI spec.
+# Output is written to ./schemas/ and is committed to the repo by the
+# `gen-schemas` job in .github/workflows/autofix.yml on every PR push.
+gen-schemas:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    mkdir -p schemas
+    features='unstable-schemas,mbtiles,pmtiles,postgres,sprites,styles,fonts,metrics'
+    cargo run --quiet --no-default-features --features "$features" \
+        --bin gen-schemas -- --target config  > schemas/config.json
+    cargo run --quiet --no-default-features --features "$features" \
+        --bin gen-schemas -- --target openapi > schemas/openapi.json
+
 # Run integration tests and save its output as the new expected output (ordering is important)
 bless:
     #!/usr/bin/env bash

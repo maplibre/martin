@@ -1,7 +1,3 @@
----
-source: martin/tests/schema_snapshots.rs
-expression: spec
----
 {
   "components": {
     "schemas": {
@@ -20,12 +16,7 @@ expression: spec
             "$ref": "#/components/schemas/HashMap"
           }
         },
-        "required": [
-          "tiles",
-          "sprites",
-          "fonts",
-          "styles"
-        ],
+        "required": ["tiles", "sprites", "fonts", "styles"],
         "type": "object"
       },
       "HashMap": {
@@ -37,9 +28,7 @@ expression: spec
               "type": "string"
             }
           },
-          "required": [
-            "path"
-          ],
+          "required": ["path"],
           "type": "object"
         },
         "propertyNames": {
@@ -78,9 +67,7 @@ expression: spec
             "description": "Catalog of all configured sources"
           }
         },
-        "tags": [
-          "crate::srv::admin"
-        ]
+        "tags": ["crate::srv::admin"]
       }
     },
     "/health": {
@@ -99,9 +86,7 @@ expression: spec
           }
         },
         "summary": "Return 200 OK if healthy. Used for readiness and liveness probes.",
-        "tags": [
-          "crate::srv::server"
-        ]
+        "tags": ["crate::srv::server"]
       }
     }
   }
