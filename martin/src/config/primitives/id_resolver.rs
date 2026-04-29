@@ -74,8 +74,10 @@ impl IdResolver {
                 Entry::Vacant(e) => {
                     if stanitised_name != name {
                         warn!(
-                            "Source `{name}`{info} was renamed to `{stanitised_name}` because the ID may only contain alpha-numeric characters or `._-`",
-                            info = info.map_or(String::new(), |v| format!(" ({v})"))
+                            source.id.old = %name,
+                            source.id.new = %stanitised_name,
+                            source.info = %info.as_deref().unwrap_or(""),
+                            "Source was renamed: ID may only contain alpha-numeric characters or `._-`"
                         );
                     }
                     e.insert(unique_name);
@@ -105,13 +107,17 @@ impl IdResolver {
                 Entry::Vacant(e) => {
                     if is_reserved_name {
                         warn!(
-                            "`{name}` is a reserved keyword, and may not be used as a source. The source was renamed to `{new_name}`{info}",
-                            info = info.map_or(String::new(), |v| format!(" ({v})"))
+                            source.id.old = %name,
+                            source.id.new = %new_name,
+                            source.info = %info.as_deref().unwrap_or(""),
+                            "`{name}` is a reserved keyword and may not be used as a source; renamed"
                         );
                     } else {
                         warn!(
-                            "Source `{name}`{info} was renamed to `{new_name}` because ID must be unique, and only contain alpha-numeric characters or `._-`",
-                            info = info.map_or(String::new(), |v| format!(" ({v})"))
+                            source.id.old = %name,
+                            source.id.new = %new_name,
+                            source.info = %info.as_deref().unwrap_or(""),
+                            "Source was renamed: ID must be unique and contain only alpha-numeric characters or `._-`"
                         );
                     }
                     e.insert(unique_name);
