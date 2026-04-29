@@ -66,7 +66,7 @@ impl MBTilesReloader {
         let mut push_canonical = |path: &PathBuf| match path.canonicalize() {
             Ok(p) => directories.push(p),
             Err(e) => {
-                tracing::warn!(directory = ?path, error = %e, "failed to canonicalize watch directory")
+                tracing::warn!(directory = ?path, error = %e, "failed to canonicalize watch directory");
             }
         };
 
@@ -212,7 +212,9 @@ impl MBTilesReloader {
 
         match tsm.apply_changes(adv).await {
             Ok(()) => self.sources = sources,
-            Err(e) => tracing::warn!(error = ?e, "failed to apply reload changes"),
+            Err(e) => {
+                tracing::warn!(error = ?e, "failed to apply reload changes");
+            }
         }
     }
 }

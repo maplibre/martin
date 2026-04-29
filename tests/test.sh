@@ -1028,7 +1028,7 @@ test_jsn reload_catalog_added catalog
 
 >&2 echo "Test reload: updating an MBTiles file triggers source update"
 touch "$RELOAD_WATCH_DIR/world_cities.mbtiles"
-wait_for_log_str "$LOG_FILE" 'Updated source: "world_cities"'
+wait_for_log_str "$LOG_FILE" 'Updated source source.id=world_cities'
 test_jsn reload_catalog_updated catalog
 
 >&2 echo "Test reload: removing an MBTiles file triggers source removal"
@@ -1038,7 +1038,7 @@ if [[ "$OSTYPE" == cygwin* || "$OSTYPE" == msys* || "$OSTYPE" == win32* ]]; then
   # on it due to SQLite not allowing FILE_SHARE_DELETE on Windows.
   # Fake the "Removed source" log entry that would normally be emitted by the file watcher.
   # NOTE!: This does not properly test the delete mechanism on Windows.
-  echo 'Removed source: "world_cities"' >> "$LOG_FILE"
+  echo 'Removed source source.id=world_cities' >> "$LOG_FILE"
   cp "$TEST_OUT_DIR/catalog_empty.json" "$TEST_OUT_DIR/catalog_after_remove.json"
 else
   rm "$RELOAD_WATCH_DIR/world_cities.mbtiles"
@@ -1048,9 +1048,9 @@ fi
 
 kill_process "$MARTIN_PROC_ID" Martin
 
-test_log_has_str "$LOG_FILE" 'Added source: "world_cities"'
-test_log_has_str "$LOG_FILE" 'Updated source: "world_cities"'
-test_log_has_str "$LOG_FILE" 'Removed source: "world_cities"'
+test_log_has_str "$LOG_FILE" 'Added source source.id=world_cities'
+test_log_has_str "$LOG_FILE" 'Updated source source.id=world_cities'
+test_log_has_str "$LOG_FILE" 'Removed source source.id=world_cities'
 test_log_has_str "$LOG_FILE" 'WARN Defaulting `pmtiles.allow_http` to `true`. This is likely to become an error in the future for better security.'
 test_log_has_str "$LOG_FILE" 'WARN Environment variable AWS_SKIP_CREDENTIALS is deprecated. Please use pmtiles.skip_signature in the configuration file instead.'
 test_log_has_str "$LOG_FILE" 'WARN Environment variable AWS_REGION is deprecated. Please use pmtiles.region in the configuration file instead.'
