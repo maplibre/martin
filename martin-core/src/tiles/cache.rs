@@ -3,7 +3,7 @@ use std::time::Duration;
 
 use martin_tile_utils::{Format, TileCoord};
 use moka::future::Cache;
-use tracing::{info, trace};
+use tracing::{info, instrument, trace};
 
 use crate::tiles::Tile;
 
@@ -36,6 +36,15 @@ impl TileCache {
     }
 
     /// Gets a tile from cache or computes it using the provided function.
+    #[instrument(
+        skip_all,
+        fields(
+            source.id = %source_id,
+            tile.z = xyz.z,
+            tile.x = xyz.x,
+            tile.y = xyz.y,
+        )
+    )]
     pub async fn get_or_insert<F, Fut, E>(
         &self,
         source_id: String,

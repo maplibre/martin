@@ -15,7 +15,7 @@ use futures::future::{BoxFuture, try_join_all};
 use martin_core::tiles::pmtiles::PmtCache;
 use serde::{Deserialize, Serialize};
 use subst::VariableMap;
-use tracing::{error, info, warn};
+use tracing::{error, info, instrument, warn};
 
 #[cfg(feature = "unstable-cog")]
 use super::cog::CogConfig;
@@ -241,6 +241,7 @@ impl Config {
         }
     }
 
+    #[instrument(skip_all)]
     pub async fn resolve(&mut self) -> MartinResult<ServerState> {
         init_aws_lc_tls();
 
@@ -395,6 +396,7 @@ impl Config {
     }
 
     #[cfg(feature = "_tiles")]
+    #[instrument(skip_all)]
     async fn resolve_tile_sources(
         &mut self,
         idr: &IdResolver,
@@ -498,6 +500,7 @@ fn fmt_warnings(warnings: &[TileSourceWarning]) -> String {
 
 impl OnInvalid {
     /// Handle warnings based on `policy`
+    #[instrument(skip_all, fields(warnings.count = warnings.len()))]
     pub fn handle_tile_warnings(self, warnings: &[TileSourceWarning]) -> MartinResult<()> {
         if warnings.is_empty() {
             return Ok(());

@@ -9,7 +9,7 @@ use actix_web::web::{Data, Path};
 use actix_web::{HttpResponse, Result as ActixResult, route};
 use martin_core::fonts::{FontError, FontSources, OptFontCache};
 use serde::Deserialize;
-use tracing::warn;
+use tracing::{instrument, warn};
 
 use crate::srv::server::{DebouncedWarning, map_internal_error};
 
@@ -27,6 +27,14 @@ struct FontRequest {
     wrap = "Compress::default()"
 )]
 #[hotpath::measure]
+#[instrument(
+    skip_all,
+    fields(
+        font.fontstack = %path.fontstack,
+        font.range.start = path.start,
+        font.range.end = path.end,
+    )
+)]
 async fn get_font(
     path: Path<FontRequest>,
     fonts: Data<FontSources>,

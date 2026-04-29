@@ -4,7 +4,7 @@ use martin_tile_utils::Encoding::Uncompressed;
 use martin_tile_utils::Format::Mvt;
 use martin_tile_utils::{TileCoord, TileData, TileInfo};
 use tilejson::TileJSON;
-use tracing::debug;
+use tracing::{debug, instrument};
 
 use crate::CacheZoomRange;
 use crate::tiles::postgres::PostgresError::{
@@ -75,6 +75,15 @@ impl Source for PostgresSource {
         self.cache_zoom
     }
 
+    #[instrument(
+        skip_all,
+        fields(
+            source.id = %self.id,
+            tile.z = xyz.z,
+            tile.x = xyz.x,
+            tile.y = xyz.y,
+        )
+    )]
     async fn get_tile(
         &self,
         xyz: TileCoord,
