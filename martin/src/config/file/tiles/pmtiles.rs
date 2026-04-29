@@ -19,9 +19,16 @@ use crate::config::file::{
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct PmtConfig {
-    /// Cache configuration for `PMTiles` directory cache (size, expiry, idle timeout).
+    /// Size of the directory cache (in MB).
+    /// Defaults to `cache.size_mb` / 4
     ///
-    /// Overrides the global [`cache`](crate::config::file::Config::cache) settings.
+    /// Note:
+    /// Tile and directory caching are complementary.
+    /// For good performance, you want
+    /// - directory caching (to not resolve the directory on each request) and
+    /// - tile caching (for high access tiles)
+    ///
+    /// Use `directory_cache: disable` to disable
     #[serde(default, skip_serializing_if = "CacheSizeConfig::is_empty")]
     #[cfg_attr(
         feature = "unstable-schemas",

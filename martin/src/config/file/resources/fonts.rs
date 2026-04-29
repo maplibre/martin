@@ -13,6 +13,7 @@ use crate::config::file::{
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct InnerFontConfig {
     /// Cache configuration for fonts.
+    /// Use `cache: disable` to disable font caching.
     #[serde(default, skip_serializing_if = "CacheSizeConfig::is_empty")]
     #[cfg_attr(
         feature = "unstable-schemas",

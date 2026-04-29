@@ -50,6 +50,7 @@ impl SpriteConfig {
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct InnerSpriteConfig {
     /// Cache configuration for sprites.
+    /// Use `cache: disable` to disable sprite caching.
     #[serde(default, skip_serializing_if = "CacheSizeConfig::is_empty")]
     #[cfg_attr(
         feature = "unstable-schemas",

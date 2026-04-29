@@ -61,15 +61,16 @@ impl Default for CorsConfig {
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct CorsProperties {
-    /// `Access-Control-Allow-Origin` value(s). `*` echoes the request's
-    /// `Origin` header.
+    /// Sets the `Access-Control-Allow-Origin` header \[default: *\]
+    /// '*' will use the requests `ORIGIN` header
     #[serde(default)]
     #[cfg_attr(
         feature = "unstable-schemas",
         schemars(example = cors_origin_example())
     )]
     pub origin: Vec<String>,
-    /// `Access-Control-Max-Age` in seconds; `null` skips the header.
+    /// Sets `Access-Control-Max-Age` Header. \[default: null\]
+    /// null means not setting the header for preflight requests
     #[cfg_attr(feature = "unstable-schemas", schemars(example = &3600usize))]
     pub max_age: Option<usize>,
 

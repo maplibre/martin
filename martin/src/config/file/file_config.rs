@@ -781,16 +781,31 @@ impl<'de> Deserialize<'de> for CachePolicy {
 #[derive(Clone, Copy, Debug, Default, PartialEq, Serialize)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct GlobalCacheConfig {
-    /// Total cache budget in megabytes (0 to disable).
-    /// Split across tile, pmtiles, sprite, and font caches by default.
+    /// Total amount of cache we use \[default: 512, 0 to disable\]
+    /// By default, this is split up between:
+    /// - Tiles 50% -> 256 MB
+    /// - Pmtiles' directories 25% -> 128 MB
+    /// - Fonts 12.5% -> 64 MB
+    /// - Sprites 12.5% -> 64 MB
+    ///
+    /// How the cache works internally is unstable and may change to improve performance/efficiency.
+    /// For example, we may change the split between sources to improve efficiency.
+    ///
+    /// Specify each cache size individually for finer cache size control:
+    /// - Tiles: `cache.tile_size_mb`
+    /// - Pmtiles: `pmtiles.directory_cache.size_mb`
+    /// - Fonts: `fonts.cache.size_mb`
+    /// - Sprites: `sprites.cache.size_mb`
     #[cfg_attr(feature = "unstable-schemas", schemars(example = &512u64))]
     pub size_mb: Option<u64>,
-    /// Tile cache size override in megabytes.
-    /// Defaults to `size_mb / 2`.
+    /// Allows overriding the size of the tile cache.
+    /// Defaults to `cache.size_mb` / 2
     #[cfg_attr(feature = "unstable-schemas", schemars(example = &256u64))]
     pub tile_size_mb: Option<u64>,
     /// Maximum lifetime for all cache entries (time-to-live from creation).
-    /// Supports human-readable formats: "1h", "30m", "1d".
+    /// Entries are evicted after this duration regardless of access.
+    /// Supports human-readable formats: "1h", "30m", "1d", "3600s".
+    /// default: null (no expiry, entries only evicted by size pressure)
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
@@ -799,6 +814,8 @@ pub struct GlobalCacheConfig {
     #[cfg_attr(feature = "unstable-schemas", schemars(with = "Option<String>"))]
     pub expiry: Option<Duration>,
     /// Maximum idle time for all cache entries (time-to-idle since last access).
+    /// Entries are evicted if not accessed within this duration.
+    /// default: null (no idle timeout)
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
@@ -806,7 +823,8 @@ pub struct GlobalCacheConfig {
     )]
     #[cfg_attr(feature = "unstable-schemas", schemars(with = "Option<String>"))]
     pub idle_timeout: Option<Duration>,
-    /// Tile-specific TTL override. Takes precedence over `expiry` for tiles.
+    /// Tile-specific TTL override. Takes precedence over `cache.expiry` for tiles.
+    /// default: null (inherits from `cache.expiry`)
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
@@ -814,7 +832,8 @@ pub struct GlobalCacheConfig {
     )]
     #[cfg_attr(feature = "unstable-schemas", schemars(with = "Option<String>"))]
     pub tile_expiry: Option<Duration>,
-    /// Tile-specific idle timeout override. Takes precedence over `idle_timeout` for tiles.
+    /// Tile-specific idle timeout override. Takes precedence over `cache.idle_timeout` for tiles.
+    /// default: null (inherits from `cache.idle_timeout`)
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
@@ -958,10 +977,12 @@ impl<'de> Deserialize<'de> for GlobalCacheConfig {
 #[derive(Clone, Copy, Debug, Default, PartialEq, Serialize)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct CacheSizeConfig {
-    /// Cache size in megabytes for this source type (0 to disable).
+    /// Size of the cache in MB (0 to disable).
+    /// default: inherits from `cache.size_mb` (with a per-source split)
     #[cfg_attr(feature = "unstable-schemas", schemars(example = &64u64))]
     pub size_mb: Option<u64>,
-    /// Maximum lifetime of cache entries (time-to-live from creation).
+    /// Maximum lifetime for cache entries.
+    /// default: null (inherits from `cache.expiry`)
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
@@ -969,7 +990,8 @@ pub struct CacheSizeConfig {
     )]
     #[cfg_attr(feature = "unstable-schemas", schemars(with = "Option<String>"))]
     pub expiry: Option<Duration>,
-    /// Maximum idle time before cache entries are evicted (time-to-idle since last access).
+    /// Maximum idle time for cache entries.
+    /// default: null (inherits from `cache.idle_timeout`)
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",

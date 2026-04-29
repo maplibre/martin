@@ -6,6 +6,8 @@ use tilejson::{Bounds, TileJSON};
 use tracing::warn;
 
 use super::config::PostgresInfo;
+#[cfg(feature = "unstable-schemas")]
+use crate::config::file::postgres::config_table::bounds_world_example;
 use crate::config::file::postgres::utils::patch_json;
 use crate::config::file::{CachePolicy, UnrecognizedValues};
 
@@ -15,16 +17,20 @@ pub type FuncInfoSources = BTreeMap<String, FunctionInfo>;
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Default)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct FunctionInfo {
-    /// Schema name
+    /// Schema name (required)
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &"public"))]
     pub schema: String,
 
-    /// Function name
+    /// Function name (required)
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &"function_zxy_query"))]
     pub function: String,
 
     /// An integer specifying the minimum zoom level
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &0u8))]
     pub minzoom: Option<u8>,
 
     /// An integer specifying the maximum zoom level. MUST be >= minzoom
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &30u8))]
     pub maxzoom: Option<u8>,
 
     /// The maximum extent of available map tiles. Bounds MUST define an area
@@ -32,6 +38,7 @@ pub struct FunctionInfo {
     /// latitude and longitude values, in the order left, bottom, right, top.
     /// Values may be integers or floating point numbers.
     #[cfg_attr(feature = "unstable-schemas", schemars(with = "Option<[f64; 4]>"))]
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = bounds_world_example()))]
     pub bounds: Option<Bounds>,
 
     /// Zoom-level bounds for tile caching.

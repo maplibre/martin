@@ -89,7 +89,8 @@ pub struct ServerState {
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct Config {
-    /// Cache configuration: size limits and default zoom-level bounds.
+    /// Cache configuration
+    /// Use `cache: disable` to disable all caching entirely.
     #[serde(default, skip_serializing_if = "GlobalCacheConfig::is_empty")]
     #[cfg_attr(
         feature = "unstable-schemas",
@@ -97,20 +98,41 @@ pub struct Config {
     )]
     pub cache: GlobalCacheConfig,
 
+    /// The policy for handling invalid sources during startup. \[default: abort\]
+    ///
+    /// Invalid sources are those that are missing (file not found, table doesn't exist, ...),
+    /// reference columns that don't exist, and so on.
+    /// Currently limited to tile sources; broader rollout is planned.
+    ///
+    /// Options:
+    /// - `warn`: log warning messages
+    /// - `abort`: log warnings as error messages, abort startup
     #[serde(default)]
     pub on_invalid: Option<OnInvalid>,
 
     #[serde(flatten)]
     pub srv: SrvConfig,
 
+    /// Database configuration
+    ///
+    /// This can also be a list of PG configs, for example:
+    /// ```yaml
+    /// postgres:
+    ///   - connection_string:  postgres://postgres:postgres@localhost:5432/db
+    ///     default_srid: 4326
+    ///   - connection_string:  postgres://postgres:postgres@another_host:5432/another_db
+    ///     default_srid: 3857
+    /// ```
     #[cfg(feature = "postgres")]
     #[serde(default, skip_serializing_if = "OptOneMany::is_none")]
     pub postgres: OptOneMany<PostgresConfig>,
 
+    /// Publish `PMTiles` files from local disk or proxy to a web server
     #[cfg(feature = "pmtiles")]
     #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
     pub pmtiles: FileConfigEnum<PmtConfig>,
 
+    /// Publish `MBTiles` files
     #[cfg(feature = "mbtiles")]
     #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
     pub mbtiles: FileConfigEnum<MbtConfig>,
@@ -119,14 +141,18 @@ pub struct Config {
     #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
     pub cog: FileConfigEnum<CogConfig>,
 
+    /// Sprite configuration
     #[cfg(feature = "sprites")]
     #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
     pub sprites: SpriteConfig,
 
+    /// Publish `MapLibre` style files
+    /// In the future, the style files will be used for the server-side rendering as well
     #[cfg(feature = "styles")]
     #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
     pub styles: StyleConfig,
 
+    /// Font configuration
     #[cfg(feature = "fonts")]
     #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
     pub fonts: FontConfig,

@@ -166,15 +166,33 @@ mod config_doc {
     }
 
     fn emit_comment(out: &mut String, desc: &str, indent: usize) {
+        // Rustdoc requires escaping `[` / `]` in prose to avoid intra-doc-link
+        // ambiguity (`\[default: 512\]`). Those backslashes shouldn't bleed
+        // into user-facing YAML, so strip them on the way out.
         for line in desc.lines() {
             push_indent(out, indent);
             if line.is_empty() {
                 out.push('#');
             } else {
                 out.push_str("# ");
-                out.push_str(line);
+                push_unescaped(out, line);
             }
             out.push('\n');
+        }
+    }
+
+    fn push_unescaped(out: &mut String, line: &str) {
+        let mut chars = line.chars().peekable();
+        while let Some(c) = chars.next() {
+            if c == '\\'
+                && let Some(&next) = chars.peek()
+                && (next == '[' || next == ']')
+            {
+                out.push(next);
+                chars.next();
+            } else {
+                out.push(c);
+            }
         }
     }
 
