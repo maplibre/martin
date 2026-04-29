@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.3](https://github.com/maplibre/martin/compare/mbtiles-v0.17.2...mbtiles-v0.17.3) - 2026-04-29
+
+### Other
+
+- *(mbtiles)* migrate from log/env_logger to tracing ([#2755](https://github.com/maplibre/martin/pull/2755))
+
 ## [0.17.2](https://github.com/maplibre/martin/compare/mbtiles-v0.17.1...mbtiles-v0.17.2) - 2026-04-29
 
 ### Other
