@@ -87,9 +87,14 @@ pub struct ServerState {
 
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct Config {
     /// Cache configuration: size limits and default zoom-level bounds.
     #[serde(default, skip_serializing_if = "GlobalCacheConfig::is_empty")]
+    #[cfg_attr(
+        feature = "unstable-schemas",
+        schemars(with = "crate::config::file::GlobalCacheConfigShape")
+    )]
     pub cache: GlobalCacheConfig,
 
     #[serde(default)]
@@ -127,6 +132,7 @@ pub struct Config {
     pub fonts: FontConfig,
 
     #[serde(flatten, skip_serializing)]
+    #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub unrecognized: UnrecognizedValues,
 }
 
@@ -471,6 +477,7 @@ impl Config {
 /// Describes the action to take during startup when configuration is found to be invalid
 /// but Martin could still startup in a degraded state (ie, some sources not served).
 #[derive(PartialEq, Eq, Debug, Clone, Copy, Default, Serialize, Deserialize, ValueEnum)]
+#[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 #[serde(rename_all = "lowercase")]
 pub enum OnInvalid {
     /// Log warning messages, abort if the error is critical

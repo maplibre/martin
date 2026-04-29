@@ -29,6 +29,7 @@ pub trait PostgresInfo {
 
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct PostgresSslCerts {
     /// Same as PGSSLCERT
     /// ([docs](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNECT-SSLCERT))
@@ -41,11 +42,13 @@ pub struct PostgresSslCerts {
     pub ssl_root_cert: Option<std::path::PathBuf>,
 
     #[serde(flatten, skip_serializing)]
+    #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub unrecognized: UnrecognizedValues,
 }
 
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct PostgresConfig {
     /// Database connection string
     pub connection_string: Option<String>,
@@ -76,6 +79,7 @@ pub struct PostgresConfig {
     pub functions: Option<FuncInfoSources>,
 
     #[serde(flatten, skip_serializing)]
+    #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub unrecognized: UnrecognizedValues,
 }
 
@@ -83,6 +87,7 @@ pub struct PostgresConfig {
 pub const POOL_SIZE_DEFAULT: usize = 20;
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct PostgresCfgPublish {
     #[serde(alias = "from_schema")]
     #[serde(default, skip_serializing_if = "OptOneMany::is_none")]
@@ -93,6 +98,7 @@ pub struct PostgresCfgPublish {
     pub functions: OptBoolObj<PostgresCfgPublishFuncs>,
 
     #[serde(flatten, skip_serializing)]
+    #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub unrecognized: UnrecognizedValues,
 }
 
@@ -125,6 +131,7 @@ impl ConfigurationLivecycleHooks for PostgresCfgPublish {
 
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct PostgresCfgPublishTables {
     #[serde(alias = "from_schema")]
     #[serde(default, skip_serializing_if = "OptOneMany::is_none")]
@@ -142,6 +149,7 @@ pub struct PostgresCfgPublishTables {
     pub extent: Option<u32>,
 
     #[serde(flatten, skip_serializing)]
+    #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub unrecognized: UnrecognizedValues,
 }
 
@@ -153,6 +161,7 @@ impl ConfigurationLivecycleHooks for PostgresCfgPublishTables {
 
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct PostgresCfgPublishFuncs {
     #[serde(alias = "from_schema")]
     #[serde(default, skip_serializing_if = "OptOneMany::is_none")]
@@ -161,6 +170,7 @@ pub struct PostgresCfgPublishFuncs {
     pub source_id_format: Option<String>,
 
     #[serde(flatten, skip_serializing)]
+    #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub unrecognized: UnrecognizedValues,
 }
 

@@ -16,6 +16,7 @@ pub const LISTEN_ADDRESSES_DEFAULT: &str = "0.0.0.0:3000";
 
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Default)]
+#[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct SrvConfig {
     pub keep_alive: Option<u64>,
     pub listen_addresses: Option<String>,
@@ -63,11 +64,13 @@ impl ConfigurationLivecycleHooks for SrvConfig {
 #[cfg(feature = "metrics")]
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Default)]
+#[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct ObservabilityConfig {
     /// Configure metrics reported under `/_/metrics`
     pub metrics: Option<MetricsConfig>,
 
     #[serde(flatten, skip_serializing)]
+    #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub unrecognized: UnrecognizedValues,
 }
 
@@ -94,6 +97,7 @@ impl ConfigurationLivecycleHooks for ObservabilityConfig {
 /// Configure metrics reported under `/_/metrics`
 #[cfg(feature = "metrics")]
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Default)]
+#[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct MetricsConfig {
     /// Add these labels to every metric
     ///
@@ -105,6 +109,7 @@ pub struct MetricsConfig {
     pub add_labels: HashMap<String, String>,
 
     #[serde(flatten, skip_serializing)]
+    #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub unrecognized: UnrecognizedValues,
 }
 

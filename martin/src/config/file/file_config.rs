@@ -86,6 +86,7 @@ pub trait TileSourceConfiguration: ConfigurationLivecycleHooks {
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize)]
+#[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 #[serde(untagged)]
 pub enum FileConfigEnum<T> {
     #[default]
@@ -250,6 +251,7 @@ impl<T: ConfigurationLivecycleHooks> ConfigurationLivecycleHooks for FileConfigE
 
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct FileConfig<T> {
     /// A list of file paths
     #[serde(default, skip_serializing_if = "OptOneMany::is_none")]
@@ -279,6 +281,7 @@ impl<T: ConfigurationLivecycleHooks> ConfigurationLivecycleHooks for FileConfig<
 
 /// A serde helper to store a boolean as an object.
 #[derive(Clone, Debug, PartialEq, Serialize)]
+#[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 #[serde(untagged)]
 pub enum FileConfigSrc {
     Path(PathBuf),
@@ -366,10 +369,12 @@ fn is_sqlite_memory_uri(path: &Path) -> bool {
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct FileConfigSource {
     pub path: PathBuf,
     /// Zoom-level bounds for tile caching.
     #[serde(default, skip_serializing_if = "CachePolicy::is_empty")]
+    #[cfg_attr(feature = "unstable-schemas", schemars(with = "CachePolicyShape"))]
     pub cache: CachePolicy,
 }
 
@@ -642,6 +647,29 @@ pub struct CachePolicy {
     zoom: CacheZoomRange,
 }
 
+/// Schema-only proxy for [`CachePolicy`]'s on-disk form: literal `"disable"` or
+/// a zoom-range object. Referenced via `#[schemars(with = ...)]` on each field
+/// holding a [`CachePolicy`], so the JSON Schema derive captures both shapes
+/// without us writing a hand-rolled `JsonSchema` impl.
+#[cfg(feature = "unstable-schemas")]
+#[derive(serde::Serialize, schemars::JsonSchema)]
+#[serde(untagged)]
+#[expect(dead_code, reason = "schema generator sees this through `with = ...`")]
+pub(crate) enum CachePolicyShape {
+    Disable(DisableLiteral),
+    ZoomRange(CacheZoomRange),
+}
+
+/// `serde(rename = "disable")` lets schemars emit `enum: ["disable"]` for
+/// the string form via the same derive pipeline.
+#[cfg(feature = "unstable-schemas")]
+#[derive(serde::Serialize, schemars::JsonSchema)]
+#[expect(dead_code, reason = "schema-only, never constructed")]
+pub(crate) enum DisableLiteral {
+    #[serde(rename = "disable")]
+    Disable,
+}
+
 impl CachePolicy {
     /// Creates a new `CachePolicy` with the given zoom range.
     #[must_use]
@@ -680,6 +708,35 @@ impl CachePolicy {
         Self {
             zoom: self.zoom.or(other.zoom),
         }
+    }
+}
+
+#[cfg(feature = "unstable-schemas")]
+impl schemars::JsonSchema for CachePolicy {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed("CachePolicy")
+    }
+
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed("martin::config::file::file_config::CachePolicy")
+    }
+
+    fn json_schema(_generator: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        // Mirrors the custom Deserialize: literal `"disable"` string OR a zoom-range map
+        // (`minzoom`/`maxzoom`, both optional u8).
+        schemars::json_schema!({
+            "description": "Either the literal string `\"disable\"` or a zoom-range object.",
+            "oneOf": [
+                { "type": "string", "enum": ["disable"] },
+                {
+                    "type": "object",
+                    "properties": {
+                        "minzoom": { "type": "integer", "minimum": 0, "maximum": 255 },
+                        "maxzoom": { "type": "integer", "minimum": 0, "maximum": 255 }
+                    }
+                }
+            ]
+        })
     }
 }
 
@@ -824,6 +881,38 @@ impl GlobalCacheConfig {
     }
 }
 
+/// Schema-only proxy for [`GlobalCacheConfig`]: literal `"disable"` or a cache
+/// configuration map. Referenced via `#[schemars(with = ...)]` on the field
+/// in [`crate::config::file::Config`].
+#[cfg(feature = "unstable-schemas")]
+#[derive(serde::Serialize, schemars::JsonSchema)]
+#[serde(untagged)]
+#[expect(dead_code, reason = "schema generator sees this through `with = ...`")]
+pub(crate) enum GlobalCacheConfigShape {
+    Disable(DisableLiteral),
+    Config(GlobalCacheConfigMap),
+}
+
+#[cfg(feature = "unstable-schemas")]
+#[serde_with::skip_serializing_none]
+#[derive(serde::Serialize, schemars::JsonSchema)]
+pub(crate) struct GlobalCacheConfigMap {
+    /// Total cache budget in megabytes (0 to disable).
+    pub size_mb: Option<u64>,
+    /// Tile cache size override in megabytes; defaults to `size_mb / 2`.
+    pub tile_size_mb: Option<u64>,
+    /// Maximum lifetime for cache entries (humantime, e.g. "1h").
+    pub expiry: Option<String>,
+    /// Maximum idle time for cache entries (humantime, e.g. "15m").
+    pub idle_timeout: Option<String>,
+    /// Tile-specific TTL override (humantime).
+    pub tile_expiry: Option<String>,
+    /// Tile-specific idle-timeout override (humantime).
+    pub tile_idle_timeout: Option<String>,
+    pub minzoom: Option<u8>,
+    pub maxzoom: Option<u8>,
+}
+
 impl<'de> Deserialize<'de> for GlobalCacheConfig {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -932,6 +1021,29 @@ impl CacheSizeConfig {
     pub fn is_empty(&self) -> bool {
         self.size_mb.is_none() && self.expiry.is_none() && self.idle_timeout.is_none()
     }
+}
+
+/// Schema-only proxy for [`CacheSizeConfig`]: literal `"disable"` or a sized
+/// cache map (size + TTL + idle).
+#[cfg(feature = "unstable-schemas")]
+#[derive(serde::Serialize, schemars::JsonSchema)]
+#[serde(untagged)]
+#[expect(dead_code, reason = "schema generator sees this through `with = ...`")]
+pub(crate) enum CacheSizeConfigShape {
+    Disable(DisableLiteral),
+    Config(CacheSizeConfigMap),
+}
+
+#[cfg(feature = "unstable-schemas")]
+#[serde_with::skip_serializing_none]
+#[derive(serde::Serialize, schemars::JsonSchema)]
+pub(crate) struct CacheSizeConfigMap {
+    /// Cache size in megabytes for this source type (0 to disable).
+    pub size_mb: Option<u64>,
+    /// Maximum lifetime of cache entries (humantime, e.g. "1h").
+    pub expiry: Option<String>,
+    /// Maximum idle time before eviction (humantime, e.g. "15m").
+    pub idle_timeout: Option<String>,
 }
 
 impl<'de> Deserialize<'de> for CacheSizeConfig {

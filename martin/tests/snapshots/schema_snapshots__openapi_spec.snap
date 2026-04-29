@@ -1,0 +1,108 @@
+---
+source: martin/tests/schema_snapshots.rs
+expression: spec
+---
+{
+  "components": {
+    "schemas": {
+      "Catalog": {
+        "properties": {
+          "fonts": {
+            "$ref": "#/components/schemas/HashMap"
+          },
+          "sprites": {
+            "$ref": "#/components/schemas/HashMap"
+          },
+          "styles": {
+            "$ref": "#/components/schemas/HashMap"
+          },
+          "tiles": {
+            "$ref": "#/components/schemas/HashMap"
+          }
+        },
+        "required": [
+          "tiles",
+          "sprites",
+          "fonts",
+          "styles"
+        ],
+        "type": "object"
+      },
+      "HashMap": {
+        "additionalProperties": {
+          "description": "Style metadata.",
+          "properties": {
+            "path": {
+              "description": "Path to the style JSON file.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "path"
+          ],
+          "type": "object"
+        },
+        "propertyNames": {
+          "type": "string"
+        },
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "contact": {
+      "email": "to.stepan.kuzmin@gmail.com",
+      "name": "Stepan Kuzmin"
+    },
+    "description": "Blazing-fast tile server with PostGIS, MBTiles, and PMTiles support.",
+    "license": {
+      "name": "MIT OR Apache-2.0"
+    },
+    "title": "Martin",
+    "version": "1.8.1"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/catalog": {
+      "get": {
+        "operationId": "get_catalog",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Catalog"
+                }
+              }
+            },
+            "description": "Catalog of all configured sources"
+          }
+        },
+        "tags": [
+          "crate::srv::admin"
+        ]
+      }
+    },
+    "/health": {
+      "get": {
+        "operationId": "get_health",
+        "responses": {
+          "200": {
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Service healthy"
+          }
+        },
+        "summary": "Return 200 OK if healthy. Used for readiness and liveness probes.",
+        "tags": [
+          "crate::srv::server"
+        ]
+      }
+    }
+  }
+}

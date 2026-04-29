@@ -3925,6 +3925,7 @@ dependencies = [
  "prometheus",
  "rstest",
  "rustls",
+ "schemars 1.2.1",
  "serde",
  "serde-saphyr",
  "serde_json",
@@ -3944,6 +3945,8 @@ dependencies = [
  "tracing-subscriber",
  "tracing-test",
  "url",
+ "utoipa",
+ "utoipa-actix-web",
  "walkdir",
 ]
 
@@ -3983,6 +3986,7 @@ dependencies = [
  "rustls",
  "rustls-native-certs",
  "rustls-pemfile",
+ "schemars 1.2.1",
  "semver",
  "serde",
  "serde_json",
@@ -3996,6 +4000,7 @@ dependencies = [
  "tokio-postgres-rustls",
  "tracing",
  "url",
+ "utoipa",
  "xxhash-rust",
 ]
 
@@ -5344,7 +5349,7 @@ dependencies = [
  "once_cell",
  "socket2 0.6.3",
  "tracing",
- "windows-sys 0.59.0",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -7977,6 +7982,41 @@ name = "utf8parse"
 version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "06abde3611657adf66d383f00b093d7faecc7fa57071cce2578660c9f1010821"
+
+[[package]]
+name = "utoipa"
+version = "5.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2fcc29c80c21c31608227e0912b2d7fddba57ad76b606890627ba8ee7964e993"
+dependencies = [
+ "indexmap 2.13.0",
+ "serde",
+ "serde_json",
+ "utoipa-gen",
+]
+
+[[package]]
+name = "utoipa-actix-web"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b7eda9c23c05af0fb812f6a177514047331dac4851a2c8e9c4b895d6d826967f"
+dependencies = [
+ "actix-service",
+ "actix-web",
+ "utoipa",
+]
+
+[[package]]
+name = "utoipa-gen"
+version = "5.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6d79d08d92ab8af4c5e8a6da20c47ae3f61a0f1dabc1997cdf2d082b757ca08b"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "regex",
+ "syn 2.0.117",
+]
 
 [[package]]
 name = "uuid"

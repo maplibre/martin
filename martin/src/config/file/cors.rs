@@ -13,6 +13,7 @@ use crate::config::file::{
 use crate::{MartinError, MartinResult};
 
 #[derive(Clone, Debug, Serialize, PartialEq, Eq)]
+#[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 #[serde(untagged)]
 pub enum CorsConfig {
     Properties(CorsProperties),
@@ -58,12 +59,14 @@ impl Default for CorsConfig {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct CorsProperties {
     #[serde(default)]
     pub origin: Vec<String>,
     pub max_age: Option<usize>,
 
     #[serde(flatten, skip_serializing)]
+    #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub unrecognized: UnrecognizedValues,
 }
 

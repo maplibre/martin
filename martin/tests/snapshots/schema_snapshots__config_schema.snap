@@ -1,0 +1,1041 @@
+---
+source: martin/tests/schema_snapshots.rs
+expression: schema
+---
+{
+  "$defs": {
+    "BoundsCalcType": {
+      "oneOf": [
+        {
+          "const": "quick",
+          "description": "Compute table geometry bounds, but abort if it takes longer than 5 seconds.",
+          "type": "string"
+        },
+        {
+          "const": "calc",
+          "description": "Compute table geometry bounds. The startup time may be significant. Make sure all GEO columns have indexes.",
+          "type": "string"
+        },
+        {
+          "const": "skip",
+          "description": "Skip bounds calculation. The bounds will be set to the whole world.",
+          "type": "string"
+        }
+      ]
+    },
+    "CachePolicyShape": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/DisableLiteral"
+        },
+        {
+          "$ref": "#/$defs/CacheZoomRange"
+        }
+      ],
+      "description": "Schema-only proxy for [`CachePolicy`]'s on-disk form: literal `\"disable\"` or\na zoom-range object. Referenced via `#[schemars(with = ...)]` on each field\nholding a [`CachePolicy`], so the JSON Schema derive captures both shapes\nwithout us writing a hand-rolled `JsonSchema` impl."
+    },
+    "CacheSizeConfigMap": {
+      "properties": {
+        "expiry": {
+          "description": "Maximum lifetime of cache entries (humantime, e.g. \"1h\").",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "idle_timeout": {
+          "description": "Maximum idle time before eviction (humantime, e.g. \"15m\").",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "size_mb": {
+          "description": "Cache size in megabytes for this source type (0 to disable).",
+          "format": "uint64",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "CacheSizeConfigShape": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/DisableLiteral"
+        },
+        {
+          "$ref": "#/$defs/CacheSizeConfigMap"
+        }
+      ],
+      "description": "Schema-only proxy for [`CacheSizeConfig`]: literal `\"disable\"` or a sized\ncache map (size + TTL + idle)."
+    },
+    "CacheZoomRange": {
+      "description": "Zoom-level bounds for tile caching. Used at the top level (as a global default),\nat backend level, and per-source to control which zoom levels are cached.",
+      "properties": {
+        "maxzoom": {
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "minzoom": {
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "CorsConfig": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/CorsProperties"
+        },
+        {
+          "type": "boolean"
+        }
+      ]
+    },
+    "CorsProperties": {
+      "properties": {
+        "max_age": {
+          "format": "uint",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "origin": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "DisableLiteral": {
+      "description": "`serde(rename = \"disable\")` lets schemars emit `enum: [\"disable\"]` for\nthe string form via the same derive pipeline.",
+      "enum": [
+        "disable"
+      ],
+      "type": "string"
+    },
+    "FileConfig": {
+      "properties": {
+        "directory_cache": {
+          "$ref": "#/$defs/CacheSizeConfigShape",
+          "description": "Cache configuration for `PMTiles` directory cache (size, expiry, idle timeout).\n\nOverrides the global [`cache`](crate::config::file::Config::cache) settings."
+        },
+        "paths": {
+          "$ref": "#/$defs/OptOneMany2",
+          "description": "A list of file paths"
+        },
+        "sources": {
+          "additionalProperties": {
+            "$ref": "#/$defs/FileConfigSrc"
+          },
+          "description": "A map of source IDs to file paths or config objects",
+          "type": [
+            "object",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "FileConfig2": {
+      "properties": {
+        "paths": {
+          "$ref": "#/$defs/OptOneMany2",
+          "description": "A list of file paths"
+        },
+        "sources": {
+          "additionalProperties": {
+            "$ref": "#/$defs/FileConfigSrc"
+          },
+          "description": "A map of source IDs to file paths or config objects",
+          "type": [
+            "object",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "FileConfig3": {
+      "properties": {
+        "cache": {
+          "$ref": "#/$defs/CacheSizeConfigShape",
+          "description": "Cache configuration for sprites."
+        },
+        "paths": {
+          "$ref": "#/$defs/OptOneMany2",
+          "description": "A list of file paths"
+        },
+        "sources": {
+          "additionalProperties": {
+            "$ref": "#/$defs/FileConfigSrc"
+          },
+          "description": "A map of source IDs to file paths or config objects",
+          "type": [
+            "object",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "FileConfig4": {
+      "properties": {
+        "paths": {
+          "$ref": "#/$defs/OptOneMany2",
+          "description": "A list of file paths"
+        },
+        "sources": {
+          "additionalProperties": {
+            "$ref": "#/$defs/FileConfigSrc"
+          },
+          "description": "A map of source IDs to file paths or config objects",
+          "type": [
+            "object",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "FileConfig5": {
+      "properties": {
+        "cache": {
+          "$ref": "#/$defs/CacheSizeConfigShape",
+          "description": "Cache configuration for fonts."
+        },
+        "paths": {
+          "$ref": "#/$defs/OptOneMany2",
+          "description": "A list of file paths"
+        },
+        "sources": {
+          "additionalProperties": {
+            "$ref": "#/$defs/FileConfigSrc"
+          },
+          "description": "A map of source IDs to file paths or config objects",
+          "type": [
+            "object",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "FileConfigEnum": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string"
+        },
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "$ref": "#/$defs/FileConfig"
+        }
+      ]
+    },
+    "FileConfigEnum2": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string"
+        },
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "$ref": "#/$defs/FileConfig2"
+        }
+      ]
+    },
+    "FileConfigEnum3": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string"
+        },
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "$ref": "#/$defs/FileConfig3"
+        }
+      ]
+    },
+    "FileConfigEnum4": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string"
+        },
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "$ref": "#/$defs/FileConfig4"
+        }
+      ]
+    },
+    "FileConfigEnum5": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string"
+        },
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "$ref": "#/$defs/FileConfig5"
+        }
+      ]
+    },
+    "FileConfigSource": {
+      "properties": {
+        "cache": {
+          "$ref": "#/$defs/CachePolicyShape",
+          "description": "Zoom-level bounds for tile caching."
+        },
+        "path": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "type": "object"
+    },
+    "FileConfigSrc": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "$ref": "#/$defs/FileConfigSource"
+        }
+      ],
+      "description": "A serde helper to store a boolean as an object."
+    },
+    "FunctionInfo": {
+      "properties": {
+        "bounds": {
+          "description": "The maximum extent of available map tiles. Bounds MUST define an area\ncovered by all zoom levels. The bounds are represented in WGS:84\nlatitude and longitude values, in the order left, bottom, right, top.\nValues may be integers or floating point numbers.",
+          "items": {
+            "format": "double",
+            "type": "number"
+          },
+          "maxItems": 4,
+          "minItems": 4,
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "cache": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CachePolicyShape"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Zoom-level bounds for tile caching."
+        },
+        "function": {
+          "description": "Function name",
+          "type": "string"
+        },
+        "maxzoom": {
+          "description": "An integer specifying the maximum zoom level. MUST be >= minzoom",
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "minzoom": {
+          "description": "An integer specifying the minimum zoom level",
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "schema": {
+          "description": "Schema name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "function"
+      ],
+      "type": "object"
+    },
+    "GlobalCacheConfigMap": {
+      "properties": {
+        "expiry": {
+          "description": "Maximum lifetime for cache entries (humantime, e.g. \"1h\").",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "idle_timeout": {
+          "description": "Maximum idle time for cache entries (humantime, e.g. \"15m\").",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "maxzoom": {
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "minzoom": {
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "size_mb": {
+          "description": "Total cache budget in megabytes (0 to disable).",
+          "format": "uint64",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "tile_expiry": {
+          "description": "Tile-specific TTL override (humantime).",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "tile_idle_timeout": {
+          "description": "Tile-specific idle-timeout override (humantime).",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "tile_size_mb": {
+          "description": "Tile cache size override in megabytes; defaults to `size_mb / 2`.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "GlobalCacheConfigShape": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/DisableLiteral"
+        },
+        {
+          "$ref": "#/$defs/GlobalCacheConfigMap"
+        }
+      ],
+      "description": "Schema-only proxy for [`GlobalCacheConfig`]: literal `\"disable\"` or a cache\nconfiguration map. Referenced via `#[schemars(with = ...)]` on the field\nin [`crate::config::file::Config`]."
+    },
+    "MetricsConfig": {
+      "description": "Configure metrics reported under `/_/metrics`",
+      "properties": {
+        "add_labels": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Add these labels to every metric\n\n# Example:\n```json\n{ env: prod, server: martin }\n```",
+          "type": "object"
+        }
+      },
+      "required": [
+        "add_labels"
+      ],
+      "type": "object"
+    },
+    "ObservabilityConfig": {
+      "description": "More advanced monitoring options",
+      "properties": {
+        "metrics": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MetricsConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Configure metrics reported under `/_/metrics`"
+        }
+      },
+      "type": "object"
+    },
+    "OnInvalid": {
+      "description": "Describes the action to take during startup when configuration is found to be invalid\nbut Martin could still startup in a degraded state (ie, some sources not served).",
+      "oneOf": [
+        {
+          "const": "warn",
+          "description": "Log warning messages, abort if the error is critical",
+          "type": "string"
+        },
+        {
+          "const": "abort",
+          "description": "Log warnings as errors, abort startup",
+          "type": "string"
+        }
+      ]
+    },
+    "OptBoolObj": {
+      "anyOf": [
+        {
+          "description": "A boolean value.",
+          "type": "boolean"
+        },
+        {
+          "$ref": "#/$defs/PostgresCfgPublish",
+          "description": "An object value."
+        }
+      ],
+      "description": "A serde helper to store a boolean as an object."
+    },
+    "OptBoolObj2": {
+      "anyOf": [
+        {
+          "description": "A boolean value.",
+          "type": "boolean"
+        },
+        {
+          "$ref": "#/$defs/PostgresCfgPublishTables",
+          "description": "An object value."
+        }
+      ],
+      "description": "A serde helper to store a boolean as an object."
+    },
+    "OptBoolObj3": {
+      "anyOf": [
+        {
+          "description": "A boolean value.",
+          "type": "boolean"
+        },
+        {
+          "$ref": "#/$defs/PostgresCfgPublishFuncs",
+          "description": "An object value."
+        }
+      ],
+      "description": "A serde helper to store a boolean as an object."
+    },
+    "OptOneMany": {
+      "anyOf": [
+        {
+          "description": "No values present.",
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/PostgresConfig",
+          "description": "Exactly one value present."
+        },
+        {
+          "description": "Multiple values present.",
+          "items": {
+            "$ref": "#/$defs/PostgresConfig"
+          },
+          "type": "array"
+        }
+      ],
+      "description": "An enum that can hold no values, one value, or many values of type T."
+    },
+    "OptOneMany2": {
+      "anyOf": [
+        {
+          "description": "No values present.",
+          "type": "null"
+        },
+        {
+          "description": "Exactly one value present.",
+          "type": "string"
+        },
+        {
+          "description": "Multiple values present.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      ],
+      "description": "An enum that can hold no values, one value, or many values of type T."
+    },
+    "PostgresCfgPublish": {
+      "properties": {
+        "from_schemas": {
+          "$ref": "#/$defs/OptOneMany2"
+        },
+        "functions": {
+          "$ref": "#/$defs/OptBoolObj3"
+        },
+        "tables": {
+          "$ref": "#/$defs/OptBoolObj2"
+        }
+      },
+      "type": "object"
+    },
+    "PostgresCfgPublishFuncs": {
+      "properties": {
+        "from_schemas": {
+          "$ref": "#/$defs/OptOneMany2"
+        },
+        "source_id_format": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "PostgresCfgPublishTables": {
+      "properties": {
+        "buffer": {
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "clip_geom": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "extent": {
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "from_schemas": {
+          "$ref": "#/$defs/OptOneMany2"
+        },
+        "id_columns": {
+          "$ref": "#/$defs/OptOneMany2",
+          "description": "A table column to use as the feature ID\nIf a table has no column with this name, `id_column` will not be set for that table.\nIf a list of strings is given, the first found column will be treated as a feature ID."
+        },
+        "source_id_format": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "PostgresConfig": {
+      "properties": {
+        "auto_bounds": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BoundsCalcType"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Specify how bounds should be computed for the spatial PG tables"
+        },
+        "auto_publish": {
+          "$ref": "#/$defs/OptBoolObj",
+          "description": "Enable/disable/configure automatic discovery of tables and functions.\n\nYou may set this to `OptBoolObj::Bool(false)` to disable."
+        },
+        "connection_string": {
+          "description": "Database connection string",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "default_srid": {
+          "description": "If a spatial table has SRID 0, then this SRID will be used as a fallback",
+          "format": "int32",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "functions": {
+          "additionalProperties": {
+            "$ref": "#/$defs/FunctionInfo"
+          },
+          "description": "Associative arrays of function sources",
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "max_feature_count": {
+          "description": "Limit the number of geo features per tile.\n\nIf the source table has more features than set here, they will not be included in the tile and the result will look \"cut off\"/incomplete.\nThis feature allows to put a maximum latency bound on tiles with extreme amount of detail at the cost of not returning all data.\nIt is sensible to set this limit if you have user generated/untrusted geodata, e.g. a lot of data points at [Null Island](https://en.wikipedia.org/wiki/Null_Island).\n\nCan be either a positive integer or unlimited if omitted.",
+          "format": "uint",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "pool_size": {
+          "description": "Maximum Postgres connections pool size [DEFAULT: 20]",
+          "format": "uint",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "ssl_cert": {
+          "description": "Same as PGSSLCERT\n([docs](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNECT-SSLCERT))",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "ssl_key": {
+          "description": "Same as PGSSLKEY\n([docs](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNECT-SSLKEY))",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "ssl_root_cert": {
+          "description": "Same as PGSSLROOTCERT\n([docs](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNECT-SSLROOTCERT))",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "tables": {
+          "additionalProperties": {
+            "$ref": "#/$defs/TableInfo"
+          },
+          "description": "Associative arrays of table sources",
+          "type": [
+            "object",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "PreferredEncoding": {
+      "enum": [
+        "brotli",
+        "gzip"
+      ],
+      "type": "string"
+    },
+    "TableInfo": {
+      "properties": {
+        "bounds": {
+          "description": "The maximum extent of available map tiles. Bounds MUST define an area\ncovered by all zoom levels. The bounds are represented in WGS:84\nlatitude and longitude values, in the order left, bottom, right, top.\nValues may be integers or floating point numbers.",
+          "items": {
+            "format": "double",
+            "type": "number"
+          },
+          "maxItems": 4,
+          "minItems": 4,
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "buffer": {
+          "description": "Buffer distance in tile coordinate space to optionally clip geometries",
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "cache": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CachePolicyShape"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Zoom-level bounds for tile caching."
+        },
+        "clip_geom": {
+          "description": "Boolean to control if geometries should be clipped or encoded as is",
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "extent": {
+          "description": "Tile extent in tile coordinate space",
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "geometry_column": {
+          "description": "Geometry column name",
+          "type": "string"
+        },
+        "geometry_type": {
+          "description": "Geometry type",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "id_column": {
+          "description": "Feature id column name",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "layer_id": {
+          "description": "ID of the layer as specified in a tile (`ST_AsMVT` parameter)",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "maxzoom": {
+          "description": "An integer specifying the maximum zoom level. MUST be >= minzoom",
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "minzoom": {
+          "description": "An integer specifying the minimum zoom level",
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "properties": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "List of columns, that should be encoded as tile properties",
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "schema": {
+          "description": "Table schema",
+          "type": "string"
+        },
+        "srid": {
+          "description": "Geometry SRID",
+          "format": "int32",
+          "type": "integer"
+        },
+        "table": {
+          "description": "Table name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "table",
+        "srid",
+        "geometry_column"
+      ],
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "base_path": {
+      "description": "The prefix under which we claim in the tileJSON to be served under\nDefaults to `route_prefix` or the contents of the `X-Rewrite-Path` header",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "cache": {
+      "$ref": "#/$defs/GlobalCacheConfigShape",
+      "description": "Cache configuration: size limits and default zoom-level bounds."
+    },
+    "cors": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/CorsConfig"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "fonts": {
+      "$ref": "#/$defs/FileConfigEnum5"
+    },
+    "keep_alive": {
+      "format": "uint64",
+      "minimum": 0,
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "listen_addresses": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "mbtiles": {
+      "$ref": "#/$defs/FileConfigEnum2"
+    },
+    "observability": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ObservabilityConfig"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Advanced monitoring options"
+    },
+    "on_invalid": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/OnInvalid"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "pmtiles": {
+      "$ref": "#/$defs/FileConfigEnum"
+    },
+    "postgres": {
+      "$ref": "#/$defs/OptOneMany"
+    },
+    "preferred_encoding": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/PreferredEncoding"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "route_prefix": {
+      "description": "The prefix under which we are served under",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "sprites": {
+      "$ref": "#/$defs/FileConfigEnum3"
+    },
+    "styles": {
+      "$ref": "#/$defs/FileConfigEnum4"
+    },
+    "tilejson_url_version_param": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "worker_processes": {
+      "format": "uint",
+      "minimum": 0,
+      "type": [
+        "integer",
+        "null"
+      ]
+    }
+  },
+  "title": "Config",
+  "type": "object"
+}

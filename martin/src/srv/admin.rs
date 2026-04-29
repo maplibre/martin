@@ -12,6 +12,10 @@ use crate::MartinResult;
 use crate::config::file::ServerState;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[cfg_attr(
+    feature = "unstable-schemas",
+    derive(schemars::JsonSchema, utoipa::ToSchema)
+)]
 pub struct Catalog {
     #[cfg(feature = "_tiles")]
     pub tiles: TileCatalog,
@@ -40,6 +44,14 @@ impl Catalog {
     }
 }
 
+#[cfg_attr(
+    feature = "unstable-schemas",
+    utoipa::path(
+        get,
+        path = "/catalog",
+        responses((status = 200, description = "Catalog of all configured sources", body = Catalog)),
+    )
+)]
 #[route(
     "/catalog",
     method = "GET",
@@ -47,7 +59,7 @@ impl Catalog {
     wrap = "middleware::Compress::default()"
 )]
 #[hotpath::measure]
-async fn get_catalog(
+pub async fn get_catalog(
     catalog: Data<Catalog>,
     #[cfg(feature = "_tiles")] tile_manager: Data<crate::tile_source_manager::TileSourceManager>,
 ) -> impl Responder {

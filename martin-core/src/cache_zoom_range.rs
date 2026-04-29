@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 /// at backend level, and per-source to control which zoom levels are cached.
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct CacheZoomRange {
     minzoom: Option<u8>,
     maxzoom: Option<u8>,

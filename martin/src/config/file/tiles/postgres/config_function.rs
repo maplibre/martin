@@ -13,6 +13,7 @@ pub type FuncInfoSources = BTreeMap<String, FunctionInfo>;
 
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Default)]
+#[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct FunctionInfo {
     /// Schema name
     pub schema: String,
@@ -30,16 +31,23 @@ pub struct FunctionInfo {
     /// covered by all zoom levels. The bounds are represented in WGS:84
     /// latitude and longitude values, in the order left, bottom, right, top.
     /// Values may be integers or floating point numbers.
+    #[cfg_attr(feature = "unstable-schemas", schemars(with = "Option<[f64; 4]>"))]
     pub bounds: Option<Bounds>,
 
     /// Zoom-level bounds for tile caching.
+    #[cfg_attr(
+        feature = "unstable-schemas",
+        schemars(with = "Option<crate::config::file::CachePolicyShape>")
+    )]
     pub cache: Option<CachePolicy>,
 
     /// `TileJSON` provided by the SQL function comment. Not serialized.
     #[serde(skip)]
+    #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub tilejson: Option<serde_json::Value>,
 
     #[serde(flatten, skip_serializing)]
+    #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub unrecognized: UnrecognizedValues,
 }
 

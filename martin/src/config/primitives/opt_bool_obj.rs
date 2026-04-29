@@ -7,6 +7,7 @@ use serde::{Deserialize, Deserializer, Serialize};
 
 /// A serde helper to store a boolean as an object.
 #[derive(Clone, Debug, Default, PartialEq, Serialize)]
+#[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 #[serde(untagged)]
 pub enum OptBoolObj<T> {
     /// No value present.

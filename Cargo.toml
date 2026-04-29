@@ -100,6 +100,7 @@ rustls = "0.23.38"
 #rustls = { version = "0.23", default-features = false, features = ["logging", "std", "tls12", "ring"] }
 rustls-native-certs = "0.8"
 rustls-pemfile = "2"
+schemars = { version = "1.2", default-features = false, features = ["derive", "std"] }
 semver = "1"
 serde = { version = "1", features = ["derive"] }
 serde-saphyr = { version = "0.0.25", features = ["miette"] }
@@ -127,6 +128,8 @@ tracing-log = { version = "0.2.0", features = ["interest-cache"] }
 tracing-subscriber = { version = "0.3", default-features = false }
 tracing-test = "0.2"
 url = "2.5"
+utoipa = { version = "5.4", default-features = false, features = ["macros", "actix_extras"] }
+utoipa-actix-web = "0.1"
 walkdir = "2.5.0"
 xxhash-rust = { version = "0.8", features = ["xxh3"] }
 zstd = "0.13"

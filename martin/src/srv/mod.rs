@@ -1,10 +1,12 @@
 #[cfg(feature = "fonts")]
 mod fonts;
 
-mod server;
+// `pub mod` so the `unstable-schemas` feature can name `get_health` and
+// `get_catalog` from `martin::schemas` for utoipa's `#[openapi(paths(...))]`.
+pub mod server;
 pub use server::{RESERVED_KEYWORDS, new_server, router};
 
-mod admin;
+pub mod admin;
 pub use admin::Catalog;
 
 #[cfg(feature = "_tiles")]

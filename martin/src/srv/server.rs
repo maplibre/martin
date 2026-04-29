@@ -79,8 +79,16 @@ impl DebouncedWarning {
 }
 
 /// Return 200 OK if healthy. Used for readiness and liveness probes.
+#[cfg_attr(
+    feature = "unstable-schemas",
+    utoipa::path(
+        get,
+        path = "/health",
+        responses((status = 200, description = "Service healthy", body = String)),
+    )
+)]
 #[route("/health", method = "GET", method = "HEAD")]
-async fn get_health() -> impl Responder {
+pub async fn get_health() -> impl Responder {
     HttpResponse::Ok()
         .insert_header((CACHE_CONTROL, "no-cache"))
         .message_body("OK")
