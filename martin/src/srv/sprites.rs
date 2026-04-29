@@ -8,7 +8,7 @@ use actix_web::web::{Bytes, Data, Path};
 use actix_web::{HttpResponse, Result as ActixResult, route};
 use martin_core::sprites::{OptSpriteCache, SpriteError, SpriteSources};
 use serde::Deserialize;
-use tracing::warn;
+use tracing::{instrument, warn};
 
 use crate::srv::server::{DebouncedWarning, map_internal_error};
 
@@ -34,6 +34,12 @@ pub struct SourceIDsRequest {
     wrap = "Etag::default()"
 )]
 #[hotpath::measure]
+#[instrument(
+    level = "debug",
+    skip_all,
+    fields(source.ids = %path.source_ids, sprite.sdf = false),
+    err(Debug),
+)]
 async fn get_sprite_png(
     path: Path<SourceIDsRequest>,
     sprites: Data<SpriteSources>,
@@ -83,6 +89,12 @@ pub async fn redirect_sprites_png(path: Path<SourceIDsRequest>) -> HttpResponse 
     wrap = "Etag::default()"
 )]
 #[hotpath::measure]
+#[instrument(
+    level = "debug",
+    skip_all,
+    fields(source.ids = %path.source_ids, sprite.sdf = true),
+    err(Debug),
+)]
 async fn get_sprite_sdf_png(
     path: Path<SourceIDsRequest>,
     sprites: Data<SpriteSources>,
@@ -133,6 +145,12 @@ pub async fn redirect_sdf_sprites_png(path: Path<SourceIDsRequest>) -> HttpRespo
     wrap = "Compress::default()"
 )]
 #[hotpath::measure]
+#[instrument(
+    level = "debug",
+    skip_all,
+    fields(source.ids = %path.source_ids, sprite.sdf = false),
+    err(Debug),
+)]
 async fn get_sprite_json(
     path: Path<SourceIDsRequest>,
     sprites: Data<SpriteSources>,
@@ -183,6 +201,12 @@ pub async fn redirect_sprites_json(path: Path<SourceIDsRequest>) -> HttpResponse
     wrap = "Compress::default()"
 )]
 #[hotpath::measure]
+#[instrument(
+    level = "debug",
+    skip_all,
+    fields(source.ids = %path.source_ids, sprite.sdf = true),
+    err(Debug),
+)]
 async fn get_sprite_sdf_json(
     path: Path<SourceIDsRequest>,
     sprites: Data<SpriteSources>,

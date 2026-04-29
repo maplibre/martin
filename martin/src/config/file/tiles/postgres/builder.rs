@@ -657,7 +657,7 @@ fn by_key<T>(a: &(String, T), b: &(String, T)) -> Ordering {
 }
 
 #[cfg(all(test, feature = "test-pg"))]
-#[expect(clippy::unwrap_used)]
+#[expect(clippy::unwrap_used, clippy::panic)]
 mod tests {
     use backon::{ConstantBuilder, Retryable as _};
     use indoc::indoc;

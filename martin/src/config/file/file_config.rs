@@ -1,5 +1,6 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
-use std::fmt::Debug;
+use std::fmt::{self, Debug};
+use std::marker::PhantomData;
 use std::mem;
 #[cfg(feature = "_tiles")]
 use std::path::Path;
@@ -9,7 +10,9 @@ use std::time::Duration;
 use martin_core::CacheZoomRange;
 #[cfg(feature = "_tiles")]
 use martin_core::tiles::BoxedSource;
-use serde::{Deserialize, Serialize};
+use serde::de::value::{MapAccessDeserializer, SeqAccessDeserializer};
+use serde::de::{self, MapAccess, SeqAccess, Visitor};
+use serde::{Deserialize, Deserializer, Serialize};
 #[cfg(feature = "_tiles")]
 use tracing::{info, warn};
 #[cfg(feature = "_tiles")]
@@ -82,7 +85,7 @@ pub trait TileSourceConfiguration: ConfigurationLivecycleHooks {
     ) -> impl Future<Output = MartinResult<BoxedSource>> + Send;
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize)]
 #[serde(untagged)]
 pub enum FileConfigEnum<T> {
     #[default]
@@ -90,6 +93,61 @@ pub enum FileConfigEnum<T> {
     Path(PathBuf),
     Paths(Vec<PathBuf>),
     Config(FileConfig<T>),
+}
+
+impl<'de, T> Deserialize<'de> for FileConfigEnum<T>
+where
+    T: Deserialize<'de> + Default,
+{
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        struct FileConfigEnumVisitor<T>(PhantomData<T>);
+
+        impl<'de, T> Visitor<'de> for FileConfigEnumVisitor<T>
+        where
+            T: Deserialize<'de> + Default,
+        {
+            type Value = FileConfigEnum<T>;
+
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str(
+                    "a path string, a list of path strings, or a configuration map with \
+                     `paths` and/or `sources`",
+                )
+            }
+
+            fn visit_unit<E: de::Error>(self) -> Result<FileConfigEnum<T>, E> {
+                Ok(FileConfigEnum::None)
+            }
+
+            fn visit_none<E: de::Error>(self) -> Result<FileConfigEnum<T>, E> {
+                Ok(FileConfigEnum::None)
+            }
+
+            fn visit_str<E: de::Error>(self, value: &str) -> Result<FileConfigEnum<T>, E> {
+                Ok(FileConfigEnum::Path(PathBuf::from(value)))
+            }
+
+            fn visit_string<E: de::Error>(self, value: String) -> Result<FileConfigEnum<T>, E> {
+                Ok(FileConfigEnum::Path(PathBuf::from(value)))
+            }
+
+            fn visit_seq<S: SeqAccess<'de>>(self, seq: S) -> Result<FileConfigEnum<T>, S::Error> {
+                let paths: Vec<PathBuf> =
+                    Deserialize::deserialize(SeqAccessDeserializer::new(seq))?;
+                Ok(FileConfigEnum::Paths(paths))
+            }
+
+            fn visit_map<M: MapAccess<'de>>(self, map: M) -> Result<FileConfigEnum<T>, M::Error> {
+                let cfg = FileConfig::<T>::deserialize(MapAccessDeserializer::new(map))?;
+                Ok(FileConfigEnum::Config(cfg))
+            }
+
+            // Numbers / booleans fall through to serde's default `invalid_type` path,
+            // which is what attaches the source span via saphyr's deserializer.
+        }
+
+        deserializer.deserialize_any(FileConfigEnumVisitor(PhantomData))
+    }
 }
 
 impl<T: ConfigurationLivecycleHooks> FileConfigEnum<T> {
@@ -220,11 +278,43 @@ impl<T: ConfigurationLivecycleHooks> ConfigurationLivecycleHooks for FileConfig<
 }
 
 /// A serde helper to store a boolean as an object.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(untagged)]
 pub enum FileConfigSrc {
     Path(PathBuf),
     Obj(FileConfigSource),
+}
+
+impl<'de> Deserialize<'de> for FileConfigSrc {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        struct FileConfigSrcVisitor;
+
+        impl<'de> Visitor<'de> for FileConfigSrcVisitor {
+            type Value = FileConfigSrc;
+
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("a path string or a configuration map with a `path` field")
+            }
+
+            fn visit_str<E: de::Error>(self, value: &str) -> Result<FileConfigSrc, E> {
+                Ok(FileConfigSrc::Path(PathBuf::from(value)))
+            }
+
+            fn visit_string<E: de::Error>(self, value: String) -> Result<FileConfigSrc, E> {
+                Ok(FileConfigSrc::Path(PathBuf::from(value)))
+            }
+
+            fn visit_map<M: MapAccess<'de>>(self, map: M) -> Result<FileConfigSrc, M::Error> {
+                let obj = FileConfigSource::deserialize(MapAccessDeserializer::new(map))?;
+                Ok(FileConfigSrc::Obj(obj))
+            }
+
+            // Numbers / booleans / sequences fall through to serde's default `invalid_type`
+            // path, which carries a source span via saphyr's deserializer.
+        }
+
+        deserializer.deserialize_any(FileConfigSrcVisitor)
+    }
 }
 
 impl FileConfigSrc {
@@ -596,25 +686,46 @@ impl CachePolicy {
 impl<'de> Deserialize<'de> for CachePolicy {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
-        D: serde::Deserializer<'de>,
+        D: Deserializer<'de>,
     {
         #[derive(Deserialize)]
-        #[serde(untagged)]
-        enum CachePolicyHelper {
-            String(String),
-            Struct {
-                #[serde(flatten, default)]
-                zoom: CacheZoomRange,
-            },
+        struct Inner {
+            #[serde(flatten, default)]
+            zoom: CacheZoomRange,
         }
 
-        match CachePolicyHelper::deserialize(deserializer)? {
-            CachePolicyHelper::String(s) if s == "disable" => Ok(Self::disabled()),
-            CachePolicyHelper::String(s) => Err(serde::de::Error::custom(format!(
-                "invalid cache policy string: {s:?}, expected \"disable\""
-            ))),
-            CachePolicyHelper::Struct { zoom } => Ok(Self { zoom }),
+        struct CachePolicyVisitor;
+
+        impl<'de> Visitor<'de> for CachePolicyVisitor {
+            type Value = CachePolicy;
+
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str(
+                    "either the literal `disable` or a zoom range (e.g. `{ minzoom: 0, maxzoom: 14 }`)",
+                )
+            }
+
+            fn visit_str<E: de::Error>(self, value: &str) -> Result<CachePolicy, E> {
+                if value == "disable" {
+                    Ok(CachePolicy::disabled())
+                } else {
+                    Err(E::custom(format!(
+                        "invalid cache policy string {value:?}; the only accepted string form is `disable`"
+                    )))
+                }
+            }
+
+            fn visit_string<E: de::Error>(self, value: String) -> Result<CachePolicy, E> {
+                self.visit_str(&value)
+            }
+
+            fn visit_map<M: MapAccess<'de>>(self, map: M) -> Result<CachePolicy, M::Error> {
+                let inner = Inner::deserialize(MapAccessDeserializer::new(map))?;
+                Ok(CachePolicy { zoom: inner.zoom })
+            }
         }
+
+        deserializer.deserialize_any(CachePolicyVisitor)
     }
 }
 
@@ -716,67 +827,67 @@ impl GlobalCacheConfig {
 impl<'de> Deserialize<'de> for GlobalCacheConfig {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
-        D: serde::Deserializer<'de>,
+        D: Deserializer<'de>,
     {
+        // Inner struct that handles the map case via the derive — we still get good error
+        // messages (with spans) for unknown fields and type mismatches inside it.
+        #[serde_with::skip_serializing_none]
         #[derive(Deserialize)]
-        #[serde(untagged)]
-        enum Helper {
-            String(String),
-            Struct {
-                size_mb: Option<u64>,
-                tile_size_mb: Option<u64>,
-                #[serde(
-                    default,
-                    skip_serializing_if = "Option::is_none",
-                    with = "humantime_serde"
-                )]
-                expiry: Option<Duration>,
-                #[serde(
-                    default,
-                    skip_serializing_if = "Option::is_none",
-                    with = "humantime_serde"
-                )]
-                idle_timeout: Option<Duration>,
-                #[serde(
-                    default,
-                    skip_serializing_if = "Option::is_none",
-                    with = "humantime_serde"
-                )]
-                tile_expiry: Option<Duration>,
-                #[serde(
-                    default,
-                    skip_serializing_if = "Option::is_none",
-                    with = "humantime_serde"
-                )]
-                tile_idle_timeout: Option<Duration>,
-                #[serde(flatten, default)]
-                zoom: CacheZoomRange,
-            },
+        struct Inner {
+            size_mb: Option<u64>,
+            tile_size_mb: Option<u64>,
+            #[serde(default, with = "humantime_serde")]
+            expiry: Option<Duration>,
+            #[serde(default, with = "humantime_serde")]
+            idle_timeout: Option<Duration>,
+            #[serde(default, with = "humantime_serde")]
+            tile_expiry: Option<Duration>,
+            #[serde(default, with = "humantime_serde")]
+            tile_idle_timeout: Option<Duration>,
+            #[serde(flatten, default)]
+            zoom: CacheZoomRange,
         }
 
-        match Helper::deserialize(deserializer)? {
-            Helper::String(s) if s == "disable" => Ok(Self::disabled()),
-            Helper::String(s) => Err(serde::de::Error::custom(format!(
-                "invalid cache config string: {s:?}, expected \"disable\""
-            ))),
-            Helper::Struct {
-                size_mb,
-                tile_size_mb,
-                expiry,
-                idle_timeout,
-                tile_expiry,
-                tile_idle_timeout,
-                zoom,
-            } => Ok(Self {
-                size_mb,
-                tile_size_mb,
-                expiry,
-                idle_timeout,
-                tile_expiry,
-                tile_idle_timeout,
-                zoom,
-            }),
+        struct GlobalCacheVisitor;
+
+        impl<'de> Visitor<'de> for GlobalCacheVisitor {
+            type Value = GlobalCacheConfig;
+
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str(
+                    "either the literal `disable` or a cache configuration map (e.g. `{ size_mb: 512, tile_size_mb: 256 }`)",
+                )
+            }
+
+            fn visit_str<E: de::Error>(self, value: &str) -> Result<GlobalCacheConfig, E> {
+                if value == "disable" {
+                    Ok(GlobalCacheConfig::disabled())
+                } else {
+                    Err(E::custom(format!(
+                        "invalid cache config string {value:?}; the only accepted string form is `disable`"
+                    )))
+                }
+            }
+
+            fn visit_string<E: de::Error>(self, value: String) -> Result<GlobalCacheConfig, E> {
+                self.visit_str(&value)
+            }
+
+            fn visit_map<M: MapAccess<'de>>(self, map: M) -> Result<GlobalCacheConfig, M::Error> {
+                let inner = Inner::deserialize(MapAccessDeserializer::new(map))?;
+                Ok(GlobalCacheConfig {
+                    size_mb: inner.size_mb,
+                    tile_size_mb: inner.tile_size_mb,
+                    expiry: inner.expiry,
+                    idle_timeout: inner.idle_timeout,
+                    tile_expiry: inner.tile_expiry,
+                    tile_idle_timeout: inner.tile_idle_timeout,
+                    zoom: inner.zoom,
+                })
+            }
         }
+
+        deserializer.deserialize_any(GlobalCacheVisitor)
     }
 }
 
@@ -826,48 +937,58 @@ impl CacheSizeConfig {
 impl<'de> Deserialize<'de> for CacheSizeConfig {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
-        D: serde::Deserializer<'de>,
+        D: Deserializer<'de>,
     {
+        #[serde_with::skip_serializing_none]
         #[derive(Deserialize)]
-        #[serde(untagged)]
-        enum Helper {
-            String(String),
-            Struct {
-                size_mb: Option<u64>,
-                #[serde(
-                    default,
-                    skip_serializing_if = "Option::is_none",
-                    with = "humantime_serde"
-                )]
-                expiry: Option<Duration>,
-                #[serde(
-                    default,
-                    skip_serializing_if = "Option::is_none",
-                    with = "humantime_serde"
-                )]
-                idle_timeout: Option<Duration>,
-            },
+        struct Inner {
+            size_mb: Option<u64>,
+            #[serde(default, with = "humantime_serde")]
+            expiry: Option<Duration>,
+            #[serde(default, with = "humantime_serde")]
+            idle_timeout: Option<Duration>,
         }
 
-        match Helper::deserialize(deserializer)? {
-            Helper::String(s) if s == "disable" => Ok(Self {
-                size_mb: Some(0),
-                expiry: None,
-                idle_timeout: None,
-            }),
-            Helper::String(s) => Err(serde::de::Error::custom(format!(
-                "invalid cache config string: {s:?}, expected \"disable\""
-            ))),
-            Helper::Struct {
-                size_mb,
-                expiry,
-                idle_timeout,
-            } => Ok(Self {
-                size_mb,
-                expiry,
-                idle_timeout,
-            }),
+        struct CacheSizeVisitor;
+
+        impl<'de> Visitor<'de> for CacheSizeVisitor {
+            type Value = CacheSizeConfig;
+
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str(
+                    "either the literal `disable` or a cache configuration map (e.g. `{ size_mb: 64, expiry: 1h }`)",
+                )
+            }
+
+            fn visit_str<E: de::Error>(self, value: &str) -> Result<CacheSizeConfig, E> {
+                if value == "disable" {
+                    Ok(CacheSizeConfig {
+                        size_mb: Some(0),
+                        expiry: None,
+                        idle_timeout: None,
+                    })
+                } else {
+                    Err(E::custom(format!(
+                        "invalid cache config string {value:?}; the only accepted string form is `disable`"
+                    )))
+                }
+            }
+
+            fn visit_string<E: de::Error>(self, value: String) -> Result<CacheSizeConfig, E> {
+                self.visit_str(&value)
+            }
+
+            fn visit_map<M: MapAccess<'de>>(self, map: M) -> Result<CacheSizeConfig, M::Error> {
+                let inner = Inner::deserialize(MapAccessDeserializer::new(map))?;
+                Ok(CacheSizeConfig {
+                    size_mb: inner.size_mb,
+                    expiry: inner.expiry,
+                    idle_timeout: inner.idle_timeout,
+                })
+            }
         }
+
+        deserializer.deserialize_any(CacheSizeVisitor)
     }
 }
 
@@ -880,6 +1001,318 @@ pub fn copy_unrecognized_keys_from_config(
     unrecognized: &UnrecognizedValues,
 ) {
     result.extend(unrecognized.keys().map(|k| format!("{prefix}{k}")));
+}
+
+#[cfg(test)]
+mod deserialize_tests {
+    use serde::Deserialize;
+
+    use super::*;
+    use crate::config::test_helpers::{parse_yaml, render_failure};
+
+    /// Inner config used to instantiate `FileConfigEnum<T>` / `FileConfig<T>` in success-path
+    /// tests without depending on a real source-type config.
+    #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+    struct TestCustom {
+        #[serde(default)]
+        flag: bool,
+    }
+
+    impl ConfigurationLivecycleHooks for TestCustom {
+        fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
+            UnrecognizedKeys::new()
+        }
+    }
+
+    // Failure-path tests run through the full `parse_config` pipeline using realistic
+    // `Config` fields (e.g. `pmtiles:` for `FileConfigEnum`, `mbtiles.sources` for
+    // `FileConfigSrc`, `cache:` for the cache deserializers) so each snapshot mirrors what
+    // the user sees on the command line.
+
+    // ----- FileConfigEnum<T> -----
+
+    #[test]
+    fn file_config_enum_null_is_none() {
+        let cfg = parse_yaml::<FileConfigEnum<TestCustom>>("null");
+        assert_eq!(cfg, FileConfigEnum::None);
+    }
+
+    #[test]
+    fn file_config_enum_string_is_path() {
+        let cfg = parse_yaml::<FileConfigEnum<TestCustom>>("/tmp/tiles");
+        assert_eq!(cfg, FileConfigEnum::Path(PathBuf::from("/tmp/tiles")));
+    }
+
+    #[test]
+    fn file_config_enum_seq_is_paths() {
+        let cfg = parse_yaml::<FileConfigEnum<TestCustom>>("[/a, /b]");
+        assert_eq!(
+            cfg,
+            FileConfigEnum::Paths(vec![PathBuf::from("/a"), PathBuf::from("/b")])
+        );
+    }
+
+    #[test]
+    fn file_config_enum_map_is_config() {
+        let cfg = parse_yaml::<FileConfigEnum<TestCustom>>("{ paths: [/a], flag: true }");
+        let FileConfigEnum::Config(file_config) = cfg else {
+            panic!("expected Config variant");
+        };
+        assert_eq!(file_config.paths, OptOneMany::One(PathBuf::from("/a")));
+        assert!(file_config.custom.flag);
+    }
+
+    #[test]
+    #[cfg(feature = "pmtiles")]
+    fn file_config_enum_rejects_integer() {
+        insta::assert_snapshot!(render_failure("pmtiles: 42\n"), @"
+         × invalid type: integer `42`, expected a path string, a list of path
+         │ strings, or a configuration map with `paths` and/or `sources`
+          ╭─[config.yaml:1:1]
+        1 │ pmtiles: 42
+          · ───┬───
+          ·    ╰── invalid type: integer `42`, expected a path string, a list of path strings, or a configuration map with `paths` and/or `sources`
+          ╰────
+        ");
+    }
+
+    #[test]
+    #[cfg(feature = "pmtiles")]
+    fn file_config_enum_rejects_bool() {
+        insta::assert_snapshot!(render_failure("pmtiles: true\n"), @"
+         × invalid type: boolean `true`, expected a path string, a list of path
+         │ strings, or a configuration map with `paths` and/or `sources`
+          ╭─[config.yaml:1:1]
+        1 │ pmtiles: true
+          · ───┬───
+          ·    ╰── invalid type: boolean `true`, expected a path string, a list of path strings, or a configuration map with `paths` and/or `sources`
+          ╰────
+        ");
+    }
+
+    #[test]
+    #[cfg(feature = "pmtiles")]
+    fn file_config_enum_path_list_with_nested_map_fails() {
+        insta::assert_snapshot!(
+            render_failure(indoc::indoc! {"
+                pmtiles:
+                  paths:
+                    - { not_a_path: true }
+            "}),
+            @"
+         × unexpected event: expected string scalar
+          ╭─[config.yaml:3:7]
+        2 │   paths:
+        3 │     - { not_a_path: true }
+          ·       ─┬
+          ·        ╰── unexpected event: expected string scalar
+          ╰────
+        "
+        );
+    }
+
+    // ----- FileConfigSrc -----
+
+    #[test]
+    fn file_config_src_string_is_path() {
+        let cfg = parse_yaml::<FileConfigSrc>("/tmp/tile.pmtiles");
+        assert_eq!(cfg, FileConfigSrc::Path(PathBuf::from("/tmp/tile.pmtiles")));
+    }
+
+    #[test]
+    fn file_config_src_map_is_obj() {
+        let cfg = parse_yaml::<FileConfigSrc>("{ path: /tmp/tile.pmtiles }");
+        let FileConfigSrc::Obj(obj) = cfg else {
+            panic!("expected Obj variant");
+        };
+        assert_eq!(obj.path, PathBuf::from("/tmp/tile.pmtiles"));
+    }
+
+    #[test]
+    #[cfg(feature = "mbtiles")]
+    fn file_config_src_rejects_integer() {
+        insta::assert_snapshot!(
+            render_failure(indoc::indoc! {"
+                mbtiles:
+                  sources:
+                    foo: 5
+            "}),
+            @"
+         × invalid type: integer `5`, expected a path string or a configuration map
+         │ with a `path` field
+          ╭─[config.yaml:3:5]
+        2 │   sources:
+        3 │     foo: 5
+          ·     ─┬─
+          ·      ╰── invalid type: integer `5`, expected a path string or a configuration map with a `path` field
+          ╰────
+        "
+        );
+    }
+
+    #[test]
+    #[cfg(feature = "mbtiles")]
+    fn file_config_src_rejects_bool() {
+        insta::assert_snapshot!(
+            render_failure(indoc::indoc! {"
+                mbtiles:
+                  sources:
+                    foo: true
+            "}),
+            @"
+         × invalid type: boolean `true`, expected a path string or a configuration
+         │ map with a `path` field
+          ╭─[config.yaml:3:5]
+        2 │   sources:
+        3 │     foo: true
+          ·     ─┬─
+          ·      ╰── invalid type: boolean `true`, expected a path string or a configuration map with a `path` field
+          ╰────
+        "
+        );
+    }
+
+    #[test]
+    #[cfg(feature = "mbtiles")]
+    fn file_config_src_rejects_sequence() {
+        insta::assert_snapshot!(
+            render_failure(indoc::indoc! {"
+                mbtiles:
+                  sources:
+                    foo: [a, b]
+            "}),
+            @"
+         × invalid type: sequence, expected a path string or a configuration map with
+         │ a `path` field
+          ╭─[config.yaml:3:5]
+        2 │   sources:
+        3 │     foo: [a, b]
+          ·     ─┬─
+          ·      ╰── invalid type: sequence, expected a path string or a configuration map with a `path` field
+          ╰────
+        "
+        );
+    }
+
+    // ----- GlobalCacheConfig (top-level `cache:` key) -----
+
+    #[test]
+    fn global_cache_disable_string() {
+        let cfg = parse_yaml::<GlobalCacheConfig>("disable");
+        assert_eq!(cfg, GlobalCacheConfig::disabled());
+    }
+
+    #[test]
+    fn global_cache_map() {
+        let cfg = parse_yaml::<GlobalCacheConfig>("{ size_mb: 512, tile_size_mb: 256 }");
+        assert_eq!(cfg.size_mb, Some(512));
+        assert_eq!(cfg.tile_size_mb, Some(256));
+    }
+
+    #[test]
+    fn global_cache_rejects_other_string() {
+        insta::assert_snapshot!(render_failure("cache: enable\n"), @r#"
+         × invalid cache config string "enable"; the only accepted string form is
+         │ `disable`
+          ╭─[config.yaml:1:8]
+        1 │ cache: enable
+          ·        ───┬──
+          ·           ╰── invalid cache config string "enable"; the only accepted string form is `disable`
+          ╰────
+        "#);
+    }
+
+    #[test]
+    fn global_cache_rejects_integer() {
+        insta::assert_snapshot!(render_failure("cache: 42\n"), @"
+         × invalid type: integer `42`, expected either the literal `disable` or a
+         │ cache configuration map (e.g. `{ size_mb: 512, tile_size_mb: 256 }`)
+          ╭─[config.yaml:1:1]
+        1 │ cache: 42
+          · ──┬──
+          ·   ╰── invalid type: integer `42`, expected either the literal `disable` or a cache configuration map (e.g. `{ size_mb: 512, tile_size_mb: 256 }`)
+          ╰────
+        ");
+    }
+
+    // ----- CacheSizeConfig (per-section `cache:` block) -----
+
+    #[test]
+    fn cache_size_disable_string() {
+        let cfg = parse_yaml::<CacheSizeConfig>("disable");
+        assert_eq!(cfg.size_mb, Some(0));
+        assert_eq!(cfg.expiry, None);
+    }
+
+    #[test]
+    fn cache_size_map() {
+        let cfg = parse_yaml::<CacheSizeConfig>("{ size_mb: 64, expiry: 1h }");
+        assert_eq!(cfg.size_mb, Some(64));
+        assert_eq!(cfg.expiry, Some(Duration::from_hours(1)));
+    }
+
+    #[test]
+    #[cfg(feature = "sprites")]
+    fn cache_size_rejects_other_string() {
+        insta::assert_snapshot!(
+            render_failure(indoc::indoc! {"
+                sprites:
+                  cache: yes
+            "}),
+            @"
+         × invalid type: boolean `true`, expected either the literal `disable` or a
+         │ cache configuration map (e.g. `{ size_mb: 64, expiry: 1h }`)
+          ╭─[config.yaml:2:3]
+        1 │ sprites:
+        2 │   cache: yes
+          ·   ──┬──
+          ·     ╰── invalid type: boolean `true`, expected either the literal `disable` or a cache configuration map (e.g. `{ size_mb: 64, expiry: 1h }`)
+          ╰────
+        "
+        );
+    }
+
+    #[test]
+    #[cfg(feature = "sprites")]
+    fn cache_size_rejects_integer() {
+        insta::assert_snapshot!(
+            render_failure(indoc::indoc! {"
+                sprites:
+                  cache: 42
+            "}),
+            @"
+         × invalid type: integer `42`, expected either the literal `disable` or a
+         │ cache configuration map (e.g. `{ size_mb: 64, expiry: 1h }`)
+          ╭─[config.yaml:2:3]
+        1 │ sprites:
+        2 │   cache: 42
+          ·   ──┬──
+          ·     ╰── invalid type: integer `42`, expected either the literal `disable` or a cache configuration map (e.g. `{ size_mb: 64, expiry: 1h }`)
+          ╰────
+        "
+        );
+    }
+
+    // ----- CachePolicy (constructed internally, not surfaced as a config-tree field) -----
+    //
+    // `CachePolicy` is built from `CacheZoomRange` derived from per-source defaults; it is
+    // not addressable via a top-level YAML path. We exercise the deserializer directly here
+    // and rely on the `cache:` and per-source `cache:` block tests above to cover the
+    // user-visible diagnostic surface.
+
+    #[test]
+    fn cache_policy_disable_string() {
+        let cfg = parse_yaml::<CachePolicy>("disable");
+        assert_eq!(cfg, CachePolicy::disabled());
+    }
+
+    #[test]
+    fn cache_policy_map() {
+        let cfg = parse_yaml::<CachePolicy>("{ minzoom: 0, maxzoom: 14 }");
+        let dumped = serde_yaml::to_string(&cfg).unwrap();
+        assert!(dumped.contains("minzoom: 0"), "got: {dumped}");
+        assert!(dumped.contains("maxzoom: 14"), "got: {dumped}");
+    }
 }
 
 #[cfg(all(test, feature = "mbtiles"))]

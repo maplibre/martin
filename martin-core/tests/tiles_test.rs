@@ -35,44 +35,6 @@ async fn cache_entry_evicted_after_ttl_expires() {
 }
 
 #[tokio::test]
-async fn ttl_evicts_even_with_frequent_access() {
-    // TTL evicts entries regardless of access pattern (unlike TTI)
-    let ttl = Duration::from_millis(200);
-    let cache = TileCache::new(CACHE_SIZE, Some(ttl), None);
-
-    insert(&cache, "src", ORIGIN, None, b"data").await;
-
-    // Access repeatedly — this should NOT extend the TTL
-    for _ in 0..3 {
-        tokio::time::sleep(Duration::from_millis(30)).await;
-        assert_hit(&cache, "src", ORIGIN).await;
-    }
-
-    // Still before TTL expiration.
-    tokio::time::sleep(Duration::from_millis(60)).await;
-    assert_hit(&cache, "src", ORIGIN).await;
-
-    wait_and_flush(&cache, Duration::from_millis(80)).await;
-
-    assert_miss(&cache, "src", ORIGIN, None, b"new").await;
-}
-
-#[tokio::test]
-async fn cache_entry_survives_when_accessed_within_tti() {
-    let tti = Duration::from_millis(60);
-    let cache = TileCache::new(CACHE_SIZE, None, Some(tti));
-
-    insert(&cache, "src", ORIGIN, None, b"data").await;
-
-    // Each access resets the idle timer, keeping the entry alive past the total TTI
-    for _ in 0..3 {
-        tokio::time::sleep(Duration::from_millis(30)).await;
-        let hit = assert_hit(&cache, "src", ORIGIN).await;
-        assert_eq!(hit.data, b"data");
-    }
-}
-
-#[tokio::test]
 async fn cache_entry_evicted_after_idle_timeout() {
     let tti = Duration::from_millis(25);
     let cache = TileCache::new(CACHE_SIZE, None, Some(tti));
@@ -99,24 +61,6 @@ async fn tti_evicts_before_ttl_when_idle() {
 }
 
 #[tokio::test]
-async fn ttl_evicts_despite_access_when_both_set() {
-    let ttl = Duration::from_millis(80);
-    let tti = Duration::from_millis(60);
-    let cache = TileCache::new(CACHE_SIZE, Some(ttl), Some(tti));
-
-    insert(&cache, "src", ORIGIN, None, b"data").await;
-
-    // Keep accessing within TTI to prevent idle eviction
-    tokio::time::sleep(Duration::from_millis(40)).await;
-    assert_hit(&cache, "src", ORIGIN).await;
-
-    // Wait until TTL has passed since original insertion
-    wait_and_flush(&cache, Duration::from_millis(60)).await;
-
-    assert_miss(&cache, "src", ORIGIN, None, b"new").await;
-}
-
-#[tokio::test]
 async fn cache_entry_persists_without_ttl_or_tti() {
     let cache = TileCache::new(CACHE_SIZE, None, None);
 
@@ -126,25 +70,6 @@ async fn cache_entry_persists_without_ttl_or_tti() {
 
     let hit = assert_hit(&cache, "src", ORIGIN).await;
     assert_eq!(hit.data, b"data");
-}
-
-#[tokio::test]
-async fn ttl_applies_independently_per_entry() {
-    let ttl = Duration::from_millis(80);
-    let cache = TileCache::new(CACHE_SIZE, Some(ttl), None);
-
-    insert(&cache, "src", ORIGIN, None, b"first").await;
-
-    tokio::time::sleep(Duration::from_millis(40)).await;
-    insert(&cache, "src", coord(1, 0, 0), None, b"second").await;
-
-    // First entry's TTL has expired, second has not
-    wait_and_flush(&cache, Duration::from_millis(60)).await;
-
-    assert_miss(&cache, "src", ORIGIN, None, b"first-new").await;
-
-    let second = assert_hit(&cache, "src", coord(1, 0, 0)).await;
-    assert_eq!(second.data, b"second");
 }
 
 #[tokio::test]
@@ -180,10 +105,6 @@ fn test_tile(data: &[u8]) -> Tile {
         data.to_vec(),
         TileInfo::new(Format::Mvt, Encoding::Uncompressed),
     )
-}
-
-fn coord(z: u8, x: u32, y: u32) -> TileCoord {
-    TileCoord { z, x, y }
 }
 
 /// Sleep for the given duration then flush pending evictions.

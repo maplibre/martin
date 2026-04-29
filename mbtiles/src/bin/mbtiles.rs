@@ -1,16 +1,18 @@
+use std::io::IsTerminal as _;
 use std::path::{Path, PathBuf};
 
 use clap::builder::Styles;
 use clap::builder::styling::AnsiColor;
 use clap::{Parser, Subcommand, ValueEnum};
 use enum_display::EnumDisplay;
-use log::error;
 use mbtiles::{
     AggHashType, CopyDuplicateMode, CopyType, IntegrityCheckType, MbtResult, MbtTypeCli, Mbtiles,
     MbtilesCopier, PatchTypeCli, UpdateZoomType, apply_patch,
 };
 use serde::{Deserialize, Serialize};
 use tilejson::Bounds;
+use tracing::error;
+use tracing_subscriber::EnvFilter;
 
 /// Defines the styles used for the CLI help output.
 const HELP_STYLES: Styles = Styles::styled()
@@ -24,7 +26,7 @@ const HELP_STYLES: Styles = Styles::styled()
     version,
     name = "mbtiles",
     about = "A utility to work with .mbtiles file content",
-    after_help = "Use RUST_LOG environment variable to control logging level, e.g. RUST_LOG=debug or RUST_LOG=mbtiles=debug. See https://docs.rs/env_logger/latest/env_logger/index.html#enabling-logging for more information.",
+    after_help = "Use RUST_LOG environment variable to control logging level, e.g. RUST_LOG=debug or RUST_LOG=mbtiles=debug. See https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.EnvFilter.html for more information.",
     styles = HELP_STYLES
 )]
 pub struct Args {
@@ -240,12 +242,16 @@ impl SharedCopyOpts {
 
 #[tokio::main]
 async fn main() {
-    let env = env_logger::Env::default().default_filter_or("mbtiles=info");
-    env_logger::Builder::from_env(env)
-        .format_indent(None)
-        .format_module_path(false)
-        .format_target(false)
-        .format_timestamp(None)
+    let env_filter = EnvFilter::builder()
+        .with_default_directive("mbtiles=info".parse().expect("valid default directive"))
+        .from_env_lossy();
+    tracing_subscriber::fmt()
+        .compact()
+        .without_time()
+        .with_target(false)
+        .with_ansi(std::io::stderr().is_terminal())
+        .with_writer(std::io::stderr)
+        .with_env_filter(env_filter)
         .init();
 
     if let Err(err) = main_int().await {

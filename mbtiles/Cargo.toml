@@ -1,6 +1,6 @@
 [package]
 name = "mbtiles"
-version = "0.17.1"
+version = "0.17.2"
 authors = ["Yuri Astrakhan <YuriAstrakhan@gmail.com>", "MapLibre contributors"]
 description = "A simple low-level MbTiles access and processing library, with some tile format detection and other relevant heuristics."
 keywords = ["mbtiles", "maps", "tiles", "mvt", "tilejson"]
@@ -26,7 +26,7 @@ required-features = ["transcode"]
 
 [features]
 default = ["cli"]
-cli = ["dep:anyhow", "dep:clap", "dep:env_logger", "dep:serde_yaml"]
+cli = ["dep:anyhow", "dep:clap", "dep:serde_yaml", "dep:tracing-subscriber"]
 __hotpath = [
     "hotpath/hotpath",
     "hotpath/hotpath-alloc",
@@ -42,12 +42,10 @@ anyhow = { workspace = true, optional = true }
 bytes = { workspace = true, optional = true }
 clap = { workspace = true, optional = true }
 enum-display.workspace = true
-env_logger = { workspace = true, optional = true }
 flume.workspace = true
 futures.workspace = true
 hotpath.workspace = true
 itertools.workspace = true
-log.workspace = true
 martin-tile-utils.workspace = true
 md5.workspace = true
 
@@ -65,6 +63,8 @@ sqlx.workspace = true
 thiserror.workspace = true
 tilejson.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread"] }
+tracing.workspace = true
+tracing-subscriber = { workspace = true, default-features = false, features = ["env-filter", "fmt", "std", "ansi"], optional = true }
 xxhash-rust.workspace = true
 
 [dev-dependencies]
@@ -72,14 +72,12 @@ xxhash-rust.workspace = true
 actix-rt.workspace = true
 bytes.workspace = true
 criterion.workspace = true
-env_logger.workspace = true
 flate2.workspace = true
 insta = { workspace = true, features = ["toml", "yaml"] }
 pretty_assertions.workspace = true
 rstest.workspace = true
 tempfile.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
-tracing.workspace = true
 tracing-test.workspace = true
 
 [lints]

@@ -570,6 +570,7 @@ test_pbf table_and_view_two_schemas2_0_0_0  table_and_view_two_schemas.1/0/0/0
 
 kill_process "$MARTIN_PROC_ID" Martin
 
+<<<<<<< refactor/tracing-structured-fields
 test_log_has_str "$LOG_FILE" 'WARN Table public.table_source has no spatial index on column geom'
 test_log_has_str "$LOG_FILE" 'WARN Table public.table_source_geog has no spatial index on column geog'
 test_log_has_str "$LOG_FILE" 'WARN Table public.mat_view has no spatial index on column geom'
@@ -584,6 +585,22 @@ test_log_has_str "$LOG_FILE" 'source.id.new=table_and_view_two_schemas.1'
 test_log_has_str "$LOG_FILE" 'WARN Defaulting `pmtiles.allow_http` to `true`. This is likely to become an error in the future for better security.'
 test_log_has_str "$LOG_FILE" 'WARN Environment variable AWS_SKIP_CREDENTIALS is deprecated. Please use pmtiles.skip_signature in the configuration file instead.'
 test_log_has_str "$LOG_FILE" 'WARN Environment variable AWS_REGION is deprecated. Please use pmtiles.region in the configuration file instead.'
+=======
+test_log_has_str "$LOG_FILE" 'Table public.table_source has no spatial index on column geom'
+test_log_has_str "$LOG_FILE" 'Table public.table_source_geog has no spatial index on column geog'
+test_log_has_str "$LOG_FILE" 'Table public.mat_view has no spatial index on column geom'
+test_log_has_str "$LOG_FILE" 'Ignoring duplicate font Overpass Mono Regular from tests'
+test_log_has_str "$LOG_FILE" 'was renamed to `stamen_toner__raster_CC-BY-ODbL_z3`'
+test_log_has_str "$LOG_FILE" 'was renamed to `table_source_multiple_geom.1`'
+test_log_has_str "$LOG_FILE" 'was renamed to `-function.withweired---_-characters`'
+test_log_has_str "$LOG_FILE" 'was renamed to `.-Points-----------quote`'
+test_log_has_str "$LOG_FILE" 'was renamed to `table_name_existing_two_schemas.1`'
+test_log_has_str "$LOG_FILE" 'was renamed to `view_name_existing_two_schemas.1`'
+test_log_has_str "$LOG_FILE" 'was renamed to `table_and_view_two_schemas.1`'
+test_log_has_str "$LOG_FILE" 'Defaulting `pmtiles.allow_http` to `true`. This is likely to become an error in the future for better security.'
+test_log_has_str "$LOG_FILE" 'Environment variable AWS_SKIP_CREDENTIALS is deprecated. Please use pmtiles.skip_signature in the configuration file instead.'
+test_log_has_str "$LOG_FILE" 'Environment variable AWS_REGION is deprecated. Please use pmtiles.region in the configuration file instead.'
+>>>>>>> main
 validate_log "$LOG_FILE"
 remove_lines "${TEST_OUT_DIR}/save_config.yaml" " connection_string: "
 echo "::endgroup::"
@@ -607,9 +624,9 @@ wait_for "$MARTIN_PROC_ID" Martin "$MARTIN_URL/health"
 test_jsn catalog_auto catalog
 
 kill_process "$MARTIN_PROC_ID" Martin
-test_log_has_str "$LOG_FILE" 'WARN Defaulting `pmtiles.allow_http` to `true`. This is likely to become an error in the future for better security.'
-test_log_has_str "$LOG_FILE" 'WARN Environment variable AWS_SKIP_CREDENTIALS is deprecated. Please use pmtiles.skip_signature in the configuration file instead.'
-test_log_has_str "$LOG_FILE" 'WARN Environment variable AWS_REGION is deprecated. Please use pmtiles.region in the configuration file instead.'
+test_log_has_str "$LOG_FILE" 'Defaulting `pmtiles.allow_http` to `true`. This is likely to become an error in the future for better security.'
+test_log_has_str "$LOG_FILE" 'Environment variable AWS_SKIP_CREDENTIALS is deprecated. Please use pmtiles.skip_signature in the configuration file instead.'
+test_log_has_str "$LOG_FILE" 'Environment variable AWS_REGION is deprecated. Please use pmtiles.region in the configuration file instead.'
 validate_log "$LOG_FILE"
 echo "::endgroup::"
 
@@ -637,9 +654,9 @@ if [ "$ROOT_HEALTH" != "OK" ]; then
 fi
 
 kill_process "$MARTIN_PROC_ID" Martin
-test_log_has_str "$LOG_FILE" 'WARN Defaulting `pmtiles.allow_http` to `true`. This is likely to become an error in the future for better security.'
-test_log_has_str "$LOG_FILE" 'WARN Environment variable AWS_SKIP_CREDENTIALS is deprecated. Please use pmtiles.skip_signature in the configuration file instead.'
-test_log_has_str "$LOG_FILE" 'WARN Environment variable AWS_REGION is deprecated. Please use pmtiles.region in the configuration file instead.'
+test_log_has_str "$LOG_FILE" 'Defaulting `pmtiles.allow_http` to `true`. This is likely to become an error in the future for better security.'
+test_log_has_str "$LOG_FILE" 'Environment variable AWS_SKIP_CREDENTIALS is deprecated. Please use pmtiles.skip_signature in the configuration file instead.'
+test_log_has_str "$LOG_FILE" 'Environment variable AWS_REGION is deprecated. Please use pmtiles.region in the configuration file instead.'
 validate_log "$LOG_FILE"
 echo "::endgroup::"
 
@@ -775,35 +792,35 @@ if [[ $OSTYPE == linux* ]] && $CURL "$MARTIN_URL/style/maplibre/0/0/0.png" > /de
 fi
 
 kill_process "$MARTIN_PROC_ID" Martin
-test_log_has_str "$LOG_FILE" 'WARN Table public.table_source has no spatial index on column geom'
-test_log_has_str "$LOG_FILE" 'WARN Table public.table_source_geog has no spatial index on column geog'
-test_log_has_str "$LOG_FILE" 'WARN Table public.mat_view has no spatial index on column geom'
-test_log_has_str "$LOG_FILE" 'WARN Ignoring duplicate font Overpass Mono Regular from tests'
-test_log_has_str "$LOG_FILE" "WARN Ignoring unrecognized configuration key 'warning'. Please check your configuration file for typos."
-test_log_has_str "$LOG_FILE" "WARN Ignoring unrecognized configuration key 'observability.warning'. Please check your configuration file for typos."
-test_log_has_str "$LOG_FILE" "WARN Ignoring unrecognized configuration key 'observability.metrics.warning'. Please check your configuration file for typos."
-test_log_has_str "$LOG_FILE" "WARN Ignoring unrecognized configuration key 'cors.warning'. Please check your configuration file for typos."
-test_log_has_str "$LOG_FILE" "WARN Ignoring unrecognized configuration key 'postgres.warning'. Please check your configuration file for typos."
-test_log_has_str "$LOG_FILE" "WARN Ignoring unrecognized configuration key 'postgres.ssl_certificates.warning'. Please check your configuration file for typos."
-test_log_has_str "$LOG_FILE" "WARN Ignoring unrecognized configuration key 'postgres.auto_publish.warning'. Please check your configuration file for typos."
-test_log_has_str "$LOG_FILE" "WARN Ignoring unrecognized configuration key 'postgres.auto_publish.tables.warning'. Please check your configuration file for typos."
-test_log_has_str "$LOG_FILE" "WARN Ignoring unrecognized configuration key 'postgres.auto_publish.functions.warning'. Please check your configuration file for typos."
-test_log_has_str "$LOG_FILE" "WARN Ignoring unrecognized configuration key 'postgres.tables.table_source.warning'. Please check your configuration file for typos."
-test_log_has_str "$LOG_FILE" "WARN Ignoring unrecognized configuration key 'postgres.functions.function_zxy_query.warning'. Please check your configuration file for typos."
-test_log_has_str "$LOG_FILE" "WARN Ignoring unrecognized configuration key 'pmtiles.warning'. Please check your configuration file for typos."
-test_log_has_str "$LOG_FILE" "WARN Ignoring unrecognized configuration key 'sprites.warning'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" 'Table public.table_source has no spatial index on column geom'
+test_log_has_str "$LOG_FILE" 'Table public.table_source_geog has no spatial index on column geog'
+test_log_has_str "$LOG_FILE" 'Table public.mat_view has no spatial index on column geom'
+test_log_has_str "$LOG_FILE" 'Ignoring duplicate font Overpass Mono Regular from tests'
+test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'warning'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'observability.warning'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'observability.metrics.warning'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'cors.warning'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'postgres.warning'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'postgres.ssl_certificates.warning'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'postgres.auto_publish.warning'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'postgres.auto_publish.tables.warning'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'postgres.auto_publish.functions.warning'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'postgres.tables.table_source.warning'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'postgres.functions.function_zxy_query.warning'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'pmtiles.warning'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'sprites.warning'. Please check your configuration file for typos."
 # TODO: below should be changed to cog.warning once unstable-cog is made stable
-test_log_has_str "$LOG_FILE" "WARN Ignoring unrecognized configuration key 'cog'. Please check your configuration file for typos."
-test_log_has_str "$LOG_FILE" "WARN Ignoring unrecognized configuration key 'styles.warning'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'cog'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'styles.warning'. Please check your configuration file for typos."
 # rendering: true produces different warnings depending on whether the rendering feature is compiled in
 if [[ "$RENDERING_AVAILABLE" == "1" ]]; then
-  test_log_has_str "$LOG_FILE" 'WARN experimental feature rendering is enabled'
+  test_log_has_str "$LOG_FILE" 'experimental feature rendering is enabled'
 else
-  test_log_has_str "$LOG_FILE" "WARN Ignoring unrecognized configuration key 'styles.rendering'. Please check your configuration file for typos."
+  test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'styles.rendering'. Please check your configuration file for typos."
 fi
-test_log_has_str "$LOG_FILE" 'WARN Defaulting `pmtiles.allow_http` to `true`. This is likely to become an error in the future for better security.'
-test_log_has_str "$LOG_FILE" 'WARN Environment variable AWS_SKIP_CREDENTIALS is deprecated. Please use pmtiles.skip_signature in the configuration file instead.'
-test_log_has_str "$LOG_FILE" 'WARN Environment variable AWS_REGION is deprecated. Please use pmtiles.region in the configuration file instead.'
+test_log_has_str "$LOG_FILE" 'Defaulting `pmtiles.allow_http` to `true`. This is likely to become an error in the future for better security.'
+test_log_has_str "$LOG_FILE" 'Environment variable AWS_SKIP_CREDENTIALS is deprecated. Please use pmtiles.skip_signature in the configuration file instead.'
+test_log_has_str "$LOG_FILE" 'Environment variable AWS_REGION is deprecated. Please use pmtiles.region in the configuration file instead.'
 validate_log "$LOG_FILE"
 remove_lines "${TEST_OUT_DIR}/save_config.yaml" " connection_string: "
 echo "::endgroup::"
@@ -1048,12 +1065,21 @@ fi
 
 kill_process "$MARTIN_PROC_ID" Martin
 
+<<<<<<< refactor/tracing-structured-fields
 test_log_has_str "$LOG_FILE" 'Added source source.id=world_cities'
 test_log_has_str "$LOG_FILE" 'Updated source source.id=world_cities'
 test_log_has_str "$LOG_FILE" 'Removed source source.id=world_cities'
 test_log_has_str "$LOG_FILE" 'WARN Defaulting `pmtiles.allow_http` to `true`. This is likely to become an error in the future for better security.'
 test_log_has_str "$LOG_FILE" 'WARN Environment variable AWS_SKIP_CREDENTIALS is deprecated. Please use pmtiles.skip_signature in the configuration file instead.'
 test_log_has_str "$LOG_FILE" 'WARN Environment variable AWS_REGION is deprecated. Please use pmtiles.region in the configuration file instead.'
+=======
+test_log_has_str "$LOG_FILE" 'Added source: "world_cities"'
+test_log_has_str "$LOG_FILE" 'Updated source: "world_cities"'
+test_log_has_str "$LOG_FILE" 'Removed source: "world_cities"'
+test_log_has_str "$LOG_FILE" 'Defaulting `pmtiles.allow_http` to `true`. This is likely to become an error in the future for better security.'
+test_log_has_str "$LOG_FILE" 'Environment variable AWS_SKIP_CREDENTIALS is deprecated. Please use pmtiles.skip_signature in the configuration file instead.'
+test_log_has_str "$LOG_FILE" 'Environment variable AWS_REGION is deprecated. Please use pmtiles.region in the configuration file instead.'
+>>>>>>> main
 validate_log "$LOG_FILE"
 echo "::endgroup::"
 

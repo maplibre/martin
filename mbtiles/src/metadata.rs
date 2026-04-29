@@ -3,11 +3,11 @@ use std::path::PathBuf;
 use std::str::FromStr as _;
 
 use futures::TryStreamExt as _;
-use log::{info, warn};
 use serde::Serialize;
 use serde_json::{Value as JSONValue, Value, json};
 use sqlx::{SqliteConnection, SqliteExecutor, query};
 use tilejson::{Bounds, Center, TileJSON, tilejson};
+use tracing::{info, warn};
 
 use crate::MbtError::InvalidZoomValue;
 use crate::Mbtiles;
