@@ -648,10 +648,6 @@ pub struct CachePolicy {
     zoom: CacheZoomRange,
 }
 
-/// Schema-only proxy for [`CachePolicy`]'s on-disk form: literal `"disable"`
-/// or the real [`CachePolicy`] struct. Referenced via `#[schemars(with = ...)]`
-/// on each field holding a [`CachePolicy`] so the schema for the map shape
-/// comes from the real struct's derive.
 #[cfg(feature = "unstable-schemas")]
 #[derive(serde::Serialize, schemars::JsonSchema)]
 #[serde(untagged)]

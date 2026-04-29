@@ -81,6 +81,7 @@ out.push_str("\n");
 out.push_str("
     let ctx = config_doc::Ctx::new(&schema);
     config_doc::render_object(&mut out, &schema, &ctx, 0);
+    out.push_str("
     out
 }
 
