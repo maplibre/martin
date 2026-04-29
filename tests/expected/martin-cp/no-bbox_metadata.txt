@@ -1,4 +1,4 @@
-[INFO ] cp_no-bbox has an unrecognized metadata value foo={"bar":"foo"}
+ INFO cp_no-bbox has an unrecognized metadata value foo={"bar":"foo"}
 id: cp_no-bbox
 tilejson:
   tilejson: 3.0.0
