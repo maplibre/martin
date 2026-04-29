@@ -40,10 +40,7 @@ pub fn config_json_schema() -> serde_json::Value {
         description = "Blazing-fast tile server with PostGIS, MBTiles, and PMTiles support.",
         license(name = "MIT OR Apache-2.0"),
     ),
-    paths(
-        crate::srv::server::get_health,
-        crate::srv::admin::get_catalog,
-    ),
+    paths(crate::srv::server::get_health, crate::srv::admin::get_catalog,)
 )]
 pub struct MartinOpenApi;
 
@@ -53,4 +50,3 @@ pub fn openapi_spec() -> serde_json::Value {
     let openapi = MartinOpenApi::openapi();
     serde_json::to_value(&openapi).expect("OpenAPI doc is always serialisable")
 }
-
