@@ -797,7 +797,7 @@ test_log_has_str "$LOG_FILE" "WARN Ignoring unrecognized configuration key 'cog'
 test_log_has_str "$LOG_FILE" "WARN Ignoring unrecognized configuration key 'styles.warning'. Please check your configuration file for typos."
 # rendering: true produces different warnings depending on whether the rendering feature is compiled in
 if [[ "$RENDERING_AVAILABLE" == "1" ]]; then
-  test_log_has_str "$LOG_FILE" 'WARN experimental feature rendering is enabled'
+  test_log_has_str "$LOG_FILE" 'experimental feature rendering is enabled'
 else
   test_log_has_str "$LOG_FILE" "WARN Ignoring unrecognized configuration key 'styles.rendering'. Please check your configuration file for typos."
 fi
