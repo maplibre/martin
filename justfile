@@ -85,11 +85,12 @@ gen-schemas:
         --bin gen-schemas -- --target config      > schemas/config.json
     cargo run --quiet --no-default-features --features unstable-schemas \
         --bin gen-schemas -- --target openapi     > schemas/openapi.json
-    # The annotated YAML config doc is derived from `schemas/config.json` and
-    # the `#[schemars(example = ...)]` attributes — keep it generated and
-    # version-controlled so editors can lean on it as a starting point.
+    # The annotated config doc (markdown wrapping a fenced YAML block) is
+    # derived from `schemas/config.json` and the `#[schemars(example = ...)]`
+    # attributes — keep it generated and version-controlled so editors can lean
+    # on it as a starting point.
     cargo run --quiet --no-default-features --features unstable-schemas \
-        --bin gen-schemas -- --target config-doc  > docs/content/files/config.yaml
+        --bin gen-schemas -- --target config-doc  > docs/content/files/generated_config.md
 
 # Validate the generated config + OpenAPI schemas: that they are themselves
 # well-formed (against the JSON Schema 2020-12 metaschema and the OpenAPI 3.1
@@ -122,9 +123,6 @@ test-schemas:
         tests/expected/auto/save_config.yaml
         tests/expected/auto_mini/save_config.yaml
         tests/expected/configured/save_config.yaml
-        # The auto-generated docs example must also pass its own schema —
-        # catches drift between the schemars derives and the codegen renderer.
-        docs/content/files/config.yaml
     )
     for f in "${fixtures[@]}"; do
         if [[ -f "$f" ]]; then
@@ -136,6 +134,29 @@ test-schemas:
             exit -1
         fi
     done
+    echo "::endgroup::"
+
+    # The auto-generated docs example is markdown wrapping a fenced YAML
+    # block; extract the YAML and validate it so we catch drift between the
+    # schemars derives and the codegen renderer.
+    echo "::group::Validate the generated docs example against the config schema"
+    doc='docs/content/files/generated_config.md'
+    if [[ -f "$doc" ]]; then
+        tmp=$(mktemp --suffix=.yaml)
+        # Strip everything outside the first ```yaml ... ``` fence.
+        awk '
+            /^```yaml/  { in_block=1; next }
+            /^```/      { if (in_block) { exit } }
+            in_block    { print }
+        ' "$doc" > "$tmp"
+        echo "  -> $doc (YAML extracted to $tmp)"
+        uvx --from check-jsonschema check-jsonschema \
+            --schemafile schemas/config.json "$tmp"
+        rm -f "$tmp"
+    else
+        echo "missing $doc aborting"
+        exit -1
+    fi
     echo "::endgroup::"
 
 # Run integration tests and save its output as the new expected output (ordering is important)

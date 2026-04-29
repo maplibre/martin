@@ -47,8 +47,7 @@
         {
           "$ref": "#/$defs/CachePolicy"
         }
-      ],
-      "description": "Schema-only proxy for [`CachePolicy`]'s on-disk form: literal `\"disable\"`\nor the real [`CachePolicy`] struct. Referenced via `#[schemars(with = ...)]`\non each field holding a [`CachePolicy`] so the schema for the map shape\ncomes from the real struct's derive."
+      ]
     },
     "CacheSizeConfig": {
       "description": "Cache size configuration for a source type (sprites, fonts, pmtiles).\n\nUsed at the source-type level:\n```yaml\nsprites:\n  cache:\n    size_mb: 64\n```\n\nOr disabled entirely:\n```yaml\nsprites:\n  cache: disable\n```",
@@ -79,8 +78,7 @@
         {
           "$ref": "#/$defs/CacheSizeConfig"
         }
-      ],
-      "description": "Schema-only proxy for [`CacheSizeConfig`]'s on-disk form: literal\n`\"disable\"` or the real [`CacheSizeConfig`] struct. Referenced via\n`#[schemars(with = ...)]` on the fields that hold a [`CacheSizeConfig`]\n(sprites/fonts/pmtiles) so the schema for the map shape comes from the\nreal struct's derive."
+      ]
     },
     "CorsConfig": {
       "anyOf": [
@@ -114,7 +112,6 @@
       "type": "object"
     },
     "DisableLiteral": {
-      "description": "`serde(rename = \"disable\")` lets schemars emit `enum: [\"disable\"]` for\nthe string form via the same derive pipeline.",
       "enum": ["disable"],
       "type": "string"
     },
@@ -360,7 +357,7 @@
         },
         "maxzoom": {
           "description": "An integer specifying the maximum zoom level. MUST be >= minzoom",
-          "examples": [30],
+          "examples": [21],
           "format": "uint8",
           "maximum": 255,
           "minimum": 0,
@@ -441,8 +438,7 @@
         {
           "$ref": "#/$defs/GlobalCacheConfig"
         }
-      ],
-      "description": "Schema-only proxy for [`GlobalCacheConfig`]'s on-disk form: literal\n`\"disable\"` or the real [`GlobalCacheConfig`] struct. Referenced via\n`#[schemars(with = ...)]` on the field in [`crate::config::file::Config`]\nso the schema for the map shape comes from the real struct's derive."
+      ]
     },
     "MetricsConfig": {
       "description": "Configure metrics reported under `/_/metrics`",
@@ -910,7 +906,7 @@
     },
     "styles": {
       "$ref": "#/$defs/FileConfigEnum4",
-      "description": "Publish `MapLibre` style files\nIn the future, the style files will be used for the server-side rendering as well"
+      "description": "Publish `MapLibre` style files\nYou can also configure us to render the styles on the server side."
     },
     "tilejson_url_version_param": {
       "description": "If set, the version of the tileset (as specified in the `MBTiles` or `PMTiles` metadata)\nwill be embedded in the `TileJSON` `tiles` URL, with the set identifier.\nThis is useful to give clients a better way to cache-bust a CDN:\n1. maplibre requests tilejson, tilejson contains the tiles URL. This is always up-to-date.\n2. maplibre requests each tile it requires, with the tiles URL in the tilejson.\n3. Add `Control: public, max-age=..., immutable` on the tile responses\n   optimize browser/CDN cache hit rates, while also making sure that\n   old tiles aren't served when a new tileset is deployed.\n\nThe CDN must handle query parameters for caching to work correctly.\nMany CDNs ignore them by default.\n\nFor example, if\n- the setting here is `version`, and\n- the `PMTiles` tileset version is `1.0.0`, the\n`TileJSON` will be:\n`{ ..., \"tiles\": [\".../{z}/{x}/{y}?version=1.0.0\"], ... }`",

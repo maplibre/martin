@@ -19,6 +19,4 @@ martin  ... ... ...  --save-config config.yaml
 
 ## Config Example
 
-```yaml
---8<-- "files/config.yaml"
-```
+--8<-- "files/generated_config.md"
