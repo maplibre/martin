@@ -47,8 +47,10 @@ jobs:
 
       - run: rustup update stable && rustup default stable
       - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
-      - uses: taiki-e/install-action@0abfcd587b70a713fdaa7fb502c885e2112acb15 # v2.75.7
+      - uses: taiki-e/install-action@5f57d6cb7cd20b14a8a27f522884c4bc8a187458 # v2.75.19
         with: { tool: 'just,oha' }
+      - name: Install rendering dependencies
+        run: just install-dependencies
 
       - name: Init database
         run: tests/fixtures/initdb.sh

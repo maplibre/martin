@@ -1,6 +1,6 @@
 [package]
 name = "martin"
-version = "1.6.0"
+version = "1.8.1"
 authors = [
     "Stepan Kuzmin <to.stepan.kuzmin@gmail.com>",
     "Yuri Astrakhan <YuriAstrakhan@gmail.com>",
@@ -94,16 +94,17 @@ default = [
     "metrics",
     "pmtiles",
     "postgres",
+    "rendering",
     "sprites",
     "styles",
     "webui",
 ]
 unstable-cog = ["martin-core/unstable-cog", "_tiles"]
-unstable-rendering = ["styles", "martin-core/unstable-rendering", "dep:image"]
+rendering = ["styles", "martin-core/rendering", "dep:image"]
 fonts = ["martin-core/fonts", "_catalog"]
 lambda = ["dep:lambda-web"]
 mbtiles = ["martin-core/mbtiles", "dep:mbtiles", "_tiles"]
-metrics = ["dep:actix-web-prom"]
+metrics = ["martin-core/metrics", "dep:actix-web-prom", "dep:prometheus"]
 pmtiles = ["martin-core/pmtiles", "dep:object_store", "_tiles"]
 postgres = [
     "martin-core/postgres",
@@ -152,12 +153,16 @@ log.workspace = true
 martin-core.workspace = true
 martin-tile-utils.workspace = true
 mbtiles = { workspace = true, optional = true }
+miette.workspace = true
+notify = { workspace = true }
 num_cpus.workspace = true
 object_store = { workspace = true, optional = true }
 postgis = { workspace = true, optional = true }
 postgres-protocol = { workspace = true, optional = true }
+prometheus = { workspace = true, optional = true }
 rustls.workspace = true
 serde.workspace = true
+serde-saphyr.workspace = true
 serde_json.workspace = true
 serde_with.workspace = true
 serde_yaml.workspace = true
@@ -179,6 +184,7 @@ static-files = { workspace = true, optional = true }
 walkdir = { workspace = true, optional = true }
 
 [dev-dependencies]
+backon.workspace = true
 criterion.workspace = true
 indoc.workspace = true
 insta = { workspace = true, features = ["json", "yaml", "redactions"] }

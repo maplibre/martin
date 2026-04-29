@@ -4,6 +4,7 @@ use std::time::Duration;
 use futures::future::try_join;
 use futures::pin_mut;
 use martin_core::tiles::BoxedSource;
+use martin_tile_utils::TileInfo;
 use serde::{Deserialize, Serialize};
 use tilejson::TileJSON;
 use tokio::time::timeout;
@@ -22,6 +23,8 @@ use crate::config::primitives::{IdResolver, OptBoolObj, OptOneMany};
 pub trait PostgresInfo {
     fn format_id(&self) -> String;
     fn to_tilejson(&self, source_id: String) -> TileJSON;
+    /// Return the tile format and encoding for this source.
+    fn tile_info(&self) -> TileInfo;
 }
 
 #[serde_with::skip_serializing_none]

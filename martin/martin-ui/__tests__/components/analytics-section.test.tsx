@@ -4,6 +4,7 @@ import type { AnalyticsData } from '@/lib/types';
 import { fireEvent, render, screen } from '../test-utils';
 
 const analytics: AnalyticsData = {
+  caches: {},
   fonts: {
     averageRequestDurationMs: 5.1,
     histogram: [
@@ -35,6 +36,27 @@ const analytics: AnalyticsData = {
       { count: 50000, le: 1 },
     ],
     requestCount: 50000,
+  },
+};
+
+const analyticsWithCaches: AnalyticsData = {
+  ...analytics,
+  caches: {
+    font: { byZoom: [], hits: 5, misses: 5 },
+    pmtiles_directory: {
+      byZoom: [{ hits: 10, misses: 0, zoom: 0 }],
+      hits: 10,
+      misses: 0,
+    },
+    sprite: { byZoom: [], hits: 0, misses: 0 },
+    tile: {
+      byZoom: [
+        { hits: 50, misses: 0, zoom: 0 },
+        { hits: 30, misses: 20, zoom: 5 },
+      ],
+      hits: 80,
+      misses: 20,
+    },
   },
 };
 
@@ -88,6 +110,39 @@ describe('AnalyticsSection', () => {
     expect(retryButton).toBeTruthy();
     fireEvent.click(retryButton);
     expect(onRetry).toHaveBeenCalled();
+  });
+
+  it('renders cache hit-rates when present', () => {
+    render(<AnalyticsSection analytics={analyticsWithCaches} />);
+
+    expect(screen.getByText('Tile cache')).toBeTruthy();
+    expect(screen.getByText('80.0% hit')).toBeTruthy();
+
+    expect(screen.getByText('PMTiles dirs')).toBeTruthy();
+    expect(screen.getByText('100.0% hit')).toBeTruthy();
+
+    expect(screen.getByText('Font cache')).toBeTruthy();
+    expect(screen.getByText('50.0% hit')).toBeTruthy();
+
+    expect(screen.getByText('Sprite cache')).toBeTruthy();
+    expect(screen.getByText('no requests yet')).toBeTruthy();
+  });
+
+  it('shows a zoom-breakdown info button only for caches with per-zoom data', () => {
+    render(<AnalyticsSection analytics={analyticsWithCaches} />);
+
+    // Tile + PMTiles dirs both have byZoom data; font/sprite do not.
+    expect(screen.getByLabelText('Tile cache hit rate by zoom')).toBeTruthy();
+    expect(screen.getByLabelText('PMTiles dirs hit rate by zoom')).toBeTruthy();
+    expect(screen.queryByLabelText('Font cache hit rate by zoom')).toBeNull();
+    expect(screen.queryByLabelText('Sprite cache hit rate by zoom')).toBeNull();
+  });
+
+  it('hides cache rows when cache data is absent', () => {
+    render(<AnalyticsSection analytics={analytics} />);
+    expect(screen.queryByText('Tile cache')).toBeNull();
+    expect(screen.queryByText('Font cache')).toBeNull();
+    expect(screen.queryByText('Sprite cache')).toBeNull();
   });
 
   it('renders retrying state (button disabled)', () => {

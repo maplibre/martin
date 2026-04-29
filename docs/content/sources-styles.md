@@ -22,17 +22,10 @@ A restart of Martin is required to see new styles.
 ### Server-side raster tile rendering
 
 !!! warning
-    This feature is currently unstable and thus not included in the default build.
+    This feature is included in the default build on Linux.
     Its behaviour may change in patch releases.
 
-    To experiment with it, [install Rust](https://rust-lang.org/tools/install/) and run `just install-dependencies`.
-    With these installed, run the following command to install martin with the unstable feature:
-
-    ```bash
-    cargo build --features=unstable-rendering
-    ```
-
-    It is unstable due to the limitations of our current implementation:
+    Limitations of our current implementation:
 
     - Rendering support is currently only available on Linux.
       To add support for macOS/Windows, please see <https://github.com/maplibre/maplibre-native-rs>.

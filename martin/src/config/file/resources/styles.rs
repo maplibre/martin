@@ -10,7 +10,7 @@ use crate::config::file::{
     ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks, FileConfigEnum,
     UnrecognizedKeys, UnrecognizedValues,
 };
-#[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
+#[cfg(all(feature = "rendering", target_os = "linux"))]
 use crate::config::primitives::OptBoolObj;
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -20,7 +20,8 @@ pub struct InnerStyleConfig {
     /// Note on EXPERIMENTAL status:
     /// We are not currently happy with the performance of this endpoint and intend to improve this in the future
     /// Marking this experimental means that we are not stuck with single threaded performance as a default until v2.0
-    #[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
+    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    #[serde(default, skip_serializing_if = "OptBoolObj::is_none")]
     pub rendering: OptBoolObj<RendererConfig>,
 
     #[serde(flatten, skip_serializing)]
@@ -30,7 +31,7 @@ pub struct InnerStyleConfig {
 impl ConfigurationLivecycleHooks for InnerStyleConfig {
     fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
         #[cfg_attr(
-            not(all(feature = "unstable-rendering", target_os = "linux")),
+            not(all(feature = "rendering", target_os = "linux")),
             expect(unused_mut, reason = "to warn for unrecognized keys")
         )]
         let mut keys = self
@@ -38,7 +39,7 @@ impl ConfigurationLivecycleHooks for InnerStyleConfig {
             .keys()
             .cloned()
             .collect::<UnrecognizedKeys>();
-        #[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
+        #[cfg(all(feature = "rendering", target_os = "linux"))]
         if let OptBoolObj::Object(o) = &self.rendering {
             keys.extend(
                 o.get_unrecognized_keys()
@@ -50,7 +51,7 @@ impl ConfigurationLivecycleHooks for InnerStyleConfig {
     }
 }
 
-#[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
+#[cfg(all(feature = "rendering", target_os = "linux"))]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct RendererConfig {
     // Same effect as rendering: true|false shorthands
@@ -59,7 +60,7 @@ pub struct RendererConfig {
     #[serde(flatten, skip_serializing)]
     pub unrecognized: UnrecognizedValues,
 }
-#[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
+#[cfg(all(feature = "rendering", target_os = "linux"))]
 impl ConfigurationLivecycleHooks for RendererConfig {
     fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
         self.unrecognized.keys().cloned().collect()
@@ -76,7 +77,7 @@ impl StyleConfig {
 
         let mut results = StyleSources::default();
 
-        #[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
+        #[cfg(all(feature = "rendering", target_os = "linux"))]
         match cfg.custom.rendering {
             OptBoolObj::NoValue | OptBoolObj::Bool(false) => results.set_rendering_enabled(false),
             OptBoolObj::Object(ref o) if !o.enabled => results.set_rendering_enabled(false),
@@ -191,8 +192,25 @@ fn is_hidden(entry: &walkdir::DirEntry) -> bool {
 
 #[cfg(test)]
 mod tests {
+    use indoc::indoc;
+
     use super::*;
     use crate::config::file::FileConfigSrc;
+
+    #[test]
+    fn test_styles_parse_paths_only_without_rendering_field() {
+        let yaml = indoc! {"
+            paths:
+              - /data
+        "};
+        let cfg: StyleConfig =
+            serde_yaml::from_str(yaml).expect("styles with only paths must parse");
+        let StyleConfig::Config(cfg) = cfg else {
+            panic!("expected Config variant, got {cfg:?}");
+        };
+        let paths: Vec<_> = cfg.paths.into_iter().collect();
+        assert_eq!(paths, vec![PathBuf::from("/data")]);
+    }
 
     #[test]
     fn test_styles_resolve_paths() {

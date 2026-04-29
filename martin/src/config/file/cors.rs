@@ -1,5 +1,9 @@
+use std::fmt;
+
 use actix_http::Method;
-use serde::{Deserialize, Serialize};
+use serde::de::value::MapAccessDeserializer;
+use serde::de::{self, MapAccess, Visitor};
+use serde::{Deserialize, Deserializer, Serialize};
 use tracing::info;
 
 use crate::config::file::{
@@ -8,11 +12,43 @@ use crate::config::file::{
 };
 use crate::{MartinError, MartinResult};
 
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Serialize, PartialEq, Eq)]
 #[serde(untagged)]
 pub enum CorsConfig {
     Properties(CorsProperties),
     SimpleFlag(bool),
+}
+
+impl<'de> Deserialize<'de> for CorsConfig {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        struct CorsVisitor;
+
+        impl<'de> Visitor<'de> for CorsVisitor {
+            type Value = CorsConfig;
+
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str(
+                    "either a boolean (`cors: true` / `cors: false`) or a properties map \
+                     with at least an `origin` list",
+                )
+            }
+
+            fn visit_bool<E: de::Error>(self, value: bool) -> Result<CorsConfig, E> {
+                Ok(CorsConfig::SimpleFlag(value))
+            }
+
+            fn visit_map<M: MapAccess<'de>>(self, map: M) -> Result<CorsConfig, M::Error> {
+                let props = CorsProperties::deserialize(MapAccessDeserializer::new(map))?;
+                Ok(CorsConfig::Properties(props))
+            }
+
+            // Other inputs (string, number, sequence, …) fall through to serde's default,
+            // which emits `de::Error::invalid_type` — saphyr attaches the source span to that
+            // variant, so we get a labelled diagnostic for free.
+        }
+
+        deserializer.deserialize_any(CorsVisitor)
+    }
 }
 
 impl Default for CorsConfig {
@@ -121,6 +157,81 @@ mod tests {
     use indoc::indoc;
 
     use super::*;
+    use crate::config::test_helpers::{parse_yaml, render_failure};
+
+    // ----- Custom `Deserialize` impl: every accepted shape and every error path -----
+    //
+    // Failure cases run through the full `parse_config` pipeline so the snapshot includes
+    // the same graphical miette diagnostic (file path, line number, source snippet, caret,
+    // help text) the user sees on the command line. Success cases use `parse_yaml` directly
+    // since round-tripping through `Config` would obscure which variant was selected.
+
+    #[test]
+    fn deserialize_bool_true() {
+        let cfg = parse_yaml::<CorsConfig>("true");
+        assert_eq!(cfg, CorsConfig::SimpleFlag(true));
+    }
+
+    #[test]
+    fn deserialize_bool_false() {
+        let cfg = parse_yaml::<CorsConfig>("false");
+        assert_eq!(cfg, CorsConfig::SimpleFlag(false));
+    }
+
+    #[test]
+    fn deserialize_properties_map() {
+        let cfg = parse_yaml::<CorsConfig>(indoc! {"
+            origin:
+              - https://example.org
+            max_age: 3600
+        "});
+        let CorsConfig::Properties(props) = cfg else {
+            panic!("expected Properties variant");
+        };
+        assert_eq!(props.origin, vec!["https://example.org".to_string()]);
+        assert_eq!(props.max_age, Some(3600));
+    }
+
+    #[test]
+    fn deserialize_rejects_integer() {
+        insta::assert_snapshot!(render_failure("cors: 42\n"), @"
+         × invalid type: integer `42`, expected either a boolean (`cors: true` /
+         │ `cors: false`) or a properties map with at least an `origin` list
+          ╭─[config.yaml:1:1]
+        1 │ cors: 42
+          · ──┬─
+          ·   ╰── invalid type: integer `42`, expected either a boolean (`cors: true` / `cors: false`) or a properties map with at least an `origin` list
+          ╰────
+        ");
+    }
+
+    #[test]
+    fn deserialize_rejects_quoted_string() {
+        insta::assert_snapshot!(render_failure("cors: \"yes please\"\n"), @r#"
+         × invalid type: string "yes please", expected either a boolean (`cors:
+         │ true` / `cors: false`) or a properties map with at least an `origin` list
+          ╭─[config.yaml:1:1]
+        1 │ cors: "yes please"
+          · ──┬─
+          ·   ╰── invalid type: string "yes please", expected either a boolean (`cors: true` / `cors: false`) or a properties map with at least an `origin` list
+          ╰────
+        "#);
+    }
+
+    #[test]
+    fn deserialize_rejects_sequence() {
+        insta::assert_snapshot!(render_failure("cors: [https://example.org]\n"), @"
+         × invalid type: sequence, expected either a boolean (`cors: true` / `cors:
+         │ false`) or a properties map with at least an `origin` list
+          ╭─[config.yaml:1:1]
+        1 │ cors: [https://example.org]
+          · ──┬─
+          ·   ╰── invalid type: sequence, expected either a boolean (`cors: true` / `cors: false`) or a properties map with at least an `origin` list
+          ╰────
+        ");
+    }
+
+    // ----- Existing behavior tests (default values, validation, middleware) -----
 
     #[test]
     fn test_cors_config_default() {

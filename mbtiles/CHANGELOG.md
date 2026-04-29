@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.2](https://github.com/maplibre/martin/compare/mbtiles-v0.17.1...mbtiles-v0.17.2) - 2026-04-29
+
+### Other
+
+- update Cargo.toml dependencies
+
+## [0.17.1](https://github.com/maplibre/martin/compare/mbtiles-v0.17.0...mbtiles-v0.17.1) - 2026-04-28
+
+### Added
+
+- support `content_type` in PostgreSQL function source SQL comments for raster tiles ([#2671](https://github.com/maplibre/martin/pull/2671))
+
+## [0.17.0](https://github.com/maplibre/martin/compare/mbtiles-v0.16.0...mbtiles-v0.17.0) - 2026-04-23
+
+### Added
+
+- *(mbtiles)* add --strict flag to use STRICT SQLite tables ([#2712](https://github.com/maplibre/martin/pull/2712))
+
 ## [0.16.0](https://github.com/maplibre/martin/compare/mbtiles-v0.15.4...mbtiles-v0.16.0) - 2026-04-18
 
 ### Added

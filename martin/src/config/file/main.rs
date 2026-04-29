@@ -54,8 +54,6 @@ use crate::config::primitives::IdResolver;
 #[cfg(feature = "postgres")]
 use crate::config::primitives::OptOneMany;
 #[cfg(feature = "_tiles")]
-use crate::srv::RESERVED_KEYWORDS;
-#[cfg(feature = "_tiles")]
 use crate::tile_source_manager::TileSourceManager;
 use crate::{MartinError, MartinResult};
 
@@ -242,11 +240,11 @@ impl Config {
     }
 
     #[instrument(skip_all)]
-    pub async fn resolve(&mut self) -> MartinResult<ServerState> {
+    pub async fn resolve(
+        &mut self,
+        #[cfg(feature = "_tiles")] idr: &IdResolver,
+    ) -> MartinResult<ServerState> {
         init_aws_lc_tls();
-
-        #[cfg(feature = "_tiles")]
-        let resolver = IdResolver::new(RESERVED_KEYWORDS);
 
         #[cfg(any(feature = "_tiles", feature = "sprites", feature = "fonts"))]
         let cache_config = self.resolve_cache_config();
@@ -257,7 +255,7 @@ impl Config {
         #[cfg(feature = "_tiles")]
         let (tile_sources, warnings) = self
             .resolve_tile_sources(
-                &resolver,
+                idr,
                 #[cfg(feature = "pmtiles")]
                 pmtiles_cache,
             )
@@ -542,13 +540,46 @@ where
     M: VariableMap<'a>,
     M::Value: AsRef<str>,
 {
-    let mut value: serde_yaml::Value = subst::yaml::from_str(contents, env)
-        .map_err(|e| ConfigFileError::ConfigParseError(e, file_name.into()))?;
-    migrate_deprecated_config(&mut value);
-    serde_yaml::from_value(value).map_err(|e| {
-        let e: subst::yaml::Error = e.into();
-        ConfigFileError::ConfigParseError(e, file_name.into())
-    })
+    // Phase 1: substitute environment variables at the text level so saphyr's spans line up
+    // with the post-substitution text the parser actually sees.
+    let substituted = subst::substitute(contents, env)
+        .map_err(|e| ConfigFileError::substitution(e, contents.to_string(), file_name))?;
+
+    // Phase 2: rewrite deprecated cache keys via a `serde_yaml::Value` round-trip — but only
+    // if at least one deprecated token appears in the text. The common case (no deprecated
+    // keys) skips a full YAML parse + serialize.
+    let migrated = if needs_deprecated_migration(&substituted) {
+        match serde_yaml::from_str::<serde_yaml::Value>(&substituted) {
+            Ok(mut value) => {
+                migrate_deprecated_config(&mut value);
+                serde_yaml::to_string(&value).unwrap_or(substituted)
+            }
+            // If serde_yaml itself can't parse, hand the original to saphyr — its diagnostics
+            // are richer, so let it produce the user-facing error.
+            Err(_) => substituted,
+        }
+    } else {
+        substituted
+    };
+
+    // Phase 3: parse to the typed `Config` via saphyr. We disable saphyr's built-in snippet
+    // wrapper so its hardcoded `<input>` source name doesn't override the file path we show;
+    // `ConfigFileError::to_miette_report` re-attaches a snippet against our own NamedSource.
+    let options = serde_saphyr::options! {
+        with_snippet: false,
+    };
+    serde_saphyr::from_str_with_options::<Config>(&migrated, options)
+        .map_err(|e| ConfigFileError::yaml_parse(e, migrated, file_name))
+}
+
+/// Cheap pre-check: does the substituted YAML mention any deprecated cache key?
+///
+/// False positives are harmless (the fast path is identical to the slow path's no-op
+/// migration), so a substring search is sufficient.
+fn needs_deprecated_migration(yaml: &str) -> bool {
+    yaml.contains("cache_size_mb")
+        || yaml.contains("tile_cache_size_mb")
+        || yaml.contains("directory_cache_size_mb")
 }
 
 /// Migrates deprecated cache configuration keys in raw YAML before deserialization.
@@ -668,6 +699,8 @@ mod tests {
 
     use super::*;
     use crate::config::file::CachePolicy;
+    use crate::config::test_helpers::{render_failure, render_failure_json};
+    use crate::logging::LogFormat;
 
     fn parse_yaml(yaml: &str) -> Config {
         parse_config(
@@ -676,6 +709,145 @@ mod tests {
             Path::new("test.yaml"),
         )
         .unwrap()
+    }
+
+    // ----- `parse_config` pipeline diagnostics: failures that don't belong to a single
+    // ----- field's deserializer (raw YAML syntax, ${VAR} substitution, derive-`Deserialize`
+    // ----- enums) live here next to the function under test.
+
+    #[test]
+    fn syntax_error_unbalanced_quote() {
+        insta::assert_snapshot!(
+            render_failure(indoc::indoc! {r#"
+                srv:
+                  listen_addresses: "0.0.0.0:3000
+                  worker_processes: 4
+            "#}),
+            @r#"
+         × invalid indentation in multiline quoted scalar
+          ╭─[config.yaml:3:3]
+        2 │   listen_addresses: "0.0.0.0:3000
+        3 │   worker_processes: 4
+          ·   ┬
+          ·   ╰── invalid indentation in multiline quoted scalar
+          ╰────
+        "#
+        );
+    }
+
+    #[test]
+    fn unknown_enum_variant_in_on_invalid() {
+        insta::assert_snapshot!(render_failure("on_invalid: maybe\n"), @"
+         × unknown variant `maybe`, expected one of continue, ignore, warn, warning,
+         │ warnings, abort
+          ╭─[config.yaml:1:13]
+        1 │ on_invalid: maybe
+          ·             ──┬──
+          ·               ╰── unknown variant `maybe`, expected one of continue, ignore, warn, warning, warnings, abort
+          ╰────
+        ");
+    }
+
+    #[test]
+    fn substitution_undefined_variable() {
+        insta::assert_snapshot!(render_failure("cache_size_mb: ${UNDEFINED_VAR}\n"), @"
+        martin::config::substitution (https://maplibre.org/martin/config-file/)
+
+          × Unable to substitute environment variables in config file config.yaml: No
+          │ such variable: $UNDEFINED_VAR
+           ╭─[config.yaml:1:18]
+         1 │ cache_size_mb: ${UNDEFINED_VAR}
+           ·                  ──────┬──────
+           ·                        ╰── No such variable: $UNDEFINED_VAR
+           ╰────
+          help: Make sure every ${VAR} reference resolves to an environment variable,
+                or supply a default with `${VAR:-fallback}`.
+        ");
+    }
+
+    #[test]
+    fn cors_unsupported_scalar_renders_as_json() {
+        // Mirrors what the binary emits when `RUST_LOG_FORMAT=json` is set: a structured
+        // JSON document instead of the graphical snippet, suitable for editor tooling and
+        // log aggregators.
+        let json = render_failure_json("cors: 42\n");
+        let parsed: serde_json::Value =
+            serde_json::from_str(&json).unwrap_or_else(|e| panic!("not JSON: {e}\n{json}"));
+
+        let message = parsed.get("message").and_then(|m| m.as_str()).unwrap_or("");
+        assert!(
+            message.contains("invalid type: integer `42`"),
+            "unexpected message in JSON output: {message}"
+        );
+        assert_eq!(
+            parsed.get("severity").and_then(|s| s.as_str()),
+            Some("error")
+        );
+        assert_eq!(
+            parsed.get("filename").and_then(|f| f.as_str()),
+            Some("config.yaml")
+        );
+        let labels = parsed.get("labels").and_then(|l| l.as_array()).unwrap();
+        assert_eq!(labels.len(), 1, "expected one label, got {labels:?}");
+        let span = labels[0].get("span").unwrap();
+        assert!(span.get("offset").is_some(), "label missing offset");
+        assert!(span.get("length").is_some(), "label missing length");
+    }
+
+    #[test]
+    fn substitution_renders_as_json_with_code_help_url() {
+        // The substitution path uses our own `SubstitutionDiagnostic`, which overrides
+        // `code()`, `help()`, and `url()`. The JSON renderer surfaces all three.
+        let json = render_failure_json("cache_size_mb: ${UNDEFINED_VAR}\n");
+        let parsed: serde_json::Value =
+            serde_json::from_str(&json).unwrap_or_else(|e| panic!("not JSON: {e}\n{json}"));
+
+        assert_eq!(
+            parsed.get("code").and_then(|c| c.as_str()),
+            Some("martin::config::substitution")
+        );
+        let help = parsed.get("help").and_then(|h| h.as_str()).unwrap_or("");
+        assert!(
+            help.contains("${VAR}"),
+            "expected help text mentioning ${{VAR}}, got: {help}"
+        );
+        assert_eq!(
+            parsed.get("url").and_then(|u| u.as_str()),
+            Some("https://maplibre.org/martin/config-file/")
+        );
+    }
+
+    #[test]
+    fn non_spanned_error_renders_as_json_envelope() {
+        // For errors that don't carry source location info, JSON mode still emits a JSON
+        // document so downstream tools can keep parsing rather than choking on a free-form
+        // log line.
+        let envelope = MartinError::BasePathError("not-a-path".to_string())
+            .render_diagnostic_with(LogFormat::Json);
+        let parsed: serde_json::Value =
+            serde_json::from_str(&envelope).unwrap_or_else(|e| panic!("not JSON: {e}\n{envelope}"));
+        let msg = parsed.get("message").and_then(|m| m.as_str()).unwrap_or("");
+        assert!(
+            msg.contains("not-a-path"),
+            "expected envelope to include the error message; got: {envelope}"
+        );
+    }
+
+    #[test]
+    fn substitution_unclosed_brace() {
+        insta::assert_snapshot!(render_failure("cache_size_mb: ${BROKEN\n"), @r"
+        martin::config::substitution (https://maplibre.org/martin/config-file/)
+
+          × Unable to substitute environment variables in config file config.yaml:
+          │ Unexpected character: '\n', expected a closing brace ('}') or colon (':')
+           ╭─[config.yaml:1:24]
+         1 │ cache_size_mb: ${BROKEN
+           ·                        ┬
+           ·                        ╰── Unexpected character: '\n', expected a closing brace ('}') or colon (':')
+           ╰────
+          help: Make sure every ${VAR} reference resolves to an environment variable,
+                or supply a default with `${VAR:-fallback}`.
+        ");
     }
 
     #[test]

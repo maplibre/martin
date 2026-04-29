@@ -6,7 +6,7 @@ on:
   pull_request:
     branches: [ main ]
   release:
-    types: [ published ]
+    types: [ created ]
   workflow_dispatch:
 
 defaults:
@@ -28,7 +28,7 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with: { persist-credentials: false }
-      - uses: taiki-e/install-action@0abfcd587b70a713fdaa7fb502c885e2112acb15 # v2.75.7
+      - uses: taiki-e/install-action@5f57d6cb7cd20b14a8a27f522884c4bc8a187458 # v2.75.19
         with: { tool: 'just' }
       - run: npm clean-install --no-fund
         working-directory: martin/martin-ui
@@ -68,8 +68,11 @@ jobs:
         if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
         with:
           key: ${{ matrix.os }}
-      - uses: taiki-e/install-action@0abfcd587b70a713fdaa7fb502c885e2112acb15 # v2.75.7
+      - uses: taiki-e/install-action@5f57d6cb7cd20b14a8a27f522884c4bc8a187458 # v2.75.19
         with: { tool: 'just' }
+      - name: Install rendering dependencies
+        if: runner.os == 'Linux'
+        run: just install-dependencies
       - name: Run cargo test
         run: |
           set -x
@@ -93,10 +96,12 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with: { persist-credentials: false }
-      - uses: taiki-e/install-action@0abfcd587b70a713fdaa7fb502c885e2112acb15 # v2.75.7
+      - uses: taiki-e/install-action@5f57d6cb7cd20b14a8a27f522884c4bc8a187458 # v2.75.19
         with: { tool: 'just' }
       - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
         if: github.event_name != 'release' && github.event_name != 'workflow_dispatch' && github.ref != 'refs/heads/main'
+      - name: Install rendering dependencies
+        run: just install-dependencies
       - run: just env-info
       - run: just clippy
       - run: just check
@@ -113,8 +118,10 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with: { persist-credentials: false }
-      - uses: taiki-e/install-action@0abfcd587b70a713fdaa7fb502c885e2112acb15 # v2.75.7
+      - uses: taiki-e/install-action@5f57d6cb7cd20b14a8a27f522884c4bc8a187458 # v2.75.19
         with: { tool: 'cargo-shear,just' }
+      - name: Install rendering dependencies
+        run: just install-dependencies
 
       - run: just shear
   build-aarch64-unknown-linux-musl:
@@ -136,7 +143,7 @@ jobs:
   docker-build-test:
     name: Build and test docker images
     runs-on: ubuntu-latest
-    needs: [ build-aarch64-unknown-linux-musl, build-x86_64-unknown-linux-musl ]
+    needs: [ build-aarch64-unknown-linux-gnu, build-x86_64-unknown-linux-gnu ]
     permissions:
       id-token: write
       attestations: write
@@ -176,7 +183,7 @@ jobs:
         run: tests/fixtures/initdb.sh
         env:
           PGPORT: ${{ job.services.postgres.ports[5432] }}
-      - uses: taiki-e/install-action@0abfcd587b70a713fdaa7fb502c885e2112acb15 # v2.75.7
+      - uses: taiki-e/install-action@5f57d6cb7cd20b14a8a27f522884c4bc8a187458 # v2.75.19
         with: { tool: sqlx-cli }
 
       # we want to test our docker images before we push them to the registry
@@ -207,14 +214,14 @@ jobs:
         uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4.0.0
         # https://github.com/docker/setup-buildx-action
         with: { install: true, platforms: 'linux/amd64,linux/arm64' }
-      - name: Download build artifact build-aarch64-unknown-linux-musl
+      - name: Download build artifact build-aarch64-unknown-linux-gnu
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with: { name: 'build-aarch64-unknown-linux-musl', path: 'target_releases/linux/arm64/' }
+        with: { name: 'build-aarch64-unknown-linux-gnu', path: 'target_releases/linux/arm64/' }
       - name: Mark target_releases/linux/arm64/* as executable
         run: chmod +x target_releases/linux/arm64/*
-      - name: Download build artifact build-x86_64-unknown-linux-musl
+      - name: Download build artifact build-x86_64-unknown-linux-gnu
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with: { name: 'build-x86_64-unknown-linux-musl', path: 'target_releases/linux/amd64/' }
+        with: { name: 'build-x86_64-unknown-linux-gnu', path: 'target_releases/linux/amd64/' }
       - name: Mark target_releases/linux/amd64/* as executable
         run: chmod +x target_releases/linux/amd64/*
       - name: Start NGINX
@@ -412,7 +419,7 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with: { persist-credentials: false }
-      - uses: taiki-e/install-action@0abfcd587b70a713fdaa7fb502c885e2112acb15 # v2.75.7
+      - uses: taiki-e/install-action@5f57d6cb7cd20b14a8a27f522884c4bc8a187458 # v2.75.19
         with: { tool: 'just' }
       - name: Download build artifact build-x86_64-unknown-linux-musl
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -454,6 +461,12 @@ jobs:
       - name: Set up gdal-bin and sqlite3-tools
         if: matrix.os == 'ubuntu-latest'
         run: sudo apt-get update && sudo apt-get install -y gdal-bin sqlite3-tools
+      - uses: taiki-e/install-action@5f57d6cb7cd20b14a8a27f522884c4bc8a187458 # v2.75.19
+        if: matrix.os == 'ubuntu-latest'
+        with: { tool: 'just' }
+      - name: Install rendering dependencies
+        if: matrix.os == 'ubuntu-latest'
+        run: just install-dependencies
       - name: Install sqlite3 and sqldiff on Windows
         if: matrix.os == 'windows-latest'
         run: choco install sqlite --yes
@@ -571,44 +584,6 @@ jobs:
             target/test_logs/*
           retention-days: 5
 
-  test-freebsd:
-    name: Unit test on FreeBSD
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    needs:
-      - lint-rust
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with: { persist-credentials: false }
-      - name: Test in FreeBSD
-        id: test
-        uses: vmactions/freebsd-vm@7ca82f79fe3078fecded6d3a2bff094995447bbd # v1
-        with:
-          release: "15.0"
-          envs: "AWS_SKIP_CREDENTIALS AWS_REGION"
-          # Dependencies (FreeBSD base systems come more bare):
-          # - sqlite3 for MBTiles support
-          # - freetype2 for font rendering to SDF
-          # - cmake for aws-lc-sys
-          # - just for running standardized test suites
-          # - bash because the justfile has a lot of scripts that assume bash
-          # - node and npm for building the webui
-          prepare: |
-            pkg install -y rust sqlite3 freetype2 cmake just bash node npm
-          run: |
-            # Create swap space to prevent OOM during linking of test binaries
-            dd if=/dev/zero of=/tmp/swapfile bs=1M count=4096
-            chmod 0600 /tmp/swapfile
-            mdconfig -a -t vnode -f /tmp/swapfile -u 0
-            swapon /dev/md0
-            just env-info
-            just test-freebsd
-        env:
-          AWS_SKIP_CREDENTIALS: 1
-          AWS_REGION: eu-central-1
-
   unit-test-svc-pg:
     name: Unit test postgis:${{ matrix.img_ver }} sslmode=${{ matrix.sslmode }}
     runs-on: ubuntu-latest
@@ -667,7 +642,7 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with: { persist-credentials: false }
-      - uses: taiki-e/install-action@0abfcd587b70a713fdaa7fb502c885e2112acb15 # v2.75.7
+      - uses: taiki-e/install-action@5f57d6cb7cd20b14a8a27f522884c4bc8a187458 # v2.75.19
         with: { tool: 'just' }
       - name: Init database
         run: tests/fixtures/initdb.sh
@@ -723,6 +698,10 @@ jobs:
         with: { name: 'build-x86_64-unknown-linux-gnu', path: 'target_releases/' }
       - name: Set up gdal-bin and sqlite3-tools
         run: sudo apt update && sudo apt-get install -y gdal-bin sqlite3-tools
+      - uses: taiki-e/install-action@5f57d6cb7cd20b14a8a27f522884c4bc8a187458 # v2.75.19
+        with: { tool: 'just' }
+      - name: Install rendering dependencies
+        run: just install-dependencies
       - name: Integration Tests
         run: |
           if [[ "${{ matrix.sslmode }}" == "verify-ca" || "${{ matrix.sslmode }}" == "verify-full" ]]; then
@@ -779,6 +758,10 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with: { persist-credentials: false }
+      - uses: taiki-e/install-action@5f57d6cb7cd20b14a8a27f522884c4bc8a187458 # v2.75.19
+        with: { tool: 'just' }
+      - name: Install rendering dependencies
+        run: just install-dependencies
       - name: Test packaging
         run: cargo publish --workspace --dry-run
 
@@ -791,12 +774,12 @@ jobs:
       attestations: write
       # for writing release artifacts
       contents: write
-    needs: [ lint-unit-test-js, unit-test-rust, lint-rust, lint-rust-dependencies, test-multi-os, test-with-svc, test-aws-lambda, test-freebsd, test-publish, build-aarch64-apple-darwin, build-x86_64-apple-darwin, build-aarch64-unknown-linux-gnu, build-aarch64-unknown-linux-musl ]
+    needs: [ lint-unit-test-js, unit-test-rust, lint-rust, lint-rust-dependencies, test-multi-os, test-with-svc, test-aws-lambda, test-publish, build-aarch64-apple-darwin, build-x86_64-apple-darwin, build-aarch64-unknown-linux-gnu, build-aarch64-unknown-linux-musl ]
     steps:
       - name: Checkout sources
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with: { persist-credentials: false }
-      - uses: taiki-e/install-action@0abfcd587b70a713fdaa7fb502c885e2112acb15 # v2.75.7
+      - uses: taiki-e/install-action@5f57d6cb7cd20b14a8a27f522884c4bc8a187458 # v2.75.19
         with: { tool: 'just' }
       - name: Download build artifact build-aarch64-apple-darwin
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -873,13 +856,13 @@ jobs:
             exit 1
           fi
           gh release upload "$RELEASE_TAG_NAME" target/files/* --clobber
-          gh release edit "$RELEASE_TAG_NAME" --verify-tag --latest
+          gh release edit "$RELEASE_TAG_NAME" --verify-tag --draft=false --latest
       - name: Publish without artifacts
         if: ${{ github.event_name == 'release' && !startsWith(github.event.release.tag_name, 'martin-v') }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_TAG_NAME: ${{ github.event.release.tag_name }}
-        run: gh release edit "$RELEASE_TAG_NAME" --verify-tag --latest=false
+        run: gh release edit "$RELEASE_TAG_NAME" --verify-tag --draft=false --latest=false
 
         # Create a personal access token
         #     Gen:  https://github.com/settings/personal-access-tokens/new
@@ -937,7 +920,6 @@ jobs:
       - lint-rust-dependencies
       - lint-unit-test-js
       - lint-rust
-      - test-freebsd
     if: always()
     permissions: {}
     steps:
@@ -967,6 +949,10 @@ jobs:
       - run: rustup update stable && rustup default stable
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with: { fetch-depth: 0, persist-credentials: false }
+      - uses: taiki-e/install-action@5f57d6cb7cd20b14a8a27f522884c4bc8a187458 # v2.75.19
+        with: { tool: 'just' }
+      - name: Install rendering dependencies
+        run: just install-dependencies
       - name: Publish to crates.io if crate's version is newer
         uses: release-plz/action@1528104d2ca23787631a1c1f022abb64b34c1e11 # v0.5.128
         id: release

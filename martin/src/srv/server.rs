@@ -28,7 +28,7 @@ use crate::srv::fonts;
 use crate::srv::sprites;
 #[cfg(feature = "styles")]
 use crate::srv::styles;
-#[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
+#[cfg(all(feature = "rendering", target_os = "linux"))]
 use crate::srv::styles_rendering;
 #[cfg(feature = "_tiles")]
 use crate::srv::tiles;
@@ -96,6 +96,7 @@ pub fn router(cfg: &mut web::ServiceConfig, usr_cfg: &SrvConfig) {
                 usr_cfg,
             );
         }));
+        cfg.service(get_health);
     } else {
         register_services(
             cfg,
@@ -141,7 +142,7 @@ fn register_services(
     cfg.service(styles::get_style_json)
         .service(styles::redirect_styles);
 
-    #[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
+    #[cfg(all(feature = "rendering", target_os = "linux"))]
     cfg.service(styles_rendering::get_style_rendered);
 
     #[cfg(all(feature = "webui", not(docsrs)))]
@@ -178,6 +179,7 @@ pub fn new_server(
             "/_/metrics".to_string()
         };
         actix_web_prom::PrometheusMetricsBuilder::new("martin")
+            .registry(prometheus::default_registry().clone())
             .endpoint(&metrics_endpoint)
             // `endpoint="UNKNOWN"` instead of `endpoint="/foo/bar"`
             .mask_unmatched_patterns("UNKNOWN")
@@ -191,7 +193,7 @@ pub fn new_server(
                     .add_labels,
             )
             .build()
-            .map_err(|err| MartinError::MetricsIntialisationError(err))?
+            .map_err(MartinError::MetricsIntialisationError)?
     };
     let catalog = Catalog::new(
         #[cfg(any(feature = "sprites", feature = "fonts", feature = "styles"))]

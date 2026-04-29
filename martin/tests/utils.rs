@@ -1,12 +1,15 @@
 #![cfg(test)]
 
 use std::env;
+use std::path::Path;
 
 use actix_web::dev::ServiceResponse;
 use actix_web::test::read_body;
 #[cfg(feature = "test-pg")]
 use martin::config::file::postgres::TableInfo;
-use martin::config::file::{Config, ServerState};
+use martin::config::file::{Config, ServerState, parse_config};
+#[cfg(feature = "_tiles")]
+use martin::config::primitives::IdResolver;
 use martin::config::primitives::env::FauxEnv;
 #[cfg(feature = "_tiles")]
 use martin_core::tiles::BoxedSource;
@@ -20,7 +23,8 @@ pub fn mock_cfg(yaml: &str) -> Config {
         warn!("DATABASE_URL env var is not set. Might not be able to do integration tests");
         FauxEnv::default()
     };
-    let mut cfg: Config = subst::yaml::from_str(yaml, &env).expect("source can be parsed as yaml");
+    let mut cfg: Config =
+        parse_config(yaml, &env, Path::new("test.yaml")).expect("source can be parsed as yaml");
     let res = cfg.finalize().expect("source can be finalized");
     assert!(res.is_empty(), "unrecognized config: {res:?}");
     cfg
@@ -39,7 +43,14 @@ pub async fn assert_response(response: ServiceResponse) -> ServiceResponse {
 
 pub type MockSource = (ServerState, Config);
 pub async fn mock_sources(mut config: Config) -> MockSource {
-    let res = config.resolve().await;
+    #[cfg(feature = "_tiles")]
+    let idr = IdResolver::new(&[]);
+    let res = config
+        .resolve(
+            #[cfg(feature = "_tiles")]
+            &idr,
+        )
+        .await;
     let res = res.unwrap_or_else(|e| {
         panic!(
             "Failed to resolve config:\n{config}\nBecause {e}",

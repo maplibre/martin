@@ -92,7 +92,7 @@ bless-insta *args:  (cargo-install 'cargo-insta')
     cargo insta test --accept --all-targets --workspace {{args}}
 
 # Bless integration tests
-bless-int:
+bless-int: start
     rm -rf tests/temp
     tests/test.sh
     rm -rf tests/expected && mv tests/output tests/expected
@@ -120,18 +120,21 @@ build-release target:
     fi
 
 # Build debian package
+# Note: rendering feature is excluded because the Debian build targets older glibc (ubuntu-22.04)
+# and maplibre_native pre-built libraries require newer glibc.
 build-deb output: (cargo-install 'cargo-deb')
     #!/usr/bin/env bash
     set -euo pipefail
     sudo apt-get install -y dpkg dpkg-dev liblzma-dev
     if [[ "{{release_mode}}" == "1" ]]; then
-        cargo deb -v -p martin --output {{output}}
+        cargo deb -v -p martin --output {{output}} -- --no-default-features --features fonts,lambda,mbtiles,metrics,pmtiles,postgres,sprites,styles,webui
     else
-        cargo deb -v -p martin --profile dev --output {{output}}
+        cargo deb -v -p martin --profile dev --output {{output}} -- --no-default-features --features fonts,lambda,mbtiles,metrics,pmtiles,postgres,sprites,styles,webui
     fi
 
 # Build for musl target using zigbuild
 # Set RELEASE_MODE='' to build in debug mode (used for PRs in CI to reduce build time).
+# Note: rendering feature is excluded because maplibre_native cannot be cross-compiled for musl targets.
 build-release-musl target:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -140,7 +143,7 @@ build-release-musl target:
         export CARGO_TARGET_{{shoutysnakecase(target)}}_RUSTFLAGS='-C strip=debuginfo'
     fi
     cargo zigbuild {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package mbtiles --locked
-    cargo zigbuild {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package martin --locked
+    cargo zigbuild {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package martin --locked --no-default-features --features fonts,lambda,mbtiles,metrics,pmtiles,postgres,sprites,styles,webui
 
 
 # Move build artifacts to target_releases directory
@@ -225,7 +228,7 @@ debug-page *args: start
 
 # Build and run martin docker image
 docker-run *args:
-    docker run -it --rm --net host -e DATABASE_URL -v $PWD/tests:/tests ghcr.io/maplibre/martin:1.6.0 {{args}}
+    docker run -it --rm --net host -e DATABASE_URL -v $PWD/tests:/tests ghcr.io/maplibre/martin:1.8.1 {{args}}
 
 # Build and run martin documentation
 docs:
@@ -300,7 +303,11 @@ install-dependencies backend='vulkan':
       build-essential \
       libcurl4-openssl-dev \
       libglfw3-dev \
+      libicu-dev \
+      libjpeg-dev \
+      libpng-dev \
       libuv1-dev \
+      libwebp-dev \
       libz-dev
 
 # Install macOS dependencies via Homebrew
@@ -310,7 +317,11 @@ install-dependencies backend='vulkan':
         {{if backend == 'vulkan' {'molten-vk vulkan-headers'} else {''} }} \
         curl \
         glfw \
+        icu4c \
+        jpeg-turbo \
+        libpng \
         libuv \
+        webp \
         zlib
 
 # Install Windows dependencies
@@ -377,7 +388,7 @@ semver *args:  (cargo-install 'cargo-semver-checks')
     cargo semver-checks {{args}}
 
 # Start a test database
-start:  (docker-up 'db') docker-is-ready
+start:  (docker-up 'db') docker-is-ready start-pmtiles-server
 
 # Start a legacy test database
 start-legacy:  (docker-up 'db-legacy') docker-is-ready
