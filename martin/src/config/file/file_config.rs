@@ -661,8 +661,6 @@ pub(crate) enum CachePolicyShape {
     Policy(CachePolicy),
 }
 
-/// `serde(rename = "disable")` lets schemars emit `enum: ["disable"]` for
-/// the string form via the same derive pipeline.
 #[cfg(feature = "unstable-schemas")]
 #[derive(serde::Serialize, schemars::JsonSchema)]
 #[expect(dead_code, reason = "schema-only, never constructed")]
@@ -879,10 +877,6 @@ impl GlobalCacheConfig {
     }
 }
 
-/// Schema-only proxy for [`GlobalCacheConfig`]'s on-disk form: literal
-/// `"disable"` or the real [`GlobalCacheConfig`] struct. Referenced via
-/// `#[schemars(with = ...)]` on the field in [`crate::config::file::Config`]
-/// so the schema for the map shape comes from the real struct's derive.
 #[cfg(feature = "unstable-schemas")]
 #[derive(serde::Serialize, schemars::JsonSchema)]
 #[serde(untagged)]
@@ -1009,11 +1003,6 @@ impl CacheSizeConfig {
     }
 }
 
-/// Schema-only proxy for [`CacheSizeConfig`]'s on-disk form: literal
-/// `"disable"` or the real [`CacheSizeConfig`] struct. Referenced via
-/// `#[schemars(with = ...)]` on the fields that hold a [`CacheSizeConfig`]
-/// (sprites/fonts/pmtiles) so the schema for the map shape comes from the
-/// real struct's derive.
 #[cfg(feature = "unstable-schemas")]
 #[derive(serde::Serialize, schemars::JsonSchema)]
 #[serde(untagged)]

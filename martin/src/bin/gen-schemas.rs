@@ -1,15 +1,7 @@
-//! Emit one of the generated schema artefacts on stdout — JSON Schema for the
-//! config file, the HTTP `OpenAPI` 3.1 doc, or an annotated YAML config doc
-//! built from the JSON Schema.
-//!
-//! Usage:
-//!   `cargo run --quiet --no-default-features --features=unstable-schemas
-//!     --bin gen-schemas -- --target config     | jq`
-//!   `cargo run --quiet ... --bin gen-schemas -- --target openapi    | jq`
-//!   `cargo run --quiet ... --bin gen-schemas -- --target config-doc`
-//!
-//! This binary only exists when the `unstable-schemas` feature is enabled —
-//! see `martin/Cargo.toml` and `martin/src/schemas.rs`.
+//! Emit one of the generated schema artefacts on stdout
+//! - JSON Schema for the config file,
+//! - the HTTP `OpenAPI` 3.1 doc,
+//! - or an annotated YAML config doc built from the JSON Schema.
 
 use std::io::Write as _;
 
@@ -24,8 +16,8 @@ enum Target {
     Config,
     /// `OpenAPI` 3.1 document for Martin's HTTP API.
     Openapi,
-    /// Annotated YAML config doc built from the JSON Schema (used to
-    /// regenerate `docs/content/files/config.yaml`).
+    /// Annotated YAML config doc built from the JSON Schem
+    /// used to regenerate `docs/content/files/config.yaml`
     ConfigDoc,
 }
 

@@ -124,12 +124,6 @@ styles = ["martin-core/styles", "dep:walkdir", "_catalog"]
 webui = ["dep:actix-web-static-files", "dep:static-files", "dep:walkdir"]
 _tiles = ["martin-core/_tiles", "_catalog"]
 _catalog = []
-# Experimental: emit JSON Schema for the config file and OpenAPI for the HTTP API.
-# Off by default while we shake out utoipa edge cases (untagged enums, generics,
-# external types like `tilejson::TileJSON`). See `martin/src/schemas.rs`.
-# Implies the full default feature matrix (minus `rendering`, which pulls in
-# the heavy maplibre-native C++ build) so the OpenAPI spec covers every
-# primary route. The `rendering` route is merged in conditionally at runtime.
 unstable-schemas = [
     "dep:schemars",
     "dep:utoipa",

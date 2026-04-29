@@ -132,7 +132,8 @@ test-schemas:
             uvx --from check-jsonschema check-jsonschema \
                 --schemafile schemas/config.json "$f"
         else
-            echo "  -- skipping missing $f"
+            echo "missing $f aborting"
+            exit -1
         fi
     done
     echo "::endgroup::"

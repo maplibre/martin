@@ -30,7 +30,7 @@ pub struct FunctionInfo {
     pub minzoom: Option<u8>,
 
     /// An integer specifying the maximum zoom level. MUST be >= minzoom
-    #[cfg_attr(feature = "unstable-schemas", schemars(example = &30u8))]
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &21u8))]
     pub maxzoom: Option<u8>,
 
     /// The maximum extent of available map tiles. Bounds MUST define an area

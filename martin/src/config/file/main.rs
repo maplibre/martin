@@ -147,7 +147,7 @@ pub struct Config {
     pub sprites: SpriteConfig,
 
     /// Publish `MapLibre` style files
-    /// In the future, the style files will be used for the server-side rendering as well
+    /// You can also configure us to render the styles on the server side.
     #[cfg(feature = "styles")]
     #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
     pub styles: StyleConfig,
