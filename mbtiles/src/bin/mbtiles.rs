@@ -1,3 +1,4 @@
+use std::io::IsTerminal as _;
 use std::path::{Path, PathBuf};
 
 use clap::builder::Styles;
@@ -248,7 +249,7 @@ async fn main() {
         .compact()
         .without_time()
         .with_target(false)
-        .with_ansi(false)
+        .with_ansi(std::io::stderr().is_terminal())
         .with_writer(std::io::stderr)
         .with_env_filter(env_filter)
         .init();
