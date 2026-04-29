@@ -61,13 +61,26 @@ impl Default for CorsConfig {
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct CorsProperties {
+    /// `Access-Control-Allow-Origin` value(s). `*` echoes the request's
+    /// `Origin` header.
     #[serde(default)]
+    #[cfg_attr(
+        feature = "unstable-schemas",
+        schemars(example = cors_origin_example())
+    )]
     pub origin: Vec<String>,
+    /// `Access-Control-Max-Age` in seconds; `null` skips the header.
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &3600usize))]
     pub max_age: Option<usize>,
 
     #[serde(flatten, skip_serializing)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub unrecognized: UnrecognizedValues,
+}
+
+#[cfg(feature = "unstable-schemas")]
+fn cors_origin_example() -> Vec<String> {
+    vec!["https://example.org".to_string()]
 }
 
 impl Default for CorsProperties {

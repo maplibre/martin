@@ -31,14 +31,14 @@ pub trait PostgresInfo {
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct PostgresSslCerts {
-    /// Same as PGSSLCERT
-    /// ([docs](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNECT-SSLCERT))
+    /// Same as `PGSSLCERT` for `psql`.
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &"./postgresql.crt"))]
     pub ssl_cert: Option<std::path::PathBuf>,
-    /// Same as PGSSLKEY
-    /// ([docs](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNECT-SSLKEY))
+    /// Same as `PGSSLKEY` for `psql`.
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &"./postgresql.key"))]
     pub ssl_key: Option<std::path::PathBuf>,
-    /// Same as PGSSLROOTCERT
-    /// ([docs](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNECT-SSLROOTCERT))
+    /// Same as `PGSSLROOTCERT` for `psql`.
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &"./root.crt"))]
     pub ssl_root_cert: Option<std::path::PathBuf>,
 
     #[serde(flatten, skip_serializing)]
@@ -50,13 +50,18 @@ pub struct PostgresSslCerts {
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct PostgresConfig {
-    /// Database connection string
+    /// Database connection string. Supports `${VAR}` substitution.
+    #[cfg_attr(
+        feature = "unstable-schemas",
+        schemars(example = &"postgres://postgres@localhost:5432/db")
+    )]
     pub connection_string: Option<String>,
     #[serde(flatten)]
     pub ssl_certificates: PostgresSslCerts,
-    /// If a spatial table has SRID 0, then this SRID will be used as a fallback
+    /// If a spatial table has SRID 0, this SRID is used as a fallback.
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &4326i32))]
     pub default_srid: Option<i32>,
-    /// Specify how bounds should be computed for the spatial PG tables
+    /// Specify how bounds should be computed for the spatial PG tables.
     pub auto_bounds: Option<BoundsCalcType>,
     /// Limit the number of geo features per tile.
     ///
@@ -66,7 +71,8 @@ pub struct PostgresConfig {
     ///
     /// Can be either a positive integer or unlimited if omitted.
     pub max_feature_count: Option<usize>,
-    /// Maximum Postgres connections pool size [DEFAULT: 20]
+    /// Maximum Postgres connections pool size.
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &20usize))]
     pub pool_size: Option<usize>,
     /// Enable/disable/configure automatic discovery of tables and functions.
     ///

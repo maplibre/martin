@@ -783,9 +783,11 @@ impl<'de> Deserialize<'de> for CachePolicy {
 pub struct GlobalCacheConfig {
     /// Total cache budget in megabytes (0 to disable).
     /// Split across tile, pmtiles, sprite, and font caches by default.
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &512u64))]
     pub size_mb: Option<u64>,
     /// Tile cache size override in megabytes.
     /// Defaults to `size_mb / 2`.
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &256u64))]
     pub tile_size_mb: Option<u64>,
     /// Maximum lifetime for all cache entries (time-to-live from creation).
     /// Supports human-readable formats: "1h", "30m", "1d".
@@ -957,6 +959,7 @@ impl<'de> Deserialize<'de> for GlobalCacheConfig {
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct CacheSizeConfig {
     /// Cache size in megabytes for this source type (0 to disable).
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &64u64))]
     pub size_mb: Option<u64>,
     /// Maximum lifetime of cache entries (time-to-live from creation).
     #[serde(

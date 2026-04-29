@@ -82,9 +82,14 @@ gen-schemas:
     # `unstable-schemas` already implies the source-type features; we just
     # disable defaults so we don't pull in `rendering` (slow C++ build).
     cargo run --quiet --no-default-features --features unstable-schemas \
-        --bin gen-schemas -- --target config  > schemas/config.json
+        --bin gen-schemas -- --target config      > schemas/config.json
     cargo run --quiet --no-default-features --features unstable-schemas \
-        --bin gen-schemas -- --target openapi > schemas/openapi.json
+        --bin gen-schemas -- --target openapi     > schemas/openapi.json
+    # The annotated YAML config doc is derived from `schemas/config.json` and
+    # the `#[schemars(example = ...)]` attributes — keep it generated and
+    # version-controlled so editors can lean on it as a starting point.
+    cargo run --quiet --no-default-features --features unstable-schemas \
+        --bin gen-schemas -- --target config-doc  > docs/content/files/config.yaml
 
 # Validate the generated config + OpenAPI schemas: that they are themselves
 # well-formed (against the JSON Schema 2020-12 metaschema and the OpenAPI 3.1
@@ -117,6 +122,9 @@ test-schemas:
         tests/expected/auto/save_config.yaml
         tests/expected/auto_mini/save_config.yaml
         tests/expected/configured/save_config.yaml
+        # The auto-generated docs example must also pass its own schema —
+        # catches drift between the schemars derives and the codegen renderer.
+        docs/content/files/config.yaml
     )
     for f in "${fixtures[@]}"; do
         if [[ -f "$f" ]]; then

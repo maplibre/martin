@@ -18,14 +18,27 @@ pub const LISTEN_ADDRESSES_DEFAULT: &str = "0.0.0.0:3000";
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Default)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct SrvConfig {
+    /// Connection keep-alive timeout in seconds.
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &75u64))]
     pub keep_alive: Option<u64>,
+    /// Socket address to bind to.
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &"0.0.0.0:3000"))]
     pub listen_addresses: Option<String>,
-    /// The prefix under which we are served under
+    /// URL path prefix for all API routes.
+    /// When set, Martin serves all endpoints under this path. Useful behind
+    /// a reverse proxy (e.g. Traefik). Must begin with `/`.
+    /// Examples: `/tiles`, `/api/v1/tiles`.
     pub route_prefix: Option<String>,
-    /// The prefix under which we claim in the tileJSON to be served under
-    /// Defaults to `route_prefix` or the contents of the `X-Rewrite-Path` header
+    /// Override for the URL path prefix used in `TileJSON` `tiles` URLs.
+    /// If both `route_prefix` and `base_path` are set, `base_path` wins for
+    /// `TileJSON` URLs. If neither is set, the `X-Rewrite-URL` header is
+    /// respected. Must begin with `/`.
     pub base_path: Option<String>,
+    /// Number of web server worker processes.
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &8usize))]
     pub worker_processes: Option<usize>,
+    /// Compression to prefer when the client accepts multiple and the tile
+    /// source is not pre-compressed. `gzip` is faster, `brotli` is smaller.
     pub preferred_encoding: Option<PreferredEncoding>,
     #[cfg(all(feature = "webui", not(docsrs)))]
     pub web_ui: Option<WebUiMode>,
@@ -33,6 +46,9 @@ pub struct SrvConfig {
     /// Advanced monitoring options
     #[cfg(feature = "metrics")]
     pub observability: Option<ObservabilityConfig>,
+    /// If set, the tileset version is appended to `TileJSON` `tiles` URLs as a
+    /// query parameter with this name (e.g. `version=1.0.0`). Lets clients +
+    /// CDNs cache-bust on tileset upgrades.
     #[cfg(feature = "_tiles")]
     pub tilejson_url_version_param: Option<String>,
 }
