@@ -16,7 +16,7 @@ use martin_tile_utils::{
     decode_zstd, encode_brotli, encode_gzip, encode_zlib, encode_zstd,
 };
 use serde::Deserialize;
-use tracing::warn;
+use tracing::{instrument, warn};
 
 use crate::config::args::PreferredEncoding;
 use crate::config::file::srv::SrvConfig;
@@ -58,6 +58,17 @@ pub struct TileRequest {
 )]
 #[route("/{source_ids}/{z}/{x}/{y}", method = "GET", method = "HEAD")]
 #[hotpath::measure]
+#[instrument(
+    level = "debug",
+    skip_all,
+    fields(
+        source.ids = %path.source_ids,
+        tile.z = path.z,
+        tile.x = path.x,
+        tile.y = path.y,
+    ),
+    err(Debug),
+)]
 pub async fn get_tile(
     req: HttpRequest,
     srv_config: Data<SrvConfig>,
@@ -306,6 +317,12 @@ impl<'a> DynTileSource<'a> {
     }
 
     #[hotpath::measure]
+    #[instrument(
+        level = "debug",
+        skip_all,
+        fields(tile.z = xyz.z, tile.x = xyz.x, tile.y = xyz.y),
+        err(Debug),
+    )]
     pub async fn get_http_response(&self, xyz: TileCoord) -> ActixResult<HttpResponse> {
         let tile = self.get_tile_content(xyz).await?;
         if tile.data.is_empty() {
@@ -331,6 +348,17 @@ impl<'a> DynTileSource<'a> {
     }
 
     #[hotpath::measure]
+    #[instrument(
+        level = "debug",
+        skip_all,
+        fields(
+            tile.z = xyz.z,
+            tile.x = xyz.x,
+            tile.y = xyz.y,
+            sources.count = self.sources.len(),
+        ),
+        err(Debug),
+    )]
     pub async fn get_tile_content(&self, xyz: TileCoord) -> ActixResult<Tile> {
         let mut tiles = try_join_all(self.sources.iter().map(|s| async {
             let cache_zoom_ok = s.cache_zoom().contains(xyz.z);

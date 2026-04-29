@@ -1,4 +1,4 @@
-[INFO ] cp_flat has an unrecognized metadata value foo={"bar":"foo"}
+ INFO cp_flat has an unrecognized metadata value foo={"bar":"foo"}
 id: cp_flat
 tilejson:
   tilejson: 3.0.0

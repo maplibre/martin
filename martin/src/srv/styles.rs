@@ -5,7 +5,7 @@ use actix_web::web::{Data, Path};
 use actix_web::{HttpResponse, route};
 use martin_core::styles::StyleSources;
 use serde::Deserialize;
-use tracing::{error, warn};
+use tracing::{error, instrument, warn};
 
 use crate::srv::server::DebouncedWarning;
 
@@ -36,6 +36,7 @@ struct StyleRequest {
     wrap = "Compress::default()"
 )]
 #[hotpath::measure]
+#[instrument(level = "debug", skip_all, fields(style.id = %path.style_id))]
 pub async fn get_style_json(path: Path<StyleRequest>, styles: Data<StyleSources>) -> HttpResponse {
     let style_id = &path.style_id;
     let Some(path) = styles.style_json_path(style_id) else {
