@@ -57,9 +57,6 @@ mbtiles = ["dep:backon", "dep:mbtiles", "dep:tokio", "_tiles"]
 pmtiles = ["dep:pmtiles", "dep:object_store", "_tiles"]
 _tiles = ["dep:base64"]
 test-pg = ["postgres"]
-# Mirror of martin's `unstable-schemas`: derives `schemars::JsonSchema` and
-# `utoipa::ToSchema` on the public types referenced by the on-disk config
-# (e.g. `CacheZoomRange`) and the HTTP catalog response payload.
 unstable-schemas = ["dep:schemars", "dep:utoipa"]
 
 [target.'cfg(target_os = "linux")'.dependencies]
