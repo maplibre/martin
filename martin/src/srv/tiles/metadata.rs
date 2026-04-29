@@ -16,10 +16,24 @@ use crate::config::file::srv::SrvConfig;
 use crate::tile_source_manager::TileSourceManager;
 
 #[derive(Deserialize)]
+#[cfg_attr(feature = "unstable-schemas", derive(utoipa::IntoParams))]
+#[cfg_attr(feature = "unstable-schemas", into_params(parameter_in = Path))]
 pub struct SourceIDsRequest {
     pub source_ids: String,
 }
 
+#[cfg_attr(
+    feature = "unstable-schemas",
+    utoipa::path(
+        get,
+        path = "/{source_ids}",
+        params(SourceIDsRequest),
+        responses(
+            (status = 200, description = "TileJSON 3.0.0 metadata for the requested source(s)", content_type = "application/json"),
+            (status = 404, description = "No matching source"),
+        ),
+    )
+)]
 #[route(
     "/{source_ids}",
     method = "GET",
@@ -28,7 +42,7 @@ pub struct SourceIDsRequest {
     wrap = "Compress::default()"
 )]
 #[hotpath::measure]
-async fn get_source_info(
+pub async fn get_source_info(
     req: HttpRequest,
     path: Path<SourceIDsRequest>,
     manager: Data<TileSourceManager>,

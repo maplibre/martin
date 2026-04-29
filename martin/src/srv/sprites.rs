@@ -23,10 +23,24 @@ enum SpriteComputeError {
 }
 
 #[derive(Deserialize)]
+#[cfg_attr(feature = "unstable-schemas", derive(utoipa::IntoParams))]
+#[cfg_attr(feature = "unstable-schemas", into_params(parameter_in = Path))]
 pub struct SourceIDsRequest {
     pub source_ids: String,
 }
 
+#[cfg_attr(
+    feature = "unstable-schemas",
+    utoipa::path(
+        get,
+        path = "/sprite/{source_ids}.png",
+        params(SourceIDsRequest),
+        responses(
+            (status = 200, description = "Combined sprite image", content_type = "image/png"),
+            (status = 404, description = "No matching sprite source"),
+        ),
+    )
+)]
 #[route(
     "/sprite/{source_ids}.png",
     method = "GET",
@@ -34,7 +48,7 @@ pub struct SourceIDsRequest {
     wrap = "Etag::default()"
 )]
 #[hotpath::measure]
-async fn get_sprite_png(
+pub async fn get_sprite_png(
     path: Path<SourceIDsRequest>,
     sprites: Data<SpriteSources>,
     cache: Data<OptSpriteCache>,
@@ -76,6 +90,18 @@ pub async fn redirect_sprites_png(path: Path<SourceIDsRequest>) -> HttpResponse 
         .finish()
 }
 
+#[cfg_attr(
+    feature = "unstable-schemas",
+    utoipa::path(
+        get,
+        path = "/sdf_sprite/{source_ids}.png",
+        params(SourceIDsRequest),
+        responses(
+            (status = 200, description = "Combined signed-distance-field sprite image", content_type = "image/png"),
+            (status = 404, description = "No matching sprite source"),
+        ),
+    )
+)]
 #[route(
     "/sdf_sprite/{source_ids}.png",
     method = "GET",
@@ -83,7 +109,7 @@ pub async fn redirect_sprites_png(path: Path<SourceIDsRequest>) -> HttpResponse 
     wrap = "Etag::default()"
 )]
 #[hotpath::measure]
-async fn get_sprite_sdf_png(
+pub async fn get_sprite_sdf_png(
     path: Path<SourceIDsRequest>,
     sprites: Data<SpriteSources>,
     cache: Data<OptSpriteCache>,
@@ -125,6 +151,18 @@ pub async fn redirect_sdf_sprites_png(path: Path<SourceIDsRequest>) -> HttpRespo
         .finish()
 }
 
+#[cfg_attr(
+    feature = "unstable-schemas",
+    utoipa::path(
+        get,
+        path = "/sprite/{source_ids}.json",
+        params(SourceIDsRequest),
+        responses(
+            (status = 200, description = "Sprite index JSON", content_type = "application/json"),
+            (status = 404, description = "No matching sprite source"),
+        ),
+    )
+)]
 #[route(
     "/sprite/{source_ids}.json",
     method = "GET",
@@ -133,7 +171,7 @@ pub async fn redirect_sdf_sprites_png(path: Path<SourceIDsRequest>) -> HttpRespo
     wrap = "Compress::default()"
 )]
 #[hotpath::measure]
-async fn get_sprite_json(
+pub async fn get_sprite_json(
     path: Path<SourceIDsRequest>,
     sprites: Data<SpriteSources>,
     cache: Data<OptSpriteCache>,
@@ -175,6 +213,18 @@ pub async fn redirect_sprites_json(path: Path<SourceIDsRequest>) -> HttpResponse
         .finish()
 }
 
+#[cfg_attr(
+    feature = "unstable-schemas",
+    utoipa::path(
+        get,
+        path = "/sdf_sprite/{source_ids}.json",
+        params(SourceIDsRequest),
+        responses(
+            (status = 200, description = "SDF sprite index JSON", content_type = "application/json"),
+            (status = 404, description = "No matching sprite source"),
+        ),
+    )
+)]
 #[route(
     "/sdf_sprite/{source_ids}.json",
     method = "GET",
@@ -183,7 +233,7 @@ pub async fn redirect_sprites_json(path: Path<SourceIDsRequest>) -> HttpResponse
     wrap = "Compress::default()"
 )]
 #[hotpath::measure]
-async fn get_sprite_sdf_json(
+pub async fn get_sprite_sdf_json(
     path: Path<SourceIDsRequest>,
     sprites: Data<SpriteSources>,
     cache: Data<OptSpriteCache>,

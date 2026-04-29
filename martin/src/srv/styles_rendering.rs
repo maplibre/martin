@@ -6,6 +6,8 @@ use serde::Deserialize;
 use tracing::{error, trace, warn};
 
 #[derive(Deserialize, Debug)]
+#[cfg_attr(feature = "unstable-schemas", derive(utoipa::IntoParams))]
+#[cfg_attr(feature = "unstable-schemas", into_params(parameter_in = Path))]
 struct StyleRenderRequest {
     style_id: String,
     z: u8,
@@ -15,6 +17,7 @@ struct StyleRenderRequest {
 }
 
 #[derive(Deserialize, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "unstable-schemas", derive(utoipa::ToSchema))]
 #[serde(rename_all = "lowercase")]
 enum ImageFormatRequest {
     #[default]
@@ -24,6 +27,21 @@ enum ImageFormatRequest {
     Webp,
 }
 
+#[cfg_attr(
+    feature = "unstable-schemas",
+    utoipa::path(
+        get,
+        path = "/style/{style_id}/{z}/{x}/{y}.{format}",
+        params(StyleRenderRequest),
+        responses(
+            (status = 200, description = "Server-side rendered style tile (PNG/JPEG/WebP)"),
+            (status = 400, description = "Invalid tile coordinates"),
+            (status = 403, description = "Rendering is disabled"),
+            (status = 404, description = "No matching style"),
+            (status = 500, description = "Renderer or encoder failure"),
+        ),
+    )
+)]
 #[route("/style/{style_id}/{z}/{x}/{y}.{format}", method = "GET")]
 #[hotpath::measure]
 pub async fn get_style_rendered(

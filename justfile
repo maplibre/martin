@@ -79,10 +79,11 @@ gen-schemas:
     #!/usr/bin/env bash
     set -euo pipefail
     mkdir -p schemas
-    features='unstable-schemas,mbtiles,pmtiles,postgres,sprites,styles,fonts,metrics'
-    cargo run --quiet --no-default-features --features "$features" \
+    # `unstable-schemas` already implies the source-type features; we just
+    # disable defaults so we don't pull in `rendering` (slow C++ build).
+    cargo run --quiet --no-default-features --features unstable-schemas \
         --bin gen-schemas -- --target config  > schemas/config.json
-    cargo run --quiet --no-default-features --features "$features" \
+    cargo run --quiet --no-default-features --features unstable-schemas \
         --bin gen-schemas -- --target openapi > schemas/openapi.json
 
 # Validate the generated config + OpenAPI schemas: that they are themselves

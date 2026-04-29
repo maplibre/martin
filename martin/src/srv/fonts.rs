@@ -14,12 +14,27 @@ use tracing::warn;
 use crate::srv::server::{DebouncedWarning, map_internal_error};
 
 #[derive(Deserialize, Debug)]
+#[cfg_attr(feature = "unstable-schemas", derive(utoipa::IntoParams))]
+#[cfg_attr(feature = "unstable-schemas", into_params(parameter_in = Path))]
 struct FontRequest {
     fontstack: String,
     start: u32,
     end: u32,
 }
 
+#[cfg_attr(
+    feature = "unstable-schemas",
+    utoipa::path(
+        get,
+        path = "/font/{fontstack}/{start}-{end}",
+        params(FontRequest),
+        responses(
+            (status = 200, description = "Glyph PBF range", content_type = "application/x-protobuf"),
+            (status = 400, description = "Invalid glyph range"),
+            (status = 404, description = "No matching font"),
+        ),
+    )
+)]
 #[route(
     "/font/{fontstack}/{start}-{end}",
     method = "GET",
@@ -27,7 +42,7 @@ struct FontRequest {
     wrap = "Compress::default()"
 )]
 #[hotpath::measure]
-async fn get_font(
+pub async fn get_font(
     path: Path<FontRequest>,
     fonts: Data<FontSources>,
     cache: Data<OptFontCache>,
