@@ -283,4 +283,88 @@ mod tests {
         mgr.apply_changes(advisory).await.unwrap();
         assert_yaml_snapshot!(sorted_source_names(&mgr), @"- a");
     }
+
+    /// Regression test for <https://github.com/maplibre/martin/discussions/2767>:
+    /// a persistently-failing source must not block later additions or removals
+    /// from reaching the live catalog when `OnInvalid::Warn` is in effect.
+    ///
+    /// Simulates the directory-watcher loop:
+    /// 1. Watch a directory with one bad file → catalog empty.
+    /// 2. Add a valid file → catalog gains it.
+    /// 3. Delete the valid file → catalog drops it.
+    #[tokio::test]
+    async fn watcher_loop_around_persistent_bad_file() {
+        use std::collections::BTreeMap;
+        use std::path::{Path, PathBuf};
+
+        use tempfile::TempDir;
+
+        use crate::MartinError;
+        use crate::config::file::ConfigFileError;
+
+        const BAD_PREFIX: &str = "bad_";
+
+        fn scan(dir: &Path) -> BTreeMap<String, u64> {
+            let mut out = BTreeMap::new();
+            for entry in std::fs::read_dir(dir).expect("read tempdir").flatten() {
+                if !entry.file_type().is_ok_and(|t| t.is_file()) {
+                    continue;
+                }
+                let id = entry
+                    .path()
+                    .file_stem()
+                    .and_then(|s| s.to_str())
+                    .map(str::to_string)
+                    .expect("file stem is valid utf-8");
+                out.insert(id, 1);
+            }
+            out
+        }
+
+        #[expect(
+            clippy::unused_async,
+            reason = "must satisfy AsyncFn for ReloadAdvisory::from_maps"
+        )]
+        async fn build(id: String, dir: PathBuf) -> MartinResult<BoxedSource> {
+            if id.starts_with(BAD_PREFIX) {
+                return Err(MartinError::from(ConfigFileError::InvalidFilePath(
+                    dir.join(format!("{id}.tiles")),
+                )));
+            }
+            Ok(Box::new(TestSource {
+                id,
+                tj: tilejson! { tiles: vec![] },
+            }))
+        }
+
+        let dir = TempDir::new().expect("create tempdir");
+        let dir_path = dir.path().to_path_buf();
+        let mgr = TileSourceManager::new(None, OnInvalid::Warn);
+        let mut state: BTreeMap<String, u64> = BTreeMap::new();
+
+        // Reconciles the manager with the current on-disk state and advances `state`.
+        let tick = async |state: &mut BTreeMap<String, u64>| {
+            let next = scan(&dir_path);
+            let advisory = ReloadAdvisory::from_maps(state, &next, async |id| {
+                build(id, dir_path.clone()).await
+            })
+            .await;
+            mgr.apply_changes(advisory)
+                .await
+                .expect("warn policy must not abort on a bad file");
+            *state = next;
+        };
+
+        std::fs::write(dir.path().join("bad_a.tiles"), b"").unwrap();
+        tick(&mut state).await;
+        assert_yaml_snapshot!(sorted_source_names(&mgr), @"[]");
+
+        std::fs::write(dir.path().join("good_x.tiles"), b"").unwrap();
+        tick(&mut state).await;
+        assert_yaml_snapshot!(sorted_source_names(&mgr), @"- good_x");
+
+        std::fs::remove_file(dir.path().join("good_x.tiles")).unwrap();
+        tick(&mut state).await;
+        assert_yaml_snapshot!(sorted_source_names(&mgr), @"[]");
+    }
 }
