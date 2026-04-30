@@ -1033,10 +1033,11 @@ mod folder_source_tests {
     async fn resolve_mixed_dir(good: usize, bad: usize) -> (Vec<String>, Vec<String>) {
         let dir = TempDir::new().expect("create tempdir");
         for i in 0..good {
-            std::fs::write(dir.path().join(format!("good_{i}.tiles")), b"").unwrap();
+            std::fs::write(dir.path().join(format!("good_{i}.tiles")), b"").expect("write good");
         }
         for i in 0..bad {
-            std::fs::write(dir.path().join(format!("{BAD_PREFIX}{i}.tiles")), b"").unwrap();
+            std::fs::write(dir.path().join(format!("{BAD_PREFIX}{i}.tiles")), b"")
+                .expect("write bad");
         }
 
         let mut config = FileConfigEnum::<FakeConfig>::Path(dir.path().to_path_buf());
