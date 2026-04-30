@@ -19,10 +19,11 @@ martin  ... ... ...  --save-config config.yaml
 
 ## Postprocessing
 
-Martin can postprocess tiles before serving them. The `process` block allows inserting the following optional steps:
+The `process` block tunes encoder settings used by Martin's postprocessing pipeline. It does **not** enable any conversion — the client drives that via the `Accept` header (e.g. `Accept: application/vnd.maplibre-tile` triggers MVT→MLT). The `process` block only changes *how* a conversion encodes when it fires.
 
-- **MLT conversion** — convert MVT tiles to [MapLibre Tiles](using-guides/mlt.md) format on the fly
-- more to follow
+Currently configurable:
+
+- **MLT encoder** — encoder settings for MVT→MLT conversion. See the [MLT usage guide](using-guides/mlt.md) for tuning options.
 
 The `process` block can appear at three levels. The most specific level wins entirely (no merging between levels):
 
@@ -31,24 +32,22 @@ The `process` block can appear at three levels. The most specific level wins ent
 3. **Per-source** — applies to a single source
 
 ```yaml
-# Global: convert all MVT sources to MLT
+# Global: default MLT encoder settings for any source whose tiles get converted
 process:
   mlt: auto
 
 postgres:
   connection_string: postgresql://localhost/mydb
-  # Source-type: override for all PG sources (disables MLT for all pg sources)
+  # Source-type: override the encoder config for all PG sources
   process: {}
   tables:
     my_table:
-      # Per-source: this table gets MLT conversion
+      # Per-source: this table uses the default MLT encoder config
       process:
         mlt: auto
 mbtiles: # gets global default
   - some/file.mbtiles
 ```
-
-See the [MLT usage guide](using-guides/mlt.md) for encoder tuning options.
 
 ## Config Example
 
