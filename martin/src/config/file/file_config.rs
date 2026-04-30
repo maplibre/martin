@@ -442,7 +442,10 @@ async fn resolve_int<T: TileSourceConfiguration>(
         )
         .await
         {
-            Ok(sources) => results.extend(sources),
+            Ok((sources, path_warnings)) => {
+                results.extend(sources);
+                warnings.extend(path_warnings);
+            }
             Err(err) => {
                 warnings.push(TileSourceWarning::PathError {
                     path: path.display().to_string(),
@@ -510,8 +513,9 @@ async fn resolve_one_path_int<T: TileSourceConfiguration>(
     directories: &mut Vec<PathBuf>,
     configs: &mut BTreeMap<String, FileConfigSrc>,
     default_cache: CachePolicy,
-) -> MartinResult<Vec<BoxedSource>> {
+) -> MartinResult<(Vec<BoxedSource>, Vec<TileSourceWarning>)> {
     let mut results = Vec::new();
+    let mut warnings = Vec::new();
 
     if let Some(url) = parse_url(T::parse_urls(), &path)? {
         let target_ext = extension.iter().find(|&e| url.to_string().ends_with(e));
@@ -565,13 +569,29 @@ async fn resolve_one_path_int<T: TileSourceConfiguration>(
                 |s| s.to_string_lossy().to_string(),
             );
             let id = idr.resolve(&id, can.to_string_lossy().to_string());
-            info!("Configured source {id} from {}", can.display());
-            files.insert(can);
-            configs.insert(id.clone(), FileConfigSrc::Path(path.clone()));
-            results.push(custom.new_sources(id, path, default_cache).await?);
+            // Only commit `id`/`can` to bookkeeping after a successful init so a single
+            // bad file inside a directory does not poison the whole batch — without this,
+            // `on_invalid: warn` would still drop every sibling source.
+            match custom
+                .new_sources(id.clone(), path.clone(), default_cache)
+                .await
+            {
+                Ok(src) => {
+                    info!("Configured source {id} from {}", can.display());
+                    files.insert(can);
+                    configs.insert(id, FileConfigSrc::Path(path));
+                    results.push(src);
+                }
+                Err(err) => {
+                    warnings.push(TileSourceWarning::PathError {
+                        path: path.display().to_string(),
+                        error: err.to_string(),
+                    });
+                }
+            }
         }
     }
-    Ok(results)
+    Ok((results, warnings))
 }
 
 /// Returns a vector of file paths matching any `allowed_extension` within the given directory.
@@ -1417,6 +1437,172 @@ mod mbtiles_tests {
         let (sources, warnings) = result.unwrap();
         assert_eq!(sources.len(), 0);
         assert_eq!(warnings.len(), 2);
+    }
+}
+
+/// Folder-source path resolution: a single bad file in a directory must not
+/// drop its valid siblings. Regression for
+/// <https://github.com/maplibre/martin/discussions/2767>.
+#[cfg(all(test, feature = "_tiles"))]
+mod folder_source_tests {
+    use async_trait::async_trait;
+    use insta::assert_yaml_snapshot;
+    use martin_core::CacheZoomRange;
+    use martin_core::tiles::{MartinCoreResult, Source, UrlQuery};
+    use martin_tile_utils::{Encoding, Format, TileCoord, TileData, TileInfo};
+    use tempfile::TempDir;
+    use tilejson::{TileJSON, tilejson};
+
+    use super::*;
+    use crate::MartinError;
+    use crate::config::primitives::IdResolver;
+
+    /// Files whose stem starts with this prefix are treated as invalid by [`FakeConfig`].
+    const BAD_PREFIX: &str = "bad_";
+
+    #[derive(Clone, Debug, Default, PartialEq)]
+    struct FakeConfig;
+
+    impl ConfigurationLivecycleHooks for FakeConfig {
+        fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
+            UnrecognizedKeys::new()
+        }
+    }
+
+    impl TileSourceConfiguration for FakeConfig {
+        fn parse_urls() -> bool {
+            false
+        }
+        async fn new_sources(
+            &self,
+            id: String,
+            path: PathBuf,
+            _cache: CachePolicy,
+        ) -> MartinResult<BoxedSource> {
+            let stem = path
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .unwrap_or_default();
+            if stem.starts_with(BAD_PREFIX) {
+                Err(MartinError::from(ConfigFileError::InvalidFilePath(path)))
+            } else {
+                Ok(Box::new(FakeSource {
+                    id,
+                    tj: tilejson! { tiles: vec![] },
+                }))
+            }
+        }
+        async fn new_sources_url(
+            &self,
+            _id: String,
+            _url: Url,
+            _cache: CachePolicy,
+        ) -> MartinResult<BoxedSource> {
+            unreachable!()
+        }
+    }
+
+    #[derive(Debug, Clone)]
+    struct FakeSource {
+        id: String,
+        tj: TileJSON,
+    }
+
+    #[async_trait]
+    impl Source for FakeSource {
+        fn get_id(&self) -> &str {
+            &self.id
+        }
+        fn get_tilejson(&self) -> &TileJSON {
+            &self.tj
+        }
+        fn get_tile_info(&self) -> TileInfo {
+            TileInfo::new(Format::Mvt, Encoding::Uncompressed)
+        }
+        fn clone_source(&self) -> BoxedSource {
+            Box::new(self.clone())
+        }
+        fn cache_zoom(&self) -> CacheZoomRange {
+            CacheZoomRange::default()
+        }
+        async fn get_tile(
+            &self,
+            _xyz: TileCoord,
+            _url_query: Option<&UrlQuery>,
+        ) -> MartinCoreResult<TileData> {
+            Ok(vec![])
+        }
+    }
+
+    /// Resolves a freshly-created tempdir populated with `good` good files and
+    /// `bad` bad files, returning sorted source ids + warning strings with the
+    /// random tempdir prefix replaced by `<DIR>` for snapshot stability.
+    async fn resolve_mixed_dir(good: usize, bad: usize) -> (Vec<String>, Vec<String>) {
+        let dir = TempDir::new().expect("create tempdir");
+        for i in 0..good {
+            std::fs::write(dir.path().join(format!("good_{i}.tiles")), b"").expect("write good");
+        }
+        for i in 0..bad {
+            std::fs::write(dir.path().join(format!("{BAD_PREFIX}{i}.tiles")), b"")
+                .expect("write bad");
+        }
+
+        let mut config = FileConfigEnum::<FakeConfig>::Path(dir.path().to_path_buf());
+        let idr = IdResolver::new(&[]);
+        let (sources, warnings) =
+            resolve_files(&mut config, &idr, &["tiles"], CachePolicy::default())
+                .await
+                .expect("resolve_files always returns Ok; OnInvalid decides fatality");
+
+        let prefix = dir.path().to_string_lossy().to_string();
+        let mut ids: Vec<String> = sources.iter().map(|s| s.get_id().to_string()).collect();
+        ids.sort();
+        let mut msgs: Vec<String> = warnings
+            .iter()
+            .map(|w| w.to_string().replace(&prefix, "<DIR>"))
+            .collect();
+        msgs.sort();
+        (ids, msgs)
+    }
+
+    #[tokio::test]
+    async fn one_good_one_bad() {
+        let (sources, warnings) = resolve_mixed_dir(1, 1).await;
+        assert_yaml_snapshot!(sources, @"- good_0");
+        assert_yaml_snapshot!(warnings, @r#"- "Path <DIR>/bad_0.tiles: Source path is not a file: <DIR>/bad_0.tiles""#);
+    }
+
+    #[tokio::test]
+    async fn two_good_two_bad() {
+        let (sources, warnings) = resolve_mixed_dir(2, 2).await;
+        assert_yaml_snapshot!(sources, @r"
+        - good_0
+        - good_1
+        ");
+        assert_yaml_snapshot!(warnings, @r#"
+        - "Path <DIR>/bad_0.tiles: Source path is not a file: <DIR>/bad_0.tiles"
+        - "Path <DIR>/bad_1.tiles: Source path is not a file: <DIR>/bad_1.tiles"
+        "#);
+    }
+
+    #[tokio::test]
+    async fn all_bad() {
+        let (sources, warnings) = resolve_mixed_dir(0, 2).await;
+        assert_yaml_snapshot!(sources, @"[]");
+        assert_yaml_snapshot!(warnings, @r#"
+        - "Path <DIR>/bad_0.tiles: Source path is not a file: <DIR>/bad_0.tiles"
+        - "Path <DIR>/bad_1.tiles: Source path is not a file: <DIR>/bad_1.tiles"
+        "#);
+    }
+
+    #[tokio::test]
+    async fn all_good() {
+        let (sources, warnings) = resolve_mixed_dir(2, 0).await;
+        assert_yaml_snapshot!(sources, @r"
+        - good_0
+        - good_1
+        ");
+        assert_yaml_snapshot!(warnings, @"[]");
     }
 }
 
