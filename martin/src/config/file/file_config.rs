@@ -936,13 +936,13 @@ mod mbtiles_tests {
 /// Folder-source path resolution: a single bad file in a directory must not
 /// drop its valid siblings. Regression for
 /// <https://github.com/maplibre/martin/discussions/2767>.
-#[cfg(test)]
+#[cfg(all(test, feature = "_tiles"))]
 mod folder_source_tests {
     use async_trait::async_trait;
+    use insta::assert_yaml_snapshot;
     use martin_core::CacheZoomRange;
     use martin_core::tiles::{MartinCoreResult, Source, UrlQuery};
     use martin_tile_utils::{Encoding, Format, TileCoord, TileData, TileInfo};
-    use rstest::rstest;
     use tempfile::TempDir;
     use tilejson::{TileJSON, tilejson};
 
@@ -1027,15 +1027,10 @@ mod folder_source_tests {
         }
     }
 
-    /// Asserts a folder containing `good` good files and `bad` bad files
-    /// resolves to `good` sources and `bad` `PathError` warnings.
-    #[rstest]
-    #[case::one_good_one_bad(1, 1)]
-    #[case::two_good_two_bad(2, 2)]
-    #[case::all_bad(0, 2)]
-    #[case::all_good(2, 0)]
-    #[tokio::test]
-    async fn folder_source_with_mixed_files(#[case] good: usize, #[case] bad: usize) {
+    /// Resolves a freshly-created tempdir populated with `good` good files and
+    /// `bad` bad files, returning sorted source ids + warning strings with the
+    /// random tempdir prefix replaced by `<DIR>` for snapshot stability.
+    async fn resolve_mixed_dir(good: usize, bad: usize) -> (Vec<String>, Vec<String>) {
         let dir = TempDir::new().expect("create tempdir");
         for i in 0..good {
             std::fs::write(dir.path().join(format!("good_{i}.tiles")), b"").unwrap();
@@ -1051,13 +1046,55 @@ mod folder_source_tests {
                 .await
                 .expect("resolve_files always returns Ok; OnInvalid decides fatality");
 
-        assert_eq!(sources.len(), good);
-        assert_eq!(warnings.len(), bad);
-        assert!(
-            warnings
-                .iter()
-                .all(|w| matches!(w, TileSourceWarning::PathError { .. }))
-        );
+        let prefix = dir.path().to_string_lossy().to_string();
+        let mut ids: Vec<String> = sources.iter().map(|s| s.get_id().to_string()).collect();
+        ids.sort();
+        let mut msgs: Vec<String> = warnings
+            .iter()
+            .map(|w| w.to_string().replace(&prefix, "<DIR>"))
+            .collect();
+        msgs.sort();
+        (ids, msgs)
+    }
+
+    #[tokio::test]
+    async fn one_good_one_bad() {
+        let (sources, warnings) = resolve_mixed_dir(1, 1).await;
+        assert_yaml_snapshot!(sources, @"- good_0");
+        assert_yaml_snapshot!(warnings, @r#"- "Path <DIR>/bad_0.tiles: Source path is not a file: <DIR>/bad_0.tiles""#);
+    }
+
+    #[tokio::test]
+    async fn two_good_two_bad() {
+        let (sources, warnings) = resolve_mixed_dir(2, 2).await;
+        assert_yaml_snapshot!(sources, @r"
+        - good_0
+        - good_1
+        ");
+        assert_yaml_snapshot!(warnings, @r#"
+        - "Path <DIR>/bad_0.tiles: Source path is not a file: <DIR>/bad_0.tiles"
+        - "Path <DIR>/bad_1.tiles: Source path is not a file: <DIR>/bad_1.tiles"
+        "#);
+    }
+
+    #[tokio::test]
+    async fn all_bad() {
+        let (sources, warnings) = resolve_mixed_dir(0, 2).await;
+        assert_yaml_snapshot!(sources, @"[]");
+        assert_yaml_snapshot!(warnings, @r#"
+        - "Path <DIR>/bad_0.tiles: Source path is not a file: <DIR>/bad_0.tiles"
+        - "Path <DIR>/bad_1.tiles: Source path is not a file: <DIR>/bad_1.tiles"
+        "#);
+    }
+
+    #[tokio::test]
+    async fn all_good() {
+        let (sources, warnings) = resolve_mixed_dir(2, 0).await;
+        assert_yaml_snapshot!(sources, @r"
+        - good_0
+        - good_1
+        ");
+        assert_yaml_snapshot!(warnings, @"[]");
     }
 }
 
