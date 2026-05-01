@@ -10,7 +10,7 @@ use tokio::sync::mpsc;
 
 use super::{path_modified_ms, resolve_dir_entry};
 use crate::config::file::mbtiles::MbtConfig;
-#[cfg(feature = "mlt")]
+#[cfg(all(feature = "mlt", feature = "_tiles"))]
 use crate::config::file::resolve_process_config;
 use crate::config::file::{CachePolicy, FileConfigEnum, ProcessConfig};
 use crate::config::primitives::{IdResolver, OptOneMany};
@@ -50,7 +50,7 @@ impl MBTilesReloader {
         let mut directories: Vec<PathBuf> = vec![];
         let mut path_cache: BTreeMap<PathBuf, CachePolicy> = BTreeMap::new();
 
-        #[cfg(feature = "mlt")]
+        #[cfg(all(feature = "mlt", feature = "_tiles"))]
         let process = {
             let source_type_process = match config {
                 FileConfigEnum::Config(cfg) => cfg.custom.process.as_ref(),

@@ -10,7 +10,7 @@ use tracing::{trace, warn};
 use url::Url;
 
 use crate::MartinResult;
-#[cfg(feature = "mlt")]
+#[cfg(all(feature = "mlt", feature = "_tiles"))]
 use crate::config::file::ProcessConfig;
 use crate::config::file::{
     CachePolicy, CacheSizeConfig, ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks,
@@ -46,7 +46,7 @@ pub struct PmtConfig {
 
     /// Postprocessing pipeline for all `PMTiles` sources.
     /// Overrides global `process`; overridden by per-source `process`.
-    #[cfg(feature = "mlt")]
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub process: Option<ProcessConfig>,
 
@@ -65,7 +65,7 @@ impl PartialEq for PmtConfig {
         let base = self.directory_cache == other.directory_cache
             && self.options == other.options
             && self.unrecognized == other.unrecognized;
-        #[cfg(feature = "mlt")]
+        #[cfg(all(feature = "mlt", feature = "_tiles"))]
         let base = base && self.process == other.process;
         // pmtiles_directory_cache is intentionally excluded from equality check
         base

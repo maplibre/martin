@@ -41,25 +41,6 @@ impl TileSourceManager {
     pub fn from_sources(
         tile_cache: OptTileCache,
         on_invalid: OnInvalid,
-        sources: Vec<Vec<BoxedSource>>,
-    ) -> Self {
-        let with_defaults = sources
-            .into_iter()
-            .map(|group| {
-                group
-                    .into_iter()
-                    .map(|src| (src, ProcessConfig::default()))
-                    .collect()
-            })
-            .collect();
-        Self::from_sources_with_process(tile_cache, on_invalid, with_defaults)
-    }
-
-    /// Creates a manager pre-populated with sources paired with their process configs.
-    #[must_use]
-    pub fn from_sources_with_process(
-        tile_cache: OptTileCache,
-        on_invalid: OnInvalid,
         sources: Vec<Vec<(BoxedSource, ProcessConfig)>>,
     ) -> Self {
         let map: DashMap<String, (BoxedSource, ProcessConfig)> = sources
@@ -292,7 +273,11 @@ mod tests {
             id: "x".to_string(),
             tj: tilejson! { tiles: vec![] },
         }) as BoxedSource;
-        let mgr = TileSourceManager::from_sources(None, OnInvalid::Abort, vec![vec![src]]);
+        let mgr = TileSourceManager::from_sources(
+            None,
+            OnInvalid::Abort,
+            vec![vec![(src, ProcessConfig::default())]],
+        );
         assert_yaml_snapshot!(sorted_source_names(&mgr), @"- x");
         assert!(mgr.tile_cache().is_none());
     }

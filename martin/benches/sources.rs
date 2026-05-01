@@ -1,7 +1,7 @@
 use criterion::async_executor::FuturesExecutor;
 use criterion::{Criterion, criterion_group, criterion_main};
 use martin::TileSourceManager;
-use martin::config::file::OnInvalid;
+use martin::config::file::{OnInvalid, ProcessConfig};
 use martin::srv::{DynTileSource, TileRequestHeaders};
 use martin_core::tiles::NO_TILE_CACHE;
 use martin_tile_utils::TileCoord;
@@ -140,7 +140,10 @@ fn bench_null_source(c: &mut Criterion) {
     let mgr = TileSourceManager::from_sources(
         NO_TILE_CACHE,
         OnInvalid::Abort,
-        vec![vec![Box::new(sources::NullSource::new())]],
+        vec![vec![(
+            Box::new(sources::NullSource::new()),
+            ProcessConfig::default(),
+        )]],
     );
     c.bench_function("get_table_source_tile", |b| {
         b.to_async(FuturesExecutor).iter(|| process_null_tile(&mgr));
@@ -157,7 +160,10 @@ fn bench_error_source(c: &mut Criterion) {
     let mgr = TileSourceManager::from_sources(
         NO_TILE_CACHE,
         OnInvalid::Abort,
-        vec![vec![Box::new(sources::ErrorSource::new())]],
+        vec![vec![(
+            Box::new(sources::ErrorSource::new()),
+            ProcessConfig::default(),
+        )]],
     );
     c.bench_function("get_table_source_error", |b| {
         b.to_async(FuturesExecutor)

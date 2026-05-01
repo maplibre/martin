@@ -316,7 +316,7 @@ impl<'a> DynTileSource<'a> {
         if formats.contains(&source_format) {
             return Ok(Some(source_format));
         }
-        #[cfg(feature = "mlt")]
+        #[cfg(all(feature = "mlt", feature = "_tiles"))]
         if source_format == Format::Mvt && formats.contains(&Format::Mlt) {
             return Ok(Some(Format::Mlt));
         }
@@ -642,6 +642,14 @@ mod tests {
     use crate::srv::tiles::tests::{CompressedTestSource, TestSource};
 
     fn test_manager(sources: Vec<Vec<BoxedSource>>) -> TileSourceManager {
+        let sources = sources
+            .into_iter()
+            .map(|s| {
+                s.into_iter()
+                    .map(|s| (s, ProcessConfig::default()))
+                    .collect()
+            })
+            .collect();
         TileSourceManager::from_sources(None, OnInvalid::Abort, sources)
     }
 
@@ -900,7 +908,7 @@ mod tests {
     /// `Accept: mlt` against an MVT source resolves to MLT — the pre-cache
     /// pipeline encodes on first miss. Conversion is implicit; no `process.mlt`
     /// configuration is required to enable it.
-    #[cfg(feature = "mlt")]
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[rstest]
     #[case::mlt_long(&["application/vnd.maplibre-vector-tile"])]
     #[case::mlt_short(&["application/vnd.maplibre-tile"])]

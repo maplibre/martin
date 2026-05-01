@@ -77,7 +77,7 @@ impl PostgresArgs {
                 auto_publish: OptBoolObj::NoValue,
                 tables: None,
                 functions: None,
-                #[cfg(feature = "mlt")]
+                #[cfg(all(feature = "mlt", feature = "_tiles"))]
                 process: None,
                 unrecognized: UnrecognizedValues::default(),
             })

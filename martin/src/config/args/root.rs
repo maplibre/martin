@@ -116,12 +116,7 @@ impl Args {
         self.srv.merge_into_config(&mut config.srv);
 
         #[cfg_attr(
-            not(any(
-                feature = "postgres",
-                feature = "pmtiles",
-                feature = "mbtiles",
-                feature = "unstable-cog"
-            )),
+            not(feature = "_tiles"),
             expect(
                 unused_mut,
                 reason = "postgres may modify the cli strings to process input params"

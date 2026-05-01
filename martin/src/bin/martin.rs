@@ -55,11 +55,13 @@ async fn start(args: Args) -> MartinResult<()> {
 
     #[cfg(feature = "mbtiles")]
     {
-        #[cfg(feature = "mlt")]
-        let global_process = config.process.as_ref();
-        #[cfg(not(feature = "mlt"))]
-        let global_process = None;
-        let reloader = MBTilesReloader::new(mgr, resolver, &config.mbtiles, global_process);
+        let reloader = MBTilesReloader::new(
+            mgr,
+            resolver,
+            &config.mbtiles,
+            #[cfg(all(feature = "mlt", feature = "_tiles"))]
+            config.process.as_ref(),
+        );
         if let Err(e) = reloader.start() {
             tracing::warn!("failed to start MBTilesReloader {e:?}");
         }

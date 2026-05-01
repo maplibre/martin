@@ -3,7 +3,6 @@ use std::time::Duration;
 
 use futures::future::try_join;
 use futures::pin_mut;
-use martin_core::tiles::BoxedSource;
 use martin_tile_utils::TileInfo;
 use serde::{Deserialize, Serialize};
 use tilejson::TileJSON;
@@ -11,13 +10,12 @@ use tokio::time::timeout;
 use tracing::warn;
 
 use super::{FuncInfoSources, TableInfoSources};
-use crate::MartinResult;
 use crate::config::args::{BoundsCalcType, DEFAULT_BOUNDS_TIMEOUT};
-#[cfg(feature = "mlt")]
+#[cfg(all(feature = "mlt", feature = "_tiles"))]
 use crate::config::file::ProcessConfig;
 use crate::config::file::postgres::PostgresAutoDiscoveryBuilder;
 use crate::config::file::{
-    CachePolicy, ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks, TileSourceWarning,
+    CachePolicy, ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks, ResolutionResult,
     UnrecognizedKeys, UnrecognizedValues, copy_unrecognized_keys_from_config,
 };
 use crate::config::primitives::{IdResolver, OptBoolObj, OptOneMany};
@@ -104,7 +102,7 @@ pub struct PostgresConfig {
 
     /// Postprocessing pipeline for all sources from this connection.
     /// Overrides global `process`; overridden by per-source `process`.
-    #[cfg(feature = "mlt")]
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub process: Option<ProcessConfig>,
 
@@ -243,7 +241,7 @@ impl PostgresConfig {
         &mut self,
         id_resolver: IdResolver,
         default_cache: CachePolicy,
-    ) -> MartinResult<(Vec<BoxedSource>, Vec<TileSourceWarning>)> {
+    ) -> ResolutionResult {
         let pg = PostgresAutoDiscoveryBuilder::new(self, id_resolver, default_cache).await?;
         let inst_tables = on_slow(
             pg.instantiate_tables(),

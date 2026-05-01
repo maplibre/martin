@@ -11,7 +11,7 @@ mod error;
 pub use error::{ConfigFileError, ConfigFileResult};
 
 pub mod process;
-#[cfg(feature = "mlt")]
+#[cfg(all(feature = "mlt", feature = "_tiles"))]
 pub use process::{MltEncoderConfig, MltProcessConfig};
 pub use process::{ProcessConfig, resolve_process_config};
 

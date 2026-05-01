@@ -6,7 +6,7 @@ use tilejson::{Bounds, TileJSON};
 use tracing::warn;
 
 use super::config::PostgresInfo;
-#[cfg(feature = "mlt")]
+#[cfg(all(feature = "mlt", feature = "_tiles"))]
 use crate::config::file::ProcessConfig;
 #[cfg(feature = "unstable-schemas")]
 use crate::config::file::postgres::config_table::bounds_world_example;
@@ -57,7 +57,7 @@ pub struct FunctionInfo {
 
     /// Postprocessing pipeline for this source.
     /// Overrides source-type and global `process`.
-    #[cfg(feature = "mlt")]
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub process: Option<ProcessConfig>,
 

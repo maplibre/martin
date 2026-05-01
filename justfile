@@ -50,9 +50,6 @@ bench:
     open target/criterion/report/index.html
 
 # Run HTTP requests benchmark using OHA tool. Use with `just bench-server`.
-# The MVT-vs-MLT pair on `function_zxy_query` measures the steady-state cost of
-# server-side MVT→MLT conversion: same source, two `Accept` headers, two cache
-# entries. The delta between the two runs is the cache-hit cost of serving MLT.
 bench-http requests='10m' pg_requests='500k':  (cargo-install 'oha')
     @echo "ATTENTION: Make sure Martin was started with    just bench-server"
     @echo "Warming up..."

@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use url::Url;
 
 use crate::MartinResult;
-#[cfg(feature = "mlt")]
+#[cfg(all(feature = "mlt", feature = "_tiles"))]
 use crate::config::file::ProcessConfig;
 use crate::config::file::{
     CachePolicy, ConfigurationLivecycleHooks, TileSourceConfiguration, UnrecognizedKeys,
@@ -20,7 +20,7 @@ use crate::config::file::{
 pub struct MbtConfig {
     /// Postprocessing pipeline for all `MBTiles` sources.
     /// Overrides global `process`; overridden by per-source `process`.
-    #[cfg(feature = "mlt")]
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub process: Option<ProcessConfig>,
 
@@ -122,7 +122,7 @@ mod tests {
                     "pm-src2".to_string(),
                     FileConfigSrc::Obj(FileConfigSource {
                         path: PathBuf::from("/tmp/file.ext"),
-                        #[cfg(feature = "mlt")]
+                        #[cfg(all(feature = "mlt", feature = "_tiles"))]
                         process: None,
                         cache: CachePolicy::default(),
                     })
@@ -135,7 +135,7 @@ mod tests {
                     "pm-src4".to_string(),
                     FileConfigSrc::Obj(FileConfigSource {
                         path: PathBuf::from("https://example.org/file4.ext"),
-                        #[cfg(feature = "mlt")]
+                        #[cfg(all(feature = "mlt", feature = "_tiles"))]
                         process: None,
                         cache: CachePolicy::default(),
                     })
@@ -144,7 +144,7 @@ mod tests {
                     "pm-src5".to_string(),
                     FileConfigSrc::Obj(FileConfigSource {
                         path: PathBuf::from("/tmp/cached.ext"),
-                        #[cfg(feature = "mlt")]
+                        #[cfg(all(feature = "mlt", feature = "_tiles"))]
                         process: None,
                         cache: CachePolicy::new(CacheZoomRange::new(Some(0), Some(6))),
                     })

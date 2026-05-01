@@ -73,6 +73,8 @@ pub enum TileSourceWarning {
     PathError { path: String, error: String },
 }
 
+pub type ResolutionResult = MartinResult<(Vec<BoxedSource>, Vec<TileSourceWarning>)>;
+
 pub struct ServerState {
     #[cfg(feature = "_tiles")]
     pub tile_manager: TileSourceManager,
@@ -165,7 +167,6 @@ pub struct Config {
 
     /// Postprocessing pipeline configuration (global level).
     /// Overridden by source-type or per-source `process` blocks.
-    #[cfg(feature = "mlt")]
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub process: Option<ProcessConfig>,
 
@@ -310,33 +311,29 @@ impl Config {
             .unwrap_or_default()
             .handle_tile_warnings(&warnings)?;
 
-        #[cfg(all(feature = "_tiles", feature = "mlt"))]
-        let process_map = self.build_process_config_map();
-        #[cfg(all(feature = "_tiles", feature = "mlt"))]
-        let global_process = self.process.clone().unwrap_or_default();
-        #[cfg(feature = "_tiles")]
-        let tile_sources_with_process: Vec<Vec<(BoxedSource, ProcessConfig)>> = tile_sources
-            .into_iter()
-            .map(|group| {
-                group
-                    .into_iter()
-                    .map(|src| {
-                        #[cfg(feature = "mlt")]
-                        let pc = process_map
-                            .get(src.get_id())
-                            .cloned()
-                            .unwrap_or_else(|| global_process.clone());
-                        #[cfg(not(feature = "mlt"))]
-                        let pc = ProcessConfig::default();
-                        (src, pc)
-                    })
-                    .collect()
-            })
-            .collect();
+        let tile_sources_with_process = {
+            let process_map = self.build_process_config_map();
+            let global_process = self.process.clone().unwrap_or_default();
+            tile_sources
+                .into_iter()
+                .map(|group| {
+                    group
+                        .into_iter()
+                        .map(|src| {
+                            let pc = process_map
+                                .get(src.get_id())
+                                .cloned()
+                                .unwrap_or_else(|| global_process.clone());
+                            (src, pc)
+                        })
+                        .collect::<Vec<_>>()
+                })
+                .collect::<Vec<_>>()
+        };
 
         Ok(ServerState {
             #[cfg(feature = "_tiles")]
-            tile_manager: TileSourceManager::from_sources_with_process(
+            tile_manager: TileSourceManager::from_sources(
                 cache_config.create_tile_cache(),
                 self.on_invalid.unwrap_or_default(),
                 tile_sources_with_process,
@@ -465,23 +462,10 @@ impl Config {
     #[instrument(skip_all, err(Debug))]
     async fn resolve_tile_sources(
         &mut self,
-        #[cfg_attr(
-            not(any(
-                feature = "postgres",
-                feature = "pmtiles",
-                feature = "mbtiles",
-                feature = "unstable-cog"
-            )),
-            allow(unused_variables)
-        )]
         idr: &IdResolver,
         #[cfg(feature = "pmtiles")] pmtiles_cache: PmtCache,
     ) -> MartinResult<(Vec<Vec<BoxedSource>>, Vec<TileSourceWarning>)> {
-        #[allow(unused_mut)]
-        #[expect(clippy::type_complexity)]
-        let mut sources_and_warnings: Vec<
-            BoxFuture<MartinResult<(Vec<BoxedSource>, Vec<TileSourceWarning>)>>,
-        > = Vec::new();
+        let mut sources_and_warnings: Vec<BoxFuture<ResolutionResult>> = Vec::new();
 
         #[cfg(feature = "postgres")]
         for s in self.postgres.iter_mut() {
@@ -531,7 +515,6 @@ impl Config {
     /// Build a map from source ID → resolved [`ProcessConfig`].
     ///
     /// Uses full-override semantics: per-source > source-type > global > default.
-    #[cfg(all(feature = "_tiles", feature = "mlt"))]
     fn build_process_config_map(&self) -> HashMap<String, ProcessConfig> {
         #[cfg(feature = "postgres")]
         use crate::config::file::process::resolve_process_config;

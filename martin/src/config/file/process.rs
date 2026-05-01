@@ -1,4 +1,4 @@
-#[cfg(feature = "mlt")]
+#[cfg(all(feature = "mlt", feature = "_tiles"))]
 use mlt_core::encoder::EncoderConfig;
 use serde::{Deserialize, Serialize};
 
@@ -19,7 +19,7 @@ pub struct ProcessConfig {
     /// the encoder configuration used for that conversion.
     /// - `mlt: auto` — use `mlt-core`'s default `EncoderConfig` (same as omitting the block)
     /// - `mlt: { tessellate: true, ... }` — explicit encoder config overrides
-    #[cfg(feature = "mlt")]
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
     pub mlt: Option<MltProcessConfig>,
 }
 
@@ -29,7 +29,7 @@ pub struct ProcessConfig {
 /// - An object with explicit fields — override specific encoder settings
 ///
 /// Deserialized from either the string `"auto"` or a config object.
-#[cfg(feature = "mlt")]
+#[cfg(all(feature = "mlt", feature = "_tiles"))]
 #[derive(Clone, Debug, Default, PartialEq)]
 pub enum MltProcessConfig {
     /// Use default encoder settings.
@@ -66,7 +66,7 @@ impl schemars::JsonSchema for MltProcessConfig {
     }
 }
 
-#[cfg(feature = "mlt")]
+#[cfg(all(feature = "mlt", feature = "_tiles"))]
 impl Serialize for MltProcessConfig {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         match self {
@@ -78,7 +78,7 @@ impl Serialize for MltProcessConfig {
 
 // Drives the deserializer directly so saphyr's source spans survive into miette.
 // Going through `serde_yaml::Value` or `Error::custom` strings would strip them.
-#[cfg(feature = "mlt")]
+#[cfg(all(feature = "mlt", feature = "_tiles"))]
 impl<'de> Deserialize<'de> for MltProcessConfig {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         use std::fmt;
@@ -117,9 +117,19 @@ impl<'de> Deserialize<'de> for MltProcessConfig {
     }
 }
 
+#[cfg(all(feature = "mlt", feature = "_tiles"))]
+impl From<&MltProcessConfig> for EncoderConfig {
+    fn from(src: &MltProcessConfig) -> Self {
+        match src {
+            MltProcessConfig::Auto => EncoderConfig::default(),
+            MltProcessConfig::Explicit(cfg) => EncoderConfig::from(cfg.clone()),
+        }
+    }
+}
+
 /// Explicit encoder configuration for MLT conversion.
 /// All fields are optional; unset fields use `mlt-core`'s defaults.
-#[cfg(feature = "mlt")]
+#[cfg(all(feature = "mlt", feature = "_tiles"))]
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
@@ -140,24 +150,12 @@ pub struct MltEncoderConfig {
     pub allow_shared_dict: Option<bool>,
 }
 
-#[cfg(feature = "mlt")]
-impl MltProcessConfig {
-    /// Convert to `EncoderConfig`.
-    #[must_use]
-    pub fn to_encoder_config(&self) -> EncoderConfig {
-        match self {
-            Self::Auto => EncoderConfig::default(),
-            Self::Explicit(cfg) => EncoderConfig::from(cfg.clone()),
-        }
-    }
-}
-
 /// Applying `MltEncoderConfig` overrides on top of `EncoderConfig` defaults.
 ///
 /// Uses exhaustive destructuring of both structs so that adding a field
 /// to either `MltEncoderConfig` or `EncoderConfig` causes a compile error
 /// until this conversion is updated.
-#[cfg(feature = "mlt")]
+#[cfg(all(feature = "mlt", feature = "_tiles"))]
 impl From<MltEncoderConfig> for EncoderConfig {
     fn from(src: MltEncoderConfig) -> Self {
         // Destructure both so new fields cause a compile error.
@@ -171,24 +169,16 @@ impl From<MltEncoderConfig> for EncoderConfig {
             allow_shared_dict,
         } = src;
 
-        let Self {
-            tessellate: d_tessellate,
-            try_spatial_morton_sort: d_morton,
-            try_spatial_hilbert_sort: d_hilbert,
-            try_id_sort: d_id,
-            allow_fsst: d_fsst,
-            allow_fpf: d_fpf,
-            allow_shared_dict: d_shared,
-        } = Self::default();
-
         Self {
-            tessellate: tessellate.unwrap_or(d_tessellate),
-            try_spatial_morton_sort: try_spatial_morton_sort.unwrap_or(d_morton),
-            try_spatial_hilbert_sort: try_spatial_hilbert_sort.unwrap_or(d_hilbert),
-            try_id_sort: try_id_sort.unwrap_or(d_id),
-            allow_fsst: allow_fsst.unwrap_or(d_fsst),
-            allow_fpf: allow_fpf.unwrap_or(d_fpf),
-            allow_shared_dict: allow_shared_dict.unwrap_or(d_shared),
+            tessellate: tessellate.unwrap_or(Self::default().tessellate),
+            try_spatial_morton_sort: try_spatial_morton_sort
+                .unwrap_or(Self::default().try_spatial_morton_sort),
+            try_spatial_hilbert_sort: try_spatial_hilbert_sort
+                .unwrap_or(Self::default().try_spatial_hilbert_sort),
+            try_id_sort: try_id_sort.unwrap_or(Self::default().try_id_sort),
+            allow_fsst: allow_fsst.unwrap_or(Self::default().allow_fsst),
+            allow_fpf: allow_fpf.unwrap_or(Self::default().allow_fpf),
+            allow_shared_dict: allow_shared_dict.unwrap_or(Self::default().allow_shared_dict),
         }
     }
 }
@@ -210,7 +200,7 @@ pub fn resolve_process_config(
 
 #[cfg(test)]
 mod tests {
-    #[cfg(feature = "mlt")]
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
     use indoc::indoc;
 
     use super::*;
@@ -221,7 +211,7 @@ mod tests {
         assert_eq!(cfg, ProcessConfig::default());
     }
 
-    #[cfg(feature = "mlt")]
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[test]
     fn parse_mlt_auto_string() {
         let cfg: ProcessConfig = serde_yaml::from_str(indoc! {"
@@ -236,7 +226,7 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "mlt")]
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[test]
     fn parse_mlt_explicit_empty() {
         let cfg: ProcessConfig = serde_yaml::from_str(indoc! {"
@@ -251,7 +241,7 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "mlt")]
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[test]
     fn parse_mlt_explicit_with_overrides() {
         let cfg: ProcessConfig = serde_yaml::from_str(indoc! {"
@@ -272,7 +262,7 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "mlt")]
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[test]
     fn serde_round_trip_auto() {
         let cfg = ProcessConfig {
@@ -284,7 +274,7 @@ mod tests {
         assert_eq!(cfg, parsed);
     }
 
-    #[cfg(feature = "mlt")]
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[test]
     fn serde_round_trip_explicit() {
         let cfg = ProcessConfig {
@@ -298,7 +288,7 @@ mod tests {
         assert_eq!(cfg, parsed);
     }
 
-    #[cfg(feature = "mlt")]
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[test]
     fn parse_mlt_invalid_string() {
         let result = serde_yaml::from_str::<ProcessConfig>(indoc! {"
@@ -307,7 +297,7 @@ mod tests {
         assert!(result.is_err());
     }
 
-    #[cfg(feature = "mlt")]
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[test]
     fn parse_mlt_invalid_type() {
         let result = serde_yaml::from_str::<ProcessConfig>(indoc! {"
@@ -316,7 +306,7 @@ mod tests {
         assert!(result.is_err());
     }
 
-    #[cfg(feature = "mlt")]
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[test]
     fn render_failure_mlt_unknown_string() {
         use crate::config::test_helpers::render_failure;
@@ -338,7 +328,7 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "mlt")]
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[test]
     fn render_failure_mlt_integer() {
         use crate::config::test_helpers::render_failure;
@@ -363,7 +353,7 @@ mod tests {
     /// Inner-field errors must point at the *value*, not the outer `mlt:` line —
     /// proves the explicit branch hands the saphyr deserializer to `MltEncoderConfig`
     /// instead of routing through a `serde_yaml::Value`.
-    #[cfg(feature = "mlt")]
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[test]
     fn render_failure_mlt_nested_field_bad_type() {
         use crate::config::test_helpers::render_failure;
@@ -385,7 +375,7 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "mlt")]
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[test]
     fn resolve_per_source_overrides_all() {
         let global = ProcessConfig {
@@ -398,7 +388,7 @@ mod tests {
         assert_eq!(resolved, per_source);
     }
 
-    #[cfg(feature = "mlt")]
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[test]
     fn resolve_source_type_overrides_global() {
         let global = ProcessConfig {
@@ -410,7 +400,7 @@ mod tests {
         assert_eq!(resolved, source_type);
     }
 
-    #[cfg(feature = "mlt")]
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[test]
     fn resolve_global_used_as_fallback() {
         let global = ProcessConfig {

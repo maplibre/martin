@@ -586,7 +586,7 @@ mod tests {
     use async_trait::async_trait;
     use insta::assert_yaml_snapshot;
     use martin::TileSourceManager;
-    use martin::config::file::OnInvalid;
+    use martin::config::file::{OnInvalid, ProcessConfig};
     use martin_core::CacheZoomRange;
     use martin_core::tiles::{MartinCoreResult, Source, UrlQuery};
     use martin_tile_utils::{Encoding, Format};
@@ -634,6 +634,14 @@ mod tests {
     }
 
     fn test_manager(sources: Vec<Vec<BoxedSource>>) -> TileSourceManager {
+        let sources = sources
+            .into_iter()
+            .map(|s| {
+                s.into_iter()
+                    .map(|s| (s, ProcessConfig::default()))
+                    .collect()
+            })
+            .collect();
         TileSourceManager::from_sources(None, OnInvalid::Abort, sources)
     }
 

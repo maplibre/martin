@@ -1,17 +1,19 @@
 use martin_core::tiles::Tile;
 use martin_tile_utils::Format;
+#[cfg(all(feature = "mlt", feature = "_tiles"))]
+use mlt_core::encoder::EncoderConfig;
 
-#[cfg(feature = "mlt")]
+#[cfg(all(feature = "mlt", feature = "_tiles"))]
 use crate::config::file::MltProcessConfig;
 use crate::config::file::ProcessConfig;
 
 /// Errors that can occur during tile post-processing.
 #[derive(thiserror::Error, Debug)]
 pub enum ProcessError {
-    #[cfg(feature = "mlt")]
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[error("MVT to MLT conversion failed: {0}")]
     MltConversion(String),
-    #[cfg(feature = "mlt")]
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[error("MLT encoding failed: {0}")]
     MltEncoding(String),
     #[error("Tile decompression failed: {0}")]
@@ -28,7 +30,7 @@ impl From<ProcessError> for actix_web::Error {
 /// format and the source's resolved process config.
 ///
 /// Currently supports:
-/// - MVT → MLT conversion when the client requests `application/vnd.maplibre-tile`
+/// - MVT -> MLT conversion when the client requests `application/vnd.maplibre-tile`
 ///   (requires `mlt` feature). Encoder settings come from `config.mlt`; an absent
 ///   block is treated as `mlt: auto` and uses `mlt-core`'s defaults.
 ///
@@ -44,24 +46,22 @@ pub fn apply_pre_cache_processors(
         return Ok(tile);
     }
 
-    #[cfg(feature = "mlt")]
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
     let tile = if accepted == Some(Format::Mlt) && tile.info.format == Format::Mvt {
         let mlt_config = config.mlt.as_ref().unwrap_or(&MltProcessConfig::Auto);
         convert_mvt_to_mlt(tile, mlt_config)?
     } else {
         tile
     };
-    #[cfg(not(feature = "mlt"))]
-    let _ = (&config, accepted);
 
     Ok(tile)
 }
 
 /// Convert an MVT tile to MLT format.
 ///
-/// Handles decompression if the tile is compressed, then converts MVT→MLT
+/// Handles decompression if the tile is compressed, then converts MVT->MLT
 /// using `mlt-core`, and returns an uncompressed MLT tile.
-#[cfg(feature = "mlt")]
+#[cfg(all(feature = "mlt", feature = "_tiles"))]
 fn convert_mvt_to_mlt(tile: Tile, mlt_config: &MltProcessConfig) -> Result<Tile, ProcessError> {
     use martin_tile_utils::{Encoding, TileInfo};
 
@@ -71,7 +71,7 @@ fn convert_mvt_to_mlt(tile: Tile, mlt_config: &MltProcessConfig) -> Result<Tile,
     let tile_layers = mlt_core::mvt::mvt_to_tile_layers(decoded.data)
         .map_err(|e| ProcessError::MltConversion(e.to_string()))?;
 
-    let cfg = mlt_config.to_encoder_config();
+    let cfg = EncoderConfig::from(mlt_config);
     let mut mlt_bytes = Vec::new();
     for layer in tile_layers {
         let layer_bytes = layer
@@ -98,12 +98,12 @@ mod tests {
     }
 
     /// Minimal valid MVT tile: one layer named "x", version=2, extent=4096, no features.
-    #[cfg(feature = "mlt")]
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
     fn minimal_mvt() -> Vec<u8> {
         vec![0x1a, 0x08, 0x0a, 0x01, 0x78, 0x78, 0x02, 0x28, 0x80, 0x20]
     }
 
-    #[cfg(feature = "mlt")]
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[test]
     fn empty_tile_is_noop() {
         let tile = make_tile(Vec::new(), Format::Mvt, Encoding::Uncompressed);
@@ -117,7 +117,7 @@ mod tests {
     #[test]
     fn mvt_request_is_noop() {
         let tile = make_tile(vec![1, 2, 3], Format::Mvt, Encoding::Uncompressed);
-        #[cfg(feature = "mlt")]
+        #[cfg(all(feature = "mlt", feature = "_tiles"))]
         let config = ProcessConfig {
             mlt: Some(MltProcessConfig::Auto),
         };
@@ -138,7 +138,7 @@ mod tests {
         assert_eq!(result.info.format, Format::Mvt);
     }
 
-    #[cfg(feature = "mlt")]
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[test]
     fn non_mvt_source_with_mlt_accept_is_noop() {
         let tile = make_tile(vec![1, 2, 3], Format::Png, Encoding::Internal);
@@ -147,7 +147,7 @@ mod tests {
         assert_eq!(result.info.format, Format::Png);
     }
 
-    #[cfg(feature = "mlt")]
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[test]
     fn mlt_accept_converts_mvt_with_default_encoder() {
         let tile = make_tile(minimal_mvt(), Format::Mvt, Encoding::Uncompressed);
@@ -157,7 +157,7 @@ mod tests {
         assert_eq!(result.info.encoding, Encoding::Uncompressed);
     }
 
-    #[cfg(feature = "mlt")]
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[test]
     fn mlt_accept_uses_explicit_encoder_overrides() {
         let tile = make_tile(minimal_mvt(), Format::Mvt, Encoding::Uncompressed);
@@ -168,7 +168,7 @@ mod tests {
         assert_eq!(result.info.format, Format::Mlt);
     }
 
-    #[cfg(feature = "mlt")]
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[test]
     fn compressed_mvt_decompressed_and_converted() {
         use martin_tile_utils::encode_gzip;
