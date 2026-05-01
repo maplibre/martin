@@ -19,9 +19,9 @@ use tracing::{info, warn};
 use url::Url;
 
 use crate::config::file::ProcessConfig;
+use crate::config::file::{ConfigFileError, ConfigFileResult};
 #[cfg(feature = "_tiles")]
 use crate::config::file::{ResolutionResult, TileSourceWarning};
-use crate::config::file::{ConfigFileError, ConfigFileResult};
 #[cfg(feature = "_tiles")]
 use crate::config::primitives::IdResolver;
 use crate::config::primitives::OptOneMany;
