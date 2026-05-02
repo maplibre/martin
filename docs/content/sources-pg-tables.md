@@ -48,7 +48,7 @@ By default the `description` and `name` is database identifies about this table,
 
 ## Postprocessing
 
-Table sources support a `process` block to control tile postprocessing.
+Table sources support a `convert-to-mlt` key to control tile postprocessing.
 This can be set for all PostgreSQL sources or for an individual table.
 See [Configuration File](config-file/index.md#postprocessing) for details.
 

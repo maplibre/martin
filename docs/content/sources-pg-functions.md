@@ -168,7 +168,7 @@ $$ LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE;
 
 ### Postprocessing
 
-Function sources support a `process` block to control tile postprocessing.
+Function sources support a `convert-to-mlt` key to control tile postprocessing.
 This can be set for all PostgreSQL sources or for an individual function.
 See [Configuration File](config-file/index.md#postprocessing) for details.
 

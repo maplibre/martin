@@ -16,7 +16,7 @@ it and use it with `--config my-config.yaml` option.
 
 ### Postprocessing
 
-MBTiles and PMTiles sources support a `process` block to control tile postprocessing (MLT conversion, compression).
+MBTiles and PMTiles sources support a `convert-to-mlt` key to control tile postprocessing (MLT conversion).
 This can be set for all sources of a type or for an individual source.
 See [Configuration File](config-file/index.md#postprocessing) for details.
 
