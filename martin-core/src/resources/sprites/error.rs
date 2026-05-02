@@ -48,4 +48,28 @@ pub enum SpriteError {
     /// Failed to create sprite from SVG file.
     #[error("Unable to create a sprite from file {0}")]
     SpriteInstError(PathBuf),
+
+    /// Empty sprite directory.
+    #[error("Empty sprite directory: {0}")]
+    EmptyDirectory(PathBuf),
+
+    /// Invalid SVG format.
+    #[error("Invalid SVG format in {0}: {1}")]
+    InvalidSvgFormat(PathBuf, String),
+
+    /// File is empty.
+    #[error("File is empty: {0}")]
+    EmptyFile(PathBuf),
+
+    /// Directory does not exist.
+    #[error("Directory does not exist: {0}")]
+    DirectoryNotFound(PathBuf),
+
+    /// Path is not a directory.
+    #[error("Path is not a directory: {0}")]
+    NotADirectory(PathBuf),
+
+    /// Directory validation failed.
+    #[error("Directory validation failed for {0}: {1}")]
+    DirectoryValidationFailed(PathBuf, String),
 }
