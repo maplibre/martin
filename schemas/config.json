@@ -117,6 +117,17 @@
     },
     "FileConfig": {
       "properties": {
+        "convert-to-mlt": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MltProcessConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "MVT->MLT encoder settings for all `PMTiles` sources.\nOverrides global; overridden by per-source `convert-to-mlt`."
+        },
         "directory_cache": {
           "$ref": "#/$defs/CacheSizeConfigShape",
           "description": "Size of the directory cache (in MB).\nDefaults to `cache.size_mb` / 4\n\nNote:\nTile and directory caching are complementary.\nFor good performance, you want\n- directory caching (to not resolve the directory on each request) and\n- tile caching (for high access tiles)\n\nUse `directory_cache: disable` to disable"
@@ -124,17 +135,6 @@
         "paths": {
           "$ref": "#/$defs/OptOneMany2",
           "description": "A list of file paths"
-        },
-        "process": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/ProcessConfig"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "Postprocessing pipeline for all `PMTiles` sources.\nOverrides global `process`; overridden by per-source `process`."
         },
         "sources": {
           "additionalProperties": {
@@ -148,20 +148,20 @@
     },
     "FileConfig2": {
       "properties": {
-        "paths": {
-          "$ref": "#/$defs/OptOneMany2",
-          "description": "A list of file paths"
-        },
-        "process": {
+        "convert-to-mlt": {
           "anyOf": [
             {
-              "$ref": "#/$defs/ProcessConfig"
+              "$ref": "#/$defs/MltProcessConfig"
             },
             {
               "type": "null"
             }
           ],
-          "description": "Postprocessing pipeline for all `MBTiles` sources.\nOverrides global `process`; overridden by per-source `process`."
+          "description": "MVT->MLT encoder settings for all `MBTiles` sources.\nOverrides global; overridden by per-source `convert-to-mlt`."
+        },
+        "paths": {
+          "$ref": "#/$defs/OptOneMany2",
+          "description": "A list of file paths"
         },
         "sources": {
           "additionalProperties": {
@@ -330,19 +330,19 @@
           "$ref": "#/$defs/CachePolicyShape",
           "description": "Zoom-level bounds for tile caching."
         },
-        "path": {
-          "type": "string"
-        },
-        "process": {
+        "convert-to-mlt": {
           "anyOf": [
             {
-              "$ref": "#/$defs/ProcessConfig"
+              "$ref": "#/$defs/MltProcessConfig"
             },
             {
               "type": "null"
             }
           ],
-          "description": "Postprocessing pipeline for this source.\nOverrides source-type and global `process`."
+          "description": "MVT->MLT encoder settings for this source.\nOverrides source-type and global `convert-to-mlt`."
+        },
+        "path": {
+          "type": "string"
         }
       },
       "required": ["path"],
@@ -383,6 +383,17 @@
           ],
           "description": "Zoom-level bounds for tile caching."
         },
+        "convert-to-mlt": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MltProcessConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "MVT->MLT encoder settings for this source.\nOverrides source-type and global `convert-to-mlt`."
+        },
         "function": {
           "description": "Function name (required)",
           "examples": ["function_zxy_query"],
@@ -403,17 +414,6 @@
           "maximum": 255,
           "minimum": 0,
           "type": ["integer", "null"]
-        },
-        "process": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/ProcessConfig"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "Postprocessing pipeline for this source.\nOverrides source-type and global `process`."
         },
         "schema": {
           "description": "Schema name (required)",
@@ -744,6 +744,17 @@
           "examples": ["postgres://postgres@localhost:5432/db"],
           "type": ["string", "null"]
         },
+        "convert-to-mlt": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MltProcessConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "MVT->MLT encoder settings for all sources from this connection.\nOverrides global; overridden by per-source `convert-to-mlt`."
+        },
         "default_srid": {
           "description": "If a spatial table has SRID 0, then this SRID will be used as a fallback",
           "examples": [4326],
@@ -769,17 +780,6 @@
           "format": "uint",
           "minimum": 0,
           "type": ["integer", "null"]
-        },
-        "process": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/ProcessConfig"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "Postprocessing pipeline for all sources from this connection.\nOverrides global `process`; overridden by per-source `process`."
         },
         "ssl_cert": {
           "description": "Same as `PGSSLCERT` for `psql`",
@@ -809,23 +809,6 @@
     "PreferredEncoding": {
       "enum": ["brotli", "gzip"],
       "type": "string"
-    },
-    "ProcessConfig": {
-      "description": "Encoder settings used by the post-processing pipeline.\n\n`process` does not enable conversion — clients drive that via the `Accept`\nheader (e.g. `Accept: application/vnd.maplibre-tile` triggers MVT->MLT). This\nblock only tunes *how* a conversion encodes when it fires. Can appear at\nthree levels: global, source-type, and per-source. Merge strategy is full\noverride: if a lower level specifies `process`, it completely replaces the\ninherited config.",
-      "properties": {
-        "mlt": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/MltProcessConfig"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "Encoder settings for MVT->MLT conversion. Conversion fires when a client\nsends `Accept: application/vnd.maplibre-tile`; this block only changes\nthe encoder configuration used for that conversion.\n- `mlt: auto` — use `mlt-core`'s default `EncoderConfig` (same as omitting the block)\n- `mlt: { tessellate: true, ... }` — explicit encoder config overrides"
-        }
-      },
-      "type": "object"
     },
     "TableInfo": {
       "properties": {
@@ -862,6 +845,17 @@
           "description": "Boolean to control if geometries should be clipped or encoded as is",
           "examples": [true],
           "type": ["boolean", "null"]
+        },
+        "convert-to-mlt": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MltProcessConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "MVT->MLT encoder settings for this source.\nOverrides source-type and global `convert-to-mlt`."
         },
         "extent": {
           "description": "Tile extent in tile coordinate space",
@@ -905,17 +899,6 @@
           "minimum": 0,
           "type": ["integer", "null"]
         },
-        "process": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/ProcessConfig"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "Postprocessing pipeline for this source.\nOverrides source-type and global `process`."
-        },
         "properties": {
           "additionalProperties": {
             "type": "string"
@@ -953,6 +936,17 @@
     "cache": {
       "$ref": "#/$defs/GlobalCacheConfigShape",
       "description": "Cache configuration\nUse `cache: disable` to disable all caching entirely."
+    },
+    "convert-to-mlt": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/MltProcessConfig"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Encoder settings for MVT->MLT conversion (global level).\nOverridden by source-type or per-source `convert-to-mlt` keys."
     },
     "cors": {
       "anyOf": [
@@ -1025,17 +1019,6 @@
         }
       ],
       "description": "Which compression should be used if the\n- client accepts multiple compression formats, and\n- tile source is not pre-compressed.\n\n`gzip` is faster, but `brotli` is smaller, and may be faster with caching.\nDefault could be different depending on Martin version."
-    },
-    "process": {
-      "anyOf": [
-        {
-          "$ref": "#/$defs/ProcessConfig"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "description": "Postprocessing pipeline configuration (global level).\nOverridden by source-type or per-source `process` blocks."
     },
     "route_prefix": {
       "description": "Set the URL path prefix for all API routes.\nWhen set, Martin will serve all endpoints under this path prefix.\nThis allows Martin to be served under a subpath when behind a reverse proxy (e.g., Traefik).\nMust begin with a `/`.\nExamples: `/tiles`, `/api/v1/tiles`",

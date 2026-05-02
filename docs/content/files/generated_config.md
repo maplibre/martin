@@ -58,6 +58,9 @@ cache:
   # Allows overriding the size of the tile cache.
   # Defaults to `cache.size_mb` / 2
   tile_size_mb: 256
+# Encoder settings for MVT->MLT conversion (global level).
+# Overridden by source-type or per-source `convert-to-mlt` keys.
+convert-to-mlt: auto
 # CORS Configuration
 #
 # Defaults to `cors: true`, which allows all origins.
@@ -94,17 +97,11 @@ keep_alive: 75
 listen_addresses: 0.0.0.0:3000
 # Publish `MBTiles` files
 mbtiles:
+  # MVT->MLT encoder settings for all `MBTiles` sources.
+  # Overrides global; overridden by per-source `convert-to-mlt`.
+  convert-to-mlt: auto
   # A list of file paths
   paths: []
-  # Postprocessing pipeline for all `MBTiles` sources.
-  # Overrides global `process`; overridden by per-source `process`.
-  process:
-    # Encoder settings for MVT->MLT conversion. Conversion fires when a client
-    # sends `Accept: application/vnd.maplibre-tile`; this block only changes
-    # the encoder configuration used for that conversion.
-    # - `mlt: auto` — use `mlt-core`'s default `EncoderConfig` (same as omitting the block)
-    # - `mlt: { tessellate: true, ... }` — explicit encoder config overrides
-    mlt: auto
   # A map of source IDs to file paths or config objects
   sources: {}
 # Advanced monitoring options
@@ -126,6 +123,9 @@ observability:
 on_invalid: warn
 # Publish `PMTiles` files from local disk or proxy to a web server
 pmtiles:
+  # MVT->MLT encoder settings for all `PMTiles` sources.
+  # Overrides global; overridden by per-source `convert-to-mlt`.
+  convert-to-mlt: auto
   # Size of the directory cache (in MB).
   # Defaults to `cache.size_mb` / 4
   #
@@ -148,15 +148,6 @@ pmtiles:
     size_mb: 64
   # A list of file paths
   paths: []
-  # Postprocessing pipeline for all `PMTiles` sources.
-  # Overrides global `process`; overridden by per-source `process`.
-  process:
-    # Encoder settings for MVT->MLT conversion. Conversion fires when a client
-    # sends `Accept: application/vnd.maplibre-tile`; this block only changes
-    # the encoder configuration used for that conversion.
-    # - `mlt: auto` — use `mlt-core`'s default `EncoderConfig` (same as omitting the block)
-    # - `mlt: { tessellate: true, ... }` — explicit encoder config overrides
-    mlt: auto
   # A map of source IDs to file paths or config objects
   sources: {}
 # Database configuration
@@ -221,6 +212,9 @@ postgres:
   # `connection_string: $DATABASE_URL`
   # `connection_string: ${DATABASE_URL:-postgres://postgres@localhost/db}`
   connection_string: postgres://postgres@localhost:5432/db
+  # MVT->MLT encoder settings for all sources from this connection.
+  # Overrides global; overridden by per-source `convert-to-mlt`.
+  convert-to-mlt: auto
   # If a spatial table has SRID 0, then this SRID will be used as a fallback
   default_srid: 4326
   # Associative arrays of function sources
@@ -239,15 +233,6 @@ postgres:
   max_feature_count: null
   # Maximum Postgres connections pool size [default: 20]
   pool_size: 20
-  # Postprocessing pipeline for all sources from this connection.
-  # Overrides global `process`; overridden by per-source `process`.
-  process:
-    # Encoder settings for MVT->MLT conversion. Conversion fires when a client
-    # sends `Accept: application/vnd.maplibre-tile`; this block only changes
-    # the encoder configuration used for that conversion.
-    # - `mlt: auto` — use `mlt-core`'s default `EncoderConfig` (same as omitting the block)
-    # - `mlt: { tessellate: true, ... }` — explicit encoder config overrides
-    mlt: auto
   # Same as `PGSSLCERT` for `psql`
   ssl_cert: ./postgresql.crt
   # Same as `PGSSLKEY` for `psql`
@@ -263,15 +248,6 @@ postgres:
 # `gzip` is faster, but `brotli` is smaller, and may be faster with caching.
 # Default could be different depending on Martin version.
 preferred_encoding: brotli
-# Postprocessing pipeline configuration (global level).
-# Overridden by source-type or per-source `process` blocks.
-process:
-  # Encoder settings for MVT->MLT conversion. Conversion fires when a client
-  # sends `Accept: application/vnd.maplibre-tile`; this block only changes
-  # the encoder configuration used for that conversion.
-  # - `mlt: auto` — use `mlt-core`'s default `EncoderConfig` (same as omitting the block)
-  # - `mlt: { tessellate: true, ... }` — explicit encoder config overrides
-  mlt: auto
 # Set the URL path prefix for all API routes.
 # When set, Martin will serve all endpoints under this path prefix.
 # This allows Martin to be served under a subpath when behind a reverse proxy (e.g., Traefik).
