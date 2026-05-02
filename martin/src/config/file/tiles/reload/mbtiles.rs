@@ -10,10 +10,10 @@ use tokio::sync::mpsc;
 
 use super::{path_modified_ms, resolve_dir_entry};
 use crate::config::file::mbtiles::MbtConfig;
+use crate::config::file::process::ProcessConfig;
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 use crate::config::file::resolve_process_config;
 use crate::config::file::{CachePolicy, FileConfigEnum};
-use crate::config::file::process::ProcessConfig;
 use crate::config::primitives::{IdResolver, OptOneMany};
 use crate::{MartinError, MartinResult, ReloadAdvisory, TileSourceManager};
 
@@ -54,10 +54,16 @@ impl MBTilesReloader {
         #[cfg(all(feature = "mlt", feature = "_tiles"))]
         let process = {
             let st_pc = match config {
-                FileConfigEnum::Config(cfg) => ProcessConfig { convert_to_mlt: cfg.custom.convert_to_mlt.clone() },
+                FileConfigEnum::Config(cfg) => ProcessConfig {
+                    convert_to_mlt: cfg.custom.convert_to_mlt.clone(),
+                },
                 _ => ProcessConfig::default(),
             };
-            let source_type = if st_pc != ProcessConfig::default() { Some(&st_pc) } else { None };
+            let source_type = if st_pc != ProcessConfig::default() {
+                Some(&st_pc)
+            } else {
+                None
+            };
             resolve_process_config(global_process, source_type, None)
         };
         #[cfg(not(feature = "mlt"))]

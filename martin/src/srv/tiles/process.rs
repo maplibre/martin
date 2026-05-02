@@ -48,7 +48,10 @@ pub fn apply_pre_cache_processors(
 
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     let tile = if accepted == Some(Format::Mlt) && tile.info.format == Format::Mvt {
-        let mlt_config = config.convert_to_mlt.as_ref().unwrap_or(&MltProcessConfig::Auto);
+        let mlt_config = config
+            .convert_to_mlt
+            .as_ref()
+            .unwrap_or(&MltProcessConfig::Auto);
         convert_mvt_to_mlt(tile, mlt_config)?
     } else {
         tile

@@ -21,7 +21,11 @@ pub struct MbtConfig {
     /// MVT→MLT encoder settings for all `MBTiles` sources.
     /// Overrides global; overridden by per-source `convert-to-mlt`.
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
-    #[serde(default, skip_serializing_if = "Option::is_none", rename = "convert-to-mlt")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "convert-to-mlt"
+    )]
     pub convert_to_mlt: Option<MltProcessConfig>,
 
     #[serde(flatten, skip_serializing)]

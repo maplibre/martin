@@ -267,22 +267,18 @@ mod tests {
     #[test]
     fn render_failure_mlt_unknown_string() {
         use crate::config::test_helpers::render_failure;
-        insta::assert_snapshot!(
-            render_failure(indoc! {"
+        insta::assert_snapshot!(render_failure(indoc! {"
                 convert-to-mlt: atuo
-            "}),
-        );
+            "}),);
     }
 
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[test]
     fn render_failure_mlt_integer() {
         use crate::config::test_helpers::render_failure;
-        insta::assert_snapshot!(
-            render_failure(indoc! {"
+        insta::assert_snapshot!(render_failure(indoc! {"
                 convert-to-mlt: 42
-            "}),
-        );
+            "}),);
     }
 
     /// Inner-field errors must point at the *value*, not the outer `convert-to-mlt:` line —
@@ -292,12 +288,10 @@ mod tests {
     #[test]
     fn render_failure_mlt_nested_field_bad_type() {
         use crate::config::test_helpers::render_failure;
-        insta::assert_snapshot!(
-            render_failure(indoc! {"
+        insta::assert_snapshot!(render_failure(indoc! {"
                 convert-to-mlt:
                   tessellate: yes-please
-            "}),
-        );
+            "}),);
     }
 
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
@@ -306,8 +300,12 @@ mod tests {
         let global = ProcessConfig {
             convert_to_mlt: Some(MltProcessConfig::Auto),
         };
-        let source_type = ProcessConfig { convert_to_mlt: None };
-        let per_source = ProcessConfig { convert_to_mlt: None };
+        let source_type = ProcessConfig {
+            convert_to_mlt: None,
+        };
+        let per_source = ProcessConfig {
+            convert_to_mlt: None,
+        };
 
         let resolved = resolve_process_config(Some(&global), Some(&source_type), Some(&per_source));
         assert_eq!(resolved, per_source);
@@ -319,7 +317,9 @@ mod tests {
         let global = ProcessConfig {
             convert_to_mlt: Some(MltProcessConfig::Auto),
         };
-        let source_type = ProcessConfig { convert_to_mlt: None };
+        let source_type = ProcessConfig {
+            convert_to_mlt: None,
+        };
 
         let resolved = resolve_process_config(Some(&global), Some(&source_type), None);
         assert_eq!(resolved, source_type);

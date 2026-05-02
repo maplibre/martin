@@ -171,7 +171,11 @@ pub struct Config {
     /// Encoder settings for MVT→MLT conversion (global level).
     /// Overridden by source-type or per-source `convert-to-mlt` keys.
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
-    #[serde(default, skip_serializing_if = "Option::is_none", rename = "convert-to-mlt")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "convert-to-mlt"
+    )]
     pub convert_to_mlt: Option<MltProcessConfig>,
 
     #[serde(flatten, skip_serializing)]
@@ -525,20 +529,29 @@ impl Config {
         #[allow(unused_mut)]
         let mut map = HashMap::new();
 
-        #[cfg(all(feature = "mlt", any(feature = "postgres", feature = "pmtiles", feature = "mbtiles")))]
+        #[cfg(all(
+            feature = "mlt",
+            any(feature = "postgres", feature = "pmtiles", feature = "mbtiles")
+        ))]
         {
             use crate::config::file::process::resolve_process_config;
 
-            let global_pc = ProcessConfig { convert_to_mlt: self.convert_to_mlt.clone() };
+            let global_pc = ProcessConfig {
+                convert_to_mlt: self.convert_to_mlt.clone(),
+            };
             let global = self.convert_to_mlt.as_ref().map(|_| &global_pc);
 
             #[cfg(feature = "postgres")]
             for pg in self.postgres.iter() {
-                let st_pc = ProcessConfig { convert_to_mlt: pg.convert_to_mlt.clone() };
+                let st_pc = ProcessConfig {
+                    convert_to_mlt: pg.convert_to_mlt.clone(),
+                };
                 let source_type = pg.convert_to_mlt.as_ref().map(|_| &st_pc);
                 if let Some(tables) = &pg.tables {
                     for (id, info) in tables {
-                        let ps_pc = ProcessConfig { convert_to_mlt: info.convert_to_mlt.clone() };
+                        let ps_pc = ProcessConfig {
+                            convert_to_mlt: info.convert_to_mlt.clone(),
+                        };
                         let per_source = info.convert_to_mlt.as_ref().map(|_| &ps_pc);
                         let resolved = resolve_process_config(global, source_type, per_source);
                         map.insert(id.clone(), resolved);
@@ -546,7 +559,9 @@ impl Config {
                 }
                 if let Some(functions) = &pg.functions {
                     for (id, info) in functions {
-                        let ps_pc = ProcessConfig { convert_to_mlt: info.convert_to_mlt.clone() };
+                        let ps_pc = ProcessConfig {
+                            convert_to_mlt: info.convert_to_mlt.clone(),
+                        };
                         let per_source = info.convert_to_mlt.as_ref().map(|_| &ps_pc);
                         let resolved = resolve_process_config(global, source_type, per_source);
                         map.insert(id.clone(), resolved);
@@ -555,10 +570,14 @@ impl Config {
             }
 
             #[cfg(feature = "pmtiles")]
-            Self::insert_file_source_configs(&mut map, global, &self.pmtiles, |c| c.convert_to_mlt.as_ref());
+            Self::insert_file_source_configs(&mut map, global, &self.pmtiles, |c| {
+                c.convert_to_mlt.as_ref()
+            });
 
             #[cfg(feature = "mbtiles")]
-            Self::insert_file_source_configs(&mut map, global, &self.mbtiles, |c| c.convert_to_mlt.as_ref());
+            Self::insert_file_source_configs(&mut map, global, &self.mbtiles, |c| {
+                c.convert_to_mlt.as_ref()
+            });
         }
 
         // COG sources produce raster tiles (TIFF), not vector tiles (MVT),
@@ -579,7 +598,9 @@ impl Config {
         use crate::config::file::process::resolve_process_config;
 
         if let FileConfigEnum::Config(cfg) = file_cfg {
-            let st_pc = ProcessConfig { convert_to_mlt: get_source_type_mlt(&cfg.custom).cloned() };
+            let st_pc = ProcessConfig {
+                convert_to_mlt: get_source_type_mlt(&cfg.custom).cloned(),
+            };
             let source_type = get_source_type_mlt(&cfg.custom).map(|_| &st_pc);
             if let Some(sources) = &cfg.sources {
                 for (id, src) in sources {
@@ -587,7 +608,9 @@ impl Config {
                         super::FileConfigSrc::Obj(obj) => obj.convert_to_mlt.clone(),
                         super::FileConfigSrc::Path(_) => None,
                     };
-                    let ps_pc = ProcessConfig { convert_to_mlt: mlt_opt.clone() };
+                    let ps_pc = ProcessConfig {
+                        convert_to_mlt: mlt_opt.clone(),
+                    };
                     let per_source = mlt_opt.as_ref().map(|_| &ps_pc);
                     let resolved = resolve_process_config(global, source_type, per_source);
                     map.insert(id.clone(), resolved);
