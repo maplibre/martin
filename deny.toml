@@ -16,7 +16,7 @@ allow = [
     "BSL-1.0",
     "Unicode-3.0", # basically MIT
     "MPL-2.0", # copyleft, but not infectious
-    "OpenSSL", # compatible with Apache-2.0
+    "CDLA-Permissive-2.0", # data licence for webkpi roots
 ]
 
 confidence-threshold = 0.9

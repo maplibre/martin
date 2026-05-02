@@ -28,7 +28,7 @@ use crate::srv::fonts;
 use crate::srv::sprites;
 #[cfg(feature = "styles")]
 use crate::srv::styles;
-#[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
+#[cfg(all(feature = "rendering", target_os = "linux"))]
 use crate::srv::styles_rendering;
 #[cfg(feature = "_tiles")]
 use crate::srv::tiles;
@@ -71,7 +71,7 @@ impl DebouncedWarning {
     /// in the caller's context.
     pub async fn once_per_hour<F: FnOnce()>(&self, f: F) {
         let mut last = self.last_warning.lock().await;
-        if last.elapsed() >= Duration::from_secs(3600) {
+        if last.elapsed() >= Duration::from_hours(1) {
             *last = std::time::Instant::now();
             f();
         }
@@ -79,8 +79,16 @@ impl DebouncedWarning {
 }
 
 /// Return 200 OK if healthy. Used for readiness and liveness probes.
+#[cfg_attr(
+    feature = "unstable-schemas",
+    utoipa::path(
+        get,
+        path = "/health",
+        responses((status = 200, description = "Service healthy", body = String)),
+    )
+)]
 #[route("/health", method = "GET", method = "HEAD")]
-async fn get_health() -> impl Responder {
+pub async fn get_health() -> impl Responder {
     HttpResponse::Ok()
         .insert_header((CACHE_CONTROL, "no-cache"))
         .message_body("OK")
@@ -96,6 +104,7 @@ pub fn router(cfg: &mut web::ServiceConfig, usr_cfg: &SrvConfig) {
                 usr_cfg,
             );
         }));
+        cfg.service(get_health);
     } else {
         register_services(
             cfg,
@@ -141,7 +150,7 @@ fn register_services(
     cfg.service(styles::get_style_json)
         .service(styles::redirect_styles);
 
-    #[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
+    #[cfg(all(feature = "rendering", target_os = "linux"))]
     cfg.service(styles_rendering::get_style_rendered);
 
     #[cfg(all(feature = "webui", not(docsrs)))]
@@ -178,6 +187,7 @@ pub fn new_server(
             "/_/metrics".to_string()
         };
         actix_web_prom::PrometheusMetricsBuilder::new("martin")
+            .registry(prometheus::default_registry().clone())
             .endpoint(&metrics_endpoint)
             // `endpoint="UNKNOWN"` instead of `endpoint="/foo/bar"`
             .mask_unmatched_patterns("UNKNOWN")
@@ -191,7 +201,7 @@ pub fn new_server(
                     .add_labels,
             )
             .build()
-            .map_err(|err| MartinError::MetricsIntialisationError(err))?
+            .map_err(MartinError::MetricsIntialisationError)?
     };
     let catalog = Catalog::new(
         #[cfg(any(feature = "sprites", feature = "fonts", feature = "styles"))]

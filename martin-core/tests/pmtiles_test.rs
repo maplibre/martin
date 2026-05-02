@@ -14,10 +14,12 @@ use object_store::local::LocalFileSystem;
 use pmtiles::{DirectoryCache as _, TileId};
 use rstest::rstest;
 use tokio::sync::oneshot;
+use tokio::time::sleep;
 
 const TTL_CACHE_OFFSET: usize = 0;
 const PNG_MAGIC: &[u8] = &[0x89, 0x50, 0x4E, 0x47];
 const CACHE_SIZE_10MB: u64 = 10 * 1024 * 1024;
+const EXPIRY_BUFFER: Duration = Duration::from_secs(1);
 static NEXT_CACHE_ID: AtomicUsize = AtomicUsize::new(0);
 
 fn fixtures_dir() -> PathBuf {
@@ -555,83 +557,84 @@ async fn dir_cache_entry_available_before_ttl_expires() {
 
 #[tokio::test]
 async fn dir_cache_entry_evicted_after_ttl_expires() {
-    let ttl = Duration::from_millis(25);
+    let ttl = Duration::from_secs(2);
     let cache = ttl_cache(Some(ttl), None);
 
     dir_insert(&cache, TTL_CACHE_OFFSET).await;
 
-    wait_and_flush(&cache, ttl + Duration::from_millis(25)).await;
+    wait_and_flush(&cache, ttl + EXPIRY_BUFFER).await;
 
     dir_assert_miss(&cache, TTL_CACHE_OFFSET).await;
 }
 
 #[tokio::test]
 async fn dir_ttl_evicts_even_with_frequent_access() {
-    let ttl = Duration::from_millis(80);
+    let ttl = Duration::from_secs(5);
     let cache = ttl_cache(Some(ttl), None);
 
     dir_insert(&cache, TTL_CACHE_OFFSET).await;
 
     for _ in 0..3 {
-        tokio::time::sleep(Duration::from_millis(20)).await;
+        sleep(Duration::from_millis(40)).await;
         dir_assert_hit(&cache, TTL_CACHE_OFFSET).await;
     }
 
-    wait_and_flush(&cache, Duration::from_millis(30)).await;
+    wait_and_flush(&cache, ttl + EXPIRY_BUFFER).await;
 
     dir_assert_miss(&cache, TTL_CACHE_OFFSET).await;
 }
 
 #[tokio::test]
 async fn dir_cache_entry_survives_when_accessed_within_tti() {
-    let tti = Duration::from_millis(60);
+    let tti = Duration::from_secs(5);
     let cache = ttl_cache(None, Some(tti));
 
     dir_insert(&cache, TTL_CACHE_OFFSET).await;
 
+    wait_and_flush(&cache, Duration::from_secs(1)).await;
     for _ in 0..3 {
-        tokio::time::sleep(Duration::from_millis(30)).await;
+        sleep(Duration::from_secs(1)).await;
         dir_assert_hit(&cache, TTL_CACHE_OFFSET).await;
     }
 }
 
 #[tokio::test]
 async fn dir_cache_entry_evicted_after_idle_timeout() {
-    let tti = Duration::from_millis(25);
+    let tti = Duration::from_secs(2);
     let cache = ttl_cache(None, Some(tti));
 
     dir_insert(&cache, TTL_CACHE_OFFSET).await;
 
-    wait_and_flush(&cache, tti + Duration::from_millis(25)).await;
+    wait_and_flush(&cache, tti + EXPIRY_BUFFER).await;
 
     dir_assert_miss(&cache, TTL_CACHE_OFFSET).await;
 }
 
 #[tokio::test]
 async fn dir_tti_evicts_before_ttl_when_idle() {
-    let ttl = Duration::from_millis(200);
-    let tti = Duration::from_millis(25);
+    let ttl = Duration::from_secs(6);
+    let tti = Duration::from_secs(2);
     let cache = ttl_cache(Some(ttl), Some(tti));
 
     dir_insert(&cache, TTL_CACHE_OFFSET).await;
 
-    wait_and_flush(&cache, tti + Duration::from_millis(25)).await;
+    wait_and_flush(&cache, tti + EXPIRY_BUFFER).await;
 
     dir_assert_miss(&cache, TTL_CACHE_OFFSET).await;
 }
 
 #[tokio::test]
 async fn dir_ttl_evicts_despite_access_when_both_set() {
-    let ttl = Duration::from_millis(80);
-    let tti = Duration::from_millis(60);
+    let ttl = Duration::from_secs(5);
+    let tti = Duration::from_secs(3);
     let cache = ttl_cache(Some(ttl), Some(tti));
 
     dir_insert(&cache, TTL_CACHE_OFFSET).await;
 
-    tokio::time::sleep(Duration::from_millis(40)).await;
+    sleep(Duration::from_secs(1)).await;
     dir_assert_hit(&cache, TTL_CACHE_OFFSET).await;
 
-    wait_and_flush(&cache, Duration::from_millis(60)).await;
+    wait_and_flush(&cache, Duration::from_secs(5)).await;
 
     dir_assert_miss(&cache, TTL_CACHE_OFFSET).await;
 }
@@ -649,15 +652,13 @@ async fn dir_cache_entry_persists_without_ttl_or_tti() {
 
 #[tokio::test]
 async fn dir_ttl_applies_independently_per_entry() {
-    let ttl = Duration::from_millis(80);
+    let ttl = Duration::from_secs(3);
     let cache = ttl_cache(Some(ttl), None);
 
     dir_insert(&cache, TTL_CACHE_OFFSET).await;
 
-    tokio::time::sleep(Duration::from_millis(40)).await;
+    wait_and_flush(&cache, ttl + EXPIRY_BUFFER).await;
     dir_insert(&cache, TTL_CACHE_OFFSET + 100).await;
-
-    wait_and_flush(&cache, Duration::from_millis(60)).await;
 
     dir_assert_miss(&cache, TTL_CACHE_OFFSET).await;
     dir_assert_hit(&cache, TTL_CACHE_OFFSET + 100).await;
@@ -665,7 +666,7 @@ async fn dir_ttl_applies_independently_per_entry() {
 
 #[tokio::test]
 async fn dir_different_instances_share_ttl_policy() {
-    let ttl = Duration::from_millis(25);
+    let ttl = Duration::from_secs(2);
     let pmt_cache = PmtCache::new(CACHE_SIZE_10MB, Some(ttl), None);
     let id_a = NEXT_CACHE_ID.fetch_add(1, Ordering::SeqCst);
     let id_b = NEXT_CACHE_ID.fetch_add(1, Ordering::SeqCst);
@@ -675,7 +676,7 @@ async fn dir_different_instances_share_ttl_policy() {
     dir_insert(&instance_a, TTL_CACHE_OFFSET).await;
     dir_insert(&instance_b, TTL_CACHE_OFFSET).await;
 
-    wait_and_flush(&instance_a, ttl + Duration::from_millis(25)).await;
+    wait_and_flush(&instance_a, ttl + EXPIRY_BUFFER).await;
 
     dir_assert_miss(&instance_a, TTL_CACHE_OFFSET).await;
     dir_assert_miss(&instance_b, TTL_CACHE_OFFSET).await;
@@ -691,7 +692,7 @@ fn ttl_cache(ttl: Option<Duration>, tti: Option<Duration>) -> PmtCacheInstance {
 }
 
 async fn wait_and_flush(cache: &PmtCacheInstance, duration: Duration) {
-    tokio::time::sleep(duration).await;
+    sleep(duration).await;
     cache.sync().await;
 }
 

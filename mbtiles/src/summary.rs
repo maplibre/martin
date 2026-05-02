@@ -222,7 +222,9 @@ mod tests {
         let mbt = Mbtiles::new(":memory:").unwrap();
         let mut conn = mbt.open().await.unwrap();
 
-        init_mbtiles_schema(&mut conn, MbtType::Flat).await.unwrap();
+        init_mbtiles_schema(&mut conn, MbtType::Flat, false)
+            .await
+            .unwrap();
         let res = mbt.summary(&mut conn).await.unwrap();
         assert_yaml_snapshot!(res, @r#"
         file_path: ":memory:"

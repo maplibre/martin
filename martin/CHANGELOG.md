@@ -7,6 +7,186 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.2](https://github.com/maplibre/martin/compare/martin-v1.8.1...martin-v1.8.2) - 2026-04-29
+
+### Added
+
+### Added
+
+- We now publish an JSONSchema for our configuration and OpenAPI documentation for our HTTP API ([#2760](https://github.com/maplibre/martin/pull/2760))
+
+### Fixed
+
+- The last release had some aretefact not get attached, so this release fixes this
+
+### Other
+
+- add debug-only `#[tracing::instrument]` to hot-path entry points ([#2759](https://github.com/maplibre/martin/pull/2759))
+- *(deps)* Bump the all-npm-version-updates group across 2 directories with 5 updates ([#2756](https://github.com/maplibre/martin/pull/2756))
+- *(mbtiles)* migrate from log/env_logger to tracing ([#2755](https://github.com/maplibre/martin/pull/2755))
+
+## [1.8.1](https://github.com/maplibre/martin/compare/martin-v1.8.0...martin-v1.8.1) - 2026-04-29
+
+### Fixed
+
+- *(styles)* default the optional `rendering` field so configs without it parse ([#2752](https://github.com/maplibre/martin/pull/2752))
+
+### Other
+
+- *(deps)* autoupdate pre-commit ([#2743](https://github.com/maplibre/martin/pull/2743))
+- *(deps)* Bump the all-npm-version-updates group across 2 directories with 6 updates ([#2745](https://github.com/maplibre/martin/pull/2745))
+- update Cargo.toml dependencies
+
+## [1.8.0](https://github.com/maplibre/martin/compare/martin-v1.7.0...martin-v1.8.0) - 2026-04-28
+
+### Added
+
+- Add MBTilesReloader (Tile Reload Phase 2) ([#2717](https://github.com/maplibre/martin/pull/2717))
+### MBTiles auto-reloading
+
+Previously, if you configured an directory with us, we would list it once and then serve this.
+This is no longer the case, we now can hot-reload (including updates clearing a sources cache) mbtiles (!).
+Work towards PMtiles, PG or COG is underway, but if you want this faster a PR to finish the plumbing would be appreciated.
+
+Done in [#2717](https://github.com/maplibre/martin/pull/2717) by by [@Auspicus](https://github.com/Auspicus)
+
+### Non-vector PG sources
+
+Some users, might want to serve non-MVT sources from postgres.
+We now support this via the `content_type` in PostgreSQL function source SQL comments.
+For further information see our docs or [#2671](https://github.com/maplibre/martin/pull/2671)
+
+### Other
+
+- remove a few unused deps from Cargo.toml to not waste time building them ([#2738](https://github.com/maplibre/martin/pull/2738))
+- update Cargo.toml dependencies
+
+## [1.7.0](https://github.com/maplibre/martin/compare/martin-v1.6.0...martin-v1.7.0) - 2026-04-23
+
+### `martin_tile_cache_requests_total` and `martin_cache_requests_total` metrics
+
+We have added the following metrics, allowing for knowing what your cache hit rate.
+These are two metrics because for tiles we include the zoom while for fonts/sprites this does not make sense.
+
+```raw
+# HELP martin_cache_requests_total Martin cache lookups, labeled by cache type and hit/miss result
+# TYPE martin_cache_requests_total counter
+martin_cache_requests_total{cache="font",result="miss"} NUMBER
+martin_cache_requests_total{cache="sprite",result="miss"} NUMBER
+# HELP martin_tile_cache_requests_total Martin tile-coordinate cache lookups, labeled by cache type, hit/miss result, and zoom
+# TYPE martin_tile_cache_requests_total counter
+martin_tile_cache_requests_total{cache="tile",result="hit",zoom="0"} NUMBER
+martin_tile_cache_requests_total{cache="tile",result="miss",zoom="0"} NUMBER
+```
+
+> [!TIP]
+> If you have concrete needs for what metrics you would like to see, please open an issue.
+> The set of metrics we offer is quite early in its development livecycle.
+
+### Stabilised Server-side raster tile rendering backend
+
+We have stabilised our rendering backend, which means that you can now render images using MapLibre Native.
+We have some work planned to improve performance by prefetching and better paralelism, or to add capabilites like overlaying lines/text/shapes.. via query params.
+If you have needs/interests towards this area, we would also invite you to open a discussion/issue on the API that you would like to see.
+If you need configurability, we would also like to know what kind of configurability you need.
+
+To enable this feature, you need to add the following to your configuration file:
+
+```yaml
+styles:
+    rendering: true
+```
+
+### Added
+
+- *(ui)* Add Tile URLs TileJSON and XYZ Tiles URLs to the inspect UI ([#2731](https://github.com/maplibre/martin/pull/2731))
+- *(mbtiles)* add --strict flag to use STRICT SQLite tables ([#2712](https://github.com/maplibre/martin/pull/2712))
+
+### Fixed
+
+- Keep /health available with `--route-prefix foo` instead of just moving it to /foo/health to enable docker healthchecks ([#2723](https://github.com/maplibre/martin/pull/2723))
+
+### Other
+
+- Some refactorings to increase CI reliability ([#2724](https://github.com/maplibre/martin/pull/2724), [#2715](https://github.com/maplibre/martin/pull/2715), [#2725](https://github.com/maplibre/martin/pull/2725))
+- *(deps)* autoupdate pre-commit ([#2720](https://github.com/maplibre/martin/pull/2720))
+
+## [1.6.0](https://github.com/maplibre/martin/compare/martin-v1.5.0...martin-v1.6.0) - 2026-04-18
+
+### Smarter, more configurable caching
+
+The tile cache received several improvements in this release:
+
+- **Configurable cache expiry**
+  The in-memory tile cache Time To Live (TTL -> f.ex. `cache.expiry: 1h`) and Time To Idle (TTI ->  f.ex. `cache.idle_timeout: 20m`) was previously hardcoded to "∞" (aka never expiring).
+  You can now configure how long cached tiles stay in memory, allowing better trade-offs between freshness and performance for your specific workload.
+
+  ```yaml
+  cache:
+    # Maximum lifetime for all cache entries (time-to-live from creation).
+    # Entries are evicted after this duration regardless of access.
+    # Supports human-readable formats: "1h", "30m", "1d", "3600s".
+    # default: null (no expiry, entries only evicted by size pressure)
+    expiry: null
+
+    # Maximum idle time for all cache entries (time-to-idle since last access).
+    # Entries are evicted if not accessed within this duration.
+    # default: null (no idle timeout)
+    idle_timeout: null
+  ```
+
+  Done in [#2691](https://github.com/maplibre/martin/pull/2691).
+- **Per-source cache zoom levels**
+  New `cache.minzoom` and `cache.maxzoom` options (both globally and per-source) let you skip caching at zoom levels that don't benefit from it.
+  For example, you can avoid filling the cache with rarely-reused high-zoom tiles or low-detail overviews.
+
+  ```yaml
+  cache:
+    # Default minimum zoom level (inclusive) for tile caching.
+    # Tiles further zoomed out than this will bypass the cache entirely.
+    # Can be overridden per-source (e.g. cache.minzoom on a type of source or an individual source).
+    # default: null (no lower bound, all zoom levels cached)
+    minzoom: null
+
+    # Default maximum zoom level (inclusive) for tile caching.
+    # Tiles further zoomed in than this will bypass the cache entirely.
+    # Can be overridden per-source.
+    # default: null (no upper bound, all zoom levels cached)
+    maxzoom: null
+  ```
+
+  Done in [#2673](https://github.com/maplibre/martin/pull/2673) by [@carderne](https://github.com/carderne).
+- **Cache deduplication under concurrency**
+  Cache insertions now use moka's entry API, so concurrent requests for the same tile only compute it once instead of redundantly.
+  This is a meaningful performance win under thundering-herd scenarios.
+  Done in [#2688](https://github.com/maplibre/martin/pull/2688).
+- **Accept header in cache key** -- The sanitised `Accept` HTTP header is now part of the cache key, preventing a cached response encoded for one client from being incorrectly served to another.
+  This **previously did not have any effect and was also not incorrect**, but in the next release we will add MLT encoding support (which we worked hard for).
+
+  This also has the side-effect that if your client now says that you only `Accept` a certain format, we now correctly abort requests early.
+  Done in [#2703](https://github.com/maplibre/martin/pull/2703).
+
+### Broader MBTiles compatibility
+
+- **Planetiler `normalized` schema alias** -- Martin now recognizes Planetiler's `normalized` and `normalized-with-view` schema names as aliases for its own `norm` schema type, so MBTiles files produced by Planetiler no longer trigger schema-detection warnings. Done in [#2681](https://github.com/maplibre/martin/pull/2681).
+- **Compression type stored in metadata** -- When writing tiles to MBTiles (e.g. via martin-cp), the compression method (gzip, brotli, etc.) is now recorded in the metadata table. Previously this information was lost, forcing consumers to guess. Done in [#2618](https://github.com/maplibre/martin/pull/2618).
+- **Transcoder API for library consumers** -- The `mbtiles` crate now exposes a public API for converting between MBTiles storage schemas (flat, normalized, deduplicated) programmatically. Done in [#2682](https://github.com/maplibre/martin/pull/2682).
+
+### `--on-invalid` CLI argument
+
+The `on_invalid` setting (which controls whether Martin warns or aborts when it encounters an invalid source at startup) was previously config-file-only. It is now available as `--on-invalid <warn|abort>` on the command line, which is especially handy in CI/CD and container environments.
+
+Done in [#2668](https://github.com/maplibre/martin/pull/2668) by [@Auspicus](https://github.com/Auspicus).
+
+### Other
+
+- Introduced `TileSourceManager` and `ReloadAdvisory` as groundwork for future live-reload of tile sources ([#2661](https://github.com/maplibre/martin/pull/2661)) by [@Auspicus](https://github.com/Auspicus)
+- Added hotpath-based profiling integration ([#2663](https://github.com/maplibre/martin/pull/2663))
+- Enabled React Compiler for martin-ui and demo frontend ([#2686](https://github.com/maplibre/martin/pull/2686))
+- Enabled `clippy::unwrap_used` workspace lint ([#2670](https://github.com/maplibre/martin/pull/2670))
+- Ensured unit tests run on macOS ([#2648](https://github.com/maplibre/martin/pull/2648)) by [@Weixing-Zhang](https://github.com/Weixing-Zhang)
+- Various dependency bumps ([#2702](https://github.com/maplibre/martin/pull/2702), [#2684](https://github.com/maplibre/martin/pull/2684), [#2624](https://github.com/maplibre/martin/pull/2624), [#2662](https://github.com/maplibre/martin/pull/2662), [#2657](https://github.com/maplibre/martin/pull/2657))
+
 ## [1.5.0](https://github.com/maplibre/martin/compare/martin-v1.4.0...martin-v1.5.0) - 2026-04-02
 
 ### Fixed

@@ -18,10 +18,15 @@ use futures::stream::{self, StreamExt as _};
 use martin::config::args::PostgresArgs;
 use martin::config::args::{Args, ExtraArgs, MetaArgs, SrvArgs};
 use martin::config::file::{Config, ServerState, read_config};
+#[cfg(feature = "_tiles")]
+use martin::config::primitives::IdResolver;
 use martin::config::primitives::env::OsEnv;
+use martin::logging::LogFormat;
 use martin::logging::progress::TileCopyProgress;
 use martin::logging::{ensure_martin_core_log_level_matches, init_tracing};
-use martin::srv::{DynTileSource, merge_tilejson};
+#[cfg(feature = "_tiles")]
+use martin::srv::RESERVED_KEYWORDS;
+use martin::srv::{DynTileSource, TileRequestHeaders, merge_tilejson};
 use martin::{MartinError, MartinResult};
 use martin_core::tiles::BoxedSource;
 use martin_core::tiles::mbtiles::MbtilesError;
@@ -39,7 +44,7 @@ use tokio::try_join;
 use tracing::{debug, error, info, warn};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
-const SAVE_EVERY: Duration = Duration::from_secs(60);
+const SAVE_EVERY: Duration = Duration::from_mins(1);
 const PROGRESS_REPORT_AFTER: u64 = 100;
 const PROGRESS_REPORT_EVERY: Duration = Duration::from_secs(2);
 const BATCH_SIZE: usize = 1000;
@@ -54,7 +59,7 @@ const HELP_STYLES: Styles = Styles::styled()
 #[command(
     about = "A tool to bulk copy tiles from any Martin-supported sources into an mbtiles file",
     version,
-    after_help = "Use RUST_LOG environment variable to control logging level, e.g. RUST_LOG=debug or RUST_LOG=martin_cp=debug.\nUse RUST_LOG_FORMAT environment variable to control output format: json, full, compact (default), bare or pretty.\nSee https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.EnvFilter.html for more information.",
+    after_help = "Use RUST_LOG environment variable to control logging level, e.g. RUST_LOG=debug or RUST_LOG=martin_cp=debug.\nUse RUST_LOG_FORMAT environment variable to control output format: json, full, compact (default), bare or pretty. With RUST_LOG_FORMAT=json, configuration error diagnostics are also emitted as structured JSON for editor tooling and log aggregation.\nSee https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.EnvFilter.html for more information.",
     styles = HELP_STYLES
 )]
 pub struct CopierArgs {
@@ -190,7 +195,15 @@ async fn start(copy_args: CopierArgs) -> MartinCpResult<()> {
     )?;
     config.finalize()?;
 
-    let sources = config.resolve().await?;
+    #[cfg(feature = "_tiles")]
+    let resolver = IdResolver::new(RESERVED_KEYWORDS);
+
+    let sources = config
+        .resolve(
+            #[cfg(feature = "_tiles")]
+            &resolver,
+        )
+        .await?;
 
     if let Some(file_name) = save_config {
         config
@@ -368,9 +381,10 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()>
         &source_id,
         None,
         args.url_query.as_deref().unwrap_or_default(),
-        Some(parse_encoding(args.encoding.as_str())?),
-        None,
-        None,
+        TileRequestHeaders {
+            accept_enc: Some(parse_encoding(args.encoding.as_str())?),
+            ..Default::default()
+        },
     )?;
 
     let inferred_bboxes = if args.bbox.is_empty() {
@@ -412,7 +426,10 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()>
                 .try_for_each_concurrent(concurrency, |xyz| {
                     let tx = tx.clone();
                     async move {
-                        let tile = src.get_tile_content(xyz).await?;
+                        let tile = src
+                            .get_tile_content(xyz)
+                            .await
+                            .map_err(|e| std::io::Error::other(e.to_string()))?;
                         let data = tile.data;
                         tx.send(TileXyz { xyz, data })
                             .await
@@ -510,7 +527,7 @@ async fn init_schema(
                     schema: mbtiles::NormalizedSchema::Hash,
                 },
             };
-            init_mbtiles_schema(&mut *conn, mbt_type)
+            init_mbtiles_schema(&mut *conn, mbt_type, false)
                 .await
                 .map_err(MbtilesError::from)?;
             let mut tj = merge_tilejson(sources, String::new());
@@ -544,15 +561,19 @@ async fn init_schema(
 #[tokio::main]
 async fn main() {
     let filter = ensure_martin_core_log_level_matches(env::var("RUST_LOG").ok(), "martin_cp=");
-    init_tracing(&filter, env::var("RUST_LOG_FORMAT").ok(), true);
+    let log_format = LogFormat::from_env();
+    init_tracing(&filter, log_format, true);
 
     let args = CopierArgs::parse();
     if let Err(e) = start(args).await {
-        // Ensure the message is printed, even if the logging is disabled
+        let rendered: String = match e {
+            MartinCpError::Martin(martin_err) => martin_err.render_diagnostic_with(log_format),
+            other => format!("{other}"),
+        };
         if tracing::event_enabled!(tracing::Level::ERROR) {
-            error!("{e}");
+            error!("{rendered}");
         } else {
-            eprintln!("{e}");
+            eprintln!("{rendered}");
         }
         std::process::exit(1);
     }
@@ -673,7 +694,7 @@ mod tests {
         #[case] ids: &str,
         #[case] expected: Vec<Bounds>,
     ) {
-        let dts = DynTileSource::new(&src, ids, None, "", None, None, None).unwrap();
+        let dts = DynTileSource::new(&src, ids, None, "", TileRequestHeaders::default()).unwrap();
 
         assert_eq!(default_bounds(&dts), expected);
     }

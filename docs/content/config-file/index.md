@@ -19,6 +19,38 @@ martin  ... ... ...  --save-config config.yaml
 
 ## Config Example
 
+--8<-- "files/generated_config.md"
+
+## Validating your config
+
+Martin publishes a JSON Schema for the config file at
+[`schemas/config.json`](https://github.com/maplibre/martin/blob/main/schemas/config.json).
+You can use it to catch typos, wrong types, and unknown keys before
+starting Martin.
+
+### In your editor
+
+Add the directive at the top of your `config.yaml`:
+
 ```yaml
---8<-- "files/config.yaml"
+# yaml-language-server: $schema=https://raw.githubusercontent.com/maplibre/martin/main/schemas/config.json
 ```
+
+Editors that respect it (any with the
+[YAML Language Server](https://github.com/redhat-developer/yaml-language-server)
+behind them) will validate keys, types and enums as you type, and offer
+autocomplete from the schema.
+
+### From the command line
+
+The same check Martin's CI runs against its own fixtures works on your
+config too. With [`uv`](https://docs.astral.sh/uv/) installed:
+
+```bash
+uvx --from check-jsonschema check-jsonschema \
+    --schemafile https://raw.githubusercontent.com/maplibre/martin/main/schemas/config.json \
+    config.yaml
+```
+
+A passing run prints `ok -- validation done`; a failing one points at
+the offending path with the reason.

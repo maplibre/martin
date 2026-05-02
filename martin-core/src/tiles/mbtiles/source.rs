@@ -1,6 +1,5 @@
 //! `MBTiles` tile source implementation.
 
-use std::fmt::{Debug, Formatter};
 use std::io;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -8,6 +7,7 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use backon::{FibonacciBuilder, Retryable as _};
+use derive_debug::Dbg;
 use martin_tile_utils::{TileCoord, TileData, TileInfo};
 use mbtiles::sqlx::error::DatabaseError;
 use mbtiles::{MbtError, MbtilesPool};
@@ -19,23 +19,17 @@ use crate::tiles::mbtiles::MbtilesError;
 use crate::tiles::{BoxedSource, MartinCoreResult, Source, UrlQuery};
 
 /// Tile source that reads from `MBTiles` files.
-#[derive(Clone)]
+#[derive(Clone, Dbg)]
 pub struct MbtSource {
     id: String,
+    #[dbg(alias = "path")]
     mbtiles: Arc<MbtilesPool>,
+    #[dbg(skip)]
     tilejson: TileJSON,
+    #[dbg(skip)]
     tile_info: TileInfo,
+    #[dbg(skip)]
     cache_zoom: CacheZoomRange,
-}
-
-#[expect(clippy::missing_fields_in_debug)]
-impl Debug for MbtSource {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("MbtSource")
-            .field("id", &self.id)
-            .field("path", &self.mbtiles.as_ref())
-            .finish()
-    }
 }
 
 // SQLITE_BUSY (code: 5)

@@ -47,12 +47,19 @@ impl SpriteConfig {
 
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct InnerSpriteConfig {
     /// Cache configuration for sprites.
+    /// Use `cache: disable` to disable sprite caching.
     #[serde(default, skip_serializing_if = "CacheSizeConfig::is_empty")]
+    #[cfg_attr(
+        feature = "unstable-schemas",
+        schemars(with = "crate::config::file::CacheSizeConfigShape")
+    )]
     pub cache: CacheSizeConfig,
 
     #[serde(flatten, skip_serializing)]
+    #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub unrecognized: UnrecognizedValues,
 }
 

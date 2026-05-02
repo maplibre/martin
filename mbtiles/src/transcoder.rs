@@ -7,11 +7,11 @@ use std::time::{Duration, Instant};
 use bytes::Bytes;
 use flume::{Receiver, Sender, bounded};
 use futures::TryStreamExt as _;
-use log::{debug, info, warn};
 use moka::sync::Cache;
 use rayon::iter::{IntoParallelIterator as _, ParallelIterator as _};
 use sqlx::{Connection as _, Row as _, SqliteConnection};
 use tokio::task::spawn_blocking;
+use tracing::{debug, info, warn};
 use xxhash_rust::xxh3::xxh3_128;
 
 use crate::errors::MbtResult;
@@ -174,7 +174,7 @@ where
 
         let dst = Mbtiles::new(&self.dst_file)?;
         let mut dst_conn = dst.open_or_new().await?;
-        init_mbtiles_schema(&mut dst_conn, dst_type).await?;
+        init_mbtiles_schema(&mut dst_conn, dst_type, false).await?;
 
         // WAL + relaxed sync gives a large boost for bulk inserts; the worst
         // case on crash is losing the in-flight transaction, which is fine here.

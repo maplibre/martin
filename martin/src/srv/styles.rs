@@ -5,15 +5,30 @@ use actix_web::web::{Data, Path};
 use actix_web::{HttpResponse, route};
 use martin_core::styles::StyleSources;
 use serde::Deserialize;
-use tracing::{error, warn};
+use tracing::{error, instrument, warn};
 
 use crate::srv::server::DebouncedWarning;
 
 #[derive(Deserialize, Debug)]
+#[cfg_attr(feature = "unstable-schemas", derive(utoipa::IntoParams))]
+#[cfg_attr(feature = "unstable-schemas", into_params(parameter_in = Path))]
 struct StyleRequest {
     style_id: String,
 }
 
+#[cfg_attr(
+    feature = "unstable-schemas",
+    utoipa::path(
+        get,
+        path = "/style/{style_id}",
+        params(StyleRequest),
+        responses(
+            (status = 200, description = "MapLibre Style Spec JSON document", content_type = "application/json"),
+            (status = 400, description = "Style file is malformed"),
+            (status = 404, description = "No matching style"),
+        ),
+    )
+)]
 #[route(
     "/style/{style_id}",
     method = "GET",
@@ -21,7 +36,8 @@ struct StyleRequest {
     wrap = "Compress::default()"
 )]
 #[hotpath::measure]
-async fn get_style_json(path: Path<StyleRequest>, styles: Data<StyleSources>) -> HttpResponse {
+#[instrument(level = "debug", skip_all, fields(style.id = %path.style_id))]
+pub async fn get_style_json(path: Path<StyleRequest>, styles: Data<StyleSources>) -> HttpResponse {
     let style_id = &path.style_id;
     let Some(path) = styles.style_json_path(style_id) else {
         return HttpResponse::NotFound()

@@ -1,10 +1,12 @@
+use std::sync::Arc;
 use std::time::Duration;
 
-use martin_tile_utils::TileCoord;
+use martin_tile_utils::{Format, TileCoord};
 use moka::future::Cache;
-use std::sync::Arc;
-use tracing::{info, trace};
+use tracing::{info, instrument, trace};
 
+#[cfg(feature = "metrics")]
+use crate::metrics::{TILE_CACHE_REQUESTS_TOTAL, ZOOM_LABELS};
 use crate::tiles::Tile;
 
 /// Tile cache for storing rendered tile data.
@@ -36,11 +38,22 @@ impl TileCache {
     }
 
     /// Gets a tile from cache or computes it using the provided function.
+    #[instrument(
+        level = "debug",
+        skip_all,
+        fields(
+            source.id = %source_id,
+            tile.z = xyz.z,
+            tile.x = xyz.x,
+            tile.y = xyz.y,
+        ),
+    )]
     pub async fn get_or_insert<F, Fut, E>(
         &self,
         source_id: String,
         xyz: TileCoord,
         query: Option<String>,
+        format: Option<Format>,
         compute: F,
     ) -> Result<Tile, Arc<E>>
     where
@@ -48,7 +61,7 @@ impl TileCache {
         Fut: Future<Output = Result<Tile, E>>,
         E: Send + Sync + 'static,
     {
-        let key = TileCacheKey::new(source_id, xyz, query);
+        let key = TileCacheKey::new(source_id, xyz, query, format);
         let entry = self
             .0
             .entry(key.clone())
@@ -56,9 +69,17 @@ impl TileCache {
             .await?;
 
         if entry.is_fresh() {
+            #[cfg(feature = "metrics")]
+            TILE_CACHE_REQUESTS_TOTAL
+                .with_label_values(&["tile", "miss", ZOOM_LABELS[key.xyz.z as usize]])
+                .inc();
             hotpath::gauge!("tile_cache_misses").inc(1.0);
             trace!("Tile cache MISS for {key:?}");
         } else {
+            #[cfg(feature = "metrics")]
+            TILE_CACHE_REQUESTS_TOTAL
+                .with_label_values(&["tile", "hit", ZOOM_LABELS[key.xyz.z as usize]])
+                .inc();
             hotpath::gauge!("tile_cache_hits").inc(1.0);
             trace!(
                 "Tile cache HIT for {key:?} (entries={entries}, size={size}B)",
@@ -115,14 +136,23 @@ struct TileCacheKey {
     source_id: String,
     xyz: TileCoord,
     query: Option<String>,
+    /// The format requested via the `Accept` header.
+    /// `None` means no `Accept` header was present.
+    format: Option<Format>,
 }
 
 impl TileCacheKey {
-    fn new(source_id: String, xyz: TileCoord, query: Option<String>) -> Self {
+    fn new(
+        source_id: String,
+        xyz: TileCoord,
+        query: Option<String>,
+        format: Option<Format>,
+    ) -> Self {
         Self {
             source_id,
             xyz,
             query,
+            format,
         }
     }
 }

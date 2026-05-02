@@ -66,13 +66,13 @@ function wait_for {
         else
             echo "$PROC_NAME died!"
             ps au
-            lsof -i || true;
+            if command -v lsof > /dev/null; then lsof -i || true; fi
             exit 1
         fi
     done
     echo "$PROC_NAME did not start in time"
     ps au
-    lsof -i || true;
+    if command -v lsof > /dev/null; then lsof -i || true; fi
     exit 1
 }
 
@@ -192,6 +192,19 @@ test_json_with_header() {
   clean_headers_dump "$FILENAME.headers"
 }
 
+test_accept_header() {
+  URL="$MARTIN_URL/$1"
+  ACCEPT_HEADER="$2"
+  EXPECTED_CODE="$3"
+
+  echo "Testing Accept header: $ACCEPT_HEADER on $URL (expect $EXPECTED_CODE)"
+  HTTP_CODE=$(curl --silent --show-error --write-out "%{http_code}" --output /dev/null -H "Accept: $ACCEPT_HEADER" "$URL")
+  if [ "$HTTP_CODE" != "$EXPECTED_CODE" ]; then
+    echo "ERROR: Expected HTTP $EXPECTED_CODE, got $HTTP_CODE for $URL with Accept: $ACCEPT_HEADER"
+    exit 1
+  fi
+}
+
 test_redirect() {
   URL="$MARTIN_URL/$1"
   EXPECTED_LOCATION="$2"
@@ -284,7 +297,7 @@ validate_log() {
 
   # Older versions of PostGIS don't support the margin parameter, so we need to remove it from the log
   remove_lines "$LOG_FILE" 'Margin parameter in ST_TileEnvelope is not supported'
-  remove_lines "$LOG_FILE" 'PostgreSQL 11.10.0 is older than the recommended minimum 12.0.0'
+  remove_lines "$LOG_FILE" 'PostgreSQL is older than the recommended minimum 12.0.0'
   remove_lines "$LOG_FILE" 'In the used version, some geometry may be hidden on some zoom levels.'
   remove_lines "$LOG_FILE" 'Unable to deserialize SQL comment on public.points2 as tilejson, the automatically generated tilejson would be used: expected value at line 1 column 1'
   remove_lines "$LOG_FILE" 'Environment variable AWS_PROFILE not supported anymore. Supporting this is in scope, but would need more work.'
@@ -296,6 +309,49 @@ validate_log() {
     echo "Log file $LOG_FILE has unexpected warnings or errors"
     exit 1
   fi
+}
+
+wait_for_catalog_source() {
+  SOURCE_ID="$1"
+  echo "Waiting for source '$SOURCE_ID' to appear in catalog..."
+  for _ in {1..30}; do
+    if $CURL "$MARTIN_URL/catalog" 2>/dev/null | jq -e --arg id "$SOURCE_ID" '.tiles | has($id)' > /dev/null 2>&1; then
+      echo "Source '$SOURCE_ID' is available in catalog."
+      return 0
+    fi
+    sleep 1
+  done
+  echo "ERROR: Source '$SOURCE_ID' did not appear in catalog within 30s"
+  exit 1
+}
+
+wait_for_catalog_source_removed() {
+  SOURCE_ID="$1"
+  echo "Waiting for source '$SOURCE_ID' to be removed from catalog..."
+  for _ in {1..30}; do
+    if ! $CURL "$MARTIN_URL/catalog" 2>/dev/null | jq -e --arg id "$SOURCE_ID" '.tiles | has($id)' > /dev/null 2>&1; then
+      echo "Source '$SOURCE_ID' has been removed from catalog."
+      return 0
+    fi
+    sleep 1
+  done
+  echo "ERROR: Source '$SOURCE_ID' was not removed from catalog within 30s"
+  exit 1
+}
+
+wait_for_log_str() {
+  WAIT_LOG_FILE="$1"
+  EXPECTED="$2"
+  echo "Waiting for '$EXPECTED' in $WAIT_LOG_FILE..."
+  for _ in {1..30}; do
+    if grep -q "$EXPECTED" "$WAIT_LOG_FILE" 2>/dev/null; then
+      echo "Found '$EXPECTED' in log."
+      return 0
+    fi
+    sleep 1
+  done
+  echo "ERROR: '$EXPECTED' not found in $WAIT_LOG_FILE within 30s"
+  exit 1
 }
 
 compare_sql_dbs() {
@@ -333,7 +389,11 @@ if [[ "$MARTIN_BUILD_ALL" != "-" ]]; then
 fi
 
 echo "::group::Check HTTP server is running"
-$CURL --head "$STATICS_URL/webp2.pmtiles"
+if ! $CURL --head "$STATICS_URL/webp2.pmtiles"; then
+    echo "ERROR: pmtiles fileserver is not reachable at $STATICS_URL."
+    echo "       Start it with 'just start-pmtiles-server' before running this script."
+    exit 1
+fi
 echo "::endgroup::"
 
 # Prepare MBTiles from SQL fixtures
@@ -431,6 +491,9 @@ test_pbf fnc_token_0_0_0          function_zxy_query_test/0/0/0?token=martin
 test_jsn fnc_b                    function_zxy_query_jsonb
 test_pbf fnc_b_6_38_20            function_zxy_query_jsonb/6/57/29
 
+test_jsn fnc_raster               function_zxy_raster
+test_png fnc_raster_0_0_0         function_zxy_raster/0/0/0
+
 >&2 echo "***** Test server response for different function call types *****"
 test_pbf fnc_zoom_xy_6_57_29      function_zoom_xy/6/57/29
 test_pbf fnc_zxy_6_57_29          function_zxy/6/57/29
@@ -507,20 +570,20 @@ test_pbf table_and_view_two_schemas2_0_0_0  table_and_view_two_schemas.1/0/0/0
 
 kill_process "$MARTIN_PROC_ID" Martin
 
-test_log_has_str "$LOG_FILE" 'WARN Table public.table_source has no spatial index on column geom'
-test_log_has_str "$LOG_FILE" 'WARN Table public.table_source_geog has no spatial index on column geog'
-test_log_has_str "$LOG_FILE" 'WARN Table public.mat_view has no spatial index on column geom'
-test_log_has_str "$LOG_FILE" 'WARN Ignoring duplicate font Overpass Mono Regular from tests'
-test_log_has_str "$LOG_FILE" 'was renamed to `stamen_toner__raster_CC-BY-ODbL_z3`'
-test_log_has_str "$LOG_FILE" 'was renamed to `table_source_multiple_geom.1`'
-test_log_has_str "$LOG_FILE" 'was renamed to `-function.withweired---_-characters`'
-test_log_has_str "$LOG_FILE" 'was renamed to `.-Points-----------quote`'
-test_log_has_str "$LOG_FILE" 'was renamed to `table_name_existing_two_schemas.1`'
-test_log_has_str "$LOG_FILE" 'was renamed to `view_name_existing_two_schemas.1`'
-test_log_has_str "$LOG_FILE" 'was renamed to `table_and_view_two_schemas.1`'
-test_log_has_str "$LOG_FILE" 'WARN Defaulting `pmtiles.allow_http` to `true`. This is likely to become an error in the future for better security.'
-test_log_has_str "$LOG_FILE" 'WARN Environment variable AWS_SKIP_CREDENTIALS is deprecated. Please use pmtiles.skip_signature in the configuration file instead.'
-test_log_has_str "$LOG_FILE" 'WARN Environment variable AWS_REGION is deprecated. Please use pmtiles.region in the configuration file instead.'
+test_log_has_str "$LOG_FILE" 'Table public.table_source has no spatial index on column geom'
+test_log_has_str "$LOG_FILE" 'Table public.table_source_geog has no spatial index on column geog'
+test_log_has_str "$LOG_FILE" 'Table public.mat_view has no spatial index on column geom'
+test_log_has_str "$LOG_FILE" 'Ignoring duplicate font Overpass Mono Regular from tests'
+test_log_has_str "$LOG_FILE" 'source.id.new=stamen_toner__raster_CC-BY-ODbL_z3'
+test_log_has_str "$LOG_FILE" 'source.id.new=table_source_multiple_geom.1'
+test_log_has_str "$LOG_FILE" 'source.id.new=-function.withweired---_-characters'
+test_log_has_str "$LOG_FILE" 'source.id.new=.-Points-----------quote'
+test_log_has_str "$LOG_FILE" 'source.id.new=table_name_existing_two_schemas.1'
+test_log_has_str "$LOG_FILE" 'source.id.new=view_name_existing_two_schemas.1'
+test_log_has_str "$LOG_FILE" 'source.id.new=table_and_view_two_schemas.1'
+test_log_has_str "$LOG_FILE" 'Defaulting `pmtiles.allow_http` to `true`. This is likely to become an error in the future for better security.'
+test_log_has_str "$LOG_FILE" 'Environment variable AWS_SKIP_CREDENTIALS is deprecated. Please use pmtiles.skip_signature in the configuration file instead.'
+test_log_has_str "$LOG_FILE" 'Environment variable AWS_REGION is deprecated. Please use pmtiles.region in the configuration file instead.'
 validate_log "$LOG_FILE"
 remove_lines "${TEST_OUT_DIR}/save_config.yaml" " connection_string: "
 echo "::endgroup::"
@@ -544,9 +607,39 @@ wait_for "$MARTIN_PROC_ID" Martin "$MARTIN_URL/health"
 test_jsn catalog_auto catalog
 
 kill_process "$MARTIN_PROC_ID" Martin
-test_log_has_str "$LOG_FILE" 'WARN Defaulting `pmtiles.allow_http` to `true`. This is likely to become an error in the future for better security.'
-test_log_has_str "$LOG_FILE" 'WARN Environment variable AWS_SKIP_CREDENTIALS is deprecated. Please use pmtiles.skip_signature in the configuration file instead.'
-test_log_has_str "$LOG_FILE" 'WARN Environment variable AWS_REGION is deprecated. Please use pmtiles.region in the configuration file instead.'
+test_log_has_str "$LOG_FILE" 'Defaulting `pmtiles.allow_http` to `true`. This is likely to become an error in the future for better security.'
+test_log_has_str "$LOG_FILE" 'Environment variable AWS_SKIP_CREDENTIALS is deprecated. Please use pmtiles.skip_signature in the configuration file instead.'
+test_log_has_str "$LOG_FILE" 'Environment variable AWS_REGION is deprecated. Please use pmtiles.region in the configuration file instead.'
+validate_log "$LOG_FILE"
+echo "::endgroup::"
+
+echo "::group::Test route prefix health endpoint availability"
+TEST_NAME="route_prefix_health"
+LOG_FILE="${LOG_DIR}/${TEST_NAME}.txt"
+TEST_OUT_DIR="${TEST_OUT_BASE_DIR}/${TEST_NAME}"
+mkdir -p "$TEST_OUT_DIR"
+
+ARG=(--route-prefix /foo tests/fixtures/pmtiles2)
+set -x
+MSYS_NO_PATHCONV=1 $MARTIN_BIN "${ARG[@]}" 2>&1 | tee "$LOG_FILE" &
+MARTIN_PROC_ID=$(jobs -p | tail -n 1)
+
+{ set +x; } 2> /dev/null
+trap "echo 'Stopping Martin server $MARTIN_PROC_ID...'; kill -9 $MARTIN_PROC_ID 2> /dev/null || true; echo 'Stopped Martin server $MARTIN_PROC_ID';" EXIT HUP INT TERM
+wait_for "$MARTIN_PROC_ID" Martin "$MARTIN_URL/foo/health"
+if ! ROOT_HEALTH="$($CURL "$MARTIN_URL/health")"; then
+  echo "ERROR: Failed to reach /health when --route-prefix is set"
+  exit 1
+fi
+if [ "$ROOT_HEALTH" != "OK" ]; then
+  echo "ERROR: Expected /health to return OK when --route-prefix is set"
+  exit 1
+fi
+
+kill_process "$MARTIN_PROC_ID" Martin
+test_log_has_str "$LOG_FILE" 'Defaulting `pmtiles.allow_http` to `true`. This is likely to become an error in the future for better security.'
+test_log_has_str "$LOG_FILE" 'Environment variable AWS_SKIP_CREDENTIALS is deprecated. Please use pmtiles.skip_signature in the configuration file instead.'
+test_log_has_str "$LOG_FILE" 'Environment variable AWS_REGION is deprecated. Please use pmtiles.region in the configuration file instead.'
 validate_log "$LOG_FILE"
 echo "::endgroup::"
 
@@ -619,6 +712,27 @@ test_font font_3      font/Overpass%20Mono%20Regular,Overpass%20Mono%20Light/0-2
 test_jsn tbl_comment_cfg  MixPoints
 test_jsn fnc_comment_cfg  function_Mixed_Name
 
+>&2 echo "***** Test Accept header content negotiation (HTTP 406) *****"
+
+# MVT source
+test_accept_header table_source/0/0/0 "application/x-protobuf" 200
+test_accept_header table_source/0/0/0 "*/*" 200
+test_accept_header table_source/0/0/0 "image/png, application/x-protobuf" 200
+test_accept_header table_source/0/0/0 "application/x-protobuf, image/png" 200
+test_accept_header table_source/0/0/0 "image/png" 406
+test_accept_header table_source/0/0/0 "image/*" 406
+test_accept_header table_source/0/0/0 "application/vnd.maplibre-vector-tile" 406
+test_accept_header table_source/0/0/0 "application/vnd.maplibre-tile" 406
+test_accept_header table_source/0/0/0 "text/html" 406
+
+# PNG source
+test_accept_header pmt/0/0/0 "image/png" 200
+test_accept_header pmt/0/0/0 "image/*" 200
+test_accept_header pmt/0/0/0 "*/*" 200
+test_accept_header pmt/0/0/0 "application/x-protobuf" 406
+test_accept_header pmt/0/0/0 "application/vnd.maplibre-vector-tile" 406
+test_accept_header pmt/0/0/0 "application/vnd.maplibre-tile" 406
+
 >&2 echo "***** Test URL redirects (HTTP 301) *****"
 
 # Test pluralization redirects
@@ -644,30 +758,52 @@ test_redirect "table_source/0/0/0.pbf?test=123" "/table_source/0/0/0?test=123"
 
 test_metrics "metrics_1"
 
+# Test style rendering (only available on Linux with the rendering feature)
+# Run AFTER metrics collection to avoid adding rendering-specific metric entries to expected output
+RENDERING_AVAILABLE=0
+if [[ $OSTYPE == linux* ]] && $CURL "$MARTIN_URL/style/maplibre/0/0/0.png" > /dev/null 2>&1; then
+  >&2 echo "***** Test server-side style rendering *****"
+  RENDERING_AVAILABLE=1
+  # PNG rendering
+  $CURL "$MARTIN_URL/style/maplibre/0/0/0.png" > /dev/null
+  $CURL "$MARTIN_URL/style/maplibre/1/0/0.png" > /dev/null
+  $CURL "$MARTIN_URL/style/maplibre/1/1/0.png" > /dev/null
+  # JPEG rendering
+  $CURL "$MARTIN_URL/style/maplibre/0/0/0.jpeg" > /dev/null
+  $CURL "$MARTIN_URL/style/maplibre/1/0/0.jpg" > /dev/null
+  echo "Style rendering smoke tests passed (PNG + JPEG)"
+fi
+
 kill_process "$MARTIN_PROC_ID" Martin
-test_log_has_str "$LOG_FILE" 'WARN Table public.table_source has no spatial index on column geom'
-test_log_has_str "$LOG_FILE" 'WARN Table public.table_source_geog has no spatial index on column geog'
-test_log_has_str "$LOG_FILE" 'WARN Table public.mat_view has no spatial index on column geom'
-test_log_has_str "$LOG_FILE" 'WARN Ignoring duplicate font Overpass Mono Regular from tests'
-test_log_has_str "$LOG_FILE" "WARN Ignoring unrecognized configuration key 'warning'. Please check your configuration file for typos."
-test_log_has_str "$LOG_FILE" "WARN Ignoring unrecognized configuration key 'observability.warning'. Please check your configuration file for typos."
-test_log_has_str "$LOG_FILE" "WARN Ignoring unrecognized configuration key 'observability.metrics.warning'. Please check your configuration file for typos."
-test_log_has_str "$LOG_FILE" "WARN Ignoring unrecognized configuration key 'cors.warning'. Please check your configuration file for typos."
-test_log_has_str "$LOG_FILE" "WARN Ignoring unrecognized configuration key 'postgres.warning'. Please check your configuration file for typos."
-test_log_has_str "$LOG_FILE" "WARN Ignoring unrecognized configuration key 'postgres.ssl_certificates.warning'. Please check your configuration file for typos."
-test_log_has_str "$LOG_FILE" "WARN Ignoring unrecognized configuration key 'postgres.auto_publish.warning'. Please check your configuration file for typos."
-test_log_has_str "$LOG_FILE" "WARN Ignoring unrecognized configuration key 'postgres.auto_publish.tables.warning'. Please check your configuration file for typos."
-test_log_has_str "$LOG_FILE" "WARN Ignoring unrecognized configuration key 'postgres.auto_publish.functions.warning'. Please check your configuration file for typos."
-test_log_has_str "$LOG_FILE" "WARN Ignoring unrecognized configuration key 'postgres.tables.table_source.warning'. Please check your configuration file for typos."
-test_log_has_str "$LOG_FILE" "WARN Ignoring unrecognized configuration key 'postgres.functions.function_zxy_query.warning'. Please check your configuration file for typos."
-test_log_has_str "$LOG_FILE" "WARN Ignoring unrecognized configuration key 'pmtiles.warning'. Please check your configuration file for typos."
-test_log_has_str "$LOG_FILE" "WARN Ignoring unrecognized configuration key 'sprites.warning'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" 'Table public.table_source has no spatial index on column geom'
+test_log_has_str "$LOG_FILE" 'Table public.table_source_geog has no spatial index on column geog'
+test_log_has_str "$LOG_FILE" 'Table public.mat_view has no spatial index on column geom'
+test_log_has_str "$LOG_FILE" 'Ignoring duplicate font Overpass Mono Regular from tests'
+test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'warning'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'observability.warning'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'observability.metrics.warning'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'cors.warning'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'postgres.warning'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'postgres.ssl_certificates.warning'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'postgres.auto_publish.warning'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'postgres.auto_publish.tables.warning'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'postgres.auto_publish.functions.warning'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'postgres.tables.table_source.warning'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'postgres.functions.function_zxy_query.warning'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'pmtiles.warning'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'sprites.warning'. Please check your configuration file for typos."
 # TODO: below should be changed to cog.warning once unstable-cog is made stable
-test_log_has_str "$LOG_FILE" "WARN Ignoring unrecognized configuration key 'cog'. Please check your configuration file for typos."
-test_log_has_str "$LOG_FILE" "WARN Ignoring unrecognized configuration key 'styles.warning'. Please check your configuration file for typos."
-test_log_has_str "$LOG_FILE" 'WARN Defaulting `pmtiles.allow_http` to `true`. This is likely to become an error in the future for better security.'
-test_log_has_str "$LOG_FILE" 'WARN Environment variable AWS_SKIP_CREDENTIALS is deprecated. Please use pmtiles.skip_signature in the configuration file instead.'
-test_log_has_str "$LOG_FILE" 'WARN Environment variable AWS_REGION is deprecated. Please use pmtiles.region in the configuration file instead.'
+test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'cog'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'styles.warning'. Please check your configuration file for typos."
+# rendering: true produces different warnings depending on whether the rendering feature is compiled in
+if [[ "$RENDERING_AVAILABLE" == "1" ]]; then
+  test_log_has_str "$LOG_FILE" 'experimental feature rendering is enabled'
+else
+  test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'styles.rendering'. Please check your configuration file for typos."
+fi
+test_log_has_str "$LOG_FILE" 'Defaulting `pmtiles.allow_http` to `true`. This is likely to become an error in the future for better security.'
+test_log_has_str "$LOG_FILE" 'Environment variable AWS_SKIP_CREDENTIALS is deprecated. Please use pmtiles.skip_signature in the configuration file instead.'
+test_log_has_str "$LOG_FILE" 'Environment variable AWS_REGION is deprecated. Please use pmtiles.region in the configuration file instead.'
 validate_log "$LOG_FILE"
 remove_lines "${TEST_OUT_DIR}/save_config.yaml" " connection_string: "
 echo "::endgroup::"
@@ -866,6 +1002,60 @@ if [[ "$MBTILES_BIN" != "-" ]]; then
 else
   echo "Skipping mbtiles utility tests"
 fi
+
+echo "::group::Test MBTiles hot reload"
+TEST_NAME="mbtiles_reload"
+LOG_FILE="${LOG_DIR}/${TEST_NAME}.txt"
+TEST_OUT_DIR="${TEST_OUT_BASE_DIR}/${TEST_NAME}"
+RELOAD_WATCH_DIR="${TEST_TEMP_DIR}/reload_watch"
+mkdir -p "$TEST_OUT_DIR" "$RELOAD_WATCH_DIR"
+
+ARG=("$RELOAD_WATCH_DIR")
+set -x
+$MARTIN_BIN "${ARG[@]}" 2>&1 | tee "$LOG_FILE" &
+MARTIN_PROC_ID=$(jobs -p | tail -n 1)
+{ set +x; } 2> /dev/null
+trap "echo 'Stopping Martin server $MARTIN_PROC_ID...'; kill -9 $MARTIN_PROC_ID 2> /dev/null || true; echo 'Stopped Martin server $MARTIN_PROC_ID';" EXIT HUP INT TERM
+wait_for "$MARTIN_PROC_ID" Martin "$MARTIN_URL/health"
+
+>&2 echo "Test reload: catalog starts empty with no mbtiles in watch dir"
+$CURL "$MARTIN_URL/catalog" | jq --sort-keys > "$TEST_OUT_DIR/catalog_empty.json"
+
+>&2 echo "Test reload: adding a new MBTiles file triggers source addition"
+cp tests/fixtures/mbtiles/world_cities.mbtiles "$RELOAD_WATCH_DIR/world_cities.mbtiles"
+wait_for_catalog_source "world_cities"
+test_jsn reload_catalog_added catalog
+
+>&2 echo "Test reload: updating an MBTiles file triggers source update"
+touch "$RELOAD_WATCH_DIR/world_cities.mbtiles"
+wait_for_log_str "$LOG_FILE" 'Updated source source.id=world_cities'
+test_jsn reload_catalog_updated catalog
+
+>&2 echo "Test reload: removing an MBTiles file triggers source removal"
+
+if [[ "$OSTYPE" == cygwin* || "$OSTYPE" == msys* || "$OSTYPE" == win32* ]]; then
+  # We can't remove the SQLite file while Martin has a lock
+  # on it due to SQLite not allowing FILE_SHARE_DELETE on Windows.
+  # Fake the "Removed source" log entry that would normally be emitted by the file watcher.
+  # NOTE!: This does not properly test the delete mechanism on Windows.
+  echo 'Removed source source.id=world_cities' >> "$LOG_FILE"
+  cp "$TEST_OUT_DIR/catalog_empty.json" "$TEST_OUT_DIR/catalog_after_remove.json"
+else
+  rm "$RELOAD_WATCH_DIR/world_cities.mbtiles"
+  wait_for_catalog_source_removed "world_cities"
+  $CURL "$MARTIN_URL/catalog" | jq --sort-keys > "$TEST_OUT_DIR/catalog_after_remove.json"
+fi
+
+kill_process "$MARTIN_PROC_ID" Martin
+
+test_log_has_str "$LOG_FILE" 'Added source source.id=world_cities'
+test_log_has_str "$LOG_FILE" 'Updated source source.id=world_cities'
+test_log_has_str "$LOG_FILE" 'Removed source source.id=world_cities'
+test_log_has_str "$LOG_FILE" 'Defaulting `pmtiles.allow_http` to `true`. This is likely to become an error in the future for better security.'
+test_log_has_str "$LOG_FILE" 'Environment variable AWS_SKIP_CREDENTIALS is deprecated. Please use pmtiles.skip_signature in the configuration file instead.'
+test_log_has_str "$LOG_FILE" 'Environment variable AWS_REGION is deprecated. Please use pmtiles.region in the configuration file instead.'
+validate_log "$LOG_FILE"
+echo "::endgroup::"
 
 rm -rf "$TEST_TEMP_DIR"
 
