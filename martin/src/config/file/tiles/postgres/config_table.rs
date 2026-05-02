@@ -115,7 +115,7 @@ pub struct TableInfo {
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub prop_mapping: HashMap<String, String>,
 
-    /// MVT→MLT encoder settings for this source.
+    /// MVT->MLT encoder settings for this source.
     /// Overrides source-type and global `convert-to-mlt`.
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[serde(

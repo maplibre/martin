@@ -20,12 +20,12 @@ martin  ... ... ...  --save-config config.yaml
 ## Postprocessing
 
 The `convert-to-mlt` key tunes encoder settings used by Martin's postprocessing pipeline.
-It does **not** enable any conversion — the client drives that via the `Accept` header (e.g. `Accept: application/vnd.maplibre-tile` triggers MVT→MLT).
+It does **not** enable any conversion — the client drives that via the `Accept` header (e.g. `Accept: application/vnd.maplibre-tile` triggers MVT->MLT).
 The `convert-to-mlt` key only changes *how* a conversion encodes when it fires.
 
 Currently configurable:
 
-- **MLT encoder** — encoder settings for MVT→MLT conversion.
+- **MLT encoder** — encoder settings for MVT->MLT conversion.
 See the [MLT usage guide](using-guides/mlt.md) for tuning options.
 
 The `convert-to-mlt` key can appear at three levels.

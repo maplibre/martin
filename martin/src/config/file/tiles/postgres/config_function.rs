@@ -55,7 +55,7 @@ pub struct FunctionInfo {
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub tilejson: Option<serde_json::Value>,
 
-    /// MVT→MLT encoder settings for this source.
+    /// MVT->MLT encoder settings for this source.
     /// Overrides source-type and global `convert-to-mlt`.
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[serde(

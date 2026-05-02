@@ -238,7 +238,7 @@ mod tests {
     fn deserialize_postgres_connection_string_seq_fails() {
         // The `postgres` field on `Config` is `OptOneMany<PostgresConfig>`. Giving the
         // inner `connection_string` field a sequence (instead of a string) walks
-        // `OptOneMany`'s `visit_map` → `PostgresConfig::deserialize` → fails on the
+        // `OptOneMany`'s `visit_map` -> `PostgresConfig::deserialize` -> fails on the
         // string field with a located span pointing at the offending sequence.
         insta::assert_snapshot!(
             render_failure(indoc::indoc! {"

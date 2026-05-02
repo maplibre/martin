@@ -4,7 +4,7 @@
 //! [`render_failure`] for snapshot-asserting the rendered miette diagnostic on failure.
 //!
 //! [`render_failure`] feeds the YAML through the full [`parse_config`] pipeline (variable
-//! substitution → saphyr deserialization → `ConfigFileError::to_miette_report`) so the
+//! substitution -> saphyr deserialization -> `ConfigFileError::to_miette_report`) so the
 //! resulting snapshots contain the same source-spanned, file-prefixed graphical diagnostics
 //! a user would see on the command line.
 

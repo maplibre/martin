@@ -168,7 +168,7 @@ pub struct Config {
     #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
     pub fonts: FontConfig,
 
-    /// Encoder settings for MVT→MLT conversion (global level).
+    /// Encoder settings for MVT->MLT conversion (global level).
     /// Overridden by source-type or per-source `convert-to-mlt` keys.
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[serde(
@@ -521,7 +521,7 @@ impl Config {
         ))
     }
 
-    /// Build a map from source ID → resolved [`ProcessConfig`].
+    /// Build a map from source ID -> resolved [`ProcessConfig`].
     ///
     /// Uses full-override semantics: per-source > source-type > global > default.
     #[cfg(feature = "_tiles")]

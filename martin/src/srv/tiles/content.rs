@@ -410,7 +410,7 @@ impl<'a> DynTileSource<'a> {
             1 => tiles.swap_remove(last_non_empty_layer),
             _ => {
                 // Pre-cache processors may have flipped each tile's format
-                // (e.g. MVT→MLT for `Accept: application/vnd.maplibre-tile`),
+                // (e.g. MVT->MLT for `Accept: application/vnd.maplibre-tile`),
                 // so resolve the merge target from the actual tiles rather
                 // than the source's native `self.info`.
                 let merged_info = tiles[last_non_empty_layer].info;

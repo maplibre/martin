@@ -375,7 +375,7 @@ fn is_sqlite_memory_uri(path: &Path) -> bool {
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct FileConfigSource {
     pub path: PathBuf,
-    /// MVT→MLT encoder settings for this source.
+    /// MVT->MLT encoder settings for this source.
     /// Overrides source-type and global `convert-to-mlt`.
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[serde(

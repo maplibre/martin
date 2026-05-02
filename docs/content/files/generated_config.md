@@ -99,7 +99,7 @@ mbtiles:
   # Postprocessing pipeline for all `MBTiles` sources.
   # Overrides global `process`; overridden by per-source `process`.
   process:
-    # Encoder settings for MVT→MLT conversion. Conversion fires when a client
+    # Encoder settings for MVT->MLT conversion. Conversion fires when a client
     # sends `Accept: application/vnd.maplibre-tile`; this block only changes
     # the encoder configuration used for that conversion.
     # - `mlt: auto` — use `mlt-core`'s default `EncoderConfig` (same as omitting the block)
@@ -151,7 +151,7 @@ pmtiles:
   # Postprocessing pipeline for all `PMTiles` sources.
   # Overrides global `process`; overridden by per-source `process`.
   process:
-    # Encoder settings for MVT→MLT conversion. Conversion fires when a client
+    # Encoder settings for MVT->MLT conversion. Conversion fires when a client
     # sends `Accept: application/vnd.maplibre-tile`; this block only changes
     # the encoder configuration used for that conversion.
     # - `mlt: auto` — use `mlt-core`'s default `EncoderConfig` (same as omitting the block)
@@ -242,7 +242,7 @@ postgres:
   # Postprocessing pipeline for all sources from this connection.
   # Overrides global `process`; overridden by per-source `process`.
   process:
-    # Encoder settings for MVT→MLT conversion. Conversion fires when a client
+    # Encoder settings for MVT->MLT conversion. Conversion fires when a client
     # sends `Accept: application/vnd.maplibre-tile`; this block only changes
     # the encoder configuration used for that conversion.
     # - `mlt: auto` — use `mlt-core`'s default `EncoderConfig` (same as omitting the block)
@@ -266,7 +266,7 @@ preferred_encoding: brotli
 # Postprocessing pipeline configuration (global level).
 # Overridden by source-type or per-source `process` blocks.
 process:
-  # Encoder settings for MVT→MLT conversion. Conversion fires when a client
+  # Encoder settings for MVT->MLT conversion. Conversion fires when a client
   # sends `Accept: application/vnd.maplibre-tile`; this block only changes
   # the encoder configuration used for that conversion.
   # - `mlt: auto` — use `mlt-core`'s default `EncoderConfig` (same as omitting the block)

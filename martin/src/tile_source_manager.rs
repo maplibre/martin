@@ -298,9 +298,9 @@ mod tests {
     /// from reaching the live catalog when `OnInvalid::Warn` is in effect.
     ///
     /// Simulates the directory-watcher loop:
-    /// 1. Watch a directory with one bad file → catalog empty.
-    /// 2. Add a valid file → catalog gains it.
-    /// 3. Delete the valid file → catalog drops it.
+    /// 1. Watch a directory with one bad file -> catalog empty.
+    /// 2. Add a valid file -> catalog gains it.
+    /// 3. Delete the valid file -> catalog drops it.
     #[tokio::test]
     async fn watcher_loop_around_persistent_bad_file() {
         use std::collections::BTreeMap;

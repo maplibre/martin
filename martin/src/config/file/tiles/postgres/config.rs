@@ -100,7 +100,7 @@ pub struct PostgresConfig {
     /// Associative arrays of function sources
     pub functions: Option<FuncInfoSources>,
 
-    /// MVT→MLT encoder settings for all sources from this connection.
+    /// MVT->MLT encoder settings for all sources from this connection.
     /// Overrides global; overridden by per-source `convert-to-mlt`.
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[serde(

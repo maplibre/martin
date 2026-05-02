@@ -739,7 +739,7 @@ test_accept_header table_source/0/0/0 "image/png, application/x-protobuf" 200
 test_accept_header table_source/0/0/0 "application/x-protobuf, image/png" 200
 test_accept_header table_source/0/0/0 "image/png" 406
 test_accept_header table_source/0/0/0 "image/*" 406
-# MVT → MLT pre-cache conversion: MLT Accept on an MVT source returns 200 with MLT body
+# MVT -> MLT pre-cache conversion: MLT Accept on an MVT source returns 200 with MLT body
 test_accept_header table_source/0/0/0 "application/vnd.maplibre-vector-tile" 200
 test_accept_header table_source/0/0/0 "application/vnd.maplibre-tile" 200
 test_accept_header table_source/0/0/0 "text/html" 406

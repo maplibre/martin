@@ -44,7 +44,7 @@ pub struct PmtConfig {
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub options: HashMap<String, String>,
 
-    /// MVT→MLT encoder settings for all `PMTiles` sources.
+    /// MVT->MLT encoder settings for all `PMTiles` sources.
     /// Overrides global; overridden by per-source `convert-to-mlt`.
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[serde(

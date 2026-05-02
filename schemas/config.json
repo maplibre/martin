@@ -811,7 +811,7 @@
       "type": "string"
     },
     "ProcessConfig": {
-      "description": "Encoder settings used by the post-processing pipeline.\n\n`process` does not enable conversion — clients drive that via the `Accept`\nheader (e.g. `Accept: application/vnd.maplibre-tile` triggers MVT→MLT). This\nblock only tunes *how* a conversion encodes when it fires. Can appear at\nthree levels: global, source-type, and per-source. Merge strategy is full\noverride: if a lower level specifies `process`, it completely replaces the\ninherited config.",
+      "description": "Encoder settings used by the post-processing pipeline.\n\n`process` does not enable conversion — clients drive that via the `Accept`\nheader (e.g. `Accept: application/vnd.maplibre-tile` triggers MVT->MLT). This\nblock only tunes *how* a conversion encodes when it fires. Can appear at\nthree levels: global, source-type, and per-source. Merge strategy is full\noverride: if a lower level specifies `process`, it completely replaces the\ninherited config.",
       "properties": {
         "mlt": {
           "anyOf": [
@@ -822,7 +822,7 @@
               "type": "null"
             }
           ],
-          "description": "Encoder settings for MVT→MLT conversion. Conversion fires when a client\nsends `Accept: application/vnd.maplibre-tile`; this block only changes\nthe encoder configuration used for that conversion.\n- `mlt: auto` — use `mlt-core`'s default `EncoderConfig` (same as omitting the block)\n- `mlt: { tessellate: true, ... }` — explicit encoder config overrides"
+          "description": "Encoder settings for MVT->MLT conversion. Conversion fires when a client\nsends `Accept: application/vnd.maplibre-tile`; this block only changes\nthe encoder configuration used for that conversion.\n- `mlt: auto` — use `mlt-core`'s default `EncoderConfig` (same as omitting the block)\n- `mlt: { tessellate: true, ... }` — explicit encoder config overrides"
         }
       },
       "type": "object"

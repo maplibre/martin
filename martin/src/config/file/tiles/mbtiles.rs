@@ -18,7 +18,7 @@ use crate::config::file::{
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct MbtConfig {
-    /// MVT→MLT encoder settings for all `MBTiles` sources.
+    /// MVT->MLT encoder settings for all `MBTiles` sources.
     /// Overrides global; overridden by per-source `convert-to-mlt`.
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[serde(

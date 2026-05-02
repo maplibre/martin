@@ -109,12 +109,12 @@ impl MartinError {
     /// failures) are rendered through miette so the user sees a pointer into the offending
     /// file. The `format` controls *how* miette renders:
     ///
-    /// * [`LogFormat::Json`](crate::logging::LogFormat::Json) →
+    /// * [`LogFormat::Json`](crate::logging::LogFormat::Json) ->
     ///   [`miette::JSONReportHandler`], emitting a structured JSON object with `message`,
     ///   `severity`, `code`, `help`, `url`, `filename`, and a `labels` array. Suitable for
     ///   editor tooling, CI, and log aggregation that already consumes the rest of
     ///   `martin`'s output as JSON.
-    /// * Any other format → [`miette::GraphicalReportHandler`], i.e. the snippet/caret
+    /// * Any other format -> [`miette::GraphicalReportHandler`], i.e. the snippet/caret
     ///   output a human reads on the terminal.
     ///
     /// Errors that don't carry source location info fall back to plain [`Display`] in both
