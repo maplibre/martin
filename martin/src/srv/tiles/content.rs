@@ -906,7 +906,7 @@ mod tests {
     }
 
     /// `Accept: mlt` against an MVT source resolves to MLT — the pre-cache
-    /// pipeline encodes on first miss. Conversion is implicit; no `process.mlt`
+    /// pipeline encodes on first miss. Conversion is implicit; no `process.convert-to-mlt`
     /// configuration is required to enable it.
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[rstest]

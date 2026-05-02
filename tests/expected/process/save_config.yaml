@@ -29,9 +29,8 @@ postgres:
       geometry_type: POINT
       properties:
         gid: int4
-      process:
-        mlt:
-          try_spatial_hilbert_sort: true
+      convert-to-mlt:
+        try_spatial_hilbert_sort: true
     table_source:
       schema: public
       table: table_source
@@ -45,12 +44,10 @@ postgres:
       geometry_type: GEOMETRY
       properties:
         gid: int4
-      process:
-        mlt:
-          tessellate: true
+      convert-to-mlt:
+        tessellate: true
   functions: {}
 mbtiles:
   sources:
     world_cities: tests/fixtures/mbtiles/world_cities.mbtiles
-process:
-  mlt: auto
+convert-to-mlt: auto

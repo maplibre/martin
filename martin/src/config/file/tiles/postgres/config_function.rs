@@ -7,7 +7,7 @@ use tracing::warn;
 
 use super::config::PostgresInfo;
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
-use crate::config::file::ProcessConfig;
+use crate::config::file::MltProcessConfig;
 #[cfg(feature = "unstable-schemas")]
 use crate::config::file::postgres::config_table::bounds_world_example;
 use crate::config::file::postgres::utils::patch_json;
@@ -55,11 +55,11 @@ pub struct FunctionInfo {
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub tilejson: Option<serde_json::Value>,
 
-    /// Postprocessing pipeline for this source.
-    /// Overrides source-type and global `process`.
+    /// MVT→MLT encoder settings for this source.
+    /// Overrides source-type and global `convert-to-mlt`.
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub process: Option<ProcessConfig>,
+    #[serde(default, skip_serializing_if = "Option::is_none", rename = "convert-to-mlt")]
+    pub convert_to_mlt: Option<MltProcessConfig>,
 
     #[serde(flatten, skip_serializing)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]

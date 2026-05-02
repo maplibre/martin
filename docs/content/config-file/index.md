@@ -37,18 +37,16 @@ The most specific level wins entirely (no merging between levels):
 
 ```yaml
 # Global: default MLT encoder settings for any source whose tiles get converted
-process:
-  mlt: auto
+convert-to-mlt: auto
 
 postgres:
   connection_string: postgresql://localhost/mydb
   # Source-type: override the encoder config for all PG sources
-  process: {}
+  convert-to-mlt: auto
   tables:
     my_table:
       # Per-source: this table uses the default MLT encoder config
-      process:
-        mlt: auto
+      convert-to-mlt: auto
 mbtiles: # gets global default
   - some/file.mbtiles
 ```

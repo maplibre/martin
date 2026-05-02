@@ -55,12 +55,18 @@ async fn start(args: Args) -> MartinResult<()> {
 
     #[cfg(feature = "mbtiles")]
     {
+        #[cfg(feature = "mlt")]
+        let global_pc = martin::config::file::ProcessConfig {
+            convert_to_mlt: config.convert_to_mlt.clone(),
+        };
         let reloader = MBTilesReloader::new(
             mgr,
             resolver,
             &config.mbtiles,
-            #[cfg(all(feature = "mlt", feature = "_tiles"))]
-            config.process.as_ref(),
+            #[cfg(feature = "mlt")]
+            config.convert_to_mlt.as_ref().map(|_| &global_pc),
+            #[cfg(not(feature = "mlt"))]
+            None,
         );
         if let Err(e) = reloader.start() {
             tracing::warn!("failed to start MBTilesReloader {e:?}");

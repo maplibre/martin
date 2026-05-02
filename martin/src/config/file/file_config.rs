@@ -18,7 +18,8 @@ use tracing::{info, warn};
 #[cfg(feature = "_tiles")]
 use url::Url;
 
-use crate::config::file::ProcessConfig;
+#[cfg(all(feature = "mlt", feature = "_tiles"))]
+use crate::config::file::MltProcessConfig;
 use crate::config::file::{ConfigFileError, ConfigFileResult};
 #[cfg(feature = "_tiles")]
 use crate::config::file::{ResolutionResult, TileSourceWarning};
@@ -374,10 +375,11 @@ fn is_sqlite_memory_uri(path: &Path) -> bool {
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct FileConfigSource {
     pub path: PathBuf,
-    /// Postprocessing pipeline for this source.
-    /// Overrides source-type and global `process`.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub process: Option<ProcessConfig>,
+    /// MVT→MLT encoder settings for this source.
+    /// Overrides source-type and global `convert-to-mlt`.
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[serde(default, skip_serializing_if = "Option::is_none", rename = "convert-to-mlt")]
+    pub convert_to_mlt: Option<MltProcessConfig>,
     /// Zoom-level bounds for tile caching.
     #[serde(default, skip_serializing_if = "CachePolicy::is_empty")]
     #[cfg_attr(feature = "unstable-schemas", schemars(with = "CachePolicyShape"))]

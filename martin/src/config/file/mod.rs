@@ -13,7 +13,9 @@ pub use error::{ConfigFileError, ConfigFileResult};
 pub mod process;
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 pub use process::{MltEncoderConfig, MltProcessConfig};
-pub use process::{ProcessConfig, resolve_process_config};
+pub use process::ProcessConfig;
+#[cfg(all(feature = "mlt", feature = "_tiles"))]
+pub(crate) use process::resolve_process_config;
 
 #[cfg(any(feature = "fonts", feature = "sprites", feature = "styles"))]
 mod resources;

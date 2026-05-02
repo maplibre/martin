@@ -78,7 +78,7 @@ impl PostgresArgs {
                 tables: None,
                 functions: None,
                 #[cfg(all(feature = "mlt", feature = "_tiles"))]
-                process: None,
+                convert_to_mlt: None,
                 unrecognized: UnrecognizedValues::default(),
             })
             .collect();

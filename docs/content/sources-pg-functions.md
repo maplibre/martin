@@ -177,8 +177,7 @@ postgres:
   connection_string: postgresql://localhost/mydb
   functions:
     my_function:
-      process:
-        mlt: auto
+      convert-to-mlt: auto
 ```
 
 ### Modifying TileJSON

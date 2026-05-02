@@ -57,8 +57,7 @@ postgres:
   connection_string: postgresql://localhost/mydb
   tables:
     my_table:
-      process:
-        mlt: auto
+      convert-to-mlt: auto
 ```
 
 ## TileJSON in SQL Comments

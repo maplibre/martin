@@ -8,7 +8,7 @@ use url::Url;
 
 use crate::MartinResult;
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
-use crate::config::file::ProcessConfig;
+use crate::config::file::MltProcessConfig;
 use crate::config::file::{
     CachePolicy, ConfigurationLivecycleHooks, TileSourceConfiguration, UnrecognizedKeys,
     UnrecognizedValues,
@@ -18,11 +18,11 @@ use crate::config::file::{
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct MbtConfig {
-    /// Postprocessing pipeline for all `MBTiles` sources.
-    /// Overrides global `process`; overridden by per-source `process`.
+    /// MVT→MLT encoder settings for all `MBTiles` sources.
+    /// Overrides global; overridden by per-source `convert-to-mlt`.
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub process: Option<ProcessConfig>,
+    #[serde(default, skip_serializing_if = "Option::is_none", rename = "convert-to-mlt")]
+    pub convert_to_mlt: Option<MltProcessConfig>,
 
     #[serde(flatten, skip_serializing)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
@@ -123,7 +123,7 @@ mod tests {
                     FileConfigSrc::Obj(FileConfigSource {
                         path: PathBuf::from("/tmp/file.ext"),
                         #[cfg(all(feature = "mlt", feature = "_tiles"))]
-                        process: None,
+                        convert_to_mlt: None,
                         cache: CachePolicy::default(),
                     })
                 ),
@@ -136,7 +136,7 @@ mod tests {
                     FileConfigSrc::Obj(FileConfigSource {
                         path: PathBuf::from("https://example.org/file4.ext"),
                         #[cfg(all(feature = "mlt", feature = "_tiles"))]
-                        process: None,
+                        convert_to_mlt: None,
                         cache: CachePolicy::default(),
                     })
                 ),
@@ -145,7 +145,7 @@ mod tests {
                     FileConfigSrc::Obj(FileConfigSource {
                         path: PathBuf::from("/tmp/cached.ext"),
                         #[cfg(all(feature = "mlt", feature = "_tiles"))]
-                        process: None,
+                        convert_to_mlt: None,
                         cache: CachePolicy::new(CacheZoomRange::new(Some(0), Some(6))),
                     })
                 ),

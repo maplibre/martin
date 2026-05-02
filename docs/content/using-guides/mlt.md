@@ -18,17 +18,14 @@ The default for this is optimised for size, optimises for network size (!= low C
 
 ## Quick Start
 
-Add `process: { mlt: auto }` in your config file to convert all MVT sources to MLT:
+Add `convert-to-mlt: auto` in your config file to convert all MVT sources to MLT:
 
 ```yaml
-process:
-  mlt: auto
+convert-to-mlt: auto
 
 # your existing source configuration
 postgres:
   connection_string: postgresql://localhost/mydb
-  process:
-    mlt: null
 pmtiles:
   sources:
     basemap: /data/basemap.pmtiles
@@ -39,14 +36,13 @@ Sources that produce other formats (raster, etc.) are unaffected.
 ## Scoping MLT Conversion
 
 You don't have to convert everything.
-The `process` block can be placed at three levels, and the most specific one wins entirely (see [Configuration File](../config-file/index.md) for details).
+The `convert-to-mlt` key can be placed at three levels, and the most specific one wins entirely (see [Configuration File](../config-file/index.md) for details).
 
 ### Convert only PostgreSQL sources
 
 ```yaml
 postgres:
-  process:
-    mlt: auto
+  convert-to-mlt: auto
   connection_string: postgresql://localhost/mydb
 ```
 
@@ -57,26 +53,24 @@ pmtiles:
   sources:
     basemap:
       path: /data/basemap.pmtiles
-      process:
-        mlt: auto
+      convert-to-mlt: auto
     imagery:
       path: /data/imagery.pmtiles
-      # no process — served as-is
+      # no convert-to-mlt — served as-is
 ```
 
 ## Tuning the Encoder
 
-`mlt: auto` uses "magic" default encoder settings, which work well for most data.
+`convert-to-mlt: auto` uses "magic" default encoder settings, which work well for most data.
 The `auto` preset is guaranteed to work on a reasonably new maplibre version, so for example `tessellation` will only be enabled if this has wider spread benefits.
 
 If you need to tweak encoding behavior, provide an explicit configuration:
 
 ```yaml
-process:
-  mlt:
-    tessellate: true
-    try_spatial_hilbert_sort: true
-    allow_fsst: false
+convert-to-mlt:
+  tessellate: true
+  try_spatial_hilbert_sort: true
+  allow_fsst: false
 ```
 
 All fields are optional. Only the fields you specify override the defaults; unset fields keep their `mlt-core` default values.
@@ -93,7 +87,7 @@ All fields are optional. Only the fields you specify override the defaults; unse
 
 !!! note
 
-    In most cases, `mlt: auto` is the right choice.
+    In most cases, `convert-to-mlt: auto` is the right choice.
     Only tune these settings if you've profiled your tiles and identified a specific bottleneck.
 
 !!! warning

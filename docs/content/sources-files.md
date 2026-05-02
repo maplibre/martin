@@ -22,12 +22,10 @@ See [Configuration File](config-file/index.md#postprocessing) for details.
 
 ```yaml
 pmtiles:
-  process: null
   sources:
     basemap:
       path: /data/basemap.pmtiles
-      process:
-        mlt: auto
+      convert-to-mlt: auto
 ```
 
 ### Autodiscovery

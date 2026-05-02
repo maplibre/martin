@@ -31,8 +31,8 @@ impl From<ProcessError> for actix_web::Error {
 ///
 /// Currently supports:
 /// - MVT -> MLT conversion when the client requests `application/vnd.maplibre-tile`
-///   (requires `mlt` feature). Encoder settings come from `config.mlt`; an absent
-///   block is treated as `mlt: auto` and uses `mlt-core`'s defaults.
+///   (requires `mlt` feature). Encoder settings come from `config.convert_to_mlt`; an absent
+///   block is treated as `convert-to-mlt: auto` and uses `mlt-core`'s defaults.
 ///
 /// Runs inside the cache miss path so cached entries are already post-processed.
 /// MVT and MLT requests are keyed separately in the tile cache, so both formats
@@ -48,7 +48,7 @@ pub fn apply_pre_cache_processors(
 
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     let tile = if accepted == Some(Format::Mlt) && tile.info.format == Format::Mvt {
-        let mlt_config = config.mlt.as_ref().unwrap_or(&MltProcessConfig::Auto);
+        let mlt_config = config.convert_to_mlt.as_ref().unwrap_or(&MltProcessConfig::Auto);
         convert_mvt_to_mlt(tile, mlt_config)?
     } else {
         tile
@@ -112,14 +112,14 @@ mod tests {
         assert!(result.data.is_empty());
     }
 
-    /// MVT-format request leaves the tile untouched even when `process.mlt`
+    /// MVT-format request leaves the tile untouched even when `process.convert-to-mlt`
     /// supplies encoder settings — settings only kick in for MLT-Accept clients.
     #[test]
     fn mvt_request_is_noop() {
         let tile = make_tile(vec![1, 2, 3], Format::Mvt, Encoding::Uncompressed);
         #[cfg(all(feature = "mlt", feature = "_tiles"))]
         let config = ProcessConfig {
-            mlt: Some(MltProcessConfig::Auto),
+            convert_to_mlt: Some(MltProcessConfig::Auto),
         };
         #[cfg(not(feature = "mlt"))]
         let config = ProcessConfig::default();
@@ -162,7 +162,7 @@ mod tests {
     fn mlt_accept_uses_explicit_encoder_overrides() {
         let tile = make_tile(minimal_mvt(), Format::Mvt, Encoding::Uncompressed);
         let config = ProcessConfig {
-            mlt: Some(MltProcessConfig::Auto),
+            convert_to_mlt: Some(MltProcessConfig::Auto),
         };
         let result = apply_pre_cache_processors(tile, &config, Some(Format::Mlt)).unwrap();
         assert_eq!(result.info.format, Format::Mlt);

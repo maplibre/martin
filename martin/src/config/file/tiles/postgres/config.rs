@@ -12,7 +12,7 @@ use tracing::warn;
 use super::{FuncInfoSources, TableInfoSources};
 use crate::config::args::{BoundsCalcType, DEFAULT_BOUNDS_TIMEOUT};
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
-use crate::config::file::ProcessConfig;
+use crate::config::file::MltProcessConfig;
 use crate::config::file::postgres::PostgresAutoDiscoveryBuilder;
 use crate::config::file::{
     CachePolicy, ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks, ResolutionResult,
@@ -100,11 +100,11 @@ pub struct PostgresConfig {
     /// Associative arrays of function sources
     pub functions: Option<FuncInfoSources>,
 
-    /// Postprocessing pipeline for all sources from this connection.
-    /// Overrides global `process`; overridden by per-source `process`.
+    /// MVT→MLT encoder settings for all sources from this connection.
+    /// Overrides global; overridden by per-source `convert-to-mlt`.
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub process: Option<ProcessConfig>,
+    #[serde(default, skip_serializing_if = "Option::is_none", rename = "convert-to-mlt")]
+    pub convert_to_mlt: Option<MltProcessConfig>,
 
     #[serde(flatten, skip_serializing)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]

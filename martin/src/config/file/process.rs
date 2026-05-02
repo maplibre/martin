@@ -1,26 +1,16 @@
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 use mlt_core::encoder::EncoderConfig;
+#[cfg(all(feature = "mlt", feature = "_tiles"))]
 use serde::{Deserialize, Serialize};
 
-/// Encoder settings used by the post-processing pipeline.
+/// Internal carrier for resolved per-source processing settings.
 ///
-/// `process` does not enable conversion — clients drive that via the `Accept`
-/// header (e.g. `Accept: application/vnd.maplibre-tile` triggers MVT→MLT). This
-/// block only tunes *how* a conversion encodes when it fires. Can appear at
-/// three levels: global, source-type, and per-source. Merge strategy is full
-/// override: if a lower level specifies `process`, it completely replaces the
-/// inherited config.
-#[serde_with::skip_serializing_none]
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
+/// Not serialized directly — config files use `convert-to-mlt` at each level
+/// instead of a nested `process` object.
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct ProcessConfig {
-    /// Encoder settings for MVT→MLT conversion. Conversion fires when a client
-    /// sends `Accept: application/vnd.maplibre-tile`; this block only changes
-    /// the encoder configuration used for that conversion.
-    /// - `mlt: auto` — use `mlt-core`'s default `EncoderConfig` (same as omitting the block)
-    /// - `mlt: { tessellate: true, ... }` — explicit encoder config overrides
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
-    pub mlt: Option<MltProcessConfig>,
+    pub convert_to_mlt: Option<MltProcessConfig>,
 }
 
 /// Configuration for MVT-to-MLT format conversion.
@@ -205,104 +195,71 @@ mod tests {
 
     use super::*;
 
-    #[test]
-    fn parse_empty() {
-        let cfg: ProcessConfig = serde_yaml::from_str("{}").unwrap();
-        assert_eq!(cfg, ProcessConfig::default());
-    }
-
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[test]
     fn parse_mlt_auto_string() {
-        let cfg: ProcessConfig = serde_yaml::from_str(indoc! {"
-            mlt: auto
-        "})
-        .unwrap();
-        assert_eq!(
-            cfg,
-            ProcessConfig {
-                mlt: Some(MltProcessConfig::Auto),
-            }
-        );
+        let cfg: MltProcessConfig = serde_yaml::from_str("auto").unwrap();
+        assert_eq!(cfg, MltProcessConfig::Auto);
     }
 
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[test]
     fn parse_mlt_explicit_empty() {
-        let cfg: ProcessConfig = serde_yaml::from_str(indoc! {"
-            mlt: {}
-        "})
-        .unwrap();
-        assert_eq!(
-            cfg,
-            ProcessConfig {
-                mlt: Some(MltProcessConfig::Explicit(MltEncoderConfig::default())),
-            }
-        );
+        let cfg: MltProcessConfig = serde_yaml::from_str("{}").unwrap();
+        assert_eq!(cfg, MltProcessConfig::Explicit(MltEncoderConfig::default()));
     }
 
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[test]
     fn parse_mlt_explicit_with_overrides() {
-        let cfg: ProcessConfig = serde_yaml::from_str(indoc! {"
-            mlt:
-              tessellate: true
-              allow_fsst: false
+        let cfg: MltProcessConfig = serde_yaml::from_str(indoc! {"
+            tessellate: true
+            allow_fsst: false
         "})
         .unwrap();
         assert_eq!(
             cfg,
-            ProcessConfig {
-                mlt: Some(MltProcessConfig::Explicit(MltEncoderConfig {
-                    tessellate: Some(true),
-                    allow_fsst: Some(false),
-                    ..Default::default()
-                })),
-            }
+            MltProcessConfig::Explicit(MltEncoderConfig {
+                tessellate: Some(true),
+                allow_fsst: Some(false),
+                ..Default::default()
+            })
         );
     }
 
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[test]
     fn serde_round_trip_auto() {
-        let cfg = ProcessConfig {
-            mlt: Some(MltProcessConfig::Auto),
-        };
+        let cfg = MltProcessConfig::Auto;
         let yaml = serde_yaml::to_string(&cfg).unwrap();
-        insta::assert_snapshot!(yaml, @"mlt: auto");
-        let parsed: ProcessConfig = serde_yaml::from_str(&yaml).unwrap();
+        insta::assert_snapshot!(yaml, @"auto");
+        let parsed: MltProcessConfig = serde_yaml::from_str(&yaml).unwrap();
         assert_eq!(cfg, parsed);
     }
 
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[test]
     fn serde_round_trip_explicit() {
-        let cfg = ProcessConfig {
-            mlt: Some(MltProcessConfig::Explicit(MltEncoderConfig {
-                tessellate: Some(true),
-                ..Default::default()
-            })),
-        };
+        let cfg = MltProcessConfig::Explicit(MltEncoderConfig {
+            tessellate: Some(true),
+            ..Default::default()
+        });
         let yaml = serde_yaml::to_string(&cfg).unwrap();
-        let parsed: ProcessConfig = serde_yaml::from_str(&yaml).unwrap();
+        let parsed: MltProcessConfig = serde_yaml::from_str(&yaml).unwrap();
         assert_eq!(cfg, parsed);
     }
 
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[test]
     fn parse_mlt_invalid_string() {
-        let result = serde_yaml::from_str::<ProcessConfig>(indoc! {"
-            mlt: invalid
-        "});
+        let result = serde_yaml::from_str::<MltProcessConfig>("invalid");
         assert!(result.is_err());
     }
 
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[test]
     fn parse_mlt_invalid_type() {
-        let result = serde_yaml::from_str::<ProcessConfig>(indoc! {"
-            mlt: 123
-        "});
+        let result = serde_yaml::from_str::<MltProcessConfig>("123");
         assert!(result.is_err());
     }
 
@@ -312,19 +269,8 @@ mod tests {
         use crate::config::test_helpers::render_failure;
         insta::assert_snapshot!(
             render_failure(indoc! {"
-                process:
-                  mlt: atuo
+                convert-to-mlt: atuo
             "}),
-            @r#"
-             × invalid value: string "atuo", expected the string "auto" or a map of
-             │ encoder settings
-              ╭─[config.yaml:2:3]
-            1 │ process:
-            2 │   mlt: atuo
-              ·   ─┬─
-              ·    ╰── invalid value: string "atuo", expected the string "auto" or a map of encoder settings
-              ╰────
-            "#
         );
     }
 
@@ -334,23 +280,12 @@ mod tests {
         use crate::config::test_helpers::render_failure;
         insta::assert_snapshot!(
             render_failure(indoc! {"
-                process:
-                  mlt: 42
+                convert-to-mlt: 42
             "}),
-            @r#"
-             × invalid type: integer `42`, expected the string "auto" or a map of encoder
-             │ settings
-              ╭─[config.yaml:2:3]
-            1 │ process:
-            2 │   mlt: 42
-              ·   ─┬─
-              ·    ╰── invalid type: integer `42`, expected the string "auto" or a map of encoder settings
-              ╰────
-            "#
         );
     }
 
-    /// Inner-field errors must point at the *value*, not the outer `mlt:` line —
+    /// Inner-field errors must point at the *value*, not the outer `convert-to-mlt:` line —
     /// proves the explicit branch hands the saphyr deserializer to `MltEncoderConfig`
     /// instead of routing through a `serde_yaml::Value`.
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
@@ -359,19 +294,9 @@ mod tests {
         use crate::config::test_helpers::render_failure;
         insta::assert_snapshot!(
             render_failure(indoc! {"
-                process:
-                  mlt:
-                    tessellate: yes-please
+                convert-to-mlt:
+                  tessellate: yes-please
             "}),
-            @r"
-             × invalid boolean
-              ╭─[config.yaml:3:17]
-            2 │   mlt:
-            3 │     tessellate: yes-please
-              ·                 ─────┬────
-              ·                      ╰── invalid boolean
-              ╰────
-            "
         );
     }
 
@@ -379,10 +304,10 @@ mod tests {
     #[test]
     fn resolve_per_source_overrides_all() {
         let global = ProcessConfig {
-            mlt: Some(MltProcessConfig::Auto),
+            convert_to_mlt: Some(MltProcessConfig::Auto),
         };
-        let source_type = ProcessConfig { mlt: None };
-        let per_source = ProcessConfig { mlt: None };
+        let source_type = ProcessConfig { convert_to_mlt: None };
+        let per_source = ProcessConfig { convert_to_mlt: None };
 
         let resolved = resolve_process_config(Some(&global), Some(&source_type), Some(&per_source));
         assert_eq!(resolved, per_source);
@@ -392,9 +317,9 @@ mod tests {
     #[test]
     fn resolve_source_type_overrides_global() {
         let global = ProcessConfig {
-            mlt: Some(MltProcessConfig::Auto),
+            convert_to_mlt: Some(MltProcessConfig::Auto),
         };
-        let source_type = ProcessConfig { mlt: None };
+        let source_type = ProcessConfig { convert_to_mlt: None };
 
         let resolved = resolve_process_config(Some(&global), Some(&source_type), None);
         assert_eq!(resolved, source_type);
@@ -404,7 +329,7 @@ mod tests {
     #[test]
     fn resolve_global_used_as_fallback() {
         let global = ProcessConfig {
-            mlt: Some(MltProcessConfig::Auto),
+            convert_to_mlt: Some(MltProcessConfig::Auto),
         };
 
         let resolved = resolve_process_config(Some(&global), None, None);
