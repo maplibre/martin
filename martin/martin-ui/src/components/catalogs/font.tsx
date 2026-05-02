@@ -1,6 +1,7 @@
 import { Eye, Search, Type } from 'lucide-react';
 
 import { ErrorState } from '@/components/error/error-state';
+import { FontPreviewCanvas } from '@/components/font-preview-canvas';
 import { CatalogSkeleton } from '@/components/loading/catalog-skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -97,19 +98,7 @@ export function FontCatalog({
               <div className="space-y-4">
                 <div className="p-3 bg-gray-50 text-gray-900 rounded-lg">
                   <p className="text-sm font-medium mb-2 text-gray-900">Preview:</p>
-                  <Tooltip>
-                    <TooltipTrigger className="cursor-help">
-                      <p
-                        className="text-base text-gray-900 blur-xs animate-pulse"
-                        style={{ fontFamily: font.family, fontWeight: 500 }}
-                      >
-                        The quick brown fox jumps over the lazy dog
-                      </p>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Not currently implemented in the frontend</p>
-                    </TooltipContent>
-                  </Tooltip>
+                  <FontPreviewCanvas fontName={name} />
                 </div>
                 <div className="space-y-2 text-sm text-muted-foreground">
                   <div className="flex justify-between">
