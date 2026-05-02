@@ -121,8 +121,8 @@ impl<'de> Deserialize<'de> for MltProcessConfig {
 impl From<&MltProcessConfig> for EncoderConfig {
     fn from(src: &MltProcessConfig) -> Self {
         match src {
-            MltProcessConfig::Auto => EncoderConfig::default(),
-            MltProcessConfig::Explicit(cfg) => EncoderConfig::from(cfg.clone()),
+            MltProcessConfig::Auto => Self::default(),
+            MltProcessConfig::Explicit(cfg) => Self::from(cfg.clone()),
         }
     }
 }
