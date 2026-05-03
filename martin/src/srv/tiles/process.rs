@@ -39,16 +39,16 @@ impl From<ProcessError> for actix_web::Error {
 /// coexist naturally.
 pub fn apply_pre_cache_processors(
     tile: Tile,
-    _config: &ProcessConfig,
-    _accepted: Option<Format>,
+    #[cfg(all(feature = "mlt", feature = "_tiles"))] config: &ProcessConfig,
+    #[cfg(all(feature = "mlt", feature = "_tiles"))] accepted: Option<Format>,
 ) -> Result<Tile, ProcessError> {
     if tile.data.is_empty() {
         return Ok(tile);
     }
 
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
-    let tile = if _accepted == Some(Format::Mlt) && tile.info.format == Format::Mvt {
-        let mlt_config = _config
+    let tile = if accepted == Some(Format::Mlt) && tile.info.format == Format::Mvt {
+        let mlt_config = config
             .convert_to_mlt
             .as_ref()
             .unwrap_or(&MltProcessConfig::Auto);
@@ -115,24 +115,19 @@ mod tests {
         assert!(result.data.is_empty());
     }
 
-    /// MVT-format request leaves the tile untouched even when `process.convert-to-mlt`
-    /// supplies encoder settings — settings only kick in for MLT-Accept clients.
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[test]
     fn mvt_request_is_noop() {
         let tile = make_tile(vec![1, 2, 3], Format::Mvt, Encoding::Uncompressed);
-        #[cfg(all(feature = "mlt", feature = "_tiles"))]
         let config = ProcessConfig {
             convert_to_mlt: Some(MltProcessConfig::Auto),
         };
-        #[cfg(not(feature = "mlt"))]
-        let config = ProcessConfig::default();
         let result = apply_pre_cache_processors(tile, &config, Some(Format::Mvt)).unwrap();
         assert_eq!(result.data, vec![1, 2, 3]);
         assert_eq!(result.info.format, Format::Mvt);
     }
 
-    /// No `Accept` header means no client-driven format preference, so we leave
-    /// the source tile alone — the catalog's native format is what gets served.
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[test]
     fn no_accept_header_is_noop() {
         let tile = make_tile(vec![1, 2, 3], Format::Mvt, Encoding::Uncompressed);

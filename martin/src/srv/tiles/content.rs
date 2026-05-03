@@ -375,7 +375,7 @@ impl<'a> DynTileSource<'a> {
         let mut tiles = try_join_all(self.sources.iter().map(|(s, pc)| async {
             let fetch_and_process = || async {
                 let tile = s.get_tile_with_etag(xyz, self.query_obj.as_ref()).await?;
-                apply_pre_cache_processors(tile, pc, self.accepted_format)
+                apply_pre_cache_processors(tile, #[cfg(all(feature = "mlt", feature = "_tiles"))] pc, #[cfg(all(feature = "mlt", feature = "_tiles"))] self.accepted_format)
                     .map_err(|e| martin_core::tiles::MartinCoreError::OtherError(Box::new(e)))
             };
             let cache_zoom_ok = s.cache_zoom().contains(xyz.z);
