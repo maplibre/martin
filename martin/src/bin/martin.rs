@@ -12,6 +12,7 @@ use martin::config::file::{Config, read_config};
 use martin::config::primitives::IdResolver;
 use martin::config::primitives::env::OsEnv;
 use martin::logging::{LogFormat, ensure_martin_core_log_level_matches, init_tracing};
+use martin::config::file::ProcessConfig;
 #[cfg(feature = "_tiles")]
 use martin::srv::RESERVED_KEYWORDS;
 use martin::srv::new_server;
@@ -56,7 +57,7 @@ async fn start(args: Args) -> MartinResult<()> {
     #[cfg(feature = "mbtiles")]
     {
         #[cfg(feature = "mlt")]
-        let global_pc = martin::config::file::ProcessConfig {
+        let global_pc = ProcessConfig {
             convert_to_mlt: config.convert_to_mlt.clone(),
         };
         let reloader = MBTilesReloader::new(
