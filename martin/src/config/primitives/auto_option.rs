@@ -76,7 +76,7 @@ impl<'de, T: Deserialize<'de>> Visitor<'de> for AutoOptionVisitor<T> {
 
     fn visit_str<E: de::Error>(self, v: &str) -> Result<Self::Value, E> {
         match v {
-            "auto" | "default" => Ok(AutoOption::Auto),
+            "auto" | "default" | "true" => Ok(AutoOption::Auto),
             "disabled" | "false" | "off" | "no" => Ok(AutoOption::Disabled),
             _ => Err(E::invalid_value(Unexpected::Str(v), &self)),
         }
@@ -107,7 +107,7 @@ impl<T: schemars::JsonSchema> schemars::JsonSchema for AutoOption<T> {
             "oneOf": [
                 {
                     "type": "string",
-                    "enum": ["auto", "default"],
+                    "enum": ["auto", "default", "true"],
                     "description": "Use the feature with default settings."
                 },
                 {
@@ -149,6 +149,7 @@ mod tests {
     #[case("no", AutoOption::Disabled)]
     #[case("false", AutoOption::Disabled)]
     #[case("\"false\"", AutoOption::Disabled)]
+    #[case("\"true\"", AutoOption::Auto)]
     fn parse_keyword(#[case] input: &str, #[case] expected: AutoOption<DummyCfg>) {
         let v: AutoOption<DummyCfg> = serde_yaml::from_str(input).unwrap();
         assert_eq!(v, expected);
