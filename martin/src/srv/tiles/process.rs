@@ -94,12 +94,6 @@ mod tests {
     use martin_core::tiles::Tile;
     use martin_tile_utils::{Encoding, Format, TileInfo};
 
-    use super::*;
-
-    fn make_tile(data: Vec<u8>, format: Format, encoding: Encoding) -> Tile {
-        Tile::new_hash_etag(data, TileInfo::new(format, encoding))
-    }
-
     /// Minimal valid MVT tile: one layer named "x", version=2, extent=4096, no features.
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     fn minimal_mvt() -> Vec<u8> {
