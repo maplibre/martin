@@ -541,33 +541,33 @@ impl Config {
 
             #[cfg(feature = "postgres")]
             {
-            use crate::config::file::process::resolve_process_config;
-            for pg in self.postgres.iter() {
-                let st_pc = ProcessConfig {
-                    convert_to_mlt: pg.convert_to_mlt.clone(),
-                };
-                let source_type = pg.convert_to_mlt.as_ref().map(|_| &st_pc);
-                if let Some(tables) = &pg.tables {
-                    for (id, info) in tables {
-                        let ps_pc = ProcessConfig {
-                            convert_to_mlt: info.convert_to_mlt.clone(),
-                        };
-                        let per_source = info.convert_to_mlt.as_ref().map(|_| &ps_pc);
-                        let resolved = resolve_process_config(global, source_type, per_source);
-                        map.insert(id.clone(), resolved);
+                use crate::config::file::process::resolve_process_config;
+                for pg in self.postgres.iter() {
+                    let st_pc = ProcessConfig {
+                        convert_to_mlt: pg.convert_to_mlt.clone(),
+                    };
+                    let source_type = pg.convert_to_mlt.as_ref().map(|_| &st_pc);
+                    if let Some(tables) = &pg.tables {
+                        for (id, info) in tables {
+                            let ps_pc = ProcessConfig {
+                                convert_to_mlt: info.convert_to_mlt.clone(),
+                            };
+                            let per_source = info.convert_to_mlt.as_ref().map(|_| &ps_pc);
+                            let resolved = resolve_process_config(global, source_type, per_source);
+                            map.insert(id.clone(), resolved);
+                        }
+                    }
+                    if let Some(functions) = &pg.functions {
+                        for (id, info) in functions {
+                            let ps_pc = ProcessConfig {
+                                convert_to_mlt: info.convert_to_mlt.clone(),
+                            };
+                            let per_source = info.convert_to_mlt.as_ref().map(|_| &ps_pc);
+                            let resolved = resolve_process_config(global, source_type, per_source);
+                            map.insert(id.clone(), resolved);
+                        }
                     }
                 }
-                if let Some(functions) = &pg.functions {
-                    for (id, info) in functions {
-                        let ps_pc = ProcessConfig {
-                            convert_to_mlt: info.convert_to_mlt.clone(),
-                        };
-                        let per_source = info.convert_to_mlt.as_ref().map(|_| &ps_pc);
-                        let resolved = resolve_process_config(global, source_type, per_source);
-                        map.insert(id.clone(), resolved);
-                    }
-                }
-            }
             }
 
             #[cfg(feature = "pmtiles")]
