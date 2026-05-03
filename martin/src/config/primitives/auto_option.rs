@@ -1,0 +1,309 @@
+use std::fmt;
+
+use serde::de::value::MapAccessDeserializer;
+use serde::de::{self, MapAccess, Unexpected, Visitor};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+/// A generic three-state configuration value: auto, disabled, or explicit.
+///
+/// Accepts YAML/JSON values:
+/// - **Strings** `"auto"` or `"default"` → [`Auto`](Self::Auto)
+/// - **Strings** `"disabled"`, `"false"`, `"off"`, `"no"` → [`Disabled`](Self::Disabled)
+/// - **Booleans** `true` → [`Auto`](Self::Auto), `false` → [`Disabled`](Self::Disabled)
+/// - **An object / map** → [`Explicit(T)`](Self::Explicit) (deserialized as `T`)
+///
+/// The custom [`Deserialize`] impl drives the deserializer directly (via
+/// [`deserialize_any`]) so that saphyr source spans survive into miette
+/// diagnostics.  Going through an intermediate `serde_yaml::Value` would
+/// strip them.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub enum AutoOption<T> {
+    /// Use the feature with its default settings.
+    #[default]
+    Auto,
+    /// Feature is explicitly disabled.
+    Disabled,
+    /// Feature is enabled with explicit settings.
+    Explicit(T),
+}
+
+impl<T> AutoOption<T> {
+    /// Returns `true` if this is the [`Disabled`](Self::Disabled) variant.
+    #[must_use]
+    pub fn is_disabled(&self) -> bool {
+        matches!(self, Self::Disabled)
+    }
+
+    /// Returns `true` if this is the [`Auto`](Self::Auto) variant.
+    #[must_use]
+    pub fn is_auto(&self) -> bool {
+        matches!(self, Self::Auto)
+    }
+
+    /// Returns a reference to the explicit value, if present.
+    #[must_use]
+    pub fn as_explicit(&self) -> Option<&T> {
+        match self {
+            Self::Explicit(v) => Some(v),
+            _ => None,
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Serde
+// ---------------------------------------------------------------------------
+
+impl<T: Serialize> Serialize for AutoOption<T> {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        match self {
+            Self::Auto => serializer.serialize_str("auto"),
+            Self::Disabled => serializer.serialize_str("disabled"),
+            Self::Explicit(cfg) => cfg.serialize(serializer),
+        }
+    }
+}
+
+impl<'de, T: Deserialize<'de>> Deserialize<'de> for AutoOption<T> {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        deserializer.deserialize_any(AutoOptionVisitor(std::marker::PhantomData))
+    }
+}
+
+struct AutoOptionVisitor<T>(std::marker::PhantomData<T>);
+
+impl<'de, T: Deserialize<'de>> Visitor<'de> for AutoOptionVisitor<T> {
+    type Value = AutoOption<T>;
+
+    fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(
+            r#"a string ("auto", "default", "disabled", "false", "off", "no"), a boolean, or a map of settings"#,
+        )
+    }
+
+    fn visit_bool<E: de::Error>(self, v: bool) -> Result<Self::Value, E> {
+        Ok(if v {
+            AutoOption::Auto
+        } else {
+            AutoOption::Disabled
+        })
+    }
+
+    fn visit_str<E: de::Error>(self, v: &str) -> Result<Self::Value, E> {
+        match v {
+            "auto" | "default" => Ok(AutoOption::Auto),
+            "disabled" | "false" | "off" | "no" => Ok(AutoOption::Disabled),
+            _ => Err(E::invalid_value(Unexpected::Str(v), &self)),
+        }
+    }
+
+    fn visit_map<M: MapAccess<'de>>(self, map: M) -> Result<Self::Value, M::Error> {
+        let cfg = T::deserialize(MapAccessDeserializer::new(map))?;
+        Ok(AutoOption::Explicit(cfg))
+    }
+}
+
+// ---------------------------------------------------------------------------
+// JSON Schema (schemars)
+// ---------------------------------------------------------------------------
+
+#[cfg(feature = "unstable-schemas")]
+impl<T: schemars::JsonSchema> schemars::JsonSchema for AutoOption<T> {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Owned(format!("AutoOption_{}", T::schema_name()))
+    }
+
+    fn json_schema(generator: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        let inner = generator.subschema_for::<T>();
+        schemars::json_schema!({
+            "description": format!(
+                "Auto/disabled/explicit configuration.\n\n\
+                 - `\"auto\"` or `\"default\"` — use defaults\n\
+                 - `\"disabled\"`, `\"false\"`, `\"off\"`, `\"no\"` — disable\n\
+                 - An object — explicit {} settings",
+                T::schema_name()
+            ),
+            "oneOf": [
+                {
+                    "type": "string",
+                    "enum": ["auto", "default"],
+                    "description": "Use the feature with default settings."
+                },
+                {
+                    "type": "string",
+                    "enum": ["disabled", "false", "off", "no"],
+                    "description": "Disable the feature."
+                },
+                {
+                    "type": "boolean",
+                    "description": "true = auto (defaults), false = disabled."
+                },
+                inner,
+            ]
+        })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use rstest::rstest;
+    use serde::Deserialize;
+
+    use super::*;
+
+    #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+    struct DummyCfg {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        foo: Option<bool>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        bar: Option<u32>,
+    }
+
+    // -- YAML keyword parsing (case-sensitive) --
+
+    #[rstest]
+    #[case("auto", AutoOption::Auto)]
+    #[case("default", AutoOption::Auto)]
+    #[case("true", AutoOption::Auto)]
+    #[case("disabled", AutoOption::Disabled)]
+    #[case("off", AutoOption::Disabled)]
+    #[case("no", AutoOption::Disabled)]
+    #[case("false", AutoOption::Disabled)]
+    fn parse_yaml_keyword(#[case] input: &str, #[case] expected: AutoOption<DummyCfg>) {
+        let v: AutoOption<DummyCfg> = serde_yaml::from_str(input).unwrap();
+        assert_eq!(v, expected);
+    }
+
+    #[test]
+    fn parse_yaml_quoted_false_string() {
+        let v: AutoOption<DummyCfg> = serde_yaml::from_str("\"false\"").unwrap();
+        assert_eq!(v, AutoOption::Disabled);
+    }
+
+    // -- Explicit variants --
+
+    #[test]
+    fn parse_explicit_empty_map() {
+        let v: AutoOption<DummyCfg> = serde_yaml::from_str("{}").unwrap();
+        assert_eq!(v, AutoOption::Explicit(DummyCfg::default()));
+    }
+
+    #[test]
+    fn parse_explicit_with_fields() {
+        let v: AutoOption<DummyCfg> = serde_yaml::from_str("foo: true\nbar: 42").unwrap();
+        assert_eq!(
+            v,
+            AutoOption::Explicit(DummyCfg {
+                foo: Some(true),
+                bar: Some(42),
+            })
+        );
+    }
+
+    // -- Round-trip --
+
+    #[test]
+    fn serde_round_trip_auto() {
+        let v = AutoOption::<DummyCfg>::Auto;
+        let yaml = serde_yaml::to_string(&v).unwrap();
+        insta::assert_snapshot!(yaml, @"auto");
+        let parsed: AutoOption<DummyCfg> = serde_yaml::from_str(&yaml).unwrap();
+        assert_eq!(v, parsed);
+    }
+
+    #[test]
+    fn serde_round_trip_disabled() {
+        let v = AutoOption::<DummyCfg>::Disabled;
+        let yaml = serde_yaml::to_string(&v).unwrap();
+        insta::assert_snapshot!(yaml, @"disabled");
+        let parsed: AutoOption<DummyCfg> = serde_yaml::from_str(&yaml).unwrap();
+        assert_eq!(v, parsed);
+    }
+
+    #[test]
+    fn serde_round_trip_explicit() {
+        let v = AutoOption::Explicit(DummyCfg {
+            foo: Some(true),
+            bar: None,
+        });
+        let yaml = serde_yaml::to_string(&v).unwrap();
+        let parsed: AutoOption<DummyCfg> = serde_yaml::from_str(&yaml).unwrap();
+        assert_eq!(v, parsed);
+    }
+
+    // -- Error cases --
+
+    #[rstest]
+    #[case("nope")]
+    #[case("42")]
+    fn parse_invalid(#[case] input: &str) {
+        assert!(serde_yaml::from_str::<AutoOption<DummyCfg>>(input).is_err());
+    }
+
+    // -- Helper methods --
+
+    #[test]
+    fn helper_is_disabled() {
+        assert!(AutoOption::<DummyCfg>::Disabled.is_disabled());
+        assert!(!AutoOption::<DummyCfg>::Auto.is_disabled());
+        assert!(!AutoOption::Explicit(DummyCfg::default()).is_disabled());
+    }
+
+    #[test]
+    fn helper_is_auto() {
+        assert!(AutoOption::<DummyCfg>::Auto.is_auto());
+        assert!(!AutoOption::<DummyCfg>::Disabled.is_auto());
+        assert!(!AutoOption::Explicit(DummyCfg::default()).is_auto());
+    }
+
+    #[test]
+    fn helper_as_explicit() {
+        let cfg = DummyCfg {
+            foo: Some(true),
+            bar: Some(1),
+        };
+        assert_eq!(AutoOption::Explicit(cfg.clone()).as_explicit(), Some(&cfg));
+        assert_eq!(AutoOption::<DummyCfg>::Auto.as_explicit(), None);
+        assert_eq!(AutoOption::<DummyCfg>::Disabled.as_explicit(), None);
+    }
+
+    // -- JSON --
+
+    #[rstest]
+    #[case(r#""auto""#, AutoOption::Auto)]
+    #[case(r#""disabled""#, AutoOption::Disabled)]
+    #[case("true", AutoOption::Auto)]
+    #[case("false", AutoOption::Disabled)]
+    fn parse_json_keyword(#[case] input: &str, #[case] expected: AutoOption<DummyCfg>) {
+        let v: AutoOption<DummyCfg> = serde_json::from_str(input).unwrap();
+        assert_eq!(v, expected);
+    }
+
+    #[test]
+    fn json_explicit() {
+        let v: AutoOption<DummyCfg> = serde_json::from_str(r#"{"foo": true, "bar": 5}"#).unwrap();
+        assert_eq!(
+            v,
+            AutoOption::Explicit(DummyCfg {
+                foo: Some(true),
+                bar: Some(5),
+            })
+        );
+    }
+
+    // -- Option<AutoOption<T>> for config layering --
+
+    #[test]
+    fn option_none_means_not_set() {
+        let v: Option<AutoOption<DummyCfg>> = serde_yaml::from_str("---\n~").unwrap();
+        assert_eq!(v, None);
+    }
+
+    #[rstest]
+    #[case("auto", Some(AutoOption::Auto))]
+    #[case("disabled", Some(AutoOption::Disabled))]
+    fn option_some(#[case] input: &str, #[case] expected: Option<AutoOption<DummyCfg>>) {
+        let v: Option<AutoOption<DummyCfg>> = serde_yaml::from_str(input).unwrap();
+        assert_eq!(v, expected);
+    }
+}
