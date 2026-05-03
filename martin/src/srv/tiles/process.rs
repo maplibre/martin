@@ -1,11 +1,11 @@
 use martin_core::tiles::Tile;
+#[cfg(all(feature = "mlt", feature = "_tiles"))]
 use martin_tile_utils::Format;
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 use mlt_core::encoder::EncoderConfig;
 
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
-use crate::config::file::MltProcessConfig;
-use crate::config::file::ProcessConfig;
+use crate::config::file::{MltProcessConfig, ProcessConfig};
 
 /// Errors that can occur during tile post-processing.
 #[derive(thiserror::Error, Debug)]
