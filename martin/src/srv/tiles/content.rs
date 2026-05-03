@@ -372,7 +372,10 @@ impl<'a> DynTileSource<'a> {
         err(Debug),
     )]
     pub async fn get_tile_content(&self, xyz: TileCoord) -> ActixResult<Tile> {
-        #[cfg_attr(not(all(feature = "mlt", feature = "_tiles")), expect(unused_variables))]
+        #[cfg_attr(
+            not(all(feature = "mlt", feature = "_tiles")),
+            expect(unused_variables)
+        )]
         let mut tiles = try_join_all(self.sources.iter().map(|(s, pc)| async {
             let fetch_and_process = || async {
                 let tile = s.get_tile_with_etag(xyz, self.query_obj.as_ref()).await?;
