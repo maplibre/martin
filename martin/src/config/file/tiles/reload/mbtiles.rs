@@ -59,10 +59,10 @@ impl MBTilesReloader {
                 },
                 _ => ProcessConfig::default(),
             };
-            let source_type = if st_pc != ProcessConfig::default() {
-                Some(&st_pc)
-            } else {
+            let source_type = if st_pc == ProcessConfig::default() {
                 None
+            } else {
+                Some(&st_pc)
             };
             resolve_process_config(global_process, source_type, None)
         };
