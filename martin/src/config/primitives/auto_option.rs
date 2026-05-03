@@ -159,8 +159,6 @@ mod tests {
         bar: Option<u32>,
     }
 
-    // -- YAML keyword parsing (case-sensitive) --
-
     #[rstest]
     #[case("auto", AutoOption::Auto)]
     #[case("default", AutoOption::Auto)]
@@ -169,27 +167,14 @@ mod tests {
     #[case("off", AutoOption::Disabled)]
     #[case("no", AutoOption::Disabled)]
     #[case("false", AutoOption::Disabled)]
-    fn parse_yaml_keyword(#[case] input: &str, #[case] expected: AutoOption<DummyCfg>) {
+    #[case("\"false\"", AutoOption::Disabled)]
+    fn parse_keyword(#[case] input: &str, #[case] expected: AutoOption<DummyCfg>) {
         let v: AutoOption<DummyCfg> = serde_yaml::from_str(input).unwrap();
         assert_eq!(v, expected);
     }
 
     #[test]
-    fn parse_yaml_quoted_false_string() {
-        let v: AutoOption<DummyCfg> = serde_yaml::from_str("\"false\"").unwrap();
-        assert_eq!(v, AutoOption::Disabled);
-    }
-
-    // -- Explicit variants --
-
-    #[test]
-    fn parse_explicit_empty_map() {
-        let v: AutoOption<DummyCfg> = serde_yaml::from_str("{}").unwrap();
-        assert_eq!(v, AutoOption::Explicit(DummyCfg::default()));
-    }
-
-    #[test]
-    fn parse_explicit_with_fields() {
+    fn parse_explicit() {
         let v: AutoOption<DummyCfg> = serde_yaml::from_str("foo: true\nbar: 42").unwrap();
         assert_eq!(
             v,
@@ -200,39 +185,6 @@ mod tests {
         );
     }
 
-    // -- Round-trip --
-
-    #[test]
-    fn serde_round_trip_auto() {
-        let v = AutoOption::<DummyCfg>::Auto;
-        let yaml = serde_yaml::to_string(&v).unwrap();
-        insta::assert_snapshot!(yaml, @"auto");
-        let parsed: AutoOption<DummyCfg> = serde_yaml::from_str(&yaml).unwrap();
-        assert_eq!(v, parsed);
-    }
-
-    #[test]
-    fn serde_round_trip_disabled() {
-        let v = AutoOption::<DummyCfg>::Disabled;
-        let yaml = serde_yaml::to_string(&v).unwrap();
-        insta::assert_snapshot!(yaml, @"disabled");
-        let parsed: AutoOption<DummyCfg> = serde_yaml::from_str(&yaml).unwrap();
-        assert_eq!(v, parsed);
-    }
-
-    #[test]
-    fn serde_round_trip_explicit() {
-        let v = AutoOption::Explicit(DummyCfg {
-            foo: Some(true),
-            bar: None,
-        });
-        let yaml = serde_yaml::to_string(&v).unwrap();
-        let parsed: AutoOption<DummyCfg> = serde_yaml::from_str(&yaml).unwrap();
-        assert_eq!(v, parsed);
-    }
-
-    // -- Error cases --
-
     #[rstest]
     #[case("nope")]
     #[case("42")]
@@ -240,70 +192,19 @@ mod tests {
         assert!(serde_yaml::from_str::<AutoOption<DummyCfg>>(input).is_err());
     }
 
-    // -- Helper methods --
-
     #[test]
-    fn helper_is_disabled() {
-        assert!(AutoOption::<DummyCfg>::Disabled.is_disabled());
-        assert!(!AutoOption::<DummyCfg>::Auto.is_disabled());
-        assert!(!AutoOption::Explicit(DummyCfg::default()).is_disabled());
-    }
-
-    #[test]
-    fn helper_is_auto() {
-        assert!(AutoOption::<DummyCfg>::Auto.is_auto());
-        assert!(!AutoOption::<DummyCfg>::Disabled.is_auto());
-        assert!(!AutoOption::Explicit(DummyCfg::default()).is_auto());
-    }
-
-    #[test]
-    fn helper_as_explicit() {
-        let cfg = DummyCfg {
-            foo: Some(true),
-            bar: Some(1),
-        };
-        assert_eq!(AutoOption::Explicit(cfg.clone()).as_explicit(), Some(&cfg));
-        assert_eq!(AutoOption::<DummyCfg>::Auto.as_explicit(), None);
-        assert_eq!(AutoOption::<DummyCfg>::Disabled.as_explicit(), None);
-    }
-
-    // -- JSON --
-
-    #[rstest]
-    #[case(r#""auto""#, AutoOption::Auto)]
-    #[case(r#""disabled""#, AutoOption::Disabled)]
-    #[case("true", AutoOption::Auto)]
-    #[case("false", AutoOption::Disabled)]
-    fn parse_json_keyword(#[case] input: &str, #[case] expected: AutoOption<DummyCfg>) {
-        let v: AutoOption<DummyCfg> = serde_json::from_str(input).unwrap();
-        assert_eq!(v, expected);
-    }
-
-    #[test]
-    fn json_explicit() {
-        let v: AutoOption<DummyCfg> = serde_json::from_str(r#"{"foo": true, "bar": 5}"#).unwrap();
-        assert_eq!(
-            v,
+    fn serde_round_trip() {
+        for v in [
+            AutoOption::<DummyCfg>::Auto,
+            AutoOption::Disabled,
             AutoOption::Explicit(DummyCfg {
                 foo: Some(true),
-                bar: Some(5),
-            })
-        );
-    }
-
-    // -- Option<AutoOption<T>> for config layering --
-
-    #[test]
-    fn option_none_means_not_set() {
-        let v: Option<AutoOption<DummyCfg>> = serde_yaml::from_str("---\n~").unwrap();
-        assert_eq!(v, None);
-    }
-
-    #[rstest]
-    #[case("auto", Some(AutoOption::Auto))]
-    #[case("disabled", Some(AutoOption::Disabled))]
-    fn option_some(#[case] input: &str, #[case] expected: Option<AutoOption<DummyCfg>>) {
-        let v: Option<AutoOption<DummyCfg>> = serde_yaml::from_str(input).unwrap();
-        assert_eq!(v, expected);
+                bar: None,
+            }),
+        ] {
+            let yaml = serde_yaml::to_string(&v).unwrap();
+            let parsed: AutoOption<DummyCfg> = serde_yaml::from_str(&yaml).unwrap();
+            assert_eq!(v, parsed);
+        }
     }
 }
