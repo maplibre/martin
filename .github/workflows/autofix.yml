@@ -20,7 +20,7 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with: { persist-credentials: false }
-      - uses: taiki-e/install-action@5f57d6cb7cd20b14a8a27f522884c4bc8a187458 # v2.75.19
+      - uses: taiki-e/install-action@cf525cb33f51aca27cd6fa02034117ab963ff9f1 # v2.75.22
         with: { tool: 'just,cargo-sort' }
       - name: Format Cargo.toml
         run: just fmt-toml
@@ -65,7 +65,7 @@ jobs:
         with: { persist-credentials: false }
       - name: Setup Rust
         run: rustup update stable && rustup default stable
-      - uses: taiki-e/install-action@5f57d6cb7cd20b14a8a27f522884c4bc8a187458 # v2.75.19
+      - uses: taiki-e/install-action@cf525cb33f51aca27cd6fa02034117ab963ff9f1 # v2.75.22
         with: { tool: just }
       - run: just gen-schemas
       # Run pre-commit so the generated JSON conforms to the repo's formatter
@@ -104,7 +104,7 @@ jobs:
         run: rustup update stable && rustup default stable
 
       - name: Install just
-        uses: taiki-e/install-action@5f57d6cb7cd20b14a8a27f522884c4bc8a187458 # v2.75.19
+        uses: taiki-e/install-action@cf525cb33f51aca27cd6fa02034117ab963ff9f1 # v2.75.22
         with:
           tool: just,cargo-binstall
 
