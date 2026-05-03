@@ -5,17 +5,6 @@ use serde::de::{self, MapAccess, Unexpected, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// A generic three-state configuration value: auto, disabled, or explicit.
-///
-/// Accepts YAML/JSON values:
-/// - **Strings** `"auto"` or `"default"` → [`Auto`](Self::Auto)
-/// - **Strings** `"disabled"`, `"false"`, `"off"`, `"no"` → [`Disabled`](Self::Disabled)
-/// - **Booleans** `true` → [`Auto`](Self::Auto), `false` → [`Disabled`](Self::Disabled)
-/// - **An object / map** → [`Explicit(T)`](Self::Explicit) (deserialized as `T`)
-///
-/// The custom [`Deserialize`] impl drives the deserializer directly (via
-/// [`deserialize_any`]) so that saphyr source spans survive into miette
-/// diagnostics.  Going through an intermediate `serde_yaml::Value` would
-/// strip them.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub enum AutoOption<T> {
     /// Use the feature with its default settings.
@@ -49,10 +38,6 @@ impl<T> AutoOption<T> {
         }
     }
 }
-
-// ---------------------------------------------------------------------------
-// Serde
-// ---------------------------------------------------------------------------
 
 impl<T: Serialize> Serialize for AutoOption<T> {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
@@ -103,10 +88,6 @@ impl<'de, T: Deserialize<'de>> Visitor<'de> for AutoOptionVisitor<T> {
     }
 }
 
-// ---------------------------------------------------------------------------
-// JSON Schema (schemars)
-// ---------------------------------------------------------------------------
-
 #[cfg(feature = "unstable-schemas")]
 impl<T: schemars::JsonSchema> schemars::JsonSchema for AutoOption<T> {
     fn schema_name() -> std::borrow::Cow<'static, str> {
@@ -118,9 +99,9 @@ impl<T: schemars::JsonSchema> schemars::JsonSchema for AutoOption<T> {
         schemars::json_schema!({
             "description": format!(
                 "Auto/disabled/explicit configuration.\n\n\
-                 - `\"auto\"` or `\"default\"` — use defaults\n\
-                 - `\"disabled\"`, `\"false\"`, `\"off\"`, `\"no\"` — disable\n\
-                 - An object — explicit {} settings",
+                 - `\"auto\"` or `\"default\"` - use defaults\n\
+                 - `\"disabled\"`, `\"false\"`, `\"off\"`, `\"no\"` - disable\n\
+                 - An object - explicit {} settings",
                 T::schema_name()
             ),
             "oneOf": [
