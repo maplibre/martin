@@ -5,6 +5,7 @@ use martin::MartinResult;
 use martin::config::args::Args;
 #[cfg(all(feature = "webui", not(docsrs)))]
 use martin::config::args::WebUiMode;
+#[cfg(all(feature = "mbtiles", feature = "mlt"))]
 use martin::config::file::ProcessConfig;
 #[cfg(feature = "mbtiles")]
 use martin::config::file::reload::mbtiles::MBTilesReloader;
