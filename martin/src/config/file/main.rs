@@ -534,14 +534,14 @@ impl Config {
             any(feature = "postgres", feature = "pmtiles", feature = "mbtiles")
         ))]
         {
-            use crate::config::file::process::resolve_process_config;
-
             let global_pc = ProcessConfig {
                 convert_to_mlt: self.convert_to_mlt.clone(),
             };
             let global = self.convert_to_mlt.as_ref().map(|_| &global_pc);
 
             #[cfg(feature = "postgres")]
+            {
+            use crate::config::file::process::resolve_process_config;
             for pg in self.postgres.iter() {
                 let st_pc = ProcessConfig {
                     convert_to_mlt: pg.convert_to_mlt.clone(),
@@ -567,6 +567,7 @@ impl Config {
                         map.insert(id.clone(), resolved);
                     }
                 }
+            }
             }
 
             #[cfg(feature = "pmtiles")]

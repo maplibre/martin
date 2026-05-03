@@ -39,16 +39,16 @@ impl From<ProcessError> for actix_web::Error {
 /// coexist naturally.
 pub fn apply_pre_cache_processors(
     tile: Tile,
-    config: &ProcessConfig,
-    accepted: Option<Format>,
+    _config: &ProcessConfig,
+    _accepted: Option<Format>,
 ) -> Result<Tile, ProcessError> {
     if tile.data.is_empty() {
         return Ok(tile);
     }
 
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
-    let tile = if accepted == Some(Format::Mlt) && tile.info.format == Format::Mvt {
-        let mlt_config = config
+    let tile = if _accepted == Some(Format::Mlt) && tile.info.format == Format::Mvt {
+        let mlt_config = _config
             .convert_to_mlt
             .as_ref()
             .unwrap_or(&MltProcessConfig::Auto);
