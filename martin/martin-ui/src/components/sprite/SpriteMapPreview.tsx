@@ -1,6 +1,7 @@
+import type { MapRef } from '@vis.gl/react-maplibre';
 import { Layer, Map as MapLibreMap, Source } from '@vis.gl/react-maplibre';
 import type { ExpressionSpecification, StyleSpecification } from 'maplibre-gl';
-import { useId, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 import { buildMartinUrl } from '@/lib/api';
@@ -29,7 +30,7 @@ export function SpriteMapPreview({ spriteName, spriteIds }: SpriteMapPreviewProp
   const [haloColor, setHaloColor] = useState('#ffffff');
   const [haloWidth, setHaloWidth] = useState(1);
   const [baseZoom, setBaseZoom] = useState<number | null>(null);
-  const [cursor, setCursor] = useState('grab');
+  const mapRef = useRef<MapRef>(null);
   const id = useId();
   const layerId = `${id}-sprite-icons`;
   const { copy } = useCopyToClipboard();
@@ -198,7 +199,6 @@ export function SpriteMapPreview({ spriteName, spriteIds }: SpriteMapPreviewProp
 
       <MapLibreMap
         attributionControl={false}
-        cursor={cursor}
         initialViewState={{ latitude: 0, longitude: 0, zoom: 15 }}
         interactiveLayerIds={[layerId]}
         mapStyle={mapStyle}
@@ -218,11 +218,19 @@ export function SpriteMapPreview({ spriteName, spriteIds }: SpriteMapPreviewProp
           );
           const zoom = map.getZoom();
           map.setMinZoom(zoom);
+          map.getCanvas().style.cursor = 'grab';
           setBaseZoom(zoom);
         }}
-        onMouseEnter={() => setCursor('pointer')}
-        onMouseLeave={() => setCursor('grab')}
+        onMouseEnter={() => {
+          const canvas = mapRef.current?.getMap()?.getCanvas();
+          if (canvas) canvas.style.cursor = 'pointer';
+        }}
+        onMouseLeave={() => {
+          const canvas = mapRef.current?.getMap()?.getCanvas();
+          if (canvas) canvas.style.cursor = 'grab';
+        }}
         pixelRatio={2}
+        ref={mapRef}
         style={{ borderRadius: 'var(--radius)', height: '28rem', width: '100%' }}
       >
         <Source data={geojson} id={`${id}-sprites`} type="geojson">
