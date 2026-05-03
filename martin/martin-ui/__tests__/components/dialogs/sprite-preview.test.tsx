@@ -54,7 +54,10 @@ vi.mock('@/components/ui/button', () => ({
 vi.mock('@/components/sprite/SpriteMapPreview', () => ({
   SpriteMapPreview: function MockSpriteMapPreview({
     spriteIds,
-  }: { spriteName: string; spriteIds: readonly string[] }) {
+  }: {
+    spriteName: string;
+    spriteIds: readonly string[];
+  }) {
     return (
       <div data-testid="sprite-map-preview">
         {spriteIds.map((id) => (
