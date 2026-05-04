@@ -173,7 +173,7 @@ mod tests {
     #[case::auto(AutoOption::<DummyCfg>::Auto)]
     #[case::auto(AutoOption::<DummyCfg>::Disabled)]
     #[case::auto(AutoOption::Explicit(DummyCfg {foo: Some(true),bar: None,}))]
-    fn serde_round_trip(v: AutoOption) {
+    fn serde_round_trip(#[case] v: AutoOption) {
         let yaml = serde_yaml::to_string(&v).unwrap();
         let parsed: AutoOption<DummyCfg> = serde_yaml::from_str(&yaml).unwrap();
         assert_eq!(v, parsed);
