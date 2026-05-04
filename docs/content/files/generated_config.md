@@ -60,6 +60,11 @@ cache:
   tile_size_mb: 256
 # Encoder settings for MVT->MLT conversion (global level).
 # Overridden by source-type or per-source `convert-to-mlt` keys.
+#
+# Can be either:
+# - (default) `auto` - we choose defaults which we think work best for most users
+# - `disabled` - no conversion
+# - explicitely configured
 convert-to-mlt:
   # Allow `FastPFOR` integer compression.
   allow_fpf: null

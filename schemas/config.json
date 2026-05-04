@@ -955,7 +955,7 @@
           "type": "null"
         }
       ],
-      "description": "Encoder settings for MVT->MLT conversion (global level).\nOverridden by source-type or per-source `convert-to-mlt` keys."
+      "description": "Encoder settings for MVT->MLT conversion (global level).\nOverridden by source-type or per-source `convert-to-mlt` keys.\n\nCan be either:\n- (default) `auto` - we choose defaults which we think work best for most users\n- `disabled` - no conversion\n- explicitely configured"
     },
     "cors": {
       "anyOf": [
