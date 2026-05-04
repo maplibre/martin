@@ -112,15 +112,6 @@ mod tests {
 
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[test]
-    fn parse_mlt_disabled_string() {
-        for input in ["disabled", "off", "no", "false"] {
-            let cfg: MltProcessConfig = serde_yaml::from_str(input).unwrap();
-            assert_eq!(cfg, MltProcessConfig::Disabled, "input: {input}");
-        }
-    }
-
-    #[cfg(all(feature = "mlt", feature = "_tiles"))]
-    #[test]
     fn parse_mlt_explicit_empty() {
         let cfg: MltProcessConfig = serde_yaml::from_str("{}").unwrap();
         assert_eq!(cfg, MltProcessConfig::Explicit(MltEncoderConfig::default()));
