@@ -305,6 +305,9 @@ mod tests {
                 saw_encoder_ref = true;
             }
         }
-        assert!(saw_encoder_ref, "expected $ref to MltEncoderConfig: {schema}");
+        assert!(
+            saw_encoder_ref,
+            "expected $ref to MltEncoderConfig: {schema}"
+        );
     }
 }
