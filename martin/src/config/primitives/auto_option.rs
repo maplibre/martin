@@ -99,7 +99,7 @@ impl<T: schemars::JsonSchema> schemars::JsonSchema for AutoOption<T> {
                 "Conversion configuration:\n\n\
                  - `\"auto\"`, `\"enabled\"` or boolean `true` - use defaults for this conversion\n\
                  - `\"disabled\"` or boolean `false` - disable this conversion\n\
-                 - An object `{..}` - explicit  settings",
+                 - An object `{}` - explicit  settings",
                 T::schema_name()
             ),
             "oneOf": [
