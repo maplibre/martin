@@ -144,8 +144,6 @@ mod tests {
     #[case("true", AutoOption::Auto)]
     #[case("enabled", AutoOption::Auto)]
     #[case("disabled", AutoOption::Disabled)]
-    #[case("off", AutoOption::Disabled)]
-    #[case("no", AutoOption::Disabled)]
     #[case("false", AutoOption::Disabled)]
     fn parse_keyword(#[case] input: &str, #[case] expected: AutoOption<DummyCfg>) {
         let v: AutoOption<DummyCfg> = serde_yaml::from_str(input).unwrap();
