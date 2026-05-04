@@ -414,7 +414,7 @@
               "type": "null"
             }
           ],
-          "description": "MVT->MLT encoder settings for this source.\nOverrides source-type and global `convert-to-mlt`."
+          "description": "MVT->MLT encoder settings for this source.\nOverrides source-type and global `convert-to-mlt`.\n\nCan be either:\n- `null` (default) - defer to the source-type or global settings\n- `auto` - we choose defaults which we think work best for most users\n- `disabled` - no conversion\n- explicitely configured"
         },
         "function": {
           "description": "Function name (required)",
@@ -762,7 +762,7 @@
               "type": "null"
             }
           ],
-          "description": "MVT->MLT encoder settings for all sources from this connection.\nOverrides global; overridden by per-source `convert-to-mlt`."
+          "description": "MVT->MLT encoder settings for all sources from this connection.\nOverrides global; overridden by per-source `convert-to-mlt`.\n\nCan be either:\n- `null` (default) - defer to the global setting\n- `auto` - we choose defaults which we think work best for most users\n- `disabled` - no conversion\n- explicitely configured"
         },
         "default_srid": {
           "description": "If a spatial table has SRID 0, then this SRID will be used as a fallback",
