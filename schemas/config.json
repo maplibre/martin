@@ -1,5 +1,27 @@
 {
   "$defs": {
+    "AutoOption_MltEncoderConfig": {
+      "description": "Auto/disabled/explicit configuration.\n\n- `\"auto\"` or `\"default\"` - use defaults\n- `\"disabled\"`, `\"false\"`, `\"off\"`, `\"no\"` - disable\n- An object - explicit MltEncoderConfig settings",
+      "oneOf": [
+        {
+          "description": "Use the feature with default settings.",
+          "enum": ["auto", "default", "true"],
+          "type": "string"
+        },
+        {
+          "description": "Disable the feature.",
+          "enum": ["disabled", "false", "off", "no"],
+          "type": "string"
+        },
+        {
+          "description": "true = auto (defaults), false = disabled.",
+          "type": "boolean"
+        },
+        {
+          "$ref": "#/$defs/MltEncoderConfig"
+        }
+      ]
+    },
     "BoundsCalcType": {
       "oneOf": [
         {
@@ -120,7 +142,7 @@
         "convert-to-mlt": {
           "anyOf": [
             {
-              "$ref": "#/$defs/MltProcessConfig"
+              "$ref": "#/$defs/AutoOption_MltEncoderConfig"
             },
             {
               "type": "null"
@@ -151,7 +173,7 @@
         "convert-to-mlt": {
           "anyOf": [
             {
-              "$ref": "#/$defs/MltProcessConfig"
+              "$ref": "#/$defs/AutoOption_MltEncoderConfig"
             },
             {
               "type": "null"
@@ -333,7 +355,7 @@
         "convert-to-mlt": {
           "anyOf": [
             {
-              "$ref": "#/$defs/MltProcessConfig"
+              "$ref": "#/$defs/AutoOption_MltEncoderConfig"
             },
             {
               "type": "null"
@@ -386,7 +408,7 @@
         "convert-to-mlt": {
           "anyOf": [
             {
-              "$ref": "#/$defs/MltProcessConfig"
+              "$ref": "#/$defs/AutoOption_MltEncoderConfig"
             },
             {
               "type": "null"
@@ -530,19 +552,6 @@
         }
       },
       "type": "object"
-    },
-    "MltProcessConfig": {
-      "description": "Configuration for MVT-to-MLT format conversion.\n\n- `\"auto\"` — use `mlt-core`'s default `EncoderConfig`\n- An object with explicit fields — override specific encoder settings",
-      "oneOf": [
-        {
-          "const": "auto",
-          "description": "Use default encoder settings.",
-          "type": "string"
-        },
-        {
-          "$ref": "#/$defs/MltEncoderConfig"
-        }
-      ]
     },
     "ObservabilityConfig": {
       "description": "More advanced monitoring options",
@@ -747,7 +756,7 @@
         "convert-to-mlt": {
           "anyOf": [
             {
-              "$ref": "#/$defs/MltProcessConfig"
+              "$ref": "#/$defs/AutoOption_MltEncoderConfig"
             },
             {
               "type": "null"
@@ -849,7 +858,7 @@
         "convert-to-mlt": {
           "anyOf": [
             {
-              "$ref": "#/$defs/MltProcessConfig"
+              "$ref": "#/$defs/AutoOption_MltEncoderConfig"
             },
             {
               "type": "null"
@@ -940,7 +949,7 @@
     "convert-to-mlt": {
       "anyOf": [
         {
-          "$ref": "#/$defs/MltProcessConfig"
+          "$ref": "#/$defs/AutoOption_MltEncoderConfig"
         },
         {
           "type": "null"

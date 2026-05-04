@@ -60,7 +60,21 @@ cache:
   tile_size_mb: 256
 # Encoder settings for MVT->MLT conversion (global level).
 # Overridden by source-type or per-source `convert-to-mlt` keys.
-convert-to-mlt: auto
+convert-to-mlt:
+  # Allow `FastPFOR` integer compression.
+  allow_fpf: null
+  # Allow FSST string compression.
+  allow_fsst: null
+  # Allow string grouping into shared dictionaries.
+  allow_shared_dict: null
+  # Generate tessellation data for polygons and multi-polygons.
+  tessellate: null
+  # Try sorting features by their feature ID in ascending order.
+  try_id_sort: null
+  # Try sorting features by Hilbert curve index of their first vertex.
+  try_spatial_hilbert_sort: null
+  # Try sorting features by Z-order (Morton) curve index of their first vertex.
+  try_spatial_morton_sort: null
 # CORS Configuration
 #
 # Defaults to `cors: true`, which allows all origins.
@@ -99,7 +113,21 @@ listen_addresses: 0.0.0.0:3000
 mbtiles:
   # MVT->MLT encoder settings for all `MBTiles` sources.
   # Overrides global; overridden by per-source `convert-to-mlt`.
-  convert-to-mlt: auto
+  convert-to-mlt:
+    # Allow `FastPFOR` integer compression.
+    allow_fpf: null
+    # Allow FSST string compression.
+    allow_fsst: null
+    # Allow string grouping into shared dictionaries.
+    allow_shared_dict: null
+    # Generate tessellation data for polygons and multi-polygons.
+    tessellate: null
+    # Try sorting features by their feature ID in ascending order.
+    try_id_sort: null
+    # Try sorting features by Hilbert curve index of their first vertex.
+    try_spatial_hilbert_sort: null
+    # Try sorting features by Z-order (Morton) curve index of their first vertex.
+    try_spatial_morton_sort: null
   # A list of file paths
   paths: []
   # A map of source IDs to file paths or config objects
@@ -125,7 +153,21 @@ on_invalid: warn
 pmtiles:
   # MVT->MLT encoder settings for all `PMTiles` sources.
   # Overrides global; overridden by per-source `convert-to-mlt`.
-  convert-to-mlt: auto
+  convert-to-mlt:
+    # Allow `FastPFOR` integer compression.
+    allow_fpf: null
+    # Allow FSST string compression.
+    allow_fsst: null
+    # Allow string grouping into shared dictionaries.
+    allow_shared_dict: null
+    # Generate tessellation data for polygons and multi-polygons.
+    tessellate: null
+    # Try sorting features by their feature ID in ascending order.
+    try_id_sort: null
+    # Try sorting features by Hilbert curve index of their first vertex.
+    try_spatial_hilbert_sort: null
+    # Try sorting features by Z-order (Morton) curve index of their first vertex.
+    try_spatial_morton_sort: null
   # Size of the directory cache (in MB).
   # Defaults to `cache.size_mb` / 4
   #
@@ -214,7 +256,21 @@ postgres:
   connection_string: postgres://postgres@localhost:5432/db
   # MVT->MLT encoder settings for all sources from this connection.
   # Overrides global; overridden by per-source `convert-to-mlt`.
-  convert-to-mlt: auto
+  convert-to-mlt:
+    # Allow `FastPFOR` integer compression.
+    allow_fpf: null
+    # Allow FSST string compression.
+    allow_fsst: null
+    # Allow string grouping into shared dictionaries.
+    allow_shared_dict: null
+    # Generate tessellation data for polygons and multi-polygons.
+    tessellate: null
+    # Try sorting features by their feature ID in ascending order.
+    try_id_sort: null
+    # Try sorting features by Hilbert curve index of their first vertex.
+    try_spatial_hilbert_sort: null
+    # Try sorting features by Z-order (Morton) curve index of their first vertex.
+    try_spatial_morton_sort: null
   # If a spatial table has SRID 0, then this SRID will be used as a fallback
   default_srid: 4326
   # Associative arrays of function sources
