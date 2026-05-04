@@ -169,19 +169,6 @@ mod tests {
         assert!(serde_yaml::from_str::<AutoOption<DummyCfg>>(input).is_err());
     }
 
-    #[test]
-    fn serde_round_trip() {
-        for v in [
-            AutoOption::<DummyCfg>::Auto,
-            AutoOption::Disabled,
-            AutoOption::Explicit(DummyCfg {
-                foo: Some(true),
-                bar: None,
-            }),
-        ] {
-            let yaml = serde_yaml::to_string(&v).unwrap();
-            let parsed: AutoOption<DummyCfg> = serde_yaml::from_str(&yaml).unwrap();
-            assert_eq!(v, parsed);
 #[rstest]
  #[case::auto(AutoOption::<DummyCfg>::Auto)]
  #[case::auto(AutoOption::<DummyCfg>::Disabled)]
