@@ -57,6 +57,13 @@ pub struct FunctionInfo {
 
     /// MVT->MLT encoder settings for this source.
     /// Overrides source-type and global `convert-to-mlt`.
+    ///
+    /// Can be either:
+    /// - `null` (default) - defer to the source-type or global settings
+    /// - `auto` - we choose defaults which we think work best for most users
+    /// - `disabled` - no conversion
+    /// - explicitely configured
+    
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[serde(
         default,
