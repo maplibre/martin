@@ -197,12 +197,12 @@ mod tests {
         insta::assert_snapshot!(render_failure(indoc! {"
                 convert-to-mlt: atuo
             "}), @r#"
-          × invalid value: string "atuo", expected a string ("auto", "default",
-          │ "disabled", "false", "off", "no"), a boolean, or a map of settings
+          × invalid value: string "atuo", expected a string ("auto", "enabled",
+          │ "disabled"), a boolean, or a map of settings
            ╭─[config.yaml:1:1]
          1 │ convert-to-mlt: atuo
            · ───────┬──────
-           ·        ╰── invalid value: string "atuo", expected a string ("auto", "default", "disabled", "false", "off", "no"), a boolean, or a map of settings
+           ·        ╰── invalid value: string "atuo", expected a string ("auto", "enabled", "disabled"), a boolean, or a map of settings
            ╰────
         "#);
     }
@@ -214,12 +214,12 @@ mod tests {
         insta::assert_snapshot!(render_failure(indoc! {"
                 convert-to-mlt: 42
             "}), @r#"
-          × invalid type: integer `42`, expected a string ("auto", "default",
-          │ "disabled", "false", "off", "no"), a boolean, or a map of settings
+          × invalid type: integer `42`, expected a string ("auto", "enabled",
+          │ "disabled"), a boolean, or a map of settings
            ╭─[config.yaml:1:1]
          1 │ convert-to-mlt: 42
            · ───────┬──────
-           ·        ╰── invalid type: integer `42`, expected a string ("auto", "default", "disabled", "false", "off", "no"), a boolean, or a map of settings
+           ·        ╰── invalid type: integer `42`, expected a string ("auto", "enabled", "disabled"), a boolean, or a map of settings
            ╰────
         "#);
     }
