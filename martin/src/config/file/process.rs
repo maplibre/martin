@@ -3,6 +3,9 @@ use mlt_core::encoder::EncoderConfig;
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 use serde::{Deserialize, Serialize};
 
+#[cfg(all(feature = "mlt", feature = "_tiles"))]
+use crate::config::primitives::AutoOption;
+
 /// Internal carrier for resolved per-source processing settings.
 ///
 /// Not serialized directly — config files use `convert-to-mlt` at each level
@@ -15,107 +18,12 @@ pub struct ProcessConfig {
 
 /// Configuration for MVT-to-MLT format conversion.
 ///
-/// - `"auto"` — use `mlt-core`'s default `EncoderConfig`
+/// Three-state value parsed from YAML:
+/// - `"auto"` / `"default"` / `true` — use `mlt-core`'s default `EncoderConfig`
+/// - `"disabled"` / `"off"` / `"no"` / `false` — explicitly skip conversion
 /// - An object with explicit fields — override specific encoder settings
-///
-/// Deserialized from either the string `"auto"` or a config object.
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
-#[derive(Clone, Debug, Default, PartialEq)]
-pub enum MltProcessConfig {
-    /// Use default encoder settings.
-    #[default]
-    Auto,
-    /// Explicit encoder configuration overrides.
-    Explicit(MltEncoderConfig),
-}
-
-// The derive would describe the Rust enum shape (`"Auto"` / `{ "Explicit": ... }`),
-// but the hand-written serde impls accept `"auto"` or a bare `MltEncoderConfig`.
-// Schema must follow the wire format.
-#[cfg(all(feature = "mlt", feature = "unstable-schemas"))]
-impl schemars::JsonSchema for MltProcessConfig {
-    fn schema_name() -> std::borrow::Cow<'static, str> {
-        "MltProcessConfig".into()
-    }
-
-    fn json_schema(generator: &mut schemars::SchemaGenerator) -> schemars::Schema {
-        let encoder = generator.subschema_for::<MltEncoderConfig>();
-        schemars::json_schema!({
-            "description": "Configuration for MVT-to-MLT format conversion.\n\n\
-                            - `\"auto\"` — use `mlt-core`'s default `EncoderConfig`\n\
-                            - An object with explicit fields — override specific encoder settings",
-            "oneOf": [
-                {
-                    "type": "string",
-                    "const": "auto",
-                    "description": "Use default encoder settings."
-                },
-                encoder,
-            ]
-        })
-    }
-}
-
-#[cfg(all(feature = "mlt", feature = "_tiles"))]
-impl Serialize for MltProcessConfig {
-    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        match self {
-            Self::Auto => serializer.serialize_str("auto"),
-            Self::Explicit(cfg) => cfg.serialize(serializer),
-        }
-    }
-}
-
-// Drives the deserializer directly so saphyr's source spans survive into miette.
-// Going through `serde_yaml::Value` or `Error::custom` strings would strip them.
-#[cfg(all(feature = "mlt", feature = "_tiles"))]
-impl<'de> Deserialize<'de> for MltProcessConfig {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        use std::fmt;
-
-        use serde::de::value::MapAccessDeserializer;
-        use serde::de::{self, MapAccess, Unexpected, Visitor};
-
-        struct MltVisitor;
-
-        impl<'de> Visitor<'de> for MltVisitor {
-            type Value = MltProcessConfig;
-
-            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                f.write_str(r#"the string "auto" or a map of encoder settings"#)
-            }
-
-            fn visit_str<E: de::Error>(self, v: &str) -> Result<Self::Value, E> {
-                if v == "auto" {
-                    Ok(MltProcessConfig::Auto)
-                } else {
-                    Err(E::invalid_value(Unexpected::Str(v), &self))
-                }
-            }
-
-            fn visit_string<E: de::Error>(self, v: String) -> Result<Self::Value, E> {
-                self.visit_str(&v)
-            }
-
-            fn visit_map<M: MapAccess<'de>>(self, map: M) -> Result<Self::Value, M::Error> {
-                let cfg = MltEncoderConfig::deserialize(MapAccessDeserializer::new(map))?;
-                Ok(MltProcessConfig::Explicit(cfg))
-            }
-        }
-
-        deserializer.deserialize_any(MltVisitor)
-    }
-}
-
-#[cfg(all(feature = "mlt", feature = "_tiles"))]
-impl From<&MltProcessConfig> for EncoderConfig {
-    fn from(src: &MltProcessConfig) -> Self {
-        match src {
-            MltProcessConfig::Auto => Self::default(),
-            MltProcessConfig::Explicit(cfg) => Self::from(cfg.clone()),
-        }
-    }
-}
+pub type MltProcessConfig = AutoOption<MltEncoderConfig>;
 
 /// Explicit encoder configuration for MLT conversion.
 /// All fields are optional; unset fields use `mlt-core`'s defaults.
@@ -204,6 +112,15 @@ mod tests {
 
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[test]
+    fn parse_mlt_disabled_string() {
+        for input in ["disabled", "off", "no", "false"] {
+            let cfg: MltProcessConfig = serde_yaml::from_str(input).unwrap();
+            assert_eq!(cfg, MltProcessConfig::Disabled, "input: {input}");
+        }
+    }
+
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[test]
     fn parse_mlt_explicit_empty() {
         let cfg: MltProcessConfig = serde_yaml::from_str("{}").unwrap();
         assert_eq!(cfg, MltProcessConfig::Explicit(MltEncoderConfig::default()));
@@ -233,6 +150,16 @@ mod tests {
         let cfg = MltProcessConfig::Auto;
         let yaml = serde_yaml::to_string(&cfg).unwrap();
         insta::assert_snapshot!(yaml, @"auto");
+        let parsed: MltProcessConfig = serde_yaml::from_str(&yaml).unwrap();
+        assert_eq!(cfg, parsed);
+    }
+
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[test]
+    fn serde_round_trip_disabled() {
+        let cfg = MltProcessConfig::Disabled;
+        let yaml = serde_yaml::to_string(&cfg).unwrap();
+        insta::assert_snapshot!(yaml, @"disabled");
         let parsed: MltProcessConfig = serde_yaml::from_str(&yaml).unwrap();
         assert_eq!(cfg, parsed);
     }
@@ -313,6 +240,19 @@ mod tests {
 
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[test]
+    fn resolve_per_source_disabled_overrides_global_auto() {
+        let global = ProcessConfig {
+            convert_to_mlt: Some(MltProcessConfig::Auto),
+        };
+        let per_source = ProcessConfig {
+            convert_to_mlt: Some(MltProcessConfig::Disabled),
+        };
+        let resolved = resolve_process_config(Some(&global), None, Some(&per_source));
+        assert_eq!(resolved.convert_to_mlt, Some(MltProcessConfig::Disabled));
+    }
+
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[test]
     fn resolve_source_type_overrides_global() {
         let global = ProcessConfig {
             convert_to_mlt: Some(MltProcessConfig::Auto),
@@ -342,9 +282,10 @@ mod tests {
         assert_eq!(resolved, ProcessConfig::default());
     }
 
-    /// Pins the schema shape to the wire format (`"auto"` or a bare `MltEncoderConfig`),
-    /// so a future revert to `#[derive(JsonSchema)]` — which would describe the Rust
-    /// enum layout instead — fails loudly.
+    /// Pins the schema shape to the wire format. With the `AutoOption` migration the
+    /// schema includes string aliases for `auto`/`default`/`true`,
+    /// `disabled`/`off`/`no`/`false`, a boolean shorthand, and the explicit
+    /// `MltEncoderConfig` branch — four `oneOf` entries in total.
     #[cfg(all(feature = "mlt", feature = "unstable-schemas"))]
     #[test]
     fn json_schema_matches_serde_format() {
@@ -353,20 +294,17 @@ mod tests {
             .get("oneOf")
             .and_then(|v| v.as_array())
             .expect("MltProcessConfig schema should be a `oneOf`");
-        assert_eq!(one_of.len(), 2, "schema: {schema}");
+        assert_eq!(one_of.len(), 4, "schema: {schema}");
 
-        let auto = &one_of[0];
-        assert_eq!(auto.get("const").and_then(|v| v.as_str()), Some("auto"));
-        assert_eq!(auto.get("type").and_then(|v| v.as_str()), Some("string"));
-
-        let explicit = &one_of[1];
-        let reference = explicit
-            .get("$ref")
-            .and_then(|v| v.as_str())
-            .expect("explicit variant should be a $ref to MltEncoderConfig");
-        assert!(
-            reference.ends_with("/MltEncoderConfig"),
-            "expected $ref to MltEncoderConfig, got {reference}"
-        );
+        // The explicit branch should still reference MltEncoderConfig.
+        let mut saw_encoder_ref = false;
+        for entry in one_of {
+            if let Some(reference) = entry.get("$ref").and_then(|v| v.as_str())
+                && reference.ends_with("/MltEncoderConfig")
+            {
+                saw_encoder_ref = true;
+            }
+        }
+        assert!(saw_encoder_ref, "expected $ref to MltEncoderConfig: {schema}");
     }
 }

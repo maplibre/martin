@@ -31,8 +31,10 @@ impl From<ProcessError> for actix_web::Error {
 ///
 /// Currently supports:
 /// - MVT -> MLT conversion when the client requests `application/vnd.maplibre-tile`
-///   (requires `mlt` feature). Encoder settings come from `config.convert_to_mlt`; an absent
-///   block is treated as `convert-to-mlt: auto` and uses `mlt-core`'s defaults.
+///   (requires `mlt` feature). Encoder settings come from `config.convert_to_mlt`; an
+///   absent block is treated as `convert-to-mlt: auto` and uses `mlt-core`'s defaults.
+///   `convert-to-mlt: disabled` (or any of `off`/`no`/`false`) skips conversion entirely
+///   even if the client asked for MLT — the original MVT bytes are returned.
 ///
 /// Runs inside the cache miss path so cached entries are already post-processed.
 /// MVT and MLT requests are keyed separately in the tile cache, so both formats
@@ -48,11 +50,17 @@ pub fn apply_pre_cache_processors(
 
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     let tile = if accepted == Some(Format::Mlt) && tile.info.format == Format::Mvt {
-        let mlt_config = config
-            .convert_to_mlt
-            .as_ref()
-            .unwrap_or(&MltProcessConfig::Auto);
-        convert_mvt_to_mlt(tile, mlt_config)?
+        match config.convert_to_mlt.as_ref() {
+            // No level configured anything → use defaults.
+            None | Some(MltProcessConfig::Auto) => {
+                convert_mvt_to_mlt(tile, EncoderConfig::default())?
+            }
+            Some(MltProcessConfig::Explicit(cfg)) => {
+                convert_mvt_to_mlt(tile, EncoderConfig::from(cfg.clone()))?
+            }
+            // Explicitly opted out — serve the original MVT bytes.
+            Some(MltProcessConfig::Disabled) => tile,
+        }
     } else {
         tile
     };
@@ -65,7 +73,7 @@ pub fn apply_pre_cache_processors(
 /// Handles decompression if the tile is compressed, then converts MVT->MLT
 /// using `mlt-core`, and returns an uncompressed MLT tile.
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
-fn convert_mvt_to_mlt(tile: Tile, mlt_config: &MltProcessConfig) -> Result<Tile, ProcessError> {
+fn convert_mvt_to_mlt(tile: Tile, cfg: EncoderConfig) -> Result<Tile, ProcessError> {
     use martin_tile_utils::{Encoding, TileInfo};
 
     let decoded = super::content::decode(tile)
@@ -74,7 +82,6 @@ fn convert_mvt_to_mlt(tile: Tile, mlt_config: &MltProcessConfig) -> Result<Tile,
     let tile_layers = mlt_core::mvt::mvt_to_tile_layers(decoded.data)
         .map_err(|e| ProcessError::MltConversion(e.to_string()))?;
 
-    let cfg = EncoderConfig::from(mlt_config);
     let mut mlt_bytes = Vec::new();
     for layer in tile_layers {
         let layer_bytes = layer
@@ -91,13 +98,23 @@ fn convert_mvt_to_mlt(tile: Tile, mlt_config: &MltProcessConfig) -> Result<Tile,
 
 #[cfg(test)]
 mod tests {
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
     use martin_core::tiles::Tile;
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
     use martin_tile_utils::{Encoding, Format, TileInfo};
+
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    use super::*;
 
     /// Minimal valid MVT tile: one layer named "x", version=2, extent=4096, no features.
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     fn minimal_mvt() -> Vec<u8> {
         vec![0x1a, 0x08, 0x0a, 0x01, 0x78, 0x78, 0x02, 0x28, 0x80, 0x20]
+    }
+
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    fn make_tile(data: Vec<u8>, format: Format, encoding: Encoding) -> Tile {
+        Tile::new_hash_etag(data, TileInfo::new(format, encoding))
     }
 
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
@@ -158,6 +175,18 @@ mod tests {
         };
         let result = apply_pre_cache_processors(tile, &config, Some(Format::Mlt)).unwrap();
         assert_eq!(result.info.format, Format::Mlt);
+    }
+
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[test]
+    fn mlt_accept_with_disabled_serves_mvt_unchanged() {
+        let tile = make_tile(minimal_mvt(), Format::Mvt, Encoding::Uncompressed);
+        let config = ProcessConfig {
+            convert_to_mlt: Some(MltProcessConfig::Disabled),
+        };
+        let result = apply_pre_cache_processors(tile, &config, Some(Format::Mlt)).unwrap();
+        assert_eq!(result.info.format, Format::Mvt);
+        assert_eq!(result.data, minimal_mvt());
     }
 
     #[cfg(all(feature = "mlt", feature = "_tiles"))]

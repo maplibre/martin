@@ -59,6 +59,25 @@ pmtiles:
       # no convert-to-mlt — served as-is
 ```
 
+### Opt a single source out of MLT
+
+If a higher level (global or source-type) enables MLT but you want one source
+to keep serving MVT, set `convert-to-mlt: disabled`. Aliases: `off`, `no`,
+`false`. The most-specific level wins, so this overrides any inherited `auto`.
+
+```yaml
+convert-to-mlt: auto              # default everywhere
+
+pmtiles:
+  sources:
+    basemap:
+      path: /data/basemap.pmtiles
+      # Inherits global `auto` → converted on Accept: MLT
+    legacy:
+      path: /data/legacy.pmtiles
+      convert-to-mlt: disabled    # always served as MVT, even on Accept: MLT
+```
+
 ## Tuning the Encoder
 
 `convert-to-mlt: auto` uses "magic" default encoder settings, which work well for most data.
