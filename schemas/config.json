@@ -1,16 +1,16 @@
 {
   "$defs": {
     "AutoOption_MltEncoderConfig": {
-      "description": "Auto/disabled/explicit configuration.\n\n- `\"auto\"` or `\"default\"` - use defaults\n- `\"disabled\"`, `\"false\"`, `\"off\"`, `\"no\"` - disable\n- An object - explicit MltEncoderConfig settings",
+      "description": "Conversion configuration:\n\n- `\"auto\"`, `\"enabled\"` or boolean `true` - use defaults for this conversion\n- `\"disabled\"` or boolean `false` - disable this conversion\n- An object `MltEncoderConfig` - explicit  settings",
       "oneOf": [
         {
           "description": "Use the feature with default settings.",
-          "enum": ["auto", "default", "true"],
+          "enum": ["auto", "enabled"],
           "type": "string"
         },
         {
           "description": "Disable the feature.",
-          "enum": ["disabled", "false", "off", "no"],
+          "enum": ["disabled"],
           "type": "string"
         },
         {
