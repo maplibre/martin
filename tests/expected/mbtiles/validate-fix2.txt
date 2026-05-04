@@ -1,4 +1,4 @@
- INFO Quick integrity check passed for tests/mbtiles_temp_files/fix_bad_hash.mbtiles
- INFO All values in the `tiles` table/view are valid for tests/mbtiles_temp_files/fix_bad_hash.mbtiles
- INFO All tile hashes are valid for tests/mbtiles_temp_files/fix_bad_hash.mbtiles
- INFO The agg_tiles_hashes=E89600605FA137D684A10EE91463CEE0 has been verified for tests/mbtiles_temp_files/fix_bad_hash.mbtiles
+ INFO Integrity check passed mbtiles.file=tests/mbtiles_temp_files/fix_bad_hash.mbtiles integrity_check=Quick
+ INFO All values in the `tiles` table/view are valid mbtiles.file=tests/mbtiles_temp_files/fix_bad_hash.mbtiles
+ INFO All tile hashes are valid mbtiles.file=tests/mbtiles_temp_files/fix_bad_hash.mbtiles
+ INFO agg_tiles_hash has been verified mbtiles.file=tests/mbtiles_temp_files/fix_bad_hash.mbtiles agg_tiles_hash=E89600605FA137D684A10EE91463CEE0

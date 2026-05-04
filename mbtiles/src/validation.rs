@@ -306,21 +306,33 @@ impl Mbtiles {
                 (None, Some(fmt)) => {
                     if fmt.is_detectable() {
                         warn!(
-                            "Metadata table sets detectable '{fmt}' tile format, but it could not be verified for file {file}"
+                            mbtiles.file = %file,
+                            metadata.format = %fmt,
+                            "Metadata table sets detectable tile format, but it could not be verified"
                         );
                     } else {
-                        info!("Using '{fmt}' tile format from metadata table in file {file}");
+                        info!(
+                            mbtiles.file = %file,
+                            metadata.format = %fmt,
+                            "Using tile format from metadata table"
+                        );
                     }
                     tile_info = Some(fmt.into());
                 }
                 (Some(info), Some(fmt)) if info.format == fmt => {
                     debug!(
-                        "Detected tile format {info} matches metadata.format '{fmt}' in file {file}"
+                        mbtiles.file = %file,
+                        tile.info = %info,
+                        metadata.format = %fmt,
+                        "Detected tile format matches metadata.format"
                     );
                 }
                 (Some(info), _) => {
                     warn!(
-                        "Found inconsistency: metadata.format='{fmt}', but tiles were detected as {info:?} in file {file}. Tiles will be returned as {info:?}."
+                        mbtiles.file = %file,
+                        metadata.format = %fmt,
+                        tile.info = ?info,
+                        "Found inconsistency between metadata.format and detected tile format; tiles will be returned as detected"
                     );
                 }
             }
@@ -343,7 +355,9 @@ impl Mbtiles {
                 Some(enc) => match tile_info {
                     None => {
                         info!(
-                            "Metadata table sets tile compression to '{cmp}', but it could not be verified for file {file}"
+                            mbtiles.file = %file,
+                            metadata.compression = %cmp,
+                            "Metadata table sets tile compression, but it could not be verified"
                         );
                     }
                     Some(info) if tiles_detected => {
@@ -355,17 +369,26 @@ impl Mbtiles {
                             || (!enc.is_encoded() && !info.encoding.is_encoded())
                         {
                             debug!(
-                                "Detected tile encoding {:?} matches metadata.compression '{cmp}' in file {file}",
-                                info.encoding
+                                mbtiles.file = %file,
+                                tile.encoding = ?info.encoding,
+                                metadata.compression = %cmp,
+                                "Detected tile encoding matches metadata.compression"
                             );
                         } else {
                             warn!(
-                                "Found inconsistency: metadata.compression='{cmp}', but tiles were detected as {info:?} in file {file}. Tiles will be returned as {info:?}."
+                                mbtiles.file = %file,
+                                metadata.compression = %cmp,
+                                tile.info = ?info,
+                                "Found inconsistency between metadata.compression and detected tile encoding; tiles will be returned as detected"
                             );
                         }
                     }
                     Some(info) => {
-                        info!("Using '{cmp}' tile compression from metadata table in file {file}");
+                        info!(
+                            mbtiles.file = %file,
+                            metadata.compression = %cmp,
+                            "Using tile compression from metadata table"
+                        );
                         tile_info = Some(info.encoding(enc));
                     }
                 },
@@ -494,7 +517,7 @@ impl Mbtiles {
         for<'e> &'e mut T: SqliteExecutor<'e>,
     {
         if integrity_check == IntegrityCheckType::Off {
-            info!("Skipping integrity check for {self}");
+            info!(mbtiles.file = %self, "Skipping integrity check");
             return Ok(());
         }
 
@@ -518,7 +541,11 @@ impl Mbtiles {
             return Err(FailedIntegrityCheck(self.filepath().to_string(), result));
         }
 
-        info!("{integrity_check:?} integrity check passed for {self}");
+        info!(
+            mbtiles.file = %self,
+            integrity_check = ?integrity_check,
+            "Integrity check passed"
+        );
         Ok(())
     }
 
@@ -579,7 +606,7 @@ LIMIT 1;"
             ));
         }
 
-        info!("All values in the `tiles` table/view are valid for {self}");
+        info!(mbtiles.file = %self, "All values in the `tiles` table/view are valid");
         Ok(())
     }
 
@@ -597,7 +624,11 @@ LIMIT 1;"
             return Err(AggHashMismatch(computed, stored, file));
         }
 
-        info!("The agg_tiles_hashes={computed} has been verified for {self}");
+        info!(
+            mbtiles.file = %self,
+            agg_tiles_hash = %computed,
+            "agg_tiles_hash has been verified"
+        );
         Ok(computed)
     }
 
@@ -611,13 +642,24 @@ LIMIT 1;"
         let hash = calc_agg_tiles_hash(&mut *conn).await?;
         if old_hash.as_ref() == Some(&hash) {
             info!(
-                "Metadata value agg_tiles_hash is already set to the correct hash `{hash}` in {self}"
+                mbtiles.file = %self,
+                agg_tiles_hash = %hash,
+                "Metadata value agg_tiles_hash is already set to the correct hash"
             );
         } else {
             if let Some(old_hash) = old_hash {
-                info!("Updating agg_tiles_hash from {old_hash} to {hash} in {self}");
+                info!(
+                    mbtiles.file = %self,
+                    agg_tiles_hash.old = %old_hash,
+                    agg_tiles_hash.new = %hash,
+                    "Updating agg_tiles_hash"
+                );
             } else {
-                info!("Adding a new metadata value agg_tiles_hash = {hash} in {self}");
+                info!(
+                    mbtiles.file = %self,
+                    agg_tiles_hash = %hash,
+                    "Adding a new metadata value agg_tiles_hash"
+                );
             }
             self.set_metadata_value(&mut *conn, AGG_TILES_HASH, &hash)
                 .await?;
@@ -633,7 +675,10 @@ LIMIT 1;"
         // Note that hex() always returns upper-case HEX values
         let sql = match self.detect_type(&mut *conn).await? {
             MbtType::Flat => {
-                info!("Skipping per-tile hash validation because this is a flat MBTiles file");
+                info!(
+                    mbtiles.file = %self,
+                    "Skipping per-tile hash validation because this is a flat MBTiles file"
+                );
                 return Ok(());
             }
             MbtType::FlatWithHash => {
@@ -692,7 +737,7 @@ LIMIT 1;"
                     }
                 }
 
-                info!("All tile hashes are valid for {self}");
+                info!(mbtiles.file = %self, "All tile hashes are valid");
                 return Ok(());
             }
         };
@@ -708,7 +753,7 @@ LIMIT 1;"
                 ))
             })?;
 
-        info!("All tile hashes are valid for {self}");
+        info!(mbtiles.file = %self, "All tile hashes are valid");
         Ok(())
     }
 

@@ -925,14 +925,14 @@ if [[ "$MBTILES_BIN" != "-" ]]; then
     "$TEST_TEMP_DIR/world_cities_bindiff.mbtiles" \
     --patch-type bin-diff-gz \
     2>&1 | tee "$TEST_OUT_DIR/copy_bindiff.txt"
-  test_log_has_str "$TEST_OUT_DIR/copy_bindiff.txt" '.*Processing bindiff patches using .* threads...'
+  test_log_has_str "$TEST_OUT_DIR/copy_bindiff.txt" '.*Processing bindiff patches bindiff.cpus=.*'
 
   $MBTILES_BIN copy \
     ./tests/fixtures/mbtiles/world_cities.mbtiles \
     --apply-patch "$TEST_TEMP_DIR/world_cities_bindiff.mbtiles" \
     "$TEST_TEMP_DIR/world_cities_modified2.mbtiles" \
     2>&1 | tee "$TEST_OUT_DIR/copy_bindiff2.txt"
-  test_log_has_str "$TEST_OUT_DIR/copy_bindiff2.txt" '.*Processing bindiff patches using .* threads...'
+  test_log_has_str "$TEST_OUT_DIR/copy_bindiff2.txt" '.*Processing bindiff patches bindiff.cpus=.*'
 
   # Ensure that world_cities_modified and world_cities_modified2 are identical (regular diff is empty)
   $MBTILES_BIN copy \
@@ -949,7 +949,7 @@ if [[ "$MBTILES_BIN" != "-" ]]; then
     --apply-patch ./tests/fixtures/mbtiles/world_cities_bindiff.mbtiles \
     "$TEST_TEMP_DIR/world_cities_modified3.mbtiles" \
     2>&1 | tee "$TEST_OUT_DIR/copy_bindiff5.txt"
-  test_log_has_str "$TEST_OUT_DIR/copy_bindiff5.txt" '.*Processing bindiff patches using .* threads...'
+  test_log_has_str "$TEST_OUT_DIR/copy_bindiff5.txt" '.*Processing bindiff patches bindiff.cpus=.*'
 
   # Ensure that world_cities_modified and world_cities_modified3 are identical (regular diff is empty)
   $MBTILES_BIN copy \
