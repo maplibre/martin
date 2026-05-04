@@ -121,7 +121,10 @@ async fn recv_and_insert<S: Send + 'static, T: Send + 'static, P: BinDiffer<S, T
         }
     }
     conn.execute("COMMIT").await?;
-    info!(bindiff.inserted = inserted, "Finished processing bindiff tiles");
+    info!(
+        bindiff.inserted = inserted,
+        "Finished processing bindiff tiles"
+    );
 
     Ok(())
 }
@@ -397,8 +400,9 @@ impl BinDiffer<ApplierBefore, ApplierAfter> for BinDiffPatcher {
             |e| error!(tile.coord = ?value.coord, error = %e, "Unable to brotli-decode patch data"),
         )?;
 
-        let mut new_tile = BsdiffRawDiffer::patch(&old_tile, &patch_data)
-            .inspect_err(|e| error!(tile.coord = ?value.coord, error = %e, "Unable to patch tile"))?;
+        let mut new_tile = BsdiffRawDiffer::patch(&old_tile, &patch_data).inspect_err(
+            |e| error!(tile.coord = ?value.coord, error = %e, "Unable to patch tile"),
+        )?;
 
         // Verify the hash of the patched tile is what we expect
         let new_tile_hash = xxh3_64(&new_tile);

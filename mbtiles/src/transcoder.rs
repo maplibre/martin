@@ -265,8 +265,7 @@ where
 
         info!(
             unique_encoded,
-            tiles_written,
-            "Encoded unique tiles and wrote rows"
+            tiles_written, "Encoded unique tiles and wrote rows"
         );
 
         detach_db(&mut *dst_conn, "srcDb").await?;
