@@ -396,7 +396,7 @@ where
                 .filter_map(|(tile_id, data)| match (transform)(data) {
                     Ok(encoded) => Some((tile_id, encoded)),
                     Err(e) => {
-                        warn!(tile.id = %tile_id, error = %format!("{e:#}"), "Skipping image");
+                        warn!(tile.id = %tile_id, error = ?e, "Skipping image");
                         None
                     }
                 })
