@@ -170,6 +170,11 @@ pub struct Config {
 
     /// Encoder settings for MVT->MLT conversion (global level).
     /// Overridden by source-type or per-source `convert-to-mlt` keys.
+    ///
+    /// Can be either:
+    /// - (default) `auto` - we choose defaults which we think work best for most users
+    /// - `disabled` - no conversion
+    /// - explicitely configured
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[serde(
         default,
