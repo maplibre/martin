@@ -92,17 +92,17 @@ impl StyleSources {
         match self.sources.entry(id) {
             Entry::Occupied(v) => {
                 warn!(
-                    "Ignoring duplicate style source {id} from {new_path} because it was already configured for {old_path}",
-                    id = v.key(),
-                    old_path = v.get().path.display(),
-                    new_path = path.display()
+                    source.id = %v.key(),
+                    style.path.kept = %v.get().path.display(),
+                    style.path.dropped = %path.display(),
+                    "Ignoring duplicate style source: already configured for another path"
                 );
             }
             Entry::Vacant(v) => {
                 info!(
-                    "Configured style source {id} to {new_path}",
-                    id = v.key(),
-                    new_path = path.display()
+                    source.id = %v.key(),
+                    style.path = %path.display(),
+                    "Configured style source"
                 );
                 v.insert(StyleSource { path });
             }
