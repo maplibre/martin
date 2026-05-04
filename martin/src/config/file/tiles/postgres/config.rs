@@ -102,6 +102,12 @@ pub struct PostgresConfig {
 
     /// MVT->MLT encoder settings for all sources from this connection.
     /// Overrides global; overridden by per-source `convert-to-mlt`.
+    ///
+    /// Can be either:
+    /// - `null` (default) - defer to the global setting 
+    /// - `auto` - we choose defaults which we think work best for most users
+    /// - `disabled` - no conversion
+    /// - explicitely configured
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[serde(
         default,
