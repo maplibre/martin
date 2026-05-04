@@ -1,4 +1,4 @@
- INFO cp_no-bbox has an unrecognized metadata value foo={"bar":"foo"}
+ INFO Unrecognized metadata value mbtiles.file=cp_no-bbox metadata.name=foo metadata.value={"bar":"foo"}
 id: cp_no-bbox
 tilejson:
   tilejson: 3.0.0
