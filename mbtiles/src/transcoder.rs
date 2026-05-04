@@ -737,7 +737,7 @@ where
                 Ok((transform)(data)?)
             },
         )
-        .inspect_err(|e| warn!(tile.coord = %coord, error = %format!("{e:#}"), "Skipping tile"))
+        .inspect_err(|e| warn!(tile.coord = %coord, error = ?e, "Skipping tile"))
         .ok()?;
 
     let is_fresh = entry.is_fresh();
