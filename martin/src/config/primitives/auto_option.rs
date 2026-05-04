@@ -61,9 +61,7 @@ impl<'de, T: Deserialize<'de>> Visitor<'de> for AutoOptionVisitor<T> {
     type Value = AutoOption<T>;
 
     fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(
-            r#"a string ("auto", "enabled", "disabled"), a boolean, or a map of settings"#,
-        )
+        f.write_str(r#"a string ("auto", "enabled", "disabled"), a boolean, or a map of settings"#)
     }
 
     fn visit_bool<E: de::Error>(self, v: bool) -> Result<Self::Value, E> {
