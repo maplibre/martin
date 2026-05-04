@@ -63,7 +63,7 @@ pub struct FunctionInfo {
     /// - `auto` - we choose defaults which we think work best for most users
     /// - `disabled` - no conversion
     /// - explicitely configured
-    
+
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[serde(
         default,
