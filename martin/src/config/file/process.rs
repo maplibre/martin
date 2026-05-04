@@ -196,7 +196,15 @@ mod tests {
         use crate::config::test_helpers::render_failure;
         insta::assert_snapshot!(render_failure(indoc! {"
                 convert-to-mlt: atuo
-            "}),);
+            "}), @r#"
+          × invalid value: string "atuo", expected a string ("auto", "default",
+          │ "disabled", "false", "off", "no"), a boolean, or a map of settings
+           ╭─[config.yaml:1:1]
+         1 │ convert-to-mlt: atuo
+           · ───────┬──────
+           ·        ╰── invalid value: string "atuo", expected a string ("auto", "default", "disabled", "false", "off", "no"), a boolean, or a map of settings
+           ╰────
+        "#);
     }
 
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
@@ -205,7 +213,15 @@ mod tests {
         use crate::config::test_helpers::render_failure;
         insta::assert_snapshot!(render_failure(indoc! {"
                 convert-to-mlt: 42
-            "}),);
+            "}), @r#"
+          × invalid type: integer `42`, expected a string ("auto", "default",
+          │ "disabled", "false", "off", "no"), a boolean, or a map of settings
+           ╭─[config.yaml:1:1]
+         1 │ convert-to-mlt: 42
+           · ───────┬──────
+           ·        ╰── invalid type: integer `42`, expected a string ("auto", "default", "disabled", "false", "off", "no"), a boolean, or a map of settings
+           ╰────
+        "#);
     }
 
     /// Inner-field errors must point at the *value*, not the outer `convert-to-mlt:` line —
@@ -218,7 +234,15 @@ mod tests {
         insta::assert_snapshot!(render_failure(indoc! {"
                 convert-to-mlt:
                   tessellate: yes-please
-            "}),);
+            "}), @r"
+          × invalid boolean
+           ╭─[config.yaml:2:15]
+         1 │ convert-to-mlt:
+         2 │   tessellate: yes-please
+           ·               ─────┬────
+           ·                    ╰── invalid boolean
+           ╰────
+        ");
     }
 
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
