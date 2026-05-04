@@ -1401,7 +1401,8 @@
         DB--&gt;&gt;Source: Raw data
         Source-&gt;&gt;Source: Generate MVT
         Source--&gt;&gt;Server: Tile data
-        Server-&gt;&gt;Cache: Store tile
+        Server-&gt;&gt;Server: Postprocess (MLT, compress)
+        Server-&gt;&gt;Cache: Store postprocessed tile
         Server--&gt;&gt;Client: 200 OK (tile data)
     end</code></pre>
 </div>

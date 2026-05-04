@@ -780,6 +780,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#postprocessing" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Postprocessing
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#duplicate-source-id" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -1058,6 +1069,10 @@
 </tr>
 </tbody>
 </table>
+<h3 id="postprocessing">Postprocessing</h3>
+<p>Martin can postprocess tiles before serving — for example, converting MVT to <a href="../using-guides/mlt/">MLT format</a>.
+Postprocessing is configured via the <code>convert-to-mlt</code> key in the <a href="../config-file/#postprocessing">configuration file</a>, not through the HTTP API.
+Clients receive the postprocessed tiles transparently.</p>
 <h3 id="duplicate-source-id">Duplicate Source ID</h3>
 <p>In case there is more than one source that has the same name, e.g. a PG function is available in two
 schemas/connections, or a table has more than one geometry columns, sources will be assigned unique IDs such

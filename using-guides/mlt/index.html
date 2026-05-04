@@ -12,36 +12,32 @@
         <meta name="author" content="Maplibre Contributors">
       
       
-        <link rel="canonical" href="https://maplibre.org/martin/sources-tiles/">
+        <link rel="canonical" href="https://maplibre.org/martin/using-guides/mlt/">
       
       
-        <link rel="prev" href="../config-file/">
-      
-      
-        <link rel="next" href="../sources-files/">
       
       
         
       
       
-      <link rel="icon" href="../images/favicon.ico">
+      <link rel="icon" href="../../images/favicon.ico">
       <meta name="generator" content="zensical-0.0.40">
     
     
       
-        <title>Tile Sources - Martin Tile Server Documentation</title>
+        <title>Serving MLT (MapLibre Tiles) - Martin Tile Server Documentation</title>
       
     
     
       
         
       
-      <link rel="stylesheet" href="../assets/stylesheets/modern/main.fba56155.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/modern/main.fba56155.min.css">
       
         
           
         
-        <link rel="stylesheet" href="../assets/stylesheets/modern/palette.dfe2e883.min.css">
+        <link rel="stylesheet" href="../../assets/stylesheets/modern/palette.dfe2e883.min.css">
       
       
   
@@ -125,7 +121,7 @@
       
     
     
-    <script>__md_scope=new URL("..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
+    <script>__md_scope=new URL("../..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
     
       
 
@@ -150,7 +146,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#tile-sources" class="md-skip">
+        <a href="#serving-mlt-maplibre-tiles" class="md-skip">
           Skip to content
         </a>
       
@@ -166,7 +162,7 @@
 
 <header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href="./.." title="Martin Tile Server Documentation" class="md-header__button md-logo" aria-label="Martin Tile Server Documentation" data-md-component="logo">
+    <a href="../.." title="Martin Tile Server Documentation" class="md-header__button md-logo" aria-label="Martin Tile Server Documentation" data-md-component="logo">
       
   
   <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-book-open" viewBox="0 0 24 24"><path d="M12 7v14M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/></svg>
@@ -186,7 +182,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Tile Sources
+              Serving MLT (MapLibre Tiles)
             
           </span>
         </div>
@@ -274,7 +270,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="./.." class="md-tabs__link">
+      <a href="../.." class="md-tabs__link">
         
   
   Introduction
@@ -292,7 +288,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../quick-start/" class="md-tabs__link">
+        <a href="../../quick-start/" class="md-tabs__link">
           
   
   Quick Start
@@ -309,7 +305,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="../installation/" class="md-tabs__link">
+      <a href="../../installation/" class="md-tabs__link">
         
   
   Installation
@@ -327,7 +323,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../run/" class="md-tabs__link">
+        <a href="../../run/" class="md-tabs__link">
           
   
   Running
@@ -342,13 +338,11 @@
   
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href="../config-file/" class="md-tabs__link">
+      <li class="md-tabs__item">
+        <a href="../../config-file/" class="md-tabs__link">
           
   
   Configuration File
@@ -365,7 +359,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="../using/" class="md-tabs__link">
+      <a href="../../using/" class="md-tabs__link">
         
   
   Available API Endpoints
@@ -383,7 +377,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../using-guides/" class="md-tabs__link">
+        <a href="../" class="md-tabs__link">
           
   
   Guides
@@ -402,7 +396,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../development/" class="md-tabs__link">
+        <a href="../../development/" class="md-tabs__link">
           
   
   Development
@@ -443,7 +437,7 @@
 
 <nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href="./.." title="Martin Tile Server Documentation" class="md-nav__button md-logo" aria-label="Martin Tile Server Documentation" data-md-component="logo">
+    <a href="../.." title="Martin Tile Server Documentation" class="md-nav__button md-logo" aria-label="Martin Tile Server Documentation" data-md-component="logo">
       
   
   <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-book-open" viewBox="0 0 24 24"><path d="M12 7v14M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/></svg>
@@ -473,7 +467,7 @@
   
   
     <li class="md-nav__item">
-      <a href="./.." class="md-nav__link">
+      <a href="../.." class="md-nav__link">
         
   
   
@@ -533,7 +527,7 @@
   
   
   
-    <a href="../quick-start/" class="md-nav__link">
+    <a href="../../quick-start/" class="md-nav__link">
       
   
   
@@ -565,7 +559,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../installation/" class="md-nav__link">
+      <a href="../../installation/" class="md-nav__link">
         
   
   
@@ -627,7 +621,7 @@
   
   
   
-    <a href="../run/" class="md-nav__link">
+    <a href="../../run/" class="md-nav__link">
       
   
   
@@ -654,189 +648,6 @@
     
       
       
-  
-  
-    
-  
-  
-  
-    
-    
-      
-        
-          
-        
-      
-        
-      
-        
-      
-    
-    
-    
-      
-        
-        
-      
-      
-        
-      
-    
-    
-      
-    
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
-        
-          
-          <div class="md-nav__link md-nav__container">
-            <a href="../config-file/" class="md-nav__link ">
-              
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Configuration File
-
-    
-  </span>
-  
-  
-
-            </a>
-            
-              
-              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="">
-                <span class="md-nav__icon md-icon"></span>
-              </label>
-            
-          </div>
-        
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
-          <label class="md-nav__title" for="__nav_5">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-  Configuration File
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-            
-              
-                
-  
-  
-    
-  
-  
-  
-    
-    
-      
-        
-          
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-    
-    
-    
-      
-      
-        
-          
-          
-        
-      
-    
-    
-      
-    
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_2" checked>
-        
-          
-          <div class="md-nav__link md-nav__container">
-            <a href="././" class="md-nav__link md-nav__link--active">
-              
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Tile sources
-
-    
-  </span>
-  
-  
-
-            </a>
-            
-              
-              <label class="md-nav__link md-nav__link--active" for="__nav_5_2" id="__nav_5_2_label" tabindex="">
-                <span class="md-nav__icon md-icon"></span>
-              </label>
-            
-          </div>
-        
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_2_label" aria-expanded="true">
-          <label class="md-nav__title" for="__nav_5_2">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-  Tile sources
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../sources-files/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  MBTiles and PMTiles File Sources
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
   
   
   
@@ -872,14 +683,14 @@
   
   
   
-    <a href="../pg-connections/" class="md-nav__link">
+    <a href="../../config-file/" class="md-nav__link">
       
   
   
   <span class="md-ellipsis">
     
   
-  PostgreSQL Connections
+  Configuration File
 
     
   </span>
@@ -896,230 +707,6 @@
     </li>
   
 
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../sources-cog-files/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Cloud Optimized GeoTIFF File Sources
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../sources-composite/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Composite Sources
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    
-    
-      
-        
-      
-        
-      
-        
-      
-    
-    
-    
-      
-      
-        
-          
-          
-        
-      
-    
-    
-      
-    
-    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
-      
-        
-        
-          
-        
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_3" >
-        
-          
-          <label class="md-nav__link" for="__nav_5_3" id="__nav_5_3_label" tabindex="">
-            
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Supporting Resources
-
-    
-  </span>
-  
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_3_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5_3">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-  Supporting Resources
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../sources-sprites/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Sprites
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../sources-styles/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Styles
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../sources-fonts/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Fonts
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
     
       
       
@@ -1128,7 +715,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../using/" class="md-nav__link">
+      <a href="../../using/" class="md-nav__link">
         
   
   
@@ -1188,7 +775,7 @@
   
   
   
-    <a href="../using-guides/" class="md-nav__link">
+    <a href="../" class="md-nav__link">
       
   
   
@@ -1254,7 +841,7 @@
   
   
   
-    <a href="../development/" class="md-nav__link">
+    <a href="../../development/" class="md-nav__link">
       
   
   
@@ -1297,70 +884,12 @@
   
 
 
-  <nav class="md-path" aria-label="Navigation" >
-    <ol class="md-path__list">
-      
-        
-  
-  
-    <li class="md-path__item">
-      <a href="./.." class="md-path__link">
-        
-  <span class="md-ellipsis">
-    Introduction
-  </span>
-
-      </a>
-    </li>
-  
-
-      
-      
-        
-  
-  
-    
-    
-      <li class="md-path__item">
-        <a href="../config-file/" class="md-path__link">
-          
-  <span class="md-ellipsis">
-    Configuration File
-  </span>
-
-        </a>
-      </li>
-    
-  
-
-      
-        
-  
-  
-    
-    
-      <li class="md-path__item">
-        <a href="././" class="md-path__link">
-          
-  <span class="md-ellipsis">
-    Tile sources
-  </span>
-
-        </a>
-      </li>
-    
-  
-
-      
-    </ol>
-  </nav>
-
               
               <article class="md-content__inner md-typeset">
                 
                   
   
-    <a href="https://github.com/maplibre/martin/edit/main/docs/content/sources-tiles.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+    <a href="https://github.com/maplibre/martin/edit/main/docs/content/using-guides/mlt.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
       
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-file-pen" viewBox="0 0 24 24"><path d="M12.659 22H18a2 2 0 0 0 2-2V8a2.4 2.4 0 0 0-.706-1.706l-3.588-3.588A2.4 2.4 0 0 0 14 2H6a2 2 0 0 0-2 2v9.34"/><path d="M14 2v5a1 1 0 0 0 1 1h5M10.378 12.622a1 1 0 0 1 3 3.003L8.36 20.637a2 2 0 0 1-.854.506l-2.867.837a.5.5 0 0 1-.62-.62l.836-2.869a2 2 0 0 1 .506-.853z"/></svg>
     </a>
@@ -1368,30 +897,123 @@
   
 
 
-<h1 id="tile-sources">Tile Sources</h1>
-<p>Martin supports multiple tile sources</p>
-<ul>
-<li><a href="../sources-files/">MBTiles Sources</a> Local Sqlite database containing pre-generated vector or raster tiles.</li>
-<li><a href="../sources-files/">PMTiles Sources</a> A local file or a web-accessible HTTP source with the pre-generated raster or vector tiles.</li>
-<li><a href="../pg-connections/">PostgreSQL Connections</a> with</li>
-<li><a href="../sources-pg-tables/">Table Sources</a></li>
-<li><a href="../sources-pg-functions/">Function Sources</a></li>
-</ul>
-<p>The difference between tile archives (<em><a href="../sources-files/">MBTiles/PMTiles</a></em>) and a database (<a href="../sources-pg-tables/">PG-Table</a>/<a href="../sources-pg-functions/">PG-Function</a>) is that</p>
-<ul>
-<li><strong>database</strong> are more flexible and may (depending on how you fill it) be updated in <strong>real-time</strong>.</li>
-<li><strong>Tile archives</strong> on the other hand may (depending on the data) be more <strong>compact, memory efficient and exhibit better performance</strong> for tile-serving.</li>
-</ul>
-<p>=&gt; For most usecases, you may want a mix of both. We support this via <a href="../sources-composite/">Composite Sources</a>
-=&gt; For some usecases, you want the flexibility of a database, but you don't want to pay the runtime-price. We offer the <a href="../martin-cp/"><code>martin-cp</code></a> utility to render all tiles into a tile archive. This can also be used to provide offline maps via <a href="../mbtiles-diff/">diffing and syncing <code>mbtiles</code></a></p>
-<p>The difference between MBTiles and PMTiles is that:</p>
-<ul>
-<li><strong>MBTiles</strong> require the entire archive to be on the same machine. <strong>PMTiles</strong> can utilise a remote HTTP-Range request supporting server or a local file.</li>
-<li>Performance wise, <strong>MBTiles</strong> is slightly faster than <strong>PMTiles</strong>, but with caching this is negligible.</li>
-<li>Disk size wise, <strong>MBTiles</strong> is slightly (10-15%) higher than <strong>PMTiles</strong>.</li>
-<li><strong>PMTiles</strong> requires less memory in extreme cases as sqlite has a small in-memory cache.</li>
-</ul>
-<p>The choice depends on your specific usecase and requirements.</p>
+<h1 id="serving-mlt-maplibre-tiles">Serving MLT (MapLibre Tiles)</h1>
+<p>This guide explains how to configure Martin to convert MVT (Mapbox Vector Tiles) to <a href="https://github.com/maplibre/maplibre-tile-spec">MLT (MapLibre Tiles)</a> format on the fly.</p>
+<h2 id="what-is-mlt">What is MLT?</h2>
+<p>MLT is a compact, columnar tile format designed as a successor to MVT.
+See the <a href="https://github.com/maplibre/maplibre-tile-spec">MLT spec</a> for details.</p>
+<p>Martin can convert MVT tiles to MLT at serve time, so you don't need to re-generate your tile archives or change your database functions.
+If you generate your own tile archives, consider generating them using MLT instead since you save CPU cycles and latency this way.
+The default for this is optimised for size, optimises for network size (!= low CPU usage) and can thus convert approximately 10k tiles/s.</p>
+<div class="admonition note">
+<p class="admonition-title">Prerequisites</p>
+<p>Martin must be built with the <code>mlt</code> feature enabled and up to date.
+If the feature is not enabled, Martin will return an error when MLT conversion is requested.</p>
+</div>
+<h2 id="quick-start">Quick Start</h2>
+<p>Add <code>convert-to-mlt: auto</code> in your config file to convert all MVT sources to MLT:</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">convert-to-mlt</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">auto</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="c1"># your existing source configuration</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="nt">postgres</span><span class="p">:</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">  </span><span class="nt">connection_string</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">postgresql://localhost/mydb</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="nt">pmtiles</span><span class="p">:</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">  </span><span class="nt">sources</span><span class="p">:</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">    </span><span class="nt">basemap</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/data/basemap.pmtiles</span>
+</span></code></pre></div>
+<p>Sources that produce other formats (raster, etc.) are unaffected.</p>
+<h2 id="scoping-mlt-conversion">Scoping MLT Conversion</h2>
+<p>You don't have to convert everything.
+The <code>convert-to-mlt</code> key can be placed at three levels, and the most specific one wins entirely (see <a href="../../config-file/">Configuration File</a> for details).</p>
+<h3 id="convert-only-postgresql-sources">Convert only PostgreSQL sources</h3>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">postgres</span><span class="p">:</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="nt">convert-to-mlt</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">auto</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">  </span><span class="nt">connection_string</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">postgresql://localhost/mydb</span>
+</span></code></pre></div>
+<h3 id="convert-a-single-source">Convert a single source</h3>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">pmtiles</span><span class="p">:</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="nt">sources</span><span class="p">:</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span><span class="nt">basemap</span><span class="p">:</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">      </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/data/basemap.pmtiles</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">      </span><span class="nt">convert-to-mlt</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">auto</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">    </span><span class="nt">imagery</span><span class="p">:</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">      </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/data/imagery.pmtiles</span>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">      </span><span class="c1"># no convert-to-mlt — served as-is</span>
+</span></code></pre></div>
+<h3 id="opt-a-single-source-out-of-mlt">Opt a single source out of MLT</h3>
+<p>If a higher level (global or source-type) enables MLT but you want one source
+to keep serving MVT, set <code>convert-to-mlt: disabled</code>. Aliases: <code>off</code>, <code>no</code>,
+<code>false</code>. The most-specific level wins, so this overrides any inherited <code>auto</code>.</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nt">convert-to-mlt</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">auto</span><span class="w">              </span><span class="c1"># default everywhere</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="nt">pmtiles</span><span class="p">:</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">  </span><span class="nt">sources</span><span class="p">:</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">    </span><span class="nt">basemap</span><span class="p">:</span>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">      </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/data/basemap.pmtiles</span>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">      </span><span class="c1"># Inherits global `auto` → converted on Accept: MLT</span>
+</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">    </span><span class="nt">legacy</span><span class="p">:</span>
+</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="w">      </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/data/legacy.pmtiles</span>
+</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="w">      </span><span class="nt">convert-to-mlt</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">disabled</span><span class="w">    </span><span class="c1"># always served as MVT, even on Accept: MLT</span>
+</span></code></pre></div>
+<h2 id="tuning-the-encoder">Tuning the Encoder</h2>
+<p><code>convert-to-mlt: auto</code> uses "magic" default encoder settings, which work well for most data.
+The <code>auto</code> preset is guaranteed to work on a reasonably new maplibre version, so for example <code>tessellation</code> will only be enabled if this has wider spread benefits.</p>
+<p>If you need to tweak encoding behavior, provide an explicit configuration:</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nt">convert-to-mlt</span><span class="p">:</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span><span class="nt">tessellate</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">  </span><span class="nt">try_spatial_hilbert_sort</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">  </span><span class="nt">allow_fsst</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+</span></code></pre></div>
+<p>All fields are optional. Only the fields you specify override the defaults; unset fields keep their <code>mlt-core</code> default values.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>When to change</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>tessellate</code></td>
+<td>Enable if your client supports pre-tessellated polygons and you benchmarked that this improves your usecase</td>
+</tr>
+<tr>
+<td><code>try_spatial_morton_sort</code></td>
+<td>Disable if your data is already spatially ordered</td>
+</tr>
+<tr>
+<td><code>try_spatial_hilbert_sort</code></td>
+<td>Disable if Morton sort doesn't compress well for your data</td>
+</tr>
+<tr>
+<td><code>try_id_sort</code></td>
+<td>Enable when features have sequential IDs and spatial sorting isn't beneficial</td>
+</tr>
+<tr>
+<td><code>allow_fsst</code></td>
+<td>Disable to reduce search space</td>
+</tr>
+<tr>
+<td><code>allow_fpf</code></td>
+<td>Disable to reduce search space</td>
+</tr>
+<tr>
+<td><code>allow_shared_dict</code></td>
+<td>Disable to reduce search space</td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>In most cases, <code>convert-to-mlt: auto</code> is the right choice.
+Only tune these settings if you've profiled your tiles and identified a specific bottleneck.</p>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>MLT uses lightweight compressions (FastPFOR, FSST, ...), so combining it with heavyweight compression (e.g. gzip) removes most of the reasons for using it.
+Do this only if you have benchmarked that this actually makes your usecase better.
+If for example CPU usage is an issue, disable some sorting options that you have benchmarked to be ineffective.</p>
+</div>
 
 
 
@@ -1426,44 +1048,6 @@
       
         <footer class="md-footer">
   
-    
-      
-      <nav class="md-footer__inner md-grid" aria-label="Footer" >
-        
-          
-          <a href="../config-file/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Configuration File">
-            <div class="md-footer__button md-icon">
-              
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
-            </div>
-            <div class="md-footer__title">
-              <span class="md-footer__direction">
-                Previous
-              </span>
-              <div class="md-ellipsis">
-                Configuration File
-              </div>
-            </div>
-          </a>
-        
-        
-          
-          <a href="../sources-files/" class="md-footer__link md-footer__link--next" aria-label="Next: MBTiles and PMTiles File Sources">
-            <div class="md-footer__title">
-              <span class="md-footer__direction">
-                Next
-              </span>
-              <div class="md-ellipsis">
-                MBTiles and PMTiles File Sources
-              </div>
-            </div>
-            <div class="md-footer__button md-icon">
-              
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-right" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-            </div>
-          </a>
-        
-      </nav>
     
   
   <div class="md-footer-meta md-typeset">
@@ -1513,10 +1097,10 @@
     
       
       
-      <script id="__config" type="application/json">{"annotate":null,"base":"..","features":["announce.dismiss","content.action.edit","content.code.annotate","content.code.copy","content.code.select","content.footnote.tooltips","content.tabs.link","content.tooltips","header.autohide","navigation.expand","navigation.footer","navigation.indexes","navigation.instant","navigation.instant.prefetch","navigation.instant.progress","navigation.path","navigation.prune","navigation.sections","navigation.tabs","navigation.tabs.sticky","navigation.top","navigation.tracking","search.highlight","toc.follow","toc.integrate"],"search":"../assets/javascripts/workers/search.e2d2d235.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":null}</script>
+      <script id="__config" type="application/json">{"annotate":null,"base":"../..","features":["announce.dismiss","content.action.edit","content.code.annotate","content.code.copy","content.code.select","content.footnote.tooltips","content.tabs.link","content.tooltips","header.autohide","navigation.expand","navigation.footer","navigation.indexes","navigation.instant","navigation.instant.prefetch","navigation.instant.progress","navigation.path","navigation.prune","navigation.sections","navigation.tabs","navigation.tabs.sticky","navigation.top","navigation.tracking","search.highlight","toc.follow","toc.integrate"],"search":"../../assets/javascripts/workers/search.e2d2d235.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":null}</script>
     
     
-      <script src="../assets/javascripts/bundle.dbc0afdc.min.js"></script>
+      <script src="../../assets/javascripts/bundle.dbc0afdc.min.js"></script>
       
     
   </body>
