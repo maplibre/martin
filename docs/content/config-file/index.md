@@ -17,6 +17,44 @@ all of your configuration, which you can edit to remove any sources you don't wa
 martin  ... ... ...  --save-config config.yaml
 ```
 
+## Postprocessing
+
+The `convert-to-mlt` key tunes encoder settings used by Martin's postprocessing pipeline.
+It does **not** enable any conversion — the client drives that via the `Accept` header (e.g. `Accept: application/vnd.maplibre-tile` triggers MVT->MLT).
+The `convert-to-mlt` key only changes *how* a conversion encodes when it fires.
+
+Currently configurable:
+
+- **MLT encoder** — encoder settings for MVT->MLT conversion.
+See the [MLT usage guide](using-guides/mlt.md) for tuning options.
+
+The `convert-to-mlt` key can appear at three levels.
+The most specific level wins entirely (no merging between levels):
+
+1. **Global** — applies to all sources
+2. **Source-type** — applies to all sources of that type (e.g. all PMTiles sources)
+3. **Per-source** — applies to a single source
+
+```yaml
+# Global: default MLT encoder settings for any source whose tiles get converted
+convert-to-mlt: auto
+
+postgres:
+  connection_string: postgresql://localhost/mydb
+  # Source-type: override the encoder config for all PG sources
+  convert-to-mlt: auto
+  tables:
+    my_table:
+      # Per-source: this table uses the default MLT encoder config
+      convert-to-mlt: auto
+    no_mlt_table:
+      # Per-source: explicitly opt out — even if the client requests MLT, this source
+      # is served as MVT. Accepts: `disabled`, `off`, `no`, `false`.
+      convert-to-mlt: disabled
+mbtiles: # gets global default
+  - some/file.mbtiles
+```
+
 ## Config Example
 
 --8<-- "files/generated_config.md"

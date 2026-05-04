@@ -484,7 +484,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y gdal-bin sqlite3-tools
       - uses: taiki-e/install-action@cf525cb33f51aca27cd6fa02034117ab963ff9f1 # v2.75.22
         if: matrix.os == 'ubuntu-latest'
-        with: { tool: 'just' }
+        with: { tool: 'just,mlt' }
       - name: Install rendering dependencies
         if: matrix.os == 'ubuntu-latest'
         run: just install-dependencies

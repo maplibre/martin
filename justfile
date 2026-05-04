@@ -49,12 +49,14 @@ bench:
     cargo bench --bench sources
     open target/criterion/report/index.html
 
-# Run HTTP requests benchmark using OHA tool. Use with `just bench-server`
+# Run HTTP requests benchmark using OHA tool. Use with `just bench-server`.
 bench-http requests='10m' pg_requests='500k':  (cargo-install 'oha')
     @echo "ATTENTION: Make sure Martin was started with    just bench-server"
     @echo "Warming up..."
     oha --latency-correction -n 100            --no-tui http://localhost:3000/function_zxy_query/18/235085/122323 > /dev/null
     oha --latency-correction -n {{pg_requests}}         http://localhost:3000/function_zxy_query/18/235085/122323
+    oha --latency-correction -n 100            --no-tui -H 'Accept: application/vnd.maplibre-tile' http://localhost:3000/function_zxy_query/18/235085/122323 > /dev/null
+    oha --latency-correction -n {{pg_requests}}         -H 'Accept: application/vnd.maplibre-tile' http://localhost:3000/function_zxy_query/18/235085/122323
     oha --latency-correction -n 200            --no-tui http://localhost:3000/png/0/0/0 > /dev/null
     oha --latency-correction -n {{requests}}            http://localhost:3000/png/0/0/0
     oha --latency-correction -n 200            --no-tui http://localhost:3000/stamen_toner__raster_CC-BY-ODbL_z3/0/0/0 > /dev/null
@@ -214,9 +216,9 @@ build-deb output: (cargo-install 'cargo-deb')
     set -euo pipefail
     sudo apt-get install -y dpkg dpkg-dev liblzma-dev
     if [[ "{{release_mode}}" == "1" ]]; then
-        cargo deb -v -p martin --output {{output}} -- --no-default-features --features fonts,lambda,mbtiles,metrics,pmtiles,postgres,sprites,styles,webui
+        cargo deb -v -p martin --output {{output}} -- --no-default-features --features fonts,lambda,mbtiles,metrics,mlt,pmtiles,postgres,sprites,styles,webui
     else
-        cargo deb -v -p martin --profile dev --output {{output}} -- --no-default-features --features fonts,lambda,mbtiles,metrics,pmtiles,postgres,sprites,styles,webui
+        cargo deb -v -p martin --profile dev --output {{output}} -- --no-default-features --features fonts,lambda,mbtiles,metrics,mlt,pmtiles,postgres,sprites,styles,webui
     fi
 
 # Build for musl target using zigbuild
@@ -230,7 +232,7 @@ build-release-musl target:
         export CARGO_TARGET_{{shoutysnakecase(target)}}_RUSTFLAGS='-C strip=debuginfo'
     fi
     cargo zigbuild {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package mbtiles --locked
-    cargo zigbuild {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package martin --locked --no-default-features --features fonts,lambda,mbtiles,metrics,pmtiles,postgres,sprites,styles,webui
+    cargo zigbuild {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package martin --locked --no-default-features --features fonts,lambda,mbtiles,metrics,mlt,pmtiles,postgres,sprites,styles,webui
 
 
 # Move build artifacts to target_releases directory

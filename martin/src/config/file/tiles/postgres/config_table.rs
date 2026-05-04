@@ -6,6 +6,8 @@ use tilejson::{Bounds, TileJSON, VectorLayer};
 use tracing::{info, warn};
 
 use super::PostgresInfo;
+#[cfg(all(feature = "mlt", feature = "_tiles"))]
+use crate::config::file::MltProcessConfig;
 use crate::config::file::postgres::utils::{normalize_key, patch_json};
 use crate::config::file::{CachePolicy, UnrecognizedValues};
 
@@ -112,6 +114,16 @@ pub struct TableInfo {
     #[serde(skip)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub prop_mapping: HashMap<String, String>,
+
+    /// MVT->MLT encoder settings for this source.
+    /// Overrides source-type and global `convert-to-mlt`.
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "convert-to-mlt"
+    )]
+    pub convert_to_mlt: Option<MltProcessConfig>,
 
     #[serde(flatten, skip_serializing)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]

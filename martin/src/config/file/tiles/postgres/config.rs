@@ -3,7 +3,6 @@ use std::time::Duration;
 
 use futures::future::try_join;
 use futures::pin_mut;
-use martin_core::tiles::BoxedSource;
 use martin_tile_utils::TileInfo;
 use serde::{Deserialize, Serialize};
 use tilejson::TileJSON;
@@ -11,11 +10,12 @@ use tokio::time::timeout;
 use tracing::warn;
 
 use super::{FuncInfoSources, TableInfoSources};
-use crate::MartinResult;
 use crate::config::args::{BoundsCalcType, DEFAULT_BOUNDS_TIMEOUT};
+#[cfg(all(feature = "mlt", feature = "_tiles"))]
+use crate::config::file::MltProcessConfig;
 use crate::config::file::postgres::PostgresAutoDiscoveryBuilder;
 use crate::config::file::{
-    CachePolicy, ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks, TileSourceWarning,
+    CachePolicy, ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks, ResolutionResult,
     UnrecognizedKeys, UnrecognizedValues, copy_unrecognized_keys_from_config,
 };
 use crate::config::primitives::{IdResolver, OptBoolObj, OptOneMany};
@@ -99,6 +99,22 @@ pub struct PostgresConfig {
     pub tables: Option<TableInfoSources>,
     /// Associative arrays of function sources
     pub functions: Option<FuncInfoSources>,
+
+    /// MVT->MLT encoder settings for all sources from this connection.
+    /// Overrides global; overridden by per-source `convert-to-mlt`.
+    ///
+    /// Can be either:
+    /// - `null` (default) - defer to the global setting
+    /// - `auto` - we choose defaults which we think work best for most users
+    /// - `disabled` - no conversion
+    /// - explicitely configured
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "convert-to-mlt"
+    )]
+    pub convert_to_mlt: Option<MltProcessConfig>,
 
     #[serde(flatten, skip_serializing)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
@@ -235,7 +251,7 @@ impl PostgresConfig {
         &mut self,
         id_resolver: IdResolver,
         default_cache: CachePolicy,
-    ) -> MartinResult<(Vec<BoxedSource>, Vec<TileSourceWarning>)> {
+    ) -> ResolutionResult {
         let pg = PostgresAutoDiscoveryBuilder::new(self, id_resolver, default_cache).await?;
         let inst_tables = on_slow(
             pg.instantiate_tables(),

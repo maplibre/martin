@@ -205,6 +205,24 @@ test_accept_header() {
   fi
 }
 
+test_mlt() {
+  FILENAME="$TEST_OUT_DIR/$1.mlt"
+  URL="$MARTIN_URL/$2"
+
+  echo "Testing $(basename "$FILENAME") from $URL (expecting MLT)"
+  $CURL --dump-header "$FILENAME.headers" -H 'Accept: application/vnd.maplibre-tile' "$URL" > "$FILENAME"
+  clean_headers_dump "$FILENAME.headers"
+
+  # Validate MLT content with mlt CLI if available
+  if command -v mlt &> /dev/null; then
+    mlt ls "$FILENAME" > "$FILENAME.ls.txt"
+    mlt decode "$FILENAME" > "$FILENAME.decoded.txt"
+    mlt dump "$FILENAME" > "$FILENAME.dump.txt"
+  else
+    echo "WARNING: mlt CLI not found, skipping MLT content validation for $(basename "$FILENAME")"
+  fi
+}
+
 test_redirect() {
   URL="$MARTIN_URL/$1"
   EXPECTED_LOCATION="$2"
@@ -721,8 +739,9 @@ test_accept_header table_source/0/0/0 "image/png, application/x-protobuf" 200
 test_accept_header table_source/0/0/0 "application/x-protobuf, image/png" 200
 test_accept_header table_source/0/0/0 "image/png" 406
 test_accept_header table_source/0/0/0 "image/*" 406
-test_accept_header table_source/0/0/0 "application/vnd.maplibre-vector-tile" 406
-test_accept_header table_source/0/0/0 "application/vnd.maplibre-tile" 406
+# MVT -> MLT pre-cache conversion: MLT Accept on an MVT source returns 200 with MLT body
+test_accept_header table_source/0/0/0 "application/vnd.maplibre-vector-tile" 200
+test_accept_header table_source/0/0/0 "application/vnd.maplibre-tile" 200
 test_accept_header table_source/0/0/0 "text/html" 406
 
 # PNG source
@@ -804,6 +823,35 @@ fi
 test_log_has_str "$LOG_FILE" 'Defaulting `pmtiles.allow_http` to `true`. This is likely to become an error in the future for better security.'
 test_log_has_str "$LOG_FILE" 'Environment variable AWS_SKIP_CREDENTIALS is deprecated. Please use pmtiles.skip_signature in the configuration file instead.'
 test_log_has_str "$LOG_FILE" 'Environment variable AWS_REGION is deprecated. Please use pmtiles.region in the configuration file instead.'
+validate_log "$LOG_FILE"
+remove_lines "${TEST_OUT_DIR}/save_config.yaml" " connection_string: "
+echo "::endgroup::"
+
+echo "::group::Test postprocessing"
+TEST_NAME="process"
+LOG_FILE="${LOG_DIR}/${TEST_NAME}.txt"
+TEST_OUT_DIR="${TEST_OUT_BASE_DIR}/${TEST_NAME}"
+mkdir -p "$TEST_OUT_DIR"
+
+ARG=(--config tests/config-process.yaml --save-config "${TEST_OUT_DIR}/save_config.yaml" -W 1)
+export DATABASE_URL="$MARTIN_DATABASE_URL"
+set -x
+$MARTIN_BIN "${ARG[@]}" 2>&1 | tee "$LOG_FILE" &
+MARTIN_PROC_ID=$(jobs -p | tail -n 1)
+{ set +x; } 2> /dev/null
+trap "echo 'Stopping Martin server $MARTIN_PROC_ID...'; kill -9 $MARTIN_PROC_ID 2> /dev/null || true; echo 'Stopped Martin server $MARTIN_PROC_ID';" EXIT HUP INT TERM
+wait_for "$MARTIN_PROC_ID" Martin "$MARTIN_URL/health"
+unset DATABASE_URL
+
+>&2 echo "***** Test MLT postprocessing *****"
+# table_source has process.mlt=auto — should convert MVT to MLT
+test_mlt proc_mlt_table_source           table_source/0/0/0
+
+>&2 echo "***** Test save_config includes process blocks *****"
+test_jsn catalog_process catalog
+
+kill_process "$MARTIN_PROC_ID" Martin
+test_log_has_str "$LOG_FILE" 'Table public.table_source has no spatial index on column geom'
 validate_log "$LOG_FILE"
 remove_lines "${TEST_OUT_DIR}/save_config.yaml" " connection_string: "
 echo "::endgroup::"

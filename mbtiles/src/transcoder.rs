@@ -567,7 +567,7 @@ async fn write_normalized_chunk(
     let res = q.execute(&mut *tx).await?;
     let rows = usize::try_from(res.rows_affected()).unwrap_or(0);
 
-    // For Hash destinations, record old_id → new_id mapping so the map
+    // For Hash destinations, record old_id -> new_id mapping so the map
     // table INSERT can reference the recomputed tile_ids.
     if is_hash_dst {
         let map_sql = format!(

@@ -18,9 +18,11 @@ use tracing::{info, warn};
 #[cfg(feature = "_tiles")]
 use url::Url;
 
-#[cfg(feature = "_tiles")]
-use crate::config::file::TileSourceWarning;
+#[cfg(all(feature = "mlt", feature = "_tiles"))]
+use crate::config::file::MltProcessConfig;
 use crate::config::file::{ConfigFileError, ConfigFileResult};
+#[cfg(feature = "_tiles")]
+use crate::config::file::{ResolutionResult, TileSourceWarning};
 #[cfg(feature = "_tiles")]
 use crate::config::primitives::IdResolver;
 use crate::config::primitives::OptOneMany;
@@ -368,10 +370,20 @@ fn is_sqlite_memory_uri(path: &Path) -> bool {
     }
 }
 
+#[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct FileConfigSource {
     pub path: PathBuf,
+    /// MVT->MLT encoder settings for this source.
+    /// Overrides source-type and global `convert-to-mlt`.
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "convert-to-mlt"
+    )]
+    pub convert_to_mlt: Option<MltProcessConfig>,
     /// Zoom-level bounds for tile caching.
     #[serde(default, skip_serializing_if = "CachePolicy::is_empty")]
     #[cfg_attr(feature = "unstable-schemas", schemars(with = "CachePolicyShape"))]
@@ -384,7 +396,7 @@ pub async fn resolve_files<T: TileSourceConfiguration>(
     idr: &IdResolver,
     extension: &[&str],
     default_cache: CachePolicy,
-) -> MartinResult<(Vec<BoxedSource>, Vec<TileSourceWarning>)> {
+) -> ResolutionResult {
     resolve_int(config, idr, extension, default_cache).await
 }
 
@@ -394,7 +406,7 @@ async fn resolve_int<T: TileSourceConfiguration>(
     idr: &IdResolver,
     extension: &[&str],
     default_cache: CachePolicy,
-) -> MartinResult<(Vec<BoxedSource>, Vec<TileSourceWarning>)> {
+) -> ResolutionResult {
     let Some(cfg) = config.extract_file_config() else {
         return Ok((vec![], vec![]));
     };
@@ -513,7 +525,7 @@ async fn resolve_one_path_int<T: TileSourceConfiguration>(
     directories: &mut Vec<PathBuf>,
     configs: &mut BTreeMap<String, FileConfigSrc>,
     default_cache: CachePolicy,
-) -> MartinResult<(Vec<BoxedSource>, Vec<TileSourceWarning>)> {
+) -> ResolutionResult {
     let mut results = Vec::new();
     let mut warnings = Vec::new();
 

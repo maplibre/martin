@@ -61,9 +61,7 @@ impl<'de, T: Deserialize<'de>> Visitor<'de> for AutoOptionVisitor<T> {
     type Value = AutoOption<T>;
 
     fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(
-            r#"a string ("auto", "default", "disabled", "false", "off", "no"), a boolean, or a map of settings"#,
-        )
+        f.write_str(r#"a string ("auto", "enabled", "disabled"), a boolean, or a map of settings"#)
     }
 
     fn visit_bool<E: de::Error>(self, v: bool) -> Result<Self::Value, E> {
@@ -76,8 +74,8 @@ impl<'de, T: Deserialize<'de>> Visitor<'de> for AutoOptionVisitor<T> {
 
     fn visit_str<E: de::Error>(self, v: &str) -> Result<Self::Value, E> {
         match v {
-            "auto" | "default" | "true" => Ok(AutoOption::Auto),
-            "disabled" | "false" | "off" | "no" => Ok(AutoOption::Disabled),
+            "auto" | "default" | "enabled" => Ok(AutoOption::Auto),
+            "disabled" => Ok(AutoOption::Disabled),
             _ => Err(E::invalid_value(Unexpected::Str(v), &self)),
         }
     }
@@ -98,21 +96,21 @@ impl<T: schemars::JsonSchema> schemars::JsonSchema for AutoOption<T> {
         let inner = generator.subschema_for::<T>();
         schemars::json_schema!({
             "description": format!(
-                "Auto/disabled/explicit configuration.\n\n\
-                 - `\"auto\"` or `\"default\"` - use defaults\n\
-                 - `\"disabled\"`, `\"false\"`, `\"off\"`, `\"no\"` - disable\n\
-                 - An object - explicit {} settings",
+                "Conversion configuration:\n\n\
+                 - `\"auto\"`, `\"enabled\"` or boolean `true` - use defaults for this conversion\n\
+                 - `\"disabled\"` or boolean `false` - disable this conversion\n\
+                 - An object `{}` - explicit  settings",
                 T::schema_name()
             ),
             "oneOf": [
                 {
                     "type": "string",
-                    "enum": ["auto", "default", "true"],
+                    "enum": ["auto","enabled"],
                     "description": "Use the feature with default settings."
                 },
                 {
                     "type": "string",
-                    "enum": ["disabled", "false", "off", "no"],
+                    "enum": ["disabled"],
                     "description": "Disable the feature."
                 },
                 {
@@ -144,12 +142,9 @@ mod tests {
     #[case("auto", AutoOption::Auto)]
     #[case("default", AutoOption::Auto)]
     #[case("true", AutoOption::Auto)]
+    #[case("enabled", AutoOption::Auto)]
     #[case("disabled", AutoOption::Disabled)]
-    #[case("off", AutoOption::Disabled)]
-    #[case("no", AutoOption::Disabled)]
     #[case("false", AutoOption::Disabled)]
-    #[case("\"false\"", AutoOption::Disabled)]
-    #[case("\"true\"", AutoOption::Auto)]
     fn parse_keyword(#[case] input: &str, #[case] expected: AutoOption<DummyCfg>) {
         let v: AutoOption<DummyCfg> = serde_yaml::from_str(input).unwrap();
         assert_eq!(v, expected);
@@ -174,19 +169,13 @@ mod tests {
         assert!(serde_yaml::from_str::<AutoOption<DummyCfg>>(input).is_err());
     }
 
-    #[test]
-    fn serde_round_trip() {
-        for v in [
-            AutoOption::<DummyCfg>::Auto,
-            AutoOption::Disabled,
-            AutoOption::Explicit(DummyCfg {
-                foo: Some(true),
-                bar: None,
-            }),
-        ] {
-            let yaml = serde_yaml::to_string(&v).unwrap();
-            let parsed: AutoOption<DummyCfg> = serde_yaml::from_str(&yaml).unwrap();
-            assert_eq!(v, parsed);
-        }
+    #[rstest]
+    #[case::auto(AutoOption::<DummyCfg>::Auto)]
+    #[case::auto(AutoOption::<DummyCfg>::Disabled)]
+    #[case::auto(AutoOption::Explicit(DummyCfg {foo: Some(true),bar: None,}))]
+    fn serde_round_trip(#[case] v: AutoOption<DummyCfg>) {
+        let yaml = serde_yaml::to_string(&v).unwrap();
+        let parsed: AutoOption<DummyCfg> = serde_yaml::from_str(&yaml).unwrap();
+        assert_eq!(v, parsed);
     }
 }

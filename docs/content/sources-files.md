@@ -14,6 +14,20 @@ it and use it with `--config my-config.yaml` option.
 !!! tip
     See [our tile sources explanation](sources-tiles.md) for a more detailed explanation on the difference between our available data sources.
 
+### Postprocessing
+
+MBTiles and PMTiles sources support a `convert-to-mlt` key to control tile postprocessing (MLT conversion).
+This can be set for all sources of a type or for an individual source.
+See [Configuration File](config-file/index.md#postprocessing) for details.
+
+```yaml
+pmtiles:
+  sources:
+    basemap:
+      path: /data/basemap.pmtiles
+      convert-to-mlt: auto
+```
+
 ### Autodiscovery
 
 For mbtiles or local pmtiles files, we support auto discovering at startup.

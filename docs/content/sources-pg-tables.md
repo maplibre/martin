@@ -46,6 +46,20 @@ The TileJSON:
 
 By default the `description` and `name` is database identifies about this table, and the bounds is queried from database. You can fine tune these by adjusting `auto_publish` section in [configuration file](https://maplibre.org/martin/config-file.html#config-example).
 
+## Postprocessing
+
+Table sources support a `convert-to-mlt` key to control tile postprocessing.
+This can be set for all PostgreSQL sources or for an individual table.
+See [Configuration File](config-file/index.md#postprocessing) for details.
+
+```yaml
+postgres:
+  connection_string: postgresql://localhost/mydb
+  tables:
+    my_table:
+      convert-to-mlt: auto
+```
+
 ## TileJSON in SQL Comments
 
 Other than adjusting `auto_publish` section in configuration file, you can fine tune the `TileJSON` on the database side directly: Add a valid JSON as an SQL comment on the table.
