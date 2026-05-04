@@ -721,7 +721,7 @@ where
                 Some((coord, encoded))
             }
             Err(e) => {
-                warn!(tile.coord = %coord, error = %format!("{e:#}"), "Skipping tile");
+                warn!(tile.coord = %coord, error = ?e, "Skipping tile");
                 None
             }
         };
