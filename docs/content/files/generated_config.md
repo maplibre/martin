@@ -86,7 +86,7 @@ convert-to-mlt:
 # Can be either:
 # - (default) `auto` - we choose defaults which we think work best for most users
 # - `disabled` - no conversion
-# - explicitely configured
+# - explicitly configured
 convert-to-mvt: {}
 # CORS Configuration
 #
@@ -303,7 +303,7 @@ postgres:
   # - `null` (default) - defer to the global setting
   # - `auto` - we choose defaults which we think work best for most users
   # - `disabled` - no conversion
-  # - explicitely configured
+  # - explicitly configured
   convert-to-mvt: {}
   # If a spatial table has SRID 0, then this SRID will be used as a fallback
   default_srid: 4326
