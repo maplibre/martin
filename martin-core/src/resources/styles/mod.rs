@@ -305,47 +305,28 @@ mod tests {
                 );
         });
 
-        // For pixelmatch comparison, both images must be decoded to PNG
-        let rendered_for_cmp =
-            image::load_from_memory_with_format(&rendered_bytes, format).unwrap();
-        let mut rendered_png = std::io::Cursor::new(Vec::new());
-        rendered_for_cmp
-            .write_to(&mut rendered_png, image::ImageFormat::Png)
-            .unwrap();
+        // image-compare's hybrid algorithm operates on RgbaImage directly.
+        let rendered_for_cmp = image::load_from_memory_with_format(&rendered_bytes, format)
+            .unwrap()
+            .to_rgba8();
+        let reference_for_cmp = image::load_from_memory_with_format(&reference_bytes, format)
+            .unwrap()
+            .to_rgba8();
 
-        let reference_for_cmp =
-            image::load_from_memory_with_format(&reference_bytes, format).unwrap();
-        let mut reference_png = std::io::Cursor::new(Vec::new());
-        reference_for_cmp
-            .write_to(&mut reference_png, image::ImageFormat::Png)
-            .unwrap();
+        let similarity = image_compare::rgba_hybrid_compare(&reference_for_cmp, &rendered_for_cmp)
+            .unwrap_or_else(|e| panic!("image_compare failed: {e}"));
 
-        let diff_pixels = pixelmatch::pixelmatch(
-            std::io::Cursor::new(reference_png.get_ref()),
-            std::io::Cursor::new(rendered_png.get_ref()),
-            None::<&mut std::io::Sink>,
-            Some(width),
-            Some(height),
-            Some(pixelmatch::Options {
-                threshold: 0.1,
-                ..Default::default()
-            }),
-        )
-        .unwrap_or_else(|e| panic!("pixelmatch failed: {e}"));
-
-        let total_pixels = (width * height) as usize;
-        #[allow(clippy::cast_precision_loss)]
-        let diff_pct = (diff_pixels as f64 / total_pixels as f64) * 100.0;
-        // JPEG is lossy, so allow a higher threshold
-        let max_diff_pct = if format == image::ImageFormat::Jpeg {
-            5.0
+        // Score is 1.0 for identical images; JPEG is lossy, so allow a lower minimum.
+        let min_similarity = if format == image::ImageFormat::Jpeg {
+            0.95
         } else {
-            1.0
+            0.99
         };
+        let score = similarity.score;
         assert!(
-            diff_pct < max_diff_pct,
-            "Rendered image {reference_name} differs from reference by {diff_pct:.2}% ({diff_pixels}/{total_pixels} pixels). \
-             If this is expected, delete the existing reference file and regenerate it using the current rendering output."
+            score >= min_similarity,
+            "Rendered image {reference_name} differs from reference: similarity score {score:.4} < {min_similarity}. \
+             If this is expected, delete the existing reference file and regenerate it using the current rendering output.",
         );
     }
 }
