@@ -6,13 +6,14 @@ use martin::config::args::Args;
 #[cfg(all(feature = "webui", not(docsrs)))]
 use martin::config::args::WebUiMode;
 #[cfg(feature = "mbtiles")]
+use martin::config::file::ProcessConfig;
+#[cfg(feature = "mbtiles")]
 use martin::config::file::reload::mbtiles::MBTilesReloader;
 use martin::config::file::{Config, read_config};
 #[cfg(feature = "_tiles")]
 use martin::config::primitives::IdResolver;
 use martin::config::primitives::env::OsEnv;
-use martin::logging::LogFormat;
-use martin::logging::{ensure_martin_core_log_level_matches, init_tracing};
+use martin::logging::{LogFormat, ensure_martin_core_log_level_matches, init_tracing};
 #[cfg(feature = "_tiles")]
 use martin::srv::RESERVED_KEYWORDS;
 use martin::srv::new_server;
@@ -56,7 +57,14 @@ async fn start(args: Args) -> MartinResult<()> {
 
     #[cfg(feature = "mbtiles")]
     {
-        let reloader = MBTilesReloader::new(mgr, resolver, &config.mbtiles);
+        #[cfg(feature = "mlt")]
+        let global_pc = ProcessConfig {
+            convert_to_mlt: config.convert_to_mlt.clone(),
+            convert_to_mvt: config.convert_to_mvt.clone(),
+        };
+        #[cfg(not(feature = "mlt"))]
+        let global_pc = ProcessConfig::default();
+        let reloader = MBTilesReloader::new(mgr, resolver, &config.mbtiles, &global_pc);
         if let Err(e) = reloader.start() {
             tracing::warn!("failed to start MBTilesReloader {e:?}");
         }

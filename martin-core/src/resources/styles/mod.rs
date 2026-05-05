@@ -250,7 +250,7 @@ mod tests {
         );
 
         // Encode rendered image to the target format
-        // JPEG doesn't support alpha, so convert RGBA→RGB when needed
+        // JPEG doesn't support alpha, so convert RGBA->RGB when needed
         let encoded_img: image::DynamicImage = if format == image::ImageFormat::Jpeg {
             image::DynamicImage::ImageRgb8(
                 image::DynamicImage::ImageRgba8(rendered_img.clone()).to_rgb8(),

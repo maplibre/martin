@@ -166,6 +166,21 @@ END
 $$ LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE;
 ```
 
+### Postprocessing
+
+Function sources support `convert-to-mlt` and `convert-to-mvt` keys to control tile postprocessing.
+This can be set for all PostgreSQL sources or for an individual function.
+See [Configuration File](config-file/index.md#postprocessing) for details.
+
+```yaml
+postgres:
+  connection_string: postgresql://localhost/mydb
+  functions:
+    my_function:
+      convert-to-mlt: auto
+      convert-to-mvt: auto
+```
+
 ### Modifying TileJSON
 
 Martin will automatically generate a basic [TileJSON](https://github.com/mapbox/tilejson-spec) manifest for each

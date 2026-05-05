@@ -181,7 +181,7 @@ async fn cache_differentiates_by_format() {
         .unwrap();
     assert_eq!(got_a.data, b"mvt-data");
 
-    // Same source/xyz/query but format=Png → must be a miss
+    // Same source/xyz/query but format=Png -> must be a miss
     let mut recomputed = false;
     let got_b = cache
         .get_or_insert::<_, _, Infallible>("src".into(), ORIGIN, None, Some(Format::Png), || {
@@ -194,7 +194,7 @@ async fn cache_differentiates_by_format() {
     assert!(recomputed, "different format should produce a cache miss");
     assert_eq!(got_b.data, b"png-data");
 
-    // Requesting format=Mvt again → must be a hit (returns original data)
+    // Requesting format=Mvt again -> must be a hit (returns original data)
     let got_a2 = cache
         .get_or_insert::<_, _, Infallible>(
             "src".into(),

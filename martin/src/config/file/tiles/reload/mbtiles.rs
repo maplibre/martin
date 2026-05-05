@@ -10,6 +10,9 @@ use tokio::sync::mpsc;
 
 use super::{path_modified_ms, resolve_dir_entry};
 use crate::config::file::mbtiles::MbtConfig;
+use crate::config::file::process::ProcessConfig;
+#[cfg(all(feature = "mlt", feature = "_tiles"))]
+use crate::config::file::resolve_process_config;
 use crate::config::file::{CachePolicy, FileConfigEnum};
 use crate::config::primitives::{IdResolver, OptOneMany};
 use crate::{MartinError, MartinResult, ReloadAdvisory, TileSourceManager};
@@ -26,6 +29,9 @@ pub struct MBTilesReloader {
     /// Maps canonical paths of explicitly configured sources to their cache policy,
     /// so that directory-discovered sources that match a configured path inherit its policy.
     path_cache: BTreeMap<PathBuf, CachePolicy>,
+    /// Process config to apply to dynamically-discovered sources.
+    /// Resolved from `mbtiles.convert-to-mlt` (source-type) > global `convert-to-mlt` > default.
+    process: ProcessConfig,
 }
 
 impl MBTilesReloader {
@@ -39,10 +45,28 @@ impl MBTilesReloader {
         tsm: TileSourceManager,
         id_resolver: IdResolver,
         config: &FileConfigEnum<MbtConfig>,
+        global_process: &ProcessConfig,
     ) -> Self {
         let mut sources: BTreeMap<String, (PathBuf, u128, CachePolicy)> = BTreeMap::new();
         let mut directories: Vec<PathBuf> = vec![];
         let mut path_cache: BTreeMap<PathBuf, CachePolicy> = BTreeMap::new();
+
+        #[cfg(all(feature = "mlt", feature = "_tiles"))]
+        let process = {
+            let source_type = match config {
+                FileConfigEnum::Config(cfg) => ProcessConfig {
+                    convert_to_mlt: cfg.custom.convert_to_mlt.clone(),
+                    convert_to_mvt: cfg.custom.convert_to_mvt.clone(),
+                },
+                _ => ProcessConfig::default(),
+            };
+            resolve_process_config(global_process, &source_type, &ProcessConfig::default())
+        };
+        #[cfg(not(feature = "mlt"))]
+        let process = {
+            let _ = (config, global_process);
+            ProcessConfig::default()
+        };
 
         if let FileConfigEnum::Config(cfg) = config
             && let Some(s) = &cfg.sources
@@ -90,6 +114,7 @@ impl MBTilesReloader {
             sources,
             directories,
             path_cache,
+            process,
         }
     }
 
@@ -199,16 +224,20 @@ impl MBTilesReloader {
             sources.iter().map(|(k, v)| (k.clone(), v.1)).collect::<_>();
         let sources_clone = sources.clone();
 
-        let adv =
-            ReloadAdvisory::from_maps(&prev, &next, async move |id| -> MartinResult<BoxedSource> {
+        let adv = ReloadAdvisory::from_maps(
+            &prev,
+            &next,
+            async move |id| -> MartinResult<BoxedSource> {
                 let p = sources_clone
                     .get(&id)
                     .ok_or(MartinError::SourceNotFound(id.clone()))?;
                 let src = MbtSource::new(id, p.0.clone(), p.2.zoom()).await?;
 
                 Ok(Box::new(src) as BoxedSource)
-            })
-            .await;
+            },
+            self.process.clone(),
+        )
+        .await;
 
         match tsm.apply_changes(adv).await {
             Ok(()) => self.sources = sources,

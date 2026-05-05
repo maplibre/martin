@@ -79,6 +79,7 @@ martin-tile-utils = { path = "./martin-tile-utils", version = "0.7.1" }
 mbtiles = { path = "./mbtiles", version = "0.17.3" }
 md5 = "0.8.0"
 miette = { version = "7.6", features = ["fancy"] }
+mlt-core = { version = "0.9.0", default-features = false }
 moka = { version = "0.12", default-features = false }
 notify = "8.2.0"
 num_cpus = "1"
@@ -92,6 +93,7 @@ postgres = { version = "0.19", features = ["with-time-0_3", "with-uuid-1", "with
 postgres-protocol = "0.6"
 pretty_assertions = "1"
 prometheus = { version = "0.14", default-features = false }
+prost = { version = "0.13", default-features = false, features = ["std"] }
 rayon = "1"
 regex = "1"
 rstest = "0.26.1"

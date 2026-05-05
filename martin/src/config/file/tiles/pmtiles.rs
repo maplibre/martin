@@ -14,6 +14,8 @@ use crate::config::file::{
     CachePolicy, CacheSizeConfig, ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks,
     TileSourceConfiguration, UnrecognizedKeys, UnrecognizedValues,
 };
+#[cfg(all(feature = "mlt", feature = "_tiles"))]
+use crate::config::file::{MltProcessConfig, MvtProcessConfig};
 
 #[serde_with::skip_serializing_none]
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -42,6 +44,26 @@ pub struct PmtConfig {
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub options: HashMap<String, String>,
 
+    /// MVT->MLT encoder settings for all `PMTiles` sources.
+    /// Overrides global; overridden by per-source `convert-to-mlt`.
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "convert-to-mlt"
+    )]
+    pub convert_to_mlt: Option<MltProcessConfig>,
+
+    /// MLT->MVT conversion settings for all `PMTiles` sources.
+    /// Overrides global; overridden by per-source `convert-to-mvt`.
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "convert-to-mvt"
+    )]
+    pub convert_to_mvt: Option<MvtProcessConfig>,
+
     #[serde(flatten, skip_serializing)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub unrecognized: UnrecognizedValues,
@@ -54,10 +76,15 @@ pub struct PmtConfig {
 
 impl PartialEq for PmtConfig {
     fn eq(&self, other: &Self) -> bool {
-        self.directory_cache == other.directory_cache
+        let base = self.directory_cache == other.directory_cache
             && self.options == other.options
-            && self.unrecognized == other.unrecognized
+            && self.unrecognized == other.unrecognized;
+        #[cfg(all(feature = "mlt", feature = "_tiles"))]
+        let base = base
+            && self.convert_to_mlt == other.convert_to_mlt
+            && self.convert_to_mvt == other.convert_to_mvt;
         // pmtiles_directory_cache is intentionally excluded from equality check
+        base
     }
 }
 

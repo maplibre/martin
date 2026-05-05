@@ -5,7 +5,7 @@ use martin_core::tiles::{BoxedSource, OptTileCache};
 use tracing::{info, warn};
 
 use crate::MartinResult;
-use crate::config::file::OnInvalid;
+use crate::config::file::{OnInvalid, ProcessConfig};
 use crate::reload::ReloadAdvisory;
 use crate::source::TileSources;
 
@@ -18,7 +18,7 @@ use crate::source::TileSources;
 /// `TileSourceManager` is cheap to clone.
 #[derive(Clone)]
 pub struct TileSourceManager {
-    tile_sources: Arc<DashMap<String, BoxedSource>>,
+    tile_sources: Arc<DashMap<String, (BoxedSource, ProcessConfig)>>,
     tile_cache: OptTileCache,
     on_invalid: OnInvalid,
 }
@@ -35,16 +35,18 @@ impl TileSourceManager {
     }
 
     /// Creates a manager pre-populated with the given sources.
+    ///
+    /// All sources receive the default [`ProcessConfig`].
     #[must_use]
     pub fn from_sources(
         tile_cache: OptTileCache,
         on_invalid: OnInvalid,
-        sources: Vec<Vec<BoxedSource>>,
+        sources: Vec<Vec<(BoxedSource, ProcessConfig)>>,
     ) -> Self {
-        let map: DashMap<String, BoxedSource> = sources
+        let map: DashMap<String, (BoxedSource, ProcessConfig)> = sources
             .into_iter()
             .flatten()
-            .map(|src| (src.get_id().to_string(), src))
+            .map(|(src, pc)| (src.get_id().to_string(), (src, pc)))
             .collect();
         Self {
             tile_sources: Arc::new(map),
@@ -88,7 +90,8 @@ impl TileSourceManager {
                     if let Some(cache) = &self.tile_cache {
                         cache.invalidate_source(&new_source.id);
                     }
-                    self.tile_sources.insert(new_source.id.clone(), src);
+                    self.tile_sources
+                        .insert(new_source.id.clone(), (src, new_source.process));
                     info!(source.id = %new_source.id, "Updated source");
                 }
                 Err(err) => match self.on_invalid {
@@ -104,7 +107,8 @@ impl TileSourceManager {
         for new_source in advisory.additions {
             match new_source.source {
                 Ok(src) => {
-                    self.tile_sources.insert(new_source.id.clone(), src);
+                    self.tile_sources
+                        .insert(new_source.id.clone(), (src, new_source.process));
                     info!(source.id = %new_source.id, "Added source");
                 }
                 Err(err) => match self.on_invalid {
@@ -190,6 +194,7 @@ mod tests {
                 id: name.to_string(),
                 tj: tilejson! { tiles: vec![] },
             })),
+            process: ProcessConfig::default(),
         }
     }
 
@@ -268,7 +273,11 @@ mod tests {
             id: "x".to_string(),
             tj: tilejson! { tiles: vec![] },
         }) as BoxedSource;
-        let mgr = TileSourceManager::from_sources(None, OnInvalid::Abort, vec![vec![src]]);
+        let mgr = TileSourceManager::from_sources(
+            None,
+            OnInvalid::Abort,
+            vec![vec![(src, ProcessConfig::default())]],
+        );
         assert_yaml_snapshot!(sorted_source_names(&mgr), @"- x");
         assert!(mgr.tile_cache().is_none());
     }
@@ -289,9 +298,9 @@ mod tests {
     /// from reaching the live catalog when `OnInvalid::Warn` is in effect.
     ///
     /// Simulates the directory-watcher loop:
-    /// 1. Watch a directory with one bad file → catalog empty.
-    /// 2. Add a valid file → catalog gains it.
-    /// 3. Delete the valid file → catalog drops it.
+    /// 1. Watch a directory with one bad file -> catalog empty.
+    /// 2. Add a valid file -> catalog gains it.
+    /// 3. Delete the valid file -> catalog drops it.
     #[tokio::test]
     async fn watcher_loop_around_persistent_bad_file() {
         use std::collections::BTreeMap;
@@ -300,7 +309,7 @@ mod tests {
         use tempfile::TempDir;
 
         use crate::MartinError;
-        use crate::config::file::ConfigFileError;
+        use crate::config::file::{ConfigFileError, ProcessConfig};
 
         const BAD_PREFIX: &str = "bad_";
 
@@ -345,9 +354,12 @@ mod tests {
         // Reconciles the manager with the current on-disk state and advances `state`.
         let tick = async |state: &mut BTreeMap<String, u64>| {
             let next = scan(&dir_path);
-            let advisory = ReloadAdvisory::from_maps(state, &next, async |id| {
-                build(id, dir_path.clone()).await
-            })
+            let advisory = ReloadAdvisory::from_maps(
+                state,
+                &next,
+                async |id| build(id, dir_path.clone()).await,
+                ProcessConfig::default(),
+            )
             .await;
             mgr.apply_changes(advisory)
                 .await
