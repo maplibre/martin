@@ -31,8 +31,8 @@ pub fn convert_mlt_to_mvt(tile: Tile) -> Result<Tile, ProcessError> {
         }
     }
 
-    let mvt_bytes = tile_layers_to_mvt(tile_layers)
-        .map_err(|e| ProcessError::MvtConversion(e.to_string()))?;
+    let mvt_bytes =
+        tile_layers_to_mvt(tile_layers).map_err(|e| ProcessError::MvtConversion(e.to_string()))?;
 
     Ok(Tile::new_hash_etag(
         mvt_bytes,
