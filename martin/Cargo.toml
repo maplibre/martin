@@ -123,7 +123,7 @@ postgres = [
 sprites = ["martin-core/sprites", "_catalog"]
 styles = ["martin-core/styles", "dep:walkdir", "_catalog"]
 webui = ["dep:actix-web-static-files", "dep:static-files", "dep:walkdir"]
-mlt = ["dep:mlt-core", "dep:prost"]
+mlt = ["dep:mlt-core"]
 _tiles = ["martin-core/_tiles", "_catalog"]
 _catalog = []
 unstable-schemas = [
@@ -182,7 +182,6 @@ object_store = { workspace = true, optional = true }
 postgis = { workspace = true, optional = true }
 postgres-protocol = { workspace = true, optional = true }
 prometheus = { workspace = true, optional = true }
-prost = { workspace = true, optional = true }
 rustls.workspace = true
 schemars = { workspace = true, optional = true }
 serde.workspace = true

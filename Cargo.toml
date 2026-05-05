@@ -136,6 +136,9 @@ walkdir = "2.5.0"
 xxhash-rust = { version = "0.8", features = ["xxh3"] }
 zstd = "0.13"
 
+[patch.crates-io]
+mlt-core = { git = "https://github.com/CommanderStorm/maplibre-tile-spec.git", branch = "mvt-write" }
+
 [profile.dev.package]
 # See https://github.com/launchbadge/sqlx#compile-time-verification
 sqlx-macros.opt-level = 3

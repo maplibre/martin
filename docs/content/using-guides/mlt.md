@@ -72,7 +72,7 @@ pmtiles:
   sources:
     basemap:
       path: /data/basemap.pmtiles
-      # Inherits global `auto` → converted on Accept: MLT
+      # Inherits global `auto` -> converted on Accept: MLT
     legacy:
       path: /data/legacy.pmtiles
       convert-to-mlt: disabled    # always served as MVT, even on Accept: MLT

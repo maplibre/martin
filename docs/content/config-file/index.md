@@ -25,8 +25,8 @@ See the [MLT usage guide](using-guides/mlt.md) for full details.
 
 Currently configurable:
 
-- **`convert-to-mlt`** — encoder settings for MVT→MLT conversion (triggered by `Accept: application/vnd.maplibre-tile`).
-- **`convert-to-mvt`** — enables MLT→MVT conversion (triggered by `Accept: application/x-protobuf` on an MLT source). Currently only supports `auto`.
+- **`convert-to-mlt`** — encoder settings for MVT->MLT conversion (triggered by `Accept: application/vnd.maplibre-tile`).
+- **`convert-to-mvt`** — enables MLT->MVT conversion (triggered by `Accept: application/x-protobuf` on an MLT source). Currently only supports `auto`.
 
 Both keys can appear at three levels.
 The most specific level wins entirely (no merging between levels):

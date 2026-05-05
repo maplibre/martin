@@ -64,7 +64,7 @@ pub fn apply_pre_cache_processors(
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     let tile = if accepted == Some(Format::Mlt) && tile.info.format == Format::Mvt {
         match config.convert_to_mlt.as_ref() {
-            // No level configured anything → use defaults.
+            // No level configured anything -> use defaults.
             None | Some(MltProcessConfig::Auto) => {
                 convert_mvt_to_mlt(tile, EncoderConfig::default())?
             }
@@ -99,15 +99,9 @@ mod tests {
     use rstest::rstest;
 
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
-    use super::to_mvt::{command_integer, mvt_proto, zigzag};
+    use super::to_mvt::{empty_layer_mvt_bytes, mvt_with_feature_bytes};
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     use super::*;
-
-    /// Minimal valid MVT tile: one layer named "x", version=2, extent=4096, no features.
-    #[cfg(all(feature = "mlt", feature = "_tiles"))]
-    fn minimal_mvt() -> Vec<u8> {
-        vec![0x1a, 0x08, 0x0a, 0x01, 0x78, 0x78, 0x02, 0x28, 0x80, 0x20]
-    }
 
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     fn make_tile(data: Vec<u8>, format: Format, encoding: Encoding) -> Tile {
@@ -163,7 +157,7 @@ mod tests {
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[test]
     fn mlt_accept_converts_mvt_with_default_encoder() {
-        let tile = make_tile(minimal_mvt(), Format::Mvt, Encoding::Uncompressed);
+        let tile = make_tile(empty_layer_mvt_bytes(), Format::Mvt, Encoding::Uncompressed);
         let result =
             apply_pre_cache_processors(tile, &ProcessConfig::default(), Some(Format::Mlt)).unwrap();
         assert_eq!(result.info.format, Format::Mlt);
@@ -173,7 +167,7 @@ mod tests {
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[test]
     fn mlt_accept_uses_explicit_encoder_overrides() {
-        let tile = make_tile(minimal_mvt(), Format::Mvt, Encoding::Uncompressed);
+        let tile = make_tile(empty_layer_mvt_bytes(), Format::Mvt, Encoding::Uncompressed);
         let config = ProcessConfig {
             convert_to_mlt: Some(MltProcessConfig::Auto),
             ..Default::default()
@@ -185,14 +179,14 @@ mod tests {
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[test]
     fn mlt_accept_with_disabled_serves_mvt_unchanged() {
-        let tile = make_tile(minimal_mvt(), Format::Mvt, Encoding::Uncompressed);
+        let tile = make_tile(empty_layer_mvt_bytes(), Format::Mvt, Encoding::Uncompressed);
         let config = ProcessConfig {
             convert_to_mlt: Some(MltProcessConfig::Disabled),
             ..Default::default()
         };
         let result = apply_pre_cache_processors(tile, &config, Some(Format::Mlt)).unwrap();
         assert_eq!(result.info.format, Format::Mvt);
-        assert_eq!(result.data, minimal_mvt());
+        assert_eq!(result.data, empty_layer_mvt_bytes());
     }
 
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
@@ -200,7 +194,7 @@ mod tests {
     fn compressed_mvt_decompressed_and_converted() {
         use martin_tile_utils::encode_gzip;
 
-        let gzipped = encode_gzip(&minimal_mvt()).unwrap();
+        let gzipped = encode_gzip(&empty_layer_mvt_bytes()).unwrap();
         let tile = make_tile(gzipped, Format::Mvt, Encoding::Gzip);
         let result =
             apply_pre_cache_processors(tile, &ProcessConfig::default(), Some(Format::Mlt)).unwrap();
@@ -212,35 +206,14 @@ mod tests {
     /// since a 0-feature layer encodes to 0 bytes in MLT.
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     fn mvt_with_feature() -> Vec<u8> {
-        use prost::Message as _;
-
-        let tile = mvt_proto::Tile {
-            layers: vec![mvt_proto::Layer {
-                version: 2,
-                name: "test".to_string(),
-                features: vec![mvt_proto::Feature {
-                    id: Some(1),
-                    tags: vec![0, 0], // key[0] = "name", value[0] = "hello"
-                    r#type: Some(mvt_proto::GeomType::Point as i32),
-                    // MoveTo(1), x=100 zigzag, y=200 zigzag
-                    geometry: vec![command_integer(1, 1), zigzag(100), zigzag(200)],
-                }],
-                keys: vec!["name".to_string()],
-                values: vec![mvt_proto::Value {
-                    string_value: Some("hello".to_string()),
-                    ..Default::default()
-                }],
-                extent: Some(4096),
-            }],
-        };
-        tile.encode_to_vec()
+        mvt_with_feature_bytes()
     }
 
-    /// MVT→MLT→MVT round-trip: encode an MVT as MLT, then convert back.
+    /// MVT->MLT->MVT round-trip: encode an MVT as MLT, then convert back.
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[test]
     fn mlt_to_mvt_round_trip() {
-        // First convert MVT→MLT
+        // First convert MVT->MLT
         let original = make_tile(mvt_with_feature(), Format::Mvt, Encoding::Uncompressed);
         let encoded =
             apply_pre_cache_processors(original, &ProcessConfig::default(), Some(Format::Mlt))
@@ -248,7 +221,7 @@ mod tests {
         assert_eq!(encoded.info.format, Format::Mlt);
         assert!(!encoded.data.is_empty(), "MLT tile should have data");
 
-        // Now convert MLT→MVT via the pipeline
+        // Now convert MLT->MVT via the pipeline
         let decoded =
             apply_pre_cache_processors(encoded, &ProcessConfig::default(), Some(Format::Mvt))
                 .unwrap();
