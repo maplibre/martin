@@ -93,7 +93,6 @@ postgres = { version = "0.19", features = ["with-time-0_3", "with-uuid-1", "with
 postgres-protocol = "0.6"
 pretty_assertions = "1"
 prometheus = { version = "0.14", default-features = false }
-prost = { version = "0.13", default-features = false, features = ["std"] }
 rayon = "1"
 regex = "1"
 rstest = "0.26.1"
