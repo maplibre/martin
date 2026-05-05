@@ -4396,8 +4396,9 @@ dependencies = [
 
 [[package]]
 name = "mlt-core"
-version = "0.9.0"
-source = "git+https://github.com/CommanderStorm/maplibre-tile-spec.git?branch=mvt-write#2fdaacfc2a406904ad955c9998726677699228da"
+version = "0.9.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c1f2380112343343543c9f6a9d726882f1ae8765a178d88da8f304d8038de5b6"
 dependencies = [
  "bitvec",
  "bytemuck",
