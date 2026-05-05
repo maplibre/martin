@@ -1,4 +1,4 @@
- INFO Quick integrity check passed for ./tests/fixtures/mbtiles/zoomed_world_cities.mbtiles
- INFO All values in the `tiles` table/view are valid for ./tests/fixtures/mbtiles/zoomed_world_cities.mbtiles
- INFO All tile hashes are valid for ./tests/fixtures/mbtiles/zoomed_world_cities.mbtiles
- INFO The agg_tiles_hashes=AC15E26A1FCF82FDB6D0E8F43EE37821 has been verified for ./tests/fixtures/mbtiles/zoomed_world_cities.mbtiles
+ INFO Integrity check passed mbtiles.file=./tests/fixtures/mbtiles/zoomed_world_cities.mbtiles integrity_check=Quick
+ INFO All values in the `tiles` table/view are valid mbtiles.file=./tests/fixtures/mbtiles/zoomed_world_cities.mbtiles
+ INFO All tile hashes are valid mbtiles.file=./tests/fixtures/mbtiles/zoomed_world_cities.mbtiles
+ INFO agg_tiles_hash has been verified mbtiles.file=./tests/fixtures/mbtiles/zoomed_world_cities.mbtiles agg_tiles_hash=AC15E26A1FCF82FDB6D0E8F43EE37821

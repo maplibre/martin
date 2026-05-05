@@ -67,8 +67,12 @@ impl Mbtiles {
         match val {
             Ok(v) => Some(v),
             Err(err) => {
-                let name = &self.filename();
-                warn!("Unable to parse metadata {title} value in {name}: {err}");
+                warn!(
+                    metadata.title = %title,
+                    mbtiles.file = %self.filename(),
+                    error = %err,
+                    "Unable to parse metadata value"
+                );
                 None
             }
         }
@@ -208,15 +212,21 @@ impl Mbtiles {
                     "agg_tiles_hash" => agg_tiles_hash = Some(value),
                     "scheme" => {
                         if value != "tms" {
-                            let file = &self.filename();
                             warn!(
-                                "File {file} has an unexpected metadata value {name}='{value}'. Only 'tms' is supported. Ignoring."
+                                mbtiles.file = %self.filename(),
+                                metadata.name = %name,
+                                metadata.value = %value,
+                                "Unexpected metadata value; only 'tms' is supported. Ignoring."
                             );
                         }
                     }
                     _ => {
-                        let file = &self.filename();
-                        info!("{file} has an unrecognized metadata value {name}={value}");
+                        info!(
+                            mbtiles.file = %self.filename(),
+                            metadata.name = %name,
+                            metadata.value = %value,
+                            "Unrecognized metadata value"
+                        );
                         tj.other.insert(name, Value::String(value));
                     }
                 }

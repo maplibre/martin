@@ -95,7 +95,11 @@ mod tests {
     use martin_core::tiles::Tile;
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     use martin_tile_utils::{Encoding, Format, TileInfo};
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    use rstest::rstest;
 
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    use super::to_mvt::{command_integer, mvt_proto, zigzag};
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     use super::*;
 
@@ -209,8 +213,6 @@ mod tests {
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     fn mvt_with_feature() -> Vec<u8> {
         use prost::Message as _;
-
-        use super::mvt_proto;
 
         let tile = mvt_proto::Tile {
             layers: vec![mvt_proto::Layer {

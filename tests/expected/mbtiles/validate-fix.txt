@@ -1,4 +1,4 @@
- INFO Quick integrity check passed for tests/mbtiles_temp_files/fix_bad_hash.mbtiles
- INFO All values in the `tiles` table/view are valid for tests/mbtiles_temp_files/fix_bad_hash.mbtiles
- INFO All tile hashes are valid for tests/mbtiles_temp_files/fix_bad_hash.mbtiles
- INFO Updating agg_tiles_hash from CAFEC0DEDEADBEEFDEADBEEFDEADBEEF to E89600605FA137D684A10EE91463CEE0 in tests/mbtiles_temp_files/fix_bad_hash.mbtiles
+ INFO Integrity check passed mbtiles.file=tests/mbtiles_temp_files/fix_bad_hash.mbtiles integrity_check=Quick
+ INFO All values in the `tiles` table/view are valid mbtiles.file=tests/mbtiles_temp_files/fix_bad_hash.mbtiles
+ INFO All tile hashes are valid mbtiles.file=tests/mbtiles_temp_files/fix_bad_hash.mbtiles
+ INFO Updating agg_tiles_hash mbtiles.file=tests/mbtiles_temp_files/fix_bad_hash.mbtiles agg_tiles_hash.old=CAFEC0DEDEADBEEFDEADBEEFDEADBEEF agg_tiles_hash.new=E89600605FA137D684A10EE91463CEE0

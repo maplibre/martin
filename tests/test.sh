@@ -591,7 +591,7 @@ kill_process "$MARTIN_PROC_ID" Martin
 test_log_has_str "$LOG_FILE" 'Table public.table_source has no spatial index on column geom'
 test_log_has_str "$LOG_FILE" 'Table public.table_source_geog has no spatial index on column geog'
 test_log_has_str "$LOG_FILE" 'Table public.mat_view has no spatial index on column geom'
-test_log_has_str "$LOG_FILE" 'Ignoring duplicate font Overpass Mono Regular from tests'
+test_log_has_str "$LOG_FILE" 'Ignoring duplicate font: already configured from another path.*font.name=Overpass Mono Regular'
 test_log_has_str "$LOG_FILE" 'source.id.new=stamen_toner__raster_CC-BY-ODbL_z3'
 test_log_has_str "$LOG_FILE" 'source.id.new=table_source_multiple_geom.1'
 test_log_has_str "$LOG_FILE" 'source.id.new=-function.withweired---_-characters'
@@ -797,7 +797,7 @@ kill_process "$MARTIN_PROC_ID" Martin
 test_log_has_str "$LOG_FILE" 'Table public.table_source has no spatial index on column geom'
 test_log_has_str "$LOG_FILE" 'Table public.table_source_geog has no spatial index on column geog'
 test_log_has_str "$LOG_FILE" 'Table public.mat_view has no spatial index on column geom'
-test_log_has_str "$LOG_FILE" 'Ignoring duplicate font Overpass Mono Regular from tests'
+test_log_has_str "$LOG_FILE" 'Ignoring duplicate font: already configured from another path.*font.name=Overpass Mono Regular'
 test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'warning'. Please check your configuration file for typos."
 test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'observability.warning'. Please check your configuration file for typos."
 test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'observability.metrics.warning'. Please check your configuration file for typos."
@@ -973,14 +973,14 @@ if [[ "$MBTILES_BIN" != "-" ]]; then
     "$TEST_TEMP_DIR/world_cities_bindiff.mbtiles" \
     --patch-type bin-diff-gz \
     2>&1 | tee "$TEST_OUT_DIR/copy_bindiff.txt"
-  test_log_has_str "$TEST_OUT_DIR/copy_bindiff.txt" '.*Processing bindiff patches using .* threads...'
+  test_log_has_str "$TEST_OUT_DIR/copy_bindiff.txt" '.*Processing bindiff patches bindiff.cpus=.*'
 
   $MBTILES_BIN copy \
     ./tests/fixtures/mbtiles/world_cities.mbtiles \
     --apply-patch "$TEST_TEMP_DIR/world_cities_bindiff.mbtiles" \
     "$TEST_TEMP_DIR/world_cities_modified2.mbtiles" \
     2>&1 | tee "$TEST_OUT_DIR/copy_bindiff2.txt"
-  test_log_has_str "$TEST_OUT_DIR/copy_bindiff2.txt" '.*Processing bindiff patches using .* threads...'
+  test_log_has_str "$TEST_OUT_DIR/copy_bindiff2.txt" '.*Processing bindiff patches bindiff.cpus=.*'
 
   # Ensure that world_cities_modified and world_cities_modified2 are identical (regular diff is empty)
   $MBTILES_BIN copy \
@@ -997,7 +997,7 @@ if [[ "$MBTILES_BIN" != "-" ]]; then
     --apply-patch ./tests/fixtures/mbtiles/world_cities_bindiff.mbtiles \
     "$TEST_TEMP_DIR/world_cities_modified3.mbtiles" \
     2>&1 | tee "$TEST_OUT_DIR/copy_bindiff5.txt"
-  test_log_has_str "$TEST_OUT_DIR/copy_bindiff5.txt" '.*Processing bindiff patches using .* threads...'
+  test_log_has_str "$TEST_OUT_DIR/copy_bindiff5.txt" '.*Processing bindiff patches bindiff.cpus=.*'
 
   # Ensure that world_cities_modified and world_cities_modified3 are identical (regular diff is empty)
   $MBTILES_BIN copy \

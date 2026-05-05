@@ -329,12 +329,12 @@ fn encode_ring(
 }
 
 /// Encode an MVT command integer: `(id & 0x7) | (count << 3)`
-const fn command_integer(id: u32, count: u32) -> u32 {
+pub(super) const fn command_integer(id: u32, count: u32) -> u32 {
     (id & 0x7) | (count << 3)
 }
 
 /// Zigzag-encode a signed 32-bit integer.
-const fn zigzag(n: i32) -> u32 {
+pub(super) const fn zigzag(n: i32) -> u32 {
     ((n << 1) ^ (n >> 31)).cast_unsigned()
 }
 
@@ -342,7 +342,7 @@ const fn zigzag(n: i32) -> u32 {
 ///
 /// These mirror the Mapbox Vector Tile spec (v2.1) proto definitions
 /// and derive `prost::Message` for zero-copy protobuf serialization.
-mod mvt_proto {
+pub(super) mod mvt_proto {
     #[derive(Clone, PartialEq, prost::Message)]
     pub struct Tile {
         #[prost(message, repeated, tag = "3")]

@@ -114,14 +114,17 @@ async fn recv_and_insert<S: Send + 'static, T: Send + 'static, P: BinDiffer<S, T
         if inserted % 100 == 0 {
             conn.execute("COMMIT").await?;
             if last_report_ts.elapsed().as_secs() >= 10 {
-                info!("Processed {inserted} bindiff tiles");
+                info!(bindiff.inserted = inserted, "Processed bindiff tiles");
                 last_report_ts = Instant::now();
             }
             conn.execute("BEGIN").await?;
         }
     }
     conn.execute("COMMIT").await?;
-    info!("Finished processing {inserted} bindiff tiles");
+    info!(
+        bindiff.inserted = inserted,
+        "Finished processing bindiff tiles"
+    );
 
     Ok(())
 }
@@ -137,7 +140,7 @@ fn start_processor_threads<S: Send + 'static, T: Send + 'static, P: BinDiffer<S,
     has_errors: Arc<AtomicBool>,
 ) {
     let cpus = num_cpus::get();
-    info!("Processing bindiff patches using {cpus} threads...");
+    info!(bindiff.cpus = cpus, "Processing bindiff patches");
     (0..cpus).for_each(|_| {
         let rx_wrk = rx_wrk.clone();
         let tx_ins = tx_ins.clone();
@@ -267,10 +270,10 @@ impl BinDiffer<DifferBefore, DifferAfter> for BinDiffDiffer {
         let mut new_tile = value.new_tile_data;
         if self.patch_type == BinDiffGz {
             old_tile = decode_gzip(&old_tile).inspect_err(|e| {
-                error!("Unable to gzip-decode source tile {:?}: {e}", value.coord);
+                error!(tile.coord = ?value.coord, error = %e, "Unable to gzip-decode source tile");
             })?;
             new_tile = decode_gzip(&new_tile).inspect_err(|e| {
-                error!("Unable to gzip-decode diff tile {:?}: {e}", value.coord);
+                error!(tile.coord = ?value.coord, error = %e, "Unable to gzip-decode diff tile");
             })?;
         }
         let new_tile_hash = xxh3_64(&new_tile);
@@ -387,17 +390,19 @@ impl BinDiffer<ApplierBefore, ApplierAfter> for BinDiffPatcher {
     fn process(&self, value: ApplierBefore) -> MbtResult<ApplierAfter> {
         let old_tile = if self.patch_type == BinDiffGz {
             decode_gzip(&value.old_tile).inspect_err(|e| {
-                error!("Unable to gzip-decode source tile {:?}: {e}", value.coord);
+                error!(tile.coord = ?value.coord, error = %e, "Unable to gzip-decode source tile");
             })?
         } else {
             value.old_tile
         };
 
-        let patch_data = decode_brotli(&value.patch_data)
-            .inspect_err(|e| error!("Unable to brotli-decode patch data {:?}: {e}", value.coord))?;
+        let patch_data = decode_brotli(&value.patch_data).inspect_err(
+            |e| error!(tile.coord = ?value.coord, error = %e, "Unable to brotli-decode patch data"),
+        )?;
 
-        let mut new_tile = BsdiffRawDiffer::patch(&old_tile, &patch_data)
-            .inspect_err(|e| error!("Unable to patch tile {:?}: {e}", value.coord))?;
+        let mut new_tile = BsdiffRawDiffer::patch(&old_tile, &patch_data).inspect_err(
+            |e| error!(tile.coord = ?value.coord, error = %e, "Unable to patch tile"),
+        )?;
 
         // Verify the hash of the patched tile is what we expect
         let new_tile_hash = xxh3_64(&new_tile);

@@ -423,7 +423,7 @@ async fn resolve_int<T: TileSourceConfiguration>(
     let mut results = Vec::new();
     let mut warnings = Vec::new();
     let mut configs = BTreeMap::new();
-    let mut files = HashSet::new();
+    let mut files: HashMap<PathBuf, PathBuf> = HashMap::new();
     let mut directories = Vec::new();
 
     if let Some(sources) = cfg.sources {
@@ -492,27 +492,36 @@ async fn resolve_one_source_int<T: TileSourceConfiguration>(
     idr: &IdResolver,
     id: &str,
     source: FileConfigSrc,
-    files: &mut HashSet<PathBuf>,
+    files: &mut HashMap<PathBuf, PathBuf>,
     configs: &mut BTreeMap<String, FileConfigSrc>,
     default_cache: CachePolicy,
 ) -> MartinResult<BoxedSource> {
     let cache = source.cache_zoom().or(default_cache);
     let result;
     if let Some(url) = parse_url(T::parse_urls(), source.get_path())? {
-        let dup = !files.insert(source.get_path().clone());
-        let dup = if dup { "duplicate " } else { "" };
+        let key = source.get_path().clone();
+        let duplicate = files.insert(key.clone(), key).is_some();
         let id = idr.resolve(id, url.to_string());
         configs.insert(id.clone(), source);
         result = custom
             .new_sources_url(id.clone(), url.clone(), cache)
             .await?;
-        info!("Configured {dup}source {id} from {}", sanitize_url(&url));
+        info!(
+            source.id = %id,
+            source.url = %sanitize_url(&url),
+            source.duplicate = duplicate,
+            "Configured source"
+        );
     } else {
         let can = source.abs_path()?;
-        let dup = !files.insert(can.clone());
-        let dup = if dup { "duplicate " } else { "" };
+        let duplicate = files.insert(can.clone(), can.clone()).is_some();
         let id = idr.resolve(id, can.to_string_lossy().to_string());
-        info!("Configured {dup}source {id} from {}", can.display());
+        info!(
+            source.id = %id,
+            source.path = %can.display(),
+            source.duplicate = duplicate,
+            "Configured source"
+        );
         configs.insert(id.clone(), source.clone());
         result = custom.new_sources(id, source.into_path(), cache).await?;
     }
@@ -530,7 +539,7 @@ async fn resolve_one_path_int<T: TileSourceConfiguration>(
     idr: &IdResolver,
     extension: &[&str],
     path: PathBuf,
-    files: &mut HashSet<PathBuf>,
+    files: &mut HashMap<PathBuf, PathBuf>,
     directories: &mut Vec<PathBuf>,
     configs: &mut BTreeMap<String, FileConfigSrc>,
     default_cache: CachePolicy,
@@ -561,7 +570,11 @@ async fn resolve_one_path_int<T: TileSourceConfiguration>(
                 .new_sources_url(id.clone(), url.clone(), default_cache)
                 .await?,
         );
-        info!("Configured source {id} from URL {}", sanitize_url(&url));
+        info!(
+            source.id = %id,
+            source.url = %sanitize_url(&url),
+            "Configured source from URL"
+        );
     } else {
         let is_dir = path.is_dir();
         let dir_files = if is_dir {
@@ -579,9 +592,13 @@ async fn resolve_one_path_int<T: TileSourceConfiguration>(
             let can = path
                 .canonicalize()
                 .map_err(|e| ConfigFileError::IoError(e, path.clone()))?;
-            if files.contains(&can) {
+            if let Some(kept) = files.get(&can) {
                 if !is_dir {
-                    warn!("Ignoring duplicate MBTiles path: {}", can.display());
+                    warn!(
+                        source.path.dropped = %path.display(),
+                        source.path.kept = %kept.display(),
+                        "Ignoring duplicate source path: already configured under another path"
+                    );
                 }
                 continue;
             }
@@ -598,8 +615,12 @@ async fn resolve_one_path_int<T: TileSourceConfiguration>(
                 .await
             {
                 Ok(src) => {
-                    info!("Configured source {id} from {}", can.display());
-                    files.insert(can);
+                    info!(
+                        source.id = %id,
+                        source.path = %can.display(),
+                        "Configured source"
+                    );
+                    files.insert(can, path.clone());
                     configs.insert(id, FileConfigSrc::Path(path));
                     results.push(src);
                 }
