@@ -62,7 +62,7 @@ pub struct FunctionInfo {
     /// - `null` (default) - defer to the source-type or global settings
     /// - `auto` - we choose defaults which we think work best for most users
     /// - `disabled` - no conversion
-    /// - explicitely configured
+    /// - explicitly configured
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[serde(
         default,
@@ -78,7 +78,7 @@ pub struct FunctionInfo {
     /// - `null` (default) - defer to the source-type or global settings
     /// - `auto` - we choose defaults which we think work best for most users
     /// - `disabled` - no conversion
-    /// - explicitely configured
+    /// - explicitly configured
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[serde(
         default,

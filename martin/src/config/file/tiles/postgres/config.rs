@@ -123,7 +123,7 @@ pub struct PostgresConfig {
     /// - `null` (default) - defer to the global setting
     /// - `auto` - we choose defaults which we think work best for most users
     /// - `disabled` - no conversion
-    /// - explicitely configured
+    /// - explicitly configured
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[serde(
         default,
