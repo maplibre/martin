@@ -81,18 +81,27 @@ impl SpriteSources {
     pub fn add_source(&mut self, id: String, path: PathBuf) {
         let disp_path = path.display();
         if path.is_file() {
-            warn!("Ignoring non-directory sprite source {id} from {disp_path}");
+            warn!(
+                source.id = %id,
+                sprite.path = %disp_path,
+                "Ignoring non-directory sprite source"
+            );
         } else {
             match self.0.entry(id) {
                 Entry::Occupied(v) => {
                     warn!(
-                        "Ignoring duplicate sprite source {} from {disp_path} because it was already configured for {}",
-                        v.key(),
-                        v.get().path.display()
+                        source.id = %v.key(),
+                        sprite.path.kept = %v.get().path.display(),
+                        sprite.path.dropped = %disp_path,
+                        "Ignoring duplicate sprite source: already configured for another path"
                     );
                 }
                 Entry::Vacant(v) => {
-                    info!("Configured sprite source {} from {disp_path}", v.key());
+                    info!(
+                        source.id = %v.key(),
+                        sprite.path = %disp_path,
+                        "Configured sprite source"
+                    );
                     v.insert(SpriteSource { path });
                 }
             }

@@ -312,10 +312,10 @@ fn parse_font(
         match fonts.entry(name) {
             Entry::Occupied(v) => {
                 warn!(
-                    "Ignoring duplicate font {} from {} because it was already configured from {}",
-                    v.key(),
-                    path.display(),
-                    v.get().path.display()
+                    font.name = %v.key(),
+                    font.path.kept = %v.get().path.display(),
+                    font.path.dropped = %path.display(),
+                    "Ignoring duplicate font: already configured from another path"
                 );
             }
             Entry::Vacant(v) => {
@@ -324,19 +324,24 @@ fn parse_font(
                     get_available_codepoints(&mut face)
                 else {
                     warn!(
-                        "Ignoring font {key} from {} because it has no available glyphs",
-                        path.display()
+                        font.name = %key,
+                        font.path = %path.display(),
+                        "Ignoring font: no available glyphs"
                     );
                     continue;
                 };
 
                 info!(
-                    "Configured font {key} with {glyphs} glyphs ({start:04X}-{end:04X}) from {}",
-                    path.display()
+                    font.name = %key,
+                    font.path = %path.display(),
+                    font.glyph_count = glyphs,
+                    font.range.start = start,
+                    font.range.end = end,
+                    "Configured font"
                 );
                 debug!(
-                    "Available font ranges: {}",
-                    ranges
+                    font.name = %key,
+                    font.ranges = %ranges
                         .iter()
                         .map(|(s, e)| if s == e {
                             format!("{s:02X}")
@@ -344,6 +349,7 @@ fn parse_font(
                             format!("{s:02X}-{e:02X}")
                         })
                         .join(", "),
+                    "Available font ranges"
                 );
 
                 v.insert(FontSource {
