@@ -854,35 +854,23 @@ pub struct GlobalCacheConfig {
     /// Entries are evicted after this duration regardless of access.
     /// Supports human-readable formats: "1h", "30m", "1d", "3600s".
     /// default: null (no expiry, entries only evicted by size pressure)
-    #[serde(
-        default,
-        with = "humantime_serde"
-    )]
+    #[serde(default, with = "humantime_serde")]
     #[cfg_attr(feature = "unstable-schemas", schemars(with = "Option<String>"))]
     pub expiry: Option<Duration>,
     /// Maximum idle time for all cache entries (time-to-idle since last access).
     /// Entries are evicted if not accessed within this duration.
     /// default: null (no idle timeout)
-    #[serde(
-        default,
-        with = "humantime_serde"
-    )]
+    #[serde(default, with = "humantime_serde")]
     #[cfg_attr(feature = "unstable-schemas", schemars(with = "Option<String>"))]
     pub idle_timeout: Option<Duration>,
     /// Tile-specific TTL override. Takes precedence over `cache.expiry` for tiles.
     /// default: null (inherits from `cache.expiry`)
-    #[serde(
-        default,
-        with = "humantime_serde"
-    )]
+    #[serde(default, with = "humantime_serde")]
     #[cfg_attr(feature = "unstable-schemas", schemars(with = "Option<String>"))]
     pub tile_expiry: Option<Duration>,
     /// Tile-specific idle timeout override. Takes precedence over `cache.idle_timeout` for tiles.
     /// default: null (inherits from `cache.idle_timeout`)
-    #[serde(
-        default,
-        with = "humantime_serde"
-    )]
+    #[serde(default, with = "humantime_serde")]
     #[cfg_attr(feature = "unstable-schemas", schemars(with = "Option<String>"))]
     pub tile_idle_timeout: Option<Duration>,
     #[serde(flatten)]
@@ -1023,18 +1011,12 @@ pub struct CacheSizeConfig {
     pub size_mb: Option<u64>,
     /// Maximum lifetime for cache entries.
     /// default: null (inherits from `cache.expiry`)
-    #[serde(
-        default,
-        with = "humantime_serde"
-    )]
+    #[serde(default, with = "humantime_serde")]
     #[cfg_attr(feature = "unstable-schemas", schemars(with = "Option<String>"))]
     pub expiry: Option<Duration>,
     /// Maximum idle time for cache entries.
     /// default: null (inherits from `cache.idle_timeout`)
-    #[serde(
-        default,
-        with = "humantime_serde"
-    )]
+    #[serde(default, with = "humantime_serde")]
     #[cfg_attr(feature = "unstable-schemas", schemars(with = "Option<String>"))]
     pub idle_timeout: Option<Duration>,
 }
