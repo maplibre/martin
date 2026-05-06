@@ -45,23 +45,15 @@ pub struct PmtConfig {
     pub options: HashMap<String, String>,
 
     /// MVT->MLT encoder settings for all `PMTiles` sources.
-    /// Overrides global; overridden by per-source `convert-to-mlt`.
+    /// Overrides global; overridden by per-source `convert_to_mlt`.
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        rename = "convert-to-mlt"
-    )]
+    #[serde(default)]
     pub convert_to_mlt: Option<MltProcessConfig>,
 
     /// MLT->MVT conversion settings for all `PMTiles` sources.
-    /// Overrides global; overridden by per-source `convert-to-mvt`.
+    /// Overrides global; overridden by per-source `convert_to_mvt`.
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        rename = "convert-to-mvt"
-    )]
+    #[serde(default)]
     pub convert_to_mvt: Option<MvtProcessConfig>,
 
     #[serde(flatten, skip_serializing)]

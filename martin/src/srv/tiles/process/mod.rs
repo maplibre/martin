@@ -43,11 +43,11 @@ impl From<ProcessError> for actix_web::Error {
 /// Currently supports:
 /// - MVT -> MLT conversion when the client requests `application/vnd.maplibre-tile`
 ///   (requires `mlt` feature). Encoder settings come from `config.convert_to_mlt`; an
-///   absent block is treated as `convert-to-mlt: auto` and uses `mlt-core`'s defaults.
-///   `convert-to-mlt: disabled` (or any of `off`/`no`/`false`) skips conversion entirely
+///   absent block is treated as `convert_to_mlt: auto` and uses `mlt-core`'s defaults.
+///   `convert_to_mlt: disabled` (or any of `off`/`no`/`false`) skips conversion entirely
 ///   even if the client asked for MLT — the original MVT bytes are returned.
 /// - MLT -> MVT conversion when the client requests `application/vnd.mapbox-vector-tile`
-///   from an MLT source (requires `mlt` feature). `convert-to-mvt: disabled` skips it.
+///   from an MLT source (requires `mlt` feature). `convert_to_mvt: disabled` skips it.
 ///
 /// Runs inside the cache miss path so cached entries are already post-processed.
 /// MVT and MLT requests are keyed separately in the tile cache, so both formats

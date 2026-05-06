@@ -932,7 +932,7 @@ mod tests {
     }
 
     /// `Accept: mlt` against an MVT source resolves to MLT — the pre-cache
-    /// pipeline encodes on first miss. Conversion is implicit; no `process.convert-to-mlt`
+    /// pipeline encodes on first miss. Conversion is implicit; no `process.convert_to_mlt`
     /// configuration is required to enable it.
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[rstest]
@@ -946,7 +946,7 @@ mod tests {
     }
 
     /// `Accept: mvt` against an MLT source resolves to MVT — the pre-cache
-    /// pipeline decodes on first miss unless `process.convert-to-mvt` is
+    /// pipeline decodes on first miss unless `process.convert_to_mvt` is
     /// explicitly disabled.
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[rstest]

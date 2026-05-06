@@ -171,33 +171,25 @@ pub struct Config {
     pub fonts: FontConfig,
 
     /// Encoder settings for MVT->MLT conversion (global level).
-    /// Overridden by source-type or per-source `convert-to-mlt` keys.
+    /// Overridden by source-type or per-source `convert_to_mlt` keys.
     ///
     /// Can be either:
     /// - (default) `auto` - we choose defaults which we think work best for most users
     /// - `disabled` - no conversion
     /// - explicitely configured
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        rename = "convert-to-mlt"
-    )]
+    #[serde(default)]
     pub convert_to_mlt: Option<MltProcessConfig>,
 
     /// Settings for MLT->MVT conversion (global level).
-    /// Overridden by source-type or per-source `convert-to-mvt` keys.
+    /// Overridden by source-type or per-source `convert_to_mvt` keys.
     ///
     /// Can be either:
     /// - (default) `auto` - we choose defaults which we think work best for most users
     /// - `disabled` - no conversion
     /// - explicitly configured
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        rename = "convert-to-mvt"
-    )]
+    #[serde(default)]
     pub convert_to_mvt: Option<MvtProcessConfig>,
 
     #[serde(flatten, skip_serializing)]

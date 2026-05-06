@@ -8,7 +8,7 @@ use crate::config::primitives::AutoOption;
 
 /// Internal carrier for resolved per-source processing settings.
 ///
-/// Not serialized directly - config files use `convert-to-mlt` / `convert-to-mvt`.
+/// Not serialized directly - config files use `convert_to_mlt` / `convert_to_mvt`.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct ProcessConfig {
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
@@ -200,12 +200,12 @@ mod tests {
     fn render_failure_mlt_unknown_string() {
         use crate::config::test_helpers::render_failure;
         insta::assert_snapshot!(render_failure(indoc! {"
-                convert-to-mlt: atuo
+                convert_to_mlt: atuo
             "}), @r#"
           × invalid value: string "atuo", expected a string ("auto", "enabled",
           │ "disabled"), a boolean, or a map of settings
            ╭─[config.yaml:1:1]
-         1 │ convert-to-mlt: atuo
+         1 │ convert_to_mlt: atuo
            · ───────┬──────
            ·        ╰── invalid value: string "atuo", expected a string ("auto", "enabled", "disabled"), a boolean, or a map of settings
            ╰────
@@ -217,19 +217,19 @@ mod tests {
     fn render_failure_mlt_integer() {
         use crate::config::test_helpers::render_failure;
         insta::assert_snapshot!(render_failure(indoc! {"
-                convert-to-mlt: 42
+                convert_to_mlt: 42
             "}), @r#"
           × invalid type: integer `42`, expected a string ("auto", "enabled",
           │ "disabled"), a boolean, or a map of settings
            ╭─[config.yaml:1:1]
-         1 │ convert-to-mlt: 42
+         1 │ convert_to_mlt: 42
            · ───────┬──────
            ·        ╰── invalid type: integer `42`, expected a string ("auto", "enabled", "disabled"), a boolean, or a map of settings
            ╰────
         "#);
     }
 
-    /// Inner-field errors must point at the *value*, not the outer `convert-to-mlt:` line —
+    /// Inner-field errors must point at the *value*, not the outer `convert_to_mlt:` line —
     /// proves the explicit branch hands the saphyr deserializer to `MltEncoderConfig`
     /// instead of routing through a `serde_yaml::Value`.
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
@@ -237,12 +237,12 @@ mod tests {
     fn render_failure_mlt_nested_field_bad_type() {
         use crate::config::test_helpers::render_failure;
         insta::assert_snapshot!(render_failure(indoc! {"
-                convert-to-mlt:
+                convert_to_mlt:
                   tessellate: yes-please
             "}), @r"
           × invalid boolean
            ╭─[config.yaml:2:15]
-         1 │ convert-to-mlt:
+         1 │ convert_to_mlt:
          2 │   tessellate: yes-please
            ·               ─────┬────
            ·                    ╰── invalid boolean

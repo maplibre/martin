@@ -30,7 +30,7 @@ pub struct MBTilesReloader {
     /// so that directory-discovered sources that match a configured path inherit its policy.
     path_cache: BTreeMap<PathBuf, CachePolicy>,
     /// Process config to apply to dynamically-discovered sources.
-    /// Resolved from `mbtiles.convert-to-mlt` (source-type) > global `convert-to-mlt` > default.
+    /// Resolved from `mbtiles.convert_to_mlt` (source-type) > global `convert_to_mlt` > default.
     process: ProcessConfig,
 }
 

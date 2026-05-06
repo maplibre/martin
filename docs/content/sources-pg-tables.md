@@ -48,7 +48,7 @@ By default the `description` and `name` is database identifies about this table,
 
 ## Postprocessing
 
-Table sources support `convert-to-mlt` and `convert-to-mvt` keys to control tile postprocessing.
+Table sources support `convert_to_mlt` and `convert_to_mvt` keys to control tile postprocessing.
 This can be set for all PostgreSQL sources or for an individual table.
 See [Configuration File](config-file/index.md#postprocessing) for details.
 
@@ -57,8 +57,8 @@ postgres:
   connection_string: postgresql://localhost/mydb
   tables:
     my_table:
-      convert-to-mlt: auto
-      convert-to-mvt: auto
+      convert_to_mlt: auto
+      convert_to_mvt: auto
 ```
 
 ## TileJSON in SQL Comments

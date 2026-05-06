@@ -376,22 +376,14 @@ fn is_sqlite_memory_uri(path: &Path) -> bool {
 pub struct FileConfigSource {
     pub path: PathBuf,
     /// MVT->MLT encoder settings for this source.
-    /// Overrides source-type and global `convert-to-mlt`.
+    /// Overrides source-type and global `convert_to_mlt`.
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        rename = "convert-to-mlt"
-    )]
+    #[serde(default)]
     pub convert_to_mlt: Option<MltProcessConfig>,
     /// MLT->MVT conversion settings for this source.
-    /// Overrides source-type and global `convert-to-mvt`.
+    /// Overrides source-type and global `convert_to_mvt`.
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        rename = "convert-to-mvt"
-    )]
+    #[serde(default)]
     pub convert_to_mvt: Option<MvtProcessConfig>,
     /// Zoom-level bounds for tile caching.
     #[serde(default, skip_serializing_if = "CachePolicy::is_empty")]
@@ -864,7 +856,6 @@ pub struct GlobalCacheConfig {
     /// default: null (no expiry, entries only evicted by size pressure)
     #[serde(
         default,
-        skip_serializing_if = "Option::is_none",
         with = "humantime_serde"
     )]
     #[cfg_attr(feature = "unstable-schemas", schemars(with = "Option<String>"))]
@@ -874,7 +865,6 @@ pub struct GlobalCacheConfig {
     /// default: null (no idle timeout)
     #[serde(
         default,
-        skip_serializing_if = "Option::is_none",
         with = "humantime_serde"
     )]
     #[cfg_attr(feature = "unstable-schemas", schemars(with = "Option<String>"))]
@@ -883,7 +873,6 @@ pub struct GlobalCacheConfig {
     /// default: null (inherits from `cache.expiry`)
     #[serde(
         default,
-        skip_serializing_if = "Option::is_none",
         with = "humantime_serde"
     )]
     #[cfg_attr(feature = "unstable-schemas", schemars(with = "Option<String>"))]
@@ -892,7 +881,6 @@ pub struct GlobalCacheConfig {
     /// default: null (inherits from `cache.idle_timeout`)
     #[serde(
         default,
-        skip_serializing_if = "Option::is_none",
         with = "humantime_serde"
     )]
     #[cfg_attr(feature = "unstable-schemas", schemars(with = "Option<String>"))]
@@ -1037,7 +1025,6 @@ pub struct CacheSizeConfig {
     /// default: null (inherits from `cache.expiry`)
     #[serde(
         default,
-        skip_serializing_if = "Option::is_none",
         with = "humantime_serde"
     )]
     #[cfg_attr(feature = "unstable-schemas", schemars(with = "Option<String>"))]
@@ -1046,7 +1033,6 @@ pub struct CacheSizeConfig {
     /// default: null (inherits from `cache.idle_timeout`)
     #[serde(
         default,
-        skip_serializing_if = "Option::is_none",
         with = "humantime_serde"
     )]
     #[cfg_attr(feature = "unstable-schemas", schemars(with = "Option<String>"))]

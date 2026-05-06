@@ -16,7 +16,7 @@ it and use it with `--config my-config.yaml` option.
 
 ### Postprocessing
 
-MBTiles and PMTiles sources support `convert-to-mlt` and `convert-to-mvt` keys to control tile postprocessing.
+MBTiles and PMTiles sources support `convert_to_mlt` and `convert_to_mvt` keys to control tile postprocessing.
 This can be set for all sources of a type or for an individual source.
 See [Configuration File](config-file/index.md#postprocessing) for details.
 
@@ -25,12 +25,12 @@ pmtiles:
   sources:
     basemap:
       path: /data/basemap.pmtiles
-      convert-to-mlt: auto    # convert MVT -> MLT when client requests it
-      convert-to-mvt: auto    # convert MLT -> MVT when client requests it
+      convert_to_mlt: auto    # convert MVT -> MLT when client requests it
+      convert_to_mvt: auto    # convert MLT -> MVT when client requests it
     mlt_archive:
       path: /data/mlt_tiles.pmtiles
-      convert-to-mvt: disable # disabllow any on the the fly conversion
-      convert-to-mlt: disable
+      convert_to_mvt: disable # disabllow any on the the fly conversion
+      convert_to_mlt: disable
 ```
 
 ### Autodiscovery

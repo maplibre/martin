@@ -101,7 +101,7 @@ pub struct PostgresConfig {
     pub functions: Option<FuncInfoSources>,
 
     /// MVT->MLT encoder settings for all sources from this connection.
-    /// Overrides global; overridden by per-source `convert-to-mlt`.
+    /// Overrides global; overridden by per-source `convert_to_mlt`.
     ///
     /// Can be either:
     /// - `null` (default) - defer to the global setting
@@ -109,15 +109,11 @@ pub struct PostgresConfig {
     /// - `disabled` - no conversion
     /// - explicitely configured
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        rename = "convert-to-mlt"
-    )]
+    #[serde(default)]
     pub convert_to_mlt: Option<MltProcessConfig>,
 
     /// MLT->MVT conversion settings for all sources from this connection.
-    /// Overrides global; overridden by per-source `convert-to-mvt`.
+    /// Overrides global; overridden by per-source `convert_to_mvt`.
     ///
     /// Can be either:
     /// - `null` (default) - defer to the global setting
@@ -125,11 +121,7 @@ pub struct PostgresConfig {
     /// - `disabled` - no conversion
     /// - explicitly configured
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        rename = "convert-to-mvt"
-    )]
+    #[serde(default)]
     pub convert_to_mvt: Option<MvtProcessConfig>,
 
     #[serde(flatten, skip_serializing)]

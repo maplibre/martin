@@ -5,7 +5,7 @@
 listen_addresses: '0.0.0.0:3000'
 
 # Global: default MLT encoder settings for all sources
-convert-to-mlt: auto
+convert_to_mlt: auto
 
 # Database configuration
 postgres:
@@ -22,7 +22,7 @@ postgres:
       geometry_type: GEOMETRY
       properties:
         gid: int4
-      convert-to-mlt:
+      convert_to_mlt:
         tessellate: true
 
     # Table source with default (global) config
@@ -44,7 +44,7 @@ postgres:
       geometry_type: POINT
       properties:
         gid: int4
-      convert-to-mlt:
+      convert_to_mlt:
         try_spatial_hilbert_sort: true
 
 mbtiles:
