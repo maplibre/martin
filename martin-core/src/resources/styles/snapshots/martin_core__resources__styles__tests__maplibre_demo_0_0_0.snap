@@ -1,6 +1,0 @@
----
-source: martin-core/src/resources/styles/mod.rs
-expression: img_buffer.into_inner()
-extension: png
-snapshot_kind: binary
----

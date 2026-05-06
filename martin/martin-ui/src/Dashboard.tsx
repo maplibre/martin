@@ -7,6 +7,7 @@ import {
   aggregateEndpointGroups,
   aggregateHistogramGroups,
   ENDPOINT_GROUPS,
+  parseCacheMetrics,
   parseCompletePrometheusMetrics,
 } from '@/lib/prometheus';
 import type { AnalyticsData } from '@/lib/types';
@@ -24,6 +25,7 @@ const fetchAnalytics = async (): Promise<AnalyticsData> => {
   const groupHistograms = aggregateHistogramGroups(histograms, ENDPOINT_GROUPS);
 
   return {
+    caches: parseCacheMetrics(text),
     fonts: { ...groupResults.fonts, histogram: groupHistograms.fonts },
     sprites: { ...groupResults.sprites, histogram: groupHistograms.sprites },
     styles: { ...groupResults.styles, histogram: groupHistograms.styles },

@@ -81,21 +81,24 @@ impl PostgresPool {
         // This is not ideal for reasons explained in the warnings
         if pg_ver < RECOMMENDED_POSTGRES_VERSION {
             warn!(
-                "PostgreSQL {pg_ver} is older than the recommended minimum {RECOMMENDED_POSTGRES_VERSION}."
+                postgres.version = %pg_ver,
+                "PostgreSQL is older than the recommended minimum {RECOMMENDED_POSTGRES_VERSION}."
             );
         }
         res.supports_tile_margin = postgis_ver >= ST_TILE_ENVELOPE_POSTGIS_VERSION;
         if !res.supports_tile_margin {
             warn!(
-                "PostGIS {postgis_ver} is older than {ST_TILE_ENVELOPE_POSTGIS_VERSION}. Margin parameter in ST_TileEnvelope is not supported, so tiles may be cut off at the edges."
+                postgis.version = %postgis_ver,
+                "PostGIS is older than {ST_TILE_ENVELOPE_POSTGIS_VERSION}. Margin parameter in ST_TileEnvelope is not supported, so tiles may be cut off at the edges."
             );
         }
         if postgis_ver < MISSING_GEOM_FIXED_POSTGIS_VERSION {
             warn!(
-                "PostGIS {postgis_ver} is older than the recommended minimum {MISSING_GEOM_FIXED_POSTGIS_VERSION}. In the used version, some geometry may be hidden on some zoom levels. If You encounter this bug, please consider updating your postgis installation. For further details please refer to https://github.com/maplibre/martin/issues/1651#issuecomment-2628674788"
+                postgis.version = %postgis_ver,
+                "PostGIS is older than the recommended minimum {MISSING_GEOM_FIXED_POSTGIS_VERSION}. In the used version, some geometry may be hidden on some zoom levels. If you encounter this bug, please consider updating your postgis installation. For further details please refer to https://github.com/maplibre/martin/issues/1651#issuecomment-2628674788"
             );
         }
-        info!("Connected to PostgreSQL {pg_ver} / PostGIS {postgis_ver} for source {id}");
+        info!(source.id = %id, postgres.version = %pg_ver, postgis.version = %postgis_ver, "Connected to PostgreSQL/PostGIS");
         Ok(res)
     }
 
@@ -123,22 +126,29 @@ impl PostgresPool {
             recycling_method: RecyclingMethod::Fast,
         };
 
+        let sslmode_label: &str = match &ssl_mode {
+            SslModeOverride::Unmodified(m) => match m {
+                SslMode::Disable => "disable",
+                SslMode::Prefer => "prefer",
+                SslMode::Require => "require",
+                _ => "unknown",
+            },
+            SslModeOverride::VerifyCa => "verify-ca",
+            SslModeOverride::VerifyFull => "verify-full",
+        };
+        info!(
+            postgres.host = ?pg_cfg.get_hosts(),
+            postgres.port = ?pg_cfg.get_ports(),
+            postgres.user = ?pg_cfg.get_user(),
+            postgres.dbname = ?pg_cfg.get_dbname(),
+            postgres.sslmode = %sslmode_label,
+            "Connecting to PostgreSQL"
+        );
+
         let mgr = if pg_cfg.get_ssl_mode() == SslMode::Disable {
-            info!("Connecting without SSL support: {pg_cfg:?}");
             let connector = deadpool_postgres::tokio_postgres::NoTls {};
             Manager::from_config(pg_cfg, connector, mgr_config)
         } else {
-            match ssl_mode {
-                SslModeOverride::Unmodified(_) => {
-                    info!("Connecting with SSL support: {pg_cfg:?}");
-                }
-                SslModeOverride::VerifyCa => {
-                    info!("Using sslmode=verify-ca to connect: {pg_cfg:?}");
-                }
-                SslModeOverride::VerifyFull => {
-                    info!("Using sslmode=verify-full to connect: {pg_cfg:?}");
-                }
-            }
             let connector = make_connector(ssl_cert, ssl_key, ssl_root_cert, ssl_mode)?;
             Manager::from_config(pg_cfg, connector, mgr_config)
         };
@@ -221,6 +231,7 @@ SELECT (regexp_matches(
 
 #[cfg(all(test, feature = "test-pg"))]
 mod tests {
+    use backon::{ConstantBuilder, Retryable as _};
     use deadpool_postgres::tokio_postgres::Config;
     use postgres::NoTls;
     use testcontainers_modules::postgres::Postgres;
@@ -229,14 +240,31 @@ mod tests {
 
     use super::*;
 
+    async fn start_old_postgis_container()
+    -> testcontainers_modules::testcontainers::ContainerAsync<Postgres> {
+        const MAX_START_ATTEMPTS: usize = 3;
+        const RETRY_DELAY: std::time::Duration = std::time::Duration::from_secs(2);
+
+        (|| async {
+            Postgres::default()
+                .with_name("postgis/postgis")
+                .with_tag("11-3.0") // purposely very old and stable
+                .start()
+                .await
+        })
+        .retry(
+            ConstantBuilder::default()
+                .with_delay(RETRY_DELAY)
+                .with_max_times(MAX_START_ATTEMPTS),
+        )
+        .sleep(tokio::time::sleep)
+        .await
+        .expect("failed to launch container after retry attempts")
+    }
+
     #[tokio::test]
     async fn parse_version() {
-        let node = Postgres::default()
-            .with_name("postgis/postgis")
-            .with_tag("11-3.0") // purposely very old and stable
-            .start()
-            .await
-            .expect("container launched");
+        let node = start_old_postgis_container().await;
 
         let pg_config = Config::new()
             .host(node.get_host().await.unwrap().to_string())

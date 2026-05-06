@@ -172,6 +172,78 @@ export function aggregateHistogramGroups(
   return result;
 }
 
+export interface HitCount {
+  hits: number;
+  misses: number;
+}
+
+export interface ZoomHitCount extends HitCount {
+  zoom: number;
+}
+
+/**
+ * Per-cache hit/miss aggregate plus an optional per-zoom breakdown.
+ *
+ * `byZoom` is empty for caches without a zoom dimension (`sprite`, `font`).
+ * Consumers should treat `[]` as not-applicable, not as no-data.
+ */
+export interface CacheMetrics extends HitCount {
+  byZoom: ZoomHitCount[];
+}
+
+/** `null` when no requests have been recorded; otherwise a value in `[0, 1]`. */
+export function hitRate({ hits, misses }: HitCount): number | null {
+  const total = hits + misses;
+  return total > 0 ? hits / total : null;
+}
+
+const CACHE_LINE_RE = /^martin_(?:tile_)?cache_requests_total\{(.*)\}\s+([0-9.eE+-]+)$/;
+
+export function parseCacheMetrics(text: string): Record<string, CacheMetrics> {
+  const buckets: Record<string, Record<string, HitCount>> = {};
+
+  for (const line of text.split('\n')) {
+    const match = line.trim().match(CACHE_LINE_RE);
+    if (!match) continue;
+
+    const labels = match[1];
+    const value = parseFloat(match[2]);
+    if (!Number.isFinite(value)) continue;
+
+    const cache = /cache="([^"]+)"/.exec(labels)?.[1];
+    const result = /result="([^"]+)"/.exec(labels)?.[1];
+    if (!cache || (result !== 'hit' && result !== 'miss')) continue;
+    const zoom = /zoom="([^"]*)"/.exec(labels)?.[1] ?? '';
+
+    if (!buckets[cache]) buckets[cache] = {};
+    const perCache = buckets[cache];
+    if (!perCache[zoom]) perCache[zoom] = { hits: 0, misses: 0 };
+    if (result === 'hit') {
+      perCache[zoom].hits += value;
+    } else {
+      perCache[zoom].misses += value;
+    }
+  }
+
+  const out: Record<string, CacheMetrics> = {};
+  for (const [cache, perZoom] of Object.entries(buckets)) {
+    let hits = 0;
+    let misses = 0;
+    const byZoom: ZoomHitCount[] = [];
+    for (const [zoomStr, counts] of Object.entries(perZoom)) {
+      hits += counts.hits;
+      misses += counts.misses;
+      const zoomNum = Number(zoomStr);
+      if (zoomStr !== '' && Number.isFinite(zoomNum)) {
+        byZoom.push({ ...counts, zoom: zoomNum });
+      }
+    }
+    byZoom.sort((a, b) => a.zoom - b.zoom);
+    out[cache] = { byZoom, hits, misses };
+  }
+  return out;
+}
+
 export const ENDPOINT_GROUPS = {
   fonts: ['/font/{fontstack}/{start}-{end}'],
   sprites: [

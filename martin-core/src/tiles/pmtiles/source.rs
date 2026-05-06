@@ -1,9 +1,9 @@
 //! `PMTiles` tile source implementations.
 
-use std::fmt::{Debug, Formatter};
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use derive_debug::Dbg;
 use martin_tile_utils::{Encoding, Format, TileCoord, TileData, TileInfo};
 use object_store::ObjectStore;
 use pmtiles::{AsyncPmTilesReader, Compression, ObjectStoreBackend, TileType};
@@ -16,22 +16,17 @@ use crate::tiles::pmtiles::PmtilesError::{self, InvalidMetadata};
 use crate::tiles::{BoxedSource, MartinCoreResult, Source, UrlQuery};
 
 /// A source for `PMTiles` files using `ObjectStoreBackend`
-#[derive(Clone)]
+#[derive(Clone, Dbg)]
 pub struct PmtilesSource {
     id: String,
+    #[dbg(skip)]
     pmtiles: Arc<AsyncPmTilesReader<ObjectStoreBackend, PmtCacheInstance>>,
+    #[dbg(skip)]
     tilejson: TileJSON,
+    #[dbg(skip)]
     tile_info: TileInfo,
+    #[dbg(skip)]
     cache_zoom: CacheZoomRange,
-}
-
-#[expect(clippy::missing_fields_in_debug)]
-impl Debug for PmtilesSource {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("PmtilesSource")
-            .field("id", &self.id)
-            .finish()
-    }
 }
 
 impl PmtilesSource {
@@ -69,7 +64,10 @@ impl PmtilesSource {
                     Compression::None => Encoding::Uncompressed,
                     Compression::Unknown => {
                         warn!(
-                            "MVT tiles of source {id} ({store_to_string} at {path}) has unknown compression"
+                            source.id = %id,
+                            store = %store_to_string,
+                            path = %path,
+                            "MVT tiles have unknown compression"
                         );
                         Encoding::Uncompressed
                     }
@@ -94,7 +92,7 @@ impl PmtilesSource {
         };
 
         let tilejson = reader.parse_tilejson(Vec::new()).await.unwrap_or_else(|e| {
-            warn!("{e:?}: Unable to parse metadata for {path}");
+            warn!(path = %path, error = ?e, "Unable to parse metadata");
             hdr.get_tilejson(Vec::new())
         });
 
@@ -151,8 +149,11 @@ impl Source for PmtilesSource {
             Ok(t.to_vec())
         } else {
             trace!(
-                "Couldn't find tile data in {}/{}/{} of {}",
-                xyz.z, xyz.x, xyz.y, &self.id
+                source.id = %self.id,
+                tile.z = xyz.z,
+                tile.x = xyz.x,
+                tile.y = xyz.y,
+                "Couldn't find tile data"
             );
             Ok(Vec::new())
         }

@@ -38,14 +38,14 @@ fn test_get(path: &str) -> TestRequest {
     TestRequest::get().uri(path)
 }
 
-#[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
+#[cfg(all(feature = "rendering", target_os = "linux"))]
 const CONFIG_STYLES: &str = indoc! {"
         styles:
             rendering: true
             sources:
                 maplibre_demo: ../tests/fixtures/styles/maplibre_demo.json
     "};
-#[cfg(any(not(feature = "unstable-rendering"), not(target_os = "linux")))]
+#[cfg(any(not(feature = "rendering"), not(target_os = "linux")))]
 const CONFIG_STYLES: &str = indoc! {"
         styles:
             sources:
@@ -91,11 +91,16 @@ async fn style_json_not_found() {
     assert_eq!(body, "No such style exists");
 }
 
-#[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
+#[cfg(all(feature = "rendering", target_os = "linux"))]
 mod render_tests {
     use rstest::rstest;
 
     use super::*;
+
+    /// Full PNG magic: 8 bytes
+    const PNG_MAGIC: &[u8] = &[0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A];
+    /// JPEG magic: first 3 bytes
+    const JPEG_MAGIC: &[u8] = &[0xFF, 0xD8, 0xFF];
 
     #[rstest]
     #[case::single_style(CONFIG_STYLES, "/style/maplibre_demo/0/0/0.png")]
@@ -115,12 +120,57 @@ mod render_tests {
 
         let body = read_body(response).await;
         assert!(
-            body.len() > 100,
-            "PNG should have reasonable size for {path}"
+            body.len() > 1000,
+            "PNG should have reasonable size for {path}, got {}",
+            body.len()
         );
 
-        // Verify PNG header
-        assert_eq!(&body[1..4], b"PNG");
+        // Verify full PNG magic (8 bytes)
+        assert_eq!(&body[..8], PNG_MAGIC, "Response is not a valid PNG");
+
+        // Decode and verify dimensions
+        let img = image::load_from_memory_with_format(&body, image::ImageFormat::Png)
+            .expect("Failed to decode PNG response");
+        assert_eq!(
+            (img.width(), img.height()),
+            (512, 512),
+            "Tile must be 512x512"
+        );
+    }
+
+    #[rstest]
+    #[case::jpeg_ext(CONFIG_STYLES, "/style/maplibre_demo/0/0/0.jpeg")]
+    #[case::jpg_alias(CONFIG_STYLES, "/style/maplibre_demo/0/0/0.jpg")]
+    #[case::jpeg_zoom_1(CONFIG_STYLES, "/style/maplibre_demo/1/0/0.jpeg")]
+    #[tokio::test]
+    #[tracing_test::traced_test]
+    async fn render_tile_jpeg(#[case] config: &str, #[case] path: &str) {
+        let app = create_app! { config };
+
+        let req = test_get(path).to_request();
+        let response = call_service(&app, req).await;
+        let response = assert_response(response).await;
+
+        assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), "image/jpeg");
+
+        let body = read_body(response).await;
+        assert!(
+            body.len() > 1000,
+            "JPEG should have reasonable size for {path}, got {}",
+            body.len()
+        );
+
+        // Verify JPEG magic bytes
+        assert_eq!(&body[..3], JPEG_MAGIC, "Response is not a valid JPEG");
+
+        // Decode and verify dimensions
+        let img = image::load_from_memory_with_format(&body, image::ImageFormat::Jpeg)
+            .expect("Failed to decode JPEG response");
+        assert_eq!(
+            (img.width(), img.height()),
+            (512, 512),
+            "Tile must be 512x512"
+        );
     }
 
     #[tokio::test]
@@ -152,6 +202,25 @@ mod render_tests {
 
     #[tokio::test]
     #[tracing_test::traced_test]
+    async fn render_different_tiles_differ() {
+        let app = create_app! { CONFIG_STYLES };
+
+        let req_a = test_get("/style/maplibre_demo/0/0/0.png").to_request();
+        let resp_a = call_service(&app, req_a).await;
+        let body_a = read_body(assert_response(resp_a).await).await;
+
+        let req_b = test_get("/style/maplibre_demo/1/1/0.png").to_request();
+        let resp_b = call_service(&app, req_b).await;
+        let body_b = read_body(assert_response(resp_b).await).await;
+
+        assert_ne!(
+            body_a, body_b,
+            "Different tile coordinates must produce different images"
+        );
+    }
+
+    #[tokio::test]
+    #[tracing_test::traced_test]
     async fn render_concurrent_requests() {
         let app = create_app! { CONFIG_STYLES };
 
@@ -169,11 +238,32 @@ mod render_tests {
 
         let responses = futures::future::join_all(futures).await;
 
+        let mut bodies = Vec::new();
         for (i, response) in responses.into_iter().enumerate() {
             let response = assert_response(response).await;
             assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), "image/png");
             let body = read_body(response).await;
-            assert!(body.len() > 100, "Concurrent request {i} should succeed");
+            assert!(
+                body.len() > 1000,
+                "Concurrent request {i} should produce a valid image"
+            );
+            assert_eq!(
+                &body[..8],
+                PNG_MAGIC,
+                "Concurrent request {i} is not valid PNG"
+            );
+            bodies.push(body);
         }
+
+        // Verify not all responses are identical (renderer isn't returning cached static image)
+        let unique_count = bodies
+            .iter()
+            .collect::<std::collections::HashSet<_>>()
+            .len();
+        assert!(
+            unique_count > 1,
+            "All {0} concurrent responses are identical — renderer may be ignoring coordinates",
+            bodies.len()
+        );
     }
 }

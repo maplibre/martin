@@ -54,3 +54,23 @@ async fn function_source_schemas() {
       description: a function source with MixedCase name
     ");
 }
+
+#[actix_rt::test]
+async fn function_source_raster_content_type() {
+    let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL")).await;
+    let src = source(&mock, "function_zxy_raster");
+    // The content_type from the SQL comment should set the tile info to PNG
+    let tile_info = src.get_tile_info();
+    assert_eq!(tile_info.format.content_type(), "image/png");
+    // The catalog entry should show image/png content type
+    let catalog_entry = src.get_catalog_entry();
+    assert_eq!(catalog_entry.content_type, "image/png");
+    // The TileJSON should also contain the content_type field from the SQL comment
+    assert_yaml_snapshot!(src.get_tilejson(), @r"
+    tilejson: 3.0.0
+    tiles: []
+    description: a raster tile function source
+    name: function_zxy_raster
+    content_type: image/png
+    ");
+}

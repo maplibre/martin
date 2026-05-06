@@ -7,11 +7,11 @@ use std::time::{Duration, Instant};
 use bytes::Bytes;
 use flume::{Receiver, Sender, bounded};
 use futures::TryStreamExt as _;
-use log::{debug, info, warn};
 use moka::sync::Cache;
 use rayon::iter::{IntoParallelIterator as _, ParallelIterator as _};
 use sqlx::{Connection as _, Row as _, SqliteConnection};
 use tokio::task::spawn_blocking;
+use tracing::{debug, info, warn};
 use xxhash_rust::xxh3::xxh3_128;
 
 use crate::errors::MbtResult;
@@ -185,7 +185,13 @@ where
             .execute(&mut dst_conn)
             .await?;
 
-        info!("Transcoding {src} ({src_type}) to {dst} ({dst_type})");
+        info!(
+            src.path = %src,
+            src.type = %src_type,
+            dst.path = %dst,
+            dst.type = %dst_type,
+            "Transcoding mbtiles file"
+        );
 
         // Attach source ONCE and reuse it for both metadata copy and the
         // normalized writer's join. The general path doesn't need it.
@@ -257,7 +263,10 @@ where
 
         let ((), (), (unique_encoded, tiles_written)) = tokio::try_join!(reader, compute, writer)?;
 
-        info!("Encoded {unique_encoded} unique tiles, wrote {tiles_written} rows");
+        info!(
+            unique_encoded,
+            tiles_written, "Encoded unique tiles and wrote rows"
+        );
 
         detach_db(&mut *dst_conn, "srcDb").await?;
 
@@ -387,7 +396,7 @@ where
                 .filter_map(|(tile_id, data)| match (transform)(data) {
                     Ok(encoded) => Some((tile_id, encoded)),
                     Err(e) => {
-                        warn!("skipping image {tile_id}: {e:#}");
+                        warn!(tile.id = %tile_id, error = ?e, "Skipping image");
                         None
                     }
                 })
@@ -567,7 +576,7 @@ async fn write_normalized_chunk(
     let res = q.execute(&mut *tx).await?;
     let rows = usize::try_from(res.rows_affected()).unwrap_or(0);
 
-    // For Hash destinations, record old_id → new_id mapping so the map
+    // For Hash destinations, record old_id -> new_id mapping so the map
     // table INSERT can reference the recomputed tile_ids.
     if is_hash_dst {
         let map_sql = format!(
@@ -712,7 +721,7 @@ where
                 Some((coord, encoded))
             }
             Err(e) => {
-                warn!("skipping tile {coord}: {e:#}");
+                warn!(tile.coord = %coord, error = ?e, "Skipping tile");
                 None
             }
         };
@@ -728,7 +737,7 @@ where
                 Ok((transform)(data)?)
             },
         )
-        .inspect_err(|e| warn!("skipping tile {coord}: {e:#}"))
+        .inspect_err(|e| warn!(tile.coord = %coord, error = ?e, "Skipping tile"))
         .ok()?;
 
     let is_fresh = entry.is_fresh();

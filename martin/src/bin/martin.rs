@@ -5,9 +5,17 @@ use martin::MartinResult;
 use martin::config::args::Args;
 #[cfg(all(feature = "webui", not(docsrs)))]
 use martin::config::args::WebUiMode;
+#[cfg(feature = "mbtiles")]
+use martin::config::file::ProcessConfig;
+#[cfg(feature = "mbtiles")]
+use martin::config::file::reload::mbtiles::MBTilesReloader;
 use martin::config::file::{Config, read_config};
+#[cfg(feature = "_tiles")]
+use martin::config::primitives::IdResolver;
 use martin::config::primitives::env::OsEnv;
-use martin::logging::{ensure_martin_core_log_level_matches, init_tracing};
+use martin::logging::{LogFormat, ensure_martin_core_log_level_matches, init_tracing};
+#[cfg(feature = "_tiles")]
+use martin::srv::RESERVED_KEYWORDS;
 use martin::srv::new_server;
 use tracing::{error, info};
 
@@ -33,8 +41,34 @@ async fn start(args: Args) -> MartinResult<()> {
         &env,
     )?;
     config.finalize()?;
+
+    #[cfg(feature = "_tiles")]
+    let resolver = IdResolver::new(RESERVED_KEYWORDS);
+
     #[cfg(feature = "_catalog")]
-    let sources = config.resolve().await?;
+    let sources = config
+        .resolve(
+            #[cfg(feature = "_tiles")]
+            &resolver,
+        )
+        .await?;
+    #[cfg(feature = "mbtiles")]
+    let mgr = sources.tile_manager.clone();
+
+    #[cfg(feature = "mbtiles")]
+    {
+        #[cfg(feature = "mlt")]
+        let global_pc = ProcessConfig {
+            convert_to_mlt: config.convert_to_mlt.clone(),
+            convert_to_mvt: config.convert_to_mvt.clone(),
+        };
+        #[cfg(not(feature = "mlt"))]
+        let global_pc = ProcessConfig::default();
+        let reloader = MBTilesReloader::new(mgr, resolver, &config.mbtiles, &global_pc);
+        if let Err(e) = reloader.start() {
+            tracing::warn!("failed to start MBTilesReloader {e:?}");
+        }
+    }
 
     if let Some(file_name) = save_config {
         config.save_to_file(file_name.as_path())?;
@@ -75,15 +109,16 @@ async fn start(args: Args) -> MartinResult<()> {
 #[hotpath::main]
 async fn main() {
     let filter = ensure_martin_core_log_level_matches(env::var("RUST_LOG").ok(), "martin=");
-    init_tracing(&filter, env::var("RUST_LOG_FORMAT").ok(), false);
+    let log_format = LogFormat::from_env();
+    init_tracing(&filter, log_format, false);
 
     let args = Args::parse();
     if let Err(e) = start(args).await {
-        // Ensure the message is printed, even if the logging is disabled
+        let rendered = e.render_diagnostic_with(log_format);
         if tracing::event_enabled!(tracing::Level::ERROR) {
-            error!("{e}");
+            error!("{rendered}");
         } else {
-            eprintln!("{e}");
+            eprintln!("{rendered}");
         }
         std::process::exit(1);
     }

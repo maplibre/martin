@@ -1,3 +1,7 @@
+# HELP martin_cache_requests_total Martin cache lookups, labeled by cache type and hit/miss result
+# TYPE martin_cache_requests_total counter
+martin_cache_requests_total{cache="font",result="miss"} NUMBER
+martin_cache_requests_total{cache="sprite",result="miss"} NUMBER
 # HELP martin_http_requests_duration_seconds HTTP request duration in seconds for all requests
 # TYPE martin_http_requests_duration_seconds histogram
 martin_http_requests_duration_seconds_bucket{endpoint="/catalog",method="GET",status="200",le="0.005"} NUMBER
@@ -287,3 +291,7 @@ martin_http_requests_total{endpoint="/{ids}/{z}/{x}/{y}.{ext}",method="HEAD",sta
 martin_http_requests_total{endpoint="/{source_ids}",method="GET",status="200"} NUMBER
 martin_http_requests_total{endpoint="/{source_ids}/{z}/{x}/{y}",method="GET",status="200"} NUMBER
 martin_http_requests_total{endpoint="/{source_ids}/{z}/{x}/{y}",method="GET",status="406"} NUMBER
+# HELP martin_tile_cache_requests_total Martin tile-coordinate cache lookups, labeled by cache type, hit/miss result, and zoom
+# TYPE martin_tile_cache_requests_total counter
+martin_tile_cache_requests_total{cache="tile",result="hit",zoom="0"} NUMBER
+martin_tile_cache_requests_total{cache="tile",result="miss",zoom="0"} NUMBER

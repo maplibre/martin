@@ -175,7 +175,7 @@ impl PostgresAutoDiscoveryBuilder {
 
                     let id2 = self.resolve_id(id, &merged_inf);
                     warn_on_rename(id, &id2, "Table");
-                    info!("Configured {dup}source {id2} from {}", summary(&merged_inf));
+                    info!(source.id = %id2, source.summary = %summary(&merged_inf), "Configured {dup}source");
                     pending.push(table_to_query(
                         id2,
                         merged_inf,
@@ -198,9 +198,9 @@ impl PostgresAutoDiscoveryBuilder {
                 .clone()
                 .unwrap_or_else(|| db_tables_info.keys().cloned().collect());
             info!(
-                "Auto-publishing tables in schemas [{}] as '{}' sources",
-                schemas.iter().sorted().join(", "),
-                auto_tables.source_id_format,
+                schemas = %schemas.iter().sorted().join(", "),
+                source_id_format = %auto_tables.source_id_format,
+                "Auto-publishing tables"
             );
 
             for schema in schemas.iter().sorted() {
@@ -226,7 +226,7 @@ impl PostgresAutoDiscoveryBuilder {
                         };
                         db_inf.srid = srid;
                         update_auto_fields(&id2, &mut db_inf, auto_tables);
-                        info!("Discovered source {id2} from {}", summary(&db_inf));
+                        info!(source.id = %id2, source.summary = %summary(&db_inf), "Discovered source");
                         pending.push(table_to_query(
                             id2,
                             db_inf,
@@ -245,10 +245,10 @@ impl PostgresAutoDiscoveryBuilder {
         for src in pending {
             match src {
                 Err(v) => {
-                    error!("Failed to create a source: {v}");
+                    error!(error = %v, "Failed to create a source");
                 }
                 Ok((id, pg_sql, src_inf)) => {
-                    debug!("{id} query: {}", pg_sql.sql_query);
+                    debug!(source.id = %id, sql = %pg_sql.sql_query, "source SQL query");
                     self.add_func_src(
                         &mut res,
                         id.clone(),
@@ -289,8 +289,8 @@ impl PostgresAutoDiscoveryBuilder {
                     );
                     warn_on_rename(id, &id2, "Function");
                     let signature = &pg_sql_info.signature;
-                    info!("Configured {dup}source {id2} from the function {signature}");
-                    debug!("{id2} query: {}", pg_sql_info.sql_query);
+                    info!(source.id = %id2, function.signature = %signature, "Configured {dup}source from function");
+                    debug!(source.id = %id2, sql = %pg_sql_info.sql_query, "source SQL query");
                     info_map.insert(id2, merged_inf);
                 }
                 Err(error) => {
@@ -309,9 +309,9 @@ impl PostgresAutoDiscoveryBuilder {
                 .clone()
                 .unwrap_or_else(|| db_funcs_info.keys().cloned().collect());
             info!(
-                "Auto-publishing functions in schemas [{}] as '{}' sources",
-                schemas.iter().sorted().join(", "),
-                auto_funcs.source_id_format,
+                schemas = %schemas.iter().sorted().join(", "),
+                source_id_format = %auto_funcs.source_id_format,
+                "Auto-publishing functions"
             );
 
             for schema in schemas.iter().sorted() {
@@ -337,8 +337,8 @@ impl PostgresAutoDiscoveryBuilder {
                         pg_sql.clone(),
                         db_inf.cache.unwrap_or_default(),
                     );
-                    info!("Discovered source {id2} from function {}", pg_sql.signature);
-                    debug!("{id2} query: {}", pg_sql.sql_query);
+                    info!(source.id = %id2, function.signature = %pg_sql.signature, "Discovered source from function");
+                    debug!(source.id = %id2, sql = %pg_sql.sql_query, "source SQL query");
                     info_map.insert(id2, db_inf);
                 }
             }
@@ -432,8 +432,16 @@ impl PostgresAutoDiscoveryBuilder {
         cache: CachePolicy,
     ) {
         let tilejson = pg_info.to_tilejson(id.clone());
+        let tile_info = pg_info.tile_info();
         let cache = cache.or(self.default_cache);
-        let source = PostgresSource::new(id, sql_info, tilejson, self.pool.clone(), cache.zoom());
+        let source = PostgresSource::new(
+            id,
+            sql_info,
+            tilejson,
+            self.pool.clone(),
+            tile_info,
+            cache.zoom(),
+        );
         sources.push(Box::new(source));
     }
 
@@ -476,15 +484,20 @@ fn update_auto_fields(
             match find_kv_ignore_case(props, key) {
                 Ok(Some(result)) => {
                     info!(
-                        "For source {id}, id_column '{key}' was not found, but found '{result}' instead."
+                        source.id = %id,
+                        id_column.requested = %key,
+                        id_column.found = %result,
+                        "id_column not found by exact name, using case-insensitive match"
                     );
                     (result, props.get(result).expect("result key should be present in props after find_kv_ignore_case lookup"))
                 }
                 Ok(None) => continue,
                 Err(multiple) => {
                     error!(
-                        "Unable to configure source {id} because id_column '{key}' has no exact match or more than one potential matches: {}",
-                        multiple.join(", ")
+                        source.id = %id,
+                        id_column.requested = %key,
+                        id_column.candidates = %multiple.join(", "),
+                        "Unable to configure source: id_column has no exact match or more than one potential match"
                     );
                     continue;
                 }
@@ -494,8 +507,11 @@ fn update_auto_fields(
         // https://github.com/postgis/postgis/blob/559c95d85564fb74fa9e3b7eafb74851810610da/postgis/mvt.c#L387C4-L387C66
         if typ != "int4" && typ != "int8" && typ != "int2" {
             warn!(
-                "Unable to use column `{key}` in table {}.{} as a tile feature ID because it has a non-integer type `{typ}`.",
-                inf.schema, inf.table
+                schema = %inf.schema,
+                table = %inf.table,
+                column = %column,
+                column.type = %typ,
+                "Unable to use column as a tile feature ID because it has a non-integer type"
             );
             continue;
         }
@@ -508,10 +524,10 @@ fn update_auto_fields(
     }
 
     info!(
-        "No ID column found for table {}.{} - searched for an integer column named {}.",
-        inf.schema,
-        inf.table,
-        try_columns.join(", ")
+        schema = %inf.schema,
+        table = %inf.table,
+        searched = %try_columns.join(", "),
+        "No ID column found for table - searched for an integer column"
     );
 }
 
@@ -601,7 +617,12 @@ fn use_auto_publish(config: &PostgresConfig, for_functions: bool) -> bool {
 
 fn warn_on_rename(old_id: &String, new_id: &String, typ: &str) {
     if old_id != new_id {
-        warn!("{typ} source {old_id} was renamed to {new_id} due to ID conflict");
+        warn!(
+            source.kind = %typ,
+            source.id.old = %old_id,
+            source.id.new = %new_id,
+            "source was renamed due to ID conflict"
+        );
     }
 }
 
@@ -636,12 +657,40 @@ fn by_key<T>(a: &(String, T), b: &(String, T)) -> Ordering {
 }
 
 #[cfg(all(test, feature = "test-pg"))]
-#[expect(clippy::unwrap_used)]
+#[expect(clippy::unwrap_used, clippy::panic)]
 mod tests {
+    use backon::{ConstantBuilder, Retryable as _};
     use indoc::indoc;
     use insta::assert_yaml_snapshot;
+    use testcontainers_modules::postgres::Postgres;
+    use testcontainers_modules::testcontainers::ImageExt as _;
+    use testcontainers_modules::testcontainers::runners::AsyncRunner as _;
 
     use super::*;
+
+    async fn start_old_postgis_container()
+    -> testcontainers_modules::testcontainers::ContainerAsync<Postgres> {
+        const MAX_START_ATTEMPTS: usize = 3;
+        const RETRY_DELAY: std::time::Duration = std::time::Duration::from_secs(2);
+
+        (|| async {
+            Postgres::default()
+                .with_name("postgis/postgis")
+                .with_tag("11-3.0") // purposely very old and stable
+                .start()
+                .await
+        })
+        .retry(
+            ConstantBuilder::default()
+                .with_delay(RETRY_DELAY)
+                .with_max_times(MAX_START_ATTEMPTS),
+        )
+        .sleep(tokio::time::sleep)
+        .await
+        .unwrap_or_else(|e| {
+            panic!("failed to launch container after {MAX_START_ATTEMPTS} attempts: {e}")
+        })
+    }
 
     #[derive(serde::Serialize)]
     struct AutoCfg {
@@ -803,16 +852,7 @@ mod tests {
     #[tokio::test]
     #[tracing_test::traced_test]
     async fn test_nonexistent_tables_functions_generate_warning() {
-        use testcontainers_modules::postgres::Postgres;
-        use testcontainers_modules::testcontainers::ImageExt as _;
-        use testcontainers_modules::testcontainers::runners::AsyncRunner as _;
-
-        let container = Postgres::default()
-            .with_name("postgis/postgis")
-            .with_tag("11-3.0") // purposely very old and stable
-            .start()
-            .await
-            .expect("container launched");
+        let container = start_old_postgis_container().await;
 
         let host = container.get_host().await.unwrap();
         let port = container.get_host_port_ipv4(5432).await.unwrap();

@@ -30,7 +30,7 @@ pub struct ModelInfo {
     ///
     /// Example: `[10.0, 10.0, 0.0]`
     pub pixel_scale: Option<Vec<f64>>,
-    /// This tag stores raster→model tiepoint pairs.
+    /// This tag stores raster->model tiepoint pairs.
     ///
     /// Ordering among the points is `ModelTiepointTag = (...,I,J,K, X,Y,Z...)`, where `I,J,K` is the point at location `I,J` in raster space with pixel-value `K`, and `X,Y,Z` is a vector in model space.
     ///

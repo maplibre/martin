@@ -34,7 +34,7 @@ jobs:
           file-path: './README.md'
           config-file: '.github/files/markdown.links.config.json'
 
-      - uses: taiki-e/install-action@0abfcd587b70a713fdaa7fb502c885e2112acb15 # v2.75.7
+      - uses: taiki-e/install-action@cf525cb33f51aca27cd6fa02034117ab963ff9f1 # v2.75.22
         with: { tool: 'just,cargo-binstall' }
 
       - run: just -v docs-build

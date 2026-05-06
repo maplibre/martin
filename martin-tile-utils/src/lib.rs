@@ -137,7 +137,7 @@ impl Format {
     pub fn from_content_type(supertype: &str, subtype: &str) -> Option<Self> {
         Some(match (supertype, subtype) {
             ("image", "gif") => Self::Gif,
-            ("image", "jpeg") => Self::Jpeg,
+            ("image", "jpeg" | "jpg") => Self::Jpeg,
             ("application", "json") => Self::Json,
             ("application", "x-protobuf" | "vnd.mapbox-vector-tile") => Self::Mvt,
             ("application", "vnd.maplibre-vector-tile" | "vnd.maplibre-tile") => Self::Mlt,

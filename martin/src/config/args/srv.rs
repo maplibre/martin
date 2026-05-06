@@ -73,6 +73,7 @@ fn parse_duration(s: &str) -> Result<Duration, String> {
 
 #[cfg(all(feature = "webui", not(docsrs)))]
 #[derive(PartialEq, Eq, Debug, Clone, Copy, Default, Serialize, Deserialize, ValueEnum)]
+#[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 #[serde(rename_all = "lowercase")]
 pub enum WebUiMode {
     /// Disable Web UI interface. ***This is the default, but once implemented, the default will be enabled for localhost.***
@@ -90,6 +91,7 @@ pub enum WebUiMode {
 }
 
 #[derive(PartialEq, Eq, Debug, Clone, Copy, Serialize, Deserialize, ValueEnum)]
+#[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 #[serde(rename_all = "lowercase")]
 pub enum PreferredEncoding {
     #[serde(alias = "br")]

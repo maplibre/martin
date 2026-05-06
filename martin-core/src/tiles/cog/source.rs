@@ -13,6 +13,7 @@ use tiff::decoder::{ChunkType, Decoder};
 use tiff::tags::Tag::{self};
 use tiff::tags::{CompressionMethod, PlanarConfiguration};
 use tilejson::{Bounds, Center, TileJSON, tilejson};
+use tracing::instrument;
 
 use crate::CacheZoomRange;
 use crate::tiles::cog::CogError;
@@ -218,6 +219,17 @@ impl Source for CogSource {
         self.cache_zoom
     }
 
+    #[instrument(
+        level = "debug",
+        skip_all,
+        fields(
+            source.id = %self.id,
+            tile.z = xyz.z,
+            tile.x = xyz.x,
+            tile.y = xyz.y,
+        ),
+        err(Debug),
+    )]
     async fn get_tile(
         &self,
         xyz: TileCoord,

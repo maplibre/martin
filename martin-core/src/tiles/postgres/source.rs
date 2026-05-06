@@ -1,10 +1,8 @@
 use async_trait::async_trait;
 use deadpool_postgres::tokio_postgres::types::{ToSql, Type};
-use martin_tile_utils::Encoding::Uncompressed;
-use martin_tile_utils::Format::Mvt;
 use martin_tile_utils::{TileCoord, TileData, TileInfo};
 use tilejson::TileJSON;
-use tracing::debug;
+use tracing::{debug, instrument};
 
 use crate::CacheZoomRange;
 use crate::tiles::postgres::PostgresError::{
@@ -21,6 +19,7 @@ pub struct PostgresSource {
     info: PostgresSqlInfo,
     pool: PostgresPool,
     tilejson: TileJSON,
+    tile_info: TileInfo,
     cache_zoom: CacheZoomRange,
 }
 
@@ -32,6 +31,7 @@ impl PostgresSource {
         info: PostgresSqlInfo,
         tilejson: TileJSON,
         pool: PostgresPool,
+        tile_info: TileInfo,
         cache_zoom: CacheZoomRange,
     ) -> Self {
         Self {
@@ -39,6 +39,7 @@ impl PostgresSource {
             info,
             pool,
             tilejson,
+            tile_info,
             cache_zoom,
         }
     }
@@ -55,7 +56,7 @@ impl Source for PostgresSource {
     }
 
     fn get_tile_info(&self) -> TileInfo {
-        TileInfo::new(Mvt, Uncompressed)
+        self.tile_info
     }
 
     fn clone_source(&self) -> BoxedSource {
@@ -75,6 +76,17 @@ impl Source for PostgresSource {
         self.cache_zoom
     }
 
+    #[instrument(
+        level = "debug",
+        skip_all,
+        fields(
+            source.id = %self.id,
+            tile.z = xyz.z,
+            tile.x = xyz.x,
+            tile.y = xyz.y,
+        ),
+        err(Debug),
+    )]
     async fn get_tile(
         &self,
         xyz: TileCoord,

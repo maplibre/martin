@@ -1,5 +1,4 @@
 'use client';
-
 import { Suspense } from 'react';
 import {
   Dialog,
@@ -10,7 +9,9 @@ import {
 } from '@/components/ui/dialog';
 import type { TileSource } from '@/lib/types';
 import '@maplibre/maplibre-gl-inspect/dist/maplibre-gl-inspect.css';
-import { Database } from 'lucide-react';
+import { Database, ExternalLink } from 'lucide-react';
+import { CopyableUrl } from '@/components/ui/copyable-url';
+import { buildMartinUrl } from '@/lib/api';
 import { LoadingSpinner } from '../loading/loading-spinner';
 import { TileInspectDialogMap } from './tile-inspect-map';
 
@@ -29,6 +30,9 @@ function TileMapLoading() {
 }
 
 export function TileInspectDialog({ name, source, onCloseAction }: TileInspectDialogProps) {
+  const tileJsonUrl = buildMartinUrl(`/${name}`);
+  const xyzUrl = buildMartinUrl(`/${name}/{z}/{x}/{y}`);
+
   return (
     <Dialog onOpenChange={(v) => !v && onCloseAction()} open={true}>
       <DialogContent className="max-w-6xl w-full p-6 max-h-[90vh] overflow-auto">
@@ -42,7 +46,6 @@ export function TileInspectDialog({ name, source, onCloseAction }: TileInspectDi
             Inspect the tile source to explore tile boundaries and properties.
           </DialogDescription>
         </DialogHeader>
-
         <div className="space-y-4">
           <section className="border rounded-lg overflow-hidden">
             <Suspense fallback={<TileMapLoading />}>
@@ -96,6 +99,18 @@ export function TileInspectDialog({ name, source, onCloseAction }: TileInspectDi
                   <span>{source.attribution}</span>
                 </p>
               )}
+            </div>
+          </section>
+
+          {/* Tile URLs */}
+          <section className="bg-muted/30 p-4 rounded-lg">
+            <div className="flex items-center gap-2 mb-2">
+              <ExternalLink className="w-5 h-5 text-muted-foreground" />
+              <h3 className="font-semibold">Tile URLs</h3>
+            </div>
+            <div className="flex flex-col gap-y-4 text-sm">
+              <CopyableUrl label="TileJSON" url={tileJsonUrl} />
+              <CopyableUrl label="XYZ Tiles" url={xyzUrl} />
             </div>
           </section>
         </div>

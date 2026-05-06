@@ -3,6 +3,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use martin_core::tiles::BoxedSource;
 
 use crate::MartinResult;
+use crate::config::file::ProcessConfig;
 
 /// A source to be added or updated in the [`TileSourceManager`](super::TileSourceManager).
 #[derive(Debug)]
@@ -11,6 +12,8 @@ pub struct NewSource {
     pub id: String,
     /// The tile source implementation, or an error if initialization failed.
     pub source: MartinResult<BoxedSource>,
+    /// Resolved process config for this source (per-source > source-type > global > default).
+    pub process: ProcessConfig,
 }
 
 /// A source to be removed from the [`TileSourceManager`](super::TileSourceManager).
@@ -41,6 +44,7 @@ impl ReloadAdvisory {
         previous_ids: &BTreeSet<String>,
         next_ids: &BTreeSet<String>,
         initializer: F,
+        process: ProcessConfig,
     ) -> Self
     where
         F: AsyncFn(String) -> MartinResult<BoxedSource>,
@@ -55,6 +59,7 @@ impl ReloadAdvisory {
             additions.push(NewSource {
                 id: id.clone(),
                 source: initializer(id.clone()).await,
+                process: process.clone(),
             });
         }
 
@@ -73,6 +78,7 @@ impl ReloadAdvisory {
         previous_map: &BTreeMap<String, V>,
         next_map: &BTreeMap<String, V>,
         initializer: F,
+        process: ProcessConfig,
     ) -> Self
     where
         F: AsyncFn(String) -> MartinResult<BoxedSource>,
@@ -91,12 +97,14 @@ impl ReloadAdvisory {
                     advisory.updates.push(NewSource {
                         id: id.clone(),
                         source: initializer(id.clone()).await,
+                        process: process.clone(),
                     });
                 }
                 None => {
                     advisory.additions.push(NewSource {
                         id: id.clone(),
                         source: initializer(id.clone()).await,
+                        process: process.clone(),
                     });
                 }
                 _ => {} // Unchanged
@@ -190,8 +198,9 @@ mod tests {
     async fn from_sets_empty_to_empty() {
         let prev = BTreeSet::new();
         let next = BTreeSet::new();
-        let advisory = ReloadAdvisory::from_sets(&prev, &next, make_source).await;
-        assert_yaml_snapshot!(AdvisorySnapshot::from(&advisory), @"
+        let advisory =
+            ReloadAdvisory::from_sets(&prev, &next, make_source, ProcessConfig::default()).await;
+        assert_yaml_snapshot!(AdvisorySnapshot::from(&advisory), @r"
         additions: []
         updates: []
         removals: []
@@ -202,8 +211,9 @@ mod tests {
     async fn from_sets_additions_only() {
         let prev = BTreeSet::new();
         let next: BTreeSet<String> = ["a", "b"].into_iter().map(String::from).collect();
-        let advisory = ReloadAdvisory::from_sets(&prev, &next, make_source).await;
-        assert_yaml_snapshot!(AdvisorySnapshot::from(&advisory), @"
+        let advisory =
+            ReloadAdvisory::from_sets(&prev, &next, make_source, ProcessConfig::default()).await;
+        assert_yaml_snapshot!(AdvisorySnapshot::from(&advisory), @r"
         additions:
           - a
           - b
@@ -216,8 +226,9 @@ mod tests {
     async fn from_sets_removals_only() {
         let prev: BTreeSet<String> = ["a", "b"].into_iter().map(String::from).collect();
         let next = BTreeSet::new();
-        let advisory = ReloadAdvisory::from_sets(&prev, &next, make_source).await;
-        assert_yaml_snapshot!(AdvisorySnapshot::from(&advisory), @"
+        let advisory =
+            ReloadAdvisory::from_sets(&prev, &next, make_source, ProcessConfig::default()).await;
+        assert_yaml_snapshot!(AdvisorySnapshot::from(&advisory), @r"
         additions: []
         updates: []
         removals:
@@ -230,8 +241,9 @@ mod tests {
     async fn from_sets_mixed() {
         let prev: BTreeSet<String> = ["a", "b", "c"].into_iter().map(String::from).collect();
         let next: BTreeSet<String> = ["b", "c", "d"].into_iter().map(String::from).collect();
-        let advisory = ReloadAdvisory::from_sets(&prev, &next, make_source).await;
-        assert_yaml_snapshot!(AdvisorySnapshot::from(&advisory), @"
+        let advisory =
+            ReloadAdvisory::from_sets(&prev, &next, make_source, ProcessConfig::default()).await;
+        assert_yaml_snapshot!(AdvisorySnapshot::from(&advisory), @r"
         additions:
           - d
         updates: []
@@ -244,8 +256,9 @@ mod tests {
     async fn from_maps_additions_and_removals() {
         let prev: BTreeMap<String, u64> = [("a".into(), 1), ("b".into(), 2)].into_iter().collect();
         let next: BTreeMap<String, u64> = [("b".into(), 2), ("c".into(), 3)].into_iter().collect();
-        let advisory = ReloadAdvisory::from_maps(&prev, &next, make_source).await;
-        assert_yaml_snapshot!(AdvisorySnapshot::from(&advisory), @"
+        let advisory =
+            ReloadAdvisory::from_maps(&prev, &next, make_source, ProcessConfig::default()).await;
+        assert_yaml_snapshot!(AdvisorySnapshot::from(&advisory), @r"
         additions:
           - c
         updates: []
@@ -258,8 +271,9 @@ mod tests {
     async fn from_maps_version_update() {
         let prev: BTreeMap<String, u64> = [("a".into(), 1), ("b".into(), 2)].into_iter().collect();
         let next: BTreeMap<String, u64> = [("a".into(), 1), ("b".into(), 5)].into_iter().collect();
-        let advisory = ReloadAdvisory::from_maps(&prev, &next, make_source).await;
-        assert_yaml_snapshot!(AdvisorySnapshot::from(&advisory), @"
+        let advisory =
+            ReloadAdvisory::from_maps(&prev, &next, make_source, ProcessConfig::default()).await;
+        assert_yaml_snapshot!(AdvisorySnapshot::from(&advisory), @r"
         additions: []
         updates:
           - b
@@ -275,8 +289,9 @@ mod tests {
         let next: BTreeMap<String, u64> = [("b".into(), 9), ("c".into(), 3), ("d".into(), 4)]
             .into_iter()
             .collect();
-        let advisory = ReloadAdvisory::from_maps(&prev, &next, make_source).await;
-        assert_yaml_snapshot!(AdvisorySnapshot::from(&advisory), @"
+        let advisory =
+            ReloadAdvisory::from_maps(&prev, &next, make_source, ProcessConfig::default()).await;
+        assert_yaml_snapshot!(AdvisorySnapshot::from(&advisory), @r"
         additions:
           - d
         updates:
