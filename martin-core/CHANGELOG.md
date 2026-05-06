@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.4](https://github.com/maplibre/martin/compare/martin-core-v0.5.3...martin-core-v0.5.4) - 2026-05-06
+
+### Added
+
+- mvt->mlt pre-processing encoding ([#2769](https://github.com/maplibre/martin/pull/2769))
+
+### Other
+
+- *(deps)* replace pixmatch with a more modern alternative ([#2780](https://github.com/maplibre/martin/pull/2780))
+- *(martin-core)* migrate more logs to be structured ([#2777](https://github.com/maplibre/martin/pull/2777))
+
 ## [0.5.3](https://github.com/maplibre/martin/compare/martin-core-v0.5.2...martin-core-v0.5.3) - 2026-04-29
 
 ### Added
