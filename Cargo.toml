@@ -66,6 +66,7 @@ futures = "0.3"
 hotpath = "0.15"
 humantime-serde = "1.1.1"
 image = { version = "0.25.8", default-features = false, features = ["png", "jpeg", "webp"] }
+image-compare = "0.5"
 indicatif = "0.18.3"
 indoc = "2"
 insta = "1.46.3"
@@ -85,7 +86,6 @@ notify = "8.2.0"
 num_cpus = "1"
 object_store = { version = "0.13.2", features = ["gcp", "aws", "azure", "fs", "http"] }
 pbf_font_tools = { version = "3.1.1", features = ["freetype"] }
-pixelmatch = "0.1"
 pmtiles = { version = "0.23.0", default-features = false, features = ["tilejson", "object-store"] }
 png = "0.18.0"
 postgis = "0.9"
