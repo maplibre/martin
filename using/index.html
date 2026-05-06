@@ -1070,8 +1070,8 @@
 </tbody>
 </table>
 <h3 id="postprocessing">Postprocessing</h3>
-<p>Martin can postprocess tiles before serving — for example, converting MVT to <a href="../using-guides/mlt/">MLT format</a>.
-Postprocessing is configured via the <code>convert-to-mlt</code> key in the <a href="../config-file/#postprocessing">configuration file</a>, not through the HTTP API.
+<p>Martin can postprocess tiles before serving — for example, converting between MVT and <a href="../using-guides/mlt/">MLT format</a> in either direction.
+Postprocessing is configured via the <code>convert_to_mlt</code> and <code>convert_to_mvt</code> keys in the <a href="../config-file/#postprocessing">configuration file</a>, not through the HTTP API.
 Clients receive the postprocessed tiles transparently.</p>
 <h3 id="duplicate-source-id">Duplicate Source ID</h3>
 <p>In case there is more than one source that has the same name, e.g. a PG function is available in two
