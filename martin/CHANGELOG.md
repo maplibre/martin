@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.0](https://github.com/maplibre/martin/compare/martin-v1.8.2...martin-v1.9.0) - 2026-05-06
+
+### Added
+
+- mvt->mlt pre-processing encoding ([#2769](https://github.com/maplibre/martin/pull/2769))
+- *(ui)* refactor the sprite viewing experience to display sdfs/.. ([#2774](https://github.com/maplibre/martin/pull/2774))
+- *(ui)* render font previews using SDF glyph data ([#2772](https://github.com/maplibre/martin/pull/2772))
+
+### Fixed
+
+- *(mbtiles)* don't drop folder source siblings when one file fails to init ([#2768](https://github.com/maplibre/martin/pull/2768))
+
+### Other
+
+- *(martin-core)* migrate more logs to be structured ([#2777](https://github.com/maplibre/martin/pull/2777))
+- *(deps)* autoupdate pre-commit ([#2776](https://github.com/maplibre/martin/pull/2776))
+- add `AutoOption` for having something as auto, disabled or explicit ([#2773](https://github.com/maplibre/martin/pull/2773))
+- *(deps)* Bump the all-npm-version-updates group across 1 directory with 3 updates ([#2770](https://github.com/maplibre/martin/pull/2770))
+- *(deps)* replace pixmatch with a more modern alternative ([#2780](https://github.com/maplibre/martin/pull/2780))
+- *(mbtiles)* migrate the mbtiles crate to structured logs ([#2778](https://github.com/maplibre/martin/pull/2778))
+
 ## [1.8.2](https://github.com/maplibre/martin/compare/martin-v1.8.1...martin-v1.8.2) - 2026-04-29
 
 ### Added
