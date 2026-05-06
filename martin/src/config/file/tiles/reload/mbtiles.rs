@@ -30,7 +30,7 @@ pub struct MBTilesReloader {
     /// so that directory-discovered sources that match a configured path inherit its policy.
     path_cache: BTreeMap<PathBuf, CachePolicy>,
     /// Process config to apply to dynamically-discovered sources.
-    /// Resolved from `mbtiles.convert-to-mlt` (source-type) > global `convert-to-mlt` > default.
+    /// Resolved from `mbtiles.convert_to_mlt` (source-type) > global `convert_to_mlt` > default.
     process: ProcessConfig,
 }
 
@@ -45,7 +45,7 @@ impl MBTilesReloader {
         tsm: TileSourceManager,
         id_resolver: IdResolver,
         config: &FileConfigEnum<MbtConfig>,
-        global_process: Option<&ProcessConfig>,
+        global_process: &ProcessConfig,
     ) -> Self {
         let mut sources: BTreeMap<String, (PathBuf, u128, CachePolicy)> = BTreeMap::new();
         let mut directories: Vec<PathBuf> = vec![];
@@ -53,18 +53,14 @@ impl MBTilesReloader {
 
         #[cfg(all(feature = "mlt", feature = "_tiles"))]
         let process = {
-            let st_pc = match config {
+            let source_type = match config {
                 FileConfigEnum::Config(cfg) => ProcessConfig {
                     convert_to_mlt: cfg.custom.convert_to_mlt.clone(),
+                    convert_to_mvt: cfg.custom.convert_to_mvt.clone(),
                 },
                 _ => ProcessConfig::default(),
             };
-            let source_type = if st_pc == ProcessConfig::default() {
-                None
-            } else {
-                Some(&st_pc)
-            };
-            resolve_process_config(global_process, source_type, None)
+            resolve_process_config(global_process, &source_type, &ProcessConfig::default())
         };
         #[cfg(not(feature = "mlt"))]
         let process = {

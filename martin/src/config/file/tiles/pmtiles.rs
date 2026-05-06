@@ -10,12 +10,12 @@ use tracing::{trace, warn};
 use url::Url;
 
 use crate::MartinResult;
-#[cfg(all(feature = "mlt", feature = "_tiles"))]
-use crate::config::file::MltProcessConfig;
 use crate::config::file::{
     CachePolicy, CacheSizeConfig, ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks,
     TileSourceConfiguration, UnrecognizedKeys, UnrecognizedValues,
 };
+#[cfg(all(feature = "mlt", feature = "_tiles"))]
+use crate::config::file::{MltProcessConfig, MvtProcessConfig};
 
 #[serde_with::skip_serializing_none]
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -45,14 +45,16 @@ pub struct PmtConfig {
     pub options: HashMap<String, String>,
 
     /// MVT->MLT encoder settings for all `PMTiles` sources.
-    /// Overrides global; overridden by per-source `convert-to-mlt`.
+    /// Overrides global; overridden by per-source `convert_to_mlt`.
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        rename = "convert-to-mlt"
-    )]
+    #[serde(default)]
     pub convert_to_mlt: Option<MltProcessConfig>,
+
+    /// MLT->MVT conversion settings for all `PMTiles` sources.
+    /// Overrides global; overridden by per-source `convert_to_mvt`.
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[serde(default)]
+    pub convert_to_mvt: Option<MvtProcessConfig>,
 
     #[serde(flatten, skip_serializing)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
@@ -70,7 +72,9 @@ impl PartialEq for PmtConfig {
             && self.options == other.options
             && self.unrecognized == other.unrecognized;
         #[cfg(all(feature = "mlt", feature = "_tiles"))]
-        let base = base && self.convert_to_mlt == other.convert_to_mlt;
+        let base = base
+            && self.convert_to_mlt == other.convert_to_mlt
+            && self.convert_to_mvt == other.convert_to_mvt;
         // pmtiles_directory_cache is intentionally excluded from equality check
         base
     }

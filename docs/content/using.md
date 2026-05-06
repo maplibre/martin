@@ -20,8 +20,8 @@ Martin data is available via the HTTP `GET` endpoints:
 
 ### Postprocessing
 
-Martin can postprocess tiles before serving — for example, converting MVT to [MLT format](using-guides/mlt.md).
-Postprocessing is configured via the `convert-to-mlt` key in the [configuration file](config-file/index.md#postprocessing), not through the HTTP API.
+Martin can postprocess tiles before serving — for example, converting between MVT and [MLT format](using-guides/mlt.md) in either direction.
+Postprocessing is configured via the `convert_to_mlt` and `convert_to_mvt` keys in the [configuration file](config-file/index.md#postprocessing), not through the HTTP API.
 Clients receive the postprocessed tiles transparently.
 
 ### Duplicate Source ID

@@ -130,11 +130,12 @@ mod tests {
 
     use super::*;
 
+    #[serde_with::skip_serializing_none]
     #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
     struct DummyCfg {
-        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[serde(default)]
         foo: Option<bool>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[serde(default)]
         bar: Option<u32>,
     }
 

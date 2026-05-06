@@ -18,9 +18,9 @@ use tracing::{info, warn};
 #[cfg(feature = "_tiles")]
 use url::Url;
 
-#[cfg(all(feature = "mlt", feature = "_tiles"))]
-use crate::config::file::MltProcessConfig;
 use crate::config::file::{ConfigFileError, ConfigFileResult};
+#[cfg(all(feature = "mlt", feature = "_tiles"))]
+use crate::config::file::{MltProcessConfig, MvtProcessConfig};
 #[cfg(feature = "_tiles")]
 use crate::config::file::{ResolutionResult, TileSourceWarning};
 #[cfg(feature = "_tiles")]
@@ -376,14 +376,15 @@ fn is_sqlite_memory_uri(path: &Path) -> bool {
 pub struct FileConfigSource {
     pub path: PathBuf,
     /// MVT->MLT encoder settings for this source.
-    /// Overrides source-type and global `convert-to-mlt`.
+    /// Overrides source-type and global `convert_to_mlt`.
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        rename = "convert-to-mlt"
-    )]
+    #[serde(default)]
     pub convert_to_mlt: Option<MltProcessConfig>,
+    /// MLT->MVT conversion settings for this source.
+    /// Overrides source-type and global `convert_to_mvt`.
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[serde(default)]
+    pub convert_to_mvt: Option<MvtProcessConfig>,
     /// Zoom-level bounds for tile caching.
     #[serde(default, skip_serializing_if = "CachePolicy::is_empty")]
     #[cfg_attr(feature = "unstable-schemas", schemars(with = "CachePolicyShape"))]
@@ -853,39 +854,23 @@ pub struct GlobalCacheConfig {
     /// Entries are evicted after this duration regardless of access.
     /// Supports human-readable formats: "1h", "30m", "1d", "3600s".
     /// default: null (no expiry, entries only evicted by size pressure)
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        with = "humantime_serde"
-    )]
+    #[serde(default, with = "humantime_serde")]
     #[cfg_attr(feature = "unstable-schemas", schemars(with = "Option<String>"))]
     pub expiry: Option<Duration>,
     /// Maximum idle time for all cache entries (time-to-idle since last access).
     /// Entries are evicted if not accessed within this duration.
     /// default: null (no idle timeout)
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        with = "humantime_serde"
-    )]
+    #[serde(default, with = "humantime_serde")]
     #[cfg_attr(feature = "unstable-schemas", schemars(with = "Option<String>"))]
     pub idle_timeout: Option<Duration>,
     /// Tile-specific TTL override. Takes precedence over `cache.expiry` for tiles.
     /// default: null (inherits from `cache.expiry`)
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        with = "humantime_serde"
-    )]
+    #[serde(default, with = "humantime_serde")]
     #[cfg_attr(feature = "unstable-schemas", schemars(with = "Option<String>"))]
     pub tile_expiry: Option<Duration>,
     /// Tile-specific idle timeout override. Takes precedence over `cache.idle_timeout` for tiles.
     /// default: null (inherits from `cache.idle_timeout`)
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        with = "humantime_serde"
-    )]
+    #[serde(default, with = "humantime_serde")]
     #[cfg_attr(feature = "unstable-schemas", schemars(with = "Option<String>"))]
     pub tile_idle_timeout: Option<Duration>,
     #[serde(flatten)]
@@ -1026,20 +1011,12 @@ pub struct CacheSizeConfig {
     pub size_mb: Option<u64>,
     /// Maximum lifetime for cache entries.
     /// default: null (inherits from `cache.expiry`)
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        with = "humantime_serde"
-    )]
+    #[serde(default, with = "humantime_serde")]
     #[cfg_attr(feature = "unstable-schemas", schemars(with = "Option<String>"))]
     pub expiry: Option<Duration>,
     /// Maximum idle time for cache entries.
     /// default: null (inherits from `cache.idle_timeout`)
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        with = "humantime_serde"
-    )]
+    #[serde(default, with = "humantime_serde")]
     #[cfg_attr(feature = "unstable-schemas", schemars(with = "Option<String>"))]
     pub idle_timeout: Option<Duration>,
 }

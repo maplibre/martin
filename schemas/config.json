@@ -22,6 +22,28 @@
         }
       ]
     },
+    "AutoOption_MvtEncoderConfig": {
+      "description": "Conversion configuration:\n\n- `\"auto\"`, `\"enabled\"` or boolean `true` - use defaults for this conversion\n- `\"disabled\"` or boolean `false` - disable this conversion\n- An object `MvtEncoderConfig` - explicit  settings",
+      "oneOf": [
+        {
+          "description": "Use the feature with default settings.",
+          "enum": ["auto", "enabled"],
+          "type": "string"
+        },
+        {
+          "description": "Disable the feature.",
+          "enum": ["disabled"],
+          "type": "string"
+        },
+        {
+          "description": "true = auto (defaults), false = disabled.",
+          "type": "boolean"
+        },
+        {
+          "$ref": "#/$defs/MvtEncoderConfig"
+        }
+      ]
+    },
     "BoundsCalcType": {
       "oneOf": [
         {
@@ -139,7 +161,7 @@
     },
     "FileConfig": {
       "properties": {
-        "convert-to-mlt": {
+        "convert_to_mlt": {
           "anyOf": [
             {
               "$ref": "#/$defs/AutoOption_MltEncoderConfig"
@@ -148,7 +170,18 @@
               "type": "null"
             }
           ],
-          "description": "MVT->MLT encoder settings for all `PMTiles` sources.\nOverrides global; overridden by per-source `convert-to-mlt`."
+          "description": "MVT->MLT encoder settings for all `PMTiles` sources.\nOverrides global; overridden by per-source `convert_to_mlt`."
+        },
+        "convert_to_mvt": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AutoOption_MvtEncoderConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "MLT->MVT conversion settings for all `PMTiles` sources.\nOverrides global; overridden by per-source `convert_to_mvt`."
         },
         "directory_cache": {
           "$ref": "#/$defs/CacheSizeConfigShape",
@@ -170,7 +203,7 @@
     },
     "FileConfig2": {
       "properties": {
-        "convert-to-mlt": {
+        "convert_to_mlt": {
           "anyOf": [
             {
               "$ref": "#/$defs/AutoOption_MltEncoderConfig"
@@ -179,7 +212,18 @@
               "type": "null"
             }
           ],
-          "description": "MVT->MLT encoder settings for all `MBTiles` sources.\nOverrides global; overridden by per-source `convert-to-mlt`."
+          "description": "MVT->MLT encoder settings for all `MBTiles` sources.\nOverrides global; overridden by per-source `convert_to_mlt`."
+        },
+        "convert_to_mvt": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AutoOption_MvtEncoderConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "MLT->MVT conversion settings for all `MBTiles` sources.\nOverrides global; overridden by per-source `convert_to_mvt`."
         },
         "paths": {
           "$ref": "#/$defs/OptOneMany2",
@@ -352,7 +396,7 @@
           "$ref": "#/$defs/CachePolicyShape",
           "description": "Zoom-level bounds for tile caching."
         },
-        "convert-to-mlt": {
+        "convert_to_mlt": {
           "anyOf": [
             {
               "$ref": "#/$defs/AutoOption_MltEncoderConfig"
@@ -361,7 +405,18 @@
               "type": "null"
             }
           ],
-          "description": "MVT->MLT encoder settings for this source.\nOverrides source-type and global `convert-to-mlt`."
+          "description": "MVT->MLT encoder settings for this source.\nOverrides source-type and global `convert_to_mlt`."
+        },
+        "convert_to_mvt": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AutoOption_MvtEncoderConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "MLT->MVT conversion settings for this source.\nOverrides source-type and global `convert_to_mvt`."
         },
         "path": {
           "type": "string"
@@ -405,7 +460,7 @@
           ],
           "description": "Zoom-level bounds for tile caching."
         },
-        "convert-to-mlt": {
+        "convert_to_mlt": {
           "anyOf": [
             {
               "$ref": "#/$defs/AutoOption_MltEncoderConfig"
@@ -414,7 +469,18 @@
               "type": "null"
             }
           ],
-          "description": "MVT->MLT encoder settings for this source.\nOverrides source-type and global `convert-to-mlt`.\n\nCan be either:\n- `null` (default) - defer to the source-type or global settings\n- `auto` - we choose defaults which we think work best for most users\n- `disabled` - no conversion\n- explicitely configured"
+          "description": "MVT->MLT encoder settings for this source.\nOverrides source-type and global `convert_to_mlt`.\n\nCan be either:\n- `null` (default) - defer to the source-type or global settings\n- `auto` - we choose defaults which we think work best for most users\n- `disabled` - no conversion\n- explicitly configured"
+        },
+        "convert_to_mvt": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AutoOption_MvtEncoderConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "MLT->MVT conversion settings for this source.\nOverrides source-type and global `convert_to_mvt`.\n\nCan be either:\n- `null` (default) - defer to the source-type or global settings\n- `auto` - we choose defaults which we think work best for most users\n- `disabled` - no conversion\n- explicitly configured"
         },
         "function": {
           "description": "Function name (required)",
@@ -551,6 +617,10 @@
           "type": ["boolean", "null"]
         }
       },
+      "type": "object"
+    },
+    "MvtEncoderConfig": {
+      "description": "Explicit encoder configuration for MVT conversion",
       "type": "object"
     },
     "ObservabilityConfig": {
@@ -753,7 +823,7 @@
           "examples": ["postgres://postgres@localhost:5432/db"],
           "type": ["string", "null"]
         },
-        "convert-to-mlt": {
+        "convert_to_mlt": {
           "anyOf": [
             {
               "$ref": "#/$defs/AutoOption_MltEncoderConfig"
@@ -762,7 +832,18 @@
               "type": "null"
             }
           ],
-          "description": "MVT->MLT encoder settings for all sources from this connection.\nOverrides global; overridden by per-source `convert-to-mlt`.\n\nCan be either:\n- `null` (default) - defer to the global setting\n- `auto` - we choose defaults which we think work best for most users\n- `disabled` - no conversion\n- explicitely configured"
+          "description": "MVT->MLT encoder settings for all sources from this connection.\nOverrides global; overridden by per-source `convert_to_mlt`.\n\nCan be either:\n- `null` (default) - defer to the global setting\n- `auto` - we choose defaults which we think work best for most users\n- `disabled` - no conversion\n- explicitely configured"
+        },
+        "convert_to_mvt": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AutoOption_MvtEncoderConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "MLT->MVT conversion settings for all sources from this connection.\nOverrides global; overridden by per-source `convert_to_mvt`.\n\nCan be either:\n- `null` (default) - defer to the global setting\n- `auto` - we choose defaults which we think work best for most users\n- `disabled` - no conversion\n- explicitly configured"
         },
         "default_srid": {
           "description": "If a spatial table has SRID 0, then this SRID will be used as a fallback",
@@ -855,7 +936,7 @@
           "examples": [true],
           "type": ["boolean", "null"]
         },
-        "convert-to-mlt": {
+        "convert_to_mlt": {
           "anyOf": [
             {
               "$ref": "#/$defs/AutoOption_MltEncoderConfig"
@@ -864,7 +945,18 @@
               "type": "null"
             }
           ],
-          "description": "MVT->MLT encoder settings for this source.\nOverrides source-type and global `convert-to-mlt`."
+          "description": "MVT->MLT encoder settings for this source.\nOverrides source-type and global `convert_to_mlt`."
+        },
+        "convert_to_mvt": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AutoOption_MvtEncoderConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "MLT->MVT conversion settings for this source.\nOverrides source-type and global `convert_to_mvt`.\n\nCan be either:\n- `null` (default) - defer to the source-type or global settings\n- `auto` - we choose defaults which we think work best for most users\n- `disabled` - no conversion\n- explicitly configured"
         },
         "extent": {
           "description": "Tile extent in tile coordinate space",
@@ -946,7 +1038,7 @@
       "$ref": "#/$defs/GlobalCacheConfigShape",
       "description": "Cache configuration\nUse `cache: disable` to disable all caching entirely."
     },
-    "convert-to-mlt": {
+    "convert_to_mlt": {
       "anyOf": [
         {
           "$ref": "#/$defs/AutoOption_MltEncoderConfig"
@@ -955,7 +1047,18 @@
           "type": "null"
         }
       ],
-      "description": "Encoder settings for MVT->MLT conversion (global level).\nOverridden by source-type or per-source `convert-to-mlt` keys.\n\nCan be either:\n- (default) `auto` - we choose defaults which we think work best for most users\n- `disabled` - no conversion\n- explicitely configured"
+      "description": "Encoder settings for MVT->MLT conversion (global level).\nOverridden by source-type or per-source `convert_to_mlt` keys.\n\nCan be either:\n- (default) `auto` - we choose defaults which we think work best for most users\n- `disabled` - no conversion\n- explicitely configured"
+    },
+    "convert_to_mvt": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/AutoOption_MvtEncoderConfig"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Settings for MLT->MVT conversion (global level).\nOverridden by source-type or per-source `convert_to_mvt` keys.\n\nCan be either:\n- (default) `auto` - we choose defaults which we think work best for most users\n- `disabled` - no conversion\n- explicitly configured"
     },
     "cors": {
       "anyOf": [

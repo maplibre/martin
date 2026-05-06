@@ -25,4 +25,4 @@ The difference between MBTiles and PMTiles is that:
 
 The choice depends on your specific usecase and requirements.
 
-All tile sources support optional [postprocessing](../config-file/index.md#postprocessing) (MLT conversion) via the `convert-to-mlt` configuration key.
+All tile sources support optional [postprocessing](../config-file/index.md#postprocessing) (format conversion) via the `convert_to_mlt` and `convert_to_mvt` configuration keys.

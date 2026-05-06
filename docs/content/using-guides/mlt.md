@@ -18,10 +18,10 @@ The default for this is optimised for size, optimises for network size (!= low C
 
 ## Quick Start
 
-Add `convert-to-mlt: auto` in your config file to convert all MVT sources to MLT:
+Add `convert_to_mlt: auto` in your config file to convert all MVT sources to MLT:
 
 ```yaml
-convert-to-mlt: auto
+convert_to_mlt: auto
 
 # your existing source configuration
 postgres:
@@ -36,13 +36,13 @@ Sources that produce other formats (raster, etc.) are unaffected.
 ## Scoping MLT Conversion
 
 You don't have to convert everything.
-The `convert-to-mlt` key can be placed at three levels, and the most specific one wins entirely (see [Configuration File](../config-file/index.md) for details).
+The `convert_to_mlt` key can be placed at three levels, and the most specific one wins entirely (see [Configuration File](../config-file/index.md) for details).
 
 ### Convert only PostgreSQL sources
 
 ```yaml
 postgres:
-  convert-to-mlt: auto
+  convert_to_mlt: auto
   connection_string: postgresql://localhost/mydb
 ```
 
@@ -53,40 +53,40 @@ pmtiles:
   sources:
     basemap:
       path: /data/basemap.pmtiles
-      convert-to-mlt: auto
+      convert_to_mlt: auto
     imagery:
       path: /data/imagery.pmtiles
-      # no convert-to-mlt — served as-is
+      # no convert_to_mlt — served as-is
 ```
 
 ### Opt a single source out of MLT
 
 If a higher level (global or source-type) enables MLT but you want one source
-to keep serving MVT, set `convert-to-mlt: disabled`. Aliases: `off`, `no`,
-`false`. The most-specific level wins, so this overrides any inherited `auto`.
+to keep serving MVT, set `convert_to_mlt: disabled` or `convert_to_mvt: disabled`.
+The most-specific level wins, so this overrides any inherited `auto`.
 
 ```yaml
-convert-to-mlt: auto              # default everywhere
+convert_to_mlt: auto              # default everywhere
 
 pmtiles:
   sources:
     basemap:
       path: /data/basemap.pmtiles
-      # Inherits global `auto` → converted on Accept: MLT
+      # Inherits global `auto` -> converted on Accept: MLT
     legacy:
       path: /data/legacy.pmtiles
-      convert-to-mlt: disabled    # always served as MVT, even on Accept: MLT
+      convert_to_mlt: disabled    # always served as MVT, even on Accept: MLT
 ```
 
 ## Tuning the Encoder
 
-`convert-to-mlt: auto` uses "magic" default encoder settings, which work well for most data.
+`convert_to_mlt: auto` uses "magic" default encoder settings, which work well for most data.
 The `auto` preset is guaranteed to work on a reasonably new maplibre version, so for example `tessellation` will only be enabled if this has wider spread benefits.
 
 If you need to tweak encoding behavior, provide an explicit configuration:
 
 ```yaml
-convert-to-mlt:
+convert_to_mlt:
   tessellate: true
   try_spatial_hilbert_sort: true
   allow_fsst: false
@@ -106,7 +106,7 @@ All fields are optional. Only the fields you specify override the defaults; unse
 
 !!! note
 
-    In most cases, `convert-to-mlt: auto` is the right choice.
+    In most cases, `convert_to_mlt: auto` is the right choice.
     Only tune these settings if you've profiled your tiles and identified a specific bottleneck.
 
 !!! warning
@@ -114,3 +114,36 @@ All fields are optional. Only the fields you specify override the defaults; unse
     MLT uses lightweight compressions (FastPFOR, FSST, ...), so combining it with heavyweight compression (e.g. gzip) removes most of the reasons for using it.
     Do this only if you have benchmarked that this actually makes your usecase better.
     If for example CPU usage is an issue, disable some sorting options that you have benchmarked to be ineffective.
+
+## Serving MVT from MLT Sources
+
+If you have tile archives that already contain MLT tiles (e.g. MBTiles or PMTiles generated with an MLT encoder), Martin can convert them back to MVT on the fly for clients that don't support MLT yet.
+
+Add `convert_to_mvt: auto` at the global, source-type, or per-source level:
+
+```yaml
+convert_to_mvt: auto
+
+mbtiles:
+  sources:
+    my_mlt_archive: /data/tiles.mbtiles
+```
+
+When a client requests tiles with `Accept: application/x-protobuf` (MVT) from a source that produces MLT, Martin will decode the MLT tile and re-encode it as MVT protobuf.
+
+### Scoping
+
+Like `convert_to_mlt`, the `convert_to_mvt` key can be placed at three levels and the most specific one wins:
+
+```yaml
+# Per-source
+pmtiles:
+  sources:
+    mlt_archive:
+      path: /data/mlt_tiles.pmtiles
+      convert_to_mvt: auto
+```
+
+!!! note
+
+    Currently `convert_to_mvt` only supports `auto`. There are no tunable encoder settings for MVT output since the protobuf format has a fixed encoding.

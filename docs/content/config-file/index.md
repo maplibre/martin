@@ -19,16 +19,16 @@ martin  ... ... ...  --save-config config.yaml
 
 ## Postprocessing
 
-The `convert-to-mlt` key tunes encoder settings used by Martin's postprocessing pipeline.
-It does **not** enable any conversion — the client drives that via the `Accept` header (e.g. `Accept: application/vnd.maplibre-tile` triggers MVT->MLT).
-The `convert-to-mlt` key only changes *how* a conversion encodes when it fires.
+Martin's postprocessing pipeline can convert tiles between MVT and MLT formats on the fly, driven by the client's `Accept` header.
+The `convert_to_mlt` and `convert_to_mvt` keys configure these conversions.
+See the [MLT usage guide](using-guides/mlt.md) for full details.
 
 Currently configurable:
 
-- **MLT encoder** — encoder settings for MVT->MLT conversion.
-See the [MLT usage guide](using-guides/mlt.md) for tuning options.
+- **`convert_to_mlt`** — encoder settings for MVT->MLT conversion (triggered by `Accept: application/vnd.maplibre-tile`).
+- **`convert_to_mvt`** — enables MLT->MVT conversion (triggered by `Accept: application/x-protobuf` on an MLT source). Currently only supports `auto`.
 
-The `convert-to-mlt` key can appear at three levels.
+Both keys can appear at three levels.
 The most specific level wins entirely (no merging between levels):
 
 1. **Global** — applies to all sources
@@ -36,21 +36,22 @@ The most specific level wins entirely (no merging between levels):
 3. **Per-source** — applies to a single source
 
 ```yaml
-# Global: default MLT encoder settings for any source whose tiles get converted
-convert-to-mlt: auto
+# Global: default encoder settings for any source whose tiles get converted
+convert_to_mlt: auto
+convert_to_mvt: auto
 
 postgres:
   connection_string: postgresql://localhost/mydb
   # Source-type: override the encoder config for all PG sources
-  convert-to-mlt: auto
+  convert_to_mlt: auto
   tables:
     my_table:
       # Per-source: this table uses the default MLT encoder config
-      convert-to-mlt: auto
+      convert_to_mlt: auto
     no_mlt_table:
       # Per-source: explicitly opt out — even if the client requests MLT, this source
       # is served as MVT. Accepts: `disabled`, `off`, `no`, `false`.
-      convert-to-mlt: disabled
+      convert_to_mlt: disabled
 mbtiles: # gets global default
   - some/file.mbtiles
 ```

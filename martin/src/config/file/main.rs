@@ -47,10 +47,12 @@ use super::styles::StyleConfig;
 use crate::config::file::FileConfigEnum;
 #[cfg(any(feature = "_tiles", feature = "sprites", feature = "fonts"))]
 use crate::config::file::cache::{CacheConfig, SubCacheSetting};
-#[cfg(all(feature = "mlt", feature = "_tiles"))]
-use crate::config::file::process::MltProcessConfig;
 #[cfg(feature = "_tiles")]
 use crate::config::file::process::ProcessConfig;
+#[cfg(all(feature = "postgres", feature = "mlt"))]
+use crate::config::file::process::resolve_process_config;
+#[cfg(all(feature = "mlt", feature = "_tiles"))]
+use crate::config::file::process::{MltProcessConfig, MvtProcessConfig};
 #[cfg(any(feature = "pmtiles", feature = "mbtiles", feature = "unstable-cog"))]
 use crate::config::file::resolve_files;
 use crate::config::file::{
@@ -169,19 +171,26 @@ pub struct Config {
     pub fonts: FontConfig,
 
     /// Encoder settings for MVT->MLT conversion (global level).
-    /// Overridden by source-type or per-source `convert-to-mlt` keys.
+    /// Overridden by source-type or per-source `convert_to_mlt` keys.
     ///
     /// Can be either:
     /// - (default) `auto` - we choose defaults which we think work best for most users
     /// - `disabled` - no conversion
     /// - explicitely configured
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        rename = "convert-to-mlt"
-    )]
+    #[serde(default)]
     pub convert_to_mlt: Option<MltProcessConfig>,
+
+    /// Settings for MLT->MVT conversion (global level).
+    /// Overridden by source-type or per-source `convert_to_mvt` keys.
+    ///
+    /// Can be either:
+    /// - (default) `auto` - we choose defaults which we think work best for most users
+    /// - `disabled` - no conversion
+    /// - explicitly configured
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[serde(default)]
+    pub convert_to_mvt: Option<MvtProcessConfig>,
 
     #[serde(flatten, skip_serializing)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
@@ -539,50 +548,53 @@ impl Config {
             any(feature = "postgres", feature = "pmtiles", feature = "mbtiles")
         ))]
         {
-            let global_pc = ProcessConfig {
+            let global = ProcessConfig {
                 convert_to_mlt: self.convert_to_mlt.clone(),
+                convert_to_mvt: self.convert_to_mvt.clone(),
             };
-            let global = self.convert_to_mlt.as_ref().map(|_| &global_pc);
 
             #[cfg(feature = "postgres")]
-            {
-                use crate::config::file::process::resolve_process_config;
-                for pg in self.postgres.iter() {
-                    let st_pc = ProcessConfig {
-                        convert_to_mlt: pg.convert_to_mlt.clone(),
-                    };
-                    let source_type = pg.convert_to_mlt.as_ref().map(|_| &st_pc);
-                    if let Some(tables) = &pg.tables {
-                        for (id, info) in tables {
-                            let ps_pc = ProcessConfig {
-                                convert_to_mlt: info.convert_to_mlt.clone(),
-                            };
-                            let per_source = info.convert_to_mlt.as_ref().map(|_| &ps_pc);
-                            let resolved = resolve_process_config(global, source_type, per_source);
-                            map.insert(id.clone(), resolved);
-                        }
+            for pg in self.postgres.iter() {
+                let source_type = ProcessConfig {
+                    convert_to_mlt: pg.convert_to_mlt.clone(),
+                    convert_to_mvt: pg.convert_to_mvt.clone(),
+                };
+                if let Some(tables) = &pg.tables {
+                    for (id, info) in tables {
+                        let per_source = ProcessConfig {
+                            convert_to_mlt: info.convert_to_mlt.clone(),
+                            convert_to_mvt: info.convert_to_mvt.clone(),
+                        };
+                        map.insert(
+                            id.clone(),
+                            resolve_process_config(&global, &source_type, &per_source),
+                        );
                     }
-                    if let Some(functions) = &pg.functions {
-                        for (id, info) in functions {
-                            let ps_pc = ProcessConfig {
-                                convert_to_mlt: info.convert_to_mlt.clone(),
-                            };
-                            let per_source = info.convert_to_mlt.as_ref().map(|_| &ps_pc);
-                            let resolved = resolve_process_config(global, source_type, per_source);
-                            map.insert(id.clone(), resolved);
-                        }
+                }
+                if let Some(functions) = &pg.functions {
+                    for (id, info) in functions {
+                        let per_source = ProcessConfig {
+                            convert_to_mlt: info.convert_to_mlt.clone(),
+                            convert_to_mvt: info.convert_to_mvt.clone(),
+                        };
+                        map.insert(
+                            id.clone(),
+                            resolve_process_config(&global, &source_type, &per_source),
+                        );
                     }
                 }
             }
 
             #[cfg(feature = "pmtiles")]
-            Self::insert_file_source_configs(&mut map, global, &self.pmtiles, |c| {
-                c.convert_to_mlt.as_ref()
+            Self::insert_file_source_configs(&mut map, &global, &self.pmtiles, |c| ProcessConfig {
+                convert_to_mlt: c.convert_to_mlt.clone(),
+                convert_to_mvt: c.convert_to_mvt.clone(),
             });
 
             #[cfg(feature = "mbtiles")]
-            Self::insert_file_source_configs(&mut map, global, &self.mbtiles, |c| {
-                c.convert_to_mlt.as_ref()
+            Self::insert_file_source_configs(&mut map, &global, &self.mbtiles, |c| ProcessConfig {
+                convert_to_mlt: c.convert_to_mlt.clone(),
+                convert_to_mvt: c.convert_to_mvt.clone(),
             });
         }
 
@@ -597,29 +609,27 @@ impl Config {
     #[cfg(all(feature = "mlt", any(feature = "pmtiles", feature = "mbtiles")))]
     fn insert_file_source_configs<T: super::ConfigurationLivecycleHooks>(
         map: &mut HashMap<String, ProcessConfig>,
-        global: Option<&ProcessConfig>,
+        global: &ProcessConfig,
         file_cfg: &FileConfigEnum<T>,
-        get_source_type_mlt: impl Fn(&T) -> Option<&MltProcessConfig>,
+        get_source_type_pc: impl Fn(&T) -> ProcessConfig,
     ) {
         use crate::config::file::process::resolve_process_config;
 
         if let FileConfigEnum::Config(cfg) = file_cfg {
-            let st_pc = ProcessConfig {
-                convert_to_mlt: get_source_type_mlt(&cfg.custom).cloned(),
-            };
-            let source_type = get_source_type_mlt(&cfg.custom).map(|_| &st_pc);
+            let source_type = get_source_type_pc(&cfg.custom);
             if let Some(sources) = &cfg.sources {
                 for (id, src) in sources {
-                    let mlt_opt = match src {
-                        super::FileConfigSrc::Obj(obj) => obj.convert_to_mlt.clone(),
-                        super::FileConfigSrc::Path(_) => None,
+                    let per_source = match src {
+                        super::FileConfigSrc::Obj(obj) => ProcessConfig {
+                            convert_to_mlt: obj.convert_to_mlt.clone(),
+                            convert_to_mvt: obj.convert_to_mvt.clone(),
+                        },
+                        super::FileConfigSrc::Path(_) => ProcessConfig::default(),
                     };
-                    let ps_pc = ProcessConfig {
-                        convert_to_mlt: mlt_opt.clone(),
-                    };
-                    let per_source = mlt_opt.as_ref().map(|_| &ps_pc);
-                    let resolved = resolve_process_config(global, source_type, per_source);
-                    map.insert(id.clone(), resolved);
+                    map.insert(
+                        id.clone(),
+                        resolve_process_config(global, &source_type, &per_source),
+                    );
                 }
             }
         }

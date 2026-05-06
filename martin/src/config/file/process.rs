@@ -8,12 +8,13 @@ use crate::config::primitives::AutoOption;
 
 /// Internal carrier for resolved per-source processing settings.
 ///
-/// Not serialized directly — config files use `convert-to-mlt` at each level
-/// instead of a nested `process` object.
+/// Not serialized directly - config files use `convert_to_mlt` / `convert_to_mvt`.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct ProcessConfig {
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     pub convert_to_mlt: Option<MltProcessConfig>,
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    pub convert_to_mvt: Option<MvtProcessConfig>,
 }
 
 /// Configuration for MVT-to-MLT format conversion.
@@ -24,6 +25,16 @@ pub struct ProcessConfig {
 /// - An object with explicit fields — override specific encoder settings
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 pub type MltProcessConfig = AutoOption<MltEncoderConfig>;
+
+/// Configuration for MLT-to-MVT format conversion.
+#[cfg(all(feature = "mlt", feature = "_tiles"))]
+pub type MvtProcessConfig = AutoOption<MvtEncoderConfig>;
+
+/// Explicit encoder configuration for MVT conversion
+#[cfg(all(feature = "mlt", feature = "_tiles"))]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
+pub struct MvtEncoderConfig {}
 
 /// Explicit encoder configuration for MLT conversion.
 /// All fields are optional; unset fields use `mlt-core`'s defaults.
@@ -85,15 +96,18 @@ impl From<MltEncoderConfig> for EncoderConfig {
 /// per-source > source-type > global > default.
 #[must_use]
 pub fn resolve_process_config(
-    global: Option<&ProcessConfig>,
-    source_type: Option<&ProcessConfig>,
-    per_source: Option<&ProcessConfig>,
+    global: &ProcessConfig,
+    source_type: &ProcessConfig,
+    per_source: &ProcessConfig,
 ) -> ProcessConfig {
-    per_source
-        .or(source_type)
-        .or(global)
-        .cloned()
-        .unwrap_or_default()
+    let default = ProcessConfig::default();
+    if *per_source != default {
+        per_source.clone()
+    } else if *source_type != default {
+        source_type.clone()
+    } else {
+        global.clone()
+    }
 }
 
 #[cfg(test)]
@@ -186,12 +200,12 @@ mod tests {
     fn render_failure_mlt_unknown_string() {
         use crate::config::test_helpers::render_failure;
         insta::assert_snapshot!(render_failure(indoc! {"
-                convert-to-mlt: atuo
+                convert_to_mlt: atuo
             "}), @r#"
           × invalid value: string "atuo", expected a string ("auto", "enabled",
           │ "disabled"), a boolean, or a map of settings
            ╭─[config.yaml:1:1]
-         1 │ convert-to-mlt: atuo
+         1 │ convert_to_mlt: atuo
            · ───────┬──────
            ·        ╰── invalid value: string "atuo", expected a string ("auto", "enabled", "disabled"), a boolean, or a map of settings
            ╰────
@@ -203,19 +217,19 @@ mod tests {
     fn render_failure_mlt_integer() {
         use crate::config::test_helpers::render_failure;
         insta::assert_snapshot!(render_failure(indoc! {"
-                convert-to-mlt: 42
+                convert_to_mlt: 42
             "}), @r#"
           × invalid type: integer `42`, expected a string ("auto", "enabled",
           │ "disabled"), a boolean, or a map of settings
            ╭─[config.yaml:1:1]
-         1 │ convert-to-mlt: 42
+         1 │ convert_to_mlt: 42
            · ───────┬──────
            ·        ╰── invalid type: integer `42`, expected a string ("auto", "enabled", "disabled"), a boolean, or a map of settings
            ╰────
         "#);
     }
 
-    /// Inner-field errors must point at the *value*, not the outer `convert-to-mlt:` line —
+    /// Inner-field errors must point at the *value*, not the outer `convert_to_mlt:` line —
     /// proves the explicit branch hands the saphyr deserializer to `MltEncoderConfig`
     /// instead of routing through a `serde_yaml::Value`.
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
@@ -223,12 +237,12 @@ mod tests {
     fn render_failure_mlt_nested_field_bad_type() {
         use crate::config::test_helpers::render_failure;
         insta::assert_snapshot!(render_failure(indoc! {"
-                convert-to-mlt:
+                convert_to_mlt:
                   tessellate: yes-please
             "}), @r"
           × invalid boolean
            ╭─[config.yaml:2:15]
-         1 │ convert-to-mlt:
+         1 │ convert_to_mlt:
          2 │   tessellate: yes-please
            ·               ─────┬────
            ·                    ╰── invalid boolean
@@ -238,32 +252,40 @@ mod tests {
 
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[test]
-    fn resolve_per_source_overrides_all() {
+    fn resolve_per_source_disabled_overrides_global_auto() {
         let global = ProcessConfig {
             convert_to_mlt: Some(MltProcessConfig::Auto),
-        };
-        let source_type = ProcessConfig {
-            convert_to_mlt: None,
+            convert_to_mvt: None,
         };
         let per_source = ProcessConfig {
-            convert_to_mlt: None,
+            convert_to_mlt: Some(MltProcessConfig::Disabled),
+            convert_to_mvt: None,
         };
-
-        let resolved = resolve_process_config(Some(&global), Some(&source_type), Some(&per_source));
-        assert_eq!(resolved, per_source);
+        let resolved = resolve_process_config(&global, &ProcessConfig::default(), &per_source);
+        assert_eq!(resolved.convert_to_mlt, Some(MltProcessConfig::Disabled));
     }
 
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[test]
-    fn resolve_per_source_disabled_overrides_global_auto() {
+    fn resolve_per_source_overrides_all() {
         let global = ProcessConfig {
             convert_to_mlt: Some(MltProcessConfig::Auto),
+            convert_to_mvt: None,
+        };
+        let source_type = ProcessConfig {
+            convert_to_mlt: None,
+            convert_to_mvt: Some(MvtProcessConfig::Auto),
         };
         let per_source = ProcessConfig {
-            convert_to_mlt: Some(MltProcessConfig::Disabled),
+            convert_to_mlt: Some(MltProcessConfig::Explicit(MltEncoderConfig {
+                tessellate: Some(true),
+                ..Default::default()
+            })),
+            convert_to_mvt: None,
         };
-        let resolved = resolve_process_config(Some(&global), None, Some(&per_source));
-        assert_eq!(resolved.convert_to_mlt, Some(MltProcessConfig::Disabled));
+
+        let resolved = resolve_process_config(&global, &source_type, &per_source);
+        assert_eq!(resolved, per_source);
     }
 
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
@@ -271,12 +293,14 @@ mod tests {
     fn resolve_source_type_overrides_global() {
         let global = ProcessConfig {
             convert_to_mlt: Some(MltProcessConfig::Auto),
+            convert_to_mvt: None,
         };
         let source_type = ProcessConfig {
             convert_to_mlt: None,
+            convert_to_mvt: Some(MvtProcessConfig::Auto),
         };
 
-        let resolved = resolve_process_config(Some(&global), Some(&source_type), None);
+        let resolved = resolve_process_config(&global, &source_type, &ProcessConfig::default());
         assert_eq!(resolved, source_type);
     }
 
@@ -285,15 +309,24 @@ mod tests {
     fn resolve_global_used_as_fallback() {
         let global = ProcessConfig {
             convert_to_mlt: Some(MltProcessConfig::Auto),
+            convert_to_mvt: None,
         };
 
-        let resolved = resolve_process_config(Some(&global), None, None);
+        let resolved = resolve_process_config(
+            &global,
+            &ProcessConfig::default(),
+            &ProcessConfig::default(),
+        );
         assert_eq!(resolved, global);
     }
 
     #[test]
     fn resolve_default_when_all_none() {
-        let resolved = resolve_process_config(None, None, None);
+        let resolved = resolve_process_config(
+            &ProcessConfig::default(),
+            &ProcessConfig::default(),
+            &ProcessConfig::default(),
+        );
         assert_eq!(resolved, ProcessConfig::default());
     }
 

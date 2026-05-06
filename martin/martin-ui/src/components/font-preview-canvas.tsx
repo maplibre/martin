@@ -62,12 +62,13 @@ function render(canvas: HTMLCanvasElement, glyphs: Map<number, Glyph>) {
     }
     tw += (g?.advance ?? 8) * s;
   }
-  if (!isFinite(minY)) return;
+  if (!Number.isFinite(minY)) return;
 
   const oy = (h - maxY + minY) / 2 - minY;
   let x = Math.max(4, (w - tw) / 2);
   const tmp = document.createElement('canvas');
-  const tc = tmp.getContext('2d')!;
+  const tc = tmp.getContext('2d');
+  if (!tc) return;
 
   // Render each glyph's SDF bitmap
   for (const c of PREVIEW) {

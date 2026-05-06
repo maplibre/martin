@@ -4329,9 +4329,9 @@ dependencies = [
 
 [[package]]
 name = "mlt-core"
-version = "0.9.0"
+version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "17355452db66cc6aaab5cbdd39fd9f9d0fe5d9101f91f4534b40dae366b05119"
+checksum = "c1f2380112343343543c9f6a9d726882f1ae8765a178d88da8f304d8038de5b6"
 dependencies = [
  "bitvec",
  "bytemuck",
@@ -4345,6 +4345,7 @@ dependencies = [
  "hilbert_2d",
  "hotpath",
  "integer-encoding",
+ "mvt",
  "mvt-reader",
  "num-traits",
  "num_enum",
@@ -4403,6 +4404,19 @@ name = "mutually_exclusive_features"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e94e1e6445d314f972ff7395df2de295fe51b71821694f0b0e1e79c4f12c8577"
+
+[[package]]
+name = "mvt"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2d7366256c268a8333bbc0951831f4706ae927f5c2db073ab38c491e7515c1b9"
+dependencies = [
+ "log",
+ "num-traits",
+ "pointy",
+ "prost 0.14.3",
+ "thiserror 2.0.18",
+]
 
 [[package]]
 name = "mvt-reader"
@@ -5169,6 +5183,15 @@ dependencies = [
  "fdeflate",
  "flate2",
  "miniz_oxide",
+]
+
+[[package]]
+name = "pointy"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7319aff932c05d448afab77f22ae717fa30d5b289ff397e249d91bb654156413"
+dependencies = [
+ "num-traits",
 ]
 
 [[package]]

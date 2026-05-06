@@ -302,10 +302,11 @@ impl<'a> DynTileSource<'a> {
         })
     }
 
-    /// Checks the pre-parsed accepted formats against the source format. If an
-    /// Accept header lists MLT and the source produces MVT, MLT wins — the
-    /// pre-cache pipeline will encode on first miss. Otherwise the source
-    /// format must be in the accepted list verbatim.
+    /// Checks the pre-parsed accepted formats against the source format. The
+    /// pre-cache pipeline can transcode between MVT and MLT in either
+    /// direction, so when the Accept header lists the opposite vector format
+    /// the request resolves to that target. Otherwise the source format must
+    /// appear in the accepted list verbatim.
     fn resolve_accepted_format(
         accepted: Option<&[Format]>,
         source_format: Format,
@@ -319,6 +320,10 @@ impl<'a> DynTileSource<'a> {
         #[cfg(all(feature = "mlt", feature = "_tiles"))]
         if source_format == Format::Mvt && formats.contains(&Format::Mlt) {
             return Ok(Some(Format::Mlt));
+        }
+        #[cfg(all(feature = "mlt", feature = "_tiles"))]
+        if source_format == Format::Mlt && formats.contains(&Format::Mvt) {
+            return Ok(Some(Format::Mvt));
         }
         Err(ErrorNotAcceptable(format!(
             "Source produces {}, which does not match the Accept header",
@@ -908,15 +913,26 @@ mod tests {
     #[case::image_wildcard_vs_mvt(&["image/*"], Format::Mvt)]
     #[case::png_vs_mvt(&["image/png"], Format::Mvt)]
     #[case::mvt_vs_png(&["application/x-protobuf"], Format::Png)]
-    #[case::mvt_vs_mlt(&["application/x-protobuf"], Format::Mlt)]
     fn test_accept_406(#[case] accept_values: &[&str], #[case] source_format: Format) {
         let parsed = parse_accept_header(accept_values);
         let result = DynTileSource::resolve_accepted_format(parsed.as_deref(), source_format);
         assert!(result.is_err());
     }
 
+    /// Without the `mlt` feature, the MVT↔MLT conversion branches are gated
+    /// out and these accept-vs-source pairs must surface as 406.
+    #[cfg(not(all(feature = "mlt", feature = "_tiles")))]
+    #[rstest]
+    #[case::mlt_vs_mvt(&["application/vnd.maplibre-tile"], Format::Mvt)]
+    #[case::mvt_vs_mlt(&["application/x-protobuf"], Format::Mlt)]
+    fn test_accept_406_without_mlt(#[case] accept_values: &[&str], #[case] source_format: Format) {
+        let parsed = parse_accept_header(accept_values);
+        let result = DynTileSource::resolve_accepted_format(parsed.as_deref(), source_format);
+        assert!(result.is_err());
+    }
+
     /// `Accept: mlt` against an MVT source resolves to MLT — the pre-cache
-    /// pipeline encodes on first miss. Conversion is implicit; no `process.convert-to-mlt`
+    /// pipeline encodes on first miss. Conversion is implicit; no `process.convert_to_mlt`
     /// configuration is required to enable it.
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[rstest]
@@ -927,6 +943,19 @@ mod tests {
         let parsed = parse_accept_header(accept_values);
         let result = DynTileSource::resolve_accepted_format(parsed.as_deref(), Format::Mvt);
         assert_eq!(result.unwrap(), Some(Format::Mlt));
+    }
+
+    /// `Accept: mvt` against an MLT source resolves to MVT — the pre-cache
+    /// pipeline decodes on first miss unless `process.convert_to_mvt` is
+    /// explicitly disabled.
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[rstest]
+    #[case::mvt_only(&["application/x-protobuf"])]
+    #[case::mvt_with_other(&["image/png", "application/x-protobuf"])]
+    fn test_accept_mvt_on_mlt_source_converts(#[case] accept_values: &[&str]) {
+        let parsed = parse_accept_header(accept_values);
+        let result = DynTileSource::resolve_accepted_format(parsed.as_deref(), Format::Mlt);
+        assert_eq!(result.unwrap(), Some(Format::Mvt));
     }
 
     /// Compositing sources with mismatched formats (MVT + MLT) should return an error.
