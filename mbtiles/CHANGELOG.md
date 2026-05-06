@@ -9,13 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.17.4](https://github.com/maplibre/martin/compare/mbtiles-v0.17.3...mbtiles-v0.17.4) - 2026-05-06
 
-### Added
+### Structured tracing fields
 
-- mvt->mlt pre-processing encoding ([#2769](https://github.com/maplibre/martin/pull/2769))
-
-### Other
-
-- *(mbtiles)* migrate the mbtiles crate to structured logs ([#2778](https://github.com/maplibre/martin/pull/2778))
+The `bindiff`, `metadata`, `transcoder`, `update`, and `validation` modules now emit `tracing` events with structured fields (`mbtiles.file`, `tile.coord`, `tile.id`, `metadata.name`, `metadata.compression`, `agg_tiles_hash`, `bindiff.inserted`, …) instead of interpolating values into the message text.
+The `mbtiles` CLI output stays readable in the default formatter, but log scrapers that matched the old free-text format need to be updated to consume the new fields. ([#2778](https://github.com/maplibre/martin/pull/2778))
 
 ## [0.17.3](https://github.com/maplibre/martin/compare/mbtiles-v0.17.2...mbtiles-v0.17.3) - 2026-04-29
 

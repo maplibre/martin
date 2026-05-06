@@ -9,14 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.5.4](https://github.com/maplibre/martin/compare/martin-core-v0.5.3...martin-core-v0.5.4) - 2026-05-06
 
-### Added
+### Structured tracing fields
 
-- mvt->mlt pre-processing encoding ([#2769](https://github.com/maplibre/martin/pull/2769))
+The `fonts`, `sprites`, and `styles` resource modules now emit `tracing` events with structured fields (e.g. `font.name`, `font.glyph_count`, `sprite.path.kept`, `style.path.dropped`) instead of interpolated strings.
+Crates configuring a `tracing-subscriber` will pick the new fields up automatically — particularly useful with JSON formatters.
+The human-readable message text was shortened in the process, so any downstream log-scraper regex that matched the previous free-text messages needs to be updated. ([#2777](https://github.com/maplibre/martin/pull/2777))
 
 ### Other
 
-- *(deps)* replace pixmatch with a more modern alternative ([#2780](https://github.com/maplibre/martin/pull/2780))
-- *(martin-core)* migrate more logs to be structured ([#2777](https://github.com/maplibre/martin/pull/2777))
+- *(deps)* Replace the dev-only `pixelmatch` dependency with `image-compare` for style-rendering tests; the public API is unchanged ([#2780](https://github.com/maplibre/martin/pull/2780)).
 
 ## [0.5.3](https://github.com/maplibre/martin/compare/martin-core-v0.5.2...martin-core-v0.5.3) - 2026-04-29
 
