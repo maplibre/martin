@@ -126,7 +126,7 @@
       "name": "MIT OR Apache-2.0"
     },
     "title": "Martin",
-    "version": "1.8.2"
+    "version": "1.9.0"
   },
   "openapi": "3.1.0",
   "paths": {

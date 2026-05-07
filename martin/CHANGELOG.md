@@ -7,6 +7,80 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.0](https://github.com/maplibre/martin/compare/martin-v1.8.2...martin-v1.9.0) - 2026-05-06
+
+### MVT - MLT pre-processing encoding
+
+Martin can now serve [MLT (MapLibre Tiles)](https://github.com/maplibre/maplibre-tile-spec) by transcoding MVT on the fly.
+MLT is a columnar successor to MVT - for our test fixture it is roughly 39% smaller on the wire and 12% faster to serve from cache due to this size difference.
+No tile re-generation or schema migration is required:
+the conversion runs at request time when the client sends `Accept: application/vnd.maplibre-tile`.
+We also can convert MLT tiles back to MVT if the client requests it.
+
+The `mlt` cargo feature is now part of the `default` feature set, so prebuilt binaries ship with MLT support.
+Builds without `mlt` will return an error if a client requests MLT.
+
+You can configure this behaviour with the new `convert-to-mlt` or `convert-to-mvt` config key.
+It accepts three states (`auto`, `disabled`, or an explicit encoder object) and can be set at three nesting levels (global, source-type, individual source).
+The most-specific level wins and the default is `auto`.
+
+```yaml
+convert-to-mlt: auto
+convert-to-mvt: auto
+
+postgres:
+  connection_string: postgresql://localhost/mydb
+
+pmtiles:
+  sources:
+    basemap:
+      path: /data/basemap.pmtiles
+      # inherits the global `auto`
+    legacy:
+      path: /data/legacy.pmtiles
+      # this one source always serves MLT and configures how to serve it
+      convert-to-mlt:
+        tessellate: true
+      convert-to-mvt: disabled
+```
+
+To override the encoder defaults (rarely needed; see the docs for the full field list), pass an explicit object:
+
+```yaml
+convert-to-mlt:
+  tessellate: false # Enable if your client supports pre-tessellated polygons and you benchmarked that this improves your usecase
+  try_spatial_morton_sort: true # Disable if your data is already spatially ordered
+  try_spatial_hilbert_sort: true # Disable if Morton sort doesn't compress well for your data
+  try_id_sort: false # Enable when features have sequential IDs and spatial sorting isn't beneficial
+  allow_fsst: true # Disable to reduce search space
+  allow_fpf: true # Disable to reduce search space
+  allow_shared_dict: true # Disable to reduce search space
+```
+
+[A full guide is avaliable here](https://github.com/maplibre/martin/blob/main/docs/content/using-guides/mlt.md).
+Implemented in [#2769](https://github.com/maplibre/martin/pull/2769) [#2773](https://github.com/maplibre/martin/pull/2773) and  [#2775](https://github.com/maplibre/martin/pull/2775)
+
+### Improved sprite and font previews in the Web UI
+
+The Web UI now renders sprites and font previews directly using MapLibre GL and SDF glyph data.
+Sprite catalogs support live PNG/SDF rendering, icon scaling, SDF tint and halo previews, and quick sprite ID copying.
+Font cards now render real sample text from `/font/{name}/0-255` instead of placeholder previews, with graceful fallback handling when glyph loading fails.
+Existing sprite and font endpoints are unchanged. ([#2774](https://github.com/maplibre/martin/pull/2774), [#2772](https://github.com/maplibre/martin/pull/2772))
+
+### Structured logging for `martin-core` and `mbtiles`
+
+`martin-core` and `mbtiles` now emit structured `tracing` fields instead of interpolated log strings.
+Human-readable logs remain unchanged, but external log scrapers that rely on the old free-text format may need updates. ([#2777](https://github.com/maplibre/martin/pull/2777), [#2778](https://github.com/maplibre/martin/pull/2778))
+
+### Fixed
+
+- *(mbtiles)* Prevent folder sources from disappearing when a single MBTiles file fails to initialize.
+  Invalid files now emit a warning while the remaining sources continue loading normally. ([#2768](https://github.com/maplibre/martin/pull/2768))
+
+### Other
+
+- Various dependecy updates ([#2780](https://github.com/maplibre/martin/pull/2780), [#2770](https://github.com/maplibre/martin/pull/2770), [#2776](https://github.com/maplibre/martin/pull/2776))
+
 ## [1.8.2](https://github.com/maplibre/martin/compare/martin-v1.8.1...martin-v1.8.2) - 2026-04-29
 
 ### Added
