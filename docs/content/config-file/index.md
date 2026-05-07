@@ -49,8 +49,8 @@ postgres:
       # Per-source: this table uses the default MLT encoder config
       convert_to_mlt: auto
     no_mlt_table:
-      # Per-source: explicitly opt out — even if the client requests MLT, this source
-      # is served as MVT. Accepts: `disabled`, `off`, `no`, `false`.
+      # Per-source: explicitly opt out
+      # Even if the client requests MLT, this source is served as MVT.
       convert_to_mlt: disabled
 mbtiles: # gets global default
   - some/file.mbtiles
