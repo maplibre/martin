@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 const STORAGE_KEY = 'martin-ui:inspector-underlay';
 const URL_PARAM = 'underlay';
@@ -50,15 +50,23 @@ export function useUnderlayPreference<T extends string>(
 ): [T | undefined, (value: T | undefined) => void] {
   const [value, setValueState] = useState<T | undefined>(() => readInitial(validIds));
 
+  // Sync to storage + URL when value changes. Keeping side effects out of the
+  // setState updater is required: StrictMode invokes updaters twice in dev to
+  // surface impure logic, which would double-fire writes here.
+  const isFirstRun = useRef(true);
+  useEffect(() => {
+    if (isFirstRun.current) {
+      isFirstRun.current = false;
+      return;
+    }
+    safeSetStorage(value);
+    writeUrl(value);
+  }, [value]);
+
   const setValue = useCallback(
     (next: T | undefined) => {
       const normalized = next && (validIds as readonly string[]).includes(next) ? next : undefined;
-      setValueState((prev) => {
-        if (prev === normalized) return prev;
-        safeSetStorage(normalized);
-        writeUrl(normalized);
-        return normalized;
-      });
+      setValueState((prev) => (prev === normalized ? prev : normalized));
     },
     [validIds],
   );
