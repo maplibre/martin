@@ -115,6 +115,7 @@ image-compare.workspace = true
 insta = { workspace = true, features = ["json", "yaml"] }
 rstest.workspace = true
 serde_json.workspace = true
+tempfile.workspace = true
 testcontainers-modules.workspace = true
 tokio.workspace = true
 url.workspace = true

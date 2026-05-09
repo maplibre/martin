@@ -102,6 +102,18 @@ impl SpriteSources {
                         sprite.path = %disp_path,
                         "Configured sprite source"
                     );
+                    if let Ok(paths) = get_svg_input_paths(&path, true)
+                        && paths.is_empty()
+                    {
+                        warn!(
+                            source.id = %v.key(),
+                            sprite.path = %disp_path,
+                            "Sprite source directory contains no `.svg` files. \
+                             Martin generates spritesheets from source SVG files; \
+                             pre-generated `sprite.png` / `sprite.json` files are not used. \
+                             Sprite requests for this source will fail."
+                        );
+                    }
                     v.insert(SpriteSource { path });
                 }
             }
@@ -251,6 +263,26 @@ mod tests {
             test_src(src2_path.iter(), 1, "src2_1", generate_sdf).await;
             test_src(src2_path.iter(), 2, "src2_2", generate_sdf).await;
         }
+    }
+
+    #[tokio::test]
+    async fn directory_without_svgs_yields_helpful_error() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        std::fs::write(tmp.path().join("sprite.json"), b"{}").unwrap();
+        std::fs::write(tmp.path().join("sprite.png"), b"\x89PNG\r\n").unwrap();
+
+        let mut sprites = SpriteSources::default();
+        sprites.add_source("bad".to_string(), tmp.path().to_path_buf());
+
+        let source = sprites.get("bad").expect("source registered");
+        let Err(err) = get_spritesheet([source].iter(), 1, false).await else {
+            panic!("expected NoSpriteFilesFound, got Ok");
+        };
+
+        assert!(matches!(err, SpriteError::NoSpriteFilesFound(ref p) if p == tmp.path()));
+        let msg = err.to_string();
+        assert!(msg.contains(".svg"), "error message lacks `.svg`: {msg}");
+        assert!(msg.contains(&tmp.path().display().to_string()));
     }
 
     async fn test_src(
