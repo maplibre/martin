@@ -3,7 +3,6 @@ use std::time::Duration;
 
 use futures::future::try_join;
 use futures::pin_mut;
-use martin_core::tiles::BoxedSource;
 use martin_tile_utils::TileInfo;
 use serde::{Deserialize, Serialize};
 use tilejson::TileJSON;
@@ -11,13 +10,14 @@ use tokio::time::timeout;
 use tracing::warn;
 
 use super::{FuncInfoSources, TableInfoSources};
-use crate::MartinResult;
 use crate::config::args::{BoundsCalcType, DEFAULT_BOUNDS_TIMEOUT};
 use crate::config::file::postgres::PostgresAutoDiscoveryBuilder;
 use crate::config::file::{
-    CachePolicy, ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks, TileSourceWarning,
+    CachePolicy, ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks, ResolutionResult,
     UnrecognizedKeys, UnrecognizedValues, copy_unrecognized_keys_from_config,
 };
+#[cfg(all(feature = "mlt", feature = "_tiles"))]
+use crate::config::file::{MltProcessConfig, MvtProcessConfig};
 use crate::config::primitives::{IdResolver, OptBoolObj, OptOneMany};
 
 pub trait PostgresInfo {
@@ -29,45 +29,70 @@ pub trait PostgresInfo {
 
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct PostgresSslCerts {
-    /// Same as PGSSLCERT
-    /// ([docs](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNECT-SSLCERT))
+    /// Same as `PGSSLCERT` for `psql`
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &"./postgresql.crt"))]
     pub ssl_cert: Option<std::path::PathBuf>,
-    /// Same as PGSSLKEY
-    /// ([docs](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNECT-SSLKEY))
+    /// Same as `PGSSLKEY` for `psql`
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &"./postgresql.key"))]
     pub ssl_key: Option<std::path::PathBuf>,
-    /// Same as PGSSLROOTCERT
-    /// ([docs](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNECT-SSLROOTCERT))
+    /// Same as `PGSSLROOTCERT` for `psql`
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &"./root.crt"))]
     pub ssl_root_cert: Option<std::path::PathBuf>,
 
     #[serde(flatten, skip_serializing)]
+    #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub unrecognized: UnrecognizedValues,
 }
 
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct PostgresConfig {
-    /// Database connection string
+    /// Database connection string.
+    ///
+    /// You can use environment variables too, for example:
+    /// `connection_string: $DATABASE_URL`
+    /// `connection_string: ${DATABASE_URL:-postgres://postgres@localhost/db}`
+    #[cfg_attr(
+        feature = "unstable-schemas",
+        schemars(example = &"postgres://postgres@localhost:5432/db")
+    )]
     pub connection_string: Option<String>,
     #[serde(flatten)]
     pub ssl_certificates: PostgresSslCerts,
     /// If a spatial table has SRID 0, then this SRID will be used as a fallback
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &4326i32))]
     pub default_srid: Option<i32>,
-    /// Specify how bounds should be computed for the spatial PG tables
+    /// Specify how bounds should be computed for the spatial PG tables \[default: quick\]
+    ///
+    /// Options:
+    /// - `calc` compute table geometry bounds on startup.
+    /// - `quick` same as 'calc', but the calculation will be aborted after 5 seconds.
+    /// - `skip` does not compute table geometry bounds on startup.
     pub auto_bounds: Option<BoundsCalcType>,
     /// Limit the number of geo features per tile.
     ///
-    /// If the source table has more features than set here, they will not be included in the tile and the result will look "cut off"/incomplete.
-    /// This feature allows to put a maximum latency bound on tiles with extreme amount of detail at the cost of not returning all data.
-    /// It is sensible to set this limit if you have user generated/untrusted geodata, e.g. a lot of data points at [Null Island](https://en.wikipedia.org/wiki/Null_Island).
+    /// If the source table has more features than set here, they will not be
+    /// included in the tile and the result will look "cut off"/incomplete.
+    /// This feature allows you to put a maximum latency bound on tiles with an
+    /// extreme amount of detail at the cost of not returning all data.
+    /// It is sensible to set this limit if you have user generated/untrusted
+    /// geodata, e.g. a lot of data points at [Null Island]
+    /// (<https://en.wikipedia.org/wiki/Null_Island>).
     ///
-    /// Can be either a positive integer or unlimited if omitted.
+    /// either a positive integer, or null=unlimited (default)
     pub max_feature_count: Option<usize>,
-    /// Maximum Postgres connections pool size [DEFAULT: 20]
+    /// Maximum Postgres connections pool size \[default: 20\]
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &20usize))]
     pub pool_size: Option<usize>,
-    /// Enable/disable/configure automatic discovery of tables and functions.
+    /// Enable automatic discovery of tables and functions. \[default: null\]
     ///
-    /// You may set this to `OptBoolObj::Bool(false)` to disable.
+    /// Options:
+    /// - `true`: run automatic discovery (`true` may be omitted if further configuration is provided)
+    /// - `false`: disable automatic discovery
+    /// - null: run automatic discovery if `postgres.tables` is null and `postgres.functions` is null
     #[serde(default, skip_serializing_if = "OptBoolObj::is_none")]
     pub auto_publish: OptBoolObj<PostgresCfgPublish>,
     /// Associative arrays of table sources
@@ -75,7 +100,32 @@ pub struct PostgresConfig {
     /// Associative arrays of function sources
     pub functions: Option<FuncInfoSources>,
 
+    /// MVT->MLT encoder settings for all sources from this connection.
+    /// Overrides global; overridden by per-source `convert_to_mlt`.
+    ///
+    /// Can be either:
+    /// - `null` (default) - defer to the global setting
+    /// - `auto` - we choose defaults which we think work best for most users
+    /// - `disabled` - no conversion
+    /// - explicitely configured
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[serde(default)]
+    pub convert_to_mlt: Option<MltProcessConfig>,
+
+    /// MLT->MVT conversion settings for all sources from this connection.
+    /// Overrides global; overridden by per-source `convert_to_mvt`.
+    ///
+    /// Can be either:
+    /// - `null` (default) - defer to the global setting
+    /// - `auto` - we choose defaults which we think work best for most users
+    /// - `disabled` - no conversion
+    /// - explicitly configured
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[serde(default)]
+    pub convert_to_mvt: Option<MvtProcessConfig>,
+
     #[serde(flatten, skip_serializing)]
+    #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub unrecognized: UnrecognizedValues,
 }
 
@@ -83,16 +133,23 @@ pub struct PostgresConfig {
 pub const POOL_SIZE_DEFAULT: usize = 20;
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct PostgresCfgPublish {
+    /// Optionally limit to just these schemas
     #[serde(alias = "from_schema")]
     #[serde(default, skip_serializing_if = "OptOneMany::is_none")]
     pub from_schemas: OptOneMany<String>,
+    /// Here we enable both tables and functions auto discovery.
+    /// You can also enable just one of them by not mentioning the other, or
+    /// setting it to false. Setting one to true disables the other one as well.
+    /// E.g. `tables: false` enables just the functions auto-discovery.
     #[serde(default, skip_serializing_if = "OptBoolObj::is_none")]
     pub tables: OptBoolObj<PostgresCfgPublishTables>,
     #[serde(default, skip_serializing_if = "OptBoolObj::is_none")]
     pub functions: OptBoolObj<PostgresCfgPublishFuncs>,
 
     #[serde(flatten, skip_serializing)]
+    #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub unrecognized: UnrecognizedValues,
 }
 
@@ -125,23 +182,41 @@ impl ConfigurationLivecycleHooks for PostgresCfgPublish {
 
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct PostgresCfgPublishTables {
+    /// Add more schemas to the ones listed above
     #[serde(alias = "from_schema")]
     #[serde(default, skip_serializing_if = "OptOneMany::is_none")]
     pub from_schemas: OptOneMany<String>,
+    /// Optionally set how source ID should be generated based on the table's name,
+    /// schema, and geometry column
     #[serde(alias = "id_format")]
+    #[cfg_attr(
+        feature = "unstable-schemas",
+        schemars(example = &"table.{schema}.{table}.{column}")
+    )]
     pub source_id_format: Option<String>,
     /// A table column to use as the feature ID
-    /// If a table has no column with this name, `id_column` will not be set for that table.
-    /// If a list of strings is given, the first found column will be treated as a feature ID.
+    /// If a table has no column with this name, `id_column` will not be set for
+    /// that table.
+    /// If a list of strings is given, the first found column will be treated as a
+    /// feature ID.
     #[serde(alias = "id_column")]
     #[serde(default, skip_serializing_if = "OptOneMany::is_none")]
     pub id_columns: OptOneMany<String>,
+    /// Controls if geometries should be clipped or encoded as is \[default: true\]
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &true))]
     pub clip_geom: Option<bool>,
+    /// Buffer distance in tile coordinate space to optionally clip geometries,
+    /// optional, default to 64
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &64u32))]
     pub buffer: Option<u32>,
+    /// Tile extent in tile coordinate space, optional, default to 4096
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &4096u32))]
     pub extent: Option<u32>,
 
     #[serde(flatten, skip_serializing)]
+    #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub unrecognized: UnrecognizedValues,
 }
 
@@ -153,14 +228,23 @@ impl ConfigurationLivecycleHooks for PostgresCfgPublishTables {
 
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct PostgresCfgPublishFuncs {
+    /// Optionally limit to just these schemas
     #[serde(alias = "from_schema")]
     #[serde(default, skip_serializing_if = "OptOneMany::is_none")]
     pub from_schemas: OptOneMany<String>,
+    /// Optionally set how source ID should be generated based on the function's
+    /// name and schema
     #[serde(alias = "id_format")]
+    #[cfg_attr(
+        feature = "unstable-schemas",
+        schemars(example = &"{schema}.{function}")
+    )]
     pub source_id_format: Option<String>,
 
     #[serde(flatten, skip_serializing)]
+    #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub unrecognized: UnrecognizedValues,
 }
 
@@ -175,7 +259,7 @@ impl PostgresConfig {
         &mut self,
         id_resolver: IdResolver,
         default_cache: CachePolicy,
-    ) -> MartinResult<(Vec<BoxedSource>, Vec<TileSourceWarning>)> {
+    ) -> ResolutionResult {
         let pg = PostgresAutoDiscoveryBuilder::new(self, id_resolver, default_cache).await?;
         let inst_tables = on_slow(
             pg.instantiate_tables(),

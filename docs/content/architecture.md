@@ -175,7 +175,8 @@ Martin's architecture is organized into four main Rust crates, each with distinc
             DB-->>Source: Raw data
             Source->>Source: Generate MVT
             Source-->>Server: Tile data
-            Server->>Cache: Store tile
+            Server->>Server: Postprocess (MLT, compress)
+            Server->>Cache: Store postprocessed tile
             Server-->>Client: 200 OK (tile data)
         end
     ```

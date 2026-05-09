@@ -1,6 +1,6 @@
 [package]
 name = "martin"
-version = "1.8.0"
+version = "1.9.1"
 authors = [
     "Stepan Kuzmin <to.stepan.kuzmin@gmail.com>",
     "Yuri Astrakhan <YuriAstrakhan@gmail.com>",
@@ -16,6 +16,14 @@ license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
 homepage.workspace = true
+
+[package.metadata.binstall]
+pkg-url = "{ repo }/releases/download/martin-v{ version }/{ name }-{ target }.{ archive-format }"
+bin-dir = "{ bin }{ binary-ext }"
+pkg-fmt = "tgz"
+
+[package.metadata.binstall.overrides.x86_64-pc-windows-msvc]
+pkg-fmt = "zip"
 
 [package.metadata.deb]
 name = "martin"
@@ -76,6 +84,11 @@ name = "martin-cp"
 path = "src/bin/martin-cp.rs"
 required-features = ["mbtiles"]
 
+[[bin]]
+name = "gen-schemas"
+path = "src/bin/gen-schemas.rs"
+required-features = ["unstable-schemas"]
+
 [[bench]]
 name = "sources"
 harness = false
@@ -98,6 +111,7 @@ default = [
     "sprites",
     "styles",
     "webui",
+    "mlt",
 ]
 unstable-cog = ["martin-core/unstable-cog", "_tiles"]
 rendering = ["styles", "martin-core/rendering", "dep:image"]
@@ -117,8 +131,23 @@ postgres = [
 sprites = ["martin-core/sprites", "_catalog"]
 styles = ["martin-core/styles", "dep:walkdir", "_catalog"]
 webui = ["dep:actix-web-static-files", "dep:static-files", "dep:walkdir"]
+mlt = ["dep:mlt-core"]
 _tiles = ["martin-core/_tiles", "_catalog"]
 _catalog = []
+unstable-schemas = [
+    "dep:schemars",
+    "dep:utoipa",
+    "dep:utoipa-actix-web",
+    "martin-core/unstable-schemas",
+    "fonts",
+    "mbtiles",
+    "metrics",
+    "mlt",
+    "pmtiles",
+    "postgres",
+    "sprites",
+    "styles",
+]
 __hotpath = [
     "hotpath/hotpath",
     "hotpath/hotpath-alloc",
@@ -153,6 +182,8 @@ log.workspace = true
 martin-core.workspace = true
 martin-tile-utils.workspace = true
 mbtiles = { workspace = true, optional = true }
+miette.workspace = true
+mlt-core = { workspace = true, optional = true }
 notify = { workspace = true }
 num_cpus.workspace = true
 object_store = { workspace = true, optional = true }
@@ -160,7 +191,9 @@ postgis = { workspace = true, optional = true }
 postgres-protocol = { workspace = true, optional = true }
 prometheus = { workspace = true, optional = true }
 rustls.workspace = true
+schemars = { workspace = true, optional = true }
 serde.workspace = true
+serde-saphyr.workspace = true
 serde_json.workspace = true
 serde_with.workspace = true
 serde_yaml.workspace = true
@@ -175,6 +208,8 @@ tracing-indicatif.workspace = true
 tracing-log = { workspace = true, features = ["interest-cache"] }
 tracing-subscriber = { workspace = true, default-features = false, features = ["env-filter", "json", "fmt", "std", "ansi", "chrono"] }
 url.workspace = true
+utoipa = { workspace = true, optional = true }
+utoipa-actix-web = { workspace = true, optional = true }
 walkdir = { workspace = true, optional = true }
 
 [build-dependencies]

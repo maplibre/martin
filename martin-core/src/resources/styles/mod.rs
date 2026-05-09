@@ -30,8 +30,16 @@ pub use error::StyleError;
 
 /// Style metadata.
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "unstable-schemas",
+    derive(schemars::JsonSchema, utoipa::ToSchema)
+)]
 pub struct CatalogStyleEntry {
     /// Path to the style JSON file.
+    // utoipa 5.4 has no native `PathBuf` support — present it as a `String`
+    // (the on-the-wire form) for both schema generators.
+    #[cfg_attr(feature = "unstable-schemas", schemars(with = "String"))]
+    #[cfg_attr(feature = "unstable-schemas", schema(value_type = String))]
     pub path: PathBuf,
 }
 
@@ -84,17 +92,17 @@ impl StyleSources {
         match self.sources.entry(id) {
             Entry::Occupied(v) => {
                 warn!(
-                    "Ignoring duplicate style source {id} from {new_path} because it was already configured for {old_path}",
-                    id = v.key(),
-                    old_path = v.get().path.display(),
-                    new_path = path.display()
+                    source.id = %v.key(),
+                    style.path.kept = %v.get().path.display(),
+                    style.path.dropped = %path.display(),
+                    "Ignoring duplicate style source: already configured for another path"
                 );
             }
             Entry::Vacant(v) => {
                 info!(
-                    "Configured style source {id} to {new_path}",
-                    id = v.key(),
-                    new_path = path.display()
+                    source.id = %v.key(),
+                    style.path = %path.display(),
+                    "Configured style source"
                 );
                 v.insert(StyleSource { path });
             }
@@ -242,7 +250,7 @@ mod tests {
         );
 
         // Encode rendered image to the target format
-        // JPEG doesn't support alpha, so convert RGBA→RGB when needed
+        // JPEG doesn't support alpha, so convert RGBA->RGB when needed
         let encoded_img: image::DynamicImage = if format == image::ImageFormat::Jpeg {
             image::DynamicImage::ImageRgb8(
                 image::DynamicImage::ImageRgba8(rendered_img.clone()).to_rgb8(),
@@ -297,47 +305,28 @@ mod tests {
                 );
         });
 
-        // For pixelmatch comparison, both images must be decoded to PNG
-        let rendered_for_cmp =
-            image::load_from_memory_with_format(&rendered_bytes, format).unwrap();
-        let mut rendered_png = std::io::Cursor::new(Vec::new());
-        rendered_for_cmp
-            .write_to(&mut rendered_png, image::ImageFormat::Png)
-            .unwrap();
+        // image-compare's hybrid algorithm operates on RgbaImage directly.
+        let rendered_for_cmp = image::load_from_memory_with_format(&rendered_bytes, format)
+            .unwrap()
+            .to_rgba8();
+        let reference_for_cmp = image::load_from_memory_with_format(&reference_bytes, format)
+            .unwrap()
+            .to_rgba8();
 
-        let reference_for_cmp =
-            image::load_from_memory_with_format(&reference_bytes, format).unwrap();
-        let mut reference_png = std::io::Cursor::new(Vec::new());
-        reference_for_cmp
-            .write_to(&mut reference_png, image::ImageFormat::Png)
-            .unwrap();
+        let similarity = image_compare::rgba_hybrid_compare(&reference_for_cmp, &rendered_for_cmp)
+            .unwrap_or_else(|e| panic!("image_compare failed: {e}"));
 
-        let diff_pixels = pixelmatch::pixelmatch(
-            std::io::Cursor::new(reference_png.get_ref()),
-            std::io::Cursor::new(rendered_png.get_ref()),
-            None::<&mut std::io::Sink>,
-            Some(width),
-            Some(height),
-            Some(pixelmatch::Options {
-                threshold: 0.1,
-                ..Default::default()
-            }),
-        )
-        .unwrap_or_else(|e| panic!("pixelmatch failed: {e}"));
-
-        let total_pixels = (width * height) as usize;
-        #[allow(clippy::cast_precision_loss)]
-        let diff_pct = (diff_pixels as f64 / total_pixels as f64) * 100.0;
-        // JPEG is lossy, so allow a higher threshold
-        let max_diff_pct = if format == image::ImageFormat::Jpeg {
-            5.0
+        // Score is 1.0 for identical images; JPEG is lossy, so allow a lower minimum.
+        let min_similarity = if format == image::ImageFormat::Jpeg {
+            0.95
         } else {
-            1.0
+            0.99
         };
+        let score = similarity.score;
         assert!(
-            diff_pct < max_diff_pct,
-            "Rendered image {reference_name} differs from reference by {diff_pct:.2}% ({diff_pixels}/{total_pixels} pixels). \
-             If this is expected, delete the existing reference file and regenerate it using the current rendering output."
+            score >= min_similarity,
+            "Rendered image {reference_name} differs from reference: similarity score {score:.4} < {min_similarity}. \
+             If this is expected, delete the existing reference file and regenerate it using the current rendering output.",
         );
     }
 }

@@ -9,17 +9,32 @@ use actix_web::web::{Data, Path};
 use actix_web::{HttpResponse, Result as ActixResult, route};
 use martin_core::fonts::{FontError, FontSources, OptFontCache};
 use serde::Deserialize;
-use tracing::warn;
+use tracing::{instrument, warn};
 
 use crate::srv::server::{DebouncedWarning, map_internal_error};
 
 #[derive(Deserialize, Debug)]
+#[cfg_attr(feature = "unstable-schemas", derive(utoipa::IntoParams))]
+#[cfg_attr(feature = "unstable-schemas", into_params(parameter_in = Path))]
 struct FontRequest {
     fontstack: String,
     start: u32,
     end: u32,
 }
 
+#[cfg_attr(
+    feature = "unstable-schemas",
+    utoipa::path(
+        get,
+        path = "/font/{fontstack}/{start}-{end}",
+        params(FontRequest),
+        responses(
+            (status = 200, description = "Glyph PBF range", content_type = "application/x-protobuf"),
+            (status = 400, description = "Invalid glyph range"),
+            (status = 404, description = "No matching font"),
+        ),
+    )
+)]
 #[route(
     "/font/{fontstack}/{start}-{end}",
     method = "GET",
@@ -27,7 +42,17 @@ struct FontRequest {
     wrap = "Compress::default()"
 )]
 #[hotpath::measure]
-async fn get_font(
+#[instrument(
+    level = "debug",
+    skip_all,
+    fields(
+        font.fontstack = %path.fontstack,
+        font.range.start = path.start,
+        font.range.end = path.end,
+    ),
+    err(Debug),
+)]
+pub async fn get_font(
     path: Path<FontRequest>,
     fonts: Data<FontSources>,
     cache: Data<OptFontCache>,

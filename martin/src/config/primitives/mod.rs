@@ -1,3 +1,5 @@
+mod auto_option;
+pub use auto_option::AutoOption;
 mod opt_bool_obj;
 pub use opt_bool_obj::OptBoolObj;
 mod opt_one_many;

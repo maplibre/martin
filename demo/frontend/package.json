@@ -15,10 +15,10 @@
     "react-dom": "19.2.5",
     "react-map-gl": "^8.1.1",
     "react-scroll-parallax": "3.5.0",
-    "styled-components": "6.4.0"
+    "styled-components": "6.4.1"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.4.12",
+    "@biomejs/biome": "2.4.14",
     "@rolldown/plugin-babel": "^0.2.3",
     "@types/debounce": "^1.2.4",
     "@types/node": "^25.6.0",

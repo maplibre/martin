@@ -16,21 +16,21 @@ export function useURLParams(initialParams: URLParamsState = {}) {
     return initialState;
   });
 
-  // Update URL when params change
+  // Update URL when params change. Preserves any URL params not managed by
+  // this hook (e.g. ?underlay= owned by useUnderlayPreference) by mutating
+  // the existing query string instead of rebuilding it from scratch.
   useEffect(() => {
     const url = new URL(window.location.href);
-    const searchParams = new URLSearchParams();
+    const searchParams = url.searchParams;
 
-    // Add non-null and non-empty params to URL
     for (const [key, value] of Object.entries(params)) {
       if (value !== null && value !== undefined && value !== '') {
         searchParams.set(key, value);
+      } else {
+        searchParams.delete(key);
       }
     }
 
-    url.search = searchParams.toString();
-
-    // Update URL without triggering a page reload
     window.history.replaceState({}, '', url.toString());
   }, [params]);
 

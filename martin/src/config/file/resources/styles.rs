@@ -14,6 +14,7 @@ use crate::config::file::{
 use crate::config::primitives::OptBoolObj;
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct InnerStyleConfig {
     /// Allows static, server side, style rendering
     ///
@@ -21,9 +22,11 @@ pub struct InnerStyleConfig {
     /// We are not currently happy with the performance of this endpoint and intend to improve this in the future
     /// Marking this experimental means that we are not stuck with single threaded performance as a default until v2.0
     #[cfg(all(feature = "rendering", target_os = "linux"))]
+    #[serde(default, skip_serializing_if = "OptBoolObj::is_none")]
     pub rendering: OptBoolObj<RendererConfig>,
 
     #[serde(flatten, skip_serializing)]
+    #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub unrecognized: UnrecognizedValues,
 }
 
@@ -52,11 +55,13 @@ impl ConfigurationLivecycleHooks for InnerStyleConfig {
 
 #[cfg(all(feature = "rendering", target_os = "linux"))]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct RendererConfig {
     // Same effect as rendering: true|false shorthands
     enabled: bool,
 
     #[serde(flatten, skip_serializing)]
+    #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub unrecognized: UnrecognizedValues,
 }
 #[cfg(all(feature = "rendering", target_os = "linux"))]
@@ -191,8 +196,25 @@ fn is_hidden(entry: &walkdir::DirEntry) -> bool {
 
 #[cfg(test)]
 mod tests {
+    use indoc::indoc;
+
     use super::*;
     use crate::config::file::FileConfigSrc;
+
+    #[test]
+    fn test_styles_parse_paths_only_without_rendering_field() {
+        let yaml = indoc! {"
+            paths:
+              - /data
+        "};
+        let cfg: StyleConfig =
+            serde_yaml::from_str(yaml).expect("styles with only paths must parse");
+        let StyleConfig::Config(cfg) = cfg else {
+            panic!("expected Config variant, got {cfg:?}");
+        };
+        let paths: Vec<_> = cfg.paths.into_iter().collect();
+        assert_eq!(paths, vec![PathBuf::from("/data")]);
+    }
 
     #[test]
     fn test_styles_resolve_paths() {

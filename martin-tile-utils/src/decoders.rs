@@ -1,10 +1,10 @@
 use std::io::{Read as _, Write as _};
 
-use flate2::read::{GzDecoder, ZlibDecoder};
+use flate2::read::{MultiGzDecoder, ZlibDecoder};
 use flate2::write::GzEncoder;
 
 pub fn decode_gzip(data: &[u8]) -> Result<Vec<u8>, std::io::Error> {
-    let mut decoder = GzDecoder::new(data);
+    let mut decoder = MultiGzDecoder::new(data);
     let mut decompressed = Vec::new();
     decoder.read_to_end(&mut decompressed)?;
     Ok(decompressed)

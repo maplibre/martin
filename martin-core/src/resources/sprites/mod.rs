@@ -27,7 +27,7 @@ pub use spreet::Spritesheet;
 use spreet::resvg::usvg::{Options, Tree};
 use spreet::{Sprite, SpritesheetBuilder, get_svg_input_paths, sprite_name};
 use tokio::io::AsyncReadExt as _;
-use tracing::{info, warn};
+use tracing::{info, instrument, warn};
 
 use self::SpriteError::{SpriteInstError, SpriteParsingError, SpriteProcessingError};
 
@@ -39,6 +39,10 @@ pub use cache::{NO_SPRITE_CACHE, OptSpriteCache, SpriteCache};
 
 /// Sprite source metadata.
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "unstable-schemas",
+    derive(schemars::JsonSchema, utoipa::ToSchema)
+)]
 pub struct CatalogSpriteEntry {
     /// Available sprite image names.
     pub images: Vec<String>,
@@ -77,18 +81,37 @@ impl SpriteSources {
     pub fn add_source(&mut self, id: String, path: PathBuf) {
         let disp_path = path.display();
         if path.is_file() {
-            warn!("Ignoring non-directory sprite source {id} from {disp_path}");
+            warn!(
+                source.id = %id,
+                sprite.path = %disp_path,
+                "Ignoring non-directory sprite source"
+            );
         } else {
             match self.0.entry(id) {
                 Entry::Occupied(v) => {
                     warn!(
-                        "Ignoring duplicate sprite source {} from {disp_path} because it was already configured for {}",
-                        v.key(),
-                        v.get().path.display()
+                        source.id = %v.key(),
+                        sprite.path.kept = %v.get().path.display(),
+                        sprite.path.dropped = %disp_path,
+                        "Ignoring duplicate sprite source: already configured for another path"
                     );
                 }
                 Entry::Vacant(v) => {
-                    info!("Configured sprite source {} from {disp_path}", v.key());
+                    info!(
+                        source.id = %v.key(),
+                        sprite.path = %disp_path,
+                        "Configured sprite source"
+                    );
+                    if let Ok(paths) = get_svg_input_paths(&path, true)
+                        && paths.is_empty()
+                    {
+                        warn!(
+                            source.id = %v.key(),
+                            sprite.path = %disp_path,
+                            "No sprite SVG files found in directory to generate spritesheets from. \
+                             Sprite requests for this source will fail, until at least one svg is present."
+                        );
+                    }
                     v.insert(SpriteSource { path });
                 }
             }
@@ -99,6 +122,12 @@ impl SpriteSources {
     ///
     /// Append "@2x" for high-DPI sprites.
     /// Set `as_sdf` for SDF sprites.
+    #[instrument(
+        level = "debug",
+        skip(self),
+        fields(source.ids = %ids, sprite.sdf = as_sdf),
+        err(Debug),
+    )]
     pub async fn get_sprites(&self, ids: &str, as_sdf: bool) -> Result<Spritesheet, SpriteError> {
         let (ids, dpi) = if let Some(ids) = ids.strip_suffix("@2x") {
             (ids, 2)
@@ -156,6 +185,12 @@ async fn parse_sprite(
 }
 
 /// Generates spritesheet from sprite sources.
+#[instrument(
+    level = "debug",
+    skip_all,
+    fields(sprite.pixel_ratio = pixel_ratio, sprite.sdf = as_sdf),
+    err(Debug),
+)]
 pub async fn get_spritesheet(
     sources: impl Iterator<Item = &SpriteSource>,
     pixel_ratio: u8,
@@ -226,6 +261,23 @@ mod tests {
             test_src(src2_path.iter(), 1, "src2_1", generate_sdf).await;
             test_src(src2_path.iter(), 2, "src2_2", generate_sdf).await;
         }
+    }
+
+    #[tokio::test]
+    async fn directory_without_svgs_yields_helpful_error() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        std::fs::write(tmp.path().join("sprite.json"), b"{}").unwrap();
+        std::fs::write(tmp.path().join("sprite.png"), b"\x89PNG\r\n").unwrap();
+
+        let mut sprites = SpriteSources::default();
+        sprites.add_source("bad".to_string(), tmp.path().to_path_buf());
+
+        let source = sprites.get("bad").expect("source registered");
+        let Err(err) = get_spritesheet([source].iter(), 1, false).await else {
+            panic!("expected NoSpriteFilesFound, got Ok");
+        };
+
+        assert!(matches!(err, SpriteError::NoSpriteFilesFound(_)));
     }
 
     async fn test_src(

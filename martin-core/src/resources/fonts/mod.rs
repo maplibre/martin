@@ -29,7 +29,7 @@ use pbf_font_tools::prost::Message as _;
 use pbf_font_tools::{Fontstack, Glyphs, render_sdf_glyph};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
-use tracing::{debug, info, warn};
+use tracing::{debug, info, instrument, warn};
 
 /// Maximum Unicode codepoint supported.
 ///
@@ -98,6 +98,10 @@ pub type FontCatalog = HashMap<String, CatalogFontEntry>;
 /// Font metadata including family, style, glyph count, and Unicode range.
 #[serde_with::skip_serializing_none]
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "unstable-schemas",
+    derive(schemars::JsonSchema, utoipa::ToSchema)
+)]
 pub struct CatalogFontEntry {
     /// Font family name (e.g., "Arial").
     pub family: String,
@@ -141,6 +145,16 @@ impl FontSources {
     /// Combines multiple fonts (comma-separated) with later fonts filling gaps.
     /// Range must be exactly 256 characters (e.g., 0-255, 256-511).
     #[expect(clippy::cast_possible_truncation)]
+    #[instrument(
+        level = "debug",
+        skip(self),
+        fields(
+            font.fontstack = %ids,
+            font.range.start = start,
+            font.range.end = end,
+        ),
+        err(Debug),
+    )]
     pub fn get_font_range(&self, ids: &str, start: u32, end: u32) -> Result<Vec<u8>, FontError> {
         if start > MAX_UNICODE_CP || end > MAX_UNICODE_CP {
             return Err(FontError::InvalidFontRangeStartEnd(start, end));
@@ -231,6 +245,7 @@ pub struct FontSource {
 
 /// Recursively discovers fonts in directories and individual files.
 /// Supports `.ttf`, `.otf`, and `.ttc` files.
+#[instrument(skip(lib, fonts), fields(path = ?path, is_top_level), err(Debug))]
 fn recurse_dirs(
     lib: &Library,
     path: PathBuf,
@@ -267,6 +282,7 @@ fn recurse_dirs(
 
 /// Parses a font file and extracts all faces.
 /// Font names are normalized (family + style, e.g., "Arial Bold").
+#[instrument(skip(lib, fonts), fields(path = ?path), err(Debug))]
 fn parse_font(
     lib: &Library,
     fonts: &mut DashMap<String, FontSource>,
@@ -296,10 +312,10 @@ fn parse_font(
         match fonts.entry(name) {
             Entry::Occupied(v) => {
                 warn!(
-                    "Ignoring duplicate font {} from {} because it was already configured from {}",
-                    v.key(),
-                    path.display(),
-                    v.get().path.display()
+                    font.name = %v.key(),
+                    font.path.kept = %v.get().path.display(),
+                    font.path.dropped = %path.display(),
+                    "Ignoring duplicate font: already configured from another path"
                 );
             }
             Entry::Vacant(v) => {
@@ -308,19 +324,24 @@ fn parse_font(
                     get_available_codepoints(&mut face)
                 else {
                     warn!(
-                        "Ignoring font {key} from {} because it has no available glyphs",
-                        path.display()
+                        font.name = %key,
+                        font.path = %path.display(),
+                        "Ignoring font: no available glyphs"
                     );
                     continue;
                 };
 
                 info!(
-                    "Configured font {key} with {glyphs} glyphs ({start:04X}-{end:04X}) from {}",
-                    path.display()
+                    font.name = %key,
+                    font.path = %path.display(),
+                    font.glyph_count = glyphs,
+                    font.range.start = start,
+                    font.range.end = end,
+                    "Configured font"
                 );
                 debug!(
-                    "Available font ranges: {}",
-                    ranges
+                    font.name = %key,
+                    font.ranges = %ranges
                         .iter()
                         .map(|(s, e)| if s == e {
                             format!("{s:02X}")
@@ -328,6 +349,7 @@ fn parse_font(
                             format!("{s:02X}-{e:02X}")
                         })
                         .join(", "),
+                    "Available font ranges"
                 );
 
                 v.insert(FontSource {
