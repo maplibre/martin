@@ -38,6 +38,7 @@ pub struct Catalog {
 }
 
 /// Server-wide capability flags
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[cfg_attr(
     feature = "unstable-schemas",
     derive(schemars::JsonSchema, utoipa::ToSchema)
