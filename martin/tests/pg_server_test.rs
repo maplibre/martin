@@ -56,6 +56,7 @@ postgres:
     let body = read_body(response).await;
     let body: serde_json::Value = serde_json::from_slice(&body).unwrap();
     assert_yaml_snapshot!(body, @r#"
+    settings: {}
     tiles:
       "-function.withweired---_-characters":
         content_type: application/x-protobuf
