@@ -4,7 +4,7 @@ Martin is a high-performance tile server serving vector/raster tiles from PostGI
 Also serves fonts, sprites, and styles.
 Includes `martin-cp` (bulk tile copier) and `mbtiles` (MBTiles CLI) binaries.
 
-# Commands
+## Commands
 
 Uses [just](https://github.com/casey/just) as command runner. `just --list` for all targets
 
