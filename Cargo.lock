@@ -4126,6 +4126,7 @@ dependencies = [
  "serde_json",
  "serde_with",
  "spreet",
+ "tempfile",
  "testcontainers-modules",
  "thiserror 2.0.18",
  "tiff",

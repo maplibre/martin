@@ -102,6 +102,16 @@ impl SpriteSources {
                         sprite.path = %disp_path,
                         "Configured sprite source"
                     );
+                    if let Ok(paths) = get_svg_input_paths(&path, true)
+                        && paths.is_empty()
+                    {
+                        warn!(
+                            source.id = %v.key(),
+                            sprite.path = %disp_path,
+                            "No sprite SVG files found in directory to generate spritesheets from. \
+                             Sprite requests for this source will fail, until at least one svg is present."
+                        );
+                    }
                     v.insert(SpriteSource { path });
                 }
             }
@@ -251,6 +261,23 @@ mod tests {
             test_src(src2_path.iter(), 1, "src2_1", generate_sdf).await;
             test_src(src2_path.iter(), 2, "src2_2", generate_sdf).await;
         }
+    }
+
+    #[tokio::test]
+    async fn directory_without_svgs_yields_helpful_error() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        std::fs::write(tmp.path().join("sprite.json"), b"{}").unwrap();
+        std::fs::write(tmp.path().join("sprite.png"), b"\x89PNG\r\n").unwrap();
+
+        let mut sprites = SpriteSources::default();
+        sprites.add_source("bad".to_string(), tmp.path().to_path_buf());
+
+        let source = sprites.get("bad").expect("source registered");
+        let Err(err) = get_spritesheet([source].iter(), 1, false).await else {
+            panic!("expected NoSpriteFilesFound, got Ok");
+        };
+
+        assert!(matches!(err, SpriteError::NoSpriteFilesFound(_)));
     }
 
     async fn test_src(
