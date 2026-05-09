@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Other
 
-- fix cargo-binsatall metadata and add a test in CI ([#2789](https://github.com/maplibre/martin/pull/2789))
+- fix cargo-binstall metadata and add a test in CI ([#2789](https://github.com/maplibre/martin/pull/2789))
 
 ## [1.9.0](https://github.com/maplibre/martin/compare/martin-v1.8.2...martin-v1.9.0) - 2026-05-06
 
