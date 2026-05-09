@@ -5,10 +5,10 @@ use martin::MartinResult;
 use martin::config::args::Args;
 #[cfg(all(feature = "webui", not(docsrs)))]
 use martin::config::args::WebUiMode;
-#[cfg(feature = "unstable-cog")]
-use martin::config::file::reload::cog::COGReloader;
 #[cfg(feature = "mbtiles")]
 use martin::config::file::ProcessConfig;
+#[cfg(feature = "unstable-cog")]
+use martin::config::file::reload::cog::COGReloader;
 #[cfg(feature = "mbtiles")]
 use martin::config::file::reload::mbtiles::MBTilesReloader;
 #[cfg(feature = "pmtiles")]
@@ -68,7 +68,8 @@ async fn start(args: Args) -> MartinResult<()> {
         };
         #[cfg(not(feature = "mlt"))]
         let global_pc = ProcessConfig::default();
-        let reloader = MBTilesReloader::new(mgr.clone(), resolver.clone(), &config.mbtiles, &global_pc);
+        let reloader =
+            MBTilesReloader::new(mgr.clone(), resolver.clone(), &config.mbtiles, &global_pc);
         if let Err(e) = reloader.start() {
             tracing::warn!("failed to start MBTilesReloader {e:?}");
         }
