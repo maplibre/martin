@@ -418,8 +418,8 @@ install-dependencies backend='vulkan':
 install-dependencies backend='vulkan':
     @echo "rendering styles is not currently supported on windows"
 
-# Run cargo fmt and cargo clippy
-lint: fmt clippy ui::biome ui::type-check
+# Run common lints
+lint: fmt check clippy ui::biome ui::type-check clippy-md fmt-toml
 
 # Run mbtiles command
 mbtiles *args:
