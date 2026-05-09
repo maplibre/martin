@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.1](https://github.com/maplibre/martin/compare/martin-v1.9.0...martin-v1.9.1) - 2026-05-09
+
+### Other
+
+- fix cargo-binstall metadata and add a test in CI ([#2789](https://github.com/maplibre/martin/pull/2789))
+- add a data underlay for the inspector ([#2782](https://github.com/maplibre/martin/pull/2782))
+
 ## [1.9.0](https://github.com/maplibre/martin/compare/martin-v1.8.2...martin-v1.9.0) - 2026-05-06
 
 ### MVT - MLT pre-processing encoding
