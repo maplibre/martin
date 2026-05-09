@@ -36,7 +36,7 @@ just bless
 - **`martin`** - HTTP server, CLI, configuration, routing. Binaries: `martin`, `martin-cp`
   - `martin-ui/` - React frontend, embedded at build time
 - **`martin-core`** - Core source logic `src/tiles/{postgres,mbtiles,pmtiles,cog}/` and `src/resources/{fonts,sprites,styles}/`
-  All code that is likely usefull for others is here.
+  All code that is likely useful for others is here.
 - **`martin-tile-utils`** - Tile format detection, compression/decompression
 - **`mbtiles`** - MBTiles library + CLI
 
