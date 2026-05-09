@@ -33,6 +33,26 @@ pub struct Catalog {
     #[cfg(feature = "styles")]
     #[cfg_attr(feature = "unstable-schemas", schema(inline))]
     pub styles: martin_core::styles::StyleCatalog,
+    #[cfg_attr(feature = "unstable-schemas", schema(inline))]
+    pub settings: CatalogSettings,
+}
+
+/// Server-wide capability flags exposed to clients via the catalog endpoint.
+///
+/// Fields are gated by the same feature flags that enable the underlying
+/// behaviour, so a field's presence in the JSON response signals that the
+/// corresponding capability is compiled in.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[cfg_attr(
+    feature = "unstable-schemas",
+    derive(schemars::JsonSchema, utoipa::ToSchema)
+)]
+pub struct CatalogSettings {
+    /// Whether server-side style rendering endpoints (e.g. `/style/{id}/{z}/{x}/{y}.png`) are
+    /// enabled. Only present in builds where the `rendering` feature is compiled in and the
+    /// host platform is Linux.
+    #[cfg(all(feature = "rendering", feature = "styles", target_os = "linux"))]
+    pub rendering: bool,
 }
 
 impl Catalog {
@@ -48,6 +68,10 @@ impl Catalog {
             fonts: state.fonts.get_catalog(),
             #[cfg(feature = "styles")]
             styles: state.styles.get_catalog(),
+            settings: CatalogSettings {
+                #[cfg(all(feature = "rendering", feature = "styles", target_os = "linux"))]
+                rendering: state.styles.is_rendering_enabled(),
+            },
         })
     }
 }

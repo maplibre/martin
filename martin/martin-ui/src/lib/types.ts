@@ -5,6 +5,13 @@ export interface CatalogSchema {
   sprites: { readonly [sprite_collection_id: string]: SpriteCollection };
   fonts: { readonly [name: string]: Font };
   styles: { readonly [name: string]: Style };
+  settings: CatalogSettings;
+}
+
+export interface CatalogSettings {
+  // whether server-side style rendering is enabled
+  // only present when the server is built with the `rendering` feature on Linux
+  rendering?: boolean;
 }
 
 export interface Font {
