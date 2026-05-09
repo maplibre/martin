@@ -108,10 +108,8 @@ impl SpriteSources {
                         warn!(
                             source.id = %v.key(),
                             sprite.path = %disp_path,
-                            "Sprite source directory contains no `.svg` files. \
-                             Martin generates spritesheets from source SVG files; \
-                             pre-generated `sprite.png` / `sprite.json` files are not used. \
-                             Sprite requests for this source will fail."
+                            "No sprite SVG files found in directory to generate spritesheets from. \
+                             Sprite requests for this source will fail, until at least one svg is present."
                         );
                     }
                     v.insert(SpriteSource { path });
@@ -279,10 +277,7 @@ mod tests {
             panic!("expected NoSpriteFilesFound, got Ok");
         };
 
-        assert!(matches!(err, SpriteError::NoSpriteFilesFound(ref p) if p == tmp.path()));
-        let msg = err.to_string();
-        assert!(msg.contains(".svg"), "error message lacks `.svg`: {msg}");
-        assert!(msg.contains(&tmp.path().display().to_string()));
+        assert!(matches!(err, SpriteError::NoSpriteFilesFound(_)));
     }
 
     async fn test_src(

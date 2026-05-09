@@ -26,10 +26,7 @@ pub enum SpriteError {
     InvalidSpriteFilePath(String, PathBuf),
 
     /// No SVG files found in directory.
-    #[error(
-        "No sprite SVG files found in {0}. Martin generates spritesheets from source `.svg` files; \
-         a directory containing only pre-generated `sprite.png` / `sprite.json` cannot be used."
-    )]
+    #[error("No sprite SVG files found in {0} to generate spritesheets from")]
     NoSpriteFilesFound(PathBuf),
 
     /// Failed to read sprite file.
