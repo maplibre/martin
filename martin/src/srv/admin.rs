@@ -37,20 +37,13 @@ pub struct Catalog {
     pub settings: CatalogSettings,
 }
 
-/// Server-wide capability flags exposed to clients via the catalog endpoint.
-///
-/// Fields are gated by the same feature flags that enable the underlying
-/// behaviour, so a field's presence in the JSON response signals that the
-/// corresponding capability is compiled in.
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+/// Server-wide capability flags
 #[cfg_attr(
     feature = "unstable-schemas",
     derive(schemars::JsonSchema, utoipa::ToSchema)
 )]
 pub struct CatalogSettings {
-    /// Whether server-side style rendering endpoints (e.g. `/style/{id}/{z}/{x}/{y}.png`) are
-    /// enabled. Only present in builds where the `rendering` feature is compiled in and the
-    /// host platform is Linux.
+    /// Whether server-side style rendering endpoints are enabled.
     #[cfg(all(feature = "rendering", feature = "styles", target_os = "linux"))]
     pub rendering: bool,
 }
