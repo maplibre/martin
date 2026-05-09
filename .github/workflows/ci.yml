@@ -780,11 +780,13 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with: { persist-credentials: false }
       - uses: taiki-e/install-action@cf525cb33f51aca27cd6fa02034117ab963ff9f1 # v2.75.22
-        with: { tool: 'just' }
+        with: { tool: 'just,cargo-binstall' }
       - name: Install rendering dependencies
         run: just install-dependencies
       - name: Test packaging
         run: cargo publish --workspace --dry-run
+      - name: Test cargo-binstall metadata
+        run: just check-binstall
 
   package:
     name: Package

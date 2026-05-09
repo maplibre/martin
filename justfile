@@ -261,6 +261,10 @@ move-artifacts target:
 check: (cargo-install 'cargo-hack')
     cargo hack --exclude-features _tiles,_catalog,__hotpath,__hotpath_tui check --all-targets --each-feature --workspace
 
+# Verify cargo-binstall metadata resolves correctly
+check-binstall: (cargo-install 'cargo-binstall')
+    cargo binstall martin --manifest-path martin/Cargo.toml --dry-run --no-confirm
+
 # Test documentation generation
 check-doc:  (docs-build)
 

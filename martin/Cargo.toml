@@ -17,6 +17,14 @@ repository.workspace = true
 rust-version.workspace = true
 homepage.workspace = true
 
+[package.metadata.binstall]
+pkg-url = "{ repo }/releases/download/martin-v{ version }/{ name }-{ target }.{ archive-format }"
+bin-dir = "{ bin }{ binary-ext }"
+pkg-fmt = "tgz"
+
+[package.metadata.binstall.overrides.x86_64-pc-windows-msvc]
+pkg-fmt = "zip"
+
 [package.metadata.deb]
 name = "martin"
 revision = ""
