@@ -41,7 +41,7 @@
             "type": "object"
           },
           "settings": {
-            "description": "Server-wide capability flags exposed to clients via the catalog endpoint.\n\nFields are gated by the same feature flags that enable the underlying\nbehaviour, so a field's presence in the JSON response signals that the\ncorresponding capability is compiled in.",
+            "description": "Server-wide capability flags",
             "type": "object"
           },
           "sprites": {
