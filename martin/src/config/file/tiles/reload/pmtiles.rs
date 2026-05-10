@@ -28,30 +28,23 @@ use crate::{MartinError, MartinResult, ReloadAdvisory, TileSourceManager};
 const PMTILES_EXT: &str = "pmtiles";
 const PMTILES_EXT_DOT: &str = ".pmtiles";
 
-/// A reloader for `PMTiles` sources.
+/// Reloader for `PMTiles` sources.
 ///
-/// Local directories are watched via `notify` filesystem events (sub-second feedback).
-/// Remote URL prefixes (`s3://`, `gs://`, `https://`, …) are polled every
-/// [`PmtConfig::reload_interval_secs`] seconds via `object_store::list`, which is the only
-/// portable way to discover blob-store changes.
+/// Local directories use `notify` for sub-second feedback; remote URL prefixes (`s3://`,
+/// `gs://`, `https://`, …) fall back to polling because blob stores have no event channel.
 pub struct PMTilesReloader {
     id_resolver: IdResolver,
     tile_source_manager: TileSourceManager,
-    /// Last-known local-source state: `id -> (canonical path, modified-ms, cache policy)`.
+    /// Last-known local source state, keyed on resolved id.
     sources: BTreeMap<String, (PathBuf, u128, CachePolicy)>,
-    /// Local directories watched via `notify`.
     directories: Vec<PathBuf>,
-    /// Maps canonical paths of explicitly configured sources to their cache policy,
-    /// so directory-discovered sources that match a configured path inherit its policy.
+    /// Cache policy by canonical path, so directory-discovered sources can inherit
+    /// the policy of an explicitly configured one.
     path_cache: BTreeMap<PathBuf, CachePolicy>,
-    /// Retained to create new `PmtilesSource` instances; shares the directory cache Arc.
     config: PmtConfig,
-    /// Process config (MVT/MLT conversion) applied to dynamically-discovered sources.
     process: ProcessConfig,
-    /// Remote URL prefixes (e.g. `s3://bucket/`, `https://host/dir/`) to poll for sources.
     remote_prefixes: Vec<Url>,
-    /// Last-known map of `id -> object URL` for prefix-discovered remote sources, used
-    /// to diff each polling tick.
+    /// Last-known remote source state, keyed on resolved id.
     remote_sources: BTreeMap<String, Url>,
 }
 
@@ -188,9 +181,8 @@ impl PMTilesReloader {
         } = self;
         let interval = Duration::from_secs(config.reload_interval_secs);
 
-        // Local directories: notify-driven event loop. Each event triggers a fresh
-        // directory scan + diff. The watcher and its mutable state are owned entirely by
-        // the spawned task — no shared mutex with the remote polling task.
+        // Local watcher and remote poller each own their state inside their spawned
+        // task — splitting the reloader avoids a shared mutex.
         if !directories.is_empty() {
             let (tx, mut rx) = mpsc::channel::<Event>(256);
             let mut watcher = RecommendedWatcher::new(
@@ -226,8 +218,6 @@ impl PMTilesReloader {
             });
         }
 
-        // Remote URL prefixes: polling loop. Owns its own state, ticks every
-        // `reload_interval_secs` (or never if 0).
         if !remote_prefixes.is_empty() {
             if interval.is_zero() {
                 tracing::info!(
@@ -243,8 +233,8 @@ impl PMTilesReloader {
                 };
                 let mut tsm_remote = tile_source_manager;
                 tokio::spawn(async move {
-                    // Tick immediately on startup so remote sources show up without waiting
-                    // a full interval.
+                    // Fire the first tick at `now` so remote sources appear without a
+                    // full-interval startup delay.
                     let mut ticker = tokio::time::interval_at(Instant::now(), interval);
                     ticker.set_missed_tick_behavior(MissedTickBehavior::Delay);
                     loop {
@@ -259,8 +249,7 @@ impl PMTilesReloader {
     }
 }
 
-/// Mutable state owned by the local-directory watcher task. Held entirely inside the spawned
-/// task — no shared mutex with the remote-polling task.
+/// State for the local-directory watcher task; lives inside the task so no mutex is needed.
 struct LocalState {
     id_resolver: IdResolver,
     sources: BTreeMap<String, (PathBuf, u128, CachePolicy)>,
@@ -323,7 +312,7 @@ impl LocalState {
     }
 }
 
-/// Mutable state owned by the remote-polling task.
+/// State for the remote-polling task; lives inside the task so no mutex is needed.
 struct RemoteState {
     id_resolver: IdResolver,
     remote_prefixes: Vec<Url>,
@@ -333,9 +322,7 @@ struct RemoteState {
 }
 
 impl RemoteState {
-    /// Polling tick: re-list every remote prefix and apply the diff against the previous
-    /// `remote_sources` snapshot. Failures of individual prefixes are logged and skipped
-    /// (a transient remote outage shouldn't flap the catalog).
+    /// One polling pass: re-list every prefix, then diff against the prior snapshot.
     async fn tick(&mut self, tsm: &mut TileSourceManager) {
         let next = self.discover_remote_sources().await;
 
@@ -374,10 +361,8 @@ impl RemoteState {
         }
     }
 
-    /// Lists every remote prefix. Per-prefix list failures are logged and treated as
-    /// "this prefix contributed nothing this tick" so a transient outage doesn't flap the
-    /// catalog. The id-resolver is keyed on the absolute object URL so the same logical
-    /// id is reused across ticks.
+    /// Per-prefix failures are logged and skipped so a transient outage doesn't flap
+    /// the catalog.
     async fn discover_remote_sources(&self) -> BTreeMap<String, Url> {
         let mut out: BTreeMap<String, Url> = BTreeMap::new();
         for prefix in &self.remote_prefixes {
@@ -421,10 +406,8 @@ async fn list_remote_prefix(
             .filename()
             .and_then(|f| f.strip_suffix(PMTILES_EXT_DOT))
             .unwrap_or("_unknown");
-        // `meta.location` is reported relative to the *store's* root (which is `/` for the
-        // local backend and the bucket for s3/gs/azure), not relative to the prefix we
-        // asked to list. Reconstruct the absolute URL from scheme + authority + location
-        // so it round-trips through `new_sources_url`.
+        // `meta.location` is store-relative (bucket-rooted for s3/gs/azure), so we have
+        // to reattach scheme+authority to round-trip through `new_sources_url`.
         let object_url_str = format!(
             "{}://{}/{}",
             prefix.scheme(),

@@ -7,10 +7,12 @@
 //! HTTP requests against the in-process actix app and asserts that the catalog reflects
 //! adds/removes within a few polling intervals.
 //!
-//! Requires Docker. The test is `#[ignore]`d so the regular CI suite skips it; run with
-//! `cargo test --features pmtiles --test pmt_minio_test -- --ignored`.
+//! Requires Docker. Mirrors the `test-pg` pattern: the file is only compiled when the
+//! `test-minio` feature is enabled, so the regular `cargo test` suite skips it without
+//! needing per-test `#[ignore]` annotations. CI runs it with
+//! `cargo test --features test-minio --test pmt_minio_test`.
 
-#![cfg(feature = "pmtiles")]
+#![cfg(feature = "test-minio")]
 
 use std::collections::HashMap;
 use std::time::Duration;
@@ -129,7 +131,6 @@ async fn wait_for_catalog<F>(
 
 #[actix_rt::test]
 #[tracing_test::traced_test]
-#[ignore = "requires Docker (MinIO testcontainer)"]
 async fn pmt_minio_polls_catalog_via_public_api() {
     let (_minio, endpoint) = start_minio().await;
     let options = s3_options(&endpoint);
@@ -141,7 +142,9 @@ async fn pmt_minio_polls_catalog_via_public_api() {
     upload(&*store, "alpha.pmtiles", FIXTURE).await;
 
     // `reload_interval_secs: 1` keeps the polling cadence tight enough that a 5-second
-    // wait_for budget is plenty for any single change to propagate.
+    // wait_for budget is plenty for any single change to propagate. `skip_signature: false`
+    // and the explicit `aws_region` are spelled out so global env vars from `just` (e.g.
+    // `AWS_SKIP_CREDENTIALS=1`) don't override our MinIO credentials.
     let yaml = formatdoc! {"
         pmtiles:
           reload_interval_secs: 1
@@ -149,6 +152,7 @@ async fn pmt_minio_polls_catalog_via_public_api() {
           aws_access_key_id: minioadmin
           aws_secret_access_key: minioadmin
           aws_region: us-east-1
+          skip_signature: false
           allow_http: true
           virtual_hosted_style_request: false
           paths:
