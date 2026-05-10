@@ -1,1 +1,3 @@
 martin/martin-ui/src/lib/types.gen.ts linguist-generated=true
+schemas/config.json linguist-generated=true
+schemas/openapi.json linguist-generated=true
