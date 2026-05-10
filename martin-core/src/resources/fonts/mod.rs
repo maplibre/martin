@@ -104,11 +104,11 @@ pub type FontCatalog = HashMap<String, CatalogFontEntry>;
     derive(schemars::JsonSchema, utoipa::ToSchema)
 )]
 pub enum FontFormat {
-    /// `.otf` — `OpenType` font.
+    /// `OpenType` font (`.otf`)
     Otf,
-    /// `.ttf` — `TrueType` font.
+    /// `TrueType` font (`.ttf`)
     Ttf,
-    /// `.ttc` — `TrueType` collection.
+    /// `TrueType` collection (`.ttc`)
     Ttc,
 }
 
