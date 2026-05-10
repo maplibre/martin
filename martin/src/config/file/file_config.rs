@@ -165,7 +165,12 @@ impl<T: ConfigurationLivecycleHooks> FileConfigEnum<T> {
         configs: BTreeMap<String, FileConfigSrc>,
         custom: T,
     ) -> Self {
-        if configs.is_empty() {
+        // Collapse to the simpler `Path` / `Paths` / `None` variants only when both `configs`
+        // and `custom` carry no information; otherwise preserve `custom` by emitting `Config`.
+        // Without this, custom settings (e.g. `pmtiles.reload_interval_secs` or s3 options
+        // needed by the reloader) would silently disappear after `resolve_files` rebuilds
+        // the enum for an empty source set.
+        if configs.is_empty() && custom == T::default() {
             match paths.len() {
                 0 => Self::None,
                 1 => Self::Path(paths.into_iter().next().expect("one path exists")),
@@ -541,19 +546,28 @@ async fn resolve_one_path_int<T: TileSourceConfiguration>(
 
     if let Some(url) = parse_url(T::parse_urls(), &path)? {
         let target_ext = extension.iter().find(|&e| url.to_string().ends_with(e));
-        let id = if let Some(ext) = target_ext {
-            url.path_segments()
-                .and_then(Iterator::last)
-                .and_then(|s| {
-                    // Strip extension and trailing dot, or keep the original string
-                    s.strip_suffix(ext)
-                        .and_then(|s| s.strip_suffix('.'))
-                        .or(Some(s))
-                })
-                .unwrap_or("web_source")
-        } else {
-            "web_source"
+        let Some(ext) = target_ext else {
+            // A URL whose path doesn't end with one of the target extensions is treated as
+            // a prefix to be discovered by the format-specific reloader (e.g. PMTilesReloader
+            // polling `s3://bucket/`). Push it back into `directories` so the rebuilt
+            // FileConfigEnum preserves it for the reloader to see.
+            info!(
+                source.url = %sanitize_url(&url),
+                "URL does not end with a known extension; treating as a prefix for the reloader to discover"
+            );
+            directories.push(path);
+            return Ok((results, warnings));
         };
+        let id = url
+            .path_segments()
+            .and_then(Iterator::last)
+            .and_then(|s| {
+                // Strip extension and trailing dot, or keep the original string
+                s.strip_suffix(ext)
+                    .and_then(|s| s.strip_suffix('.'))
+                    .or(Some(s))
+            })
+            .unwrap_or("web_source");
 
         let id = idr.resolve(id, url.to_string());
         configs.insert(id.clone(), FileConfigSrc::Path(path));
@@ -668,6 +682,7 @@ fn sanitize_url(url: &Url) -> String {
 }
 
 #[cfg(feature = "_tiles")]
+#[must_use]
 pub fn is_remote_url(path: &Path) -> bool {
     const REMOTE_SCHEMES: &[&str] = &[
         "s3://", "s3a://", "gs://", "az://", "adl://", "azure://", "abfs://", "abfss://",

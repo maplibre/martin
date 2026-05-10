@@ -9,6 +9,7 @@ use notify::{
 };
 use tokio::sync::mpsc;
 
+use crate::config::file::process::ProcessConfig;
 use crate::config::file::{CachePolicy, FileConfigEnum, cog::CogConfig};
 use crate::config::primitives::{IdResolver, OptOneMany};
 use crate::{MartinError, MartinResult, ReloadAdvisory, TileSourceManager};
@@ -148,15 +149,19 @@ impl COGReloader {
         let next: BTreeMap<String, u128> = sources.iter().map(|(k, v)| (k.clone(), v.1)).collect();
         let sources_clone = sources.clone();
 
-        let adv =
-            ReloadAdvisory::from_maps(&prev, &next, async move |id| -> MartinResult<BoxedSource> {
+        let adv = ReloadAdvisory::from_maps(
+            &prev,
+            &next,
+            async move |id| -> MartinResult<BoxedSource> {
                 let p = sources_clone
                     .get(&id)
                     .ok_or(MartinError::SourceNotFound(id.clone()))?;
                 let src = CogSource::new(id, p.0.clone(), p.2.zoom())?;
                 Ok(Box::new(src) as BoxedSource)
-            })
-            .await;
+            },
+            ProcessConfig::default(),
+        )
+        .await;
 
         match tsm.apply_changes(adv).await {
             Ok(()) => self.sources = sources,

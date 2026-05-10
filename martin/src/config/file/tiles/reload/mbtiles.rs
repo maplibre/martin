@@ -8,10 +8,8 @@ use notify::{
     Config, Event, EventKind, RecommendedWatcher, Watcher as _,
     event::{AccessKind, AccessMode},
 };
-use tokio::fs;
 use tokio::sync::mpsc;
 
-use super::{path_modified_ms, resolve_dir_entry};
 use crate::config::file::mbtiles::MbtConfig;
 use crate::config::file::process::ProcessConfig;
 #[cfg(all(feature = "mlt", feature = "_tiles"))]

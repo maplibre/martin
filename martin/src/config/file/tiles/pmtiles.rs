@@ -17,8 +17,25 @@ use crate::config::file::{
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 use crate::config::file::{MltProcessConfig, MvtProcessConfig};
 
+/// Default polling interval for [`PMTilesReloader`](crate::config::file::reload::pmtiles::PMTilesReloader)
+/// to re-list remote URL prefixes (s3://, gs://, https://, etc.). Local directories are
+/// notify-driven and ignore this setting.
+pub const DEFAULT_RELOAD_INTERVAL_SECS: u64 = 600;
+
+fn default_reload_interval_secs() -> u64 {
+    DEFAULT_RELOAD_INTERVAL_SECS
+}
+
+#[expect(
+    clippy::trivially_copy_pass_by_ref,
+    reason = "serde skip_serializing_if requires fn(&T) -> bool"
+)]
+fn is_default_reload_interval_secs(v: &u64) -> bool {
+    *v == DEFAULT_RELOAD_INTERVAL_SECS
+}
+
 #[serde_with::skip_serializing_none]
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct PmtConfig {
     /// Size of the directory cache (in MB).
@@ -37,6 +54,17 @@ pub struct PmtConfig {
         schemars(with = "crate::config::file::CacheSizeConfigShape")
     )]
     pub directory_cache: CacheSizeConfig,
+
+    /// How often the `PMTilesReloader` re-lists remote URL prefixes (`s3://bucket/`,
+    /// `gs://bucket/`, etc.) for source discovery. Has no effect on local directories,
+    /// which are watched via filesystem events.
+    ///
+    /// Defaults to 600 seconds (10 minutes). Set to `0` to disable remote polling.
+    #[serde(
+        default = "default_reload_interval_secs",
+        skip_serializing_if = "is_default_reload_interval_secs"
+    )]
+    pub reload_interval_secs: u64,
 
     // if the key is the allowed set, we assume it is there for a purpose
     // settings and unreconginsed values are partitioned from each other in the init_parsing step
@@ -66,9 +94,26 @@ pub struct PmtConfig {
     pub pmtiles_directory_cache: PmtCache,
 }
 
+impl Default for PmtConfig {
+    fn default() -> Self {
+        Self {
+            directory_cache: CacheSizeConfig::default(),
+            reload_interval_secs: DEFAULT_RELOAD_INTERVAL_SECS,
+            options: HashMap::default(),
+            #[cfg(all(feature = "mlt", feature = "_tiles"))]
+            convert_to_mlt: None,
+            #[cfg(all(feature = "mlt", feature = "_tiles"))]
+            convert_to_mvt: None,
+            unrecognized: UnrecognizedValues::default(),
+            pmtiles_directory_cache: PmtCache::default(),
+        }
+    }
+}
+
 impl PartialEq for PmtConfig {
     fn eq(&self, other: &Self) -> bool {
         let base = self.directory_cache == other.directory_cache
+            && self.reload_interval_secs == other.reload_interval_secs
             && self.options == other.options
             && self.unrecognized == other.unrecognized;
         #[cfg(all(feature = "mlt", feature = "_tiles"))]

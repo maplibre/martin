@@ -5,7 +5,7 @@ use martin::MartinResult;
 use martin::config::args::Args;
 #[cfg(all(feature = "webui", not(docsrs)))]
 use martin::config::args::WebUiMode;
-#[cfg(feature = "mbtiles")]
+#[cfg(any(feature = "mbtiles", feature = "pmtiles"))]
 use martin::config::file::ProcessConfig;
 #[cfg(feature = "unstable-cog")]
 use martin::config::file::reload::cog::COGReloader;
@@ -59,15 +59,20 @@ async fn start(args: Args) -> MartinResult<()> {
     #[cfg(any(feature = "mbtiles", feature = "unstable-cog", feature = "pmtiles"))]
     let mgr = sources.tile_manager.clone();
 
-    #[cfg(feature = "mbtiles")]
-    {
+    #[cfg(any(feature = "mbtiles", feature = "pmtiles"))]
+    let global_pc = {
         #[cfg(feature = "mlt")]
-        let global_pc = ProcessConfig {
+        let pc = ProcessConfig {
             convert_to_mlt: config.convert_to_mlt.clone(),
             convert_to_mvt: config.convert_to_mvt.clone(),
         };
         #[cfg(not(feature = "mlt"))]
-        let global_pc = ProcessConfig::default();
+        let pc = ProcessConfig::default();
+        pc
+    };
+
+    #[cfg(feature = "mbtiles")]
+    {
         let reloader =
             MBTilesReloader::new(mgr.clone(), resolver.clone(), &config.mbtiles, &global_pc);
         if let Err(e) = reloader.start() {
@@ -83,7 +88,8 @@ async fn start(args: Args) -> MartinResult<()> {
     }
     #[cfg(feature = "pmtiles")]
     {
-        let reloader = PMTilesReloader::new(mgr.clone(), resolver.clone(), &config.pmtiles);
+        let reloader =
+            PMTilesReloader::new(mgr.clone(), resolver.clone(), &config.pmtiles, &global_pc);
         if let Err(e) = reloader.start() {
             tracing::warn!("failed to start PMTilesReloader {e:?}");
         }
