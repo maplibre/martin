@@ -5,6 +5,7 @@
 
 use std::collections::HashMap;
 
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_with;
 
@@ -52,6 +53,6 @@ pub struct CatalogSourceEntry {
     pub attribution: Option<String>,
     /// Number of vector layers declared by this source.
     pub layer_count: Option<u32>,
-    /// RFC 3339 timestamp of the underlying source's last modification.
-    pub last_modified_at: Option<String>,
+    /// Timestamp of the underlying source's last modification.
+    pub last_modified_at: Option<DateTime<Utc>>,
 }

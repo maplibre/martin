@@ -18,8 +18,10 @@
 
 use std::collections::HashMap;
 use std::fmt::Debug;
+use std::num::NonZeroUsize;
 use std::path::PathBuf;
 
+use chrono::{DateTime, Utc};
 use dashmap::{DashMap, Entry};
 use futures::future::try_join_all;
 use serde::{Deserialize, Serialize};
@@ -49,9 +51,13 @@ pub struct CatalogSpriteEntry {
     /// Available sprite image names.
     pub images: Vec<String>,
     /// Total size of the spritesheet in bytes.
-    pub size_in_bytes: Option<u64>,
-    /// RFC 3339 timestamp of the spritesheet's last modification.
-    pub last_modified_at: Option<String>,
+    // utoipa 5.4 has no `PartialSchema` impl for `NonZeroUsize`, so describe
+    // the field as a positive integer for the OpenAPI side; serde still
+    // serializes the inner usize.
+    #[cfg_attr(feature = "unstable-schemas", schema(value_type = u64, minimum = 1))]
+    pub size_in_bytes: Option<NonZeroUsize>,
+    /// Timestamp of the spritesheet's last modification.
+    pub last_modified_at: Option<DateTime<Utc>>,
 }
 
 /// Catalog mapping sprite names to metadata (e.g., "icons" -> [`CatalogSpriteEntry`]).

@@ -182,7 +182,10 @@ export interface components {
                      * @description Total number of glyphs in this font.
                      */
                     glyphs: number;
-                    /** @description RFC 3339 timestamp of the source font file's last modification. */
+                    /**
+                     * Format: date-time
+                     * @description Timestamp of the source font file's last modification.
+                     */
                     last_modified_at?: string | null;
                     /** @description First Unicode codepoint available. */
                     start: number;
@@ -198,20 +201,26 @@ export interface components {
                 [key: string]: {
                     /** @description Available sprite image names. */
                     images: string[];
-                    /** @description RFC 3339 timestamp of the spritesheet's last modification. */
+                    /**
+                     * Format: date-time
+                     * @description Timestamp of the spritesheet's last modification.
+                     */
                     last_modified_at?: string | null;
                     /**
                      * Format: int64
                      * @description Total size of the spritesheet in bytes.
                      */
-                    size_in_bytes?: number | null;
+                    size_in_bytes?: number;
                 };
             };
             styles: {
                 [key: string]: {
                     /** @description Distinct colors referenced by the style, for preview swatches. */
                     colors?: string[] | null;
-                    /** @description RFC 3339 timestamp of the style file's last modification. */
+                    /**
+                     * Format: date-time
+                     * @description Timestamp of the style file's last modification.
+                     */
                     last_modified_at?: string | null;
                     /**
                      * Format: int32
@@ -235,7 +244,10 @@ export interface components {
                     content_type: string;
                     /** @description Description of the tile source content */
                     description?: string | null;
-                    /** @description RFC 3339 timestamp of the underlying source's last modification. */
+                    /**
+                     * Format: date-time
+                     * @description Timestamp of the underlying source's last modification.
+                     */
                     last_modified_at?: string | null;
                     /**
                      * Format: int32

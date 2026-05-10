@@ -22,6 +22,7 @@ use std::path::PathBuf;
 use std::sync::{Arc, LazyLock};
 
 use bit_set::BitSet;
+use chrono::{DateTime, Utc};
 use dashmap::{DashMap, Entry};
 use itertools::Itertools as _;
 use pbf_font_tools::freetype::{Face, Library};
@@ -133,8 +134,8 @@ pub struct CatalogFontEntry {
     pub end: usize,
     /// Source font file container format.
     pub format: Option<FontFormat>,
-    /// RFC 3339 timestamp of the source font file's last modification.
-    pub last_modified_at: Option<String>,
+    /// Timestamp of the source font file's last modification.
+    pub last_modified_at: Option<DateTime<Utc>>,
 }
 
 /// Thread-safe font manager for discovery, cataloging, and serving fonts as Protocol Buffers.

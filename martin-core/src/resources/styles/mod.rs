@@ -17,6 +17,7 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 use std::path::PathBuf;
 
+use chrono::{DateTime, Utc};
 use dashmap::{DashMap, Entry};
 #[cfg(all(feature = "rendering", target_os = "linux"))]
 use maplibre_native::Image;
@@ -68,8 +69,8 @@ pub struct CatalogStyleEntry {
     pub layer_count: Option<u32>,
     /// Distinct colors referenced by the style, for preview swatches.
     pub colors: Option<Vec<String>>,
-    /// RFC 3339 timestamp of the style file's last modification.
-    pub last_modified_at: Option<String>,
+    /// Timestamp of the style file's last modification.
+    pub last_modified_at: Option<DateTime<Utc>>,
 }
 
 /// Catalog mapping style names to metadata (e.g., "basic" -> `CatalogStyleEntry`).

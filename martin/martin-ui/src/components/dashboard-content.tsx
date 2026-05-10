@@ -10,10 +10,10 @@ import { useAsyncOperation } from '@/hooks/use-async-operation';
 import { useToast } from '@/hooks/use-toast';
 import { useURLParams } from '@/hooks/use-url-params';
 import { martinClient } from '@/lib/martin-client';
-import type { CatalogSchema } from '@/lib/types';
+import type { Catalog } from '@/lib/types';
 import { TilesCatalog } from './catalogs/tiles';
 
-const fetchCatalog = async (): Promise<CatalogSchema> => {
+const fetchCatalog = async (): Promise<Catalog> => {
   const { data, response } = await martinClient.GET('/catalog');
   if (data === undefined) {
     throw new Error(`Failed to fetch catalog: ${response.statusText}`);
@@ -34,7 +34,7 @@ export function DashboardContent() {
   });
 
   // Catalog operation
-  const catalogOperation = useAsyncOperation<CatalogSchema>(fetchCatalog, {
+  const catalogOperation = useAsyncOperation<Catalog>(fetchCatalog, {
     onError: (error: Error) => console.error('Catalog fetch failed:', error),
     showErrorToast: false,
   });
