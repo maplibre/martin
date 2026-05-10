@@ -24,6 +24,11 @@ pub mod utils;
 
 const BUCKET: &str = "pmt-bucket";
 const FIXTURE: &[u8] = include_bytes!("../../tests/fixtures/pmtiles/png.pmtiles");
+/// Distinct fixture used to overwrite `FIXTURE` in-place. Selected because its tilejson
+/// has *no* `name` field, while `FIXTURE`'s tilejson has `name: "ne2sr"` — a clean signal
+/// for whether the reloader replaced the source after an overwrite.
+const STAMEN_FIXTURE: &[u8] =
+    include_bytes!("../../tests/fixtures/pmtiles/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles");
 
 async fn start_minio() -> (ContainerAsync<MinIO>, String) {
     let minio = MinIO::default()
@@ -209,4 +214,100 @@ async fn pmt_minio_polls_catalog_via_public_api() {
         !t.contains_key("beta") && t.contains_key("alpha")
     })
     .await;
+}
+
+/// Snapshots how the `PMTilesReloader` handles an in-place overwrite of a remote blob:
+/// uploading new bytes to the same key.
+///
+/// `RemoteState::tick` diffs the *set of object IDs*, so overwrites at an unchanged key
+/// produce `prev_ids == next_ids` and the loop early-returns without replacing the
+/// `PmtilesSource`. The catalog therefore keeps reporting the original file's metadata.
+/// This test pins that behavior — if the reloader ever starts tracking ETags or
+/// last-modified, this assertion will trip and force an explicit doc update.
+#[actix_rt::test]
+#[tracing_test::traced_test]
+async fn pmt_minio_in_place_blob_overwrite_keeps_existing_source() {
+    let (_minio, endpoint) = start_minio().await;
+    let options = s3_options(&endpoint);
+
+    let s3_url: Url = format!("s3://{BUCKET}/").parse().unwrap();
+    let (store, _base) = object_store::parse_url_opts(&s3_url, &options).unwrap();
+    upload(&*store, "alpha.pmtiles", FIXTURE).await;
+
+    let yaml = formatdoc! {"
+        pmtiles:
+          reload_interval_secs: 1
+          aws_endpoint: {endpoint}
+          aws_access_key_id: minioadmin
+          aws_secret_access_key: minioadmin
+          aws_region: us-east-1
+          skip_signature: false
+          allow_http: true
+          virtual_hosted_style_request: false
+          paths:
+            - s3://{BUCKET}/
+    "};
+
+    let mut config = utils::mock_cfg(&yaml);
+    let resolver = IdResolver::new(&[]);
+    let state = config.resolve(&resolver).await.expect("resolve config");
+
+    let reloader = PMTilesReloader::new(
+        state.tile_manager.clone(),
+        resolver,
+        &config.pmtiles,
+        &ProcessConfig::default(),
+    );
+    reloader.start().expect("reloader start");
+
+    let app = init_service(
+        actix_web::App::new()
+            .app_data(Data::new(
+                martin::srv::Catalog::new(
+                    #[cfg(any(feature = "sprites", feature = "fonts", feature = "styles"))]
+                    &state,
+                )
+                .unwrap(),
+            ))
+            .app_data(Data::new(state.tile_manager.clone()))
+            .app_data(Data::new(SrvConfig::default()))
+            .configure(|c| martin::srv::router(c, &SrvConfig::default())),
+    )
+    .await;
+
+    // Wait until the reloader has discovered the original blob and exposed its `name`
+    // in the catalog. Pinning `name == "ne2sr"` here is the "before" of the snapshot.
+    wait_for_catalog(
+        &app,
+        Duration::from_secs(10),
+        "alpha discovered with name=ne2sr",
+        |t| {
+            t.get("alpha").and_then(|v| v.get("name")).and_then(Value::as_str)
+                == Some("ne2sr")
+        },
+    )
+    .await;
+
+    // Overwrite alpha.pmtiles in-place with a fixture whose tilejson has no `name`
+    // field. With ETag tracking, the reloader would replace the source and `name`
+    // would disappear from the catalog.
+    upload(&*store, "alpha.pmtiles", STAMEN_FIXTURE).await;
+
+    // Wait through several polling ticks (interval is 1s) to give the reloader every
+    // chance to notice the overwrite. We expect it not to.
+    tokio::time::sleep(Duration::from_secs(3)).await;
+
+    let tiles = catalog_tiles(&app).await;
+    let entry = tiles
+        .get("alpha")
+        .expect("alpha should still be in the catalog");
+    let name = entry.get("name").and_then(Value::as_str);
+    assert_eq!(
+        name,
+        Some("ne2sr"),
+        "in-place overwrite should NOT be detected by the current reloader; \
+         catalog entry should still reflect the original FIXTURE. \
+         If this assertion now fails, the reloader gained ETag/mtime tracking — \
+         update docs/content/sources-files.md (PMTiles Hot Reload) accordingly."
+    );
 }
