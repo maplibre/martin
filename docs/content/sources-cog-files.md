@@ -67,6 +67,25 @@ cog:
      cog-src2: /path/to/cog2.tif
 ```
 
+## COG Hot Reload
+
+Martin watches directories configured under `cog` for changes at runtime. When `.tif` or `.tiff` files are added, modified, or removed from a watched directory, Martin automatically updates the tile catalog — no restart required.
+
+```yaml
+cog:
+  paths:
+    - /path/to/cog/directory
+```
+
+The following events are handled automatically:
+
+- **File added** - the new source appears in the catalog.
+- **File modified** - the source is reloaded and its tile cache is invalidated.
+- **File removed** - the source is removed from the catalog.
+
+!!! note
+    Hot reload applies to directories configured under `cog.paths` (or passed on the CLI). Named sources listed under `cog.sources` are snapshotted at startup and are not watched for changes.
+
 ## About COG
 
 [COG](https://cogeo.org/) is just Cloud Optimized GeoTIFF file.
