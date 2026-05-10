@@ -35,10 +35,7 @@
                 },
                 "last_modified_at": {
                   "description": "RFC 3339 timestamp of the source font file's last modification.",
-                  "type": [
-                    "string",
-                    "null"
-                  ]
+                  "type": ["string", "null"]
                 },
                 "start": {
                   "description": "First Unicode codepoint available.",
@@ -71,19 +68,13 @@
                 },
                 "last_modified_at": {
                   "description": "RFC 3339 timestamp of the spritesheet's last modification.",
-                  "type": [
-                    "string",
-                    "null"
-                  ]
+                  "type": ["string", "null"]
                 },
                 "size_in_bytes": {
                   "description": "Total size of the spritesheet in bytes.",
                   "format": "int64",
                   "minimum": 0,
-                  "type": [
-                    "integer",
-                    "null"
-                  ]
+                  "type": ["integer", "null"]
                 }
               },
               "required": ["images"],
@@ -103,26 +94,17 @@
                   "items": {
                     "type": "string"
                   },
-                  "type": [
-                    "array",
-                    "null"
-                  ]
+                  "type": ["array", "null"]
                 },
                 "last_modified_at": {
                   "description": "RFC 3339 timestamp of the style file's last modification.",
-                  "type": [
-                    "string",
-                    "null"
-                  ]
+                  "type": ["string", "null"]
                 },
                 "layer_count": {
                   "description": "Number of layers declared in the style JSON.",
                   "format": "int32",
                   "minimum": 0,
-                  "type": [
-                    "integer",
-                    "null"
-                  ]
+                  "type": ["integer", "null"]
                 },
                 "path": {
                   "description": "Path to the style JSON file.",
@@ -141,10 +123,7 @@
                 },
                 "version_hash": {
                   "description": "Hash identifying the current style revision.",
-                  "type": [
-                    "string",
-                    "null"
-                  ]
+                  "type": ["string", "null"]
                 }
               },
               "required": ["path"],
@@ -177,19 +156,13 @@
                 },
                 "last_modified_at": {
                   "description": "RFC 3339 timestamp of the underlying source's last modification.",
-                  "type": [
-                    "string",
-                    "null"
-                  ]
+                  "type": ["string", "null"]
                 },
                 "layer_count": {
                   "description": "Number of vector layers declared by this source.",
                   "format": "int32",
                   "minimum": 0,
-                  "type": [
-                    "integer",
-                    "null"
-                  ]
+                  "type": ["integer", "null"]
                 },
                 "name": {
                   "description": "Human-readable name for the tile source",
@@ -210,20 +183,12 @@
       },
       "FontFormat": {
         "description": "Source font file container format.",
-        "enum": [
-          "otf",
-          "ttf",
-          "ttc"
-        ],
+        "enum": ["otf", "ttf", "ttc"],
         "type": "string"
       },
       "StyleKind": {
         "description": "What kind of layers a `MapLibre` style draws.",
-        "enum": [
-          "vector",
-          "raster",
-          "hybrid"
-        ],
+        "enum": ["vector", "raster", "hybrid"],
         "type": "string"
       }
     }
