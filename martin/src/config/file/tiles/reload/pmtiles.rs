@@ -425,7 +425,7 @@ async fn list_remote_prefix(
     while let Some(meta) = stream
         .try_next()
         .await
-        .map_err(|e| ConfigFileError::ObjectStoreUrlParsing(e, prefix.to_string()))?
+        .map_err(|e| ConfigFileError::ObjectStoreList(e, prefix.to_string()))?
     {
         if !meta.location.as_ref().ends_with(PMTILES_EXT_DOT) {
             continue;

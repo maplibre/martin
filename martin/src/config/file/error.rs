@@ -67,6 +67,10 @@ pub enum ConfigFileError {
     #[cfg(feature = "pmtiles")]
     #[error("Failed to parse object store URL of {1}: {0}")]
     ObjectStoreUrlParsing(object_store::Error, String),
+
+    #[cfg(feature = "pmtiles")]
+    #[error("Failed to list objects under {1}: {0}")]
+    ObjectStoreList(object_store::Error, String),
 }
 
 /// Boxed payload for [`ConfigFileError::YamlParseError`].
@@ -206,6 +210,8 @@ impl Diagnostic for ConfigFileError {
             Self::FontResolutionFailed(..) => "martin::config::fonts::resolution",
             #[cfg(feature = "pmtiles")]
             Self::ObjectStoreUrlParsing(..) => "martin::config::pmtiles::object_store_url",
+            #[cfg(feature = "pmtiles")]
+            Self::ObjectStoreList(..) => "martin::config::pmtiles::object_store_list",
         };
         Some(Box::new(code))
     }
