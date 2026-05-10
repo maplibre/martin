@@ -19,6 +19,13 @@ bless:
 clean:
     rm -rf dist node_modules
 
+# Regenerate `src/lib/types.gen.ts` from `schemas/openapi.json`.
+# Called from the root `gen-schemas` recipe after the spec is written —
+# kept in this module so all Node tooling stays behind `mod ui`.
+gen-ui-types:
+    npm clean-install --no-fund
+    npm run gen-types
+
 # Run frontend tests
 test:
     npm run test

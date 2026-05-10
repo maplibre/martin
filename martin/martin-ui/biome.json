@@ -6,7 +6,8 @@
       "*.{tsx,ts,mjs,json,jsonc,yaml,yml}",
       "{__tests__,__mocks__,types,app,components,hooks,public,lib,src}/**/*.{tsx,ts,mjs,json,jsonc,yaml,yml}",
       "!node_modules",
-      "!dist"
+      "!dist",
+      "!src/lib/types.gen.ts"
     ]
   },
   "linter": {

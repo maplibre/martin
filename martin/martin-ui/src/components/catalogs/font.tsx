@@ -54,7 +54,7 @@ export function FontCatalog({
     ([name, font]) =>
       name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       font.family.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      font.style.toLowerCase().includes(searchQuery.toLowerCase()),
+      (font.style ?? '').toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
   return (

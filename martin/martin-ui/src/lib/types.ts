@@ -1,58 +1,57 @@
 import type { CacheMetrics, HistogramBucket } from './prometheus';
+import type { components } from './types.gen';
+
+type GeneratedCatalog = components['schemas']['Catalog'];
+
+// The OpenAPI spec doesn't yet expose every field the dashboard renders, so
+// each entry type is the spec-derived shape intersected with a small client
+// patch carrying the still-missing optionals. Drop the patch field once the
+// matching `utoipa::ToSchema` derive on the Rust side is enriched.
+
+interface FontPatch {
+  // todo: make this provided as required upstream
+  format?: 'otf' | 'ttf' | 'ttc';
+  // todo: make this provided as required upstream
+  lastModifiedAt?: Date;
+}
+
+interface StylePatch {
+  // todo: make this provided as required upstream
+  type?: 'vector' | 'raster' | 'hybrid';
+  // todo: make this provided as required upstream
+  versionHash?: string;
+  // todo: make this provided as required upstream
+  layerCount?: number;
+  // todo: make this provided as required upstream
+  colors?: readonly string[];
+  // todo: make this provided as required upstream
+  lastModifiedAt?: Date;
+}
+
+interface TileSourcePatch {
+  // todo: make this provided as required upstream
+  layerCount?: number;
+  // todo: make this provided as required upstream
+  lastModifiedAt?: Date;
+}
+
+interface SpriteCollectionPatch {
+  // todo: make this provided as required upstream
+  sizeInBytes?: number;
+  // todo: make this provided as required upstream
+  lastModifiedAt?: Date;
+}
+
+export type Font = GeneratedCatalog['fonts'][string] & FontPatch;
+export type Style = GeneratedCatalog['styles'][string] & StylePatch;
+export type TileSource = GeneratedCatalog['tiles'][string] & TileSourcePatch;
+export type SpriteCollection = GeneratedCatalog['sprites'][string] & SpriteCollectionPatch;
 
 export interface CatalogSchema {
   tiles: { readonly [tile_id: string]: TileSource };
   sprites: { readonly [sprite_collection_id: string]: SpriteCollection };
   fonts: { readonly [name: string]: Font };
   styles: { readonly [name: string]: Style };
-}
-
-export interface Font {
-  // the group of fonts that are used in the application
-  // Example
-  // - "Roboto Medium" has the family of Roboto
-  // - "Roboto Condensed Medium Italic" has family "Roboto Condensed"
-  family: string;
-  // if the style is Medium, Bold, Italic, Bold Italic, ..
-  style: string;
-  format?: 'otf' | 'ttf' | 'ttc'; // todo: make this provided as required upstream
-  start: number; // todo: what is this?
-  end: number; // todo: what is this?
-  glyphs: number;
-  lastModifiedAt?: Date; // todo: make this provided as required upstream
-}
-
-export interface Style {
-  path: string;
-  type?: 'vector' | 'raster' | 'hybrid'; // todo: make this provided as required upstream
-  versionHash?: string; // todo: make this provided as required upstream
-  layerCount?: number; // todo: make this provided as required upstream
-  colors?: readonly string[]; // todo: make this provided as required upstream
-  lastModifiedAt?: Date; // todo: make this provided as required upstream
-}
-/**
- * Represents a data source in the data catalog.
- */
-export interface TileSource {
-  // application/x-protobuf, image/...
-  content_type: string;
-  // for example gzip
-  content_encoding?: string;
-  name?: string;
-  description?: string;
-  attribution?: string;
-  layerCount?: number; // todo: make this provided as required upstream
-  lastModifiedAt?: Date; // todo: make this provided as required upstream
-}
-
-/**
- * Represents a sprite, which can be selected or downloaded.
- * This is a placeholder type and might need to be adjusted based on the actual sprite data.
- */
-export interface SpriteCollection {
-  images: readonly string[];
-  sizeInBytes?: number; // todo: make this provided as required upstream
-  lastModifiedAt?: Date; // todo: make this provided as required upstream
 }
 
 export interface EndpointAnalytics {
