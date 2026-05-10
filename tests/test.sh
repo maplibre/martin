@@ -1139,6 +1139,9 @@ wait_for_catalog_source_removed "png"
 $CURL "$MARTIN_URL/catalog" | jq --sort-keys > "$TEST_OUT_DIR/catalog_after_remove.json"
 
 kill_process "$MARTIN_PROC_ID" Martin
+# Disarm the EXIT trap now that the process is gone — otherwise the OS could
+# reuse the PID before script exit and the trap would SIGKILL an unrelated proc.
+trap - EXIT HUP INT TERM
 
 test_log_has_str "$LOG_FILE" 'Added source source.id=png'
 test_log_has_str "$LOG_FILE" 'Updated source source.id=png'
@@ -1146,6 +1149,43 @@ test_log_has_str "$LOG_FILE" 'Removed source source.id=png'
 test_log_has_str "$LOG_FILE" 'WARN Defaulting `pmtiles.allow_http` to `true`. This is likely to become an error in the future for better security.'
 test_log_has_str "$LOG_FILE" 'WARN Environment variable AWS_SKIP_CREDENTIALS is deprecated. Please use pmtiles.skip_signature in the configuration file instead.'
 test_log_has_str "$LOG_FILE" 'WARN Environment variable AWS_REGION is deprecated. Please use pmtiles.region in the configuration file instead.'
+validate_log "$LOG_FILE"
+echo "::endgroup::"
+
+# Regression coverage for the reloader snapshot-seeding bug: if Martin starts
+# with a file *already* in the watch directory, the reloader must record it in
+# its snapshot — otherwise a subsequent deletion produces an empty diff
+# (prev=={}, next=={}) and the catalog never drops the now-missing source.
+echo "::group::Test PMTiles hot reload — pre-existing file at startup"
+TEST_NAME="pmtiles_reload_startup"
+LOG_FILE="${LOG_DIR}/${TEST_NAME}.txt"
+TEST_OUT_DIR="${TEST_OUT_BASE_DIR}/${TEST_NAME}"
+PMTILES_RELOAD_STARTUP_DIR="${TEST_TEMP_DIR}/pmtiles_reload_startup_watch"
+mkdir -p "$TEST_OUT_DIR" "$PMTILES_RELOAD_STARTUP_DIR"
+
+# Pre-populate BEFORE Martin starts, so the file is loaded by config resolution
+# rather than by a notify event.
+cp tests/fixtures/pmtiles/png.pmtiles "$PMTILES_RELOAD_STARTUP_DIR/png.pmtiles"
+
+ARG=("$PMTILES_RELOAD_STARTUP_DIR")
+set -x
+$MARTIN_BIN "${ARG[@]}" 2>&1 | tee "$LOG_FILE" &
+MARTIN_PROC_ID=$(jobs -p | tail -n 1)
+{ set +x; } 2> /dev/null
+trap "echo 'Stopping Martin server $MARTIN_PROC_ID...'; kill -9 $MARTIN_PROC_ID 2> /dev/null || true; echo 'Stopped Martin server $MARTIN_PROC_ID';" EXIT HUP INT TERM
+wait_for "$MARTIN_PROC_ID" Martin "$MARTIN_URL/health"
+
+>&2 echo "Test PMTiles reload (startup-seeded): pre-existing file appears in catalog"
+wait_for_catalog_source "png"
+
+>&2 echo "Test PMTiles reload (startup-seeded): removing the pre-existing file triggers source removal"
+rm "$PMTILES_RELOAD_STARTUP_DIR/png.pmtiles"
+wait_for_catalog_source_removed "png"
+
+kill_process "$MARTIN_PROC_ID" Martin
+trap - EXIT HUP INT TERM
+
+test_log_has_str "$LOG_FILE" 'Removed source source.id=png'
 validate_log "$LOG_FILE"
 echo "::endgroup::"
 
@@ -1193,6 +1233,7 @@ if [[ "$COG_ENABLED" == "1" ]]; then
   $CURL "$MARTIN_URL/catalog" | jq --sort-keys > "$TEST_OUT_DIR/catalog_after_remove.json"
 
   kill_process "$MARTIN_PROC_ID" Martin
+  trap - EXIT HUP INT TERM
 
   test_log_has_str "$LOG_FILE" "Added source source.id=${COG_SOURCE_ID}"
   test_log_has_str "$LOG_FILE" "Updated source source.id=${COG_SOURCE_ID}"
@@ -1201,6 +1242,7 @@ else
   >&2 echo "COG reloader not active (binary not compiled with unstable-cog) — skipping COG reload tests"
   rm -f "$COG_RELOAD_WATCH_DIR/${COG_SOURCE_ID}.tif"
   kill_process "$MARTIN_PROC_ID" Martin
+  trap - EXIT HUP INT TERM
 fi
 
 test_log_has_str "$LOG_FILE" 'WARN Defaulting `pmtiles.allow_http` to `true`. This is likely to become an error in the future for better security.'
