@@ -129,13 +129,13 @@ async fn pmt_minio_polls_catalog_via_public_api() {
     let (store, _base) = object_store::parse_url_opts(&s3_url, &options).unwrap();
     upload(&*store, "alpha.pmtiles", FIXTURE).await;
 
-    // `reload_interval_secs: 1` keeps the polling cadence tight enough that a 5-second
+    // `reload_interval: 1s` keeps the polling cadence tight enough that a 5-second
     // wait_for budget is plenty for any single change to propagate. `skip_signature: false`
     // and the explicit `aws_region` are spelled out so global env vars from `just` (e.g.
     // `AWS_SKIP_CREDENTIALS=1`) don't override our MinIO credentials.
     let yaml = formatdoc! {"
         pmtiles:
-          reload_interval_secs: 1
+          reload_interval: 1s
           aws_endpoint: {endpoint}
           aws_access_key_id: minioadmin
           aws_secret_access_key: minioadmin
@@ -236,7 +236,7 @@ async fn pmt_minio_in_place_blob_overwrite_keeps_existing_source() {
 
     let yaml = formatdoc! {"
         pmtiles:
-          reload_interval_secs: 1
+          reload_interval: 1s
           aws_endpoint: {endpoint}
           aws_access_key_id: minioadmin
           aws_secret_access_key: minioadmin

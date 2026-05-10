@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::env;
 use std::path::PathBuf;
 use std::str::FromStr as _;
+use std::time::Duration;
 
 use martin_core::tiles::BoxedSource;
 use martin_core::tiles::pmtiles::{PmtCache, PmtCacheInstance, PmtilesSource};
@@ -20,18 +21,14 @@ use crate::config::file::{MltProcessConfig, MvtProcessConfig};
 /// Default polling interval for [`PMTilesReloader`](crate::config::file::reload::pmtiles::PMTilesReloader)
 /// to re-list remote URL prefixes (s3://, gs://, https://, etc.). Local directories are
 /// notify-driven and ignore this setting.
-pub const DEFAULT_RELOAD_INTERVAL_SECS: u64 = 600;
+pub const DEFAULT_RELOAD_INTERVAL: Duration = Duration::from_secs(600);
 
-fn default_reload_interval_secs() -> u64 {
-    DEFAULT_RELOAD_INTERVAL_SECS
+fn default_reload_interval() -> Duration {
+    DEFAULT_RELOAD_INTERVAL
 }
 
-#[expect(
-    clippy::trivially_copy_pass_by_ref,
-    reason = "serde skip_serializing_if requires fn(&T) -> bool"
-)]
-fn is_default_reload_interval_secs(v: &u64) -> bool {
-    *v == DEFAULT_RELOAD_INTERVAL_SECS
+fn is_default_reload_interval(v: &Duration) -> bool {
+    *v == DEFAULT_RELOAD_INTERVAL
 }
 
 #[serde_with::skip_serializing_none]
@@ -59,16 +56,18 @@ pub struct PmtConfig {
     /// `gs://bucket/`, etc.) for source discovery. Has no effect on local directories,
     /// which are watched via filesystem events.
     ///
-    /// Defaults to 600 seconds (10 minutes). Set to `0` to disable remote polling.
+    /// Supports human-readable formats: "10m", "1h", "30s".
+    /// Defaults to "10m". Set to "0s" to disable remote polling.
     #[serde(
-        default = "default_reload_interval_secs",
-        skip_serializing_if = "is_default_reload_interval_secs"
+        default = "default_reload_interval",
+        skip_serializing_if = "is_default_reload_interval",
+        with = "humantime_serde"
     )]
     #[cfg_attr(
         feature = "unstable-schemas",
-        schemars(example = &DEFAULT_RELOAD_INTERVAL_SECS)
+        schemars(with = "String", example = &"10m")
     )]
-    pub reload_interval_secs: u64,
+    pub reload_interval: Duration,
 
     // if the key is the allowed set, we assume it is there for a purpose
     // settings and unreconginsed values are partitioned from each other in the init_parsing step
@@ -102,7 +101,7 @@ impl Default for PmtConfig {
     fn default() -> Self {
         Self {
             directory_cache: CacheSizeConfig::default(),
-            reload_interval_secs: DEFAULT_RELOAD_INTERVAL_SECS,
+            reload_interval: DEFAULT_RELOAD_INTERVAL,
             options: HashMap::default(),
             #[cfg(all(feature = "mlt", feature = "_tiles"))]
             convert_to_mlt: None,
@@ -117,7 +116,7 @@ impl Default for PmtConfig {
 impl PartialEq for PmtConfig {
     fn eq(&self, other: &Self) -> bool {
         let base = self.directory_cache == other.directory_cache
-            && self.reload_interval_secs == other.reload_interval_secs
+            && self.reload_interval == other.reload_interval
             && self.options == other.options
             && self.unrecognized == other.unrecognized;
         #[cfg(all(feature = "mlt", feature = "_tiles"))]

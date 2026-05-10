@@ -167,7 +167,7 @@ impl<T: ConfigurationLivecycleHooks> FileConfigEnum<T> {
     ) -> Self {
         // Collapse to the simpler `Path` / `Paths` / `None` variants only when both `configs`
         // and `custom` carry no information; otherwise preserve `custom` by emitting `Config`.
-        // Without this, custom settings (e.g. `pmtiles.reload_interval_secs` or s3 options
+        // Without this, custom settings (e.g. `pmtiles.reload_interval` or s3 options
         // needed by the reloader) would silently disappear after `resolve_files` rebuilds
         // the enum for an empty source set.
         if configs.is_empty() && custom == T::default() {

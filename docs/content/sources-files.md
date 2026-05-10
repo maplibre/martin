@@ -87,7 +87,7 @@ For remote object-storage prefixes (`s3://bucket/prefix/`, `gs://bucket/prefix/`
 pmtiles:
   paths:
     - s3://my-bucket/tiles/
-  reload_interval_secs: 600  # default; set to 0 to disable remote polling
+  reload_interval: 10m  # default; set to "0s" to disable remote polling
 ```
 
 !!! note

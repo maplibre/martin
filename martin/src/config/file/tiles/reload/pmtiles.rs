@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 use std::path::PathBuf;
+#[cfg(test)]
 use std::time::Duration;
 
 use crate::config::file::tiles::reload::{discover_sources_by_ext, path_modified_ms};
@@ -160,7 +161,7 @@ impl PMTilesReloader {
     /// Polling cadence for remote URL prefixes. Local directories ignore this.
     #[cfg(test)]
     fn remote_poll_interval(&self) -> Duration {
-        Duration::from_secs(self.config.reload_interval_secs)
+        self.config.reload_interval
     }
 
     pub fn start(self) -> MartinResult<()> {
@@ -179,7 +180,7 @@ impl PMTilesReloader {
             remote_prefixes,
             remote_sources,
         } = self;
-        let interval = Duration::from_secs(config.reload_interval_secs);
+        let interval = config.reload_interval;
 
         // Local watcher and remote poller each own their state inside their spawned
         // task — splitting the reloader avoids a shared mutex.
@@ -225,7 +226,7 @@ impl PMTilesReloader {
         if !remote_prefixes.is_empty() {
             if interval.is_zero() {
                 tracing::info!(
-                    "PMTilesReloader: remote prefix polling disabled (reload_interval_secs = 0)"
+                    "PMTilesReloader: remote prefix polling disabled (reload_interval = 0s)"
                 );
             } else {
                 let mut remote_state = RemoteState {
@@ -460,7 +461,7 @@ mod tests {
     use insta::assert_yaml_snapshot;
 
     use super::*;
-    use crate::config::file::pmtiles::DEFAULT_RELOAD_INTERVAL_SECS;
+    use crate::config::file::pmtiles::DEFAULT_RELOAD_INTERVAL;
     use crate::config::file::{FileConfig, FileConfigSource, FileConfigSrc, OnInvalid};
     use crate::config::primitives::OptOneMany;
 
@@ -494,10 +495,7 @@ mod tests {
         let reloader = make_reloader(&FileConfigEnum::None);
         assert!(reloader.directories.is_empty());
         assert!(reloader.remote_prefixes.is_empty());
-        assert_eq!(
-            reloader.remote_poll_interval(),
-            Duration::from_secs(DEFAULT_RELOAD_INTERVAL_SECS)
-        );
+        assert_eq!(reloader.remote_poll_interval(), DEFAULT_RELOAD_INTERVAL);
     }
 
     #[test]
@@ -510,7 +508,7 @@ mod tests {
             ]),
             sources: None,
             custom: PmtConfig {
-                reload_interval_secs: 30,
+                reload_interval: Duration::from_secs(30),
                 ..PmtConfig::default()
             },
         });
