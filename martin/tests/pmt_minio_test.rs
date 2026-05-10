@@ -7,6 +7,7 @@ use actix_web::dev::ServiceResponse;
 use actix_web::test::{TestRequest, call_service, init_service, read_body, read_body_json};
 use actix_web::web::Data;
 use indoc::formatdoc;
+use insta::assert_yaml_snapshot;
 use martin::config::file::ProcessConfig;
 use martin::config::file::reload::pmtiles::PMTilesReloader;
 use martin::config::file::srv::SrvConfig;
@@ -24,9 +25,10 @@ pub mod utils;
 
 const BUCKET: &str = "pmt-bucket";
 const FIXTURE: &[u8] = include_bytes!("../../tests/fixtures/pmtiles/png.pmtiles");
-/// Distinct fixture used to overwrite `FIXTURE` in-place. Selected because its tilejson
-/// has *no* `name` field, while `FIXTURE`'s tilejson has `name: "ne2sr"` — a clean signal
-/// for whether the reloader replaced the source after an overwrite.
+
+/// Distinct fixture used to overwrite [`FIXTURE`] in place. Its tilejson omits the
+/// `name` field, while [`FIXTURE`]'s tilejson reports `name: "ne2sr"`. The contrast
+/// makes it unambiguous whether the reloader replaced the source after an overwrite.
 const STAMEN_FIXTURE: &[u8] =
     include_bytes!("../../tests/fixtures/pmtiles/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles");
 
@@ -35,8 +37,8 @@ async fn start_minio() -> (ContainerAsync<MinIO>, String) {
         .start()
         .await
         .expect("MinIO container failed to start (is Docker running?)");
-    // MinIO maps subdirectories of /data to buckets, so creating the directory creates
-    // the bucket without needing an mc client or signed PUT request.
+    // MinIO maps subdirectories of `/data` to buckets, so creating the directory is
+    // sufficient to provision the bucket without an `mc` client or signed PUT.
     minio
         .exec(
             ExecCommand::new(["mkdir", &format!("/data/{BUCKET}")])
@@ -89,8 +91,8 @@ async fn catalog_tiles(
         .unwrap_or_default()
 }
 
-/// Polls `/catalog` until the predicate is true or the deadline is reached. Used to wait
-/// for the reloader's polling tick to propagate.
+/// Polls `/catalog` until the predicate returns true or the deadline is reached.
+/// Used to await reloader propagation between mutations and assertions.
 async fn wait_for_catalog<F>(
     app: &impl actix_web::dev::Service<
         actix_http::Request,
@@ -123,16 +125,16 @@ async fn pmt_minio_polls_catalog_via_public_api() {
     let (_minio, endpoint) = start_minio().await;
     let options = s3_options(&endpoint);
 
-    // Pre-populate the bucket with one fixture so the very first polling tick — which
-    // happens immediately on startup — has something to discover.
+    // Seed the bucket so the first polling tick (fired immediately on startup) has a
+    // source to discover.
     let s3_url: Url = format!("s3://{BUCKET}/").parse().unwrap();
     let (store, _base) = object_store::parse_url_opts(&s3_url, &options).unwrap();
     upload(&*store, "alpha.pmtiles", FIXTURE).await;
 
-    // `reload_interval: 1s` keeps the polling cadence tight enough that a 5-second
-    // wait_for budget is plenty for any single change to propagate. `skip_signature: false`
-    // and the explicit `aws_region` are spelled out so global env vars from `just` (e.g.
-    // `AWS_SKIP_CREDENTIALS=1`) don't override our MinIO credentials.
+    // A 1s polling cadence keeps the wait_for budgets comfortably above propagation
+    // latency. Credentials and region are spelled out explicitly so they cannot be
+    // overridden by ambient `AWS_*` environment variables (notably `AWS_SKIP_CREDENTIALS`,
+    // which `just` injects in some test profiles).
     let yaml = formatdoc! {"
         pmtiles:
           reload_interval: 1s
@@ -174,56 +176,71 @@ async fn pmt_minio_polls_catalog_via_public_api() {
     )
     .await;
 
-    // Initial discovery: the alpha blob uploaded above must show up.
+    // Initial discovery: the seeded blob must surface in the catalog.
     wait_for_catalog(&app, Duration::from_secs(10), "alpha discovered", |t| {
         t.contains_key("alpha")
     })
     .await;
 
-    // Add a second blob; polling should pick it up without restarting Martin.
+    // Add a second blob; polling must pick it up without a server restart.
     upload(&*store, "beta.pmtiles", FIXTURE).await;
     wait_for_catalog(&app, Duration::from_secs(10), "beta discovered", |t| {
         t.contains_key("alpha") && t.contains_key("beta")
     })
     .await;
 
-    // The catalog entry exposes content type derived from the actual blob — proves the
-    // reloader instantiated a real `PmtilesSource` and not just a placeholder.
-    let tiles = catalog_tiles(&app).await;
-    let content_type = tiles
-        .get("alpha")
-        .and_then(|v| v.get("content_type"))
-        .and_then(Value::as_str)
-        .expect("alpha source should have a content_type");
-    assert_eq!(content_type, "image/png");
+    // Snapshot the catalog after both blobs are present. Each entry's `content_type`
+    // and `name` are derived from the actual blob, confirming the reloader instantiated
+    // real `PmtilesSource` instances rather than placeholders.
+    let tiles_after_add = catalog_tiles(&app).await;
+    assert_yaml_snapshot!(tiles_after_add, @r"
+    alpha:
+      content_type: image/png
+      name: ne2sr
+    beta:
+      content_type: image/png
+      name: ne2sr
+    ");
 
-    // Tile fetch through the public API: a successful response proves end-to-end
-    // wiring, from the polling reloader -> TileSourceManager -> actix router ->
-    // PmtilesSource (object_store backend) -> MinIO.
+    // A successful tile fetch through the public API verifies end-to-end wiring across
+    // the polling reloader, `TileSourceManager`, the actix router, and `PmtilesSource`
+    // backed by MinIO via `object_store`.
     let tile_resp = call_service(&app, TestRequest::get().uri("/alpha/0/0/0").to_request()).await;
-    assert!(
-        tile_resp.status().is_success(),
-        "tile fetch failed: {tile_resp:?}"
-    );
+    let status = tile_resp.status().as_u16();
     let body = read_body(tile_resp).await;
-    assert!(!body.is_empty(), "tile body should be non-empty");
+    assert_yaml_snapshot!(
+        serde_json::json!({
+            "status": status,
+            "body_non_empty": !body.is_empty(),
+        }),
+        @r"
+    body_non_empty: true
+    status: 200
+    "
+    );
 
-    // Remove a blob; polling should drop it from the catalog.
+    // Remove a blob and confirm polling drops it from the catalog.
     store.delete(&ObjPath::from("beta.pmtiles")).await.unwrap();
     wait_for_catalog(&app, Duration::from_secs(10), "beta removed", |t| {
         !t.contains_key("beta") && t.contains_key("alpha")
     })
     .await;
+
+    let tiles_after_remove = catalog_tiles(&app).await;
+    assert_yaml_snapshot!(tiles_after_remove, @r"
+    alpha:
+      content_type: image/png
+      name: ne2sr
+    ");
 }
 
-/// Snapshots how the `PMTilesReloader` handles an in-place overwrite of a remote blob:
-/// uploading new bytes to the same key.
+/// Snapshots `PMTilesReloader` behavior when a remote blob is overwritten in place.
 ///
-/// `RemoteState::tick` diffs the *set of object IDs*, so overwrites at an unchanged key
-/// produce `prev_ids == next_ids` and the loop early-returns without replacing the
-/// `PmtilesSource`. The catalog therefore keeps reporting the original file's metadata.
-/// This test pins that behavior — if the reloader ever starts tracking ETags or
-/// last-modified, this assertion will trip and force an explicit doc update.
+/// `RemoteState::tick` diffs the set of object IDs. An overwrite at an unchanged key
+/// produces `prev_ids == next_ids`, so the loop returns early and does not replace
+/// the `PmtilesSource`; the catalog continues to report the original blob's metadata.
+/// This test pins that behavior. If the reloader gains ETag or last-modified tracking,
+/// the snapshot will diff and force an explicit documentation update.
 #[actix_rt::test]
 #[tracing_test::traced_test]
 async fn pmt_minio_in_place_blob_overwrite_keeps_existing_source() {
@@ -275,8 +292,8 @@ async fn pmt_minio_in_place_blob_overwrite_keeps_existing_source() {
     )
     .await;
 
-    // Wait until the reloader has discovered the original blob and exposed its `name`
-    // in the catalog. Pinning `name == "ne2sr"` here is the "before" of the snapshot.
+    // Establish the pre-overwrite baseline: wait until the reloader discovers the
+    // original blob and the catalog exposes its `name` field.
     wait_for_catalog(
         &app,
         Duration::from_secs(10),
@@ -290,26 +307,23 @@ async fn pmt_minio_in_place_blob_overwrite_keeps_existing_source() {
     )
     .await;
 
-    // Overwrite alpha.pmtiles in-place with a fixture whose tilejson has no `name`
-    // field. With ETag tracking, the reloader would replace the source and `name`
-    // would disappear from the catalog.
+    // Overwrite the blob with a fixture whose tilejson lacks a `name` field. Under
+    // ETag tracking the reloader would replace the source and the `name` field would
+    // disappear from the catalog.
     upload(&*store, "alpha.pmtiles", STAMEN_FIXTURE).await;
 
-    // Wait through several polling ticks (interval is 1s) to give the reloader every
-    // chance to notice the overwrite. We expect it not to.
+    // Sleep through several polling ticks (the interval is 1s) to give the reloader
+    // every opportunity to detect the overwrite.
     tokio::time::sleep(Duration::from_secs(3)).await;
 
+    // Snapshot the catalog. The `name` field still reflects the original fixture,
+    // proving the in-place overwrite was not detected. Any future change that causes
+    // this snapshot to diff must be paired with a documentation update in
+    // `docs/content/sources-files.md` (PMTiles Hot Reload).
     let tiles = catalog_tiles(&app).await;
-    let entry = tiles
-        .get("alpha")
-        .expect("alpha should still be in the catalog");
-    let name = entry.get("name").and_then(Value::as_str);
-    assert_eq!(
-        name,
-        Some("ne2sr"),
-        "in-place overwrite should NOT be detected by the current reloader; \
-         catalog entry should still reflect the original FIXTURE. \
-         If this assertion now fails, the reloader gained ETag/mtime tracking — \
-         update docs/content/sources-files.md (PMTiles Hot Reload) accordingly."
-    );
+    assert_yaml_snapshot!(tiles, @r"
+    alpha:
+      content_type: image/png
+      name: ne2sr
+    ");
 }
