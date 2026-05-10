@@ -23,6 +23,7 @@ use std::path::PathBuf;
 use dashmap::{DashMap, Entry};
 use futures::future::try_join_all;
 use serde::{Deserialize, Serialize};
+use serde_with::skip_serializing_none;
 pub use spreet::Spritesheet;
 use spreet::resvg::usvg::{Options, Tree};
 use spreet::{Sprite, SpritesheetBuilder, get_svg_input_paths, sprite_name};
@@ -38,6 +39,7 @@ mod cache;
 pub use cache::{NO_SPRITE_CACHE, OptSpriteCache, SpriteCache};
 
 /// Sprite source metadata.
+#[skip_serializing_none]
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[cfg_attr(
     feature = "unstable-schemas",
@@ -46,6 +48,10 @@ pub use cache::{NO_SPRITE_CACHE, OptSpriteCache, SpriteCache};
 pub struct CatalogSpriteEntry {
     /// Available sprite image names.
     pub images: Vec<String>,
+    /// Total size of the spritesheet in bytes.
+    pub size_in_bytes: Option<u64>,
+    /// RFC 3339 timestamp of the spritesheet's last modification.
+    pub last_modified_at: Option<String>,
 }
 
 /// Catalog mapping sprite names to metadata (e.g., "icons" -> [`CatalogSpriteEntry`]).
@@ -71,7 +77,16 @@ impl SpriteSources {
                 );
             }
             images.sort();
-            entries.insert(source.key().clone(), CatalogSpriteEntry { images });
+            entries.insert(
+                source.key().clone(),
+                CatalogSpriteEntry {
+                    images,
+                    // FIXME: render once and report the encoded PNG byte count.
+                    size_in_bytes: None,
+                    // FIXME: stat the SVG inputs and surface their newest mtime.
+                    last_modified_at: None,
+                },
+            );
         }
         Ok(entries)
     }

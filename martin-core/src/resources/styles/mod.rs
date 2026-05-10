@@ -21,6 +21,7 @@ use dashmap::{DashMap, Entry};
 #[cfg(all(feature = "rendering", target_os = "linux"))]
 use maplibre_native::Image;
 use serde::{Deserialize, Serialize};
+use serde_with::skip_serializing_none;
 use tracing::{info, warn};
 
 #[cfg(all(feature = "rendering", target_os = "linux"))]
@@ -28,7 +29,24 @@ mod error;
 #[cfg(all(feature = "rendering", target_os = "linux"))]
 pub use error::StyleError;
 
+/// What kind of layers a `MapLibre` style draws.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+#[cfg_attr(
+    feature = "unstable-schemas",
+    derive(schemars::JsonSchema, utoipa::ToSchema)
+)]
+pub enum StyleKind {
+    /// Style only references vector tile sources.
+    Vector,
+    /// Style only references raster tile sources.
+    Raster,
+    /// Style references both vector and raster tile sources.
+    Hybrid,
+}
+
 /// Style metadata.
+#[skip_serializing_none]
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[cfg_attr(
     feature = "unstable-schemas",
@@ -41,6 +59,17 @@ pub struct CatalogStyleEntry {
     #[cfg_attr(feature = "unstable-schemas", schemars(with = "String"))]
     #[cfg_attr(feature = "unstable-schemas", schema(value_type = String))]
     pub path: PathBuf,
+    /// What kind of layers the style draws.
+    #[serde(rename = "type")]
+    pub kind: Option<StyleKind>,
+    /// Hash identifying the current style revision.
+    pub version_hash: Option<String>,
+    /// Number of layers declared in the style JSON.
+    pub layer_count: Option<u32>,
+    /// Distinct colors referenced by the style, for preview swatches.
+    pub colors: Option<Vec<String>>,
+    /// RFC 3339 timestamp of the style file's last modification.
+    pub last_modified_at: Option<String>,
 }
 
 /// Catalog mapping style names to metadata (e.g., "basic" -> `CatalogStyleEntry`).
@@ -79,6 +108,16 @@ impl StyleSources {
                 source.key().clone(),
                 CatalogStyleEntry {
                     path: source.path.clone(),
+                    // FIXME: parse the style JSON and surface its `type` field.
+                    kind: None,
+                    // FIXME: hash the style JSON contents.
+                    version_hash: None,
+                    // FIXME: parse the style JSON and count its `layers` array.
+                    layer_count: None,
+                    // FIXME: walk the style JSON and collect referenced colors.
+                    colors: None,
+                    // FIXME: stat the style file and surface its mtime.
+                    last_modified_at: None,
                 },
             );
         }

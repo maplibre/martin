@@ -117,10 +117,10 @@ export function TilesCatalog({
               </CardHeader>
               <CardContent className="flex-1 flex flex-col">
                 <div className="space-y-2 text-sm text-muted-foreground">
-                  {source.layerCount && (
+                  {source.layer_count && (
                     <div className="flex justify-between">
                       <span>Layers:</span>
-                      <span>{source.layerCount}</span>
+                      <span>{source.layer_count}</span>
                     </div>
                   )}
                 </div>

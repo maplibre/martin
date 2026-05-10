@@ -176,11 +176,14 @@ export interface components {
                     end: number;
                     /** @description Font family name (e.g., "Arial"). */
                     family: string;
+                    format?: null | components["schemas"]["FontFormat"];
                     /**
                      * Format: int32
                      * @description Total number of glyphs in this font.
                      */
                     glyphs: number;
+                    /** @description RFC 3339 timestamp of the source font file's last modification. */
+                    last_modified_at?: string | null;
                     /** @description First Unicode codepoint available. */
                     start: number;
                     /**
@@ -195,12 +198,31 @@ export interface components {
                 [key: string]: {
                     /** @description Available sprite image names. */
                     images: string[];
+                    /** @description RFC 3339 timestamp of the spritesheet's last modification. */
+                    last_modified_at?: string | null;
+                    /**
+                     * Format: int64
+                     * @description Total size of the spritesheet in bytes.
+                     */
+                    size_in_bytes?: number | null;
                 };
             };
             styles: {
                 [key: string]: {
+                    /** @description Distinct colors referenced by the style, for preview swatches. */
+                    colors?: string[] | null;
+                    /** @description RFC 3339 timestamp of the style file's last modification. */
+                    last_modified_at?: string | null;
+                    /**
+                     * Format: int32
+                     * @description Number of layers declared in the style JSON.
+                     */
+                    layer_count?: number | null;
                     /** @description Path to the style JSON file. */
                     path: string;
+                    type?: null | components["schemas"]["StyleKind"];
+                    /** @description Hash identifying the current style revision. */
+                    version_hash?: string | null;
                 };
             };
             tiles: {
@@ -213,11 +235,28 @@ export interface components {
                     content_type: string;
                     /** @description Description of the tile source content */
                     description?: string | null;
+                    /** @description RFC 3339 timestamp of the underlying source's last modification. */
+                    last_modified_at?: string | null;
+                    /**
+                     * Format: int32
+                     * @description Number of vector layers declared by this source.
+                     */
+                    layer_count?: number | null;
                     /** @description Human-readable name for the tile source */
                     name?: string | null;
                 };
             };
         };
+        /**
+         * @description Source font file container format.
+         * @enum {string}
+         */
+        FontFormat: "otf" | "ttf" | "ttc";
+        /**
+         * @description What kind of layers a `MapLibre` style draws.
+         * @enum {string}
+         */
+        StyleKind: "vector" | "raster" | "hybrid";
     };
     responses: never;
     parameters: never;
@@ -226,6 +265,8 @@ export interface components {
     pathItems: never;
 }
 export type SchemaCatalog = components['schemas']['Catalog'];
+export type SchemaFontFormat = components['schemas']['FontFormat'];
+export type SchemaStyleKind = components['schemas']['StyleKind'];
 export type $defs = Record<string, never>;
 export interface operations {
     get_catalog: {

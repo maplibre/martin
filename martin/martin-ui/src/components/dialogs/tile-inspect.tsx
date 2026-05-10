@@ -85,11 +85,11 @@ export function TileInspectDialog({ name, source, onCloseAction }: TileInspectDi
                   <span>{source.description}</span>
                 </p>
               )}
-              {source.layerCount && (
+              {source.layer_count && (
                 <p>
                   <span className="font-medium">Layer Count:</span>
                   <br />
-                  <span>{source.layerCount}</span>
+                  <span>{source.layer_count}</span>
                 </p>
               )}
               {source.attribution && (

@@ -77,18 +77,18 @@ describe('SpriteCatalog Component', () => {
   const mockSpriteCollections: { [name: string]: SpriteCollection } = {
     'map-icons': {
       images: ['pin', 'marker', 'building', 'park', 'poi'],
-      lastModifiedAt: new Date('2023-01-10'),
-      sizeInBytes: 25000,
+      last_modified_at: '2023-01-10',
+      size_in_bytes: 25000,
     },
     transportation: {
       images: ['car', 'bus', 'train', 'bicycle', 'walk', 'plane', 'ferry'],
-      lastModifiedAt: new Date('2023-03-20'),
-      sizeInBytes: 30000,
+      last_modified_at: '2023-03-20',
+      size_in_bytes: 30000,
     },
     'ui-elements': {
       images: ['arrow', 'plus', 'minus', 'close', 'menu', 'search', 'filter', 'settings'],
-      lastModifiedAt: new Date('2023-02-15'),
-      sizeInBytes: 35000,
+      last_modified_at: '2023-02-15',
+      size_in_bytes: 35000,
     },
   };
 

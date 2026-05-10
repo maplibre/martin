@@ -50,4 +50,8 @@ pub struct CatalogSourceEntry {
     pub description: Option<String>,
     /// Attribution text for the data source
     pub attribution: Option<String>,
+    /// Number of vector layers declared by this source.
+    pub layer_count: Option<u32>,
+    /// RFC 3339 timestamp of the underlying source's last modification.
+    pub last_modified_at: Option<String>,
 }

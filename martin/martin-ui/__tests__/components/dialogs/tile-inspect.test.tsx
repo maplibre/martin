@@ -56,7 +56,7 @@ describe('TileInspectDialog', () => {
     content_encoding: 'gzip',
     content_type: 'image/png',
     description: 'A test tile source for testing',
-    layerCount: 5,
+    layer_count: 5,
     name: 'Test Tile Source',
   };
 

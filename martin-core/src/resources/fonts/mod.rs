@@ -95,6 +95,22 @@ fn get_available_codepoints(face: &mut Face) -> Option<GetGlyphInfo> {
 /// Catalog mapping font names to metadata (e.g., "Arial" -> `CatalogFontEntry`).
 pub type FontCatalog = HashMap<String, CatalogFontEntry>;
 
+/// Source font file container format.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+#[cfg_attr(
+    feature = "unstable-schemas",
+    derive(schemars::JsonSchema, utoipa::ToSchema)
+)]
+pub enum FontFormat {
+    /// `.otf` — `OpenType` font.
+    Otf,
+    /// `.ttf` — `TrueType` font.
+    Ttf,
+    /// `.ttc` — `TrueType` collection.
+    Ttc,
+}
+
 /// Font metadata including family, style, glyph count, and Unicode range.
 #[serde_with::skip_serializing_none]
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
@@ -115,6 +131,10 @@ pub struct CatalogFontEntry {
     pub start: usize,
     /// Last Unicode codepoint available.
     pub end: usize,
+    /// Source font file container format.
+    pub format: Option<FontFormat>,
+    /// RFC 3339 timestamp of the source font file's last modification.
+    pub last_modified_at: Option<String>,
 }
 
 /// Thread-safe font manager for discovery, cataloging, and serving fonts as Protocol Buffers.
@@ -362,6 +382,10 @@ fn parse_font(
                         glyphs,
                         start,
                         end,
+                        // FIXME: derive from the font file extension / fc-query.
+                        format: None,
+                        // FIXME: stat the font file and surface its mtime.
+                        last_modified_at: None,
                     },
                 });
             }

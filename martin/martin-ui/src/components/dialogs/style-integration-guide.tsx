@@ -194,11 +194,11 @@ function MyMap() {
                   <Badge variant="secondary">{style.type}</Badge>
                 </div>
               )}
-              {style.layerCount && (
+              {style.layer_count && (
                 <div>
                   <span className="font-medium">Layer Count:</span>
                   <br />
-                  <span>{style.layerCount}</span>
+                  <span>{style.layer_count}</span>
                 </div>
               )}
             </div>

@@ -117,11 +117,11 @@ export function SpriteCatalog({
                       />
                     </div>
                   </div>
-                  {sprite.sizeInBytes && (
+                  {sprite.size_in_bytes && (
                     <div className="space-y-2 text-sm text-muted-foreground mt-4">
                       <div className="flex justify-between">
                         <span>File Size:</span>
-                        <span>{formatFileSize(sprite.sizeInBytes)}</span>
+                        <span>{formatFileSize(sprite.size_in_bytes)}</span>
                       </div>
                     </div>
                   )}
