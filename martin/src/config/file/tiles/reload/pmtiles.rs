@@ -518,6 +518,10 @@ mod tests {
             FileConfigSrc::Obj(FileConfigSource {
                 path: PathBuf::from("s3://bucket/file.pmtiles"),
                 cache: CachePolicy::default(),
+                #[cfg(all(feature = "mlt", feature = "_tiles"))]
+                convert_to_mlt: None,
+                #[cfg(all(feature = "mlt", feature = "_tiles"))]
+                convert_to_mvt: None,
             }),
         );
         let cfg = FileConfigEnum::Config(FileConfig {

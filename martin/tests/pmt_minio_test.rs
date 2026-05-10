@@ -1,7 +1,7 @@
 //! End-to-end test for the [`PMTilesReloader`] remote-polling code path against the public
 //! `/catalog` and `/{src}/{z}/{x}/{y}` endpoints.
 //!
-//! Spins up a MinIO testcontainer (S3-compatible), uploads `.pmtiles` blobs to it, and
+//! Spins up a `MinIO` testcontainer (S3-compatible), uploads `.pmtiles` blobs to it, and
 //! configures Martin with `paths: [s3://bucket/]`. The reloader's polling loop discovers
 //! the blobs and registers them with the live `TileSourceManager`; the test then issues
 //! HTTP requests against the in-process actix app and asserts that the catalog reflects
