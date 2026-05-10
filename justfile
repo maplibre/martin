@@ -74,11 +74,7 @@ build-hotpath:
 bench-server-hotpath: start build-hotpath
     exec target/release/martin tests/fixtures/mbtiles tests/fixtures/pmtiles
 
-# Regenerate the experimental config JSON Schema, HTTP OpenAPI spec, and the
-# matching TypeScript types consumed by `martin-ui`. Output is written to
-# `./schemas/` and `martin/martin-ui/src/lib/types.gen.ts`, all committed to
-# the repo by the `gen-schemas` job in .github/workflows/autofix.yml on every
-# PR push.
+# Regenerate configs' JSON Schema, HTTP OpenAPI spec, and TS types
 gen-schemas:
     #!/usr/bin/env bash
     set -euo pipefail
