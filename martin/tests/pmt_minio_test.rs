@@ -1,17 +1,3 @@
-//! End-to-end test for the [`PMTilesReloader`] remote-polling code path against the public
-//! `/catalog` and `/{src}/{z}/{x}/{y}` endpoints.
-//!
-//! Spins up a `MinIO` testcontainer (S3-compatible), uploads `.pmtiles` blobs to it, and
-//! configures Martin with `paths: [s3://bucket/]`. The reloader's polling loop discovers
-//! the blobs and registers them with the live `TileSourceManager`; the test then issues
-//! HTTP requests against the in-process actix app and asserts that the catalog reflects
-//! adds/removes within a few polling intervals.
-//!
-//! Requires Docker. Mirrors the `test-pg` pattern: the file is only compiled when the
-//! `test-minio` feature is enabled, so the regular `cargo test` suite skips it without
-//! needing per-test `#[ignore]` annotations. CI runs it with
-//! `cargo test --features test-minio --test pmt_minio_test`.
-
 #![cfg(feature = "test-minio")]
 
 use std::collections::HashMap;
@@ -37,9 +23,6 @@ use url::Url;
 pub mod utils;
 
 const BUCKET: &str = "pmt-bucket";
-/// `47 KB` valid PMTiles blob shipped in the test fixtures. Has a single tileset id of
-/// "ne2sr" and tiles at z 0–4 in webp format — small enough that uploading it from a
-/// `&'static [u8]` payload is fast.
 const FIXTURE: &[u8] = include_bytes!("../../tests/fixtures/pmtiles/png.pmtiles");
 
 async fn start_minio() -> (ContainerAsync<MinIO>, String) {
