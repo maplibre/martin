@@ -276,9 +276,9 @@ export interface components {
     headers: never;
     pathItems: never;
 }
-export type SchemaCatalog = components['schemas']['Catalog'];
-export type SchemaFontFormat = components['schemas']['FontFormat'];
-export type SchemaStyleKind = components['schemas']['StyleKind'];
+export type Catalog = components['schemas']['Catalog'];
+export type FontFormat = components['schemas']['FontFormat'];
+export type StyleKind = components['schemas']['StyleKind'];
 export type $defs = Record<string, never>;
 export interface operations {
     get_catalog: {
