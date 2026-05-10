@@ -208,11 +208,7 @@ async fn pmt_minio_polls_catalog_via_public_api() {
     // Tile fetch through the public API: a successful response proves end-to-end
     // wiring, from the polling reloader -> TileSourceManager -> actix router ->
     // PmtilesSource (object_store backend) -> MinIO.
-    let tile_resp = call_service(
-        &app,
-        TestRequest::get().uri("/alpha/0/0/0").to_request(),
-    )
-    .await;
+    let tile_resp = call_service(&app, TestRequest::get().uri("/alpha/0/0/0").to_request()).await;
     assert!(
         tile_resp.status().is_success(),
         "tile fetch failed: {tile_resp:?}"

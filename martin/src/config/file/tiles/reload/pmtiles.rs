@@ -257,7 +257,6 @@ impl PMTilesReloader {
 
         Ok(())
     }
-
 }
 
 /// Mutable state owned by the local-directory watcher task. Held entirely inside the spawned
