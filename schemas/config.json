@@ -191,6 +191,12 @@
           "$ref": "#/$defs/OptOneMany2",
           "description": "A list of file paths"
         },
+        "reload_interval_secs": {
+          "description": "How often the `PMTilesReloader` re-lists remote URL prefixes (`s3://bucket/`,\n`gs://bucket/`, etc.) for source discovery. Has no effect on local directories,\nwhich are watched via filesystem events.\n\nDefaults to 600 seconds (10 minutes). Set to `0` to disable remote polling.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
         "sources": {
           "additionalProperties": {
             "$ref": "#/$defs/FileConfigSrc"
