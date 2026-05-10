@@ -1,6 +1,6 @@
 use std::{collections::BTreeMap, path::PathBuf};
 
-use super::{discover_sources_by_ext, path_modified_ms};
+use crate::config::file::tiles::reload::{discover_sources_by_ext, path_modified_ms};
 
 use martin_core::tiles::{BoxedSource, cog::CogSource};
 use notify::{

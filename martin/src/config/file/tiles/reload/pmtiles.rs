@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::time::Duration;
 
-use super::{discover_sources_by_ext, path_modified_ms};
+use crate::config::file::tiles::reload::{discover_sources_by_ext, path_modified_ms};
 
 use futures::stream::TryStreamExt as _;
 use martin_core::tiles::BoxedSource;
