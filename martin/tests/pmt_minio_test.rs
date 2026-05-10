@@ -282,7 +282,9 @@ async fn pmt_minio_in_place_blob_overwrite_keeps_existing_source() {
         Duration::from_secs(10),
         "alpha discovered with name=ne2sr",
         |t| {
-            t.get("alpha").and_then(|v| v.get("name")).and_then(Value::as_str)
+            t.get("alpha")
+                .and_then(|v| v.get("name"))
+                .and_then(Value::as_str)
                 == Some("ne2sr")
         },
     )
