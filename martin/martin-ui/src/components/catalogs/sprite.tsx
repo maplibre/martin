@@ -9,14 +9,12 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { TooltipCopyText } from '@/components/ui/tooltip-copy-text';
-import type { SpriteCollection } from '@/lib/types';
+import type { Catalog } from '@/lib/types';
 import { formatFileSize } from '@/lib/utils';
 import SpritePreview from '../sprite/SpritePreview';
 
 interface SpriteCatalogProps {
-  spriteCollections?: {
-    [sprite_collection_id: string]: SpriteCollection;
-  };
+  spriteCollections?: Catalog['sprites'];
   searchQuery?: string;
   onSearchChangeAction?: (query: string) => void;
   isLoading?: boolean;

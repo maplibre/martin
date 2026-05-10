@@ -8,13 +8,13 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { buildMartinUrl } from '@/lib/api';
-import type { Font } from '@/lib/types';
+import type { Catalog } from '@/lib/types';
 import { CopyLinkButton } from '../ui/copy-link-button';
 import { DisabledNonInteractiveButton } from '../ui/disabled-non-interactive-button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
 
 interface FontCatalogProps {
-  fonts?: { [name: string]: Font };
+  fonts?: Catalog['fonts'];
   searchQuery?: string;
   onSearchChangeAction?: (query: string) => void;
   isLoading?: boolean;

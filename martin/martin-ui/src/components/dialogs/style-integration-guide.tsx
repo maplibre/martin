@@ -13,11 +13,11 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 import { buildMartinUrl } from '@/lib/api';
-import type { Style } from '@/lib/types';
+import type { Catalog } from '@/lib/types';
 
 interface StyleIntegrationGuideDialogProps {
   name: string;
-  style: Style;
+  style: Catalog['styles'][string];
   onCloseAction: () => void;
 }
 

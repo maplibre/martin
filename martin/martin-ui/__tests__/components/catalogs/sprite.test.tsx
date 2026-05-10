@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SpriteCatalog } from '@/components/catalogs/sprite';
-import type { SpriteCollection } from '@/lib/types';
+import type { Catalog } from '@/lib/types';
 
 // Mock the SpritePreview component to avoid complex rendering
 vi.mock('@/components/sprite/SpritePreview', async () => {
@@ -39,7 +39,7 @@ vi.mock('@/components/dialogs/sprite-preview', () => ({
     onDownloadAction,
   }: {
     name: string;
-    sprite: SpriteCollection;
+    sprite: Catalog['sprites'][string];
     onCloseAction: () => void;
     onDownloadAction: () => void;
   }) => (
@@ -61,7 +61,7 @@ vi.mock('@/components/dialogs/sprite-download', () => ({
     onCloseAction,
   }: {
     name: string;
-    sprite: SpriteCollection;
+    sprite: Catalog['sprites'][string];
     onCloseAction: () => void;
   }) => (
     <div data-testid="sprite-download-dialog">
@@ -74,7 +74,7 @@ vi.mock('@/components/dialogs/sprite-download', () => ({
 }));
 
 describe('SpriteCatalog Component', () => {
-  const mockSpriteCollections: { [name: string]: SpriteCollection } = {
+  const mockSpriteCollections: Catalog['sprites'] = {
     'map-icons': {
       images: ['pin', 'marker', 'building', 'park', 'poi'],
       last_modified_at: '2023-01-10',

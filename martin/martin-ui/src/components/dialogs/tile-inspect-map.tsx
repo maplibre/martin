@@ -11,14 +11,14 @@ import { useToast } from '@/hooks/use-toast';
 import { useUnderlayPreference } from '@/hooks/use-underlay-preference';
 import { buildMartinUrl } from '@/lib/api';
 import { martinClient } from '@/lib/martin-client';
-import type { TileSource } from '@/lib/types';
+import type { Catalog } from '@/lib/types';
 import { ErrorBoundary } from '../error/error-boundary';
 import { UnderlayPicker } from './underlay-picker';
 import { findProvider, UNDERLAY_PROVIDER_IDS, type UnderlayProviderId } from './underlay-providers';
 
 interface TileInspectDialogMapProps {
   name: string;
-  source: TileSource;
+  source: Catalog['tiles'][string];
 }
 
 interface TileJson {

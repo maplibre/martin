@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { StylesCatalog } from '@/components/catalogs/styles';
 import type { ErrorStateProps } from '@/components/error/error-state';
 import type { CatalogSkeletonProps } from '@/components/loading/catalog-skeleton';
-import type { Style } from '@/lib/types';
+import type { Catalog } from '@/lib/types';
 
 interface MockComponentProps {
   children?: ReactNode;
@@ -78,7 +78,7 @@ vi.mock('@/components/loading/catalog-skeleton', () => ({
 }));
 
 describe('StylesCatalog Component', () => {
-  const mockStyles: { [name: string]: Style } = {
+  const mockStyles: Catalog['styles'] = {
     'Basic Style': {
       colors: ['#FF5733', '#33FF57', '#3357FF', '#F3FF33'],
       last_modified_at: '2023-01-15',

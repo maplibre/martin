@@ -7,7 +7,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import type { TileSource } from '@/lib/types';
+import type { Catalog } from '@/lib/types';
 import '@maplibre/maplibre-gl-inspect/dist/maplibre-gl-inspect.css';
 import { Database, ExternalLink } from 'lucide-react';
 import { CopyableUrl } from '@/components/ui/copyable-url';
@@ -17,7 +17,7 @@ import { TileInspectDialogMap } from './tile-inspect-map';
 
 interface TileInspectDialogProps {
   name: string;
-  source: TileSource;
+  source: Catalog['tiles'][string];
   onCloseAction: () => void;
 }
 

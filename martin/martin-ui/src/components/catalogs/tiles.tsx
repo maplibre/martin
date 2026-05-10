@@ -7,12 +7,12 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { TooltipCopyText } from '@/components/ui/tooltip-copy-text';
-import type { TileSource } from '@/lib/types';
+import type { Catalog } from '@/lib/types';
 import { DisabledNonInteractiveButton } from '../ui/disabled-non-interactive-button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
 
 interface TilesCatalogProps {
-  tileSources?: { [tile_id: string]: TileSource };
+  tileSources?: Catalog['tiles'];
   searchQuery: string;
   onSearchChangeAction: (query: string) => void;
   isLoading?: boolean;

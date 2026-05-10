@@ -7,14 +7,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import type { SpriteCollection } from '@/lib/types';
+import type { Catalog } from '@/lib/types';
 import { SpriteMapPreview } from '../sprite/SpriteMapPreview';
 
 interface SpritePreviewDialogProps {
   name: string;
-  sprite: SpriteCollection;
+  sprite: Catalog['sprites'][string];
   onCloseAction: () => void;
-  onDownloadAction: (sprite: SpriteCollection) => void;
+  onDownloadAction: (sprite: Catalog['sprites'][string]) => void;
 }
 
 export function SpritePreviewDialog({

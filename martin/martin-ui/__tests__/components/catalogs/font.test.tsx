@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { FontCatalog } from '@/components/catalogs/font';
-import type { Font } from '@/lib/types';
+import type { Catalog } from '@/lib/types';
 
 // Mock the toast hook
 vi.mock('@/hooks/use-toast', () => ({
@@ -16,7 +16,7 @@ vi.mock('@/lib/api', () => ({
 }));
 
 describe('FontCatalog Component', () => {
-  const mockFonts: { [name: string]: Font } = {
+  const mockFonts: Catalog['fonts'] = {
     'Noto Sans Bold': {
       end: 255,
       family: 'Noto Sans',
