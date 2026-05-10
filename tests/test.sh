@@ -1130,7 +1130,7 @@ test_jsn pmtiles_reload_catalog_added catalog
 
 >&2 echo "Test PMTiles reload: updating a PMTiles file triggers source update"
 touch "$PMTILES_RELOAD_WATCH_DIR/png.pmtiles"
-wait_for_log_str "$LOG_FILE" 'Updated source: "png"'
+wait_for_log_str "$LOG_FILE" 'Updated source source.id=png'
 test_jsn pmtiles_reload_catalog_updated catalog
 
 >&2 echo "Test PMTiles reload: removing a PMTiles file triggers source removal"
@@ -1140,9 +1140,9 @@ $CURL "$MARTIN_URL/catalog" | jq --sort-keys > "$TEST_OUT_DIR/catalog_after_remo
 
 kill_process "$MARTIN_PROC_ID" Martin
 
-test_log_has_str "$LOG_FILE" 'Added source: "png"'
-test_log_has_str "$LOG_FILE" 'Updated source: "png"'
-test_log_has_str "$LOG_FILE" 'Removed source: "png"'
+test_log_has_str "$LOG_FILE" 'Added source source.id=png'
+test_log_has_str "$LOG_FILE" 'Updated source source.id=png'
+test_log_has_str "$LOG_FILE" 'Removed source source.id=png'
 test_log_has_str "$LOG_FILE" 'WARN Defaulting `pmtiles.allow_http` to `true`. This is likely to become an error in the future for better security.'
 test_log_has_str "$LOG_FILE" 'WARN Environment variable AWS_SKIP_CREDENTIALS is deprecated. Please use pmtiles.skip_signature in the configuration file instead.'
 test_log_has_str "$LOG_FILE" 'WARN Environment variable AWS_REGION is deprecated. Please use pmtiles.region in the configuration file instead.'
@@ -1184,7 +1184,7 @@ if [[ "$COG_ENABLED" == "1" ]]; then
 
   >&2 echo "Test COG reload: updating a COG file triggers source update"
   touch "$COG_RELOAD_WATCH_DIR/${COG_SOURCE_ID}.tif"
-  wait_for_log_str "$LOG_FILE" "Updated source: \"${COG_SOURCE_ID}\""
+  wait_for_log_str "$LOG_FILE" "Updated source source.id=${COG_SOURCE_ID}"
   test_jsn cog_reload_catalog_updated catalog
 
   >&2 echo "Test COG reload: removing a COG file triggers source removal"
@@ -1194,9 +1194,9 @@ if [[ "$COG_ENABLED" == "1" ]]; then
 
   kill_process "$MARTIN_PROC_ID" Martin
 
-  test_log_has_str "$LOG_FILE" "Added source: \"${COG_SOURCE_ID}\""
-  test_log_has_str "$LOG_FILE" "Updated source: \"${COG_SOURCE_ID}\""
-  test_log_has_str "$LOG_FILE" "Removed source: \"${COG_SOURCE_ID}\""
+  test_log_has_str "$LOG_FILE" "Added source source.id=${COG_SOURCE_ID}"
+  test_log_has_str "$LOG_FILE" "Updated source source.id=${COG_SOURCE_ID}"
+  test_log_has_str "$LOG_FILE" "Removed source source.id=${COG_SOURCE_ID}"
 else
   >&2 echo "COG reloader not active (binary not compiled with unstable-cog) — skipping COG reload tests"
   rm -f "$COG_RELOAD_WATCH_DIR/${COG_SOURCE_ID}.tif"
