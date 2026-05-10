@@ -10,7 +10,7 @@ import { useAsyncOperation } from '@/hooks/use-async-operation';
 import { useToast } from '@/hooks/use-toast';
 import { useURLParams } from '@/hooks/use-url-params';
 import { martinClient } from '@/lib/martin-client';
-import type { Catalog } from '@/lib/types';
+import type { Catalog } from '@/lib/types.gen';
 import { TilesCatalog } from './catalogs/tiles';
 
 const fetchCatalog = async (): Promise<Catalog> => {

@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { type CacheMetrics, type HitCount, hitRate, type ZoomHitCount } from '@/lib/prometheus';
-import type { AnalyticsData } from '@/lib/types';
+import type { AnalyticsData } from '@/lib/prometheus';
 
 interface AnalyticsSectionProps {
   analytics?: AnalyticsData;

@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SpriteCatalog } from '@/components/catalogs/sprite';
-import type { Catalog } from '@/lib/types';
+import type { Catalog } from '@/lib/types.gen';
 
 // Mock the SpritePreview component to avoid complex rendering
 vi.mock('@/components/sprite/SpritePreview', async () => {

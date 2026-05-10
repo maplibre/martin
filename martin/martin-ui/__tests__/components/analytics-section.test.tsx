@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { AnalyticsSection } from '@/components/analytics-section';
-import type { AnalyticsData } from '@/lib/types';
+import type { AnalyticsData } from '@/lib/prometheus';
 import { fireEvent, render, screen } from '../test-utils';
 
 const analytics: AnalyticsData = {

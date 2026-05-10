@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { StylesCatalog } from '@/components/catalogs/styles';
 import type { ErrorStateProps } from '@/components/error/error-state';
 import type { CatalogSkeletonProps } from '@/components/loading/catalog-skeleton';
-import type { Catalog } from '@/lib/types';
+import type { Catalog } from '@/lib/types.gen';
 
 interface MockComponentProps {
   children?: ReactNode;

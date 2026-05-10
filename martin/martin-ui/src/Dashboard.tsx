@@ -10,7 +10,7 @@ import {
   parseCacheMetrics,
   parseCompletePrometheusMetrics,
 } from '@/lib/prometheus';
-import type { AnalyticsData } from '@/lib/types';
+import type { AnalyticsData } from '@/lib/prometheus';
 
 const fetchAnalytics = async (): Promise<AnalyticsData> => {
   const res = await fetch(buildMartinUrl('/_/metrics'));

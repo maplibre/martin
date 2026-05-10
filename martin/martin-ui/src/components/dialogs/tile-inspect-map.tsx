@@ -11,7 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useUnderlayPreference } from '@/hooks/use-underlay-preference';
 import { buildMartinUrl } from '@/lib/api';
 import { martinClient } from '@/lib/martin-client';
-import type { Catalog } from '@/lib/types';
+import type { Catalog } from '@/lib/types.gen';
 import { ErrorBoundary } from '../error/error-boundary';
 import { UnderlayPicker } from './underlay-picker';
 import { findProvider, UNDERLAY_PROVIDER_IDS, type UnderlayProviderId } from './underlay-providers';

@@ -13,7 +13,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 import { buildMartinUrl } from '@/lib/api';
-import type { Catalog } from '@/lib/types';
+import type { Catalog } from '@/lib/types.gen';
 
 interface StyleIntegrationGuideDialogProps {
   name: string;

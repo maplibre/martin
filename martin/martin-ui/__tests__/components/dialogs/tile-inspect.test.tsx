@@ -2,7 +2,7 @@ import { cleanup, render } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TileInspectDialog } from '@/components/dialogs/tile-inspect';
-import type { Catalog } from '@/lib/types';
+import type { Catalog } from '@/lib/types.gen';
 
 interface MockComponentProps {
   children?: ReactNode;

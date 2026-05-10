@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { buildMartinUrl } from '@/lib/api';
-import type { Catalog } from '@/lib/types';
+import type { Catalog } from '@/lib/types.gen';
 import { CopyLinkButton } from '../ui/copy-link-button';
 import { DisabledNonInteractiveButton } from '../ui/disabled-non-interactive-button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';

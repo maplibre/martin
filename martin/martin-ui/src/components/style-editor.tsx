@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { buildMartinUrl } from '@/lib/api';
-import type { Catalog } from '@/lib/types';
+import type { Catalog } from '@/lib/types.gen';
 
 interface StyleEditorProps {
   styleName: string;

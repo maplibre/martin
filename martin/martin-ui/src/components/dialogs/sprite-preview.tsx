@@ -7,7 +7,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import type { Catalog } from '@/lib/types';
+import type { Catalog } from '@/lib/types.gen';
 import { SpriteMapPreview } from '../sprite/SpriteMapPreview';
 
 interface SpritePreviewDialogProps {

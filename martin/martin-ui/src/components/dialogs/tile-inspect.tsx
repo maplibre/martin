@@ -7,7 +7,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import type { Catalog } from '@/lib/types';
+import type { Catalog } from '@/lib/types.gen';
 import '@maplibre/maplibre-gl-inspect/dist/maplibre-gl-inspect.css';
 import { Database, ExternalLink } from 'lucide-react';
 import { CopyableUrl } from '@/components/ui/copyable-url';
