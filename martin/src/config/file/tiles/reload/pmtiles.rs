@@ -188,7 +188,10 @@ impl PMTilesReloader {
             let mut watcher = RecommendedWatcher::new(
                 move |result: notify::Result<Event>| {
                     if let Ok(event) = result {
-                        let _ = tx.blocking_send(event);
+                        // `try_send` drops the event if the channel is full instead of
+                        // blocking the OS watcher thread. Each event triggers a full
+                        // rescan, so coalescing duplicates is harmless.
+                        let _ = tx.try_send(event);
                     }
                 },
                 Config::default(),
@@ -212,6 +215,7 @@ impl PMTilesReloader {
             let mut tsm_local = tile_source_manager.clone();
             tokio::spawn(async move {
                 let _watcher = watcher;
+                local_state.seed_snapshot().await;
                 while let Some(event) = rx.recv().await {
                     local_state.process_event(&mut tsm_local, event).await;
                 }
@@ -260,6 +264,31 @@ struct LocalState {
 }
 
 impl LocalState {
+    /// Merge directory-discovered files into `self.sources` so the first event-driven
+    /// diff matches the catalog state `TileSourceManager` was populated with at startup.
+    /// Without this, removing/modifying a pre-existing file produces an empty diff
+    /// (`prev` is empty because `LocalState::new` only seeds explicit `cfg.sources`)
+    /// and the catalog drifts from the filesystem.
+    async fn seed_snapshot(&mut self) {
+        match discover_sources_by_ext(
+            &self.directories,
+            &[PMTILES_EXT],
+            &self.path_cache,
+            &self.id_resolver,
+        )
+        .await
+        {
+            Ok(discovered) => {
+                for (id, entry) in discovered {
+                    self.sources.entry(id).or_insert(entry);
+                }
+            }
+            Err(e) => {
+                tracing::warn!("failed to seed reloader snapshot from directories {e:?}");
+            }
+        }
+    }
+
     async fn process_event(&mut self, tsm: &mut TileSourceManager, event: Event) {
         if !matches!(
             event.kind,

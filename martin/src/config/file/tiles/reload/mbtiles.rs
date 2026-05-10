@@ -135,7 +135,10 @@ impl MBTilesReloader {
         let mut watcher = RecommendedWatcher::new(
             move |result: notify::Result<Event>| {
                 if let Ok(event) = result {
-                    let _ = tx.blocking_send(event);
+                    // `try_send` drops the event if the channel is full instead of
+                    // blocking the OS watcher thread. Each event triggers a full
+                    // rescan, so coalescing duplicates is harmless.
+                    let _ = tx.try_send(event);
                 }
             },
             Config::default(),
@@ -151,6 +154,7 @@ impl MBTilesReloader {
         tokio::spawn(async move {
             let _watcher = watcher;
             let mut tsm = self.tile_source_manager.clone();
+            self.seed_snapshot().await;
 
             while let Some(event) = rx.recv().await {
                 self.process_event(&mut tsm, event).await;
@@ -158,6 +162,29 @@ impl MBTilesReloader {
         });
 
         Ok(())
+    }
+
+    /// Merge directory-discovered files into `self.sources`. `new` only seeds explicit
+    /// `cfg.sources`, so without this initial scan, removing or modifying a file that
+    /// existed at startup produces an empty diff and the catalog drifts from disk.
+    async fn seed_snapshot(&mut self) {
+        match discover_sources_by_ext(
+            &self.directories,
+            &["mbtiles"],
+            &self.path_cache,
+            &self.id_resolver,
+        )
+        .await
+        {
+            Ok(discovered) => {
+                for (id, entry) in discovered {
+                    self.sources.entry(id).or_insert(entry);
+                }
+            }
+            Err(e) => {
+                tracing::warn!("failed to seed reloader snapshot from directories {e:?}");
+            }
+        }
     }
 
     /// Handles a filesystem event by rediscovering sources and applying any changes.

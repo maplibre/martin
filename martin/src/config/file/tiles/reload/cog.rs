@@ -93,7 +93,10 @@ impl COGReloader {
         let mut watcher = RecommendedWatcher::new(
             move |result: notify::Result<Event>| {
                 if let Ok(event) = result {
-                    let _ = tx.blocking_send(event);
+                    // `try_send` drops the event if the channel is full instead of
+                    // blocking the OS watcher thread. Each event triggers a full
+                    // rescan, so coalescing duplicates is harmless.
+                    let _ = tx.try_send(event);
                 }
             },
             Config::default(),
@@ -109,6 +112,7 @@ impl COGReloader {
         tokio::spawn(async move {
             let _watcher = watcher;
             let mut tsm = self.tile_source_manager.clone();
+            self.seed_snapshot().await;
 
             while let Some(event) = rx.recv().await {
                 self.process_event(&mut tsm, event).await;
@@ -116,6 +120,29 @@ impl COGReloader {
         });
 
         Ok(())
+    }
+
+    /// Merge directory-discovered files into `self.sources`. See [`pmtiles::LocalState::seed_snapshot`]
+    /// for why this matters: `new` only seeds explicit `cfg.sources`, so without an
+    /// initial scan, removes/modifies of files already present at startup never diff.
+    async fn seed_snapshot(&mut self) {
+        match discover_sources_by_ext(
+            &self.directories,
+            &["tif", "tiff"],
+            &self.path_cache,
+            &self.id_resolver,
+        )
+        .await
+        {
+            Ok(discovered) => {
+                for (id, entry) in discovered {
+                    self.sources.entry(id).or_insert(entry);
+                }
+            }
+            Err(e) => {
+                tracing::warn!("failed to seed reloader snapshot from directories {e:?}");
+            }
+        }
     }
 
     async fn process_event(&mut self, tsm: &mut TileSourceManager, event: Event) {
