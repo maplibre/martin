@@ -214,7 +214,7 @@ pmtiles:
   # which are watched via filesystem events.
   #
   # Defaults to 600 seconds (10 minutes). Set to `0` to disable remote polling.
-  reload_interval_secs: 0
+  reload_interval_secs: 600
   # A map of source IDs to file paths or config objects
   sources: {}
 # Database configuration

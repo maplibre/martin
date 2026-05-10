@@ -64,6 +64,10 @@ pub struct PmtConfig {
         default = "default_reload_interval_secs",
         skip_serializing_if = "is_default_reload_interval_secs"
     )]
+    #[cfg_attr(
+        feature = "unstable-schemas",
+        schemars(example = &DEFAULT_RELOAD_INTERVAL_SECS)
+    )]
     pub reload_interval_secs: u64,
 
     // if the key is the allowed set, we assume it is there for a purpose
