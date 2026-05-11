@@ -16,11 +16,27 @@
                   "description": "Font family name (e.g., \"Arial\").",
                   "type": "string"
                 },
+                "format": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "$ref": "#/components/schemas/FontFormat",
+                      "description": "Source font file container format."
+                    }
+                  ]
+                },
                 "glyphs": {
                   "description": "Total number of glyphs in this font.",
                   "format": "int32",
                   "minimum": 0,
                   "type": "integer"
+                },
+                "last_modified_at": {
+                  "description": "Timestamp of the source font file's last modification.",
+                  "format": "date-time",
+                  "type": ["string", "null"]
                 },
                 "start": {
                   "description": "First Unicode codepoint available.",
@@ -50,6 +66,17 @@
                     "type": "string"
                   },
                   "type": "array"
+                },
+                "last_modified_at": {
+                  "description": "Timestamp of the spritesheet's last modification.",
+                  "format": "date-time",
+                  "type": ["string", "null"]
+                },
+                "size_in_bytes": {
+                  "description": "Total size of the spritesheet in bytes.",
+                  "format": "int64",
+                  "minimum": 1,
+                  "type": "integer"
                 }
               },
               "required": ["images"],
@@ -64,9 +91,42 @@
             "additionalProperties": {
               "description": "Style metadata.",
               "properties": {
+                "colors": {
+                  "description": "Distinct colors referenced by the style, for preview swatches.",
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": ["array", "null"]
+                },
+                "last_modified_at": {
+                  "description": "Timestamp of the style file's last modification.",
+                  "format": "date-time",
+                  "type": ["string", "null"]
+                },
+                "layer_count": {
+                  "description": "Number of layers declared in the style JSON.",
+                  "format": "int32",
+                  "minimum": 0,
+                  "type": ["integer", "null"]
+                },
                 "path": {
                   "description": "Path to the style JSON file.",
                   "type": "string"
+                },
+                "type": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "$ref": "#/components/schemas/StyleKind",
+                      "description": "What kind of layers the style draws."
+                    }
+                  ]
+                },
+                "version_hash": {
+                  "description": "Hash identifying the current style revision.",
+                  "type": ["string", "null"]
                 }
               },
               "required": ["path"],
@@ -97,6 +157,17 @@
                   "description": "Description of the tile source content",
                   "type": ["string", "null"]
                 },
+                "last_modified_at": {
+                  "description": "Timestamp of the underlying source's last modification.",
+                  "format": "date-time",
+                  "type": ["string", "null"]
+                },
+                "layer_count": {
+                  "description": "Number of vector layers declared by this source.",
+                  "format": "int32",
+                  "minimum": 0,
+                  "type": ["integer", "null"]
+                },
                 "name": {
                   "description": "Human-readable name for the tile source",
                   "type": ["string", "null"]
@@ -113,6 +184,16 @@
         },
         "required": ["tiles", "sprites", "fonts", "styles"],
         "type": "object"
+      },
+      "FontFormat": {
+        "description": "Source font file container format.",
+        "enum": ["otf", "ttf", "ttc"],
+        "type": "string"
+      },
+      "StyleKind": {
+        "description": "What kind of layers a `MapLibre` style draws.",
+        "enum": ["vector", "raster", "hybrid"],
+        "type": "string"
       }
     }
   },

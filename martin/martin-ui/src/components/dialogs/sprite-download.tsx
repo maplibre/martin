@@ -11,11 +11,11 @@ import {
 } from '@/components/ui/dialog';
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 import { buildMartinUrl } from '@/lib/api';
-import type { SpriteCollection } from '@/lib/types';
+import type { Catalog } from '@/lib/types.gen';
 
 interface SpriteDownloadDialogProps {
   name: string;
-  sprite: SpriteCollection;
+  sprite: Catalog['sprites'][string];
   onCloseAction: () => void;
 }
 

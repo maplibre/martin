@@ -10,14 +10,15 @@ import { useAsyncOperation } from '@/hooks/use-async-operation';
 import { useToast } from '@/hooks/use-toast';
 import { useUnderlayPreference } from '@/hooks/use-underlay-preference';
 import { buildMartinUrl } from '@/lib/api';
-import type { TileSource } from '@/lib/types';
+import { martinClient } from '@/lib/martin-client';
+import type { Catalog } from '@/lib/types.gen';
 import { ErrorBoundary } from '../error/error-boundary';
 import { UnderlayPicker } from './underlay-picker';
 import { findProvider, UNDERLAY_PROVIDER_IDS, type UnderlayProviderId } from './underlay-providers';
 
 interface TileInspectDialogMapProps {
   name: string;
-  source: TileSource;
+  source: Catalog['tiles'][string];
 }
 
 interface TileJson {
@@ -31,11 +32,15 @@ const UNDERLAY_SOURCE_ID = 'martin-underlay';
 const UNDERLAY_LAYER_ID = 'martin-underlay-layer';
 
 const fetchTileJson = async (endpoint: string): Promise<TileJson> => {
-  const response = await fetch(buildMartinUrl(`/${endpoint}`));
-  if (!response.ok) {
+  const { data, response } = await martinClient.GET('/{source_ids}', {
+    params: { path: { source_ids: endpoint } },
+  });
+  if (data === undefined) {
     throw new Error(`Failed to fetch tileJson: ${response.statusText}`);
   }
-  return response.json();
+  // The OpenAPI spec types this response as `unknown` (TileJSON 3.0.0); the
+  // local `TileJson` interface narrows to the fields this component reads.
+  return data as TileJson;
 };
 
 function applyUnderlay(map: MapLibre, underlayId: UnderlayProviderId | undefined) {

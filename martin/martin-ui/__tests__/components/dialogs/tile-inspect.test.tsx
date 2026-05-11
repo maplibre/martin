@@ -2,7 +2,7 @@ import { cleanup, render } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TileInspectDialog } from '@/components/dialogs/tile-inspect';
-import type { TileSource } from '@/lib/types';
+import type { Catalog } from '@/lib/types.gen';
 
 interface MockComponentProps {
   children?: ReactNode;
@@ -51,12 +51,12 @@ vi.mock('@/components/ui/button', () => ({
 }));
 
 describe('TileInspectDialog', () => {
-  const mockTileSource: TileSource = {
+  const mockTileSource: Catalog['tiles'][string] = {
     attribution: 'Test Attribution',
     content_encoding: 'gzip',
     content_type: 'image/png',
     description: 'A test tile source for testing',
-    layerCount: 5,
+    layer_count: 5,
     name: 'Test Tile Source',
   };
 
@@ -120,7 +120,7 @@ describe('TileInspectDialog', () => {
   });
 
   it('handles vector tile source correctly', () => {
-    const vectorTileSource: TileSource = {
+    const vectorTileSource: Catalog['tiles'][string] = {
       content_type: 'application/x-protobuf',
       description: 'Vector tile source',
       name: 'Vector Tiles',
@@ -139,7 +139,7 @@ describe('TileInspectDialog', () => {
   });
 
   it('handles minimal tile source without optional fields', () => {
-    const minimalTileSource: TileSource = {
+    const minimalTileSource: Catalog['tiles'][string] = {
       content_type: 'image/jpeg',
     };
 
@@ -166,7 +166,7 @@ describe('TileInspectDialog', () => {
   });
 
   it('conditionally renders optional fields', () => {
-    const sourceWithoutOptionals: TileSource = {
+    const sourceWithoutOptionals: Catalog['tiles'][string] = {
       content_type: 'image/png',
     };
 

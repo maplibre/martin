@@ -4,8 +4,8 @@ import { ErrorState } from '@/components/error/error-state';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { Skeleton } from '@/components/ui/skeleton';
+import type { AnalyticsData } from '@/lib/prometheus';
 import { type CacheMetrics, type HitCount, hitRate, type ZoomHitCount } from '@/lib/prometheus';
-import type { AnalyticsData } from '@/lib/types';
 
 interface AnalyticsSectionProps {
   analytics?: AnalyticsData;
