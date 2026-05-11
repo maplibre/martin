@@ -563,6 +563,23 @@
         
       
       
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Introduction
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
       <a href="" class="md-nav__link md-nav__link--active">
         
   
@@ -578,6 +595,37 @@
   
 
       </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#what-martin-can-do" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        What Martin can do
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -997,6 +1045,17 @@
 <h1 id="introduction">Introduction</h1>
 <p><img alt="Martin" src="https://raw.githubusercontent.com/maplibre/martin/main/logo.png" /></p>
 <p>Martin is a tile server able to generate and serve <a href="https://github.com/mapbox/vector-tile-spec">vector tiles</a> on the fly from large <a href="https://github.com/postgis/postgis">PostGIS</a> databases, <a href="https://protomaps.com/blog/pmtiles-v3-whats-new">PMTiles</a> (local or remote), and <a href="https://github.com/mapbox/mbtiles-spec">MBTiles</a> files, allowing multiple tile sources to be dynamically combined into one. Martin optimizes for speed and heavy traffic, and is written in <a href="https://github.com/rust-lang/rust">Rust</a>.</p>
+<h2 id="what-martin-can-do">What Martin can do</h2>
+<ul>
+<li>Serve <a href="https://github.com/mapbox/vector-tile-spec">vector tiles</a> from:</li>
+<li><a href="https://postgis.net/">PostGIS</a> databases with automatic discovery of compatible tables and functions</li>
+<li><a href="https://docs.protomaps.com/pmtiles/">PMTiles</a> from local files or over HTTP</li>
+<li><a href="https://github.com/mapbox/mbtiles-spec">MBTiles</a> files</li>
+<li><a href="sources-composite/">Combine</a> multiple tile sources into one</li>
+<li>Serve <a href="sources-styles/">styles</a> and generate <a href="sources-sprites/">sprites</a> and <a href="sources-fonts/">font glyphs</a> on the fly</li>
+<li>Generate tiles in bulk into an MBTiles archive with <a href="martin-cp/">martin-cp</a></li>
+<li>Examine, copy, validate, compare, and apply diffs between MBTiles files with <a href="tools/#mbtiles">mbtiles</a></li>
+</ul>
 <p>See also <a href="https://martin.maplibre.org/">Martin demo site</a></p>
 <hr />
 <p><a href="https://maplibre.org/martin"><img alt="Book" src="https://img.shields.io/badge/docs-Book-informational" /></a>
