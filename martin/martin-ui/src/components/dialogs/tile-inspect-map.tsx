@@ -193,7 +193,7 @@ export function TileInspectDialogMap({ name, source }: TileInspectDialogMapProps
     // maplibre-gl-inspect renders by calling map.setStyle(...) ~1s after the
     // vector source loads, which wipes our raster underlay. Listen for
     // styledata and re-apply only when the underlay has actually been wiped
-    // — checking the source's presence avoids re-entering this handler on
+    // - checking the source's presence avoids re-entering this handler on
     // every styledata fired by our own addSource/addLayer calls.
     map.on('styledata', () => {
       const wanted = selectedUnderlayRef.current;

@@ -274,10 +274,10 @@ Read it when you’re curious **why** certain choices were made.
 ??? "Specific crates splitting"
     The codebase is split into crates with clear responsibilities
 
-    - **martin-core** — reusable core logic and tile sources
-    - **mbtiles** — standalone MBTiles tooling
-    - **martin** — HTTP server, configuration, and runtime wiring
-    - **martin-tile-utils** — shared low-level tile utilities
+    - **martin-core** - reusable core logic and tile sources
+    - **mbtiles** - standalone MBTiles tooling
+    - **martin** - HTTP server, configuration, and runtime wiring
+    - **martin-tile-utils** - shared low-level tile utilities
 
     This makes it easier to:
 

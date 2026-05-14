@@ -71,7 +71,7 @@ jobs:
         with: { tool: just }
       - run: just gen-schemas
       # Run pre-commit so the generated JSON conforms to the repo's formatter
-      # rules (trailing newline, etc.) — same tiebreaker the bless job uses.
+      # rules (trailing newline, etc.) - same tiebreaker the bless job uses.
       - name: Install uv
         uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
       - run: uvx pre-commit run --files schemas/config.json schemas/openapi.json martin/martin-ui/src/lib/types.gen.ts

@@ -844,7 +844,7 @@ wait_for "$MARTIN_PROC_ID" Martin "$MARTIN_URL/health"
 unset DATABASE_URL
 
 >&2 echo "***** Test MLT postprocessing *****"
-# table_source has process.mlt=auto — should convert MVT to MLT
+# table_source has process.mlt=auto - should convert MVT to MLT
 test_mlt proc_mlt_table_source           table_source/0/0/0
 
 >&2 echo "***** Test save_config includes process blocks *****"

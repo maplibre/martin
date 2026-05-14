@@ -102,9 +102,9 @@ The `mbtiles` CLI output stays readable in the default formatter, but log scrape
 
 Configurable output formats for `mbtiles summary`.
 You can now control the output format using the `--format` option:
-- `json-pretty` — multi-line, human-readable JSON
-- `json` — compact JSON
-- `text` — plain text (default)
+- `json-pretty` - multi-line, human-readable JSON
+- `json` - compact JSON
+- `text` - plain text (default)
 
 Implemented in [#2447](https://github.com/maplibre/martin/pull/2447) by @nyurik.
 

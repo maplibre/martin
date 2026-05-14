@@ -239,7 +239,7 @@ impl Diagnostic for ConfigFileError {
 
     fn source_code(&self) -> Option<&dyn SourceCode> {
         // `YamlParseError` is rendered through `serde_saphyr::miette::to_miette_report` in
-        // `to_miette_report`, which carries its own source/labels — we only surface
+        // `to_miette_report`, which carries its own source/labels - we only surface
         // `source_code` for the substitution path so direct consumers of the `Diagnostic`
         // trait still get useful output.
         match self {

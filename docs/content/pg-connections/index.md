@@ -21,4 +21,4 @@ Use the `sslmode` parameter to specify a different mode:
 martin postgres://user:password@host/db?sslmode=verify-full
 ```
 
-For a practical walkthrough of SSL certificate setup — including creation, configuration, and troubleshooting — see our [PostgreSQL SSL Certificates Recipe](pg-ssl-certificates.md).
+For a practical walkthrough of SSL certificate setup - including creation, configuration, and troubleshooting - see our [PostgreSQL SSL Certificates Recipe](pg-ssl-certificates.md).

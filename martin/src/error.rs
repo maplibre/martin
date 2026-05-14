@@ -137,7 +137,7 @@ impl MartinError {
         if format.is_json() {
             // Best-effort JSON envelope so machine consumers always receive a JSON document
             // even for non-spanned errors. `serde_json::to_string` on a `String` is
-            // infallible — strings are always valid JSON.
+            // infallible - strings are always valid JSON.
             let message = serde_json::to_string(&self.to_string())
                 .expect("string serialization is infallible");
             return format!(r#"{{"message": {message}}}"#);

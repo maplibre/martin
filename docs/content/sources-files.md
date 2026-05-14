@@ -48,7 +48,7 @@ martin  /path/to/directory
 
 ### MBTiles Hot Reload
 
-Martin watches directories configured under `mbtiles` for changes at runtime. When `.mbtiles` files are added, modified, or removed from a watched directory, Martin automatically updates the tile catalog — no restart required.
+Martin watches directories configured under `mbtiles` for changes at runtime. When `.mbtiles` files are added, modified, or removed from a watched directory, Martin automatically updates the tile catalog - no restart required.
 
 ```bash
 # Martin will watch this directory and reflect any *.mbtiles changes live

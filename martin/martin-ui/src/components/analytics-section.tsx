@@ -179,7 +179,7 @@ export function AnalyticsSection({
                               : undefined
                           }
                         >
-                          {metrics ? formatHitRate(metrics) : '—'}
+                          {metrics ? formatHitRate(metrics) : '-'}
                           {metrics && metrics.byZoom.length > 0 && (
                             <ZoomBreakdownPopover label={label} metrics={metrics} />
                           )}

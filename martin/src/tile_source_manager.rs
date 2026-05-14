@@ -71,13 +71,13 @@ impl TileSourceManager {
     ///
     /// When a source fails to initialize, the configured [`OnInvalid`] policy
     /// controls the behavior:
-    /// - [`OnInvalid::Abort`] — return the error immediately.
-    /// - [`OnInvalid::Warn`] — log a warning and skip the source.
+    /// - [`OnInvalid::Abort`] - return the error immediately.
+    /// - [`OnInvalid::Warn`] - log a warning and skip the source.
     ///
     /// Order of operations:
-    /// 1. **Updates** — time-critical; invalidate cache then replace the source.
-    /// 2. **Additions** — make new sources available.
-    /// 3. **Removals** — garbage-collect stale sources and their cached tiles.
+    /// 1. **Updates** - time-critical; invalidate cache then replace the source.
+    /// 2. **Additions** - make new sources available.
+    /// 3. **Removals** - garbage-collect stale sources and their cached tiles.
     pub async fn apply_changes(&self, advisory: ReloadAdvisory) -> MartinResult<()> {
         if advisory.is_empty() {
             return Ok(());

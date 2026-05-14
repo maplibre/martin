@@ -19,7 +19,7 @@ function safeSetStorage(value: string | undefined) {
       window.localStorage?.removeItem?.(STORAGE_KEY);
     }
   } catch {
-    // localStorage may be unavailable (private mode, test env) — silently ignore
+    // localStorage may be unavailable (private mode, test env) - silently ignore
   }
 }
 
