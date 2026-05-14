@@ -191,6 +191,20 @@ export interface CacheMetrics extends HitCount {
   byZoom: ZoomHitCount[];
 }
 
+export interface EndpointAnalytics {
+  averageRequestDurationMs: number;
+  requestCount: number;
+  histogram: HistogramBucket[];
+}
+
+export interface AnalyticsData {
+  sprites: EndpointAnalytics;
+  tiles: EndpointAnalytics;
+  fonts: EndpointAnalytics;
+  styles: EndpointAnalytics;
+  caches: Record<string, CacheMetrics>;
+}
+
 /** `null` when no requests have been recorded; otherwise a value in `[0, 1]`. */
 export function hitRate({ hits, misses }: HitCount): number | null {
   const total = hits + misses;

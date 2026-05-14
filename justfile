@@ -74,9 +74,7 @@ build-hotpath:
 bench-server-hotpath: start build-hotpath
     exec target/release/martin tests/fixtures/mbtiles tests/fixtures/pmtiles
 
-# Regenerate the experimental config JSON Schema and HTTP OpenAPI spec.
-# Output is written to ./schemas/ and is committed to the repo by the
-# `gen-schemas` job in .github/workflows/autofix.yml on every PR push.
+# Regenerate configs' JSON Schema, HTTP OpenAPI spec, and TS types
 gen-schemas:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -93,6 +91,10 @@ gen-schemas:
     # on it as a starting point.
     cargo run --quiet --no-default-features --features unstable-schemas \
         --bin gen-schemas -- --target config-doc  > docs/content/files/generated_config.md
+    # Regenerate `martin/martin-ui/src/lib/types.gen.ts` from the freshly
+    # written `schemas/openapi.json`. Kept after the cargo runs so the spec
+    # is up-to-date by the time `openapi-typescript` reads it.
+    {{just}} ui::gen-ui-types
 
 # Validate the generated config + OpenAPI schemas: that they are themselves
 # well-formed (against the JSON Schema 2020-12 metaschema and the OpenAPI 3.1
@@ -422,8 +424,8 @@ install-dependencies backend='vulkan':
 install-dependencies backend='vulkan':
     @echo "rendering styles is not currently supported on windows"
 
-# Run cargo fmt and cargo clippy
-lint: fmt clippy ui::biome ui::type-check
+# Run common lints
+lint: fmt check clippy ui::biome ui::type-check clippy-md fmt-toml
 
 # Run mbtiles command
 mbtiles *args:

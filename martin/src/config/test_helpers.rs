@@ -6,16 +6,25 @@
 //! [`render_failure`] feeds the YAML through the full [`parse_config`] pipeline (variable
 //! substitution -> saphyr deserialization -> `ConfigFileError::to_miette_report`) so the
 //! resulting snapshots contain the same source-spanned, file-prefixed graphical diagnostics
-//! a user would see on the command line.
+//! a user would see on the command line. Unlike production rendering — which auto-detects
+//! the terminal width — the helper pins the width to [`SNAPSHOT_WIDTH`] so wrapping is
+//! deterministic across developer machines and CI.
 
 use std::collections::HashMap;
 use std::path::Path;
 
+use miette::{GraphicalReportHandler, GraphicalTheme};
 use serde::de::DeserializeOwned;
 
 use crate::MartinError;
 use crate::config::file::parse_config;
 use crate::logging::LogFormat;
+
+/// Terminal width used when rendering miette diagnostics in snapshot tests.
+///
+/// Production code lets miette auto-detect from the user's terminal; tests pin a fixed value
+/// so the wrapped output is reproducible regardless of `$COLUMNS`.
+const SNAPSHOT_WIDTH: usize = 80;
 
 /// Deserialize `yaml` into `T` via `serde_saphyr` and panic on error.
 ///
@@ -30,50 +39,38 @@ pub(crate) fn parse_yaml<T: DeserializeOwned>(yaml: &str) -> T {
 }
 
 /// Run `yaml` through the full [`parse_config`] pipeline, expect a failure, and return the
-/// rendered miette diagnostic with ANSI escapes stripped.
+/// rendered miette diagnostic at a fixed terminal width with no ANSI styling.
 ///
-/// This matches what the binary entry point shows the user, so each per-file failure-case
-/// snapshot exercises the same plumbing — variable substitution, deprecated-key migration,
-/// saphyr parsing, and `MartinError::render_diagnostic` — that produces the user-visible
-/// diagnostic in production.
+/// This exercises the same plumbing as production — variable substitution, deprecated-key
+/// migration, saphyr parsing, and `ConfigFileError::to_miette_report` — but renders through
+/// a `GraphicalReportHandler` pinned to [`SNAPSHOT_WIDTH`] with `unicode_nocolor`, so the
+/// resulting string is byte-identical across developer machines and CI regardless of
+/// terminal width.
 pub(crate) fn render_failure(yaml: &str) -> String {
     let env: HashMap<String, String> = HashMap::new();
     let err = parse_config(yaml, &env, Path::new("config.yaml"))
         .err()
         .unwrap_or_else(|| panic!("expected configuration to fail to parse:\n{yaml}"));
-    let rendered = MartinError::ConfigFileError(err).render_diagnostic();
-    strip_ansi(&rendered)
+    let report = err
+        .to_miette_report()
+        .unwrap_or_else(|| panic!("expected a miette-renderable error for:\n{yaml}"));
+    let mut buf = String::new();
+    GraphicalReportHandler::new_themed(GraphicalTheme::unicode_nocolor())
+        .with_width(SNAPSHOT_WIDTH)
+        .with_links(false)
+        .render_report(&mut buf, report.as_ref())
+        .expect("rendering into a String is infallible");
+    buf
 }
 
 /// Same as [`render_failure`] but routes through `MartinError::render_diagnostic_with` in
 /// JSON mode, mirroring what the binary emits when `RUST_LOG_FORMAT=json` is set.
 ///
-/// JSON output has no ANSI to strip but we still pass it through `strip_ansi` for
-/// consistency with the graphical helper (it's a no-op).
+/// JSON output has no terminal-width dependency, so no fixed-width override is needed.
 pub(crate) fn render_failure_json(yaml: &str) -> String {
     let env: HashMap<String, String> = HashMap::new();
     let err = parse_config(yaml, &env, Path::new("config.yaml"))
         .err()
         .unwrap_or_else(|| panic!("expected configuration to fail to parse:\n{yaml}"));
     MartinError::ConfigFileError(err).render_diagnostic_with(LogFormat::Json)
-}
-
-/// Minimal ANSI-CSI stripper so rendered miette output is reproducible across terminals.
-fn strip_ansi(s: &str) -> String {
-    let mut out = String::with_capacity(s.len());
-    let mut chars = s.chars();
-    while let Some(c) = chars.next() {
-        if c == '\x1b' {
-            if let Some('[') = chars.next() {
-                for nc in chars.by_ref() {
-                    if ('@'..='~').contains(&nc) {
-                        break;
-                    }
-                }
-            }
-            continue;
-        }
-        out.push(c);
-    }
-    out
 }

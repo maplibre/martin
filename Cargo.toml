@@ -53,6 +53,7 @@ base64 = "0.22.1"
 bit-set = "0.10"
 brotli = ">=5, <9"
 bytes = "1"
+chrono = { version = "0.4", default-features = false, features = ["serde"] }
 clap = { version = "4", features = ["derive", "unstable-markdown", "wrap_help"] }
 criterion = { version = "0.8", features = ["async_futures", "async_tokio", "html_reports"] }
 dashmap = { version = "6.1.0", features = ["serde", "inline", "rayon"] }
@@ -101,7 +102,7 @@ rustls = "0.23.38"
 #rustls = { version = "0.23", default-features = false, features = ["logging", "std", "tls12", "ring"] }
 rustls-native-certs = "0.8"
 rustls-pemfile = "2"
-schemars = { version = "1.2", default-features = false, features = ["derive", "std"] }
+schemars = { version = "1.2", default-features = false, features = ["chrono04", "derive", "std"] }
 semver = "1"
 serde = { version = "1", features = ["derive"] }
 serde-saphyr = { version = "0.0.25", features = ["miette"] }
@@ -129,7 +130,7 @@ tracing-log = { version = "0.2.0", features = ["interest-cache"] }
 tracing-subscriber = { version = "0.3", default-features = false }
 tracing-test = "0.2"
 url = "2.5"
-utoipa = { version = "5.4", default-features = false, features = ["macros", "actix_extras"] }
+utoipa = { version = "5.4", default-features = false, features = ["chrono", "macros", "actix_extras"] }
 utoipa-actix-web = "0.1"
 walkdir = "2.5.0"
 xxhash-rust = { version = "0.8", features = ["xxh3"] }

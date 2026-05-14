@@ -18,11 +18,14 @@
 
 use std::collections::HashMap;
 use std::fmt::Debug;
+use std::num::NonZeroUsize;
 use std::path::PathBuf;
 
+use chrono::{DateTime, Utc};
 use dashmap::{DashMap, Entry};
 use futures::future::try_join_all;
 use serde::{Deserialize, Serialize};
+use serde_with::skip_serializing_none;
 pub use spreet::Spritesheet;
 use spreet::resvg::usvg::{Options, Tree};
 use spreet::{Sprite, SpritesheetBuilder, get_svg_input_paths, sprite_name};
@@ -38,6 +41,7 @@ mod cache;
 pub use cache::{NO_SPRITE_CACHE, OptSpriteCache, SpriteCache};
 
 /// Sprite source metadata.
+#[skip_serializing_none]
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[cfg_attr(
     feature = "unstable-schemas",
@@ -46,6 +50,14 @@ pub use cache::{NO_SPRITE_CACHE, OptSpriteCache, SpriteCache};
 pub struct CatalogSpriteEntry {
     /// Available sprite image names.
     pub images: Vec<String>,
+    /// Total size of the spritesheet in bytes.
+    // utoipa 5.4 has no `PartialSchema` impl for `NonZeroUsize`, so describe
+    // the field as a positive integer for the OpenAPI side; serde still
+    // serializes the inner usize.
+    #[cfg_attr(feature = "unstable-schemas", schema(value_type = u64, minimum = 1))]
+    pub size_in_bytes: Option<NonZeroUsize>,
+    /// Timestamp of the spritesheet's last modification.
+    pub last_modified_at: Option<DateTime<Utc>>,
 }
 
 /// Catalog mapping sprite names to metadata (e.g., "icons" -> [`CatalogSpriteEntry`]).
@@ -71,7 +83,16 @@ impl SpriteSources {
                 );
             }
             images.sort();
-            entries.insert(source.key().clone(), CatalogSpriteEntry { images });
+            entries.insert(
+                source.key().clone(),
+                CatalogSpriteEntry {
+                    images,
+                    // FIXME: render once and report the encoded PNG byte count.
+                    size_in_bytes: None,
+                    // FIXME: stat the SVG inputs and surface their newest mtime.
+                    last_modified_at: None,
+                },
+            );
         }
         Ok(entries)
     }
@@ -102,6 +123,16 @@ impl SpriteSources {
                         sprite.path = %disp_path,
                         "Configured sprite source"
                     );
+                    if let Ok(paths) = get_svg_input_paths(&path, true)
+                        && paths.is_empty()
+                    {
+                        warn!(
+                            source.id = %v.key(),
+                            sprite.path = %disp_path,
+                            "No sprite SVG files found in directory to generate spritesheets from. \
+                             Sprite requests for this source will fail, until at least one svg is present."
+                        );
+                    }
                     v.insert(SpriteSource { path });
                 }
             }
@@ -251,6 +282,23 @@ mod tests {
             test_src(src2_path.iter(), 1, "src2_1", generate_sdf).await;
             test_src(src2_path.iter(), 2, "src2_2", generate_sdf).await;
         }
+    }
+
+    #[tokio::test]
+    async fn directory_without_svgs_yields_helpful_error() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        std::fs::write(tmp.path().join("sprite.json"), b"{}").unwrap();
+        std::fs::write(tmp.path().join("sprite.png"), b"\x89PNG\r\n").unwrap();
+
+        let mut sprites = SpriteSources::default();
+        sprites.add_source("bad".to_string(), tmp.path().to_path_buf());
+
+        let source = sprites.get("bad").expect("source registered");
+        let Err(err) = get_spritesheet([source].iter(), 1, false).await else {
+            panic!("expected NoSpriteFilesFound, got Ok");
+        };
+
+        assert!(matches!(err, SpriteError::NoSpriteFilesFound(_)));
     }
 
     async fn test_src(

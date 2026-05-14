@@ -95,6 +95,10 @@ pub trait Source: Send + Sync + Debug {
             name: tilejson.name.as_ref().filter(|v| *v != id).cloned(),
             description: tilejson.description.clone(),
             attribution: tilejson.attribution.clone(),
+            // FIXME: surface `tilejson.vector_layers.len()` once we always have it.
+            layer_count: None,
+            // FIXME: surface the source's mtime (mbtiles/pmtiles modtime, etc.).
+            last_modified_at: None,
         }
     }
 }

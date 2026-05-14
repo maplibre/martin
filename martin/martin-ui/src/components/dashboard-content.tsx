@@ -9,16 +9,16 @@ import { Toaster } from '@/components/ui/toaster';
 import { useAsyncOperation } from '@/hooks/use-async-operation';
 import { useToast } from '@/hooks/use-toast';
 import { useURLParams } from '@/hooks/use-url-params';
-import { buildMartinUrl } from '@/lib/api';
-import type { CatalogSchema } from '@/lib/types';
+import { martinClient } from '@/lib/martin-client';
+import type { Catalog } from '@/lib/types.gen';
 import { TilesCatalog } from './catalogs/tiles';
 
-const fetchCatalog = async (): Promise<CatalogSchema> => {
-  const res = await fetch(buildMartinUrl('/catalog'));
-  if (!res.ok) {
-    throw new Error(`Failed to fetch catalog: ${res.statusText}`);
+const fetchCatalog = async (): Promise<Catalog> => {
+  const { data, response } = await martinClient.GET('/catalog');
+  if (data === undefined) {
+    throw new Error(`Failed to fetch catalog: ${response.statusText}`);
   }
-  return res.json();
+  return data;
 };
 
 export function DashboardContent() {
@@ -34,7 +34,7 @@ export function DashboardContent() {
   });
 
   // Catalog operation
-  const catalogOperation = useAsyncOperation<CatalogSchema>(fetchCatalog, {
+  const catalogOperation = useAsyncOperation<Catalog>(fetchCatalog, {
     onError: (error: Error) => console.error('Catalog fetch failed:', error),
     showErrorToast: false,
   });

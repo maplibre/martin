@@ -22,6 +22,7 @@ use std::path::PathBuf;
 use std::sync::{Arc, LazyLock};
 
 use bit_set::BitSet;
+use chrono::{DateTime, Utc};
 use dashmap::{DashMap, Entry};
 use itertools::Itertools as _;
 use pbf_font_tools::freetype::{Face, Library};
@@ -95,6 +96,22 @@ fn get_available_codepoints(face: &mut Face) -> Option<GetGlyphInfo> {
 /// Catalog mapping font names to metadata (e.g., "Arial" -> `CatalogFontEntry`).
 pub type FontCatalog = HashMap<String, CatalogFontEntry>;
 
+/// Source font file container format.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+#[cfg_attr(
+    feature = "unstable-schemas",
+    derive(schemars::JsonSchema, utoipa::ToSchema)
+)]
+pub enum FontFormat {
+    /// `OpenType` font (`.otf`)
+    Otf,
+    /// `TrueType` font (`.ttf`)
+    Ttf,
+    /// `TrueType` collection (`.ttc`)
+    Ttc,
+}
+
 /// Font metadata including family, style, glyph count, and Unicode range.
 #[serde_with::skip_serializing_none]
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
@@ -115,6 +132,10 @@ pub struct CatalogFontEntry {
     pub start: usize,
     /// Last Unicode codepoint available.
     pub end: usize,
+    /// Source font file container format.
+    pub format: Option<FontFormat>,
+    /// Timestamp of the source font file's last modification.
+    pub last_modified_at: Option<DateTime<Utc>>,
 }
 
 /// Thread-safe font manager for discovery, cataloging, and serving fonts as Protocol Buffers.
@@ -362,6 +383,10 @@ fn parse_font(
                         glyphs,
                         start,
                         end,
+                        // FIXME: derive from the font file extension / fc-query.
+                        format: None,
+                        // FIXME: stat the font file and surface its mtime.
+                        last_modified_at: None,
                     },
                 });
             }
