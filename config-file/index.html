@@ -1466,15 +1466,15 @@ The <code>convert_to_mlt</code> and <code>convert_to_mvt</code> keys configure t
 See the <a href="using-guides/mlt/">MLT usage guide</a> for full details.</p>
 <p>Currently configurable:</p>
 <ul>
-<li><strong><code>convert_to_mlt</code></strong> — encoder settings for MVT-&gt;MLT conversion (triggered by <code>Accept: application/vnd.maplibre-tile</code>).</li>
-<li><strong><code>convert_to_mvt</code></strong> — enables MLT-&gt;MVT conversion (triggered by <code>Accept: application/x-protobuf</code> on an MLT source). Currently only supports <code>auto</code>.</li>
+<li><strong><code>convert_to_mlt</code></strong> - encoder settings for MVT-&gt;MLT conversion (triggered by <code>Accept: application/vnd.maplibre-tile</code>).</li>
+<li><strong><code>convert_to_mvt</code></strong> - enables MLT-&gt;MVT conversion (triggered by <code>Accept: application/x-protobuf</code> on an MLT source). Currently only supports <code>auto</code>.</li>
 </ul>
 <p>Both keys can appear at three levels.
 The most specific level wins entirely (no merging between levels):</p>
 <ol>
-<li><strong>Global</strong> — applies to all sources</li>
-<li><strong>Source-type</strong> — applies to all sources of that type (e.g. all PMTiles sources)</li>
-<li><strong>Per-source</strong> — applies to a single source</li>
+<li><strong>Global</strong> - applies to all sources</li>
+<li><strong>Source-type</strong> - applies to all sources of that type (e.g. all PMTiles sources)</li>
+<li><strong>Per-source</strong> - applies to a single source</li>
 </ol>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Global: default encoder settings for any source whose tiles get converted</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="nt">convert_to_mlt</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">auto</span>
