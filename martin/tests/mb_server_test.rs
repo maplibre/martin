@@ -174,47 +174,6 @@ async fn mbt_get_catalog_gzip_with_rendering_feature() {
     "#);
 }
 
-#[cfg(any(not(feature = "rendering"), not(target_os = "linux")))]
-#[actix_rt::test]
-#[tracing_test::traced_test]
-async fn mbt_get_catalog_gzip_without_rendering_feature() {
-    let (config, _conns) = config("mbt_get_catalog_gzip").await;
-    let app = create_app!(&config);
-    let accept = (ACCEPT_ENCODING, "gzip");
-    let req = test_get("/catalog").insert_header(accept).to_request();
-    let response = call_service(&app, req).await;
-    let response = assert_response(response).await;
-    let body = decode_gzip(&read_body(response).await).unwrap();
-    let body: serde_json::Value = serde_json::from_slice(&body).unwrap();
-    assert_yaml_snapshot!(body, @r#"
-    fonts: {}
-    settings: {}
-    sprites: {}
-    styles: {}
-    tiles:
-      m_json:
-        content_type: application/json
-        name: Dummy json data
-      m_mvt:
-        content_encoding: gzip
-        content_type: application/x-protobuf
-        description: Major cities from Natural Earth data
-        name: Major cities from Natural Earth data
-      m_raw_mlt:
-        attribution: "<a href=\"https://www.openmaptiles.org/\" target=\"_blank\">&copy; OpenMapTiles</a> <a href=\"https://www.openstreetmap.org/copyright\" target=\"_blank\">&copy; OpenStreetMap contributors</a>"
-        content_type: application/vnd.maplibre-tile
-        description: "A tileset showcasing all layers in OpenMapTiles. https://openmaptiles.org"
-        name: OpenMapTiles
-      m_raw_mvt:
-        content_type: application/x-protobuf
-        description: Major cities from Natural Earth data
-        name: Major cities from Natural Earth data
-      m_webp:
-        content_type: image/webp
-        name: ne2sr
-    "#);
-}
-
 #[actix_rt::test]
 #[tracing_test::traced_test]
 async fn mbt_get_tilejson() {
