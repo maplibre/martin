@@ -12,9 +12,7 @@
   "name": "Relative URLs Test",
   "sources": {
     "from_tiles": {
-      "tiles": [
-        "/points1/{z}/{x}/{y}"
-      ],
+      "tiles": ["/points1/{z}/{x}/{y}"],
       "type": "vector"
     },
     "from_url": {
