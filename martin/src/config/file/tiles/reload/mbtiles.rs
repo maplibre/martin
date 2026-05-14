@@ -192,7 +192,7 @@ impl MBTilesReloader {
 
     /// Handles a filesystem event by rediscovering sources and applying any changes.
     ///
-    /// Uses the event only as a trigger — the actual diff is computed by comparing a fresh
+    /// Uses the event only as a trigger - the actual diff is computed by comparing a fresh
     /// [`discover_sources`] snapshot against the last known state. Skips event kinds that cannot
     /// result in source changes. Logs and returns without updating state if rediscovery or
     /// [`TileSourceManager::apply_changes`] fails.

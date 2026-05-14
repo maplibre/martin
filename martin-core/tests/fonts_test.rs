@@ -39,7 +39,7 @@ async fn ttl_evicts_even_with_frequent_access() {
 
     insert(&cache, "font-a", 0, 255, b"data").await;
 
-    // Access repeatedly — this should NOT extend the TTL
+    // Access repeatedly - this should NOT extend the TTL
     for _ in 0..3 {
         tokio::time::sleep(Duration::from_millis(20)).await;
         assert_hit(&cache, "font-a", 0, 255).await;

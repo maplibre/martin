@@ -113,7 +113,7 @@ jobs:
     # Run after lint-rust just to keep CI lane concurrency reasonable. The
     # `schemas/` files this validates are kept up to date by the `gen-schemas`
     # job in `.github/workflows/autofix.yml`, which regenerates and commits
-    # them on every PR push — so this job only needs to read the committed
+    # them on every PR push - so this job only needs to read the committed
     # files, no Rust toolchain required.
     needs:
       - lint-rust

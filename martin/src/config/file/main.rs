@@ -731,7 +731,7 @@ where
     let substituted = subst::substitute(contents, env)
         .map_err(|e| ConfigFileError::substitution(e, contents.to_string(), file_name))?;
 
-    // Phase 2: rewrite deprecated cache keys via a `serde_yaml::Value` round-trip — but only
+    // Phase 2: rewrite deprecated cache keys via a `serde_yaml::Value` round-trip - but only
     // if at least one deprecated token appears in the text. The common case (no deprecated
     // keys) skips a full YAML parse + serialize.
     let migrated = if needs_deprecated_migration(&substituted) {
@@ -740,7 +740,7 @@ where
                 migrate_deprecated_config(&mut value);
                 serde_yaml::to_string(&value).unwrap_or(substituted)
             }
-            // If serde_yaml itself can't parse, hand the original to saphyr — its diagnostics
+            // If serde_yaml itself can't parse, hand the original to saphyr - its diagnostics
             // are richer, so let it produce the user-facing error.
             Err(_) => substituted,
         }

@@ -44,7 +44,7 @@ impl<'de> Deserialize<'de> for CorsConfig {
             }
 
             // Other inputs (string, number, sequence, …) fall through to serde's default,
-            // which emits `de::Error::invalid_type` — saphyr attaches the source span to that
+            // which emits `de::Error::invalid_type` - saphyr attaches the source span to that
             // variant, so we get a labelled diagnostic for free.
         }
 

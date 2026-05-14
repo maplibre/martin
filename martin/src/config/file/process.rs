@@ -20,9 +20,9 @@ pub struct ProcessConfig {
 /// Configuration for MVT-to-MLT format conversion.
 ///
 /// Three-state value parsed from YAML:
-/// - `"auto"` / `"default"` / `true` — use `mlt-core`'s default `EncoderConfig`
-/// - `"disabled"` / `"off"` / `"no"` / `false` — explicitly skip conversion
-/// - An object with explicit fields — override specific encoder settings
+/// - `"auto"` / `"default"` / `true` - use `mlt-core`'s default `EncoderConfig`
+/// - `"disabled"` / `"off"` / `"no"` / `false` - explicitly skip conversion
+/// - An object with explicit fields - override specific encoder settings
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 pub type MltProcessConfig = AutoOption<MltEncoderConfig>;
 
@@ -229,7 +229,7 @@ mod tests {
         "#);
     }
 
-    /// Inner-field errors must point at the *value*, not the outer `convert_to_mlt:` line —
+    /// Inner-field errors must point at the *value*, not the outer `convert_to_mlt:` line -
     /// proves the explicit branch hands the saphyr deserializer to `MltEncoderConfig`
     /// instead of routing through a `serde_yaml::Value`.
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
@@ -333,7 +333,7 @@ mod tests {
     /// Pins the schema shape to the wire format. With the `AutoOption` migration the
     /// schema includes string aliases for `auto`/`default`/`true`,
     /// `disabled`/`off`/`no`/`false`, a boolean shorthand, and the explicit
-    /// `MltEncoderConfig` branch — four `oneOf` entries in total.
+    /// `MltEncoderConfig` branch - four `oneOf` entries in total.
     #[cfg(all(feature = "mlt", feature = "unstable-schemas"))]
     #[test]
     fn json_schema_matches_serde_format() {

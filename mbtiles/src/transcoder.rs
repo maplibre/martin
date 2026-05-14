@@ -36,7 +36,7 @@ const DEFAULT_CHANNEL_BUFFER: usize = 4;
 const FLUSH_INTERVAL: Duration = Duration::from_secs(60);
 
 /// Conservative cap on bound parameters per statement. SQLite's default is
-/// 32766, but older builds capped at 999 — staying under that is free safety.
+/// 32766, but older builds capped at 999 - staying under that is free safety.
 const SQLITE_MAX_PARAMS: usize = 900;
 
 /// Raw tile batch: `(coord, optional_cache_key, tile_data)`.
@@ -223,7 +223,7 @@ where
     /// Normalized -> Any.
     ///
     /// Each unique payload is encoded exactly once, then the writer streams
-    /// directly into the destination — no staging temp table. For Flat /
+    /// directly into the destination - no staging temp table. For Flat /
     /// FlatWithHash destinations, each insert joins against the source map
     /// (via the attached `srcDb`) so SQLite expands one encoded tile to all
     /// its (z, x, y) destinations in a single statement.
@@ -415,7 +415,7 @@ where
     Ok(())
 }
 
-/// Writer: stream encoded tiles directly into the destination — no staging.
+/// Writer: stream encoded tiles directly into the destination - no staging.
 ///
 /// Returns `(unique_tiles_encoded, total_rows_written)`. For Normalized
 /// destinations these are usually equal; for Flat/FlatWithHash the row count
@@ -712,7 +712,7 @@ fn transcode_cached<F>(
 where
     F: Fn(Vec<u8>) -> Result<Bytes, Box<dyn std::error::Error + Send + Sync>>,
 {
-    // Skip the cache for large tiles — they are almost certainly unique, so
+    // Skip the cache for large tiles - they are almost certainly unique, so
     // caching them just evicts smaller, more valuable entries.
     if data.len() > max_tile_track_size {
         return match (transform)(data) {
@@ -966,7 +966,7 @@ mod tests {
     async fn transcode_normalized_no_redundant_transforms() {
         // 2 unique images, each > 1KB (to exceed max_tile_track_size),
         // referenced by 5 map entries. The transform must be called
-        // exactly 2 times — once per unique image.
+        // exactly 2 times - once per unique image.
         let tile_a: String = format!("X'{}'", "AA".repeat(2048));
         let tile_b: String = format!("X'{}'", "BB".repeat(2048));
         let script = format!(

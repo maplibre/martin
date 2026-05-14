@@ -25,15 +25,15 @@ See the [MLT usage guide](using-guides/mlt.md) for full details.
 
 Currently configurable:
 
-- **`convert_to_mlt`** — encoder settings for MVT->MLT conversion (triggered by `Accept: application/vnd.maplibre-tile`).
-- **`convert_to_mvt`** — enables MLT->MVT conversion (triggered by `Accept: application/x-protobuf` on an MLT source). Currently only supports `auto`.
+- **`convert_to_mlt`** - encoder settings for MVT->MLT conversion (triggered by `Accept: application/vnd.maplibre-tile`).
+- **`convert_to_mvt`** - enables MLT->MVT conversion (triggered by `Accept: application/x-protobuf` on an MLT source). Currently only supports `auto`.
 
 Both keys can appear at three levels.
 The most specific level wins entirely (no merging between levels):
 
-1. **Global** — applies to all sources
-2. **Source-type** — applies to all sources of that type (e.g. all PMTiles sources)
-3. **Per-source** — applies to a single source
+1. **Global** - applies to all sources
+2. **Source-type** - applies to all sources of that type (e.g. all PMTiles sources)
+3. **Per-source** - applies to a single source
 
 ```yaml
 # Global: default encoder settings for any source whose tiles get converted

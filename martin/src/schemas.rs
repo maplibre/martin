@@ -134,7 +134,7 @@ mod config_doc {
                 out.push('\n');
             }
             first = false;
-            // Use the description from the property as it appears in the parent —
+            // Use the description from the property as it appears in the parent -
             // not the description on the resolved `$defs/<Type>` body. Schema-only
             // proxy types like `GlobalCacheConfigShape` carry rustdoc that is
             // about the proxy mechanism, not about the field, and it shouldn't
@@ -217,7 +217,7 @@ mod config_doc {
             return;
         }
 
-        // 4. Composite types — pick the most informative variant rather than
+        // 4. Composite types - pick the most informative variant rather than
         //    the first one. An `anyOf` like `[null, string, array, object]`
         //    should render as the object shape.
         if let Some(variants) = schema.get("anyOf").or_else(|| schema.get("oneOf"))
@@ -229,7 +229,7 @@ mod config_doc {
         }
 
         // 5. Type-driven placeholders. Optional scalars (`type: [..., "null"]`)
-        //    render as `null` rather than `""`/`0`/`false` — matches "no
+        //    render as `null` rather than `""`/`0`/`false` - matches "no
         //    value" semantics and won't accidentally validate as a real value.
         let nullable = is_nullable(schema);
         match primary_type(schema).as_deref() {

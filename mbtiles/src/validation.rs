@@ -927,7 +927,7 @@ pub(crate) mod tests {
     async fn check_tile_hash_valid_normalized_hash() {
         let script = include_str!("../../tests/fixtures/mbtiles/geography-class-png.sql");
         let (mbt, mut conn) = anonymous_mbtiles(script).await;
-        // Should pass — tile_id values in images match md5_hex(tile_data)
+        // Should pass - tile_id values in images match md5_hex(tile_data)
         mbt.check_each_tile_hash(&mut conn).await.unwrap();
     }
 

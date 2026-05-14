@@ -874,7 +874,7 @@ mod tests {
 
     #[test]
     fn test_parse_accept_q_zero_rejected() {
-        // A known format with q=0 means "do not want" — should 406
+        // A known format with q=0 means "do not want" - should 406
         let accept = Some(Accept(vec![QualityItem::new(
             "application/x-protobuf".parse().unwrap(),
             Quality::ZERO,
@@ -931,7 +931,7 @@ mod tests {
         assert!(result.is_err());
     }
 
-    /// `Accept: mlt` against an MVT source resolves to MLT — the pre-cache
+    /// `Accept: mlt` against an MVT source resolves to MLT - the pre-cache
     /// pipeline encodes on first miss. Conversion is implicit; no `process.convert_to_mlt`
     /// configuration is required to enable it.
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
@@ -945,7 +945,7 @@ mod tests {
         assert_eq!(result.unwrap(), Some(Format::Mlt));
     }
 
-    /// `Accept: mvt` against an MLT source resolves to MVT — the pre-cache
+    /// `Accept: mvt` against an MLT source resolves to MVT - the pre-cache
     /// pipeline decodes on first miss unless `process.convert_to_mvt` is
     /// explicitly disabled.
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
