@@ -6,8 +6,8 @@
 //! [`render_failure`] feeds the YAML through the full [`parse_config`] pipeline (variable
 //! substitution -> saphyr deserialization -> `ConfigFileError::to_miette_report`) so the
 //! resulting snapshots contain the same source-spanned, file-prefixed graphical diagnostics
-//! a user would see on the command line. Unlike production rendering — which auto-detects
-//! the terminal width — the helper pins the width to [`SNAPSHOT_WIDTH`] so wrapping is
+//! a user would see on the command line. Unlike production rendering - which auto-detects
+//! the terminal width - the helper pins the width to [`SNAPSHOT_WIDTH`] so wrapping is
 //! deterministic across developer machines and CI.
 
 use std::collections::HashMap;
@@ -41,8 +41,8 @@ pub(crate) fn parse_yaml<T: DeserializeOwned>(yaml: &str) -> T {
 /// Run `yaml` through the full [`parse_config`] pipeline, expect a failure, and return the
 /// rendered miette diagnostic at a fixed terminal width with no ANSI styling.
 ///
-/// This exercises the same plumbing as production — variable substitution, deprecated-key
-/// migration, saphyr parsing, and `ConfigFileError::to_miette_report` — but renders through
+/// This exercises the same plumbing as production - variable substitution, deprecated-key
+/// migration, saphyr parsing, and `ConfigFileError::to_miette_report` - but renders through
 /// a `GraphicalReportHandler` pinned to [`SNAPSHOT_WIDTH`] with `unicode_nocolor`, so the
 /// resulting string is byte-identical across developer machines and CI regardless of
 /// terminal width.

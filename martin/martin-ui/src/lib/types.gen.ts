@@ -133,6 +133,39 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/style/{style_id}/static/{camera}/{size}.{format}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Render a static map image at an arbitrary camera into `{size}.{format}`. */
+        get: operations["get_rendered_static_style"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/style/{style_id}/{z}/{x}/{y}.{format}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get_rendered_tile_style"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/{source_ids}": {
         parameters: {
             query?: never;
@@ -504,6 +537,115 @@ export interface operations {
             };
             /** @description No matching style */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    get_rendered_static_style: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                style_id: string;
+                /** @description `lon,lat,zoom[@bearing[,pitch]]` or `minLon,minLat,maxLon,maxLat`. */
+                camera: string;
+                /** @description `WIDTHxHEIGHT[@SCALEx]` - e.g. `800x600` or `400x300@2x`. */
+                size: string;
+                /**
+                 * @description Output encoding. `png`, `jpeg`, or `webp` (canonical names only;
+                 *     `.jpg` is redirected to `.jpeg` via [`redirect_static_jpg`]).
+                 */
+                format: "png" | "jpeg" | "webp";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Rendered static map image (PNG, JPEG, or WebP) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid params or size */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Rendering is disabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No matching style */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Renderer or encoder failure */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    get_rendered_tile_style: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                style_id: string;
+                z: number;
+                x: number;
+                y: number;
+                format: "png" | "jpeg" | "webp";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Server-side rendered style tile (PNG/JPEG/WebP) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid tile coordinates */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Rendering is disabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No matching style */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Renderer or encoder failure */
+            500: {
                 headers: {
                     [name: string]: unknown;
                 };

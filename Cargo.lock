@@ -3999,9 +3999,9 @@ checksum = "dae608c151f68243f2b000364e1f7b186d9c29845f7d2d85bd31b9ad77ad552b"
 
 [[package]]
 name = "maplibre_native"
-version = "0.4.5"
+version = "0.4.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "10f380a6bd2c270783de8738eb7dc1aed8c13d7173d596f9b11839335912d066"
+checksum = "7fb76b84bf611b30301382bcfdec9f4fa3eb78cdbda85fb37a7e62de7afef790"
 dependencies = [
  "cmake",
  "cxx",
@@ -4039,6 +4039,7 @@ dependencies = [
  "hotpath",
  "humantime-serde",
  "image",
+ "image-compare",
  "indicatif 0.18.4",
  "indoc",
  "insta",

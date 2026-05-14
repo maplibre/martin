@@ -45,12 +45,14 @@ pub fn config_json_schema() -> serde_json::Value {
 )]
 pub struct MartinOpenApi;
 
-/// Server-side style-rendering route. Lives in its own derive because it's
-/// only compiled on linux + `rendering`, and we don't want `unstable-schemas`
-/// to drag in the maplibre-native C++ build.
+/// Style-rendering routes - in their own derive so the rest of the API can
+/// generate schemas without pulling in the `rendering` feature's C++ build.
 #[cfg(all(feature = "rendering", target_os = "linux"))]
 #[derive(OpenApi)]
-#[openapi(paths(crate::srv::get_style_rendered))]
+#[openapi(paths(
+    crate::srv::get_rendered_tile_style,
+    crate::srv::get_rendered_static_style,
+))]
 struct MartinRenderingOpenApi;
 
 /// `OpenAPI` document as JSON.
