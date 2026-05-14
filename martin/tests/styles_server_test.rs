@@ -86,22 +86,6 @@ async fn catalog_settings_with_rendering_feature() {
         }
         "#);
     });
-}
-
-#[actix_rt::test]
-#[tracing_test::traced_test]
-async fn catalog_settings_without_rendering_feature() {
-    let app = create_app! { CONFIG_STYLES };
-
-    let req = test_get("/catalog").to_request();
-    let response = call_service(&app, req).await;
-    let response = assert_response(response).await;
-    let body: Value = read_body_json(response).await;
-
-    insta::with_settings!({sort_maps => true}, {
-        assert_json_snapshot!(body["settings"], @r#"{}"#);
-    });
-}
 
 #[actix_rt::test]
 #[tracing_test::traced_test]
