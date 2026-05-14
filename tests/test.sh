@@ -6,9 +6,6 @@ unset DATABASE_URL
 
 export RUST_LOG_FORMAT=bare
 
-# TODO: use  --fail-with-body  to get the response body on failure
-CURL=${CURL:-curl --silent --show-error --fail --compressed}
-
 MARTIN_BUILD_ALL="${MARTIN_BUILD_ALL:-cargo build}"
 
 STATICS_URL="${STATICS_URL:-http://localhost:5412}"
@@ -47,6 +44,24 @@ else
   echo 'GNU sed is required for testing'
   exit 1
 fi
+
+# curl must support Brotli so the server's preferred encoding (br) is used,
+# keeping test output consistent across platforms.
+# On macOS the system curl lacks Brotli; prefer the Homebrew-installed one.
+if [[ -z "${CURL_BIN:-}" ]]; then
+  for candidate in curl /opt/homebrew/opt/curl/bin/curl /usr/local/opt/curl/bin/curl; do
+    if command -v "$candidate" > /dev/null 2>&1 && "$candidate" --version 2>/dev/null | grep -q brotli; then
+      CURL_BIN="$candidate"
+      break
+    fi
+  done
+fi
+if [[ -z "${CURL_BIN:-}" ]]; then
+  echo 'curl with Brotli support is required for testing.'
+  echo 'On macOS, install it with: brew install curl'
+  exit 1
+fi
+CURL="${CURL:-$CURL_BIN --silent --show-error --fail --compressed}"
 
 function wait_for {
     # Seems the --retry-all-errors option is not available on older curl versions, but maybe in the future we can just use this:
