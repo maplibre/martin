@@ -441,7 +441,7 @@ TEST_OUT_DIR="${TEST_OUT_BASE_DIR}/${TEST_NAME}"
 mkdir -p "$TEST_OUT_DIR"
 
 
-ARG=(--default-srid 900913 --auto-bounds calc --save-config "${TEST_OUT_DIR}/save_config.yaml" tests/fixtures/mbtiles tests/fixtures/pmtiles tests/fixtures/cog "$STATICS_URL/webp2.pmtiles" s3://pmtilestest/cb_2018_us_zcta510_500k.pmtiles --sprite tests/fixtures/sprites/src1 --font tests/fixtures/fonts/overpass-mono-regular.ttf --font tests/fixtures/fonts --style tests/fixtures/styles/maplibre_demo.json --style tests/fixtures/styles/src2 --tilejson-url-version-param version )
+ARG=(--default-srid 900913 --auto-bounds calc --save-config "${TEST_OUT_DIR}/save_config.yaml" tests/fixtures/mbtiles tests/fixtures/pmtiles tests/fixtures/cog "$STATICS_URL/webp2.pmtiles" s3://pmtilestest/cb_2018_us_zcta510_500k.pmtiles --sprite tests/fixtures/sprites/src1 --font tests/fixtures/fonts/overpass-mono-regular.ttf --font tests/fixtures/fonts --style tests/fixtures/styles/maplibre_demo.json --style tests/fixtures/styles/src2 --style tests/fixtures/styles/relative_urls.json --tilejson-url-version-param version )
 export DATABASE_URL="$MARTIN_DATABASE_URL"
 
 set -x
@@ -492,6 +492,15 @@ test_json_with_header tilejson_with_forwarded_proto_and_host function_zxy_query 
 test_json_with_header tilejson_with_x_forwarded_prefix function_zxy_query "X-Forwarded-Prefix: /tiles/function_zxy_query"
 test_json_with_header tilejson_with_x_rewrite_url function_zxy_query "X-Rewrite-URL: /footiles/function_zxy_query"
 
+>&2 echo "***** Test relative URL expansion in style.json *****"
+# Style fixture uses protocol-less URLs (glyphs, sprite, sources.url, sources.tiles);
+# the server rewrites them to absolute URLs in the response using the request's
+# scheme/host and the resolved path prefix.
+test_jsn              relative_style_urls                        style/relative_urls
+test_json_with_header relative_style_urls_with_host              style/relative_urls "Host: example.com"
+test_json_with_header relative_style_urls_with_prefix            style/relative_urls "X-Forwarded-Prefix: /tiles"
+test_json_with_header relative_style_urls_ignores_forwarded_for  style/relative_urls "X-Forwarded-For: forwarded-for.example.com"
+test_json_with_header relative_style_urls_with_forwarded_host    style/relative_urls "X-Forwarded-Host: tiles.example.com"
 
 >&2 echo "***** Test server response for function source *****"
 test_jsn fnc                      function_zxy_query

@@ -1,0 +1,27 @@
+{
+  "glyphs": "http://localhost:3111/font/{fontstack}/{range}",
+  "layers": [
+    {
+      "id": "background",
+      "paint": {
+        "background-color": "#000"
+      },
+      "type": "background"
+    }
+  ],
+  "name": "Relative URLs Test",
+  "sources": {
+    "from_tiles": {
+      "tiles": [
+        "http://localhost:3111/points1/{z}/{x}/{y}"
+      ],
+      "type": "vector"
+    },
+    "from_url": {
+      "type": "vector",
+      "url": "http://localhost:3111/table_source"
+    }
+  },
+  "sprite": "http://localhost:3111/sprite/src1",
+  "version": 8
+}
