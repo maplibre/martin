@@ -926,12 +926,12 @@ fi
 
 # If we don't do this, rounding differences on CI and local machines are a problem
 echo "::group::redact unnecessary precision in *_config.yaml and *.json"
-for file in $(find ./tests/ -name "*_config.yaml" -type f); do
+for file in $(find ./tests/output/ ./tests/expected/ -name "*_config.yaml" -type f); do
     echo "truncating floats in $file"
     "$SED" --regexp-extended --in-place 's/(-?[0-9]+\.[0-9]{10})[0-9]+$/\1 # truncated to 10 digits/g' "$file"
     "$SED" --regexp-extended --in-place 's/0+ # truncated/ # truncated/g' "$file"
 done
-for file in $(find ./tests/ -name "*.json" -type f); do
+for file in $(find ./tests/output/ ./tests/expected/ -name "*.json" -type f); do
     echo "truncating floats in $file"
     cat "$file" | cleanup_json_floats 10000000000 > "$file.tmp"
 
