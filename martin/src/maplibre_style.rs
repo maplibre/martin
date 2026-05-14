@@ -12,6 +12,7 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use url::Url;
 
 /// A partially-typed `MapLibre` style document.
 #[serde_with::skip_serializing_none]
@@ -116,8 +117,8 @@ fn expand_if_relative_url(url: &mut String, base_url: &str) {
     if url.starts_with("//") {
         return;
     }
-    // Has a scheme (https:, data:, mailto:, mapbox:, mbtiles:, ...) → leave alone.
-    if has_uri_scheme(url) {
+    // Already a valid absolute URL → leave alone.
+    if Url::parse(url).is_ok() {
         return;
     }
     // Ensure exactly one '/' between the base and the path, so a relative path
@@ -127,28 +128,6 @@ fn expand_if_relative_url(url: &mut String, base_url: &str) {
         url.insert(0, '/');
     }
     url.insert_str(0, base_url);
-}
-
-/// True if `url` begins with an RFC 3986 `scheme:` prefix.
-///
-/// `scheme = ALPHA *( ALPHA / DIGIT / "+" / "-" / "." )` followed by `:`.
-fn has_uri_scheme(url: &str) -> bool {
-    let mut chars = url.chars();
-    let Some(first) = chars.next() else {
-        return false;
-    };
-    if !first.is_ascii_alphabetic() {
-        return false;
-    }
-    for c in chars {
-        if c == ':' {
-            return true;
-        }
-        if !(c.is_ascii_alphanumeric() || c == '+' || c == '-' || c == '.') {
-            return false;
-        }
-    }
-    false
 }
 
 #[cfg(test)]
