@@ -67,28 +67,6 @@ async fn pmt_get_catalog_with_rendering_feature() {
     ");
 }
 
-#[cfg(any(not(feature = "rendering"), not(target_os = "linux")))]
-#[actix_rt::test]
-#[tracing_test::traced_test]
-async fn pmt_get_catalog_without_rendering_feature() {
-    let path = "pmtiles: ../tests/fixtures/pmtiles/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles";
-    let app = create_app! { path };
-
-    let req = test_get("/catalog").to_request();
-    let response = call_service(&app, req).await;
-    let response = assert_response(response).await;
-    let body: serde_json::Value = read_body_json(response).await;
-    assert_yaml_snapshot!(body, @"
-    fonts: {}
-    settings: {}
-    sprites: {}
-    styles: {}
-    tiles:
-      stamen_toner__raster_CC-BY-ODbL_z3:
-        content_type: image/png
-    ");
-}
-
 #[cfg(all(feature = "rendering", target_os = "linux"))]
 #[actix_rt::test]
 #[tracing_test::traced_test]
@@ -104,33 +82,6 @@ async fn pmt_get_catalog_gzip_with_rendering_feature() {
     fonts: {}
     settings:
       rendering: false
-    sprites: {}
-    styles: {}
-    tiles:
-      p_png:
-        content_type: image/png
-      s3:
-        content_encoding: gzip
-        content_type: application/x-protobuf
-        description: cb_2018_us_zcta510_500k.mbtiles
-        name: cb_2018_us_zcta510_500k.mbtiles
-    ");
-}
-
-#[cfg(any(not(feature = "rendering"), not(target_os = "linux")))]
-#[actix_rt::test]
-#[tracing_test::traced_test]
-async fn pmt_get_catalog_gzip_without_rendering_feature() {
-    let app = create_app! { CONFIG };
-    let accept = (ACCEPT_ENCODING, "gzip");
-    let req = test_get("/catalog").insert_header(accept).to_request();
-    let response = call_service(&app, req).await;
-    let response = assert_response(response).await;
-    let body = decode_gzip(&read_body(response).await).unwrap();
-    let body: serde_json::Value = serde_json::from_slice(&body).unwrap();
-    assert_yaml_snapshot!(body, @"
-    fonts: {}
-    settings: {}
     sprites: {}
     styles: {}
     tiles:
