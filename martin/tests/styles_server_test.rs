@@ -1,4 +1,4 @@
-#[cfg(all(feature = "styles", feature = "rendering", target_os = "linux"))]
+#![cfg(all(feature = "styles", feature = "rendering", target_os = "linux"))]
 
 use actix_web::http::header::CONTENT_TYPE;
 use actix_web::test::{TestRequest, call_service, read_body, read_body_json};
