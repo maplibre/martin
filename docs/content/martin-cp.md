@@ -1,3 +1,10 @@
+---
+icon: material/content-copy
+tags:
+  - tooling
+  - mbtiles
+---
+
 # Generating Tiles in Bulk
 
 We offer the `martin-cp` tool for generating tiles in bulk, from any source(s) supported by Martin, and save retrieved tiles into a new or an existing MBTiles file.

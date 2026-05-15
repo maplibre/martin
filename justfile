@@ -327,7 +327,7 @@ docker-run *args:
 
 # Build and run martin documentation
 docs:
-    docker run --rm -it -p 8000:8000 -v ${PWD}:/docs zensical/zensical:latest
+    uvx zensical serve --open
 
 # Build martin documentation
 docs-build:

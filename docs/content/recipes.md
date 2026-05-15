@@ -1,3 +1,11 @@
+---
+icon: material/cloud
+tags:
+  - postgresql
+  - deployment
+  - recipes
+---
+
 # Hosted PostgreSQL
 
 Some providers of PostgreSQL databases require additional configuration to work with Martin.

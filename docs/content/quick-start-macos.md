@@ -1,3 +1,9 @@
+---
+icon: simple/apple
+tags:
+  - getting-started
+---
+
 # Quick start on macOS
 
 1. Download some [demo tiles](https://github.com/maplibre/martin/raw/main/tests/fixtures/mbtiles/world_cities.sql).

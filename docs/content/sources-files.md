@@ -1,8 +1,22 @@
+---
+icon: material/database
+tags:
+  - mbtiles
+  - pmtiles
+  - tile-sources
+  - configuration
+  - aws
+  - azure
+  - google-cloud
+---
+
 # MBTiles and PMTiles File Sources
 
 Martin can serve any type of tiles from [PMTile](https://protomaps.com/blog/pmtiles-v3-whats-new)
-and [MBTile](https://github.com/mapbox/mbtiles-spec) files. To serve a file from CLI, simply put the path to the file or
-the directory with `*.mbtiles` or `*.pmtiles` files. A path to PMTiles file may be a URL. For example:
+and [MBTile](https://github.com/mapbox/mbtiles-spec) files.
+To serve a file from CLI, simply put the path to the file or the directory with `*.mbtiles` or `*.pmtiles` files.
+A path to PMTiles file may be a URL.
+For example:
 
 ```bash
 martin  /path/to/mbtiles/file.mbtiles  /path/to/directory   https://example.org/path/tiles.pmtiles
@@ -48,7 +62,8 @@ martin  /path/to/directory
 
 ### MBTiles Hot Reload
 
-Martin watches directories configured under `mbtiles` for changes at runtime. When `.mbtiles` files are added, modified, or removed from a watched directory, Martin automatically updates the tile catalog - no restart required.
+Martin watches directories configured under `mbtiles` for changes at runtime.
+When `.mbtiles` files are added, modified, or removed from a watched directory, Martin automatically updates the tile catalog - no restart required.
 
 ```bash
 # Martin will watch this directory and reflect any *.mbtiles changes live
@@ -74,7 +89,8 @@ The following events are handled automatically:
     Hot reload applies to directories configured under `mbtiles.paths` (or passed on the CLI). Named sources listed under `mbtiles.sources` are snapshotted at startup and are not watched for changes.
 
 !!! note
-    PMTiles hot reload is not yet supported. If you want to help implement it, see <https://github.com/maplibre/martin/issues/2180>.
+    PMTiles hot reload is not yet supported.
+    If you want to help implement it, see <https://github.com/maplibre/martin/issues/2180>.
 
 ## MBTiles vs PMTiles
 
@@ -97,7 +113,8 @@ MBTiles and PMTiles are both formats for storing tiled geospatial data, but they
 
 ### Serving PMTiles without a Tile Server
 
-PMTiles archives can be served directly from HTTP range–capable storage without a dedicated tile server. This approach has several limitations:
+PMTiles archives can be served directly from HTTP range–capable storage without a dedicated tile server.
+This approach has several limitations:
 
 - **Unrestricted access risk**
   Without proper access controls, clients may download large portions (or all) of an archive, leading to significant egress costs.

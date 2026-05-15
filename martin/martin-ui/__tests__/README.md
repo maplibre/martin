@@ -1,6 +1,7 @@
 # Martin UI Snapshot Tests
 
-This directory contains snapshot tests for the Martin UI components. Snapshot tests help ensure that the UI doesn't change unexpectedly between builds.
+This directory contains snapshot tests for the Martin UI components.
+Snapshot tests help ensure that the UI doesn't change unexpectedly between builds.
 
 ## Directory Structure
 
@@ -74,4 +75,5 @@ For components that use context providers, hooks, or have complex dependencies:
 
 ## Integration with GitHub Actions
 
-Snapshot tests are automatically run in GitHub Actions CI pipeline. The workflow configuration is in `.github/workflows/tests.yml`.
+Snapshot tests are automatically run in GitHub Actions CI pipeline.
+The workflow configuration is in `.github/workflows/tests.yml`.

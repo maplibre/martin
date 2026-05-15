@@ -1,3 +1,11 @@
+---
+icon: simple/nginx
+tags:
+  - deployment
+  - reverse-proxy
+  - nginx
+---
+
 # Using with NGINX
 
 You can run Martin behind NGINX proxy, so you can cache frequently accessed tiles with custom logic.
@@ -26,7 +34,8 @@ location ~ /tiles/(?<fwd_path>.*) {
 
 ### Caching tiles
 
-You can also use NGINX to cache tiles. In the example, the maximum cache size is set to 10GB, and caching time is set to 1 hour for responses with codes 200, 204, and 302 and 1 minute for responses with code 404.
+You can also use NGINX to cache tiles.
+In the example, the maximum cache size is set to 10GB, and caching time is set to 1 hour for responses with codes 200, 204, and 302 and 1 minute for responses with code 404.
 
 ```nginx
 http {

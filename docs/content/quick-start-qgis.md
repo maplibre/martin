@@ -1,3 +1,11 @@
+---
+icon: simple/qgis
+tags:
+  - getting-started
+  - map-renderer
+  - qgis
+---
+
 # View map with QGIS
 
 1. Download, install, and run [QGIS](https://qgis.org/en/site/forusers/download.html) for your platform
