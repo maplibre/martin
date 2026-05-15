@@ -25,7 +25,7 @@
       
       
       <link rel="icon" href="../images/favicon.ico">
-      <meta name="generator" content="zensical-0.0.41">
+      <meta name="generator" content="zensical-0.0.42">
     
     
       
@@ -1901,7 +1901,7 @@ The reason you need a tool to build vector tilesets from OpenStreetMap is that t
 Good question.
 
 MBtiles is the archive format. Think of a sqlite database storing the data you need a chunk (`x`/`y`/`z`) of the world.
-See our comparison [pmtiles vs. mbtiles](sources-tiles.md) for discussions on the pros and cons of this/alternative formats.
+See our comparison [pmtiles vs. mbtiles](sources-tiles/index.md) for discussions on the pros and cons of this/alternative formats.
 
 But how does the data in the archive look like?
 This is where the vector tile schema comes in:
@@ -1972,24 +1972,24 @@ Once the tiles are deployed behind https, this can be used.</p>
 <li>Visit <a href="http://localhost:8888"><code>http://localhost:8888</code></a></li>
 <li>You first need a style:</li>
 <li>Click <code>Open</code>
-     <img alt="where in the UI the &quot;Open&quot; button can be found" src="../images/maputnik-open.png" /></li>
+     <img alt="where in the UI the &quot;Open&quot; button can be found" src="../images/maputnik/open.png" /></li>
 <li>Select a style you like (we are going to choose <code>Maptiler Basic</code>)
-     <img alt="how to select a style" src="../images/maputnik-select-style.png" /></li>
+     <img alt="how to select a style" src="../images/maputnik/select-style.png" /></li>
 <li>You now have a style using Maptilers' (<strong>NOT martins</strong>) data. You need to change its datasource to use the tiles we just published:</li>
 <li>Click <code>Data Sources</code>
-     <img alt="how to change the datasource" src="../images/maputnik-change-datasource.png" /></li>
+     <img alt="how to change the datasource" src="../images/maputnik/change-datasource.png" /></li>
 <li>And add the tilejson from above <code>http://localhost:3000/monaco,where_yachts_can_be_looked_at</code>:
-     <img alt="how to add the tilejson" src="../images/maputnik-add-tilejson.png" /></li>
+     <img alt="how to add the tilejson" src="../images/maputnik/add-tilejson.png" /></li>
 <li>Now, lets zoom into monaco:
-   <img alt="where monaco is on a map" src="../images/maputnik-zoom-into-monaco.png" /></li>
+   <img alt="where monaco is on a map" src="../images/maputnik/zoom-into-monaco.png" /></li>
 <li>And finally, lets add a circle layer for our yachts:</li>
 <li>Click <code>Add Layer</code>
-     <img alt="add a circle layer" src="../images/maputnik-add-layer.png" /></li>
+     <img alt="add a circle layer" src="../images/maputnik/add-layer.png" /></li>
 <li>Configure the layer as follows:
-     <img alt="add a circle layer" src="../images/maputnik-configure-layer.png" /></li>
+     <img alt="add a circle layer" src="../images/maputnik/configure-layer.png" /></li>
 <li>
 <p>And style it as:
-     <img alt="add a circle layer" src="../images/maputnik-add-yachts-layer.png" /></p>
+     <img alt="add a circle layer" src="../images/maputnik/add-yachts-layer.png" /></p>
 <p><details><summary>json configuration (click to expand)</summary></p>
 <div class="language-json highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="p">{</span>
 </span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;where_yachts_can_be_looked_at&quot;</span><span class="p">,</span>
@@ -2140,7 +2140,7 @@ Once the tiles are deployed behind https, this can be used.</p>
       <script id="__config" type="application/json">{"annotate":null,"base":"..","features":["announce.dismiss","content.action.edit","content.code.annotate","content.code.copy","content.code.select","content.footnote.tooltips","content.tabs.link","content.tooltips","header.autohide","navigation.expand","navigation.footer","navigation.indexes","navigation.instant","navigation.instant.prefetch","navigation.instant.progress","navigation.path","navigation.prune","navigation.sections","navigation.tabs","navigation.tabs.sticky","navigation.top","navigation.tracking","search.highlight","toc.follow","toc.integrate"],"search":"../assets/javascripts/workers/search.e2d2d235.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":null}</script>
     
     
-      <script src="../assets/javascripts/bundle.dbc0afdc.min.js"></script>
+      <script src="../assets/javascripts/bundle.6e5f0216.min.js"></script>
       
     
   </body>

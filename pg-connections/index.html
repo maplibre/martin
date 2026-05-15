@@ -25,7 +25,7 @@
       
       
       <link rel="icon" href="../images/favicon.ico">
-      <meta name="generator" content="zensical-0.0.41">
+      <meta name="generator" content="zensical-0.0.42">
     
     
       
@@ -1596,14 +1596,14 @@ See the <a href="https://www.postgresql.org/docs/current/libpq-connect.html#LIBP
 See the <a href="https://www.postgresql.org/docs/current/libpq-ssl.html">PostgreSQL docs</a> for mode descriptions.
 Certificates can be provided in the configuration file or via environment variables (same as <code>psql</code>).
 Environment variables apply to all PostgreSQL connections.
-See <a href="env-vars/">environment vars</a> for details.</p>
+See <a href="../env-vars/">environment vars</a> for details.</p>
 <p>By default, <code>sslmode</code> is <code>prefer</code> - encrypt (don't check certificates) if the server supports it, but the connection proceeds without SSL if not supported.
 This matches <code>psql</code> default behavior.</p>
 <p>If you require guarantees regarding <a href="https://en.wikipedia.org/wiki/Eavesdropping">eavesdropping</a> or <a href="https://en.wikipedia.org/wiki/Man-in-the-middle_attack">MITM protection</a>, you need a different option.
 Use the <code>sslmode</code> parameter to specify a different mode:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>martin<span class="w"> </span>postgres://user:password@host/db?sslmode<span class="o">=</span>verify-full
 </span></code></pre></div>
-<p>For a practical walkthrough of SSL certificate setup - including creation, configuration, and troubleshooting - see our <a href="pg-ssl-certificates/">PostgreSQL SSL Certificates Recipe</a>.</p>
+<p>For a practical walkthrough of SSL certificate setup - including creation, configuration, and troubleshooting - see our <a href="../pg-ssl-certificates/">PostgreSQL SSL Certificates Recipe</a>.</p>
 
 
 
@@ -1728,7 +1728,7 @@ Use the <code>sslmode</code> parameter to specify a different mode:</p>
       <script id="__config" type="application/json">{"annotate":null,"base":"..","features":["announce.dismiss","content.action.edit","content.code.annotate","content.code.copy","content.code.select","content.footnote.tooltips","content.tabs.link","content.tooltips","header.autohide","navigation.expand","navigation.footer","navigation.indexes","navigation.instant","navigation.instant.prefetch","navigation.instant.progress","navigation.path","navigation.prune","navigation.sections","navigation.tabs","navigation.tabs.sticky","navigation.top","navigation.tracking","search.highlight","toc.follow","toc.integrate"],"search":"../assets/javascripts/workers/search.e2d2d235.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":null}</script>
     
     
-      <script src="../assets/javascripts/bundle.dbc0afdc.min.js"></script>
+      <script src="../assets/javascripts/bundle.6e5f0216.min.js"></script>
       
     
   </body>
