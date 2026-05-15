@@ -1,3 +1,9 @@
+---
+hide:
+  - navigation
+  - toc
+---
+
 # Introduction
 
 ![Martin](https://raw.githubusercontent.com/maplibre/martin/main/logo.png)
