@@ -5,7 +5,10 @@ tags:
 
 # Martin Endpoints
 
-Martin data is available via the HTTP `GET` endpoints:
+!!! tip "OpenAPI Documentation"
+    If you want to explore the API endpoints programmatically or generate client code, you can use our [OpenAPI Documentation](https://raw.githubusercontent.com/maplibre/martin/main/schemas/openapi.json).
+
+Martin data is available via these HTTP `GET` endpoints:
 
 | URL                                      | Description                                    |
 |------------------------------------------|------------------------------------------------|
