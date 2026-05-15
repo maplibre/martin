@@ -5,9 +5,8 @@ use actix_web::test::{TestRequest, call_service, read_body, read_body_json};
 use indoc::indoc;
 use insta::assert_json_snapshot;
 use martin::config::file::srv::SrvConfig;
+use rstest::rstest;
 use serde_json::Value;
-    use rstest::rstest;
-
 
 pub mod utils;
 pub use utils::*;
@@ -105,7 +104,6 @@ async fn style_json_not_found() {
     let body = String::from_utf8(read_body(response).await.to_vec()).unwrap();
     assert_eq!(body, "No such style exists");
 }
-
 
 /// Full PNG magic: 8 bytes
 const PNG_MAGIC: &[u8] = &[0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A];
