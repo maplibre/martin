@@ -639,7 +639,10 @@ impl Config {
         let yaml = serde_yaml::to_string(&self).expect("Unable to serialize config");
         if file_name.as_os_str() == OsStr::new("-") {
             info!("Current system configuration:");
-            #[expect(clippy::print_stdout, reason = "`--save -` writes the config to stdout")]
+            #[expect(
+                clippy::print_stdout,
+                reason = "`--save -` writes the config to stdout"
+            )]
             {
                 println!("\n\n{yaml}\n");
             }

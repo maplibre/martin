@@ -683,9 +683,7 @@ mod tests {
                 schema: NormalizedSchema::Hash,
             },
         ] {
-            pool.contains(error_mbt_type, 6, 38, 19)
-                .await
-                .unwrap_err();
+            pool.contains(error_mbt_type, 6, 38, 19).await.unwrap_err();
         }
     }
 
