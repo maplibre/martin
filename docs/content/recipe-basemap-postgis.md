@@ -1,3 +1,11 @@
+---
+icon: material/map-search
+tags:
+  - postgresql
+  - tile-sources
+  - recipes
+---
+
 # Setting up a Basemap and Overlaying Points from PostGIS
 
 You commonly have some semi-proprietary datasource which you want to overlay onto another.
@@ -29,13 +37,15 @@ The reason you need a tool to build vector tilesets from OpenStreetMap is that t
 
 Good question.
 
-MBtiles is the archive format. Think of a sqlite database storing the data you need a chunk (`x`/`y`/`z`) of the world.
+MBtiles is the archive format.
+Think of a sqlite database storing the data you need a chunk (`x`/`y`/`z`) of the world.
 See our comparison [pmtiles vs. mbtiles](sources-tiles/index.md) for discussions on the pros and cons of this/alternative formats.
 
 But how does the data in the archive look like?
 This is where the vector tile schema comes in:
 [OpenMapTiles](https://openmaptiles.org/) defines which layers are included in the served data and how they are aggregated.
-[OpenMapTiles](https://openmaptiles.org/) does have an attribution requirement. You will need to have [`© OpenMapTiles`](https://openmaptiles.org/) at the bottom of your map.
+[OpenMapTiles](https://openmaptiles.org/) does have an attribution requirement.
+You will need to have [`© OpenMapTiles`](https://openmaptiles.org/) at the bottom of your map.
 
 See [Shortbread](https://shortbread-tiles.org/) for a newer, but less mature alternative if you want to read more.
 
@@ -128,7 +138,8 @@ Maputnik is now online, so lets load martins tiles into it.
      ![where in the UI the "Open" button can be found](images/maputnik/open.png)
    - Select a style you like (we are going to choose `Maptiler Basic`)
      ![how to select a style](images/maputnik/select-style.png)
-3. You now have a style using Maptilers' (**NOT martins**) data. You need to change its datasource to use the tiles we just published:
+3. You now have a style using Maptilers' (**NOT martins**) data.
+   You need to change its datasource to use the tiles we just published:
    - Click `Data Sources`
      ![how to change the datasource](images/maputnik/change-datasource.png)
    - And add the tilejson from above `http://localhost:3000/monaco,where_yachts_can_be_looked_at`:

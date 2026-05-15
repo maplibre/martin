@@ -1,3 +1,11 @@
+---
+icon: simple/postgresql
+tags:
+  - postgresql
+  - configuration
+  - ssl
+---
+
 # PostgreSQL Connections
 
 Martin supports standard PostgreSQL connection string settings including `host`, `port`, `user`, `password`, `dbname`, `sslmode`, `connect_timeout`, `keepalives`, `keepalives_idle`, etc.

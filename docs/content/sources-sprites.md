@@ -1,3 +1,10 @@
+---
+icon: material/shape
+tags:
+  - sprites
+  - configuration
+---
+
 # Sprite Sources
 
 Given a directory with SVG images, Martin will generate a sprite -- a JSON index and a PNG image, for both low and highresolution displays.
@@ -10,7 +17,8 @@ The spritesheet generation is cached and the size of this cache can be configure
 ### API
 
 Martin uses [MapLibre sprites API](https://maplibre.org/maplibre-style-spec/sprite/) specification to serve sprites via
-several endpoints. The sprite image and index are generated on the fly, so if the sprite directory is updated, the
+several endpoints.
+The sprite image and index are generated on the fly, so if the sprite directory is updated, the
 changes will be reflected immediately.
 
 You can use the `/catalog` api to see all the `<sprite_id>`s with their contained sprites.
@@ -24,8 +32,8 @@ Additionally, there is a high DPI version available at `GET /sprite/<sprite_id>@
 
 ##### Sprite index
 
-`/sprite/<sprite_id>.json` metadata index describing the position and size of each image inside the sprite. Just like
-the PNG, there is a high DPI version available at `/sprite/<sprite_id>@2x.json`.
+`/sprite/<sprite_id>.json` metadata index describing the position and size of each image inside the sprite.
+Just like the PNG, there is a high DPI version available at `/sprite/<sprite_id>@2x.json`.
 
 ```json
 {
@@ -62,7 +70,8 @@ override one another.
 ### Configuring from CLI
 
 A sprite directory can be configured from the CLI with the `--sprite` flag. The flag can be used multiple times to
-configure multiple sprite directories. The `sprite_id` of the sprite will be the name of the directory -- in the example below,
+configure multiple sprite directories.
+The `sprite_id` of the sprite will be the name of the directory - in the example below,
 the sprites will be available at `/sprite/sprite_a` and `/sprite/sprite_b`. Use `--save-config` to save the
 configuration to the config file.
 

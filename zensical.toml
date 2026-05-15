@@ -377,7 +377,7 @@ pygments_lang_class = true
 [project.markdown_extensions.pymdownx.inlinehilite]
 
 [project.markdown_extensions.pymdownx.snippets]
-base_path = ["docs/content"]
+base_path = ["docs/content", "docs/snippets"]
 
 [project.markdown_extensions.pymdownx.superfences]
 custom_fences = [
@@ -390,3 +390,4 @@ custom_fences = [
 alternate_style = true
 
 [project.markdown_extensions.pymdownx.details]
+[project.markdown_extensions.attr_list]

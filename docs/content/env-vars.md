@@ -1,3 +1,10 @@
+---
+icon: material/variable
+tags:
+  - configuration
+  - deployment
+---
+
 # Environment Variables
 
 You can configure Martin using environment variables, but only if the configuration file is not used.

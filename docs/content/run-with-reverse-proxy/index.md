@@ -1,3 +1,7 @@
+---
+icon: material/server-network
+---
+
 # Reverse Proxies
 
 Martin **can run without** a reverse proxy.

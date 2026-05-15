@@ -1,3 +1,10 @@
+---
+icon: material/console-line
+tags:
+  - deployment
+  - tooling
+---
+
 # Command-line Interface
 
 You can configure Martin using command-line interface.
