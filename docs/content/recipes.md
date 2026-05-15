@@ -1,4 +1,5 @@
 ---
+icon: material/cloud
 tags:
   - postgresql
   - deployment

@@ -1,4 +1,5 @@
 ---
+icon: material/map-search
 tags:
   - postgresql
   - tile-sources

@@ -1,4 +1,5 @@
 ---
+icon: fontawesome/brands/windows
 tags:
   - getting-started
 ---

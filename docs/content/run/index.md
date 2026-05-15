@@ -1,3 +1,7 @@
+---
+icon: material/play-circle
+---
+
 # Usage
 
 Martin requires at least one PostgreSQL [connection string](../pg-connections/index.md) or a [tile source file](../sources-files.md)

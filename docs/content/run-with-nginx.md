@@ -1,4 +1,5 @@
 ---
+icon: simple/nginx
 tags:
   - deployment
   - reverse-proxy

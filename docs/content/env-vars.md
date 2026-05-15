@@ -1,4 +1,5 @@
 ---
+icon: material/variable
 tags:
   - configuration
   - deployment

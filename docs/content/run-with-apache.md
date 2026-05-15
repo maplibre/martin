@@ -1,4 +1,5 @@
 ---
+icon: simple/apache
 tags:
   - deployment
   - reverse-proxy

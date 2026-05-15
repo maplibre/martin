@@ -1,4 +1,5 @@
 ---
+icon: material/database
 tags:
   - mbtiles
   - pmtiles

@@ -1,4 +1,5 @@
 ---
+icon: material/tools
 tags:
   - tooling
 ---

@@ -1,4 +1,5 @@
 ---
+icon: material/layers-triple
 tags:
   - tile-sources
   - composite-sources

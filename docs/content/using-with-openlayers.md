@@ -1,4 +1,5 @@
 ---
+icon: simple/openlayers
 tags:
   - map-renderer
   - openlayers

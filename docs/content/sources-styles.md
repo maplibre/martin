@@ -1,4 +1,5 @@
 ---
+icon: material/palette
 tags:
   - styles
   - configuration

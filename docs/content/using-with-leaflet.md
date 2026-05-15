@@ -1,4 +1,5 @@
 ---
+icon: simple/leaflet
 tags:
   - map-renderer
   - leaflet

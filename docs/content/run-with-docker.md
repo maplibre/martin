@@ -1,4 +1,5 @@
 ---
+icon: simple/docker
 tags:
   - deployment
   - docker

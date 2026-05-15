@@ -1,4 +1,5 @@
 ---
+icon: simple/mapbox
 tags:
   - map-renderer
   - mapbox

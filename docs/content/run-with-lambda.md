@@ -1,4 +1,5 @@
 ---
+icon: fontawesome/brands/aws
 tags:
   - deployment
   - aws

@@ -1,4 +1,5 @@
 ---
+icon: material/shape
 tags:
   - sprites
   - configuration

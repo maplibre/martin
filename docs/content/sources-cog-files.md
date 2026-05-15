@@ -1,4 +1,5 @@
 ---
+icon: material/satellite-variant
 tags:
   - cog
   - tile-sources

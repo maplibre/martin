@@ -1,4 +1,5 @@
 ---
+icon: simple/maplibre
 tags:
   - tile-sources
   - configuration

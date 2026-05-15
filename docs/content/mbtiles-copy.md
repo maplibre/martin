@@ -1,4 +1,5 @@
 ---
+icon: material/database-export
 tags:
   - mbtiles
   - tooling

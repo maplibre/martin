@@ -1,4 +1,5 @@
 ---
+icon: simple/qgis
 tags:
   - getting-started
   - map-renderer

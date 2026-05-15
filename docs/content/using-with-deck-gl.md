@@ -1,4 +1,5 @@
 ---
+icon: material/layers
 tags:
   - map-renderer
   - deck-gl

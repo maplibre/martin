@@ -1,4 +1,5 @@
 ---
+icon: material/file-cog
 tags:
   - configuration
 ---

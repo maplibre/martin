@@ -1,4 +1,5 @@
 ---
+icon: material/database-sync
 tags:
   - mbtiles
   - tooling

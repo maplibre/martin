@@ -1,4 +1,5 @@
 ---
+icon: simple/postgresql
 tags:
   - postgresql
   - tile-sources

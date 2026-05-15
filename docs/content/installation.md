@@ -1,4 +1,5 @@
 ---
+icon: material/download
 tags:
   - getting-started
   - deployment

@@ -1,4 +1,5 @@
 ---
+icon: material/format-font
 tags:
   - fonts
   - configuration

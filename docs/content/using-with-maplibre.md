@@ -1,4 +1,5 @@
 ---
+icon: simple/maplibre
 tags:
   - map-renderer
   - maplibre

@@ -1,4 +1,5 @@
 ---
+icon: simple/apple
 tags:
   - getting-started
 ---

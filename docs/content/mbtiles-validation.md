@@ -1,4 +1,5 @@
 ---
+icon: material/database-check
 tags:
   - mbtiles
   - tooling
