@@ -3,6 +3,7 @@
 use actix_web::http::header::{ACCEPT_ENCODING, CONTENT_ENCODING, CONTENT_TYPE};
 use actix_web::test::{TestRequest, call_service, read_body, read_body_json};
 use indoc::formatdoc;
+#[cfg(all(feature = "rendering", target_os = "linux"))]
 use insta::assert_yaml_snapshot;
 use martin::config::file::srv::SrvConfig;
 use martin_tile_utils::{decode_brotli, decode_gzip};
