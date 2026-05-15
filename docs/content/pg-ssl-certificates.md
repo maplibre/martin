@@ -1,3 +1,10 @@
+---
+tags:
+  - postgresql
+  - ssl
+  - configuration
+---
+
 # PostgreSQL SSL Certificates
 
 Martin supports SSL certificate authentication for PostgreSQL connections. This guide covers certificate generation, PostgreSQL configuration, and Martin setup.

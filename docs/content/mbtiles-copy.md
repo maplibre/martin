@@ -1,3 +1,9 @@
+---
+tags:
+  - mbtiles
+  - tooling
+---
+
 # Copying, Diffing, and Patching MBTiles
 
 ## `mbtiles copy`

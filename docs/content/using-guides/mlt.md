@@ -1,3 +1,9 @@
+---
+tags:
+  - tile-sources
+  - configuration
+---
+
 # Serving MLT (MapLibre Tiles)
 
 This guide explains how to configure Martin to convert MVT (Mapbox Vector Tiles) to [MLT (MapLibre Tiles)](https://github.com/maplibre/maplibre-tile-spec) format on the fly.

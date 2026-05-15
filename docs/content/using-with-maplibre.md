@@ -1,3 +1,9 @@
+---
+tags:
+  - map-renderer
+  - maplibre
+---
+
 # Using with MapLibre
 
 [MapLibre](https://maplibre.org/maplibre-gl-js/docs/) is an Open-source JavaScript library for showing maps on a

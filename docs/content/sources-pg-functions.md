@@ -1,3 +1,10 @@
+---
+tags:
+  - postgresql
+  - tile-sources
+  - configuration
+---
+
 # PostgreSQL Function Sources
 
 A Function Source is a database function which can be used to

@@ -1,3 +1,9 @@
+---
+tags:
+  - mbtiles
+  - tooling
+---
+
 # Diffing MBTiles
 
 ## `mbtiles diff`

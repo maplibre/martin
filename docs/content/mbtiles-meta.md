@@ -1,3 +1,9 @@
+---
+tags:
+  - mbtiles
+  - tooling
+---
+
 # MBTiles information and metadata
 
 ## summary

@@ -1,3 +1,10 @@
+---
+tags:
+  - tile-sources
+  - composite-sources
+  - configuration
+---
+
 # Composite Sources
 
 Composite Sources allows combining multiple sources into one. Composite Source consists of multiple sources separated by

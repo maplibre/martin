@@ -1,3 +1,8 @@
+---
+tags:
+  - configuration
+---
+
 # Configuration
 
 If you don't want to expose all of your tables and functions, you can list your sources in a configuration file. To

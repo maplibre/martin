@@ -1,3 +1,10 @@
+---
+tags:
+  - postgresql
+  - tile-sources
+  - recipes
+---
+
 # Setting up a Basemap and Overlaying Points from PostGIS
 
 You commonly have some semi-proprietary datasource which you want to overlay onto another.

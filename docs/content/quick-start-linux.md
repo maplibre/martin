@@ -1,3 +1,8 @@
+---
+tags:
+  - getting-started
+---
+
 # Quick start on Linux
 
 ```bash

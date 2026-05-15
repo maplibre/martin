@@ -1,3 +1,10 @@
+---
+tags:
+  - deployment
+  - reverse-proxy
+  - nginx
+---
+
 # Using with NGINX
 
 You can run Martin behind NGINX proxy, so you can cache frequently accessed tiles with custom logic.

@@ -1,3 +1,10 @@
+---
+tags:
+  - deployment
+  - docker
+  - docker-compose
+---
+
 # Running with Docker Compose
 
 You can use example [`docker-compose.yml`](https://raw.githubusercontent.com/maplibre/martin/main/docker-compose.yml)

@@ -1,3 +1,9 @@
+---
+tags:
+  - sprites
+  - configuration
+---
+
 # Sprite Sources
 
 Given a directory with SVG images, Martin will generate a sprite -- a JSON index and a PNG image, for both low and highresolution displays.

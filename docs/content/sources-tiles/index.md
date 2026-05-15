@@ -1,3 +1,9 @@
+---
+tags:
+  - tile-sources
+  - configuration
+---
+
 # Tile Sources
 
 Martin supports multiple tile sources

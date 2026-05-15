@@ -1,3 +1,9 @@
+---
+tags:
+  - map-renderer
+  - leaflet
+---
+
 # Using with Leaflet
 
 [Leaflet](https://github.com/Leaflet/Leaflet) is the leading open-source JavaScript library for mobile-friendly interactive maps.

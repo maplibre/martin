@@ -1,3 +1,9 @@
+---
+tags:
+  - fonts
+  - configuration
+---
+
 # Font Sources
 
 Martin can serve glyph ranges from `otf`, `ttf`, and `ttc` fonts as needed by MapLibre text rendering. Martin will

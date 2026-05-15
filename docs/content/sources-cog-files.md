@@ -1,3 +1,10 @@
+---
+tags:
+  - cog
+  - tile-sources
+  - configuration
+---
+
 # Cloud Optimized GeoTIFF File Sources
 
 !!! warning

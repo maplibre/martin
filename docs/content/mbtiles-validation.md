@@ -1,3 +1,9 @@
+---
+tags:
+  - mbtiles
+  - tooling
+---
+
 # MBTiles Validation
 
 The original [MBTiles specification](https://github.com/mapbox/mbtiles-spec#readme) does not provide any guarantees for

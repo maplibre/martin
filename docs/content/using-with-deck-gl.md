@@ -1,3 +1,9 @@
+---
+tags:
+  - map-renderer
+  - deck-gl
+---
+
 # Using with deck.gl
 
 [deck.gl](https://deck.gl/) is a WebGL-powered framework for visual exploratory data analysis of large datasets.

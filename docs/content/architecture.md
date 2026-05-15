@@ -1,3 +1,8 @@
+---
+tags:
+  - development
+---
+
 # Architecture
 
 This document provides a high-level overview of Martin's architecture, describing its major components, how they interact, and the rationale behind key design decisions.

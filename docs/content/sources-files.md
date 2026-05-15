@@ -1,3 +1,14 @@
+---
+tags:
+  - mbtiles
+  - pmtiles
+  - tile-sources
+  - configuration
+  - aws
+  - azure
+  - google-cloud
+---
+
 # MBTiles and PMTiles File Sources
 
 Martin can serve any type of tiles from [PMTile](https://protomaps.com/blog/pmtiles-v3-whats-new)
