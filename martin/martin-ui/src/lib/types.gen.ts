@@ -197,6 +197,8 @@ export interface components {
                     style?: string | null;
                 };
             };
+            /** @description Server-wide capability flags */
+            settings: Record<string, never>;
             sprites: {
                 [key: string]: {
                     /** @description Available sprite image names. */
