@@ -23,6 +23,10 @@ all of your configuration, which you can edit to remove any sources you don't wa
 martin  ... ... ...  --save-config config.yaml
 ```
 
+## Full Configuration
+
+--8<-- "files/generated_config.md"
+
 ## Postprocessing
 
 Martin's postprocessing pipeline can convert tiles between MVT and MLT formats on the fly, driven by the client's `Accept` header.
@@ -61,10 +65,6 @@ postgres:
 mbtiles: # gets global default
   - some/file.mbtiles
 ```
-
-## Config Example
-
---8<-- "files/generated_config.md"
 
 ## Validating your config
 
