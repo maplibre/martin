@@ -165,7 +165,7 @@ SELECT * FROM pg_stat_ssl WHERE pid = pg_backend_pid();
 
 ## Martin Configuration
 
-Martin can be configured using environment variables, the CLI, or the configuration file.
+Martin can be configured using environment variables, [the CLI](run-with-cli.md), or the [configuration file](config-file/index.md).
 Which of them you choose is up to you.
 You do not need to configure things twice.
 

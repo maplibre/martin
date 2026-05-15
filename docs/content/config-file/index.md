@@ -1,4 +1,4 @@
-# Configuration File
+# Configuration
 
 If you don't want to expose all of your tables and functions, you can list your sources in a configuration file. To
 start Martin with a configuration file you need to pass a path to a file with a `--config` argument. Config files may

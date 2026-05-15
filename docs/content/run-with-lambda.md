@@ -25,24 +25,24 @@ $ docker push 493749042871.dkr.ecr.us-east-2.amazonaws.com/martin:latest
 
 Open [Lambda console](https://console.aws.amazon.com/lambda) and create your function:
 
-1. Click “Create function”.
-2. Choose “Container image”.
-3. Put something in “Function name”.
+1. Click "Create function".
+2. Choose "Container image".
+3. Put something in "Function name".
    * **Note**: This is an internal identifier, not exposed in the function URL.
-4. Click “Browse images”, and select your repository and the tag.
+4. Click "Browse images", and select your repository and the tag.
    * If you cannot find it, see if you are in the same region?
-5. Expand “Container image overrides”, and under CMD put the URL of a `.pmtiles` file.
-6. Set “Architecture” to `arm64` to match the platform that we pulled. Lambda has better ARM CPUs than x86.
-7. Click “Create function”.
-8. Find the “Configuration” tab, select “Function URL”, “Create function URL”.
-9. Set “Auth type” to `NONE`
+5. Expand "Container image overrides", and under CMD put the URL of a `.pmtiles` file.
+6. Set "Architecture" to `arm64` to match the platform that we pulled. Lambda has better ARM CPUs than x86.
+7. Click "Create function".
+8. Find the "Configuration" tab, select "Function URL", "Create function URL".
+9. Set "Auth type" to `NONE`
    * Do not enable `CORS`. Martin already has `CORS` support, so it will create incorrect duplicate headers.
-10. Click on the “Function URL”.
-11. To debug an issue, open the “Monitor” tab, “View CloudWatch logs”, find the most recent Log stream.
+10. Click on the "Function URL".
+11. To debug an issue, open the "Monitor" tab, "View CloudWatch logs", find the most recent Log stream.
 
 ### Zip deployment
 
-It’s possible to deploy the entire codebase from the AWS console, but we will use Serverless Application Model. Our function will consist of a “Layer”, containing the Martin binary, and our function itself will contain the configuration in yaml format.
+It’s possible to deploy the entire codebase from the AWS console, but we will use Serverless Application Model. Our function will consist of a "Layer", containing the Martin binary, and our function itself will contain the configuration in yaml format.
 
 #### The layer
 
@@ -95,22 +95,22 @@ Run `sam deploy --guided`.
 2. Press enter for everything else
 3. The settings are saved to `samconfig.toml`, so you can later do `sam deploy` to update the version, or `sam delete`.
 
-Now if you visit the [Lambda console](https://console.aws.amazon.com/lambda/home) and select “Layers”, you should see your layer.
+Now if you visit the [Lambda console](https://console.aws.amazon.com/lambda/home) and select "Layers", you should see your layer.
 
 #### The function
 
-1. Select “Functions”, “Create function”.
-2. Put something in “Function name”.
-3. Set “Runtime” to “Amazon Linux 2023”.
-4. Set “Architecture” to “arm64”.
-5. Under “Advanced settings”, choose “Enable function URL” with “Auth type” of “NONE”.
-6. Click “Create function”.
+1. Select "Functions", "Create function".
+2. Put something in "Function name".
+3. Set "Runtime" to "Amazon Linux 2023".
+4. Set "Architecture" to "arm64".
+5. Under "Advanced settings", choose "Enable function URL" with "Auth type" of "NONE".
+6. Click "Create function".
 
 Add your layer:
 
-1. Click “add a layer” (green banner at the top, or the very bottom).
-2. Choose “Custom layers”, and select your layer and its version.
-3. Click “Add”.
+1. Click "add a layer" (green banner at the top, or the very bottom).
+2. Choose "Custom layers", and select your layer and its version.
+3. Click "Add".
 
 Add your configuration file in the function source code:
 
