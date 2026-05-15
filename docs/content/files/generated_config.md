@@ -317,8 +317,7 @@ postgres:
   # This feature allows you to put a maximum latency bound on tiles with an
   # extreme amount of detail at the cost of not returning all data.
   # It is sensible to set this limit if you have user generated/untrusted
-  # geodata, e.g. a lot of data points at [Null Island]
-  # (<https://en.wikipedia.org/wiki/Null_Island>).
+  # geodata, e.g. a lot of data points at [Null Island](https://en.wikipedia.org/wiki/Null_Island).
   #
   # either a positive integer, or null=unlimited (default)
   max_feature_count: null
