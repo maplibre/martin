@@ -94,7 +94,7 @@ impl Mbtiles {
                 );
                 self.set_metadata_value(conn, zoom_name, calc_zoom).await?;
             }
-            Err(e) => Err(e)?,
+            Err(e) => return Err(e),
         }
         Ok(())
     }

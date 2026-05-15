@@ -62,7 +62,7 @@ pub fn parse_conn_str(conn_str: &str) -> PostgresResult<(Config, SslModeOverride
 }
 
 #[derive(Debug)]
-struct NoCertificateVerification {}
+struct NoCertificateVerification;
 
 impl ServerCertVerifier for NoCertificateVerification {
     fn verify_server_cert(
@@ -174,8 +174,8 @@ pub fn make_connector(
             Ok(Some(Pkcs1Key(rsa_key))) => builder
                 .with_client_auth_cert(read_certs(cert)?, rsa_key.into())
                 .map_err(|e| CannotUseClientKey(e, cert.clone(), key.clone()))?,
-            Ok(_) => Err(InvalidPrivateKey(key.clone()))?,
-            Err(e) => Err(CannotParseCert(e, key.clone()))?,
+            Ok(_) => return Err(InvalidPrivateKey(key.clone())),
+            Err(e) => return Err(CannotParseCert(e, key.clone())),
         }
     } else {
         if ssl_key.is_some() || ssl_key.is_some() {
@@ -189,7 +189,7 @@ pub fn make_connector(
     if !verify_ca {
         builder
             .dangerous()
-            .set_certificate_verifier(std::sync::Arc::new(NoCertificateVerification {}));
+            .set_certificate_verifier(std::sync::Arc::new(NoCertificateVerification));
     }
 
     let connector = MakeRustlsConnect::new(builder);

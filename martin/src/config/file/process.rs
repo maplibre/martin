@@ -34,7 +34,7 @@ pub type MvtProcessConfig = AutoOption<MvtEncoderConfig>;
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
-pub struct MvtEncoderConfig {}
+pub struct MvtEncoderConfig;
 
 /// Explicit encoder configuration for MLT conversion.
 /// All fields are optional; unset fields use `mlt-core`'s defaults.
@@ -185,14 +185,14 @@ mod tests {
     #[test]
     fn parse_mlt_invalid_string() {
         let result = serde_yaml::from_str::<MltProcessConfig>("invalid");
-        assert!(result.is_err());
+        result.unwrap_err();
     }
 
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[test]
     fn parse_mlt_invalid_type() {
         let result = serde_yaml::from_str::<MltProcessConfig>("123");
-        assert!(result.is_err());
+        result.unwrap_err();
     }
 
     #[cfg(all(feature = "mlt", feature = "_tiles"))]

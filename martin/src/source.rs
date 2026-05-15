@@ -112,9 +112,11 @@ impl TileSources {
             // TODO: support multiple encodings of the same format
             match info {
                 Some(inf) if inf == src_inf => {}
-                Some(inf) => Err(ErrorNotFound(format!(
-                    "Cannot merge sources with {inf} with {src_inf}"
-                )))?,
+                Some(inf) => {
+                    return Err(ErrorNotFound(format!(
+                        "Cannot merge sources with {inf} with {src_inf}"
+                    )));
+                }
                 None => info = Some(src_inf),
             }
 

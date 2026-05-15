@@ -1,4 +1,5 @@
 #![allow(clippy::unwrap_used)]
+#![expect(clippy::print_stderr, reason = "test diagnostics on failure")]
 use std::collections::HashMap;
 use std::fmt::Write as _;
 use std::path::PathBuf;
