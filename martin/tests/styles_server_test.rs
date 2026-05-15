@@ -86,6 +86,7 @@ async fn catalog_settings_with_rendering_feature() {
         }
         "#);
     });
+}
 
 #[actix_rt::test]
 #[tracing_test::traced_test]
