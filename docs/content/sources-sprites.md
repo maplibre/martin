@@ -73,7 +73,7 @@ martin --sprite /path/to/sprite_a --sprite /path/to/other/sprite_b
 ### Configuring with Config File
 
 A sprite directory can be configured from the config file with the `sprite` key, similar to
-how [MBTiles and PMTiles](config-file.md) are configured.
+how [MBTiles and PMTiles](config-file/index.md) are configured.
 
 ```yaml
 # Sprite configuration

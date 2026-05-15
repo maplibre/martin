@@ -89,7 +89,7 @@ mod tests {
     //
     // Success cases use `parse_yaml::<OptBoolObj<Sample>>` directly. Failure cases run
     // through the full `parse_config` pipeline; in production `OptBoolObj<...>` wraps
-    // resource configs (postgres `auto_publish`, etc.) — we use that for span context.
+    // resource configs (postgres `auto_publish`, etc.) - we use that for span context.
 
     #[test]
     fn deserialize_null_is_no_value() {
@@ -126,7 +126,7 @@ mod tests {
     fn deserialize_postgres_auto_publish_string_fails() {
         // `auto_publish` on a postgres source is `OptBoolObj<AutoPublish>`. A bare string
         // hits `visit_str` on the visitor, which falls through to `de::Error::invalid_type`
-        // — saphyr attaches the location and we render a graphical diagnostic.
+        // - saphyr attaches the location and we render a graphical diagnostic.
         insta::assert_snapshot!(
             render_failure(indoc::indoc! {"
                 postgres:

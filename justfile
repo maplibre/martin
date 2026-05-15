@@ -87,7 +87,7 @@ gen-schemas:
         --bin gen-schemas -- --target openapi     > schemas/openapi.json
     # The annotated config doc (markdown wrapping a fenced YAML block) is
     # derived from `schemas/config.json` and the `#[schemars(example = ...)]`
-    # attributes — keep it generated and version-controlled so editors can lean
+    # attributes - keep it generated and version-controlled so editors can lean
     # on it as a starting point.
     cargo run --quiet --no-default-features --features unstable-schemas \
         --bin gen-schemas -- --target config-doc  > docs/content/files/generated_config.md
@@ -104,7 +104,7 @@ test-schemas:
     #!/usr/bin/env bash
     set -euo pipefail
     if [[ ! -f schemas/config.json || ! -f schemas/openapi.json ]]; then
-        echo "schemas/config.json or schemas/openapi.json missing — run 'just gen-schemas' first" >&2
+        echo "schemas/config.json or schemas/openapi.json missing - run 'just gen-schemas' first" >&2
         exit 1
     fi
 

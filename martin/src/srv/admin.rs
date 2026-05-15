@@ -19,7 +19,7 @@ use crate::config::file::ServerState;
 pub struct Catalog {
     // utoipa <=5.4 names every `HashMap<K, V>` as `HashMap`, so the four
     // catalog fields would collide on a single `$ref` if we let them factor
-    // out — `#[schema(inline)]` keeps the schema for each field inline and
+    // out - `#[schema(inline)]` keeps the schema for each field inline and
     // distinct.
     #[cfg(feature = "_tiles")]
     #[cfg_attr(feature = "unstable-schemas", schema(inline))]

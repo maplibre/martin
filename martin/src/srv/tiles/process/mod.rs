@@ -45,7 +45,7 @@ impl From<ProcessError> for actix_web::Error {
 ///   (requires `mlt` feature). Encoder settings come from `config.convert_to_mlt`; an
 ///   absent block is treated as `convert_to_mlt: auto` and uses `mlt-core`'s defaults.
 ///   `convert_to_mlt: disabled` (or any of `off`/`no`/`false`) skips conversion entirely
-///   even if the client asked for MLT — the original MVT bytes are returned.
+///   even if the client asked for MLT - the original MVT bytes are returned.
 /// - MLT -> MVT conversion when the client requests `application/vnd.mapbox-vector-tile`
 ///   from an MLT source (requires `mlt` feature). `convert_to_mvt: disabled` skips it.
 ///
@@ -71,7 +71,7 @@ pub fn apply_pre_cache_processors(
             Some(MltProcessConfig::Explicit(cfg)) => {
                 convert_mvt_to_mlt(tile, EncoderConfig::from(cfg.clone()))?
             }
-            // Explicitly opted out — serve the original MVT bytes.
+            // Explicitly opted out - serve the original MVT bytes.
             Some(MltProcessConfig::Disabled) => tile,
         }
     } else if accepted == Some(Format::Mvt)
@@ -202,7 +202,7 @@ mod tests {
         assert_eq!(result.info.encoding, Encoding::Uncompressed);
     }
 
-    /// An MVT tile with one point feature — needed for meaningful round-trip tests
+    /// An MVT tile with one point feature - needed for meaningful round-trip tests
     /// since a 0-feature layer encodes to 0 bytes in MLT.
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     fn mvt_with_feature() -> Vec<u8> {

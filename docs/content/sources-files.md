@@ -8,11 +8,11 @@ the directory with `*.mbtiles` or `*.pmtiles` files. A path to PMTiles file may 
 martin  /path/to/mbtiles/file.mbtiles  /path/to/directory   https://example.org/path/tiles.pmtiles
 ```
 
-You may also want to generate a [config file](config-file.md) using the `--save-config my-config.yaml`, and later edit
+You may also want to generate a [config file](config-file/index.md) using the `--save-config my-config.yaml`, and later edit
 it and use it with `--config my-config.yaml` option.
 
 !!! tip
-    See [our tile sources explanation](sources-tiles.md) for a more detailed explanation on the difference between our available data sources.
+    See [our tile sources explanation](sources-tiles/index.md) for a more detailed explanation on the difference between our available data sources.
 
 ### Postprocessing
 
@@ -48,7 +48,7 @@ martin  /path/to/directory
 
 ### MBTiles Hot Reload
 
-Martin watches directories configured under `mbtiles` for changes at runtime. When `.mbtiles` files are added, modified, or removed from a watched directory, Martin automatically updates the tile catalog — no restart required.
+Martin watches directories configured under `mbtiles` for changes at runtime. When `.mbtiles` files are added, modified, or removed from a watched directory, Martin automatically updates the tile catalog - no restart required.
 
 ```bash
 # Martin will watch this directory and reflect any *.mbtiles changes live

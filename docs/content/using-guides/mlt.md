@@ -56,7 +56,7 @@ pmtiles:
       convert_to_mlt: auto
     imagery:
       path: /data/imagery.pmtiles
-      # no convert_to_mlt — served as-is
+      # no convert_to_mlt - served as-is
 ```
 
 ### Opt a single source out of MLT

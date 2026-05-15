@@ -1,7 +1,7 @@
 //! End-to-end binary smoke tests for config-error diagnostics.
 //!
 //! Unit tests in `src/config/...` exercise `MartinError::render_diagnostic_with` in-process,
-//! but they don't catch wiring regressions in the binary entry point — for example, if
+//! but they don't catch wiring regressions in the binary entry point - for example, if
 //! `main()` stops calling `render_diagnostic_with` or if `RUST_LOG_FORMAT=json` no longer
 //! propagates from env to the renderer. These tests spawn the actual `martin` binary, feed
 //! it a bad config, and snapshot the stderr output.

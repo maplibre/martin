@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Structured tracing fields
 
 The `fonts`, `sprites`, and `styles` resource modules now emit `tracing` events with structured fields (e.g. `font.name`, `font.glyph_count`, `sprite.path.kept`, `style.path.dropped`) instead of interpolated strings.
-Crates configuring a `tracing-subscriber` will pick the new fields up automatically — particularly useful with JSON formatters.
+Crates configuring a `tracing-subscriber` will pick the new fields up automatically - particularly useful with JSON formatters.
 The human-readable message text was shortened in the process, so any downstream log-scraper regex that matched the previous free-text messages needs to be updated. ([#2777](https://github.com/maplibre/martin/pull/2777))
 
 ### Other

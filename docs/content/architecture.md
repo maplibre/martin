@@ -274,10 +274,10 @@ Read it when you’re curious **why** certain choices were made.
 ??? "Specific crates splitting"
     The codebase is split into crates with clear responsibilities
 
-    - **martin-core** — reusable core logic and tile sources
-    - **mbtiles** — standalone MBTiles tooling
-    - **martin** — HTTP server, configuration, and runtime wiring
-    - **martin-tile-utils** — shared low-level tile utilities
+    - **martin-core** - reusable core logic and tile sources
+    - **mbtiles** - standalone MBTiles tooling
+    - **martin** - HTTP server, configuration, and runtime wiring
+    - **martin-tile-utils** - shared low-level tile utilities
 
     This makes it easier to:
 
@@ -568,7 +568,7 @@ These are the current monitoring and observability options:
 
 ## Related Documentation
 
-- [Development Guide](development.md) - Contributing to Martin
-- [Configuration File](config-file.md) - Detailed configuration options
+- [Development Guide](development/index.md) - Contributing to Martin
+- [Configuration File](config-file/index.md) - Detailed configuration options
 - [API Documentation](using.md) - HTTP API reference
-- [Sources Documentation](sources-tiles.md) - Tile source configuration
+- [Sources Documentation](sources-tiles/index.md) - Tile source configuration

@@ -600,7 +600,7 @@ async fn resolve_one_path_int<T: TileSourceConfiguration>(
             );
             let id = idr.resolve(&id, can.to_string_lossy().to_string());
             // Only commit `id`/`can` to bookkeeping after a successful init so a single
-            // bad file inside a directory does not poison the whole batch — without this,
+            // bad file inside a directory does not poison the whole batch - without this,
             // `on_invalid: warn` would still drop every sibling source.
             match custom
                 .new_sources(id.clone(), path.clone(), default_cache)
@@ -925,7 +925,7 @@ impl<'de> Deserialize<'de> for GlobalCacheConfig {
     where
         D: Deserializer<'de>,
     {
-        // Inner struct that handles the map case via the derive — we still get good error
+        // Inner struct that handles the map case via the derive - we still get good error
         // messages (with spans) for unknown fields and type mismatches inside it.
         #[serde_with::skip_serializing_none]
         #[derive(Deserialize)]

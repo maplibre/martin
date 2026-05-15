@@ -22,7 +22,7 @@ pub fn convert_mlt_to_mvt(tile: Tile) -> Result<Tile, ProcessError> {
     let mut decoder = Decoder::default();
     let mut tile_layers = Vec::with_capacity(layers.len());
     for layer in layers {
-        // Skip unknown layer tags — they have no MVT analogue.
+        // Skip unknown layer tags - they have no MVT analogue.
         if let Layer::Tag01(l) = layer {
             tile_layers.push(
                 l.into_tile(&mut decoder)
