@@ -4,12 +4,14 @@
 * A COG may have multiple images, also called subfiles or overviews, each indexed with an Image File Directory number - [`IFD`](https://download.osgeo.org/libtiff/doc/TIFF6.pdf#[{"num":209,"gen":0},{"name":"FitB"}]#[{"num":76,"gen":0},{"name":"FitB"}]#[{"num":76,"gen":0},{"name":"FitB"}]])
 * A COG must have at least one image.
 * The first image (IFD=0) must be a full resolution image, e.g., the one with the highest resolution.
-* [Each image may also have an accompanying mask](https://docs.ogc.org/is/21-026/21-026.html#_requirement_reduced_resolution_subfiles), which is also indexed with an IFD. The mask is used to [define a transparency mask](https://www.verypdf.com/document/tiff6/pg_0036.htm). We do not support masks yet.
+* [Each image may also have an accompanying mask](https://docs.ogc.org/is/21-026/21-026.html#_requirement_reduced_resolution_subfiles), which is also indexed with an IFD.
+  The mask is used to [define a transparency mask](https://www.verypdf.com/document/tiff6/pg_0036.htm). We do not support masks yet.
 * While uncommon, COG tile matrix set ([2D TMS](https://docs.ogc.org/is/17-083r4/17-083r4.html#tilematrixset-requirements-class)) might be different from the common `WebMercatorQuad`. We do not support any TMS other than Web Mercator yet.
 
 ### COG IFD Structure
 
-Here is an example of a tile grid for a COG file with five images. See [wiki.openstreetmap.org](https://wiki.openstreetmap.org/wiki/Slippy_map_tilenames#Resolution_and_Scale) for more information on resolution.
+Here is an example of a tile grid for a COG file with five images.
+See [wiki.openstreetmap.org](https://wiki.openstreetmap.org/wiki/Slippy_map_tilenames#Resolution_and_Scale) for more information on resolution.
 
 | ifd | `tile_size`  | zoom | resolution (meters / px) |
 | --- | ---------- | ---- | ------------------------ |
@@ -21,7 +23,9 @@ Here is an example of a tile grid for a COG file with five images. See [wiki.ope
 
 ### COG file requirements enforced by Martin
 
-Due to the flexibility of the COG, GEOTIFF and TIFF file formats and the assumptions of Martin, not all COG files will be compatible. The following are a few requirements that Martin has of the COG file, some of which are defined in the COG or TIFF spec, some are constraints imposed by assumptions of Martin. If your file conforms to these requirements, it's more likely to work with Martin:
+Due to the flexibility of the COG, GEOTIFF and TIFF file formats and the assumptions of Martin, not all COG files will be compatible.
+The following are a few requirements that Martin has of the COG file, some of which are defined in the COG or TIFF spec, some are constraints imposed by assumptions of Martin.
+If your file conforms to these requirements, it's more likely to work with Martin:
 
 * File MUST define the `ProjectedCRS` `GeoKey` with a value of 3857 (EPSG:3857)
 * File MUST use PlanarConfiguration=1 aka. "Contiguous" or "Chunky"

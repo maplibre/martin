@@ -35,8 +35,8 @@ docker run \
 If you are running PostgreSQL instance on `localhost`, you have to change network settings to allow the Docker container
 to access the `localhost` network.
 
-For Linux, add the `--net=host` flag to access the `localhost` PostgreSQL service. You would not need to export ports
-with `-p` because the container is already using the host network.
+For Linux, add the `--net=host` flag to access the `localhost` PostgreSQL service.
+You would not need to export ports with `-p` because the container is already using the host network.
 
 ```bash
 docker run \

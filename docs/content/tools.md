@@ -14,7 +14,8 @@ Martin project contains additional tooling to help manage the data servable with
 
 ### `martin-cp`
 
-`martin-cp` is a tool for generating tiles in bulk, and save retrieved tiles into a new or an existing MBTiles file. It can be used to generate tiles for a large area or multiple areas.
+`martin-cp` is a tool for generating tiles in bulk, and save retrieved tiles into a new or an existing MBTiles file.
+It can be used to generate tiles for a large area or multiple areas.
 If multiple areas overlap, it will generate tiles only once.
 `martin-cp` supports the same configuration file and CLI arguments as Martin server, so it can support all sources and even combining sources.
 

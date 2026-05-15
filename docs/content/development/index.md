@@ -34,7 +34,9 @@ just validate-tools
 ## Git setup
 
 The recommended setup for both core and casual contributors is to **always** create a fork
-of the primary repo under their own account. The local repo should have two remotes: `upstream` pointing to the primary `maplibre/martin` repo, and `origin` pointing to the user's own fork. The `main` branch should track `upstream/main`, but all new work will be pushed to `origin` and PRs will be created from there.
+of the primary repo under their own account.
+The local repo should have two remotes: `upstream` pointing to the primary `maplibre/martin` repo, and `origin` pointing to the user's own fork.
+The `main` branch should track `upstream/main`, but all new work will be pushed to `origin` and PRs will be created from there.
 
 ??? "Rationale for this setup (click to expand)"
 
@@ -42,9 +44,8 @@ of the primary repo under their own account. The local repo should have two remo
 
     Open source contribution is both a technical and a social phenomenon.
     Any FOSS project naturally has a "caste system" - a group
-    of contributors with extensive rights vs everyone else. Some of this separation
-    is necessary - core contributors have deeper knowledge of the code, share vision,
-    and trust each other.
+    of contributors with extensive rights vs everyone else.
+    Some of this separation is necessary - core contributors have deeper knowledge of the code, share vision, and trust each other.
 
     Core contributors have one more right that others do not -- they can create repository branches.
     Thus, they can contribute "locally" - by pushing proposed changes to the primary repository's work branches,
@@ -54,7 +55,8 @@ of the primary repo under their own account. The local repo should have two remo
     There is little difference between creating pull requests from one's own fork and from the primary repo,
     and there are a few reasons why core contributors should **never** do it from the primary repo:
 
-    * it ensures that casual contributors always run the same CI as core contributors. If contribution process breaks, it will affect everyone, and will get fixed faster.
+    * it ensures that casual contributors always run the same CI as core contributors.
+      If contribution process breaks, it will affect everyone, and will get fixed faster.
     * it puts everyone on the same leveled playing field, reducing the "caste system" effect, making the project feel more welcoming to new contributors
     * it ensures that the primary repo only has maintained branches (e.g. `main` and `v1.x`),
     not a bunch of PR branches whose ownership and work status is unclear to everyone
@@ -74,7 +76,8 @@ git remote add origin https://github.com/nyurik/martin.git
 For further setup instructions for IDEs, please see the [Getting Involved](../getting-involved.md) step after you have installed the necessary tools below.
 <details><summary>If you have already cloned the repo locally, use this guide to update your setup (click to expand)</summary>
 
-If you already cloned the repo locally, you can update it to use the new setup. This assumes you have a local clone of the repo, the remote name is `origin`, and you have already forked the repo on GitHub.
+If you already cloned the repo locally, you can update it to use the new setup.
+This assumes you have a local clone of the repo, the remote name is `origin`, and you have already forked the repo on GitHub.
 
 ```bash
 # Getting a quick glance about your remotes: git remote -v

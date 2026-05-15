@@ -7,15 +7,15 @@ tags:
 
 # Font Sources
 
-Martin can serve glyph ranges from `otf`, `ttf`, and `ttc` fonts as needed by MapLibre text rendering. Martin will
-generate them dynamically on the fly.
+Martin can serve glyph ranges from `otf`, `ttf`, and `ttc` fonts as needed by MapLibre text rendering.
+Martin will generate them dynamically on the fly.
 The glyph range generation is cached and the size of this cache can be configured via `fonts.cache.size_mb` in the config file.
 
 ## API
 
-Fonts ranges are available either for a single font, or a combination of multiple fonts. The font names are
-case-sensitive and should match the font name in the font file as published in the catalog. Make sure to URL-escape font
-names as they usually contain spaces.
+Fonts ranges are available either for a single font, or a combination of multiple fonts.
+The font names are case-sensitive and should match the font name in the font file as published in the catalog.
+Make sure to URL-escape font names as they usually contain spaces.
 
 |         | Font Request                         |
 |---------|--------------------------------------|
@@ -25,8 +25,8 @@ names as they usually contain spaces.
 ### Composite Font Request
 
 When combining multiple fonts, the glyph range will contain glyphs from the first listed font if available, and fallback
-to the next font if the glyph is not available in the first font, etc. The glyph range will be empty if none of the
-fonts contain the glyph.
+to the next font if the glyph is not available in the first font, etc.
+The glyph range will be empty if none of the fonts contain the glyph.
 
 |         | Composite Font Request with fallbacks                        |
 |---------|--------------------------------------------------------------|

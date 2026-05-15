@@ -99,7 +99,8 @@ convert_to_mlt:
   allow_fsst: false
 ```
 
-All fields are optional. Only the fields you specify override the defaults; unset fields keep their `mlt-core` default values.
+All fields are optional.
+Only the fields you specify override the defaults; unset fields keep their `mlt-core` default values.
 
 | Field                      | When to change                                                                                              |
 |----------------------------|-------------------------------------------------------------------------------------------------------------|

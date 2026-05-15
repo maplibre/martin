@@ -10,7 +10,8 @@ This document provides a high-level overview of Martin's architecture, describin
 
 ## Overview
 
-Martin is a blazing fast tile server written in Rust that generates and serves vector tiles on the fly from multiple data sources. It is designed to handle heavy traffic and optimize for speed while maintaining a clean separation of concerns.
+Martin is a blazing fast tile server written in Rust that generates and serves vector tiles on the fly from multiple data sources.
+It is designed to handle heavy traffic and optimize for speed while maintaining a clean separation of concerns.
 
 ```mermaid
 graph TB
@@ -326,10 +327,12 @@ Read it when you’re curious **why** certain choices were made.
     This lets operators pick the best format for their use case:
 
     === "PostgreSQL"
-          Dynamic tiles generated from live data. Best for frequently changing datasets.
+          Dynamic tiles generated from live data.
+          Best for frequently changing datasets.
 
     === "MBTiles"
-        Pre-generated tile archives. Simple and fast for static datasets.
+        Pre-generated tile archives.
+        Simple and fast for static datasets.
 
     === "PMTiles"
         Single-file, cloud-native archives optimized for HTTP range requests.

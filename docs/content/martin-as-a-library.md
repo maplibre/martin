@@ -6,7 +6,8 @@ tags:
 
 # Martin as a library
 
-Martin can be used as a standalone server, or as a library in your own Rust application. When used as a library, you can use the following features:
+Martin can be used as a standalone server, or as a library in your own Rust application.
+When used as a library, you can use the following features:
 
 * `webui` - enable web UI
 * tile sources
