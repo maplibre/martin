@@ -568,7 +568,7 @@ These are the current monitoring and observability options:
 
 ## Related Documentation
 
-- [Development Guide](development.md) - Contributing to Martin
-- [Configuration File](config-file.md) - Detailed configuration options
+- [Development Guide](development/index.md) - Contributing to Martin
+- [Configuration File](config-file/index.md) - Detailed configuration options
 - [API Documentation](using.md) - HTTP API reference
-- [Sources Documentation](sources-tiles.md) - Tile source configuration
+- [Sources Documentation](sources-tiles/index.md) - Tile source configuration

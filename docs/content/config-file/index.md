@@ -21,7 +21,7 @@ martin  ... ... ...  --save-config config.yaml
 
 Martin's postprocessing pipeline can convert tiles between MVT and MLT formats on the fly, driven by the client's `Accept` header.
 The `convert_to_mlt` and `convert_to_mvt` keys configure these conversions.
-See the [MLT usage guide](using-guides/mlt.md) for full details.
+See the [MLT usage guide](../using-guides/mlt.md) for full details.
 
 Currently configurable:
 
