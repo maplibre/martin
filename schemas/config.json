@@ -621,7 +621,7 @@
     },
     "MvtEncoderConfig": {
       "description": "Explicit encoder configuration for MVT conversion",
-      "type": "object"
+      "type": "null"
     },
     "ObservabilityConfig": {
       "description": "More advanced monitoring options",
