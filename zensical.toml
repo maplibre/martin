@@ -390,3 +390,4 @@ custom_fences = [
 alternate_style = true
 
 [project.markdown_extensions.pymdownx.details]
+[project.markdown_extensions.attr_list]
