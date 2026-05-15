@@ -2,7 +2,7 @@
 
 You commonly have some semi-proprietary datasource which you want to overlay onto another.
 This guide shows how to generate a basemap using [Planetiler](https://github.com/onthegomap/planetiler/) from [OSM](https://osm.org) and overlay custom points from a [PostGIS](https://postgis.net/) database.
-See here for a discussion on the [pros and cons of this/alternative data sources](sources-tiles.md).
+See here for a discussion on the [pros and cons of this/alternative data sources](sources-tiles/index.md).
 
 ## Prerequisites
 
@@ -30,7 +30,7 @@ The reason you need a tool to build vector tilesets from OpenStreetMap is that t
 Good question.
 
 MBtiles is the archive format. Think of a sqlite database storing the data you need a chunk (`x`/`y`/`z`) of the world.
-See our comparison [pmtiles vs. mbtiles](sources-tiles.md) for discussions on the pros and cons of this/alternative formats.
+See our comparison [pmtiles vs. mbtiles](sources-tiles/index.md) for discussions on the pros and cons of this/alternative formats.
 
 But how does the data in the archive look like?
 This is where the vector tile schema comes in:
@@ -97,9 +97,9 @@ docker exec some-postgis psql --dbname postgres --username postgres --command \
 
 ## Serving tiles with Martin
 
-Now we will serve the content of [mbtiles](sources-files.md) and the [postgis database](pg-connections.md).
+Now we will serve the content of [mbtiles](sources-files.md) and the [postgis database](pg-connections/index.md).
 
-If you want more precise options what things are published how, please see the [configuration file](config-file.md) or [cli documentation](run-with-cli.md).
+If you want more precise options what things are published how, please see the [configuration file](config-file/index.md) or [cli documentation](run-with-cli.md).
 By default, we will share every servable postgres [table, view](sources-pg-tables.md) and [function](sources-pg-functions.md).
 
 ```bash

@@ -1,6 +1,6 @@
 # Getting involved
 
-It's time to get involved once you have the [fork and all required software](development.md).
+It's time to get involved once you have the [fork and all required software](development/index.md).
 This guide covers IDE setup and debugging.
 While we use Visual Studio Code as an example, Martin can be developed with any editor that supports Rust.
 

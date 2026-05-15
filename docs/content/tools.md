@@ -19,7 +19,7 @@ See [this article](martin-cp.md) for more information.
 `mbtiles` is a small utility to interact with the `*.mbtiles` files from the command line.
 It allows users to [examine](mbtiles-meta.md), [copy](mbtiles-copy.md), [validate](mbtiles-validation.md) or [compare and apply diffs between them](mbtiles-diff.md).
 
-See [this article](mbtiles.md) for more information.
+See [this article](mbtiles/index.md) for more information.
 
 ## Supporting crates
 
