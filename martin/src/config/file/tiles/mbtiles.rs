@@ -7,6 +7,8 @@ use serde::{Deserialize, Serialize};
 use url::Url;
 
 use crate::MartinResult;
+#[cfg(all(feature = "mlt", feature = "_tiles"))]
+use crate::config::file::process::{collect_mlt_unrecognized_keys, collect_mvt_unrecognized_keys};
 use crate::config::file::{
     CachePolicy, ConfigurationLivecycleHooks, TileSourceConfiguration, UnrecognizedKeys,
     UnrecognizedValues,
@@ -37,7 +39,21 @@ pub struct MbtConfig {
 
 impl ConfigurationLivecycleHooks for MbtConfig {
     fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
-        self.unrecognized.keys().cloned().collect()
+        let mut keys: UnrecognizedKeys = self.unrecognized.keys().cloned().collect();
+        #[cfg(all(feature = "mlt", feature = "_tiles"))]
+        {
+            collect_mlt_unrecognized_keys(
+                &mut keys,
+                "convert_to_mlt.",
+                self.convert_to_mlt.as_ref(),
+            );
+            collect_mvt_unrecognized_keys(
+                &mut keys,
+                "convert_to_mvt.",
+                self.convert_to_mvt.as_ref(),
+            );
+        }
+        keys
     }
 }
 

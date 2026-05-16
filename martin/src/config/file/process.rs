@@ -4,6 +4,8 @@ use mlt_core::encoder::EncoderConfig;
 use serde::{Deserialize, Serialize};
 
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
+use crate::config::file::{UnrecognizedKeys, UnrecognizedValues};
+#[cfg(all(feature = "mlt", feature = "_tiles"))]
 use crate::config::primitives::AutoOption;
 
 /// Internal carrier for resolved per-source processing settings.
@@ -30,11 +32,24 @@ pub type MltProcessConfig = AutoOption<MltEncoderConfig>;
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 pub type MvtProcessConfig = AutoOption<MvtEncoderConfig>;
 
-/// Explicit encoder configuration for MVT conversion
+/// Explicit encoder configuration for MVT conversion.
+///
+/// The MVT encoder currently has no tunable knobs, so any keys provided are
+/// captured here verbatim and surfaced through the established unrecognized-key
+/// warning path so users get a typo hint instead of silent acceptance.
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
-pub struct MvtEncoderConfig;
+#[serde(transparent)]
+pub struct MvtEncoderConfig(pub serde_json::Map<String, serde_json::Value>);
+
+#[cfg(all(feature = "mlt", feature = "_tiles"))]
+impl MvtEncoderConfig {
+    /// Keys that were present in the config but not recognized as encoder settings.
+    pub(crate) fn unrecognized_keys(&self) -> impl Iterator<Item = &str> {
+        self.0.keys().map(String::as_str)
+    }
+}
 
 /// Explicit encoder configuration for MLT conversion.
 /// All fields are optional; unset fields use `mlt-core`'s defaults.
@@ -57,6 +72,55 @@ pub struct MltEncoderConfig {
     pub allow_fpf: Option<bool>,
     /// Allow string grouping into shared dictionaries.
     pub allow_shared_dict: Option<bool>,
+
+    #[serde(flatten, skip_serializing)]
+    #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
+    pub unrecognized: UnrecognizedValues,
+}
+
+#[cfg(all(feature = "mlt", feature = "_tiles"))]
+impl MltEncoderConfig {
+    /// Keys that were present in the config but not recognized as encoder settings.
+    pub(crate) fn unrecognized_keys(&self) -> impl Iterator<Item = &str> {
+        self.unrecognized.keys().map(String::as_str)
+    }
+}
+
+/// Collect unrecognized keys from a `convert_to_mlt`/`convert_to_mvt`-style option,
+/// prefixing each with `prefix` (e.g. `"convert_to_mlt."`) so the message points at
+/// the offending nested key.
+#[cfg(all(feature = "mlt", feature = "_tiles"))]
+pub(crate) fn collect_convert_unrecognized_keys<F>(
+    result: &mut UnrecognizedKeys,
+    prefix: &str,
+    opt: Option<&AutoOption<F>>,
+    keys: impl FnOnce(&F) -> Box<dyn Iterator<Item = &str> + '_>,
+) {
+    if let Some(AutoOption::Explicit(cfg)) = opt {
+        for key in keys(cfg) {
+            result.insert(format!("{prefix}{key}"));
+        }
+    }
+}
+
+/// Collect unrecognized keys from `convert_to_mlt`.
+#[cfg(all(feature = "mlt", feature = "_tiles"))]
+pub(crate) fn collect_mlt_unrecognized_keys(
+    result: &mut UnrecognizedKeys,
+    prefix: &str,
+    opt: Option<&MltProcessConfig>,
+) {
+    collect_convert_unrecognized_keys(result, prefix, opt, |cfg| Box::new(cfg.unrecognized_keys()));
+}
+
+/// Collect unrecognized keys from `convert_to_mvt`.
+#[cfg(all(feature = "mlt", feature = "_tiles"))]
+pub(crate) fn collect_mvt_unrecognized_keys(
+    result: &mut UnrecognizedKeys,
+    prefix: &str,
+    opt: Option<&MvtProcessConfig>,
+) {
+    collect_convert_unrecognized_keys(result, prefix, opt, |cfg| Box::new(cfg.unrecognized_keys()));
 }
 
 /// Applying `MltEncoderConfig` overrides on top of `EncoderConfig` defaults.
@@ -76,6 +140,9 @@ impl From<MltEncoderConfig> for EncoderConfig {
             allow_fsst,
             allow_fpf,
             allow_shared_dict,
+            // Unrecognized keys are reported via the warning path during finalize();
+            // they intentionally don't influence the resulting EncoderConfig.
+            unrecognized: _,
         } = src;
 
         Self {
@@ -328,6 +395,116 @@ mod tests {
             &ProcessConfig::default(),
         );
         assert_eq!(resolved, ProcessConfig::default());
+    }
+
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[test]
+    fn mlt_encoder_captures_unrecognized_keys() {
+        let cfg: MltProcessConfig = serde_yaml::from_str(indoc! {"
+            tessellate: true
+            unknown_knob: 42
+            another_typo: hi
+        "})
+        .unwrap();
+        let MltProcessConfig::Explicit(inner) = cfg else {
+            panic!("expected explicit MltEncoderConfig");
+        };
+        assert_eq!(inner.tessellate, Some(true));
+        let mut keys: Vec<&str> = inner.unrecognized_keys().collect();
+        keys.sort_unstable();
+        assert_eq!(keys, vec!["another_typo", "unknown_knob"]);
+    }
+
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[test]
+    fn mvt_encoder_captures_all_keys_as_unrecognized() {
+        // MVT has no encoder knobs yet; every supplied key is unrecognized.
+        let cfg: MvtProcessConfig = serde_yaml::from_str(indoc! {"
+            anything: 1
+            else: yes
+        "})
+        .unwrap();
+        let MvtProcessConfig::Explicit(inner) = cfg else {
+            panic!("expected explicit MvtEncoderConfig");
+        };
+        let mut keys: Vec<&str> = inner.unrecognized_keys().collect();
+        keys.sort_unstable();
+        assert_eq!(keys, vec!["anything", "else"]);
+    }
+
+    /// Even an empty map should produce `Explicit(MvtEncoderConfig::default())`,
+    /// matching the existing behavior for the MLT side.
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[test]
+    fn parse_mvt_explicit_empty() {
+        let cfg: MvtProcessConfig = serde_yaml::from_str("{}").unwrap();
+        assert_eq!(cfg, MvtProcessConfig::Explicit(MvtEncoderConfig::default()));
+    }
+
+    /// Unknown keys inside `convert_to_mlt` should bubble up through
+    /// `PmtConfig::get_unrecognized_keys` with the proper prefix so the existing
+    /// warning loop in `Config::finalize` flags them.
+    #[cfg(all(feature = "mlt", feature = "pmtiles"))]
+    #[test]
+    fn pmt_config_propagates_mlt_unrecognized_keys() {
+        use crate::config::file::ConfigurationLivecycleHooks as _;
+        use crate::config::file::pmtiles::PmtConfig;
+
+        let cfg: PmtConfig = serde_yaml::from_str(indoc! {"
+            convert_to_mlt:
+              tessellate: true
+              bogus_option: 1
+        "})
+        .unwrap();
+        let keys = cfg.get_unrecognized_keys();
+        assert!(
+            keys.contains("convert_to_mlt.bogus_option"),
+            "expected convert_to_mlt.bogus_option in {keys:?}"
+        );
+    }
+
+    /// Unknown keys inside `convert_to_mvt` (MVT has no real knobs) should bubble
+    /// up through `MbtConfig::get_unrecognized_keys`.
+    #[cfg(all(feature = "mlt", feature = "mbtiles"))]
+    #[test]
+    fn mbt_config_propagates_mvt_unrecognized_keys() {
+        use crate::config::file::ConfigurationLivecycleHooks as _;
+        use crate::config::file::mbtiles::MbtConfig;
+
+        let cfg: MbtConfig = serde_yaml::from_str(indoc! {"
+            convert_to_mvt:
+              not_a_real_setting: yes
+        "})
+        .unwrap();
+        let keys = cfg.get_unrecognized_keys();
+        assert!(
+            keys.contains("convert_to_mvt.not_a_real_setting"),
+            "expected convert_to_mvt.not_a_real_setting in {keys:?}"
+        );
+    }
+
+    /// End-to-end: an unrecognized key inside `convert_to_mlt` at the top of the
+    /// config file makes it into the rendered warning aggregate produced by
+    /// `Config::finalize`. Needs at least one tile source so `finalize` doesn't
+    /// short-circuit with `NoSources`.
+    #[cfg(all(feature = "mlt", feature = "pmtiles"))]
+    #[test]
+    fn finalize_collects_global_convert_to_mlt_unrecognized() {
+        use crate::config::file::Config;
+
+        let mut cfg: Config = serde_yaml::from_str(indoc! {"
+            pmtiles:
+              paths: /tmp/never-read.pmtiles
+            convert_to_mlt:
+              tessellate: true
+              definitely_a_typo: 1
+        "})
+        .unwrap();
+        let keys = cfg.finalize().expect("finalize should not error");
+        assert!(
+            keys.contains("convert_to_mlt.definitely_a_typo"),
+            "expected convert_to_mlt.definitely_a_typo in {keys:?}"
+        );
     }
 
     /// Pins the schema shape to the wire format. With the `AutoOption` migration the

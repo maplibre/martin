@@ -10,6 +10,8 @@ use tracing::{trace, warn};
 use url::Url;
 
 use crate::MartinResult;
+#[cfg(all(feature = "mlt", feature = "_tiles"))]
+use crate::config::file::process::{collect_mlt_unrecognized_keys, collect_mvt_unrecognized_keys};
 use crate::config::file::{
     CachePolicy, CacheSizeConfig, ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks,
     TileSourceConfiguration, UnrecognizedKeys, UnrecognizedValues,
@@ -94,7 +96,21 @@ impl ConfigurationLivecycleHooks for PmtConfig {
     }
 
     fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
-        self.unrecognized.keys().cloned().collect()
+        let mut keys: UnrecognizedKeys = self.unrecognized.keys().cloned().collect();
+        #[cfg(all(feature = "mlt", feature = "_tiles"))]
+        {
+            collect_mlt_unrecognized_keys(
+                &mut keys,
+                "convert_to_mlt.",
+                self.convert_to_mlt.as_ref(),
+            );
+            collect_mvt_unrecognized_keys(
+                &mut keys,
+                "convert_to_mvt.",
+                self.convert_to_mvt.as_ref(),
+            );
+        }
+        keys
     }
 }
 

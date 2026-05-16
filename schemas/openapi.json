@@ -211,96 +211,6 @@
   },
   "openapi": "3.1.0",
   "paths": {
-    "/{source_ids}": {
-      "get": {
-        "operationId": "get_source_info",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "source_ids",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {}
-            },
-            "description": "TileJSON 3.0.0 metadata for the requested source(s)"
-          },
-          "404": {
-            "description": "No matching source"
-          }
-        },
-        "tags": ["crate::srv"]
-      }
-    },
-    "/{source_ids}/{z}/{x}/{y}": {
-      "get": {
-        "operationId": "get_tile",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "source_ids",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "z",
-            "required": true,
-            "schema": {
-              "format": "int32",
-              "minimum": 0,
-              "type": "integer"
-            }
-          },
-          {
-            "in": "path",
-            "name": "x",
-            "required": true,
-            "schema": {
-              "format": "int32",
-              "minimum": 0,
-              "type": "integer"
-            }
-          },
-          {
-            "in": "path",
-            "name": "y",
-            "required": true,
-            "schema": {
-              "format": "int32",
-              "minimum": 0,
-              "type": "integer"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Encoded vector or raster tile"
-          },
-          "204": {
-            "description": "Source(s) returned an empty tile"
-          },
-          "304": {
-            "description": "ETag matched If-None-Match"
-          },
-          "404": {
-            "description": "No matching source"
-          },
-          "406": {
-            "description": "No supported tile format in Accept header"
-          }
-        },
-        "tags": ["crate::srv"]
-      }
-    },
     "/catalog": {
       "get": {
         "operationId": "get_catalog",
@@ -521,6 +431,96 @@
           },
           "404": {
             "description": "No matching style"
+          }
+        },
+        "tags": ["crate::srv"]
+      }
+    },
+    "/{source_ids}": {
+      "get": {
+        "operationId": "get_source_info",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source_ids",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {}
+            },
+            "description": "TileJSON 3.0.0 metadata for the requested source(s)"
+          },
+          "404": {
+            "description": "No matching source"
+          }
+        },
+        "tags": ["crate::srv"]
+      }
+    },
+    "/{source_ids}/{z}/{x}/{y}": {
+      "get": {
+        "operationId": "get_tile",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source_ids",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "z",
+            "required": true,
+            "schema": {
+              "format": "int32",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "x",
+            "required": true,
+            "schema": {
+              "format": "int32",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "y",
+            "required": true,
+            "schema": {
+              "format": "int32",
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Encoded vector or raster tile"
+          },
+          "204": {
+            "description": "Source(s) returned an empty tile"
+          },
+          "304": {
+            "description": "ETag matched If-None-Match"
+          },
+          "404": {
+            "description": "No matching source"
+          },
+          "406": {
+            "description": "No supported tile format in Accept header"
           }
         },
         "tags": ["crate::srv"]

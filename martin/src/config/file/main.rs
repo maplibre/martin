@@ -203,6 +203,23 @@ impl Config {
         let mut res = self.srv.get_unrecognized_keys();
         copy_unrecognized_keys_from_config(&mut res, "", &self.unrecognized);
 
+        #[cfg(all(feature = "mlt", feature = "_tiles"))]
+        {
+            use crate::config::file::process::{
+                collect_mlt_unrecognized_keys, collect_mvt_unrecognized_keys,
+            };
+            collect_mlt_unrecognized_keys(
+                &mut res,
+                "convert_to_mlt.",
+                self.convert_to_mlt.as_ref(),
+            );
+            collect_mvt_unrecognized_keys(
+                &mut res,
+                "convert_to_mvt.",
+                self.convert_to_mvt.as_ref(),
+            );
+        }
+
         if let Some(path) = &self.srv.route_prefix {
             let normalized = parse_base_path(path)?;
             // For route_prefix, an empty normalized path (from "/") means no prefix

@@ -88,7 +88,7 @@ convert_to_mlt:
 # - (default) `auto` - we choose defaults which we think work best for most users
 # - `disabled` - no conversion
 # - explicitly configured
-convert_to_mvt: false
+convert_to_mvt: {}
 # CORS Configuration
 #
 # Defaults to `cors: true`, which allows all origins.
@@ -144,7 +144,7 @@ mbtiles:
     try_spatial_morton_sort: null
   # MLT->MVT conversion settings for all `MBTiles` sources.
   # Overrides global; overridden by per-source `convert_to_mvt`.
-  convert_to_mvt: false
+  convert_to_mvt: {}
   # A list of file paths
   paths: []
   # A map of source IDs to file paths or config objects
@@ -187,7 +187,7 @@ pmtiles:
     try_spatial_morton_sort: null
   # MLT->MVT conversion settings for all `PMTiles` sources.
   # Overrides global; overridden by per-source `convert_to_mvt`.
-  convert_to_mvt: false
+  convert_to_mvt: {}
   # Size of the directory cache (in MB).
   # Defaults to `cache.size_mb` / 4
   #
@@ -305,7 +305,7 @@ postgres:
   # - `auto` - we choose defaults which we think work best for most users
   # - `disabled` - no conversion
   # - explicitly configured
-  convert_to_mvt: false
+  convert_to_mvt: {}
   # If a spatial table has SRID 0, then this SRID will be used as a fallback
   default_srid: 4326
   # Associative arrays of function sources

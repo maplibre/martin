@@ -620,8 +620,9 @@
       "type": "object"
     },
     "MvtEncoderConfig": {
-      "description": "Explicit encoder configuration for MVT conversion",
-      "type": "null"
+      "additionalProperties": true,
+      "description": "Explicit encoder configuration for MVT conversion.\n\nThe MVT encoder currently has no tunable knobs, so any keys provided are\ncaptured here verbatim and surfaced through the established unrecognized-key\nwarning path so users get a typo hint instead of silent acceptance.",
+      "type": "object"
     },
     "ObservabilityConfig": {
       "description": "More advanced monitoring options",

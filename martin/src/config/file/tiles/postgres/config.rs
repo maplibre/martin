@@ -12,6 +12,8 @@ use tracing::warn;
 use super::{FuncInfoSources, TableInfoSources};
 use crate::config::args::{BoundsCalcType, DEFAULT_BOUNDS_TIMEOUT};
 use crate::config::file::postgres::PostgresAutoDiscoveryBuilder;
+#[cfg(all(feature = "mlt", feature = "_tiles"))]
+use crate::config::file::process::{collect_mlt_unrecognized_keys, collect_mvt_unrecognized_keys};
 use crate::config::file::{
     CachePolicy, ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks, ResolutionResult,
     UnrecognizedKeys, UnrecognizedValues, copy_unrecognized_keys_from_config,
@@ -346,6 +348,20 @@ impl ConfigurationLivecycleHooks for PostgresConfig {
                     .map(|k| format!("auto_publish.{k}"))
                     .collect::<UnrecognizedKeys>(),
             ),
+        }
+
+        #[cfg(all(feature = "mlt", feature = "_tiles"))]
+        {
+            collect_mlt_unrecognized_keys(
+                &mut keys,
+                "convert_to_mlt.",
+                self.convert_to_mlt.as_ref(),
+            );
+            collect_mvt_unrecognized_keys(
+                &mut keys,
+                "convert_to_mvt.",
+                self.convert_to_mvt.as_ref(),
+            );
         }
 
         keys
