@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.10.0](https://github.com/maplibre/martin/compare/martin-v1.9.1...martin-v1.10.0) - 2026-05-16
+
+### Added
+
+- add if rendering is active to the catalog ([#2795](https://github.com/maplibre/martin/pull/2795))
+- Expand relative URLs in style response ([#2801](https://github.com/maplibre/martin/pull/2801))
+- *(sprites)* warn early and explain `.svg`-only requirement ([#2793](https://github.com/maplibre/martin/pull/2793))
+
+### Other
+
+- tests fail when terminal is not exactly 80 columns ([#2803](https://github.com/maplibre/martin/pull/2803))
+- *(ui)* generate `types.gen.ts` from OpenAPI and adopt openapi-fetch ([#2797](https://github.com/maplibre/martin/pull/2797))
+- make sure that unused variables are handled for MLT configration ([#2808](https://github.com/maplibre/martin/pull/2808))
+- various minor docs improvements ([#2807](https://github.com/maplibre/martin/pull/2807))
+- fix all m-dashes to use regular dashes ([#2805](https://github.com/maplibre/martin/pull/2805))
+- *(deps)* autoupdate pre-commit ([#2799](https://github.com/maplibre/martin/pull/2799))
+
 ## [1.9.1](https://github.com/maplibre/martin/compare/martin-v1.9.0...martin-v1.9.1) - 2026-05-09
 
 ### Other
