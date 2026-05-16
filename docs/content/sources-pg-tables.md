@@ -1,10 +1,21 @@
+---
+icon: simple/postgresql
+tags:
+  - postgresql
+  - tile-sources
+  - configuration
+---
+
 # PostgreSQL Table Sources
 
-A Table Source is a database table or view which can be used to query [vector tiles](https://github.com/mapbox/vector-tile-spec). If a [PostgreSQL connection string](pg-connections/index.md) is given, Martin will publish all tables as data sources if they have at least one geometry column. If geometry column SRID is 0, a default SRID must be set, or else that geo-column/table will be ignored. All non-geometry table columns will be published as vector tile feature tags (properties).
+A Table Source is a database table or view which can be used to query [vector tiles](https://github.com/mapbox/vector-tile-spec). If a [PostgreSQL connection string](pg-connections/index.md) is given, Martin will publish all tables as data sources if they have at least one geometry column.
+If geometry column SRID is 0, a default SRID must be set, or else that geo-column/table will be ignored.
+All non-geometry table columns will be published as vector tile feature tags (properties).
 
 ## Modifying Tilejson
 
-Martin will automatically generate a `TileJSON` manifest for each table source. It will contain the `name`, `description`, `minzoom`, `maxzoom`, `bounds` and `vector_layer` information.
+Martin will automatically generate a `TileJSON` manifest for each table source.
+It will contain the `name`, `description`, `minzoom`, `maxzoom`, `bounds` and `vector_layer` information.
 For example, if there is a table `public.table_source`:
  the default `TileJSON` might look like this (note that URL will be automatically adjusted to match the request host):
 
@@ -44,7 +55,8 @@ The TileJSON:
 }
 ```
 
-By default the `description` and `name` is database identifies about this table, and the bounds is queried from database. You can fine tune these by adjusting `auto_publish` section in [configuration file](https://maplibre.org/martin/config-file.html#config-example).
+By default the `description` and `name` is database identifies about this table, and the bounds is queried from database.
+You can fine tune these by adjusting `auto_publish` section in [configuration file](https://maplibre.org/martin/config-file.html#config-example).
 
 ## Postprocessing
 
@@ -65,7 +77,8 @@ postgres:
 
 Other than adjusting `auto_publish` section in configuration file, you can fine tune the `TileJSON` on the database side directly: Add a valid JSON as an SQL comment on the table.
 
-Martin will merge table comment into the generated TileJSON using JSON Merge patch. The following example update description and adds attribution, version, foo(even a nested DIY field) fields to the TileJSON.
+Martin will merge table comment into the generated TileJSON using JSON Merge patch.
+The following example update description and adds attribution, version, foo(even a nested DIY field) fields to the TileJSON.
 
 ```sql
 DO $do$ BEGIN

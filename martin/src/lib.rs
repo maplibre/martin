@@ -22,6 +22,9 @@ pub use tile_source_manager::TileSourceManager;
 mod error;
 pub use error::{MartinError, MartinResult};
 
+#[cfg(feature = "styles")]
+pub mod maplibre_style;
+
 pub mod srv;
 
 #[cfg(feature = "unstable-schemas")]

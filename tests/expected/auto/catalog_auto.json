@@ -15,6 +15,9 @@
       "style": "Regular"
     }
   },
+  "settings": {
+    "rendering": false
+  },
   "sprites": {
     "src1": {
       "images": [
@@ -33,6 +36,9 @@
     },
     "osm-liberty-lite": {
       "path": "tests/fixtures/styles/src2/osm-liberty-lite.json"
+    },
+    "relative_urls": {
+      "path": "tests/fixtures/styles/relative_urls.json"
     }
   },
   "tiles": {

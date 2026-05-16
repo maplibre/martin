@@ -175,6 +175,10 @@ impl LogFormat {
     /// Falls back to [`LogFormat::default`] when the variable is unset, empty, or invalid.
     /// On invalid values, a warning is written to stderr.
     #[must_use]
+    #[expect(
+        clippy::print_stderr,
+        reason = "tracing subscriber not yet initialized at this point"
+    )]
     pub fn from_env() -> Self {
         match std::env::var("RUST_LOG_FORMAT").ok().as_deref() {
             None | Some("") => Self::default(),
@@ -239,6 +243,10 @@ fn init_log_bridge(env_filter: &EnvFilter) {
 /// 3. Uses the provided format for output
 /// 4. Sets up the global tracing subscriber
 /// 5. Optionally includes `IndicatifLayer` for progress bar support
+#[expect(
+    clippy::print_stderr,
+    reason = "tracing subscriber not yet initialized at this point"
+)]
 pub fn init_tracing(filter: &str, log_format: LogFormat, use_progress: bool) {
     // Set up the filter from the provided string
     let env_filter = EnvFilter::from_str(filter).unwrap_or_else(|_| {

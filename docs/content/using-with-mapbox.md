@@ -1,3 +1,10 @@
+---
+icon: simple/mapbox
+tags:
+  - map-renderer
+  - mapbox
+---
+
 # Using with Mapbox
 
 [Mapbox GL JS](https://github.com/mapbox/mapbox-gl-js) is a JavaScript library for interactive, customizable vector maps on the web.

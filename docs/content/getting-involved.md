@@ -1,3 +1,9 @@
+---
+icon: material/account-group
+tags:
+  - development
+---
+
 # Getting involved
 
 It's time to get involved once you have the [fork and all required software](development/index.md).

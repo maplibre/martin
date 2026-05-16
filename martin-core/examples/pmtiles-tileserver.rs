@@ -1,3 +1,5 @@
+#![expect(clippy::print_stdout, reason = "example prints startup banner")]
+
 use actix_web::{App, HttpResponse, HttpServer, Result as ActixResult, web};
 use martin_core::CacheZoomRange;
 use martin_core::tiles::pmtiles::{PmtCache, PmtCacheInstance, PmtilesSource};

@@ -274,7 +274,7 @@ mod tests {
         );
         let strings = PostgresArgs::extract_conn_strings(&mut args, &env);
         assert_eq!(strings, vec!["postgresql://localhost:5432"]);
-        assert!(args.check().is_ok());
+        args.check().unwrap();
     }
 
     #[test]
@@ -288,7 +288,7 @@ mod tests {
                 ..Default::default()
             })
         );
-        assert!(args.check().is_ok());
+        args.check().unwrap();
     }
 
     #[test]
@@ -316,7 +316,7 @@ mod tests {
                 ..Default::default()
             })
         );
-        assert!(args.check().is_ok());
+        args.check().unwrap();
     }
 
     #[test]
@@ -352,6 +352,6 @@ mod tests {
                 ..Default::default()
             })
         );
-        assert!(args.check().is_ok());
+        args.check().unwrap();
     }
 }

@@ -1,3 +1,10 @@
+---
+icon: material/download
+tags:
+  - getting-started
+  - deployment
+---
+
 ### Prerequisites
 
 If using Martin with PostgreSQL database, you must install PostGIS with at least v3.0+. Postgis v3.1+ is recommended.

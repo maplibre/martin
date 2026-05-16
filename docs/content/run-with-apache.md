@@ -1,6 +1,15 @@
+---
+icon: simple/apache
+tags:
+  - deployment
+  - reverse-proxy
+  - apache
+---
+
 # Using with Apache
 
-You can run Martin behind Apache "kind of" proxy, so you can use HTTPs with it. Here is an example of the configuration file that runs Martin with Apache.
+You can run Martin behind Apache "kind of" proxy, so you can use HTTPs with it.
+Here is an example of the configuration file that runs Martin with Apache.
 
 First you have to setup a virtual host that is working on the port 443.
 

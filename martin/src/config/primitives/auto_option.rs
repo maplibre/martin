@@ -167,7 +167,7 @@ mod tests {
     #[case("nope")]
     #[case("42")]
     fn parse_invalid(#[case] input: &str) {
-        assert!(serde_yaml::from_str::<AutoOption<DummyCfg>>(input).is_err());
+        serde_yaml::from_str::<AutoOption<DummyCfg>>(input).unwrap_err();
     }
 
     #[rstest]

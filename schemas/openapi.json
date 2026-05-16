@@ -56,6 +56,10 @@
             },
             "type": "object"
           },
+          "settings": {
+            "description": "Server-wide capability flags",
+            "type": "object"
+          },
           "sprites": {
             "additionalProperties": {
               "description": "Sprite source metadata.",
@@ -182,7 +186,7 @@
             "type": "object"
           }
         },
-        "required": ["tiles", "sprites", "fonts", "styles"],
+        "required": ["tiles", "sprites", "fonts", "styles", "settings"],
         "type": "object"
       },
       "FontFormat": {

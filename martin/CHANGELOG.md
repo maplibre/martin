@@ -266,12 +266,15 @@ The tile cache received several improvements in this release:
 ### Broader MBTiles compatibility
 
 - **Planetiler `normalized` schema alias** -- Martin now recognizes Planetiler's `normalized` and `normalized-with-view` schema names as aliases for its own `norm` schema type, so MBTiles files produced by Planetiler no longer trigger schema-detection warnings. Done in [#2681](https://github.com/maplibre/martin/pull/2681).
-- **Compression type stored in metadata** -- When writing tiles to MBTiles (e.g. via martin-cp), the compression method (gzip, brotli, etc.) is now recorded in the metadata table. Previously this information was lost, forcing consumers to guess. Done in [#2618](https://github.com/maplibre/martin/pull/2618).
-- **Transcoder API for library consumers** -- The `mbtiles` crate now exposes a public API for converting between MBTiles storage schemas (flat, normalized, deduplicated) programmatically. Done in [#2682](https://github.com/maplibre/martin/pull/2682).
+- **Compression type stored in metadata** -- When writing tiles to MBTiles (e.g. via martin-cp), the compression method (gzip, brotli, etc.) is now recorded in the metadata table. Previously this information was lost, forcing consumers to guess.
+  Done in [#2618](https://github.com/maplibre/martin/pull/2618).
+- **Transcoder API for library consumers** -- The `mbtiles` crate now exposes a public API for converting between MBTiles storage schemas (flat, normalized, deduplicated) programmatically.
+  Done in [#2682](https://github.com/maplibre/martin/pull/2682).
 
 ### `--on-invalid` CLI argument
 
-The `on_invalid` setting (which controls whether Martin warns or aborts when it encounters an invalid source at startup) was previously config-file-only. It is now available as `--on-invalid <warn|abort>` on the command line, which is especially handy in CI/CD and container environments.
+The `on_invalid` setting (which controls whether Martin warns or aborts when it encounters an invalid source at startup) was previously config-file-only.
+It is now available as `--on-invalid <warn|abort>` on the command line, which is especially handy in CI/CD and container environments.
 
 Done in [#2668](https://github.com/maplibre/martin/pull/2668) by [@Auspicus](https://github.com/Auspicus).
 
