@@ -96,7 +96,6 @@ impl ConfigurationLivecycleHooks for PmtConfig {
     }
 
     fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
-        // `mut` is only used when mlt+_tiles add convert_to_mlt/convert_to_mvt keys.
         #[cfg_attr(not(all(feature = "mlt", feature = "_tiles")), allow(unused_mut))]
         let mut keys: UnrecognizedKeys = self.unrecognized.keys().cloned().collect();
         #[cfg(all(feature = "mlt", feature = "_tiles"))]
