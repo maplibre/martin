@@ -41,7 +41,7 @@ impl CacheKey for FontCacheKey {
         crate::metrics::CACHE_REQUESTS_TOTAL
             .with_label_values(&[Self::CACHE_NAME, crate::cache::hit_miss_label(hit)])
             .inc();
-        #[allow(
+        #[expect(
             clippy::if_same_then_else,
             reason = "hotpath::gauge! requires a literal name argument"
         )]

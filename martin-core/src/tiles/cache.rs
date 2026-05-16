@@ -61,7 +61,7 @@ impl CacheKey for TileCacheKey {
                 crate::metrics::ZOOM_LABELS[self.xyz.z as usize],
             ])
             .inc();
-        #[allow(
+        #[expect(
             clippy::if_same_then_else,
             reason = "hotpath::gauge! requires a literal name argument"
         )]
