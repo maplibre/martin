@@ -3,6 +3,9 @@
 #![warn(missing_docs)]
 #![warn(missing_debug_implementations)]
 
+/// Generic resource cache shared by sprite, font, and tile caches.
+pub mod cache;
+
 mod cache_zoom_range;
 pub use cache_zoom_range::CacheZoomRange;
 

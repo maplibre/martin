@@ -1,150 +1,71 @@
-use std::sync::Arc;
-use std::time::Duration;
-
 use actix_web::web::Bytes;
-use moka::future::Cache;
-use tracing::{info, trace};
 
-#[cfg(feature = "metrics")]
-use crate::metrics::CACHE_REQUESTS_TOTAL;
+use crate::cache::{CacheKey, Cacheable, ResourceCache};
 
 /// Sprite cache for storing generated sprite sheets.
-#[derive(Clone)]
-pub struct SpriteCache {
-    cache: Cache<SpriteCacheKey, Bytes>,
-}
+pub type SpriteCache = ResourceCache<SpriteCacheKey, Bytes>;
 
-impl std::fmt::Debug for SpriteCache {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("SpriteCache")
-            .field("entry_count", &self.cache.entry_count())
-            .field("weighted_size", &self.cache.weighted_size())
-            .finish()
-    }
-}
-
-impl SpriteCache {
-    /// Creates a new sprite cache with the specified maximum size in bytes.
-    #[must_use]
-    pub fn new(
-        max_size_bytes: u64,
-        expiry: Option<Duration>,
-        idle_timeout: Option<Duration>,
-    ) -> Self {
-        let mut builder = Cache::builder()
-            .name("sprite_cache")
-            .weigher(|key: &SpriteCacheKey, value: &Bytes| -> u32 {
-                size_of_val(key).try_into().unwrap_or(u32::MAX)
-                    + value.len().try_into().unwrap_or(u32::MAX)
-            })
-            .max_capacity(max_size_bytes);
-        if let Some(ttl) = expiry {
-            builder = builder.time_to_live(ttl);
-        }
-        if let Some(tti) = idle_timeout {
-            builder = builder.time_to_idle(tti);
-        }
-        Self {
-            cache: builder.build(),
-        }
-    }
-
-    /// Gets a json sprite sheet from cache or computes it using the provided function.
-    pub async fn get_or_insert<F, Fut, E>(
-        &self,
-        ids: String,
-        as_sdf: bool,
-        as_json: bool,
-        compute: F,
-    ) -> Result<Bytes, Arc<E>>
-    where
-        F: FnOnce() -> Fut,
-        Fut: Future<Output = Result<Bytes, E>>,
-        E: Send + Sync + 'static,
-    {
-        let key = SpriteCacheKey::new(ids, as_sdf, as_json);
-        let entry = self
-            .cache
-            .entry(key.clone())
-            .or_try_insert_with(async move { compute().await })
-            .await?;
-
-        if entry.is_fresh() {
-            #[cfg(feature = "metrics")]
-            CACHE_REQUESTS_TOTAL
-                .with_label_values(&["sprite", "miss"])
-                .inc();
-            hotpath::gauge!("sprite_cache_misses").inc(1.0);
-            trace!("Sprite cache MISS for {key:?}");
-        } else {
-            #[cfg(feature = "metrics")]
-            CACHE_REQUESTS_TOTAL
-                .with_label_values(&["sprite", "hit"])
-                .inc();
-            hotpath::gauge!("sprite_cache_hits").inc(1.0);
-            trace!(
-                "Sprite cache HIT for {key:?} (entries={}, size={})",
-                self.cache.entry_count(),
-                self.cache.weighted_size()
-            );
-        }
-
-        Ok(entry.into_value())
-    }
-
-    /// Invalidates all cached sprites that use the specified source ID.
-    pub fn invalidate_source(&self, source_id: &str) {
-        let source_id_owned = source_id.to_string();
-        self.cache
-            .invalidate_entries_if(move |key, _| key.ids.contains(&source_id_owned))
-            .expect("invalidate_entries_if predicate should not error");
-        info!("Invalidated sprite cache for source: {source_id}");
-    }
-
-    /// Invalidates all cached sprites.
-    pub fn invalidate_all(&self) {
-        self.cache.invalidate_all();
-        info!("Invalidated all sprite cache entries");
-    }
-
-    /// Returns the number of cached entries.
-    #[must_use]
-    pub fn entry_count(&self) -> u64 {
-        self.cache.entry_count()
-    }
-
-    /// Returns the total size of cached data in bytes.
-    #[must_use]
-    pub fn weighted_size(&self) -> u64 {
-        self.cache.weighted_size()
-    }
-
-    /// Runs pending maintenance tasks (e.g. processing invalidation predicates).
-    pub async fn run_pending_tasks(&self) {
-        self.cache.run_pending_tasks().await;
-    }
-}
-
-/// Optional wrapper for `SpriteCache`.
+/// Optional wrapper for [`SpriteCache`].
 pub type OptSpriteCache = Option<SpriteCache>;
 
 /// Constant representing no sprite cache configuration.
 pub const NO_SPRITE_CACHE: OptSpriteCache = None;
 
 /// Cache key for sprite data.
+///
+/// `ids` is the comma-joined list of sprite source IDs from the request path.
+/// Invalidation by source ID matches by token (not substring): invalidating
+/// `"foo"` does not invalidate entries keyed against `"foobar"`.
 #[derive(Debug, Hash, PartialEq, Eq, Clone)]
-struct SpriteCacheKey {
+pub struct SpriteCacheKey {
     ids: String,
     as_sdf: bool,
     as_json: bool,
 }
 
 impl SpriteCacheKey {
-    fn new(ids: String, as_sdf: bool, as_json: bool) -> Self {
+    /// Build a key from the request fields.
+    #[must_use]
+    pub fn new(ids: String, as_sdf: bool, as_json: bool) -> Self {
         Self {
             ids,
             as_sdf,
             as_json,
         }
+    }
+}
+
+impl CacheKey for SpriteCacheKey {
+    const CACHE_NAME: &'static str = "sprite";
+
+    fn matches_source(&self, source_id: &str) -> bool {
+        self.ids.split(',').any(|s| s == source_id)
+    }
+
+    fn record_outcome(&self, hit: bool) {
+        #[cfg(feature = "metrics")]
+        {
+            let result = if hit { "hit" } else { "miss" };
+            crate::metrics::CACHE_REQUESTS_TOTAL
+                .with_label_values(&[Self::CACHE_NAME, result])
+                .inc();
+        }
+        // `hotpath::gauge!` requires a literal name, so the two arms cannot
+        // be collapsed into a single statement.
+        #[allow(
+            clippy::if_same_then_else,
+            reason = "hotpath::gauge! requires a literal name argument"
+        )]
+        if hit {
+            hotpath::gauge!("sprite_cache_hits").inc(1.0);
+        } else {
+            hotpath::gauge!("sprite_cache_misses").inc(1.0);
+        }
+    }
+}
+
+impl Cacheable for Bytes {
+    fn weight(&self) -> u32 {
+        self.len().try_into().unwrap_or(u32::MAX)
     }
 }

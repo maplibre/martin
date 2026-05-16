@@ -6,7 +6,7 @@ use std::convert::Infallible;
 use std::time::Duration;
 
 use actix_web::web::Bytes;
-use martin_core::sprites::SpriteCache;
+use martin_core::sprites::{SpriteCache, SpriteCacheKey};
 
 const CACHE_SIZE: u64 = 10 * 1024 * 1024;
 
@@ -105,10 +105,14 @@ async fn wait_and_flush(cache: &SpriteCache, duration: Duration) {
     cache.run_pending_tasks().await;
 }
 
+fn key(ids: &str, as_sdf: bool, as_json: bool) -> SpriteCacheKey {
+    SpriteCacheKey::new(ids.into(), as_sdf, as_json)
+}
+
 async fn insert(cache: &SpriteCache, ids: &str, as_sdf: bool, as_json: bool, data: &[u8]) -> Bytes {
     let data = Bytes::from(data.to_vec());
     cache
-        .get_or_insert(ids.into(), as_sdf, as_json, || async {
+        .get_or_insert(key(ids, as_sdf, as_json), || async {
             Ok::<_, Infallible>(data.clone())
         })
         .await
@@ -117,7 +121,7 @@ async fn insert(cache: &SpriteCache, ids: &str, as_sdf: bool, as_json: bool, dat
 
 async fn assert_hit(cache: &SpriteCache, ids: &str, as_sdf: bool, as_json: bool) -> Bytes {
     cache
-        .get_or_insert::<_, _, Infallible>(ids.into(), as_sdf, as_json, || async {
+        .get_or_insert::<_, _, Infallible>(key(ids, as_sdf, as_json), || async {
             panic!("expected cache hit, but compute was called");
         })
         .await
@@ -128,7 +132,7 @@ async fn assert_miss(cache: &SpriteCache, ids: &str, as_sdf: bool, as_json: bool
     let mut recomputed = false;
     let data = Bytes::from(new_data.to_vec());
     cache
-        .get_or_insert(ids.into(), as_sdf, as_json, || {
+        .get_or_insert(key(ids, as_sdf, as_json), || {
             recomputed = true;
             let data = data.clone();
             async move { Ok::<_, Infallible>(data) }

@@ -1,138 +1,25 @@
-use std::sync::Arc;
-use std::time::Duration;
-
 use martin_tile_utils::{Format, TileCoord};
-use moka::future::Cache;
-use tracing::{info, instrument, trace};
 
-#[cfg(feature = "metrics")]
-use crate::metrics::{TILE_CACHE_REQUESTS_TOTAL, ZOOM_LABELS};
+use crate::cache::{CacheKey, Cacheable, ResourceCache};
 use crate::tiles::Tile;
 
-/// Tile cache for storing rendered tile data.
-#[derive(Clone, Debug)]
-pub struct TileCache(Cache<TileCacheKey, Tile>);
+/// Tile cache for storing rendered tile data, keyed by source ID, tile
+/// coordinate, query string, and `Accept`-driven output format.
+pub type TileCache = ResourceCache<TileCacheKey, Tile>;
 
-impl TileCache {
-    /// Creates a new tile cache with the specified maximum size in bytes.
-    #[must_use]
-    pub fn new(
-        max_size_bytes: u64,
-        expiry: Option<Duration>,
-        idle_timeout: Option<Duration>,
-    ) -> Self {
-        let mut builder = Cache::builder()
-            .name("tile_cache")
-            .weigher(|_key: &TileCacheKey, value: &Tile| -> u32 {
-                value.data.len().try_into().unwrap_or(u32::MAX)
-            })
-            .max_capacity(max_size_bytes)
-            .support_invalidation_closures();
-        if let Some(ttl) = expiry {
-            builder = builder.time_to_live(ttl);
-        }
-        if let Some(tti) = idle_timeout {
-            builder = builder.time_to_idle(tti);
-        }
-        Self(builder.build())
-    }
-
-    /// Gets a tile from cache or computes it using the provided function.
-    #[instrument(
-        level = "debug",
-        skip_all,
-        fields(
-            source.id = %source_id,
-            tile.z = xyz.z,
-            tile.x = xyz.x,
-            tile.y = xyz.y,
-        ),
-    )]
-    pub async fn get_or_insert<F, Fut, E>(
-        &self,
-        source_id: String,
-        xyz: TileCoord,
-        query: Option<String>,
-        format: Option<Format>,
-        compute: F,
-    ) -> Result<Tile, Arc<E>>
-    where
-        F: FnOnce() -> Fut,
-        Fut: Future<Output = Result<Tile, E>>,
-        E: Send + Sync + 'static,
-    {
-        let key = TileCacheKey::new(source_id, xyz, query, format);
-        let entry = self
-            .0
-            .entry(key.clone())
-            .or_try_insert_with(async move { compute().await })
-            .await?;
-
-        if entry.is_fresh() {
-            #[cfg(feature = "metrics")]
-            TILE_CACHE_REQUESTS_TOTAL
-                .with_label_values(&["tile", "miss", ZOOM_LABELS[key.xyz.z as usize]])
-                .inc();
-            hotpath::gauge!("tile_cache_misses").inc(1.0);
-            trace!("Tile cache MISS for {key:?}");
-        } else {
-            #[cfg(feature = "metrics")]
-            TILE_CACHE_REQUESTS_TOTAL
-                .with_label_values(&["tile", "hit", ZOOM_LABELS[key.xyz.z as usize]])
-                .inc();
-            hotpath::gauge!("tile_cache_hits").inc(1.0);
-            trace!(
-                "Tile cache HIT for {key:?} (entries={entries}, size={size}B)",
-                entries = self.0.entry_count(),
-                size = self.0.weighted_size()
-            );
-        }
-
-        Ok(entry.into_value())
-    }
-
-    /// Invalidates all cached tiles for a specific source.
-    pub fn invalidate_source(&self, source_id: &str) {
-        let source_id_owned = source_id.to_string();
-        self.0
-            .invalidate_entries_if(move |key, _| key.source_id == source_id_owned)
-            .expect("invalidate_entries_if predicate should not error");
-        info!("Invalidated tile cache for source: {source_id}");
-    }
-
-    /// Invalidates all cached tiles.
-    pub fn invalidate_all(&self) {
-        self.0.invalidate_all();
-        info!("Invalidated all tile cache entries");
-    }
-
-    /// Returns the number of cached entries.
-    #[must_use]
-    pub fn entry_count(&self) -> u64 {
-        self.0.entry_count()
-    }
-
-    /// Returns the total size of cached data in bytes.
-    #[must_use]
-    pub fn weighted_size(&self) -> u64 {
-        self.0.weighted_size()
-    }
-
-    /// Runs pending maintenance tasks (e.g. processing invalidation predicates).
-    pub async fn run_pending_tasks(&self) {
-        self.0.run_pending_tasks().await;
-    }
-}
-
-/// Optional wrapper for `TileCache`.
+/// Optional wrapper for [`TileCache`].
 pub type OptTileCache = Option<TileCache>;
 
 /// Constant representing no tile cache configuration.
 pub const NO_TILE_CACHE: OptTileCache = None;
 
-/// Cache key for tile data.
+/// Cache key for a rendered tile.
+///
+/// Source-based invalidation matches exactly on `source_id` (each tile
+/// belongs to one source). Metric recording adds a `zoom` dimension on top
+/// of the standard cache/hit labels.
 #[derive(Debug, Hash, PartialEq, Eq, Clone)]
-struct TileCacheKey {
+pub struct TileCacheKey {
     source_id: String,
     xyz: TileCoord,
     query: Option<String>,
@@ -142,7 +29,9 @@ struct TileCacheKey {
 }
 
 impl TileCacheKey {
-    fn new(
+    /// Build a key from the request fields.
+    #[must_use]
+    pub fn new(
         source_id: String,
         xyz: TileCoord,
         query: Option<String>,
@@ -154,5 +43,42 @@ impl TileCacheKey {
             query,
             format,
         }
+    }
+}
+
+impl CacheKey for TileCacheKey {
+    const CACHE_NAME: &'static str = "tile";
+
+    fn matches_source(&self, source_id: &str) -> bool {
+        self.source_id == source_id
+    }
+
+    fn record_outcome(&self, hit: bool) {
+        #[cfg(feature = "metrics")]
+        {
+            let result = if hit { "hit" } else { "miss" };
+            crate::metrics::TILE_CACHE_REQUESTS_TOTAL
+                .with_label_values(&[
+                    Self::CACHE_NAME,
+                    result,
+                    crate::metrics::ZOOM_LABELS[self.xyz.z as usize],
+                ])
+                .inc();
+        }
+        #[allow(
+            clippy::if_same_then_else,
+            reason = "hotpath::gauge! requires a literal name argument"
+        )]
+        if hit {
+            hotpath::gauge!("tile_cache_hits").inc(1.0);
+        } else {
+            hotpath::gauge!("tile_cache_misses").inc(1.0);
+        }
+    }
+}
+
+impl Cacheable for Tile {
+    fn weight(&self) -> u32 {
+        self.data.len().try_into().unwrap_or(u32::MAX)
     }
 }
