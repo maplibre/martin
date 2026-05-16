@@ -135,10 +135,22 @@ impl<K: CacheKey, V: Cacheable> ResourceCache<K, V> {
         info!("Invalidated all {} cache entries", K::CACHE_NAME);
     }
 
-    /// Returns the number of cached entries.
+    /// Returns the approximate number of cached entries (per moka's
+    /// estimate). For exact membership checks, use [`Self::contains_key`].
     #[must_use]
     pub fn entry_count(&self) -> u64 {
         self.inner.entry_count()
+    }
+
+    /// Returns `true` iff `key` currently has a cached value.
+    ///
+    /// Only safe for diagnostics and tests: the result reflects the state
+    /// at the moment of the call, with no atomicity relative to subsequent
+    /// operations. Another task can insert or invalidate `key` immediately
+    /// after this returns, so the classic check-then-act pattern races.
+    /// Use [`Self::get_or_insert`] for race-free read-or-compute.
+    pub fn contains_key(&self, key: &K) -> bool {
+        self.inner.contains_key(key)
     }
 
     /// Returns the total weight of cached data in bytes.
@@ -257,14 +269,14 @@ mod tests {
     /// on the builder — moka silently no-ops in that case. The generic always
     /// enables the flag.
     #[rstest]
-    #[case::two_keys_invalidate_one(&["foo", "bar"], "foo", 1)]
-    #[case::substring_regression(&["foo", "foobar"], "foo", 1)]
-    #[case::predicate_fires_for_csv_key(&["a,b,c"], "b", 0)]
+    #[case::two_keys_invalidate_one(&["foo", "bar"], "foo", &["bar"])]
+    #[case::substring_regression(&["foo", "foobar"], "foo", &["foobar"])]
+    #[case::predicate_fires_for_csv_key(&["a,b,c"], "b", &[])]
     #[tokio::test]
     async fn invalidate_source(
         #[case] entries: &[&str],
         #[case] target: &str,
-        #[case] expected_remaining: u64,
+        #[case] expected_remaining: &[&str],
     ) {
         let cache = cache();
         for ids in entries {
@@ -276,33 +288,37 @@ mod tests {
                 .unwrap();
         }
         cache.run_pending_tasks().await;
-        assert_eq!(cache.entry_count(), entries.len() as u64);
 
         cache.invalidate_source(target);
         cache.run_pending_tasks().await;
 
-        assert_eq!(cache.entry_count(), expected_remaining);
+        for ids in entries {
+            let key = TestKey::new(ids);
+            let should_remain = expected_remaining.contains(ids);
+            assert_eq!(
+                cache.contains_key(&key),
+                should_remain,
+                "{ids:?} membership after invalidating {target:?}"
+            );
+        }
     }
 
     #[tokio::test]
     async fn invalidate_all_clears_entries() {
         let cache = cache();
         let compute = || async { Ok::<_, std::convert::Infallible>(vec![0_u8]) };
+        let a = TestKey::new("a");
+        let b = TestKey::new("b");
 
-        cache
-            .get_or_insert(TestKey::new("a"), compute)
-            .await
-            .unwrap();
-        cache
-            .get_or_insert(TestKey::new("b"), compute)
-            .await
-            .unwrap();
+        cache.get_or_insert(a.clone(), compute).await.unwrap();
+        cache.get_or_insert(b.clone(), compute).await.unwrap();
         cache.run_pending_tasks().await;
 
         cache.invalidate_all();
         cache.run_pending_tasks().await;
 
-        assert_eq!(cache.entry_count(), 0);
+        assert!(!cache.contains_key(&a));
+        assert!(!cache.contains_key(&b));
     }
 
     #[tokio::test]
