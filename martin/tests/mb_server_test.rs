@@ -3,6 +3,7 @@
 use actix_web::http::header::{ACCEPT_ENCODING, CONTENT_ENCODING, CONTENT_TYPE};
 use actix_web::test::{TestRequest, call_service, read_body, read_body_json};
 use indoc::formatdoc;
+#[cfg(all(feature = "rendering", target_os = "linux"))]
 use insta::assert_yaml_snapshot;
 use martin::config::file::srv::SrvConfig;
 use martin_tile_utils::{decode_brotli, decode_gzip};
@@ -92,9 +93,10 @@ async fn config(
     )
 }
 
+#[cfg(all(feature = "rendering", target_os = "linux"))]
 #[actix_rt::test]
 #[tracing_test::traced_test]
-async fn mbt_get_catalog() {
+async fn mbt_get_catalog_with_rendering_feature() {
     let (config, _conns) = config("mbt_get_catalog").await;
     let app = create_app!(&config);
     let req = test_get("/catalog").to_request();
@@ -103,6 +105,8 @@ async fn mbt_get_catalog() {
     let body: serde_json::Value = read_body_json(response).await;
     assert_yaml_snapshot!(body, @r#"
     fonts: {}
+    settings:
+      rendering: false
     sprites: {}
     styles: {}
     tiles:
@@ -129,9 +133,10 @@ async fn mbt_get_catalog() {
     "#);
 }
 
+#[cfg(all(feature = "rendering", target_os = "linux"))]
 #[actix_rt::test]
 #[tracing_test::traced_test]
-async fn mbt_get_catalog_gzip() {
+async fn mbt_get_catalog_gzip_with_rendering_feature() {
     let (config, _conns) = config("mbt_get_catalog_gzip").await;
     let app = create_app!(&config);
     let accept = (ACCEPT_ENCODING, "gzip");
@@ -142,6 +147,8 @@ async fn mbt_get_catalog_gzip() {
     let body: serde_json::Value = serde_json::from_slice(&body).unwrap();
     assert_yaml_snapshot!(body, @r#"
     fonts: {}
+    settings:
+      rendering: false
     sprites: {}
     styles: {}
     tiles:

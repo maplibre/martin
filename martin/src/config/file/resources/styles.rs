@@ -295,6 +295,7 @@ mod tests {
         "#);
         });
     }
+
     #[test]
     fn test_list_contained_files() {
         use std::fs::File;
