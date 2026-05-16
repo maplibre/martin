@@ -18,6 +18,8 @@ use crate::config::file::{
 };
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 use crate::config::file::{MltProcessConfig, MvtProcessConfig};
+#[cfg(all(feature = "mlt", feature = "_tiles"))]
+use crate::config::primitives::AutoOption;
 use crate::config::primitives::{IdResolver, OptBoolObj, OptOneMany};
 
 pub trait PostgresInfo {
@@ -346,6 +348,22 @@ impl ConfigurationLivecycleHooks for PostgresConfig {
                     .map(|k| format!("auto_publish.{k}"))
                     .collect::<UnrecognizedKeys>(),
             ),
+        }
+
+        #[cfg(all(feature = "mlt", feature = "_tiles"))]
+        {
+            if let Some(AutoOption::Explicit(cfg)) = self.convert_to_mlt.as_ref() {
+                keys.extend(
+                    cfg.unrecognized_keys()
+                        .map(|k| format!("convert_to_mlt.{k}")),
+                );
+            }
+            if let Some(AutoOption::Explicit(cfg)) = self.convert_to_mvt.as_ref() {
+                keys.extend(
+                    cfg.unrecognized_keys()
+                        .map(|k| format!("convert_to_mvt.{k}")),
+                );
+            }
         }
 
         keys

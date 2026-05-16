@@ -328,7 +328,7 @@ mod tests {
 
         let pool = MbtilesPool::open_readonly(file).await.unwrap();
         // invalid type
-        assert!(pool.detect_type().await.is_err());
+        pool.detect_type().await.unwrap_err();
         let metadata = pool.get_metadata().await.unwrap();
         insta::assert_yaml_snapshot!(metadata, @r#"
         id: "file:test_metadata_invalid?mode=memory&cache=shared"
@@ -363,7 +363,7 @@ mod tests {
         let (_mbt, _conn, file) = temp_named_mbtiles("test_contains_invalid", script).await;
 
         let pool = MbtilesPool::open_readonly(file).await.unwrap();
-        assert!(pool.detect_type().await.is_err());
+        pool.detect_type().await.unwrap_err();
 
         assert!(pool.contains(MbtType::Flat, 0, 0, 0).await.unwrap());
         for error_mbt_type in [
@@ -377,7 +377,7 @@ mod tests {
             },
             MbtType::FlatWithHash,
         ] {
-            assert!(pool.contains(error_mbt_type, 0, 0, 0).await.is_err());
+            pool.contains(error_mbt_type, 0, 0, 0).await.unwrap_err();
         }
     }
 
@@ -389,7 +389,7 @@ mod tests {
         let pool = MbtilesPool::open_readonly(file).await.unwrap();
 
         // invalid type => cannot hash properly, but can get tile
-        assert!(pool.detect_type().await.is_err());
+        pool.detect_type().await.unwrap_err();
         let t1 = pool.get_tile(0, 0, 0).await.unwrap().unwrap();
         assert!(!t1.is_empty());
         // this is an access and then md5 hash => should not fail
@@ -411,7 +411,9 @@ mod tests {
                 schema: NormalizedSchema::Hash,
             },
         ] {
-            assert!(pool.get_tile_and_hash(error_types, 0, 0, 0).await.is_err());
+            pool.get_tile_and_hash(error_types, 0, 0, 0)
+                .await
+                .unwrap_err();
         }
     }
 
@@ -475,7 +477,9 @@ mod tests {
         ] {
             assert!(pool.contains(working_mbt_type, 0, 0, 0).await.unwrap());
         }
-        assert!(pool.contains(MbtType::FlatWithHash, 0, 0, 0).await.is_err());
+        pool.contains(MbtType::FlatWithHash, 0, 0, 0)
+            .await
+            .unwrap_err();
     }
 
     #[tokio::test]
@@ -526,7 +530,9 @@ mod tests {
                 schema: NormalizedSchema::Hash,
             },
         ] {
-            assert!(pool.get_tile_and_hash(error_types, 0, 0, 0).await.is_err());
+            pool.get_tile_and_hash(error_types, 0, 0, 0)
+                .await
+                .unwrap_err();
         }
     }
 
@@ -677,7 +683,7 @@ mod tests {
                 schema: NormalizedSchema::Hash,
             },
         ] {
-            assert!(pool.contains(error_mbt_type, 6, 38, 19).await.is_err());
+            pool.contains(error_mbt_type, 6, 38, 19).await.unwrap_err();
         }
     }
 
@@ -723,18 +729,16 @@ mod tests {
         assert_eq!(h3, expected_hash);
 
         // no map table
-        assert!(
-            pool.get_tile_and_hash(
-                MbtType::Normalized {
-                    hash_view: false,
-                    schema: NormalizedSchema::Hash
-                },
-                0,
-                0,
-                0
-            )
-            .await
-            .is_err()
-        );
+        pool.get_tile_and_hash(
+            MbtType::Normalized {
+                hash_view: false,
+                schema: NormalizedSchema::Hash,
+            },
+            0,
+            0,
+            0,
+        )
+        .await
+        .unwrap_err();
     }
 }

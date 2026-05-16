@@ -435,7 +435,7 @@ mod tests {
             #[cfg(feature = "postgres")]
             &FauxEnv::default(),
         );
-        assert!(err.is_ok());
+        err.unwrap();
         insta::assert_yaml_snapshot!(config, @r#"
         pmtiles: "../tests/fixtures/"
         mbtiles: "../tests/fixtures/"

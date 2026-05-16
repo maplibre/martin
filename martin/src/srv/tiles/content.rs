@@ -625,9 +625,11 @@ pub(crate) fn decode(tile: Tile) -> ActixResult<Tile> {
                 info.encoding(Encoding::Uncompressed),
                 etag,
             ),
-            _ => Err(ErrorBadRequest(format!(
-                "Tile is stored as {info}, but the client does not accept this encoding"
-            )))?,
+            _ => {
+                return Err(ErrorBadRequest(format!(
+                    "Tile is stored as {info}, but the client does not accept this encoding"
+                )));
+            }
         }
     } else {
         tile
@@ -869,7 +871,7 @@ mod tests {
     #[test]
     fn test_parse_accept_unknown_type() {
         let accept = Some(Accept(vec![QualityItem::max("text/html".parse().unwrap())]));
-        assert!(parse_accept(accept).is_err());
+        parse_accept(accept).unwrap_err();
     }
 
     #[test]
@@ -879,7 +881,7 @@ mod tests {
             "application/x-protobuf".parse().unwrap(),
             Quality::ZERO,
         )]));
-        assert!(parse_accept(accept).is_err());
+        parse_accept(accept).unwrap_err();
     }
 
     fn parse_accept_header(values: &[&str]) -> Option<Vec<Format>> {
@@ -916,7 +918,7 @@ mod tests {
     fn test_accept_406(#[case] accept_values: &[&str], #[case] source_format: Format) {
         let parsed = parse_accept_header(accept_values);
         let result = DynTileSource::resolve_accepted_format(parsed.as_deref(), source_format);
-        assert!(result.is_err());
+        result.unwrap_err();
     }
 
     /// Without the `mlt` feature, the MVT↔MLT conversion branches are gated
@@ -928,7 +930,7 @@ mod tests {
     fn test_accept_406_without_mlt(#[case] accept_values: &[&str], #[case] source_format: Format) {
         let parsed = parse_accept_header(accept_values);
         let result = DynTileSource::resolve_accepted_format(parsed.as_deref(), source_format);
-        assert!(result.is_err());
+        result.unwrap_err();
     }
 
     /// `Accept: mlt` against an MVT source resolves to MLT - the pre-cache
