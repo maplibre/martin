@@ -277,9 +277,9 @@ impl<T: ConfigurationLivecycleHooks> ConfigurationLivecycleHooks for FileConfig<
         self.custom.finalize()
     }
     fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
-        let mut keys = self.custom.get_unrecognized_keys();
-        #[cfg(all(feature = "mlt", feature = "_tiles"))]
-        if let Some(sources) = &self.sources {
+        
+        if if cfg!(all(feature = "mlt", feature = "_tiles")) && let Some(sources) = &self.sources {
+            let mut keys = self.custom.get_unrecognized_keys();
             use crate::config::file::process::{
                 collect_mlt_unrecognized_keys, collect_mvt_unrecognized_keys,
             };
@@ -297,8 +297,10 @@ impl<T: ConfigurationLivecycleHooks> ConfigurationLivecycleHooks for FileConfig<
                     );
                 }
             }
-        }
         keys
+        } else{
+            self.custom.get_unrecognized_keys()
+        }
     }
 }
 
