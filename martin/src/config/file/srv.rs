@@ -83,6 +83,20 @@ pub struct SrvConfig {
     pub tilejson_url_version_param: Option<String>,
 }
 
+impl SrvConfig {
+    /// The URL path prefix under which Martin is publicly served, derived from
+    /// the explicit config (not request headers).
+    ///
+    /// Returns `base_path` if set, otherwise `route_prefix`, otherwise `None`.
+    /// The two have different deployment semantics (see field docs) but both
+    /// describe the public-facing prefix and so are interchangeable for the
+    /// purpose of building absolute URLs in responses.
+    #[must_use]
+    pub fn public_path_prefix(&self) -> Option<&str> {
+        self.base_path.as_deref().or(self.route_prefix.as_deref())
+    }
+}
+
 impl ConfigurationLivecycleHooks for SrvConfig {
     fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
         let mut unrecognized = UnrecognizedKeys::new();

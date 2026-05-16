@@ -52,12 +52,8 @@ pub async fn get_source_info(
 
     // Determine the path prefix for tile URLs in TileJSON responses
     // Priority: base_path (explicit override) > route_prefix (where Martin is mounted) > X-Rewrite-URL header > request path
-    let tiles_path = if let Some(base_path) = &srv_config.base_path {
-        // If base_path is explicitly set, use it directly
-        format!("{base_path}/{}", path.source_ids)
-    } else if let Some(route_prefix) = &srv_config.route_prefix {
-        // If route_prefix is set, use it (Martin is mounted under a subpath)
-        format!("{route_prefix}/{}", path.source_ids)
+    let tiles_path = if let Some(prefix) = srv_config.public_path_prefix() {
+        format!("{prefix}/{}", path.source_ids)
     } else {
         // Fall back to X-Rewrite-URL header if present, otherwise use request path
         req.headers()

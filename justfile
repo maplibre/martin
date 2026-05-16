@@ -327,7 +327,7 @@ docker-run *args:
 
 # Build and run martin documentation
 docs:
-    docker run --rm -it -p 8000:8000 -v ${PWD}:/docs zensical/zensical:latest
+    uvx zensical serve --open
 
 # Build martin documentation
 docs-build:
@@ -533,22 +533,17 @@ test-int: clean-test install-sqlx start-pmtiles-server
     #!/usr/bin/env bash
     set -euo pipefail
     tests/test.sh
-    if [ "{{os()}}" != "linux" ]; then
-        echo "** Integration tests are only supported on Linux"
-        echo "** Skipping diffing with the expected output"
+    echo "** Comparing actual output with expected output..."
+    if ! diff --brief --recursive --new-file --exclude='*.pbf' tests/output tests/expected; then
+        echo "** Expected output does not match actual output"
+        echo "** If this is expected, run 'just bless' to update expected output"
+        echo ""
+        echo "::group::Resulting diff (max 100 lines)"
+        diff --recursive --new-file --exclude='*.pbf' tests/output tests/expected | head -n 100 | cat -v
+        echo "::endgroup::"
+        exit 1
     else
-        echo "** Comparing actual output with expected output..."
-        if ! diff --brief --recursive --new-file --exclude='*.pbf' tests/output tests/expected; then
-            echo "** Expected output does not match actual output"
-            echo "** If this is expected, run 'just bless' to update expected output"
-            echo ""
-            echo "::group::Resulting diff (max 100 lines)"
-            diff --recursive --new-file --exclude='*.pbf' tests/output tests/expected | head -n 100 | cat --show-nonprinting
-            echo "::endgroup::"
-            exit 1
-        else
-            echo "** Expected output matches actual output"
-        fi
+        echo "** Expected output matches actual output"
     fi
 
 # Run AWS Lambda smoke test against SAM local

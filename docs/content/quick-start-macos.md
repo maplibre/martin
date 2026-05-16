@@ -1,3 +1,9 @@
+---
+icon: simple/apple
+tags:
+  - getting-started
+---
+
 # Quick start on macOS
 
 1. Download some [demo tiles](https://github.com/maplibre/martin/raw/main/tests/fixtures/mbtiles/world_cities.sql).
@@ -5,8 +11,8 @@
 2. Download the latest version of Martin from
    the [release page](https://github.com/maplibre/martin/releases/latest).
    Use [about this Mac](https://support.apple.com/en-us/116943) to find your processors type.
-    * Use [martin-x86_64-apple-darwin.tar.gz](https://github.com/maplibre/martin/releases/latest/download/martin-x86_64-apple-darwin.tar.gz) for Intel
-    * Use [martin-aarch64-apple-darwin.tar.gz](https://github.com/maplibre/martin/releases/latest/download/martin-aarch64-apple-darwin.tar.gz) for M1
+    * **for M1**: Use [martin-aarch64-apple-darwin.tar.gz](https://github.com/maplibre/martin/releases/latest/download/martin-aarch64-apple-darwin.tar.gz)
+    * **for x86**, you likely can compile us source, but we don't complie this for you due to runner avaliability.
 
 3. Extract content of both files and place them in a same directory.
 

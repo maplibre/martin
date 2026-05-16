@@ -1,7 +1,15 @@
+---
+icon: material/layers-triple
+tags:
+  - tile-sources
+  - composite-sources
+  - configuration
+---
+
 # Composite Sources
 
-Composite Sources allows combining multiple sources into one. Composite Source consists of multiple sources separated by
-comma `{source1},...,{sourceN}`
+Composite Sources allows combining multiple sources into one.
+Composite Source consists of multiple sources separated by comma `{source1},...,{sourceN}`
 
 Each source in a composite source can be accessed with its `{source_name}` as a `source-layer` property.
 

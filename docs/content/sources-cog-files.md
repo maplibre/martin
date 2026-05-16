@@ -1,3 +1,11 @@
+---
+icon: material/satellite-variant
+tags:
+  - cog
+  - tile-sources
+  - configuration
+---
+
 # Cloud Optimized GeoTIFF File Sources
 
 !!! warning
@@ -71,11 +79,14 @@ cog:
 
 [COG](https://cogeo.org/) is just Cloud Optimized GeoTIFF file.
 
-TIFF is an image file format. TIFF tags are something like key-value pairs inside to describe the metadata about a TIFF file, ike `ImageWidth`, `ImageLength`, etc.
+TIFF is an image file format.
+TIFF tags are something like key-value pairs inside to describe the metadata about a TIFF file, ike `ImageWidth`, `ImageLength`, etc.
 
 GeoTIFF is a valid TIFF file with a set of TIFF tags to describe the 'Cartographic' information associated with it.
 
-COG is a valid GeoTIFF file with some requirements for efficient reading. That is, all COG files are valid GeoTIFF files, but not all GeoTIFF files are valid COG files. For quick access to tiles in TIFF files, Martin relies on the requirements/recommendations(like the [requirement about Reduced-Resolution Subfiles](https://docs.ogc.org/is/21-026/21-026.html#_requirement_reduced_resolution_subfiles) and [the content dividing strategy](https://docs.ogc.org/is/21-026/21-026.html#_tiles)) so we use the term `COG` over `GeoTIFF` in our documentation and configuration files.
+COG is a valid GeoTIFF file with some requirements for efficient reading.
+That is, all COG files are valid GeoTIFF files, but not all GeoTIFF files are valid COG files.
+For quick access to tiles in TIFF files, Martin relies on the requirements/recommendations(like the [requirement about Reduced-Resolution Subfiles](https://docs.ogc.org/is/21-026/21-026.html#_requirement_reduced_resolution_subfiles) and [the content dividing strategy](https://docs.ogc.org/is/21-026/21-026.html#_tiles)) so we use the term `COG` over `GeoTIFF` in our documentation and configuration files.
 
 You may want to visit these specs:
 
@@ -111,4 +122,5 @@ So basically there's a mapping from zxy to tile of sub-file of TIFF.
 | Zoom level | which sub-file in TIFF file |
 | X and Y    | which tile in subfile       |
 
-Clients could read only the header part of COG to figure out the mapping from zxy to the chunk number and the subfile number. Martin get tile to frontend by this mapping.
+Clients could read only the header part of COG to figure out the mapping from zxy to the chunk number and the subfile number.
+Martin get tile to frontend by this mapping.
