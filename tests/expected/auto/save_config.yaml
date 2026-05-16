@@ -420,6 +420,7 @@ mbtiles:
 sprites: tests/fixtures/sprites/src1
 styles:
 - tests/fixtures/styles/maplibre_demo.json
+- tests/fixtures/styles/relative_urls.json
 - tests/fixtures/styles/src2
 fonts:
 - tests/fixtures/fonts/overpass-mono-regular.ttf
