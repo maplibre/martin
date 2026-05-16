@@ -205,19 +205,19 @@ impl Config {
 
         #[cfg(all(feature = "mlt", feature = "_tiles"))]
         {
-            use crate::config::file::process::{
-                collect_mlt_unrecognized_keys, collect_mvt_unrecognized_keys,
-            };
-            collect_mlt_unrecognized_keys(
-                &mut res,
-                "convert_to_mlt.",
-                self.convert_to_mlt.as_ref(),
-            );
-            collect_mvt_unrecognized_keys(
-                &mut res,
-                "convert_to_mvt.",
-                self.convert_to_mvt.as_ref(),
-            );
+            use crate::config::primitives::AutoOption;
+            if let Some(AutoOption::Explicit(cfg)) = self.convert_to_mlt.as_ref() {
+                res.extend(
+                    cfg.unrecognized_keys()
+                        .map(|k| format!("convert_to_mlt.{k}")),
+                );
+            }
+            if let Some(AutoOption::Explicit(cfg)) = self.convert_to_mvt.as_ref() {
+                res.extend(
+                    cfg.unrecognized_keys()
+                        .map(|k| format!("convert_to_mvt.{k}")),
+                );
+            }
         }
 
         if let Some(path) = &self.srv.route_prefix {

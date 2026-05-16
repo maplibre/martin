@@ -10,14 +10,14 @@ use tracing::{trace, warn};
 use url::Url;
 
 use crate::MartinResult;
-#[cfg(all(feature = "mlt", feature = "_tiles"))]
-use crate::config::file::process::{collect_mlt_unrecognized_keys, collect_mvt_unrecognized_keys};
 use crate::config::file::{
     CachePolicy, CacheSizeConfig, ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks,
     TileSourceConfiguration, UnrecognizedKeys, UnrecognizedValues,
 };
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 use crate::config::file::{MltProcessConfig, MvtProcessConfig};
+#[cfg(all(feature = "mlt", feature = "_tiles"))]
+use crate::config::primitives::AutoOption;
 
 #[serde_with::skip_serializing_none]
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -99,16 +99,18 @@ impl ConfigurationLivecycleHooks for PmtConfig {
         let mut keys: UnrecognizedKeys = self.unrecognized.keys().cloned().collect();
         #[cfg(all(feature = "mlt", feature = "_tiles"))]
         {
-            collect_mlt_unrecognized_keys(
-                &mut keys,
-                "convert_to_mlt.",
-                self.convert_to_mlt.as_ref(),
-            );
-            collect_mvt_unrecognized_keys(
-                &mut keys,
-                "convert_to_mvt.",
-                self.convert_to_mvt.as_ref(),
-            );
+            if let Some(AutoOption::Explicit(cfg)) = self.convert_to_mlt.as_ref() {
+                keys.extend(
+                    cfg.unrecognized_keys()
+                        .map(|k| format!("convert_to_mlt.{k}")),
+                );
+            }
+            if let Some(AutoOption::Explicit(cfg)) = self.convert_to_mvt.as_ref() {
+                keys.extend(
+                    cfg.unrecognized_keys()
+                        .map(|k| format!("convert_to_mvt.{k}")),
+                );
+            }
         }
         keys
     }

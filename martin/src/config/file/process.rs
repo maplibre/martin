@@ -4,7 +4,7 @@ use mlt_core::encoder::EncoderConfig;
 use serde::{Deserialize, Serialize};
 
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
-use crate::config::file::{UnrecognizedKeys, UnrecognizedValues};
+use crate::config::file::UnrecognizedValues;
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 use crate::config::primitives::AutoOption;
 
@@ -84,43 +84,6 @@ impl MltEncoderConfig {
     pub(crate) fn unrecognized_keys(&self) -> impl Iterator<Item = &str> {
         self.unrecognized.keys().map(String::as_str)
     }
-}
-
-/// Collect unrecognized keys from a `convert_to_mlt`/`convert_to_mvt`-style option,
-/// prefixing each with `prefix` (e.g. `"convert_to_mlt."`) so the message points at
-/// the offending nested key.
-#[cfg(all(feature = "mlt", feature = "_tiles"))]
-pub(crate) fn collect_convert_unrecognized_keys<F>(
-    result: &mut UnrecognizedKeys,
-    prefix: &str,
-    opt: Option<&AutoOption<F>>,
-    keys: impl FnOnce(&F) -> Box<dyn Iterator<Item = &str> + '_>,
-) {
-    if let Some(AutoOption::Explicit(cfg)) = opt {
-        for key in keys(cfg) {
-            result.insert(format!("{prefix}{key}"));
-        }
-    }
-}
-
-/// Collect unrecognized keys from `convert_to_mlt`.
-#[cfg(all(feature = "mlt", feature = "_tiles"))]
-pub(crate) fn collect_mlt_unrecognized_keys(
-    result: &mut UnrecognizedKeys,
-    prefix: &str,
-    opt: Option<&MltProcessConfig>,
-) {
-    collect_convert_unrecognized_keys(result, prefix, opt, |cfg| Box::new(cfg.unrecognized_keys()));
-}
-
-/// Collect unrecognized keys from `convert_to_mvt`.
-#[cfg(all(feature = "mlt", feature = "_tiles"))]
-pub(crate) fn collect_mvt_unrecognized_keys(
-    result: &mut UnrecognizedKeys,
-    prefix: &str,
-    opt: Option<&MvtProcessConfig>,
-) {
-    collect_convert_unrecognized_keys(result, prefix, opt, |cfg| Box::new(cfg.unrecognized_keys()));
 }
 
 /// Applying `MltEncoderConfig` overrides on top of `EncoderConfig` defaults.

@@ -277,30 +277,31 @@ impl<T: ConfigurationLivecycleHooks> ConfigurationLivecycleHooks for FileConfig<
         self.custom.finalize()
     }
     fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
-
-        if if cfg!(all(feature = "mlt", feature = "_tiles")) && let Some(sources) = &self.sources {
-            let mut keys = self.custom.get_unrecognized_keys();
-            use crate::config::file::process::{
-                collect_mlt_unrecognized_keys, collect_mvt_unrecognized_keys,
-            };
+        // `mut` is only used when mlt+_tiles are enabled; otherwise this is
+        // a straight pass-through of the custom config's unrecognized keys.
+        #[cfg_attr(not(all(feature = "mlt", feature = "_tiles")), allow(unused_mut))]
+        let mut keys = self.custom.get_unrecognized_keys();
+        #[cfg(all(feature = "mlt", feature = "_tiles"))]
+        if let Some(sources) = &self.sources {
+            use crate::config::primitives::AutoOption;
             for (id, src) in sources {
                 if let FileConfigSrc::Obj(obj) = src {
-                    collect_mlt_unrecognized_keys(
-                        &mut keys,
-                        &format!("sources.{id}.convert_to_mlt."),
-                        obj.convert_to_mlt.as_ref(),
-                    );
-                    collect_mvt_unrecognized_keys(
-                        &mut keys,
-                        &format!("sources.{id}.convert_to_mvt."),
-                        obj.convert_to_mvt.as_ref(),
-                    );
+                    if let Some(AutoOption::Explicit(cfg)) = obj.convert_to_mlt.as_ref() {
+                        keys.extend(
+                            cfg.unrecognized_keys()
+                                .map(|k| format!("sources.{id}.convert_to_mlt.{k}")),
+                        );
+                    }
+                    if let Some(AutoOption::Explicit(cfg)) = obj.convert_to_mvt.as_ref() {
+                        keys.extend(
+                            cfg.unrecognized_keys()
+                                .map(|k| format!("sources.{id}.convert_to_mvt.{k}")),
+                        );
+                    }
                 }
             }
-        keys
-        } else{
-            self.custom.get_unrecognized_keys()
         }
+        keys
     }
 }
 
