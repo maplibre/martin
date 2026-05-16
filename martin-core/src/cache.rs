@@ -1,8 +1,4 @@
 //! Generic resource cache shared by sprite, font, and tile caches.
-//!
-//! Variance lives in two trait impls per cache: [`CacheKey`] (invalidation
-//! policy + metric labels) and [`Cacheable`] (eviction weight). Everything
-//! else is shared.
 
 use std::fmt::Debug;
 use std::hash::Hash;
@@ -13,16 +9,6 @@ use moka::future::Cache;
 use tracing::{info, trace};
 
 /// A cache key for [`ResourceCache`].
-///
-/// The key encodes everything a generic cache cannot know:
-///
-/// - **Source-based invalidation** ([`Self::matches_source`]) — which entries
-///   should be wiped when a source ID is invalidated. Implementations must
-///   match by token, not substring (a key referencing source `"foo"` must not
-///   be invalidated when source `"foobar"` is invalidated).
-/// - **Hit/miss telemetry** ([`Self::record_outcome`]) — which Prometheus
-///   metric family and labels (including any extra dimensions like zoom)
-///   to record against.
 pub trait CacheKey: Hash + Eq + Send + Sync + Clone + Debug + 'static {
     /// Identifier used as the moka cache name, the trace-log prefix, and the
     /// metric label in [`Self::record_outcome`].
@@ -60,9 +46,7 @@ impl<K: CacheKey, V: Cacheable> Debug for ResourceCache<K, V> {
 }
 
 impl<K: CacheKey, V: Cacheable> ResourceCache<K, V> {
-    /// Builds a new cache with weight-based capacity, optional TTL and TTI,
-    /// and predicate invalidation always enabled (required by
-    /// [`Self::invalidate_source`]).
+    /// Builds a new cache
     #[must_use]
     pub fn new(
         max_size_bytes: u64,
@@ -85,8 +69,7 @@ impl<K: CacheKey, V: Cacheable> ResourceCache<K, V> {
         }
     }
 
-    /// Gets a cached value or computes one. On `Err`, the entry is not stored
-    /// and the error is propagated as `Arc<E>` (per moka's semantics).
+    /// Gets a cached value or computes one.
     pub async fn get_or_insert<F, Fut, E>(&self, key: K, compute: F) -> Result<V, Arc<E>>
     where
         F: FnOnce() -> Fut,
@@ -115,8 +98,9 @@ impl<K: CacheKey, V: Cacheable> ResourceCache<K, V> {
         Ok(entry.into_value())
     }
 
-    /// Invalidates entries whose key matches `source_id`. Eviction is
-    /// asynchronous; flush via [`Self::run_pending_tasks`].
+    /// Invalidates entries whose key matches `source_id`.
+    /// Eviction is asynchronous.
+    /// Flush the cache via [`Self::run_pending_tasks`].
     pub fn invalidate_source(&self, source_id: &str) {
         let source_id_owned = source_id.to_string();
         self.inner
@@ -128,8 +112,9 @@ impl<K: CacheKey, V: Cacheable> ResourceCache<K, V> {
         );
     }
 
-    /// Invalidates every entry. Eviction is lazy; flush via
-    /// [`Self::run_pending_tasks`].
+    /// Invalidates every entry.
+    /// Eviction is asynchronous.
+    /// Flush the cache via [`Self::run_pending_tasks`].
     pub fn invalidate_all(&self) {
         self.inner.invalidate_all();
         info!("Invalidated all {} cache entries", K::CACHE_NAME);
@@ -144,9 +129,10 @@ impl<K: CacheKey, V: Cacheable> ResourceCache<K, V> {
 
     /// Returns `true` iff `key` currently has a cached value.
     ///
-    /// Only safe for diagnostics and tests: the result reflects the state
-    /// at the moment of the call, with no atomicity relative to subsequent
-    /// operations. Another task can insert or invalidate `key` immediately
+    /// Only safe for diagnostics and tests:
+    /// the result reflects the state at the moment of the call,
+    /// with no atomicity relative to subsequent operations.
+    /// Another task can insert or invalidate `key` immediately
     /// after this returns, so the classic check-then-act pattern races.
     /// Use [`Self::get_or_insert`] for race-free read-or-compute.
     pub fn contains_key(&self, key: &K) -> bool {
@@ -259,15 +245,6 @@ mod tests {
         );
     }
 
-    /// `substring_regression`: sprite/font caches previously used
-    /// `key.ids.contains(source_id)`, which substring-matched `"foo"` against
-    /// `"foobar"`. The trait's `matches_source` now lets each key choose; the
-    /// test key uses token matching.
-    ///
-    /// `predicate_fires_for_csv_key`: regression for sprite/font caches that
-    /// called `invalidate_entries_if` without `support_invalidation_closures()`
-    /// on the builder — moka silently no-ops in that case. The generic always
-    /// enables the flag.
     #[rstest]
     #[case::two_keys_invalidate_one(&["foo", "bar"], "foo", &["bar"])]
     #[case::substring_regression(&["foo", "foobar"], "foo", &["foobar"])]
