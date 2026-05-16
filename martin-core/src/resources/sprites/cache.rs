@@ -44,14 +44,9 @@ impl CacheKey for SpriteCacheKey {
 
     fn record_outcome(&self, hit: bool) {
         #[cfg(feature = "metrics")]
-        {
-            let result = if hit { "hit" } else { "miss" };
-            crate::metrics::CACHE_REQUESTS_TOTAL
-                .with_label_values(&[Self::CACHE_NAME, result])
-                .inc();
-        }
-        // `hotpath::gauge!` requires a literal name, so the two arms cannot
-        // be collapsed into a single statement.
+        crate::metrics::CACHE_REQUESTS_TOTAL
+            .with_label_values(&[Self::CACHE_NAME, crate::cache::hit_miss_label(hit)])
+            .inc();
         #[allow(
             clippy::if_same_then_else,
             reason = "hotpath::gauge! requires a literal name argument"

@@ -23,8 +23,7 @@ pub struct TileCacheKey {
     source_id: String,
     xyz: TileCoord,
     query: Option<String>,
-    /// The format requested via the `Accept` header.
-    /// `None` means no `Accept` header was present.
+    /// Format requested via the `Accept` header; `None` if absent.
     format: Option<Format>,
 }
 
@@ -55,16 +54,13 @@ impl CacheKey for TileCacheKey {
 
     fn record_outcome(&self, hit: bool) {
         #[cfg(feature = "metrics")]
-        {
-            let result = if hit { "hit" } else { "miss" };
-            crate::metrics::TILE_CACHE_REQUESTS_TOTAL
-                .with_label_values(&[
-                    Self::CACHE_NAME,
-                    result,
-                    crate::metrics::ZOOM_LABELS[self.xyz.z as usize],
-                ])
-                .inc();
-        }
+        crate::metrics::TILE_CACHE_REQUESTS_TOTAL
+            .with_label_values(&[
+                Self::CACHE_NAME,
+                crate::cache::hit_miss_label(hit),
+                crate::metrics::ZOOM_LABELS[self.xyz.z as usize],
+            ])
+            .inc();
         #[allow(
             clippy::if_same_then_else,
             reason = "hotpath::gauge! requires a literal name argument"

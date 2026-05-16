@@ -1,9 +1,8 @@
-//! Generic resource cache used by sprite, font, and tile caches.
+//! Generic resource cache shared by sprite, font, and tile caches.
 //!
-//! The three call sites differ only in: the key type (which encodes the cache's
-//! invalidation policy and metric labels) and the value type (which provides a
-//! byte-weight for eviction). Everything else — the moka builder, the
-//! `or_try_insert_with` flow, predicate invalidation, tracing — is shared here.
+//! Variance lives in two trait impls per cache: [`CacheKey`] (invalidation
+//! policy + metric labels) and [`Cacheable`] (eviction weight). Everything
+//! else is shared.
 
 use std::fmt::Debug;
 use std::hash::Hash;
@@ -25,34 +24,26 @@ use tracing::{info, trace};
 ///   metric family and labels (including any extra dimensions like zoom)
 ///   to record against.
 pub trait CacheKey: Hash + Eq + Send + Sync + Clone + Debug + 'static {
-    /// Short identifier used as the moka cache name and in trace logs.
-    /// Should also be the metric label used in [`Self::record_outcome`].
+    /// Identifier used as the moka cache name, the trace-log prefix, and the
+    /// metric label in [`Self::record_outcome`].
     const CACHE_NAME: &'static str;
 
-    /// Returns `true` if this key should be invalidated when the given
-    /// source ID is invalidated.
+    /// Whether this key should be wiped when `source_id` is invalidated.
     fn matches_source(&self, source_id: &str) -> bool;
 
-    /// Records a hit or miss against this cache's metrics. Called once per
-    /// `get_or_insert`. Implementations typically increment a Prometheus
-    /// counter and a `hotpath::gauge!`.
+    /// Records one hit or miss. Called exactly once per `get_or_insert`.
     fn record_outcome(&self, hit: bool);
 }
 
-/// A value type storable in [`ResourceCache`]. Provides the byte-weight used
-/// by moka's weight-based eviction.
+/// A value type storable in [`ResourceCache`].
 pub trait Cacheable: Send + Sync + Clone + 'static {
-    /// Approximate in-memory size of this value, in bytes. Used as the moka
-    /// weight; values exceeding [`u32::MAX`] should saturate.
+    /// Approximate byte size, used as the moka eviction weight. Saturates at
+    /// [`u32::MAX`].
     fn weight(&self) -> u32;
 }
 
-/// Generic in-memory cache for sprite sheets, font ranges, and rendered tiles.
-///
-/// All three concrete caches in Martin (`SpriteCache`, `FontCache`,
-/// `TileCache`) are `pub type` aliases over `ResourceCache<K, V>`. The
-/// key's [`CacheKey`] impl decides the invalidation and metric policy; the
-/// value's [`Cacheable`] impl decides eviction weight.
+/// In-memory cache backed by [`moka::future::Cache`]. The concrete sprite,
+/// font, and tile caches are `pub type` aliases over this struct.
 #[derive(Clone)]
 pub struct ResourceCache<K: CacheKey, V: Cacheable> {
     inner: Cache<K, V>,
@@ -69,15 +60,9 @@ impl<K: CacheKey, V: Cacheable> Debug for ResourceCache<K, V> {
 }
 
 impl<K: CacheKey, V: Cacheable> ResourceCache<K, V> {
-    /// Creates a new cache. The moka cache name comes from
-    /// [`K::CACHE_NAME`][CacheKey::CACHE_NAME].
-    ///
-    /// - `max_size_bytes` is the moka weight-based capacity.
-    /// - `expiry` sets `time_to_live`.
-    /// - `idle_timeout` sets `time_to_idle`.
-    ///
-    /// Predicate invalidation (used by [`Self::invalidate_source`]) is always
-    /// enabled.
+    /// Builds a new cache with weight-based capacity, optional TTL and TTI,
+    /// and predicate invalidation always enabled (required by
+    /// [`Self::invalidate_source`]).
     #[must_use]
     pub fn new(
         max_size_bytes: u64,
@@ -100,11 +85,8 @@ impl<K: CacheKey, V: Cacheable> ResourceCache<K, V> {
         }
     }
 
-    /// Gets a value from cache or computes it using `compute`.
-    ///
-    /// Calls [`CacheKey::record_outcome`] exactly once per invocation.
-    /// If `compute` returns `Err`, the value is not stored and the error
-    /// is propagated wrapped in an `Arc` (per moka's semantics).
+    /// Gets a cached value or computes one. On `Err`, the entry is not stored
+    /// and the error is propagated as `Arc<E>` (per moka's semantics).
     pub async fn get_or_insert<F, Fut, E>(&self, key: K, compute: F) -> Result<V, Arc<E>>
     where
         F: FnOnce() -> Fut,
@@ -133,9 +115,8 @@ impl<K: CacheKey, V: Cacheable> ResourceCache<K, V> {
         Ok(entry.into_value())
     }
 
-    /// Invalidates every cached entry whose key reports
-    /// [`CacheKey::matches_source`] for `source_id`. Entries are evicted
-    /// asynchronously; call [`Self::run_pending_tasks`] to flush.
+    /// Invalidates entries whose key matches `source_id`. Eviction is
+    /// asynchronous; flush via [`Self::run_pending_tasks`].
     pub fn invalidate_source(&self, source_id: &str) {
         let source_id_owned = source_id.to_string();
         self.inner
@@ -147,8 +128,8 @@ impl<K: CacheKey, V: Cacheable> ResourceCache<K, V> {
         );
     }
 
-    /// Invalidates every entry. Eviction happens lazily on subsequent access
-    /// or after [`Self::run_pending_tasks`].
+    /// Invalidates every entry. Eviction is lazy; flush via
+    /// [`Self::run_pending_tasks`].
     pub fn invalidate_all(&self) {
         self.inner.invalidate_all();
         info!("Invalidated all {} cache entries", K::CACHE_NAME);
@@ -166,24 +147,32 @@ impl<K: CacheKey, V: Cacheable> ResourceCache<K, V> {
         self.inner.weighted_size()
     }
 
-    /// Runs pending maintenance tasks (processes invalidation predicates,
-    /// expirations, eviction). Tests should call this before asserting on
-    /// `entry_count` after an invalidation.
+    /// Runs pending maintenance (invalidation predicates, expirations,
+    /// eviction). Tests must call this before asserting on [`Self::entry_count`]
+    /// after an invalidation, since eviction is otherwise lazy.
     pub async fn run_pending_tasks(&self) {
         self.inner.run_pending_tasks().await;
     }
 }
 
-/// Blanket impl: any byte buffer is weighted by its length.
 impl Cacheable for Vec<u8> {
     fn weight(&self) -> u32 {
         self.len().try_into().unwrap_or(u32::MAX)
     }
 }
 
+/// The `"hit"` / `"miss"` metric label, shared by [`CacheKey::record_outcome`]
+/// implementations.
+#[must_use]
+pub const fn hit_miss_label(hit: bool) -> &'static str {
+    if hit { "hit" } else { "miss" }
+}
+
 #[cfg(test)]
 mod tests {
     use std::sync::atomic::{AtomicU32, Ordering};
+
+    use rstest::rstest;
 
     use super::*;
 
@@ -258,86 +247,41 @@ mod tests {
         );
     }
 
+    /// `substring_regression`: sprite/font caches previously used
+    /// `key.ids.contains(source_id)`, which substring-matched `"foo"` against
+    /// `"foobar"`. The trait's `matches_source` now lets each key choose; the
+    /// test key uses token matching.
+    ///
+    /// `predicate_fires_for_csv_key`: regression for sprite/font caches that
+    /// called `invalidate_entries_if` without `support_invalidation_closures()`
+    /// on the builder — moka silently no-ops in that case. The generic always
+    /// enables the flag.
+    #[rstest]
+    #[case::two_keys_invalidate_one(&["foo", "bar"], "foo", 1)]
+    #[case::substring_regression(&["foo", "foobar"], "foo", 1)]
+    #[case::predicate_fires_for_csv_key(&["a,b,c"], "b", 0)]
     #[tokio::test]
-    async fn invalidate_source_uses_matches_source_predicate() {
+    async fn invalidate_source(
+        #[case] entries: &[&str],
+        #[case] target: &str,
+        #[case] expected_remaining: u64,
+    ) {
         let cache = cache();
-        let compute = || async { Ok::<_, std::convert::Infallible>(vec![0_u8]) };
-
-        cache
-            .get_or_insert(TestKey::new("foo"), compute)
-            .await
-            .unwrap();
-        cache
-            .get_or_insert(TestKey::new("bar"), compute)
-            .await
-            .unwrap();
+        for ids in entries {
+            cache
+                .get_or_insert(TestKey::new(ids), || async {
+                    Ok::<_, std::convert::Infallible>(vec![0_u8])
+                })
+                .await
+                .unwrap();
+        }
         cache.run_pending_tasks().await;
-        assert_eq!(cache.entry_count(), 2);
+        assert_eq!(cache.entry_count(), entries.len() as u64);
 
-        cache.invalidate_source("foo");
+        cache.invalidate_source(target);
         cache.run_pending_tasks().await;
 
-        assert_eq!(
-            cache.entry_count(),
-            1,
-            "only the 'foo' entry should remain invalidated"
-        );
-    }
-
-    /// Regression: sprite/font caches used `key.ids.contains(source_id)`
-    /// which substring-matched. Invalidating `"foo"` would also wipe entries
-    /// referencing `"foobar"`. The trait's `matches_source` lets each key
-    /// decide; here we test that token-matching is honoured.
-    #[tokio::test]
-    async fn invalidate_source_does_not_substring_match() {
-        let cache = cache();
-        let compute = || async { Ok::<_, std::convert::Infallible>(vec![0_u8]) };
-
-        cache
-            .get_or_insert(TestKey::new("foo"), compute)
-            .await
-            .unwrap();
-        cache
-            .get_or_insert(TestKey::new("foobar"), compute)
-            .await
-            .unwrap();
-        cache.run_pending_tasks().await;
-        assert_eq!(cache.entry_count(), 2);
-
-        cache.invalidate_source("foo");
-        cache.run_pending_tasks().await;
-
-        assert_eq!(
-            cache.entry_count(),
-            1,
-            "invalidating 'foo' must not invalidate 'foobar'"
-        );
-    }
-
-    /// Regression: sprite/font caches called `invalidate_entries_if` without
-    /// building with `support_invalidation_closures()`, which moka silently
-    /// no-ops. The generic cache always enables the flag — verify that by
-    /// observing the predicate actually fires.
-    #[tokio::test]
-    async fn invalidate_predicates_actually_fire() {
-        let cache = cache();
-        let compute = || async { Ok::<_, std::convert::Infallible>(vec![0_u8]) };
-
-        cache
-            .get_or_insert(TestKey::new("a,b,c"), compute)
-            .await
-            .unwrap();
-        cache.run_pending_tasks().await;
-        assert_eq!(cache.entry_count(), 1);
-
-        cache.invalidate_source("b");
-        cache.run_pending_tasks().await;
-
-        assert_eq!(
-            cache.entry_count(),
-            0,
-            "predicate invalidation must work even though invalidate_source is async"
-        );
+        assert_eq!(cache.entry_count(), expected_remaining);
     }
 
     #[tokio::test]
