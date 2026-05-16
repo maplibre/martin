@@ -277,8 +277,6 @@ impl<T: ConfigurationLivecycleHooks> ConfigurationLivecycleHooks for FileConfig<
         self.custom.finalize()
     }
     fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
-        // `mut` is only used when mlt+_tiles are enabled; otherwise this is
-        // a straight pass-through of the custom config's unrecognized keys.
         #[cfg_attr(not(all(feature = "mlt", feature = "_tiles")), allow(unused_mut))]
         let mut keys = self.custom.get_unrecognized_keys();
         #[cfg(all(feature = "mlt", feature = "_tiles"))]
