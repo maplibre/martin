@@ -5,7 +5,6 @@ use actix_web::test::{TestRequest, call_service, read_body, read_body_json};
 use indoc::indoc;
 use insta::assert_json_snapshot;
 use martin::config::file::srv::SrvConfig;
-use rstest::rstest;
 use serde_json::Value;
 
 pub mod utils;
