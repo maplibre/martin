@@ -38,7 +38,7 @@ mod error;
 pub use error::SpriteError;
 
 mod cache;
-pub use cache::{NO_SPRITE_CACHE, OptSpriteCache, SpriteCache};
+pub use cache::{NO_SPRITE_CACHE, OptSpriteCache, SpriteCache, SpriteCacheKey};
 
 /// Sprite source metadata.
 #[skip_serializing_none]
