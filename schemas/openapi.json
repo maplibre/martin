@@ -58,6 +58,13 @@
           },
           "settings": {
             "description": "Server-wide capability flags",
+            "properties": {
+              "rendering": {
+                "description": "Whether server-side style rendering endpoints are enabled.",
+                "type": "boolean"
+              }
+            },
+            "required": ["rendering"],
             "type": "object"
           },
           "sprites": {

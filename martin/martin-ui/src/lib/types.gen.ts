@@ -231,7 +231,10 @@ export interface components {
                 };
             };
             /** @description Server-wide capability flags */
-            settings: Record<string, never>;
+            settings: {
+                /** @description Whether server-side style rendering endpoints are enabled. */
+                rendering: boolean;
+            };
             sprites: {
                 [key: string]: {
                     /** @description Available sprite image names. */
