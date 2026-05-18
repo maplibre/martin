@@ -397,10 +397,12 @@ impl<'a> DynTileSource<'a> {
             let tile = if let (Some(cache), true) = (self.cache, cache_zoom_ok) {
                 cache
                     .get_or_insert(
-                        s.get_id().to_string(),
-                        xyz,
-                        self.query_str.map(ToString::to_string),
-                        self.accepted_format,
+                        martin_core::tiles::TileCacheKey::new(
+                            s.get_id().to_string(),
+                            xyz,
+                            self.query_str.map(ToString::to_string),
+                            self.accepted_format,
+                        ),
                         fetch_and_process,
                     )
                     .await

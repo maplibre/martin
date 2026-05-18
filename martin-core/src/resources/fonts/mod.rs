@@ -56,7 +56,7 @@ mod error;
 pub use error::FontError;
 
 mod cache;
-pub use cache::{FontCache, NO_FONT_CACHE, OptFontCache};
+pub use cache::{FontCache, FontCacheKey, NO_FONT_CACHE, OptFontCache};
 
 /// Glyph information: (codepoints, count, ranges, first, last).
 type GetGlyphInfo = (BitSet, u32, Vec<(usize, usize)>, usize, usize);

@@ -5,7 +5,7 @@
 use std::convert::Infallible;
 use std::time::Duration;
 
-use martin_core::fonts::FontCache;
+use martin_core::fonts::{FontCache, FontCacheKey};
 
 const CACHE_SIZE: u64 = 10 * 1024 * 1024;
 
@@ -174,17 +174,23 @@ async fn wait_and_flush(cache: &FontCache, duration: Duration) {
     cache.run_pending_tasks().await;
 }
 
+fn key(ids: &str, start: u32, end: u32) -> FontCacheKey {
+    FontCacheKey::new(ids.into(), start, end)
+}
+
 async fn insert(cache: &FontCache, ids: &str, start: u32, end: u32, data: &[u8]) -> Vec<u8> {
     let data = data.to_vec();
     cache
-        .get_or_insert(ids.into(), start, end, || Ok::<_, Infallible>(data.clone()))
+        .get_or_insert(key(ids, start, end), async || {
+            Ok::<_, Infallible>(data.clone())
+        })
         .await
         .unwrap()
 }
 
 async fn assert_hit(cache: &FontCache, ids: &str, start: u32, end: u32) -> Vec<u8> {
     cache
-        .get_or_insert::<_, Infallible>(ids.into(), start, end, || {
+        .get_or_insert::<_, _, Infallible>(key(ids, start, end), async || {
             panic!("expected cache hit, but compute was called");
         })
         .await
@@ -195,7 +201,7 @@ async fn assert_miss(cache: &FontCache, ids: &str, start: u32, end: u32, new_dat
     let mut recomputed = false;
     let data = new_data.to_vec();
     cache
-        .get_or_insert(ids.into(), start, end, || {
+        .get_or_insert(key(ids, start, end), async || {
             recomputed = true;
             Ok::<_, Infallible>(data.clone())
         })

@@ -5,7 +5,7 @@
 use std::convert::Infallible;
 use std::time::Duration;
 
-use martin_core::tiles::{Tile, TileCache};
+use martin_core::tiles::{Tile, TileCache, TileCacheKey};
 use martin_tile_utils::{Encoding, Format, TileCoord, TileInfo};
 
 const CACHE_SIZE: u64 = 10 * 1024 * 1024;
@@ -113,6 +113,10 @@ async fn wait_and_flush(cache: &TileCache, duration: Duration) {
     cache.run_pending_tasks().await;
 }
 
+fn key(source: &str, xyz: TileCoord, query: Option<&str>, format: Option<Format>) -> TileCacheKey {
+    TileCacheKey::new(source.into(), xyz, query.map(Into::into), format)
+}
+
 async fn insert(
     cache: &TileCache,
     source: &str,
@@ -122,7 +126,7 @@ async fn insert(
 ) -> Tile {
     let tile = test_tile(data);
     cache
-        .get_or_insert(source.into(), xyz, query.map(Into::into), None, || async {
+        .get_or_insert(key(source, xyz, query, None), async || {
             Ok::<_, Infallible>(tile.clone())
         })
         .await
@@ -131,7 +135,7 @@ async fn insert(
 
 async fn assert_hit(cache: &TileCache, source: &str, xyz: TileCoord) -> Tile {
     cache
-        .get_or_insert::<_, _, Infallible>(source.into(), xyz, None, None, || async {
+        .get_or_insert::<_, _, Infallible>(key(source, xyz, None, None), async || {
             panic!("expected cache hit, but compute was called");
         })
         .await
@@ -148,7 +152,7 @@ async fn assert_miss(
     let mut recomputed = false;
     let tile = test_tile(new_data);
     cache
-        .get_or_insert(source.into(), xyz, query.map(Into::into), None, || {
+        .get_or_insert(key(source, xyz, query, None), || {
             recomputed = true;
             let tile = tile.clone();
             async move { Ok::<_, Infallible>(tile) }
@@ -173,7 +177,7 @@ async fn cache_differentiates_by_format() {
 
     // Insert with format=Mvt
     let got_a = cache
-        .get_or_insert::<_, _, Infallible>("src".into(), ORIGIN, None, Some(Format::Mvt), || {
+        .get_or_insert::<_, _, Infallible>(key("src", ORIGIN, None, Some(Format::Mvt)), || {
             let t = tile_a.clone();
             async move { Ok(t) }
         })
@@ -184,7 +188,7 @@ async fn cache_differentiates_by_format() {
     // Same source/xyz/query but format=Png -> must be a miss
     let mut recomputed = false;
     let got_b = cache
-        .get_or_insert::<_, _, Infallible>("src".into(), ORIGIN, None, Some(Format::Png), || {
+        .get_or_insert::<_, _, Infallible>(key("src", ORIGIN, None, Some(Format::Png)), || {
             recomputed = true;
             let t = tile_b.clone();
             async move { Ok(t) }
@@ -197,11 +201,8 @@ async fn cache_differentiates_by_format() {
     // Requesting format=Mvt again -> must be a hit (returns original data)
     let got_a2 = cache
         .get_or_insert::<_, _, Infallible>(
-            "src".into(),
-            ORIGIN,
-            None,
-            Some(Format::Mvt),
-            || async { panic!("expected cache hit for Mvt") },
+            key("src", ORIGIN, None, Some(Format::Mvt)),
+            async || panic!("expected cache hit for Mvt"),
         )
         .await
         .unwrap();
@@ -210,7 +211,7 @@ async fn cache_differentiates_by_format() {
     // format=None is a separate key from format=Some(Mvt)
     let mut recomputed_none = false;
     cache
-        .get_or_insert::<_, _, Infallible>("src".into(), ORIGIN, None, None, || {
+        .get_or_insert::<_, _, Infallible>(key("src", ORIGIN, None, None), || {
             recomputed_none = true;
             let t = tile_a.clone();
             async move { Ok(t) }
