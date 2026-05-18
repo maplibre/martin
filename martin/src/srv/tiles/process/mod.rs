@@ -161,7 +161,7 @@ mod tests {
         let result =
             apply_pre_cache_processors(tile, &ProcessConfig::default(), Some(Format::Mlt)).unwrap();
         assert_eq!(result.info.format, Format::Mlt);
-        assert_eq!(result.info.encoding, Encoding::Uncompressed);
+        assert_eq!(result.info.encoding, Encoding::Internal);
     }
 
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
@@ -199,7 +199,7 @@ mod tests {
         let result =
             apply_pre_cache_processors(tile, &ProcessConfig::default(), Some(Format::Mlt)).unwrap();
         assert_eq!(result.info.format, Format::Mlt);
-        assert_eq!(result.info.encoding, Encoding::Uncompressed);
+        assert_eq!(result.info.encoding, Encoding::Internal);
     }
 
     /// An MVT tile with one point feature - needed for meaningful round-trip tests
