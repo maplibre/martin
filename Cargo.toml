@@ -19,13 +19,32 @@ unused_qualifications = "warn"
 # Restrictions
 absolute_paths = "warn"
 as_underscore = "warn"
+assertions_on_result_states = "warn"
+dbg_macro = "warn"
+empty_drop = "warn"
+empty_structs_with_brackets = "warn"
+error_impl_error = "warn"
+exit = "warn"
+format_push_string = "warn"
+lossy_float_literal = "warn"
+mem_forget = "warn"
+negative_feature_names = "warn"
 panic = "warn"
 panic_in_result_fn = "warn"
+print_stderr = "warn"
+print_stdout = "warn"
+redundant_feature_names = "warn"
+redundant_type_annotations = "warn"
+same_name_method = "warn"
+string_slice = "warn"
 todo = "warn"
+try_err = "warn"
 unimplemented = "warn"
+unnecessary_safety_doc = "warn"
 unwrap_used = "warn"
 unused_trait_names = "warn"
 use_self = "warn"
+verbose_file_reads = "warn"
 
 # Pedantics without being too noisy
 pedantic = { level = "warn", priority = -1 }
@@ -76,9 +95,9 @@ json-patch = "4"
 lambda-web = { version = "0.2.1", features = ["actix4"] }
 log = "0.4"
 maplibre_native = "0.4.4"
-martin-core = { path = "./martin-core", version = "0.5.4", default-features = false }
+martin-core = { path = "./martin-core", version = "0.6.0", default-features = false }
 martin-tile-utils = { path = "./martin-tile-utils", version = "0.7.2" }
-mbtiles = { path = "./mbtiles", version = "0.17.4" }
+mbtiles = { path = "./mbtiles", version = "0.17.5" }
 md5 = "0.8.0"
 miette = { version = "7.6", features = ["fancy"] }
 mlt-core = { version = "0.9.1", default-features = false }

@@ -295,6 +295,7 @@ mod tests {
         "#);
         });
     }
+
     #[test]
     fn test_list_contained_files() {
         use std::fs::File;
@@ -323,6 +324,6 @@ mod tests {
     #[test]
     fn test_list_contained_files_error() {
         let result = list_contained_files(Path::new("/non_existent"), "txt");
-        assert!(result.is_err());
+        result.unwrap_err();
     }
 }

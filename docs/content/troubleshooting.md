@@ -1,3 +1,9 @@
+---
+icon: material/lifebuoy
+tags:
+  - troubleshooting
+---
+
 # Troubleshooting
 
 Log levels are controlled on a per-module basis, and by default all logging is disabled except for errors.

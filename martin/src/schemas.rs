@@ -87,7 +87,7 @@ pub fn config_doc_yaml() -> String {
     // `# yaml-language-server: $schema=…` lets editors validate users' own
     // `config.yaml` against the schema.
     out.push_str(
-        "# yaml-language-server: $schema=https://raw.githubusercontent.com/maplibre/martin/main/schemas/config.json\n",
+        "# yaml-language-server: $schema=https://raw.githubusercontent.com/maplibre/martin/main/schemas/config.json\n\n",
     );
     let ctx = config_doc::Ctx::new(&schema);
     config_doc::render_object(&mut out, &schema, &ctx, 0);

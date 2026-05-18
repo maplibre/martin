@@ -1,10 +1,11 @@
-#![cfg(feature = "styles")]
+#![cfg(all(feature = "styles", feature = "rendering", target_os = "linux"))]
 
 use actix_web::http::header::CONTENT_TYPE;
 use actix_web::test::{TestRequest, call_service, read_body, read_body_json};
 use indoc::indoc;
 use insta::assert_json_snapshot;
 use martin::config::file::srv::SrvConfig;
+use rstest::rstest;
 use serde_json::Value;
 
 pub mod utils;
@@ -63,6 +64,26 @@ async fn catalog_multiple_styles() {
           "maplibre_demo": {
             "path": "../tests/fixtures/styles/maplibre_demo.json"
           }
+        }
+        "#);
+    });
+}
+
+#[cfg(all(feature = "rendering", target_os = "linux"))]
+#[actix_rt::test]
+#[tracing_test::traced_test]
+async fn catalog_settings_with_rendering_feature() {
+    let app = create_app! { CONFIG_STYLES };
+
+    let req = test_get("/catalog").to_request();
+    let response = call_service(&app, req).await;
+    let response = assert_response(response).await;
+    let body: Value = read_body_json(response).await;
+
+    insta::with_settings!({sort_maps => true}, {
+        assert_json_snapshot!(body["settings"], @r#"
+        {
+          "rendering": true
         }
         "#);
     });

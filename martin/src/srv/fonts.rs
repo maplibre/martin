@@ -7,7 +7,7 @@ use actix_web::http::header::LOCATION;
 use actix_web::middleware::Compress;
 use actix_web::web::{Data, Path};
 use actix_web::{HttpResponse, Result as ActixResult, route};
-use martin_core::fonts::{FontError, FontSources, OptFontCache};
+use martin_core::fonts::{FontCacheKey, FontError, FontSources, OptFontCache};
 use serde::Deserialize;
 use tracing::{instrument, warn};
 
@@ -59,9 +59,10 @@ pub async fn get_font(
 ) -> ActixResult<HttpResponse> {
     let result = if let Some(cache) = cache.as_ref() {
         cache
-            .get_or_insert(path.fontstack.clone(), path.start, path.end, || {
-                fonts.get_font_range(&path.fontstack, path.start, path.end)
-            })
+            .get_or_insert(
+                FontCacheKey::new(path.fontstack.clone(), path.start, path.end),
+                async || fonts.get_font_range(&path.fontstack, path.start, path.end),
+            )
             .await
     } else {
         fonts

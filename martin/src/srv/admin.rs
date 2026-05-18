@@ -33,6 +33,20 @@ pub struct Catalog {
     #[cfg(feature = "styles")]
     #[cfg_attr(feature = "unstable-schemas", schema(inline))]
     pub styles: martin_core::styles::StyleCatalog,
+    #[cfg_attr(feature = "unstable-schemas", schema(inline))]
+    pub settings: CatalogSettings,
+}
+
+/// Server-wide capability flags
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[cfg_attr(
+    feature = "unstable-schemas",
+    derive(schemars::JsonSchema, utoipa::ToSchema)
+)]
+pub struct CatalogSettings {
+    /// Whether server-side style rendering endpoints are enabled.
+    #[cfg(all(feature = "rendering", feature = "styles", target_os = "linux"))]
+    pub rendering: bool,
 }
 
 impl Catalog {
@@ -48,6 +62,10 @@ impl Catalog {
             fonts: state.fonts.get_catalog(),
             #[cfg(feature = "styles")]
             styles: state.styles.get_catalog(),
+            settings: CatalogSettings {
+                #[cfg(all(feature = "rendering", feature = "styles", target_os = "linux"))]
+                rendering: state.styles.is_rendering_enabled(),
+            },
         })
     }
 }

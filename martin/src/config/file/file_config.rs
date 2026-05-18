@@ -277,7 +277,29 @@ impl<T: ConfigurationLivecycleHooks> ConfigurationLivecycleHooks for FileConfig<
         self.custom.finalize()
     }
     fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
-        self.custom.get_unrecognized_keys()
+        #[cfg_attr(not(all(feature = "mlt", feature = "_tiles")), allow(unused_mut))]
+        let mut keys = self.custom.get_unrecognized_keys();
+        #[cfg(all(feature = "mlt", feature = "_tiles"))]
+        if let Some(sources) = &self.sources {
+            use crate::config::primitives::AutoOption;
+            for (id, src) in sources {
+                if let FileConfigSrc::Obj(obj) = src {
+                    if let Some(AutoOption::Explicit(cfg)) = obj.convert_to_mlt.as_ref() {
+                        keys.extend(
+                            cfg.unrecognized_keys()
+                                .map(|k| format!("sources.{id}.convert_to_mlt.{k}")),
+                        );
+                    }
+                    if let Some(AutoOption::Explicit(cfg)) = obj.convert_to_mvt.as_ref() {
+                        keys.extend(
+                            cfg.unrecognized_keys()
+                                .map(|k| format!("sources.{id}.convert_to_mvt.{k}")),
+                        );
+                    }
+                }
+            }
+        }
+        keys
     }
 }
 

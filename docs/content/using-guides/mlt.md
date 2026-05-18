@@ -1,3 +1,10 @@
+---
+icon: simple/maplibre
+tags:
+  - tile-sources
+  - configuration
+---
+
 # Serving MLT (MapLibre Tiles)
 
 This guide explains how to configure Martin to convert MVT (Mapbox Vector Tiles) to [MLT (MapLibre Tiles)](https://github.com/maplibre/maplibre-tile-spec) format on the fly.
@@ -92,7 +99,8 @@ convert_to_mlt:
   allow_fsst: false
 ```
 
-All fields are optional. Only the fields you specify override the defaults; unset fields keep their `mlt-core` default values.
+All fields are optional.
+Only the fields you specify override the defaults; unset fields keep their `mlt-core` default values.
 
 | Field                      | When to change                                                                                              |
 |----------------------------|-------------------------------------------------------------------------------------------------------------|

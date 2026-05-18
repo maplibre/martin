@@ -1,7 +1,12 @@
+---
+icon: material/play-circle
+---
+
 # Usage
 
-Martin requires at least one PostgreSQL [connection string](pg-connections.md) or a [tile source file](sources-files.md)
-as a command-line argument. A PG connection string can also be passed via the `DATABASE_URL` environment variable.
+Martin requires at least one PostgreSQL [connection string](../pg-connections/index.md) or a [tile source file](../sources-files.md)
+as a command-line argument.
+A PG connection string can also be passed via the `DATABASE_URL` environment variable.
 
 ```bash
 martin postgres://postgres@localhost/db

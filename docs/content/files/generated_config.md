@@ -4,6 +4,7 @@ Schema: [`schemas/config.json`](https://github.com/maplibre/martin/blob/main/sch
 
 ```yaml title="config.yaml"
 # yaml-language-server: $schema=https://raw.githubusercontent.com/maplibre/martin/main/schemas/config.json
+
 # Set `TileJSON` URL path prefix.
 # This overrides the default path prefix for URLs in `TileJSON` responses.
 # If both `route_prefix` and `base_path` are set, `base_path` takes priority for `TileJSON` URLs.
@@ -316,8 +317,7 @@ postgres:
   # This feature allows you to put a maximum latency bound on tiles with an
   # extreme amount of detail at the cost of not returning all data.
   # It is sensible to set this limit if you have user generated/untrusted
-  # geodata, e.g. a lot of data points at [Null Island]
-  # (<https://en.wikipedia.org/wiki/Null_Island>).
+  # geodata, e.g. a lot of data points at [Null Island](https://en.wikipedia.org/wiki/Null_Island).
   #
   # either a positive integer, or null=unlimited (default)
   max_feature_count: null

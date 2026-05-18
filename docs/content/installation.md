@@ -1,3 +1,10 @@
+---
+icon: material/download
+tags:
+  - getting-started
+  - deployment
+---
+
 ### Prerequisites
 
 If using Martin with PostgreSQL database, you must install PostGIS with at least v3.0+. Postgis v3.1+ is recommended.
@@ -15,7 +22,7 @@ docker run -p 3000:3000 \
            -e PGPASSWORD \
            -e DATABASE_URL=postgres://user@host:port/db \
            -v /path/to/config/dir:/config \
-           ghcr.io/maplibre/martin:1.9.1 \
+           ghcr.io/maplibre/martin:1.10.0 \
            --config /config/config.yaml
 ```
 

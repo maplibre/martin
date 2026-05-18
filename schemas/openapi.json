@@ -56,6 +56,10 @@
             },
             "type": "object"
           },
+          "settings": {
+            "description": "Server-wide capability flags",
+            "type": "object"
+          },
           "sprites": {
             "additionalProperties": {
               "description": "Sprite source metadata.",
@@ -182,7 +186,7 @@
             "type": "object"
           }
         },
-        "required": ["tiles", "sprites", "fonts", "styles"],
+        "required": ["tiles", "sprites", "fonts", "styles", "settings"],
         "type": "object"
       },
       "FontFormat": {
@@ -207,7 +211,7 @@
       "name": "MIT OR Apache-2.0"
     },
     "title": "Martin",
-    "version": "1.9.1"
+    "version": "1.10.0"
   },
   "openapi": "3.1.0",
   "paths": {

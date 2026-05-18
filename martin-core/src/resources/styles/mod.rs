@@ -133,6 +133,13 @@ impl StyleSources {
         entries
     }
 
+    /// Whether server-side style rendering is currently enabled.
+    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    #[must_use]
+    pub fn is_rendering_enabled(&self) -> bool {
+        self.rendering_enabled
+    }
+
     /// Adds a style JSON file with an ID to the catalog.
     pub fn add_style(&mut self, id: String, path: PathBuf) {
         debug_assert!(path.is_file());

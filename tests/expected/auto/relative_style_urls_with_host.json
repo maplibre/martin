@@ -1,0 +1,27 @@
+{
+  "glyphs": "http://example.com/font/{fontstack}/{range}",
+  "layers": [
+    {
+      "id": "background",
+      "paint": {
+        "background-color": "#000"
+      },
+      "type": "background"
+    }
+  ],
+  "name": "Relative URLs Test",
+  "sources": {
+    "from_tiles": {
+      "tiles": [
+        "http://example.com/points1/{z}/{x}/{y}"
+      ],
+      "type": "vector"
+    },
+    "from_url": {
+      "type": "vector",
+      "url": "http://example.com/table_source"
+    }
+  },
+  "sprite": "http://example.com/sprite/src1",
+  "version": 8
+}

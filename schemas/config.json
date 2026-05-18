@@ -624,7 +624,8 @@
       "type": "object"
     },
     "MvtEncoderConfig": {
-      "description": "Explicit encoder configuration for MVT conversion",
+      "additionalProperties": true,
+      "description": "Explicit encoder configuration for MVT conversion.\n\nThe MVT encoder currently has no tunable knobs, so any keys provided are\ncaptured here verbatim and surfaced through the established unrecognized-key\nwarning path so users get a typo hint instead of silent acceptance.",
       "type": "object"
     },
     "ObservabilityConfig": {
@@ -876,7 +877,7 @@
           "type": ["object", "null"]
         },
         "max_feature_count": {
-          "description": "Limit the number of geo features per tile.\n\nIf the source table has more features than set here, they will not be\nincluded in the tile and the result will look \"cut off\"/incomplete.\nThis feature allows you to put a maximum latency bound on tiles with an\nextreme amount of detail at the cost of not returning all data.\nIt is sensible to set this limit if you have user generated/untrusted\ngeodata, e.g. a lot of data points at [Null Island]\n(<https://en.wikipedia.org/wiki/Null_Island>).\n\neither a positive integer, or null=unlimited (default)",
+          "description": "Limit the number of geo features per tile.\n\nIf the source table has more features than set here, they will not be\nincluded in the tile and the result will look \"cut off\"/incomplete.\nThis feature allows you to put a maximum latency bound on tiles with an\nextreme amount of detail at the cost of not returning all data.\nIt is sensible to set this limit if you have user generated/untrusted\ngeodata, e.g. a lot of data points at [Null Island](https://en.wikipedia.org/wiki/Null_Island).\n\neither a positive integer, or null=unlimited (default)",
           "format": "uint",
           "minimum": 0,
           "type": ["integer", "null"]

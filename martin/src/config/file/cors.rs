@@ -269,7 +269,7 @@ mod tests {
         let default_props = CorsProperties::default();
         assert_eq!(default_props.origin, vec!["*"]);
         assert_eq!(default_props.max_age, None);
-        assert!(default_props.validate().is_ok());
+        default_props.validate().unwrap();
     }
 
     #[test]
@@ -344,7 +344,7 @@ mod tests {
         let CorsConfig::Properties(settings) = config else {
             panic!("Expected Properties variant");
         };
-        assert!(settings.validate().is_ok());
+        settings.validate().unwrap();
     }
 
     #[test]
@@ -368,7 +368,7 @@ mod tests {
             max_age: Some(3600),
             unrecognized: UnrecognizedValues::default(),
         };
-        assert!(properties.validate().is_ok());
+        properties.validate().unwrap();
 
         let config = CorsConfig::Properties(properties);
         let middleware = config.make_cors_middleware();
@@ -379,7 +379,7 @@ mod tests {
     fn test_cors_with_wildcard_origin() {
         let properties = CorsProperties::default();
         assert_eq!(properties.origin, vec!["*".to_string()]);
-        assert!(properties.validate().is_ok());
+        properties.validate().unwrap();
 
         let middleware = CorsConfig::Properties(properties).make_cors_middleware();
         assert!(middleware.is_some());

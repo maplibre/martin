@@ -1,8 +1,16 @@
+---
+icon: material/map-search
+tags:
+  - postgresql
+  - tile-sources
+  - recipes
+---
+
 # Setting up a Basemap and Overlaying Points from PostGIS
 
 You commonly have some semi-proprietary datasource which you want to overlay onto another.
 This guide shows how to generate a basemap using [Planetiler](https://github.com/onthegomap/planetiler/) from [OSM](https://osm.org) and overlay custom points from a [PostGIS](https://postgis.net/) database.
-See here for a discussion on the [pros and cons of this/alternative data sources](sources-tiles.md).
+See here for a discussion on the [pros and cons of this/alternative data sources](sources-tiles/index.md).
 
 ## Prerequisites
 
@@ -29,13 +37,15 @@ The reason you need a tool to build vector tilesets from OpenStreetMap is that t
 
 Good question.
 
-MBtiles is the archive format. Think of a sqlite database storing the data you need a chunk (`x`/`y`/`z`) of the world.
-See our comparison [pmtiles vs. mbtiles](sources-tiles.md) for discussions on the pros and cons of this/alternative formats.
+MBtiles is the archive format.
+Think of a sqlite database storing the data you need a chunk (`x`/`y`/`z`) of the world.
+See our comparison [pmtiles vs. mbtiles](sources-tiles/index.md) for discussions on the pros and cons of this/alternative formats.
 
 But how does the data in the archive look like?
 This is where the vector tile schema comes in:
 [OpenMapTiles](https://openmaptiles.org/) defines which layers are included in the served data and how they are aggregated.
-[OpenMapTiles](https://openmaptiles.org/) does have an attribution requirement. You will need to have [`© OpenMapTiles`](https://openmaptiles.org/) at the bottom of your map.
+[OpenMapTiles](https://openmaptiles.org/) does have an attribution requirement.
+You will need to have [`© OpenMapTiles`](https://openmaptiles.org/) at the bottom of your map.
 
 See [Shortbread](https://shortbread-tiles.org/) for a newer, but less mature alternative if you want to read more.
 
@@ -97,9 +107,9 @@ docker exec some-postgis psql --dbname postgres --username postgres --command \
 
 ## Serving tiles with Martin
 
-Now we will serve the content of [mbtiles](sources-files.md) and the [postgis database](pg-connections.md).
+Now we will serve the content of [mbtiles](sources-files.md) and the [postgis database](pg-connections/index.md).
 
-If you want more precise options what things are published how, please see the [configuration file](config-file.md) or [cli documentation](run-with-cli.md).
+If you want more precise options what things are published how, please see the [configuration file](config-file/index.md) or [cli documentation](run-with-cli.md).
 By default, we will share every servable postgres [table, view](sources-pg-tables.md) and [function](sources-pg-functions.md).
 
 ```bash
@@ -125,23 +135,24 @@ Maputnik is now online, so lets load martins tiles into it.
 1. Visit [`http://localhost:8888`](http://localhost:8888)
 2. You first need a style:
    - Click `Open`
-     ![where in the UI the "Open" button can be found](images/maputnik-open.png)
+     ![where in the UI the "Open" button can be found](images/maputnik/open.png)
    - Select a style you like (we are going to choose `Maptiler Basic`)
-     ![how to select a style](images/maputnik-select-style.png)
-3. You now have a style using Maptilers' (**NOT martins**) data. You need to change its datasource to use the tiles we just published:
+     ![how to select a style](images/maputnik/select-style.png)
+3. You now have a style using Maptilers' (**NOT martins**) data.
+   You need to change its datasource to use the tiles we just published:
    - Click `Data Sources`
-     ![how to change the datasource](images/maputnik-change-datasource.png)
+     ![how to change the datasource](images/maputnik/change-datasource.png)
    - And add the tilejson from above `http://localhost:3000/monaco,where_yachts_can_be_looked_at`:
-     ![how to add the tilejson](images/maputnik-add-tilejson.png)
+     ![how to add the tilejson](images/maputnik/add-tilejson.png)
 4. Now, lets zoom into monaco:
-   ![where monaco is on a map](images/maputnik-zoom-into-monaco.png)
+   ![where monaco is on a map](images/maputnik/zoom-into-monaco.png)
 5. And finally, lets add a circle layer for our yachts:
    - Click `Add Layer`
-     ![add a circle layer](images/maputnik-add-layer.png)
+     ![add a circle layer](images/maputnik/add-layer.png)
    - Configure the layer as follows:
-     ![add a circle layer](images/maputnik-configure-layer.png)
+     ![add a circle layer](images/maputnik/configure-layer.png)
    - And style it as:
-     ![add a circle layer](images/maputnik-add-yachts-layer.png)
+     ![add a circle layer](images/maputnik/add-yachts-layer.png)
 
      <details><summary>json configuration (click to expand)</summary>
 

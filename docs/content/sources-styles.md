@@ -1,3 +1,10 @@
+---
+icon: material/palette
+tags:
+  - styles
+  - configuration
+---
+
 # Style Sources
 
 Martin will serve your styles as needed by MapLibre rendering libraries.

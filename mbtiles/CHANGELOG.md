@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.5](https://github.com/maplibre/martin/compare/mbtiles-v0.17.4...mbtiles-v0.17.5) - 2026-05-16
+
+### Other
+
+- apply more restrictions to our code and make sure that unused variables are handled for MLT ([#2808](https://github.com/maplibre/martin/pull/2808))
+- various minor docs improvements ([#2807](https://github.com/maplibre/martin/pull/2807))
+- fix all m-dashes to use regular dashes ([#2805](https://github.com/maplibre/martin/pull/2805))
+
 ## [0.17.4](https://github.com/maplibre/martin/compare/mbtiles-v0.17.3...mbtiles-v0.17.4) - 2026-05-06
 
 ### Structured tracing fields

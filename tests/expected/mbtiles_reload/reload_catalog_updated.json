@@ -1,5 +1,8 @@
 {
   "fonts": {},
+  "settings": {
+    "rendering": false
+  },
   "sprites": {},
   "styles": {},
   "tiles": {

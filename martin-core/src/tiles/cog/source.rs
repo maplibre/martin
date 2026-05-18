@@ -108,7 +108,7 @@ impl CogSource {
             match tile_size {
                 Some(current_tile_size) => {
                     if current_tile_size != image.tile_size() {
-                        Err(CogError::InconsistentTiling(path.clone()))?;
+                        return Err(CogError::InconsistentTiling(path.clone()));
                     }
                 }
                 None => {
@@ -258,7 +258,7 @@ fn verify_requirements(
 ) -> Result<(), CogError> {
     // see requirement 2 in https://docs.ogc.org/is/21-026/21-026.html#_tiles
     if decoder.get_chunk_type() != ChunkType::Tile {
-        Err(CogError::NotSupportedChunkType(path.to_path_buf()))?;
+        return Err(CogError::NotSupportedChunkType(path.to_path_buf()));
     }
 
     // see note https://docs.ogc.org/is/21-026/21-026.html#_planar_configuration_considerations

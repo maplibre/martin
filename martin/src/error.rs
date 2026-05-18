@@ -26,7 +26,11 @@ fn elide_vec(vec: &[String], max_items: usize, max_len: usize) -> String {
             s.push(' ');
         }
         if v.len() > max_len {
-            s.push_str(&v[..max_len]);
+            let mut bytes = 0usize;
+            s.extend(v.chars().take_while(|c| {
+                bytes += c.len_utf8();
+                bytes <= max_len
+            }));
             s.push('…');
         } else {
             s.push_str(v);
