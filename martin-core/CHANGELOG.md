@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0](https://github.com/maplibre/martin/compare/martin-core-v0.6.0...martin-core-v0.7.0) - 2026-05-19
+
+### Other
+
+- share code accross the resource caches ([#2810](https://github.com/maplibre/martin/pull/2810))
+
 ## [0.6.0](https://github.com/maplibre/martin/compare/martin-core-v0.5.4...martin-core-v0.6.0) - 2026-05-16
 
 ### Added
