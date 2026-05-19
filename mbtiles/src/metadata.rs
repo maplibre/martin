@@ -557,7 +557,7 @@ mod tests {
         let tile_info = mbt.detect_format(&meta.tilejson, &mut conn).await.unwrap();
         assert_eq!(
             tile_info,
-            Some(TileInfo::new(Format::Mlt, Encoding::Uncompressed))
+            Some(TileInfo::new(Format::Mlt, Encoding::Internal))
         );
     }
 

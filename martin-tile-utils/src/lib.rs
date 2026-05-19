@@ -263,8 +263,7 @@ impl TileInfo {
         if let Some(raster_format) = Self::detect_raster_formats(value) {
             Self::new(raster_format, Encoding::Internal)
         } else {
-            let inner_format = Self::detect_vectorish_format(value);
-            Self::new(inner_format, Encoding::Uncompressed)
+            Self::detect_vectorish_format(value).into()
         }
     }
 
@@ -542,6 +541,15 @@ mod tests {
 
         let result = TileInfo::detect(&compressed);
         assert_eq!(result, TileInfo::new(Format::Json, Encoding::Zlib));
+    }
+
+    #[test]
+    fn test_raw_mlt_encoding_internal() {
+        // MLT has internal compression, so raw MLT bytes should be Encoding::Internal
+        // to prevent the serve path from applying heavyweight gzip/brotli on top.
+        let mlt_data = &[0x02, 0x01];
+        let result = TileInfo::detect(mlt_data);
+        assert_eq!(result, TileInfo::new(Format::Mlt, Encoding::Internal));
     }
 
     #[test]

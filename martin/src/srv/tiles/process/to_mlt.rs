@@ -28,6 +28,6 @@ pub fn convert_mvt_to_mlt(tile: Tile, cfg: EncoderConfig) -> Result<Tile, Proces
 
     Ok(Tile::new_hash_etag(
         mlt_bytes,
-        TileInfo::new(Format::Mlt, Encoding::Uncompressed),
+        TileInfo::new(Format::Mlt, Encoding::Internal),
     ))
 }
