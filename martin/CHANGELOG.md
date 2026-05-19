@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.10.1](https://github.com/maplibre/martin/compare/martin-v1.10.0...martin-v1.10.1) - 2026-05-19
+
+### Fixed
+
+- Do not use heavyweight compression with MLT ([#2813](https://github.com/maplibre/martin/pull/2813))
+
+### Other
+
+- share code accross the resource caches ([#2810](https://github.com/maplibre/martin/pull/2810))
+
 ## [1.10.0](https://github.com/maplibre/martin/compare/martin-v1.9.1...martin-v1.10.0) - 2026-05-16
 
 ### Added
