@@ -6,11 +6,15 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
+use bytes::Bytes;
 use martin_core::CacheZoomRange;
 use martin_core::tiles::Source as _;
 use martin_core::tiles::pmtiles::{PmtCache, PmtCacheInstance, PmtilesError, PmtilesSource};
 use martin_tile_utils::{Encoding, Format, TileCoord};
 use object_store::local::LocalFileSystem;
+use object_store::memory::InMemory;
+use object_store::path::Path as ObjectStorePath;
+use object_store::{ObjectStoreExt as _, PutPayload};
 use pmtiles::{DirectoryCache as _, TileId};
 use rstest::rstest;
 use tokio::sync::oneshot;
@@ -264,6 +268,58 @@ async fn repeated_tile_requests_return_same_data() {
         "Second and third request should return identical data"
     );
     assert!(!tile1.is_empty(), "Tile data should not be empty");
+}
+
+#[tokio::test]
+async fn source_reloads_after_file_change() {
+    // When the underlying file is replaced, PmtilesSource should detect the change
+    // (via PmtError::SourceModified) and transparently reload, returning a valid tile
+    // to the caller rather than propagating the error.
+
+    let fixture_data = Bytes::from(
+        std::fs::read(fixtures_dir().join("stamen_toner__raster_CC-BY+ODbL_z3.pmtiles"))
+            .expect("fixture file exists"),
+    );
+
+    let store = InMemory::new();
+    let path = ObjectStorePath::from("test.pmtiles");
+
+    store
+        .put(&path, PutPayload::from(fixture_data.clone()))
+        .await
+        .expect("initial upload");
+
+    let cache = test_cache_bytes(0);
+    let source = PmtilesSource::new(
+        cache,
+        "reload_test".to_string(),
+        Box::new(store.clone()),
+        path.clone(),
+        CacheZoomRange::default(),
+    )
+    .await
+    .expect("source created");
+
+    let coord = TileCoord { z: 0, x: 0, y: 0 };
+
+    let tile = source
+        .get_tile(coord, None)
+        .await
+        .expect("first read succeeds");
+    assert!(!tile.is_empty(), "first tile should have data");
+
+    // Re-upload the same object so InMemory increments the ETag.
+    store
+        .put(&path, PutPayload::from(fixture_data))
+        .await
+        .expect("re-upload to simulate file change");
+
+    // An internal reload should result in a successful request.
+    let tile = source
+        .get_tile(coord, None)
+        .await
+        .expect("should succeed after source reloads");
+    assert!(!tile.is_empty(), "tile after reload should have data");
 }
 
 #[tokio::test]
