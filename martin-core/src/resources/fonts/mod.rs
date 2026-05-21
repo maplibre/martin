@@ -401,10 +401,6 @@ fn parse_font(
 mod tests {
     use super::*;
 
-    /// Regression for <https://github.com/maplibre/martin/issues/1343>: same
-    /// k8s `ConfigMap` symlink layout that bit sprites would also have
-    /// triple-counted font files; the dedup on font name in `parse_font`
-    /// masked the symptom, but the wasted work and warning spam are real.
     #[cfg(unix)]
     #[test]
     fn k8s_configmap_symlinks_do_not_warn_about_duplicates() {
