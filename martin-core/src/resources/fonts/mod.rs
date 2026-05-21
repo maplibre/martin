@@ -32,6 +32,10 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 use tracing::{debug, info, instrument, warn};
 
+use crate::walk_files;
+
+const FONT_EXTENSIONS: &[&str] = &["otf", "ttf", "ttc"];
+
 /// Maximum Unicode codepoint supported.
 ///
 /// Although U+FFFF covers the Basic Multilingual Plane, the Unicode standard
@@ -149,7 +153,7 @@ impl FontSources {
     /// Discovers and loads fonts from the specified directory by recursively scanning for `.ttf`, `.otf`, and `.ttc` files.
     pub fn recursively_add_directory(&mut self, path: PathBuf) -> Result<(), FontError> {
         let lib = Library::init()?;
-        recurse_dirs(&lib, path, &mut self.fonts, true)
+        discover_fonts(&lib, path, &mut self.fonts)
     }
 
     /// Returns a catalog of all loaded fonts
@@ -264,40 +268,37 @@ pub struct FontSource {
     catalog_entry: CatalogFontEntry,
 }
 
-/// Recursively discovers fonts in directories and individual files.
-/// Supports `.ttf`, `.otf`, and `.ttc` files.
-#[instrument(skip(lib, fonts), fields(path = ?path, is_top_level), err(Debug))]
-fn recurse_dirs(
+/// Discovers fonts at `path` (a directory walked recursively, or a single
+/// font file) and registers them in `fonts`.
+///
+/// Hidden files and directories are skipped — see [`crate::resources::walk_files`]
+/// for the rationale around Kubernetes `ConfigMap` symlink trees.
+#[instrument(skip(lib, fonts), fields(path = ?path), err(Debug))]
+fn discover_fonts(
     lib: &Library,
     path: PathBuf,
     fonts: &mut DashMap<String, FontSource>,
-    is_top_level: bool,
 ) -> Result<(), FontError> {
-    let start_count = fonts.len();
-    if path.is_dir() {
-        for dir_entry in path
-            .read_dir()
-            .map_err(|e| FontError::IoError(e, path.clone()))?
-            .flatten()
-        {
-            recurse_dirs(lib, dir_entry.path(), fonts, false)?;
-        }
-        if is_top_level && fonts.len() == start_count {
-            return Err(FontError::NoFontFilesFound(path));
-        }
-    } else {
-        if path
+    if path.is_file() {
+        if !path
             .extension()
             .and_then(OsStr::to_str)
-            .is_some_and(|e| ["otf", "ttf", "ttc"].contains(&e))
+            .is_some_and(|e| FONT_EXTENSIONS.contains(&e))
         {
-            parse_font(lib, fonts, path.clone())?;
-        }
-        if is_top_level && fonts.len() == start_count {
             return Err(FontError::InvalidFontFilePath(path));
         }
+        return parse_font(lib, fonts, path);
     }
 
+    let start_count = fonts.len();
+    let font_files = walk_files(&path, FONT_EXTENSIONS)
+        .map_err(|e| FontError::IoError(e.into(), path.clone()))?;
+    for font_path in font_files {
+        parse_font(lib, fonts, font_path)?;
+    }
+    if fonts.len() == start_count {
+        return Err(FontError::NoFontFilesFound(path));
+    }
     Ok(())
 }
 
@@ -399,6 +400,36 @@ fn parse_font(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Regression for <https://github.com/maplibre/martin/issues/1343>: same
+    /// k8s `ConfigMap` symlink layout that bit sprites would also have
+    /// triple-counted font files; the dedup on font name in `parse_font`
+    /// masked the symptom, but the wasted work and warning spam are real.
+    #[cfg(unix)]
+    #[test]
+    fn k8s_configmap_symlinks_do_not_warn_about_duplicates() {
+        use std::os::unix::fs::symlink;
+
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let root = tmp.path();
+        let real_dir = root.join("..2024_05_17_17_57_51.390489675");
+        std::fs::create_dir(&real_dir).unwrap();
+        let font_src =
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../tests/fixtures/fonts2/u+3320.ttf");
+        std::fs::copy(&font_src, real_dir.join("u3320.ttf")).unwrap();
+        symlink("..2024_05_17_17_57_51.390489675", root.join("..data")).unwrap();
+        symlink("..data/u3320.ttf", root.join("u3320.ttf")).unwrap();
+
+        let mut sources = FontSources::default();
+        sources
+            .recursively_add_directory(root.to_path_buf())
+            .unwrap();
+        assert_eq!(
+            sources.get_catalog().len(),
+            1,
+            "expected exactly one font, not duplicates from the ..data/..timestamped tree"
+        );
+    }
 
     #[test]
     fn test_get_available_codepoints() {

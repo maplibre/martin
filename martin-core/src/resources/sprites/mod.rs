@@ -33,6 +33,13 @@ use tokio::io::AsyncReadExt as _;
 use tracing::{info, instrument, warn};
 
 use self::SpriteError::{IoError, SpriteInstError, SpriteParsingError, SpriteProcessingError};
+use crate::walk_files;
+
+const SVG_EXTENSIONS: &[&str] = &["svg"];
+
+fn discover_svgs(path: &Path) -> Result<Vec<PathBuf>, SpriteError> {
+    walk_files(path, SVG_EXTENSIONS).map_err(|e| IoError(e.into(), path.to_path_buf()))
+}
 
 mod error;
 pub use error::SpriteError;
@@ -73,7 +80,7 @@ impl SpriteSources {
         // TODO: all sprite generation should be pre-cached
         let mut entries = SpriteCatalog::new();
         for source in &self.0 {
-            let paths = collect_svg_paths(&source.path)?;
+            let paths = discover_svgs(&source.path)?;
             let mut images = Vec::with_capacity(paths.len());
             for path in paths {
                 images.push(
@@ -122,7 +129,7 @@ impl SpriteSources {
                         sprite.path = %disp_path,
                         "Configured sprite source"
                     );
-                    if let Ok(paths) = collect_svg_paths(&path)
+                    if let Ok(paths) = discover_svgs(&path)
                         && paths.is_empty()
                     {
                         warn!(
@@ -177,36 +184,6 @@ pub struct SpriteSource {
     path: PathBuf,
 }
 
-/// Recursively collects `.svg` files under `dir`, ignoring entries whose name
-/// starts with `.`.
-///
-/// Unlike [`spreet::get_svg_input_paths`], this also skips dotfile-prefixed
-/// **directories**, which matters for Kubernetes `ConfigMap` mounts: a mount
-/// exposes the real files inside a `..2024_…` directory plus a `..data`
-/// symlink, alongside per-file symlinks at the mount root. Recursing into the
-/// bookkeeping directories would surface each file three times with garbled
-/// names — see <https://github.com/maplibre/martin/issues/1343>.
-fn collect_svg_paths(dir: &Path) -> Result<Vec<PathBuf>, SpriteError> {
-    let mut out = Vec::new();
-    let mut stack = vec![dir.to_path_buf()];
-    while let Some(current) = stack.pop() {
-        let read = std::fs::read_dir(&current).map_err(|e| IoError(e, current.clone()))?;
-        for entry in read {
-            let entry = entry.map_err(|e| IoError(e, current.clone()))?;
-            if entry.file_name().to_string_lossy().starts_with('.') {
-                continue;
-            }
-            let path = entry.path();
-            if path.is_dir() {
-                stack.push(path);
-            } else if path.is_file() && path.extension().is_some_and(|e| e == "svg") {
-                out.push(path);
-            }
-        }
-    }
-    Ok(out)
-}
-
 /// Parses SVG file into sprite.
 async fn parse_sprite(
     name: String,
@@ -249,7 +226,7 @@ pub async fn get_spritesheet(
     // Asynchronously load all SVG files from the given sources
     let mut futures = Vec::new();
     for source in sources {
-        let paths = collect_svg_paths(&source.path)?;
+        let paths = discover_svgs(&source.path)?;
         // SpritesheetBuilder::generate will return None if the folder does not contain any SVGs
         if paths.is_empty() {
             return Err(SpriteError::NoSpriteFilesFound(source.path.clone()));
