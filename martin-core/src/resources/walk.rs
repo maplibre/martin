@@ -13,10 +13,10 @@ pub fn walk_files(dir: &Path, extensions: &[&str]) -> Result<Vec<PathBuf>, walkd
     WalkDir::new(dir)
         .follow_links(true)
         .into_iter()
-    // k8s config maps use a layered symlink tree:
-    // real files live in a `.2024_...` directory, `.data` is a symlink to that directory,
-    // and each entry at the mount root is a symlink to `.data/<file>`.
-    // Recursing into the bookkeeping dir would surface each file 3x
+        // k8s config maps use a layered symlink tree:
+        // real files live in a `.2024_...` directory, `.data` is a symlink to that directory,
+        // and each entry at the mount root is a symlink to `.data/<file>`.
+        // Recursing into the bookkeeping dir would surface each file 3x
         .filter_entry(|e| e.depth() == 0 || !is_hidden(e))
         .filter_map(|entry| match entry {
             Ok(e) if has_matching_extension(e.path(), extensions) && e.file_type().is_file() => {
