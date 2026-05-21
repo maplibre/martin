@@ -5,16 +5,7 @@ use std::path::{Path, PathBuf};
 use walkdir::{DirEntry, WalkDir};
 
 /// Recursively collects files under `dir` whose extension matches one of
-/// `extensions` (case-sensitive, no leading dot), ignoring entries whose name
-/// starts with `.`.
-///
-/// Hidden **directories** are skipped — not just hidden files. This matters
-/// for Kubernetes `ConfigMap` and `Secret` volumes, which expose data through
-/// a layered symlink tree: the real files live in a `..2024_…` directory,
-/// `..data` is a symlink to that directory, and each entry at the mount root
-/// is a symlink to `..data/<file>`. Recursing into the bookkeeping
-/// directories would surface each file three times — see
-/// <https://github.com/maplibre/martin/issues/1343>.
+/// `extensions` (case-sensitive, no leading dot)
 ///
 /// Symlinks are followed so the per-file symlinks at the mount root resolve
 /// to their real targets.
@@ -22,6 +13,10 @@ pub fn walk_files(dir: &Path, extensions: &[&str]) -> Result<Vec<PathBuf>, walkd
     WalkDir::new(dir)
         .follow_links(true)
         .into_iter()
+    // k8s config maps use a layered symlink tree:
+    // real files live in a `.2024_...` directory, `.data` is a symlink to that directory,
+    // and each entry at the mount root is a symlink to `.data/<file>`.
+    // Recursing into the bookkeeping dir would surface each file 3x
         .filter_entry(|e| e.depth() == 0 || !is_hidden(e))
         .filter_map(|entry| match entry {
             Ok(e) if has_matching_extension(e.path(), extensions) && e.file_type().is_file() => {
@@ -50,9 +45,6 @@ fn has_matching_extension(path: &Path, extensions: &[&str]) -> bool {
 mod tests {
     use super::*;
 
-    /// Regression for <https://github.com/maplibre/martin/issues/1343>:
-    /// k8s `ConfigMap` volumes layer symlinks (`..data` → `..2024_…/`) over
-    /// the actual files; recursing into the dotfile dirs would triple-count.
     #[cfg(unix)]
     #[test]
     fn k8s_configmap_symlinks_yield_each_file_once() {
