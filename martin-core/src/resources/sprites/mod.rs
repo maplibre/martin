@@ -289,8 +289,6 @@ mod tests {
         }
     }
 
-    /// Regression for <https://github.com/maplibre/martin/issues/1343> — see
-    /// [`collect_svg_paths`] docs for the k8s `ConfigMap` symlink layout.
     #[cfg(unix)]
     #[test]
     fn k8s_configmap_symlinks_yield_clean_sprite_names() {
