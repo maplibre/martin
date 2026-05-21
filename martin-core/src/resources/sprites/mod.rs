@@ -19,7 +19,7 @@
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::num::NonZeroUsize;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use chrono::{DateTime, Utc};
 use dashmap::{DashMap, Entry};
@@ -28,11 +28,11 @@ use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 pub use spreet::Spritesheet;
 use spreet::resvg::usvg::{Options, Tree};
-use spreet::{Sprite, SpritesheetBuilder, get_svg_input_paths, sprite_name};
+use spreet::{Sprite, SpritesheetBuilder, sprite_name};
 use tokio::io::AsyncReadExt as _;
 use tracing::{info, instrument, warn};
 
-use self::SpriteError::{SpriteInstError, SpriteParsingError, SpriteProcessingError};
+use self::SpriteError::{IoError, SpriteInstError, SpriteParsingError, SpriteProcessingError};
 
 mod error;
 pub use error::SpriteError;
@@ -73,8 +73,7 @@ impl SpriteSources {
         // TODO: all sprite generation should be pre-cached
         let mut entries = SpriteCatalog::new();
         for source in &self.0 {
-            let paths = get_svg_input_paths(&source.path, true)
-                .map_err(|e| SpriteProcessingError(e, source.path.clone()))?;
+            let paths = collect_svg_paths(&source.path)?;
             let mut images = Vec::with_capacity(paths.len());
             for path in paths {
                 images.push(
@@ -123,7 +122,7 @@ impl SpriteSources {
                         sprite.path = %disp_path,
                         "Configured sprite source"
                     );
-                    if let Ok(paths) = get_svg_input_paths(&path, true)
+                    if let Ok(paths) = collect_svg_paths(&path)
                         && paths.is_empty()
                     {
                         warn!(
@@ -178,6 +177,36 @@ pub struct SpriteSource {
     path: PathBuf,
 }
 
+/// Recursively collects `.svg` files under `dir`, ignoring entries whose name
+/// starts with `.`.
+///
+/// Unlike [`spreet::get_svg_input_paths`], this also skips dotfile-prefixed
+/// **directories**, which matters for Kubernetes `ConfigMap` mounts: a mount
+/// exposes the real files inside a `..2024_…` directory plus a `..data`
+/// symlink, alongside per-file symlinks at the mount root. Recursing into the
+/// bookkeeping directories would surface each file three times with garbled
+/// names — see <https://github.com/maplibre/martin/issues/1343>.
+fn collect_svg_paths(dir: &Path) -> Result<Vec<PathBuf>, SpriteError> {
+    let mut out = Vec::new();
+    let mut stack = vec![dir.to_path_buf()];
+    while let Some(current) = stack.pop() {
+        let read = std::fs::read_dir(&current).map_err(|e| IoError(e, current.clone()))?;
+        for entry in read {
+            let entry = entry.map_err(|e| IoError(e, current.clone()))?;
+            if entry.file_name().to_string_lossy().starts_with('.') {
+                continue;
+            }
+            let path = entry.path();
+            if path.is_dir() {
+                stack.push(path);
+            } else if path.is_file() && path.extension().is_some_and(|e| e == "svg") {
+                out.push(path);
+            }
+        }
+    }
+    Ok(out)
+}
+
 /// Parses SVG file into sprite.
 async fn parse_sprite(
     name: String,
@@ -185,7 +214,7 @@ async fn parse_sprite(
     pixel_ratio: u8,
     as_sdf: bool,
 ) -> Result<(String, Sprite), SpriteError> {
-    let on_err = |e| SpriteError::IoError(e, path.clone());
+    let on_err = |e| IoError(e, path.clone());
 
     let mut file = tokio::fs::File::open(&path).await.map_err(on_err)?;
 
@@ -220,8 +249,7 @@ pub async fn get_spritesheet(
     // Asynchronously load all SVG files from the given sources
     let mut futures = Vec::new();
     for source in sources {
-        let paths = get_svg_input_paths(&source.path, true)
-            .map_err(|e| SpriteProcessingError(e, source.path.clone()))?;
+        let paths = collect_svg_paths(&source.path)?;
         // SpritesheetBuilder::generate will return None if the folder does not contain any SVGs
         if paths.is_empty() {
             return Err(SpriteError::NoSpriteFilesFound(source.path.clone()));
@@ -282,6 +310,37 @@ mod tests {
             test_src(src2_path.iter(), 1, "src2_1", generate_sdf).await;
             test_src(src2_path.iter(), 2, "src2_2", generate_sdf).await;
         }
+    }
+
+    /// Regression for <https://github.com/maplibre/martin/issues/1343> — see
+    /// [`collect_svg_paths`] docs for the k8s `ConfigMap` symlink layout.
+    #[cfg(unix)]
+    #[test]
+    fn k8s_configmap_symlinks_yield_clean_sprite_names() {
+        use std::fs::{create_dir, write};
+        use std::os::unix::fs::symlink;
+
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let root = tmp.path();
+        let real_dir = root.join("..2024_05_17_17_57_51.390489675");
+        create_dir(&real_dir).unwrap();
+        let svg = b"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"1\" height=\"1\"/>";
+        write(real_dir.join("foo.svg"), svg).unwrap();
+        write(real_dir.join("bar.svg"), svg).unwrap();
+        symlink("..2024_05_17_17_57_51.390489675", root.join("..data")).unwrap();
+        symlink("..data/foo.svg", root.join("foo.svg")).unwrap();
+        symlink("..data/bar.svg", root.join("bar.svg")).unwrap();
+
+        let mut sprites = SpriteSources::default();
+        sprites.add_source("foobar".to_string(), root.to_path_buf());
+
+        let catalog = sprites.get_catalog().expect("catalog");
+        let entry = catalog.get("foobar").expect("foobar source registered");
+        assert_eq!(
+            entry.images,
+            vec!["bar".to_string(), "foo".to_string()],
+            "expected plain sprite names without dotfile directory prefixes"
+        );
     }
 
     #[tokio::test]
