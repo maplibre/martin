@@ -268,11 +268,11 @@ pub struct FontSource {
     catalog_entry: CatalogFontEntry,
 }
 
-/// Discovers fonts at `path` (a directory walked recursively, or a single
-/// font file) and registers them in `fonts`.
+/// Discovers fonts at `path` and registers them in `fonts`.
 ///
-/// Hidden files and directories are skipped — see [`crate::resources::walk_files`]
-/// for the rationale around Kubernetes `ConfigMap` symlink trees.
+/// If `path` is
+/// - a directory, we walked recursively, or
+/// - if it is a single font file we register this
 #[instrument(skip(lib, fonts), fields(path = ?path), err(Debug))]
 fn discover_fonts(
     lib: &Library,
