@@ -4137,6 +4137,7 @@ dependencies = [
  "tracing",
  "url",
  "utoipa",
+ "walkdir",
  "xxhash-rust",
 ]
 
