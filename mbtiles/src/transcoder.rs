@@ -9,7 +9,7 @@ use flume::{Receiver, Sender, bounded};
 use futures::TryStreamExt as _;
 use moka::sync::Cache;
 use rayon::iter::{IntoParallelIterator as _, ParallelIterator as _};
-use sqlx::{Connection as _, Row as _, SqliteConnection};
+use sqlx::{AssertSqlSafe, Connection as _, Row as _, SqliteConnection};
 use tokio::task::spawn_blocking;
 use tracing::{debug, info, warn};
 use xxhash_rust::xxh3::xxh3_128;
@@ -343,7 +343,7 @@ async fn normalized_reader(
     batch_size: usize,
     id_is_integer: bool,
 ) -> MbtResult<()> {
-    let mut stream = sqlx::query(sql).fetch(&mut *src_conn);
+    let mut stream = sqlx::query(AssertSqlSafe(sql)).fetch(&mut *src_conn);
     let mut batch: NormRawBatch = Vec::with_capacity(batch_size);
 
     while let Some(row) = stream.try_next().await? {
@@ -494,7 +494,9 @@ async fn normalized_writer(
             )
         };
 
-        let res = sqlx::query(&sql).execute(&mut *dst_conn).await?;
+        let res = sqlx::query(AssertSqlSafe(sql))
+            .execute(&mut *dst_conn)
+            .await?;
         rows_written = usize::try_from(res.rows_affected()).unwrap_or(usize::MAX);
     }
 
@@ -569,7 +571,7 @@ async fn write_normalized_chunk(
         ),
     };
 
-    let mut q = sqlx::query(&sql);
+    let mut q = sqlx::query(AssertSqlSafe(sql));
     for (tile_id, data) in chunk {
         q = q.bind(tile_id).bind(&data[..]);
     }
@@ -584,7 +586,7 @@ async fn write_normalized_chunk(
              INSERT OR REPLACE INTO _tile_id_map (old_id, new_id)
              SELECT old_id, md5_hex(tile_data) FROM new_tiles"
         );
-        let mut mq = sqlx::query(&map_sql);
+        let mut mq = sqlx::query(AssertSqlSafe(map_sql));
         for (tile_id, data) in chunk {
             mq = mq.bind(tile_id).bind(&data[..]);
         }
@@ -848,7 +850,7 @@ mod tests {
 
         let src_mbt = Mbtiles::new(&src_file).unwrap();
         let mut src_conn = src_mbt.open_or_new().await.unwrap();
-        sqlx::raw_sql(src_script)
+        sqlx::raw_sql(AssertSqlSafe(src_script))
             .execute(&mut src_conn)
             .await
             .unwrap();

@@ -3,6 +3,7 @@ use std::env;
 use std::path::{Path, PathBuf};
 
 use martin_core::styles::StyleSources;
+use martin_core::walk_files;
 use serde::{Deserialize, Serialize};
 use tracing::warn;
 
@@ -144,54 +145,33 @@ impl StyleConfig {
     }
 }
 
-/// Returns a vector of file paths in a given directory (or file)
+/// Returns matching file paths under `source_path`, rewritten relative to the
+/// current working directory so the catalog displays portable, configurable
+/// paths.
 ///
-/// It ignores hidden files (files whose names begin with `.`) but it does follow symlinks.
-/// Will also return file paths in sub-directories recursively.
+/// Walking semantics (recursion, hidden-file/dir skip, symlink following)
+/// come from [`walk_files`].
 ///
 /// # Errors
 ///
-/// This function will return an error if Rust's underlying [`read_dir`](std::fs::read_dir) returns an error.
+/// Returns an error if directory walking fails.
 fn list_contained_files(
     source_path: &Path,
     filter_extension: &str,
 ) -> Result<Vec<PathBuf>, ConfigFileError> {
+    let files = walk_files(source_path, &[filter_extension])
+        .map_err(|e| ConfigFileError::DirectoryWalking(e, source_path.to_path_buf()))?;
     let working_directory = env::current_dir().ok();
-    let mut contained_files = Vec::new();
-    let it = walkdir::WalkDir::new(source_path)
-        .follow_links(true)
+    Ok(files
         .into_iter()
-        .filter_entry(|e| e.depth() == 0 || !is_hidden(e));
-    for entry in it {
-        let entry =
-            entry.map_err(|e| ConfigFileError::DirectoryWalking(e, source_path.to_path_buf()))?;
-        if entry.path().is_file()
-            && entry
-                .path()
-                .extension()
-                .is_some_and(|ext| ext == filter_extension)
-        {
-            // path should be relative to the working directory in the catalog
-            let relative_path = match working_directory {
-                Some(ref work_dir) => entry
-                    .path()
-                    .strip_prefix(work_dir.as_path())
-                    .unwrap_or_else(|_| entry.path())
-                    .to_owned(),
-                None => entry.into_path(),
-            };
-            contained_files.push(relative_path);
-        }
-    }
-    Ok(contained_files)
-}
-
-/// Returns `true` if `entry`'s file name starts with `.`, `false` otherwise.
-fn is_hidden(entry: &walkdir::DirEntry) -> bool {
-    entry
-        .file_name()
-        .to_str()
-        .is_some_and(|s| s.starts_with('.'))
+        .map(|path| match &working_directory {
+            Some(work_dir) => path
+                .strip_prefix(work_dir)
+                .map(Path::to_path_buf)
+                .unwrap_or(path),
+            None => path,
+        })
+        .collect())
 }
 
 #[cfg(test)]

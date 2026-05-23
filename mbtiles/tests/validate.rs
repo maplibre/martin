@@ -6,7 +6,7 @@ use martin_tile_utils::{MAX_ZOOM, bbox_to_xyz};
 use mbtiles::MbtError::InvalidTileIndex;
 use mbtiles::{Mbtiles, create_metadata_table};
 use rstest::rstest;
-use sqlx::{Executor as _, SqliteConnection, query};
+use sqlx::{AssertSqlSafe, Executor as _, SqliteConnection, query};
 
 async fn new(values: &str) -> (Mbtiles, SqliteConnection) {
     let mbtiles = Mbtiles::new(":memory:").unwrap();
@@ -28,7 +28,10 @@ async fn new(values: &str) -> (Mbtiles, SqliteConnection) {
         "INSERT INTO tiles (zoom_level, tile_column, tile_row, tile_data)
          VALUES ({values});"
     );
-    query(&sql).execute(&mut conn).await.expect(&sql);
+    query(AssertSqlSafe(sql.as_str()))
+        .execute(&mut conn)
+        .await
+        .expect(&sql);
 
     (mbtiles, conn)
 }

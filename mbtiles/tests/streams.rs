@@ -2,7 +2,7 @@
 use futures::{StreamExt as _, TryStreamExt as _};
 use martin_tile_utils::{Tile, TileCoord};
 use mbtiles::{MbtError, Mbtiles, create_metadata_table};
-use sqlx::{Executor as _, SqliteConnection, query};
+use sqlx::{AssertSqlSafe, Executor as _, SqliteConnection, query};
 
 fn coord_key(coord: &TileCoord) -> (u8, u32, u32) {
     let TileCoord { z, x, y } = *coord;
@@ -34,7 +34,10 @@ async fn new(rows: &[&str]) -> (Mbtiles, SqliteConnection) {
             "INSERT INTO tiles (zoom_level, tile_column, tile_row, tile_data)
             VALUES ({row});"
         );
-        query(&sql).execute(&mut conn).await.expect(&sql);
+        query(AssertSqlSafe(sql.as_str()))
+            .execute(&mut conn)
+            .await
+            .expect(&sql);
     }
 
     (mbtiles, conn)

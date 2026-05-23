@@ -15,7 +15,7 @@ This guide covers certificate generation, PostgreSQL configuration, and Martin s
 
 Use SSL certificates for:
 
-- Deployments where martin and Postgis are on separate machines
+- Deployments where Martin and PostGIS are on separate machines
 - Compliance requirements (PCI DSS, HIPAA, etc.)
 - Cloud PostgreSQL deployments
 - High-security environments requiring certificate-based authentication
@@ -75,7 +75,7 @@ openssl req -new -x509 -days 365 -key ca-key.pem -out ca-cert.pem \
     -subj "/C=US/ST=State/L=City/O=Organization/CN=Test CA"
 ```
 
-You can then generate a server certificates:
+You can then generate a server certificate:
 
 ```bash
 # Generate server private key

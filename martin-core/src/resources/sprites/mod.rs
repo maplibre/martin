@@ -19,7 +19,7 @@
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::num::NonZeroUsize;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use chrono::{DateTime, Utc};
 use dashmap::{DashMap, Entry};
@@ -28,11 +28,18 @@ use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 pub use spreet::Spritesheet;
 use spreet::resvg::usvg::{Options, Tree};
-use spreet::{Sprite, SpritesheetBuilder, get_svg_input_paths, sprite_name};
+use spreet::{Sprite, SpritesheetBuilder, sprite_name};
 use tokio::io::AsyncReadExt as _;
 use tracing::{info, instrument, warn};
 
-use self::SpriteError::{SpriteInstError, SpriteParsingError, SpriteProcessingError};
+use self::SpriteError::{IoError, SpriteInstError, SpriteParsingError, SpriteProcessingError};
+use crate::walk_files;
+
+const SVG_EXTENSIONS: &[&str] = &["svg"];
+
+fn discover_svgs(path: &Path) -> Result<Vec<PathBuf>, SpriteError> {
+    walk_files(path, SVG_EXTENSIONS).map_err(|e| IoError(e.into(), path.to_path_buf()))
+}
 
 mod error;
 pub use error::SpriteError;
@@ -73,8 +80,7 @@ impl SpriteSources {
         // TODO: all sprite generation should be pre-cached
         let mut entries = SpriteCatalog::new();
         for source in &self.0 {
-            let paths = get_svg_input_paths(&source.path, true)
-                .map_err(|e| SpriteProcessingError(e, source.path.clone()))?;
+            let paths = discover_svgs(&source.path)?;
             let mut images = Vec::with_capacity(paths.len());
             for path in paths {
                 images.push(
@@ -123,7 +129,7 @@ impl SpriteSources {
                         sprite.path = %disp_path,
                         "Configured sprite source"
                     );
-                    if let Ok(paths) = get_svg_input_paths(&path, true)
+                    if let Ok(paths) = discover_svgs(&path)
                         && paths.is_empty()
                     {
                         warn!(
@@ -185,7 +191,7 @@ async fn parse_sprite(
     pixel_ratio: u8,
     as_sdf: bool,
 ) -> Result<(String, Sprite), SpriteError> {
-    let on_err = |e| SpriteError::IoError(e, path.clone());
+    let on_err = |e| IoError(e, path.clone());
 
     let mut file = tokio::fs::File::open(&path).await.map_err(on_err)?;
 
@@ -220,8 +226,7 @@ pub async fn get_spritesheet(
     // Asynchronously load all SVG files from the given sources
     let mut futures = Vec::new();
     for source in sources {
-        let paths = get_svg_input_paths(&source.path, true)
-            .map_err(|e| SpriteProcessingError(e, source.path.clone()))?;
+        let paths = discover_svgs(&source.path)?;
         // SpritesheetBuilder::generate will return None if the folder does not contain any SVGs
         if paths.is_empty() {
             return Err(SpriteError::NoSpriteFilesFound(source.path.clone()));
@@ -282,6 +287,35 @@ mod tests {
             test_src(src2_path.iter(), 1, "src2_1", generate_sdf).await;
             test_src(src2_path.iter(), 2, "src2_2", generate_sdf).await;
         }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn k8s_configmap_symlinks_yield_clean_sprite_names() {
+        use std::fs::{create_dir, write};
+        use std::os::unix::fs::symlink;
+
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let root = tmp.path();
+        let real_dir = root.join("..2024_05_17_17_57_51.390489675");
+        create_dir(&real_dir).unwrap();
+        let svg = b"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"1\" height=\"1\"/>";
+        write(real_dir.join("foo.svg"), svg).unwrap();
+        write(real_dir.join("bar.svg"), svg).unwrap();
+        symlink("..2024_05_17_17_57_51.390489675", root.join("..data")).unwrap();
+        symlink("..data/foo.svg", root.join("foo.svg")).unwrap();
+        symlink("..data/bar.svg", root.join("bar.svg")).unwrap();
+
+        let mut sprites = SpriteSources::default();
+        sprites.add_source("foobar".to_string(), root.to_path_buf());
+
+        let catalog = sprites.get_catalog().expect("catalog");
+        let entry = catalog.get("foobar").expect("foobar source registered");
+        assert_eq!(
+            entry.images,
+            vec!["bar".to_string(), "foo".to_string()],
+            "expected plain sprite names without dotfile directory prefixes"
+        );
     }
 
     #[tokio::test]
