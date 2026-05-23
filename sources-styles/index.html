@@ -1258,13 +1258,41 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#static-image-prepraration" class="md-nav__link">
+  <a href="#static-images" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Static image prepraration
+        Static images
       </span>
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Static images">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#camera" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Camera
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#size-and-format" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Size and format
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -1633,9 +1661,59 @@ Its behaviour may change in patch releases.</p>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">    </span><span class="nt">rendering</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
 </span></code></pre></div>
 <p>After doing so, you can use the <code>/style/&lt;style_id&gt;/{z}/{x}/{y}.{filetype}</code> API to get a <code>&lt;style_id&gt;</code>'s rendered png/jpeg content.</p>
-<h3 id="static-image-prepraration">Static image prepraration</h3>
+<h3 id="static-images">Static images</h3>
+<div class="admonition info">
+<p class="admonition-title">Info</p>
 <p>We currently do not have the same <a href="https://tileserver.readthedocs.io/en/latest/endpoints.html#static-images">capabilities as Tileserver-GL</a> to layout images.
-We are working on adding this feature and are very open to contributions.</p>
+We are working on adding this feature and are very open to contributions if you want to help!</p>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Static rendering shares the limitations listed above (Linux only, no caching, no concurrency).
+The HTTP shape may still change in patch releases.</p>
+</div>
+<p>Martin can render a single PNG/JPEG of a style at a chosen camera. The endpoint is:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>GET /style/{style_id}/static/{camera}/{size}.{ext}
+</span></code></pre></div>
+<h4 id="camera">Camera</h4>
+<p>The <code>{camera}</code> segment chooses what the image looks at:</p>
+<table>
+<thead>
+<tr>
+<th>Form</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>lon,lat,zoom</code></td>
+<td>Center at <code>(lon, lat)</code> and <code>zoom</code> (north up, flat).</td>
+</tr>
+<tr>
+<td><code>lon,lat,zoom@bearing</code></td>
+<td>Center + bearing in degrees (clockwise from north).</td>
+</tr>
+<tr>
+<td><code>lon,lat,zoom@bearing,pitch</code></td>
+<td>Center + bearing + pitch in degrees.</td>
+</tr>
+<tr>
+<td><code>minLon,minLat,maxLon,maxLat</code></td>
+<td>Fit the given bounding box to the requested size.</td>
+</tr>
+</tbody>
+</table>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p>The image is always rendered INSIDE of the requested size.
+So if the bbox is <code>[-10°,-1°,10°,1°]</code> and size <code>500x500</code> is requested, the image will be centered on 0,0 with a 500x500 box that is fully inside the bbox, so the left-top most pixel is approximately at <code>1°,-1°</code>.
+We will not expand the image outside the bbox.</p>
+</div>
+<h4 id="size-and-format">Size and format</h4>
+<p><code>{size}.{ext}</code> follows the <code>WIDTHxHEIGHT[@{scale}x].{ext}</code> pattern, e.g.
+<code>800x600.png</code>, <code>400x300@2x.jpg</code>.
+Allowed extensions are <code>png</code>, <code>jpg</code>, and <code>webp</code>.
+Width and height are capped at 2048 px each; scale is capped at <code>4x</code>.</p>
 
 
   <nav class="md-tags" >
