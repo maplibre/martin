@@ -201,6 +201,247 @@
         "enum": ["otf", "ttf", "ttc"],
         "type": "string"
       },
+      "StaticOverlayBody": {
+        "description": "Schema-only request body for `POST /style/.../static/...`. Wire-compatible\nwith a `GeoJSON` `FeatureCollection`, but Martin only honors the typed\nfields enumerated in [`StaticOverlayProperties`]; everything else under\n`properties` is silently ignored. Bodies are parsed at runtime as\n[`geojson::FeatureCollection`] inside [`OverlayBody::from_request`] -\nthese structs exist only to drive `utoipa`'s schema generation.",
+        "properties": {
+          "features": {
+            "items": {
+              "$ref": "#/components/schemas/StaticOverlayFeature"
+            },
+            "type": "array"
+          },
+          "type": {
+            "enum": ["FeatureCollection"],
+            "type": "string"
+          }
+        },
+        "required": ["type", "features"],
+        "type": "object"
+      },
+      "StaticOverlayFeature": {
+        "properties": {
+          "geometry": {
+            "$ref": "#/components/schemas/StaticOverlayGeometry"
+          },
+          "properties": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/StaticOverlayProperties"
+              }
+            ]
+          },
+          "type": {
+            "enum": ["Feature"],
+            "type": "string"
+          }
+        },
+        "required": ["type", "geometry"],
+        "type": "object"
+      },
+      "StaticOverlayGeometry": {
+        "description": "`GeoJSON` geometry tagged by `type`. Coordinate-array nesting matches\nRFC 7946 § 3.1; positions are `[lon, lat]` (any altitude is dropped).",
+        "oneOf": [
+          {
+            "properties": {
+              "coordinates": {
+                "items": {
+                  "format": "double",
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              "type": {
+                "enum": ["Point"],
+                "type": "string"
+              }
+            },
+            "required": ["coordinates", "type"],
+            "type": "object"
+          },
+          {
+            "properties": {
+              "coordinates": {
+                "items": {
+                  "items": {
+                    "format": "double",
+                    "type": "number"
+                  },
+                  "type": "array"
+                },
+                "type": "array"
+              },
+              "type": {
+                "enum": ["MultiPoint"],
+                "type": "string"
+              }
+            },
+            "required": ["coordinates", "type"],
+            "type": "object"
+          },
+          {
+            "properties": {
+              "coordinates": {
+                "items": {
+                  "items": {
+                    "format": "double",
+                    "type": "number"
+                  },
+                  "type": "array"
+                },
+                "type": "array"
+              },
+              "type": {
+                "enum": ["LineString"],
+                "type": "string"
+              }
+            },
+            "required": ["coordinates", "type"],
+            "type": "object"
+          },
+          {
+            "properties": {
+              "coordinates": {
+                "items": {
+                  "items": {
+                    "items": {
+                      "format": "double",
+                      "type": "number"
+                    },
+                    "type": "array"
+                  },
+                  "type": "array"
+                },
+                "type": "array"
+              },
+              "type": {
+                "enum": ["MultiLineString"],
+                "type": "string"
+              }
+            },
+            "required": ["coordinates", "type"],
+            "type": "object"
+          },
+          {
+            "description": "Outer ring first, then interior rings (holes).",
+            "properties": {
+              "coordinates": {
+                "items": {
+                  "items": {
+                    "items": {
+                      "format": "double",
+                      "type": "number"
+                    },
+                    "type": "array"
+                  },
+                  "type": "array"
+                },
+                "type": "array"
+              },
+              "type": {
+                "enum": ["Polygon"],
+                "type": "string"
+              }
+            },
+            "required": ["coordinates", "type"],
+            "type": "object"
+          },
+          {
+            "properties": {
+              "coordinates": {
+                "items": {
+                  "items": {
+                    "items": {
+                      "items": {
+                        "format": "double",
+                        "type": "number"
+                      },
+                      "type": "array"
+                    },
+                    "type": "array"
+                  },
+                  "type": "array"
+                },
+                "type": "array"
+              },
+              "type": {
+                "enum": ["MultiPolygon"],
+                "type": "string"
+              }
+            },
+            "required": ["coordinates", "type"],
+            "type": "object"
+          },
+          {
+            "description": "Nested geometries inherit the parent `Feature`'s properties.",
+            "properties": {
+              "geometries": {
+                "items": {
+                  "$ref": "#/components/schemas/StaticOverlayGeometry"
+                },
+                "type": "array"
+              },
+              "type": {
+                "enum": ["GeometryCollection"],
+                "type": "string"
+              }
+            },
+            "required": ["geometries", "type"],
+            "type": "object"
+          }
+        ]
+      },
+      "StaticOverlayProperties": {
+        "description": "Per-feature styling. Subset of the [simplestyle-spec]; unknown keys are\nsilently ignored at runtime. All keys are optional.\n\n[simplestyle-spec]: https://github.com/mapbox/simplestyle-spec",
+        "properties": {
+          "fill": {
+            "default": "#555555",
+            "description": "CSS color for polygon fills.",
+            "example": "#95BEFA",
+            "type": ["string", "null"]
+          },
+          "fill-opacity": {
+            "default": 0.6,
+            "description": "Opacity multiplier for `fill` in `0.0..=1.0`. Multiplied with any\nalpha already encoded in `fill`.",
+            "example": 0.5,
+            "format": "double",
+            "maximum": 1,
+            "minimum": 0,
+            "type": ["number", "null"]
+          },
+          "marker-color": {
+            "default": "#FF0000",
+            "description": "CSS color for point markers (rendered with reduced alpha by default).",
+            "example": "#285DAA",
+            "type": ["string", "null"]
+          },
+          "stroke": {
+            "description": "CSS color for line/polygon strokes. Defaults to the `fill` color for\npolygons (so a fill-only polygon doesn't render with a contrasting\nborder) and to `#555555` for lines.",
+            "example": "#285DAA",
+            "type": ["string", "null"]
+          },
+          "stroke-opacity": {
+            "default": 1.0,
+            "description": "Opacity multiplier for `stroke` in `0.0..=1.0`. Multiplied with any\nalpha already encoded in `stroke` (e.g. `rgba(...)`).",
+            "example": 0.8,
+            "format": "double",
+            "maximum": 1,
+            "minimum": 0,
+            "type": ["number", "null"]
+          },
+          "stroke-width": {
+            "default": 2.0,
+            "description": "Pixel width of strokes at the rendered scale.",
+            "example": 3.0,
+            "format": "double",
+            "minimum": 0,
+            "type": ["number", "null"]
+          }
+        },
+        "type": "object"
+      },
       "StyleKind": {
         "description": "What kind of layers a `MapLibre` style draws.",
         "enum": ["vector", "raster", "hybrid"],
@@ -654,7 +895,12 @@
         ],
         "responses": {
           "200": {
-            "description": "Rendered static map image (PNG, JPEG, or WebP)"
+            "content": {
+              "image/jpeg": {},
+              "image/png": {},
+              "image/webp": {}
+            },
+            "description": "Rendered static map image"
           },
           "400": {
             "description": "Invalid params or size"
@@ -670,6 +916,84 @@
           }
         },
         "summary": "Render a static map image at an arbitrary camera into `{size}.{format}`.",
+        "tags": ["crate::srv"]
+      },
+      "post": {
+        "description": "An empty or missing body renders the base map alone.",
+        "operationId": "post_rendered_static_style",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "style_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "`lon,lat,zoom[@bearing[,pitch]]` or `minLon,minLat,maxLon,maxLat`.",
+            "in": "path",
+            "name": "camera",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "`WIDTHxHEIGHT[@SCALEx]` - e.g. `800x600` or `400x300@2x`.",
+            "in": "path",
+            "name": "size",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Output encoding. `png`, `jpg`, or `webp` (canonical names only;\n`.jpeg` is redirected to `.jpg` via [`redirect_static_jpeg`]).",
+            "in": "path",
+            "name": "format",
+            "required": true,
+            "schema": {
+              "description": "Image format requested in the URL.",
+              "enum": ["png", "jpg", "webp"],
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/geo+json": {
+              "schema": {
+                "$ref": "#/components/schemas/StaticOverlayBody"
+              }
+            }
+          },
+          "description": "GeoJSON FeatureCollection. Per-feature properties follow the simplestyle-spec.",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "image/jpeg": {},
+              "image/png": {},
+              "image/webp": {}
+            },
+            "description": "Rendered static map image"
+          },
+          "400": {
+            "description": "Invalid params, size, or GeoJSON body"
+          },
+          "403": {
+            "description": "Rendering is disabled"
+          },
+          "404": {
+            "description": "No matching style"
+          },
+          "500": {
+            "description": "Renderer or encoder failure"
+          }
+        },
+        "summary": "Render a static map image with optional overlays drawn from a `GeoJSON` body.\nSee [our documentation](https://maplibre.org/martin/sources-styles/) on the styling options",
         "tags": ["crate::srv"]
       }
     }

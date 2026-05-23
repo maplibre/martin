@@ -143,7 +143,12 @@ export interface paths {
         /** Render a static map image at an arbitrary camera into `{size}.{format}`. */
         get: operations["get_rendered_static_style"];
         put?: never;
-        post?: never;
+        /**
+         * Render a static map image with optional overlays drawn from a `GeoJSON` body.
+         *     See [our documentation](https://maplibre.org/martin/sources-styles/) on the styling options
+         * @description An empty or missing body renders the base map alone.
+         */
+        post: operations["post_rendered_static_style"];
         delete?: never;
         options?: never;
         head?: never;
@@ -303,6 +308,107 @@ export interface components {
          */
         FontFormat: "otf" | "ttf" | "ttc";
         /**
+         * @description Schema-only request body for `POST /style/.../static/...`. Wire-compatible
+         *     with a `GeoJSON` `FeatureCollection`, but Martin only honors the typed
+         *     fields enumerated in [`StaticOverlayProperties`]; everything else under
+         *     `properties` is silently ignored. Bodies are parsed at runtime as
+         *     [`geojson::FeatureCollection`] inside [`OverlayBody::from_request`] -
+         *     these structs exist only to drive `utoipa`'s schema generation.
+         */
+        StaticOverlayBody: {
+            features: components["schemas"]["StaticOverlayFeature"][];
+            /** @enum {string} */
+            type: "FeatureCollection";
+        };
+        StaticOverlayFeature: {
+            geometry: components["schemas"]["StaticOverlayGeometry"];
+            properties?: null | components["schemas"]["StaticOverlayProperties"];
+            /** @enum {string} */
+            type: "Feature";
+        };
+        /**
+         * @description `GeoJSON` geometry tagged by `type`. Coordinate-array nesting matches
+         *     RFC 7946 § 3.1; positions are `[lon, lat]` (any altitude is dropped).
+         */
+        StaticOverlayGeometry: {
+            coordinates: number[];
+            /** @enum {string} */
+            type: "Point";
+        } | {
+            coordinates: number[][];
+            /** @enum {string} */
+            type: "MultiPoint";
+        } | {
+            coordinates: number[][];
+            /** @enum {string} */
+            type: "LineString";
+        } | {
+            coordinates: number[][][];
+            /** @enum {string} */
+            type: "MultiLineString";
+        } | {
+            coordinates: number[][][];
+            /** @enum {string} */
+            type: "Polygon";
+        } | {
+            coordinates: number[][][][];
+            /** @enum {string} */
+            type: "MultiPolygon";
+        } | {
+            geometries: components["schemas"]["StaticOverlayGeometry"][];
+            /** @enum {string} */
+            type: "GeometryCollection";
+        };
+        /**
+         * @description Per-feature styling. Subset of the [simplestyle-spec]; unknown keys are
+         *     silently ignored at runtime. All keys are optional.
+         *
+         *     [simplestyle-spec]: https://github.com/mapbox/simplestyle-spec
+         */
+        StaticOverlayProperties: {
+            /**
+             * @description CSS color for polygon fills.
+             * @default #555555
+             * @example #95BEFA
+             */
+            fill?: string | null;
+            /**
+             * Format: double
+             * @description Opacity multiplier for `fill` in `0.0..=1.0`. Multiplied with any
+             *     alpha already encoded in `fill`.
+             * @default 0.6
+             * @example 0.5
+             */
+            "fill-opacity"?: number | null;
+            /**
+             * @description CSS color for point markers (rendered with reduced alpha by default).
+             * @default #FF0000
+             * @example #285DAA
+             */
+            "marker-color"?: string | null;
+            /**
+             * @description CSS color for line/polygon strokes.
+             * @default #555555
+             * @example #285DAA
+             */
+            stroke?: string | null;
+            /**
+             * Format: double
+             * @description Opacity multiplier for `stroke` in `0.0..=1.0`. Multiplied with any
+             *     alpha already encoded in `stroke` (e.g. `rgba(...)`).
+             * @default 1
+             * @example 0.8
+             */
+            "stroke-opacity"?: number | null;
+            /**
+             * Format: double
+             * @description Pixel width of strokes at the rendered scale.
+             * @default 2
+             * @example 3
+             */
+            "stroke-width"?: number | null;
+        };
+        /**
          * @description What kind of layers a `MapLibre` style draws.
          * @enum {string}
          */
@@ -316,6 +422,10 @@ export interface components {
 }
 export type Catalog = components['schemas']['Catalog'];
 export type FontFormat = components['schemas']['FontFormat'];
+export type StaticOverlayBody = components['schemas']['StaticOverlayBody'];
+export type StaticOverlayFeature = components['schemas']['StaticOverlayFeature'];
+export type StaticOverlayGeometry = components['schemas']['StaticOverlayGeometry'];
+export type StaticOverlayProperties = components['schemas']['StaticOverlayProperties'];
 export type StyleKind = components['schemas']['StyleKind'];
 export type $defs = Record<string, never>;
 export interface operations {
@@ -569,14 +679,84 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Rendered static map image (PNG, JPEG, or WebP) */
+            /** @description Rendered static map image */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/jpeg": unknown;
+                    "image/png": unknown;
+                    "image/webp": unknown;
+                };
+            };
+            /** @description Invalid params or size */
+            400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content?: never;
             };
-            /** @description Invalid params or size */
+            /** @description Rendering is disabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No matching style */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Renderer or encoder failure */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    post_rendered_static_style: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                style_id: string;
+                /** @description `lon,lat,zoom[@bearing[,pitch]]` or `minLon,minLat,maxLon,maxLat`. */
+                camera: string;
+                /** @description `WIDTHxHEIGHT[@SCALEx]` - e.g. `800x600` or `400x300@2x`. */
+                size: string;
+                /**
+                 * @description Output encoding. `png`, `jpg`, or `webp` (canonical names only;
+                 *     `.jpeg` is redirected to `.jpg` via [`redirect_static_jpeg`]).
+                 */
+                format: "png" | "jpg" | "webp";
+            };
+            cookie?: never;
+        };
+        /** @description GeoJSON FeatureCollection. Per-feature properties follow the simplestyle-spec. */
+        requestBody: {
+            content: {
+                "application/geo+json": components["schemas"]["StaticOverlayBody"];
+            };
+        };
+        responses: {
+            /** @description Rendered static map image */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/jpeg": unknown;
+                    "image/png": unknown;
+                    "image/webp": unknown;
+                };
+            };
+            /** @description Invalid params, size, or GeoJSON body */
             400: {
                 headers: {
                     [name: string]: unknown;

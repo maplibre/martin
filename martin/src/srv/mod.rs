@@ -58,6 +58,9 @@ pub use styles_rendering::redirect_tile_jpeg;
 pub use styles_rendering::{__path_get_rendered_tile_style, get_rendered_tile_style};
 
 #[cfg(all(feature = "rendering", target_os = "linux"))]
+mod static_overlay;
+
+#[cfg(all(feature = "rendering", target_os = "linux"))]
 mod styles_static;
 #[cfg(all(feature = "rendering", target_os = "linux"))]
 pub use styles_static::redirect_static_jpeg;
@@ -66,4 +69,7 @@ pub use styles_static::redirect_static_jpeg;
     target_os = "linux",
     feature = "unstable-schemas"
 ))]
-pub use styles_static::{__path_get_rendered_static_style, get_rendered_static_style};
+pub use styles_static::{
+    __path_get_rendered_static_style, __path_post_rendered_static_style, get_rendered_static_style,
+    post_rendered_static_style,
+};

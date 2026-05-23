@@ -7,6 +7,7 @@ use actix_web::test::{TestRequest, call_service, read_body};
 use indoc::indoc;
 use martin::config::file::srv::SrvConfig;
 use rstest::rstest;
+use test_each_file::test_each_path;
 
 pub mod utils;
 pub use utils::*;
@@ -395,4 +396,69 @@ async fn scale_2x_doubles_pixel_dimensions() {
     let img_2x = image::load_from_memory(&two_x).expect("2x decodes");
     assert_eq!((img_1x.width(), img_1x.height()), (100, 100));
     assert_eq!((img_2x.width(), img_2x.height()), (200, 200));
+}
+
+/// Centered z=2 framing at a fixed 200×200 (for overlay-rendering tests
+/// where the camera shouldn't follow the geometry).
+const URI_CENTERED_200: &str = "/style/maplibre_demo/static/0,0,2/200x200.png";
+
+const CENTERED_EXPECTED_DIR: &str = "../tests/fixtures/static_overlays_centered_expected";
+
+async fn post_png_body(uri: &str, geojson_body: &[u8]) -> Vec<u8> {
+    let app = create_app! { CONFIG_STYLES };
+    let req = TestRequest::post()
+        .uri(uri)
+        .insert_header(("content-type", "application/geo+json"))
+        .set_payload(geojson_body.to_vec())
+        .to_request();
+    let resp = call_service(&app, req).await;
+    let resp = assert_response(resp).await;
+    read_body(resp).await.to_vec()
+}
+
+async fn post_no_body(uri: &str) -> Vec<u8> {
+    post_png_body(uri, b"").await
+}
+
+#[expect(clippy::panic, reason = "test fixture loader")]
+async fn run_overlay_scenario(geojson_path: &Path, uri: &str, expected_dir: &str) {
+    let display = geojson_path.display();
+    let body = std::fs::read(geojson_path).unwrap_or_else(|e| panic!("read {display}: {e}"));
+    let png = post_png_body(uri, &body).await;
+    let stem = geojson_path
+        .file_stem()
+        .and_then(std::ffi::OsStr::to_str)
+        .expect("scenario filename stem");
+    let ref_path = PathBuf::from(expected_dir).join(format!("{stem}.png"));
+    assert_png_matches(&ref_path, &png);
+}
+
+#[tokio::test]
+async fn empty_body_renders_base_map() {
+    // Same camera as GET; the byte-identical PNG fixture from the GET
+    // suite proves the POST path renders the same map when no overlays
+    // are supplied.
+    let body = post_no_body("/style/maplibre_demo/static/0,0,0/200x200.png").await;
+    assert_png_matches(&camera_ref("center_z0"), &body);
+}
+
+/// Parsed `FeatureCollection` with zero features hits a different branch
+/// than an empty body: the body is decoded and `parse_feature_collection`
+/// runs, but the resulting `ParsedOverlays::is_empty()` short-circuits
+/// `compose_overlays` so the base map is returned untouched.
+#[tokio::test]
+async fn empty_feature_collection_renders_base_map() {
+    let body = post_png_body(
+        "/style/maplibre_demo/static/0,0,0/200x200.png",
+        br#"{"type":"FeatureCollection","features":[]}"#,
+    )
+    .await;
+    assert_png_matches(&camera_ref("center_z0"), &body);
+}
+
+test_each_path! {
+    #[tokio::test]
+    async in "tests/fixtures/static_overlays_centered"
+    as overlays_centered
+    => async |p: &Path| run_overlay_scenario(p, URI_CENTERED_200, CENTERED_EXPECTED_DIR).await
 }

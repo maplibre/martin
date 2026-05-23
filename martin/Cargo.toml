@@ -114,7 +114,15 @@ default = [
     "mlt",
 ]
 unstable-cog = ["martin-core/unstable-cog", "_tiles"]
-rendering = ["styles", "martin-core/rendering", "dep:image"]
+rendering = [
+    "styles",
+    "martin-core/rendering",
+    "dep:image",
+    "dep:csscolorparser",
+    "dep:geo-types",
+    "dep:geojson",
+    "dep:tiny-skia",
+]
 fonts = ["martin-core/fonts", "_catalog"]
 lambda = ["dep:lambda-web"]
 mbtiles = ["martin-core/mbtiles", "dep:mbtiles", "_tiles"]
@@ -168,9 +176,12 @@ actix-web-prom = { workspace = true, optional = true }
 actix-web-static-files = { workspace = true, optional = true }
 async-trait.workspace = true
 clap.workspace = true
+csscolorparser = { workspace = true, optional = true }
 dashmap.workspace = true
 enum-display = { workspace = true, optional = true }
 futures.workspace = true
+geo-types = { workspace = true, optional = true }
+geojson = { workspace = true, optional = true }
 hotpath.workspace = true
 humantime-serde.workspace = true
 image = { workspace = true, optional = true }
@@ -201,6 +212,7 @@ static-files = { workspace = true, optional = true }
 subst.workspace = true
 thiserror.workspace = true
 tilejson.workspace = true
+tiny-skia = { workspace = true, optional = true }
 tokio = { workspace = true, features = ["io-std"] }
 tracing.workspace = true
 tracing-actix-web.workspace = true
@@ -217,6 +229,7 @@ static-files = { workspace = true, optional = true }
 walkdir = { workspace = true, optional = true }
 
 [dev-dependencies]
+approx.workspace = true
 backon.workspace = true
 criterion.workspace = true
 image-compare.workspace = true
@@ -224,6 +237,7 @@ indoc.workspace = true
 insta = { workspace = true, features = ["json", "yaml", "redactions"] }
 rstest.workspace = true
 tempfile.workspace = true
+test_each_file.workspace = true
 testcontainers-modules.workspace = true
 tracing-test.workspace = true
 
