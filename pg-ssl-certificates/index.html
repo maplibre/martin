@@ -1959,7 +1959,7 @@ This guide covers certificate generation, PostgreSQL configuration, and Martin s
 <h2 id="when-to-use-ssl-certificates">When to Use SSL Certificates</h2>
 <p>Use SSL certificates for:</p>
 <ul>
-<li>Deployments where martin and Postgis are on separate machines</li>
+<li>Deployments where Martin and PostGIS are on separate machines</li>
 <li>Compliance requirements (PCI DSS, HIPAA, etc.)</li>
 <li>Cloud PostgreSQL deployments</li>
 <li>High-security environments requiring certificate-based authentication</li>
@@ -2048,7 +2048,7 @@ To verify the certificate, you will need the CA certificate.</p>
 </span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>openssl<span class="w"> </span>req<span class="w"> </span>-new<span class="w"> </span>-x509<span class="w"> </span>-days<span class="w"> </span><span class="m">365</span><span class="w"> </span>-key<span class="w"> </span>ca-key.pem<span class="w"> </span>-out<span class="w"> </span>ca-cert.pem<span class="w"> </span><span class="se">\</span>
 </span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">    </span>-subj<span class="w"> </span><span class="s2">&quot;/C=US/ST=State/L=City/O=Organization/CN=Test CA&quot;</span>
 </span></code></pre></div>
-<p>You can then generate a server certificates:</p>
+<p>You can then generate a server certificate:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Generate server private key</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>openssl<span class="w"> </span>genrsa<span class="w"> </span>-out<span class="w"> </span>server-key.pem<span class="w"> </span><span class="m">3072</span>
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
