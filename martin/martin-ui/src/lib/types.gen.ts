@@ -615,7 +615,7 @@ export interface operations {
                 z: number;
                 x: number;
                 y: number;
-                format: "png" | "jpeg" | "webp";
+                format: "png" | "jpg" | "webp";
             };
             cookie?: never;
         };

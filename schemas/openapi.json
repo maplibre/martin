@@ -585,7 +585,7 @@
             "required": true,
             "schema": {
               "description": "Image format requested in the URL.",
-              "enum": ["png", "jpeg", "webp"],
+              "enum": ["png", "jpg", "webp"],
               "type": "string"
             }
           }
@@ -647,7 +647,7 @@
             "required": true,
             "schema": {
               "description": "Image format requested in the URL.",
-              "enum": ["png", "jpeg", "webp"],
+              "enum": ["png", "jpg", "webp"],
               "type": "string"
             }
           }
