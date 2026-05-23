@@ -397,10 +397,12 @@ impl<'a> DynTileSource<'a> {
             let tile = if let (Some(cache), true) = (self.cache, cache_zoom_ok) {
                 cache
                     .get_or_insert(
-                        s.get_id().to_string(),
-                        xyz,
-                        self.query_str.map(ToString::to_string),
-                        self.accepted_format,
+                        martin_core::tiles::TileCacheKey::new(
+                            s.get_id().to_string(),
+                            xyz,
+                            self.query_str.map(ToString::to_string),
+                            self.accepted_format,
+                        ),
                         fetch_and_process,
                     )
                     .await
@@ -625,9 +627,11 @@ pub(crate) fn decode(tile: Tile) -> ActixResult<Tile> {
                 info.encoding(Encoding::Uncompressed),
                 etag,
             ),
-            _ => Err(ErrorBadRequest(format!(
-                "Tile is stored as {info}, but the client does not accept this encoding"
-            )))?,
+            _ => {
+                return Err(ErrorBadRequest(format!(
+                    "Tile is stored as {info}, but the client does not accept this encoding"
+                )));
+            }
         }
     } else {
         tile
@@ -869,17 +873,17 @@ mod tests {
     #[test]
     fn test_parse_accept_unknown_type() {
         let accept = Some(Accept(vec![QualityItem::max("text/html".parse().unwrap())]));
-        assert!(parse_accept(accept).is_err());
+        parse_accept(accept).unwrap_err();
     }
 
     #[test]
     fn test_parse_accept_q_zero_rejected() {
-        // A known format with q=0 means "do not want" — should 406
+        // A known format with q=0 means "do not want" - should 406
         let accept = Some(Accept(vec![QualityItem::new(
             "application/x-protobuf".parse().unwrap(),
             Quality::ZERO,
         )]));
-        assert!(parse_accept(accept).is_err());
+        parse_accept(accept).unwrap_err();
     }
 
     fn parse_accept_header(values: &[&str]) -> Option<Vec<Format>> {
@@ -916,7 +920,7 @@ mod tests {
     fn test_accept_406(#[case] accept_values: &[&str], #[case] source_format: Format) {
         let parsed = parse_accept_header(accept_values);
         let result = DynTileSource::resolve_accepted_format(parsed.as_deref(), source_format);
-        assert!(result.is_err());
+        result.unwrap_err();
     }
 
     /// Without the `mlt` feature, the MVT↔MLT conversion branches are gated
@@ -928,10 +932,10 @@ mod tests {
     fn test_accept_406_without_mlt(#[case] accept_values: &[&str], #[case] source_format: Format) {
         let parsed = parse_accept_header(accept_values);
         let result = DynTileSource::resolve_accepted_format(parsed.as_deref(), source_format);
-        assert!(result.is_err());
+        result.unwrap_err();
     }
 
-    /// `Accept: mlt` against an MVT source resolves to MLT — the pre-cache
+    /// `Accept: mlt` against an MVT source resolves to MLT - the pre-cache
     /// pipeline encodes on first miss. Conversion is implicit; no `process.convert_to_mlt`
     /// configuration is required to enable it.
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
@@ -945,7 +949,7 @@ mod tests {
         assert_eq!(result.unwrap(), Some(Format::Mlt));
     }
 
-    /// `Accept: mvt` against an MLT source resolves to MVT — the pre-cache
+    /// `Accept: mvt` against an MLT source resolves to MVT - the pre-cache
     /// pipeline decodes on first miss unless `process.convert_to_mvt` is
     /// explicitly disabled.
     #[cfg(all(feature = "mlt", feature = "_tiles"))]

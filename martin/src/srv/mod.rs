@@ -48,9 +48,22 @@ pub use styles::{__path_get_style_json, get_style_json};
 
 #[cfg(all(feature = "rendering", target_os = "linux"))]
 mod styles_rendering;
+#[cfg(all(feature = "rendering", target_os = "linux"))]
+pub use styles_rendering::redirect_tile_jpeg;
 #[cfg(all(
     feature = "rendering",
     target_os = "linux",
     feature = "unstable-schemas"
 ))]
-pub use styles_rendering::{__path_get_style_rendered, get_style_rendered};
+pub use styles_rendering::{__path_get_rendered_tile_style, get_rendered_tile_style};
+
+#[cfg(all(feature = "rendering", target_os = "linux"))]
+mod styles_static;
+#[cfg(all(feature = "rendering", target_os = "linux"))]
+pub use styles_static::redirect_static_jpeg;
+#[cfg(all(
+    feature = "rendering",
+    target_os = "linux",
+    feature = "unstable-schemas"
+))]
+pub use styles_static::{__path_get_rendered_static_style, get_rendered_static_style};

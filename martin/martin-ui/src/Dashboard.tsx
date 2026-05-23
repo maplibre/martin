@@ -3,6 +3,7 @@ import { AnalyticsSection } from '@/components/analytics-section';
 import { DashboardContent } from '@/components/dashboard-content';
 import { useAsyncOperation } from '@/hooks/use-async-operation';
 import { buildMartinUrl } from '@/lib/api';
+import type { AnalyticsData } from '@/lib/prometheus';
 import {
   aggregateEndpointGroups,
   aggregateHistogramGroups,
@@ -10,7 +11,6 @@ import {
   parseCacheMetrics,
   parseCompletePrometheusMetrics,
 } from '@/lib/prometheus';
-import type { AnalyticsData } from '@/lib/types';
 
 const fetchAnalytics = async (): Promise<AnalyticsData> => {
   const res = await fetch(buildMartinUrl('/_/metrics'));

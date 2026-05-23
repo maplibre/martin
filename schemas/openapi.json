@@ -16,11 +16,27 @@
                   "description": "Font family name (e.g., \"Arial\").",
                   "type": "string"
                 },
+                "format": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "$ref": "#/components/schemas/FontFormat",
+                      "description": "Source font file container format."
+                    }
+                  ]
+                },
                 "glyphs": {
                   "description": "Total number of glyphs in this font.",
                   "format": "int32",
                   "minimum": 0,
                   "type": "integer"
+                },
+                "last_modified_at": {
+                  "description": "Timestamp of the source font file's last modification.",
+                  "format": "date-time",
+                  "type": ["string", "null"]
                 },
                 "start": {
                   "description": "First Unicode codepoint available.",
@@ -40,6 +56,17 @@
             },
             "type": "object"
           },
+          "settings": {
+            "description": "Server-wide capability flags",
+            "properties": {
+              "rendering": {
+                "description": "Whether server-side style rendering endpoints are enabled.",
+                "type": "boolean"
+              }
+            },
+            "required": ["rendering"],
+            "type": "object"
+          },
           "sprites": {
             "additionalProperties": {
               "description": "Sprite source metadata.",
@@ -50,6 +77,17 @@
                     "type": "string"
                   },
                   "type": "array"
+                },
+                "last_modified_at": {
+                  "description": "Timestamp of the spritesheet's last modification.",
+                  "format": "date-time",
+                  "type": ["string", "null"]
+                },
+                "size_in_bytes": {
+                  "description": "Total size of the spritesheet in bytes.",
+                  "format": "int64",
+                  "minimum": 1,
+                  "type": "integer"
                 }
               },
               "required": ["images"],
@@ -64,9 +102,42 @@
             "additionalProperties": {
               "description": "Style metadata.",
               "properties": {
+                "colors": {
+                  "description": "Distinct colors referenced by the style, for preview swatches.",
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": ["array", "null"]
+                },
+                "last_modified_at": {
+                  "description": "Timestamp of the style file's last modification.",
+                  "format": "date-time",
+                  "type": ["string", "null"]
+                },
+                "layer_count": {
+                  "description": "Number of layers declared in the style JSON.",
+                  "format": "int32",
+                  "minimum": 0,
+                  "type": ["integer", "null"]
+                },
                 "path": {
                   "description": "Path to the style JSON file.",
                   "type": "string"
+                },
+                "type": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "$ref": "#/components/schemas/StyleKind",
+                      "description": "What kind of layers the style draws."
+                    }
+                  ]
+                },
+                "version_hash": {
+                  "description": "Hash identifying the current style revision.",
+                  "type": ["string", "null"]
                 }
               },
               "required": ["path"],
@@ -97,6 +168,17 @@
                   "description": "Description of the tile source content",
                   "type": ["string", "null"]
                 },
+                "last_modified_at": {
+                  "description": "Timestamp of the underlying source's last modification.",
+                  "format": "date-time",
+                  "type": ["string", "null"]
+                },
+                "layer_count": {
+                  "description": "Number of vector layers declared by this source.",
+                  "format": "int32",
+                  "minimum": 0,
+                  "type": ["integer", "null"]
+                },
                 "name": {
                   "description": "Human-readable name for the tile source",
                   "type": ["string", "null"]
@@ -111,8 +193,18 @@
             "type": "object"
           }
         },
-        "required": ["tiles", "sprites", "fonts", "styles"],
+        "required": ["tiles", "sprites", "fonts", "styles", "settings"],
         "type": "object"
+      },
+      "FontFormat": {
+        "description": "Source font file container format.",
+        "enum": ["otf", "ttf", "ttc"],
+        "type": "string"
+      },
+      "StyleKind": {
+        "description": "What kind of layers a `MapLibre` style draws.",
+        "enum": ["vector", "raster", "hybrid"],
+        "type": "string"
       }
     }
   },
@@ -126,7 +218,7 @@
       "name": "MIT OR Apache-2.0"
     },
     "title": "Martin",
-    "version": "1.9.1"
+    "version": "1.10.1"
   },
   "openapi": "3.1.0",
   "paths": {
@@ -442,6 +534,142 @@
             "description": "No matching style"
           }
         },
+        "tags": ["crate::srv"]
+      }
+    },
+    "/style/{style_id}/{z}/{x}/{y}.{format}": {
+      "get": {
+        "operationId": "get_rendered_tile_style",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "style_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "z",
+            "required": true,
+            "schema": {
+              "format": "int32",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "x",
+            "required": true,
+            "schema": {
+              "format": "int32",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "y",
+            "required": true,
+            "schema": {
+              "format": "int32",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "format",
+            "required": true,
+            "schema": {
+              "description": "Image format requested in the URL.",
+              "enum": ["png", "jpg", "webp"],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Server-side rendered style tile (PNG/JPEG/WebP)"
+          },
+          "400": {
+            "description": "Invalid tile coordinates"
+          },
+          "403": {
+            "description": "Rendering is disabled"
+          },
+          "404": {
+            "description": "No matching style"
+          },
+          "500": {
+            "description": "Renderer or encoder failure"
+          }
+        },
+        "tags": ["crate::srv"]
+      }
+    },
+    "/style/{style_id}/static/{camera}/{size}.{format}": {
+      "get": {
+        "operationId": "get_rendered_static_style",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "style_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "`lon,lat,zoom[@bearing[,pitch]]` or `minLon,minLat,maxLon,maxLat`.",
+            "in": "path",
+            "name": "camera",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "`WIDTHxHEIGHT[@SCALEx]` - e.g. `800x600` or `400x300@2x`.",
+            "in": "path",
+            "name": "size",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Output encoding. `png`, `jpg`, or `webp` (canonical names only;\n`.jpeg` is redirected to `.jpg` via [`redirect_static_jpeg`]).",
+            "in": "path",
+            "name": "format",
+            "required": true,
+            "schema": {
+              "description": "Image format requested in the URL.",
+              "enum": ["png", "jpg", "webp"],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Rendered static map image (PNG, JPEG, or WebP)"
+          },
+          "400": {
+            "description": "Invalid params or size"
+          },
+          "403": {
+            "description": "Rendering is disabled"
+          },
+          "404": {
+            "description": "No matching style"
+          },
+          "500": {
+            "description": "Renderer or encoder failure"
+          }
+        },
+        "summary": "Render a static map image at an arbitrary camera into `{size}.{format}`.",
         "tags": ["crate::srv"]
       }
     }

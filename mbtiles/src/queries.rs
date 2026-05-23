@@ -1,6 +1,6 @@
 use martin_tile_utils::MAX_ZOOM;
 use sqlite_compressions::rusqlite::Connection;
-use sqlx::{Executor as _, Row as _, SqliteConnection, SqliteExecutor, query};
+use sqlx::{AssertSqlSafe, Executor as _, Row as _, SqliteConnection, SqliteExecutor, query};
 use tracing::debug;
 
 use crate::MbtError::InvalidZoomValue;
@@ -198,7 +198,7 @@ where
              name text NOT NULL PRIMARY KEY,
              value text){s};"
     );
-    conn.execute(sql.as_str()).await?;
+    conn.execute(AssertSqlSafe(sql)).await?;
 
     Ok(())
 }
@@ -217,7 +217,7 @@ where
              tile_data blob,
              PRIMARY KEY(zoom_level, tile_column, tile_row)){s};"
     );
-    conn.execute(sql.as_str()).await?;
+    conn.execute(AssertSqlSafe(sql)).await?;
 
     Ok(())
 }
@@ -237,7 +237,7 @@ where
              tile_hash text,
              PRIMARY KEY(zoom_level, tile_column, tile_row)){s};"
     );
-    conn.execute(sql.as_str()).await?;
+    conn.execute(AssertSqlSafe(sql)).await?;
 
     debug!("Creating if needed tiles view for flat-with-hash");
     conn.execute(
@@ -278,7 +278,7 @@ where
              PRIMARY KEY(zoom_level, tile_column, tile_row)){s};"
     );
 
-    conn.execute(sql.as_str()).await?;
+    conn.execute(AssertSqlSafe(sql)).await?;
     Ok(())
 }
 
@@ -308,7 +308,7 @@ where
        ) as is_valid;"
         );
 
-        if query(&sql)
+        if query(AssertSqlSafe(sql))
             .fetch_one(&mut *conn)
             .await?
             .get::<Option<i32>, _>(0)
@@ -336,7 +336,7 @@ where
              tile_id text,
              PRIMARY KEY(zoom_level, tile_column, tile_row)){s};"
     );
-    conn.execute(sql.as_str()).await?;
+    conn.execute(AssertSqlSafe(sql)).await?;
 
     debug!("Creating if needed normalized table: images(id,data)");
     let sql = format!(
@@ -344,7 +344,7 @@ where
              tile_id text NOT NULL PRIMARY KEY,
              tile_data blob){s};"
     );
-    conn.execute(sql.as_str()).await?;
+    conn.execute(AssertSqlSafe(sql)).await?;
 
     debug!("Creating if needed tiles view for flat-with-hash");
     conn.execute(
@@ -420,7 +420,7 @@ where
     for<'e> &'e mut T: SqliteExecutor<'e>,
 {
     debug!("Detaching {name}");
-    query(&format!("DETACH DATABASE {name}"))
+    query(AssertSqlSafe(format!("DETACH DATABASE {name}")))
         .execute(conn)
         .await?;
     Ok(())

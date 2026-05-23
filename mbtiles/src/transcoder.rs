@@ -9,7 +9,7 @@ use flume::{Receiver, Sender, bounded};
 use futures::TryStreamExt as _;
 use moka::sync::Cache;
 use rayon::iter::{IntoParallelIterator as _, ParallelIterator as _};
-use sqlx::{Connection as _, Row as _, SqliteConnection};
+use sqlx::{AssertSqlSafe, Connection as _, Row as _, SqliteConnection};
 use tokio::task::spawn_blocking;
 use tracing::{debug, info, warn};
 use xxhash_rust::xxh3::xxh3_128;
@@ -36,7 +36,7 @@ const DEFAULT_CHANNEL_BUFFER: usize = 4;
 const FLUSH_INTERVAL: Duration = Duration::from_secs(60);
 
 /// Conservative cap on bound parameters per statement. SQLite's default is
-/// 32766, but older builds capped at 999 — staying under that is free safety.
+/// 32766, but older builds capped at 999 - staying under that is free safety.
 const SQLITE_MAX_PARAMS: usize = 900;
 
 /// Raw tile batch: `(coord, optional_cache_key, tile_data)`.
@@ -223,7 +223,7 @@ where
     /// Normalized -> Any.
     ///
     /// Each unique payload is encoded exactly once, then the writer streams
-    /// directly into the destination — no staging temp table. For Flat /
+    /// directly into the destination - no staging temp table. For Flat /
     /// FlatWithHash destinations, each insert joins against the source map
     /// (via the attached `srcDb`) so SQLite expands one encoded tile to all
     /// its (z, x, y) destinations in a single statement.
@@ -343,7 +343,7 @@ async fn normalized_reader(
     batch_size: usize,
     id_is_integer: bool,
 ) -> MbtResult<()> {
-    let mut stream = sqlx::query(sql).fetch(&mut *src_conn);
+    let mut stream = sqlx::query(AssertSqlSafe(sql)).fetch(&mut *src_conn);
     let mut batch: NormRawBatch = Vec::with_capacity(batch_size);
 
     while let Some(row) = stream.try_next().await? {
@@ -415,7 +415,7 @@ where
     Ok(())
 }
 
-/// Writer: stream encoded tiles directly into the destination — no staging.
+/// Writer: stream encoded tiles directly into the destination - no staging.
 ///
 /// Returns `(unique_tiles_encoded, total_rows_written)`. For Normalized
 /// destinations these are usually equal; for Flat/FlatWithHash the row count
@@ -494,7 +494,9 @@ async fn normalized_writer(
             )
         };
 
-        let res = sqlx::query(&sql).execute(&mut *dst_conn).await?;
+        let res = sqlx::query(AssertSqlSafe(sql))
+            .execute(&mut *dst_conn)
+            .await?;
         rows_written = usize::try_from(res.rows_affected()).unwrap_or(usize::MAX);
     }
 
@@ -569,7 +571,7 @@ async fn write_normalized_chunk(
         ),
     };
 
-    let mut q = sqlx::query(&sql);
+    let mut q = sqlx::query(AssertSqlSafe(sql));
     for (tile_id, data) in chunk {
         q = q.bind(tile_id).bind(&data[..]);
     }
@@ -584,7 +586,7 @@ async fn write_normalized_chunk(
              INSERT OR REPLACE INTO _tile_id_map (old_id, new_id)
              SELECT old_id, md5_hex(tile_data) FROM new_tiles"
         );
-        let mut mq = sqlx::query(&map_sql);
+        let mut mq = sqlx::query(AssertSqlSafe(map_sql));
         for (tile_id, data) in chunk {
             mq = mq.bind(tile_id).bind(&data[..]);
         }
@@ -712,7 +714,7 @@ fn transcode_cached<F>(
 where
     F: Fn(Vec<u8>) -> Result<Bytes, Box<dyn std::error::Error + Send + Sync>>,
 {
-    // Skip the cache for large tiles — they are almost certainly unique, so
+    // Skip the cache for large tiles - they are almost certainly unique, so
     // caching them just evicts smaller, more valuable entries.
     if data.len() > max_tile_track_size {
         return match (transform)(data) {
@@ -848,7 +850,7 @@ mod tests {
 
         let src_mbt = Mbtiles::new(&src_file).unwrap();
         let mut src_conn = src_mbt.open_or_new().await.unwrap();
-        sqlx::raw_sql(src_script)
+        sqlx::raw_sql(AssertSqlSafe(src_script))
             .execute(&mut src_conn)
             .await
             .unwrap();
@@ -966,7 +968,7 @@ mod tests {
     async fn transcode_normalized_no_redundant_transforms() {
         // 2 unique images, each > 1KB (to exceed max_tile_track_size),
         // referenced by 5 map entries. The transform must be called
-        // exactly 2 times — once per unique image.
+        // exactly 2 times - once per unique image.
         let tile_a: String = format!("X'{}'", "AA".repeat(2048));
         let tile_b: String = format!("X'{}'", "BB".repeat(2048));
         let script = format!(

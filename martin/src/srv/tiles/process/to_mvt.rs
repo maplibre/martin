@@ -22,7 +22,7 @@ pub fn convert_mlt_to_mvt(tile: Tile) -> Result<Tile, ProcessError> {
     let mut decoder = Decoder::default();
     let mut tile_layers = Vec::with_capacity(layers.len());
     for layer in layers {
-        // Skip unknown layer tags — they have no MVT analogue.
+        // Skip unknown layer tags - they have no MVT analogue.
         if let Layer::Tag01(l) = layer {
             tile_layers.push(
                 l.into_tile(&mut decoder)
@@ -81,10 +81,7 @@ mod tests {
 
     use super::*;
 
-    /// MLT->MVT round-trip: encode the test MVT to MLT, then back, and verify
-    /// layer/feature structure is preserved.
-    #[test]
-    fn round_trips_through_mlt() {
+    fn build_mlt_bytes() -> Vec<u8> {
         let mvt = mvt_with_feature_bytes();
         let layers = mvt_to_tile_layers(mvt).expect("decode MVT");
 
@@ -92,11 +89,16 @@ mod tests {
         for layer in layers {
             mlt_bytes.extend(layer.encode(EncoderConfig::default()).expect("encode MLT"));
         }
+        mlt_bytes
+    }
 
-        let tile = Tile::new_hash_etag(
-            mlt_bytes,
-            TileInfo::new(Format::Mlt, Encoding::Uncompressed),
-        );
+    /// MLT->MVT round-trip: encode the test MVT to MLT, then back, and verify
+    /// layer/feature structure is preserved.
+    #[test]
+    fn round_trips_through_mlt() {
+        let mlt_bytes = build_mlt_bytes();
+
+        let tile = Tile::new_hash_etag(mlt_bytes, TileInfo::new(Format::Mlt, Encoding::Internal));
         let result = convert_mlt_to_mvt(tile).expect("MLT->MVT");
         assert_eq!(result.info.format, Format::Mvt);
 
@@ -104,5 +106,19 @@ mod tests {
         assert_eq!(layers.len(), 1);
         assert_eq!(layers[0].name, "test");
         assert_eq!(layers[0].features.len(), 1);
+    }
+
+    /// Gzip-compressed MLT is not typically recommended, but it is valid and can be decoded.
+    #[test]
+    fn gzip_compressed_mlt_is_decodable() {
+        use martin_tile_utils::encode_gzip;
+        let mlt_bytes = build_mlt_bytes();
+        let gzipped = encode_gzip(&mlt_bytes).expect("gzip MLT");
+
+        let tile = Tile::new_hash_etag(gzipped, TileInfo::new(Format::Mlt, Encoding::Gzip));
+        let result = convert_mlt_to_mvt(tile).expect("MLT->MVT");
+        assert_eq!(result.info.format, Format::Mvt);
+        let layers = mvt_to_tile_layers(result.data).expect("decode MVT");
+        assert_eq!(layers.len(), 1);
     }
 }

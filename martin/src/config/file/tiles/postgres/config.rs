@@ -18,6 +18,8 @@ use crate::config::file::{
 };
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 use crate::config::file::{MltProcessConfig, MvtProcessConfig};
+#[cfg(all(feature = "mlt", feature = "_tiles"))]
+use crate::config::primitives::AutoOption;
 use crate::config::primitives::{IdResolver, OptBoolObj, OptOneMany};
 
 pub trait PostgresInfo {
@@ -79,8 +81,7 @@ pub struct PostgresConfig {
     /// This feature allows you to put a maximum latency bound on tiles with an
     /// extreme amount of detail at the cost of not returning all data.
     /// It is sensible to set this limit if you have user generated/untrusted
-    /// geodata, e.g. a lot of data points at [Null Island]
-    /// (<https://en.wikipedia.org/wiki/Null_Island>).
+    /// geodata, e.g. a lot of data points at [Null Island](https://en.wikipedia.org/wiki/Null_Island).
     ///
     /// either a positive integer, or null=unlimited (default)
     pub max_feature_count: Option<usize>,
@@ -347,6 +348,22 @@ impl ConfigurationLivecycleHooks for PostgresConfig {
                     .map(|k| format!("auto_publish.{k}"))
                     .collect::<UnrecognizedKeys>(),
             ),
+        }
+
+        #[cfg(all(feature = "mlt", feature = "_tiles"))]
+        {
+            if let Some(AutoOption::Explicit(cfg)) = self.convert_to_mlt.as_ref() {
+                keys.extend(
+                    cfg.unrecognized_keys()
+                        .map(|k| format!("convert_to_mlt.{k}")),
+                );
+            }
+            if let Some(AutoOption::Explicit(cfg)) = self.convert_to_mvt.as_ref() {
+                keys.extend(
+                    cfg.unrecognized_keys()
+                        .map(|k| format!("convert_to_mvt.{k}")),
+                );
+            }
         }
 
         keys

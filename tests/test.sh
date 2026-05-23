@@ -6,9 +6,6 @@ unset DATABASE_URL
 
 export RUST_LOG_FORMAT=bare
 
-# TODO: use  --fail-with-body  to get the response body on failure
-CURL=${CURL:-curl --silent --show-error --fail --compressed}
-
 MARTIN_BUILD_ALL="${MARTIN_BUILD_ALL:-cargo build}"
 
 STATICS_URL="${STATICS_URL:-http://localhost:5412}"
@@ -39,14 +36,32 @@ if [[ $OSTYPE == linux* || $OSTYPE == darwin* ]]; then
   fi
 fi
 
-if [[ $(sed --version 2> /dev/null) > /dev/null ]]; then
+if sed --version > /dev/null 2>&1; then
   SED=${SED:-sed}
-elif [[ $(gsed --version 2> /dev/null) > /dev/null ]]; then
+elif gsed --version > /dev/null 2>&1; then
   SED=${SED:-gsed}
 else
   echo 'GNU sed is required for testing'
   exit 1
 fi
+
+# curl must support Brotli so the server's preferred encoding (br) is used,
+# keeping test output consistent across platforms.
+# On macOS the system curl lacks Brotli; prefer the Homebrew-installed one.
+if [[ -z "${CURL_BIN:-}" ]]; then
+  for candidate in curl /opt/homebrew/opt/curl/bin/curl /usr/local/opt/curl/bin/curl; do
+    if command -v "$candidate" > /dev/null 2>&1 && "$candidate" --version 2>/dev/null | grep -q brotli; then
+      CURL_BIN="$candidate"
+      break
+    fi
+  done
+fi
+if [[ -z "${CURL_BIN:-}" ]]; then
+  echo 'curl with Brotli support is required for testing.'
+  echo 'On macOS, install it with: brew install curl'
+  exit 1
+fi
+CURL="${CURL:-$CURL_BIN --silent --show-error --fail --compressed}"
 
 function wait_for {
     # Seems the --retry-all-errors option is not available on older curl versions, but maybe in the future we can just use this:
@@ -441,7 +456,7 @@ TEST_OUT_DIR="${TEST_OUT_BASE_DIR}/${TEST_NAME}"
 mkdir -p "$TEST_OUT_DIR"
 
 
-ARG=(--default-srid 900913 --auto-bounds calc --save-config "${TEST_OUT_DIR}/save_config.yaml" tests/fixtures/mbtiles tests/fixtures/pmtiles tests/fixtures/cog "$STATICS_URL/webp2.pmtiles" s3://pmtilestest/cb_2018_us_zcta510_500k.pmtiles --sprite tests/fixtures/sprites/src1 --font tests/fixtures/fonts/overpass-mono-regular.ttf --font tests/fixtures/fonts --style tests/fixtures/styles/maplibre_demo.json --style tests/fixtures/styles/src2 --tilejson-url-version-param version )
+ARG=(--default-srid 900913 --auto-bounds calc --save-config "${TEST_OUT_DIR}/save_config.yaml" tests/fixtures/mbtiles tests/fixtures/pmtiles tests/fixtures/cog "$STATICS_URL/webp2.pmtiles" s3://pmtilestest/cb_2018_us_zcta510_500k.pmtiles --sprite tests/fixtures/sprites/src1 --font tests/fixtures/fonts/overpass-mono-regular.ttf --font tests/fixtures/fonts --style tests/fixtures/styles/maplibre_demo.json --style tests/fixtures/styles/src2 --style tests/fixtures/styles/relative_urls.json --tilejson-url-version-param version )
 export DATABASE_URL="$MARTIN_DATABASE_URL"
 
 set -x
@@ -492,6 +507,15 @@ test_json_with_header tilejson_with_forwarded_proto_and_host function_zxy_query 
 test_json_with_header tilejson_with_x_forwarded_prefix function_zxy_query "X-Forwarded-Prefix: /tiles/function_zxy_query"
 test_json_with_header tilejson_with_x_rewrite_url function_zxy_query "X-Rewrite-URL: /footiles/function_zxy_query"
 
+>&2 echo "***** Test relative URL expansion in style.json *****"
+# Style fixture uses protocol-less URLs (glyphs, sprite, sources.url, sources.tiles);
+# the server rewrites them to absolute URLs in the response using the request's
+# scheme/host and the resolved path prefix.
+test_jsn              relative_style_urls                        style/relative_urls
+test_json_with_header relative_style_urls_with_host              style/relative_urls "Host: example.com"
+test_json_with_header relative_style_urls_with_prefix            style/relative_urls "X-Forwarded-Prefix: /tiles"
+test_json_with_header relative_style_urls_ignores_forwarded_for  style/relative_urls "X-Forwarded-For: forwarded-for.example.com"
+test_json_with_header relative_style_urls_with_forwarded_host    style/relative_urls "X-Forwarded-Host: tiles.example.com"
 
 >&2 echo "***** Test server response for function source *****"
 test_jsn fnc                      function_zxy_query
@@ -844,7 +868,7 @@ wait_for "$MARTIN_PROC_ID" Martin "$MARTIN_URL/health"
 unset DATABASE_URL
 
 >&2 echo "***** Test MLT postprocessing *****"
-# table_source has process.mlt=auto — should convert MVT to MLT
+# table_source has process.mlt=auto - should convert MVT to MLT
 test_mlt proc_mlt_table_source           table_source/0/0/0
 
 >&2 echo "***** Test save_config includes process blocks *****"
@@ -902,12 +926,12 @@ fi
 
 # If we don't do this, rounding differences on CI and local machines are a problem
 echo "::group::redact unnecessary precision in *_config.yaml and *.json"
-for file in $(find ./tests/ -name "*_config.yaml" -type f); do
+for file in $(find ./tests/output/ ./tests/expected/ -name "*_config.yaml" -type f); do
     echo "truncating floats in $file"
     "$SED" --regexp-extended --in-place 's/(-?[0-9]+\.[0-9]{10})[0-9]+$/\1 # truncated to 10 digits/g' "$file"
     "$SED" --regexp-extended --in-place 's/0+ # truncated/ # truncated/g' "$file"
 done
-for file in $(find ./tests/ -name "*.json" -type f); do
+for file in $(find ./tests/output/ ./tests/expected/ -name "*.json" -type f); do
     echo "truncating floats in $file"
     cat "$file" | cleanup_json_floats 10000000000 > "$file.tmp"
 

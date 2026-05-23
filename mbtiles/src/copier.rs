@@ -5,7 +5,7 @@ use itertools::Itertools as _;
 use martin_tile_utils::{MAX_ZOOM, bbox_to_xyz};
 use serde::{Deserialize, Serialize};
 use sqlite_hashes::rusqlite::Connection;
-use sqlx::{Connection as _, Executor as _, Row as _, SqliteConnection, query};
+use sqlx::{AssertSqlSafe, Connection as _, Executor as _, Row as _, SqliteConnection, query};
 use tilejson::Bounds;
 use tracing::{debug, info, trace, warn};
 
@@ -627,7 +627,7 @@ impl MbtileCopierInt {
                 } else {
                     sql
                 };
-                query(sql.as_str()).execute(&mut *conn).await?;
+                query(AssertSqlSafe(sql)).execute(&mut *conn).await?;
             }
             if dst.is_normalized() {
                 // Some normalized mbtiles files might not have this view, so even if src == dst, it might not exist
@@ -916,7 +916,11 @@ mod tests {
     where
         for<'r> T: Decode<'r, Sqlite> + Type<Sqlite>,
     {
-        query(sql).fetch_one(conn).await.unwrap().get::<T, _>(0)
+        query(AssertSqlSafe(sql))
+            .fetch_one(conn)
+            .await
+            .unwrap()
+            .get::<T, _>(0)
     }
 
     async fn verify_copy_all(
@@ -928,7 +932,10 @@ mod tests {
     ) {
         let mbt = Mbtiles::new(&src_filepath).unwrap();
         let mut conn = mbt.open().await.unwrap();
-        sqlx::raw_sql(script).execute(&mut conn).await.unwrap();
+        sqlx::raw_sql(AssertSqlSafe(script))
+            .execute(&mut conn)
+            .await
+            .unwrap();
 
         let opt = MbtilesCopier {
             src_file: src_filepath.clone(),

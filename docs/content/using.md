@@ -1,6 +1,15 @@
+---
+icon: material/api
+tags:
+  - api
+---
+
 # Martin Endpoints
 
-Martin data is available via the HTTP `GET` endpoints:
+!!! tip "OpenAPI Documentation"
+    If you want to explore the API endpoints programmatically or generate client code, you can use our [OpenAPI Documentation](https://raw.githubusercontent.com/maplibre/martin/main/schemas/openapi.json).
+
+Martin data is available via these HTTP `GET` endpoints:
 
 | URL                                      | Description                                    |
 |------------------------------------------|------------------------------------------------|
@@ -20,7 +29,7 @@ Martin data is available via the HTTP `GET` endpoints:
 
 ### Postprocessing
 
-Martin can postprocess tiles before serving — for example, converting between MVT and [MLT format](using-guides/mlt.md) in either direction.
+Martin can postprocess tiles before serving - for example, converting between MVT and [MLT format](using-guides/mlt.md) in either direction.
 Postprocessing is configured via the `convert_to_mlt` and `convert_to_mvt` keys in the [configuration file](config-file/index.md#postprocessing), not through the HTTP API.
 Clients receive the postprocessed tiles transparently.
 
@@ -32,7 +41,8 @@ as `/points`, `/points.1`, etc.
 
 ### Reserved Source IDs
 
-Some source IDs are reserved for internal use. If you try to use them, they will be automatically renamed to a unique ID
+Some source IDs are reserved for internal use.
+If you try to use them, they will be automatically renamed to a unique ID
 the same way as duplicate source IDs are handled, e.g. a `catalog` source will become `catalog.1`.
 
 Here are the reserved source IDs:

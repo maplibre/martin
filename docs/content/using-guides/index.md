@@ -1,3 +1,7 @@
+---
+icon: material/book-open-page-variant
+---
+
 # Guides
 
 This section of the docs' site is dedicated to some examples and tutorials.

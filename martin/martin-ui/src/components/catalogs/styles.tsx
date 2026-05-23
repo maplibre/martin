@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { TooltipCopyText } from '@/components/ui/tooltip-copy-text';
 import { buildMartinUrl } from '@/lib/api';
-import type { Style } from '@/lib/types';
+import type { Catalog } from '@/lib/types.gen';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { FullscreenControl, Map as MapLibreMap } from '@vis.gl/react-maplibre';
 
@@ -31,7 +31,7 @@ function StylePreviewMap({ styleName }: { styleName: string }) {
 }
 
 interface StylesCatalogProps {
-  styles?: { [name: string]: Style };
+  styles?: Catalog['styles'];
   searchQuery?: string;
   onSearchChangeAction?: (query: string) => void;
   isLoading?: boolean;
@@ -124,22 +124,22 @@ export function StylesCatalog({
               <div className="space-y-4">
                 <StylePreviewMap styleName={name} />
                 <div className="space-y-2 text-sm text-muted-foreground">
-                  {style.versionHash && (
+                  {style.version_hash && (
                     <div className="flex justify-between">
                       <span>Version:</span>
-                      <span>{style.versionHash}</span>
+                      <span>{style.version_hash}</span>
                     </div>
                   )}
-                  {style.layerCount && (
+                  {style.layer_count && (
                     <div className="flex justify-between">
                       <span>Layers:</span>
-                      <span>{style.layerCount}</span>
+                      <span>{style.layer_count}</span>
                     </div>
                   )}
-                  {style.lastModifiedAt && (
+                  {style.last_modified_at && (
                     <div className="flex justify-between">
                       <span>Modified:</span>
-                      <span>{style.lastModifiedAt?.toLocaleString()}</span>
+                      <span>{style.last_modified_at?.toLocaleString()}</span>
                     </div>
                   )}
                 </div>

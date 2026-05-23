@@ -1,9 +1,16 @@
+---
+icon: material/variable
+tags:
+  - configuration
+  - deployment
+---
+
 # Environment Variables
 
 You can configure Martin using environment variables, but only if the configuration file is not used.
 The configuration file itself can use environment variables if needed.
-See [configuration section](config-file.md) on how to use environment variables with config files.
-See also [SSL configuration](pg-connections.md#postgresql-ssl-connections) section below.
+See [configuration section](config-file/index.md) on how to use environment variables with config files.
+See also [SSL configuration](pg-connections/index.md#ssl-connections) section below.
 
 | Environment var <br/> Config File key    | Example                                   | Description                                                                                                                                                                                                |
 |------------------------------------------|-------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|

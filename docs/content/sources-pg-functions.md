@@ -1,3 +1,11 @@
+---
+icon: simple/postgresql
+tags:
+  - postgresql
+  - tile-sources
+  - configuration
+---
+
 # PostgreSQL Function Sources
 
 A Function Source is a database function which can be used to
@@ -276,6 +284,6 @@ END $do$;
 ```
 
 !!! note
-    `content_type` is not a standard TileJSON field. Martin reads it from the SQL comment
-    to determine how to serve tiles with the correct MIME type. It is also preserved in the
-    TileJSON output so clients can inspect the tile format.
+    `content_type` is not a standard TileJSON field.
+    Martin reads it from the SQL comment to determine how to serve tiles with the correct MIME type.
+    It is also preserved in the TileJSON output so clients can inspect the tile format.

@@ -1,6 +1,6 @@
 [package]
 name = "martin-core"
-version = "0.5.4"
+version = "0.7.0"
 authors = ["Yuri Astrakhan <YuriAstrakhan@gmail.com>", "MapLibre contributors"]
 description = "Basic building blocks of MapLibre's Martin tile server."
 keywords = ["maps", "tiles", "mvt", "tileserver"]
@@ -43,6 +43,7 @@ fonts = [
     "dep:regex",
     "dep:itertools",
     "dep:dashmap",
+    "dep:walkdir",
 ]
 sprites = [
     "dep:actix-web",
@@ -51,8 +52,9 @@ sprites = [
     "tokio/fs",
     "dep:futures",
     "dep:dashmap",
+    "dep:walkdir",
 ]
-styles = ["tokio/fs", "dep:dashmap"]
+styles = ["tokio/fs", "dep:dashmap", "dep:walkdir"]
 mbtiles = ["dep:backon", "dep:mbtiles", "dep:tokio", "_tiles"]
 pmtiles = ["dep:pmtiles", "dep:object_store", "_tiles"]
 _tiles = ["dep:base64"]
@@ -69,6 +71,7 @@ async-trait.workspace = true
 backon = { workspace = true, optional = true }
 base64  = { workspace = true, optional = true }
 bit-set = { workspace = true, optional = true }
+chrono.workspace = true
 dashmap = { workspace = true, optional = true }
 deadpool-postgres = { workspace = true, optional = true }
 derive-debug.workspace = true
@@ -102,6 +105,7 @@ tokio = { workspace = true, optional = true }
 tokio-postgres-rustls = { workspace = true, optional = true }
 tracing.workspace = true
 utoipa = { workspace = true, optional = true }
+walkdir = { workspace = true, optional = true }
 xxhash-rust.workspace = true
 
 [dev-dependencies]

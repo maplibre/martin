@@ -263,8 +263,7 @@ impl TileInfo {
         if let Some(raster_format) = Self::detect_raster_formats(value) {
             Self::new(raster_format, Encoding::Internal)
         } else {
-            let inner_format = Self::detect_vectorish_format(value);
-            Self::new(inner_format, Encoding::Uncompressed)
+            Self::detect_vectorish_format(value).into()
         }
     }
 
@@ -410,6 +409,26 @@ fn is_valid_json(tile: &[u8]) -> bool {
         && serde_json::from_slice::<serde::de::IgnoredAny>(tile).is_ok()
 }
 
+/// Geographic center of XYZ tile `(z, x, y)` in WGS84 degrees.
+///
+/// Returns `(longitude, latitude)`.
+#[must_use]
+pub fn tile_center_lng_lat(z: u8, x: u32, y: u32) -> (f64, f64) {
+    let [min_lng, min_lat, max_lng, max_lat] = xyz_to_bbox(z, x, y, x, y);
+    let center_lng = f64::midpoint(min_lng, max_lng);
+    // Web Mercator stretches lat toward the poles, so the WGS84 lat at a
+    // tile's *projection-space* y center is NOT the WGS84 midpoint of its
+    // south/north edges.
+    //
+    // (1, 0, 0) shows this best:
+    // the correct output is approx (-90.0,  66.5)
+    // a naive WGS84-average would give (-90.0, 42.5)
+    let (_, merc_south) = wgs84_to_webmercator(center_lng, min_lat);
+    let (_, merc_north) = wgs84_to_webmercator(center_lng, max_lat);
+    let (_, center_lat) = webmercator_to_wgs84(center_lng, f64::midpoint(merc_south, merc_north));
+    (center_lng, center_lat)
+}
+
 /// Convert longitude and latitude to a tile (x,y) coordinates for a given zoom
 #[must_use]
 #[expect(clippy::cast_possible_truncation)]
@@ -545,6 +564,15 @@ mod tests {
     }
 
     #[test]
+    fn test_raw_mlt_encoding_internal() {
+        // MLT has internal compression, so raw MLT bytes should be Encoding::Internal
+        // to prevent the serve path from applying heavyweight gzip/brotli on top.
+        let mlt_data = &[0x02, 0x01];
+        let result = TileInfo::detect(mlt_data);
+        assert_eq!(result, TileInfo::new(Format::Mlt, Encoding::Internal));
+    }
+
+    #[test]
     fn test_compressed_mlt_gzip() {
         // MLT tile: length=2 (0x02), version=1 (0x01)
         let mlt_data = &[0x02, 0x01];
@@ -653,6 +681,31 @@ mod tests {
             tile_index(lng, lat, zoom),
             "{lng},{lat}@z{zoom} should be {expected:?}"
         );
+    }
+
+    #[rstest]
+    #[case::world(0, 0, 0, 0.0, 0.0)]
+    #[case::z1_top_left(1, 0, 0, -90.0,  66.513_260_443_111_86)]
+    #[case::z1_top_right(1, 1, 0, 90.0, 66.513_260_443_111_86)]
+    #[case::z1_bottom_left(1, 0, 1, -90.0, -66.513_260_443_111_86)]
+    #[case::z1_bottom_right(1, 1, 1,  90.0, -66.513_260_443_111_86)]
+    #[case::z2_interior(2, 1, 1, -45.0, 40.979_898_069_620_13)]
+    #[case::z10_near_origin(10, 511, 511, -0.175_781_25, 0.175_780_974_247_087_4)]
+    fn test_tile_center_lng_lat(
+        #[case] z: u8,
+        #[case] x: u32,
+        #[case] y: u32,
+        #[case] expected_lng: f64,
+        #[case] expected_lat: f64,
+    ) {
+        let (lng, lat) = tile_center_lng_lat(z, x, y);
+        // Tolerance >> pure-rounding (4 ULPs) since sinh∘atan∘to_degrees
+        // accumulates a few ULPs across libm implementations.
+        assert_relative_eq!(lng, expected_lng, epsilon = 1e-10);
+        assert_relative_eq!(lat, expected_lat, epsilon = 1e-10);
+        // Round-trip: feeding the center back into `tile_index` must land
+        // on the same `(x, y)`.
+        assert_eq!(tile_index(lng, lat, z), (x, y));
     }
 
     #[rstest]

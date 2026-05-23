@@ -4,6 +4,7 @@ Schema: [`schemas/config.json`](https://github.com/maplibre/martin/blob/main/sch
 
 ```yaml title="config.yaml"
 # yaml-language-server: $schema=https://raw.githubusercontent.com/maplibre/martin/main/schemas/config.json
+
 # Set `TileJSON` URL path prefix.
 # This overrides the default path prefix for URLs in `TileJSON` responses.
 # If both `route_prefix` and `base_path` are set, `base_path` takes priority for `TileJSON` URLs.
@@ -323,8 +324,7 @@ postgres:
   # This feature allows you to put a maximum latency bound on tiles with an
   # extreme amount of detail at the cost of not returning all data.
   # It is sensible to set this limit if you have user generated/untrusted
-  # geodata, e.g. a lot of data points at [Null Island]
-  # (<https://en.wikipedia.org/wiki/Null_Island>).
+  # geodata, e.g. a lot of data points at [Null Island](https://en.wikipedia.org/wiki/Null_Island).
   #
   # either a positive integer, or null=unlimited (default)
   max_feature_count: null
@@ -374,6 +374,13 @@ sprites:
 styles:
   # A list of file paths
   paths: []
+  # Allows static, server side, style rendering
+  #
+  # Note on EXPERIMENTAL status:
+  # We are not currently happy with the performance of this endpoint and intend to improve this in the future
+  # Marking this experimental means that we are not stuck with single threaded performance as a default until v2.0
+  rendering:
+    enabled: false
   # A map of source IDs to file paths or config objects
   sources: {}
 # If set, the version of the tileset (as specified in the `MBTiles` or `PMTiles` metadata)

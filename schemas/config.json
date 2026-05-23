@@ -270,6 +270,10 @@
           "$ref": "#/$defs/OptOneMany2",
           "description": "A list of file paths"
         },
+        "rendering": {
+          "$ref": "#/$defs/OptBoolObj4",
+          "description": "Allows static, server side, style rendering\n\nNote on EXPERIMENTAL status:\nWe are not currently happy with the performance of this endpoint and intend to improve this in the future\nMarking this experimental means that we are not stuck with single threaded performance as a default until v2.0"
+        },
         "sources": {
           "additionalProperties": {
             "$ref": "#/$defs/FileConfigSrc"
@@ -625,7 +629,8 @@
       "type": "object"
     },
     "MvtEncoderConfig": {
-      "description": "Explicit encoder configuration for MVT conversion",
+      "additionalProperties": true,
+      "description": "Explicit encoder configuration for MVT conversion.\n\nThe MVT encoder currently has no tunable knobs, so any keys provided are\ncaptured here verbatim and surfaced through the established unrecognized-key\nwarning path so users get a typo hint instead of silent acceptance.",
       "type": "object"
     },
     "ObservabilityConfig": {
@@ -694,6 +699,19 @@
         },
         {
           "$ref": "#/$defs/PostgresCfgPublishFuncs",
+          "description": "An object value."
+        }
+      ],
+      "description": "A serde helper to store a boolean as an object."
+    },
+    "OptBoolObj4": {
+      "anyOf": [
+        {
+          "description": "A boolean value.",
+          "type": "boolean"
+        },
+        {
+          "$ref": "#/$defs/RendererConfig",
           "description": "An object value."
         }
       ],
@@ -864,7 +882,7 @@
           "type": ["object", "null"]
         },
         "max_feature_count": {
-          "description": "Limit the number of geo features per tile.\n\nIf the source table has more features than set here, they will not be\nincluded in the tile and the result will look \"cut off\"/incomplete.\nThis feature allows you to put a maximum latency bound on tiles with an\nextreme amount of detail at the cost of not returning all data.\nIt is sensible to set this limit if you have user generated/untrusted\ngeodata, e.g. a lot of data points at [Null Island]\n(<https://en.wikipedia.org/wiki/Null_Island>).\n\neither a positive integer, or null=unlimited (default)",
+          "description": "Limit the number of geo features per tile.\n\nIf the source table has more features than set here, they will not be\nincluded in the tile and the result will look \"cut off\"/incomplete.\nThis feature allows you to put a maximum latency bound on tiles with an\nextreme amount of detail at the cost of not returning all data.\nIt is sensible to set this limit if you have user generated/untrusted\ngeodata, e.g. a lot of data points at [Null Island](https://en.wikipedia.org/wiki/Null_Island).\n\neither a positive integer, or null=unlimited (default)",
           "format": "uint",
           "minimum": 0,
           "type": ["integer", "null"]
@@ -904,6 +922,15 @@
     "PreferredEncoding": {
       "enum": ["brotli", "gzip"],
       "type": "string"
+    },
+    "RendererConfig": {
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      },
+      "required": ["enabled"],
+      "type": "object"
     },
     "TableInfo": {
       "properties": {

@@ -1,12 +1,21 @@
+---
+icon: simple/postgresql
+tags:
+  - postgresql
+  - ssl
+  - configuration
+---
+
 # PostgreSQL SSL Certificates
 
-Martin supports SSL certificate authentication for PostgreSQL connections. This guide covers certificate generation, PostgreSQL configuration, and Martin setup.
+Martin supports SSL certificate authentication for PostgreSQL connections.
+This guide covers certificate generation, PostgreSQL configuration, and Martin setup.
 
 ## When to Use SSL Certificates
 
 Use SSL certificates for:
 
-- Deployments where martin and Postgis are on separate machines
+- Deployments where Martin and PostGIS are on separate machines
 - Compliance requirements (PCI DSS, HIPAA, etc.)
 - Cloud PostgreSQL deployments
 - High-security environments requiring certificate-based authentication
@@ -66,7 +75,7 @@ openssl req -new -x509 -days 365 -key ca-key.pem -out ca-cert.pem \
     -subj "/C=US/ST=State/L=City/O=Organization/CN=Test CA"
 ```
 
-You can then generate a server certificates:
+You can then generate a server certificate:
 
 ```bash
 # Generate server private key
@@ -165,7 +174,7 @@ SELECT * FROM pg_stat_ssl WHERE pid = pg_backend_pid();
 
 ## Martin Configuration
 
-Martin can be configured using environment variables, the CLI, or the configuration file.
+Martin can be configured using environment variables, [the CLI](run-with-cli.md), or the [configuration file](config-file/index.md).
 Which of them you choose is up to you.
 You do not need to configure things twice.
 

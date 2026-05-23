@@ -38,4 +38,4 @@ mod tile;
 pub use tile::Tile;
 
 mod cache;
-pub use cache::{NO_TILE_CACHE, OptTileCache, TileCache};
+pub use cache::{NO_TILE_CACHE, OptTileCache, TileCache, TileCacheKey};

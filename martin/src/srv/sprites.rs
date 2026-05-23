@@ -6,7 +6,7 @@ use actix_web::http::header::{ContentType, LOCATION};
 use actix_web::middleware::Compress;
 use actix_web::web::{Bytes, Data, Path};
 use actix_web::{HttpResponse, Result as ActixResult, route};
-use martin_core::sprites::{OptSpriteCache, SpriteError, SpriteSources};
+use martin_core::sprites::{OptSpriteCache, SpriteCacheKey, SpriteError, SpriteSources};
 use serde::Deserialize;
 use tracing::{instrument, warn};
 
@@ -62,9 +62,10 @@ pub async fn get_sprite_png(
     let is_sdf = false;
     let png = if let Some(cache) = cache.as_ref() {
         cache
-            .get_or_insert(path.source_ids.clone(), is_sdf, false, async || {
-                get_sprite(&path.source_ids, &sprites, is_sdf).await
-            })
+            .get_or_insert(
+                SpriteCacheKey::new(path.source_ids.clone(), is_sdf, false),
+                async || get_sprite(&path.source_ids, &sprites, is_sdf).await,
+            )
             .await
             .map_err(|e| map_sprite_compute_error(e.as_ref()))?
     } else {
@@ -129,9 +130,10 @@ pub async fn get_sprite_sdf_png(
     let is_sdf = true;
     let png = if let Some(cache) = cache.as_ref() {
         cache
-            .get_or_insert(path.source_ids.clone(), is_sdf, false, async || {
-                get_sprite(&path.source_ids, &sprites, is_sdf).await
-            })
+            .get_or_insert(
+                SpriteCacheKey::new(path.source_ids.clone(), is_sdf, false),
+                async || get_sprite(&path.source_ids, &sprites, is_sdf).await,
+            )
             .await
             .map_err(|e| map_sprite_compute_error(e.as_ref()))?
     } else {
@@ -197,9 +199,10 @@ pub async fn get_sprite_json(
     let is_sdf = false;
     let json = if let Some(cache) = cache.as_ref() {
         cache
-            .get_or_insert(path.source_ids.clone(), is_sdf, true, async || {
-                get_index(&path.source_ids, &sprites, is_sdf).await
-            })
+            .get_or_insert(
+                SpriteCacheKey::new(path.source_ids.clone(), is_sdf, true),
+                async || get_index(&path.source_ids, &sprites, is_sdf).await,
+            )
             .await
             .map_err(|e| map_sprite_compute_error(e.as_ref()))?
     } else {
@@ -265,9 +268,10 @@ pub async fn get_sprite_sdf_json(
     let is_sdf = true;
     let json = if let Some(cache) = cache.as_ref() {
         cache
-            .get_or_insert(path.source_ids.clone(), is_sdf, true, async || {
-                get_index(&path.source_ids, &sprites, is_sdf).await
-            })
+            .get_or_insert(
+                SpriteCacheKey::new(path.source_ids.clone(), is_sdf, true),
+                async || get_index(&path.source_ids, &sprites, is_sdf).await,
+            )
             .await
             .map_err(|e| map_sprite_compute_error(e.as_ref()))?
     } else {

@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.6](https://github.com/maplibre/martin/compare/mbtiles-v0.17.5...mbtiles-v0.17.6) - 2026-05-19
+
+### Fixed
+
+- Do not use heavyweight compression with MLT ([#2813](https://github.com/maplibre/martin/pull/2813))
+
+## [0.17.5](https://github.com/maplibre/martin/compare/mbtiles-v0.17.4...mbtiles-v0.17.5) - 2026-05-16
+
+### Other
+
+- apply more restrictions to our code and make sure that unused variables are handled for MLT ([#2808](https://github.com/maplibre/martin/pull/2808))
+- various minor docs improvements ([#2807](https://github.com/maplibre/martin/pull/2807))
+- fix all m-dashes to use regular dashes ([#2805](https://github.com/maplibre/martin/pull/2805))
+
 ## [0.17.4](https://github.com/maplibre/martin/compare/mbtiles-v0.17.3...mbtiles-v0.17.4) - 2026-05-06
 
 ### Structured tracing fields
@@ -102,9 +116,9 @@ The `mbtiles` CLI output stays readable in the default formatter, but log scrape
 
 Configurable output formats for `mbtiles summary`.
 You can now control the output format using the `--format` option:
-- `json-pretty` — multi-line, human-readable JSON
-- `json` — compact JSON
-- `text` — plain text (default)
+- `json-pretty` - multi-line, human-readable JSON
+- `json` - compact JSON
+- `text` - plain text (default)
 
 Implemented in [#2447](https://github.com/maplibre/martin/pull/2447) by @nyurik.
 

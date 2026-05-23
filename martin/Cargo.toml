@@ -1,6 +1,6 @@
 [package]
 name = "martin"
-version = "1.9.1"
+version = "1.10.1"
 authors = [
     "Stepan Kuzmin <to.stepan.kuzmin@gmail.com>",
     "Yuri Astrakhan <YuriAstrakhan@gmail.com>",
@@ -220,6 +220,7 @@ walkdir = { workspace = true, optional = true }
 [dev-dependencies]
 backon.workspace = true
 criterion.workspace = true
+image-compare.workspace = true
 indoc.workspace = true
 insta = { workspace = true, features = ["json", "yaml", "redactions"] }
 rstest.workspace = true

@@ -1,4 +1,5 @@
 #![allow(clippy::unwrap_used)]
+#![expect(clippy::print_stderr, reason = "test diagnostics on failure")]
 use std::collections::HashMap;
 use std::fmt::Write as _;
 use std::path::PathBuf;
@@ -19,7 +20,7 @@ use mbtiles::{
 use pretty_assertions::assert_eq as pretty_assert_eq;
 use rstest::{fixture, rstest};
 use serde::Serialize;
-use sqlx::{Executor as _, Row as _, SqliteConnection, query, query_as};
+use sqlx::{AssertSqlSafe, Executor as _, Row as _, SqliteConnection, query, query_as};
 use tokio::runtime::Handle;
 
 const GZIP_TILES: &str = "UPDATE tiles SET tile_data = gzip(tile_data);";
@@ -764,7 +765,7 @@ async fn dump(conn: &mut SqliteConnection) -> MbtResult<Vec<SqliteEntry>> {
         };
 
         let sql = format!("PRAGMA table_info({tbl})");
-        let columns: Vec<_> = query(&sql)
+        let columns: Vec<_> = query(AssertSqlSafe(sql))
             .fetch_all(&mut *conn)
             .await?
             .into_iter()
@@ -776,7 +777,7 @@ async fn dump(conn: &mut SqliteConnection) -> MbtResult<Vec<SqliteEntry>> {
             .collect();
 
         let sql = format!("SELECT * FROM {tbl}");
-        let rows = query(&sql).fetch_all(&mut *conn).await?;
+        let rows = query(AssertSqlSafe(sql)).fetch_all(&mut *conn).await?;
         let mut values = rows
             .iter()
             .map(|row| {

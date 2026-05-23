@@ -1,8 +1,16 @@
-# Configuration File
+---
+icon: material/file-cog
+tags:
+  - configuration
+---
 
-If you don't want to expose all of your tables and functions, you can list your sources in a configuration file. To
-start Martin with a configuration file you need to pass a path to a file with a `--config` argument. Config files may
-contain environment variables, which will be expanded before parsing. For example, to use `MY_DATABASE_URL` in your
+# Configuration
+
+If you don't want to expose all of your tables and functions, you can list your sources in a configuration file.
+To start Martin with a configuration file you need to pass a path to a file with a `--config` argument.
+Config files may
+contain environment variables, which will be expanded before parsing.
+For example, to use `MY_DATABASE_URL` in your
 config file: `connection_string: ${MY_DATABASE_URL}`, or with a
 default `connection_string: ${MY_DATABASE_URL:-postgres://postgres@localhost/db}`
 
@@ -10,30 +18,34 @@ default `connection_string: ${MY_DATABASE_URL:-postgres://postgres@localhost/db}
 martin --config config.yaml
 ```
 
-You may wish to auto-generate a config file with `--save-config` argument. This will generate a config yaml file with
-all of your configuration, which you can edit to remove any sources you don't want to expose.
+You may wish to auto-generate a config file with `--save-config` argument.
+This will generate a config yaml file with all of your configuration, which you can edit to remove any sources you don't want to expose.
 
 ```bash
 martin  ... ... ...  --save-config config.yaml
 ```
 
+## Full Configuration
+
+--8<-- "files/generated_config.md"
+
 ## Postprocessing
 
 Martin's postprocessing pipeline can convert tiles between MVT and MLT formats on the fly, driven by the client's `Accept` header.
 The `convert_to_mlt` and `convert_to_mvt` keys configure these conversions.
-See the [MLT usage guide](using-guides/mlt.md) for full details.
+See the [MLT usage guide](../using-guides/mlt.md) for full details.
 
 Currently configurable:
 
-- **`convert_to_mlt`** — encoder settings for MVT->MLT conversion (triggered by `Accept: application/vnd.maplibre-tile`).
-- **`convert_to_mvt`** — enables MLT->MVT conversion (triggered by `Accept: application/x-protobuf` on an MLT source). Currently only supports `auto`.
+- **`convert_to_mlt`** - encoder settings for MVT->MLT conversion (triggered by `Accept: application/vnd.maplibre-tile`).
+- **`convert_to_mvt`** - enables MLT->MVT conversion (triggered by `Accept: application/x-protobuf` on an MLT source). Currently only supports `auto`.
 
 Both keys can appear at three levels.
 The most specific level wins entirely (no merging between levels):
 
-1. **Global** — applies to all sources
-2. **Source-type** — applies to all sources of that type (e.g. all PMTiles sources)
-3. **Per-source** — applies to a single source
+1. **Global** - applies to all sources
+2. **Source-type** - applies to all sources of that type (e.g. all PMTiles sources)
+3. **Per-source** - applies to a single source
 
 ```yaml
 # Global: default encoder settings for any source whose tiles get converted
@@ -55,10 +67,6 @@ postgres:
 mbtiles: # gets global default
   - some/file.mbtiles
 ```
-
-## Config Example
-
---8<-- "files/generated_config.md"
 
 ## Validating your config
 
@@ -82,8 +90,8 @@ autocomplete from the schema.
 
 ### From the command line
 
-The same check Martin's CI runs against its own fixtures works on your
-config too. With [`uv`](https://docs.astral.sh/uv/) installed:
+The same check Martin's CI runs against its own fixtures works on your config too.
+With [`uv`](https://docs.astral.sh/uv/) installed:
 
 ```bash
 uvx --from check-jsonschema check-jsonschema \

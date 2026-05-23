@@ -99,7 +99,7 @@ cargo build --workspace
 ### Frontend Operations
 
 | Command              | Timeout | Notes               |
-| -------------------- | ------- | ------------------- |
+|----------------------|---------|---------------------|
 | `npm install`        | 5m      | Only in `martin-ui` |
 | `just test-frontend` | 2m      | UI tests only       |
 | `npm start`          | n/a     | Dev server          |
@@ -107,7 +107,7 @@ cargo build --workspace
 ### Backend Operations
 
 | Command                   | Timeout |
-| ------------------------- | ------- |
+|---------------------------|---------|
 | `cargo build --workspace` | 20m     |
 | `just check`              | 20m     |
 | `cargo clippy`            | 5m      |

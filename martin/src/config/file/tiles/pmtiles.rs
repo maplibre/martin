@@ -17,6 +17,8 @@ use crate::config::file::{
 };
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 use crate::config::file::{MltProcessConfig, MvtProcessConfig};
+#[cfg(all(feature = "mlt", feature = "_tiles"))]
+use crate::config::primitives::AutoOption;
 
 /// Default polling interval for [`PMTilesReloader`](crate::config::file::reload::pmtiles::PMTilesReloader)
 /// to re-list remote URL prefixes (s3://, gs://, https://, etc.). Local directories are
@@ -142,7 +144,24 @@ impl ConfigurationLivecycleHooks for PmtConfig {
     }
 
     fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
-        self.unrecognized.keys().cloned().collect()
+        #[cfg_attr(not(all(feature = "mlt", feature = "_tiles")), allow(unused_mut))]
+        let mut keys: UnrecognizedKeys = self.unrecognized.keys().cloned().collect();
+        #[cfg(all(feature = "mlt", feature = "_tiles"))]
+        {
+            if let Some(AutoOption::Explicit(cfg)) = self.convert_to_mlt.as_ref() {
+                keys.extend(
+                    cfg.unrecognized_keys()
+                        .map(|k| format!("convert_to_mlt.{k}")),
+                );
+            }
+            if let Some(AutoOption::Explicit(cfg)) = self.convert_to_mvt.as_ref() {
+                keys.extend(
+                    cfg.unrecognized_keys()
+                        .map(|k| format!("convert_to_mvt.{k}")),
+                );
+            }
+        }
+        keys
     }
 }
 

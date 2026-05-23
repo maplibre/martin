@@ -1,3 +1,8 @@
+#![expect(
+    clippy::print_stderr,
+    reason = "binary entrypoint reports startup errors to stderr"
+)]
+
 use std::env;
 
 use clap::Parser as _;

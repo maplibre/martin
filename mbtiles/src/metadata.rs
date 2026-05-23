@@ -5,7 +5,7 @@ use std::str::FromStr as _;
 use futures::TryStreamExt as _;
 use serde::Serialize;
 use serde_json::{Value as JSONValue, Value, json};
-use sqlx::{SqliteConnection, SqliteExecutor, query};
+use sqlx::{AssertSqlSafe, SqliteConnection, SqliteExecutor, query};
 use tilejson::{Bounds, Center, TileJSON, tilejson};
 use tracing::{info, warn};
 
@@ -348,7 +348,7 @@ impl Mbtiles {
 pub async fn anonymous_mbtiles(script: &str) -> (Mbtiles, SqliteConnection) {
     let mbt = Mbtiles::new(":memory:").expect("in-memory mbtiles can be created");
     let mut conn = mbt.open().await.expect("in-memory mbtiles can be opened");
-    sqlx::raw_sql(script)
+    sqlx::raw_sql(AssertSqlSafe(script))
         .execute(&mut conn)
         .await
         .expect("script execution succeeded");
@@ -371,7 +371,7 @@ pub async fn temp_named_mbtiles(
         .open()
         .await
         .unwrap_or_else(|_| panic!("can open connection to {}", file.display()));
-    sqlx::raw_sql(script)
+    sqlx::raw_sql(AssertSqlSafe(script))
         .execute(&mut conn)
         .await
         .unwrap_or_else(|_| panic!("can execute script on {}", file.display()));
@@ -557,7 +557,7 @@ mod tests {
         let tile_info = mbt.detect_format(&meta.tilejson, &mut conn).await.unwrap();
         assert_eq!(
             tile_info,
-            Some(TileInfo::new(Format::Mlt, Encoding::Uncompressed))
+            Some(TileInfo::new(Format::Mlt, Encoding::Internal))
         );
     }
 

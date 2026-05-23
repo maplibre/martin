@@ -74,25 +74,32 @@ build-hotpath:
 bench-server-hotpath: start build-hotpath
     exec target/release/martin tests/fixtures/mbtiles tests/fixtures/pmtiles
 
-# Regenerate the experimental config JSON Schema and HTTP OpenAPI spec.
-# Output is written to ./schemas/ and is committed to the repo by the
-# `gen-schemas` job in .github/workflows/autofix.yml on every PR push.
+# Regenerate configs' JSON Schema, HTTP OpenAPI spec, and TS types
 gen-schemas:
     #!/usr/bin/env bash
     set -euo pipefail
     mkdir -p schemas
-    # `unstable-schemas` already implies the source-type features; we just
-    # disable defaults so we don't pull in `rendering` (slow C++ build).
-    cargo run --quiet --no-default-features --features unstable-schemas \
+    # Include `rendering` on Linux (the only platform it compiles on) so the
+    # spec covers all routes a release build serves. `MLN_PRECOMPILE=1` skips
+    # the slow C++ build by downloading a prebuilt maplibre-native.
+    feats=unstable-schemas
+    case "$(uname -s)" in
+        Linux) feats="$feats,rendering" ;;
+    esac
+    MLN_PRECOMPILE=1 cargo run --quiet --no-default-features --features "$feats" \
         --bin gen-schemas -- --target config      > schemas/config.json
-    cargo run --quiet --no-default-features --features unstable-schemas \
+    MLN_PRECOMPILE=1 cargo run --quiet --no-default-features --features "$feats" \
         --bin gen-schemas -- --target openapi     > schemas/openapi.json
     # The annotated config doc (markdown wrapping a fenced YAML block) is
     # derived from `schemas/config.json` and the `#[schemars(example = ...)]`
-    # attributes — keep it generated and version-controlled so editors can lean
+    # attributes - keep it generated and version-controlled so editors can lean
     # on it as a starting point.
-    cargo run --quiet --no-default-features --features unstable-schemas \
+    MLN_PRECOMPILE=1 cargo run --quiet --no-default-features --features "$feats" \
         --bin gen-schemas -- --target config-doc  > docs/content/files/generated_config.md
+    # Regenerate `martin/martin-ui/src/lib/types.gen.ts` from the freshly
+    # written `schemas/openapi.json`. Kept after the cargo runs so the spec
+    # is up-to-date by the time `openapi-typescript` reads it.
+    {{just}} ui::gen-ui-types
 
 # Validate the generated config + OpenAPI schemas: that they are themselves
 # well-formed (against the JSON Schema 2020-12 metaschema and the OpenAPI 3.1
@@ -102,7 +109,7 @@ test-schemas:
     #!/usr/bin/env bash
     set -euo pipefail
     if [[ ! -f schemas/config.json || ! -f schemas/openapi.json ]]; then
-        echo "schemas/config.json or schemas/openapi.json missing — run 'just gen-schemas' first" >&2
+        echo "schemas/config.json or schemas/openapi.json missing - run 'just gen-schemas' first" >&2
         exit 1
     fi
 
@@ -321,11 +328,11 @@ debug-page *args: start
 
 # Build and run martin docker image
 docker-run *args:
-    docker run -it --rm --net host -e DATABASE_URL -v $PWD/tests:/tests ghcr.io/maplibre/martin:1.9.1 {{args}}
+    docker run -it --rm --net host -e DATABASE_URL -v $PWD/tests:/tests ghcr.io/maplibre/martin:1.10.1 {{args}}
 
 # Build and run martin documentation
 docs:
-    docker run --rm -it -p 8000:8000 -v ${PWD}:/docs zensical/zensical:latest
+    uvx zensical serve --open
 
 # Build martin documentation
 docs-build:
@@ -422,8 +429,8 @@ install-dependencies backend='vulkan':
 install-dependencies backend='vulkan':
     @echo "rendering styles is not currently supported on windows"
 
-# Run cargo fmt and cargo clippy
-lint: fmt clippy ui::biome ui::type-check
+# Run common lints
+lint: fmt check clippy ui::biome ui::type-check clippy-md fmt-toml
 
 # Run mbtiles command
 mbtiles *args:
@@ -520,11 +527,11 @@ test-minio:
 
 # Run Rust unit tests (cargo test)
 test-cargo *args:
-    cargo test {{args}}
+    MLN_PRECOMPILE=1 cargo test {{args}}
 
 # Run Rust doc tests
 test-doc *args:
-    cargo test --doc {{args}}
+    MLN_PRECOMPILE=1 cargo test --doc {{args}}
 
 # Test code formatting
 test-fmt: (cargo-install 'cargo-sort') && (fmt-toml '--check' '--check-format')
@@ -535,22 +542,17 @@ test-int: clean-test install-sqlx start-pmtiles-server
     #!/usr/bin/env bash
     set -euo pipefail
     tests/test.sh
-    if [ "{{os()}}" != "linux" ]; then
-        echo "** Integration tests are only supported on Linux"
-        echo "** Skipping diffing with the expected output"
+    echo "** Comparing actual output with expected output..."
+    if ! diff --brief --recursive --new-file --exclude='*.pbf' tests/output tests/expected; then
+        echo "** Expected output does not match actual output"
+        echo "** If this is expected, run 'just bless' to update expected output"
+        echo ""
+        echo "::group::Resulting diff (max 100 lines)"
+        diff --recursive --new-file --exclude='*.pbf' tests/output tests/expected | head -n 100 | cat -v
+        echo "::endgroup::"
+        exit 1
     else
-        echo "** Comparing actual output with expected output..."
-        if ! diff --brief --recursive --new-file --exclude='*.pbf' tests/output tests/expected; then
-            echo "** Expected output does not match actual output"
-            echo "** If this is expected, run 'just bless' to update expected output"
-            echo ""
-            echo "::group::Resulting diff (max 100 lines)"
-            diff --recursive --new-file --exclude='*.pbf' tests/output tests/expected | head -n 100 | cat --show-nonprinting
-            echo "::endgroup::"
-            exit 1
-        else
-            echo "** Expected output matches actual output"
-        fi
+        echo "** Expected output matches actual output"
     fi
 
 # Run AWS Lambda smoke test against SAM local

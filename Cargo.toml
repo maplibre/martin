@@ -6,7 +6,7 @@ members = ["martin", "martin-core", "martin-tile-utils", "mbtiles"]
 edition = "2024"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/maplibre/martin"
-rust-version = "1.92"
+rust-version = "1.94"
 homepage = "https://martin.maplibre.org/"
 
 [workspace.lints.rust]
@@ -19,13 +19,32 @@ unused_qualifications = "warn"
 # Restrictions
 absolute_paths = "warn"
 as_underscore = "warn"
+assertions_on_result_states = "warn"
+dbg_macro = "warn"
+empty_drop = "warn"
+empty_structs_with_brackets = "warn"
+error_impl_error = "warn"
+exit = "warn"
+format_push_string = "warn"
+lossy_float_literal = "warn"
+mem_forget = "warn"
+negative_feature_names = "warn"
 panic = "warn"
 panic_in_result_fn = "warn"
+print_stderr = "warn"
+print_stdout = "warn"
+redundant_feature_names = "warn"
+redundant_type_annotations = "warn"
+same_name_method = "warn"
+string_slice = "warn"
 todo = "warn"
+try_err = "warn"
 unimplemented = "warn"
+unnecessary_safety_doc = "warn"
 unwrap_used = "warn"
 unused_trait_names = "warn"
 use_self = "warn"
+verbose_file_reads = "warn"
 
 # Pedantics without being too noisy
 pedantic = { level = "warn", priority = -1 }
@@ -53,6 +72,7 @@ base64 = "0.22.1"
 bit-set = "0.10"
 brotli = ">=5, <9"
 bytes = "1"
+chrono = { version = "0.4", default-features = false, features = ["serde"] }
 clap = { version = "4", features = ["derive", "unstable-markdown", "wrap_help"] }
 criterion = { version = "0.8", features = ["async_futures", "async_tokio", "html_reports"] }
 dashmap = { version = "6.1.0", features = ["serde", "inline", "rayon"] }
@@ -75,9 +95,9 @@ json-patch = "4"
 lambda-web = { version = "0.2.1", features = ["actix4"] }
 log = "0.4"
 maplibre_native = "0.4.4"
-martin-core = { path = "./martin-core", version = "0.5.4", default-features = false }
-martin-tile-utils = { path = "./martin-tile-utils", version = "0.7.2" }
-mbtiles = { path = "./mbtiles", version = "0.17.4" }
+martin-core = { path = "./martin-core", version = "0.7.0", default-features = false }
+martin-tile-utils = { path = "./martin-tile-utils", version = "0.7.3" }
+mbtiles = { path = "./mbtiles", version = "0.17.6" }
 md5 = "0.8.0"
 miette = { version = "7.6", features = ["fancy"] }
 mlt-core = { version = "0.9.1", default-features = false }
@@ -101,7 +121,7 @@ rustls = "0.23.38"
 #rustls = { version = "0.23", default-features = false, features = ["logging", "std", "tls12", "ring"] }
 rustls-native-certs = "0.8"
 rustls-pemfile = "2"
-schemars = { version = "1.2", default-features = false, features = ["derive", "std"] }
+schemars = { version = "1.2", default-features = false, features = ["chrono04", "derive", "std"] }
 semver = "1"
 serde = { version = "1", features = ["derive"] }
 serde-saphyr = { version = "0.0.25", features = ["miette"] }
@@ -112,7 +132,7 @@ size_format = "1.0.2"
 spreet = { version = "0.13", default-features = false }
 sqlite-compressions = { version = "0.3", default-features = false, features = ["bsdiffraw", "gzip"] }
 sqlite-hashes = { version = "0.10.6", default-features = false, features = ["md5", "aggregate", "hex"] }
-sqlx = { version = "0.8.6", features = ["sqlite", "runtime-tokio"] }
+sqlx = { version = "0.9.0", features = ["sqlite", "runtime-tokio"] }
 static-files = "0.2"
 subst = "0.3"
 tempfile = "3.21.0"
@@ -129,7 +149,7 @@ tracing-log = { version = "0.2.0", features = ["interest-cache"] }
 tracing-subscriber = { version = "0.3", default-features = false }
 tracing-test = "0.2"
 url = "2.5"
-utoipa = { version = "5.4", default-features = false, features = ["macros", "actix_extras"] }
+utoipa = { version = "5.4", default-features = false, features = ["chrono", "macros", "actix_extras"] }
 utoipa-actix-web = "0.1"
 walkdir = "2.5.0"
 xxhash-rust = { version = "0.8", features = ["xxh3"] }

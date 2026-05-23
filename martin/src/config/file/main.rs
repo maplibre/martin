@@ -203,6 +203,23 @@ impl Config {
         let mut res = self.srv.get_unrecognized_keys();
         copy_unrecognized_keys_from_config(&mut res, "", &self.unrecognized);
 
+        #[cfg(all(feature = "mlt", feature = "_tiles"))]
+        {
+            use crate::config::primitives::AutoOption;
+            if let Some(AutoOption::Explicit(cfg)) = self.convert_to_mlt.as_ref() {
+                res.extend(
+                    cfg.unrecognized_keys()
+                        .map(|k| format!("convert_to_mlt.{k}")),
+                );
+            }
+            if let Some(AutoOption::Explicit(cfg)) = self.convert_to_mvt.as_ref() {
+                res.extend(
+                    cfg.unrecognized_keys()
+                        .map(|k| format!("convert_to_mvt.{k}")),
+                );
+            }
+        }
+
         if let Some(path) = &self.srv.route_prefix {
             let normalized = parse_base_path(path)?;
             // For route_prefix, an empty normalized path (from "/") means no prefix
@@ -639,7 +656,13 @@ impl Config {
         let yaml = serde_yaml::to_string(&self).expect("Unable to serialize config");
         if file_name.as_os_str() == OsStr::new("-") {
             info!("Current system configuration:");
-            println!("\n\n{yaml}\n");
+            #[expect(
+                clippy::print_stdout,
+                reason = "`--save -` writes the config to stdout"
+            )]
+            {
+                println!("\n\n{yaml}\n");
+            }
             Ok(())
         } else {
             info!(
@@ -713,10 +736,7 @@ where
     M: VariableMap<'a>,
     M::Value: AsRef<str>,
 {
-    let mut file =
-        File::open(file_name).map_err(|e| ConfigFileError::ConfigLoadError(e, file_name.into()))?;
-    let mut contents = String::new();
-    file.read_to_string(&mut contents)
+    let contents = std::fs::read_to_string(file_name)
         .map_err(|e| ConfigFileError::ConfigLoadError(e, file_name.into()))?;
     parse_config(&contents, env, file_name)
 }
@@ -731,7 +751,7 @@ where
     let substituted = subst::substitute(contents, env)
         .map_err(|e| ConfigFileError::substitution(e, contents.to_string(), file_name))?;
 
-    // Phase 2: rewrite deprecated cache keys via a `serde_yaml::Value` round-trip — but only
+    // Phase 2: rewrite deprecated cache keys via a `serde_yaml::Value` round-trip - but only
     // if at least one deprecated token appears in the text. The common case (no deprecated
     // keys) skips a full YAML parse + serialize.
     let migrated = if needs_deprecated_migration(&substituted) {
@@ -740,7 +760,7 @@ where
                 migrate_deprecated_config(&mut value);
                 serde_yaml::to_string(&value).unwrap_or(substituted)
             }
-            // If serde_yaml itself can't parse, hand the original to saphyr — its diagnostics
+            // If serde_yaml itself can't parse, hand the original to saphyr - its diagnostics
             // are richer, so let it produce the user-facing error.
             Err(_) => substituted,
         }
@@ -1046,8 +1066,8 @@ mod tests {
 
     #[test]
     fn parse_base_path_rejects_invalid_paths() {
-        assert!(parse_base_path("").is_err());
-        assert!(parse_base_path("foo/bar").is_err());
+        parse_base_path("").unwrap_err();
+        parse_base_path("foo/bar").unwrap_err();
     }
 
     #[test]

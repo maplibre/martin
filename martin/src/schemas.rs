@@ -45,12 +45,14 @@ pub fn config_json_schema() -> serde_json::Value {
 )]
 pub struct MartinOpenApi;
 
-/// Server-side style-rendering route. Lives in its own derive because it's
-/// only compiled on linux + `rendering`, and we don't want `unstable-schemas`
-/// to drag in the maplibre-native C++ build.
+/// Style-rendering routes - in their own derive so the rest of the API can
+/// generate schemas without pulling in the `rendering` feature's C++ build.
 #[cfg(all(feature = "rendering", target_os = "linux"))]
 #[derive(OpenApi)]
-#[openapi(paths(crate::srv::get_style_rendered))]
+#[openapi(paths(
+    crate::srv::get_rendered_tile_style,
+    crate::srv::get_rendered_static_style,
+))]
 struct MartinRenderingOpenApi;
 
 /// `OpenAPI` document as JSON.
@@ -85,7 +87,7 @@ pub fn config_doc_yaml() -> String {
     // `# yaml-language-server: $schema=…` lets editors validate users' own
     // `config.yaml` against the schema.
     out.push_str(
-        "# yaml-language-server: $schema=https://raw.githubusercontent.com/maplibre/martin/main/schemas/config.json\n",
+        "# yaml-language-server: $schema=https://raw.githubusercontent.com/maplibre/martin/main/schemas/config.json\n\n",
     );
     let ctx = config_doc::Ctx::new(&schema);
     config_doc::render_object(&mut out, &schema, &ctx, 0);
@@ -134,7 +136,7 @@ mod config_doc {
                 out.push('\n');
             }
             first = false;
-            // Use the description from the property as it appears in the parent —
+            // Use the description from the property as it appears in the parent -
             // not the description on the resolved `$defs/<Type>` body. Schema-only
             // proxy types like `GlobalCacheConfigShape` carry rustdoc that is
             // about the proxy mechanism, not about the field, and it shouldn't
@@ -217,7 +219,7 @@ mod config_doc {
             return;
         }
 
-        // 4. Composite types — pick the most informative variant rather than
+        // 4. Composite types - pick the most informative variant rather than
         //    the first one. An `anyOf` like `[null, string, array, object]`
         //    should render as the object shape.
         if let Some(variants) = schema.get("anyOf").or_else(|| schema.get("oneOf"))
@@ -229,7 +231,7 @@ mod config_doc {
         }
 
         // 5. Type-driven placeholders. Optional scalars (`type: [..., "null"]`)
-        //    render as `null` rather than `""`/`0`/`false` — matches "no
+        //    render as `null` rather than `""`/`0`/`false` - matches "no
         //    value" semantics and won't accidentally validate as a real value.
         let nullable = is_nullable(schema);
         match primary_type(schema).as_deref() {

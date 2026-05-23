@@ -1,3 +1,8 @@
+#![expect(
+    clippy::print_stdout,
+    reason = "binary entrypoint writes results to stdout"
+)]
+
 use std::io::IsTerminal as _;
 use std::path::{Path, PathBuf};
 
