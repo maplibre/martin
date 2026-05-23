@@ -34,10 +34,10 @@ async fn new(rows: &[&str]) -> (Mbtiles, SqliteConnection) {
             "INSERT INTO tiles (zoom_level, tile_column, tile_row, tile_data)
             VALUES ({row});"
         );
-        query(AssertSqlSafe(sql))
+        query(AssertSqlSafe(sql.as_str()))
             .execute(&mut conn)
             .await
-            .expect(row);
+            .expect(&sql);
     }
 
     (mbtiles, conn)
