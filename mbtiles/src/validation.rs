@@ -6,7 +6,7 @@ use martin_tile_utils::{Encoding, Format, MAX_ZOOM, TileInfo};
 use serde::Serialize;
 use serde_json::Value;
 use sqlx::sqlite::SqliteRow;
-use sqlx::{Row as _, SqliteConnection, SqliteExecutor, query};
+use sqlx::{AssertSqlSafe, Row as _, SqliteConnection, SqliteExecutor, query};
 use tilejson::TileJSON;
 use tracing::{debug, info, warn};
 
@@ -573,7 +573,7 @@ WHERE FALSE
 LIMIT 1;"
         );
 
-        if let Some(row) = query(&sql).fetch_optional(&mut *conn).await? {
+        if let Some(row) = query(AssertSqlSafe(sql)).fetch_optional(&mut *conn).await? {
             let mut res: Vec<String> = Vec::with_capacity(3);
             for idx in (0..3).rev() {
                 use sqlx::ValueRef as _;
@@ -707,7 +707,7 @@ LIMIT 1;"
                        )
                      LIMIT 1;"
                 );
-                if let Some(row) = query(&sql).fetch_optional(&mut *conn).await? {
+                if let Some(row) = query(AssertSqlSafe(sql)).fetch_optional(&mut *conn).await? {
                     let missing_id: String = row.get(0);
                     return Err(MbtError::MissingTileReference(
                         self.filepath().to_string(),
@@ -728,7 +728,7 @@ LIMIT 1;"
                         WHERE expected != computed
                         LIMIT 1;"
                     );
-                    if let Some(row) = query(&sql).fetch_optional(&mut *conn).await? {
+                    if let Some(row) = query(AssertSqlSafe(sql)).fetch_optional(&mut *conn).await? {
                         return Err(IncorrectTileHash(
                             self.filepath().to_string(),
                             row.get(0),

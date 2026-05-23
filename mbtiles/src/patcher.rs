@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use sqlx::{Connection as _, query};
+use sqlx::{AssertSqlSafe, Connection as _, query};
 use tracing::{debug, info, warn};
 
 use crate::MbtType::{Flat, FlatWithHash, Normalized};
@@ -56,11 +56,11 @@ pub async fn apply_patch(base_file: PathBuf, patch_file: PathBuf, force: bool) -
     let (main_table, insert1, insert2) = get_insert_sql(base_info.mbt_type, &select_from);
 
     let sql = format!("{insert1} WHERE tile_data NOTNULL");
-    query(&sql).execute(&mut conn).await?;
+    query(AssertSqlSafe(sql)).execute(&mut conn).await?;
 
     if let Some(insert2) = insert2 {
         let sql = format!("{insert2} WHERE tile_data NOTNULL");
-        query(&sql).execute(&mut conn).await?;
+        query(AssertSqlSafe(sql)).execute(&mut conn).await?;
     }
 
     let sql = format!(
@@ -70,7 +70,7 @@ pub async fn apply_patch(base_file: PathBuf, patch_file: PathBuf, force: bool) -
         SELECT zoom_level, tile_column, tile_row FROM ({select_from} WHERE tile_data ISNULL)
     )"
     );
-    query(&sql).execute(&mut conn).await?;
+    query(AssertSqlSafe(sql)).execute(&mut conn).await?;
 
     if let Some(schema) = base_info.mbt_type.normalized_schema() {
         debug!("Removing unused tiles from the images table (normalized schema)");
@@ -82,7 +82,7 @@ pub async fn apply_patch(base_file: PathBuf, patch_file: PathBuf, force: bool) -
         let sql = format!(
             "DELETE FROM {img} WHERE NOT EXISTS (SELECT 1 FROM {map} WHERE {map}.{id} = {img}.{id})"
         );
-        query(&sql).execute(&mut conn).await?;
+        query(AssertSqlSafe(sql)).execute(&mut conn).await?;
     }
 
     // Copy metadata from patchDb to the destination file, replacing existing values
@@ -96,7 +96,7 @@ pub async fn apply_patch(base_file: PathBuf, patch_file: PathBuf, force: bool) -
     FROM patchDb.metadata
     WHERE name NOTNULL AND name NOT IN ('{AGG_TILES_HASH}', '{AGG_TILES_HASH_BEFORE_APPLY}');"
     );
-    query(&sql).execute(&mut conn).await?;
+    query(AssertSqlSafe(sql)).execute(&mut conn).await?;
 
     let sql = "
     DELETE FROM metadata

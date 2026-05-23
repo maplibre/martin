@@ -10,7 +10,7 @@ use futures::TryStreamExt as _;
 use martin_tile_utils::{TileCoord, decode_brotli, decode_gzip, encode_brotli, encode_gzip};
 use serde::{Deserialize, Serialize};
 use sqlite_compressions::{BsdiffRawDiffer, Differ as _};
-use sqlx::{Executor as _, Row as _, SqliteConnection, query};
+use sqlx::{AssertSqlSafe, Executor as _, Row as _, SqliteConnection, query};
 use tracing::{debug, error, info};
 use xxhash_rust::xxh3::xxh3_64;
 
@@ -245,7 +245,7 @@ impl BinDiffer<DifferBefore, DifferAfter> for BinDiffDiffer {
         let mut conn = self.src_mbt.open_readonly().await?;
         self.dif_mbt.attach_to(&mut conn, "diffDb").await?;
         debug!("Querying source data with {sql}");
-        let mut rows = query(&sql).fetch(&mut conn);
+        let mut rows = query(AssertSqlSafe(sql)).fetch(&mut conn);
 
         while let Some(row) = rows.try_next().await? {
             let work = DifferBefore {
@@ -296,7 +296,7 @@ impl BinDiffer<DifferBefore, DifferAfter> for BinDiffDiffer {
             clippy::cast_possible_wrap,
             reason = "the hash wrapping does not change the invariants and sqlite does not support u64"
         )]
-        query(self.insert_sql.as_str())
+        query(AssertSqlSafe(self.insert_sql.clone()))
             .bind(value.coord.z)
             .bind(value.coord.x)
             .bind(value.coord.y)
@@ -365,7 +365,7 @@ impl BinDiffer<ApplierBefore, ApplierAfter> for BinDiffPatcher {
         let mut conn = self.src_mbt.open_readonly().await?;
         self.dif_mbt.attach_to(&mut conn, "diffDb").await?;
         debug!("Querying {tbl} table with {sql}");
-        let mut rows = query(&sql).fetch(&mut conn);
+        let mut rows = query(AssertSqlSafe(sql)).fetch(&mut conn);
 
         while let Some(row) = rows.try_next().await? {
             let work = ApplierBefore {
