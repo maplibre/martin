@@ -23,6 +23,8 @@ use dashmap::{DashMap, Entry};
 pub use maplibre_native::Image as StaticImage;
 #[cfg(all(feature = "rendering", target_os = "linux"))]
 use maplibre_native::Image;
+#[cfg(all(feature = "rendering", target_os = "linux"))]
+use martin_tile_utils::tile_center_lng_lat;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use tracing::{info, warn};
@@ -31,7 +33,6 @@ use tracing::{info, warn};
 mod error;
 #[cfg(all(feature = "rendering", target_os = "linux"))]
 pub use error::StyleError;
-use martin_tile_utils::tile_center_lng_lat;
 
 /// Map image rendering pool (handles both tiles and free-camera static renders).
 #[cfg(all(feature = "rendering", target_os = "linux"))]
