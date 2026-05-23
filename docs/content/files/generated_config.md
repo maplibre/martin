@@ -367,6 +367,13 @@ sprites:
 styles:
   # A list of file paths
   paths: []
+  # Allows static, server side, style rendering
+  #
+  # Note on EXPERIMENTAL status:
+  # We are not currently happy with the performance of this endpoint and intend to improve this in the future
+  # Marking this experimental means that we are not stuck with single threaded performance as a default until v2.0
+  rendering:
+    enabled: false
   # A map of source IDs to file paths or config objects
   sources: {}
 # If set, the version of the tileset (as specified in the `MBTiles` or `PMTiles` metadata)

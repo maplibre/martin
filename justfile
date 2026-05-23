@@ -79,17 +79,22 @@ gen-schemas:
     #!/usr/bin/env bash
     set -euo pipefail
     mkdir -p schemas
-    # `unstable-schemas` already implies the source-type features; we just
-    # disable defaults so we don't pull in `rendering` (slow C++ build).
-    cargo run --quiet --no-default-features --features unstable-schemas \
+    # Include `rendering` on Linux (the only platform it compiles on) so the
+    # spec covers all routes a release build serves. `MLN_PRECOMPILE=1` skips
+    # the slow C++ build by downloading a prebuilt maplibre-native.
+    feats=unstable-schemas
+    case "$(uname -s)" in
+        Linux) feats="$feats,rendering" ;;
+    esac
+    MLN_PRECOMPILE=1 cargo run --quiet --no-default-features --features "$feats" \
         --bin gen-schemas -- --target config      > schemas/config.json
-    cargo run --quiet --no-default-features --features unstable-schemas \
+    MLN_PRECOMPILE=1 cargo run --quiet --no-default-features --features "$feats" \
         --bin gen-schemas -- --target openapi     > schemas/openapi.json
     # The annotated config doc (markdown wrapping a fenced YAML block) is
     # derived from `schemas/config.json` and the `#[schemars(example = ...)]`
     # attributes - keep it generated and version-controlled so editors can lean
     # on it as a starting point.
-    cargo run --quiet --no-default-features --features unstable-schemas \
+    MLN_PRECOMPILE=1 cargo run --quiet --no-default-features --features "$feats" \
         --bin gen-schemas -- --target config-doc  > docs/content/files/generated_config.md
     # Regenerate `martin/martin-ui/src/lib/types.gen.ts` from the freshly
     # written `schemas/openapi.json`. Kept after the cargo runs so the spec
@@ -518,11 +523,11 @@ test-pg: start
 
 # Run Rust unit tests (cargo test)
 test-cargo *args:
-    cargo test {{args}}
+    MLN_PRECOMPILE=1 cargo test {{args}}
 
 # Run Rust doc tests
 test-doc *args:
-    cargo test --doc {{args}}
+    MLN_PRECOMPILE=1 cargo test --doc {{args}}
 
 # Test code formatting
 test-fmt: (cargo-install 'cargo-sort') && (fmt-toml '--check' '--check-format')

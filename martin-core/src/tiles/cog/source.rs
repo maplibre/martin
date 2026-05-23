@@ -6,7 +6,7 @@ use std::vec;
 
 use async_trait::async_trait;
 use martin_tile_utils::{
-    EARTH_CIRCUMFERENCE, MAX_ZOOM, TileCoord, TileData, TileInfo, webmercator_to_wgs84,
+    EARTH_CIRCUMFERENCE, Encoding, MAX_ZOOM, TileCoord, TileData, TileInfo, webmercator_to_wgs84,
 };
 use serde_json::Value;
 use tiff::decoder::{ChunkType, Decoder};
@@ -168,7 +168,7 @@ impl CogSource {
             max_zoom,
             images,
             tilejson,
-            tileinfo: TileInfo::new(output_format, martin_tile_utils::Encoding::Internal),
+            tileinfo: TileInfo::new(output_format, Encoding::Internal),
             cache_zoom,
         })
     }

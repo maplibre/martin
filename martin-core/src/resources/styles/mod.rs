@@ -20,7 +20,11 @@ use std::path::PathBuf;
 use chrono::{DateTime, Utc};
 use dashmap::{DashMap, Entry};
 #[cfg(all(feature = "rendering", target_os = "linux"))]
+pub use maplibre_native::Image as StaticImage;
+#[cfg(all(feature = "rendering", target_os = "linux"))]
 use maplibre_native::Image;
+#[cfg(all(feature = "rendering", target_os = "linux"))]
+use martin_tile_utils::tile_center_lng_lat;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use tracing::{info, warn};
@@ -29,6 +33,12 @@ use tracing::{info, warn};
 mod error;
 #[cfg(all(feature = "rendering", target_os = "linux"))]
 pub use error::StyleError;
+
+/// Map image rendering pool (handles both tiles and free-camera static renders).
+#[cfg(all(feature = "rendering", target_os = "linux"))]
+pub mod render_pool;
+#[cfg(all(feature = "rendering", target_os = "linux"))]
+pub use render_pool::{RenderParams, RenderPool};
 
 /// What kind of layers a `MapLibre` style draws.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -170,21 +180,24 @@ impl StyleSources {
 
     /// EXPERIMENTAL support for rendering styles.
     ///
-    /// Assumptions:
-    /// - martin is not an interactive renderer (think 60fps, embedded)
-    /// - We are not rendering the same tile all the time (instead, it is cached)
-    ///
-    /// For now, we only use a static renderer which is optimized for our kind of usage
-    /// In the future, we may consider adding support for smarter rendering including a pool of renderers.
+    /// Tile rendering routes through the same global renderer as free-camera
+    /// static rendering: we point the camera at the tile's geographic centre
+    /// (computed by [`tile_center_lng_lat`]) and hand off
+    /// a 512×512 static request.
     #[cfg(all(feature = "rendering", target_os = "linux"))]
     pub async fn render(&self, path: PathBuf, z: u8, x: u32, y: u32) -> Result<Image, StyleError> {
+        let (lng, lat) = tile_center_lng_lat(z, x, y);
+        self.render_static(RenderParams::new(path, lat, lng, f64::from(z)))
+            .await
+    }
+
+    /// Render a map image with free camera control.
+    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    pub async fn render_static(&self, params: RenderParams) -> Result<Image, StyleError> {
         if !self.rendering_enabled {
             return Err(StyleError::RenderingIsDisabled);
         }
-
-        let image = maplibre_native::SingleThreadedRenderPool::global_pool()
-            .render_tile(path, z, x, y)
-            .await?;
+        let image = RenderPool::global_pool().render(params).await?;
         Ok(image)
     }
 

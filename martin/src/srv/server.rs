@@ -30,6 +30,8 @@ use crate::srv::sprites;
 use crate::srv::styles;
 #[cfg(all(feature = "rendering", target_os = "linux"))]
 use crate::srv::styles_rendering;
+#[cfg(all(feature = "rendering", target_os = "linux"))]
+use crate::srv::styles_static;
 #[cfg(feature = "_tiles")]
 use crate::srv::tiles;
 use crate::{MartinError, MartinResult};
@@ -150,8 +152,12 @@ fn register_services(
     cfg.service(styles::get_style_json)
         .service(styles::redirect_styles);
 
+    // `.jpeg` redirects must register before the main routes so they win.
     #[cfg(all(feature = "rendering", target_os = "linux"))]
-    cfg.service(styles_rendering::get_style_rendered);
+    cfg.service(styles_static::redirect_static_jpeg)
+        .service(styles_static::get_rendered_static_style)
+        .service(styles_rendering::redirect_tile_jpeg)
+        .service(styles_rendering::get_rendered_tile_style);
 
     #[cfg(all(feature = "webui", not(docsrs)))]
     {

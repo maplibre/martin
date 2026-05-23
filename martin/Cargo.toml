@@ -219,6 +219,7 @@ walkdir = { workspace = true, optional = true }
 [dev-dependencies]
 backon.workspace = true
 criterion.workspace = true
+image-compare.workspace = true
 indoc.workspace = true
 insta = { workspace = true, features = ["json", "yaml", "redactions"] }
 rstest.workspace = true
