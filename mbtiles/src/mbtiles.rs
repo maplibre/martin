@@ -622,12 +622,11 @@ impl Mbtiles {
             "Inserting a batch of {} tiles into {mbt_type} / {on_duplicate}",
             batch.len()
         );
+        let to_sql_str = |sql: String| sqlx::SqlSafeStr::into_sql_str(AssertSqlSafe(sql));
         let mut tx = conn.begin().await?;
         let (sql1, sql2) = Self::get_insert_sql(mbt_type, on_duplicate);
         if let Some(sql2) = sql2 {
-            let sql2 = tx
-                .prepare(sqlx::SqlSafeStr::into_sql_str(AssertSqlSafe(sql2)))
-                .await?;
+            let sql2 = tx.prepare(to_sql_str(sql2)).await?;
             for (_, _, _, tile_data) in batch {
                 sql2.query()
                     .bind(tile_data.as_ref())
@@ -635,9 +634,7 @@ impl Mbtiles {
                     .await?;
             }
         }
-        let sql1 = tx
-            .prepare(sqlx::SqlSafeStr::into_sql_str(AssertSqlSafe(sql1)))
-            .await?;
+        let sql1 = tx.prepare(to_sql_str(sql1)).await?;
         for (z, x, y, tile_data) in batch {
             let y = invert_y_value(*z, *y);
             sql1.query()
