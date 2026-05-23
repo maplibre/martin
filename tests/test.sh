@@ -36,9 +36,9 @@ if [[ $OSTYPE == linux* || $OSTYPE == darwin* ]]; then
   fi
 fi
 
-if [[ $(sed --version 2> /dev/null) > /dev/null ]]; then
+if sed --version > /dev/null 2>&1; then
   SED=${SED:-sed}
-elif [[ $(gsed --version 2> /dev/null) > /dev/null ]]; then
+elif gsed --version > /dev/null 2>&1; then
   SED=${SED:-gsed}
 else
   echo 'GNU sed is required for testing'
