@@ -7,7 +7,7 @@ tags:
 
 ### Prerequisites
 
-If using Martin with PostgreSQL database, you must install PostGIS with at least v3.0+. Postgis v3.1+ is recommended.
+If using Martin with PostgreSQL database, you must install PostGIS with at least v3.0+. PostGIS v3.1+ is recommended.
 
 ### Docker
 
@@ -63,7 +63,7 @@ martin --help
 
 ### From package
 
-To install with apt source and others, We need your help
+To install with apt source and others, we need your help
 to [improve packaging for various platforms](https://github.com/maplibre/martin/issues/578).
 
 #### Homebrew
@@ -76,7 +76,7 @@ brew install martin
 martin --help
 ```
 
-#### Debian Packages(x86_64) manually
+#### Debian packages (x86_64) manually
 
 ```bash
 curl -O https://github.com/maplibre/martin/releases/latest/download/debian-x86_64.deb
@@ -85,7 +85,7 @@ martin --help
 rm ./debian-x86_64.deb
 ```
 
-### Building From source
+### Building from source
 
 If you [install Rust](https://www.rust-lang.org/tools/install), you can build martin from source with Cargo:
 
