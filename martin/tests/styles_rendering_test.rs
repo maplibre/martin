@@ -91,8 +91,8 @@ async fn render_tile_png(#[case] config: &str, #[case] path: &str) {
 }
 
 #[rstest]
-#[case::jpeg_ext(CONFIG_STYLES, "/style/maplibre_demo/0/0/0.jpeg")]
-#[case::jpeg_zoom_1(CONFIG_STYLES, "/style/maplibre_demo/1/0/0.jpeg")]
+#[case::jpeg_ext(CONFIG_STYLES, "/style/maplibre_demo/0/0/0.jpg")]
+#[case::jpeg_zoom_1(CONFIG_STYLES, "/style/maplibre_demo/1/0/0.jpg")]
 #[tokio::test]
 #[tracing_test::traced_test]
 async fn render_tile_jpeg(#[case] config: &str, #[case] path: &str) {
@@ -125,14 +125,14 @@ async fn render_tile_jpeg(#[case] config: &str, #[case] path: &str) {
 }
 
 #[tokio::test]
-async fn render_tile_jpg_redirects_to_jpeg() {
+async fn render_tile_jpeg_redirects_to_jpg() {
     let app = create_app! { CONFIG_STYLES };
-    let req = test_get("/style/maplibre_demo/0/0/0.jpg").to_request();
+    let req = test_get("/style/maplibre_demo/0/0/0.jpeg").to_request();
     let resp = call_service(&app, req).await;
     assert_eq!(resp.status(), 301);
     assert_eq!(
         resp.headers().get(LOCATION).expect("Location header"),
-        "/style/maplibre_demo/0/0/0.jpeg",
+        "/style/maplibre_demo/0/0/0.jpg",
     );
 }
 
@@ -324,7 +324,7 @@ fn camera_ref(stem: &str) -> PathBuf {
 
 #[tokio::test]
 async fn format_jpeg_returns_jpeg() {
-    let body = jpeg_response("/style/maplibre_demo/static/0,0,0/200x200.jpeg").await;
+    let body = jpeg_response("/style/maplibre_demo/static/0,0,0/200x200.jpg").await;
     assert_eq!(&body[..3], JPEG_MAGIC);
 }
 

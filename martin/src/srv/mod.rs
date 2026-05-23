@@ -49,7 +49,7 @@ pub use styles::{__path_get_style_json, get_style_json};
 #[cfg(all(feature = "rendering", target_os = "linux"))]
 mod styles_rendering;
 #[cfg(all(feature = "rendering", target_os = "linux"))]
-pub use styles_rendering::redirect_tile_jpg;
+pub use styles_rendering::redirect_tile_jpeg;
 #[cfg(all(
     feature = "rendering",
     target_os = "linux",
@@ -60,7 +60,7 @@ pub use styles_rendering::{__path_get_rendered_tile_style, get_rendered_tile_sty
 #[cfg(all(feature = "rendering", target_os = "linux"))]
 mod styles_static;
 #[cfg(all(feature = "rendering", target_os = "linux"))]
-pub use styles_static::redirect_static_jpg;
+pub use styles_static::redirect_static_jpeg;
 #[cfg(all(
     feature = "rendering",
     target_os = "linux",

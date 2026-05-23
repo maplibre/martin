@@ -31,12 +31,13 @@ use tracing::{info, warn};
 mod error;
 #[cfg(all(feature = "rendering", target_os = "linux"))]
 pub use error::StyleError;
+use martin_tile_utils::tile_center_lng_lat;
 
 /// Map image rendering pool (handles both tiles and free-camera static renders).
 #[cfg(all(feature = "rendering", target_os = "linux"))]
 pub mod render_pool;
 #[cfg(all(feature = "rendering", target_os = "linux"))]
-pub use render_pool::RenderParams;
+pub use render_pool::{RenderParams, RenderPool};
 
 /// What kind of layers a `MapLibre` style draws.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -180,11 +181,11 @@ impl StyleSources {
     ///
     /// Tile rendering routes through the same global renderer as free-camera
     /// static rendering: we point the camera at the tile's geographic centre
-    /// (computed by [`martin_tile_utils::tile_center_lng_lat`]) and hand off
+    /// (computed by [`tile_center_lng_lat`]) and hand off
     /// a 512×512 static request.
     #[cfg(all(feature = "rendering", target_os = "linux"))]
     pub async fn render(&self, path: PathBuf, z: u8, x: u32, y: u32) -> Result<Image, StyleError> {
-        let (lng, lat) = martin_tile_utils::tile_center_lng_lat(z, x, y);
+        let (lng, lat) = tile_center_lng_lat(z, x, y);
         self.render_static(RenderParams::new(path, lat, lng, f64::from(z)))
             .await
     }
@@ -195,9 +196,7 @@ impl StyleSources {
         if !self.rendering_enabled {
             return Err(StyleError::RenderingIsDisabled);
         }
-        let image = render_pool::RenderPool::global_pool()
-            .render(params)
-            .await?;
+        let image = RenderPool::global_pool().render(params).await?;
         Ok(image)
     }
 

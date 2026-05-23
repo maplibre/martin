@@ -22,8 +22,8 @@ struct StaticImagePath {
     /// `WIDTHxHEIGHT[@SCALEx]` - e.g. `800x600` or `400x300@2x`.
     #[cfg_attr(feature = "unstable-schemas", param(value_type = String))]
     size: SizeRequest,
-    /// Output encoding. `png`, `jpeg`, or `webp` (canonical names only;
-    /// `.jpg` is redirected to `.jpeg` via [`redirect_static_jpg`]).
+    /// Output encoding. `png`, `jpg`, or `webp` (canonical names only;
+    /// `.jpeg` is redirected to `.jpg` via [`redirect_static_jpeg`]).
     #[cfg_attr(feature = "unstable-schemas", param(inline))]
     format: ImageFormatRequest,
 }
@@ -219,13 +219,13 @@ struct StaticJpgRedirectPath {
     size: String,
 }
 
-/// `.jpg` to `.jpeg` 301 redirect (canonical name is `.jpeg`).
+/// `.jpeg` to `.jpg` 301 redirect (canonical name is `.jpg`).
 #[route(
-    "/style/{style_id}/static/{camera}/{size}.jpg",
+    "/style/{style_id}/static/{camera}/{size}.jpeg",
     method = "GET",
     method = "HEAD"
 )]
-pub async fn redirect_static_jpg(path: Path<StaticJpgRedirectPath>) -> HttpResponse {
+pub async fn redirect_static_jpeg(path: Path<StaticJpgRedirectPath>) -> HttpResponse {
     static WARNING: DebouncedWarning = DebouncedWarning::new();
     let StaticJpgRedirectPath {
         style_id,
@@ -235,14 +235,14 @@ pub async fn redirect_static_jpg(path: Path<StaticJpgRedirectPath>) -> HttpRespo
     WARNING
         .once_per_hour(|| {
             warn!(
-                "Request to /style/{style_id}/static/{camera}/{size}.jpg caused unnecessary redirect. Use .jpeg to avoid extra round-trip latency."
+                "Request to /style/{style_id}/static/{camera}/{size}.jpeg caused unnecessary redirect. Use .jpg to avoid extra round-trip latency."
             );
         })
         .await;
     HttpResponse::MovedPermanently()
         .insert_header((
             LOCATION,
-            format!("/style/{style_id}/static/{camera}/{size}.jpeg"),
+            format!("/style/{style_id}/static/{camera}/{size}.jpg"),
         ))
         .finish()
 }
@@ -489,6 +489,7 @@ mod tests {
     #[rstest]
     #[case::png("800x600.png")]
     #[case::jpeg_2x("800x600@2x.jpeg")]
+    #[case::jpg("256x256.jpg")]
     #[case::webp("400x300.webp")]
     #[case::scale_no_x_suffix("512x512@3.png")]
     #[case::fractional_scale("100x100@1.5x.png")]
@@ -501,7 +502,6 @@ mod tests {
 
     #[rstest]
     #[case::unsupported_format("100x100.bmp")]
-    #[case::jpg_not_accepted("256x256.jpg")]
     #[case::no_x_separator("800.png")]
     #[case::non_numeric_dim("axb.png")]
     #[case::empty_scale("800x600@.png")]

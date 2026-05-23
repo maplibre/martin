@@ -523,11 +523,11 @@ test-pg: start
 
 # Run Rust unit tests (cargo test)
 test-cargo *args:
-    cargo test {{args}}
+    MLN_PRECOMPILE=1 cargo test {{args}}
 
 # Run Rust doc tests
 test-doc *args:
-    cargo test --doc {{args}}
+    MLN_PRECOMPILE=1 cargo test --doc {{args}}
 
 # Test code formatting
 test-fmt: (cargo-install 'cargo-sort') && (fmt-toml '--check' '--check-format')

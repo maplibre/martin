@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use std::sync::{Arc, LazyLock, mpsc};
 use std::thread::{self, JoinHandle};
 
-use maplibre_native::{Image, ImageRendererBuilder};
+use maplibre_native::{Image, ImageRenderer, ImageRendererBuilder};
 use tokio::sync::oneshot;
 
 use super::StyleError;
@@ -222,7 +222,7 @@ fn worker_loop(rx: &mpsc::Receiver<WorkerMsg>) {
 
 /// Internal renderer state cached on the worker thread.
 struct RendererState {
-    renderer: maplibre_native::ImageRenderer<maplibre_native::Static>,
+    renderer: ImageRenderer<maplibre_native::Static>,
     width: u32,
     height: u32,
     pixel_ratio: f32,

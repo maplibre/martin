@@ -1,7 +1,11 @@
+use std::io::Cursor;
+
 use actix_web::http::header::{ContentType, LOCATION};
 use actix_web::web::{Data, Path};
 use actix_web::{HttpResponse, route};
+use image::{DynamicImage, ImageFormat};
 use martin_core::styles::StyleSources;
+use martin_tile_utils::TileCoord;
 use serde::Deserialize;
 use tracing::{error, trace, warn};
 
@@ -16,17 +20,18 @@ pub(super) enum ImageFormatRequest {
     #[default]
     Png,
     /// `image/jpeg` - lossy, no alpha (RGBA is flattened to RGB on encode).
+    #[serde(rename = "jpg", alias = "jpeg")]
     Jpeg,
     /// `image/webp` - lossless WebP via the `image` crate.
     Webp,
 }
 
 impl ImageFormatRequest {
-    fn image_format(self) -> image::ImageFormat {
+    fn image_format(self) -> ImageFormat {
         match self {
-            Self::Png => image::ImageFormat::Png,
-            Self::Jpeg => image::ImageFormat::Jpeg,
-            Self::Webp => image::ImageFormat::WebP,
+            Self::Png => ImageFormat::Png,
+            Self::Jpeg => ImageFormat::Jpeg,
+            Self::Webp => ImageFormat::WebP,
         }
     }
 
@@ -46,14 +51,14 @@ pub(super) fn encode_image_response(
     format: ImageFormatRequest,
 ) -> HttpResponse {
     let image_format = format.image_format();
-    let dynamic_img = image::DynamicImage::ImageRgba8(img.clone());
-    let to_encode: image::DynamicImage = if image_format == image::ImageFormat::Jpeg {
-        image::DynamicImage::ImageRgb8(dynamic_img.to_rgb8())
+    let dynamic_img = DynamicImage::ImageRgba8(img.clone());
+    let to_encode = if image_format == ImageFormat::Jpeg {
+        DynamicImage::ImageRgb8(dynamic_img.to_rgb8())
     } else {
         dynamic_img
     };
 
-    let mut output = std::io::Cursor::new(Vec::new());
+    let mut output = Cursor::new(Vec::new());
     match to_encode.write_to(&mut output, image_format) {
         Ok(()) => HttpResponse::Ok()
             .content_type(format.content_type())
@@ -108,7 +113,7 @@ pub async fn get_rendered_tile_style(
             .content_type(ContentType::plaintext())
             .body("No such style exists");
     };
-    let Some(zxy) = martin_tile_utils::TileCoord::new_checked(path.z, path.x, path.y) else {
+    let Some(zxy) = TileCoord::new_checked(path.z, path.x, path.y) else {
         return HttpResponse::BadRequest()
             .content_type(ContentType::plaintext())
             .body("Invalid tile coordinates for zoom level");
@@ -138,29 +143,29 @@ pub async fn get_rendered_tile_style(
     encode_image_response(image.as_image(), path.format)
 }
 
-/// `.jpg` to `.jpeg` redirect
+/// `.jpeg` to `.jpg` redirect
 #[derive(Deserialize, Debug)]
-struct TileJpgRedirectPath {
+struct TileJpegRedirectPath {
     style_id: String,
     z: u8,
     x: u32,
     y: u32,
 }
 
-/// Redirect `/style/{id}/{z}/{x}/{y}.jpg` to the canonical `.jpeg` form
-/// (HTTP 301). Same pattern as the static endpoint's `.jpg` redirect.
-#[route("/style/{style_id}/{z}/{x}/{y}.jpg", method = "GET", method = "HEAD")]
-pub async fn redirect_tile_jpg(path: Path<TileJpgRedirectPath>) -> HttpResponse {
+/// Redirect `/style/{id}/{z}/{x}/{y}.jpeg` to the canonical `.jpg` form
+/// (HTTP 301). Same pattern as the static endpoint's `.jpeg` redirect.
+#[route("/style/{style_id}/{z}/{x}/{y}.jpeg", method = "GET", method = "HEAD")]
+pub async fn redirect_tile_jpeg(path: Path<TileJpegRedirectPath>) -> HttpResponse {
     static WARNING: DebouncedWarning = DebouncedWarning::new();
-    let TileJpgRedirectPath { style_id, z, x, y } = path.as_ref();
+    let TileJpegRedirectPath { style_id, z, x, y } = path.as_ref();
     WARNING
         .once_per_hour(|| {
             warn!(
-                "Request to /style/{style_id}/{z}/{x}/{y}.jpg caused unnecessary redirect. Use .jpeg to avoid extra round-trip latency."
+                "Request to /style/{style_id}/{z}/{x}/{y}.jpeg caused unnecessary redirect. Use .jpg to avoid extra round-trip latency."
             );
         })
         .await;
     HttpResponse::MovedPermanently()
-        .insert_header((LOCATION, format!("/style/{style_id}/{z}/{x}/{y}.jpeg")))
+        .insert_header((LOCATION, format!("/style/{style_id}/{z}/{x}/{y}.jpg")))
         .finish()
 }

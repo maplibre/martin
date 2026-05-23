@@ -87,6 +87,6 @@ The `{camera}` segment chooses what the image looks at:
 #### Size and format
 
 `{size}.{ext}` follows the `WIDTHxHEIGHT[@{scale}x].{ext}` pattern, e.g.
-`800x600.png`, `400x300@2x.jpeg`.
-Allowed extensions are `png`, `jpeg`, and `webp`.
+`800x600.png`, `400x300@2x.jpg`.
+Allowed extensions are `png`, `jpg`, and `webp`.
 Width and height are capped at 2048 px each; scale is capped at `4x`.

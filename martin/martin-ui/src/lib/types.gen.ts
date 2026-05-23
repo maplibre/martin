@@ -560,10 +560,10 @@ export interface operations {
                 /** @description `WIDTHxHEIGHT[@SCALEx]` - e.g. `800x600` or `400x300@2x`. */
                 size: string;
                 /**
-                 * @description Output encoding. `png`, `jpeg`, or `webp` (canonical names only;
-                 *     `.jpg` is redirected to `.jpeg` via [`redirect_static_jpg`]).
+                 * @description Output encoding. `png`, `jpg`, or `webp` (canonical names only;
+                 *     `.jpeg` is redirected to `.jpg` via [`redirect_static_jpeg`]).
                  */
-                format: "png" | "jpeg" | "webp";
+                format: "png" | "jpg" | "webp";
             };
             cookie?: never;
         };

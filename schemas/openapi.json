@@ -641,7 +641,7 @@
             }
           },
           {
-            "description": "Output encoding. `png`, `jpeg`, or `webp` (canonical names only;\n`.jpg` is redirected to `.jpeg` via [`redirect_static_jpg`]).",
+            "description": "Output encoding. `png`, `jpg`, or `webp` (canonical names only;\n`.jpeg` is redirected to `.jpg` via [`redirect_static_jpeg`]).",
             "in": "path",
             "name": "format",
             "required": true,

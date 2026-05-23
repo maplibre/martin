@@ -152,11 +152,11 @@ fn register_services(
     cfg.service(styles::get_style_json)
         .service(styles::redirect_styles);
 
-    // `.jpg` redirect must register BEFORE the main route so it wins
+    // `.jpeg` redirects must register before the main routes so they win.
     #[cfg(all(feature = "rendering", target_os = "linux"))]
-    cfg.service(styles_static::redirect_static_jpg)
+    cfg.service(styles_static::redirect_static_jpeg)
         .service(styles_static::get_rendered_static_style)
-        .service(styles_rendering::redirect_tile_jpg)
+        .service(styles_rendering::redirect_tile_jpeg)
         .service(styles_rendering::get_rendered_tile_style);
 
     #[cfg(all(feature = "webui", not(docsrs)))]
