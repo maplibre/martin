@@ -294,7 +294,7 @@ install-mitmproxy:
     fi
 
 # Internal: run `cmd` with mitmproxy reverse-proxying the two rendering-test
-# upstreams. Plain HTTP only — ports must match the `PROXIED_HOSTS` constants in
+# upstreams. Plain HTTP only -- ports must match the `PROXIED_HOSTS` constants in
 # martin-core/tests/rendering_test.rs and martin/tests/styles_rendering_test.rs.
 [linux]
 _run-render-proxy mode *cmd: install-mitmproxy
@@ -303,7 +303,7 @@ _run-render-proxy mode *cmd: install-mitmproxy
     CASSETTE="tests/fixtures/rendering_cache/flows"
     case "{{mode}}" in
         replay)
-            [ -s "$CASSETTE" ] || { echo >&2 "missing cassette $CASSETTE — run \`just seed-render-fixtures\`"; exit 1; }
+            [ -s "$CASSETTE" ] || { echo >&2 "missing cassette $CASSETTE -- run \`just seed-render-fixtures\`"; exit 1; }
             MITM_ARGS=(--server-replay "$CASSETTE" \
                        --set server_replay_extra=kill \
                        --set server_replay_reuse=true)
