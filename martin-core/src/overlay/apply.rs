@@ -6,13 +6,13 @@
 //! layers are added on top of the base style in feature order.
 
 use maplibre_native::{
-    CircleLayer, Color as MlnColor, FillLayer, GeoJson, GeoJsonError, GeoJsonSource, Layer,
+    CircleLayer, Color as MlnColor, FillLayer, GeoJson, GeoJsonError, GeoJsonSource,
     LineCap as MlnLineCap, LineJoin as MlnLineJoin, LineLayer, Static, Style, StyleError,
 };
 
 use crate::overlay::{
     CirclePaint, Color, FillPaint, ID_PREFIX, LineCap, LineJoin, LineLayout, LinePaint,
-    OverlaySpec, StyledLayer,
+    OverlayFeature, OverlaySpec, StyledLayer,
 };
 
 /// Errors produced while applying an [`OverlaySpec`] to a [`Style`].
@@ -73,71 +73,97 @@ pub fn apply_to_style(
     spec: &OverlaySpec,
     style: &mut Style<'_, Static>,
 ) -> Result<AppliedOverlay, ApplyError> {
-    let mut applied = AppliedOverlay {
-        layer_ids: Vec::new(),
-        source_ids: Vec::with_capacity(spec.features.len()),
-    };
-
+    let mut guard = OverlayGuard::new(style);
     for (index, feature) in spec.features.iter().enumerate() {
-        if let Err(err) = apply_feature(style, &mut applied, index, feature) {
-            rollback(&mut applied, style);
-            return Err(err);
+        guard.apply_feature(index, feature)?;
+    }
+    Ok(guard.commit())
+}
+
+/// Scope guard for the apply pass: accumulates the ids it adds to the style
+/// and, unless [`commit`](OverlayGuard::commit)ted, removes them again on
+/// drop — including on an early `?` return or a panic. This makes it
+/// structurally impossible for a fallible step to leave a half-applied
+/// overlay behind. The success path hands the ids off to an
+/// [`AppliedOverlay`] for deferred removal after the render.
+struct OverlayGuard<'a, 'st> {
+    style: &'st mut Style<'a, Static>,
+    layer_ids: Vec<String>,
+    source_ids: Vec<String>,
+    committed: bool,
+}
+
+impl<'a, 'st> OverlayGuard<'a, 'st> {
+    fn new(style: &'st mut Style<'a, Static>) -> Self {
+        Self {
+            style,
+            layer_ids: Vec::new(),
+            source_ids: Vec::new(),
+            committed: false,
         }
     }
 
-    Ok(applied)
-}
+    fn apply_feature(&mut self, index: usize, feature: &OverlayFeature) -> Result<(), ApplyError> {
+        let source_id = format!("{ID_PREFIX}f{index}");
+        let mln_gj: GeoJson = (&feature.data)
+            .try_into()
+            .map_err(|source| ApplyError::GeoJsonConvert { index, source })?;
+        let mut gs = GeoJsonSource::new(&source_id);
+        gs.set_geojson(&mln_gj);
+        self.style
+            .add_source(gs)
+            .map_err(|source| ApplyError::Maplibre {
+                id: format!("f{index}"),
+                source,
+            })?;
+        self.source_ids.push(source_id.clone());
 
-fn apply_feature(
-    style: &mut Style<'_, Static>,
-    applied: &mut AppliedOverlay,
-    index: usize,
-    feature: &crate::overlay::OverlayFeature,
-) -> Result<(), ApplyError> {
-    let source_id = format!("{ID_PREFIX}f{index}");
-    let mln_gj: GeoJson = (&feature.data)
-        .try_into()
-        .map_err(|source| ApplyError::GeoJsonConvert { index, source })?;
-    let mut gs = GeoJsonSource::new(&source_id);
-    gs.set_geojson(&mln_gj);
-    style
-        .add_source(gs)
-        .map_err(|source| ApplyError::Maplibre {
-            id: format!("f{index}"),
-            source,
-        })?;
-    applied.source_ids.push(source_id.clone());
+        for styled in &feature.layers {
+            let kind = match styled {
+                StyledLayer::Fill(_) => "fill",
+                StyledLayer::Line(..) => "line",
+                StyledLayer::Circle(_) => "circle",
+            };
+            let layer_id = format!("{ID_PREFIX}f{index}-{kind}");
+            let result = match styled {
+                StyledLayer::Fill(paint) => add_fill(self.style, &layer_id, &source_id, paint),
+                StyledLayer::Line(paint, layout) => {
+                    add_line(self.style, &layer_id, &source_id, paint, *layout)
+                }
+                StyledLayer::Circle(paint) => add_circle(self.style, &layer_id, &source_id, paint),
+            };
+            result.map_err(|source| ApplyError::Maplibre {
+                id: format!("f{index}-{kind}"),
+                source,
+            })?;
+            self.layer_ids.push(layer_id);
+        }
 
-    for styled in &feature.layers {
-        let kind = match styled {
-            StyledLayer::Fill(_) => "fill",
-            StyledLayer::Line(..) => "line",
-            StyledLayer::Circle(_) => "circle",
-        };
-        let layer_id = format!("{ID_PREFIX}f{index}-{kind}");
-        let result = match styled {
-            StyledLayer::Fill(paint) => add_fill(style, &layer_id, &source_id, paint),
-            StyledLayer::Line(paint, layout) => {
-                add_line(style, &layer_id, &source_id, paint, *layout)
-            }
-            StyledLayer::Circle(paint) => add_circle(style, &layer_id, &source_id, paint),
-        };
-        result.map_err(|source| ApplyError::Maplibre {
-            id: format!("f{index}-{kind}"),
-            source,
-        })?;
-        applied.layer_ids.push(layer_id);
+        Ok(())
     }
 
-    Ok(())
+    /// Disarm the rollback and hand the accumulated ids to an
+    /// [`AppliedOverlay`] for removal after the render.
+    fn commit(mut self) -> AppliedOverlay {
+        self.committed = true;
+        AppliedOverlay {
+            layer_ids: std::mem::take(&mut self.layer_ids),
+            source_ids: std::mem::take(&mut self.source_ids),
+        }
+    }
 }
 
-fn rollback(applied: &mut AppliedOverlay, style: &mut Style<'_, Static>) {
-    for id in applied.layer_ids.drain(..).rev() {
-        style.remove_layer(&id);
-    }
-    for id in applied.source_ids.drain(..).rev() {
-        style.remove_source(&id);
+impl Drop for OverlayGuard<'_, '_> {
+    fn drop(&mut self) {
+        if self.committed {
+            return;
+        }
+        for id in self.layer_ids.drain(..).rev() {
+            self.style.remove_layer(&id);
+        }
+        for id in self.source_ids.drain(..).rev() {
+            self.style.remove_source(&id);
+        }
     }
 }
 

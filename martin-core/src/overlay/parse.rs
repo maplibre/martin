@@ -231,10 +231,7 @@ fn normalize_properties(
 /// A polygon emits a fill layer (unless only stroke properties are set), and
 /// a line layer when any stroke/line property is present. A bare polygon
 /// still fills so it stays visible.
-fn polygon_layers(
-    index: usize,
-    props: &JsonObject,
-) -> Result<Vec<StyledLayer>, OverlayParseError> {
+fn polygon_layers(index: usize, props: &JsonObject) -> Result<Vec<StyledLayer>, OverlayParseError> {
     let has_fill_prop = FILL_KEYS.iter().any(|k| props.contains_key(*k));
     let has_line_prop = LINE_KEYS.iter().any(|k| props.contains_key(*k));
     let mut out = Vec::with_capacity(2);

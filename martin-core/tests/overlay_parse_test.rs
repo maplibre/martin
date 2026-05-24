@@ -4,7 +4,7 @@
     reason = "test helpers take owned Value built from json!() macro"
 )]
 
-use martin_core::overlay::{OverlayLayer, OverlayParseError, parse_spec};
+use martin_core::overlay::{OverlayParseError, OverlaySpec, StyledLayer, parse_spec};
 use rstest::rstest;
 use serde_json::{Value, json};
 
@@ -13,8 +13,15 @@ const GRAY_7E: f32 = 0x7e_u8 as f32 / 255.0;
 /// `#555555` channel value as `f32`.
 const GRAY_55: f32 = 0x55_u8 as f32 / 255.0;
 
-fn parse(value: Value) -> Result<martin_core::overlay::OverlaySpec, OverlayParseError> {
+fn parse(value: Value) -> Result<OverlaySpec, OverlayParseError> {
     parse_spec(&value)
+}
+
+/// The layers of the single feature in a one-feature spec.
+#[track_caller]
+fn only_feature_layers(spec: &OverlaySpec) -> &[StyledLayer] {
+    assert_eq!(spec.features.len(), 1, "expected exactly one feature");
+    &spec.features[0].layers
 }
 
 fn fc(features: Value) -> Value {
@@ -57,10 +64,10 @@ fn empty_feature_collection_parses_to_empty_spec() {
 #[test]
 fn point_with_no_properties_gets_default_circle() {
     let spec = parse(fc(json!([point(json!({}))]))).expect("parses");
-    assert_eq!(spec.sources.len(), 1);
-    assert_eq!(spec.layers.len(), 1);
-    let OverlayLayer::Circle { paint, .. } = &spec.layers[0] else {
-        panic!("expected Circle, got {:?}", spec.layers[0]);
+    let layers = only_feature_layers(&spec);
+    assert_eq!(layers.len(), 1);
+    let StyledLayer::Circle(paint) = &layers[0] else {
+        panic!("expected Circle, got {:?}", layers[0]);
     };
     let color = paint.color.expect("color defaulted");
     assert!(
@@ -77,7 +84,7 @@ fn circle_color_canonical_takes_priority_over_marker_color_alias() {
         json!({ "marker-color": "#000000", "circle-color": "#ff0000" })
     )])))
     .expect("parses");
-    let OverlayLayer::Circle { paint, .. } = &spec.layers[0] else {
+    let StyledLayer::Circle(paint) = &only_feature_layers(&spec)[0] else {
         unreachable!()
     };
     let color = paint.color.unwrap();
@@ -87,7 +94,7 @@ fn circle_color_canonical_takes_priority_over_marker_color_alias() {
 #[test]
 fn marker_color_alias_normalized_to_circle_color() {
     let spec = parse(fc(json!([point(json!({ "marker-color": "#ff0000" }))]))).expect("parses");
-    let OverlayLayer::Circle { paint, .. } = &spec.layers[0] else {
+    let StyledLayer::Circle(paint) = &only_feature_layers(&spec)[0] else {
         unreachable!()
     };
     let color = paint.color.unwrap();
@@ -100,7 +107,7 @@ fn marker_color_alias_normalized_to_circle_color() {
 #[case::large("large", 10.0)]
 fn marker_size_enum_maps_to_circle_radius(#[case] size: &str, #[case] expected: f32) {
     let spec = parse(fc(json!([point(json!({ "marker-size": size }))]))).expect("parses");
-    let OverlayLayer::Circle { paint, .. } = &spec.layers[0] else {
+    let StyledLayer::Circle(paint) = &only_feature_layers(&spec)[0] else {
         unreachable!()
     };
     assert_eq!(paint.radius, Some(expected));
@@ -121,7 +128,7 @@ fn circle_radius_canonical_overrides_marker_size_alias() {
         json!({ "marker-size": "small", "circle-radius": 99.0 })
     )])))
     .expect("parses");
-    let OverlayLayer::Circle { paint, .. } = &spec.layers[0] else {
+    let StyledLayer::Circle(paint) = &only_feature_layers(&spec)[0] else {
         unreachable!()
     };
     assert_eq!(paint.radius, Some(99.0), "canonical wins");
@@ -135,7 +142,7 @@ fn circle_stroke_properties_passed_through() {
         "circle-stroke-width": 2.0,
     }))])))
     .expect("parses");
-    let OverlayLayer::Circle { paint, .. } = &spec.layers[0] else {
+    let StyledLayer::Circle(paint) = &only_feature_layers(&spec)[0] else {
         unreachable!()
     };
     assert!(paint.stroke_color.is_some());
@@ -146,9 +153,10 @@ fn circle_stroke_properties_passed_through() {
 #[test]
 fn linestring_with_no_properties_gets_default_line() {
     let spec = parse(fc(json!([linestring(json!({}))]))).expect("parses");
-    assert_eq!(spec.layers.len(), 1);
-    let OverlayLayer::Line { paint, .. } = &spec.layers[0] else {
-        panic!("expected Line, got {:?}", spec.layers[0]);
+    let layers = only_feature_layers(&spec);
+    assert_eq!(layers.len(), 1);
+    let StyledLayer::Line(paint, _) = &layers[0] else {
+        panic!("expected Line, got {:?}", layers[0]);
     };
     let color = paint.color.unwrap();
     assert!((color.r - GRAY_55).abs() < 1e-3, "line-color default #555");
@@ -162,7 +170,7 @@ fn stroke_alias_normalized_to_line_color_on_linestring() {
         json!({ "stroke": "#ff0000", "stroke-width": 5 })
     )])))
     .expect("parses");
-    let OverlayLayer::Line { paint, .. } = &spec.layers[0] else {
+    let StyledLayer::Line(paint, _) = &only_feature_layers(&spec)[0] else {
         unreachable!()
     };
     let color = paint.color.unwrap();
@@ -176,7 +184,7 @@ fn line_cap_and_line_join_layout_parsed() {
         json!({ "line-cap": "round", "line-join": "miter" })
     )])))
     .expect("parses");
-    let OverlayLayer::Line { layout, .. } = &spec.layers[0] else {
+    let StyledLayer::Line(_, layout) = &only_feature_layers(&spec)[0] else {
         unreachable!()
     };
     assert!(matches!(
@@ -192,9 +200,10 @@ fn line_cap_and_line_join_layout_parsed() {
 #[test]
 fn polygon_with_no_properties_gets_default_fill_only() {
     let spec = parse(fc(json!([polygon(json!({}))]))).expect("parses");
-    assert_eq!(spec.layers.len(), 1, "bare polygon → fill only");
-    let OverlayLayer::Fill { paint, .. } = &spec.layers[0] else {
-        panic!("expected Fill, got {:?}", spec.layers[0]);
+    let layers = only_feature_layers(&spec);
+    assert_eq!(layers.len(), 1, "bare polygon → fill only");
+    let StyledLayer::Fill(paint) = &layers[0] else {
+        panic!("expected Fill, got {:?}", layers[0]);
     };
     let color = paint.color.unwrap();
     assert!((color.r - GRAY_55).abs() < 1e-3, "fill-color default #555");
@@ -207,8 +216,9 @@ fn polygon_with_only_fill_emits_fill_layer_only() {
         json!({ "fill": "green", "fill-opacity": 1.0 })
     )])))
     .expect("parses");
-    assert_eq!(spec.layers.len(), 1);
-    assert!(matches!(spec.layers[0], OverlayLayer::Fill { .. }));
+    let layers = only_feature_layers(&spec);
+    assert_eq!(layers.len(), 1);
+    assert!(matches!(layers[0], StyledLayer::Fill(_)));
 }
 
 #[test]
@@ -217,8 +227,9 @@ fn hollow_polygon_with_only_stroke_emits_line_layer_only() {
         json!({ "stroke": "darkgreen", "stroke-width": 2 })
     )])))
     .expect("parses");
-    assert_eq!(spec.layers.len(), 1, "hollow polygon → line only");
-    assert!(matches!(spec.layers[0], OverlayLayer::Line { .. }));
+    let layers = only_feature_layers(&spec);
+    assert_eq!(layers.len(), 1, "hollow polygon → line only");
+    assert!(matches!(layers[0], StyledLayer::Line(..)));
 }
 
 #[test]
@@ -229,31 +240,33 @@ fn polygon_with_fill_and_stroke_emits_both_layers() {
         "stroke-width": 2
     }))])))
     .expect("parses");
-    assert_eq!(spec.layers.len(), 2);
-    assert!(
-        matches!(spec.layers[0], OverlayLayer::Fill { .. }),
-        "fill first"
-    );
-    assert!(
-        matches!(spec.layers[1], OverlayLayer::Line { .. }),
-        "line second"
-    );
+    let layers = only_feature_layers(&spec);
+    assert_eq!(layers.len(), 2);
+    assert!(matches!(layers[0], StyledLayer::Fill(_)), "fill first");
+    assert!(matches!(layers[1], StyledLayer::Line(..)), "line second");
 }
 
 #[test]
-fn multiple_features_get_independent_sources_and_layers() {
+fn multiple_features_get_independent_layer_sets() {
     let spec = parse(fc(json!([
         point(json!({ "circle-color": "red" })),
         linestring(json!({ "line-color": "blue" })),
         polygon(json!({ "fill-color": "green", "line-color": "darkgreen" })),
     ])))
     .expect("parses");
-    assert_eq!(spec.sources.len(), 3, "one source per feature");
-    assert_eq!(spec.layers.len(), 4, "circle + line + fill + line");
-    assert!(matches!(spec.layers[0], OverlayLayer::Circle { .. }));
-    assert!(matches!(spec.layers[1], OverlayLayer::Line { .. }));
-    assert!(matches!(spec.layers[2], OverlayLayer::Fill { .. }));
-    assert!(matches!(spec.layers[3], OverlayLayer::Line { .. }));
+    assert_eq!(spec.features.len(), 3, "one feature per input feature");
+    assert!(matches!(
+        spec.features[0].layers[..],
+        [StyledLayer::Circle(_)]
+    ));
+    assert!(matches!(
+        spec.features[1].layers[..],
+        [StyledLayer::Line(..)]
+    ));
+    assert!(matches!(
+        spec.features[2].layers[..],
+        [StyledLayer::Fill(_), StyledLayer::Line(..)]
+    ));
 }
 
 #[test]
@@ -267,7 +280,7 @@ fn unknown_properties_silently_ignored() {
         "circle-color": "red",
     }))])))
     .expect("parses");
-    let OverlayLayer::Circle { paint, .. } = &spec.layers[0] else {
+    let StyledLayer::Circle(paint) = &only_feature_layers(&spec)[0] else {
         unreachable!()
     };
     let color = paint.color.unwrap();
@@ -282,7 +295,7 @@ fn title_and_description_ignored_for_rendering() {
         "description": "Where the streams cross",
     }))])))
     .expect("parses");
-    let OverlayLayer::Circle { paint, .. } = &spec.layers[0] else {
+    let StyledLayer::Circle(paint) = &only_feature_layers(&spec)[0] else {
         unreachable!()
     };
     // Falls through to defaults — no error and no surprise styling.
@@ -293,7 +306,7 @@ fn title_and_description_ignored_for_rendering() {
 #[test]
 fn opacity_above_one_passed_through_unvalidated() {
     let spec = parse(fc(json!([point(json!({ "circle-opacity": 7.0 }))]))).expect("parses");
-    let OverlayLayer::Circle { paint, .. } = &spec.layers[0] else {
+    let StyledLayer::Circle(paint) = &only_feature_layers(&spec)[0] else {
         unreachable!()
     };
     assert_eq!(paint.opacity, Some(7.0), "no range check");
@@ -302,7 +315,7 @@ fn opacity_above_one_passed_through_unvalidated() {
 #[test]
 fn negative_line_width_passed_through_unvalidated() {
     let spec = parse(fc(json!([linestring(json!({ "line-width": -3.0 }))]))).expect("parses");
-    let OverlayLayer::Line { paint, .. } = &spec.layers[0] else {
+    let StyledLayer::Line(paint, _) = &only_feature_layers(&spec)[0] else {
         unreachable!()
     };
     assert_eq!(paint.width, Some(-3.0), "no range check");
@@ -396,6 +409,6 @@ fn feature_with_null_geometry_skipped() {
         ]
     }))
     .expect("parses");
-    assert_eq!(spec.sources.len(), 1, "null geometry skipped");
-    assert_eq!(spec.layers.len(), 1);
+    assert_eq!(spec.features.len(), 1, "null geometry skipped");
+    assert_eq!(spec.features[0].layers.len(), 1);
 }
