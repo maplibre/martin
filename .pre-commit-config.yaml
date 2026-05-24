@@ -39,6 +39,15 @@ repos:
       - id: forbid-tabs
       - id: remove-tabs
 
+  - repo: https://github.com/sirosen/texthooks
+    rev: 0.7.1
+    hooks:
+      - id: fix-smartquotes
+      - id: fix-spaces
+      - id: fix-unicode-dashes
+      - id: fix-ligatures
+      - id: forbid-bidi-controls
+
   - repo: local
     hooks:
       - id: cargo-fmt

@@ -54,7 +54,7 @@ Open [Lambda console](https://console.aws.amazon.com/lambda) and create your fun
 
 ### Zip deployment
 
-It’s possible to deploy the entire codebase from the AWS console, but we will use Serverless Application Model.
+It's possible to deploy the entire codebase from the AWS console, but we will use Serverless Application Model.
 Our function will consist of a "Layer", containing the Martin binary, and our function itself will contain the configuration in yaml format.
 
 #### The layer
