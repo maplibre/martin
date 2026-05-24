@@ -500,19 +500,19 @@ fn compose_overlays<'a>(
     base: &'a image::RgbaImage,
     overlays: &ParsedOverlays,
     camera: &Camera,
-    pixel_ratio: f32,
+    scale: f32,
 ) -> std::borrow::Cow<'a, image::RgbaImage> {
     if overlays.is_empty() {
         return std::borrow::Cow::Borrowed(base);
     }
-    // `base` is already physical pixels (logical * pixel_ratio); bumping zoom
-    // by log2(pixel_ratio) is equivalent to scaling 256*2^zoom by pixel_ratio,
+    // `base` is already physical pixels (logical * scale); bumping zoom
+    // by log2(scale) is equivalent to scaling 256*2^zoom by scale,
     // so overlays project onto the same pixel grid as the base map at @Nx.
     let view = OverlayView::new(
         base.width(),
         base.height(),
         coord! { x: camera.center_lon, y: camera.center_lat },
-        camera.zoom + f64::from(pixel_ratio).log2(),
+        camera.zoom + f64::from(scale).log2(),
     );
     let mut out = base.clone();
     if let Err(e) = draw_overlays_into(&mut out, &overlays.shapes, &overlays.markers, view) {
