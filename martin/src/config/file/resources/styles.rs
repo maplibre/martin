@@ -98,7 +98,7 @@ impl StyleConfig {
                 );
                 results
                     .enable_rendering(None)
-                    .map_err(ConfigFileError::RenderPoolSpawnFailed)?;
+                    .map_err(ConfigFileError::RendererPoolSpawnFailed)?;
             }
             OptBoolObj::Object(ref o) => {
                 warn!(
@@ -106,7 +106,7 @@ impl StyleConfig {
                 );
                 results
                     .enable_rendering(o.workers)
-                    .map_err(ConfigFileError::RenderPoolSpawnFailed)?;
+                    .map_err(ConfigFileError::RendererPoolSpawnFailed)?;
             }
         }
 

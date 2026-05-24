@@ -40,7 +40,7 @@ pub use error::StyleError;
 #[cfg(all(feature = "rendering", target_os = "linux"))]
 pub mod render_pool;
 #[cfg(all(feature = "rendering", target_os = "linux"))]
-pub use render_pool::{RenderParams, RenderPool};
+pub use render_pool::{RenderParams, RendererPool};
 
 /// What kind of layers a `MapLibre` style draws.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -93,7 +93,7 @@ pub type StyleCatalog = HashMap<String, CatalogStyleEntry>;
 pub struct StyleSources {
     sources: DashMap<String, StyleSource>,
     #[cfg(all(feature = "rendering", target_os = "linux"))]
-    pool: Option<RenderPool>,
+    pool: Option<RendererPool>,
 }
 
 /// Style source file.
@@ -200,9 +200,9 @@ impl StyleSources {
             .await
     }
 
-    /// Enable rendering by spawning a [`RenderPool`]. Replaces any existing pool.
+    /// Enable rendering by spawning a [`RendererPool`]. Replaces any existing pool.
     ///
-    /// See [`RenderPool::new`] for the meaning of `workers`.
+    /// See [`RendererPool::new`] for the meaning of `workers`.
     ///
     /// # Errors
     ///
@@ -213,7 +213,7 @@ impl StyleSources {
         &mut self,
         workers: Option<NonZeroUsize>,
     ) -> Result<(), std::io::Error> {
-        self.pool = Some(RenderPool::new(workers)?);
+        self.pool = Some(RendererPool::new(workers)?);
         Ok(())
     }
 

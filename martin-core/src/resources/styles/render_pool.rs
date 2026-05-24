@@ -117,11 +117,11 @@ const WORKER_QUEUE_DEPTH: usize = 512;
 /// Each worker holds its own [`ImageRenderer`] and caches the loaded style.
 /// The renderer is rebuilt only when `(width, height, pixel_ratio)` changes.
 #[derive(Debug, Clone)]
-pub struct RenderPool {
+pub struct RendererPool {
     inner: Arc<Inner>,
 }
 
-impl RenderPool {
+impl RendererPool {
     /// Spawn a pool with `workers` threads.
     ///
     /// `Some(n)` is used as-is with no upper cap. `None` uses the logical CPU
@@ -262,7 +262,7 @@ mod tests {
     #[tokio::test]
     async fn concurrent_renders_all_succeed() {
         let workers = NonZeroUsize::new(4);
-        let pool = Arc::new(RenderPool::new(workers).expect("spawn render pool"));
+        let pool = Arc::new(RendererPool::new(workers).expect("spawn render pool"));
         let style = fixture_path("maplibre_demo.json");
 
         let mut handles = Vec::new();

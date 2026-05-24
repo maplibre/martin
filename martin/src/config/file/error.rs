@@ -70,7 +70,7 @@ pub enum ConfigFileError {
 
     #[cfg(all(feature = "rendering", target_os = "linux"))]
     #[error("Failed to start style render pool: {0}")]
-    RenderPoolSpawnFailed(#[source] std::io::Error),
+    RendererPoolSpawnFailed(#[source] std::io::Error),
 }
 
 /// Boxed payload for [`ConfigFileError::YamlParseError`].
@@ -211,7 +211,7 @@ impl Diagnostic for ConfigFileError {
             #[cfg(feature = "pmtiles")]
             Self::ObjectStoreUrlParsing(..) => "martin::config::pmtiles::object_store_url",
             #[cfg(all(feature = "rendering", target_os = "linux"))]
-            Self::RenderPoolSpawnFailed(_) => "martin::config::styles::render_pool_spawn",
+            Self::RendererPoolSpawnFailed(_) => "martin::config::styles::render_pool_spawn",
         };
         Some(Box::new(code))
     }
