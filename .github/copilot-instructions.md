@@ -27,7 +27,7 @@ All LLM-assisted contributions **must aim for a higher standard of excellence** 
   * Additional tests (edge cases, regression, stress)
   * Clearer structure and naming
   * Removing TODOs and technical debt
-* Code produced with LLM assistance remains **the human author’s responsibility**.
+* Code produced with LLM assistance remains **the human author's responsibility**.
 
 LLM-generated changes that show lack of care (missed obvious cases, shallow error handling, poor UX) may be declined outright.
 
