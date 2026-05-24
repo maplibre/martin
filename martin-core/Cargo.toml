@@ -41,6 +41,7 @@ overlay = [
     "dep:geo-types",
     "dep:geojson",
     "dep:image",
+    "dep:serde_json",
     "dep:tiny-skia",
 ]
 rendering = ["styles", "overlay", "dep:maplibre_native"]
