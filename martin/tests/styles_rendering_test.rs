@@ -483,8 +483,7 @@ test_each_path! {
 /// (bearing) and tilted 60° (pitch). This locks down that overlays are
 /// re-projected through the same view matrix as the base map — a flat
 /// 2D draw over the rendered tile would visibly drift here.
-const URI_CENTERED_200_PITCH_BEARING: &str =
-    "/style/maplibre_demo/static/0,0,2@45,60/200x200.png";
+const URI_CENTERED_200_PITCH_BEARING: &str = "/style/maplibre_demo/static/0,0,2@45,60/200x200.png";
 
 const OVERLAY_1X_PITCH_BEARING_DIR: &str = "../tests/fixtures/static_overlays/1x_pitch_bearing";
 

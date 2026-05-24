@@ -12,9 +12,7 @@ use crate::overlay::{Marker, OverlayView, Rgba, Shape};
 #[derive(Debug, Error)]
 pub enum DrawError {
     /// The image dimensions were zero or too large for a `tiny_skia::PixmapMut`.
-    #[error(
-        "cannot wrap pixmap for {width}x{height} image (zero, or width*height*4 overflows)"
-    )]
+    #[error("cannot wrap pixmap for {width}x{height} image (zero, or width*height*4 overflows)")]
     InvalidImageSize {
         /// The requested pixmap width.
         width: u32,
@@ -124,7 +122,12 @@ fn draw_shape(
     }
 }
 
-fn draw_marker(pixmap: &mut PixmapMut<'_>, marker: &Marker, view: OverlayView, identity: Transform) {
+fn draw_marker(
+    pixmap: &mut PixmapMut<'_>,
+    marker: &Marker,
+    view: OverlayView,
+    identity: Transform,
+) {
     let (px, py) = geo_to_pixel(
         marker.coord,
         view.zoom,
@@ -171,7 +174,10 @@ fn to_paint(color: Rgba) -> Paint<'static> {
 #[inline]
 fn mul_alpha(c: u8, a: u8) -> u8 {
     let prod = u32::from(c) * u32::from(a) + 128;
-    #[expect(clippy::cast_possible_truncation, reason = "result fits in u8 by construction")]
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "result fits in u8 by construction"
+    )]
     let out = ((prod + (prod >> 8)) >> 8) as u8;
     out
 }
@@ -200,7 +206,10 @@ fn demultiply_in_place(buf: &mut [u8]) {
             continue;
         }
         let af = f64::from(a) / 255.0;
-        #[expect(clippy::cast_possible_truncation, reason = "result fits in u8: r/g/b <= a, so quotient <= 255")]
+        #[expect(
+            clippy::cast_possible_truncation,
+            reason = "result fits in u8: r/g/b <= a, so quotient <= 255"
+        )]
         #[expect(clippy::cast_sign_loss, reason = "quotient is non-negative")]
         {
             chunk[0] = (f64::from(chunk[0]) / af + 0.5) as u8;
