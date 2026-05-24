@@ -7,7 +7,7 @@ use maplibre_native::{Image, ImageRenderer, ImageRendererBuilder, Static, Style}
 use tokio::sync::oneshot;
 use tracing::info;
 
-use crate::overlay::{OverlaySpec, apply_to_style};
+use crate::overlay::{AppliedOverlay, OverlaySpec, apply_to_style};
 use crate::resources::styles::StyleError;
 
 /// Parameters for a single map render request.
@@ -255,6 +255,49 @@ fn prepare_renderer<'a>(
     Ok(&mut state.renderer)
 }
 
+/// Applies an overlay to a renderer's style for the span of a single render and
+/// removes it again on drop — including on an early return or panic in the
+/// render window. This keeps the removal seam symmetric with the apply-time
+/// rollback in [`apply_to_style`]: the worker's cached style structurally
+/// returns to a clean base after every request instead of relying on a
+/// hand-placed removal call surviving the whole render window.
+struct RenderOverlay<'r> {
+    renderer: &'r mut ImageRenderer<Static>,
+    applied: Option<AppliedOverlay>,
+}
+
+impl<'r> RenderOverlay<'r> {
+    /// Apply `spec` to `renderer`'s style. The overlay lives until the returned
+    /// guard drops.
+    fn apply(
+        renderer: &'r mut ImageRenderer<Static>,
+        spec: &OverlaySpec,
+    ) -> Result<Self, StyleError> {
+        let applied = {
+            let mut style = Style::get_ref(renderer);
+            apply_to_style(spec, &mut style).map_err(StyleError::OverlayApply)?
+        };
+        Ok(Self {
+            renderer,
+            applied: Some(applied),
+        })
+    }
+
+    /// The renderer carrying the applied overlay, for issuing render calls.
+    fn renderer(&mut self) -> &mut ImageRenderer<Static> {
+        self.renderer
+    }
+}
+
+impl Drop for RenderOverlay<'_> {
+    fn drop(&mut self) {
+        if let Some(applied) = self.applied.take() {
+            let mut style = Style::get_ref(self.renderer);
+            applied.remove_from(&mut style);
+        }
+    }
+}
+
 /// Render one static image against `renderer`, compositing `params.overlays` if
 /// present and leaving the renderer's style clean afterwards.
 ///
@@ -279,21 +322,6 @@ fn render_one(
         params.pitch,
     );
 
-    // Apply overlays, render, then unconditionally remove so the worker's
-    // cached style returns to a clean base for the next request.
-    let overlays = params.overlays.as_deref().filter(|spec| !spec.is_empty());
-    let applied = match overlays {
-        None => None,
-        Some(spec) => {
-            let mut style = Style::get_ref(renderer);
-            Some(apply_to_style(spec, &mut style).map_err(StyleError::OverlayApply)?)
-        }
-    };
-
-    // GeoJSON sources are tiled asynchronously after `add_source`. Early
-    // `render_static` calls may capture before the tiles exist, so re-render
-    // until two non-blank frames match — that's the source-loaded steady
-    // state. Capped so a perpetually-changing source can't hang the worker.
     let render_once = |renderer: &mut ImageRenderer<_>| {
         renderer
             .render_static(
@@ -305,26 +333,31 @@ fn render_one(
             )
             .map_err(StyleError::RenderingError)
     };
-    let result = if applied.is_some() {
-        const MAX_RENDERS: usize = 8;
-        let mut current = render_once(renderer);
-        for _ in 1..MAX_RENDERS {
-            current = render_once(renderer);
-            if current.is_err() {
-                break;
-            }
-        }
-        current
-    } else {
-        render_once(renderer)
+
+    let Some(spec) = params.overlays.as_deref().filter(|spec| !spec.is_empty()) else {
+        return render_once(renderer);
     };
 
-    if let Some(applied) = applied {
-        let mut style = Style::get_ref(renderer);
-        applied.remove_from(&mut style);
-    }
+    // Scope the overlay to this render: `RenderOverlay` removes it on drop —
+    // including on an early return or panic below — so the worker's cached
+    // style returns to a clean base for the next request without depending on a
+    // hand-placed removal call surviving the whole render window.
+    let mut overlay = RenderOverlay::apply(renderer, spec)?;
+    let renderer = overlay.renderer();
 
-    result
+    // GeoJSON sources are tiled asynchronously after `add_source`. Early
+    // `render_static` calls may capture before the tiles exist, so re-render
+    // until two non-blank frames match — that's the source-loaded steady
+    // state. Capped so a perpetually-changing source can't hang the worker.
+    const MAX_RENDERS: usize = 8;
+    let mut current = render_once(renderer);
+    for _ in 1..MAX_RENDERS {
+        current = render_once(renderer);
+        if current.is_err() {
+            break;
+        }
+    }
+    current
 }
 
 struct RendererState {
@@ -410,9 +443,9 @@ mod tests {
             .clone();
 
         let body: serde_json::Value = serde_json::from_str(
-            r#"{"type":"FeatureCollection","features":[{"type":"Feature",
+            r##"{"type":"FeatureCollection","features":[{"type":"Feature",
                 "properties":{"fill":"#ff0000","fill-opacity":0.9},
-                "geometry":{"type":"Polygon","coordinates":[[[-10,-10],[10,-10],[10,10],[-10,10],[-10,-10]]]}}]}"#,
+                "geometry":{"type":"Polygon","coordinates":[[[-10,-10],[10,-10],[10,10],[-10,10],[-10,-10]]]}}]}"##,
         )
         .expect("parse json");
         let spec = parse_spec(&body).expect("parse spec");
