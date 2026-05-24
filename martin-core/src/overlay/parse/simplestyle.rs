@@ -24,14 +24,14 @@ pub(super) fn resolve_stroke(
     default_color: &str,
 ) -> Result<(Rgba, f32), OverlayParseError> {
     let stroke_color = str_prop(props, "stroke").unwrap_or(default_color);
-    let stroke_opacity = f64_prop(props, "stroke-opacity").unwrap_or(1.0);
+    let stroke_opacity = f64_prop(props, "stroke-opacity")?.unwrap_or(1.0);
     let color = parse_color_with_opacity("stroke", stroke_color, stroke_opacity)?;
 
     #[expect(
         clippy::cast_possible_truncation,
         reason = "stroke widths fit in f32 in practice; precision loss is acceptable"
     )]
-    let width = f64_prop(props, "stroke-width")
+    let width = f64_prop(props, "stroke-width")?
         .unwrap_or(f64::from(crate::overlay::Stroke::DEFAULT_WIDTH)) as f32;
 
     Ok((color, width))
@@ -41,8 +41,30 @@ pub(super) fn str_prop<'a>(props: Option<&'a JsonObject>, key: &str) -> Option<&
     props?.get(key).and_then(JsonValue::as_str)
 }
 
-pub(super) fn f64_prop(props: Option<&JsonObject>, key: &str) -> Option<f64> {
-    props?.get(key).and_then(JsonValue::as_f64)
+/// Look up a numeric simplestyle property.
+///
+/// Returns `Ok(None)` when the key is absent or explicitly `null`, so callers
+/// can fall back to a default with `.unwrap_or(...)`. Returns
+/// [`OverlayParseError::NonNumericProperty`] when the value is present but is
+/// not a JSON number — clients that stringify numerics (e.g. `"5"` for a
+/// width) get a 400 instead of silently rendering with the default.
+pub(super) fn f64_prop(
+    props: Option<&JsonObject>,
+    key: &'static str,
+) -> Result<Option<f64>, OverlayParseError> {
+    let Some(value) = props.and_then(|p| p.get(key)) else {
+        return Ok(None);
+    };
+    if value.is_null() {
+        return Ok(None);
+    }
+    value
+        .as_f64()
+        .map(Some)
+        .ok_or_else(|| OverlayParseError::NonNumericProperty {
+            property: key,
+            value: value.clone(),
+        })
 }
 
 /// Parse a CSS color and combine it with a `[0.0, 1.0]` opacity multiplier.

@@ -231,7 +231,7 @@ async fn render_concurrent_requests() {
     );
 }
 
-const CAMERA_EXPECTED_DIR: &str = "../tests/fixtures/static_camera_expected";
+const CAMERA_DIR: &str = "../tests/fixtures/static_camera";
 
 async fn png_response(uri: &str) -> Vec<u8> {
     let app = create_app! { CONFIG_STYLES };
@@ -320,7 +320,7 @@ fn assert_visually_similar(name: &str, a: &[u8], b: &[u8]) {
 }
 
 fn camera_ref(stem: &str) -> PathBuf {
-    PathBuf::from(CAMERA_EXPECTED_DIR).join(format!("{stem}.png"))
+    PathBuf::from(CAMERA_DIR).join(format!("{stem}.png"))
 }
 
 #[tokio::test]
@@ -402,7 +402,7 @@ async fn scale_2x_doubles_pixel_dimensions() {
 /// where the camera shouldn't follow the geometry).
 const URI_CENTERED_200: &str = "/style/maplibre_demo/static/0,0,2/200x200.png";
 
-const CENTERED_EXPECTED_DIR: &str = "../tests/fixtures/static_overlays_centered_expected";
+const OVERLAY_1X_DIR: &str = "../tests/fixtures/static_overlays/1x";
 
 async fn post_png_body(uri: &str, geojson_body: &[u8]) -> Vec<u8> {
     let app = create_app! { CONFIG_STYLES };
@@ -458,9 +458,9 @@ async fn empty_feature_collection_renders_base_map() {
 
 test_each_path! {
     #[tokio::test]
-    async in "tests/fixtures/static_overlays_centered"
-    as overlays_centered
-    => async |p: &Path| run_overlay_scenario(p, URI_CENTERED_200, CENTERED_EXPECTED_DIR).await
+    async in "tests/fixtures/static_overlays/input"
+    as overlays_1x
+    => async |p: &Path| run_overlay_scenario(p, URI_CENTERED_200, OVERLAY_1X_DIR).await
 }
 
 /// Same centered framing at @2x. Camera (0,0,2) on 200x200@2x outputs a
@@ -470,11 +470,27 @@ test_each_path! {
 /// and so locks down the @Nx alignment between overlays and the base map.
 const URI_CENTERED_200_2X: &str = "/style/maplibre_demo/static/0,0,2/200x200@2x.png";
 
-const CENTERED_2X_EXPECTED_DIR: &str = "../tests/fixtures/static_overlays_centered_2x_expected";
+const OVERLAY_2X_DIR: &str = "../tests/fixtures/static_overlays/2x";
 
 test_each_path! {
     #[tokio::test]
-    async in "tests/fixtures/static_overlays_centered"
-    as overlays_centered_2x
-    => async |p: &Path| run_overlay_scenario(p, URI_CENTERED_200_2X, CENTERED_2X_EXPECTED_DIR).await
+    async in "tests/fixtures/static_overlays/input"
+    as overlays_2x
+    => async |p: &Path| run_overlay_scenario(p, URI_CENTERED_200_2X, OVERLAY_2X_DIR).await
+}
+
+/// Same overlays, same 200×200 frame, but the camera is rotated 45°
+/// (bearing) and tilted 60° (pitch). This locks down that overlays are
+/// re-projected through the same view matrix as the base map — a flat
+/// 2D draw over the rendered tile would visibly drift here.
+const URI_CENTERED_200_PITCH_BEARING: &str =
+    "/style/maplibre_demo/static/0,0,2@45,60/200x200.png";
+
+const OVERLAY_1X_PITCH_BEARING_DIR: &str = "../tests/fixtures/static_overlays/1x_pitch_bearing";
+
+test_each_path! {
+    #[tokio::test]
+    async in "tests/fixtures/static_overlays/input"
+    as overlays_1x_pitch_bearing
+    => async |p: &Path| run_overlay_scenario(p, URI_CENTERED_200_PITCH_BEARING, OVERLAY_1X_PITCH_BEARING_DIR).await
 }

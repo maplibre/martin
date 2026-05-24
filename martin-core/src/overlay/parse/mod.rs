@@ -29,6 +29,17 @@ pub enum OverlayParseError {
         /// The underlying `csscolorparser` error.
         source: ParseColorError,
     },
+    /// A simplestyle numeric property (`stroke-width`, `stroke-opacity`,
+    /// `fill-opacity`) was present but its JSON value was not a number.
+    /// JSON `null` is treated as absent and uses the default, so this fires
+    /// only on strings, booleans, arrays, and objects.
+    #[error("Invalid numeric value for property {property:?}: expected JSON number, got {value}")]
+    NonNumericProperty {
+        /// The simplestyle property whose value was the wrong type.
+        property: &'static str,
+        /// The raw JSON value supplied, echoed back for diagnostics.
+        value: serde_json::Value,
+    },
     /// A `GeoJSON` Position had fewer than 2 coordinates. RFC 7946 § 3.1.1
     /// requires at least `[lon, lat]`.
     #[error("GeoJSON position has fewer than 2 coordinates: {position:?}")]

@@ -185,6 +185,75 @@ fn invalid_css_color_reports_offending_property(
     assert!(msg.contains(expected_value), "{msg}");
 }
 
+#[rstest]
+#[case::stroke_width_as_string(
+    json!({"stroke-width": "5"}),
+    json!({"type": "LineString", "coordinates": [[0.0, 0.0], [1.0, 1.0]]}),
+    "stroke-width",
+    json!("5"),
+)]
+#[case::stroke_opacity_as_string(
+    json!({"stroke-opacity": "0.4"}),
+    json!({"type": "LineString", "coordinates": [[0.0, 0.0], [1.0, 1.0]]}),
+    "stroke-opacity",
+    json!("0.4"),
+)]
+#[case::stroke_width_as_bool(
+    json!({"stroke-width": true}),
+    json!({"type": "LineString", "coordinates": [[0.0, 0.0], [1.0, 1.0]]}),
+    "stroke-width",
+    json!(true),
+)]
+#[case::fill_opacity_as_string(
+    json!({"fill-opacity": "0.5"}),
+    json!({"type": "Polygon", "coordinates": [
+        [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 0.0]]
+    ]}),
+    "fill-opacity",
+    json!("0.5"),
+)]
+#[case::polygon_stroke_width_as_string(
+    json!({"fill": "#ff0000", "stroke-width": "3"}),
+    json!({"type": "Polygon", "coordinates": [
+        [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 0.0]]
+    ]}),
+    "stroke-width",
+    json!("3"),
+)]
+fn non_numeric_property_errors_instead_of_silently_defaulting(
+    #[case] properties: Value,
+    #[case] geometry: Value,
+    #[case] expected_property: &str,
+    #[case] expected_value: Value,
+) {
+    let err = parse_one(&properties, &geometry)
+        .expect_err("non-numeric numeric property must error, not silently default");
+    let OverlayParseError::NonNumericProperty { property, value } = &err else {
+        panic!("expected NonNumericProperty, got {err:?}");
+    };
+    assert_eq!(*property, expected_property);
+    assert_eq!(*value, expected_value);
+}
+
+#[rstest]
+#[case::stroke_width_null(
+    json!({"stroke-width": null}),
+    json!({"type": "LineString", "coordinates": [[0.0, 0.0], [1.0, 1.0]]}),
+)]
+#[case::stroke_opacity_null(
+    json!({"stroke-opacity": null}),
+    json!({"type": "LineString", "coordinates": [[0.0, 0.0], [1.0, 1.0]]}),
+)]
+#[case::fill_opacity_null(
+    json!({"fill-opacity": null}),
+    json!({"type": "Polygon", "coordinates": [
+        [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 0.0]]
+    ]}),
+)]
+fn explicit_null_is_treated_as_absent(#[case] properties: Value, #[case] geometry: Value) {
+    parse_one(&properties, &geometry).expect("explicit null falls back to default");
+}
+
 /// Point is excluded — the geojson crate rejects short Point coordinates at deserialize time.
 #[rstest]
 #[case::multipoint(

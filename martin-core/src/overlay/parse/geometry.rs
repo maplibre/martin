@@ -67,7 +67,7 @@ pub(super) fn make_polygon(
     }
 
     let fill_color_str = str_prop(props, "fill").unwrap_or(DEFAULT_COLOR_STR);
-    let fill_opacity = f64_prop(props, "fill-opacity").unwrap_or(DEFAULT_FILL_OPACITY);
+    let fill_opacity = f64_prop(props, "fill-opacity")?.unwrap_or(DEFAULT_FILL_OPACITY);
     let fill_color = parse_color_with_opacity("fill", fill_color_str, fill_opacity)?;
 
     // Polygons default `stroke` to the fill color rather than `DEFAULT_COLOR_STR`,

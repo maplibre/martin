@@ -2,7 +2,7 @@
 
 use image::RgbaImage;
 use thiserror::Error;
-use tiny_skia::{FillRule, Paint, PathBuilder, Pixmap, Stroke as SkStroke, Transform};
+use tiny_skia::{FillRule, Paint, PathBuilder, PixmapMut, Stroke as SkStroke, Transform};
 
 use crate::overlay::project::geo_to_pixel;
 use crate::overlay::{Marker, OverlayView, Rgba, Shape};
@@ -11,9 +11,9 @@ use crate::overlay::{Marker, OverlayView, Rgba, Shape};
 #[non_exhaustive]
 #[derive(Debug, Error)]
 pub enum DrawError {
-    /// The image dimensions were zero or too large for a `tiny_skia::Pixmap`.
+    /// The image dimensions were zero or too large for a `tiny_skia::PixmapMut`.
     #[error(
-        "cannot allocate pixmap for {width}x{height} image (zero, or width*height*4 overflows)"
+        "cannot wrap pixmap for {width}x{height} image (zero, or width*height*4 overflows)"
     )]
     InvalidImageSize {
         /// The requested pixmap width.
@@ -28,6 +28,10 @@ pub enum DrawError {
 /// Returns `Ok(())` (and skips all work) when both slices are empty. Returns
 /// [`DrawError::InvalidImageSize`] if the image's dimensions cannot back a
 /// pixmap. On success, `img` is overwritten with the composited result.
+///
+/// The image's RGBA buffer is mutated in place: premultiplied for tiny-skia,
+/// drawn into via [`PixmapMut`], then demultiplied back. No intermediate
+/// `Pixmap` is allocated, so peak memory equals the input image size.
 pub fn draw_overlays_into(
     img: &mut RgbaImage,
     shapes: &[Shape],
@@ -38,12 +42,13 @@ pub fn draw_overlays_into(
         return Ok(());
     }
 
-    let mut pixmap = rgba_to_pixmap(img).ok_or(DrawError::InvalidImageSize {
-        width: img.width(),
-        height: img.height(),
-    })?;
-    let identity = Transform::identity();
+    let (width, height) = (img.width(), img.height());
+    let mut pixmap = PixmapMut::from_bytes(img.as_mut(), width, height)
+        .ok_or(DrawError::InvalidImageSize { width, height })?;
 
+    premultiply_in_place(pixmap.data_mut());
+
+    let identity = Transform::identity();
     let mut rings: Vec<Vec<(f64, f64)>> = Vec::new();
     for shape in shapes {
         draw_shape(&mut pixmap, shape, view, identity, &mut rings);
@@ -52,12 +57,12 @@ pub fn draw_overlays_into(
         draw_marker(&mut pixmap, marker, view, identity);
     }
 
-    pixmap_to_rgba_into(&pixmap, img);
+    demultiply_in_place(pixmap.data_mut());
     Ok(())
 }
 
 fn draw_shape(
-    pixmap: &mut Pixmap,
+    pixmap: &mut PixmapMut<'_>,
     shape: &Shape,
     view: OverlayView,
     identity: Transform,
@@ -119,7 +124,7 @@ fn draw_shape(
     }
 }
 
-fn draw_marker(pixmap: &mut Pixmap, marker: &Marker, view: OverlayView, identity: Transform) {
+fn draw_marker(pixmap: &mut PixmapMut<'_>, marker: &Marker, view: OverlayView, identity: Transform) {
     let (px, py) = geo_to_pixel(
         marker.coord,
         view.zoom,
@@ -161,27 +166,47 @@ fn to_paint(color: Rgba) -> Paint<'static> {
     paint
 }
 
-/// Convert an `RgbaImage` to a `tiny_skia::Pixmap` for drawing.
-/// tiny-skia uses premultiplied alpha RGBA internally.
-fn rgba_to_pixmap(img: &RgbaImage) -> Option<Pixmap> {
-    let mut pixmap = Pixmap::new(img.width(), img.height())?;
-    for (src, dst) in img
-        .as_raw()
-        .chunks_exact(4)
-        .zip(pixmap.pixels_mut().iter_mut())
-    {
-        *dst = tiny_skia::ColorU8::from_rgba(src[0], src[1], src[2], src[3]).premultiply();
-    }
-    Some(pixmap)
+/// Multiply a channel by alpha and divide by 255 with rounding.
+/// Matches `tiny_skia::premultiply_u8` bit-for-bit.
+#[inline]
+fn mul_alpha(c: u8, a: u8) -> u8 {
+    let prod = u32::from(c) * u32::from(a) + 128;
+    #[expect(clippy::cast_possible_truncation, reason = "result fits in u8 by construction")]
+    let out = ((prod + (prod >> 8)) >> 8) as u8;
+    out
 }
 
-fn pixmap_to_rgba_into(pixmap: &Pixmap, img: &mut RgbaImage) {
-    for (src, dst) in pixmap.pixels().iter().zip(img.as_mut().chunks_exact_mut(4)) {
-        let color = src.demultiply();
-        dst[0] = color.red();
-        dst[1] = color.green();
-        dst[2] = color.blue();
-        dst[3] = color.alpha();
+/// Premultiply RGBA bytes in place so tiny-skia can render into them.
+fn premultiply_in_place(buf: &mut [u8]) {
+    for chunk in buf.chunks_exact_mut(4) {
+        let a = chunk[3];
+        if a == 255 {
+            continue;
+        }
+        chunk[0] = mul_alpha(chunk[0], a);
+        chunk[1] = mul_alpha(chunk[1], a);
+        chunk[2] = mul_alpha(chunk[2], a);
+    }
+}
+
+/// Demultiply RGBA bytes in place after drawing.
+/// Matches `tiny_skia::PremultipliedColorU8::demultiply` bit-for-bit.
+fn demultiply_in_place(buf: &mut [u8]) {
+    for chunk in buf.chunks_exact_mut(4) {
+        let a = chunk[3];
+        if a == 255 || a == 0 {
+            // Opaque: bytes already match. Fully transparent: premul invariant
+            // (r,g,b <= a) forces r=g=b=0, which is the demultiplied value too.
+            continue;
+        }
+        let af = f64::from(a) / 255.0;
+        #[expect(clippy::cast_possible_truncation, reason = "result fits in u8: r/g/b <= a, so quotient <= 255")]
+        #[expect(clippy::cast_sign_loss, reason = "quotient is non-negative")]
+        {
+            chunk[0] = (f64::from(chunk[0]) / af + 0.5) as u8;
+            chunk[1] = (f64::from(chunk[1]) / af + 0.5) as u8;
+            chunk[2] = (f64::from(chunk[2]) / af + 0.5) as u8;
+        }
     }
 }
 
