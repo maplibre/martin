@@ -106,9 +106,11 @@ impl Drop for Inner {
     }
 }
 
-/// Per-worker queue depth. Bounded so a stalled worker cannot accumulate
-/// unbounded latency.
-const WORKER_QUEUE_DEPTH: usize = 1024;
+/// Per-worker queue depth.
+/// Bounded so a stalled worker cannot accumulate unbounded latency.
+///
+/// Sized so that we have 2-4s of work remaining, depending on hardware.
+const WORKER_QUEUE_DEPTH: usize = 512;
 
 /// Multi-worker map renderer.
 ///
