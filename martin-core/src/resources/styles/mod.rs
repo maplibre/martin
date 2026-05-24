@@ -15,6 +15,8 @@
 
 use std::collections::HashMap;
 use std::fmt::Debug;
+#[cfg(all(feature = "rendering", target_os = "linux"))]
+use std::num::NonZeroUsize;
 use std::path::PathBuf;
 
 use chrono::{DateTime, Utc};
@@ -34,7 +36,7 @@ mod error;
 #[cfg(all(feature = "rendering", target_os = "linux"))]
 pub use error::StyleError;
 
-/// Map image rendering pool (handles both tiles and free-camera static renders).
+/// Worker pool for map image rendering.
 #[cfg(all(feature = "rendering", target_os = "linux"))]
 pub mod render_pool;
 #[cfg(all(feature = "rendering", target_os = "linux"))]
@@ -90,9 +92,8 @@ pub type StyleCatalog = HashMap<String, CatalogStyleEntry>;
 #[derive(Debug, Clone, Default)]
 pub struct StyleSources {
     sources: DashMap<String, StyleSource>,
-    // if rendering is allowed
     #[cfg(all(feature = "rendering", target_os = "linux"))]
-    rendering_enabled: bool,
+    pool: Option<RenderPool>,
 }
 
 /// Style source file.
@@ -139,7 +140,7 @@ impl StyleSources {
     #[cfg(all(feature = "rendering", target_os = "linux"))]
     #[must_use]
     pub fn is_rendering_enabled(&self) -> bool {
-        self.rendering_enabled
+        self.pool.is_some()
     }
 
     /// Adds a style JSON file with an ID to the catalog.
@@ -180,10 +181,8 @@ impl StyleSources {
 
     /// EXPERIMENTAL support for rendering styles.
     ///
-    /// Tile rendering routes through the same global renderer as free-camera
-    /// static rendering: we point the camera at the tile's geographic centre
-    /// (computed by [`tile_center_lng_lat`]) and hand off
-    /// a 512×512 static request.
+    /// Renders a 512×512 tile by aiming the static renderer at the tile's
+    /// geographic centre, computed by [`tile_center_lng_lat`].
     #[cfg(all(feature = "rendering", target_os = "linux"))]
     pub async fn render(&self, path: PathBuf, z: u8, x: u32, y: u32) -> Result<Image, StyleError> {
         let (lng, lat) = tile_center_lng_lat(z, x, y);
@@ -194,17 +193,34 @@ impl StyleSources {
     /// Render a map image with free camera control.
     #[cfg(all(feature = "rendering", target_os = "linux"))]
     pub async fn render_static(&self, params: RenderParams) -> Result<Image, StyleError> {
-        if !self.rendering_enabled {
-            return Err(StyleError::RenderingIsDisabled);
-        }
-        let image = RenderPool::global_pool().render(params).await?;
-        Ok(image)
+        self.pool
+            .as_ref()
+            .ok_or(StyleError::RenderingIsDisabled)?
+            .render(params)
+            .await
     }
 
-    /// Enable or disable rendering.
+    /// Enable rendering by spawning a [`RenderPool`]. Replaces any existing pool.
+    ///
+    /// See [`RenderPool::new`] for the meaning of `workers`.
+    ///
+    /// # Errors
+    ///
+    /// Returns the OS error from [`std::thread::Builder::spawn`] if a worker
+    /// thread cannot be started.
     #[cfg(all(feature = "rendering", target_os = "linux"))]
-    pub fn set_rendering_enabled(&mut self, arg: bool) {
-        self.rendering_enabled = arg;
+    pub fn enable_rendering(
+        &mut self,
+        workers: Option<NonZeroUsize>,
+    ) -> Result<(), std::io::Error> {
+        self.pool = Some(RenderPool::new(workers)?);
+        Ok(())
+    }
+
+    /// Disable rendering. Subsequent render calls return [`StyleError::RenderingIsDisabled`].
+    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    pub fn disable_rendering(&mut self) {
+        self.pool = None;
     }
 }
 
@@ -293,7 +309,9 @@ mod tests {
         let style_dir = Path::new("../tests/fixtures/styles/");
         let style_path = style_dir.join(style_file);
         let mut styles = StyleSources::default();
-        styles.set_rendering_enabled(true);
+        styles
+            .enable_rendering(None)
+            .expect("spawn render pool for tests");
 
         let rendered = styles.render(style_path, z, x, y).await.unwrap();
         let rendered_img = rendered.as_image();

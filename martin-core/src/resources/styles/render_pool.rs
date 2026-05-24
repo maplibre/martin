@@ -1,12 +1,13 @@
-use std::num::NonZeroU32;
+use std::num::{NonZeroU32, NonZeroUsize};
 use std::path::PathBuf;
-use std::sync::{Arc, LazyLock, mpsc};
+use std::sync::Arc;
 use std::thread::{self, JoinHandle};
 
 use maplibre_native::{Image, ImageRenderer, ImageRendererBuilder};
 use tokio::sync::oneshot;
+use tracing::info;
 
-use super::StyleError;
+use crate::resources::styles::StyleError;
 
 /// Parameters for a single map render request.
 ///
@@ -87,82 +88,101 @@ enum WorkerMsg {
     Shutdown,
 }
 
-/// `Arc`-shared so the pool stays `Clone`; `Drop` joins the worker.
+/// `Arc`-shared so the pool stays `Clone`; `Drop` joins the workers.
 #[derive(Debug)]
 struct Inner {
-    rendering_requests: mpsc::Sender<WorkerMsg>,
-    worker: Option<JoinHandle<()>>,
+    rendering_requests: flume::Sender<WorkerMsg>,
+    workers: Vec<JoinHandle<()>>,
 }
 
 impl Drop for Inner {
     fn drop(&mut self) {
-        let _ = self.rendering_requests.send(WorkerMsg::Shutdown);
-        if let Some(handle) = self.worker.take() {
+        for _ in 0..self.workers.len() {
+            let _ = self.rendering_requests.send(WorkerMsg::Shutdown);
+        }
+        for handle in self.workers.drain(..) {
             let _ = handle.join();
         }
     }
 }
 
-/// Single-worker map renderer used by both tile and static endpoints.
+/// Per-worker queue depth.
+/// Bounded so a stalled worker cannot accumulate unbounded latency.
 ///
-/// `maplibre-native` isn't safe to drive concurrently, so all requests
-/// serialize through one thread. The renderer is rebuilt only when
-/// `(width, height, pixel_ratio)` changes; the loaded style is cached
-/// across same-path requests.
+/// Sized so that we have 2-4s of work remaining, depending on hardware.
+const WORKER_QUEUE_DEPTH: usize = 512;
+
+/// Multi-worker map renderer.
+///
+/// Each worker holds its own [`ImageRenderer`] and caches the loaded style.
+/// The renderer is rebuilt only when `(width, height, pixel_ratio)` changes.
 #[derive(Debug, Clone)]
 pub struct RenderPool {
     inner: Arc<Inner>,
 }
 
 impl RenderPool {
-    fn new() -> Self {
-        let (tx, rx) = mpsc::channel::<WorkerMsg>();
-        let worker = thread::Builder::new()
-            .name("martin-render-pool".into())
-            .spawn(move || worker_loop(&rx))
-            .expect("spawn render pool worker");
-
-        Self {
-            inner: Arc::new(Inner {
-                rendering_requests: tx,
-                worker: Some(worker),
-            }),
+    /// Spawn a pool with `workers` threads.
+    ///
+    /// `Some(n)` is used as-is with no upper cap. `None` uses the logical CPU
+    /// count clamped to 2..=8.
+    ///
+    /// # Errors
+    ///
+    /// Returns the OS error from [`thread::Builder::spawn`] if a worker thread
+    /// cannot be started.
+    pub fn new(workers: Option<NonZeroUsize>) -> Result<Self, std::io::Error> {
+        let workers = workers.unwrap_or_else(default_worker_count);
+        let (rendering_requests, rx) =
+            flume::bounded::<WorkerMsg>(workers.get() * WORKER_QUEUE_DEPTH);
+        let mut handles = Vec::with_capacity(workers.get());
+        for i in 0..workers.get() {
+            let rx = rx.clone();
+            let handle = thread::Builder::new()
+                .name(format!("martin-render-{i}"))
+                .spawn(move || worker_loop(&rx))?;
+            handles.push(handle);
         }
+
+        info!(workers = workers.get(), "Started style render pool");
+
+        Ok(Self {
+            inner: Arc::new(Inner {
+                rendering_requests,
+                workers: handles,
+            }),
+        })
     }
 
     /// Render a map image asynchronously.
     pub async fn render(&self, params: RenderParams) -> Result<Image, StyleError> {
         let (response_tx, response_rx) = oneshot::channel();
 
+        // Bounded channel: async send awaits when full instead of blocking the runtime.
         self.inner
             .rendering_requests
-            .send(WorkerMsg::Render(RenderRequest {
+            .send_async(WorkerMsg::Render(RenderRequest {
                 params,
                 response: response_tx,
             }))
+            .await
             .map_err(|_| StyleError::FailedToSendRequest)?;
 
         response_rx
             .await
             .map_err(|_| StyleError::FailedToReceiveResponse)?
     }
-
-    /// Process-wide [`LazyLock`] pool. Never runs `Drop`; use
-    /// [`RenderPool::default`] when deterministic teardown is needed.
-    #[must_use]
-    pub fn global_pool() -> &'static Self {
-        static GLOBAL_POOL: LazyLock<RenderPool> = LazyLock::new(RenderPool::new);
-        &GLOBAL_POOL
-    }
 }
 
-impl Default for RenderPool {
-    fn default() -> Self {
-        Self::new()
-    }
+fn default_worker_count() -> NonZeroUsize {
+    const MIN: NonZeroUsize = NonZeroUsize::new(2).expect("2 != 0");
+    const MAX: NonZeroUsize = NonZeroUsize::new(8).expect("8 != 0");
+    thread::available_parallelism()
+        .unwrap_or(MIN)
+        .clamp(MIN, MAX)
 }
 
-fn worker_loop(rx: &mpsc::Receiver<WorkerMsg>) {
+fn worker_loop(rx: &flume::Receiver<WorkerMsg>) {
     let mut current: Option<RendererState> = None;
 
     while let Ok(msg) = rx.recv() {
@@ -220,11 +240,48 @@ fn worker_loop(rx: &mpsc::Receiver<WorkerMsg>) {
     }
 }
 
-/// Internal renderer state cached on the worker thread.
 struct RendererState {
     renderer: ImageRenderer<maplibre_native::Static>,
     width: u32,
     height: u32,
     pixel_ratio: f32,
     loaded_style: Option<PathBuf>,
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::Path;
+    use std::sync::Arc;
+
+    use super::*;
+
+    fn fixture_path(name: &str) -> PathBuf {
+        Path::new("../tests/fixtures/styles").join(name)
+    }
+
+    #[tokio::test]
+    async fn concurrent_renders_all_succeed() {
+        let workers = NonZeroUsize::new(4);
+        let pool = Arc::new(RenderPool::new(workers).expect("spawn render pool"));
+        let style = fixture_path("maplibre_demo.json");
+
+        let mut handles = Vec::new();
+        for i in 0..16 {
+            let pool = Arc::clone(&pool);
+            let style = style.clone();
+            handles.push(tokio::spawn(async move {
+                let params = RenderParams::new(style, 0.0, 0.0, f64::from(i % 4));
+                pool.render(params).await
+            }));
+        }
+
+        for h in handles {
+            let image = h.await.expect("task").expect("render");
+            let img = image.as_image();
+            assert_eq!(img.width(), 512);
+            assert_eq!(img.height(), 512);
+            let unique: std::collections::HashSet<_> = img.pixels().copied().collect();
+            assert!(unique.len() > 1, "image is blank");
+        }
+    }
 }

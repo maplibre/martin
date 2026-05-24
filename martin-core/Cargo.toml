@@ -44,7 +44,7 @@ overlay = [
     "dep:serde_json",
     "dep:tiny-skia",
 ]
-rendering = ["styles", "overlay", "dep:maplibre_native"]
+rendering = ["styles", "overlay", "dep:maplibre_native", "dep:image", "dep:flume"]
 fonts = [
     "dep:bit-set",
     "dep:pbf_font_tools",
@@ -84,6 +84,7 @@ csscolorparser = { workspace = true, optional = true }
 dashmap = { workspace = true, optional = true }
 deadpool-postgres = { workspace = true, optional = true }
 derive-debug.workspace = true
+flume = { workspace = true, optional = true }
 futures = { workspace = true, optional = true }
 geo-types = { workspace = true, optional = true }
 geojson = { workspace = true, optional = true }
