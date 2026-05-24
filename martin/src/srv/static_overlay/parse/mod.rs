@@ -1,19 +1,18 @@
-use csscolorparser::{Color, ParseColorError};
-use geo_types::Coord;
-use geojson::{Feature, FeatureCollection, GeometryValue, JsonObject, Position};
-use serde_json::Value as JsonValue;
-use tiny_skia::Paint;
+//! Turn a `GeoJSON` `FeatureCollection` into the renderable
+//! [`PathOverlay`] / [`MarkerOverlay`] shapes that [`super::draw`] consumes.
+//!
+//! The walker in this file dispatches by `GeometryValue`; per-shape
+//! construction lives in [`geometry`] and simplestyle property/paint
+//! handling lives in [`simplestyle`].
 
+mod geometry;
+mod simplestyle;
+
+use csscolorparser::ParseColorError;
+use geojson::{Feature, FeatureCollection, GeometryValue, JsonObject};
+
+use crate::srv::static_overlay::parse::geometry::{make_marker, make_path, make_polygon, to_coord};
 use crate::srv::static_overlay::{MarkerOverlay, PathOverlay};
-
-/// Default stroke and fill color when properties don't set one (per simplestyle).
-/// Polygons override this for `stroke`, defaulting to their `fill` color instead
-/// so a fill-only polygon doesn't render with a surprising contrasting border.
-const DEFAULT_COLOR: &str = "#555555";
-/// Default stroke width in pixels (per simplestyle).
-const DEFAULT_STROKE_WIDTH: f64 = 2.0;
-/// Default fill opacity (per simplestyle).
-const DEFAULT_FILL_OPACITY: f64 = 0.6;
 
 /// Errors produced while turning a `FeatureCollection` into renderable overlays.
 #[derive(Debug, thiserror::Error)]
@@ -109,168 +108,20 @@ fn push_geometry(
     Ok(())
 }
 
-/// `GeoJSON` Positions are `[lng, lat, …]` per RFC 7946 § 3.1.1.
-/// The geojson crate skips length validation on non-Point Positions, so the bounds check is load-bearing.
-fn to_coord(pos: &Position) -> Result<Coord, OverlayParseError> {
-    if pos.len() < 2 {
-        return Err(OverlayParseError::PositionTooShort {
-            position: pos.as_slice().to_vec(),
-        });
-    }
-    Ok(Coord {
-        x: pos[0],
-        y: pos[1],
-    })
-}
-
-fn make_path(
-    positions: &[Position],
-    props: Option<&JsonObject>,
-) -> Result<Option<PathOverlay>, OverlayParseError> {
-    let Some(points) = ring_coords(positions)? else {
-        return Ok(None);
-    };
-    let (stroke, width) = stroke_paint(props, DEFAULT_COLOR)?;
-    Ok(Some(PathOverlay {
-        points,
-        holes: Vec::new(),
-        stroke,
-        fill: None,
-        width,
-    }))
-}
-
-fn make_polygon(
-    rings: &[Vec<Position>],
-    props: Option<&JsonObject>,
-) -> Result<Option<PathOverlay>, OverlayParseError> {
-    let mut iter = rings.iter();
-    let Some(outer) = iter.next() else {
-        return Ok(None);
-    };
-    let Some(points) = ring_coords(outer)? else {
-        return Ok(None);
-    };
-    let mut holes: Vec<Vec<Coord>> = Vec::new();
-    for ring in iter {
-        if let Some(coords) = ring_coords(ring)? {
-            holes.push(coords);
-        }
-    }
-    let fill_color = str_prop(props, "fill").unwrap_or(DEFAULT_COLOR);
-    let fill_opacity = f64_prop(props, "fill-opacity").unwrap_or(DEFAULT_FILL_OPACITY);
-    let fill = Some(paint_with_opacity("fill", fill_color, fill_opacity)?);
-    // Polygon strokes default to the fill color (not gray) so a fill-only
-    // polygon renders as a clean shape without a contrasting border.
-    let (stroke, width) = stroke_paint(props, fill_color)?;
-    Ok(Some(PathOverlay {
-        points,
-        holes,
-        stroke,
-        fill,
-        width,
-    }))
-}
-
-/// Convert a ring of `GeoJSON` positions to `Coord`s, dropping rings with < 2 points.
-fn ring_coords(positions: &[Position]) -> Result<Option<Vec<Coord>>, OverlayParseError> {
-    let coords = positions
-        .iter()
-        .map(to_coord)
-        .collect::<Result<Vec<Coord>, _>>()?;
-    Ok((coords.len() >= 2).then_some(coords))
-}
-
-/// Resolve simplestyle stroke properties shared by lines and polygons.
-/// `default_color` is the color used when the `stroke` property is absent -
-/// lines pass [`DEFAULT_COLOR`], polygons pass their resolved `fill` color.
-fn stroke_paint(
-    props: Option<&JsonObject>,
-    default_color: &str,
-) -> Result<(Option<Paint<'static>>, Option<f32>), OverlayParseError> {
-    let stroke_color = str_prop(props, "stroke").unwrap_or(default_color);
-    let stroke_opacity = f64_prop(props, "stroke-opacity").unwrap_or(1.0);
-    let stroke = Some(paint_with_opacity("stroke", stroke_color, stroke_opacity)?);
-
-    #[expect(
-        clippy::cast_possible_truncation,
-        reason = "stroke widths fit in f32 in practice; precision loss is acceptable"
-    )]
-    let width = Some(f64_prop(props, "stroke-width").unwrap_or(DEFAULT_STROKE_WIDTH) as f32);
-
-    Ok((stroke, width))
-}
-
-fn make_marker(
-    coord: Coord,
-    props: Option<&JsonObject>,
-) -> Result<MarkerOverlay, OverlayParseError> {
-    let marker_color = match str_prop(props, "marker-color") {
-        Some(c) => Some(paint_with_opacity("marker-color", c, 1.0)?),
-        None => None,
-    };
-    Ok(MarkerOverlay {
-        coord,
-        marker_color,
-    })
-}
-
-fn str_prop<'a>(props: Option<&'a JsonObject>, key: &str) -> Option<&'a str> {
-    props?.get(key).and_then(JsonValue::as_str)
-}
-
-fn f64_prop(props: Option<&JsonObject>, key: &str) -> Option<f64> {
-    props?.get(key).and_then(JsonValue::as_f64)
-}
-
-/// Parse a CSS color and combine it with a `[0.0, 1.0]` opacity multiplier.
-///
-/// The opacity is multiplied with any alpha already encoded in the color
-/// (e.g. `rgba(...)`) so simplestyle-spec's `stroke-opacity: 0.4` correctly
-/// dims a fully opaque `stroke: "#312E81"`.
-fn paint_with_opacity(
-    property: &'static str,
-    color: &str,
-    opacity: f64,
-) -> Result<Paint<'static>, OverlayParseError> {
-    let css: Color = color
-        .trim()
-        .parse()
-        .map_err(|source| OverlayParseError::InvalidColor {
-            property,
-            value: color.to_string(),
-            source,
-        })?;
-    let [r, g, b, base_alpha] = css.to_rgba8();
-    let opacity = opacity.clamp(0.0, 1.0);
-    #[expect(
-        clippy::cast_possible_truncation,
-        clippy::cast_sign_loss,
-        reason = "opacity*255 fits in [0, 255]"
-    )]
-    let alpha = (f64::from(base_alpha) / 255.0 * opacity * 255.0).round() as u8;
-    let mut paint = Paint::default();
-    paint.set_color_rgba8(r, g, b, alpha);
-    paint.anti_alias = true;
-    // Force tiny-skia's f32 (HQ) pipeline in debug builds for stable test output;
-    // release builds let tiny-skia pick (usually the faster u16 pipeline). The
-    // visual difference is imperceptible, so prod takes the speed win.
-    paint.force_hq_pipeline = cfg!(debug_assertions);
-    Ok(paint)
-}
-
 #[cfg(test)]
 mod tests {
     use rstest::rstest;
     use serde_json::{Value, json};
 
-    use super::*;
+    use crate::srv::static_overlay::parse::{
+        OverlayParseError, ParsedOverlays, parse_feature_collection,
+    };
 
     fn parse_one(
         properties: &Value,
         geometry: &Value,
     ) -> Result<ParsedOverlays, OverlayParseError> {
-        let fc: FeatureCollection = serde_json::from_value(json!({
+        let fc: geojson::FeatureCollection = serde_json::from_value(json!({
             "type": "FeatureCollection",
             "features": [{
                 "type": "Feature",
