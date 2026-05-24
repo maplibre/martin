@@ -307,21 +307,6 @@ fn render_one(
     renderer: &mut ImageRenderer<Static>,
     params: &RenderParams,
 ) -> Result<Image, StyleError> {
-    // Warmup render at the request camera before mutating the style: the
-    // upstream maplibre `style_geojson_layers` test does this and without
-    // it `add_source` happens before the rendering pipeline initialises
-    // the style and the overlay never tiles. Done every request (not just
-    // on style load) because the worker is shared across requests with
-    // different cameras — without this, the previous request's bearing /
-    // pitch leak into the first real render of the next request.
-    let _ = renderer.render_static(
-        params.lat,
-        params.lon,
-        params.zoom,
-        params.bearing,
-        params.pitch,
-    );
-
     let render_once = |renderer: &mut ImageRenderer<_>| {
         renderer
             .render_static(
@@ -335,8 +320,17 @@ fn render_one(
     };
 
     let Some(spec) = params.overlays.as_deref().filter(|spec| !spec.is_empty()) else {
+        // No overlay: a single render captures the fully-tiled frame.
         return render_once(renderer);
     };
+
+    // An overlay source must be added to an already-initialised rendering
+    // pipeline: without a render before `add_source` the GeoJSON source never
+    // tiles and the overlay silently doesn't draw. Verified empirically —
+    // applying the overlay before any render then re-rendering (even 4×) never
+    // produces it, while a single pre-apply render does. This is only needed on
+    // the overlay path; a plain map is complete on its first render.
+    let _ = render_once(renderer);
 
     // Scope the overlay to this render: `RenderOverlay` removes it on drop —
     // including on an early return or panic below — so the worker's cached
@@ -345,19 +339,11 @@ fn render_one(
     let mut overlay = RenderOverlay::apply(renderer, spec)?;
     let renderer = overlay.renderer();
 
-    // GeoJSON sources are tiled asynchronously after `add_source`. Early
-    // `render_static` calls may capture before the tiles exist, so re-render
-    // until two non-blank frames match — that's the source-loaded steady
-    // state. Capped so a perpetually-changing source can't hang the worker.
-    const MAX_RENDERS: usize = 8;
-    let mut current = render_once(renderer);
-    for _ in 1..MAX_RENDERS {
-        current = render_once(renderer);
-        if current.is_err() {
-            break;
-        }
-    }
-    current
+    // The overlay's inline GeoJSON source tiles synchronously, so the first
+    // render after `add_source` already captures the fully-rasterised overlay —
+    // no re-render-until-settled loop is needed (verified empirically across
+    // polygon/line/point overlays: every frame after the first was identical).
+    render_once(renderer)
 }
 
 struct RendererState {
@@ -402,77 +388,6 @@ mod tests {
             assert_eq!(img.height(), 512);
             let unique: std::collections::HashSet<_> = img.pixels().copied().collect();
             assert!(unique.len() > 1, "image is blank");
-        }
-    }
-
-    fn diff_pixels(a: &[u8], b: &[u8]) -> usize {
-        a.chunks_exact(4)
-            .zip(b.chunks_exact(4))
-            .filter(|(p, q)| p != q)
-            .count()
-    }
-
-    /// EXPERIMENT (temporary): does a GeoJSON overlay actually need multiple
-    /// renders to settle, or is it stable on the first frame after `add_source`?
-    /// Renders the base map, applies one polygon overlay, then captures 8
-    /// consecutive frames and prints how each differs from the previous frame
-    /// and from the base. Run with `--nocapture`.
-    #[test]
-    fn experiment_geojson_overlay_settling() {
-        use crate::overlay::{apply_to_style, parse_spec};
-
-        let width = NonZeroU32::new(200).unwrap();
-        let height = NonZeroU32::new(200).unwrap();
-        let mut renderer = ImageRendererBuilder::default()
-            .with_pixel_ratio(1.0)
-            .with_size(width, height)
-            .build_static_renderer();
-        renderer
-            .load_style_from_path(&fixture_path("maplibre_demo.json"))
-            .expect("load style");
-
-        let (lat, lon, zoom, bearing, pitch) = (0.0, 0.0, 2.0, 0.0, 0.0);
-
-        // Warmup render (the workaround under test) then capture the base map.
-        let _ = renderer.render_static(lat, lon, zoom, bearing, pitch);
-        let base = renderer
-            .render_static(lat, lon, zoom, bearing, pitch)
-            .expect("base render")
-            .as_image()
-            .as_raw()
-            .clone();
-
-        let body: serde_json::Value = serde_json::from_str(
-            r##"{"type":"FeatureCollection","features":[{"type":"Feature",
-                "properties":{"fill":"#ff0000","fill-opacity":0.9},
-                "geometry":{"type":"Polygon","coordinates":[[[-10,-10],[10,-10],[10,10],[-10,10],[-10,-10]]]}}]}"##,
-        )
-        .expect("parse json");
-        let spec = parse_spec(&body).expect("parse spec");
-
-        {
-            // AppliedOverlay has no Drop, so the sources/layers stay on the
-            // renderer's style for the whole experiment (never removed here).
-            let mut style = Style::get_ref(&mut renderer);
-            let _applied = apply_to_style(&spec, &mut style).expect("apply overlay");
-        }
-
-        eprintln!("=== overlay settling experiment (200x200, base has {} pixels) ===", base.len() / 4);
-        let mut prev: Option<Vec<u8>> = None;
-        for frame in 1..=8 {
-            let img = renderer
-                .render_static(lat, lon, zoom, bearing, pitch)
-                .expect("overlay render")
-                .as_image()
-                .as_raw()
-                .clone();
-            let vs_base = diff_pixels(&img, &base);
-            let vs_prev = prev
-                .as_ref()
-                .map(|p| diff_pixels(&img, p))
-                .map_or("----".to_string(), |n| n.to_string());
-            eprintln!("frame {frame}: diff_vs_base={vs_base:>6}  diff_vs_prev={vs_prev:>6}");
-            prev = Some(img);
         }
     }
 }
