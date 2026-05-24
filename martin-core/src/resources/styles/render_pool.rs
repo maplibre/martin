@@ -84,7 +84,7 @@ impl RenderParams {
     /// Apply `spec` as ephemeral sources+layers for this render only.
     ///
     /// `Arc` because `RenderParams` is `Clone` and travels through the worker
-    /// channel; the GeoJSON payload could be large.
+    /// channel; the `GeoJSON` payload could be large.
     #[must_use]
     pub fn with_overlays(mut self, spec: Arc<OverlaySpec>) -> Self {
         self.overlays = Some(spec);

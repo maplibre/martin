@@ -1,592 +1,354 @@
-//! JSON → typed [`OverlaySpec`].
+//! `FeatureCollection` → typed [`OverlaySpec`].
 //!
-//! Strict: every key is validated; unknown keys, expression arrays, and URL
-//! `data` are rejected so that what callers send is exactly what maplibre
-//! will render.
-
-use std::collections::HashSet;
+//! Each feature's `properties` is normalized so simplestyle aliases
+//! (`marker-color`, `stroke`, `fill`, etc.) become canonical `MapLibre`
+//! property names. Every feature then fans out into one [`OverlaySource`]
+//! (containing just that feature) plus 1 or 2 [`OverlayLayer`]s with
+//! literal paint values built from the normalized properties.
 
 use csscolorparser::ParseColorError;
+use geojson::{GeoJson, GeometryValue, JsonObject};
 use serde_json::Value;
 
 use crate::overlay::{
-    CirclePaint, Color, FillPaint, LineCap, LineJoin, LineLayout, LinePaint, OverlayLayer,
-    OverlaySource, OverlaySpec,
+    CirclePaint, Color, FillPaint, LineCap, LineJoin, LineLayout, LinePaint, OverlayFeature,
+    OverlaySpec, StyledLayer,
 };
 
 /// Errors produced while parsing an [`OverlaySpec`] from JSON.
 #[non_exhaustive]
 #[derive(Debug, thiserror::Error)]
 pub enum OverlayParseError {
-    /// Top-level object contained an unknown key.
-    #[error("unknown top-level key {0:?}; expected one of: sources, layers")]
-    UnknownTopKey(String),
-
-    /// `sources` was not a JSON object.
-    #[error("`sources` must be a JSON object")]
-    SourcesNotObject,
-
-    /// `layers` was not a JSON array.
-    #[error("`layers` must be a JSON array")]
-    LayersNotArray,
-
-    /// A source's `type` was not `"geojson"`.
-    #[error("source {id:?}: only `type: geojson` is supported")]
-    UnsupportedSourceType {
-        /// Source id that triggered the error.
-        id: String,
-    },
-
-    /// A source's `data` was not an inline JSON object (e.g. a URL string).
-    #[error("source {id:?}: `data` must be an inline GeoJSON object, not a URL or string")]
-    SourceDataMustBeInline {
-        /// Source id that triggered the error.
-        id: String,
-    },
-
-    /// A source's `data` failed to deserialize as `GeoJSON`.
-    #[error("source {id:?}: malformed GeoJSON `data`: {source}")]
+    /// Body did not deserialize as a `GeoJSON` object at all.
+    #[error("body is not a valid GeoJSON object: {source}")]
     MalformedGeoJson {
-        /// Source id that triggered the error.
-        id: String,
         /// Underlying deserialization error.
         #[source]
         source: serde_json::Error,
     },
 
-    /// A layer's `type` was not one of `fill`, `line`, `circle`.
-    #[error("layer {id:?}: unsupported `type` {ty:?}; expected one of: fill, line, circle")]
-    UnsupportedLayerType {
-        /// Layer id that triggered the error.
-        id: String,
-        /// The offending type value.
-        ty: String,
+    /// Body deserialized as a non-`FeatureCollection` `GeoJSON` variant.
+    #[error("body must be a FeatureCollection (got a {actual})")]
+    NotFeatureCollection {
+        /// The `GeoJSON` top-level type that was received.
+        actual: &'static str,
     },
 
-    /// A layer's `source` did not reference any parsed source.
-    #[error("layer {id:?}: references unknown source {source_id:?}")]
-    UnknownSource {
-        /// Layer id that triggered the error.
-        id: String,
-        /// The unresolved source id.
-        source_id: String,
-    },
-
-    /// A required field was missing or had the wrong type.
-    #[error("layer {id:?}: missing or invalid required field {field:?}")]
-    MissingField {
-        /// Layer id that triggered the error (empty if missing from the layer object itself).
-        id: String,
-        /// The field name.
-        field: &'static str,
-    },
-
-    /// A `paint`/`layout` object contained an unknown property.
-    #[error("layer {id:?}: unknown {section} property {prop:?}")]
-    UnknownLayerProp {
-        /// Layer id that triggered the error.
-        id: String,
-        /// `"paint"` or `"layout"`.
-        section: &'static str,
-        /// The offending property name.
-        prop: String,
-    },
-
-    /// A property's value was a JSON array (i.e. a data-driven expression),
-    /// which this subset rejects.
-    #[error(
-        "layer {id:?}: property {prop:?} is a data-driven expression; only literal values are supported"
-    )]
-    ExpressionUnsupported {
-        /// Layer id that triggered the error.
-        id: String,
-        /// The property name.
-        prop: &'static str,
-    },
-
-    /// A color property's value did not parse as a CSS color.
-    #[error("layer {id:?}: invalid CSS color for {prop:?}: {value:?} ({source})")]
+    /// A color property's value was not a string, or did not parse as a CSS color.
+    #[error("feature {index}: invalid CSS color for {prop:?}: {value:?} ({source})")]
     InvalidColor {
-        /// Layer id that triggered the error.
-        id: String,
-        /// The property name.
+        /// Zero-based index of the offending feature.
+        index: usize,
+        /// The canonical property name (post alias-normalization).
         prop: &'static str,
-        /// The raw value echoed back for diagnostics.
+        /// Echoed-back raw value for diagnostics.
         value: String,
-        /// The underlying `csscolorparser` error.
+        /// Underlying `csscolorparser` error.
         #[source]
         source: ParseColorError,
     },
 
-    /// A numeric property was non-numeric, non-finite, or otherwise out of band.
-    #[error("layer {id:?}: invalid numeric value for {prop:?} (must be a finite number)")]
+    /// A numeric property was not a JSON number.
+    #[error("feature {index}: invalid number for {prop:?}")]
     InvalidNumber {
-        /// Layer id that triggered the error.
-        id: String,
-        /// The property name.
+        /// Zero-based index of the offending feature.
+        index: usize,
+        /// The canonical property name.
         prop: &'static str,
     },
 
     /// `line-cap` was set but not one of `butt`, `round`, `square`.
-    #[error("layer {id:?}: invalid `line-cap`; expected one of: butt, round, square")]
+    #[error("feature {index}: invalid line-cap; expected one of: butt, round, square")]
     InvalidLineCap {
-        /// Layer id that triggered the error.
-        id: String,
+        /// Zero-based index of the offending feature.
+        index: usize,
     },
 
     /// `line-join` was set but not one of `miter`, `bevel`, `round`.
-    #[error("layer {id:?}: invalid `line-join`; expected one of: miter, bevel, round")]
+    #[error("feature {index}: invalid line-join; expected one of: miter, bevel, round")]
     InvalidLineJoin {
-        /// Layer id that triggered the error.
-        id: String,
+        /// Zero-based index of the offending feature.
+        index: usize,
     },
 
-    /// A source or layer id was declared twice.
-    #[error("duplicate {kind} id {id:?}")]
-    DuplicateId {
-        /// `"source"` or `"layer"`.
-        kind: &'static str,
-        /// The duplicated id.
-        id: String,
+    /// `marker-size` was set but not one of `small`, `medium`, `large`.
+    #[error("feature {index}: invalid marker-size; expected one of: small, medium, large")]
+    InvalidMarkerSize {
+        /// Zero-based index of the offending feature.
+        index: usize,
     },
 }
 
-/// Parse a JSON tree into an [`OverlaySpec`].
+const fn rgb(r: u8, g: u8, b: u8) -> Color {
+    Color {
+        r: r as f32 / 255.0,
+        g: g as f32 / 255.0,
+        b: b as f32 / 255.0,
+        a: 1.0,
+    }
+}
+
+const DEFAULT_CIRCLE_COLOR: Color = rgb(0x7e, 0x7e, 0x7e);
+const DEFAULT_LINE_COLOR: Color = rgb(0x55, 0x55, 0x55);
+const DEFAULT_FILL_COLOR: Color = rgb(0x55, 0x55, 0x55);
+const DEFAULT_CIRCLE_RADIUS: f32 = 8.0;
+const DEFAULT_LINE_WIDTH: f32 = 2.0;
+const DEFAULT_FILL_OPACITY: f32 = 0.6;
+const DEFAULT_OPACITY: f32 = 1.0;
+
+const FILL_KEYS: &[&str] = &["fill-color", "fill-opacity", "fill-outline-color"];
+const LINE_KEYS: &[&str] = &[
+    "line-color",
+    "line-opacity",
+    "line-width",
+    "line-cap",
+    "line-join",
+];
+
+/// Simplestyle → canonical 1:1 property-name aliases. `marker-size` is
+/// handled separately because it requires enum-to-numeric translation.
+const ALIASES: &[(&str, &str)] = &[
+    ("marker-color", "circle-color"),
+    ("stroke", "line-color"),
+    ("stroke-opacity", "line-opacity"),
+    ("stroke-width", "line-width"),
+    ("fill", "fill-color"),
+];
+
+/// Parse a JSON tree (a `GeoJSON` `FeatureCollection`) into an [`OverlaySpec`].
 ///
-/// Every key is validated; unknown keys, expressions, and URL `data` are
-/// rejected so the wire format exactly mirrors what maplibre will render.
+/// Each input feature becomes one [`OverlayFeature`] carrying its own
+/// `GeoJSON` data and 1 or 2 [`StyledLayer`]s — picked by geometry type and
+/// which style properties the feature carries. Simplestyle aliases on
+/// `feature.properties` (e.g. `marker-color`, `stroke`, `fill`) are
+/// normalized to canonical `MapLibre` names before paint values are
+/// extracted; on conflict, the canonical name wins. Features with an
+/// unsupported or `null` geometry are skipped.
 ///
 /// # Errors
 ///
-/// Returns [`OverlayParseError`] on any unknown key, malformed value, or
-/// missing required field.
+/// Returns [`OverlayParseError`] when the body is not a valid `GeoJSON`
+/// `FeatureCollection`, or when a styling property has the wrong type
+/// (non-string colors, non-numeric widths, unknown enum values). Property
+/// keys that don't map to any known paint/layout property are silently
+/// ignored — including the simplestyle `title` and `description` fields.
 pub fn parse_spec(body: &Value) -> Result<OverlaySpec, OverlayParseError> {
-    let Some(obj) = body.as_object() else {
-        return Err(OverlayParseError::UnknownTopKey(format!(
-            "(not an object: {body})"
-        )));
+    let gj: GeoJson = serde_json::from_value(body.clone())
+        .map_err(|source| OverlayParseError::MalformedGeoJson { source })?;
+    let fc = match gj {
+        GeoJson::FeatureCollection(fc) => fc,
+        GeoJson::Feature(_) => {
+            return Err(OverlayParseError::NotFeatureCollection { actual: "Feature" });
+        }
+        GeoJson::Geometry(_) => {
+            return Err(OverlayParseError::NotFeatureCollection { actual: "Geometry" });
+        }
     };
 
-    let mut sources_val: Option<&Value> = None;
-    let mut layers_val: Option<&Value> = None;
-    for (k, v) in obj {
-        match k.as_str() {
-            "sources" => sources_val = Some(v),
-            "layers" => layers_val = Some(v),
-            other => return Err(OverlayParseError::UnknownTopKey(other.to_string())),
-        }
+    let mut features = Vec::with_capacity(fc.features.len());
+    for (index, mut feature) in fc.features.into_iter().enumerate() {
+        let Some(geometry) = feature.geometry.as_ref() else {
+            continue;
+        };
+        let Some(kind) = supported_geometry_kind(&geometry.value) else {
+            continue;
+        };
+        let props = normalize_properties(index, feature.properties.take())?;
+        let layers = match kind {
+            SupportedKind::Point => vec![StyledLayer::Circle(build_circle_paint(index, &props)?)],
+            SupportedKind::Line => vec![StyledLayer::Line(
+                build_line_paint(index, &props)?,
+                build_line_layout(index, &props)?,
+            )],
+            SupportedKind::Polygon => polygon_layers(index, &props)?,
+        };
+
+        feature.properties = Some(props);
+        features.push(OverlayFeature {
+            data: GeoJson::Feature(feature),
+            layers,
+        });
     }
 
-    let sources = match sources_val {
-        Some(v) => parse_sources(v)?,
-        None => Vec::new(),
-    };
-    let layers = match layers_val {
-        Some(v) => parse_layers(v, &sources)?,
-        None => Vec::new(),
-    };
-
-    Ok(OverlaySpec { sources, layers })
+    Ok(OverlaySpec { features })
 }
 
-fn parse_sources(value: &Value) -> Result<Vec<OverlaySource>, OverlayParseError> {
-    let obj = value
-        .as_object()
-        .ok_or(OverlayParseError::SourcesNotObject)?;
-    let mut out = Vec::with_capacity(obj.len());
-    let mut seen = HashSet::with_capacity(obj.len());
-    for (id, src) in obj {
-        if !seen.insert(id.clone()) {
-            return Err(OverlayParseError::DuplicateId {
-                kind: "source",
-                id: id.clone(),
-            });
+#[derive(Copy, Clone)]
+enum SupportedKind {
+    Point,
+    Line,
+    Polygon,
+}
+
+fn supported_geometry_kind(value: &GeometryValue) -> Option<SupportedKind> {
+    match value {
+        GeometryValue::Point { .. } | GeometryValue::MultiPoint { .. } => {
+            Some(SupportedKind::Point)
         }
-        out.push(parse_source(id, src)?);
+        GeometryValue::LineString { .. } | GeometryValue::MultiLineString { .. } => {
+            Some(SupportedKind::Line)
+        }
+        GeometryValue::Polygon { .. } | GeometryValue::MultiPolygon { .. } => {
+            Some(SupportedKind::Polygon)
+        }
+        GeometryValue::GeometryCollection { .. } => None,
+    }
+}
+
+fn normalize_properties(
+    index: usize,
+    props: Option<JsonObject>,
+) -> Result<JsonObject, OverlayParseError> {
+    let mut props = props.unwrap_or_default();
+    for (alias, canonical) in ALIASES {
+        if let Some(value) = props.remove(*alias) {
+            props.entry((*canonical).to_string()).or_insert(value);
+        }
+    }
+    if let Some(value) = props.remove("marker-size")
+        && !props.contains_key("circle-radius")
+    {
+        let Some(s) = value.as_str() else {
+            return Err(OverlayParseError::InvalidMarkerSize { index });
+        };
+        let radius: f64 = match s {
+            "small" => 6.0,
+            "medium" => 8.0,
+            "large" => 10.0,
+            _ => return Err(OverlayParseError::InvalidMarkerSize { index }),
+        };
+        props.insert(
+            "circle-radius".to_string(),
+            Value::Number(
+                serde_json::Number::from_f64(radius)
+                    .expect("hard-coded finite literal is a valid serde_json::Number"),
+            ),
+        );
+    }
+    Ok(props)
+}
+
+/// A polygon emits a fill layer (unless only stroke properties are set), and
+/// a line layer when any stroke/line property is present. A bare polygon
+/// still fills so it stays visible.
+fn polygon_layers(
+    index: usize,
+    props: &JsonObject,
+) -> Result<Vec<StyledLayer>, OverlayParseError> {
+    let has_fill_prop = FILL_KEYS.iter().any(|k| props.contains_key(*k));
+    let has_line_prop = LINE_KEYS.iter().any(|k| props.contains_key(*k));
+    let mut out = Vec::with_capacity(2);
+    if has_fill_prop || !has_line_prop {
+        out.push(StyledLayer::Fill(build_fill_paint(index, props)?));
+    }
+    if has_line_prop {
+        out.push(StyledLayer::Line(
+            build_line_paint(index, props)?,
+            build_line_layout(index, props)?,
+        ));
     }
     Ok(out)
 }
 
-fn parse_source(id: &str, value: &Value) -> Result<OverlaySource, OverlayParseError> {
-    let obj = value
-        .as_object()
-        .ok_or_else(|| OverlayParseError::MissingField {
-            id: id.to_string(),
-            field: "(source must be a JSON object)",
-        })?;
-
-    let mut ty: Option<&str> = None;
-    let mut data: Option<&Value> = None;
-    for (k, v) in obj {
-        match k.as_str() {
-            "type" => {
-                ty = Some(
-                    v.as_str()
-                        .ok_or(OverlayParseError::UnsupportedSourceType { id: id.to_string() })?,
-                );
-            }
-            "data" => data = Some(v),
-            other => {
-                return Err(OverlayParseError::UnknownLayerProp {
-                    id: id.to_string(),
-                    section: "source",
-                    prop: other.to_string(),
-                });
-            }
-        }
-    }
-
-    if ty != Some("geojson") {
-        return Err(OverlayParseError::UnsupportedSourceType { id: id.to_string() });
-    }
-    let data = data.ok_or(OverlayParseError::MissingField {
-        id: id.to_string(),
-        field: "data",
-    })?;
-    if !data.is_object() {
-        return Err(OverlayParseError::SourceDataMustBeInline { id: id.to_string() });
-    }
-
-    let geojson: geojson::GeoJson = serde_json::from_value(data.clone()).map_err(|source| {
-        OverlayParseError::MalformedGeoJson {
-            id: id.to_string(),
-            source,
-        }
-    })?;
-
-    Ok(OverlaySource {
-        id: id.to_string(),
-        data: geojson,
+fn build_circle_paint(index: usize, props: &JsonObject) -> Result<CirclePaint, OverlayParseError> {
+    Ok(CirclePaint {
+        color: Some(get_color(index, props, "circle-color")?.unwrap_or(DEFAULT_CIRCLE_COLOR)),
+        opacity: Some(get_number(index, props, "circle-opacity")?.unwrap_or(DEFAULT_OPACITY)),
+        radius: Some(get_number(index, props, "circle-radius")?.unwrap_or(DEFAULT_CIRCLE_RADIUS)),
+        stroke_color: get_color(index, props, "circle-stroke-color")?,
+        stroke_opacity: get_number(index, props, "circle-stroke-opacity")?,
+        stroke_width: get_number(index, props, "circle-stroke-width")?,
     })
 }
 
-fn parse_layers(
-    value: &Value,
-    sources: &[OverlaySource],
-) -> Result<Vec<OverlayLayer>, OverlayParseError> {
-    let arr = value.as_array().ok_or(OverlayParseError::LayersNotArray)?;
-    let mut out = Vec::with_capacity(arr.len());
-    let mut seen = HashSet::with_capacity(arr.len());
-    for layer in arr {
-        let parsed = parse_layer(layer, sources)?;
-        let id = layer_id(&parsed).to_string();
-        if !seen.insert(id.clone()) {
-            return Err(OverlayParseError::DuplicateId { kind: "layer", id });
-        }
-        out.push(parsed);
-    }
-    Ok(out)
+fn build_line_paint(index: usize, props: &JsonObject) -> Result<LinePaint, OverlayParseError> {
+    Ok(LinePaint {
+        color: Some(get_color(index, props, "line-color")?.unwrap_or(DEFAULT_LINE_COLOR)),
+        opacity: Some(get_number(index, props, "line-opacity")?.unwrap_or(DEFAULT_OPACITY)),
+        width: Some(get_number(index, props, "line-width")?.unwrap_or(DEFAULT_LINE_WIDTH)),
+    })
 }
 
-fn layer_id(layer: &OverlayLayer) -> &str {
-    match layer {
-        OverlayLayer::Fill { id, .. }
-        | OverlayLayer::Line { id, .. }
-        | OverlayLayer::Circle { id, .. } => id,
-    }
-}
-
-fn parse_layer(
-    value: &Value,
-    sources: &[OverlaySource],
-) -> Result<OverlayLayer, OverlayParseError> {
-    let obj = value.as_object().ok_or(OverlayParseError::MissingField {
-        id: String::new(),
-        field: "(layer must be a JSON object)",
-    })?;
-
-    // Pull out the always-present fields first so we know the id for any
-    // subsequent error.
-    let id = obj
-        .get("id")
-        .and_then(Value::as_str)
-        .ok_or(OverlayParseError::MissingField {
-            id: String::new(),
-            field: "id",
-        })?
-        .to_string();
-    let ty =
-        obj.get("type")
-            .and_then(Value::as_str)
-            .ok_or_else(|| OverlayParseError::MissingField {
-                id: id.clone(),
-                field: "type",
-            })?;
-    let source = obj
-        .get("source")
-        .and_then(Value::as_str)
-        .ok_or_else(|| OverlayParseError::MissingField {
-            id: id.clone(),
-            field: "source",
-        })?
-        .to_string();
-    if !sources.iter().any(|s| s.id == source) {
-        return Err(OverlayParseError::UnknownSource {
-            id,
-            source_id: source,
-        });
-    }
-    let before = match obj.get("before") {
+fn build_line_layout(index: usize, props: &JsonObject) -> Result<LineLayout, OverlayParseError> {
+    let cap = match props.get("line-cap") {
         None => None,
-        Some(v) => Some(
-            v.as_str()
-                .ok_or_else(|| OverlayParseError::MissingField {
-                    id: id.clone(),
-                    field: "before",
-                })?
-                .to_string(),
-        ),
-    };
-
-    // Validate that the layer object has no unknown top-level keys.
-    for k in obj.keys() {
-        match k.as_str() {
-            "id" | "type" | "source" | "before" | "paint" | "layout" => {}
-            other => {
-                return Err(OverlayParseError::UnknownLayerProp {
-                    id: id.clone(),
-                    section: "layer",
-                    prop: other.to_string(),
-                });
-            }
-        }
-    }
-
-    let paint_obj = obj.get("paint");
-    let layout_obj = obj.get("layout");
-
-    match ty {
-        "fill" => {
-            if layout_obj.is_some() {
-                return Err(OverlayParseError::UnknownLayerProp {
-                    id: id.clone(),
-                    section: "layer",
-                    prop: "layout".to_string(),
-                });
-            }
-            let paint = parse_fill_paint(&id, paint_obj)?;
-            Ok(OverlayLayer::Fill {
-                id,
-                source,
-                before,
-                paint,
-            })
-        }
-        "line" => {
-            let paint = parse_line_paint(&id, paint_obj)?;
-            let layout = parse_line_layout(&id, layout_obj)?;
-            Ok(OverlayLayer::Line {
-                id,
-                source,
-                before,
-                paint,
-                layout,
-            })
-        }
-        "circle" => {
-            if layout_obj.is_some() {
-                return Err(OverlayParseError::UnknownLayerProp {
-                    id: id.clone(),
-                    section: "layer",
-                    prop: "layout".to_string(),
-                });
-            }
-            let paint = parse_circle_paint(&id, paint_obj)?;
-            Ok(OverlayLayer::Circle {
-                id,
-                source,
-                before,
-                paint,
-            })
-        }
-        other => Err(OverlayParseError::UnsupportedLayerType {
-            id,
-            ty: other.to_string(),
+        Some(Value::String(s)) => Some(match s.as_str() {
+            "butt" => LineCap::Butt,
+            "round" => LineCap::Round,
+            "square" => LineCap::Square,
+            _ => return Err(OverlayParseError::InvalidLineCap { index }),
         }),
-    }
-}
-
-fn parse_fill_paint(id: &str, paint: Option<&Value>) -> Result<FillPaint, OverlayParseError> {
-    let mut out = FillPaint::default();
-    let Some(paint) = paint else {
-        return Ok(out);
+        Some(_) => return Err(OverlayParseError::InvalidLineCap { index }),
     };
-    let obj = paint.as_object().ok_or(OverlayParseError::MissingField {
-        id: id.to_string(),
-        field: "(paint must be a JSON object)",
-    })?;
-    for (k, v) in obj {
-        match k.as_str() {
-            "fill-color" => out.color = Some(parse_color(id, "fill-color", v)?),
-            "fill-opacity" => out.opacity = Some(parse_finite_f32(id, "fill-opacity", v)?),
-            "fill-outline-color" => {
-                out.outline_color = Some(parse_color(id, "fill-outline-color", v)?);
-            }
-            other => {
-                return Err(OverlayParseError::UnknownLayerProp {
-                    id: id.to_string(),
-                    section: "paint",
-                    prop: other.to_string(),
-                });
-            }
-        }
-    }
-    Ok(out)
-}
-
-fn parse_line_paint(id: &str, paint: Option<&Value>) -> Result<LinePaint, OverlayParseError> {
-    let mut out = LinePaint::default();
-    let Some(paint) = paint else {
-        return Ok(out);
+    let join = match props.get("line-join") {
+        None => None,
+        Some(Value::String(s)) => Some(match s.as_str() {
+            "miter" => LineJoin::Miter,
+            "bevel" => LineJoin::Bevel,
+            "round" => LineJoin::Round,
+            _ => return Err(OverlayParseError::InvalidLineJoin { index }),
+        }),
+        Some(_) => return Err(OverlayParseError::InvalidLineJoin { index }),
     };
-    let obj = paint.as_object().ok_or(OverlayParseError::MissingField {
-        id: id.to_string(),
-        field: "(paint must be a JSON object)",
-    })?;
-    for (k, v) in obj {
-        match k.as_str() {
-            "line-color" => out.color = Some(parse_color(id, "line-color", v)?),
-            "line-opacity" => out.opacity = Some(parse_finite_f32(id, "line-opacity", v)?),
-            "line-width" => out.width = Some(parse_finite_f32(id, "line-width", v)?),
-            other => {
-                return Err(OverlayParseError::UnknownLayerProp {
-                    id: id.to_string(),
-                    section: "paint",
-                    prop: other.to_string(),
-                });
-            }
-        }
-    }
-    Ok(out)
+    Ok(LineLayout { cap, join })
 }
 
-fn parse_line_layout(id: &str, layout: Option<&Value>) -> Result<LineLayout, OverlayParseError> {
-    let mut out = LineLayout::default();
-    let Some(layout) = layout else {
-        return Ok(out);
+fn build_fill_paint(index: usize, props: &JsonObject) -> Result<FillPaint, OverlayParseError> {
+    Ok(FillPaint {
+        color: Some(get_color(index, props, "fill-color")?.unwrap_or(DEFAULT_FILL_COLOR)),
+        opacity: Some(get_number(index, props, "fill-opacity")?.unwrap_or(DEFAULT_FILL_OPACITY)),
+        outline_color: get_color(index, props, "fill-outline-color")?,
+    })
+}
+
+fn get_color(
+    index: usize,
+    props: &JsonObject,
+    prop: &'static str,
+) -> Result<Option<Color>, OverlayParseError> {
+    let Some(value) = props.get(prop) else {
+        return Ok(None);
     };
-    let obj = layout.as_object().ok_or(OverlayParseError::MissingField {
-        id: id.to_string(),
-        field: "(layout must be a JSON object)",
-    })?;
-    for (k, v) in obj {
-        match k.as_str() {
-            "line-cap" => {
-                reject_expression(id, "line-cap", v)?;
-                out.cap = Some(match v.as_str() {
-                    Some("butt") => LineCap::Butt,
-                    Some("round") => LineCap::Round,
-                    Some("square") => LineCap::Square,
-                    _ => return Err(OverlayParseError::InvalidLineCap { id: id.to_string() }),
-                });
-            }
-            "line-join" => {
-                reject_expression(id, "line-join", v)?;
-                out.join = Some(match v.as_str() {
-                    Some("miter") => LineJoin::Miter,
-                    Some("bevel") => LineJoin::Bevel,
-                    Some("round") => LineJoin::Round,
-                    _ => return Err(OverlayParseError::InvalidLineJoin { id: id.to_string() }),
-                });
-            }
-            other => {
-                return Err(OverlayParseError::UnknownLayerProp {
-                    id: id.to_string(),
-                    section: "layout",
-                    prop: other.to_string(),
-                });
-            }
-        }
-    }
-    Ok(out)
-}
-
-fn parse_circle_paint(id: &str, paint: Option<&Value>) -> Result<CirclePaint, OverlayParseError> {
-    let mut out = CirclePaint::default();
-    let Some(paint) = paint else {
-        return Ok(out);
+    let Value::String(s) = value else {
+        return Err(OverlayParseError::InvalidColor {
+            index,
+            prop,
+            value: value.to_string(),
+            source: csscolorparser::parse("")
+                .expect_err("empty string never parses as a CSS color"),
+        });
     };
-    let obj = paint.as_object().ok_or(OverlayParseError::MissingField {
-        id: id.to_string(),
-        field: "(paint must be a JSON object)",
-    })?;
-    for (k, v) in obj {
-        match k.as_str() {
-            "circle-color" => out.color = Some(parse_color(id, "circle-color", v)?),
-            "circle-opacity" => out.opacity = Some(parse_finite_f32(id, "circle-opacity", v)?),
-            "circle-radius" => out.radius = Some(parse_finite_f32(id, "circle-radius", v)?),
-            "circle-stroke-color" => {
-                out.stroke_color = Some(parse_color(id, "circle-stroke-color", v)?);
-            }
-            "circle-stroke-opacity" => {
-                out.stroke_opacity = Some(parse_finite_f32(id, "circle-stroke-opacity", v)?);
-            }
-            "circle-stroke-width" => {
-                out.stroke_width = Some(parse_finite_f32(id, "circle-stroke-width", v)?);
-            }
-            other => {
-                return Err(OverlayParseError::UnknownLayerProp {
-                    id: id.to_string(),
-                    section: "paint",
-                    prop: other.to_string(),
-                });
-            }
-        }
-    }
-    Ok(out)
-}
-
-fn parse_color(id: &str, prop: &'static str, value: &Value) -> Result<Color, OverlayParseError> {
-    reject_expression(id, prop, value)?;
-    let s = value.as_str().ok_or(OverlayParseError::InvalidColor {
-        id: id.to_string(),
-        prop,
-        value: value.to_string(),
-        source: csscolorparser::parse("").expect_err("empty string never parses as a CSS color"),
-    })?;
     let parsed = csscolorparser::parse(s).map_err(|source| OverlayParseError::InvalidColor {
-        id: id.to_string(),
+        index,
         prop,
-        value: s.to_string(),
+        value: s.clone(),
         source,
     })?;
-    #[expect(
-        clippy::cast_possible_truncation,
-        reason = "CSS colors fit in f32 with negligible precision loss"
-    )]
-    Ok(Color {
+    Ok(Some(Color {
         r: parsed.r as f32,
         g: parsed.g as f32,
         b: parsed.b as f32,
         a: parsed.a as f32,
-    })
+    }))
 }
 
-fn parse_finite_f32(id: &str, prop: &'static str, value: &Value) -> Result<f32, OverlayParseError> {
-    reject_expression(id, prop, value)?;
-    let n = value.as_f64().ok_or(OverlayParseError::InvalidNumber {
-        id: id.to_string(),
-        prop,
-    })?;
-    if !n.is_finite() {
-        return Err(OverlayParseError::InvalidNumber {
-            id: id.to_string(),
-            prop,
-        });
+fn get_number(
+    index: usize,
+    props: &JsonObject,
+    prop: &'static str,
+) -> Result<Option<f32>, OverlayParseError> {
+    let Some(value) = props.get(prop) else {
+        return Ok(None);
+    };
+    if value.is_null() {
+        return Err(OverlayParseError::InvalidNumber { index, prop });
     }
-    #[expect(
+    let n = value
+        .as_f64()
+        .ok_or(OverlayParseError::InvalidNumber { index, prop })?;
+    #[allow(
         clippy::cast_possible_truncation,
         reason = "downcast to f32 for the maplibre paint API"
     )]
-    Ok(n as f32)
-}
-
-fn reject_expression(id: &str, prop: &'static str, value: &Value) -> Result<(), OverlayParseError> {
-    if value.is_array() {
-        return Err(OverlayParseError::ExpressionUnsupported {
-            id: id.to_string(),
-            prop,
-        });
-    }
-    Ok(())
+    Ok(Some(n as f32))
 }

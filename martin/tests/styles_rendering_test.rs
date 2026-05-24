@@ -450,7 +450,7 @@ async fn empty_body_renders_base_map() {
 async fn empty_overlay_renders_base_map() {
     let body = post_png_body(
         "/style/maplibre_demo/static/0,0,0/200x200.png",
-        br#"{"sources": {}, "layers": []}"#,
+        br#"{"type": "FeatureCollection", "features": []}"#,
     )
     .await;
     assert_png_matches(&camera_ref("center_z0"), &body);

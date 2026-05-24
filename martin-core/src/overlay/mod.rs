@@ -1,5 +1,7 @@
-//! Static-render overlays: parse a maplibre-style-spec subset, then apply it
-//! as ephemeral sources+layers on a renderer's style.
+//! Static-render overlays: parse a simplestyle-shaped `FeatureCollection`
+//! (with `MapLibre` property names on each feature's `properties`) into a
+//! list of pre-styled features, then apply them ephemerally to a renderer's
+//! style.
 
 #[cfg(all(feature = "rendering", target_os = "linux"))]
 mod apply;
@@ -11,73 +13,50 @@ pub use parse::{OverlayParseError, parse_spec};
 
 /// Prefix prepended to every caller-supplied source/layer id before it reaches
 /// maplibre. Guarantees overlay ids cannot collide with the base style.
+#[cfg(all(feature = "rendering", target_os = "linux"))]
 const ID_PREFIX: &str = "overlay:";
 
-/// A parsed overlay spec: sources + layers in a maplibre-style-spec subset.
+/// A parsed overlay: an ordered list of features, each pre-styled with the
+/// one or two layers it renders as.
 #[derive(Debug, Default, Clone)]
 pub struct OverlaySpec {
-    /// `GeoJSON` sources, in input order. Source ids are un-prefixed.
-    pub sources: Vec<OverlaySource>,
-    /// Layers, in declared render order. Layer ids are un-prefixed.
-    pub layers: Vec<OverlayLayer>,
+    /// Features in render order. Each feature renders independently as its
+    /// own `GeoJSON` source plus 1 or 2 typed layers.
+    pub features: Vec<OverlayFeature>,
 }
 
 impl OverlaySpec {
-    /// `true` when there are no sources or layers — nothing to apply.
+    /// `true` when there are no features — nothing to apply.
     #[must_use]
     pub fn is_empty(&self) -> bool {
-        self.sources.is_empty() && self.layers.is_empty()
+        self.features.is_empty()
     }
 }
 
-/// A `GeoJSON` source bound for a maplibre `GeoJsonSource`.
+/// One feature and the 1-2 layers it draws as. The styled layers are
+/// pre-resolved at parse time — there are no cross-references to other
+/// features and no string-id pointers.
 #[derive(Debug, Clone)]
-pub struct OverlaySource {
-    /// Caller-supplied source id (un-prefixed).
-    pub id: String,
-    /// Parsed `GeoJSON` payload. Parsed eagerly so malformed data → 400.
+pub struct OverlayFeature {
+    /// `GeoJSON` payload (typically a single-feature `Feature`) that becomes
+    /// this overlay's source. Parsed eagerly so malformed data → 400.
     pub data: geojson::GeoJson,
+    /// Layers in draw order (fill → outline-line → line → circle).
+    /// A point yields exactly `Circle`; a linestring yields exactly `Line`;
+    /// a polygon yields `Fill`, `Line`, or both.
+    pub layers: Vec<StyledLayer>,
 }
 
-/// A single overlay layer. Vec position is the render order.
-#[derive(Debug, Clone)]
-pub enum OverlayLayer {
-    /// Polygon fill layer.
-    Fill {
-        /// Caller-supplied layer id (un-prefixed).
-        id: String,
-        /// Caller-supplied source id this layer reads from (un-prefixed).
-        source: String,
-        /// Base-style layer id to insert before. Passed verbatim to maplibre
-        /// — must reference a layer in the base style, never an overlay layer.
-        before: Option<String>,
-        /// Paint properties.
-        paint: FillPaint,
-    },
-    /// Line layer.
-    Line {
-        /// Caller-supplied layer id (un-prefixed).
-        id: String,
-        /// Caller-supplied source id this layer reads from (un-prefixed).
-        source: String,
-        /// Base-style layer id to insert before. Passed verbatim to maplibre.
-        before: Option<String>,
-        /// Paint properties.
-        paint: LinePaint,
-        /// Layout properties.
-        layout: LineLayout,
-    },
-    /// Circle layer (used for markers).
-    Circle {
-        /// Caller-supplied layer id (un-prefixed).
-        id: String,
-        /// Caller-supplied source id this layer reads from (un-prefixed).
-        source: String,
-        /// Base-style layer id to insert before. Passed verbatim to maplibre.
-        before: Option<String>,
-        /// Paint properties.
-        paint: CirclePaint,
-    },
+/// One typed paint layer attached to a feature.
+#[derive(Debug, Clone, Copy)]
+pub enum StyledLayer {
+    /// Polygon fill paint.
+    Fill(FillPaint),
+    /// Line paint + layout (used for `LineString`/`MultiLineString` features
+    /// and for polygon outlines).
+    Line(LinePaint, LineLayout),
+    /// Circle paint (used for `Point`/`MultiPoint` features).
+    Circle(CirclePaint),
 }
 
 /// Paint properties for a `fill` layer.

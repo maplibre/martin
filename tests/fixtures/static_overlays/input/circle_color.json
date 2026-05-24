@@ -1,25 +1,10 @@
 {
-  "layers": [
+  "type": "FeatureCollection",
+  "features": [
     {
-      "id": "marker",
-      "paint": { "circle-color": "#285DAA", "circle-radius": 8 },
-      "source": "s",
-      "type": "circle"
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [0.0, 0.0] },
+      "properties": { "circle-color": "#285DAA", "circle-radius": 8 }
     }
-  ],
-  "sources": {
-    "s": {
-      "data": {
-        "features": [
-          {
-            "geometry": { "coordinates": [0.0, 0.0], "type": "Point" },
-            "properties": {},
-            "type": "Feature"
-          }
-        ],
-        "type": "FeatureCollection"
-      },
-      "type": "geojson"
-    }
-  }
+  ]
 }

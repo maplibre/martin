@@ -1,29 +1,18 @@
 {
-  "layers": [
+  "type": "FeatureCollection",
+  "features": [
     {
-      "id": "line",
-      "layout": { "line-cap": "round", "line-join": "round" },
-      "paint": { "line-color": "#111725", "line-width": 12 },
-      "source": "s",
-      "type": "line"
-    }
-  ],
-  "sources": {
-    "s": {
-      "data": {
-        "features": [
-          {
-            "geometry": {
-              "coordinates": [[-10.0, -10.0], [10.0, 10.0]],
-              "type": "LineString"
-            },
-            "properties": {},
-            "type": "Feature"
-          }
-        ],
-        "type": "FeatureCollection"
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[-10.0, -10.0], [10.0, 10.0]]
       },
-      "type": "geojson"
+      "properties": {
+        "line-color": "#111725",
+        "line-width": 12,
+        "line-cap": "round",
+        "line-join": "round"
+      }
     }
-  }
+  ]
 }

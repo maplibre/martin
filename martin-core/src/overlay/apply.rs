@@ -1,8 +1,9 @@
 //! [`OverlaySpec`] → side-effects on a maplibre [`Style`].
 //!
-//! All caller ids are prepended with [`ID_PREFIX`] so overlays cannot collide
-//! with base-style ids. The `before` reference in [`OverlayLayer`] is passed
-//! to maplibre verbatim — it must reference a base-style layer.
+//! Each [`OverlayFeature`] becomes one maplibre source plus its 1-2 layers.
+//! The [`ID_PREFIX`] / synthetic-id scheme lives entirely here — callers
+//! never see prefixed or unprefixed ids, only the typed features. Overlay
+//! layers are added on top of the base style in feature order.
 
 use maplibre_native::{
     CircleLayer, Color as MlnColor, FillLayer, GeoJson, GeoJsonError, GeoJsonSource, Layer,
@@ -11,27 +12,27 @@ use maplibre_native::{
 
 use crate::overlay::{
     CirclePaint, Color, FillPaint, ID_PREFIX, LineCap, LineJoin, LineLayout, LinePaint,
-    OverlayLayer, OverlaySpec,
+    OverlaySpec, StyledLayer,
 };
 
 /// Errors produced while applying an [`OverlaySpec`] to a [`Style`].
 #[non_exhaustive]
 #[derive(Debug, thiserror::Error)]
 pub enum ApplyError {
-    /// Failed to hand the source's `GeoJSON` data to maplibre.
-    #[error("source {id:?}: failed to convert GeoJSON: {source}")]
+    /// Failed to hand a feature's `GeoJSON` data to maplibre.
+    #[error("overlay feature {index}: failed to convert GeoJSON: {source}")]
     GeoJsonConvert {
-        /// Source id that triggered the error (un-prefixed).
-        id: String,
+        /// Zero-based index of the offending feature.
+        index: usize,
         /// Underlying maplibre error.
         #[source]
         source: GeoJsonError,
     },
 
-    /// Maplibre rejected the source or layer mutation.
-    #[error("{id:?}: maplibre rejected style mutation: {source}")]
+    /// Maplibre rejected a source or layer mutation.
+    #[error("overlay {id:?}: maplibre rejected style mutation: {source}")]
     Maplibre {
-        /// Id that triggered the error (un-prefixed).
+        /// Synthetic id that triggered the error (un-prefixed, e.g. `f0-fill`).
         id: String,
         /// Underlying maplibre error.
         #[source]
@@ -73,66 +74,62 @@ pub fn apply_to_style(
     style: &mut Style<'_, Static>,
 ) -> Result<AppliedOverlay, ApplyError> {
     let mut applied = AppliedOverlay {
-        layer_ids: Vec::with_capacity(spec.layers.len()),
-        source_ids: Vec::with_capacity(spec.sources.len()),
+        layer_ids: Vec::new(),
+        source_ids: Vec::with_capacity(spec.features.len()),
     };
 
-    for src in &spec.sources {
-        let prefixed = format!("{ID_PREFIX}{}", src.id);
-        let mln_gj: GeoJson = match (&src.data).try_into() {
-            Ok(gj) => gj,
-            Err(source) => {
-                rollback(&mut applied, style);
-                return Err(ApplyError::GeoJsonConvert {
-                    id: src.id.clone(),
-                    source,
-                });
-            }
-        };
-        let mut gs = GeoJsonSource::new(&prefixed);
-        gs.set_geojson(&mln_gj);
-        if let Err(source) = style.add_source(gs) {
+    for (index, feature) in spec.features.iter().enumerate() {
+        if let Err(err) = apply_feature(style, &mut applied, index, feature) {
             rollback(&mut applied, style);
-            return Err(ApplyError::Maplibre {
-                id: src.id.clone(),
-                source,
-            });
-        }
-        applied.source_ids.push(prefixed);
-    }
-
-    for layer in &spec.layers {
-        let result = match layer {
-            OverlayLayer::Fill {
-                id,
-                source,
-                before,
-                paint,
-            } => add_fill(style, id, source, before.as_deref(), paint),
-            OverlayLayer::Line {
-                id,
-                source,
-                before,
-                paint,
-                layout,
-            } => add_line(style, id, source, before.as_deref(), paint, layout),
-            OverlayLayer::Circle {
-                id,
-                source,
-                before,
-                paint,
-            } => add_circle(style, id, source, before.as_deref(), paint),
-        };
-        match result {
-            Ok(prefixed) => applied.layer_ids.push(prefixed),
-            Err(err) => {
-                rollback(&mut applied, style);
-                return Err(err);
-            }
+            return Err(err);
         }
     }
 
     Ok(applied)
+}
+
+fn apply_feature(
+    style: &mut Style<'_, Static>,
+    applied: &mut AppliedOverlay,
+    index: usize,
+    feature: &crate::overlay::OverlayFeature,
+) -> Result<(), ApplyError> {
+    let source_id = format!("{ID_PREFIX}f{index}");
+    let mln_gj: GeoJson = (&feature.data)
+        .try_into()
+        .map_err(|source| ApplyError::GeoJsonConvert { index, source })?;
+    let mut gs = GeoJsonSource::new(&source_id);
+    gs.set_geojson(&mln_gj);
+    style
+        .add_source(gs)
+        .map_err(|source| ApplyError::Maplibre {
+            id: format!("f{index}"),
+            source,
+        })?;
+    applied.source_ids.push(source_id.clone());
+
+    for styled in &feature.layers {
+        let kind = match styled {
+            StyledLayer::Fill(_) => "fill",
+            StyledLayer::Line(..) => "line",
+            StyledLayer::Circle(_) => "circle",
+        };
+        let layer_id = format!("{ID_PREFIX}f{index}-{kind}");
+        let result = match styled {
+            StyledLayer::Fill(paint) => add_fill(style, &layer_id, &source_id, paint),
+            StyledLayer::Line(paint, layout) => {
+                add_line(style, &layer_id, &source_id, paint, *layout)
+            }
+            StyledLayer::Circle(paint) => add_circle(style, &layer_id, &source_id, paint),
+        };
+        result.map_err(|source| ApplyError::Maplibre {
+            id: format!("f{index}-{kind}"),
+            source,
+        })?;
+        applied.layer_ids.push(layer_id);
+    }
+
+    Ok(())
 }
 
 fn rollback(applied: &mut AppliedOverlay, style: &mut Style<'_, Static>) {
@@ -146,14 +143,11 @@ fn rollback(applied: &mut AppliedOverlay, style: &mut Style<'_, Static>) {
 
 fn add_fill(
     style: &mut Style<'_, Static>,
-    id: &str,
-    source: &str,
-    before: Option<&str>,
+    layer_id: &str,
+    source_id: &str,
     paint: &FillPaint,
-) -> Result<String, ApplyError> {
-    let prefixed_id = format!("{ID_PREFIX}{id}");
-    let prefixed_src = format!("{ID_PREFIX}{source}");
-    let mut layer = FillLayer::new(&prefixed_id, &prefixed_src);
+) -> Result<(), StyleError> {
+    let mut layer = FillLayer::new(layer_id, source_id);
     if let Some(c) = paint.color {
         layer.set_fill_color(c.into());
     }
@@ -163,21 +157,17 @@ fn add_fill(
     if let Some(c) = paint.outline_color {
         layer.set_fill_outline_color(c.into());
     }
-    push_layer(style, layer, id, before)?;
-    Ok(prefixed_id)
+    style.add_layer(layer).map(|_| ())
 }
 
 fn add_line(
     style: &mut Style<'_, Static>,
-    id: &str,
-    source: &str,
-    before: Option<&str>,
+    layer_id: &str,
+    source_id: &str,
     paint: &LinePaint,
-    layout: &LineLayout,
-) -> Result<String, ApplyError> {
-    let prefixed_id = format!("{ID_PREFIX}{id}");
-    let prefixed_src = format!("{ID_PREFIX}{source}");
-    let mut layer = LineLayer::new(&prefixed_id, &prefixed_src);
+    layout: LineLayout,
+) -> Result<(), StyleError> {
+    let mut layer = LineLayer::new(layer_id, source_id);
     if let Some(c) = paint.color {
         layer.set_line_color(c.into());
     }
@@ -193,20 +183,16 @@ fn add_line(
     if let Some(join) = layout.join {
         layer.set_line_join(join.into());
     }
-    push_layer(style, layer, id, before)?;
-    Ok(prefixed_id)
+    style.add_layer(layer).map(|_| ())
 }
 
 fn add_circle(
     style: &mut Style<'_, Static>,
-    id: &str,
-    source: &str,
-    before: Option<&str>,
+    layer_id: &str,
+    source_id: &str,
     paint: &CirclePaint,
-) -> Result<String, ApplyError> {
-    let prefixed_id = format!("{ID_PREFIX}{id}");
-    let prefixed_src = format!("{ID_PREFIX}{source}");
-    let mut layer = CircleLayer::new(&prefixed_id, &prefixed_src);
+) -> Result<(), StyleError> {
+    let mut layer = CircleLayer::new(layer_id, source_id);
     if let Some(c) = paint.color {
         layer.set_circle_color(c.into());
     }
@@ -225,24 +211,7 @@ fn add_circle(
     if let Some(w) = paint.stroke_width {
         layer.set_circle_stroke_width(w);
     }
-    push_layer(style, layer, id, before)?;
-    Ok(prefixed_id)
-}
-
-fn push_layer<L: Layer>(
-    style: &mut Style<'_, Static>,
-    layer: L,
-    id: &str,
-    before: Option<&str>,
-) -> Result<(), ApplyError> {
-    let result = match before {
-        Some(b) => style.add_layer_before(layer, b).map(|_| ()),
-        None => style.add_layer(layer).map(|_| ()),
-    };
-    result.map_err(|source| ApplyError::Maplibre {
-        id: id.to_string(),
-        source,
-    })
+    style.add_layer(layer).map(|_| ())
 }
 
 impl From<Color> for MlnColor {

@@ -285,9 +285,12 @@ pub async fn redirect_static_jpeg(path: Path<StaticJpgRedirectPath>) -> HttpResp
         .finish()
 }
 
-/// Schema-only request body for `POST /style/.../static/...`. A partial
-/// maplibre style — `sources` (geojson only) plus `layers` (fill/line/circle
-/// only) — applied as ephemeral additions to the base style for this render.
+/// Schema-only request body for `POST /style/.../static/...`. A `GeoJSON`
+/// `FeatureCollection`; each feature carries optional styling on its
+/// `properties`, using either simplestyle alias names (`marker-color`,
+/// `stroke`, `fill`, ...) or canonical `MapLibre` property names
+/// (`circle-color`, `line-width`, `fill-color`, ...). Unknown property keys
+/// are silently ignored.
 ///
 /// Runtime parsing happens in [`OverlayBody::from_request`] via
 /// [`parse_spec`]; this struct exists only to drive `utoipa`'s schema
@@ -296,127 +299,99 @@ pub async fn redirect_static_jpeg(path: Path<StaticJpgRedirectPath>) -> HttpResp
 #[derive(utoipa::ToSchema)]
 #[expect(dead_code, reason = "fields are read by the ToSchema derive macro")]
 struct StaticStyleOverlay {
-    /// GeoJSON sources keyed by source id. `data` must be inline (no URLs).
-    sources: std::collections::HashMap<String, StaticGeoJsonSource>,
-    /// Layers in render order. Layer ids must not collide; server prefixes
-    /// every id with `overlay:` before handing them to maplibre.
-    layers: Vec<StaticOverlayLayer>,
+    /// `GeoJSON` type discriminator. Must be `"FeatureCollection"`.
+    r#type: StaticFeatureCollectionTag,
+    /// Features to overlay on the rendered base map, in draw order.
+    features: Vec<StaticOverlayFeature>,
 }
 
-/// GeoJSON source with inline `data`. Mirrors maplibre's `geojson` source type.
+#[cfg(feature = "unstable-schemas")]
+#[derive(Deserialize, utoipa::ToSchema)]
+enum StaticFeatureCollectionTag {
+    FeatureCollection,
+}
+
+/// One `GeoJSON` `Feature` with an optional style on `properties`.
 #[cfg(feature = "unstable-schemas")]
 #[derive(utoipa::ToSchema)]
 #[expect(dead_code, reason = "fields are read by the ToSchema derive macro")]
-struct StaticGeoJsonSource {
-    /// Always `"geojson"`; other source types are rejected.
-    r#type: StaticGeoJsonSourceTag,
-    /// Inline GeoJSON object. URLs and strings are rejected.
-    data: serde_json::Value,
+struct StaticOverlayFeature {
+    /// Must be `"Feature"`.
+    r#type: StaticFeatureTag,
+    /// A `GeoJSON` geometry. `Point`/`MultiPoint` → circle layer;
+    /// `LineString`/`MultiLineString` → line layer;
+    /// `Polygon`/`MultiPolygon` → fill (and optionally outline-line) layer.
+    /// `GeometryCollection` is silently skipped; `null` is silently skipped.
+    geometry: serde_json::Value,
+    /// Styling for this feature. All fields optional; unknown fields ignored.
+    properties: Option<StaticOverlayProperties>,
 }
 
 #[cfg(feature = "unstable-schemas")]
 #[derive(Deserialize, utoipa::ToSchema)]
-#[serde(rename_all = "lowercase")]
-enum StaticGeoJsonSourceTag {
-    Geojson,
+enum StaticFeatureTag {
+    Feature,
 }
 
-/// Tagged-by-`type` overlay layer. Only literal paint/layout values; no
-/// data-driven expressions, no symbol/heatmap/raster layers.
-#[cfg(feature = "unstable-schemas")]
-#[derive(Deserialize, utoipa::ToSchema)]
-#[serde(tag = "type", rename_all = "lowercase")]
-#[expect(dead_code, reason = "variants are read by the ToSchema derive macro")]
-enum StaticOverlayLayer {
-    Fill {
-        id: String,
-        source: String,
-        /// Base-style layer id to insert before. Optional.
-        before: Option<String>,
-        paint: Option<StaticFillPaint>,
-    },
-    Line {
-        id: String,
-        source: String,
-        before: Option<String>,
-        paint: Option<StaticLinePaint>,
-        layout: Option<StaticLineLayout>,
-    },
-    Circle {
-        id: String,
-        source: String,
-        before: Option<String>,
-        paint: Option<StaticCirclePaint>,
-    },
-}
-
+/// Per-feature style. Either simplestyle aliases or canonical `MapLibre`
+/// names; the canonical name wins on conflict. All fields are optional and
+/// fall back to simplestyle defaults.
 #[cfg(feature = "unstable-schemas")]
 #[derive(Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "kebab-case")]
 #[expect(dead_code, reason = "fields are read by the ToSchema derive macro")]
-struct StaticFillPaint {
-    /// CSS color for the polygon fill.
-    #[schema(example = "#95BEFA")]
-    fill_color: Option<String>,
-    /// Fill opacity in `0..=1`.
-    #[schema(minimum = 0.0, maximum = 1.0, example = 0.5)]
-    fill_opacity: Option<f32>,
-    /// CSS color for the polygon outline. Maplibre draws this only when the
-    /// fill layer has no `fill-pattern`.
-    fill_outline_color: Option<String>,
-}
+struct StaticOverlayProperties {
+    // ---- simplestyle aliases (normalized to canonical at parse time) ----
+    /// Simplestyle alias for `circle-color`.
+    #[schema(example = "#7e7e7e")]
+    marker_color: Option<String>,
+    /// Simplestyle alias for `circle-radius`: `small`=6, `medium`=8, `large`=10.
+    #[schema(example = "medium")]
+    marker_size: Option<String>,
+    /// Simplestyle alias for `line-color`.
+    stroke: Option<String>,
+    /// Simplestyle alias for `line-opacity`.
+    stroke_opacity: Option<f32>,
+    /// Simplestyle alias for `line-width`.
+    stroke_width: Option<f32>,
+    /// Simplestyle alias for `fill-color`.
+    fill: Option<String>,
 
-#[cfg(feature = "unstable-schemas")]
-#[derive(Deserialize, utoipa::ToSchema)]
-#[serde(rename_all = "kebab-case")]
-#[expect(dead_code, reason = "fields are read by the ToSchema derive macro")]
-struct StaticLinePaint {
-    /// CSS color for the line.
+    // ---- canonical MapLibre paint/layout names ----
+    /// CSS color for `Point` geometries.
+    #[schema(example = "#285DAA")]
+    circle_color: Option<String>,
+    circle_opacity: Option<f32>,
+    /// Radius in pixels at the rendered scale.
+    #[schema(example = 8.0)]
+    circle_radius: Option<f32>,
+    circle_stroke_color: Option<String>,
+    circle_stroke_opacity: Option<f32>,
+    circle_stroke_width: Option<f32>,
+
+    /// CSS color for `LineString` geometries (and `Polygon` outlines).
     #[schema(example = "#285DAA")]
     line_color: Option<String>,
-    /// Line opacity in `0..=1`.
-    #[schema(minimum = 0.0, maximum = 1.0)]
     line_opacity: Option<f32>,
     /// Line width in pixels at the rendered scale.
-    #[schema(minimum = 0.0, example = 3.0)]
+    #[schema(example = 2.0)]
     line_width: Option<f32>,
-}
-
-#[cfg(feature = "unstable-schemas")]
-#[derive(Deserialize, utoipa::ToSchema)]
-#[serde(rename_all = "kebab-case")]
-#[expect(dead_code, reason = "fields are read by the ToSchema derive macro")]
-struct StaticLineLayout {
     /// One of `butt`, `round`, `square`.
     line_cap: Option<String>,
     /// One of `miter`, `bevel`, `round`.
     line_join: Option<String>,
-}
 
-#[cfg(feature = "unstable-schemas")]
-#[derive(Deserialize, utoipa::ToSchema)]
-#[serde(rename_all = "kebab-case")]
-#[expect(dead_code, reason = "fields are read by the ToSchema derive macro")]
-struct StaticCirclePaint {
-    /// CSS color for the circle.
-    #[schema(example = "#FF0000")]
-    circle_color: Option<String>,
-    /// Circle opacity in `0..=1`.
-    #[schema(minimum = 0.0, maximum = 1.0)]
-    circle_opacity: Option<f32>,
-    /// Circle radius in pixels at the rendered scale.
-    #[schema(minimum = 0.0, example = 6.0)]
-    circle_radius: Option<f32>,
-    circle_stroke_color: Option<String>,
-    #[schema(minimum = 0.0, maximum = 1.0)]
-    circle_stroke_opacity: Option<f32>,
-    #[schema(minimum = 0.0)]
-    circle_stroke_width: Option<f32>,
+    /// CSS color for `Polygon` fills.
+    #[schema(example = "#95BEFA")]
+    fill_color: Option<String>,
+    fill_opacity: Option<f32>,
+    fill_outline_color: Option<String>,
 }
 
 /// Render a static map image with optional vector overlays.
 /// See [our documentation](https://maplibre.org/martin/sources-styles/) for
-/// the supported `sources`/`layers` subset of the maplibre style spec.
+/// the supported overlay body — a `GeoJSON` `FeatureCollection` with style
+/// properties on each feature.
 ///
 /// An empty or missing body renders the base map alone.
 #[cfg_attr(
@@ -428,7 +403,7 @@ struct StaticCirclePaint {
         request_body(
             content = StaticStyleOverlay,
             content_type = "application/json",
-            description = "Partial maplibre style: `sources` (geojson only) plus `layers` (fill/line/circle only), applied for this render.",
+            description = "GeoJSON FeatureCollection. Each feature's `properties` may carry simplestyle aliases (`marker-color`, `stroke`, `fill`, …) or MapLibre canonical property names (`circle-color`, `line-width`, `fill-color`, …). Unknown property keys are ignored.",
         ),
         responses(
             (status = 200, description = "Rendered static map image", content(
@@ -493,8 +468,8 @@ pub async fn post_rendered_static_style(
 }
 
 /// Actix extractor: empty body → no overlays; otherwise parses the body as
-/// a maplibre-style-spec subset. Malformed JSON or unsupported keys
-/// short-circuit the handler with a 400 response.
+/// a `GeoJSON` `FeatureCollection` (see [`parse_spec`]). Malformed JSON or
+/// invalid styling values short-circuit the handler with a 400 response.
 struct OverlayBody(Arc<OverlaySpec>);
 
 impl FromRequest for OverlayBody {

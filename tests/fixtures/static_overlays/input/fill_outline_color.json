@@ -10,13 +10,9 @@
         ]
       },
       "properties": {
-        "fill": "green",
+        "fill-color": "#95BEFA",
         "fill-opacity": 1.0,
-        "stroke": "darkgreen",
-        "stroke-opacity": 0.8,
-        "stroke-width": 2,
-        "line-cap": "round",
-        "line-join": "round"
+        "fill-outline-color": "#111725"
       }
     }
   ]
