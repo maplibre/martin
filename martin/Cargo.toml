@@ -114,12 +114,7 @@ default = [
     "mlt",
 ]
 unstable-cog = ["martin-core/unstable-cog", "_tiles"]
-rendering = [
-    "styles",
-    "martin-core/rendering",
-    "dep:image",
-    "dep:geojson",
-]
+rendering = ["styles", "martin-core/rendering", "dep:image", "dep:geojson"]
 fonts = ["martin-core/fonts", "_catalog"]
 lambda = ["dep:lambda-web"]
 mbtiles = ["martin-core/mbtiles", "dep:mbtiles", "_tiles"]

@@ -36,11 +36,7 @@ postgres = [
     "_tiles",
 ]
 unstable-cog = ["dep:png", "dep:tiff", "dep:image", "dep:serde_json", "_tiles"]
-overlay = [
-    "dep:csscolorparser",
-    "dep:geojson",
-    "dep:serde_json",
-]
+overlay = ["dep:csscolorparser", "dep:geojson", "dep:serde_json"]
 rendering = ["styles", "overlay", "dep:maplibre_native", "dep:image", "dep:flume"]
 fonts = [
     "dep:bit-set",
