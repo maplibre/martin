@@ -2012,13 +2012,13 @@ If you want to help implement it, see <a href="https://github.com/maplibre/marti
   <strong>MBTiles</strong> typically provide slightly lower latency due to local access and SQLite indexing.
   <strong>PMTiles</strong> may introduce additional latency when accessed remotely, but this is usually mitigated by HTTP caching and CDN usage.</li>
 <li><strong>Storage efficiency</strong>
-  <strong>PMTiles</strong> archives are generally more space-efficient, typically ~10–15% smaller than equivalent <strong>MBTiles</strong> archives.</li>
+  <strong>PMTiles</strong> archives are generally more space-efficient, typically ~10-15% smaller than equivalent <strong>MBTiles</strong> archives.</li>
 <li><strong>Memory usage</strong>
   <strong>MBTiles</strong> relies on SQLite, which maintains an internal page cache and may increase memory usage under load.
   <strong>PMTiles</strong> can, in some cases, operate with lower memory overhead, depending on access patterns and caching configuration.</li>
 </ul>
 <h3 id="serving-pmtiles-without-a-tile-server">Serving PMTiles without a Tile Server</h3>
-<p>PMTiles archives can be served directly from HTTP range–capable storage without a dedicated tile server.
+<p>PMTiles archives can be served directly from HTTP range-capable storage without a dedicated tile server.
 This approach has several limitations:</p>
 <ul>
 <li><strong>Unrestricted access risk</strong>
@@ -2393,7 +2393,7 @@ This can be useful if you want to have different cloud providers.</p>
 </tr>
 <tr>
 <td><code>bucket_key_enabled</code></td>
-<td>Use bucket’s default KMS key (<code>true</code>/<code>false</code>)</td>
+<td>Use bucket's default KMS key (<code>true</code>/<code>false</code>)</td>
 <td><code>true</code></td>
 </tr>
 <tr>
