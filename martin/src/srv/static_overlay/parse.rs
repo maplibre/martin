@@ -24,6 +24,8 @@ pub enum OverlayParseError {
         value: String,
         source: ParseColorError,
     },
+    #[error("GeoJSON position has fewer than 2 coordinates: {position:?}")]
+    PositionTooShort { position: Vec<f64> },
 }
 
 /// Renderable overlays extracted from a `GeoJSON` `FeatureCollection`.
@@ -65,11 +67,12 @@ fn push_geometry(
 ) -> Result<(), OverlayParseError> {
     match value {
         GeometryValue::Point { coordinates } => {
-            out.markers.push(make_marker(to_coord(coordinates), props)?);
+            out.markers
+                .push(make_marker(to_coord(coordinates)?, props)?);
         }
         GeometryValue::MultiPoint { coordinates } => {
             for pos in coordinates {
-                out.markers.push(make_marker(to_coord(pos), props)?);
+                out.markers.push(make_marker(to_coord(pos)?, props)?);
             }
         }
         GeometryValue::LineString { coordinates } => {
@@ -107,18 +110,24 @@ fn push_geometry(
 }
 
 /// `GeoJSON` Positions are `[lng, lat, …]` per RFC 7946 § 3.1.1.
-fn to_coord(pos: &Position) -> Coord {
-    Coord {
+/// The geojson crate skips length validation on non-Point Positions, so the bounds check is load-bearing.
+fn to_coord(pos: &Position) -> Result<Coord, OverlayParseError> {
+    if pos.len() < 2 {
+        return Err(OverlayParseError::PositionTooShort {
+            position: pos.as_slice().to_vec(),
+        });
+    }
+    Ok(Coord {
         x: pos[0],
         y: pos[1],
-    }
+    })
 }
 
 fn make_path(
     positions: &[Position],
     props: Option<&JsonObject>,
 ) -> Result<Option<PathOverlay>, OverlayParseError> {
-    let Some(points) = ring_coords(positions) else {
+    let Some(points) = ring_coords(positions)? else {
         return Ok(None);
     };
     let (stroke, width) = stroke_paint(props, DEFAULT_COLOR)?;
@@ -139,10 +148,15 @@ fn make_polygon(
     let Some(outer) = iter.next() else {
         return Ok(None);
     };
-    let Some(points) = ring_coords(outer) else {
+    let Some(points) = ring_coords(outer)? else {
         return Ok(None);
     };
-    let holes: Vec<Vec<Coord>> = iter.filter_map(|r| ring_coords(r)).collect();
+    let mut holes: Vec<Vec<Coord>> = Vec::new();
+    for ring in iter {
+        if let Some(coords) = ring_coords(ring)? {
+            holes.push(coords);
+        }
+    }
     let fill_color = str_prop(props, "fill").unwrap_or(DEFAULT_COLOR);
     let fill_opacity = f64_prop(props, "fill-opacity").unwrap_or(DEFAULT_FILL_OPACITY);
     let fill = Some(paint_with_opacity("fill", fill_color, fill_opacity)?);
@@ -159,9 +173,12 @@ fn make_polygon(
 }
 
 /// Convert a ring of `GeoJSON` positions to `Coord`s, dropping rings with < 2 points.
-fn ring_coords(positions: &[Position]) -> Option<Vec<Coord>> {
-    let coords: Vec<Coord> = positions.iter().map(to_coord).collect();
-    (coords.len() >= 2).then_some(coords)
+fn ring_coords(positions: &[Position]) -> Result<Option<Vec<Coord>>, OverlayParseError> {
+    let coords = positions
+        .iter()
+        .map(to_coord)
+        .collect::<Result<Vec<Coord>, _>>()?;
+    Ok((coords.len() >= 2).then_some(coords))
 }
 
 /// Resolve simplestyle stroke properties shared by lines and polygons.
@@ -410,12 +427,48 @@ mod tests {
         let err = parse_one(&properties, &geometry).expect_err("invalid color must error");
         let OverlayParseError::InvalidColor {
             property, value, ..
-        } = &err;
+        } = &err
+        else {
+            panic!("expected InvalidColor, got {err:?}");
+        };
         assert_eq!(*property, expected_property);
         assert_eq!(value, expected_value);
         let msg = err.to_string();
         assert!(msg.contains(expected_property), "{msg}");
         assert!(msg.contains(expected_value), "{msg}");
+    }
+
+    /// Point is excluded — the geojson crate rejects short Point coordinates at deserialize time.
+    #[rstest]
+    #[case::multipoint(
+        json!({"type": "MultiPoint", "coordinates": [[1.0]]}),
+    )]
+    #[case::linestring(
+        json!({"type": "LineString", "coordinates": [[1.0], [2.0]]}),
+    )]
+    #[case::polygon_outer_ring(
+        json!({"type": "Polygon", "coordinates": [
+            [[0.0, 0.0], [1.0], [1.0, 1.0], [0.0, 0.0]]
+        ]}),
+    )]
+    #[case::polygon_hole(
+        json!({"type": "Polygon", "coordinates": [
+            [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 0.0]],
+            [[0.5, 0.5], [0.5], [0.6, 0.6], [0.5, 0.5]]
+        ]}),
+    )]
+    #[case::geometry_collection_nested_short_linestring(
+        json!({"type": "GeometryCollection", "geometries": [
+            {"type": "LineString", "coordinates": [[1.0], [2.0]]}
+        ]}),
+    )]
+    fn short_position_errors_instead_of_panicking(#[case] geometry: Value) {
+        let err =
+            parse_one(&json!({}), &geometry).expect_err("short position must error, not panic");
+        assert!(
+            matches!(err, OverlayParseError::PositionTooShort { .. }),
+            "expected PositionTooShort, got {err:?}",
+        );
     }
 
     #[test]
