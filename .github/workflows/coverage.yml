@@ -48,6 +48,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y gdal-bin sqlite3-tools postgresql-client
       - name: Install rendering dependencies
         run: just install-dependencies
+      - uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
 
       - name: Generate code coverage
         run: just coverage --codecov --output-path target/codecov.info
