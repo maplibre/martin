@@ -12,6 +12,8 @@ mod ui 'martin/martin-ui/justfile'
 # Note that just_executable() may have `\` in Windows paths, so we need to quote it.
 just := quote(just_executable())
 
+# list of features we deem stable for release packaging
+stable_features := 'fonts,lambda,mbtiles,metrics,mlt,pmtiles,postgres,sprites,styles,webui'
 # if running in CI, treat warnings as errors by setting RUSTFLAGS and RUSTDOCFLAGS to '-D warnings' unless they are already set
 # Use `CI=true just ci-test` to run the same tests as in GitHub CI.
 # Use `just env-info` to see the current values of RUSTFLAGS and RUSTDOCFLAGS
@@ -219,27 +221,16 @@ build-release target:
 # Note: rendering feature is excluded because the Debian build targets older glibc (ubuntu-22.04)
 # and maplibre_native pre-built libraries require newer glibc.
 build-deb output: (cargo-install 'cargo-deb')
-    #!/usr/bin/env bash
-    set -euo pipefail
     sudo apt-get install -y dpkg dpkg-dev liblzma-dev
-    if [[ "{{release_mode}}" == "1" ]]; then
-        cargo deb -v -p martin --output {{output}} -- --no-default-features --features fonts,lambda,mbtiles,metrics,mlt,pmtiles,postgres,sprites,styles,webui
-    else
-        cargo deb -v -p martin --profile dev --output {{output}} -- --no-default-features --features fonts,lambda,mbtiles,metrics,mlt,pmtiles,postgres,sprites,styles,webui
-    fi
+    cargo deb -v -p martin {{if release_mode == '1' {''} else {'--profile dev'} }} --output {{output}} -- --no-default-features --features {{stable_features}}
 
 # Build for musl target using zigbuild
 # Set RELEASE_MODE='' to build in debug mode (used for PRs in CI to reduce build time).
 # Note: rendering feature is excluded because maplibre_native cannot be cross-compiled for musl targets.
 build-release-musl target:
-    #!/usr/bin/env bash
-    set -euo pipefail
     rustup target add {{target}}
-    if [[ "{{release_mode}}" == "1" ]]; then
-        export CARGO_TARGET_{{shoutysnakecase(target)}}_RUSTFLAGS='-C strip=debuginfo'
-    fi
-    cargo zigbuild {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package mbtiles --locked
-    cargo zigbuild {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package martin --locked --no-default-features --features fonts,lambda,mbtiles,metrics,mlt,pmtiles,postgres,sprites,styles,webui
+    {{if release_mode == '1' {'CARGO_TARGET_' + shoutysnakecase(target) + '_RUSTFLAGS="-C strip=debuginfo"'} else {''} }} cargo zigbuild {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package mbtiles --locked
+    {{if release_mode == '1' {'CARGO_TARGET_' + shoutysnakecase(target) + '_RUSTFLAGS="-C strip=debuginfo"'} else {''} }} cargo zigbuild {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package martin --locked --no-default-features --features {{stable_features}}
 
 
 # Move build artifacts to target_releases directory
@@ -266,7 +257,7 @@ move-artifacts target:
 
 # Quick compile without building a binary
 check: (cargo-install 'cargo-hack')
-    cargo hack --exclude-features _tiles,_catalog,__hotpath,__hotpath_tui check --all-targets --each-feature --workspace
+    MLN_PRECOMPILE=1 cargo hack --exclude-features _tiles,_catalog,__hotpath,__hotpath_tui check --all-targets --each-feature --workspace
 
 # Verify cargo-binstall metadata resolves correctly
 check-binstall: (cargo-install 'cargo-binstall')
@@ -633,11 +624,6 @@ test-ssl-cert: start-ssl-cert
 update:
     cargo +nightly -Z unstable-options update --breaking
     cargo update
-    # Make sure that 'evil' dependencies are at the last compatible version
-    # below needs to be synced with deny.toml
-    cargo update --precise 1.44.3 insta
-    cargo update --precise 1.24.0 libdeflater
-    cargo update --precise 1.24.0 libdeflate-sys
 
 # Validate that all required development tools are installed
 validate-tools:
