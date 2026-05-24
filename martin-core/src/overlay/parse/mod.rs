@@ -5,8 +5,6 @@
 
 mod geometry;
 mod simplestyle;
-#[cfg(test)]
-mod tests;
 
 use csscolorparser::ParseColorError;
 use geojson::{Feature, FeatureCollection, GeometryValue, JsonObject};

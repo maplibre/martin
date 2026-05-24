@@ -479,17 +479,31 @@ test_each_path! {
     => async |p: &Path| run_overlay_scenario(p, URI_CENTERED_200_2X, OVERLAY_2X_DIR).await
 }
 
-/// Same overlays, same 200×200 frame, but the camera is rotated 45°
-/// (bearing) and tilted 60° (pitch). This locks down that overlays are
-/// re-projected through the same view matrix as the base map — a flat
-/// 2D draw over the rendered tile would visibly drift here.
-const URI_CENTERED_200_PITCH_BEARING: &str = "/style/maplibre_demo/static/0,0,2@45,60/200x200.png";
+/// Same overlays, same 200×200 frame, but the camera is tilted 60° (pitch).
+/// This locks down that overlays are re-projected through the same view
+/// matrix as the base map — a flat 2D draw over the rendered tile would
+/// visibly drift here.
+const URI_CENTERED_200_PITCH: &str = "/style/maplibre_demo/static/0,0,2@0,60/200x200.png";
 
-const OVERLAY_1X_PITCH_BEARING_DIR: &str = "../tests/fixtures/static_overlays/1x_pitch_bearing";
+const OVERLAY_1X_PITCH_DIR: &str = "../tests/fixtures/static_overlays/1x_pitch";
 
 test_each_path! {
     #[tokio::test]
     async in "tests/fixtures/static_overlays/input"
-    as overlays_1x_pitch_bearing
-    => async |p: &Path| run_overlay_scenario(p, URI_CENTERED_200_PITCH_BEARING, OVERLAY_1X_PITCH_BEARING_DIR).await
+    as overlays_1x_pitch
+    => async |p: &Path| run_overlay_scenario(p, URI_CENTERED_200_PITCH, OVERLAY_1X_PITCH_DIR).await
+}
+
+/// Same overlays, same 200×200 frame, but the camera is rotated 45°
+/// (bearing). Isolates the bearing axis from pitch so a regression in
+/// rotation handling shows up independently of tilt.
+const URI_CENTERED_200_BEARING: &str = "/style/maplibre_demo/static/0,0,2@45/200x200.png";
+
+const OVERLAY_1X_BEARING_DIR: &str = "../tests/fixtures/static_overlays/1x_bearing";
+
+test_each_path! {
+    #[tokio::test]
+    async in "tests/fixtures/static_overlays/input"
+    as overlays_1x_bearing
+    => async |p: &Path| run_overlay_scenario(p, URI_CENTERED_200_BEARING, OVERLAY_1X_BEARING_DIR).await
 }

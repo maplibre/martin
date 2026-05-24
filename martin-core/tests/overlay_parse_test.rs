@@ -1,8 +1,10 @@
+#![cfg(feature = "overlay")]
+
+use martin_core::overlay::{
+    OverlayParseError, ParsedOverlays, Shape, Stroke, parse_feature_collection,
+};
 use rstest::rstest;
 use serde_json::{Value, json};
-
-use crate::overlay::parse::{OverlayParseError, ParsedOverlays, parse_feature_collection};
-use crate::overlay::{Shape, Stroke};
 
 fn parse_one(properties: &Value, geometry: &Value) -> Result<ParsedOverlays, OverlayParseError> {
     let fc: geojson::FeatureCollection = serde_json::from_value(json!({
