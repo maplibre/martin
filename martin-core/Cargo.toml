@@ -36,7 +36,14 @@ postgres = [
     "_tiles",
 ]
 unstable-cog = ["dep:png", "dep:tiff", "dep:image", "dep:serde_json", "_tiles"]
-rendering = ["styles", "dep:maplibre_native", "dep:image"]
+overlay = [
+    "dep:csscolorparser",
+    "dep:geo-types",
+    "dep:geojson",
+    "dep:image",
+    "dep:tiny-skia",
+]
+rendering = ["styles", "overlay", "dep:maplibre_native"]
 fonts = [
     "dep:bit-set",
     "dep:pbf_font_tools",
@@ -72,10 +79,13 @@ backon = { workspace = true, optional = true }
 base64  = { workspace = true, optional = true }
 bit-set = { workspace = true, optional = true }
 chrono.workspace = true
+csscolorparser = { workspace = true, optional = true }
 dashmap = { workspace = true, optional = true }
 deadpool-postgres = { workspace = true, optional = true }
 derive-debug.workspace = true
 futures = { workspace = true, optional = true }
+geo-types = { workspace = true, optional = true }
+geojson = { workspace = true, optional = true }
 hotpath.workspace = true
 image = { workspace = true, optional = true }
 itertools = { workspace = true, optional = true }
@@ -101,6 +111,7 @@ spreet = { workspace = true, optional = true }
 thiserror.workspace = true
 tiff = { workspace = true, optional = true }
 tilejson.workspace = true
+tiny-skia = { workspace = true, optional = true }
 tokio = { workspace = true, optional = true }
 tokio-postgres-rustls = { workspace = true, optional = true }
 tracing.workspace = true

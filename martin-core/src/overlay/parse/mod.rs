@@ -9,30 +9,43 @@ mod simplestyle;
 use csscolorparser::ParseColorError;
 use geojson::{Feature, FeatureCollection, GeometryValue, JsonObject};
 
-use crate::srv::static_overlay::parse::geometry::{make_marker, make_path, make_polygon, to_coord};
-use crate::srv::static_overlay::{MarkerOverlay, PathOverlay};
+use crate::overlay::parse::geometry::{make_marker, make_path, make_polygon, to_coord};
+use crate::overlay::{MarkerOverlay, PathOverlay};
 
 /// Errors produced while turning a `FeatureCollection` into renderable overlays.
 #[derive(Debug, thiserror::Error)]
 pub enum OverlayParseError {
+    /// A simplestyle color property (`stroke`, `fill`, `marker-color`) did not
+    /// parse as a CSS color.
     #[error("Invalid CSS color for property {property:?}: {value:?} ({source})")]
     InvalidColor {
+        /// The simplestyle property whose value failed to parse.
         property: &'static str,
+        /// The raw value that failed to parse, echoed back for diagnostics.
         value: String,
+        /// The underlying `csscolorparser` error.
         source: ParseColorError,
     },
+    /// A `GeoJSON` Position had fewer than 2 coordinates. RFC 7946 § 3.1.1
+    /// requires at least `[lon, lat]`.
     #[error("GeoJSON position has fewer than 2 coordinates: {position:?}")]
-    PositionTooShort { position: Vec<f64> },
+    PositionTooShort {
+        /// The offending Position array, echoed back for diagnostics.
+        position: Vec<f64>,
+    },
 }
 
 /// Renderable overlays extracted from a `GeoJSON` `FeatureCollection`.
 #[derive(Debug, Default)]
 pub struct ParsedOverlays {
+    /// Path overlays (line strings and polygons), in input order.
     pub paths: Vec<PathOverlay>,
+    /// Marker overlays (points), in input order.
     pub markers: Vec<MarkerOverlay>,
 }
 
 impl ParsedOverlays {
+    /// Returns `true` when there is nothing to draw.
     #[must_use]
     pub fn is_empty(&self) -> bool {
         self.paths.is_empty() && self.markers.is_empty()
@@ -111,9 +124,7 @@ mod tests {
     use rstest::rstest;
     use serde_json::{Value, json};
 
-    use crate::srv::static_overlay::parse::{
-        OverlayParseError, ParsedOverlays, parse_feature_collection,
-    };
+    use crate::overlay::parse::{OverlayParseError, ParsedOverlays, parse_feature_collection};
 
     fn parse_one(
         properties: &Value,

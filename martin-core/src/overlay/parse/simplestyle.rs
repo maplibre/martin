@@ -11,7 +11,7 @@ use geojson::JsonObject;
 use serde_json::Value as JsonValue;
 use tiny_skia::Paint;
 
-use crate::srv::static_overlay::parse::OverlayParseError;
+use crate::overlay::parse::OverlayParseError;
 
 /// Default stroke and fill color when properties don't set one (per simplestyle).
 /// Polygons override this for `stroke`, defaulting to their `fill` color so a

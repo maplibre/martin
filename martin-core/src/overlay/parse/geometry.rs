@@ -4,11 +4,11 @@
 use geo_types::Coord;
 use geojson::{JsonObject, Position};
 
-use crate::srv::static_overlay::parse::OverlayParseError;
-use crate::srv::static_overlay::parse::simplestyle::{
+use crate::overlay::parse::OverlayParseError;
+use crate::overlay::parse::simplestyle::{
     DEFAULT_COLOR, DEFAULT_FILL_OPACITY, f64_prop, paint_with_opacity, str_prop, stroke_paint,
 };
-use crate::srv::static_overlay::{MarkerOverlay, PathOverlay};
+use crate::overlay::{MarkerOverlay, PathOverlay};
 
 /// `GeoJSON` Positions are `[lng, lat, …]` per RFC 7946 § 3.1.1.
 /// The geojson crate skips length validation on non-Point Positions, so the bounds check is load-bearing.

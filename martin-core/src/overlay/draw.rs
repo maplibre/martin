@@ -3,20 +3,21 @@
 use image::RgbaImage;
 use tiny_skia::{FillRule, Paint, PathBuilder, Pixmap, Stroke, Transform};
 
-use crate::srv::static_overlay::project::geo_to_pixel;
-use crate::srv::static_overlay::{MarkerOverlay, OverlayView, PathOverlay};
+use crate::overlay::project::geo_to_pixel;
+use crate::overlay::{MarkerOverlay, OverlayView, PathOverlay};
 
 /// Default width when a `PathOverlay` doesn't carry one (matches simplestyle).
 const DEFAULT_STROKE_WIDTH: f32 = 2.0;
 
 /// Default fill of the classic Mapbox simplestyle marker; `marker-color` overrides it.
-const DEFAULT_MARKER_FILL_RGBA: [u8; 4] = [255, 0, 0, 200];
+const DEFAULT_MARKER_FILL_RGBA: [u8; 4] = [255, 0, 0, 255];
 
 /// Draw overlays onto a rendered image using tiny-skia for anti-aliased rendering.
 ///
 /// Returns a new image; the caller's buffer is read once to build a Pixmap and
 /// is never mutated, so taking `&RgbaImage` avoids a redundant clone at the
 /// call site.
+#[must_use]
 pub fn draw_overlays(
     img: &RgbaImage,
     paths: &[PathOverlay],

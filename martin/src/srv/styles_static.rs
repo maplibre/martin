@@ -9,13 +9,13 @@ use actix_web::web::{Bytes, Data, Path};
 use actix_web::{FromRequest, HttpRequest, HttpResponse, route};
 use geo_types::coord;
 use geojson::FeatureCollection;
+use martin_core::overlay::{self, ParsedOverlays, parse_feature_collection};
 use martin_core::styles::{RenderParams, StyleSources};
 use martin_tile_utils::{EARTH_CIRCUMFERENCE, wgs84_to_webmercator};
 use serde::Deserialize;
 use tracing::{debug, error, trace, warn};
 
 use crate::srv::server::DebouncedWarning;
-use crate::srv::static_overlay::{self, ParsedOverlays, parse_feature_collection};
 use crate::srv::styles_rendering::{ImageFormatRequest, encode_image_response};
 
 #[derive(Deserialize, Debug)]
@@ -382,7 +382,7 @@ struct StaticOverlayProperties {
     #[schema(default = 0.6, minimum = 0.0, maximum = 1.0, example = 0.5)]
     fill_opacity: Option<f64>,
 
-    /// CSS color for point markers (rendered with reduced alpha by default).
+    /// CSS color for point markers.
     #[schema(default = "#FF0000", example = "#285DAA")]
     marker_color: Option<String>,
 }
@@ -497,13 +497,13 @@ fn compose_overlays<'a>(
     // `base` is already physical pixels (logical * pixel_ratio); bumping zoom
     // by log2(pixel_ratio) is equivalent to scaling 256*2^zoom by pixel_ratio,
     // so overlays project onto the same pixel grid as the base map at @Nx.
-    let view = static_overlay::OverlayView {
+    let view = overlay::OverlayView {
         width: base.width(),
         height: base.height(),
         center: coord! { x: camera.center_lon, y: camera.center_lat },
         zoom: camera.zoom + f64::from(pixel_ratio).log2(),
     };
-    std::borrow::Cow::Owned(static_overlay::draw_overlays(
+    std::borrow::Cow::Owned(overlay::draw_overlays(
         base,
         &overlays.paths,
         &overlays.markers,
