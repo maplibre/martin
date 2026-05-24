@@ -7,20 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Breaking
-
-- `overlay` module rewritten. Old types (`ParsedOverlays`, `Shape`, `Marker`,
-  `Rgba`, `Stroke`, `Fill`, `OverlayView`, `parse_feature_collection`,
-  `draw_overlays_into`) are removed. The new module parses a MapLibre Style
-  Spec subset (`OverlaySpec` with `OverlaySource` / `OverlayLayer`) and
-  applies it as ephemeral sources+layers on a maplibre `Style` via
-  `apply_to_style` (gated on `rendering`). `tiny-skia` and `geo-types` are no
-  longer dependencies of the `overlay` feature.
-- `StyleError` adds `OverlayApply(ApplyError)`.
-- `RenderParams::with_overlays(Arc<OverlaySpec>)` attaches an overlay spec
-  for a single render; the worker loop applies it pre-render and removes it
-  post-render.
-
 ## [0.7.0](https://github.com/maplibre/martin/compare/martin-core-v0.6.0...martin-core-v0.7.0) - 2026-05-19
 
 ### Other
