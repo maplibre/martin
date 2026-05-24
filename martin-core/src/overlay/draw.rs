@@ -71,7 +71,13 @@ fn draw_shape(
         Shape::Line { points, stroke } => {
             rings.push(points.iter().map(project).collect());
             if let Some(path) = build_subpaths(rings, false) {
-                pixmap.stroke_path(&path, &to_paint(stroke.color), &sk_stroke(stroke.width), identity, None);
+                pixmap.stroke_path(
+                    &path,
+                    &to_paint(stroke.color),
+                    &sk_stroke(stroke.width),
+                    identity,
+                    None,
+                );
             }
         }
         Shape::Polygon {
@@ -90,7 +96,13 @@ fn draw_shape(
                 && rings[0].len() >= 3
                 && let Some(path) = build_subpaths(rings, true)
             {
-                pixmap.fill_path(&path, &to_paint(fill.color), FillRule::EvenOdd, identity, None);
+                pixmap.fill_path(
+                    &path,
+                    &to_paint(fill.color),
+                    FillRule::EvenOdd,
+                    identity,
+                    None,
+                );
             }
 
             if let Some(stroke) = stroke
@@ -195,4 +207,3 @@ fn build_subpaths(rings: &[Vec<(f64, f64)>], closed: bool) -> Option<tiny_skia::
     }
     pb.finish()
 }
-

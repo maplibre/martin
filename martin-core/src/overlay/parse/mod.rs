@@ -78,7 +78,8 @@ fn push_geometry(
 ) -> Result<(), OverlayParseError> {
     match value {
         GeometryValue::Point { coordinates } => {
-            out.markers.push(make_marker(to_coord(coordinates)?, props)?);
+            out.markers
+                .push(make_marker(to_coord(coordinates)?, props)?);
         }
         GeometryValue::MultiPoint { coordinates } => {
             for pos in coordinates {

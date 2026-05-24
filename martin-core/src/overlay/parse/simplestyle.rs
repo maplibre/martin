@@ -32,8 +32,7 @@ pub(super) fn resolve_stroke(
         reason = "stroke widths fit in f32 in practice; precision loss is acceptable"
     )]
     let width = f64_prop(props, "stroke-width")
-        .unwrap_or(f64::from(crate::overlay::Stroke::DEFAULT_WIDTH))
-        as f32;
+        .unwrap_or(f64::from(crate::overlay::Stroke::DEFAULT_WIDTH)) as f32;
 
     Ok((color, width))
 }
