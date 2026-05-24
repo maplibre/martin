@@ -387,8 +387,9 @@ export interface components {
              */
             "marker-color"?: string | null;
             /**
-             * @description CSS color for line/polygon strokes.
-             * @default #555555
+             * @description CSS color for line/polygon strokes. Defaults to the `fill` color for
+             *     polygons (so a fill-only polygon doesn't render with a contrasting
+             *     border) and to `#555555` for lines.
              * @example #285DAA
              */
             stroke?: string | null;
