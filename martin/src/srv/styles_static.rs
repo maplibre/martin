@@ -9,11 +9,13 @@ use actix_web::web::{Bytes, Data, Path};
 use actix_web::{FromRequest, HttpRequest, HttpResponse, route};
 use geo_types::coord;
 use geojson::FeatureCollection;
-use martin_core::overlay::{self, ParsedOverlays, parse_feature_collection};
+use martin_core::overlay::{
+    OverlayView, ParsedOverlays, draw_overlays_into, parse_feature_collection,
+};
 use martin_core::styles::{RenderParams, StyleSources};
 use martin_tile_utils::{EARTH_CIRCUMFERENCE, wgs84_to_webmercator};
 use serde::Deserialize;
-use tracing::{debug, error, trace, warn};
+use tracing::{debug, error, warn};
 
 use crate::srv::server::DebouncedWarning;
 use crate::srv::styles_rendering::{ImageFormatRequest, encode_image_response};
@@ -154,12 +156,6 @@ const MAX_SCALE: u8 = 4;
 
 impl SizeRequest {
     fn validate(self) -> Result<Self, HttpResponse> {
-        #[expect(
-            clippy::cast_possible_truncation,
-            clippy::cast_sign_loss,
-            reason = "scale is bounded above by MAX_SCALE and is non-negative"
-        )]
-        let scale_u8 = self.scale.round() as u8;
         if self.width == 0 || self.height == 0 {
             return Err(HttpResponse::BadRequest()
                 .content_type(ContentType::plaintext())
@@ -172,6 +168,21 @@ impl SizeRequest {
                     "Image dimensions exceed maximum allowed ({MAX_WIDTH}x{MAX_HEIGHT})"
                 )));
         }
+        // Reject non-finite/non-positive scale before the saturating cast:
+        // `f32::NAN as u8`, `f32::NEG_INFINITY as u8`, and negative `as u8`
+        // all saturate to 0, which would silently pass the MAX_SCALE check
+        // and feed NaN/Inf through `log2(pixel_ratio)` in the renderer.
+        if !self.scale.is_finite() || self.scale <= 0.0 {
+            return Err(HttpResponse::BadRequest()
+                .content_type(ContentType::plaintext())
+                .body("Scale factor must be a positive finite number"));
+        }
+        #[expect(
+            clippy::cast_possible_truncation,
+            clippy::cast_sign_loss,
+            reason = "scale was checked to be finite and positive above"
+        )]
+        let scale_u8 = self.scale.round() as u8;
         if scale_u8 > MAX_SCALE {
             return Err(HttpResponse::BadRequest()
                 .content_type(ContentType::plaintext())
@@ -497,18 +508,18 @@ fn compose_overlays<'a>(
     // `base` is already physical pixels (logical * pixel_ratio); bumping zoom
     // by log2(pixel_ratio) is equivalent to scaling 256*2^zoom by pixel_ratio,
     // so overlays project onto the same pixel grid as the base map at @Nx.
-    let view = overlay::OverlayView {
-        width: base.width(),
-        height: base.height(),
-        center: coord! { x: camera.center_lon, y: camera.center_lat },
-        zoom: camera.zoom + f64::from(pixel_ratio).log2(),
-    };
-    std::borrow::Cow::Owned(overlay::draw_overlays(
-        base,
-        &overlays.paths,
-        &overlays.markers,
-        view,
-    ))
+    let view = OverlayView::new(
+        base.width(),
+        base.height(),
+        coord! { x: camera.center_lon, y: camera.center_lat },
+        camera.zoom + f64::from(pixel_ratio).log2(),
+    );
+    let mut out = base.clone();
+    if let Err(e) = draw_overlays_into(&mut out, &overlays.shapes, &overlays.markers, view) {
+        warn!("Overlay drawing failed, returning base map: {e}");
+        return std::borrow::Cow::Borrowed(base);
+    }
+    std::borrow::Cow::Owned(out)
 }
 
 /// Camera resolved from a [`CameraRequest`]. WGS84 degrees.
@@ -540,14 +551,14 @@ async fn handle_static_request(path: &StaticImagePath, styles: &StyleSources) ->
 
     let camera = resolve_camera(camera_req, size);
 
-    trace!(
-        "Rendering static image for style {style_id} at ({lon},{lat}) z{zoom} {w}x{h}@{scale}",
-        lon = camera.center_lon,
-        lat = camera.center_lat,
-        zoom = camera.zoom,
-        w = size.width,
-        h = size.height,
-        scale = size.scale,
+    debug!(
+        lon = %camera.center_lon,
+        lat = %camera.center_lat,
+        zoom = %camera.zoom,
+        w = %size.width,
+        h = %size.height,
+        scale = %size.scale,
+        "Rendering static image"
     );
 
     let image = match render_base(styles, style_path, &camera, size).await {
@@ -793,6 +804,11 @@ mod tests {
     #[case::oversize_width("9999x100.png", "Image dimensions exceed maximum")]
     #[case::oversize_height("100x9999.png", "Image dimensions exceed maximum")]
     #[case::oversize_scale("100x100@9x.png", "Scale factor exceeds maximum")]
+    #[case::zero_scale("100x100@0x.png", "Scale factor must be a positive finite number")]
+    #[case::negative_scale("100x100@-2x.png", "Scale factor must be a positive finite number")]
+    #[case::nan_scale("100x100@nanx.png", "Scale factor must be a positive finite number")]
+    #[case::pos_inf_scale("100x100@infx.png", "Scale factor must be a positive finite number")]
+    #[case::neg_inf_scale("100x100@-infx.png", "Scale factor must be a positive finite number")]
     #[actix_rt::test]
     async fn dimension_violations_return_400_with_specific_message(
         #[case] size: &str,

@@ -1,7 +1,7 @@
 //! Build [`ParsedOverlays`] from a `GeoJSON` `FeatureCollection`.
 //!
 //! The walker dispatches on `GeometryValue`; per-shape construction lives in
-//! [`geometry`] and simplestyle property/paint handling in [`simplestyle`].
+//! [`geometry`] and simplestyle property handling in [`simplestyle`].
 
 mod geometry;
 mod simplestyle;
@@ -9,10 +9,11 @@ mod simplestyle;
 use csscolorparser::ParseColorError;
 use geojson::{Feature, FeatureCollection, GeometryValue, JsonObject};
 
-use crate::overlay::parse::geometry::{make_marker, make_path, make_polygon, to_coord};
-use crate::overlay::{MarkerOverlay, PathOverlay};
+use crate::overlay::parse::geometry::{make_line, make_marker, make_polygon, to_coord};
+use crate::overlay::{Marker, Shape};
 
 /// Errors produced while turning a `FeatureCollection` into renderable overlays.
+#[non_exhaustive]
 #[derive(Debug, thiserror::Error)]
 pub enum OverlayParseError {
     /// A simplestyle color property (`stroke`, `fill`, `marker-color`) did not
@@ -39,16 +40,16 @@ pub enum OverlayParseError {
 #[derive(Debug, Default)]
 pub struct ParsedOverlays {
     /// Path overlays (line strings and polygons), in input order.
-    pub paths: Vec<PathOverlay>,
+    pub shapes: Vec<Shape>,
     /// Marker overlays (points), in input order.
-    pub markers: Vec<MarkerOverlay>,
+    pub markers: Vec<Marker>,
 }
 
 impl ParsedOverlays {
     /// Returns `true` when there is nothing to draw.
     #[must_use]
     pub fn is_empty(&self) -> bool {
-        self.paths.is_empty() && self.markers.is_empty()
+        self.shapes.is_empty() && self.markers.is_empty()
     }
 }
 
@@ -77,8 +78,7 @@ fn push_geometry(
 ) -> Result<(), OverlayParseError> {
     match value {
         GeometryValue::Point { coordinates } => {
-            out.markers
-                .push(make_marker(to_coord(coordinates)?, props)?);
+            out.markers.push(make_marker(to_coord(coordinates)?, props)?);
         }
         GeometryValue::MultiPoint { coordinates } => {
             for pos in coordinates {
@@ -86,26 +86,26 @@ fn push_geometry(
             }
         }
         GeometryValue::LineString { coordinates } => {
-            if let Some(path) = make_path(coordinates, props)? {
-                out.paths.push(path);
+            if let Some(shape) = make_line(coordinates, props)? {
+                out.shapes.push(shape);
             }
         }
         GeometryValue::MultiLineString { coordinates } => {
             for line in coordinates {
-                if let Some(path) = make_path(line, props)? {
-                    out.paths.push(path);
+                if let Some(shape) = make_line(line, props)? {
+                    out.shapes.push(shape);
                 }
             }
         }
         GeometryValue::Polygon { coordinates } => {
-            if let Some(path) = make_polygon(coordinates, props)? {
-                out.paths.push(path);
+            if let Some(shape) = make_polygon(coordinates, props)? {
+                out.shapes.push(shape);
             }
         }
         GeometryValue::MultiPolygon { coordinates } => {
             for polygon in coordinates {
-                if let Some(path) = make_polygon(polygon, props)? {
-                    out.paths.push(path);
+                if let Some(shape) = make_polygon(polygon, props)? {
+                    out.shapes.push(shape);
                 }
             }
         }
@@ -125,6 +125,7 @@ mod tests {
     use serde_json::{Value, json};
 
     use crate::overlay::parse::{OverlayParseError, ParsedOverlays, parse_feature_collection};
+    use crate::overlay::{Shape, Stroke};
 
     fn parse_one(
         properties: &Value,
@@ -169,15 +170,15 @@ mod tests {
     #[case::null_geometry_is_skipped(json!(null), 0, 0)]
     fn geometry_produces_expected_overlay_counts(
         #[case] geometry: Value,
-        #[case] expected_paths: usize,
+        #[case] expected_shapes: usize,
         #[case] expected_markers: usize,
     ) {
         let parsed = parse_one(&json!({}), &geometry).expect("parsing succeeds");
-        assert_eq!(parsed.paths.len(), expected_paths, "path count");
+        assert_eq!(parsed.shapes.len(), expected_shapes, "shape count");
         assert_eq!(parsed.markers.len(), expected_markers, "marker count");
     }
 
-    /// `Some(n)` asserts a single path with `n` holes; `None` asserts the polygon was dropped.
+    /// `Some(n)` asserts a single polygon with `n` holes; `None` asserts the polygon was dropped.
     #[rstest]
     #[case::simple_polygon(
         json!({"type": "Polygon", "coordinates": [
@@ -210,15 +211,18 @@ mod tests {
         let parsed = parse_one(&json!({}), &geometry).expect("parsing succeeds");
         match expected_holes {
             Some(n) => {
-                assert_eq!(parsed.paths.len(), 1);
-                assert_eq!(parsed.paths[0].holes.len(), n);
+                assert_eq!(parsed.shapes.len(), 1);
+                let Shape::Polygon { holes, .. } = &parsed.shapes[0] else {
+                    panic!("expected Polygon, got {:?}", parsed.shapes[0]);
+                };
+                assert_eq!(holes.len(), n);
             }
-            None => assert!(parsed.paths.is_empty()),
+            None => assert!(parsed.shapes.is_empty()),
         }
     }
 
     #[rstest]
-    #[case::default_when_missing(json!({}), 2.0)]
+    #[case::default_when_missing(json!({}), Stroke::DEFAULT_WIDTH)]
     #[case::explicit_stroke_width(
         json!({"stroke": "#312E81", "stroke-opacity": 0.4, "stroke-width": 10}),
         10.0,
@@ -229,10 +233,10 @@ mod tests {
             &json!({"type": "LineString", "coordinates": [[0.0, 0.0], [1.0, 1.0]]}),
         )
         .expect("parsing succeeds");
-        let path = &parsed.paths[0];
-        assert_eq!(path.width, Some(expected_width));
-        assert!(path.stroke.is_some());
-        assert!(path.fill.is_none(), "linestrings never get a fill");
+        let Shape::Line { stroke, .. } = &parsed.shapes[0] else {
+            panic!("expected Line, got {:?}", parsed.shapes[0]);
+        };
+        assert!((stroke.width - expected_width).abs() < f32::EPSILON);
     }
 
     #[test]
@@ -244,7 +248,10 @@ mod tests {
             ]}),
         )
         .expect("parsing succeeds");
-        assert!(parsed.paths[0].fill.is_some());
+        let Shape::Polygon { fill, .. } = &parsed.shapes[0] else {
+            panic!("expected Polygon, got {:?}", parsed.shapes[0]);
+        };
+        assert!(fill.is_some());
     }
 
     #[test]
@@ -257,7 +264,10 @@ mod tests {
         let marker = &parsed.markers[0];
         assert!((marker.coord.x - 10.0).abs() < f64::EPSILON);
         assert!((marker.coord.y - 20.0).abs() < f64::EPSILON);
-        assert!(marker.marker_color.is_some());
+        // green
+        assert_eq!(marker.style.color.r, 0);
+        assert_eq!(marker.style.color.g, 255);
+        assert_eq!(marker.style.color.b, 0);
     }
 
     #[rstest]
@@ -344,6 +354,9 @@ mod tests {
             ]}),
         )
         .expect("parsing succeeds");
-        assert_eq!(parsed.paths[0].width, Some(4.0));
+        let Shape::Line { stroke, .. } = &parsed.shapes[0] else {
+            panic!("expected Line, got {:?}", parsed.shapes[0]);
+        };
+        assert!((stroke.width - 4.0).abs() < f32::EPSILON);
     }
 }
