@@ -404,12 +404,12 @@ const URI_CENTERED_200: &str = "/style/maplibre_demo/static/0,0,2/200x200.png";
 
 const OVERLAY_1X_DIR: &str = "../tests/fixtures/static_overlays/1x";
 
-async fn post_png_body(uri: &str, geojson_body: &[u8]) -> Vec<u8> {
+async fn post_png_body(uri: &str, overlay_body: &[u8]) -> Vec<u8> {
     let app = create_app! { CONFIG_STYLES };
     let req = TestRequest::post()
         .uri(uri)
-        .insert_header(("content-type", "application/geo+json"))
-        .set_payload(geojson_body.to_vec())
+        .insert_header(("content-type", "application/json"))
+        .set_payload(overlay_body.to_vec())
         .to_request();
     let resp = call_service(&app, req).await;
     let resp = assert_response(resp).await;
@@ -442,15 +442,15 @@ async fn empty_body_renders_base_map() {
     assert_png_matches(&camera_ref("center_z0"), &body);
 }
 
-/// Parsed `FeatureCollection` with zero features hits a different branch
-/// than an empty body: the body is decoded and `parse_feature_collection`
-/// runs, but the resulting `ParsedOverlays::is_empty()` short-circuits
-/// `compose_overlays` so the base map is returned untouched.
+/// A parsed but empty overlay spec hits a different branch than an empty
+/// body: the body is decoded and `parse_spec` runs, but the resulting
+/// `OverlaySpec::is_empty()` short-circuits the apply pass so the base map
+/// is returned untouched.
 #[tokio::test]
-async fn empty_feature_collection_renders_base_map() {
+async fn empty_overlay_renders_base_map() {
     let body = post_png_body(
         "/style/maplibre_demo/static/0,0,0/200x200.png",
-        br#"{"type":"FeatureCollection","features":[]}"#,
+        br#"{"sources": {}, "layers": []}"#,
     )
     .await;
     assert_png_matches(&camera_ref("center_z0"), &body);

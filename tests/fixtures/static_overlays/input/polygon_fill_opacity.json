@@ -1,0 +1,50 @@
+{
+  "sources": {
+    "left": {
+      "type": "geojson",
+      "data": {
+        "type": "FeatureCollection",
+        "features": [
+          {
+            "type": "Feature",
+            "properties": {},
+            "geometry": {
+              "type": "Polygon",
+              "coordinates": [[[-40, -20], [10, -20], [10, 20], [-40, 20], [-40, -20]]]
+            }
+          }
+        ]
+      }
+    },
+    "right": {
+      "type": "geojson",
+      "data": {
+        "type": "FeatureCollection",
+        "features": [
+          {
+            "type": "Feature",
+            "properties": {},
+            "geometry": {
+              "type": "Polygon",
+              "coordinates": [[[-10, -20], [40, -20], [40, 20], [-10, 20], [-10, -20]]]
+            }
+          }
+        ]
+      }
+    }
+  },
+  "layers": [
+    {
+      "id": "left-fill",
+      "type": "fill",
+      "source": "left",
+      "paint": { "fill-color": "#285DAA", "fill-opacity": 0.5 }
+    },
+    {
+      "id": "right-fill",
+      "type": "fill",
+      "source": "right",
+      "paint": { "fill-color": "#95BEFA", "fill-opacity": 0.5 }
+    }
+  ]
+}

@@ -3,10 +3,11 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::thread::{self, JoinHandle};
 
-use maplibre_native::{Image, ImageRenderer, ImageRendererBuilder};
+use maplibre_native::{Image, ImageRenderer, ImageRendererBuilder, Style};
 use tokio::sync::oneshot;
 use tracing::info;
 
+use crate::overlay::{OverlaySpec, apply_to_style};
 use crate::resources::styles::StyleError;
 
 /// Parameters for a single map render request.
@@ -39,6 +40,8 @@ pub struct RenderParams {
     bearing: f64,
     /// Pitch in degrees away from straight-down (0 = flat top-down view).
     pitch: f64,
+    /// Optional overlay spec to apply for this render only.
+    overlays: Option<Arc<OverlaySpec>>,
 }
 
 impl RenderParams {
@@ -56,6 +59,7 @@ impl RenderParams {
             pixel_ratio: 1.0,
             bearing: 0.0,
             pitch: 0.0,
+            overlays: None,
         }
     }
 
@@ -74,6 +78,16 @@ impl RenderParams {
     pub fn with_orientation(mut self, bearing: f64, pitch: f64) -> Self {
         self.bearing = bearing;
         self.pitch = pitch;
+        self
+    }
+
+    /// Apply `spec` as ephemeral sources+layers for this render only.
+    ///
+    /// `Arc` because `RenderParams` is `Clone` and travels through the worker
+    /// channel; the GeoJSON payload could be large.
+    #[must_use]
+    pub fn with_overlays(mut self, spec: Arc<OverlaySpec>) -> Self {
+        self.overlays = Some(spec);
         self
     }
 }
@@ -226,6 +240,26 @@ fn worker_loop(rx: &flume::Receiver<WorkerMsg>) {
             state.loaded_style = Some(params.style_path.clone());
         }
 
+        // Apply overlays, render, then unconditionally remove so the worker's
+        // cached style returns to a clean base for the next request.
+        let overlays = params
+            .overlays
+            .as_deref()
+            .filter(|spec| !spec.is_empty());
+        let applied = match overlays {
+            None => None,
+            Some(spec) => {
+                let mut style = Style::get_ref(&mut state.renderer);
+                match apply_to_style(spec, &mut style) {
+                    Ok(a) => Some(a),
+                    Err(e) => {
+                        let _ = response.send(Err(StyleError::OverlayApply(e)));
+                        continue;
+                    }
+                }
+            }
+        };
+
         let result = state
             .renderer
             .render_static(
@@ -236,6 +270,12 @@ fn worker_loop(rx: &flume::Receiver<WorkerMsg>) {
                 params.pitch,
             )
             .map_err(StyleError::RenderingError);
+
+        if let Some(applied) = applied {
+            let mut style = Style::get_ref(&mut state.renderer);
+            applied.remove_from(&mut style);
+        }
+
         let _ = response.send(result);
     }
 }

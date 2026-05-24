@@ -144,8 +144,9 @@ export interface paths {
         get: operations["get_rendered_static_style"];
         put?: never;
         /**
-         * Render a static map image with optional overlays drawn from a `GeoJSON` body.
-         *     See [our documentation](https://maplibre.org/martin/sources-styles/) on the styling options
+         * Render a static map image with optional vector overlays.
+         *     See [our documentation](https://maplibre.org/martin/sources-styles/) for
+         *     the supported `sources`/`layers` subset of the maplibre style spec.
          * @description An empty or missing body renders the base map alone.
          */
         post: operations["post_rendered_static_style"];
@@ -307,107 +308,127 @@ export interface components {
          * @enum {string}
          */
         FontFormat: "otf" | "ttf" | "ttc";
-        /**
-         * @description Schema-only request body for `POST /style/.../static/...`. Wire-compatible
-         *     with a `GeoJSON` `FeatureCollection`, but Martin only honors the typed
-         *     fields enumerated in [`StaticOverlayProperties`]; everything else under
-         *     `properties` is silently ignored. Bodies are parsed at runtime as
-         *     [`geojson::FeatureCollection`] inside [`OverlayBody::from_request`] -
-         *     these structs exist only to drive `utoipa`'s schema generation.
-         */
-        StaticOverlayBody: {
-            features: components["schemas"]["StaticOverlayFeature"][];
-            /** @enum {string} */
-            type: "FeatureCollection";
-        };
-        StaticOverlayFeature: {
-            geometry: components["schemas"]["StaticOverlayGeometry"];
-            properties?: null | components["schemas"]["StaticOverlayProperties"];
-            /** @enum {string} */
-            type: "Feature";
-        };
-        /**
-         * @description `GeoJSON` geometry tagged by `type`. Coordinate-array nesting matches
-         *     RFC 7946 § 3.1; positions are `[lon, lat]` (any altitude is dropped).
-         */
-        StaticOverlayGeometry: {
-            coordinates: number[];
-            /** @enum {string} */
-            type: "Point";
-        } | {
-            coordinates: number[][];
-            /** @enum {string} */
-            type: "MultiPoint";
-        } | {
-            coordinates: number[][];
-            /** @enum {string} */
-            type: "LineString";
-        } | {
-            coordinates: number[][][];
-            /** @enum {string} */
-            type: "MultiLineString";
-        } | {
-            coordinates: number[][][];
-            /** @enum {string} */
-            type: "Polygon";
-        } | {
-            coordinates: number[][][][];
-            /** @enum {string} */
-            type: "MultiPolygon";
-        } | {
-            geometries: components["schemas"]["StaticOverlayGeometry"][];
-            /** @enum {string} */
-            type: "GeometryCollection";
-        };
-        /**
-         * @description Per-feature styling. Subset of the [simplestyle-spec]; unknown keys are
-         *     silently ignored at runtime. All keys are optional.
-         *
-         *     [simplestyle-spec]: https://github.com/mapbox/simplestyle-spec
-         */
-        StaticOverlayProperties: {
+        StaticCirclePaint: {
             /**
-             * @description CSS color for polygon fills.
-             * @default #555555
+             * @description CSS color for the circle.
+             * @example #FF0000
+             */
+            "circle-color"?: string | null;
+            /**
+             * Format: float
+             * @description Circle opacity in `0..=1`.
+             */
+            "circle-opacity"?: number | null;
+            /**
+             * Format: float
+             * @description Circle radius in pixels at the rendered scale.
+             * @example 6
+             */
+            "circle-radius"?: number | null;
+            "circle-stroke-color"?: string | null;
+            /** Format: float */
+            "circle-stroke-opacity"?: number | null;
+            /** Format: float */
+            "circle-stroke-width"?: number | null;
+        };
+        StaticFillPaint: {
+            /**
+             * @description CSS color for the polygon fill.
              * @example #95BEFA
              */
-            fill?: string | null;
+            "fill-color"?: string | null;
             /**
-             * Format: double
-             * @description Opacity multiplier for `fill` in `0.0..=1.0`. Multiplied with any
-             *     alpha already encoded in `fill`.
-             * @default 0.6
+             * Format: float
+             * @description Fill opacity in `0..=1`.
              * @example 0.5
              */
             "fill-opacity"?: number | null;
             /**
-             * @description CSS color for point markers.
-             * @default #FF0000
+             * @description CSS color for the polygon outline. Maplibre draws this only when the
+             *     fill layer has no `fill-pattern`.
+             */
+            "fill-outline-color"?: string | null;
+        };
+        /** @description GeoJSON source with inline `data`. Mirrors maplibre's `geojson` source type. */
+        StaticGeoJsonSource: {
+            /** @description Inline GeoJSON object. URLs and strings are rejected. */
+            data: unknown;
+            /** @description Always `"geojson"`; other source types are rejected. */
+            type: components["schemas"]["StaticGeoJsonSourceTag"];
+        };
+        /** @enum {string} */
+        StaticGeoJsonSourceTag: "geojson";
+        StaticLineLayout: {
+            /** @description One of `butt`, `round`, `square`. */
+            "line-cap"?: string | null;
+            /** @description One of `miter`, `bevel`, `round`. */
+            "line-join"?: string | null;
+        };
+        StaticLinePaint: {
+            /**
+             * @description CSS color for the line.
              * @example #285DAA
              */
-            "marker-color"?: string | null;
+            "line-color"?: string | null;
             /**
-             * @description CSS color for line/polygon strokes. Defaults to the `fill` color for
-             *     polygons (so a fill-only polygon doesn't render with a contrasting
-             *     border) and to `#555555` for lines.
-             * @example #285DAA
+             * Format: float
+             * @description Line opacity in `0..=1`.
              */
-            stroke?: string | null;
+            "line-opacity"?: number | null;
             /**
-             * Format: double
-             * @description Opacity multiplier for `stroke` in `0.0..=1.0`. Multiplied with any
-             *     alpha already encoded in `stroke` (e.g. `rgba(...)`).
-             * @default 1
-             * @example 0.8
-             */
-            "stroke-opacity"?: number | null;
-            /**
-             * Format: double
-             * @description Pixel width of strokes at the rendered scale.
-             * @default 2
+             * Format: float
+             * @description Line width in pixels at the rendered scale.
              * @example 3
              */
-            "stroke-width"?: number | null;
+            "line-width"?: number | null;
+        };
+        /**
+         * @description Tagged-by-`type` overlay layer. Only literal paint/layout values; no
+         *     data-driven expressions, no symbol/heatmap/raster layers.
+         */
+        StaticOverlayLayer: {
+            /** @description Base-style layer id to insert before. Optional. */
+            before?: string | null;
+            id: string;
+            paint?: null | components["schemas"]["StaticFillPaint"];
+            source: string;
+            /** @enum {string} */
+            type: "fill";
+        } | {
+            before?: string | null;
+            id: string;
+            layout?: null | components["schemas"]["StaticLineLayout"];
+            paint?: null | components["schemas"]["StaticLinePaint"];
+            source: string;
+            /** @enum {string} */
+            type: "line";
+        } | {
+            before?: string | null;
+            id: string;
+            paint?: null | components["schemas"]["StaticCirclePaint"];
+            source: string;
+            /** @enum {string} */
+            type: "circle";
+        };
+        /**
+         * @description Schema-only request body for `POST /style/.../static/...`. A partial
+         *     maplibre style — `sources` (geojson only) plus `layers` (fill/line/circle
+         *     only) — applied as ephemeral additions to the base style for this render.
+         *
+         *     Runtime parsing happens in [`OverlayBody::from_request`] via
+         *     [`parse_spec`]; this struct exists only to drive `utoipa`'s schema
+         *     generation.
+         */
+        StaticStyleOverlay: {
+            /**
+             * @description Layers in render order. Layer ids must not collide; server prefixes
+             *     every id with `overlay:` before handing them to maplibre.
+             */
+            layers: components["schemas"]["StaticOverlayLayer"][];
+            /** @description GeoJSON sources keyed by source id. `data` must be inline (no URLs). */
+            sources: {
+                [key: string]: components["schemas"]["StaticGeoJsonSource"];
+            };
         };
         /**
          * @description What kind of layers a `MapLibre` style draws.
@@ -423,10 +444,14 @@ export interface components {
 }
 export type Catalog = components['schemas']['Catalog'];
 export type FontFormat = components['schemas']['FontFormat'];
-export type StaticOverlayBody = components['schemas']['StaticOverlayBody'];
-export type StaticOverlayFeature = components['schemas']['StaticOverlayFeature'];
-export type StaticOverlayGeometry = components['schemas']['StaticOverlayGeometry'];
-export type StaticOverlayProperties = components['schemas']['StaticOverlayProperties'];
+export type StaticCirclePaint = components['schemas']['StaticCirclePaint'];
+export type StaticFillPaint = components['schemas']['StaticFillPaint'];
+export type StaticGeoJsonSource = components['schemas']['StaticGeoJsonSource'];
+export type StaticGeoJsonSourceTag = components['schemas']['StaticGeoJsonSourceTag'];
+export type StaticLineLayout = components['schemas']['StaticLineLayout'];
+export type StaticLinePaint = components['schemas']['StaticLinePaint'];
+export type StaticOverlayLayer = components['schemas']['StaticOverlayLayer'];
+export type StaticStyleOverlay = components['schemas']['StaticStyleOverlay'];
 export type StyleKind = components['schemas']['StyleKind'];
 export type $defs = Record<string, never>;
 export interface operations {
@@ -739,10 +764,10 @@ export interface operations {
             };
             cookie?: never;
         };
-        /** @description GeoJSON FeatureCollection. Per-feature properties follow the simplestyle-spec. */
+        /** @description Partial maplibre style: `sources` (geojson only) plus `layers` (fill/line/circle only), applied for this render. */
         requestBody: {
             content: {
-                "application/geo+json": components["schemas"]["StaticOverlayBody"];
+                "application/json": components["schemas"]["StaticStyleOverlay"];
             };
         };
         responses: {
@@ -757,7 +782,7 @@ export interface operations {
                     "image/webp": unknown;
                 };
             };
-            /** @description Invalid params, size, or GeoJSON body */
+            /** @description Invalid params, size, or overlay body */
             400: {
                 headers: {
                     [name: string]: unknown;

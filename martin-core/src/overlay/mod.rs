@@ -1,186 +1,166 @@
-//! Draw vector overlays (lines, polygons, point markers) onto a rendered map.
-//!
-//! Build a [`ParsedOverlays`] from a `GeoJSON` `FeatureCollection` (via
-//! [`parse_feature_collection`]) or construct [`Shape`]s and [`Marker`]s
-//! directly, then call [`draw_overlays_into`] to composite them onto an
-//! [`image::RgbaImage`].
-//!
-//! The styling vocabulary ([`Rgba`], [`Stroke`], [`Fill`], [`MarkerStyle`])
-//! is owned by this crate so callers do not need a direct dependency on the
-//! underlying rasterizer.
+//! Static-render overlays: parse a maplibre-style-spec subset, then apply it
+//! as ephemeral sources+layers on a renderer's style.
 
-use geo_types::Coord;
-
-mod draw;
+#[cfg(all(feature = "rendering", target_os = "linux"))]
+mod apply;
 mod parse;
-mod project;
 
-pub use draw::{DrawError, draw_overlays_into};
-pub use parse::{OverlayParseError, ParsedOverlays, parse_feature_collection};
+#[cfg(all(feature = "rendering", target_os = "linux"))]
+pub use apply::{AppliedOverlay, ApplyError, apply_to_style};
+pub use parse::{OverlayParseError, parse_spec};
 
-/// Straight 8-bit RGBA color. Not premultiplied.
-#[non_exhaustive]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Rgba {
-    /// Red channel.
-    pub r: u8,
-    /// Green channel.
-    pub g: u8,
-    /// Blue channel.
-    pub b: u8,
-    /// Alpha channel. `0` is fully transparent, `255` fully opaque.
-    pub a: u8,
+/// Prefix prepended to every caller-supplied source/layer id before it reaches
+/// maplibre. Guarantees overlay ids cannot collide with the base style.
+const ID_PREFIX: &str = "overlay:";
+
+/// A parsed overlay spec: sources + layers in a maplibre-style-spec subset.
+#[derive(Debug, Default, Clone)]
+pub struct OverlaySpec {
+    /// `GeoJSON` sources, in input order. Source ids are un-prefixed.
+    pub sources: Vec<OverlaySource>,
+    /// Layers, in declared render order. Layer ids are un-prefixed.
+    pub layers: Vec<OverlayLayer>,
 }
 
-impl Rgba {
-    /// Construct an RGBA color with an explicit alpha.
+impl OverlaySpec {
+    /// `true` when there are no sources or layers — nothing to apply.
     #[must_use]
-    pub const fn new(r: u8, g: u8, b: u8, a: u8) -> Self {
-        Self { r, g, b, a }
-    }
-
-    /// Construct a fully opaque color.
-    #[must_use]
-    pub const fn opaque(r: u8, g: u8, b: u8) -> Self {
-        Self::new(r, g, b, 255)
+    pub fn is_empty(&self) -> bool {
+        self.sources.is_empty() && self.layers.is_empty()
     }
 }
 
-/// Outline style for a line or polygon.
-#[non_exhaustive]
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Stroke {
-    /// Stroke color.
-    pub color: Rgba,
-    /// Stroke width in pixels at the rendered scale.
-    pub width: f32,
-}
-
-impl Stroke {
-    /// Default stroke width when none is given (per simplestyle).
-    pub const DEFAULT_WIDTH: f32 = 2.0;
-
-    /// Default stroke color when none is given (per simplestyle).
-    pub const DEFAULT_COLOR: Rgba = Rgba::opaque(0x55, 0x55, 0x55);
-
-    /// Construct a stroke with the given color and width.
-    #[must_use]
-    pub const fn new(color: Rgba, width: f32) -> Self {
-        Self { color, width }
-    }
-}
-
-/// Interior style for a polygon.
-#[non_exhaustive]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Fill {
-    /// Fill color. Alpha applies to the fill area.
-    pub color: Rgba,
-}
-
-impl Fill {
-    /// Default fill alpha when only a CSS color (no opacity) is given (per simplestyle).
-    pub const DEFAULT_OPACITY: f32 = 0.6;
-
-    /// Construct a fill with the given color.
-    #[must_use]
-    pub const fn new(color: Rgba) -> Self {
-        Self { color }
-    }
-}
-
-/// A path overlay: either a polyline (`Line`) or an area (`Polygon`).
-///
-/// Variants enforce shape invariants: lines always have a stroke and never a
-/// fill; polygons may opt out of either stroke or fill but carry holes only
-/// when there is an outer ring.
-#[non_exhaustive]
+/// A `GeoJSON` source bound for a maplibre `GeoJsonSource`.
 #[derive(Debug, Clone)]
-pub enum Shape {
-    /// A polyline. Points are in WGS84 degrees (`x = lon`, `y = lat`).
+pub struct OverlaySource {
+    /// Caller-supplied source id (un-prefixed).
+    pub id: String,
+    /// Parsed `GeoJSON` payload. Parsed eagerly so malformed data → 400.
+    pub data: geojson::GeoJson,
+}
+
+/// A single overlay layer. Vec position is the render order.
+#[derive(Debug, Clone)]
+pub enum OverlayLayer {
+    /// Polygon fill layer.
+    Fill {
+        /// Caller-supplied layer id (un-prefixed).
+        id: String,
+        /// Caller-supplied source id this layer reads from (un-prefixed).
+        source: String,
+        /// Base-style layer id to insert before. Passed verbatim to maplibre
+        /// — must reference a layer in the base style, never an overlay layer.
+        before: Option<String>,
+        /// Paint properties.
+        paint: FillPaint,
+    },
+    /// Line layer.
     Line {
-        /// The polyline vertices, in order.
-        points: Vec<Coord>,
-        /// Stroke style. Lines without a stroke are invisible, so the stroke is required.
-        stroke: Stroke,
+        /// Caller-supplied layer id (un-prefixed).
+        id: String,
+        /// Caller-supplied source id this layer reads from (un-prefixed).
+        source: String,
+        /// Base-style layer id to insert before. Passed verbatim to maplibre.
+        before: Option<String>,
+        /// Paint properties.
+        paint: LinePaint,
+        /// Layout properties.
+        layout: LineLayout,
     },
-    /// A polygon, optionally with holes. Coordinates are in WGS84 degrees.
-    Polygon {
-        /// Outer ring vertices.
-        outer: Vec<Coord>,
-        /// Interior rings (holes). Empty when the polygon is hole-free.
-        holes: Vec<Vec<Coord>>,
-        /// Outline style. `None` means no outline.
-        stroke: Option<Stroke>,
-        /// Interior style. `None` means no fill (holes are still honoured for the stroke).
-        fill: Option<Fill>,
+    /// Circle layer (used for markers).
+    Circle {
+        /// Caller-supplied layer id (un-prefixed).
+        id: String,
+        /// Caller-supplied source id this layer reads from (un-prefixed).
+        source: String,
+        /// Base-style layer id to insert before. Passed verbatim to maplibre.
+        before: Option<String>,
+        /// Paint properties.
+        paint: CirclePaint,
     },
 }
 
-/// A point overlay rendered as a filled circle (with optional outline reserved for future use).
-#[non_exhaustive]
-#[derive(Debug, Clone)]
-pub struct Marker {
-    /// Marker position in WGS84 degrees (`x = lon`, `y = lat`).
-    pub coord: Coord,
-    /// Visual style.
-    pub style: MarkerStyle,
+/// Paint properties for a `fill` layer.
+#[derive(Debug, Default, Clone, Copy)]
+pub struct FillPaint {
+    /// `fill-color`.
+    pub color: Option<Color>,
+    /// `fill-opacity` in `0..=1`.
+    pub opacity: Option<f32>,
+    /// `fill-outline-color`.
+    pub outline_color: Option<Color>,
 }
 
-impl Marker {
-    /// Construct a marker at `coord` with the default style.
-    #[must_use]
-    pub fn new(coord: Coord) -> Self {
-        Self {
-            coord,
-            style: MarkerStyle::DEFAULT,
-        }
-    }
+/// Paint properties for a `line` layer.
+#[derive(Debug, Default, Clone, Copy)]
+pub struct LinePaint {
+    /// `line-color`.
+    pub color: Option<Color>,
+    /// `line-opacity` in `0..=1`.
+    pub opacity: Option<f32>,
+    /// `line-width` in pixels at the rendered scale.
+    pub width: Option<f32>,
 }
 
-/// Visual style for a [`Marker`].
-#[non_exhaustive]
+/// Layout properties for a `line` layer.
+#[derive(Debug, Default, Clone, Copy)]
+pub struct LineLayout {
+    /// `line-cap`.
+    pub cap: Option<LineCap>,
+    /// `line-join`.
+    pub join: Option<LineJoin>,
+}
+
+/// Paint properties for a `circle` layer.
+#[derive(Debug, Default, Clone, Copy)]
+pub struct CirclePaint {
+    /// `circle-color`.
+    pub color: Option<Color>,
+    /// `circle-opacity` in `0..=1`.
+    pub opacity: Option<f32>,
+    /// `circle-radius` in pixels at the rendered scale.
+    pub radius: Option<f32>,
+    /// `circle-stroke-color`.
+    pub stroke_color: Option<Color>,
+    /// `circle-stroke-opacity` in `0..=1`.
+    pub stroke_opacity: Option<f32>,
+    /// `circle-stroke-width` in pixels at the rendered scale.
+    pub stroke_width: Option<f32>,
+}
+
+/// Straight RGBA in `0..=1`, parsed from a CSS color string.
+///
+/// Owned by this module so the parser doesn't need a maplibre dep.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct MarkerStyle {
-    /// Fill color of the marker circle.
-    pub color: Rgba,
-    /// Radius of the marker circle, in pixels at the rendered scale.
-    pub radius: f32,
+pub struct Color {
+    /// Red channel.
+    pub r: f32,
+    /// Green channel.
+    pub g: f32,
+    /// Blue channel.
+    pub b: f32,
+    /// Alpha channel.
+    pub a: f32,
 }
 
-impl MarkerStyle {
-    /// Default marker style: red circle, 8px radius (matches Mapbox simplestyle).
-    pub const DEFAULT: Self = Self {
-        color: Rgba::opaque(255, 0, 0),
-        radius: 8.0,
-    };
+/// `line-cap` layout value.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LineCap {
+    /// Square cap that ends flush with the end of the line.
+    Butt,
+    /// Rounded cap centred at the end of the line.
+    Round,
+    /// Square cap centred at the end of the line, extending past by half line-width.
+    Square,
 }
 
-/// View parameters describing the camera for an overlay draw call.
-#[non_exhaustive]
-#[derive(Debug, Clone, Copy)]
-pub struct OverlayView {
-    /// Image width in pixels.
-    pub width: u32,
-    /// Image height in pixels.
-    pub height: u32,
-    /// Camera center in WGS84 degrees (`x = lon`, `y = lat`).
-    pub center: Coord,
-    /// Map zoom level. Bumping zoom by `log2(pixel_ratio)` aligns overlays
-    /// with an `@Nx` base map.
-    pub zoom: f64,
-}
-
-impl OverlayView {
-    /// Construct an [`OverlayView`] for an `image_width × image_height` canvas
-    /// centered on `center` at the given `zoom`.
-    #[must_use]
-    pub const fn new(width: u32, height: u32, center: Coord, zoom: f64) -> Self {
-        Self {
-            width,
-            height,
-            center,
-            zoom,
-        }
-    }
+/// `line-join` layout value.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LineJoin {
+    /// Sharp join.
+    Miter,
+    /// Beveled join.
+    Bevel,
+    /// Rounded join.
+    Round,
 }

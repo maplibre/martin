@@ -84,8 +84,7 @@ env_logger = "0.11"
 flate2 = "1"
 flume = "0.12"
 futures = "0.3"
-geo-types = "0.7"
-geojson = { version = "1", features = ["geo-types"] }
+geojson = "1"
 hotpath = "0.15"
 humantime-serde = "1.1.1"
 image = { version = "0.25.8", default-features = false, features = ["png", "jpeg", "webp"] }
@@ -97,7 +96,7 @@ itertools = "0.14"
 json-patch = "4"
 lambda-web = { version = "0.2.1", features = ["actix4"] }
 log = "0.4"
-maplibre_native = "0.6.0"
+maplibre_native = { version = "0.6.0", features = ["geojson"] }
 martin-core = { path = "./martin-core", version = "0.7.0", default-features = false }
 martin-tile-utils = { path = "./martin-tile-utils", version = "0.7.3" }
 mbtiles = { path = "./mbtiles", version = "0.17.6" }
@@ -144,7 +143,6 @@ testcontainers-modules = { version = "0.15.0", features = ["postgres", "blocking
 thiserror = "2"
 tiff = "0.11.1"
 tilejson = "0.4"
-tiny-skia = "0.11"
 tokio = { version = "1", features = ["macros"] }
 tokio-postgres-rustls = "0.13"
 tracing = "0.1.44"

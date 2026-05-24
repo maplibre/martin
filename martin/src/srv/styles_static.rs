@@ -1,17 +1,14 @@
 use std::future::Future;
 use std::pin::Pin;
 use std::str::FromStr;
+use std::sync::Arc;
 
 use actix_web::dev::Payload;
 use actix_web::error::ErrorBadRequest;
 use actix_web::http::header::{ContentType, LOCATION};
 use actix_web::web::{Bytes, Data, Path};
 use actix_web::{FromRequest, HttpRequest, HttpResponse, route};
-use geo_types::coord;
-use geojson::FeatureCollection;
-use martin_core::overlay::{
-    OverlayView, ParsedOverlays, draw_overlays_into, parse_feature_collection,
-};
+use martin_core::overlay::{OverlaySpec, parse_spec};
 use martin_core::styles::{RenderParams, StyleSources};
 use martin_tile_utils::{EARTH_CIRCUMFERENCE, wgs84_to_webmercator};
 use serde::Deserialize;
@@ -288,118 +285,138 @@ pub async fn redirect_static_jpeg(path: Path<StaticJpgRedirectPath>) -> HttpResp
         .finish()
 }
 
-/// Schema-only request body for `POST /style/.../static/...`. Wire-compatible
-/// with a `GeoJSON` `FeatureCollection`, but Martin only honors the typed
-/// fields enumerated in [`StaticOverlayProperties`]; everything else under
-/// `properties` is silently ignored. Bodies are parsed at runtime as
-/// [`geojson::FeatureCollection`] inside [`OverlayBody::from_request`] -
-/// these structs exist only to drive `utoipa`'s schema generation.
+/// Schema-only request body for `POST /style/.../static/...`. A partial
+/// maplibre style — `sources` (geojson only) plus `layers` (fill/line/circle
+/// only) — applied as ephemeral additions to the base style for this render.
+///
+/// Runtime parsing happens in [`OverlayBody::from_request`] via
+/// [`parse_spec`]; this struct exists only to drive `utoipa`'s schema
+/// generation.
 #[cfg(feature = "unstable-schemas")]
 #[derive(utoipa::ToSchema)]
 #[expect(dead_code, reason = "fields are read by the ToSchema derive macro")]
-struct StaticOverlayBody {
-    #[schema(inline)]
-    r#type: FeatureCollectionTag,
-    features: Vec<StaticOverlayFeature>,
+struct StaticStyleOverlay {
+    /// GeoJSON sources keyed by source id. `data` must be inline (no URLs).
+    sources: std::collections::HashMap<String, StaticGeoJsonSource>,
+    /// Layers in render order. Layer ids must not collide; server prefixes
+    /// every id with `overlay:` before handing them to maplibre.
+    layers: Vec<StaticOverlayLayer>,
 }
 
+/// GeoJSON source with inline `data`. Mirrors maplibre's `geojson` source type.
 #[cfg(feature = "unstable-schemas")]
 #[derive(utoipa::ToSchema)]
 #[expect(dead_code, reason = "fields are read by the ToSchema derive macro")]
-struct StaticOverlayFeature {
-    #[schema(inline)]
-    r#type: FeatureTag,
-    geometry: StaticOverlayGeometry,
-    properties: Option<StaticOverlayProperties>,
+struct StaticGeoJsonSource {
+    /// Always `"geojson"`; other source types are rejected.
+    r#type: StaticGeoJsonSourceTag,
+    /// Inline GeoJSON object. URLs and strings are rejected.
+    data: serde_json::Value,
 }
 
-#[cfg(feature = "unstable-schemas")]
-#[derive(utoipa::ToSchema)]
-#[expect(dead_code, reason = "variants are read by the ToSchema derive macro")]
-enum FeatureCollectionTag {
-    FeatureCollection,
-}
-
-#[cfg(feature = "unstable-schemas")]
-#[derive(utoipa::ToSchema)]
-#[expect(dead_code, reason = "variants are read by the ToSchema derive macro")]
-enum FeatureTag {
-    Feature,
-}
-
-/// `GeoJSON` geometry tagged by `type`. Coordinate-array nesting matches
-/// RFC 7946 § 3.1; positions are `[lon, lat]` (any altitude is dropped).
 #[cfg(feature = "unstable-schemas")]
 #[derive(Deserialize, utoipa::ToSchema)]
-#[serde(tag = "type")]
+#[serde(rename_all = "lowercase")]
+enum StaticGeoJsonSourceTag {
+    Geojson,
+}
+
+/// Tagged-by-`type` overlay layer. Only literal paint/layout values; no
+/// data-driven expressions, no symbol/heatmap/raster layers.
+#[cfg(feature = "unstable-schemas")]
+#[derive(Deserialize, utoipa::ToSchema)]
+#[serde(tag = "type", rename_all = "lowercase")]
 #[expect(dead_code, reason = "variants are read by the ToSchema derive macro")]
-enum StaticOverlayGeometry {
-    Point {
-        coordinates: [f64; 2],
+enum StaticOverlayLayer {
+    Fill {
+        id: String,
+        source: String,
+        /// Base-style layer id to insert before. Optional.
+        before: Option<String>,
+        paint: Option<StaticFillPaint>,
     },
-    MultiPoint {
-        coordinates: Vec<[f64; 2]>,
+    Line {
+        id: String,
+        source: String,
+        before: Option<String>,
+        paint: Option<StaticLinePaint>,
+        layout: Option<StaticLineLayout>,
     },
-    LineString {
-        coordinates: Vec<[f64; 2]>,
-    },
-    MultiLineString {
-        coordinates: Vec<Vec<[f64; 2]>>,
-    },
-    /// Outer ring first, then interior rings (holes).
-    Polygon {
-        coordinates: Vec<Vec<[f64; 2]>>,
-    },
-    MultiPolygon {
-        coordinates: Vec<Vec<Vec<[f64; 2]>>>,
-    },
-    /// Nested geometries inherit the parent `Feature`'s properties.
-    GeometryCollection {
-        #[schema(no_recursion)]
-        geometries: Vec<StaticOverlayGeometry>,
+    Circle {
+        id: String,
+        source: String,
+        before: Option<String>,
+        paint: Option<StaticCirclePaint>,
     },
 }
 
-/// Per-feature styling. Subset of the [simplestyle-spec]; unknown keys are
-/// silently ignored at runtime. All keys are optional.
-///
-/// [simplestyle-spec]: https://github.com/mapbox/simplestyle-spec
 #[cfg(feature = "unstable-schemas")]
 #[derive(Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "kebab-case")]
 #[expect(dead_code, reason = "fields are read by the ToSchema derive macro")]
-struct StaticOverlayProperties {
-    /// CSS color for line/polygon strokes. Defaults to the `fill` color for
-    /// polygons (so a fill-only polygon doesn't render with a contrasting
-    /// border) and to `#555555` for lines.
-    #[schema(example = "#285DAA")]
-    stroke: Option<String>,
-
-    /// Opacity multiplier for `stroke` in `0.0..=1.0`. Multiplied with any
-    /// alpha already encoded in `stroke` (e.g. `rgba(...)`).
-    #[schema(default = 1.0, minimum = 0.0, maximum = 1.0, example = 0.8)]
-    stroke_opacity: Option<f64>,
-
-    /// Pixel width of strokes at the rendered scale.
-    #[schema(default = 2.0, minimum = 0.0, example = 3.0)]
-    stroke_width: Option<f64>,
-
-    /// CSS color for polygon fills.
-    #[schema(default = "#555555", example = "#95BEFA")]
-    fill: Option<String>,
-
-    /// Opacity multiplier for `fill` in `0.0..=1.0`. Multiplied with any
-    /// alpha already encoded in `fill`.
-    #[schema(default = 0.6, minimum = 0.0, maximum = 1.0, example = 0.5)]
-    fill_opacity: Option<f64>,
-
-    /// CSS color for point markers.
-    #[schema(default = "#FF0000", example = "#285DAA")]
-    marker_color: Option<String>,
+struct StaticFillPaint {
+    /// CSS color for the polygon fill.
+    #[schema(example = "#95BEFA")]
+    fill_color: Option<String>,
+    /// Fill opacity in `0..=1`.
+    #[schema(minimum = 0.0, maximum = 1.0, example = 0.5)]
+    fill_opacity: Option<f32>,
+    /// CSS color for the polygon outline. Maplibre draws this only when the
+    /// fill layer has no `fill-pattern`.
+    fill_outline_color: Option<String>,
 }
 
-/// Render a static map image with optional overlays drawn from a `GeoJSON` body.
-/// See [our documentation](https://maplibre.org/martin/sources-styles/) on the styling options
+#[cfg(feature = "unstable-schemas")]
+#[derive(Deserialize, utoipa::ToSchema)]
+#[serde(rename_all = "kebab-case")]
+#[expect(dead_code, reason = "fields are read by the ToSchema derive macro")]
+struct StaticLinePaint {
+    /// CSS color for the line.
+    #[schema(example = "#285DAA")]
+    line_color: Option<String>,
+    /// Line opacity in `0..=1`.
+    #[schema(minimum = 0.0, maximum = 1.0)]
+    line_opacity: Option<f32>,
+    /// Line width in pixels at the rendered scale.
+    #[schema(minimum = 0.0, example = 3.0)]
+    line_width: Option<f32>,
+}
+
+#[cfg(feature = "unstable-schemas")]
+#[derive(Deserialize, utoipa::ToSchema)]
+#[serde(rename_all = "kebab-case")]
+#[expect(dead_code, reason = "fields are read by the ToSchema derive macro")]
+struct StaticLineLayout {
+    /// One of `butt`, `round`, `square`.
+    line_cap: Option<String>,
+    /// One of `miter`, `bevel`, `round`.
+    line_join: Option<String>,
+}
+
+#[cfg(feature = "unstable-schemas")]
+#[derive(Deserialize, utoipa::ToSchema)]
+#[serde(rename_all = "kebab-case")]
+#[expect(dead_code, reason = "fields are read by the ToSchema derive macro")]
+struct StaticCirclePaint {
+    /// CSS color for the circle.
+    #[schema(example = "#FF0000")]
+    circle_color: Option<String>,
+    /// Circle opacity in `0..=1`.
+    #[schema(minimum = 0.0, maximum = 1.0)]
+    circle_opacity: Option<f32>,
+    /// Circle radius in pixels at the rendered scale.
+    #[schema(minimum = 0.0, example = 6.0)]
+    circle_radius: Option<f32>,
+    circle_stroke_color: Option<String>,
+    #[schema(minimum = 0.0, maximum = 1.0)]
+    circle_stroke_opacity: Option<f32>,
+    #[schema(minimum = 0.0)]
+    circle_stroke_width: Option<f32>,
+}
+
+/// Render a static map image with optional vector overlays.
+/// See [our documentation](https://maplibre.org/martin/sources-styles/) for
+/// the supported `sources`/`layers` subset of the maplibre style spec.
 ///
 /// An empty or missing body renders the base map alone.
 #[cfg_attr(
@@ -409,9 +426,9 @@ struct StaticOverlayProperties {
         path = "/style/{style_id}/static/{camera}/{size}.{format}",
         params(StaticImagePath),
         request_body(
-            content = StaticOverlayBody,
-            content_type = "application/geo+json",
-            description = "GeoJSON FeatureCollection. Per-feature properties follow the simplestyle-spec.",
+            content = StaticStyleOverlay,
+            content_type = "application/json",
+            description = "Partial maplibre style: `sources` (geojson only) plus `layers` (fill/line/circle only), applied for this render.",
         ),
         responses(
             (status = 200, description = "Rendered static map image", content(
@@ -419,7 +436,7 @@ struct StaticOverlayProperties {
                 ("image/jpeg"),
                 ("image/webp"),
             )),
-            (status = 400, description = "Invalid params, size, or GeoJSON body"),
+            (status = 400, description = "Invalid params, size, or overlay body"),
             (status = 403, description = "Rendering is disabled"),
             (status = 404, description = "No matching style"),
             (status = 500, description = "Renderer or encoder failure"),
@@ -462,19 +479,19 @@ pub async fn post_rendered_static_style(
         "Rendering static image"
     );
 
-    let image = match render_base(&styles, style_path, &camera, size).await {
+    let overlays = if overlays.is_empty() { None } else { Some(overlays) };
+    let image = match render_with_overlays(&styles, style_path, &camera, size, overlays).await {
         Ok(img) => img,
         Err(resp) => return resp,
     };
 
-    let composed = compose_overlays(image.as_image(), &overlays, &camera, size.scale);
-    encode_image_response(composed.as_ref(), path.format)
+    encode_image_response(image.as_image(), path.format)
 }
 
 /// Actix extractor: empty body → no overlays; otherwise parses the body as
-/// a `GeoJSON` `FeatureCollection` and converts it into renderable overlays.
-/// Malformed JSON short-circuits the handler with a 400 response.
-struct OverlayBody(ParsedOverlays);
+/// a maplibre-style-spec subset. Malformed JSON or unsupported keys
+/// short-circuit the handler with a 400 response.
+struct OverlayBody(Arc<OverlaySpec>);
 
 impl FromRequest for OverlayBody {
     type Error = actix_web::Error;
@@ -485,41 +502,14 @@ impl FromRequest for OverlayBody {
         Box::pin(async move {
             let bytes = fut.await?;
             if bytes.is_empty() {
-                return Ok(Self(ParsedOverlays::default()));
+                return Ok(Self(Arc::new(OverlaySpec::default())));
             }
-            let fc: FeatureCollection = serde_json::from_slice(&bytes).map_err(|e| {
-                ErrorBadRequest(format!("Invalid GeoJSON FeatureCollection body: {e}"))
-            })?;
-            let overlays = parse_feature_collection(&fc).map_err(ErrorBadRequest)?;
-            Ok(Self(overlays))
+            let value: serde_json::Value = serde_json::from_slice(&bytes)
+                .map_err(|e| ErrorBadRequest(format!("Invalid JSON overlay body: {e}")))?;
+            let spec = parse_spec(&value).map_err(ErrorBadRequest)?;
+            Ok(Self(Arc::new(spec)))
         })
     }
-}
-
-fn compose_overlays<'a>(
-    base: &'a image::RgbaImage,
-    overlays: &ParsedOverlays,
-    camera: &Camera,
-    scale: f32,
-) -> std::borrow::Cow<'a, image::RgbaImage> {
-    if overlays.is_empty() {
-        return std::borrow::Cow::Borrowed(base);
-    }
-    // `base` is already physical pixels (logical * scale); bumping zoom
-    // by log2(scale) is equivalent to scaling 256*2^zoom by scale,
-    // so overlays project onto the same pixel grid as the base map at @Nx.
-    let view = OverlayView::new(
-        base.width(),
-        base.height(),
-        coord! { x: camera.center_lon, y: camera.center_lat },
-        camera.zoom + f64::from(scale).log2(),
-    );
-    let mut out = base.clone();
-    if let Err(e) = draw_overlays_into(&mut out, &overlays.shapes, &overlays.markers, view) {
-        warn!("Overlay drawing failed, returning base map: {e}");
-        return std::borrow::Cow::Borrowed(base);
-    }
-    std::borrow::Cow::Owned(out)
 }
 
 /// Camera resolved from a [`CameraRequest`]. WGS84 degrees.
@@ -561,7 +551,7 @@ async fn handle_static_request(path: &StaticImagePath, styles: &StyleSources) ->
         "Rendering static image"
     );
 
-    let image = match render_base(styles, style_path, &camera, size).await {
+    let image = match render_with_overlays(styles, style_path, &camera, size, None).await {
         Ok(img) => img,
         Err(resp) => return resp,
     };
@@ -640,17 +630,18 @@ fn bbox_to_center_zoom(
     (center_lon, center_lat, zoom)
 }
 
-async fn render_base(
+async fn render_with_overlays(
     styles: &StyleSources,
     style_path: std::path::PathBuf,
     camera: &Camera,
     size: SizeRequest,
+    overlays: Option<Arc<OverlaySpec>>,
 ) -> Result<martin_core::styles::StaticImage, HttpResponse> {
     use martin_core::styles::StyleError;
 
     // The renderer multiplies (width, height) by pixel_ratio internally, so
     // pass the *logical* size - not size × scale - to avoid double-scaling.
-    let params = RenderParams::new(
+    let mut params = RenderParams::new(
         style_path,
         camera.center_lat,
         camera.center_lon,
@@ -658,12 +649,21 @@ async fn render_base(
     )
     .with_size(size.width, size.height, size.scale)
     .with_orientation(camera.bearing, camera.pitch);
+    if let Some(spec) = overlays {
+        params = params.with_overlays(spec);
+    }
     styles.render_static(params).await.map_err(|e| match e {
         StyleError::RenderingIsDisabled => {
             warn!("Failed to render static image because rendering is disabled");
             HttpResponse::Forbidden()
                 .content_type(ContentType::plaintext())
                 .body("Rendering is disabled")
+        }
+        StyleError::OverlayApply(err) => {
+            warn!("Overlay application failed: {err}");
+            HttpResponse::BadRequest()
+                .content_type(ContentType::plaintext())
+                .body(format!("Overlay application failed: {err}"))
         }
         other => {
             error!("Failed to render static image: {other}");
@@ -886,7 +886,7 @@ mod tests {
         assert!(
             body_text(resp)
                 .await
-                .starts_with("Invalid GeoJSON FeatureCollection body")
+                .starts_with("Invalid JSON overlay body")
         );
     }
 }

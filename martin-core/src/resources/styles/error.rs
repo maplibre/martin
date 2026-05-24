@@ -1,6 +1,9 @@
 #[cfg(all(feature = "rendering", target_os = "linux"))]
 use maplibre_native::RenderingError;
 
+#[cfg(all(feature = "rendering", target_os = "linux"))]
+use crate::overlay::ApplyError;
+
 /// Errors that can occur during style processing.
 #[non_exhaustive]
 #[derive(thiserror::Error, Debug)]
@@ -14,6 +17,11 @@ pub enum StyleError {
     #[cfg(all(feature = "rendering", target_os = "linux"))]
     #[error(transparent)]
     RenderingError(#[from] RenderingError),
+
+    /// Overlay application against the renderer's style failed.
+    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    #[error(transparent)]
+    OverlayApply(#[from] ApplyError),
 
     /// Render request never reached the worker (channel closed).
     #[cfg(all(feature = "rendering", target_os = "linux"))]

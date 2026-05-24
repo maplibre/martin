@@ -1,0 +1,29 @@
+{
+  "sources": {
+    "s": {
+      "type": "geojson",
+      "data": {
+        "type": "FeatureCollection",
+        "features": [
+          {
+            "type": "Feature",
+            "properties": {},
+            "geometry": {
+              "type": "LineString",
+              "coordinates": [[-10.0, -10.0], [10.0, 10.0]]
+            }
+          }
+        ]
+      }
+    }
+  },
+  "layers": [
+    {
+      "id": "line",
+      "type": "line",
+      "source": "s",
+      "paint": { "line-color": "#555555", "line-width": 2 },
+      "layout": { "line-cap": "round", "line-join": "round" }
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "sources": {
+    "s": {
+      "type": "geojson",
+      "data": {
+        "type": "FeatureCollection",
+        "features": [
+          {
+            "type": "Feature",
+            "properties": {},
+            "geometry": {
+              "type": "Polygon",
+              "coordinates": [[
+                [-10.0, -10.0],
+                [10.0, -10.0],
+                [10.0, 10.0],
+                [-10.0, 10.0],
+                [-10.0, -10.0]
+              ]]
+            }
+          }
+        ]
+      }
+    }
+  },
+  "layers": [
+    {
+      "id": "fill",
+      "type": "fill",
+      "source": "s",
+      "paint": { "fill-color": "red", "fill-opacity": 1.0 }
+    }
+  ]
+}

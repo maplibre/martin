@@ -71,10 +71,10 @@ POST /style/{style_id}/static/{camera}/{size}.{ext}
 ```
 
 `GET` returns the base map alone.
-`POST` in addition accepts a [GeoJSON](https://datatracker.ietf.org/doc/html/rfc7946)
-`FeatureCollection` in the body and draws the features on top of the base map.
-An empty/missing body is equivalent to `GET`.
-Overlay properties are inspired by [`simplestyle`s](https://github.com/mapbox/simplestyle-spec).
+`POST` additionally accepts a partial [MapLibre style](https://maplibre.org/maplibre-style-spec/)
+in the body and applies those sources and layers on top of the base style
+for that single render.
+An empty or missing body is equivalent to `GET`.
 
 #### Camera
 
@@ -99,49 +99,90 @@ The `{camera}` segment chooses what the image looks at:
 Allowed extensions are `png`, `jpg`, and `webp`.
 Width and height are capped at 2048 px each; scale is capped at `4x`.
 
-#### Overlay properties (`POST`)
+#### Overlay body (`POST`)
 
-Geometry support is currently:
+The overlay body is a strict subset of the
+[MapLibre Style Spec](https://maplibre.org/maplibre-style-spec/) — what you
+send is exactly what MapLibre will render.
 
-- `Point` / `MultiPoint` -> filled circle marker.
-- `LineString` / `MultiLineString` -> stroked path.
-- `Polygon` / `MultiPolygon` -> outer ring + any interior rings (holes),
-  filled + stroked.
-- `GeometryCollection` -> each child geometry inherits the feature's properties.
+```json
+{
+  "sources": {
+    "route":   { "type": "geojson", "data": { "type": "FeatureCollection", "features": [/* … */] } },
+    "markers": { "type": "geojson", "data": { "type": "FeatureCollection", "features": [/* … */] } }
+  },
+  "layers": [
+    { "id": "route-line",  "type": "line",   "source": "route",
+      "paint":  { "line-color": "#f00", "line-width": 3 },
+      "layout": { "line-cap": "round" } },
+    { "id": "marker-dots", "type": "circle", "source": "markers",
+      "paint":  { "circle-color": "#00f", "circle-radius": 6 } },
+    { "id": "above-water", "type": "fill",   "source": "route",
+      "paint":  { "fill-color": "#0a0", "fill-opacity": 0.5 },
+      "before": "label-place" }
+  ]
+}
+```
 
-| Property         | Applies to              | Default     | Notes                                                                                |
-| ---------------- | ----------------------- | ----------- | ------------------------------------------------------------------------------------ |
-| `stroke`         | LineString, Polygon     | `"#555555"` | Any CSS color. On polygons the default is the resolved `fill` instead.               |
-| `stroke-opacity` | LineString, Polygon     | `1.0`       | Multiplied with any alpha already encoded in `stroke`.                               |
-| `stroke-width`   | LineString, Polygon     | `2.0`       | Pixels at the rendered scale; rounded line caps/joins.                               |
-| `fill`           | Polygon                 | `"#555555"` | Any CSS color.                                                                       |
-| `fill-opacity`   | Polygon                 | `0.6`       | Multiplied with `fill`'s own alpha.                                                  |
-| `marker-color`   | Point                   | red         | Any CSS color. Renders as a filled circle (no SDF/icon support yet).                 |
+Rules — anything else is rejected with `400 Bad Request`:
+
+- **Top level:** only `sources` and `layers`.
+- **Sources:** `type` must be `"geojson"`. `data` must be an inline
+  GeoJSON object — strings/URLs are rejected, eliminating SSRF surface.
+- **Layers:** `type` must be one of `fill`, `line`, `circle`. `id`,
+  `source`, `type` are required; `source` must reference a parsed source.
+  `before` is optional and refers to a layer id in the **base style**
+  (overlay layer ids cannot collide with base ids — the server prepends
+  `overlay:` to every overlay id before handing it to MapLibre).
+- **Paint / layout values are literals only.** Data-driven expressions
+  (`["interpolate", …]`, `["get", "name"]`, etc.) are rejected.
+
+Supported paint and layout properties:
+
+| Layer type | Paint properties                                                                                                  | Layout properties           |
+| ---------- | ----------------------------------------------------------------------------------------------------------------- | --------------------------- |
+| `fill`     | `fill-color`, `fill-opacity`, `fill-outline-color`                                                                | —                           |
+| `line`     | `line-color`, `line-opacity`, `line-width`                                                                        | `line-cap`, `line-join`     |
+| `circle`   | `circle-color`, `circle-opacity`, `circle-radius`, `circle-stroke-color`, `circle-stroke-opacity`, `circle-stroke-width` | —                           |
+
+`line-cap` is one of `butt`, `round`, `square`; `line-join` is one of
+`miter`, `bevel`, `round`. Colors accept any CSS color string.
+
+##### Out of scope
+
+- Data-driven expressions.
+- Layer types beyond `fill` / `line` / `circle` (no `symbol`, `heatmap`,
+  `raster`, `fill-extrusion`).
+- URL-referenced source `data` (would need an allowlist + timeouts).
+- Symbol/icon markers (use `circle` instead).
 
 All examples below render the same camera (`/static/0,0,2/200x200.png`)
 against the `maplibre_demo` style, so the visual differences come only from
 the overlay body.
 
-##### `stroke` + `stroke-width`
+##### Line layer
 
 <div class="grid" markdown>
 
-```json hl_lines="8-11"
+```json hl_lines="14-18"
 {
-  "features": [
-    {
-      "geometry": {
-        "coordinates": [[-10.0, -10.0], [10.0, 10.0]],
-        "type": "LineString"
-      },
-      "properties": {
-        "stroke": "#95BEFA",
-        "stroke-width": 5
-      },
-      "type": "Feature"
-    }
-  ],
-  "type": "FeatureCollection"
+  "sources": {
+    "s": { "type": "geojson", "data": {
+      "type": "FeatureCollection",
+      "features": [{
+        "type": "Feature", "properties": {},
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [[-10.0, -10.0], [10.0, 10.0]]
+        }
+      }]
+    }}
+  },
+  "layers": [{
+    "id": "line", "type": "line", "source": "s",
+    "paint": { "line-color": "#95BEFA", "line-width": 5 },
+    "layout": { "line-cap": "round", "line-join": "round" }
+  }]
 }
 ```
 
@@ -149,32 +190,34 @@ the overlay body.
 
 </div>
 
-##### `fill` (Polygon)
+##### Fill layer
 
 <div class="grid" markdown>
 
-```json hl_lines="14-17"
+```json hl_lines="20-24"
 {
-  "features": [
-    {
-      "geometry": {
-        "coordinates": [[
-          [-10.0, -10.0],
-          [10.0, -10.0],
-          [10.0, 10.0],
-          [-10.0, 10.0],
-          [-10.0, -10.0]
-        ]],
-        "type": "Polygon"
-      },
-      "properties": {
-        "fill": "red",
-        "fill-opacity": 1.0
-      },
-      "type": "Feature"
-    }
-  ],
-  "type": "FeatureCollection"
+  "sources": {
+    "s": { "type": "geojson", "data": {
+      "type": "FeatureCollection",
+      "features": [{
+        "type": "Feature", "properties": {},
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [[
+            [-10.0, -10.0],
+            [10.0, -10.0],
+            [10.0, 10.0],
+            [-10.0, 10.0],
+            [-10.0, -10.0]
+          ]]
+        }
+      }]
+    }}
+  },
+  "layers": [{
+    "id": "fill", "type": "fill", "source": "s",
+    "paint": { "fill-color": "red", "fill-opacity": 1.0 }
+  }]
 }
 ```
 
@@ -182,39 +225,36 @@ the overlay body.
 
 </div>
 
-##### `fill-opacity` (alpha blending)
+##### Fill opacity (alpha blending)
 
 <div class="grid" markdown>
 
-```json hl_lines="5-9"
+```json hl_lines="22-31"
 {
-  "features": [
-    {
-      "geometry": {
-        "coordinates": [[[-40, -20], [10, -20], [10, 20], [-40, 20], [-40, -20]]],
-        "type": "Polygon"
-      },
-      "properties": {
-        "fill": "#285DAA",
-        "fill-opacity": 0.5,
-        "stroke-opacity": 0
-      },
-      "type": "Feature"
-    },
-    {
-      "geometry": {
-        "coordinates": [[[-10, -20], [40, -20], [40, 20], [-10, 20], [-10, -20]]],
-        "type": "Polygon"
-      },
-      "properties": {
-        "fill": "#95BEFA",
-        "fill-opacity": 0.5,
-        "stroke-opacity": 0
-      },
-      "type": "Feature"
-    }
-  ],
-  "type": "FeatureCollection"
+  "sources": {
+    "left":  { "type": "geojson", "data": {
+      "type": "FeatureCollection",
+      "features": [{
+        "type": "Feature", "properties": {},
+        "geometry": { "type": "Polygon",
+          "coordinates": [[[-40, -20], [10, -20], [10, 20], [-40, 20], [-40, -20]]] }
+      }]
+    }},
+    "right": { "type": "geojson", "data": {
+      "type": "FeatureCollection",
+      "features": [{
+        "type": "Feature", "properties": {},
+        "geometry": { "type": "Polygon",
+          "coordinates": [[[-10, -20], [40, -20], [40, 20], [-10, 20], [-10, -20]]] }
+      }]
+    }}
+  },
+  "layers": [
+    { "id": "left-fill",  "type": "fill", "source": "left",
+      "paint": { "fill-color": "#285DAA", "fill-opacity": 0.5 } },
+    { "id": "right-fill", "type": "fill", "source": "right",
+      "paint": { "fill-color": "#95BEFA", "fill-opacity": 0.5 } }
+  ]
 }
 ```
 
@@ -222,30 +262,28 @@ the overlay body.
 
 </div>
 
-##### `marker-color` (Point)
+##### Circle layer (markers)
 
 <div class="grid" markdown>
 
-```json hl_lines="5-7"
+```json hl_lines="14-17"
 {
-  "features": [
-    {
-      "geometry": { "coordinates": [0.0, 0.0], "type": "Point" },
-      "properties": {
-        "marker-color": "#285DAA"
-      },
-      "type": "Feature"
-    }
-  ],
-  "type": "FeatureCollection"
+  "sources": {
+    "s": { "type": "geojson", "data": {
+      "type": "FeatureCollection",
+      "features": [{
+        "type": "Feature", "properties": {},
+        "geometry": { "type": "Point", "coordinates": [0.0, 0.0] }
+      }]
+    }}
+  },
+  "layers": [{
+    "id": "marker", "type": "circle", "source": "s",
+    "paint": { "circle-color": "#285DAA", "circle-radius": 8 }
+  }]
 }
 ```
 
 ![Primary-colored circle marker at the equator/prime meridian](images/static-overlay/marker_color.png){ width="100%" }
 
 </div>
-
-When `marker-color` is omitted, the marker falls back to the simplestyle-spec
-default (red):
-
-![Default red circle marker](images/static-overlay/marker_default.png)
