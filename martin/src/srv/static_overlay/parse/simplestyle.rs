@@ -14,8 +14,8 @@ use tiny_skia::Paint;
 use crate::srv::static_overlay::parse::OverlayParseError;
 
 /// Default stroke and fill color when properties don't set one (per simplestyle).
-/// Polygons override this for `stroke`, defaulting to their `fill` color instead
-/// so a fill-only polygon doesn't render with a surprising contrasting border.
+/// Polygons override this for `stroke`, defaulting to their `fill` color so a
+/// fill-only polygon doesn't render with an unexpected outline.
 pub(super) const DEFAULT_COLOR: &str = "#555555";
 /// Default stroke width in pixels (per simplestyle).
 pub(super) const DEFAULT_STROKE_WIDTH: f64 = 2.0;
@@ -79,9 +79,9 @@ pub(super) fn paint_with_opacity(
     let mut paint = Paint::default();
     paint.set_color_rgba8(r, g, b, alpha);
     paint.anti_alias = true;
-    // Force tiny-skia's f32 (HQ) pipeline in debug builds for stable test output;
-    // release builds let tiny-skia pick (usually the faster u16 pipeline). The
-    // visual difference is imperceptible, so prod takes the speed win.
+    // Force tiny-skia's f32 (HQ) pipeline in debug builds for stable test
+    // output; release builds let tiny-skia pick the faster u16 pipeline. The
+    // visual difference is imperceptible.
     paint.force_hq_pipeline = cfg!(debug_assertions);
     Ok(paint)
 }

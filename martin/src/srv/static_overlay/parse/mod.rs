@@ -1,9 +1,7 @@
-//! Turn a `GeoJSON` `FeatureCollection` into the renderable
-//! [`PathOverlay`] / [`MarkerOverlay`] shapes that [`super::draw`] consumes.
+//! Build [`ParsedOverlays`] from a `GeoJSON` `FeatureCollection`.
 //!
-//! The walker in this file dispatches by `GeometryValue`; per-shape
-//! construction lives in [`geometry`] and simplestyle property/paint
-//! handling lives in [`simplestyle`].
+//! The walker dispatches on `GeometryValue`; per-shape construction lives in
+//! [`geometry`] and simplestyle property/paint handling in [`simplestyle`].
 
 mod geometry;
 mod simplestyle;

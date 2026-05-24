@@ -70,8 +70,8 @@ pub(super) fn make_polygon(
     let fill_color = str_prop(props, "fill").unwrap_or(DEFAULT_COLOR);
     let fill_opacity = f64_prop(props, "fill-opacity").unwrap_or(DEFAULT_FILL_OPACITY);
     let fill = Some(paint_with_opacity("fill", fill_color, fill_opacity)?);
-    // Polygon strokes default to the fill color (not gray) so a fill-only
-    // polygon renders as a clean shape without a contrasting border.
+    // Polygons default `stroke` to the fill color rather than `DEFAULT_COLOR`
+    // so a fill-only polygon doesn't gain a contrasting outline.
     let (stroke, width) = stroke_paint(props, fill_color)?;
     Ok(Some(PathOverlay {
         points,
