@@ -381,7 +381,7 @@ export interface components {
              */
             "fill-opacity"?: number | null;
             /**
-             * @description CSS color for point markers (rendered with reduced alpha by default).
+             * @description CSS color for point markers.
              * @default #FF0000
              * @example #285DAA
              */

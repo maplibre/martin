@@ -413,7 +413,7 @@
           },
           "marker-color": {
             "default": "#FF0000",
-            "description": "CSS color for point markers (rendered with reduced alpha by default).",
+            "description": "CSS color for point markers.",
             "example": "#285DAA",
             "type": ["string", "null"]
           },
