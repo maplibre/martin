@@ -139,11 +139,11 @@ Rules — anything else is rejected with `400 Bad Request`:
 
 Supported paint and layout properties:
 
-| Layer type | Paint properties                                                                                                  | Layout properties           |
-| ---------- | ----------------------------------------------------------------------------------------------------------------- | --------------------------- |
-| `fill`     | `fill-color`, `fill-opacity`, `fill-outline-color`                                                                | —                           |
-| `line`     | `line-color`, `line-opacity`, `line-width`                                                                        | `line-cap`, `line-join`     |
-| `circle`   | `circle-color`, `circle-opacity`, `circle-radius`, `circle-stroke-color`, `circle-stroke-opacity`, `circle-stroke-width` | —                           |
+| Layer type | Paint properties                                                                                                         | Layout properties       |
+|------------|--------------------------------------------------------------------------------------------------------------------------|-------------------------|
+| `fill`     | `fill-color`, `fill-opacity`, `fill-outline-color`                                                                       | —                       |
+| `line`     | `line-color`, `line-opacity`, `line-width`                                                                               | `line-cap`, `line-join` |
+| `circle`   | `circle-color`, `circle-opacity`, `circle-radius`, `circle-stroke-color`, `circle-stroke-opacity`, `circle-stroke-width` | —                       |
 
 `line-cap` is one of `butt`, `round`, `square`; `line-join` is one of
 `miter`, `bevel`, `round`. Colors accept any CSS color string.
