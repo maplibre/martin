@@ -93,7 +93,6 @@ fn draw_shape(
 
             // EvenOdd fill across outer + holes turns nested closed subpaths into a polygon-with-holes.
             if let Some(fill) = fill
-                && rings[0].len() >= 3
                 && let Some(path) = build_subpaths(rings, true)
             {
                 pixmap.fill_path(
