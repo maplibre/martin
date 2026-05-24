@@ -201,25 +201,55 @@
         "enum": ["otf", "ttf", "ttc"],
         "type": "string"
       },
-      "StaticCirclePaint": {
+      "StaticFeatureCollectionTag": {
+        "enum": ["FeatureCollection"],
+        "type": "string"
+      },
+      "StaticFeatureTag": {
+        "enum": ["Feature"],
+        "type": "string"
+      },
+      "StaticOverlayFeature": {
+        "description": "One `GeoJSON` `Feature` with an optional style on `properties`.",
+        "properties": {
+          "geometry": {
+            "description": "A `GeoJSON` geometry. `Point`/`MultiPoint` → circle layer;\n`LineString`/`MultiLineString` → line layer;\n`Polygon`/`MultiPolygon` → fill (and optionally outline-line) layer.\n`GeometryCollection` is silently skipped; `null` is silently skipped."
+          },
+          "properties": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/StaticOverlayProperties",
+                "description": "Styling for this feature. All fields optional; unknown fields ignored."
+              }
+            ]
+          },
+          "type": {
+            "$ref": "#/components/schemas/StaticFeatureTag",
+            "description": "Must be `\"Feature\"`."
+          }
+        },
+        "required": ["type", "geometry"],
+        "type": "object"
+      },
+      "StaticOverlayProperties": {
+        "description": "Per-feature style. Either simplestyle aliases or canonical `MapLibre`\nnames; the canonical name wins on conflict. All fields are optional and\nfall back to simplestyle defaults.",
         "properties": {
           "circle-color": {
-            "description": "CSS color for the circle.",
-            "example": "#FF0000",
+            "description": "CSS color for `Point` geometries.",
+            "example": "#285DAA",
             "type": ["string", "null"]
           },
           "circle-opacity": {
-            "description": "Circle opacity in `0..=1`.",
             "format": "float",
-            "maximum": 1,
-            "minimum": 0,
             "type": ["number", "null"]
           },
           "circle-radius": {
-            "description": "Circle radius in pixels at the rendered scale.",
-            "example": 6.0,
+            "description": "Radius in pixels at the rendered scale.",
+            "example": 8.0,
             "format": "float",
-            "minimum": 0,
             "type": ["number", "null"]
           },
           "circle-stroke-color": {
@@ -227,220 +257,94 @@
           },
           "circle-stroke-opacity": {
             "format": "float",
-            "maximum": 1,
-            "minimum": 0,
             "type": ["number", "null"]
           },
           "circle-stroke-width": {
             "format": "float",
-            "minimum": 0,
             "type": ["number", "null"]
-          }
-        },
-        "type": "object"
-      },
-      "StaticFillPaint": {
-        "properties": {
+          },
+          "fill": {
+            "description": "Simplestyle alias for `fill-color`.",
+            "type": ["string", "null"]
+          },
           "fill-color": {
-            "description": "CSS color for the polygon fill.",
+            "description": "CSS color for `Polygon` fills.",
             "example": "#95BEFA",
             "type": ["string", "null"]
           },
           "fill-opacity": {
-            "description": "Fill opacity in `0..=1`.",
-            "example": 0.5,
             "format": "float",
-            "maximum": 1,
-            "minimum": 0,
             "type": ["number", "null"]
           },
           "fill-outline-color": {
-            "description": "CSS color for the polygon outline. Maplibre draws this only when the\nfill layer has no `fill-pattern`.",
             "type": ["string", "null"]
-          }
-        },
-        "type": "object"
-      },
-      "StaticGeoJsonSource": {
-        "description": "GeoJSON source with inline `data`. Mirrors maplibre's `geojson` source type.",
-        "properties": {
-          "data": {
-            "description": "Inline GeoJSON object. URLs and strings are rejected."
           },
-          "type": {
-            "$ref": "#/components/schemas/StaticGeoJsonSourceTag",
-            "description": "Always `\"geojson\"`; other source types are rejected."
-          }
-        },
-        "required": ["type", "data"],
-        "type": "object"
-      },
-      "StaticGeoJsonSourceTag": {
-        "enum": ["geojson"],
-        "type": "string"
-      },
-      "StaticLineLayout": {
-        "properties": {
           "line-cap": {
             "description": "One of `butt`, `round`, `square`.",
+            "type": ["string", "null"]
+          },
+          "line-color": {
+            "description": "CSS color for `LineString` geometries (and `Polygon` outlines).",
+            "example": "#285DAA",
             "type": ["string", "null"]
           },
           "line-join": {
             "description": "One of `miter`, `bevel`, `round`.",
             "type": ["string", "null"]
-          }
-        },
-        "type": "object"
-      },
-      "StaticLinePaint": {
-        "properties": {
-          "line-color": {
-            "description": "CSS color for the line.",
-            "example": "#285DAA",
-            "type": ["string", "null"]
           },
           "line-opacity": {
-            "description": "Line opacity in `0..=1`.",
             "format": "float",
-            "maximum": 1,
-            "minimum": 0,
             "type": ["number", "null"]
           },
           "line-width": {
             "description": "Line width in pixels at the rendered scale.",
-            "example": 3.0,
+            "example": 2.0,
             "format": "float",
-            "minimum": 0,
+            "type": ["number", "null"]
+          },
+          "marker-color": {
+            "description": "Simplestyle alias for `circle-color`.",
+            "example": "#7e7e7e",
+            "type": ["string", "null"]
+          },
+          "marker-size": {
+            "description": "Simplestyle alias for `circle-radius`: `small`=6, `medium`=8, `large`=10.",
+            "example": "medium",
+            "type": ["string", "null"]
+          },
+          "stroke": {
+            "description": "Simplestyle alias for `line-color`.",
+            "type": ["string", "null"]
+          },
+          "stroke-opacity": {
+            "description": "Simplestyle alias for `line-opacity`.",
+            "format": "float",
+            "type": ["number", "null"]
+          },
+          "stroke-width": {
+            "description": "Simplestyle alias for `line-width`.",
+            "format": "float",
             "type": ["number", "null"]
           }
         },
         "type": "object"
       },
-      "StaticOverlayLayer": {
-        "description": "Tagged-by-`type` overlay layer. Only literal paint/layout values; no\ndata-driven expressions, no symbol/heatmap/raster layers.",
-        "oneOf": [
-          {
-            "properties": {
-              "before": {
-                "description": "Base-style layer id to insert before. Optional.",
-                "type": ["string", "null"]
-              },
-              "id": {
-                "type": "string"
-              },
-              "paint": {
-                "oneOf": [
-                  {
-                    "type": "null"
-                  },
-                  {
-                    "$ref": "#/components/schemas/StaticFillPaint"
-                  }
-                ]
-              },
-              "source": {
-                "type": "string"
-              },
-              "type": {
-                "enum": ["fill"],
-                "type": "string"
-              }
-            },
-            "required": ["id", "source", "type"],
-            "type": "object"
-          },
-          {
-            "properties": {
-              "before": {
-                "type": ["string", "null"]
-              },
-              "id": {
-                "type": "string"
-              },
-              "layout": {
-                "oneOf": [
-                  {
-                    "type": "null"
-                  },
-                  {
-                    "$ref": "#/components/schemas/StaticLineLayout"
-                  }
-                ]
-              },
-              "paint": {
-                "oneOf": [
-                  {
-                    "type": "null"
-                  },
-                  {
-                    "$ref": "#/components/schemas/StaticLinePaint"
-                  }
-                ]
-              },
-              "source": {
-                "type": "string"
-              },
-              "type": {
-                "enum": ["line"],
-                "type": "string"
-              }
-            },
-            "required": ["id", "source", "type"],
-            "type": "object"
-          },
-          {
-            "properties": {
-              "before": {
-                "type": ["string", "null"]
-              },
-              "id": {
-                "type": "string"
-              },
-              "paint": {
-                "oneOf": [
-                  {
-                    "type": "null"
-                  },
-                  {
-                    "$ref": "#/components/schemas/StaticCirclePaint"
-                  }
-                ]
-              },
-              "source": {
-                "type": "string"
-              },
-              "type": {
-                "enum": ["circle"],
-                "type": "string"
-              }
-            },
-            "required": ["id", "source", "type"],
-            "type": "object"
-          }
-        ]
-      },
       "StaticStyleOverlay": {
-        "description": "Schema-only request body for `POST /style/.../static/...`. A partial\nmaplibre style — `sources` (geojson only) plus `layers` (fill/line/circle\nonly) — applied as ephemeral additions to the base style for this render.\n\nRuntime parsing happens in [`OverlayBody::from_request`] via\n[`parse_spec`]; this struct exists only to drive `utoipa`'s schema\ngeneration.",
+        "description": "Schema-only request body for `POST /style/.../static/...`. A `GeoJSON`\n`FeatureCollection`; each feature carries optional styling on its\n`properties`, using either simplestyle alias names (`marker-color`,\n`stroke`, `fill`, ...) or canonical `MapLibre` property names\n(`circle-color`, `line-width`, `fill-color`, ...). Unknown property keys\nare silently ignored.\n\nRuntime parsing happens in [`OverlayBody::from_request`] via\n[`parse_spec`]; this struct exists only to drive `utoipa`'s schema\ngeneration.",
         "properties": {
-          "layers": {
-            "description": "Layers in render order. Layer ids must not collide; server prefixes\nevery id with `overlay:` before handing them to maplibre.",
+          "features": {
+            "description": "Features to overlay on the rendered base map, in draw order.",
             "items": {
-              "$ref": "#/components/schemas/StaticOverlayLayer"
+              "$ref": "#/components/schemas/StaticOverlayFeature"
             },
             "type": "array"
           },
-          "sources": {
-            "additionalProperties": {
-              "$ref": "#/components/schemas/StaticGeoJsonSource"
-            },
-            "description": "GeoJSON sources keyed by source id. `data` must be inline (no URLs).",
-            "propertyNames": {
-              "type": "string"
-            },
-            "type": "object"
+          "type": {
+            "$ref": "#/components/schemas/StaticFeatureCollectionTag",
+            "description": "`GeoJSON` type discriminator. Must be `\"FeatureCollection\"`."
           }
         },
-        "required": ["sources", "layers"],
+        "required": ["type", "features"],
         "type": "object"
       },
       "StyleKind": {
@@ -969,7 +873,7 @@
               }
             }
           },
-          "description": "Partial maplibre style: `sources` (geojson only) plus `layers` (fill/line/circle only), applied for this render.",
+          "description": "GeoJSON FeatureCollection. Each feature's `properties` may carry simplestyle aliases (`marker-color`, `stroke`, `fill`, …) or MapLibre canonical property names (`circle-color`, `line-width`, `fill-color`, …). Unknown property keys are ignored.",
           "required": true
         },
         "responses": {
@@ -994,7 +898,7 @@
             "description": "Renderer or encoder failure"
           }
         },
-        "summary": "Render a static map image with optional vector overlays.\nSee [our documentation](https://maplibre.org/martin/sources-styles/) for\nthe supported `sources`/`layers` subset of the maplibre style spec.",
+        "summary": "Render a static map image with optional vector overlays.\nSee [our documentation](https://maplibre.org/martin/sources-styles/) for\nthe supported overlay body — a `GeoJSON` `FeatureCollection` with style\nproperties on each feature.",
         "tags": ["crate::srv"]
       }
     }
