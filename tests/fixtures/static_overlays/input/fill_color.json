@@ -1,15 +1,15 @@
 {
-  "type": "FeatureCollection",
   "features": [
     {
-      "type": "Feature",
       "geometry": {
-        "type": "Polygon",
         "coordinates": [
           [[-10.0, -10.0], [10.0, -10.0], [10.0, 10.0], [-10.0, 10.0], [-10.0, -10.0]]
-        ]
+        ],
+        "type": "Polygon"
       },
-      "properties": { "fill-color": "red", "fill-opacity": 1.0 }
+      "properties": { "fill-color": "red", "fill-opacity": 1.0 },
+      "type": "Feature"
     }
-  ]
+  ],
+  "type": "FeatureCollection"
 }

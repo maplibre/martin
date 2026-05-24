@@ -1,10 +1,7 @@
 {
-  "type": "FeatureCollection",
   "features": [
     {
-      "type": "Feature",
       "geometry": {
-        "type": "LineString",
         "coordinates": [
           [0, 14],
           [-8.23, -11.33],
@@ -12,15 +9,18 @@
           [-13.31, 4.33],
           [8.23, -11.33],
           [0, 14]
-        ]
+        ],
+        "type": "LineString"
       },
       "properties": {
-        "line-color": "#1d4ed8",
-        "line-opacity": 0.4,
-        "line-width": 12,
         "line-cap": "round",
-        "line-join": "round"
-      }
+        "line-color": "#1d4ed8",
+        "line-join": "round",
+        "line-opacity": 0.4,
+        "line-width": 12
+      },
+      "type": "Feature"
     }
-  ]
+  ],
+  "type": "FeatureCollection"
 }

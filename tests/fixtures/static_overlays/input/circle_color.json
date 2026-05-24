@@ -1,10 +1,10 @@
 {
-  "type": "FeatureCollection",
   "features": [
     {
-      "type": "Feature",
-      "geometry": { "type": "Point", "coordinates": [0.0, 0.0] },
-      "properties": { "circle-color": "#285DAA", "circle-radius": 8 }
+      "geometry": { "coordinates": [0.0, 0.0], "type": "Point" },
+      "properties": { "circle-color": "#285DAA", "circle-radius": 8 },
+      "type": "Feature"
     }
-  ]
+  ],
+  "type": "FeatureCollection"
 }

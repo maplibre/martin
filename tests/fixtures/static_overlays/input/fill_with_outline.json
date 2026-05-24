@@ -1,23 +1,23 @@
 {
-  "type": "FeatureCollection",
   "features": [
     {
-      "type": "Feature",
       "geometry": {
-        "type": "Polygon",
         "coordinates": [
           [[-10.0, -10.0], [10.0, -10.0], [10.0, 10.0], [-10.0, 10.0], [-10.0, -10.0]]
-        ]
+        ],
+        "type": "Polygon"
       },
       "properties": {
         "fill": "green",
         "fill-opacity": 1.0,
+        "line-cap": "round",
+        "line-join": "round",
         "stroke": "darkgreen",
         "stroke-opacity": 0.8,
-        "stroke-width": 2,
-        "line-cap": "round",
-        "line-join": "round"
-      }
+        "stroke-width": 2
+      },
+      "type": "Feature"
     }
-  ]
+  ],
+  "type": "FeatureCollection"
 }

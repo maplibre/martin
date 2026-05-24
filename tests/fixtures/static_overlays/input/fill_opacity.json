@@ -1,21 +1,21 @@
 {
-  "type": "FeatureCollection",
   "features": [
     {
-      "type": "Feature",
       "geometry": {
-        "type": "Polygon",
-        "coordinates": [[[-40, -20], [10, -20], [10, 20], [-40, 20], [-40, -20]]]
+        "coordinates": [[[-40, -20], [10, -20], [10, 20], [-40, 20], [-40, -20]]],
+        "type": "Polygon"
       },
-      "properties": { "fill-color": "#285DAA", "fill-opacity": 0.5 }
+      "properties": { "fill-color": "#285DAA", "fill-opacity": 0.5 },
+      "type": "Feature"
     },
     {
-      "type": "Feature",
       "geometry": {
-        "type": "Polygon",
-        "coordinates": [[[-10, -20], [40, -20], [40, 20], [-10, 20], [-10, -20]]]
+        "coordinates": [[[-10, -20], [40, -20], [40, 20], [-10, 20], [-10, -20]]],
+        "type": "Polygon"
       },
-      "properties": { "fill-color": "#95BEFA", "fill-opacity": 0.5 }
+      "properties": { "fill-color": "#95BEFA", "fill-opacity": 0.5 },
+      "type": "Feature"
     }
-  ]
+  ],
+  "type": "FeatureCollection"
 }
