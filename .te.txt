@@ -1,0 +1,23 @@
+18:    extensions: Vec<String>,
+127:        // Optionally parse extensions if the keyword `for` is used. Aborts if none are given.
+128:        let extensions = input
+135:                    Ok(extensions) => Ok(extensions
+137:                        .map(|extension| extension.value())
+139:                    Err(e) => abort!(e.span(), "Expected at least one extension to be given."),
+180:            extensions,
+195:    fn new(base: &Path, extensions: &[String]) -> Result<Self, String> {
+200:                if !extensions.is_empty() {
+201:                    // Ignore file if it does not have one extension.
+202:                    let Some(extension) = entry.extension() else {
+205:                    // Ignore the file if the extension is not contained in the provided extensions.
+206:                    if !extensions
+208:                        .any(|test_extension| test_extension == extension.to_str().unwrap())
+212:                    // Trim extension.
+213:                    entry.set_extension("");
+219:                    Self::new(entry.as_path(), extensions)?,
+295:        let arguments: TokenStream = if parsed.extensions.is_empty() {
+306:            for extension in &parsed.extensions {
+307:                // Add `.extension` to the end of the filename
+310:                file.push(extension);
+318:                            "Failed to read expected file {}.{extension}: {e}",
+388:    let files = match Tree::new(parsed.path.value().as_ref(), &parsed.extensions) {

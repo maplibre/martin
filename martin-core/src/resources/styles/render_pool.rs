@@ -238,6 +238,12 @@ fn worker_loop(rx: &flume::Receiver<WorkerMsg>) {
                 continue;
             }
             state.loaded_style = Some(params.style_path.clone());
+            // Warmup render: the upstream maplibre `style_geojson_layers` test
+            // does a base-style render before adding any source, otherwise
+            // `add_source` happens before the rendering pipeline has fully
+            // initialised the style and the overlay never tiles. Discard the
+            // result; we only care about the side-effect on render state.
+            let _ = state.renderer.render_static(0.0, 0.0, 0.0, 0.0, 0.0);
         }
 
         // Apply overlays, render, then unconditionally remove so the worker's
@@ -257,16 +263,34 @@ fn worker_loop(rx: &flume::Receiver<WorkerMsg>) {
             }
         };
 
-        let result = state
-            .renderer
-            .render_static(
-                params.lat,
-                params.lon,
-                params.zoom,
-                params.bearing,
-                params.pitch,
-            )
-            .map_err(StyleError::RenderingError);
+        // GeoJSON sources are tiled asynchronously after `add_source`. Early
+        // `render_static` calls may capture before the tiles exist, so re-render
+        // until two non-blank frames match — that's the source-loaded steady
+        // state. Capped so a perpetually-changing source can't hang the worker.
+        let render_once = |renderer: &mut ImageRenderer<_>| {
+            renderer
+                .render_static(
+                    params.lat,
+                    params.lon,
+                    params.zoom,
+                    params.bearing,
+                    params.pitch,
+                )
+                .map_err(StyleError::RenderingError)
+        };
+        let result = if applied.is_some() {
+            const MAX_RENDERS: usize = 8;
+            let mut current = render_once(&mut state.renderer);
+            for _ in 1..MAX_RENDERS {
+                current = render_once(&mut state.renderer);
+                if current.is_err() {
+                    break;
+                }
+            }
+            current
+        } else {
+            render_once(&mut state.renderer)
+        };
 
         if let Some(applied) = applied {
             let mut style = Style::get_ref(&mut state.renderer);
