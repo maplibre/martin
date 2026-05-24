@@ -251,8 +251,8 @@ Martin's architecture is organized into four main Rust crates, each with distinc
 ## Key Design Decisions
 
 🧠 This section provides **background and context**, not required knowledge.
-You don’t need to understand or remember all of this to use or contribute to Martin.
-Read it when you’re curious **why** certain choices were made.
+You don't need to understand or remember all of this to use or contribute to Martin.
+Read it when you're curious **why** certain choices were made.
 
 ??? "Why Rust"
     Martin is written in Rust to balance high performance with strong safety guarantees.

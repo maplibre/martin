@@ -106,14 +106,14 @@ MBTiles and PMTiles are both formats for storing tiled geospatial data, but they
   **MBTiles** typically provide slightly lower latency due to local access and SQLite indexing.
   **PMTiles** may introduce additional latency when accessed remotely, but this is usually mitigated by HTTP caching and CDN usage.
 - **Storage efficiency**
-  **PMTiles** archives are generally more space-efficient, typically ~10–15% smaller than equivalent **MBTiles** archives.
+  **PMTiles** archives are generally more space-efficient, typically ~10-15% smaller than equivalent **MBTiles** archives.
 - **Memory usage**
   **MBTiles** relies on SQLite, which maintains an internal page cache and may increase memory usage under load.
   **PMTiles** can, in some cases, operate with lower memory overhead, depending on access patterns and caching configuration.
 
 ### Serving PMTiles without a Tile Server
 
-PMTiles archives can be served directly from HTTP range–capable storage without a dedicated tile server.
+PMTiles archives can be served directly from HTTP range-capable storage without a dedicated tile server.
 This approach has several limitations:
 
 - **Unrestricted access risk**
