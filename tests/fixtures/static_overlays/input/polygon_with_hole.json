@@ -1,43 +1,31 @@
 {
-  "sources": {
-    "s": {
-      "type": "geojson",
-      "data": {
-        "type": "FeatureCollection",
-        "features": [
-          {
-            "type": "Feature",
-            "properties": {},
-            "geometry": {
-              "type": "Polygon",
-              "coordinates": [
-                [
-                  [-10.0, -10.0],
-                  [10.0, -10.0],
-                  [10.0, 10.0],
-                  [-10.0, 10.0],
-                  [-10.0, -10.0]
-                ],
-                [
-                  [-5.0, -5.0],
-                  [-5.0, 5.0],
-                  [5.0, 5.0],
-                  [5.0, -5.0],
-                  [-5.0, -5.0]
-                ]
-              ]
-            }
-          }
-        ]
-      }
-    }
-  },
   "layers": [
     {
       "id": "fill",
-      "type": "fill",
+      "paint": { "fill-color": "green", "fill-opacity": 1.0 },
       "source": "s",
-      "paint": { "fill-color": "green", "fill-opacity": 1.0 }
+      "type": "fill"
     }
-  ]
+  ],
+  "sources": {
+    "s": {
+      "data": {
+        "features": [
+          {
+            "geometry": {
+              "coordinates": [
+                [[-10.0, -10.0], [10.0, -10.0], [10.0, 10.0], [-10.0, 10.0], [-10.0, -10.0]],
+                [[-5.0, -5.0], [-5.0, 5.0], [5.0, 5.0], [5.0, -5.0], [-5.0, -5.0]]
+              ],
+              "type": "Polygon"
+            },
+            "properties": {},
+            "type": "Feature"
+          }
+        ],
+        "type": "FeatureCollection"
+      },
+      "type": "geojson"
+    }
+  }
 }

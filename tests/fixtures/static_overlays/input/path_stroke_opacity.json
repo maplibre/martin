@@ -1,15 +1,19 @@
 {
+  "layers": [
+    {
+      "id": "line",
+      "layout": { "line-cap": "round", "line-join": "round" },
+      "paint": { "line-color": "#1d4ed8", "line-opacity": 0.4, "line-width": 12 },
+      "source": "s",
+      "type": "line"
+    }
+  ],
   "sources": {
     "s": {
-      "type": "geojson",
       "data": {
-        "type": "FeatureCollection",
         "features": [
           {
-            "type": "Feature",
-            "properties": {},
             "geometry": {
-              "type": "LineString",
               "coordinates": [
                 [0, 14],
                 [-8.23, -11.33],
@@ -17,20 +21,16 @@
                 [-13.31, 4.33],
                 [8.23, -11.33],
                 [0, 14]
-              ]
-            }
+              ],
+              "type": "LineString"
+            },
+            "properties": {},
+            "type": "Feature"
           }
-        ]
-      }
+        ],
+        "type": "FeatureCollection"
+      },
+      "type": "geojson"
     }
-  },
-  "layers": [
-    {
-      "id": "line",
-      "type": "line",
-      "source": "s",
-      "paint": { "line-color": "#1d4ed8", "line-width": 12, "line-opacity": 0.4 },
-      "layout": { "line-cap": "round", "line-join": "round" }
-    }
-  ]
+  }
 }

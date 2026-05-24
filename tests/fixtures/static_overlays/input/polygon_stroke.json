@@ -1,41 +1,37 @@
 {
-  "sources": {
-    "s": {
-      "type": "geojson",
-      "data": {
-        "type": "FeatureCollection",
-        "features": [
-          {
-            "type": "Feature",
-            "properties": {},
-            "geometry": {
-              "type": "Polygon",
-              "coordinates": [[
-                [-10.0, -10.0],
-                [10.0, -10.0],
-                [10.0, 10.0],
-                [-10.0, 10.0],
-                [-10.0, -10.0]
-              ]]
-            }
-          }
-        ]
-      }
-    }
-  },
   "layers": [
     {
       "id": "fill",
-      "type": "fill",
+      "paint": { "fill-color": "green", "fill-opacity": 1.0 },
       "source": "s",
-      "paint": { "fill-color": "green", "fill-opacity": 1.0 }
+      "type": "fill"
     },
     {
       "id": "stroke",
-      "type": "line",
-      "source": "s",
+      "layout": { "line-cap": "round", "line-join": "round" },
       "paint": { "line-color": "darkgreen", "line-width": 2 },
-      "layout": { "line-cap": "round", "line-join": "round" }
+      "source": "s",
+      "type": "line"
     }
-  ]
+  ],
+  "sources": {
+    "s": {
+      "data": {
+        "features": [
+          {
+            "geometry": {
+              "coordinates": [
+                [[-10.0, -10.0], [10.0, -10.0], [10.0, 10.0], [-10.0, 10.0], [-10.0, -10.0]]
+              ],
+              "type": "Polygon"
+            },
+            "properties": {},
+            "type": "Feature"
+          }
+        ],
+        "type": "FeatureCollection"
+      },
+      "type": "geojson"
+    }
+  }
 }

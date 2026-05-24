@@ -1,50 +1,50 @@
 {
-  "sources": {
-    "left": {
-      "type": "geojson",
-      "data": {
-        "type": "FeatureCollection",
-        "features": [
-          {
-            "type": "Feature",
-            "properties": {},
-            "geometry": {
-              "type": "Polygon",
-              "coordinates": [[[-40, -20], [10, -20], [10, 20], [-40, 20], [-40, -20]]]
-            }
-          }
-        ]
-      }
-    },
-    "right": {
-      "type": "geojson",
-      "data": {
-        "type": "FeatureCollection",
-        "features": [
-          {
-            "type": "Feature",
-            "properties": {},
-            "geometry": {
-              "type": "Polygon",
-              "coordinates": [[[-10, -20], [40, -20], [40, 20], [-10, 20], [-10, -20]]]
-            }
-          }
-        ]
-      }
-    }
-  },
   "layers": [
     {
       "id": "left-fill",
-      "type": "fill",
+      "paint": { "fill-color": "#285DAA", "fill-opacity": 0.5 },
       "source": "left",
-      "paint": { "fill-color": "#285DAA", "fill-opacity": 0.5 }
+      "type": "fill"
     },
     {
       "id": "right-fill",
-      "type": "fill",
+      "paint": { "fill-color": "#95BEFA", "fill-opacity": 0.5 },
       "source": "right",
-      "paint": { "fill-color": "#95BEFA", "fill-opacity": 0.5 }
+      "type": "fill"
     }
-  ]
+  ],
+  "sources": {
+    "left": {
+      "data": {
+        "features": [
+          {
+            "geometry": {
+              "coordinates": [[[-40, -20], [10, -20], [10, 20], [-40, 20], [-40, -20]]],
+              "type": "Polygon"
+            },
+            "properties": {},
+            "type": "Feature"
+          }
+        ],
+        "type": "FeatureCollection"
+      },
+      "type": "geojson"
+    },
+    "right": {
+      "data": {
+        "features": [
+          {
+            "geometry": {
+              "coordinates": [[[-10, -20], [40, -20], [40, 20], [-10, 20], [-10, -20]]],
+              "type": "Polygon"
+            },
+            "properties": {},
+            "type": "Feature"
+          }
+        ],
+        "type": "FeatureCollection"
+      },
+      "type": "geojson"
+    }
+  }
 }

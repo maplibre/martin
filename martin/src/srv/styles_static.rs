@@ -479,7 +479,11 @@ pub async fn post_rendered_static_style(
         "Rendering static image"
     );
 
-    let overlays = if overlays.is_empty() { None } else { Some(overlays) };
+    let overlays = if overlays.is_empty() {
+        None
+    } else {
+        Some(overlays)
+    };
     let image = match render_with_overlays(&styles, style_path, &camera, size, overlays).await {
         Ok(img) => img,
         Err(resp) => return resp,

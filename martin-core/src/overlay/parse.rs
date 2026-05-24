@@ -94,7 +94,9 @@ pub enum OverlayParseError {
 
     /// A property's value was a JSON array (i.e. a data-driven expression),
     /// which this subset rejects.
-    #[error("layer {id:?}: property {prop:?} is a data-driven expression; only literal values are supported")]
+    #[error(
+        "layer {id:?}: property {prop:?} is a data-driven expression; only literal values are supported"
+    )]
     ExpressionUnsupported {
         /// Layer id that triggered the error.
         id: String,
@@ -160,7 +162,9 @@ pub enum OverlayParseError {
 /// missing required field.
 pub fn parse_spec(body: &Value) -> Result<OverlaySpec, OverlayParseError> {
     let Some(obj) = body.as_object() else {
-        return Err(OverlayParseError::UnknownTopKey(format!("(not an object: {body})")));
+        return Err(OverlayParseError::UnknownTopKey(format!(
+            "(not an object: {body})"
+        )));
     };
 
     let mut sources_val: Option<&Value> = None;
@@ -204,21 +208,22 @@ fn parse_sources(value: &Value) -> Result<Vec<OverlaySource>, OverlayParseError>
 }
 
 fn parse_source(id: &str, value: &Value) -> Result<OverlaySource, OverlayParseError> {
-    let obj = value.as_object().ok_or_else(|| {
-        OverlayParseError::MissingField {
+    let obj = value
+        .as_object()
+        .ok_or_else(|| OverlayParseError::MissingField {
             id: id.to_string(),
             field: "(source must be a JSON object)",
-        }
-    })?;
+        })?;
 
     let mut ty: Option<&str> = None;
     let mut data: Option<&Value> = None;
     for (k, v) in obj {
         match k.as_str() {
             "type" => {
-                ty = Some(v.as_str().ok_or(OverlayParseError::UnsupportedSourceType {
-                    id: id.to_string(),
-                })?);
+                ty = Some(
+                    v.as_str()
+                        .ok_or(OverlayParseError::UnsupportedSourceType { id: id.to_string() })?,
+                );
             }
             "data" => data = Some(v),
             other => {
@@ -232,18 +237,14 @@ fn parse_source(id: &str, value: &Value) -> Result<OverlaySource, OverlayParseEr
     }
 
     if ty != Some("geojson") {
-        return Err(OverlayParseError::UnsupportedSourceType {
-            id: id.to_string(),
-        });
+        return Err(OverlayParseError::UnsupportedSourceType { id: id.to_string() });
     }
     let data = data.ok_or(OverlayParseError::MissingField {
         id: id.to_string(),
         field: "data",
     })?;
     if !data.is_object() {
-        return Err(OverlayParseError::SourceDataMustBeInline {
-            id: id.to_string(),
-        });
+        return Err(OverlayParseError::SourceDataMustBeInline { id: id.to_string() });
     }
 
     let geojson: geojson::GeoJson = serde_json::from_value(data.clone()).map_err(|source| {
@@ -304,13 +305,13 @@ fn parse_layer(
             field: "id",
         })?
         .to_string();
-    let ty = obj
-        .get("type")
-        .and_then(Value::as_str)
-        .ok_or_else(|| OverlayParseError::MissingField {
-            id: id.clone(),
-            field: "type",
-        })?;
+    let ty =
+        obj.get("type")
+            .and_then(Value::as_str)
+            .ok_or_else(|| OverlayParseError::MissingField {
+                id: id.clone(),
+                field: "type",
+            })?;
     let source = obj
         .get("source")
         .and_then(Value::as_str)
@@ -405,12 +406,11 @@ fn parse_layer(
     }
 }
 
-fn parse_fill_paint(
-    id: &str,
-    paint: Option<&Value>,
-) -> Result<FillPaint, OverlayParseError> {
+fn parse_fill_paint(id: &str, paint: Option<&Value>) -> Result<FillPaint, OverlayParseError> {
     let mut out = FillPaint::default();
-    let Some(paint) = paint else { return Ok(out); };
+    let Some(paint) = paint else {
+        return Ok(out);
+    };
     let obj = paint.as_object().ok_or(OverlayParseError::MissingField {
         id: id.to_string(),
         field: "(paint must be a JSON object)",
@@ -434,12 +434,11 @@ fn parse_fill_paint(
     Ok(out)
 }
 
-fn parse_line_paint(
-    id: &str,
-    paint: Option<&Value>,
-) -> Result<LinePaint, OverlayParseError> {
+fn parse_line_paint(id: &str, paint: Option<&Value>) -> Result<LinePaint, OverlayParseError> {
     let mut out = LinePaint::default();
-    let Some(paint) = paint else { return Ok(out); };
+    let Some(paint) = paint else {
+        return Ok(out);
+    };
     let obj = paint.as_object().ok_or(OverlayParseError::MissingField {
         id: id.to_string(),
         field: "(paint must be a JSON object)",
@@ -461,12 +460,11 @@ fn parse_line_paint(
     Ok(out)
 }
 
-fn parse_line_layout(
-    id: &str,
-    layout: Option<&Value>,
-) -> Result<LineLayout, OverlayParseError> {
+fn parse_line_layout(id: &str, layout: Option<&Value>) -> Result<LineLayout, OverlayParseError> {
     let mut out = LineLayout::default();
-    let Some(layout) = layout else { return Ok(out); };
+    let Some(layout) = layout else {
+        return Ok(out);
+    };
     let obj = layout.as_object().ok_or(OverlayParseError::MissingField {
         id: id.to_string(),
         field: "(layout must be a JSON object)",
@@ -503,12 +501,11 @@ fn parse_line_layout(
     Ok(out)
 }
 
-fn parse_circle_paint(
-    id: &str,
-    paint: Option<&Value>,
-) -> Result<CirclePaint, OverlayParseError> {
+fn parse_circle_paint(id: &str, paint: Option<&Value>) -> Result<CirclePaint, OverlayParseError> {
     let mut out = CirclePaint::default();
-    let Some(paint) = paint else { return Ok(out); };
+    let Some(paint) = paint else {
+        return Ok(out);
+    };
     let obj = paint.as_object().ok_or(OverlayParseError::MissingField {
         id: id.to_string(),
         field: "(paint must be a JSON object)",
@@ -545,8 +542,7 @@ fn parse_color(id: &str, prop: &'static str, value: &Value) -> Result<Color, Ove
         id: id.to_string(),
         prop,
         value: value.to_string(),
-        source: csscolorparser::parse("")
-            .expect_err("empty string never parses as a CSS color"),
+        source: csscolorparser::parse("").expect_err("empty string never parses as a CSS color"),
     })?;
     let parsed = csscolorparser::parse(s).map_err(|source| OverlayParseError::InvalidColor {
         id: id.to_string(),
@@ -566,11 +562,7 @@ fn parse_color(id: &str, prop: &'static str, value: &Value) -> Result<Color, Ove
     })
 }
 
-fn parse_finite_f32(
-    id: &str,
-    prop: &'static str,
-    value: &Value,
-) -> Result<f32, OverlayParseError> {
+fn parse_finite_f32(id: &str, prop: &'static str, value: &Value) -> Result<f32, OverlayParseError> {
     reject_expression(id, prop, value)?;
     let n = value.as_f64().ok_or(OverlayParseError::InvalidNumber {
         id: id.to_string(),
@@ -589,11 +581,7 @@ fn parse_finite_f32(
     Ok(n as f32)
 }
 
-fn reject_expression(
-    id: &str,
-    prop: &'static str,
-    value: &Value,
-) -> Result<(), OverlayParseError> {
+fn reject_expression(id: &str, prop: &'static str, value: &Value) -> Result<(), OverlayParseError> {
     if value.is_array() {
         return Err(OverlayParseError::ExpressionUnsupported {
             id: id.to_string(),

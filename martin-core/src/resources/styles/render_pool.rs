@@ -242,10 +242,7 @@ fn worker_loop(rx: &flume::Receiver<WorkerMsg>) {
 
         // Apply overlays, render, then unconditionally remove so the worker's
         // cached style returns to a clean base for the next request.
-        let overlays = params
-            .overlays
-            .as_deref()
-            .filter(|spec| !spec.is_empty());
+        let overlays = params.overlays.as_deref().filter(|spec| !spec.is_empty());
         let applied = match overlays {
             None => None,
             Some(spec) => {
