@@ -119,6 +119,24 @@ impl<'de> Deserialize<'de> for CameraRequest {
     }
 }
 
+impl CameraRequest {
+    fn validate(self) -> Result<Self, HttpResponse> {
+        if let Self::BoundingBox {
+            min_lon,
+            min_lat,
+            max_lon,
+            max_lat,
+        } = self
+            && (max_lon < min_lon || max_lat < min_lat)
+        {
+            return Err(HttpResponse::BadRequest()
+                .content_type(ContentType::plaintext())
+                .body("Bounding box is inverted: max must be greater than or equal to min"));
+        }
+        Ok(self)
+    }
+}
+
 /// Parsed `{size}` path segment: `WIDTHxHEIGHT[@SCALEx]`. Bounds are
 /// checked in [`Self::validate`] after deserialization so the response
 /// can name which bound was hit.
@@ -416,7 +434,12 @@ pub async fn post_rendered_static_style(
         Err(resp) => return resp,
     };
 
-    let camera = resolve_camera(path.camera, size);
+    let camera_req = match path.camera.validate() {
+        Ok(c) => c,
+        Err(resp) => return resp,
+    };
+
+    let camera = resolve_camera(camera_req, size);
 
     debug!(
         lon = %camera.center_lon,
@@ -433,7 +456,7 @@ pub async fn post_rendered_static_style(
         Err(resp) => return resp,
     };
 
-    let composed = compose_overlays(image.as_image(), &overlays, &camera);
+    let composed = compose_overlays(image.as_image(), &overlays, &camera, size.scale);
     encode_image_response(composed.as_ref(), path.format)
 }
 
@@ -466,15 +489,19 @@ fn compose_overlays<'a>(
     base: &'a image::RgbaImage,
     overlays: &ParsedOverlays,
     camera: &Camera,
+    pixel_ratio: f32,
 ) -> std::borrow::Cow<'a, image::RgbaImage> {
     if overlays.is_empty() {
         return std::borrow::Cow::Borrowed(base);
     }
+    // `base` is already physical pixels (logical * pixel_ratio); bumping zoom
+    // by log2(pixel_ratio) is equivalent to scaling 256*2^zoom by pixel_ratio,
+    // so overlays project onto the same pixel grid as the base map at @Nx.
     let view = static_overlay::OverlayView {
         width: base.width(),
         height: base.height(),
         center: coord! { x: camera.center_lon, y: camera.center_lat },
-        zoom: camera.zoom,
+        zoom: camera.zoom + f64::from(pixel_ratio).log2(),
     };
     std::borrow::Cow::Owned(static_overlay::draw_overlays(
         base,
@@ -506,7 +533,12 @@ async fn handle_static_request(path: &StaticImagePath, styles: &StyleSources) ->
         Err(resp) => return resp,
     };
 
-    let camera = resolve_camera(path.camera, size);
+    let camera_req = match path.camera.validate() {
+        Ok(c) => c,
+        Err(resp) => return resp,
+    };
+
+    let camera = resolve_camera(camera_req, size);
 
     trace!(
         "Rendering static image for style {style_id} at ({lon},{lat}) z{zoom} {w}x{h}@{scale}",
@@ -776,6 +808,24 @@ mod tests {
         );
     }
 
+    #[rstest]
+    #[case::inverted_lon("10,0,-10,5")]
+    #[case::inverted_lat("0,5,1,-5")]
+    #[actix_rt::test]
+    async fn inverted_bbox_returns_400(#[case] params: &str) {
+        let (styles, _f) = one_style();
+        let resp = call!(
+            get(&format!("/style/s/static/{params}/200x200.png")),
+            styles
+        );
+        assert_eq!(resp.status(), StatusCode::BAD_REQUEST, "params={params:?}");
+        let body = body_text(resp).await;
+        assert!(
+            body.starts_with("Bounding box"),
+            "params={params:?}: expected body to start with \"Bounding box\", got {body:?}"
+        );
+    }
+
     // POST tests: same routing as GET plus a GeoJSON body.
 
     #[actix_rt::test]
@@ -793,6 +843,18 @@ mod tests {
         let (styles, _f) = one_style();
         let resp = call!(post("/style/s/static/0,0,1/100x100.png"), styles);
         assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+    }
+
+    #[actix_rt::test]
+    async fn post_inverted_bbox_returns_400() {
+        let (styles, _f) = one_style();
+        let resp = call!(post("/style/s/static/10,0,-10,5/200x200.png"), styles);
+        assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+        let body = body_text(resp).await;
+        assert!(
+            body.starts_with("Bounding box"),
+            "expected body to start with \"Bounding box\", got {body:?}"
+        );
     }
 
     #[actix_rt::test]

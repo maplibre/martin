@@ -462,3 +462,19 @@ test_each_path! {
     as overlays_centered
     => async |p: &Path| run_overlay_scenario(p, URI_CENTERED_200, CENTERED_EXPECTED_DIR).await
 }
+
+/// Same centered framing at @2x. Camera (0,0,2) on 200x200@2x outputs a
+/// 400x400 image at scale `256·2²·2 = 2048 px/world`, so any feature off
+/// the camera center must scale up linearly with the pixel ratio.
+/// `polygon_fill_opacity` carries off-center polygons (centered at ±15°)
+/// and so locks down the @Nx alignment between overlays and the base map.
+const URI_CENTERED_200_2X: &str = "/style/maplibre_demo/static/0,0,2/200x200@2x.png";
+
+const CENTERED_2X_EXPECTED_DIR: &str = "../tests/fixtures/static_overlays_centered_2x_expected";
+
+test_each_path! {
+    #[tokio::test]
+    async in "tests/fixtures/static_overlays_centered"
+    as overlays_centered_2x
+    => async |p: &Path| run_overlay_scenario(p, URI_CENTERED_200_2X, CENTERED_2X_EXPECTED_DIR).await
+}

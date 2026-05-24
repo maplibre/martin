@@ -252,6 +252,9 @@ fn paint_with_opacity(
     let mut paint = Paint::default();
     paint.set_color_rgba8(r, g, b, alpha);
     paint.anti_alias = true;
+    // Force tiny-skia's f32 (HQ) pipeline in debug builds for stable test output;
+    // release builds let tiny-skia pick (usually the faster u16 pipeline). The
+    // visual difference is imperceptible, so prod takes the speed win.
     paint.force_hq_pipeline = cfg!(debug_assertions);
     Ok(paint)
 }
