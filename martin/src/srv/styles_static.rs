@@ -246,7 +246,7 @@ pub async fn get_rendered_static_style(
     path: Path<StaticImagePath>,
     styles: Data<StyleSources>,
 ) -> HttpResponse {
-    handle_static_request(&path, &styles).await
+    handle_static_request(&path, &styles, None).await
 }
 
 #[derive(Deserialize, Debug)]
@@ -425,46 +425,12 @@ pub async fn post_rendered_static_style(
     OverlayBody(overlays): OverlayBody,
     styles: Data<StyleSources>,
 ) -> HttpResponse {
-    let style_id = &path.style_id;
-    let Some(style_path) = styles.style_json_path(style_id) else {
-        return HttpResponse::NotFound()
-            .content_type(ContentType::plaintext())
-            .body("No such style exists");
-    };
-
-    let size = match path.size.validate() {
-        Ok(size) => size,
-        Err(resp) => return resp,
-    };
-
-    let camera_req = match path.camera.validate() {
-        Ok(c) => c,
-        Err(resp) => return resp,
-    };
-
-    let camera = resolve_camera(camera_req, size);
-
-    debug!(
-        lon = %camera.center_lon,
-        lat = %camera.center_lat,
-        zoom = %camera.zoom,
-        w = %size.width,
-        h = %size.height,
-        scale = %size.scale,
-        "Rendering static image"
-    );
-
     let overlays = if overlays.is_empty() {
         None
     } else {
         Some(overlays)
     };
-    let image = match render_with_overlays(&styles, style_path, &camera, size, overlays).await {
-        Ok(img) => img,
-        Err(resp) => return resp,
-    };
-
-    encode_image_response(image.as_image(), path.format)
+    handle_static_request(&path, &styles, overlays).await
 }
 
 /// Actix extractor: empty body → no overlays; otherwise parses the body as
@@ -500,7 +466,12 @@ struct Camera {
     pitch: f64,
 }
 
-async fn handle_static_request(path: &StaticImagePath, styles: &StyleSources) -> HttpResponse {
+/// Shared static-image pipeline; `overlays` is `None` for GET.
+async fn handle_static_request(
+    path: &StaticImagePath,
+    styles: &StyleSources,
+    overlays: Option<Arc<OverlaySpec>>,
+) -> HttpResponse {
     let style_id = &path.style_id;
     let Some(style_path) = styles.style_json_path(style_id) else {
         return HttpResponse::NotFound()
@@ -530,7 +501,7 @@ async fn handle_static_request(path: &StaticImagePath, styles: &StyleSources) ->
         "Rendering static image"
     );
 
-    let image = match render_with_overlays(styles, style_path, &camera, size, None).await {
+    let image = match render_with_overlays(styles, style_path, &camera, size, overlays).await {
         Ok(img) => img,
         Err(resp) => return resp,
     };

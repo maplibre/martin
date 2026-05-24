@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::thread::{self, JoinHandle};
 
-use maplibre_native::{Image, ImageRenderer, ImageRendererBuilder, Style};
+use maplibre_native::{Image, ImageRenderer, ImageRendererBuilder, Static, Style};
 use tokio::sync::oneshot;
 use tracing::info;
 
@@ -204,113 +204,131 @@ fn worker_loop(rx: &flume::Receiver<WorkerMsg>) {
             WorkerMsg::Render(req) => req,
             WorkerMsg::Shutdown => break,
         };
-        let needs_rebuild = match &current {
-            None => true,
-            Some(state) => {
-                state.width != params.width
-                    || state.height != params.height
-                    || (state.pixel_ratio - params.pixel_ratio).abs() > 0.01
-            }
-        };
 
-        if needs_rebuild {
-            let width = NonZeroU32::new(params.width).unwrap_or(NonZeroU32::MIN);
-            let height = NonZeroU32::new(params.height).unwrap_or(NonZeroU32::MIN);
-            let renderer = ImageRendererBuilder::default()
-                .with_pixel_ratio(params.pixel_ratio)
-                .with_size(width, height)
-                .build_static_renderer();
-            current = Some(RendererState {
-                renderer,
-                width: params.width,
-                height: params.height,
-                pixel_ratio: params.pixel_ratio,
-                loaded_style: None,
-            });
-        }
-
-        let state = current.as_mut().expect("just built");
-
-        if state.loaded_style.as_ref() != Some(&params.style_path) {
-            if let Err(e) = state.renderer.load_style_from_path(&params.style_path) {
-                let _ = response.send(Err(StyleError::IoError(e)));
-                state.loaded_style = None;
-                continue;
-            }
-            state.loaded_style = Some(params.style_path.clone());
-        }
-        // Warmup render at the request camera before mutating the style: the
-        // upstream maplibre `style_geojson_layers` test does this and without
-        // it `add_source` happens before the rendering pipeline initialises
-        // the style and the overlay never tiles. Done every request (not just
-        // on style load) because the worker is shared across requests with
-        // different cameras — without this, the previous request's bearing /
-        // pitch leak into the first real render of the next request.
-        let _ = state.renderer.render_static(
-            params.lat,
-            params.lon,
-            params.zoom,
-            params.bearing,
-            params.pitch,
-        );
-
-        // Apply overlays, render, then unconditionally remove so the worker's
-        // cached style returns to a clean base for the next request.
-        let overlays = params.overlays.as_deref().filter(|spec| !spec.is_empty());
-        let applied = match overlays {
-            None => None,
-            Some(spec) => {
-                let mut style = Style::get_ref(&mut state.renderer);
-                match apply_to_style(spec, &mut style) {
-                    Ok(a) => Some(a),
-                    Err(e) => {
-                        let _ = response.send(Err(StyleError::OverlayApply(e)));
-                        continue;
-                    }
-                }
-            }
-        };
-
-        // GeoJSON sources are tiled asynchronously after `add_source`. Early
-        // `render_static` calls may capture before the tiles exist, so re-render
-        // until two non-blank frames match — that's the source-loaded steady
-        // state. Capped so a perpetually-changing source can't hang the worker.
-        let render_once = |renderer: &mut ImageRenderer<_>| {
-            renderer
-                .render_static(
-                    params.lat,
-                    params.lon,
-                    params.zoom,
-                    params.bearing,
-                    params.pitch,
-                )
-                .map_err(StyleError::RenderingError)
-        };
-        let result = if applied.is_some() {
-            const MAX_RENDERS: usize = 8;
-            let mut current = render_once(&mut state.renderer);
-            for _ in 1..MAX_RENDERS {
-                current = render_once(&mut state.renderer);
-                if current.is_err() {
-                    break;
-                }
-            }
-            current
-        } else {
-            render_once(&mut state.renderer)
-        };
-
-        if let Some(applied) = applied {
-            let mut style = Style::get_ref(&mut state.renderer);
-            applied.remove_from(&mut style);
-        }
-
+        let result = prepare_renderer(&mut current, &params).and_then(|r| render_one(r, &params));
         let _ = response.send(result);
     }
 }
 
+/// Ensure `slot` holds a renderer sized for `params` with `params.style_path`
+/// loaded, rebuilding the renderer when `(width, height, pixel_ratio)` changes.
+/// Returns the ready renderer.
+fn prepare_renderer<'a>(
+    slot: &'a mut Option<RendererState>,
+    params: &RenderParams,
+) -> Result<&'a mut ImageRenderer<Static>, StyleError> {
+    let needs_rebuild = match slot.as_ref() {
+        None => true,
+        Some(state) => {
+            state.width != params.width
+                || state.height != params.height
+                || (state.pixel_ratio - params.pixel_ratio).abs() > 0.01
+        }
+    };
+
+    if needs_rebuild {
+        let width = NonZeroU32::new(params.width).unwrap_or(NonZeroU32::MIN);
+        let height = NonZeroU32::new(params.height).unwrap_or(NonZeroU32::MIN);
+        let renderer = ImageRendererBuilder::default()
+            .with_pixel_ratio(params.pixel_ratio)
+            .with_size(width, height)
+            .build_static_renderer();
+        *slot = Some(RendererState {
+            renderer,
+            width: params.width,
+            height: params.height,
+            pixel_ratio: params.pixel_ratio,
+            loaded_style: None,
+        });
+    }
+
+    let state = slot.as_mut().expect("just built");
+
+    if state.loaded_style.as_ref() != Some(&params.style_path) {
+        if let Err(e) = state.renderer.load_style_from_path(&params.style_path) {
+            state.loaded_style = None;
+            return Err(StyleError::IoError(e));
+        }
+        state.loaded_style = Some(params.style_path.clone());
+    }
+
+    Ok(&mut state.renderer)
+}
+
+/// Render one static image against `renderer`, compositing `params.overlays` if
+/// present and leaving the renderer's style clean afterwards.
+///
+/// `renderer` must already be sized and have its style loaded (see
+/// [`prepare_renderer`]).
+fn render_one(
+    renderer: &mut ImageRenderer<Static>,
+    params: &RenderParams,
+) -> Result<Image, StyleError> {
+    // Warmup render at the request camera before mutating the style: the
+    // upstream maplibre `style_geojson_layers` test does this and without
+    // it `add_source` happens before the rendering pipeline initialises
+    // the style and the overlay never tiles. Done every request (not just
+    // on style load) because the worker is shared across requests with
+    // different cameras — without this, the previous request's bearing /
+    // pitch leak into the first real render of the next request.
+    let _ = renderer.render_static(
+        params.lat,
+        params.lon,
+        params.zoom,
+        params.bearing,
+        params.pitch,
+    );
+
+    // Apply overlays, render, then unconditionally remove so the worker's
+    // cached style returns to a clean base for the next request.
+    let overlays = params.overlays.as_deref().filter(|spec| !spec.is_empty());
+    let applied = match overlays {
+        None => None,
+        Some(spec) => {
+            let mut style = Style::get_ref(renderer);
+            Some(apply_to_style(spec, &mut style).map_err(StyleError::OverlayApply)?)
+        }
+    };
+
+    // GeoJSON sources are tiled asynchronously after `add_source`. Early
+    // `render_static` calls may capture before the tiles exist, so re-render
+    // until two non-blank frames match — that's the source-loaded steady
+    // state. Capped so a perpetually-changing source can't hang the worker.
+    let render_once = |renderer: &mut ImageRenderer<_>| {
+        renderer
+            .render_static(
+                params.lat,
+                params.lon,
+                params.zoom,
+                params.bearing,
+                params.pitch,
+            )
+            .map_err(StyleError::RenderingError)
+    };
+    let result = if applied.is_some() {
+        const MAX_RENDERS: usize = 8;
+        let mut current = render_once(renderer);
+        for _ in 1..MAX_RENDERS {
+            current = render_once(renderer);
+            if current.is_err() {
+                break;
+            }
+        }
+        current
+    } else {
+        render_once(renderer)
+    };
+
+    if let Some(applied) = applied {
+        let mut style = Style::get_ref(renderer);
+        applied.remove_from(&mut style);
+    }
+
+    result
+}
+
 struct RendererState {
-    renderer: ImageRenderer<maplibre_native::Static>,
+    renderer: ImageRenderer<Static>,
     width: u32,
     height: u32,
     pixel_ratio: f32,
@@ -351,6 +369,77 @@ mod tests {
             assert_eq!(img.height(), 512);
             let unique: std::collections::HashSet<_> = img.pixels().copied().collect();
             assert!(unique.len() > 1, "image is blank");
+        }
+    }
+
+    fn diff_pixels(a: &[u8], b: &[u8]) -> usize {
+        a.chunks_exact(4)
+            .zip(b.chunks_exact(4))
+            .filter(|(p, q)| p != q)
+            .count()
+    }
+
+    /// EXPERIMENT (temporary): does a GeoJSON overlay actually need multiple
+    /// renders to settle, or is it stable on the first frame after `add_source`?
+    /// Renders the base map, applies one polygon overlay, then captures 8
+    /// consecutive frames and prints how each differs from the previous frame
+    /// and from the base. Run with `--nocapture`.
+    #[test]
+    fn experiment_geojson_overlay_settling() {
+        use crate::overlay::{apply_to_style, parse_spec};
+
+        let width = NonZeroU32::new(200).unwrap();
+        let height = NonZeroU32::new(200).unwrap();
+        let mut renderer = ImageRendererBuilder::default()
+            .with_pixel_ratio(1.0)
+            .with_size(width, height)
+            .build_static_renderer();
+        renderer
+            .load_style_from_path(&fixture_path("maplibre_demo.json"))
+            .expect("load style");
+
+        let (lat, lon, zoom, bearing, pitch) = (0.0, 0.0, 2.0, 0.0, 0.0);
+
+        // Warmup render (the workaround under test) then capture the base map.
+        let _ = renderer.render_static(lat, lon, zoom, bearing, pitch);
+        let base = renderer
+            .render_static(lat, lon, zoom, bearing, pitch)
+            .expect("base render")
+            .as_image()
+            .as_raw()
+            .clone();
+
+        let body: serde_json::Value = serde_json::from_str(
+            r#"{"type":"FeatureCollection","features":[{"type":"Feature",
+                "properties":{"fill":"#ff0000","fill-opacity":0.9},
+                "geometry":{"type":"Polygon","coordinates":[[[-10,-10],[10,-10],[10,10],[-10,10],[-10,-10]]]}}]}"#,
+        )
+        .expect("parse json");
+        let spec = parse_spec(&body).expect("parse spec");
+
+        {
+            // AppliedOverlay has no Drop, so the sources/layers stay on the
+            // renderer's style for the whole experiment (never removed here).
+            let mut style = Style::get_ref(&mut renderer);
+            let _applied = apply_to_style(&spec, &mut style).expect("apply overlay");
+        }
+
+        eprintln!("=== overlay settling experiment (200x200, base has {} pixels) ===", base.len() / 4);
+        let mut prev: Option<Vec<u8>> = None;
+        for frame in 1..=8 {
+            let img = renderer
+                .render_static(lat, lon, zoom, bearing, pitch)
+                .expect("overlay render")
+                .as_image()
+                .as_raw()
+                .clone();
+            let vs_base = diff_pixels(&img, &base);
+            let vs_prev = prev
+                .as_ref()
+                .map(|p| diff_pixels(&img, p))
+                .map_or("----".to_string(), |n| n.to_string());
+            eprintln!("frame {frame}: diff_vs_base={vs_base:>6}  diff_vs_prev={vs_prev:>6}");
+            prev = Some(img);
         }
     }
 }
