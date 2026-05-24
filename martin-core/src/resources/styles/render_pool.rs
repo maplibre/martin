@@ -238,13 +238,21 @@ fn worker_loop(rx: &flume::Receiver<WorkerMsg>) {
                 continue;
             }
             state.loaded_style = Some(params.style_path.clone());
-            // Warmup render: the upstream maplibre `style_geojson_layers` test
-            // does a base-style render before adding any source, otherwise
-            // `add_source` happens before the rendering pipeline has fully
-            // initialised the style and the overlay never tiles. Discard the
-            // result; we only care about the side-effect on render state.
-            let _ = state.renderer.render_static(0.0, 0.0, 0.0, 0.0, 0.0);
         }
+        // Warmup render at the request camera before mutating the style: the
+        // upstream maplibre `style_geojson_layers` test does this and without
+        // it `add_source` happens before the rendering pipeline initialises
+        // the style and the overlay never tiles. Done every request (not just
+        // on style load) because the worker is shared across requests with
+        // different cameras — without this, the previous request's bearing /
+        // pitch leak into the first real render of the next request.
+        let _ = state.renderer.render_static(
+            params.lat,
+            params.lon,
+            params.zoom,
+            params.bearing,
+            params.pitch,
+        );
 
         // Apply overlays, render, then unconditionally remove so the worker's
         // cached style returns to a clean base for the next request.

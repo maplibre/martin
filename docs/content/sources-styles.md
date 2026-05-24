@@ -186,7 +186,7 @@ the overlay body.
 }
 ```
 
-![Pastel-blue diagonal stroke over the demo basemap](images/static-overlay/path_stroke.png){ width="100%" }
+![Pastel-blue diagonal stroke over the demo basemap](images/static-overlay/line_color.png){ width="100%" }
 
 </div>
 
@@ -221,7 +221,7 @@ the overlay body.
 }
 ```
 
-![Filled red square polygon](images/static-overlay/polygon_fill.png){ width="100%" }
+![Filled red square polygon](images/static-overlay/fill_color.png){ width="100%" }
 
 </div>
 
@@ -258,7 +258,7 @@ the overlay body.
 }
 ```
 
-![Two semi-transparent brand-color rectangles overlapping](images/static-overlay/polygon_fill_opacity.png){ width="100%" }
+![Two semi-transparent brand-color rectangles overlapping](images/static-overlay/fill_opacity.png){ width="100%" }
 
 </div>
 
@@ -284,6 +284,6 @@ the overlay body.
 }
 ```
 
-![Primary-colored circle marker at the equator/prime meridian](images/static-overlay/marker_color.png){ width="100%" }
+![Primary-colored circle marker at the equator/prime meridian](images/static-overlay/circle_color.png){ width="100%" }
 
 </div>
