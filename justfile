@@ -305,7 +305,7 @@ _run-render-proxy mode *cmd: install-mitmproxy
         replay)
             [ -s "$CASSETTE" ] || { echo >&2 "missing cassette $CASSETTE - run \`just seed-render-fixtures\`"; exit 1; }
             MITM_ARGS=(--server-replay "$CASSETTE" \
-                       --set server_replay_extra=kill \
+                       --set server_replay_extra=forward \
                        --set server_replay_reuse=true)
             ;;
         record)
