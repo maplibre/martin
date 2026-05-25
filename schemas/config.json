@@ -922,6 +922,12 @@
       "properties": {
         "enabled": {
           "type": "boolean"
+        },
+        "workers": {
+          "description": "Number of render worker threads. Unset picks a platform default.",
+          "format": "uint",
+          "minimum": 1,
+          "type": ["integer", "null"]
         }
       },
       "required": ["enabled"],

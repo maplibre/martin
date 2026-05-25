@@ -3977,9 +3977,9 @@ checksum = "dae608c151f68243f2b000364e1f7b186d9c29845f7d2d85bd31b9ad77ad552b"
 
 [[package]]
 name = "maplibre_native"
-version = "0.4.4"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7fb76b84bf611b30301382bcfdec9f4fa3eb78cdbda85fb37a7e62de7afef790"
+checksum = "eb74e8665203b6ed27e6a72c724d8d361a4b6ef2c8684307e81be9896fdd1350"
 dependencies = [
  "cmake",
  "cxx",
@@ -4079,6 +4079,7 @@ dependencies = [
  "deadpool-postgres",
  "derive-debug",
  "env_logger",
+ "flume",
  "futures",
  "hotpath",
  "image",

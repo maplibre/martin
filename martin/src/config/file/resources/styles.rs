@@ -1,5 +1,7 @@
 use std::collections::BTreeMap;
 use std::env;
+#[cfg(all(feature = "rendering", target_os = "linux"))]
+use std::num::NonZeroUsize;
 use std::path::{Path, PathBuf};
 
 use martin_core::styles::StyleSources;
@@ -61,6 +63,10 @@ pub struct RendererConfig {
     // Same effect as rendering: true|false shorthands
     enabled: bool,
 
+    /// Number of render worker threads. Unset picks a platform default.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub workers: Option<NonZeroUsize>,
+
     #[serde(flatten, skip_serializing)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub unrecognized: UnrecognizedValues,
@@ -84,13 +90,23 @@ impl StyleConfig {
 
         #[cfg(all(feature = "rendering", target_os = "linux"))]
         match cfg.custom.rendering {
-            OptBoolObj::NoValue | OptBoolObj::Bool(false) => results.set_rendering_enabled(false),
-            OptBoolObj::Object(ref o) if !o.enabled => results.set_rendering_enabled(false),
-            _ => {
+            OptBoolObj::NoValue | OptBoolObj::Bool(false) => results.disable_rendering(),
+            OptBoolObj::Object(ref o) if !o.enabled => results.disable_rendering(),
+            OptBoolObj::Bool(true) => {
                 warn!(
                     "experimental feature rendering is enabled. Expect breaking changes in upcoming releases."
                 );
-                results.set_rendering_enabled(true);
+                results
+                    .enable_rendering(None)
+                    .map_err(ConfigFileError::RendererPoolSpawnFailed)?;
+            }
+            OptBoolObj::Object(ref o) => {
+                warn!(
+                    "experimental feature rendering is enabled. Expect breaking changes in upcoming releases."
+                );
+                results
+                    .enable_rendering(o.workers)
+                    .map_err(ConfigFileError::RendererPoolSpawnFailed)?;
             }
         }
 
@@ -194,6 +210,42 @@ mod tests {
         };
         let paths: Vec<_> = cfg.paths.into_iter().collect();
         assert_eq!(paths, vec![PathBuf::from("/data")]);
+    }
+
+    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    #[test]
+    fn test_renderer_config_parses_workers() {
+        use std::num::NonZeroUsize;
+        let yaml = indoc! {"
+            rendering:
+              enabled: true
+              workers: 4
+        "};
+        let cfg: InnerStyleConfig =
+            serde_yaml::from_str(yaml).expect("rendering with workers must parse");
+        let OptBoolObj::Object(renderer) = cfg.rendering else {
+            panic!("expected Object variant, got {:?}", cfg.rendering);
+        };
+        assert!(renderer.enabled);
+        assert_eq!(renderer.workers, NonZeroUsize::new(4));
+    }
+
+    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    #[test]
+    fn test_renderer_config_rejects_zero_workers() {
+        let yaml = indoc! {"
+            rendering:
+              enabled: true
+              workers: 0
+        "};
+        let err = serde_yaml::from_str::<InnerStyleConfig>(yaml)
+            .expect_err("workers: 0 must be rejected by NonZeroUsize");
+        // sanity check that the error mentions the offending field/value
+        let msg = err.to_string();
+        assert!(
+            msg.contains("workers") || msg.contains("zero") || msg.contains("NonZero"),
+            "unexpected error message: {msg}"
+        );
     }
 
     #[test]
