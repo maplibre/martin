@@ -222,7 +222,7 @@ build-release target:
 # and maplibre_native pre-built libraries require newer glibc.
 build-deb output: (cargo-install 'cargo-deb')
     sudo apt-get install -y dpkg dpkg-dev liblzma-dev
-    cargo deb -v -p martin {{if release_mode == '1' {''} else {'--profile dev'} }} --output {{output}} - --no-default-features --features {{stable_features}}
+    cargo deb -v -p martin {{if release_mode == '1' {''} else {'--profile dev'} }} --output {{output}} -- --no-default-features --features {{stable_features}}
 
 # Build for musl target using zigbuild
 # Set RELEASE_MODE='' to build in debug mode (used for PRs in CI to reduce build time).
@@ -302,7 +302,7 @@ _run-render-proxy mode *cmd: install-mitmproxy
     CASSETTE="tests/fixtures/rendering_cache/flows"
     case "{{mode}}" in
         replay)
-            [ -s "$CASSETTE" ] || { echo >&2 "missing cassette $CASSETTE -- run \`just seed-render-fixtures\`"; exit 1; }
+            [ -s "$CASSETTE" ] || { echo >&2 "missing cassette $CASSETTE - run \`just seed-render-fixtures\`"; exit 1; }
             MITM_ARGS=(--server-replay "$CASSETTE" \
                        --set server_replay_extra=kill \
                        --set server_replay_reuse=true)
