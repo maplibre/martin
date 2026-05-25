@@ -1867,28 +1867,30 @@ This will generate a config yaml file with all of your configuration, which you 
 </span><span id="__span-2-369"><a id="__codelineno-2-369" name="__codelineno-2-369" href="#__codelineno-2-369"></a><span class="w">  </span><span class="c1"># Marking this experimental means that we are not stuck with single threaded performance as a default until v2.0</span>
 </span><span id="__span-2-370"><a id="__codelineno-2-370" name="__codelineno-2-370" href="#__codelineno-2-370"></a><span class="w">  </span><span class="nt">rendering</span><span class="p">:</span>
 </span><span id="__span-2-371"><a id="__codelineno-2-371" name="__codelineno-2-371" href="#__codelineno-2-371"></a><span class="w">    </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
-</span><span id="__span-2-372"><a id="__codelineno-2-372" name="__codelineno-2-372" href="#__codelineno-2-372"></a><span class="w">  </span><span class="c1"># A map of source IDs to file paths or config objects</span>
-</span><span id="__span-2-373"><a id="__codelineno-2-373" name="__codelineno-2-373" href="#__codelineno-2-373"></a><span class="w">  </span><span class="nt">sources</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span>
-</span><span id="__span-2-374"><a id="__codelineno-2-374" name="__codelineno-2-374" href="#__codelineno-2-374"></a><span class="c1"># If set, the version of the tileset (as specified in the `MBTiles` or `PMTiles` metadata)</span>
-</span><span id="__span-2-375"><a id="__codelineno-2-375" name="__codelineno-2-375" href="#__codelineno-2-375"></a><span class="c1"># will be embedded in the `TileJSON` `tiles` URL, with the set identifier.</span>
-</span><span id="__span-2-376"><a id="__codelineno-2-376" name="__codelineno-2-376" href="#__codelineno-2-376"></a><span class="c1"># This is useful to give clients a better way to cache-bust a CDN:</span>
-</span><span id="__span-2-377"><a id="__codelineno-2-377" name="__codelineno-2-377" href="#__codelineno-2-377"></a><span class="c1"># 1. maplibre requests tilejson, tilejson contains the tiles URL. This is always up-to-date.</span>
-</span><span id="__span-2-378"><a id="__codelineno-2-378" name="__codelineno-2-378" href="#__codelineno-2-378"></a><span class="c1"># 2. maplibre requests each tile it requires, with the tiles URL in the tilejson.</span>
-</span><span id="__span-2-379"><a id="__codelineno-2-379" name="__codelineno-2-379" href="#__codelineno-2-379"></a><span class="c1"># 3. Add `Control: public, max-age=..., immutable` on the tile responses</span>
-</span><span id="__span-2-380"><a id="__codelineno-2-380" name="__codelineno-2-380" href="#__codelineno-2-380"></a><span class="c1">#    optimize browser/CDN cache hit rates, while also making sure that</span>
-</span><span id="__span-2-381"><a id="__codelineno-2-381" name="__codelineno-2-381" href="#__codelineno-2-381"></a><span class="c1">#    old tiles aren&#39;t served when a new tileset is deployed.</span>
-</span><span id="__span-2-382"><a id="__codelineno-2-382" name="__codelineno-2-382" href="#__codelineno-2-382"></a><span class="c1">#</span>
-</span><span id="__span-2-383"><a id="__codelineno-2-383" name="__codelineno-2-383" href="#__codelineno-2-383"></a><span class="c1"># The CDN must handle query parameters for caching to work correctly.</span>
-</span><span id="__span-2-384"><a id="__codelineno-2-384" name="__codelineno-2-384" href="#__codelineno-2-384"></a><span class="c1"># Many CDNs ignore them by default.</span>
-</span><span id="__span-2-385"><a id="__codelineno-2-385" name="__codelineno-2-385" href="#__codelineno-2-385"></a><span class="c1">#</span>
-</span><span id="__span-2-386"><a id="__codelineno-2-386" name="__codelineno-2-386" href="#__codelineno-2-386"></a><span class="c1"># For example, if</span>
-</span><span id="__span-2-387"><a id="__codelineno-2-387" name="__codelineno-2-387" href="#__codelineno-2-387"></a><span class="c1"># - the setting here is `version`, and</span>
-</span><span id="__span-2-388"><a id="__codelineno-2-388" name="__codelineno-2-388" href="#__codelineno-2-388"></a><span class="c1"># - the `PMTiles` tileset version is `1.0.0`, the</span>
-</span><span id="__span-2-389"><a id="__codelineno-2-389" name="__codelineno-2-389" href="#__codelineno-2-389"></a><span class="c1"># `TileJSON` will be:</span>
-</span><span id="__span-2-390"><a id="__codelineno-2-390" name="__codelineno-2-390" href="#__codelineno-2-390"></a><span class="c1"># `{ ..., &quot;tiles&quot;: [&quot;.../{z}/{x}/{y}?version=1.0.0&quot;], ... }`</span>
-</span><span id="__span-2-391"><a id="__codelineno-2-391" name="__codelineno-2-391" href="#__codelineno-2-391"></a><span class="nt">tilejson_url_version_param</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">version</span>
-</span><span id="__span-2-392"><a id="__codelineno-2-392" name="__codelineno-2-392" href="#__codelineno-2-392"></a><span class="c1"># Number of web server workers</span>
-</span><span id="__span-2-393"><a id="__codelineno-2-393" name="__codelineno-2-393" href="#__codelineno-2-393"></a><span class="nt">worker_processes</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8</span>
+</span><span id="__span-2-372"><a id="__codelineno-2-372" name="__codelineno-2-372" href="#__codelineno-2-372"></a><span class="w">    </span><span class="c1"># Number of render worker threads. Unset picks a platform default.</span>
+</span><span id="__span-2-373"><a id="__codelineno-2-373" name="__codelineno-2-373" href="#__codelineno-2-373"></a><span class="w">    </span><span class="nt">workers</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span>
+</span><span id="__span-2-374"><a id="__codelineno-2-374" name="__codelineno-2-374" href="#__codelineno-2-374"></a><span class="w">  </span><span class="c1"># A map of source IDs to file paths or config objects</span>
+</span><span id="__span-2-375"><a id="__codelineno-2-375" name="__codelineno-2-375" href="#__codelineno-2-375"></a><span class="w">  </span><span class="nt">sources</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span>
+</span><span id="__span-2-376"><a id="__codelineno-2-376" name="__codelineno-2-376" href="#__codelineno-2-376"></a><span class="c1"># If set, the version of the tileset (as specified in the `MBTiles` or `PMTiles` metadata)</span>
+</span><span id="__span-2-377"><a id="__codelineno-2-377" name="__codelineno-2-377" href="#__codelineno-2-377"></a><span class="c1"># will be embedded in the `TileJSON` `tiles` URL, with the set identifier.</span>
+</span><span id="__span-2-378"><a id="__codelineno-2-378" name="__codelineno-2-378" href="#__codelineno-2-378"></a><span class="c1"># This is useful to give clients a better way to cache-bust a CDN:</span>
+</span><span id="__span-2-379"><a id="__codelineno-2-379" name="__codelineno-2-379" href="#__codelineno-2-379"></a><span class="c1"># 1. maplibre requests tilejson, tilejson contains the tiles URL. This is always up-to-date.</span>
+</span><span id="__span-2-380"><a id="__codelineno-2-380" name="__codelineno-2-380" href="#__codelineno-2-380"></a><span class="c1"># 2. maplibre requests each tile it requires, with the tiles URL in the tilejson.</span>
+</span><span id="__span-2-381"><a id="__codelineno-2-381" name="__codelineno-2-381" href="#__codelineno-2-381"></a><span class="c1"># 3. Add `Control: public, max-age=..., immutable` on the tile responses</span>
+</span><span id="__span-2-382"><a id="__codelineno-2-382" name="__codelineno-2-382" href="#__codelineno-2-382"></a><span class="c1">#    optimize browser/CDN cache hit rates, while also making sure that</span>
+</span><span id="__span-2-383"><a id="__codelineno-2-383" name="__codelineno-2-383" href="#__codelineno-2-383"></a><span class="c1">#    old tiles aren&#39;t served when a new tileset is deployed.</span>
+</span><span id="__span-2-384"><a id="__codelineno-2-384" name="__codelineno-2-384" href="#__codelineno-2-384"></a><span class="c1">#</span>
+</span><span id="__span-2-385"><a id="__codelineno-2-385" name="__codelineno-2-385" href="#__codelineno-2-385"></a><span class="c1"># The CDN must handle query parameters for caching to work correctly.</span>
+</span><span id="__span-2-386"><a id="__codelineno-2-386" name="__codelineno-2-386" href="#__codelineno-2-386"></a><span class="c1"># Many CDNs ignore them by default.</span>
+</span><span id="__span-2-387"><a id="__codelineno-2-387" name="__codelineno-2-387" href="#__codelineno-2-387"></a><span class="c1">#</span>
+</span><span id="__span-2-388"><a id="__codelineno-2-388" name="__codelineno-2-388" href="#__codelineno-2-388"></a><span class="c1"># For example, if</span>
+</span><span id="__span-2-389"><a id="__codelineno-2-389" name="__codelineno-2-389" href="#__codelineno-2-389"></a><span class="c1"># - the setting here is `version`, and</span>
+</span><span id="__span-2-390"><a id="__codelineno-2-390" name="__codelineno-2-390" href="#__codelineno-2-390"></a><span class="c1"># - the `PMTiles` tileset version is `1.0.0`, the</span>
+</span><span id="__span-2-391"><a id="__codelineno-2-391" name="__codelineno-2-391" href="#__codelineno-2-391"></a><span class="c1"># `TileJSON` will be:</span>
+</span><span id="__span-2-392"><a id="__codelineno-2-392" name="__codelineno-2-392" href="#__codelineno-2-392"></a><span class="c1"># `{ ..., &quot;tiles&quot;: [&quot;.../{z}/{x}/{y}?version=1.0.0&quot;], ... }`</span>
+</span><span id="__span-2-393"><a id="__codelineno-2-393" name="__codelineno-2-393" href="#__codelineno-2-393"></a><span class="nt">tilejson_url_version_param</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">version</span>
+</span><span id="__span-2-394"><a id="__codelineno-2-394" name="__codelineno-2-394" href="#__codelineno-2-394"></a><span class="c1"># Number of web server workers</span>
+</span><span id="__span-2-395"><a id="__codelineno-2-395" name="__codelineno-2-395" href="#__codelineno-2-395"></a><span class="nt">worker_processes</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8</span>
 </span></code></pre></div>
 <h2 id="postprocessing">Postprocessing</h2>
 <p>Martin's postprocessing pipeline can convert tiles between MVT and MLT formats on the fly, driven by the client's <code>Accept</code> header.
