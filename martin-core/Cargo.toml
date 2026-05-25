@@ -94,7 +94,6 @@ png = { workspace = true, optional = true }
 postgres = { workspace = true, optional = true }
 prometheus = { workspace = true, optional = true }
 regex = { workspace = true, optional = true }
-r2d2 = { workspace = true, optional = true }
 rustls = { workspace = true, optional = true }
 rustls-native-certs = { workspace = true, optional = true }
 rustls-pemfile = { workspace = true, optional = true }

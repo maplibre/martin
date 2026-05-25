@@ -4426,7 +4426,6 @@ dependencies = [
  "png 0.18.1",
  "postgres",
  "prometheus",
- "r2d2",
  "regex",
  "rstest",
  "rustls",
