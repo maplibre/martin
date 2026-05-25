@@ -222,7 +222,7 @@ build-release target:
 # and maplibre_native pre-built libraries require newer glibc.
 build-deb output: (cargo-install 'cargo-deb')
     sudo apt-get install -y dpkg dpkg-dev liblzma-dev
-    cargo deb -v -p martin {{if release_mode == '1' {''} else {'--profile dev'} }} --output {{output}} -- --no-default-features --features {{stable_features}}
+    cargo deb -v -p martin {{if release_mode == '1' {''} else {'--profile dev'} }} --output {{output}} - --no-default-features --features {{stable_features}}
 
 # Build for musl target using zigbuild
 # Set RELEASE_MODE='' to build in debug mode (used for PRs in CI to reduce build time).
@@ -294,7 +294,7 @@ install-mitmproxy:
     fi
 
 # Internal: run `cmd` with mitmproxy reverse-proxying the two rendering-test
-# upstreams. Plain HTTP only -- ports must match test_render_cache::PROXIED_HOSTS.
+# upstreams. Plain HTTP only - ports must match test_render_cache::PROXIED_HOSTS.
 [linux]
 _run-render-proxy mode *cmd: install-mitmproxy
     #!/usr/bin/env bash
