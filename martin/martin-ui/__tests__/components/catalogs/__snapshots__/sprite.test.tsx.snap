@@ -1,0 +1,1052 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`SpriteCatalog Component > matches snapshot for loaded state with mock data 1`] = `
+<DocumentFragment>
+  <div
+    class="space-y-6"
+  >
+    <div
+      class="flex flex-col md:flex-row md:items-center items-start justify-between gap-5"
+    >
+      <div>
+        <h2
+          class="text-2xl font-bold text-foreground"
+        >
+          Sprite Catalog
+        </h2>
+        <p
+          class="text-muted-foreground"
+        >
+          Preview all available sprite sheets and icons
+        </p>
+      </div>
+      <div
+        class="relative w-full md:w-64"
+      >
+        <span
+          role="img"
+        />
+        <input
+          class="flex h-10 rounded-md border border-input px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm pl-10 md:w-64 w-full bg-card"
+          placeholder="Search sprites..."
+          value=""
+        />
+      </div>
+    </div>
+    <div
+      class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+    >
+      <div
+        class="rounded-lg border bg-card text-card-foreground shadow-xs hover:shadow-lg transition-shadow flex flex-col"
+      >
+        <div
+          class="flex flex-col space-y-1.5 p-6"
+        >
+          <div
+            class="flex items-center justify-between"
+          >
+            <div
+              class="flex items-center space-x-2"
+            >
+              <span
+                role="img"
+              />
+              <span
+                class="inline-flex items-center justify-center rounded-md border px-2 py-0.5 text-xs font-medium w-fit whitespace-nowrap shrink-0 [&>svg]:size-3 gap-1 [&>svg]:pointer-events-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive transition-[color,box-shadow] overflow-hidden border-transparent bg-secondary text-secondary-foreground [a&]:hover:bg-secondary/90"
+                data-slot="badge"
+              >
+                1x, 2x
+              </span>
+            </div>
+          </div>
+          <div
+            class="font-semibold tracking-tight text-lg font-mono"
+          >
+            <div>
+              <div>
+                <code>
+                  map-icons
+                </code>
+              </div>
+              <div>
+                <div
+                  class="flex flex-col justify-center items-center p-1"
+                >
+                  <div
+                    class="text-sm font-mono"
+                  >
+                    map-icons
+                  </div>
+                  <div
+                    class="text-xs pt-3 flex flex-row gap-1 text-slate-400 p-0.5"
+                  >
+                    <span
+                      role="img"
+                    />
+                     Click to copy
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div
+            class="text-sm text-muted-foreground"
+          >
+            5 total icons
+          </div>
+        </div>
+        <div
+          class="flex flex-col p-6 justify-between grow-1"
+        >
+          <div>
+            <div
+              class="p-3 bg-gray-50 rounded-lg text-gray-900"
+            >
+              <p
+                class="text-sm font-medium mb-2"
+              >
+                Icon Preview:
+              </p>
+              <div
+                class="w-full"
+              >
+                <div
+                  class="w-full grid grid-cols-6 min-h-[48px]"
+                  data-testid="sprite-preview"
+                >
+                  <div
+                    class="w-7 h-7 bg-gray-200 rounded-sm"
+                    data-testid="sprite-icon-pin"
+                  >
+                    pin
+                  </div>
+                  <div
+                    class="w-7 h-7 bg-gray-200 rounded-sm"
+                    data-testid="sprite-icon-marker"
+                  >
+                    marker
+                  </div>
+                  <div
+                    class="w-7 h-7 bg-gray-200 rounded-sm"
+                    data-testid="sprite-icon-building"
+                  >
+                    building
+                  </div>
+                  <div
+                    class="w-7 h-7 bg-gray-200 rounded-sm"
+                    data-testid="sprite-icon-park"
+                  >
+                    park
+                  </div>
+                  <div
+                    class="w-7 h-7 bg-gray-200 rounded-sm"
+                    data-testid="sprite-icon-poi"
+                  >
+                    poi
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div
+              class="space-y-2 text-sm text-muted-foreground mt-4"
+            >
+              <div
+                class="flex justify-between"
+              >
+                <span>
+                  File Size:
+                </span>
+                <span>
+                  25 KB
+                </span>
+              </div>
+            </div>
+          </div>
+          <div
+            class="flex flex-col md:flex-row items-center gap-2 mt-4"
+          >
+            <button
+              class="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-all cursor-pointer disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 [&_svg]:shrink-0 outline-hidden focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive h-8 rounded-md gap-1.5 px-3 has-[>svg]:px-2.5 border shadow-2xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50 flex-1 bg-transparent w-full"
+              data-slot="button"
+            >
+              <span
+                role="img"
+              />
+              Download
+            </button>
+            <button
+              class="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-all cursor-pointer disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 [&_svg]:shrink-0 outline-hidden focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive h-8 rounded-md gap-1.5 px-3 has-[>svg]:px-2.5 shadow-2xs flex-1 bg-primary hover:bg-purple-700 text-primary-foreground w-full"
+              data-slot="button"
+            >
+              <span
+                role="img"
+              />
+              Preview
+            </button>
+          </div>
+        </div>
+      </div>
+      <div
+        class="rounded-lg border bg-card text-card-foreground shadow-xs hover:shadow-lg transition-shadow flex flex-col"
+      >
+        <div
+          class="flex flex-col space-y-1.5 p-6"
+        >
+          <div
+            class="flex items-center justify-between"
+          >
+            <div
+              class="flex items-center space-x-2"
+            >
+              <span
+                role="img"
+              />
+              <span
+                class="inline-flex items-center justify-center rounded-md border px-2 py-0.5 text-xs font-medium w-fit whitespace-nowrap shrink-0 [&>svg]:size-3 gap-1 [&>svg]:pointer-events-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive transition-[color,box-shadow] overflow-hidden border-transparent bg-secondary text-secondary-foreground [a&]:hover:bg-secondary/90"
+                data-slot="badge"
+              >
+                1x, 2x
+              </span>
+            </div>
+          </div>
+          <div
+            class="font-semibold tracking-tight text-lg font-mono"
+          >
+            <div>
+              <div>
+                <code>
+                  transportation
+                </code>
+              </div>
+              <div>
+                <div
+                  class="flex flex-col justify-center items-center p-1"
+                >
+                  <div
+                    class="text-sm font-mono"
+                  >
+                    transportation
+                  </div>
+                  <div
+                    class="text-xs pt-3 flex flex-row gap-1 text-slate-400 p-0.5"
+                  >
+                    <span
+                      role="img"
+                    />
+                     Click to copy
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div
+            class="text-sm text-muted-foreground"
+          >
+            7 total icons
+          </div>
+        </div>
+        <div
+          class="flex flex-col p-6 justify-between grow-1"
+        >
+          <div>
+            <div
+              class="p-3 bg-gray-50 rounded-lg text-gray-900"
+            >
+              <p
+                class="text-sm font-medium mb-2"
+              >
+                Icon Preview:
+              </p>
+              <div
+                class="w-full"
+              >
+                <div
+                  class="w-full grid grid-cols-6 min-h-[48px]"
+                  data-testid="sprite-preview"
+                >
+                  <div
+                    class="w-7 h-7 bg-gray-200 rounded-sm"
+                    data-testid="sprite-icon-car"
+                  >
+                    car
+                  </div>
+                  <div
+                    class="w-7 h-7 bg-gray-200 rounded-sm"
+                    data-testid="sprite-icon-bus"
+                  >
+                    bus
+                  </div>
+                  <div
+                    class="w-7 h-7 bg-gray-200 rounded-sm"
+                    data-testid="sprite-icon-train"
+                  >
+                    train
+                  </div>
+                  <div
+                    class="w-7 h-7 bg-gray-200 rounded-sm"
+                    data-testid="sprite-icon-bicycle"
+                  >
+                    bicycle
+                  </div>
+                  <div
+                    class="w-7 h-7 bg-gray-200 rounded-sm"
+                    data-testid="sprite-icon-walk"
+                  >
+                    walk
+                  </div>
+                  <div
+                    class="w-7 h-7 bg-gray-200 rounded-sm"
+                    data-testid="sprite-icon-plane"
+                  >
+                    plane
+                  </div>
+                  <div
+                    class="w-7 h-7 bg-gray-200 rounded-sm"
+                    data-testid="sprite-icon-ferry"
+                  >
+                    ferry
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div
+              class="space-y-2 text-sm text-muted-foreground mt-4"
+            >
+              <div
+                class="flex justify-between"
+              >
+                <span>
+                  File Size:
+                </span>
+                <span>
+                  30 KB
+                </span>
+              </div>
+            </div>
+          </div>
+          <div
+            class="flex flex-col md:flex-row items-center gap-2 mt-4"
+          >
+            <button
+              class="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-all cursor-pointer disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 [&_svg]:shrink-0 outline-hidden focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive h-8 rounded-md gap-1.5 px-3 has-[>svg]:px-2.5 border shadow-2xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50 flex-1 bg-transparent w-full"
+              data-slot="button"
+            >
+              <span
+                role="img"
+              />
+              Download
+            </button>
+            <button
+              class="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-all cursor-pointer disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 [&_svg]:shrink-0 outline-hidden focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive h-8 rounded-md gap-1.5 px-3 has-[>svg]:px-2.5 shadow-2xs flex-1 bg-primary hover:bg-purple-700 text-primary-foreground w-full"
+              data-slot="button"
+            >
+              <span
+                role="img"
+              />
+              Preview
+            </button>
+          </div>
+        </div>
+      </div>
+      <div
+        class="rounded-lg border bg-card text-card-foreground shadow-xs hover:shadow-lg transition-shadow flex flex-col"
+      >
+        <div
+          class="flex flex-col space-y-1.5 p-6"
+        >
+          <div
+            class="flex items-center justify-between"
+          >
+            <div
+              class="flex items-center space-x-2"
+            >
+              <span
+                role="img"
+              />
+              <span
+                class="inline-flex items-center justify-center rounded-md border px-2 py-0.5 text-xs font-medium w-fit whitespace-nowrap shrink-0 [&>svg]:size-3 gap-1 [&>svg]:pointer-events-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive transition-[color,box-shadow] overflow-hidden border-transparent bg-secondary text-secondary-foreground [a&]:hover:bg-secondary/90"
+                data-slot="badge"
+              >
+                1x, 2x
+              </span>
+            </div>
+          </div>
+          <div
+            class="font-semibold tracking-tight text-lg font-mono"
+          >
+            <div>
+              <div>
+                <code>
+                  ui-elements
+                </code>
+              </div>
+              <div>
+                <div
+                  class="flex flex-col justify-center items-center p-1"
+                >
+                  <div
+                    class="text-sm font-mono"
+                  >
+                    ui-elements
+                  </div>
+                  <div
+                    class="text-xs pt-3 flex flex-row gap-1 text-slate-400 p-0.5"
+                  >
+                    <span
+                      role="img"
+                    />
+                     Click to copy
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div
+            class="text-sm text-muted-foreground"
+          >
+            8 total icons
+          </div>
+        </div>
+        <div
+          class="flex flex-col p-6 justify-between grow-1"
+        >
+          <div>
+            <div
+              class="p-3 bg-gray-50 rounded-lg text-gray-900"
+            >
+              <p
+                class="text-sm font-medium mb-2"
+              >
+                Icon Preview:
+              </p>
+              <div
+                class="w-full"
+              >
+                <div
+                  class="w-full grid grid-cols-6 min-h-[48px]"
+                  data-testid="sprite-preview"
+                >
+                  <div
+                    class="w-7 h-7 bg-gray-200 rounded-sm"
+                    data-testid="sprite-icon-arrow"
+                  >
+                    arrow
+                  </div>
+                  <div
+                    class="w-7 h-7 bg-gray-200 rounded-sm"
+                    data-testid="sprite-icon-plus"
+                  >
+                    plus
+                  </div>
+                  <div
+                    class="w-7 h-7 bg-gray-200 rounded-sm"
+                    data-testid="sprite-icon-minus"
+                  >
+                    minus
+                  </div>
+                  <div
+                    class="w-7 h-7 bg-gray-200 rounded-sm"
+                    data-testid="sprite-icon-close"
+                  >
+                    close
+                  </div>
+                  <div
+                    class="w-7 h-7 bg-gray-200 rounded-sm"
+                    data-testid="sprite-icon-menu"
+                  >
+                    menu
+                  </div>
+                  <div
+                    class="w-7 h-7 bg-gray-200 rounded-sm"
+                    data-testid="sprite-icon-search"
+                  >
+                    search
+                  </div>
+                  <div
+                    class="w-7 h-7 bg-gray-200 rounded-sm"
+                    data-testid="sprite-icon-filter"
+                  >
+                    filter
+                  </div>
+                  <div
+                    class="w-7 h-7 bg-gray-200 rounded-sm"
+                    data-testid="sprite-icon-settings"
+                  >
+                    settings
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div
+              class="space-y-2 text-sm text-muted-foreground mt-4"
+            >
+              <div
+                class="flex justify-between"
+              >
+                <span>
+                  File Size:
+                </span>
+                <span>
+                  35 KB
+                </span>
+              </div>
+            </div>
+          </div>
+          <div
+            class="flex flex-col md:flex-row items-center gap-2 mt-4"
+          >
+            <button
+              class="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-all cursor-pointer disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 [&_svg]:shrink-0 outline-hidden focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive h-8 rounded-md gap-1.5 px-3 has-[>svg]:px-2.5 border shadow-2xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50 flex-1 bg-transparent w-full"
+              data-slot="button"
+            >
+              <span
+                role="img"
+              />
+              Download
+            </button>
+            <button
+              class="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-all cursor-pointer disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 [&_svg]:shrink-0 outline-hidden focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive h-8 rounded-md gap-1.5 px-3 has-[>svg]:px-2.5 shadow-2xs flex-1 bg-primary hover:bg-purple-700 text-primary-foreground w-full"
+              data-slot="button"
+            >
+              <span
+                role="img"
+              />
+              Preview
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</DocumentFragment>
+`;
+
+exports[`SpriteCatalog Component > matches snapshot for loading state 1`] = `
+<DocumentFragment>
+  <div
+    class="space-y-6"
+  >
+    <div
+      class="flex items-center justify-between"
+    >
+      <div>
+        <h2
+          class="text-2xl font-bold text-foreground"
+        >
+          Sprite Catalog
+        </h2>
+        <p
+          class="text-muted-foreground"
+        >
+          Preview all available sprite sheets and icons
+        </p>
+      </div>
+      <div
+        class="animate-pulse rounded-md bg-muted h-10 w-64"
+      />
+    </div>
+    <div
+      class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+    >
+      <div
+        class="rounded-lg border bg-card text-card-foreground shadow-xs hover:shadow-lg transition-shadow"
+      >
+        <div
+          class="flex flex-col space-y-1.5 p-6"
+        >
+          <div
+            class="flex items-center justify-between"
+          >
+            <div
+              class="flex items-center space-x-2"
+            >
+              <div
+                class="animate-pulse rounded-md bg-muted h-5 w-5"
+              />
+              <div
+                class="animate-pulse rounded-md bg-muted h-6 w-32"
+              />
+            </div>
+            <div
+              class="animate-pulse rounded-md bg-muted h-6 w-16"
+            />
+          </div>
+          <div
+            class="animate-pulse rounded-md bg-muted h-4 w-full"
+          />
+        </div>
+        <div
+          class="p-6 pt-0"
+        >
+          <div
+            class="space-y-4"
+          >
+            <div
+              class="animate-pulse rounded-md bg-muted h-24 w-full"
+            />
+            <div
+              class="space-y-2"
+            >
+              <div
+                class="flex justify-between"
+              >
+                <div
+                  class="animate-pulse rounded-md bg-muted h-4 w-16"
+                />
+                <div
+                  class="animate-pulse rounded-md bg-muted h-4 w-12"
+                />
+              </div>
+              <div
+                class="flex justify-between"
+              >
+                <div
+                  class="animate-pulse rounded-md bg-muted h-4 w-16"
+                />
+                <div
+                  class="animate-pulse rounded-md bg-muted h-4 w-20"
+                />
+              </div>
+              <div
+                class="flex justify-between"
+              >
+                <div
+                  class="animate-pulse rounded-md bg-muted h-4 w-16"
+                />
+                <div
+                  class="animate-pulse rounded-md bg-muted h-4 w-16"
+                />
+              </div>
+            </div>
+            <div
+              class="flex space-x-2"
+            >
+              <div
+                class="animate-pulse rounded-md bg-muted h-8 flex-1"
+              />
+              <div
+                class="animate-pulse rounded-md bg-muted h-8 flex-1"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+      <div
+        class="rounded-lg border bg-card text-card-foreground shadow-xs hover:shadow-lg transition-shadow"
+      >
+        <div
+          class="flex flex-col space-y-1.5 p-6"
+        >
+          <div
+            class="flex items-center justify-between"
+          >
+            <div
+              class="flex items-center space-x-2"
+            >
+              <div
+                class="animate-pulse rounded-md bg-muted h-5 w-5"
+              />
+              <div
+                class="animate-pulse rounded-md bg-muted h-6 w-32"
+              />
+            </div>
+            <div
+              class="animate-pulse rounded-md bg-muted h-6 w-16"
+            />
+          </div>
+          <div
+            class="animate-pulse rounded-md bg-muted h-4 w-full"
+          />
+        </div>
+        <div
+          class="p-6 pt-0"
+        >
+          <div
+            class="space-y-4"
+          >
+            <div
+              class="animate-pulse rounded-md bg-muted h-24 w-full"
+            />
+            <div
+              class="space-y-2"
+            >
+              <div
+                class="flex justify-between"
+              >
+                <div
+                  class="animate-pulse rounded-md bg-muted h-4 w-16"
+                />
+                <div
+                  class="animate-pulse rounded-md bg-muted h-4 w-12"
+                />
+              </div>
+              <div
+                class="flex justify-between"
+              >
+                <div
+                  class="animate-pulse rounded-md bg-muted h-4 w-16"
+                />
+                <div
+                  class="animate-pulse rounded-md bg-muted h-4 w-20"
+                />
+              </div>
+              <div
+                class="flex justify-between"
+              >
+                <div
+                  class="animate-pulse rounded-md bg-muted h-4 w-16"
+                />
+                <div
+                  class="animate-pulse rounded-md bg-muted h-4 w-16"
+                />
+              </div>
+            </div>
+            <div
+              class="flex space-x-2"
+            >
+              <div
+                class="animate-pulse rounded-md bg-muted h-8 flex-1"
+              />
+              <div
+                class="animate-pulse rounded-md bg-muted h-8 flex-1"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+      <div
+        class="rounded-lg border bg-card text-card-foreground shadow-xs hover:shadow-lg transition-shadow"
+      >
+        <div
+          class="flex flex-col space-y-1.5 p-6"
+        >
+          <div
+            class="flex items-center justify-between"
+          >
+            <div
+              class="flex items-center space-x-2"
+            >
+              <div
+                class="animate-pulse rounded-md bg-muted h-5 w-5"
+              />
+              <div
+                class="animate-pulse rounded-md bg-muted h-6 w-32"
+              />
+            </div>
+            <div
+              class="animate-pulse rounded-md bg-muted h-6 w-16"
+            />
+          </div>
+          <div
+            class="animate-pulse rounded-md bg-muted h-4 w-full"
+          />
+        </div>
+        <div
+          class="p-6 pt-0"
+        >
+          <div
+            class="space-y-4"
+          >
+            <div
+              class="animate-pulse rounded-md bg-muted h-24 w-full"
+            />
+            <div
+              class="space-y-2"
+            >
+              <div
+                class="flex justify-between"
+              >
+                <div
+                  class="animate-pulse rounded-md bg-muted h-4 w-16"
+                />
+                <div
+                  class="animate-pulse rounded-md bg-muted h-4 w-12"
+                />
+              </div>
+              <div
+                class="flex justify-between"
+              >
+                <div
+                  class="animate-pulse rounded-md bg-muted h-4 w-16"
+                />
+                <div
+                  class="animate-pulse rounded-md bg-muted h-4 w-20"
+                />
+              </div>
+              <div
+                class="flex justify-between"
+              >
+                <div
+                  class="animate-pulse rounded-md bg-muted h-4 w-16"
+                />
+                <div
+                  class="animate-pulse rounded-md bg-muted h-4 w-16"
+                />
+              </div>
+            </div>
+            <div
+              class="flex space-x-2"
+            >
+              <div
+                class="animate-pulse rounded-md bg-muted h-8 flex-1"
+              />
+              <div
+                class="animate-pulse rounded-md bg-muted h-8 flex-1"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+      <div
+        class="rounded-lg border bg-card text-card-foreground shadow-xs hover:shadow-lg transition-shadow"
+      >
+        <div
+          class="flex flex-col space-y-1.5 p-6"
+        >
+          <div
+            class="flex items-center justify-between"
+          >
+            <div
+              class="flex items-center space-x-2"
+            >
+              <div
+                class="animate-pulse rounded-md bg-muted h-5 w-5"
+              />
+              <div
+                class="animate-pulse rounded-md bg-muted h-6 w-32"
+              />
+            </div>
+            <div
+              class="animate-pulse rounded-md bg-muted h-6 w-16"
+            />
+          </div>
+          <div
+            class="animate-pulse rounded-md bg-muted h-4 w-full"
+          />
+        </div>
+        <div
+          class="p-6 pt-0"
+        >
+          <div
+            class="space-y-4"
+          >
+            <div
+              class="animate-pulse rounded-md bg-muted h-24 w-full"
+            />
+            <div
+              class="space-y-2"
+            >
+              <div
+                class="flex justify-between"
+              >
+                <div
+                  class="animate-pulse rounded-md bg-muted h-4 w-16"
+                />
+                <div
+                  class="animate-pulse rounded-md bg-muted h-4 w-12"
+                />
+              </div>
+              <div
+                class="flex justify-between"
+              >
+                <div
+                  class="animate-pulse rounded-md bg-muted h-4 w-16"
+                />
+                <div
+                  class="animate-pulse rounded-md bg-muted h-4 w-20"
+                />
+              </div>
+              <div
+                class="flex justify-between"
+              >
+                <div
+                  class="animate-pulse rounded-md bg-muted h-4 w-16"
+                />
+                <div
+                  class="animate-pulse rounded-md bg-muted h-4 w-16"
+                />
+              </div>
+            </div>
+            <div
+              class="flex space-x-2"
+            >
+              <div
+                class="animate-pulse rounded-md bg-muted h-8 flex-1"
+              />
+              <div
+                class="animate-pulse rounded-md bg-muted h-8 flex-1"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+      <div
+        class="rounded-lg border bg-card text-card-foreground shadow-xs hover:shadow-lg transition-shadow"
+      >
+        <div
+          class="flex flex-col space-y-1.5 p-6"
+        >
+          <div
+            class="flex items-center justify-between"
+          >
+            <div
+              class="flex items-center space-x-2"
+            >
+              <div
+                class="animate-pulse rounded-md bg-muted h-5 w-5"
+              />
+              <div
+                class="animate-pulse rounded-md bg-muted h-6 w-32"
+              />
+            </div>
+            <div
+              class="animate-pulse rounded-md bg-muted h-6 w-16"
+            />
+          </div>
+          <div
+            class="animate-pulse rounded-md bg-muted h-4 w-full"
+          />
+        </div>
+        <div
+          class="p-6 pt-0"
+        >
+          <div
+            class="space-y-4"
+          >
+            <div
+              class="animate-pulse rounded-md bg-muted h-24 w-full"
+            />
+            <div
+              class="space-y-2"
+            >
+              <div
+                class="flex justify-between"
+              >
+                <div
+                  class="animate-pulse rounded-md bg-muted h-4 w-16"
+                />
+                <div
+                  class="animate-pulse rounded-md bg-muted h-4 w-12"
+                />
+              </div>
+              <div
+                class="flex justify-between"
+              >
+                <div
+                  class="animate-pulse rounded-md bg-muted h-4 w-16"
+                />
+                <div
+                  class="animate-pulse rounded-md bg-muted h-4 w-20"
+                />
+              </div>
+              <div
+                class="flex justify-between"
+              >
+                <div
+                  class="animate-pulse rounded-md bg-muted h-4 w-16"
+                />
+                <div
+                  class="animate-pulse rounded-md bg-muted h-4 w-16"
+                />
+              </div>
+            </div>
+            <div
+              class="flex space-x-2"
+            >
+              <div
+                class="animate-pulse rounded-md bg-muted h-8 flex-1"
+              />
+              <div
+                class="animate-pulse rounded-md bg-muted h-8 flex-1"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+      <div
+        class="rounded-lg border bg-card text-card-foreground shadow-xs hover:shadow-lg transition-shadow"
+      >
+        <div
+          class="flex flex-col space-y-1.5 p-6"
+        >
+          <div
+            class="flex items-center justify-between"
+          >
+            <div
+              class="flex items-center space-x-2"
+            >
+              <div
+                class="animate-pulse rounded-md bg-muted h-5 w-5"
+              />
+              <div
+                class="animate-pulse rounded-md bg-muted h-6 w-32"
+              />
+            </div>
+            <div
+              class="animate-pulse rounded-md bg-muted h-6 w-16"
+            />
+          </div>
+          <div
+            class="animate-pulse rounded-md bg-muted h-4 w-full"
+          />
+        </div>
+        <div
+          class="p-6 pt-0"
+        >
+          <div
+            class="space-y-4"
+          >
+            <div
+              class="animate-pulse rounded-md bg-muted h-24 w-full"
+            />
+            <div
+              class="space-y-2"
+            >
+              <div
+                class="flex justify-between"
+              >
+                <div
+                  class="animate-pulse rounded-md bg-muted h-4 w-16"
+                />
+                <div
+                  class="animate-pulse rounded-md bg-muted h-4 w-12"
+                />
+              </div>
+              <div
+                class="flex justify-between"
+              >
+                <div
+                  class="animate-pulse rounded-md bg-muted h-4 w-16"
+                />
+                <div
+                  class="animate-pulse rounded-md bg-muted h-4 w-20"
+                />
+              </div>
+              <div
+                class="flex justify-between"
+              >
+                <div
+                  class="animate-pulse rounded-md bg-muted h-4 w-16"
+                />
+                <div
+                  class="animate-pulse rounded-md bg-muted h-4 w-16"
+                />
+              </div>
+            </div>
+            <div
+              class="flex space-x-2"
+            >
+              <div
+                class="animate-pulse rounded-md bg-muted h-8 flex-1"
+              />
+              <div
+                class="animate-pulse rounded-md bg-muted h-8 flex-1"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</DocumentFragment>
+`;

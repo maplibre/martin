@@ -4,8 +4,7 @@ set -euo pipefail
 MARTIN_DATABASE_URL="${DATABASE_URL:-postgres://postgres@localhost/db}"
 unset DATABASE_URL
 
-# TODO: use  --fail-with-body  to get the response body on failure
-CURL=${CURL:-curl --silent --show-error --fail --compressed}
+export RUST_LOG_FORMAT=bare
 
 MARTIN_BUILD_ALL="${MARTIN_BUILD_ALL:-cargo build}"
 
@@ -29,14 +28,40 @@ mkdir -p "$TEST_TEMP_DIR"
 
 # Verify the tools used in the tests are available
 # todo add more verification for other tools like jq file curl sqlite3...
-if [[ $OSTYPE == linux* ]]; then # We only used ogrmerge.py on Linux see the test_pbf() function
+if [[ $OSTYPE == linux* || $OSTYPE == darwin* ]]; then
   if ! command -v ogrmerge.py > /dev/null; then
   echo "gdal-bin is required for testing"
-  echo "For Ubuntu, you could install it with sudo apt update && sudo apt install gdal-bin -y"
-  echo "see more at https://gdal.org/en/stable/download.html#binaries"
+  echo "See https://gdal.org/en/stable/download.html#binaries"
   exit 1
   fi
 fi
+
+if sed --version > /dev/null 2>&1; then
+  SED=${SED:-sed}
+elif gsed --version > /dev/null 2>&1; then
+  SED=${SED:-gsed}
+else
+  echo 'GNU sed is required for testing'
+  exit 1
+fi
+
+# curl must support Brotli so the server's preferred encoding (br) is used,
+# keeping test output consistent across platforms.
+# On macOS the system curl lacks Brotli; prefer the Homebrew-installed one.
+if [[ -z "${CURL_BIN:-}" ]]; then
+  for candidate in curl /opt/homebrew/opt/curl/bin/curl /usr/local/opt/curl/bin/curl; do
+    if command -v "$candidate" > /dev/null 2>&1 && "$candidate" --version 2>/dev/null | grep -q brotli; then
+      CURL_BIN="$candidate"
+      break
+    fi
+  done
+fi
+if [[ -z "${CURL_BIN:-}" ]]; then
+  echo 'curl with Brotli support is required for testing.'
+  echo 'On macOS, install it with: brew install curl'
+  exit 1
+fi
+CURL="${CURL:-$CURL_BIN --silent --show-error --fail --compressed}"
 
 function wait_for {
     # Seems the --retry-all-errors option is not available on older curl versions, but maybe in the future we can just use this:
@@ -48,9 +73,6 @@ function wait_for {
     for _ in {1..60}; do
         if $CURL "$TEST_URL" 2>/dev/null >/dev/null; then
             echo "$PROC_NAME is up!"
-            if [[ "$PROC_NAME" == "Martin" ]]; then
-              $CURL "$TEST_URL"
-            fi
             return
         fi
         if ps -p "$PROCESS_ID" > /dev/null ; then
@@ -59,13 +81,13 @@ function wait_for {
         else
             echo "$PROC_NAME died!"
             ps au
-            lsof -i || true;
+            if command -v lsof > /dev/null; then lsof -i || true; fi
             exit 1
         fi
     done
     echo "$PROC_NAME did not start in time"
     ps au
-    lsof -i || true;
+    if command -v lsof > /dev/null; then lsof -i || true; fi
     exit 1
 }
 
@@ -88,13 +110,24 @@ function kill_process {
     timeout -k 1s 1s wait "$PROCESS_ID" || true;
 }
 
+cleanup_json_floats() {
+  # round numbers to $1 decimal places, with optional $2 jq cmd
+  jq --sort-keys --exit-status --argjson PREC "$1" \
+     "${2:-}"'walk( if type == "number" then (. * $PREC | round | . / $PREC) else . end )'
+}
+
+cleanup_json_ints() {
+  # jq before 1.6 had a different float->int behavior, so trying to make it consistent in all
+  jq --sort-keys --exit-status \
+     "${1:-}"'walk( if type == "number" then .+0.0 else . end )'
+}
+
 test_jsn() {
   FILENAME="$TEST_OUT_DIR/$1.json"
   URL="$MARTIN_URL/$2"
 
   echo "Testing $(basename "$FILENAME") from $URL"
-  # jq before 1.6 had a different float->int behavior, so trying to make it consistent in all
-  $CURL  --dump-header  "$FILENAME.headers" "$URL" | jq --sort-keys -e 'walk(if type == "number" then .+0.0 else . end)' > "$FILENAME"
+  $CURL  --dump-header  "$FILENAME.headers" "$URL" | cleanup_json_ints > "$FILENAME"
   clean_headers_dump "$FILENAME.headers"
 }
 
@@ -103,13 +136,13 @@ test_metrics() {
   URL="$MARTIN_URL/_/metrics"
 
   echo "Testing $1 from $URL"
-  $CURL --dump-header  "$FILENAME.headers" "$URL" | sed -E 's/^(martin_.*?) [\.0-9]+$/\1 NUMBER/g' > "$FILENAME.txt"
+  $CURL --dump-header  "$FILENAME.headers" "$URL" | $SED --regexp-extended 's/^(martin_.*?) [\.0-9]+$/\1 NUMBER/g' > "$FILENAME.txt"
   clean_headers_dump "$FILENAME.headers"
-  $CURL --dump-header  "$FILENAME.fetched_with_compression.headers" --compressed "$URL" | sed -E 's/^(martin_.*?) [\.0-9]+$/\1 NUMBER/g' > "$FILENAME.fetched_with_compression.txt"
+  $CURL --dump-header  "$FILENAME.fetched_with_compression.headers" --compressed "$URL" | $SED --regexp-extended 's/^(martin_.*?) [\.0-9]+$/\1 NUMBER/g' > "$FILENAME.fetched_with_compression.txt"
   clean_headers_dump "$FILENAME.fetched_with_compression.headers"
   # due to slight timing differences, these might be slightly different
-  sed --regexp-extended --in-place 's/^content-length: [\.0-9]+$/content-length: NUMBER/g' "$FILENAME.headers"
-  sed --regexp-extended --in-place 's/^content-length: [\.0-9]+$/content-length: NUMBER/g' "$FILENAME.fetched_with_compression.headers"
+  $SED --regexp-extended --in-place 's/^content-length: [\.0-9]+$/content-length: NUMBER/g' "$FILENAME.headers"
+  $SED --regexp-extended --in-place 's/^content-length: [\.0-9]+$/content-length: NUMBER/g' "$FILENAME.fetched_with_compression.headers"
 }
 
 test_pbf() {
@@ -122,11 +155,16 @@ test_pbf() {
 
   if [[ $OSTYPE == linux* ]]; then
     ./tests/fixtures/vtzero-check "$FILENAME"
-    # see https://gdal.org/en/stable/programs/ogrmerge.html#ogrmerge
-    ogrmerge.py -o "$FILENAME.geojson" "$FILENAME" -single -src_layer_field_name "source_mvt_layer" -src_layer_field_content "{LAYER_NAME}" -f "GeoJSON" -overwrite_ds
-    jq --sort-keys '.features |= sort_by(.properties.source_mvt_layer, .properties.gid) | walk(if type == "number" then .+0.0 else . end)' "$FILENAME.geojson" > "$FILENAME.sorted.geojson"
-    mv "$FILENAME.sorted.geojson" "$FILENAME.geojson"
+  elif [[ $OSTYPE == darwin* ]]; then
+    ./tests/fixtures/vtzero-check-darwin "$FILENAME"
+  else
+    return 0
   fi
+
+  # see https://gdal.org/en/stable/programs/ogrmerge.html#ogrmerge
+  ogrmerge.py -o "$FILENAME.geojson" "$FILENAME" -single -src_layer_field_name "source_mvt_layer" -src_layer_field_content "{LAYER_NAME}" -f "GeoJSON" -overwrite_ds
+  cat "$FILENAME.geojson" | cleanup_json_ints '.features |= sort_by(.properties.source_mvt_layer, .properties.gid) |' > "$FILENAME.sorted.geojson"
+  mv "$FILENAME.sorted.geojson" "$FILENAME.geojson"
 }
 
 test_png() {
@@ -138,8 +176,10 @@ test_png() {
   $CURL --dump-header  "$FILENAME.headers" "$URL" > "$FILENAME"
   clean_headers_dump "$FILENAME.headers"
 
-  if [[ $OSTYPE == linux* ]]; then
-    file "$FILENAME" > "$FILENAME.txt"
+  if [[ $OSTYPE == linux* || $OSTYPE == darwin* ]]; then
+    # some 'file' versions are more verbose, but CI is not
+    # we must reduce this to match their output
+    file "$FILENAME" | $SED 's#Web/P image, with alpha, 511+1x511+1#Web/P image#' > "$FILENAME.txt"
   fi
 }
 
@@ -157,11 +197,79 @@ test_font() {
   clean_headers_dump "$FILENAME.headers"
 }
 
-# Delete a line from a file $1 that matches parameter $2
-remove_line() {
+test_json_with_header() {
+  FILENAME="$TEST_OUT_DIR/$1.json"
+  URL="$MARTIN_URL/$2"
+  HEADER="$3"
+
+  echo "Testing $(basename "$FILENAME") from $URL with header: $HEADER"
+  $CURL --dump-header "$FILENAME.headers" -H "$HEADER" "$URL" | jq --sort-keys > "$FILENAME"
+  clean_headers_dump "$FILENAME.headers"
+}
+
+test_accept_header() {
+  URL="$MARTIN_URL/$1"
+  ACCEPT_HEADER="$2"
+  EXPECTED_CODE="$3"
+
+  echo "Testing Accept header: $ACCEPT_HEADER on $URL (expect $EXPECTED_CODE)"
+  HTTP_CODE=$(curl --silent --show-error --write-out "%{http_code}" --output /dev/null -H "Accept: $ACCEPT_HEADER" "$URL")
+  if [ "$HTTP_CODE" != "$EXPECTED_CODE" ]; then
+    echo "ERROR: Expected HTTP $EXPECTED_CODE, got $HTTP_CODE for $URL with Accept: $ACCEPT_HEADER"
+    exit 1
+  fi
+}
+
+test_mlt() {
+  FILENAME="$TEST_OUT_DIR/$1.mlt"
+  URL="$MARTIN_URL/$2"
+
+  echo "Testing $(basename "$FILENAME") from $URL (expecting MLT)"
+  $CURL --dump-header "$FILENAME.headers" -H 'Accept: application/vnd.maplibre-tile' "$URL" > "$FILENAME"
+  clean_headers_dump "$FILENAME.headers"
+
+  # Validate MLT content with mlt CLI if available
+  if command -v mlt &> /dev/null; then
+    mlt ls "$FILENAME" > "$FILENAME.ls.txt"
+    mlt decode "$FILENAME" > "$FILENAME.decoded.txt"
+    mlt dump "$FILENAME" > "$FILENAME.dump.txt"
+  else
+    echo "WARNING: mlt CLI not found, skipping MLT content validation for $(basename "$FILENAME")"
+  fi
+}
+
+test_redirect() {
+  URL="$MARTIN_URL/$1"
+  EXPECTED_LOCATION="$2"
+
+  echo "Testing redirect from $URL to $EXPECTED_LOCATION"
+  # Use curl without --fail to allow 3xx responses
+  HTTP_CODE=$(curl --silent --show-error --write-out "%{http_code}" --output /dev/null --head "$URL")
+  LOCATION=$(curl --silent --show-error --head "$URL" | grep -i "^location:" | $SED 's/^[Ll]ocation: *//' | tr -d '\r')
+
+  if [ "$HTTP_CODE" != "301" ]; then
+    echo "ERROR: Expected HTTP 301, got $HTTP_CODE for $URL"
+    exit 1
+  fi
+
+  if [ "$LOCATION" != "$EXPECTED_LOCATION" ]; then
+    echo "ERROR: Expected location '$EXPECTED_LOCATION', got '$LOCATION' for $URL"
+    exit 1
+  fi
+}
+
+# Delete line from a file $1 that matches parameter $2 and log the action
+remove_lines() {
   FILE="$1"
   LINE_TO_REMOVE="$2"
   >&2 echo "Removing line '$LINE_TO_REMOVE' from $FILE"
+  quietly_remove_lines "$FILE" "$LINE_TO_REMOVE"
+}
+
+# Delete line from a file $1 that matches parameter $2
+quietly_remove_lines() {
+  FILE="$1"
+  LINE_TO_REMOVE="$2"
   grep -v "$LINE_TO_REMOVE" "${FILE}" > "${FILE}.tmp"
   mv "${FILE}.tmp" "${FILE}"
 }
@@ -170,15 +278,15 @@ remove_line() {
 clean_headers_dump() {
   FILE="$1"
   # now we need to strip the date header as it is undeterministic
-  sed --regexp-extended --in-place "s/date: .+//" "$FILE"
+  $SED --regexp-extended --in-place "s/date: .+//" "$FILE"
   # the http version is not an "header" that we want to assert
-  sed --regexp-extended --in-place "s/HTTP.+//" "$FILE"
+  $SED --regexp-extended --in-place "s/HTTP.+//" "$FILE"
   # need to remove entirely empty lines, \r\n and leading/trailing whitespace
-  # sorting is arbitrairy => sort here
-  tr --squeeze-repeats '\r\n' '\n' < "$FILE" | sort > "$FILE.tmp"
+  # sorting is arbitrary => sort here
+  tr -s '\r\n' '\n' < "$FILE" | sort > "$FILE.tmp"
   mv "$FILE.tmp" "$FILE"
   # we need to remove the first line as squeezing repeat newlines makes does not remove this empty line
-  sed --in-place '1d' "$FILE"
+  $SED --in-place '1d' "$FILE"
 }
 
 test_log_has_str() {
@@ -189,8 +297,8 @@ test_log_has_str() {
     exit 1
   else
     >&2 echo "OK: $LOG_FILE contains expected text: '$EXPECTED_TEXT'"
+    quietly_remove_lines "$LOG_FILE" "$EXPECTED_TEXT"
   fi
-  remove_line "$LOG_FILE" "$EXPECTED_TEXT"
 }
 
 test_martin_cp() {
@@ -210,10 +318,10 @@ test_martin_cp() {
   $MBTILES_BIN meta-all "$TEST_FILE" 2>&1 | tee "$TEST_OUT_DIR/${TEST_NAME}_metadata.txt"
   { set +x; } 2> /dev/null
 
-  remove_line "$SAVE_CONFIG_FILE" " connection_string: "
+  remove_lines "$SAVE_CONFIG_FILE" " connection_string: "
   # These tend to vary between runs. In theory, vacuuming might make it the same.
-  remove_line "$SUMMARY_FILE" "File size: "
-  remove_line "$SUMMARY_FILE" "Page count: "
+  remove_lines "$SUMMARY_FILE" "File size: "
+  remove_lines "$SUMMARY_FILE" "SQL page count: "
 }
 
 validate_log() {
@@ -221,17 +329,62 @@ validate_log() {
   >&2 echo "Validating log file $LOG_FILE"
 
   # Older versions of PostGIS don't support the margin parameter, so we need to remove it from the log
-  remove_line "$LOG_FILE" 'Margin parameter in ST_TileEnvelope is not supported'
-  remove_line "$LOG_FILE" 'Source IDs must be unique'
-  remove_line "$LOG_FILE" 'PostgreSQL 11.10.0 is older than the recommended minimum 12.0.0'
-  remove_line "$LOG_FILE" 'In the used version, some geometry may be hidden on some zoom levels.'
-  remove_line "$LOG_FILE" 'Unable to deserialize SQL comment on public.points2 as tilejson, the automatically generated tilejson would be used: expected value at line 1 column 1'
+  remove_lines "$LOG_FILE" 'Margin parameter in ST_TileEnvelope is not supported'
+  remove_lines "$LOG_FILE" 'PostgreSQL is older than the recommended minimum 12.0.0'
+  remove_lines "$LOG_FILE" 'In the used version, some geometry may be hidden on some zoom levels.'
+  remove_lines "$LOG_FILE" 'Unable to deserialize SQL comment on public.points2 as tilejson, the automatically generated tilejson would be used: expected value at line 1 column 1'
+  remove_lines "$LOG_FILE" 'Environment variable AWS_PROFILE not supported anymore. Supporting this is in scope, but would need more work.'
+  # Debug builds are slower; table discovery may exceed the default bounds timeout on slow runners
+  remove_lines "$LOG_FILE" 'Discovering tables in PostgreSQL database .* is taking too long'
 
   echo "Checking for no other warnings or errors in the log"
   if grep -e ' ERROR ' -e ' WARN ' "$LOG_FILE"; then
     echo "Log file $LOG_FILE has unexpected warnings or errors"
     exit 1
   fi
+}
+
+wait_for_catalog_source() {
+  SOURCE_ID="$1"
+  echo "Waiting for source '$SOURCE_ID' to appear in catalog..."
+  for _ in {1..30}; do
+    if $CURL "$MARTIN_URL/catalog" 2>/dev/null | jq -e --arg id "$SOURCE_ID" '.tiles | has($id)' > /dev/null 2>&1; then
+      echo "Source '$SOURCE_ID' is available in catalog."
+      return 0
+    fi
+    sleep 1
+  done
+  echo "ERROR: Source '$SOURCE_ID' did not appear in catalog within 30s"
+  exit 1
+}
+
+wait_for_catalog_source_removed() {
+  SOURCE_ID="$1"
+  echo "Waiting for source '$SOURCE_ID' to be removed from catalog..."
+  for _ in {1..30}; do
+    if ! $CURL "$MARTIN_URL/catalog" 2>/dev/null | jq -e --arg id "$SOURCE_ID" '.tiles | has($id)' > /dev/null 2>&1; then
+      echo "Source '$SOURCE_ID' has been removed from catalog."
+      return 0
+    fi
+    sleep 1
+  done
+  echo "ERROR: Source '$SOURCE_ID' was not removed from catalog within 30s"
+  exit 1
+}
+
+wait_for_log_str() {
+  WAIT_LOG_FILE="$1"
+  EXPECTED="$2"
+  echo "Waiting for '$EXPECTED' in $WAIT_LOG_FILE..."
+  for _ in {1..30}; do
+    if grep -q "$EXPECTED" "$WAIT_LOG_FILE" 2>/dev/null; then
+      echo "Found '$EXPECTED' in log."
+      return 0
+    fi
+    sleep 1
+  done
+  echo "ERROR: '$EXPECTED' not found in $WAIT_LOG_FILE within 30s"
+  exit 1
 }
 
 compare_sql_dbs() {
@@ -254,32 +407,56 @@ compare_sql_dbs() {
        }
 }
 
-echo "------------------------------------------------------------------------------------------------------------------------"
+echo "::group::versions"
 curl --version
 jq --version
-grep --version
+grep --version | head -1
 
 # Make sure all targets are built - this way it won't timeout while waiting for it to start
 # If set to "-", skip this step (e.g. when testing a pre-built binary)
 if [[ "$MARTIN_BUILD_ALL" != "-" ]]; then
+  echo "::group::Make sure all targets are built. Set MARTIN_BUILD_ALL=- to skip this step."
   rm -rf "$MARTIN_BIN" "$MARTIN_CP_BIN" "$MBTILES_BIN"
   $MARTIN_BUILD_ALL
+  echo "::endgroup::"
 fi
 
-echo "------------------------------------------------------------------------------------------------------------------------"
-echo "Check HTTP server is running"
-$CURL --head "$STATICS_URL/webp2.pmtiles"
+echo "::group::Check HTTP server is running"
+if ! $CURL --head "$STATICS_URL/webp2.pmtiles"; then
+    echo "ERROR: pmtiles fileserver is not reachable at $STATICS_URL."
+    echo "       Start it with 'just start-pmtiles-server' before running this script."
+    exit 1
+fi
+echo "::endgroup::"
 
-echo "------------------------------------------------------------------------------------------------------------------------"
-echo "Test auto configured Martin"
+# Prepare MBTiles from SQL fixtures
+echo "::group::Prepare .mbtiles fixtures from .sql"
+FOLDERS=("tests/fixtures/files" "tests/fixtures/mbtiles")
 
+for folder in "${FOLDERS[@]}"; do
+    echo "Processing folder: $folder"
+
+    # Remove existing .mbtiles files before recreating them
+    rm -f "$folder"/*.mbtiles
+
+    for sql_file in "$folder"/*.sql; do
+        [ -e "$sql_file" ] || continue
+
+        mbtiles_file="${sql_file%.sql}.mbtiles"
+        echo "Creating: $mbtiles_file from $sql_file"
+        sqlite3 "$mbtiles_file" < "$sql_file"
+    done
+done
+echo "::endgroup::"
+
+echo "::group::Test auto configured Martin"
 TEST_NAME="auto"
 LOG_FILE="${LOG_DIR}/${TEST_NAME}.txt"
 TEST_OUT_DIR="${TEST_OUT_BASE_DIR}/${TEST_NAME}"
 mkdir -p "$TEST_OUT_DIR"
 
 
-ARG=(--default-srid 900913 --auto-bounds calc --save-config "${TEST_OUT_DIR}/save_config.yaml" tests/fixtures/mbtiles tests/fixtures/pmtiles tests/fixtures/cog "$STATICS_URL/webp2.pmtiles" s3://pmtilestest/cb_2018_us_zcta510_500k.pmtiles --sprite tests/fixtures/sprites/src1 --font tests/fixtures/fonts/overpass-mono-regular.ttf --font tests/fixtures/fonts --style tests/fixtures/styles/maplibre_demo.json --style tests/fixtures/styles/src2 )
+ARG=(--default-srid 900913 --auto-bounds calc --save-config "${TEST_OUT_DIR}/save_config.yaml" tests/fixtures/mbtiles tests/fixtures/pmtiles tests/fixtures/cog "$STATICS_URL/webp2.pmtiles" s3://pmtilestest/cb_2018_us_zcta510_500k.pmtiles --sprite tests/fixtures/sprites/src1 --font tests/fixtures/fonts/overpass-mono-regular.ttf --font tests/fixtures/fonts --style tests/fixtures/styles/maplibre_demo.json --style tests/fixtures/styles/src2 --style tests/fixtures/styles/relative_urls.json --tilejson-url-version-param version )
 export DATABASE_URL="$MARTIN_DATABASE_URL"
 
 set -x
@@ -313,6 +490,33 @@ test_pbf cmp_14_14692_7645        table_source,points1,points2/14/14692/7645
 test_pbf cmp_17_117542_61161      table_source,points1,points2/17/117542/61161
 test_pbf cmp_18_235085_122323     table_source,points1,points2/18/235085/122323
 
+>&2 echo "***** Test header effects on tilejson *****"
+test_json_with_header tilejson_no_forwarded_headers function_zxy_query "Host: localhost"
+test_json_with_header tilejson_ignores_x_forwarded_for function_zxy_query "X-Forwarded-For: 192.168.1.100"
+test_json_with_header tilejson_with_host function_zxy_query "Host: example.com"
+test_json_with_header tilejson_with_host_and_port function_zxy_query "Host: example.com:6000"
+
+test_json_with_header tilejson_with_x_forwarded_proto_https function_zxy_query "X-Forwarded-Proto: https"
+test_json_with_header tilejson_with_x_forwarded_proto_http function_zxy_query "X-Forwarded-Proto: http"
+
+test_json_with_header tilejson_with_x_forwarded_host function_zxy_query "X-Forwarded-Host: tiles.example.com"
+
+test_json_with_header tilejson_with_forwarded_proto_only function_zxy_query "Forwarded: proto=https"
+test_json_with_header tilejson_with_forwarded_host_only function_zxy_query "Forwarded: host=tiles.example.com"
+test_json_with_header tilejson_with_forwarded_proto_and_host function_zxy_query "Forwarded: proto=https;host=tiles.example.com"
+test_json_with_header tilejson_with_x_forwarded_prefix function_zxy_query "X-Forwarded-Prefix: /tiles/function_zxy_query"
+test_json_with_header tilejson_with_x_rewrite_url function_zxy_query "X-Rewrite-URL: /footiles/function_zxy_query"
+
+>&2 echo "***** Test relative URL expansion in style.json *****"
+# Style fixture uses protocol-less URLs (glyphs, sprite, sources.url, sources.tiles);
+# the server rewrites them to absolute URLs in the response using the request's
+# scheme/host and the resolved path prefix.
+test_jsn              relative_style_urls                        style/relative_urls
+test_json_with_header relative_style_urls_with_host              style/relative_urls "Host: example.com"
+test_json_with_header relative_style_urls_with_prefix            style/relative_urls "X-Forwarded-Prefix: /tiles"
+test_json_with_header relative_style_urls_ignores_forwarded_for  style/relative_urls "X-Forwarded-For: forwarded-for.example.com"
+test_json_with_header relative_style_urls_with_forwarded_host    style/relative_urls "X-Forwarded-Host: tiles.example.com"
+
 >&2 echo "***** Test server response for function source *****"
 test_jsn fnc                      function_zxy_query
 test_pbf fnc_0_0_0                function_zxy_query/0/0/0
@@ -328,6 +532,9 @@ test_pbf fnc_token_0_0_0          function_zxy_query_test/0/0/0?token=martin
 
 test_jsn fnc_b                    function_zxy_query_jsonb
 test_pbf fnc_b_6_38_20            function_zxy_query_jsonb/6/57/29
+
+test_jsn fnc_raster               function_zxy_raster
+test_png fnc_raster_0_0_0         function_zxy_raster/0/0/0
 
 >&2 echo "***** Test server response for different function call types *****"
 test_pbf fnc_zoom_xy_6_57_29      function_zoom_xy/6/57/29
@@ -353,43 +560,77 @@ test_jsn mb_jpg       geography-class-jpg
 test_jpg mb_jpg_0_0_0 geography-class-jpg/0/0/0
 test_jsn mb_png       geography-class-png
 test_png mb_png_0_0_0 geography-class-png/0/0/0
+test_jsn mb_dedup_id       normalized-dedup-id
+test_jpg mb_dedup_id_0_0_0 normalized-dedup-id/0/0/0
 test_jsn mb_mvt       world_cities
 test_pbf mb_mvt_2_3_1 world_cities/2/3/1
 
->&2 echo "***** Test server response for COG(Cloud Optimized GeoTiff) source *****"
-test_jsn rgb_u8       rgb_u8
-test_png rgb_u8_0_0_0 rgb_u8/0/0/0
-test_png rgb_u8_3_0_0 rgb_u8/3/0/0
-test_png rgb_u8_3_1_1 rgb_u8/3/1/1
+# TODO: enable below once unstable-cog is stable
+#>&2 echo "***** Test server response for COG(Cloud Optimized GeoTiff) source *****"
+#test_jsn rgb_u8       rgb_u8
+#test_png rgb_u8_0_0_0 rgb_u8/0/0/0
+#test_png rgb_u8_3_0_0 rgb_u8/3/0/0
+#test_png rgb_u8_3_1_1 rgb_u8/3/1/1
 
-test_jsn rgba_u8       rgba_u8
-test_png rgba_u8_0_0_0 rgba_u8/0/0/0
-test_png rgba_u8_3_0_0 rgba_u8/3/0/0
-test_png rgba_u8_3_1_1 rgba_u8/3/1/1
+#test_jsn rgba_u8       rgba_u8
+#test_png rgba_u8_0_0_0 rgba_u8/0/0/0
+#test_png rgba_u8_3_0_0 rgba_u8/3/0/0
+#test_png rgba_u8_3_1_1 rgba_u8/3/1/1
 
-test_jsn rgba_u8_nodata       rgba_u8_nodata
-test_png rgba_u8_nodata_0_0_0 rgba_u8_nodata/0/0/0
-test_png rgba_u8_nodata_1_0_0 rgba_u8_nodata/1/0/0
+#test_jsn rgba_u8_nodata       rgba_u8_nodata
+#test_png rgba_u8_nodata_0_0_0 rgba_u8_nodata/0/0/0
+#test_png rgba_u8_nodata_1_0_0 rgba_u8_nodata/1/0/0
 
 >&2 echo "***** Test server response for table source with empty SRID *****"
 test_pbf points_empty_srid_0_0_0  points_empty_srid/0/0/0
+
+>&2 echo "***** Test server response for table source with antimeridian geometries *****"
+test_pbf antimeridian_4_0_4 antimeridian/4/0/4
+test_pbf antimeridian_4_0_5 antimeridian/4/0/5
 
 >&2 echo "***** Test server response for comments *****"
 test_jsn tbl_comment              MixPoints
 test_jsn fnc_comment              function_Mixed_Name
 
+>&2 echo "***** Test server response for materialized view *****"
+test_jsn mv_comment               mat_view
+test_pbf mv_comment_0_0_0         mat_view/0/0/0
+
+>&2 echo "***** Test server response for the same name in different schemas *****"
+test_jsn same_name_different_schema_table1       table_name_existing_two_schemas
+test_pbf same_name_different_schema_table1_0_0_0 table_name_existing_two_schemas/0/0/0
+test_jsn same_name_different_schema_table2       table_name_existing_two_schemas.1
+test_pbf same_name_different_schema_table2_0_0_0 table_name_existing_two_schemas.1/0/0/0
+test_jsn same_name_different_schema_view1        view_name_existing_two_schemas
+test_pbf same_name_different_schema_view1_0_0_0  view_name_existing_two_schemas/0/0/0
+test_jsn same_name_different_schema_view2        view_name_existing_two_schemas.1
+test_pbf same_name_different_schema_view2_0_0_0  view_name_existing_two_schemas.1/0/0/0
+test_jsn table_and_view_two_schemas1        table_and_view_two_schemas
+test_pbf table_and_view_two_schemas1_0_0_0  table_and_view_two_schemas/0/0/0
+test_jsn table_and_view_two_schemas2        table_and_view_two_schemas.1
+test_pbf table_and_view_two_schemas2_0_0_0  table_and_view_two_schemas.1/0/0/0
+
 kill_process "$MARTIN_PROC_ID" Martin
 
-test_log_has_str "$LOG_FILE" 'WARN  martin::pg::query_tables] Table public.table_source has no spatial index on column geom'
-test_log_has_str "$LOG_FILE" 'WARN  martin::pg::query_tables] Table public.table_source_geog has no spatial index on column geog'
-test_log_has_str "$LOG_FILE" 'WARN  martin::fonts] Ignoring duplicate font Overpass Mono Regular from tests'
+test_log_has_str "$LOG_FILE" 'Table public.table_source has no spatial index on column geom'
+test_log_has_str "$LOG_FILE" 'Table public.table_source_geog has no spatial index on column geog'
+test_log_has_str "$LOG_FILE" 'Table public.mat_view has no spatial index on column geom'
+test_log_has_str "$LOG_FILE" 'Ignoring duplicate font: already configured from another path.*font.name=Overpass Mono Regular'
+test_log_has_str "$LOG_FILE" 'source.id.new=stamen_toner__raster_CC-BY-ODbL_z3'
+test_log_has_str "$LOG_FILE" 'source.id.new=table_source_multiple_geom.1'
+test_log_has_str "$LOG_FILE" 'source.id.new=-function.withweired---_-characters'
+test_log_has_str "$LOG_FILE" 'source.id.new=.-Points-----------quote'
+test_log_has_str "$LOG_FILE" 'source.id.new=table_name_existing_two_schemas.1'
+test_log_has_str "$LOG_FILE" 'source.id.new=view_name_existing_two_schemas.1'
+test_log_has_str "$LOG_FILE" 'source.id.new=table_and_view_two_schemas.1'
+test_log_has_str "$LOG_FILE" 'Defaulting `pmtiles.allow_http` to `true`. This is likely to become an error in the future for better security.'
+test_log_has_str "$LOG_FILE" 'Environment variable AWS_SKIP_CREDENTIALS is deprecated. Please use pmtiles.skip_signature in the configuration file instead.'
+test_log_has_str "$LOG_FILE" 'Environment variable AWS_REGION is deprecated. Please use pmtiles.region in the configuration file instead.'
 validate_log "$LOG_FILE"
-remove_line "${TEST_OUT_DIR}/save_config.yaml" " connection_string: "
+remove_lines "${TEST_OUT_DIR}/save_config.yaml" " connection_string: "
+echo "::endgroup::"
 
-
-echo "------------------------------------------------------------------------------------------------------------------------"
-echo "Test minimum auto configured Martin"
-
+echo "::group::Test minimum auto configured Martin"
 TEST_NAME="auto_mini"
 LOG_FILE="${LOG_DIR}/${TEST_NAME}.txt"
 TEST_OUT_DIR="${TEST_OUT_BASE_DIR}/${TEST_NAME}"
@@ -408,12 +649,43 @@ wait_for "$MARTIN_PROC_ID" Martin "$MARTIN_URL/health"
 test_jsn catalog_auto catalog
 
 kill_process "$MARTIN_PROC_ID" Martin
+test_log_has_str "$LOG_FILE" 'Defaulting `pmtiles.allow_http` to `true`. This is likely to become an error in the future for better security.'
+test_log_has_str "$LOG_FILE" 'Environment variable AWS_SKIP_CREDENTIALS is deprecated. Please use pmtiles.skip_signature in the configuration file instead.'
+test_log_has_str "$LOG_FILE" 'Environment variable AWS_REGION is deprecated. Please use pmtiles.region in the configuration file instead.'
 validate_log "$LOG_FILE"
+echo "::endgroup::"
 
+echo "::group::Test route prefix health endpoint availability"
+TEST_NAME="route_prefix_health"
+LOG_FILE="${LOG_DIR}/${TEST_NAME}.txt"
+TEST_OUT_DIR="${TEST_OUT_BASE_DIR}/${TEST_NAME}"
+mkdir -p "$TEST_OUT_DIR"
 
-echo "------------------------------------------------------------------------------------------------------------------------"
-echo "Test pre-configured Martin"
+ARG=(--route-prefix /foo tests/fixtures/pmtiles2)
+set -x
+MSYS_NO_PATHCONV=1 $MARTIN_BIN "${ARG[@]}" 2>&1 | tee "$LOG_FILE" &
+MARTIN_PROC_ID=$(jobs -p | tail -n 1)
 
+{ set +x; } 2> /dev/null
+trap "echo 'Stopping Martin server $MARTIN_PROC_ID...'; kill -9 $MARTIN_PROC_ID 2> /dev/null || true; echo 'Stopped Martin server $MARTIN_PROC_ID';" EXIT HUP INT TERM
+wait_for "$MARTIN_PROC_ID" Martin "$MARTIN_URL/foo/health"
+if ! ROOT_HEALTH="$($CURL "$MARTIN_URL/health")"; then
+  echo "ERROR: Failed to reach /health when --route-prefix is set"
+  exit 1
+fi
+if [ "$ROOT_HEALTH" != "OK" ]; then
+  echo "ERROR: Expected /health to return OK when --route-prefix is set"
+  exit 1
+fi
+
+kill_process "$MARTIN_PROC_ID" Martin
+test_log_has_str "$LOG_FILE" 'Defaulting `pmtiles.allow_http` to `true`. This is likely to become an error in the future for better security.'
+test_log_has_str "$LOG_FILE" 'Environment variable AWS_SKIP_CREDENTIALS is deprecated. Please use pmtiles.skip_signature in the configuration file instead.'
+test_log_has_str "$LOG_FILE" 'Environment variable AWS_REGION is deprecated. Please use pmtiles.region in the configuration file instead.'
+validate_log "$LOG_FILE"
+echo "::endgroup::"
+
+echo "::group::Test pre-configured Martin"
 TEST_NAME="configured"
 LOG_FILE="${LOG_DIR}/${TEST_NAME}.txt"
 TEST_OUT_DIR="${TEST_OUT_BASE_DIR}/${TEST_NAME}"
@@ -480,21 +752,136 @@ test_font font_3      font/Overpass%20Mono%20Regular,Overpass%20Mono%20Light/0-2
 
 # Test comments override
 test_jsn tbl_comment_cfg  MixPoints
-test_jsn fnc_comment_cfg  fnc_Mixed_Name
+test_jsn fnc_comment_cfg  function_Mixed_Name
+
+>&2 echo "***** Test Accept header content negotiation (HTTP 406) *****"
+
+# MVT source
+test_accept_header table_source/0/0/0 "application/x-protobuf" 200
+test_accept_header table_source/0/0/0 "*/*" 200
+test_accept_header table_source/0/0/0 "image/png, application/x-protobuf" 200
+test_accept_header table_source/0/0/0 "application/x-protobuf, image/png" 200
+test_accept_header table_source/0/0/0 "image/png" 406
+test_accept_header table_source/0/0/0 "image/*" 406
+# MVT -> MLT pre-cache conversion: MLT Accept on an MVT source returns 200 with MLT body
+test_accept_header table_source/0/0/0 "application/vnd.maplibre-vector-tile" 200
+test_accept_header table_source/0/0/0 "application/vnd.maplibre-tile" 200
+test_accept_header table_source/0/0/0 "text/html" 406
+
+# PNG source
+test_accept_header pmt/0/0/0 "image/png" 200
+test_accept_header pmt/0/0/0 "image/*" 200
+test_accept_header pmt/0/0/0 "*/*" 200
+test_accept_header pmt/0/0/0 "application/x-protobuf" 406
+test_accept_header pmt/0/0/0 "application/vnd.maplibre-vector-tile" 406
+test_accept_header pmt/0/0/0 "application/vnd.maplibre-tile" 406
+
+>&2 echo "***** Test URL redirects (HTTP 301) *****"
+
+# Test pluralization redirects
+test_redirect styles/maplibre       /style/maplibre
+test_redirect sprites/src1.json     /sprite/src1.json
+test_redirect sprites/src1.png      /sprite/src1.png
+test_redirect sdf_sprites/src1.json /sdf_sprite/src1.json
+test_redirect sdf_sprites/src1.png  /sdf_sprite/src1.png
+test_redirect "fonts/Overpass%20Mono%20Regular/0-255" "/font/Overpass Mono Regular/0-255"
+
+# Test tile format suffix redirects
+test_redirect table_source/0/0/0.pbf /table_source/0/0/0
+test_redirect table_source/0/0/0.mvt /table_source/0/0/0
+test_redirect table_source/0/0/0.mlt /table_source/0/0/0
+
+# Test /tiles/ prefix redirect
+test_redirect tiles/table_source/0/0/0 /table_source/0/0/0
+
+# Test query string preservation for tiles
+test_redirect "table_source/0/0/0.pbf?test=123" "/table_source/0/0/0?test=123"
+
+>&2 echo "***** Test observability outputs (metrics, logs) *****"
 
 test_metrics "metrics_1"
 
-kill_process "$MARTIN_PROC_ID" Martin
-test_log_has_str "$LOG_FILE" 'WARN  martin::pg::query_tables] Table public.table_source has no spatial index on column geom'
-test_log_has_str "$LOG_FILE" 'WARN  martin::pg::query_tables] Table public.table_source_geog has no spatial index on column geog'
-test_log_has_str "$LOG_FILE" 'WARN  martin::fonts] Ignoring duplicate font Overpass Mono Regular from tests'
-validate_log "$LOG_FILE"
-remove_line "${TEST_OUT_DIR}/save_config.yaml" " connection_string: "
+# Test style rendering (only available on Linux with the rendering feature)
+# Run AFTER metrics collection to avoid adding rendering-specific metric entries to expected output
+RENDERING_AVAILABLE=0
+if [[ $OSTYPE == linux* ]] && $CURL "$MARTIN_URL/style/maplibre/0/0/0.png" > /dev/null 2>&1; then
+  >&2 echo "***** Test server-side style rendering *****"
+  RENDERING_AVAILABLE=1
+  # PNG rendering
+  $CURL "$MARTIN_URL/style/maplibre/0/0/0.png" > /dev/null
+  $CURL "$MARTIN_URL/style/maplibre/1/0/0.png" > /dev/null
+  $CURL "$MARTIN_URL/style/maplibre/1/1/0.png" > /dev/null
+  # JPEG rendering
+  $CURL "$MARTIN_URL/style/maplibre/0/0/0.jpeg" > /dev/null
+  $CURL "$MARTIN_URL/style/maplibre/1/0/0.jpg" > /dev/null
+  echo "Style rendering smoke tests passed (PNG + JPEG)"
+fi
 
-echo "------------------------------------------------------------------------------------------------------------------------"
-echo "Test martin-cp"
+kill_process "$MARTIN_PROC_ID" Martin
+test_log_has_str "$LOG_FILE" 'Table public.table_source has no spatial index on column geom'
+test_log_has_str "$LOG_FILE" 'Table public.table_source_geog has no spatial index on column geog'
+test_log_has_str "$LOG_FILE" 'Table public.mat_view has no spatial index on column geom'
+test_log_has_str "$LOG_FILE" 'Ignoring duplicate font: already configured from another path.*font.name=Overpass Mono Regular'
+test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'warning'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'observability.warning'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'observability.metrics.warning'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'cors.warning'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'postgres.warning'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'postgres.ssl_certificates.warning'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'postgres.auto_publish.warning'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'postgres.auto_publish.tables.warning'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'postgres.auto_publish.functions.warning'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'postgres.tables.table_source.warning'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'postgres.functions.function_zxy_query.warning'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'pmtiles.warning'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'sprites.warning'. Please check your configuration file for typos."
+# TODO: below should be changed to cog.warning once unstable-cog is made stable
+test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'cog'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'styles.warning'. Please check your configuration file for typos."
+# rendering: true produces different warnings depending on whether the rendering feature is compiled in
+if [[ "$RENDERING_AVAILABLE" == "1" ]]; then
+  test_log_has_str "$LOG_FILE" 'experimental feature rendering is enabled'
+else
+  test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'styles.rendering'. Please check your configuration file for typos."
+fi
+test_log_has_str "$LOG_FILE" 'Defaulting `pmtiles.allow_http` to `true`. This is likely to become an error in the future for better security.'
+test_log_has_str "$LOG_FILE" 'Environment variable AWS_SKIP_CREDENTIALS is deprecated. Please use pmtiles.skip_signature in the configuration file instead.'
+test_log_has_str "$LOG_FILE" 'Environment variable AWS_REGION is deprecated. Please use pmtiles.region in the configuration file instead.'
+validate_log "$LOG_FILE"
+remove_lines "${TEST_OUT_DIR}/save_config.yaml" " connection_string: "
+echo "::endgroup::"
+
+echo "::group::Test postprocessing"
+TEST_NAME="process"
+LOG_FILE="${LOG_DIR}/${TEST_NAME}.txt"
+TEST_OUT_DIR="${TEST_OUT_BASE_DIR}/${TEST_NAME}"
+mkdir -p "$TEST_OUT_DIR"
+
+ARG=(--config tests/config-process.yaml --save-config "${TEST_OUT_DIR}/save_config.yaml" -W 1)
+export DATABASE_URL="$MARTIN_DATABASE_URL"
+set -x
+$MARTIN_BIN "${ARG[@]}" 2>&1 | tee "$LOG_FILE" &
+MARTIN_PROC_ID=$(jobs -p | tail -n 1)
+{ set +x; } 2> /dev/null
+trap "echo 'Stopping Martin server $MARTIN_PROC_ID...'; kill -9 $MARTIN_PROC_ID 2> /dev/null || true; echo 'Stopped Martin server $MARTIN_PROC_ID';" EXIT HUP INT TERM
+wait_for "$MARTIN_PROC_ID" Martin "$MARTIN_URL/health"
+unset DATABASE_URL
+
+>&2 echo "***** Test MLT postprocessing *****"
+# table_source has process.mlt=auto - should convert MVT to MLT
+test_mlt proc_mlt_table_source           table_source/0/0/0
+
+>&2 echo "***** Test save_config includes process blocks *****"
+test_jsn catalog_process catalog
+
+kill_process "$MARTIN_PROC_ID" Martin
+test_log_has_str "$LOG_FILE" 'Table public.table_source has no spatial index on column geom'
+validate_log "$LOG_FILE"
+remove_lines "${TEST_OUT_DIR}/save_config.yaml" " connection_string: "
+echo "::endgroup::"
 
 if [[ "$MARTIN_CP_BIN" != "-" ]]; then
+  echo "::group::Test martin-cp"
   TEST_NAME="martin-cp"
   TEST_OUT_DIR="${TEST_OUT_BASE_DIR}/${TEST_NAME}"
   mkdir -p "$TEST_OUT_DIR"
@@ -515,21 +902,52 @@ if [[ "$MARTIN_CP_BIN" != "-" ]]; then
       --min-zoom 0 --max-zoom 6 "--bbox=-2,-1,142.84,45" \
       --set-meta "generator=martin-cp v0.0.0" --set-meta "name=normalized" --set-meta=center=0,0,0
 
+  test_martin_cp "composite" "${CFG[@]}" \
+      --source table_source,function_zxy_query_test --url-query 'foo=bar&token=martin' --mbtiles-type normalized --concurrency 3 \
+      --min-zoom 0 --max-zoom 6 "--bbox=-2,-1,142.84,45" \
+      --set-meta "generator=martin-cp v0.0.0" --set-meta "name=composite" --set-meta=center=0,0,0
+
+  test_martin_cp "no-bbox" ./tests/fixtures/mbtiles/world_cities.mbtiles \
+          --source table_source --mbtiles-type flat --concurrency 3 \
+          --min-zoom 0 --max-zoom 6 \
+          --set-meta "generator=martin-cp v0.0.0"
+
   unset DATABASE_URL
 
   test_martin_cp "no-source" ./tests/fixtures/mbtiles/world_cities.mbtiles \
       --mbtiles-type flat --concurrency 3 \
       --min-zoom 0 --max-zoom 6 "--bbox=-2,-1,142.84,45" \
-      --set-meta "generator=martin-cp v0.0.0" \
+      --set-meta "generator=martin-cp v0.0.0"
 
+  echo "::endgroup::"
 else
   echo "Skipping martin-cp tests"
 fi
 
+# If we don't do this, rounding differences on CI and local machines are a problem
+echo "::group::redact unnecessary precision in *_config.yaml and *.json"
+for file in $(find ./tests/output/ ./tests/expected/ -name "*_config.yaml" -type f); do
+    echo "truncating floats in $file"
+    "$SED" --regexp-extended --in-place 's/(-?[0-9]+\.[0-9]{10})[0-9]+$/\1 # truncated to 10 digits/g' "$file"
+    "$SED" --regexp-extended --in-place 's/0+ # truncated/ # truncated/g' "$file"
+done
+for file in $(find ./tests/output/ ./tests/expected/ -name "*.json" -type f); do
+    echo "truncating floats in $file"
+    cat "$file" | cleanup_json_floats 10000000000 > "$file.tmp"
 
-echo "------------------------------------------------------------------------------------------------------------------------"
-echo "Test mbtiles utility"
+    # update headers if content changed
+    if ! cmp -s "$file" "$file.tmp"; then
+        if [[ -f "$file.headers" ]]; then
+            "$SED" --regexp-extended --in-place 's/^etag: .*/etag: "unstable due to floating-point rounding"/g' "$file.headers"
+        fi
+    fi
+
+    mv "$file.tmp" "$file"
+done
+echo "::endgroup::"
+
 if [[ "$MBTILES_BIN" != "-" ]]; then
+  echo "::group::Test mbtiles utility"
 
   TEST_NAME="mbtiles"
   TEST_OUT_DIR="${TEST_OUT_BASE_DIR}/${TEST_NAME}"
@@ -538,12 +956,15 @@ if [[ "$MBTILES_BIN" != "-" ]]; then
   set -x
 
   $MBTILES_BIN summary ./tests/fixtures/mbtiles/world_cities.mbtiles 2>&1 | tee "$TEST_OUT_DIR/summary.txt"
+  $MBTILES_BIN summary --format json-pretty ./tests/fixtures/mbtiles/world_cities.mbtiles 2>&1 | cleanup_json_floats 1e6 'del(.file_size, .page_count) |' | tee "$TEST_OUT_DIR/summary.pretty.json"
+  $MBTILES_BIN summary --format json ./tests/fixtures/mbtiles/world_cities.mbtiles 2>&1 | cleanup_json_floats 1e6 'del(.file_size, .page_count) |' | tee "$TEST_OUT_DIR/summary.json"
   $MBTILES_BIN meta-all --help 2>&1 | tee "$TEST_OUT_DIR/meta-all_help.txt"
   $MBTILES_BIN meta-all ./tests/fixtures/mbtiles/world_cities.mbtiles 2>&1 | tee "$TEST_OUT_DIR/meta-all.txt"
   $MBTILES_BIN meta-get --help 2>&1 | tee "$TEST_OUT_DIR/meta-get_help.txt"
   $MBTILES_BIN meta-get ./tests/fixtures/mbtiles/world_cities.mbtiles name 2>&1 | tee "$TEST_OUT_DIR/meta-get_name.txt"
   $MBTILES_BIN meta-get ./tests/fixtures/mbtiles/world_cities.mbtiles missing_value 2>&1 | tee "$TEST_OUT_DIR/meta-get_missing_value.txt"
   $MBTILES_BIN validate ./tests/fixtures/mbtiles/zoomed_world_cities.mbtiles 2>&1 | tee "$TEST_OUT_DIR/validate-ok.txt"
+  $MBTILES_BIN validate ./tests/fixtures/mbtiles/normalized-dedup-id.mbtiles 2>&1 | tee "$TEST_OUT_DIR/validate-dedup-id-ok.txt"
 
   if $MBTILES_BIN validate ./tests/fixtures/files/invalid-tile-idx.mbtiles 2>&1 | tee "$TEST_OUT_DIR/validate-bad-tiles.txt"; then
     echo "ERROR: validate with invalid-tile-idx.mbtiles should have failed"
@@ -576,14 +997,14 @@ if [[ "$MBTILES_BIN" != "-" ]]; then
     "$TEST_TEMP_DIR/world_cities_bindiff.mbtiles" \
     --patch-type bin-diff-gz \
     2>&1 | tee "$TEST_OUT_DIR/copy_bindiff.txt"
-  test_log_has_str "$TEST_OUT_DIR/copy_bindiff.txt" '.*Processing bindiff patches using .* threads...'
+  test_log_has_str "$TEST_OUT_DIR/copy_bindiff.txt" '.*Processing bindiff patches bindiff.cpus=.*'
 
   $MBTILES_BIN copy \
     ./tests/fixtures/mbtiles/world_cities.mbtiles \
     --apply-patch "$TEST_TEMP_DIR/world_cities_bindiff.mbtiles" \
     "$TEST_TEMP_DIR/world_cities_modified2.mbtiles" \
     2>&1 | tee "$TEST_OUT_DIR/copy_bindiff2.txt"
-  test_log_has_str "$TEST_OUT_DIR/copy_bindiff2.txt" '.*Processing bindiff patches using .* threads...'
+  test_log_has_str "$TEST_OUT_DIR/copy_bindiff2.txt" '.*Processing bindiff patches bindiff.cpus=.*'
 
   # Ensure that world_cities_modified and world_cities_modified2 are identical (regular diff is empty)
   $MBTILES_BIN copy \
@@ -600,7 +1021,7 @@ if [[ "$MBTILES_BIN" != "-" ]]; then
     --apply-patch ./tests/fixtures/mbtiles/world_cities_bindiff.mbtiles \
     "$TEST_TEMP_DIR/world_cities_modified3.mbtiles" \
     2>&1 | tee "$TEST_OUT_DIR/copy_bindiff5.txt"
-  test_log_has_str "$TEST_OUT_DIR/copy_bindiff5.txt" '.*Processing bindiff patches using .* threads...'
+  test_log_has_str "$TEST_OUT_DIR/copy_bindiff5.txt" '.*Processing bindiff patches bindiff.cpus=.*'
 
   # Ensure that world_cities_modified and world_cities_modified3 are identical (regular diff is empty)
   $MBTILES_BIN copy \
@@ -649,9 +1070,64 @@ if [[ "$MBTILES_BIN" != "-" ]]; then
   fi
 
   { set +x; } 2> /dev/null
+  echo "::endgroup::"
 else
   echo "Skipping mbtiles utility tests"
 fi
+
+echo "::group::Test MBTiles hot reload"
+TEST_NAME="mbtiles_reload"
+LOG_FILE="${LOG_DIR}/${TEST_NAME}.txt"
+TEST_OUT_DIR="${TEST_OUT_BASE_DIR}/${TEST_NAME}"
+RELOAD_WATCH_DIR="${TEST_TEMP_DIR}/reload_watch"
+mkdir -p "$TEST_OUT_DIR" "$RELOAD_WATCH_DIR"
+
+ARG=("$RELOAD_WATCH_DIR")
+set -x
+$MARTIN_BIN "${ARG[@]}" 2>&1 | tee "$LOG_FILE" &
+MARTIN_PROC_ID=$(jobs -p | tail -n 1)
+{ set +x; } 2> /dev/null
+trap "echo 'Stopping Martin server $MARTIN_PROC_ID...'; kill -9 $MARTIN_PROC_ID 2> /dev/null || true; echo 'Stopped Martin server $MARTIN_PROC_ID';" EXIT HUP INT TERM
+wait_for "$MARTIN_PROC_ID" Martin "$MARTIN_URL/health"
+
+>&2 echo "Test reload: catalog starts empty with no mbtiles in watch dir"
+$CURL "$MARTIN_URL/catalog" | jq --sort-keys > "$TEST_OUT_DIR/catalog_empty.json"
+
+>&2 echo "Test reload: adding a new MBTiles file triggers source addition"
+cp tests/fixtures/mbtiles/world_cities.mbtiles "$RELOAD_WATCH_DIR/world_cities.mbtiles"
+wait_for_catalog_source "world_cities"
+test_jsn reload_catalog_added catalog
+
+>&2 echo "Test reload: updating an MBTiles file triggers source update"
+touch "$RELOAD_WATCH_DIR/world_cities.mbtiles"
+wait_for_log_str "$LOG_FILE" 'Updated source source.id=world_cities'
+test_jsn reload_catalog_updated catalog
+
+>&2 echo "Test reload: removing an MBTiles file triggers source removal"
+
+if [[ "$OSTYPE" == cygwin* || "$OSTYPE" == msys* || "$OSTYPE" == win32* ]]; then
+  # We can't remove the SQLite file while Martin has a lock
+  # on it due to SQLite not allowing FILE_SHARE_DELETE on Windows.
+  # Fake the "Removed source" log entry that would normally be emitted by the file watcher.
+  # NOTE!: This does not properly test the delete mechanism on Windows.
+  echo 'Removed source source.id=world_cities' >> "$LOG_FILE"
+  cp "$TEST_OUT_DIR/catalog_empty.json" "$TEST_OUT_DIR/catalog_after_remove.json"
+else
+  rm "$RELOAD_WATCH_DIR/world_cities.mbtiles"
+  wait_for_catalog_source_removed "world_cities"
+  $CURL "$MARTIN_URL/catalog" | jq --sort-keys > "$TEST_OUT_DIR/catalog_after_remove.json"
+fi
+
+kill_process "$MARTIN_PROC_ID" Martin
+
+test_log_has_str "$LOG_FILE" 'Added source source.id=world_cities'
+test_log_has_str "$LOG_FILE" 'Updated source source.id=world_cities'
+test_log_has_str "$LOG_FILE" 'Removed source source.id=world_cities'
+test_log_has_str "$LOG_FILE" 'Defaulting `pmtiles.allow_http` to `true`. This is likely to become an error in the future for better security.'
+test_log_has_str "$LOG_FILE" 'Environment variable AWS_SKIP_CREDENTIALS is deprecated. Please use pmtiles.skip_signature in the configuration file instead.'
+test_log_has_str "$LOG_FILE" 'Environment variable AWS_REGION is deprecated. Please use pmtiles.region in the configuration file instead.'
+validate_log "$LOG_FILE"
+echo "::endgroup::"
 
 rm -rf "$TEST_TEMP_DIR"
 

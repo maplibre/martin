@@ -1,0 +1,30 @@
+---
+source: martin-core/src/resources/sprites/mod.rs
+expression: sprites.get_index()
+---
+{
+  "another_bicycle": {
+    "height": 42,
+    "pixelRatio": 2,
+    "width": 42,
+    "x": 52,
+    "y": 44,
+    "sdf": true
+  },
+  "bear": {
+    "height": 44,
+    "pixelRatio": 2,
+    "width": 44,
+    "x": 52,
+    "y": 0,
+    "sdf": true
+  },
+  "sub/circle": {
+    "height": 52,
+    "pixelRatio": 2,
+    "width": 52,
+    "x": 0,
+    "y": 0,
+    "sdf": true
+  }
+}

@@ -37,3 +37,22 @@ npm run dev
 
 > [!IMPORTANT]
 > Since the UI is served on port `:3001`, you will need to change `VITE_MARTIN_BASE` to point to your Martin instance
+
+## Development commands
+
+Common development tasks can be run with [just](https://github.com/casey/just):
+
+```bash
+# From within this directory (martin/martin-ui/)
+just            # list all available recipes
+just test       # run frontend tests
+just biome      # run BiomeJS formatter and linter
+just type-check # TypeScript type checking
+just clean      # remove dist/ and node_modules/
+just bless      # update test snapshots
+
+# From the repository root (martin/)
+just ui::test
+just ui::biome
+just ui::type-check
+```

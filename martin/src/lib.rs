@@ -1,46 +1,34 @@
 #![cfg_attr(doc, doc = include_str!("../README.md"))]
 #![forbid(unsafe_code)]
 
-mod config;
-pub use config::{Config, ServerState, read_config};
+pub mod config;
+pub mod logging;
 
+#[cfg(feature = "_tiles")]
 mod source;
-pub use source::{
-    CatalogSourceEntry, Source, Tile, TileData, TileInfoSource, TileSources, UrlQuery,
-};
+#[cfg(feature = "_tiles")]
+pub use source::TileSources;
 
-mod utils;
-pub use utils::{
-    IdResolver, MartinError, MartinResult, NO_MAIN_CACHE, OptBoolObj, OptOneMany, TileRect,
-    append_rect,
-};
+#[cfg(feature = "_tiles")]
+mod reload;
+#[cfg(feature = "_tiles")]
+pub use reload::{DeletedSource, NewSource, ReloadAdvisory};
 
-pub mod args;
-#[cfg(feature = "cog")]
-pub mod cog;
-pub mod file_config;
-#[cfg(feature = "fonts")]
-pub mod fonts;
-#[cfg(feature = "mbtiles")]
-pub mod mbtiles;
-#[cfg(feature = "postgres")]
-pub mod pg;
-#[cfg(feature = "pmtiles")]
-pub mod pmtiles;
-#[cfg(feature = "sprites")]
-pub mod sprites;
-pub mod srv;
+#[cfg(feature = "_tiles")]
+mod tile_source_manager;
+#[cfg(feature = "_tiles")]
+pub use tile_source_manager::TileSourceManager;
+
+mod error;
+pub use error::{MartinError, MartinResult};
+
 #[cfg(feature = "styles")]
-pub mod styles;
+pub mod maplibre_style;
 
-#[cfg(test)]
-#[path = "utils/tests.rs"]
-mod tests;
+pub mod srv;
 
-// tests is used from tests in other modules, and it uses this crate's object.
-// Must make it accessible as carte::Env from both places when testing.
-#[cfg(test)]
-pub use crate::args::Env;
+#[cfg(feature = "unstable-schemas")]
+pub mod schemas;
 
 // Ensure README.md contains valid code
 #[cfg(doctest)]

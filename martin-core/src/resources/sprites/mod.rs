@@ -1,0 +1,356 @@
+//! Sprite processing and serving for map tile rendering.
+//!
+//! Generates spritesheets from SVG files with support for high-DPI (@2x) and
+//! SDF (Signed Distance Field) sprites for dynamic styling.
+//!
+//! # Usage
+//!
+//! ```rust,no_run
+//! # async fn foo() {
+//! use martin_core::sprites::SpriteSources;
+//! use std::path::PathBuf;
+//!
+//! let mut sources = SpriteSources::default();
+//! sources.add_source("icons".to_string(), PathBuf::from("/path/to/svg/directory"));
+//! let spritesheet = sources.get_sprites("icons@2x", false).await.unwrap();
+//! # }
+//! ```
+
+use std::collections::HashMap;
+use std::fmt::Debug;
+use std::num::NonZeroUsize;
+use std::path::{Path, PathBuf};
+
+use chrono::{DateTime, Utc};
+use dashmap::{DashMap, Entry};
+use futures::future::try_join_all;
+use serde::{Deserialize, Serialize};
+use serde_with::skip_serializing_none;
+pub use spreet::Spritesheet;
+use spreet::resvg::usvg::{Options, Tree};
+use spreet::{Sprite, SpritesheetBuilder, sprite_name};
+use tokio::io::AsyncReadExt as _;
+use tracing::{info, instrument, warn};
+
+use self::SpriteError::{IoError, SpriteInstError, SpriteParsingError, SpriteProcessingError};
+use crate::walk_files;
+
+const SVG_EXTENSIONS: &[&str] = &["svg"];
+
+fn discover_svgs(path: &Path) -> Result<Vec<PathBuf>, SpriteError> {
+    walk_files(path, SVG_EXTENSIONS).map_err(|e| IoError(e.into(), path.to_path_buf()))
+}
+
+mod error;
+pub use error::SpriteError;
+
+mod cache;
+pub use cache::{NO_SPRITE_CACHE, OptSpriteCache, SpriteCache, SpriteCacheKey};
+
+/// Sprite source metadata.
+#[skip_serializing_none]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "unstable-schemas",
+    derive(schemars::JsonSchema, utoipa::ToSchema)
+)]
+pub struct CatalogSpriteEntry {
+    /// Available sprite image names.
+    pub images: Vec<String>,
+    /// Total size of the spritesheet in bytes.
+    // utoipa 5.4 has no `PartialSchema` impl for `NonZeroUsize`, so describe
+    // the field as a positive integer for the OpenAPI side; serde still
+    // serializes the inner usize.
+    #[cfg_attr(feature = "unstable-schemas", schema(value_type = u64, minimum = 1))]
+    pub size_in_bytes: Option<NonZeroUsize>,
+    /// Timestamp of the spritesheet's last modification.
+    pub last_modified_at: Option<DateTime<Utc>>,
+}
+
+/// Catalog mapping sprite names to metadata (e.g., "icons" -> [`CatalogSpriteEntry`]).
+pub type SpriteCatalog = HashMap<String, CatalogSpriteEntry>;
+
+/// Thread-safe sprite source manager for serving sprites as `.png` or `.json`.
+#[derive(Debug, Clone, Default)]
+pub struct SpriteSources(DashMap<String, SpriteSource>);
+
+impl SpriteSources {
+    /// Returns a catalog of all sprite sources.
+    pub fn get_catalog(&self) -> Result<SpriteCatalog, SpriteError> {
+        // TODO: all sprite generation should be pre-cached
+        let mut entries = SpriteCatalog::new();
+        for source in &self.0 {
+            let paths = discover_svgs(&source.path)?;
+            let mut images = Vec::with_capacity(paths.len());
+            for path in paths {
+                images.push(
+                    sprite_name(&path, &source.path)
+                        .map_err(|e| SpriteProcessingError(e, source.path.clone()))?,
+                );
+            }
+            images.sort();
+            entries.insert(
+                source.key().clone(),
+                CatalogSpriteEntry {
+                    images,
+                    // FIXME: render once and report the encoded PNG byte count.
+                    size_in_bytes: None,
+                    // FIXME: stat the SVG inputs and surface their newest mtime.
+                    last_modified_at: None,
+                },
+            );
+        }
+        Ok(entries)
+    }
+
+    /// Adds a sprite source directory containing SVG files.
+    /// Files are ignored - only directories accepted. Duplicates ignored with warning.
+    pub fn add_source(&mut self, id: String, path: PathBuf) {
+        let disp_path = path.display();
+        if path.is_file() {
+            warn!(
+                source.id = %id,
+                sprite.path = %disp_path,
+                "Ignoring non-directory sprite source"
+            );
+        } else {
+            match self.0.entry(id) {
+                Entry::Occupied(v) => {
+                    warn!(
+                        source.id = %v.key(),
+                        sprite.path.kept = %v.get().path.display(),
+                        sprite.path.dropped = %disp_path,
+                        "Ignoring duplicate sprite source: already configured for another path"
+                    );
+                }
+                Entry::Vacant(v) => {
+                    info!(
+                        source.id = %v.key(),
+                        sprite.path = %disp_path,
+                        "Configured sprite source"
+                    );
+                    if let Ok(paths) = discover_svgs(&path)
+                        && paths.is_empty()
+                    {
+                        warn!(
+                            source.id = %v.key(),
+                            sprite.path = %disp_path,
+                            "No sprite SVG files found in directory to generate spritesheets from. \
+                             Sprite requests for this source will fail, until at least one svg is present."
+                        );
+                    }
+                    v.insert(SpriteSource { path });
+                }
+            }
+        }
+    }
+
+    /// Generates a spritesheet from comma-separated sprite source IDs.
+    ///
+    /// Append "@2x" for high-DPI sprites.
+    /// Set `as_sdf` for SDF sprites.
+    #[instrument(
+        level = "debug",
+        skip(self),
+        fields(source.ids = %ids, sprite.sdf = as_sdf),
+        err(Debug),
+    )]
+    pub async fn get_sprites(&self, ids: &str, as_sdf: bool) -> Result<Spritesheet, SpriteError> {
+        let (ids, dpi) = if let Some(ids) = ids.strip_suffix("@2x") {
+            (ids, 2)
+        } else {
+            (ids, 1)
+        };
+
+        let sprite_ids = ids
+            .split(',')
+            .map(|id| self.get(id))
+            .collect::<Result<Vec<_>, SpriteError>>()?;
+
+        get_spritesheet(sprite_ids.iter(), dpi, as_sdf).await
+    }
+
+    fn get(&self, id: &str) -> Result<SpriteSource, SpriteError> {
+        match self.0.get(id) {
+            Some(v) => Ok(v.clone()),
+            None => Err(SpriteError::SpriteNotFound(id.to_string())),
+        }
+    }
+}
+
+/// Sprite source directory.
+#[derive(Clone, Debug)]
+pub struct SpriteSource {
+    path: PathBuf,
+}
+
+/// Parses SVG file into sprite.
+async fn parse_sprite(
+    name: String,
+    path: PathBuf,
+    pixel_ratio: u8,
+    as_sdf: bool,
+) -> Result<(String, Sprite), SpriteError> {
+    let on_err = |e| IoError(e, path.clone());
+
+    let mut file = tokio::fs::File::open(&path).await.map_err(on_err)?;
+
+    let mut buffer = Vec::new();
+    file.read_to_end(&mut buffer).await.map_err(on_err)?;
+
+    let tree = Tree::from_data(&buffer, &Options::default())
+        .map_err(|e| SpriteParsingError(e, path.clone()))?;
+
+    let sprite = if as_sdf {
+        Sprite::new_sdf(tree, pixel_ratio)
+    } else {
+        Sprite::new(tree, pixel_ratio)
+    };
+    let sprite = sprite.ok_or_else(|| SpriteInstError(path.clone()))?;
+
+    Ok((name, sprite))
+}
+
+/// Generates spritesheet from sprite sources.
+#[instrument(
+    level = "debug",
+    skip_all,
+    fields(sprite.pixel_ratio = pixel_ratio, sprite.sdf = as_sdf),
+    err(Debug),
+)]
+pub async fn get_spritesheet(
+    sources: impl Iterator<Item = &SpriteSource>,
+    pixel_ratio: u8,
+    as_sdf: bool,
+) -> Result<Spritesheet, SpriteError> {
+    // Asynchronously load all SVG files from the given sources
+    let mut futures = Vec::new();
+    for source in sources {
+        let paths = discover_svgs(&source.path)?;
+        // SpritesheetBuilder::generate will return None if the folder does not contain any SVGs
+        if paths.is_empty() {
+            return Err(SpriteError::NoSpriteFilesFound(source.path.clone()));
+        }
+        for path in paths {
+            let name = sprite_name(&path, &source.path)
+                .map_err(|e| SpriteProcessingError(e, source.path.clone()))?;
+            futures.push(parse_sprite(name, path, pixel_ratio, as_sdf));
+        }
+    }
+    let sprites = try_join_all(futures).await?;
+    let mut builder = SpritesheetBuilder::new();
+    if as_sdf {
+        builder.make_sdf();
+    }
+    builder.sprites(sprites.into_iter().collect());
+
+    // TODO: decide if this is needed and/or configurable
+    // builder.make_unique();
+
+    builder
+        .generate()
+        .ok_or(SpriteError::UnableToGenerateSpritesheet)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_sprites() {
+        let mut sprites = SpriteSources::default();
+        sprites.add_source(
+            "src1".to_string(),
+            PathBuf::from("../tests/fixtures/sprites/src1"),
+        );
+        sprites.add_source(
+            "src2".to_string(),
+            PathBuf::from("../tests/fixtures/sprites/src2"),
+        );
+
+        assert_eq!(sprites.0.len(), 2);
+
+        for generate_sdf in [true, false] {
+            let paths = sprites
+                .0
+                .iter()
+                .map(|v| v.value().clone())
+                .collect::<Vec<_>>();
+            test_src(paths.iter(), 1, "all_1", generate_sdf).await;
+            test_src(paths.iter(), 2, "all_2", generate_sdf).await;
+
+            let src1_path = sprites.get("src1").into_iter().collect::<Vec<_>>();
+            test_src(src1_path.iter(), 1, "src1_1", generate_sdf).await;
+            test_src(src1_path.iter(), 2, "src1_2", generate_sdf).await;
+
+            let src2_path = sprites.get("src2").into_iter().collect::<Vec<_>>();
+            test_src(src2_path.iter(), 1, "src2_1", generate_sdf).await;
+            test_src(src2_path.iter(), 2, "src2_2", generate_sdf).await;
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn k8s_configmap_symlinks_yield_clean_sprite_names() {
+        use std::fs::{create_dir, write};
+        use std::os::unix::fs::symlink;
+
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let root = tmp.path();
+        let real_dir = root.join("..2024_05_17_17_57_51.390489675");
+        create_dir(&real_dir).unwrap();
+        let svg = b"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"1\" height=\"1\"/>";
+        write(real_dir.join("foo.svg"), svg).unwrap();
+        write(real_dir.join("bar.svg"), svg).unwrap();
+        symlink("..2024_05_17_17_57_51.390489675", root.join("..data")).unwrap();
+        symlink("..data/foo.svg", root.join("foo.svg")).unwrap();
+        symlink("..data/bar.svg", root.join("bar.svg")).unwrap();
+
+        let mut sprites = SpriteSources::default();
+        sprites.add_source("foobar".to_string(), root.to_path_buf());
+
+        let catalog = sprites.get_catalog().expect("catalog");
+        let entry = catalog.get("foobar").expect("foobar source registered");
+        assert_eq!(
+            entry.images,
+            vec!["bar".to_string(), "foo".to_string()],
+            "expected plain sprite names without dotfile directory prefixes"
+        );
+    }
+
+    #[tokio::test]
+    async fn directory_without_svgs_yields_helpful_error() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        std::fs::write(tmp.path().join("sprite.json"), b"{}").unwrap();
+        std::fs::write(tmp.path().join("sprite.png"), b"\x89PNG\r\n").unwrap();
+
+        let mut sprites = SpriteSources::default();
+        sprites.add_source("bad".to_string(), tmp.path().to_path_buf());
+
+        let source = sprites.get("bad").expect("source registered");
+        let Err(err) = get_spritesheet([source].iter(), 1, false).await else {
+            panic!("expected NoSpriteFilesFound, got Ok");
+        };
+
+        assert!(matches!(err, SpriteError::NoSpriteFilesFound(_)));
+    }
+
+    async fn test_src(
+        sources: impl Iterator<Item = &SpriteSource>,
+        pixel_ratio: u8,
+        filename: &str,
+        generate_sdf: bool,
+    ) {
+        let sprites = get_spritesheet(sources, pixel_ratio, generate_sdf)
+            .await
+            .unwrap();
+        let filename = if generate_sdf {
+            format!("{filename}_sdf")
+        } else {
+            filename.to_string()
+        };
+        insta::assert_json_snapshot!(format!("{filename}.json"), sprites.get_index());
+        let png = sprites.encode_png().unwrap();
+        insta::assert_binary_snapshot!(&format!("{filename}.png"), png);
+    }
+}

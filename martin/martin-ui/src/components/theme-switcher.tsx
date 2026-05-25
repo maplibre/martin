@@ -42,7 +42,7 @@ export function ThemeSwitcher() {
         <Button
           aria-label={getLabel()}
           onClick={() => setTheme(getNextTheme())}
-          size="icon"
+          size="lg-icon"
           variant="outline"
         >
           {getIcon()}

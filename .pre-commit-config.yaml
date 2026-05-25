@@ -7,12 +7,18 @@ exclude: |
       tests/expected/.*
   )$
 
+ci:
+  autofix_commit_msg: "chore(fmt): apply pre-commit formatting fixes"
+  autoupdate_commit_msg: "chore(deps): autoupdate pre-commit"
+
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v5.0.0
+    rev: v6.0.0
     hooks:
       - id: check-added-large-files
+      - id: check-case-conflict
       - id: check-executables-have-shebangs
+      - id: check-illegal-windows-names
       - id: check-json
         exclude: ".+/tsconfig.json"
       - id: check-shebang-scripts-are-executable
@@ -28,10 +34,19 @@ repos:
       - id: trailing-whitespace
 
   - repo: https://github.com/Lucas-C/pre-commit-hooks
-    rev: v1.5.5
+    rev: v1.5.6
     hooks:
       - id: forbid-tabs
       - id: remove-tabs
+
+  - repo: https://github.com/sirosen/texthooks
+    rev: 0.7.1
+    hooks:
+      - id: fix-smartquotes
+      - id: fix-spaces
+      - id: fix-unicode-dashes
+      - id: fix-ligatures
+      - id: forbid-bidi-controls
 
   - repo: local
     hooks:
@@ -42,9 +57,30 @@ repos:
         language: rust
         pass_filenames: false
 
+      - id: sync-martin-version
+        name: Sync martin Version
+        description: "Update martin-ui package.json version from martin Cargo.toml"
+        entry: |
+          bash -c '
+            VERSION=$(grep "^version = " martin/Cargo.toml | sed "s/version = \"\(.*\)\"/\1/")
+            sed -i "s/version\": \".*\"/version\": \"$VERSION\"/" martin/martin-ui/package.json
+            sed -i "s%ghcr.io/maplibre/martin:[^[:space:]]*%ghcr.io/maplibre/martin:$VERSION%" docs/content/run-with-docker-compose.md
+            sed -i "s%ghcr.io/maplibre/martin:[^[:space:]]*%ghcr.io/maplibre/martin:$VERSION%" docs/content/run-with-nginx.md
+            sed -i "s%ghcr.io/maplibre/martin:[^[:space:]]*%ghcr.io/maplibre/martin:$VERSION%" docs/content/run-with-docker.md
+            sed -i "s%ghcr.io/maplibre/martin:[^[:space:]]* %ghcr.io/maplibre/martin:$VERSION %" docs/content/installation.md
+            sed -i "s%ghcr.io/maplibre/martin:[^[:space:]]* %ghcr.io/maplibre/martin:$VERSION %" docs/content/run-with-lambda.md
+            sed -i "s%ghcr.io/maplibre/martin:[^[:space:]]* %ghcr.io/maplibre/martin:$VERSION %" justfile
+            sed -i "s%ghcr.io/maplibre/martin:[^[:space:]]*%ghcr.io/maplibre/martin:$VERSION%" demo/docker-compose.yml
+            echo "Synced version to $VERSION"
+          '
+        language: system
+        files: ^martin/Cargo\.toml$
+        pass_filenames: false
+
   - repo: https://github.com/sqlfluff/sqlfluff
-    rev: 3.4.2
+    rev: 4.2.1
     hooks:
+        # 1. Postgres dialect for general .sql files, excluding sqlite dirs
       - id: sqlfluff-fix
         # AL07: Avoid table aliases in from clauses and join conditions <- we sometimes do this for long names
         # LT05: Line is too long <- not useful. mostly triggers for comments
@@ -52,11 +88,44 @@ repos:
         # If you update this rule, please also update the rules in justfile, the fmt-sql recipe
         args: [ --dialect=postgres, "--exclude-rules=AL07,LT05,LT12" ]
         files: \.sql$
+        exclude: ^(tests/fixtures/(mbtiles|files)|mbtiles/sql)/.*\.sql$
+
+        # 2. SQLite dialect for .sql files in specific directories
+      - id: sqlfluff-fix
+        # LT01: Layout spacing adds space between x and 'blob' breaking the blobs
+        args: [--dialect=sqlite, "--exclude-rules=LT01,LT05"]
+        files: ^(tests/fixtures/(mbtiles|files)|mbtiles/sql)/.*\.sql$
+
   # NPM hooks for JavaScript/TypeScript formatting and linting
   - repo: https://github.com/biomejs/pre-commit
-    rev: "v2.1.2"  # Use the sha / tag you want to point at
+    rev: "v2.4.15"  # tag is auto-updated by pre-commit.ci and synced by sync-biome-version to all the places it needs to be
     hooks:
       - id: biome-check
-        additional_dependencies: [ "@biomejs/biome@2.1.2" ]
+        additional_dependencies: [ "@biomejs/biome@2.4.15" ]
       - id: biome-format
-        additional_dependencies: [ "@biomejs/biome@2.1.2" ]
+        additional_dependencies: [ "@biomejs/biome@2.4.15" ]
+
+  - repo: local
+    hooks:
+    - id: sync-biome-version
+      name: Sync Biome Version
+      description: "Update biome.json schema versions and additional_dependencies from pre-commit biome rev"
+      entry: |
+        bash -c '
+          set -euo pipefail
+          VERSION=$(grep "repo: https://github.com/biomejs" -A 1 .pre-commit-config.yaml | grep -v "VERSION=" | grep "rev:" | sed "s/.*rev: \"v\([0-9\.]*\)\".*/\1/")
+
+          sed -i "s%biomejs.dev/schemas/[^/]*/%biomejs.dev/schemas/$VERSION/%" biome.json
+          sed -i "s%biomejs.dev/schemas/[^/]*/%biomejs.dev/schemas/$VERSION/%" demo/frontend/biome.json
+          sed -i "s%biomejs.dev/schemas/[^/]*/%biomejs.dev/schemas/$VERSION/%" martin/martin-ui/biome.json
+          sed -i "s%\"@biomejs/biome\": \"[0-9.]*\"%\"@biomejs/biome\": \"$VERSION\"%" demo/frontend/package.json
+          sed -i "s%\"@biomejs/biome\": \"[0-9.]*\"%\"@biomejs/biome\": \"$VERSION\"%" martin/martin-ui/package.json
+          sed -i "/repo: https:\/\/github.com\/biomejs\/pre-commit/,$ s/@biomejs\/biome@[0-9.]*/@biomejs\/biome@$VERSION/g" .pre-commit-config.yaml
+
+          # Lock files are regenerated by the sync-lockfiles job in the autofix workflow,
+          # which has network access. pre-commit.ci is network-restricted.
+          echo "Synced Biome version to $VERSION"
+        '
+      language: system
+      files: ^\.pre-commit-config\.yaml$
+      pass_filenames: false

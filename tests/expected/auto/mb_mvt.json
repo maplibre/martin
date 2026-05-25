@@ -17,7 +17,7 @@
   "name": "Major cities from Natural Earth data",
   "tilejson": "3.0.0",
   "tiles": [
-    "http://localhost:3111/world_cities/{z}/{x}/{y}"
+    "http://localhost:3111/world_cities/{z}/{x}/{y}?version=2"
   ],
   "vector_layers": [
     {

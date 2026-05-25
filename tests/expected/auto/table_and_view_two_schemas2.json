@@ -1,0 +1,23 @@
+{
+  "bounds": [
+    0.0012741833,
+    9.88181e-05,
+    0.0012921496,
+    0.0001169055
+  ],
+  "description": "schema_b.table_and_view_two_schemas.b_geom",
+  "name": "table_and_view_two_schemas.1",
+  "tilejson": "3.0.0",
+  "tiles": [
+    "http://localhost:3111/table_and_view_two_schemas.1/{z}/{x}/{y}"
+  ],
+  "vector_layers": [
+    {
+      "fields": {
+        "b_id": "int4",
+        "b_info": "text"
+      },
+      "id": "table_and_view_two_schemas.1"
+    }
+  ]
+}

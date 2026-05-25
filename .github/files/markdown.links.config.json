@@ -1,4 +1,5 @@
 {
+  "fallbackRetryDelay": "2000ms",
   "httpHeaders": [
     {
       "headers": {
@@ -31,6 +32,7 @@
       "replacement": ""
     }
   ],
+  "retryCount": 10,
   "retryOn429": true,
   "timeout": "3s"
 }

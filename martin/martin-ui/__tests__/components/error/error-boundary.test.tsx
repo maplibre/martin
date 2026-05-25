@@ -1,12 +1,13 @@
 import { fireEvent, screen } from '@testing-library/react';
+import { afterAll, beforeAll, describe, expect, it, type MockInstance, vi } from 'vitest';
 import { ErrorBoundary } from '@/components/error/error-boundary';
 import { render } from '../../test-utils';
 
 // Silence React error boundary logs for cleaner test output
-let consoleErrorSpy: jest.SpyInstance;
+let consoleErrorSpy: MockInstance;
 
 beforeAll(() => {
-  consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+  consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 });
 
 afterAll(() => {
@@ -29,7 +30,7 @@ describe('ErrorBoundary', () => {
       </ErrorBoundary>,
     );
     expect(container).toMatchSnapshot();
-    expect(screen.getByText('Safe content')).toBeInTheDocument();
+    expect(screen.getByText('Safe content')).toBeTruthy();
   });
 
   it('catches errors and renders default fallback UI', () => {
@@ -39,18 +40,18 @@ describe('ErrorBoundary', () => {
       </ErrorBoundary>,
     );
     expect(container).toMatchSnapshot();
-    expect(screen.getByText('Something went wrong')).toBeInTheDocument();
+    expect(screen.getByText('Something went wrong')).toBeTruthy();
     expect(
       screen.getByText(
         'An unexpected error occurred. Please try again or contact support if the problem persists.',
       ),
-    ).toBeInTheDocument();
-    expect(screen.getByText('Test error thrown!')).toBeInTheDocument();
-    expect(screen.getByText('Try Again')).toBeInTheDocument();
+    ).toBeTruthy();
+    expect(screen.getByText('Test error thrown!')).toBeTruthy();
+    expect(screen.getByText('Try Again')).toBeTruthy();
   });
 
   it('calls onError prop when error is caught', () => {
-    const onError = jest.fn();
+    const onError = vi.fn();
     render(
       <ErrorBoundary onError={onError}>
         <ProblemChild shouldThrow />
@@ -78,9 +79,9 @@ describe('ErrorBoundary', () => {
       </ErrorBoundary>,
     );
     expect(container).toMatchSnapshot();
-    expect(screen.getByText('Custom fallback!')).toBeInTheDocument();
-    expect(screen.getByText('Test error thrown!')).toBeInTheDocument();
-    expect(screen.getByText('Retry now')).toBeInTheDocument();
+    expect(screen.getByText('Custom fallback!')).toBeTruthy();
+    expect(screen.getByText('Test error thrown!')).toBeTruthy();
+    expect(screen.getByText('Retry now')).toBeTruthy();
   });
 
   it('resets error state and retries when retry button is clicked (default fallback)', () => {
@@ -92,7 +93,7 @@ describe('ErrorBoundary', () => {
       </ErrorBoundary>,
     );
     // Should show error fallback
-    expect(screen.getByText('Something went wrong')).toBeInTheDocument();
+    expect(screen.getByText('Something went wrong')).toBeTruthy();
 
     // Click retry
     fireEvent.click(screen.getByText('Try Again'));
@@ -106,8 +107,8 @@ describe('ErrorBoundary', () => {
     );
 
     expect(container).toMatchSnapshot();
-    expect(screen.queryByText('Something went wrong')).not.toBeInTheDocument();
-    expect(screen.getByText('All good')).toBeInTheDocument();
+    expect(screen.queryByText('Something went wrong')).toBeNull();
+    expect(screen.getByText('All good')).toBeTruthy();
   });
 
   it('resets error state and retries when retry button is clicked (custom fallback)', () => {
@@ -127,7 +128,7 @@ describe('ErrorBoundary', () => {
         <ProblemChild shouldThrow />
       </ErrorBoundary>,
     );
-    expect(screen.getByText('Custom fallback!')).toBeInTheDocument();
+    expect(screen.getByText('Custom fallback!')).toBeTruthy();
 
     // Click retry
     fireEvent.click(screen.getByText('Retry now'));
@@ -141,7 +142,7 @@ describe('ErrorBoundary', () => {
     );
 
     expect(container).toMatchSnapshot();
-    expect(screen.queryByText('Custom fallback!')).not.toBeInTheDocument();
-    expect(screen.getByText('All good')).toBeInTheDocument();
+    expect(screen.queryByText('Custom fallback!')).toBeNull();
+    expect(screen.getByText('All good')).toBeTruthy();
   });
 });

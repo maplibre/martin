@@ -1,0 +1,6 @@
+---
+source: martin-core/src/tiles/cog/image.rs
+expression: png_bytes
+extension: png
+snapshot_kind: binary
+---

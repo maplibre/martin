@@ -1,7 +1,8 @@
-use futures::{StreamExt, TryStreamExt};
+#![allow(clippy::unwrap_used)]
+use futures::{StreamExt as _, TryStreamExt as _};
 use martin_tile_utils::{Tile, TileCoord};
 use mbtiles::{MbtError, Mbtiles, create_metadata_table};
-use sqlx::{Executor as _, SqliteConnection, query};
+use sqlx::{AssertSqlSafe, Executor as _, SqliteConnection, query};
 
 fn coord_key(coord: &TileCoord) -> (u8, u32, u32) {
     let TileCoord { z, x, y } = *coord;
@@ -15,7 +16,7 @@ fn tile_key(tile: &Tile) -> (u8, u32, u32) {
 async fn new(rows: &[&str]) -> (Mbtiles, SqliteConnection) {
     let mbtiles = Mbtiles::new(":memory:").unwrap();
     let mut conn = mbtiles.open().await.unwrap();
-    create_metadata_table(&mut conn).await.unwrap();
+    create_metadata_table(&mut conn, false).await.unwrap();
 
     conn.execute(
         "CREATE TABLE tiles (
@@ -33,7 +34,10 @@ async fn new(rows: &[&str]) -> (Mbtiles, SqliteConnection) {
             "INSERT INTO tiles (zoom_level, tile_column, tile_row, tile_data)
             VALUES ({row});"
         );
-        query(&sql).execute(&mut conn).await.expect(&sql);
+        query(AssertSqlSafe(sql.as_str()))
+            .execute(&mut conn)
+            .await
+            .expect(&sql);
     }
 
     (mbtiles, conn)

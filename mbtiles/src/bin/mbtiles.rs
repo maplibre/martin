@@ -1,14 +1,23 @@
+#![expect(
+    clippy::print_stdout,
+    reason = "binary entrypoint writes results to stdout"
+)]
+
+use std::io::IsTerminal as _;
 use std::path::{Path, PathBuf};
 
 use clap::builder::Styles;
 use clap::builder::styling::AnsiColor;
-use clap::{Parser, Subcommand};
-use log::error;
+use clap::{Parser, Subcommand, ValueEnum};
+use enum_display::EnumDisplay;
 use mbtiles::{
     AggHashType, CopyDuplicateMode, CopyType, IntegrityCheckType, MbtResult, MbtTypeCli, Mbtiles,
     MbtilesCopier, PatchTypeCli, UpdateZoomType, apply_patch,
 };
+use serde::{Deserialize, Serialize};
 use tilejson::Bounds;
+use tracing::error;
+use tracing_subscriber::EnvFilter;
 
 /// Defines the styles used for the CLI help output.
 const HELP_STYLES: Styles = Styles::styled()
@@ -22,7 +31,7 @@ const HELP_STYLES: Styles = Styles::styled()
     version,
     name = "mbtiles",
     about = "A utility to work with .mbtiles file content",
-    after_help = "Use RUST_LOG environment variable to control logging level, e.g. RUST_LOG=debug or RUST_LOG=mbtiles=debug. See https://docs.rs/env_logger/latest/env_logger/index.html#enabling-logging for more information.",
+    after_help = "Use RUST_LOG environment variable to control logging level, e.g. RUST_LOG=debug or RUST_LOG=mbtiles=debug. See https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.EnvFilter.html for more information.",
     styles = HELP_STYLES
 )]
 pub struct Args {
@@ -33,12 +42,27 @@ pub struct Args {
     command: Commands,
 }
 
-#[allow(clippy::doc_markdown)]
+#[derive(
+    Default, Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, EnumDisplay, ValueEnum,
+)]
+#[enum_display(case = "Kebab")]
+pub enum OutputFormat {
+    #[default]
+    Text,
+    Json,
+    #[value(alias("pretty-json"))]
+    JsonPretty,
+}
+
 #[derive(Subcommand, PartialEq, Debug)]
 enum Commands {
     /// Show `MBTiles` file summary statistics
     #[command(name = "summary", alias = "info")]
-    Summary { file: PathBuf },
+    Summary {
+        file: PathBuf,
+        #[arg(short, long, value_enum, default_value_t=OutputFormat::default())]
+        format: OutputFormat,
+    },
     /// Prints all values in the metadata table in a free-style, unstable YAML format
     #[command(name = "meta-all")]
     MetaAll {
@@ -94,7 +118,7 @@ enum Commands {
     Validate {
         /// `MBTiles` file to validate
         file: PathBuf,
-        /// Value to specify the extent of the SQLite integrity check performed
+        /// Value to specify the extent of the `SQLite` integrity check performed
         #[arg(long, value_enum, default_value_t=IntegrityCheckType::default())]
         integrity_check: IntegrityCheckType,
         /// Update `agg_tiles_hash` metadata value instead of using it to validate if the entire tile store is valid.
@@ -106,7 +130,6 @@ enum Commands {
     },
 }
 
-#[allow(clippy::doc_markdown)]
 #[derive(Clone, Default, PartialEq, Debug, clap::Args)]
 pub struct CopyArgs {
     /// `MBTiles` file to read from
@@ -130,7 +153,6 @@ pub struct CopyArgs {
     patch_type: PatchTypeCli,
 }
 
-#[allow(clippy::doc_markdown)]
 #[derive(Clone, Default, PartialEq, Debug, clap::Args)]
 pub struct DiffArgs {
     /// First `MBTiles` file to compare
@@ -147,13 +169,20 @@ pub struct DiffArgs {
     pub options: SharedCopyOpts,
 }
 
-#[allow(clippy::doc_markdown)]
+#[expect(
+    clippy::doc_markdown,
+    reason = "for command line arguments, formatting `TileJSON` is awkward"
+)]
 #[derive(Clone, Default, PartialEq, Debug, clap::Args)]
+#[expect(clippy::struct_excessive_bools, reason = "CLI interface")]
 pub struct SharedCopyOpts {
     /// Limit what gets copied.
     /// When copying tiles only, the agg_tiles_hash will still be updated unless --skip-agg-tiles-hash is set.
     #[arg(long, value_name = "TYPE", default_value_t=CopyType::default())]
     copy: CopyType,
+    /// Use `SQLite` `STRICT` tables when creating a new destination file.
+    #[arg(long)]
+    strict: bool,
     /// Output format of the destination file, ignored if the file exists. If not specified, defaults to the type of source
     #[arg(long, alias = "dst-type", alias = "dst_type", value_name = "SCHEMA")]
     mbtiles_type: Option<MbtTypeCli>,
@@ -209,6 +238,7 @@ impl SharedCopyOpts {
             skip_agg_tiles_hash: self.skip_agg_tiles_hash,
             force: self.force,
             validate: self.validate,
+            strict: self.strict,
             // Constants
             dst_type: None, // Taken from dst_type_cli
         }
@@ -217,12 +247,16 @@ impl SharedCopyOpts {
 
 #[tokio::main]
 async fn main() {
-    let env = env_logger::Env::default().default_filter_or("mbtiles=info");
-    env_logger::Builder::from_env(env)
-        .format_indent(None)
-        .format_module_path(false)
-        .format_target(false)
-        .format_timestamp(None)
+    let env_filter = EnvFilter::builder()
+        .with_default_directive("mbtiles=info".parse().expect("valid default directive"))
+        .from_env_lossy();
+    tracing_subscriber::fmt()
+        .compact()
+        .without_time()
+        .with_target(false)
+        .with_ansi(std::io::stderr().is_terminal())
+        .with_writer(std::io::stderr)
+        .with_env_filter(env_filter)
         .init();
 
     if let Err(err) = main_int().await {
@@ -294,11 +328,15 @@ async fn main_int() -> anyhow::Result<()> {
             let mbt = Mbtiles::new(file.as_path())?;
             mbt.open_and_validate(integrity_check, agg_hash).await?;
         }
-        Commands::Summary { file } => {
+        Commands::Summary { file, format } => {
             let mbt = Mbtiles::new(file.as_path())?;
             let mut conn = mbt.open_readonly().await?;
-            println!("MBTiles file summary for {mbt}");
-            println!("{}", mbt.summary(&mut conn).await?);
+            let summary = mbt.summary(&mut conn).await?;
+            match format {
+                OutputFormat::Text => println!("{summary}"),
+                OutputFormat::Json => println!("{}", serde_json::to_string(&summary)?),
+                OutputFormat::JsonPretty => println!("{}", serde_json::to_string_pretty(&summary)?),
+            }
         }
     }
 
@@ -309,7 +347,17 @@ async fn meta_print_all(file: &Path) -> anyhow::Result<()> {
     let mbt = Mbtiles::new(file)?;
     let mut conn = mbt.open_readonly().await?;
     let metadata = mbt.get_metadata(&mut conn).await?;
-    println!("{}", serde_yaml::to_string(&metadata)?);
+    print!("{}", serde_yaml::to_string(&metadata)?);
+    let tile_info = mbt.detect_format(&metadata.tilejson, &mut conn).await?;
+    // For compatibility, pretend tile_info is part of metadata YAML output
+    if let Some(tile_info) = tile_info {
+        let encoding = tile_info.encoding.compression().unwrap_or("''");
+        println!("tile_info:");
+        println!("  format: {}", tile_info.format);
+        println!("  encoding: {encoding}");
+    } else {
+        println!("tile_info: null");
+    }
     Ok(())
 }
 
@@ -336,7 +384,7 @@ async fn meta_set_value(file: &Path, key: &str, value: Option<&str>) -> MbtResul
 mod tests {
     use std::path::PathBuf;
 
-    use clap::Parser;
+    use clap::Parser as _;
     use clap::error::ErrorKind;
     use mbtiles::CopyDuplicateMode;
 
@@ -391,6 +439,25 @@ mod tests {
                     options: SharedCopyOpts {
                         min_zoom: Some(1),
                         max_zoom: Some(100),
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                })
+            }
+        );
+    }
+
+    #[test]
+    fn test_copy_strict_argument() {
+        assert_eq!(
+            Args::parse_from(["mbtiles", "copy", "src_file", "dst_file", "--strict"]),
+            Args {
+                verbose: false,
+                command: Copy(CopyArgs {
+                    src_file: PathBuf::from("src_file"),
+                    dst_file: PathBuf::from("dst_file"),
+                    options: SharedCopyOpts {
+                        strict: true,
                         ..Default::default()
                     },
                     ..Default::default()

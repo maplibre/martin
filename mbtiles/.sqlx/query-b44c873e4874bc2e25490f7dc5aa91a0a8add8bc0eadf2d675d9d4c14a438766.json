@@ -1,0 +1,18 @@
+{
+  "db_name": "SQLite",
+  "describe": {
+    "columns": [
+      {
+        "name": "tile_data",
+        "ordinal": 0,
+        "type_info": "Blob"
+      }
+    ],
+    "nullable": [true],
+    "parameters": {
+      "Right": 0
+    }
+  },
+  "hash": "b44c873e4874bc2e25490f7dc5aa91a0a8add8bc0eadf2d675d9d4c14a438766",
+  "query": "SELECT tile_data FROM tiles WHERE tile_data IS NOT NULL LIMIT 1"
+}

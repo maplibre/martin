@@ -1,22 +1,21 @@
-#![cfg(feature = "postgres")]
+#![cfg(all(
+    feature = "test-pg",
+    not(feature = "fonts"),
+    not(feature = "sprites"),
+    not(feature = "styles")
+))]
 
 use actix_http::Request;
 use actix_web::http::StatusCode;
 use actix_web::test::{TestRequest, call_and_read_body_json, call_service, read_body};
-use ctor::ctor;
 use indoc::indoc;
 use insta::assert_yaml_snapshot;
-use martin::OptOneMany;
-use martin::srv::SrvConfig;
+use martin::config::file::srv::SrvConfig;
+use martin::config::primitives::OptOneMany;
 use tilejson::TileJSON;
 
 pub mod utils;
 pub use utils::*;
-
-#[ctor]
-fn init() {
-    let _ = env_logger::builder().is_test(true).try_init();
-}
 
 macro_rules! create_app {
     ($sources:expr) => {{
@@ -25,10 +24,13 @@ macro_rules! create_app {
         ::actix_web::test::init_service(
             ::actix_web::App::new()
                 .app_data(actix_web::web::Data::new(
-                    ::martin::srv::Catalog::new(&state).unwrap(),
+                    ::martin::srv::Catalog::new(
+                        #[cfg(any(feature = "sprites", feature = "fonts", feature = "styles"))]
+                        &state,
+                    )
+                    .unwrap(),
                 ))
-                .app_data(actix_web::web::Data::new(::martin::NO_MAIN_CACHE))
-                .app_data(actix_web::web::Data::new(state.tiles))
+                .app_data(actix_web::web::Data::new(state.tile_manager))
                 .app_data(actix_web::web::Data::new(SrvConfig::default()))
                 .configure(|c| ::martin::srv::router(c, &SrvConfig::default())),
         )
@@ -41,6 +43,7 @@ fn test_get(path: &str) -> Request {
 }
 
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn pg_get_catalog() {
     let app = create_app! { "
 postgres:
@@ -53,9 +56,7 @@ postgres:
     let body = read_body(response).await;
     let body: serde_json::Value = serde_json::from_slice(&body).unwrap();
     assert_yaml_snapshot!(body, @r#"
-    fonts: {}
-    sprites: {}
-    styles: {}
+    settings: {}
     tiles:
       "-function.withweired---_-characters":
         content_type: application/x-protobuf
@@ -66,12 +67,18 @@ postgres:
       MixPoints:
         content_type: application/x-protobuf
         description: a description from comment on table
+      antimeridian:
+        content_type: application/x-protobuf
+        description: public.antimeridian.geom
       auto_table:
         content_type: application/x-protobuf
         description: autodetect.auto_table.geom
       bigint_table:
         content_type: application/x-protobuf
         description: autodetect.bigint_table.geom
+      empty_bounds:
+        content_type: application/x-protobuf
+        description: public.empty_bounds.geom
       function_Mixed_Name:
         content_type: application/x-protobuf
         description: a function source with MixedCase name
@@ -101,12 +108,24 @@ postgres:
       function_zxy_query_test:
         content_type: application/x-protobuf
         description: public.function_zxy_query_test
+      function_zxy_raster:
+        content_type: image/png
+        description: a raster tile function source
       function_zxy_row:
         content_type: application/x-protobuf
         description: public.function_zxy_row
       function_zxy_row_key:
         content_type: application/x-protobuf
         description: public.function_zxy_row_key
+      linestring_bounds:
+        content_type: application/x-protobuf
+        description: public.linestring_bounds.geom
+      linestring_bounds_vertical:
+        content_type: application/x-protobuf
+        description: public.linestring_bounds_vertical.geom
+      point_bounds:
+        content_type: application/x-protobuf
+        description: public.point_bounds.geom
       points1:
         content_type: application/x-protobuf
         description: public.points1.geom
@@ -120,6 +139,12 @@ postgres:
       points3857:
         content_type: application/x-protobuf
         description: public.points3857.geom
+      table_name_existing_two_schemas:
+        content_type: application/x-protobuf
+        description: schema_a.table_name_existing_two_schemas.a_geom
+      table_name_existing_two_schemas.1:
+        content_type: application/x-protobuf
+        description: schema_b.table_name_existing_two_schemas.b_geom
       table_source:
         content_type: application/x-protobuf
       table_source_geog:
@@ -130,12 +155,20 @@ postgres:
       table_source_multiple_geom.1:
         content_type: application/x-protobuf
         description: public.table_source_multiple_geom.geom2
+      view_name_existing_two_schemas:
+        content_type: application/x-protobuf
+        description: schema_a.view_name_existing_two_schemas.a_geom
+      view_name_existing_two_schemas.1:
+        content_type: application/x-protobuf
+        description: schema_b.view_name_existing_two_schemas.b_geom
     "#);
 }
 
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn pg_get_table_source_ok() {
     let app = create_app! { "
+on_invalid: warn
 postgres:
   connection_string: $DATABASE_URL
   tables:
@@ -169,6 +202,7 @@ postgres:
 }
 
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn pg_get_table_source_rewrite() {
     let app = create_app! { "
 postgres:
@@ -187,7 +221,7 @@ postgres:
 
     let req = TestRequest::get()
         .uri("/table_source?token=martin")
-        .insert_header(("x-rewrite-url", "/tiles/table_source?token=martin"))
+        .insert_header(("X-Rewrite-URL", "/tiles/table_source?token=martin"))
         .to_request();
     let result: TileJSON = call_and_read_body_json(&app, req).await;
     assert_yaml_snapshot!(result, @r#"
@@ -210,6 +244,7 @@ postgres:
 }
 
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn pg_get_table_source_tile_ok() {
     let app = create_app! { "
 postgres:
@@ -300,6 +335,7 @@ postgres:
 }
 
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn pg_get_table_source_multiple_geom_tile_ok() {
     let app = create_app! { "
 postgres:
@@ -390,6 +426,7 @@ postgres:
 }
 
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn pg_get_table_source_tile_minmax_zoom_ok() {
     let app = create_app! { "
 postgres:
@@ -498,6 +535,7 @@ postgres:
 }
 
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn pg_get_function_tiles() {
     let app = create_app! { "
 postgres:
@@ -530,6 +568,7 @@ postgres:
 }
 
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn pg_get_composite_source_ok() {
     let app = create_app! { "
 postgres:
@@ -619,6 +658,7 @@ postgres:
 }
 
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn pg_get_composite_source_tile_ok() {
     let app = create_app! { "
 postgres:
@@ -709,6 +749,7 @@ postgres:
 }
 
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn pg_get_composite_source_tile_minmax_zoom_ok() {
     let app = create_app! { "
 postgres:
@@ -775,6 +816,7 @@ postgres:
 }
 
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn pg_null_functions() {
     let app = create_app! { "
 postgres:
@@ -795,6 +837,7 @@ postgres:
 }
 
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn pg_get_function_source_ok() {
     let app = create_app! { "
 postgres:
@@ -839,6 +882,7 @@ postgres:
 }
 
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn pg_get_function_source_ok_rewrite() {
     let app = create_app! { "
 postgres:
@@ -847,7 +891,7 @@ postgres:
 
     let req = TestRequest::get()
         .uri("/function_zxy_query?token=martin")
-        .insert_header(("x-rewrite-url", "/tiles/function_zxy_query?token=martin"))
+        .insert_header(("X-Rewrite-URL", "/tiles/function_zxy_query?token=martin"))
         .to_request();
     let result: TileJSON = call_and_read_body_json(&app, req).await;
     assert_eq!(
@@ -857,6 +901,7 @@ postgres:
 }
 
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn pg_get_function_source_ok_rewrite_all() {
     let app = create_app! { "
 postgres:
@@ -877,6 +922,7 @@ postgres:
 }
 
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn pg_get_function_source_tile_ok() {
     let app = create_app! { "
 postgres:
@@ -889,6 +935,7 @@ postgres:
 }
 
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn pg_get_function_source_tile_minmax_zoom_ok() {
     let app = create_app! {"
 postgres:
@@ -947,6 +994,7 @@ postgres:
 }
 
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn pg_get_function_source_query_params_ok() {
     let app = create_app! { "
 postgres:
@@ -963,6 +1011,7 @@ postgres:
 }
 
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn pg_get_health_returns_ok() {
     let app = create_app! { "
 postgres:
@@ -975,6 +1024,7 @@ postgres:
 }
 
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn pg_tables_feature_id() {
     let cfg = mock_pgcfg(indoc! {"
 connection_string: $DATABASE_URL
@@ -1098,10 +1148,13 @@ tables:
     let app = ::actix_web::test::init_service(
         ::actix_web::App::new()
             .app_data(actix_web::web::Data::new(
-                ::martin::srv::Catalog::new(&state).unwrap(),
+                ::martin::srv::Catalog::new(
+                    #[cfg(any(feature = "sprites", feature = "fonts", feature = "styles"))]
+                    &state,
+                )
+                .unwrap(),
             ))
-            .app_data(actix_web::web::Data::new(::martin::NO_MAIN_CACHE))
-            .app_data(actix_web::web::Data::new(state.tiles))
+            .app_data(actix_web::web::Data::new(state.tile_manager))
             .app_data(actix_web::web::Data::new(SrvConfig::default()))
             .configure(|c| ::martin::srv::router(c, &SrvConfig::default())),
     )

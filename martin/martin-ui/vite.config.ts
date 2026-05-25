@@ -1,9 +1,11 @@
 import path from 'node:path';
+import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  base: './', // A relative path supports the `route-prefix` config
   build: {
     // assets can also be the name of a tile source
     // so we use /_/assets to avoid conflicts
@@ -11,15 +13,18 @@ export default defineConfig({
     outDir: 'dist',
     rollupOptions: {
       output: {
-        manualChunks: {
-          maplibre: ['maplibre-gl', '@vis.gl/react-maplibre', '@maplibre/maplibre-gl-inspect'],
+        manualChunks: (id) => {
+          if (id.includes('maplibre')) {
+            return 'maplibre';
+          }
+          return undefined;
         },
       },
     },
     sourcemap: true,
   },
   envPrefix: 'VITE_',
-  plugins: [react()],
+  plugins: [react(), tailwindcss()],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),

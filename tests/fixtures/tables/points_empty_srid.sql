@@ -11,7 +11,7 @@ CREATE TABLE points_empty_srid
 -- SELECT generate_series(4, 30) as id,
 --        (ST_DUMP(ST_GENERATEPOINTS(ST_TRANSFORM(st_tileenvelope(0, 0, 0), 900913), 27))).geom;
 --
--- To dump the data above, uncomment code the above, comment the INSERT code bellow, and run:
+-- To dump the data above, uncomment code the above, comment the INSERT code below, and run:
 --   just restart
 --   just pg_dump --data-only --inserts --rows-per-insert=100 --table=points_empty_srid
 

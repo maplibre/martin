@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
-use log::{debug, info, warn};
-use sqlx::{Connection as _, query};
+use sqlx::{AssertSqlSafe, Connection as _, query};
+use tracing::{debug, info, warn};
 
 use crate::MbtType::{Flat, FlatWithHash, Normalized};
 use crate::queries::detach_db;
@@ -10,6 +10,7 @@ use crate::{
     MbtType, Mbtiles,
 };
 
+#[hotpath::measure]
 pub async fn apply_patch(base_file: PathBuf, patch_file: PathBuf, force: bool) -> MbtResult<()> {
     let base_mbt = Mbtiles::new(base_file)?;
     let patch_mbt = Mbtiles::new(patch_file)?;
@@ -52,14 +53,14 @@ pub async fn apply_patch(base_file: PathBuf, patch_file: PathBuf, force: bool) -
 
     patch_mbt.attach_to(&mut conn, "patchDb").await?;
     let select_from = get_select_from(base_info.mbt_type, patch_type);
-    let (main_table, insert1, insert2) = get_insert_sql(base_info.mbt_type, select_from);
+    let (main_table, insert1, insert2) = get_insert_sql(base_info.mbt_type, &select_from);
 
     let sql = format!("{insert1} WHERE tile_data NOTNULL");
-    query(&sql).execute(&mut conn).await?;
+    query(AssertSqlSafe(sql)).execute(&mut conn).await?;
 
     if let Some(insert2) = insert2 {
         let sql = format!("{insert2} WHERE tile_data NOTNULL");
-        query(&sql).execute(&mut conn).await?;
+        query(AssertSqlSafe(sql)).execute(&mut conn).await?;
     }
 
     let sql = format!(
@@ -69,12 +70,19 @@ pub async fn apply_patch(base_file: PathBuf, patch_file: PathBuf, force: bool) -
         SELECT zoom_level, tile_column, tile_row FROM ({select_from} WHERE tile_data ISNULL)
     )"
     );
-    query(&sql).execute(&mut conn).await?;
+    query(AssertSqlSafe(sql)).execute(&mut conn).await?;
 
-    if base_info.mbt_type.is_normalized() {
+    if let Some(schema) = base_info.mbt_type.normalized_schema() {
         debug!("Removing unused tiles from the images table (normalized schema)");
-        let sql = "DELETE FROM images WHERE tile_id NOT IN (SELECT tile_id FROM map)";
-        query(sql).execute(&mut conn).await?;
+        let (map, img, id) = (
+            schema.map_table(),
+            schema.content_table(),
+            schema.tile_id_column(),
+        );
+        let sql = format!(
+            "DELETE FROM {img} WHERE NOT EXISTS (SELECT 1 FROM {map} WHERE {map}.{id} = {img}.{id})"
+        );
+        query(AssertSqlSafe(sql)).execute(&mut conn).await?;
     }
 
     // Copy metadata from patchDb to the destination file, replacing existing values
@@ -88,7 +96,7 @@ pub async fn apply_patch(base_file: PathBuf, patch_file: PathBuf, force: bool) -
     FROM patchDb.metadata
     WHERE name NOTNULL AND name NOT IN ('{AGG_TILES_HASH}', '{AGG_TILES_HASH_BEFORE_APPLY}');"
     );
-    query(&sql).execute(&mut conn).await?;
+    query(AssertSqlSafe(sql)).execute(&mut conn).await?;
 
     let sql = "
     DELETE FROM metadata
@@ -98,35 +106,35 @@ pub async fn apply_patch(base_file: PathBuf, patch_file: PathBuf, force: bool) -
     detach_db(&mut conn, "patchDb").await
 }
 
-fn get_select_from(src_type: MbtType, patch_type: MbtType) -> &'static str {
+fn get_select_from(src_type: MbtType, patch_type: MbtType) -> String {
     if src_type == Flat {
-        "SELECT zoom_level, tile_column, tile_row, tile_data FROM patchDb.tiles"
+        "SELECT zoom_level, tile_column, tile_row, tile_data FROM patchDb.tiles".to_string()
     } else {
         match patch_type {
-            Flat => {
-                "
+            Flat => "
         SELECT zoom_level, tile_column, tile_row, tile_data, md5_hex(tile_data) as hash
         FROM patchDb.tiles"
-            }
-            FlatWithHash => {
-                "
+                .to_string(),
+            FlatWithHash
+            | Normalized {
+                schema: _,
+                hash_view: true,
+            } => "
         SELECT zoom_level, tile_column, tile_row, tile_data, tile_hash AS hash
         FROM patchDb.tiles_with_hash"
-            }
-            Normalized { .. } => {
-                "
-        SELECT zoom_level, tile_column, tile_row, tile_data, map.tile_id AS hash
-        FROM patchDb.map LEFT JOIN patchDb.images
-          ON patchDb.map.tile_id = patchDb.images.tile_id"
-            }
+                .to_string(),
+            Normalized {
+                schema,
+                hash_view: false,
+            } => schema.select_tiles_sql("patchDb", "hash", "LEFT JOIN"),
         }
     }
 }
 
-fn get_insert_sql(src_type: MbtType, select_from: &str) -> (&'static str, String, Option<String>) {
+fn get_insert_sql(src_type: MbtType, select_from: &str) -> (String, String, Option<String>) {
     match src_type {
         Flat => (
-            "tiles",
+            "tiles".to_string(),
             format!(
                 "
     INSERT OR REPLACE INTO tiles (zoom_level, tile_column, tile_row, tile_data)
@@ -135,7 +143,7 @@ fn get_insert_sql(src_type: MbtType, select_from: &str) -> (&'static str, String
             None,
         ),
         FlatWithHash => (
-            "tiles_with_hash",
+            "tiles_with_hash".to_string(),
             format!(
                 "
     INSERT OR REPLACE INTO tiles_with_hash (zoom_level, tile_column, tile_row, tile_data, tile_hash)
@@ -143,21 +151,28 @@ fn get_insert_sql(src_type: MbtType, select_from: &str) -> (&'static str, String
             ),
             None,
         ),
-        Normalized { .. } => (
-            "map",
-            format!(
-                "
-    INSERT OR REPLACE INTO map (zoom_level, tile_column, tile_row, tile_id)
-    SELECT zoom_level, tile_column, tile_row, hash as tile_id
+        Normalized { schema, .. } => {
+            let (map, img, id) = (
+                schema.map_table(),
+                schema.content_table(),
+                schema.tile_id_column(),
+            );
+            (
+                map.to_string(),
+                format!(
+                    "
+    INSERT OR REPLACE INTO {map} (zoom_level, tile_column, tile_row, {id})
+    SELECT zoom_level, tile_column, tile_row, hash as {id}
     FROM ({select_from})"
-            ),
-            Some(format!(
-                "
-    INSERT OR REPLACE INTO images (tile_id, tile_data)
-    SELECT hash as tile_id, tile_data
+                ),
+                Some(format!(
+                    "
+    INSERT OR REPLACE INTO {img} ({id}, tile_data)
+    SELECT hash as {id}, tile_data
     FROM ({select_from})"
-            )),
-        ),
+                )),
+            )
+        }
     }
 }
 
@@ -167,71 +182,79 @@ mod tests {
 
     use super::*;
     use crate::MbtilesCopier;
+    use crate::metadata::temp_named_mbtiles;
 
     #[actix_rt::test]
-    async fn apply_flat_patch_file() -> MbtResult<()> {
+    async fn apply_flat_patch_file() {
         // Copy the src file to an in-memory DB
-        let src_file = PathBuf::from("../tests/fixtures/mbtiles/world_cities.mbtiles");
-        let src = PathBuf::from("file:apply_flat_diff_file_mem_db?mode=memory&cache=shared");
+        let script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
+        let (_mbt, _conn, src_file) = temp_named_mbtiles("flat_src_file_mem", script).await;
+
+        let dst_file = PathBuf::from("file:apply_flat_patch_file?mode=memory&cache=shared");
 
         let mut src_conn = MbtilesCopier {
             src_file: src_file.clone(),
-            dst_file: src.clone(),
+            dst_file: dst_file.clone(),
             ..Default::default()
         }
         .run()
-        .await?;
+        .await
+        .unwrap();
 
         // Apply patch to the src data in in-memory DB
-        let patch_file = PathBuf::from("../tests/fixtures/mbtiles/world_cities_diff.mbtiles");
-        apply_patch(src, patch_file, true).await?;
+        let script = include_str!("../../tests/fixtures/mbtiles/world_cities_diff.sql");
+        let (_mbt, _conn, patch_file) = temp_named_mbtiles("flat_patch_file_mem", script).await;
+        apply_patch(dst_file, patch_file, true).await.unwrap();
 
         // Verify the data is the same as the file the patch was generated from
-        Mbtiles::new("../tests/fixtures/mbtiles/world_cities_modified.mbtiles")?
-            .attach_to(&mut src_conn, "testOtherDb")
-            .await?;
+        let script = include_str!("../../tests/fixtures/mbtiles/world_cities_modified.sql");
+        let (mbt, _conn, _) = temp_named_mbtiles("flat_attached_mem_db", script).await;
+        mbt.attach_to(&mut src_conn, "testOtherDb").await.unwrap();
 
         assert!(
             src_conn
                 .fetch_optional("SELECT * FROM tiles EXCEPT SELECT * FROM testOtherDb.tiles;")
-                .await?
+                .await
+                .unwrap()
                 .is_none()
         );
-
-        Ok(())
     }
 
     #[actix_rt::test]
-    async fn apply_normalized_patch_file() -> MbtResult<()> {
+    async fn apply_normalized_patch_file() {
         // Copy the src file to an in-memory DB
-        let src_file = PathBuf::from("../tests/fixtures/mbtiles/geography-class-jpg.mbtiles");
-        let src = PathBuf::from("file:apply_normalized_diff_file_mem_db?mode=memory&cache=shared");
+        let script = include_str!("../../tests/fixtures/mbtiles/geography-class-jpg.sql");
+        let (_mbt, _conn, src_file) = temp_named_mbtiles("normalized_src_file_mem", script).await;
+
+        let dst_file =
+            PathBuf::from("file:apply_normalized_diff_file_mem_db?mode=memory&cache=shared");
 
         let mut src_conn = MbtilesCopier {
             src_file: src_file.clone(),
-            dst_file: src.clone(),
+            dst_file: dst_file.clone(),
             ..Default::default()
         }
         .run()
-        .await?;
+        .await
+        .unwrap();
 
         // Apply patch to the src data in in-memory DB
-        let patch_file =
-            PathBuf::from("../tests/fixtures/mbtiles/geography-class-jpg-diff.mbtiles");
-        apply_patch(src, patch_file, true).await?;
+        let script = include_str!("../../tests/fixtures/mbtiles/geography-class-jpg-diff.sql");
+        let (_mbt, _conn, patch_file) =
+            temp_named_mbtiles("normalized_patch_file_mem", script).await;
+        apply_patch(dst_file, patch_file, true).await.unwrap();
 
         // Verify the data is the same as the file the patch was generated from
-        Mbtiles::new("../tests/fixtures/mbtiles/geography-class-jpg-modified.mbtiles")?
-            .attach_to(&mut src_conn, "testOtherDb")
-            .await?;
+        let script = include_str!("../../tests/fixtures/mbtiles/geography-class-jpg-modified.sql");
+        let (mbt, _conn, _) = temp_named_mbtiles("normalized_attached_mem_db", script).await;
+        mbt.attach_to(&mut src_conn, "testOtherDb").await.unwrap();
 
         assert!(
             src_conn
                 .fetch_optional("SELECT * FROM tiles EXCEPT SELECT * FROM testOtherDb.tiles;")
-                .await?
+                .await
+                .unwrap()
                 .is_none()
         );
-
-        Ok(())
     }
 }

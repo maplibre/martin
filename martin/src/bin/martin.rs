@@ -1,11 +1,32 @@
-use clap::Parser;
-use log::{error, info, log_enabled};
-use martin::args::{Args, OsEnv};
+#![expect(
+    clippy::print_stderr,
+    reason = "binary entrypoint reports startup errors to stderr"
+)]
+
+use std::env;
+
+use clap::Parser as _;
+use martin::MartinResult;
+use martin::config::args::Args;
+#[cfg(all(feature = "webui", not(docsrs)))]
+use martin::config::args::WebUiMode;
+#[cfg(feature = "mbtiles")]
+use martin::config::file::ProcessConfig;
+#[cfg(feature = "mbtiles")]
+use martin::config::file::reload::mbtiles::MBTilesReloader;
+use martin::config::file::{Config, read_config};
+#[cfg(feature = "_tiles")]
+use martin::config::primitives::IdResolver;
+use martin::config::primitives::env::OsEnv;
+use martin::logging::{LogFormat, ensure_martin_core_log_level_matches, init_tracing};
+#[cfg(feature = "_tiles")]
+use martin::srv::RESERVED_KEYWORDS;
 use martin::srv::new_server;
-use martin::{Config, MartinResult, read_config};
+use tracing::{error, info};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
+#[hotpath::measure]
 async fn start(args: Args) -> MartinResult<()> {
     info!("Starting Martin v{VERSION}");
 
@@ -19,46 +40,90 @@ async fn start(args: Args) -> MartinResult<()> {
         Config::default()
     };
 
-    args.merge_into_config(&mut config, &env)?;
+    args.merge_into_config(
+        &mut config,
+        #[cfg(feature = "postgres")]
+        &env,
+    )?;
     config.finalize()?;
-    let sources = config.resolve().await?;
+
+    #[cfg(feature = "_tiles")]
+    let resolver = IdResolver::new(RESERVED_KEYWORDS);
+
+    #[cfg(feature = "_catalog")]
+    let sources = config
+        .resolve(
+            #[cfg(feature = "_tiles")]
+            &resolver,
+        )
+        .await?;
+    #[cfg(feature = "mbtiles")]
+    let mgr = sources.tile_manager.clone();
+
+    #[cfg(feature = "mbtiles")]
+    {
+        #[cfg(feature = "mlt")]
+        let global_pc = ProcessConfig {
+            convert_to_mlt: config.convert_to_mlt.clone(),
+            convert_to_mvt: config.convert_to_mvt.clone(),
+        };
+        #[cfg(not(feature = "mlt"))]
+        let global_pc = ProcessConfig::default();
+        let reloader = MBTilesReloader::new(mgr, resolver, &config.mbtiles, &global_pc);
+        if let Err(e) = reloader.start() {
+            tracing::warn!("failed to start MBTilesReloader {e:?}");
+        }
+    }
 
     if let Some(file_name) = save_config {
-        config.save_to_file(file_name)?;
+        config.save_to_file(file_name.as_path())?;
     } else {
         info!("Use --save-config to save or print Martin configuration.");
     }
 
-    #[cfg(feature = "webui")]
+    #[cfg(all(feature = "webui", not(docsrs)))]
     let web_ui_mode = config.srv.web_ui.unwrap_or_default();
 
-    let (server, listen_addresses) = new_server(config.srv, sources)?;
-    info!("Martin has been started on {listen_addresses}.");
-    info!("Use http://{listen_addresses}/catalog to get the list of available sources.");
+    let route_prefix = config.srv.route_prefix.clone();
+    let (server, listen_addresses) = new_server(
+        config.srv,
+        #[cfg(feature = "_catalog")]
+        sources,
+    )?;
+    let base_url = if let Some(ref prefix) = route_prefix {
+        format!("http://{listen_addresses}{prefix}/")
+    } else {
+        format!("http://{listen_addresses}/")
+    };
 
-    #[cfg(feature = "webui")]
-    if web_ui_mode == martin::args::WebUiMode::EnableForAll {
-        log::warn!("Web UI is enabled for all connections at http://{listen_addresses}/");
+    #[cfg(all(feature = "webui", not(docsrs)))]
+    if web_ui_mode == WebUiMode::EnableForAll {
+        tracing::info!("Martin server is now active at {base_url}");
     } else {
         info!(
             "Web UI is disabled. Use `--webui enable-for-all` in CLI or a config value to enable it for all connections."
         );
     }
+    #[cfg(not(all(feature = "webui", not(docsrs))))]
+    info!("Martin server is now active. See {base_url}catalog to see available services");
 
     server.await
 }
 
-#[actix_web::main]
+#[tokio::main]
+#[hotpath::main]
 async fn main() {
-    let env = env_logger::Env::default().default_filter_or("martin=info");
-    env_logger::Builder::from_env(env).init();
+    let filter = ensure_martin_core_log_level_matches(env::var("RUST_LOG").ok(), "martin=");
+    let log_format = LogFormat::from_env();
+    init_tracing(&filter, log_format, false);
 
-    if let Err(e) = start(Args::parse()).await {
-        // Ensure the message is printed, even if the logging is disabled
-        if log_enabled!(log::Level::Error) {
-            error!("{e}");
+    let args = Args::parse();
+    if let Err(e) = start(args).await {
+        let rendered = e.render_diagnostic_with(log_format);
+        if tracing::event_enabled!(tracing::Level::ERROR) {
+            error!("{rendered}");
         } else {
-            eprintln!("{e}");
+            eprintln!("{rendered}");
         }
         std::process::exit(1);
     }

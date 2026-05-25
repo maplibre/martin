@@ -6,17 +6,18 @@ use std::time::Instant;
 
 use enum_display::EnumDisplay;
 use flume::{Receiver, Sender, bounded};
-use futures::TryStreamExt;
-use log::{debug, error, info};
+use futures::TryStreamExt as _;
 use martin_tile_utils::{TileCoord, decode_brotli, decode_gzip, encode_brotli, encode_gzip};
 use serde::{Deserialize, Serialize};
 use sqlite_compressions::{BsdiffRawDiffer, Differ as _};
-use sqlx::{Executor, Row, SqliteConnection, query};
+use sqlx::{AssertSqlSafe, Executor as _, Row as _, SqliteConnection, query};
+use tracing::{debug, error, info};
 use xxhash_rust::xxh3::xxh3_64;
 
 use crate::MbtType::{Flat, FlatWithHash, Normalized};
 use crate::PatchType::{BinDiffGz, BinDiffRaw};
-use crate::{MbtError, MbtResult, MbtType, Mbtiles, create_bsdiffraw_tables, get_bsdiff_tbl_name};
+use crate::queries::create_bsdiffraw_tables;
+use crate::{MbtError, MbtResult, MbtType, Mbtiles, get_bsdiff_tbl_name};
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, EnumDisplay)]
 #[enum_display(case = "Kebab")]
@@ -113,20 +114,25 @@ async fn recv_and_insert<S: Send + 'static, T: Send + 'static, P: BinDiffer<S, T
         if inserted % 100 == 0 {
             conn.execute("COMMIT").await?;
             if last_report_ts.elapsed().as_secs() >= 10 {
-                info!("Processed {inserted} bindiff tiles");
+                info!(bindiff.inserted = inserted, "Processed bindiff tiles");
                 last_report_ts = Instant::now();
             }
             conn.execute("BEGIN").await?;
         }
     }
     conn.execute("COMMIT").await?;
-    info!("Finished processing {inserted} bindiff tiles");
+    info!(
+        bindiff.inserted = inserted,
+        "Finished processing bindiff tiles"
+    );
 
     Ok(())
 }
 
-// Both tx and rcv must be consumed, or it will run forever
-#[allow(clippy::needless_pass_by_value)]
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "Both tx and rcv must be consumed, or it will run forever"
+)]
 fn start_processor_threads<S: Send + 'static, T: Send + 'static, P: BinDiffer<S, T>>(
     patcher: Arc<P>,
     rx_wrk: Receiver<S>,
@@ -134,7 +140,7 @@ fn start_processor_threads<S: Send + 'static, T: Send + 'static, P: BinDiffer<S,
     has_errors: Arc<AtomicBool>,
 ) {
     let cpus = num_cpus::get();
-    info!("Processing bindiff patches using {cpus} threads...");
+    info!(bindiff.cpus = cpus, "Processing bindiff patches");
     (0..cpus).for_each(|_| {
         let rx_wrk = rx_wrk.clone();
         let tx_ins = tx_ins.clone();
@@ -177,6 +183,7 @@ pub struct BinDiffDiffer {
     dif_mbt: Mbtiles,
     dif_type: MbtType,
     patch_type: PatchType,
+    strict: bool,
     insert_sql: String,
 }
 
@@ -186,6 +193,7 @@ impl BinDiffDiffer {
         dif_mbt: Mbtiles,
         dif_type: MbtType,
         patch_type: PatchType,
+        strict: bool,
     ) -> Self {
         let insert_sql = format!(
             "INSERT INTO {}(zoom_level, tile_column, tile_row, patch_data, tile_xxh3_64_hash) VALUES (?, ?, ?, ?, ?)",
@@ -196,6 +204,7 @@ impl BinDiffDiffer {
             dif_mbt,
             dif_type,
             patch_type,
+            strict,
             insert_sql,
         }
     }
@@ -203,14 +212,20 @@ impl BinDiffDiffer {
 
 impl BinDiffer<DifferBefore, DifferAfter> for BinDiffDiffer {
     async fn query(&self, sql_where: String, tx_wrk: Sender<DifferBefore>) -> MbtResult<()> {
-        let diff_tiles = match self.dif_type {
-            Flat => "diffDb.tiles",
-            FlatWithHash => "diffDb.tiles_with_hash",
-            Normalized { .. } => {
-                "
-        (SELECT zoom_level, tile_column, tile_row, tile_data, map.tile_id AS tile_hash
-        FROM diffDb.map JOIN diffDb.images ON diffDb.map.tile_id = diffDb.images.tile_id)"
-            }
+        let diff_tiles: String = match self.dif_type {
+            Flat => "diffDb.tiles".to_string(),
+            FlatWithHash
+            | Normalized {
+                schema: _,
+                hash_view: true,
+            } => "diffDb.tiles_with_hash".to_string(),
+            Normalized {
+                schema,
+                hash_view: false,
+            } => format!(
+                "({})",
+                schema.select_tiles_sql("diffDb", "tile_hash", "JOIN")
+            ),
         };
 
         let sql = format!(
@@ -230,7 +245,7 @@ impl BinDiffer<DifferBefore, DifferAfter> for BinDiffDiffer {
         let mut conn = self.src_mbt.open_readonly().await?;
         self.dif_mbt.attach_to(&mut conn, "diffDb").await?;
         debug!("Querying source data with {sql}");
-        let mut rows = query(&sql).fetch(&mut conn);
+        let mut rows = query(AssertSqlSafe(sql)).fetch(&mut conn);
 
         while let Some(row) = rows.try_next().await? {
             let work = DifferBefore {
@@ -255,10 +270,10 @@ impl BinDiffer<DifferBefore, DifferAfter> for BinDiffDiffer {
         let mut new_tile = value.new_tile_data;
         if self.patch_type == BinDiffGz {
             old_tile = decode_gzip(&old_tile).inspect_err(|e| {
-                error!("Unable to gzip-decode source tile {:?}: {e}", value.coord);
+                error!(tile.coord = ?value.coord, error = %e, "Unable to gzip-decode source tile");
             })?;
             new_tile = decode_gzip(&new_tile).inspect_err(|e| {
-                error!("Unable to gzip-decode diff tile {:?}: {e}", value.coord);
+                error!(tile.coord = ?value.coord, error = %e, "Unable to gzip-decode diff tile");
             })?;
         }
         let new_tile_hash = xxh3_64(&new_tile);
@@ -273,12 +288,15 @@ impl BinDiffer<DifferBefore, DifferAfter> for BinDiffDiffer {
     }
 
     async fn before_insert(&self, conn: &mut SqliteConnection) -> MbtResult<()> {
-        create_bsdiffraw_tables(conn, self.patch_type).await
+        create_bsdiffraw_tables(conn, self.patch_type, self.strict).await
     }
 
     async fn insert(&self, value: DifferAfter, conn: &mut SqliteConnection) -> MbtResult<()> {
-        #[allow(clippy::cast_possible_wrap)]
-        query(self.insert_sql.as_str())
+        #[expect(
+            clippy::cast_possible_wrap,
+            reason = "the hash wrapping does not change the invariants and sqlite does not support u64"
+        )]
+        query(AssertSqlSafe(self.insert_sql.clone()))
             .bind(value.coord.z)
             .bind(value.coord.x)
             .bind(value.coord.y)
@@ -347,7 +365,7 @@ impl BinDiffer<ApplierBefore, ApplierAfter> for BinDiffPatcher {
         let mut conn = self.src_mbt.open_readonly().await?;
         self.dif_mbt.attach_to(&mut conn, "diffDb").await?;
         debug!("Querying {tbl} table with {sql}");
-        let mut rows = query(&sql).fetch(&mut conn);
+        let mut rows = query(AssertSqlSafe(sql)).fetch(&mut conn);
 
         while let Some(row) = rows.try_next().await? {
             let work = ApplierBefore {
@@ -358,7 +376,7 @@ impl BinDiffer<ApplierBefore, ApplierAfter> for BinDiffPatcher {
                 },
                 old_tile: row.get(3),
                 patch_data: row.get(4),
-                #[allow(clippy::cast_sign_loss)]
+                #[expect(clippy::cast_sign_loss)]
                 uncompressed_tile_hash: row.get::<i64, _>(5) as u64,
             };
             if tx_wrk.send_async(work).await.is_err() {
@@ -372,17 +390,19 @@ impl BinDiffer<ApplierBefore, ApplierAfter> for BinDiffPatcher {
     fn process(&self, value: ApplierBefore) -> MbtResult<ApplierAfter> {
         let old_tile = if self.patch_type == BinDiffGz {
             decode_gzip(&value.old_tile).inspect_err(|e| {
-                error!("Unable to gzip-decode source tile {:?}: {e}", value.coord);
+                error!(tile.coord = ?value.coord, error = %e, "Unable to gzip-decode source tile");
             })?
         } else {
             value.old_tile
         };
 
-        let patch_data = decode_brotli(&value.patch_data)
-            .inspect_err(|e| error!("Unable to brotli-decode patch data {:?}: {e}", value.coord))?;
+        let patch_data = decode_brotli(&value.patch_data).inspect_err(
+            |e| error!(tile.coord = ?value.coord, error = %e, "Unable to brotli-decode patch data"),
+        )?;
 
-        let mut new_tile = BsdiffRawDiffer::patch(&old_tile, &patch_data)
-            .inspect_err(|e| error!("Unable to patch tile {:?}: {e}", value.coord))?;
+        let mut new_tile = BsdiffRawDiffer::patch(&old_tile, &patch_data).inspect_err(
+            |e| error!(tile.coord = ?value.coord, error = %e, "Unable to patch tile"),
+        )?;
 
         // Verify the hash of the patched tile is what we expect
         let new_tile_hash = xxh3_64(&new_tile);

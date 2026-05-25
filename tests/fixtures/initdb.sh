@@ -7,6 +7,27 @@ echo "##########################################################################
 echo "Loading Martin test fixtures into '${DATABASE_URL:-${PGDATABASE:-(local db)}}'"
 echo "################################################################################################"
 
+# Wait for database to be ready with retry logic
+MAX_RETRIES=30
+RETRY_DELAY=2
+retry_count=0
+
+echo "Waiting for database to be ready..."
+while [ $retry_count -lt $MAX_RETRIES ]; do
+  if psql -P pager=off -v ON_ERROR_STOP=1 -c "SELECT 1;" > /dev/null 2>&1; then
+    echo "Database is ready after $((retry_count + 1)) attempt(s)"
+    break
+  fi
+
+  retry_count=$((retry_count + 1))
+  if [ $retry_count -eq $MAX_RETRIES ]; then
+    echo "ERROR: Database failed to become ready after $MAX_RETRIES attempts"
+    exit 1
+  fi
+
+  echo "Database not ready yet (attempt $retry_count/$MAX_RETRIES), retrying in ${RETRY_DELAY}s..."
+  sleep $RETRY_DELAY
+done
 
 psql -P pager=off -v ON_ERROR_STOP=1 -c "CREATE EXTENSION IF NOT EXISTS postgis;"
 # see https://github.com/postgis/docker-postgis/issues/187
