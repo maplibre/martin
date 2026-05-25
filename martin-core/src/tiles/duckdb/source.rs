@@ -4,7 +4,7 @@ use crate::tiles::duckdb::{DuckDBPool, DuckDBResult};
 use crate::tiles::{BoxedSource, MartinCoreResult, Source, UrlQuery};
 use async_trait::async_trait;
 use duckdb::params;
-use duckdb::{Connection, OptionalExt};
+use duckdb::{Connection, OptionalExt as _};
 use martin_tile_utils::{TileCoord, TileData, TileInfo};
 use tilejson::TileJSON;
 use tracing::{debug, instrument};
@@ -22,6 +22,7 @@ pub struct DuckDBSource {
 
 impl DuckDBSource {
     /// Creates a new `DuckDBFile` tile source.
+    #[must_use] 
     pub fn new(
         id: String,
         info: DuckDBSqlInfo,

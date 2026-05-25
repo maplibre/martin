@@ -36,7 +36,7 @@ impl DuckDBPool {
         )
     }
 
-    /// Creates an in-memory pool for a local GeoParquet source.
+    /// Creates an in-memory pool for a local `GeoParquet` source.
     pub async fn new_local_geoparquet(
         id: String,
         path: PathBuf,
@@ -53,7 +53,7 @@ impl DuckDBPool {
         )
     }
 
-    /// Creates an in-memory pool for a remote GeoParquet source.
+    /// Creates an in-memory pool for a remote `GeoParquet` source.
     pub async fn new_remote_geoparquet(
         id: String,
         url: String,
@@ -101,7 +101,7 @@ impl DuckDBPool {
     /// Runs blocking work with a pooled connection and returns it to the pool afterwards.
     ///
     /// The closure runs on Tokio's blocking thread pool so callers keep async
-    /// threads free while interacting with synchronous DuckDB APIs.
+    /// threads free while interacting with synchronous `DuckDB` APIs.
     pub async fn generate_tile<T, F>(&self, f: F) -> DuckDBResult<T>
     where
         T: Send + 'static,

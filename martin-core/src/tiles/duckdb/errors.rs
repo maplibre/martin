@@ -10,27 +10,27 @@ use crate::tiles::UrlQuery;
 /// Result type for `DuckDB` operations.
 pub type DuckDBResult<T> = Result<T, DuckDBError>;
 
-/// Errors raised while creating pooled DuckDB connections.
+/// Errors raised while creating pooled `DuckDB` connections.
 #[derive(thiserror::Error, Debug)]
 pub enum DuckDBPoolManagerError {
     /// The blocking task used for connection setup failed.
     #[error("DuckDB pool creation failed: {0}")]
     Join(#[from] JoinError),
 
-    /// The DuckDB connection could not be opened.
+    /// The `DuckDB` connection could not be opened.
     #[error("Unable to open DuckDB connection for {location}: {source}")]
     Open {
-        /// Underlying DuckDB error.
+        /// Underlying `DuckDB` error.
         #[source]
         source: DuckdbError,
         /// Source location or identifier.
         location: String,
     },
 
-    /// A required DuckDB extension could not be loaded.
+    /// A required `DuckDB` extension could not be loaded.
     #[error("Unable to load DuckDB extension {extension} for {location}: {source}")]
     LoadExtension {
-        /// Underlying DuckDB error.
+        /// Underlying `DuckDB` error.
         #[source]
         source: DuckdbError,
         /// Extension name.
@@ -42,7 +42,7 @@ pub enum DuckDBPoolManagerError {
     /// A pool-wide session setting could not be applied.
     #[error("Unable to apply DuckDB setting {setting}={value} for {location}: {source}")]
     ApplySetting {
-        /// Underlying DuckDB error.
+        /// Underlying `DuckDB` error.
         #[source]
         source: DuckdbError,
         /// Setting name.
