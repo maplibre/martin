@@ -82,21 +82,20 @@ gen-schemas:
     set -euo pipefail
     mkdir -p schemas
     # Include `rendering` on Linux (the only platform it compiles on) so the
-    # spec covers all routes a release build serves. `MLN_PRECOMPILE=1` skips
-    # the slow C++ build by downloading a prebuilt maplibre-native.
+    # spec covers all routes a release build serves.
     feats=unstable-schemas
     case "$(uname -s)" in
         Linux) feats="$feats,rendering" ;;
     esac
-    MLN_PRECOMPILE=1 cargo run --quiet --no-default-features --features "$feats" \
+    cargo run --quiet --no-default-features --features "$feats" \
         --bin gen-schemas -- --target config      > schemas/config.json
-    MLN_PRECOMPILE=1 cargo run --quiet --no-default-features --features "$feats" \
+    cargo run --quiet --no-default-features --features "$feats" \
         --bin gen-schemas -- --target openapi     > schemas/openapi.json
     # The annotated config doc (markdown wrapping a fenced YAML block) is
     # derived from `schemas/config.json` and the `#[schemars(example = ...)]`
     # attributes - keep it generated and version-controlled so editors can lean
     # on it as a starting point.
-    MLN_PRECOMPILE=1 cargo run --quiet --no-default-features --features "$feats" \
+    cargo run --quiet --no-default-features --features "$feats" \
         --bin gen-schemas -- --target config-doc  > docs/content/files/generated_config.md
     # Regenerate `martin/martin-ui/src/lib/types.gen.ts` from the freshly
     # written `schemas/openapi.json`. Kept after the cargo runs so the spec
@@ -257,7 +256,7 @@ move-artifacts target:
 
 # Quick compile without building a binary
 check: (cargo-install 'cargo-hack')
-    MLN_PRECOMPILE=1 cargo hack --exclude-features _tiles,_catalog,__hotpath,__hotpath_tui check --all-targets --each-feature --workspace
+    cargo hack --exclude-features _tiles,_catalog,__hotpath,__hotpath_tui check --all-targets --each-feature --workspace
 
 # Verify cargo-binstall metadata resolves correctly
 check-binstall: (cargo-install 'cargo-binstall')
@@ -342,9 +341,9 @@ seed-render-fixtures:
     set -euo pipefail
     # Pre-build both test binaries so heavy downloads (e.g. the maplibre_native
     # blob from github.com) aren't captured into the cassette.
-    MLN_PRECOMPILE=1 cargo test -p martin-core --features rendering --test rendering_test --no-run
-    MLN_PRECOMPILE=1 cargo test -p martin --test styles_rendering_test --no-run
-    {{just}} _run-render-proxy record "MLN_PRECOMPILE=1 cargo test -p martin-core --features rendering --test rendering_test && MLN_PRECOMPILE=1 cargo test -p martin --test styles_rendering_test"
+    cargo test -p martin-core --features rendering --test rendering_test --no-run
+    cargo test -p martin --test styles_rendering_test --no-run
+    {{just}} _run-render-proxy record "cargo test -p martin-core --features rendering --test rendering_test && cargo test -p martin --test styles_rendering_test"
 
 # Generate code coverage report. Will install `cargo llvm-cov` if missing.
 coverage *args='--no-clean --open':  (cargo-install 'cargo-llvm-cov') clean start
@@ -359,7 +358,7 @@ coverage *args='--no-clean --open':  (cargo-install 'cargo-llvm-cov') clean star
     cargo llvm-cov clean --workspace
 
     echo "::group::Unit tests"
-    {{just}} with-render-cache '{{just}} test-cargo --all-targets && MLN_PRECOMPILE=1 cargo test -p martin-core --features rendering --test rendering_test'
+    {{just}} with-render-cache '{{just}} test-cargo --all-targets && cargo test -p martin-core --features rendering --test rendering_test'
     {{just}} test-pg
     echo "::endgroup::"
 
@@ -568,7 +567,7 @@ shear:
 
 # Run all tests using a test database
 test: start
-    {{just}} with-render-cache '{{just}} test-cargo --all-targets && MLN_PRECOMPILE=1 cargo test -p martin-core --features rendering --test rendering_test'
+    {{just}} with-render-cache '{{just}} test-cargo --all-targets && cargo test -p martin-core --features rendering --test rendering_test'
     {{just}} test-pg
     {{just}} test-doc
     {{just}} ui::test
@@ -582,11 +581,11 @@ test-pg: start
 
 # Run Rust unit tests (cargo test)
 test-cargo *args:
-    MLN_PRECOMPILE=1 cargo test {{args}}
+    cargo test {{args}}
 
 # Run Rust doc tests
 test-doc *args:
-    MLN_PRECOMPILE=1 cargo test --doc {{args}}
+    cargo test --doc {{args}}
 
 # Test code formatting
 test-fmt: (cargo-install 'cargo-sort') && (fmt-toml '--check' '--check-format')
