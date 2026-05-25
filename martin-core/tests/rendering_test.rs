@@ -49,7 +49,9 @@ async fn render_tile_with_fixtures(
     // _tmp must outlive the render call.
     let (_tmp, style_path) = rewrite_style(&style_dir.join(style_file));
     let mut styles = StyleSources::default();
-    styles.set_rendering_enabled(true);
+    styles
+        .enable_rendering(None)
+        .expect("spawn render pool for tests");
 
     let rendered = styles.render(style_path, z, x, y).await.unwrap();
     let rendered_img = rendered.as_image();

@@ -1,22 +1,61 @@
 #![cfg(all(feature = "rendering", target_os = "linux", feature = "styles"))]
 
 use std::path::{Path, PathBuf};
+use std::sync::LazyLock;
 
 use actix_web::http::header::{CONTENT_TYPE, LOCATION};
 use actix_web::test::{TestRequest, call_service, read_body};
-use indoc::indoc;
 use martin::config::file::srv::SrvConfig;
 use rstest::rstest;
 
 pub mod utils;
 pub use utils::*;
 
-const CONFIG_STYLES: &str = indoc! {"
-        styles:
-            rendering: true
-            sources:
-                maplibre_demo: ../tests/fixtures/styles/maplibre_demo.json
-    "};
+/// Upstreams reverse-proxied by the rendering cassette and their plain-HTTP
+/// ports. Must match `_run-render-proxy` in the justfile and `PROXIED_HOSTS`
+/// in `martin-core/tests/rendering_test.rs`.
+const PROXIED_HOSTS: &[(&str, u16)] = &[
+    ("https://demotiles.maplibre.org", 18081),
+    ("https://tiles.openfreemap.org", 18082),
+];
+
+/// Styles config used by every rendering test. It points at a copy of
+/// `maplibre_demo.json` whose upstream URLs are rewritten to the mitmproxy
+/// cassette (`just with-render-cache` / `just seed-render-fixtures`) whenever
+/// that proxy is listening, so renders replay recorded tiles instead of hitting
+/// the network. Without the proxy the original live URLs are kept, so the test
+/// still works when run bare. The rewritten style lives in a leaked temp dir
+/// for the lifetime of the test process.
+static CONFIG_STYLES: LazyLock<String> = LazyLock::new(build_styles_config);
+
+fn build_styles_config() -> String {
+    let original = Path::new("../tests/fixtures/styles/maplibre_demo.json");
+    let mut body = std::fs::read_to_string(original).expect("read maplibre_demo.json");
+    for &(host, port) in PROXIED_HOSTS {
+        if proxy_listening(port) {
+            body = body.replace(host, &format!("http://127.0.0.1:{port}"));
+        }
+    }
+    let dir = tempfile::tempdir().expect("create temp style dir").keep();
+    let style_path = dir.join("maplibre_demo.json");
+    std::fs::write(&style_path, body).expect("write rewritten style");
+    format!(
+        "styles:\n  rendering: true\n  sources:\n    maplibre_demo: {}\n",
+        style_path.display()
+    )
+}
+
+/// True when the cassette reverse-proxy is accepting connections on `port`.
+fn proxy_listening(port: u16) -> bool {
+    use std::net::{Ipv4Addr, SocketAddr, TcpStream};
+    use std::time::Duration;
+
+    TcpStream::connect_timeout(
+        &SocketAddr::from((Ipv4Addr::LOCALHOST, port)),
+        Duration::from_millis(200),
+    )
+    .is_ok()
+}
 
 macro_rules! create_app {
     ($sources:expr) => {{
@@ -55,10 +94,10 @@ const PNG_MAGIC: &[u8] = &[0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A];
 const JPEG_MAGIC: &[u8] = &[0xFF, 0xD8, 0xFF];
 
 #[rstest]
-#[case::single_style(CONFIG_STYLES, "/style/maplibre_demo/0/0/0.png")]
-#[case::single_style_zoom_1(CONFIG_STYLES, "/style/maplibre_demo/1/0/0.png")]
-#[case::single_style_corner(CONFIG_STYLES, "/style/maplibre_demo/1/1/0.png")]
-#[case::single_style_mid_zoom(CONFIG_STYLES, "/style/maplibre_demo/5/15/15.png")]
+#[case::single_style(CONFIG_STYLES.as_str(), "/style/maplibre_demo/0/0/0.png")]
+#[case::single_style_zoom_1(CONFIG_STYLES.as_str(), "/style/maplibre_demo/1/0/0.png")]
+#[case::single_style_corner(CONFIG_STYLES.as_str(), "/style/maplibre_demo/1/1/0.png")]
+#[case::single_style_mid_zoom(CONFIG_STYLES.as_str(), "/style/maplibre_demo/5/15/15.png")]
 #[tokio::test]
 #[tracing_test::traced_test]
 async fn render_tile_png(#[case] config: &str, #[case] path: &str) {
@@ -91,8 +130,8 @@ async fn render_tile_png(#[case] config: &str, #[case] path: &str) {
 }
 
 #[rstest]
-#[case::jpeg_ext(CONFIG_STYLES, "/style/maplibre_demo/0/0/0.jpg")]
-#[case::jpeg_zoom_1(CONFIG_STYLES, "/style/maplibre_demo/1/0/0.jpg")]
+#[case::jpeg_ext(CONFIG_STYLES.as_str(), "/style/maplibre_demo/0/0/0.jpg")]
+#[case::jpeg_zoom_1(CONFIG_STYLES.as_str(), "/style/maplibre_demo/1/0/0.jpg")]
 #[tokio::test]
 #[tracing_test::traced_test]
 async fn render_tile_jpeg(#[case] config: &str, #[case] path: &str) {
@@ -126,7 +165,7 @@ async fn render_tile_jpeg(#[case] config: &str, #[case] path: &str) {
 
 #[tokio::test]
 async fn render_tile_jpeg_redirects_to_jpg() {
-    let app = create_app! { CONFIG_STYLES };
+    let app = create_app! { CONFIG_STYLES.as_str() };
     let req = test_get("/style/maplibre_demo/0/0/0.jpeg").to_request();
     let resp = call_service(&app, req).await;
     assert_eq!(resp.status(), 301);
@@ -139,7 +178,7 @@ async fn render_tile_jpeg_redirects_to_jpg() {
 #[tokio::test]
 #[tracing_test::traced_test]
 async fn render_tile_not_found_style() {
-    let app = create_app! { CONFIG_STYLES };
+    let app = create_app! { CONFIG_STYLES.as_str() };
 
     let req = test_get("/style/nonexistent_style/0/0/0.png").to_request();
     let response = call_service(&app, req).await;
@@ -152,7 +191,7 @@ async fn render_tile_not_found_style() {
 #[tokio::test]
 #[tracing_test::traced_test]
 async fn render_tile_impossible() {
-    let app = create_app! { CONFIG_STYLES };
+    let app = create_app! { CONFIG_STYLES.as_str() };
 
     // 4000,4000 is not possible for zoom level 0
     let req = test_get("/style/maplibre_demo/0/4000/4000.png").to_request();
@@ -166,7 +205,7 @@ async fn render_tile_impossible() {
 #[tokio::test]
 #[tracing_test::traced_test]
 async fn render_different_tiles_differ() {
-    let app = create_app! { CONFIG_STYLES };
+    let app = create_app! { CONFIG_STYLES.as_str() };
 
     let req_a = test_get("/style/maplibre_demo/0/0/0.png").to_request();
     let resp_a = call_service(&app, req_a).await;
@@ -185,7 +224,7 @@ async fn render_different_tiles_differ() {
 #[tokio::test]
 #[tracing_test::traced_test]
 async fn render_concurrent_requests() {
-    let app = create_app! { CONFIG_STYLES };
+    let app = create_app! { CONFIG_STYLES.as_str() };
 
     let coords = [
         "/style/maplibre_demo/0/0/0.png",
@@ -233,7 +272,7 @@ async fn render_concurrent_requests() {
 const CAMERA_DIR: &str = "../tests/fixtures/static_camera";
 
 async fn png_response(uri: &str) -> Vec<u8> {
-    let app = create_app! { CONFIG_STYLES };
+    let app = create_app! { CONFIG_STYLES.as_str() };
     let req = test_get(uri).to_request();
     let resp = call_service(&app, req).await;
     let resp = assert_response(resp).await;
@@ -241,7 +280,7 @@ async fn png_response(uri: &str) -> Vec<u8> {
 }
 
 async fn jpeg_response(uri: &str) -> Vec<u8> {
-    let app = create_app! { CONFIG_STYLES };
+    let app = create_app! { CONFIG_STYLES.as_str() };
     let req = test_get(uri).to_request();
     let resp = call_service(&app, req).await;
     let resp = assert_response(resp).await;
