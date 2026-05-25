@@ -336,6 +336,8 @@ validate_log() {
   remove_lines "$LOG_FILE" 'Environment variable AWS_PROFILE not supported anymore. Supporting this is in scope, but would need more work.'
   # Debug builds are slower; table discovery may exceed the default bounds timeout on slow runners
   remove_lines "$LOG_FILE" 'Discovering tables in PostgreSQL database .* is taking too long'
+  # Tables/views without a usable spatial index or statistics fall back from the quick ST_EstimatedExtent to the exact bounds calculation
+  remove_lines "$LOG_FILE" 'ST_EstimatedExtent on .* failed, trying slower method to compute bounds'
 
   echo "Checking for no other warnings or errors in the log"
   if grep -e ' ERROR ' -e ' WARN ' "$LOG_FILE"; then

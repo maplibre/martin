@@ -279,22 +279,36 @@ async fn calc_bounds(
     let cn = pool.get().await?;
 
     if mode == BoundsCalcMode::Estimate {
-        // This method is faster but less accurate, and can fail in a number of cases (returns NULL).
-        // ST_EstimatedExtent matches its arguments against the catalog by raw name,
-        // so the unescaped schema/table/geometry column names are passed as parameters.
-        let bounds = cn
+        // ST_EstimatedExtent reads the index/statistics instead of scanning the table, and matches
+        // its arguments against the catalog by raw (unescaped) name. A degenerate point/line
+        // estimate is expanded into a polygon, like the exact calculation below. Any failure (an
+        // unparseable name, no index/statistics, a view, or a non-polygon result) falls back to the
+        // exact calculation rather than aborting.
+        let estimate = cn
             .query_one(
-                "SELECT ST_Transform(ST_SetSRID(ST_EstimatedExtent($1, $2, $3)::geometry, $4), 4326) as bounds",
+                r"
+SELECT ST_Transform(
+            ST_SetSRID(
+                CASE
+                    WHEN ST_GeometryType(ext) IN ('ST_Point', 'ST_LineString')
+                    THEN ST_Envelope(ST_Expand(ext, 1))
+                    ELSE ext
+                END,
+                $4),
+            4326) AS bounds
+FROM (SELECT ST_EstimatedExtent($1, $2, $3)::geometry AS ext) AS estimate;",
                 &[&info.schema, &info.table, &info.geometry_column, &srid],
             )
             .await
-            .map_err(|e| PostgresError(e, "querying table bounds"))?
-            .get::<_, Option<ewkb::Polygon>>("bounds");
-        if let Some(bounds) = bounds {
+            .ok()
+            .and_then(|row| {
+                row.try_get::<_, Option<ewkb::Polygon>>("bounds")
+                    .ok()
+                    .flatten()
+            });
+        if let Some(bounds) = estimate {
             return Ok(polygon_to_bbox(&bounds));
         }
-        // ST_EstimatedExtent returned NULL, probably because there is no index/statistics or it's a view.
-        // Fall back to the slower exact calculation.
         warn!(
             "ST_EstimatedExtent on {schema}.{table}.{} failed, trying slower method to compute bounds",
             info.geometry_column
