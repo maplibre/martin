@@ -107,6 +107,7 @@ default = [
     "metrics",
     "pmtiles",
     "postgres",
+    "duckdb",
     "rendering",
     "sprites",
     "styles",
@@ -128,6 +129,7 @@ postgres = [
     "dep:postgres-protocol",
     "_tiles",
 ]
+duckdb = ["martin-core/duckdb", "_tiles"]
 sprites = ["martin-core/sprites", "_catalog"]
 styles = ["martin-core/styles", "dep:walkdir", "_catalog"]
 webui = ["dep:actix-web-static-files", "dep:static-files", "dep:walkdir"]
