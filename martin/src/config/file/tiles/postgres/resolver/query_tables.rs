@@ -141,7 +141,7 @@ pub async fn table_to_query(
             BoundsCalcType::Skip => {}
             BoundsCalcType::Calc => {
                 debug!("Computing {} table bounds for {id}", info.format_id());
-                info.bounds = calc_bounds(&pool, &info, srid, false).await?;
+                info.bounds = calc_bounds(&pool, &info, srid, BoundsCalcMode::Exact).await?;
             }
             BoundsCalcType::Quick => {
                 debug!(
@@ -150,7 +150,7 @@ pub async fn table_to_query(
                     DEFAULT_BOUNDS_TIMEOUT.as_secs()
                 );
                 let bounds = {
-                    let bounds = calc_bounds(&pool, &info, srid, true);
+                    let bounds = calc_bounds(&pool, &info, srid, BoundsCalcMode::Estimate);
                     pin_mut!(bounds);
                     timeout(DEFAULT_BOUNDS_TIMEOUT, &mut bounds).await
                 };
@@ -258,30 +258,53 @@ FROM (
     ))
 }
 
+/// How [`calc_bounds`] should compute a table's geometry bounds.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum BoundsCalcMode {
+    /// Exact `ST_Extent` over the whole table. Accurate, but potentially slow on large or unindexed tables.
+    Exact,
+    /// Fast `ST_EstimatedExtent` from table statistics, falling back to [`Self::Exact`] when unavailable.
+    Estimate,
+}
+
 /// Compute the bounds of a table. This could be slow if the table is large or has no geo index.
 async fn calc_bounds(
     pool: &PostgresPool,
     info: &TableInfo,
     srid: i32,
-    mut is_quick: bool,
+    mode: BoundsCalcMode,
 ) -> PostgresResult<Option<Bounds>> {
     let schema = escape_identifier(&info.schema);
     let table = escape_identifier(&info.table);
-
     let cn = pool.get().await?;
-    loop {
-        let query = if is_quick {
-            // This method is faster but less accurate, and can fail in a number of cases (returns NULL)
-            // ST_EstimatedExtent matches its arguments against the catalog by raw name,
-            // so the unescaped schema/table/geometry column names are passed as parameters.
-            cn.query_one(
+
+    if mode == BoundsCalcMode::Estimate {
+        // This method is faster but less accurate, and can fail in a number of cases (returns NULL).
+        // ST_EstimatedExtent matches its arguments against the catalog by raw name,
+        // so the unescaped schema/table/geometry column names are passed as parameters.
+        let bounds = cn
+            .query_one(
                 "SELECT ST_Transform(ST_SetSRID(ST_EstimatedExtent($1, $2, $3)::geometry, $4), 4326) as bounds",
                 &[&info.schema, &info.table, &info.geometry_column, &srid],
-            ).await
-        } else {
-            let geometry_column = escape_identifier(&info.geometry_column);
-            cn.query_one(
-                &format!(r"
+            )
+            .await
+            .map_err(|e| PostgresError(e, "querying table bounds"))?
+            .get::<_, Option<ewkb::Polygon>>("bounds");
+        if let Some(bounds) = bounds {
+            return Ok(polygon_to_bbox(&bounds));
+        }
+        // ST_EstimatedExtent returned NULL, probably because there is no index/statistics or it's a view.
+        // Fall back to the slower exact calculation.
+        warn!(
+            "ST_EstimatedExtent on {schema}.{table}.{} failed, trying slower method to compute bounds",
+            info.geometry_column
+        );
+    }
+
+    let geometry_column = escape_identifier(&info.geometry_column);
+    Ok(cn
+        .query_one(
+            &format!(r"
 WITH real_bounds AS (SELECT ST_SetSRID(ST_Extent({geometry_column}::geometry), {srid}) AS rb FROM {schema}.{table})
 SELECT ST_Transform(
             CASE
@@ -292,28 +315,12 @@ SELECT ST_Transform(
             4326
         ) AS bounds
 FROM {schema}.{table};"),
-                &[]
-            ).await
-        };
-
-        if let Some(bounds) = query
-            .map_err(|e| PostgresError(e, "querying table bounds"))?
-            .get::<_, Option<ewkb::Polygon>>("bounds")
-        {
-            return Ok(polygon_to_bbox(&bounds));
-        }
-        if is_quick {
-            // ST_EstimatedExtent failed probably because there is no index or statistics or if it's a view
-            // This can only happen once if we are in quick mode
-            is_quick = false;
-            warn!(
-                "ST_EstimatedExtent on {schema}.{table}.{} failed, trying slower method to compute bounds",
-                info.geometry_column
-            );
-        } else {
-            return Ok(None);
-        }
-    }
+            &[],
+        )
+        .await
+        .map_err(|e| PostgresError(e, "querying table bounds"))?
+        .get::<_, Option<ewkb::Polygon>>("bounds")
+        .and_then(|p| polygon_to_bbox(&p)))
 }
 
 #[must_use]
