@@ -3,7 +3,7 @@
 //! A simplestyle-shaped `GeoJSON` `FeatureCollection` arrives on the request
 //! body and is deserialized here into martin-core's typed [`OverlaySpec`].
 //! Deserialization is an application concern, so all of it lives in this crate,
-//! not in martin-core — the core only ever sees the already-validated IR.
+//! not in martin-core -- the core only ever sees the already-validated IR.
 //!
 //! serde validates the envelope, the enums, and the numbers;
 //! [`RawOverlayProperties`] then folds the simplestyle aliases into the
@@ -13,12 +13,9 @@
 
 // Compiled standalone under the maplibre-free `overlay` feature so the parser
 // and its tests build without maplibre. The only non-test caller is
-// `styles_static` (rendering + linux), so dead-code is only meaningful — and
-// thus only enforced — in that configuration.
-#![cfg_attr(
-    not(all(feature = "rendering", target_os = "linux")),
-    allow(dead_code)
-)]
+// `styles_static` (rendering + linux), so dead-code is only meaningful -- and
+// thus only enforced -- in that configuration.
+#![cfg_attr(not(all(feature = "rendering", target_os = "linux")), allow(dead_code))]
 
 use martin_core::overlay::{
     Color, LineCap, LineJoin, OverlayFeature, OverlayProperties, OverlaySpec,
@@ -83,7 +80,10 @@ impl TryFrom<RawFeature> for OverlayFeature {
     fn try_from(raw: RawFeature) -> Result<Self, Self::Error> {
         Ok(Self {
             geometry: raw.geometry,
-            properties: raw.properties.map(OverlayProperties::try_from).transpose()?,
+            properties: raw
+                .properties
+                .map(OverlayProperties::try_from)
+                .transpose()?,
         })
     }
 }
@@ -180,7 +180,9 @@ impl TryFrom<RawOverlayProperties> for OverlayProperties {
         Ok(Self {
             circle_color: parse_color("circle-color", raw.circle_color.or(raw.marker_color))?,
             circle_opacity: raw.circle_opacity,
-            circle_radius: raw.circle_radius.or_else(|| raw.marker_size.map(MarkerSize::radius)),
+            circle_radius: raw
+                .circle_radius
+                .or_else(|| raw.marker_size.map(MarkerSize::radius)),
             circle_stroke_color: parse_color("circle-stroke-color", raw.circle_stroke_color)?,
             circle_stroke_opacity: raw.circle_stroke_opacity,
             circle_stroke_width: raw.circle_stroke_width,
@@ -264,7 +266,7 @@ mod tests {
 
     #[test]
     fn no_properties_leaves_all_fields_unset() {
-        // Defaults are applied at render time, not in the IR — so a bare point
+        // Defaults are applied at render time, not in the IR -- so a bare point
         // carries no style at all.
         let spec = parse(fc(json!([point(json!({}))]))).expect("parses");
         let props = only_feature_props(&spec);
@@ -285,8 +287,7 @@ mod tests {
 
     #[test]
     fn marker_color_alias_normalized_to_circle_color() {
-        let spec =
-            parse(fc(json!([point(json!({ "marker-color": "#ff0000" }))]))).expect("parses");
+        let spec = parse(fc(json!([point(json!({ "marker-color": "#ff0000" }))]))).expect("parses");
         let color = only_feature_props(&spec).circle_color.expect("color set");
         assert!((color.r - 1.0).abs() < 1e-3, "red from marker-color alias");
     }
@@ -349,7 +350,9 @@ mod tests {
     #[test]
     fn fill_alias_normalized_to_fill_color() {
         let spec = parse(fc(json!([point(json!({ "fill": "#00ff00" }))]))).expect("parses");
-        let color = only_feature_props(&spec).fill_color.expect("fill color set");
+        let color = only_feature_props(&spec)
+            .fill_color
+            .expect("fill color set");
         assert!((color.g - 1.0).abs() < 1e-3, "green from fill alias");
     }
 
@@ -366,7 +369,7 @@ mod tests {
 
     #[test]
     fn unknown_properties_silently_ignored() {
-        // id / name / foo / title / description are not styling properties — they
+        // id / name / foo / title / description are not styling properties -- they
         // must neither error nor leak into the parsed style.
         let spec = parse(fc(json!([point(json!({
             "id": 42,
@@ -421,7 +424,7 @@ mod tests {
     #[test]
     fn null_number_treated_as_absent() {
         // A present `null` is leniently treated as "unset" rather than a hard
-        // error — serde maps it onto the `Option` default.
+        // error -- serde maps it onto the `Option` default.
         let spec = parse(fc(json!([point(json!({ "circle-radius": null }))]))).expect("parses");
         assert_eq!(only_feature_props(&spec).circle_radius, None);
     }

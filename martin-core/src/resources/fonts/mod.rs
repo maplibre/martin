@@ -104,8 +104,17 @@ pub type FontCatalog = HashMap<String, CatalogFontEntry>;
 /// The string serialization (serde and `strum`) is the lowercase file
 /// extension, so [`FontFormat::VARIANTS`] doubles as the list of recognised
 /// font extensions and [`str::parse`] maps an extension back to a variant.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
-#[derive(strum::EnumString, strum::VariantNames)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    Serialize,
+    Deserialize,
+    PartialEq,
+    Eq,
+    strum::EnumString,
+    strum::VariantNames,
+)]
 #[serde(rename_all = "lowercase")]
 #[strum(serialize_all = "lowercase")]
 #[cfg_attr(

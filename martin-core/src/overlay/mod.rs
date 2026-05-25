@@ -2,8 +2,8 @@
 //! decorated with.
 //!
 //! [`OverlaySpec`] is a pre-validated `GeoJSON` `FeatureCollection`. The wire
-//! format — the simplestyle aliases, the CSS-color strings, the
-//! `FeatureCollection` envelope — is an application concern, so the `martin`
+//! format -- the simplestyle aliases, the CSS-color strings, the
+//! `FeatureCollection` envelope -- is an application concern, so the `martin`
 //! crate owns deserialization and builds these types from a request body.
 //! martin-core only ever sees the already-valid IR. The geometry→layer fan-out
 //! and the simplestyle paint defaults are a rendering concern and live in
