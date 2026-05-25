@@ -183,7 +183,7 @@ impl PMTilesReloader {
         let interval = config.reload_interval;
 
         // Local watcher and remote poller each own their state inside their spawned
-        // task — splitting the reloader avoids a shared mutex.
+        // task -- splitting the reloader avoids a shared mutex.
         if !directories.is_empty() {
             let (tx, mut rx) = mpsc::channel::<Event>(256);
             let mut watcher = RecommendedWatcher::new(
@@ -557,7 +557,7 @@ mod tests {
             custom: PmtConfig::default(),
         });
         let r = make_reloader(&cfg);
-        // Remote single-file sources are tracked elsewhere (resolve_files) — the reloader
+        // Remote single-file sources are tracked elsewhere (resolve_files) -- the reloader
         // does not need to re-list them.
         assert!(r.sources.is_empty());
         assert!(r.remote_prefixes.is_empty());

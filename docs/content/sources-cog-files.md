@@ -77,7 +77,7 @@ cog:
 
 ## COG Hot Reload
 
-Martin watches directories configured under `cog` for changes at runtime. When `.tif` or `.tiff` files are added, modified, or removed from a watched directory, Martin automatically updates the tile catalog — no restart required.
+Martin watches directories configured under `cog` for changes at runtime. When `.tif` or `.tiff` files are added, modified, or removed from a watched directory, Martin automatically updates the tile catalog -- no restart required.
 
 ```yaml
 cog:
