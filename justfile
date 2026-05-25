@@ -304,7 +304,7 @@ _run-render-proxy mode *cmd: install-mitmproxy
         replay)
             [ -s "$CASSETTE" ] || { echo >&2 "missing cassette $CASSETTE - run \`just seed-render-fixtures\`"; exit 1; }
             MITM_ARGS=(--server-replay "$CASSETTE" \
-                       --set server_replay_extra=kill \
+                       --set server_replay_extra=forward \
                        --set server_replay_reuse=true)
             ;;
         record)
@@ -333,14 +333,17 @@ _run-render-proxy mode *cmd: install-mitmproxy
 with-render-cache *cmd: (_run-render-proxy "replay" cmd)
 
 # Re-record the rendering cassette against live upstreams. Commit the result.
+# Records both rendering test binaries so the cassette covers every upstream
+# request either of them makes.
 [linux]
 seed-render-fixtures:
     #!/usr/bin/env bash
     set -euo pipefail
-    # Pre-build so the maplibre_native blob download from github.com isn't
-    # captured into the cassette.
-    MLN_PRECOMPILE=1 cargo test -p martin-core --features rendering --lib --no-run
-    {{just}} _run-render-proxy record "MLN_PRECOMPILE=1 cargo test -p martin-core --features rendering --lib -- resources::styles"
+    # Pre-build both test binaries so heavy downloads (e.g. the maplibre_native
+    # blob from github.com) aren't captured into the cassette.
+    MLN_PRECOMPILE=1 cargo test -p martin-core --features rendering --test rendering_test --no-run
+    MLN_PRECOMPILE=1 cargo test -p martin --test styles_rendering_test --no-run
+    {{just}} _run-render-proxy record "MLN_PRECOMPILE=1 cargo test -p martin-core --features rendering --test rendering_test && MLN_PRECOMPILE=1 cargo test -p martin --test styles_rendering_test"
 
 # Generate code coverage report. Will install `cargo llvm-cov` if missing.
 coverage *args='--no-clean --open':  (cargo-install 'cargo-llvm-cov') clean start
@@ -355,7 +358,7 @@ coverage *args='--no-clean --open':  (cargo-install 'cargo-llvm-cov') clean star
     cargo llvm-cov clean --workspace
 
     echo "::group::Unit tests"
-    {{just}} with-render-cache '{{just}} test-cargo --all-targets'
+    {{just}} with-render-cache '{{just}} test-cargo --all-targets && MLN_PRECOMPILE=1 cargo test -p martin-core --features rendering --test rendering_test'
     {{just}} test-pg
     echo "::endgroup::"
 
@@ -564,7 +567,7 @@ shear:
 
 # Run all tests using a test database
 test: start
-    {{just}} with-render-cache '{{just}} test-cargo --all-targets'
+    {{just}} with-render-cache '{{just}} test-cargo --all-targets && MLN_PRECOMPILE=1 cargo test -p martin-core --features rendering --test rendering_test'
     {{just}} test-pg
     {{just}} test-doc
     {{just}} ui::test

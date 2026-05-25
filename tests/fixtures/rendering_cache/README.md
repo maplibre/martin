@@ -1,6 +1,6 @@
 # Rendering test HTTP cassette
 
-The rendering unit tests in `martin-core` want to hit `demotiles.maplibre.org` and `tiles.openfreemap.org` for more realistic tests,
+The rendering tests want to hit `demotiles.maplibre.org` and `tiles.openfreemap.org` for more realistic tests,
 this is flaky in CI
 
 [mitmproxy](https://docs.mitmproxy.org) runs as a plain-HTTP reverse-proxy in front of those two upstreams.

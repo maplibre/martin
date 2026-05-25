@@ -374,6 +374,8 @@ styles:
   # Marking this experimental means that we are not stuck with single threaded performance as a default until v2.0
   rendering:
     enabled: false
+    # Number of render worker threads. Unset picks a platform default.
+    workers: null
   # A map of source IDs to file paths or config objects
   sources: {}
 # If set, the version of the tileset (as specified in the `MBTiles` or `PMTiles` metadata)
