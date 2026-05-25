@@ -1,6 +1,6 @@
 //! Deserialization contract for the overlay boundary IR.
 //!
-//! These tests cover what was previously the `parse_spec` validation pass —
+//! These tests cover what was previously the `parse_spec` validation pass --
 //! now fused into `Deserialize` for [`OverlaySpec`]. They assert alias
 //! resolution, canonical-wins precedence, CSS-color/enum/number validation,
 //! and `marker-size` translation. The geometry→layer fan-out and simplestyle
@@ -55,7 +55,7 @@ fn empty_feature_collection_parses_to_empty_spec() {
 
 #[test]
 fn no_properties_leaves_all_fields_unset() {
-    // Defaults are applied at render time, not in the IR — so a bare point
+    // Defaults are applied at render time, not in the IR -- so a bare point
     // carries no style at all.
     let spec = parse(fc(json!([point(json!({}))]))).expect("parses");
     let props = only_feature_props(&spec);
@@ -139,7 +139,9 @@ fn stroke_aliases_normalized_to_line_properties() {
 #[test]
 fn fill_alias_normalized_to_fill_color() {
     let spec = parse(fc(json!([point(json!({ "fill": "#00ff00" }))]))).expect("parses");
-    let color = only_feature_props(&spec).fill_color.expect("fill color set");
+    let color = only_feature_props(&spec)
+        .fill_color
+        .expect("fill color set");
     assert!((color.g - 1.0).abs() < 1e-3, "green from fill alias");
 }
 
@@ -156,7 +158,7 @@ fn line_cap_and_line_join_parsed() {
 
 #[test]
 fn unknown_properties_silently_ignored() {
-    // id / name / foo / title / description are not styling properties — they
+    // id / name / foo / title / description are not styling properties -- they
     // must neither error nor leak into the parsed style.
     let spec = parse(fc(json!([point(json!({
         "id": 42,
@@ -210,7 +212,7 @@ fn non_numeric_radius_rejected(#[case] value: Value) {
 #[test]
 fn null_number_treated_as_absent() {
     // A present `null` is now leniently treated as "unset" rather than a hard
-    // error — serde maps it onto the `Option` default.
+    // error -- serde maps it onto the `Option` default.
     let spec = parse(fc(json!([point(json!({ "circle-radius": null }))]))).expect("parses");
     assert_eq!(only_feature_props(&spec).circle_radius, None);
 }

@@ -390,7 +390,7 @@ struct StaticOverlayProperties {
 
 /// Render a static map image with optional vector overlays.
 /// See [our documentation](https://maplibre.org/martin/sources-styles/) for
-/// the supported overlay body — a `GeoJSON` `FeatureCollection` with style
+/// the supported overlay body -- a `GeoJSON` `FeatureCollection` with style
 /// properties on each feature.
 ///
 /// An empty or missing body renders the base map alone.

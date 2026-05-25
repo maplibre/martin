@@ -74,7 +74,9 @@ impl TryFrom<RawOverlayProperties> for OverlayProperties {
         Ok(Self {
             circle_color: parse_color("circle-color", raw.circle_color.or(raw.marker_color))?,
             circle_opacity: raw.circle_opacity,
-            circle_radius: raw.circle_radius.or_else(|| raw.marker_size.map(MarkerSize::radius)),
+            circle_radius: raw
+                .circle_radius
+                .or_else(|| raw.marker_size.map(MarkerSize::radius)),
             circle_stroke_color: parse_color("circle-stroke-color", raw.circle_stroke_color)?,
             circle_stroke_opacity: raw.circle_stroke_opacity,
             circle_stroke_width: raw.circle_stroke_width,

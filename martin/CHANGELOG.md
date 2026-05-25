@@ -22,7 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   }
   ```
   Overlays are now applied as ephemeral sources+layers on the renderer's
-  style — better anti-aliasing, correct bearing/pitch handling, and the full
+  style -- better anti-aliasing, correct bearing/pitch handling, and the full
   MapLibre paint vocabulary for free (fill/line/circle layers with literal
   paint/layout values).
 

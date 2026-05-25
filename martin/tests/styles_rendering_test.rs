@@ -520,7 +520,7 @@ test_each_path! {
 
 /// Same overlays, same 200×200 frame, but the camera is tilted 60° (pitch).
 /// This locks down that overlays are re-projected through the same view
-/// matrix as the base map — a flat 2D draw over the rendered tile would
+/// matrix as the base map -- a flat 2D draw over the rendered tile would
 /// visibly drift here.
 const URI_CENTERED_200_PITCH: &str = "/style/maplibre_demo/static/0,0,2@0,60/200x200.png";
 

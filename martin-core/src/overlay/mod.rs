@@ -1,6 +1,6 @@
 //! Static-render overlays: a simplestyle-shaped GeoJSON `FeatureCollection`
 //! deserializes directly into the typed [`OverlaySpec`] boundary IR. Every bit
-//! of validation — CSS colors, enum values, simplestyle alias resolution —
+//! of validation -- CSS colors, enum values, simplestyle alias resolution --
 //! happens during deserialization (see [`parse`]), so the rest of martin-core
 //! only ever sees fully-valid input. The geometry→layer fan-out and the
 //! simplestyle paint defaults are a rendering concern and live in [`apply`].
@@ -25,7 +25,7 @@ const ID_PREFIX: &str = "overlay:";
 #[derive(Debug, Default, Clone, Deserialize)]
 pub struct OverlaySpec {
     /// `"FeatureCollection"` discriminator. Validated on the way in, then
-    /// discarded — a non-`FeatureCollection` body fails to deserialize.
+    /// discarded -- a non-`FeatureCollection` body fails to deserialize.
     #[serde(rename = "type")]
     #[expect(dead_code, reason = "validated by Deserialize, then discarded")]
     kind: parse::FeatureCollectionTag,
@@ -35,7 +35,7 @@ pub struct OverlaySpec {
 }
 
 impl OverlaySpec {
-    /// `true` when there are no features — nothing to apply.
+    /// `true` when there are no features -- nothing to apply.
     #[must_use]
     pub fn is_empty(&self) -> bool {
         self.features.is_empty()

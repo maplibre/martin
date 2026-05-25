@@ -898,7 +898,7 @@
             "description": "Renderer or encoder failure"
           }
         },
-        "summary": "Render a static map image with optional vector overlays.\nSee [our documentation](https://maplibre.org/martin/sources-styles/) for\nthe supported overlay body — a `GeoJSON` `FeatureCollection` with style\nproperties on each feature.",
+        "summary": "Render a static map image with optional vector overlays.\nSee [our documentation](https://maplibre.org/martin/sources-styles/) for\nthe supported overlay body -- a `GeoJSON` `FeatureCollection` with style\nproperties on each feature.",
         "tags": ["crate::srv"]
       }
     }

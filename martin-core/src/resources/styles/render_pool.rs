@@ -257,7 +257,7 @@ fn prepare_renderer<'a>(
 }
 
 /// Applies an overlay to a renderer's style for the span of a single render and
-/// removes it again on drop — including on an early return or panic in the
+/// removes it again on drop -- including on an early return or panic in the
 /// render window. This keeps the removal seam symmetric with the apply-time
 /// rollback in [`apply_to_style`]: the worker's cached style structurally
 /// returns to a clean base after every request instead of relying on a
@@ -328,21 +328,21 @@ fn render_one(
 
     // An overlay source must be added to an already-initialised rendering
     // pipeline: without a render before `add_source` the GeoJSON source never
-    // tiles and the overlay silently doesn't draw. Verified empirically —
+    // tiles and the overlay silently doesn't draw. Verified empirically --
     // applying the overlay before any render then re-rendering (even 4×) never
     // produces it, while a single pre-apply render does. This is only needed on
     // the overlay path; a plain map is complete on its first render.
     let _ = render_once(renderer);
 
-    // Scope the overlay to this render: `RenderOverlay` removes it on drop —
-    // including on an early return or panic below — so the worker's cached
+    // Scope the overlay to this render: `RenderOverlay` removes it on drop --
+    // including on an early return or panic below -- so the worker's cached
     // style returns to a clean base for the next request without depending on a
     // hand-placed removal call surviving the whole render window.
     let mut overlay = RenderOverlay::apply(renderer, spec)?;
     let renderer = overlay.renderer();
 
     // The overlay's inline GeoJSON source tiles synchronously, so the first
-    // render after `add_source` already captures the fully-rasterised overlay —
+    // render after `add_source` already captures the fully-rasterised overlay --
     // no re-render-until-settled loop is needed (verified empirically across
     // polygon/line/point overlays: every frame after the first was identical).
     render_once(renderer)

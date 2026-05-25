@@ -2,7 +2,7 @@
 //!
 //! Each [`OverlayFeature`] becomes one maplibre source plus the 1-2 layers its
 //! geometry fans out to. The geometry→layer dispatch, the polygon fill/outline
-//! rule, and the simplestyle paint defaults all live here — they are rendering
+//! rule, and the simplestyle paint defaults all live here -- they are rendering
 //! concerns, not validation. The [`ID_PREFIX`] / synthetic-id scheme is also
 //! local: callers only ever see the typed [`OverlayFeature`]s.
 
@@ -101,7 +101,7 @@ pub fn apply_to_style(
 /// Which layer kinds a feature fans out to, in draw order. A point draws a
 /// circle, a line draws a line, and a polygon fills (unless only stroke
 /// properties are set) and outlines (when any stroke/line property is present)
-/// — a bare polygon still fills so it stays visible. `None`/`GeometryCollection`
+/// -- a bare polygon still fills so it stays visible. `None`/`GeometryCollection`
 /// geometries produce nothing and are skipped.
 fn layer_kinds(geometry: Option<&Geometry>, props: &OverlayProperties) -> Vec<LayerKind> {
     let Some(geometry) = geometry else {
@@ -153,7 +153,7 @@ impl LayerKind {
 
 /// Scope guard for the apply pass: accumulates the ids it adds to the style
 /// and, unless [`commit`](OverlayGuard::commit)ted, removes them again on
-/// drop — including on an early `?` return or a panic. This makes it
+/// drop -- including on an early `?` return or a panic. This makes it
 /// structurally impossible for a fallible step to leave a half-applied
 /// overlay behind. The success path hands the ids off to an
 /// [`AppliedOverlay`] for deferred removal after the render.
