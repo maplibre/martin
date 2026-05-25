@@ -1,10 +1,11 @@
 //! [`OverlaySpec`] → side-effects on a maplibre [`Style`].
 //!
 //! Each [`OverlayFeature`] becomes one maplibre source plus the 1-2 layers its
-//! geometry fans out to. The geometry→layer dispatch, the polygon fill/outline
-//! rule, and the simplestyle paint defaults all live here -- they are rendering
-//! concerns, not validation. The [`ID_PREFIX`] / synthetic-id scheme is also
-//! local: callers only ever see the typed [`OverlayFeature`]s.
+//! geometry fans out to. The geometry→layer dispatch and the polygon
+//! fill/outline rule live here -- they are rendering concerns, not validation.
+//! A paint property left unset is simply not set on the layer, so it falls
+//! through to `MapLibre`'s own default. The [`ID_PREFIX`] / synthetic-id scheme is
+//! also local: callers only ever see the typed [`OverlayFeature`]s.
 
 use geojson::{GeoJson as GjGeoJson, Geometry, GeometryValue};
 use maplibre_native::{
@@ -15,23 +16,6 @@ use maplibre_native::{
 use crate::overlay::{
     Color, ID_PREFIX, LineCap, LineJoin, OverlayFeature, OverlayProperties, OverlaySpec,
 };
-
-const fn rgb(r: u8, g: u8, b: u8) -> Color {
-    Color {
-        r: r as f32 / 255.0,
-        g: g as f32 / 255.0,
-        b: b as f32 / 255.0,
-        a: 1.0,
-    }
-}
-
-const DEFAULT_CIRCLE_COLOR: Color = rgb(0x7e, 0x7e, 0x7e);
-const DEFAULT_LINE_COLOR: Color = rgb(0x55, 0x55, 0x55);
-const DEFAULT_FILL_COLOR: Color = rgb(0x55, 0x55, 0x55);
-const DEFAULT_CIRCLE_RADIUS: f32 = 8.0;
-const DEFAULT_LINE_WIDTH: f32 = 2.0;
-const DEFAULT_FILL_OPACITY: f32 = 0.6;
-const DEFAULT_OPACITY: f32 = 1.0;
 
 /// Errors produced while applying an [`OverlaySpec`] to a [`Style`].
 #[non_exhaustive]
@@ -99,8 +83,8 @@ pub fn apply_to_style(
 }
 
 /// Which layer kinds a feature fans out to, in draw order. A point draws a
-/// circle, a line draws a line, and a polygon fills (unless only stroke
-/// properties are set) and outlines (when any stroke/line property is present)
+/// circle, a line draws a line, and a polygon fills (unless only line
+/// properties are set) and outlines (when any line property is present)
 /// -- a bare polygon still fills so it stays visible. `None`/`GeometryCollection`
 /// geometries produce nothing and are skipped.
 fn layer_kinds(geometry: Option<&Geometry>, props: &OverlayProperties) -> Vec<LayerKind> {
@@ -241,8 +225,12 @@ fn add_fill(
     props: &OverlayProperties,
 ) -> Result<(), StyleError> {
     let mut layer = FillLayer::new(layer_id, source_id);
-    layer.set_fill_color(props.fill_color.unwrap_or(DEFAULT_FILL_COLOR).into());
-    layer.set_fill_opacity(props.fill_opacity.unwrap_or(DEFAULT_FILL_OPACITY));
+    if let Some(c) = props.fill_color {
+        layer.set_fill_color(c.into());
+    }
+    if let Some(o) = props.fill_opacity {
+        layer.set_fill_opacity(o);
+    }
     if let Some(c) = props.fill_outline_color {
         layer.set_fill_outline_color(c.into());
     }
@@ -256,9 +244,15 @@ fn add_line(
     props: &OverlayProperties,
 ) -> Result<(), StyleError> {
     let mut layer = LineLayer::new(layer_id, source_id);
-    layer.set_line_color(props.line_color.unwrap_or(DEFAULT_LINE_COLOR).into());
-    layer.set_line_opacity(props.line_opacity.unwrap_or(DEFAULT_OPACITY));
-    layer.set_line_width(props.line_width.unwrap_or(DEFAULT_LINE_WIDTH));
+    if let Some(c) = props.line_color {
+        layer.set_line_color(c.into());
+    }
+    if let Some(o) = props.line_opacity {
+        layer.set_line_opacity(o);
+    }
+    if let Some(w) = props.line_width {
+        layer.set_line_width(w);
+    }
     if let Some(cap) = props.line_cap {
         layer.set_line_cap(cap.into());
     }
@@ -275,9 +269,15 @@ fn add_circle(
     props: &OverlayProperties,
 ) -> Result<(), StyleError> {
     let mut layer = CircleLayer::new(layer_id, source_id);
-    layer.set_circle_color(props.circle_color.unwrap_or(DEFAULT_CIRCLE_COLOR).into());
-    layer.set_circle_opacity(props.circle_opacity.unwrap_or(DEFAULT_OPACITY));
-    layer.set_circle_radius(props.circle_radius.unwrap_or(DEFAULT_CIRCLE_RADIUS));
+    if let Some(c) = props.circle_color {
+        layer.set_circle_color(c.into());
+    }
+    if let Some(o) = props.circle_opacity {
+        layer.set_circle_opacity(o);
+    }
+    if let Some(r) = props.circle_radius {
+        layer.set_circle_radius(r);
+    }
     if let Some(c) = props.circle_stroke_color {
         layer.set_circle_stroke_color(c.into());
     }

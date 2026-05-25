@@ -14,6 +14,7 @@ use martin_tile_utils::{EARTH_CIRCUMFERENCE, wgs84_to_webmercator};
 use serde::Deserialize;
 use tracing::{debug, error, warn};
 
+use crate::srv::overlay_body::parse_overlay;
 use crate::srv::server::DebouncedWarning;
 use crate::srv::styles_rendering::{ImageFormatRequest, encode_image_response};
 
@@ -285,109 +286,6 @@ pub async fn redirect_static_jpeg(path: Path<StaticJpgRedirectPath>) -> HttpResp
         .finish()
 }
 
-/// Schema-only request body for `POST /style/.../static/...`. A `GeoJSON`
-/// `FeatureCollection`; each feature carries optional styling on its
-/// `properties`, using either simplestyle alias names (`marker-color`,
-/// `stroke`, `fill`, ...) or canonical `MapLibre` property names
-/// (`circle-color`, `line-width`, `fill-color`, ...). Unknown property keys
-/// are silently ignored.
-///
-/// Runtime parsing happens in [`OverlayBody::from_request`] by deserializing
-/// straight into [`OverlaySpec`]; this struct exists only to drive `utoipa`'s
-/// schema generation.
-#[cfg(feature = "unstable-schemas")]
-#[derive(utoipa::ToSchema)]
-#[expect(dead_code, reason = "fields are read by the ToSchema derive macro")]
-struct StaticStyleOverlay {
-    /// `GeoJSON` type discriminator. Must be `"FeatureCollection"`.
-    r#type: StaticFeatureCollectionTag,
-    /// Features to overlay on the rendered base map, in draw order.
-    features: Vec<StaticOverlayFeature>,
-}
-
-#[cfg(feature = "unstable-schemas")]
-#[derive(Deserialize, utoipa::ToSchema)]
-enum StaticFeatureCollectionTag {
-    FeatureCollection,
-}
-
-/// One `GeoJSON` `Feature` with an optional style on `properties`.
-#[cfg(feature = "unstable-schemas")]
-#[derive(utoipa::ToSchema)]
-#[expect(dead_code, reason = "fields are read by the ToSchema derive macro")]
-struct StaticOverlayFeature {
-    /// Must be `"Feature"`.
-    r#type: StaticFeatureTag,
-    /// A `GeoJSON` geometry. `Point`/`MultiPoint` → circle layer;
-    /// `LineString`/`MultiLineString` → line layer;
-    /// `Polygon`/`MultiPolygon` → fill (and optionally outline-line) layer.
-    /// `GeometryCollection` is silently skipped; `null` is silently skipped.
-    geometry: serde_json::Value,
-    /// Styling for this feature. All fields optional; unknown fields ignored.
-    properties: Option<StaticOverlayProperties>,
-}
-
-#[cfg(feature = "unstable-schemas")]
-#[derive(Deserialize, utoipa::ToSchema)]
-enum StaticFeatureTag {
-    Feature,
-}
-
-/// Per-feature style. Either simplestyle aliases or canonical `MapLibre`
-/// names; the canonical name wins on conflict. All fields are optional and
-/// fall back to simplestyle defaults.
-#[cfg(feature = "unstable-schemas")]
-#[derive(Deserialize, utoipa::ToSchema)]
-#[serde(rename_all = "kebab-case")]
-#[expect(dead_code, reason = "fields are read by the ToSchema derive macro")]
-struct StaticOverlayProperties {
-    // ---- simplestyle aliases (normalized to canonical at parse time) ----
-    /// Simplestyle alias for `circle-color`.
-    #[schema(example = "#7e7e7e")]
-    marker_color: Option<String>,
-    /// Simplestyle alias for `circle-radius`: `small`=6, `medium`=8, `large`=10.
-    #[schema(example = "medium")]
-    marker_size: Option<String>,
-    /// Simplestyle alias for `line-color`.
-    stroke: Option<String>,
-    /// Simplestyle alias for `line-opacity`.
-    stroke_opacity: Option<f32>,
-    /// Simplestyle alias for `line-width`.
-    stroke_width: Option<f32>,
-    /// Simplestyle alias for `fill-color`.
-    fill: Option<String>,
-
-    // ---- canonical MapLibre paint/layout names ----
-    /// CSS color for `Point` geometries.
-    #[schema(example = "#285DAA")]
-    circle_color: Option<String>,
-    circle_opacity: Option<f32>,
-    /// Radius in pixels at the rendered scale.
-    #[schema(example = 8.0)]
-    circle_radius: Option<f32>,
-    circle_stroke_color: Option<String>,
-    circle_stroke_opacity: Option<f32>,
-    circle_stroke_width: Option<f32>,
-
-    /// CSS color for `LineString` geometries (and `Polygon` outlines).
-    #[schema(example = "#285DAA")]
-    line_color: Option<String>,
-    line_opacity: Option<f32>,
-    /// Line width in pixels at the rendered scale.
-    #[schema(example = 2.0)]
-    line_width: Option<f32>,
-    /// One of `butt`, `round`, `square`.
-    line_cap: Option<String>,
-    /// One of `miter`, `bevel`, `round`.
-    line_join: Option<String>,
-
-    /// CSS color for `Polygon` fills.
-    #[schema(example = "#95BEFA")]
-    fill_color: Option<String>,
-    fill_opacity: Option<f32>,
-    fill_outline_color: Option<String>,
-}
-
 /// Render a static map image with optional vector overlays.
 /// See [our documentation](https://maplibre.org/martin/sources-styles/) for
 /// the supported overlay body -- a `GeoJSON` `FeatureCollection` with style
@@ -401,9 +299,9 @@ struct StaticOverlayProperties {
         path = "/style/{style_id}/static/{camera}/{size}.{format}",
         params(StaticImagePath),
         request_body(
-            content = StaticStyleOverlay,
+            content = crate::srv::overlay_body::StaticStyleOverlay,
             content_type = "application/json",
-            description = "GeoJSON FeatureCollection. Each feature's `properties` may carry simplestyle aliases (`marker-color`, `stroke`, `fill`, …) or MapLibre canonical property names (`circle-color`, `line-width`, `fill-color`, …). Unknown property keys are ignored.",
+            description = "GeoJSON FeatureCollection. Each feature's `properties` carries MapLibre canonical paint/layout property names (`circle-color`, `line-width`, `fill-color`, …). Unknown property keys are ignored.",
         ),
         responses(
             (status = 200, description = "Rendered static map image", content(
@@ -452,7 +350,7 @@ impl FromRequest for OverlayBody {
             if bytes.is_empty() {
                 return Ok(Self(empty_overlay()));
             }
-            let spec = crate::srv::overlay_body::parse_overlay(&bytes).map_err(ErrorBadRequest)?;
+            let spec = parse_overlay(&bytes).map_err(ErrorBadRequest)?;
             Ok(Self(Arc::new(spec)))
         })
     }

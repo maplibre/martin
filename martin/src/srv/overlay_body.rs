@@ -1,15 +1,18 @@
 //! Wire format for static-render overlays.
 //!
-//! A simplestyle-shaped `GeoJSON` `FeatureCollection` arrives on the request
-//! body and is deserialized here into martin-core's typed [`OverlaySpec`].
-//! Deserialization is an application concern, so all of it lives in this crate,
-//! not in martin-core - the core only ever sees the already-validated IR.
+//! A `GeoJSON` `FeatureCollection` arrives on the request body and is
+//! deserialized here into martin-core's typed [`OverlaySpec`]. Deserialization
+//! is an application concern, so all of it lives in this crate, not in
+//! martin-core - the core only ever sees the already-validated IR.
+//!
+//! These same structs are the `OpenAPI` request-body schema (via `utoipa`'s
+//! `ToSchema`, gated behind `unstable-schemas`), so the documented schema can
+//! never drift from what the parser actually accepts.
 //!
 //! serde validates the envelope, the enums, and the numbers;
-//! [`RawOverlayProperties`] then folds the simplestyle aliases into the
-//! canonical [`OverlayProperties`] fields (canonical name wins on conflict) and
-//! parses the CSS color strings. A bad value surfaces as an error string,
-//! mapped to a 400 at the HTTP boundary.
+//! [`StaticOverlayProperties`] then maps the canonical `MapLibre` property names
+//! onto the [`OverlayProperties`] fields and parses the CSS color strings. A bad
+//! value surfaces as an error string, mapped to a 400 at the HTTP boundary.
 
 // Compiled standalone under the maplibre-free `overlay` feature so the parser
 // and its tests build without maplibre. The only non-test caller is
@@ -29,7 +32,7 @@ use serde::Deserialize;
 /// Returns a human-readable message on malformed JSON, a non-`FeatureCollection`
 /// body, an invalid enum/number, or an unparseable CSS color.
 pub(crate) fn parse_overlay(bytes: &[u8]) -> Result<OverlaySpec, String> {
-    let raw: RawFeatureCollection =
+    let raw: StaticStyleOverlay =
         serde_json::from_slice(bytes).map_err(|e| format!("Invalid JSON overlay body: {e}"))?;
     OverlaySpec::try_from(raw)
 }
@@ -38,23 +41,35 @@ pub(crate) fn parse_overlay(bytes: &[u8]) -> Result<OverlaySpec, String> {
 /// any other `type` (a bare `Feature`, `Geometry`, or garbage) fails to
 /// deserialize with a clear serde error.
 #[derive(Deserialize)]
+#[cfg_attr(feature = "unstable-schemas", derive(utoipa::ToSchema))]
 enum FeatureCollectionTag {
     FeatureCollection,
 }
 
-/// Wire shape of the top-level body.
+/// `"Feature"` discriminator for each member of the collection.
 #[derive(Deserialize)]
-struct RawFeatureCollection {
+#[cfg_attr(feature = "unstable-schemas", derive(utoipa::ToSchema))]
+enum FeatureTag {
+    Feature,
+}
+
+/// Wire shape of the top-level body: a `GeoJSON` `FeatureCollection`. Doubles as
+/// the `OpenAPI` request-body schema.
+#[derive(Deserialize)]
+#[cfg_attr(feature = "unstable-schemas", derive(utoipa::ToSchema))]
+pub(crate) struct StaticStyleOverlay {
+    /// `GeoJSON` type discriminator. Must be `"FeatureCollection"`.
     #[serde(rename = "type")]
     #[expect(dead_code, reason = "validated by Deserialize, then discarded")]
     tag: FeatureCollectionTag,
-    features: Vec<RawFeature>,
+    /// Features to overlay on the rendered base map, in draw order.
+    features: Vec<StaticOverlayFeature>,
 }
 
-impl TryFrom<RawFeatureCollection> for OverlaySpec {
+impl TryFrom<StaticStyleOverlay> for OverlaySpec {
     type Error = String;
 
-    fn try_from(raw: RawFeatureCollection) -> Result<Self, Self::Error> {
+    fn try_from(raw: StaticStyleOverlay) -> Result<Self, Self::Error> {
         let features = raw
             .features
             .into_iter()
@@ -67,17 +82,28 @@ impl TryFrom<RawFeatureCollection> for OverlaySpec {
 /// Wire shape of one `GeoJSON` `Feature`. A `null`/missing geometry is kept as
 /// `None` and skipped at apply time.
 #[derive(Deserialize)]
-struct RawFeature {
+#[cfg_attr(feature = "unstable-schemas", derive(utoipa::ToSchema))]
+struct StaticOverlayFeature {
+    /// `GeoJSON` type discriminator. Must be `"Feature"`.
+    #[serde(rename = "type")]
+    #[expect(dead_code, reason = "validated by Deserialize, then discarded")]
+    tag: FeatureTag,
+    /// `GeoJSON` geometry. `Point`/`MultiPoint` → circle layer;
+    /// `LineString`/`MultiLineString` → line layer;
+    /// `Polygon`/`MultiPolygon` → fill (and optionally outline-line) layer.
+    /// `GeometryCollection` and `null` are silently skipped.
     #[serde(default)]
+    #[cfg_attr(feature = "unstable-schemas", schema(value_type = Option<serde_json::Value>))]
     geometry: Option<geojson::Geometry>,
+    /// Styling for this feature. All fields optional; unknown fields ignored.
     #[serde(default)]
-    properties: Option<RawOverlayProperties>,
+    properties: Option<StaticOverlayProperties>,
 }
 
-impl TryFrom<RawFeature> for OverlayFeature {
+impl TryFrom<StaticOverlayFeature> for OverlayFeature {
     type Error = String;
 
-    fn try_from(raw: RawFeature) -> Result<Self, Self::Error> {
+    fn try_from(raw: StaticOverlayFeature) -> Result<Self, Self::Error> {
         Ok(Self {
             geometry: raw.geometry,
             properties: raw
@@ -85,25 +111,6 @@ impl TryFrom<RawFeature> for OverlayFeature {
                 .map(OverlayProperties::try_from)
                 .transpose()?,
         })
-    }
-}
-
-/// `marker-size` simplestyle enum; translated to a `circle-radius` value.
-#[derive(Clone, Copy, Deserialize)]
-#[serde(rename_all = "lowercase")]
-enum MarkerSize {
-    Small,
-    Medium,
-    Large,
-}
-
-impl MarkerSize {
-    fn radius(self) -> f32 {
-        match self {
-            Self::Small => 6.0,
-            Self::Medium => 8.0,
-            Self::Large => 10.0,
-        }
     }
 }
 
@@ -145,53 +152,63 @@ impl From<WireLineJoin> for LineJoin {
     }
 }
 
-/// Wire shape of a feature's `properties`. Colors arrive as strings and are
-/// parsed in [`TryFrom`]; enums and numbers are validated by serde. Unknown
-/// keys (e.g. simplestyle `title`/`description`) are ignored.
+/// Wire shape of a feature's `properties`, keyed by canonical `MapLibre`
+/// paint/layout names. Colors arrive as strings and are parsed in [`TryFrom`];
+/// enums and numbers are validated by serde. Unknown keys (`id`, `name`,
+/// `title`, …) are ignored.
 #[derive(Default, Deserialize)]
-#[serde(rename_all = "kebab-case", default)]
-struct RawOverlayProperties {
-    marker_color: Option<String>,
+#[cfg_attr(feature = "unstable-schemas", derive(utoipa::ToSchema))]
+#[serde(rename_all = "kebab-case")]
+struct StaticOverlayProperties {
+    /// CSS color for `Point` geometries.
+    #[cfg_attr(feature = "unstable-schemas", schema(example = "#285DAA"))]
     circle_color: Option<String>,
     circle_opacity: Option<f32>,
-    marker_size: Option<MarkerSize>,
+    /// Radius in pixels at the rendered scale.
+    #[cfg_attr(feature = "unstable-schemas", schema(example = 8.0))]
     circle_radius: Option<f32>,
     circle_stroke_color: Option<String>,
     circle_stroke_opacity: Option<f32>,
     circle_stroke_width: Option<f32>,
-    stroke: Option<String>,
+
+    /// CSS color for `LineString` geometries (and `Polygon` outlines).
+    #[cfg_attr(feature = "unstable-schemas", schema(example = "#285DAA"))]
     line_color: Option<String>,
-    stroke_opacity: Option<f32>,
     line_opacity: Option<f32>,
-    stroke_width: Option<f32>,
+    /// Line width in pixels at the rendered scale.
+    #[cfg_attr(feature = "unstable-schemas", schema(example = 2.0))]
     line_width: Option<f32>,
+    /// One of `butt`, `round`, `square`.
+    #[cfg_attr(feature = "unstable-schemas", schema(value_type = Option<String>, example = "round"))]
     line_cap: Option<WireLineCap>,
+    /// One of `miter`, `bevel`, `round`.
+    #[cfg_attr(feature = "unstable-schemas", schema(value_type = Option<String>, example = "round"))]
     line_join: Option<WireLineJoin>,
-    fill: Option<String>,
+
+    /// CSS color for `Polygon` fills.
+    #[cfg_attr(feature = "unstable-schemas", schema(example = "#95BEFA"))]
     fill_color: Option<String>,
     fill_opacity: Option<f32>,
     fill_outline_color: Option<String>,
 }
 
-impl TryFrom<RawOverlayProperties> for OverlayProperties {
+impl TryFrom<StaticOverlayProperties> for OverlayProperties {
     type Error = String;
 
-    fn try_from(raw: RawOverlayProperties) -> Result<Self, Self::Error> {
+    fn try_from(raw: StaticOverlayProperties) -> Result<Self, Self::Error> {
         Ok(Self {
-            circle_color: parse_color("circle-color", raw.circle_color.or(raw.marker_color))?,
+            circle_color: parse_color("circle-color", raw.circle_color)?,
             circle_opacity: raw.circle_opacity,
-            circle_radius: raw
-                .circle_radius
-                .or_else(|| raw.marker_size.map(MarkerSize::radius)),
+            circle_radius: raw.circle_radius,
             circle_stroke_color: parse_color("circle-stroke-color", raw.circle_stroke_color)?,
             circle_stroke_opacity: raw.circle_stroke_opacity,
             circle_stroke_width: raw.circle_stroke_width,
-            line_color: parse_color("line-color", raw.line_color.or(raw.stroke))?,
-            line_opacity: raw.line_opacity.or(raw.stroke_opacity),
-            line_width: raw.line_width.or(raw.stroke_width),
+            line_color: parse_color("line-color", raw.line_color)?,
+            line_opacity: raw.line_opacity,
+            line_width: raw.line_width,
             line_cap: raw.line_cap.map(LineCap::from),
             line_join: raw.line_join.map(LineJoin::from),
-            fill_color: parse_color("fill-color", raw.fill_color.or(raw.fill))?,
+            fill_color: parse_color("fill-color", raw.fill_color)?,
             fill_opacity: raw.fill_opacity,
             fill_outline_color: parse_color("fill-outline-color", raw.fill_outline_color)?,
         })
@@ -255,8 +272,8 @@ mod tests {
 
     #[test]
     fn no_properties_leaves_every_field_unset() {
-        // Simplestyle defaults are applied at render time, not in the IR — a
-        // bare feature carries no style at all.
+        // Paint defaults are applied at render time, not in the IR -- a bare
+        // feature carries no style at all.
         insta::assert_debug_snapshot!(style(json!({})), @"
         OverlayProperties {
             circle_color: None,
@@ -370,118 +387,8 @@ mod tests {
     }
 
     #[test]
-    fn simplestyle_aliases_fold_into_canonical_fields() {
-        // marker-*/stroke*/fill are simplestyle aliases for the circle/line/fill
-        // fields; marker-size maps to a radius.
-        insta::assert_debug_snapshot!(style(json!({
-            "marker-color": "#ff0000",
-            "marker-size": "large",
-            "stroke": "#00ff00",
-            "stroke-opacity": 0.25,
-            "stroke-width": 5,
-            "fill": "blue",
-        })), @"
-        OverlayProperties {
-            circle_color: Some(
-                Color {
-                    r: 1.0,
-                    g: 0.0,
-                    b: 0.0,
-                    a: 1.0,
-                },
-            ),
-            circle_opacity: None,
-            circle_radius: Some(
-                10.0,
-            ),
-            circle_stroke_color: None,
-            circle_stroke_opacity: None,
-            circle_stroke_width: None,
-            line_color: Some(
-                Color {
-                    r: 0.0,
-                    g: 1.0,
-                    b: 0.0,
-                    a: 1.0,
-                },
-            ),
-            line_opacity: Some(
-                0.25,
-            ),
-            line_width: Some(
-                5.0,
-            ),
-            line_cap: None,
-            line_join: None,
-            fill_color: Some(
-                Color {
-                    r: 0.0,
-                    g: 0.0,
-                    b: 1.0,
-                    a: 1.0,
-                },
-            ),
-            fill_opacity: None,
-            fill_outline_color: None,
-        }
-        ");
-    }
-
-    #[test]
-    fn canonical_names_win_over_aliases_on_conflict() {
-        // When a feature sets both the canonical name and its alias, the
-        // canonical value is kept (here: red/99/green/blue, never black).
-        insta::assert_debug_snapshot!(style(json!({
-            "marker-color": "#000000", "circle-color": "#ff0000",
-            "marker-size": "small",   "circle-radius": 99.0,
-            "stroke": "#000000",      "line-color": "#00ff00",
-            "fill": "#000000",        "fill-color": "blue",
-        })), @"
-        OverlayProperties {
-            circle_color: Some(
-                Color {
-                    r: 1.0,
-                    g: 0.0,
-                    b: 0.0,
-                    a: 1.0,
-                },
-            ),
-            circle_opacity: None,
-            circle_radius: Some(
-                99.0,
-            ),
-            circle_stroke_color: None,
-            circle_stroke_opacity: None,
-            circle_stroke_width: None,
-            line_color: Some(
-                Color {
-                    r: 0.0,
-                    g: 1.0,
-                    b: 0.0,
-                    a: 1.0,
-                },
-            ),
-            line_opacity: None,
-            line_width: None,
-            line_cap: None,
-            line_join: None,
-            fill_color: Some(
-                Color {
-                    r: 0.0,
-                    g: 0.0,
-                    b: 1.0,
-                    a: 1.0,
-                },
-            ),
-            fill_opacity: None,
-            fill_outline_color: None,
-        }
-        ");
-    }
-
-    #[test]
     fn unknown_keys_are_dropped() {
-        // id/name/title/description and arbitrary keys are not styling — they
+        // id/name/title/description and arbitrary keys are not styling -- they
         // must neither error nor leak into the parsed style.
         insta::assert_debug_snapshot!(style(json!({
             "id": 42,
@@ -517,17 +424,6 @@ mod tests {
         ");
     }
 
-    #[rstest]
-    #[case::small("small", 6.0)]
-    #[case::medium("medium", 8.0)]
-    #[case::large("large", 10.0)]
-    fn marker_size_maps_to_circle_radius(#[case] size: &str, #[case] radius: f32) {
-        assert_eq!(
-            style(json!({ "marker-size": size })).circle_radius,
-            Some(radius)
-        );
-    }
-
     #[test]
     fn out_of_range_numbers_are_kept_unvalidated() {
         let style = style(json!({ "circle-opacity": 7.0, "circle-radius": -3.0 }));
@@ -543,7 +439,6 @@ mod tests {
     }
 
     #[rstest]
-    #[case::marker_size_enum(fc(json!([point(json!({ "marker-size": "huge" }))])), "small")]
     #[case::color_value(fc(json!([point(json!({ "circle-color": "rebeccapurpel" }))])), "circle-color")]
     #[case::line_cap_value(fc(json!([point(json!({ "line-cap": "diagonal" }))])), "butt")]
     #[case::line_cap_wrong_case(fc(json!([point(json!({ "line-cap": "BUTT" }))])), "butt")]

@@ -196,24 +196,26 @@
         "required": ["tiles", "sprites", "fonts", "styles", "settings"],
         "type": "object"
       },
+      "FeatureCollectionTag": {
+        "description": "`\"FeatureCollection\"` discriminator for the top-level body. A unit enum so\nany other `type` (a bare `Feature`, `Geometry`, or garbage) fails to\ndeserialize with a clear serde error.",
+        "enum": ["FeatureCollection"],
+        "type": "string"
+      },
+      "FeatureTag": {
+        "description": "`\"Feature\"` discriminator for each member of the collection.",
+        "enum": ["Feature"],
+        "type": "string"
+      },
       "FontFormat": {
         "description": "Source font file container format.\n\nThe string serialization (serde and `strum`) is the lowercase file\nextension, so [`FontFormat::VARIANTS`] doubles as the list of recognised\nfont extensions and [`str::parse`] maps an extension back to a variant.",
         "enum": ["otf", "ttf", "ttc"],
         "type": "string"
       },
-      "StaticFeatureCollectionTag": {
-        "enum": ["FeatureCollection"],
-        "type": "string"
-      },
-      "StaticFeatureTag": {
-        "enum": ["Feature"],
-        "type": "string"
-      },
       "StaticOverlayFeature": {
-        "description": "One `GeoJSON` `Feature` with an optional style on `properties`.",
+        "description": "Wire shape of one `GeoJSON` `Feature`. A `null`/missing geometry is kept as\n`None` and skipped at apply time.",
         "properties": {
           "geometry": {
-            "description": "A `GeoJSON` geometry. `Point`/`MultiPoint` → circle layer;\n`LineString`/`MultiLineString` → line layer;\n`Polygon`/`MultiPolygon` → fill (and optionally outline-line) layer.\n`GeometryCollection` is silently skipped; `null` is silently skipped."
+            "description": "`GeoJSON` geometry. `Point`/`MultiPoint` → circle layer;\n`LineString`/`MultiLineString` → line layer;\n`Polygon`/`MultiPolygon` → fill (and optionally outline-line) layer.\n`GeometryCollection` and `null` are silently skipped."
           },
           "properties": {
             "oneOf": [
@@ -227,15 +229,15 @@
             ]
           },
           "type": {
-            "$ref": "#/components/schemas/StaticFeatureTag",
-            "description": "Must be `\"Feature\"`."
+            "$ref": "#/components/schemas/FeatureTag",
+            "description": "`GeoJSON` type discriminator. Must be `\"Feature\"`."
           }
         },
-        "required": ["type", "geometry"],
+        "required": ["type"],
         "type": "object"
       },
       "StaticOverlayProperties": {
-        "description": "Per-feature style. Either simplestyle aliases or canonical `MapLibre`\nnames; the canonical name wins on conflict. All fields are optional and\nfall back to simplestyle defaults.",
+        "description": "Wire shape of a feature's `properties`, keyed by canonical `MapLibre`\npaint/layout names. Colors arrive as strings and are parsed in [`TryFrom`];\nenums and numbers are validated by serde. Unknown keys (`id`, `name`,\n`title`, …) are ignored.",
         "properties": {
           "circle-color": {
             "description": "CSS color for `Point` geometries.",
@@ -263,10 +265,6 @@
             "format": "float",
             "type": ["number", "null"]
           },
-          "fill": {
-            "description": "Simplestyle alias for `fill-color`.",
-            "type": ["string", "null"]
-          },
           "fill-color": {
             "description": "CSS color for `Polygon` fills.",
             "example": "#95BEFA",
@@ -281,6 +279,7 @@
           },
           "line-cap": {
             "description": "One of `butt`, `round`, `square`.",
+            "example": "round",
             "type": ["string", "null"]
           },
           "line-color": {
@@ -290,6 +289,7 @@
           },
           "line-join": {
             "description": "One of `miter`, `bevel`, `round`.",
+            "example": "round",
             "type": ["string", "null"]
           },
           "line-opacity": {
@@ -301,36 +301,12 @@
             "example": 2.0,
             "format": "float",
             "type": ["number", "null"]
-          },
-          "marker-color": {
-            "description": "Simplestyle alias for `circle-color`.",
-            "example": "#7e7e7e",
-            "type": ["string", "null"]
-          },
-          "marker-size": {
-            "description": "Simplestyle alias for `circle-radius`: `small`=6, `medium`=8, `large`=10.",
-            "example": "medium",
-            "type": ["string", "null"]
-          },
-          "stroke": {
-            "description": "Simplestyle alias for `line-color`.",
-            "type": ["string", "null"]
-          },
-          "stroke-opacity": {
-            "description": "Simplestyle alias for `line-opacity`.",
-            "format": "float",
-            "type": ["number", "null"]
-          },
-          "stroke-width": {
-            "description": "Simplestyle alias for `line-width`.",
-            "format": "float",
-            "type": ["number", "null"]
           }
         },
         "type": "object"
       },
       "StaticStyleOverlay": {
-        "description": "Schema-only request body for `POST /style/.../static/...`. A `GeoJSON`\n`FeatureCollection`; each feature carries optional styling on its\n`properties`, using either simplestyle alias names (`marker-color`,\n`stroke`, `fill`, ...) or canonical `MapLibre` property names\n(`circle-color`, `line-width`, `fill-color`, ...). Unknown property keys\nare silently ignored.\n\nRuntime parsing happens in [`OverlayBody::from_request`] by deserializing\nstraight into [`OverlaySpec`]; this struct exists only to drive `utoipa`'s\nschema generation.",
+        "description": "Wire shape of the top-level body: a `GeoJSON` `FeatureCollection`. Doubles as\nthe OpenAPI request-body schema.",
         "properties": {
           "features": {
             "description": "Features to overlay on the rendered base map, in draw order.",
@@ -340,7 +316,7 @@
             "type": "array"
           },
           "type": {
-            "$ref": "#/components/schemas/StaticFeatureCollectionTag",
+            "$ref": "#/components/schemas/FeatureCollectionTag",
             "description": "`GeoJSON` type discriminator. Must be `\"FeatureCollection\"`."
           }
         },
@@ -368,96 +344,6 @@
   },
   "openapi": "3.1.0",
   "paths": {
-    "/{source_ids}": {
-      "get": {
-        "operationId": "get_source_info",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "source_ids",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {}
-            },
-            "description": "TileJSON 3.0.0 metadata for the requested source(s)"
-          },
-          "404": {
-            "description": "No matching source"
-          }
-        },
-        "tags": ["crate::srv"]
-      }
-    },
-    "/{source_ids}/{z}/{x}/{y}": {
-      "get": {
-        "operationId": "get_tile",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "source_ids",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "z",
-            "required": true,
-            "schema": {
-              "format": "int32",
-              "minimum": 0,
-              "type": "integer"
-            }
-          },
-          {
-            "in": "path",
-            "name": "x",
-            "required": true,
-            "schema": {
-              "format": "int32",
-              "minimum": 0,
-              "type": "integer"
-            }
-          },
-          {
-            "in": "path",
-            "name": "y",
-            "required": true,
-            "schema": {
-              "format": "int32",
-              "minimum": 0,
-              "type": "integer"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Encoded vector or raster tile"
-          },
-          "204": {
-            "description": "Source(s) returned an empty tile"
-          },
-          "304": {
-            "description": "ETag matched If-None-Match"
-          },
-          "404": {
-            "description": "No matching source"
-          },
-          "406": {
-            "description": "No supported tile format in Accept header"
-          }
-        },
-        "tags": ["crate::srv"]
-      }
-    },
     "/catalog": {
       "get": {
         "operationId": "get_catalog",
@@ -683,79 +569,6 @@
         "tags": ["crate::srv"]
       }
     },
-    "/style/{style_id}/{z}/{x}/{y}.{format}": {
-      "get": {
-        "operationId": "get_rendered_tile_style",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "style_id",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "z",
-            "required": true,
-            "schema": {
-              "format": "int32",
-              "minimum": 0,
-              "type": "integer"
-            }
-          },
-          {
-            "in": "path",
-            "name": "x",
-            "required": true,
-            "schema": {
-              "format": "int32",
-              "minimum": 0,
-              "type": "integer"
-            }
-          },
-          {
-            "in": "path",
-            "name": "y",
-            "required": true,
-            "schema": {
-              "format": "int32",
-              "minimum": 0,
-              "type": "integer"
-            }
-          },
-          {
-            "in": "path",
-            "name": "format",
-            "required": true,
-            "schema": {
-              "description": "Image format requested in the URL.",
-              "enum": ["png", "jpg", "webp"],
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Server-side rendered style tile (PNG/JPEG/WebP)"
-          },
-          "400": {
-            "description": "Invalid tile coordinates"
-          },
-          "403": {
-            "description": "Rendering is disabled"
-          },
-          "404": {
-            "description": "No matching style"
-          },
-          "500": {
-            "description": "Renderer or encoder failure"
-          }
-        },
-        "tags": ["crate::srv"]
-      }
-    },
     "/style/{style_id}/static/{camera}/{size}.{format}": {
       "get": {
         "operationId": "get_rendered_static_style",
@@ -873,7 +686,7 @@
               }
             }
           },
-          "description": "GeoJSON FeatureCollection. Each feature's `properties` may carry simplestyle aliases (`marker-color`, `stroke`, `fill`, …) or MapLibre canonical property names (`circle-color`, `line-width`, `fill-color`, …). Unknown property keys are ignored.",
+          "description": "GeoJSON FeatureCollection. Each feature's `properties` carries MapLibre canonical paint/layout property names (`circle-color`, `line-width`, `fill-color`, …). Unknown property keys are ignored.",
           "required": true
         },
         "responses": {
@@ -899,6 +712,169 @@
           }
         },
         "summary": "Render a static map image with optional vector overlays.\nSee [our documentation](https://maplibre.org/martin/sources-styles/) for\nthe supported overlay body -- a `GeoJSON` `FeatureCollection` with style\nproperties on each feature.",
+        "tags": ["crate::srv"]
+      }
+    },
+    "/style/{style_id}/{z}/{x}/{y}.{format}": {
+      "get": {
+        "operationId": "get_rendered_tile_style",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "style_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "z",
+            "required": true,
+            "schema": {
+              "format": "int32",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "x",
+            "required": true,
+            "schema": {
+              "format": "int32",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "y",
+            "required": true,
+            "schema": {
+              "format": "int32",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "format",
+            "required": true,
+            "schema": {
+              "description": "Image format requested in the URL.",
+              "enum": ["png", "jpg", "webp"],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Server-side rendered style tile (PNG/JPEG/WebP)"
+          },
+          "400": {
+            "description": "Invalid tile coordinates"
+          },
+          "403": {
+            "description": "Rendering is disabled"
+          },
+          "404": {
+            "description": "No matching style"
+          },
+          "500": {
+            "description": "Renderer or encoder failure"
+          }
+        },
+        "tags": ["crate::srv"]
+      }
+    },
+    "/{source_ids}": {
+      "get": {
+        "operationId": "get_source_info",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source_ids",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {}
+            },
+            "description": "TileJSON 3.0.0 metadata for the requested source(s)"
+          },
+          "404": {
+            "description": "No matching source"
+          }
+        },
+        "tags": ["crate::srv"]
+      }
+    },
+    "/{source_ids}/{z}/{x}/{y}": {
+      "get": {
+        "operationId": "get_tile",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source_ids",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "z",
+            "required": true,
+            "schema": {
+              "format": "int32",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "x",
+            "required": true,
+            "schema": {
+              "format": "int32",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "y",
+            "required": true,
+            "schema": {
+              "format": "int32",
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Encoded vector or raster tile"
+          },
+          "204": {
+            "description": "Source(s) returned an empty tile"
+          },
+          "304": {
+            "description": "ETag matched If-None-Match"
+          },
+          "404": {
+            "description": "No matching source"
+          },
+          "406": {
+            "description": "No supported tile format in Accept header"
+          }
+        },
         "tags": ["crate::srv"]
       }
     }

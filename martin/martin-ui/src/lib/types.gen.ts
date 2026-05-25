@@ -305,6 +305,18 @@ export interface components {
             };
         };
         /**
+         * @description `"FeatureCollection"` discriminator for the top-level body. A unit enum so
+         *     any other `type` (a bare `Feature`, `Geometry`, or garbage) fails to
+         *     deserialize with a clear serde error.
+         * @enum {string}
+         */
+        FeatureCollectionTag: "FeatureCollection";
+        /**
+         * @description `"Feature"` discriminator for each member of the collection.
+         * @enum {string}
+         */
+        FeatureTag: "Feature";
+        /**
          * @description Source font file container format.
          *
          *     The string serialization (serde and `strum`) is the lowercase file
@@ -313,27 +325,27 @@ export interface components {
          * @enum {string}
          */
         FontFormat: "otf" | "ttf" | "ttc";
-        /** @enum {string} */
-        StaticFeatureCollectionTag: "FeatureCollection";
-        /** @enum {string} */
-        StaticFeatureTag: "Feature";
-        /** @description One `GeoJSON` `Feature` with an optional style on `properties`. */
+        /**
+         * @description Wire shape of one `GeoJSON` `Feature`. A `null`/missing geometry is kept as
+         *     `None` and skipped at apply time.
+         */
         StaticOverlayFeature: {
             /**
-             * @description A `GeoJSON` geometry. `Point`/`MultiPoint` → circle layer;
+             * @description `GeoJSON` geometry. `Point`/`MultiPoint` → circle layer;
              *     `LineString`/`MultiLineString` → line layer;
              *     `Polygon`/`MultiPolygon` → fill (and optionally outline-line) layer.
-             *     `GeometryCollection` is silently skipped; `null` is silently skipped.
+             *     `GeometryCollection` and `null` are silently skipped.
              */
-            geometry: unknown;
+            geometry?: unknown;
             properties?: null | components["schemas"]["StaticOverlayProperties"];
-            /** @description Must be `"Feature"`. */
-            type: components["schemas"]["StaticFeatureTag"];
+            /** @description `GeoJSON` type discriminator. Must be `"Feature"`. */
+            type: components["schemas"]["FeatureTag"];
         };
         /**
-         * @description Per-feature style. Either simplestyle aliases or canonical `MapLibre`
-         *     names; the canonical name wins on conflict. All fields are optional and
-         *     fall back to simplestyle defaults.
+         * @description Wire shape of a feature's `properties`, keyed by canonical `MapLibre`
+         *     paint/layout names. Colors arrive as strings and are parsed in [`TryFrom`];
+         *     enums and numbers are validated by serde. Unknown keys (`id`, `name`,
+         *     `title`, …) are ignored.
          */
         StaticOverlayProperties: {
             /**
@@ -354,8 +366,6 @@ export interface components {
             "circle-stroke-opacity"?: number | null;
             /** Format: float */
             "circle-stroke-width"?: number | null;
-            /** @description Simplestyle alias for `fill-color`. */
-            fill?: string | null;
             /**
              * @description CSS color for `Polygon` fills.
              * @example #95BEFA
@@ -364,14 +374,20 @@ export interface components {
             /** Format: float */
             "fill-opacity"?: number | null;
             "fill-outline-color"?: string | null;
-            /** @description One of `butt`, `round`, `square`. */
+            /**
+             * @description One of `butt`, `round`, `square`.
+             * @example round
+             */
             "line-cap"?: string | null;
             /**
              * @description CSS color for `LineString` geometries (and `Polygon` outlines).
              * @example #285DAA
              */
             "line-color"?: string | null;
-            /** @description One of `miter`, `bevel`, `round`. */
+            /**
+             * @description One of `miter`, `bevel`, `round`.
+             * @example round
+             */
             "line-join"?: string | null;
             /** Format: float */
             "line-opacity"?: number | null;
@@ -381,46 +397,16 @@ export interface components {
              * @example 2
              */
             "line-width"?: number | null;
-            /**
-             * @description Simplestyle alias for `circle-color`.
-             * @example #7e7e7e
-             */
-            "marker-color"?: string | null;
-            /**
-             * @description Simplestyle alias for `circle-radius`: `small`=6, `medium`=8, `large`=10.
-             * @example medium
-             */
-            "marker-size"?: string | null;
-            /** @description Simplestyle alias for `line-color`. */
-            stroke?: string | null;
-            /**
-             * Format: float
-             * @description Simplestyle alias for `line-opacity`.
-             */
-            "stroke-opacity"?: number | null;
-            /**
-             * Format: float
-             * @description Simplestyle alias for `line-width`.
-             */
-            "stroke-width"?: number | null;
         };
         /**
-         * @description Schema-only request body for `POST /style/.../static/...`. A `GeoJSON`
-         *     `FeatureCollection`; each feature carries optional styling on its
-         *     `properties`, using either simplestyle alias names (`marker-color`,
-         *     `stroke`, `fill`, ...) or canonical `MapLibre` property names
-         *     (`circle-color`, `line-width`, `fill-color`, ...). Unknown property keys
-         *     are silently ignored.
-         *
-         *     Runtime parsing happens in [`OverlayBody::from_request`] by deserializing
-         *     straight into [`OverlaySpec`]; this struct exists only to drive `utoipa`'s
-         *     schema generation.
+         * @description Wire shape of the top-level body: a `GeoJSON` `FeatureCollection`. Doubles as
+         *     the OpenAPI request-body schema.
          */
         StaticStyleOverlay: {
             /** @description Features to overlay on the rendered base map, in draw order. */
             features: components["schemas"]["StaticOverlayFeature"][];
             /** @description `GeoJSON` type discriminator. Must be `"FeatureCollection"`. */
-            type: components["schemas"]["StaticFeatureCollectionTag"];
+            type: components["schemas"]["FeatureCollectionTag"];
         };
         /**
          * @description What kind of layers a `MapLibre` style draws.
@@ -435,9 +421,9 @@ export interface components {
     pathItems: never;
 }
 export type Catalog = components['schemas']['Catalog'];
+export type FeatureCollectionTag = components['schemas']['FeatureCollectionTag'];
+export type FeatureTag = components['schemas']['FeatureTag'];
 export type FontFormat = components['schemas']['FontFormat'];
-export type StaticFeatureCollectionTag = components['schemas']['StaticFeatureCollectionTag'];
-export type StaticFeatureTag = components['schemas']['StaticFeatureTag'];
 export type StaticOverlayFeature = components['schemas']['StaticOverlayFeature'];
 export type StaticOverlayProperties = components['schemas']['StaticOverlayProperties'];
 export type StaticStyleOverlay = components['schemas']['StaticStyleOverlay'];
@@ -753,7 +739,7 @@ export interface operations {
             };
             cookie?: never;
         };
-        /** @description GeoJSON FeatureCollection. Each feature's `properties` may carry simplestyle aliases (`marker-color`, `stroke`, `fill`, …) or MapLibre canonical property names (`circle-color`, `line-width`, `fill-color`, …). Unknown property keys are ignored. */
+        /** @description GeoJSON FeatureCollection. Each feature's `properties` carries MapLibre canonical paint/layout property names (`circle-color`, `line-width`, `fill-color`, …). Unknown property keys are ignored. */
         requestBody: {
             content: {
                 "application/json": components["schemas"]["StaticStyleOverlay"];

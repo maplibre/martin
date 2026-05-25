@@ -2,7 +2,7 @@
   "features": [
     {
       "geometry": { "coordinates": [0.0, 0.0], "type": "Point" },
-      "properties": { "marker-color": "#ff0000", "marker-size": "medium" },
+      "properties": { "circle-color": "#ff0000", "circle-radius": 8 },
       "type": "Feature"
     }
   ],

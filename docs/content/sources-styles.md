@@ -102,10 +102,10 @@ Width and height are capped at 2048 px each; scale is capped at `4x`.
 #### Overlay body (`POST`)
 
 The overlay body is a GeoJSON `FeatureCollection`. Each feature carries its
-style on `properties` - either as
-[simplestyle](https://github.com/mapbox/simplestyle-spec) aliases or as
-canonical [MapLibre Style Spec](https://maplibre.org/maplibre-style-spec/)
-property names. Both vocabularies are accepted on the same feature.
+style on `properties` using
+[MapLibre Style Spec](https://maplibre.org/maplibre-style-spec/) paint/layout
+property names (`circle-*`, `line-*`, `fill-*`). Any property left unset falls
+back to MapLibre's own default.
 
 ```json
 {
@@ -120,13 +120,13 @@ property names. Both vocabularies are accepted on the same feature.
     {
       "type": "Feature",
       "geometry": { "type": "Point", "coordinates": [0, 0] },
-      "properties": { "marker-color": "#00f", "marker-size": "medium" }
+      "properties": { "circle-color": "#00f", "circle-radius": 8 }
     },
     {
       "type": "Feature",
       "geometry": { "type": "Polygon",
         "coordinates": [[[-5,-5],[5,-5],[5,5],[-5,5],[-5,-5]]] },
-      "properties": { "fill": "#0a0", "fill-opacity": 0.5 }
+      "properties": { "fill-color": "#0a0", "fill-opacity": 0.5 }
     }
   ]
 }
@@ -136,51 +136,47 @@ How features become layers:
 
 - **Point / MultiPoint** → one `circle` layer.
 - **LineString / MultiLineString** → one `line` layer.
-- **Polygon / MultiPolygon** → a `fill` layer (unless only stroke
-  properties are set), plus a `line` layer when any stroke property is
-  present (so a polygon with `stroke` gets an outline of `stroke-width`).
+- **Polygon / MultiPolygon** → a `fill` layer (unless only `line-*`
+  properties are set), plus a `line` layer when any `line-*` property is
+  present (so a polygon with `line-color` gets an outline of `line-width`).
 - `GeometryCollection` and features with `geometry: null` are silently
   skipped.
 
 Anything the server can't make sense of is rejected with `400 Bad
-Request`: a malformed body, a non-`FeatureCollection` top-level type, an
-invalid CSS color, a non-numeric width, an unknown `line-cap`/`line-join`
-enum value, or a `marker-size` that isn't `small`/`medium`/`large`.
+Request`: a malformed body, a top-level `type` that isn't
+`FeatureCollection`, a member `type` that isn't `Feature`, an invalid CSS
+color, a non-numeric width, or an unknown `line-cap`/`line-join` enum value.
 Unknown property keys on `feature.properties` are **silently ignored**, so
 GeoJSON files that already carry application metadata (`id`, `name`,
 `title`, `description`, …) work without modification.
 
 ##### Supported style properties
 
-Set either the simplestyle alias or the MapLibre canonical name;
-if both are present the canonical name wins.
+Every property is optional; an unset property uses the
+[MapLibre Style Spec](https://maplibre.org/maplibre-style-spec/) default.
 
-| Simplestyle alias    | MapLibre canonical      | Applies to            | Default        |
-| -------------------- | ----------------------- | --------------------- | -------------- |
-| `marker-color`       | `circle-color`          | Point                 | `#7e7e7e`      |
-| `marker-size`        | `circle-radius`         | Point                 | `8` (`medium`) |
-| -                    | `circle-opacity`        | Point                 | `1`            |
-| -                    | `circle-stroke-color`   | Point                 | _unset_        |
-| -                    | `circle-stroke-opacity` | Point                 | _unset_        |
-| -                    | `circle-stroke-width`   | Point                 | _unset_        |
-| `stroke`             | `line-color`            | LineString / Polygon  | `#555555`      |
-| `stroke-opacity`     | `line-opacity`          | LineString / Polygon  | `1`            |
-| `stroke-width`       | `line-width`            | LineString / Polygon  | `2`            |
-| -                    | `line-cap`              | LineString / Polygon  | _MapLibre_     |
-| -                    | `line-join`             | LineString / Polygon  | _MapLibre_     |
-| `fill`               | `fill-color`            | Polygon               | `#555555`      |
-| `fill-opacity`       | `fill-opacity`          | Polygon               | `0.6`          |
-| -                    | `fill-outline-color`    | Polygon               | _unset_        |
+| MapLibre property       | Applies to            | MapLibre default     |
+| ----------------------- | --------------------- | -------------------- |
+| `circle-color`          | Point                 | `#000000`            |
+| `circle-opacity`        | Point                 | `1`                  |
+| `circle-radius`         | Point                 | `5`                  |
+| `circle-stroke-color`   | Point                 | `#000000`            |
+| `circle-stroke-opacity` | Point                 | `1`                  |
+| `circle-stroke-width`   | Point                 | `0`                  |
+| `line-color`            | LineString / Polygon  | `#000000`            |
+| `line-opacity`          | LineString / Polygon  | `1`                  |
+| `line-width`            | LineString / Polygon  | `1`                  |
+| `line-cap`              | LineString / Polygon  | `butt`               |
+| `line-join`             | LineString / Polygon  | `miter`              |
+| `fill-color`            | Polygon               | `#000000`            |
+| `fill-opacity`          | Polygon               | `1`                  |
+| `fill-outline-color`    | Polygon               | matches `fill-color` |
 
-`marker-size` is the enum `small`/`medium`/`large`, mapping to
-`circle-radius` `6` / `8` / `10`. `line-cap` is one of `butt`, `round`,
-`square`; `line-join` is one of `miter`, `bevel`, `round`. Colors accept
-any CSS color string.
+`line-cap` is one of `butt`, `round`, `square`; `line-join` is one of
+`miter`, `bevel`, `round`. Colors accept any CSS color string.
 
 Range checks are not enforced - `*-opacity` values outside `0..=1` and
-negative widths are passed through to MapLibre verbatim. Simplestyle's
-informational `title` and `description` properties are accepted and
-ignored.
+negative widths are passed through to MapLibre verbatim.
 
 ##### Out of scope
 
@@ -189,8 +185,7 @@ ignored.
 - Layer types beyond `fill` / `line` / `circle` (no `symbol`, `heatmap`,
   `raster`, `fill-extrusion`).
 - Externally-referenced GeoJSON URLs (every feature is inline).
-- Symbol/icon markers - simplestyle's `marker-symbol` is not supported;
-  use a `circle` instead.
+- Symbol/icon markers (no `symbol` layer) - use a `circle` instead.
 - Z-ordering relative to base style layers - all overlay layers are drawn
   on top of the base style, in feature-array order.
 

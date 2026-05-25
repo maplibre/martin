@@ -2,12 +2,11 @@
 //! decorated with.
 //!
 //! [`OverlaySpec`] is a pre-validated `GeoJSON` `FeatureCollection`. The wire
-//! format -- the simplestyle aliases, the CSS-color strings, the
-//! `FeatureCollection` envelope -- is an application concern, so the `martin`
-//! crate owns deserialization and builds these types from a request body.
-//! martin-core only ever sees the already-valid IR. The geometry→layer fan-out
-//! and the simplestyle paint defaults are a rendering concern and live in
-//! [`apply`].
+//! format -- the CSS-color strings, the `FeatureCollection` envelope -- is an
+//! application concern, so the `martin` crate owns deserialization and builds
+//! these types from a request body. martin-core only ever sees the already-valid
+//! IR. The geometry→layer fan-out is a rendering concern and lives in [`apply`];
+//! any paint property left unset there falls through to `MapLibre`'s own defaults.
 
 #[cfg(all(feature = "rendering", target_os = "linux"))]
 mod apply;
@@ -51,18 +50,16 @@ pub struct OverlayFeature {
 }
 
 /// Per-feature style, keyed by canonical `MapLibre` paint/layout names. The
-/// application layer builds this from the wire format: simplestyle aliases
-/// (`marker-color`, `stroke`, `fill`, `marker-size`) are resolved into these
-/// fields (canonical name wins on conflict) and unknown keys (`title`, `id`, …)
-/// are dropped. All fields are optional; the simplestyle defaults are applied
-/// later, in [`apply`].
+/// application layer builds this from the wire format, dropping unknown keys
+/// (`title`, `id`, …). All fields are optional; an unset field falls through to
+/// `MapLibre`'s own paint default at render time, in [`apply`].
 #[derive(Debug, Default, Clone)]
 pub struct OverlayProperties {
-    /// `circle-color` (simplestyle alias: `marker-color`).
+    /// `circle-color`.
     pub circle_color: Option<Color>,
     /// `circle-opacity`.
     pub circle_opacity: Option<f32>,
-    /// `circle-radius` (simplestyle alias: `marker-size` → 6/8/10).
+    /// `circle-radius`.
     pub circle_radius: Option<f32>,
     /// `circle-stroke-color`.
     pub circle_stroke_color: Option<Color>,
@@ -70,17 +67,17 @@ pub struct OverlayProperties {
     pub circle_stroke_opacity: Option<f32>,
     /// `circle-stroke-width`.
     pub circle_stroke_width: Option<f32>,
-    /// `line-color` (simplestyle alias: `stroke`).
+    /// `line-color`.
     pub line_color: Option<Color>,
-    /// `line-opacity` (simplestyle alias: `stroke-opacity`).
+    /// `line-opacity`.
     pub line_opacity: Option<f32>,
-    /// `line-width` (simplestyle alias: `stroke-width`).
+    /// `line-width`.
     pub line_width: Option<f32>,
     /// `line-cap`.
     pub line_cap: Option<LineCap>,
     /// `line-join`.
     pub line_join: Option<LineJoin>,
-    /// `fill-color` (simplestyle alias: `fill`).
+    /// `fill-color`.
     pub fill_color: Option<Color>,
     /// `fill-opacity`.
     pub fill_opacity: Option<f32>,
