@@ -400,7 +400,7 @@ export interface components {
         };
         /**
          * @description Wire shape of the top-level body: a `GeoJSON` `FeatureCollection`. Doubles as
-         *     the OpenAPI request-body schema.
+         *     the `OpenAPI` request-body schema.
          */
         StaticStyleOverlay: {
             /** @description Features to overlay on the rendered base map, in draw order. */

@@ -306,7 +306,7 @@
         "type": "object"
       },
       "StaticStyleOverlay": {
-        "description": "Wire shape of the top-level body: a `GeoJSON` `FeatureCollection`. Doubles as\nthe OpenAPI request-body schema.",
+        "description": "Wire shape of the top-level body: a `GeoJSON` `FeatureCollection`. Doubles as\nthe `OpenAPI` request-body schema.",
         "properties": {
           "features": {
             "description": "Features to overlay on the rendered base map, in draw order.",
