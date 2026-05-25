@@ -1109,6 +1109,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#cog-hot-reload" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        COG Hot Reload
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#about-cog" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -1727,6 +1738,22 @@ We welcome any assistance.</p>
 </span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>     cog-src1: /path/to/cog1.tif
 </span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>     cog-src2: /path/to/cog2.tif
 </span></code></pre></div>
+<h2 id="cog-hot-reload">COG Hot Reload</h2>
+<p>Martin watches directories configured under <code>cog</code> for changes at runtime. When <code>.tif</code> or <code>.tiff</code> files are added, modified, or removed from a watched directory, Martin automatically updates the tile catalog - no restart required.</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nt">cog</span><span class="p">:</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="nt">paths</span><span class="p">:</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/path/to/cog/directory</span>
+</span></code></pre></div>
+<p>The following events are handled automatically:</p>
+<ul>
+<li><strong>File added</strong> - the new source appears in the catalog.</li>
+<li><strong>File modified</strong> - the source is reloaded and its tile cache is invalidated.</li>
+<li><strong>File removed</strong> - the source is removed from the catalog.</li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Hot reload applies to directories configured under <code>cog.paths</code> (or passed on the CLI). Named sources listed under <code>cog.sources</code> are snapshotted at startup and are not watched for changes.</p>
+</div>
 <h2 id="about-cog">About COG</h2>
 <p><a href="https://cogeo.org/">COG</a> is just Cloud Optimized GeoTIFF file.</p>
 <p>TIFF is an image file format.
@@ -1743,15 +1770,15 @@ For quick access to tiles in TIFF files, Martin relies on the requirements/recom
 </ul>
 <h3 id="cog-generation-with-gdal">COG generation with GDAL</h3>
 <p>You could generate cog with <code>gdal_translate</code> or <code>gdalwarp</code>. See more details in <a href="https://gdal.org/en/latest/drivers/raster/cog.html">gdal doc</a>.</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># gdal-bin installation</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="c1"># sudo apt update</span>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="c1"># sudo apt install gdal-bin</span>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="c1"># gdalwarp</span>
-</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>gdalwarp<span class="w"> </span>src1.tif<span class="w"> </span>src2.tif<span class="w"> </span>out.tif<span class="w"> </span>-of<span class="w"> </span>COG
-</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>
-</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="c1"># or gdal_translate</span>
-</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>gdal_translate<span class="w"> </span>input.tif<span class="w"> </span>output_cog.tif<span class="w"> </span>-of<span class="w"> </span>COG
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># gdal-bin installation</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="c1"># sudo apt update</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="c1"># sudo apt install gdal-bin</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="c1"># gdalwarp</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>gdalwarp<span class="w"> </span>src1.tif<span class="w"> </span>src2.tif<span class="w"> </span>out.tif<span class="w"> </span>-of<span class="w"> </span>COG
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>
+</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="c1"># or gdal_translate</span>
+</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>gdal_translate<span class="w"> </span>input.tif<span class="w"> </span>output_cog.tif<span class="w"> </span>-of<span class="w"> </span>COG
 </span></code></pre></div>
 <h3 id="the-mapping-from-zxy-to-tiff-chunk">The mapping from ZXY to tiff chunk</h3>
 <ul>
