@@ -197,7 +197,7 @@
         "type": "object"
       },
       "FontFormat": {
-        "description": "Source font file container format.",
+        "description": "Source font file container format.\n\nThe string serialization (serde and `strum`) is the lowercase file\nextension, so [`FontFormat::VARIANTS`] doubles as the list of recognised\nfont extensions and [`str::parse`] maps an extension back to a variant.",
         "enum": ["otf", "ttf", "ttc"],
         "type": "string"
       },
