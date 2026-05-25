@@ -415,9 +415,11 @@ async fn render_base(
         }
         other => {
             error!("Failed to render static image: {other}");
+            // TEMPORARY DIAGNOSTIC (revert): surface the underlying StyleError in
+            // the body so the coverage-job render failures show the real cause.
             HttpResponse::InternalServerError()
                 .content_type(ContentType::plaintext())
-                .body("Failed to render static image")
+                .body(format!("Failed to render static image: {other} | {other:?}"))
         }
     })
 }
