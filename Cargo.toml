@@ -76,8 +76,8 @@ chrono = { version = "0.4", default-features = false, features = ["serde"] }
 clap = { version = "4", features = ["derive", "unstable-markdown", "wrap_help"] }
 criterion = { version = "0.8", features = ["async_futures", "async_tokio", "html_reports"] }
 dashmap = { version = "6.1.0", features = ["serde", "inline", "rayon"] }
-deadpool-postgres = "0.14"
 deadpool = "0.13.0"
+deadpool-postgres = "0.14"
 derive-debug = "0.1.2"
 duckdb = { version = "=1.10503.1", features = ["parquet", "bundled", "r2d2"] }
 enum-display = "0.2"
