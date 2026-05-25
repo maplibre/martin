@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::env;
 use std::path::PathBuf;
 use std::str::FromStr as _;
+use std::time::Duration;
 
 use martin_core::tiles::BoxedSource;
 use martin_core::tiles::pmtiles::{PmtCache, PmtCacheInstance, PmtilesSource};
@@ -19,8 +20,21 @@ use crate::config::file::{MltProcessConfig, MvtProcessConfig};
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 use crate::config::primitives::AutoOption;
 
+/// Default polling interval for [`PMTilesReloader`](crate::config::file::reload::pmtiles::PMTilesReloader)
+/// to re-list remote URL prefixes (s3://, gs://, https://, etc.). Local directories are
+/// notify-driven and ignore this setting.
+pub const DEFAULT_RELOAD_INTERVAL: Duration = Duration::from_mins(10);
+
+fn default_reload_interval() -> Duration {
+    DEFAULT_RELOAD_INTERVAL
+}
+
+fn is_default_reload_interval(v: &Duration) -> bool {
+    *v == DEFAULT_RELOAD_INTERVAL
+}
+
 #[serde_with::skip_serializing_none]
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct PmtConfig {
     /// Size of the directory cache (in MB).
@@ -39,6 +53,23 @@ pub struct PmtConfig {
         schemars(with = "crate::config::file::CacheSizeConfigShape")
     )]
     pub directory_cache: CacheSizeConfig,
+
+    /// How often the `PMTilesReloader` re-lists remote URL prefixes (`s3://bucket/`,
+    /// `gs://bucket/`, etc.) for source discovery. Has no effect on local directories,
+    /// which are watched via filesystem events.
+    ///
+    /// Supports human-readable formats: "10m", "1h", "30s".
+    /// Defaults to "10m". Set to "0s" to disable remote polling.
+    #[serde(
+        default = "default_reload_interval",
+        skip_serializing_if = "is_default_reload_interval",
+        with = "humantime_serde"
+    )]
+    #[cfg_attr(
+        feature = "unstable-schemas",
+        schemars(with = "String", example = &"10m")
+    )]
+    pub reload_interval: Duration,
 
     // if the key is the allowed set, we assume it is there for a purpose
     // settings and unreconginsed values are partitioned from each other in the init_parsing step
@@ -68,9 +99,26 @@ pub struct PmtConfig {
     pub pmtiles_directory_cache: PmtCache,
 }
 
+impl Default for PmtConfig {
+    fn default() -> Self {
+        Self {
+            directory_cache: CacheSizeConfig::default(),
+            reload_interval: DEFAULT_RELOAD_INTERVAL,
+            options: HashMap::default(),
+            #[cfg(all(feature = "mlt", feature = "_tiles"))]
+            convert_to_mlt: None,
+            #[cfg(all(feature = "mlt", feature = "_tiles"))]
+            convert_to_mvt: None,
+            unrecognized: UnrecognizedValues::default(),
+            pmtiles_directory_cache: PmtCache::default(),
+        }
+    }
+}
+
 impl PartialEq for PmtConfig {
     fn eq(&self, other: &Self) -> bool {
         let base = self.directory_cache == other.directory_cache
+            && self.reload_interval == other.reload_interval
             && self.options == other.options
             && self.unrecognized == other.unrecognized;
         #[cfg(all(feature = "mlt", feature = "_tiles"))]

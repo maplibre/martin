@@ -10,10 +10,14 @@ use martin::MartinResult;
 use martin::config::args::Args;
 #[cfg(all(feature = "webui", not(docsrs)))]
 use martin::config::args::WebUiMode;
-#[cfg(feature = "mbtiles")]
+#[cfg(any(feature = "mbtiles", feature = "pmtiles"))]
 use martin::config::file::ProcessConfig;
+#[cfg(feature = "unstable-cog")]
+use martin::config::file::reload::cog::COGReloader;
 #[cfg(feature = "mbtiles")]
 use martin::config::file::reload::mbtiles::MBTilesReloader;
+#[cfg(feature = "pmtiles")]
+use martin::config::file::reload::pmtiles::PMTilesReloader;
 use martin::config::file::{Config, read_config};
 #[cfg(feature = "_tiles")]
 use martin::config::primitives::IdResolver;
@@ -57,21 +61,42 @@ async fn start(args: Args) -> MartinResult<()> {
             &resolver,
         )
         .await?;
-    #[cfg(feature = "mbtiles")]
+    #[cfg(any(feature = "mbtiles", feature = "unstable-cog", feature = "pmtiles"))]
     let mgr = sources.tile_manager.clone();
 
-    #[cfg(feature = "mbtiles")]
-    {
+    #[cfg(any(feature = "mbtiles", feature = "pmtiles"))]
+    let global_pc = {
         #[cfg(feature = "mlt")]
-        let global_pc = ProcessConfig {
+        let pc = ProcessConfig {
             convert_to_mlt: config.convert_to_mlt.clone(),
             convert_to_mvt: config.convert_to_mvt.clone(),
         };
         #[cfg(not(feature = "mlt"))]
-        let global_pc = ProcessConfig::default();
-        let reloader = MBTilesReloader::new(mgr, resolver, &config.mbtiles, &global_pc);
+        let pc = ProcessConfig::default();
+        pc
+    };
+
+    #[cfg(feature = "mbtiles")]
+    {
+        let reloader =
+            MBTilesReloader::new(mgr.clone(), resolver.clone(), &config.mbtiles, &global_pc);
         if let Err(e) = reloader.start() {
             tracing::warn!("failed to start MBTilesReloader {e:?}");
+        }
+    }
+    #[cfg(feature = "unstable-cog")]
+    {
+        let reloader = COGReloader::new(mgr.clone(), resolver.clone(), &config.cog);
+        if let Err(e) = reloader.start() {
+            tracing::warn!("failed to start COGReloader {e:?}");
+        }
+    }
+    #[cfg(feature = "pmtiles")]
+    {
+        let reloader =
+            PMTilesReloader::new(mgr.clone(), resolver.clone(), &config.pmtiles, &global_pc);
+        if let Err(e) = reloader.start() {
+            tracing::warn!("failed to start PMTilesReloader {e:?}");
         }
     }
 

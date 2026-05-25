@@ -56,9 +56,8 @@ This means that the following will discover all mbtiles and pmtiles files in the
 martin  /path/to/directory
 ```
 
-!!! warning
-    For remote PMTiles, we don't currently support auto-discovery.
-    If you want to implement this feature, please see <https://github.com/maplibre/martin/issues/2180>
+For remote PMTiles, individual file URLs work as expected.
+Remote object-storage *prefixes* (e.g. `s3://bucket/tiles/`) are also supported via periodic listing - see [PMTiles Hot Reload](#pmtiles-hot-reload) below.
 
 ### MBTiles Hot Reload
 
@@ -88,9 +87,31 @@ The following events are handled automatically:
 !!! note
     Hot reload applies to directories configured under `mbtiles.paths` (or passed on the CLI). Named sources listed under `mbtiles.sources` are snapshotted at startup and are not watched for changes.
 
+### PMTiles Hot Reload
+
+Martin watches local directories configured under `pmtiles` for `.pmtiles` files using filesystem events, with the same add/modify/remove semantics described for MBTiles above.
+
+```yaml
+pmtiles:
+  paths:
+    - /path/to/pmtiles/directory
+```
+
+For remote object-storage prefixes (`s3://bucket/prefix/`, `gs://bucket/prefix/`, `https://host/prefix/`, etc.) Martin periodically re-lists the prefix and diffs against the previous snapshot.
+There is no event channel from blob storage to subscribe to.
+Added and removed objects propagate to the catalog.
+[In-place modifications to existing objects are not currently handled, but contributions welcome](https://github.com/maplibre/martin/issues/2713).
+
+```yaml
+pmtiles:
+  paths:
+    - s3://my-bucket/tiles/
+  reload_interval: 10m  # default; set to "0s" to disable remote polling
+```
+
 !!! note
-    PMTiles hot reload is not yet supported.
-    If you want to help implement it, see <https://github.com/maplibre/martin/issues/2180>.
+    Hot reload applies to directories and remote prefixes configured under `pmtiles.paths` (or passed on the CLI).
+    Named sources listed under `pmtiles.sources` and individual remote-file URLs are snapshotted at startup and are not watched for changes.
 
 ## MBTiles vs PMTiles
 
