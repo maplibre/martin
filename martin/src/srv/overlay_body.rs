@@ -3,7 +3,7 @@
 //! A simplestyle-shaped `GeoJSON` `FeatureCollection` arrives on the request
 //! body and is deserialized here into martin-core's typed [`OverlaySpec`].
 //! Deserialization is an application concern, so all of it lives in this crate,
-//! not in martin-core -- the core only ever sees the already-validated IR.
+//! not in martin-core - the core only ever sees the already-validated IR.
 //!
 //! serde validates the envelope, the enums, and the numbers;
 //! [`RawOverlayProperties`] then folds the simplestyle aliases into the
@@ -13,8 +13,8 @@
 
 // Compiled standalone under the maplibre-free `overlay` feature so the parser
 // and its tests build without maplibre. The only non-test caller is
-// `styles_static` (rendering + linux), so dead-code is only meaningful -- and
-// thus only enforced -- in that configuration.
+// `styles_static` (rendering + linux), so dead-code is only meaningful - and
+// thus only enforced - in that configuration.
 #![cfg_attr(not(all(feature = "rendering", target_os = "linux")), allow(dead_code))]
 
 use martin_core::overlay::{
@@ -221,251 +221,364 @@ fn parse_color(prop: &str, raw: Option<String>) -> Result<Option<Color>, String>
     reason = "test helpers take owned Value built from json!() macro"
 )]
 mod tests {
-    use martin_core::overlay::{LineCap, LineJoin, OverlayProperties, OverlaySpec};
+    use martin_core::overlay::{OverlayProperties, OverlaySpec};
     use rstest::rstest;
     use serde_json::{Value, json};
 
     use super::parse_overlay;
 
-    fn parse(value: Value) -> Result<OverlaySpec, String> {
-        parse_overlay(&serde_json::to_vec(&value).expect("serialize value"))
-    }
-
-    /// The validated properties of the single feature in a one-feature spec.
-    #[track_caller]
-    fn only_feature_props(spec: &OverlaySpec) -> OverlayProperties {
-        assert_eq!(spec.features.len(), 1, "expected exactly one feature");
-        spec.features[0].properties.clone().unwrap_or_default()
+    fn parse(body: Value) -> Result<OverlaySpec, String> {
+        parse_overlay(&serde_json::to_vec(&body).expect("serialize body"))
     }
 
     fn fc(features: Value) -> Value {
         json!({ "type": "FeatureCollection", "features": features })
     }
 
-    fn point(props: Value) -> Value {
+    fn point(properties: Value) -> Value {
         json!({
             "type": "Feature",
             "geometry": { "type": "Point", "coordinates": [0.0, 0.0] },
-            "properties": props,
+            "properties": properties,
         })
     }
 
-    fn linestring(props: Value) -> Value {
-        json!({
-            "type": "Feature",
-            "geometry": { "type": "LineString", "coordinates": [[-1.0, -1.0], [1.0, 1.0]] },
-            "properties": props,
-        })
+    /// Resolve a single point feature's `properties` into its validated style.
+    /// Property parsing is geometry-agnostic, so every style test goes through a
+    /// point regardless of which geometry the properties would target.
+    #[track_caller]
+    fn style(properties: Value) -> OverlayProperties {
+        let spec = parse(fc(json!([point(properties)]))).expect("parses");
+        assert_eq!(spec.features.len(), 1, "expected exactly one feature");
+        spec.features[0].properties.clone().unwrap_or_default()
     }
 
     #[test]
-    fn empty_feature_collection_parses_to_empty_spec() {
-        let spec = parse(fc(json!([]))).expect("empty FC parses");
-        assert!(spec.is_empty());
+    fn no_properties_leaves_every_field_unset() {
+        // Simplestyle defaults are applied at render time, not in the IR — a
+        // bare feature carries no style at all.
+        insta::assert_debug_snapshot!(style(json!({})), @"
+        OverlayProperties {
+            circle_color: None,
+            circle_opacity: None,
+            circle_radius: None,
+            circle_stroke_color: None,
+            circle_stroke_opacity: None,
+            circle_stroke_width: None,
+            line_color: None,
+            line_opacity: None,
+            line_width: None,
+            line_cap: None,
+            line_join: None,
+            fill_color: None,
+            fill_opacity: None,
+            fill_outline_color: None,
+        }
+        ");
     }
 
     #[test]
-    fn no_properties_leaves_all_fields_unset() {
-        // Defaults are applied at render time, not in the IR -- so a bare point
-        // carries no style at all.
-        let spec = parse(fc(json!([point(json!({}))]))).expect("parses");
-        let props = only_feature_props(&spec);
-        assert_eq!(props.circle_color, None);
-        assert_eq!(props.circle_radius, None);
-        assert_eq!(props.circle_opacity, None);
+    fn canonical_properties_parse_to_typed_style() {
+        // Canonical MapLibre names map 1:1: colors become straight RGBA, enums
+        // become the core types, numbers pass through.
+        insta::assert_debug_snapshot!(style(json!({
+            "circle-color": "#ff0000",
+            "circle-opacity": 0.5,
+            "circle-radius": 8.0,
+            "circle-stroke-color": "#fff",
+            "circle-stroke-opacity": 0.25,
+            "circle-stroke-width": 2.0,
+            "line-color": "rgb(0,255,0)",
+            "line-opacity": 0.75,
+            "line-width": 5.0,
+            "line-cap": "round",
+            "line-join": "miter",
+            "fill-color": "blue",
+            "fill-opacity": 1.0,
+            "fill-outline-color": "#000000",
+        })), @"
+        OverlayProperties {
+            circle_color: Some(
+                Color {
+                    r: 1.0,
+                    g: 0.0,
+                    b: 0.0,
+                    a: 1.0,
+                },
+            ),
+            circle_opacity: Some(
+                0.5,
+            ),
+            circle_radius: Some(
+                8.0,
+            ),
+            circle_stroke_color: Some(
+                Color {
+                    r: 1.0,
+                    g: 1.0,
+                    b: 1.0,
+                    a: 1.0,
+                },
+            ),
+            circle_stroke_opacity: Some(
+                0.25,
+            ),
+            circle_stroke_width: Some(
+                2.0,
+            ),
+            line_color: Some(
+                Color {
+                    r: 0.0,
+                    g: 1.0,
+                    b: 0.0,
+                    a: 1.0,
+                },
+            ),
+            line_opacity: Some(
+                0.75,
+            ),
+            line_width: Some(
+                5.0,
+            ),
+            line_cap: Some(
+                Round,
+            ),
+            line_join: Some(
+                Miter,
+            ),
+            fill_color: Some(
+                Color {
+                    r: 0.0,
+                    g: 0.0,
+                    b: 1.0,
+                    a: 1.0,
+                },
+            ),
+            fill_opacity: Some(
+                1.0,
+            ),
+            fill_outline_color: Some(
+                Color {
+                    r: 0.0,
+                    g: 0.0,
+                    b: 0.0,
+                    a: 1.0,
+                },
+            ),
+        }
+        ");
     }
 
     #[test]
-    fn circle_color_canonical_takes_priority_over_marker_color_alias() {
-        let spec = parse(fc(json!([point(
-            json!({ "marker-color": "#000000", "circle-color": "#ff0000" })
-        )])))
-        .expect("parses");
-        let color = only_feature_props(&spec).circle_color.expect("color set");
-        assert!((color.r - 1.0).abs() < 1e-3, "canonical #ff0000 wins");
+    fn simplestyle_aliases_fold_into_canonical_fields() {
+        // marker-*/stroke*/fill are simplestyle aliases for the circle/line/fill
+        // fields; marker-size maps to a radius.
+        insta::assert_debug_snapshot!(style(json!({
+            "marker-color": "#ff0000",
+            "marker-size": "large",
+            "stroke": "#00ff00",
+            "stroke-opacity": 0.25,
+            "stroke-width": 5,
+            "fill": "blue",
+        })), @"
+        OverlayProperties {
+            circle_color: Some(
+                Color {
+                    r: 1.0,
+                    g: 0.0,
+                    b: 0.0,
+                    a: 1.0,
+                },
+            ),
+            circle_opacity: None,
+            circle_radius: Some(
+                10.0,
+            ),
+            circle_stroke_color: None,
+            circle_stroke_opacity: None,
+            circle_stroke_width: None,
+            line_color: Some(
+                Color {
+                    r: 0.0,
+                    g: 1.0,
+                    b: 0.0,
+                    a: 1.0,
+                },
+            ),
+            line_opacity: Some(
+                0.25,
+            ),
+            line_width: Some(
+                5.0,
+            ),
+            line_cap: None,
+            line_join: None,
+            fill_color: Some(
+                Color {
+                    r: 0.0,
+                    g: 0.0,
+                    b: 1.0,
+                    a: 1.0,
+                },
+            ),
+            fill_opacity: None,
+            fill_outline_color: None,
+        }
+        ");
     }
 
     #[test]
-    fn marker_color_alias_normalized_to_circle_color() {
-        let spec = parse(fc(json!([point(json!({ "marker-color": "#ff0000" }))]))).expect("parses");
-        let color = only_feature_props(&spec).circle_color.expect("color set");
-        assert!((color.r - 1.0).abs() < 1e-3, "red from marker-color alias");
+    fn canonical_names_win_over_aliases_on_conflict() {
+        // When a feature sets both the canonical name and its alias, the
+        // canonical value is kept (here: red/99/green/blue, never black).
+        insta::assert_debug_snapshot!(style(json!({
+            "marker-color": "#000000", "circle-color": "#ff0000",
+            "marker-size": "small",   "circle-radius": 99.0,
+            "stroke": "#000000",      "line-color": "#00ff00",
+            "fill": "#000000",        "fill-color": "blue",
+        })), @"
+        OverlayProperties {
+            circle_color: Some(
+                Color {
+                    r: 1.0,
+                    g: 0.0,
+                    b: 0.0,
+                    a: 1.0,
+                },
+            ),
+            circle_opacity: None,
+            circle_radius: Some(
+                99.0,
+            ),
+            circle_stroke_color: None,
+            circle_stroke_opacity: None,
+            circle_stroke_width: None,
+            line_color: Some(
+                Color {
+                    r: 0.0,
+                    g: 1.0,
+                    b: 0.0,
+                    a: 1.0,
+                },
+            ),
+            line_opacity: None,
+            line_width: None,
+            line_cap: None,
+            line_join: None,
+            fill_color: Some(
+                Color {
+                    r: 0.0,
+                    g: 0.0,
+                    b: 1.0,
+                    a: 1.0,
+                },
+            ),
+            fill_opacity: None,
+            fill_outline_color: None,
+        }
+        ");
+    }
+
+    #[test]
+    fn unknown_keys_are_dropped() {
+        // id/name/title/description and arbitrary keys are not styling — they
+        // must neither error nor leak into the parsed style.
+        insta::assert_debug_snapshot!(style(json!({
+            "id": 42,
+            "name": "Antarctica HQ",
+            "title": "Origin",
+            "description": "Where the streams cross",
+            "foo": { "bar": "baz" },
+            "circle-color": "red",
+        })), @"
+        OverlayProperties {
+            circle_color: Some(
+                Color {
+                    r: 1.0,
+                    g: 0.0,
+                    b: 0.0,
+                    a: 1.0,
+                },
+            ),
+            circle_opacity: None,
+            circle_radius: None,
+            circle_stroke_color: None,
+            circle_stroke_opacity: None,
+            circle_stroke_width: None,
+            line_color: None,
+            line_opacity: None,
+            line_width: None,
+            line_cap: None,
+            line_join: None,
+            fill_color: None,
+            fill_opacity: None,
+            fill_outline_color: None,
+        }
+        ");
     }
 
     #[rstest]
     #[case::small("small", 6.0)]
     #[case::medium("medium", 8.0)]
     #[case::large("large", 10.0)]
-    fn marker_size_enum_maps_to_circle_radius(#[case] size: &str, #[case] expected: f32) {
-        let spec = parse(fc(json!([point(json!({ "marker-size": size }))]))).expect("parses");
-        assert_eq!(only_feature_props(&spec).circle_radius, Some(expected));
-    }
-
-    #[test]
-    fn invalid_marker_size_enum_rejected() {
-        let err = parse(fc(json!([point(json!({ "marker-size": "huge" }))]))).expect_err("rejects");
-        assert!(err.contains("small"), "names valid set: {err}");
-    }
-
-    #[test]
-    fn circle_radius_canonical_overrides_marker_size_alias() {
-        let spec = parse(fc(json!([point(
-            json!({ "marker-size": "small", "circle-radius": 99.0 })
-        )])))
-        .expect("parses");
+    fn marker_size_maps_to_circle_radius(#[case] size: &str, #[case] radius: f32) {
         assert_eq!(
-            only_feature_props(&spec).circle_radius,
-            Some(99.0),
-            "canonical wins"
+            style(json!({ "marker-size": size })).circle_radius,
+            Some(radius)
         );
     }
 
     #[test]
-    fn circle_stroke_properties_passed_through() {
-        let spec = parse(fc(json!([point(json!({
-            "circle-stroke-color": "#fff",
-            "circle-stroke-opacity": 0.5,
-            "circle-stroke-width": 2.0,
-        }))])))
-        .expect("parses");
-        let props = only_feature_props(&spec);
-        assert!(props.circle_stroke_color.is_some());
-        assert_eq!(props.circle_stroke_opacity, Some(0.5));
-        assert_eq!(props.circle_stroke_width, Some(2.0));
+    fn out_of_range_numbers_are_kept_unvalidated() {
+        let style = style(json!({ "circle-opacity": 7.0, "circle-radius": -3.0 }));
+        assert_eq!(style.circle_opacity, Some(7.0), "no range check");
+        assert_eq!(style.circle_radius, Some(-3.0), "no range check");
     }
 
     #[test]
-    fn stroke_aliases_normalized_to_line_properties() {
-        let spec = parse(fc(json!([linestring(
-            json!({ "stroke": "#ff0000", "stroke-width": 5, "stroke-opacity": 0.25 })
-        )])))
-        .expect("parses");
-        let props = only_feature_props(&spec);
-        let color = props.line_color.expect("line color set");
-        assert!((color.r - 1.0).abs() < 1e-3, "red from stroke alias");
-        assert_eq!(props.line_width, Some(5.0));
-        assert_eq!(props.line_opacity, Some(0.25));
-    }
-
-    #[test]
-    fn fill_alias_normalized_to_fill_color() {
-        let spec = parse(fc(json!([point(json!({ "fill": "#00ff00" }))]))).expect("parses");
-        let color = only_feature_props(&spec)
-            .fill_color
-            .expect("fill color set");
-        assert!((color.g - 1.0).abs() < 1e-3, "green from fill alias");
-    }
-
-    #[test]
-    fn line_cap_and_line_join_parsed() {
-        let spec = parse(fc(json!([linestring(
-            json!({ "line-cap": "round", "line-join": "miter" })
-        )])))
-        .expect("parses");
-        let props = only_feature_props(&spec);
-        assert_eq!(props.line_cap, Some(LineCap::Round));
-        assert_eq!(props.line_join, Some(LineJoin::Miter));
-    }
-
-    #[test]
-    fn unknown_properties_silently_ignored() {
-        // id / name / foo / title / description are not styling properties -- they
-        // must neither error nor leak into the parsed style.
-        let spec = parse(fc(json!([point(json!({
-            "id": 42,
-            "name": "Antarctica HQ",
-            "foo": { "bar": "baz" },
-            "title": "Origin",
-            "description": "Where the streams cross",
-            "circle-color": "red",
-        }))])))
-        .expect("parses");
-        let color = only_feature_props(&spec).circle_color.expect("color set");
-        assert!((color.r - 1.0).abs() < 1e-3);
-    }
-
-    #[test]
-    fn out_of_range_numbers_passed_through_unvalidated() {
-        let spec = parse(fc(json!([point(
-            json!({ "circle-opacity": 7.0, "circle-radius": -3.0 })
-        )])))
-        .expect("parses");
-        let props = only_feature_props(&spec);
-        assert_eq!(props.circle_opacity, Some(7.0), "no range check");
-        assert_eq!(props.circle_radius, Some(-3.0), "no range check");
-    }
-
-    #[test]
-    fn invalid_color_value_rejected() {
-        let err = parse(fc(json!([point(
-            json!({ "circle-color": "rebeccapurpel" })
-        )])))
-        .expect_err("rejects");
-        assert!(err.contains("circle-color"), "got {err}");
+    fn null_property_is_treated_as_absent() {
+        // A present `null` is leniently mapped onto the Option default rather
+        // than rejected.
+        assert_eq!(style(json!({ "circle-radius": null })).circle_radius, None);
     }
 
     #[rstest]
-    #[case::diagonal("diagonal")]
-    #[case::wrong_case("BUTT")]
-    fn invalid_line_cap_rejected(#[case] cap: &str) {
-        let err = parse(fc(json!([linestring(json!({ "line-cap": cap }))]))).expect_err("rejects");
-        assert!(err.contains("butt"), "names valid set: {err}");
-    }
-
-    #[rstest]
-    #[case::string(json!("5"))]
-    #[case::boolean(json!(true))]
-    fn non_numeric_radius_rejected(#[case] value: Value) {
-        let err =
-            parse(fc(json!([point(json!({ "circle-radius": value }))]))).expect_err("rejects");
-        assert!(err.contains("f32"), "expects a number: {err}");
-    }
-
-    #[test]
-    fn null_number_treated_as_absent() {
-        // A present `null` is leniently treated as "unset" rather than a hard
-        // error -- serde maps it onto the `Option` default.
-        let spec = parse(fc(json!([point(json!({ "circle-radius": null }))]))).expect("parses");
-        assert_eq!(only_feature_props(&spec).circle_radius, None);
-    }
-
-    #[test]
-    fn body_not_feature_collection_rejected() {
-        // A bare Feature is valid GeoJSON but not what this endpoint accepts.
-        let err = parse(json!({
-            "type": "Feature",
-            "geometry": { "type": "Point", "coordinates": [0, 0] },
-            "properties": {}
-        }))
-        .expect_err("rejects");
+    #[case::marker_size_enum(fc(json!([point(json!({ "marker-size": "huge" }))])), "small")]
+    #[case::color_value(fc(json!([point(json!({ "circle-color": "rebeccapurpel" }))])), "circle-color")]
+    #[case::line_cap_value(fc(json!([point(json!({ "line-cap": "diagonal" }))])), "butt")]
+    #[case::line_cap_wrong_case(fc(json!([point(json!({ "line-cap": "BUTT" }))])), "butt")]
+    #[case::radius_string(fc(json!([point(json!({ "circle-radius": "5" }))])), "f32")]
+    #[case::radius_bool(fc(json!([point(json!({ "circle-radius": true }))])), "f32")]
+    // A bare Feature and a garbage `type` are valid JSON but not the envelope
+    // this endpoint accepts.
+    #[case::bare_feature(point(json!({})), "FeatureCollection")]
+    #[case::wrong_envelope_type(json!({ "type": "Wibble" }), "FeatureCollection")]
+    fn rejects_invalid_input(#[case] body: Value, #[case] expected_fragment: &str) {
+        let err = parse(body).expect_err("rejected");
         assert!(
-            err.to_lowercase().contains("featurecollection") || err.contains("type"),
-            "got {err}"
+            err.contains(expected_fragment),
+            "error {err:?} should mention {expected_fragment:?}"
         );
     }
 
     #[test]
-    fn malformed_body_rejected() {
-        let err = parse(json!({ "type": "Wibble" })).expect_err("rejects");
-        assert!(!err.is_empty(), "got an error");
+    fn empty_feature_collection_parses_to_empty_spec() {
+        assert!(parse(fc(json!([]))).expect("parses").is_empty());
     }
 
     #[test]
-    fn feature_with_null_geometry_kept_with_no_geometry() {
-        // Null/unsupported geometries stay in the IR (they are skipped later, at
-        // apply time) rather than being dropped during parsing.
-        let spec = parse(json!({
-            "type": "FeatureCollection",
-            "features": [
-                { "type": "Feature", "geometry": null, "properties": { "circle-color": "red" } },
-                point(json!({ "circle-color": "blue" })),
-            ]
-        }))
+    fn features_keep_null_geometry_for_apply_time_skipping() {
+        // Null/unsupported geometries stay in the IR (skipped later, at apply
+        // time) rather than being dropped during parsing.
+        let spec = parse(fc(json!([
+            { "type": "Feature", "geometry": null, "properties": { "circle-color": "red" } },
+            point(json!({ "circle-color": "blue" })),
+        ])))
         .expect("parses");
         assert_eq!(spec.features.len(), 2, "both features retained");
         assert!(
             spec.features[0].geometry.is_none(),
-            "null geometry parsed as None"
+            "null geometry kept as None"
         );
         assert!(spec.features[1].geometry.is_some());
     }
