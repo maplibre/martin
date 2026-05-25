@@ -1178,7 +1178,7 @@ echo "::endgroup::"
 
 # Regression coverage for the reloader snapshot-seeding bug: if Martin starts
 # with a file *already* in the watch directory, the reloader must record it in
-# its snapshot -- otherwise a subsequent deletion produces an empty diff
+# its snapshot - otherwise a subsequent deletion produces an empty diff
 # (prev=={}, next=={}) and the catalog never drops the now-missing source.
 echo "::group::Test PMTiles hot reload -- pre-existing file at startup"
 TEST_NAME="pmtiles_reload_startup"
@@ -1246,7 +1246,7 @@ for _ in {1..10}; do
 done
 
 if [[ "$COG_ENABLED" == "1" ]]; then
-  >&2 echo "COG reloader is active -- running hot reload tests"
+  >&2 echo "COG reloader is active - running hot reload tests"
   test_jsn cog_reload_catalog_added catalog
 
   >&2 echo "Test COG reload: updating a COG file triggers source update"
@@ -1266,7 +1266,7 @@ if [[ "$COG_ENABLED" == "1" ]]; then
   test_log_has_str "$LOG_FILE" "Updated source source.id=${COG_SOURCE_ID}"
   test_log_has_str "$LOG_FILE" "Removed source source.id=${COG_SOURCE_ID}"
 else
-  >&2 echo "COG reloader not active (binary not compiled with unstable-cog) -- skipping COG reload tests"
+  >&2 echo "COG reloader not active (binary not compiled with unstable-cog) - skipping COG reload tests"
   rm -f "$COG_RELOAD_WATCH_DIR/${COG_SOURCE_ID}.tif"
   kill_process "$MARTIN_PROC_ID" Martin
   trap - EXIT HUP INT TERM

@@ -56,7 +56,8 @@ This means that the following will discover all mbtiles and pmtiles files in the
 martin  /path/to/directory
 ```
 
-For remote PMTiles, individual file URLs work as expected. Remote object-storage *prefixes* (e.g. `s3://bucket/tiles/`) are also supported via periodic listing -- see [PMTiles Hot Reload](#pmtiles-hot-reload) below.
+For remote PMTiles, individual file URLs work as expected.
+Remote object-storage *prefixes* (e.g. `s3://bucket/tiles/`) are also supported via periodic listing - see [PMTiles Hot Reload](#pmtiles-hot-reload) below.
 
 ### MBTiles Hot Reload
 
@@ -96,7 +97,10 @@ pmtiles:
     - /path/to/pmtiles/directory
 ```
 
-For remote object-storage prefixes (`s3://bucket/prefix/`, `gs://bucket/prefix/`, `https://host/prefix/`, etc.) Martin periodically re-lists the prefix and diffs against the previous snapshot -- there is no event channel from blob storage to subscribe to. Added and removed objects propagate to the catalog; in-place modifications to existing objects are not detected.
+For remote object-storage prefixes (`s3://bucket/prefix/`, `gs://bucket/prefix/`, `https://host/prefix/`, etc.) Martin periodically re-lists the prefix and diffs against the previous snapshot.
+There is no event channel from blob storage to subscribe to.
+Added and removed objects propagate to the catalog.
+[In-place modifications to existing objects are not currently handled, but contributions welcome](https://github.com/maplibre/martin/issues/2713).
 
 ```yaml
 pmtiles:
