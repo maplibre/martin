@@ -136,6 +136,7 @@ sqlite-compressions = { version = "0.3", default-features = false, features = ["
 sqlite-hashes = { version = "0.10.6", default-features = false, features = ["md5", "aggregate", "hex"] }
 sqlx = { version = "0.9.0", features = ["sqlite", "runtime-tokio"] }
 static-files = "0.2"
+strum = { version = "0.28", features = ["derive"] }
 subst = "0.3"
 tempfile = "3.21.0"
 test_each_file = "0.3"

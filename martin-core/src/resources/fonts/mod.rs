@@ -30,11 +30,10 @@ use pbf_font_tools::prost::Message as _;
 use pbf_font_tools::{Fontstack, Glyphs, render_sdf_glyph};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
+use strum::VariantNames as _;
 use tracing::{debug, info, instrument, warn};
 
 use crate::walk_files;
-
-const FONT_EXTENSIONS: &[&str] = &["otf", "ttf", "ttc"];
 
 /// Maximum Unicode codepoint supported.
 ///
@@ -101,8 +100,14 @@ fn get_available_codepoints(face: &mut Face) -> Option<GetGlyphInfo> {
 pub type FontCatalog = HashMap<String, CatalogFontEntry>;
 
 /// Source font file container format.
+///
+/// The string serialization (serde and `strum`) is the lowercase file
+/// extension, so [`FontFormat::VARIANTS`] doubles as the list of recognised
+/// font extensions and [`str::parse`] maps an extension back to a variant.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(strum::EnumString, strum::VariantNames)]
 #[serde(rename_all = "lowercase")]
+#[strum(serialize_all = "lowercase")]
 #[cfg_attr(
     feature = "unstable-schemas",
     derive(schemars::JsonSchema, utoipa::ToSchema)
@@ -283,7 +288,7 @@ fn discover_fonts(
         if !path
             .extension()
             .and_then(OsStr::to_str)
-            .is_some_and(|e| FONT_EXTENSIONS.contains(&e))
+            .is_some_and(|e| FontFormat::VARIANTS.contains(&e))
         {
             return Err(FontError::InvalidFontFilePath(path));
         }
@@ -291,7 +296,7 @@ fn discover_fonts(
     }
 
     let start_count = fonts.len();
-    let font_files = walk_files(&path, FONT_EXTENSIONS)
+    let font_files = walk_files(&path, FontFormat::VARIANTS)
         .map_err(|e| FontError::IoError(e.into(), path.clone()))?;
     for font_path in font_files {
         parse_font(lib, fonts, font_path)?;
@@ -312,6 +317,13 @@ fn parse_font(
 ) -> Result<(), FontError> {
     static RE_SPACES: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r"(\s|/|,)+").expect("regex pattern is valid"));
+
+    // The discovery filter only admits the lowercase extensions in
+    // `FontFormat::VARIANTS`, so this parse succeeds for every file we reach.
+    let format = path
+        .extension()
+        .and_then(OsStr::to_str)
+        .and_then(|e| e.parse::<FontFormat>().ok());
 
     let mut face = lib.new_face(&path, 0)?;
     let num_faces = face.num_faces() as isize;
@@ -384,8 +396,7 @@ fn parse_font(
                         glyphs,
                         start,
                         end,
-                        // FIXME: derive from the font file extension / fc-query.
-                        format: None,
+                        format,
                         // FIXME: stat the font file and surface its mtime.
                         last_modified_at: None,
                     },
@@ -424,6 +435,27 @@ mod tests {
             sources.get_catalog().len(),
             1,
             "expected exactly one font, not duplicates from the ..data/..timestamped tree"
+        );
+    }
+
+    #[test]
+    fn catalog_reports_font_format_from_extension() {
+        let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../tests/fixtures/fonts");
+        let mut sources = FontSources::default();
+        sources.recursively_add_directory(dir).unwrap();
+
+        let formats: Vec<FontFormat> = sources
+            .get_catalog()
+            .values()
+            .filter_map(|e| e.format)
+            .collect();
+        assert!(
+            formats.contains(&FontFormat::Ttf),
+            "expected the .ttf fixture to report Ttf, got {formats:?}"
+        );
+        assert!(
+            formats.contains(&FontFormat::Otf),
+            "expected the .otf fixture to report Otf, got {formats:?}"
         );
     }
 

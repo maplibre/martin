@@ -134,21 +134,13 @@ fn layer_kinds(geometry: Option<&Geometry>, props: &OverlayProperties) -> Vec<La
     }
 }
 
-#[derive(Copy, Clone)]
+/// `Display` renders the lowercase variant name, used as the layer-id suffix.
+#[derive(Copy, Clone, strum::Display)]
+#[strum(serialize_all = "lowercase")]
 enum LayerKind {
     Fill,
     Line,
     Circle,
-}
-
-impl LayerKind {
-    fn id_suffix(self) -> &'static str {
-        match self {
-            Self::Fill => "fill",
-            Self::Line => "line",
-            Self::Circle => "circle",
-        }
-    }
 }
 
 /// Scope guard for the apply pass: accumulates the ids it adds to the style
@@ -201,14 +193,14 @@ impl<'a, 'st> OverlayGuard<'a, 'st> {
         self.source_ids.push(source_id.clone());
 
         for kind in kinds {
-            let layer_id = format!("{ID_PREFIX}f{index}-{}", kind.id_suffix());
+            let layer_id = format!("{ID_PREFIX}f{index}-{kind}");
             let result = match kind {
                 LayerKind::Fill => add_fill(self.style, &layer_id, &source_id, &props),
                 LayerKind::Line => add_line(self.style, &layer_id, &source_id, &props),
                 LayerKind::Circle => add_circle(self.style, &layer_id, &source_id, &props),
             };
             result.map_err(|source| ApplyError::Maplibre {
-                id: format!("f{index}-{}", kind.id_suffix()),
+                id: format!("f{index}-{kind}"),
                 source,
             })?;
             self.layer_ids.push(layer_id);

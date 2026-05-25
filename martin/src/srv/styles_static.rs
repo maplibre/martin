@@ -452,8 +452,7 @@ impl FromRequest for OverlayBody {
             if bytes.is_empty() {
                 return Ok(Self(empty_overlay()));
             }
-            let spec: OverlaySpec = serde_json::from_slice(&bytes)
-                .map_err(|e| ErrorBadRequest(format!("Invalid overlay body: {e}")))?;
+            let spec = crate::srv::overlay_body::parse_overlay(&bytes).map_err(ErrorBadRequest)?;
             Ok(Self(Arc::new(spec)))
         })
     }

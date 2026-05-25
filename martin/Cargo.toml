@@ -114,7 +114,8 @@ default = [
     "mlt",
 ]
 unstable-cog = ["martin-core/unstable-cog", "_tiles"]
-rendering = ["styles", "martin-core/rendering", "dep:image", "dep:geojson"]
+overlay = ["martin-core/overlay", "dep:geojson", "dep:csscolorparser"]
+rendering = ["styles", "overlay", "martin-core/rendering", "dep:image"]
 fonts = ["martin-core/fonts", "_catalog"]
 lambda = ["dep:lambda-web"]
 mbtiles = ["martin-core/mbtiles", "dep:mbtiles", "_tiles"]
@@ -168,6 +169,7 @@ actix-web-prom = { workspace = true, optional = true }
 actix-web-static-files = { workspace = true, optional = true }
 async-trait.workspace = true
 clap.workspace = true
+csscolorparser = { workspace = true, optional = true }
 dashmap.workspace = true
 enum-display = { workspace = true, optional = true }
 futures.workspace = true

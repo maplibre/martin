@@ -1,15 +1,16 @@
-//! Static-render overlays: a simplestyle-shaped GeoJSON `FeatureCollection`
-//! deserializes directly into the typed [`OverlaySpec`] boundary IR. Every bit
-//! of validation -- CSS colors, enum values, simplestyle alias resolution --
-//! happens during deserialization (see [`parse`]), so the rest of martin-core
-//! only ever sees fully-valid input. The geometry→layer fan-out and the
-//! simplestyle paint defaults are a rendering concern and live in [`apply`].
-
-use serde::Deserialize;
+//! Static-render overlays: the typed boundary IR a rendered base map is
+//! decorated with.
+//!
+//! [`OverlaySpec`] is a pre-validated `GeoJSON` `FeatureCollection`. The wire
+//! format — the simplestyle aliases, the CSS-color strings, the
+//! `FeatureCollection` envelope — is an application concern, so the `martin`
+//! crate owns deserialization and builds these types from a request body.
+//! martin-core only ever sees the already-valid IR. The geometry→layer fan-out
+//! and the simplestyle paint defaults are a rendering concern and live in
+//! [`apply`].
 
 #[cfg(all(feature = "rendering", target_os = "linux"))]
 mod apply;
-mod parse;
 
 #[cfg(all(feature = "rendering", target_os = "linux"))]
 pub use apply::{AppliedOverlay, ApplyError, apply_to_style};
@@ -20,15 +21,10 @@ pub use apply::{AppliedOverlay, ApplyError, apply_to_style};
 const ID_PREFIX: &str = "overlay:";
 
 /// Boundary IR: a `GeoJSON` `FeatureCollection` of pre-validated overlay
-/// features. Deserializing this type *is* the validation step; a bad body is
-/// a deserialization error (→ 400 at the HTTP boundary).
-#[derive(Debug, Default, Clone, Deserialize)]
+/// features. Built by the application layer from the request body; by the time
+/// it reaches martin-core every value is already valid.
+#[derive(Debug, Default, Clone)]
 pub struct OverlaySpec {
-    /// `"FeatureCollection"` discriminator. Validated on the way in, then
-    /// discarded -- a non-`FeatureCollection` body fails to deserialize.
-    #[serde(rename = "type")]
-    #[expect(dead_code, reason = "validated by Deserialize, then discarded")]
-    kind: parse::FeatureCollectionTag,
     /// Features in render order. Each renders independently as its own
     /// `GeoJSON` source plus the 1-2 layers its geometry fans out to.
     pub features: Vec<OverlayFeature>,
@@ -45,24 +41,22 @@ impl OverlaySpec {
 /// One `GeoJSON` `Feature`: a geometry plus its validated style. The
 /// geometry→layer fan-out is deferred to [`apply`], so features with a `null`
 /// or unsupported geometry are kept here and skipped at apply time.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct OverlayFeature {
     /// Geometry to render. `Point`/`MultiPoint` → circle; `LineString`/
     /// `MultiLineString` → line; `Polygon`/`MultiPolygon` → fill and/or line.
-    #[serde(default)]
     pub geometry: Option<geojson::Geometry>,
-    /// Validated style for this feature; `None`/`null` is treated as empty.
-    #[serde(default)]
+    /// Validated style for this feature; `None` is treated as empty.
     pub properties: Option<OverlayProperties>,
 }
 
-/// Per-feature style, keyed by canonical `MapLibre` paint/layout names. Built by
-/// deserialization: simplestyle aliases (`marker-color`, `stroke`, `fill`,
-/// `marker-size`) are resolved into these fields (the canonical name wins on
-/// conflict), and unknown keys (`title`, `id`, …) are ignored. All fields are
-/// optional; the simplestyle defaults are applied later, in [`apply`].
-#[derive(Debug, Default, Clone, Deserialize)]
-#[serde(try_from = "parse::RawOverlayProperties")]
+/// Per-feature style, keyed by canonical `MapLibre` paint/layout names. The
+/// application layer builds this from the wire format: simplestyle aliases
+/// (`marker-color`, `stroke`, `fill`, `marker-size`) are resolved into these
+/// fields (canonical name wins on conflict) and unknown keys (`title`, `id`, …)
+/// are dropped. All fields are optional; the simplestyle defaults are applied
+/// later, in [`apply`].
+#[derive(Debug, Default, Clone)]
 pub struct OverlayProperties {
     /// `circle-color` (simplestyle alias: `marker-color`).
     pub circle_color: Option<Color>,
@@ -94,10 +88,11 @@ pub struct OverlayProperties {
     pub fill_outline_color: Option<Color>,
 }
 
-/// Straight RGBA in `0..=1`, parsed from a CSS color string at deserialization.
+/// Straight RGBA in `0..=1`.
 ///
 /// Owned by this module so the maplibre-free `overlay` feature doesn't need a
-/// maplibre dependency; [`apply`] converts it via `From` at render time.
+/// maplibre dependency; [`apply`] converts it via `From` at render time. The
+/// application layer constructs it directly from a parsed CSS color.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Color {
     /// Red channel.
@@ -111,8 +106,7 @@ pub struct Color {
 }
 
 /// `line-cap` layout value.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
-#[serde(rename_all = "lowercase")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LineCap {
     /// Square cap that ends flush with the end of the line.
     Butt,
@@ -123,8 +117,7 @@ pub enum LineCap {
 }
 
 /// `line-join` layout value.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
-#[serde(rename_all = "lowercase")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LineJoin {
     /// Sharp join.
     Miter,
