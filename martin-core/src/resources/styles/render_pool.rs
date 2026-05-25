@@ -250,20 +250,45 @@ struct RendererState {
 
 #[cfg(test)]
 mod tests {
-    use std::path::Path;
     use std::sync::Arc;
 
     use super::*;
 
-    fn fixture_path(name: &str) -> PathBuf {
-        Path::new("../tests/fixtures/styles").join(name)
-    }
-
     #[tokio::test]
     async fn concurrent_renders_all_succeed() {
+        // Hermetic local style: an inline GeoJSON polygon over a white
+        // background renders without any network access, so this exercises the
+        // pool's concurrency without depending on (and hammering) a live tile
+        // upstream.
+        let style_json = r##"{
+            "version": 8,
+            "sources": {
+                "poly": {
+                    "type": "geojson",
+                    "data": {
+                        "type": "Feature",
+                        "properties": {},
+                        "geometry": {
+                            "type": "Polygon",
+                            "coordinates": [[[-10, -10], [10, -10], [10, 10], [-10, 10], [-10, -10]]]
+                        }
+                    }
+                }
+            },
+            "layers": [
+                {"id": "bg", "type": "background", "paint": {"background-color": "#ffffff"}},
+                {"id": "poly", "type": "fill", "source": "poly", "paint": {"fill-color": "#ff0000"}}
+            ]
+        }"##;
+        let style_file = tempfile::Builder::new()
+            .suffix(".json")
+            .tempfile()
+            .expect("create style tempfile");
+        std::fs::write(style_file.path(), style_json).expect("write style");
+
         let workers = NonZeroUsize::new(4);
         let pool = Arc::new(RendererPool::new(workers).expect("spawn render pool"));
-        let style = fixture_path("maplibre_demo.json");
+        let style = style_file.path().to_path_buf();
 
         let mut handles = Vec::new();
         for i in 0..16 {
