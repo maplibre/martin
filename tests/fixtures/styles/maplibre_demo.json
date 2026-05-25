@@ -396,12 +396,10 @@
   },
   "sources": {
     "maplibre": {
-      "type": "vector",
-      "minzoom": 0,
       "maxzoom": 6,
-      "tiles": [
-        "https://demotiles.maplibre.org/tiles/{z}/{x}/{y}.pbf"
-      ]
+      "minzoom": 0,
+      "tiles": ["https://demotiles.maplibre.org/tiles/{z}/{x}/{y}.pbf"],
+      "type": "vector"
     }
   },
   "version": 8,
