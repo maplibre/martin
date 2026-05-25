@@ -1180,7 +1180,7 @@ echo "::endgroup::"
 # with a file *already* in the watch directory, the reloader must record it in
 # its snapshot - otherwise a subsequent deletion produces an empty diff
 # (prev=={}, next=={}) and the catalog never drops the now-missing source.
-echo "::group::Test PMTiles hot reload -- pre-existing file at startup"
+echo "::group::Test PMTiles hot reload - pre-existing file at startup"
 TEST_NAME="pmtiles_reload_startup"
 LOG_FILE="${LOG_DIR}/${TEST_NAME}.txt"
 TEST_OUT_DIR="${TEST_OUT_BASE_DIR}/${TEST_NAME}"
