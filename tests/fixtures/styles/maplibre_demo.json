@@ -397,7 +397,11 @@
   "sources": {
     "maplibre": {
       "type": "vector",
-      "url": "https://demotiles.maplibre.org/tiles/tiles.json"
+      "minzoom": 0,
+      "maxzoom": 6,
+      "tiles": [
+        "https://demotiles.maplibre.org/tiles/{z}/{x}/{y}.pbf"
+      ]
     }
   },
   "version": 8,
