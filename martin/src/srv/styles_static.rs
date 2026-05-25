@@ -419,7 +419,9 @@ async fn render_base(
             // the body so the coverage-job render failures show the real cause.
             HttpResponse::InternalServerError()
                 .content_type(ContentType::plaintext())
-                .body(format!("Failed to render static image: {other} | {other:?}"))
+                .body(format!(
+                    "Failed to render static image: {other} | {other:?}"
+                ))
         }
     })
 }
