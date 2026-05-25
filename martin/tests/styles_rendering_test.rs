@@ -443,9 +443,9 @@ async fn empty_body_renders_base_map() {
 }
 
 /// A parsed but empty overlay spec hits a different branch than an empty
-/// body: the body is decoded and `parse_spec` runs, but the resulting
-/// `OverlaySpec::is_empty()` short-circuits the apply pass so the base map
-/// is returned untouched.
+/// body: the body is decoded and deserialized into an `OverlaySpec`, but the
+/// resulting `OverlaySpec::is_empty()` short-circuits the apply pass so the
+/// base map is returned untouched.
 #[tokio::test]
 async fn empty_overlay_renders_base_map() {
     let body = post_png_body(

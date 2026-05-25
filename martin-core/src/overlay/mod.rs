@@ -1,7 +1,11 @@
-//! Static-render overlays: parse a simplestyle-shaped `FeatureCollection`
-//! (with `MapLibre` property names on each feature's `properties`) into a
-//! list of pre-styled features, then apply them ephemerally to a renderer's
-//! style.
+//! Static-render overlays: a simplestyle-shaped GeoJSON `FeatureCollection`
+//! deserializes directly into the typed [`OverlaySpec`] boundary IR. Every bit
+//! of validation — CSS colors, enum values, simplestyle alias resolution —
+//! happens during deserialization (see [`parse`]), so the rest of martin-core
+//! only ever sees fully-valid input. The geometry→layer fan-out and the
+//! simplestyle paint defaults are a rendering concern and live in [`apply`].
+
+use serde::Deserialize;
 
 #[cfg(all(feature = "rendering", target_os = "linux"))]
 mod apply;
@@ -9,19 +13,24 @@ mod parse;
 
 #[cfg(all(feature = "rendering", target_os = "linux"))]
 pub use apply::{AppliedOverlay, ApplyError, apply_to_style};
-pub use parse::{OverlayParseError, parse_spec};
 
-/// Prefix prepended to every caller-supplied source/layer id before it reaches
+/// Prefix prepended to every synthetic source/layer id before it reaches
 /// maplibre. Guarantees overlay ids cannot collide with the base style.
 #[cfg(all(feature = "rendering", target_os = "linux"))]
 const ID_PREFIX: &str = "overlay:";
 
-/// A parsed overlay: an ordered list of features, each pre-styled with the
-/// one or two layers it renders as.
-#[derive(Debug, Default, Clone)]
+/// Boundary IR: a `GeoJSON` `FeatureCollection` of pre-validated overlay
+/// features. Deserializing this type *is* the validation step; a bad body is
+/// a deserialization error (→ 400 at the HTTP boundary).
+#[derive(Debug, Default, Clone, Deserialize)]
 pub struct OverlaySpec {
-    /// Features in render order. Each feature renders independently as its
-    /// own `GeoJSON` source plus 1 or 2 typed layers.
+    /// `"FeatureCollection"` discriminator. Validated on the way in, then
+    /// discarded — a non-`FeatureCollection` body fails to deserialize.
+    #[serde(rename = "type")]
+    #[expect(dead_code, reason = "validated by Deserialize, then discarded")]
+    kind: parse::FeatureCollectionTag,
+    /// Features in render order. Each renders independently as its own
+    /// `GeoJSON` source plus the 1-2 layers its geometry fans out to.
     pub features: Vec<OverlayFeature>,
 }
 
@@ -33,83 +42,62 @@ impl OverlaySpec {
     }
 }
 
-/// One feature and the 1-2 layers it draws as. The styled layers are
-/// pre-resolved at parse time — there are no cross-references to other
-/// features and no string-id pointers.
-#[derive(Debug, Clone)]
+/// One `GeoJSON` `Feature`: a geometry plus its validated style. The
+/// geometry→layer fan-out is deferred to [`apply`], so features with a `null`
+/// or unsupported geometry are kept here and skipped at apply time.
+#[derive(Debug, Clone, Deserialize)]
 pub struct OverlayFeature {
-    /// `GeoJSON` payload (typically a single-feature `Feature`) that becomes
-    /// this overlay's source. Parsed eagerly so malformed data → 400.
-    pub data: geojson::GeoJson,
-    /// Layers in draw order (fill → outline-line → line → circle).
-    /// A point yields exactly `Circle`; a linestring yields exactly `Line`;
-    /// a polygon yields `Fill`, `Line`, or both.
-    pub layers: Vec<StyledLayer>,
+    /// Geometry to render. `Point`/`MultiPoint` → circle; `LineString`/
+    /// `MultiLineString` → line; `Polygon`/`MultiPolygon` → fill and/or line.
+    #[serde(default)]
+    pub geometry: Option<geojson::Geometry>,
+    /// Validated style for this feature; `None`/`null` is treated as empty.
+    #[serde(default)]
+    pub properties: Option<OverlayProperties>,
 }
 
-/// One typed paint layer attached to a feature.
-#[derive(Debug, Clone, Copy)]
-pub enum StyledLayer {
-    /// Polygon fill paint.
-    Fill(FillPaint),
-    /// Line paint + layout (used for `LineString`/`MultiLineString` features
-    /// and for polygon outlines).
-    Line(LinePaint, LineLayout),
-    /// Circle paint (used for `Point`/`MultiPoint` features).
-    Circle(CirclePaint),
-}
-
-/// Paint properties for a `fill` layer.
-#[derive(Debug, Default, Clone, Copy)]
-pub struct FillPaint {
-    /// `fill-color`.
-    pub color: Option<Color>,
-    /// `fill-opacity` in `0..=1`.
-    pub opacity: Option<f32>,
-    /// `fill-outline-color`.
-    pub outline_color: Option<Color>,
-}
-
-/// Paint properties for a `line` layer.
-#[derive(Debug, Default, Clone, Copy)]
-pub struct LinePaint {
-    /// `line-color`.
-    pub color: Option<Color>,
-    /// `line-opacity` in `0..=1`.
-    pub opacity: Option<f32>,
-    /// `line-width` in pixels at the rendered scale.
-    pub width: Option<f32>,
-}
-
-/// Layout properties for a `line` layer.
-#[derive(Debug, Default, Clone, Copy)]
-pub struct LineLayout {
-    /// `line-cap`.
-    pub cap: Option<LineCap>,
-    /// `line-join`.
-    pub join: Option<LineJoin>,
-}
-
-/// Paint properties for a `circle` layer.
-#[derive(Debug, Default, Clone, Copy)]
-pub struct CirclePaint {
-    /// `circle-color`.
-    pub color: Option<Color>,
-    /// `circle-opacity` in `0..=1`.
-    pub opacity: Option<f32>,
-    /// `circle-radius` in pixels at the rendered scale.
-    pub radius: Option<f32>,
+/// Per-feature style, keyed by canonical `MapLibre` paint/layout names. Built by
+/// deserialization: simplestyle aliases (`marker-color`, `stroke`, `fill`,
+/// `marker-size`) are resolved into these fields (the canonical name wins on
+/// conflict), and unknown keys (`title`, `id`, …) are ignored. All fields are
+/// optional; the simplestyle defaults are applied later, in [`apply`].
+#[derive(Debug, Default, Clone, Deserialize)]
+#[serde(try_from = "parse::RawOverlayProperties")]
+pub struct OverlayProperties {
+    /// `circle-color` (simplestyle alias: `marker-color`).
+    pub circle_color: Option<Color>,
+    /// `circle-opacity`.
+    pub circle_opacity: Option<f32>,
+    /// `circle-radius` (simplestyle alias: `marker-size` → 6/8/10).
+    pub circle_radius: Option<f32>,
     /// `circle-stroke-color`.
-    pub stroke_color: Option<Color>,
-    /// `circle-stroke-opacity` in `0..=1`.
-    pub stroke_opacity: Option<f32>,
-    /// `circle-stroke-width` in pixels at the rendered scale.
-    pub stroke_width: Option<f32>,
+    pub circle_stroke_color: Option<Color>,
+    /// `circle-stroke-opacity`.
+    pub circle_stroke_opacity: Option<f32>,
+    /// `circle-stroke-width`.
+    pub circle_stroke_width: Option<f32>,
+    /// `line-color` (simplestyle alias: `stroke`).
+    pub line_color: Option<Color>,
+    /// `line-opacity` (simplestyle alias: `stroke-opacity`).
+    pub line_opacity: Option<f32>,
+    /// `line-width` (simplestyle alias: `stroke-width`).
+    pub line_width: Option<f32>,
+    /// `line-cap`.
+    pub line_cap: Option<LineCap>,
+    /// `line-join`.
+    pub line_join: Option<LineJoin>,
+    /// `fill-color` (simplestyle alias: `fill`).
+    pub fill_color: Option<Color>,
+    /// `fill-opacity`.
+    pub fill_opacity: Option<f32>,
+    /// `fill-outline-color`.
+    pub fill_outline_color: Option<Color>,
 }
 
-/// Straight RGBA in `0..=1`, parsed from a CSS color string.
+/// Straight RGBA in `0..=1`, parsed from a CSS color string at deserialization.
 ///
-/// Owned by this module so the parser doesn't need a maplibre dep.
+/// Owned by this module so the maplibre-free `overlay` feature doesn't need a
+/// maplibre dependency; [`apply`] converts it via `From` at render time.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Color {
     /// Red channel.
@@ -123,7 +111,8 @@ pub struct Color {
 }
 
 /// `line-cap` layout value.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum LineCap {
     /// Square cap that ends flush with the end of the line.
     Butt,
@@ -134,7 +123,8 @@ pub enum LineCap {
 }
 
 /// `line-join` layout value.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum LineJoin {
     /// Sharp join.
     Miter,

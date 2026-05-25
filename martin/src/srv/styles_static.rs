@@ -8,7 +8,7 @@ use actix_web::error::ErrorBadRequest;
 use actix_web::http::header::{ContentType, LOCATION};
 use actix_web::web::{Bytes, Data, Path};
 use actix_web::{FromRequest, HttpRequest, HttpResponse, route};
-use martin_core::overlay::{OverlaySpec, parse_spec};
+use martin_core::overlay::OverlaySpec;
 use martin_core::styles::{RenderParams, StyleSources};
 use martin_tile_utils::{EARTH_CIRCUMFERENCE, wgs84_to_webmercator};
 use serde::Deserialize;
@@ -246,7 +246,7 @@ pub async fn get_rendered_static_style(
     path: Path<StaticImagePath>,
     styles: Data<StyleSources>,
 ) -> HttpResponse {
-    handle_static_request(&path, &styles, None).await
+    handle_static_request(&path, &styles, empty_overlay()).await
 }
 
 #[derive(Deserialize, Debug)]
@@ -292,9 +292,9 @@ pub async fn redirect_static_jpeg(path: Path<StaticJpgRedirectPath>) -> HttpResp
 /// (`circle-color`, `line-width`, `fill-color`, ...). Unknown property keys
 /// are silently ignored.
 ///
-/// Runtime parsing happens in [`OverlayBody::from_request`] via
-/// [`parse_spec`]; this struct exists only to drive `utoipa`'s schema
-/// generation.
+/// Runtime parsing happens in [`OverlayBody::from_request`] by deserializing
+/// straight into [`OverlaySpec`]; this struct exists only to drive `utoipa`'s
+/// schema generation.
 #[cfg(feature = "unstable-schemas")]
 #[derive(utoipa::ToSchema)]
 #[expect(dead_code, reason = "fields are read by the ToSchema derive macro")]
@@ -425,17 +425,20 @@ pub async fn post_rendered_static_style(
     OverlayBody(overlays): OverlayBody,
     styles: Data<StyleSources>,
 ) -> HttpResponse {
-    let overlays = if overlays.is_empty() {
-        None
-    } else {
-        Some(overlays)
-    };
     handle_static_request(&path, &styles, overlays).await
 }
 
+/// The canonical "no overlay" spec: zero features, so `render_one`'s `is_empty`
+/// short-circuit renders the untouched base map. Used for the GET path and for
+/// an empty POST body.
+fn empty_overlay() -> Arc<OverlaySpec> {
+    Arc::new(OverlaySpec::default())
+}
+
 /// Actix extractor: empty body → no overlays; otherwise parses the body as
-/// a `GeoJSON` `FeatureCollection` (see [`parse_spec`]). Malformed JSON or
-/// invalid styling values short-circuit the handler with a 400 response.
+/// a `GeoJSON` `FeatureCollection` (deserialized into [`OverlaySpec`]).
+/// Malformed JSON or invalid styling values short-circuit the handler with a
+/// 400 response.
 struct OverlayBody(Arc<OverlaySpec>);
 
 impl FromRequest for OverlayBody {
@@ -447,11 +450,10 @@ impl FromRequest for OverlayBody {
         Box::pin(async move {
             let bytes = fut.await?;
             if bytes.is_empty() {
-                return Ok(Self(Arc::new(OverlaySpec::default())));
+                return Ok(Self(empty_overlay()));
             }
-            let value: serde_json::Value = serde_json::from_slice(&bytes)
-                .map_err(|e| ErrorBadRequest(format!("Invalid JSON overlay body: {e}")))?;
-            let spec = parse_spec(&value).map_err(ErrorBadRequest)?;
+            let spec: OverlaySpec = serde_json::from_slice(&bytes)
+                .map_err(|e| ErrorBadRequest(format!("Invalid overlay body: {e}")))?;
             Ok(Self(Arc::new(spec)))
         })
     }
@@ -466,11 +468,11 @@ struct Camera {
     pitch: f64,
 }
 
-/// Shared static-image pipeline; `overlays` is `None` for GET.
+/// Shared static-image pipeline; `overlays` is the empty spec for GET.
 async fn handle_static_request(
     path: &StaticImagePath,
     styles: &StyleSources,
-    overlays: Option<Arc<OverlaySpec>>,
+    overlays: Arc<OverlaySpec>,
 ) -> HttpResponse {
     let style_id = &path.style_id;
     let Some(style_path) = styles.style_json_path(style_id) else {
@@ -585,23 +587,21 @@ async fn render_with_overlays(
     style_path: std::path::PathBuf,
     camera: &Camera,
     size: SizeRequest,
-    overlays: Option<Arc<OverlaySpec>>,
+    overlays: Arc<OverlaySpec>,
 ) -> Result<martin_core::styles::StaticImage, HttpResponse> {
     use martin_core::styles::StyleError;
 
     // The renderer multiplies (width, height) by pixel_ratio internally, so
     // pass the *logical* size - not size × scale - to avoid double-scaling.
-    let mut params = RenderParams::new(
+    let params = RenderParams::new(
         style_path,
         camera.center_lat,
         camera.center_lon,
         camera.zoom,
     )
     .with_size(size.width, size.height, size.scale)
-    .with_orientation(camera.bearing, camera.pitch);
-    if let Some(spec) = overlays {
-        params = params.with_overlays(spec);
-    }
+    .with_orientation(camera.bearing, camera.pitch)
+    .with_overlays(overlays);
     styles.render_static(params).await.map_err(|e| match e {
         StyleError::RenderingIsDisabled => {
             warn!("Failed to render static image because rendering is disabled");

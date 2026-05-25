@@ -40,8 +40,9 @@ pub struct RenderParams {
     bearing: f64,
     /// Pitch in degrees away from straight-down (0 = flat top-down view).
     pitch: f64,
-    /// Optional overlay spec to apply for this render only.
-    overlays: Option<Arc<OverlaySpec>>,
+    /// Overlay spec to composite for this render. An empty spec (no features)
+    /// is the canonical "nothing to draw" and short-circuits to a plain render.
+    overlays: Arc<OverlaySpec>,
 }
 
 impl RenderParams {
@@ -59,7 +60,7 @@ impl RenderParams {
             pixel_ratio: 1.0,
             bearing: 0.0,
             pitch: 0.0,
-            overlays: None,
+            overlays: Arc::new(OverlaySpec::default()),
         }
     }
 
@@ -87,7 +88,7 @@ impl RenderParams {
     /// channel; the `GeoJSON` payload could be large.
     #[must_use]
     pub fn with_overlays(mut self, spec: Arc<OverlaySpec>) -> Self {
-        self.overlays = Some(spec);
+        self.overlays = spec;
         self
     }
 }
@@ -319,10 +320,11 @@ fn render_one(
             .map_err(StyleError::RenderingError)
     };
 
-    let Some(spec) = params.overlays.as_deref().filter(|spec| !spec.is_empty()) else {
+    if params.overlays.is_empty() {
         // No overlay: a single render captures the fully-tiled frame.
         return render_once(renderer);
-    };
+    }
+    let spec = &params.overlays;
 
     // An overlay source must be added to an already-initialised rendering
     // pipeline: without a render before `add_source` the GeoJSON source never

@@ -1,19 +1,37 @@
 //! [`OverlaySpec`] → side-effects on a maplibre [`Style`].
 //!
-//! Each [`OverlayFeature`] becomes one maplibre source plus its 1-2 layers.
-//! The [`ID_PREFIX`] / synthetic-id scheme lives entirely here — callers
-//! never see prefixed or unprefixed ids, only the typed features. Overlay
-//! layers are added on top of the base style in feature order.
+//! Each [`OverlayFeature`] becomes one maplibre source plus the 1-2 layers its
+//! geometry fans out to. The geometry→layer dispatch, the polygon fill/outline
+//! rule, and the simplestyle paint defaults all live here — they are rendering
+//! concerns, not validation. The [`ID_PREFIX`] / synthetic-id scheme is also
+//! local: callers only ever see the typed [`OverlayFeature`]s.
 
+use geojson::{GeoJson as GjGeoJson, Geometry, GeometryValue};
 use maplibre_native::{
     CircleLayer, Color as MlnColor, FillLayer, GeoJson, GeoJsonError, GeoJsonSource,
     LineCap as MlnLineCap, LineJoin as MlnLineJoin, LineLayer, Static, Style, StyleError,
 };
 
 use crate::overlay::{
-    CirclePaint, Color, FillPaint, ID_PREFIX, LineCap, LineJoin, LineLayout, LinePaint,
-    OverlayFeature, OverlaySpec, StyledLayer,
+    Color, ID_PREFIX, LineCap, LineJoin, OverlayFeature, OverlayProperties, OverlaySpec,
 };
+
+const fn rgb(r: u8, g: u8, b: u8) -> Color {
+    Color {
+        r: r as f32 / 255.0,
+        g: g as f32 / 255.0,
+        b: b as f32 / 255.0,
+        a: 1.0,
+    }
+}
+
+const DEFAULT_CIRCLE_COLOR: Color = rgb(0x7e, 0x7e, 0x7e);
+const DEFAULT_LINE_COLOR: Color = rgb(0x55, 0x55, 0x55);
+const DEFAULT_FILL_COLOR: Color = rgb(0x55, 0x55, 0x55);
+const DEFAULT_CIRCLE_RADIUS: f32 = 8.0;
+const DEFAULT_LINE_WIDTH: f32 = 2.0;
+const DEFAULT_FILL_OPACITY: f32 = 0.6;
+const DEFAULT_OPACITY: f32 = 1.0;
 
 /// Errors produced while applying an [`OverlaySpec`] to a [`Style`].
 #[non_exhaustive]
@@ -80,6 +98,59 @@ pub fn apply_to_style(
     Ok(guard.commit())
 }
 
+/// Which layer kinds a feature fans out to, in draw order. A point draws a
+/// circle, a line draws a line, and a polygon fills (unless only stroke
+/// properties are set) and outlines (when any stroke/line property is present)
+/// — a bare polygon still fills so it stays visible. `None`/`GeometryCollection`
+/// geometries produce nothing and are skipped.
+fn layer_kinds(geometry: Option<&Geometry>, props: &OverlayProperties) -> Vec<LayerKind> {
+    let Some(geometry) = geometry else {
+        return Vec::new();
+    };
+    match geometry.value {
+        GeometryValue::Point { .. } | GeometryValue::MultiPoint { .. } => vec![LayerKind::Circle],
+        GeometryValue::LineString { .. } | GeometryValue::MultiLineString { .. } => {
+            vec![LayerKind::Line]
+        }
+        GeometryValue::Polygon { .. } | GeometryValue::MultiPolygon { .. } => {
+            let has_fill = props.fill_color.is_some()
+                || props.fill_opacity.is_some()
+                || props.fill_outline_color.is_some();
+            let has_line = props.line_color.is_some()
+                || props.line_opacity.is_some()
+                || props.line_width.is_some()
+                || props.line_cap.is_some()
+                || props.line_join.is_some();
+            let mut kinds = Vec::with_capacity(2);
+            if has_fill || !has_line {
+                kinds.push(LayerKind::Fill);
+            }
+            if has_line {
+                kinds.push(LayerKind::Line);
+            }
+            kinds
+        }
+        GeometryValue::GeometryCollection { .. } => Vec::new(),
+    }
+}
+
+#[derive(Copy, Clone)]
+enum LayerKind {
+    Fill,
+    Line,
+    Circle,
+}
+
+impl LayerKind {
+    fn id_suffix(self) -> &'static str {
+        match self {
+            Self::Fill => "fill",
+            Self::Line => "line",
+            Self::Circle => "circle",
+        }
+    }
+}
+
 /// Scope guard for the apply pass: accumulates the ids it adds to the style
 /// and, unless [`commit`](OverlayGuard::commit)ted, removes them again on
 /// drop — including on an early `?` return or a panic. This makes it
@@ -104,8 +175,19 @@ impl<'a, 'st> OverlayGuard<'a, 'st> {
     }
 
     fn apply_feature(&mut self, index: usize, feature: &OverlayFeature) -> Result<(), ApplyError> {
+        let props = feature.properties.clone().unwrap_or_default();
+        let kinds = layer_kinds(feature.geometry.as_ref(), &props);
+        if kinds.is_empty() {
+            // null / unsupported geometry, or a geometry that draws nothing.
+            return Ok(());
+        }
+        let geometry = feature
+            .geometry
+            .clone()
+            .expect("layer_kinds is empty for a missing geometry");
+
         let source_id = format!("{ID_PREFIX}f{index}");
-        let mln_gj: GeoJson = (&feature.data)
+        let mln_gj: GeoJson = (&GjGeoJson::Geometry(geometry))
             .try_into()
             .map_err(|source| ApplyError::GeoJsonConvert { index, source })?;
         let mut gs = GeoJsonSource::new(&source_id);
@@ -118,22 +200,15 @@ impl<'a, 'st> OverlayGuard<'a, 'st> {
             })?;
         self.source_ids.push(source_id.clone());
 
-        for styled in &feature.layers {
-            let kind = match styled {
-                StyledLayer::Fill(_) => "fill",
-                StyledLayer::Line(..) => "line",
-                StyledLayer::Circle(_) => "circle",
-            };
-            let layer_id = format!("{ID_PREFIX}f{index}-{kind}");
-            let result = match styled {
-                StyledLayer::Fill(paint) => add_fill(self.style, &layer_id, &source_id, paint),
-                StyledLayer::Line(paint, layout) => {
-                    add_line(self.style, &layer_id, &source_id, paint, *layout)
-                }
-                StyledLayer::Circle(paint) => add_circle(self.style, &layer_id, &source_id, paint),
+        for kind in kinds {
+            let layer_id = format!("{ID_PREFIX}f{index}-{}", kind.id_suffix());
+            let result = match kind {
+                LayerKind::Fill => add_fill(self.style, &layer_id, &source_id, &props),
+                LayerKind::Line => add_line(self.style, &layer_id, &source_id, &props),
+                LayerKind::Circle => add_circle(self.style, &layer_id, &source_id, &props),
             };
             result.map_err(|source| ApplyError::Maplibre {
-                id: format!("f{index}-{kind}"),
+                id: format!("f{index}-{}", kind.id_suffix()),
                 source,
             })?;
             self.layer_ids.push(layer_id);
@@ -171,16 +246,12 @@ fn add_fill(
     style: &mut Style<'_, Static>,
     layer_id: &str,
     source_id: &str,
-    paint: &FillPaint,
+    props: &OverlayProperties,
 ) -> Result<(), StyleError> {
     let mut layer = FillLayer::new(layer_id, source_id);
-    if let Some(c) = paint.color {
-        layer.set_fill_color(c.into());
-    }
-    if let Some(o) = paint.opacity {
-        layer.set_fill_opacity(o);
-    }
-    if let Some(c) = paint.outline_color {
+    layer.set_fill_color(props.fill_color.unwrap_or(DEFAULT_FILL_COLOR).into());
+    layer.set_fill_opacity(props.fill_opacity.unwrap_or(DEFAULT_FILL_OPACITY));
+    if let Some(c) = props.fill_outline_color {
         layer.set_fill_outline_color(c.into());
     }
     style.add_layer(layer).map(|_| ())
@@ -190,23 +261,16 @@ fn add_line(
     style: &mut Style<'_, Static>,
     layer_id: &str,
     source_id: &str,
-    paint: &LinePaint,
-    layout: LineLayout,
+    props: &OverlayProperties,
 ) -> Result<(), StyleError> {
     let mut layer = LineLayer::new(layer_id, source_id);
-    if let Some(c) = paint.color {
-        layer.set_line_color(c.into());
-    }
-    if let Some(o) = paint.opacity {
-        layer.set_line_opacity(o);
-    }
-    if let Some(w) = paint.width {
-        layer.set_line_width(w);
-    }
-    if let Some(cap) = layout.cap {
+    layer.set_line_color(props.line_color.unwrap_or(DEFAULT_LINE_COLOR).into());
+    layer.set_line_opacity(props.line_opacity.unwrap_or(DEFAULT_OPACITY));
+    layer.set_line_width(props.line_width.unwrap_or(DEFAULT_LINE_WIDTH));
+    if let Some(cap) = props.line_cap {
         layer.set_line_cap(cap.into());
     }
-    if let Some(join) = layout.join {
+    if let Some(join) = props.line_join {
         layer.set_line_join(join.into());
     }
     style.add_layer(layer).map(|_| ())
@@ -216,25 +280,19 @@ fn add_circle(
     style: &mut Style<'_, Static>,
     layer_id: &str,
     source_id: &str,
-    paint: &CirclePaint,
+    props: &OverlayProperties,
 ) -> Result<(), StyleError> {
     let mut layer = CircleLayer::new(layer_id, source_id);
-    if let Some(c) = paint.color {
-        layer.set_circle_color(c.into());
-    }
-    if let Some(o) = paint.opacity {
-        layer.set_circle_opacity(o);
-    }
-    if let Some(r) = paint.radius {
-        layer.set_circle_radius(r);
-    }
-    if let Some(c) = paint.stroke_color {
+    layer.set_circle_color(props.circle_color.unwrap_or(DEFAULT_CIRCLE_COLOR).into());
+    layer.set_circle_opacity(props.circle_opacity.unwrap_or(DEFAULT_OPACITY));
+    layer.set_circle_radius(props.circle_radius.unwrap_or(DEFAULT_CIRCLE_RADIUS));
+    if let Some(c) = props.circle_stroke_color {
         layer.set_circle_stroke_color(c.into());
     }
-    if let Some(o) = paint.stroke_opacity {
+    if let Some(o) = props.circle_stroke_opacity {
         layer.set_circle_stroke_opacity(o);
     }
-    if let Some(w) = paint.stroke_width {
+    if let Some(w) = props.circle_stroke_width {
         layer.set_circle_stroke_width(w);
     }
     style.add_layer(layer).map(|_| ())
