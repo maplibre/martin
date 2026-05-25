@@ -283,6 +283,69 @@ clippy-md:
     docker run --rm -v ${PWD}:/workdir --entrypoint sh ghcr.io/tcort/markdown-link-check -c \
       'echo -e "/workdir/README.md\n$(find /workdir/docs/content -name "*.md")" | tr "\n" "\0" | xargs -0 -P 5 -n1 -I{} markdown-link-check --config /workdir/.github/files/markdown.links.config.json {}'
 
+# Install mitmproxy via uv if not on PATH.
+[linux]
+install-mitmproxy:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if ! command -v mitmdump >/dev/null; then
+        command -v uv >/dev/null || { echo >&2 "uv is required: https://docs.astral.sh/uv/"; exit 1; }
+        uv tool install mitmproxy
+    fi
+
+# Internal: run `cmd` with mitmproxy reverse-proxying the two rendering-test
+# upstreams. Plain HTTP only -- ports must match the `PROXIED_HOSTS` constants in
+# martin-core/tests/rendering_test.rs and martin/tests/styles_rendering_test.rs.
+[linux]
+_run-render-proxy mode *cmd: install-mitmproxy
+    #!/usr/bin/env bash
+    set -euo pipefail
+    CASSETTE="tests/fixtures/rendering_cache/flows"
+    case "{{mode}}" in
+        replay)
+            [ -s "$CASSETTE" ] || { echo >&2 "missing cassette $CASSETTE - run \`just seed-render-fixtures\`"; exit 1; }
+            MITM_ARGS=(--server-replay "$CASSETTE" \
+                       --set server_replay_extra=forward \
+                       --set server_replay_reuse=true)
+            ;;
+        record)
+            mkdir -p "$(dirname "$CASSETTE")"
+            rm -f "$CASSETTE"
+            MITM_ARGS=(-w "$CASSETTE")
+            ;;
+        *) echo >&2 "_run-render-proxy: unknown mode '{{mode}}'"; exit 1 ;;
+    esac
+    mitmdump --quiet --set http2=false \
+        --mode reverse:https://demotiles.maplibre.org@18081 \
+        --mode reverse:https://tiles.openfreemap.org@18082 \
+        "${MITM_ARGS[@]}" \
+        > /tmp/mitmdump.log 2>&1 &
+    MITM_PID=$!
+    trap 'kill -INT "$MITM_PID" 2>/dev/null || true; wait "$MITM_PID" 2>/dev/null || true' EXIT
+    for _ in $(seq 1 20); do
+        (echo > /dev/tcp/127.0.0.1/18081) 2>/dev/null \
+            && (echo > /dev/tcp/127.0.0.1/18082) 2>/dev/null && break
+        sleep 0.5
+    done
+    {{cmd}}
+
+# Run `cmd` with the rendering-test cassette replayed via mitmproxy.
+[linux]
+with-render-cache *cmd: (_run-render-proxy "replay" cmd)
+
+# Re-record the rendering cassette against live upstreams. Commit the result.
+# Records both rendering test binaries so the cassette covers every upstream
+# request either of them makes.
+[linux]
+seed-render-fixtures:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # Pre-build both test binaries so heavy downloads (e.g. the maplibre_native
+    # blob from github.com) aren't captured into the cassette.
+    MLN_PRECOMPILE=1 cargo test -p martin-core --features rendering --test rendering_test --no-run
+    MLN_PRECOMPILE=1 cargo test -p martin --test styles_rendering_test --no-run
+    {{just}} _run-render-proxy record "MLN_PRECOMPILE=1 cargo test -p martin-core --features rendering --test rendering_test && MLN_PRECOMPILE=1 cargo test -p martin --test styles_rendering_test"
+
 # Generate code coverage report. Will install `cargo llvm-cov` if missing.
 coverage *args='--no-clean --open':  (cargo-install 'cargo-llvm-cov') clean start
     #!/usr/bin/env bash
@@ -296,7 +359,7 @@ coverage *args='--no-clean --open':  (cargo-install 'cargo-llvm-cov') clean star
     cargo llvm-cov clean --workspace
 
     echo "::group::Unit tests"
-    {{just}} test-cargo --all-targets
+    {{just}} with-render-cache '{{just}} test-cargo --all-targets && MLN_PRECOMPILE=1 cargo test -p martin-core --features rendering --test rendering_test'
     {{just}} test-pg
     echo "::endgroup::"
 
@@ -504,7 +567,12 @@ shear:
     # https://github.com/Boshen/cargo-shear/pull/386
 
 # Run all tests using a test database
-test: start (test-cargo "--all-targets") test-pg test-doc ui::test test-int
+test: start
+    {{just}} with-render-cache '{{just}} test-cargo --all-targets && MLN_PRECOMPILE=1 cargo test -p martin-core --features rendering --test rendering_test'
+    {{just}} test-pg
+    {{just}} test-doc
+    {{just}} ui::test
+    {{just}} test-int
 
 # Run PostgreSQL-requiring tests only
 test-pg: start

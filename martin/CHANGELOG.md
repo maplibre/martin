@@ -550,7 +550,7 @@ Fixed a potential crash due to an off-by-one error when zooming in at exactly Zo
 A big thank you to everyone who contributed to this release - through code, reviews, testing, and feedback.
 Your work and discussions continue to make Martin faster, more reliable, and more welcoming for new users.
 
-We couldn’t have done it without you ❤️
+We couldn't have done it without you ❤️
 
 ### A better, more configurable cache
 
