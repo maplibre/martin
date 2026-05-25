@@ -408,9 +408,9 @@ export interface components {
          *     (`circle-color`, `line-width`, `fill-color`, ...). Unknown property keys
          *     are silently ignored.
          *
-         *     Runtime parsing happens in [`OverlayBody::from_request`] via
-         *     [`parse_spec`]; this struct exists only to drive `utoipa`'s schema
-         *     generation.
+         *     Runtime parsing happens in [`OverlayBody::from_request`] by deserializing
+         *     straight into [`OverlaySpec`]; this struct exists only to drive `utoipa`'s
+         *     schema generation.
          */
         StaticStyleOverlay: {
             /** @description Features to overlay on the rendered base map, in draw order. */

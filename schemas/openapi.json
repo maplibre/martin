@@ -330,7 +330,7 @@
         "type": "object"
       },
       "StaticStyleOverlay": {
-        "description": "Schema-only request body for `POST /style/.../static/...`. A `GeoJSON`\n`FeatureCollection`; each feature carries optional styling on its\n`properties`, using either simplestyle alias names (`marker-color`,\n`stroke`, `fill`, ...) or canonical `MapLibre` property names\n(`circle-color`, `line-width`, `fill-color`, ...). Unknown property keys\nare silently ignored.\n\nRuntime parsing happens in [`OverlayBody::from_request`] via\n[`parse_spec`]; this struct exists only to drive `utoipa`'s schema\ngeneration.",
+        "description": "Schema-only request body for `POST /style/.../static/...`. A `GeoJSON`\n`FeatureCollection`; each feature carries optional styling on its\n`properties`, using either simplestyle alias names (`marker-color`,\n`stroke`, `fill`, ...) or canonical `MapLibre` property names\n(`circle-color`, `line-width`, `fill-color`, ...). Unknown property keys\nare silently ignored.\n\nRuntime parsing happens in [`OverlayBody::from_request`] by deserializing\nstraight into [`OverlaySpec`]; this struct exists only to drive `utoipa`'s\nschema generation.",
         "properties": {
           "features": {
             "description": "Features to overlay on the rendered base map, in draw order.",
