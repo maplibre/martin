@@ -12,6 +12,8 @@ mod ui 'martin/martin-ui/justfile'
 # Note that just_executable() may have `\` in Windows paths, so we need to quote it.
 just := quote(just_executable())
 
+# list of features we deem stable for release packaging
+stable_features := 'fonts,lambda,mbtiles,metrics,mlt,pmtiles,postgres,sprites,styles,webui'
 # if running in CI, treat warnings as errors by setting RUSTFLAGS and RUSTDOCFLAGS to '-D warnings' unless they are already set
 # Use `CI=true just ci-test` to run the same tests as in GitHub CI.
 # Use `just env-info` to see the current values of RUSTFLAGS and RUSTDOCFLAGS
@@ -219,27 +221,16 @@ build-release target:
 # Note: rendering feature is excluded because the Debian build targets older glibc (ubuntu-22.04)
 # and maplibre_native pre-built libraries require newer glibc.
 build-deb output: (cargo-install 'cargo-deb')
-    #!/usr/bin/env bash
-    set -euo pipefail
     sudo apt-get install -y dpkg dpkg-dev liblzma-dev
-    if [[ "{{release_mode}}" == "1" ]]; then
-        cargo deb -v -p martin --output {{output}} -- --no-default-features --features fonts,lambda,mbtiles,metrics,mlt,pmtiles,postgres,sprites,styles,webui
-    else
-        cargo deb -v -p martin --profile dev --output {{output}} -- --no-default-features --features fonts,lambda,mbtiles,metrics,mlt,pmtiles,postgres,sprites,styles,webui
-    fi
+    cargo deb -v -p martin {{if release_mode == '1' {''} else {'--profile dev'} }} --output {{output}} -- --no-default-features --features {{stable_features}}
 
 # Build for musl target using zigbuild
 # Set RELEASE_MODE='' to build in debug mode (used for PRs in CI to reduce build time).
 # Note: rendering feature is excluded because maplibre_native cannot be cross-compiled for musl targets.
 build-release-musl target:
-    #!/usr/bin/env bash
-    set -euo pipefail
     rustup target add {{target}}
-    if [[ "{{release_mode}}" == "1" ]]; then
-        export CARGO_TARGET_{{shoutysnakecase(target)}}_RUSTFLAGS='-C strip=debuginfo'
-    fi
-    cargo zigbuild {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package mbtiles --locked
-    cargo zigbuild {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package martin --locked --no-default-features --features fonts,lambda,mbtiles,metrics,mlt,pmtiles,postgres,sprites,styles,webui
+    {{if release_mode == '1' {'CARGO_TARGET_' + shoutysnakecase(target) + '_RUSTFLAGS="-C strip=debuginfo"'} else {''} }} cargo zigbuild {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package mbtiles --locked
+    {{if release_mode == '1' {'CARGO_TARGET_' + shoutysnakecase(target) + '_RUSTFLAGS="-C strip=debuginfo"'} else {''} }} cargo zigbuild {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package martin --locked --no-default-features --features {{stable_features}}
 
 
 # Move build artifacts to target_releases directory
@@ -266,7 +257,7 @@ move-artifacts target:
 
 # Quick compile without building a binary
 check: (cargo-install 'cargo-hack')
-    cargo hack --exclude-features _tiles,_catalog,__hotpath,__hotpath_tui check --all-targets --each-feature --workspace
+    MLN_PRECOMPILE=1 cargo hack --exclude-features _tiles,_catalog,__hotpath,__hotpath_tui check --all-targets --each-feature --workspace
 
 # Verify cargo-binstall metadata resolves correctly
 check-binstall: (cargo-install 'cargo-binstall')
@@ -292,6 +283,69 @@ clippy-md:
     docker run --rm -v ${PWD}:/workdir --entrypoint sh ghcr.io/tcort/markdown-link-check -c \
       'echo -e "/workdir/README.md\n$(find /workdir/docs/content -name "*.md")" | tr "\n" "\0" | xargs -0 -P 5 -n1 -I{} markdown-link-check --config /workdir/.github/files/markdown.links.config.json {}'
 
+# Install mitmproxy via uv if not on PATH.
+[linux]
+install-mitmproxy:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if ! command -v mitmdump >/dev/null; then
+        command -v uv >/dev/null || { echo >&2 "uv is required: https://docs.astral.sh/uv/"; exit 1; }
+        uv tool install mitmproxy
+    fi
+
+# Internal: run `cmd` with mitmproxy reverse-proxying the two rendering-test
+# upstreams. Plain HTTP only -- ports must match the `PROXIED_HOSTS` constants in
+# martin-core/tests/rendering_test.rs and martin/tests/styles_rendering_test.rs.
+[linux]
+_run-render-proxy mode *cmd: install-mitmproxy
+    #!/usr/bin/env bash
+    set -euo pipefail
+    CASSETTE="tests/fixtures/rendering_cache/flows"
+    case "{{mode}}" in
+        replay)
+            [ -s "$CASSETTE" ] || { echo >&2 "missing cassette $CASSETTE - run \`just seed-render-fixtures\`"; exit 1; }
+            MITM_ARGS=(--server-replay "$CASSETTE" \
+                       --set server_replay_extra=forward \
+                       --set server_replay_reuse=true)
+            ;;
+        record)
+            mkdir -p "$(dirname "$CASSETTE")"
+            rm -f "$CASSETTE"
+            MITM_ARGS=(-w "$CASSETTE")
+            ;;
+        *) echo >&2 "_run-render-proxy: unknown mode '{{mode}}'"; exit 1 ;;
+    esac
+    mitmdump --quiet --set http2=false \
+        --mode reverse:https://demotiles.maplibre.org@18081 \
+        --mode reverse:https://tiles.openfreemap.org@18082 \
+        "${MITM_ARGS[@]}" \
+        > /tmp/mitmdump.log 2>&1 &
+    MITM_PID=$!
+    trap 'kill -INT "$MITM_PID" 2>/dev/null || true; wait "$MITM_PID" 2>/dev/null || true' EXIT
+    for _ in $(seq 1 20); do
+        (echo > /dev/tcp/127.0.0.1/18081) 2>/dev/null \
+            && (echo > /dev/tcp/127.0.0.1/18082) 2>/dev/null && break
+        sleep 0.5
+    done
+    {{cmd}}
+
+# Run `cmd` with the rendering-test cassette replayed via mitmproxy.
+[linux]
+with-render-cache *cmd: (_run-render-proxy "replay" cmd)
+
+# Re-record the rendering cassette against live upstreams. Commit the result.
+# Records both rendering test binaries so the cassette covers every upstream
+# request either of them makes.
+[linux]
+seed-render-fixtures:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # Pre-build both test binaries so heavy downloads (e.g. the maplibre_native
+    # blob from github.com) aren't captured into the cassette.
+    MLN_PRECOMPILE=1 cargo test -p martin-core --features rendering --test rendering_test --no-run
+    MLN_PRECOMPILE=1 cargo test -p martin --test styles_rendering_test --no-run
+    {{just}} _run-render-proxy record "MLN_PRECOMPILE=1 cargo test -p martin-core --features rendering --test rendering_test && MLN_PRECOMPILE=1 cargo test -p martin --test styles_rendering_test"
+
 # Generate code coverage report. Will install `cargo llvm-cov` if missing.
 coverage *args='--no-clean --open':  (cargo-install 'cargo-llvm-cov') clean start
     #!/usr/bin/env bash
@@ -305,7 +359,7 @@ coverage *args='--no-clean --open':  (cargo-install 'cargo-llvm-cov') clean star
     cargo llvm-cov clean --workspace
 
     echo "::group::Unit tests"
-    {{just}} test-cargo --all-targets
+    {{just}} with-render-cache '{{just}} test-cargo --all-targets && MLN_PRECOMPILE=1 cargo test -p martin-core --features rendering --test rendering_test'
     {{just}} test-pg
     echo "::endgroup::"
 
@@ -513,7 +567,12 @@ shear:
     # https://github.com/Boshen/cargo-shear/pull/386
 
 # Run all tests using a test database
-test: start (test-cargo "--all-targets") test-pg test-doc ui::test test-int
+test: start
+    {{just}} with-render-cache '{{just}} test-cargo --all-targets && MLN_PRECOMPILE=1 cargo test -p martin-core --features rendering --test rendering_test'
+    {{just}} test-pg
+    {{just}} test-doc
+    {{just}} ui::test
+    {{just}} test-int
 
 # Run PostgreSQL-requiring tests only
 test-pg: start
@@ -639,7 +698,6 @@ update:
     cargo update
     # Make sure that 'evil' dependencies are at the last compatible version
     # below needs to be synced with deny.toml
-    cargo update --precise 1.44.3 insta
     cargo update --precise 1.24.0 libdeflater
     cargo update --precise 1.24.0 libdeflate-sys
 

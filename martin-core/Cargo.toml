@@ -36,7 +36,7 @@ postgres = [
     "_tiles",
 ]
 unstable-cog = ["dep:png", "dep:tiff", "dep:image", "dep:serde_json", "_tiles"]
-rendering = ["styles", "dep:maplibre_native", "dep:image"]
+rendering = ["styles", "dep:maplibre_native", "dep:image", "dep:flume"]
 fonts = [
     "dep:bit-set",
     "dep:pbf_font_tools",
@@ -75,6 +75,7 @@ chrono.workspace = true
 dashmap = { workspace = true, optional = true }
 deadpool-postgres = { workspace = true, optional = true }
 derive-debug.workspace = true
+flume = { workspace = true, optional = true }
 futures = { workspace = true, optional = true }
 hotpath.workspace = true
 image = { workspace = true, optional = true }

@@ -45,7 +45,7 @@ const Filters: React.FC<FiltersProps> = ({
       <Separator />
       <Range
         onClick={() => setIsDayPickerEnabled((prev) => !prev)}
-      >{`${range.from.toLocaleDateString()} – ${range.to.toLocaleDateString()}`}</Range>
+      >{`${range.from.toLocaleDateString()} - ${range.to.toLocaleDateString()}`}</Range>
       {isDayPickerEnabled && (
         <DayPickerContainer>
           <DayPicker
