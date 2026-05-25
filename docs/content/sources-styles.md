@@ -102,7 +102,7 @@ Width and height are capped at 2048 px each; scale is capped at `4x`.
 #### Overlay body (`POST`)
 
 The overlay body is a GeoJSON `FeatureCollection`. Each feature carries its
-style on `properties` -- either as
+style on `properties` - either as
 [simplestyle](https://github.com/mapbox/simplestyle-spec) aliases or as
 canonical [MapLibre Style Spec](https://maplibre.org/maplibre-style-spec/)
 property names. Both vocabularies are accepted on the same feature.
@@ -155,29 +155,29 @@ GeoJSON files that already carry application metadata (`id`, `name`,
 Set either the simplestyle alias or the MapLibre canonical name;
 if both are present the canonical name wins.
 
-| Simplestyle alias    | MapLibre canonical    | Applies to            | Default        |
-| -------------------- | --------------------- | --------------------- | -------------- |
-| `marker-color`       | `circle-color`        | Point                 | `#7e7e7e`      |
-| `marker-size`        | `circle-radius`       | Point                 | `8` (`medium`) |
-| --                    | `circle-opacity`      | Point                 | `1`            |
-| --                    | `circle-stroke-color` | Point                 | _unset_        |
-| --                    | `circle-stroke-opacity` | Point               | _unset_        |
-| --                    | `circle-stroke-width` | Point                 | _unset_        |
-| `stroke`             | `line-color`          | LineString / Polygon  | `#555555`      |
-| `stroke-opacity`     | `line-opacity`        | LineString / Polygon  | `1`            |
-| `stroke-width`       | `line-width`          | LineString / Polygon  | `2`            |
-| --                    | `line-cap`            | LineString / Polygon  | _MapLibre_     |
-| --                    | `line-join`           | LineString / Polygon  | _MapLibre_     |
-| `fill`               | `fill-color`          | Polygon               | `#555555`      |
-| `fill-opacity`       | `fill-opacity`        | Polygon               | `0.6`          |
-| --                    | `fill-outline-color`  | Polygon               | _unset_        |
+| Simplestyle alias    | MapLibre canonical      | Applies to            | Default        |
+| -------------------- | ----------------------- | --------------------- | -------------- |
+| `marker-color`       | `circle-color`          | Point                 | `#7e7e7e`      |
+| `marker-size`        | `circle-radius`         | Point                 | `8` (`medium`) |
+| -                    | `circle-opacity`        | Point                 | `1`            |
+| -                    | `circle-stroke-color`   | Point                 | _unset_        |
+| -                    | `circle-stroke-opacity` | Point                 | _unset_        |
+| -                    | `circle-stroke-width`   | Point                 | _unset_        |
+| `stroke`             | `line-color`            | LineString / Polygon  | `#555555`      |
+| `stroke-opacity`     | `line-opacity`          | LineString / Polygon  | `1`            |
+| `stroke-width`       | `line-width`            | LineString / Polygon  | `2`            |
+| -                    | `line-cap`              | LineString / Polygon  | _MapLibre_     |
+| -                    | `line-join`             | LineString / Polygon  | _MapLibre_     |
+| `fill`               | `fill-color`            | Polygon               | `#555555`      |
+| `fill-opacity`       | `fill-opacity`          | Polygon               | `0.6`          |
+| -                    | `fill-outline-color`    | Polygon               | _unset_        |
 
 `marker-size` is the enum `small`/`medium`/`large`, mapping to
 `circle-radius` `6` / `8` / `10`. `line-cap` is one of `butt`, `round`,
 `square`; `line-join` is one of `miter`, `bevel`, `round`. Colors accept
 any CSS color string.
 
-Range checks are not enforced -- `*-opacity` values outside `0..=1` and
+Range checks are not enforced - `*-opacity` values outside `0..=1` and
 negative widths are passed through to MapLibre verbatim. Simplestyle's
 informational `title` and `description` properties are accepted and
 ignored.
@@ -189,9 +189,9 @@ ignored.
 - Layer types beyond `fill` / `line` / `circle` (no `symbol`, `heatmap`,
   `raster`, `fill-extrusion`).
 - Externally-referenced GeoJSON URLs (every feature is inline).
-- Symbol/icon markers -- simplestyle's `marker-symbol` is not supported;
+- Symbol/icon markers - simplestyle's `marker-symbol` is not supported;
   use a `circle` instead.
-- Z-ordering relative to base style layers -- all overlay layers are drawn
+- Z-ordering relative to base style layers - all overlay layers are drawn
   on top of the base style, in feature-array order.
 
 All examples below render the same camera (`/static/0,0,2/200x200.png`)
