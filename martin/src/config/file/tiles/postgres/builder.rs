@@ -5,7 +5,7 @@ use std::num::NonZeroU32;
 use itertools::Itertools as _;
 use martin_core::tiles::BoxedSource;
 use martin_core::tiles::postgres::{PostgresPool, PostgresResult, PostgresSource, PostgresSqlInfo};
-use tracing::{error, info, trace, warn};
+use tracing::{debug, error, info, warn};
 
 use crate::config::args::BoundsCalcType;
 use crate::config::file::postgres::resolver::{
