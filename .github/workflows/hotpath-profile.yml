@@ -94,10 +94,10 @@ jobs:
       - name: Check base has hotpath support
         id: base-check
         run: |
-          if grep -q '__hotpath' martin/Cargo.toml; then
+          if grep -q 'hotpath' martin/Cargo.toml; then
             echo "supported=true" >> "$GITHUB_OUTPUT"
           else
-            echo "::notice::Base branch does not have __hotpath feature, skipping base benchmark"
+            echo "::notice::Base branch does not have hotpath feature, skipping base benchmark"
             echo '{}' > /tmp/metrics/base_timing.json
             echo "supported=false" >> "$GITHUB_OUTPUT"
           fi

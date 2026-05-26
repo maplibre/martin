@@ -70,7 +70,7 @@ bench-server: start
 
 # Build martin with hotpath profiling support
 build-hotpath:
-    RUSTFLAGS="$RUSTFLAGS --cfg tokio_unstable" cargo build --release --features __hotpath
+    RUSTFLAGS="$RUSTFLAGS --cfg tokio_unstable" cargo build --release --features hotpath
 
 # Start release-compiled Martin server with hotpath profiling (MCP on port 6771)
 bench-server-hotpath: start build-hotpath
@@ -257,7 +257,7 @@ move-artifacts target:
 
 # Quick compile without building a binary
 check: (cargo-install 'cargo-hack')
-    MLN_PRECOMPILE=1 cargo hack --exclude-features _tiles,_catalog,__hotpath,__hotpath_tui check --all-targets --each-feature --workspace
+    MLN_PRECOMPILE=1 cargo hack --exclude-features _tiles,_catalog,hotpath,hotpath_tui check --all-targets --each-feature --workspace
 
 # Verify cargo-binstall metadata resolves correctly
 check-binstall: (cargo-install 'cargo-binstall')
