@@ -40,6 +40,10 @@ impl SourceSpec {
                 info.geometry_type.hash(&mut hasher);
                 info.properties.hash(&mut hasher);
                 hash_tilejson(info.tilejson.as_ref(), &mut hasher);
+
+                let mut prop_mapping: Vec<_> = info.prop_mapping.iter().collect();
+                prop_mapping.sort();
+                prop_mapping.hash(&mut hasher);
             }
             Self::Function(info, sql) => {
                 1u8.hash(&mut hasher);
@@ -144,6 +148,10 @@ mod tests {
     #[case::properties(|t: &mut TableInfo|{
         t.properties = Some(BTreeMap::from([("kind".to_string(), "text".to_string())]));
     })]
+    #[case::prop_mapping(|t: &mut TableInfo|{
+        t.prop_mapping
+            .insert("name".to_string(), "name_col".to_string());
+    })]
     #[case::tilejson(|t: &mut TableInfo|{
         t.tilejson = Some(serde_json::json!({ "attribution": "xyz" }));
     })]
@@ -161,10 +169,6 @@ mod tests {
     #[case::bounds(|t: &mut TableInfo|t.bounds = Some(Bounds::new(-1.0, -2.0, 3.0, 4.0)))]
     #[case::relkind(|t: &mut TableInfo|t.relkind = Some('m'))]
     #[case::geometry_index(|t: &mut TableInfo|t.geometry_index = Some(false))]
-    #[case::prop_mapping(|t: &mut TableInfo|{
-        t.prop_mapping
-            .insert("name".to_string(), "name_col".to_string());
-    })]
     #[case::cache(|t: &mut TableInfo|t.cache = Some(CachePolicy::disabled()))]
     #[case::unrecognized(|t: &mut TableInfo|{
         t.unrecognized.insert(
