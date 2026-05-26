@@ -73,7 +73,7 @@ jobs:
       - name: Install rendering dependencies
         if: runner.os == 'Linux'
         run: just install-dependencies
-      - name: Install uv # provides mitmproxy for the render-test cassette
+      - name: Install uv
         if: runner.os == 'Linux'
         uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
       - name: Run cargo test
