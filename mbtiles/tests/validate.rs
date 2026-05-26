@@ -52,7 +52,7 @@ macro_rules! err {
         match mbt.check_tiles_type_validity(&mut conn).await {
             Ok(()) => panic!("check_tiles_xyz_validity({vals}) was expected to fail"),
             Err(e) => match e {
-                InvalidTileIndex(..) => {}
+                InvalidTileIndex { .. } => {}
                 _ => panic!("check_tiles_xyz_validity({vals}) = Err({e:?}), expected Err(InvalidTileIndex)"),
             },
         }

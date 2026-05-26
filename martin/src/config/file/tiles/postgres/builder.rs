@@ -161,10 +161,10 @@ impl PostgresAutoDiscoveryBuilder {
         for (id, cfg_inf) in &self.tables {
             // TODO: move this validation to serde somehow?
             if cfg_inf.extent == Some(0) {
-                return Err(PostgresError::InvalidTableExtent(
-                    id.clone(),
-                    cfg_inf.format_id(),
-                ));
+                return Err(PostgresError::InvalidTableExtent {
+                    source_id: id.clone(),
+                    table: cfg_inf.format_id(),
+                });
             }
 
             match self.build_one_table_info(&db_tables_info, id, cfg_inf) {
