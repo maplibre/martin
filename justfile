@@ -294,8 +294,7 @@ install-mitmproxy:
     fi
 
 # Internal: run `cmd` with mitmproxy reverse-proxying the two rendering-test
-# upstreams. Plain HTTP only -- ports must match the `PROXIED_HOSTS` constants in
-# martin-core/tests/rendering_test.rs and martin/tests/styles_rendering_test.rs.
+# upstreams. Plain HTTP only - ports must match test_render_cache::PROXIED_HOSTS.
 [linux]
 _run-render-proxy mode *cmd: install-mitmproxy
     #!/usr/bin/env bash
