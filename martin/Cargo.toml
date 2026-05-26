@@ -150,11 +150,12 @@ unstable-schemas = [
 ]
 hotpath = [
     "hotpath/hotpath",
-    "hotpath/hotpath-alloc",
+    "hotpath-alloc",
     "hotpath/hotpath-mcp",
     "hotpath/tokio",
     "hotpath/futures",
 ]
+hotpath-alloc = ["hotpath/hotpath-alloc"]
 hotpath_tui = ["hotpath", "hotpath/tui"]
 test-pg = ["postgres"]
 test-minio = ["pmtiles"]
