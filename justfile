@@ -690,6 +690,8 @@ test-ssl-cert: start-ssl-cert
 # Update all dependencies, including breaking changes. Requires nightly toolchain (install with `rustup install nightly`)
 update:
     cargo +nightly -Z unstable-options update --breaking
+    # static-files is a direct dep, so reset its manifest cap after --breaking (synced with deny.toml)
+    sed 's/^static-files = .*/static-files = "0.2"/' Cargo.toml > Cargo.toml.tmp && mv Cargo.toml.tmp Cargo.toml
     cargo update
     # Make sure that 'evil' dependencies are at the last compatible version
     # below needs to be synced with deny.toml
