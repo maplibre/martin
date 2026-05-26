@@ -488,7 +488,7 @@ async fn resolve_int<T: TileSourceConfiguration>(
             }
             Err(err) => {
                 warnings.push(TileSourceWarning::PathError {
-                    path: path.display().to_string(),
+                    path,
                     error: err.to_string(),
                 });
             }
@@ -654,7 +654,7 @@ async fn resolve_one_path_int<T: TileSourceConfiguration>(
                 }
                 Err(err) => {
                     warnings.push(TileSourceWarning::PathError {
-                        path: path.display().to_string(),
+                        path,
                         error: err.to_string(),
                     });
                 }

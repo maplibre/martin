@@ -375,12 +375,12 @@ impl MbtileCopierInt {
                 let new_hash = self.dst_mbt.get_agg_tiles_hash(&mut conn).await?;
                 match (dif_info.agg_tiles_hash_after_apply, new_hash) {
                     (Some(expected), Some(actual)) if expected != actual => {
-                        let err = MbtError::AggHashMismatchAfterApply(
-                            dif_mbt.filepath().to_string(),
-                            expected,
-                            self.dst_mbt.filepath().to_string(),
-                            actual,
-                        );
+                        let err = MbtError::AggHashMismatchAfterApply {
+                            patch_file: dif_mbt.filepath().to_string(),
+                            after_apply_hash: expected,
+                            file: self.dst_mbt.filepath().to_string(),
+                            agg_hash: actual,
+                        };
                         if !self.options.force {
                             return Err(err);
                         }
@@ -573,11 +573,11 @@ impl MbtileCopierInt {
                 | (FlatWithHash, FlatWithHash)
                 | (Normalized { .. }, Normalized { .. }) => {}
                 (cli, dst) => {
-                    return Err(MbtError::MismatchedTargetType(
-                        self.options.dst_file.clone(),
-                        dst,
-                        cli,
-                    ));
+                    return Err(MbtError::MismatchedTargetType {
+                        filepath: self.options.dst_file.clone(),
+                        actual: dst,
+                        desired: cli,
+                    });
                 }
             }
         }

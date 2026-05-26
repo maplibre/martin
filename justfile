@@ -70,7 +70,7 @@ bench-server: start
 
 # Build martin with hotpath profiling support
 build-hotpath:
-    RUSTFLAGS="$RUSTFLAGS --cfg tokio_unstable" cargo build --release --features __hotpath
+    RUSTFLAGS="$RUSTFLAGS --cfg tokio_unstable" cargo build --release --features hotpath
 
 # Start release-compiled Martin server with hotpath profiling (MCP on port 6771)
 bench-server-hotpath: start build-hotpath
@@ -264,7 +264,7 @@ move-artifacts target:
 
 # Quick compile without building a binary
 check: (cargo-install 'cargo-hack')
-    MLN_PRECOMPILE=1 cargo hack --exclude-features _tiles,_catalog,__hotpath,__hotpath_tui check --all-targets --each-feature --workspace
+    MLN_PRECOMPILE=1 cargo hack --exclude-features _tiles,_catalog,hotpath,hotpath_tui check --all-targets --each-feature --workspace
 
 # Verify cargo-binstall metadata resolves correctly
 check-binstall: (cargo-install 'cargo-binstall')
@@ -701,11 +701,14 @@ test-ssl-cert: start-ssl-cert
 # Update all dependencies, including breaking changes. Requires nightly toolchain (install with `rustup install nightly`)
 update:
     cargo +nightly -Z unstable-options update --breaking
+    # static-files is a direct dep, so reset its manifest cap after --breaking (synced with deny.toml)
+    sed 's/^static-files = .*/static-files = "0.2"/' Cargo.toml > Cargo.toml.tmp && mv Cargo.toml.tmp Cargo.toml
     cargo update
     # Make sure that 'evil' dependencies are at the last compatible version
     # below needs to be synced with deny.toml
     cargo update --precise 1.24.0 libdeflater
     cargo update --precise 1.24.0 libdeflate-sys
+    cargo update --precise 1.0.2 sdf_glyph_renderer
 
 # Validate that all required development tools are installed
 validate-tools:

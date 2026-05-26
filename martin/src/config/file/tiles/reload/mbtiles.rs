@@ -1,19 +1,17 @@
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 
-use crate::config::file::tiles::reload::{discover_sources_by_ext, path_modified_ms};
-
-use martin_core::tiles::{BoxedSource, mbtiles::MbtSource};
-use notify::{
-    Config, Event, EventKind, RecommendedWatcher, Watcher as _,
-    event::{AccessKind, AccessMode},
-};
+use martin_core::tiles::BoxedSource;
+use martin_core::tiles::mbtiles::MbtSource;
+use notify::event::{AccessKind, AccessMode};
+use notify::{Config, Event, EventKind, RecommendedWatcher, Watcher as _};
 use tokio::sync::mpsc;
 
 use crate::config::file::mbtiles::MbtConfig;
 use crate::config::file::process::ProcessConfig;
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 use crate::config::file::resolve_process_config;
+use crate::config::file::tiles::reload::{discover_sources_by_ext, path_modified_ms};
 use crate::config::file::{CachePolicy, FileConfigEnum};
 use crate::config::primitives::{IdResolver, OptOneMany};
 use crate::{MartinError, MartinResult, ReloadAdvisory, TileSourceManager};

@@ -69,12 +69,18 @@ impl PostgresPool {
         let conn = res.get().await?;
         let pg_ver = get_postgres_version(&conn).await?;
         if pg_ver < MINIMUM_POSTGRES_VERSION {
-            return Err(PostgresqlTooOld(pg_ver, MINIMUM_POSTGRES_VERSION));
+            return Err(PostgresqlTooOld {
+                current: pg_ver,
+                minimum: MINIMUM_POSTGRES_VERSION,
+            });
         }
 
         let postgis_ver = get_postgis_version(&conn).await?;
         if postgis_ver < MINIMUM_POSTGIS_VERSION {
-            return Err(PostgisTooOld(postgis_ver, MINIMUM_POSTGIS_VERSION));
+            return Err(PostgisTooOld {
+                current: postgis_ver,
+                minimum: MINIMUM_POSTGIS_VERSION,
+            });
         }
 
         // In the warning cases below, we could technically run.

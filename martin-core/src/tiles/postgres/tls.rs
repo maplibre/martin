@@ -173,7 +173,11 @@ pub fn make_connector(
         match rustls_pemfile::read_one(&mut cert_reader(key)?) {
             Ok(Some(Pkcs1Key(rsa_key))) => builder
                 .with_client_auth_cert(read_certs(cert)?, rsa_key.into())
-                .map_err(|e| CannotUseClientKey(e, cert.clone(), key.clone()))?,
+                .map_err(|e| CannotUseClientKey {
+                    source: e,
+                    cert: cert.clone(),
+                    key: key.clone(),
+                })?,
             Ok(_) => return Err(InvalidPrivateKey(key.clone())),
             Err(e) => return Err(CannotParseCert(e, key.clone())),
         }
