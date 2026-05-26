@@ -241,30 +241,17 @@ async fn populate_functions(connection_string: &str, count: usize) {
     }
 }
 
-async fn discover_tables(config: &PostgresConfig) {
-    let builder =
-        PostgresAutoDiscoveryBuilder::new(config, IdResolver::default(), CachePolicy::default())
-            .await
-            .expect("Failed to create builder");
-
-    let tables = builder
-        .instantiate_tables()
+/// Builds a discovery builder with its connection pool, ready to time [`discover`](PostgresAutoDiscoveryBuilder::discover) in isolation.
+async fn build_discovery(config: &PostgresConfig) -> PostgresAutoDiscoveryBuilder {
+    PostgresAutoDiscoveryBuilder::new(config, IdResolver::default(), CachePolicy::default())
         .await
-        .expect("Failed to discover tables");
-    std::hint::black_box(tables);
+        .expect("Failed to create builder")
 }
 
-async fn discover_functions(config: &PostgresConfig) {
-    let builder =
-        PostgresAutoDiscoveryBuilder::new(config, IdResolver::default(), CachePolicy::default())
-            .await
-            .expect("Failed to create builder");
-
-    let functions = builder
-        .instantiate_functions()
-        .await
-        .expect("Failed to discover functions");
-    std::hint::black_box(functions);
+/// Time only the discovery query: one cheap catalog round-trip per source kind, with no instantiation.
+async fn discover(builder: &PostgresAutoDiscoveryBuilder) {
+    let (specs, warnings) = builder.discover().await.expect("Failed to discover");
+    std::hint::black_box((specs, warnings));
 }
 
 fn bench_table_discovery(c: &mut Criterion) {
@@ -283,9 +270,10 @@ fn bench_table_discovery(c: &mut Criterion) {
             connection_string: Some(connection_string.clone()),
             ..Default::default()
         };
+        let builder = runtime.block_on(build_discovery(&config));
 
         group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, _| {
-            b.to_async(&runtime).iter(|| discover_tables(&config));
+            b.to_async(&runtime).iter(|| discover(&builder));
         });
     }
 
@@ -308,9 +296,10 @@ fn bench_function_discovery(c: &mut Criterion) {
             connection_string: Some(connection_string.clone()),
             ..Default::default()
         };
+        let builder = runtime.block_on(build_discovery(&config));
 
         group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, _| {
-            b.to_async(&runtime).iter(|| discover_functions(&config));
+            b.to_async(&runtime).iter(|| discover(&builder));
         });
     }
 

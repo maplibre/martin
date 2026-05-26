@@ -2,20 +2,20 @@ use std::num::NonZeroU32;
 use std::ops::Add as _;
 use std::time::Duration;
 
-use futures::future::try_join;
+use futures::future::join_all;
 use futures::pin_mut;
 use martin_tile_utils::TileInfo;
 use serde::{Deserialize, Serialize};
 use tilejson::TileJSON;
 use tokio::time::timeout;
-use tracing::warn;
+use tracing::{info, warn};
 
 use super::{FuncInfoSources, TableInfoSources};
 use crate::config::args::{BoundsCalcType, DEFAULT_BOUNDS_TIMEOUT};
-use crate::config::file::postgres::PostgresAutoDiscoveryBuilder;
+use crate::config::file::postgres::{PostgresAutoDiscoveryBuilder, SourceSpec};
 use crate::config::file::{
     CachePolicy, ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks, ResolutionResult,
-    UnrecognizedKeys, UnrecognizedValues, copy_unrecognized_keys_from_config,
+    TileSourceWarning, UnrecognizedKeys, UnrecognizedValues, copy_unrecognized_keys_from_config,
 };
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 use crate::config::file::{MltProcessConfig, MvtProcessConfig};
@@ -263,8 +263,16 @@ impl PostgresConfig {
         default_cache: CachePolicy,
     ) -> ResolutionResult {
         let pg = PostgresAutoDiscoveryBuilder::new(self, id_resolver, default_cache).await?;
-        let inst_tables = on_slow(
-            pg.instantiate_tables(),
+
+        let (specs, mut warnings) = pg.discover().await?;
+
+        // Build each source concurrently, warning if the bounds work drags on.
+        let pg_ref = &pg;
+        let pending = specs.into_iter().map(move |(id, spec)| async move {
+            (id.clone(), pg_ref.instantiate(&id, spec).await)
+        });
+        let instantiated = on_slow(
+            join_all(pending),
             // warn only if default bounds timeout has already passed
             DEFAULT_BOUNDS_TIMEOUT.add(Duration::from_secs(1)),
             || {
@@ -280,15 +288,57 @@ impl PostgresConfig {
                     );
                 }
             },
-        );
-        let ((mut tables, tbl_info, mut tbl_warnings), (funcs, func_info, func_warnings)) =
-            try_join(inst_tables, pg.instantiate_functions()).await?;
+        )
+        .await;
 
-        self.tables = Some(tbl_info);
-        self.functions = Some(func_info);
-        tables.extend(funcs);
-        tbl_warnings.extend(func_warnings);
-        Ok((tables, tbl_warnings))
+        // Write back the resolved tables/functions for `--save-config`, collect the live sources, and surface per-source failures as warnings.
+        let mut sources = Vec::new();
+        let mut tables = TableInfoSources::new();
+        let mut functions = FuncInfoSources::new();
+        for (id, result) in instantiated {
+            match result {
+                Ok((source, SourceSpec::Table(info))) => {
+                    let kind = match info.relkind {
+                        Some('v') => "view",
+                        Some('m') => "materialized view",
+                        _ => "table",
+                    };
+                    info!(
+                        source.id = %id,
+                        source.kind = kind,
+                        schema = %info.schema,
+                        table = %info.table,
+                        geometry_column = %info.geometry_column,
+                        geometry_type = info.geometry_type.as_deref().unwrap_or("unknown"),
+                        srid = info.srid,
+                        id_column = info.id_column.as_deref().unwrap_or("none"),
+                        "Published source"
+                    );
+                    sources.push(source);
+                    tables.insert(id, info);
+                }
+                Ok((source, SourceSpec::Function(info, sql))) => {
+                    info!(
+                        source.id = %id,
+                        source.kind = "function",
+                        schema = %info.schema,
+                        function = %info.function,
+                        function.signature = %sql.signature,
+                        "Published source"
+                    );
+                    sources.push(source);
+                    functions.insert(id, info);
+                }
+                Err(error) => warnings.push(TileSourceWarning::SourceError {
+                    source_id: id,
+                    error: error.to_string(),
+                }),
+            }
+        }
+
+        self.tables = Some(tables);
+        self.functions = Some(functions);
+        Ok((sources, warnings))
     }
 }
 
