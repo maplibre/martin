@@ -1,13 +1,11 @@
-use std::borrow::Cow;
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, HashSet};
 use std::num::NonZeroU32;
 
-use futures::future::join_all;
 use itertools::Itertools as _;
 use martin_core::tiles::BoxedSource;
 use martin_core::tiles::postgres::{PostgresPool, PostgresResult, PostgresSource, PostgresSqlInfo};
-use tracing::{debug, error, info, warn};
+use tracing::{error, info, trace, warn};
 
 use crate::config::args::BoundsCalcType;
 use crate::config::file::postgres::resolver::{
@@ -16,7 +14,7 @@ use crate::config::file::postgres::resolver::{
 use crate::config::file::postgres::utils::{find_info, find_kv_ignore_case, normalize_key};
 use crate::config::file::postgres::{
     FuncInfoSources, FunctionInfo, POOL_SIZE_DEFAULT, PostgresCfgPublish, PostgresCfgPublishFuncs,
-    PostgresConfig, PostgresInfo, TableInfo, TableInfoSources,
+    PostgresConfig, PostgresInfo, SourceSpec, TableInfo, TableInfoSources,
 };
 use crate::config::file::{CachePolicy, ConfigFileError, ConfigFileResult, TileSourceWarning};
 use crate::config::primitives::IdResolver;
@@ -140,40 +138,50 @@ impl PostgresAutoDiscoveryBuilder {
         self.pool.get_id()
     }
 
-    /// Discovers and instantiates table-based tile sources.
-    #[expect(clippy::too_many_lines, reason = "fixme")]
-    pub async fn instantiate_tables(
+    /// Resolves which tile sources should exist right now, returning a [`SourceSpec`] per id.
+    ///
+    /// The cheap half of discovery: one catalog round-trip per source kind, config merge, auto-publish filtering, and id resolution.
+    /// Building each source's SQL and computing its bounds is [`instantiate`](Self::instantiate)'s job.
+    pub async fn discover(
         &self,
-    ) -> PostgresResult<(Vec<BoxedSource>, TableInfoSources, Vec<TileSourceWarning>)> {
+    ) -> PostgresResult<(BTreeMap<String, SourceSpec>, Vec<TileSourceWarning>)> {
+        let mut specs = BTreeMap::new();
+        let mut warnings = Vec::new();
+        self.discover_tables(&mut specs, &mut warnings).await?;
+        self.discover_functions(&mut specs, &mut warnings).await?;
+        Ok((specs, warnings))
+    }
+
+    /// Catalog query + config merge + auto-publish + id resolution for tables, inserting a [`SourceSpec::Table`] per id.
+    async fn discover_tables(
+        &self,
+        specs: &mut BTreeMap<String, SourceSpec>,
+        warnings: &mut Vec<TileSourceWarning>,
+    ) -> PostgresResult<()> {
         let restrict_to_tables = if self.auto_tables.is_none() {
             Some(self.configured_tables())
         } else {
             None
         };
-
         let mut db_tables_info = query_available_tables(&self.pool, restrict_to_tables).await?;
-        let mut warnings = Vec::new();
 
-        // Match configured sources with the discovered ones and add them to the pending list.
+        // Match configured table sources against the discovered catalog.
         let mut used = HashSet::<(&str, &str, &str)>::new();
-        let mut pending = Vec::new();
         for (id, cfg_inf) in &self.tables {
             match self.build_one_table_info(&db_tables_info, id, cfg_inf) {
                 Ok(merged_inf) => {
-                    let dup =
-                        !used.insert((&cfg_inf.schema, &cfg_inf.table, &cfg_inf.geometry_column));
-                    let dup = if dup { "duplicate " } else { "" };
-
+                    if !used.insert((&cfg_inf.schema, &cfg_inf.table, &cfg_inf.geometry_column)) {
+                        warn!(
+                            source.id = %id,
+                            schema = %cfg_inf.schema,
+                            table = %cfg_inf.table,
+                            geometry_column = %cfg_inf.geometry_column,
+                            "Configured duplicate source: multiple config entries resolve to the same table and geometry column"
+                        );
+                    }
                     let id2 = self.resolve_id(id, &merged_inf);
                     warn_on_rename(id, &id2, "Table");
-                    info!(source.id = %id2, source.summary = %summary(&merged_inf), "Configured {dup}source");
-                    pending.push(table_to_query(
-                        id2,
-                        merged_inf,
-                        self.pool.clone(),
-                        self.auto_bounds,
-                        self.max_feature_count,
-                    ));
+                    specs.insert(id2, SourceSpec::Table(merged_inf));
                 }
                 Err(error) => warnings.push(TileSourceWarning::SourceError {
                     source_id: id.clone(),
@@ -182,7 +190,7 @@ impl PostgresAutoDiscoveryBuilder {
             }
         }
 
-        // Sort the discovered sources by schema, table and geometry column to ensure a consistent behavior
+        // Auto-publish remaining tables, sorted for deterministic id resolution.
         if let Some(auto_tables) = &self.auto_tables {
             let schemas = auto_tables
                 .schemas
@@ -193,7 +201,6 @@ impl PostgresAutoDiscoveryBuilder {
                 source_id_format = %auto_tables.source_id_format,
                 "Auto-publishing tables"
             );
-
             for schema in schemas.iter().sorted() {
                 let Some(schema) = normalize_key(&db_tables_info, schema, "schema", "") else {
                     continue;
@@ -217,83 +224,49 @@ impl PostgresAutoDiscoveryBuilder {
                         };
                         db_inf.srid = srid;
                         update_auto_fields(&id2, &mut db_inf, auto_tables);
-                        info!(source.id = %id2, source.summary = %summary(&db_inf), "Discovered source");
-                        pending.push(table_to_query(
-                            id2,
-                            db_inf,
-                            self.pool.clone(),
-                            self.auto_bounds,
-                            self.max_feature_count,
-                        ));
+                        specs.insert(id2, SourceSpec::Table(db_inf));
                     }
                 }
             }
         }
 
-        let mut res = Vec::new();
-        let mut info_map = TableInfoSources::new();
-        let pending = join_all(pending).await;
-        for src in pending {
-            match src {
-                Err(v) => {
-                    error!(error = %v, "Failed to create a source");
-                }
-                Ok((id, pg_sql, src_inf)) => {
-                    debug!(source.id = %id, sql = %pg_sql.sql_query, "source SQL query");
-                    self.add_func_src(
-                        &mut res,
-                        id.clone(),
-                        &src_inf,
-                        pg_sql.clone(),
-                        src_inf.cache.unwrap_or_default(),
-                    );
-                    info_map.insert(id, src_inf);
-                }
-            }
-        }
-
-        Ok((res, info_map, warnings))
+        Ok(())
     }
 
-    /// Discovers and instantiates function-based tile sources.
-    pub async fn instantiate_functions(
+    /// Catalog query + config merge + auto-publish + id resolution for functions, inserting a [`SourceSpec::Function`] per id.
+    /// A function's SQL is already known at catalog time, so the spec carries it directly.
+    async fn discover_functions(
         &self,
-    ) -> PostgresResult<(Vec<BoxedSource>, FuncInfoSources, Vec<TileSourceWarning>)> {
+        specs: &mut BTreeMap<String, SourceSpec>,
+        warnings: &mut Vec<TileSourceWarning>,
+    ) -> PostgresResult<()> {
         let mut db_funcs_info = query_available_function(&self.pool).await?;
-        let mut warnings = Vec::new();
-        let mut res = Vec::new();
-        let mut info_map = FuncInfoSources::new();
-        let mut used = HashSet::<(&str, &str)>::new();
 
+        // Match configured function sources against the discovered catalog.
+        let mut used = HashSet::<(String, String)>::new();
         for (id, cfg_inf) in &self.functions {
             match Self::build_one_function_info(&db_funcs_info, id, cfg_inf) {
                 Ok((merged_inf, pg_sql_info)) => {
-                    let dup = !used.insert((&cfg_inf.schema, &cfg_inf.function));
-                    let dup = if dup { "duplicate " } else { "" };
+                    if !used.insert((cfg_inf.schema.clone(), cfg_inf.function.clone())) {
+                        warn!(
+                            source.id = %id,
+                            schema = %cfg_inf.schema,
+                            function = %cfg_inf.function,
+                            "Configured duplicate source: multiple config entries resolve to the same function"
+                        );
+                    }
                     let id2 = self.resolve_id(id, &merged_inf);
-                    self.add_func_src(
-                        &mut res,
-                        id2.clone(),
-                        &merged_inf,
-                        pg_sql_info.clone(),
-                        merged_inf.cache.unwrap_or_default(),
-                    );
                     warn_on_rename(id, &id2, "Function");
-                    let signature = &pg_sql_info.signature;
-                    info!(source.id = %id2, function.signature = %signature, "Configured {dup}source from function");
-                    debug!(source.id = %id2, sql = %pg_sql_info.sql_query, "source SQL query");
-                    info_map.insert(id2, merged_inf);
+                    specs.insert(id2, SourceSpec::Function(merged_inf, pg_sql_info));
                 }
-                Err(error) => {
-                    warnings.push(TileSourceWarning::SourceError {
-                        source_id: id.clone(),
-                        error,
-                    });
-                }
+                Err(error) => warnings.push(TileSourceWarning::SourceError {
+                    source_id: id.clone(),
+                    error,
+                }),
             }
         }
 
-        // Sort the discovered sources by schema and function name to ensure a consistent behavior
+        // Auto-publish remaining functions, sorted for deterministic id resolution.
         if let Some(auto_funcs) = &self.auto_functions {
             let schemas = auto_funcs
                 .schemas
@@ -304,7 +277,6 @@ impl PostgresAutoDiscoveryBuilder {
                 source_id_format = %auto_funcs.source_id_format,
                 "Auto-publishing functions"
             );
-
             for schema in schemas.iter().sorted() {
                 let Some(schema) = normalize_key(&db_funcs_info, schema, "schema", "") else {
                     continue;
@@ -313,7 +285,7 @@ impl PostgresAutoDiscoveryBuilder {
                     .remove(&schema)
                     .expect("schema should be present in db_funcs_info after normalize_key lookup");
                 for (func, (pg_sql, db_inf)) in db_funcs.into_iter().sorted_by(by_key) {
-                    if used.contains(&(schema.as_str(), func.as_str())) {
+                    if used.contains(&(schema.clone(), func.clone())) {
                         continue;
                     }
                     let source_id = auto_funcs
@@ -321,20 +293,45 @@ impl PostgresAutoDiscoveryBuilder {
                         .replace("{schema}", &schema)
                         .replace("{function}", &func);
                     let id2 = self.resolve_id(&source_id, &db_inf);
-                    self.add_func_src(
-                        &mut res,
-                        id2.clone(),
-                        &db_inf,
-                        pg_sql.clone(),
-                        db_inf.cache.unwrap_or_default(),
-                    );
-                    info!(source.id = %id2, function.signature = %pg_sql.signature, "Discovered source from function");
-                    debug!(source.id = %id2, sql = %pg_sql.sql_query, "source SQL query");
-                    info_map.insert(id2, db_inf);
+                    specs.insert(id2, SourceSpec::Function(db_inf, pg_sql));
                 }
             }
         }
-        Ok((res, info_map, warnings))
+
+        Ok(())
+    }
+
+    /// Turns one [`SourceSpec`] into a running [`PostgresSource`].
+    ///
+    /// The slow half of discovery: a table builds its SQL and computes its bounds here (the work [`discover`](Self::discover) deferred); a function is cheap, as its SQL is already known.
+    /// The returned [`SourceSpec`] carries any computed bounds back for `--save-config`.
+    pub async fn instantiate(
+        &self,
+        id: &str,
+        spec: SourceSpec,
+    ) -> PostgresResult<(BoxedSource, SourceSpec)> {
+        match spec {
+            SourceSpec::Table(info) => {
+                let (id, pg_sql, info) = table_to_query(
+                    id.to_string(),
+                    info,
+                    self.pool.clone(),
+                    self.auto_bounds,
+                    self.max_feature_count,
+                )
+                .await?;
+                trace!(source.id = %id, sql = %pg_sql.sql_query, "source SQL query");
+                let cache = info.cache.unwrap_or_default();
+                let source = self.build_source(id, &info, pg_sql, cache);
+                Ok((source, SourceSpec::Table(info)))
+            }
+            SourceSpec::Function(info, pg_sql) => {
+                trace!(source.id = %id, sql = %pg_sql.sql_query, "source SQL query");
+                let cache = info.cache.unwrap_or_default();
+                let source = self.build_source(id.to_string(), &info, pg_sql.clone(), cache);
+                Ok((source, SourceSpec::Function(info, pg_sql)))
+            }
+        }
     }
 
     /// Builds and returns a `TableInfo` generated by:
@@ -414,26 +411,26 @@ impl PostgresAutoDiscoveryBuilder {
         self.id_resolver.resolve(id, signature)
     }
 
-    fn add_func_src(
+    /// Constructs a [`PostgresSource`] from a resolved source description and its SQL.
+    /// The given `cache` falls back to the builder's default policy.
+    fn build_source(
         &self,
-        sources: &mut Vec<BoxedSource>,
         id: String,
         pg_info: &impl PostgresInfo,
         sql_info: PostgresSqlInfo,
         cache: CachePolicy,
-    ) {
+    ) -> BoxedSource {
         let tilejson = pg_info.to_tilejson(id.clone());
         let tile_info = pg_info.tile_info();
         let cache = cache.or(self.default_cache);
-        let source = PostgresSource::new(
+        Box::new(PostgresSource::new(
             id,
             sql_info,
             tilejson,
             self.pool.clone(),
             tile_info,
             cache.zoom(),
-        );
-        sources.push(Box::new(source));
+        ))
     }
 
     fn configured_tables(&self) -> HashSet<(String, String)> {
@@ -617,31 +614,6 @@ fn warn_on_rename(old_id: &String, new_id: &String, typ: &str) {
     }
 }
 
-fn summary(info: &TableInfo) -> String {
-    let relkind: Cow<_> = match info.relkind {
-        Some('v') => "view".into(),
-        Some('m') => "materialized view".into(),
-        Some('r') => "table".into(),
-        // printing these variants is likely a bug
-        Some(r) => format!("unknown relkind={r}").into(),
-        None => "unknown relkind".into(),
-    };
-    let id: Cow<_> = info.id_column.as_ref().map_or_else(
-        || "no ID column".into(),
-        |id| format!("ID column {id}").into(),
-    );
-    format!(
-        "{relkind} {}.{} with {} column ({}, SRID={}), {id}",
-        info.schema,
-        info.table,
-        info.geometry_column,
-        info.geometry_type
-            .as_deref()
-            .unwrap_or("UNKNOWN GEOMETRY TYPE"),
-        info.srid,
-    )
-}
-
 /// A comparator for sorting tuples by first element
 fn by_key<T>(a: &(String, T), b: &(String, T)) -> Ordering {
     a.0.cmp(&b.0)
@@ -652,7 +624,8 @@ fn by_key<T>(a: &(String, T), b: &(String, T)) -> Ordering {
 mod tests {
     use backon::{ConstantBuilder, Retryable as _};
     use indoc::indoc;
-    use insta::assert_yaml_snapshot;
+    use insta::{assert_debug_snapshot, assert_yaml_snapshot};
+    use rstest::rstest;
     use testcontainers_modules::postgres::Postgres;
     use testcontainers_modules::testcontainers::ImageExt as _;
     use testcontainers_modules::testcontainers::runners::AsyncRunner as _;
@@ -697,91 +670,77 @@ mod tests {
         }
     }
 
+    #[rstest]
+    #[case::empty_config("{}")]
+    #[case::auto_publish_true("auto_publish: true")]
+    fn auto_publish_defaults_to_both(#[case] config_yaml: &str) {
+        insta::allow_duplicates! {
+            assert_yaml_snapshot!(auto(config_yaml), @r#"
+            auto_table:
+              source_id_format: "{table}"
+            auto_funcs:
+              source_id_format: "{function}"
+            "#);
+        }
+    }
+
+    #[rstest]
+    #[case::tables_listed("tables: {}")]
+    #[case::functions_listed("functions: {}")]
+    #[case::auto_publish_false("auto_publish: false")]
+    fn auto_publish_disabled(#[case] config_yaml: &str) {
+        insta::allow_duplicates! {
+            assert_yaml_snapshot!(auto(config_yaml), @r"
+            auto_table: ~
+            auto_funcs: ~
+            ");
+        }
+    }
+
+    #[rstest]
+    #[case::tables_on(indoc! {"
+        auto_publish:
+            from_schemas: public
+            tables: true"})]
+    #[case::functions_off(indoc! {"
+        auto_publish:
+            from_schemas: public
+            functions: false"})]
+    fn auto_publish_tables_only(#[case] config_yaml: &str) {
+        insta::allow_duplicates! {
+            assert_yaml_snapshot!(auto(config_yaml), @r#"
+            auto_table:
+              schemas:
+                - public
+              source_id_format: "{table}"
+            auto_funcs: ~
+            "#);
+        }
+    }
+
+    #[rstest]
+    #[case::functions_on(indoc! {"
+        auto_publish:
+            from_schemas: public
+            functions: true"})]
+    #[case::tables_off(indoc! {"
+        auto_publish:
+            from_schemas: public
+            tables: false"})]
+    fn auto_publish_functions_only(#[case] config_yaml: &str) {
+        insta::allow_duplicates! {
+            assert_yaml_snapshot!(auto(config_yaml), @r#"
+            auto_table: ~
+            auto_funcs:
+              schemas:
+                - public
+              source_id_format: "{function}"
+            "#);
+        }
+    }
+
     #[test]
-    #[expect(clippy::too_many_lines)]
-    fn test_auto_publish_no_auto() {
-        let cfg = auto("{}");
-        assert_yaml_snapshot!(cfg, @r#"
-        auto_table:
-          source_id_format: "{table}"
-        auto_funcs:
-          source_id_format: "{function}"
-        "#);
-
-        let cfg = auto("tables: {}");
-        assert_yaml_snapshot!(cfg, @r"
-        auto_table: ~
-        auto_funcs: ~
-        ");
-
-        let cfg = auto("functions: {}");
-        assert_yaml_snapshot!(cfg, @r"
-        auto_table: ~
-        auto_funcs: ~
-        ");
-
-        let cfg = auto("auto_publish: true");
-        assert_yaml_snapshot!(cfg, @r#"
-        auto_table:
-          source_id_format: "{table}"
-        auto_funcs:
-          source_id_format: "{function}"
-        "#);
-
-        let cfg = auto("auto_publish: false");
-        assert_yaml_snapshot!(cfg, @r"
-        auto_table: ~
-        auto_funcs: ~
-        ");
-
-        let cfg = auto(indoc! {"
-            auto_publish:
-                from_schemas: public
-                tables: true"});
-        assert_yaml_snapshot!(cfg, @r#"
-        auto_table:
-          schemas:
-            - public
-          source_id_format: "{table}"
-        auto_funcs: ~
-        "#);
-
-        let cfg = auto(indoc! {"
-            auto_publish:
-                from_schemas: public
-                functions: true"});
-        assert_yaml_snapshot!(cfg, @r#"
-        auto_table: ~
-        auto_funcs:
-          schemas:
-            - public
-          source_id_format: "{function}"
-        "#);
-
-        let cfg = auto(indoc! {"
-            auto_publish:
-                from_schemas: public
-                tables: false"});
-        assert_yaml_snapshot!(cfg, @r#"
-        auto_table: ~
-        auto_funcs:
-          schemas:
-            - public
-          source_id_format: "{function}"
-        "#);
-
-        let cfg = auto(indoc! {"
-            auto_publish:
-                from_schemas: public
-                functions: false"});
-        assert_yaml_snapshot!(cfg, @r#"
-        auto_table:
-          schemas:
-            - public
-          source_id_format: "{table}"
-        auto_funcs: ~
-        "#);
-
+    fn auto_publish_merges_from_schemas_with_id_format() {
         let cfg = auto(indoc! {"
             auto_publish:
                 from_schemas: public
@@ -800,7 +759,10 @@ mod tests {
           source_id_format: "foo_{schema}.{table}_bar"
         auto_funcs: ~
         "#);
+    }
 
+    #[test]
+    fn auto_publish_merges_from_schemas_with_source_id_format() {
         let cfg = auto(indoc! {"
             auto_publish:
                 from_schemas: public
@@ -819,7 +781,10 @@ mod tests {
           source_id_format: "{schema}.{table}"
         auto_funcs: ~
         "#);
+    }
 
+    #[test]
+    fn auto_publish_accepts_from_schemas_list() {
         let cfg = auto(indoc! {"
             auto_publish:
                 tables:
@@ -840,18 +805,212 @@ mod tests {
         "#);
     }
 
-    #[tokio::test]
-    #[tracing_test::traced_test]
-    async fn test_nonexistent_tables_functions_generate_warning() {
-        let container = start_old_postgis_container().await;
+    /// Seeds the database behind `builder` with arbitrary setup SQL.
+    async fn seed(builder: &PostgresAutoDiscoveryBuilder, sql: &str) {
+        builder
+            .pool
+            .get()
+            .await
+            .unwrap()
+            .batch_execute(sql)
+            .await
+            .unwrap();
+    }
 
+    async fn builder_for(
+        config_yaml: &str,
+    ) -> (
+        PostgresAutoDiscoveryBuilder,
+        testcontainers_modules::testcontainers::ContainerAsync<Postgres>,
+    ) {
+        let container = start_old_postgis_container().await;
         let host = container.get_host().await.unwrap();
         let port = container.get_host_port_ipv4(5432).await.unwrap();
-
         let connection_string =
             format!("postgres://postgres:postgres@{host}:{port}/postgres?sslmode=disable");
 
-        let config_yaml = indoc! {r"
+        let mut config: PostgresConfig = serde_yaml::from_str(config_yaml).unwrap();
+        config.connection_string = Some(connection_string);
+
+        let builder = PostgresAutoDiscoveryBuilder::new(
+            &config,
+            IdResolver::default(),
+            CachePolicy::default(),
+        )
+        .await
+        .expect("Failed to create builder");
+        (builder, container)
+    }
+
+    #[tokio::test]
+    async fn discover_and_instantiate_table() {
+        let (builder, _container) = builder_for(indoc! {r"
+            tables:
+              my_points:
+                schema: public
+                table: points
+                geometry_column: geom
+                srid: 4326
+                geometry_type: POINT
+        "})
+        .await;
+        seed(
+            &builder,
+            "CREATE TABLE public.points (gid serial PRIMARY KEY, geom geometry(Point, 4326));\
+             INSERT INTO public.points (geom) VALUES (ST_SetSRID(ST_MakePoint(1, 2), 4326));",
+        )
+        .await;
+
+        let (mut specs, warnings) = builder.discover().await.expect("discover failed");
+        assert!(warnings.is_empty(), "unexpected warnings: {warnings:?}");
+        assert_eq!(specs.len(), 1);
+
+        let SourceSpec::Table(info) = specs.get("my_points").expect("spec for my_points") else {
+            panic!("expected a Table spec");
+        };
+        // discover defers the slow bounds job, so the spec has none yet; the rest is the merged catalog+config metadata.
+        assert_eq!(info.bounds, None);
+        assert_yaml_snapshot!(info, @"
+        schema: public
+        table: points
+        srid: 4326
+        geometry_column: geom
+        geometry_type: POINT
+        ");
+
+        let spec = specs.remove("my_points").expect("spec for my_points");
+        let (source, spec) = builder
+            .instantiate("my_points", spec)
+            .await
+            .expect("instantiate failed");
+
+        assert_eq!(source.get_id(), "my_points");
+        // instantiate runs the bounds calculation that discover deferred.
+        let SourceSpec::Table(info) = spec else {
+            panic!("expected a Table spec back");
+        };
+        assert!(
+            info.bounds.is_some(),
+            "instantiate must run the deferred bounds calculation"
+        );
+    }
+
+    #[tokio::test]
+    async fn discover_auto_publishes_from_catalog_and_is_rerunnable() {
+        let (builder, _container) = builder_for("{}").await;
+        seed(
+            &builder,
+            "CREATE TABLE public.roads (gid serial PRIMARY KEY, geom geometry(LineString, 4326));",
+        )
+        .await;
+        seed(&builder, TILE_FUNCTION_SQL).await;
+
+        let (first, warnings) = builder.discover().await.expect("first discover failed");
+        assert!(warnings.is_empty(), "unexpected warnings: {warnings:?}");
+
+        // The table is auto-published under the default `{table}` id, with its columns read from the catalog.
+        let SourceSpec::Table(info) = first.get("roads").expect("spec for roads") else {
+            panic!("expected a Table spec");
+        };
+        assert_eq!(info.bounds, None);
+        assert_yaml_snapshot!(info, @"
+        schema: public
+        table: roads
+        srid: 4326
+        geometry_column: geom
+        geometry_type: LINESTRING
+        properties:
+          gid: int4
+        ");
+        // The function is auto-published too, under the default `{function}` id.
+        assert!(
+            matches!(first.get("my_func"), Some(SourceSpec::Function(..))),
+            "expected an auto-published function spec for my_func"
+        );
+
+        // An idle re-discover must return the same ids, so a future Reloader sees "no change".
+        let (second, _) = builder.discover().await.expect("second discover failed");
+        let first_ids: Vec<&String> = first.keys().collect();
+        let second_ids: Vec<&String> = second.keys().collect();
+        assert_eq!(first_ids, second_ids, "discover must return stable ids");
+    }
+
+    const TILE_FUNCTION_SQL: &str = "CREATE FUNCTION public.my_func(z integer, x integer, y integer) \
+         RETURNS bytea AS $$ SELECT NULL::bytea $$ LANGUAGE sql IMMUTABLE STRICT PARALLEL SAFE;";
+
+    #[tokio::test]
+    async fn discover_and_instantiate_function() {
+        let (builder, _container) = builder_for(indoc! {r"
+            functions:
+              my_func:
+                schema: public
+                function: my_func
+        "})
+        .await;
+        seed(&builder, TILE_FUNCTION_SQL).await;
+
+        let (mut specs, warnings) = builder.discover().await.expect("discover failed");
+        assert!(warnings.is_empty(), "unexpected warnings: {warnings:?}");
+
+        let SourceSpec::Function(info, sql) = specs.get("my_func").expect("spec for my_func")
+        else {
+            panic!("expected a Function spec");
+        };
+        assert_yaml_snapshot!(info, @"
+        schema: public
+        function: my_func
+        ");
+        // a function's SQL is already known at catalog time
+        assert_debug_snapshot!(sql, @r#"
+        PostgresSqlInfo {
+            sql_query: "SELECT \"public\".\"my_func\"($1::integer, $2::integer, $3::integer) AS tile",
+            use_url_query: false,
+            signature: "public.my_func(integer, integer, integer) -> bytea",
+        }
+        "#);
+
+        let spec = specs.remove("my_func").expect("spec for my_func");
+        let (source, _) = builder
+            .instantiate("my_func", spec)
+            .await
+            .expect("instantiate failed");
+        assert_eq!(source.get_id(), "my_func");
+    }
+
+    #[tokio::test]
+    async fn instantiate_failure_surfaces_as_error() {
+        let (builder, _container) = builder_for(indoc! {r"
+            tables:
+              my_points:
+                schema: public
+                table: points
+                geometry_column: geom
+                srid: 4326
+                geometry_type: POINT
+        "})
+        .await;
+        seed(
+            &builder,
+            "CREATE TABLE public.points (gid serial PRIMARY KEY, geom geometry(Point, 4326));",
+        )
+        .await;
+
+        let (mut specs, _) = builder.discover().await.expect("discover failed");
+        let spec = specs.remove("my_points").expect("spec for my_points");
+
+        // The table vanishes between discover and instantiate.
+        seed(&builder, "DROP TABLE public.points;").await;
+
+        let result = builder.instantiate("my_points", spec).await;
+        assert!(
+            result.is_err(),
+            "instantiating a vanished table must surface an error, not be silently dropped"
+        );
+    }
+
+    #[tokio::test]
+    async fn discover_missing_sources_surface_as_warnings() {
+        let (builder, _container) = builder_for(indoc! {r"
             tables:
               nonexistent_table:
                 schema: public
@@ -864,58 +1023,26 @@ mod tests {
               nonexistent_function:
                 schema: public
                 function: this_function_does_not_exist
-        "};
+        "})
+        .await;
 
-        let mut config: PostgresConfig = serde_yaml::from_str(config_yaml).unwrap();
-        config.connection_string = Some(connection_string);
+        let (specs, warnings) = builder.discover().await.expect("discover failed");
 
-        let builder = PostgresAutoDiscoveryBuilder::new(
-            &config,
-            IdResolver::default(),
-            CachePolicy::default(),
-        )
-        .await
-        .expect("Failed to create builder");
+        // Neither the missing table nor the missing function can be resolved, so no spec is produced and each surfaces as its own warning.
+        assert!(specs.is_empty(), "unexpected specs: {specs:?}");
 
-        let (table_sources, _info_map, table_warnings) = builder
-            .instantiate_tables()
-            .await
-            .expect("Failed to instantiate tables");
-
-        assert_eq!(table_sources.len(), 0);
-        assert_eq!(table_warnings.len(), 1);
-
-        match &table_warnings[0] {
-            TileSourceWarning::SourceError {
-                source_id,
-                error: _,
-            } => {
-                assert_eq!(source_id, "nonexistent_table");
-            }
-            TileSourceWarning::PathError { .. } => {
-                panic!("Expected SourceError warning, got: {:?}", table_warnings[0])
-            }
-        }
-
-        let (function_sources, _info_map, function_warnings) = builder
-            .instantiate_functions()
-            .await
-            .expect("Failed to instantiate functions");
-
-        assert_eq!(function_sources.len(), 0);
-        assert_eq!(function_warnings.len(), 1);
-
-        match &function_warnings[0] {
-            TileSourceWarning::SourceError {
-                source_id,
-                error: _,
-            } => {
-                assert_eq!(source_id, "nonexistent_function");
-            }
-            TileSourceWarning::PathError { .. } => panic!(
-                "Expected SourceError warning, got: {:?}",
-                function_warnings[0]
-            ),
-        }
+        let warned_ids: HashSet<&str> = warnings
+            .iter()
+            .map(|w| match w {
+                TileSourceWarning::SourceError { source_id, .. } => source_id.as_str(),
+                TileSourceWarning::PathError { .. } => {
+                    panic!("Expected SourceError warning, got: {w:?}")
+                }
+            })
+            .collect();
+        assert_eq!(
+            warned_ids,
+            HashSet::from(["nonexistent_table", "nonexistent_function"]),
+        );
     }
 }

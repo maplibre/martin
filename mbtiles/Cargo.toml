@@ -27,7 +27,7 @@ required-features = ["transcode"]
 [features]
 default = ["cli"]
 cli = ["dep:anyhow", "dep:clap", "dep:serde_yaml", "dep:tracing-subscriber"]
-__hotpath = [
+hotpath = [
     "hotpath/hotpath",
     "hotpath/hotpath-alloc",
     "hotpath/hotpath-mcp",
@@ -35,7 +35,7 @@ __hotpath = [
     "hotpath/futures",
 ]
 transcode = ["dep:bytes", "dep:rayon", "dep:moka"]
-__hotpath_tui = ["__hotpath", "hotpath/tui"]
+hotpath_tui = ["hotpath", "hotpath/tui"]
 
 [dependencies]
 anyhow = { workspace = true, optional = true }
