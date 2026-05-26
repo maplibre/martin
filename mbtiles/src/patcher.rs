@@ -31,12 +31,12 @@ pub async fn apply_patch(base_file: PathBuf, patch_file: PathBuf, force: bool) -
 
     match (force, base_hash, patch_info.agg_tiles_hash_before_apply) {
         (false, Some(base_hash), Some(expected_hash)) if base_hash != expected_hash => {
-            return Err(MbtError::AggHashMismatchWithDiff(
-                patch_mbt.filepath().to_string(),
-                expected_hash,
-                base_mbt.filepath().to_string(),
-                base_hash,
-            ));
+            return Err(MbtError::AggHashMismatchWithDiff {
+                patch_file: patch_mbt.filepath().to_string(),
+                before_apply_hash: expected_hash,
+                file: base_mbt.filepath().to_string(),
+                agg_hash: base_hash,
+            });
         }
         (true, Some(base_hash), Some(expected_hash)) if base_hash != expected_hash => {
             warn!(

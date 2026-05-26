@@ -407,11 +407,11 @@ impl BinDiffer<ApplierBefore, ApplierAfter> for BinDiffPatcher {
         // Verify the hash of the patched tile is what we expect
         let new_tile_hash = xxh3_64(&new_tile);
         if new_tile_hash != value.uncompressed_tile_hash {
-            return Err(MbtError::BinDiffIncorrectTileHash(
-                value.coord.to_string(),
-                value.uncompressed_tile_hash.to_string(),
-                new_tile_hash.to_string(),
-            ));
+            return Err(MbtError::BinDiffIncorrectTileHash {
+                tile: value.coord.to_string(),
+                expected: value.uncompressed_tile_hash.to_string(),
+                computed: new_tile_hash.to_string(),
+            });
         }
 
         if self.patch_type == BinDiffGz {

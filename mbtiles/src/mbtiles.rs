@@ -357,14 +357,13 @@ impl Mbtiles {
                 let z = row.zoom_level;
                 let x = row.tile_column;
                 let y = row.tile_row;
-                let coord = parse_tile_index(z, x, y).ok_or_else(|| {
-                    MbtError::InvalidTileIndex(
-                        filepath.clone(),
-                        format!("{z:?}"),
-                        format!("{x:?}"),
-                        format!("{y:?}"),
-                    )
-                })?;
+                let coord =
+                    parse_tile_index(z, x, y).ok_or_else(|| MbtError::InvalidTileIndex {
+                        filepath: filepath.clone(),
+                        zoom_level: format!("{z:?}"),
+                        tile_column: format!("{x:?}"),
+                        tile_row: format!("{y:?}"),
+                    })?;
                 Ok(coord)
             })
         }))
@@ -399,14 +398,13 @@ impl Mbtiles {
                 let z = row.zoom_level;
                 let x = row.tile_column;
                 let y = row.tile_row;
-                let coord = parse_tile_index(z, x, y).ok_or_else(|| {
-                    MbtError::InvalidTileIndex(
-                        filepath.clone(),
-                        format!("{z:?}"),
-                        format!("{x:?}"),
-                        format!("{y:?}"),
-                    )
-                })?;
+                let coord =
+                    parse_tile_index(z, x, y).ok_or_else(|| MbtError::InvalidTileIndex {
+                        filepath: filepath.clone(),
+                        zoom_level: format!("{z:?}"),
+                        tile_column: format!("{x:?}"),
+                        tile_row: format!("{y:?}"),
+                    })?;
                 Ok((coord, row.tile_data))
             })
         }))

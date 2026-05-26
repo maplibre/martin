@@ -267,7 +267,7 @@ impl Mbtiles {
                     }
                     (Some(old), Some(new)) if old == new => {}
                     (Some(old), Some(new)) => {
-                        return Err(MbtError::InconsistentMetadata(old, new));
+                        return Err(MbtError::InconsistentMetadata { old, new });
                     }
                 }
             }
@@ -598,12 +598,12 @@ LIMIT 1;"
 
             let [tile_row, tile_column, zoom_level]: [String; 3] =
                 res.try_into().expect("res should contain exactly 3 items");
-            return Err(InvalidTileIndex(
-                self.filepath().to_string(),
+            return Err(InvalidTileIndex {
+                filepath: self.filepath().to_string(),
                 zoom_level,
                 tile_column,
                 tile_row,
-            ));
+            });
         }
 
         info!(mbtiles.file = %self, "All values in the `tiles` table/view are valid");
@@ -621,7 +621,11 @@ LIMIT 1;"
         let computed = calc_agg_tiles_hash(&mut *conn).await?;
         if stored != computed {
             let file = self.filepath().to_string();
-            return Err(AggHashMismatch(computed, stored, file));
+            return Err(AggHashMismatch {
+                computed,
+                stored,
+                filepath: file,
+            });
         }
 
         info!(
@@ -709,11 +713,11 @@ LIMIT 1;"
                 );
                 if let Some(row) = query(AssertSqlSafe(sql)).fetch_optional(&mut *conn).await? {
                     let missing_id: String = row.get(0);
-                    return Err(MbtError::MissingTileReference(
-                        self.filepath().to_string(),
-                        missing_id,
-                        data_table,
-                    ));
+                    return Err(MbtError::MissingTileReference {
+                        filepath: self.filepath().to_string(),
+                        tile_id: missing_id,
+                        table: data_table,
+                    });
                 }
 
                 // For Hash schema, also verify that tile_id == md5_hex(tile_data)
@@ -729,11 +733,11 @@ LIMIT 1;"
                         LIMIT 1;"
                     );
                     if let Some(row) = query(AssertSqlSafe(sql)).fetch_optional(&mut *conn).await? {
-                        return Err(IncorrectTileHash(
-                            self.filepath().to_string(),
-                            row.get(0),
-                            row.get(1),
-                        ));
+                        return Err(IncorrectTileHash {
+                            filepath: self.filepath().to_string(),
+                            stored: row.get(0),
+                            computed: row.get(1),
+                        });
                     }
                 }
 
@@ -746,11 +750,11 @@ LIMIT 1;"
             .fetch_optional(&mut *conn)
             .await?
             .map_or(Ok(()), |v| {
-                Err(IncorrectTileHash(
-                    self.filepath().to_string(),
-                    v.get(0),
-                    v.get(1),
-                ))
+                Err(IncorrectTileHash {
+                    filepath: self.filepath().to_string(),
+                    stored: v.get(0),
+                    computed: v.get(1),
+                })
             })?;
 
         info!(mbtiles.file = %self, "All tile hashes are valid");
@@ -920,7 +924,7 @@ pub(crate) mod tests {
         let script = include_str!("../../tests/fixtures/files/invalid_zoomed_world_cities.sql");
         let (mbt, mut conn) = anonymous_mbtiles(script).await;
         let result = mbt.check_agg_tiles_hashes(&mut conn).await;
-        assert!(matches!(result, Err(AggHashMismatch(..))));
+        assert!(matches!(result, Err(AggHashMismatch { .. })));
     }
 
     #[actix_rt::test]
@@ -947,7 +951,7 @@ pub(crate) mod tests {
         .await;
         let result = mbt.check_each_tile_hash(&mut conn).await;
         assert!(
-            matches!(result, Err(IncorrectTileHash(..))),
+            matches!(result, Err(IncorrectTileHash { .. })),
             "should detect that tile_id != md5_hex(tile_data), got {result:?}"
         );
     }

@@ -103,13 +103,11 @@ impl Source for PostgresSource {
         let prep_query = conn
             .prepare_typed_cached(sql, param_types)
             .await
-            .map_err(|e| {
-                PrepareQueryError(
-                    e,
-                    self.id.clone(),
-                    self.info.signature.clone(),
-                    self.info.sql_query.clone(),
-                )
+            .map_err(|e| PrepareQueryError {
+                source: e,
+                source_id: self.id.clone(),
+                signature: self.info.signature.clone(),
+                query: self.info.sql_query.clone(),
             })?;
 
         let tile = if self.support_url_query() {

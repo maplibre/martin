@@ -83,11 +83,11 @@ impl PmtilesSource {
             TileType::Avif => Format::Avif.into(),
             TileType::Mlt => Format::Mlt.into(),
             TileType::Unknown => {
-                return Err(PmtilesError::UnknownTileType(
-                    id.clone(),
-                    store_to_string.clone(),
-                    path.to_string(),
-                ));
+                return Err(PmtilesError::UnknownTileType {
+                    source_id: id.clone(),
+                    store: store_to_string.clone(),
+                    path: path.to_string(),
+                });
             }
         };
 

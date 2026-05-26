@@ -138,7 +138,7 @@ async fn mbtiles_stream_errors() {
     {
         let mut stream = mbtiles.stream_coords(&mut conn);
         match stream.next().await {
-            Some(Err(MbtError::InvalidTileIndex(..))) => {}
+            Some(Err(MbtError::InvalidTileIndex { .. })) => {}
             _ => panic!("Unexpected value returned from stream!"),
         }
     }
