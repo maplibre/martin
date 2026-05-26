@@ -256,10 +256,6 @@ mod tests {
 
     #[tokio::test]
     async fn concurrent_renders_all_succeed() {
-        // Hermetic local style: an inline GeoJSON polygon over a white
-        // background renders without any network access, so this exercises the
-        // pool's concurrency without depending on (and hammering) a live tile
-        // upstream.
         let style_json = r##"{
             "version": 8,
             "sources": {
