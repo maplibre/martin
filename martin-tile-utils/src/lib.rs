@@ -345,8 +345,10 @@ enum SevenBitDecodingError {
     #[error("Expected a size, but got nothing")]
     TruncatedSize,
     /// Expected data according to the size, but got nothing
-    #[error("Expected {0} bytes of data in layer according to the size, but got only {1}")]
-    TruncatedData(u64, u64),
+    #[error(
+        "Expected {expected} bytes of data in layer according to the size, but got only {actual}"
+    )]
+    TruncatedData { expected: u64, actual: u64 },
     /// Got unexpected tag
     #[error("Got tag {0} instead of the expected")]
     UnexpectedTag(u8),
@@ -390,7 +392,10 @@ fn decode_7bit_length_and_tag(tile: &[u8], versions: &[u8]) -> Result<(), SevenB
                     .ok_or(SevenBitDecodingError::SizeUnderflow)?;
                 for i in 0..payload_len {
                     if tile_iter.next().is_none() {
-                        return Err(SevenBitDecodingError::TruncatedData(payload_len, i));
+                        return Err(SevenBitDecodingError::TruncatedData {
+                            expected: payload_len,
+                            actual: i,
+                        });
                     }
                 }
                 break;
@@ -642,7 +647,7 @@ mod tests {
     #[case::size_underflow(&[0x00, 0x01], Err(SevenBitDecodingError::SizeUnderflow))]
     #[case::unterminated_length(&[0x80], Err(SevenBitDecodingError::TruncatedSize))]
     #[case::missing_version_byte(&[0x05], Err(SevenBitDecodingError::TruncatedTag))]
-    #[case::wrong_length(&[0x03, 0x01], Err(SevenBitDecodingError::TruncatedData(1, 0)))]
+    #[case::wrong_length(&[0x03, 0x01], Err(SevenBitDecodingError::TruncatedData { expected: 1, actual: 0 }))]
     fn test_decode_7bit_length_and_tag(
         #[case] tile: &[u8],
         #[case] expected: Result<(), SevenBitDecodingError>,

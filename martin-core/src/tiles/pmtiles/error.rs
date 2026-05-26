@@ -19,6 +19,13 @@ pub enum PmtilesError {
     InvalidMetadata(String, object_store::path::Path),
 
     /// Unknown tile type encountered while processing `PMTiles` file.
-    #[error("Unknown tile type for source {0} ({1} at path {2})")]
-    UnknownTileType(String, String, String),
+    #[error("Unknown tile type for source {source_id} ({store} at path {path})")]
+    UnknownTileType {
+        /// The id of the source.
+        source_id: String,
+        /// The object store backing the source.
+        store: String,
+        /// The path of the file within the store.
+        path: String,
+    },
 }

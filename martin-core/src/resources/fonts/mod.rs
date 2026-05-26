@@ -182,10 +182,10 @@ impl FontSources {
     )]
     pub fn get_font_range(&self, ids: &str, start: u32, end: u32) -> Result<Vec<u8>, FontError> {
         if start > MAX_UNICODE_CP || end > MAX_UNICODE_CP {
-            return Err(FontError::InvalidFontRangeStartEnd(start, end));
+            return Err(FontError::InvalidFontRangeStartEnd { start, end });
         }
         if start > end {
-            return Err(FontError::InvalidFontRangeStartEnd(start, end));
+            return Err(FontError::InvalidFontRangeStartEnd { start, end });
         }
         if !start.is_multiple_of(CP_RANGE_SIZE as u32) {
             return Err(FontError::InvalidFontRangeStart(start));
