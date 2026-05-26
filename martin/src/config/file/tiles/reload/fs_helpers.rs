@@ -4,10 +4,9 @@ use std::time::UNIX_EPOCH;
 
 use tokio::fs::{self, DirEntry};
 
-use crate::MartinError;
-use crate::MartinResult;
 use crate::config::file::CachePolicy;
 use crate::config::primitives::IdResolver;
+use crate::{MartinError, MartinResult};
 
 pub struct ResolvedEntry {
     pub path: PathBuf,

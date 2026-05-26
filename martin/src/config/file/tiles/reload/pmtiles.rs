@@ -3,25 +3,23 @@ use std::path::PathBuf;
 #[cfg(test)]
 use std::time::Duration;
 
-use crate::config::file::tiles::reload::{discover_sources_by_ext, path_modified_ms};
-
 use futures::stream::TryStreamExt as _;
 use martin_core::tiles::BoxedSource;
-use notify::{
-    Config, Event, EventKind, RecommendedWatcher, Watcher as _,
-    event::{AccessKind, AccessMode},
-};
+use notify::event::{AccessKind, AccessMode};
+use notify::{Config, Event, EventKind, RecommendedWatcher, Watcher as _};
 use object_store::ObjectStore as _;
 use tokio::sync::mpsc;
 use tokio::time::{Instant, MissedTickBehavior};
 use url::Url;
 
+use crate::config::file::file_config::is_remote_url;
+use crate::config::file::pmtiles::PmtConfig;
 use crate::config::file::process::ProcessConfig;
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 use crate::config::file::resolve_process_config;
+use crate::config::file::tiles::reload::{discover_sources_by_ext, path_modified_ms};
 use crate::config::file::{
     CachePolicy, ConfigFileError, FileConfigEnum, TileSourceConfiguration as _,
-    file_config::is_remote_url, pmtiles::PmtConfig,
 };
 use crate::config::primitives::{IdResolver, OptOneMany};
 use crate::{MartinError, MartinResult, ReloadAdvisory, TileSourceManager};
