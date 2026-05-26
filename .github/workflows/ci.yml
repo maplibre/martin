@@ -83,9 +83,8 @@ jobs:
           cargo test --package mbtiles --no-default-features
           cargo test --package mbtiles
           cargo test --package martin-core
-          # `martin`'s styles_rendering_test renders the maplibre demo style,
-          # which fetches vector tiles. On Linux replay them from the committed
-          # cassette so CI does not depend on (and flake against) live upstreams.
+          # style rendering requires upstream resources
+          # we use a cassete recording to not have random flakes
           if [ "$RUNNER_OS" = Linux ]; then
             just with-render-cache 'cargo test --package martin'
           else
