@@ -97,15 +97,6 @@ pub enum PostgresError {
         minimum: Version,
     },
 
-    /// Invalid table extent configuration.
-    #[error("Invalid extent setting in source {source_id} for table {table}: extent=0")]
-    InvalidTableExtent {
-        /// The id of the configured source.
-        source_id: String,
-        /// The table the source maps to.
-        table: String,
-    },
-
     /// Query preparation error.
     #[error("Error preparing a query for the tile '{source_id}' ({signature}): {query} {source}")]
     PrepareQueryError {

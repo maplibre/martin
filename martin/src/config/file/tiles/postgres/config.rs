@@ -1,3 +1,4 @@
+use std::num::NonZeroU32;
 use std::ops::Add as _;
 use std::time::Duration;
 
@@ -214,7 +215,7 @@ pub struct PostgresCfgPublishTables {
     pub buffer: Option<u32>,
     /// Tile extent in tile coordinate space, optional, default to 4096
     #[cfg_attr(feature = "unstable-schemas", schemars(example = &4096u32))]
-    pub extent: Option<u32>,
+    pub extent: Option<NonZeroU32>,
 
     #[serde(flatten, skip_serializing)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
@@ -508,7 +509,7 @@ mod tests {
                             minzoom: Some(0),
                             maxzoom: Some(30),
                             bounds: Some([-180, -90, 180, 90].into()),
-                            extent: Some(2048),
+                            extent: NonZeroU32::new(2048),
                             buffer: Some(10),
                             clip_geom: Some(false),
                             geometry_type: Some("GEOMETRY".to_string()),
@@ -533,6 +534,24 @@ mod tests {
                 }),
                 ..Default::default()
             },
+        );
+    }
+
+    #[test]
+    fn reject_zero_extent() {
+        let yaml = indoc! {"
+            schema: public
+            table: table_source
+            srid: 4326
+            geometry_column: geom
+            extent: 0
+        "};
+        let err = serde_yaml::from_str::<TableInfo>(yaml)
+            .expect_err("extent: 0 must be rejected by NonZeroU32");
+        let msg = err.to_string();
+        assert!(
+            msg.contains("extent") || msg.contains("zero") || msg.contains("nonzero"),
+            "unexpected error message: {msg}"
         );
     }
 }

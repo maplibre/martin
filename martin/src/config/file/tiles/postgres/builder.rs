@@ -1,13 +1,12 @@
 use std::borrow::Cow;
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, HashSet};
+use std::num::NonZeroU32;
 
 use futures::future::join_all;
 use itertools::Itertools as _;
 use martin_core::tiles::BoxedSource;
-use martin_core::tiles::postgres::{
-    PostgresError, PostgresPool, PostgresResult, PostgresSource, PostgresSqlInfo,
-};
+use martin_core::tiles::postgres::{PostgresPool, PostgresResult, PostgresSource, PostgresSqlInfo};
 use tracing::{debug, error, info, warn};
 
 use crate::config::args::BoundsCalcType;
@@ -67,7 +66,7 @@ pub struct PostgresAutoDiscoveryBuilderTables {
     id_columns: Option<Vec<String>>,
     clip_geom: Option<bool>,
     buffer: Option<u32>,
-    extent: Option<u32>,
+    extent: Option<NonZeroU32>,
 }
 
 /// Combine `from_schema` field from the `config.auto_publish` and `config.auto_publish.tables/functions`
@@ -159,14 +158,6 @@ impl PostgresAutoDiscoveryBuilder {
         let mut used = HashSet::<(&str, &str, &str)>::new();
         let mut pending = Vec::new();
         for (id, cfg_inf) in &self.tables {
-            // TODO: move this validation to serde somehow?
-            if cfg_inf.extent == Some(0) {
-                return Err(PostgresError::InvalidTableExtent {
-                    source_id: id.clone(),
-                    table: cfg_inf.format_id(),
-                });
-            }
-
             match self.build_one_table_info(&db_tables_info, id, cfg_inf) {
                 Ok(merged_inf) => {
                     let dup =

@@ -1,6 +1,7 @@
 //! `PostgreSQL` table discovery and validation.
 
 use std::collections::{BTreeMap, HashMap, HashSet};
+use std::num::NonZeroU32;
 
 use futures::pin_mut;
 use martin_core::tiles::postgres::PostgresError::PostgresError;
@@ -192,7 +193,7 @@ pub async fn table_to_query(
         (String::new(), String::new())
     };
 
-    let extent = info.extent.unwrap_or(DEFAULT_EXTENT);
+    let extent = info.extent.map_or(DEFAULT_EXTENT, NonZeroU32::get);
     let buffer = info.buffer.unwrap_or(DEFAULT_BUFFER);
     let margin = f64::from(buffer) / f64::from(extent);
 
