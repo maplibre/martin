@@ -112,6 +112,24 @@ impl<'de> Deserialize<'de> for CameraRequest {
     }
 }
 
+impl CameraRequest {
+    fn validate(self) -> Result<Self, HttpResponse> {
+        if let Self::BoundingBox {
+            min_lon,
+            min_lat,
+            max_lon,
+            max_lat,
+        } = self
+            && (max_lon < min_lon || max_lat < min_lat)
+        {
+            return Err(HttpResponse::BadRequest()
+                .content_type(ContentType::plaintext())
+                .body("Bounding box is inverted: max must be greater than or equal to min"));
+        }
+        Ok(self)
+    }
+}
+
 /// Parsed `{size}` path segment: `WIDTHxHEIGHT[@SCALEx]`. Bounds are
 /// checked in [`Self::validate`] after deserialization so the response
 /// can name which bound was hit.
@@ -129,12 +147,6 @@ const MAX_SCALE: u8 = 4;
 
 impl SizeRequest {
     fn validate(self) -> Result<Self, HttpResponse> {
-        #[expect(
-            clippy::cast_possible_truncation,
-            clippy::cast_sign_loss,
-            reason = "scale is bounded above by MAX_SCALE and is non-negative"
-        )]
-        let scale_u8 = self.scale.round() as u8;
         if self.width == 0 || self.height == 0 {
             return Err(HttpResponse::BadRequest()
                 .content_type(ContentType::plaintext())
@@ -147,6 +159,17 @@ impl SizeRequest {
                     "Image dimensions exceed maximum allowed ({MAX_WIDTH}x{MAX_HEIGHT})"
                 )));
         }
+        if !self.scale.is_finite() || self.scale <= 0.0 {
+            return Err(HttpResponse::BadRequest()
+                .content_type(ContentType::plaintext())
+                .body("Scale factor must be a positive finite number"));
+        }
+        #[expect(
+            clippy::cast_possible_truncation,
+            clippy::cast_sign_loss,
+            reason = "scale was checked to be finite and positive above"
+        )]
+        let scale_u8 = self.scale.round() as u8;
         if scale_u8 > MAX_SCALE {
             return Err(HttpResponse::BadRequest()
                 .content_type(ContentType::plaintext())
@@ -269,7 +292,12 @@ async fn handle_static_request(path: &StaticImagePath, styles: &StyleSources) ->
         Err(resp) => return resp,
     };
 
-    let camera = resolve_camera(path.camera, size);
+    let camera_req = match path.camera.validate() {
+        Ok(c) => c,
+        Err(resp) => return resp,
+    };
+
+    let camera = resolve_camera(camera_req, size);
 
     trace!(
         "Rendering static image for style {style_id} at ({lon},{lat}) z{zoom} {w}x{h}@{scale}",
@@ -519,6 +547,11 @@ mod tests {
     #[case::oversize_width("9999x100.png", "Image dimensions exceed maximum")]
     #[case::oversize_height("100x9999.png", "Image dimensions exceed maximum")]
     #[case::oversize_scale("100x100@9x.png", "Scale factor exceeds maximum")]
+    #[case::zero_scale("100x100@0x.png", "Scale factor must be a positive finite number")]
+    #[case::negative_scale("100x100@-2x.png", "Scale factor must be a positive finite number")]
+    #[case::nan_scale("100x100@nanx.png", "Scale factor must be a positive finite number")]
+    #[case::pos_inf_scale("100x100@infx.png", "Scale factor must be a positive finite number")]
+    #[case::neg_inf_scale("100x100@-infx.png", "Scale factor must be a positive finite number")]
     #[actix_rt::test]
     async fn dimension_violations_return_400_with_specific_message(
         #[case] size: &str,
@@ -531,6 +564,24 @@ mod tests {
         assert!(
             body.starts_with(expected_prefix),
             "size={size:?}: expected body to start with {expected_prefix:?}, got {body:?}"
+        );
+    }
+
+    #[rstest]
+    #[case::inverted_lon("10,0,-10,5")]
+    #[case::inverted_lat("0,5,1,-5")]
+    #[actix_rt::test]
+    async fn inverted_bbox_returns_400(#[case] params: &str) {
+        let (styles, _f) = one_style();
+        let resp = call!(
+            get(&format!("/style/s/static/{params}/200x200.png")),
+            styles
+        );
+        assert_eq!(resp.status(), StatusCode::BAD_REQUEST, "params={params:?}");
+        let body = body_text(resp).await;
+        assert!(
+            body.starts_with("Bounding box"),
+            "params={params:?}: expected body to start with \"Bounding box\", got {body:?}"
         );
     }
 }

@@ -269,7 +269,7 @@ async fn render_concurrent_requests() {
     );
 }
 
-const CAMERA_EXPECTED_DIR: &str = "../tests/fixtures/static_camera_expected";
+const CAMERA_DIR: &str = "../tests/fixtures/static_camera";
 
 async fn png_response(uri: &str) -> Vec<u8> {
     let app = create_app! { CONFIG_STYLES.as_str() };
@@ -358,7 +358,7 @@ fn assert_visually_similar(name: &str, a: &[u8], b: &[u8]) {
 }
 
 fn camera_ref(stem: &str) -> PathBuf {
-    PathBuf::from(CAMERA_EXPECTED_DIR).join(format!("{stem}.png"))
+    PathBuf::from(CAMERA_DIR).join(format!("{stem}.png"))
 }
 
 #[tokio::test]

@@ -68,6 +68,10 @@ pub enum ConfigFileError {
     #[error("Failed to parse object store URL of {1}: {0}")]
     ObjectStoreUrlParsing(object_store::Error, String),
 
+    #[cfg(feature = "pmtiles")]
+    #[error("Failed to list objects under {1}: {0}")]
+    ObjectStoreList(object_store::Error, String),
+
     #[cfg(all(feature = "rendering", target_os = "linux"))]
     #[error("Failed to start style render pool: {0}")]
     RendererPoolSpawnFailed(#[source] std::io::Error),
@@ -210,6 +214,8 @@ impl Diagnostic for ConfigFileError {
             Self::FontResolutionFailed(..) => "martin::config::fonts::resolution",
             #[cfg(feature = "pmtiles")]
             Self::ObjectStoreUrlParsing(..) => "martin::config::pmtiles::object_store_url",
+            #[cfg(feature = "pmtiles")]
+            Self::ObjectStoreList(..) => "martin::config::pmtiles::object_store_list",
             #[cfg(all(feature = "rendering", target_os = "linux"))]
             Self::RendererPoolSpawnFailed(_) => "martin::config::styles::render_pool_spawn",
         };

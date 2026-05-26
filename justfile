@@ -579,6 +579,10 @@ test-pg: start
     cargo test --features test-pg --no-default-features --package martin --lib
     cargo test --features test-pg --package martin-core --no-default-features --lib
 
+# Run MinIO/S3-requiring tests only (Docker required)
+test-minio:
+    cargo test --features test-minio --no-default-features --test pmt_minio_test
+
 # Run Rust unit tests (cargo test)
 test-cargo *args:
     MLN_PRECOMPILE=1 cargo test {{args}}
