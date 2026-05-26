@@ -15,8 +15,13 @@ pub enum FontError {
     FontNotFound(String),
 
     /// The font range start value is greater than the end value.
-    #[error("Font range start ({0}) must be <= end ({1})")]
-    InvalidFontRangeStartEnd(u32, u32),
+    #[error("Font range start ({start}) must be <= end ({end})")]
+    InvalidFontRangeStartEnd {
+        /// The requested range start codepoint.
+        start: u32,
+        /// The requested range end codepoint.
+        end: u32,
+    },
 
     /// The font range start is not aligned to a 256-character boundary.
     #[error("Font range start ({0}) must be multiple of {CP_RANGE_SIZE} (e.g. 0, 256, 512, ...)")]

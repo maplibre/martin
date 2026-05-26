@@ -100,7 +100,7 @@ pub async fn redirect_fonts(path: Path<FontRequest>) -> HttpResponse {
 pub fn map_font_error(e: &FontError) -> actix_web::Error {
     match e {
         FontError::FontNotFound(_) => ErrorNotFound(e.to_string()),
-        FontError::InvalidFontRangeStartEnd(_, _)
+        FontError::InvalidFontRangeStartEnd { .. }
         | FontError::InvalidFontRangeStart(_)
         | FontError::InvalidFontRangeEnd(_)
         | FontError::InvalidFontRange(_, _) => ErrorBadRequest(e.to_string()),
