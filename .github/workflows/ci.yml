@@ -674,6 +674,24 @@ jobs:
         env:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=${{ matrix.sslmode }}
 
+  unit-test-svc-minio:
+    # Exercises the PMTilesReloader's S3-prefix polling against a MinIO testcontainer
+    # via Martin's public HTTP API. Docker is preinstalled on GitHub-hosted runners,
+    # which is all the testcontainers crate needs.
+    name: Unit test against MinIO (S3-compatible)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - run: rustup update stable && rustup default stable
+      - name: Checkout sources
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with: { persist-credentials: false }
+      - uses: taiki-e/install-action@cf525cb33f51aca27cd6fa02034117ab963ff9f1 # v2.75.22
+        with: { tool: 'just' }
+      - name: Unit Tests
+        run: just test-minio
+
   test-with-svc:
     name: Test postgis:${{ matrix.img_ver }} sslmode=${{ matrix.sslmode }}
     runs-on: ubuntu-latest

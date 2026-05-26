@@ -124,6 +124,7 @@ fn escape_with_alias(mapping: &HashMap<String, String>, field: &str) -> String {
     }
 }
 
+#[allow(clippy::too_many_lines)]
 /// Generate a query to fetch tiles from a table.
 /// The function is async because it may need to query the database for the table bounds (could be very slow).
 pub async fn table_to_query(
@@ -133,9 +134,6 @@ pub async fn table_to_query(
     bounds_type: BoundsCalcType,
     max_feature_count: Option<usize>,
 ) -> PostgresResult<(String, PostgresSqlInfo, TableInfo)> {
-    let schema = escape_identifier(&info.schema);
-    let table = escape_identifier(&info.table);
-    let geometry_column = escape_identifier(&info.geometry_column);
     let srid = info.srid;
 
     if info.bounds.is_none() {
@@ -143,7 +141,7 @@ pub async fn table_to_query(
             BoundsCalcType::Skip => {}
             BoundsCalcType::Calc => {
                 debug!("Computing {} table bounds for {id}", info.format_id());
-                info.bounds = calc_bounds(&pool, &schema, &table, &geometry_column, srid).await?;
+                info.bounds = calc_bounds(&pool, &info, srid, BoundsCalcMode::Exact).await?;
             }
             BoundsCalcType::Quick => {
                 debug!(
@@ -151,9 +149,13 @@ pub async fn table_to_query(
                     info.format_id(),
                     DEFAULT_BOUNDS_TIMEOUT.as_secs()
                 );
-                let bounds = calc_bounds(&pool, &schema, &table, &geometry_column, srid);
-                pin_mut!(bounds);
-                if let Ok(bounds) = timeout(DEFAULT_BOUNDS_TIMEOUT, &mut bounds).await {
+                let bounds = {
+                    let bounds = calc_bounds(&pool, &info, srid, BoundsCalcMode::Estimate);
+                    pin_mut!(bounds);
+                    timeout(DEFAULT_BOUNDS_TIMEOUT, &mut bounds).await
+                };
+
+                if let Ok(bounds) = bounds {
                     info.bounds = bounds?;
                 } else {
                     warn!(
@@ -223,6 +225,9 @@ pub async fn table_to_query(
     let limit_clause = max_feature_count.map_or(String::new(), |v| format!("LIMIT {v}"));
     let layer_id = escape_literal(info.layer_id.as_ref().unwrap_or(&id));
     let clip_geom = info.clip_geom.unwrap_or(DEFAULT_CLIP_GEOM);
+    let schema = escape_identifier(&info.schema);
+    let table = escape_identifier(&info.table);
+    let geometry_column = escape_identifier(&info.geometry_column);
     let query = format!(
         r"
 SELECT
@@ -253,18 +258,67 @@ FROM (
     ))
 }
 
+/// How [`calc_bounds`] should compute a table's geometry bounds.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum BoundsCalcMode {
+    /// Exact `ST_Extent` over the whole table. Accurate, but potentially slow on large or unindexed tables.
+    Exact,
+    /// Fast `ST_EstimatedExtent` from table statistics, falling back to [`Self::Exact`] when unavailable.
+    Estimate,
+}
+
 /// Compute the bounds of a table. This could be slow if the table is large or has no geo index.
 async fn calc_bounds(
     pool: &PostgresPool,
-    schema: &str,
-    table: &str,
-    geometry_column: &str,
+    info: &TableInfo,
     srid: i32,
+    mode: BoundsCalcMode,
 ) -> PostgresResult<Option<Bounds>> {
-    Ok(pool.get()
-        .await?
-        .query_one(&format!(
-            r"
+    let schema = escape_identifier(&info.schema);
+    let table = escape_identifier(&info.table);
+    let cn = pool.get().await?;
+
+    if mode == BoundsCalcMode::Estimate {
+        // ST_EstimatedExtent reads the index/statistics instead of scanning the table, and matches
+        // its arguments against the catalog by raw (unescaped) name. A degenerate point/line
+        // estimate is expanded into a polygon, like the exact calculation below. Any failure (an
+        // unparseable name, no index/statistics, a view, or a non-polygon result) falls back to the
+        // exact calculation rather than aborting.
+        let estimate = cn
+            .query_one(
+                r"
+SELECT ST_Transform(
+            ST_SetSRID(
+                CASE
+                    WHEN ST_GeometryType(ext) IN ('ST_Point', 'ST_LineString')
+                    THEN ST_Envelope(ST_Expand(ext, 1))
+                    ELSE ext
+                END,
+                $4),
+            4326) AS bounds
+FROM (SELECT ST_EstimatedExtent($1, $2, $3)::geometry AS ext) AS estimate;",
+                &[&info.schema, &info.table, &info.geometry_column, &srid],
+            )
+            .await
+            .ok()
+            .and_then(|row| {
+                row.try_get::<_, Option<ewkb::Polygon>>("bounds")
+                    .ok()
+                    .flatten()
+            });
+        if let Some(bounds) = estimate {
+            return Ok(polygon_to_bbox(&bounds));
+        }
+        warn!(
+            "ST_EstimatedExtent on {schema}.{table}.{} failed, trying slower method to compute bounds",
+            info.geometry_column
+        );
+    }
+
+    let geometry_column = escape_identifier(&info.geometry_column);
+    Ok(cn
+        .query_one(
+            &format!(r"
 WITH real_bounds AS (SELECT ST_SetSRID(ST_Extent({geometry_column}::geometry), {srid}) AS rb FROM {schema}.{table})
 SELECT ST_Transform(
             CASE
@@ -274,8 +328,9 @@ SELECT ST_Transform(
             END,
             4326
         ) AS bounds
-FROM {schema}.{table};
-                "), &[])
+FROM {schema}.{table};"),
+            &[],
+        )
         .await
         .map_err(|e| PostgresError(e, "querying table bounds"))?
         .get::<_, Option<ewkb::Polygon>>("bounds")

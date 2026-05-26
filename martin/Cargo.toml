@@ -157,6 +157,7 @@ __hotpath = [
 ]
 __hotpath_tui = ["__hotpath", "hotpath/tui"]
 test-pg = ["postgres"]
+test-minio = ["pmtiles"]
 
 [dependencies]
 actix-cors.workspace = true
