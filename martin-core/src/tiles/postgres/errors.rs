@@ -79,10 +79,6 @@ pub enum PostgresError {
     #[error("PostgreSQL version {0} is too old, minimum required is {1}")]
     PostgresqlTooOld(Version, Version),
 
-    /// Invalid table extent configuration.
-    #[error("Invalid extent setting in source {0} for table {1}: extent=0")]
-    InvalidTableExtent(String, String),
-
     /// Query preparation error.
     #[error("Error preparing a query for the tile '{1}' ({2}): {3} {0}")]
     PrepareQueryError(#[source] TokioPostgresError, String, String, String),

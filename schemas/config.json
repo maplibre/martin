@@ -805,7 +805,7 @@
           "description": "Tile extent in tile coordinate space, optional, default to 4096",
           "examples": [4096],
           "format": "uint32",
-          "minimum": 0,
+          "minimum": 1,
           "type": ["integer", "null"]
         },
         "from_schemas": {
@@ -1000,7 +1000,7 @@
           "description": "Tile extent in tile coordinate space",
           "examples": [4096],
           "format": "uint32",
-          "minimum": 0,
+          "minimum": 1,
           "type": ["integer", "null"]
         },
         "geometry_column": {

@@ -1,4 +1,5 @@
 use std::collections::{BTreeMap, HashMap};
+use std::num::NonZeroU32;
 
 use martin_tile_utils::{Encoding, Format, TileInfo};
 use serde::{Deserialize, Serialize};
@@ -80,7 +81,7 @@ pub struct TableInfo {
 
     /// Tile extent in tile coordinate space
     #[cfg_attr(feature = "unstable-schemas", schemars(example = &4096u32))]
-    pub extent: Option<u32>,
+    pub extent: Option<NonZeroU32>,
 
     /// Buffer distance in tile coordinate space to optionally clip geometries
     #[cfg_attr(feature = "unstable-schemas", schemars(example = &64u32))]
