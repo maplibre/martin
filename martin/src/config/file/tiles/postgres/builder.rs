@@ -933,6 +933,15 @@ mod tests {
         let first_ids: Vec<&String> = first.keys().collect();
         let second_ids: Vec<&String> = second.keys().collect();
         assert_eq!(first_ids, second_ids, "discover must return stable ids");
+
+        // ...and the same fingerprints, so the "no change" verdict survives content comparison.
+        for (id, spec) in &first {
+            assert_eq!(
+                spec.fingerprint(),
+                second[id].fingerprint(),
+                "fingerprint for {id} changed across an idle re-discover"
+            );
+        }
     }
 
     const TILE_FUNCTION_SQL: &str = "CREATE FUNCTION public.my_func(z integer, x integer, y integer) \
