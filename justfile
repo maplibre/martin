@@ -185,9 +185,16 @@ bless:
     echo "Blessing integration tests"
     {{quote(just_executable())}} bless-int
 
-# Run integration tests and save its output as the new expected output
+# Run insta snapshot tests and save their output as the new expected output.
+# On Linux, replay the rendering tests' tiles from the cassette (like `coverage`).
 bless-insta *args:  (cargo-install 'cargo-insta')
-    cargo insta test --accept --all-targets --workspace {{args}}
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [ "$(uname)" = Linux ]; then
+        {{just}} with-render-cache 'cargo insta test --accept --all-targets --workspace {{args}}'
+    else
+        cargo insta test --accept --all-targets --workspace {{args}}
+    fi
 
 # Bless integration tests
 bless-int: start
