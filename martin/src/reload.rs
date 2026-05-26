@@ -40,6 +40,10 @@ impl ReloadAdvisory {
     ///
     /// Any source that disappears is a removal; any source that appears is an addition.
     /// Sources that remain are left untouched (no update concept without versions).
+    #[expect(
+        clippy::zero_sized_map_values,
+        reason = "the unit Version is intentional: it makes from_sets a from_maps over equal versions"
+    )]
     pub async fn from_sets<F>(
         previous_ids: &BTreeSet<String>,
         next_ids: &BTreeSet<String>,
@@ -49,25 +53,11 @@ impl ReloadAdvisory {
     where
         F: AsyncFn(String) -> MartinResult<BoxedSource>,
     {
-        let removals = previous_ids
-            .difference(next_ids)
-            .map(|id| DeletedSource { id: id.clone() })
-            .collect();
+        let previous_map: BTreeMap<String, ()> =
+            previous_ids.iter().map(|id| (id.clone(), ())).collect();
+        let next_map: BTreeMap<String, ()> = next_ids.iter().map(|id| (id.clone(), ())).collect();
 
-        let mut additions: Vec<NewSource> = vec![];
-        for id in next_ids.difference(previous_ids) {
-            additions.push(NewSource {
-                id: id.clone(),
-                source: initializer(id.clone()).await,
-                process: process.clone(),
-            });
-        }
-
-        Self {
-            additions,
-            updates: Vec::new(),
-            removals,
-        }
+        Self::from_maps(&previous_map, &next_map, initializer, process).await
     }
 
     /// Generates an advisory for **versioned** sources (e.g., `MBTiles`, COG).
@@ -177,7 +167,7 @@ mod tests {
         }))
     }
 
-    #[derive(serde::Serialize)]
+    #[derive(serde::Serialize, Debug, PartialEq)]
     struct AdvisorySnapshot {
         additions: Vec<String>,
         updates: Vec<String>,
@@ -250,6 +240,31 @@ mod tests {
         removals:
           - a
         ");
+    }
+
+    #[tokio::test]
+    #[expect(
+        clippy::zero_sized_map_values,
+        reason = "unit-Version maps are the point of this equivalence test"
+    )]
+    async fn from_sets_equivalent_to_from_maps_with_unit_versions() {
+        let prev_ids: BTreeSet<String> = ["a", "b", "c"].into_iter().map(String::from).collect();
+        let next_ids: BTreeSet<String> = ["b", "c", "d"].into_iter().map(String::from).collect();
+
+        let prev_map: BTreeMap<String, ()> = prev_ids.iter().map(|id| (id.clone(), ())).collect();
+        let next_map: BTreeMap<String, ()> = next_ids.iter().map(|id| (id.clone(), ())).collect();
+
+        let via_sets =
+            ReloadAdvisory::from_sets(&prev_ids, &next_ids, make_source, ProcessConfig::default())
+                .await;
+        let via_maps =
+            ReloadAdvisory::from_maps(&prev_map, &next_map, make_source, ProcessConfig::default())
+                .await;
+
+        assert_eq!(
+            AdvisorySnapshot::from(&via_sets),
+            AdvisorySnapshot::from(&via_maps)
+        );
     }
 
     #[tokio::test]
