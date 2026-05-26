@@ -695,6 +695,8 @@ update:
     # below needs to be synced with deny.toml
     cargo update --precise 1.24.0 libdeflater
     cargo update --precise 1.24.0 libdeflate-sys
+    # sdf_glyph_renderer@1.1.0 pulls freetype-rs@0.38.0/freetype-sys@0.23.0, which fail to compile on musl and Windows
+    cargo update --precise 1.0.2 sdf_glyph_renderer
 
 # Validate that all required development tools are installed
 validate-tools:
