@@ -5,7 +5,7 @@ use std::num::NonZeroU32;
 use itertools::Itertools as _;
 use martin_core::tiles::BoxedSource;
 use martin_core::tiles::postgres::{PostgresPool, PostgresResult, PostgresSource, PostgresSqlInfo};
-use tracing::{debug, error, info, warn};
+use tracing::{error, info, trace, warn};
 
 use crate::config::args::BoundsCalcType;
 use crate::config::file::postgres::resolver::{
@@ -933,6 +933,15 @@ mod tests {
         let first_ids: Vec<&String> = first.keys().collect();
         let second_ids: Vec<&String> = second.keys().collect();
         assert_eq!(first_ids, second_ids, "discover must return stable ids");
+
+        // ...and the same fingerprints, so the "no change" verdict survives content comparison.
+        for (id, spec) in &first {
+            assert_eq!(
+                spec.fingerprint(),
+                second[id].fingerprint(),
+                "fingerprint for {id} changed across an idle re-discover"
+            );
+        }
     }
 
     const TILE_FUNCTION_SQL: &str = "CREATE FUNCTION public.my_func(z integer, x integer, y integer) \
