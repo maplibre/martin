@@ -13,3 +13,8 @@ pub use fs::{FsDiscovery, FsSourceBuilder};
 mod object_store;
 #[cfg(feature = "pmtiles")]
 pub use object_store::ObjectStoreDiscovery;
+
+#[cfg(feature = "postgres")]
+mod postgres;
+#[cfg(feature = "postgres")]
+pub use postgres::PostgresDiscovery;

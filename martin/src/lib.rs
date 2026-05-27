@@ -22,6 +22,9 @@ pub use tile_source_manager::TileSourceManager;
 mod error;
 pub use error::{MartinError, MartinResult};
 
+#[cfg(all(test, feature = "_tiles"))]
+mod test_support;
+
 #[cfg(feature = "styles")]
 pub mod maplibre_style;
 

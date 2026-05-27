@@ -23,6 +23,18 @@ use crate::config::file::{MltProcessConfig, MvtProcessConfig};
 use crate::config::primitives::AutoOption;
 use crate::config::primitives::{IdResolver, OptBoolObj, OptOneMany};
 
+/// Default interval at which the [`PostgresReloader`](crate::config::file::reload::postgres::PostgresReloader)
+/// re-runs catalog discovery to pick up new, changed, or dropped tables and functions at runtime.
+pub const DEFAULT_RELOAD_INTERVAL: Duration = Duration::from_mins(10);
+
+fn default_reload_interval() -> Duration {
+    DEFAULT_RELOAD_INTERVAL
+}
+
+fn is_default_reload_interval(v: &Duration) -> bool {
+    *v == DEFAULT_RELOAD_INTERVAL
+}
+
 pub trait PostgresInfo {
     fn format_id(&self) -> String;
     fn to_tilejson(&self, source_id: String) -> TileJSON;
@@ -50,7 +62,7 @@ pub struct PostgresSslCerts {
 }
 
 #[serde_with::skip_serializing_none]
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct PostgresConfig {
     /// Database connection string.
@@ -89,6 +101,21 @@ pub struct PostgresConfig {
     /// Maximum Postgres connections pool size \[default: 20\]
     #[cfg_attr(feature = "unstable-schemas", schemars(example = &20usize))]
     pub pool_size: Option<usize>,
+    /// How often the `PostgresReloader` re-runs catalog discovery to publish new tables and
+    /// functions, update changed ones, and drop removed ones at runtime, without a restart.
+    ///
+    /// Supports human-readable formats: "10m", "1h", "30s".
+    /// Defaults to "10m". Set to "0s" to disable runtime reloading.
+    #[serde(
+        default = "default_reload_interval",
+        skip_serializing_if = "is_default_reload_interval",
+        with = "humantime_serde"
+    )]
+    #[cfg_attr(
+        feature = "unstable-schemas",
+        schemars(with = "String", example = &"10m")
+    )]
+    pub reload_interval: Duration,
     /// Enable automatic discovery of tables and functions. \[default: null\]
     ///
     /// Options:
@@ -133,6 +160,30 @@ pub struct PostgresConfig {
 
 /// Default connection pool size.
 pub const POOL_SIZE_DEFAULT: usize = 20;
+
+impl Default for PostgresConfig {
+    // Hand-implemented (not derived) so `..Default::default()` yields a 10-minute
+    // `reload_interval` rather than `Duration::ZERO`; the config-equality tests rely on this.
+    fn default() -> Self {
+        Self {
+            connection_string: None,
+            ssl_certificates: PostgresSslCerts::default(),
+            default_srid: None,
+            auto_bounds: None,
+            max_feature_count: None,
+            pool_size: None,
+            reload_interval: DEFAULT_RELOAD_INTERVAL,
+            auto_publish: OptBoolObj::default(),
+            tables: None,
+            functions: None,
+            #[cfg(all(feature = "mlt", feature = "_tiles"))]
+            convert_to_mlt: None,
+            #[cfg(all(feature = "mlt", feature = "_tiles"))]
+            convert_to_mvt: None,
+            unrecognized: UnrecognizedValues::default(),
+        }
+    }
+}
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
@@ -458,6 +509,35 @@ mod tests {
         let res = config.finalize().unwrap();
         assert!(res.is_empty(), "unrecognized config: {res:?}");
         assert_eq!(&config, expected);
+    }
+
+    #[test]
+    fn reload_interval_defaults_to_ten_minutes() {
+        let cfg: PostgresConfig = serde_yaml::from_str(indoc! {"
+            connection_string: 'postgres://postgres@localhost/db'
+        "})
+        .unwrap();
+        assert_eq!(cfg.reload_interval, DEFAULT_RELOAD_INTERVAL);
+        assert_eq!(DEFAULT_RELOAD_INTERVAL, Duration::from_mins(10));
+    }
+
+    #[test]
+    fn default_impl_yields_ten_minute_reload_interval() {
+        // `..Default::default()` must yield 10m so the config-equality tests below still hold.
+        assert_eq!(
+            PostgresConfig::default().reload_interval,
+            DEFAULT_RELOAD_INTERVAL
+        );
+    }
+
+    #[test]
+    fn reload_interval_zero_disables_polling() {
+        let cfg: PostgresConfig = serde_yaml::from_str(indoc! {"
+            connection_string: 'postgres://postgres@localhost/db'
+            reload_interval: 0s
+        "})
+        .unwrap();
+        assert_eq!(cfg.reload_interval, Duration::ZERO);
     }
 
     #[test]

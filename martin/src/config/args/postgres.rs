@@ -8,7 +8,9 @@ use tracing::{info, warn};
 use super::connections::Arguments;
 use super::connections::State::{Ignore, Take};
 use crate::config::file::UnrecognizedValues;
-use crate::config::file::postgres::{POOL_SIZE_DEFAULT, PostgresConfig, PostgresSslCerts};
+use crate::config::file::postgres::{
+    DEFAULT_RELOAD_INTERVAL, POOL_SIZE_DEFAULT, PostgresConfig, PostgresSslCerts,
+};
 use crate::config::primitives::env::Env;
 use crate::config::primitives::{OptBoolObj, OptOneMany};
 // Must match the help string for BoundsType::Quick
@@ -74,6 +76,7 @@ impl PostgresArgs {
                 auto_bounds: self.auto_bounds,
                 max_feature_count: self.max_feature_count,
                 pool_size: self.pool_size,
+                reload_interval: DEFAULT_RELOAD_INTERVAL,
                 auto_publish: OptBoolObj::NoValue,
                 tables: None,
                 functions: None,

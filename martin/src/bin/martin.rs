@@ -10,7 +10,7 @@ use martin::MartinResult;
 use martin::config::args::Args;
 #[cfg(all(feature = "webui", not(docsrs)))]
 use martin::config::args::WebUiMode;
-#[cfg(any(feature = "mbtiles", feature = "pmtiles"))]
+#[cfg(any(feature = "mbtiles", feature = "pmtiles", feature = "postgres"))]
 use martin::config::file::ProcessConfig;
 #[cfg(feature = "unstable-cog")]
 use martin::config::file::reload::cog::CogReloader;
@@ -18,6 +18,8 @@ use martin::config::file::reload::cog::CogReloader;
 use martin::config::file::reload::mbtiles::MbtilesReloader;
 #[cfg(feature = "pmtiles")]
 use martin::config::file::reload::pmtiles::PmtilesReloader;
+#[cfg(feature = "postgres")]
+use martin::config::file::reload::postgres::PostgresReloader;
 use martin::config::file::{Config, read_config};
 #[cfg(feature = "_tiles")]
 use martin::config::primitives::IdResolver;
@@ -31,6 +33,7 @@ use tracing::{error, info};
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[hotpath::measure]
+#[expect(clippy::too_many_lines)]
 async fn start(args: Args) -> MartinResult<()> {
     info!("Starting Martin v{VERSION}");
 
@@ -51,6 +54,13 @@ async fn start(args: Args) -> MartinResult<()> {
     )?;
     config.finalize()?;
 
+    // Snapshot the PostgreSQL config before `resolve()` rewrites its resolved tables/functions
+    // back into it, so each reloader re-derives discovery from the same inputs startup used.
+    #[cfg(feature = "postgres")]
+    let pg_snapshot = config.postgres.clone();
+    #[cfg(feature = "postgres")]
+    let pg_default_cache = config.cache.policy();
+
     #[cfg(feature = "_tiles")]
     let resolver = IdResolver::new(RESERVED_KEYWORDS);
 
@@ -61,10 +71,15 @@ async fn start(args: Args) -> MartinResult<()> {
             &resolver,
         )
         .await?;
-    #[cfg(any(feature = "mbtiles", feature = "unstable-cog", feature = "pmtiles"))]
+    #[cfg(any(
+        feature = "mbtiles",
+        feature = "unstable-cog",
+        feature = "pmtiles",
+        feature = "postgres"
+    ))]
     let mgr = sources.tile_manager.clone();
 
-    #[cfg(any(feature = "mbtiles", feature = "pmtiles"))]
+    #[cfg(any(feature = "mbtiles", feature = "pmtiles", feature = "postgres"))]
     let global_pc = {
         #[cfg(feature = "mlt")]
         let pc = ProcessConfig {
@@ -98,6 +113,17 @@ async fn start(args: Args) -> MartinResult<()> {
         if let Err(e) = reloader.start() {
             tracing::warn!("failed to start PmtilesReloader {e:?}");
         }
+    }
+    #[cfg(feature = "postgres")]
+    for pg_config in pg_snapshot {
+        let reloader = PostgresReloader::new(
+            mgr.clone(),
+            resolver.clone(),
+            pg_config,
+            pg_default_cache,
+            &global_pc,
+        );
+        reloader.start();
     }
 
     if let Some(file_name) = save_config {
