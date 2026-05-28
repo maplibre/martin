@@ -5,8 +5,8 @@ use duckdb::Error as DuckdbError;
 use martin_tile_utils::TileCoord;
 use tokio::task::JoinError;
 
-use crate::tiles::duckdb::pool::DuckDBPoolTarget;
 use crate::tiles::UrlQuery;
+use crate::tiles::duckdb::pool::DuckDBPoolTarget;
 
 /// Result type for `DuckDB` operations.
 pub type DuckDBResult<T> = Result<T, DuckDBError>;
