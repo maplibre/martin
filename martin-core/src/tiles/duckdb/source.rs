@@ -139,7 +139,7 @@ fn execute_tile_query(
         )
     })?;
 
-    debug!("SQL: {sql} [{xyz}]");
+    trace!(%sql, %xyz, "duckdb tile query");
     let tile = stmt
         .query_one(
             params![i16::from(xyz.z), i64::from(xyz.x), i64::from(xyz.y)],
