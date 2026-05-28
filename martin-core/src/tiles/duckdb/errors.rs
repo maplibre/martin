@@ -71,8 +71,18 @@ pub enum DuckDBError {
     DuckDBTaskJoinError(#[source] JoinError, &'static str),
 
     /// Query preparation failed while serving a tile.
-    #[error("Error preparing DuckDB query for tile source '{1}' ({2}): {3} {0}")]
-    PrepareQueryError(#[source] DuckdbError, String, String, String),
+    #[error("Error preparing DuckDB query for tile source '{source_id}' ({signature}): {query} {source}")]
+    PrepareQueryError {
+        /// The underlying `DuckDB` error.
+        #[source]
+        source: DuckDBError,
+        /// The id of the tile source the query was prepared for.
+        source_id: String,
+        /// The source's query signature (parameter types).
+        signature: String,
+        /// The SQL query that failed to prepare.
+        query: String
+    },
 
     /// Query execution failed while serving a tile.
     #[error(r"Unable to get tile {2:#} from DuckDB source {1}: {0}")]
