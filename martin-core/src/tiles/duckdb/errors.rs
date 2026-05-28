@@ -77,7 +77,7 @@ pub enum DuckDBError {
     PrepareQueryError {
         /// The underlying `DuckDB` error.
         #[source]
-        source: DuckDBError,
+        source: DuckdbError,
         /// The id of the tile source the query was prepared for.
         source_id: String,
         /// The source's query signature (parameter types).

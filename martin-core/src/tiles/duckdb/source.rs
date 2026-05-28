@@ -7,7 +7,7 @@ use duckdb::params;
 use duckdb::{Connection, OptionalExt as _};
 use martin_tile_utils::{TileCoord, TileData, TileInfo};
 use tilejson::TileJSON;
-use tracing::{debug, instrument};
+use tracing::{instrument, trace};
 
 #[derive(Clone, Debug)]
 /// `DuckDB File` tile source that executes SQL queries to generate tiles.
@@ -130,14 +130,14 @@ fn execute_tile_query(
     conn: &Connection,
 ) -> DuckDBResult<TileData> {
     let sql = &info.sql_query;
-    let mut stmt = conn.prepare_cached(sql).map_err(|e| {
-        PrepareQueryError(
-            e,
-            source_id.to_string(),
-            info.signature.clone(),
-            info.sql_query.clone(),
-        )
-    })?;
+    let mut stmt = conn
+        .prepare_cached(sql)
+        .map_err(|source| PrepareQueryError {
+            source,
+            source_id: source_id.to_string(),
+            signature: info.signature.clone(),
+            query: info.sql_query.clone(),
+        })?;
 
     trace!(%sql, %xyz, "duckdb tile query");
     let tile = stmt
