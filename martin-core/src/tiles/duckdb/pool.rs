@@ -172,8 +172,14 @@ impl DuckDBPoolManager {
     fn open_ready_connection(&self) -> Result<Connection, DuckDBPoolManagerError> {
         let conn = match &self.target {
             DuckDBPoolTarget::DatabaseFile { path } => {
-                let threads_value = self.threads.map(|thread_value| thread_value.get() as i64).unwrap_or(0);
-                let memory_limit_value = self.memory_limit_mb.map(|limit| format!("{}MB", limit)).unwrap_or("512MB".to_string());
+                let threads_value = self
+                    .threads
+                    .map(|thread_value| thread_value.get() as i64)
+                    .unwrap_or(0);
+                let memory_limit_value = self
+                    .memory_limit_mb
+                    .map(|limit| format!("{}MB", limit))
+                    .unwrap_or("512MB".to_string());
                 let config = Config::default()
                     .access_mode(AccessMode::ReadOnly)
                     .map_err(|source| Open {
@@ -198,7 +204,6 @@ impl DuckDBPoolManager {
                     source,
                     location: self.target.get_path(),
                 })?
-                
             }
             DuckDBPoolTarget::GeoParquetLocal { .. }
             | DuckDBPoolTarget::GeoParquetRemote { .. } => {
