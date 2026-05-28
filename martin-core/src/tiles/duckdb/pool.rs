@@ -1,8 +1,10 @@
 //! `DuckDB` connection pool implementation.
 
+use std::fmt::{self, Display, Formatter};
 use std::future::Future;
 use std::num::NonZeroUsize;
 use std::path::PathBuf;
+use url::Url;
 
 use deadpool::managed::{Manager, Metrics, Pool, RecycleResult};
 use duckdb::{AccessMode, Config, Connection, params};
@@ -56,7 +58,7 @@ impl DuckDBPool {
     /// Creates an in-memory pool for a remote `GeoParquet` source.
     pub async fn new_remote_geoparquet(
         id: String,
-        url: String,
+        url: Url,
         pool_size: usize,
         threads: Option<NonZeroUsize>,
         memory_limit_mb: Option<NonZeroUsize>,
@@ -91,9 +93,7 @@ impl DuckDBPool {
     }
 
     /// Runs blocking work with a pooled connection and returns it to the pool afterwards.
-    ///
-    /// The closure runs on Tokio's blocking thread pool so callers keep async
-    /// threads free while interacting with synchronous `DuckDB` APIs.
+    /// The closure runs on Tokio's blocking thread pool
     pub async fn generate_tile<T, F>(&self, f: F) -> DuckDBResult<T>
     where
         T: Send + 'static,
@@ -117,19 +117,19 @@ impl DuckDBPool {
 }
 
 #[derive(Clone, Debug)]
-enum DuckDBPoolTarget {
+pub enum DuckDBPoolTarget {
     DatabaseFile { path: PathBuf },
     GeoParquetLocal { path: PathBuf },
-    GeoParquetRemote { url: String },
+    GeoParquetRemote { url: Url },
 }
 
-impl DuckDBPoolTarget {
-    fn get_path(&self) -> String {
+impl Display for DuckDBPoolTarget {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
         match self {
             Self::DatabaseFile { path } | Self::GeoParquetLocal { path } => {
-                path.display().to_string()
+                Display::fmt(&path.display(), formatter)
             }
-            Self::GeoParquetRemote { url } => url.clone(),
+            Self::GeoParquetRemote { url } => Display::fmt(url, formatter),
         }
     }
 }
@@ -164,52 +164,51 @@ impl DuckDBPoolManager {
             .map_err(|source| LoadExtension {
                 source,
                 extension,
-                location: self.target.get_path(),
+                target: self.target.clone(),
             })?;
         Ok(())
     }
 
     fn open_ready_connection(&self) -> Result<Connection, DuckDBPoolManagerError> {
+        let threads_value = self
+            .threads
+            .map(|thread_value| thread_value.get() as i64)
+            .unwrap_or(0);
+        let memory_limit_value = self
+            .memory_limit_mb
+            .map(|limit| format!("{}MB", limit))
+            .unwrap_or("512MB".to_string());
+        let config = Config::default()
+            .access_mode(AccessMode::ReadOnly)
+            .map_err(|source| Open {
+                source,
+                target: self.target.clone(),
+            })?
+            .threads(threads_value)
+            .map_err(|source| ApplySetting {
+                source,
+                setting: "threads",
+                value: threads_value.to_string(),
+                target: self.target.clone(),
+            })?
+            .max_memory(&memory_limit_value)
+            .map_err(|source| ApplySetting {
+                source,
+                setting: "memory_limit_mb",
+                value: memory_limit_value.to_string(),
+                target: self.target.clone(),
+            })?;
         let conn = match &self.target {
-            DuckDBPoolTarget::DatabaseFile { path } => {
-                let threads_value = self
-                    .threads
-                    .map(|thread_value| thread_value.get() as i64)
-                    .unwrap_or(0);
-                let memory_limit_value = self
-                    .memory_limit_mb
-                    .map(|limit| format!("{}MB", limit))
-                    .unwrap_or("512MB".to_string());
-                let config = Config::default()
-                    .access_mode(AccessMode::ReadOnly)
-                    .map_err(|source| Open {
-                        source,
-                        location: self.target.get_path(),
-                    })?
-                    .threads(threads_value)
-                    .map_err(|source| ApplySetting {
-                        source,
-                        setting: "threads",
-                        value: threads_value.to_string(),
-                        location: self.target.get_path(),
-                    })?
-                    .max_memory(&memory_limit_value)
-                    .map_err(|source| ApplySetting {
-                        source,
-                        setting: "memory_limit_mb",
-                        value: memory_limit_value.to_string(),
-                        location: self.target.get_path(),
-                    })?;
-                Connection::open_with_flags(path, config).map_err(|source| Open {
+            DuckDBPoolTarget::DatabaseFile { path } => Connection::open_with_flags(path, config)
+                .map_err(|source| Open {
                     source,
-                    location: self.target.get_path(),
-                })?
-            }
+                    target: self.target.clone(),
+                })?,
             DuckDBPoolTarget::GeoParquetLocal { .. }
             | DuckDBPoolTarget::GeoParquetRemote { .. } => {
-                Connection::open_in_memory().map_err(|source| Open {
+                Connection::open_in_memory_with_flags(config).map_err(|source| Open {
                     source,
-                    location: self.target.get_path(),
+                    target: self.target.clone(),
                 })?
             }
         };

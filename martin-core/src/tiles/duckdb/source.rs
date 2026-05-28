@@ -66,7 +66,7 @@ impl Source for DuckDBSource {
 
     fn benefits_from_concurrent_scraping(&self) -> bool {
         //duckdb parallelizes queries internally on a fixed number of threads so having too many concurrent queries is not beneficial. but can be set to say 4 instead of 20+ for pg
-        true
+        false
     }
 
     fn cache_zoom(&self) -> CacheZoomRange {

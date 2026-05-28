@@ -5,6 +5,7 @@ use duckdb::Error as DuckdbError;
 use martin_tile_utils::TileCoord;
 use tokio::task::JoinError;
 
+use crate::tiles::duckdb::pool::DuckDBPoolTarget;
 use crate::tiles::UrlQuery;
 
 /// Result type for `DuckDB` operations.
@@ -18,29 +19,29 @@ pub enum DuckDBPoolManagerError {
     Join(#[from] JoinError),
 
     /// The `DuckDB` connection could not be opened.
-    #[error("Unable to open DuckDB connection for {location}: {source}")]
+    #[error("Unable to open DuckDB connection for {target}: {source}")]
     Open {
         /// Underlying `DuckDB` error.
         #[source]
         source: DuckdbError,
-        /// Source location or identifier.
-        location: String,
+        /// Source target.
+        target: DuckDBPoolTarget,
     },
 
     /// A required `DuckDB` extension could not be loaded.
-    #[error("Unable to load DuckDB extension {extension} for {location}: {source}")]
+    #[error("Unable to load DuckDB extension {extension} for {target}: {source}")]
     LoadExtension {
         /// Underlying `DuckDB` error.
         #[source]
         source: DuckdbError,
         /// Extension name.
         extension: &'static str,
-        /// Source location or identifier.
-        location: String,
+        /// Source target.
+        target: DuckDBPoolTarget,
     },
 
     /// A pool-wide session setting could not be applied.
-    #[error("Unable to apply DuckDB setting {setting}={value} for {location}: {source}")]
+    #[error("Unable to apply DuckDB setting {setting}={value} for {target}: {source}")]
     ApplySetting {
         /// Underlying `DuckDB` error.
         #[source]
@@ -49,8 +50,8 @@ pub enum DuckDBPoolManagerError {
         setting: &'static str,
         /// Setting value.
         value: String,
-        /// Source location or identifier.
-        location: String,
+        /// Source target.
+        target: DuckDBPoolTarget,
     },
 }
 
