@@ -684,7 +684,7 @@ mod tests {
             "params={params:?}: expected body to start with \"Bounding box\", got {body:?}"
         );
     }
-  
+
     #[actix_rt::test]
     async fn post_unknown_style_returns_404() {
         let resp = call!(
