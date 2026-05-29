@@ -36,8 +36,16 @@ pub enum PostgresError {
     InvalidPrivateKey(PathBuf),
 
     /// Cannot use client certificate pair.
-    #[error("Unable to use client certificate pair {1} / {2}: {0}")]
-    CannotUseClientKey(#[source] rustls::Error, PathBuf, PathBuf),
+    #[error("Unable to use client certificate pair {cert} / {key}: {source}")]
+    CannotUseClientKey {
+        /// The underlying `rustls` error.
+        #[source]
+        source: rustls::Error,
+        /// Path to the client certificate file.
+        cert: PathBuf,
+        /// Path to the client private key file.
+        key: PathBuf,
+    },
 
     /// Wrapper for rustls errors.
     #[error(transparent)]
@@ -72,20 +80,36 @@ pub enum PostgresError {
     BadPostgresVersion(#[source] semver::Error, String),
 
     /// `PostGIS` version too old.
-    #[error("PostGIS version {0} is too old, minimum required is {1}")]
-    PostgisTooOld(Version, Version),
+    #[error("PostGIS version {current} is too old, minimum required is {minimum}")]
+    PostgisTooOld {
+        /// The detected `PostGIS` version.
+        current: Version,
+        /// The minimum required `PostGIS` version.
+        minimum: Version,
+    },
 
     /// `PostgreSQL` version too old.
-    #[error("PostgreSQL version {0} is too old, minimum required is {1}")]
-    PostgresqlTooOld(Version, Version),
-
-    /// Invalid table extent configuration.
-    #[error("Invalid extent setting in source {0} for table {1}: extent=0")]
-    InvalidTableExtent(String, String),
+    #[error("PostgreSQL version {current} is too old, minimum required is {minimum}")]
+    PostgresqlTooOld {
+        /// The detected `PostgreSQL` version.
+        current: Version,
+        /// The minimum required `PostgreSQL` version.
+        minimum: Version,
+    },
 
     /// Query preparation error.
-    #[error("Error preparing a query for the tile '{1}' ({2}): {3} {0}")]
-    PrepareQueryError(#[source] TokioPostgresError, String, String, String),
+    #[error("Error preparing a query for the tile '{source_id}' ({signature}): {query} {source}")]
+    PrepareQueryError {
+        /// The underlying `PostgreSQL` error.
+        #[source]
+        source: TokioPostgresError,
+        /// The id of the tile source the query was prepared for.
+        source_id: String,
+        /// The source's query signature (parameter types).
+        signature: String,
+        /// The SQL query that failed to prepare.
+        query: String,
+    },
 
     /// Tile retrieval error.
     #[error(r"Unable to get tile {2:#} from {1}: {0}")]

@@ -1,0 +1,97 @@
+use std::collections::BTreeMap;
+use std::path::PathBuf;
+use std::time::UNIX_EPOCH;
+
+use tokio::fs::{self, DirEntry};
+
+use crate::config::file::CachePolicy;
+use crate::config::primitives::IdResolver;
+use crate::{MartinError, MartinResult};
+
+pub struct ResolvedEntry {
+    pub path: PathBuf,
+    pub stem: String,
+    pub path_str: String,
+    pub modified_ms: u128,
+}
+
+pub fn path_modified_ms(path: &std::path::Path) -> Option<u128> {
+    let Ok(metadata) = path.metadata() else {
+        tracing::warn!(path = ?path, "failed to resolve metadata");
+        return None;
+    };
+
+    let Ok(modified) = metadata.modified() else {
+        tracing::warn!(path = ?path, "failed to resolve modified timestamp");
+        return None;
+    };
+
+    let Ok(duration) = modified.duration_since(UNIX_EPOCH) else {
+        tracing::warn!(path = ?path, "failed to resolve duration since unix epoch");
+        return None;
+    };
+
+    Some(duration.as_millis())
+}
+
+pub fn resolve_dir_entry(entry: &DirEntry) -> Option<ResolvedEntry> {
+    let raw = entry.path();
+
+    let Ok(path) = raw.canonicalize() else {
+        tracing::warn!(path = ?raw, "failed to canonicalize path");
+        return None;
+    };
+
+    let Some(stem) = path.file_stem().and_then(|o| o.to_str()) else {
+        tracing::warn!(path = ?path, "failed to resolve file stem");
+        return None;
+    };
+
+    let Ok(path_str) = path.clone().into_os_string().into_string() else {
+        tracing::warn!(path = ?path, "failed to resolve path string");
+        return None;
+    };
+
+    let modified_ms = path_modified_ms(&path)?;
+
+    Some(ResolvedEntry {
+        path: path.clone(),
+        stem: stem.to_string(),
+        path_str,
+        modified_ms,
+    })
+}
+
+/// Scans `directories` for files whose extension matches any entry in `extensions`.
+///
+/// Resolves source IDs via `id_resolver` and inherits cache policies from `path_cache`
+/// (falling back to [`CachePolicy::default`] for paths not explicitly configured).
+pub async fn discover_sources_by_ext(
+    directories: &[PathBuf],
+    extensions: &[&str],
+    path_cache: &BTreeMap<PathBuf, CachePolicy>,
+    id_resolver: &IdResolver,
+) -> MartinResult<BTreeMap<String, (PathBuf, u128, CachePolicy)>> {
+    let mut out = BTreeMap::new();
+    for directory in directories {
+        let mut entries = fs::read_dir(directory)
+            .await
+            .map_err(MartinError::IoError)?;
+        while let Some(entry) = entries.next_entry().await.map_err(MartinError::IoError)? {
+            let Some(e) = resolve_dir_entry(&entry) else {
+                continue;
+            };
+            if !e.path.is_file()
+                || e.path
+                    .extension()
+                    .is_none_or(|ext| !extensions.iter().any(|ex| *ex == ext))
+            {
+                continue;
+            }
+            let policy = path_cache.get(&e.path).copied().unwrap_or_default();
+            let id = id_resolver.resolve(&e.stem, e.path_str.clone());
+            out.insert(id, (e.path, e.modified_ms, policy));
+        }
+    }
+    Ok(out)
+}

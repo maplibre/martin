@@ -166,10 +166,6 @@ impl SizeRequest {
                     "Image dimensions exceed maximum allowed ({MAX_WIDTH}x{MAX_HEIGHT})"
                 )));
         }
-        // Reject non-finite/non-positive scale before the saturating cast:
-        // `f32::NAN as u8`, `f32::NEG_INFINITY as u8`, and negative `as u8`
-        // all saturate to 0, which would silently pass the MAX_SCALE check
-        // and feed NaN/Inf through `log2(pixel_ratio)` in the renderer.
         if !self.scale.is_finite() || self.scale <= 0.0 {
             return Err(HttpResponse::BadRequest()
                 .content_type(ContentType::plaintext())
@@ -688,9 +684,7 @@ mod tests {
             "params={params:?}: expected body to start with \"Bounding box\", got {body:?}"
         );
     }
-
-    // POST tests: same routing as GET plus a GeoJSON body.
-
+  
     #[actix_rt::test]
     async fn post_unknown_style_returns_404() {
         let resp = call!(

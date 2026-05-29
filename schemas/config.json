@@ -191,6 +191,11 @@
           "$ref": "#/$defs/OptOneMany2",
           "description": "A list of file paths"
         },
+        "reload_interval": {
+          "description": "How often the `PMTilesReloader` re-lists remote URL prefixes (`s3://bucket/`,\n`gs://bucket/`, etc.) for source discovery. Has no effect on local directories,\nwhich are watched via filesystem events.\n\nSupports human-readable formats: \"10m\", \"1h\", \"30s\".\nDefaults to \"10m\". Set to \"0s\" to disable remote polling.",
+          "examples": ["10m"],
+          "type": "string"
+        },
         "sources": {
           "additionalProperties": {
             "$ref": "#/$defs/FileConfigSrc"
@@ -800,7 +805,7 @@
           "description": "Tile extent in tile coordinate space, optional, default to 4096",
           "examples": [4096],
           "format": "uint32",
-          "minimum": 0,
+          "minimum": 1,
           "type": ["integer", "null"]
         },
         "from_schemas": {
@@ -995,7 +1000,7 @@
           "description": "Tile extent in tile coordinate space",
           "examples": [4096],
           "format": "uint32",
-          "minimum": 0,
+          "minimum": 1,
           "type": ["integer", "null"]
         },
         "geometry_column": {

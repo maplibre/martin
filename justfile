@@ -70,7 +70,7 @@ bench-server: start
 
 # Build martin with hotpath profiling support
 build-hotpath:
-    RUSTFLAGS="$RUSTFLAGS --cfg tokio_unstable" cargo build --release --features __hotpath
+    RUSTFLAGS="$RUSTFLAGS --cfg tokio_unstable" cargo build --release --features hotpath
 
 # Start release-compiled Martin server with hotpath profiling (MCP on port 6771)
 bench-server-hotpath: start build-hotpath
@@ -184,9 +184,16 @@ bless:
     echo "Blessing integration tests"
     {{quote(just_executable())}} bless-int
 
-# Run integration tests and save its output as the new expected output
+# Run insta snapshot tests and save their output as the new expected output.
+# On Linux, replay the rendering tests' tiles from the cassette (like `coverage`).
 bless-insta *args:  (cargo-install 'cargo-insta')
-    cargo insta test --accept --all-targets --workspace {{args}}
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [ "$(uname)" = Linux ]; then
+        {{just}} with-render-cache 'cargo insta test --accept --all-targets --workspace {{args}}'
+    else
+        cargo insta test --accept --all-targets --workspace {{args}}
+    fi
 
 # Bless integration tests
 bless-int: start
@@ -293,8 +300,7 @@ install-mitmproxy:
     fi
 
 # Internal: run `cmd` with mitmproxy reverse-proxying the two rendering-test
-# upstreams. Plain HTTP only -- ports must match the `PROXIED_HOSTS` constants in
-# martin-core/tests/rendering_test.rs and martin/tests/styles_rendering_test.rs.
+# upstreams. Plain HTTP only - ports must match test_render_cache::PROXIED_HOSTS.
 [linux]
 _run-render-proxy mode *cmd: install-mitmproxy
     #!/usr/bin/env bash
@@ -579,6 +585,10 @@ test-pg: start
     cargo test --features test-pg --no-default-features --package martin --lib
     cargo test --features test-pg --package martin-core --no-default-features --lib
 
+# Run MinIO/S3-requiring tests only (Docker required)
+test-minio:
+    cargo test --features test-minio --no-default-features --test pmt_minio_test
+
 # Run Rust unit tests (cargo test)
 test-cargo *args:
     cargo test {{args}}
@@ -690,11 +700,14 @@ test-ssl-cert: start-ssl-cert
 # Update all dependencies, including breaking changes. Requires nightly toolchain (install with `rustup install nightly`)
 update:
     cargo +nightly -Z unstable-options update --breaking
+    # static-files is a direct dep, so reset its manifest cap after --breaking (synced with deny.toml)
+    sed 's/^static-files = .*/static-files = "0.2"/' Cargo.toml > Cargo.toml.tmp && mv Cargo.toml.tmp Cargo.toml
     cargo update
     # Make sure that 'evil' dependencies are at the last compatible version
     # below needs to be synced with deny.toml
     cargo update --precise 1.24.0 libdeflater
     cargo update --precise 1.24.0 libdeflate-sys
+    cargo update --precise 1.0.2 sdf_glyph_renderer
 
 # Validate that all required development tools are installed
 validate-tools:

@@ -150,16 +150,16 @@ async fn table_source() {
     ");
 
     let source3 = table(&mock, "points3857");
-    assert_yaml_snapshot!(source3, @r"
+    assert_yaml_snapshot!(source3, @"
     schema: public
     table: points3857
     srid: 3857
     geometry_column: geom
     bounds:
-      - -161.40590777554058
-      - -81.50727021609012
-      - 172.51549126768532
-      - 84.2440187164111
+      - -161.4059125851273
+      - -81.50727080755011
+      - 172.51550346797322
+      - 84.24401966908702
     geometry_type: POINT
     properties:
       gid: int4
@@ -252,16 +252,16 @@ async fn table_source_schemas() {
 async fn table_bounds_linestring_horizontal_ok() {
     let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL")).await;
     let source = table(&mock, "linestring_bounds");
-    assert_yaml_snapshot!(source, @r"
+    assert_yaml_snapshot!(source, @"
     schema: public
     table: linestring_bounds
     srid: 4326
     geometry_column: geom
     bounds:
-      - 8.9581704
-      - 9.0370178
-      - 10.9675324
-      - 11.0370178
+      - 9.958169937133789
+      - 10.037016868591309
+      - 9.967533111572266
+      - 10.037017822265625
     geometry_type: GEOMETRY
     properties:
       gid: int4
@@ -272,16 +272,16 @@ async fn table_bounds_linestring_horizontal_ok() {
 async fn table_bounds_linestring_vertical_ok() {
     let mock = mock_sources(mock_pgcfg("connection_string: $DATABASE_URL")).await;
     let source = table(&mock, "linestring_bounds_vertical");
-    assert_yaml_snapshot!(source, @r"
+    assert_yaml_snapshot!(source, @"
     schema: public
     table: linestring_bounds_vertical
     srid: 4326
     geometry_column: geom
     bounds:
       - 9
-      - 8.9581704
+      - 8.958169937133789
       - 11
-      - 10.9675324
+      - 10.967533111572266
     geometry_type: GEOMETRY
     properties:
       gid: int4

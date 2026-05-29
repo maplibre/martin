@@ -149,15 +149,17 @@ unstable-schemas = [
     "sprites",
     "styles",
 ]
-__hotpath = [
+hotpath = [
     "hotpath/hotpath",
-    "hotpath/hotpath-alloc",
+    "hotpath-alloc",
     "hotpath/hotpath-mcp",
     "hotpath/tokio",
     "hotpath/futures",
 ]
-__hotpath_tui = ["__hotpath", "hotpath/tui"]
+hotpath-alloc = ["hotpath/hotpath-alloc"]
+hotpath_tui = ["hotpath", "hotpath/tui"]
 test-pg = ["postgres"]
+test-minio = ["pmtiles"]
 
 [dependencies]
 actix-cors.workspace = true

@@ -85,7 +85,7 @@ flate2 = "1"
 flume = "0.12"
 futures = "0.3"
 geojson = "1"
-hotpath = "0.15"
+hotpath = "0.16"
 humantime-serde = "1.1.1"
 image = { version = "0.25.8", default-features = false, features = ["png", "jpeg", "webp"] }
 image-compare = "0.5"
@@ -140,12 +140,12 @@ strum = { version = "0.28", features = ["derive"] }
 subst = "0.3"
 tempfile = "3.21.0"
 test_each_file = "0.3"
-testcontainers-modules = { version = "0.15.0", features = ["postgres", "blocking"] }
+testcontainers-modules = { version = "0.15.0", features = ["postgres", "blocking", "minio"] }
 thiserror = "2"
 tiff = "0.11.1"
 tilejson = "0.4"
 tokio = { version = "1", features = ["macros"] }
-tokio-postgres-rustls = "0.13"
+tokio-postgres-rustls = "0.14"
 tracing = "0.1.44"
 tracing-actix-web = "0.7.21"
 tracing-indicatif = "0.3"
