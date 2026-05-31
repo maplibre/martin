@@ -7,6 +7,7 @@ use notify::event::{AccessKind, AccessMode};
 use notify::{Config, Event, EventKind, RecommendedWatcher, Watcher as _};
 use tokio::sync::mpsc;
 
+use crate::config::file::driver::Sink as _;
 use crate::config::file::mbtiles::MbtConfig;
 use crate::config::file::process::ProcessConfig;
 #[cfg(all(feature = "mlt", feature = "_tiles"))]

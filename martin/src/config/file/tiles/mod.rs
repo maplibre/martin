@@ -7,4 +7,5 @@ pub mod pmtiles;
 #[cfg(feature = "postgres")]
 pub mod postgres;
 
+pub mod driver;
 pub mod reload;

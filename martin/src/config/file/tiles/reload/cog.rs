@@ -8,6 +8,7 @@ use notify::{Config, Event, EventKind, RecommendedWatcher, Watcher as _};
 use tokio::sync::mpsc;
 
 use crate::config::file::cog::CogConfig;
+use crate::config::file::driver::Sink as _;
 use crate::config::file::process::ProcessConfig;
 use crate::config::file::tiles::reload::{discover_sources_by_ext, path_modified_ms};
 use crate::config::file::{CachePolicy, FileConfigEnum};
