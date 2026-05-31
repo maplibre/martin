@@ -12,6 +12,7 @@ use tokio::sync::mpsc;
 use tokio::time::{Instant, MissedTickBehavior};
 use url::Url;
 
+use crate::config::file::driver::Sink as _;
 use crate::config::file::file_config::is_remote_url;
 use crate::config::file::pmtiles::PmtConfig;
 use crate::config::file::process::ProcessConfig;

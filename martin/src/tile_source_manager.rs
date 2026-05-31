@@ -5,6 +5,7 @@ use martin_core::tiles::{BoxedSource, OptTileCache};
 use tracing::{info, warn};
 
 use crate::MartinResult;
+use crate::config::file::driver::Sink;
 use crate::config::file::{OnInvalid, ProcessConfig};
 use crate::reload::ReloadAdvisory;
 use crate::source::TileSources;
@@ -66,7 +67,9 @@ impl TileSourceManager {
     pub fn tile_cache(&self) -> &OptTileCache {
         &self.tile_cache
     }
+}
 
+impl Sink for TileSourceManager {
     /// Applies a [`ReloadAdvisory`] to the live source set.
     ///
     /// When a source fails to initialize, the configured [`OnInvalid`] policy
@@ -78,7 +81,7 @@ impl TileSourceManager {
     /// 1. **Updates** - time-critical; invalidate cache then replace the source.
     /// 2. **Additions** - make new sources available.
     /// 3. **Removals** - garbage-collect stale sources and their cached tiles.
-    pub async fn apply_changes(&self, advisory: ReloadAdvisory) -> MartinResult<()> {
+    async fn apply_changes(&self, advisory: ReloadAdvisory) -> MartinResult<()> {
         if advisory.is_empty() {
             return Ok(());
         }
