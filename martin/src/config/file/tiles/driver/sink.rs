@@ -1,5 +1,3 @@
-use async_trait::async_trait;
-
 use crate::MartinResult;
 use crate::reload::ReloadAdvisory;
 
@@ -7,8 +5,10 @@ use crate::reload::ReloadAdvisory;
 ///
 /// The production implementation is [`TileSourceManager`](crate::TileSourceManager);
 /// tests use a recording spy.
-#[async_trait]
 pub trait Sink: Send + 'static {
     /// Applies a [`ReloadAdvisory`] to the live source set.
-    async fn apply_changes(&self, advisory: ReloadAdvisory) -> MartinResult<()>;
+    fn apply_changes(
+        &self,
+        advisory: ReloadAdvisory,
+    ) -> impl Future<Output = MartinResult<()>> + Send;
 }

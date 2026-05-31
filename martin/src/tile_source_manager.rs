@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use async_trait::async_trait;
 use dashmap::DashMap;
 use martin_core::tiles::{BoxedSource, OptTileCache};
 use tracing::{info, warn};
@@ -70,7 +69,6 @@ impl TileSourceManager {
     }
 }
 
-#[async_trait]
 impl Sink for TileSourceManager {
     /// Applies a [`ReloadAdvisory`] to the live source set.
     ///
