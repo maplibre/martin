@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Breaking
+
+- **Static-image overlays now use the MapLibre Style Spec subset, not simplestyle.**
+  `POST /style/{id}/static/{camera}/{size}.{ext}` previously accepted a GeoJSON
+  `FeatureCollection` with simplestyle properties (`stroke`, `fill`,
+  `marker-color`, …) and rasterised overlays on top of the rendered base via
+  a tiny-skia drawing pass. It now accepts a partial maplibre style:
+  ```json
+  {
+    "sources": { "s": { "type": "geojson", "data": { /* inline GeoJSON */ } } },
+    "layers":  [{ "id": "l", "type": "fill", "source": "s",
+                  "paint": { "fill-color": "#f00" } }]
+  }
+  ```
+  Overlays are now applied as ephemeral sources+layers on the renderer's
+  style -- better anti-aliasing, correct bearing/pitch handling, and the full
+  MapLibre paint vocabulary for free (fill/line/circle layers with literal
+  paint/layout values).
+
+  Out of scope for this release:
+  - Data-driven expressions (`["interpolate", …]`, feature-property lookups).
+  - Layer types beyond `fill` / `line` / `circle` (no `symbol`, `heatmap`,
+    `raster`, `fill-extrusion`).
+  - URL-referenced source `data`.
+  - Symbol/icon markers (use `circle` instead).
+
+  The request content type changes from `application/geo+json` to
+  `application/json`. Snapshot PNG fixtures have been re-blessed because the
+  new rasterizer (maplibre-native) is not byte-identical to the previous
+  tiny-skia path.
+
 ## [1.10.1](https://github.com/maplibre/martin/compare/martin-v1.10.0...martin-v1.10.1) - 2026-05-19
 
 ### Fixed

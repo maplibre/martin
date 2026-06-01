@@ -1,13 +1,20 @@
+use std::future::Future;
+use std::pin::Pin;
 use std::str::FromStr;
+use std::sync::Arc;
 
+use actix_web::dev::Payload;
+use actix_web::error::ErrorBadRequest;
 use actix_web::http::header::{ContentType, LOCATION};
-use actix_web::web::{Data, Path};
-use actix_web::{HttpResponse, route};
+use actix_web::web::{Bytes, Data, Path};
+use actix_web::{FromRequest, HttpRequest, HttpResponse, route};
+use martin_core::overlay::OverlaySpec;
 use martin_core::styles::{RenderParams, StyleSources};
 use martin_tile_utils::{EARTH_CIRCUMFERENCE, wgs84_to_webmercator};
 use serde::Deserialize;
-use tracing::{error, trace, warn};
+use tracing::{debug, error, warn};
 
+use crate::srv::overlay_body::parse_overlay;
 use crate::srv::server::DebouncedWarning;
 use crate::srv::styles_rendering::{ImageFormatRequest, encode_image_response};
 
@@ -218,7 +225,11 @@ impl<'de> Deserialize<'de> for SizeRequest {
         path = "/style/{style_id}/static/{camera}/{size}.{format}",
         params(StaticImagePath),
         responses(
-            (status = 200, description = "Rendered static map image (PNG, JPEG, or WebP)"),
+            (status = 200, description = "Rendered static map image", content(
+                ("image/png"),
+                ("image/jpeg"),
+                ("image/webp"),
+            )),
             (status = 400, description = "Invalid params or size"),
             (status = 403, description = "Rendering is disabled"),
             (status = 404, description = "No matching style"),
@@ -232,7 +243,7 @@ pub async fn get_rendered_static_style(
     path: Path<StaticImagePath>,
     styles: Data<StyleSources>,
 ) -> HttpResponse {
-    handle_static_request(&path, &styles).await
+    handle_static_request(&path, &styles, empty_overlay()).await
 }
 
 #[derive(Deserialize, Debug)]
@@ -246,6 +257,7 @@ struct StaticJpgRedirectPath {
 #[route(
     "/style/{style_id}/static/{camera}/{size}.jpeg",
     method = "GET",
+    method = "POST",
     method = "HEAD"
 )]
 pub async fn redirect_static_jpeg(path: Path<StaticJpgRedirectPath>) -> HttpResponse {
@@ -270,6 +282,76 @@ pub async fn redirect_static_jpeg(path: Path<StaticJpgRedirectPath>) -> HttpResp
         .finish()
 }
 
+/// Render a static map image with optional vector overlays.
+/// See [our documentation](https://maplibre.org/martin/sources-styles/) for
+/// the supported overlay body -- a `GeoJSON` `FeatureCollection` with style
+/// properties on each feature.
+///
+/// An empty or missing body renders the base map alone.
+#[cfg_attr(
+    feature = "unstable-schemas",
+    utoipa::path(
+        post,
+        path = "/style/{style_id}/static/{camera}/{size}.{format}",
+        params(StaticImagePath),
+        request_body(
+            content = crate::srv::overlay_body::StaticStyleOverlay,
+            content_type = "application/json",
+            description = "GeoJSON FeatureCollection. Each feature's `properties` carries MapLibre canonical paint/layout property names (`circle-color`, `line-width`, `fill-color`, …). Unknown property keys are ignored.",
+        ),
+        responses(
+            (status = 200, description = "Rendered static map image", content(
+                ("image/png"),
+                ("image/jpeg"),
+                ("image/webp"),
+            )),
+            (status = 400, description = "Invalid params, size, or overlay body"),
+            (status = 403, description = "Rendering is disabled"),
+            (status = 404, description = "No matching style"),
+            (status = 500, description = "Renderer or encoder failure"),
+        ),
+    )
+)]
+#[route("/style/{style_id}/static/{camera}/{size}.{format}", method = "POST")]
+#[hotpath::measure]
+pub async fn post_rendered_static_style(
+    path: Path<StaticImagePath>,
+    OverlayBody(overlays): OverlayBody,
+    styles: Data<StyleSources>,
+) -> HttpResponse {
+    handle_static_request(&path, &styles, overlays).await
+}
+
+/// The canonical "no overlay" spec: zero features, so `render_one`'s `is_empty`
+/// short-circuit renders the untouched base map. Used for the GET path and for
+/// an empty POST body.
+fn empty_overlay() -> Arc<OverlaySpec> {
+    Arc::new(OverlaySpec::default())
+}
+
+/// Actix extractor: empty body → no overlays; otherwise parses the body as
+/// a `GeoJSON` `FeatureCollection` (deserialized into [`OverlaySpec`]).
+/// Malformed JSON or invalid styling values short-circuit the handler with a
+/// 400 response.
+struct OverlayBody(Arc<OverlaySpec>);
+
+impl FromRequest for OverlayBody {
+    type Error = actix_web::Error;
+    type Future = Pin<Box<dyn Future<Output = Result<Self, Self::Error>>>>;
+
+    fn from_request(req: &HttpRequest, payload: &mut Payload) -> Self::Future {
+        let fut = Bytes::from_request(req, payload);
+        Box::pin(async move {
+            let bytes = fut.await?;
+            if bytes.is_empty() {
+                return Ok(Self(empty_overlay()));
+            }
+            let spec = parse_overlay(&bytes).map_err(ErrorBadRequest)?;
+            Ok(Self(Arc::new(spec)))
+        })
+    }
+}
+
 /// Camera resolved from a [`CameraRequest`]. WGS84 degrees.
 struct Camera {
     center_lon: f64,
@@ -279,7 +361,12 @@ struct Camera {
     pitch: f64,
 }
 
-async fn handle_static_request(path: &StaticImagePath, styles: &StyleSources) -> HttpResponse {
+/// Shared static-image pipeline; `overlays` is the empty spec for GET.
+async fn handle_static_request(
+    path: &StaticImagePath,
+    styles: &StyleSources,
+    overlays: Arc<OverlaySpec>,
+) -> HttpResponse {
     let style_id = &path.style_id;
     let Some(style_path) = styles.style_json_path(style_id) else {
         return HttpResponse::NotFound()
@@ -299,17 +386,17 @@ async fn handle_static_request(path: &StaticImagePath, styles: &StyleSources) ->
 
     let camera = resolve_camera(camera_req, size);
 
-    trace!(
-        "Rendering static image for style {style_id} at ({lon},{lat}) z{zoom} {w}x{h}@{scale}",
-        lon = camera.center_lon,
-        lat = camera.center_lat,
-        zoom = camera.zoom,
-        w = size.width,
-        h = size.height,
-        scale = size.scale,
+    debug!(
+        lon = %camera.center_lon,
+        lat = %camera.center_lat,
+        zoom = %camera.zoom,
+        w = %size.width,
+        h = %size.height,
+        scale = %size.scale,
+        "Rendering static image"
     );
 
-    let image = match render_base(styles, style_path, &camera, size).await {
+    let image = match render_with_overlays(styles, style_path, &camera, size, overlays).await {
         Ok(img) => img,
         Err(resp) => return resp,
     };
@@ -388,11 +475,12 @@ fn bbox_to_center_zoom(
     (center_lon, center_lat, zoom)
 }
 
-async fn render_base(
+async fn render_with_overlays(
     styles: &StyleSources,
     style_path: std::path::PathBuf,
     camera: &Camera,
     size: SizeRequest,
+    overlays: Arc<OverlaySpec>,
 ) -> Result<martin_core::styles::StaticImage, HttpResponse> {
     use martin_core::styles::StyleError;
 
@@ -405,13 +493,20 @@ async fn render_base(
         camera.zoom,
     )
     .with_size(size.width, size.height, size.scale)
-    .with_orientation(camera.bearing, camera.pitch);
+    .with_orientation(camera.bearing, camera.pitch)
+    .with_overlays(overlays);
     styles.render_static(params).await.map_err(|e| match e {
         StyleError::RenderingIsDisabled => {
             warn!("Failed to render static image because rendering is disabled");
             HttpResponse::Forbidden()
                 .content_type(ContentType::plaintext())
                 .body("Rendering is disabled")
+        }
+        StyleError::OverlayApply(err) => {
+            warn!("Overlay application failed: {err}");
+            HttpResponse::BadRequest()
+                .content_type(ContentType::plaintext())
+                .body(format!("Overlay application failed: {err}"))
         }
         other => {
             error!("Failed to render static image: {other}");
@@ -450,7 +545,8 @@ mod tests {
             let app = init_service(
                 App::new()
                     .app_data(web::Data::new($styles))
-                    .service(get_rendered_static_style),
+                    .service(get_rendered_static_style)
+                    .service(post_rendered_static_style),
             )
             .await;
             call_service(&app, $req.to_request()).await
@@ -464,6 +560,10 @@ mod tests {
 
     fn get(uri: &str) -> TestRequest {
         TestRequest::get().uri(uri)
+    }
+
+    fn post(uri: &str) -> TestRequest {
+        TestRequest::post().uri(uri)
     }
 
     #[actix_rt::test]
@@ -582,6 +682,52 @@ mod tests {
         assert!(
             body.starts_with("Bounding box"),
             "params={params:?}: expected body to start with \"Bounding box\", got {body:?}"
+        );
+    }
+
+    #[actix_rt::test]
+    async fn post_unknown_style_returns_404() {
+        let resp = call!(
+            post("/style/missing/static/0,0,1/100x100.png"),
+            StyleSources::default()
+        );
+        assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+        assert_eq!(body_text(resp).await, "No such style exists");
+    }
+
+    #[actix_rt::test]
+    async fn post_empty_body_reaches_renderer() {
+        let (styles, _f) = one_style();
+        let resp = call!(post("/style/s/static/0,0,1/100x100.png"), styles);
+        assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+    }
+
+    #[actix_rt::test]
+    async fn post_inverted_bbox_returns_400() {
+        let (styles, _f) = one_style();
+        let resp = call!(post("/style/s/static/10,0,-10,5/200x200.png"), styles);
+        assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+        let body = body_text(resp).await;
+        assert!(
+            body.starts_with("Bounding box"),
+            "expected body to start with \"Bounding box\", got {body:?}"
+        );
+    }
+
+    #[actix_rt::test]
+    async fn post_malformed_body_returns_400() {
+        let (styles, _f) = one_style();
+        let resp = call!(
+            post("/style/s/static/0,0,1/100x100.png")
+                .insert_header(("content-type", "application/json"))
+                .set_payload("{not json"),
+            styles
+        );
+        assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+        assert!(
+            body_text(resp)
+                .await
+                .starts_with("Invalid JSON overlay body")
         );
     }
 }

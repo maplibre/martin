@@ -3,10 +3,11 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::thread::{self, JoinHandle};
 
-use maplibre_native::{Image, ImageRenderer, ImageRendererBuilder};
+use maplibre_native::{Image, ImageRenderer, ImageRendererBuilder, Static, Style};
 use tokio::sync::oneshot;
 use tracing::info;
 
+use crate::overlay::{AppliedOverlay, OverlaySpec, apply_to_style};
 use crate::resources::styles::StyleError;
 
 /// Parameters for a single map render request.
@@ -39,6 +40,9 @@ pub struct RenderParams {
     bearing: f64,
     /// Pitch in degrees away from straight-down (0 = flat top-down view).
     pitch: f64,
+    /// Overlay spec to composite for this render. An empty spec (no features)
+    /// is the canonical "nothing to draw" and short-circuits to a plain render.
+    overlays: Arc<OverlaySpec>,
 }
 
 impl RenderParams {
@@ -56,6 +60,7 @@ impl RenderParams {
             pixel_ratio: 1.0,
             bearing: 0.0,
             pitch: 0.0,
+            overlays: Arc::new(OverlaySpec::default()),
         }
     }
 
@@ -74,6 +79,16 @@ impl RenderParams {
     pub fn with_orientation(mut self, bearing: f64, pitch: f64) -> Self {
         self.bearing = bearing;
         self.pitch = pitch;
+        self
+    }
+
+    /// Apply `spec` as ephemeral sources+layers for this render only.
+    ///
+    /// `Arc` because `RenderParams` is `Clone` and travels through the worker
+    /// channel; the `GeoJSON` payload could be large.
+    #[must_use]
+    pub fn with_overlays(mut self, spec: Arc<OverlaySpec>) -> Self {
+        self.overlays = spec;
         self
     }
 }
@@ -190,44 +205,111 @@ fn worker_loop(rx: &flume::Receiver<WorkerMsg>) {
             WorkerMsg::Render(req) => req,
             WorkerMsg::Shutdown => break,
         };
-        let needs_rebuild = match &current {
-            None => true,
-            Some(state) => {
-                state.width != params.width
-                    || state.height != params.height
-                    || (state.pixel_ratio - params.pixel_ratio).abs() > 0.01
-            }
+
+        let result = prepare_renderer(&mut current, &params).and_then(|r| render_one(r, &params));
+        let _ = response.send(result);
+    }
+}
+
+/// Ensure `slot` holds a renderer sized for `params` with `params.style_path`
+/// loaded, rebuilding the renderer when `(width, height, pixel_ratio)` changes.
+/// Returns the ready renderer.
+fn prepare_renderer<'a>(
+    slot: &'a mut Option<RendererState>,
+    params: &RenderParams,
+) -> Result<&'a mut ImageRenderer<Static>, StyleError> {
+    let needs_rebuild = match slot.as_ref() {
+        None => true,
+        Some(state) => {
+            state.width != params.width
+                || state.height != params.height
+                || (state.pixel_ratio - params.pixel_ratio).abs() > 0.01
+        }
+    };
+
+    if needs_rebuild {
+        let width = NonZeroU32::new(params.width).unwrap_or(NonZeroU32::MIN);
+        let height = NonZeroU32::new(params.height).unwrap_or(NonZeroU32::MIN);
+        let renderer = ImageRendererBuilder::default()
+            .with_pixel_ratio(params.pixel_ratio)
+            .with_size(width, height)
+            .build_static_renderer();
+        *slot = Some(RendererState {
+            renderer,
+            width: params.width,
+            height: params.height,
+            pixel_ratio: params.pixel_ratio,
+            loaded_style: None,
+        });
+    }
+
+    let state = slot.as_mut().expect("just built");
+
+    if state.loaded_style.as_ref() != Some(&params.style_path) {
+        if let Err(e) = state.renderer.load_style_from_path(&params.style_path) {
+            state.loaded_style = None;
+            return Err(StyleError::IoError(e));
+        }
+        state.loaded_style = Some(params.style_path.clone());
+    }
+
+    Ok(&mut state.renderer)
+}
+
+/// Applies an overlay to a renderer's style for the span of a single render and
+/// removes it again on drop -- including on an early return or panic in the
+/// render window. This keeps the removal seam symmetric with the apply-time
+/// rollback in [`apply_to_style`]: the worker's cached style structurally
+/// returns to a clean base after every request instead of relying on a
+/// hand-placed removal call surviving the whole render window.
+struct RenderOverlay<'r> {
+    renderer: &'r mut ImageRenderer<Static>,
+    applied: Option<AppliedOverlay>,
+}
+
+impl<'r> RenderOverlay<'r> {
+    /// Apply `spec` to `renderer`'s style. The overlay lives until the returned
+    /// guard drops.
+    fn apply(
+        renderer: &'r mut ImageRenderer<Static>,
+        spec: &OverlaySpec,
+    ) -> Result<Self, StyleError> {
+        let applied = {
+            let mut style = Style::get_ref(renderer);
+            apply_to_style(spec, &mut style).map_err(StyleError::OverlayApply)?
         };
+        Ok(Self {
+            renderer,
+            applied: Some(applied),
+        })
+    }
 
-        if needs_rebuild {
-            let width = NonZeroU32::new(params.width).unwrap_or(NonZeroU32::MIN);
-            let height = NonZeroU32::new(params.height).unwrap_or(NonZeroU32::MIN);
-            let renderer = ImageRendererBuilder::default()
-                .with_pixel_ratio(params.pixel_ratio)
-                .with_size(width, height)
-                .build_static_renderer();
-            current = Some(RendererState {
-                renderer,
-                width: params.width,
-                height: params.height,
-                pixel_ratio: params.pixel_ratio,
-                loaded_style: None,
-            });
+    /// The renderer carrying the applied overlay, for issuing render calls.
+    fn renderer(&mut self) -> &mut ImageRenderer<Static> {
+        self.renderer
+    }
+}
+
+impl Drop for RenderOverlay<'_> {
+    fn drop(&mut self) {
+        if let Some(applied) = self.applied.take() {
+            let mut style = Style::get_ref(self.renderer);
+            applied.remove_from(&mut style);
         }
+    }
+}
 
-        let state = current.as_mut().expect("just built");
-
-        if state.loaded_style.as_ref() != Some(&params.style_path) {
-            if let Err(e) = state.renderer.load_style_from_path(&params.style_path) {
-                let _ = response.send(Err(StyleError::IoError(e)));
-                state.loaded_style = None;
-                continue;
-            }
-            state.loaded_style = Some(params.style_path.clone());
-        }
-
-        let result = state
-            .renderer
+/// Render one static image against `renderer`, compositing `params.overlays` if
+/// present and leaving the renderer's style clean afterwards.
+///
+/// `renderer` must already be sized and have its style loaded (see
+/// [`prepare_renderer`]).
+fn render_one(
+    renderer: &mut ImageRenderer<Static>,
+    params: &RenderParams,
+) -> Result<Image, StyleError> {
+    let render_once = |renderer: &mut ImageRenderer<_>| {
+        renderer
             .render_static(
                 params.lat,
                 params.lon,
@@ -235,13 +317,39 @@ fn worker_loop(rx: &flume::Receiver<WorkerMsg>) {
                 params.bearing,
                 params.pitch,
             )
-            .map_err(StyleError::RenderingError);
-        let _ = response.send(result);
+            .map_err(StyleError::RenderingError)
+    };
+
+    if params.overlays.is_empty() {
+        // No overlay: a single render captures the fully-tiled frame.
+        return render_once(renderer);
     }
+    let spec = &params.overlays;
+
+    // An overlay source must be added to an already-initialised rendering
+    // pipeline: without a render before `add_source` the GeoJSON source never
+    // tiles and the overlay silently doesn't draw. Verified empirically --
+    // applying the overlay before any render then re-rendering (even 4×) never
+    // produces it, while a single pre-apply render does. This is only needed on
+    // the overlay path; a plain map is complete on its first render.
+    let _ = render_once(renderer);
+
+    // Scope the overlay to this render: `RenderOverlay` removes it on drop --
+    // including on an early return or panic below -- so the worker's cached
+    // style returns to a clean base for the next request without depending on a
+    // hand-placed removal call surviving the whole render window.
+    let mut overlay = RenderOverlay::apply(renderer, spec)?;
+    let renderer = overlay.renderer();
+
+    // The overlay's inline GeoJSON source tiles synchronously, so the first
+    // render after `add_source` already captures the fully-rasterised overlay --
+    // no re-render-until-settled loop is needed (verified empirically across
+    // polygon/line/point overlays: every frame after the first was identical).
+    render_once(renderer)
 }
 
 struct RendererState {
-    renderer: ImageRenderer<maplibre_native::Static>,
+    renderer: ImageRenderer<Static>,
     width: u32,
     height: u32,
     pixel_ratio: f32,

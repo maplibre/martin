@@ -75,6 +75,7 @@ bytes = "1"
 chrono = { version = "0.4", default-features = false, features = ["serde"] }
 clap = { version = "4", features = ["derive", "unstable-markdown", "wrap_help"] }
 criterion = { version = "0.8", features = ["async_futures", "async_tokio", "html_reports"] }
+csscolorparser = "0.8"
 dashmap = { version = "6.1.0", features = ["serde", "inline", "rayon"] }
 deadpool-postgres = "0.14"
 derive-debug = "0.1.2"
@@ -83,6 +84,7 @@ env_logger = "0.11"
 flate2 = "1"
 flume = "0.12"
 futures = "0.3"
+geojson = "1"
 hotpath = "0.16"
 humantime-serde = "1.1.1"
 image = { version = "0.25.8", default-features = false, features = ["png", "jpeg", "webp"] }
@@ -94,7 +96,7 @@ itertools = "0.14"
 json-patch = "4"
 lambda-web = { version = "0.2.1", features = ["actix4"] }
 log = "0.4"
-maplibre_native = "0.6.0"
+maplibre_native = { version = "0.6.0", features = ["geojson"] }
 martin-core = { path = "./martin-core", version = "0.7.0", default-features = false }
 martin-tile-utils = { path = "./martin-tile-utils", version = "0.7.3" }
 mbtiles = { path = "./mbtiles", version = "0.17.6" }
@@ -134,8 +136,10 @@ sqlite-compressions = { version = "0.3", default-features = false, features = ["
 sqlite-hashes = { version = "0.10.6", default-features = false, features = ["md5", "aggregate", "hex"] }
 sqlx = { version = "0.9.0", features = ["sqlite", "runtime-tokio"] }
 static-files = "0.2"
+strum = { version = "0.28", features = ["derive"] }
 subst = "0.3"
 tempfile = "3.21.0"
+test_each_file = "0.3"
 testcontainers-modules = { version = "0.15.0", features = ["postgres", "blocking", "minio"] }
 thiserror = "2"
 tiff = "0.11.1"

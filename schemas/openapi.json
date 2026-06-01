@@ -196,10 +196,132 @@
         "required": ["tiles", "sprites", "fonts", "styles", "settings"],
         "type": "object"
       },
+      "FeatureCollectionTag": {
+        "description": "`\"FeatureCollection\"` discriminator for the top-level body. A unit enum so\nany other `type` (a bare `Feature`, `Geometry`, or garbage) fails to\ndeserialize with a clear serde error.",
+        "enum": ["FeatureCollection"],
+        "type": "string"
+      },
+      "FeatureTag": {
+        "description": "`\"Feature\"` discriminator for each member of the collection.",
+        "enum": ["Feature"],
+        "type": "string"
+      },
       "FontFormat": {
-        "description": "Source font file container format.",
+        "description": "Source font file container format.\n\nThe string serialization (serde and `strum`) is the lowercase file\nextension, so [`FontFormat::VARIANTS`] doubles as the list of recognised\nfont extensions and [`str::parse`] maps an extension back to a variant.",
         "enum": ["otf", "ttf", "ttc"],
         "type": "string"
+      },
+      "StaticOverlayFeature": {
+        "description": "Wire shape of one `GeoJSON` `Feature`. A `null`/missing geometry is kept as\n`None` and skipped at apply time.",
+        "properties": {
+          "geometry": {
+            "description": "`GeoJSON` geometry. `Point`/`MultiPoint` → circle layer;\n`LineString`/`MultiLineString` → line layer;\n`Polygon`/`MultiPolygon` → fill (and optionally outline-line) layer.\n`GeometryCollection` and `null` are silently skipped."
+          },
+          "properties": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/StaticOverlayProperties",
+                "description": "Styling for this feature. All fields optional; unknown fields ignored."
+              }
+            ]
+          },
+          "type": {
+            "$ref": "#/components/schemas/FeatureTag",
+            "description": "`GeoJSON` type discriminator. Must be `\"Feature\"`."
+          }
+        },
+        "required": ["type"],
+        "type": "object"
+      },
+      "StaticOverlayProperties": {
+        "description": "Wire shape of a feature's `properties`, keyed by canonical `MapLibre`\npaint/layout names. Colors arrive as strings and are parsed in [`TryFrom`];\nenums and numbers are validated by serde. Unknown keys (`id`, `name`,\n`title`, …) are ignored.",
+        "properties": {
+          "circle-color": {
+            "description": "CSS color for `Point` geometries.",
+            "example": "#285DAA",
+            "type": ["string", "null"]
+          },
+          "circle-opacity": {
+            "format": "float",
+            "type": ["number", "null"]
+          },
+          "circle-radius": {
+            "description": "Radius in pixels at the rendered scale.",
+            "example": 8.0,
+            "format": "float",
+            "type": ["number", "null"]
+          },
+          "circle-stroke-color": {
+            "type": ["string", "null"]
+          },
+          "circle-stroke-opacity": {
+            "format": "float",
+            "type": ["number", "null"]
+          },
+          "circle-stroke-width": {
+            "format": "float",
+            "type": ["number", "null"]
+          },
+          "fill-color": {
+            "description": "CSS color for `Polygon` fills.",
+            "example": "#95BEFA",
+            "type": ["string", "null"]
+          },
+          "fill-opacity": {
+            "format": "float",
+            "type": ["number", "null"]
+          },
+          "fill-outline-color": {
+            "type": ["string", "null"]
+          },
+          "line-cap": {
+            "description": "One of `butt`, `round`, `square`.",
+            "example": "round",
+            "type": ["string", "null"]
+          },
+          "line-color": {
+            "description": "CSS color for `LineString` geometries (and `Polygon` outlines).",
+            "example": "#285DAA",
+            "type": ["string", "null"]
+          },
+          "line-join": {
+            "description": "One of `miter`, `bevel`, `round`.",
+            "example": "round",
+            "type": ["string", "null"]
+          },
+          "line-opacity": {
+            "format": "float",
+            "type": ["number", "null"]
+          },
+          "line-width": {
+            "description": "Line width in pixels at the rendered scale.",
+            "example": 2.0,
+            "format": "float",
+            "type": ["number", "null"]
+          }
+        },
+        "type": "object"
+      },
+      "StaticStyleOverlay": {
+        "description": "Wire shape of the top-level body: a `GeoJSON` `FeatureCollection`. Doubles as\nthe `OpenAPI` request-body schema.",
+        "properties": {
+          "features": {
+            "description": "Features to overlay on the rendered base map, in draw order.",
+            "items": {
+              "$ref": "#/components/schemas/StaticOverlayFeature"
+            },
+            "type": "array"
+          },
+          "type": {
+            "$ref": "#/components/schemas/FeatureCollectionTag",
+            "description": "`GeoJSON` type discriminator. Must be `\"FeatureCollection\"`."
+          }
+        },
+        "required": ["type", "features"],
+        "type": "object"
       },
       "StyleKind": {
         "description": "What kind of layers a `MapLibre` style draws.",
@@ -654,7 +776,12 @@
         ],
         "responses": {
           "200": {
-            "description": "Rendered static map image (PNG, JPEG, or WebP)"
+            "content": {
+              "image/jpeg": {},
+              "image/png": {},
+              "image/webp": {}
+            },
+            "description": "Rendered static map image"
           },
           "400": {
             "description": "Invalid params or size"
@@ -670,6 +797,84 @@
           }
         },
         "summary": "Render a static map image at an arbitrary camera into `{size}.{format}`.",
+        "tags": ["crate::srv"]
+      },
+      "post": {
+        "description": "An empty or missing body renders the base map alone.",
+        "operationId": "post_rendered_static_style",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "style_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "`lon,lat,zoom[@bearing[,pitch]]` or `minLon,minLat,maxLon,maxLat`.",
+            "in": "path",
+            "name": "camera",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "`WIDTHxHEIGHT[@SCALEx]` - e.g. `800x600` or `400x300@2x`.",
+            "in": "path",
+            "name": "size",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Output encoding. `png`, `jpg`, or `webp` (canonical names only;\n`.jpeg` is redirected to `.jpg` via [`redirect_static_jpeg`]).",
+            "in": "path",
+            "name": "format",
+            "required": true,
+            "schema": {
+              "description": "Image format requested in the URL.",
+              "enum": ["png", "jpg", "webp"],
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StaticStyleOverlay"
+              }
+            }
+          },
+          "description": "GeoJSON FeatureCollection. Each feature's `properties` carries MapLibre canonical paint/layout property names (`circle-color`, `line-width`, `fill-color`, …). Unknown property keys are ignored.",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "image/jpeg": {},
+              "image/png": {},
+              "image/webp": {}
+            },
+            "description": "Rendered static map image"
+          },
+          "400": {
+            "description": "Invalid params, size, or overlay body"
+          },
+          "403": {
+            "description": "Rendering is disabled"
+          },
+          "404": {
+            "description": "No matching style"
+          },
+          "500": {
+            "description": "Renderer or encoder failure"
+          }
+        },
+        "summary": "Render a static map image with optional vector overlays.\nSee [our documentation](https://maplibre.org/martin/sources-styles/) for\nthe supported overlay body -- a `GeoJSON` `FeatureCollection` with style\nproperties on each feature.",
         "tags": ["crate::srv"]
       }
     }

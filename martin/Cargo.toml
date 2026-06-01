@@ -114,7 +114,8 @@ default = [
     "mlt",
 ]
 unstable-cog = ["martin-core/unstable-cog", "_tiles"]
-rendering = ["styles", "martin-core/rendering", "dep:image"]
+overlay = ["martin-core/overlay", "dep:geojson", "dep:csscolorparser"]
+rendering = ["styles", "overlay", "martin-core/rendering", "dep:image"]
 fonts = ["martin-core/fonts", "_catalog"]
 lambda = ["dep:lambda-web"]
 mbtiles = ["martin-core/mbtiles", "dep:mbtiles", "_tiles"]
@@ -170,9 +171,11 @@ actix-web-prom = { workspace = true, optional = true }
 actix-web-static-files = { workspace = true, optional = true }
 async-trait.workspace = true
 clap.workspace = true
+csscolorparser = { workspace = true, optional = true }
 dashmap.workspace = true
 enum-display = { workspace = true, optional = true }
 futures.workspace = true
+geojson = { workspace = true, optional = true }
 hotpath.workspace = true
 humantime-serde.workspace = true
 image = { workspace = true, optional = true }
@@ -226,6 +229,7 @@ indoc.workspace = true
 insta = { workspace = true, features = ["json", "yaml", "redactions"] }
 rstest.workspace = true
 tempfile.workspace = true
+test_each_file.workspace = true
 testcontainers-modules.workspace = true
 tracing-test.workspace = true
 
