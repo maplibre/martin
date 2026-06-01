@@ -95,10 +95,7 @@ impl Trigger for PollTrigger {
 
 #[cfg(test)]
 mod tests {
-    use tokio::time::Instant;
-
     use super::*;
-
     #[tokio::test(start_paused = true)]
     async fn poll_trigger_fires_immediately_then_waits_one_interval() {
         let interval = Duration::from_secs(30);
