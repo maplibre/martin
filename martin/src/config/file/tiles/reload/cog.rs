@@ -3,12 +3,9 @@ use std::path::PathBuf;
 
 use martin_core::tiles::BoxedSource;
 use martin_core::tiles::cog::CogSource;
-use notify::event::{AccessKind, AccessMode};
-use notify::{Config, Event, EventKind, RecommendedWatcher, Watcher as _};
-use tokio::sync::mpsc;
 
 use crate::config::file::cog::CogConfig;
-use crate::config::file::driver::Sink as _;
+use crate::config::file::driver::{NotifyTrigger, Sink as _, Trigger as _};
 use crate::config::file::process::ProcessConfig;
 use crate::config::file::tiles::reload::{discover_sources_by_ext, path_modified_ms};
 use crate::config::file::{CachePolicy, FileConfigEnum};
@@ -89,34 +86,14 @@ impl COGReloader {
             return Ok(());
         }
 
-        let (tx, mut rx) = mpsc::channel::<Event>(256);
-
-        let mut watcher = RecommendedWatcher::new(
-            move |result: notify::Result<Event>| {
-                if let Ok(event) = result {
-                    // `try_send` drops the event if the channel is full instead of
-                    // blocking the OS watcher thread. Each event triggers a full
-                    // rescan, so coalescing duplicates is harmless.
-                    let _ = tx.try_send(event);
-                }
-            },
-            Config::default(),
-        )
-        .map_err(|e| MartinError::DirectoryWatchError(e.kind))?;
-        for dir in &self.directories {
-            watcher
-                // FIXME: find a naming scheme for paths that makes sense under recursive and enable it
-                .watch(dir, notify::RecursiveMode::NonRecursive)
-                .map_err(|e| MartinError::DirectoryWatchError(e.kind))?;
-        }
+        let mut trigger = NotifyTrigger::new(&self.directories)?;
 
         tokio::spawn(async move {
-            let _watcher = watcher;
             let mut tsm = self.tile_source_manager.clone();
             self.seed_snapshot().await;
 
-            while let Some(event) = rx.recv().await {
-                self.process_event(&mut tsm, event).await;
+            while trigger.next().await.is_some() {
+                self.process_event(&mut tsm).await;
             }
         });
 
@@ -146,17 +123,7 @@ impl COGReloader {
         }
     }
 
-    async fn process_event(&mut self, tsm: &mut TileSourceManager, event: Event) {
-        if !matches!(
-            event.kind,
-            EventKind::Create(_)
-                | EventKind::Remove(_)
-                | EventKind::Modify(_)
-                | EventKind::Access(AccessKind::Close(AccessMode::Write))
-        ) {
-            return;
-        }
-
+    async fn process_event(&mut self, tsm: &mut TileSourceManager) {
         let sources = match discover_sources_by_ext(
             &self.directories,
             &["tif", "tiff"],
