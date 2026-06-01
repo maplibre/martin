@@ -594,8 +594,8 @@ test-minio:
 test-cargo *args:
     MLN_PRECOMPILE=1 cargo test {{args}}
 
-# Run unit tests for each package in dependency order (used by CI)
-test-packages:
+# Run unit tests for each package in dependency order
+test-packages-ci:
     #!/usr/bin/env bash
     set -euo pipefail
     cargo test --package martin-tile-utils
