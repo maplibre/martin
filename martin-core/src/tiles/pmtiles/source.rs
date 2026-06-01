@@ -6,9 +6,10 @@ use async_trait::async_trait;
 use derive_debug::Dbg;
 use martin_tile_utils::{Encoding, Format, TileCoord, TileData, TileInfo};
 use object_store::ObjectStore;
-use pmtiles::{AsyncPmTilesReader, Compression, ObjectStoreBackend, TileType};
+use pmtiles::{AsyncPmTilesReader, Compression, ObjectStoreBackend, PmtError, TileType};
 use tilejson::TileJSON;
-use tracing::{trace, warn};
+use tokio::sync::{Notify, RwLock};
+use tracing::{info, trace, warn};
 
 use crate::CacheZoomRange;
 use crate::tiles::pmtiles::PmtCacheInstance;
@@ -20,7 +21,15 @@ use crate::tiles::{BoxedSource, MartinCoreResult, Source, UrlQuery};
 pub struct PmtilesSource {
     id: String,
     #[dbg(skip)]
-    pmtiles: Arc<AsyncPmTilesReader<ObjectStoreBackend, PmtCacheInstance>>,
+    pmtiles: Arc<RwLock<AsyncPmTilesReader<ObjectStoreBackend, PmtCacheInstance>>>,
+    #[dbg(skip)]
+    store: Arc<dyn ObjectStore>,
+    #[dbg(skip)]
+    path: object_store::path::Path,
+    #[dbg(skip)]
+    dir_cache: PmtCacheInstance,
+    #[dbg(skip)]
+    reload_signal: Arc<Notify>,
     #[dbg(skip)]
     tilejson: TileJSON,
     #[dbg(skip)]
@@ -39,9 +48,13 @@ impl PmtilesSource {
         cache_zoom: CacheZoomRange,
     ) -> Result<Self, PmtilesError> {
         let path = path.into();
+        let store: Arc<dyn ObjectStore> = Arc::from(store);
         let store_to_string = store.to_string();
-        let backend = ObjectStoreBackend::new(store, path.clone());
-        let reader = AsyncPmTilesReader::try_from_cached_source(backend, cache)
+        let backend = ObjectStoreBackend::new(
+            Box::new(Arc::clone(&store)) as Box<dyn ObjectStore>,
+            path.clone(),
+        );
+        let reader = AsyncPmTilesReader::try_from_cached_source(backend, cache.clone())
             .await
             .map_err(|e| PmtilesError::PmtErrorWithCtx(e, store_to_string.clone()))?;
 
@@ -98,13 +111,42 @@ impl PmtilesSource {
 
         Ok(Self {
             id,
-            pmtiles: Arc::new(reader),
+            pmtiles: Arc::new(RwLock::new(reader)),
+            store,
+            path,
+            dir_cache: cache,
+            reload_signal: Arc::new(Notify::new()),
             tilejson,
             tile_info: format,
             cache_zoom,
         })
     }
+
+    /// Returns a signal that fires once after each successful self-reload.
+    ///
+    /// Callers (e.g. `PmtilesReloader`) can `await` this to learn when the
+    /// tile-cache entries for this source should be invalidated.
+    pub fn reload_signal(&self) -> Arc<Notify> {
+        Arc::clone(&self.reload_signal)
+    }
+
+    /// Rebuilds the internal reader from the same store and path.
+    async fn reload(&self) -> Result<(), PmtilesError> {
+        let store_to_string = self.store.to_string();
+        let backend = ObjectStoreBackend::new(
+            Box::new(Arc::clone(&self.store)) as Box<dyn ObjectStore>,
+            self.path.clone(),
+        );
+        let new_reader =
+            AsyncPmTilesReader::try_from_cached_source(backend, self.dir_cache.clone())
+                .await
+                .map_err(|e| PmtilesError::PmtErrorWithCtx(e, store_to_string))?;
+        let mut guard = self.pmtiles.write().await;
+        *guard = new_reader;
+        Ok(())
+    }
 }
+
 #[async_trait]
 impl Source for PmtilesSource {
     fn get_id(&self) -> &str {
@@ -122,6 +164,7 @@ impl Source for PmtilesSource {
     fn clone_source(&self) -> BoxedSource {
         Box::new(self.clone())
     }
+
     fn get_version(&self) -> Option<String> {
         self.tilejson.version.clone()
     }
@@ -139,23 +182,49 @@ impl Source for PmtilesSource {
         xyz: TileCoord,
         _url_query: Option<&UrlQuery>,
     ) -> MartinCoreResult<TileData> {
-        let coord = pmtiles::TileCoord::new(xyz.z, xyz.x, xyz.y).map_err(PmtilesError::PmtError)?;
-        if let Some(t) = self
-            .pmtiles
-            .get_tile(coord)
-            .await
-            .map_err(PmtilesError::PmtError)?
-        {
-            Ok(t.to_vec())
-        } else {
-            trace!(
-                source.id = %self.id,
-                tile.z = xyz.z,
-                tile.x = xyz.x,
-                tile.y = xyz.y,
-                "Couldn't find tile data"
-            );
-            Ok(Vec::new())
+        let coord =
+            pmtiles::TileCoord::new(xyz.z, xyz.x, xyz.y).map_err(PmtilesError::PmtError)?;
+
+        let result = {
+            let reader = self.pmtiles.read().await;
+            reader.get_tile(coord).await
+        };
+
+        match result {
+            Ok(Some(t)) => return Ok(t.to_vec()),
+            Ok(None) => {
+                trace!(
+                    source.id = %self.id,
+                    tile.z = xyz.z,
+                    tile.x = xyz.x,
+                    tile.y = xyz.y,
+                    "Couldn't find tile data"
+                );
+                return Ok(Vec::new());
+            }
+            Err(PmtError::SourceModified) => {
+                info!(source.id = %self.id, "PMTiles source modified; reloading");
+                self.reload().await?;
+                self.reload_signal.notify_one();
+            }
+            Err(e) => return Err(PmtilesError::PmtError(e).into()),
+        }
+
+        // Retry once after successful reload
+        let reader = self.pmtiles.read().await;
+        match reader.get_tile(coord).await {
+            Ok(Some(t)) => Ok(t.to_vec()),
+            Ok(None) => {
+                trace!(
+                    source.id = %self.id,
+                    tile.z = xyz.z,
+                    tile.x = xyz.x,
+                    tile.y = xyz.y,
+                    "Couldn't find tile data"
+                );
+                Ok(Vec::new())
+            }
+            Err(e) => Err(PmtilesError::PmtError(e).into()),
         }
     }
 }
