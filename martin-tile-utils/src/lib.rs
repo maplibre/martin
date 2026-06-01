@@ -1,4 +1,5 @@
 #![doc = include_str!("../README.md")]
+#![forbid(unsafe_code)]
 
 // This code was partially adapted from https://github.com/maplibre/mbtileserver-rs
 // project originally written by Kaveh Karimi and licensed under MIT OR Apache-2.0
