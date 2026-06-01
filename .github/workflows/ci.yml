@@ -77,7 +77,7 @@ jobs:
         if: runner.os == 'Linux'
         uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
       - name: Run cargo test
-        run: just test-packages
+        run: just test-packages-ci
       - run: just test-doc
   lint-rust:
     name: Lint the Rust code
