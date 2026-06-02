@@ -165,9 +165,8 @@ impl MBTilesReloader {
 
     /// Rediscovers sources and applies any changes.
     ///
-    /// The diff is computed by comparing a fresh [`discover_sources_by_ext`] snapshot against the
-    /// last known state. Logs and returns without updating state if rediscovery or
-    /// [`TileSourceManager::apply_changes`] fails.
+    /// Diff is computed via a fresh [`discover_sources_by_ext`] snapshot vs last known state.
+    /// Logs and returns without updating state if rediscovery or [`Sink::apply_changes`] fails.
     async fn process_event(&mut self, tsm: &mut TileSourceManager) {
         let sources = match discover_sources_by_ext(
             &self.directories,
