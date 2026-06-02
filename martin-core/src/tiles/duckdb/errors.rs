@@ -23,9 +23,9 @@ pub enum DuckDBPoolManagerError {
     Open {
         /// Underlying `DuckDB` error.
         #[source]
-        source: DuckdbError,
+        source: Box<DuckdbError>,
         /// Source target.
-        target: DuckDBPoolTarget,
+        target: Box<DuckDBPoolTarget>,
     },
 
     /// A required `DuckDB` extension could not be loaded.
@@ -33,11 +33,11 @@ pub enum DuckDBPoolManagerError {
     LoadExtension {
         /// Underlying `DuckDB` error.
         #[source]
-        source: DuckdbError,
+        source: Box<DuckdbError>,
         /// Extension name.
         extension: &'static str,
         /// Source target.
-        target: DuckDBPoolTarget,
+        target: Box<DuckDBPoolTarget>,
     },
 
     /// A pool-wide session setting could not be applied.
@@ -45,14 +45,18 @@ pub enum DuckDBPoolManagerError {
     ApplySetting {
         /// Underlying `DuckDB` error.
         #[source]
-        source: DuckdbError,
+        source: Box<DuckdbError>,
         /// Setting name.
         setting: &'static str,
         /// Setting value.
         value: String,
         /// Source target.
-        target: DuckDBPoolTarget,
+        target: Box<DuckDBPoolTarget>,
     },
+
+    /// Thread count cannot be represented as a `DuckDB` setting value.
+    #[error("Unable to apply DuckDB setting threads={0}: value is too large")]
+    InvalidThreadCount(usize),
 }
 
 /// Errors that can occur when working with `DuckDB` tile sources.
@@ -78,7 +82,7 @@ pub enum DuckDBError {
     PrepareQueryError {
         /// The underlying `DuckDB` error.
         #[source]
-        source: DuckdbError,
+        source: Box<DuckdbError>,
         /// The id of the tile source the query was prepared for.
         source_id: String,
         /// The source's query signature (parameter types).
@@ -89,9 +93,14 @@ pub enum DuckDBError {
 
     /// Query execution failed while serving a tile.
     #[error(r"Unable to get tile {2:#} from DuckDB source {1}: {0}")]
-    GetTileError(#[source] DuckdbError, String, TileCoord),
+    GetTileError(#[source] Box<DuckdbError>, String, TileCoord),
 
     /// Query execution unexpectedly received URL query parameters.
     #[error(r"Unable to get tile {2:#} with query params from DuckDB source {1}: {0}")]
-    GetTileWithQueryError(#[source] DuckdbError, String, TileCoord, Option<UrlQuery>),
+    GetTileWithQueryError(
+        #[source] Box<DuckdbError>,
+        String,
+        TileCoord,
+        Option<UrlQuery>,
+    ),
 }
