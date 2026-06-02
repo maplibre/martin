@@ -77,23 +77,8 @@ jobs:
         if: runner.os == 'Linux'
         uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
       - name: Run cargo test
-        run: |
-          set -x
-          cargo test --package martin-tile-utils
-          cargo test --package mbtiles --no-default-features
-          cargo test --package mbtiles
-          cargo test --package martin-core
-          # style rendering requires upstream resources
-          # we use a cassete recording to not have random flakes
-          if [ "$RUNNER_OS" = Linux ]; then
-            just with-render-cache 'cargo test --package martin'
-          else
-            cargo test --package martin
-          fi
-        env:
-          AWS_SKIP_CREDENTIALS: 1
-          AWS_REGION: eu-central-1
-      - run: cargo test --doc
+        run: just test-packages-ci
+      - run: just test-doc
   lint-rust:
     name: Lint the Rust code
     permissions:
