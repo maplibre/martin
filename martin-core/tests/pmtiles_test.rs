@@ -79,7 +79,7 @@ fn create_test_directory() -> Result<pmtiles::Directory, pmtiles::PmtError> {
         0xD0, 0x0F, // offsets: first=1000, second=2000
     ];
 
-    pmtiles::Directory::try_from(bytes::Bytes::from(buf))
+    pmtiles::Directory::try_from(Bytes::from(buf))
 }
 
 #[tokio::test]
