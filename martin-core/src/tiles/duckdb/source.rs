@@ -3,8 +3,7 @@ use crate::tiles::duckdb::DuckDBError::{GetTileError, PrepareQueryError};
 use crate::tiles::duckdb::{DuckDBPool, DuckDBResult};
 use crate::tiles::{BoxedSource, MartinCoreResult, Source, UrlQuery};
 use async_trait::async_trait;
-use duckdb::params;
-use duckdb::{Connection, OptionalExt as _};
+use duckdb::{Connection, OptionalExt as _, params};
 use martin_tile_utils::{TileCoord, TileData, TileInfo};
 use tilejson::TileJSON;
 use tracing::{instrument, trace};
@@ -133,7 +132,7 @@ fn execute_tile_query(
     let mut stmt = conn
         .prepare_cached(sql)
         .map_err(|source| PrepareQueryError {
-            source,
+            source: source.into(),
             source_id: source_id.to_string(),
             signature: info.signature.clone(),
             query: info.sql_query.clone(),
@@ -146,7 +145,7 @@ fn execute_tile_query(
             |row| row.get::<_, Option<TileData>>(0),
         )
         .optional()
-        .map_err(|e| GetTileError(e, source_id.to_string(), xyz))?
+        .map_err(|e| GetTileError(e.into(), source_id.to_string(), xyz))?
         .flatten()
         .unwrap_or_default();
 
