@@ -24,7 +24,7 @@ pub struct DuckDBPool {
 
 impl DuckDBPool {
     /// Creates a read-only pool for a `.duckdb` database file source.
-    pub async fn new_database_file(
+    pub fn new_database_file(
         id: String,
         path: PathBuf,
         pool_size: usize,
@@ -41,7 +41,7 @@ impl DuckDBPool {
     }
 
     /// Creates an in-memory pool for a local `GeoParquet` source.
-    pub async fn new_local_geoparquet(
+    pub fn new_local_geoparquet(
         id: String,
         path: PathBuf,
         pool_size: usize,
@@ -58,7 +58,7 @@ impl DuckDBPool {
     }
 
     /// Creates an in-memory pool for a remote `GeoParquet` source.
-    pub async fn new_remote_geoparquet(
+    pub fn new_remote_geoparquet(
         id: String,
         url: Url,
         pool_size: usize,
