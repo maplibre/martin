@@ -57,6 +57,16 @@ pub enum DuckDBPoolManagerError {
     /// Thread count cannot be represented as a `DuckDB` setting value.
     #[error("Unable to apply DuckDB setting threads={0}: value is too large")]
     InvalidThreadCount(usize),
+
+    /// The `DuckDB` connection failed a pool recycle health check.
+    #[error("DuckDB connection health check failed for {target}: {source}")]
+    HealthCheck {
+        /// Underlying `DuckDB` error.
+        #[source]
+        source: Box<DuckdbError>,
+        /// Source target.
+        target: Box<DuckDBPoolTarget>,
+    },
 }
 
 /// Errors that can occur when working with `DuckDB` tile sources.

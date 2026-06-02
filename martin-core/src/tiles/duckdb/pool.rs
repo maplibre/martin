@@ -11,7 +11,7 @@ use url::Url;
 
 use crate::tiles::duckdb::errors::DuckDBPoolManagerError;
 use crate::tiles::duckdb::errors::DuckDBPoolManagerError::{
-    ApplySetting, InvalidThreadCount, LoadExtension, Open,
+    ApplySetting, HealthCheck, InvalidThreadCount, LoadExtension, Open,
 };
 use crate::tiles::duckdb::{DuckDBError, DuckDBResult};
 
@@ -87,7 +87,7 @@ impl DuckDBPool {
             .build()
             .map_err(|e| DuckDBError::DuckDBPoolBuildError(e, id.clone()))?;
 
-        Ok(Self {id, pool})
+        Ok(Self { id, pool })
     }
 
     /// Runs blocking work with a pooled connection and returns it to the pool afterwards.
@@ -170,11 +170,9 @@ impl DuckDBPoolManager {
     fn open_ready_connection(&self) -> Result<Connection, DuckDBPoolManagerError> {
         let threads_value = self
             .threads
-            .map_or(2, |value| value.get())
+            .map_or(2, std::num::NonZero::get)
             .try_into()
-            .map_err(|_| {
-                InvalidThreadCount(self.threads.map_or(0, |thread_val| thread_val.get()))
-            })?;
+            .map_err(|_| InvalidThreadCount(self.threads.map_or(0, std::num::NonZero::get)))?;
         let memory_limit_value = self
             .memory_limit_mb
             .map_or("512MB".to_string(), |limit| format!("{limit}MB"));
@@ -236,11 +234,19 @@ impl Manager for DuckDBPoolManager {
         }
     }
 
-    fn recycle(
+    async fn recycle(
         &self,
-        _obj: &mut Self::Type,
+        conn: &mut Self::Type,
         _metrics: &Metrics,
-    ) -> impl Future<Output = RecycleResult<Self::Error>> + Send {
-        async { Ok(()) }
+    ) -> RecycleResult<Self::Error> {
+        let target = self.target.clone();
+        tokio::task::block_in_place(|| conn.execute_batch("SELECT 1")).map_err(|source| {
+            HealthCheck {
+                source: source.into(),
+                target: target.into(),
+            }
+        })?;
+
+        Ok(())
     }
 }
