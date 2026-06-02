@@ -213,8 +213,6 @@ impl PMTilesReloader {
                     process,
                 };
                 let mut tsm_remote = tile_source_manager;
-                // The first tick fires immediately so remote sources appear without a
-                // full-interval startup delay.
                 let mut trigger = PollTrigger::new(interval);
                 tokio::spawn(async move {
                     while trigger.next().await.is_some() {
