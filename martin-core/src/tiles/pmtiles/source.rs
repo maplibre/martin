@@ -126,6 +126,7 @@ impl PmtilesSource {
     ///
     /// Callers (e.g. `PmtilesReloader`) can `await` this to learn when the
     /// tile-cache entries for this source should be invalidated.
+    #[must_use]
     pub fn reload_signal(&self) -> Arc<Notify> {
         Arc::clone(&self.reload_signal)
     }
@@ -182,8 +183,7 @@ impl Source for PmtilesSource {
         xyz: TileCoord,
         _url_query: Option<&UrlQuery>,
     ) -> MartinCoreResult<TileData> {
-        let coord =
-            pmtiles::TileCoord::new(xyz.z, xyz.x, xyz.y).map_err(PmtilesError::PmtError)?;
+        let coord = pmtiles::TileCoord::new(xyz.z, xyz.x, xyz.y).map_err(PmtilesError::PmtError)?;
 
         let result = {
             let reader = self.pmtiles.read().await;
