@@ -86,12 +86,8 @@ impl DuckDBPool {
             .max_size(pool_size)
             .build()
             .map_err(|e| DuckDBError::DuckDBPoolBuildError(e, id.clone()))?;
-        let res = Self {
-            id: id.clone(),
-            pool,
-        };
 
-        Ok(res)
+        Ok(Self {id, pool})
     }
 
     /// Runs blocking work with a pooled connection and returns it to the pool afterwards.
