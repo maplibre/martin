@@ -11,7 +11,6 @@ use crate::{MartinError, MartinResult};
 
 /// Decides when the reload loop reconciles.
 /// `None` ends the loop.
-#[async_trait]
 pub trait Trigger: Send + 'static {
     async fn next(&mut self) -> Option<()>;
 }
