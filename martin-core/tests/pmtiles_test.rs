@@ -463,7 +463,7 @@ async fn source_returns_error_after_object_store_update() {
         .expect("first read succeeds");
     assert!(!tile.is_empty(), "first tile should have data");
 
-    // Re-upload the same bytes — InMemory increments the ETag on every put.
+    // Re-upload the same bytes -- InMemory increments the ETag on every put.
     store
         .put(&path, PutPayload::from(fixture_data))
         .await
