@@ -51,7 +51,6 @@ impl NotifyTrigger {
     }
 }
 
-#[async_trait]
 impl Trigger for NotifyTrigger {
     async fn next(&mut self) -> Option<()> {
         while let Some(event) = self.rx.recv().await {
