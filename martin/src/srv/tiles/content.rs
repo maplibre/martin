@@ -383,34 +383,42 @@ impl<'a> DynTileSource<'a> {
             not(all(feature = "mlt", feature = "_tiles")),
             expect(unused_variables)
         )]
-        let mut tiles = try_join_all(self.sources.iter().map(|(s, pc)| async {
-            let fetch_and_process = || async {
-                let tile = s.get_tile_with_etag(xyz, self.query_obj.as_ref()).await?;
-                apply_pre_cache_processors(
-                    tile,
-                    #[cfg(all(feature = "mlt", feature = "_tiles"))]
-                    pc,
-                    #[cfg(all(feature = "mlt", feature = "_tiles"))]
-                    self.accepted_format,
-                )
-                .map_err(|e| MartinCoreError::OtherError(Box::new(e)))
-            };
-            let cache_zoom_ok = s.cache_zoom().contains(xyz.z);
-            let tile = if let (Some(cache), true) = (self.cache, cache_zoom_ok) {
-                cache
-                    .get_or_insert(
-                        martin_core::tiles::TileCacheKey::new(
-                            s.get_id().to_string(),
-                            xyz,
-                            self.query_str.map(ToString::to_string),
-                            self.accepted_format,
-                        ),
-                        fetch_and_process,
+        let mut tiles = try_join_all(self.sources.iter().map(|(s, pc)| async move {
+            let do_fetch = |src: &BoxedSource| {
+                let cache_zoom = src.cache_zoom().contains(xyz.z);
+                let src_id = src.get_id().to_string();
+                let src = src.clone_source();
+                let compute = || async move {
+                    let t = src.get_tile_with_etag(xyz, self.query_obj.as_ref()).await?;
+                    apply_pre_cache_processors(
+                        t,
+                        #[cfg(all(feature = "mlt", feature = "_tiles"))]
+                        pc,
+                        #[cfg(all(feature = "mlt", feature = "_tiles"))]
+                        self.accepted_format,
                     )
-                    .await
-            } else {
-                fetch_and_process().await.map_err(Arc::new)
+                    .map_err(|e| MartinCoreError::OtherError(Box::new(e)))
+                };
+                async move {
+                    if let (Some(cache), true) = (self.cache, cache_zoom) {
+                        cache
+                            .get_or_insert(
+                                martin_core::tiles::TileCacheKey::new(
+                                    src_id,
+                                    xyz,
+                                    self.query_str.map(ToString::to_string),
+                                    self.accepted_format,
+                                ),
+                                compute,
+                            )
+                            .await
+                    } else {
+                        compute().await.map_err(Arc::new)
+                    }
+                }
             };
+
+            let tile = do_fetch(s).await;
 
             // On SourceNeedsReload, fetch a fresh source from the manager and retry once.
             // This handles sources whose backing storage changed in such a way that a source reload
@@ -420,34 +428,7 @@ impl<'a> DynTileSource<'a> {
                 match self.manager.tile_sources().get_source(s.get_id()) {
                     Ok((reloaded_src, _)) => {
                         warn!(source.id = s.get_id(), "Source modified; reloading");
-                        let cache_zoom_fresh = reloaded_src.cache_zoom().contains(xyz.z);
-                        let reloaded_id = reloaded_src.get_id().to_string();
-                        let retry = || async {
-                            let t = reloaded_src.get_tile_with_etag(xyz, self.query_obj.as_ref()).await?;
-                            apply_pre_cache_processors(
-                                t,
-                                #[cfg(all(feature = "mlt", feature = "_tiles"))]
-                                pc,
-                                #[cfg(all(feature = "mlt", feature = "_tiles"))]
-                                self.accepted_format,
-                            )
-                            .map_err(|e| MartinCoreError::OtherError(Box::new(e)))
-                        };
-                        if let (Some(cache), true) = (self.cache, cache_zoom_fresh) {
-                            cache
-                                .get_or_insert(
-                                    martin_core::tiles::TileCacheKey::new(
-                                        reloaded_id,
-                                        xyz,
-                                        self.query_str.map(ToString::to_string),
-                                        self.accepted_format,
-                                    ),
-                                    retry,
-                                )
-                                .await
-                        } else {
-                            retry().await.map_err(Arc::new)
-                        }
+                        do_fetch(&reloaded_src).await
                     }
                     // Source was removed from the manager between the initial fetch and the
                     // retry (race with a concurrent removal); surface the original error.
