@@ -1,7 +1,6 @@
 use std::path::PathBuf;
 use std::time::Duration;
 
-use async_trait::async_trait;
 use notify::event::{AccessKind, AccessMode};
 use notify::{Config, Event, EventKind, RecommendedWatcher, Watcher as _};
 use tokio::sync::mpsc;
@@ -83,7 +82,6 @@ impl PollTrigger {
     }
 }
 
-#[async_trait]
 impl Trigger for PollTrigger {
     async fn next(&mut self) -> Option<()> {
         self.ticker.tick().await;
