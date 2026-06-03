@@ -449,7 +449,7 @@ Read it when you're curious **why** certain choices were made.
     - **`Trigger`** - decides **when to reconcile**.
       `NotifyTrigger` fires on filesystem events; `PollTrigger` fires on a fixed interval.
     - **`Sink`** - where the diff is **applied**.
-      `TileSourceManager`, which holds the live catalog, implements it directly via `apply`.
+      `TileSourceManager`, which holds the live catalog, implements it directly via `apply_changes`.
 
     They interact in this loop:
 
