@@ -3,9 +3,10 @@ use martin_core::tiles::cog::CogSource;
 
 use crate::config::file::FileConfigEnum;
 use crate::config::file::cog::CogConfig;
+use crate::config::file::driver::Sink as _;
 use crate::config::file::process::ProcessConfig;
 use crate::config::file::tiles::discovery::{FsDiscovery, FsSourceBuilder};
-use crate::config::file::tiles::driver::{NotifyTrigger, ReloadDriver};
+use crate::config::file::tiles::driver::{Baseline, NotifyTrigger, ReloadDriver};
 use crate::config::primitives::IdResolver;
 use crate::{MartinResult, TileSourceManager};
 
@@ -48,7 +49,8 @@ impl CogReloader {
             return Ok(());
         }
         let trigger = NotifyTrigger::new(&directories)?;
-        ReloadDriver::new(self.discovery, self.tile_source_manager).spawn(trigger);
+        ReloadDriver::new(self.discovery, self.tile_source_manager)
+            .spawn(trigger, Baseline::StartupResolved);
         Ok(())
     }
 }

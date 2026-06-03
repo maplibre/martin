@@ -7,7 +7,7 @@ use crate::config::file::process::ProcessConfig;
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 use crate::config::file::resolve_process_config;
 use crate::config::file::tiles::discovery::{FsDiscovery, FsSourceBuilder};
-use crate::config::file::tiles::driver::{NotifyTrigger, ReloadDriver};
+use crate::config::file::tiles::driver::{Baseline, NotifyTrigger, ReloadDriver};
 use crate::config::primitives::IdResolver;
 use crate::{MartinResult, TileSourceManager};
 
@@ -64,7 +64,8 @@ impl MbTilesReloader {
             return Ok(());
         }
         let trigger = NotifyTrigger::new(&directories)?;
-        ReloadDriver::new(self.discovery, self.tile_source_manager).spawn(trigger);
+        ReloadDriver::new(self.discovery, self.tile_source_manager)
+            .spawn(trigger, Baseline::StartupResolved);
         Ok(())
     }
 }

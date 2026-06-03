@@ -11,7 +11,25 @@ use crate::config::file::tiles::driver::{Sink, Trigger};
 use crate::reload::ReloadAdvisory;
 use crate::{MartinError, MartinResult};
 
+/// What the catalog already holds for a driver's sources when it starts.
+///
+/// The baseline must match the catalog, since each reconcile applies the diff between it and the
+/// next discovery.
+#[derive(Clone, Copy)]
+pub enum Baseline {
+    /// Loaded into the catalog at startup by `config.resolve()` (local directories): seed the
+    /// baseline from the current discovery, so only later changes apply and removals diff correctly.
+    StartupResolved,
+    /// Not populated yet (remote prefixes are listed only by polling): start empty, so the first
+    /// reconcile loads everything discovered.
+    Empty,
+}
+
+/// Establishes a [`Baseline`], then on each [`Trigger`] re-discovers, diffs, applies, and
+/// commits-on-success / retains-on-failure.
 pub struct ReloadDriver<D: Discovery, S: Sink> {
+    /// `Arc` so a clone can move into the build closure without borrowing `self`
+    /// across the spawned task's awaits.
     discovery: Arc<D>,
     sink: S,
     baseline: Option<BTreeMap<String, (Version, D::Args)>>,
@@ -27,15 +45,21 @@ impl<D: Discovery, S: Sink> ReloadDriver<D, S> {
         }
     }
 
-    pub fn spawn(mut self, mut trigger: impl Trigger) -> JoinHandle<()> {
+    /// Establishes the [`Baseline`], then reconciles once per `trigger.next()`.
+    pub fn spawn(mut self, mut trigger: impl Trigger, initial: Baseline) -> JoinHandle<()> {
         tokio::spawn(async move {
-            self.seed().await;
+            match initial {
+                Baseline::StartupResolved => self.seed().await,
+                Baseline::Empty => self.baseline = Some(BTreeMap::new()),
+            }
             while trigger.next().await.is_some() {
                 self.reconcile().await;
             }
         })
     }
 
+    /// Records the startup state without applying; the catalog was already populated at
+    /// startup, so applying would double-add.
     async fn seed(&mut self) {
         match self.discovery.discover().await {
             Ok(next) => self.baseline = Some(next),
@@ -55,6 +79,8 @@ impl<D: Discovery, S: Sink> ReloadDriver<D, S> {
         };
 
         let Some(prev) = self.baseline.as_ref() else {
+            // No baseline yet (the seed failed): record it without applying, so already-served
+            // sources aren't re-added in a flood.
             self.baseline = Some(next);
             return;
         };
@@ -99,6 +125,7 @@ mod tests {
     use std::sync::{Arc, Mutex};
 
     use async_trait::async_trait;
+    use rstest::rstest;
 
     use martin_core::CacheZoomRange;
     use martin_core::tiles::{MartinCoreResult, Source, UrlQuery};
@@ -108,6 +135,7 @@ mod tests {
     use super::*;
     use crate::config::file::ProcessConfig;
 
+    /// A minimal in-memory [`Source`] returning a fixed tile; used to populate advisories.
     #[derive(Debug, Clone)]
     struct TestSource {
         id: String,
@@ -149,6 +177,7 @@ mod tests {
         }
     }
 
+    /// Projects a [`ReloadAdvisory`] to the source ids in each bucket, for order-sensitive equality.
     #[derive(Debug, Clone, PartialEq, Eq)]
     struct AdvisorySnapshot {
         additions: Vec<String>,
@@ -168,13 +197,23 @@ mod tests {
 
     type Snapshot = BTreeMap<String, (Version, ())>;
 
-    fn snapshot(entries: &[(&str, u128)]) -> Snapshot {
+    fn snapshot(entries: &[(&str, Version)]) -> Snapshot {
         entries
             .iter()
             .map(|(id, v)| ((*id).to_string(), (*v, ())))
             .collect()
     }
 
+    /// A snapshot of `Opaque` (unversioned) sources, as the remote object-store path produces.
+    fn snapshot_opaque(ids: &[&str]) -> Snapshot {
+        snapshot(
+            &ids.iter()
+                .map(|id| (*id, Version::Opaque))
+                .collect::<Vec<_>>(),
+        )
+    }
+
+    /// Replays a scripted sequence of `discover()` results.
     struct FakeDiscovery {
         snapshots: Mutex<VecDeque<MartinResult<Snapshot>>>,
     }
@@ -207,6 +246,7 @@ mod tests {
         }
     }
 
+    /// Fires `remaining` times, then signals shutdown.
     struct ManualTrigger {
         remaining: usize,
     }
@@ -227,6 +267,7 @@ mod tests {
         }
     }
 
+    /// Records every applied advisory and replays scripted results.
     #[derive(Clone)]
     struct SpySink {
         applied: Arc<Mutex<Vec<AdvisorySnapshot>>>,
@@ -270,49 +311,137 @@ mod tests {
         v.iter().map(|s| (*s).to_string()).collect()
     }
 
+    /// One tick diffs the seeded baseline against the next discovery and applies a single advisory.
+    /// The `opaque_unchanged` case pins the `Version::Opaque` contract: two equal `Opaque` versions never update.
+    #[rstest]
+    #[case::addition(
+        snapshot(&[]),
+        snapshot(&[("a", Version::Tracked(1))]),
+        ids(&["a"]), ids(&[]), ids(&[]),
+    )]
+    #[case::update(
+        snapshot(&[("a", Version::Tracked(1))]),
+        snapshot(&[("a", Version::Tracked(2))]),
+        ids(&[]), ids(&["a"]), ids(&[]),
+    )]
+    #[case::removal(
+        snapshot(&[("a", Version::Tracked(1))]),
+        snapshot(&[]),
+        ids(&[]), ids(&[]), ids(&["a"]),
+    )]
+    #[case::opaque_unchanged(
+        snapshot_opaque(&["a"]),
+        snapshot_opaque(&["a"]),
+        ids(&[]), ids(&[]), ids(&[]),
+    )]
     #[tokio::test]
-    async fn seed_does_not_apply() {
-        let discovery = FakeDiscovery::new(vec![Ok(snapshot(&[("a", 1)]))]);
+    async fn tick_diffs_baseline_against_discovery(
+        #[case] before: Snapshot,
+        #[case] after: Snapshot,
+        #[case] additions: Vec<String>,
+        #[case] updates: Vec<String>,
+        #[case] removals: Vec<String>,
+    ) {
+        let discovery = FakeDiscovery::new(vec![Ok(before), Ok(after)]);
         let sink = SpySink::new();
         let recorded = sink.recorded();
 
         ReloadDriver::new(discovery, sink)
-            .spawn(ManualTrigger::new(0))
+            .spawn(ManualTrigger::new(1), Baseline::StartupResolved)
             .await
             .expect("driver task panicked");
 
-        assert!(recorded.lock().unwrap().is_empty());
+        assert_eq!(
+            *recorded.lock().unwrap(),
+            vec![AdvisorySnapshot {
+                additions,
+                updates,
+                removals,
+            }]
+        );
+    }
+
+    #[tokio::test]
+    async fn unseeded_applies_full_first_discovery() {
+        // The remote poll path: nothing pre-populated the catalog, so the first tick must apply
+        // the entire discovery rather than recording it as an already-applied baseline.
+        let discovery = FakeDiscovery::new(vec![Ok(snapshot(&[
+            ("a", Version::Tracked(1)),
+            ("b", Version::Tracked(1)),
+        ]))]);
+        let sink = SpySink::new();
+        let recorded = sink.recorded();
+
+        ReloadDriver::new(discovery, sink)
+            .spawn(ManualTrigger::new(1), Baseline::Empty)
+            .await
+            .expect("driver task panicked");
+
+        assert_eq!(
+            *recorded.lock().unwrap(),
+            vec![AdvisorySnapshot {
+                additions: ids(&["a", "b"]),
+                updates: ids(&[]),
+                removals: ids(&[]),
+            }]
+        );
+    }
+
+    #[tokio::test]
+    async fn seed_does_not_apply() {
+        // No triggers: the driver only seeds, which must not apply (catalog already populated).
+        let discovery = FakeDiscovery::new(vec![Ok(snapshot(&[("a", Version::Tracked(1))]))]);
+        let sink = SpySink::new();
+        let recorded = sink.recorded();
+
+        ReloadDriver::new(discovery, sink)
+            .spawn(ManualTrigger::new(0), Baseline::StartupResolved)
+            .await
+            .expect("driver task panicked");
+
+        assert!(recorded.lock().unwrap().is_empty(), "seed must not apply");
     }
 
     #[tokio::test]
     async fn failed_seed_then_success_does_not_flood() {
+        // Seed fails (baseline stays None); the first good tick establishes it without applying.
         let discovery = FakeDiscovery::new(vec![
             Err(MartinError::SourceNotFound("seed boom".into())),
-            Ok(snapshot(&[("a", 1), ("b", 1)])),
+            Ok(snapshot(&[
+                ("a", Version::Tracked(1)),
+                ("b", Version::Tracked(1)),
+            ])),
         ]);
         let sink = SpySink::new();
         let recorded = sink.recorded();
 
         ReloadDriver::new(discovery, sink)
-            .spawn(ManualTrigger::new(1))
+            .spawn(ManualTrigger::new(1), Baseline::StartupResolved)
             .await
             .expect("driver task panicked");
 
-        assert!(recorded.lock().unwrap().is_empty());
+        assert!(
+            recorded.lock().unwrap().is_empty(),
+            "establishing the baseline after a failed seed must not flood"
+        );
     }
 
     #[tokio::test]
     async fn failed_discover_retains_baseline() {
+        // The failed middle tick keeps the baseline, so only `b` diffs on the last tick.
         let discovery = FakeDiscovery::new(vec![
-            Ok(snapshot(&[("a", 1)])),
+            Ok(snapshot(&[("a", Version::Tracked(1))])),
             Err(MartinError::SourceNotFound("tick boom".into())),
-            Ok(snapshot(&[("a", 1), ("b", 1)])),
+            Ok(snapshot(&[
+                ("a", Version::Tracked(1)),
+                ("b", Version::Tracked(1)),
+            ])),
         ]);
         let sink = SpySink::new();
         let recorded = sink.recorded();
 
         ReloadDriver::new(discovery, sink)
-            .spawn(ManualTrigger::new(2))
+            .spawn(ManualTrigger::new(2), Baseline::StartupResolved)
             .await
             .expect("driver task panicked");
 
@@ -328,10 +457,11 @@ mod tests {
 
     #[tokio::test]
     async fn failed_apply_retains_baseline_and_retries() {
+        // The first apply fails; the retained baseline makes the next tick retry the same delta.
         let discovery = FakeDiscovery::new(vec![
             Ok(snapshot(&[])),
-            Ok(snapshot(&[("a", 1)])),
-            Ok(snapshot(&[("a", 1)])),
+            Ok(snapshot(&[("a", Version::Tracked(1))])),
+            Ok(snapshot(&[("a", Version::Tracked(1))])),
         ]);
         let sink = SpySink::with_results(vec![
             Err(MartinError::SourceNotFound("apply boom".into())),
@@ -340,7 +470,7 @@ mod tests {
         let recorded = sink.recorded();
 
         ReloadDriver::new(discovery, sink)
-            .spawn(ManualTrigger::new(2))
+            .spawn(ManualTrigger::new(2), Baseline::StartupResolved)
             .await
             .expect("driver task panicked");
 
