@@ -10,12 +10,12 @@ use crate::config::primitives::IdResolver;
 use crate::{MartinResult, TileSourceManager};
 
 /// Watches configured directories for `.tif`/`.tiff` changes.
-pub struct COGReloader {
+pub struct CogReloader {
     tile_source_manager: TileSourceManager,
     discovery: FsDiscovery,
 }
 
-impl COGReloader {
+impl CogReloader {
     #[must_use]
     pub fn new(
         tsm: TileSourceManager,
