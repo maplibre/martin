@@ -1,23 +1,18 @@
-use std::collections::BTreeMap;
-use std::path::PathBuf;
-
 use martin_core::tiles::BoxedSource;
 use martin_core::tiles::cog::CogSource;
 
+use crate::config::file::FileConfigEnum;
 use crate::config::file::cog::CogConfig;
-use crate::config::file::driver::{NotifyTrigger, Sink as _, Trigger as _};
 use crate::config::file::process::ProcessConfig;
-use crate::config::file::tiles::reload::{discover_sources_by_ext, path_modified_ms};
-use crate::config::file::{CachePolicy, FileConfigEnum};
-use crate::config::primitives::{IdResolver, OptOneMany};
-use crate::{MartinError, MartinResult, ReloadAdvisory, TileSourceManager};
+use crate::config::file::tiles::discovery::{FsDiscovery, FsSourceBuilder};
+use crate::config::file::tiles::driver::{NotifyTrigger, ReloadDriver};
+use crate::config::primitives::IdResolver;
+use crate::{MartinResult, TileSourceManager};
 
+/// Watches configured directories for `.tif`/`.tiff` changes.
 pub struct COGReloader {
-    id_resolver: IdResolver,
     tile_source_manager: TileSourceManager,
-    sources: BTreeMap<String, (PathBuf, u128, CachePolicy)>,
-    directories: Vec<PathBuf>,
-    path_cache: BTreeMap<PathBuf, CachePolicy>,
+    discovery: FsDiscovery,
 }
 
 impl COGReloader {
@@ -27,140 +22,33 @@ impl COGReloader {
         id_resolver: IdResolver,
         config: &FileConfigEnum<CogConfig>,
     ) -> Self {
-        let mut sources: BTreeMap<String, (PathBuf, u128, CachePolicy)> = BTreeMap::new();
-        let mut directories: Vec<PathBuf> = vec![];
-        let mut path_cache: BTreeMap<PathBuf, CachePolicy> = BTreeMap::new();
-
-        if let FileConfigEnum::Config(cfg) = config
-            && let Some(s) = &cfg.sources
-        {
-            for (id, src) in s {
-                let path = src.get_path();
-                let policy = src.cache_zoom();
-                let Ok(canonical) = path.canonicalize() else {
-                    tracing::warn!(
-                        "failed to resolve canonical path for tile source {:?}",
-                        path
-                    );
-                    continue;
-                };
-                let Some(modified_ms) = path_modified_ms(path) else {
-                    continue;
-                };
-
-                path_cache.insert(canonical.clone(), policy);
-                sources.insert(id.clone(), (canonical.clone(), modified_ms, policy));
-            }
-        }
-
-        let mut push_canonical = |path: &PathBuf| match path.canonicalize() {
-            Ok(p) => directories.push(p),
-            Err(e) => tracing::warn!("failed to canonicalize watch directory {:?}: {e}", path),
-        };
-
-        match config {
-            FileConfigEnum::Config(cfg) => match &cfg.paths {
-                OptOneMany::One(path) => push_canonical(path),
-                OptOneMany::Many(paths) => paths.iter().for_each(&mut push_canonical),
-                OptOneMany::NoVals => {}
-            },
-            FileConfigEnum::Path(path) => push_canonical(path),
-            FileConfigEnum::Paths(paths) => paths.iter().for_each(push_canonical),
-            FileConfigEnum::None => {}
-        }
-
-        directories.sort();
-        directories.dedup();
-
+        let build: FsSourceBuilder = Box::new(|id, path, policy| {
+            Box::pin(async move {
+                let src = CogSource::new(id, path, policy.zoom())?;
+                Ok(Box::new(src) as BoxedSource)
+            })
+        });
+        let discovery = FsDiscovery::from_config(
+            config,
+            &["tif", "tiff"],
+            id_resolver,
+            ProcessConfig::default(),
+            build,
+        );
         Self {
             tile_source_manager: tsm,
-            id_resolver,
-            sources,
-            directories,
-            path_cache,
+            discovery,
         }
     }
 
-    pub fn start(mut self) -> MartinResult<()> {
-        if self.directories.is_empty() {
+    /// Spawns the reload driver. Does nothing if no directories are configured.
+    pub fn start(self) -> MartinResult<()> {
+        let directories = self.discovery.directories().to_vec();
+        if directories.is_empty() {
             return Ok(());
         }
-
-        let mut trigger = NotifyTrigger::new(&self.directories)?;
-
-        tokio::spawn(async move {
-            let mut tsm = self.tile_source_manager.clone();
-            self.seed_snapshot().await;
-
-            while trigger.next().await.is_some() {
-                self.process_event(&mut tsm).await;
-            }
-        });
-
+        let trigger = NotifyTrigger::new(&directories)?;
+        ReloadDriver::new(self.discovery, self.tile_source_manager).spawn(trigger);
         Ok(())
-    }
-
-    /// Merge directory-discovered files into `self.sources`. See [`pmtiles::LocalState::seed_snapshot`]
-    /// for why this matters: `new` only seeds explicit `cfg.sources`, so without an
-    /// initial scan, removes/modifies of files already present at startup never diff.
-    async fn seed_snapshot(&mut self) {
-        match discover_sources_by_ext(
-            &self.directories,
-            &["tif", "tiff"],
-            &self.path_cache,
-            &self.id_resolver,
-        )
-        .await
-        {
-            Ok(discovered) => {
-                for (id, entry) in discovered {
-                    self.sources.entry(id).or_insert(entry);
-                }
-            }
-            Err(e) => {
-                tracing::warn!("failed to seed reloader snapshot from directories {e:?}");
-            }
-        }
-    }
-
-    async fn process_event(&mut self, tsm: &mut TileSourceManager) {
-        let sources = match discover_sources_by_ext(
-            &self.directories,
-            &["tif", "tiff"],
-            &self.path_cache,
-            &self.id_resolver,
-        )
-        .await
-        {
-            Ok(v) => v,
-            Err(e) => {
-                tracing::warn!("failed to rediscover sources from directories {e:?}");
-                return;
-            }
-        };
-
-        let prev: BTreeMap<String, u128> =
-            self.sources.iter().map(|(k, v)| (k.clone(), v.1)).collect();
-        let next: BTreeMap<String, u128> = sources.iter().map(|(k, v)| (k.clone(), v.1)).collect();
-        let sources_clone = sources.clone();
-
-        let adv = ReloadAdvisory::from_maps(
-            &prev,
-            &next,
-            async move |id| -> MartinResult<BoxedSource> {
-                let p = sources_clone
-                    .get(&id)
-                    .ok_or(MartinError::SourceNotFound(id.clone()))?;
-                let src = CogSource::new(id, p.0.clone(), p.2.zoom())?;
-                Ok(Box::new(src) as BoxedSource)
-            },
-            ProcessConfig::default(),
-        )
-        .await;
-
-        match tsm.apply_changes(adv).await {
-            Ok(()) => self.sources = sources,
-            Err(e) => tracing::warn!("failed to apply reload changes: {e:?}"),
-        }
     }
 }
