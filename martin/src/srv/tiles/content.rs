@@ -10,7 +10,7 @@ use actix_web::http::header::{
 use actix_web::web::{Data, Path, Query};
 use actix_web::{HttpMessage as _, HttpRequest, HttpResponse, Result as ActixResult, route};
 use futures::future::try_join_all;
-use martin_core::tiles::{BoxedSource, Tile, TileCache, UrlQuery};
+use martin_core::tiles::{BoxedSource, MartinCoreError, Tile, TileCache, UrlQuery};
 use martin_tile_utils::{
     Encoding, Format, TileCoord, TileInfo, decode_brotli, decode_gzip, decode_zlib, decode_zstd,
     encode_brotli, encode_gzip, encode_zlib, encode_zstd,
@@ -260,6 +260,7 @@ pub struct DynTileSource<'a> {
     pub accepted_format: Option<Format>,
     pub headers: TileRequestHeaders,
     pub cache: Option<&'a TileCache>,
+    pub manager: &'a TileSourceManager,
 }
 
 impl<'a> DynTileSource<'a> {
@@ -299,6 +300,7 @@ impl<'a> DynTileSource<'a> {
             accepted_format,
             headers,
             cache,
+            manager,
         })
     }
 
@@ -391,7 +393,7 @@ impl<'a> DynTileSource<'a> {
                     #[cfg(all(feature = "mlt", feature = "_tiles"))]
                     self.accepted_format,
                 )
-                .map_err(|e| martin_core::tiles::MartinCoreError::OtherError(Box::new(e)))
+                .map_err(|e| MartinCoreError::OtherError(Box::new(e)))
             };
             let cache_zoom_ok = s.cache_zoom().contains(xyz.z);
             let tile = if let (Some(cache), true) = (self.cache, cache_zoom_ok) {
@@ -409,6 +411,52 @@ impl<'a> DynTileSource<'a> {
             } else {
                 fetch_and_process().await.map_err(Arc::new)
             };
+
+            // On SourceNeedsReload, fetch a fresh source from the manager and retry once.
+            // This handles sources whose backing storage changed in such a way that a source reload
+            // is needed and can be done within the request flow so as to allow the user's original request
+            // to be retried.
+            let tile = if matches!(&tile, Err(e) if matches!(e.as_ref(), MartinCoreError::SourceNeedsReload { .. })) {
+                match self.manager.tile_sources().get_source(s.get_id()) {
+                    Ok((reloaded_src, _)) => {
+                        warn!(source.id = s.get_id(), "Source modified; reloading");
+                        let cache_zoom_fresh = reloaded_src.cache_zoom().contains(xyz.z);
+                        let reloaded_id = reloaded_src.get_id().to_string();
+                        let retry = || async {
+                            let t = reloaded_src.get_tile_with_etag(xyz, self.query_obj.as_ref()).await?;
+                            apply_pre_cache_processors(
+                                t,
+                                #[cfg(all(feature = "mlt", feature = "_tiles"))]
+                                pc,
+                                #[cfg(all(feature = "mlt", feature = "_tiles"))]
+                                self.accepted_format,
+                            )
+                            .map_err(|e| MartinCoreError::OtherError(Box::new(e)))
+                        };
+                        if let (Some(cache), true) = (self.cache, cache_zoom_fresh) {
+                            cache
+                                .get_or_insert(
+                                    martin_core::tiles::TileCacheKey::new(
+                                        reloaded_id,
+                                        xyz,
+                                        self.query_str.map(ToString::to_string),
+                                        self.accepted_format,
+                                    ),
+                                    retry,
+                                )
+                                .await
+                        } else {
+                            retry().await.map_err(Arc::new)
+                        }
+                    }
+                    // Source was removed from the manager between the initial fetch and the
+                    // retry (race with a concurrent removal); surface the original error.
+                    Err(_) => tile,
+                }
+            } else {
+                tile
+            };
+
             tile.map_err(|e| map_internal_error(e.as_ref()))
         }))
         .await?;
