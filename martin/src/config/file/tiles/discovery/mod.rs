@@ -1,7 +1,7 @@
 //! The `Discovery` trait and its implementations: `FsDiscovery` for the file-backed kinds.
 
-mod r#trait;
-pub use r#trait::{Discovery, Version};
+mod discovery_trait;
+pub use discovery_trait::{Discovery, Version};
 
 #[cfg(any(feature = "mbtiles", feature = "unstable-cog", feature = "pmtiles"))]
 mod fs;
