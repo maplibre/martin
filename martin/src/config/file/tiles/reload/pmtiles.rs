@@ -5,14 +5,10 @@ use std::time::Duration;
 
 use futures::stream::TryStreamExt as _;
 use martin_core::tiles::BoxedSource;
-use notify::event::{AccessKind, AccessMode};
-use notify::{Config, Event, EventKind, RecommendedWatcher, Watcher as _};
 use object_store::ObjectStore as _;
-use tokio::sync::mpsc;
-use tokio::time::{Instant, MissedTickBehavior};
 use url::Url;
 
-use crate::config::file::driver::Sink as _;
+use crate::config::file::driver::{NotifyTrigger, PollTrigger, Sink as _, Trigger as _};
 use crate::config::file::file_config::is_remote_url;
 use crate::config::file::pmtiles::PmtConfig;
 use crate::config::file::process::ProcessConfig;
@@ -184,25 +180,7 @@ impl PMTilesReloader {
         // Local watcher and remote poller each own their state inside their spawned
         // task -- splitting the reloader avoids a shared mutex.
         if !directories.is_empty() {
-            let (tx, mut rx) = mpsc::channel::<Event>(256);
-            let mut watcher = RecommendedWatcher::new(
-                move |result: notify::Result<Event>| {
-                    if let Ok(event) = result {
-                        // `try_send` drops the event if the channel is full instead of
-                        // blocking the OS watcher thread. Each event triggers a full
-                        // rescan, so coalescing duplicates is harmless.
-                        let _ = tx.try_send(event);
-                    }
-                },
-                Config::default(),
-            )
-            .map_err(|e| MartinError::DirectoryWatchError(e.kind))?;
-            for dir in &directories {
-                watcher
-                    // FIXME: find a naming scheme for paths that makes sense under recursive and enable it
-                    .watch(dir, notify::RecursiveMode::NonRecursive)
-                    .map_err(|e| MartinError::DirectoryWatchError(e.kind))?;
-            }
+            let mut trigger = NotifyTrigger::new(&directories)?;
 
             let mut local_state = LocalState {
                 id_resolver: id_resolver.clone(),
@@ -214,10 +192,9 @@ impl PMTilesReloader {
             };
             let mut tsm_local = tile_source_manager.clone();
             tokio::spawn(async move {
-                let _watcher = watcher;
                 local_state.seed_snapshot().await;
-                while let Some(event) = rx.recv().await {
-                    local_state.process_event(&mut tsm_local, event).await;
+                while trigger.next().await.is_some() {
+                    local_state.process_event(&mut tsm_local).await;
                 }
             });
         }
@@ -236,13 +213,9 @@ impl PMTilesReloader {
                     process,
                 };
                 let mut tsm_remote = tile_source_manager;
+                let mut trigger = PollTrigger::new(interval);
                 tokio::spawn(async move {
-                    // Fire the first tick at `now` so remote sources appear without a
-                    // full-interval startup delay.
-                    let mut ticker = tokio::time::interval_at(Instant::now(), interval);
-                    ticker.set_missed_tick_behavior(MissedTickBehavior::Delay);
-                    loop {
-                        ticker.tick().await;
+                    while trigger.next().await.is_some() {
                         remote_state.tick(&mut tsm_remote).await;
                     }
                 });
@@ -289,17 +262,7 @@ impl LocalState {
         }
     }
 
-    async fn process_event(&mut self, tsm: &mut TileSourceManager, event: Event) {
-        if !matches!(
-            event.kind,
-            EventKind::Create(_)
-                | EventKind::Remove(_)
-                | EventKind::Modify(_)
-                | EventKind::Access(AccessKind::Close(AccessMode::Write))
-        ) {
-            return;
-        }
-
+    async fn process_event(&mut self, tsm: &mut TileSourceManager) {
         let sources = match discover_sources_by_ext(
             &self.directories,
             &[PMTILES_EXT],
