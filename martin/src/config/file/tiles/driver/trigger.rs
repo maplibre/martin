@@ -11,7 +11,7 @@ use crate::{MartinError, MartinResult};
 /// Decides when the reload loop reconciles.
 /// `None` ends the loop.
 pub trait Trigger: Send + 'static {
-    async fn next(&mut self) -> Option<()>;
+    fn next(&mut self) -> impl Future<Output = Option<()>> + Send;
 }
 
 /// Fires on relevant filesystem events in the watched directories.
