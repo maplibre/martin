@@ -476,9 +476,9 @@ async fn source_returns_error_after_object_store_update() {
     assert!(
         matches!(
             err,
-            MartinCoreError::PmtilesError(PmtilesError::PmtError(PmtError::SourceModified))
+            MartinCoreError::SourceNeedsReload { ref source_id } if source_id == "source_modified_test"
         ),
-        "expected SourceModified, got: {err:?}"
+        "expected SourceNeedsReload, got: {err:?}"
     );
 }
 

@@ -6,14 +6,14 @@ use async_trait::async_trait;
 use derive_debug::Dbg;
 use martin_tile_utils::{Encoding, Format, TileCoord, TileData, TileInfo};
 use object_store::ObjectStore;
-use pmtiles::{AsyncPmTilesReader, Compression, ObjectStoreBackend, TileType};
+use pmtiles::{AsyncPmTilesReader, Compression, ObjectStoreBackend, PmtError, TileType};
 use tilejson::TileJSON;
 use tracing::{trace, warn};
 
 use crate::CacheZoomRange;
 use crate::tiles::pmtiles::PmtCacheInstance;
 use crate::tiles::pmtiles::PmtilesError::{self, InvalidMetadata};
-use crate::tiles::{BoxedSource, MartinCoreResult, Source, UrlQuery};
+use crate::tiles::{BoxedSource, MartinCoreError, MartinCoreResult, Source, UrlQuery};
 
 /// A source for `PMTiles` files using `ObjectStoreBackend`
 #[derive(Clone, Dbg)]
@@ -140,12 +140,16 @@ impl Source for PmtilesSource {
         _url_query: Option<&UrlQuery>,
     ) -> MartinCoreResult<TileData> {
         let coord = pmtiles::TileCoord::new(xyz.z, xyz.x, xyz.y).map_err(PmtilesError::PmtError)?;
-        if let Some(t) = self
-            .pmtiles
-            .get_tile(coord)
-            .await
-            .map_err(PmtilesError::PmtError)?
-        {
+        let result = self.pmtiles.get_tile(coord).await;
+        if let Some(t) = match result {
+            Err(PmtError::SourceModified) => {
+                return Err(MartinCoreError::SourceNeedsReload {
+                    source_id: self.id.clone(),
+                });
+            }
+            Err(e) => return Err(PmtilesError::PmtError(e).into()),
+            Ok(t) => t,
+        } {
             Ok(t.to_vec())
         } else {
             trace!(
