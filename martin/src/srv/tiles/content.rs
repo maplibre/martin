@@ -658,7 +658,7 @@ mod tests {
 
     use super::*;
     use crate::config::file::OnInvalid;
-    use crate::srv::tiles::tests::{CompressedTestSource, TestSource};
+    use crate::srv::tiles::tests::{CompressedTestSource, SourceNeedsReloadTestSource, TestSource};
 
     fn test_manager(sources: Vec<Vec<BoxedSource>>) -> TileSourceManager {
         let sources = sources
@@ -780,6 +780,31 @@ mod tests {
             let xyz = TileCoord { z: 0, x: 0, y: 0 };
             assert_eq!(expected, &src.get_tile_content(xyz).await.unwrap().data);
         }
+    }
+
+    /// When a tile source returns [`MartinCoreError::SourceNeedsReload`], the serving layer
+    /// must reload the source from the manager and retry the tile request rather than surfacing
+    /// a 500 error to the caller.
+    #[actix_rt::test]
+    async fn test_source_needs_reload_is_retried() {
+        // `SourceNeedsReloadSource` returns the error on the first call and real data on every
+        // subsequent call, simulating a source that has been refreshed in place.
+        let source = SourceNeedsReloadTestSource::new("stale_source", vec![1, 2, 3]);
+        let mgr = test_manager(vec![vec![Box::new(source)]]);
+        let src = DynTileSource::new(
+            &mgr,
+            "stale_source",
+            None,
+            "",
+            TileRequestHeaders::default(),
+        )
+        .unwrap();
+
+        let tile = src
+            .get_tile_content(TileCoord { z: 0, x: 0, y: 0 })
+            .await
+            .unwrap();
+        assert_eq!(tile.data, vec![1, 2, 3]);
     }
 
     fn compress_with(data: &[u8], encoding: Encoding) -> Vec<u8> {
