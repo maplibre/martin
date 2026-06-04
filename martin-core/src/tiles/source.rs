@@ -86,11 +86,10 @@ pub trait Source: Send + Sync + Debug {
 
     /// Attempts to create a fresh instance of this source.
     ///
-    /// The default implementation returns `None`, meaning the source cannot self-reload and
-    /// the error will be surfaced to the caller.
-    ///
     /// Sources that return a MartinCoreError::SourceNeedReload from get_tile() must also
     /// implement this method.
+    ///
+    /// The default implementation asserts.
     async fn try_reload(&self) -> MartinCoreResult<BoxedSource> {
         unreachable!()
     }
