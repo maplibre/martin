@@ -423,7 +423,7 @@ impl<'a> DynTileSource<'a> {
             let tile = do_fetch(s).await;
 
             // On SourceNeedsReload, rebuild the source, and retry the request.
-            let tile = if matches!(&tile, Err(e) if matches!(e.as_ref(), MartinCoreError::SourceNeedsReload { .. })) {
+            let tile = if matches!(&tile, Err(e) if matches!(e.as_ref(), MartinCoreError::SourceNeedsReload)) {
                 match s.try_reload().await {
                     Ok(fresh_src) => {
                         warn!(source.id = s.get_id(), "Source modified; reloading");

@@ -86,7 +86,7 @@ pub trait Source: Send + Sync + Debug {
 
     /// Attempts to create a fresh instance of this source.
     ///
-    /// Sources that return a MartinCoreError::SourceNeedReload from get_tile() must also
+    /// Sources that return a `MartinCoreError::SourceNeedReload` from `get_tile()` must also
     /// implement this method.
     ///
     /// The default implementation asserts.
