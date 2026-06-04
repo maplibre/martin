@@ -72,8 +72,8 @@ impl PmtCacheInstance {
 
     /// Creates a new instance with a globally unique ID allocated from the shared counter.
     ///
-    /// All callers that create production `PmtCacheInstance`s — including initial source
-    /// creation and reloads — must go through this or [`fork`](Self::fork) so that IDs
+    /// All callers that create production `PmtCacheInstance`s -- including initial source
+    /// creation and reloads -- must go through this or [`fork`](Self::fork) so that IDs
     /// never collide within a shared [`PmtCache`] backing store.
     #[must_use]
     pub fn new_auto_id(cache: PmtCache) -> Self {
