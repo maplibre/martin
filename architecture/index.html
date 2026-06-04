@@ -1428,6 +1428,7 @@ It is designed to handle heavy traffic and optimize for speed while maintaining 
 <li>Request routing and endpoint handling</li>
 <li>Configuration parsing (CLI args, env vars, config files)</li>
 <li>Tile source discovery and initialization</li>
+<li>Runtime source reloading (filesystem watch / polling) without a restart</li>
 <li>Serving the Web UI for tile inspection</li>
 </ul>
 <p><strong>Main Modules</strong>:</p>
@@ -1779,6 +1780,49 @@ Simple and fast for static datasets.</p>
 </div>
 </div>
 </div>
+<p>== Runtime Source Reloading</p>
+<div class="language-text highlight"><pre><span></span><code>After startup, Martin keeps the catalog in sync with its sources without a restart.
+One generic loop - the **Reload Driver** - sits behind three traits, so every source kind reuses the same loop and only the kind-specific parts vary.
+
+```mermaid
+graph LR
+    Trigger[&quot;Trigger&lt;br/&gt;(when)&quot;] --&gt;|fires| Driver[Reload Driver]
+    Driver --&gt;|discover| Discovery[&quot;Discovery&lt;br/&gt;(what should exist)&quot;]
+    Discovery --&gt;|&quot;(Version, Recipe) per id&quot;| Driver
+    Driver --&gt;|&quot;diff vs baseline, build changed&quot;| Advisory[&quot;ReloadAdvisory&lt;br/&gt;add / update / remove&quot;]
+    Advisory --&gt;|apply| Sink[&quot;Sink&lt;br/&gt;(where)&quot;]
+    Sink --&gt; Catalog[(&quot;Catalog&lt;br/&gt;TileSourceManager&quot;)]
+```
+
+The traits are:
+
+- **`Discovery`** - the cheap **&quot;what should exist now&quot;** read (a directory scan or object-store listing).
+  Returns one `(Version, Args)` per source id.
+  `Version` is a `u128` change token (e.g. mtime millis); a changed value triggers an in-place update.
+  `Args` is the kind-specific payload used to build the source on demand.
+- **`Trigger`** - decides **when to reconcile**.
+  `NotifyTrigger` fires on filesystem events; `PollTrigger` fires on a fixed interval.
+- **`Sink`** - where the diff is **applied**.
+  `TileSourceManager`, which holds the live catalog, implements it directly via `apply_changes`.
+
+They interact in this loop:
+
+1. **Seed**.
+   Run Discovery once to record a baseline, applying nothing.
+   The catalog was already populated during initialization, so applying would double-add.
+2. **Reconcile**.
+   On each Trigger, re-run Discovery.
+   Diff the new `Version`s against the baseline into a `ReloadAdvisory`.
+   Build only the changed ids.
+   Apply through the Sink.
+3. **Commit / retain**.
+   Advance the baseline only on a successful apply.
+   A failed discovery or apply keeps the old baseline so the next Trigger retries the same delta, and the catalog never flaps.
+
+Each kind has at least one Reload Driver instance.
+Adding reload support for a new kind means writing one `Discovery` adapter.
+The loop, triggers, and sink are reused.
+</code></pre></div>
 <h2 id="deployment-patterns">Deployment Patterns</h2>
 <p>Martin supports multiple deployment patterns:</p>
 <div class="tabbed-set tabbed-alternate" data-tabs="5:4"><input checked="checked" id="__tabbed_5_1" name="__tabbed_5" type="radio" /><input id="__tabbed_5_2" name="__tabbed_5" type="radio" /><input id="__tabbed_5_3" name="__tabbed_5" type="radio" /><input id="__tabbed_5_4" name="__tabbed_5" type="radio" /><div class="tabbed-labels"><label for="__tabbed_5_1">Standalone Server</label><label for="__tabbed_5_2">Container Deployment</label><label for="__tabbed_5_3">Serverless (AWS Lambda)</label><label for="__tabbed_5_4">Behind Reverse Proxy</label></div>
