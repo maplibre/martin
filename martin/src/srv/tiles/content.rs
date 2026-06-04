@@ -823,8 +823,8 @@ mod tests {
     /// must reload the source from the manager and retry the tile request.
     #[actix_rt::test]
     async fn test_source_needs_reload_is_retried() {
-        // `SourceNeedsReloadSource` returns the error on the first call and real data on every
-        // subsequent call, simulating a source that has been refreshed in place.
+        // `SourceNeedsReloadSource` returns SourceNeedsReload unless it was instantiated by `try_reload()`, the
+        // internal machanics for a Source's self-reload.
         let source = SourceNeedsReloadTestSource::new("stale_source", vec![1, 2, 3]);
         let mgr = test_manager(vec![vec![Box::new(source)]]);
         let src = DynTileSource::new(
