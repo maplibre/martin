@@ -70,6 +70,19 @@ impl PmtCacheInstance {
         Self { id, cache }
     }
 
+    /// Creates a new instance with a globally unique ID allocated from the shared counter.
+    ///
+    /// All callers that create production `PmtCacheInstance`s — including initial source
+    /// creation and reloads — must go through this or [`fork`](Self::fork) so that IDs
+    /// never collide within a shared [`PmtCache`] backing store.
+    #[must_use]
+    pub fn new_auto_id(cache: PmtCache) -> Self {
+        Self {
+            id: NEXT_PMT_CACHE_ID.fetch_add(1, Ordering::Relaxed),
+            cache,
+        }
+    }
+
     /// Creates a sibling instance backed by the same [`PmtCache`] but with a fresh unique ID.
     ///
     /// Use this when reloading a source: the new instance starts with an empty namespace in
@@ -77,10 +90,7 @@ impl PmtCacheInstance {
     /// Old entries under the previous ID are evicted naturally by moka.
     #[must_use]
     pub fn fork(&self) -> Self {
-        Self {
-            id: NEXT_PMT_CACHE_ID.fetch_add(1, Ordering::Relaxed),
-            cache: self.cache.clone(),
-        }
+        Self::new_auto_id(self.cache.clone())
     }
 
     /// Returns the cache ID.
