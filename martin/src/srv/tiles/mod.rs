@@ -4,9 +4,6 @@ pub mod process;
 
 #[cfg(test)]
 pub mod tests {
-    use std::sync::Arc;
-    use std::sync::atomic::{AtomicUsize, Ordering};
-
     use async_trait::async_trait;
     use martin_core::CacheZoomRange;
     use martin_core::tiles::{BoxedSource, MartinCoreError, MartinCoreResult, Source, UrlQuery};
@@ -62,7 +59,7 @@ pub mod tests {
         pub id: &'static str,
         pub tilejson: TileJSON,
         pub data: TileData,
-        pub call_count: Arc<AtomicUsize>,
+        pub call_count: u32,
     }
 
     impl SourceNeedsReloadTestSource {
@@ -71,7 +68,7 @@ pub mod tests {
                 id,
                 tilejson: tilejson! { tiles: vec![] },
                 data,
-                call_count: Arc::new(AtomicUsize::new(0)),
+                call_count: 0,
             }
         }
     }
@@ -103,14 +100,19 @@ pub mod tests {
             _xyz: TileCoord,
             _url_query: Option<&UrlQuery>,
         ) -> MartinCoreResult<TileData> {
-            let prev = self.call_count.fetch_add(1, Ordering::SeqCst);
-            if prev == 0 {
+            if self.call_count == 0 {
                 Err(MartinCoreError::SourceNeedsReload {
                     source_id: self.id.to_string(),
                 })
             } else {
                 Ok(self.data.clone())
             }
+        }
+
+        async fn try_reload(&self) -> Option<MartinCoreResult<BoxedSource>> {
+            let mut reloaded = self.clone();
+            reloaded.call_count += 1;
+            Some(Ok(Box::new(reloaded)))
         }
     }
 

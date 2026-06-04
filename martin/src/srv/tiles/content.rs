@@ -20,7 +20,9 @@ use tracing::{instrument, warn};
 
 use crate::config::args::PreferredEncoding;
 use crate::config::file::ProcessConfig;
+use crate::config::file::driver::Sink as _;
 use crate::config::file::srv::SrvConfig;
+use crate::reload::{NewSource, ReloadAdvisory};
 use crate::srv::server::{DebouncedWarning, map_internal_error};
 use crate::srv::tiles::process::apply_pre_cache_processors;
 use crate::tile_source_manager::TileSourceManager;
@@ -420,19 +422,25 @@ impl<'a> DynTileSource<'a> {
 
             let tile = do_fetch(s).await;
 
-            // On SourceNeedsReload, fetch a fresh source from the manager and retry once.
-            // This handles sources whose backing storage changed in such a way that a source reload
-            // is needed and can be done within the request flow so as to allow the user's original request
-            // to be retried.
+            // On SourceNeedsReload, rebuild the source, and retry the request.
             let tile = if matches!(&tile, Err(e) if matches!(e.as_ref(), MartinCoreError::SourceNeedsReload { .. })) {
-                match self.manager.tile_sources().get_source(s.get_id()) {
-                    Ok((reloaded_src, _)) => {
+                match s.try_reload().await {
+                    Ok(fresh_src) => {
                         warn!(source.id = s.get_id(), "Source modified; reloading");
-                        do_fetch(&reloaded_src).await
+                        let advisory = ReloadAdvisory {
+                            updates: vec![NewSource {
+                                id: s.get_id().to_string(),
+                                source: Ok(fresh_src.clone_source()),
+                                process: pc.clone(),
+                            }],
+                            ..Default::default()
+                        };
+                        if let Err(e) = self.manager.apply_changes(advisory).await {
+                            warn!(source.id = s.get_id(), error = %e, "Failed to apply source update after reload");
+                        }
+                        do_fetch(&fresh_src).await
                     }
-                    // Source was removed from the manager between the initial fetch and the
-                    // retry (race with a concurrent removal); surface the original error.
-                    Err(_) => tile,
+                    _ => tile,
                 }
             } else {
                 tile
