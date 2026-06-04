@@ -143,12 +143,8 @@ impl Source for PmtilesSource {
     }
 
     async fn try_reload(&self) -> MartinCoreResult<BoxedSource> {
-        // Fork the directory cache: same backing PmtCache (shared size budget) but a fresh
-        // ID, so the new reader starts with an empty namespace and can never see stale
-        // directories from the old file at the same byte offsets.
-        let fresh_cache = self.pmt_cache.fork();
         Self::new(
-            fresh_cache,
+            self.pmt_cache.fork(),
             self.id.clone(),
             Box::new(Arc::clone(&self.store)),
             self.path.clone(),
