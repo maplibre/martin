@@ -385,7 +385,7 @@ impl<'a> DynTileSource<'a> {
             not(all(feature = "mlt", feature = "_tiles")),
             expect(unused_variables)
         )]
-        let mut tiles = try_join_all(self.sources.iter().map(|(s, pc)| async move {
+        let tiles = try_join_all(self.sources.iter().map(|(s, pc)| async move {
             let do_fetch = |src: &BoxedSource| {
                 let cache_zoom = src.cache_zoom().contains(xyz.z);
                 let src_id = src.get_id().to_string();
@@ -450,6 +450,10 @@ impl<'a> DynTileSource<'a> {
         }))
         .await?;
 
+        self.merge_tiles(tiles)
+    }
+
+    fn merge_tiles(&self, mut tiles: Vec<Tile>) -> ActixResult<Tile> {
         let mut layer_count = 0;
         let mut last_non_empty_layer = 0;
         for (idx, tile) in tiles.iter().enumerate() {
