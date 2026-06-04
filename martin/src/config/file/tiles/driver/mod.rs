@@ -1,8 +1,9 @@
-//! The [`Sink`] trait that reload drivers apply advisories against, and the
-//! [`Trigger`] trait that decides when they reconcile.
+//! The generic reload loop and the [`Trigger`]/[`Sink`] traits it runs on.
 
+mod reconcile;
 mod sink;
 mod trigger;
 
+pub use reconcile::ReloadDriver;
 pub use sink::Sink;
 pub use trigger::{NotifyTrigger, PollTrigger, Trigger};

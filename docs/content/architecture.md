@@ -76,6 +76,7 @@ Martin's architecture is organized into four main Rust crates, each with distinc
     - Request routing and endpoint handling
     - Configuration parsing (CLI args, env vars, config files)
     - Tile source discovery and initialization
+    - Runtime source reloading (filesystem watch / polling) without a restart
     - Serving the Web UI for tile inspection
 
     **Main Modules**:
@@ -423,6 +424,50 @@ Read it when you're curious **why** certain choices were made.
     4. Opens COG with TIFF parser (HTTP range requests for remote)
     5. Uses `object_store` crate for S3/Azure/GCP access
     6. Serves tiles directly from file format
+
+== Runtime Source Reloading
+
+    After startup, Martin keeps the catalog in sync with its sources without a restart.
+    One generic loop - the **Reload Driver** - sits behind three traits, so every source kind reuses the same loop and only the kind-specific parts vary.
+
+    ```mermaid
+    graph LR
+        Trigger["Trigger<br/>(when)"] -->|fires| Driver[Reload Driver]
+        Driver -->|discover| Discovery["Discovery<br/>(what should exist)"]
+        Discovery -->|"(Version, Recipe) per id"| Driver
+        Driver -->|"diff vs baseline, build changed"| Advisory["ReloadAdvisory<br/>add / update / remove"]
+        Advisory -->|apply| Sink["Sink<br/>(where)"]
+        Sink --> Catalog[("Catalog<br/>TileSourceManager")]
+    ```
+
+    The traits are:
+
+    - **`Discovery`** - the cheap **"what should exist now"** read (a directory scan or object-store listing).
+      Returns one `(Version, Args)` per source id.
+      `Version` is a `u128` change token (e.g. mtime millis); a changed value triggers an in-place update.
+      `Args` is the kind-specific payload used to build the source on demand.
+    - **`Trigger`** - decides **when to reconcile**.
+      `NotifyTrigger` fires on filesystem events; `PollTrigger` fires on a fixed interval.
+    - **`Sink`** - where the diff is **applied**.
+      `TileSourceManager`, which holds the live catalog, implements it directly via `apply_changes`.
+
+    They interact in this loop:
+
+    1. **Seed**.
+       Run Discovery once to record a baseline, applying nothing.
+       The catalog was already populated during initialization, so applying would double-add.
+    2. **Reconcile**.
+       On each Trigger, re-run Discovery.
+       Diff the new `Version`s against the baseline into a `ReloadAdvisory`.
+       Build only the changed ids.
+       Apply through the Sink.
+    3. **Commit / retain**.
+       Advance the baseline only on a successful apply.
+       A failed discovery or apply keeps the old baseline so the next Trigger retries the same delta, and the catalog never flaps.
+
+    Each kind has at least one Reload Driver instance.
+    Adding reload support for a new kind means writing one `Discovery` adapter.
+    The loop, triggers, and sink are reused.
 
 ## Deployment Patterns
 

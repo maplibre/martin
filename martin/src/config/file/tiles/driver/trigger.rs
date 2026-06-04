@@ -8,8 +8,7 @@ use tokio::time::{Instant, MissedTickBehavior};
 
 use crate::{MartinError, MartinResult};
 
-/// Decides when the reload loop reconciles.
-/// `None` ends the loop.
+/// Decides when a [`ReloadDriver`](super::ReloadDriver) reconciles. `None` ends the loop.
 pub trait Trigger: Send + 'static {
     fn next(&mut self) -> impl Future<Output = Option<()>> + Send;
 }
