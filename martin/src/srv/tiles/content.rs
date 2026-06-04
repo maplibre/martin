@@ -385,72 +385,88 @@ impl<'a> DynTileSource<'a> {
             not(all(feature = "mlt", feature = "_tiles")),
             expect(unused_variables)
         )]
-        let tiles = try_join_all(self.sources.iter().map(|(s, pc)| async move {
-            let do_fetch = |src: &BoxedSource| {
-                let cache_zoom = src.cache_zoom().contains(xyz.z);
-                let src_id = src.get_id().to_string();
-                let src = src.clone_source();
-                let compute = || async move {
-                    let t = src.get_tile_with_etag(xyz, self.query_obj.as_ref()).await?;
-                    apply_pre_cache_processors(
-                        t,
-                        #[cfg(all(feature = "mlt", feature = "_tiles"))]
-                        pc,
-                        #[cfg(all(feature = "mlt", feature = "_tiles"))]
-                        self.accepted_format,
-                    )
-                    .map_err(|e| MartinCoreError::OtherError(Box::new(e)))
-                };
-                async move {
-                    if let (Some(cache), true) = (self.cache, cache_zoom) {
-                        cache
-                            .get_or_insert(
-                                martin_core::tiles::TileCacheKey::new(
-                                    src_id,
-                                    xyz,
-                                    self.query_str.map(ToString::to_string),
-                                    self.accepted_format,
-                                ),
-                                compute,
-                            )
-                            .await
-                    } else {
-                        compute().await.map_err(Arc::new)
-                    }
-                }
-            };
-
-            let tile = do_fetch(s).await;
-
-            // On SourceNeedsReload, rebuild the source, and retry the request.
-            let tile = if matches!(&tile, Err(e) if matches!(e.as_ref(), MartinCoreError::SourceNeedsReload)) {
-                match s.try_reload().await {
-                    Ok(fresh_src) => {
-                        warn!(source.id = s.get_id(), "Source modified; reloading");
-                        let advisory = ReloadAdvisory {
-                            updates: vec![NewSource {
-                                id: s.get_id().to_string(),
-                                source: Ok(fresh_src.clone_source()),
-                                process: pc.clone(),
-                            }],
-                            ..Default::default()
-                        };
-                        if let Err(e) = self.manager.apply_changes(advisory).await {
-                            warn!(source.id = s.get_id(), error = %e, "Failed to apply source update after reload");
-                        }
-                        do_fetch(&fresh_src).await
-                    }
-                    _ => tile,
-                }
-            } else {
-                tile
-            };
-
-            tile.map_err(|e| map_internal_error(e.as_ref()))
-        }))
+        let tiles = try_join_all(
+            self.sources
+                .iter()
+                .map(|(s, pc)| self.get_tile_content_from_one_source(s, pc, xyz)),
+        )
         .await?;
 
         self.merge_tiles(tiles)
+    }
+
+    #[cfg_attr(
+        not(all(feature = "mlt", feature = "_tiles")),
+        expect(unused_variables)
+    )]
+    async fn get_tile_content_from_one_source(
+        &self,
+        s: &BoxedSource,
+        pc: &ProcessConfig,
+        xyz: TileCoord,
+    ) -> ActixResult<Tile> {
+        let do_fetch = |src: &BoxedSource| {
+            let cache_zoom = src.cache_zoom().contains(xyz.z);
+            let src_id = src.get_id().to_string();
+            let src = src.clone_source();
+            let compute = || async move {
+                let t = src.get_tile_with_etag(xyz, self.query_obj.as_ref()).await?;
+                apply_pre_cache_processors(
+                    t,
+                    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+                    pc,
+                    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+                    self.accepted_format,
+                )
+                .map_err(|e| MartinCoreError::OtherError(Box::new(e)))
+            };
+            async move {
+                if let (Some(cache), true) = (self.cache, cache_zoom) {
+                    cache
+                        .get_or_insert(
+                            martin_core::tiles::TileCacheKey::new(
+                                src_id,
+                                xyz,
+                                self.query_str.map(ToString::to_string),
+                                self.accepted_format,
+                            ),
+                            compute,
+                        )
+                        .await
+                } else {
+                    compute().await.map_err(Arc::new)
+                }
+            }
+        };
+
+        let tile = do_fetch(s).await;
+
+        // On SourceNeedsReload, rebuild the source and retry once.
+        let tile = if matches!(&tile, Err(e) if matches!(e.as_ref(), MartinCoreError::SourceNeedsReload))
+        {
+            match s.try_reload().await {
+                Ok(fresh_src) => {
+                    warn!(source.id = s.get_id(), "Source modified; reloading");
+                    let advisory = ReloadAdvisory {
+                        updates: vec![NewSource {
+                            id: s.get_id().to_string(),
+                            source: Ok(fresh_src.clone_source()),
+                            process: pc.clone(),
+                        }],
+                        ..Default::default()
+                    };
+                    if let Err(e) = self.manager.apply_changes(advisory).await {
+                        warn!(source.id = s.get_id(), error = %e, "Failed to apply source update after reload");
+                    }
+                    do_fetch(&fresh_src).await
+                }
+                _ => tile,
+            }
+        } else {
+            tile
+        };
+
+        tile.map_err(|e| map_internal_error(e.as_ref()))
     }
 
     fn merge_tiles(&self, mut tiles: Vec<Tile>) -> ActixResult<Tile> {
