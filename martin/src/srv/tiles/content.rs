@@ -820,8 +820,7 @@ mod tests {
     }
 
     /// When a tile source returns [`MartinCoreError::SourceNeedsReload`], the serving layer
-    /// must reload the source from the manager and retry the tile request rather than surfacing
-    /// a 500 error to the caller.
+    /// must reload the source from the manager and retry the tile request.
     #[actix_rt::test]
     async fn test_source_needs_reload_is_retried() {
         // `SourceNeedsReloadSource` returns the error on the first call and real data on every
