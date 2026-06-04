@@ -101,9 +101,7 @@ pub mod tests {
             _url_query: Option<&UrlQuery>,
         ) -> MartinCoreResult<TileData> {
             if self.call_count == 0 {
-                Err(MartinCoreError::SourceNeedsReload {
-                    source_id: self.id.to_string(),
-                })
+                Err(MartinCoreError::SourceNeedsReload)
             } else {
                 Ok(self.data.clone())
             }

@@ -172,9 +172,7 @@ impl Source for PmtilesSource {
         let result = self.pmtiles.get_tile(coord).await;
         if let Some(t) = match result {
             Err(PmtError::SourceModified) => {
-                return Err(MartinCoreError::SourceNeedsReload {
-                    source_id: self.id.clone(),
-                });
+                return Err(MartinCoreError::SourceNeedsReload);
             }
             Err(e) => return Err(PmtilesError::PmtError(e).into()),
             Ok(t) => t,

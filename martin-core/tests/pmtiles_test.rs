@@ -474,10 +474,7 @@ async fn source_returns_error_after_object_store_update() {
         .await
         .expect_err("should fail after ETag change");
     assert!(
-        matches!(
-            err,
-            MartinCoreError::SourceNeedsReload { ref source_id } if source_id == "source_modified_test"
-        ),
+        matches!(err, MartinCoreError::SourceNeedsReload),
         "expected SourceNeedsReload, got: {err:?}"
     );
 }
