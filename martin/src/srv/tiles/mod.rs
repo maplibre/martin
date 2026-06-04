@@ -109,10 +109,10 @@ pub mod tests {
             }
         }
 
-        async fn try_reload(&self) -> Option<MartinCoreResult<BoxedSource>> {
+        async fn try_reload(&self) -> MartinCoreResult<BoxedSource> {
             let mut reloaded = self.clone();
             reloaded.call_count += 1;
-            Some(Ok(Box::new(reloaded)))
+            Ok(Box::new(reloaded))
         }
     }
 

@@ -27,6 +27,13 @@ pub struct PmtilesSource {
     tile_info: TileInfo,
     #[dbg(skip)]
     cache_zoom: CacheZoomRange,
+    /// Stored so `try_reload` can create a fresh `AsyncPmTilesReader` with a new ETag snapshot.
+    #[dbg(skip)]
+    store: Arc<dyn ObjectStore>,
+    #[dbg(skip)]
+    path: object_store::path::Path,
+    #[dbg(skip)]
+    pmt_cache: PmtCacheInstance,
 }
 
 impl PmtilesSource {
@@ -39,9 +46,11 @@ impl PmtilesSource {
         cache_zoom: CacheZoomRange,
     ) -> Result<Self, PmtilesError> {
         let path = path.into();
+        // Wrap in Arc so we can clone the store cheaply for try_reload.
+        let store: Arc<dyn ObjectStore> = Arc::from(store);
         let store_to_string = store.to_string();
-        let backend = ObjectStoreBackend::new(store, path.clone());
-        let reader = AsyncPmTilesReader::try_from_cached_source(backend, cache)
+        let backend = ObjectStoreBackend::new(Box::new(Arc::clone(&store)), path.clone());
+        let reader = AsyncPmTilesReader::try_from_cached_source(backend, cache.clone())
             .await
             .map_err(|e| PmtilesError::PmtErrorWithCtx(e, store_to_string.clone()))?;
 
@@ -102,6 +111,9 @@ impl PmtilesSource {
             tilejson,
             tile_info: format,
             cache_zoom,
+            store,
+            path,
+            pmt_cache: cache,
         })
     }
 }
@@ -128,6 +140,23 @@ impl Source for PmtilesSource {
 
     fn benefits_from_concurrent_scraping(&self) -> bool {
         true
+    }
+
+    async fn try_reload(&self) -> MartinCoreResult<BoxedSource> {
+        // Fork the directory cache: same backing PmtCache (shared size budget) but a fresh
+        // ID, so the new reader starts with an empty namespace and can never see stale
+        // directories from the old file at the same byte offsets.
+        let fresh_cache = self.pmt_cache.fork();
+        Self::new(
+            fresh_cache,
+            self.id.clone(),
+            Box::new(Arc::clone(&self.store)),
+            self.path.clone(),
+            self.cache_zoom,
+        )
+        .await
+        .map(|s| Box::new(s) as BoxedSource)
+        .map_err(MartinCoreError::from)
     }
 
     fn cache_zoom(&self) -> CacheZoomRange {

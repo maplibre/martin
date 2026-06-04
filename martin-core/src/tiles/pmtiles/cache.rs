@@ -1,7 +1,10 @@
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
 use moka::future::Cache;
 use tracing::info;
+
+static NEXT_PMT_CACHE_ID: AtomicUsize = AtomicUsize::new(0);
 
 #[cfg(feature = "metrics")]
 use crate::metrics::{TILE_CACHE_REQUESTS_TOTAL, ZOOM_LABELS};
@@ -65,6 +68,19 @@ impl PmtCacheInstance {
     #[must_use]
     pub fn new(id: usize, cache: PmtCache) -> Self {
         Self { id, cache }
+    }
+
+    /// Creates a sibling instance backed by the same [`PmtCache`] but with a fresh unique ID.
+    ///
+    /// Use this when reloading a source: the new instance starts with an empty namespace in
+    /// the shared cache, so stale directories from the old file are never visible to it.
+    /// Old entries under the previous ID are evicted naturally by moka.
+    #[must_use]
+    pub fn fork(&self) -> Self {
+        Self {
+            id: NEXT_PMT_CACHE_ID.fetch_add(1, Ordering::Relaxed),
+            cache: self.cache.clone(),
+        }
     }
 
     /// Returns the cache ID.
