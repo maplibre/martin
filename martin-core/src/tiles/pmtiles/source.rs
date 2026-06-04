@@ -27,7 +27,7 @@ pub struct PmtilesSource {
     tile_info: TileInfo,
     #[dbg(skip)]
     cache_zoom: CacheZoomRange,
-    /// Stored so `try_reload` can create a fresh `AsyncPmTilesReader` with a new ETag snapshot.
+
     #[dbg(skip)]
     store: Arc<dyn ObjectStore>,
     #[dbg(skip)]
