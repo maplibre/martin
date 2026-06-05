@@ -149,7 +149,7 @@ Human-readable logs remain unchanged, but external log scrapers that rely on the
 
 ### Added
 
-- Add MbTilesReloader (Tile Reload Phase 2) ([#2717](https://github.com/maplibre/martin/pull/2717))
+- Add MbtilesReloader (Tile Reload Phase 2) ([#2717](https://github.com/maplibre/martin/pull/2717))
 ### MBTiles auto-reloading
 
 Previously, if you configured an directory with us, we would list it once and then serve this.

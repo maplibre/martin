@@ -12,12 +12,12 @@ use crate::config::primitives::IdResolver;
 use crate::{MartinResult, TileSourceManager};
 
 /// Watches configured directories for `.mbtiles` changes.
-pub struct MbTilesReloader {
+pub struct MbtilesReloader {
     tile_source_manager: TileSourceManager,
     discovery: FsDiscovery,
 }
 
-impl MbTilesReloader {
+impl MbtilesReloader {
     /// Resolves the process config (source-type > global > default) for discovered sources.
     #[must_use]
     pub fn new(
