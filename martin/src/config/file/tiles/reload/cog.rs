@@ -3,7 +3,6 @@ use martin_core::tiles::cog::CogSource;
 
 use crate::config::file::FileConfigEnum;
 use crate::config::file::cog::CogConfig;
-use crate::config::file::driver::Sink as _;
 use crate::config::file::process::ProcessConfig;
 use crate::config::file::tiles::discovery::{FsDiscovery, FsSourceBuilder};
 use crate::config::file::tiles::driver::{Baseline, NotifyTrigger, ReloadDriver};
