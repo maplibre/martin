@@ -18,8 +18,9 @@ use crate::{MartinError, MartinResult};
 /// The future an [`FsSourceBuilder`] returns: the freshly-built source, or an init error.
 type BuiltSource = BoxFuture<'static, MartinResult<BoxedSource>>;
 
-/// Turns a discovered `(id, path, cache policy)` into a running source.
-pub type FsSourceBuilder = Box<dyn Fn(String, PathBuf, CachePolicy) -> BuiltSource + Send + Sync>;
+/// Opens one discovered file as a source.
+/// Both builders are non-capturing, so a `fn` pointer avoids a boxed `dyn Fn`.
+pub type FsSourceBuilder = fn(String, PathBuf, CachePolicy) -> BuiltSource;
 
 /// A [`Discovery`] that enumerates source files under the watched directories.
 pub struct FsDiscovery {
@@ -224,9 +225,9 @@ mod tests {
     use super::*;
 
     fn unreachable_builder() -> FsSourceBuilder {
-        Box::new(|id, _path, _policy| {
+        |id, _path, _policy| {
             Box::pin(async move { panic!("build should not be called by discover(): {id}") })
-        })
+        }
     }
 
     #[tokio::test]

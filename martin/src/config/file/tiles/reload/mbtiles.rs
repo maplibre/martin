@@ -12,12 +12,12 @@ use crate::config::primitives::IdResolver;
 use crate::{MartinResult, TileSourceManager};
 
 /// Watches configured directories for `.mbtiles` changes.
-pub struct MbTilesReloader {
+pub struct MbtilesReloader {
     tile_source_manager: TileSourceManager,
     discovery: FsDiscovery,
 }
 
-impl MbTilesReloader {
+impl MbtilesReloader {
     /// Resolves the process config (source-type > global > default) for discovered sources.
     #[must_use]
     pub fn new(
@@ -43,12 +43,17 @@ impl MbTilesReloader {
             ProcessConfig::default()
         };
 
-        let build: FsSourceBuilder = Box::new(|id, path, policy| {
+        // One `FsDiscovery` serves every file kind, so the two boxes erase per-kind types.
+        // `Box::pin(async {..})` erases the future to `BoxFuture`.
+        // `Box::new(src) as BoxedSource` erases the source to `dyn Source`.
+        // The non-capturing closure coerces to the alias's `fn` pointer.
+        // The annotation pins the parameter types, which a bare `let` cannot infer.
+        let build: FsSourceBuilder = |id, path, policy| {
             Box::pin(async move {
                 let src = MbtSource::new(id, path, policy.zoom()).await?;
                 Ok(Box::new(src) as BoxedSource)
             })
-        });
+        };
         let discovery = FsDiscovery::from_config(config, &["mbtiles"], id_resolver, process, build);
 
         Self {
