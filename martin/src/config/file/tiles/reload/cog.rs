@@ -22,12 +22,14 @@ impl CogReloader {
         id_resolver: IdResolver,
         config: &FileConfigEnum<CogConfig>,
     ) -> Self {
-        let build: FsSourceBuilder = Box::new(|id, path, policy| {
+        // See `MbTilesReloader::new`: both boxes erase per-kind types to a shared shape.
+        // The non-capturing closure coerces to the alias's `fn` pointer.
+        let build: FsSourceBuilder = |id, path, policy| {
             Box::pin(async move {
                 let src = CogSource::new(id, path, policy.zoom())?;
                 Ok(Box::new(src) as BoxedSource)
             })
-        });
+        };
         let discovery = FsDiscovery::from_config(
             config,
             &["tif", "tiff"],
