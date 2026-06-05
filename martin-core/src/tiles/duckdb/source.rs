@@ -1,12 +1,13 @@
-use crate::CacheZoomRange;
-use crate::tiles::duckdb::DuckDBError::{GetTileError, PrepareQueryError};
-use crate::tiles::duckdb::{DuckDBPool, DuckDBResult};
-use crate::tiles::{BoxedSource, MartinCoreResult, Source, UrlQuery};
 use async_trait::async_trait;
 use duckdb::{Connection, OptionalExt as _, params};
 use martin_tile_utils::{TileCoord, TileData, TileInfo};
 use tilejson::TileJSON;
 use tracing::{instrument, trace};
+
+use crate::CacheZoomRange;
+use crate::tiles::duckdb::DuckDBError::{GetTileError, PrepareQueryError};
+use crate::tiles::duckdb::{DuckDBPool, DuckDBResult};
+use crate::tiles::{BoxedSource, MartinCoreResult, Source, UrlQuery};
 
 #[derive(Clone, Debug)]
 /// `DuckDB File` tile source that executes SQL queries to generate tiles.

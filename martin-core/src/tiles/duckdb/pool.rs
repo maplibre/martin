@@ -6,7 +6,7 @@ use std::num::NonZeroUsize;
 use std::path::PathBuf;
 
 use deadpool::managed::{Manager, Metrics, Pool, RecycleResult};
-use duckdb::{AccessMode, Config, Connection, params};
+use duckdb::{AccessMode, Config, Connection};
 use url::Url;
 
 use crate::tiles::duckdb::errors::DuckDBPoolManagerError;
@@ -158,7 +158,7 @@ impl DuckDBPoolManager {
         conn: &Connection,
         extension: &'static str,
     ) -> Result<(), DuckDBPoolManagerError> {
-        conn.execute("LOAD ?", params![extension])
+        conn.execute_batch(&format!("INSTALL {extension}; LOAD {extension};"))
             .map_err(|source| LoadExtension {
                 source: source.into(),
                 extension,
@@ -168,33 +168,33 @@ impl DuckDBPoolManager {
     }
 
     fn open_ready_connection(&self) -> Result<Connection, DuckDBPoolManagerError> {
-        let threads_value = self
-            .threads
-            .map_or(2, std::num::NonZero::get)
-            .try_into()
-            .map_err(|_| InvalidThreadCount(self.threads.map_or(0, std::num::NonZero::get)))?;
-        let memory_limit_value = self
-            .memory_limit_mb
-            .map_or("512MB".to_string(), |limit| format!("{limit}MB"));
+
         let config = Config::default()
             .access_mode(AccessMode::ReadOnly)
-            .map_err(|source| Open {
-                source: source.into(),
-                target: self.target.clone().into(),
-            })?
-            .threads(threads_value)
-            .map_err(|source| ApplySetting {
-                source: source.into(),
-                setting: "threads",
-                value: threads_value.to_string(),
-                target: self.target.clone().into(),
-            })?
-            .max_memory(&memory_limit_value)
-            .map_err(|source| ApplySetting {
-                source: source.into(),
-                setting: "memory_limit_mb",
-                value: memory_limit_value.clone(),
-                target: self.target.clone().into(),
+            .map_err(|source| Open { source: source.into(), target: self.target.clone().into() })
+            .and_then(|cfg| match self.threads {
+                None => Ok(cfg),
+                Some(threads_val) => {
+                    let val: i64 = threads_val.get().try_into().map_err(|_| InvalidThreadCount(threads_val.get()))?;
+                    cfg.threads(val).map_err(|source| ApplySetting {
+                        source: source.into(),
+                        setting: "threads",
+                        value: val.to_string(),
+                        target: self.target.clone().into(),
+                    })
+                }
+            })
+            .and_then(|cfg| match self.memory_limit_mb {
+                None => Ok(cfg),
+                Some(m) => {
+                    let val = format!("{}MB", m.get());
+                    cfg.max_memory(&val).map_err(|source| ApplySetting {
+                        source: source.into(),
+                        setting: "memory_limit_mb",
+                        value: val,
+                        target: self.target.clone().into(),
+                    })
+                }
             })?;
         let conn = match &self.target {
             DuckDBPoolTarget::DatabaseFile { path } => Connection::open_with_flags(path, config)
