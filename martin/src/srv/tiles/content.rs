@@ -405,41 +405,7 @@ impl<'a> DynTileSource<'a> {
         pc: &ProcessConfig,
         xyz: TileCoord,
     ) -> ActixResult<Tile> {
-        let do_fetch = |src: &BoxedSource| {
-            let cache_zoom = src.cache_zoom().contains(xyz.z);
-            let src_id = src.get_id().to_string();
-            let src = src.clone_source();
-            let compute = || async move {
-                let t = src.get_tile_with_etag(xyz, self.query_obj.as_ref()).await?;
-                apply_pre_cache_processors(
-                    t,
-                    #[cfg(all(feature = "mlt", feature = "_tiles"))]
-                    pc,
-                    #[cfg(all(feature = "mlt", feature = "_tiles"))]
-                    self.accepted_format,
-                )
-                .map_err(|e| MartinCoreError::OtherError(Box::new(e)))
-            };
-            async move {
-                if let (Some(cache), true) = (self.cache, cache_zoom) {
-                    cache
-                        .get_or_insert(
-                            martin_core::tiles::TileCacheKey::new(
-                                src_id,
-                                xyz,
-                                self.query_str.map(ToString::to_string),
-                                self.accepted_format,
-                            ),
-                            compute,
-                        )
-                        .await
-                } else {
-                    compute().await.map_err(Arc::new)
-                }
-            }
-        };
-
-        let tile = do_fetch(s).await;
+        let tile = self.fetch_tile_content_with_cache(s, pc, xyz).await;
 
         // On SourceNeedsReload, rebuild the source and retry once.
         let tile = if matches!(&tile, Err(e) if matches!(e.as_ref(), MartinCoreError::SourceNeedsReload))
@@ -458,7 +424,8 @@ impl<'a> DynTileSource<'a> {
                     if let Err(e) = self.manager.apply_changes(advisory).await {
                         warn!(source.id = s.get_id(), error = %e, "Failed to apply source update after reload");
                     }
-                    do_fetch(&fresh_src).await
+                    self.fetch_tile_content_with_cache(&fresh_src, pc, xyz)
+                        .await
                 }
                 _ => tile,
             }
@@ -467,6 +434,43 @@ impl<'a> DynTileSource<'a> {
         };
 
         tile.map_err(|e| map_internal_error(e.as_ref()))
+    }
+
+    async fn fetch_tile_content_with_cache(
+        &self,
+        src: &BoxedSource,
+        pc: &ProcessConfig,
+        xyz: TileCoord,
+    ) -> Result<Tile, Arc<MartinCoreError>> {
+        let cache_zoom = src.cache_zoom().contains(xyz.z);
+        let src_id = src.get_id().to_string();
+        let src = src.clone_source();
+        let compute = || async move {
+            let t = src.get_tile_with_etag(xyz, self.query_obj.as_ref()).await?;
+            apply_pre_cache_processors(
+                t,
+                #[cfg(all(feature = "mlt", feature = "_tiles"))]
+                pc,
+                #[cfg(all(feature = "mlt", feature = "_tiles"))]
+                self.accepted_format,
+            )
+            .map_err(|e| MartinCoreError::OtherError(Box::new(e)))
+        };
+        if let (Some(cache), true) = (self.cache, cache_zoom) {
+            cache
+                .get_or_insert(
+                    martin_core::tiles::TileCacheKey::new(
+                        src_id,
+                        xyz,
+                        self.query_str.map(ToString::to_string),
+                        self.accepted_format,
+                    ),
+                    compute,
+                )
+                .await
+        } else {
+            compute().await.map_err(Arc::new)
+        }
     }
 
     fn merge_tiles(&self, mut tiles: Vec<Tile>) -> ActixResult<Tile> {
