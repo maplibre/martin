@@ -56,10 +56,10 @@ pub mod tests {
     /// source, and retries the request rather than propagating the error to the caller.
     #[derive(Debug, Clone)]
     pub struct SourceNeedsReloadTestSource {
-        pub id: &'static str,
-        pub tilejson: TileJSON,
-        pub data: TileData,
-        pub call_count: u32,
+        id: &'static str,
+        tilejson: TileJSON,
+        data: TileData,
+        call_count: u32,
     }
 
     impl SourceNeedsReloadTestSource {
