@@ -381,10 +381,6 @@ impl<'a> DynTileSource<'a> {
         err(Debug),
     )]
     pub async fn get_tile_content(&self, xyz: TileCoord) -> ActixResult<Tile> {
-        #[cfg_attr(
-            not(all(feature = "mlt", feature = "_tiles")),
-            expect(unused_variables)
-        )]
         let tiles = try_join_all(
             self.sources
                 .iter()
@@ -395,10 +391,6 @@ impl<'a> DynTileSource<'a> {
         self.merge_tiles(tiles)
     }
 
-    #[cfg_attr(
-        not(all(feature = "mlt", feature = "_tiles")),
-        expect(unused_variables)
-    )]
     async fn get_tile_content_from_one_source(
         &self,
         s: &BoxedSource,
