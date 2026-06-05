@@ -1,5 +1,7 @@
 #[cfg(feature = "unstable-cog")]
 use super::cog::CogError;
+#[cfg(feature = "duckdb")]
+use super::duckdb::DuckDBError;
 #[cfg(feature = "mbtiles")]
 use super::mbtiles::MbtilesError;
 #[cfg(feature = "pmtiles")]
@@ -20,6 +22,11 @@ pub enum MartinCoreError {
     #[cfg(feature = "postgres")]
     #[error(transparent)]
     PostgresError(#[from] PostgresError),
+
+    /// Errors that can occur during [`duckdb`](crate::tiles::duckdb) processing operations.
+    #[cfg(feature = "duckdb")]
+    #[error(transparent)]
+    DuckDBError(#[from] DuckDBError),
 
     /// Errors that can occur during [`pmtiles`](crate::tiles::cog) processing operations.
     #[cfg(feature = "pmtiles")]
