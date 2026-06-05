@@ -25,8 +25,6 @@ use dashmap::{DashMap, Entry};
 pub use maplibre_native::Image as StaticImage;
 #[cfg(all(feature = "rendering", target_os = "linux"))]
 use maplibre_native::Image;
-#[cfg(all(feature = "rendering", target_os = "linux"))]
-use martin_tile_utils::tile_center_lng_lat;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use tracing::{info, warn};
@@ -181,12 +179,13 @@ impl StyleSources {
 
     /// EXPERIMENTAL support for rendering styles.
     ///
-    /// Renders a 512×512 tile by aiming the static renderer at the tile's
-    /// geographic centre, computed by [`tile_center_lng_lat`].
+    /// Renders a 512×512 slippy tile via the dedicated tile renderer.
     #[cfg(all(feature = "rendering", target_os = "linux"))]
     pub async fn render(&self, path: PathBuf, z: u8, x: u32, y: u32) -> Result<Image, StyleError> {
-        let (lng, lat) = tile_center_lng_lat(z, x, y);
-        self.render_static(RenderParams::new(path, lat, lng, f64::from(z)))
+        self.pool
+            .as_ref()
+            .ok_or(StyleError::RenderingIsDisabled)?
+            .render_tile(path, z, x, y)
             .await
     }
 
@@ -196,7 +195,7 @@ impl StyleSources {
         self.pool
             .as_ref()
             .ok_or(StyleError::RenderingIsDisabled)?
-            .render(params)
+            .render_static(params)
             .await
     }
 
