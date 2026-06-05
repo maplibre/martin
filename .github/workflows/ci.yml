@@ -625,51 +625,7 @@ jobs:
         with: { persist-credentials: false }
       - uses: taiki-e/install-action@60ae4ce63c7aeb6e96d7f572c1ec7fafbb17ca80 # v2.79.10
         with: { tool: 'just' }
-      - name: Compile test binaries
-        run: |
-          cargo test --features test-pg --no-default-features --no-run \
-            --test pg_function_source_test --test pg_server_test --test pg_table_source_test
-          cargo test --features test-pg --no-default-features --no-run --package martin --lib
-          cargo test --features test-pg --no-default-features --no-run --package martin-core --lib
-      - name: Run test-pg against each postgis variant
-        # Variant format: 'img_ver|postgres args|sslmode'. Versions must match
-        # docker-compose.yml. Alpine images don't ship SSL so the sslmode=require
-        # entry uses the debian image with snakeoil certs.
-        run: |
-          set -euo pipefail
-          variants=(
-            '11-3.0-alpine|postgres|disable'
-            '18-3.6-alpine|postgres|disable'
-            '18-3.6|postgres -c ssl=on -c ssl_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem -c ssl_key_file=/etc/ssl/private/ssl-cert-snakeoil.key|require'
-          )
-          for v in "${variants[@]}"; do
-            IFS='|' read -r img args sslmode <<<"$v"
-            echo "::group::postgis:${img} sslmode=${sslmode}"
-
-            docker run -d --name pg \
-              -p "${PGPORT}:5432" \
-              -e POSTGRES_DB="$PGDATABASE" \
-              -e POSTGRES_USER="$PGUSER" \
-              -e POSTGRES_PASSWORD="$PGPASSWORD" \
-              --entrypoint sh \
-              "postgis/postgis:${img}" \
-              -c "exec docker-entrypoint.sh ${args}"
-
-            for _ in $(seq 1 30); do
-              if docker exec pg pg_isready -U "$PGUSER" -d "$PGDATABASE" >/dev/null 2>&1; then
-                break
-              fi
-              sleep 1
-            done
-
-            export DATABASE_URL="postgres://${PGUSER}:${PGUSER}@${PGHOST}:${PGPORT}/${PGDATABASE}?sslmode=${sslmode}"
-
-            tests/fixtures/initdb.sh
-            just test-pg
-
-            docker rm -f pg
-            echo "::endgroup::"
-          done
+      - run: just test-pg-matrix
 
   unit-test-svc-minio:
     # Exercises the PMTilesReloader's S3-prefix polling against a MinIO

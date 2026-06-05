@@ -581,10 +581,56 @@ test: start
     {{just}} test-int
 
 # Run PostgreSQL-requiring tests only
-test-pg: start
+test-pg: start _test-pg-cargo
+
+# Run the test-pg cargo invocations against the existing DATABASE_URL
+[private]
+_test-pg-cargo:
     cargo test --features test-pg --no-default-features --test pg_function_source_test --test pg_server_test --test pg_table_source_test
     cargo test --features test-pg --no-default-features --package martin --lib
     cargo test --features test-pg --package martin-core --no-default-features --lib
+
+# Build the test-pg test binaries without running them
+test-pg-compile:
+    cargo test --features test-pg --no-default-features --no-run \
+        --test pg_function_source_test --test pg_server_test --test pg_table_source_test
+    cargo test --features test-pg --no-default-features --no-run --package martin --lib
+    cargo test --features test-pg --no-default-features --no-run --package martin-core --lib
+
+# Run test-pg against an ephemeral postgis container. `args` forwards to docker-entrypoint.sh; `sslmode` is appended to DATABASE_URL
+test-pg-against image args sslmode:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo "::group::postgis:{{image}} sslmode={{sslmode}}"
+    trap 'docker rm -f pg >/dev/null 2>&1 || true; echo ::endgroup::' EXIT
+    PGPORT="${PGPORT:-5432}"
+    PGUSER="${PGUSER:-postgres}"
+    PGPASSWORD="${PGPASSWORD:-postgres}"
+    PGHOST="${PGHOST:-localhost}"
+    PGDATABASE="${PGDATABASE:-test}"
+    docker run -d --name pg \
+        -p "${PGPORT}:5432" \
+        -e POSTGRES_DB="$PGDATABASE" \
+        -e POSTGRES_USER="$PGUSER" \
+        -e POSTGRES_PASSWORD="$PGPASSWORD" \
+        --entrypoint sh \
+        "postgis/postgis:{{image}}" \
+        -c "exec docker-entrypoint.sh {{args}}"
+    for _ in $(seq 1 30); do
+        docker exec pg pg_isready -U "$PGUSER" -d "$PGDATABASE" >/dev/null 2>&1 && break
+        sleep 1
+    done
+    export DATABASE_URL="postgres://${PGUSER}:${PGUSER}@${PGHOST}:${PGPORT}/${PGDATABASE}?sslmode={{sslmode}}"
+    tests/fixtures/initdb.sh
+    {{just}} _test-pg-cargo
+
+# Run test-pg sequentially against every postgis variant in the CI matrix
+# Alpine images lack SSL, so the sslmode=require entry uses debian + snakeoil certs.
+# Versions must match docker-compose.yml.
+test-pg-matrix: test-pg-compile
+    {{just}} test-pg-against 11-3.0-alpine postgres disable
+    {{just}} test-pg-against 18-3.6-alpine postgres disable
+    {{just}} test-pg-against "18-3.6" "postgres -c ssl=on -c ssl_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem -c ssl_key_file=/etc/ssl/private/ssl-cert-snakeoil.key" require
 
 # Run MinIO/S3-requiring tests only (Docker required)
 test-minio:
