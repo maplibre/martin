@@ -15,7 +15,7 @@ use martin::config::file::ProcessConfig;
 #[cfg(feature = "unstable-cog")]
 use martin::config::file::reload::cog::CogReloader;
 #[cfg(feature = "mbtiles")]
-use martin::config::file::reload::mbtiles::MBTilesReloader;
+use martin::config::file::reload::mbtiles::MbTilesReloader;
 #[cfg(feature = "pmtiles")]
 use martin::config::file::reload::pmtiles::PMTilesReloader;
 use martin::config::file::{Config, read_config};
@@ -79,9 +79,9 @@ async fn start(args: Args) -> MartinResult<()> {
     #[cfg(feature = "mbtiles")]
     {
         let reloader =
-            MBTilesReloader::new(mgr.clone(), resolver.clone(), &config.mbtiles, &global_pc);
+            MbTilesReloader::new(mgr.clone(), resolver.clone(), &config.mbtiles, &global_pc);
         if let Err(e) = reloader.start() {
-            tracing::warn!("failed to start MBTilesReloader {e:?}");
+            tracing::warn!("failed to start MbTilesReloader {e:?}");
         }
     }
     #[cfg(feature = "unstable-cog")]
