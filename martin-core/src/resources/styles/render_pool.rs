@@ -80,93 +80,28 @@ impl RenderParams {
     }
 }
 
-/// A single unit of work handed to a worker thread.
-enum RenderJob {
-    /// Render a 512×512 slippy tile via the dedicated tile renderer.
-    Tile {
-        style_path: PathBuf,
-        z: u8,
-        x: u32,
-        y: u32,
-    },
-    /// Render a free-camera image via the static renderer.
-    Static(RenderParams),
-}
-
-struct RenderRequest {
-    job: RenderJob,
-    response: oneshot::Sender<Result<Image, StyleError>>,
-}
-
-enum WorkerMsg {
-    Render(RenderRequest),
-    Shutdown,
-}
-
-/// `Arc`-shared so the pool stays `Clone`; `Drop` joins the workers.
-#[derive(Debug)]
-struct Inner {
-    rendering_requests: flume::Sender<WorkerMsg>,
-    workers: Vec<JoinHandle<()>>,
-}
-
-impl Drop for Inner {
-    fn drop(&mut self) {
-        for _ in 0..self.workers.len() {
-            let _ = self.rendering_requests.send(WorkerMsg::Shutdown);
-        }
-        for handle in self.workers.drain(..) {
-            let _ = handle.join();
-        }
-    }
-}
-
-/// Per-worker queue depth.
-/// Bounded so a stalled worker cannot accumulate unbounded latency.
+/// The tile and static render pools.
 ///
-/// Sized so that we have 2-4s of work remaining, depending on hardware.
-const WORKER_QUEUE_DEPTH: usize = 512;
-
-/// Multi-worker map renderer.
-///
-/// Each worker lazily builds a tile renderer and a free-camera (static) renderer
-/// on demand, caching the loaded style for each.
-/// The static renderer is rebuilt only when `(width, height, pixel_ratio)` changes.
+/// Tile and static rendering share no renderer state, so each gets its own pool
+/// with its own worker threads and request queue. The two are bundled here only
+/// so [`StyleSources`](crate::styles::StyleSources) can enable or disable both at once.
 #[derive(Debug, Clone)]
-pub struct RendererPool {
-    inner: Arc<Inner>,
+pub struct RenderPools {
+    tile: RenderPool<TileWorker>,
+    free: RenderPool<StaticWorker>,
 }
 
-impl RendererPool {
-    /// Spawn a pool with `workers` threads.
-    ///
-    /// `Some(n)` is used as-is with no upper cap. `None` uses the logical CPU
-    /// count clamped to 2..=8.
+impl RenderPools {
+    /// Spawn both pools, each with `workers` threads. See [`RenderPool::new`].
     ///
     /// # Errors
     ///
     /// Returns the OS error from [`thread::Builder::spawn`] if a worker thread
     /// cannot be started.
     pub fn new(workers: Option<NonZeroUsize>) -> Result<Self, std::io::Error> {
-        let workers = workers.unwrap_or_else(default_worker_count);
-        let (rendering_requests, rx) =
-            flume::bounded::<WorkerMsg>(workers.get() * WORKER_QUEUE_DEPTH);
-        let mut handles = Vec::with_capacity(workers.get());
-        for i in 0..workers.get() {
-            let rx = rx.clone();
-            let handle = thread::Builder::new()
-                .name(format!("martin-render-{i}"))
-                .spawn(move || worker_loop(&rx))?;
-            handles.push(handle);
-        }
-
-        info!(workers = workers.get(), "Started style render pool");
-
         Ok(Self {
-            inner: Arc::new(Inner {
-                rendering_requests,
-                workers: handles,
-            }),
+            tile: RenderPool::new(workers)?,
+            free: RenderPool::new(workers)?,
         })
     }
 
@@ -178,30 +113,113 @@ impl RendererPool {
         x: u32,
         y: u32,
     ) -> Result<Image, StyleError> {
-        self.submit(RenderJob::Tile {
-            style_path,
-            z,
-            x,
-            y,
-        })
-        .await
+        self.tile
+            .render(TileRequest {
+                style_path,
+                z,
+                x,
+                y,
+            })
+            .await
     }
 
-    /// Render a map image with free camera control asynchronously.
+    /// Render a free-camera image asynchronously.
     pub async fn render_static(&self, params: RenderParams) -> Result<Image, StyleError> {
-        self.submit(RenderJob::Static(params)).await
+        self.free.render(params).await
+    }
+}
+
+/// A pool of worker threads that each own one [`Worker`].
+///
+/// Requests are dispatched over a bounded channel to whichever worker is free.
+/// `Arc`-shared so the pool stays [`Clone`]; the last clone's `Drop` joins the
+/// worker threads.
+struct RenderPool<W: Worker> {
+    inner: Arc<Inner<W::Request>>,
+}
+
+impl<W: Worker> Clone for RenderPool<W> {
+    fn clone(&self) -> Self {
+        Self {
+            inner: Arc::clone(&self.inner),
+        }
+    }
+}
+
+impl<W: Worker> std::fmt::Debug for RenderPool<W> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RenderPool")
+            .field("kind", &W::NAME)
+            .finish_non_exhaustive()
+    }
+}
+
+struct Inner<R> {
+    requests: flume::Sender<Msg<R>>,
+    workers: Vec<JoinHandle<()>>,
+}
+
+impl<R> Drop for Inner<R> {
+    fn drop(&mut self) {
+        for _ in 0..self.workers.len() {
+            let _ = self.requests.send(Msg::Shutdown);
+        }
+        for handle in self.workers.drain(..) {
+            let _ = handle.join();
+        }
+    }
+}
+
+enum Msg<R> {
+    Render(R, oneshot::Sender<Result<Image, StyleError>>),
+    Shutdown,
+}
+
+/// Per-worker queue depth.
+/// Bounded so a stalled worker cannot accumulate unbounded latency.
+///
+/// Sized so that we have 2-4s of work remaining, depending on hardware.
+const WORKER_QUEUE_DEPTH: usize = 512;
+
+impl<W: Worker> RenderPool<W> {
+    /// Spawn a pool with `workers` threads.
+    ///
+    /// `Some(n)` is used as-is with no upper cap. `None` uses the logical CPU
+    /// count clamped to 2..=8.
+    fn new(workers: Option<NonZeroUsize>) -> Result<Self, std::io::Error> {
+        let workers = workers.unwrap_or_else(default_worker_count);
+        let (requests, rx) = flume::bounded::<Msg<W::Request>>(workers.get() * WORKER_QUEUE_DEPTH);
+        let mut handles = Vec::with_capacity(workers.get());
+        for i in 0..workers.get() {
+            let rx = rx.clone();
+            let handle = thread::Builder::new()
+                .name(format!("render-{}-{i}", W::NAME))
+                .spawn(move || worker_loop::<W>(&rx))?;
+            handles.push(handle);
+        }
+
+        info!(
+            workers = workers.get(),
+            kind = W::NAME,
+            "Started style render pool"
+        );
+
+        Ok(Self {
+            inner: Arc::new(Inner {
+                requests,
+                workers: handles,
+            }),
+        })
     }
 
-    async fn submit(&self, job: RenderJob) -> Result<Image, StyleError> {
+    /// Dispatch a request to a worker and await its rendered image.
+    async fn render(&self, request: W::Request) -> Result<Image, StyleError> {
         let (response_tx, response_rx) = oneshot::channel();
 
         // Bounded channel: async send awaits when full instead of blocking the runtime.
         self.inner
-            .rendering_requests
-            .send_async(WorkerMsg::Render(RenderRequest {
-                job,
-                response: response_tx,
-            }))
+            .requests
+            .send_async(Msg::Render(request, response_tx))
             .await
             .map_err(|_| StyleError::FailedToSendRequest)?;
 
@@ -219,57 +237,92 @@ fn default_worker_count() -> NonZeroUsize {
         .clamp(MIN, MAX)
 }
 
-fn worker_loop(rx: &flume::Receiver<WorkerMsg>) {
-    let mut renderers = Renderers::default();
-
+fn worker_loop<W: Worker>(rx: &flume::Receiver<Msg<W::Request>>) {
+    let mut worker = W::default();
     while let Ok(msg) = rx.recv() {
-        let RenderRequest { job, response } = match msg {
-            WorkerMsg::Render(req) => req,
-            WorkerMsg::Shutdown => break,
-        };
-        let _ = response.send(renderers.render(job));
-    }
-}
-
-/// The renderers owned by a single worker thread.
-///
-/// `MapLibre` Native renderers are thread-affine (`!Send`), so each lives for the
-/// life of its worker thread and is never moved between threads.
-#[derive(Default)]
-struct Renderers {
-    tile: Option<TileRenderer>,
-    free: Option<StaticRenderer>,
-}
-
-impl Renderers {
-    fn render(&mut self, job: RenderJob) -> Result<Image, StyleError> {
-        match job {
-            RenderJob::Tile {
-                style_path,
-                z,
-                x,
-                y,
-            } => self
-                .tile
-                .get_or_insert_with(TileRenderer::new)
-                .render(&style_path, z, x, y),
-            RenderJob::Static(params) => {
-                // Rebuild the static renderer when its build-time geometry changes.
-                if !self.free.as_ref().is_some_and(|r| r.matches(&params)) {
-                    self.free = Some(StaticRenderer::new(
-                        params.width,
-                        params.height,
-                        params.pixel_ratio,
-                    ));
-                }
-                self.free.as_mut().expect("just built").render(&params)
+        match msg {
+            Msg::Render(request, response) => {
+                let _ = response.send(worker.render(request));
             }
+            Msg::Shutdown => break,
         }
     }
 }
 
-/// Loads `path` into `renderer` unless it is already the cached style.
-/// On failure the cache is cleared so the next attempt retries the load.
+/// A render backend bound to a single worker thread.
+///
+/// A [`RenderPool`] builds one `Worker` per thread (via [`Default`]) and feeds it
+/// requests. Implementors own a `MapLibre` renderer, which is `!Send`, so it is
+/// created on - and never leaves - its worker thread.
+trait Worker: Default + 'static {
+    /// Short name for thread names and log fields (e.g. `tile`, `static`).
+    const NAME: &'static str;
+    /// The request payload this worker renders.
+    type Request: Send + 'static;
+
+    /// Render one request to an image.
+    fn render(&mut self, request: Self::Request) -> Result<Image, StyleError>;
+}
+
+/// A slippy-tile render request.
+struct TileRequest {
+    style_path: PathBuf,
+    z: u8,
+    x: u32,
+    y: u32,
+}
+
+/// Worker that renders 512×512 slippy tiles via the tile renderer.
+#[derive(Default)]
+struct TileWorker {
+    renderer: Option<ImageRenderer<Tile>>,
+    loaded_style: Option<PathBuf>,
+}
+
+impl Worker for TileWorker {
+    const NAME: &'static str = "tile";
+    type Request = TileRequest;
+
+    fn render(&mut self, req: TileRequest) -> Result<Image, StyleError> {
+        let renderer = self
+            .renderer
+            .get_or_insert_with(|| ImageRendererBuilder::default().build_tile_renderer());
+        load_style_cached(renderer, &mut self.loaded_style, &req.style_path)?;
+        renderer
+            .render_tile(req.z, req.x, req.y)
+            .map_err(StyleError::RenderingError)
+    }
+}
+
+/// Worker that renders free-camera images via the static renderer.
+#[derive(Default)]
+struct StaticWorker {
+    /// Rebuilt whenever the requested output geometry changes.
+    current: Option<StaticRenderer>,
+}
+
+impl Worker for StaticWorker {
+    const NAME: &'static str = "static";
+    type Request = RenderParams;
+
+    fn render(&mut self, params: RenderParams) -> Result<Image, StyleError> {
+        if !self.current.as_ref().is_some_and(|r| r.matches(&params)) {
+            self.current = Some(StaticRenderer::new(
+                params.width,
+                params.height,
+                params.pixel_ratio,
+            ));
+        }
+        self.current.as_mut().expect("just built").render(&params)
+    }
+}
+
+/// Loads `path` into `renderer`, skipping the load if it is already the cached style.
+///
+/// `MapLibre` drops the active style the moment a new load begins, so a failed load
+/// here (early `?` return) must leave the cache empty.
+/// Otherwise the next request for the previously-loaded style would skip reloading
+/// and render against the now-missing style.
 fn load_style_cached<S>(
     renderer: &mut ImageRenderer<S>,
     cached: &mut Option<PathBuf>,
@@ -282,28 +335,6 @@ fn load_style_cached<S>(
     renderer.load_style_from_path(path)?.wait()?;
     *cached = Some(path.to_path_buf());
     Ok(())
-}
-
-/// A tile renderer with its cached style.
-struct TileRenderer {
-    renderer: ImageRenderer<Tile>,
-    loaded_style: Option<PathBuf>,
-}
-
-impl TileRenderer {
-    fn new() -> Self {
-        Self {
-            renderer: ImageRendererBuilder::default().build_tile_renderer(),
-            loaded_style: None,
-        }
-    }
-
-    fn render(&mut self, style_path: &Path, z: u8, x: u32, y: u32) -> Result<Image, StyleError> {
-        load_style_cached(&mut self.renderer, &mut self.loaded_style, style_path)?;
-        self.renderer
-            .render_tile(z, x, y)
-            .map_err(StyleError::RenderingError)
-    }
 }
 
 /// A free-camera renderer pinned to a fixed output geometry, with its cached style.
@@ -397,7 +428,9 @@ mod tests {
     #[tokio::test]
     async fn concurrent_tile_renders_all_succeed() {
         let style_file = write_style();
-        let pool = Arc::new(RendererPool::new(NonZeroUsize::new(4)).expect("spawn render pool"));
+        let pool = Arc::new(
+            RenderPool::<TileWorker>::new(NonZeroUsize::new(4)).expect("spawn render pool"),
+        );
         let style = style_file.path().to_path_buf();
 
         let mut handles = Vec::new();
@@ -407,7 +440,13 @@ mod tests {
             handles.push(tokio::spawn(async move {
                 // The zoom-0 world tile always contains the origin polygon, so
                 // every concurrent render produces the same non-blank image.
-                pool.render_tile(style, 0, 0, 0).await
+                pool.render(TileRequest {
+                    style_path: style,
+                    z: 0,
+                    x: 0,
+                    y: 0,
+                })
+                .await
             }));
         }
 
@@ -423,11 +462,12 @@ mod tests {
     #[tokio::test]
     async fn static_render_honours_custom_size() {
         let style_file = write_style();
-        let pool = RendererPool::new(NonZeroUsize::new(1)).expect("spawn render pool");
+        let pool =
+            RenderPool::<StaticWorker>::new(NonZeroUsize::new(1)).expect("spawn render pool");
         let style = style_file.path().to_path_buf();
 
         let params = RenderParams::new(style, 0.0, 0.0, 2.0).with_size(256, 384, 1.0);
-        let image = pool.render_static(params).await.expect("render");
+        let image = pool.render(params).await.expect("render");
 
         let img = image.as_image();
         assert_eq!((img.width(), img.height()), (256, 384));
