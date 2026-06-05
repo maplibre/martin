@@ -28,6 +28,10 @@ pub mod cog;
 /// Implementation of `PostgreSQL`' [`Source`].
 pub mod postgres;
 
+#[cfg(feature = "duckdb")]
+/// Implementation of `DuckDB`' [`Source`].
+pub mod duckdb;
+
 mod source;
 pub use source::{BoxedSource, Source, UrlQuery};
 

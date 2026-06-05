@@ -7,5 +7,9 @@ pub mod pmtiles;
 #[cfg(feature = "postgres")]
 pub mod postgres;
 
+#[cfg(feature = "_tiles")]
+pub mod discovery;
+#[cfg(feature = "_tiles")]
 pub mod driver;
+
 pub mod reload;

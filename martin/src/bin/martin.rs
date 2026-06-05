@@ -13,7 +13,7 @@ use martin::config::args::WebUiMode;
 #[cfg(any(feature = "mbtiles", feature = "pmtiles"))]
 use martin::config::file::ProcessConfig;
 #[cfg(feature = "unstable-cog")]
-use martin::config::file::reload::cog::COGReloader;
+use martin::config::file::reload::cog::CogReloader;
 #[cfg(feature = "mbtiles")]
 use martin::config::file::reload::mbtiles::MBTilesReloader;
 #[cfg(feature = "pmtiles")]
@@ -86,9 +86,9 @@ async fn start(args: Args) -> MartinResult<()> {
     }
     #[cfg(feature = "unstable-cog")]
     {
-        let reloader = COGReloader::new(mgr.clone(), resolver.clone(), &config.cog);
+        let reloader = CogReloader::new(mgr.clone(), resolver.clone(), &config.cog);
         if let Err(e) = reloader.start() {
-            tracing::warn!("failed to start COGReloader {e:?}");
+            tracing::warn!("failed to start CogReloader {e:?}");
         }
     }
     #[cfg(feature = "pmtiles")]

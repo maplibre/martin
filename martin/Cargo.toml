@@ -227,6 +227,7 @@ insta = { workspace = true, features = ["json", "yaml", "redactions"] }
 rstest.workspace = true
 tempfile.workspace = true
 testcontainers-modules.workspace = true
+tokio = { workspace = true, features = ["test-util"] }
 tracing-test.workspace = true
 
 [lints]

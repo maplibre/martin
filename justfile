@@ -594,6 +594,20 @@ test-minio:
 test-cargo *args:
     MLN_PRECOMPILE=1 cargo test {{args}}
 
+# Run unit tests for each package in dependency order
+test-packages-ci:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cargo test --package martin-tile-utils
+    cargo test --package mbtiles --no-default-features
+    cargo test --package mbtiles
+    cargo test --package martin-core
+    if [ "$(uname)" = Linux ]; then
+        {{just}} with-render-cache 'cargo test --package martin'
+    else
+        cargo test --package martin
+    fi
+
 # Run Rust doc tests
 test-doc *args:
     MLN_PRECOMPILE=1 cargo test --doc {{args}}

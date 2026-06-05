@@ -3,11 +3,8 @@ use std::path::PathBuf;
 
 use martin_core::tiles::BoxedSource;
 use martin_core::tiles::mbtiles::MbtSource;
-use notify::event::{AccessKind, AccessMode};
-use notify::{Config, Event, EventKind, RecommendedWatcher, Watcher as _};
-use tokio::sync::mpsc;
 
-use crate::config::file::driver::Sink as _;
+use crate::config::file::driver::{NotifyTrigger, Sink as _, Trigger as _};
 use crate::config::file::mbtiles::MbtConfig;
 use crate::config::file::process::ProcessConfig;
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
@@ -129,34 +126,14 @@ impl MBTilesReloader {
             return Ok(());
         }
 
-        let (tx, mut rx) = mpsc::channel::<Event>(256);
-
-        let mut watcher = RecommendedWatcher::new(
-            move |result: notify::Result<Event>| {
-                if let Ok(event) = result {
-                    // `try_send` drops the event if the channel is full instead of
-                    // blocking the OS watcher thread. Each event triggers a full
-                    // rescan, so coalescing duplicates is harmless.
-                    let _ = tx.try_send(event);
-                }
-            },
-            Config::default(),
-        )
-        .map_err(|e| MartinError::DirectoryWatchError(e.kind))?;
-        for dir in &self.directories {
-            watcher
-                // FIXME: find a naming scheme for paths that makes sense under recursive and enable it
-                .watch(dir, notify::RecursiveMode::NonRecursive)
-                .map_err(|e| MartinError::DirectoryWatchError(e.kind))?;
-        }
+        let mut trigger = NotifyTrigger::new(&self.directories)?;
 
         tokio::spawn(async move {
-            let _watcher = watcher;
             let mut tsm = self.tile_source_manager.clone();
             self.seed_snapshot().await;
 
-            while let Some(event) = rx.recv().await {
-                self.process_event(&mut tsm, event).await;
+            while trigger.next().await.is_some() {
+                self.process_event(&mut tsm).await;
             }
         });
 
@@ -186,23 +163,11 @@ impl MBTilesReloader {
         }
     }
 
-    /// Handles a filesystem event by rediscovering sources and applying any changes.
+    /// Rediscovers sources and applies any changes.
     ///
-    /// Uses the event only as a trigger - the actual diff is computed by comparing a fresh
-    /// [`discover_sources`] snapshot against the last known state. Skips event kinds that cannot
-    /// result in source changes. Logs and returns without updating state if rediscovery or
-    /// [`TileSourceManager::apply_changes`] fails.
-    async fn process_event(&mut self, tsm: &mut TileSourceManager, event: Event) -> () {
-        if !matches!(
-            event.kind,
-            EventKind::Create(_)
-                | EventKind::Remove(_)
-                | EventKind::Modify(_)
-                | EventKind::Access(AccessKind::Close(AccessMode::Write))
-        ) {
-            return;
-        }
-
+    /// Diff is computed via a fresh [`discover_sources_by_ext`] snapshot vs last known state.
+    /// Logs and returns without updating state if rediscovery or [`Sink::apply_changes`] fails.
+    async fn process_event(&mut self, tsm: &mut TileSourceManager) {
         let sources = match discover_sources_by_ext(
             &self.directories,
             &["mbtiles"],
