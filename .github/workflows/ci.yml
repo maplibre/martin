@@ -25,8 +25,6 @@ jobs:
     permissions:
       contents: read
     runs-on: ubuntu-latest
-    needs:
-      - lint-rust # not because it is needed, but because we want less concurrent jobs competing
     steps:
       - name: Checkout sources
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -44,7 +42,7 @@ jobs:
       contents: read
     runs-on: ${{ matrix.os }}
     needs:
-      - lint-rust # not because it is needed, but because we want less concurrent jobs competing
+      - lint-rust
     strategy:
       fail-fast: false
       matrix:
@@ -83,7 +81,7 @@ jobs:
         run: just test-packages-ci
       - run: just test-doc
   lint-rust:
-    name: Lint the Rust code
+    name: Lint the Rust code (clippy)
     permissions:
       contents: read
     runs-on: ubuntu-latest
@@ -97,23 +95,41 @@ jobs:
         with: { tool: 'just' }
       - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
         if: github.event_name != 'release' && github.event_name != 'workflow_dispatch' && github.ref != 'refs/heads/main'
+        with:
+          key: lint-clippy
       - name: Install rendering dependencies
         run: just install-dependencies
       - run: just env-info
       - run: just clippy
+  check-features:
+    name: Check each feature combination
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    needs:
+      - lint-rust
+    steps:
+      - run: rustup update stable && rustup default stable
+      - name: Checkout sources
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with: { persist-credentials: false }
+      - uses: taiki-e/install-action@60ae4ce63c7aeb6e96d7f572c1ec7fafbb17ca80 # v2.79.10
+        with: { tool: 'just' }
+      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        if: github.event_name != 'release' && github.event_name != 'workflow_dispatch' && github.ref != 'refs/heads/main'
+        with:
+          key: check-features
+      - name: Install rendering dependencies
+        run: just install-dependencies
       - run: just check
-      - run: just check-doc
   validate-schemas:
     name: Validate generated config + OpenAPI schemas
     permissions:
       contents: read
-    # Run after lint-rust just to keep CI lane concurrency reasonable. The
-    # `schemas/` files this validates are kept up to date by the `gen-schemas`
-    # job in `.github/workflows/autofix.yml`, which regenerates and commits
-    # them on every PR push - so this job only needs to read the committed
-    # files, no Rust toolchain required.
+    # `schemas/` files are regenerated and committed by autofix.yml's
+    # gen-schemas job on every PR push; this job only reads them.
     needs:
-      - lint-rust
+      - lint-unit-test-js
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
@@ -128,8 +144,10 @@ jobs:
     name: Lint Rust dependencies
     permissions:
       contents: read
+    # Gate on lint-rust so a stable lint failure aborts before paying
+    # ~30 min on nightly cargo-shear.
     needs:
-      - lint-rust # not because it is needed, but because we want less concurrent jobs competing
+      - lint-rust
     runs-on: ubuntu-latest
     steps:
       - run: rustup default nightly
@@ -588,58 +606,18 @@ jobs:
           retention-days: 5
 
   unit-test-svc-pg:
-    name: Unit test postgis:${{ matrix.img_ver }} sslmode=${{ matrix.sslmode }}
+    # Sequential rather than a matrix so this takes 1 runner slot instead of 3
+    # - we sit close to the 10-job concurrent cap at t=0 of a PR run.
+    name: Unit test PG matrix
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    strategy: &svc-strategy
-      fail-fast: true
-      matrix:
-        include:
-          # These must match the versions of postgres used in the docker-compose.yml
-          - img_ver: 11-3.0-alpine
-            args: postgres
-            sslmode: disable
-          - img_ver: 18-3.6-alpine
-            args: postgres
-            sslmode: disable
-          # alpine images don't support SSL, so for this we use the debian images
-          - img_ver: 18-3.6
-            args: postgres -c ssl=on -c ssl_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem -c ssl_key_file=/etc/ssl/private/ssl-cert-snakeoil.key
-            sslmode: require
-          #
-          # FIXME!
-          # DISABLED because Rustls fails to validate name (CN?) with the NotValidForName error
-          #- img_ver: 15-3.3
-          #  args: postgres -c ssl=on -c ssl_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem -c ssl_key_file=/etc/ssl/private/ssl-cert-snakeoil.key
-          #  sslmode: verify-ca
-          #- img_ver: 15-3.3
-          #  args: postgres -c ssl=on -c ssl_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem -c ssl_key_file=/etc/ssl/private/ssl-cert-snakeoil.key
-          #  sslmode: verify-full
-    env: &svc-env
+    env:
       PGDATABASE: test
       PGHOST: localhost
       PGUSER: postgres
       PGPASSWORD: postgres
-    services:
-      postgres: &svc-postgres
-        image: postgis/postgis:${{ matrix.img_ver }}
-        ports:
-          - 5432/tcp
-        options: >-
-          -e POSTGRES_DB=test
-          -e POSTGRES_USER=postgres
-          -e POSTGRES_PASSWORD=postgres
-          -e PGDATABASE=test
-          -e PGUSER=postgres
-          -e PGPASSWORD=postgres
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-          --entrypoint sh
-          postgis/postgis:${{ matrix.img_ver }}
-          -c "exec docker-entrypoint.sh ${{ matrix.args }}"
+      PGPORT: "5432"
     steps:
       - run: rustup update stable && rustup default stable
       - name: Checkout sources
@@ -647,25 +625,58 @@ jobs:
         with: { persist-credentials: false }
       - uses: taiki-e/install-action@60ae4ce63c7aeb6e96d7f572c1ec7fafbb17ca80 # v2.79.10
         with: { tool: 'just' }
-      - name: Init database
-        run: tests/fixtures/initdb.sh
-        env:
-          PGPORT: ${{ job.services.postgres.ports[5432] }}
-      - name: Unit Tests
-        if: matrix.sslmode != 'verify-ca' && matrix.sslmode != 'verify-full'
+      - name: Compile test binaries
         run: |
-          echo "Running unit tests, connecting to DATABASE_URL=$DATABASE_URL"
-          echo "Same but as base64 to prevent GitHub obfuscation (this is not a secret):"
-          echo "$DATABASE_URL" | base64
-          just test-pg
-        env:
-          DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=${{ matrix.sslmode }}
+          cargo test --features test-pg --no-default-features --no-run \
+            --test pg_function_source_test --test pg_server_test --test pg_table_source_test
+          cargo test --features test-pg --no-default-features --no-run --package martin --lib
+          cargo test --features test-pg --no-default-features --no-run --package martin-core --lib
+      - name: Run test-pg against each postgis variant
+        # Variant format: 'img_ver|postgres args|sslmode'. Versions must match
+        # docker-compose.yml. Alpine images don't ship SSL so the sslmode=require
+        # entry uses the debian image with snakeoil certs.
+        run: |
+          set -euo pipefail
+          variants=(
+            '11-3.0-alpine|postgres|disable'
+            '18-3.6-alpine|postgres|disable'
+            '18-3.6|postgres -c ssl=on -c ssl_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem -c ssl_key_file=/etc/ssl/private/ssl-cert-snakeoil.key|require'
+          )
+          for v in "${variants[@]}"; do
+            IFS='|' read -r img args sslmode <<<"$v"
+            echo "::group::postgis:${img} sslmode=${sslmode}"
+
+            docker run -d --name pg \
+              -p "${PGPORT}:5432" \
+              -e POSTGRES_DB="$PGDATABASE" \
+              -e POSTGRES_USER="$PGUSER" \
+              -e POSTGRES_PASSWORD="$PGPASSWORD" \
+              --entrypoint sh \
+              "postgis/postgis:${img}" \
+              -c "exec docker-entrypoint.sh ${args}"
+
+            for _ in $(seq 1 30); do
+              if docker exec pg pg_isready -U "$PGUSER" -d "$PGDATABASE" >/dev/null 2>&1; then
+                break
+              fi
+              sleep 1
+            done
+
+            export DATABASE_URL="postgres://${PGUSER}:${PGUSER}@${PGHOST}:${PGPORT}/${PGDATABASE}?sslmode=${sslmode}"
+
+            tests/fixtures/initdb.sh
+            just test-pg
+
+            docker rm -f pg
+            echo "::endgroup::"
+          done
 
   unit-test-svc-minio:
-    # Exercises the PMTilesReloader's S3-prefix polling against a MinIO testcontainer
-    # via Martin's public HTTP API. Docker is preinstalled on GitHub-hosted runners,
-    # which is all the testcontainers crate needs.
+    # Exercises the PMTilesReloader's S3-prefix polling against a MinIO
+    # testcontainer via Martin's public HTTP API.
     name: Unit test against MinIO (S3-compatible)
+    needs:
+      - unit-test-svc-pg
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -685,10 +696,45 @@ jobs:
     permissions:
       contents: read
     needs: [ build-x86_64-unknown-linux-gnu, build-debian-x86_64, unit-test-svc-pg ]
-    strategy: *svc-strategy
-    env: *svc-env
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          # These must match the versions of postgres used in the docker-compose.yml
+          - img_ver: 11-3.0-alpine
+            args: postgres
+            sslmode: disable
+          - img_ver: 18-3.6-alpine
+            args: postgres
+            sslmode: disable
+          # alpine images don't support SSL, so for this we use the debian images
+          - img_ver: 18-3.6
+            args: postgres -c ssl=on -c ssl_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem -c ssl_key_file=/etc/ssl/private/ssl-cert-snakeoil.key
+            sslmode: require
+    env:
+      PGDATABASE: test
+      PGHOST: localhost
+      PGUSER: postgres
+      PGPASSWORD: postgres
     services:
-      postgres: *svc-postgres
+      postgres:
+        image: postgis/postgis:${{ matrix.img_ver }}
+        ports:
+          - 5432/tcp
+        options: >-
+          -e POSTGRES_DB=test
+          -e POSTGRES_USER=postgres
+          -e POSTGRES_PASSWORD=postgres
+          -e PGDATABASE=test
+          -e PGUSER=postgres
+          -e PGPASSWORD=postgres
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+          --entrypoint sh
+          postgis/postgis:${{ matrix.img_ver }}
+          -c "exec docker-entrypoint.sh ${{ matrix.args }}"
     steps:
       - name: Checkout sources
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -774,6 +820,8 @@ jobs:
     permissions:
       contents: read
     runs-on: ubuntu-latest
+    needs:
+      - validate-schemas
     steps:
       - run: rustup update stable && rustup default stable
       - name: Checkout sources
@@ -788,6 +836,21 @@ jobs:
       - name: Test cargo-binstall metadata
         run: just check-binstall
 
+  check-doc:
+    name: Test documentation build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    needs:
+      - test-publish
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with: { persist-credentials: false }
+      - uses: taiki-e/install-action@60ae4ce63c7aeb6e96d7f572c1ec7fafbb17ca80 # v2.79.10
+        with: { tool: 'just' }
+      - run: just check-doc
+
   package:
     name: Package
     runs-on: ubuntu-latest
@@ -797,7 +860,7 @@ jobs:
       attestations: write
       # for writing release artifacts
       contents: write
-    needs: [ lint-unit-test-js, unit-test-rust, lint-rust, lint-rust-dependencies, validate-schemas, test-multi-os, test-with-svc, test-aws-lambda, test-publish, build-aarch64-apple-darwin, build-aarch64-unknown-linux-gnu, build-aarch64-unknown-linux-musl ]
+    needs: [ lint-unit-test-js, unit-test-rust, lint-rust, check-features, check-doc, lint-rust-dependencies, validate-schemas, test-multi-os, test-with-svc, test-aws-lambda, test-publish, build-aarch64-apple-darwin, build-aarch64-unknown-linux-gnu, build-aarch64-unknown-linux-musl ]
     steps:
       - name: Checkout sources
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -939,6 +1002,8 @@ jobs:
       - lint-rust-dependencies
       - lint-unit-test-js
       - lint-rust
+      - check-features
+      - check-doc
     if: always()
     permissions: {}
     steps:
