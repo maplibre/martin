@@ -405,46 +405,55 @@ impl<'a> DynTileSource<'a> {
         pc: &ProcessConfig,
         xyz: TileCoord,
     ) -> ActixResult<Tile> {
-        let tile = self.fetch_tile_content_with_cache(s, pc, xyz).await;
-
-        // On SourceNeedsReload, rebuild the source and retry once.
-        let tile = if matches!(&tile, Err(e) if matches!(e.as_ref(), MartinCoreError::SourceNeedsReload))
-        {
-            match s.try_reload().await {
-                Ok(fresh_src) => {
-                    warn!(source.id = s.get_id(), "Source modified; reloading");
-                    let advisory = ReloadAdvisory {
-                        updates: vec![NewSource {
-                            id: s.get_id().to_string(),
-                            source: Ok(fresh_src.clone_source()),
-                            process: pc.clone(),
-                        }],
-                        ..Default::default()
-                    };
-                    if let Err(e) = self.manager.apply_changes(advisory).await {
-                        warn!(source.id = s.get_id(), error = %e, "Failed to apply source update after reload");
-                    }
-                    self.fetch_tile_content_with_cache(&fresh_src, pc, xyz)
-                        .await
-                }
-                _ => tile,
+        match self.fetch_tile_content_with_cache(s, pc, xyz).await {
+            Err(ref e) if matches!(e.as_ref(), MartinCoreError::SourceNeedsReload) => {
+                self.reload_source_and_retry_get_tile(s, pc, xyz).await
             }
-        } else {
-            tile
-        };
-
-        tile.map_err(|e| map_internal_error(e.as_ref()))
+            result => result.map_err(|e| map_internal_error(e.as_ref())),
+        }
     }
 
+    async fn reload_source_and_retry_get_tile(
+        &self,
+        s: &BoxedSource,
+        pc: &ProcessConfig,
+        xyz: TileCoord,
+    ) -> ActixResult<Tile> {
+        match s.try_reload().await {
+            Ok(fresh_src) => {
+                warn!(source.id = s.get_id(), "Source modified; reloading");
+                let advisory = ReloadAdvisory {
+                    updates: vec![NewSource {
+                        id: s.get_id().to_string(),
+                        source: Ok(fresh_src.clone_source()),
+                        process: pc.clone(),
+                    }],
+                    ..Default::default()
+                };
+                if let Err(e) = self.manager.apply_changes(advisory).await {
+                    warn!(source.id = s.get_id(), error = %e, "Failed to apply source update after reload");
+                }
+                self.fetch_tile_content_with_cache(&fresh_src, pc, xyz)
+                    .await
+                    .map_err(|e| map_internal_error(e.as_ref()))
+            }
+            Err(e) => Err(map_internal_error(&e)),
+        }
+    }
+
+    #[cfg_attr(
+        not(all(feature = "mlt", feature = "_tiles")),
+        expect(unused_variables)
+    )]
     async fn fetch_tile_content_with_cache(
         &self,
-        src: &BoxedSource,
+        s: &BoxedSource,
         pc: &ProcessConfig,
         xyz: TileCoord,
     ) -> Result<Tile, Arc<MartinCoreError>> {
-        let cache_zoom = src.cache_zoom().contains(xyz.z);
-        let src_id = src.get_id().to_string();
-        let src = src.clone_source();
+        let cache_zoom = s.cache_zoom().contains(xyz.z);
+        let src_id = s.get_id().to_string();
+        let src = s.clone_source();
         let compute = || async move {
             let t = src.get_tile_with_etag(xyz, self.query_obj.as_ref()).await?;
             apply_pre_cache_processors(
