@@ -22,7 +22,7 @@ on:
         type: boolean
         default: false
       release_mode:
-        description: 'Build in release mode with debug info stripped. Set to false for PR builds to reduce build time.'
+        description: 'Build in release mode with debug info stripped. Set to false for PR builds to reduce build time. Also drives MLN_PRECOMPILE: release builds compile maplibre-native from source, debug builds use the upstream prebuilt amalgam.'
         required: false
         type: boolean
         default: true
@@ -41,6 +41,7 @@ jobs:
       # Set RELEASE_MODE to '1' for release builds (push to main, releases, and manual workflow dispatches),
       # or empty for PR debug builds to reduce CI build time.
       RELEASE_MODE: ${{ inputs.release_mode && '1' || '' }}
+      MLN_PRECOMPILE: ${{ inputs.release_mode && '0' || '1' }}
     steps:
       - run: rustup update stable && rustup default stable
       - name: Checkout sources

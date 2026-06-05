@@ -13,6 +13,9 @@ defaults:
   run:
     shell: bash
 
+env:
+  MLN_PRECOMPILE: "1"
+
 permissions:
   contents: read
 
