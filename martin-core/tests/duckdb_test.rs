@@ -6,10 +6,10 @@ use std::path::{Path, PathBuf};
 use duckdb::{Connection, params};
 use futures::future::join_all;
 use martin_core::CacheZoomRange;
+use martin_core::tiles::Source as _;
 use martin_core::tiles::duckdb::{
     DuckDBError, DuckDBPool, DuckDBResult, DuckDBSource, DuckDBSqlInfo,
 };
-use martin_core::tiles::{Source as _};
 use martin_tile_utils::{Encoding, Format, TileCoord, TileInfo};
 use tempfile::TempDir;
 use tilejson::tilejson;
@@ -84,7 +84,6 @@ fn create_file_pool(path: &Path, pool_size: usize) -> DuckDBPool {
         NonZeroUsize::new(1024),
     )
     .expect("test pool created")
-
 }
 //duckdb tile error helper function
 fn map_duckdb_error(e: duckdb::Error) -> DuckDBError {
@@ -113,7 +112,6 @@ fn create_source(path: &Path, sql_query: &str) -> DuckDBSource {
         CacheZoomRange::new(Some(1), Some(8)),
     )
 }
-
 
 #[tokio::test]
 async fn database_file_pool_creation() {

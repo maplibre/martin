@@ -168,14 +168,19 @@ impl DuckDBPoolManager {
     }
 
     fn open_ready_connection(&self) -> Result<Connection, DuckDBPoolManagerError> {
-
         let config = Config::default()
             .access_mode(AccessMode::ReadOnly)
-            .map_err(|source| Open { source: source.into(), target: self.target.clone().into() })
+            .map_err(|source| Open {
+                source: source.into(),
+                target: self.target.clone().into(),
+            })
             .and_then(|cfg| match self.threads {
                 None => Ok(cfg),
                 Some(threads_val) => {
-                    let val: i64 = threads_val.get().try_into().map_err(|_| InvalidThreadCount(threads_val.get()))?;
+                    let val: i64 = threads_val
+                        .get()
+                        .try_into()
+                        .map_err(|_| InvalidThreadCount(threads_val.get()))?;
                     cfg.threads(val).map_err(|source| ApplySetting {
                         source: source.into(),
                         setting: "threads",
