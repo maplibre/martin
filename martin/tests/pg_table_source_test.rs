@@ -150,7 +150,7 @@ async fn table_source() {
     ");
 
     let source3 = table(&mock, "points3857");
-    // bounds[3] varies by 1 ULP — parallel ST_Extent aggregation order in postgis.
+    // bounds[3] varies by 1 ULP -- parallel ST_Extent aggregation order in postgis.
     assert_yaml_snapshot!(source3, {".bounds[3]" => "FP_ULP"}, @r"
     schema: public
     table: points3857
