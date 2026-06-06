@@ -794,7 +794,16 @@ jobs:
       attestations: write
       # for writing release artifacts
       contents: write
-    needs: [ lint-unit-test-js, unit-test-rust, lint-rust, lint-rust-dependencies, validate-schemas, test-multi-os, test-with-svc, test-aws-lambda, test-publish, build-aarch64-apple-darwin, build-aarch64-unknown-linux-gnu, build-aarch64-unknown-linux-musl ]
+    # Only the build-binary jobs whose artifacts package downloads. Tests,
+    # lints, etc. don't gate packaging - that role belongs to `done`.
+    needs:
+      - build-aarch64-apple-darwin
+      - build-aarch64-unknown-linux-gnu
+      - build-x86_64-unknown-linux-gnu
+      - build-aarch64-unknown-linux-musl
+      - build-x86_64-unknown-linux-musl
+      - build-x86_64-pc-windows-msvc
+      - build-debian-x86_64
     steps:
       - name: Checkout sources
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -929,13 +938,25 @@ jobs:
   done:
     name: CI Finished
     runs-on: ubuntu-latest
+    # The merge gate: must include every job whose failure should block
+    # merge. Package only gates on builds, so checks/tests are listed here.
     needs:
       - package
       - docker-build-test
-      - unit-test-rust
-      - lint-rust-dependencies
       - lint-unit-test-js
       - lint-rust
+      - check-features
+      - lint-rust-dependencies
+      - unit-test-rust
+      - test-doc-rust
+      - validate-schemas
+      - check-doc
+      - test-multi-os
+      - test-with-svc
+      - test-aws-lambda
+      - unit-test-svc-pg
+      - unit-test-svc-minio
+      - test-publish
     if: always()
     permissions: {}
     steps:
