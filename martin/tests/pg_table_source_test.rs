@@ -150,7 +150,10 @@ async fn table_source() {
     ");
 
     let source3 = table(&mock, "points3857");
-    assert_yaml_snapshot!(source3, @"
+    // bounds[3] varies by 1 ULP across postgis versions (parallel ST_Extent
+    // sum order is implementation-defined). Redact it; the other three
+    // bounds are stable and still asserted.
+    assert_yaml_snapshot!(source3, {".bounds[3]" => "FP_ULP"}, @r"
     schema: public
     table: points3857
     srid: 3857
@@ -159,7 +162,7 @@ async fn table_source() {
       - -161.4059125851273
       - -81.50727080755011
       - 172.51550346797322
-      - 84.24401966908701
+      - FP_ULP
     geometry_type: POINT
     properties:
       gid: int4
