@@ -6,12 +6,16 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
+use bytes::Bytes;
 use martin_core::CacheZoomRange;
+use martin_core::tiles::MartinCoreError;
 use martin_core::tiles::Source as _;
 use martin_core::tiles::pmtiles::{PmtCache, PmtCacheInstance, PmtilesError, PmtilesSource};
 use martin_tile_utils::{Encoding, Format, TileCoord};
 use object_store::local::LocalFileSystem;
-use pmtiles::{DirectoryCache as _, TileId};
+use object_store::memory::InMemory;
+use object_store::{ObjectStoreExt as _, PutPayload};
+use pmtiles::{DirectoryCache as _, PmtError, TileId};
 use rstest::rstest;
 use tokio::sync::oneshot;
 use tokio::time::sleep;
@@ -62,7 +66,7 @@ fn test_cache_bytes(size_bytes: u64) -> PmtCacheInstance {
 /// - `offsets` (varint)
 ///
 /// This creates a minimal valid directory structure for cache testing.
-fn create_test_directory() -> Result<pmtiles::Directory, pmtiles::PmtError> {
+fn create_test_directory() -> Result<pmtiles::Directory, PmtError> {
     let buf = vec![
         2, // n_entries = 2
         1, // first tile_id = 1
@@ -75,7 +79,7 @@ fn create_test_directory() -> Result<pmtiles::Directory, pmtiles::PmtError> {
         0xD0, 0x0F, // offsets: first=1000, second=2000
     ];
 
-    pmtiles::Directory::try_from(bytes::Bytes::from(buf))
+    pmtiles::Directory::try_from(Bytes::from(buf))
 }
 
 #[tokio::test]
@@ -417,6 +421,61 @@ async fn different_tiles_have_different_etags() {
     assert_ne!(
         tile1.etag, tile2.etag,
         "Different tiles should have different ETags"
+    );
+}
+
+#[tokio::test]
+async fn source_returns_error_after_object_store_update() {
+    // The pmtiles reader captures the object store's ETag at initialization time.
+    // When the object is replaced (InMemory increments the ETag on put), the next
+    // tile fetch returns PmtError::SourceModified. This test pins that contract so
+    // we can build reload-and-retry logic on top of it.
+
+    let fixture_data = Bytes::from(
+        std::fs::read(fixtures_dir().join("stamen_toner__raster_CC-BY+ODbL_z3.pmtiles"))
+            .expect("fixture file exists"),
+    );
+
+    let store = InMemory::new();
+    let path = object_store::path::Path::from("test.pmtiles");
+
+    store
+        .put(&path, PutPayload::from(fixture_data.clone()))
+        .await
+        .expect("initial upload");
+
+    let cache = test_cache_bytes(0);
+    let source = PmtilesSource::new(
+        cache,
+        "source_modified_test".to_string(),
+        Box::new(store.clone()),
+        path.clone(),
+        CacheZoomRange::default(),
+    )
+    .await
+    .expect("source created");
+
+    let coord = TileCoord { z: 0, x: 0, y: 0 };
+
+    let tile = source
+        .get_tile(coord, None)
+        .await
+        .expect("first read succeeds");
+    assert!(!tile.is_empty(), "first tile should have data");
+
+    // Re-upload the same bytes -- InMemory increments the ETag on every put.
+    store
+        .put(&path, PutPayload::from(fixture_data))
+        .await
+        .expect("re-upload to simulate source change");
+
+    let err = source
+        .get_tile(coord, None)
+        .await
+        .expect_err("should fail after ETag change");
+    assert!(
+        matches!(err, MartinCoreError::SourceNeedsReload),
+        "expected SourceNeedsReload, got: {err:?}"
     );
 }
 

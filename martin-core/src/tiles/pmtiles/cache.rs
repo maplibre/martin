@@ -1,3 +1,4 @@
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
 use moka::future::Cache;
@@ -65,6 +66,20 @@ impl PmtCacheInstance {
     #[must_use]
     pub fn new(id: usize, cache: PmtCache) -> Self {
         Self { id, cache }
+    }
+
+    /// Creates a new instance with a globally unique ID.
+    #[must_use]
+    pub fn new_auto_id(cache: PmtCache) -> Self {
+        static NEXT_PMT_CACHE_ID: AtomicUsize = AtomicUsize::new(0);
+        let auto_id = NEXT_PMT_CACHE_ID.fetch_add(1, Ordering::Relaxed);
+        Self::new(auto_id, cache)
+    }
+
+    /// Creates a sibling instance backed by the same [`PmtCache`] but with a fresh unique ID.
+    #[must_use]
+    pub fn fork(&self) -> Self {
+        Self::new_auto_id(self.cache.clone())
     }
 
     /// Returns the cache ID.
