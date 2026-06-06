@@ -79,6 +79,26 @@ jobs:
         uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
       - name: Run cargo test
         run: just test-packages-ci
+  test-doc-rust:
+    name: Rust doctests
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    needs:
+      - lint-rust
+    steps:
+      - run: rustup update stable && rustup default stable
+      - name: Checkout sources
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with: { persist-credentials: false }
+      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
+        with:
+          key: test-doc
+      - uses: taiki-e/install-action@60ae4ce63c7aeb6e96d7f572c1ec7fafbb17ca80 # v2.79.10
+        with: { tool: 'just' }
+      - name: Install rendering dependencies
+        run: just install-dependencies
       - run: just test-doc
   lint-rust:
     name: Lint the Rust code (clippy)
@@ -144,8 +164,9 @@ jobs:
     name: Lint Rust dependencies
     permissions:
       contents: read
-    # Gate on lint-rust so a stable lint failure aborts before paying
-    # ~30 min on nightly cargo-shear.
+    # cargo-shear on nightly recompiles the workspace (~30 min). Not gating
+    # on PR - results are advisory there; we still block merge to main.
+    if: github.event_name != 'pull_request'
     needs:
       - lint-rust
     runs-on: ubuntu-latest
@@ -816,7 +837,7 @@ jobs:
       attestations: write
       # for writing release artifacts
       contents: write
-    needs: [ lint-unit-test-js, unit-test-rust, lint-rust, check-features, check-doc, lint-rust-dependencies, validate-schemas, test-multi-os, test-with-svc, test-aws-lambda, test-publish, build-aarch64-apple-darwin, build-aarch64-unknown-linux-gnu, build-aarch64-unknown-linux-musl ]
+    needs: [ lint-unit-test-js, unit-test-rust, test-doc-rust, lint-rust, check-features, check-doc, validate-schemas, test-multi-os, test-with-svc, test-aws-lambda, test-publish, build-aarch64-apple-darwin, build-aarch64-unknown-linux-gnu, build-aarch64-unknown-linux-musl ]
     steps:
       - name: Checkout sources
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -955,6 +976,7 @@ jobs:
       - package
       - docker-build-test
       - unit-test-rust
+      - test-doc-rust
       - lint-rust-dependencies
       - lint-unit-test-js
       - lint-rust
@@ -965,7 +987,9 @@ jobs:
     steps:
       - name: Result of the needed steps
         run: echo "${{ toJSON(needs) }}" # zizmor: ignore[template-injection]
-      - if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped') }}
+      # `skipped` is intentional on PRs for jobs gated by event_name (e.g.
+      # lint-rust-dependencies). Only `failure` and `cancelled` are fatal.
+      - if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
         name: CI Result
         run: exit 1
 
