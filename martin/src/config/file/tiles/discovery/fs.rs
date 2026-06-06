@@ -28,8 +28,7 @@ type BuiltSource = BoxFuture<'static, MartinResult<BoxedSource>>;
 /// The mbtiles/cog builders capture nothing and would coerce to a bare `fn` pointer.
 /// They share this one type so all kinds yield the same concrete `FsDiscovery`.
 /// The cost is a single heap allocation per reloader at startup.
-pub type FsSourceBuilder =
-    Box<dyn Fn(String, PathBuf, CachePolicy) -> BuiltSource + Send + Sync>;
+pub type FsSourceBuilder = Box<dyn Fn(String, PathBuf, CachePolicy) -> BuiltSource + Send + Sync>;
 
 /// A [`Discovery`] that enumerates source files under the watched directories.
 pub struct FsDiscovery {
