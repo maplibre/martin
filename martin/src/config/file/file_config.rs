@@ -570,7 +570,7 @@ async fn resolve_one_path_int<T: TileSourceConfiguration>(
         let target_ext = extension.iter().find(|&e| url.to_string().ends_with(e));
         let Some(ext) = target_ext else {
             // A URL whose path doesn't end with one of the target extensions is treated as
-            // a prefix to be discovered by the format-specific reloader (e.g. PMTilesReloader
+            // a prefix to be discovered by the format-specific reloader (e.g. PmTilesReloader
             // polling `s3://bucket/`). Push it back into `directories` so the rebuilt
             // FileConfigEnum preserves it for the reloader to see.
             info!(

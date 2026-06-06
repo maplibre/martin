@@ -434,7 +434,7 @@ Read it when you're curious **why** certain choices were made.
     graph LR
         Trigger["Trigger<br/>(when)"] -->|fires| Driver[Reload Driver]
         Driver -->|discover| Discovery["Discovery<br/>(what should exist)"]
-        Discovery -->|"(Version, Recipe) per id"| Driver
+        Discovery -->|"(Version, Args) per id"| Driver
         Driver -->|"diff vs baseline, build changed"| Advisory["ReloadAdvisory<br/>add / update / remove"]
         Advisory -->|apply| Sink["Sink<br/>(where)"]
         Sink --> Catalog[("Catalog<br/>TileSourceManager")]

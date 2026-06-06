@@ -210,9 +210,8 @@ pmtiles:
     size_mb: 64
   # A list of file paths
   paths: []
-  # How often the `PMTilesReloader` re-lists remote URL prefixes (`s3://bucket/`,
-  # `gs://bucket/`, etc.) for source discovery. Has no effect on local directories,
-  # which are watched via filesystem events.
+  # How often remote URL prefixes (`s3://bucket/`, `gs://bucket/`, etc.) re-`LIST` for source discovery.
+  # Has no effect on local directories, which are watched via filesystem events.
   #
   # Supports human-readable formats: "10m", "1h", "30s".
   # Defaults to "10m". Set to "0s" to disable remote polling.
