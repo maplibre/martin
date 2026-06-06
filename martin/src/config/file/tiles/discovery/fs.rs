@@ -19,8 +19,17 @@ use crate::{MartinError, MartinResult};
 type BuiltSource = BoxFuture<'static, MartinResult<BoxedSource>>;
 
 /// Opens one discovered file as a source.
-/// Both builders are non-capturing, so a `fn` pointer avoids a boxed `dyn Fn`.
-pub type FsSourceBuilder = fn(String, PathBuf, CachePolicy) -> BuiltSource;
+///
+/// This is a boxed `dyn Fn`, not a bare `fn` pointer.
+/// The `PMTiles` builder must capture per-source state.
+/// It closes over the shared directory cache and the configured `object_store` options so every discovered file reuses them.
+/// A captured closure has an unnameable type.
+/// Storing it in [`FsDiscovery`]'s `build` field therefore requires erasing it behind a `Box<dyn Fn>`.
+/// The mbtiles/cog builders capture nothing and would coerce to a bare `fn` pointer.
+/// They share this one type so all kinds yield the same concrete `FsDiscovery`.
+/// The cost is a single heap allocation per reloader at startup.
+pub type FsSourceBuilder =
+    Box<dyn Fn(String, PathBuf, CachePolicy) -> BuiltSource + Send + Sync>;
 
 /// A [`Discovery`] that enumerates source files under the watched directories.
 pub struct FsDiscovery {
@@ -225,9 +234,9 @@ mod tests {
     use super::*;
 
     fn unreachable_builder() -> FsSourceBuilder {
-        |id, _path, _policy| {
+        Box::new(|id, _path, _policy| {
             Box::pin(async move { panic!("build should not be called by discover(): {id}") })
-        }
+        })
     }
 
     #[tokio::test]

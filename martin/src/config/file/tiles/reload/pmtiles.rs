@@ -52,6 +52,8 @@ impl PmTilesReloader {
         };
 
         // Local sources are built through `PmtConfig::new_sources` (path -> file:// URL).
+        // This closure captures `build_config` so every discovered file reuses the same shared directory cache and `object_store` options.
+        // That capture is why `FsSourceBuilder` is a boxed `dyn Fn` rather than a bare `fn` pointer.
         let build_config = pmt_config.clone();
         let build: FsSourceBuilder = Box::new(move |id, path, policy| {
             let config = build_config.clone();

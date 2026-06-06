@@ -46,14 +46,14 @@ impl MbtilesReloader {
         // One `FsDiscovery` serves every file kind, so the two boxes erase per-kind types.
         // `Box::pin(async {..})` erases the future to `BoxFuture`.
         // `Box::new(src) as BoxedSource` erases the source to `dyn Source`.
-        // The non-capturing closure coerces to the alias's `fn` pointer.
-        // The annotation pins the parameter types, which a bare `let` cannot infer.
-        let build: FsSourceBuilder = |id, path, policy| {
+        // This builder captures nothing.
+        // We still `Box::new` it because `FsSourceBuilder` is a boxed `dyn Fn` that `PMTiles` needs (see its docs).
+        let build: FsSourceBuilder = Box::new(|id, path, policy| {
             Box::pin(async move {
                 let src = MbtSource::new(id, path, policy.zoom()).await?;
                 Ok(Box::new(src) as BoxedSource)
             })
-        };
+        });
         let discovery = FsDiscovery::from_config(config, &["mbtiles"], id_resolver, process, build);
 
         Self {
