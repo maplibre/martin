@@ -604,6 +604,9 @@ test-pg-against image args sslmode:
     PGPASSWORD_LOCAL="${PGPASSWORD:-postgres}"
     PGHOST_LOCAL="${PGHOST:-localhost}"
     PGDATABASE_LOCAL="${PGDATABASE:-test}"
+    # Pin max_parallel_workers_per_gather=0: parallel ST_Extent's per-worker
+    # float sum order is non-deterministic and varies by 1 ULP across runs,
+    # breaking snapshot tests. Forces single-threaded aggregation.
     docker run -d --name pg \
         -p "${PGPORT_LOCAL}:5432" \
         -e POSTGRES_DB="$PGDATABASE_LOCAL" \
@@ -611,7 +614,7 @@ test-pg-against image args sslmode:
         -e POSTGRES_PASSWORD="$PGPASSWORD_LOCAL" \
         --entrypoint sh \
         "postgis/postgis:{{image}}" \
-        -c "exec docker-entrypoint.sh {{args}}"
+        -c "exec docker-entrypoint.sh {{args}} -c max_parallel_workers_per_gather=0"
     for _ in $(seq 1 30); do
         docker exec pg pg_isready -U "$PGUSER_LOCAL" -d "$PGDATABASE_LOCAL" >/dev/null 2>&1 && break
         sleep 1
