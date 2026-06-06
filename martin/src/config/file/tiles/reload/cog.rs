@@ -5,7 +5,7 @@ use crate::config::file::FileConfigEnum;
 use crate::config::file::cog::CogConfig;
 use crate::config::file::process::ProcessConfig;
 use crate::config::file::tiles::discovery::{FsDiscovery, FsSourceBuilder};
-use crate::config::file::tiles::driver::{NotifyTrigger, ReloadDriver};
+use crate::config::file::tiles::driver::{Baseline, NotifyTrigger, ReloadDriver};
 use crate::config::primitives::IdResolver;
 use crate::{MartinResult, TileSourceManager};
 
@@ -23,13 +23,13 @@ impl CogReloader {
         config: &FileConfigEnum<CogConfig>,
     ) -> Self {
         // See `MbtilesReloader::new`: both boxes erase per-kind types to a shared shape.
-        // The non-capturing closure coerces to the alias's `fn` pointer.
-        let build: FsSourceBuilder = |id, path, policy| {
+        // This builder captures nothing, but is `Box::new`d to share the boxed `FsSourceBuilder` type.
+        let build: FsSourceBuilder = Box::new(|id, path, policy| {
             Box::pin(async move {
                 let src = CogSource::new(id, path, policy.zoom())?;
                 Ok(Box::new(src) as BoxedSource)
             })
-        };
+        });
         let discovery = FsDiscovery::from_config(
             config,
             &["tif", "tiff"],
@@ -50,7 +50,8 @@ impl CogReloader {
             return Ok(());
         }
         let trigger = NotifyTrigger::new(&directories)?;
-        ReloadDriver::new(self.discovery, self.tile_source_manager).spawn(trigger);
+        ReloadDriver::new(self.discovery, self.tile_source_manager)
+            .spawn(trigger, Baseline::StartupResolved);
         Ok(())
     }
 }

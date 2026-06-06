@@ -2,28 +2,39 @@
 //! Each kind differs only by its extension list and a build closure.
 
 use std::collections::BTreeMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use std::time::UNIX_EPOCH;
 
 use futures::future::BoxFuture;
 use martin_core::tiles::BoxedSource;
+use tokio::fs::{self, DirEntry};
 
-use crate::MartinResult;
 use crate::config::file::file_config::is_remote_url;
 use crate::config::file::tiles::discovery::{Discovery, Version};
-use crate::config::file::tiles::reload::discover_sources_by_ext;
 use crate::config::file::{CachePolicy, FileConfigEnum, ProcessConfig};
 use crate::config::primitives::{IdResolver, OptOneMany};
+use crate::{MartinError, MartinResult};
 
+/// The future an [`FsSourceBuilder`] returns: the freshly-built source, or an init error.
 type BuiltSource = BoxFuture<'static, MartinResult<BoxedSource>>;
 
 /// Opens one discovered file as a source.
-/// Both builders are non-capturing, so a `fn` pointer avoids a boxed `dyn Fn`.
-pub type FsSourceBuilder = fn(String, PathBuf, CachePolicy) -> BuiltSource;
+///
+/// This is a boxed `dyn Fn`, not a bare `fn` pointer.
+/// The `PMTiles` builder must capture per-source state.
+/// It closes over the shared directory cache and the configured `object_store` options so every discovered file reuses them.
+/// A captured closure has an unnameable type.
+/// Storing it in [`FsDiscovery`]'s `build` field therefore requires erasing it behind a `Box<dyn Fn>`.
+/// The mbtiles/cog builders capture nothing and would coerce to a bare `fn` pointer.
+/// They share this one type so all kinds yield the same concrete `FsDiscovery`.
+/// The cost is a single heap allocation per reloader at startup.
+pub type FsSourceBuilder = Box<dyn Fn(String, PathBuf, CachePolicy) -> BuiltSource + Send + Sync>;
 
-/// A [`Discovery`] that enumerates source files under watched directories.
+/// A [`Discovery`] that enumerates source files under the watched directories.
 pub struct FsDiscovery {
     directories: Vec<PathBuf>,
     extensions: &'static [&'static str],
+    /// Canonical path -> policy for configured sources, so discovered files inherit their policy.
     path_cache: BTreeMap<PathBuf, CachePolicy>,
     id_resolver: IdResolver,
     process: ProcessConfig,
@@ -31,6 +42,7 @@ pub struct FsDiscovery {
 }
 
 impl FsDiscovery {
+    /// Collects the local watch directories and per-path cache policies; remote URLs are skipped.
     pub fn from_config<C>(
         config: &FileConfigEnum<C>,
         extensions: &'static [&'static str],
@@ -93,6 +105,7 @@ impl FsDiscovery {
         }
     }
 
+    /// The watched directories, for wiring a `NotifyTrigger`.
     #[must_use]
     pub fn directories(&self) -> &[PathBuf] {
         &self.directories
@@ -113,7 +126,9 @@ impl Discovery for FsDiscovery {
 
         Ok(discovered
             .into_iter()
-            .map(|(id, (path, modified_ms, policy))| (id, (modified_ms, (path, policy))))
+            .map(|(id, (path, modified_at_ms, policy))| {
+                (id, (Version::Tracked(modified_at_ms), (path, policy)))
+            })
             .collect())
     }
 
@@ -126,6 +141,91 @@ impl Discovery for FsDiscovery {
     }
 }
 
+struct ResolvedEntry {
+    path: PathBuf,
+    stem: String,
+    path_str: String,
+    modified_ms: u128,
+}
+
+fn path_modified_ms(path: &Path) -> Option<u128> {
+    let Ok(metadata) = path.metadata() else {
+        tracing::warn!(path = ?path, "failed to resolve metadata");
+        return None;
+    };
+
+    let Ok(modified) = metadata.modified() else {
+        tracing::warn!(path = ?path, "failed to resolve modified timestamp");
+        return None;
+    };
+
+    let Ok(duration) = modified.duration_since(UNIX_EPOCH) else {
+        tracing::warn!(path = ?path, "failed to resolve duration since unix epoch");
+        return None;
+    };
+
+    Some(duration.as_millis())
+}
+
+fn resolve_dir_entry(entry: &DirEntry) -> Option<ResolvedEntry> {
+    let raw = entry.path();
+
+    let Ok(path) = raw.canonicalize() else {
+        tracing::warn!(path = ?raw, "failed to canonicalize path");
+        return None;
+    };
+
+    let Some(stem) = path.file_stem().and_then(|o| o.to_str()) else {
+        tracing::warn!(path = ?path, "failed to resolve file stem");
+        return None;
+    };
+
+    let Ok(path_str) = path.clone().into_os_string().into_string() else {
+        tracing::warn!(path = ?path, "failed to resolve path string");
+        return None;
+    };
+
+    let modified_ms = path_modified_ms(&path)?;
+
+    Some(ResolvedEntry {
+        path: path.clone(),
+        stem: stem.to_string(),
+        path_str,
+        modified_ms,
+    })
+}
+
+/// Scans `directories` for files matching `extensions`, resolving ids and cache policies.
+async fn discover_sources_by_ext(
+    directories: &[PathBuf],
+    extensions: &[&str],
+    path_cache: &BTreeMap<PathBuf, CachePolicy>,
+    id_resolver: &IdResolver,
+) -> MartinResult<BTreeMap<String, (PathBuf, u128, CachePolicy)>> {
+    let mut out = BTreeMap::new();
+    for directory in directories {
+        let mut entries = fs::read_dir(directory)
+            .await
+            .map_err(MartinError::IoError)?;
+        while let Some(entry) = entries.next_entry().await.map_err(MartinError::IoError)? {
+            let Some(e) = resolve_dir_entry(&entry) else {
+                continue;
+            };
+            if !e.path.is_file()
+                || e.path
+                    .extension()
+                    .is_none_or(|ext| !extensions.iter().any(|ex| *ex == ext))
+            {
+                continue;
+            }
+            let policy = path_cache.get(&e.path).copied().unwrap_or_default();
+            let id = id_resolver.resolve(&e.stem, e.path_str.clone());
+            out.insert(id, (e.path, e.modified_ms, policy));
+        }
+    }
+    Ok(out)
+}
+
 #[cfg(test)]
 mod tests {
     use std::fs::File;
@@ -133,9 +233,9 @@ mod tests {
     use super::*;
 
     fn unreachable_builder() -> FsSourceBuilder {
-        |id, _path, _policy| {
+        Box::new(|id, _path, _policy| {
             Box::pin(async move { panic!("build should not be called by discover(): {id}") })
-        }
+        })
     }
 
     #[tokio::test]
@@ -159,8 +259,10 @@ mod tests {
         ids.sort();
         assert_eq!(ids, vec!["alpha", "beta"]);
         assert!(
-            snapshot.values().all(|(v, _)| *v > 0),
-            "file sources carry a nonzero mtime version"
+            snapshot
+                .values()
+                .all(|(v, _)| matches!(v, Version::Tracked(_))),
+            "file sources carry a Tracked mtime version"
         );
     }
 }

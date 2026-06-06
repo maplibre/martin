@@ -659,7 +659,7 @@ jobs:
           DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=${{ matrix.sslmode }}
 
   unit-test-svc-minio:
-    # Exercises the PMTilesReloader's S3-prefix polling against a MinIO testcontainer
+    # Exercises the PmtilesReloader's S3-prefix polling against a MinIO testcontainer
     # via Martin's public HTTP API. Docker is preinstalled on GitHub-hosted runners,
     # which is all the testcontainers crate needs.
     name: Unit test against MinIO (S3-compatible)
