@@ -164,9 +164,6 @@ jobs:
     name: Lint Rust dependencies
     permissions:
       contents: read
-    # cargo-shear on nightly recompiles the workspace (~30 min). Not gating
-    # on PR - results are advisory there; we still block merge to main.
-    if: github.event_name != 'pull_request'
     needs:
       - lint-rust
     runs-on: ubuntu-latest
@@ -175,11 +172,14 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with: { persist-credentials: false }
+      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
+        with:
+          key: shear-nightly
       - uses: taiki-e/install-action@60ae4ce63c7aeb6e96d7f572c1ec7fafbb17ca80 # v2.79.10
         with: { tool: 'cargo-shear,just' }
       - name: Install rendering dependencies
         run: just install-dependencies
-
       - run: just shear
   build-aarch64-unknown-linux-musl:
     uses: ./.github/workflows/build-binary.yml
@@ -987,9 +987,7 @@ jobs:
     steps:
       - name: Result of the needed steps
         run: echo "${{ toJSON(needs) }}" # zizmor: ignore[template-injection]
-      # `skipped` is intentional on PRs for jobs gated by event_name (e.g.
-      # lint-rust-dependencies). Only `failure` and `cancelled` are fatal.
-      - if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+      - if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped') }}
         name: CI Result
         run: exit 1
 
