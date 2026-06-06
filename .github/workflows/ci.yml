@@ -806,10 +806,11 @@ jobs:
         with: { persist-credentials: false }
       - uses: taiki-e/install-action@60ae4ce63c7aeb6e96d7f572c1ec7fafbb17ca80 # v2.79.10
         with: { tool: 'just,cargo-binstall' }
-      - name: Install rendering dependencies
-        run: just install-dependencies
       - name: Test packaging
-        run: cargo publish --workspace --dry-run
+        # `--no-verify` skips the per-crate compile of the packaged tarball
+        # (~15 min). Workspace-level compile is already covered by lint-rust
+        # and check-features; the tarball + manifest validation still runs.
+        run: cargo publish --workspace --dry-run --no-verify
       - name: Test cargo-binstall metadata
         run: just check-binstall
 
