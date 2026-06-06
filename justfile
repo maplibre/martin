@@ -581,11 +581,7 @@ test: start
     {{just}} test-int
 
 # Run PostgreSQL-requiring tests only
-test-pg: start _test-pg-cargo
-
-# Run the test-pg cargo invocations against the existing DATABASE_URL
-[private]
-_test-pg-cargo:
+test-pg: start
     cargo test --features test-pg --no-default-features --test pg_function_source_test --test pg_server_test --test pg_table_source_test
     cargo test --features test-pg --no-default-features --package martin --lib
     cargo test --features test-pg --package martin-core --no-default-features --lib
@@ -603,26 +599,28 @@ test-pg-against image args sslmode:
     set -euo pipefail
     echo "::group::postgis:{{image}} sslmode={{sslmode}}"
     trap 'docker rm -f pg >/dev/null 2>&1 || true; echo ::endgroup::' EXIT
-    PGPORT="${PGPORT:-5432}"
-    PGUSER="${PGUSER:-postgres}"
-    PGPASSWORD="${PGPASSWORD:-postgres}"
-    PGHOST="${PGHOST:-localhost}"
-    PGDATABASE="${PGDATABASE:-test}"
+    PGPORT_LOCAL="${PGPORT:-5432}"
+    PGUSER_LOCAL="${PGUSER:-postgres}"
+    PGPASSWORD_LOCAL="${PGPASSWORD:-postgres}"
+    PGHOST_LOCAL="${PGHOST:-localhost}"
+    PGDATABASE_LOCAL="${PGDATABASE:-test}"
     docker run -d --name pg \
-        -p "${PGPORT}:5432" \
-        -e POSTGRES_DB="$PGDATABASE" \
-        -e POSTGRES_USER="$PGUSER" \
-        -e POSTGRES_PASSWORD="$PGPASSWORD" \
+        -p "${PGPORT_LOCAL}:5432" \
+        -e POSTGRES_DB="$PGDATABASE_LOCAL" \
+        -e POSTGRES_USER="$PGUSER_LOCAL" \
+        -e POSTGRES_PASSWORD="$PGPASSWORD_LOCAL" \
         --entrypoint sh \
         "postgis/postgis:{{image}}" \
         -c "exec docker-entrypoint.sh {{args}}"
     for _ in $(seq 1 30); do
-        docker exec pg pg_isready -U "$PGUSER" -d "$PGDATABASE" >/dev/null 2>&1 && break
+        docker exec pg pg_isready -U "$PGUSER_LOCAL" -d "$PGDATABASE_LOCAL" >/dev/null 2>&1 && break
         sleep 1
     done
-    export DATABASE_URL="postgres://${PGUSER}:${PGUSER}@${PGHOST}:${PGPORT}/${PGDATABASE}?sslmode={{sslmode}}"
+    export DATABASE_URL="postgres://${PGUSER_LOCAL}:${PGUSER_LOCAL}@${PGHOST_LOCAL}:${PGPORT_LOCAL}/${PGDATABASE_LOCAL}?sslmode={{sslmode}}"
     tests/fixtures/initdb.sh
-    {{just}} _test-pg-cargo
+    cargo test --features test-pg --no-default-features --test pg_function_source_test --test pg_server_test --test pg_table_source_test
+    cargo test --features test-pg --no-default-features --package martin --lib
+    cargo test --features test-pg --package martin-core --no-default-features --lib
 
 # Run test-pg sequentially against every postgis variant in the CI matrix
 # Alpine images lack SSL, so the sslmode=require entry uses debian + snakeoil certs.
