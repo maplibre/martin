@@ -20,7 +20,7 @@ use crate::config::file::{MltProcessConfig, MvtProcessConfig};
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 use crate::config::primitives::AutoOption;
 
-/// Default polling interval for [`PmTilesReloader`](crate::config::file::reload::pmtiles::PmTilesReloader)
+/// Default polling interval for [`PmtilesReloader`](crate::config::file::reload::pmtiles::PmtilesReloader)
 /// to re-list remote URL prefixes (s3://, gs://, https://, etc.). Local directories are
 /// notify-driven and ignore this setting.
 pub const DEFAULT_RELOAD_INTERVAL: Duration = Duration::from_mins(10);
