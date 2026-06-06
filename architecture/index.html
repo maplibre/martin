@@ -1788,7 +1788,7 @@ One generic loop - the **Reload Driver** - sits behind three traits, so every so
 graph LR
     Trigger[&quot;Trigger&lt;br/&gt;(when)&quot;] --&gt;|fires| Driver[Reload Driver]
     Driver --&gt;|discover| Discovery[&quot;Discovery&lt;br/&gt;(what should exist)&quot;]
-    Discovery --&gt;|&quot;(Version, Recipe) per id&quot;| Driver
+    Discovery --&gt;|&quot;(Version, Args) per id&quot;| Driver
     Driver --&gt;|&quot;diff vs baseline, build changed&quot;| Advisory[&quot;ReloadAdvisory&lt;br/&gt;add / update / remove&quot;]
     Advisory --&gt;|apply| Sink[&quot;Sink&lt;br/&gt;(where)&quot;]
     Sink --&gt; Catalog[(&quot;Catalog&lt;br/&gt;TileSourceManager&quot;)]
