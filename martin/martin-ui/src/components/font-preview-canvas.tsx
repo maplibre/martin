@@ -1,4 +1,4 @@
-import Pbf from 'pbf';
+import { PbfReader } from 'pbf';
 import { useEffect, useRef, useState } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { buildMartinUrl } from '@/lib/api';
@@ -17,7 +17,7 @@ type Glyph = {
 
 function parseGlyphs(data: ArrayBuffer) {
   const glyphs = new Map<number, Glyph>();
-  new Pbf(data).readFields((tag, _, pbf) => {
+  new PbfReader(data).readFields((tag, _, pbf) => {
     if (tag === 1)
       pbf.readMessage((tag, _, pbf) => {
         if (tag === 3) {
