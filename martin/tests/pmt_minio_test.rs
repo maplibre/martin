@@ -9,7 +9,7 @@ use actix_web::web::Data;
 use indoc::formatdoc;
 use insta::assert_yaml_snapshot;
 use martin::config::file::ProcessConfig;
-use martin::config::file::reload::pmtiles::PmTilesReloader;
+use martin::config::file::reload::pmtiles::PmtilesReloader;
 use martin::config::file::srv::SrvConfig;
 use martin::config::primitives::IdResolver;
 use object_store::path::Path as ObjPath;
@@ -153,7 +153,7 @@ async fn pmt_minio_polls_catalog_via_public_api() {
     let resolver = IdResolver::new(&[]);
     let state = config.resolve(&resolver).await.expect("resolve config");
 
-    let reloader = PmTilesReloader::new(
+    let reloader = PmtilesReloader::new(
         state.tile_manager.clone(),
         resolver,
         &config.pmtiles,
@@ -234,7 +234,7 @@ async fn pmt_minio_polls_catalog_via_public_api() {
     ");
 }
 
-/// Snapshots `PmTilesReloader` behavior when a remote blob is overwritten in place.
+/// Snapshots `PmtilesReloader` behavior when a remote blob is overwritten in place.
 ///
 /// `RemoteState::tick` diffs the set of object IDs. An overwrite at an unchanged key
 /// produces `prev_ids == next_ids`, so the loop returns early and does not replace
@@ -269,7 +269,7 @@ async fn pmt_minio_in_place_blob_overwrite_keeps_existing_source() {
     let resolver = IdResolver::new(&[]);
     let state = config.resolve(&resolver).await.expect("resolve config");
 
-    let reloader = PmTilesReloader::new(
+    let reloader = PmtilesReloader::new(
         state.tile_manager.clone(),
         resolver,
         &config.pmtiles,

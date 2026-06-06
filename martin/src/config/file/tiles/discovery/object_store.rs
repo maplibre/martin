@@ -107,7 +107,7 @@ impl Discovery for ObjectStoreDiscovery {
                 }
                 Err(e) => {
                     tracing::warn!(
-                        "PmTilesReloader: list failed for {prefix}: {e:?}; skipping prefix this tick"
+                        "PmtilesReloader: list failed for {prefix}: {e:?}; skipping prefix this tick"
                     );
                 }
             }

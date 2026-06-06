@@ -15,13 +15,13 @@ const PMTILES_EXT: &str = "pmtiles";
 /// Local directories use a [`NotifyTrigger`] for sub-second feedback; remote URL prefixes
 /// (`s3://`, `gs://`, `https://`, …) use a [`PollTrigger`] because blob stores have no event
 /// channel. Each half is its own [`ReloadDriver`] so neither needs a shared mutex.
-pub struct PmTilesReloader {
+pub struct PmtilesReloader {
     tile_source_manager: TileSourceManager,
     local: FsDiscovery,
     remote: ObjectStoreDiscovery,
 }
 
-impl PmTilesReloader {
+impl PmtilesReloader {
     #[must_use]
     pub fn new(
         tsm: TileSourceManager,
@@ -99,7 +99,7 @@ impl PmTilesReloader {
         if has_remote {
             if interval.is_zero() {
                 tracing::info!(
-                    "PmTilesReloader: remote prefix polling disabled (reload_interval = 0s)"
+                    "PmtilesReloader: remote prefix polling disabled (reload_interval = 0s)"
                 );
             } else {
                 let trigger = PollTrigger::new(interval);
@@ -126,10 +126,10 @@ mod tests {
     };
     use crate::config::primitives::OptOneMany;
 
-    fn make_reloader(config: &FileConfigEnum<PmtConfig>) -> PmTilesReloader {
+    fn make_reloader(config: &FileConfigEnum<PmtConfig>) -> PmtilesReloader {
         let tsm = TileSourceManager::new(None, OnInvalid::Warn);
         let resolver = IdResolver::new(&[]);
-        PmTilesReloader::new(tsm, resolver, config, &ProcessConfig::default())
+        PmtilesReloader::new(tsm, resolver, config, &ProcessConfig::default())
     }
 
     #[derive(serde::Serialize)]
@@ -140,8 +140,8 @@ mod tests {
         interval_secs: u64,
     }
 
-    impl From<&PmTilesReloader> for ReloaderSnapshot {
-        fn from(r: &PmTilesReloader) -> Self {
+    impl From<&PmtilesReloader> for ReloaderSnapshot {
+        fn from(r: &PmtilesReloader) -> Self {
             Self {
                 local_dir_count: r.local.directories().len(),
                 remote_prefix_count: r.remote.remote_prefixes().len(),
