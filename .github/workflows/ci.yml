@@ -181,10 +181,10 @@ jobs:
       - name: Install rendering dependencies
         run: just install-dependencies
       - run: just shear
-  # musl builds are relatively fast; chain them behind lint-rust to free
-  # two slots at t=0 for jobs that benefit more from starting immediately.
+  # musl builds are relatively fast; chain them behind the cheap frontend
+  # lane to free two t=0 slots without paying the lint-rust cold-cache cost.
   build-aarch64-unknown-linux-musl:
-    needs: [ lint-rust ]
+    needs: [ lint-unit-test-js ]
     uses: ./.github/workflows/build-binary.yml
     with:
       target: aarch64-unknown-linux-musl
@@ -193,7 +193,7 @@ jobs:
       release_mode: ${{ github.event_name != 'pull_request' }}
 
   build-x86_64-unknown-linux-musl:
-    needs: [ lint-rust ]
+    needs: [ lint-unit-test-js ]
     uses: ./.github/workflows/build-binary.yml
     with:
       target: x86_64-unknown-linux-musl
