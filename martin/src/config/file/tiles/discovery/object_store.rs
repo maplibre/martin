@@ -126,21 +126,22 @@ impl Discovery for ObjectStoreDiscovery {
     }
 }
 
-/// Computes a [`Version`] from object store metadata, preferring ETag over last-modified,
+/// Computes a [`Version`] from object store metadata, preferring `ETag` over last-modified,
 /// when available.
 fn version_from_meta(meta: &object_store::ObjectMeta) -> Version {
+    use std::collections::hash_map::DefaultHasher;
     use std::hash::{Hash as _, Hasher as _};
     // Since `Version` is an opaque "data version", and is only used for equality-comparison
     // when assessing if a source's underlying data has changed since a previous discovery,
     // it is safe to transform to a u128 here.
-    let v: u128 = if let Some(etag) = &meta.e_tag {
-        let mut h = std::collections::hash_map::DefaultHasher::new();
+    if let Some(etag) = &meta.e_tag {
+        let mut h = DefaultHasher::new();
         etag.hash(&mut h);
-        u128::from(h.finish())
+        Version::Tracked(u128::from(h.finish()))
     } else {
-        meta.last_modified.timestamp_millis() as u128
-    };
-    Version::Tracked(v)
+        u128::try_from(meta.last_modified.timestamp_millis())
+            .map_or(Version::Opaque, Version::Tracked)
+    }
 }
 
 async fn list_remote_prefix(
