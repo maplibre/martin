@@ -129,15 +129,11 @@ impl Discovery for ObjectStoreDiscovery {
 /// Computes a [`Version`] from object store metadata, preferring `ETag` over last-modified,
 /// when available.
 fn version_from_meta(meta: &object_store::ObjectMeta) -> Version {
-    use std::collections::hash_map::DefaultHasher;
-    use std::hash::{Hash as _, Hasher as _};
     // Since `Version` is an opaque "data version", and is only used for equality-comparison
     // when assessing if a source's underlying data has changed since a previous discovery,
     // it is safe to transform to a u128 here.
     if let Some(etag) = &meta.e_tag {
-        let mut h = DefaultHasher::new();
-        etag.hash(&mut h);
-        Version::Tracked(u128::from(h.finish()))
+        Version::Tracked(xxhash_rust::xxh3::xxh3_128(etag.as_bytes()))
     } else {
         u128::try_from(meta.last_modified.timestamp_millis())
             .map_or(Version::Opaque, Version::Tracked)

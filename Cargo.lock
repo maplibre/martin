@@ -4376,6 +4376,7 @@ dependencies = [
  "utoipa",
  "utoipa-actix-web",
  "walkdir",
+ "xxhash-rust",
 ]
 
 [[package]]
