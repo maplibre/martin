@@ -211,9 +211,9 @@ tracing-log = { workspace = true, features = ["interest-cache"] }
 tracing-subscriber = { workspace = true, default-features = false, features = ["env-filter", "json", "fmt", "std", "ansi", "chrono"] }
 url.workspace = true
 utoipa = { workspace = true, optional = true }
-xxhash-rust = { workspace = true, optional = true }
 utoipa-actix-web = { workspace = true, optional = true }
 walkdir = { workspace = true, optional = true }
+xxhash-rust = { workspace = true, optional = true }
 
 [build-dependencies]
 static-files = { workspace = true, optional = true }
