@@ -101,8 +101,8 @@ impl Discovery for ObjectStoreDiscovery {
         for prefix in &self.remote_prefixes {
             match list_remote_prefix(prefix, &self.config.options, &self.id_resolver).await {
                 Ok(entries) => {
-                    for (id, url) in entries {
-                        out.insert(id, (Version::Opaque, url));
+                    for (id, url, version) in entries {
+                        out.insert(id, (version, url));
                     }
                 }
                 Err(e) => {
@@ -126,11 +126,28 @@ impl Discovery for ObjectStoreDiscovery {
     }
 }
 
+/// Computes a [`Version`] from object store metadata, preferring ETag over last-modified,
+/// when available.
+fn version_from_meta(meta: &object_store::ObjectMeta) -> Version {
+    use std::hash::{Hash as _, Hasher as _};
+    // Since `Version` is an opaque "data version", and is only used for equality-comparison
+    // when assessing if a source's underlying data has changed since a previous discovery,
+    // it is safe to transform to a u128 here.
+    let v: u128 = if let Some(etag) = &meta.e_tag {
+        let mut h = std::collections::hash_map::DefaultHasher::new();
+        etag.hash(&mut h);
+        u128::from(h.finish())
+    } else {
+        meta.last_modified.timestamp_millis() as u128
+    };
+    Version::Tracked(v)
+}
+
 async fn list_remote_prefix(
     prefix: &Url,
     options: &std::collections::HashMap<String, String>,
     id_resolver: &IdResolver,
-) -> MartinResult<Vec<(String, Url)>> {
+) -> MartinResult<Vec<(String, Url, Version)>> {
     let (store, base) = object_store::parse_url_opts(prefix, options)
         .map_err(|e| ConfigFileError::ObjectStoreUrlParsing(e, prefix.to_string()))?;
 
@@ -161,8 +178,9 @@ async fn list_remote_prefix(
             tracing::warn!("cannot build absolute URL from {object_url_str}");
             continue;
         };
+        let version = version_from_meta(&meta);
         let id = id_resolver.resolve(stem, object_url.to_string());
-        out.push((id, object_url));
+        out.push((id, object_url, version));
     }
     Ok(out)
 }
