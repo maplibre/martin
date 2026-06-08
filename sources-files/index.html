@@ -2009,10 +2009,10 @@ When <code>.mbtiles</code> files are added, modified, or removed from a watched 
 </span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span><span class="nt">paths</span><span class="p">:</span>
 </span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/path/to/pmtiles/directory</span>
 </span></code></pre></div>
-<p>For remote object-storage prefixes (<code>s3://bucket/prefix/</code>, <code>gs://bucket/prefix/</code>, <code>https://host/prefix/</code>, etc.) Martin periodically re-lists the prefix and diffs against the previous snapshot.
+<p>For remote object-storage prefixes (<code>s3://bucket/prefix/</code>, <code>gs://bucket/prefix/</code>, <code>https://host/prefix/</code>, etc.) Martin periodically re-lists the prefix and diffs against the previous snapshot, taking into account
+object <code>ETag</code> or <code>Last-Modified</code> headers to detect updates to an existing source.
 There is no event channel from blob storage to subscribe to.
-Added and removed objects propagate to the catalog.
-<a href="https://github.com/maplibre/martin/issues/2713">In-place modifications to existing objects are not currently handled, but contributions welcome</a>.</p>
+Added, updated, and removed objects propagate to the catalog.</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nt">pmtiles</span><span class="p">:</span>
 </span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">  </span><span class="nt">paths</span><span class="p">:</span>
 </span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">s3://my-bucket/tiles/</span>
