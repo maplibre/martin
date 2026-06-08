@@ -101,8 +101,8 @@ impl Discovery for ObjectStoreDiscovery {
         for prefix in &self.remote_prefixes {
             match list_remote_prefix(prefix, &self.config.options, &self.id_resolver).await {
                 Ok(entries) => {
-                    for (id, url) in entries {
-                        out.insert(id, (Version::Opaque, url));
+                    for (id, url, version) in entries {
+                        out.insert(id, (version, url));
                     }
                 }
                 Err(e) => {
@@ -126,11 +126,25 @@ impl Discovery for ObjectStoreDiscovery {
     }
 }
 
+/// Computes a [`Version`] from object store metadata, preferring `ETag` over last-modified,
+/// when available.
+fn version_from_meta(meta: &object_store::ObjectMeta) -> Version {
+    // Since `Version` is an opaque "data version", and is only used for equality-comparison
+    // when assessing if a source's underlying data has changed since a previous discovery,
+    // it is safe to transform to a u128 here.
+    if let Some(etag) = &meta.e_tag {
+        Version::Tracked(xxhash_rust::xxh3::xxh3_128(etag.as_bytes()))
+    } else {
+        u128::try_from(meta.last_modified.timestamp_millis())
+            .map_or(Version::Opaque, Version::Tracked)
+    }
+}
+
 async fn list_remote_prefix(
     prefix: &Url,
     options: &std::collections::HashMap<String, String>,
     id_resolver: &IdResolver,
-) -> MartinResult<Vec<(String, Url)>> {
+) -> MartinResult<Vec<(String, Url, Version)>> {
     let (store, base) = object_store::parse_url_opts(prefix, options)
         .map_err(|e| ConfigFileError::ObjectStoreUrlParsing(e, prefix.to_string()))?;
 
@@ -161,8 +175,9 @@ async fn list_remote_prefix(
             tracing::warn!("cannot build absolute URL from {object_url_str}");
             continue;
         };
+        let version = version_from_meta(&meta);
         let id = id_resolver.resolve(stem, object_url.to_string());
-        out.push((id, object_url));
+        out.push((id, object_url, version));
     }
     Ok(out)
 }
