@@ -40,9 +40,9 @@ jobs:
           docker-images: true
           swap-storage: true
       - name: Checkout sources
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with: { persist-credentials: false }
-      - uses: taiki-e/install-action@60ae4ce63c7aeb6e96d7f572c1ec7fafbb17ca80 # v2.79.10
+      - uses: taiki-e/install-action@6887963ccf37a9ddcd8c5fa4baeb3e1e5fd61fa1 # v2.81.2
         with: { tool: 'just,cargo-llvm-cov,mlt' }
       - name: Set up system dependencies
         run: sudo apt-get update && sudo apt-get install -y gdal-bin sqlite3-tools postgresql-client
