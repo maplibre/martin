@@ -170,8 +170,8 @@ VALUES (
     '0101000020E610000099F640E9031266405CC296F14F363440'
 );
 
-CREATE INDEX ON table_source_multiple_geom USING gist (geom1);
-CREATE INDEX ON table_source_multiple_geom USING gist (geom2);
+CREATE INDEX CONCURRENTLY ON table_source_multiple_geom USING gist (geom1);
+CREATE INDEX CONCURRENTLY ON table_source_multiple_geom USING gist (geom2);
 
 CLUSTER table_source_multiple_geom_geom1_idx ON table_source_multiple_geom;
 CLUSTER table_source_multiple_geom_geom2_idx ON table_source_multiple_geom;
