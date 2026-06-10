@@ -1,4 +1,3 @@
-#[cfg(feature = "_tiles")]
 use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::fs::File;
@@ -18,8 +17,9 @@ use martin_core::tiles::BoxedSource;
 #[cfg(feature = "pmtiles")]
 use martin_core::tiles::pmtiles::PmtCache;
 use serde::{Deserialize, Serialize};
-use subst::VariableMap;
 use tracing::{error, info, instrument, warn};
+
+use crate::config::primitives::env::Env;
 
 #[cfg(feature = "unstable-cog")]
 use super::cog::CogConfig;
@@ -730,52 +730,176 @@ impl OnInvalid {
     }
 }
 
-/// Read config from a file
-pub fn read_config<'a, M>(file_name: &Path, env: &'a M) -> ConfigFileResult<Config>
-where
-    M: VariableMap<'a>,
-    M::Value: AsRef<str>,
-{
+/// Read config from a file.
+///
+/// Reads the file, parses it through [`parse_config`], and records which
+/// `${VAR}` / `$VAR` names appeared in the source so callers of
+/// [`Env::has_unused_var`] can warn about env vars that were set but not
+/// referenced by the config.
+pub fn read_config(file_name: &Path, env: &impl Env) -> ConfigFileResult<Config> {
     let contents = std::fs::read_to_string(file_name)
         .map_err(|e| ConfigFileError::ConfigLoadError(e, file_name.into()))?;
-    parse_config(&contents, env, file_name)
+    env.note_referenced(scan_referenced_vars(&contents));
+    parse_config(&contents, &env.as_property_map(), file_name)
 }
 
-pub fn parse_config<'a, M>(contents: &str, env: &'a M, file_name: &Path) -> ConfigFileResult<Config>
-where
-    M: VariableMap<'a>,
-    M::Value: AsRef<str>,
-{
-    // Phase 1: substitute environment variables at the text level so saphyr's spans line up
-    // with the post-substitution text the parser actually sees.
-    let substituted = subst::substitute(contents, env)
-        .map_err(|e| ConfigFileError::substitution(e, contents.to_string(), file_name))?;
-
-    // Phase 2: rewrite deprecated cache keys via a `serde_yaml::Value` round-trip - but only
+/// Parse a YAML configuration string into a [`Config`].
+///
+/// `properties` is the property map handed to `serde-saphyr` for `${VAR}` /
+/// `$VAR` substitution inside plain YAML scalars. Comments and quoted scalars
+/// are not interpolated (delegated entirely to `serde-saphyr`'s `properties`
+/// feature). For real env-var access, build the map via [`Env::as_property_map`].
+pub fn parse_config(
+    contents: &str,
+    properties: &HashMap<String, String>,
+    file_name: &Path,
+) -> ConfigFileResult<Config> {
+    // Phase 1: rewrite deprecated cache keys via a `serde_yaml::Value` round-trip - but only
     // if at least one deprecated token appears in the text. The common case (no deprecated
     // keys) skips a full YAML parse + serialize.
-    let migrated = if needs_deprecated_migration(&substituted) {
-        match serde_yaml::from_str::<serde_yaml::Value>(&substituted) {
+    //
+    // We migrate *before* saphyr-driven substitution so saphyr still sees the original
+    // `${VAR}` tokens in scalar values. `serde_yaml`'s emitter round-trips plain scalars
+    // starting with `$` as plain (YAML 1.1 doesn't reserve `$`), preserving substitution.
+    let migrated = if needs_deprecated_migration(contents) {
+        match serde_yaml::from_str::<serde_yaml::Value>(contents) {
             Ok(mut value) => {
                 migrate_deprecated_config(&mut value);
-                serde_yaml::to_string(&value).unwrap_or(substituted)
+                serde_yaml::to_string(&value).unwrap_or_else(|_| contents.to_string())
             }
             // If serde_yaml itself can't parse, hand the original to saphyr - its diagnostics
             // are richer, so let it produce the user-facing error.
-            Err(_) => substituted,
+            Err(_) => contents.to_string(),
         }
     } else {
-        substituted
+        contents.to_string()
     };
 
-    // Phase 3: parse to the typed `Config` via saphyr. We disable saphyr's built-in snippet
-    // wrapper so its hardcoded `<input>` source name doesn't override the file path we show;
-    // `ConfigFileError::to_miette_report` re-attaches a snippet against our own NamedSource.
+    // Phase 2: parse to the typed `Config` via saphyr with `properties` enabled.
+    //
+    // `PropertySyntax::BracedOrBare` matches the legacy `subst` syntax we used before this
+    // migration: both `${VAR}` and the unbraced `$VAR` are recognized. Substitution only
+    // happens inside *plain* scalars - comments and quoted strings are not interpolated,
+    // which is the whole point of moving away from the previous text-level pre-processor.
+    //
+    // We disable saphyr's built-in snippet wrapper so its hardcoded `<input>` source name
+    // doesn't override the file path we show; `ConfigFileError::to_miette_report`
+    // re-attaches a snippet against our own NamedSource.
     let options = serde_saphyr::options! {
         with_snippet: false,
-    };
+        property_syntax: serde_saphyr::options::PropertySyntax::BracedOrBare,
+    }
+    .with_properties(properties.clone());
+
     serde_saphyr::from_str_with_options::<Config>(&migrated, options)
         .map_err(|e| ConfigFileError::yaml_parse(e, migrated, file_name))
+}
+
+/// Scan plain YAML text for `${VAR}` and `$VAR` references, ignoring comments,
+/// quoted strings, and `$$` escapes. Used by [`read_config`] to populate the
+/// "referenced" set on [`Env`].
+///
+/// The result is a best-effort superset of names saphyr will actually look up:
+/// it tracks every plausible variable token in the source so `has_unused_var`
+/// stays conservative ("not seen" → really not used).
+fn scan_referenced_vars(contents: &str) -> std::collections::HashSet<String> {
+    let mut out = std::collections::HashSet::new();
+    let mut chars = contents.char_indices().peekable();
+    let bytes = contents.as_bytes();
+
+    while let Some((i, ch)) = chars.next() {
+        match ch {
+            '#' => {
+                // skip the rest of the line
+                for (_, c) in chars.by_ref() {
+                    if c == '\n' {
+                        break;
+                    }
+                }
+            }
+            '"' | '\'' => {
+                // skip quoted scalar (single or double quoted, no escape handling needed
+                // because we only care about `$` tokens — anything inside quotes is ignored)
+                let quote = ch;
+                while let Some((_, c)) = chars.next() {
+                    if c == '\\' && quote == '"' {
+                        chars.next();
+                        continue;
+                    }
+                    if c == quote {
+                        break;
+                    }
+                }
+            }
+            '$' => {
+                // `$$` is the escape for a literal `$`, skip it
+                if bytes.get(i + 1).copied() == Some(b'$') {
+                    chars.next();
+                    continue;
+                }
+                if let Some((name, end)) = parse_var_token(contents, i + 1) {
+                    out.insert(name);
+                    // advance past the consumed token
+                    while let Some(&(j, _)) = chars.peek() {
+                        if j < end {
+                            chars.next();
+                        } else {
+                            break;
+                        }
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+    out
+}
+
+/// Parse a `${NAME}` or `$NAME` variable token starting at `start` (the index
+/// just past the leading `$`). Returns `(name, end_index_exclusive)` if a
+/// token is present, otherwise `None`.
+#[expect(
+    clippy::string_slice,
+    reason = "indices come from byte-safe positions (find on ASCII, char_indices boundaries)"
+)]
+fn parse_var_token(contents: &str, start: usize) -> Option<(String, usize)> {
+    let rest = contents.get(start..)?;
+    if let Some(body) = rest.strip_prefix('{') {
+        let close = body.find('}')?;
+        let body = &body[..close];
+        // body may carry a modifier like `:-default`, `?msg`, etc - strip after the name
+        let name_end = body
+            .find(|c: char| !(c.is_ascii_alphanumeric() || c == '_'))
+            .unwrap_or(body.len());
+        let name = &body[..name_end];
+        if name.is_empty() || !is_var_start(name.chars().next()?) {
+            return None;
+        }
+        Some((name.to_string(), start + 1 + close + 1))
+    } else {
+        let mut end = 0;
+        for (i, c) in rest.char_indices() {
+            if i == 0 {
+                if !is_var_start(c) {
+                    return None;
+                }
+                end = c.len_utf8();
+            } else if c.is_ascii_alphanumeric() || c == '_' {
+                end = i + c.len_utf8();
+            } else {
+                break;
+            }
+        }
+        if end == 0 {
+            None
+        } else {
+            Some((rest[..end].to_string(), start + end))
+        }
+    }
+}
+
+fn is_var_start(ch: char) -> bool {
+    ch == '_' || ch.is_ascii_alphabetic()
 }
 
 /// Cheap pre-check: does the substituted YAML mention any deprecated cache key?
@@ -930,13 +1054,17 @@ mod tests {
                   worker_processes: 4
             "#}),
             @r#"
-         × invalid indentation in multiline quoted scalar
-          ╭─[config.yaml:3:3]
-        2 │   listen_addresses: "0.0.0.0:3000
-        3 │   worker_processes: 4
-          ·   ┬
-          ·   ╰── invalid indentation in multiline quoted scalar
-          ╰────
+        martin::config::yaml (https://maplibre.org/martin/config-file/)
+
+          × invalid indentation in multiline quoted scalar
+           ╭─[config.yaml:3:3]
+         2 │   listen_addresses: "0.0.0.0:3000
+         3 │   worker_processes: 4
+           ·   ┬
+           ·   ╰── invalid indentation in multiline quoted scalar
+           ╰────
+          help: Check the highlighted token in your YAML. The error usually indicates
+                a mismatched type or an unexpected shape.
         "#
         );
     }
@@ -944,13 +1072,17 @@ mod tests {
     #[test]
     fn unknown_enum_variant_in_on_invalid() {
         insta::assert_snapshot!(render_failure("on_invalid: maybe\n"), @"
-         × unknown variant `maybe`, expected one of continue, ignore, warn, warning,
-         │ warnings, abort
-          ╭─[config.yaml:1:13]
-        1 │ on_invalid: maybe
-          ·             ──┬──
-          ·               ╰── unknown variant `maybe`, expected one of continue, ignore, warn, warning, warnings, abort
-          ╰────
+        martin::config::yaml (https://maplibre.org/martin/config-file/)
+
+          × unknown variant `maybe`, expected one of continue, ignore, warn, warning,
+          │ warnings, abort
+           ╭─[config.yaml:1:13]
+         1 │ on_invalid: maybe
+           ·             ──┬──
+           ·               ╰── unknown variant `maybe`, expected one of continue, ignore, warn, warning, warnings, abort
+           ╰────
+          help: Check the highlighted token in your YAML. The error usually indicates
+                a mismatched type or an unexpected shape.
         ");
     }
 
@@ -959,12 +1091,12 @@ mod tests {
         insta::assert_snapshot!(render_failure("cache_size_mb: ${UNDEFINED_VAR}\n"), @"
         martin::config::substitution (https://maplibre.org/martin/config-file/)
 
-          × Unable to substitute environment variables in config file config.yaml: No
-          │ such variable: $UNDEFINED_VAR
-           ╭─[config.yaml:1:18]
-         1 │ cache_size_mb: ${UNDEFINED_VAR}
-           ·                  ──────┬──────
-           ·                        ╰── No such variable: $UNDEFINED_VAR
+          × missing property `UNDEFINED_VAR`
+           ╭─[config.yaml:2:12]
+         1 │ cache:
+         2 │   size_mb: ${UNDEFINED_VAR}
+           ·            ────────┬───────
+           ·                    ╰── missing property `UNDEFINED_VAR`
            ╰────
           help: Make sure every ${VAR} reference resolves to an environment variable,
                 or supply a default with `${VAR:-fallback}`.
@@ -1041,19 +1173,56 @@ mod tests {
 
     #[test]
     fn substitution_unclosed_brace() {
+        // Saphyr treats `${BROKEN` (no closing brace) as a literal scalar value rather
+        // than a substitution token, so the error surfaces during type coercion to u64
+        // rather than during substitution. The diagnostic still points at the offending
+        // token, just with `martin::config::yaml` framing.
         insta::assert_snapshot!(render_failure("cache_size_mb: ${BROKEN\n"), @r"
-        martin::config::substitution (https://maplibre.org/martin/config-file/)
+        martin::config::yaml (https://maplibre.org/martin/config-file/)
 
-          × Unable to substitute environment variables in config file config.yaml:
-          │ Unexpected character: '\n', expected a closing brace ('}') or colon (':')
-           ╭─[config.yaml:1:24]
-         1 │ cache_size_mb: ${BROKEN
-           ·                        ┬
-           ·                        ╰── Unexpected character: '\n', expected a closing brace ('}') or colon (':')
+          × invalid u64
+           ╭─[config.yaml:2:12]
+         1 │ cache:
+         2 │   size_mb: ${BROKEN
+           ·            ────┬───
+           ·                ╰── invalid u64
            ╰────
-          help: Make sure every ${VAR} reference resolves to an environment variable,
-                or supply a default with `${VAR:-fallback}`.
+          help: Check the highlighted token in your YAML. The error usually indicates
+                a mismatched type or an unexpected shape.
         ");
+    }
+
+    /// Regression for https://github.com/maplibre/martin/issues/2851.
+    ///
+    /// The pre-saphyr substitution pass scanned the raw config text and tried to
+    /// resolve every `${VAR}` it saw — including ones inside YAML comments. The
+    /// saphyr `properties` feature interpolates only inside plain scalar values,
+    /// so the same config that used to abort startup now parses cleanly.
+    #[cfg(feature = "postgres")]
+    #[test]
+    fn substitution_ignores_dollar_tokens_in_comments() {
+        let yaml = indoc::indoc! {r"
+            # Database configuration. This can also be a list of PG configs.
+            postgres:
+              # Database connection string. You can use env vars too, for example:
+              #   $DATABASE_URL
+              #   ${DATABASE_URL:-postgresql://postgres@localhost/db}
+              connection_string: 'postgres://postgres:postgres@db:5432/ehrenamtskarte'
+        "};
+        let config = parse_config(
+            yaml,
+            &HashMap::<String, String>::new(),
+            Path::new("config.yaml"),
+        )
+        .expect("comments containing ${VAR} must not trigger substitution");
+        let one = match config.postgres {
+            OptOneMany::One(pg) => pg,
+            other => panic!("expected exactly one postgres config, got: {other:?}"),
+        };
+        assert_eq!(
+            one.connection_string.as_deref(),
+            Some("postgres://postgres:postgres@db:5432/ehrenamtskarte"),
+        );
     }
 
     #[test]

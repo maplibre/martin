@@ -447,10 +447,10 @@ mod tests {
     use crate::config::file::postgres::{FunctionInfo, TableInfo};
     use crate::config::file::{Config, parse_config};
     use crate::config::primitives::OptOneMany::{Many, One};
-    use crate::config::primitives::env::FauxEnv;
+    use std::collections::HashMap;
 
     pub fn parse_cfg(yaml: &str) -> Config {
-        parse_config(yaml, &FauxEnv::default(), Path::new("<test>")).unwrap()
+        parse_config(yaml, &HashMap::new(), Path::new("<test>")).unwrap()
     }
 
     pub fn assert_config(yaml: &str, expected: &Config) {

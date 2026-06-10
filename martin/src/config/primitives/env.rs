@@ -1,23 +1,23 @@
-//! Environment variable access with substitution tracking.
+//! Environment variable access for config parsing and CLI handling.
 //!
-//! Provides [`Env`] trait for environment access that can be mocked in tests
-//! and tracks variable usage during configuration substitution.
+//! Provides [`Env`] trait for environment access that can be mocked in tests.
+//! Substitution of `${VAR}` references inside YAML scalars is performed by
+//! `serde-saphyr`'s `properties` feature; this module supplies the property map
+//! and tracks which variable names appeared in the YAML so CLI argument code
+//! can warn about env vars that were set but never referenced.
 //!
 //! - [`OsEnv`]: Production implementation
 //! - [`FauxEnv`]: Test implementation
 
 use std::cell::RefCell;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
+use std::env;
 use std::ffi::OsString;
-use std::{collections, env};
 
-use subst::VariableMap;
 use tracing::warn;
 
-/// Environment variable access with Unicode validation and usage tracking.
-///
-/// Extends [`VariableMap`] to enable mocking in tests and track unused variables.
-pub trait Env<'a>: VariableMap<'a> {
+/// Environment variable access with Unicode validation and reference tracking.
+pub trait Env {
     /// Get an environment variable as an [`OsString`] without Unicode validation.
     fn var_os(&self, key: &str) -> Option<OsString>;
 
@@ -41,20 +41,43 @@ pub trait Env<'a>: VariableMap<'a> {
         }
     }
 
-    /// Check if an environment variable exists but was not accessed during substitution.
+    /// Build the property map handed to `serde-saphyr` for `${VAR}` interpolation.
+    ///
+    /// Production implementations snapshot the process environment; test fixtures
+    /// return only their configured variables.
+    #[must_use]
+    fn as_property_map(&self) -> HashMap<String, String>;
+
+    /// Record which variable names appeared in the YAML text just parsed.
+    ///
+    /// Saphyr resolves references silently against the property map, so callers
+    /// pre-scan the YAML for `${VAR}` / `$VAR` tokens and feed the set here.
+    /// Used by [`Env::has_unused_var`]. Default impl is a no-op for fixtures
+    /// that don't need the warning UX.
+    fn note_referenced(&self, _names: HashSet<String>) {}
+
+    /// Check if an environment variable is set but was not referenced in the YAML
+    /// substitution map. Returns `false` for any var that has not been observed,
+    /// so callers must call [`Env::note_referenced`] before this is meaningful.
     #[must_use]
     fn has_unused_var(&self, key: &str) -> bool;
 }
 
 /// Production implementation that accesses system environment variables.
-///
-/// Tracks which variables are accessed via [`VariableMap`] using interior mutability.
 #[derive(Debug, Default)]
 pub struct OsEnv(RefCell<HashSet<String>>);
 
-impl Env<'_> for OsEnv {
+impl Env for OsEnv {
     fn var_os(&self, key: &str) -> Option<OsString> {
         env::var_os(key)
+    }
+
+    fn as_property_map(&self) -> HashMap<String, String> {
+        env::vars().collect()
+    }
+
+    fn note_referenced(&self, names: HashSet<String>) {
+        *self.0.borrow_mut() = names;
     }
 
     fn has_unused_var(&self, key: &str) -> bool {
@@ -62,30 +85,31 @@ impl Env<'_> for OsEnv {
     }
 }
 
-impl<'a> VariableMap<'a> for OsEnv {
-    type Value = String;
-
-    fn get(&'a self, key: &str) -> Option<Self::Value> {
-        self.0.borrow_mut().insert(key.to_string());
-        env::var(key).ok()
-    }
-}
-
 /// Test implementation with configurable environment variables.
+///
+/// The tuple shape (`FauxEnv(map)`) is preserved from the pre-saphyr era so
+/// existing test fixtures keep compiling. Reference-tracking is intentionally
+/// omitted — the `has_unused_var` warning is only consumed by the
+/// `postgres`-CLI override path, which the unit tests don't exercise.
 #[derive(Debug, Default)]
-pub struct FauxEnv(pub collections::HashMap<&'static str, OsString>);
+pub struct FauxEnv(pub HashMap<&'static str, OsString>);
 
-impl<'a> VariableMap<'a> for FauxEnv {
-    type Value = String;
-
-    fn get(&'a self, key: &str) -> Option<Self::Value> {
-        self.0.get(key).map(|s| s.to_string_lossy().to_string())
+impl FromIterator<(&'static str, OsString)> for FauxEnv {
+    fn from_iter<I: IntoIterator<Item = (&'static str, OsString)>>(iter: I) -> Self {
+        Self(iter.into_iter().collect())
     }
 }
 
-impl Env<'_> for FauxEnv {
+impl Env for FauxEnv {
     fn var_os(&self, key: &str) -> Option<OsString> {
         self.0.get(key).map(Into::into)
+    }
+
+    fn as_property_map(&self) -> HashMap<String, String> {
+        self.0
+            .iter()
+            .filter_map(|(k, v)| v.to_str().map(|s| ((*k).to_string(), s.to_string())))
+            .collect()
     }
 
     fn has_unused_var(&self, key: &str) -> bool {
@@ -102,7 +126,7 @@ mod tests {
         let env = FauxEnv::default();
         assert_eq!(env.get_env_str("FOO"), None);
 
-        let env = FauxEnv(vec![("FOO", OsString::from("bar"))].into_iter().collect());
+        let env: FauxEnv = vec![("FOO", OsString::from("bar"))].into_iter().collect();
         assert_eq!(env.get_env_str("FOO"), Some("bar".to_string()));
     }
 
@@ -114,7 +138,7 @@ mod tests {
 
         let bad_utf8 = [0x66, 0x6f, 0x80, 0x6f];
         let os_str = OsStr::from_bytes(&bad_utf8[..]);
-        let env = FauxEnv(vec![("BAD", os_str.to_owned())].into_iter().collect());
+        let env: FauxEnv = vec![("BAD", os_str.to_owned())].into_iter().collect();
         assert!(env.0.contains_key("BAD"));
         assert_eq!(env.get_env_str("BAD"), None);
     }

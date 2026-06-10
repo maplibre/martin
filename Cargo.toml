@@ -126,7 +126,13 @@ rustls-pemfile = "2"
 schemars = { version = "1.2", default-features = false, features = ["chrono04", "derive", "std"] }
 semver = "1"
 serde = { version = "1", features = ["derive"] }
-serde-saphyr = { version = "0.0.27", features = ["miette"] }
+# TODO: drop the `git` pin once a release containing PRs #122, #125, #128, #129 is published
+# (currently 0.0.27 is the latest on crates.io; master is 0.0.28).
+# Tracking: https://github.com/maplibre/martin/issues/2851
+serde-saphyr = { git = "https://github.com/bourumir-wyngs/serde-saphyr", rev = "261ccbe62a8368fcffbd780dd923647edfd2f927", features = [
+    "miette",
+    "properties",
+] }
 serde_json = "1"
 serde_with = { version = "3", default-features = false, features = ["macros"] }
 serde_yaml = "0.9"
@@ -136,7 +142,6 @@ sqlite-compressions = { version = "0.3", default-features = false, features = ["
 sqlite-hashes = { version = "0.10.6", default-features = false, features = ["md5", "aggregate", "hex"] }
 sqlx = { version = "0.9.0", features = ["sqlite", "runtime-tokio"] }
 static-files = "0.2"
-subst = "0.3"
 tempfile = "3.21.0"
 testcontainers-modules = { version = "0.15.0", features = ["postgres", "blocking", "minio"] }
 thiserror = "2"

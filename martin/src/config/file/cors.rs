@@ -212,39 +212,51 @@ mod tests {
     #[test]
     fn deserialize_rejects_integer() {
         insta::assert_snapshot!(render_failure("cors: 42\n"), @"
-         × invalid type: integer `42`, expected either a boolean (`cors: true` /
-         │ `cors: false`) or a properties map with at least an `origin` list
-          ╭─[config.yaml:1:1]
-        1 │ cors: 42
-          · ──┬─
-          ·   ╰── invalid type: integer `42`, expected either a boolean (`cors: true` / `cors: false`) or a properties map with at least an `origin` list
-          ╰────
+        martin::config::yaml (https://maplibre.org/martin/config-file/)
+        
+          × invalid type: integer `42`, expected either a boolean (`cors: true` /
+          │ `cors: false`) or a properties map with at least an `origin` list
+           ╭─[config.yaml:1:1]
+         1 │ cors: 42
+           · ──┬─
+           ·   ╰── invalid type: integer `42`, expected either a boolean (`cors: true` / `cors: false`) or a properties map with at least an `origin` list
+           ╰────
+          help: Check the highlighted token in your YAML. The error usually indicates
+                a mismatched type or an unexpected shape.
         ");
     }
 
     #[test]
     fn deserialize_rejects_quoted_string() {
         insta::assert_snapshot!(render_failure("cors: \"yes please\"\n"), @r#"
-         × invalid type: string "yes please", expected either a boolean (`cors:
-         │ true` / `cors: false`) or a properties map with at least an `origin` list
-          ╭─[config.yaml:1:1]
-        1 │ cors: "yes please"
-          · ──┬─
-          ·   ╰── invalid type: string "yes please", expected either a boolean (`cors: true` / `cors: false`) or a properties map with at least an `origin` list
-          ╰────
+        martin::config::yaml (https://maplibre.org/martin/config-file/)
+        
+          × invalid type: string "yes please", expected either a boolean (`cors:
+          │ true` / `cors: false`) or a properties map with at least an `origin` list
+           ╭─[config.yaml:1:1]
+         1 │ cors: "yes please"
+           · ──┬─
+           ·   ╰── invalid type: string "yes please", expected either a boolean (`cors: true` / `cors: false`) or a properties map with at least an `origin` list
+           ╰────
+          help: Check the highlighted token in your YAML. The error usually indicates
+                a mismatched type or an unexpected shape.
         "#);
     }
 
     #[test]
     fn deserialize_rejects_sequence() {
         insta::assert_snapshot!(render_failure("cors: [https://example.org]\n"), @"
-         × invalid type: sequence, expected either a boolean (`cors: true` / `cors:
-         │ false`) or a properties map with at least an `origin` list
-          ╭─[config.yaml:1:1]
-        1 │ cors: [https://example.org]
-          · ──┬─
-          ·   ╰── invalid type: sequence, expected either a boolean (`cors: true` / `cors: false`) or a properties map with at least an `origin` list
-          ╰────
+        martin::config::yaml (https://maplibre.org/martin/config-file/)
+        
+          × invalid type: sequence, expected either a boolean (`cors: true` / `cors:
+          │ false`) or a properties map with at least an `origin` list
+           ╭─[config.yaml:1:1]
+         1 │ cors: [https://example.org]
+           · ──┬─
+           ·   ╰── invalid type: sequence, expected either a boolean (`cors: true` / `cors: false`) or a properties map with at least an `origin` list
+           ╰────
+          help: Check the highlighted token in your YAML. The error usually indicates
+                a mismatched type or an unexpected shape.
         ");
     }
 

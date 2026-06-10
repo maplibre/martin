@@ -90,10 +90,10 @@ pub struct ExtraArgs {
 }
 
 impl Args {
-    pub fn merge_into_config<'a>(
+    pub fn merge_into_config(
         self,
         config: &mut Config,
-        #[cfg(feature = "postgres")] env: &impl Env<'a>,
+        #[cfg(feature = "postgres")] env: &impl Env,
     ) -> MartinResult<()> {
         if self.meta.config.is_some() && !self.meta.connection.is_empty() {
             return Err(ConfigAndConnectionsError(self.meta.connection));

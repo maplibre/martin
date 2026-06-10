@@ -1212,13 +1212,17 @@ mod deserialize_tests {
     #[cfg(feature = "pmtiles")]
     fn file_config_enum_rejects_integer() {
         insta::assert_snapshot!(render_failure("pmtiles: 42\n"), @"
-         × invalid type: integer `42`, expected a path string, a list of path
-         │ strings, or a configuration map with `paths` and/or `sources`
-          ╭─[config.yaml:1:1]
-        1 │ pmtiles: 42
-          · ───┬───
-          ·    ╰── invalid type: integer `42`, expected a path string, a list of path strings, or a configuration map with `paths` and/or `sources`
-          ╰────
+        martin::config::yaml (https://maplibre.org/martin/config-file/)
+        
+          × invalid type: integer `42`, expected a path string, a list of path
+          │ strings, or a configuration map with `paths` and/or `sources`
+           ╭─[config.yaml:1:1]
+         1 │ pmtiles: 42
+           · ───┬───
+           ·    ╰── invalid type: integer `42`, expected a path string, a list of path strings, or a configuration map with `paths` and/or `sources`
+           ╰────
+          help: Check the highlighted token in your YAML. The error usually indicates
+                a mismatched type or an unexpected shape.
         ");
     }
 
@@ -1226,13 +1230,17 @@ mod deserialize_tests {
     #[cfg(feature = "pmtiles")]
     fn file_config_enum_rejects_bool() {
         insta::assert_snapshot!(render_failure("pmtiles: true\n"), @"
-         × invalid type: boolean `true`, expected a path string, a list of path
-         │ strings, or a configuration map with `paths` and/or `sources`
-          ╭─[config.yaml:1:1]
-        1 │ pmtiles: true
-          · ───┬───
-          ·    ╰── invalid type: boolean `true`, expected a path string, a list of path strings, or a configuration map with `paths` and/or `sources`
-          ╰────
+        martin::config::yaml (https://maplibre.org/martin/config-file/)
+        
+          × invalid type: boolean `true`, expected a path string, a list of path
+          │ strings, or a configuration map with `paths` and/or `sources`
+           ╭─[config.yaml:1:1]
+         1 │ pmtiles: true
+           · ───┬───
+           ·    ╰── invalid type: boolean `true`, expected a path string, a list of path strings, or a configuration map with `paths` and/or `sources`
+           ╰────
+          help: Check the highlighted token in your YAML. The error usually indicates
+                a mismatched type or an unexpected shape.
         ");
     }
 
@@ -1246,13 +1254,17 @@ mod deserialize_tests {
                     - { not_a_path: true }
             "}),
             @"
-         × unexpected event: expected string scalar
-          ╭─[config.yaml:3:7]
-        2 │   paths:
-        3 │     - { not_a_path: true }
-          ·       ─┬
-          ·        ╰── unexpected event: expected string scalar
-          ╰────
+        martin::config::yaml (https://maplibre.org/martin/config-file/)
+        
+          × unexpected event: expected string scalar
+           ╭─[config.yaml:3:7]
+         2 │   paths:
+         3 │     - { not_a_path: true }
+           ·       ─┬
+           ·        ╰── unexpected event: expected string scalar
+           ╰────
+          help: Check the highlighted token in your YAML. The error usually indicates
+                a mismatched type or an unexpected shape.
         "
         );
     }
@@ -1358,26 +1370,34 @@ mod deserialize_tests {
     #[test]
     fn global_cache_rejects_other_string() {
         insta::assert_snapshot!(render_failure("cache: enable\n"), @r#"
-         × invalid cache config string "enable"; the only accepted string form is
-         │ `disable`
-          ╭─[config.yaml:1:8]
-        1 │ cache: enable
-          ·        ───┬──
-          ·           ╰── invalid cache config string "enable"; the only accepted string form is `disable`
-          ╰────
+        martin::config::yaml (https://maplibre.org/martin/config-file/)
+        
+          × invalid cache config string "enable"; the only accepted string form is
+          │ `disable`
+           ╭─[config.yaml:1:8]
+         1 │ cache: enable
+           ·        ───┬──
+           ·           ╰── invalid cache config string "enable"; the only accepted string form is `disable`
+           ╰────
+          help: Check the highlighted token in your YAML. The error usually indicates
+                a mismatched type or an unexpected shape.
         "#);
     }
 
     #[test]
     fn global_cache_rejects_integer() {
         insta::assert_snapshot!(render_failure("cache: 42\n"), @"
-         × invalid type: integer `42`, expected either the literal `disable` or a
-         │ cache configuration map (e.g. `{ size_mb: 512, tile_size_mb: 256 }`)
-          ╭─[config.yaml:1:1]
-        1 │ cache: 42
-          · ──┬──
-          ·   ╰── invalid type: integer `42`, expected either the literal `disable` or a cache configuration map (e.g. `{ size_mb: 512, tile_size_mb: 256 }`)
-          ╰────
+        martin::config::yaml (https://maplibre.org/martin/config-file/)
+        
+          × invalid type: integer `42`, expected either the literal `disable` or a
+          │ cache configuration map (e.g. `{ size_mb: 512, tile_size_mb: 256 }`)
+           ╭─[config.yaml:1:1]
+         1 │ cache: 42
+           · ──┬──
+           ·   ╰── invalid type: integer `42`, expected either the literal `disable` or a cache configuration map (e.g. `{ size_mb: 512, tile_size_mb: 256 }`)
+           ╰────
+          help: Check the highlighted token in your YAML. The error usually indicates
+                a mismatched type or an unexpected shape.
         ");
     }
 
@@ -1620,8 +1640,12 @@ mod folder_source_tests {
     #[tokio::test]
     async fn one_good_one_bad() {
         let (sources, warnings) = resolve_mixed_dir(1, 1).await;
-        assert_yaml_snapshot!(sources, @"- good_0");
-        assert_yaml_snapshot!(warnings, @r#"- "Path <DIR>/bad_0.tiles: Source path is not a file: <DIR>/bad_0.tiles""#);
+        assert_yaml_snapshot!(sources, @"
+        - good_0
+        ");
+        assert_yaml_snapshot!(warnings, @r#"
+        - "Path <DIR>/bad_0.tiles: Source path is not a file: <DIR>/bad_0.tiles"
+        "#);
     }
 
     #[tokio::test]
@@ -1640,7 +1664,9 @@ mod folder_source_tests {
     #[tokio::test]
     async fn all_bad() {
         let (sources, warnings) = resolve_mixed_dir(0, 2).await;
-        assert_yaml_snapshot!(sources, @"[]");
+        assert_yaml_snapshot!(sources, @"
+        []
+        ");
         assert_yaml_snapshot!(warnings, @r#"
         - "Path <DIR>/bad_0.tiles: Source path is not a file: <DIR>/bad_0.tiles"
         - "Path <DIR>/bad_1.tiles: Source path is not a file: <DIR>/bad_1.tiles"
@@ -1654,7 +1680,9 @@ mod folder_source_tests {
         - good_0
         - good_1
         ");
-        assert_yaml_snapshot!(warnings, @"[]");
+        assert_yaml_snapshot!(warnings, @"
+        []
+        ");
     }
 }
 

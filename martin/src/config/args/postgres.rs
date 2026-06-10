@@ -56,10 +56,10 @@ pub struct PostgresArgs {
 }
 
 impl PostgresArgs {
-    pub fn into_config<'a>(
+    pub fn into_config(
         self,
         cli_strings: &mut Arguments,
-        env: &impl Env<'a>,
+        env: &impl Env,
     ) -> OptOneMany<PostgresConfig> {
         let connections = Self::extract_conn_strings(cli_strings, env);
         let default_srid = self.get_default_srid(env);
@@ -93,11 +93,7 @@ impl PostgresArgs {
     }
 
     /// Apply CLI parameters from `self` to the configuration loaded from the config file `pg_config`
-    pub fn override_config<'a>(
-        self,
-        pg_config: &mut OptOneMany<PostgresConfig>,
-        env: &impl Env<'a>,
-    ) {
+    pub fn override_config(self, pg_config: &mut OptOneMany<PostgresConfig>, env: &impl Env) {
         // This ensures that if a new parameter is added to the struct, it will not be forgotten here
         let Self {
             default_srid,
@@ -165,7 +161,7 @@ impl PostgresArgs {
         }
     }
 
-    fn extract_conn_strings<'a>(cli_strings: &mut Arguments, env: &impl Env<'a>) -> Vec<String> {
+    fn extract_conn_strings(cli_strings: &mut Arguments, env: &impl Env) -> Vec<String> {
         let mut connections = cli_strings.process(|v| {
             if is_postgres_connection_string(v) {
                 Take(v.to_string())
@@ -187,7 +183,7 @@ impl PostgresArgs {
         connections
     }
 
-    fn get_default_srid<'a>(&self, env: &impl Env<'a>) -> Option<i32> {
+    fn get_default_srid(&self, env: &impl Env) -> Option<i32> {
         if self.default_srid.is_some() {
             return self.default_srid;
         }
@@ -204,7 +200,7 @@ impl PostgresArgs {
             })
     }
 
-    fn get_certs<'a>(&self, env: &impl Env<'a>) -> PostgresSslCerts {
+    fn get_certs(&self, env: &impl Env) -> PostgresSslCerts {
         let mut result = PostgresSslCerts {
             ssl_cert: Self::parse_env_var(env, "PGSSLCERT", "ssl certificate"),
             ssl_key: Self::parse_env_var(env, "PGSSLKEY", "ssl key for certificate"),
@@ -218,11 +214,7 @@ impl PostgresArgs {
         result
     }
 
-    fn parse_env_var<'a>(
-        env: &impl Env<'a>,
-        env_var: &str,
-        info: &str,
-    ) -> Option<std::path::PathBuf> {
+    fn parse_env_var(env: &impl Env, env_var: &str, info: &str) -> Option<std::path::PathBuf> {
         let path = env.var_os(env_var).map(std::path::PathBuf::from);
         if let Some(p) = &path {
             let p = p.display();
