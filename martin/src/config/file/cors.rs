@@ -213,7 +213,7 @@ mod tests {
     fn deserialize_rejects_integer() {
         insta::assert_snapshot!(render_failure("cors: 42\n"), @"
         martin::config::yaml (https://maplibre.org/martin/config-file/)
-        
+
           × invalid type: integer `42`, expected either a boolean (`cors: true` /
           │ `cors: false`) or a properties map with at least an `origin` list
            ╭─[config.yaml:1:1]
@@ -230,7 +230,7 @@ mod tests {
     fn deserialize_rejects_quoted_string() {
         insta::assert_snapshot!(render_failure("cors: \"yes please\"\n"), @r#"
         martin::config::yaml (https://maplibre.org/martin/config-file/)
-        
+
           × invalid type: string "yes please", expected either a boolean (`cors:
           │ true` / `cors: false`) or a properties map with at least an `origin` list
            ╭─[config.yaml:1:1]
@@ -247,7 +247,7 @@ mod tests {
     fn deserialize_rejects_sequence() {
         insta::assert_snapshot!(render_failure("cors: [https://example.org]\n"), @"
         martin::config::yaml (https://maplibre.org/martin/config-file/)
-        
+
           × invalid type: sequence, expected either a boolean (`cors: true` / `cors:
           │ false`) or a properties map with at least an `origin` list
            ╭─[config.yaml:1:1]

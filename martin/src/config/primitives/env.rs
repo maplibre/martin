@@ -89,7 +89,7 @@ impl Env for OsEnv {
 ///
 /// The tuple shape (`FauxEnv(map)`) is preserved from the pre-saphyr era so
 /// existing test fixtures keep compiling. Reference-tracking is intentionally
-/// omitted — the `has_unused_var` warning is only consumed by the
+/// omitted -- the `has_unused_var` warning is only consumed by the
 /// `postgres`-CLI override path, which the unit tests don't exercise.
 #[derive(Debug, Default)]
 pub struct FauxEnv(pub HashMap<&'static str, OsString>);

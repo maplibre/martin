@@ -249,7 +249,7 @@ mod tests {
             "}),
             @"
         martin::config::yaml (https://maplibre.org/martin/config-file/)
-        
+
           × unexpected event: expected string scalar
            ╭─[config.yaml:3:5]
          2 │   connection_string:

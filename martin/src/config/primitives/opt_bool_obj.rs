@@ -135,7 +135,7 @@ mod tests {
             "}),
             @r#"
         martin::config::yaml (https://maplibre.org/martin/config-file/)
-        
+
           × invalid type: string "yes-please", expected either a boolean or a
           │ configuration map
            ╭─[config.yaml:3:3]
@@ -161,7 +161,7 @@ mod tests {
             "}),
             @"
         martin::config::yaml (https://maplibre.org/martin/config-file/)
-        
+
           × invalid type: integer `42`, expected either a boolean or a configuration
           │ map
            ╭─[config.yaml:3:3]
@@ -187,7 +187,7 @@ mod tests {
             "}),
             @"
         martin::config::yaml (https://maplibre.org/martin/config-file/)
-        
+
           × invalid type: sequence, expected either a boolean or a configuration map
            ╭─[config.yaml:3:3]
          2 │   connection_string: postgres://localhost/db

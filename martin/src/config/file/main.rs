@@ -819,7 +819,7 @@ fn scan_referenced_vars(contents: &str) -> std::collections::HashSet<String> {
             }
             '"' | '\'' => {
                 // skip quoted scalar (single or double quoted, no escape handling needed
-                // because we only care about `$` tokens — anything inside quotes is ignored)
+                // because we only care about `$` tokens -- anything inside quotes is ignored)
                 let quote = ch;
                 while let Some((_, c)) = chars.next() {
                     if c == '\\' && quote == '"' {
@@ -1195,7 +1195,7 @@ mod tests {
     /// Regression for https://github.com/maplibre/martin/issues/2851.
     ///
     /// The pre-saphyr substitution pass scanned the raw config text and tried to
-    /// resolve every `${VAR}` it saw — including ones inside YAML comments. The
+    /// resolve every `${VAR}` it saw -- including ones inside YAML comments. The
     /// saphyr `properties` feature interpolates only inside plain scalar values,
     /// so the same config that used to abort startup now parses cleanly.
     #[cfg(feature = "postgres")]

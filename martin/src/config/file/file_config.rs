@@ -1213,7 +1213,7 @@ mod deserialize_tests {
     fn file_config_enum_rejects_integer() {
         insta::assert_snapshot!(render_failure("pmtiles: 42\n"), @"
         martin::config::yaml (https://maplibre.org/martin/config-file/)
-        
+
           × invalid type: integer `42`, expected a path string, a list of path
           │ strings, or a configuration map with `paths` and/or `sources`
            ╭─[config.yaml:1:1]
@@ -1231,7 +1231,7 @@ mod deserialize_tests {
     fn file_config_enum_rejects_bool() {
         insta::assert_snapshot!(render_failure("pmtiles: true\n"), @"
         martin::config::yaml (https://maplibre.org/martin/config-file/)
-        
+
           × invalid type: boolean `true`, expected a path string, a list of path
           │ strings, or a configuration map with `paths` and/or `sources`
            ╭─[config.yaml:1:1]
@@ -1255,7 +1255,7 @@ mod deserialize_tests {
             "}),
             @"
         martin::config::yaml (https://maplibre.org/martin/config-file/)
-        
+
           × unexpected event: expected string scalar
            ╭─[config.yaml:3:7]
          2 │   paths:
@@ -1371,7 +1371,7 @@ mod deserialize_tests {
     fn global_cache_rejects_other_string() {
         insta::assert_snapshot!(render_failure("cache: enable\n"), @r#"
         martin::config::yaml (https://maplibre.org/martin/config-file/)
-        
+
           × invalid cache config string "enable"; the only accepted string form is
           │ `disable`
            ╭─[config.yaml:1:8]
@@ -1388,7 +1388,7 @@ mod deserialize_tests {
     fn global_cache_rejects_integer() {
         insta::assert_snapshot!(render_failure("cache: 42\n"), @"
         martin::config::yaml (https://maplibre.org/martin/config-file/)
-        
+
           × invalid type: integer `42`, expected either the literal `disable` or a
           │ cache configuration map (e.g. `{ size_mb: 512, tile_size_mb: 256 }`)
            ╭─[config.yaml:1:1]
