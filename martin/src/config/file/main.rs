@@ -1192,7 +1192,7 @@ mod tests {
         ");
     }
 
-    /// Regression for https://github.com/maplibre/martin/issues/2851.
+    /// Regression for <https://github.com/maplibre/martin/issues/2851>.
     ///
     /// The pre-saphyr substitution pass scanned the raw config text and tried to
     /// resolve every `${VAR}` it saw -- including ones inside YAML comments. The
