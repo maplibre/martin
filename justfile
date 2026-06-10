@@ -203,7 +203,7 @@ bless-int: start
     rm -rf tests/expected && mv tests/output tests/expected
 
 bless-pg: start  (cargo-install 'cargo-insta')
-    cargo insta test --accept --features test-pg --no-default-features --test pg_function_source_test --test pg_server_test --test pg_table_source_test
+    cargo insta test --accept --features test-pg --no-default-features --test pg_function_source_test --test pg_reload_test --test pg_server_test --test pg_table_source_test
     cargo insta test --accept --features test-pg --no-default-features --package martin --lib
     cargo insta test --accept --features test-pg --package martin-core --no-default-features --lib
 
@@ -582,7 +582,7 @@ test: start
 
 # Run PostgreSQL-requiring tests only
 test-pg: start
-    cargo test --features test-pg --no-default-features --test pg_function_source_test --test pg_server_test --test pg_table_source_test
+    cargo test --features test-pg --no-default-features --test pg_function_source_test --test pg_reload_test --test pg_server_test --test pg_table_source_test
     cargo test --features test-pg --no-default-features --package martin --lib
     cargo test --features test-pg --package martin-core --no-default-features --lib
 
