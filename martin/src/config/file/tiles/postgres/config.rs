@@ -596,7 +596,7 @@ mod tests {
             geometry_column: geom
             extent: 0
         "};
-        let err = serde_yaml::from_str::<TableInfo>(yaml)
+        let err = serde_saphyr::from_str::<TableInfo>(yaml)
             .expect_err("extent: 0 must be rejected by NonZeroU32");
         let msg = err.to_string();
         assert!(

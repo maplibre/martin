@@ -285,7 +285,7 @@ mod tests {
 
     #[test]
     fn cache_disable_per_source() {
-        let policy: CachePolicy = serde_yaml::from_str("disable").unwrap();
+        let policy: CachePolicy = serde_saphyr::from_str("disable").unwrap();
         assert_eq!(policy, CachePolicy::disabled());
         for zoom in 0..=u8::MAX {
             assert!(

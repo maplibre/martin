@@ -179,9 +179,9 @@ impl PmtConfig {
                     .expect("key should exist in the hashmap");
                 // a hashmap cannot contain duplicate keys => ignore the replaced value
                 let _ = match value {
-                    serde_yaml::Value::Bool(b) => self.options.insert(key.clone(), b.to_string()),
-                    serde_yaml::Value::Number(n) => self.options.insert(key.clone(), n.to_string()),
-                    serde_yaml::Value::String(s) => self.options.insert(key.clone(), s.clone()),
+                    serde_json::Value::Bool(b) => self.options.insert(key.clone(), b.to_string()),
+                    serde_json::Value::Number(n) => self.options.insert(key.clone(), n.to_string()),
+                    serde_json::Value::String(s) => self.options.insert(key.clone(), s.clone()),
                     v => {
                         // warn early with better context
                         warn!(

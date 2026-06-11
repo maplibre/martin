@@ -27,17 +27,17 @@ where
     let substituted = subst::substitute(contents, env)
         .map_err(|e| ConfigFileError::substitution(e, contents.to_string(), file_name))?;
 
-    // Phase 2: rewrite deprecated cache keys via a `serde_yaml::Value` round-trip - but only
+    // Phase 2: rewrite deprecated cache keys via a `serde_json::Value` round-trip - but only
     // if at least one deprecated token appears in the text. The common case (no deprecated
     // keys) skips a full YAML parse + serialize.
     let migrated = if needs_deprecated_migration(&substituted) {
-        match serde_yaml::from_str::<serde_yaml::Value>(&substituted) {
+        match serde_saphyr::from_str::<serde_json::Value>(&substituted) {
             Ok(mut value) => {
                 migrate_deprecated_config(&mut value);
-                serde_yaml::to_string(&value).unwrap_or(substituted)
+                serde_saphyr::to_string(&value).unwrap_or(substituted)
             }
-            // If serde_yaml itself can't parse, hand the original to saphyr - its diagnostics
-            // are richer, so let it produce the user-facing error.
+            // If the round-trip parse fails, hand the original to the typed parse below -
+            // its diagnostics are richer, so let it produce the user-facing error.
             Err(_) => substituted,
         }
     } else {
@@ -66,35 +66,29 @@ fn needs_deprecated_migration(yaml: &str) -> bool {
 
 /// Migrates deprecated cache configuration keys in raw YAML before deserialization.
 ///
-/// This runs on the `serde_yaml::Value` directly, so the `Config` struct
+/// This runs on the `serde_json::Value` directly, so the `Config` struct
 /// never needs to know about deprecated field names.
-fn migrate_deprecated_config(value: &mut serde_yaml::Value) {
-    let Some(root) = value.as_mapping_mut() else {
+fn migrate_deprecated_config(value: &mut serde_json::Value) {
+    let Some(root) = value.as_object_mut() else {
         return;
     };
 
     // Global: cache_size_mb -> cache.size_mb
-    migrate_yaml_key(root, "cache_size_mb", &["cache", "size_mb"]);
+    migrate_json_key(root, "cache_size_mb", &["cache", "size_mb"]);
 
     // Global: tile_cache_size_mb -> cache.tile_size_mb
-    migrate_yaml_key(root, "tile_cache_size_mb", &["cache", "tile_size_mb"]);
+    migrate_json_key(root, "tile_cache_size_mb", &["cache", "tile_size_mb"]);
 
     // Source-type level: {section}.cache_size_mb -> {section}.cache.size_mb
     for section in ["sprites", "fonts"] {
-        if let Some(mapping) = root
-            .get_mut(serde_yaml::Value::String(section.into()))
-            .and_then(|v| v.as_mapping_mut())
-        {
-            migrate_yaml_key(mapping, "cache_size_mb", &["cache", "size_mb"]);
+        if let Some(mapping) = root.get_mut(section).and_then(|v| v.as_object_mut()) {
+            migrate_json_key(mapping, "cache_size_mb", &["cache", "size_mb"]);
         }
     }
 
     // PMTiles: directory_cache_size_mb -> directory_cache.size_mb
-    if let Some(mapping) = root
-        .get_mut(serde_yaml::Value::String("pmtiles".into()))
-        .and_then(|v| v.as_mapping_mut())
-    {
-        migrate_yaml_key(
+    if let Some(mapping) = root.get_mut("pmtiles").and_then(|v| v.as_object_mut()) {
+        migrate_json_key(
             mapping,
             "directory_cache_size_mb",
             &["directory_cache", "size_mb"],
@@ -102,18 +96,21 @@ fn migrate_deprecated_config(value: &mut serde_yaml::Value) {
     }
 }
 
-/// Moves a deprecated key in a YAML mapping to a new nested location.
+/// Moves a deprecated key in a JSON map to a new nested location.
 ///
 /// `new_path` is a slice of keys describing the nested destination,
 /// e.g. `&["cache", "size_mb"]` means `cache.size_mb`.
 ///
 /// If the new key already exists, the old value is dropped with a warning.
 /// If only the old key exists, it is moved to the new location.
-fn migrate_yaml_key(mapping: &mut serde_yaml::Mapping, old_key: &str, new_path: &[&str]) {
+fn migrate_json_key(
+    mapping: &mut serde_json::Map<String, serde_json::Value>,
+    old_key: &str,
+    new_path: &[&str],
+) {
     debug_assert!(!new_path.is_empty(), "new_path must not be empty");
 
-    let old_yaml_key = serde_yaml::Value::String(old_key.into());
-    let Some(old_value) = mapping.remove(&old_yaml_key) else {
+    let Some(old_value) = mapping.remove(old_key) else {
         return;
     };
 
@@ -127,11 +124,11 @@ fn migrate_yaml_key(mapping: &mut serde_yaml::Mapping, old_key: &str, new_path: 
     for &segment in parents {
         if !current.contains_key(segment) {
             current.insert(
-                serde_yaml::Value::String(segment.into()),
-                serde_yaml::Value::Mapping(serde_yaml::Mapping::default()),
+                segment.to_string(),
+                serde_json::Value::Object(serde_json::Map::default()),
             );
         }
-        let Some(nested) = current.get_mut(segment).and_then(|v| v.as_mapping_mut()) else {
+        let Some(nested) = current.get_mut(segment).and_then(|v| v.as_object_mut()) else {
             warn!(
                 "deprecated config: `{old_key}` is ignored because `{segment}` is already set. \
                  Please remove `{old_key}` from your configuration"
@@ -141,13 +138,13 @@ fn migrate_yaml_key(mapping: &mut serde_yaml::Mapping, old_key: &str, new_path: 
         current = nested;
     }
 
-    if current.contains_key(leaf) {
+    if current.contains_key(*leaf) {
         warn!(
             "deprecated config: `{old_key}` is ignored in favor of `{new_key_display}`. \
              Please remove `{old_key}` from your configuration"
         );
     } else {
-        current.insert(serde_yaml::Value::String((*leaf).into()), old_value);
+        current.insert((*leaf).to_string(), old_value);
     }
 }
 

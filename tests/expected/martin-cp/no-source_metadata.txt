@@ -6,23 +6,23 @@ tilejson:
   - id: cities
     fields:
       name: String
-    description: ''
+    description: ""
     maxzoom: 6
     minzoom: 0
   bounds:
-  - -123.12359
+  -  -123.12359
   - -37.818085
   - 174.763027
   - 59.352706
   center:
-  - -75.9375
+  -  -75.9375
   - 38.788894
   - 6
   description: Major cities from Natural Earth data
   maxzoom: 6
   minzoom: 0
   name: Major cities from Natural Earth data
-  version: '2'
+  version: "2"
   compression: gzip
   format: pbf
   generator: martin-cp v0.0.0

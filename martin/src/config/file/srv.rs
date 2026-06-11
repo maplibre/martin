@@ -187,7 +187,7 @@ mod tests {
     #[test]
     fn parse_config() {
         assert_eq!(
-            serde_yaml::from_str::<SrvConfig>(indoc! {"
+            serde_saphyr::from_str::<SrvConfig>(indoc! {"
                 keep_alive: 75
                 listen_addresses: '0.0.0.0:3000'
                 worker_processes: 8
@@ -201,7 +201,7 @@ mod tests {
             }
         );
         assert_eq!(
-            serde_yaml::from_str::<SrvConfig>(indoc! {"
+            serde_saphyr::from_str::<SrvConfig>(indoc! {"
                 keep_alive: 75
                 listen_addresses: '0.0.0.0:3000'
                 worker_processes: 8
@@ -217,7 +217,7 @@ mod tests {
             }
         );
         assert_eq!(
-            serde_yaml::from_str::<SrvConfig>(indoc! {"
+            serde_saphyr::from_str::<SrvConfig>(indoc! {"
                 keep_alive: 75
                 listen_addresses: '0.0.0.0:3000'
                 worker_processes: 8
@@ -237,7 +237,7 @@ mod tests {
     #[test]
     fn parse_config_cors() {
         assert_eq!(
-            serde_yaml::from_str::<SrvConfig>(indoc! {"
+            serde_saphyr::from_str::<SrvConfig>(indoc! {"
                 keep_alive: 75
                 listen_addresses: '0.0.0.0:3000'
                 worker_processes: 8
@@ -253,7 +253,7 @@ mod tests {
             }
         );
         assert_eq!(
-            serde_yaml::from_str::<SrvConfig>(indoc! {"
+            serde_saphyr::from_str::<SrvConfig>(indoc! {"
                 keep_alive: 75
                 listen_addresses: '0.0.0.0:3000'
                 worker_processes: 8
@@ -269,7 +269,7 @@ mod tests {
             }
         );
         assert_eq!(
-            serde_yaml::from_str::<SrvConfig>(indoc! {"
+            serde_saphyr::from_str::<SrvConfig>(indoc! {"
                 keep_alive: 75
                 listen_addresses: '0.0.0.0:3000'
                 worker_processes: 8

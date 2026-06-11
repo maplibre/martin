@@ -347,7 +347,7 @@ async fn meta_print_all(file: &Path) -> anyhow::Result<()> {
     let mbt = Mbtiles::new(file)?;
     let mut conn = mbt.open_readonly().await?;
     let metadata = mbt.get_metadata(&mut conn).await?;
-    print!("{}", serde_yaml::to_string(&metadata)?);
+    print!("{}", serde_saphyr::to_string(&metadata)?);
     let tile_info = mbt.detect_format(&metadata.tilejson, &mut conn).await?;
     // For compatibility, pretend tile_info is part of metadata YAML output
     if let Some(tile_info) = tile_info {
