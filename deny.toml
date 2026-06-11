@@ -79,7 +79,12 @@ unknown-registry = "deny"
 unknown-git = "deny"
 
 # If git deps are ever needed, they must be explicitly allowed here
-allow-git = []
+allow-git = [
+    # TODO: drop once a release with PRs #122/#125/#128/#129 (YAML-aware env var
+    # substitution: defaults, bare `$VAR`, error-on-missing forms) is published.
+    # Tracking: https://github.com/maplibre/martin/issues/2851
+    "https://github.com/bourumir-wyngs/serde-saphyr",
+]
 
 [graph]
 targets = [
