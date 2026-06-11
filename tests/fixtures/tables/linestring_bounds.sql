@@ -8,4 +8,4 @@ CREATE TABLE linestring_bounds
 INSERT INTO linestring_bounds (geom)
 VALUES ('SRID=4326;LINESTRING (9.9581704 10.0370178, 9.9675324 10.0370178)');
 
-CREATE INDEX ON linestring_bounds USING gist (geom);
+CREATE INDEX CONCURRENTLY ON linestring_bounds USING gist (geom);

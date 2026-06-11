@@ -20,7 +20,7 @@ use crate::config::file::{MltProcessConfig, MvtProcessConfig};
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 use crate::config::primitives::AutoOption;
 
-/// Default polling interval for [`PMTilesReloader`](crate::config::file::reload::pmtiles::PMTilesReloader)
+/// Default polling interval for [`PmtilesReloader`](crate::config::file::reload::pmtiles::PmtilesReloader)
 /// to re-list remote URL prefixes (s3://, gs://, https://, etc.). Local directories are
 /// notify-driven and ignore this setting.
 pub const DEFAULT_RELOAD_INTERVAL: Duration = Duration::from_mins(10);
@@ -54,9 +54,8 @@ pub struct PmtConfig {
     )]
     pub directory_cache: CacheSizeConfig,
 
-    /// How often the `PMTilesReloader` re-lists remote URL prefixes (`s3://bucket/`,
-    /// `gs://bucket/`, etc.) for source discovery. Has no effect on local directories,
-    /// which are watched via filesystem events.
+    /// How often remote URL prefixes (`s3://bucket/`, `gs://bucket/`, etc.) re-`LIST` for source discovery.
+    /// Has no effect on local directories, which are watched via filesystem events.
     ///
     /// Supports human-readable formats: "10m", "1h", "30s".
     /// Defaults to "10m". Set to "0s" to disable remote polling.
@@ -345,15 +344,9 @@ impl TileSourceConfiguration for PmtConfig {
         url: Url,
         cache: CachePolicy,
     ) -> MartinResult<BoxedSource> {
-        use std::sync::LazyLock;
-        use std::sync::atomic::{AtomicUsize, Ordering};
-
-        static NEXT_CACHE_ID: LazyLock<AtomicUsize> = LazyLock::new(|| AtomicUsize::new(0));
-        let cache_id = NEXT_CACHE_ID.fetch_add(1, Ordering::SeqCst);
-
         let (store, path) = object_store::parse_url_opts(&url, &self.options)
             .map_err(|e| ConfigFileError::ObjectStoreUrlParsing(e, id.clone()))?;
-        let dir_cache = PmtCacheInstance::new(cache_id, self.pmtiles_directory_cache.clone());
+        let dir_cache = PmtCacheInstance::new_auto_id(self.pmtiles_directory_cache.clone());
         let source = PmtilesSource::new(dir_cache, id, store, path, cache.zoom()).await?;
         Ok(Box::new(source))
     }

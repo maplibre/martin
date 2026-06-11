@@ -97,10 +97,10 @@ pmtiles:
     - /path/to/pmtiles/directory
 ```
 
-For remote object-storage prefixes (`s3://bucket/prefix/`, `gs://bucket/prefix/`, `https://host/prefix/`, etc.) Martin periodically re-lists the prefix and diffs against the previous snapshot.
+For remote object-storage prefixes (`s3://bucket/prefix/`, `gs://bucket/prefix/`, `https://host/prefix/`, etc.) Martin periodically re-lists the prefix and diffs against the previous snapshot, taking into account
+object `ETag` or `Last-Modified` headers to detect updates to an existing source.
 There is no event channel from blob storage to subscribe to.
-Added and removed objects propagate to the catalog.
-[In-place modifications to existing objects are not currently handled, but contributions welcome](https://github.com/maplibre/martin/issues/2713).
+Added, updated, and removed objects propagate to the catalog.
 
 ```yaml
 pmtiles:

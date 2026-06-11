@@ -84,6 +84,16 @@ pub trait Source: Send + Sync + Debug {
             && tj.maxzoom.is_none_or(|maxzoom| zoom <= maxzoom)
     }
 
+    /// Attempts to create a fresh instance of this source.
+    ///
+    /// Sources that return a `MartinCoreError::SourceNeedReload` from `get_tile()` must also
+    /// implement this method.
+    ///
+    /// The default implementation asserts.
+    async fn try_reload(&self) -> MartinCoreResult<BoxedSource> {
+        unreachable!()
+    }
+
     /// Generates catalog entry for this source.
     fn get_catalog_entry(&self) -> CatalogSourceEntry {
         let id = self.get_id();

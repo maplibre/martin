@@ -5,4 +5,4 @@ CREATE TABLE empty_bounds
     geom GEOMETRY (GEOMETRY, 4326)
 );
 
-CREATE INDEX ON empty_bounds USING gist (geom);
+CREATE INDEX CONCURRENTLY ON empty_bounds USING gist (geom);
