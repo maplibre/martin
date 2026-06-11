@@ -36,7 +36,9 @@ use super::styles::StyleConfig;
 use crate::config::file::FileConfigEnum;
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 use crate::config::file::process::{MltProcessConfig, MvtProcessConfig};
-use crate::config::file::{ConfigFileError, ConfigFileResult, GlobalCacheConfig, UnrecognizedValues};
+use crate::config::file::{
+    ConfigFileError, ConfigFileResult, GlobalCacheConfig, UnrecognizedValues,
+};
 #[cfg(feature = "postgres")]
 use crate::config::primitives::OptOneMany;
 #[cfg(feature = "_tiles")]
@@ -172,7 +174,6 @@ pub struct Config {
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub unrecognized: UnrecognizedValues,
 }
-
 
 /// Describes the action to take during startup when configuration is found to be invalid
 /// but Martin could still startup in a degraded state (ie, some sources not served).
