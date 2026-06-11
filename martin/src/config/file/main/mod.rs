@@ -222,7 +222,6 @@ impl OnInvalid {
     }
 }
 
-
 pub fn parse_base_path(path: &str) -> MartinResult<String> {
     if !path.starts_with('/') {
         return Err(MartinError::BasePathError(path.to_string()));
