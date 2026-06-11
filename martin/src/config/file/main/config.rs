@@ -7,6 +7,15 @@ use martin_core::tiles::BoxedSource;
 use serde::{Deserialize, Serialize};
 use tracing::{error, instrument, warn};
 
+#[cfg(any(
+    feature = "pmtiles",
+    feature = "mbtiles",
+    feature = "unstable-cog",
+    feature = "styles",
+    feature = "sprites",
+    feature = "fonts",
+))]
+use crate::config::file::FileConfigEnum;
 #[cfg(feature = "unstable-cog")]
 use crate::config::file::cog::CogConfig;
 #[cfg(feature = "fonts")]
@@ -17,22 +26,13 @@ use crate::config::file::mbtiles::MbtConfig;
 use crate::config::file::pmtiles::PmtConfig;
 #[cfg(feature = "postgres")]
 use crate::config::file::postgres::PostgresConfig;
+#[cfg(all(feature = "mlt", feature = "_tiles"))]
+use crate::config::file::process::{MltProcessConfig, MvtProcessConfig};
 #[cfg(feature = "sprites")]
 use crate::config::file::sprites::SpriteConfig;
 use crate::config::file::srv::SrvConfig;
 #[cfg(feature = "styles")]
 use crate::config::file::styles::StyleConfig;
-#[cfg(any(
-    feature = "pmtiles",
-    feature = "mbtiles",
-    feature = "unstable-cog",
-    feature = "styles",
-    feature = "sprites",
-    feature = "fonts",
-))]
-use crate::config::file::FileConfigEnum;
-#[cfg(all(feature = "mlt", feature = "_tiles"))]
-use crate::config::file::process::{MltProcessConfig, MvtProcessConfig};
 use crate::config::file::{GlobalCacheConfig, UnrecognizedValues};
 #[cfg(feature = "postgres")]
 use crate::config::primitives::OptOneMany;
@@ -170,7 +170,6 @@ pub struct Config {
     pub unrecognized: UnrecognizedValues,
 }
 
-
 /// Describes the action to take during startup when configuration is found to be invalid
 /// but Martin could still startup in a degraded state (ie, some sources not served).
 #[derive(PartialEq, Eq, Debug, Clone, Copy, Default, Serialize, Deserialize, ValueEnum)]
@@ -222,7 +221,6 @@ impl OnInvalid {
         }
     }
 }
-
 
 pub fn parse_base_path(path: &str) -> MartinResult<String> {
     if !path.starts_with('/') {
