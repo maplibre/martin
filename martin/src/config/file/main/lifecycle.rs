@@ -23,14 +23,12 @@ use super::{ResolutionResult, TileSourceWarning};
 use crate::MartinResult;
 #[cfg(any(
     feature = "pmtiles",
-    feature = "mbtiles",
-    feature = "unstable-cog",
-    feature = "styles",
     feature = "sprites",
     feature = "fonts",
+    all(feature = "mlt", feature = "mbtiles"),
 ))]
 use crate::config::file::FileConfigEnum;
-#[cfg(any(feature = "pmtiles", feature = "mbtiles", feature = "unstable-cog"))]
+#[cfg(all(feature = "mlt", any(feature = "pmtiles", feature = "mbtiles")))]
 use crate::config::file::FileConfigSrc;
 #[cfg(any(feature = "_tiles", feature = "sprites", feature = "fonts"))]
 use crate::config::file::cache::{CacheConfig, SubCacheSetting};
