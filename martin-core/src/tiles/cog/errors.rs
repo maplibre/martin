@@ -81,6 +81,12 @@ pub enum CogError {
     )]
     GetOriginFailed(PathBuf),
 
+    /// Cannot determine zoom level from full resolution image.
+    #[error(
+        "Calculating the full resolution image zoom level failed for {0}"
+    )]
+    UnknownZoomLevel(PathBuf),
+
     /// Cannot determine full resolution from TIFF tags.
     #[error(
         "Get full resolution failed for {0}: either a valid ModelPixelScaleTag or ModelPixelScaleTag is required"
