@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0](https://github.com/maplibre/martin/compare/martin-core-v0.7.0...martin-core-v0.8.0) - 2026-06-12
+
+### Added
+
+- Auto-refresh pmtiles source on source data change ([#2858](https://github.com/maplibre/martin/pull/2858))
+- duckdb-source implementation at martin-core ([#2831](https://github.com/maplibre/martin/pull/2831))
+- static rendering core ([#2804](https://github.com/maplibre/martin/pull/2804))
+
+### Fixed
+
+- *(martin)* reject invalid scale and inverted bbox in static rendering ([#2830](https://github.com/maplibre/martin/pull/2830))
+- ignore ignored directory for sprite resolution ([#2815](https://github.com/maplibre/martin/pull/2815))
+
+### Other
+
+- *(pg)* cleanup how extent is handled (PGReloader 0) ([#2837](https://github.com/maplibre/martin/pull/2837))
+- make sure that error types with multiple identical types have names ([#2832](https://github.com/maplibre/martin/pull/2832))
+- make the MLN renderer multi threaded ([#2826](https://github.com/maplibre/martin/pull/2826))
+- cache render fixtures ([#2828](https://github.com/maplibre/martin/pull/2828))
+
 ## [0.7.0](https://github.com/maplibre/martin/compare/martin-core-v0.6.0...martin-core-v0.7.0) - 2026-05-19
 
 ### Other
