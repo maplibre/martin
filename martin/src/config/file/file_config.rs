@@ -1138,7 +1138,7 @@ impl<'de> Deserialize<'de> for CacheSizeConfig {
     }
 }
 
-pub type UnrecognizedValues = HashMap<String, serde_yaml::Value>;
+pub type UnrecognizedValues = HashMap<String, serde_json::Value>;
 pub type UnrecognizedKeys = HashSet<String>;
 
 pub fn copy_unrecognized_keys_from_config(
@@ -1212,13 +1212,17 @@ mod deserialize_tests {
     #[cfg(feature = "pmtiles")]
     fn file_config_enum_rejects_integer() {
         insta::assert_snapshot!(render_failure("pmtiles: 42\n"), @"
-         × invalid type: integer `42`, expected a path string, a list of path
-         │ strings, or a configuration map with `paths` and/or `sources`
-          ╭─[config.yaml:1:1]
-        1 │ pmtiles: 42
-          · ───┬───
-          ·    ╰── invalid type: integer `42`, expected a path string, a list of path strings, or a configuration map with `paths` and/or `sources`
-          ╰────
+        martin::config::yaml (https://maplibre.org/martin/config-file/)
+
+          × invalid type: integer `42`, expected a path string, a list of path
+          │ strings, or a configuration map with `paths` and/or `sources`
+           ╭─[config.yaml:1:1]
+         1 │ pmtiles: 42
+           · ───┬───
+           ·    ╰── invalid type: integer `42`, expected a path string, a list of path strings, or a configuration map with `paths` and/or `sources`
+           ╰────
+          help: Check the highlighted token in your YAML. The error usually indicates
+                a mismatched type or an unexpected shape.
         ");
     }
 
@@ -1226,13 +1230,17 @@ mod deserialize_tests {
     #[cfg(feature = "pmtiles")]
     fn file_config_enum_rejects_bool() {
         insta::assert_snapshot!(render_failure("pmtiles: true\n"), @"
-         × invalid type: boolean `true`, expected a path string, a list of path
-         │ strings, or a configuration map with `paths` and/or `sources`
-          ╭─[config.yaml:1:1]
-        1 │ pmtiles: true
-          · ───┬───
-          ·    ╰── invalid type: boolean `true`, expected a path string, a list of path strings, or a configuration map with `paths` and/or `sources`
-          ╰────
+        martin::config::yaml (https://maplibre.org/martin/config-file/)
+
+          × invalid type: boolean `true`, expected a path string, a list of path
+          │ strings, or a configuration map with `paths` and/or `sources`
+           ╭─[config.yaml:1:1]
+         1 │ pmtiles: true
+           · ───┬───
+           ·    ╰── invalid type: boolean `true`, expected a path string, a list of path strings, or a configuration map with `paths` and/or `sources`
+           ╰────
+          help: Check the highlighted token in your YAML. The error usually indicates
+                a mismatched type or an unexpected shape.
         ");
     }
 
@@ -1246,13 +1254,17 @@ mod deserialize_tests {
                     - { not_a_path: true }
             "}),
             @"
-         × unexpected event: expected string scalar
-          ╭─[config.yaml:3:7]
-        2 │   paths:
-        3 │     - { not_a_path: true }
-          ·       ─┬
-          ·        ╰── unexpected event: expected string scalar
-          ╰────
+        martin::config::yaml (https://maplibre.org/martin/config-file/)
+
+          × unexpected event: expected string scalar
+           ╭─[config.yaml:3:7]
+         2 │   paths:
+         3 │     - { not_a_path: true }
+           ·       ─┬
+           ·        ╰── unexpected event: expected string scalar
+           ╰────
+          help: Check the highlighted token in your YAML. The error usually indicates
+                a mismatched type or an unexpected shape.
         "
         );
     }
@@ -1284,14 +1296,18 @@ mod deserialize_tests {
                     foo: 5
             "}),
             @"
-         × invalid type: integer `5`, expected a path string or a configuration map
-         │ with a `path` field
-          ╭─[config.yaml:3:5]
-        2 │   sources:
-        3 │     foo: 5
-          ·     ─┬─
-          ·      ╰── invalid type: integer `5`, expected a path string or a configuration map with a `path` field
-          ╰────
+        martin::config::yaml (https://maplibre.org/martin/config-file/)
+
+          × invalid type: integer `5`, expected a path string or a configuration map
+          │ with a `path` field
+           ╭─[config.yaml:3:5]
+         2 │   sources:
+         3 │     foo: 5
+           ·     ─┬─
+           ·      ╰── invalid type: integer `5`, expected a path string or a configuration map with a `path` field
+           ╰────
+          help: Check the highlighted token in your YAML. The error usually indicates
+                a mismatched type or an unexpected shape.
         "
         );
     }
@@ -1306,14 +1322,18 @@ mod deserialize_tests {
                     foo: true
             "}),
             @"
-         × invalid type: boolean `true`, expected a path string or a configuration
-         │ map with a `path` field
-          ╭─[config.yaml:3:5]
-        2 │   sources:
-        3 │     foo: true
-          ·     ─┬─
-          ·      ╰── invalid type: boolean `true`, expected a path string or a configuration map with a `path` field
-          ╰────
+        martin::config::yaml (https://maplibre.org/martin/config-file/)
+
+          × invalid type: boolean `true`, expected a path string or a configuration
+          │ map with a `path` field
+           ╭─[config.yaml:3:5]
+         2 │   sources:
+         3 │     foo: true
+           ·     ─┬─
+           ·      ╰── invalid type: boolean `true`, expected a path string or a configuration map with a `path` field
+           ╰────
+          help: Check the highlighted token in your YAML. The error usually indicates
+                a mismatched type or an unexpected shape.
         "
         );
     }
@@ -1328,14 +1348,18 @@ mod deserialize_tests {
                     foo: [a, b]
             "}),
             @"
-         × invalid type: sequence, expected a path string or a configuration map with
-         │ a `path` field
-          ╭─[config.yaml:3:5]
-        2 │   sources:
-        3 │     foo: [a, b]
-          ·     ─┬─
-          ·      ╰── invalid type: sequence, expected a path string or a configuration map with a `path` field
-          ╰────
+        martin::config::yaml (https://maplibre.org/martin/config-file/)
+
+          × invalid type: sequence, expected a path string or a configuration map with
+          │ a `path` field
+           ╭─[config.yaml:3:5]
+         2 │   sources:
+         3 │     foo: [a, b]
+           ·     ─┬─
+           ·      ╰── invalid type: sequence, expected a path string or a configuration map with a `path` field
+           ╰────
+          help: Check the highlighted token in your YAML. The error usually indicates
+                a mismatched type or an unexpected shape.
         "
         );
     }
@@ -1358,26 +1382,34 @@ mod deserialize_tests {
     #[test]
     fn global_cache_rejects_other_string() {
         insta::assert_snapshot!(render_failure("cache: enable\n"), @r#"
-         × invalid cache config string "enable"; the only accepted string form is
-         │ `disable`
-          ╭─[config.yaml:1:8]
-        1 │ cache: enable
-          ·        ───┬──
-          ·           ╰── invalid cache config string "enable"; the only accepted string form is `disable`
-          ╰────
+        martin::config::yaml (https://maplibre.org/martin/config-file/)
+
+          × invalid cache config string "enable"; the only accepted string form is
+          │ `disable`
+           ╭─[config.yaml:1:8]
+         1 │ cache: enable
+           ·        ───┬──
+           ·           ╰── invalid cache config string "enable"; the only accepted string form is `disable`
+           ╰────
+          help: Check the highlighted token in your YAML. The error usually indicates
+                a mismatched type or an unexpected shape.
         "#);
     }
 
     #[test]
     fn global_cache_rejects_integer() {
         insta::assert_snapshot!(render_failure("cache: 42\n"), @"
-         × invalid type: integer `42`, expected either the literal `disable` or a
-         │ cache configuration map (e.g. `{ size_mb: 512, tile_size_mb: 256 }`)
-          ╭─[config.yaml:1:1]
-        1 │ cache: 42
-          · ──┬──
-          ·   ╰── invalid type: integer `42`, expected either the literal `disable` or a cache configuration map (e.g. `{ size_mb: 512, tile_size_mb: 256 }`)
-          ╰────
+        martin::config::yaml (https://maplibre.org/martin/config-file/)
+
+          × invalid type: integer `42`, expected either the literal `disable` or a
+          │ cache configuration map (e.g. `{ size_mb: 512, tile_size_mb: 256 }`)
+           ╭─[config.yaml:1:1]
+         1 │ cache: 42
+           · ──┬──
+           ·   ╰── invalid type: integer `42`, expected either the literal `disable` or a cache configuration map (e.g. `{ size_mb: 512, tile_size_mb: 256 }`)
+           ╰────
+          help: Check the highlighted token in your YAML. The error usually indicates
+                a mismatched type or an unexpected shape.
         ");
     }
 
@@ -1406,14 +1438,18 @@ mod deserialize_tests {
                   cache: yes
             "}),
             @"
-         × invalid type: boolean `true`, expected either the literal `disable` or a
-         │ cache configuration map (e.g. `{ size_mb: 64, expiry: 1h }`)
-          ╭─[config.yaml:2:3]
-        1 │ sprites:
-        2 │   cache: yes
-          ·   ──┬──
-          ·     ╰── invalid type: boolean `true`, expected either the literal `disable` or a cache configuration map (e.g. `{ size_mb: 64, expiry: 1h }`)
-          ╰────
+        martin::config::yaml (https://maplibre.org/martin/config-file/)
+
+          × invalid type: boolean `true`, expected either the literal `disable` or a
+          │ cache configuration map (e.g. `{ size_mb: 64, expiry: 1h }`)
+           ╭─[config.yaml:2:3]
+         1 │ sprites:
+         2 │   cache: yes
+           ·   ──┬──
+           ·     ╰── invalid type: boolean `true`, expected either the literal `disable` or a cache configuration map (e.g. `{ size_mb: 64, expiry: 1h }`)
+           ╰────
+          help: Check the highlighted token in your YAML. The error usually indicates
+                a mismatched type or an unexpected shape.
         "
         );
     }
@@ -1427,14 +1463,18 @@ mod deserialize_tests {
                   cache: 42
             "}),
             @"
-         × invalid type: integer `42`, expected either the literal `disable` or a
-         │ cache configuration map (e.g. `{ size_mb: 64, expiry: 1h }`)
-          ╭─[config.yaml:2:3]
-        1 │ sprites:
-        2 │   cache: 42
-          ·   ──┬──
-          ·     ╰── invalid type: integer `42`, expected either the literal `disable` or a cache configuration map (e.g. `{ size_mb: 64, expiry: 1h }`)
-          ╰────
+        martin::config::yaml (https://maplibre.org/martin/config-file/)
+
+          × invalid type: integer `42`, expected either the literal `disable` or a
+          │ cache configuration map (e.g. `{ size_mb: 64, expiry: 1h }`)
+           ╭─[config.yaml:2:3]
+         1 │ sprites:
+         2 │   cache: 42
+           ·   ──┬──
+           ·     ╰── invalid type: integer `42`, expected either the literal `disable` or a cache configuration map (e.g. `{ size_mb: 64, expiry: 1h }`)
+           ╰────
+          help: Check the highlighted token in your YAML. The error usually indicates
+                a mismatched type or an unexpected shape.
         "
         );
     }
@@ -1455,7 +1495,7 @@ mod deserialize_tests {
     #[test]
     fn cache_policy_map() {
         let cfg = parse_yaml::<CachePolicy>("{ minzoom: 0, maxzoom: 14 }");
-        let dumped = serde_yaml::to_string(&cfg).unwrap();
+        let dumped = serde_saphyr::to_string(&cfg).unwrap();
         assert!(dumped.contains("minzoom: 0"), "got: {dumped}");
         assert!(dumped.contains("maxzoom: 14"), "got: {dumped}");
     }
@@ -1620,8 +1660,12 @@ mod folder_source_tests {
     #[tokio::test]
     async fn one_good_one_bad() {
         let (sources, warnings) = resolve_mixed_dir(1, 1).await;
-        assert_yaml_snapshot!(sources, @"- good_0");
-        assert_yaml_snapshot!(warnings, @r#"- "Path <DIR>/bad_0.tiles: Source path is not a file: <DIR>/bad_0.tiles""#);
+        assert_yaml_snapshot!(sources, @"
+        - good_0
+        ");
+        assert_yaml_snapshot!(warnings, @r#"
+        - "Path <DIR>/bad_0.tiles: Source path is not a file: <DIR>/bad_0.tiles"
+        "#);
     }
 
     #[tokio::test]
@@ -1640,7 +1684,9 @@ mod folder_source_tests {
     #[tokio::test]
     async fn all_bad() {
         let (sources, warnings) = resolve_mixed_dir(0, 2).await;
-        assert_yaml_snapshot!(sources, @"[]");
+        assert_yaml_snapshot!(sources, @"
+        []
+        ");
         assert_yaml_snapshot!(warnings, @r#"
         - "Path <DIR>/bad_0.tiles: Source path is not a file: <DIR>/bad_0.tiles"
         - "Path <DIR>/bad_1.tiles: Source path is not a file: <DIR>/bad_1.tiles"
@@ -1654,7 +1700,9 @@ mod folder_source_tests {
         - good_0
         - good_1
         ");
-        assert_yaml_snapshot!(warnings, @"[]");
+        assert_yaml_snapshot!(warnings, @"
+        []
+        ");
     }
 }
 

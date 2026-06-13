@@ -1,60 +1,122 @@
+use std::collections::HashMap;
 use std::path::Path;
 
-use subst::VariableMap;
 use tracing::warn;
 
 use super::Config;
 use crate::config::file::{ConfigFileError, ConfigFileResult};
+use crate::config::primitives::env::Env;
 
 /// Read config from a file
-pub fn read_config<'a, M>(file_name: &Path, env: &'a M) -> ConfigFileResult<Config>
-where
-    M: VariableMap<'a>,
-    M::Value: AsRef<str>,
-{
+pub fn read_config(file_name: &Path, env: &impl Env) -> ConfigFileResult<Config> {
     let contents = std::fs::read_to_string(file_name)
         .map_err(|e| ConfigFileError::ConfigLoadError(e, file_name.into()))?;
-    parse_config(&contents, env, file_name)
+    #[cfg(feature = "postgres")]
+    warn_unused_pg_env_vars(env, &contents);
+    parse_config(&contents, &env.as_property_map(), file_name)
 }
 
-pub fn parse_config<'a, M>(contents: &str, env: &'a M, file_name: &Path) -> ConfigFileResult<Config>
-where
-    M: VariableMap<'a>,
-    M::Value: AsRef<str>,
-{
-    // Phase 1: substitute environment variables at the text level so saphyr's spans line up
-    // with the post-substitution text the parser actually sees.
-    let substituted = subst::substitute(contents, env)
-        .map_err(|e| ConfigFileError::substitution(e, contents.to_string(), file_name))?;
+#[cfg(feature = "postgres")]
+fn warn_unused_pg_env_vars(env: &impl Env, contents: &str) {
+    let set_vars: Vec<&str> = [
+        "DATABASE_URL",
+        "DEFAULT_SRID",
+        "PGSSLCERT",
+        "PGSSLKEY",
+        "PGSSLROOTCERT",
+    ]
+    .into_iter()
+    .filter(|v| env.var_os(v).is_some())
+    .collect();
+    if set_vars.is_empty() {
+        return;
+    }
+    let Ok(value) = serde_saphyr::from_str::<serde_json::Value>(contents) else {
+        return;
+    };
+    for v in set_vars {
+        if !json_value_references_var(&value, v) {
+            warn!(
+                "Environment variable {v} is set, but will be ignored because a configuration file was loaded. Any environment variables can be used inside the config yaml file."
+            );
+        }
+    }
+}
 
-    // Phase 2: rewrite deprecated cache keys via a `serde_yaml::Value` round-trip - but only
-    // if at least one deprecated token appears in the text. The common case (no deprecated
-    // keys) skips a full YAML parse + serialize.
-    let migrated = if needs_deprecated_migration(&substituted) {
-        match serde_yaml::from_str::<serde_yaml::Value>(&substituted) {
+#[cfg(feature = "postgres")]
+fn json_value_references_var(value: &serde_json::Value, name: &str) -> bool {
+    use serde_json::Value::{Array, Bool, Null, Number, Object, String};
+    match value {
+        String(s) => string_references_var(s, name),
+        Array(items) => items.iter().any(|v| json_value_references_var(v, name)),
+        Object(map) => map
+            .iter()
+            .any(|(k, v)| string_references_var(k, name) || json_value_references_var(v, name)),
+        Null | Bool(_) | Number(_) => false,
+    }
+}
+
+/// Whether `haystack` contains a saphyr-style substitution token referencing `name`:
+/// `${name}`, `${name<op>...}` for `<op>` in `:-/-/:+/+/:?/?`, or bare `$name` not
+/// followed by an identifier-continuation char. `$$` is treated as an escape, not a `$`.
+#[cfg(feature = "postgres")]
+fn string_references_var(haystack: &str, name: &str) -> bool {
+    let mut rest = haystack;
+    while let Some((_, after)) = rest.split_once('$') {
+        if let Some(escaped) = after.strip_prefix('$') {
+            rest = escaped;
+            continue;
+        }
+        let (body, in_braces) = after
+            .strip_prefix('{')
+            .map_or((after, false), |b| (b, true));
+        if let Some(tail) = body.strip_prefix(name) {
+            let next = tail.bytes().next();
+            let matched = if in_braces {
+                matches!(next, Some(b'}' | b':' | b'-' | b'+' | b'?'))
+            } else {
+                next.is_none_or(|c| !(c.is_ascii_alphanumeric() || c == b'_'))
+            };
+            if matched {
+                return true;
+            }
+        }
+        rest = after;
+    }
+    false
+}
+
+pub fn parse_config(
+    contents: &str,
+    properties: &HashMap<String, String>,
+    file_name: &Path,
+) -> ConfigFileResult<Config> {
+    let migrated = if needs_deprecated_migration(contents) {
+        match serde_saphyr::from_str::<serde_json::Value>(contents) {
             Ok(mut value) => {
                 migrate_deprecated_config(&mut value);
-                serde_yaml::to_string(&value).unwrap_or(substituted)
+                serde_saphyr::to_string(&value).unwrap_or_else(|_| contents.to_string())
             }
-            // If serde_yaml itself can't parse, hand the original to saphyr - its diagnostics
-            // are richer, so let it produce the user-facing error.
-            Err(_) => substituted,
+            Err(_) => contents.to_string(),
         }
     } else {
-        substituted
+        contents.to_string()
     };
 
-    // Phase 3: parse to the typed `Config` via saphyr. We disable saphyr's built-in snippet
-    // wrapper so its hardcoded `<input>` source name doesn't override the file path we show;
-    // `ConfigFileError::to_miette_report` re-attaches a snippet against our own NamedSource.
+    // `with_snippet: false` keeps saphyr's hardcoded `<input>` source name out of the
+    // diagnostic -- `ConfigFileError::to_miette_report` re-attaches a snippet against
+    // our own NamedSource carrying the real file path.
     let options = serde_saphyr::options! {
         with_snippet: false,
-    };
+        property_syntax: serde_saphyr::options::PropertySyntax::BracedOrBare,
+    }
+    .with_properties(properties.clone());
+
     serde_saphyr::from_str_with_options::<Config>(&migrated, options)
         .map_err(|e| ConfigFileError::yaml_parse(e, migrated, file_name))
 }
 
-/// Cheap pre-check: does the substituted YAML mention any deprecated cache key?
+/// Cheap pre-check: does the YAML mention any deprecated cache key?
 ///
 /// False positives are harmless (the fast path is identical to the slow path's no-op
 /// migration), so a substring search is sufficient.
@@ -66,35 +128,29 @@ fn needs_deprecated_migration(yaml: &str) -> bool {
 
 /// Migrates deprecated cache configuration keys in raw YAML before deserialization.
 ///
-/// This runs on the `serde_yaml::Value` directly, so the `Config` struct
+/// This runs on the `serde_json::Value` directly, so the `Config` struct
 /// never needs to know about deprecated field names.
-fn migrate_deprecated_config(value: &mut serde_yaml::Value) {
-    let Some(root) = value.as_mapping_mut() else {
+fn migrate_deprecated_config(value: &mut serde_json::Value) {
+    let Some(root) = value.as_object_mut() else {
         return;
     };
 
     // Global: cache_size_mb -> cache.size_mb
-    migrate_yaml_key(root, "cache_size_mb", &["cache", "size_mb"]);
+    migrate_json_key(root, "cache_size_mb", &["cache", "size_mb"]);
 
     // Global: tile_cache_size_mb -> cache.tile_size_mb
-    migrate_yaml_key(root, "tile_cache_size_mb", &["cache", "tile_size_mb"]);
+    migrate_json_key(root, "tile_cache_size_mb", &["cache", "tile_size_mb"]);
 
     // Source-type level: {section}.cache_size_mb -> {section}.cache.size_mb
     for section in ["sprites", "fonts"] {
-        if let Some(mapping) = root
-            .get_mut(serde_yaml::Value::String(section.into()))
-            .and_then(|v| v.as_mapping_mut())
-        {
-            migrate_yaml_key(mapping, "cache_size_mb", &["cache", "size_mb"]);
+        if let Some(mapping) = root.get_mut(section).and_then(|v| v.as_object_mut()) {
+            migrate_json_key(mapping, "cache_size_mb", &["cache", "size_mb"]);
         }
     }
 
     // PMTiles: directory_cache_size_mb -> directory_cache.size_mb
-    if let Some(mapping) = root
-        .get_mut(serde_yaml::Value::String("pmtiles".into()))
-        .and_then(|v| v.as_mapping_mut())
-    {
-        migrate_yaml_key(
+    if let Some(mapping) = root.get_mut("pmtiles").and_then(|v| v.as_object_mut()) {
+        migrate_json_key(
             mapping,
             "directory_cache_size_mb",
             &["directory_cache", "size_mb"],
@@ -102,18 +158,21 @@ fn migrate_deprecated_config(value: &mut serde_yaml::Value) {
     }
 }
 
-/// Moves a deprecated key in a YAML mapping to a new nested location.
+/// Moves a deprecated key in a JSON map to a new nested location.
 ///
 /// `new_path` is a slice of keys describing the nested destination,
 /// e.g. `&["cache", "size_mb"]` means `cache.size_mb`.
 ///
 /// If the new key already exists, the old value is dropped with a warning.
 /// If only the old key exists, it is moved to the new location.
-fn migrate_yaml_key(mapping: &mut serde_yaml::Mapping, old_key: &str, new_path: &[&str]) {
+fn migrate_json_key(
+    mapping: &mut serde_json::Map<String, serde_json::Value>,
+    old_key: &str,
+    new_path: &[&str],
+) {
     debug_assert!(!new_path.is_empty(), "new_path must not be empty");
 
-    let old_yaml_key = serde_yaml::Value::String(old_key.into());
-    let Some(old_value) = mapping.remove(&old_yaml_key) else {
+    let Some(old_value) = mapping.remove(old_key) else {
         return;
     };
 
@@ -127,11 +186,11 @@ fn migrate_yaml_key(mapping: &mut serde_yaml::Mapping, old_key: &str, new_path: 
     for &segment in parents {
         if !current.contains_key(segment) {
             current.insert(
-                serde_yaml::Value::String(segment.into()),
-                serde_yaml::Value::Mapping(serde_yaml::Mapping::default()),
+                segment.to_string(),
+                serde_json::Value::Object(serde_json::Map::default()),
             );
         }
-        let Some(nested) = current.get_mut(segment).and_then(|v| v.as_mapping_mut()) else {
+        let Some(nested) = current.get_mut(segment).and_then(|v| v.as_object_mut()) else {
             warn!(
                 "deprecated config: `{old_key}` is ignored because `{segment}` is already set. \
                  Please remove `{old_key}` from your configuration"
@@ -141,13 +200,13 @@ fn migrate_yaml_key(mapping: &mut serde_yaml::Mapping, old_key: &str, new_path: 
         current = nested;
     }
 
-    if current.contains_key(leaf) {
+    if current.contains_key(*leaf) {
         warn!(
             "deprecated config: `{old_key}` is ignored in favor of `{new_key_display}`. \
              Please remove `{old_key}` from your configuration"
         );
     } else {
-        current.insert(serde_yaml::Value::String((*leaf).into()), old_value);
+        current.insert((*leaf).to_string(), old_value);
     }
 }
 
@@ -157,10 +216,14 @@ mod tests {
     use std::path::Path;
     use std::time::Duration;
 
+    use rstest::rstest;
+
     use super::*;
     #[cfg(any(feature = "sprites", feature = "fonts"))]
     use crate::config::file::FileConfigEnum;
     use crate::config::file::{CachePolicy, Config, GlobalCacheConfig};
+    #[cfg(feature = "postgres")]
+    use crate::config::primitives::OptOneMany;
     use crate::config::test_helpers::{render_failure, render_failure_json};
 
     fn parse_yaml(yaml: &str) -> Config {
@@ -170,6 +233,17 @@ mod tests {
             Path::new("test.yaml"),
         )
         .unwrap()
+    }
+
+    fn props(pairs: &[(&str, &str)]) -> HashMap<String, String> {
+        pairs
+            .iter()
+            .map(|(k, v)| ((*k).to_string(), (*v).to_string()))
+            .collect()
+    }
+
+    fn parse_with_env(yaml: &str, env: &HashMap<String, String>) -> Config {
+        parse_config(yaml, env, Path::new("test.yaml")).unwrap()
     }
 
     // ----- `parse_config` pipeline diagnostics: failures that don't belong to a single
@@ -185,13 +259,17 @@ mod tests {
                   worker_processes: 4
             "#}),
             @r#"
-         × invalid indentation in multiline quoted scalar
-          ╭─[config.yaml:3:3]
-        2 │   listen_addresses: "0.0.0.0:3000
-        3 │   worker_processes: 4
-          ·   ┬
-          ·   ╰── invalid indentation in multiline quoted scalar
-          ╰────
+        martin::config::yaml (https://maplibre.org/martin/config-file/)
+
+          × invalid indentation in multiline quoted scalar
+           ╭─[config.yaml:3:3]
+         2 │   listen_addresses: "0.0.0.0:3000
+         3 │   worker_processes: 4
+           ·   ┬
+           ·   ╰── invalid indentation in multiline quoted scalar
+           ╰────
+          help: Check the highlighted token in your YAML. The error usually indicates
+                a mismatched type or an unexpected shape.
         "#
         );
     }
@@ -199,13 +277,17 @@ mod tests {
     #[test]
     fn unknown_enum_variant_in_on_invalid() {
         insta::assert_snapshot!(render_failure("on_invalid: maybe\n"), @"
-         × unknown variant `maybe`, expected one of continue, ignore, warn, warning,
-         │ warnings, abort
-          ╭─[config.yaml:1:13]
-        1 │ on_invalid: maybe
-          ·             ──┬──
-          ·               ╰── unknown variant `maybe`, expected one of continue, ignore, warn, warning, warnings, abort
-          ╰────
+        martin::config::yaml (https://maplibre.org/martin/config-file/)
+
+          × unknown variant `maybe`, expected one of continue, ignore, warn, warning,
+          │ warnings, abort
+           ╭─[config.yaml:1:13]
+         1 │ on_invalid: maybe
+           ·             ──┬──
+           ·               ╰── unknown variant `maybe`, expected one of continue, ignore, warn, warning, warnings, abort
+           ╰────
+          help: Check the highlighted token in your YAML. The error usually indicates
+                a mismatched type or an unexpected shape.
         ");
     }
 
@@ -214,12 +296,12 @@ mod tests {
         insta::assert_snapshot!(render_failure("cache_size_mb: ${UNDEFINED_VAR}\n"), @"
         martin::config::substitution (https://maplibre.org/martin/config-file/)
 
-          × Unable to substitute environment variables in config file config.yaml: No
-          │ such variable: $UNDEFINED_VAR
-           ╭─[config.yaml:1:18]
-         1 │ cache_size_mb: ${UNDEFINED_VAR}
-           ·                  ──────┬──────
-           ·                        ╰── No such variable: $UNDEFINED_VAR
+          × missing property `UNDEFINED_VAR`
+           ╭─[config.yaml:2:12]
+         1 │ cache:
+         2 │   size_mb: ${UNDEFINED_VAR}
+           ·            ────────┬───────
+           ·                    ╰── missing property `UNDEFINED_VAR`
            ╰────
           help: Make sure every ${VAR} reference resolves to an environment variable,
                 or supply a default with `${VAR:-fallback}`.
@@ -256,43 +338,20 @@ mod tests {
     }
 
     #[test]
-    fn substitution_renders_as_json_with_code_help_url() {
-        // The substitution path uses our own `SubstitutionDiagnostic`, which overrides
-        // `code()`, `help()`, and `url()`. The JSON renderer surfaces all three.
+    fn substitution_failure_renders_as_json() {
         let json = render_failure_json("cache_size_mb: ${UNDEFINED_VAR}\n");
         let parsed: serde_json::Value =
             serde_json::from_str(&json).unwrap_or_else(|e| panic!("not JSON: {e}\n{json}"));
 
-        assert_eq!(
-            parsed.get("code").and_then(|c| c.as_str()),
-            Some("martin::config::substitution")
-        );
-        let help = parsed.get("help").and_then(|h| h.as_str()).unwrap_or("");
+        let message = parsed.get("message").and_then(|m| m.as_str()).unwrap_or("");
         assert!(
-            help.contains("${VAR}"),
-            "expected help text mentioning ${{VAR}}, got: {help}"
+            message.contains("missing property `UNDEFINED_VAR`"),
+            "unexpected message in JSON output: {message}"
         );
         assert_eq!(
-            parsed.get("url").and_then(|u| u.as_str()),
-            Some("https://maplibre.org/martin/config-file/")
+            parsed.get("filename").and_then(|f| f.as_str()),
+            Some("config.yaml")
         );
-    }
-
-    #[test]
-    fn substitution_unclosed_brace() {
-        insta::assert_snapshot!(render_failure("cache_size_mb: ${BROKEN\n"), @r"
-        martin::config::substitution (https://maplibre.org/martin/config-file/)
-
-          × Unable to substitute environment variables in config file config.yaml:
-          │ Unexpected character: '\n', expected a closing brace ('}') or colon (':')
-           ╭─[config.yaml:1:24]
-         1 │ cache_size_mb: ${BROKEN
-           ·                        ┬
-           ·                        ╰── Unexpected character: '\n', expected a closing brace ('}') or colon (':')
-           ╰────
-          help: Make sure every ${VAR} reference resolves to an environment variable,
-                or supply a default with `${VAR:-fallback}`.
-        ");
     }
 
     #[test]
@@ -432,5 +491,156 @@ mod tests {
         assert_eq!(cfg.custom.cache.size_mb, Some(64));
         assert_eq!(cfg.custom.cache.expiry, Some(Duration::from_hours(2)));
         assert_eq!(cfg.custom.cache.idle_timeout, Some(Duration::from_mins(30)));
+    }
+
+    #[rstest]
+    #[case::braced("${BASE}", "/my/path")]
+    #[case::bare("$BASE", "/my/path")]
+    #[case::dash_default_var_present("${BASE:-fallback}", "/my/path")]
+    #[case::dash_default_var_unset("${UNSET:-/fallback}", "/fallback")]
+    #[case::prefix_and_suffix("prefix-${BASE}-suffix", "prefix-/my/path-suffix")]
+    #[case::escape_double_dollar("$$BASE", "$BASE")]
+    fn substitution_accepted_forms(#[case] input: &str, #[case] expected: &str) {
+        let env = props(&[("BASE", "/my/path")]);
+        let yaml = format!("base_path: {input}\n");
+        let config = parse_with_env(&yaml, &env);
+        assert_eq!(config.srv.base_path.as_deref(), Some(expected));
+    }
+
+    #[cfg(feature = "postgres")]
+    #[rstest]
+    #[case::dash_default("${UNSET:-fallback}", Some("fallback"))]
+    #[case::dash_default_unset_only("${UNSET-fallback}", Some("fallback"))]
+    // an alternate that expands to nothing leaves an empty plain scalar, i.e. YAML null
+    #[case::plus_alternate_unset("${UNSET:+set}", None)]
+    #[case::plus_alternate_set("${BASE:+set}", Some("set"))]
+    fn substitution_shell_operators(#[case] input: &str, #[case] expected: Option<&str>) {
+        let env = props(&[("BASE", "/my/path")]);
+        let yaml = format!("postgres:\n  connection_string: {input}\n");
+        let config = parse_with_env(&yaml, &env);
+        let pg = match config.postgres {
+            OptOneMany::One(pg) => pg,
+            other => panic!("expected exactly one postgres config, got: {other:?}"),
+        };
+        assert_eq!(pg.connection_string.as_deref(), expected);
+    }
+
+    /// The pre-migration syntax `${VAR:default}` (single colon, from the `subst` crate) is
+    /// no longer a substitution token; it fails the parse so users update the reference
+    /// to the supported `${VAR:-default}` form instead of silently keeping the literal.
+    #[test]
+    fn substitution_single_colon_default_is_rejected() {
+        let env = props(&[("BASE", "/my/path")]);
+        parse_config(
+            "base_path: ${BASE:fallback}\n",
+            &env,
+            Path::new("test.yaml"),
+        )
+        .expect_err("subst-style `${VAR:default}` must be rejected, not silently kept");
+    }
+
+    /// Substitution is YAML-aware: only plain (unquoted) scalars are interpolated.
+    /// Quoting a value is how users opt out of substitution.
+    #[rstest]
+    #[case::unquoted("base_path: ${BASE}\n", "/my/path")]
+    #[case::single_quoted("base_path: '${BASE}'\n", "${BASE}")]
+    #[case::double_quoted("base_path: \"${BASE}\"\n", "${BASE}")]
+    fn substitution_only_in_plain_scalars(#[case] yaml: &str, #[case] expected: &str) {
+        let env = props(&[("BASE", "/my/path")]);
+        let config = parse_with_env(yaml, &env);
+        assert_eq!(config.srv.base_path.as_deref(), Some(expected));
+    }
+
+    /// Regression for <https://github.com/maplibre/martin/issues/2851>.
+    #[cfg(feature = "postgres")]
+    #[test]
+    fn substitution_ignores_dollar_tokens_in_comments() {
+        let yaml = indoc::indoc! {r"
+            # Database configuration. This can also be a list of PG configs.
+            postgres:
+              # Database connection string. You can use env vars too, for example:
+              #   $DATABASE_URL
+              #   ${DATABASE_URL:-postgresql://postgres@localhost/db}
+              connection_string: 'postgres://postgres:postgres@db:5432/ehrenamtskarte'
+        "};
+        let config = parse_config(
+            yaml,
+            &HashMap::<String, String>::new(),
+            Path::new("config.yaml"),
+        )
+        .expect("comments containing ${VAR} must not trigger substitution");
+        let one = match config.postgres {
+            OptOneMany::One(pg) => pg,
+            other => panic!("expected exactly one postgres config, got: {other:?}"),
+        };
+        assert_eq!(
+            one.connection_string.as_deref(),
+            Some("postgres://postgres:postgres@db:5432/ehrenamtskarte"),
+        );
+    }
+
+    #[rstest]
+    #[case::braced_in_migrated_key(
+        &[("SIZE", "512")],
+        "cache_size_mb: ${SIZE}\n",
+        Some(512), None, None,
+    )]
+    #[case::sibling_to_migrated_key(
+        &[("SIZE", "256"), ("BASE", "/served")],
+        "tile_cache_size_mb: ${SIZE}\nbase_path: ${BASE}\n",
+        None, Some(256), Some("/served"),
+    )]
+    #[case::bare_in_migrated_key(
+        &[("SIZE", "1024"), ("BASE", "/p")],
+        "cache_size_mb: $SIZE\nbase_path: $BASE\n",
+        Some(1024), None, Some("/p"),
+    )]
+    fn substitution_survives_deprecated_migration(
+        #[case] env_pairs: &[(&str, &str)],
+        #[case] yaml: &str,
+        #[case] expected_size_mb: Option<u64>,
+        #[case] expected_tile_size_mb: Option<u64>,
+        #[case] expected_base_path: Option<&str>,
+    ) {
+        let env = props(env_pairs);
+        let config = parse_with_env(yaml, &env);
+        assert_eq!(config.cache.size_mb, expected_size_mb);
+        assert_eq!(config.cache.tile_size_mb, expected_tile_size_mb);
+        assert_eq!(config.srv.base_path.as_deref(), expected_base_path);
+    }
+
+    #[cfg(feature = "postgres")]
+    #[test]
+    fn string_references_var_matches_substitution_tokens() {
+        for s in [
+            "${DATABASE_URL}",
+            "${DATABASE_URL:-postgres://x}",
+            "${DATABASE_URL:?required}",
+            "${DATABASE_URL-no-default}",
+            "${DATABASE_URL+set}",
+            "${DATABASE_URL?msg}",
+            "prefix-${DATABASE_URL}-suffix",
+            "$DATABASE_URL",
+            "$DATABASE_URL/path",
+            "$DATABASE_URL ",
+        ] {
+            assert!(
+                string_references_var(s, "DATABASE_URL"),
+                "expected a hit in {s:?}"
+            );
+        }
+        for s in [
+            "DATABASE_URL",
+            "$$DATABASE_URL",
+            "$DATABASE_URLISH",
+            "${DATABASE_URL_OTHER}",
+            "${OTHER_DATABASE_URL}",
+            "postgres://db",
+        ] {
+            assert!(
+                !string_references_var(s, "DATABASE_URL"),
+                "expected no hit in {s:?}"
+            );
+        }
     }
 }

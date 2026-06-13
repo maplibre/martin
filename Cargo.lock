@@ -2955,9 +2955,9 @@ dependencies = [
 
 [[package]]
 name = "granit-parser"
-version = "0.0.3"
+version = "0.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f50ba32164f9e098d5da618776a32afbb32270adcbe3d3d006107dae11e37c91"
+checksum = "599a28c6c3171864dbf7fdb3a666f7ac301fab54c2b6e71534f413959cd37b49"
 dependencies = [
  "arraydeque",
  "smallvec",
@@ -4456,9 +4456,7 @@ dependencies = [
  "serde-saphyr",
  "serde_json",
  "serde_with",
- "serde_yaml",
  "static-files 0.2.5",
- "subst",
  "tempfile",
  "testcontainers-modules",
  "thiserror 2.0.18",
@@ -4600,9 +4598,9 @@ dependencies = [
  "rayon",
  "rstest",
  "serde",
+ "serde-saphyr",
  "serde_json",
  "serde_with",
- "serde_yaml",
  "size_format",
  "sqlite-compressions",
  "sqlite-hashes",
@@ -6914,9 +6912,8 @@ dependencies = [
 
 [[package]]
 name = "serde-saphyr"
-version = "0.0.27"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5897b4c3faadadd35fdb6689f015641f3bc481d5adaaac56231ea15aeb243db3"
+version = "0.0.28"
+source = "git+https://github.com/bourumir-wyngs/serde-saphyr?rev=261ccbe62a8368fcffbd780dd923647edfd2f927#261ccbe62a8368fcffbd780dd923647edfd2f927"
 dependencies = [
  "ahash 0.8.12",
  "annotate-snippets",
@@ -7079,19 +7076,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.117",
-]
-
-[[package]]
-name = "serde_yaml"
-version = "0.9.34+deprecated"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6a8b1a1a2ebf674015cc02edccce75287f1a0130d394307b36743c2f5d504b47"
-dependencies = [
- "indexmap 2.14.0",
- "itoa",
- "ryu",
- "serde",
- "unsafe-libyaml",
 ]
 
 [[package]]
@@ -7703,16 +7687,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.117",
-]
-
-[[package]]
-name = "subst"
-version = "0.3.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0a9a86e5144f63c2d18334698269a8bfae6eece345c70b64821ea5b35054ec99"
-dependencies = [
- "memchr",
- "unicode-width 0.1.14",
 ]
 
 [[package]]
@@ -8676,12 +8650,6 @@ name = "unit-prefix"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "81e544489bf3d8ef66c953931f56617f423cd4b5494be343d9b9d3dda037b9a3"
-
-[[package]]
-name = "unsafe-libyaml"
-version = "0.2.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "673aac59facbab8a9007c7f6108d11f63b603f7cabff99fabf650fea5c32b861"
 
 [[package]]
 name = "untrusted"

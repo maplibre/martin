@@ -10,21 +10,21 @@ use martin::config::file::postgres::TableInfo;
 use martin::config::file::{Config, ServerState, parse_config};
 #[cfg(feature = "_tiles")]
 use martin::config::primitives::IdResolver;
-use martin::config::primitives::env::FauxEnv;
+use martin::config::primitives::env::{Env as _, FauxEnv};
 #[cfg(feature = "_tiles")]
 use martin_core::tiles::BoxedSource;
 use tracing::warn;
 
 #[must_use]
 pub fn mock_cfg(yaml: &str) -> Config {
-    let env = if let Ok(db_url) = env::var("DATABASE_URL") {
-        FauxEnv(vec![("DATABASE_URL", db_url.into())].into_iter().collect())
+    let env: FauxEnv = if let Ok(db_url) = env::var("DATABASE_URL") {
+        vec![("DATABASE_URL", db_url.into())].into_iter().collect()
     } else {
         warn!("DATABASE_URL env var is not set. Might not be able to do integration tests");
         FauxEnv::default()
     };
-    let mut cfg: Config =
-        parse_config(yaml, &env, Path::new("test.yaml")).expect("source can be parsed as yaml");
+    let mut cfg: Config = parse_config(yaml, &env.as_property_map(), Path::new("test.yaml"))
+        .expect("source can be parsed as yaml");
     let res = cfg.finalize().expect("source can be finalized");
     assert!(res.is_empty(), "unrecognized config: {res:?}");
     cfg
@@ -54,7 +54,7 @@ pub async fn mock_sources(mut config: Config) -> MockSource {
     let res = res.unwrap_or_else(|e| {
         panic!(
             "Failed to resolve config:\n{config}\nBecause {e}",
-            config = serde_yaml::to_string(&config).unwrap()
+            config = serde_saphyr::to_string(&config).unwrap()
         )
     });
     (res, config)

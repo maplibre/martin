@@ -212,39 +212,51 @@ mod tests {
     #[test]
     fn deserialize_rejects_integer() {
         insta::assert_snapshot!(render_failure("cors: 42\n"), @"
-         × invalid type: integer `42`, expected either a boolean (`cors: true` /
-         │ `cors: false`) or a properties map with at least an `origin` list
-          ╭─[config.yaml:1:1]
-        1 │ cors: 42
-          · ──┬─
-          ·   ╰── invalid type: integer `42`, expected either a boolean (`cors: true` / `cors: false`) or a properties map with at least an `origin` list
-          ╰────
+        martin::config::yaml (https://maplibre.org/martin/config-file/)
+
+          × invalid type: integer `42`, expected either a boolean (`cors: true` /
+          │ `cors: false`) or a properties map with at least an `origin` list
+           ╭─[config.yaml:1:1]
+         1 │ cors: 42
+           · ──┬─
+           ·   ╰── invalid type: integer `42`, expected either a boolean (`cors: true` / `cors: false`) or a properties map with at least an `origin` list
+           ╰────
+          help: Check the highlighted token in your YAML. The error usually indicates
+                a mismatched type or an unexpected shape.
         ");
     }
 
     #[test]
     fn deserialize_rejects_quoted_string() {
         insta::assert_snapshot!(render_failure("cors: \"yes please\"\n"), @r#"
-         × invalid type: string "yes please", expected either a boolean (`cors:
-         │ true` / `cors: false`) or a properties map with at least an `origin` list
-          ╭─[config.yaml:1:1]
-        1 │ cors: "yes please"
-          · ──┬─
-          ·   ╰── invalid type: string "yes please", expected either a boolean (`cors: true` / `cors: false`) or a properties map with at least an `origin` list
-          ╰────
+        martin::config::yaml (https://maplibre.org/martin/config-file/)
+
+          × invalid type: string "yes please", expected either a boolean (`cors:
+          │ true` / `cors: false`) or a properties map with at least an `origin` list
+           ╭─[config.yaml:1:1]
+         1 │ cors: "yes please"
+           · ──┬─
+           ·   ╰── invalid type: string "yes please", expected either a boolean (`cors: true` / `cors: false`) or a properties map with at least an `origin` list
+           ╰────
+          help: Check the highlighted token in your YAML. The error usually indicates
+                a mismatched type or an unexpected shape.
         "#);
     }
 
     #[test]
     fn deserialize_rejects_sequence() {
         insta::assert_snapshot!(render_failure("cors: [https://example.org]\n"), @"
-         × invalid type: sequence, expected either a boolean (`cors: true` / `cors:
-         │ false`) or a properties map with at least an `origin` list
-          ╭─[config.yaml:1:1]
-        1 │ cors: [https://example.org]
-          · ──┬─
-          ·   ╰── invalid type: sequence, expected either a boolean (`cors: true` / `cors: false`) or a properties map with at least an `origin` list
-          ╰────
+        martin::config::yaml (https://maplibre.org/martin/config-file/)
+
+          × invalid type: sequence, expected either a boolean (`cors: true` / `cors:
+          │ false`) or a properties map with at least an `origin` list
+           ╭─[config.yaml:1:1]
+         1 │ cors: [https://example.org]
+           · ──┬─
+           ·   ╰── invalid type: sequence, expected either a boolean (`cors: true` / `cors: false`) or a properties map with at least an `origin` list
+           ╰────
+          help: Check the highlighted token in your YAML. The error usually indicates
+                a mismatched type or an unexpected shape.
         ");
     }
 
@@ -280,7 +292,7 @@ mod tests {
 
     #[test]
     fn test_cors_yaml_parsing() {
-        let config: CorsConfig = serde_yaml::from_str(indoc! {"
+        let config: CorsConfig = serde_saphyr::from_str(indoc! {"
             origin:
               - https://example.org
             max_age: 3600
@@ -294,13 +306,13 @@ mod tests {
             panic!("Expected Settings variant for detailed config");
         }
 
-        let config: CorsConfig = serde_yaml::from_str("false").unwrap();
+        let config: CorsConfig = serde_saphyr::from_str("false").unwrap();
         assert_eq!(config, CorsConfig::SimpleFlag(false));
 
-        let config: CorsConfig = serde_yaml::from_str("true").unwrap();
+        let config: CorsConfig = serde_saphyr::from_str("true").unwrap();
         assert_eq!(config, CorsConfig::SimpleFlag(true));
 
-        let config: CorsConfig = serde_yaml::from_str(indoc! {"
+        let config: CorsConfig = serde_saphyr::from_str(indoc! {"
             origin:
               - https://example.org
               - https://martin.maplibre.org
@@ -324,7 +336,7 @@ mod tests {
 
     #[test]
     fn test_cors_validation() {
-        let config: CorsConfig = serde_yaml::from_str(indoc! {"max_age: 3600"}).unwrap();
+        let config: CorsConfig = serde_saphyr::from_str(indoc! {"max_age: 3600"}).unwrap();
         if let CorsConfig::Properties(settings) = config {
             // This should fail validation
             assert!(matches!(
@@ -335,7 +347,7 @@ mod tests {
             panic!("Expected Properties variant");
         }
 
-        let config: CorsConfig = serde_yaml::from_str(indoc! {"
+        let config: CorsConfig = serde_saphyr::from_str(indoc! {"
             origin:
               - https://example.org
             max_age: 3600"})

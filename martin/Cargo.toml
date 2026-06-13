@@ -198,9 +198,7 @@ serde.workspace = true
 serde-saphyr.workspace = true
 serde_json.workspace = true
 serde_with.workspace = true
-serde_yaml.workspace = true
 static-files = { workspace = true, optional = true }
-subst.workspace = true
 thiserror.workspace = true
 tilejson.workspace = true
 tokio = { workspace = true, features = ["io-std"] }

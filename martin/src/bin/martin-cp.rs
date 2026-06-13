@@ -174,7 +174,7 @@ fn parse_key_value(s: &str) -> Result<(String, String), String> {
 async fn start(copy_args: CopierArgs) -> MartinCpResult<()> {
     info!("martin-cp tile copier v{VERSION}");
 
-    let env = OsEnv::default();
+    let env = OsEnv;
     let save_config = copy_args.meta.save_config.clone();
     let mut config = if let Some(ref cfg_filename) = copy_args.meta.config {
         info!("Using {}", cfg_filename.display());

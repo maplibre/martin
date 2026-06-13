@@ -505,7 +505,7 @@ impl Config {
     }
 
     pub fn save_to_file(&self, file_name: &Path) -> ConfigFileResult<()> {
-        let yaml = serde_yaml::to_string(&self).expect("Unable to serialize config");
+        let yaml = serde_saphyr::to_string(&self).expect("Unable to serialize config");
         if file_name.as_os_str() == OsStr::new("-") {
             info!("Current system configuration:");
             #[expect(

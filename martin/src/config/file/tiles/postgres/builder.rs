@@ -662,7 +662,7 @@ mod tests {
         auto_funcs: Option<PostgresAutoDiscoveryBuilderFunctions>,
     }
     fn auto(content: &str) -> AutoCfg {
-        let cfg: PostgresConfig = serde_yaml::from_str(content).unwrap();
+        let cfg: PostgresConfig = serde_saphyr::from_str(content).unwrap();
         let (auto_table, auto_funcs) = calc_auto(&cfg);
         AutoCfg {
             auto_table,
@@ -829,7 +829,7 @@ mod tests {
         let connection_string =
             format!("postgres://postgres:postgres@{host}:{port}/postgres?sslmode=disable");
 
-        let mut config: PostgresConfig = serde_yaml::from_str(config_yaml).unwrap();
+        let mut config: PostgresConfig = serde_saphyr::from_str(config_yaml).unwrap();
         config.connection_string = Some(connection_string);
 
         let builder = PostgresAutoDiscoveryBuilder::new(
