@@ -71,7 +71,7 @@ jobs:
         with: { tool: just }
       # `just gen-schemas` enables `rendering` on Linux so the OpenAPI doc
       # covers the static-render routes - that pulls in maplibre-native,
-      # which links libcurl via the prebuilt `MLN_PRECOMPILE=1` binary.
+      # whose C++ build needs the rendering toolchain installed.
       - name: Install rendering dependencies
         run: just install-dependencies
       - run: just gen-schemas
