@@ -13,22 +13,16 @@ use crate::config::primitives::IdResolver;
 use crate::{MartinError, MartinResult};
 
 /// A [`Discovery`] over one `PostgreSQL` connection.
-///
-/// Each [`discover`](Discovery::discover) re-runs the catalog query through a
-/// [`PostgresAutoDiscoveryBuilder`], so new, changed, and dropped tables/functions are picked
-/// up at runtime. Entries are versioned by their [`SourceSpec::fingerprint`], so an in-place
+/// 
+////Entries are versioned by their [`SourceSpec::fingerprint`], so an in-place
 /// data or function-body change (which the fingerprint ignores) does not force a rebuild.
-///
 /// The builder owns its own connection pool, created lazily on the first `discover` and reused
-/// for the lifetime of the discovery. Per-source `convert_to_mlt`/`convert_to_mvt` overrides are
-/// not preserved across a live update (only across a restart); the connection-level
-/// [`ProcessConfig`] resolved at construction is stamped onto every reloaded source.
+/// for the lifetime of the discovery.
 pub struct PostgresDiscovery {
     config: PostgresConfig,
     id_resolver: IdResolver,
     default_cache: CachePolicy,
     process: ProcessConfig,
-    /// Built once on the first `discover`; an `Arc` clone behind the driver keeps it alive.
     builder: OnceCell<PostgresAutoDiscoveryBuilder>,
 }
 
@@ -50,7 +44,8 @@ impl PostgresDiscovery {
         }
     }
 
-    /// Polling cadence for re-running discovery; `0s` disables reloading.
+    /// Polling cadence for re-running discovery
+    /// `0s` disables reloading.
     #[must_use]
     pub fn reload_interval(&self) -> Duration {
         self.config.reload_interval
