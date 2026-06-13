@@ -620,41 +620,13 @@ fn by_key<T>(a: &(String, T), b: &(String, T)) -> Ordering {
 }
 
 #[cfg(all(test, feature = "test-pg"))]
-#[expect(clippy::unwrap_used, clippy::panic)]
 mod tests {
-    use backon::{ConstantBuilder, Retryable as _};
     use indoc::indoc;
     use insta::{assert_debug_snapshot, assert_yaml_snapshot};
     use rstest::rstest;
-    use testcontainers_modules::postgres::Postgres;
-    use testcontainers_modules::testcontainers::ImageExt as _;
-    use testcontainers_modules::testcontainers::runners::AsyncRunner as _;
 
     use super::*;
-
-    async fn start_old_postgis_container()
-    -> testcontainers_modules::testcontainers::ContainerAsync<Postgres> {
-        const MAX_START_ATTEMPTS: usize = 3;
-        const RETRY_DELAY: std::time::Duration = std::time::Duration::from_secs(2);
-
-        (|| async {
-            Postgres::default()
-                .with_name("postgis/postgis")
-                .with_tag("11-3.0") // purposely very old and stable
-                .start()
-                .await
-        })
-        .retry(
-            ConstantBuilder::default()
-                .with_delay(RETRY_DELAY)
-                .with_max_times(MAX_START_ATTEMPTS),
-        )
-        .sleep(tokio::time::sleep)
-        .await
-        .unwrap_or_else(|e| {
-            panic!("failed to launch container after {MAX_START_ATTEMPTS} attempts: {e}")
-        })
-    }
+    use crate::test_support::pg::{builder_for, seed};
 
     #[derive(serde::Serialize)]
     struct AutoCfg {
@@ -662,7 +634,7 @@ mod tests {
         auto_funcs: Option<PostgresAutoDiscoveryBuilderFunctions>,
     }
     fn auto(content: &str) -> AutoCfg {
-        let cfg: PostgresConfig = serde_yaml::from_str(content).unwrap();
+        let cfg: PostgresConfig = serde_yaml::from_str(content).expect("parse PostgresConfig YAML");
         let (auto_table, auto_funcs) = calc_auto(&cfg);
         AutoCfg {
             auto_table,
@@ -805,46 +777,9 @@ mod tests {
         "#);
     }
 
-    /// Seeds the database behind `builder` with arbitrary setup SQL.
-    async fn seed(builder: &PostgresAutoDiscoveryBuilder, sql: &str) {
-        builder
-            .pool
-            .get()
-            .await
-            .unwrap()
-            .batch_execute(sql)
-            .await
-            .unwrap();
-    }
-
-    async fn builder_for(
-        config_yaml: &str,
-    ) -> (
-        PostgresAutoDiscoveryBuilder,
-        testcontainers_modules::testcontainers::ContainerAsync<Postgres>,
-    ) {
-        let container = start_old_postgis_container().await;
-        let host = container.get_host().await.unwrap();
-        let port = container.get_host_port_ipv4(5432).await.unwrap();
-        let connection_string =
-            format!("postgres://postgres:postgres@{host}:{port}/postgres?sslmode=disable");
-
-        let mut config: PostgresConfig = serde_yaml::from_str(config_yaml).unwrap();
-        config.connection_string = Some(connection_string);
-
-        let builder = PostgresAutoDiscoveryBuilder::new(
-            &config,
-            IdResolver::default(),
-            CachePolicy::default(),
-        )
-        .await
-        .expect("Failed to create builder");
-        (builder, container)
-    }
-
     #[tokio::test]
     async fn discover_and_instantiate_table() {
-        let (builder, _container) = builder_for(indoc! {r"
+        let (builder, _container, connstr) = builder_for(indoc! {r"
             tables:
               my_points:
                 schema: public
@@ -855,7 +790,7 @@ mod tests {
         "})
         .await;
         seed(
-            &builder,
+            &connstr,
             "CREATE TABLE public.points (gid serial PRIMARY KEY, geom geometry(Point, 4326));\
              INSERT INTO public.points (geom) VALUES (ST_SetSRID(ST_MakePoint(1, 2), 4326));",
         )
@@ -897,13 +832,13 @@ mod tests {
 
     #[tokio::test]
     async fn discover_auto_publishes_from_catalog_and_is_rerunnable() {
-        let (builder, _container) = builder_for("{}").await;
+        let (builder, _container, connstr) = builder_for("{}").await;
         seed(
-            &builder,
+            &connstr,
             "CREATE TABLE public.roads (gid serial PRIMARY KEY, geom geometry(LineString, 4326));",
         )
         .await;
-        seed(&builder, TILE_FUNCTION_SQL).await;
+        seed(&connstr, TILE_FUNCTION_SQL).await;
 
         let (first, warnings) = builder.discover().await.expect("first discover failed");
         assert!(warnings.is_empty(), "unexpected warnings: {warnings:?}");
@@ -949,14 +884,14 @@ mod tests {
 
     #[tokio::test]
     async fn discover_and_instantiate_function() {
-        let (builder, _container) = builder_for(indoc! {r"
+        let (builder, _container, connstr) = builder_for(indoc! {r"
             functions:
               my_func:
                 schema: public
                 function: my_func
         "})
         .await;
-        seed(&builder, TILE_FUNCTION_SQL).await;
+        seed(&connstr, TILE_FUNCTION_SQL).await;
 
         let (mut specs, warnings) = builder.discover().await.expect("discover failed");
         assert!(warnings.is_empty(), "unexpected warnings: {warnings:?}");
@@ -988,7 +923,7 @@ mod tests {
 
     #[tokio::test]
     async fn instantiate_failure_surfaces_as_error() {
-        let (builder, _container) = builder_for(indoc! {r"
+        let (builder, _container, connstr) = builder_for(indoc! {r"
             tables:
               my_points:
                 schema: public
@@ -999,7 +934,7 @@ mod tests {
         "})
         .await;
         seed(
-            &builder,
+            &connstr,
             "CREATE TABLE public.points (gid serial PRIMARY KEY, geom geometry(Point, 4326));",
         )
         .await;
@@ -1008,7 +943,7 @@ mod tests {
         let spec = specs.remove("my_points").expect("spec for my_points");
 
         // The table vanishes between discover and instantiate.
-        seed(&builder, "DROP TABLE public.points;").await;
+        seed(&connstr, "DROP TABLE public.points;").await;
 
         let result = builder.instantiate("my_points", spec).await;
         assert!(
@@ -1019,7 +954,7 @@ mod tests {
 
     #[tokio::test]
     async fn discover_missing_sources_surface_as_warnings() {
-        let (builder, _container) = builder_for(indoc! {r"
+        let (builder, _container, _connstr) = builder_for(indoc! {r"
             tables:
               nonexistent_table:
                 schema: public
