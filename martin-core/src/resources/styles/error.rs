@@ -1,5 +1,5 @@
 #[cfg(all(feature = "rendering", target_os = "linux"))]
-use maplibre_native::RenderingError;
+use maplibre_native::{RenderingError, StyleLoadError};
 
 /// Errors that can occur during style processing.
 #[non_exhaustive]
@@ -9,6 +9,11 @@ pub enum StyleError {
     #[cfg(all(feature = "rendering", target_os = "linux"))]
     #[error(transparent)]
     IoError(#[from] std::io::Error),
+
+    /// `maplibre-native` failed to load the style.
+    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    #[error(transparent)]
+    StyleLoadError(#[from] StyleLoadError),
 
     /// `maplibre-native` failed to produce a frame.
     #[cfg(all(feature = "rendering", target_os = "linux"))]

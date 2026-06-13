@@ -25,8 +25,6 @@ use dashmap::{DashMap, Entry};
 pub use maplibre_native::Image as StaticImage;
 #[cfg(all(feature = "rendering", target_os = "linux"))]
 use maplibre_native::Image;
-#[cfg(all(feature = "rendering", target_os = "linux"))]
-use martin_tile_utils::tile_center_lng_lat;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use tracing::{info, warn};
@@ -40,7 +38,9 @@ pub use error::StyleError;
 #[cfg(all(feature = "rendering", target_os = "linux"))]
 pub mod render_pool;
 #[cfg(all(feature = "rendering", target_os = "linux"))]
-pub use render_pool::{RenderParams, RendererPool};
+pub use render_pool::RenderParams;
+#[cfg(all(feature = "rendering", target_os = "linux"))]
+use render_pool::RenderPools;
 
 /// What kind of layers a `MapLibre` style draws.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -93,7 +93,7 @@ pub type StyleCatalog = HashMap<String, CatalogStyleEntry>;
 pub struct StyleSources {
     sources: DashMap<String, StyleSource>,
     #[cfg(all(feature = "rendering", target_os = "linux"))]
-    pool: Option<RendererPool>,
+    pools: Option<RenderPools>,
 }
 
 /// Style source file.
@@ -140,7 +140,7 @@ impl StyleSources {
     #[cfg(all(feature = "rendering", target_os = "linux"))]
     #[must_use]
     pub fn is_rendering_enabled(&self) -> bool {
-        self.pool.is_some()
+        self.pools.is_some()
     }
 
     /// Adds a style JSON file with an ID to the catalog.
@@ -181,28 +181,29 @@ impl StyleSources {
 
     /// EXPERIMENTAL support for rendering styles.
     ///
-    /// Renders a 512×512 tile by aiming the static renderer at the tile's
-    /// geographic centre, computed by [`tile_center_lng_lat`].
+    /// Renders a 512×512 slippy tile via the dedicated tile renderer.
     #[cfg(all(feature = "rendering", target_os = "linux"))]
     pub async fn render(&self, path: PathBuf, z: u8, x: u32, y: u32) -> Result<Image, StyleError> {
-        let (lng, lat) = tile_center_lng_lat(z, x, y);
-        self.render_static(RenderParams::new(path, lat, lng, f64::from(z)))
+        self.pools
+            .as_ref()
+            .ok_or(StyleError::RenderingIsDisabled)?
+            .render_tile(path, z, x, y)
             .await
     }
 
     /// Render a map image with free camera control.
     #[cfg(all(feature = "rendering", target_os = "linux"))]
     pub async fn render_static(&self, params: RenderParams) -> Result<Image, StyleError> {
-        self.pool
+        self.pools
             .as_ref()
             .ok_or(StyleError::RenderingIsDisabled)?
-            .render(params)
+            .render_static(params)
             .await
     }
 
-    /// Enable rendering by spawning a [`RendererPool`]. Replaces any existing pool.
+    /// Enable rendering by spawning the tile and static [`RenderPools`]. Replaces any existing pools.
     ///
-    /// See [`RendererPool::new`] for the meaning of `workers`.
+    /// See [`RenderPools::new`] for the meaning of `workers`.
     ///
     /// # Errors
     ///
@@ -213,14 +214,14 @@ impl StyleSources {
         &mut self,
         workers: Option<NonZeroUsize>,
     ) -> Result<(), std::io::Error> {
-        self.pool = Some(RendererPool::new(workers)?);
+        self.pools = Some(RenderPools::new(workers)?);
         Ok(())
     }
 
     /// Disable rendering. Subsequent render calls return [`StyleError::RenderingIsDisabled`].
     #[cfg(all(feature = "rendering", target_os = "linux"))]
     pub fn disable_rendering(&mut self) {
-        self.pool = None;
+        self.pools = None;
     }
 }
 
