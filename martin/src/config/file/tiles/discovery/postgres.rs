@@ -13,7 +13,7 @@ use crate::config::primitives::IdResolver;
 use crate::{MartinError, MartinResult};
 
 /// A [`Discovery`] over one `PostgreSQL` connection.
-/// 
+///
 ////Entries are versioned by their [`SourceSpec::fingerprint`], so an in-place
 /// data or function-body change (which the fingerprint ignores) does not force a rebuild.
 /// The builder owns its own connection pool, created lazily on the first `discover` and reused
