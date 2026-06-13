@@ -10,7 +10,7 @@ use actix_web::http::header::{
 use actix_web::web::{Data, Path, Query};
 use actix_web::{HttpMessage as _, HttpRequest, HttpResponse, Result as ActixResult, route};
 use futures::future::try_join_all;
-use martin_core::tiles::{BoxedSource, Tile, TileCache, UrlQuery};
+use martin_core::tiles::{BoxedSource, MartinCoreError, Tile, TileCache, UrlQuery};
 use martin_tile_utils::{
     Encoding, Format, TileCoord, TileInfo, decode_brotli, decode_gzip, decode_zlib, decode_zstd,
     encode_brotli, encode_gzip, encode_zlib, encode_zstd,
@@ -20,7 +20,9 @@ use tracing::{instrument, warn};
 
 use crate::config::args::PreferredEncoding;
 use crate::config::file::ProcessConfig;
+use crate::config::file::driver::Sink as _;
 use crate::config::file::srv::SrvConfig;
+use crate::reload::{NewSource, ReloadAdvisory};
 use crate::srv::server::{DebouncedWarning, map_internal_error};
 use crate::srv::tiles::process::apply_pre_cache_processors;
 use crate::tile_source_manager::TileSourceManager;
@@ -260,6 +262,7 @@ pub struct DynTileSource<'a> {
     pub accepted_format: Option<Format>,
     pub headers: TileRequestHeaders,
     pub cache: Option<&'a TileCache>,
+    pub manager: &'a TileSourceManager,
 }
 
 impl<'a> DynTileSource<'a> {
@@ -299,6 +302,7 @@ impl<'a> DynTileSource<'a> {
             accepted_format,
             headers,
             cache,
+            manager,
         })
     }
 
@@ -377,42 +381,100 @@ impl<'a> DynTileSource<'a> {
         err(Debug),
     )]
     pub async fn get_tile_content(&self, xyz: TileCoord) -> ActixResult<Tile> {
-        #[cfg_attr(
-            not(all(feature = "mlt", feature = "_tiles")),
-            expect(unused_variables)
-        )]
-        let mut tiles = try_join_all(self.sources.iter().map(|(s, pc)| async {
-            let fetch_and_process = || async {
-                let tile = s.get_tile_with_etag(xyz, self.query_obj.as_ref()).await?;
-                apply_pre_cache_processors(
-                    tile,
-                    #[cfg(all(feature = "mlt", feature = "_tiles"))]
-                    pc,
-                    #[cfg(all(feature = "mlt", feature = "_tiles"))]
-                    self.accepted_format,
-                )
-                .map_err(|e| martin_core::tiles::MartinCoreError::OtherError(Box::new(e)))
-            };
-            let cache_zoom_ok = s.cache_zoom().contains(xyz.z);
-            let tile = if let (Some(cache), true) = (self.cache, cache_zoom_ok) {
-                cache
-                    .get_or_insert(
-                        martin_core::tiles::TileCacheKey::new(
-                            s.get_id().to_string(),
-                            xyz,
-                            self.query_str.map(ToString::to_string),
-                            self.accepted_format,
-                        ),
-                        fetch_and_process,
-                    )
-                    .await
-            } else {
-                fetch_and_process().await.map_err(Arc::new)
-            };
-            tile.map_err(|e| map_internal_error(e.as_ref()))
-        }))
+        let tiles = try_join_all(
+            self.sources
+                .iter()
+                .map(|(s, pc)| self.get_tile_content_from_one_source(s, pc, xyz)),
+        )
         .await?;
 
+        self.merge_tiles(tiles)
+    }
+
+    async fn get_tile_content_from_one_source(
+        &self,
+        s: &BoxedSource,
+        pc: &ProcessConfig,
+        xyz: TileCoord,
+    ) -> ActixResult<Tile> {
+        match self.fetch_tile_content_with_cache(s, pc, xyz).await {
+            Err(ref e) if matches!(e.as_ref(), MartinCoreError::SourceNeedsReload) => {
+                self.reload_source_and_retry_get_tile(s, pc, xyz).await
+            }
+            result => result.map_err(|e| map_internal_error(e.as_ref())),
+        }
+    }
+
+    async fn reload_source_and_retry_get_tile(
+        &self,
+        s: &BoxedSource,
+        pc: &ProcessConfig,
+        xyz: TileCoord,
+    ) -> ActixResult<Tile> {
+        match s.try_reload().await {
+            Ok(fresh_src) => {
+                warn!(source.id = s.get_id(), "Source modified; reloading");
+                let advisory = ReloadAdvisory {
+                    updates: vec![NewSource {
+                        id: s.get_id().to_string(),
+                        source: Ok(fresh_src.clone_source()),
+                        process: pc.clone(),
+                    }],
+                    ..Default::default()
+                };
+                if let Err(e) = self.manager.apply_changes(advisory).await {
+                    warn!(source.id = s.get_id(), error = %e, "Failed to apply source update after reload");
+                }
+                self.fetch_tile_content_with_cache(&fresh_src, pc, xyz)
+                    .await
+                    .map_err(|e| map_internal_error(e.as_ref()))
+            }
+            Err(e) => Err(map_internal_error(&e)),
+        }
+    }
+
+    #[cfg_attr(
+        not(all(feature = "mlt", feature = "_tiles")),
+        expect(unused_variables)
+    )]
+    async fn fetch_tile_content_with_cache(
+        &self,
+        s: &BoxedSource,
+        pc: &ProcessConfig,
+        xyz: TileCoord,
+    ) -> Result<Tile, Arc<MartinCoreError>> {
+        let cache_zoom = s.cache_zoom().contains(xyz.z);
+        let src_id = s.get_id().to_string();
+        let src = s.clone_source();
+        let compute = || async move {
+            let t = src.get_tile_with_etag(xyz, self.query_obj.as_ref()).await?;
+            apply_pre_cache_processors(
+                t,
+                #[cfg(all(feature = "mlt", feature = "_tiles"))]
+                pc,
+                #[cfg(all(feature = "mlt", feature = "_tiles"))]
+                self.accepted_format,
+            )
+            .map_err(|e| MartinCoreError::OtherError(Box::new(e)))
+        };
+        if let (Some(cache), true) = (self.cache, cache_zoom) {
+            cache
+                .get_or_insert(
+                    martin_core::tiles::TileCacheKey::new(
+                        src_id,
+                        xyz,
+                        self.query_str.map(ToString::to_string),
+                        self.accepted_format,
+                    ),
+                    compute,
+                )
+                .await
+        } else {
+            compute().await.map_err(Arc::new)
+        }
+    }
+
+    fn merge_tiles(&self, mut tiles: Vec<Tile>) -> ActixResult<Tile> {
         let mut layer_count = 0;
         let mut last_non_empty_layer = 0;
         for (idx, tile) in tiles.iter().enumerate() {
@@ -658,7 +720,7 @@ mod tests {
 
     use super::*;
     use crate::config::file::OnInvalid;
-    use crate::srv::tiles::tests::{CompressedTestSource, TestSource};
+    use crate::srv::tiles::tests::{CompressedTestSource, SourceNeedsReloadTestSource, TestSource};
 
     fn test_manager(sources: Vec<Vec<BoxedSource>>) -> TileSourceManager {
         let sources = sources
@@ -780,6 +842,30 @@ mod tests {
             let xyz = TileCoord { z: 0, x: 0, y: 0 };
             assert_eq!(expected, &src.get_tile_content(xyz).await.unwrap().data);
         }
+    }
+
+    /// When a tile source returns [`MartinCoreError::SourceNeedsReload`], the serving layer
+    /// must reload the source from the manager and retry the tile request.
+    #[actix_rt::test]
+    async fn test_source_needs_reload_is_retried() {
+        // `SourceNeedsReloadSource` returns SourceNeedsReload unless it was instantiated by `try_reload()`, the
+        // internal machanics for a Source's self-reload.
+        let source = SourceNeedsReloadTestSource::new("stale_source", vec![1, 2, 3]);
+        let mgr = test_manager(vec![vec![Box::new(source)]]);
+        let src = DynTileSource::new(
+            &mgr,
+            "stale_source",
+            None,
+            "",
+            TileRequestHeaders::default(),
+        )
+        .unwrap();
+
+        let tile = src
+            .get_tile_content(TileCoord { z: 0, x: 0, y: 0 })
+            .await
+            .unwrap();
+        assert_eq!(tile.data, vec![1, 2, 3]);
     }
 
     fn compress_with(data: &[u8], encoding: Encoding) -> Vec<u8> {

@@ -161,7 +161,7 @@ VALUES (
     '0101000020E6100000F9B5A5ADB7265BC0EE07F81F2F284840'
 );
 
-CREATE INDEX ON """Quotes' \ \' \"" and Space.Dot.".". Points"" \ \' \"" 'quote" USING GIST (
+CREATE INDEX CONCURRENTLY ON """Quotes' \ \' \"" and Space.Dot.".". Points"" \ \' \"" 'quote" USING GIST (
     ". ' \ \' \"" ""Geom"""
 );
 

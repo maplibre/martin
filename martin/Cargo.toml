@@ -119,7 +119,7 @@ fonts = ["martin-core/fonts", "_catalog"]
 lambda = ["dep:lambda-web"]
 mbtiles = ["martin-core/mbtiles", "dep:mbtiles", "_tiles"]
 metrics = ["martin-core/metrics", "dep:actix-web-prom", "dep:prometheus"]
-pmtiles = ["martin-core/pmtiles", "dep:object_store", "_tiles"]
+pmtiles = ["martin-core/pmtiles", "dep:object_store", "dep:xxhash-rust", "_tiles"]
 postgres = [
     "martin-core/postgres",
     "dep:enum-display",
@@ -213,6 +213,7 @@ url.workspace = true
 utoipa = { workspace = true, optional = true }
 utoipa-actix-web = { workspace = true, optional = true }
 walkdir = { workspace = true, optional = true }
+xxhash-rust = { workspace = true, optional = true }
 
 [build-dependencies]
 static-files = { workspace = true, optional = true }

@@ -16,4 +16,4 @@ INSERT INTO antimeridian (geom) VALUES (
     GEOMFROMEWKT('SRID=4326;POLYGON ((-160 60, -165 60, -165 62, -160 62, -160 60))')
 );
 
-CREATE INDEX ON antimeridian USING gist (geom);
+CREATE INDEX CONCURRENTLY ON antimeridian USING gist (geom);

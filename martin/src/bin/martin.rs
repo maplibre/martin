@@ -17,7 +17,7 @@ use martin::config::file::reload::cog::CogReloader;
 #[cfg(feature = "mbtiles")]
 use martin::config::file::reload::mbtiles::MbtilesReloader;
 #[cfg(feature = "pmtiles")]
-use martin::config::file::reload::pmtiles::PmTilesReloader;
+use martin::config::file::reload::pmtiles::PmtilesReloader;
 use martin::config::file::{Config, read_config};
 #[cfg(feature = "_tiles")]
 use martin::config::primitives::IdResolver;
@@ -94,9 +94,9 @@ async fn start(args: Args) -> MartinResult<()> {
     #[cfg(feature = "pmtiles")]
     {
         let reloader =
-            PmTilesReloader::new(mgr.clone(), resolver.clone(), &config.pmtiles, &global_pc);
+            PmtilesReloader::new(mgr.clone(), resolver.clone(), &config.pmtiles, &global_pc);
         if let Err(e) = reloader.start() {
-            tracing::warn!("failed to start PmTilesReloader {e:?}");
+            tracing::warn!("failed to start PmtilesReloader {e:?}");
         }
     }
 

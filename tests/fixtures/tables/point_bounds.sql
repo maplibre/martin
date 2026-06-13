@@ -8,4 +8,4 @@ CREATE TABLE point_bounds
 INSERT INTO point_bounds (geom)
 VALUES ('SRID=4326;POINT (10.0 20.0)');
 
-CREATE INDEX ON point_bounds USING gist (geom);
+CREATE INDEX CONCURRENTLY ON point_bounds USING gist (geom);

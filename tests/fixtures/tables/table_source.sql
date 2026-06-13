@@ -100,7 +100,7 @@ INSERT INTO table_source (geom) VALUES (
     GEOMFROMEWKT('SRID=4326;POINT(142.84131509869133 11.92781306544329)')
 );
 
--- DO NOT CREATE INDEX ON GEOMETRY COLUMN -- this table is used in a test case
+-- DO NOT CREATE INDEX CONCURRENTLY ON GEOMETRY COLUMN -- this table is used in a test case
 
 DO $do$ BEGIN
     EXECUTE 'COMMENT ON TABLE table_source IS $tj$' || $$

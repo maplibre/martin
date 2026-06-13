@@ -38,6 +38,12 @@ pub enum MartinCoreError {
     #[error(transparent)]
     CogError(#[from] CogError),
 
+    /// The tile source was modified since it was opened and must be reloaded before retrying.
+    ///
+    /// Use of this error REQUIRES the `Source` to also implement `Source::try_reload()`.
+    #[error("Source was modified and needs to be reloaded")]
+    SourceNeedsReload,
+
     /// Errors occurring from other sources, not implemented by `martin-core`.
     #[error(transparent)]
     OtherError(#[from] Box<dyn std::error::Error + Send + Sync>),
