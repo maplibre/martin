@@ -81,7 +81,7 @@ pub enum CogError {
     )]
     GetOriginFailed(PathBuf),
 
-    /// Cannot determine zoom level from full resolution image.
+    /// Cannot determine zoom level of one of the images.
     #[error("Calculating the image zoom level failed for {0}")]
     UnknownZoomLevel(PathBuf),
 
