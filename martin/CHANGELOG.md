@@ -7,6 +7,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.11.0](https://github.com/maplibre/martin/compare/martin-v1.10.1...martin-v1.11.0) - 2026-06-13
+
+### Added
+
+- teach ObjectStoreDiscovery to track source data versions ([#2864](https://github.com/maplibre/martin/pull/2864))
+- Auto-refresh pmtiles source on source data change ([#2858](https://github.com/maplibre/martin/pull/2858))
+- Add COGReloader and PMTilesReloader (Tile Reload Phase 2) ([#2750](https://github.com/maplibre/martin/pull/2750))
+- static rendering core ([#2804](https://github.com/maplibre/martin/pull/2804))
+- duckdb-source implementation at martin-core ([#2831](https://github.com/maplibre/martin/pull/2831))
+
+### Fixed
+
+- *(martin)* reject invalid scale and inverted bbox in static rendering ([#2830](https://github.com/maplibre/martin/pull/2830))
+- Use ST_EstimatedExtent for quick bounds calc ([#1220](https://github.com/maplibre/martin/pull/1220))
+- ignore ignored directory for sprite resolution ([#2815](https://github.com/maplibre/martin/pull/2815))
+
+### Other
+
+- split Config types into config.rs, making main/mod.rs a pure mod (config-3) ([#2876](https://github.com/maplibre/martin/pull/2876))
+- move parsing to its own module (config-2) ([#2875](https://github.com/maplibre/martin/pull/2875))
+- extract impl Config to lifecycle module (confgi-1) ([#2874](https://github.com/maplibre/martin/pull/2874))
+- pg reloader test to reduce the pg-reloader diff ([#2867](https://github.com/maplibre/martin/pull/2867))
+- rename PmTilesReloader to PmtilesReloader ([#2861](https://github.com/maplibre/martin/pull/2861))
+- *(deps)* Bump the all-npm-version-updates group across 2 directories with 18 updates ([#2856](https://github.com/maplibre/martin/pull/2856))
+- migrate Pmtiles to `ReloadDriver` and `Discovery` (pg-reload-7) ([#2840](https://github.com/maplibre/martin/pull/2840))
+- migrate `MBTilesReloader` to be based on `ReloadDriver` and `Discovery` (pg-reload-6) ([#2853](https://github.com/maplibre/martin/pull/2853))
+- adopt `ReloadDriver`/`Discovery` for Mbtiles (pg-reload-5) ([#2852](https://github.com/maplibre/martin/pull/2852))
+- move reload-`Trigger`-ing to a separate trait ([#2845](https://github.com/maplibre/martin/pull/2845))
+- *(deps)* autoupdate pre-commit ([#2849](https://github.com/maplibre/martin/pull/2849))
+- extract `Sink` trait for the tile-source manager ([#2844](https://github.com/maplibre/martin/pull/2844))
+- *(pg)* Refactor discovery to enable fingerprinting (PGReloader 2) ([#2835](https://github.com/maplibre/martin/pull/2835))
+- *(pg)* split auto-discovery into discover + instantiate phases (PGReloader 1) ([#2836](https://github.com/maplibre/martin/pull/2836))
+- *(pg)* cleanup how extent is handled (PGReloader 0) ([#2837](https://github.com/maplibre/martin/pull/2837))
+- make sure that error types with multiple identical types have names ([#2832](https://github.com/maplibre/martin/pull/2832))
+- fix import ordering drift ([#2838](https://github.com/maplibre/martin/pull/2838))
+- lockfile maintenance ([#2822](https://github.com/maplibre/martin/pull/2822))
+- make the MLN renderer multi threaded ([#2826](https://github.com/maplibre/martin/pull/2826))
+- add a pre-commit to simplify UTF characters ([#2827](https://github.com/maplibre/martin/pull/2827))
+- cache render fixtures ([#2828](https://github.com/maplibre/martin/pull/2828))
+- add #![forbid(unsafe_code)] to martin-tile-utils ([#2847](https://github.com/maplibre/martin/pull/2847))
+- *(deps)* Update `sqlx` to 0.9.0 and adapt MBTiles dynamic SQL to `SqlSafeStr` ([#2821](https://github.com/maplibre/martin/pull/2821))
+
 ## [1.10.1](https://github.com/maplibre/martin/compare/martin-v1.10.0...martin-v1.10.1) - 2026-05-19
 
 ### Fixed

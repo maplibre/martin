@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.18.0](https://github.com/maplibre/martin/compare/mbtiles-v0.17.6...mbtiles-v0.18.0) - 2026-06-13
+
+### Added
+
+- static rendering core ([#2804](https://github.com/maplibre/martin/pull/2804))
+
+### Other
+
+- migrate `MBTilesReloader` to be based on `ReloadDriver` and `Discovery` (pg-reload-6) ([#2853](https://github.com/maplibre/martin/pull/2853))
+- make sure that error types with multiple identical types have names ([#2832](https://github.com/maplibre/martin/pull/2832))
+- lockfile maintenance ([#2822](https://github.com/maplibre/martin/pull/2822))
+- *(deps)* Update `sqlx` to 0.9.0 and adapt MBTiles dynamic SQL to `SqlSafeStr` ([#2821](https://github.com/maplibre/martin/pull/2821))
+- add #![forbid(unsafe_code)] to martin-tile-utils ([#2847](https://github.com/maplibre/martin/pull/2847))
+
 ## [0.17.6](https://github.com/maplibre/martin/compare/mbtiles-v0.17.5...mbtiles-v0.17.6) - 2026-05-19
 
 ### Fixed
