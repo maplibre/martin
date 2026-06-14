@@ -22,7 +22,7 @@ use crate::tiles::cog::model::ModelInfo;
 use crate::tiles::{MartinCoreResult, Source, UrlQuery};
 
 /// Maximum allowed difference from a matching `WebMercatorQuad` tile matrix zoom level.
-pub const MAX_RESOLUTION_ERROR: f64 = 1e-12;
+pub const MAX_RESOLUTION_ERROR: f64 = 1e-3;
 
 /// Tile source that reads from `Cloud Optimized GeoTIFF` files.
 #[derive(Clone, Debug)]
@@ -374,8 +374,10 @@ fn get_image(
     let tile_size = decoder.chunk_dimensions().0;
     let (image_width, image_length) = dimensions_in_pixel(decoder, path, ifd_index)?;
     let zoom_level = web_mercator_zoom(resolution, tile_size)
-        .ok_or(CogError::GetOriginFailed(path.to_path_buf()))?;
-    let tiles_origin = get_tiles_origin(tile_size, resolution, [origin[0], origin[1]])
+        .ok_or(CogError::UnknownZoomLevel(path.to_path_buf()))?;
+    let ideal_resolution =
+        EARTH_CIRCUMFERENCE / f64::from(1_u32 << zoom_level) / f64::from(tile_size);
+    let tiles_origin = get_tiles_origin(tile_size, ideal_resolution, [origin[0], origin[1]])
         .ok_or(CogError::GetOriginFailed(path.to_path_buf()))?;
     let tiles_across = image_width.div_ceil(tile_size);
     let tiles_down = image_length.div_ceil(tile_size);
@@ -397,8 +399,8 @@ fn get_image(
 /// Calculates the origin of the first tile
 fn get_tiles_origin(tile_size: u32, resolution: f64, origin: [f64; 2]) -> Option<(u32, u32)> {
     let tile_size_mercator_metres = f64::from(tile_size) * resolution;
-    let xf = ((origin[0] + (EARTH_CIRCUMFERENCE / 2.0)) / tile_size_mercator_metres).floor();
-    let yf = (((EARTH_CIRCUMFERENCE / 2.0) - origin[1]) / tile_size_mercator_metres).floor();
+    let xf = ((origin[0] + (EARTH_CIRCUMFERENCE / 2.0)) / tile_size_mercator_metres).round();
+    let yf = (((EARTH_CIRCUMFERENCE / 2.0) - origin[1]) / tile_size_mercator_metres).round();
     let tile_origin_x = if xf.is_finite() && xf >= 0.0 && xf <= f64::from(u32::MAX) {
         #[expect(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
         Some(xf as u32)
