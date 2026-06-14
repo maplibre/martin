@@ -1138,7 +1138,7 @@ impl<'de> Deserialize<'de> for CacheSizeConfig {
     }
 }
 
-pub type UnrecognizedValues = HashMap<String, serde_yaml::Value>;
+pub type UnrecognizedValues = HashMap<String, serde_json::Value>;
 pub type UnrecognizedKeys = HashSet<String>;
 
 pub fn copy_unrecognized_keys_from_config(
@@ -1455,7 +1455,7 @@ mod deserialize_tests {
     #[test]
     fn cache_policy_map() {
         let cfg = parse_yaml::<CachePolicy>("{ minzoom: 0, maxzoom: 14 }");
-        let dumped = serde_yaml::to_string(&cfg).unwrap();
+        let dumped = serde_saphyr::to_string(&cfg).unwrap();
         assert!(dumped.contains("minzoom: 0"), "got: {dumped}");
         assert!(dumped.contains("maxzoom: 14"), "got: {dumped}");
     }

@@ -173,7 +173,7 @@ mod tests {
     #[case::unrecognized(|t: &mut TableInfo|{
         t.unrecognized.insert(
             "extra".to_string(),
-            serde_yaml::Value::String("v".to_string()),
+            serde_json::Value::String("v".to_string()),
         );
     })]
     fn flipping_an_excluded_field_keeps_fingerprint(#[case] mutate: TableMutator) {
@@ -256,7 +256,7 @@ mod tests {
     #[case::unrecognized(|f: &mut FunctionInfo, _: &mut PostgresSqlInfo|{
         f.unrecognized.insert(
             "extra".to_string(),
-            serde_yaml::Value::String("v".to_string()),
+            serde_json::Value::String("v".to_string()),
         );
     })]
     fn flipping_an_excluded_function_field_keeps_fingerprint(#[case] mutate: FunctionMutator) {

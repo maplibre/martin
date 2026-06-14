@@ -634,7 +634,8 @@ mod tests {
         auto_funcs: Option<PostgresAutoDiscoveryBuilderFunctions>,
     }
     fn auto(content: &str) -> AutoCfg {
-        let cfg: PostgresConfig = serde_yaml::from_str(content).expect("parse PostgresConfig YAML");
+        let cfg: PostgresConfig =
+            serde_saphyr::from_str(content).expect("parse PostgresConfig YAML");
         let (auto_table, auto_funcs) = calc_auto(&cfg);
         AutoCfg {
             auto_table,

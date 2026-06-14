@@ -99,7 +99,7 @@ mod tests {
 
     #[test]
     fn parse() {
-        let mut cfg = serde_yaml::from_str::<FileConfigEnum<MbtConfig>>(indoc! {"
+        let mut cfg = serde_saphyr::from_str::<FileConfigEnum<MbtConfig>>(indoc! {"
             paths:
               - /dir-path
               - /path/to/file2.ext

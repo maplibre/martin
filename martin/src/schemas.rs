@@ -287,7 +287,7 @@ mod config_doc {
     fn emit_inline_or_block(out: &mut String, value: &Value, indent: usize) {
         match value {
             Value::Object(_) | Value::Array(_) if !is_empty_collection(value) => {
-                let yaml = serde_yaml::to_string(value).unwrap_or_default();
+                let yaml = serde_saphyr::to_string(value).unwrap_or_default();
                 for line in yaml.lines() {
                     out.push('\n');
                     push_indent(out, indent + 1);
@@ -296,7 +296,7 @@ mod config_doc {
             }
             _ => {
                 out.push(' ');
-                let yaml = serde_yaml::to_string(value).unwrap_or_default();
+                let yaml = serde_saphyr::to_string(value).unwrap_or_default();
                 out.push_str(yaml.trim_end());
             }
         }
