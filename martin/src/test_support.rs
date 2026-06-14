@@ -17,7 +17,7 @@ pub(crate) mod pg {
     use crate::config::primitives::IdResolver;
 
     /// Launches the pinned, purposely-old `PostGIS` image, retrying a few times for flaky CI pulls.
-    pub(crate) async fn start_old_postgis_container() -> ContainerAsync<Postgres> {
+    pub(crate) async fn start_postgres_11_with_posgis_3_container() -> ContainerAsync<Postgres> {
         const MAX_START_ATTEMPTS: usize = 3;
         const RETRY_DELAY: std::time::Duration = std::time::Duration::from_secs(2);
 
@@ -61,7 +61,7 @@ pub(crate) mod pg {
         ContainerAsync<Postgres>,
         String,
     ) {
-        let container = start_old_postgis_container().await;
+        let container = start_postgres_11_with_posgis_3_container().await;
         let connection_string = connection_string(&container).await;
 
         let mut config: PostgresConfig =
