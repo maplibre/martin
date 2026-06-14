@@ -16,7 +16,7 @@ use tracing_actix_web::TracingLogger;
 use crate::config::args::WebUiMode;
 #[cfg(feature = "_catalog")]
 use crate::config::file::ServerState;
-use crate::config::file::srv::{KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT, SrvConfig};
+use crate::config::file::srv::{DEFAULT_KEEP_ALIVE, DEFAULT_LISTEN_ADDRESSES, SrvConfig};
 #[cfg(any(not(feature = "webui"), docsrs))]
 use crate::srv::admin::get_index_no_ui;
 use crate::srv::admin::{Catalog, get_catalog};
@@ -214,12 +214,12 @@ pub fn new_server(
         &state,
     )?;
 
-    let keep_alive = Duration::from_secs(config.keep_alive.unwrap_or(KEEP_ALIVE_DEFAULT));
+    let keep_alive = Duration::from_secs(config.keep_alive.unwrap_or(DEFAULT_KEEP_ALIVE));
     let worker_processes = config.worker_processes.unwrap_or_else(num_cpus::get);
     let listen_addresses = config
         .listen_addresses
         .clone()
-        .unwrap_or_else(|| LISTEN_ADDRESSES_DEFAULT.to_string());
+        .unwrap_or_else(|| DEFAULT_LISTEN_ADDRESSES.to_string());
 
     let cors_config = config.cors.clone().unwrap_or_default();
     cors_config.validate()?;

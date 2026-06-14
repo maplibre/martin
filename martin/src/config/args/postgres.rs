@@ -8,7 +8,9 @@ use tracing::{info, warn};
 use super::connections::Arguments;
 use super::connections::State::{Ignore, Take};
 use crate::config::file::UnrecognizedValues;
-use crate::config::file::postgres::{POOL_SIZE_DEFAULT, PostgresConfig, PostgresSslCerts};
+use crate::config::file::postgres::{
+    DEFAULT_POOL_SIZE, DEFAULT_RELOAD_INTERVAL, PostgresConfig, PostgresSslCerts,
+};
 use crate::config::primitives::env::Env;
 use crate::config::primitives::{OptBoolObj, OptOneMany};
 // Must match the help string for BoundsType::Quick
@@ -42,7 +44,7 @@ pub struct PostgresArgs {
     /// If a spatial PG table has SRID 0, then this default SRID will be used as a fallback.
     #[arg(short, long)]
     pub default_srid: Option<i32>,
-    #[arg(help = format!("Maximum Postgres connections pool size [DEFAULT: {POOL_SIZE_DEFAULT}]"), short, long)]
+    #[arg(help = format!("Maximum Postgres connections pool size [DEFAULT: {DEFAULT_POOL_SIZE}]"), short, long)]
     pub pool_size: Option<usize>,
     /// Limit the number of geo features per tile.
     ///
@@ -74,6 +76,7 @@ impl PostgresArgs {
                 auto_bounds: self.auto_bounds,
                 max_feature_count: self.max_feature_count,
                 pool_size: self.pool_size,
+                reload_interval: DEFAULT_RELOAD_INTERVAL,
                 auto_publish: OptBoolObj::NoValue,
                 tables: None,
                 functions: None,

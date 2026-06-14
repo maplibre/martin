@@ -4,5 +4,5 @@ pub mod cog;
 pub mod mbtiles;
 #[cfg(feature = "pmtiles")]
 pub mod pmtiles;
-// #[cfg(feature = "postgres")]
-// pub mod postgres;
+#[cfg(feature = "postgres")]
+pub mod postgres;

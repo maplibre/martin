@@ -13,7 +13,7 @@ use crate::config::file::postgres::resolver::{
 };
 use crate::config::file::postgres::utils::{find_info, find_kv_ignore_case, normalize_key};
 use crate::config::file::postgres::{
-    FuncInfoSources, FunctionInfo, POOL_SIZE_DEFAULT, PostgresCfgPublish, PostgresCfgPublishFuncs,
+    DEFAULT_POOL_SIZE, FuncInfoSources, FunctionInfo, PostgresCfgPublish, PostgresCfgPublishFuncs,
     PostgresConfig, PostgresInfo, SourceSpec, TableInfo, TableInfoSources,
 };
 use crate::config::file::{CachePolicy, ConfigFileError, ConfigFileResult, TileSourceWarning};
@@ -105,7 +105,7 @@ impl PostgresAutoDiscoveryBuilder {
             config.ssl_certificates.ssl_cert.as_ref(),
             config.ssl_certificates.ssl_key.as_ref(),
             config.ssl_certificates.ssl_root_cert.as_ref(),
-            config.pool_size.unwrap_or(POOL_SIZE_DEFAULT),
+            config.pool_size.unwrap_or(DEFAULT_POOL_SIZE),
         )
         .await
         .map_err(ConfigFileError::PostgresPoolCreationFailed)?;

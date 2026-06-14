@@ -894,6 +894,11 @@
           "minimum": 0,
           "type": ["integer", "null"]
         },
+        "reload_interval": {
+          "description": "How often the `PostgresReloader` re-runs catalog discovery to publish new tables and\nfunctions, update changed ones, and drop removed ones at runtime, without a restart.\n\nSupports human-readable formats: \"10m\", \"1h\", \"30s\".\nDefaults to \"10m\". Set to \"0s\" to disable runtime reloading.",
+          "examples": ["10m"],
+          "type": "string"
+        },
         "ssl_cert": {
           "description": "Same as `PGSSLCERT` for `psql`",
           "examples": ["./postgresql.crt"],
