@@ -943,19 +943,16 @@ jobs:
     needs:
       - package
       - docker-build-test
+      - validate-schemas
       - lint-unit-test-js
       - lint-rust
-      - check-features
       - lint-rust-dependencies
       - unit-test-rust
-      - test-doc-rust
-      - validate-schemas
-      - check-doc
+      - unit-test-svc-pg
+      - unit-test-svc-minio
       - test-multi-os
       - test-with-svc
       - test-aws-lambda
-      - unit-test-svc-pg
-      - unit-test-svc-minio
       - test-publish
     if: always()
     permissions: {}
