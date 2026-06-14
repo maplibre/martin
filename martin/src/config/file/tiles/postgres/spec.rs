@@ -1,9 +1,9 @@
 //! A resolved tile-source description produced by `discover`, before it is instantiated into a running [`PostgresSource`].
 
-use std::collections::hash_map::DefaultHasher;
-use std::hash::{Hash as _, Hasher as _};
+use std::hash::Hash as _;
 
 use martin_core::tiles::postgres::PostgresSqlInfo;
+use xxhash_rust::xxh3::Xxh3;
 
 use crate::config::file::postgres::{FunctionInfo, TableInfo};
 
@@ -17,12 +17,12 @@ pub enum SourceSpec {
 }
 
 impl SourceSpec {
-    /// A `u64` content hash over the fields that affect served tile bytes or metadata, used as the change-detection version in a reload diff.
+    /// A `u128` content hash over the fields that affect served tile bytes or metadata, used as the change-detection version in a reload diff.
     ///
     /// Two specs that would serve identical tiles hash equal, so an idle re-discover registers as "no change".
     #[must_use]
-    pub fn fingerprint(&self) -> u64 {
-        let mut hasher = DefaultHasher::new();
+    pub fn fingerprint(&self) -> u128 {
+        let mut hasher = Xxh3::new();
         match self {
             Self::Table(info) => {
                 0u8.hash(&mut hasher);
@@ -56,13 +56,13 @@ impl SourceSpec {
                 sql.signature.hash(&mut hasher);
             }
         }
-        hasher.finish()
+        hasher.digest128()
     }
 }
 
 /// Hash the SQL-`COMMENT` `TileJSON` via its canonical string form, since `serde_json::Value` does not implement `Hash`.
 /// `serde_json`'s default object representation is key-sorted, so the rendering is stable for equal values.
-fn hash_tilejson(tilejson: Option<&serde_json::Value>, hasher: &mut DefaultHasher) {
+fn hash_tilejson(tilejson: Option<&serde_json::Value>, hasher: &mut Xxh3) {
     match tilejson {
         Some(value) => {
             1u8.hash(hasher);
@@ -121,7 +121,7 @@ mod tests {
         }
     }
 
-    fn fp(info: TableInfo) -> u64 {
+    fn fp(info: TableInfo) -> u128 {
         SourceSpec::Table(info).fingerprint()
     }
 
@@ -217,7 +217,7 @@ mod tests {
         (info, sql)
     }
 
-    fn ffp(info: FunctionInfo, sql: PostgresSqlInfo) -> u64 {
+    fn ffp(info: FunctionInfo, sql: PostgresSqlInfo) -> u128 {
         SourceSpec::Function(info, sql).fingerprint()
     }
 

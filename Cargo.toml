@@ -59,7 +59,7 @@ struct_field_names = "allow"
 [workspace.dependencies]
 actix-cors = "0.7"
 actix-http = "3"
-actix-middleware-etag = "0.4.6"
+actix-middleware-etag = "0.5.0"
 actix-rt = "2"
 actix-web = "4"
 actix-web-prom = "0.10.0"

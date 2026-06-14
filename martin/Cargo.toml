@@ -126,6 +126,7 @@ postgres = [
     "dep:json-patch",
     "dep:postgis",
     "dep:postgres-protocol",
+    "dep:xxhash-rust",
     "_tiles",
 ]
 sprites = ["martin-core/sprites", "_catalog"]
