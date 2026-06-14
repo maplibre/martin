@@ -13,7 +13,7 @@ use crate::config::file::postgres::resolver::{
 };
 use crate::config::file::postgres::utils::{find_info, find_kv_ignore_case, normalize_key};
 use crate::config::file::postgres::{
-    FuncInfoSources, FunctionInfo, DEFAULT_POOL_SIZE, PostgresCfgPublish, PostgresCfgPublishFuncs,
+    DEFAULT_POOL_SIZE, FuncInfoSources, FunctionInfo, PostgresCfgPublish, PostgresCfgPublishFuncs,
     PostgresConfig, PostgresInfo, SourceSpec, TableInfo, TableInfoSources,
 };
 use crate::config::file::{CachePolicy, ConfigFileError, ConfigFileResult, TileSourceWarning};
