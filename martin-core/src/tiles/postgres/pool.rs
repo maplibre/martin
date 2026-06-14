@@ -246,7 +246,7 @@ mod tests {
 
     use super::*;
 
-    async fn start_old_postgis_container()
+    async fn start_postgres_11_with_posgis_3_container()
     -> testcontainers_modules::testcontainers::ContainerAsync<Postgres> {
         const MAX_START_ATTEMPTS: usize = 3;
         const RETRY_DELAY: std::time::Duration = std::time::Duration::from_secs(2);
@@ -270,7 +270,7 @@ mod tests {
 
     #[tokio::test]
     async fn parse_version() {
-        let node = start_old_postgis_container().await;
+        let node = start_postgres_11_with_posgis_3_container().await;
 
         let pg_config = Config::new()
             .host(node.get_host().await.unwrap().to_string())
