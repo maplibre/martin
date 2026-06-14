@@ -154,13 +154,17 @@ fn migrate_yaml_key(mapping: &mut serde_yaml::Mapping, old_key: &str, new_path: 
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
+    use std::ffi::OsString;
     use std::path::Path;
     use std::time::Duration;
+
+    use rstest::rstest;
 
     use super::*;
     #[cfg(any(feature = "sprites", feature = "fonts"))]
     use crate::config::file::FileConfigEnum;
     use crate::config::file::{CachePolicy, Config, GlobalCacheConfig};
+    use crate::config::primitives::env::FauxEnv;
     use crate::config::test_helpers::{render_failure, render_failure_json};
 
     fn parse_yaml(yaml: &str) -> Config {
@@ -170,6 +174,19 @@ mod tests {
             Path::new("test.yaml"),
         )
         .unwrap()
+    }
+
+    fn faux_env(pairs: &[(&'static str, &str)]) -> FauxEnv {
+        FauxEnv(
+            pairs
+                .iter()
+                .map(|(k, v)| (*k, OsString::from(*v)))
+                .collect(),
+        )
+    }
+
+    fn parse_with_env(yaml: &str, env: &FauxEnv) -> Config {
+        parse_config(yaml, env, Path::new("test.yaml")).unwrap()
     }
 
     // ----- `parse_config` pipeline diagnostics: failures that don't belong to a single
@@ -432,5 +449,160 @@ mod tests {
         assert_eq!(cfg.custom.cache.size_mb, Some(64));
         assert_eq!(cfg.custom.cache.expiry, Some(Duration::from_hours(2)));
         assert_eq!(cfg.custom.cache.idle_timeout, Some(Duration::from_mins(30)));
+    }
+
+    #[rstest]
+    #[case::braced("${BASE}", "/my/path")]
+    #[case::bare("$BASE", "/my/path")]
+    #[case::braced_with_default_var_present("${BASE:fallback}", "/my/path")]
+    #[case::default_used_when_var_unset("${UNSET:/fallback}", "/fallback")]
+    #[case::prefix_and_suffix("prefix-${BASE}-suffix", "prefix-/my/path-suffix")]
+    #[case::escape_dollar(r"\$BASE", "$BASE")]
+    #[case::escape_brace(r"\${BASE}", "${BASE}")]
+    fn substitution_subst_accepted_forms(#[case] input: &str, #[case] expected: &str) {
+        let env = faux_env(&[("BASE", "/my/path")]);
+        let yaml = format!("base_path: {input}\n");
+        let config = parse_with_env(&yaml, &env);
+        assert_eq!(config.srv.base_path.as_deref(), Some(expected));
+    }
+
+    #[rstest]
+    #[case::dash_default("${UNSET:-fallback}", "-fallback")]
+    #[case::plus_alternate("${UNSET:+set}", "+set")]
+    #[case::question_required("${UNSET:?required}", "?required")]
+    fn substitution_subst_treats_shell_operators_as_literal(
+        #[case] input: &str,
+        #[case] expected: &str,
+    ) {
+        let env = FauxEnv::default();
+        let yaml = format!("base_path: {input}\n");
+        let config = parse_with_env(&yaml, &env);
+        assert_eq!(config.srv.base_path.as_deref(), Some(expected));
+    }
+
+    #[rstest]
+    #[case::unquoted("base_path: ${BASE}\n")]
+    #[case::single_quoted("base_path: '${BASE}'\n")]
+    #[case::double_quoted("base_path: \"${BASE}\"\n")]
+    fn substitution_subst_interpolates_regardless_of_yaml_quotes(#[case] yaml: &str) {
+        let env = faux_env(&[("BASE", "/my/path")]);
+        let config = parse_with_env(yaml, &env);
+        assert_eq!(config.srv.base_path.as_deref(), Some("/my/path"));
+    }
+
+    #[test]
+    fn substitution_subst_errors_on_unset_var_inside_comment() {
+        insta::assert_snapshot!(
+            render_failure("# ${UNSET_IN_COMMENT}\nbase_path: /static\n"),
+            @"
+        martin::config::substitution (https://maplibre.org/martin/config-file/)
+
+          × Unable to substitute environment variables in config file config.yaml: No
+          │ such variable: $UNSET_IN_COMMENT
+           ╭─[config.yaml:1:5]
+         1 │ # ${UNSET_IN_COMMENT}
+           ·     ────────┬───────
+           ·             ╰── No such variable: $UNSET_IN_COMMENT
+         2 │ base_path: /static
+           ╰────
+          help: Make sure every ${VAR} reference resolves to an environment variable,
+                or supply a default with `${VAR:-fallback}`.
+        "
+        );
+    }
+
+    #[test]
+    fn substitution_subst_silently_substitutes_inside_comment() {
+        let env = faux_env(&[("DEFINED_IN_COMMENT", "anything")]);
+        let config = parse_with_env("# ${DEFINED_IN_COMMENT}\nbase_path: /x\n", &env);
+        assert_eq!(config.srv.base_path.as_deref(), Some("/x"));
+    }
+
+    #[test]
+    fn substitution_empty_default_with_unset_var_becomes_yaml_null() {
+        let env = FauxEnv::default();
+        let config = parse_with_env("base_path: ${UNSET:}\n", &env);
+        assert_eq!(config.srv.base_path, None);
+    }
+
+    #[rstest]
+    #[case::braced_in_migrated_key(
+        &[("SIZE", "512")],
+        "cache_size_mb: ${SIZE}\n",
+        Some(512), None, None,
+    )]
+    #[case::sibling_to_migrated_key(
+        &[("SIZE", "256"), ("BASE", "/served")],
+        "tile_cache_size_mb: ${SIZE}\nbase_path: ${BASE}\n",
+        None, Some(256), Some("/served"),
+    )]
+    #[case::bare_in_migrated_key(
+        &[("SIZE", "1024"), ("BASE", "/p")],
+        "cache_size_mb: $SIZE\nbase_path: $BASE\n",
+        Some(1024), None, Some("/p"),
+    )]
+    fn substitution_survives_deprecated_migration(
+        #[case] env_pairs: &[(&'static str, &str)],
+        #[case] yaml: &str,
+        #[case] expected_size_mb: Option<u64>,
+        #[case] expected_tile_size_mb: Option<u64>,
+        #[case] expected_base_path: Option<&str>,
+    ) {
+        let env = faux_env(env_pairs);
+        let config = parse_with_env(yaml, &env);
+        assert_eq!(config.cache.size_mb, expected_size_mb);
+        assert_eq!(config.cache.tile_size_mb, expected_tile_size_mb);
+        assert_eq!(config.srv.base_path.as_deref(), expected_base_path);
+    }
+
+    #[test]
+    fn substitution_rejects_hyphen_in_variable_name() {
+        insta::assert_snapshot!(
+            render_failure("base_path: ${ab-cd}\n"),
+            @"
+        martin::config::substitution (https://maplibre.org/martin/config-file/)
+
+          × Unable to substitute environment variables in config file config.yaml:
+          │ Unexpected character: '-', expected a closing brace ('}') or colon (':')
+           ╭─[config.yaml:1:16]
+         1 │ base_path: ${ab-cd}
+           ·                ┬
+           ·                ╰── Unexpected character: '-', expected a closing brace ('}') or colon (':')
+           ╰────
+          help: Make sure every ${VAR} reference resolves to an environment variable,
+                or supply a default with `${VAR:-fallback}`.
+        "
+        );
+    }
+
+    #[test]
+    fn substitution_double_dollar_is_not_an_escape() {
+        insta::assert_snapshot!(
+            render_failure("base_path: $$BASE\n"),
+            @"
+        martin::config::substitution (https://maplibre.org/martin/config-file/)
+
+          × Unable to substitute environment variables in config file config.yaml:
+          │ Missing variable name
+           ╭─[config.yaml:1:12]
+         1 │ base_path: $$BASE
+           ·            ┬
+           ·            ╰── Missing variable name
+           ╰────
+          help: Make sure every ${VAR} reference resolves to an environment variable,
+                or supply a default with `${VAR:-fallback}`.
+        "
+        );
+    }
+
+    #[test]
+    fn substitution_failure_in_comment_renders_as_json() {
+        let json = render_failure_json("# ${UNSET_IN_COMMENT}\nbase_path: /x\n");
+        let parsed: serde_json::Value =
+            serde_json::from_str(&json).unwrap_or_else(|e| panic!("not JSON: {e}\n{json}"));
+        assert_eq!(
+            parsed.get("code").and_then(|c| c.as_str()),
+            Some("martin::config::substitution"),
+        );
     }
 }
