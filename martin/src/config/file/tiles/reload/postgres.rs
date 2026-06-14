@@ -137,7 +137,7 @@ mod e2e {
     use crate::config::file::tiles::driver::{Baseline, ReloadDriver, Trigger};
     use crate::config::file::{CachePolicy, OnInvalid};
     use crate::config::primitives::IdResolver;
-    use crate::test_support::pg::{connection_string, seed, start_old_postgis_container};
+    use crate::test_support::pg::{connection_string, seed, start_postgres_11_with_posgis_3_container};
 
     /// A [`Trigger`] the test drives in lockstep. Each `next()` first acks that the previous cycle
     /// (the seed, or a reconcile) has finished, then blocks for the test's go-ahead.
@@ -217,7 +217,7 @@ mod e2e {
 
     #[tokio::test]
     async fn reload_reflects_create_alter_drop_in_catalog() {
-        let container = start_old_postgis_container().await;
+        let container = start_postgres_11_with_posgis_3_container().await;
         let connstr = connection_string(&container).await;
 
         let config = PostgresConfig {
