@@ -14,10 +14,9 @@ use crate::{MartinError, MartinResult};
 
 /// A [`Discovery`] over one `PostgreSQL` connection.
 ///
-/// Entries are versioned by their [`SourceSpec::fingerprint`], so an in-place
-/// data or function-body change (which the fingerprint ignores) does not force a rebuild.
-/// The builder owns its own connection pool, created lazily on the first `discover` and reused
-/// for the lifetime of the discovery.
+/// Entries are versioned by their [`SourceSpec::fingerprint`] (hash over fields that affect served tile bytes or metadata).
+/// An in-place data or function-body change (which the fingerprint ignores) does not force a rebuild.
+/// The builder owns its own connection pool, created lazily on the first `discover` and reused for the lifetime of the discovery.
 pub struct PostgresDiscovery {
     config: PostgresConfig,
     id_resolver: IdResolver,
