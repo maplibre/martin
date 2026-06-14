@@ -328,8 +328,7 @@ postgres:
   # either a positive integer, or null=unlimited (default)
   max_feature_count: null
   # Maximum Postgres connections pool size [default: 20]
-  pool_size: 20
-  # How often the `PostgresReloader` re-runs catalog discovery to publish new tables and
+  pool_size: 20D  # How often the `PostgresReloader` re-runs catalog discovery to publish new tables and
   # functions, update changed ones, and drop removed ones at runtime, without a restart.
   #
   # Supports human-readable formats: "10m", "1h", "30s".

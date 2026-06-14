@@ -159,7 +159,7 @@ pub struct PostgresConfig {
 }
 
 /// Default connection pool size.
-pub const POOL_SIZE_DEFAULT: usize = 20;
+pub const DEFAULT_POOL_SIZE: usize = 20;
 
 impl Default for PostgresConfig {
     // Hand-implemented (not derived) so `..Default::default()` yields a 10-minute
