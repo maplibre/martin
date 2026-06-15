@@ -65,7 +65,7 @@ pub(crate) mod pg {
         let connection_string = connection_string(&container).await;
 
         let mut config: PostgresConfig =
-            serde_yaml::from_str(config_yaml).expect("parse PostgresConfig YAML");
+            serde_saphyr::from_str(config_yaml).expect("parse PostgresConfig YAML");
         config.connection_string = Some(connection_string.clone());
 
         let builder = PostgresAutoDiscoveryBuilder::new(

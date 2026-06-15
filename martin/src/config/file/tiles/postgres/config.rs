@@ -513,7 +513,7 @@ mod tests {
 
     #[test]
     fn reload_interval_defaults_to_ten_minutes() {
-        let cfg: PostgresConfig = serde_yaml::from_str(indoc! {"
+        let cfg: PostgresConfig = serde_saphyr::from_str(indoc! {"
             connection_string: 'postgres://postgres@localhost/db'
         "})
         .unwrap();
@@ -532,7 +532,7 @@ mod tests {
 
     #[test]
     fn reload_interval_zero_disables_polling() {
-        let cfg: PostgresConfig = serde_yaml::from_str(indoc! {"
+        let cfg: PostgresConfig = serde_saphyr::from_str(indoc! {"
             connection_string: 'postgres://postgres@localhost/db'
             reload_interval: 0s
         "})
