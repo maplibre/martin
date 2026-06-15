@@ -77,7 +77,9 @@ pub enum ConfigFileError {
     DuckDbPoolSizeInvalid,
 
     #[cfg(feature = "duckdb")]
-    #[error("Atleast one duckdb source (database / local geoparquet / remote geoparquet) must be provided")]
+    #[error(
+        "Atleast one duckdb source (database / local geoparquet / remote geoparquet) must be provided"
+    )]
     DuckDbSourcesEmpty,
 
     #[cfg(feature = "duckdb")]

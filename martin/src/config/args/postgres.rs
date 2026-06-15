@@ -1,5 +1,6 @@
 use tracing::{info, warn};
 
+use super::bounds::BoundsCalcType;
 use super::connections::Arguments;
 use super::connections::State::{Ignore, Take};
 use crate::config::file::UnrecognizedValues;
@@ -8,7 +9,6 @@ use crate::config::file::postgres::{
 };
 use crate::config::primitives::env::Env;
 use crate::config::primitives::{OptBoolObj, OptOneMany};
-use super::bounds::{BoundsCalcType};
 
 #[derive(clap::Args, Debug, PartialEq, Default)]
 #[command(about, version)]

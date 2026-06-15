@@ -360,7 +360,7 @@ impl DuckDbConfig {
         _id_resolver: IdResolver,
         _default_cache: CachePolicy,
     ) -> ResolutionResult {
-        //TODO: Discovery and instantiation to be implemented 
+        //TODO: Discovery and instantiation to be implemented
         Ok((Vec::new(), Vec::new()))
     }
 }
@@ -518,19 +518,24 @@ impl DuckDbSourceConfig {
         match self {
             DuckDbSourceConfig::Database(db) => {
                 if db.unrecognized.contains_key("geoparquet") {
-                    return Err("ambiguous source: contains exactly one database or geoparquet target".to_string());
+                    return Err(
+                        "ambiguous source: contains exactly one database or geoparquet target"
+                            .to_string(),
+                    );
                 }
             }
             DuckDbSourceConfig::GeoParquet(geo) => {
                 if geo.unrecognized.contains_key("database") {
-                    return Err("ambiguous source: contains exactly one database or geoparquet target".to_string());
+                    return Err(
+                        "ambiguous source: contains exactly one database or geoparquet target"
+                            .to_string(),
+                    );
                 }
             }
         }
         Ok(())
     }
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -638,7 +643,9 @@ mod tests {
                 geoparquet: /data/buildings.parquet
         "})
         .expect("semantically invalid configuration");
-        let err = config.validate().expect_err("ambiguous source should fail validation");
+        let err = config
+            .validate()
+            .expect_err("ambiguous source should fail validation");
         assert!(err.contains("exactly one"));
     }
 
