@@ -28,6 +28,9 @@
       "correctness": {
         "useExhaustiveDependencies": "off"
       },
+      "performance": {
+        "noJsxPropsBind": "off"
+      },
       "recommended": true
     }
   },

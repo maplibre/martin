@@ -66,7 +66,7 @@ export function StyleEditor({ styleName, style, onClose }: StyleEditorProps) {
       </Card>
       {/* Editor Content */}
       <div className="flex-1 relative">
-        {error && (
+        {error ? (
           <div className="absolute inset-0 bg-background flex items-center justify-center z-10">
             <Card className="w-96">
               <CardContent className="pt-6">
@@ -81,7 +81,7 @@ export function StyleEditor({ styleName, style, onClose }: StyleEditorProps) {
               </CardContent>
             </Card>
           </div>
-        )}
+        ) : null}
 
         <iframe
           className="w-full h-full border-0"

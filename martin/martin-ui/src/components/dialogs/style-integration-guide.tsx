@@ -187,20 +187,20 @@ function MyMap() {
                 <br />
                 <code className="text-xs">{style.path}</code>
               </div>
-              {style.type && (
+              {style.type ? (
                 <div>
                   <span className="font-medium">Type:</span>
                   <br />
                   <Badge variant="secondary">{style.type}</Badge>
                 </div>
-              )}
-              {style.layer_count && (
+              ) : null}
+              {style.layer_count ? (
                 <div>
                   <span className="font-medium">Layer Count:</span>
                   <br />
                   <span>{style.layer_count}</span>
                 </div>
-              )}
+              ) : null}
             </div>
           </div>
 

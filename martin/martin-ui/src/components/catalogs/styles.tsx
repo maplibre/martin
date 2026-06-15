@@ -112,7 +112,7 @@ export function StylesCatalog({
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
                   <Brush className="w-5 h-5 text-primary" />
-                  {style.type && <Badge variant="secondary">{style.type}</Badge>}
+                  {style.type ? <Badge variant="secondary">{style.type}</Badge> : null}
                 </div>
               </div>
               <CardTitle className="text-lg font-mono">
@@ -124,26 +124,26 @@ export function StylesCatalog({
               <div className="space-y-4">
                 <StylePreviewMap styleName={name} />
                 <div className="space-y-2 text-sm text-muted-foreground">
-                  {style.version_hash && (
+                  {style.version_hash ? (
                     <div className="flex justify-between">
                       <span>Version:</span>
                       <span>{style.version_hash}</span>
                     </div>
-                  )}
-                  {style.layer_count && (
+                  ) : null}
+                  {style.layer_count ? (
                     <div className="flex justify-between">
                       <span>Layers:</span>
                       <span>{style.layer_count}</span>
                     </div>
-                  )}
-                  {style.last_modified_at && (
+                  ) : null}
+                  {style.last_modified_at ? (
                     <div className="flex justify-between">
                       <span>Modified:</span>
                       <span>{style.last_modified_at?.toLocaleString()}</span>
                     </div>
-                  )}
+                  ) : null}
                 </div>
-                {style.colors && (
+                {style.colors ? (
                   <div>
                     <p className="text-sm font-medium mb-2">Color Palette:</p>
                     <div className="flex space-x-1">
@@ -157,7 +157,7 @@ export function StylesCatalog({
                       ))}
                     </div>
                   </div>
-                )}
+                ) : null}
                 <div className="flex flex-col md:flex-row items-center gap-2 mt-4">
                   <Button
                     className="flex-1 w-full"
@@ -202,13 +202,13 @@ export function StylesCatalog({
         </div>
       )}
 
-      {selectedStyleForGuide && styles && (
+      {selectedStyleForGuide && styles ? (
         <StyleIntegrationGuideDialog
           name={selectedStyleForGuide}
           onCloseAction={() => onStyleGuide(undefined)}
           style={styles[selectedStyleForGuide]}
         />
-      )}
+      ) : null}
     </div>
   );
 }
