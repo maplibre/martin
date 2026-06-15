@@ -25,7 +25,7 @@ See [wiki.openstreetmap.org](https://wiki.openstreetmap.org/wiki/Slippy_map_tile
 
 When matching a COG image's resolution to a WebMercatorQuad zoom level, Martin applies
 `min(3.0m, resolution × 0.1%)` as the allowed error. The absolute cap of 3m dominates at low
-zoom levels (z0–z5 for 256px tiles, z0–z4 for 512px tiles); the 0.1% relative threshold takes
+zoom levels (z0-z5 for 256px tiles, z0-z4 for 512px tiles); the 0.1% relative threshold takes
 over above that, keeping tolerance proportional to the pixel size.
 
 | Zoom | Resolution 256px (m/px) | Tolerance 256px (m) | Resolution 512px (m/px) | Tolerance 512px (m) |
