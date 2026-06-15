@@ -3,7 +3,7 @@ use std::time::Duration;
 use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
 
-use crate::config::file::srv::{KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT, SrvConfig};
+use crate::config::file::srv::{DEFAULT_KEEP_ALIVE, DEFAULT_LISTEN_ADDRESSES, SrvConfig};
 
 #[allow(
     clippy::doc_markdown,
@@ -12,9 +12,9 @@ use crate::config::file::srv::{KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT, Srv
 #[derive(clap::Args, Debug, PartialEq, Default)]
 #[command(about, version)]
 pub struct SrvArgs {
-    #[arg(help = format!("Connection keep alive timeout. [DEFAULT: {KEEP_ALIVE_DEFAULT}]"), short, long)]
+    #[arg(help = format!("Connection keep alive timeout. [DEFAULT: {DEFAULT_KEEP_ALIVE}]"), short, long)]
     pub keep_alive: Option<u64>,
-    #[arg(help = format!("The socket address to bind. [DEFAULT: {LISTEN_ADDRESSES_DEFAULT}]"), short, long)]
+    #[arg(help = format!("The socket address to bind. [DEFAULT: {DEFAULT_LISTEN_ADDRESSES}]"), short, long)]
     pub listen_addresses: Option<String>,
     /// Set URL path prefix for all API routes.
     ///

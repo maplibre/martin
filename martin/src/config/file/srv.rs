@@ -11,8 +11,8 @@ use crate::config::file::UnrecognizedValues;
 use crate::config::file::cors::CorsConfig;
 use crate::config::file::{ConfigurationLivecycleHooks, UnrecognizedKeys};
 
-pub const KEEP_ALIVE_DEFAULT: u64 = 75;
-pub const LISTEN_ADDRESSES_DEFAULT: &str = "0.0.0.0:3000";
+pub const DEFAULT_KEEP_ALIVE: u64 = 75;
+pub const DEFAULT_LISTEN_ADDRESSES: &str = "0.0.0.0:3000";
 
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Default)]
