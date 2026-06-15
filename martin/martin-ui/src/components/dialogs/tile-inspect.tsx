@@ -64,41 +64,41 @@ export function TileInspectDialog({ name, source, onCloseAction }: TileInspectDi
                 <br />
                 <code>{source.content_type}</code>
               </p>
-              {source.content_encoding && (
+              {source.content_encoding ? (
                 <p>
                   <span className="font-medium">Encoding:</span>
                   <br />
                   <code>{source.content_encoding}</code>
                 </p>
-              )}
-              {source.name && (
+              ) : null}
+              {source.name ? (
                 <p>
                   <span className="font-medium">Name:</span>
                   <br />
                   <span>{source.name}</span>
                 </p>
-              )}
-              {source.description && (
+              ) : null}
+              {source.description ? (
                 <p className="col-span-2">
                   <span className="font-medium">Description:</span>
                   <br />
                   <span>{source.description}</span>
                 </p>
-              )}
-              {source.layer_count && (
+              ) : null}
+              {source.layer_count ? (
                 <p>
                   <span className="font-medium">Layer Count:</span>
                   <br />
                   <span>{source.layer_count}</span>
                 </p>
-              )}
-              {source.attribution && (
+              ) : null}
+              {source.attribution ? (
                 <p className="col-span-2">
                   <span className="font-medium">Attribution:</span>
                   <br />
                   <span>{source.attribution}</span>
                 </p>
-              )}
+              ) : null}
             </div>
           </section>
 
