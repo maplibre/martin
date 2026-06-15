@@ -72,6 +72,22 @@ pub enum ConfigFileError {
     #[error("Failed to list objects under {1}: {0}")]
     ObjectStoreList(object_store::Error, String),
 
+    #[cfg(feature = "duckdb")]
+    #[error("The duckdb pool_size must be greater than or equal to 1")]
+    DuckDbPoolSizeInvalid,
+
+    #[cfg(feature = "duckdb")]
+    #[error("Atleast one duckdb source (database / local geoparquet / remote geoparquet) must be provided")]
+    DuckDbSourcesEmpty,
+
+    #[cfg(feature = "duckdb")]
+    #[error("Each duckdb source must specify either `database` or `geoparquet`")]
+    DuckDbSourceTargetMissing,
+
+    #[cfg(feature = "duckdb")]
+    #[error("Each duckdb source must specify exactly one of `database` or `geoparquet`")]
+    DuckDbSourceTargetAmbiguous,
+
     #[cfg(all(feature = "rendering", target_os = "linux"))]
     #[error("Failed to start style render pool: {0}")]
     RendererPoolSpawnFailed(#[source] std::io::Error),
@@ -216,6 +232,14 @@ impl Diagnostic for ConfigFileError {
             Self::ObjectStoreUrlParsing(..) => "martin::config::pmtiles::object_store_url",
             #[cfg(feature = "pmtiles")]
             Self::ObjectStoreList(..) => "martin::config::pmtiles::object_store_list",
+            #[cfg(feature = "duckdb")]
+            Self::DuckDbPoolSizeInvalid => "martin::config::duckdb::pool_size",
+            #[cfg(feature = "duckdb")]
+            Self::DuckDbSourcesEmpty => "martin::config::duckdb::sources",
+            #[cfg(feature = "duckdb")]
+            Self::DuckDbSourceTargetMissing => "martin::config::duckdb::source_target",
+            #[cfg(feature = "duckdb")]
+            Self::DuckDbSourceTargetAmbiguous => "martin::config::duckdb::source_target",
             #[cfg(all(feature = "rendering", target_os = "linux"))]
             Self::RendererPoolSpawnFailed(_) => "martin::config::styles::render_pool_spawn",
         };

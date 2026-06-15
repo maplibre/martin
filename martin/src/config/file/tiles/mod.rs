@@ -6,6 +6,8 @@ pub mod mbtiles;
 pub mod pmtiles;
 #[cfg(feature = "postgres")]
 pub mod postgres;
+#[cfg(feature = "duckdb")]
+pub mod duckdb;
 
 #[cfg(feature = "_tiles")]
 pub mod discovery;

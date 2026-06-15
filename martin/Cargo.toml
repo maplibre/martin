@@ -101,6 +101,7 @@ required-features = ["postgres"]
 
 [features]
 default = [
+    "duckdb",
     "fonts",
     "lambda",
     "mbtiles",
@@ -115,6 +116,7 @@ default = [
 ]
 unstable-cog = ["martin-core/unstable-cog", "_tiles"]
 rendering = ["styles", "martin-core/rendering", "dep:image"]
+duckdb = ["martin-core/duckdb", "_tiles"]
 fonts = ["martin-core/fonts", "_catalog"]
 lambda = ["dep:lambda-web"]
 mbtiles = ["martin-core/mbtiles", "dep:mbtiles", "_tiles"]

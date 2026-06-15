@@ -1,0 +1,253 @@
+use std::collections::{BTreeMap, HashMap};
+use std::num::NonZeroU32;
+
+use martin_tile_utils::{Encoding, Format, TileInfo};
+use serde::{Deserialize, Serialize};
+use tilejson::{Bounds, TileJSON, VectorLayer};
+use tracing::{info, warn};
+
+use super::DuckDbInfo;
+use crate::config::file::duckdb::utils::{normalize_key, patch_json};
+use crate::config::file::{CachePolicy, UnrecognizedValues};
+#[cfg(all(feature = "mlt", feature = "_tiles"))]
+use crate::config::file::{MltProcessConfig, MvtProcessConfig};
+
+pub type TableInfoSources = BTreeMap<String, TableInfo>;
+
+/// Example bounds covering the whole world, shared between table and macro
+/// configs so the rendered docs example matches what the curated `config.yaml`
+/// used to ship.
+#[cfg(feature = "unstable-schemas")]
+pub(crate) fn bounds_world_example() -> [f64; 4] {
+    [-180.0, -90.0, 180.0, 90.0]
+}
+
+#[serde_with::skip_serializing_none]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Default)]
+#[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
+pub struct TableInfo {
+    /// ID of the MVT layer (optional, defaults to table name)
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &"table_source"))]
+    pub layer_id: Option<String>,
+
+    /// Table schema (required)
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &"main"))]
+    pub schema: String,
+
+    /// Table name (required)
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &"roads"))]
+    pub table: String,
+
+    /// Geometry SRID (required)
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &4326i32))]
+    pub srid: i32,
+
+    /// Geometry column name (required)
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &"geom"))]
+    pub geometry_column: String,
+
+    /// Geometry column has a spatial index
+    #[serde(skip)]
+    pub geometry_index: Option<bool>,
+
+    /// Feature id column name
+    pub id_column: Option<String>,
+
+    /// An integer specifying the minimum zoom level
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &0u8))]
+    pub minzoom: Option<u8>,
+
+    /// An integer specifying the maximum zoom level. MUST be >= minzoom
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &30u8))]
+    pub maxzoom: Option<u8>,
+
+    /// The maximum extent of available map tiles. Bounds MUST define an area
+    /// covered by all zoom levels. The bounds are represented in WGS:84 latitude
+    /// and longitude values, in the order left, bottom, right, top. Values may
+    /// be integers or floating point numbers.
+    #[cfg_attr(feature = "unstable-schemas", schemars(with = "Option<[f64; 4]>"))]
+    #[cfg_attr(
+        feature = "unstable-schemas",
+        schemars(example = bounds_world_example())
+    )]
+    pub bounds: Option<Bounds>,
+
+    /// Tile extent in tile coordinate space
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &4096u32))]
+    pub extent: Option<NonZeroU32>,
+
+    /// Buffer distance in tile coordinate space to optionally clip geometries
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &64u32))]
+    pub buffer: Option<u32>,
+
+    /// Boolean to control if geometries should be clipped or encoded as is
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &true))]
+    pub clip_geom: Option<bool>,
+
+    /// Geometry type
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &"GEOMETRY"))]
+    pub geometry_type: Option<String>,
+
+    /// Zoom-level bounds for tile caching (overrides top-level cache).
+    /// default: null (inherit from top-level default)
+    /// Use `cache: disable` to disable caching for this source.
+    #[cfg_attr(
+        feature = "unstable-schemas",
+        schemars(with = "Option<crate::config::file::CachePolicyShape>")
+    )]
+    pub cache: Option<CachePolicy>,
+
+    /// List of columns, that should be encoded as tile properties (required)
+    ///
+    /// Keys and values are the names and descriptions of attributes available in this layer.
+    /// Each value (description) must be a string that describes the underlying data.
+    /// If no fields (=just the geometry) should be encoded, an empty object is allowed.
+    pub properties: Option<BTreeMap<String, String>>,
+
+    /// Mapping of properties to the actual table columns
+    #[serde(skip)]
+    #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
+    pub prop_mapping: HashMap<String, String>,
+
+    /// MVT->MLT encoder settings for this source.
+    /// Overrides source-type and global `convert_to_mlt`.
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[serde(default)]
+    pub convert_to_mlt: Option<MltProcessConfig>,
+
+    /// MLT->MVT conversion settings for this source.
+    /// Overrides source-type and global `convert_to_mvt`.
+    ///
+    /// Can be either:
+    /// - `null` (default) - defer to the source-type or global settings
+    /// - `auto` - we choose defaults which we think work best for most users
+    /// - `disabled` - no conversion
+    /// - explicitly configured
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[serde(default)]
+    pub convert_to_mvt: Option<MvtProcessConfig>,
+
+    #[serde(flatten, skip_serializing)]
+    #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
+    pub unrecognized: UnrecognizedValues,
+
+    /// `TileJSON` provided by catalog metadata. Shouldn't be serialized.
+    #[serde(skip)]
+    #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
+    pub tilejson: Option<serde_json::Value>,
+}
+
+impl DuckDbInfo for TableInfo {
+    fn format_id(&self) -> String {
+        format!("{}.{}.{}", self.schema, self.table, self.geometry_column)
+    }
+
+    /// Result `TileJson` will be patched by the `TileJson` from catalog metadata if provided.
+    /// The `source_id` will be replaced by `self.layer_id` in the vector layer info if set.
+    fn to_tilejson(&self, source_id: String) -> TileJSON {
+        let mut tilejson = tilejson::tilejson! {
+            tiles: vec![],
+            name: source_id.clone(),
+            description: self.format_id(),
+        };
+        tilejson.minzoom = self.minzoom;
+        tilejson.maxzoom = self.maxzoom;
+        tilejson.bounds = self.bounds;
+
+        let id = self.layer_id.clone().unwrap_or(source_id);
+        let layer = VectorLayer {
+            id,
+            fields: self.properties.clone().unwrap_or_default(),
+            description: None,
+            maxzoom: None,
+            minzoom: None,
+            other: BTreeMap::default(),
+        };
+        tilejson.vector_layers = Some(vec![layer]);
+        patch_json(tilejson, self.tilejson.as_ref())
+    }
+
+    fn tile_info(&self) -> TileInfo {
+        TileInfo::new(Format::Mvt, Encoding::Uncompressed)
+    }
+}
+
+impl TableInfo {
+    /// For a given table info discovered from the database, append the configuration info provided by the user.
+    #[must_use]
+    pub fn append_cfg_info(
+        &self,
+        cfg_inf: &Self,
+        new_id: &str,
+        default_srid: Option<i32>,
+    ) -> Option<Self> {
+        let mut inf = Self {
+            schema: self.schema.clone(),
+            table: self.table.clone(),
+            geometry_column: self.geometry_column.clone(),
+            geometry_index: self.geometry_index,
+            tilejson: self.tilejson.clone(),
+            srid: self.calc_srid(new_id, cfg_inf.srid, default_srid)?,
+            prop_mapping: HashMap::new(),
+            ..cfg_inf.clone()
+        };
+
+        match (&self.geometry_type, &cfg_inf.geometry_type) {
+            (Some(src), Some(cfg)) if src != cfg => {
+                warn!(
+                    "Table {} has geometry type={src}, but source {new_id} has {cfg}",
+                    self.format_id()
+                );
+            }
+            _ => {}
+        }
+
+        let empty = BTreeMap::new();
+        let props = self.properties.as_ref().unwrap_or(&empty);
+
+        if let Some(id_column) = &cfg_inf.id_column {
+            let prop = normalize_key(props, id_column.as_str(), "id_column", new_id)?;
+            inf.prop_mapping.insert(id_column.clone(), prop);
+        }
+
+        if let Some(p) = &cfg_inf.properties {
+            for key in p.keys() {
+                let prop = normalize_key(props, key.as_str(), "property", new_id)?;
+                inf.prop_mapping.insert(key.clone(), prop);
+            }
+        }
+
+        Some(inf)
+    }
+
+    /// Determine the SRID value to use for a table, or None if unknown, assuming self is a table info from the database.
+    #[must_use]
+    pub fn calc_srid(&self, new_id: &str, cfg_srid: i32, default_srid: Option<i32>) -> Option<i32> {
+        match (self.srid, cfg_srid, default_srid) {
+            (0, 0, Some(default_srid)) => {
+                info!(
+                    "Table {} has SRID=0, using provided default SRID={default_srid}",
+                    self.format_id()
+                );
+                Some(default_srid)
+            }
+            (0, 0, None) => {
+                warn!(
+                    "Table {} has SRID=0, skipping. Set `default_srid` on the duckdb config or specify this table's SRID.",
+                    self.format_id()
+                );
+                None
+            }
+            (0, cfg, _) => Some(cfg),
+            (src, 0, _) => Some(src),
+            (src, cfg, _) if src != cfg => {
+                warn!(
+                    "Table {} has SRID={src}, but source {new_id} has SRID={cfg}",
+                    self.format_id()
+                );
+                None
+            }
+            (_, cfg, _) => Some(cfg),
+        }
+    }
+}
