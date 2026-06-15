@@ -21,6 +21,47 @@ See [wiki.openstreetmap.org](https://wiki.openstreetmap.org/wiki/Slippy_map_tile
 | 3   | 256        | 1    | 78271.52                 |
 | 4   | 256        | 0    | 156543.03                |
 
+### Resolution Error Tolerance
+
+When matching a COG image's resolution to a WebMercatorQuad zoom level, Martin applies
+`min(3.0m, resolution × 0.1%)` as the allowed error. The absolute cap of 3m dominates at low
+zoom levels (z0–z5 for 256px tiles, z0–z4 for 512px tiles); the 0.1% relative threshold takes
+over above that, keeping tolerance proportional to the pixel size.
+
+| Zoom | Resolution 256px (m/px) | Tolerance 256px (m) | Resolution 512px (m/px) | Tolerance 512px (m) |
+|------|-------------------------|---------------------|-------------------------|---------------------|
+| 0    | 156,543.034             | 3.0 (abs cap)       | 78,271.517              | 3.0 (abs cap)       |
+| 1    | 78,271.517              | 3.0 (abs cap)       | 39,135.758              | 3.0 (abs cap)       |
+| 2    | 39,135.758              | 3.0 (abs cap)       | 19,567.879              | 3.0 (abs cap)       |
+| 3    | 19,567.879              | 3.0 (abs cap)       | 9,783.940               | 3.0 (abs cap)       |
+| 4    | 9,783.940               | 3.0 (abs cap)       | 4,891.970               | 3.0 (abs cap)       |
+| 5    | 4,891.970               | 3.0 (abs cap)       | 2,445.985               | 2.445985            |
+| 6    | 2,445.985               | 2.445985            | 1,222.992               | 1.222992            |
+| 7    | 1,222.992               | 1.222992            | 611.496                 | 0.611496            |
+| 8    | 611.496                 | 0.611496            | 305.748                 | 0.305748            |
+| 9    | 305.748                 | 0.305748            | 152.874                 | 0.152874            |
+| 10   | 152.874                 | 0.152874            | 76.437                  | 0.076437            |
+| 11   | 76.437                  | 0.076437            | 38.219                  | 0.038219            |
+| 12   | 38.219                  | 0.038219            | 19.109                  | 0.019109            |
+| 13   | 19.109                  | 0.019109            | 9.555                   | 0.009555            |
+| 14   | 9.555                   | 0.009555            | 4.777                   | 0.004777            |
+| 15   | 4.777                   | 0.004777            | 2.389                   | 0.002389            |
+| 16   | 2.389                   | 0.002389            | 1.194                   | 0.001194            |
+| 17   | 1.194                   | 0.001194            | 0.597164                | 5.97e-04            |
+| 18   | 0.597164                | 5.97e-04            | 0.298582                | 2.99e-04            |
+| 19   | 0.298582                | 2.99e-04            | 0.149291                | 1.49e-04            |
+| 20   | 0.149291                | 1.49e-04            | 0.074646                | 7.46e-05            |
+| 21   | 0.074646                | 7.46e-05            | 0.037323                | 3.73e-05            |
+| 22   | 0.037323                | 3.73e-05            | 0.018661                | 1.87e-05            |
+| 23   | 0.018661                | 1.87e-05            | 0.009331                | 9.33e-06            |
+| 24   | 0.009331                | 9.33e-06            | 0.004665                | 4.67e-06            |
+| 25   | 0.004665                | 4.67e-06            | 0.002333                | 2.33e-06            |
+| 26   | 0.002333                | 2.33e-06            | 0.001166                | 1.17e-06            |
+| 27   | 0.001166                | 1.17e-06            | 0.000583                | 5.83e-07            |
+| 28   | 0.000583                | 5.83e-07            | 0.000292                | 2.92e-07            |
+| 29   | 0.000292                | 2.92e-07            | 0.000146                | 1.46e-07            |
+| 30   | 0.000146                | 1.46e-07            | 0.000073                | 7.29e-08            |
+
 ### COG file requirements enforced by Martin
 
 Due to the flexibility of the COG, GEOTIFF and TIFF file formats and the assumptions of Martin, not all COG files will be compatible.

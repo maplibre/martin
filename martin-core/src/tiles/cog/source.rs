@@ -21,8 +21,14 @@ use crate::tiles::cog::image::{COMPRESSION_WEBP, Image};
 use crate::tiles::cog::model::ModelInfo;
 use crate::tiles::{MartinCoreResult, Source, UrlQuery};
 
-/// Maximum allowed difference from a matching `WebMercatorQuad` tile matrix zoom level.
+/// Maximum allowed relative error (as a fraction) when matching a resolution to a `WebMercatorQuad`
+/// tile matrix zoom level. 1e-3 = 0.1%.
 pub const MAX_RESOLUTION_ERROR: f64 = 1e-3;
+
+/// Maximum allowed absolute error (in meters) when matching a resolution to a `WebMercatorQuad`
+/// tile matrix zoom level. Caps the relative threshold at low zoom levels where 0.1% would
+/// otherwise permit hundreds of meters of error.
+pub const MAX_ABSOLUTE_RESOLUTION_ERROR: f64 = 3.0;
 
 /// Tile source that reads from `Cloud Optimized GeoTIFF` files.
 #[derive(Clone, Debug)]
@@ -180,7 +186,9 @@ fn web_mercator_zoom(model_resolution: f64, tile_size: u32) -> Option<u8> {
     for z in 0..=MAX_ZOOM {
         let resolution_in_web_mercator =
             EARTH_CIRCUMFERENCE / f64::from(1_u32 << z) / f64::from(tile_size);
-        if (model_resolution - resolution_in_web_mercator).abs() < MAX_RESOLUTION_ERROR {
+        let threshold = MAX_ABSOLUTE_RESOLUTION_ERROR
+            .min(resolution_in_web_mercator * MAX_RESOLUTION_ERROR);
+        if (model_resolution - resolution_in_web_mercator).abs() < threshold {
             return Some(z);
         }
     }
