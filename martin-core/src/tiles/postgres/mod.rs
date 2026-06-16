@@ -10,3 +10,4 @@ mod source;
 pub use source::{PostgresSource, PostgresSqlInfo};
 
 pub(crate) mod utils;
+pub use utils::redact_conn_str;

@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 #[cfg(feature = "fonts")]
 use martin_core::fonts::FontError;
 #[cfg(feature = "postgres")]
-use martin_core::tiles::postgres::PostgresError;
+use martin_core::tiles::postgres::{PostgresError, redact_conn_str};
 use miette::{Diagnostic, LabeledSpan, NamedSource, SourceCode, SourceSpan};
 
 pub type ConfigFileResult<T> = Result<T, ConfigFileError>;
@@ -57,8 +57,8 @@ pub enum ConfigFileError {
     PostgresConnectionStringMissing,
 
     #[cfg(feature = "postgres")]
-    #[error("Failed to create postgres pool: {0}")]
-    PostgresPoolCreationFailed(#[source] PostgresError),
+    #[error("Failed to create postgres pool: {}", .0.source)]
+    PostgresPoolCreationFailed(Box<PostgresPoolDetails>),
 
     #[cfg(feature = "fonts")]
     #[error("Failed to load fonts from {1}: {0}")]
@@ -92,6 +92,20 @@ pub struct SubstitutionDetails {
     pub(crate) primary_span: Option<SourceSpan>,
 }
 
+/// Boxed payload for [`ConfigFileError::PostgresPoolCreationFailed`].
+///
+/// `named_source`/`primary_span` are populated lazily (see
+/// [`ConfigFileError::with_conn_str_span`]) once the config-file source is available, so the
+/// diagnostic can point at the offending `connection_string` line. They stay `None` when the
+/// sources came from the CLI rather than a file, in which case the error renders as plain text.
+#[cfg(feature = "postgres")]
+#[derive(Debug)]
+pub struct PostgresPoolDetails {
+    pub(crate) source: PostgresError,
+    pub(crate) named_source: Option<NamedSource<String>>,
+    pub(crate) primary_span: Option<SourceSpan>,
+}
+
 impl ConfigFileError {
     /// Construct a YAML parse error with the originating source text and file path.
     ///
@@ -102,6 +116,47 @@ impl ConfigFileError {
             error,
             named_source: NamedSource::new(file_path.display().to_string(), source_text),
         }))
+    }
+
+    /// Construct a postgres pool-creation error without source-location info.
+    ///
+    /// The connection-string span is attached later via [`Self::with_conn_str_span`], once the
+    /// config-file source text is in scope.
+    #[cfg(feature = "postgres")]
+    #[must_use]
+    pub fn postgres_pool_creation(source: PostgresError) -> Self {
+        Self::PostgresPoolCreationFailed(Box::new(PostgresPoolDetails {
+            source,
+            named_source: None,
+            primary_span: None,
+        }))
+    }
+
+    /// Attach the offending `connection_string`'s location within the config file to a
+    /// [`Self::PostgresPoolCreationFailed`] error, so it can be rendered as a miette diagnostic
+    /// pointing at the right line.
+    ///
+    /// `conn_str` is the raw (unredacted) connection string; `source` is the config-file source
+    /// **with passwords already redacted**. We redact `conn_str` the same way before locating it,
+    /// so the search succeeds and no secret is compared or stored. Any other error variant, a
+    /// missing source, or a connection string we can't locate is returned unchanged.
+    #[cfg(feature = "postgres")]
+    #[must_use]
+    pub(crate) fn with_conn_str_span(
+        mut self,
+        conn_str: Option<&str>,
+        source: Option<&NamedSource<String>>,
+    ) -> Self {
+        if let Self::PostgresPoolCreationFailed(details) = &mut self
+            && let (Some(conn), Some(named_source)) = (conn_str, source)
+        {
+            let redacted = redact_conn_str(conn);
+            if let Some(span) = locate_span(named_source.inner(), &redacted) {
+                details.named_source = Some(named_source.clone());
+                details.primary_span = Some(span);
+            }
+        }
+        self
     }
 
     /// Construct a substitution error, locating the failing variable token within the source.
@@ -139,6 +194,21 @@ impl ConfigFileError {
                 primary_span: details.primary_span,
                 label_text: details.source.to_string(),
             })),
+            #[cfg(feature = "postgres")]
+            Self::PostgresPoolCreationFailed(details) => {
+                // Only renderable once a source span was attached (see `with_conn_str_span`);
+                // otherwise fall back to plain `Display`.
+                let named_source = details.named_source.as_ref()?;
+                Some(miette::Report::new(PostgresPoolReport {
+                    message: format!("{self}"),
+                    named_source: NamedSource::new(
+                        named_source.name(),
+                        named_source.inner().clone(),
+                    ),
+                    primary_span: details.primary_span,
+                    label_text: details.source.to_string(),
+                }))
+            }
             _ => None,
         }
     }
@@ -186,6 +256,69 @@ impl Diagnostic for SubstitutionReport {
         let label = LabeledSpan::new_primary_with_span(Some(self.label_text.clone()), span);
         Some(Box::new(std::iter::once(label)))
     }
+}
+
+/// Self-contained `Diagnostic` for a postgres pool-creation failure, owning all its data (with
+/// passwords already redacted) so it can power a `'static miette::Report`. Mirrors
+/// [`SubstitutionReport`]; see [`ConfigFileError::to_miette_report`].
+#[cfg(feature = "postgres")]
+#[derive(Debug)]
+struct PostgresPoolReport {
+    message: String,
+    named_source: NamedSource<String>,
+    primary_span: Option<SourceSpan>,
+    label_text: String,
+}
+
+#[cfg(feature = "postgres")]
+impl std::fmt::Display for PostgresPoolReport {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.message)
+    }
+}
+
+#[cfg(feature = "postgres")]
+impl std::error::Error for PostgresPoolReport {}
+
+#[cfg(feature = "postgres")]
+impl Diagnostic for PostgresPoolReport {
+    fn code<'a>(&'a self) -> Option<Box<dyn std::fmt::Display + 'a>> {
+        Some(Box::new("martin::config::postgres::pool_creation"))
+    }
+
+    fn help<'a>(&'a self) -> Option<Box<dyn std::fmt::Display + 'a>> {
+        Some(Box::new(
+            "Check the highlighted connection string. The username, host, port, and database name are shown; only the password is hidden.",
+        ))
+    }
+
+    fn url<'a>(&'a self) -> Option<Box<dyn std::fmt::Display + 'a>> {
+        Some(Box::new("https://maplibre.org/martin/config-file/"))
+    }
+
+    fn source_code(&self) -> Option<&dyn SourceCode> {
+        Some(&self.named_source)
+    }
+
+    fn labels(&self) -> Option<Box<dyn Iterator<Item = LabeledSpan> + '_>> {
+        let span = self.primary_span?;
+        let label = LabeledSpan::new_primary_with_span(Some(self.label_text.clone()), span);
+        Some(Box::new(std::iter::once(label)))
+    }
+}
+
+/// Locate `needle` within `haystack`, returning its byte span for a miette label.
+///
+/// Used to point at a (password-redacted) connection string inside the config-file source.
+/// Returns `None` for an empty needle or when the text isn't found (e.g. unusual YAML quoting),
+/// in which case the caller renders the error without a snippet.
+#[cfg(feature = "postgres")]
+fn locate_span(haystack: &str, needle: &str) -> Option<SourceSpan> {
+    if needle.is_empty() {
+        return None;
+    }
+    let offset = haystack.find(needle)?;
+    Some(SourceSpan::new(offset.into(), needle.len()))
 }
 
 impl Diagnostic for ConfigFileError {

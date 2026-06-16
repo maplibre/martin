@@ -1,10 +1,12 @@
 use std::num::NonZeroU32;
 use std::ops::Add as _;
+use std::sync::Arc;
 use std::time::Duration;
 
 use futures::future::join_all;
 use futures::pin_mut;
 use martin_tile_utils::TileInfo;
+use miette::NamedSource;
 use serde::{Deserialize, Serialize};
 use tilejson::TileJSON;
 use tokio::time::timeout;
@@ -312,8 +314,14 @@ impl PostgresConfig {
         &mut self,
         id_resolver: IdResolver,
         default_cache: CachePolicy,
+        config_source: Option<Arc<NamedSource<String>>>,
     ) -> ResolutionResult {
-        let pg = PostgresAutoDiscoveryBuilder::new(self, id_resolver, default_cache).await?;
+        // Clone the connection string up front so, if pool creation fails, we can point the
+        // diagnostic at its line in the config file without holding a borrow on `self`.
+        let conn_str = self.connection_string.clone();
+        let pg = PostgresAutoDiscoveryBuilder::new(self, id_resolver, default_cache)
+            .await
+            .map_err(|e| e.with_conn_str_span(conn_str.as_deref(), config_source.as_deref()))?;
 
         let (specs, mut warnings) = pg.discover().await?;
 

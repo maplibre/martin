@@ -25,6 +25,9 @@ use crate::config::file::mbtiles::MbtConfig;
 #[cfg(feature = "pmtiles")]
 use crate::config::file::pmtiles::PmtConfig;
 #[cfg(feature = "postgres")]
+use martin_core::tiles::postgres::redact_conn_str;
+
+#[cfg(feature = "postgres")]
 use crate::config::file::postgres::PostgresConfig;
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 use crate::config::file::process::{MltProcessConfig, MvtProcessConfig};
@@ -165,9 +168,54 @@ pub struct Config {
     #[serde(default)]
     pub convert_to_mvt: Option<MvtProcessConfig>,
 
+    /// Captured config-file source with passwords redacted, retained after parsing so that
+    /// resolve-time diagnostics — such as a malformed postgres `connection_string` that only
+    /// fails when the pool is created — can point back at the offending line in the file.
+    /// Empty when sources come from the CLI rather than a config file.
+    #[cfg(feature = "postgres")]
+    #[serde(skip)]
+    #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
+    pub source: ConfigSource,
+
     #[serde(flatten, skip_serializing)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub unrecognized: UnrecognizedValues,
+}
+
+/// Captured, password-redacted config-file source used to render resolve-time diagnostics.
+///
+/// Wrapped in an `Arc` so it can be cheaply shared with each postgres source during resolution.
+/// Its `PartialEq` is intentionally constant (`true`) so that retaining the source never affects
+/// [`Config`] equality, which the config round-trip tests rely on.
+#[cfg(feature = "postgres")]
+#[derive(Clone, Debug, Default)]
+pub struct ConfigSource(Option<std::sync::Arc<miette::NamedSource<String>>>);
+
+#[cfg(feature = "postgres")]
+impl PartialEq for ConfigSource {
+    fn eq(&self, _other: &Self) -> bool {
+        true
+    }
+}
+
+#[cfg(feature = "postgres")]
+impl ConfigSource {
+    /// Capture a parsed config file's source text, redacting any connection-string passwords
+    /// before storing it so the retained snippet can never leak a secret.
+    #[must_use]
+    pub(crate) fn from_file(file_name: &std::path::Path, source_text: &str) -> Self {
+        let redacted = redact_conn_str(source_text);
+        Self(Some(std::sync::Arc::new(miette::NamedSource::new(
+            file_name.display().to_string(),
+            redacted,
+        ))))
+    }
+
+    /// The shared source handle, if a config file was parsed.
+    #[must_use]
+    pub(crate) fn handle(&self) -> Option<std::sync::Arc<miette::NamedSource<String>>> {
+        self.0.clone()
+    }
 }
 
 /// Describes the action to take during startup when configuration is found to be invalid

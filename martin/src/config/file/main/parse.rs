@@ -50,8 +50,20 @@ where
     let options = serde_saphyr::options! {
         with_snippet: false,
     };
-    serde_saphyr::from_str_with_options::<Config>(&migrated, options)
-        .map_err(|e| ConfigFileError::yaml_parse(e, migrated, file_name))
+    match serde_saphyr::from_str_with_options::<Config>(&migrated, options) {
+        Ok(config) => {
+            // Retain the (password-redacted) source so resolve-time diagnostics, e.g. a malformed
+            // postgres `connection_string`, can point back at the offending line in the file.
+            #[cfg(feature = "postgres")]
+            let config = {
+                let mut config = config;
+                config.source = super::ConfigSource::from_file(file_name, &migrated);
+                config
+            };
+            Ok(config)
+        }
+        Err(e) => Err(ConfigFileError::yaml_parse(e, migrated, file_name)),
+    }
 }
 
 /// Cheap pre-check: does the substituted YAML mention any deprecated cache key?
