@@ -142,7 +142,14 @@ impl TileSources {
     pub fn check_zoom(src: &dyn Source, id: &str, zoom: u8) -> bool {
         let is_valid = src.is_valid_zoom(zoom);
         if !is_valid {
-            debug!("Zoom {zoom} is not valid for source {id}");
+            let tilejson = src.get_tilejson();
+            debug!(
+                source.id = id,
+                requested.zoom = zoom,
+                source.minzoom = ?tilejson.minzoom,
+                source.maxzoom = ?tilejson.maxzoom,
+                "Requested zoom not supported by source",
+            );
         }
         is_valid
     }

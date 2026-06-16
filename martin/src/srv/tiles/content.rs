@@ -279,7 +279,24 @@ impl<'a> DynTileSource<'a> {
         let cache = manager.tile_cache().as_ref();
 
         if resolved.sources.is_empty() {
-            return Err(ErrorNotFound("No valid sources found"));
+            let z = zoom.expect("sources are only filtered out when a zoom is requested");
+            let supported = source_ids
+                .split(',')
+                .filter_map(|id| {
+                    let (src, _) = tile_sources.get_source(id).ok()?;
+                    let tj = src.get_tilejson();
+                    Some(match (tj.minzoom, tj.maxzoom) {
+                        (Some(lo), Some(hi)) => format!("{id} supports zoom {lo}-{hi}"),
+                        (Some(lo), None) => format!("{id} supports zoom {lo} and above"),
+                        (None, Some(hi)) => format!("{id} supports zoom up to {hi}"),
+                        (None, None) => id.to_string(),
+                    })
+                })
+                .collect::<Vec<_>>()
+                .join(", ");
+            return Err(ErrorNotFound(format!(
+                "Zoom {z} is outside the supported range: {supported}"
+            )));
         }
 
         let accepted_format = Self::resolve_accepted_format(
