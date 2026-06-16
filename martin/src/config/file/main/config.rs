@@ -169,8 +169,8 @@ pub struct Config {
     pub convert_to_mvt: Option<MvtProcessConfig>,
 
     /// Captured config-file source with passwords redacted, retained after parsing so that
-    /// resolve-time diagnostics — such as a malformed postgres `connection_string` that only
-    /// fails when the pool is created — can point back at the offending line in the file.
+    /// resolve-time diagnostics -- such as a malformed postgres `connection_string` that only
+    /// fails when the pool is created -- can point back at the offending line in the file.
     /// Empty when sources come from the CLI rather than a config file.
     #[cfg(feature = "postgres")]
     #[serde(skip)]
