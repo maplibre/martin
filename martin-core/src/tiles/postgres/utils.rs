@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use postgres::types::Json;
 use regex::Regex;
+use url::Url;
 
 use crate::tiles::UrlQuery;
 
@@ -23,22 +24,33 @@ pub fn query_to_json(query: Option<&UrlQuery>) -> Json<HashMap<String, serde_jso
 
 /// Best-effort redaction of the password in a `PostgreSQL` connection string.
 ///
-/// This is used when reporting a *malformed* connection string: because the string failed to
-/// parse, it cannot be turned into a [`Config`](deadpool_postgres::tokio_postgres::Config) or a
-/// [`Url`](url::Url) first, so we redact textually. Both the URL form
-/// (`scheme://user:PASSWORD@host`) and the keyword form (`password=PASSWORD`) are handled; the
-/// host/database/port are deliberately left intact so the operator can still tell *which*
-/// connection string is at fault. If no password is found the string is returned unchanged.
+/// Used when reporting a *malformed* connection string (one that failed to parse as a Postgres
+/// [`Config`](deadpool_postgres::tokio_postgres::Config)). For the URL form we parse with the
+/// [`url`](url::Url) crate and rewrite the password - a failed `Config` parse is usually still a
+/// valid URL. The keyword form (`password=PASSWORD`) and any URL `url` can't parse fall back to
+/// textual regex redaction. The host/database/port are deliberately left intact so the operator
+/// can still tell *which* connection string is at fault; if no password is found the string is
+/// returned unchanged.
 #[must_use]
 pub fn redact_conn_str(conn_str: &str) -> String {
-    // URL form: the password sits between the first `:` of the userinfo and the `@`.
+    // Prefer `url` crate for the URL form. We only get here for strings that failed to
+    // parse as a Postgres `Config`, but most of those are still valid URLs.
+    if let Ok(mut url) = Url::parse(conn_str)
+        && url.password().is_some()
+        && url.set_password(Some("****")).is_ok()
+    {
+        return url.into();
+    }
+
+    // Fallback for what `url` can't handle: the libpq keyword form (`host=... password=...`),
+    // which isn't a URL, plus the rare malformed URL that `url` rejects outright. Best-effort
+    // textual redaction of both the URL userinfo and a `password=` keyword.
     let url_re = Regex::new(r"(?P<pre>://[^:@/?#]+:)(?P<pw>[^@/?#\s]*)(?P<at>@)")
         .expect("the regex is valid");
     let redacted = url_re.replace_all(conn_str, "${pre}****${at}");
 
-    // Keyword form: `password=...`, optionally single- or double-quoted. Require a separator
-    // (start of string, whitespace, `&` or `?`) before the keyword so we don't match a suffix
-    // like `mypassword=`.
+    // `password=...`, optionally single- or double-quoted. Require a separator (start of string,
+    // whitespace, `&` or `?`) before the keyword so we don't match a suffix like `mypassword=`.
     let kw_re = Regex::new(r#"(?P<pre>(?:^|[\s&?])password=)(?:'[^']*'|"[^"]*"|[^\s&]*)"#)
         .expect("the regex is valid");
     kw_re.replace_all(&redacted, "${pre}****").into_owned()
@@ -64,6 +76,15 @@ mod tests {
         );
         assert!(!redacted.contains("testpassword"));
         assert!(redacted.starts_with("postgres://postgres:****@host.docke"));
+    }
+
+    #[test]
+    fn redacts_url_password_containing_at_and_colon() {
+        // The `url` crate delimits the userinfo at the *last* `@`, so a password that itself
+        // contains `@`/`:` is fully hidden (a naive regex would stop at the first `@`).
+        let redacted = redact_conn_str("postgres://user:p@ss:word@localhost:5432/db");
+        assert_eq!(redacted, "postgres://user:****@localhost:5432/db");
+        assert!(!redacted.contains("ss:word"));
     }
 
     #[test]
