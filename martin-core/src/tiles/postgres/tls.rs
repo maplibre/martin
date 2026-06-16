@@ -22,6 +22,7 @@ use crate::tiles::postgres::PostgresError::{
     InvalidPrivateKey, UnknownSslMode,
 };
 use crate::tiles::postgres::PostgresResult;
+use crate::tiles::postgres::utils::redact_conn_str;
 
 /// A temporary workaround for <https://github.com/sfackler/rust-postgres/pull/988>
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -49,7 +50,7 @@ pub fn parse_conn_str(conn_str: &str) -> PostgresResult<(Config, SslModeOverride
     } else {
         Config::from_str(conn_str)
     };
-    let mut pg_cfg = pg_cfg.map_err(|e| BadConnectionString(e, conn_str.to_string()))?;
+    let mut pg_cfg = pg_cfg.map_err(|e| BadConnectionString(e, redact_conn_str(conn_str)))?;
     if let SslModeOverride::Unmodified(_) = mode {
         mode = SslModeOverride::Unmodified(pg_cfg.get_ssl_mode());
     }
@@ -249,5 +250,21 @@ mod tests {
         let (cfg, mode) = parse_conn_str(conn).unwrap();
         assert_eq!(cfg.get_ssl_mode(), SslMode::Require);
         assert_eq!(mode, SslModeOverride::VerifyCa);
+    }
+
+    #[test]
+    fn bad_conn_str_error_hides_password() {
+        // A malformed connection string must not leak the password into the error message.
+        let err = parse_conn_str("postgres://postgres:testpassword@host.docke???WQD?wq/db")
+            .expect_err("malformed connection string should fail to parse");
+        let msg = err.to_string();
+        assert!(
+            !msg.contains("testpassword"),
+            "password leaked in error: {msg}"
+        );
+        assert!(
+            msg.contains("****"),
+            "expected redaction marker in error: {msg}"
+        );
     }
 }
