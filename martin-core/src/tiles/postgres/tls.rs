@@ -254,17 +254,14 @@ mod tests {
 
     #[test]
     fn bad_conn_str_error_hides_password() {
-        // A malformed connection string must not leak the password into the error message.
+        // A malformed connection string must carry only the password-redacted form, never the
+        // original password. Assert on the stored string directly (not the rendered message) so
+        // the test doesn't depend on the wording of the underlying tokio-postgres error.
         let err = parse_conn_str("postgres://postgres:testpassword@host.docke???WQD?wq/db")
             .expect_err("malformed connection string should fail to parse");
-        let msg = err.to_string();
-        assert!(
-            !msg.contains("testpassword"),
-            "password leaked in error: {msg}"
-        );
-        assert!(
-            msg.contains("****"),
-            "expected redaction marker in error: {msg}"
-        );
+        let BadConnectionString(_, conn_str) = err else {
+            panic!("expected BadConnectionString, got {err:?}");
+        };
+        assert_eq!(conn_str, "postgres://postgres:****@host.docke???WQD?wq/db");
     }
 }
