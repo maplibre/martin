@@ -58,72 +58,53 @@ pub fn redact_conn_str(conn_str: &str) -> String {
 
 #[cfg(test)]
 mod tests {
+    use rstest::rstest;
+
     use super::redact_conn_str;
 
-    #[test]
-    fn redacts_url_password() {
-        let redacted = redact_conn_str("postgres://user:secret@localhost:5432/db");
-        assert_eq!(redacted, "postgres://user:****@localhost:5432/db");
-        assert!(!redacted.contains("secret"));
-    }
-
-    #[test]
-    fn redacts_malformed_url_password() {
-        // The original bug report: gibberish after the host makes the string unparseable,
-        // but the password must still be hidden.
-        let redacted = redact_conn_str(
-            "postgres://postgres:testpassword@host.docke???WQD?wq/db:5432/database",
-        );
-        assert!(!redacted.contains("testpassword"));
-        assert!(redacted.starts_with("postgres://postgres:****@host.docke"));
-    }
-
-    #[test]
-    fn redacts_url_password_containing_at_and_colon() {
-        // The `url` crate delimits the userinfo at the *last* `@`, so a password that itself
-        // contains `@`/`:` is fully hidden (a naive regex would stop at the first `@`).
-        let redacted = redact_conn_str("postgres://user:p@ss:word@localhost:5432/db");
-        assert_eq!(redacted, "postgres://user:****@localhost:5432/db");
-        assert!(!redacted.contains("ss:word"));
-    }
-
-    #[test]
-    fn keeps_url_without_password() {
-        let conn = "postgres://user@localhost:5432/db";
-        assert_eq!(redact_conn_str(conn), conn);
-    }
-
-    #[test]
-    fn does_not_redact_host_port() {
-        // No userinfo: the `host:port` colon must not be mistaken for a password separator.
-        let conn = "postgres://localhost:5432/db";
-        assert_eq!(redact_conn_str(conn), conn);
-    }
-
-    #[test]
-    fn redacts_keyword_password() {
-        let redacted = redact_conn_str("host=localhost password=secret dbname=db");
-        assert_eq!(redacted, "host=localhost password=**** dbname=db");
-        assert!(!redacted.contains("secret"));
-    }
-
-    #[test]
-    fn redacts_quoted_keyword_password() {
-        let redacted = redact_conn_str("host=localhost password='se cret' dbname=db");
-        assert_eq!(redacted, "host=localhost password=**** dbname=db");
-        assert!(!redacted.contains("se cret"));
-    }
-
-    #[test]
-    fn does_not_redact_password_suffix_keyword() {
-        // `mypassword=` is a different key and has no secret to hide.
-        let conn = "host=localhost mypassword=keep";
-        assert_eq!(redact_conn_str(conn), conn);
-    }
-
-    #[test]
-    fn leaves_credential_free_string_untouched() {
-        let conn = "host=localhost dbname=db";
-        assert_eq!(redact_conn_str(conn), conn);
+    #[rstest]
+    // URL form: only the password between `:` and `@` is replaced; the rest is preserved.
+    #[case::url_password(
+        "postgres://user:secret@localhost:5432/db",
+        "postgres://user:****@localhost:5432/db"
+    )]
+    // The original bug report: gibberish after the host makes the string fail to parse as a
+    // Postgres `Config`, but it's still a valid URL, so the password is still hidden.
+    #[case::malformed_url(
+        "postgres://postgres:testpassword@host.docke???WQD?wq/db:5432/database",
+        "postgres://postgres:****@host.docke???WQD?wq/db:5432/database"
+    )]
+    // Password containing `@`/`:`: `url` delimits the userinfo at the *last* `@`, hiding it fully
+    // (a naive regex would stop at the first `@` and leak the rest).
+    #[case::password_with_at_and_colon(
+        "postgres://user:p@ss:word@localhost:5432/db",
+        "postgres://user:****@localhost:5432/db"
+    )]
+    // No password to hide: returned unchanged.
+    #[case::url_without_password(
+        "postgres://user@localhost:5432/db",
+        "postgres://user@localhost:5432/db"
+    )]
+    // No userinfo: the `host:port` colon must not be mistaken for a password separator.
+    #[case::host_port_only("postgres://localhost:5432/db", "postgres://localhost:5432/db")]
+    // libpq keyword form.
+    #[case::keyword_password(
+        "host=localhost password=secret dbname=db",
+        "host=localhost password=**** dbname=db"
+    )]
+    // Quoted keyword value (may contain spaces).
+    #[case::quoted_keyword_password(
+        "host=localhost password='se cret' dbname=db",
+        "host=localhost password=**** dbname=db"
+    )]
+    // `mypassword=` is a different key, not a secret to hide.
+    #[case::password_suffix_keyword(
+        "host=localhost mypassword=keep",
+        "host=localhost mypassword=keep"
+    )]
+    // Nothing credential-like: unchanged.
+    #[case::no_credentials("host=localhost dbname=db", "host=localhost dbname=db")]
+    fn redacts_password(#[case] input: &str, #[case] expected: &str) {
+        assert_eq!(redact_conn_str(input), expected);
     }
 }
