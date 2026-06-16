@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0](https://github.com/maplibre/martin/compare/martin-core-v0.7.0...martin-core-v0.8.0) - 2026-06-16
+
+### Added
+
+- duckdb-source implementation at martin-core ([#2831](https://github.com/maplibre/martin/pull/2831))
+- static rendering core ([#2804](https://github.com/maplibre/martin/pull/2804))
+- make the MLN renderer multi threaded ([#2826](https://github.com/maplibre/martin/pull/2826))
+
+### Fixed
+
+- *(unstable-cog)* Allow for 0.1% (up to 3m of error at z0) in COGs from a matching zoom level in WebMercatorQuad ([#2878](https://github.com/maplibre/martin/pull/2878))
+- *(martin)* reject invalid scale and inverted bbox in static rendering ([#2830](https://github.com/maplibre/martin/pull/2830))
+- ignore ignored directory for sprite resolution ([#2815](https://github.com/maplibre/martin/pull/2815))
+
+### Other
+
+- update to maplibre_native@8.1 ([#2859](https://github.com/maplibre/martin/pull/2859))
+- make sure that error types with multiple identical types have names ([#2832](https://github.com/maplibre/martin/pull/2832))
+- cache render fixtures ([#2828](https://github.com/maplibre/martin/pull/2828))
+
 ## [0.7.0](https://github.com/maplibre/martin/compare/martin-core-v0.6.0...martin-core-v0.7.0) - 2026-05-19
 
 ### Other
