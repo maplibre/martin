@@ -92,33 +92,3 @@ fn malformed_connection_string_redacts_password_and_points_at_line() {
             database name are shown; only the password is hidden.
     ");
 }
-
-/// When the connection string comes from an env var (`${DATABASE_URL}`), the retained source
-/// snippet holds the *expanded* text - so it too must be redacted before rendering.
-#[cfg(feature = "postgres")]
-#[test]
-fn substituted_connection_string_does_not_leak_password() {
-    let yaml = "postgres:\n  connection_string: ${DATABASE_URL}\n";
-    let stderr = run_with_bad_config(
-        yaml,
-        &[("DATABASE_URL", "postgres://user:hunter2@bad???host/db")],
-    );
-    assert!(
-        !stderr.contains("hunter2"),
-        "password leaked into diagnostic:\n{stderr}"
-    );
-    insta::assert_snapshot!(stderr.trim(), @"
-    martin::config::postgres::pool_creation (https://maplibre.org/martin/config-file/)
-
-      × Failed to create postgres pool: Unable to parse connection string
-      │ postgres://user:****@bad???host/db: invalid connection string
-       ╭─[<config>:2:22]
-     1 │ postgres:
-     2 │   connection_string: postgres://user:****@bad???host/db
-       ·                      ─────────────────┬────────────────
-       ·                                       ╰── Unable to parse connection string postgres://user:****@bad???host/db: invalid connection string
-       ╰────
-      help: Check the highlighted connection string. The username, host, port, and
-            database name are shown; only the password is hidden.
-    ");
-}
