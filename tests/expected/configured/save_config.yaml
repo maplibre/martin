@@ -35,10 +35,10 @@ postgres:
       geometry_column: Geom
       id_column: giD
       bounds:
-  -  -170.9498596191 # truncated to 10 digits
-  - -84.2002563476 # truncated to 10 digits
-  - 167.7089385986 # truncated to 10 digits
-  - 74.2357330322 # truncated to 10 digits
+      - -170.9498596191 # truncated to 10 digits
+      - -84.2002563476 # truncated to 10 digits
+      - 167.7089385986 # truncated to 10 digits
+      - 74.2357330322 # truncated to 10 digits
       geometry_type: POINT
       properties:
         taBLe: text
@@ -49,10 +49,10 @@ postgres:
       geometry_column: geom
       id_column: feat_id
       bounds:
-  -  -166.8710784912 # truncated to 10 digits
-  - -53.4474754333 # truncated to 10 digits
-  - 168.140625
-  - 84.2241210937 # truncated to 10 digits
+      - -166.8710784912 # truncated to 10 digits
+      - -53.4474754333 # truncated to 10 digits
+      - 168.140625
+      - 84.2241210937 # truncated to 10 digits
       extent: 9000
       buffer: 3
       clip_geom: false
@@ -66,10 +66,10 @@ postgres:
       geometry_column: geom
       id_column: big_feat_id
       bounds:
-  -  -174.8947601318 # truncated to 10 digits
-  - -77.2579803466 # truncated to 10 digits
-  - 174.7275390625
-  - 73.8078613281 # truncated to 10 digits
+      - -174.8947601318 # truncated to 10 digits
+      - -77.2579803466 # truncated to 10 digits
+      - 174.7275390625
+      - 73.8078613281 # truncated to 10 digits
       extent: 9000
       buffer: 3
       clip_geom: false
@@ -85,10 +85,10 @@ postgres:
       minzoom: 0
       maxzoom: 30
       bounds:
-  -  -180.0
-  - -90.0
-  - 180.0
-  - 90.0
+      - -180.0
+      - -90.0
+      - 180.0
+      - 90.0
       extent: 4096
       buffer: 64
       clip_geom: true
@@ -103,10 +103,10 @@ postgres:
       minzoom: 0
       maxzoom: 30
       bounds:
-  -  -180.0
-  - -90.0
-  - 180.0
-  - 90.0
+      - -180.0
+      - -90.0
+      - 180.0
+      - 90.0
       extent: 4096
       buffer: 64
       clip_geom: true
@@ -121,10 +121,10 @@ postgres:
       minzoom: 0
       maxzoom: 30
       bounds:
-  -  -180.0
-  - -90.0
-  - 180.0
-  - 90.0
+      - -180.0
+      - -90.0
+      - 180.0
+      - 90.0
       extent: 4096
       buffer: 64
       clip_geom: true
@@ -139,10 +139,10 @@ postgres:
       minzoom: 0
       maxzoom: 30
       bounds:
-  -  -180.0
-  - -90.0
-  - 180.0
-  - 90.0
+      - -180.0
+      - -90.0
+      - 180.0
+      - 90.0
       extent: 4096
       buffer: 64
       clip_geom: true
@@ -162,20 +162,20 @@ postgres:
       minzoom: 0
       maxzoom: 30
       bounds:
-  -  -180.0
-  - -90.0
-  - 180.0
-  - 90.0
+      - -180.0
+      - -90.0
+      - 180.0
+      - 90.0
     function_zxy_query_test:
       schema: public
       function: function_zxy_query_test
       minzoom: 0
       maxzoom: 30
       bounds:
-  -  -180.0
-  - -90.0
-  - 180.0
-  - 90.0
+      - -180.0
+      - -90.0
+      - 180.0
+      - 90.0
 pmtiles:
   sources:
     pmt:

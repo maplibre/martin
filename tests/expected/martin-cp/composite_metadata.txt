@@ -7,12 +7,12 @@ tilejson:
     fields:
       gid: int4
   bounds:
-  -  -2.0
+  - -2.0
   - -1.0
   - 142.84131509869133
   - 45.0
   center:
-  -  0.0
+  - 0.0
   - 0.0
   - 0
   description: public.function_zxy_query_test

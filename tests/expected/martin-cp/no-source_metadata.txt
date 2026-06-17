@@ -10,12 +10,12 @@ tilejson:
     maxzoom: 6
     minzoom: 0
   bounds:
-  -  -123.12359
+  - -123.12359
   - -37.818085
   - 174.763027
   - 59.352706
   center:
-  -  -75.9375
+  - -75.9375
   - 38.788894
   - 6
   description: Major cities from Natural Earth data
