@@ -67,7 +67,7 @@ pub fn parse_conn_str(conn_str: &str) -> PostgresResult<(Config, SslModeOverride
 /// Returns the same password-redacted [`BadConnectionString`](crate::tiles::postgres::PostgresError::BadConnectionString)
 /// error as [`parse_conn_str`] on failure. Intended for validating connection strings early
 /// (e.g. while deserializing a config file) so a malformed value is reported against its source
-/// location, rather than surfacing later — without a location — when the pool is created.
+/// location, rather than surfacing later -- without a location -- when the pool is created.
 pub fn validate_conn_str(conn_str: &str) -> PostgresResult<()> {
     parse_conn_str(conn_str).map(|_| ())
 }

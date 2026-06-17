@@ -116,7 +116,7 @@ pub struct InvalidConnectionStringDetails {
 /// Sentinel embedded in the `serde` error a malformed `connection_string` produces during
 /// deserialization, so [`parse_config`](crate::config::file::parse_config) can recognize it and
 /// rebuild it as an [`ConfigFileError::InvalidConnectionString`] (with location, no snippet). It
-/// carries no secret — the redacted message is reconstructed from the source location.
+/// carries no secret -- the redacted message is reconstructed from the source location.
 #[cfg(feature = "postgres")]
 pub(crate) const INVALID_CONN_STR_MARKER: &str = "\u{0}martin:invalid-connection-string\u{0}";
 
@@ -272,7 +272,7 @@ impl Diagnostic for InvalidConnectionStringReport {
 
     fn help<'a>(&'a self) -> Option<Box<dyn std::fmt::Display + 'a>> {
         Some(Box::new(format!(
-            "at {} — only the password is hidden; check that line.",
+            "at {} -- only the password is hidden; check that line.",
             self.location
         )))
     }

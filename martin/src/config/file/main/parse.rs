@@ -69,7 +69,7 @@ where
 /// If `error` is the sentinel a malformed `connection_string` produces, rebuild it as a
 /// [`ConfigFileError::InvalidConnectionString`]: pull the value's location from the parse error,
 /// slice it out of `source`, and re-validate to get a password-redacted message. The raw value is
-/// only used to recompute the redaction — it is never stored or rendered. Returns `None` for any
+/// only used to recompute the redaction -- it is never stored or rendered. Returns `None` for any
 /// other error, or if the location/slice is unavailable (caller then renders the plain error).
 #[cfg(feature = "postgres")]
 fn invalid_connection_string_error(

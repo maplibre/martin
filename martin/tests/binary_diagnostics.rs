@@ -82,7 +82,7 @@ fn malformed_connection_string_redacts_password_and_points_at_line() {
 
       × Unable to parse connection string postgres://user:****@bad???host/db:
       │ invalid connection string
-      help: at <config>:2:22 — only the password is hidden; check that
+      help: at <config>:2:22 -- only the password is hidden; check that
             line.
     ");
 }

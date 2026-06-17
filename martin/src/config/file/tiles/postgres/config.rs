@@ -162,7 +162,7 @@ pub struct PostgresConfig {
 }
 
 /// Validate the connection string's syntax while deserializing, so a malformed value is reported
-/// against its exact location in the config file — instead of surfacing later, without a source
+/// against its exact location in the config file -- instead of surfacing later, without a source
 /// location, when the connection pool is created.
 ///
 /// On failure we return only [`INVALID_CONN_STR_MARKER`] (no secret): `serde_saphyr` attaches the
@@ -532,7 +532,7 @@ mod tests {
     }
 
     /// A malformed `connection_string` is reported against its own source location, with the
-    /// password redacted and no source snippet — even when a *valid* connection string precedes
+    /// password redacted and no source snippet -- even when a *valid* connection string precedes
     /// the invalid one (regression test: a text search could mislocate onto the valid line).
     #[test]
     fn invalid_connection_string_points_at_offending_source_without_leaking() {
