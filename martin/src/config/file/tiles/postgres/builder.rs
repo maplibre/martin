@@ -108,7 +108,7 @@ impl PostgresAutoDiscoveryBuilder {
             config.pool_size.unwrap_or(DEFAULT_POOL_SIZE),
         )
         .await
-        .map_err(ConfigFileError::postgres_pool_creation)?;
+        .map_err(ConfigFileError::PostgresPoolCreationFailed)?;
 
         let (auto_tables, auto_functions) = calc_auto(config);
 

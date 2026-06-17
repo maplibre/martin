@@ -360,15 +360,8 @@ impl Config {
         let mut sources_and_warnings: Vec<BoxFuture<ResolutionResult>> = Vec::new();
 
         #[cfg(feature = "postgres")]
-        {
-            let config_source = self.source.handle();
-            for s in self.postgres.iter_mut() {
-                sources_and_warnings.push(Box::pin(s.resolve(
-                    idr.clone(),
-                    self.cache.policy(),
-                    config_source.clone(),
-                )));
-            }
+        for s in self.postgres.iter_mut() {
+            sources_and_warnings.push(Box::pin(s.resolve(idr.clone(), self.cache.policy())));
         }
 
         #[cfg(feature = "pmtiles")]

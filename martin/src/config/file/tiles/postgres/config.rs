@@ -1,12 +1,11 @@
 use std::num::NonZeroU32;
 use std::ops::Add as _;
-use std::sync::Arc;
 use std::time::Duration;
 
 use futures::future::join_all;
 use futures::pin_mut;
+use martin_core::tiles::postgres::validate_conn_str;
 use martin_tile_utils::TileInfo;
-use miette::NamedSource;
 use serde::{Deserialize, Serialize};
 use tilejson::TileJSON;
 use tokio::time::timeout;
@@ -14,6 +13,7 @@ use tracing::{info, warn};
 
 use super::{FuncInfoSources, TableInfoSources};
 use crate::config::args::{BoundsCalcType, DEFAULT_BOUNDS_TIMEOUT};
+use crate::config::file::error::INVALID_CONN_STR_MARKER;
 use crate::config::file::postgres::{PostgresAutoDiscoveryBuilder, SourceSpec};
 use crate::config::file::{
     CachePolicy, ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks, ResolutionResult,
@@ -76,6 +76,7 @@ pub struct PostgresConfig {
         feature = "unstable-schemas",
         schemars(example = &"postgres://postgres@localhost:5432/db")
     )]
+    #[serde(default, deserialize_with = "deserialize_connection_string")]
     pub connection_string: Option<String>,
     #[serde(flatten)]
     pub ssl_certificates: PostgresSslCerts,
@@ -158,6 +159,29 @@ pub struct PostgresConfig {
     #[serde(flatten, skip_serializing)]
     #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub unrecognized: UnrecognizedValues,
+}
+
+/// Validate the connection string's syntax while deserializing, so a malformed value is reported
+/// against its exact location in the config file — instead of surfacing later, without a source
+/// location, when the connection pool is created.
+///
+/// On failure we return only [`INVALID_CONN_STR_MARKER`] (no secret): `serde_saphyr` attaches the
+/// offending value's source location to the error, and [`parse_config`](crate::config::file::parse_config)
+/// recognizes the marker, reconstructs a password-redacted message from that location, and turns
+/// it into [`ConfigFileError::InvalidConnectionString`].
+fn deserialize_connection_string<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    use serde::de::Error as _;
+
+    let conn_str = Option::<String>::deserialize(deserializer)?;
+    if let Some(conn_str) = &conn_str
+        && validate_conn_str(conn_str).is_err()
+    {
+        return Err(D::Error::custom(INVALID_CONN_STR_MARKER));
+    }
+    Ok(conn_str)
 }
 
 /// Default connection pool size.
@@ -314,14 +338,8 @@ impl PostgresConfig {
         &mut self,
         id_resolver: IdResolver,
         default_cache: CachePolicy,
-        config_source: Option<Arc<NamedSource<String>>>,
     ) -> ResolutionResult {
-        // Clone the connection string up front so, if pool creation fails, we can point the
-        // diagnostic at its line in the config file without holding a borrow on `self`.
-        let conn_str = self.connection_string.clone();
-        let pg = PostgresAutoDiscoveryBuilder::new(self, id_resolver, default_cache)
-            .await
-            .map_err(|e| e.with_conn_str_span(conn_str.as_deref(), config_source.as_deref()))?;
+        let pg = PostgresAutoDiscoveryBuilder::new(self, id_resolver, default_cache).await?;
 
         let (specs, mut warnings) = pg.discover().await?;
 
@@ -507,9 +525,36 @@ mod tests {
     use crate::config::file::{Config, parse_config};
     use crate::config::primitives::OptOneMany::{Many, One};
     use crate::config::primitives::env::FauxEnv;
+    use crate::config::test_helpers::render_failure;
 
     pub fn parse_cfg(yaml: &str) -> Config {
         parse_config(yaml, &FauxEnv::default(), Path::new("<test>")).unwrap()
+    }
+
+    /// A malformed `connection_string` is reported against its own source location, with the
+    /// password redacted and no source snippet — even when a *valid* connection string precedes
+    /// the invalid one (regression test: a text search could mislocate onto the valid line).
+    #[test]
+    fn invalid_connection_string_points_at_offending_source_without_leaking() {
+        let yaml = indoc! {"
+            postgres:
+              - connection_string: postgres://user:secret1@goodhost/db
+              - connection_string: postgres://user:secret2@bad???host
+        "};
+        let rendered = render_failure(yaml);
+        assert!(
+            !rendered.contains("secret1") && !rendered.contains("secret2"),
+            "password leaked into diagnostic:\n{rendered}"
+        );
+        // Points at the invalid second source (line 3), never the valid first one.
+        assert!(
+            rendered.contains("config.yaml:3:"),
+            "expected the diagnostic to point at line 3:\n{rendered}"
+        );
+        assert!(
+            rendered.contains("postgres://user:****@bad???host"),
+            "expected the redacted invalid connection string:\n{rendered}"
+        );
     }
 
     pub fn assert_config(yaml: &str, expected: &Config) {

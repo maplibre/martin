@@ -51,19 +51,56 @@ where
         with_snippet: false,
     };
     match serde_saphyr::from_str_with_options::<Config>(&migrated, options) {
-        Ok(config) => {
-            // Retain the (password-redacted) source so resolve-time diagnostics, e.g. a malformed
-            // postgres `connection_string`, can point back at the offending line in the file.
+        Ok(config) => Ok(config),
+        Err(e) => {
+            // A malformed `connection_string` is flagged during deserialization with a sentinel
+            // marker (see `deserialize_connection_string`). Rebuild it as a snippet-less,
+            // password-redacted diagnostic that points at the value's location, so the raw line
+            // is never echoed. Other parse errors keep their normal source-snippet rendering.
             #[cfg(feature = "postgres")]
-            let config = {
-                let mut config = config;
-                config.source = super::ConfigSource::from_file(file_name, &migrated);
-                config
-            };
-            Ok(config)
+            if let Some(err) = invalid_connection_string_error(&e, &migrated, file_name) {
+                return Err(err);
+            }
+            Err(ConfigFileError::yaml_parse(e, migrated, file_name))
         }
-        Err(e) => Err(ConfigFileError::yaml_parse(e, migrated, file_name)),
     }
+}
+
+/// If `error` is the sentinel a malformed `connection_string` produces, rebuild it as a
+/// [`ConfigFileError::InvalidConnectionString`]: pull the value's location from the parse error,
+/// slice it out of `source`, and re-validate to get a password-redacted message. The raw value is
+/// only used to recompute the redaction — it is never stored or rendered. Returns `None` for any
+/// other error, or if the location/slice is unavailable (caller then renders the plain error).
+#[cfg(feature = "postgres")]
+fn invalid_connection_string_error(
+    error: &serde_saphyr::Error,
+    source: &str,
+    file_name: &Path,
+) -> Option<ConfigFileError> {
+    use martin_core::tiles::postgres::{redact_conn_str, validate_conn_str};
+
+    use crate::config::file::error::INVALID_CONN_STR_MARKER;
+
+    if !error.to_string().contains(INVALID_CONN_STR_MARKER) {
+        return None;
+    }
+    let location = error.location()?;
+    let span = location.span();
+    let offset = usize::try_from(span.byte_offset()?).ok()?;
+    let len = usize::try_from(span.byte_len()?).ok()?;
+    let value = source.get(offset..offset.checked_add(len)?)?;
+    // Re-run validation to recover the same password-redacted message; fall back to a redacted
+    // value if it somehow parses now.
+    let message = validate_conn_str(value).err().map_or_else(
+        || format!("invalid connection string {}", redact_conn_str(value)),
+        |e| e.to_string(),
+    );
+    Some(ConfigFileError::invalid_connection_string(
+        message,
+        file_name,
+        location.line(),
+        location.column(),
+    ))
 }
 
 /// Cheap pre-check: does the substituted YAML mention any deprecated cache key?
