@@ -69,7 +69,7 @@ pub struct MltEncoderConfig {
     /// Allow FSST string compression.
     pub allow_fsst: Option<bool>,
     /// Allow `FastPFOR` integer compression.
-    pub allow_fpf: Option<bool>,
+    pub allow_fastpfor: Option<bool>,
     /// Allow string grouping into shared dictionaries.
     pub allow_shared_dict: Option<bool>,
 
@@ -101,7 +101,7 @@ impl From<MltEncoderConfig> for EncoderConfig {
             try_spatial_hilbert_sort,
             try_id_sort,
             allow_fsst,
-            allow_fpf,
+            allow_fastpfor,
             allow_shared_dict,
             // Unrecognized keys are reported via the warning path during finalize();
             // they intentionally don't influence the resulting EncoderConfig.
@@ -116,7 +116,7 @@ impl From<MltEncoderConfig> for EncoderConfig {
                 .unwrap_or(Self::default().try_spatial_hilbert_sort),
             try_id_sort: try_id_sort.unwrap_or(Self::default().try_id_sort),
             allow_fsst: allow_fsst.unwrap_or(Self::default().allow_fsst),
-            allow_fpf: allow_fpf.unwrap_or(Self::default().allow_fpf),
+            allow_fastpfor: allow_fastpfor.unwrap_or(Self::default().allow_fastpfor),
             allow_shared_dict: allow_shared_dict.unwrap_or(Self::default().allow_shared_dict),
         }
     }

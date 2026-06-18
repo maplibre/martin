@@ -597,7 +597,7 @@
     "MltEncoderConfig": {
       "description": "Explicit encoder configuration for MLT conversion.\nAll fields are optional; unset fields use `mlt-core`'s defaults.",
       "properties": {
-        "allow_fpf": {
+        "allow_fastpfor": {
           "description": "Allow `FastPFOR` integer compression.",
           "type": ["boolean", "null"]
         },

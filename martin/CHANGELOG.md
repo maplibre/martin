@@ -133,7 +133,7 @@ convert-to-mlt:
   try_spatial_hilbert_sort: true # Disable if Morton sort doesn't compress well for your data
   try_id_sort: false # Enable when features have sequential IDs and spatial sorting isn't beneficial
   allow_fsst: true # Disable to reduce search space
-  allow_fpf: true # Disable to reduce search space
+  allow_fastpfor: true # Disable to reduce search space
   allow_shared_dict: true # Disable to reduce search space
 ```
 
