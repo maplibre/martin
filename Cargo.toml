@@ -168,4 +168,3 @@ similar.opt-level = 3
 # Make release binaries a bit smaller
 lto = true
 codegen-units = 1
-
