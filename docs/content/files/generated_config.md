@@ -68,7 +68,7 @@ cache:
 # - explicitely configured
 convert_to_mlt:
   # Allow `FastPFOR` integer compression.
-  allow_fpf: null
+  allow_fastpfor: null
   # Allow FSST string compression.
   allow_fsst: null
   # Allow string grouping into shared dictionaries.
@@ -129,7 +129,7 @@ mbtiles:
   # Overrides global; overridden by per-source `convert_to_mlt`.
   convert_to_mlt:
     # Allow `FastPFOR` integer compression.
-    allow_fpf: null
+    allow_fastpfor: null
     # Allow FSST string compression.
     allow_fsst: null
     # Allow string grouping into shared dictionaries.
@@ -172,7 +172,7 @@ pmtiles:
   # Overrides global; overridden by per-source `convert_to_mlt`.
   convert_to_mlt:
     # Allow `FastPFOR` integer compression.
-    allow_fpf: null
+    allow_fastpfor: null
     # Allow FSST string compression.
     allow_fsst: null
     # Allow string grouping into shared dictionaries.
@@ -290,7 +290,7 @@ postgres:
   # - explicitely configured
   convert_to_mlt:
     # Allow `FastPFOR` integer compression.
-    allow_fpf: null
+    allow_fastpfor: null
     # Allow FSST string compression.
     allow_fsst: null
     # Allow string grouping into shared dictionaries.

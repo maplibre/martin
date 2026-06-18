@@ -109,7 +109,7 @@ Only the fields you specify override the defaults; unset fields keep their `mlt-
 | `try_spatial_hilbert_sort` | Disable if Morton sort doesn't compress well for your data                                                  |
 | `try_id_sort`              | Enable when features have sequential IDs and spatial sorting isn't beneficial                               |
 | `allow_fsst`               | Disable to reduce search space                                                                              |
-| `allow_fpf`                | Disable to reduce search space                                                                              |
+| `allow_fastpfor`           | Disable to reduce search space                                                                              |
 | `allow_shared_dict`        | Disable to reduce search space                                                                              |
 
 !!! note
