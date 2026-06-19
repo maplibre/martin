@@ -6,6 +6,7 @@
 use std::borrow::Cow;
 use std::env;
 use std::fmt::{Debug, Formatter};
+use std::future::Future;
 use std::num::NonZeroUsize;
 use std::ops::RangeInclusive;
 use std::path::PathBuf;
@@ -474,6 +475,20 @@ async fn join_consumer(
 }
 
 async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()> {
+    run_tile_copy_with_interrupt(args, state, async {
+        let _ = tokio::signal::ctrl_c().await;
+    })
+    .await
+}
+
+async fn run_tile_copy_with_interrupt<F>(
+    args: CopyArgs,
+    state: ServerState,
+    interrupt: F,
+) -> MartinCpResult<()>
+where
+    F: Future<Output = ()>,
+{
     // 1. Validate and resolve the tile source
     let output_file = &args.output_file;
     let concurrency = args.concurrency.get();
@@ -555,13 +570,13 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()>
         Arc::clone(&progress),
     ));
 
-    // 5. Producer: concurrently fetch all tiles or stop early with ctrl+c.
+    // 5. Producer: concurrently fetch all tiles or stop early on interrupt.
     let interrupted = tokio::select! {
         res = produce_tiles(src, tiles, concurrency, tx.clone()) => {
             res?;
             false
         }
-        _ = tokio::signal::ctrl_c() => {
+        _ = interrupt => {
             warn!("Received Ctrl+C, cancelling active PostgreSQL queries...");
             #[cfg(feature = "postgres")]
             for registry in &registries {
@@ -685,15 +700,19 @@ async fn main() {
 
 #[cfg(test)]
 mod tests {
+    use std::path::Path;
     use std::str::FromStr as _;
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicBool, Ordering};
 
     use async_trait::async_trait;
     use insta::assert_yaml_snapshot;
     use martin::TileSourceManager;
-    use martin::config::file::{OnInvalid, ProcessConfig};
+    use martin::config::file::{OnInvalid, ProcessConfig, ServerState};
     use martin_core::CacheZoomRange;
     use martin_core::tiles::{MartinCoreResult, Source, UrlQuery};
     use martin_tile_utils::{Encoding, Format};
+    use mbtiles::Mbtiles;
     use rstest::{fixture, rstest};
     use tilejson::{TileJSON, tilejson};
 
@@ -704,6 +723,8 @@ mod tests {
         pub id: &'static str,
         pub tj: TileJSON,
         pub data: TileData,
+        // When set, `get_tile` sets this flag then blocks forever (for interrupt tests).
+        pub block_after_fetch: Option<Arc<AtomicBool>>,
     }
 
     #[async_trait]
@@ -733,6 +754,10 @@ mod tests {
             _xyz: TileCoord,
             _url_query: Option<&UrlQuery>,
         ) -> MartinCoreResult<TileData> {
+            if let Some(flag) = &self.block_after_fetch {
+                flag.store(true, Ordering::Release);
+                std::future::pending::<()>().await;
+            }
             Ok(self.data.clone())
         }
     }
@@ -749,6 +774,22 @@ mod tests {
         TileSourceManager::from_sources(None, OnInvalid::Abort, sources)
     }
 
+    fn test_state(sources: Vec<Vec<BoxedSource>>) -> ServerState {
+        ServerState {
+            tile_manager: test_manager(sources),
+            #[cfg(feature = "sprites")]
+            sprites: Default::default(),
+            #[cfg(feature = "sprites")]
+            sprite_cache: None,
+            #[cfg(feature = "fonts")]
+            fonts: Default::default(),
+            #[cfg(feature = "fonts")]
+            font_cache: None,
+            #[cfg(feature = "styles")]
+            styles: Default::default(),
+        }
+    }
+
     #[fixture]
     fn many_sources() -> TileSourceManager {
         test_manager(vec![vec![
@@ -756,21 +797,25 @@ mod tests {
                 id: "test_source",
                 tj: tilejson! { tiles: vec![], bounds: Bounds::from_str("-110.0,20.0,-120.0,80.0").unwrap() },
                 data: Vec::default(),
+                block_after_fetch: None,
             }),
             Box::new(MockSource {
                 id: "test_source2",
                 tj: tilejson! { tiles: vec![], bounds: Bounds::from_str("-130.0,40.0,-170.0,10.0").unwrap() },
                 data: Vec::default(),
+                block_after_fetch: None,
             }),
             Box::new(MockSource {
                 id: "unrequested_source",
                 tj: tilejson! { tiles: vec![], bounds: Bounds::from_str("-150.0,40.0,-120.0,10.0").unwrap() },
                 data: Vec::default(),
+                block_after_fetch: None,
             }),
             Box::new(MockSource {
                 id: "unbounded_source",
                 tj: tilejson! { tiles: vec![] },
                 data: Vec::default(),
+                block_after_fetch: None,
             }),
         ]])
     }
@@ -781,6 +826,7 @@ mod tests {
             id: "test_source",
             tj: tilejson! { tiles: vec![], bounds: Bounds::from_str("-120.0,30.0,-110.0,40.0").unwrap() },
             data: Vec::default(),
+            block_after_fetch: None,
         })]])
     }
 
@@ -790,6 +836,7 @@ mod tests {
             id: "test_source",
             tj: tilejson! { tiles: vec![] },
             data: Vec::default(),
+            block_after_fetch: None,
         })]])
     }
 
@@ -901,5 +948,75 @@ mod tests {
         };
 
         assert_eq!(get_zooms(&args).as_ref(), expected.as_slice());
+    }
+
+    async fn read_metadata(output_file: &Path, key: &str) -> MartinCpResult<Option<String>> {
+        let mbt = Mbtiles::new(output_file)?;
+        let mut conn = mbt.open().await?;
+        Ok(mbt.get_metadata_value(&mut conn, key).await?)
+    }
+
+    #[tokio::test]
+    async fn run_tile_copy_without_interrupt_writes_metadata() -> MartinCpResult<()> {
+        let state = test_state(vec![vec![Box::new(MockSource {
+            id: "test_source",
+            tj: tilejson! { tiles: vec![] },
+            data: Vec::default(),
+            block_after_fetch: None,
+        })]]);
+        let output_dir = tempfile::tempdir().unwrap();
+        let output_file = output_dir.path().join("completed.mbtiles");
+        let status = "status";
+        let expected_status = "completed";
+        let args = CopyArgs {
+            source: Some("test_source".to_string()),
+            output_file: output_file.clone(),
+            max_zoom: Some(0),
+            min_zoom: Some(0),
+            set_meta: vec![(status.into(), expected_status.into())],
+            ..Default::default()
+        };
+
+        run_tile_copy_with_interrupt(args, state, std::future::pending::<()>()).await?;
+        assert_eq!(
+            read_metadata(&output_file, status).await?.as_deref(),
+            Some(expected_status),
+        );
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn run_tile_copy_interrupt_skips_metadata_finalization() -> MartinCpResult<()> {
+        let fetch_started = Arc::new(AtomicBool::new(false));
+        let state = test_state(vec![vec![Box::new(MockSource {
+            id: "test_source",
+            tj: tilejson! { tiles: vec![] },
+            data: Vec::default(),
+            // nonstop fetching for testing interuption
+            block_after_fetch: Some(Arc::clone(&fetch_started)),
+        })]]);
+        let output_dir = tempfile::tempdir().unwrap();
+        let output_file = output_dir.path().join("interrupted.mbtiles");
+        let status = "status";
+        let expected_status = "interuption";
+        let args = CopyArgs {
+            source: Some("blocking_source".to_string()),
+            output_file: output_file.clone(),
+            max_zoom: Some(0),
+            min_zoom: Some(0),
+            set_meta: vec![(status.into(), expected_status.into())],
+            ..Default::default()
+        };
+
+        run_tile_copy_with_interrupt(args, state, async {
+            // wait for starting get_tile
+            while !fetch_started.load(Ordering::Acquire) {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await?;
+        // metadata should be none due to interuption
+        assert!(read_metadata(&output_file, status).await?.is_none());
+        Ok(())
     }
 }
