@@ -26,7 +26,7 @@ export function SpritePreviewDialog({
   return (
     <Dialog onOpenChange={(v) => !v && onCloseAction()} open={true}>
       <DialogContent className="max-w-4xl w-full p-6 max-h-[80vh] overflow-auto">
-        {sprite && (
+        {sprite ? (
           <>
             <DialogHeader className="mb-4 truncate">
               <DialogTitle className="text-2xl flex gap-4">{name}</DialogTitle>
@@ -43,7 +43,7 @@ export function SpritePreviewDialog({
             </DialogHeader>
             <SpriteMapPreview spriteIds={sprite.images} spriteName={name} />
           </>
-        )}
+        ) : null}
       </DialogContent>
     </Dialog>
   );

@@ -46,7 +46,7 @@ const Filters: React.FC<FiltersProps> = ({
       <Range
         onClick={() => setIsDayPickerEnabled((prev) => !prev)}
       >{`${range.from.toLocaleDateString()} - ${range.to.toLocaleDateString()}`}</Range>
-      {isDayPickerEnabled && (
+      {isDayPickerEnabled ? (
         <DayPickerContainer>
           <DayPicker
             defaultMonth={JAN}
@@ -60,7 +60,7 @@ const Filters: React.FC<FiltersProps> = ({
             style={{ height: '290px' }}
           />
         </DayPickerContainer>
-      )}
+      ) : null}
       <TimePicker>
         <AvgTime $isEnabled={isAvgHour} onClick={() => changeHourFilter(-1)}>
           AVG

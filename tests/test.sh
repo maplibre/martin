@@ -778,6 +778,12 @@ test_accept_header pmt/0/0/0 "application/x-protobuf" 406
 test_accept_header pmt/0/0/0 "application/vnd.maplibre-vector-tile" 406
 test_accept_header pmt/0/0/0 "application/vnd.maplibre-tile" 406
 
+>&2 echo "***** Test out-of-zoom-range tiles return 404 *****"
+
+# pmt only covers zoom 0-3, so requesting a higher zoom filters out every source -> 404
+test_accept_header pmt/4/0/0 "*/*" 404
+test_accept_header pmt/10/0/0 "*/*" 404
+
 >&2 echo "***** Test URL redirects (HTTP 301) *****"
 
 # Test pluralization redirects

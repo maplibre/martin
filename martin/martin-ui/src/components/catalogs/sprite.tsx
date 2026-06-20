@@ -115,14 +115,14 @@ export function SpriteCatalog({
                       />
                     </div>
                   </div>
-                  {sprite.size_in_bytes && (
+                  {sprite.size_in_bytes ? (
                     <div className="space-y-2 text-sm text-muted-foreground mt-4">
                       <div className="flex justify-between">
                         <span>File Size:</span>
                         <span>{formatFileSize(sprite.size_in_bytes)}</span>
                       </div>
                     </div>
-                  )}
+                  ) : null}
                 </div>
                 <div className="flex flex-col md:flex-row items-center gap-2 mt-4">
                   <Button
@@ -171,7 +171,7 @@ export function SpriteCatalog({
         )}
       </div>
 
-      {selectedSprite && spriteCollections && (
+      {selectedSprite && spriteCollections ? (
         <SpritePreviewDialog
           name={selectedSprite}
           onCloseAction={() => onPreviewSprite(undefined)}
@@ -181,14 +181,14 @@ export function SpriteCatalog({
           }}
           sprite={spriteCollections[selectedSprite]}
         />
-      )}
-      {downloadSprite && spriteCollections && (
+      ) : null}
+      {downloadSprite && spriteCollections ? (
         <SpriteDownloadDialog
           name={downloadSprite}
           onCloseAction={() => onDownloadSprite(undefined)}
           sprite={spriteCollections[downloadSprite]}
         />
-      )}
+      ) : null}
     </>
   );
 }
