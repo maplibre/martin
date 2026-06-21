@@ -4,7 +4,7 @@ use tilejson::Bounds;
 use tokio::time::timeout;
 use tracing::warn;
 
-use super::super::sql_utils::{epsg_crs, escape_identifier};
+use crate::config::file::tiles::duckdb::sql_utils::{epsg_crs, escape_identifier};
 use crate::config::args::{BoundsCalcType, DEFAULT_BOUNDS_TIMEOUT};
 
 fn escape_relation(relation: &str) -> String {
