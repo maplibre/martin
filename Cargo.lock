@@ -4425,6 +4425,7 @@ dependencies = [
  "clap",
  "criterion",
  "dashmap",
+ "duckdb",
  "enum-display",
  "futures",
  "hotpath",
