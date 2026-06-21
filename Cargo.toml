@@ -85,7 +85,7 @@ env_logger = "0.11"
 flate2 = "1"
 flume = "0.12"
 futures = "0.3"
-hotpath = "0.16"
+hotpath = "0.17"
 humantime-serde = "1.1.1"
 image = { version = "0.25.8", default-features = false, features = ["png", "jpeg", "webp"] }
 image-compare = "0.5"
