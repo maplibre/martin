@@ -513,7 +513,7 @@ mod tests {
 
     #[test]
     fn reload_interval_defaults_to_ten_minutes() {
-        let cfg: PostgresConfig = serde_yaml::from_str(indoc! {"
+        let cfg: PostgresConfig = serde_saphyr::from_str(indoc! {"
             connection_string: 'postgres://postgres@localhost/db'
         "})
         .unwrap();
@@ -532,7 +532,7 @@ mod tests {
 
     #[test]
     fn reload_interval_zero_disables_polling() {
-        let cfg: PostgresConfig = serde_yaml::from_str(indoc! {"
+        let cfg: PostgresConfig = serde_saphyr::from_str(indoc! {"
             connection_string: 'postgres://postgres@localhost/db'
             reload_interval: 0s
         "})
@@ -676,7 +676,7 @@ mod tests {
             geometry_column: geom
             extent: 0
         "};
-        let err = serde_yaml::from_str::<TableInfo>(yaml)
+        let err = serde_saphyr::from_str::<TableInfo>(yaml)
             .expect_err("extent: 0 must be rejected by NonZeroU32");
         let msg = err.to_string();
         assert!(

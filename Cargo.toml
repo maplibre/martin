@@ -126,10 +126,9 @@ rustls-pemfile = "2"
 schemars = { version = "1.2", default-features = false, features = ["chrono04", "derive", "std"] }
 semver = "1"
 serde = { version = "1", features = ["derive"] }
-serde-saphyr = { version = "0.0.27", features = ["miette"] }
+serde-saphyr = { version = "0.0.28", features = ["miette"] }
 serde_json = "1"
 serde_with = { version = "3", default-features = false, features = ["macros"] }
-serde_yaml = "0.9"
 size_format = "1.0.2"
 spreet = { version = "0.13", default-features = false }
 sqlite-compressions = { version = "0.3", default-features = false, features = ["bsdiffraw", "gzip"] }

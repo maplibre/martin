@@ -26,7 +26,7 @@ required-features = ["transcode"]
 
 [features]
 default = ["cli"]
-cli = ["dep:anyhow", "dep:clap", "dep:serde_yaml", "dep:tracing-subscriber"]
+cli = ["dep:anyhow", "dep:clap", "dep:serde-saphyr", "dep:tracing-subscriber"]
 hotpath = [
     "hotpath/hotpath",
     "hotpath/hotpath-alloc",
@@ -53,9 +53,9 @@ moka = { workspace = true, features = ["sync"], optional = true }
 num_cpus.workspace = true
 rayon = { workspace = true, optional = true }
 serde.workspace = true
+serde-saphyr = { workspace = true, optional = true }
 serde_json.workspace = true
 serde_with.workspace = true
-serde_yaml = { workspace = true, optional = true }
 size_format.workspace = true
 sqlite-compressions.workspace = true
 sqlite-hashes.workspace = true

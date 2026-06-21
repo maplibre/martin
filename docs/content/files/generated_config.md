@@ -250,7 +250,7 @@ postgres:
       from_schemas: []
       # Optionally set how source ID should be generated based on the function's
       # name and schema
-      source_id_format: '{schema}.{function}'
+      source_id_format: "{schema}.{function}"
     # Here we enable both tables and functions auto discovery.
     # You can also enable just one of them by not mentioning the other, or
     # setting it to false. Setting one to true disables the other one as well.

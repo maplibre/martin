@@ -151,21 +151,21 @@ mod tests {
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[test]
     fn parse_mlt_auto_string() {
-        let cfg: MltProcessConfig = serde_yaml::from_str("auto").unwrap();
+        let cfg: MltProcessConfig = serde_saphyr::from_str("auto").unwrap();
         assert_eq!(cfg, MltProcessConfig::Auto);
     }
 
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[test]
     fn parse_mlt_explicit_empty() {
-        let cfg: MltProcessConfig = serde_yaml::from_str("{}").unwrap();
+        let cfg: MltProcessConfig = serde_saphyr::from_str("{}").unwrap();
         assert_eq!(cfg, MltProcessConfig::Explicit(MltEncoderConfig::default()));
     }
 
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[test]
     fn parse_mlt_explicit_with_overrides() {
-        let cfg: MltProcessConfig = serde_yaml::from_str(indoc! {"
+        let cfg: MltProcessConfig = serde_saphyr::from_str(indoc! {"
             tessellate: true
             allow_fsst: false
         "})
@@ -184,9 +184,9 @@ mod tests {
     #[test]
     fn serde_round_trip_auto() {
         let cfg = MltProcessConfig::Auto;
-        let yaml = serde_yaml::to_string(&cfg).unwrap();
+        let yaml = serde_saphyr::to_string(&cfg).unwrap();
         insta::assert_snapshot!(yaml, @"auto");
-        let parsed: MltProcessConfig = serde_yaml::from_str(&yaml).unwrap();
+        let parsed: MltProcessConfig = serde_saphyr::from_str(&yaml).unwrap();
         assert_eq!(cfg, parsed);
     }
 
@@ -194,9 +194,9 @@ mod tests {
     #[test]
     fn serde_round_trip_disabled() {
         let cfg = MltProcessConfig::Disabled;
-        let yaml = serde_yaml::to_string(&cfg).unwrap();
+        let yaml = serde_saphyr::to_string(&cfg).unwrap();
         insta::assert_snapshot!(yaml, @"disabled");
-        let parsed: MltProcessConfig = serde_yaml::from_str(&yaml).unwrap();
+        let parsed: MltProcessConfig = serde_saphyr::from_str(&yaml).unwrap();
         assert_eq!(cfg, parsed);
     }
 
@@ -207,22 +207,22 @@ mod tests {
             tessellate: Some(true),
             ..Default::default()
         });
-        let yaml = serde_yaml::to_string(&cfg).unwrap();
-        let parsed: MltProcessConfig = serde_yaml::from_str(&yaml).unwrap();
+        let yaml = serde_saphyr::to_string(&cfg).unwrap();
+        let parsed: MltProcessConfig = serde_saphyr::from_str(&yaml).unwrap();
         assert_eq!(cfg, parsed);
     }
 
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[test]
     fn parse_mlt_invalid_string() {
-        let result = serde_yaml::from_str::<MltProcessConfig>("invalid");
+        let result = serde_saphyr::from_str::<MltProcessConfig>("invalid");
         result.unwrap_err();
     }
 
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[test]
     fn parse_mlt_invalid_type() {
-        let result = serde_yaml::from_str::<MltProcessConfig>("123");
+        let result = serde_saphyr::from_str::<MltProcessConfig>("123");
         result.unwrap_err();
     }
 
@@ -262,7 +262,7 @@ mod tests {
 
     /// Inner-field errors must point at the *value*, not the outer `convert_to_mlt:` line -
     /// proves the explicit branch hands the saphyr deserializer to `MltEncoderConfig`
-    /// instead of routing through a `serde_yaml::Value`.
+    /// instead of routing through a `serde_json::Value`.
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[test]
     fn render_failure_mlt_nested_field_bad_type() {
@@ -364,7 +364,7 @@ mod tests {
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[test]
     fn mlt_encoder_captures_unrecognized_keys() {
-        let cfg: MltProcessConfig = serde_yaml::from_str(indoc! {"
+        let cfg: MltProcessConfig = serde_saphyr::from_str(indoc! {"
             tessellate: true
             unknown_knob: 42
             another_typo: hi
@@ -383,7 +383,7 @@ mod tests {
     #[test]
     fn mvt_encoder_captures_all_keys_as_unrecognized() {
         // MVT has no encoder knobs yet; every supplied key is unrecognized.
-        let cfg: MvtProcessConfig = serde_yaml::from_str(indoc! {"
+        let cfg: MvtProcessConfig = serde_saphyr::from_str(indoc! {"
             anything: 1
             else: yes
         "})
@@ -401,7 +401,7 @@ mod tests {
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[test]
     fn parse_mvt_explicit_empty() {
-        let cfg: MvtProcessConfig = serde_yaml::from_str("{}").unwrap();
+        let cfg: MvtProcessConfig = serde_saphyr::from_str("{}").unwrap();
         assert_eq!(cfg, MvtProcessConfig::Explicit(MvtEncoderConfig::default()));
     }
 
@@ -414,7 +414,7 @@ mod tests {
         use crate::config::file::ConfigurationLivecycleHooks as _;
         use crate::config::file::pmtiles::PmtConfig;
 
-        let cfg: PmtConfig = serde_yaml::from_str(indoc! {"
+        let cfg: PmtConfig = serde_saphyr::from_str(indoc! {"
             convert_to_mlt:
               tessellate: true
               bogus_option: 1
@@ -435,7 +435,7 @@ mod tests {
         use crate::config::file::ConfigurationLivecycleHooks as _;
         use crate::config::file::mbtiles::MbtConfig;
 
-        let cfg: MbtConfig = serde_yaml::from_str(indoc! {"
+        let cfg: MbtConfig = serde_saphyr::from_str(indoc! {"
             convert_to_mvt:
               not_a_real_setting: yes
         "})
@@ -456,7 +456,7 @@ mod tests {
     fn finalize_collects_global_convert_to_mlt_unrecognized() {
         use crate::config::file::Config;
 
-        let mut cfg: Config = serde_yaml::from_str(indoc! {"
+        let mut cfg: Config = serde_saphyr::from_str(indoc! {"
             pmtiles:
               paths: /tmp/never-read.pmtiles
             convert_to_mlt:
