@@ -488,7 +488,7 @@ async fn on_slow<T, S: FnOnce()>(
 
 #[cfg(test)]
 mod tests {
-    use std::collections::BTreeMap;
+    use std::collections::{BTreeMap, HashMap};
     use std::path::Path;
 
     use indoc::indoc;
@@ -498,10 +498,9 @@ mod tests {
     use crate::config::file::postgres::{FunctionInfo, TableInfo};
     use crate::config::file::{Config, parse_config};
     use crate::config::primitives::OptOneMany::{Many, One};
-    use crate::config::primitives::env::FauxEnv;
 
     pub fn parse_cfg(yaml: &str) -> Config {
-        parse_config(yaml, &FauxEnv::default(), Path::new("<test>")).unwrap()
+        parse_config(yaml, &HashMap::new(), Path::new("<test>")).unwrap()
     }
 
     pub fn assert_config(yaml: &str, expected: &Config) {

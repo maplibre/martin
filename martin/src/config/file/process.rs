@@ -233,6 +233,8 @@ mod tests {
         insta::assert_snapshot!(render_failure(indoc! {"
                 convert_to_mlt: atuo
             "}), @r#"
+        martin::config::yaml (https://maplibre.org/martin/config-file/)
+
           × invalid value: string "atuo", expected a string ("auto", "enabled",
           │ "disabled"), a boolean, or a map of settings
            ╭─[config.yaml:1:1]
@@ -240,6 +242,8 @@ mod tests {
            · ───────┬──────
            ·        ╰── invalid value: string "atuo", expected a string ("auto", "enabled", "disabled"), a boolean, or a map of settings
            ╰────
+          help: Check the highlighted token in your YAML. The error usually indicates
+                a mismatched type or an unexpected shape.
         "#);
     }
 
@@ -250,6 +254,8 @@ mod tests {
         insta::assert_snapshot!(render_failure(indoc! {"
                 convert_to_mlt: 42
             "}), @r#"
+        martin::config::yaml (https://maplibre.org/martin/config-file/)
+
           × invalid type: integer `42`, expected a string ("auto", "enabled",
           │ "disabled"), a boolean, or a map of settings
            ╭─[config.yaml:1:1]
@@ -257,12 +263,14 @@ mod tests {
            · ───────┬──────
            ·        ╰── invalid type: integer `42`, expected a string ("auto", "enabled", "disabled"), a boolean, or a map of settings
            ╰────
+          help: Check the highlighted token in your YAML. The error usually indicates
+                a mismatched type or an unexpected shape.
         "#);
     }
 
     /// Inner-field errors must point at the *value*, not the outer `convert_to_mlt:` line -
     /// proves the explicit branch hands the saphyr deserializer to `MltEncoderConfig`
-    /// instead of routing through a `serde_json::Value`.
+    /// instead of routing through a generic `Value`.
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[test]
     fn render_failure_mlt_nested_field_bad_type() {
@@ -270,7 +278,9 @@ mod tests {
         insta::assert_snapshot!(render_failure(indoc! {"
                 convert_to_mlt:
                   tessellate: yes-please
-            "}), @r"
+            "}), @"
+        martin::config::yaml (https://maplibre.org/martin/config-file/)
+
           × invalid boolean
            ╭─[config.yaml:2:15]
          1 │ convert_to_mlt:
@@ -278,6 +288,8 @@ mod tests {
            ·               ─────┬────
            ·                    ╰── invalid boolean
            ╰────
+          help: Check the highlighted token in your YAML. The error usually indicates
+                a mismatched type or an unexpected shape.
         ");
     }
 

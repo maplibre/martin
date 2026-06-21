@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use martin_core::fonts::FontError;
 #[cfg(feature = "postgres")]
 use martin_core::tiles::postgres::PostgresError;
-use miette::{Diagnostic, LabeledSpan, NamedSource, SourceCode, SourceSpan};
+use miette::{Diagnostic, LabeledSpan, NamedSource, SourceCode};
 
 pub type ConfigFileResult<T> = Result<T, ConfigFileError>;
 
@@ -18,9 +18,6 @@ pub enum ConfigFileError {
 
     #[error("Unable to parse YAML in config file {}: {}", .0.named_source.name(), .0.error)]
     YamlParseError(Box<YamlParseDetails>),
-
-    #[error("Unable to substitute environment variables in config file {}: {}", .0.named_source.name(), .0.source)]
-    SubstitutionError(Box<SubstitutionDetails>),
 
     #[error("Unable to write config file {1}: {0}")]
     ConfigWriteError(#[source] std::io::Error, PathBuf),
@@ -84,14 +81,6 @@ pub struct YamlParseDetails {
     pub(crate) named_source: NamedSource<String>,
 }
 
-/// Boxed payload for [`ConfigFileError::SubstitutionError`].
-#[derive(Debug)]
-pub struct SubstitutionDetails {
-    pub(crate) source: subst::Error,
-    pub(crate) named_source: NamedSource<String>,
-    pub(crate) primary_span: Option<SourceSpan>,
-}
-
 impl ConfigFileError {
     /// Construct a YAML parse error with the originating source text and file path.
     ///
@@ -104,87 +93,124 @@ impl ConfigFileError {
         }))
     }
 
-    /// Construct a substitution error, locating the failing variable token within the source.
-    #[must_use]
-    pub fn substitution(source: subst::Error, source_text: String, file_path: &Path) -> Self {
-        let primary_span = subst_error_span(&source, &source_text);
-        Self::SubstitutionError(Box::new(SubstitutionDetails {
-            source,
-            named_source: NamedSource::new(file_path.display().to_string(), source_text),
-            primary_span,
-        }))
-    }
-
     /// Render this error as a [`miette::Report`] for graphical display, when applicable.
-    ///
-    /// For YAML parse errors we delegate to `serde_saphyr::miette::to_miette_report`, which
-    /// builds a richer diagnostic (snippet windows, nested labels) than our manual
-    /// `Diagnostic` impl below. The substitution path uses an owned [`SubstitutionReport`]
-    /// because `miette::Report::new` requires `'static` data and `subst::Error` isn't
-    /// `Clone`, so we can't put `self` inside the report directly.
     #[must_use]
     pub fn to_miette_report(&self) -> Option<miette::Report> {
         match self {
-            Self::YamlParseError(details) => Some(serde_saphyr::miette::to_miette_report(
-                &details.error,
-                details.named_source.inner(),
-                details.named_source.name(),
-            )),
-            Self::SubstitutionError(details) => Some(miette::Report::new(SubstitutionReport {
-                message: format!("{self}"),
-                named_source: NamedSource::new(
+            Self::YamlParseError(details) => {
+                let inner = serde_saphyr::miette::to_miette_report(
+                    &details.error,
+                    details.named_source.inner(),
                     details.named_source.name(),
-                    details.named_source.inner().clone(),
-                ),
-                primary_span: details.primary_span,
-                label_text: details.source.to_string(),
-            })),
+                );
+                let kind = YamlReportKind::for_error(&details.error);
+                Some(miette::Report::new(YamlParseReport { inner, kind }))
+            }
             _ => None,
         }
     }
 }
 
-/// Self-contained `Diagnostic` for a substitution error, owning all its data so it can
-/// power a `'static miette::Report` without having to make `ConfigFileError: Clone`.
-#[derive(Debug)]
-struct SubstitutionReport {
-    message: String,
-    named_source: NamedSource<String>,
-    primary_span: Option<SourceSpan>,
-    label_text: String,
+#[derive(Clone, Copy, Debug)]
+enum YamlReportKind {
+    Substitution,
+    Yaml,
 }
 
-impl std::fmt::Display for SubstitutionReport {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.message)
+impl YamlReportKind {
+    fn for_error(err: &serde_saphyr::Error) -> Self {
+        use serde_saphyr::Error::*;
+
+        match err {
+            UnresolvedProperty { .. }
+            | InvalidPropertyName { .. }
+            | PropertyRequiredButUnset { .. }
+            | PropertyRequiredButEmpty { .. } => Self::Substitution,
+            WithSnippet { error, .. }
+                if matches!(
+                    error.as_ref(),
+                    UnresolvedProperty { .. }
+                        | InvalidPropertyName { .. }
+                        | PropertyRequiredButUnset { .. }
+                        | PropertyRequiredButEmpty { .. }
+                ) =>
+            {
+                Self::Substitution
+            }
+            _ => Self::Yaml,
+        }
+    }
+
+    fn code(self) -> &'static str {
+        match self {
+            Self::Substitution => "martin::config::substitution",
+            Self::Yaml => "martin::config::yaml",
+        }
+    }
+
+    fn help(self) -> &'static str {
+        match self {
+            Self::Substitution => {
+                "Make sure every ${VAR} reference resolves to an environment variable, or supply a default with `${VAR:-fallback}`."
+            }
+            Self::Yaml => {
+                "Check the highlighted token in your YAML. The error usually indicates a mismatched type or an unexpected shape."
+            }
+        }
     }
 }
 
-impl std::error::Error for SubstitutionReport {}
+#[derive(Debug)]
+struct YamlParseReport {
+    inner: miette::Report,
+    kind: YamlReportKind,
+}
 
-impl Diagnostic for SubstitutionReport {
+impl YamlParseReport {
+    fn inner_diag(&self) -> &(dyn Diagnostic + 'static) {
+        <miette::Report as AsRef<dyn Diagnostic>>::as_ref(&self.inner)
+    }
+}
+
+impl std::fmt::Display for YamlParseReport {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Display::fmt(self.inner_diag(), f)
+    }
+}
+
+impl std::error::Error for YamlParseReport {}
+
+impl Diagnostic for YamlParseReport {
     fn code<'a>(&'a self) -> Option<Box<dyn std::fmt::Display + 'a>> {
-        Some(Box::new("martin::config::substitution"))
+        Some(Box::new(self.kind.code()))
     }
 
     fn help<'a>(&'a self) -> Option<Box<dyn std::fmt::Display + 'a>> {
-        Some(Box::new(
-            "Make sure every ${VAR} reference resolves to an environment variable, or supply a default with `${VAR:-fallback}`.",
-        ))
+        Some(Box::new(self.kind.help()))
     }
 
     fn url<'a>(&'a self) -> Option<Box<dyn std::fmt::Display + 'a>> {
         Some(Box::new("https://maplibre.org/martin/config-file/"))
     }
 
+    fn severity(&self) -> Option<miette::Severity> {
+        self.inner_diag().severity()
+    }
+
     fn source_code(&self) -> Option<&dyn SourceCode> {
-        Some(&self.named_source)
+        self.inner_diag().source_code()
     }
 
     fn labels(&self) -> Option<Box<dyn Iterator<Item = LabeledSpan> + '_>> {
-        let span = self.primary_span?;
-        let label = LabeledSpan::new_primary_with_span(Some(self.label_text.clone()), span);
-        Some(Box::new(std::iter::once(label)))
+        self.inner_diag().labels()
+    }
+
+    fn related(&self) -> Option<Box<dyn Iterator<Item = &dyn Diagnostic> + '_>> {
+        self.inner_diag().related()
+    }
+
+    fn diagnostic_source(&self) -> Option<&dyn Diagnostic> {
+        self.inner_diag().diagnostic_source()
     }
 }
 
@@ -195,7 +221,6 @@ impl Diagnostic for ConfigFileError {
             Self::ConfigLoadError(..) => "martin::config::io::load",
             Self::ConfigWriteError(..) => "martin::config::io::write",
             Self::YamlParseError { .. } => "martin::config::yaml",
-            Self::SubstitutionError { .. } => "martin::config::substitution",
             Self::NoSources => "martin::config::no_sources",
             Self::InvalidFilePath(_) => "martin::config::invalid_file_path",
             Self::InvalidSourceUrl(..) => "martin::config::invalid_source_url",
@@ -230,9 +255,6 @@ impl Diagnostic for ConfigFileError {
             Self::CorsNoOriginsConfigured => {
                 "Either set `cors: true` (allow all origins) or provide at least one entry in `origin` under the cors block."
             }
-            Self::SubstitutionError { .. } => {
-                "Make sure every ${VAR} reference resolves to an environment variable, or supply a default with `${VAR:-fallback}`."
-            }
             Self::YamlParseError { .. } => {
                 "Check the highlighted token in your YAML. The error usually indicates a mismatched type or an unexpected shape."
             }
@@ -250,28 +272,10 @@ impl Diagnostic for ConfigFileError {
     }
 
     fn source_code(&self) -> Option<&dyn SourceCode> {
-        // `YamlParseError` is rendered through `serde_saphyr::miette::to_miette_report` in
-        // `to_miette_report`, which carries its own source/labels - we only surface
-        // `source_code` for the substitution path so direct consumers of the `Diagnostic`
-        // trait still get useful output.
-        match self {
-            Self::SubstitutionError(details) => Some(&details.named_source),
-            _ => None,
-        }
+        None
     }
 
     fn labels(&self) -> Option<Box<dyn Iterator<Item = LabeledSpan> + '_>> {
-        let Self::SubstitutionError(details) = self else {
-            return None;
-        };
-        let span = details.primary_span?;
-        let label = LabeledSpan::new_primary_with_span(Some(details.source.to_string()), span);
-        Some(Box::new(std::iter::once(label)))
+        None
     }
-}
-
-/// Locate the failing token in `source_text` that corresponds to a substitution failure.
-fn subst_error_span(error: &subst::Error, source_text: &str) -> Option<SourceSpan> {
-    let range = error.source_range();
-    (range.start < source_text.len()).then(|| SourceSpan::new(range.start.into(), range.len()))
 }
