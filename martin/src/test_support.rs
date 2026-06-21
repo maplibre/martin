@@ -121,8 +121,6 @@ pub(crate) mod duckdb {
             conn.execute_batch("LOAD spatial;")
                 .expect("spatial extension loaded");
             conn.execute_batch(sql).expect("fixture SQL executed");
-            drop(conn);
-
             Self { _dir: dir, path }
         }
 
