@@ -119,7 +119,7 @@ enum YamlReportKind {
 
 impl YamlReportKind {
     fn for_error(err: &serde_saphyr::Error) -> Self {
-        use serde_saphyr::Error::*;
+        use serde_saphyr::Error::{UnresolvedProperty, InvalidPropertyName, PropertyRequiredButUnset, PropertyRequiredButEmpty, WithSnippet};
 
         match err {
             UnresolvedProperty { .. }
