@@ -92,7 +92,7 @@ image-compare = "0.5"
 indicatif = "0.18.3"
 indoc = "2"
 insta = "1.46.3"
-itertools = "0.14"
+itertools = "0.15"
 json-patch = "4"
 lambda-web = { version = "0.2.1", features = ["actix4"] }
 log = "0.4"
@@ -102,7 +102,7 @@ martin-tile-utils = { path = "./martin-tile-utils", version = "0.7.4" }
 mbtiles = { path = "./mbtiles", version = "0.18.0" }
 md5 = "0.8.0"
 miette = { version = "7.6", features = ["fancy"] }
-mlt-core = { version = "0.11.1", default-features = false }
+mlt-core = { version = "0.12", default-features = false }
 moka = { version = "0.12", default-features = false }
 notify = "8.2.0"
 num_cpus = "1"
