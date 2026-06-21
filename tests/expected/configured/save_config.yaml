@@ -7,7 +7,7 @@ listen_addresses: localhost:3111
 worker_processes: 1
 cors:
   origin:
-  - '*'
+  - "*"
   max_age: null
 observability:
   metrics: {}

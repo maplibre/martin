@@ -1,6 +1,6 @@
 [package]
 name = "martin"
-version = "1.10.1"
+version = "1.11.0"
 authors = [
     "Stepan Kuzmin <to.stepan.kuzmin@gmail.com>",
     "Yuri Astrakhan <YuriAstrakhan@gmail.com>",
@@ -201,7 +201,6 @@ serde.workspace = true
 serde-saphyr.workspace = true
 serde_json.workspace = true
 serde_with.workspace = true
-serde_yaml.workspace = true
 static-files = { workspace = true, optional = true }
 subst.workspace = true
 thiserror.workspace = true

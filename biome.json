@@ -1,5 +1,5 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.4.16/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.5.0/schema.json",
   "assist": {
     "actions": {
       "source": {
@@ -27,6 +27,9 @@
     "rules": {
       "correctness": {
         "useExhaustiveDependencies": "off"
+      },
+      "performance": {
+        "noJsxPropsBind": "off"
       },
       "recommended": true
     }

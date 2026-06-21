@@ -16,7 +16,7 @@ tilejson:
   minzoom: 0
   name: table_source
   compression: gzip
-  foo: '{"bar":"foo"}'
+  foo: "{\"bar\":\"foo\"}"
   format: pbf
   generator: martin-cp v0.0.0
 agg_tiles_hash: 7323D1D8A07A7176998822DB65E08567

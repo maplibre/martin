@@ -84,11 +84,11 @@ export function FontCatalog({
                   <Type className="w-5 h-5 text-primary" />
                   <CardTitle className="text-lg font-mono">{name}</CardTitle>
                 </div>
-                {font.format && (
+                {font.format ? (
                   <Badge className="uppercase" variant="secondary">
                     {font.format}
                   </Badge>
-                )}
+                ) : null}
               </div>
               <CardDescription>
                 Family: {font.family} • Style: {font.style}

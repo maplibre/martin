@@ -6,7 +6,7 @@ postgres:
   auto_publish: true
   tables:
     .-Points-----------quote:
-      schema: '"Quotes'' \ \'' \" and Space.Dot.'
+      schema: "\"Quotes' \\ \\' \\\" and Space.Dot."
       table: . Points" \ \' \" 'quote
       srid: 4326
       geometry_column: . ' \ \' \" "Geom"
@@ -17,8 +17,8 @@ postgres:
       - 74.2357328475 # truncated to 10 digits
       geometry_type: POINT
       properties:
-        ''' id ''': int4
-        '.namE ': text
+        "' id '": int4
+        ".namE ": text
     MixPoints:
       schema: MixedCase
       table: MixPoints
@@ -346,7 +346,7 @@ postgres:
   functions:
     -function.withweired---_-characters:
       schema: public
-      function: '"function.withweired$*;_ characters'
+      function: "\"function.withweired$*;_ characters"
     function_Mixed_Name:
       schema: MixedCase
       function: function_Mixed_Name

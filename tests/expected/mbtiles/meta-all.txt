@@ -7,7 +7,7 @@ tilejson:
   - id: cities
     fields:
       name: String
-    description: ''
+    description: ""
     maxzoom: 6
     minzoom: 0
   bounds:
@@ -23,7 +23,7 @@ tilejson:
   maxzoom: 6
   minzoom: 0
   name: Major cities from Natural Earth data
-  version: '2'
+  version: "2"
   format: pbf
 json:
   tilestats:

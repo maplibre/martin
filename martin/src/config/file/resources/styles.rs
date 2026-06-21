@@ -204,7 +204,7 @@ mod tests {
               - /data
         "};
         let cfg: StyleConfig =
-            serde_yaml::from_str(yaml).expect("styles with only paths must parse");
+            serde_saphyr::from_str(yaml).expect("styles with only paths must parse");
         let StyleConfig::Config(cfg) = cfg else {
             panic!("expected Config variant, got {cfg:?}");
         };
@@ -222,7 +222,7 @@ mod tests {
               workers: 4
         "};
         let cfg: InnerStyleConfig =
-            serde_yaml::from_str(yaml).expect("rendering with workers must parse");
+            serde_saphyr::from_str(yaml).expect("rendering with workers must parse");
         let OptBoolObj::Object(renderer) = cfg.rendering else {
             panic!("expected Object variant, got {:?}", cfg.rendering);
         };
@@ -238,7 +238,7 @@ mod tests {
               enabled: true
               workers: 0
         "};
-        let err = serde_yaml::from_str::<InnerStyleConfig>(yaml)
+        let err = serde_saphyr::from_str::<InnerStyleConfig>(yaml)
             .expect_err("workers: 0 must be rejected by NonZeroUsize");
         // sanity check that the error mentions the offending field/value
         let msg = err.to_string();

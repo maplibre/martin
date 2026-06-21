@@ -54,7 +54,7 @@ pub async fn mock_sources(mut config: Config) -> MockSource {
     let res = res.unwrap_or_else(|e| {
         panic!(
             "Failed to resolve config:\n{config}\nBecause {e}",
-            config = serde_yaml::to_string(&config).unwrap()
+            config = serde_saphyr::to_string(&config).unwrap()
         )
     });
     (res, config)
