@@ -125,11 +125,10 @@ mod tests {
     use std::sync::{Arc, Mutex};
 
     use async_trait::async_trait;
-    use rstest::rstest;
-
     use martin_core::CacheZoomRange;
     use martin_core::tiles::{MartinCoreResult, Source, UrlQuery};
     use martin_tile_utils::{Encoding, Format, TileCoord, TileData, TileInfo};
+    use rstest::rstest;
     use tilejson::{TileJSON, tilejson};
 
     use super::*;
