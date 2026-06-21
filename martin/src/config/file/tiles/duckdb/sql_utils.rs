@@ -29,10 +29,7 @@ mod tests {
     #[case::multiple_quotes("a\"\"b", "\"a\"\"\"\"b\"")]
     #[case::dot_in_identifier("schema.table", "\"schema.table\"")]
     #[case::unicode("Straße", "\"Straße\"")]
-    fn escape_identifier_cases(
-        #[case] input: &str,
-        #[case] expected: &str,
-    ) {
+    fn escape_identifier_cases(#[case] input: &str, #[case] expected: &str) {
         assert_eq!(escape_identifier(input), expected);
     }
 
@@ -44,10 +41,7 @@ mod tests {
     #[case::multiple_apostrophes("a''b", "'a''''b'")]
     #[case::double_quotes_preserved("\"quoted\"", "'\"quoted\"'")]
     #[case::unicode("Straße", "'Straße'")]
-    fn escape_sql_string_cases(
-        #[case] input: &str,
-        #[case] expected: &str,
-    ) {
+    fn escape_sql_string_cases(#[case] input: &str, #[case] expected: &str) {
         assert_eq!(escape_sql_string(input), expected);
     }
 
@@ -56,10 +50,7 @@ mod tests {
     #[case::web_mercator(3857, "'EPSG:3857'")]
     #[case::zero(0, "'EPSG:0'")]
     #[case::negative(-1, "'EPSG:-1'")]
-    fn epsg_crs_cases(
-        #[case] srid: i32,
-        #[case] expected: &str,
-    ) {
+    fn epsg_crs_cases(#[case] srid: i32, #[case] expected: &str) {
         assert_eq!(epsg_crs(srid), expected);
     }
 }

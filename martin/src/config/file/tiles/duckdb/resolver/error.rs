@@ -7,9 +7,7 @@ pub type BoundsResult<T> = Result<T, BoundsError>;
 #[derive(thiserror::Error, Debug)]
 pub enum BoundsError {
     /// A bounds query failed to execute.
-    #[error(
-        "Error computing DuckDB bounds for '{relation}' ({signature}): {query} {source}"
-    )]
+    #[error("Error computing DuckDB bounds for '{relation}' ({signature}): {query} {source}")]
     Query {
         /// The underlying `DuckDB` error.
         #[source]

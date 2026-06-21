@@ -3,9 +3,9 @@ use tilejson::Bounds;
 use tokio::time::timeout;
 use tracing::warn;
 
+use crate::config::args::{BoundsCalcType, DEFAULT_BOUNDS_TIMEOUT};
 use crate::config::file::tiles::duckdb::resolver::error::{BoundsError, BoundsResult};
 use crate::config::file::tiles::duckdb::sql_utils::{epsg_crs, escape_identifier};
-use crate::config::args::{BoundsCalcType, DEFAULT_BOUNDS_TIMEOUT};
 
 /// How [`calc_bounds`] should compute a relation's geometry bounds.
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -121,9 +121,7 @@ FROM (
 WHERE out_box IS NOT NULL;"
         );
 
-        if let Ok(Some(bounds)) =
-            fetch_bounds(pool, relation, query, "approx-bounds").await
-        {
+        if let Ok(Some(bounds)) = fetch_bounds(pool, relation, query, "approx-bounds").await {
             return Ok(Some(bounds));
         }
         warn!(
