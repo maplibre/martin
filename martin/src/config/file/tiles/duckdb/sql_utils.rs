@@ -17,25 +17,49 @@ pub fn epsg_crs(srid: i32) -> String {
 }
 
 #[cfg(test)]
-#[cfg(feature = "unstable-duckdb")]
 mod tests {
-    use super::{epsg_crs, escape_identifier, escape_sql_string};
+    use super::*;
+    use rstest::rstest;
 
-    #[test]
-    fn escapes_identifier_with_quotes() {
-        assert_eq!(escape_identifier("roads"), "\"roads\"");
-        assert_eq!(escape_identifier("my\"table"), "\"my\"\"table\"");
+    #[rstest]
+    #[case::simple("roads", "\"roads\"")]
+    #[case::embedded_quote("my\"table", "\"my\"\"table\"")]
+    #[case::empty("", "\"\"")]
+    #[case::quote_only("\"", "\"\"\"\"")]
+    #[case::multiple_quotes("a\"\"b", "\"a\"\"\"\"b\"")]
+    #[case::dot_in_identifier("schema.table", "\"schema.table\"")]
+    #[case::unicode("Straße", "\"Straße\"")]
+    fn escape_identifier_cases(
+        #[case] input: &str,
+        #[case] expected: &str,
+    ) {
+        assert_eq!(escape_identifier(input), expected);
     }
 
-    #[test]
-    fn escapes_sql_string_with_apostrophe() {
-        assert_eq!(escape_sql_string("simple"), "'simple'");
-        assert_eq!(escape_sql_string("O'Brien"), "'O''Brien'");
+    #[rstest]
+    #[case::simple("simple", "'simple'")]
+    #[case::embedded_apostrophe("O'Brien", "'O''Brien'")]
+    #[case::empty("", "''")]
+    #[case::apostrophe_only("'", "''''")]
+    #[case::multiple_apostrophes("a''b", "'a''''b'")]
+    #[case::double_quotes_preserved("\"quoted\"", "'\"quoted\"'")]
+    #[case::unicode("Straße", "'Straße'")]
+    fn escape_sql_string_cases(
+        #[case] input: &str,
+        #[case] expected: &str,
+    ) {
+        assert_eq!(escape_sql_string(input), expected);
     }
 
-    #[test]
-    fn formats_epsg_crs() {
-        assert_eq!(epsg_crs(4326), "'EPSG:4326'");
-        assert_eq!(epsg_crs(3857), "'EPSG:3857'");
+    #[rstest]
+    #[case::wgs84(4326, "'EPSG:4326'")]
+    #[case::web_mercator(3857, "'EPSG:3857'")]
+    #[case::zero(0, "'EPSG:0'")]
+    #[case::negative(-1, "'EPSG:-1'")]
+    fn epsg_crs_cases(
+        #[case] srid: i32,
+        #[case] expected: &str,
+    ) {
+        assert_eq!(epsg_crs(srid), expected);
     }
 }
