@@ -8,9 +8,8 @@ use std::time::Duration;
 
 use bytes::Bytes;
 use martin_core::CacheZoomRange;
-use martin_core::tiles::MartinCoreError;
-use martin_core::tiles::Source as _;
 use martin_core::tiles::pmtiles::{PmtCache, PmtCacheInstance, PmtilesError, PmtilesSource};
+use martin_core::tiles::{MartinCoreError, Source as _};
 use martin_tile_utils::{Encoding, Format, TileCoord};
 use object_store::local::LocalFileSystem;
 use object_store::memory::InMemory;
