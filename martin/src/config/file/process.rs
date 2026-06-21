@@ -87,15 +87,12 @@ impl MltEncoderConfig {
     }
 }
 
-/// Applying `MltEncoderConfig` overrides on top of `EncoderConfig` defaults.
-///
-/// Uses exhaustive destructuring of both structs so that adding a field
-/// to either `MltEncoderConfig` or `EncoderConfig` causes a compile error
-/// until this conversion is updated.
+/// Applies `MltEncoderConfig` overrides on top of `EncoderConfig` defaults:
+/// a set field overrides the default, an unset (`None`) field keeps it.
 #[cfg(all(feature = "mlt", feature = "_tiles"))]
 impl From<MltEncoderConfig> for EncoderConfig {
     fn from(src: MltEncoderConfig) -> Self {
-        // Destructure both so new fields cause a compile error.
+        // Destructure so new fields cause a compile error.
         let MltEncoderConfig {
             tessellate,
             try_spatial_morton_sort,
@@ -109,17 +106,29 @@ impl From<MltEncoderConfig> for EncoderConfig {
             unrecognized: _,
         } = src;
 
-        Self {
-            tessellate: tessellate.unwrap_or(Self::default().tessellate),
-            try_spatial_morton_sort: try_spatial_morton_sort
-                .unwrap_or(Self::default().try_spatial_morton_sort),
-            try_spatial_hilbert_sort: try_spatial_hilbert_sort
-                .unwrap_or(Self::default().try_spatial_hilbert_sort),
-            try_id_sort: try_id_sort.unwrap_or(Self::default().try_id_sort),
-            allow_fsst: allow_fsst.unwrap_or(Self::default().allow_fsst),
-            allow_fastpfor: allow_fastpfor.unwrap_or(Self::default().allow_fastpfor),
-            allow_shared_dict: allow_shared_dict.unwrap_or(Self::default().allow_shared_dict),
+        let mut cfg = Self::default();
+        if let Some(v) = tessellate {
+            cfg = cfg.with_tessellation(v);
         }
+        if let Some(v) = try_spatial_morton_sort {
+            cfg = cfg.with_spatial_morton_sort(v);
+        }
+        if let Some(v) = try_spatial_hilbert_sort {
+            cfg = cfg.with_spatial_hilbert_sort(v);
+        }
+        if let Some(v) = try_id_sort {
+            cfg = cfg.with_id_sort(v);
+        }
+        if let Some(v) = allow_fsst {
+            cfg = cfg.with_fsst(v);
+        }
+        if let Some(v) = allow_fastpfor {
+            cfg = cfg.with_fastpfor(v);
+        }
+        if let Some(v) = allow_shared_dict {
+            cfg = cfg.with_shared_dict(v);
+        }
+        cfg
     }
 }
 

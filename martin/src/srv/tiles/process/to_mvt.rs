@@ -45,19 +45,21 @@ pub fn convert_mlt_to_mvt(tile: Tile) -> Result<Tile, ProcessError> {
 #[cfg(test)]
 pub(super) fn mvt_with_feature_bytes() -> Vec<u8> {
     use mlt_core::geo_types::{Geometry, Point};
-    use mlt_core::{PropValue, TileFeature, TileLayer};
+    use mlt_core::{PropKind, PropValue, TileLayer};
 
-    let layer = TileLayer {
-        name: "test".to_string(),
-        extent: 4096,
-        property_names: vec!["name".to_string()],
-        features: vec![TileFeature {
-            id: Some(1),
-            geometry: Geometry::Point(Point::new(100, 200)),
-            properties: vec![PropValue::Str(Some("hello".to_string()))],
-        }],
-    };
-    tile_layers_to_mvt(vec![layer]).expect("encode test MVT")
+    let mut builder = TileLayer::builder("test", 4096).expect("layer builder");
+    let name_key = builder
+        .add_property("name", PropKind::Str)
+        .expect("add property");
+    {
+        let mut feature = builder.feature(Geometry::Point(Point::new(100, 200)));
+        feature.id(Some(1));
+        feature
+            .property(name_key, PropValue::Str(Some("hello".to_string())))
+            .expect("set property");
+        feature.finish().expect("finish feature");
+    }
+    tile_layers_to_mvt(vec![builder.finish()]).expect("encode test MVT")
 }
 
 /// Build a minimal valid MVT tile bytes for tests: one empty layer.
@@ -65,12 +67,9 @@ pub(super) fn mvt_with_feature_bytes() -> Vec<u8> {
 pub(super) fn empty_layer_mvt_bytes() -> Vec<u8> {
     use mlt_core::TileLayer;
 
-    let layer = TileLayer {
-        name: "x".to_string(),
-        extent: 4096,
-        property_names: vec![],
-        features: vec![],
-    };
+    let layer = TileLayer::builder("x", 4096)
+        .expect("layer builder")
+        .finish();
     tile_layers_to_mvt(vec![layer]).expect("encode empty MVT")
 }
 
@@ -104,8 +103,8 @@ mod tests {
 
         let layers = mvt_to_tile_layers(result.data).expect("decode MVT");
         assert_eq!(layers.len(), 1);
-        assert_eq!(layers[0].name, "test");
-        assert_eq!(layers[0].features.len(), 1);
+        assert_eq!(layers[0].name(), "test");
+        assert_eq!(layers[0].features().len(), 1);
     }
 
     /// Gzip-compressed MLT is not typically recommended, but it is valid and can be decoded.
