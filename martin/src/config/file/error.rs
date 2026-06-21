@@ -271,8 +271,13 @@ impl Diagnostic for ConfigFileError {
         Some(Box::new("https://maplibre.org/martin/config-file/"))
     }
 
+    // Carets and labels come from `to_miette_report`.
+    // Surface the file here so direct rendering still shows it.
     fn source_code(&self) -> Option<&dyn SourceCode> {
-        None
+        match self {
+            Self::YamlParseError(details) => Some(&details.named_source),
+            _ => None,
+        }
     }
 
     fn labels(&self) -> Option<Box<dyn Iterator<Item = LabeledSpan> + '_>> {
