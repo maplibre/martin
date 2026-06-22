@@ -17,13 +17,7 @@ use crate::tiles::passthrough::url::{
 };
 use crate::tiles::{BoxedSource, MartinCoreError, MartinCoreResult, Source, Tile, UrlQuery};
 
-/// Default per-request timeout when none is configured.
-const DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);
-
 /// HTTP transport settings applied to both `TileJSON` discovery and per-tile fetches.
-///
-/// The `martin` config layer parses operator-supplied header strings into a [`HeaderMap`] before
-/// constructing this; `martin-core` consumes the already-validated values.
 #[derive(Clone, Debug)]
 pub struct Transport {
     /// Headers sent with every request.
@@ -32,21 +26,19 @@ pub struct Transport {
     pub timeout: Duration,
 }
 
-impl Default for Transport {
-    fn default() -> Self {
+impl Transport {
+    /// A transport with the given per-request timeout and no extra headers.
+    #[must_use]
+    pub fn new(timeout: Duration) -> Self {
         Self {
             headers: HeaderMap::new(),
-            timeout: DEFAULT_TIMEOUT,
+            timeout,
         }
     }
 }
 
-/// Operator-declared metadata for a template upstream.
-///
-/// A template upstream carries no metadata of its own (unlike a `TileJSON` document), so an
-/// operator supplies it here. Every field is optional and copied verbatim into the served
-/// `TileJSON`; nothing is fabricated.
-#[derive(Clone, Debug, Default)]
+/// Operator-supplied metadata for a template upstream.
+#[derive(Clone, Debug)]
 pub struct TemplateMeta {
     /// Minimum zoom level.
     pub minzoom: Option<u8>,
@@ -100,9 +92,6 @@ impl TemplateSet {
 }
 
 /// A classified passthrough upstream.
-///
-/// The two arms are genuinely distinct: a template upstream needs operator-supplied format and
-/// metadata, whereas a `TileJSON` document supplies its own tiles and metadata.
 #[derive(Clone, Debug)]
 pub enum Upstream {
     /// One or more `{z}/{x}/{y}` templates plus operator-declared format and metadata.
@@ -119,12 +108,9 @@ pub enum Upstream {
 impl Upstream {
     /// Classify raw config URL strings into a typed upstream.
     ///
-    /// This is the boundary helper the `martin` config layer calls; [`PassthroughSource`] itself
-    /// only ever sees the already-classified result. A lone non-template URL is a
-    /// [`Upstream::TileJson`] document; one or more `{z}/{x}/{y}` templates become
-    /// [`Upstream::Templates`] with `meta` and a format resolved from the explicit override or the
-    /// first template's extension. `meta` is ignored for the `TileJSON` arm, which derives its
-    /// metadata from the document.
+    /// A lone non-template URL becomes a [`Upstream::TileJson`] document; otherwise the URLs are
+    /// `{z}/{x}/{y}` templates whose `format` is resolved from the override or the first extension.
+    /// `meta` applies only to the templates arm.
     pub fn from_config(
         id: &str,
         urls: &[String],
@@ -358,8 +344,7 @@ async fn fetch_tilejson(client: &reqwest::Client, url: &str) -> Result<TileJSON,
     })
 }
 
-/// Build the `TileJSON` served for a template source: only `tilejson` + `tiles[]` plus any
-/// operator-declared metadata. No defaults are fabricated and `vector_layers` is left unset.
+/// Build the `TileJSON` served for a template source from its templates and operator-declared metadata.
 fn build_template_tilejson(templates: &[String], meta: &TemplateMeta) -> TileJSON {
     let mut tj = tilejson! { tiles: templates.to_vec() };
     tj.minzoom = meta.minzoom;

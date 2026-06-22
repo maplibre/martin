@@ -1,6 +1,8 @@
 #![cfg(feature = "passthrough")]
 #![allow(clippy::unwrap_used)]
 
+use std::time::Duration;
+
 use martin_core::CacheZoomRange;
 use martin_core::tiles::Source as _;
 use martin_core::tiles::passthrough::{PassthroughSource, TemplateMeta, Transport, Upstream};
@@ -13,13 +15,22 @@ fn coord(z: u8, x: u32, y: u32) -> TileCoord {
     TileCoord::new_unchecked(z, x, y)
 }
 
+fn empty_meta() -> TemplateMeta {
+    TemplateMeta {
+        minzoom: None,
+        maxzoom: None,
+        bounds: None,
+        attribution: None,
+    }
+}
+
 /// A single-template upstream pointing at `{server}/{z}/{x}/{y}.pbf`.
 fn templates(server: &MockServer, format: Option<Format>) -> Upstream {
     Upstream::from_config(
         "t",
         &[format!("{}/{{z}}/{{x}}/{{y}}.pbf", server.uri())],
         format,
-        TemplateMeta::default(),
+        empty_meta(),
     )
     .unwrap()
 }
@@ -28,7 +39,7 @@ async fn build(id: &str, upstream: Upstream) -> PassthroughSource {
     PassthroughSource::new(
         id.into(),
         upstream,
-        Transport::default(),
+        Transport::new(Duration::from_secs(30)),
         CacheZoomRange::default(),
     )
     .await
@@ -135,8 +146,8 @@ async fn template_meta_flows_into_served_tilejson() {
     let meta = TemplateMeta {
         minzoom: Some(3),
         maxzoom: Some(9),
+        bounds: None,
         attribution: Some("© test".into()),
-        ..TemplateMeta::default()
     };
     let upstream = Upstream::from_config(
         "t",
@@ -179,7 +190,7 @@ async fn discovers_templates_from_tilejson() {
         "t",
         &[format!("{}/tiles.json", server.uri())],
         None,
-        TemplateMeta::default(),
+        empty_meta(),
     )
     .unwrap();
     assert!(matches!(upstream, Upstream::TileJson { .. }));
