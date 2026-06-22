@@ -149,6 +149,7 @@ unstable-schemas = [
     "sprites",
     "styles",
 ]
+unstable-duckdb = ["martin-core/unstable-duckdb", "dep:duckdb", "dep:enum-display", "_tiles"]
 hotpath = [
     "hotpath/hotpath",
     "hotpath-alloc",
@@ -159,6 +160,7 @@ hotpath = [
 hotpath-alloc = ["hotpath/hotpath-alloc"]
 hotpath_tui = ["hotpath", "hotpath/tui"]
 test-pg = ["postgres"]
+test-duckdb = ["unstable-duckdb"]
 test-minio = ["pmtiles"]
 
 [dependencies]
@@ -172,6 +174,7 @@ actix-web-static-files = { workspace = true, optional = true }
 async-trait.workspace = true
 clap.workspace = true
 dashmap.workspace = true
+duckdb = { workspace = true, optional = true }
 enum-display = { workspace = true, optional = true }
 futures.workspace = true
 hotpath.workspace = true
@@ -222,6 +225,7 @@ walkdir = { workspace = true, optional = true }
 [dev-dependencies]
 backon.workspace = true
 criterion.workspace = true
+duckdb.workspace = true
 image-compare.workspace = true
 indoc.workspace = true
 insta = { workspace = true, features = ["json", "yaml", "redactions"] }

@@ -29,7 +29,7 @@ pub mod cog;
 /// Implementation of `PostgreSQL`' [`Source`].
 pub mod postgres;
 
-#[cfg(feature = "duckdb")]
+#[cfg(feature = "unstable-duckdb")]
 /// Implementation of `DuckDB`' [`Source`].
 pub mod duckdb;
 

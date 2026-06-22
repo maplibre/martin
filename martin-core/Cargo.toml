@@ -13,7 +13,7 @@ homepage.workspace = true
 
 [features]
 default = [
-    "duckdb",
+    "unstable-duckdb",
     "fonts",
     "mbtiles",
     "metrics",
@@ -60,7 +60,15 @@ styles = ["tokio/fs", "dep:dashmap", "dep:walkdir"]
 mbtiles = ["dep:backon", "dep:mbtiles", "dep:tokio", "_tiles"]
 pmtiles = ["dep:pmtiles", "dep:object_store", "_tiles"]
 passthrough = ["dep:reqwest", "dep:serde_json", "_tiles"]
-duckdb = ["dep:duckdb", "_tiles", "dep:deadpool", "dep:url", "dep:tokio", "tokio/rt"]
+unstable-duckdb = [
+    "dep:duckdb",
+    "_tiles",
+    "dep:deadpool",
+    "dep:url",
+    "dep:tokio",
+    "tokio/rt",
+    "tokio/rt-multi-thread",
+]
 _tiles = ["dep:base64"]
 test-pg = ["postgres"]
 unstable-schemas = ["dep:schemars", "dep:utoipa"]
