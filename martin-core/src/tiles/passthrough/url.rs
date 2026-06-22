@@ -1,4 +1,4 @@
-//! Pure URL handling for the passthrough source: template detection, `{z}/{x}/{y}`
+//! Pure URL handling for the passthrough source: template validation, `{z}/{x}/{y}`
 //! substitution, deterministic per-tile template selection, and layered format derivation.
 //!
 //! Everything here is side-effect free so it can be unit-tested without a network.
@@ -10,39 +10,29 @@ use xxhash_rust::xxh3::Xxh3;
 
 use crate::tiles::passthrough::PassthroughError;
 
-/// How the upstream tile URLs were specified in the configuration.
+/// A validated `{z}/{x}/{y}` tile-URL template, guaranteed to contain all three placeholders.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum UrlSpec {
-    /// One or more `{z}/{x}/{y}` tile-URL templates, selected deterministically per tile.
-    Templates(Vec<String>),
-    /// A `TileJSON` document URL whose `tiles` array supplies the templates.
-    TileJson(String),
-}
+pub struct UrlTemplate(String);
 
-impl UrlSpec {
-    /// Classify raw configuration URL strings into a set of templates or a `TileJSON` URL.
-    ///
-    /// A lone URL is a [`UrlSpec::TileJson`] document unless it contains `{z}/{x}/{y}`
-    /// placeholders; any list (or a single placeholder URL) is treated as
-    /// [`UrlSpec::Templates`], and every template is validated to contain all three placeholders.
-    pub fn detect(id: &str, urls: &[String]) -> Result<Self, PassthroughError> {
-        match urls {
-            [] => Err(PassthroughError::EmptyUrlList(id.to_string())),
-            [single] if !is_template(single) => Ok(Self::TileJson(single.clone())),
-            templates => {
-                for url in templates {
-                    if !is_template(url) {
-                        return Err(PassthroughError::InvalidUrlTemplate(url.clone()));
-                    }
-                }
-                Ok(Self::Templates(templates.to_vec()))
-            }
+impl UrlTemplate {
+    /// Wrap a raw template string, rejecting one that is missing any of `{z}`, `{x}` or `{y}`.
+    pub fn new(url: String) -> Result<Self, PassthroughError> {
+        if is_template(&url) {
+            Ok(Self(url))
+        } else {
+            Err(PassthroughError::InvalidUrlTemplate(url))
         }
+    }
+
+    /// The underlying template string.
+    #[must_use]
+    pub fn as_str(&self) -> &str {
+        &self.0
     }
 }
 
 /// Returns `true` if `url` contains all of the `{z}`, `{x}` and `{y}` placeholders.
-fn is_template(url: &str) -> bool {
+pub(crate) fn is_template(url: &str) -> bool {
     url.contains("{z}") && url.contains("{x}") && url.contains("{y}")
 }
 
@@ -50,7 +40,7 @@ fn is_template(url: &str) -> bool {
 ///
 /// No other placeholders (`{s}`, `{quadkey}`, `{bbox-epsg-3857}`, …) and no y-flip are handled.
 #[must_use]
-pub fn substitute(template: &str, xyz: TileCoord) -> String {
+pub(crate) fn substitute(template: &str, xyz: TileCoord) -> String {
     template
         .replace("{z}", &xyz.z.to_string())
         .replace("{x}", &xyz.x.to_string())
@@ -62,7 +52,7 @@ pub fn substitute(template: &str, xyz: TileCoord) -> String {
 ///
 /// Assumes `urls` is non-empty; the modulo keeps the index in range.
 #[must_use]
-pub fn select_url(urls: &[String], xyz: TileCoord) -> &str {
+pub(crate) fn select_url(urls: &[String], xyz: TileCoord) -> &str {
     if let [single] = urls {
         return single;
     }
@@ -76,7 +66,7 @@ pub fn select_url(urls: &[String], xyz: TileCoord) -> &str {
 
 /// Derive the source-level tile [`Format`] from the configured layers, most-specific first:
 /// explicit config -> tile URL extension -> upstream `TileJSON` `format`. Errors if none apply.
-pub fn derive_format(
+pub(crate) fn derive_format(
     id: &str,
     cfg_format: Option<Format>,
     url_for_ext: &str,
@@ -98,7 +88,7 @@ fn extension_format(url: &str) -> Option<Format> {
 
 #[cfg(test)]
 mod tests {
-    use martin_tile_utils::TileCoord;
+    use martin_tile_utils::{Format, TileCoord};
     use rstest::rstest;
 
     use super::*;
@@ -107,40 +97,21 @@ mod tests {
         TileCoord::new_unchecked(z, x, y)
     }
 
-    fn owned(urls: &[&str]) -> Vec<String> {
-        urls.iter().map(ToString::to_string).collect()
-    }
-
     #[rstest]
-    #[case::single_tilejson(&["https://e.com/tiles.json"], UrlSpec::TileJson("https://e.com/tiles.json".to_string()))]
-    #[case::single_template(&["https://e.com/{z}/{x}/{y}.pbf"], UrlSpec::Templates(owned(&["https://e.com/{z}/{x}/{y}.pbf"])))]
-    #[case::template_list(&["https://a/{z}/{x}/{y}.pbf", "https://b/{z}/{x}/{y}.pbf"], UrlSpec::Templates(owned(&["https://a/{z}/{x}/{y}.pbf", "https://b/{z}/{x}/{y}.pbf"])))]
-    fn detects_url_spec(#[case] urls: &[&str], #[case] expected: UrlSpec) {
-        assert_eq!(UrlSpec::detect("s", &owned(urls)).unwrap(), expected);
-    }
-
-    #[test]
-    fn detect_rejects_empty_and_partial_templates() {
-        assert!(matches!(
-            UrlSpec::detect("s", &[]),
-            Err(PassthroughError::EmptyUrlList(_))
-        ));
-        let bad = vec![
-            "https://a/{z}/{x}/{y}.pbf".to_string(),
-            "https://b/tiles.json".to_string(),
-        ];
-        assert!(matches!(
-            UrlSpec::detect("s", &bad),
-            Err(PassthroughError::InvalidUrlTemplate(_))
-        ));
-        let partial = vec![
-            "https://a/{z}/{x}.pbf".to_string(),
-            "https://b/{z}/{x}/{y}.pbf".to_string(),
-        ];
-        assert!(matches!(
-            UrlSpec::detect("s", &partial),
-            Err(PassthroughError::InvalidUrlTemplate(_))
-        ));
+    #[case::full("https://e.com/{z}/{x}/{y}.pbf", true)]
+    #[case::missing_y("https://e.com/{z}/{x}.pbf", false)]
+    #[case::tilejson("https://e.com/tiles.json", false)]
+    fn url_template_validates_placeholders(#[case] url: &str, #[case] ok: bool) {
+        let parsed = UrlTemplate::new(url.to_string());
+        assert_eq!(parsed.is_ok(), ok);
+        if ok {
+            assert_eq!(parsed.unwrap().as_str(), url);
+        } else {
+            assert!(matches!(
+                parsed,
+                Err(PassthroughError::InvalidUrlTemplate(_))
+            ));
+        }
     }
 
     #[test]

@@ -1,6 +1,5 @@
 //! The [`PassthroughSource`] [`Source`] implementation and its HTTP fetch logic.
 
-use std::collections::HashMap;
 use std::time::Duration;
 
 use async_trait::async_trait;
@@ -13,51 +12,140 @@ use tilejson::{Bounds, TileJSON, tilejson};
 
 use crate::CacheZoomRange;
 use crate::tiles::passthrough::PassthroughError;
-use crate::tiles::passthrough::url::{UrlSpec, derive_format, select_url, substitute};
+use crate::tiles::passthrough::url::{
+    UrlTemplate, derive_format, is_template, select_url, substitute,
+};
 use crate::tiles::{BoxedSource, MartinCoreError, MartinCoreResult, Source, Tile, UrlQuery};
 
-/// Default per-request timeout when the configuration does not specify one.
+/// Default per-request timeout when none is configured.
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);
 
-/// Resolved configuration for a single passthrough source.
+/// HTTP transport settings applied to both `TileJSON` discovery and per-tile fetches.
 ///
-/// The `martin` config layer is responsible for env-var substitution in `urls`/`headers` before
-/// constructing this; `martin-core` consumes the already-resolved values.
+/// The `martin` config layer parses operator-supplied header strings into a [`HeaderMap`] before
+/// constructing this; `martin-core` consumes the already-validated values.
 #[derive(Clone, Debug)]
-pub struct PassthroughConfig {
-    /// Upstream URL(s): a single `TileJSON` document URL, a single `{z}/{x}/{y}` template, or a
-    /// list of templates.
-    pub urls: Vec<String>,
-    /// Headers sent with every request (both `TileJSON` discovery and per-tile fetches).
-    pub headers: HashMap<String, String>,
+pub struct Transport {
+    /// Headers sent with every request.
+    pub headers: HeaderMap,
     /// Per-request timeout.
     pub timeout: Duration,
-    /// Explicit format override; takes precedence over URL extension and `TileJSON`.
-    pub format: Option<Format>,
-    /// User-declared minimum zoom (template case only; no value is fabricated).
-    pub minzoom: Option<u8>,
-    /// User-declared maximum zoom (template case only; no value is fabricated).
-    pub maxzoom: Option<u8>,
-    /// User-declared bounds (template case only).
-    pub bounds: Option<Bounds>,
-    /// User-declared attribution (template case only).
-    pub attribution: Option<String>,
-    /// Zoom range controlling which zoom levels are cached.
-    pub cache_zoom: CacheZoomRange,
 }
 
-impl Default for PassthroughConfig {
+impl Default for Transport {
     fn default() -> Self {
         Self {
-            urls: Vec::new(),
-            headers: HashMap::new(),
+            headers: HeaderMap::new(),
             timeout: DEFAULT_TIMEOUT,
-            format: None,
-            minzoom: None,
-            maxzoom: None,
-            bounds: None,
-            attribution: None,
-            cache_zoom: CacheZoomRange::default(),
+        }
+    }
+}
+
+/// Operator-declared metadata for a template upstream.
+///
+/// A template upstream carries no metadata of its own (unlike a `TileJSON` document), so an
+/// operator supplies it here. Every field is optional and copied verbatim into the served
+/// `TileJSON`; nothing is fabricated.
+#[derive(Clone, Debug, Default)]
+pub struct TemplateMeta {
+    /// Minimum zoom level.
+    pub minzoom: Option<u8>,
+    /// Maximum zoom level.
+    pub maxzoom: Option<u8>,
+    /// Geographic bounds.
+    pub bounds: Option<Bounds>,
+    /// Attribution string.
+    pub attribution: Option<String>,
+}
+
+/// A non-empty set of `{z}/{x}/{y}` templates together with the format and metadata an operator
+/// must supply for them.
+#[derive(Clone, Debug)]
+pub struct TemplateSet {
+    urls: Vec<UrlTemplate>,
+    format: Format,
+    meta: TemplateMeta,
+}
+
+impl TemplateSet {
+    /// Build a template set, rejecting an empty URL list.
+    pub fn new(
+        urls: Vec<UrlTemplate>,
+        format: Format,
+        meta: TemplateMeta,
+    ) -> Result<Self, PassthroughError> {
+        if urls.is_empty() {
+            return Err(PassthroughError::EmptyUrlList);
+        }
+        Ok(Self { urls, format, meta })
+    }
+
+    /// The configured templates, guaranteed non-empty.
+    #[must_use]
+    pub fn urls(&self) -> &[UrlTemplate] {
+        &self.urls
+    }
+
+    /// The resolved tile format.
+    #[must_use]
+    pub fn format(&self) -> Format {
+        self.format
+    }
+
+    /// The operator-declared metadata.
+    #[must_use]
+    pub fn meta(&self) -> &TemplateMeta {
+        &self.meta
+    }
+}
+
+/// A classified passthrough upstream.
+///
+/// The two arms are genuinely distinct: a template upstream needs operator-supplied format and
+/// metadata, whereas a `TileJSON` document supplies its own tiles and metadata.
+#[derive(Clone, Debug)]
+pub enum Upstream {
+    /// One or more `{z}/{x}/{y}` templates plus operator-declared format and metadata.
+    Templates(TemplateSet),
+    /// A `TileJSON` document URL; tiles, zoom, bounds and attribution come from the document.
+    TileJson {
+        /// The document URL.
+        url: String,
+        /// Explicit format override; otherwise derived from the document.
+        format: Option<Format>,
+    },
+}
+
+impl Upstream {
+    /// Classify raw config URL strings into a typed upstream.
+    ///
+    /// This is the boundary helper the `martin` config layer calls; [`PassthroughSource`] itself
+    /// only ever sees the already-classified result. A lone non-template URL is a
+    /// [`Upstream::TileJson`] document; one or more `{z}/{x}/{y}` templates become
+    /// [`Upstream::Templates`] with `meta` and a format resolved from the explicit override or the
+    /// first template's extension. `meta` is ignored for the `TileJSON` arm, which derives its
+    /// metadata from the document.
+    pub fn from_config(
+        id: &str,
+        urls: &[String],
+        format: Option<Format>,
+        meta: TemplateMeta,
+    ) -> Result<Self, PassthroughError> {
+        match urls {
+            [] => Err(PassthroughError::EmptyUrlList),
+            [single] if !is_template(single) => Ok(Self::TileJson {
+                url: single.clone(),
+                format,
+            }),
+            raw => {
+                let first = raw.first().ok_or(PassthroughError::EmptyUrlList)?;
+                let format = derive_format(id, format, first, None)?;
+                let templates = raw
+                    .iter()
+                    .map(|u| UrlTemplate::new(u.clone()))
+                    .collect::<Result<Vec<_>, _>>()?;
+                Ok(Self::Templates(TemplateSet::new(templates, format, meta)?))
+            }
         }
     }
 }
@@ -73,7 +161,9 @@ pub struct PassthroughSource {
     tile_info: TileInfo,
     cache_zoom: CacheZoomRange,
     /// Kept so [`try_reload`](Source::try_reload) can rebuild (and re-fetch `TileJSON`) from scratch.
-    config: PassthroughConfig,
+    upstream: Upstream,
+    /// Kept so [`try_reload`](Source::try_reload) can rebuild the HTTP client.
+    transport: Transport,
 }
 
 /// A tile fetched from the upstream, before it is wrapped into a [`Tile`].
@@ -85,29 +175,30 @@ struct FetchedTile {
 }
 
 impl PassthroughSource {
-    /// Build a passthrough source, fetching the upstream `TileJSON` once if a document URL was given.
-    pub async fn new(id: String, config: PassthroughConfig) -> Result<Self, PassthroughError> {
-        let spec = UrlSpec::detect(&id, &config.urls)?;
-        let client = build_client(&config.headers, config.timeout)?;
+    /// Build a passthrough source, fetching the upstream `TileJSON` once for a document upstream.
+    pub async fn new(
+        id: String,
+        upstream: Upstream,
+        transport: Transport,
+        cache_zoom: CacheZoomRange,
+    ) -> Result<Self, PassthroughError> {
+        let client = build_client(&transport)?;
 
-        let (urls, tilejson, tile_info) = match spec {
-            UrlSpec::Templates(templates) => {
-                let first = templates
-                    .first()
-                    .ok_or_else(|| PassthroughError::EmptyUrlList(id.clone()))?;
-                let format = derive_format(&id, config.format, first, None)?;
-                let tilejson = build_template_tilejson(&templates, &config);
-                (templates, tilejson, TileInfo::from(format))
+        let (urls, tilejson, tile_info) = match &upstream {
+            Upstream::Templates(set) => {
+                let urls: Vec<String> = set.urls().iter().map(|t| t.as_str().to_string()).collect();
+                let tilejson = build_template_tilejson(&urls, set.meta());
+                (urls, tilejson, TileInfo::from(set.format()))
             }
-            UrlSpec::TileJson(doc_url) => {
-                let upstream = fetch_tilejson(&client, &doc_url).await?;
-                let templates = upstream.tiles.clone();
+            Upstream::TileJson { url, format } => {
+                let upstream_tj = fetch_tilejson(&client, url).await?;
+                let templates = upstream_tj.tiles.clone();
                 let first = templates
                     .first()
-                    .ok_or_else(|| PassthroughError::NoTilesInTileJson(doc_url.clone()))?;
-                let tj_format = upstream.other.get("format").and_then(|v| v.as_str());
-                let format = derive_format(&id, config.format, first, tj_format)?;
-                (templates, upstream, TileInfo::from(format))
+                    .ok_or_else(|| PassthroughError::NoTilesInTileJson(url.clone()))?;
+                let tj_format = upstream_tj.other.get("format").and_then(|v| v.as_str());
+                let format = derive_format(&id, *format, first, tj_format)?;
+                (templates, upstream_tj, TileInfo::from(format))
             }
         };
 
@@ -117,8 +208,9 @@ impl PassthroughSource {
             urls,
             tilejson,
             tile_info,
-            cache_zoom: config.cache_zoom,
-            config,
+            cache_zoom,
+            upstream,
+            transport,
         })
     }
 
@@ -207,26 +299,21 @@ impl Source for PassthroughSource {
     }
 
     async fn try_reload(&self) -> MartinCoreResult<BoxedSource> {
-        Self::new(self.id.clone(), self.config.clone())
-            .await
-            .map(|s| Box::new(s) as BoxedSource)
-            .map_err(MartinCoreError::from)
+        Self::new(
+            self.id.clone(),
+            self.upstream.clone(),
+            self.transport.clone(),
+            self.cache_zoom,
+        )
+        .await
+        .map(|s| Box::new(s) as BoxedSource)
+        .map_err(MartinCoreError::from)
     }
 }
 
-/// Build a pooled `reqwest::Client` with the configured headers and timeout baked in.
-fn build_client(
-    headers: &HashMap<String, String>,
-    timeout: Duration,
-) -> Result<reqwest::Client, PassthroughError> {
-    let mut header_map = HeaderMap::with_capacity(headers.len() + 1);
-    for (name, value) in headers {
-        let name = HeaderName::from_bytes(name.as_bytes())
-            .map_err(|e| PassthroughError::InvalidHeader(e.to_string()))?;
-        let value = HeaderValue::from_str(value)
-            .map_err(|e| PassthroughError::InvalidHeader(e.to_string()))?;
-        header_map.insert(name, value);
-    }
+/// Build a pooled `reqwest::Client` with the transport headers and timeout baked in.
+fn build_client(transport: &Transport) -> Result<reqwest::Client, PassthroughError> {
+    let mut header_map = transport.headers.clone();
     if !header_map.contains_key(USER_AGENT) {
         header_map.insert(
             USER_AGENT,
@@ -234,7 +321,7 @@ fn build_client(
         );
     }
     reqwest::Client::builder()
-        .timeout(timeout)
+        .timeout(transport.timeout)
         .default_headers(header_map)
         .build()
         .map_err(PassthroughError::Http)
@@ -272,13 +359,13 @@ async fn fetch_tilejson(client: &reqwest::Client, url: &str) -> Result<TileJSON,
 }
 
 /// Build the `TileJSON` served for a template source: only `tilejson` + `tiles[]` plus any
-/// user-declared metadata. No defaults are fabricated and `vector_layers` is left unset.
-fn build_template_tilejson(templates: &[String], config: &PassthroughConfig) -> TileJSON {
+/// operator-declared metadata. No defaults are fabricated and `vector_layers` is left unset.
+fn build_template_tilejson(templates: &[String], meta: &TemplateMeta) -> TileJSON {
     let mut tj = tilejson! { tiles: templates.to_vec() };
-    tj.minzoom = config.minzoom;
-    tj.maxzoom = config.maxzoom;
-    tj.bounds = config.bounds;
-    tj.attribution.clone_from(&config.attribution);
+    tj.minzoom = meta.minzoom;
+    tj.maxzoom = meta.maxzoom;
+    tj.bounds = meta.bounds;
+    tj.attribution.clone_from(&meta.attribution);
     tj
 }
 

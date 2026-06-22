@@ -9,12 +9,8 @@ pub enum PassthroughError {
     Http(#[from] reqwest::Error),
 
     /// No upstream URL was configured for the source.
-    #[error("Passthrough source {0} has no upstream URL configured")]
-    EmptyUrlList(String),
-
-    /// A configured request header name or value was not valid.
-    #[error("Invalid request header: {0}")]
-    InvalidHeader(String),
+    #[error("Passthrough upstream has no URL templates configured")]
+    EmptyUrlList,
 
     /// A configured tile-URL template is missing one of the `{z}`/`{x}`/`{y}` placeholders.
     #[error("Tile URL template {0} must contain {{z}}, {{x}} and {{y}} placeholders")]

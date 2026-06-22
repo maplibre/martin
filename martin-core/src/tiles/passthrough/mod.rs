@@ -11,7 +11,7 @@ mod error;
 pub use error::PassthroughError;
 
 mod url;
-pub use url::UrlSpec;
+pub use url::UrlTemplate;
 
 mod source;
-pub use source::{PassthroughConfig, PassthroughSource};
+pub use source::{PassthroughSource, TemplateMeta, TemplateSet, Transport, Upstream};
