@@ -1026,7 +1026,7 @@ mod tests {
         result.unwrap_err();
     }
 
-    /// Without the `mlt` feature, the MVT↔MLT conversion branches are gated
+    /// Without the `mlt` feature, the MVT<->MLT conversion branches are gated
     /// out and these accept-vs-source pairs must surface as 406.
     #[cfg(not(all(feature = "mlt", feature = "_tiles")))]
     #[rstest]
