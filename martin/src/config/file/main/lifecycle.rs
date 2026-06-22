@@ -34,8 +34,6 @@ use crate::config::file::FileConfigSrc;
 use crate::config::file::cache::{CacheConfig, SubCacheSetting};
 #[cfg(feature = "_tiles")]
 use crate::config::file::process::ProcessConfig;
-#[cfg(all(feature = "postgres", feature = "mlt"))]
-use crate::config::file::process::resolve_process_config;
 #[cfg(any(feature = "pmtiles", feature = "mbtiles", feature = "unstable-cog"))]
 use crate::config::file::resolve_files;
 use crate::config::file::{
@@ -463,28 +461,24 @@ impl Config {
                     convert_to_mvt: pg.convert_to_mvt.clone(),
                 };
                 if let Some(tables) = &pg.tables {
-                    for (id, info) in tables {
-                        let per_source = ProcessConfig {
+                    Self::insert_source_configs(&mut map, &global, &source_type, tables, |info| {
+                        ProcessConfig {
                             convert_to_mlt: info.convert_to_mlt.clone(),
                             convert_to_mvt: info.convert_to_mvt.clone(),
-                        };
-                        map.insert(
-                            id.clone(),
-                            resolve_process_config(&global, &source_type, &per_source),
-                        );
-                    }
+                        }
+                    });
                 }
                 if let Some(functions) = &pg.functions {
-                    for (id, info) in functions {
-                        let per_source = ProcessConfig {
+                    Self::insert_source_configs(
+                        &mut map,
+                        &global,
+                        &source_type,
+                        functions,
+                        |info| ProcessConfig {
                             convert_to_mlt: info.convert_to_mlt.clone(),
                             convert_to_mvt: info.convert_to_mvt.clone(),
-                        };
-                        map.insert(
-                            id.clone(),
-                            resolve_process_config(&global, &source_type, &per_source),
-                        );
-                    }
+                        },
+                    );
                 }
             }
 
@@ -501,29 +495,21 @@ impl Config {
             });
 
             #[cfg(feature = "passthrough")]
-            {
+            if let Some(sources) = &self.passthrough.sources {
                 use crate::config::file::passthrough::PassthroughSrc;
-                use crate::config::file::resolve_process_config;
 
                 let source_type = ProcessConfig {
                     convert_to_mlt: self.passthrough.convert_to_mlt.clone(),
                     convert_to_mvt: self.passthrough.convert_to_mvt.clone(),
                 };
-                if let Some(sources) = &self.passthrough.sources {
-                    for (id, src) in sources {
-                        let per_source = match src {
-                            PassthroughSrc::Detailed(obj) => ProcessConfig {
-                                convert_to_mlt: obj.convert_to_mlt.clone(),
-                                convert_to_mvt: obj.convert_to_mvt.clone(),
-                            },
-                            PassthroughSrc::Shorthand(_) => ProcessConfig::default(),
-                        };
-                        map.insert(
-                            id.clone(),
-                            resolve_process_config(&global, &source_type, &per_source),
-                        );
-                    }
-                }
+                Self::insert_source_configs(&mut map, &global, &source_type, sources, |src| match src
+                {
+                    PassthroughSrc::Detailed(obj) => ProcessConfig {
+                        convert_to_mlt: obj.convert_to_mlt.clone(),
+                        convert_to_mvt: obj.convert_to_mvt.clone(),
+                    },
+                    PassthroughSrc::Shorthand(_) => ProcessConfig::default(),
+                });
             }
         }
 
@@ -534,6 +520,34 @@ impl Config {
         map
     }
 
+    /// Resolve and insert the effective [`ProcessConfig`] for each source in a map, layering
+    /// per-source settings over the source-type and global defaults.
+    #[cfg(all(
+        feature = "mlt",
+        any(
+            feature = "postgres",
+            feature = "pmtiles",
+            feature = "mbtiles",
+            feature = "passthrough"
+        )
+    ))]
+    fn insert_source_configs<'a, S: 'a>(
+        map: &mut HashMap<String, ProcessConfig>,
+        global: &ProcessConfig,
+        source_type: &ProcessConfig,
+        sources: impl IntoIterator<Item = (&'a String, &'a S)>,
+        get_per_source_pc: impl Fn(&S) -> ProcessConfig,
+    ) {
+        use crate::config::file::process::resolve_process_config;
+
+        for (id, src) in sources {
+            map.insert(
+                id.clone(),
+                resolve_process_config(global, source_type, &get_per_source_pc(src)),
+            );
+        }
+    }
+
     /// Helper to resolve process configs for file-based source types (pmtiles, mbtiles).
     #[cfg(all(feature = "mlt", any(feature = "pmtiles", feature = "mbtiles")))]
     fn insert_file_source_configs<T: ConfigurationLivecycleHooks>(
@@ -542,24 +556,16 @@ impl Config {
         file_cfg: &FileConfigEnum<T>,
         get_source_type_pc: impl Fn(&T) -> ProcessConfig,
     ) {
-        use crate::config::file::process::resolve_process_config;
-
         if let FileConfigEnum::Config(cfg) = file_cfg {
             let source_type = get_source_type_pc(&cfg.custom);
             if let Some(sources) = &cfg.sources {
-                for (id, src) in sources {
-                    let per_source = match src {
-                        FileConfigSrc::Obj(obj) => ProcessConfig {
-                            convert_to_mlt: obj.convert_to_mlt.clone(),
-                            convert_to_mvt: obj.convert_to_mvt.clone(),
-                        },
-                        FileConfigSrc::Path(_) => ProcessConfig::default(),
-                    };
-                    map.insert(
-                        id.clone(),
-                        resolve_process_config(global, &source_type, &per_source),
-                    );
-                }
+                Self::insert_source_configs(map, global, &source_type, sources, |src| match src {
+                    FileConfigSrc::Obj(obj) => ProcessConfig {
+                        convert_to_mlt: obj.convert_to_mlt.clone(),
+                        convert_to_mvt: obj.convert_to_mvt.clone(),
+                    },
+                    FileConfigSrc::Path(_) => ProcessConfig::default(),
+                });
             }
         }
     }

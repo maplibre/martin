@@ -125,8 +125,8 @@ pub struct Config {
     #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
     pub mbtiles: FileConfigEnum<MbtConfig>,
 
-    /// Proxy tiles from upstream HTTP tile servers, running them through the
-    /// MVT<->MLT conversion and tile cache.
+    /// Re-serve tiles from upstream HTTP tile servers, with caching and optional
+    /// MVT<->MLT re-encoding. Each upstream is configured under `sources`.
     #[cfg(feature = "passthrough")]
     #[serde(default, skip_serializing_if = "PassthroughConfig::is_empty")]
     pub passthrough: PassthroughConfig,

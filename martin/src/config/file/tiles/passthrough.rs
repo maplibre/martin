@@ -33,6 +33,23 @@ fn is_default_timeout(timeout: &Duration) -> bool {
     *timeout == DEFAULT_TIMEOUT
 }
 
+/// A worked `sources` map for the generated config docs, showing the shorthand,
+/// `TileJSON`, and detailed-object forms side by side.
+#[cfg(feature = "unstable-schemas")]
+fn passthrough_sources_example() -> serde_json::Value {
+    serde_json::json!({
+        "osm": "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+        "hosted": "https://demotiles.maplibre.org/tiles/tiles.json",
+        "secure": {
+            "url": "https://api.example.com/{z}/{x}/{y}.mvt",
+            "headers": { "Authorization": "${API_TOKEN}" },
+            "format": "mvt",
+            "minzoom": 0,
+            "maxzoom": 14
+        }
+    })
+}
+
 /// Configuration for the `passthrough` source type: a sources map plus type-level
 /// MVT<->MLT conversion defaults. Unlike file sources there are no `paths:` to glob.
 #[serde_with::skip_serializing_none]
@@ -51,8 +68,16 @@ pub struct PassthroughConfig {
     #[serde(default)]
     pub convert_to_mvt: Option<MvtProcessConfig>,
 
-    /// A map of source IDs to an upstream URL (shorthand) or a per-source configuration object.
+    /// Upstream tile servers to proxy, keyed by the source ID Martin serves them under.
+    ///
+    /// Each value is one of:
+    /// - a `{z}/{x}/{y}` URL template, e.g. `https://tile.openstreetmap.org/{z}/{x}/{y}.png`
+    /// - a `TileJSON` document URL; its tile URLs, zoom range, and bounds are read from the document
+    /// - a list of URL templates, to spread requests across mirror upstreams
+    /// - an object with `url` plus any of `headers` (e.g. for auth), `timeout`, `format`,
+    ///   `minzoom`/`maxzoom`/`bounds`/`attribution`, `cache`, and `convert_to_mlt`/`convert_to_mvt`
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "unstable-schemas", schemars(example = &passthrough_sources_example()))]
     pub sources: Option<BTreeMap<String, PassthroughSrc>>,
 
     #[serde(flatten, skip_serializing)]
