@@ -75,7 +75,7 @@ pub fn select_url(urls: &[String], xyz: TileCoord) -> &str {
 }
 
 /// Derive the source-level tile [`Format`] from the configured layers, most-specific first:
-/// explicit config → tile URL extension → upstream `TileJSON` `format`. Errors if none apply.
+/// explicit config -> tile URL extension -> upstream `TileJSON` `format`. Errors if none apply.
 pub fn derive_format(
     id: &str,
     cfg_format: Option<Format>,

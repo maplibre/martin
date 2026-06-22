@@ -123,7 +123,7 @@ impl PassthroughSource {
     }
 
     /// Fetch a single tile from the upstream, mapping its status into the cache contract:
-    /// 404/204 → empty tile, 5xx/other non-success → error, 2xx → bytes plus detected info/etag.
+    /// 404/204 -> empty tile, 5xx/other non-success -> error, 2xx -> bytes plus detected info/etag.
     async fn fetch(&self, xyz: TileCoord) -> Result<FetchedTile, PassthroughError> {
         let url = substitute(select_url(&self.urls, xyz), xyz);
         let response = self.client.get(&url).send().await?;
