@@ -35,6 +35,38 @@ impl Transport {
             timeout,
         }
     }
+
+    /// Build a transport from string header pairs, validating each name and value.
+    ///
+    /// This lets callers (e.g. the `martin` crate's config layer) supply headers without
+    /// depending on `reqwest`'s header types directly.
+    pub fn from_string_headers<'a, I>(
+        timeout: Duration,
+        headers: I,
+    ) -> Result<Self, PassthroughError>
+    where
+        I: IntoIterator<Item = (&'a str, &'a str)>,
+    {
+        let mut header_map = HeaderMap::new();
+        for (name, value) in headers {
+            let header_name = HeaderName::from_bytes(name.as_bytes()).map_err(|e| {
+                PassthroughError::InvalidHeader {
+                    name: name.to_string(),
+                    message: e.to_string(),
+                }
+            })?;
+            let header_value =
+                HeaderValue::from_str(value).map_err(|e| PassthroughError::InvalidHeader {
+                    name: name.to_string(),
+                    message: e.to_string(),
+                })?;
+            header_map.insert(header_name, header_value);
+        }
+        Ok(Self {
+            headers: header_map,
+            timeout,
+        })
+    }
 }
 
 /// Operator-supplied metadata for a template upstream.

@@ -166,6 +166,31 @@ observability:
 # - `warn`: log warning messages
 # - `abort`: log warnings as error messages, abort startup
 on_invalid: warn
+# Proxy tiles from upstream HTTP tile servers, running them through the
+# MVT<->MLT conversion and tile cache.
+passthrough:
+  # MVT->MLT encoder settings for all passthrough sources.
+  # Overrides global; overridden by per-source `convert_to_mlt`.
+  convert_to_mlt:
+    # Allow `FastPFOR` integer compression.
+    allow_fastpfor: null
+    # Allow FSST string compression.
+    allow_fsst: null
+    # Allow string grouping into shared dictionaries.
+    allow_shared_dict: null
+    # Generate tessellation data for polygons and multi-polygons.
+    tessellate: null
+    # Try sorting features by their feature ID in ascending order.
+    try_id_sort: null
+    # Try sorting features by Hilbert curve index of their first vertex.
+    try_spatial_hilbert_sort: null
+    # Try sorting features by Z-order (Morton) curve index of their first vertex.
+    try_spatial_morton_sort: null
+  # MLT->MVT conversion settings for all passthrough sources.
+  # Overrides global; overridden by per-source `convert_to_mvt`.
+  convert_to_mvt: {}
+  # A map of source IDs to an upstream URL (shorthand) or a per-source configuration object.
+  sources: {}
 # Publish `PMTiles` files from local disk or proxy to a web server
 pmtiles:
   # MVT->MLT encoder settings for all `PMTiles` sources.

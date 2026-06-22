@@ -4,6 +4,8 @@ pub mod cog;
 pub mod duckdb;
 #[cfg(feature = "mbtiles")]
 pub mod mbtiles;
+#[cfg(feature = "passthrough")]
+pub mod passthrough;
 #[cfg(feature = "pmtiles")]
 pub mod pmtiles;
 #[cfg(feature = "postgres")]

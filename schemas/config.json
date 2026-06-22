@@ -757,6 +757,134 @@
       ],
       "description": "An enum that can hold no values, one value, or many values of type T."
     },
+    "PassthroughConfig": {
+      "description": "Configuration for the `passthrough` source type: a sources map plus type-level\nMVT<->MLT conversion defaults. Unlike file sources there are no `paths:` to glob.",
+      "properties": {
+        "convert_to_mlt": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AutoOption_MltEncoderConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "MVT->MLT encoder settings for all passthrough sources.\nOverrides global; overridden by per-source `convert_to_mlt`."
+        },
+        "convert_to_mvt": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AutoOption_MvtEncoderConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "MLT->MVT conversion settings for all passthrough sources.\nOverrides global; overridden by per-source `convert_to_mvt`."
+        },
+        "sources": {
+          "additionalProperties": {
+            "$ref": "#/$defs/PassthroughSrc"
+          },
+          "description": "A map of source IDs to an upstream URL (shorthand) or a per-source configuration object.",
+          "type": ["object", "null"]
+        }
+      },
+      "type": "object"
+    },
+    "PassthroughSourceConfig": {
+      "description": "Per-source passthrough configuration object.",
+      "properties": {
+        "attribution": {
+          "description": "Attribution advertised in the served `TileJSON` (template sources only).",
+          "type": ["string", "null"]
+        },
+        "bounds": {
+          "description": "Geographic bounds advertised in the served `TileJSON` (template sources only).",
+          "items": {
+            "format": "double",
+            "type": "number"
+          },
+          "maxItems": 4,
+          "minItems": 4,
+          "type": ["array", "null"]
+        },
+        "cache": {
+          "$ref": "#/$defs/CachePolicyShape",
+          "description": "Zoom-level bounds for tile caching."
+        },
+        "convert_to_mlt": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AutoOption_MltEncoderConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "MVT->MLT encoder settings for this source.\nOverrides source-type and global `convert_to_mlt`."
+        },
+        "convert_to_mvt": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AutoOption_MvtEncoderConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "MLT->MVT conversion settings for this source.\nOverrides source-type and global `convert_to_mvt`."
+        },
+        "format": {
+          "description": "Explicit tile format override (e.g. `mvt`, `png`). When unset, the format is detected\nfrom the URL extension, the upstream `TileJSON`, or the response.",
+          "type": ["string", "null"]
+        },
+        "headers": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "HTTP headers sent with every upstream request (e.g. `Authorization`).\nValues support `${ENV_VAR}` substitution via the config loader.",
+          "type": "object"
+        },
+        "maxzoom": {
+          "description": "Maximum zoom level advertised in the served `TileJSON` (template sources only).",
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": ["integer", "null"]
+        },
+        "minzoom": {
+          "description": "Minimum zoom level advertised in the served `TileJSON` (template sources only).",
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": ["integer", "null"]
+        },
+        "timeout": {
+          "description": "Per-request timeout. Supports human-readable formats: \"30s\", \"1m\". Defaults to \"30s\".",
+          "examples": ["30s"],
+          "type": "string"
+        },
+        "url": {
+          "$ref": "#/$defs/OptOneMany2",
+          "description": "Upstream tile-URL template(s) (`{z}/{x}/{y}`) or a single `TileJSON` document URL."
+        }
+      },
+      "type": "object"
+    },
+    "PassthroughSrc": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/OptOneMany2",
+          "description": "Shorthand: an upstream URL template, a `TileJSON` URL, or a list of URL templates."
+        },
+        {
+          "$ref": "#/$defs/PassthroughSourceConfig",
+          "description": "A configuration object with headers, timeout, format, and metadata."
+        }
+      ],
+      "description": "A passthrough source value: either a bare upstream URL (or list of URLs) or a full\nconfiguration object."
+    },
     "PostgresCfgPublish": {
       "properties": {
         "from_schemas": {
@@ -1155,6 +1283,10 @@
         }
       ],
       "description": "The policy for handling invalid sources during startup. \\[default: abort\\]\n\nInvalid sources are those that are missing (file not found, table doesn't exist, ...),\nreference columns that don't exist, and so on.\nCurrently limited to tile sources; broader rollout is planned.\n\nOptions:\n- `warn`: log warning messages\n- `abort`: log warnings as error messages, abort startup"
+    },
+    "passthrough": {
+      "$ref": "#/$defs/PassthroughConfig",
+      "description": "Proxy tiles from upstream HTTP tile servers, running them through the\nMVT<->MLT conversion and tile cache."
     },
     "pmtiles": {
       "$ref": "#/$defs/FileConfigEnum",

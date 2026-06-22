@@ -12,6 +12,15 @@ pub enum PassthroughError {
     #[error("Passthrough upstream has no URL templates configured")]
     EmptyUrlList,
 
+    /// A configured request header had an invalid name or value.
+    #[error("Invalid header {name:?} for passthrough upstream: {message}")]
+    InvalidHeader {
+        /// The offending header name as written in the config.
+        name: String,
+        /// Why the name or value was rejected.
+        message: String,
+    },
+
     /// A configured tile-URL template is missing one of the `{z}`/`{x}`/`{y}` placeholders.
     #[error("Tile URL template {0} must contain {{z}}, {{x}} and {{y}} placeholders")]
     InvalidUrlTemplate(String),

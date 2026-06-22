@@ -22,6 +22,8 @@ use crate::config::file::cog::CogConfig;
 use crate::config::file::fonts::FontConfig;
 #[cfg(feature = "mbtiles")]
 use crate::config::file::mbtiles::MbtConfig;
+#[cfg(feature = "passthrough")]
+use crate::config::file::passthrough::PassthroughConfig;
 #[cfg(feature = "pmtiles")]
 use crate::config::file::pmtiles::PmtConfig;
 #[cfg(feature = "postgres")]
@@ -122,6 +124,12 @@ pub struct Config {
     #[cfg(feature = "mbtiles")]
     #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
     pub mbtiles: FileConfigEnum<MbtConfig>,
+
+    /// Proxy tiles from upstream HTTP tile servers, running them through the
+    /// MVT<->MLT conversion and tile cache.
+    #[cfg(feature = "passthrough")]
+    #[serde(default, skip_serializing_if = "PassthroughConfig::is_empty")]
+    pub passthrough: PassthroughConfig,
 
     #[cfg(feature = "unstable-cog")]
     #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]

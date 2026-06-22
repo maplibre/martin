@@ -114,6 +114,12 @@ impl Config {
             res.extend(self.mbtiles.get_unrecognized_keys_with_prefix("mbtiles."));
         }
 
+        #[cfg(feature = "passthrough")]
+        res.extend(
+            self.passthrough
+                .get_unrecognized_keys_with_prefix("passthrough."),
+        );
+
         #[cfg(feature = "unstable-cog")]
         {
             self.cog.finalize()?;
@@ -155,6 +161,9 @@ impl Config {
 
         #[cfg(feature = "mbtiles")]
         let is_empty = is_empty && self.mbtiles.is_empty();
+
+        #[cfg(feature = "passthrough")]
+        let is_empty = is_empty && self.passthrough.is_empty();
 
         #[cfg(feature = "unstable-cog")]
         let is_empty = is_empty && self.cog.is_empty();
@@ -401,6 +410,12 @@ impl Config {
             sources_and_warnings.push(Box::pin(val));
         }
 
+        #[cfg(feature = "passthrough")]
+        if !self.passthrough.is_empty() {
+            let val = self.passthrough.resolve(idr, self.cache.policy());
+            sources_and_warnings.push(Box::pin(val));
+        }
+
         #[cfg(feature = "unstable-cog")]
         if !self.cog.is_empty() {
             let cfg = &mut self.cog;
@@ -428,7 +443,12 @@ impl Config {
 
         #[cfg(all(
             feature = "mlt",
-            any(feature = "postgres", feature = "pmtiles", feature = "mbtiles")
+            any(
+                feature = "postgres",
+                feature = "pmtiles",
+                feature = "mbtiles",
+                feature = "passthrough"
+            )
         ))]
         {
             let global = ProcessConfig {
@@ -479,6 +499,32 @@ impl Config {
                 convert_to_mlt: c.convert_to_mlt.clone(),
                 convert_to_mvt: c.convert_to_mvt.clone(),
             });
+
+            #[cfg(feature = "passthrough")]
+            {
+                use crate::config::file::passthrough::PassthroughSrc;
+                use crate::config::file::resolve_process_config;
+
+                let source_type = ProcessConfig {
+                    convert_to_mlt: self.passthrough.convert_to_mlt.clone(),
+                    convert_to_mvt: self.passthrough.convert_to_mvt.clone(),
+                };
+                if let Some(sources) = &self.passthrough.sources {
+                    for (id, src) in sources {
+                        let per_source = match src {
+                            PassthroughSrc::Detailed(obj) => ProcessConfig {
+                                convert_to_mlt: obj.convert_to_mlt.clone(),
+                                convert_to_mvt: obj.convert_to_mvt.clone(),
+                            },
+                            PassthroughSrc::Shorthand(_) => ProcessConfig::default(),
+                        };
+                        map.insert(
+                            id.clone(),
+                            resolve_process_config(&global, &source_type, &per_source),
+                        );
+                    }
+                }
+            }
         }
 
         // COG sources produce raster tiles (TIFF), not vector tiles (MVT),

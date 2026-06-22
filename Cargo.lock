@@ -4653,6 +4653,7 @@ dependencies = [
  "utoipa",
  "utoipa-actix-web",
  "walkdir",
+ "wiremock",
  "xxhash-rust",
 ]
 
