@@ -1,4 +1,4 @@
-#![cfg(feature = "duckdb")]
+#![cfg(feature = "unstable-duckdb")]
 
 use std::num::NonZeroUsize;
 use std::path::{Path, PathBuf};
