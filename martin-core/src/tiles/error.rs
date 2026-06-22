@@ -4,6 +4,8 @@ use super::cog::CogError;
 use super::duckdb::DuckDBError;
 #[cfg(feature = "mbtiles")]
 use super::mbtiles::MbtilesError;
+#[cfg(feature = "passthrough")]
+use super::passthrough::PassthroughError;
 #[cfg(feature = "pmtiles")]
 use super::pmtiles::PmtilesError;
 #[cfg(feature = "postgres")]
@@ -32,6 +34,11 @@ pub enum MartinCoreError {
     #[cfg(feature = "pmtiles")]
     #[error(transparent)]
     PmtilesError(#[from] PmtilesError),
+
+    /// Errors that can occur during [`passthrough`](crate::tiles::passthrough) processing operations.
+    #[cfg(feature = "passthrough")]
+    #[error(transparent)]
+    PassthroughError(#[from] PassthroughError),
 
     /// Errors that can occur during [`cog`](crate::tiles::cog) processing operations.
     #[cfg(feature = "unstable-cog")]

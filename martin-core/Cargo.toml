@@ -17,6 +17,7 @@ default = [
     "fonts",
     "mbtiles",
     "metrics",
+    "passthrough",
     "pmtiles",
     "postgres",
     "sprites",
@@ -58,6 +59,7 @@ sprites = [
 styles = ["tokio/fs", "dep:dashmap", "dep:walkdir"]
 mbtiles = ["dep:backon", "dep:mbtiles", "dep:tokio", "_tiles"]
 pmtiles = ["dep:pmtiles", "dep:object_store", "_tiles"]
+passthrough = ["dep:reqwest", "dep:serde_json", "_tiles"]
 unstable-duckdb = [
     "dep:duckdb",
     "_tiles",
@@ -102,6 +104,7 @@ png = { workspace = true, optional = true }
 postgres = { workspace = true, optional = true }
 prometheus = { workspace = true, optional = true }
 regex = { workspace = true, optional = true }
+reqwest = { workspace = true, optional = true }
 rustls = { workspace = true, optional = true }
 rustls-native-certs = { workspace = true, optional = true }
 rustls-pemfile = { workspace = true, optional = true }
@@ -137,6 +140,7 @@ tempfile.workspace = true
 testcontainers-modules.workspace = true
 tokio.workspace = true
 url.workspace = true
+wiremock.workspace = true
 
 [[example]]
 name = "pmtiles-tileserver"
