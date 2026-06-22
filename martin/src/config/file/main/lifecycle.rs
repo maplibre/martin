@@ -502,13 +502,14 @@ impl Config {
                     convert_to_mlt: self.passthrough.convert_to_mlt.clone(),
                     convert_to_mvt: self.passthrough.convert_to_mvt.clone(),
                 };
-                Self::insert_source_configs(&mut map, &global, &source_type, sources, |src| match src
-                {
-                    PassthroughSrc::Detailed(obj) => ProcessConfig {
-                        convert_to_mlt: obj.convert_to_mlt.clone(),
-                        convert_to_mvt: obj.convert_to_mvt.clone(),
-                    },
-                    PassthroughSrc::Shorthand(_) => ProcessConfig::default(),
+                Self::insert_source_configs(&mut map, &global, &source_type, sources, |src| {
+                    match src {
+                        PassthroughSrc::Detailed(obj) => ProcessConfig {
+                            convert_to_mlt: obj.convert_to_mlt.clone(),
+                            convert_to_mvt: obj.convert_to_mvt.clone(),
+                        },
+                        PassthroughSrc::Shorthand(_) => ProcessConfig::default(),
+                    }
                 });
             }
         }
