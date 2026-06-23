@@ -323,7 +323,10 @@ impl PassthroughSourceConfig {
     async fn build(&self, id: String, default_cache: CachePolicy) -> MartinResult<BoxedSource> {
         let format = match self.format.as_deref() {
             Some(value) => Some(Format::parse(value).ok_or_else(|| {
-                ConfigFileError::InvalidPassthroughFormat(id.clone(), value.to_string())
+                ConfigFileError::InvalidPassthroughFormat {
+                    source_id: id.clone(),
+                    tile_format: value.to_string(),
+                }
             })?),
             None => None,
         };

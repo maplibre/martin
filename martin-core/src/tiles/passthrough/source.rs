@@ -49,17 +49,18 @@ impl Transport {
     {
         let mut header_map = HeaderMap::new();
         for (name, value) in headers {
-            let header_name = HeaderName::from_bytes(name.as_bytes()).map_err(|e| {
-                PassthroughError::InvalidHeader {
+            let header_name = HeaderName::from_bytes(name.as_bytes()).map_err(|source| {
+                PassthroughError::InvalidHeaderName {
                     name: name.to_string(),
-                    message: e.to_string(),
+                    source,
                 }
             })?;
-            let header_value =
-                HeaderValue::from_str(value).map_err(|e| PassthroughError::InvalidHeader {
+            let header_value = HeaderValue::from_str(value).map_err(|source| {
+                PassthroughError::InvalidHeaderValue {
                     name: name.to_string(),
-                    message: e.to_string(),
-                })?;
+                    source,
+                }
+            })?;
             header_map.insert(header_name, header_value);
         }
         Ok(Self {

@@ -43,9 +43,12 @@ pub enum ConfigFileError {
 
     #[cfg(feature = "passthrough")]
     #[error(
-        "Passthrough source {source} has an unknown tile format {tile_format:?}; expected one of pbf/mvt, mlt, png, jpg, webp, json, gif, avif"
+        "Passthrough source {source_id} has an unknown tile format {tile_format:?}; expected one of pbf/mvt, mlt, png, jpg, webp, json, gif, avif"
     )]
-    InvalidPassthroughFormat { source: String, tile_format: String },
+    InvalidPassthroughFormat {
+        source_id: String,
+        tile_format: String,
+    },
 
     #[error("At least one 'origin' must be specified in the 'cors' configuration")]
     CorsNoOriginsConfigured,
