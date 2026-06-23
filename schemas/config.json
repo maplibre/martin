@@ -1301,7 +1301,7 @@
     },
     "passthrough": {
       "$ref": "#/$defs/PassthroughConfig",
-      "description": "Re-serve tiles from upstream HTTP tile servers, with caching and optional\nMVT<->MLT re-encoding. Each upstream is configured under `sources`."
+      "description": "Re-serve tiles from upstream HTTP tile servers, with optional caching/MVT<->MLT re-encoding.\nEach upstream is configured under `sources`."
     },
     "pmtiles": {
       "$ref": "#/$defs/FileConfigEnum",

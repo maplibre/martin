@@ -166,8 +166,8 @@ observability:
 # - `warn`: log warning messages
 # - `abort`: log warnings as error messages, abort startup
 on_invalid: warn
-# Re-serve tiles from upstream HTTP tile servers, with caching and optional
-# MVT<->MLT re-encoding. Each upstream is configured under `sources`.
+# Re-serve tiles from upstream HTTP tile servers, with optional caching/MVT<->MLT re-encoding.
+# Each upstream is configured under `sources`.
 passthrough:
   # MVT->MLT encoder settings for all passthrough sources.
   # Overrides global; overridden by per-source `convert_to_mlt`.
