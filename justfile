@@ -38,6 +38,9 @@ PGPORT := '5411'
 
 export DATABASE_URL := ('postgres://postgres:postgres@localhost:' + PGPORT + '/db' + (if PGPARAMS != '' { '?' + PGPARAMS } else { '' }))
 export CARGO_TERM_COLOR := 'always'
+# Be resilient to flaky networks when fetching crates/registries
+export CARGO_NET_RETRY := env('CARGO_NET_RETRY', '10')
+export CARGO_HTTP_TIMEOUT := env('CARGO_HTTP_TIMEOUT', '60')
 
 # Set AWS variables for testing pmtiles from S3
 export AWS_SKIP_CREDENTIALS := '1'
