@@ -10,7 +10,11 @@ use crate::srv::tiles::process::ProcessError;
 ///
 /// Decompresses the tile if needed, decodes the MLT layers into row-oriented
 /// `TileLayer`s, and re-encodes them as MVT via `mlt-core`.
+///
+/// The output keeps the source tile's etag with a `+mvt` suffix rather than
+/// re-hashing the converted bytes, mirroring [`convert_mvt_to_mlt`](super::to_mlt::convert_mvt_to_mlt).
 pub fn convert_mlt_to_mvt(tile: Tile) -> Result<Tile, ProcessError> {
+    let etag = format!("{}+mvt", tile.etag);
     let mlt =
         content::decode(tile).map_err(|e| ProcessError::DecompressionFailed(e.to_string()))?;
 
@@ -34,9 +38,10 @@ pub fn convert_mlt_to_mvt(tile: Tile) -> Result<Tile, ProcessError> {
     let mvt_bytes =
         tile_layers_to_mvt(tile_layers).map_err(|e| ProcessError::MvtConversion(e.to_string()))?;
 
-    Ok(Tile::new_hash_etag(
+    Ok(Tile::new_with_etag(
         mvt_bytes,
         TileInfo::new(Format::Mvt, Encoding::Uncompressed),
+        etag,
     ))
 }
 

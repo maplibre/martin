@@ -230,6 +230,28 @@ mod tests {
         assert!(!decoded.data.is_empty());
     }
 
+    /// Converting MVT->MLT keeps the source etag with a `+mlt` suffix instead of
+    /// re-hashing, so the converted bytes get a distinct-but-stable etag. Converting
+    /// back to MVT appends `+mvt`.
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[test]
+    fn conversion_suffixes_source_etag() {
+        let tile = Tile::new_with_etag(
+            mvt_with_feature_bytes(),
+            TileInfo::new(Format::Mvt, Encoding::Uncompressed),
+            "upstream-etag".to_string(),
+        );
+        let mlt =
+            apply_pre_cache_processors(tile, &ProcessConfig::default(), Some(Format::Mlt)).unwrap();
+        assert_eq!(mlt.info.format, Format::Mlt);
+        assert_eq!(mlt.etag, "upstream-etag+mlt");
+
+        let mvt =
+            apply_pre_cache_processors(mlt, &ProcessConfig::default(), Some(Format::Mvt)).unwrap();
+        assert_eq!(mvt.info.format, Format::Mvt);
+        assert_eq!(mvt.etag, "upstream-etag+mlt+mvt");
+    }
+
     /// MLT source tile with MVT Accept header converts to MVT.
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[test]
