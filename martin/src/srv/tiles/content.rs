@@ -364,7 +364,9 @@ impl<'a> DynTileSource<'a> {
         if tile.data.is_empty() {
             return Ok(HttpResponse::NoContent().finish());
         }
-        let etag = EntityTag::new_strong(tile.etag.clone());
+        // `strong_etag` guarantees a valid entity-tag body (hashing as a fallback for an
+        // untrusted upstream etag), so `new_strong` cannot panic on invalid characters.
+        let etag = EntityTag::new_strong(tile.strong_etag());
 
         if let Some(if_none_match) = &self.headers.if_none_match {
             let dominated_by = match if_none_match {

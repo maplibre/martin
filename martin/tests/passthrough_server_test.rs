@@ -107,6 +107,21 @@ async fn mvt_passes_through_unchanged() {
     assert_eq!(body, mvt.as_slice());
 }
 
+/// A real upstream (e.g. another Martin) sends the `ETag` quoted on the wire. Those quotes
+/// must be stripped before serving, otherwise `EntityTag::new_strong` panics the worker.
+#[actix_rt::test]
+async fn quoted_upstream_etag_is_normalized() {
+    let server = MockServer::start().await;
+    mount_mvt(&server, "\"real-etag\"", mvt_tile()).await;
+
+    let app = create_app!(&template_config(&server));
+    let req = TestRequest::get().uri("/proxy/0/0/0").to_request();
+    let response = call_service(&app, req).await;
+    let response = assert_response(response).await;
+
+    assert_eq!(response.headers().get(ETAG).unwrap(), "\"real-etag\"");
+}
+
 #[actix_rt::test]
 async fn mlt_conversion_via_accept_header() {
     let server = MockServer::start().await;

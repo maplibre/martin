@@ -253,7 +253,7 @@ impl PassthroughSource {
             });
         }
 
-        let etag = header_str(response.headers(), &ETAG);
+        let etag = header_str(response.headers(), &ETAG).map(|raw| normalize_etag(&raw));
         let content_type = header_str(response.headers(), &CONTENT_TYPE);
         let content_encoding = header_str(response.headers(), &CONTENT_ENCODING);
         let data = response.bytes().await?.to_vec();
@@ -426,4 +426,16 @@ fn header_str(headers: &HeaderMap, name: &HeaderName) -> Option<String> {
         .get(name)
         .and_then(|value| value.to_str().ok())
         .map(ToString::to_string)
+}
+
+/// Reduce an HTTP `ETag` header value to its opaque tag, dropping the weak prefix and
+/// surrounding quotes (`W/"abc"` and `"abc"` both become `abc`).
+///
+/// Martin stores etags unquoted internally and re-adds the quotes when serving, so keeping
+/// the wire quotes here would double-quote the served `ETag` and reject otherwise-valid tags.
+fn normalize_etag(raw: &str) -> String {
+    raw.strip_prefix("W/")
+        .unwrap_or(raw)
+        .trim_matches('"')
+        .to_string()
 }
