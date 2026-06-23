@@ -52,9 +52,56 @@ impl Tile {
         Self { data, info, etag }
     }
 
+    /// Returns an etag guaranteed to be a valid HTTP entity-tag body.
+    ///
+    /// The stored etag is reused when valid; otherwise (e.g. an etag forwarded from an untrusted
+    /// upstream that contains characters disallowed in an entity-tag) a content hash is returned,
+    /// which is always valid. This keeps callers from having to omit the `ETag` header.
+    #[must_use]
+    pub fn strong_etag(&self) -> String {
+        if is_valid_etag(&self.etag) {
+            self.etag.clone()
+        } else {
+            URL_SAFE_NO_PAD.encode(xxhash_rust::xxh3::xxh3_128(&self.data).to_ne_bytes())
+        }
+    }
+
     /// Returns true if the tile data is empty.
     #[must_use]
     pub fn is_empty(&self) -> bool {
         self.data.is_empty()
+    }
+}
+
+/// Whether every byte of `tag` is allowed in an HTTP entity-tag body (RFC 9110 `etagc`).
+fn is_valid_etag(tag: &str) -> bool {
+    tag.bytes().all(|b| b == 0x21 || (0x23..=0x7e).contains(&b))
+}
+
+#[cfg(test)]
+mod tests {
+    use martin_tile_utils::{Encoding, Format};
+
+    use super::*;
+
+    fn info() -> TileInfo {
+        TileInfo::new(Format::Mvt, Encoding::Uncompressed)
+    }
+
+    #[test]
+    fn strong_etag_reuses_valid_tag() {
+        let tile = Tile::new_with_etag(b"data".to_vec(), info(), "upstream-tag".to_string());
+        assert_eq!(tile.strong_etag(), "upstream-tag");
+    }
+
+    #[test]
+    fn strong_etag_hashes_invalid_tag() {
+        // A `"` is not a valid entity-tag character and would panic `EntityTag::new_strong`.
+        let tile = Tile::new_with_etag(b"data".to_vec(), info(), "bad\"tag".to_string());
+        let etag = tile.strong_etag();
+        assert_ne!(etag, "bad\"tag");
+        assert!(is_valid_etag(&etag));
+        // Deterministic content hash, matching what `new_hash_etag` produces for the same data.
+        assert_eq!(etag, Tile::new_hash_etag(b"data".to_vec(), info()).etag);
     }
 }
