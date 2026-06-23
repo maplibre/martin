@@ -425,7 +425,7 @@ mod tests {
         let PassthroughSrc::Detailed(obj) = &cfg.sources.as_ref().unwrap()["s"] else {
             panic!("expected detailed");
         };
-        assert_eq!(obj.timeout, DEFAULT_TIMEOUT);
+        assert_eq!(obj.timeout, Duration::from_secs(30));
     }
 
     #[test]
