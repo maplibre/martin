@@ -289,6 +289,15 @@ clean_headers_dump() {
   $SED --in-place '1d' "$FILE"
 }
 
+# Stage the fixture alongside the destination and rename it in, so it appears atomically.
+# A plain `cp` writes in place, letting the reload watcher read a 0-byte file mid-copy.
+install_watched_fixture() {
+  SRC="$1"
+  DEST="$2"
+  cp "$SRC" "$DEST.staging"
+  mv "$DEST.staging" "$DEST"
+}
+
 test_log_has_str() {
   LOG_FILE="$1"
   EXPECTED_TEXT="$2"
@@ -1110,7 +1119,7 @@ wait_for "$MARTIN_PROC_ID" Martin "$MARTIN_URL/health"
 $CURL "$MARTIN_URL/catalog" | jq --sort-keys > "$TEST_OUT_DIR/catalog_empty.json"
 
 >&2 echo "Test reload: adding a new MBTiles file triggers source addition"
-cp tests/fixtures/mbtiles/world_cities.mbtiles "$RELOAD_WATCH_DIR/world_cities.mbtiles"
+install_watched_fixture tests/fixtures/mbtiles/world_cities.mbtiles "$RELOAD_WATCH_DIR/world_cities.mbtiles"
 wait_for_catalog_source "world_cities"
 test_jsn reload_catalog_added catalog
 
@@ -1164,7 +1173,7 @@ wait_for "$MARTIN_PROC_ID" Martin "$MARTIN_URL/health"
 $CURL "$MARTIN_URL/catalog" | jq --sort-keys > "$TEST_OUT_DIR/catalog_empty.json"
 
 >&2 echo "Test PMTiles reload: adding a new PMTiles file triggers source addition"
-cp tests/fixtures/pmtiles/png.pmtiles "$PMTILES_RELOAD_WATCH_DIR/png.pmtiles"
+install_watched_fixture tests/fixtures/pmtiles/png.pmtiles "$PMTILES_RELOAD_WATCH_DIR/png.pmtiles"
 wait_for_catalog_source "png"
 test_jsn pmtiles_reload_catalog_added catalog
 
@@ -1250,7 +1259,7 @@ trap "echo 'Stopping Martin server $MARTIN_PROC_ID...'; kill -9 $MARTIN_PROC_ID 
 wait_for "$MARTIN_PROC_ID" Martin "$MARTIN_URL/health"
 
 COG_SOURCE_ID="usda_naip_128_none_z2"
-cp "tests/fixtures/cog/${COG_SOURCE_ID}.tif" "$COG_RELOAD_WATCH_DIR/${COG_SOURCE_ID}.tif"
+install_watched_fixture "tests/fixtures/cog/${COG_SOURCE_ID}.tif" "$COG_RELOAD_WATCH_DIR/${COG_SOURCE_ID}.tif"
 
 COG_ENABLED=0
 for _ in {1..10}; do
