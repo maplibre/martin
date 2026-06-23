@@ -117,6 +117,7 @@ pretty_assertions = "1"
 prometheus = { version = "0.14", default-features = false }
 rayon = "1"
 regex = "1"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "http2"] }
 rstest = "0.26.1"
 rustls = "0.23.38"
 # ring feature does not require NASM windows executable, but works slower
@@ -152,6 +153,7 @@ url = "2.5"
 utoipa = { version = "5.4", default-features = false, features = ["chrono", "macros", "actix_extras"] }
 utoipa-actix-web = "0.1"
 walkdir = "2.5.0"
+wiremock = "0.6"
 xxhash-rust = { version = "0.8", features = ["xxh3"] }
 zstd = "0.13"
 

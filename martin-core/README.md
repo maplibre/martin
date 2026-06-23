@@ -19,6 +19,7 @@ The library providing the basic building blocks for [Martin](https://maplibre.or
   - [x] duckdb tables
   - [x] duckdb functions
   - [x] geoparquet files
+  - [x] passthrough (upstream HTTP tile server)
 - resources
   - [x] sprites
   - [x] fonts

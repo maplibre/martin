@@ -113,11 +113,11 @@ impl Source {
 }
 
 fn expand_if_relative_url(url: &mut String, base_url: &str) {
-    // Protocol-relative URL like `//cdn.example/x` → leave alone.
+    // Protocol-relative URL like `//cdn.example/x` -> leave alone.
     if url.starts_with("//") {
         return;
     }
-    // Already a valid absolute URL → leave alone.
+    // Already a valid absolute URL -> leave alone.
     if Url::parse(url).is_ok() {
         return;
     }

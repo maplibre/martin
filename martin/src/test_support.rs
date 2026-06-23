@@ -91,3 +91,43 @@ pub(crate) mod pg {
             .expect("execute seed SQL");
     }
 }
+
+/// DuckDB shared test helpers.
+///
+/// Creates a writable temp database file before opening the read-only [`DuckDBPool`]
+#[cfg(feature = "unstable-duckdb")]
+pub(crate) mod duckdb {
+    use std::path::PathBuf;
+
+    use duckdb::Connection;
+    use martin_core::tiles::duckdb::DuckDBPool;
+    use tempfile::TempDir;
+
+    /// A temp `.duckdb` file populated from a SQL fixture.
+    pub(crate) struct TestDatabase {
+        _dir: TempDir,
+        path: PathBuf,
+    }
+
+    impl TestDatabase {
+        /// Creates a database file at `filename` inside a temp dir and runs `sql` after
+        /// loading the spatial extension.
+        pub(crate) fn from_sql(filename: &str, sql: &str) -> Self {
+            let dir = TempDir::new().expect("temporary DuckDB directory");
+            let path = dir.path().join(filename);
+            let conn = Connection::open(&path).expect("writable DuckDB database");
+            conn.execute_batch("INSTALL spatial;")
+                .expect("spatial extension installed");
+            conn.execute_batch("LOAD spatial;")
+                .expect("spatial extension loaded");
+            conn.execute_batch(sql).expect("fixture SQL executed");
+            Self { _dir: dir, path }
+        }
+
+        /// Opens a read-only pool against the prepared database file.
+        pub(crate) fn read_only_pool(&self, id: &str, pool_size: usize) -> DuckDBPool {
+            DuckDBPool::new_database_file(id.to_string(), self.path.clone(), pool_size, None, None)
+                .expect("read-only DuckDB pool")
+        }
+    }
+}

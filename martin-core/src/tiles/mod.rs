@@ -8,6 +8,7 @@
 //!   - [x] pmtiles
 //!   - [x] cog
 //!   - [x] postgres
+//!   - [x] passthrough
 
 /// The public facing API for managing a catalog of tile sources
 pub mod catalog;
@@ -28,9 +29,13 @@ pub mod cog;
 /// Implementation of `PostgreSQL`' [`Source`].
 pub mod postgres;
 
-#[cfg(feature = "duckdb")]
+#[cfg(feature = "unstable-duckdb")]
 /// Implementation of `DuckDB`' [`Source`].
 pub mod duckdb;
+
+#[cfg(feature = "passthrough")]
+/// Implementation of a [`Source`] that proxies tiles from an upstream HTTP tile server.
+pub mod passthrough;
 
 mod source;
 pub use source::{BoxedSource, Source, UrlQuery};
