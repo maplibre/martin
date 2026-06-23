@@ -166,8 +166,8 @@ observability:
 # - `warn`: log warning messages
 # - `abort`: log warnings as error messages, abort startup
 on_invalid: warn
-# Proxy tiles from upstream HTTP tile servers, running them through the
-# MVT<->MLT conversion and tile cache.
+# Re-serve tiles from upstream HTTP tile servers, with caching and optional
+# MVT<->MLT re-encoding. Each upstream is configured under `sources`.
 passthrough:
   # MVT->MLT encoder settings for all passthrough sources.
   # Overrides global; overridden by per-source `convert_to_mlt`.
@@ -189,8 +189,24 @@ passthrough:
   # MLT->MVT conversion settings for all passthrough sources.
   # Overrides global; overridden by per-source `convert_to_mvt`.
   convert_to_mvt: {}
-  # A map of source IDs to an upstream URL (shorthand) or a per-source configuration object.
-  sources: {}
+  # Upstream tile servers to proxy, keyed by the source ID Martin serves them under.
+  #
+  # Each value is one of:
+  # - a `{z}/{x}/{y}` URL template, e.g. `https://tile.openstreetmap.org/{z}/{x}/{y}.png`
+  # - a `TileJSON` document URL; its tile URLs, zoom range, and bounds are read from the document
+  # - a list of URL templates, to spread requests across mirror upstreams
+  # - an object with `url` plus any of `headers` (e.g. for auth), `timeout`, `format`,
+  #   `minzoom`/`maxzoom`/`bounds`/`attribution`, `cache`, and `convert_to_mlt`/`convert_to_mvt`
+  sources:
+    hosted: https://demotiles.maplibre.org/tiles/tiles.json
+    osm: https://tile.openstreetmap.org/{z}/{x}/{y}.png
+    secure:
+      format: mvt
+      headers:
+        Authorization: ${API_TOKEN}
+      maxzoom: 14
+      minzoom: 0
+      url: https://api.example.com/{z}/{x}/{y}.mvt
 # Publish `PMTiles` files from local disk or proxy to a web server
 pmtiles:
   # MVT->MLT encoder settings for all `PMTiles` sources.
