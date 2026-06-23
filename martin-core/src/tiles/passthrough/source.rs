@@ -35,6 +35,39 @@ impl Transport {
             timeout,
         }
     }
+
+    /// Build a transport from string header pairs, validating each name and value.
+    ///
+    /// This lets callers (e.g. the `martin` crate's config layer) supply headers without
+    /// depending on `reqwest`'s header types directly.
+    pub fn from_string_headers<'a, I>(
+        timeout: Duration,
+        headers: I,
+    ) -> Result<Self, PassthroughError>
+    where
+        I: IntoIterator<Item = (&'a str, &'a str)>,
+    {
+        let mut header_map = HeaderMap::new();
+        for (name, value) in headers {
+            let header_name = HeaderName::from_bytes(name.as_bytes()).map_err(|source| {
+                PassthroughError::InvalidHeaderName {
+                    name: name.to_string(),
+                    source,
+                }
+            })?;
+            let header_value = HeaderValue::from_str(value).map_err(|source| {
+                PassthroughError::InvalidHeaderValue {
+                    name: name.to_string(),
+                    source,
+                }
+            })?;
+            header_map.insert(header_name, header_value);
+        }
+        Ok(Self {
+            headers: header_map,
+            timeout,
+        })
+    }
 }
 
 /// Operator-supplied metadata for a template upstream.
@@ -394,4 +427,43 @@ fn header_str(headers: &HeaderMap, name: &HeaderName) -> Option<String> {
         .get(name)
         .and_then(|value| value.to_str().ok())
         .map(ToString::to_string)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn from_string_headers_validates_and_collects() {
+        let transport = Transport::from_string_headers(
+            Duration::from_secs(1),
+            [("x-api-key", "secret"), ("accept", "application/x-protobuf")],
+        )
+        .unwrap();
+        assert_eq!(transport.headers.get("x-api-key").unwrap(), "secret");
+        assert_eq!(
+            transport.headers.get("accept").unwrap(),
+            "application/x-protobuf"
+        );
+    }
+
+    #[test]
+    fn from_string_headers_rejects_invalid_name() {
+        let err = Transport::from_string_headers(Duration::from_secs(1), [("bad name", "v")])
+            .unwrap_err();
+        assert!(matches!(
+            err,
+            PassthroughError::InvalidHeaderName { name, .. } if name == "bad name"
+        ));
+    }
+
+    #[test]
+    fn from_string_headers_rejects_invalid_value() {
+        let err = Transport::from_string_headers(Duration::from_secs(1), [("x-key", "bad\nvalue")])
+            .unwrap_err();
+        assert!(matches!(
+            err,
+            PassthroughError::InvalidHeaderValue { name, .. } if name == "x-key"
+        ));
+    }
 }
