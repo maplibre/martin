@@ -955,8 +955,23 @@ jobs:
       - test-aws-lambda
       - test-publish
     if: always()
-    permissions: {}
+    permissions:
+      actions: write # Retry actions
+      checks: read   # Get info about the run
     steps:
+      - name: retry
+        if: ${{ github.event.workflow_run.conclusion == 'failure' && github.event.workflow_run.run_attempt == 1 }}
+        run: |
+          # Get info about the run
+          $output = gh run view --repo "${{ github.event.repository.full_name }}" "${{ github.event.workflow_run.id }}"
+          $output
+
+          # Rerun the failed workflow if needed
+          if ($output -match "Process completed with exit code 1") {
+            gh run rerun "${{ github.event.workflow_run.id }}" --repo "${{ github.event.repository.full_name }}"" --failed
+          }
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Result of the needed steps
         run: echo "${{ toJSON(needs) }}" # zizmor: ignore[template-injection]
       - if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped') }}
