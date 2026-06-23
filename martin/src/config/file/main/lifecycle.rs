@@ -364,6 +364,7 @@ impl Config {
             feature = "postgres",
             feature = "pmtiles",
             feature = "mbtiles",
+            feature = "passthrough",
             feature = "unstable-cog"
         )),
         expect(
@@ -381,6 +382,7 @@ impl Config {
                 feature = "postgres",
                 feature = "pmtiles",
                 feature = "mbtiles",
+                feature = "passthrough",
                 feature = "unstable-cog"
             )),
             expect(
