@@ -437,7 +437,10 @@ mod tests {
     fn from_string_headers_validates_and_collects() {
         let transport = Transport::from_string_headers(
             Duration::from_secs(1),
-            [("x-api-key", "secret"), ("accept", "application/x-protobuf")],
+            [
+                ("x-api-key", "secret"),
+                ("accept", "application/x-protobuf"),
+            ],
         )
         .unwrap();
         assert_eq!(transport.headers.get("x-api-key").unwrap(), "secret");
