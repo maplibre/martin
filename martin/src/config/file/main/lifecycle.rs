@@ -360,7 +360,12 @@ impl Config {
     #[cfg(feature = "_tiles")]
     #[instrument(skip_all, err(Debug))]
     #[cfg_attr(
-        feature = "unstable-duckdb",
+        not(any(
+            feature = "postgres",
+            feature = "pmtiles",
+            feature = "mbtiles",
+            feature = "unstable-cog"
+        )),
         expect(
             unused_variables,
             reason = "idr is only consumed by the non-duckdb tile backends"
@@ -372,7 +377,12 @@ impl Config {
         #[cfg(feature = "pmtiles")] pmtiles_cache: PmtCache,
     ) -> MartinResult<(Vec<Vec<BoxedSource>>, Vec<TileSourceWarning>)> {
         #[cfg_attr(
-            feature = "unstable-duckdb",
+            not(any(
+                feature = "postgres",
+                feature = "pmtiles",
+                feature = "mbtiles",
+                feature = "unstable-cog"
+            )),
             expect(
                 unused_mut,
                 reason = "the non-duckdb tile backends push resolved sources here"
