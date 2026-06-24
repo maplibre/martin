@@ -140,10 +140,10 @@ enum Commands {
         /// `MBTiles` file to write
         output_file: PathBuf,
         /// Tile ID scheme for input directory
-        #[arg(long, value_enum, default_value = "xyz")]
+        #[arg(long, value_enum, default_value_t)]
         scheme: TileScheme,
         /// Compression to store tiles with
-        #[arg(long, value_enum, default_value = "auto")]
+        #[arg(long, value_enum, default_value_t)]
         compress: Compression,
     },
     /// Unpack an `MBTiles` file into a directory tree of tiles
@@ -154,25 +154,27 @@ enum Commands {
         /// directory to write
         output_directory: PathBuf,
         /// Tile ID scheme for output directory
-        #[arg(long, value_enum, default_value = "xyz")]
+        #[arg(long, value_enum, default_value_t)]
         scheme: TileScheme,
     },
 }
 
-#[derive(Clone, Copy, PartialEq, Debug, clap::ValueEnum)]
+#[derive(Clone, Copy, Default, PartialEq, Debug, clap::ValueEnum)]
 enum TileScheme {
     /// XYZ (aka. "slippy map") scheme where Y=0 is at the top
     #[value(name = "xyz")]
+    #[default]
     Xyz,
     /// TMS scheme where Y=0 is at the bottom
     #[value(name = "tms")]
     Tms,
 }
 
-#[derive(Clone, Copy, PartialEq, Debug, clap::ValueEnum)]
+#[derive(Clone, Copy, Default, PartialEq, Debug, clap::ValueEnum)]
 enum Compression {
     /// Gzip vector tiles and store everything else as-is, matching `MBTiles` conventions
     #[value(name = "auto")]
+    #[default]
     Auto,
     /// Store every tile uncompressed
     #[value(name = "none")]
