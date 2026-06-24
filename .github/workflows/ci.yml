@@ -49,30 +49,15 @@ jobs:
         # 2. Run on all three OS platforms when merging to main
         os: ${{ fromJSON('["ubuntu-latest", "macos-latest"]') || (github.ref == 'refs/heads/main' && fromJSON('["ubuntu-latest", "macos-latest", "windows-latest"]')) }}
     steps:
-      - run: rustup update stable && rustup default stable
-      - uses: BRAINSia/free-disk-space@7048ffbf50819342ac964ef3998a51c2564a8a75 # v2.1.3
-        if: runner.os == 'Linux'
-        with:
-          tool-cache: false
-          mandb:   true
-          android: true
-          dotnet: true
-          haskell: true
-          large-packages: false
-          docker-images: true
-          swap-storage: true
       - name: Checkout sources
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with: { persist-credentials: false }
+      - uses: ./.github/actions/setup-rust
+        with: { rendering: true }
       - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1 # zizmor: ignore[cache-poisoning] dev-only build cache, keyed per matrix; poisoning risk accepted
         if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
         with:
           key: ${{ matrix.os }}
-      - uses: taiki-e/install-action@0631aa6515c7d545823c67cfae7ef4fc7f490154 # v2.81.8
-        with: { tool: 'just' }
-      - name: Install rendering dependencies
-        if: runner.os == 'Linux'
-        run: just install-dependencies
       - name: Install uv
         if: runner.os == 'Linux'
         uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0 # zizmor: ignore[cache-poisoning] dev-only tool cache; poisoning risk accepted
@@ -85,18 +70,13 @@ jobs:
       contents: read
     runs-on: ubuntu-latest
     steps:
-      - run: rustup update stable && rustup default stable
-      - run: rustup component add clippy rustfmt
       - name: Checkout sources
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with: { persist-credentials: false }
-      - uses: taiki-e/install-action@0631aa6515c7d545823c67cfae7ef4fc7f490154 # v2.81.8
-        with: { tool: 'just' }
+      - uses: ./.github/actions/setup-rust
+        with: { components: clippy rustfmt, rendering: true }
       - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1 # zizmor: ignore[cache-poisoning] dev-only build cache, keyed per matrix; poisoning risk accepted
         if: github.event_name != 'release' && github.event_name != 'workflow_dispatch' && github.ref != 'refs/heads/main'
-      - name: Install rendering dependencies
-        run: just install-dependencies
-      - run: just env-info
       - run: just clippy
       - run: just check
       - run: just check-doc
@@ -638,12 +618,10 @@ jobs:
           postgis/postgis:${{ matrix.img_ver }}
           -c "exec docker-entrypoint.sh ${{ matrix.args }}"
     steps:
-      - run: rustup update stable && rustup default stable
       - name: Checkout sources
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with: { persist-credentials: false }
-      - uses: taiki-e/install-action@0631aa6515c7d545823c67cfae7ef4fc7f490154 # v2.81.8
-        with: { tool: 'just' }
+      - uses: ./.github/actions/setup-rust
       - name: Init database
         run: tests/fixtures/initdb.sh
         env:
@@ -667,12 +645,10 @@ jobs:
     permissions:
       contents: read
     steps:
-      - run: rustup update stable && rustup default stable
       - name: Checkout sources
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with: { persist-credentials: false }
-      - uses: taiki-e/install-action@0631aa6515c7d545823c67cfae7ef4fc7f490154 # v2.81.8
-        with: { tool: 'just' }
+      - uses: ./.github/actions/setup-rust
       - name: Unit Tests
         run: just test-minio
 
@@ -772,14 +748,11 @@ jobs:
       contents: read
     runs-on: ubuntu-latest
     steps:
-      - run: rustup update stable && rustup default stable
       - name: Checkout sources
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with: { persist-credentials: false }
-      - uses: taiki-e/install-action@0631aa6515c7d545823c67cfae7ef4fc7f490154 # v2.81.8
-        with: { tool: 'just,cargo-binstall' }
-      - name: Install rendering dependencies
-        run: just install-dependencies
+      - uses: ./.github/actions/setup-rust
+        with: { tools: 'just,cargo-binstall', rendering: true }
       - name: Test packaging
         run: cargo publish --workspace --dry-run
       - name: Test cargo-binstall metadata
@@ -980,13 +953,10 @@ jobs:
       group: release-plz-${{ github.ref }}
       cancel-in-progress: false
     steps:
-      - run: rustup update stable && rustup default stable
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with: { fetch-depth: 0, persist-credentials: false }
-      - uses: taiki-e/install-action@0631aa6515c7d545823c67cfae7ef4fc7f490154 # v2.81.8
-        with: { tool: 'just' }
-      - name: Install rendering dependencies
-        run: just install-dependencies
+      - uses: ./.github/actions/setup-rust
+        with: { rendering: true }
       - name: Publish to crates.io if crate's version is newer
         uses: release-plz/action@064f4d1e36c843611ddf013be726beaa4ad804db # v0.5.129
         id: release
