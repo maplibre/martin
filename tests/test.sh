@@ -1099,9 +1099,8 @@ if [[ "$MBTILES_BIN" != "-" ]]; then
 
   # pack / unpack round-trip coverage. These verify themselves inline (no golden
   # files) by comparing the regenerated tile tree / tiles table against the input,
-  # so the work happens in $TEST_TEMP_DIR rather than $TEST_OUT_DIR.
-  PU_DIR="$TEST_TEMP_DIR/pack_unpack"
-  mkdir -p "$PU_DIR"
+  # so the work happens in a temp dir rather than $TEST_OUT_DIR.
+  PU_DIR="$(mktemp -d "$TEST_TEMP_DIR/pack_unpack.XXXXXX")"
 
   >&2 echo "Test pack/unpack: PBF tile tree round-trips through gzip compression"
   $MBTILES_BIN unpack ./tests/fixtures/mbtiles/world_cities.mbtiles "$PU_DIR/wc_xyz"
@@ -1187,6 +1186,9 @@ if [[ "$MBTILES_BIN" != "-" ]]; then
       exit 1
     fi
   fi
+
+  # sudo fallback: the Docker image runs mbtiles as root, leaving root-owned dirs.
+  rm -rf "$PU_DIR" 2> /dev/null || sudo rm -rf "$PU_DIR"
 
   { set +x; } 2> /dev/null
   echo "::endgroup::"
