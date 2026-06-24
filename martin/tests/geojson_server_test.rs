@@ -54,6 +54,8 @@ async fn geojson_get_catalog() {
     let body: serde_json::Value = read_body_json(response).await;
     assert_yaml_snapshot!(body, @r"
     fonts: {}
+    settings:
+      rendering: false
     sprites: {}
     styles: {}
     tiles:
@@ -74,6 +76,8 @@ async fn geojson_get_catalog_gzip() {
     let body: serde_json::Value = serde_json::from_slice(&body).unwrap();
     assert_yaml_snapshot!(body, @r"
     fonts: {}
+    settings:
+      rendering: false
     sprites: {}
     styles: {}
     tiles:
