@@ -42,7 +42,6 @@ anyhow = { workspace = true, optional = true }
 bytes = { workspace = true, optional = true }
 clap = { workspace = true, optional = true }
 enum-display.workspace = true
-flate2.workspace = true
 flume.workspace = true
 futures.workspace = true
 hotpath.workspace = true
