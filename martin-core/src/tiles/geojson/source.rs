@@ -195,18 +195,21 @@ impl Source for GeoJsonSource {
 /// All resulting features share the original properties.
 /// Features with any other geometry are pushed unchanged.
 fn flatten_geometry_collections(mut f: Feature, out: &mut Vec<Feature>) {
-    if let Some(Geometry {
-        value: Value::GeometryCollection(geometries),
-        ..
-    }) = f.geometry.take()
-    {
-        for geometry in geometries {
-            let mut child = f.clone();
-            child.geometry = Some(geometry);
-            flatten_geometry_collections(child, out);
+    match f.geometry.take() {
+        Some(Geometry {
+            value: Value::GeometryCollection(geometries),
+            ..
+        }) => {
+            for geometry in geometries {
+                let mut child = f.clone();
+                child.geometry = Some(geometry);
+                flatten_geometry_collections(child, out);
+            }
         }
-    } else {
-        out.push(f);
+        other => {
+            f.geometry = other;
+            out.push(f);
+        }
     }
 }
 

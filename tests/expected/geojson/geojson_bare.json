@@ -1,0 +1,6 @@
+{
+  "tilejson": "3.0.0",
+  "tiles": [
+    "http://localhost:3119/bare_geometry/{z}/{x}/{y}"
+  ]
+}

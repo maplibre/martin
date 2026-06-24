@@ -1,0 +1,23 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "prop_string": "hello",
+        "prop_int_negative": -42,
+        "prop_uint_large": 18446744073709551615,
+        "prop_float": 3.5,
+        "prop_bool_true": true,
+        "prop_bool_false": false,
+        "prop_array": [1, 2, 3],
+        "prop_object": { "nested": "value" },
+        "prop_null": null
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [0.0, 0.0]
+      }
+    }
+  ]
+}
