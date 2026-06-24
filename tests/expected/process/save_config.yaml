@@ -50,4 +50,9 @@ postgres:
 mbtiles:
   sources:
     world_cities: tests/fixtures/mbtiles/world_cities.mbtiles
+passthrough:
+  sources:
+    passthrough_table:
+      url: http://localhost:3111/table_source/{z}/{x}/{y}
+      format: mvt
 convert_to_mlt: auto
