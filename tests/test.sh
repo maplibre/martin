@@ -967,6 +967,50 @@ test_log_has_str "$LOG_FILE" 'WARN Environment variable AWS_REGION is deprecated
 validate_log "$LOG_FILE"
 echo "::endgroup::"
 
+echo "::group::Test GeoJSON hot reload"
+TEST_NAME="geojson_reload"
+LOG_FILE="${LOG_DIR}/${TEST_NAME}.txt"
+TEST_OUT_DIR="${TEST_OUT_BASE_DIR}/${TEST_NAME}"
+GEOJSON_RELOAD_WATCH_DIR="${TEST_TEMP_DIR}/geojson_reload_watch"
+mkdir -p "$TEST_OUT_DIR" "$GEOJSON_RELOAD_WATCH_DIR"
+
+ARG=("$GEOJSON_RELOAD_WATCH_DIR")
+set -x
+$MARTIN_BIN "${ARG[@]}" 2>&1 | tee "$LOG_FILE" &
+MARTIN_PROC_ID=$(jobs -p | tail -n 1)
+{ set +x; } 2> /dev/null
+trap "echo 'Stopping Martin server $MARTIN_PROC_ID...'; kill -9 $MARTIN_PROC_ID 2> /dev/null || true; echo 'Stopped Martin server $MARTIN_PROC_ID';" EXIT HUP INT TERM
+wait_for "$MARTIN_PROC_ID" Martin "$MARTIN_URL/health"
+
+GEOJSON_SOURCE_ID="feature_collection_1"
+
+>&2 echo "Test GeoJSON reload: catalog starts empty with no geojson in watch dir"
+$CURL "$MARTIN_URL/catalog" | jq --sort-keys > "$TEST_OUT_DIR/catalog_empty.json"
+
+>&2 echo "Test GeoJSON reload: adding a new GeoJSON file triggers source addition"
+install_watched_fixture "tests/fixtures/geojson/${GEOJSON_SOURCE_ID}.geojson" "$GEOJSON_RELOAD_WATCH_DIR/${GEOJSON_SOURCE_ID}.geojson"
+wait_for_catalog_source "$GEOJSON_SOURCE_ID"
+
+>&2 echo "Test GeoJSON reload: updating a GeoJSON file triggers source update"
+touch "$GEOJSON_RELOAD_WATCH_DIR/${GEOJSON_SOURCE_ID}.geojson"
+wait_for_log_str "$LOG_FILE" "Updated source source.id=${GEOJSON_SOURCE_ID}"
+
+>&2 echo "Test GeoJSON reload: removing a GeoJSON file triggers source removal"
+rm "$GEOJSON_RELOAD_WATCH_DIR/${GEOJSON_SOURCE_ID}.geojson"
+wait_for_catalog_source_removed "$GEOJSON_SOURCE_ID"
+$CURL "$MARTIN_URL/catalog" | jq --sort-keys > "$TEST_OUT_DIR/catalog_after_remove.json"
+
+kill_process "$MARTIN_PROC_ID" Martin
+
+test_log_has_str "$LOG_FILE" "Added source source.id=${GEOJSON_SOURCE_ID}"
+test_log_has_str "$LOG_FILE" "Updated source source.id=${GEOJSON_SOURCE_ID}"
+test_log_has_str "$LOG_FILE" "Removed source source.id=${GEOJSON_SOURCE_ID}"
+test_log_has_str "$LOG_FILE" 'Defaulting `pmtiles.allow_http` to `true`. This is likely to become an error in the future for better security.'
+test_log_has_str "$LOG_FILE" 'Environment variable AWS_SKIP_CREDENTIALS is deprecated. Please use pmtiles.skip_signature in the configuration file instead.'
+test_log_has_str "$LOG_FILE" 'Environment variable AWS_REGION is deprecated. Please use pmtiles.region in the configuration file instead.'
+validate_log "$LOG_FILE"
+echo "::endgroup::"
+
 if [[ "$MARTIN_CP_BIN" != "-" ]]; then
   echo "::group::Test martin-cp"
   TEST_NAME="martin-cp"

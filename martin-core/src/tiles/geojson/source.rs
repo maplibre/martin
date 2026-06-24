@@ -544,16 +544,45 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_tile() {
-        let filename = "feature_collection_1.geojson";
-        let path = fixtures_dir().join(filename);
+        let path = fixtures_dir().join("feature_collection_1.geojson");
         let geojson_source =
             GeoJsonSource::new("test-source-1".to_string(), path, CacheZoomRange::default())
                 .await
                 .unwrap();
 
+        // z1/1/0 covers the northern-eastern hemisphere: polygon id 0 lies fully inside
+        // and id 3 is clipped to the tile, while id 1 (North America) is excluded.
         let tile_coord = TileCoord { z: 1, x: 1, y: 0 };
         let tile = geojson_source.get_tile(tile_coord, None).await.unwrap();
-        print!("{tile:?}");
+        assert!(!tile.is_empty(), "expected a non-empty MVT tile");
+
+        let decoded = Tile::decode(tile.as_slice()).expect("output is a valid MVT tile");
+        assert_eq!(decoded.layers.len(), 1);
+        let layer = &decoded.layers[0];
+        assert_eq!(layer.name, "layer");
+        assert_eq!(layer.extent(), EXTENT);
+        assert_eq!(layer.features.len(), 2, "id 0 and the clipped id 3 are visible");
+    }
+
+    #[tokio::test]
+    async fn tilejson_bounds_match_data_extent() {
+        // bare_geometry is a polygon spanning lng/lat [10,10]..[20,20].
+        // After WGS84 -> WebMercator -> WGS84 the bounds round-trip back to the input extent.
+        let path = fixtures_dir().join("bare_geometry.geojson");
+        let source = GeoJsonSource::new("bare".to_string(), path, CacheZoomRange::default())
+            .await
+            .unwrap();
+
+        let bounds = source.get_tilejson().bounds.expect("bounds should be set");
+        assert!((bounds.left - 10.0).abs() < 1e-6);
+        assert!((bounds.bottom - 10.0).abs() < 1e-6);
+        assert!((bounds.right - 20.0).abs() < 1e-6);
+        assert!((bounds.top - 20.0).abs() < 1e-6);
+
+        let center = source.get_tilejson().center.expect("center should be set");
+        assert!((center.longitude - 15.0).abs() < 1e-6);
+        assert!((center.latitude - 15.0).abs() < 1e-6);
+        assert_eq!(center.zoom, 0);
     }
 
     #[test]
@@ -568,8 +597,8 @@ mod tests {
         rect.max_x += buffer_x;
         rect.max_y += buffer_y;
         let transformed_point = rect.transform_to_tile_coordinates(&point);
-        let expected_point = [1102.0, 3596.0];
-        assert!(transformed_point[0] - expected_point[0] < 1e-9);
-        assert!(transformed_point[1] - expected_point[1] < 1e-9);
+        // `transform_to_tile_coordinates` floors to integer tile coordinates, so the
+        // result is exact.
+        assert_eq!(transformed_point, [1102.0, 3596.0]);
     }
 }

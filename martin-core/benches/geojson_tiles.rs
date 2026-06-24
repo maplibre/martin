@@ -9,7 +9,6 @@ use martin_core::CacheZoomRange;
 use martin_core::tiles::Source as _;
 use martin_core::tiles::geojson::source::GeoJsonSource;
 use martin_tile_utils::TileCoord;
-use serde_json::{Map, json};
 use tokio::runtime::Runtime;
 
 /// Number of polygon features in the synthetic dataset.
@@ -31,11 +30,10 @@ fn synthetic_geojson() -> tempfile::NamedTempFile {
     let lat_step = 170.0 / rows as f64;
     let radius = 0.4 * lon_step.min(lat_step);
 
-    let mut features = Vec::with_capacity(rows * cols);
-    for r in 0..rows {
-        for c in 0..cols {
-            let cx = -180.0 + lon_step * (c as f64 + 0.5);
-            let cy = -85.0 + lat_step * (r as f64 + 0.5);
+    let features: FeatureCollection = (0..rows * cols)
+        .map(|i| {
+            let cx = -180.0 + lon_step * ((i % cols) as f64 + 0.5);
+            let cy = -85.0 + lat_step * ((i / cols) as f64 + 0.5);
             // `Polygon::new` closes the ring for us, so the points need not repeat the first.
             let exterior: LineString = (0..RING_VERTICES)
                 .map(|k| {
@@ -47,23 +45,12 @@ fn synthetic_geojson() -> tempfile::NamedTempFile {
                 })
                 .collect();
             let geometry = geo_types::Geometry::from(Polygon::new(exterior, vec![]));
-
-            let mut properties = Map::new();
-            properties.insert("id".to_string(), json!(r * cols + c));
-            features.push(Feature {
-                bbox: None,
-                geometry: Some(Geometry::new(Value::from(&geometry))),
-                id: None,
-                properties: Some(properties),
-                foreign_members: None,
-            });
-        }
-    }
-    let fc = GeoJson::FeatureCollection(FeatureCollection {
-        bbox: None,
-        features,
-        foreign_members: None,
-    });
+            let mut feature = Feature::from(Geometry::new(Value::from(&geometry)));
+            feature.set_property("id", i);
+            feature
+        })
+        .collect();
+    let fc = GeoJson::FeatureCollection(features);
 
     let mut tmp = tempfile::Builder::new()
         .suffix(".geojson")
