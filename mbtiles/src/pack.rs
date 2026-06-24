@@ -3,7 +3,8 @@
 //! [`pack`] walks a directory tree and writes the tiles into a flat `MBTiles` file, while
 //! [`unpack`] streams the tiles out of an `MBTiles` file back into such a directory tree.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::sync::Once;
 
 use futures::StreamExt as _;
 use martin_tile_utils::{Encoding, Format, TileInfo, decode_gzip, decode_zlib, encode_gzip};
@@ -14,8 +15,17 @@ use crate::{
     create_metadata_table, invert_y_value,
 };
 
+/// A tile file discovered on disk: its path, `{z}/{x}/{y}` coordinates, and detected [`Format`].
+type TileCandidate = (PathBuf, (u8, u32, u32), Format);
+
 /// Number of tiles buffered in memory before they are flushed to the `MBTiles` file in one batch.
 const PACK_BATCH_SIZE: usize = 1000;
+
+/// Number of tile files read (and recoded) from disk concurrently while packing.
+const PACK_READ_CONCURRENCY: usize = 64;
+
+/// Number of tile files written to disk concurrently while unpacking.
+const UNPACK_WRITE_CONCURRENCY: usize = 64;
 
 /// Tile-coordinate scheme of an on-disk tile directory tree.
 #[derive(Clone, Copy, Default, PartialEq, Eq, Debug)]
@@ -46,6 +56,73 @@ pub enum PackCompression {
     Gzip,
 }
 
+/// Lazily yields each `{z}/{x}/{y}.{ext}` tile file under `input_directory`.
+/// Non-numeric directories and files are skipped, warning once per category.
+fn walk_tile_candidates(
+    input_directory: &Path,
+) -> impl Iterator<Item = MbtResult<TileCandidate>> {
+    // The `Once` guards live in the closure, so the iterator stays self-contained.
+    let warned_about_dirs = Once::new();
+    let warned_about_files = Once::new();
+    WalkDir::new(input_directory)
+        .follow_links(true)
+        .into_iter()
+        .filter_entry(move |entry| {
+            if entry.file_type().is_dir() {
+                // descend into the root and numerically-named `{z}`/`{x}` directories only
+                let keep = entry.depth() == 0
+                    || entry
+                        .file_name()
+                        .to_str()
+                        .is_some_and(|s| s.parse::<u32>().is_ok());
+                if !keep {
+                    warned_about_dirs.call_once(|| {
+                        tracing::info!(
+                            "Skipping {} and similarly-named directories; expected numeric `z`/`x` directory names",
+                            entry.path().display()
+                        );
+                    });
+                }
+                keep
+            } else {
+                // keep files whose stem is numeric (`{y}.{ext}`)
+                let keep = entry
+                    .path()
+                    .file_stem()
+                    .and_then(|s| s.to_str())
+                    .is_some_and(|s| s.parse::<u32>().is_ok());
+                if !keep {
+                    warned_about_files.call_once(|| {
+                        tracing::info!(
+                            "Skipping {} and similarly-named files; expected numeric `y.<ext>` file names",
+                            entry.path().display()
+                        );
+                    });
+                }
+                keep
+            }
+        })
+        .filter_map(|entry| {
+            let entry = match entry {
+                Ok(entry) => entry,
+                Err(e) => return Some(Err(std::io::Error::from(e).into())),
+            };
+            if entry.file_type().is_dir() {
+                return None;
+            }
+            let path = entry.path();
+            let coords = tile_coords(path)?;
+            let Some(detected) = path
+                .extension()
+                .and_then(|e| e.to_str())
+                .and_then(Format::parse)
+            else {
+                return Some(Err(MbtError::UnsupportedFileExtension(path.to_path_buf())));
+            };
+            Some(Ok((path.to_path_buf(), coords, detected)))
+        })
+}
+
 /// Packs a `{z}/{x}/{y}.{ext}` directory tree at `input_directory` into a flat `MBTiles` file at
 /// `output_file`, interpreting the directory layout with `scheme` and compressing tiles per
 /// `compression`.
@@ -61,83 +138,40 @@ pub async fn pack(
     create_metadata_table(&mut conn, false).await?;
     create_flat_tables(&mut conn, false).await?;
 
-    // Warn at most once per category so a misnamed tree does not flood the log.
-    let mut warned_about_dirs = false;
-    let mut warned_about_files = false;
-    let walker = WalkDir::new(input_directory).follow_links(true);
-    let entries = walker.into_iter().filter_entry(|entry| {
-        if entry.file_type().is_dir() {
-            // descend into the root and numerically-named `{z}`/`{x}` directories only
-            let keep = entry.depth() == 0
-                || entry
-                    .file_name()
-                    .to_str()
-                    .is_some_and(|s| s.parse::<u32>().is_ok());
-            if !keep && !warned_about_dirs {
-                tracing::info!(
-                    "Skipping {} and similarly-named directories; expected numeric `z`/`x` directory names",
-                    entry.path().display()
-                );
-                warned_about_dirs = true;
-            }
-            keep
-        } else {
-            // keep files whose stem is numeric (`{y}.{ext}`)
-            let keep = entry
-                .path()
-                .file_stem()
-                .and_then(|s| s.to_str())
-                .is_some_and(|s| s.parse::<u32>().is_ok());
-            if !keep && !warned_about_files {
-                tracing::info!(
-                    "Skipping {} and similarly-named files; expected numeric `y.<ext>` file names",
-                    entry.path().display()
-                );
-                warned_about_files = true;
-            }
-            keep
-        }
-    });
+    // Pull candidates on demand and read+recode them concurrently.
+    // `buffered` preserves order, so the format check below stays deterministic.
+    let mut reads = futures::stream::iter(walk_tile_candidates(input_directory))
+        .map(|candidate| async move {
+            let (path, (z, x, y), detected) = candidate?;
+            let data = tokio::fs::read(&path).await?;
+            // `auto` gzips vector tiles and stores everything else as-is.
+            // Explicit choices apply to every tile.
+            let target = match compression {
+                PackCompression::Auto if detected == Format::Mvt => Encoding::Gzip,
+                PackCompression::Auto | PackCompression::None => Encoding::Uncompressed,
+                PackCompression::Gzip => Encoding::Gzip,
+            };
+            let encoded = recode_tile(data, target)?;
+            Ok::<_, MbtError>((z, x, y, detected, path, encoded))
+        })
+        .buffered(PACK_READ_CONCURRENCY);
 
     let mut format: Option<Format> = None;
     let mut batch: Vec<(u8, u32, u32, Vec<u8>)> = Vec::with_capacity(PACK_BATCH_SIZE);
 
-    for entry in entries {
-        let entry = entry.map_err(std::io::Error::from)?;
-        if entry.file_type().is_dir() {
-            continue;
-        }
-        let path = entry.path();
-        let Some((z, x, y)) = tile_coords(path) else {
-            continue;
-        };
-
-        let detected = path
-            .extension()
-            .and_then(|e| e.to_str())
-            .and_then(Format::parse)
-            .ok_or_else(|| MbtError::UnsupportedFileExtension(path.to_path_buf()))?;
+    while let Some(tile) = reads.next().await {
+        let (z, x, y, detected, path, encoded) = tile?;
         match format {
             None => format = Some(detected),
             Some(f) if f != detected => {
                 return Err(MbtError::InconsistentTileFormats {
                     old: f,
                     new: detected,
-                    path: path.to_path_buf(),
+                    path,
                 });
             }
             Some(_) => {}
         }
-
-        let data = std::fs::read(path)?;
-        // `auto` follows the MBTiles convention of gzipping vector tiles and leaving
-        // raster tiles untouched; explicit choices apply to every tile.
-        let target = match compression {
-            PackCompression::Auto if detected == Format::Mvt => Encoding::Gzip,
-            PackCompression::Auto | PackCompression::None => Encoding::Uncompressed,
-            PackCompression::Gzip => Encoding::Gzip,
-        };
-        let encoded = recode_tile(data, target)?;
 
         // `insert_tiles` expects XYZ `y` and stores it as TMS internally.
         let y = match scheme {
@@ -203,31 +237,39 @@ pub async fn unpack(
         })?
         .metadata_format_value();
 
-    std::fs::create_dir_all(output_directory)?;
+    tokio::fs::create_dir_all(output_directory).await?;
 
-    let mut tiles = mbt.stream_tiles(&mut conn);
-    while let Some(tile) = tiles.next().await {
-        // `stream_tiles` already validates the indices and yields XYZ coordinates.
-        let (coord, data) = tile?;
-        let Some(data) = data else { continue };
+    // Write tiles concurrently; order does not matter.
+    let writes = mbt
+        .stream_tiles(&mut conn)
+        .map(|tile| async move {
+            // `stream_tiles` already validates the indices and yields XYZ coordinates.
+            let (coord, data) = tile?;
+            let Some(data) = data else { return Ok::<_, MbtError>(()) };
 
-        let y = match scheme {
-            TileScheme::Xyz => coord.y,
-            TileScheme::Tms => invert_y_value(coord.z, coord.y),
-        };
+            let y = match scheme {
+                TileScheme::Xyz => coord.y,
+                TileScheme::Tms => invert_y_value(coord.z, coord.y),
+            };
 
-        // Vector tiles are stored gzip-compressed; write them back out decompressed.
-        let data = if TileInfo::detect(&data).encoding == Encoding::Gzip {
-            decode_gzip(&data)?
-        } else {
-            data
-        };
+            // Vector tiles are stored gzip-compressed; write them back out decompressed.
+            let data = if TileInfo::detect(&data).encoding == Encoding::Gzip {
+                decode_gzip(&data)?
+            } else {
+                data
+            };
 
-        let tile_dir = output_directory
-            .join(coord.z.to_string())
-            .join(coord.x.to_string());
-        std::fs::create_dir_all(&tile_dir)?;
-        std::fs::write(tile_dir.join(format!("{y}.{extension}")), &data)?;
+            let tile_dir = output_directory
+                .join(coord.z.to_string())
+                .join(coord.x.to_string());
+            tokio::fs::create_dir_all(&tile_dir).await?;
+            tokio::fs::write(tile_dir.join(format!("{y}.{extension}")), &data).await?;
+            Ok(())
+        })
+        .buffer_unordered(UNPACK_WRITE_CONCURRENCY);
+    futures::pin_mut!(writes);
+    while let Some(result) = writes.next().await {
+        result?;
     }
 
     // TODO: write metadata.json file with minzoom, maxzoom, bounds, etc?
