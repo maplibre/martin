@@ -6,6 +6,7 @@ use geozero::{ColumnValue, FeatureProcessor, GeomProcessor, PropertyProcessor};
 use martin_tile_utils::{EARTH_CIRCUMFERENCE, wgs84_to_webmercator};
 use serde_json::Map;
 
+use crate::tiles::geojson::error::GeoJsonError;
 use crate::tiles::geojson::source::Rect;
 
 // 1. Filter GeoJSON features - only features that have a geometry can be processed
@@ -14,7 +15,9 @@ use crate::tiles::geojson::source::Rect;
 // 4. Build spatial index for queries
 /// Returns the preprocessed `FeatureCollection`, its spatial index, and the data
 /// bounding box in Web Mercator (`None` when no feature contributed a geometry).
-pub(crate) fn preprocess_geojson(geojson: GeoJson) -> (GeoJson, RTree<f64>, Option<Rect>) {
+pub(crate) fn preprocess_geojson(
+    geojson: GeoJson,
+) -> Result<(GeoJson, RTree<f64>, Option<Rect>), GeoJsonError> {
     match geojson {
         GeoJson::FeatureCollection(mut fc) => {
             // bounding box for entire feature collection
@@ -22,21 +25,22 @@ pub(crate) fn preprocess_geojson(geojson: GeoJson) -> (GeoJson, RTree<f64>, Opti
             let transformed_fs = fc
                 .features
                 .into_iter()
-                .filter(|f| f.geometry.is_some())
-                .map(|mut f| {
-                    let g = transform_geometry(f.geometry.unwrap());
+                .filter_map(|mut f| {
+                    let g = transform_geometry(f.geometry.take()?);
                     // after transform_geometry every geometry is guaranteed to have a bbox
                     if let Some(bb) = &g.bbox {
                         bbox.extend_by_bbox(bb);
                     }
                     f.bbox.clone_from(&g.bbox);
                     f.geometry = Some(g);
-                    f
+                    Some(f)
                 })
                 .collect::<Vec<Feature>>();
 
             // Build spatial index
-            let mut builder = RTreeBuilder::<f64>::new(transformed_fs.len().try_into().unwrap());
+            let feature_count = u32::try_from(transformed_fs.len())
+                .map_err(|_| GeoJsonError::TooManyFeatures(transformed_fs.len()))?;
+            let mut builder = RTreeBuilder::<f64>::new(feature_count);
             for f in &transformed_fs {
                 if let Some(bb) = &f.bbox {
                     builder.add(bb[0], bb[1], bb[2], bb[3]);
@@ -45,7 +49,7 @@ pub(crate) fn preprocess_geojson(geojson: GeoJson) -> (GeoJson, RTree<f64>, Opti
 
             fc.features = transformed_fs;
             let tree = builder.finish::<HilbertSort>();
-            (GeoJson::FeatureCollection(fc), tree, bbox.into_finite())
+            Ok((GeoJson::FeatureCollection(fc), tree, bbox.into_finite()))
         }
         GeoJson::Feature(mut f) => {
             let count = u32::from(f.geometry.is_some());
@@ -56,8 +60,8 @@ pub(crate) fn preprocess_geojson(geojson: GeoJson) -> (GeoJson, RTree<f64>, Opti
                 foreign_members: None,
             };
             let mut bbox = Rect::default();
-            if f.geometry.is_some() {
-                let transformed_g = transform_geometry(f.geometry.unwrap());
+            if let Some(geom) = f.geometry.take() {
+                let transformed_g = transform_geometry(geom);
                 if let Some(bb) = &transformed_g.bbox {
                     builder.add(bb[0], bb[1], bb[2], bb[3]);
                     bbox.extend_by_bbox(bb);
@@ -68,7 +72,7 @@ pub(crate) fn preprocess_geojson(geojson: GeoJson) -> (GeoJson, RTree<f64>, Opti
                 fc.features.push(f);
             }
             let tree = builder.finish::<HilbertSort>();
-            (GeoJson::FeatureCollection(fc), tree, bbox.into_finite())
+            Ok((GeoJson::FeatureCollection(fc), tree, bbox.into_finite()))
         }
         GeoJson::Geometry(g) => {
             let mut builder = RTreeBuilder::<f64>::new(1);
@@ -91,7 +95,7 @@ pub(crate) fn preprocess_geojson(geojson: GeoJson) -> (GeoJson, RTree<f64>, Opti
                 foreign_members: None,
             };
             let tree = builder.finish::<HilbertSort>();
-            (GeoJson::FeatureCollection(fc), tree, bbox.into_finite())
+            Ok((GeoJson::FeatureCollection(fc), tree, bbox.into_finite()))
         }
     }
 }
@@ -324,14 +328,15 @@ pub(crate) fn process_properties<P: PropertyProcessor>(
         match value {
             JsonValue::String(v) => processor.property(i, key, &ColumnValue::String(v))?,
             JsonValue::Number(v) => {
-                if v.is_f64() {
-                    processor.property(i, key, &ColumnValue::Double(v.as_f64().unwrap()))?
-                } else if v.is_i64() {
-                    processor.property(i, key, &ColumnValue::Long(v.as_i64().unwrap()))?
-                } else if v.is_u64() {
-                    processor.property(i, key, &ColumnValue::ULong(v.as_u64().unwrap()))?
+                if let Some(n) = v.as_i64() {
+                    processor.property(i, key, &ColumnValue::Long(n))?
+                } else if let Some(n) = v.as_u64() {
+                    processor.property(i, key, &ColumnValue::ULong(n))?
+                } else if let Some(n) = v.as_f64() {
+                    processor.property(i, key, &ColumnValue::Double(n))?
                 } else {
-                    unreachable!()
+                    // Non-finite or arbitrary-precision numbers cannot be represented as an MVT value
+                    return Err(GeozeroError::Property(key.clone()));
                 }
             }
             JsonValue::Bool(v) => processor.property(i, key, &ColumnValue::Bool(*v))?,

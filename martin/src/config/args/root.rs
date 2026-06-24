@@ -126,6 +126,7 @@ impl Args {
                 feature = "postgres",
                 feature = "mbtiles",
                 feature = "pmtiles",
+                feature = "geojson",
                 feature = "unstable-cog"
             )),
             expect(

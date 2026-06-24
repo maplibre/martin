@@ -208,7 +208,7 @@ static-files = { workspace = true, optional = true }
 subst.workspace = true
 thiserror.workspace = true
 tilejson.workspace = true
-tokio = { workspace = true, features = ["io-std"] }
+tokio = { workspace = true, features = ["io-std", "rt-multi-thread"] }
 tracing.workspace = true
 tracing-actix-web.workspace = true
 tracing-indicatif.workspace = true

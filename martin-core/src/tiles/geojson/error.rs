@@ -17,4 +17,8 @@ pub enum GeoJsonError {
     /// Geozero processing error
     #[error("Geozero processing error: {0}")]
     GeozeroError(#[source] geozero::error::GeozeroError),
+
+    /// More features than can be spatially indexed
+    #[error("GeoJSON has too many features to index: {0} exceeds u32::MAX")]
+    TooManyFeatures(usize),
 }

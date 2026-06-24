@@ -69,7 +69,7 @@ impl GeoJsonSource {
             .parse::<GeoJson>()
             .map_err(|err| GeoJsonError::GeoJsonError(Box::new(err)))?;
 
-        let (geojson, rtree, bounds) = preprocess_geojson(geojson);
+        let (geojson, rtree, bounds) = preprocess_geojson(geojson)?;
 
         // The data bounding box is in Web Mercator; reproject its corners back to WGS84
         // so TileJSON advertises the area covered. An empty source has no bounds.
@@ -180,7 +180,7 @@ impl Source for GeoJsonSource {
             .into_par_iter()
             .enumerate()
             .filter_map(|(i, mut f)| {
-                let geom = f.geometry.unwrap();
+                let geom = f.geometry.take()?;
                 let g = rect.clip_transform_validate_geometry(geom, i);
                 if let Some(geom) = g {
                     f.geometry = Some(geom);
@@ -206,7 +206,9 @@ impl Source for GeoJsonSource {
         let geojson = GeoJson::FeatureCollection(fc);
 
         // Use unscaled writer as the coordinates are already in tile coordinate system
-        let mut mvt_writer = MvtWriter::new_unscaled(EXTENT).unwrap();
+        let mut mvt_writer = MvtWriter::new_unscaled(EXTENT)
+            .map_err(GeoJsonError::GeozeroError)
+            .map_err(MartinCoreError::GeoJsonError)?;
         process_geojson(&geojson, &mut mvt_writer)
             .map_err(GeoJsonError::GeozeroError)
             .map_err(MartinCoreError::GeoJsonError)?;
@@ -583,7 +585,10 @@ mod tests {
         let decoded = Tile::decode(tile.as_slice()).expect("output is a valid MVT tile");
         assert_eq!(decoded.layers.len(), 1);
         let layer = &decoded.layers[0];
-        assert_eq!(layer.name, "test-source-1", "layer is named after the source");
+        assert_eq!(
+            layer.name, "test-source-1",
+            "layer is named after the source"
+        );
         assert_eq!(layer.extent(), EXTENT);
         assert_eq!(
             layer.features.len(),
@@ -594,14 +599,14 @@ mod tests {
 
     #[tokio::test]
     async fn tilejson_bounds_match_data_extent() {
+        use approx::assert_abs_diff_eq;
+
         // bare_geometry is a polygon spanning lng/lat [10,10]..[20,20].
         // After WGS84 -> WebMercator -> WGS84 the bounds round-trip back to the input extent.
         let path = fixtures_dir().join("bare_geometry.geojson");
         let source = GeoJsonSource::new("bare".to_string(), path, CacheZoomRange::default())
             .await
             .unwrap();
-
-        use approx::assert_abs_diff_eq;
 
         let bounds = source.get_tilejson().bounds.expect("bounds should be set");
         assert_abs_diff_eq!(bounds.left, 10.0, epsilon = 1e-6);
@@ -618,10 +623,8 @@ mod tests {
     #[test]
     fn empty_feature_collection_has_no_bounds() {
         // No feature contributes a geometry, so there is no extent to advertise.
-        let geojson = r#"{"type":"FeatureCollection","features":[]}"#
-            .parse::<GeoJson>()
-            .unwrap();
-        let (_geojson, _rtree, bounds) = preprocess_geojson(geojson);
+        let geojson = r#"{"type":"FeatureCollection","features":[]}"#.parse::<GeoJson>().unwrap();
+        let (_geojson, _rtree, bounds) = preprocess_geojson(geojson).unwrap();
         assert!(bounds.is_none());
     }
 
