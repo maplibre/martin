@@ -58,9 +58,7 @@ pub enum PackCompression {
 
 /// Lazily yields each `{z}/{x}/{y}.{ext}` tile file under `input_directory`.
 /// Non-numeric directories and files are skipped, warning once per category.
-fn walk_tile_candidates(
-    input_directory: &Path,
-) -> impl Iterator<Item = MbtResult<TileCandidate>> {
+fn walk_tile_candidates(input_directory: &Path) -> impl Iterator<Item = MbtResult<TileCandidate>> {
     // The `Once` guards live in the closure, so the iterator stays self-contained.
     let warned_about_dirs = Once::new();
     let warned_about_files = Once::new();
@@ -245,7 +243,9 @@ pub async fn unpack(
         .map(|tile| async move {
             // `stream_tiles` already validates the indices and yields XYZ coordinates.
             let (coord, data) = tile?;
-            let Some(data) = data else { return Ok::<_, MbtError>(()) };
+            let Some(data) = data else {
+                return Ok::<_, MbtError>(());
+            };
 
             let y = match scheme {
                 TileScheme::Xyz => coord.y,
