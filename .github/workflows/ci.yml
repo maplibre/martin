@@ -77,7 +77,6 @@ jobs:
         with: { components: clippy rustfmt, rendering: true }
       - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1 # zizmor: ignore[cache-poisoning] dev-only build cache, keyed per matrix; poisoning risk accepted
         if: github.event_name != 'release' && github.event_name != 'workflow_dispatch' && github.ref != 'refs/heads/main'
-      - run: just env-info
       - run: just clippy
       - run: just check
       - run: just check-doc
