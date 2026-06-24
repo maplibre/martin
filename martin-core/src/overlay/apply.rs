@@ -1,11 +1,4 @@
 //! [`OverlaySpec`] -> side-effects on a maplibre [`StyleRef`].
-//!
-//! Each [`OverlayFeature`] becomes one maplibre source plus the 1-2 layers its
-//! geometry fans out to. The geometry->layer dispatch and the polygon
-//! fill/outline rule live here -- they are rendering concerns, not validation.
-//! A paint property left unset is simply not set on the layer, so it falls
-//! through to `MapLibre`'s own default. The [`ID_PREFIX`] / synthetic-id scheme is
-//! also local: callers only ever see the typed [`OverlayFeature`]s.
 
 use geojson::{GeoJson as GjGeoJson, Geometry, GeometryValue};
 use maplibre_native::{
@@ -14,8 +7,8 @@ use maplibre_native::{
 
 use crate::overlay::{ApplyError, OverlayFeature, OverlayProperties, OverlaySpec};
 
-/// Prefix prepended to every synthetic source/layer id before it reaches
-/// maplibre. Guarantees overlay ids cannot collide with the base style.
+/// Prefix prepended to every synthetic source/layer id before it reaches maplibre.
+/// Guarantees overlay ids cannot collide with the base style.
 const ID_PREFIX: &str = "overlay:";
 
 /// Handle to overlay sources and layers added to a [`StyleRef`]. Must be removed
@@ -40,13 +33,12 @@ impl AppliedOverlay {
     }
 }
 
-/// Adds `spec` to `style`. On any failure mid-way, rolls back what this call
-/// added (in reverse order) before returning `Err`.
+/// Adds `spec` to `style`.
+/// On any failure mid-way, rolls back what this call added (in reverse order) before returning `Err`.
 ///
 /// # Errors
 ///
-/// Returns [`ApplyError`] on `GeoJSON` conversion failure or any maplibre
-/// rejection.
+/// Returns [`ApplyError`] on `GeoJSON` conversion failure or any maplibre rejection.
 pub fn apply_to_style(
     spec: &OverlaySpec,
     style: &mut StyleRef<'_, Static>,
@@ -58,11 +50,12 @@ pub fn apply_to_style(
     Ok(guard.commit())
 }
 
-/// Which layer kinds a feature fans out to, in draw order. A point draws a
-/// circle, a line draws a line, and a polygon fills (unless only line
-/// properties are set) and outlines (when any line property is present)
-/// -- a bare polygon still fills so it stays visible. `None`/`GeometryCollection`
-/// geometries produce nothing and are skipped.
+/// Which layer kinds a feature fans out to, in draw order:
+/// - A point draws a circle,
+/// - a line draws a line, and
+/// - a polygon fills (unless only line properties are set) and outlines (when any line property is present)
+/// - a bare polygon still fills so it stays visible.
+/// - `None`/`GeometryCollection` geometries produce nothing and are skipped.
 fn layer_kinds(geometry: Option<&Geometry>, props: &OverlayProperties) -> Vec<LayerKind> {
     let Some(geometry) = geometry else {
         return Vec::new();
@@ -103,11 +96,8 @@ enum LayerKind {
     Circle,
 }
 
-/// Scope guard for the apply pass: tracks the ids it adds and, unless
-/// [`commit`](OverlayGuard::commit)ted, removes them again on drop -- including
-/// on an early `?` return or panic -- so a failed apply leaves no half-applied
-/// overlay behind. On success the ids move to an [`AppliedOverlay`] for removal
-/// after the render.
+/// Scope guard for the apply pass: tracks the ids it adds and, unless [`commit`](OverlayGuard::commit)ted and removes them again on drop.
+/// On success the ids move to an [`AppliedOverlay`] for removal after the render.
 struct OverlayGuard<'a, 'st> {
     style: &'st mut StyleRef<'a, Static>,
     layer_ids: Vec<String>,
