@@ -289,13 +289,18 @@ clean_headers_dump() {
   $SED --in-place '1d' "$FILE"
 }
 
-# Stage the fixture alongside the destination and rename it in, so it appears atomically.
+# Stage the fixture outside the watched directory and rename it in, so it appears atomically.
 # A plain `cp` writes in place, letting the reload watcher read a 0-byte file mid-copy.
+# Staging inside the watched directory is not enough either: the watcher still observes the
+# intermediate `.staging` file and warns when it is renamed away mid-scan.
+# The staging path is in the destination's parent directory, which shares its filesystem, so the
+# rename is atomic and the watcher only ever sees the finished file appear in one step.
 install_watched_fixture() {
   SRC="$1"
   DEST="$2"
-  cp "$SRC" "$DEST.staging"
-  mv "$DEST.staging" "$DEST"
+  STAGING="$(dirname "$DEST")/../$(basename "$DEST").staging"
+  cp "$SRC" "$STAGING"
+  mv "$STAGING" "$DEST"
 }
 
 test_log_has_str() {
