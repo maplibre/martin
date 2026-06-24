@@ -4703,6 +4703,7 @@ dependencies = [
  "serde_json",
  "serde_with",
  "spreet",
+ "strum 0.28.0",
  "tempfile",
  "testcontainers-modules",
  "thiserror 2.0.18",
