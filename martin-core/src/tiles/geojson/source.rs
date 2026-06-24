@@ -561,7 +561,11 @@ mod tests {
         let layer = &decoded.layers[0];
         assert_eq!(layer.name, "layer");
         assert_eq!(layer.extent(), EXTENT);
-        assert_eq!(layer.features.len(), 2, "id 0 and the clipped id 3 are visible");
+        assert_eq!(
+            layer.features.len(),
+            2,
+            "id 0 and the clipped id 3 are visible"
+        );
     }
 
     #[tokio::test]
