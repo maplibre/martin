@@ -1,0 +1,303 @@
+use std::fmt::{Debug, Formatter};
+use std::path::PathBuf;
+use std::vec;
+
+use async_trait::async_trait;
+use geo_index::rtree::{RTree, RTreeIndex as _};
+use geojson::{Feature, FeatureCollection, GeoJson, Geometry, Value};
+use geozero::mvt::{Message as _, MvtWriter, Tile};
+use martin_tile_utils::{Encoding, Format, TileCoord, TileData, TileInfo, webmercator_to_wgs84};
+use rayon::prelude::*;
+use tilejson::{Bounds, Center, TileJSON};
+use tokio::fs::{self};
+use tracing::trace;
+
+use crate::CacheZoomRange;
+use crate::tiles::geojson::error::GeoJsonError;
+use crate::tiles::geojson::process::{preprocess_geojson, process_geojson};
+use crate::tiles::geojson::rect::{BUFFER_SIZE, EXTENT, Rect};
+use crate::tiles::{BoxedSource, MartinCoreError, MartinCoreResult, Source, UrlQuery};
+
+/// A source for `GeoJSON` files
+///
+/// Steps to pre-process `GeoJSON` features that have a geometry:
+///
+/// 1. Convert from WGS84 EPSG:4326 to Web Mercator EPSG:3857
+/// 2. Create spatial index using a packed Hilbert R-Tree
+///
+/// This data source will be used to query features that overlap with a given tile:
+///
+/// 1. Search for geometries that overlap with a given tile bounding box using the R-Tree
+/// 2. Clip geometries with tile bounding box (and optional buffer)
+/// 3. Transform into tile coordinate space, validate the geometry and convert to MVT binary format
+#[derive(Clone)]
+pub struct GeoJsonSource {
+    id: String,
+    geojson: GeoJson,
+    rtree: RTree<f64>,
+    tilejson: TileJSON,
+    tile_info: TileInfo,
+    cache_zoom: CacheZoomRange,
+}
+
+impl GeoJsonSource {
+    /// Create a new `GeoJSON` source
+    pub async fn new(
+        id: String,
+        path: PathBuf,
+        cache_zoom: CacheZoomRange,
+    ) -> Result<Self, GeoJsonError> {
+        let geojson_str = fs::read_to_string(&path)
+            .await
+            .map_err(|err| GeoJsonError::IoError(err, path))?;
+        let geojson = geojson_str
+            .parse::<GeoJson>()
+            .map_err(|err| GeoJsonError::GeoJsonError(Box::new(err)))?;
+
+        let (geojson, rtree, bounds) = preprocess_geojson(geojson)?;
+
+        // The data bounding box is in Web Mercator; reproject its corners back to WGS84
+        // so TileJSON advertises the area covered. An empty source has no bounds.
+        let tilejson = if let Some(bounds) = bounds {
+            let (min_lng, min_lat) = webmercator_to_wgs84(bounds.min_x, bounds.min_y);
+            let (max_lng, max_lat) = webmercator_to_wgs84(bounds.max_x, bounds.max_y);
+            tilejson::tilejson! {
+                tiles: vec![],
+                bounds: Bounds::new(min_lng, min_lat, max_lng, max_lat),
+                center: Center {
+                    longitude: f64::midpoint(min_lng, max_lng),
+                    latitude: f64::midpoint(min_lat, max_lat),
+                    zoom: 0,
+                },
+            }
+        } else {
+            tilejson::tilejson! {
+                tiles: vec![],
+            }
+        };
+
+        Ok(Self {
+            id,
+            geojson,
+            rtree,
+            tilejson,
+            tile_info: TileInfo::new(Format::Mvt, Encoding::Uncompressed),
+            cache_zoom,
+        })
+    }
+}
+
+#[expect(clippy::missing_fields_in_debug)]
+impl Debug for GeoJsonSource {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("GeoJsonSource")
+            .field("id", &self.id)
+            .finish()
+    }
+}
+
+#[async_trait]
+impl Source for GeoJsonSource {
+    fn get_id(&self) -> &str {
+        &self.id
+    }
+
+    fn get_tilejson(&self) -> &TileJSON {
+        &self.tilejson
+    }
+
+    fn get_tile_info(&self) -> TileInfo {
+        self.tile_info
+    }
+
+    fn clone_source(&self) -> BoxedSource {
+        Box::new(self.clone())
+    }
+    fn get_version(&self) -> Option<String> {
+        self.tilejson.version.clone()
+    }
+
+    fn benefits_from_concurrent_scraping(&self) -> bool {
+        true
+    }
+
+    fn cache_zoom(&self) -> CacheZoomRange {
+        self.cache_zoom
+    }
+
+    async fn get_tile(
+        &self,
+        xyz: TileCoord,
+        _url_query: Option<&UrlQuery>,
+    ) -> MartinCoreResult<TileData> {
+        let mut rect = Rect::from_xyz(xyz.x, xyz.y, xyz.z);
+
+        // Add buffer for query and clipping
+        let buffer = f64::from(BUFFER_SIZE) / f64::from(EXTENT);
+        let buffer_x = (rect.max_x - rect.min_x) * buffer;
+        let buffer_y = (rect.max_y - rect.min_y) * buffer;
+        rect.min_x -= buffer_x;
+        rect.min_y -= buffer_y;
+        rect.max_x += buffer_x;
+        rect.max_y += buffer_y;
+
+        let indices = self
+            .rtree
+            .search(rect.min_x, rect.min_y, rect.max_x, rect.max_y);
+
+        if indices.is_empty() {
+            trace!(
+                "Couldn't find tile data in {}/{}/{} of {}",
+                xyz.z, xyz.x, xyz.y, &self.id
+            );
+            return Ok(Vec::new());
+        }
+
+        let GeoJson::FeatureCollection(fc) = &self.geojson else {
+            unreachable!("Preprocessing converts any GeoJson input into a FeatureCollection")
+        };
+        let selected_fs = indices
+            .into_iter()
+            .map(|i| fc.features[i as usize].clone())
+            .collect::<Vec<_>>();
+
+        let clipped_fs = selected_fs
+            .into_par_iter()
+            .enumerate()
+            .filter_map(|(i, mut f)| {
+                let geom = f.geometry.take()?;
+                let g = rect.clip_transform_validate_geometry(geom, i);
+                if let Some(geom) = g {
+                    f.geometry = Some(geom);
+                    return Some(f);
+                }
+
+                None
+            })
+            .collect::<Vec<_>>();
+
+        // MVT features hold a single geometry type, so a GeoJSON GeometryCollection
+        // is emitted as one MVT feature per contained geometry, all sharing the properties.
+        let mut flattened_fs = Vec::with_capacity(clipped_fs.len());
+        for f in clipped_fs {
+            flatten_geometry_collections(f, &mut flattened_fs);
+        }
+
+        let fc = FeatureCollection {
+            bbox: None,
+            features: flattened_fs,
+            foreign_members: None,
+        };
+        let geojson = GeoJson::FeatureCollection(fc);
+
+        // Use unscaled writer as the coordinates are already in tile coordinate system
+        let mut mvt_writer = MvtWriter::new_unscaled(EXTENT)
+            .map_err(GeoJsonError::GeozeroError)
+            .map_err(MartinCoreError::GeoJsonError)?;
+        process_geojson(&geojson, &mut mvt_writer)
+            .map_err(GeoJsonError::GeozeroError)
+            .map_err(MartinCoreError::GeoJsonError)?;
+        let mvt_layer = mvt_writer.layer(&self.id);
+        let tile = Tile {
+            layers: vec![mvt_layer],
+        };
+        let v = tile.encode_to_vec();
+        Ok(v)
+    }
+}
+
+/// Expand a feature whose geometry is a `GeometryCollection` into one feature per
+/// contained geometry (recursively), since an MVT feature holds a single geometry.
+/// All resulting features share the original properties.
+/// Features with any other geometry are pushed unchanged.
+fn flatten_geometry_collections(mut f: Feature, out: &mut Vec<Feature>) {
+    match f.geometry.take() {
+        Some(Geometry {
+            value: Value::GeometryCollection(geometries),
+            ..
+        }) => {
+            for geometry in geometries {
+                let mut child = f.clone();
+                child.geometry = Some(geometry);
+                flatten_geometry_collections(child, out);
+            }
+        }
+        other => {
+            f.geometry = other;
+            out.push(f);
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    fn fixtures_dir() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .unwrap()
+            .join("tests/fixtures/geojson")
+    }
+
+    #[tokio::test]
+    async fn test_get_tile() {
+        let path = fixtures_dir().join("feature_collection_1.geojson");
+        let geojson_source =
+            GeoJsonSource::new("test-source-1".to_string(), path, CacheZoomRange::default())
+                .await
+                .unwrap();
+
+        // z1/1/0 covers the northern-eastern hemisphere: polygon id 0 lies fully inside
+        // and id 3 is clipped to the tile, while id 1 (North America) is excluded.
+        let tile_coord = TileCoord { z: 1, x: 1, y: 0 };
+        let tile = geojson_source.get_tile(tile_coord, None).await.unwrap();
+        assert!(!tile.is_empty(), "expected a non-empty MVT tile");
+
+        let decoded = Tile::decode(tile.as_slice()).expect("output is a valid MVT tile");
+        assert_eq!(decoded.layers.len(), 1);
+        let layer = &decoded.layers[0];
+        assert_eq!(
+            layer.name, "test-source-1",
+            "layer is named after the source"
+        );
+        assert_eq!(layer.extent(), EXTENT);
+        assert_eq!(
+            layer.features.len(),
+            2,
+            "id 0 and the clipped id 3 are visible"
+        );
+    }
+
+    #[tokio::test]
+    async fn tilejson_bounds_match_data_extent() {
+        use approx::assert_abs_diff_eq;
+
+        // bare_geometry is a polygon spanning lng/lat [10,10]..[20,20].
+        // After WGS84 -> WebMercator -> WGS84 the bounds round-trip back to the input extent.
+        let path = fixtures_dir().join("bare_geometry.geojson");
+        let source = GeoJsonSource::new("bare".to_string(), path, CacheZoomRange::default())
+            .await
+            .unwrap();
+
+        let bounds = source.get_tilejson().bounds.expect("bounds should be set");
+        assert_abs_diff_eq!(bounds.left, 10.0, epsilon = 1e-6);
+        assert_abs_diff_eq!(bounds.bottom, 10.0, epsilon = 1e-6);
+        assert_abs_diff_eq!(bounds.right, 20.0, epsilon = 1e-6);
+        assert_abs_diff_eq!(bounds.top, 20.0, epsilon = 1e-6);
+
+        let center = source.get_tilejson().center.expect("center should be set");
+        assert_abs_diff_eq!(center.longitude, 15.0, epsilon = 1e-6);
+        assert_abs_diff_eq!(center.latitude, 15.0, epsilon = 1e-6);
+        assert_eq!(center.zoom, 0);
+    }
+
+    #[test]
+    fn empty_feature_collection_has_no_bounds() {
+        // No feature contributes a geometry, so there is no extent to advertise.
+        let geojson = r#"{"type":"FeatureCollection","features":[]}"#.parse::<GeoJson>().unwrap();
+        let (_geojson, _rtree, bounds) = preprocess_geojson(geojson).unwrap();
+        assert!(bounds.is_none());
+    }
+}

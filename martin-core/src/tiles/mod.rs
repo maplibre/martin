@@ -48,3 +48,7 @@ pub use tile::Tile;
 
 mod cache;
 pub use cache::{NO_TILE_CACHE, OptTileCache, TileCache, TileCacheKey};
+
+#[cfg(feature = "geojson")]
+/// Implementation of `GeoJSON`' [`Source`]
+pub mod geojson;

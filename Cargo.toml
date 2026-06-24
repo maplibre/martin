@@ -85,8 +85,14 @@ env_logger = "0.11"
 flate2 = "1"
 flume = "0.12"
 futures = "0.3"
+geo = "0.33.1"
+geo-index = { version = "0.3.3", features = ["rayon"] }
+geo-types = "0.7.18"
+geojson = { version = "0.24.2", features = ["geo-types"] }
+geozero = { version = "0.15.1", features = ["with-mvt"] }
 hotpath = "0.17"
 humantime-serde = "1.1.1"
+i_overlay = "4.0.7"
 image = { version = "0.25.8", default-features = false, features = ["png", "jpeg", "webp"] }
 image-compare = "0.5"
 indicatif = "0.18.3"
@@ -115,7 +121,7 @@ postgres = { version = "0.19", features = ["with-time-0_3", "with-uuid-1", "with
 postgres-protocol = "0.6"
 pretty_assertions = "1"
 prometheus = { version = "0.14", default-features = false }
-rayon = "1"
+rayon = "1.11.0"
 regex = "1"
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "http2"] }
 rstest = "0.26.1"

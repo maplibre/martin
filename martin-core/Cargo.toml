@@ -11,6 +11,11 @@ repository.workspace = true
 rust-version.workspace = true
 homepage.workspace = true
 
+[[bench]]
+name = "geojson_tiles"
+harness = false
+required-features = ["geojson"]
+
 [features]
 default = [
     "unstable-duckdb",
@@ -23,6 +28,20 @@ default = [
     "sprites",
     "styles",
     "unstable-cog",
+    "geojson",
+]
+geojson = [
+    "dep:geojson",
+    "dep:geo-index",
+    "dep:geozero",
+    "dep:i_overlay",
+    "dep:geo-types",
+    "dep:geo",
+    "dep:rayon",
+    "dep:serde_json",
+    "dep:tokio",
+    "tokio/fs",
+    "_tiles",
 ]
 metrics = ["dep:prometheus"]
 postgres = [
@@ -74,14 +93,13 @@ test-pg = ["postgres"]
 unstable-schemas = ["dep:schemars", "dep:utoipa"]
 
 [target.'cfg(target_os = "linux")'.dependencies]
-image = { workspace = true, optional = true }
 maplibre_native = { workspace = true, optional = true }
 
 [dependencies]
 actix-web = { workspace = true, optional = true }
 async-trait.workspace = true
 backon = { workspace = true, optional = true }
-base64  = { workspace = true, optional = true }
+base64 = { workspace = true, optional = true }
 bit-set = { workspace = true, optional = true }
 chrono.workspace = true
 dashmap = { workspace = true, optional = true }
@@ -91,7 +109,13 @@ derive-debug.workspace = true
 duckdb = { workspace = true, optional = true }
 flume = { workspace = true, optional = true }
 futures = { workspace = true, optional = true }
+geo = { workspace = true, optional = true }
+geo-index = { workspace = true, optional = true }
+geo-types = { workspace = true, optional = true }
+geojson = { workspace = true, optional = true }
+geozero = { workspace = true, optional = true }
 hotpath.workspace = true
+i_overlay = { workspace = true, optional = true }
 image = { workspace = true, optional = true }
 itertools = { workspace = true, optional = true }
 martin-tile-utils.workspace = true
@@ -103,6 +127,7 @@ pmtiles = { workspace = true, optional = true }
 png = { workspace = true, optional = true }
 postgres = { workspace = true, optional = true }
 prometheus = { workspace = true, optional = true }
+rayon = { workspace = true, optional = true }
 regex = { workspace = true, optional = true }
 reqwest = { workspace = true, optional = true }
 rustls = { workspace = true, optional = true }
@@ -130,6 +155,7 @@ actix-web.workspace = true
 approx.workspace = true
 backon.workspace = true
 bytes.workspace = true
+criterion = { workspace = true }
 env_logger.workspace = true
 futures.workspace = true
 image-compare.workspace = true

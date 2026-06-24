@@ -52,6 +52,7 @@ export AWS_REGION := 'eu-central-1'
 # Run benchmark tests
 bench: fetch
     cargo bench --bench sources
+    cargo bench -p martin-core --bench geojson_tiles
     open target/criterion/report/index.html
 
 # Run HTTP requests benchmark using OHA tool. Use with `just bench-server`.
