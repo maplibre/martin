@@ -19,10 +19,10 @@ use tracing::{error, instrument, warn};
 use crate::config::file::FileConfigEnum;
 #[cfg(feature = "unstable-cog")]
 use crate::config::file::cog::CogConfig;
-#[cfg(feature = "geojson")]
-use crate::config::file::geojson::GeoJsonConfig;
 #[cfg(feature = "fonts")]
 use crate::config::file::fonts::FontConfig;
+#[cfg(feature = "geojson")]
+use crate::config::file::geojson::GeoJsonConfig;
 #[cfg(feature = "mbtiles")]
 use crate::config::file::mbtiles::MbtConfig;
 #[cfg(feature = "pmtiles")]

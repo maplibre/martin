@@ -18,12 +18,12 @@ use tilejson::TileJSON;
 use tokio::fs::{self};
 use tracing::trace;
 
+use crate::CacheZoomRange;
 use crate::tiles::geojson::convert::{
     convert_validate_simplify_geom_geo, line_string_to_shape_path, multi_line_string_from_paths,
     multi_line_string_to_shape_paths, multi_polygon_from_shapes, multi_polygon_to_shape_paths,
     polygon_to_shape_paths,
 };
-use crate::CacheZoomRange;
 use crate::tiles::geojson::error::GeoJsonError;
 use crate::tiles::geojson::process::{preprocess_geojson, process_geojson, tile_length_from_zoom};
 use crate::tiles::{BoxedSource, MartinCoreError, MartinCoreResult, Source, UrlQuery};
