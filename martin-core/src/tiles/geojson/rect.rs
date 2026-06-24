@@ -74,7 +74,7 @@ impl Rect {
     pub(crate) fn from_xyz(x: u32, y: u32, zoom: u8) -> Self {
         let tile_length = tile_length_from_zoom(zoom);
         let [min_x, min_y, max_x, max_y] = tile_bbox(x, y, tile_length);
-        Rect {
+        Self {
             min_x,
             min_y,
             max_x,
@@ -93,7 +93,7 @@ impl Rect {
     }
 
     pub(crate) fn from_positions(positions: &[Vec<f64>]) -> Self {
-        let mut rect = Rect::default();
+        let mut rect = Self::default();
         for p in positions {
             rect.extend(p);
         }
@@ -101,7 +101,7 @@ impl Rect {
     }
 
     pub(crate) fn from_linestrings(linestrings: &[Vec<Vec<f64>>]) -> Self {
-        let mut rect = Rect::default();
+        let mut rect = Self::default();
 
         for l in linestrings {
             for p in l {
@@ -112,7 +112,7 @@ impl Rect {
     }
 
     pub(crate) fn from_polygons(polygons: &[Vec<Vec<Vec<f64>>>]) -> Self {
-        let mut rect = Rect::default();
+        let mut rect = Self::default();
         for polygon in polygons {
             if let Some(rings) = polygon.first() {
                 for point in rings {
@@ -352,6 +352,6 @@ mod tests {
         let transformed_point = rect.transform_to_tile_coordinates(&point);
         // `transform_to_tile_coordinates` floors to integer tile coordinates, so the
         // result is exact.
-        assert_eq!(transformed_point, [1102.0, 3596.0]);
+        approx::assert_relative_eq!(transformed_point[..], [1102.0, 3596.0][..]);
     }
 }
