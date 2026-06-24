@@ -39,3 +39,6 @@ runs:
     - if: inputs.rendering == 'true' && runner.os == 'Linux'
       shell: bash
       run: just install-dependencies
+    - if: runner.os == 'Linux'
+      shell: bash
+      run: just env-info
