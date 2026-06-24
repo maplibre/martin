@@ -56,5 +56,5 @@ mbtiles:
 passthrough:
   sources:
     passthrough_table:
-      url: 'http://localhost:${MARTIN_PORT:3111}/table_source/{z}/{x}/{y}'
+      url: 'http://localhost:${MARTIN_PORT:-3111}/table_source/{z}/{x}/{y}'
       format: mvt
