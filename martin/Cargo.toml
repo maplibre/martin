@@ -214,12 +214,12 @@ tracing-actix-web.workspace = true
 tracing-indicatif.workspace = true
 tracing-log = { workspace = true, features = ["interest-cache"] }
 tracing-subscriber = { workspace = true, default-features = false, features = [
-  "env-filter",
-  "json",
-  "fmt",
-  "std",
-  "ansi",
-  "chrono",
+    "env-filter",
+    "json",
+    "fmt",
+    "std",
+    "ansi",
+    "chrono",
 ] }
 url.workspace = true
 utoipa = { workspace = true, optional = true }
