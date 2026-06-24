@@ -7,3 +7,4 @@ mod error;
 pub use error::GeoJsonError;
 
 mod process;
+mod rect;

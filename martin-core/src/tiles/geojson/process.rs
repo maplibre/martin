@@ -7,7 +7,7 @@ use martin_tile_utils::{EARTH_CIRCUMFERENCE, wgs84_to_webmercator};
 use serde_json::Map;
 
 use crate::tiles::geojson::error::GeoJsonError;
-use crate::tiles::geojson::source::Rect;
+use crate::tiles::geojson::rect::Rect;
 
 // 1. Filter GeoJSON features - only features that have a geometry can be processed
 // 2. Transform geometries from WGS84 to Web Mercator
