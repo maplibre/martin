@@ -1,0 +1,57 @@
+use martin_core::tiles::BoxedSource;
+use martin_core::tiles::geojson::source::GeoJsonSource;
+
+use crate::config::file::FileConfigEnum;
+use crate::config::file::geojson::GeoJsonConfig;
+use crate::config::file::process::ProcessConfig;
+use crate::config::file::tiles::discovery::{FsDiscovery, FsSourceBuilder};
+use crate::config::file::tiles::driver::{Baseline, NotifyTrigger, ReloadDriver};
+use crate::config::primitives::IdResolver;
+use crate::{MartinResult, TileSourceManager};
+
+/// Watches configured directories for `.json`/`.geojson` changes.
+pub struct GeoJsonReloader {
+    tile_source_manager: TileSourceManager,
+    discovery: FsDiscovery,
+}
+
+impl GeoJsonReloader {
+    #[must_use]
+    pub fn new(
+        tsm: TileSourceManager,
+        id_resolver: IdResolver,
+        config: &FileConfigEnum<GeoJsonConfig>,
+    ) -> Self {
+        // See `MbtilesReloader::new`: both boxes erase per-kind types to a shared shape.
+        // This builder captures nothing, but is `Box::new`d to share the boxed `FsSourceBuilder` type.
+        let build: FsSourceBuilder = Box::new(|id, path, policy| {
+            Box::pin(async move {
+                let src = GeoJsonSource::new(id, path, policy.zoom()).await?;
+                Ok(Box::new(src) as BoxedSource)
+            })
+        });
+        let discovery = FsDiscovery::from_config(
+            config,
+            &["json", "geojson"],
+            id_resolver,
+            ProcessConfig::default(),
+            build,
+        );
+        Self {
+            tile_source_manager: tsm,
+            discovery,
+        }
+    }
+
+    /// Spawns the reload driver. Does nothing if no directories are configured.
+    pub fn start(self) -> MartinResult<()> {
+        let directories = self.discovery.directories().to_vec();
+        if directories.is_empty() {
+            return Ok(());
+        }
+        let trigger = NotifyTrigger::new(&directories)?;
+        ReloadDriver::new(self.discovery, self.tile_source_manager)
+            .spawn(trigger, Baseline::StartupResolved);
+        Ok(())
+    }
+}
