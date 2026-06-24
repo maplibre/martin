@@ -241,6 +241,7 @@ vi.mock('lucide-react', () => ({
   Copy: () => <span role="img" />,
   Database: () => <span role="img" />,
   Download: () => <span role="img" />,
+  ExternalLink: () => <span role="img" />,
   Eye: () => <span role="img" />,
   Github: () => <span role="img" />,
   Image: () => <span role="img" />,

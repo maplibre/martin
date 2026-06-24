@@ -1,4 +1,9 @@
-#![cfg(feature = "postgres")]
+#![cfg(all(
+    feature = "test-pg",
+    not(feature = "fonts"),
+    not(feature = "sprites"),
+    not(feature = "styles")
+))]
 
 use actix_http::Request;
 use actix_web::http::StatusCode;
@@ -6,7 +11,7 @@ use actix_web::test::{TestRequest, call_and_read_body_json, call_service, read_b
 use indoc::indoc;
 use insta::assert_yaml_snapshot;
 use martin::config::file::srv::SrvConfig;
-use martin_core::config::OptOneMany;
+use martin::config::primitives::OptOneMany;
 use tilejson::TileJSON;
 
 pub mod utils;
@@ -19,12 +24,13 @@ macro_rules! create_app {
         ::actix_web::test::init_service(
             ::actix_web::App::new()
                 .app_data(actix_web::web::Data::new(
-                    ::martin::srv::Catalog::new(&state).unwrap(),
+                    ::martin::srv::Catalog::new(
+                        #[cfg(any(feature = "sprites", feature = "fonts", feature = "styles"))]
+                        &state,
+                    )
+                    .unwrap(),
                 ))
-                .app_data(actix_web::web::Data::new(
-                    ::martin_core::tiles::NO_TILE_CACHE,
-                ))
-                .app_data(actix_web::web::Data::new(state.tiles))
+                .app_data(actix_web::web::Data::new(state.tile_manager))
                 .app_data(actix_web::web::Data::new(SrvConfig::default()))
                 .configure(|c| ::martin::srv::router(c, &SrvConfig::default())),
         )
@@ -50,9 +56,7 @@ postgres:
     let body = read_body(response).await;
     let body: serde_json::Value = serde_json::from_slice(&body).unwrap();
     assert_yaml_snapshot!(body, @r#"
-    fonts: {}
-    sprites: {}
-    styles: {}
+    settings: {}
     tiles:
       "-function.withweired---_-characters":
         content_type: application/x-protobuf
@@ -72,6 +76,9 @@ postgres:
       bigint_table:
         content_type: application/x-protobuf
         description: autodetect.bigint_table.geom
+      empty_bounds:
+        content_type: application/x-protobuf
+        description: public.empty_bounds.geom
       function_Mixed_Name:
         content_type: application/x-protobuf
         description: a function source with MixedCase name
@@ -101,12 +108,24 @@ postgres:
       function_zxy_query_test:
         content_type: application/x-protobuf
         description: public.function_zxy_query_test
+      function_zxy_raster:
+        content_type: image/png
+        description: a raster tile function source
       function_zxy_row:
         content_type: application/x-protobuf
         description: public.function_zxy_row
       function_zxy_row_key:
         content_type: application/x-protobuf
         description: public.function_zxy_row_key
+      linestring_bounds:
+        content_type: application/x-protobuf
+        description: public.linestring_bounds.geom
+      linestring_bounds_vertical:
+        content_type: application/x-protobuf
+        description: public.linestring_bounds_vertical.geom
+      point_bounds:
+        content_type: application/x-protobuf
+        description: public.point_bounds.geom
       points1:
         content_type: application/x-protobuf
         description: public.points1.geom
@@ -202,7 +221,7 @@ postgres:
 
     let req = TestRequest::get()
         .uri("/table_source?token=martin")
-        .insert_header(("x-rewrite-url", "/tiles/table_source?token=martin"))
+        .insert_header(("X-Rewrite-URL", "/tiles/table_source?token=martin"))
         .to_request();
     let result: TileJSON = call_and_read_body_json(&app, req).await;
     assert_yaml_snapshot!(result, @r#"
@@ -872,7 +891,7 @@ postgres:
 
     let req = TestRequest::get()
         .uri("/function_zxy_query?token=martin")
-        .insert_header(("x-rewrite-url", "/tiles/function_zxy_query?token=martin"))
+        .insert_header(("X-Rewrite-URL", "/tiles/function_zxy_query?token=martin"))
         .to_request();
     let result: TileJSON = call_and_read_body_json(&app, req).await;
     assert_eq!(
@@ -1129,12 +1148,13 @@ tables:
     let app = ::actix_web::test::init_service(
         ::actix_web::App::new()
             .app_data(actix_web::web::Data::new(
-                ::martin::srv::Catalog::new(&state).unwrap(),
+                ::martin::srv::Catalog::new(
+                    #[cfg(any(feature = "sprites", feature = "fonts", feature = "styles"))]
+                    &state,
+                )
+                .unwrap(),
             ))
-            .app_data(actix_web::web::Data::new(
-                ::martin_core::tiles::NO_TILE_CACHE,
-            ))
-            .app_data(actix_web::web::Data::new(state.tiles))
+            .app_data(actix_web::web::Data::new(state.tile_manager))
             .app_data(actix_web::web::Data::new(SrvConfig::default()))
             .configure(|c| ::martin::srv::router(c, &SrvConfig::default())),
     )

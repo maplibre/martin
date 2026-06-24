@@ -8,18 +8,55 @@ use url::Url;
 
 use crate::MartinResult;
 use crate::config::file::{
-    ConfigurationLivecycleHooks, TileSourceConfiguration, UnrecognizedKeys, UnrecognizedValues,
+    CachePolicy, ConfigurationLivecycleHooks, TileSourceConfiguration, UnrecognizedKeys,
+    UnrecognizedValues,
 };
+#[cfg(all(feature = "mlt", feature = "_tiles"))]
+use crate::config::file::{MltProcessConfig, MvtProcessConfig};
+#[cfg(all(feature = "mlt", feature = "_tiles"))]
+use crate::config::primitives::AutoOption;
 
+#[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct MbtConfig {
+    /// MVT->MLT encoder settings for all `MBTiles` sources.
+    /// Overrides global; overridden by per-source `convert_to_mlt`.
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[serde(default)]
+    pub convert_to_mlt: Option<MltProcessConfig>,
+
+    /// MLT->MVT conversion settings for all `MBTiles` sources.
+    /// Overrides global; overridden by per-source `convert_to_mvt`.
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[serde(default)]
+    pub convert_to_mvt: Option<MvtProcessConfig>,
+
     #[serde(flatten, skip_serializing)]
+    #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub unrecognized: UnrecognizedValues,
 }
 
 impl ConfigurationLivecycleHooks for MbtConfig {
     fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
-        self.unrecognized.keys().cloned().collect()
+        #[cfg_attr(not(all(feature = "mlt", feature = "_tiles")), allow(unused_mut))]
+        let mut keys: UnrecognizedKeys = self.unrecognized.keys().cloned().collect();
+        #[cfg(all(feature = "mlt", feature = "_tiles"))]
+        {
+            if let Some(AutoOption::Explicit(cfg)) = self.convert_to_mlt.as_ref() {
+                keys.extend(
+                    cfg.unrecognized_keys()
+                        .map(|k| format!("convert_to_mlt.{k}")),
+                );
+            }
+            if let Some(AutoOption::Explicit(cfg)) = self.convert_to_mvt.as_ref() {
+                keys.extend(
+                    cfg.unrecognized_keys()
+                        .map(|k| format!("convert_to_mvt.{k}")),
+                );
+            }
+        }
+        keys
     }
 }
 
@@ -27,11 +64,21 @@ impl TileSourceConfiguration for MbtConfig {
     fn parse_urls() -> bool {
         false
     }
-    async fn new_sources(&self, id: String, path: PathBuf) -> MartinResult<BoxedSource> {
-        Ok(Box::new(MbtSource::new(id, path).await?))
+    async fn new_sources(
+        &self,
+        id: String,
+        path: PathBuf,
+        cache: CachePolicy,
+    ) -> MartinResult<BoxedSource> {
+        Ok(Box::new(MbtSource::new(id, path, cache.zoom()).await?))
     }
 
-    async fn new_sources_url(&self, _id: String, _url: Url) -> MartinResult<BoxedSource> {
+    async fn new_sources_url(
+        &self,
+        _id: String,
+        _url: Url,
+        _cache: CachePolicy,
+    ) -> MartinResult<BoxedSource> {
         unreachable!()
     }
 }
@@ -42,15 +89,17 @@ mod tests {
     use std::path::PathBuf;
 
     use indoc::indoc;
+    use martin_core::CacheZoomRange;
 
     use crate::config::file::mbtiles::MbtConfig;
     use crate::config::file::{
-        ConfigurationLivecycleHooks as _, FileConfigEnum, FileConfigSource, FileConfigSrc,
+        CachePolicy, ConfigurationLivecycleHooks as _, FileConfigEnum, FileConfigSource,
+        FileConfigSrc,
     };
 
     #[test]
     fn parse() {
-        let mut cfg = serde_yaml::from_str::<FileConfigEnum<MbtConfig>>(indoc! {"
+        let mut cfg = serde_saphyr::from_str::<FileConfigEnum<MbtConfig>>(indoc! {"
             paths:
               - /dir-path
               - /path/to/file2.ext
@@ -62,6 +111,11 @@ mod tests {
                 pm-src3: https://example.org/file3.ext
                 pm-src4:
                   path: https://example.org/file4.ext
+                pm-src5:
+                  path: /tmp/cached.ext
+                  cache:
+                    minzoom: 0
+                    maxzoom: 6
         "})
         .unwrap();
         cfg.finalize().unwrap();
@@ -93,6 +147,11 @@ mod tests {
                     "pm-src2".to_string(),
                     FileConfigSrc::Obj(FileConfigSource {
                         path: PathBuf::from("/tmp/file.ext"),
+                        #[cfg(all(feature = "mlt", feature = "_tiles"))]
+                        convert_to_mlt: None,
+                        #[cfg(all(feature = "mlt", feature = "_tiles"))]
+                        convert_to_mvt: None,
+                        cache: CachePolicy::default(),
                     })
                 ),
                 (
@@ -103,6 +162,22 @@ mod tests {
                     "pm-src4".to_string(),
                     FileConfigSrc::Obj(FileConfigSource {
                         path: PathBuf::from("https://example.org/file4.ext"),
+                        #[cfg(all(feature = "mlt", feature = "_tiles"))]
+                        convert_to_mlt: None,
+                        #[cfg(all(feature = "mlt", feature = "_tiles"))]
+                        convert_to_mvt: None,
+                        cache: CachePolicy::default(),
+                    })
+                ),
+                (
+                    "pm-src5".to_string(),
+                    FileConfigSrc::Obj(FileConfigSource {
+                        path: PathBuf::from("/tmp/cached.ext"),
+                        #[cfg(all(feature = "mlt", feature = "_tiles"))]
+                        convert_to_mlt: None,
+                        #[cfg(all(feature = "mlt", feature = "_tiles"))]
+                        convert_to_mvt: None,
+                        cache: CachePolicy::new(CacheZoomRange::new(Some(0), Some(6))),
                     })
                 ),
             ]))

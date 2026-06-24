@@ -11,7 +11,7 @@ CREATE TABLE points_empty_srid
 -- SELECT generate_series(4, 30) as id,
 --        (ST_DUMP(ST_GENERATEPOINTS(ST_TRANSFORM(st_tileenvelope(0, 0, 0), 900913), 27))).geom;
 --
--- To dump the data above, uncomment code the above, comment the INSERT code bellow, and run:
+-- To dump the data above, uncomment code the above, comment the INSERT code below, and run:
 --   just restart
 --   just pg_dump --data-only --inserts --rows-per-insert=100 --table=points_empty_srid
 
@@ -47,5 +47,5 @@ VALUES (1, '010100002031BF0D00A893BD242C546E4114573D7189453441'),
 (29, '010100002031BF0D00488317ADC4177041E539DBF991A270C1'),
 (30, '010100002031BF0D00E2A0DFFAED4440C15A88E23068CF5EC1');
 
-CREATE INDEX ON points_empty_srid USING gist (geom);
+CREATE INDEX CONCURRENTLY ON points_empty_srid USING gist (geom);
 CLUSTER points_empty_srid_geom_idx ON points_empty_srid;

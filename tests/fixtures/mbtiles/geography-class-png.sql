@@ -12,7 +12,8 @@ INSERT INTO map VALUES
 (1,0,0,'F274F66CEF892C60179A8AC491138FFB','f4e6039f6261ecdf5a9ca153121e5ad7'),
 (1,0,1,'577B2577884E5415204AA437735B94E3','38119e84848bfb161d4d81e07d241b58'),
 (1,1,0,'DD4FFC9BC0136A61C780B7AB7E222CB9','57a5641e4893608878e715fd628870cd'),
-(1,1,1,'95EB7C26C4D4854C0291F5470BB2035D','710f5a40afdc3155cf458ebcfdd76c09');
+(1,1,1,'95EB7C26C4D4854C0291F5470BB2035D','710f5a40afdc3155cf458ebcfdd76c09'),
+(2,0,0,'95EB7C26C4D4854C0291F5470BB2035D','710f5a40afdc3155cf458ebcfdd76c09');
 CREATE TABLE grid_key (
     grid_id TEXT,
     key_name TEXT
@@ -51,7 +52,7 @@ INSERT INTO metadata VALUES
 ('bounds','-180,-85.0511,180,85.0511'),
 ('center','0,20,0'),
 ('minzoom','0'),
-('maxzoom','1'),
+('maxzoom','2'),
 ('legend','<div style="text-align:center;">' || X'0A0A' || '<div style="font:12pt/16pt Georgia,serif;">Geography Class</div>' || X'0A' || '<div style="font:italic 10pt/16pt Georgia,serif;">by MapBox</div>' || X'0A0A' || '<img src="data:image/png;base64,iVBORw0KGgo">' || X'0A' || '</div>'),
 ('name','Geography Class'),
 ('description','One of the example maps that comes with TileMill - a bright & colorful world map that blends retro and high-tech with its folded paper texture and interactive flag tooltips. '),

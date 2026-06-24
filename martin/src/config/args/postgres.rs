@@ -1,33 +1,14 @@
-use std::time::Duration;
-
-use clap::ValueEnum;
-use enum_display::EnumDisplay;
-use martin_core::config::env::Env;
-use martin_core::config::{OptBoolObj, OptOneMany};
-use serde::{Deserialize, Serialize};
 use tracing::{info, warn};
 
+use super::bounds::BoundsCalcType;
 use super::connections::Arguments;
 use super::connections::State::{Ignore, Take};
 use crate::config::file::UnrecognizedValues;
-use crate::config::file::postgres::{POOL_SIZE_DEFAULT, PostgresConfig, PostgresSslCerts};
-// Must match the help string for BoundsType::Quick
-pub const DEFAULT_BOUNDS_TIMEOUT: Duration = Duration::from_secs(5);
-
-#[derive(
-    PartialEq, Eq, Default, Debug, Clone, Copy, Serialize, Deserialize, ValueEnum, EnumDisplay,
-)]
-#[serde(rename_all = "lowercase")]
-#[enum_display(case = "Kebab")]
-pub enum BoundsCalcType {
-    /// Compute table geometry bounds, but abort if it takes longer than 5 seconds.
-    #[default]
-    Quick,
-    /// Compute table geometry bounds. The startup time may be significant. Make sure all GEO columns have indexes.
-    Calc,
-    /// Skip bounds calculation. The bounds will be set to the whole world.
-    Skip,
-}
+use crate::config::file::postgres::{
+    DEFAULT_POOL_SIZE, DEFAULT_RELOAD_INTERVAL, PostgresConfig, PostgresSslCerts,
+};
+use crate::config::primitives::env::Env;
+use crate::config::primitives::{OptBoolObj, OptOneMany};
 
 #[derive(clap::Args, Debug, PartialEq, Default)]
 #[command(about, version)]
@@ -41,7 +22,7 @@ pub struct PostgresArgs {
     /// If a spatial PG table has SRID 0, then this default SRID will be used as a fallback.
     #[arg(short, long)]
     pub default_srid: Option<i32>,
-    #[arg(help = format!("Maximum Postgres connections pool size [DEFAULT: {POOL_SIZE_DEFAULT}]"), short, long)]
+    #[arg(help = format!("Maximum Postgres connections pool size [DEFAULT: {DEFAULT_POOL_SIZE}]"), short, long)]
     pub pool_size: Option<usize>,
     /// Limit the number of geo features per tile.
     ///
@@ -73,9 +54,14 @@ impl PostgresArgs {
                 auto_bounds: self.auto_bounds,
                 max_feature_count: self.max_feature_count,
                 pool_size: self.pool_size,
+                reload_interval: DEFAULT_RELOAD_INTERVAL,
                 auto_publish: OptBoolObj::NoValue,
                 tables: None,
                 functions: None,
+                #[cfg(all(feature = "mlt", feature = "_tiles"))]
+                convert_to_mlt: None,
+                #[cfg(all(feature = "mlt", feature = "_tiles"))]
+                convert_to_mvt: None,
                 unrecognized: UnrecognizedValues::default(),
             })
             .collect();
@@ -237,10 +223,9 @@ mod tests {
     use std::ffi::OsString;
     use std::path::PathBuf;
 
-    use martin_core::config::env::FauxEnv;
-
     use super::*;
     use crate::MartinError;
+    use crate::config::primitives::env::FauxEnv;
 
     #[test]
     fn test_extract_conn_strings() {
@@ -270,7 +255,7 @@ mod tests {
         );
         let strings = PostgresArgs::extract_conn_strings(&mut args, &env);
         assert_eq!(strings, vec!["postgresql://localhost:5432"]);
-        assert!(args.check().is_ok());
+        args.check().unwrap();
     }
 
     #[test]
@@ -284,7 +269,7 @@ mod tests {
                 ..Default::default()
             })
         );
-        assert!(args.check().is_ok());
+        args.check().unwrap();
     }
 
     #[test]
@@ -312,7 +297,7 @@ mod tests {
                 ..Default::default()
             })
         );
-        assert!(args.check().is_ok());
+        args.check().unwrap();
     }
 
     #[test]
@@ -348,6 +333,6 @@ mod tests {
                 ..Default::default()
             })
         );
-        assert!(args.check().is_ok());
+        args.check().unwrap();
     }
 }

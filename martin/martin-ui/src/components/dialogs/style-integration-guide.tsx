@@ -13,11 +13,11 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 import { buildMartinUrl } from '@/lib/api';
-import type { Style } from '@/lib/types';
+import type { Catalog } from '@/lib/types.gen';
 
 interface StyleIntegrationGuideDialogProps {
   name: string;
-  style: Style;
+  style: Catalog['styles'][string];
   onCloseAction: () => void;
 }
 
@@ -187,20 +187,20 @@ function MyMap() {
                 <br />
                 <code className="text-xs">{style.path}</code>
               </div>
-              {style.type && (
+              {style.type ? (
                 <div>
                   <span className="font-medium">Type:</span>
                   <br />
                   <Badge variant="secondary">{style.type}</Badge>
                 </div>
-              )}
-              {style.layerCount && (
+              ) : null}
+              {style.layer_count ? (
                 <div>
                   <span className="font-medium">Layer Count:</span>
                   <br />
-                  <span>{style.layerCount}</span>
+                  <span>{style.layer_count}</span>
                 </div>
-              )}
+              ) : null}
             </div>
           </div>
 

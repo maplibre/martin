@@ -27,7 +27,7 @@ All LLM-assisted contributions **must aim for a higher standard of excellence** 
   * Additional tests (edge cases, regression, stress)
   * Clearer structure and naming
   * Removing TODOs and technical debt
-* Code produced with LLM assistance remains **the human author’s responsibility**.
+* Code produced with LLM assistance remains **the human author's responsibility**.
 
 LLM-generated changes that show lack of care (missed obvious cases, shallow error handling, poor UX) may be declined outright.
 
@@ -99,7 +99,7 @@ cargo build --workspace
 ### Frontend Operations
 
 | Command              | Timeout | Notes               |
-| -------------------- | ------- | ------------------- |
+|----------------------|---------|---------------------|
 | `npm install`        | 5m      | Only in `martin-ui` |
 | `just test-frontend` | 2m      | UI tests only       |
 | `npm start`          | n/a     | Dev server          |
@@ -107,7 +107,7 @@ cargo build --workspace
 ### Backend Operations
 
 | Command                   | Timeout |
-| ------------------------- | ------- |
+|---------------------------|---------|
 | `cargo build --workspace` | 20m     |
 | `just check`              | 20m     |
 | `cargo clippy`            | 5m      |

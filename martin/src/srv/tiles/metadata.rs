@@ -13,13 +13,27 @@ use tilejson::{TileJSON, tilejson};
 use url::form_urlencoded;
 
 use crate::config::file::srv::SrvConfig;
-use crate::source::TileSources;
+use crate::tile_source_manager::TileSourceManager;
 
 #[derive(Deserialize)]
+#[cfg_attr(feature = "unstable-schemas", derive(utoipa::IntoParams))]
+#[cfg_attr(feature = "unstable-schemas", into_params(parameter_in = Path))]
 pub struct SourceIDsRequest {
     pub source_ids: String,
 }
 
+#[cfg_attr(
+    feature = "unstable-schemas",
+    utoipa::path(
+        get,
+        path = "/{source_ids}",
+        params(SourceIDsRequest),
+        responses(
+            (status = 200, description = "TileJSON 3.0.0 metadata for the requested source(s)", content_type = "application/json"),
+            (status = 404, description = "No matching source"),
+        ),
+    )
+)]
 #[route(
     "/{source_ids}",
     method = "GET",
@@ -27,26 +41,24 @@ pub struct SourceIDsRequest {
     wrap = "Etag::default()",
     wrap = "Compress::default()"
 )]
-async fn get_source_info(
+#[hotpath::measure]
+pub async fn get_source_info(
     req: HttpRequest,
     path: Path<SourceIDsRequest>,
-    sources: Data<TileSources>,
+    manager: Data<TileSourceManager>,
     srv_config: Data<SrvConfig>,
 ) -> ActixResult<HttpResponse> {
-    let sources = sources.get_sources(&path.source_ids, None)?.0;
+    let resolved = manager.tile_sources().get_sources(&path.source_ids, None)?;
 
     // Determine the path prefix for tile URLs in TileJSON responses
-    // Priority: base_path (explicit override) > route_prefix (where Martin is mounted) > x-rewrite-url header > request path
-    let tiles_path = if let Some(base_path) = &srv_config.base_path {
-        // If base_path is explicitly set, use it directly
-        format!("{base_path}/{}", path.source_ids)
-    } else if let Some(route_prefix) = &srv_config.route_prefix {
-        // If route_prefix is set, use it (Martin is mounted under a subpath)
-        format!("{route_prefix}/{}", path.source_ids)
+    // Priority: base_path (explicit override) > route_prefix (where Martin is mounted) > X-Rewrite-URL header > request path
+    let tiles_path = if let Some(prefix) = srv_config.public_path_prefix() {
+        format!("{prefix}/{}", path.source_ids)
     } else {
-        // Fall back to x-rewrite-url header if present, otherwise use request path
+        // Fall back to X-Rewrite-URL header if present, otherwise use request path
         req.headers()
-            .get("x-rewrite-url")
+            .get("X-Rewrite-URL")
+            .or(req.headers().get("X-Forwarded-Prefix"))
             .and_then(|v| v.to_str().ok())
             .and_then(|v| v.parse::<Uri>().ok())
             .map_or_else(|| req.path().to_string(), |v| v.path().to_string())
@@ -54,17 +66,17 @@ async fn get_source_info(
 
     let version_param = &srv_config.tilejson_url_version_param;
     let versions: Option<(&str, String)> = if let Some(v) = version_param {
-        let version_str =
-            sources
-                .iter()
-                .filter_map(|s| s.get_version())
-                .fold(String::new(), |mut acc, ver| {
-                    if !acc.is_empty() {
-                        acc.push('-');
-                    }
-                    acc.push_str(&ver);
-                    acc
-                });
+        let version_str = resolved
+            .sources
+            .iter()
+            .filter_map(|(s, _)| s.get_version())
+            .fold(String::new(), |mut acc, ver| {
+                if !acc.is_empty() {
+                    acc.push('-');
+                }
+                acc.push_str(&ver);
+                acc
+            });
         if version_str.is_empty() {
             None
         } else {
@@ -96,7 +108,8 @@ async fn get_source_info(
         .map(|tiles_url| tiles_url.to_string())
         .map_err(|e| ErrorBadRequest(format!("Can't build tiles URL: {e}")))?;
 
-    Ok(HttpResponse::Ok().json(merge_tilejson(&sources, tiles_url)))
+    let just_sources: Vec<_> = resolved.sources.into_iter().map(|(s, _)| s).collect();
+    Ok(HttpResponse::Ok().json(merge_tilejson(&just_sources, tiles_url)))
 }
 
 #[must_use]
@@ -196,6 +209,7 @@ pub fn merge_tilejson(sources: &[BoxedSource], tiles_url: String) -> TileJSON {
 pub mod tests {
     use std::collections::BTreeMap;
 
+    use martin_tile_utils::Format;
     use tilejson::{Bounds, VectorLayer};
 
     use super::*;
@@ -220,6 +234,7 @@ pub mod tests {
                 ],
             },
             data: Vec::default(),
+            format: Format::Mvt,
         };
         let tj = merge_tilejson(&[Box::new(src1.clone())], url.clone());
         assert_eq!(
@@ -246,6 +261,7 @@ pub mod tests {
                 ],
             },
             data: Vec::default(),
+            format: Format::Mvt,
         };
 
         let tj = merge_tilejson(&[Box::new(src1.clone()), Box::new(src2)], url.clone());

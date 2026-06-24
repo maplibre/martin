@@ -1,0 +1,49 @@
+{
+  "features": [
+    {
+      "geometry": {
+        "coordinates": [
+          [
+            [
+              3640,
+              464
+            ],
+            [
+              3640,
+              0
+            ],
+            [
+              2730,
+              0
+            ],
+            [
+              2730,
+              1717
+            ],
+            [
+              4096,
+              1717
+            ],
+            [
+              4096,
+              464
+            ],
+            [
+              3640,
+              464
+            ]
+          ]
+        ],
+        "type": "Polygon"
+      },
+      "properties": {
+        "id": 1,
+        "kind": "multipolygon-with-hole",
+        "source_mvt_layer": "layer"
+      },
+      "type": "Feature"
+    }
+  ],
+  "name": "merged",
+  "type": "FeatureCollection"
+}

@@ -3,7 +3,6 @@ use std::path::PathBuf;
 use clap::Parser;
 use clap::builder::Styles;
 use clap::builder::styling::AnsiColor;
-use martin_core::config::env::Env;
 
 use super::connections::Arguments;
 use super::srv::SrvArgs;
@@ -11,7 +10,13 @@ use crate::MartinError::ConfigAndConnectionsError;
 use crate::MartinResult;
 #[cfg(feature = "postgres")]
 use crate::config::args::PostgresArgs;
-use crate::config::file::Config;
+#[cfg(any(
+    feature = "unstable-cog",
+    feature = "mbtiles",
+    feature = "pmtiles",
+    feature = "geojson"
+))]
+use crate::config::file::ConfigurationLivecycleHooks;
 #[cfg(any(
     feature = "unstable-cog",
     feature = "mbtiles",
@@ -23,6 +28,9 @@ use crate::config::file::Config;
 use crate::config::file::FileConfigEnum;
 #[cfg(feature = "fonts")]
 use crate::config::file::fonts::FontConfig;
+use crate::config::file::{Config, OnInvalid};
+#[cfg(feature = "postgres")]
+use crate::config::primitives::env::Env;
 
 /// Defines the styles used for the CLI help output.
 const HELP_STYLES: Styles = Styles::styled()
@@ -65,6 +73,9 @@ pub struct MetaArgs {
     pub save_config: Option<PathBuf>,
     /// Connection strings, e.g. `postgres://...` or `/path/to/files`
     pub connection: Vec<String>,
+    /// Action to take when a source is found to be invalid during startup. [DEFAULT: abort]
+    #[arg(long)]
+    pub on_invalid: Option<OnInvalid>,
 }
 
 #[derive(Parser, Debug, Clone, PartialEq, Default)]
@@ -88,19 +99,40 @@ impl Args {
     pub fn merge_into_config<'a>(
         self,
         config: &mut Config,
-        #[allow(unused_variables)] env: &impl Env<'a>,
+        #[cfg(feature = "postgres")] env: &impl Env<'a>,
     ) -> MartinResult<()> {
         if self.meta.config.is_some() && !self.meta.connection.is_empty() {
             return Err(ConfigAndConnectionsError(self.meta.connection));
         }
 
         if self.srv.cache_size.is_some() {
-            config.cache_size_mb = self.srv.cache_size;
+            config.cache.size_mb = self.srv.cache_size;
+        }
+        if self.srv.cache_expiry.is_some() {
+            config.cache.expiry = self.srv.cache_expiry;
+        }
+        if self.srv.cache_idle_timeout.is_some() {
+            config.cache.idle_timeout = self.srv.cache_idle_timeout;
+        }
+
+        if self.meta.on_invalid.is_some() {
+            config.on_invalid = self.meta.on_invalid;
         }
 
         self.srv.merge_into_config(&mut config.srv);
 
-        #[allow(unused_mut)]
+        #[cfg_attr(
+            not(any(
+                feature = "postgres",
+                feature = "mbtiles",
+                feature = "pmtiles",
+                feature = "unstable-cog"
+            )),
+            expect(
+                unused_mut,
+                reason = "postgres may modify the cli strings to process input params"
+            )
+        )]
         let mut cli_strings = Arguments::new(self.meta.connection);
 
         #[cfg(feature = "postgres")]
@@ -210,7 +242,7 @@ fn is_file_scheme_uri(s: &str, extensions: &[&str]) -> bool {
     feature = "pmtiles",
     feature = "geojson"
 ))]
-pub fn parse_file_args<T: crate::config::file::ConfigurationLivecycleHooks>(
+pub fn parse_file_args<T: ConfigurationLivecycleHooks>(
     cli_strings: &mut Arguments,
     extensions: &[&str],
     allow_url: bool,
@@ -243,17 +275,21 @@ pub fn parse_file_args<T: crate::config::file::ConfigurationLivecycleHooks>(
 
 #[cfg(test)]
 mod tests {
-    use martin_core::config::env::FauxEnv;
-
     use super::*;
     use crate::MartinError::UnrecognizableConnections;
     use crate::config::args::PreferredEncoding;
+    #[cfg(feature = "postgres")]
+    use crate::config::primitives::env::FauxEnv;
 
     fn parse(args: &[&str]) -> MartinResult<(Config, MetaArgs)> {
         let args = Args::parse_from(args);
         let meta = args.meta.clone();
         let mut config = Config::default();
-        args.merge_into_config(&mut config, &FauxEnv::default())?;
+        args.merge_into_config(
+            &mut config,
+            #[cfg(feature = "postgres")]
+            &FauxEnv::default(),
+        )?;
         Ok((config, meta))
     }
 
@@ -267,9 +303,8 @@ mod tests {
     #[cfg(feature = "postgres")]
     #[test]
     fn cli_with_config() {
-        use martin_core::config::OptOneMany;
-
         use crate::config::file::postgres::PostgresConfig;
+        use crate::config::primitives::OptOneMany;
 
         let args = parse(&["martin", "--config", "c.toml"]).unwrap();
         let meta = MetaArgs {
@@ -362,12 +397,14 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "postgres")]
     fn cli_bad_parsed_arguments() {
         let args = Args::parse_from(["martin", "--config", "c.toml", "postgres://a"]);
 
-        let env = FauxEnv::default();
         let mut config = Config::default();
-        let err = args.merge_into_config(&mut config, &env).unwrap_err();
+        let err = args
+            .merge_into_config(&mut config, &FauxEnv::default())
+            .unwrap_err();
         assert!(matches!(err, ConfigAndConnectionsError(..)));
     }
 
@@ -375,9 +412,14 @@ mod tests {
     fn cli_unknown_con_str() {
         let args = Args::parse_from(["martin", "foobar"]);
 
-        let env = FauxEnv::default();
         let mut config = Config::default();
-        let err = args.merge_into_config(&mut config, &env).unwrap_err();
+        let err = args
+            .merge_into_config(
+                &mut config,
+                #[cfg(feature = "postgres")]
+                &FauxEnv::default(),
+            )
+            .unwrap_err();
         let bad = vec!["foobar".to_string()];
         assert!(matches!(err, UnrecognizableConnections(v) if v == bad));
     }
@@ -397,9 +439,13 @@ mod tests {
             OsString::from("../tests/fixtures/cog/rgba_u8.tif"),
         ]);
 
-        let env = FauxEnv::default();
         let mut config = Config::default();
-        args.merge_into_config(&mut config, &env).unwrap();
+        args.merge_into_config(
+            &mut config,
+            #[cfg(feature = "postgres")]
+            &FauxEnv::default(),
+        )
+        .unwrap();
         insta::assert_yaml_snapshot!(config, @r#"
         pmtiles: "../tests/fixtures/pmtiles/png.pmtiles"
         mbtiles: "file:json.mbtiles?mode=memory&cache=shared"
@@ -414,10 +460,13 @@ mod tests {
     fn cli_directories_propagate() {
         let args = Args::parse_from(["martin", "../tests/fixtures/"]);
 
-        let env = FauxEnv::default();
         let mut config = Config::default();
-        let err = args.merge_into_config(&mut config, &env);
-        assert!(err.is_ok());
+        let err = args.merge_into_config(
+            &mut config,
+            #[cfg(feature = "postgres")]
+            &FauxEnv::default(),
+        );
+        err.unwrap();
         insta::assert_yaml_snapshot!(config, @r#"
         pmtiles: "../tests/fixtures/"
         mbtiles: "../tests/fixtures/"

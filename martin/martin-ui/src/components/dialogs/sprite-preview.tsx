@@ -1,6 +1,4 @@
 import { Download } from 'lucide-react';
-import { Suspense } from 'react';
-import { LoadingSpinner } from '@/components/loading/loading-spinner';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -9,14 +7,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import type { SpriteCollection } from '@/lib/types';
-import { SpritePreview } from '../sprite/SpritePreview';
+import type { Catalog } from '@/lib/types.gen';
+import { SpriteMapPreview } from '../sprite/SpriteMapPreview';
 
 interface SpritePreviewDialogProps {
   name: string;
-  sprite: SpriteCollection;
+  sprite: Catalog['sprites'][string];
   onCloseAction: () => void;
-  onDownloadAction: (sprite: SpriteCollection) => void;
+  onDownloadAction: (sprite: Catalog['sprites'][string]) => void;
 }
 
 export function SpritePreviewDialog({
@@ -28,12 +26,14 @@ export function SpritePreviewDialog({
   return (
     <Dialog onOpenChange={(v) => !v && onCloseAction()} open={true}>
       <DialogContent className="max-w-4xl w-full p-6 max-h-[80vh] overflow-auto">
-        {sprite && (
+        {sprite ? (
           <>
-            <DialogHeader className="mb-6 truncate">
+            <DialogHeader className="mb-4 truncate">
               <DialogTitle className="text-2xl flex gap-4">{name}</DialogTitle>
               <DialogDescription>
-                <span>Preview the selected sprite.</span>
+                <span>
+                  Preview sprites as rendered by MapLibre GL. Toggle between PNG and SDF modes.
+                </span>
                 <br />
                 <Button onClick={() => onDownloadAction(sprite)} size="sm" variant="outline">
                   <Download className="h-4 w-4 mr-2" />
@@ -41,23 +41,9 @@ export function SpritePreviewDialog({
                 </Button>
               </DialogDescription>
             </DialogHeader>
-            <div className="pace-y-4 bg-gray-50 rounded-lg text-gray-900">
-              <Suspense
-                fallback={
-                  <div className="flex justify-center py-12">
-                    <LoadingSpinner size="lg" />
-                  </div>
-                }
-              >
-                <SpritePreview
-                  className="w-full grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-4"
-                  spriteIds={sprite.images}
-                  spriteUrl={`/sprite/${name}`}
-                />
-              </Suspense>
-            </div>
+            <SpriteMapPreview spriteIds={sprite.images} spriteName={name} />
           </>
-        )}
+        ) : null}
       </DialogContent>
     </Dialog>
   );

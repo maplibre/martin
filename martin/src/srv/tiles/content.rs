@@ -1,32 +1,43 @@
+use std::sync::Arc;
+
 use actix_http::ContentEncoding;
 use actix_http::header::Quality;
 use actix_web::error::{ErrorBadRequest, ErrorNotAcceptable, ErrorNotFound};
 use actix_web::http::header::{
-    AcceptEncoding, CONTENT_ENCODING, ETAG, Encoding as HeaderEnc, EntityTag, IfNoneMatch,
-    Preference,
+    Accept, AcceptEncoding, CONTENT_ENCODING, ETAG, Encoding as HeaderEnc, EntityTag, IfNoneMatch,
+    LOCATION, Preference,
 };
 use actix_web::web::{Data, Path, Query};
 use actix_web::{HttpMessage as _, HttpRequest, HttpResponse, Result as ActixResult, route};
 use futures::future::try_join_all;
-use martin_core::tiles::{BoxedSource, OptTileCache, Tile, TileCache, UrlQuery};
+use martin_core::tiles::{BoxedSource, MartinCoreError, Tile, TileCache, UrlQuery};
 use martin_tile_utils::{
-    Encoding, Format, TileCoord, TileData, TileInfo, decode_brotli, decode_gzip, encode_brotli,
-    encode_gzip,
+    Encoding, Format, TileCoord, TileInfo, decode_brotli, decode_gzip, decode_zlib, decode_zstd,
+    encode_brotli, encode_gzip, encode_zlib, encode_zstd,
 };
 use serde::Deserialize;
+use tracing::{instrument, warn};
 
 use crate::config::args::PreferredEncoding;
+use crate::config::file::ProcessConfig;
+use crate::config::file::driver::Sink as _;
 use crate::config::file::srv::SrvConfig;
-use crate::source::TileSources;
-use crate::srv::server::map_internal_error;
+use crate::reload::{NewSource, ReloadAdvisory};
+use crate::srv::server::{DebouncedWarning, map_internal_error};
+use crate::srv::tiles::process::apply_pre_cache_processors;
+use crate::tile_source_manager::TileSourceManager;
 
 const SUPPORTED_ENC: &[HeaderEnc] = &[
     HeaderEnc::gzip(),
     HeaderEnc::brotli(),
+    HeaderEnc::zstd(),
+    //probably dont need deflate here, most clients don't support
     HeaderEnc::identity(),
 ];
 
 #[derive(Deserialize, Clone)]
+#[cfg_attr(feature = "unstable-schemas", derive(utoipa::IntoParams))]
+#[cfg_attr(feature = "unstable-schemas", into_params(parameter_in = Path))]
 pub struct TileRequest {
     source_ids: String,
     z: u8,
@@ -34,23 +45,52 @@ pub struct TileRequest {
     y: u32,
 }
 
+#[cfg_attr(
+    feature = "unstable-schemas",
+    utoipa::path(
+        get,
+        path = "/{source_ids}/{z}/{x}/{y}",
+        params(TileRequest),
+        responses(
+            (status = 200, description = "Encoded vector or raster tile"),
+            (status = 204, description = "Source(s) returned an empty tile"),
+            (status = 304, description = "ETag matched If-None-Match"),
+            (status = 404, description = "No matching source"),
+            (status = 406, description = "No supported tile format in Accept header"),
+        ),
+    )
+)]
 #[route("/{source_ids}/{z}/{x}/{y}", method = "GET", method = "HEAD")]
-async fn get_tile(
+#[hotpath::measure]
+#[instrument(
+    level = "debug",
+    skip_all,
+    fields(
+        source.ids = %path.source_ids,
+        tile.z = path.z,
+        tile.x = path.x,
+        tile.y = path.y,
+    ),
+    err(Debug),
+)]
+pub async fn get_tile(
     req: HttpRequest,
     srv_config: Data<SrvConfig>,
     path: Path<TileRequest>,
-    sources: Data<TileSources>,
-    cache: Data<OptTileCache>,
+    manager: Data<TileSourceManager>,
 ) -> ActixResult<HttpResponse> {
+    let headers = TileRequestHeaders {
+        accepted_formats: parse_accept(req.get_header::<Accept>())?,
+        accept_enc: req.get_header::<AcceptEncoding>(),
+        if_none_match: req.get_header::<IfNoneMatch>(),
+        preferred_enc: srv_config.preferred_encoding,
+    };
     let src = DynTileSource::new(
-        sources.as_ref(),
+        &manager,
         &path.source_ids,
         Some(path.z),
         req.query_string(),
-        req.get_header::<AcceptEncoding>(),
-        req.get_header::<IfNoneMatch>(),
-        srv_config.preferred_encoding,
-        cache.as_ref().as_ref(),
+        headers,
     )?;
 
     src.get_http_response(TileCoord {
@@ -61,54 +101,264 @@ async fn get_tile(
     .await
 }
 
-pub struct DynTileSource<'a> {
-    pub sources: Vec<BoxedSource>,
-    pub info: TileInfo,
-    pub query_str: Option<&'a str>,
-    pub query_obj: Option<UrlQuery>,
+/// Parsed request headers for tile serving.
+#[derive(Debug, Default, Clone)]
+pub struct TileRequestHeaders {
+    /// Formats the client will accept, parsed from the `Accept` header.
+    /// `None` means any format is acceptable (no `Accept` header, empty, or `*/*`).
+    /// Wildcards like `image/*` are expanded into all image formats.
+    pub accepted_formats: Option<Vec<Format>>,
     pub accept_enc: Option<AcceptEncoding>,
     pub if_none_match: Option<IfNoneMatch>,
     pub preferred_enc: Option<PreferredEncoding>,
+}
+
+/// Parse the `Accept` header into a flat list of [`Format`] values.
+///
+/// Returns `Ok(None)` (= accept anything) when
+/// - the header is absent,
+/// - is empty, or
+/// - contains a `*/*` wildcard.
+///
+/// `image/*` is expanded into all image formats.
+///
+/// Returns `Err(406)` if
+/// - the header is present but contains no recognized tile formats.
+fn parse_accept(accept: Option<Accept>) -> ActixResult<Option<Vec<Format>>> {
+    let Some(accept) = accept else {
+        return Ok(None);
+    };
+    if accept.0.is_empty() {
+        return Ok(None);
+    }
+    let mut formats = Vec::new();
+    for qi in &accept.0 {
+        if qi.quality == Quality::ZERO {
+            continue;
+        }
+        let mt = &qi.item;
+        let (supertype, subtype) = (mt.type_().as_str(), mt.subtype().as_str());
+        match (supertype, subtype) {
+            ("*", "*") => return Ok(None),
+            ("image", "*") => formats.extend_from_slice(Format::IMAGE_FORMATS),
+            _ => {
+                if let Some(fmt) = Format::from_content_type(supertype, subtype) {
+                    formats.push(fmt);
+                }
+            }
+        }
+    }
+    if formats.is_empty() {
+        Err(ErrorNotAcceptable(
+            "Accept header does not contain any supported tile format",
+        ))
+    } else {
+        Ok(Some(formats))
+    }
+}
+
+#[derive(Deserialize, Clone)]
+pub struct RedirectTileRequest {
+    ids: String,
+    z: u8,
+    x: u32,
+    y: u32,
+    ext: String,
+}
+
+/// Redirect `/{source_ids}/{z}/{x}/{y}.{extension}` to `/{source_ids}/{z}/{x}/{y}` (HTTP 301)
+/// Registered before main tile route to match more specific pattern first
+#[route("/{ids}/{z}/{x}/{y}.{ext}", method = "GET", method = "HEAD")]
+pub async fn redirect_tile_ext(
+    req: HttpRequest,
+    path: Path<RedirectTileRequest>,
+    srv_config: Data<SrvConfig>,
+) -> HttpResponse {
+    static WARNING: DebouncedWarning = DebouncedWarning::new();
+    let RedirectTileRequest { ids, z, x, y, ext } = path.as_ref();
+
+    WARNING
+        .once_per_hour(|| {
+            warn!(
+                "Request to /{ids}/{z}/{x}/{y}.{ext} caused unnecessary redirect. Use /{ids}/{z}/{x}/{y} to avoid extra round-trip latency."
+            );
+        })
+        .await;
+
+    redirect_tile_with_query(
+        ids,
+        *z,
+        *x,
+        *y,
+        req.query_string(),
+        srv_config.route_prefix.as_deref(),
+    )
+}
+
+/// Redirect `/tiles/{source_ids}/{z}/{x}/{y}` to `/{source_ids}/{z}/{x}/{y}` (HTTP 301)
+#[route("/tiles/{source_ids}/{z}/{x}/{y}", method = "GET", method = "HEAD")]
+pub async fn redirect_tiles(
+    req: HttpRequest,
+    path: Path<TileRequest>,
+    srv_config: Data<SrvConfig>,
+) -> HttpResponse {
+    static WARNING: DebouncedWarning = DebouncedWarning::new();
+    let TileRequest {
+        source_ids,
+        z,
+        x,
+        y,
+    } = path.as_ref();
+
+    WARNING
+        .once_per_hour(|| {
+            warn!(
+                "Request to /tiles/{source_ids}/{z}/{x}/{y} caused unnecessary redirect. Use /{source_ids}/{z}/{x}/{y} to avoid extra round-trip latency."
+            );
+        })
+        .await;
+
+    redirect_tile_with_query(
+        source_ids,
+        *z,
+        *x,
+        *y,
+        req.query_string(),
+        srv_config.route_prefix.as_deref(),
+    )
+}
+
+/// Helper function to create a 301 redirect for tiles with query string preservation
+fn redirect_tile_with_query(
+    source_ids: &str,
+    z: u8,
+    x: u32,
+    y: u32,
+    query_string: &str,
+    route_prefix: Option<&str>,
+) -> HttpResponse {
+    let location = if let Some(prefix) = route_prefix {
+        format!("{prefix}/{source_ids}/{z}/{x}/{y}")
+    } else {
+        format!("/{source_ids}/{z}/{x}/{y}")
+    };
+    let location = if query_string.is_empty() {
+        location
+    } else {
+        format!("{location}?{query_string}")
+    };
+    HttpResponse::MovedPermanently()
+        .insert_header((LOCATION, location))
+        .finish()
+}
+
+pub struct DynTileSource<'a> {
+    pub sources: Vec<(BoxedSource, ProcessConfig)>,
+    pub info: TileInfo,
+    pub query_str: Option<&'a str>,
+    pub query_obj: Option<UrlQuery>,
+    /// The format requested via the `Accept` header.
+    /// `None` means no `Accept` header was present (or it was a wildcard).
+    pub accepted_format: Option<Format>,
+    pub headers: TileRequestHeaders,
     pub cache: Option<&'a TileCache>,
+    pub manager: &'a TileSourceManager,
 }
 
 impl<'a> DynTileSource<'a> {
-    #[expect(clippy::too_many_arguments)]
+    #[hotpath::measure]
     pub fn new(
-        sources: &'a TileSources,
+        manager: &'a TileSourceManager,
         source_ids: &str,
         zoom: Option<u8>,
         query: &'a str,
-        accept_enc: Option<AcceptEncoding>,
-        if_none_match: Option<IfNoneMatch>,
-        preferred_enc: Option<PreferredEncoding>,
-        cache: Option<&'a TileCache>,
+        headers: TileRequestHeaders,
     ) -> ActixResult<Self> {
-        let (sources, use_url_query, info) = sources.get_sources(source_ids, zoom)?;
+        let tile_sources = manager.tile_sources();
+        let resolved = tile_sources.get_sources(source_ids, zoom)?;
+        let cache = manager.tile_cache().as_ref();
 
-        if sources.is_empty() {
-            return Err(ErrorNotFound("No valid sources found"));
+        if resolved.sources.is_empty() {
+            let z = zoom.expect("sources are only filtered out when a zoom is requested");
+            let supported = source_ids
+                .split(',')
+                .filter_map(|id| {
+                    let (src, _) = tile_sources.get_source(id).ok()?;
+                    let tj = src.get_tilejson();
+                    Some(match (tj.minzoom, tj.maxzoom) {
+                        (Some(lo), Some(hi)) => format!("{id} supports zoom {lo}-{hi}"),
+                        (Some(lo), None) => format!("{id} supports zoom {lo} and above"),
+                        (None, Some(hi)) => format!("{id} supports zoom up to {hi}"),
+                        (None, None) => id.to_string(),
+                    })
+                })
+                .collect::<Vec<_>>()
+                .join(", ");
+            return Err(ErrorNotFound(format!(
+                "Zoom {z} is outside the supported range: {supported}"
+            )));
         }
+
+        let accepted_format = Self::resolve_accepted_format(
+            headers.accepted_formats.as_deref(),
+            resolved.info.format,
+        )?;
 
         let mut query_obj = None;
         let mut query_str = None;
-        if use_url_query && !query.is_empty() {
+        if resolved.use_url_query && !query.is_empty() {
             query_obj = Some(Query::<UrlQuery>::from_query(query)?.into_inner());
             query_str = Some(query);
         }
 
         Ok(Self {
-            sources,
-            info,
+            sources: resolved.sources,
+            info: resolved.info,
             query_str,
             query_obj,
-            accept_enc,
-            if_none_match,
-            preferred_enc,
+            accepted_format,
+            headers,
             cache,
+            manager,
         })
     }
 
+    /// Checks the pre-parsed accepted formats against the source format. The
+    /// pre-cache pipeline can transcode between MVT and MLT in either
+    /// direction, so when the Accept header lists the opposite vector format
+    /// the request resolves to that target. Otherwise the source format must
+    /// appear in the accepted list verbatim.
+    fn resolve_accepted_format(
+        accepted: Option<&[Format]>,
+        source_format: Format,
+    ) -> ActixResult<Option<Format>> {
+        let Some(formats) = accepted else {
+            return Ok(None);
+        };
+        if formats.contains(&source_format) {
+            return Ok(Some(source_format));
+        }
+        #[cfg(all(feature = "mlt", feature = "_tiles"))]
+        if source_format == Format::Mvt && formats.contains(&Format::Mlt) {
+            return Ok(Some(Format::Mlt));
+        }
+        #[cfg(all(feature = "mlt", feature = "_tiles"))]
+        if source_format == Format::Mlt && formats.contains(&Format::Mvt) {
+            return Ok(Some(Format::Mvt));
+        }
+        Err(ErrorNotAcceptable(format!(
+            "Source produces {}, which does not match the Accept header",
+            source_format.content_type()
+        )))
+    }
+
+    #[hotpath::measure]
+    #[instrument(
+        level = "debug",
+        skip_all,
+        fields(tile.z = xyz.z, tile.x = xyz.x, tile.y = xyz.y),
+        err(Debug),
+    )]
     pub async fn get_http_response(&self, xyz: TileCoord) -> ActixResult<HttpResponse> {
         let tile = self.get_tile_content(xyz).await?;
         if tile.data.is_empty() {
@@ -116,41 +366,132 @@ impl<'a> DynTileSource<'a> {
         }
         let etag = EntityTag::new_strong(tile.etag.clone());
 
-        if let Some(IfNoneMatch::Items(expected_etags)) = &self.if_none_match {
-            for expected_etag in expected_etags {
-                if etag.strong_eq(expected_etag) {
-                    return Ok(HttpResponse::NotModified().finish());
-                }
+        if let Some(if_none_match) = &self.headers.if_none_match {
+            let dominated_by = match if_none_match {
+                IfNoneMatch::Any => true,
+                IfNoneMatch::Items(items) => items.iter().any(|e| e.strong_eq(&etag)),
+            };
+            if dominated_by {
+                return Ok(HttpResponse::NotModified().finish());
             }
         }
 
         let mut response = HttpResponse::Ok();
         response.content_type(tile.info.format.content_type());
         response.insert_header((ETAG, etag));
-        if let Some(val) = tile.info.encoding.content_encoding() {
+        if let Some(val) = tile.info.encoding.compression() {
             response.insert_header((CONTENT_ENCODING, val));
         }
         Ok(response.body(tile.data))
     }
 
+    #[hotpath::measure]
+    #[instrument(
+        level = "debug",
+        skip_all,
+        fields(
+            tile.z = xyz.z,
+            tile.x = xyz.x,
+            tile.y = xyz.y,
+            sources.count = self.sources.len(),
+        ),
+        err(Debug),
+    )]
     pub async fn get_tile_content(&self, xyz: TileCoord) -> ActixResult<Tile> {
-        let mut tiles = try_join_all(self.sources.iter().map(|s| async {
-            if let Some(cache) = self.cache {
-                cache
-                    .get_or_insert(
-                        s.get_id().to_string(),
+        let tiles = try_join_all(
+            self.sources
+                .iter()
+                .map(|(s, pc)| self.get_tile_content_from_one_source(s, pc, xyz)),
+        )
+        .await?;
+
+        self.merge_tiles(tiles)
+    }
+
+    async fn get_tile_content_from_one_source(
+        &self,
+        s: &BoxedSource,
+        pc: &ProcessConfig,
+        xyz: TileCoord,
+    ) -> ActixResult<Tile> {
+        match self.fetch_tile_content_with_cache(s, pc, xyz).await {
+            Err(ref e) if matches!(e.as_ref(), MartinCoreError::SourceNeedsReload) => {
+                self.reload_source_and_retry_get_tile(s, pc, xyz).await
+            }
+            result => result.map_err(|e| map_internal_error(e.as_ref())),
+        }
+    }
+
+    async fn reload_source_and_retry_get_tile(
+        &self,
+        s: &BoxedSource,
+        pc: &ProcessConfig,
+        xyz: TileCoord,
+    ) -> ActixResult<Tile> {
+        match s.try_reload().await {
+            Ok(fresh_src) => {
+                warn!(source.id = s.get_id(), "Source modified; reloading");
+                let advisory = ReloadAdvisory {
+                    updates: vec![NewSource {
+                        id: s.get_id().to_string(),
+                        source: Ok(fresh_src.clone_source()),
+                        process: pc.clone(),
+                    }],
+                    ..Default::default()
+                };
+                if let Err(e) = self.manager.apply_changes(advisory).await {
+                    warn!(source.id = s.get_id(), error = %e, "Failed to apply source update after reload");
+                }
+                self.fetch_tile_content_with_cache(&fresh_src, pc, xyz)
+                    .await
+                    .map_err(|e| map_internal_error(e.as_ref()))
+            }
+            Err(e) => Err(map_internal_error(&e)),
+        }
+    }
+
+    #[cfg_attr(
+        not(all(feature = "mlt", feature = "_tiles")),
+        expect(unused_variables)
+    )]
+    async fn fetch_tile_content_with_cache(
+        &self,
+        s: &BoxedSource,
+        pc: &ProcessConfig,
+        xyz: TileCoord,
+    ) -> Result<Tile, Arc<MartinCoreError>> {
+        let cache_zoom = s.cache_zoom().contains(xyz.z);
+        let src_id = s.get_id().to_string();
+        let src = s.clone_source();
+        let compute = || async move {
+            let t = src.get_tile_with_etag(xyz, self.query_obj.as_ref()).await?;
+            apply_pre_cache_processors(
+                t,
+                #[cfg(all(feature = "mlt", feature = "_tiles"))]
+                pc,
+                #[cfg(all(feature = "mlt", feature = "_tiles"))]
+                self.accepted_format,
+            )
+            .map_err(|e| MartinCoreError::OtherError(Box::new(e)))
+        };
+        if let (Some(cache), true) = (self.cache, cache_zoom) {
+            cache
+                .get_or_insert(
+                    martin_core::tiles::TileCacheKey::new(
+                        src_id,
                         xyz,
                         self.query_str.map(ToString::to_string),
-                        || s.get_tile_with_etag(xyz, self.query_obj.as_ref()),
-                    )
-                    .await
-            } else {
-                s.get_tile_with_etag(xyz, self.query_obj.as_ref()).await
-            }
-        }))
-        .await
-        .map_err(map_internal_error)?;
+                        self.accepted_format,
+                    ),
+                    compute,
+                )
+                .await
+        } else {
+            compute().await.map_err(Arc::new)
+        }
+    }
 
+    fn merge_tiles(&self, mut tiles: Vec<Tile>) -> ActixResult<Tile> {
         let mut layer_count = 0;
         let mut last_non_empty_layer = 0;
         for (idx, tile) in tiles.iter().enumerate() {
@@ -160,95 +501,129 @@ impl<'a> DynTileSource<'a> {
             }
         }
 
-        // Minor optimization to prevent concatenation if there are less than 2 tiles
-        let (data, etag) = match layer_count {
+        let tile = match layer_count {
             0 => return Ok(Tile::new_hash_etag(Vec::new(), self.info)),
-            1 => {
-                let tile = tiles.swap_remove(last_non_empty_layer);
-                (tile.data, tile.etag)
-            }
+            1 => tiles.swap_remove(last_non_empty_layer),
             _ => {
-                // Make sure tiles can be concatenated, or if not, that there is only one non-empty tile for each zoom level
-                // TODO: can zlib, brotli, or zstd be concatenated?
-                // TODO: implement decompression step for other concatenate-able formats
-                let can_join = self.info.format == Format::Mvt
-                    && (self.info.encoding == Encoding::Uncompressed
-                        || self.info.encoding == Encoding::Gzip);
+                // Pre-cache processors may have flipped each tile's format
+                // (e.g. MVT->MLT for `Accept: application/vnd.maplibre-tile`),
+                // so resolve the merge target from the actual tiles rather
+                // than the source's native `self.info`.
+                let merged_info = tiles[last_non_empty_layer].info;
+                // Both MVT (protobuf) and MLT layers are independent binary blobs
+                // that can be concatenated to form a valid composite tile.
+                let can_join = (merged_info.format == Format::Mvt
+                    || merged_info.format == Format::Mlt)
+                    && tiles.iter().all(|t| t.info == merged_info);
                 if !can_join {
                     return Err(ErrorBadRequest(format!(
-                        "Can't merge {} tiles. Make sure there is only one non-empty tile source at zoom level {}",
-                        self.info, xyz.z
-                    )))?;
+                        "Cannot merge non-vector-tile formats. Format is {:?} with encoding {:?} ",
+                        merged_info.format, merged_info.encoding,
+                    )));
                 }
-                // When concatenating tiles, we can't use pre-computed etags since the data changes
-                let total_etag_len = tiles.iter().map(|t| t.etag.len()).sum();
-                let mut concatenated_hash = String::with_capacity(total_etag_len);
+
+                // Build combined etag before consuming tiles
+                let total_etag_len: usize = tiles.iter().map(|t| t.etag.len()).sum();
+                let mut combined_etag = String::with_capacity(total_etag_len);
                 for tile in &tiles {
-                    concatenated_hash.push_str(&tile.etag);
+                    combined_etag.push_str(&tile.etag);
                 }
-                let concatenated_data = tiles
-                    .into_iter()
-                    .map(|t| t.data)
-                    .collect::<Vec<_>>()
-                    .concat();
-                (concatenated_data, concatenated_hash)
+
+                if matches!(
+                    merged_info.encoding,
+                    Encoding::Uncompressed | Encoding::Gzip | Encoding::Zstd
+                ) {
+                    // Gzip (RFC 1952 §2.2) and Zstd (RFC 8878 §3.1.1) support
+                    // multi-stream/multi-frame concatenation, so we can avoid
+                    // decompressing and recompressing entirely.
+                    let data = tiles
+                        .into_iter()
+                        .map(|t| t.data)
+                        .collect::<Vec<_>>()
+                        .concat();
+                    Tile::new_with_etag(data, merged_info, combined_etag)
+                } else {
+                    // Brotli, zlib, etc. don't support stream concatenation,
+                    // so decompress all tiles, concat raw, and leave uncompressed
+                    // for later recompression.
+                    let mut combined = Vec::new();
+                    for tile in tiles {
+                        let decoded = decode(tile)?;
+                        combined.extend_from_slice(&decoded.data);
+                    }
+                    Tile::new_with_etag(
+                        combined,
+                        TileInfo::new(merged_info.format, Encoding::Uncompressed),
+                        combined_etag,
+                    )
+                }
             }
         };
 
-        // decide if (re-)encoding of the tile data is needed, and recompress if so
-        let mut tile = self.recompress(data)?;
-        // Set the etag for the final tile
-        tile.etag = etag;
-        Ok(tile)
+        self.recompress(tile)
     }
 
     /// Decide which encoding to use for the uncompressed tile data, based on the client's Accept-Encoding header
     fn decide_encoding(&self, accept_enc: &AcceptEncoding) -> ActixResult<Option<ContentEncoding>> {
         let mut q_gzip = None;
         let mut q_brotli = None;
+        let mut q_zstd = None;
         for enc in accept_enc.iter() {
             if let Preference::Specific(HeaderEnc::Known(e)) = enc.item {
                 match e {
                     ContentEncoding::Gzip => q_gzip = Some(enc.quality),
                     ContentEncoding::Brotli => q_brotli = Some(enc.quality),
+                    ContentEncoding::Zstd => q_zstd = Some(enc.quality),
                     _ => {}
                 }
             } else if let Preference::Any = enc.item {
                 q_gzip.get_or_insert(enc.quality);
                 q_brotli.get_or_insert(enc.quality);
+                q_zstd.get_or_insert(enc.quality);
             }
         }
-        Ok(match (q_gzip, q_brotli) {
-            (Some(q_gzip), Some(q_brotli)) if q_gzip == q_brotli => {
-                if q_gzip > Quality::ZERO {
-                    Some(self.get_preferred_enc())
-                } else {
-                    None
-                }
+        if let (Some(qg), Some(qb)) = (q_gzip, q_brotli) {
+            let qz = q_zstd.unwrap_or(Quality::ZERO);
+            let max_q = if qg >= qb && qg >= qz {
+                qg
+            } else if qb >= qz {
+                qb
+            } else {
+                qz
+            };
+            if max_q == Quality::ZERO {
+                return Ok(None);
             }
-            (Some(q_gzip), Some(q_brotli)) if q_brotli > q_gzip => Some(ContentEncoding::Brotli),
-            (Some(_), Some(_)) => Some(ContentEncoding::Gzip),
-            _ => {
-                if let Some(HeaderEnc::Known(enc)) = accept_enc.negotiate(SUPPORTED_ENC.iter()) {
-                    Some(enc)
-                } else {
-                    return Err(ErrorNotAcceptable("No supported encoding found"));
-                }
-            }
-        })
+            let at_max = u8::from(qg == max_q) + u8::from(qb == max_q) + u8::from(qz == max_q);
+            return Ok(Some(if at_max > 1 {
+                self.get_preferred_enc()
+            } else if qb == max_q {
+                ContentEncoding::Brotli
+            } else if qz == max_q {
+                ContentEncoding::Zstd
+            } else {
+                ContentEncoding::Gzip
+            }));
+        }
+        if let Some(HeaderEnc::Known(enc)) = accept_enc.negotiate(SUPPORTED_ENC.iter()) {
+            Ok(Some(enc))
+        } else {
+            Err(ErrorNotAcceptable("No supported encoding found"))
+        }
     }
 
     fn get_preferred_enc(&self) -> ContentEncoding {
-        match self.preferred_enc {
+        match self.headers.preferred_enc {
             None | Some(PreferredEncoding::Gzip) => ContentEncoding::Gzip,
             Some(PreferredEncoding::Brotli) => ContentEncoding::Brotli,
         }
     }
 
-    fn recompress(&self, tile: TileData) -> ActixResult<Tile> {
-        let mut tile = Tile::new_hash_etag(tile, self.info);
-        if let Some(accept_enc) = &self.accept_enc {
-            if self.info.encoding.is_encoded() {
+    #[hotpath::measure]
+    fn recompress(&self, mut tile: Tile) -> ActixResult<Tile> {
+        let info = tile.info;
+        if let Some(accept_enc) = &self.headers.accept_enc {
+            if info.encoding.is_encoded() {
                 // already compressed, see if we can send it as is, or need to re-compress
                 if !accept_enc.iter().any(|e| {
                     if let Preference::Specific(HeaderEnc::Known(enc)) = e.item {
@@ -268,7 +643,6 @@ impl<'a> DynTileSource<'a> {
                 // (re-)compress the tile into the preferred encoding
                 tile = encode(tile, enc)?;
             }
-
             Ok(tile)
         } else {
             // no accepted-encoding header, decode the tile if compressed
@@ -277,34 +651,66 @@ impl<'a> DynTileSource<'a> {
     }
 }
 
+#[hotpath::measure]
 fn encode(tile: Tile, enc: ContentEncoding) -> ActixResult<Tile> {
+    hotpath::dbg!("encode", enc);
+    let etag = tile.etag;
     Ok(match enc {
-        ContentEncoding::Brotli => Tile::new_hash_etag(
+        ContentEncoding::Brotli => Tile::new_with_etag(
             encode_brotli(&tile.data)?,
             tile.info.encoding(Encoding::Brotli),
+            etag,
         ),
-        ContentEncoding::Gzip => {
-            Tile::new_hash_etag(encode_gzip(&tile.data)?, tile.info.encoding(Encoding::Gzip))
-        }
-        _ => tile,
+        ContentEncoding::Gzip => Tile::new_with_etag(
+            encode_gzip(&tile.data)?,
+            tile.info.encoding(Encoding::Gzip),
+            etag,
+        ),
+        ContentEncoding::Deflate => Tile::new_with_etag(
+            encode_zlib(&tile.data)?,
+            tile.info.encoding(Encoding::Zlib),
+            etag,
+        ),
+        ContentEncoding::Zstd => Tile::new_with_etag(
+            encode_zstd(&tile.data)?,
+            tile.info.encoding(Encoding::Zstd),
+            etag,
+        ),
+        _ => Tile::new_with_etag(tile.data, tile.info, etag),
     })
 }
 
-fn decode(tile: Tile) -> ActixResult<Tile> {
+#[hotpath::measure]
+pub(crate) fn decode(tile: Tile) -> ActixResult<Tile> {
     let info = tile.info;
     Ok(if info.encoding.is_encoded() {
+        let etag = tile.etag;
         match info.encoding {
-            Encoding::Gzip => Tile::new_hash_etag(
+            Encoding::Gzip => Tile::new_with_etag(
                 decode_gzip(&tile.data)?,
                 info.encoding(Encoding::Uncompressed),
+                etag,
             ),
-            Encoding::Brotli => Tile::new_hash_etag(
+            Encoding::Brotli => Tile::new_with_etag(
                 decode_brotli(&tile.data)?,
                 info.encoding(Encoding::Uncompressed),
+                etag,
             ),
-            _ => Err(ErrorBadRequest(format!(
-                "Tile is is stored as {info}, but the client does not accept this encoding"
-            )))?,
+            Encoding::Zlib => Tile::new_with_etag(
+                decode_zlib(&tile.data)?,
+                info.encoding(Encoding::Uncompressed),
+                etag,
+            ),
+            Encoding::Zstd => Tile::new_with_etag(
+                decode_zstd(&tile.data)?,
+                info.encoding(Encoding::Uncompressed),
+                etag,
+            ),
+            _ => {
+                return Err(ErrorBadRequest(format!(
+                    "Tile is stored as {info}, but the client does not accept this encoding"
+                )));
+            }
         }
     } else {
         tile
@@ -316,7 +722,8 @@ pub fn to_encoding(val: ContentEncoding) -> Option<Encoding> {
         ContentEncoding::Identity => Encoding::Uncompressed,
         ContentEncoding::Gzip => Encoding::Gzip,
         ContentEncoding::Brotli => Encoding::Brotli,
-        // TODO: Deflate => Encoding::Zstd or Encoding::Zlib ?
+        ContentEncoding::Deflate => Encoding::Zlib,
+        ContentEncoding::Zstd => Encoding::Zstd,
         _ => None?,
     })
 }
@@ -324,15 +731,24 @@ pub fn to_encoding(val: ContentEncoding) -> Option<Encoding> {
 #[cfg(test)]
 mod tests {
     use actix_http::header::TryIntoHeaderValue as _;
+    use actix_web::http::header::QualityItem;
     use rstest::rstest;
     use tilejson::tilejson;
 
     use super::*;
-    use crate::srv::tiles::tests::TestSource;
+    use crate::config::file::OnInvalid;
+    use crate::srv::tiles::tests::{CompressedTestSource, SourceNeedsReloadTestSource, TestSource};
 
-    #[actix_rt::test]
-    async fn test_deleteme() {
-        test_enc_preference(&["gzip", "deflate", "br", "zstd"], None, Encoding::Gzip).await;
+    fn test_manager(sources: Vec<Vec<BoxedSource>>) -> TileSourceManager {
+        let sources = sources
+            .into_iter()
+            .map(|s| {
+                s.into_iter()
+                    .map(|s| (s, ProcessConfig::default()))
+                    .collect()
+            })
+            .collect();
+        TileSourceManager::from_sources(None, OnInvalid::Abort, sources)
     }
 
     #[rstest]
@@ -343,33 +759,30 @@ mod tests {
     #[case(&["br;q=1", "gzip;q=1"], Some(PreferredEncoding::Gzip), Encoding::Gzip)]
     #[case(&["gzip;q=1", "br;q=1"], Some(PreferredEncoding::Brotli), Encoding::Brotli)]
     #[case(&["gzip;q=1", "br;q=0.5"], Some(PreferredEncoding::Brotli), Encoding::Gzip)]
+    #[case(&["gzip;q=0.5", "br;q=0.5", "zstd;q=1.0"], None, Encoding::Zstd)]
+    #[case(&["gzip;q=0.5", "br;q=0.5", "zstd;q=1.0"], Some(PreferredEncoding::Brotli), Encoding::Zstd)]
     #[actix_rt::test]
     async fn test_enc_preference(
         #[case] accept_enc: &[&'static str],
         #[case] preferred_enc: Option<PreferredEncoding>,
         #[case] expected_enc: Encoding,
     ) {
-        let sources = TileSources::new(vec![vec![Box::new(TestSource {
+        let mgr = test_manager(vec![vec![Box::new(TestSource {
             id: "test_source",
             tj: tilejson! { tiles: vec![] },
             data: vec![1_u8, 2, 3],
+            format: Format::Mvt,
         })]]);
 
-        let accept_enc = Some(AcceptEncoding(
-            accept_enc.iter().map(|s| s.parse().unwrap()).collect(),
-        ));
-
-        let src = DynTileSource::new(
-            &sources,
-            "test_source",
-            None,
-            "",
-            accept_enc,
-            None,
+        let headers = TileRequestHeaders {
+            accept_enc: Some(AcceptEncoding(
+                accept_enc.iter().map(|s| s.parse().unwrap()).collect(),
+            )),
             preferred_enc,
-            None,
-        )
-        .unwrap();
+            ..Default::default()
+        };
+
+        let src = DynTileSource::new(&mgr, "test_source", None, "", headers).unwrap();
 
         let xyz = TileCoord { z: 0, x: 0, y: 0 };
         let tile = src.get_tile_content(xyz).await.unwrap();
@@ -391,20 +804,15 @@ mod tests {
             id: source_id,
             tj: tilejson! { tiles: vec![] },
             data: vec![1_u8, 2, 3],
+            format: Format::Mvt,
         };
-        let sources = TileSources::new(vec![vec![Box::new(source1)]]);
+        let mgr = test_manager(vec![vec![Box::new(source1)]]);
 
-        let src = DynTileSource::new(
-            &sources,
-            source_id,
-            None,
-            "",
-            None,
+        let headers = TileRequestHeaders {
             if_none_match,
-            None,
-            None,
-        )
-        .unwrap();
+            ..Default::default()
+        };
+        let src = DynTileSource::new(&mgr, source_id, None, "", headers).unwrap();
         let resp = &src
             .get_http_response(TileCoord { z: 0, x: 0, y: 0 })
             .await
@@ -423,13 +831,15 @@ mod tests {
             id: "non-empty",
             tj: tilejson! { tiles: vec![] },
             data: vec![1_u8, 2, 3],
+            format: Format::Mvt,
         };
         let empty_source = TestSource {
             id: "empty",
             tj: tilejson! { tiles: vec![] },
             data: Vec::default(),
+            format: Format::Mvt,
         };
-        let sources = TileSources::new(vec![vec![
+        let mgr = test_manager(vec![vec![
             Box::new(non_empty_source),
             Box::new(empty_source),
         ]]);
@@ -444,10 +854,239 @@ mod tests {
             ("empty,non-empty", vec![1_u8, 2, 3]),
             ("empty,non-empty,empty", vec![1_u8, 2, 3]),
         ] {
-            let src =
-                DynTileSource::new(&sources, source_id, None, "", None, None, None, None).unwrap();
+            let src = DynTileSource::new(&mgr, source_id, None, "", TileRequestHeaders::default())
+                .unwrap();
             let xyz = TileCoord { z: 0, x: 0, y: 0 };
             assert_eq!(expected, &src.get_tile_content(xyz).await.unwrap().data);
         }
+    }
+
+    /// When a tile source returns [`MartinCoreError::SourceNeedsReload`], the serving layer
+    /// must reload the source from the manager and retry the tile request.
+    #[actix_rt::test]
+    async fn test_source_needs_reload_is_retried() {
+        // `SourceNeedsReloadSource` returns SourceNeedsReload unless it was instantiated by `try_reload()`, the
+        // internal machanics for a Source's self-reload.
+        let source = SourceNeedsReloadTestSource::new("stale_source", vec![1, 2, 3]);
+        let mgr = test_manager(vec![vec![Box::new(source)]]);
+        let src = DynTileSource::new(
+            &mgr,
+            "stale_source",
+            None,
+            "",
+            TileRequestHeaders::default(),
+        )
+        .unwrap();
+
+        let tile = src
+            .get_tile_content(TileCoord { z: 0, x: 0, y: 0 })
+            .await
+            .unwrap();
+        assert_eq!(tile.data, vec![1, 2, 3]);
+    }
+
+    fn compress_with(data: &[u8], encoding: Encoding) -> Vec<u8> {
+        match encoding {
+            Encoding::Gzip => encode_gzip(data).unwrap(),
+            Encoding::Brotli => encode_brotli(data).unwrap(),
+            Encoding::Zlib => encode_zlib(data).unwrap(),
+            Encoding::Zstd => encode_zstd(data).unwrap(),
+            _ => panic!("compress_with: unsupported encoding {encoding:?}"),
+        }
+    }
+
+    fn decompress_tile(data: &[u8], encoding: Encoding) -> Vec<u8> {
+        match encoding {
+            Encoding::Uncompressed => data.to_vec(),
+            Encoding::Gzip => decode_gzip(data).unwrap(),
+            Encoding::Brotli => decode_brotli(data).unwrap(),
+            Encoding::Zlib => decode_zlib(data).unwrap(),
+            Encoding::Zstd => decode_zstd(data).unwrap(),
+            Encoding::Internal => {
+                panic!("decompress_tile: cannot decompress tile with internal encoding")
+            }
+        }
+    }
+
+    #[rstest]
+    #[case(Encoding::Brotli, None, Encoding::Uncompressed)]
+    #[case(Encoding::Gzip, None, Encoding::Uncompressed)]
+    #[case(Encoding::Zlib, None, Encoding::Uncompressed)]
+    #[case(Encoding::Zstd, None, Encoding::Uncompressed)]
+    #[case(Encoding::Brotli, Some("zstd"), Encoding::Zstd)]
+    #[case(Encoding::Gzip, Some("br"), Encoding::Brotli)]
+    #[case(Encoding::Zlib, Some("br"), Encoding::Brotli)]
+    #[case(Encoding::Zstd, Some("gzip"), Encoding::Gzip)]
+    #[actix_rt::test]
+    async fn test_compressed_mvt_merge(
+        #[case] src_enc: Encoding,
+        #[case] accept: Option<&str>,
+        #[case] expected_enc: Encoding,
+    ) {
+        let raw1: Vec<u8> = vec![1, 2, 3];
+        let raw2: Vec<u8> = vec![4, 5, 6];
+
+        let src1 = CompressedTestSource {
+            id: "src1",
+            tj: tilejson! { tiles: vec![] },
+            data: compress_with(&raw1, src_enc),
+            encoding: src_enc,
+        };
+        let src2 = CompressedTestSource {
+            id: "src2",
+            tj: tilejson! { tiles: vec![] },
+            data: compress_with(&raw2, src_enc),
+            encoding: src_enc,
+        };
+
+        let mgr = test_manager(vec![vec![Box::new(src1), Box::new(src2)]]);
+
+        let headers = TileRequestHeaders {
+            accept_enc: accept.map(|s| AcceptEncoding(vec![s.parse().unwrap()])),
+            ..Default::default()
+        };
+        let src = DynTileSource::new(&mgr, "src1,src2", None, "", headers).unwrap();
+
+        let tile = src
+            .get_tile_content(TileCoord { z: 0, x: 0, y: 0 })
+            .await
+            .unwrap();
+
+        assert_eq!(
+            tile.info.encoding, expected_enc,
+            "wrong output encoding for src={src_enc:?}, accept={accept:?}"
+        );
+
+        let decoded = decompress_tile(&tile.data, tile.info.encoding);
+        let expected_raw: Vec<u8> = raw1.iter().chain(raw2.iter()).copied().collect();
+        assert_eq!(
+            decoded, expected_raw,
+            "decoded content mismatch for src={src_enc:?}, accept={accept:?}"
+        );
+    }
+
+    #[rstest]
+    #[case::no_header(None)]
+    #[case::empty(Some(Accept(vec![])))]
+    #[case::wildcard(Some(Accept(vec![QualityItem::max("*/*".parse().unwrap())])))]
+    fn test_parse_accept_any(#[case] accept: Option<Accept>) {
+        assert_eq!(parse_accept(accept).unwrap(), None);
+    }
+
+    #[test]
+    fn test_parse_accept_unknown_type() {
+        let accept = Some(Accept(vec![QualityItem::max("text/html".parse().unwrap())]));
+        parse_accept(accept).unwrap_err();
+    }
+
+    #[test]
+    fn test_parse_accept_q_zero_rejected() {
+        // A known format with q=0 means "do not want" - should 406
+        let accept = Some(Accept(vec![QualityItem::new(
+            "application/x-protobuf".parse().unwrap(),
+            Quality::ZERO,
+        )]));
+        parse_accept(accept).unwrap_err();
+    }
+
+    fn parse_accept_header(values: &[&str]) -> Option<Vec<Format>> {
+        parse_accept(Some(Accept(
+            values
+                .iter()
+                .map(|s| QualityItem::max(s.parse().unwrap()))
+                .collect(),
+        )))
+        .unwrap()
+    }
+
+    #[rstest]
+    #[case::mvt_exact(&["application/x-protobuf"], Format::Mvt)]
+    #[case::mlt_exact(&["application/vnd.maplibre-vector-tile"], Format::Mlt)]
+    #[case::mlt_short(&["application/vnd.maplibre-tile"], Format::Mlt)]
+    #[case::png_exact(&["image/png"], Format::Png)]
+    #[case::image_wildcard_png(&["image/*"], Format::Png)]
+    #[case::image_wildcard_jpeg(&["image/*"], Format::Jpeg)]
+    #[case::image_multi_wildcard_jpeg(&["image/png", "image/*"], Format::Jpeg)]
+    #[case::image_multi_wildcard_jpeg(&["image/*", "image/png"], Format::Jpeg)]
+    #[case::multi_with_match(&["image/png", "application/x-protobuf"], Format::Mvt)]
+    #[case::multi_with_match(&["application/x-protobuf", "image/png"], Format::Mvt)]
+    fn test_accept_ok(#[case] accept_values: &[&str], #[case] source_format: Format) {
+        let parsed = parse_accept_header(accept_values);
+        let result = DynTileSource::resolve_accepted_format(parsed.as_deref(), source_format);
+        assert_eq!(result.unwrap(), Some(source_format));
+    }
+
+    #[rstest]
+    #[case::image_wildcard_vs_mvt(&["image/*"], Format::Mvt)]
+    #[case::png_vs_mvt(&["image/png"], Format::Mvt)]
+    #[case::mvt_vs_png(&["application/x-protobuf"], Format::Png)]
+    fn test_accept_406(#[case] accept_values: &[&str], #[case] source_format: Format) {
+        let parsed = parse_accept_header(accept_values);
+        let result = DynTileSource::resolve_accepted_format(parsed.as_deref(), source_format);
+        result.unwrap_err();
+    }
+
+    /// Without the `mlt` feature, the MVT<->MLT conversion branches are gated
+    /// out and these accept-vs-source pairs must surface as 406.
+    #[cfg(not(all(feature = "mlt", feature = "_tiles")))]
+    #[rstest]
+    #[case::mlt_vs_mvt(&["application/vnd.maplibre-tile"], Format::Mvt)]
+    #[case::mvt_vs_mlt(&["application/x-protobuf"], Format::Mlt)]
+    fn test_accept_406_without_mlt(#[case] accept_values: &[&str], #[case] source_format: Format) {
+        let parsed = parse_accept_header(accept_values);
+        let result = DynTileSource::resolve_accepted_format(parsed.as_deref(), source_format);
+        result.unwrap_err();
+    }
+
+    /// `Accept: mlt` against an MVT source resolves to MLT - the pre-cache
+    /// pipeline encodes on first miss. Conversion is implicit; no `process.convert_to_mlt`
+    /// configuration is required to enable it.
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[rstest]
+    #[case::mlt_long(&["application/vnd.maplibre-vector-tile"])]
+    #[case::mlt_short(&["application/vnd.maplibre-tile"])]
+    #[case::mlt_with_other(&["image/png", "application/vnd.maplibre-tile"])]
+    fn test_accept_mlt_on_mvt_source_converts(#[case] accept_values: &[&str]) {
+        let parsed = parse_accept_header(accept_values);
+        let result = DynTileSource::resolve_accepted_format(parsed.as_deref(), Format::Mvt);
+        assert_eq!(result.unwrap(), Some(Format::Mlt));
+    }
+
+    /// `Accept: mvt` against an MLT source resolves to MVT - the pre-cache
+    /// pipeline decodes on first miss unless `process.convert_to_mvt` is
+    /// explicitly disabled.
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[rstest]
+    #[case::mvt_only(&["application/x-protobuf"])]
+    #[case::mvt_with_other(&["image/png", "application/x-protobuf"])]
+    fn test_accept_mvt_on_mlt_source_converts(#[case] accept_values: &[&str]) {
+        let parsed = parse_accept_header(accept_values);
+        let result = DynTileSource::resolve_accepted_format(parsed.as_deref(), Format::Mlt);
+        assert_eq!(result.unwrap(), Some(Format::Mvt));
+    }
+
+    /// Compositing sources with mismatched formats (MVT + MLT) should return an error.
+    #[actix_rt::test]
+    async fn test_mixed_mvt_mlt_merge_fails() {
+        let mvt_source = TestSource {
+            id: "mvt",
+            tj: tilejson! { tiles: vec![] },
+            data: vec![1_u8, 2, 3],
+            format: Format::Mvt,
+        };
+        let mlt_source = TestSource {
+            id: "mlt",
+            tj: tilejson! { tiles: vec![] },
+            data: vec![4_u8, 5, 6],
+            format: Format::Mlt,
+        };
+        let mgr = test_manager(vec![vec![Box::new(mvt_source), Box::new(mlt_source)]]);
+
+        // Mixed MVT+MLT composite should fail at source validation (format mismatch)
+        let result = DynTileSource::new(&mgr, "mvt,mlt", None, "", TileRequestHeaders::default());
+        assert!(
+            result.is_err(),
+            "Compositing MVT and MLT sources should return an error"
+        );
     }
 }

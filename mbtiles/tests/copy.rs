@@ -1,3 +1,5 @@
+#![allow(clippy::unwrap_used)]
+#![expect(clippy::print_stderr, reason = "test diagnostics on failure")]
 use std::collections::HashMap;
 use std::fmt::Write as _;
 use std::path::PathBuf;
@@ -18,7 +20,7 @@ use mbtiles::{
 use pretty_assertions::assert_eq as pretty_assert_eq;
 use rstest::{fixture, rstest};
 use serde::Serialize;
-use sqlx::{Executor as _, Row as _, SqliteConnection, query, query_as};
+use sqlx::{AssertSqlSafe, Executor as _, Row as _, SqliteConnection, query, query_as};
 use tokio::runtime::Handle;
 
 const GZIP_TILES: &str = "UPDATE tiles SET tile_data = gzip(tile_data);";
@@ -150,7 +152,7 @@ macro_rules! new_file {
 
     (@ $skip_agg:expr, $function:tt, $dst_type_cli:expr, $sql_meta:expr, $sql_data:expr, $sql:expr, $($arg:tt)*) => {{
         let (tmp_mbt, mut cn_tmp) = open!(@"temp", $function, $($arg)*);
-        init_mbtiles_schema(&mut cn_tmp, mbtiles::MbtType::Flat).await.unwrap();
+        init_mbtiles_schema(&mut cn_tmp, mbtiles::MbtType::Flat, false).await.unwrap();
         cn_tmp.execute($sql_data).await.unwrap();
         cn_tmp.execute($sql_meta).await.unwrap();
         if $sql != "" {
@@ -176,7 +178,7 @@ macro_rules! assert_dump {
         let actual_value = &$actual_value;
         settings.bind(||
             allow_duplicates! {
-                insta::assert_toml_snapshot!(actual_value)
+                insta::assert_yaml_snapshot!(actual_value)
             }
         );
     }};
@@ -763,7 +765,7 @@ async fn dump(conn: &mut SqliteConnection) -> MbtResult<Vec<SqliteEntry>> {
         };
 
         let sql = format!("PRAGMA table_info({tbl})");
-        let columns: Vec<_> = query(&sql)
+        let columns: Vec<_> = query(AssertSqlSafe(sql))
             .fetch_all(&mut *conn)
             .await?
             .into_iter()
@@ -775,7 +777,7 @@ async fn dump(conn: &mut SqliteConnection) -> MbtResult<Vec<SqliteEntry>> {
             .collect();
 
         let sql = format!("SELECT * FROM {tbl}");
-        let rows = query(&sql).fetch_all(&mut *conn).await?;
+        let rows = query(AssertSqlSafe(sql)).fetch_all(&mut *conn).await?;
         let mut values = rows
             .iter()
             .map(|row| {

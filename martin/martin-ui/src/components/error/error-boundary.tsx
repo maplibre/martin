@@ -59,11 +59,11 @@ function DefaultErrorFallback({ error, retry }: { error?: Error; retry: () => vo
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {error && (
+        {error ? (
           <div className="p-3 bg-destructive rounded-md">
             <p className="text-sm text-destructive-foreground font-mono">{error.message}</p>
           </div>
-        )}
+        ) : null}
         <Button className="w-full" onClick={retry}>
           <RefreshCw className="h-4 w-4 mr-2" />
           Try Again

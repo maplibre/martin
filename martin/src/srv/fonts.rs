@@ -1,52 +1,106 @@
 use std::string::ToString as _;
+use std::sync::Arc;
 
 use actix_middleware_etag::Etag;
 use actix_web::error::{ErrorBadRequest, ErrorNotFound};
+use actix_web::http::header::LOCATION;
 use actix_web::middleware::Compress;
 use actix_web::web::{Data, Path};
 use actix_web::{HttpResponse, Result as ActixResult, route};
-use martin_core::fonts::{FontError, FontSources, OptFontCache};
+use martin_core::fonts::{FontCacheKey, FontError, FontSources, OptFontCache};
 use serde::Deserialize;
+use tracing::{instrument, warn};
 
-use crate::srv::server::map_internal_error;
+use crate::srv::server::{DebouncedWarning, map_internal_error};
 
 #[derive(Deserialize, Debug)]
+#[cfg_attr(feature = "unstable-schemas", derive(utoipa::IntoParams))]
+#[cfg_attr(feature = "unstable-schemas", into_params(parameter_in = Path))]
 struct FontRequest {
     fontstack: String,
     start: u32,
     end: u32,
 }
 
+#[cfg_attr(
+    feature = "unstable-schemas",
+    utoipa::path(
+        get,
+        path = "/font/{fontstack}/{start}-{end}",
+        params(FontRequest),
+        responses(
+            (status = 200, description = "Glyph PBF range", content_type = "application/x-protobuf"),
+            (status = 400, description = "Invalid glyph range"),
+            (status = 404, description = "No matching font"),
+        ),
+    )
+)]
 #[route(
     "/font/{fontstack}/{start}-{end}",
     method = "GET",
     wrap = "Etag::default()",
     wrap = "Compress::default()"
 )]
-async fn get_font(
+#[hotpath::measure]
+#[instrument(
+    level = "debug",
+    skip_all,
+    fields(
+        font.fontstack = %path.fontstack,
+        font.range.start = path.start,
+        font.range.end = path.end,
+    ),
+    err(Debug),
+)]
+pub async fn get_font(
     path: Path<FontRequest>,
     fonts: Data<FontSources>,
     cache: Data<OptFontCache>,
 ) -> ActixResult<HttpResponse> {
     let result = if let Some(cache) = cache.as_ref() {
         cache
-            .get_or_insert(path.fontstack.clone(), path.start, path.end, || {
-                fonts.get_font_range(&path.fontstack, path.start, path.end)
-            })
+            .get_or_insert(
+                FontCacheKey::new(path.fontstack.clone(), path.start, path.end),
+                async || fonts.get_font_range(&path.fontstack, path.start, path.end),
+            )
             .await
     } else {
-        fonts.get_font_range(&path.fontstack, path.start, path.end)
+        fonts
+            .get_font_range(&path.fontstack, path.start, path.end)
+            .map_err(Arc::new)
     };
-    let data = result.map_err(map_font_error)?;
+    let data = result.map_err(|e| map_font_error(e.as_ref()))?;
     Ok(HttpResponse::Ok()
         .content_type("application/x-protobuf")
         .body(data))
 }
 
-pub fn map_font_error(e: FontError) -> actix_web::Error {
+/// Redirect `/fonts/{fontstack}/{start}-{end}` to `/font/{fontstack}/{start}-{end}` (HTTP 301)
+#[route("/fonts/{fontstack}/{start}-{end}", method = "GET", method = "HEAD")]
+pub async fn redirect_fonts(path: Path<FontRequest>) -> HttpResponse {
+    static WARNING: DebouncedWarning = DebouncedWarning::new();
+
+    WARNING
+        .once_per_hour(|| {
+            warn!(
+                "Request to /fonts/{}/{}-{} caused unnecessary redirect. Use /font/{}/{}-{} to avoid extra round-trip latency.",
+                path.fontstack, path.start, path.end, path.fontstack, path.start, path.end
+            );
+        })
+        .await;
+
+    HttpResponse::MovedPermanently()
+        .insert_header((
+            LOCATION,
+            format!("/font/{}/{}-{}", path.fontstack, path.start, path.end),
+        ))
+        .finish()
+}
+
+pub fn map_font_error(e: &FontError) -> actix_web::Error {
     match e {
         FontError::FontNotFound(_) => ErrorNotFound(e.to_string()),
-        FontError::InvalidFontRangeStartEnd(_, _)
+        FontError::InvalidFontRangeStartEnd { .. }
         | FontError::InvalidFontRangeStart(_)
         | FontError::InvalidFontRangeEnd(_)
         | FontError::InvalidFontRange(_, _) => ErrorBadRequest(e.to_string()),

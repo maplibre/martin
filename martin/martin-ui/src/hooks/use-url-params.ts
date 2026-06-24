@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 type URLParamsState = Record<string, string | undefined>;
 
@@ -16,21 +16,21 @@ export function useURLParams(initialParams: URLParamsState = {}) {
     return initialState;
   });
 
-  // Update URL when params change
+  // Update URL when params change. Preserves any URL params not managed by
+  // this hook (e.g. ?underlay= owned by useUnderlayPreference) by mutating
+  // the existing query string instead of rebuilding it from scratch.
   useEffect(() => {
     const url = new URL(window.location.href);
-    const searchParams = new URLSearchParams();
+    const searchParams = url.searchParams;
 
-    // Add non-null and non-empty params to URL
     for (const [key, value] of Object.entries(params)) {
       if (value !== null && value !== undefined && value !== '') {
         searchParams.set(key, value);
+      } else {
+        searchParams.delete(key);
       }
     }
 
-    url.search = searchParams.toString();
-
-    // Update URL without triggering a page reload
     window.history.replaceState({}, '', url.toString());
   }, [params]);
 
@@ -51,14 +51,14 @@ export function useURLParams(initialParams: URLParamsState = {}) {
     return () => window.removeEventListener('popstate', handlePopState);
   }, [initialParams]);
 
-  const updateParam = useCallback((key: string, value: string | undefined) => {
+  const updateParam = (key: string, value: string | undefined) => {
     setParams((prev) => ({
       ...prev,
       [key]: value,
     }));
-  }, []);
+  };
 
-  const updateParams = useCallback((updates: Partial<URLParamsState>) => {
+  const updateParams = (updates: Partial<URLParamsState>) => {
     setParams((prev) => {
       const newParams: URLParamsState = { ...prev };
       for (const [key, value] of Object.entries(updates)) {
@@ -68,7 +68,7 @@ export function useURLParams(initialParams: URLParamsState = {}) {
       }
       return newParams;
     });
-  }, []);
+  };
 
   return {
     params,

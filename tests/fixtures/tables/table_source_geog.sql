@@ -82,7 +82,7 @@ INSERT INTO table_source_geog (geog) VALUES (
     'SRID=4326;POINT(142.84131509869133 11.92781306544329)'::geography
 );
 
--- DO NOT CREATE INDEX ON GEOGRAPHY COLUMN -- this table is used in a test case
+-- DO NOT CREATE INDEX CONCURRENTLY ON GEOGRAPHY COLUMN -- this table is used in a test case
 
 DO $do$ BEGIN
     EXECUTE 'COMMENT ON TABLE table_source_geog IS $tj$' || $$

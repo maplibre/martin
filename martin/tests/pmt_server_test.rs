@@ -3,6 +3,7 @@
 use actix_web::http::header::{ACCEPT_ENCODING, CONTENT_ENCODING, CONTENT_TYPE};
 use actix_web::test::{TestRequest, call_service, read_body, read_body_json};
 use indoc::indoc;
+#[cfg(all(feature = "rendering", target_os = "linux"))]
 use insta::assert_yaml_snapshot;
 use martin::config::file::srv::SrvConfig;
 use martin_tile_utils::decode_gzip;
@@ -17,12 +18,13 @@ macro_rules! create_app {
         ::actix_web::test::init_service(
             ::actix_web::App::new()
                 .app_data(actix_web::web::Data::new(
-                    ::martin::srv::Catalog::new(&state).unwrap(),
+                    ::martin::srv::Catalog::new(
+                        #[cfg(any(feature = "sprites", feature = "fonts", feature = "styles"))]
+                        &state,
+                    )
+                    .unwrap(),
                 ))
-                .app_data(actix_web::web::Data::new(
-                    ::martin_core::tiles::NO_TILE_CACHE,
-                ))
-                .app_data(actix_web::web::Data::new(state.tiles))
+                .app_data(actix_web::web::Data::new(state.tile_manager))
                 .app_data(actix_web::web::Data::new(SrvConfig::default()))
                 .configure(|c| ::martin::srv::router(c, &SrvConfig::default())),
         )
@@ -43,9 +45,10 @@ const CONFIG: &str = indoc! {"
                 s3: s3://pmtilestest/cb_2018_us_zcta510_500k.pmtiles
     "};
 
+#[cfg(all(feature = "rendering", target_os = "linux"))]
 #[actix_rt::test]
 #[tracing_test::traced_test]
-async fn pmt_get_catalog() {
+async fn pmt_get_catalog_with_rendering_feature() {
     let path = "pmtiles: ../tests/fixtures/pmtiles/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles";
     let app = create_app! { path };
 
@@ -53,8 +56,10 @@ async fn pmt_get_catalog() {
     let response = call_service(&app, req).await;
     let response = assert_response(response).await;
     let body: serde_json::Value = read_body_json(response).await;
-    assert_yaml_snapshot!(body, @r"
+    assert_yaml_snapshot!(body, @"
     fonts: {}
+    settings:
+      rendering: false
     sprites: {}
     styles: {}
     tiles:
@@ -63,9 +68,10 @@ async fn pmt_get_catalog() {
     ");
 }
 
+#[cfg(all(feature = "rendering", target_os = "linux"))]
 #[actix_rt::test]
 #[tracing_test::traced_test]
-async fn pmt_get_catalog_gzip() {
+async fn pmt_get_catalog_gzip_with_rendering_feature() {
     let app = create_app! { CONFIG };
     let accept = (ACCEPT_ENCODING, "gzip");
     let req = test_get("/catalog").insert_header(accept).to_request();
@@ -73,8 +79,10 @@ async fn pmt_get_catalog_gzip() {
     let response = assert_response(response).await;
     let body = decode_gzip(&read_body(response).await).unwrap();
     let body: serde_json::Value = serde_json::from_slice(&body).unwrap();
-    assert_yaml_snapshot!(body, @r"
+    assert_yaml_snapshot!(body, @"
     fonts: {}
+    settings:
+      rendering: false
     sprites: {}
     styles: {}
     tiles:

@@ -1,0 +1,75 @@
+{
+  "features": [
+    {
+      "geometry": {
+        "coordinates": [
+          [
+            [
+              [
+                455,
+                4096
+              ],
+              [
+                1365,
+                4096
+              ],
+              [
+                1365,
+                2378
+              ],
+              [
+                0,
+                2378
+              ],
+              [
+                0,
+                3631
+              ],
+              [
+                455,
+                3631
+              ],
+              [
+                455,
+                4096
+              ]
+            ]
+          ],
+          [
+            [
+              [
+                3868,
+                3101
+              ],
+              [
+                3185,
+                3101
+              ],
+              [
+                3185,
+                3867
+              ],
+              [
+                3868,
+                3867
+              ],
+              [
+                3868,
+                3101
+              ]
+            ]
+          ]
+        ],
+        "type": "MultiPolygon"
+      },
+      "properties": {
+        "id": 1,
+        "kind": "multipolygon-with-hole",
+        "source_mvt_layer": "layer"
+      },
+      "type": "Feature"
+    }
+  ],
+  "name": "merged",
+  "type": "FeatureCollection"
+}

@@ -3,8 +3,14 @@
 #![warn(missing_docs)]
 #![warn(missing_debug_implementations)]
 
-/// Configuration utilities.
-pub mod config;
+/// Generic resource cache shared by sprite, font, and tile caches.
+pub mod cache;
+
+mod cache_zoom_range;
+pub use cache_zoom_range::CacheZoomRange;
+
+#[cfg(feature = "metrics")]
+pub mod metrics;
 
 /// Tile sources
 #[cfg(feature = "_tiles")]

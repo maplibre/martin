@@ -7,12 +7,12 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { TooltipCopyText } from '@/components/ui/tooltip-copy-text';
-import type { TileSource } from '@/lib/types';
+import type { Catalog } from '@/lib/types.gen';
 import { DisabledNonInteractiveButton } from '../ui/disabled-non-interactive-button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
 
 interface TilesCatalogProps {
-  tileSources?: { [tile_id: string]: TileSource };
+  tileSources?: Catalog['tiles'];
   searchQuery: string;
   onSearchChangeAction: (query: string) => void;
   isLoading?: boolean;
@@ -106,23 +106,23 @@ export function TilesCatalog({
                   <TooltipCopyText text={name} />
                 </CardTitle>
                 <div className="text-center md:text-start break-all text-balance">
-                  {(source.description || source.name) && (
+                  {source.description || source.name ? (
                     <CardDescription>
                       {source.name}
-                      {source.description && source.name && <br />}
+                      {source.description && source.name ? <br /> : null}
                       {source.description}
                     </CardDescription>
-                  )}
+                  ) : null}
                 </div>
               </CardHeader>
               <CardContent className="flex-1 flex flex-col">
                 <div className="space-y-2 text-sm text-muted-foreground">
-                  {source.layerCount && (
+                  {source.layer_count ? (
                     <div className="flex justify-between">
                       <span>Layers:</span>
-                      <span>{source.layerCount}</span>
+                      <span>{source.layer_count}</span>
                     </div>
-                  )}
+                  ) : null}
                 </div>
                 <div className="flex flex-col md:flex-row items-center gap-2 mt-auto pt-4">
                   <Button
@@ -173,13 +173,13 @@ export function TilesCatalog({
         </div>
       )}
 
-      {selectedTileForInspection && tileSources && (
+      {selectedTileForInspection && tileSources ? (
         <TileInspectDialog
           name={selectedTileForInspection}
           onCloseAction={() => onInspectTile(undefined)}
           source={tileSources[selectedTileForInspection]}
         />
-      )}
+      ) : null}
     </div>
   );
 }

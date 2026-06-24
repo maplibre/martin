@@ -35,8 +35,8 @@ pub enum MbtError {
     #[error("MBTile filepath contains unsupported characters: {0}")]
     UnsupportedCharsInFilepath(PathBuf),
 
-    #[error("Inconsistent tile formats detected: {0} vs {1}")]
-    InconsistentMetadata(TileInfo, TileInfo),
+    #[error("Inconsistent tile formats detected: {old} vs {new}")]
+    InconsistentMetadata { old: TileInfo, new: TileInfo },
 
     #[error("Invalid data format for MBTile file {0}")]
     InvalidDataFormat(String),
@@ -45,19 +45,41 @@ pub enum MbtError {
     FailedIntegrityCheck(String, Vec<String>),
 
     #[error(
-        "At least one tile has mismatching hash: stored value is `{1}` != computed value `{2}` in MBTile file {0}"
+        "At least one tile has mismatching hash: stored value is `{stored}` != computed value `{computed}` in MBTile file {filepath}"
     )]
-    IncorrectTileHash(String, String, String),
+    IncorrectTileHash {
+        filepath: String,
+        stored: String,
+        computed: String,
+    },
 
     #[error(
-        "At least one tile in the tiles table/view has an invalid value: zoom_level={1}, tile_column={2}, tile_row={3} in MBTile file {0}"
+        "Map table references tile id `{tile_id}` that does not exist in `{table}` in MBTile file {filepath}"
     )]
-    InvalidTileIndex(String, String, String, String),
+    MissingTileReference {
+        filepath: String,
+        tile_id: String,
+        table: &'static str,
+    },
 
     #[error(
-        "Computed aggregate tiles hash {0} does not match tile data in metadata {1} for MBTile file {2}"
+        "At least one tile in the tiles table/view has an invalid value: zoom_level={zoom_level}, tile_column={tile_column}, tile_row={tile_row} in MBTile file {filepath}"
     )]
-    AggHashMismatch(String, String, String),
+    InvalidTileIndex {
+        filepath: String,
+        zoom_level: String,
+        tile_column: String,
+        tile_row: String,
+    },
+
+    #[error(
+        "Computed aggregate tiles hash {computed} does not match tile data in metadata {stored} for MBTile file {filepath}"
+    )]
+    AggHashMismatch {
+        computed: String,
+        stored: String,
+        filepath: String,
+    },
 
     #[error(
         "Metadata value `agg_tiles_hash` is not set in MBTiles file {0}\n    Use `mbtiles validate --agg-hash update {0}` to fix this."
@@ -87,8 +109,14 @@ pub enum MbtError {
     #[error("Applying a patch while diffing is not supported")]
     CannotApplyPatchAndDiff,
 
-    #[error("The MBTiles file {0} has data of type {1}, but the desired type was set to {2}")]
-    MismatchedTargetType(PathBuf, MbtType, MbtType),
+    #[error(
+        "The MBTiles file {filepath} has data of type {actual}, but the desired type was set to {desired}"
+    )]
+    MismatchedTargetType {
+        filepath: PathBuf,
+        actual: MbtType,
+        desired: MbtType,
+    },
 
     #[error(
         "Unless  --on-duplicate (override|ignore|abort)  is set, writing tiles to an existing non-empty MBTiles file is disabled. Either set --on-duplicate flag, or delete {0}"
@@ -119,14 +147,24 @@ pub enum MbtError {
     PatchFileHasNoBeforeHash(String),
 
     #[error(
-        "The {AGG_TILES_HASH_BEFORE_APPLY}='{1}' in patch file {0} does not match {AGG_TILES_HASH}='{3}' in the file {2}"
+        "The {AGG_TILES_HASH_BEFORE_APPLY}='{before_apply_hash}' in patch file {patch_file} does not match {AGG_TILES_HASH}='{agg_hash}' in the file {file}"
     )]
-    AggHashMismatchWithDiff(String, String, String, String),
+    AggHashMismatchWithDiff {
+        patch_file: String,
+        before_apply_hash: String,
+        file: String,
+        agg_hash: String,
+    },
 
     #[error(
-        "The {AGG_TILES_HASH_AFTER_APPLY}='{1}' in patch file {0} does not match {AGG_TILES_HASH}='{3}' in the file {2} after the patch was applied"
+        "The {AGG_TILES_HASH_AFTER_APPLY}='{after_apply_hash}' in patch file {patch_file} does not match {AGG_TILES_HASH}='{agg_hash}' in the file {file} after the patch was applied"
     )]
-    AggHashMismatchAfterApply(String, String, String, String),
+    AggHashMismatchAfterApply {
+        patch_file: String,
+        after_apply_hash: String,
+        file: String,
+        agg_hash: String,
+    },
 
     #[error(
         "MBTile of type {0} is not supported when using bin-diff.  The bin-diff format only works with flat and flat-with-hash MBTiles files."
@@ -134,9 +172,13 @@ pub enum MbtError {
     BinDiffRequiresFlatWithHash(MbtType),
 
     #[error(
-        "Applying bindiff to tile {0} resulted in mismatching hash: expecting `{1}` != computed uncompressed value `{2}`"
+        "Applying bindiff to tile {tile} resulted in mismatching hash: expecting `{expected}` != computed uncompressed value `{computed}`"
     )]
-    BinDiffIncorrectTileHash(String, String, String),
+    BinDiffIncorrectTileHash {
+        tile: String,
+        expected: String,
+        computed: String,
+    },
 
     #[error("Unable to generate or apply bin-diff patch")]
     BindiffError,
@@ -146,6 +188,10 @@ pub enum MbtError {
 
     #[error(transparent)]
     IoError(#[from] std::io::Error),
+
+    #[cfg(feature = "transcode")]
+    #[error("Transcoding error: {0}")]
+    TranscodeError(String),
 }
 
 pub type MbtResult<T> = Result<T, MbtError>;

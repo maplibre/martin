@@ -9,8 +9,13 @@ listen_addresses: '0.0.0.0:3000'
 # Number of web server workers
 worker_processes: 8
 
-# Amount of memory (in MB) to use for caching tiles [default: 512, 0 to disable]
-cache_size_mb: 8
+# Cache configuration
+cache:
+  # Amount of memory (in MB) to use for caching [default: 512, 0 to disable]
+  size_mb: 8
+  # Default zoom-level bounds for tile caching
+  minzoom: 0
+  maxzoom: 20
 
 # Advanced monitoring options
 observability:
@@ -103,6 +108,11 @@ postgres:
 
       # Geometry type
       geometry_type: GEOMETRY
+
+      # Per-source cache zoom bounds (overrides top-level)
+      cache:
+        minzoom: 2
+        maxzoom: 14
 
       # List of columns, that should be encoded as tile properties (required)
       properties:
@@ -202,7 +212,11 @@ pmtiles:
   paths:
     - http://localhost:5412/webp2.pmtiles
   sources:
-    pmt: tests/fixtures/pmtiles/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles
+    pmt:
+      path: tests/fixtures/pmtiles/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles
+      cache:
+        minzoom: 0
+        maxzoom: 3
     pmt2: http://localhost:5412/webp2.pmtiles
 
 sprites:
@@ -225,6 +239,7 @@ fonts:
 
 styles:
   warning: 'due to not expected'
+  rendering: true
   sources:
     maplibre: tests/fixtures/styles/maplibre_demo.json
   paths:

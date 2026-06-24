@@ -23,6 +23,7 @@ use crate::tiles::geojson::convert::{
     multi_line_string_to_shape_paths, multi_polygon_from_shapes, multi_polygon_to_shape_paths,
     polygon_to_shape_paths,
 };
+use crate::CacheZoomRange;
 use crate::tiles::geojson::error::GeoJsonError;
 use crate::tiles::geojson::process::{preprocess_geojson, process_geojson, tile_length_from_zoom};
 use crate::tiles::{BoxedSource, MartinCoreError, MartinCoreResult, Source, UrlQuery};
@@ -49,11 +50,16 @@ pub struct GeoJsonSource {
     rtree: RTree<f64>,
     tilejson: TileJSON,
     tile_info: TileInfo,
+    cache_zoom: CacheZoomRange,
 }
 
 impl GeoJsonSource {
     /// Create a new `GeoJSON` source
-    pub async fn new(id: String, path: PathBuf) -> Result<Self, GeoJsonError> {
+    pub async fn new(
+        id: String,
+        path: PathBuf,
+        cache_zoom: CacheZoomRange,
+    ) -> Result<Self, GeoJsonError> {
         let geojson_str = fs::read_to_string(&path)
             .await
             .map_err(|err| GeoJsonError::IoError(err, path))?;
@@ -73,6 +79,7 @@ impl GeoJsonSource {
             rtree,
             tilejson,
             tile_info: TileInfo::new(Format::Mvt, Encoding::Uncompressed),
+            cache_zoom,
         })
     }
 }
@@ -109,6 +116,10 @@ impl Source for GeoJsonSource {
 
     fn benefits_from_concurrent_scraping(&self) -> bool {
         true
+    }
+
+    fn cache_zoom(&self) -> CacheZoomRange {
+        self.cache_zoom
     }
 
     async fn get_tile(
@@ -535,9 +546,10 @@ mod tests {
     async fn test_get_tile() {
         let filename = "feature_collection_1.geojson";
         let path = fixtures_dir().join(filename);
-        let geojson_source = GeoJsonSource::new("test-source-1".to_string(), path)
-            .await
-            .unwrap();
+        let geojson_source =
+            GeoJsonSource::new("test-source-1".to_string(), path, CacheZoomRange::default())
+                .await
+                .unwrap();
 
         let tile_coord = TileCoord { z: 1, x: 1, y: 0 };
         let tile = geojson_source.get_tile(tile_coord, None).await.unwrap();

@@ -1,4 +1,4 @@
-listen_addresses: localhost:3119
+listen_addresses: localhost:3111
 pmtiles: tests/fixtures/geojson
 mbtiles: tests/fixtures/geojson
 geojson:

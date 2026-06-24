@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::env;
 use std::path::PathBuf;
 use std::str::FromStr as _;
+use std::time::Duration;
 
 use martin_core::tiles::BoxedSource;
 use martin_core::tiles::pmtiles::{PmtCache, PmtCacheInstance, PmtilesSource};
@@ -11,35 +12,120 @@ use url::Url;
 
 use crate::MartinResult;
 use crate::config::file::{
-    ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks, TileSourceConfiguration,
-    UnrecognizedKeys, UnrecognizedValues,
+    CachePolicy, CacheSizeConfig, ConfigFileError, ConfigFileResult, ConfigurationLivecycleHooks,
+    TileSourceConfiguration, UnrecognizedKeys, UnrecognizedValues,
 };
+#[cfg(all(feature = "mlt", feature = "_tiles"))]
+use crate::config::file::{MltProcessConfig, MvtProcessConfig};
+#[cfg(all(feature = "mlt", feature = "_tiles"))]
+use crate::config::primitives::AutoOption;
+
+/// Default polling interval for [`PmtilesReloader`](crate::config::file::reload::pmtiles::PmtilesReloader)
+/// to re-list remote URL prefixes (s3://, gs://, https://, etc.). Local directories are
+/// notify-driven and ignore this setting.
+pub const DEFAULT_RELOAD_INTERVAL: Duration = Duration::from_mins(10);
+
+fn default_reload_interval() -> Duration {
+    DEFAULT_RELOAD_INTERVAL
+}
+
+fn is_default_reload_interval(v: &Duration) -> bool {
+    *v == DEFAULT_RELOAD_INTERVAL
+}
 
 #[serde_with::skip_serializing_none]
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct PmtConfig {
-    /// Size of the directory cache in megabytes (0 to disable)
+    /// Size of the directory cache (in MB).
+    /// Defaults to `cache.size_mb` / 4
     ///
-    /// Overrides [`cache_size_mb`](crate::config::file::Config::cache_size_mb).
-    pub directory_cache_size_mb: Option<u64>,
+    /// Note:
+    /// Tile and directory caching are complementary.
+    /// For good performance, you want
+    /// - directory caching (to not resolve the directory on each request) and
+    /// - tile caching (for high access tiles)
+    ///
+    /// Use `directory_cache: disable` to disable
+    #[serde(default, skip_serializing_if = "CacheSizeConfig::is_empty")]
+    #[cfg_attr(
+        feature = "unstable-schemas",
+        schemars(with = "crate::config::file::CacheSizeConfigShape")
+    )]
+    pub directory_cache: CacheSizeConfig,
+
+    /// How often remote URL prefixes (`s3://bucket/`, `gs://bucket/`, etc.) re-`LIST` for source discovery.
+    /// Has no effect on local directories, which are watched via filesystem events.
+    ///
+    /// Supports human-readable formats: "10m", "1h", "30s".
+    /// Defaults to "10m". Set to "0s" to disable remote polling.
+    #[serde(
+        default = "default_reload_interval",
+        skip_serializing_if = "is_default_reload_interval",
+        with = "humantime_serde"
+    )]
+    #[cfg_attr(
+        feature = "unstable-schemas",
+        schemars(with = "String", example = &"10m")
+    )]
+    pub reload_interval: Duration,
 
     // if the key is the allowed set, we assume it is there for a purpose
     // settings and unreconginsed values are partitioned from each other in the init_parsing step
     #[serde(skip)]
+    #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub options: HashMap<String, String>,
 
+    /// MVT->MLT encoder settings for all `PMTiles` sources.
+    /// Overrides global; overridden by per-source `convert_to_mlt`.
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[serde(default)]
+    pub convert_to_mlt: Option<MltProcessConfig>,
+
+    /// MLT->MVT conversion settings for all `PMTiles` sources.
+    /// Overrides global; overridden by per-source `convert_to_mvt`.
+    #[cfg(all(feature = "mlt", feature = "_tiles"))]
+    #[serde(default)]
+    pub convert_to_mvt: Option<MvtProcessConfig>,
+
     #[serde(flatten, skip_serializing)]
+    #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub unrecognized: UnrecognizedValues,
 
     /// `PMTiles` directory cache (internal state, not serialized)
     #[serde(skip)]
+    #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub pmtiles_directory_cache: PmtCache,
+}
+
+impl Default for PmtConfig {
+    fn default() -> Self {
+        Self {
+            directory_cache: CacheSizeConfig::default(),
+            reload_interval: DEFAULT_RELOAD_INTERVAL,
+            options: HashMap::default(),
+            #[cfg(all(feature = "mlt", feature = "_tiles"))]
+            convert_to_mlt: None,
+            #[cfg(all(feature = "mlt", feature = "_tiles"))]
+            convert_to_mvt: None,
+            unrecognized: UnrecognizedValues::default(),
+            pmtiles_directory_cache: PmtCache::default(),
+        }
+    }
 }
 
 impl PartialEq for PmtConfig {
     fn eq(&self, other: &Self) -> bool {
-        self.options == other.options && self.unrecognized == other.unrecognized
+        let base = self.directory_cache == other.directory_cache
+            && self.reload_interval == other.reload_interval
+            && self.options == other.options
+            && self.unrecognized == other.unrecognized;
+        #[cfg(all(feature = "mlt", feature = "_tiles"))]
+        let base = base
+            && self.convert_to_mlt == other.convert_to_mlt
+            && self.convert_to_mvt == other.convert_to_mvt;
         // pmtiles_directory_cache is intentionally excluded from equality check
+        base
     }
 }
 
@@ -57,7 +143,24 @@ impl ConfigurationLivecycleHooks for PmtConfig {
     }
 
     fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
-        self.unrecognized.keys().cloned().collect()
+        #[cfg_attr(not(all(feature = "mlt", feature = "_tiles")), allow(unused_mut))]
+        let mut keys: UnrecognizedKeys = self.unrecognized.keys().cloned().collect();
+        #[cfg(all(feature = "mlt", feature = "_tiles"))]
+        {
+            if let Some(AutoOption::Explicit(cfg)) = self.convert_to_mlt.as_ref() {
+                keys.extend(
+                    cfg.unrecognized_keys()
+                        .map(|k| format!("convert_to_mlt.{k}")),
+                );
+            }
+            if let Some(AutoOption::Explicit(cfg)) = self.convert_to_mvt.as_ref() {
+                keys.extend(
+                    cfg.unrecognized_keys()
+                        .map(|k| format!("convert_to_mvt.{k}")),
+                );
+            }
+        }
+        keys
     }
 }
 
@@ -76,9 +179,9 @@ impl PmtConfig {
                     .expect("key should exist in the hashmap");
                 // a hashmap cannot contain duplicate keys => ignore the replaced value
                 let _ = match value {
-                    serde_yaml::Value::Bool(b) => self.options.insert(key.clone(), b.to_string()),
-                    serde_yaml::Value::Number(n) => self.options.insert(key.clone(), n.to_string()),
-                    serde_yaml::Value::String(s) => self.options.insert(key.clone(), s.clone()),
+                    serde_json::Value::Bool(b) => self.options.insert(key.clone(), b.to_string()),
+                    serde_json::Value::Number(n) => self.options.insert(key.clone(), n.to_string()),
+                    serde_json::Value::String(s) => self.options.insert(key.clone(), s.clone()),
                     v => {
                         // warn early with better context
                         warn!(
@@ -95,7 +198,9 @@ impl PmtConfig {
     fn migrate_deprecated_keys(&mut self) {
         if self.unrecognized.contains_key("dir_cache_size_mb") {
             warn!(
-                "dir_cache_size_mb is no longer used. Instead, use cache_size_mb param in the root of the config file."
+                "deprecated config: `pmtiles.dir_cache_size_mb` is no longer used. \
+                 Use `cache.size_mb` in the root of the config file, \
+                 or `pmtiles.directory_cache.size_mb` to override the PMTiles directory cache size"
             );
         }
 
@@ -209,7 +314,12 @@ impl TileSourceConfiguration for PmtConfig {
         true
     }
 
-    async fn new_sources(&self, id: String, path: PathBuf) -> MartinResult<BoxedSource> {
+    async fn new_sources(
+        &self,
+        id: String,
+        path: PathBuf,
+        cache: CachePolicy,
+    ) -> MartinResult<BoxedSource> {
         // canonicalize to resolve symlinks
         let path = path
             .canonicalize()
@@ -225,20 +335,19 @@ impl TileSourceConfiguration for PmtConfig {
             "Pmtiles source {id} ({}) will be loaded as {url}",
             path.display()
         );
-        self.new_sources_url(id, url).await
+        self.new_sources_url(id, url, cache).await
     }
 
-    async fn new_sources_url(&self, id: String, url: Url) -> MartinResult<BoxedSource> {
-        use std::sync::LazyLock;
-        use std::sync::atomic::{AtomicUsize, Ordering};
-
-        static NEXT_CACHE_ID: LazyLock<AtomicUsize> = LazyLock::new(|| AtomicUsize::new(0));
-        let cache_id = NEXT_CACHE_ID.fetch_add(1, Ordering::SeqCst);
-
+    async fn new_sources_url(
+        &self,
+        id: String,
+        url: Url,
+        cache: CachePolicy,
+    ) -> MartinResult<BoxedSource> {
         let (store, path) = object_store::parse_url_opts(&url, &self.options)
             .map_err(|e| ConfigFileError::ObjectStoreUrlParsing(e, id.clone()))?;
-        let cache = PmtCacheInstance::new(cache_id, self.pmtiles_directory_cache.clone());
-        let source = PmtilesSource::new(cache, id, store, path).await?;
+        let dir_cache = PmtCacheInstance::new_auto_id(self.pmtiles_directory_cache.clone());
+        let source = PmtilesSource::new(dir_cache, id, store, path, cache.zoom()).await?;
         Ok(Box::new(source))
     }
 }

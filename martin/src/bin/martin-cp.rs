@@ -1,10 +1,14 @@
+#![expect(
+    clippy::print_stderr,
+    reason = "binary entrypoint reports startup errors to stderr"
+)]
+
 use std::borrow::Cow;
 use std::env;
-use std::fmt::{Debug, Display, Formatter};
+use std::fmt::{Debug, Formatter};
 use std::num::NonZeroUsize;
 use std::ops::RangeInclusive;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 
 use actix_http::error::ParseError;
@@ -15,12 +19,19 @@ use clap::builder::Styles;
 use clap::builder::styling::AnsiColor;
 use futures::TryStreamExt as _;
 use futures::stream::{self, StreamExt as _};
+#[cfg(feature = "postgres")]
+use martin::config::args::PostgresArgs;
 use martin::config::args::{Args, ExtraArgs, MetaArgs, SrvArgs};
 use martin::config::file::{Config, ServerState, read_config};
-use martin::logging::{ensure_martin_core_log_level_matches, init_tracing};
-use martin::srv::{DynTileSource, merge_tilejson};
+#[cfg(feature = "_tiles")]
+use martin::config::primitives::IdResolver;
+use martin::config::primitives::env::OsEnv;
+use martin::logging::progress::TileCopyProgress;
+use martin::logging::{LogFormat, ensure_martin_core_log_level_matches, init_tracing};
+#[cfg(feature = "_tiles")]
+use martin::srv::RESERVED_KEYWORDS;
+use martin::srv::{DynTileSource, TileRequestHeaders, merge_tilejson};
 use martin::{MartinError, MartinResult};
-use martin_core::config::env::OsEnv;
 use martin_core::tiles::BoxedSource;
 use martin_core::tiles::mbtiles::MbtilesError;
 use martin_tile_utils::{TileCoord, TileData, TileInfo, TileRect, append_rect, bbox_to_xyz};
@@ -37,7 +48,7 @@ use tokio::try_join;
 use tracing::{debug, error, info, warn};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
-const SAVE_EVERY: Duration = Duration::from_secs(60);
+const SAVE_EVERY: Duration = Duration::from_mins(1);
 const PROGRESS_REPORT_AFTER: u64 = 100;
 const PROGRESS_REPORT_EVERY: Duration = Duration::from_secs(2);
 const BATCH_SIZE: usize = 1000;
@@ -52,7 +63,7 @@ const HELP_STYLES: Styles = Styles::styled()
 #[command(
     about = "A tool to bulk copy tiles from any Martin-supported sources into an mbtiles file",
     version,
-    after_help = "Use RUST_LOG environment variable to control logging level, e.g. RUST_LOG=debug or RUST_LOG=martin_cp=debug.\nUse RUST_LOG_FORMAT environment variable to control output format: json, full, compact (default), bare or pretty.\nSee https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.EnvFilter.html for more information.",
+    after_help = "Use RUST_LOG environment variable to control logging level, e.g. RUST_LOG=debug or RUST_LOG=martin_cp=debug.\nUse RUST_LOG_FORMAT environment variable to control output format: json, full, compact (default), bare or pretty. With RUST_LOG_FORMAT=json, configuration error diagnostics are also emitted as structured JSON for editor tooling and log aggregation.\nSee https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.EnvFilter.html for more information.",
     styles = HELP_STYLES
 )]
 pub struct CopierArgs {
@@ -62,7 +73,7 @@ pub struct CopierArgs {
     pub meta: MetaArgs,
     #[cfg(feature = "postgres")]
     #[command(flatten)]
-    pub pg: Option<martin::config::args::PostgresArgs>,
+    pub pg: Option<PostgresArgs>,
 }
 
 #[serde_with::serde_as]
@@ -127,7 +138,7 @@ pub struct CopyArgs {
 
 impl Default for CopyArgs {
     fn default() -> Self {
-        CopyArgs {
+        Self {
             bbox: Vec::new(),
             source: None,
             output_file: PathBuf::new(),
@@ -181,10 +192,22 @@ async fn start(copy_args: CopierArgs) -> MartinCpResult<()> {
         pg: copy_args.pg,
     };
 
-    args.merge_into_config(&mut config, &env)?;
+    args.merge_into_config(
+        &mut config,
+        #[cfg(feature = "postgres")]
+        &env,
+    )?;
     config.finalize()?;
 
-    let sources = config.resolve().await?;
+    #[cfg(feature = "_tiles")]
+    let resolver = IdResolver::new(RESERVED_KEYWORDS);
+
+    let sources = config
+        .resolve(
+            #[cfg(feature = "_tiles")]
+            &resolver,
+        )
+        .await?;
 
     if let Some(file_name) = save_config {
         config
@@ -256,26 +279,6 @@ impl Debug for TileXyz {
     }
 }
 
-struct Progress {
-    // needed to compute elapsed time
-    start_time: Instant,
-    total: u64,
-    empty: AtomicU64,
-    non_empty: AtomicU64,
-}
-
-impl Progress {
-    pub fn new(tiles: &[TileRect]) -> Self {
-        let total = tiles.iter().map(TileRect::size).sum();
-        Progress {
-            start_time: Instant::now(),
-            total,
-            empty: AtomicU64::default(),
-            non_empty: AtomicU64::default(),
-        }
-    }
-}
-
 type MartinCpResult<T> = Result<T, MartinCpError>;
 
 #[derive(thiserror::Error, Debug)]
@@ -300,81 +303,6 @@ enum MartinCpError {
     InvalidBoundingBox(&'static str, Bounds, RangeInclusive<f64>),
 }
 
-fn write_duration(f: &mut impl std::fmt::Write, secs: f32) -> std::fmt::Result {
-    if !secs.is_normal() || secs < 0. {
-        // Nonsense input
-        f.write_str("???")
-    } else if secs < 1. {
-        write!(f, "<1s")
-    } else {
-        // we've already handled cases of inf, or negative
-        #[allow(clippy::cast_possible_truncation)]
-        #[allow(clippy::cast_sign_loss)]
-        let secs = secs.ceil() as u64;
-
-        let (mins, secs) = (secs / 60, secs % 60);
-        let (hrs, mins) = (mins / 60, mins % 60);
-        let (days, hrs) = (hrs / 24, hrs % 24);
-
-        // yes, the order is different. Calc years & days, then calc weeks
-        let (years, days) = (days / 365, days % 365);
-        let (weeks, days) = (days / 7, days % 7);
-
-        if years > 0 {
-            write!(
-                f,
-                "{years}y{weeks:02}w{days:02}d{hrs:02}h{mins:02}m{secs:02}s"
-            )
-        } else if weeks > 0 {
-            write!(f, "{weeks}w{days:02}d{hrs:02}h{mins:02}m{secs:02}s")
-        } else if days > 0 {
-            write!(f, "{days}d{hrs:02}h{mins:02}m{secs:02}s")
-        } else if hrs > 0 {
-            write!(f, "{hrs}h{mins:02}m{secs:02}s")
-        } else if mins > 0 {
-            write!(f, "{mins}m{secs:02}s")
-        } else {
-            write!(f, "{secs}s")
-        }
-    }
-}
-
-impl Display for Progress {
-    #[expect(clippy::cast_precision_loss)]
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let elapsed = self.start_time.elapsed();
-        let elapsed_s = elapsed.as_secs_f32();
-        let non_empty = self.non_empty.load(Ordering::Relaxed);
-        let empty = self.empty.load(Ordering::Relaxed);
-        let done = non_empty + empty;
-        let percent = done * 100 / self.total;
-        let speed = if elapsed_s > 0.0 {
-            done as f32 / elapsed_s
-        } else {
-            0.0
-        };
-        write!(f, "[")?;
-        write_duration(f, elapsed_s)?;
-
-        write!(
-            f,
-            "] {percent:.2}% @ {speed:.1}/s | ✓ {non_empty} □ {empty}"
-        )?;
-
-        let left = self.total - done;
-        f.write_str(" | ")?;
-        if left == 0 {
-            f.write_str("done")
-        } else if done == 0 {
-            f.write_str("??? left")
-        } else {
-            let secs = elapsed_s * left as f32 / done as f32;
-            write_duration(f, secs)?;
-            f.write_str(" left")
-        }
-    }
-}
-
 /// Given a list of tile ranges, iterate over all tiles in the ranges
 fn iterate_tiles(tiles: Vec<TileRect>) -> impl Iterator<Item = TileCoord> {
     tiles.into_iter().flat_map(|t| {
@@ -388,7 +316,7 @@ fn check_sources(args: &CopyArgs, state: &ServerState) -> Result<String, MartinC
     if let Some(source_id) = &args.source {
         Ok(source_id.clone())
     } else {
-        let source_ids = state.tiles.source_names();
+        let source_ids = state.tile_manager.tile_sources().source_names();
         if let Some(source_id) = source_ids.first() {
             if source_ids.len() > 1 {
                 return Err(MartinCpError::MultipleSources(source_ids.join(", ")));
@@ -407,7 +335,7 @@ fn default_bounds(src: &DynTileSource) -> Vec<Bounds> {
         let mut source_bounds = src
             .sources
             .iter()
-            .map(|source| source.get_tilejson().bounds.unwrap_or(Bounds::MAX_TILED))
+            .map(|(source, _)| source.get_tilejson().bounds.unwrap_or(Bounds::MAX_TILED))
             .collect::<Vec<Bounds>>();
 
         source_bounds.dedup_by_key(|bounds| bounds.to_string());
@@ -439,7 +367,12 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()>
     // we only warn that the concurrency might be too low if:
     // - a user has concurrency at the default
     // - there is at least one pg or remote pmtiles source
-    if concurrency == 1 && state.tiles.benefits_from_concurrent_scraping() {
+    if concurrency == 1
+        && state
+            .tile_manager
+            .tile_sources()
+            .benefits_from_concurrent_scraping()
+    {
         warn!(
             "Using `--concurrency 1`. Increasing it may improve performance for your tile sources. See https://docs.martin.rs/cli/usage.html#concurrency for further details."
         );
@@ -448,14 +381,14 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()>
     let source_id = check_sources(&args, &state)?;
 
     let src = DynTileSource::new(
-        &state.tiles,
+        &state.tile_manager,
         &source_id,
         None,
         args.url_query.as_deref().unwrap_or_default(),
-        Some(parse_encoding(args.encoding.as_str())?),
-        None,
-        None,
-        None,
+        TileRequestHeaders {
+            accept_enc: Some(parse_encoding(args.encoding.as_str())?),
+            ..Default::default()
+        },
     )?;
 
     let inferred_bboxes = if args.bbox.is_empty() {
@@ -479,18 +412,17 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()>
     } else {
         CopyDuplicateMode::Override
     };
-    let mbt_type = init_schema(&mbt, &mut conn, src.sources.as_slice(), src.info, &args).await?;
-
-    let progress = Progress::new(&tiles);
+    let just_sources: Vec<_> = src.sources.iter().map(|(s, _)| s.clone()).collect();
+    let mbt_type = init_schema(&mbt, &mut conn, &just_sources, src.info, &args).await?;
+    let total_size = tiles.iter().map(TileRect::size).sum();
+    let progress = TileCopyProgress::new(total_size);
     info!(
-        "Copying {} {} tiles from {} to {}",
-        progress.total,
-        src.info,
-        source_id,
-        args.output_file.display()
+        "Copying {total_size} {info} tiles from the source {source_id} to {out}",
+        info = src.info,
+        out = args.output_file.display()
     );
 
-    let (tx, mut rx) = channel::<TileXyz>(500);
+    let (tx, mut rx) = hotpath::channel!(channel::<TileXyz>(500), label = "tile_copy");
     try_join!(
         // Note: for some reason, tests hang here without the `move` keyword
         async move {
@@ -499,7 +431,10 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()>
                 .try_for_each_concurrent(concurrency, |xyz| {
                     let tx = tx.clone();
                     async move {
-                        let tile = src.get_tile_content(xyz).await?;
+                        let tile = src
+                            .get_tile_content(xyz)
+                            .await
+                            .map_err(|e| std::io::Error::other(e.to_string()))?;
                         let data = tile.data;
                         tx.send(TileXyz { xyz, data })
                             .await
@@ -515,10 +450,13 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()>
             let mut batch = Vec::with_capacity(BATCH_SIZE);
             while let Some(tile) = rx.recv().await {
                 debug!("Generated tile {tile:?}");
-                let done = if tile.data.is_empty() {
-                    progress.empty.fetch_add(1, Ordering::Relaxed)
+                if tile.data.is_empty() {
+                    progress.increment_empty();
                 } else {
                     batch.push((tile.xyz.z, tile.xyz.x, tile.xyz.y, tile.data));
+                    hotpath::gauge!("cp_batch_size").set(f64::from(
+                        u32::try_from(batch.len()).expect("batch size should be <= 1000"),
+                    ));
                     if batch.len() >= BATCH_SIZE || last_saved.elapsed() > SAVE_EVERY {
                         mbt.insert_tiles(&mut conn, mbt_type, on_duplicate, &batch)
                             .await
@@ -526,12 +464,14 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()>
                         batch.clear();
                         last_saved = Instant::now();
                     }
-                    progress.non_empty.fetch_add(1, Ordering::Relaxed)
-                };
+                    progress.increment_non_empty();
+                }
+
+                let done = progress.position();
                 if done % PROGRESS_REPORT_AFTER == (PROGRESS_REPORT_AFTER - 1)
                     && last_reported.elapsed() > PROGRESS_REPORT_EVERY
                 {
-                    info!("{progress}");
+                    progress.update_message();
                     last_reported = Instant::now();
                 }
             }
@@ -544,7 +484,7 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()>
         }
     )?;
 
-    info!("{progress}");
+    progress.finish();
 
     mbt.update_metadata(&mut conn, GrowOnly).await?;
 
@@ -554,11 +494,11 @@ async fn run_tile_copy(args: CopyArgs, state: ServerState) -> MartinCpResult<()>
     }
 
     if !args.skip_agg_tiles_hash {
-        if progress.non_empty.load(Ordering::Relaxed) == 0 {
-            info!("No tiles were copied, skipping agg_tiles_hash computation");
-        } else {
+        if progress.did_copy_tiles() {
             info!("Computing agg_tiles_hash value...");
             mbt.update_agg_tiles_hash(&mut conn).await?;
+        } else {
+            info!("No tiles were copied, skipping agg_tiles_hash computation");
         }
     }
 
@@ -587,9 +527,12 @@ async fn init_schema(
             let mbt_type = match args.mbt_type.unwrap_or(MbtTypeCli::Normalized) {
                 MbtTypeCli::Flat => MbtType::Flat,
                 MbtTypeCli::FlatWithHash => MbtType::FlatWithHash,
-                MbtTypeCli::Normalized => MbtType::Normalized { hash_view: true },
+                MbtTypeCli::Normalized => MbtType::Normalized {
+                    hash_view: true,
+                    schema: mbtiles::NormalizedSchema::Hash,
+                },
             };
-            init_mbtiles_schema(&mut *conn, mbt_type)
+            init_mbtiles_schema(&mut *conn, mbt_type, false)
                 .await
                 .map_err(MbtilesError::from)?;
             let mut tj = merge_tilejson(sources, String::new());
@@ -623,15 +566,19 @@ async fn init_schema(
 #[tokio::main]
 async fn main() {
     let filter = ensure_martin_core_log_level_matches(env::var("RUST_LOG").ok(), "martin_cp=");
-    init_tracing(&filter, env::var("RUST_LOG_FORMAT").ok());
+    let log_format = LogFormat::from_env();
+    init_tracing(&filter, log_format, true);
 
     let args = CopierArgs::parse();
     if let Err(e) = start(args).await {
-        // Ensure the message is printed, even if the logging is disabled
+        let rendered: String = match e {
+            MartinCpError::Martin(martin_err) => martin_err.render_diagnostic_with(log_format),
+            other => format!("{other}"),
+        };
         if tracing::event_enabled!(tracing::Level::ERROR) {
-            error!("{e}");
+            error!("{rendered}");
         } else {
-            eprintln!("{e}");
+            eprintln!("{rendered}");
         }
         std::process::exit(1);
     }
@@ -643,7 +590,9 @@ mod tests {
 
     use async_trait::async_trait;
     use insta::assert_yaml_snapshot;
-    use martin::TileSources;
+    use martin::TileSourceManager;
+    use martin::config::file::{OnInvalid, ProcessConfig};
+    use martin_core::CacheZoomRange;
     use martin_core::tiles::{MartinCoreResult, Source, UrlQuery};
     use martin_tile_utils::{Encoding, Format};
     use rstest::{fixture, rstest};
@@ -676,6 +625,10 @@ mod tests {
             Box::new(self.clone())
         }
 
+        fn cache_zoom(&self) -> CacheZoomRange {
+            CacheZoomRange::default()
+        }
+
         async fn get_tile(
             &self,
             _xyz: TileCoord,
@@ -685,9 +638,21 @@ mod tests {
         }
     }
 
+    fn test_manager(sources: Vec<Vec<BoxedSource>>) -> TileSourceManager {
+        let sources = sources
+            .into_iter()
+            .map(|s| {
+                s.into_iter()
+                    .map(|s| (s, ProcessConfig::default()))
+                    .collect()
+            })
+            .collect();
+        TileSourceManager::from_sources(None, OnInvalid::Abort, sources)
+    }
+
     #[fixture]
-    fn many_sources() -> TileSources {
-        TileSources::new(vec![vec![
+    fn many_sources() -> TileSourceManager {
+        test_manager(vec![vec![
             Box::new(MockSource {
                 id: "test_source",
                 tj: tilejson! { tiles: vec![], bounds: Bounds::from_str("-110.0,20.0,-120.0,80.0").unwrap() },
@@ -712,8 +677,8 @@ mod tests {
     }
 
     #[fixture]
-    fn one_source() -> TileSources {
-        TileSources::new(vec![vec![Box::new(MockSource {
+    fn one_source() -> TileSourceManager {
+        test_manager(vec![vec![Box::new(MockSource {
             id: "test_source",
             tj: tilejson! { tiles: vec![], bounds: Bounds::from_str("-120.0,30.0,-110.0,40.0").unwrap() },
             data: Vec::default(),
@@ -721,8 +686,8 @@ mod tests {
     }
 
     #[fixture]
-    fn source_wo_bounds() -> TileSources {
-        TileSources::new(vec![vec![Box::new(MockSource {
+    fn source_wo_bounds() -> TileSourceManager {
+        test_manager(vec![vec![Box::new(MockSource {
             id: "test_source",
             tj: tilejson! { tiles: vec![] },
             data: Vec::default(),
@@ -738,11 +703,11 @@ mod tests {
     #[case::many_sources_bounded_and_unbounded_rev(many_sources(), "unbounded_source,test_source", vec![Bounds::MAX_TILED, Bounds::from_str("-110.0,20.0,-120.0,80.0").unwrap()])]
     #[case::source_wo_bounds(source_wo_bounds(), "test_source", vec![Bounds::MAX_TILED])]
     fn test_default_bounds(
-        #[case] src: TileSources,
+        #[case] src: TileSourceManager,
         #[case] ids: &str,
         #[case] expected: Vec<Bounds>,
     ) {
-        let dts = DynTileSource::new(&src, ids, None, "", None, None, None, None).unwrap();
+        let dts = DynTileSource::new(&src, ids, None, "", TileRequestHeaders::default()).unwrap();
 
         assert_eq!(default_bounds(&dts), expected);
     }

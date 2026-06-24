@@ -1,0 +1,33 @@
+{
+  "features": [
+    {
+      "geometry": {
+        "coordinates": [
+          2048,
+          2048
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "prop_array": [
+          1,
+          2,
+          3
+        ],
+        "prop_bool_false": false,
+        "prop_bool_true": true,
+        "prop_float": 3.5,
+        "prop_int_negative": -42,
+        "prop_object": {
+          "nested": "value"
+        },
+        "prop_string": "hello",
+        "prop_uint_large": -1,
+        "source_mvt_layer": "layer"
+      },
+      "type": "Feature"
+    }
+  ],
+  "name": "merged",
+  "type": "FeatureCollection"
+}

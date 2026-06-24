@@ -1,18 +1,20 @@
+use std::time::Duration;
+
 use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
 
-use crate::config::file::srv::{KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT, SrvConfig};
+use crate::config::file::srv::{DEFAULT_KEEP_ALIVE, DEFAULT_LISTEN_ADDRESSES, SrvConfig};
 
-#[expect(
+#[allow(
     clippy::doc_markdown,
     reason = "for command line arguments, formatting `TileJSON` is awkward"
 )]
 #[derive(clap::Args, Debug, PartialEq, Default)]
 #[command(about, version)]
 pub struct SrvArgs {
-    #[arg(help = format!("Connection keep alive timeout. [DEFAULT: {KEEP_ALIVE_DEFAULT}]"), short, long)]
+    #[arg(help = format!("Connection keep alive timeout. [DEFAULT: {DEFAULT_KEEP_ALIVE}]"), short, long)]
     pub keep_alive: Option<u64>,
-    #[arg(help = format!("The socket address to bind. [DEFAULT: {LISTEN_ADDRESSES_DEFAULT}]"), short, long)]
+    #[arg(help = format!("The socket address to bind. [DEFAULT: {DEFAULT_LISTEN_ADDRESSES}]"), short, long)]
     pub listen_addresses: Option<String>,
     /// Set URL path prefix for all API routes.
     ///
@@ -56,10 +58,22 @@ pub struct SrvArgs {
     /// Main cache size (in MB)
     #[arg(short = 'C', long)]
     pub cache_size: Option<u64>,
+    /// Maximum lifetime for cache entries (e.g. "1h", "30m", "1d")
+    #[arg(long, value_parser = parse_duration)]
+    pub cache_expiry: Option<Duration>,
+    /// Maximum idle time before cache entries are evicted (e.g. "15m", "1h")
+    #[arg(long, value_parser = parse_duration)]
+    pub cache_idle_timeout: Option<Duration>,
+}
+
+fn parse_duration(s: &str) -> Result<Duration, String> {
+    use humantime_serde::re::humantime;
+    humantime::parse_duration(s).map_err(|e| e.to_string())
 }
 
 #[cfg(all(feature = "webui", not(docsrs)))]
 #[derive(PartialEq, Eq, Debug, Clone, Copy, Default, Serialize, Deserialize, ValueEnum)]
+#[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 #[serde(rename_all = "lowercase")]
 pub enum WebUiMode {
     /// Disable Web UI interface. ***This is the default, but once implemented, the default will be enabled for localhost.***
@@ -77,6 +91,7 @@ pub enum WebUiMode {
 }
 
 #[derive(PartialEq, Eq, Debug, Clone, Copy, Serialize, Deserialize, ValueEnum)]
+#[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 #[serde(rename_all = "lowercase")]
 pub enum PreferredEncoding {
     #[serde(alias = "br")]

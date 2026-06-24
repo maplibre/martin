@@ -1,10 +1,13 @@
-cache_size_mb: 8
+cache:
+  size_mb: 8
+  minzoom: 0
+  maxzoom: 20
 keep_alive: 75
 listen_addresses: localhost:3111
 worker_processes: 1
 cors:
   origin:
-  - '*'
+  - "*"
   max_age: null
 observability:
   metrics: {}
@@ -32,10 +35,10 @@ postgres:
       geometry_column: Geom
       id_column: giD
       bounds:
-      - -170.94984639 # truncated to 10 digits
-      - -84.2002558073 # truncated to 10 digits
-      - 167.7089285828 # truncated to 10 digits
-      - 74.2357328475 # truncated to 10 digits
+      - -170.9498596191 # truncated to 10 digits
+      - -84.2002563476 # truncated to 10 digits
+      - 167.7089385986 # truncated to 10 digits
+      - 74.2357330322 # truncated to 10 digits
       geometry_type: POINT
       properties:
         taBLe: text
@@ -46,10 +49,10 @@ postgres:
       geometry_column: geom
       id_column: feat_id
       bounds:
-      - -166.8710712623 # truncated to 10 digits
-      - -53.4474724911 # truncated to 10 digits
-      - 168.1406122036 # truncated to 10 digits
-      - 84.2241186147 # truncated to 10 digits
+      - -166.8710784912 # truncated to 10 digits
+      - -53.4474754333 # truncated to 10 digits
+      - 168.140625
+      - 84.2241210937 # truncated to 10 digits
       extent: 9000
       buffer: 3
       clip_geom: false
@@ -63,10 +66,10 @@ postgres:
       geometry_column: geom
       id_column: big_feat_id
       bounds:
-      - -174.8947556456 # truncated to 10 digits
-      - -77.2579745396 # truncated to 10 digits
-      - 174.7275322451 # truncated to 10 digits
-      - 73.8078595059 # truncated to 10 digits
+      - -174.8947601318 # truncated to 10 digits
+      - -77.2579803466 # truncated to 10 digits
+      - 174.7275390625
+      - 73.8078613281 # truncated to 10 digits
       extent: 9000
       buffer: 3
       clip_geom: false
@@ -144,6 +147,9 @@ postgres:
       buffer: 64
       clip_geom: true
       geometry_type: GEOMETRY
+      cache:
+        minzoom: 2
+        maxzoom: 14
       properties:
         gid: int4
   functions:
@@ -172,7 +178,11 @@ postgres:
       - 90.0
 pmtiles:
   sources:
-    pmt: tests/fixtures/pmtiles/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles
+    pmt:
+      path: tests/fixtures/pmtiles/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles
+      cache:
+        minzoom: 0
+        maxzoom: 3
     pmt2: http://localhost:5412/webp2.pmtiles
     webp2: http://localhost:5412/webp2.pmtiles
 sprites:
@@ -183,6 +193,7 @@ styles:
   paths: tests/fixtures/styles/src2
   sources:
     maplibre: tests/fixtures/styles/maplibre_demo.json
+  rendering: true
 fonts:
 - tests/fixtures/fonts/overpass-mono-regular.ttf
 - tests/fixtures/fonts

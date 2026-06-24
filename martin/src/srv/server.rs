@@ -14,14 +14,31 @@ use tracing_actix_web::TracingLogger;
 
 #[cfg(all(feature = "webui", not(docsrs)))]
 use crate::config::args::WebUiMode;
+#[cfg(feature = "_catalog")]
 use crate::config::file::ServerState;
-use crate::config::file::srv::{KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT, SrvConfig};
-use crate::srv::admin::Catalog;
+use crate::config::file::srv::{DEFAULT_KEEP_ALIVE, DEFAULT_LISTEN_ADDRESSES, SrvConfig};
+#[cfg(any(not(feature = "webui"), docsrs))]
+use crate::srv::admin::get_index_no_ui;
+use crate::srv::admin::{Catalog, get_catalog};
+#[cfg(all(feature = "webui", not(docsrs)))]
+use crate::srv::admin::{get_index_ui_disabled, webui};
+#[cfg(feature = "fonts")]
+use crate::srv::fonts;
+#[cfg(feature = "sprites")]
+use crate::srv::sprites;
+#[cfg(feature = "styles")]
+use crate::srv::styles;
+#[cfg(all(feature = "rendering", target_os = "linux"))]
+use crate::srv::styles_rendering;
+#[cfg(all(feature = "rendering", target_os = "linux"))]
+use crate::srv::styles_static;
+#[cfg(feature = "_tiles")]
+use crate::srv::tiles;
 use crate::{MartinError, MartinResult};
 
 /// List of keywords that cannot be used as source IDs. Some of these are reserved for future use.
 /// Reserved keywords must never end in a "dot number" (e.g. ".1").
-/// This list is documented in the `docs/src/using.md` file, which should be kept in sync.
+/// This list is documented in the `docs/content/using.md` file, which should be kept in sync.
 pub const RESERVED_KEYWORDS: &[&str] = &[
     "_", "catalog", "config", "font", "health", "help", "index", "manifest", "metrics", "refresh",
     "reload", "sprite", "status",
@@ -33,46 +50,114 @@ pub fn map_internal_error<T: std::fmt::Display>(e: T) -> actix_web::Error {
     actix_web::error::ErrorInternalServerError(e.to_string())
 }
 
+/// Helper struct for debounced warning messages in redirect handlers.
+/// Ensures warnings are logged no more than once per hour to avoid log spam.
+#[cfg(feature = "_catalog")]
+pub struct DebouncedWarning {
+    last_warning: std::sync::LazyLock<tokio::sync::Mutex<std::time::Instant>>,
+}
+
+#[cfg(feature = "_catalog")]
+impl DebouncedWarning {
+    /// Create a new `DebouncedWarning` instance
+    pub const fn new() -> Self {
+        Self {
+            last_warning: std::sync::LazyLock::new(|| {
+                tokio::sync::Mutex::new(std::time::Instant::now())
+            }),
+        }
+    }
+
+    /// Execute the provided closure at most once per hour.
+    /// This allows tracing's log filtering to work correctly by keeping the warn! call site
+    /// in the caller's context.
+    pub async fn once_per_hour<F: FnOnce()>(&self, f: F) {
+        let mut last = self.last_warning.lock().await;
+        if last.elapsed() >= Duration::from_hours(1) {
+            *last = std::time::Instant::now();
+            f();
+        }
+    }
+}
+
 /// Return 200 OK if healthy. Used for readiness and liveness probes.
+#[cfg_attr(
+    feature = "unstable-schemas",
+    utoipa::path(
+        get,
+        path = "/health",
+        responses((status = 200, description = "Service healthy", body = String)),
+    )
+)]
 #[route("/health", method = "GET", method = "HEAD")]
-async fn get_health() -> impl Responder {
+pub async fn get_health() -> impl Responder {
     HttpResponse::Ok()
         .insert_header((CACHE_CONTROL, "no-cache"))
         .message_body("OK")
 }
 
-pub fn router(cfg: &mut web::ServiceConfig, #[allow(unused_variables)] usr_cfg: &SrvConfig) {
+pub fn router(cfg: &mut web::ServiceConfig, usr_cfg: &SrvConfig) {
     // If route_prefix is configured, wrap all routes in a scope
     if let Some(prefix) = &usr_cfg.route_prefix {
-        cfg.service(web::scope(prefix).configure(|cfg| register_services(cfg, usr_cfg)));
+        cfg.service(web::scope(prefix).configure(|cfg| {
+            register_services(
+                cfg,
+                #[cfg(all(feature = "webui", not(docsrs)))]
+                usr_cfg,
+            );
+        }));
+        cfg.service(get_health);
     } else {
-        register_services(cfg, usr_cfg);
+        register_services(
+            cfg,
+            #[cfg(all(feature = "webui", not(docsrs)))]
+            usr_cfg,
+        );
     }
 }
 
 /// Helper function to register all services
-fn register_services(cfg: &mut web::ServiceConfig, #[allow(unused_variables)] usr_cfg: &SrvConfig) {
-    cfg.service(get_health)
-        .service(crate::srv::admin::get_catalog);
+fn register_services(
+    cfg: &mut web::ServiceConfig,
+    #[cfg(all(feature = "webui", not(docsrs)))] usr_cfg: &SrvConfig,
+) {
+    cfg.service(get_health).service(get_catalog);
 
     #[cfg(feature = "_tiles")]
-    cfg.service(crate::srv::tiles::metadata::get_source_info)
-        .service(crate::srv::tiles::content::get_tile);
+    {
+        // Register tile format suffix redirects BEFORE the main tile route
+        // because Actix-Web matches routes in registration order
+        cfg.service(tiles::content::redirect_tile_ext)
+            .service(tiles::metadata::get_source_info)
+            .service(tiles::content::get_tile);
+
+        // Register /tiles/ prefix redirect after main tile route
+        cfg.service(tiles::content::redirect_tiles);
+    }
 
     #[cfg(feature = "sprites")]
-    cfg.service(crate::srv::sprites::get_sprite_sdf_json)
-        .service(crate::srv::sprites::get_sprite_json)
-        .service(crate::srv::sprites::get_sprite_sdf_png)
-        .service(crate::srv::sprites::get_sprite_png);
+    cfg.service(sprites::get_sprite_sdf_json)
+        .service(sprites::redirect_sdf_sprites_json)
+        .service(sprites::get_sprite_json)
+        .service(sprites::redirect_sprites_json)
+        .service(sprites::get_sprite_sdf_png)
+        .service(sprites::redirect_sdf_sprites_png)
+        .service(sprites::get_sprite_png)
+        .service(sprites::redirect_sprites_png);
 
     #[cfg(feature = "fonts")]
-    cfg.service(crate::srv::fonts::get_font);
+    cfg.service(fonts::get_font).service(fonts::redirect_fonts);
 
     #[cfg(feature = "styles")]
-    cfg.service(crate::srv::styles::get_style_json);
+    cfg.service(styles::get_style_json)
+        .service(styles::redirect_styles);
 
-    #[cfg(all(feature = "unstable-rendering", target_os = "linux"))]
-    cfg.service(crate::srv::styles_rendering::get_style_rendered);
+    // `.jpeg` redirects must register before the main routes so they win.
+    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    cfg.service(styles_static::redirect_static_jpeg)
+        .service(styles_static::get_rendered_static_style)
+        .service(styles_rendering::redirect_tile_jpeg)
+        .service(styles_rendering::get_rendered_tile_style);
 
     #[cfg(all(feature = "webui", not(docsrs)))]
     {
@@ -81,21 +166,25 @@ fn register_services(cfg: &mut web::ServiceConfig, #[allow(unused_variables)] us
         if usr_cfg.web_ui.unwrap_or_default() == WebUiMode::EnableForAll {
             cfg.service(actix_web_static_files::ResourceFiles::new(
                 "/",
-                crate::srv::admin::webui::generate(),
+                webui::generate(),
             ));
         } else {
-            cfg.service(crate::srv::admin::get_index_ui_disabled);
+            cfg.service(get_index_ui_disabled);
         }
     }
 
     #[cfg(any(not(feature = "webui"), docsrs))]
-    cfg.service(crate::srv::admin::get_index_no_ui);
+    cfg.service(get_index_no_ui);
 }
 
 type Server = Pin<Box<dyn Future<Output = MartinResult<()>>>>;
 
 /// Create a future for an Actix web server together with the listening address.
-pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server, String)> {
+#[hotpath::measure]
+pub fn new_server(
+    config: SrvConfig,
+    #[cfg(feature = "_catalog")] state: ServerState,
+) -> MartinResult<(Server, String)> {
     #[cfg(feature = "metrics")]
     let prometheus = {
         let metrics_endpoint = if let Some(prefix) = &config.route_prefix {
@@ -104,6 +193,7 @@ pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server
             "/_/metrics".to_string()
         };
         actix_web_prom::PrometheusMetricsBuilder::new("martin")
+            .registry(prometheus::default_registry().clone())
             .endpoint(&metrics_endpoint)
             // `endpoint="UNKNOWN"` instead of `endpoint="/foo/bar"`
             .mask_unmatched_patterns("UNKNOWN")
@@ -117,16 +207,19 @@ pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server
                     .add_labels,
             )
             .build()
-            .map_err(|err| MartinError::MetricsIntialisationError(err))?
+            .map_err(MartinError::MetricsIntialisationError)?
     };
-    let catalog = Catalog::new(&state)?;
+    let catalog = Catalog::new(
+        #[cfg(any(feature = "sprites", feature = "fonts", feature = "styles"))]
+        &state,
+    )?;
 
-    let keep_alive = Duration::from_secs(config.keep_alive.unwrap_or(KEEP_ALIVE_DEFAULT));
+    let keep_alive = Duration::from_secs(config.keep_alive.unwrap_or(DEFAULT_KEEP_ALIVE));
     let worker_processes = config.worker_processes.unwrap_or_else(num_cpus::get);
     let listen_addresses = config
         .listen_addresses
         .clone()
-        .unwrap_or_else(|| LISTEN_ADDRESSES_DEFAULT.to_string());
+        .unwrap_or_else(|| DEFAULT_LISTEN_ADDRESSES.to_string());
 
     let cors_config = config.cors.clone().unwrap_or_default();
     cors_config.validate()?;
@@ -140,9 +233,7 @@ pub fn new_server(config: SrvConfig, state: ServerState) -> MartinResult<(Server
             .app_data(Data::new(config.clone()));
 
         #[cfg(feature = "_tiles")]
-        let app = app
-            .app_data(Data::new(state.tiles.clone()))
-            .app_data(Data::new(state.tile_cache.clone()));
+        let app = app.app_data(Data::new(state.tile_manager.clone()));
 
         #[cfg(feature = "sprites")]
         let app = app

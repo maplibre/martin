@@ -67,7 +67,7 @@ describe('ErrorBoundary', () => {
     const CustomFallback = ({ error, retry }: { error?: Error; retry: () => void }) => (
       <div>
         <span>Custom fallback!</span>
-        {error && <span>{error.message}</span>}
+        {error ? <span>{error.message}</span> : null}
         <button onClick={retry} type="button">
           Retry now
         </button>
@@ -115,7 +115,7 @@ describe('ErrorBoundary', () => {
     const CustomFallback = ({ error, retry }: { error?: Error; retry: () => void }) => (
       <div>
         <span>Custom fallback!</span>
-        {error && <span>{error.message}</span>}
+        {error ? <span>{error.message}</span> : null}
         <button onClick={retry} type="button">
           Retry now
         </button>

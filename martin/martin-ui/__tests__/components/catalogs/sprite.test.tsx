@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SpriteCatalog } from '@/components/catalogs/sprite';
-import type { SpriteCollection } from '@/lib/types';
+import type { Catalog } from '@/lib/types.gen';
 
 // Mock the SpritePreview component to avoid complex rendering
 vi.mock('@/components/sprite/SpritePreview', async () => {
@@ -39,7 +39,7 @@ vi.mock('@/components/dialogs/sprite-preview', () => ({
     onDownloadAction,
   }: {
     name: string;
-    sprite: SpriteCollection;
+    sprite: Catalog['sprites'][string];
     onCloseAction: () => void;
     onDownloadAction: () => void;
   }) => (
@@ -61,7 +61,7 @@ vi.mock('@/components/dialogs/sprite-download', () => ({
     onCloseAction,
   }: {
     name: string;
-    sprite: SpriteCollection;
+    sprite: Catalog['sprites'][string];
     onCloseAction: () => void;
   }) => (
     <div data-testid="sprite-download-dialog">
@@ -74,21 +74,21 @@ vi.mock('@/components/dialogs/sprite-download', () => ({
 }));
 
 describe('SpriteCatalog Component', () => {
-  const mockSpriteCollections: { [name: string]: SpriteCollection } = {
+  const mockSpriteCollections: Catalog['sprites'] = {
     'map-icons': {
       images: ['pin', 'marker', 'building', 'park', 'poi'],
-      lastModifiedAt: new Date('2023-01-10'),
-      sizeInBytes: 25000,
+      last_modified_at: '2023-01-10',
+      size_in_bytes: 25000,
     },
     transportation: {
       images: ['car', 'bus', 'train', 'bicycle', 'walk', 'plane', 'ferry'],
-      lastModifiedAt: new Date('2023-03-20'),
-      sizeInBytes: 30000,
+      last_modified_at: '2023-03-20',
+      size_in_bytes: 30000,
     },
     'ui-elements': {
       images: ['arrow', 'plus', 'minus', 'close', 'menu', 'search', 'filter', 'settings'],
-      lastModifiedAt: new Date('2023-02-15'),
-      sizeInBytes: 35000,
+      last_modified_at: '2023-02-15',
+      size_in_bytes: 35000,
     },
   };
 

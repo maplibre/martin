@@ -1,0 +1,88 @@
+{
+  "features": [
+    {
+      "geometry": {
+        "coordinates": [
+          [
+            [
+              [
+                1365,
+                0
+              ],
+              [
+                455,
+                0
+              ],
+              [
+                455,
+                464
+              ],
+              [
+                0,
+                464
+              ],
+              [
+                0,
+                1717
+              ],
+              [
+                1365,
+                1717
+              ],
+              [
+                1365,
+                0
+              ]
+            ]
+          ]
+        ],
+        "type": "MultiPolygon"
+      },
+      "properties": {
+        "id": 1,
+        "kind": "multipolygon-with-hole",
+        "source_mvt_layer": "layer"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          [
+            [
+              [
+                2958,
+                1717
+              ],
+              [
+                2958,
+                716
+              ],
+              [
+                2275,
+                716
+              ],
+              [
+                2275,
+                1717
+              ],
+              [
+                2958,
+                1717
+              ]
+            ]
+          ]
+        ],
+        "type": "MultiPolygon"
+      },
+      "properties": {
+        "id": 2,
+        "kind": "polygon-northeast",
+        "source_mvt_layer": "layer"
+      },
+      "type": "Feature"
+    }
+  ],
+  "name": "merged",
+  "type": "FeatureCollection"
+}

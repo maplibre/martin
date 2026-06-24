@@ -1,8 +1,10 @@
 #![cfg(feature = "mbtiles")]
+#![expect(clippy::print_stdout, reason = "test diagnostics on failure")]
 
 use actix_web::http::header::{ACCEPT_ENCODING, CONTENT_ENCODING, CONTENT_TYPE};
 use actix_web::test::{TestRequest, call_service, read_body, read_body_json};
 use indoc::formatdoc;
+#[cfg(all(feature = "rendering", target_os = "linux"))]
 use insta::assert_yaml_snapshot;
 use martin::config::file::srv::SrvConfig;
 use martin_tile_utils::{decode_brotli, decode_gzip};
@@ -19,12 +21,13 @@ macro_rules! create_app {
         ::actix_web::test::init_service(
             ::actix_web::App::new()
                 .app_data(actix_web::web::Data::new(
-                    ::martin::srv::Catalog::new(&state).unwrap(),
+                    ::martin::srv::Catalog::new(
+                        #[cfg(any(feature = "sprites", feature = "fonts", feature = "styles"))]
+                        &state,
+                    )
+                    .unwrap(),
                 ))
-                .app_data(actix_web::web::Data::new(
-                    ::martin_core::tiles::NO_TILE_CACHE,
-                ))
-                .app_data(actix_web::web::Data::new(state.tiles))
+                .app_data(actix_web::web::Data::new(state.tile_manager))
                 .app_data(actix_web::web::Data::new(SrvConfig::default()))
                 .configure(|c| ::martin::srv::router(c, &SrvConfig::default())),
         )
@@ -61,7 +64,7 @@ async fn config(
     let raw_mlt_script = include_str!("../../tests/fixtures/mbtiles/mlt.sql");
     let (raw_mlt_mbt, raw_mlt_conn, raw_mlt_file) =
         temp_named_mbtiles(&format!("{test_name}_raw_mlt"), raw_mlt_script).await;
-    let webp_script = include_str!("../../tests/fixtures/mbtiles/webp.sql");
+    let webp_script = include_str!("../../tests/fixtures/mbtiles/webp-no-primary.sql");
     let (webp_mbt, webp_conn, webp_file) =
         temp_named_mbtiles(&format!("{test_name}_webp"), webp_script).await;
 
@@ -91,9 +94,10 @@ async fn config(
     )
 }
 
+#[cfg(all(feature = "rendering", target_os = "linux"))]
 #[actix_rt::test]
 #[tracing_test::traced_test]
-async fn mbt_get_catalog() {
+async fn mbt_get_catalog_with_rendering_feature() {
     let (config, _conns) = config("mbt_get_catalog").await;
     let app = create_app!(&config);
     let req = test_get("/catalog").to_request();
@@ -102,6 +106,8 @@ async fn mbt_get_catalog() {
     let body: serde_json::Value = read_body_json(response).await;
     assert_yaml_snapshot!(body, @r#"
     fonts: {}
+    settings:
+      rendering: false
     sprites: {}
     styles: {}
     tiles:
@@ -115,7 +121,7 @@ async fn mbt_get_catalog() {
         name: Major cities from Natural Earth data
       m_raw_mlt:
         attribution: "<a href=\"https://www.openmaptiles.org/\" target=\"_blank\">&copy; OpenMapTiles</a> <a href=\"https://www.openstreetmap.org/copyright\" target=\"_blank\">&copy; OpenStreetMap contributors</a>"
-        content_type: application/vnd.maplibre-vector-tile
+        content_type: application/vnd.maplibre-tile
         description: "A tileset showcasing all layers in OpenMapTiles. https://openmaptiles.org"
         name: OpenMapTiles
       m_raw_mvt:
@@ -128,9 +134,10 @@ async fn mbt_get_catalog() {
     "#);
 }
 
+#[cfg(all(feature = "rendering", target_os = "linux"))]
 #[actix_rt::test]
 #[tracing_test::traced_test]
-async fn mbt_get_catalog_gzip() {
+async fn mbt_get_catalog_gzip_with_rendering_feature() {
     let (config, _conns) = config("mbt_get_catalog_gzip").await;
     let app = create_app!(&config);
     let accept = (ACCEPT_ENCODING, "gzip");
@@ -141,6 +148,8 @@ async fn mbt_get_catalog_gzip() {
     let body: serde_json::Value = serde_json::from_slice(&body).unwrap();
     assert_yaml_snapshot!(body, @r#"
     fonts: {}
+    settings:
+      rendering: false
     sprites: {}
     styles: {}
     tiles:
@@ -154,7 +163,7 @@ async fn mbt_get_catalog_gzip() {
         name: Major cities from Natural Earth data
       m_raw_mlt:
         attribution: "<a href=\"https://www.openmaptiles.org/\" target=\"_blank\">&copy; OpenMapTiles</a> <a href=\"https://www.openstreetmap.org/copyright\" target=\"_blank\">&copy; OpenStreetMap contributors</a>"
-        content_type: application/vnd.maplibre-vector-tile
+        content_type: application/vnd.maplibre-tile
         description: "A tileset showcasing all layers in OpenMapTiles. https://openmaptiles.org"
         name: OpenMapTiles
       m_raw_mvt:
@@ -320,7 +329,7 @@ async fn mbt_get_raw_mlt() {
     let response = assert_response(response).await;
     assert_eq!(
         response.headers().get(CONTENT_TYPE).unwrap(),
-        "application/vnd.maplibre-vector-tile"
+        "application/vnd.maplibre-tile"
     );
     assert_eq!(response.headers().get(CONTENT_ENCODING), None);
     let body = read_body(response).await;

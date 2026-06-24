@@ -1,6 +1,5 @@
 'use client';
-
-import { useCallback, useId, useRef } from 'react';
+import { Suspense } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -8,56 +7,32 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import type { TileSource } from '@/lib/types';
+import type { Catalog } from '@/lib/types.gen';
 import '@maplibre/maplibre-gl-inspect/dist/maplibre-gl-inspect.css';
-import MaplibreInspect from '@maplibre/maplibre-gl-inspect';
-import type { MapRef } from '@vis.gl/react-maplibre';
-import { Layer, Map as MapLibreMap, Source } from '@vis.gl/react-maplibre';
-import { Database } from 'lucide-react';
-import { Popup } from 'maplibre-gl';
+import { Database, ExternalLink } from 'lucide-react';
+import { CopyableUrl } from '@/components/ui/copyable-url';
 import { buildMartinUrl } from '@/lib/api';
+import { LoadingSpinner } from '../loading/loading-spinner';
+import { TileInspectDialogMap } from './tile-inspect-map';
 
 interface TileInspectDialogProps {
   name: string;
-  source: TileSource;
+  source: Catalog['tiles'][string];
   onCloseAction: () => void;
 }
 
-export function TileInspectDialog({ name, source, onCloseAction }: TileInspectDialogProps) {
-  const id = useId();
-  const mapRef = useRef<MapRef>(null);
-  const inspectControlRef = useRef<MaplibreInspect>(null);
-
-  const addInspectorToMap = useCallback(() => {
-    if (!mapRef.current) {
-      console.error('Map not found despite being initialized, this cannot happen');
-      return;
-    }
-    const map = mapRef.current.getMap();
-
-    map.addSource(name, { type: 'vector', url: buildMartinUrl(`/${name}`) });
-    // Import and add the inspect control
-    if (inspectControlRef.current) {
-      map.removeControl(inspectControlRef.current);
-    }
-
-    inspectControlRef.current = new MaplibreInspect({
-      popup: new Popup({
-        closeButton: false,
-        closeOnClick: false,
-      }),
-      showInspectButton: false,
-      showInspectMap: true,
-      showInspectMapPopup: true,
-      showInspectMapPopupOnHover: true,
-      showMapPopup: true,
-    });
-
-    map.addControl(inspectControlRef.current);
-  }, [name]);
-  const isImageSource = ['image/gif', 'image/jpeg', 'image/png', 'image/webp'].includes(
-    source.content_type,
+function TileMapLoading() {
+  return (
+    <div className="flex justify-center items-center text-white text-3xl w-full h-125">
+      <LoadingSpinner />
+    </div>
   );
+}
+
+export function TileInspectDialog({ name, source, onCloseAction }: TileInspectDialogProps) {
+  const tileJsonUrl = buildMartinUrl(`/${name}`);
+  const xyzUrl = buildMartinUrl(`/${name}/{z}/{x}/{y}`);
+
   return (
     <Dialog onOpenChange={(v) => !v && onCloseAction()} open={true}>
       <DialogContent className="max-w-6xl w-full p-6 max-h-[90vh] overflow-auto">
@@ -71,32 +46,11 @@ export function TileInspectDialog({ name, source, onCloseAction }: TileInspectDi
             Inspect the tile source to explore tile boundaries and properties.
           </DialogDescription>
         </DialogHeader>
-
         <div className="space-y-4">
           <section className="border rounded-lg overflow-hidden">
-            {isImageSource ? (
-              <MapLibreMap
-                ref={mapRef}
-                reuseMaps={false}
-                style={{
-                  height: '500px',
-                  width: '100%',
-                }}
-              >
-                <Source id={`${id}tile-source`} type="raster" url={buildMartinUrl(`/${name}`)} />
-                <Layer id={`${id}tile-layer`} source={`${id}tile-source`} type="raster" />
-              </MapLibreMap>
-            ) : (
-              <MapLibreMap
-                onLoad={addInspectorToMap}
-                ref={mapRef}
-                reuseMaps={false}
-                style={{
-                  height: '500px',
-                  width: '100%',
-                }}
-              ></MapLibreMap>
-            )}
+            <Suspense fallback={<TileMapLoading />}>
+              <TileInspectDialogMap name={name} source={source} />
+            </Suspense>
           </section>
           {/* Source Information */}
           <section className="bg-muted/30 p-4 rounded-lg">
@@ -110,41 +64,53 @@ export function TileInspectDialog({ name, source, onCloseAction }: TileInspectDi
                 <br />
                 <code>{source.content_type}</code>
               </p>
-              {source.content_encoding && (
+              {source.content_encoding ? (
                 <p>
                   <span className="font-medium">Encoding:</span>
                   <br />
                   <code>{source.content_encoding}</code>
                 </p>
-              )}
-              {source.name && (
+              ) : null}
+              {source.name ? (
                 <p>
                   <span className="font-medium">Name:</span>
                   <br />
                   <span>{source.name}</span>
                 </p>
-              )}
-              {source.description && (
+              ) : null}
+              {source.description ? (
                 <p className="col-span-2">
                   <span className="font-medium">Description:</span>
                   <br />
                   <span>{source.description}</span>
                 </p>
-              )}
-              {source.layerCount && (
+              ) : null}
+              {source.layer_count ? (
                 <p>
                   <span className="font-medium">Layer Count:</span>
                   <br />
-                  <span>{source.layerCount}</span>
+                  <span>{source.layer_count}</span>
                 </p>
-              )}
-              {source.attribution && (
+              ) : null}
+              {source.attribution ? (
                 <p className="col-span-2">
                   <span className="font-medium">Attribution:</span>
                   <br />
                   <span>{source.attribution}</span>
                 </p>
-              )}
+              ) : null}
+            </div>
+          </section>
+
+          {/* Tile URLs */}
+          <section className="bg-muted/30 p-4 rounded-lg">
+            <div className="flex items-center gap-2 mb-2">
+              <ExternalLink className="w-5 h-5 text-muted-foreground" />
+              <h3 className="font-semibold">Tile URLs</h3>
+            </div>
+            <div className="flex flex-col gap-y-4 text-sm">
+              <CopyableUrl label="TileJSON" url={tileJsonUrl} />
+              <CopyableUrl label="XYZ Tiles" url={xyzUrl} />
             </div>
           </section>
         </div>

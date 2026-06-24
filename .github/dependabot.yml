@@ -25,6 +25,19 @@ updates:
       all-cargo-version-updates:
         applies-to: version-updates
         patterns: [ '*' ]
+        # These crates are intentionally excluded because specific newer versions
+        # are broken (see deny.toml): libdeflater/libdeflate-sys@1.25.0 fail to
+        # compile under musl; insta@1.45.0/1.45.1 fail `cargo test -- diff_and_patch`;
+        # freetype-sys@0.23.0 / freetype-rs@0.38.0 / sdf_glyph_renderer@1.1.0 fail
+        # to compile (missing zlib.h) on musl and Windows.
+        # Keeping them out of the group gives each its own PR for manual review.
+        exclude-patterns:
+          - 'libdeflater'
+          - 'libdeflate-sys'
+          - 'insta'
+          - 'freetype-sys'
+          - 'freetype-rs'
+          - 'sdf_glyph_renderer'
       all-cargo-security-updates:
         applies-to: security-updates
         patterns: [ '*' ]

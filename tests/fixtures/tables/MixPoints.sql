@@ -17,7 +17,7 @@ CREATE TABLE "MixedCase"."MixPoints"
 --        md5(random()::text)    as "TABLE",
 --        (ST_DUMP(ST_GENERATEPOINTS(st_transform(st_tileenvelope(0, 0, 0), 4326), 27))).Geom;
 --
--- To dump the data above, uncomment code the above, comment the INSERT code bellow, and run:
+-- To dump the data above, uncomment code the above, comment the INSERT code below, and run:
 --   just restart
 --   just pg_dump --data-only --inserts --rows-per-insert=100 --table="MixedCase"."MixPoints"
 
@@ -173,7 +173,7 @@ VALUES (
     '0101000020E6100000F9B5A5ADB7265BC0EE07F81F2F284840'
 );
 
-CREATE INDEX ON "MixedCase"."MixPoints" USING GIST ("Geom");
+CREATE INDEX CONCURRENTLY ON "MixedCase"."MixPoints" USING GIST ("Geom");
 
 DO $do$ BEGIN
     EXECUTE 'COMMENT ON TABLE "MixedCase"."MixPoints" IS $tj$' || $$

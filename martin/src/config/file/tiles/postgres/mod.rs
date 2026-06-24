@@ -12,4 +12,7 @@ pub(crate) mod utils;
 mod builder;
 pub use builder::PostgresAutoDiscoveryBuilder;
 
+mod spec;
+pub use spec::SourceSpec;
+
 pub mod resolver;

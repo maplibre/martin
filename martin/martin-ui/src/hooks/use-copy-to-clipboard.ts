@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { copyToClipboard } from '@/lib/utils';
 
@@ -31,38 +31,35 @@ export function useCopyToClipboard(
     };
   }, []);
 
-  const copy = useCallback(
-    async (text: string, customSuccessMessage?: string): Promise<boolean> => {
-      try {
-        await copyToClipboard(text);
-        setCopied(true);
-        setCopiedValue(text);
+  const copy = async (text: string, customSuccessMessage?: string): Promise<boolean> => {
+    try {
+      await copyToClipboard(text);
+      setCopied(true);
+      setCopiedValue(text);
 
-        toast({
-          description: customSuccessMessage ?? successMessage,
-          title: 'Copied!',
-        });
+      toast({
+        description: customSuccessMessage ?? successMessage,
+        title: 'Copied!',
+      });
 
-        if (timeoutRef.current) clearTimeout(timeoutRef.current);
-        timeoutRef.current = setTimeout(() => {
-          setCopied(false);
-          setCopiedValue(null);
-          timeoutRef.current = null;
-        }, RESET_DELAY);
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      timeoutRef.current = setTimeout(() => {
+        setCopied(false);
+        setCopiedValue(null);
+        timeoutRef.current = null;
+      }, RESET_DELAY);
 
-        return true;
-      } catch (err) {
-        console.error('Failed to copy to clipboard:', err);
-        toast({
-          description: ERROR_MESSAGE,
-          title: 'Error',
-          variant: 'destructive',
-        });
-        return false;
-      }
-    },
-    [successMessage, toast],
-  );
+      return true;
+    } catch (err) {
+      console.error('Failed to copy to clipboard:', err);
+      toast({
+        description: ERROR_MESSAGE,
+        title: 'Error',
+        variant: 'destructive',
+      });
+      return false;
+    }
+  };
 
   return { copied, copiedValue, copy };
 }

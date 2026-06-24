@@ -1,0 +1,4 @@
+ INFO Integrity check passed mbtiles.file=./tests/fixtures/mbtiles/normalized-dedup-id.mbtiles integrity_check=Quick
+ INFO All values in the `tiles` table/view are valid mbtiles.file=./tests/fixtures/mbtiles/normalized-dedup-id.mbtiles
+ INFO All tile hashes are valid mbtiles.file=./tests/fixtures/mbtiles/normalized-dedup-id.mbtiles
+ INFO agg_tiles_hash has been verified mbtiles.file=./tests/fixtures/mbtiles/normalized-dedup-id.mbtiles agg_tiles_hash=3CE4DB27DDC5A385756CC384CDAFC3D5

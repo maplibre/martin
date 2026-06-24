@@ -3,7 +3,7 @@
 ## Usage in Docker-Compose
 
 ```shell
-just up
+just demo::up
 ```
 
 * Open https://localhost in your browser

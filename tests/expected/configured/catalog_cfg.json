@@ -15,6 +15,9 @@
       "style": "Regular"
     }
   },
+  "settings": {
+    "rendering": true
+  },
   "sprites": {
     "mysrc": {
       "images": [

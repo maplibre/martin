@@ -1,14 +1,14 @@
 import { ArrowLeft, X } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { buildMartinUrl } from '@/lib/api';
-import type { Style } from '@/lib/types';
+import type { Catalog } from '@/lib/types.gen';
 
 interface StyleEditorProps {
   styleName: string;
-  style: Style;
+  style: Catalog['styles'][string];
   onClose: () => void;
 }
 
@@ -22,13 +22,13 @@ export function StyleEditor({ styleName, style, onClose }: StyleEditorProps) {
   // Add the style URL as a parameter for Maputnik to load
   maputnikUrl.searchParams.set('style', buildMartinUrl(`/style/${styleName}`));
 
-  const handleIframeLoad = useCallback(() => {
+  const handleIframeLoad = () => {
     setError(null);
-  }, []);
+  };
 
-  const handleIframeError = useCallback(() => {
+  const handleIframeError = () => {
     setError('Failed to load Maputnik editor');
-  }, []);
+  };
 
   // Listen for messages from Maputnik iframe
   useEffect(() => {
@@ -66,7 +66,7 @@ export function StyleEditor({ styleName, style, onClose }: StyleEditorProps) {
       </Card>
       {/* Editor Content */}
       <div className="flex-1 relative">
-        {error && (
+        {error ? (
           <div className="absolute inset-0 bg-background flex items-center justify-center z-10">
             <Card className="w-96">
               <CardContent className="pt-6">
@@ -81,7 +81,7 @@ export function StyleEditor({ styleName, style, onClose }: StyleEditorProps) {
               </CardContent>
             </Card>
           </div>
-        )}
+        ) : null}
 
         <iframe
           className="w-full h-full border-0"

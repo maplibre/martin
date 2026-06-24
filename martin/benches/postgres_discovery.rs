@@ -1,9 +1,11 @@
+#![allow(clippy::unwrap_used)]
 use std::time::Duration;
 
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
-use martin::config::file::init_aws_lc_tls;
 use martin::config::file::postgres::{PostgresAutoDiscoveryBuilder, PostgresConfig};
-use martin_core::config::IdResolver;
+use martin::config::file::{CachePolicy, init_aws_lc_tls};
+use martin::config::primitives::IdResolver;
+use martin_core::tiles::postgres::PostgresPool;
 use testcontainers_modules::postgres::Postgres;
 use testcontainers_modules::testcontainers::ImageExt as _;
 use testcontainers_modules::testcontainers::runners::SyncRunner as _;
@@ -39,10 +41,9 @@ fn setup_postgres_container() -> (
 
 /// Create test tables with various geometries
 async fn populate_tables(connection_string: &str, count: usize) {
-    let pool =
-        martin_core::tiles::postgres::PostgresPool::new(connection_string, None, None, None, 10)
-            .await
-            .expect("Failed to create pool");
+    let pool = PostgresPool::new(connection_string, None, None, None, 10)
+        .await
+        .expect("Failed to create pool");
 
     let client = pool.get().await.expect("Failed to get client");
 
@@ -106,7 +107,7 @@ async fn populate_tables(connection_string: &str, count: usize) {
 
         // Insert sample data
         let sample_geom = match geometry_type {
-            "Point" => format!("ST_SetSRID(ST_MakePoint(-73.9857, 40.7484), {srid})",),
+            "Point" => format!("ST_SetSRID(ST_MakePoint(-73.9857, 40.7484), {srid})"),
             "LineString" => {
                 format!(
                     "ST_SetSRID(ST_MakeLine(ST_MakePoint(-73.9857, 40.7484), ST_MakePoint(-73.9757, 40.7584)), {srid})",
@@ -132,10 +133,9 @@ async fn populate_tables(connection_string: &str, count: usize) {
 
 /// Create test MVT functions
 async fn populate_functions(connection_string: &str, count: usize) {
-    let pool =
-        martin_core::tiles::postgres::PostgresPool::new(connection_string, None, None, None, 10)
-            .await
-            .expect("Failed to create pool");
+    let pool = PostgresPool::new(connection_string, None, None, None, 10)
+        .await
+        .expect("Failed to create pool");
 
     let client = pool.get().await.expect("Failed to get client");
 
@@ -241,28 +241,17 @@ async fn populate_functions(connection_string: &str, count: usize) {
     }
 }
 
-async fn discover_tables(config: &PostgresConfig) {
-    let builder = PostgresAutoDiscoveryBuilder::new(config, IdResolver::default())
+/// Builds a discovery builder with its connection pool, ready to time [`discover`](PostgresAutoDiscoveryBuilder::discover) in isolation.
+async fn build_discovery(config: &PostgresConfig) -> PostgresAutoDiscoveryBuilder {
+    PostgresAutoDiscoveryBuilder::new(config, IdResolver::default(), CachePolicy::default())
         .await
-        .expect("Failed to create builder");
-
-    let tables = builder
-        .instantiate_tables()
-        .await
-        .expect("Failed to discover tables");
-    std::hint::black_box(tables);
+        .expect("Failed to create builder")
 }
 
-async fn discover_functions(config: &PostgresConfig) {
-    let builder = PostgresAutoDiscoveryBuilder::new(config, IdResolver::default())
-        .await
-        .expect("Failed to create builder");
-
-    let functions = builder
-        .instantiate_functions()
-        .await
-        .expect("Failed to discover functions");
-    std::hint::black_box(functions);
+/// Time only the discovery query: one cheap catalog round-trip per source kind, with no instantiation.
+async fn discover(builder: &PostgresAutoDiscoveryBuilder) {
+    let (specs, warnings) = builder.discover().await.expect("Failed to discover");
+    std::hint::black_box((specs, warnings));
 }
 
 fn bench_table_discovery(c: &mut Criterion) {
@@ -281,9 +270,10 @@ fn bench_table_discovery(c: &mut Criterion) {
             connection_string: Some(connection_string.clone()),
             ..Default::default()
         };
+        let builder = runtime.block_on(build_discovery(&config));
 
         group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, _| {
-            b.to_async(&runtime).iter(|| discover_tables(&config));
+            b.to_async(&runtime).iter(|| discover(&builder));
         });
     }
 
@@ -306,9 +296,10 @@ fn bench_function_discovery(c: &mut Criterion) {
             connection_string: Some(connection_string.clone()),
             ..Default::default()
         };
+        let builder = runtime.block_on(build_discovery(&config));
 
         group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, _| {
-            b.to_async(&runtime).iter(|| discover_functions(&config));
+            b.to_async(&runtime).iter(|| discover(&builder));
         });
     }
 

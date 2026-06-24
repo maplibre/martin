@@ -3,11 +3,11 @@ use std::path::PathBuf;
 use std::str::FromStr as _;
 
 use futures::TryStreamExt as _;
-use log::{info, warn};
 use serde::Serialize;
 use serde_json::{Value as JSONValue, Value, json};
-use sqlx::{SqliteConnection, SqliteExecutor, query};
+use sqlx::{AssertSqlSafe, SqliteConnection, SqliteExecutor, query};
 use tilejson::{Bounds, Center, TileJSON, tilejson};
+use tracing::{info, warn};
 
 use crate::MbtError::InvalidZoomValue;
 use crate::Mbtiles;
@@ -67,8 +67,12 @@ impl Mbtiles {
         match val {
             Ok(v) => Some(v),
             Err(err) => {
-                let name = &self.filename();
-                warn!("Unable to parse metadata {title} value in {name}: {err}");
+                warn!(
+                    metadata.title = %title,
+                    mbtiles.file = %self.filename(),
+                    error = %err,
+                    "Unable to parse metadata value"
+                );
                 None
             }
         }
@@ -173,6 +177,7 @@ impl Mbtiles {
     /// # Ok(())
     /// # }
     /// ```
+    #[hotpath::measure]
     pub async fn get_metadata<T>(&self, conn: &mut T) -> MbtResult<Metadata>
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
@@ -201,21 +206,27 @@ impl Mbtiles {
                     "legend" => tj.legend = Some(value),
                     "template" => tj.template = Some(value),
                     "json" => json = self.to_val(serde_json::from_str(&value), &name),
-                    "format" | "generator" => {
+                    "format" | "generator" | "compression" => {
                         tj.other.insert(name, Value::String(value));
                     }
                     "agg_tiles_hash" => agg_tiles_hash = Some(value),
                     "scheme" => {
                         if value != "tms" {
-                            let file = &self.filename();
                             warn!(
-                                "File {file} has an unexpected metadata value {name}='{value}'. Only 'tms' is supported. Ignoring."
+                                mbtiles.file = %self.filename(),
+                                metadata.name = %name,
+                                metadata.value = %value,
+                                "Unexpected metadata value; only 'tms' is supported. Ignoring."
                             );
                         }
                     }
                     _ => {
-                        let file = &self.filename();
-                        info!("{file} has an unrecognized metadata value {name}={value}");
+                        info!(
+                            mbtiles.file = %self.filename(),
+                            metadata.name = %name,
+                            metadata.value = %value,
+                            "Unrecognized metadata value"
+                        );
                         tj.other.insert(name, Value::String(value));
                     }
                 }
@@ -283,6 +294,7 @@ impl Mbtiles {
     /// # Ok(())
     /// # }
     /// ```
+    #[hotpath::measure]
     pub async fn insert_metadata<T>(&self, conn: &mut T, tile_json: &TileJSON) -> MbtResult<()>
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
@@ -336,7 +348,7 @@ impl Mbtiles {
 pub async fn anonymous_mbtiles(script: &str) -> (Mbtiles, SqliteConnection) {
     let mbt = Mbtiles::new(":memory:").expect("in-memory mbtiles can be created");
     let mut conn = mbt.open().await.expect("in-memory mbtiles can be opened");
-    sqlx::raw_sql(script)
+    sqlx::raw_sql(AssertSqlSafe(script))
         .execute(&mut conn)
         .await
         .expect("script execution succeeded");
@@ -359,7 +371,7 @@ pub async fn temp_named_mbtiles(
         .open()
         .await
         .unwrap_or_else(|_| panic!("can open connection to {}", file.display()));
-    sqlx::raw_sql(script)
+    sqlx::raw_sql(AssertSqlSafe(script))
         .execute(&mut conn)
         .await
         .unwrap_or_else(|_| panic!("can execute script on {}", file.display()));
@@ -519,7 +531,9 @@ mod tests {
     async fn metadata_empty_tileset() {
         let mbt = Mbtiles::new(":memory:").unwrap();
         let mut conn = mbt.open().await.unwrap();
-        init_mbtiles_schema(&mut conn, MbtType::Flat).await.unwrap();
+        init_mbtiles_schema(&mut conn, MbtType::Flat, false)
+            .await
+            .unwrap();
 
         // get_metadata should work on empty tileset
         let meta = mbt.get_metadata(&mut conn).await;
@@ -528,5 +542,60 @@ mod tests {
         // detect_format should return None for empty tileset
         let tile_info = mbt.detect_format(&meta.tilejson, &mut conn).await.unwrap();
         assert_eq!(tile_info, None);
+    }
+
+    #[actix_rt::test]
+    async fn metadata_mlt() {
+        let script = include_str!("../../tests/fixtures/mbtiles/mlt.sql");
+        let (mbt, mut conn) = anonymous_mbtiles(script).await;
+        let meta = mbt.get_metadata(&mut conn).await.unwrap();
+        // compression=none must round-trip through tilejson.other
+        insta::assert_yaml_snapshot!(meta.tilejson.other, @r#"
+        compression: none
+        format: application/vnd.maplibre-vector-tile
+        "#);
+        let tile_info = mbt.detect_format(&meta.tilejson, &mut conn).await.unwrap();
+        assert_eq!(
+            tile_info,
+            Some(TileInfo::new(Format::Mlt, Encoding::Internal))
+        );
+    }
+
+    #[actix_rt::test]
+    async fn update_compression_gzip() {
+        let script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
+        let (mbt, mut conn) = anonymous_mbtiles(script).await;
+
+        mbt.update_compression(&mut conn).await.unwrap();
+
+        let compression = mbt
+            .get_metadata_value(&mut conn, "compression")
+            .await
+            .unwrap();
+        assert_eq!(
+            compression.as_deref(),
+            Some("gzip"),
+            "world_cities tiles are gzip-compressed; compression metadata should be 'gzip'"
+        );
+    }
+
+    #[actix_rt::test]
+    async fn update_compression_internal() {
+        let script = include_str!("../../tests/fixtures/mbtiles/geography-class-jpg.sql");
+        let (mbt, mut conn) = anonymous_mbtiles(script).await;
+
+        mbt.set_metadata_value(&mut conn, "compression", "gzip")
+            .await
+            .unwrap();
+
+        mbt.update_compression(&mut conn).await.unwrap();
+
+        assert_eq!(
+            mbt.get_metadata_value(&mut conn, "compression")
+                .await
+                .unwrap(),
+            None,
+            "JPEG tiles use internal compression; the compression metadata key should be absent"
+        );
     }
 }

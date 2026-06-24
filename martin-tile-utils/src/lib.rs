@@ -1,4 +1,5 @@
 #![doc = include_str!("../README.md")]
+#![forbid(unsafe_code)]
 
 // This code was partially adapted from https://github.com/maplibre/mbtileserver-rs
 // project originally written by Kaveh Karimi and licensed under MIT OR Apache-2.0
@@ -47,7 +48,7 @@ impl TileCoord {
     ///
     /// Check [`Self::new_unchecked`] if you are sure that your inputs are possible.
     #[must_use]
-    pub fn new_checked(z: u8, x: u32, y: u32) -> Option<TileCoord> {
+    pub fn new_checked(z: u8, x: u32, y: u32) -> Option<Self> {
         Self::is_possible_on_zoom_level(z, x, y).then_some(Self { z, x, y })
     }
 
@@ -55,7 +56,7 @@ impl TileCoord {
     ///
     /// Check [`Self::new_checked`] if you are unsure if your inputs are possible.
     #[must_use]
-    pub fn new_unchecked(z: u8, x: u32, y: u32) -> TileCoord {
+    pub fn new_unchecked(z: u8, x: u32, y: u32) -> Self {
         Self { z, x, y }
     }
 
@@ -71,7 +72,7 @@ impl TileCoord {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 pub enum Format {
     Gif,
     Jpeg,
@@ -84,6 +85,9 @@ pub enum Format {
 }
 
 impl Format {
+    /// All image formats.
+    pub const IMAGE_FORMATS: &[Self] = &[Self::Gif, Self::Jpeg, Self::Png, Self::Webp, Self::Avif];
+
     #[must_use]
     pub fn parse(value: &str) -> Option<Self> {
         Some(match value.to_ascii_lowercase().as_str() {
@@ -122,11 +126,27 @@ impl Format {
             Self::Jpeg => "image/jpeg",
             Self::Json => "application/json",
             Self::Mvt => "application/x-protobuf",
-            Self::Mlt => "application/vnd.maplibre-vector-tile",
+            Self::Mlt => "application/vnd.maplibre-tile",
             Self::Png => "image/png",
             Self::Webp => "image/webp",
             Self::Avif => "image/avif",
         }
+    }
+
+    /// Parse a content type string back to a `Format`.
+    #[must_use]
+    pub fn from_content_type(supertype: &str, subtype: &str) -> Option<Self> {
+        Some(match (supertype, subtype) {
+            ("image", "gif") => Self::Gif,
+            ("image", "jpeg" | "jpg") => Self::Jpeg,
+            ("application", "json") => Self::Json,
+            ("application", "x-protobuf" | "vnd.mapbox-vector-tile") => Self::Mvt,
+            ("application", "vnd.maplibre-vector-tile" | "vnd.maplibre-tile") => Self::Mlt,
+            ("image", "png") => Self::Png,
+            ("image", "webp") => Self::Webp,
+            ("image", "avif") => Self::Avif,
+            _ => None?,
+        })
     }
 
     #[must_use]
@@ -172,21 +192,24 @@ pub enum Encoding {
 }
 
 impl Encoding {
+    /// Parse the encoding from common names if they match
     #[must_use]
     pub fn parse(value: &str) -> Option<Self> {
         Some(match value.to_ascii_lowercase().as_str() {
-            "none" => Self::Uncompressed,
+            "none" | "identity" => Self::Uncompressed,
             "gzip" => Self::Gzip,
-            "zlib" => Self::Zlib,
-            "brotli" => Self::Brotli,
+            "deflate" | "zlib" => Self::Zlib,
+            "br" | "brotli" => Self::Brotli,
             "zstd" => Self::Zstd,
             _ => None?,
         })
     }
 
+    /// Returns `None` for [`Encoding::Uncompressed`] and [`Encoding::Internal`]:
+    /// absence of the `compression` key in the metadata table means no external encoding.
     #[must_use]
-    pub fn content_encoding(&self) -> Option<&str> {
-        match *self {
+    pub fn compression(self) -> Option<&'static str> {
+        match self {
             Self::Uncompressed | Self::Internal => None,
             Self::Gzip => Some("gzip"),
             Self::Zlib => Some("deflate"),
@@ -241,8 +264,7 @@ impl TileInfo {
         if let Some(raster_format) = Self::detect_raster_formats(value) {
             Self::new(raster_format, Encoding::Internal)
         } else {
-            let inner_format = Self::detect_vectorish_format(value);
-            Self::new(inner_format, Encoding::Uncompressed)
+            Self::detect_vectorish_format(value).into()
         }
     }
 
@@ -300,7 +322,7 @@ impl From<Format> for TileInfo {
 impl Display for TileInfo {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.format.content_type())?;
-        if let Some(encoding) = self.encoding.content_encoding() {
+        if let Some(encoding) = self.encoding.compression() {
             write!(f, "; encoding={encoding}")?;
         } else if self.encoding != Encoding::Uncompressed {
             f.write_str("; uncompressed")?;
@@ -324,14 +346,16 @@ enum SevenBitDecodingError {
     #[error("Expected a size, but got nothing")]
     TruncatedSize,
     /// Expected data according to the size, but got nothing
-    #[error("Expected {0} bytes of data in layer according to the size, but got only {1}")]
-    TruncatedData(u64, u64),
+    #[error(
+        "Expected {expected} bytes of data in layer according to the size, but got only {actual}"
+    )]
+    TruncatedData { expected: u64, actual: u64 },
     /// Got unexpected tag
     #[error("Got tag {0} instead of the expected")]
     UnexpectedTag(u8),
 }
 
-/// Tries to validate that the tile consists of a valid concatination of (`size_7_bit`, `one_of_expected_version`, `data`)
+/// Tries to validate that the tile consists of a valid concatenation of (`size_7_bit`, `one_of_expected_version`, `data`)
 fn decode_7bit_length_and_tag(tile: &[u8], versions: &[u8]) -> Result<(), SevenBitDecodingError> {
     if tile.is_empty() {
         return Err(SevenBitDecodingError::TruncatedSize);
@@ -369,7 +393,10 @@ fn decode_7bit_length_and_tag(tile: &[u8], versions: &[u8]) -> Result<(), SevenB
                     .ok_or(SevenBitDecodingError::SizeUnderflow)?;
                 for i in 0..payload_len {
                     if tile_iter.next().is_none() {
-                        return Err(SevenBitDecodingError::TruncatedData(payload_len, i));
+                        return Err(SevenBitDecodingError::TruncatedData {
+                            expected: payload_len,
+                            actual: i,
+                        });
                     }
                 }
                 break;
@@ -524,6 +551,15 @@ mod tests {
     }
 
     #[test]
+    fn test_raw_mlt_encoding_internal() {
+        // MLT has internal compression, so raw MLT bytes should be Encoding::Internal
+        // to prevent the serve path from applying heavyweight gzip/brotli on top.
+        let mlt_data = &[0x02, 0x01];
+        let result = TileInfo::detect(mlt_data);
+        assert_eq!(result, TileInfo::new(Format::Mlt, Encoding::Internal));
+    }
+
+    #[test]
     fn test_compressed_mlt_gzip() {
         // MLT tile: length=2 (0x02), version=1 (0x01)
         let mlt_data = &[0x02, 0x01];
@@ -593,7 +629,7 @@ mod tests {
     #[case::size_underflow(&[0x00, 0x01], Err(SevenBitDecodingError::SizeUnderflow))]
     #[case::unterminated_length(&[0x80], Err(SevenBitDecodingError::TruncatedSize))]
     #[case::missing_version_byte(&[0x05], Err(SevenBitDecodingError::TruncatedTag))]
-    #[case::wrong_length(&[0x03, 0x01], Err(SevenBitDecodingError::TruncatedData(1, 0)))]
+    #[case::wrong_length(&[0x03, 0x01], Err(SevenBitDecodingError::TruncatedData { expected: 1, actual: 0 }))]
     fn test_decode_7bit_length_and_tag(
         #[case] tile: &[u8],
         #[case] expected: Result<(), SevenBitDecodingError>,
@@ -697,7 +733,7 @@ mod tests {
         );
         assert_eq!(
             actual_xyz, expected_xyz,
-            "zoom {zoom} does not have te right xyz"
+            "zoom {zoom} does not have the right xyz"
         );
     }
 
@@ -800,5 +836,33 @@ mod tests {
         let xyz = TileCoord { z: 1, x: 2, y: 3 };
         assert_eq!(format!("{xyz}"), "1,2,3");
         assert_eq!(format!("{xyz:#}"), "1/2/3");
+    }
+
+    #[rstest]
+    #[case("none", Some(Encoding::Uncompressed))]
+    #[case("identity", Some(Encoding::Uncompressed))]
+    #[case("IDENTITY", Some(Encoding::Uncompressed))]
+    #[case("gzip", Some(Encoding::Gzip))]
+    #[case("GZIP", Some(Encoding::Gzip))]
+    #[case("deflate", Some(Encoding::Zlib))]
+    #[case("zlib", Some(Encoding::Zlib))]
+    #[case("br", Some(Encoding::Brotli))]
+    #[case("brotli", Some(Encoding::Brotli))]
+    #[case("zstd", Some(Encoding::Zstd))]
+    #[case("unknown", None)]
+    #[case("", None)]
+    fn test_encoding_parse(#[case] input: &str, #[case] expected: Option<Encoding>) {
+        assert_eq!(Encoding::parse(input), expected);
+    }
+
+    #[rstest]
+    #[case(Encoding::Uncompressed, None)]
+    #[case(Encoding::Internal, None)]
+    #[case(Encoding::Gzip, Some("gzip"))]
+    #[case(Encoding::Zlib, Some("deflate"))]
+    #[case(Encoding::Brotli, Some("br"))]
+    #[case(Encoding::Zstd, Some("zstd"))]
+    fn test_compression(#[case] encoding: Encoding, #[case] expected: Option<&str>) {
+        assert_eq!(encoding.compression(), expected);
     }
 }

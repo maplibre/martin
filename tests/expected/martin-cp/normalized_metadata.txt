@@ -11,13 +11,16 @@ tilejson:
   - 0.0
   - 0.0
   - 0
-  description: 'One of the example maps that comes with TileMill - a bright & colorful world map that blends retro and high-tech with its folded paper texture and interactive flag tooltips. '
+  description: >-
+    One of the example maps that comes with TileMill - a bright & colorful world
+    map that blends retro and high-tech with its folded paper texture and interactive
+    flag tooltips. 
   legend: |-
     <div style="text-align:center;">
-
+    
     <div style="font:12pt/16pt Georgia,serif;">Geography Class</div>
     <div style="font:italic 10pt/16pt Georgia,serif;">by MapBox</div>
-
+    
     <img src="data:image/png;base64,iVBORw0KGgo">
     </div>
   maxzoom: 6

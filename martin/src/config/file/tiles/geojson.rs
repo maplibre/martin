@@ -8,7 +8,8 @@ use url::Url;
 
 use crate::MartinResult;
 use crate::config::file::{
-    ConfigurationLivecycleHooks, TileSourceConfiguration, UnrecognizedKeys, UnrecognizedValues,
+    CachePolicy, ConfigurationLivecycleHooks, TileSourceConfiguration, UnrecognizedKeys,
+    UnrecognizedValues,
 };
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -28,12 +29,22 @@ impl TileSourceConfiguration for GeoJsonConfig {
         false
     }
 
-    async fn new_sources(&self, id: String, path: PathBuf) -> MartinResult<BoxedSource> {
-        let geojson_source = GeoJsonSource::new(id, path).await?;
+    async fn new_sources(
+        &self,
+        id: String,
+        path: PathBuf,
+        cache: CachePolicy,
+    ) -> MartinResult<BoxedSource> {
+        let geojson_source = GeoJsonSource::new(id, path, cache.zoom()).await?;
         Ok(Box::new(geojson_source))
     }
 
-    async fn new_sources_url(&self, _id: String, _url: Url) -> MartinResult<BoxedSource> {
+    async fn new_sources_url(
+        &self,
+        _id: String,
+        _url: Url,
+        _cache: CachePolicy,
+    ) -> MartinResult<BoxedSource> {
         unreachable!()
     }
 }

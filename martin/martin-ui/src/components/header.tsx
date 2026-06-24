@@ -1,4 +1,4 @@
-import { BookOpen, Github, Info } from 'lucide-react';
+import { BookOpen, Code, Info } from 'lucide-react';
 import Logo from '@/components/logo';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -81,7 +81,7 @@ export function Header() {
                     rel="noopener noreferrer"
                     target="_blank"
                   >
-                    <Github size={20} />
+                    <Code size={20} />
                   </a>
                 </Button>
               </HoverCardTrigger>

@@ -6,7 +6,7 @@ tilejson:
   - id: cities
     fields:
       name: String
-    description: ''
+    description: ""
     maxzoom: 6
     minzoom: 0
   bounds:
@@ -22,7 +22,8 @@ tilejson:
   maxzoom: 6
   minzoom: 0
   name: Major cities from Natural Earth data
-  version: '2'
+  version: "2"
+  compression: gzip
   format: pbf
   generator: martin-cp v0.0.0
 agg_tiles_hash: 08934F8E3E58DED510920E1DE6F4E78F

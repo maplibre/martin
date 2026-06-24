@@ -14,11 +14,18 @@ pub enum PmtilesError {
     #[error(r"PMTiles error {0} processing {1}")]
     PmtErrorWithCtx(#[source] PmtError, String),
 
-    /// Invalid or unparseable metadata in the `PMTiles` source.
+    /// Invalid or unparsable metadata in the `PMTiles` source.
     #[error(r"Unable to parse metadata in file {1}: {0}")]
     InvalidMetadata(String, object_store::path::Path),
 
     /// Unknown tile type encountered while processing `PMTiles` file.
-    #[error("Unknown tile type for source {0} ({1} at path {2})")]
-    UnknownTileType(String, String, String),
+    #[error("Unknown tile type for source {source_id} ({store} at path {path})")]
+    UnknownTileType {
+        /// The id of the source.
+        source_id: String,
+        /// The object store backing the source.
+        store: String,
+        /// The path of the file within the store.
+        path: String,
+    },
 }

@@ -36,9 +36,9 @@ VALUES ('point_1', '0101000020E6100000EC3A2806EDDA61401C2041E87DDA2740'),
 INSERT INTO schema_b.table_name_existing_two_schemas (b_info, b_geom)
 VALUES ('polygon_1', GEOMFROMEWKT('SRID=4326;POLYGON((30 10, 40 40, 20 40, 10 20, 30 10))'));
 
-CREATE INDEX ON schema_a.table_name_existing_two_schemas USING gist (a_geom);
+CREATE INDEX CONCURRENTLY ON schema_a.table_name_existing_two_schemas USING gist (a_geom);
 CLUSTER table_name_existing_two_schemas_a_geom_idx ON schema_a.table_name_existing_two_schemas;
-CREATE INDEX ON schema_b.table_name_existing_two_schemas USING gist (b_geom);
+CREATE INDEX CONCURRENTLY ON schema_b.table_name_existing_two_schemas USING gist (b_geom);
 CLUSTER table_name_existing_two_schemas_b_geom_idx ON schema_b.table_name_existing_two_schemas;
 
 -- instead of tables or views, we can also mix them
@@ -51,7 +51,7 @@ CREATE TABLE schema_a.table_and_view_two_schemas (
 INSERT INTO schema_a.table_and_view_two_schemas (a_info, a_geom)
 VALUES ('point_1', '0101000020E6100000EC3A2806EDDA61401C2041E87DDA2740');
 
-CREATE INDEX ON schema_a.table_and_view_two_schemas USING gist (a_geom);
+CREATE INDEX CONCURRENTLY ON schema_a.table_and_view_two_schemas USING gist (a_geom);
 CLUSTER table_and_view_two_schemas_a_geom_idx ON schema_a.table_and_view_two_schemas;
 
 CREATE VIEW schema_b.table_and_view_two_schemas AS SELECT
