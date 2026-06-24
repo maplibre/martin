@@ -16,7 +16,7 @@ fn fixtures_dir() -> PathBuf {
 
 fn bench_fetching(c: &mut Criterion) {
     let rt = Runtime::new().unwrap();
-    let filename = "countries.geojson";
+    let filename = "clip.geojson";
     c.bench_function("fetch_tile", |b| {
         b.to_async(&rt).iter(|| async {
             let path = fixtures_dir().join(filename);
@@ -24,7 +24,7 @@ fn bench_fetching(c: &mut Criterion) {
                 .await
                 .unwrap();
 
-            let tile_coord = TileCoord::new_unchecked(0, 0, 0);
+            let tile_coord = TileCoord::new_unchecked(1, 1, 0);
             let tile = geojson_source.get_tile(tile_coord, None).await.unwrap();
             black_box(tile);
         });

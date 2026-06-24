@@ -110,19 +110,7 @@ build-release target:
         export CARGO_TARGET_{{shoutysnakecase(target)}}_RUSTFLAGS='-C strip=debuginfo'
 
         cargo build --release --target {{target}} --package mbtiles --locked
-
-        # geos is hard to build on Windows or macos
-        if [[ "{{target}}" =~ .+-pc-windows-msvc ]]; then
-            cargo build --release --target {{target}} --package martin --locked \
-                --no-default-features \
-                --features fonts,lambda,mbtiles,metrics,pmtiles,postgres,sprites,styles,webui
-        elif [[ "{{target}}" =~ .+-apple-darwin ]]; then
-            cargo build --release --target {{target}} --package martin --locked \
-                --no-default-features \
-                --features fonts,lambda,mbtiles,metrics,pmtiles,postgres,sprites,styles,webui
-        else
-            cargo build --release --target {{target}} --package martin --locked
-        fi
+        cargo build --release --target {{target}} --package martin --locked
     fi
 
 # Build debian package
@@ -296,8 +284,7 @@ install-dependencies backend='vulkan':
       libcurl4-openssl-dev \
       libglfw3-dev \
       libuv1-dev \
-      libz-dev \
-      libgeos-dev
+      libz-dev
 
 # Install macOS dependencies via Homebrew
 [macos]
@@ -307,13 +294,12 @@ install-dependencies backend='vulkan':
         curl \
         glfw \
         libuv \
-        zlib \
-        geos
+        zlib
 
 # Install Windows dependencies
 [windows]
 install-dependencies backend='vulkan':
-    @echo "Windows: No additional dependencies needed (rendering not supported on Windows)"
+    @echo "rendering styles is not currently supported on windows"
 
 # Run cargo fmt and cargo clippy
 lint: fmt clippy biomejs-martin-ui type-check
@@ -575,8 +561,8 @@ validate-tools:
         echo "✓ All required tools are installed"
     else
         echo "✗ Missing tools: ${missing_tools[*]}"
-        echo "  Ubuntu/Debian: sudo apt install -y jq file curl grep sqlite3-tools gdal-bin libgeos-dev"
-        echo "  macOS: brew install jq file curl grep sqlite gdal gsed geos"
+        echo "  Ubuntu/Debian: sudo apt install -y jq file curl grep sqlite3-tools gdal-bin"
+        echo "  macOS: brew install jq file curl grep sqlite gdal gsed"
         echo ""
         exit 1
     fi

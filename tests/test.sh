@@ -615,18 +615,45 @@ wait_for "$MARTIN_PROC_ID" Martin "$MARTIN_URL/health"
 >&2 echo "Test GeoJSON catalog"
 test_jsn catalog_geojson catalog
 
->&2 echo "***** Test server response for GeoJSON sources *****"
+>&2 echo "***** Test GeoJSON input forms *****"
+# FeatureCollection (.geojson)
 test_jsn geojson_fc1       feature_collection_1
 test_pbf geojson_fc1_0_0_0 feature_collection_1/0/0/0
-
+# FeatureCollection of mixed Point/LineString/Polygon
 test_jsn geojson_fc2       feature_collection_2
 test_pbf geojson_fc2_0_0_0 feature_collection_2/0/0/0
-
+# FeatureCollection from a .json (not .geojson) file
 test_jsn geojson_fc3       feature_collection_3
-test_pbf geojson_fc2_0_0_0 feature_collection_2/0/0/0
-
+test_pbf geojson_fc3_0_0_0 feature_collection_3/0/0/0
+# A single top-level Feature
 test_jsn geojson_f1        feature_1
 test_pbf geojson_f1_0_0_0  feature_1/0/0/0
+# A bare top-level Geometry (no Feature/FeatureCollection wrapper)
+test_jsn geojson_bare       bare_geometry
+test_pbf geojson_bare_0_0_0 bare_geometry/0/0/0
+
+>&2 echo "***** Test GeoJSON geometry types (MultiPoint, MultiLineString, MultiPolygon, GeometryCollection) *****"
+test_jsn geojson_multi       multi_geometries
+test_pbf geojson_multi_0_0_0 multi_geometries/0/0/0
+
+>&2 echo "***** Test GeoJSON property value types (string/int/uint/float/bool/array/object, null omitted) *****"
+test_jsn geojson_props       properties
+test_pbf geojson_props_0_0_0 properties/0/0/0
+
+>&2 echo "***** Test GeoJSON clipping, spatial index and tile-coordinate transform at zoom > 0 *****"
+test_pbf geojson_clip_0_0_0 clip/0/0/0
+test_pbf geojson_clip_1_0_0 clip/1/0/0
+test_pbf geojson_clip_1_1_0 clip/1/1/0
+test_pbf geojson_clip_1_0_1 clip/1/0/1
+test_pbf geojson_clip_1_1_1 clip/1/1/1
+
+>&2 echo "***** Test GeoJSON empty tile returns 204 No Content *****"
+EMPTY_TILE_CODE=$($CURL --output /dev/null --write-out '%{http_code}' "$MARTIN_URL/feature_1/1/0/1")
+if [[ "$EMPTY_TILE_CODE" != "204" ]]; then
+  echo "ERROR: expected 204 for a tile with no features, got $EMPTY_TILE_CODE"
+  exit 1
+fi
+>&2 echo "OK: empty tile returned 204"
 
 kill_process "$MARTIN_PROC_ID" Martin
 test_log_has_str "$LOG_FILE" 'WARN Defaulting `pmtiles.allow_http` to `true`. This is likely to become an error in the future for better security.'

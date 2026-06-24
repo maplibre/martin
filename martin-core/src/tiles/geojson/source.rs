@@ -5,7 +5,7 @@ use std::vec;
 
 use async_trait::async_trait;
 use geo_index::rtree::{RTree, RTreeIndex as _};
-use geojson::{FeatureCollection, GeoJson, Geometry, Value};
+use geojson::{Feature, FeatureCollection, GeoJson, Geometry, Value};
 use geozero::mvt::{Message as _, MvtWriter, Tile};
 use i_overlay::core::fill_rule::FillRule;
 use i_overlay::core::overlay_rule::OverlayRule;
@@ -162,9 +162,16 @@ impl Source for GeoJsonSource {
             })
             .collect::<Vec<_>>();
 
+        // MVT features hold a single geometry type, so a GeoJSON GeometryCollection
+        // is emitted as one MVT feature per contained geometry, all sharing the properties.
+        let mut flattened_fs = Vec::with_capacity(clipped_fs.len());
+        for f in clipped_fs {
+            flatten_geometry_collections(f, &mut flattened_fs);
+        }
+
         let fc = FeatureCollection {
             bbox: None,
-            features: clipped_fs,
+            features: flattened_fs,
             foreign_members: None,
         };
         let geojson = GeoJson::FeatureCollection(fc);
@@ -180,6 +187,26 @@ impl Source for GeoJsonSource {
         };
         let v = tile.encode_to_vec();
         Ok(v)
+    }
+}
+
+/// Expand a feature whose geometry is a `GeometryCollection` into one feature per
+/// contained geometry (recursively), since an MVT feature holds a single geometry.
+/// All resulting features share the original properties.
+/// Features with any other geometry are pushed unchanged.
+fn flatten_geometry_collections(mut f: Feature, out: &mut Vec<Feature>) {
+    if let Some(Geometry {
+        value: Value::GeometryCollection(geometries),
+        ..
+    }) = f.geometry.take()
+    {
+        for geometry in geometries {
+            let mut child = f.clone();
+            child.geometry = Some(geometry);
+            flatten_geometry_collections(child, out);
+        }
+    } else {
+        out.push(f);
     }
 }
 

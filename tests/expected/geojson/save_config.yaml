@@ -1,11 +1,14 @@
-listen_addresses: localhost:3111
+listen_addresses: localhost:3119
 pmtiles: tests/fixtures/geojson
 mbtiles: tests/fixtures/geojson
 geojson:
   paths: tests/fixtures/geojson
   sources:
-    countries: tests/fixtures/geojson/countries.geojson
+    bare_geometry: tests/fixtures/geojson/bare_geometry.geojson
+    clip: tests/fixtures/geojson/clip.geojson
     feature_1: tests/fixtures/geojson/feature_1.geojson
     feature_collection_1: tests/fixtures/geojson/feature_collection_1.geojson
     feature_collection_2: tests/fixtures/geojson/feature_collection_2.geojson
     feature_collection_3: tests/fixtures/geojson/feature_collection_3.json
+    multi_geometries: tests/fixtures/geojson/multi_geometries.geojson
+    properties: tests/fixtures/geojson/properties.geojson
