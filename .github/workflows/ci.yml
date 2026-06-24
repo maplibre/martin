@@ -53,7 +53,6 @@ jobs:
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with: { persist-credentials: false }
       - uses: ./.github/actions/setup-rust
-        with: { free-disk-space: true }
       - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1 # zizmor: ignore[cache-poisoning] dev-only build cache, keyed per matrix; poisoning risk accepted
         if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
         with:
@@ -79,7 +78,7 @@ jobs:
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with: { persist-credentials: false }
       - uses: ./.github/actions/setup-rust
-        with: { free-disk-space: true, components: clippy rustfmt }
+        with: { components: clippy rustfmt }
       - uses: taiki-e/install-action@0631aa6515c7d545823c67cfae7ef4fc7f490154 # v2.81.8
         with: { tool: 'just' }
       - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1 # zizmor: ignore[cache-poisoning] dev-only build cache, keyed per matrix; poisoning risk accepted
@@ -632,7 +631,6 @@ jobs:
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with: { persist-credentials: false }
       - uses: ./.github/actions/setup-rust
-        with: { free-disk-space: true }
       - uses: taiki-e/install-action@0631aa6515c7d545823c67cfae7ef4fc7f490154 # v2.81.8
         with: { tool: 'just' }
       - name: Init database
@@ -767,7 +765,6 @@ jobs:
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with: { persist-credentials: false }
       - uses: ./.github/actions/setup-rust
-        with: { free-disk-space: true }
       - uses: taiki-e/install-action@0631aa6515c7d545823c67cfae7ef4fc7f490154 # v2.81.8
         with: { tool: 'just,cargo-binstall' }
       - name: Install rendering dependencies
