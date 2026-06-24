@@ -50,27 +50,24 @@ vi.mock('@/components/ui/button', () => ({
   ),
 }));
 
-// Mock lucide-react icons
-vi.mock('lucide-react', () => ({
-  Download: () => <span data-testid="download-icon">📥</span>,
-}));
-
-// Mock the SpritePreview component first before importing anything else
-vi.mock('@/components/sprite/SpritePreview', () => ({
-  SpritePreview: function MockSpritePreview() {
+// Mock the SpriteMapPreview component
+vi.mock('@/components/sprite/SpriteMapPreview', () => ({
+  SpriteMapPreview: function MockSpriteMapPreview({
+    spriteIds,
+  }: {
+    spriteName: string;
+    spriteIds: readonly string[];
+  }) {
     return (
-      <div data-testid="sprite-preview">
-        <div data-testid="sprite-item">icon1</div>
-        <div data-testid="sprite-item">icon2</div>
-        <div data-testid="sprite-item">icon3</div>
+      <div data-testid="sprite-map-preview">
+        {spriteIds.map((id) => (
+          <div data-testid="sprite-item" key={id}>
+            {id}
+          </div>
+        ))}
       </div>
     );
   },
-}));
-
-// Mock LoadingSpinner component
-vi.mock('@/components/loading/loading-spinner', () => ({
-  LoadingSpinner: () => <div data-testid="loading-spinner">Loading Spinner Mock</div>,
 }));
 
 describe('SpritePreviewDialog Component', () => {

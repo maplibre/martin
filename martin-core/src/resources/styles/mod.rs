@@ -15,17 +15,74 @@
 
 use std::collections::HashMap;
 use std::fmt::Debug;
+#[cfg(all(feature = "rendering", target_os = "linux"))]
+use std::num::NonZeroUsize;
 use std::path::PathBuf;
 
+use chrono::{DateTime, Utc};
 use dashmap::{DashMap, Entry};
-use log::{info, warn};
+#[cfg(all(feature = "rendering", target_os = "linux"))]
+pub use maplibre_native::Image as StaticImage;
+#[cfg(all(feature = "rendering", target_os = "linux"))]
+use maplibre_native::Image;
 use serde::{Deserialize, Serialize};
+use serde_with::skip_serializing_none;
+use tracing::{info, warn};
+
+#[cfg(all(feature = "rendering", target_os = "linux"))]
+mod error;
+#[cfg(all(feature = "rendering", target_os = "linux"))]
+pub use error::StyleError;
+
+/// Worker pool for map image rendering.
+#[cfg(all(feature = "rendering", target_os = "linux"))]
+pub mod render_pool;
+#[cfg(all(feature = "rendering", target_os = "linux"))]
+pub use render_pool::RenderParams;
+#[cfg(all(feature = "rendering", target_os = "linux"))]
+use render_pool::RenderPools;
+
+/// What kind of layers a `MapLibre` style draws.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+#[cfg_attr(
+    feature = "unstable-schemas",
+    derive(schemars::JsonSchema, utoipa::ToSchema)
+)]
+pub enum StyleKind {
+    /// Style only references vector tile sources.
+    Vector,
+    /// Style only references raster tile sources.
+    Raster,
+    /// Style references both vector and raster tile sources.
+    Hybrid,
+}
 
 /// Style metadata.
+#[skip_serializing_none]
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "unstable-schemas",
+    derive(schemars::JsonSchema, utoipa::ToSchema)
+)]
 pub struct CatalogStyleEntry {
     /// Path to the style JSON file.
+    // utoipa 5.4 has no native `PathBuf` support - present it as a `String`
+    // (the on-the-wire form) for both schema generators.
+    #[cfg_attr(feature = "unstable-schemas", schemars(with = "String"))]
+    #[cfg_attr(feature = "unstable-schemas", schema(value_type = String))]
     pub path: PathBuf,
+    /// What kind of layers the style draws.
+    #[serde(rename = "type")]
+    pub kind: Option<StyleKind>,
+    /// Hash identifying the current style revision.
+    pub version_hash: Option<String>,
+    /// Number of layers declared in the style JSON.
+    pub layer_count: Option<u32>,
+    /// Distinct colors referenced by the style, for preview swatches.
+    pub colors: Option<Vec<String>>,
+    /// Timestamp of the style file's last modification.
+    pub last_modified_at: Option<DateTime<Utc>>,
 }
 
 /// Catalog mapping style names to metadata (e.g., "basic" -> `CatalogStyleEntry`).
@@ -33,7 +90,11 @@ pub type StyleCatalog = HashMap<String, CatalogStyleEntry>;
 
 /// Thread-safe style source manager.
 #[derive(Debug, Clone, Default)]
-pub struct StyleSources(DashMap<String, StyleSource>);
+pub struct StyleSources {
+    sources: DashMap<String, StyleSource>,
+    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    pools: Option<RenderPools>,
+}
 
 /// Style source file.
 #[derive(Clone, Debug)]
@@ -46,7 +107,7 @@ impl StyleSources {
     #[must_use]
     pub fn style_json_path(&self, style_id: &str) -> Option<PathBuf> {
         let style_id = style_id.trim_end_matches(".json").trim();
-        let item = self.0.get(style_id)?;
+        let item = self.sources.get(style_id)?;
         Some(item.path.clone())
     }
 
@@ -54,35 +115,52 @@ impl StyleSources {
     #[must_use]
     pub fn get_catalog(&self) -> StyleCatalog {
         let mut entries = StyleCatalog::new();
-        for source in &self.0 {
+        for source in &self.sources {
             entries.insert(
                 source.key().clone(),
                 CatalogStyleEntry {
                     path: source.path.clone(),
+                    // FIXME: parse the style JSON and surface its `type` field.
+                    kind: None,
+                    // FIXME: hash the style JSON contents.
+                    version_hash: None,
+                    // FIXME: parse the style JSON and count its `layers` array.
+                    layer_count: None,
+                    // FIXME: walk the style JSON and collect referenced colors.
+                    colors: None,
+                    // FIXME: stat the style file and surface its mtime.
+                    last_modified_at: None,
                 },
             );
         }
         entries
     }
 
+    /// Whether server-side style rendering is currently enabled.
+    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    #[must_use]
+    pub fn is_rendering_enabled(&self) -> bool {
+        self.pools.is_some()
+    }
+
     /// Adds a style JSON file with an ID to the catalog.
     pub fn add_style(&mut self, id: String, path: PathBuf) {
         debug_assert!(path.is_file());
         debug_assert!(!id.is_empty());
-        match self.0.entry(id) {
+        match self.sources.entry(id) {
             Entry::Occupied(v) => {
                 warn!(
-                    "Ignoring duplicate style source {id} from {new_path} because it was already configured for {old_path}",
-                    id = v.key(),
-                    old_path = v.get().path.display(),
-                    new_path = path.display()
+                    source.id = %v.key(),
+                    style.path.kept = %v.get().path.display(),
+                    style.path.dropped = %path.display(),
+                    "Ignoring duplicate style source: already configured for another path"
                 );
             }
             Entry::Vacant(v) => {
                 info!(
-                    "Configured style source {id} to {new_path}",
-                    id = v.key(),
-                    new_path = path.display()
+                    source.id = %v.key(),
+                    style.path = %path.display(),
+                    "Configured style source"
                 );
                 v.insert(StyleSource { path });
             }
@@ -92,13 +170,58 @@ impl StyleSources {
     /// Returns the number of style sources.
     #[must_use]
     pub fn len(&self) -> usize {
-        self.0.len()
+        self.sources.len()
     }
 
     /// Returns true if the catalog is empty.
     #[must_use]
     pub fn is_empty(&self) -> bool {
-        self.0.is_empty()
+        self.sources.is_empty()
+    }
+
+    /// EXPERIMENTAL support for rendering styles.
+    ///
+    /// Renders a 512×512 slippy tile via the dedicated tile renderer.
+    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    pub async fn render(&self, path: PathBuf, z: u8, x: u32, y: u32) -> Result<Image, StyleError> {
+        self.pools
+            .as_ref()
+            .ok_or(StyleError::RenderingIsDisabled)?
+            .render_tile(path, z, x, y)
+            .await
+    }
+
+    /// Render a map image with free camera control.
+    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    pub async fn render_static(&self, params: RenderParams) -> Result<Image, StyleError> {
+        self.pools
+            .as_ref()
+            .ok_or(StyleError::RenderingIsDisabled)?
+            .render_static(params)
+            .await
+    }
+
+    /// Enable rendering by spawning the tile and static [`RenderPools`]. Replaces any existing pools.
+    ///
+    /// See [`RenderPools::new`] for the meaning of `workers`.
+    ///
+    /// # Errors
+    ///
+    /// Returns the OS error from [`std::thread::Builder::spawn`] if a worker
+    /// thread cannot be started.
+    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    pub fn enable_rendering(
+        &mut self,
+        workers: Option<NonZeroUsize>,
+    ) -> Result<(), std::io::Error> {
+        self.pools = Some(RenderPools::new(workers)?);
+        Ok(())
+    }
+
+    /// Disable rendering. Subsequent render calls return [`StyleError::RenderingIsDisabled`].
+    #[cfg(all(feature = "rendering", target_os = "linux"))]
+    pub fn disable_rendering(&mut self) {
+        self.pools = None;
     }
 }
 
@@ -125,7 +248,7 @@ mod tests {
             "osm-liberty-lite".to_string(),
             style_dir.join("src2").join("osm-liberty-lite.json"),
         );
-        assert_eq!(styles.0.len(), 3);
+        assert_eq!(styles.sources.len(), 3);
 
         let catalog = styles.get_catalog();
 

@@ -1,0 +1,25 @@
+{
+  "glyphs": "/font/{fontstack}/{range}",
+  "layers": [
+    {
+      "id": "background",
+      "paint": {
+        "background-color": "#000"
+      },
+      "type": "background"
+    }
+  ],
+  "name": "Relative URLs Test",
+  "sources": {
+    "from_tiles": {
+      "tiles": ["/points1/{z}/{x}/{y}"],
+      "type": "vector"
+    },
+    "from_url": {
+      "type": "vector",
+      "url": "/table_source"
+    }
+  },
+  "sprite": "/sprite/src1",
+  "version": 8
+}

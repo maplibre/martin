@@ -12,10 +12,14 @@ The library providing the basic building blocks for [Martin](https://maplibre.or
 
 - tiles
   - [x] mbtiles
-  - [ ] pmtiles
+  - [x] pmtiles
   - [x] cog
-  - [ ] postgres tables
-  - [ ] postgres functions
+  - [x] postgres tables
+  - [x] postgres functions
+  - [x] duckdb tables
+  - [x] duckdb functions
+  - [x] geoparquet files
+  - [x] passthrough (upstream HTTP tile server)
 - resources
   - [x] sprites
   - [x] fonts

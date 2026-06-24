@@ -1,13 +1,17 @@
-cache_size_mb: 8
+cache:
+  size_mb: 8
+  minzoom: 0
+  maxzoom: 20
 keep_alive: 75
 listen_addresses: localhost:3111
 worker_processes: 1
 cors:
   origin:
-  - '*'
+  - "*"
   max_age: null
 observability:
   metrics: {}
+tilejson_url_version_param: version
 postgres:
   default_srid: 4326
   max_feature_count: 1000
@@ -31,10 +35,10 @@ postgres:
       geometry_column: Geom
       id_column: giD
       bounds:
-      - -170.94984639004662
-      - -84.20025580733805
-      - 167.70892858284475
-      - 74.23573284753762
+      - -170.9498596191 # truncated to 10 digits
+      - -84.2002563476 # truncated to 10 digits
+      - 167.7089385986 # truncated to 10 digits
+      - 74.2357330322 # truncated to 10 digits
       geometry_type: POINT
       properties:
         taBLe: text
@@ -45,10 +49,10 @@ postgres:
       geometry_column: geom
       id_column: feat_id
       bounds:
-      - -166.87107126230424
-      - -53.44747249115674
-      - 168.14061220360549
-      - 84.22411861475385
+      - -166.8710784912 # truncated to 10 digits
+      - -53.4474754333 # truncated to 10 digits
+      - 168.140625
+      - 84.2241210937 # truncated to 10 digits
       extent: 9000
       buffer: 3
       clip_geom: false
@@ -62,10 +66,10 @@ postgres:
       geometry_column: geom
       id_column: big_feat_id
       bounds:
-      - -174.89475564568033
-      - -77.2579745396886
-      - 174.72753224514435
-      - 73.80785950599903
+      - -174.8947601318 # truncated to 10 digits
+      - -77.2579803466 # truncated to 10 digits
+      - 174.7275390625
+      - 73.8078613281 # truncated to 10 digits
       extent: 9000
       buffer: 3
       clip_geom: false
@@ -143,6 +147,9 @@ postgres:
       buffer: 64
       clip_geom: true
       geometry_type: GEOMETRY
+      cache:
+        minzoom: 2
+        maxzoom: 14
       properties:
         gid: int4
   functions:
@@ -171,14 +178,13 @@ postgres:
       - 90.0
 pmtiles:
   sources:
-    pmt: tests/fixtures/pmtiles/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles
+    pmt:
+      path: tests/fixtures/pmtiles/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles
+      cache:
+        minzoom: 0
+        maxzoom: 3
     pmt2: http://localhost:5412/webp2.pmtiles
     webp2: http://localhost:5412/webp2.pmtiles
-cog:
-  sources:
-    cog-src1: tests/fixtures/cog/rgba_u8.tif
-    cog-src2: tests/fixtures/cog/rgb_u8.tif
-    rgba_u8_nodata: tests/fixtures/cog/rgba_u8_nodata.tiff
 sprites:
   paths: tests/fixtures/sprites/src1
   sources:
@@ -187,6 +193,7 @@ styles:
   paths: tests/fixtures/styles/src2
   sources:
     maplibre: tests/fixtures/styles/maplibre_demo.json
+  rendering: true
 fonts:
 - tests/fixtures/fonts/overpass-mono-regular.ttf
 - tests/fixtures/fonts

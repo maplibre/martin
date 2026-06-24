@@ -1,7 +1,4 @@
 id: world_cities
-tile_info:
-  format: mvt
-  encoding: gzip
 layer_type: overlay
 tilejson:
   tilejson: 3.0.0
@@ -10,7 +7,7 @@ tilejson:
   - id: cities
     fields:
       name: String
-    description: ''
+    description: ""
     maxzoom: 6
     minzoom: 0
   bounds:
@@ -26,7 +23,7 @@ tilejson:
   maxzoom: 6
   minzoom: 0
   name: Major cities from Natural Earth data
-  version: '2'
+  version: "2"
   format: pbf
 json:
   tilestats:
@@ -110,4 +107,6 @@ json:
       geometry: Point
       layer: cities
 agg_tiles_hash: 84792BF4EE9AEDDC5B1A60E707011FEE
-
+tile_info:
+  format: mvt
+  encoding: gzip

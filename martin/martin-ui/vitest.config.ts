@@ -30,6 +30,6 @@ export default defineConfig({
     globals: false,
 
     include: ['**/__tests__/components/**/*.[jt]s?(x)', '**/?(*.)+(spec|test).[jt]s?(x)'],
-    setupFiles: ['./vitest.setup.ts'],
+    setupFiles: ['./vitest.setup.tsx'],
   },
 });

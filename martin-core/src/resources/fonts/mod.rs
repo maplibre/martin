@@ -8,7 +8,6 @@
 //!
 //! ```rust,no_run
 //! use martin_core::fonts::FontSources;
-//! use martin_core::config::OptOneMany;
 //! use std::path::PathBuf;
 //!
 //! let mut sources = FontSources::default();
@@ -20,26 +19,35 @@ use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::fmt::Debug;
 use std::path::PathBuf;
-use std::sync::LazyLock;
+use std::sync::{Arc, LazyLock};
 
 use bit_set::BitSet;
+use chrono::{DateTime, Utc};
 use dashmap::{DashMap, Entry};
 use itertools::Itertools as _;
-use log::{debug, info, warn};
 use pbf_font_tools::freetype::{Face, Library};
-use pbf_font_tools::prost::Message;
+use pbf_font_tools::prost::Message as _;
 use pbf_font_tools::{Fontstack, Glyphs, render_sdf_glyph};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
+use tracing::{debug, info, instrument, warn};
 
-/// Maximum Unicode codepoint supported (U+FFFF - Basic Multilingual Plane).
-const MAX_UNICODE_CP: usize = 0xFFFF;
+use crate::walk_files;
+
+const FONT_EXTENSIONS: &[&str] = &["otf", "ttf", "ttc"];
+
+/// Maximum Unicode codepoint supported.
+///
+/// Although U+FFFF covers the Basic Multilingual Plane, the Unicode standard
+/// allows to use up to U+10FFFF, including for private use.
+/// (cf. <https://en.wikipedia.org/wiki/Unicode_block>)
+const MAX_UNICODE_CP: u32 = 0x0010_FFFF;
 /// Size of each Unicode codepoint range (256 characters).
 const CP_RANGE_SIZE: usize = 256;
 /// Font size in pixels for SDF glyph rendering.
 const FONT_SIZE: usize = 24;
 /// Font height in `FreeType`'s 26.6 fixed-point format.
-#[allow(clippy::cast_possible_wrap)]
+#[expect(clippy::cast_possible_wrap, reason = "FONT_SIZE << 6 is not wrapping")]
 const CHAR_HEIGHT: isize = (FONT_SIZE as isize) << 6;
 /// Buffer size in pixels around each glyph for SDF calculation.
 const BUFFER_SIZE: usize = 3;
@@ -47,54 +55,74 @@ const BUFFER_SIZE: usize = 3;
 const RADIUS: usize = 8;
 /// Cutoff threshold for SDF generation (0.0 to 1.0).
 const CUTOFF: f64 = 0.25_f64;
-/// Maximum Unicode codepoint range ID.
-///
-/// Each range is 256 codepoints long, so the highest range ID is 0xFFFF / 256 = 255.
-const MAX_UNICODE_CP_RANGE_ID: usize = MAX_UNICODE_CP / CP_RANGE_SIZE;
 
 mod error;
 pub use error::FontError;
 
+mod cache;
+pub use cache::{FontCache, FontCacheKey, NO_FONT_CACHE, OptFontCache};
+
 /// Glyph information: (codepoints, count, ranges, first, last).
-type GetGlyphInfo = (BitSet, usize, Vec<(usize, usize)>, usize, usize);
+type GetGlyphInfo = (BitSet, u32, Vec<(usize, usize)>, usize, usize);
 
 /// Extracts available codepoints from a font face.
 ///
 /// Returns `None` if the font contains no usable glyphs.
 fn get_available_codepoints(face: &mut Face) -> Option<GetGlyphInfo> {
-    let mut codepoints = BitSet::with_capacity(MAX_UNICODE_CP);
+    let mut codepoints = BitSet::new();
     let mut spans = Vec::new();
     let mut first: Option<usize> = None;
-    let mut count = 0;
+    let mut last = 0;
 
-    for cp in 0..=MAX_UNICODE_CP {
-        if face.get_char_index(cp).is_ok() {
-            codepoints.insert(cp);
-            count += 1;
-            if first.is_none() {
+    for (cp, _) in face.chars() {
+        codepoints.insert(cp);
+        if let Some(start) = first {
+            if cp != last + 1 {
+                spans.push((start, last));
                 first = Some(cp);
             }
-        } else if let Some(start) = first {
-            spans.push((start, cp - 1));
-            first = None;
+        } else {
+            first = Some(cp);
         }
+        last = cp;
     }
 
-    if count == 0 {
-        None
-    } else {
+    if let Some(first) = first {
+        spans.push((first, last));
+        let count = u32::try_from(face.num_glyphs()).unwrap_or(0);
         let start = spans[0].0;
-        let end = spans[spans.len() - 1].1;
-        Some((codepoints, count, spans, start, end))
+        Some((codepoints, count, spans, start, last))
+    } else {
+        None
     }
 }
 
 /// Catalog mapping font names to metadata (e.g., "Arial" -> `CatalogFontEntry`).
 pub type FontCatalog = HashMap<String, CatalogFontEntry>;
 
+/// Source font file container format.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+#[cfg_attr(
+    feature = "unstable-schemas",
+    derive(schemars::JsonSchema, utoipa::ToSchema)
+)]
+pub enum FontFormat {
+    /// `OpenType` font (`.otf`)
+    Otf,
+    /// `TrueType` font (`.ttf`)
+    Ttf,
+    /// `TrueType` collection (`.ttc`)
+    Ttc,
+}
+
 /// Font metadata including family, style, glyph count, and Unicode range.
 #[serde_with::skip_serializing_none]
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "unstable-schemas",
+    derive(schemars::JsonSchema, utoipa::ToSchema)
+)]
 pub struct CatalogFontEntry {
     /// Font family name (e.g., "Arial").
     pub family: String,
@@ -103,47 +131,29 @@ pub struct CatalogFontEntry {
     /// None for regular style.
     pub style: Option<String>,
     /// Total number of glyphs in this font.
-    pub glyphs: usize,
+    pub glyphs: u32,
     /// First Unicode codepoint available.
     pub start: usize,
     /// Last Unicode codepoint available.
     pub end: usize,
+    /// Source font file container format.
+    pub format: Option<FontFormat>,
+    /// Timestamp of the source font file's last modification.
+    pub last_modified_at: Option<DateTime<Utc>>,
 }
 
 /// Thread-safe font manager for discovery, cataloging, and serving fonts as Protocol Buffers.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct FontSources {
     /// Map of font name to font source data.
     fonts: DashMap<String, FontSource>,
-    /// Pre-computed bitmasks for each 256-character Unicode range.
-    masks: Vec<BitSet>,
-}
-
-impl Default for FontSources {
-    fn default() -> Self {
-        let mut masks = Vec::with_capacity(MAX_UNICODE_CP_RANGE_ID + 1);
-
-        let mut bs = BitSet::with_capacity(CP_RANGE_SIZE);
-        for v in 0..=MAX_UNICODE_CP {
-            bs.insert(v);
-            if v % CP_RANGE_SIZE == (CP_RANGE_SIZE - 1) {
-                masks.push(bs);
-                bs = BitSet::with_capacity(CP_RANGE_SIZE);
-            }
-        }
-
-        Self {
-            fonts: DashMap::new(),
-            masks,
-        }
-    }
 }
 
 impl FontSources {
     /// Discovers and loads fonts from the specified directory by recursively scanning for `.ttf`, `.otf`, and `.ttc` files.
     pub fn recursively_add_directory(&mut self, path: PathBuf) -> Result<(), FontError> {
         let lib = Library::init()?;
-        recurse_dirs(&lib, path, &mut self.fonts, true)
+        discover_fonts(&lib, path, &mut self.fonts)
     }
 
     /// Returns a catalog of all loaded fonts
@@ -159,12 +169,25 @@ impl FontSources {
     ///
     /// Combines multiple fonts (comma-separated) with later fonts filling gaps.
     /// Range must be exactly 256 characters (e.g., 0-255, 256-511).
-    #[allow(clippy::cast_possible_truncation)]
+    #[expect(clippy::cast_possible_truncation)]
+    #[instrument(
+        level = "debug",
+        skip(self),
+        fields(
+            font.fontstack = %ids,
+            font.range.start = start,
+            font.range.end = end,
+        ),
+        err(Debug),
+    )]
     pub fn get_font_range(&self, ids: &str, start: u32, end: u32) -> Result<Vec<u8>, FontError> {
-        if start > end {
-            return Err(FontError::InvalidFontRangeStartEnd(start, end));
+        if start > MAX_UNICODE_CP || end > MAX_UNICODE_CP {
+            return Err(FontError::InvalidFontRangeStartEnd { start, end });
         }
-        if start % (CP_RANGE_SIZE as u32) != 0 {
+        if start > end {
+            return Err(FontError::InvalidFontRangeStartEnd { start, end });
+        }
+        if !start.is_multiple_of(CP_RANGE_SIZE as u32) {
             return Err(FontError::InvalidFontRangeStart(start));
         }
         if end % (CP_RANGE_SIZE as u32) != (CP_RANGE_SIZE as u32 - 1) {
@@ -174,23 +197,16 @@ impl FontSources {
             return Err(FontError::InvalidFontRange(start, end));
         }
 
-        let mut needed = self.masks[(start as usize) / CP_RANGE_SIZE].clone();
         let fonts = ids
             .split(',')
-            .filter_map(|id| match self.fonts.get(id) {
-                None => Some(Err(FontError::FontNotFound(id.to_string()))),
-                Some(v) => {
-                    let mut ds = needed.clone();
-                    ds.intersect_with(&v.codepoints);
-                    if ds.is_empty() {
-                        None
-                    } else {
-                        needed.difference_with(&v.codepoints);
-                        Some(Ok((id, v, ds)))
-                    }
+            .map(|id| {
+                if self.fonts.get(id).is_none() {
+                    return Err(FontError::FontNotFound(id.to_string()));
                 }
+
+                Ok(id)
             })
-            .collect::<Result<Vec<_>, FontError>>()?;
+            .collect::<Result<Vec<&str>, FontError>>()?;
 
         if fonts.is_empty() {
             return Ok(Vec::new());
@@ -199,7 +215,11 @@ impl FontSources {
         let lib = Library::init()?;
         let mut stack = Fontstack::default();
 
-        for (id, font, ds) in fonts {
+        for id in fonts {
+            let Some(font) = self.fonts.get(id) else {
+                continue;
+            };
+
             if stack.name.is_empty() {
                 stack.name = id.to_string();
             } else {
@@ -218,9 +238,12 @@ impl FontSources {
             // and https://www.freetype.org/freetype2/docs/tutorial/step1.html for details.
             face.set_char_size(0, CHAR_HEIGHT, 0, 0)?;
 
-            for cp in &ds {
-                let glyph = render_sdf_glyph(&face, cp as u32, BUFFER_SIZE, RADIUS, CUTOFF)?;
-                stack.glyphs.push(glyph);
+            for codepoint in start..=end {
+                if !font.codepoints.contains(codepoint as usize) {
+                    continue;
+                }
+                let g = render_sdf_glyph(&face, codepoint, BUFFER_SIZE, RADIUS, CUTOFF)?;
+                stack.glyphs.push(g);
             }
         }
 
@@ -240,55 +263,55 @@ pub struct FontSource {
     /// Face index within the font file (for .ttc collections).
     face_index: isize,
     /// Unicode codepoints this font supports.
-    codepoints: BitSet,
+    codepoints: Arc<BitSet>,
     /// Font metadata for the catalog.
     catalog_entry: CatalogFontEntry,
 }
 
-/// Recursively discovers fonts in directories and individual files.
-/// Supports `.ttf`, `.otf`, and `.ttc` files.
-fn recurse_dirs(
+/// Discovers fonts at `path` and registers them in `fonts`.
+///
+/// If `path` is
+/// - a directory, we walked recursively, or
+/// - if it is a single font file we register this
+#[instrument(skip(lib, fonts), fields(path = ?path), err(Debug))]
+fn discover_fonts(
     lib: &Library,
     path: PathBuf,
     fonts: &mut DashMap<String, FontSource>,
-    is_top_level: bool,
 ) -> Result<(), FontError> {
-    let start_count = fonts.len();
-    if path.is_dir() {
-        for dir_entry in path
-            .read_dir()
-            .map_err(|e| FontError::IoError(e, path.clone()))?
-            .flatten()
-        {
-            recurse_dirs(lib, dir_entry.path(), fonts, false)?;
-        }
-        if is_top_level && fonts.len() == start_count {
-            return Err(FontError::NoFontFilesFound(path));
-        }
-    } else {
-        if path
+    if path.is_file() {
+        if !path
             .extension()
             .and_then(OsStr::to_str)
-            .is_some_and(|e| ["otf", "ttf", "ttc"].contains(&e))
+            .is_some_and(|e| FONT_EXTENSIONS.contains(&e))
         {
-            parse_font(lib, fonts, path.clone())?;
-        }
-        if is_top_level && fonts.len() == start_count {
             return Err(FontError::InvalidFontFilePath(path));
         }
+        return parse_font(lib, fonts, path);
     }
 
+    let start_count = fonts.len();
+    let font_files = walk_files(&path, FONT_EXTENSIONS)
+        .map_err(|e| FontError::IoError(e.into(), path.clone()))?;
+    for font_path in font_files {
+        parse_font(lib, fonts, font_path)?;
+    }
+    if fonts.len() == start_count {
+        return Err(FontError::NoFontFilesFound(path));
+    }
     Ok(())
 }
 
 /// Parses a font file and extracts all faces.
 /// Font names are normalized (family + style, e.g., "Arial Bold").
+#[instrument(skip(lib, fonts), fields(path = ?path), err(Debug))]
 fn parse_font(
     lib: &Library,
     fonts: &mut DashMap<String, FontSource>,
     path: PathBuf,
 ) -> Result<(), FontError> {
-    static RE_SPACES: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(\s|/|,)+").unwrap());
+    static RE_SPACES: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"(\s|/|,)+").expect("regex pattern is valid"));
 
     let mut face = lib.new_face(&path, 0)?;
     let num_faces = face.num_faces() as isize;
@@ -311,10 +334,10 @@ fn parse_font(
         match fonts.entry(name) {
             Entry::Occupied(v) => {
                 warn!(
-                    "Ignoring duplicate font {} from {} because it was already configured from {}",
-                    v.key(),
-                    path.display(),
-                    v.get().path.display()
+                    font.name = %v.key(),
+                    font.path.kept = %v.get().path.display(),
+                    font.path.dropped = %path.display(),
+                    "Ignoring duplicate font: already configured from another path"
                 );
             }
             Entry::Vacant(v) => {
@@ -323,19 +346,24 @@ fn parse_font(
                     get_available_codepoints(&mut face)
                 else {
                     warn!(
-                        "Ignoring font {key} from {} because it has no available glyphs",
-                        path.display()
+                        font.name = %key,
+                        font.path = %path.display(),
+                        "Ignoring font: no available glyphs"
                     );
                     continue;
                 };
 
                 info!(
-                    "Configured font {key} with {glyphs} glyphs ({start:04X}-{end:04X}) from {}",
-                    path.display()
+                    font.name = %key,
+                    font.path = %path.display(),
+                    font.glyph_count = glyphs,
+                    font.range.start = start,
+                    font.range.end = end,
+                    "Configured font"
                 );
                 debug!(
-                    "Available font ranges: {}",
-                    ranges
+                    font.name = %key,
+                    font.ranges = %ranges
                         .iter()
                         .map(|(s, e)| if s == e {
                             format!("{s:02X}")
@@ -343,18 +371,23 @@ fn parse_font(
                             format!("{s:02X}-{e:02X}")
                         })
                         .join(", "),
+                    "Available font ranges"
                 );
 
                 v.insert(FontSource {
                     path: path.clone(),
                     face_index,
-                    codepoints,
+                    codepoints: Arc::new(codepoints),
                     catalog_entry: CatalogFontEntry {
                         family,
                         style,
                         glyphs,
                         start,
                         end,
+                        // FIXME: derive from the font file extension / fc-query.
+                        format: None,
+                        // FIXME: stat the font file and surface its mtime.
+                        last_modified_at: None,
                     },
                 });
             }
@@ -362,4 +395,54 @@ fn parse_font(
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[cfg(unix)]
+    #[test]
+    fn k8s_configmap_symlinks_do_not_warn_about_duplicates() {
+        use std::os::unix::fs::symlink;
+
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let root = tmp.path();
+        let real_dir = root.join("..2024_05_17_17_57_51.390489675");
+        std::fs::create_dir(&real_dir).unwrap();
+        let font_src =
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../tests/fixtures/fonts2/u+3320.ttf");
+        std::fs::copy(&font_src, real_dir.join("u3320.ttf")).unwrap();
+        symlink("..2024_05_17_17_57_51.390489675", root.join("..data")).unwrap();
+        symlink("..data/u3320.ttf", root.join("u3320.ttf")).unwrap();
+
+        let mut sources = FontSources::default();
+        sources
+            .recursively_add_directory(root.to_path_buf())
+            .unwrap();
+        assert_eq!(
+            sources.get_catalog().len(),
+            1,
+            "expected exactly one font, not duplicates from the ..data/..timestamped tree"
+        );
+    }
+
+    #[test]
+    fn test_get_available_codepoints() {
+        let lib = Library::init().unwrap();
+
+        // U+3320: SQUARE SANTIIMU, U+1F60A: SMILING FACE WITH SMILING EYES
+        for codepoint in [0x3320, 0x1f60a] {
+            let font_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join(format!("../tests/fixtures/fonts2/u+{codepoint:x}.ttf"));
+            assert!(font_path.is_file(), "{}", font_path.display());
+            let mut face = lib.new_face(&font_path, 0).unwrap();
+
+            let (_codepoints, count, _ranges, first, last) =
+                get_available_codepoints(&mut face).unwrap();
+            assert_eq!(count, 2);
+            assert_eq!(format!("U+{first:X}"), format!("U+{codepoint:X}"));
+            assert_eq!(format!("U+{last:X}"), format!("U+{codepoint:X}"));
+        }
+    }
 }

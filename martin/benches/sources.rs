@@ -1,14 +1,16 @@
 use criterion::async_executor::FuturesExecutor;
 use criterion::{Criterion, criterion_group, criterion_main};
-use martin::TileSources;
-use martin::srv::DynTileSource;
+use martin::TileSourceManager;
+use martin::config::file::{OnInvalid, ProcessConfig};
+use martin::srv::{DynTileSource, TileRequestHeaders};
+use martin_core::tiles::NO_TILE_CACHE;
 use martin_tile_utils::TileCoord;
-use pprof::criterion::{Output, PProfProfiler};
 
 mod sources {
     use async_trait::async_trait;
+    use martin_core::CacheZoomRange;
     use martin_core::tiles::catalog::CatalogSourceEntry;
-    use martin_core::tiles::{MartinCoreResult, Source, UrlQuery};
+    use martin_core::tiles::{MartinCoreError, MartinCoreResult, Source, UrlQuery};
     use martin_tile_utils::{Encoding, Format, TileCoord, TileData, TileInfo};
     use tilejson::{TileJSON, tilejson};
 
@@ -41,6 +43,10 @@ mod sources {
 
         fn clone_source(&self) -> Box<dyn Source> {
             Box::new(self.clone())
+        }
+
+        fn cache_zoom(&self) -> CacheZoomRange {
+            CacheZoomRange::default()
         }
 
         fn support_url_query(&self) -> bool {
@@ -91,6 +97,10 @@ mod sources {
             Box::new(self.clone())
         }
 
+        fn cache_zoom(&self) -> CacheZoomRange {
+            CacheZoomRange::default()
+        }
+
         fn support_url_query(&self) -> bool {
             false
         }
@@ -100,7 +110,8 @@ mod sources {
             _xyz: TileCoord,
             _url_query: Option<&UrlQuery>,
         ) -> MartinCoreResult<TileData> {
-            Err(Box::new(std::io::Error::other("some error".to_string())))
+            let error = std::io::Error::other("some error".to_string());
+            Err(MartinCoreError::OtherError(Box::new(error)))
         }
 
         fn get_catalog_entry(&self) -> CatalogSourceEntry {
@@ -109,39 +120,54 @@ mod sources {
     }
 }
 
-async fn process_null_tile(sources: &TileSources) {
-    let src = DynTileSource::new(sources, "null", Some(0), "", None, None, None, None).unwrap();
+async fn process_null_tile(manager: &TileSourceManager) {
+    let src = DynTileSource::new(manager, "null", Some(0), "", TileRequestHeaders::default())
+        .expect("null source can be created");
     src.get_http_response(TileCoord { z: 0, x: 0, y: 0 })
         .await
-        .unwrap();
+        .expect("null source returns empty tile");
 }
 
-async fn process_error_tile(sources: &TileSources) {
-    let src = DynTileSource::new(sources, "error", Some(0), "", None, None, None, None).unwrap();
+async fn process_error_tile(manager: &TileSourceManager) {
+    let src = DynTileSource::new(manager, "error", Some(0), "", TileRequestHeaders::default())
+        .expect("error source can be created");
     src.get_http_response(TileCoord { z: 0, x: 0, y: 0 })
         .await
-        .unwrap_err();
+        .expect_err("error source returns an error");
 }
 
 fn bench_null_source(c: &mut Criterion) {
-    let sources = TileSources::new(vec![vec![Box::new(sources::NullSource::new())]]);
+    let mgr = TileSourceManager::from_sources(
+        NO_TILE_CACHE,
+        OnInvalid::Abort,
+        vec![vec![(
+            Box::new(sources::NullSource::new()),
+            ProcessConfig::default(),
+        )]],
+    );
     c.bench_function("get_table_source_tile", |b| {
-        b.to_async(FuturesExecutor)
-            .iter(|| process_null_tile(&sources));
+        b.to_async(FuturesExecutor).iter(|| process_null_tile(&mgr));
     });
 }
 
 criterion_group! {
     name = benches;
-    config = Criterion::default().with_profiler(PProfProfiler::new(1000, Output::Flamegraph(None)));
+    config = Criterion::default();
     targets = bench_null_source,bench_error_source
 }
 
 fn bench_error_source(c: &mut Criterion) {
-    let sources = TileSources::new(vec![vec![Box::new(sources::ErrorSource::new())]]);
+    let mgr = TileSourceManager::from_sources(
+        NO_TILE_CACHE,
+        OnInvalid::Abort,
+        vec![vec![(
+            Box::new(sources::ErrorSource::new()),
+            ProcessConfig::default(),
+        )]],
+    );
     c.bench_function("get_table_source_error", |b| {
         b.to_async(FuturesExecutor)
-            .iter(|| process_error_tile(&sources));
+            .iter(|| process_error_tile(&mgr));
     });
 }
 

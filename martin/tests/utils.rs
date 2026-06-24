@@ -1,0 +1,96 @@
+#![cfg(test)]
+
+use std::env;
+use std::path::Path;
+
+use actix_web::dev::ServiceResponse;
+use actix_web::test::read_body;
+#[cfg(feature = "test-pg")]
+use martin::config::file::postgres::TableInfo;
+use martin::config::file::{Config, ServerState, parse_config};
+#[cfg(feature = "_tiles")]
+use martin::config::primitives::IdResolver;
+use martin::config::primitives::env::FauxEnv;
+#[cfg(feature = "_tiles")]
+use martin_core::tiles::BoxedSource;
+use tracing::warn;
+
+#[must_use]
+pub fn mock_cfg(yaml: &str) -> Config {
+    let env = if let Ok(db_url) = env::var("DATABASE_URL") {
+        FauxEnv(vec![("DATABASE_URL", db_url.into())].into_iter().collect())
+    } else {
+        warn!("DATABASE_URL env var is not set. Might not be able to do integration tests");
+        FauxEnv::default()
+    };
+    let mut cfg: Config =
+        parse_config(yaml, &env, Path::new("test.yaml")).expect("source can be parsed as yaml");
+    let res = cfg.finalize().expect("source can be finalized");
+    assert!(res.is_empty(), "unrecognized config: {res:?}");
+    cfg
+}
+
+pub async fn assert_response(response: ServiceResponse) -> ServiceResponse {
+    if !response.status().is_success() {
+        let status = response.status();
+        let headers = response.headers().clone();
+        let bytes = read_body(response).await;
+        let body = String::from_utf8_lossy(&bytes);
+        panic!("response status: {status}\nresponse headers: {headers:?}\nresponse body: {body}");
+    }
+    response
+}
+
+pub type MockSource = (ServerState, Config);
+pub async fn mock_sources(mut config: Config) -> MockSource {
+    #[cfg(feature = "_tiles")]
+    let idr = IdResolver::new(&[]);
+    let res = config
+        .resolve(
+            #[cfg(feature = "_tiles")]
+            &idr,
+        )
+        .await;
+    let res = res.unwrap_or_else(|e| {
+        panic!(
+            "Failed to resolve config:\n{config}\nBecause {e}",
+            config = serde_saphyr::to_string(&config).unwrap()
+        )
+    });
+    (res, config)
+}
+
+#[cfg(feature = "_tiles")]
+#[must_use]
+pub fn source(mock: &MockSource, name: &str) -> BoxedSource {
+    let (sources, _) = mock;
+    let (src, _process_config) = sources
+        .tile_manager
+        .tile_sources()
+        .get_source(name)
+        .expect("source can be found");
+    src
+}
+
+#[cfg(feature = "test-pg")]
+#[must_use]
+pub fn mock_pgcfg(yaml: &str) -> Config {
+    mock_cfg(&indoc::formatdoc! {"
+        postgres:
+          {}
+    ", yaml.replace('\n', "\n  ")})
+}
+
+#[cfg(feature = "test-pg")]
+#[must_use]
+pub fn table<'a>(mock: &'a MockSource, name: &str) -> &'a TableInfo {
+    let (_, config) = mock;
+    let vals: Vec<&TableInfo> = config
+        .postgres
+        .iter()
+        .flat_map(|v| v.tables.iter().map(|vv| vv.get(name)))
+        .flatten()
+        .collect();
+    assert_eq!(vals.len(), 1);
+    vals[0]
+}

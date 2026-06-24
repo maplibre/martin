@@ -9,6 +9,7 @@ justfile
 # Unneeded code
 **/tests
 demo/
+.github
 
 ####
 #### This must match .gitignore ####
@@ -17,13 +18,16 @@ demo/
 **/*.rs.bk
 **/dist/
 **/node_modules/
+*.mbtiles
 *.profraw
+.claude
 .DS_Store
 .aider*
 .aws-sam/
 .env.local
 .idea/
 .vscode/
+cache.sqlite*
 config.yml
 coverage
 pg_data/

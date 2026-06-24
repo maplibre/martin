@@ -2,11 +2,10 @@ use std::fs::File;
 use std::io;
 use std::io::BufReader;
 use std::path::PathBuf;
-use std::str::FromStr;
+use std::str::FromStr as _;
 
 use deadpool_postgres::tokio_postgres::Config;
 use deadpool_postgres::tokio_postgres::config::SslMode;
-use log::{info, warn};
 use regex::Regex;
 use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
 use rustls::crypto::aws_lc_rs::default_provider;
@@ -16,12 +15,13 @@ use rustls::{DigitallySignedStruct, Error, SignatureScheme};
 use rustls_native_certs::load_native_certs;
 use rustls_pemfile::Item::Pkcs1Key;
 use tokio_postgres_rustls::MakeRustlsConnect;
+use tracing::{info, warn};
 
-use crate::tiles::postgres::PgError::{
+use crate::tiles::postgres::PostgresError::{
     BadConnectionString, CannotLoadRoots, CannotOpenCert, CannotParseCert, CannotUseClientKey,
     InvalidPrivateKey, UnknownSslMode,
 };
-use crate::tiles::postgres::PgResult;
+use crate::tiles::postgres::PostgresResult;
 
 /// A temporary workaround for <https://github.com/sfackler/rust-postgres/pull/988>
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -32,11 +32,11 @@ pub enum SslModeOverride {
 }
 
 /// Special treatment for sslmode=verify-ca & sslmode=verify-full - if found, replace them with sslmode=require
-pub fn parse_conn_str(conn_str: &str) -> PgResult<(Config, SslModeOverride)> {
+pub fn parse_conn_str(conn_str: &str) -> PostgresResult<(Config, SslModeOverride)> {
     let mut mode = SslModeOverride::Unmodified(SslMode::Disable);
 
     let exp = r"(?P<before>(^|\?|&| )sslmode=)(?P<mode>verify-(ca|full))(?P<after>$|&| )";
-    let re = Regex::new(exp).unwrap();
+    let re = Regex::new(exp).expect("the regex is valid");
     let pg_cfg = if let Some(captures) = re.captures(conn_str) {
         let captured_value = &captures["mode"];
         mode = match captured_value {
@@ -62,7 +62,7 @@ pub fn parse_conn_str(conn_str: &str) -> PgResult<(Config, SslModeOverride)> {
 }
 
 #[derive(Debug)]
-struct NoCertificateVerification {}
+struct NoCertificateVerification;
 
 impl ServerCertVerifier for NoCertificateVerification {
     fn verify_server_cert(
@@ -111,13 +111,13 @@ impl ServerCertVerifier for NoCertificateVerification {
     }
 }
 
-fn read_certs(file: &PathBuf) -> PgResult<Vec<CertificateDer<'static>>> {
+fn read_certs(file: &PathBuf) -> PostgresResult<Vec<CertificateDer<'static>>> {
     rustls_pemfile::certs(&mut cert_reader(file)?)
         .collect::<Result<Vec<_>, io::Error>>()
         .map_err(|e| CannotParseCert(e, file.clone()))
 }
 
-fn cert_reader(file: &PathBuf) -> PgResult<BufReader<File>> {
+fn cert_reader(file: &PathBuf) -> PostgresResult<BufReader<File>> {
     Ok(BufReader::new(
         File::open(file).map_err(|e| CannotOpenCert(e, file.clone()))?,
     ))
@@ -128,7 +128,7 @@ pub fn make_connector(
     ssl_key: Option<&PathBuf>,
     ssl_root_cert: Option<&PathBuf>,
     ssl_mode: SslModeOverride,
-) -> PgResult<MakeRustlsConnect> {
+) -> PostgresResult<MakeRustlsConnect> {
     let (verify_ca, _verify_hostname) = match ssl_mode {
         SslModeOverride::Unmodified(mode) => match mode {
             SslMode::Disable | SslMode::Prefer => (false, false),
@@ -173,9 +173,13 @@ pub fn make_connector(
         match rustls_pemfile::read_one(&mut cert_reader(key)?) {
             Ok(Some(Pkcs1Key(rsa_key))) => builder
                 .with_client_auth_cert(read_certs(cert)?, rsa_key.into())
-                .map_err(|e| CannotUseClientKey(e, cert.clone(), key.clone()))?,
-            Ok(_) => Err(InvalidPrivateKey(key.clone()))?,
-            Err(e) => Err(CannotParseCert(e, key.clone()))?,
+                .map_err(|e| CannotUseClientKey {
+                    source: e,
+                    cert: cert.clone(),
+                    key: key.clone(),
+                })?,
+            Ok(_) => return Err(InvalidPrivateKey(key.clone())),
+            Err(e) => return Err(CannotParseCert(e, key.clone())),
         }
     } else {
         if ssl_key.is_some() || ssl_key.is_some() {
@@ -189,7 +193,7 @@ pub fn make_connector(
     if !verify_ca {
         builder
             .dangerous()
-            .set_certificate_verifier(std::sync::Arc::new(NoCertificateVerification {}));
+            .set_certificate_verifier(std::sync::Arc::new(NoCertificateVerification));
     }
 
     let connector = MakeRustlsConnect::new(builder);
@@ -213,8 +217,7 @@ mod tests {
 
     #[test]
     fn test_parse_conn_str() {
-        let (cfg, mode) =
-            parse_conn_str("postgresql://user:password@localhost:5432/dbname").unwrap();
+        let (cfg, mode) = parse_conn_str("postgres://user:password@localhost:5432/dbname").unwrap();
         assert_eq!(cfg.get_hosts(), &vec![Host::Tcp("localhost".to_string())]);
         assert_eq!(cfg.get_ports(), &vec![5432]);
         assert_eq!(cfg.get_user(), Some("user"));
@@ -223,17 +226,16 @@ mod tests {
         assert_eq!(cfg.get_ssl_mode(), SslMode::Prefer);
         assert_eq!(mode, SslModeOverride::Unmodified(SslMode::Prefer));
 
-        let (cfg, mode) =
-            parse_conn_str("postgresql://localhost:5432/db?sslmode=verify-ca").unwrap();
+        let (cfg, mode) = parse_conn_str("postgres://localhost:5432/db?sslmode=verify-ca").unwrap();
         assert_eq!(cfg.get_ssl_mode(), SslMode::Require);
         assert_eq!(mode, SslModeOverride::VerifyCa);
 
-        let conn = "postgresql://localhost:5432?sslmode=verify-full";
+        let conn = "postgres://localhost:5432?sslmode=verify-full";
         let (cfg, mode) = parse_conn_str(conn).unwrap();
         assert_eq!(cfg.get_ssl_mode(), SslMode::Require);
         assert_eq!(mode, SslModeOverride::VerifyFull);
 
-        let conn = "postgresql://localhost:5432?sslmode=verify-full&connect_timeout=5";
+        let conn = "postgres://localhost:5432?sslmode=verify-full&connect_timeout=5";
         let (cfg, mode) = parse_conn_str(conn).unwrap();
         assert_eq!(cfg.get_ssl_mode(), SslMode::Require);
         assert_eq!(mode, SslModeOverride::VerifyFull);

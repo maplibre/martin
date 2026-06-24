@@ -1,9 +1,9 @@
 {
   "bounds": [
-    142.84094409430955,
-    11.926741846036798,
-    142.84143360001997,
-    11.927370348564835
+    142.8409440943,
+    11.926741846,
+    142.8414336,
+    11.9273703486
   ],
   "description": "schema_a.table_name_existing_two_schemas.a_geom",
   "name": "table_name_existing_two_schemas",

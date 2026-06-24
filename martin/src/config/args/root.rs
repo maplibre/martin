@@ -3,18 +3,17 @@ use std::path::PathBuf;
 use clap::Parser;
 use clap::builder::Styles;
 use clap::builder::styling::AnsiColor;
-use log::warn;
-use martin_core::config::env::Env;
 
 use super::connections::Arguments;
 use super::srv::SrvArgs;
 use crate::MartinError::ConfigAndConnectionsError;
 use crate::MartinResult;
 #[cfg(feature = "postgres")]
-use crate::config::args::PgArgs;
-use crate::config::file::Config;
+use crate::config::args::PostgresArgs;
+#[cfg(any(feature = "unstable-cog", feature = "mbtiles", feature = "pmtiles"))]
+use crate::config::file::ConfigurationLivecycleHooks;
 #[cfg(any(
-    feature = "cog",
+    feature = "unstable-cog",
     feature = "mbtiles",
     feature = "pmtiles",
     feature = "sprites",
@@ -23,6 +22,9 @@ use crate::config::file::Config;
 use crate::config::file::FileConfigEnum;
 #[cfg(feature = "fonts")]
 use crate::config::file::fonts::FontConfig;
+use crate::config::file::{Config, OnInvalid};
+#[cfg(feature = "postgres")]
+use crate::config::primitives::env::Env;
 
 /// Defines the styles used for the CLI help output.
 const HELP_STYLES: Styles = Styles::styled()
@@ -35,7 +37,7 @@ const HELP_STYLES: Styles = Styles::styled()
 #[command(
     about,
     version,
-    after_help = "Use RUST_LOG environment variable to control logging level, e.g. RUST_LOG=debug or RUST_LOG=martin=debug. See https://docs.rs/env_logger/latest/env_logger/index.html#enabling-logging for more information.",
+    after_help = "Use RUST_LOG environment variable to control logging level, e.g. RUST_LOG=debug or RUST_LOG=martin=debug.\nUse RUST_LOG_FORMAT environment variable to control output format: json, full, compact (default), bare or pretty.\nSee https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.EnvFilter.html for more information.",
     styles = HELP_STYLES
 )]
 pub struct Args {
@@ -47,7 +49,7 @@ pub struct Args {
     pub srv: SrvArgs,
     #[cfg(feature = "postgres")]
     #[command(flatten)]
-    pub pg: Option<PgArgs>,
+    pub pg: Option<PostgresArgs>,
 }
 
 // None of these params will be transferred to the config
@@ -65,6 +67,9 @@ pub struct MetaArgs {
     pub save_config: Option<PathBuf>,
     /// Connection strings, e.g. `postgres://...` or `/path/to/files`
     pub connection: Vec<String>,
+    /// Action to take when a source is found to be invalid during startup. [DEFAULT: abort]
+    #[arg(long)]
+    pub on_invalid: Option<OnInvalid>,
 }
 
 #[derive(Parser, Debug, Clone, PartialEq, Default)]
@@ -88,23 +93,40 @@ impl Args {
     pub fn merge_into_config<'a>(
         self,
         config: &mut Config,
-        #[allow(unused_variables)] env: &impl Env<'a>,
+        #[cfg(feature = "postgres")] env: &impl Env<'a>,
     ) -> MartinResult<()> {
-        if self.srv.watch {
-            warn!("The --watch flag is no longer supported, and will be ignored");
-        }
-
         if self.meta.config.is_some() && !self.meta.connection.is_empty() {
             return Err(ConfigAndConnectionsError(self.meta.connection));
         }
 
         if self.srv.cache_size.is_some() {
-            config.cache_size_mb = self.srv.cache_size;
+            config.cache.size_mb = self.srv.cache_size;
+        }
+        if self.srv.cache_expiry.is_some() {
+            config.cache.expiry = self.srv.cache_expiry;
+        }
+        if self.srv.cache_idle_timeout.is_some() {
+            config.cache.idle_timeout = self.srv.cache_idle_timeout;
+        }
+
+        if self.meta.on_invalid.is_some() {
+            config.on_invalid = self.meta.on_invalid;
         }
 
         self.srv.merge_into_config(&mut config.srv);
 
-        #[allow(unused_mut)]
+        #[cfg_attr(
+            not(any(
+                feature = "postgres",
+                feature = "mbtiles",
+                feature = "pmtiles",
+                feature = "unstable-cog"
+            )),
+            expect(
+                unused_mut,
+                reason = "postgres may modify the cli strings to process input params"
+            )
+        )]
         let mut cli_strings = Arguments::new(self.meta.connection);
 
         #[cfg(feature = "postgres")]
@@ -128,7 +150,7 @@ impl Args {
             config.mbtiles = parse_file_args(&mut cli_strings, &["mbtiles"], false);
         }
 
-        #[cfg(feature = "cog")]
+        #[cfg(feature = "unstable-cog")]
         if !cli_strings.is_empty() {
             config.cog = parse_file_args(&mut cli_strings, &["tif", "tiff"], false);
         }
@@ -153,19 +175,21 @@ impl Args {
 }
 
 /// Check if a string is a valid [`url::Url`] with a specified extension.
-#[cfg(any(feature = "cog", feature = "mbtiles", feature = "pmtiles"))]
+#[cfg(any(feature = "unstable-cog", feature = "mbtiles", feature = "pmtiles"))]
 fn is_url(s: &str, extension: &[&str]) -> bool {
     let Ok(url) = url::Url::parse(s) else {
         return false;
     };
     match url.scheme() {
-        "s3" => url.path().split('/').any(|segment| {
-            segment
-                .rsplit('.')
-                .next()
-                .is_some_and(|ext| extension.contains(&ext))
-        }),
-        "http" | "https" => url
+        "s3" | "s3a" | "gs" | "az" | "adl" | "azure" | "abfs" | "abfss" => {
+            url.path().split('/').any(|segment| {
+                segment
+                    .rsplit('.')
+                    .next()
+                    .is_some_and(|ext| extension.contains(&ext))
+            })
+        }
+        "http" | "https" | "file" => url
             .path()
             .rsplit('.')
             .next()
@@ -174,8 +198,25 @@ fn is_url(s: &str, extension: &[&str]) -> bool {
     }
 }
 
-#[cfg(any(feature = "cog", feature = "mbtiles", feature = "pmtiles"))]
-pub fn parse_file_args<T: crate::config::file::ConfigExtras>(
+/// Check if a string is a `file:` scheme URI with a specified extension.
+///
+/// This is used for `SQLite` connection strings like `file:name.mbtiles?mode=memory&cache=shared`
+#[cfg(any(feature = "unstable-cog", feature = "mbtiles", feature = "pmtiles"))]
+fn is_file_scheme_uri(s: &str, extensions: &[&str]) -> bool {
+    let Ok(url) = url::Url::parse(s) else {
+        return false;
+    };
+    if url.scheme() != "file" {
+        return false;
+    }
+    url.path()
+        .rsplit('.')
+        .next()
+        .is_some_and(|ext| extensions.contains(&ext))
+}
+
+#[cfg(any(feature = "unstable-cog", feature = "mbtiles", feature = "pmtiles"))]
+pub fn parse_file_args<T: ConfigurationLivecycleHooks>(
     cli_strings: &mut Arguments,
     extensions: &[&str],
     allow_url: bool,
@@ -185,6 +226,9 @@ pub fn parse_file_args<T: crate::config::file::ConfigExtras>(
     let paths = cli_strings.process(|s| {
         let path = PathBuf::from(s);
         if allow_url && is_url(s, extensions) {
+            Take(path)
+        } else if is_file_scheme_uri(s, extensions) {
+            // Handle file: scheme URIs (SQLite connection strings) as valid paths
             Take(path)
         } else if path.is_dir() {
             Share(path)
@@ -205,19 +249,21 @@ pub fn parse_file_args<T: crate::config::file::ConfigExtras>(
 
 #[cfg(test)]
 mod tests {
-
-    use insta::assert_yaml_snapshot;
-    use martin_core::config::env::FauxEnv;
-
     use super::*;
     use crate::MartinError::UnrecognizableConnections;
     use crate::config::args::PreferredEncoding;
+    #[cfg(feature = "postgres")]
+    use crate::config::primitives::env::FauxEnv;
 
     fn parse(args: &[&str]) -> MartinResult<(Config, MetaArgs)> {
         let args = Args::parse_from(args);
         let meta = args.meta.clone();
         let mut config = Config::default();
-        args.merge_into_config(&mut config, &FauxEnv::default())?;
+        args.merge_into_config(
+            &mut config,
+            #[cfg(feature = "postgres")]
+            &FauxEnv::default(),
+        )?;
         Ok((config, meta))
     }
 
@@ -231,9 +277,8 @@ mod tests {
     #[cfg(feature = "postgres")]
     #[test]
     fn cli_with_config() {
-        use martin_core::config::OptOneMany;
-
-        use crate::config::file::postgres::PgConfig;
+        use crate::config::file::postgres::PostgresConfig;
+        use crate::config::primitives::OptOneMany;
 
         let args = parse(&["martin", "--config", "c.toml"]).unwrap();
         let meta = MetaArgs {
@@ -252,7 +297,7 @@ mod tests {
 
         let args = parse(&["martin", "postgres://connection"]).unwrap();
         let cfg = Config {
-            postgres: OptOneMany::One(PgConfig {
+            postgres: OptOneMany::One(PostgresConfig {
                 connection_string: Some("postgres://connection".to_string()),
                 ..Default::default()
             }),
@@ -287,6 +332,33 @@ mod tests {
         assert_eq!(config4.unwrap().0.srv.preferred_encoding, None);
     }
 
+    #[cfg(any(feature = "unstable-cog", feature = "mbtiles", feature = "pmtiles"))]
+    #[test]
+    fn test_is_file_scheme_uri() {
+        // Valid file scheme URIs
+        assert!(is_file_scheme_uri("file:test.mbtiles", &["mbtiles"]));
+        assert!(is_file_scheme_uri(
+            "file:test.mbtiles?mode=memory&cache=shared",
+            &["mbtiles"]
+        ));
+        assert!(is_file_scheme_uri(
+            "file:/path/to/test.mbtiles",
+            &["mbtiles"]
+        ));
+        assert!(is_file_scheme_uri("file:data.pmtiles", &["pmtiles"]));
+        assert!(is_file_scheme_uri("file:image.tiff", &["tiff", "tif"]));
+
+        // Invalid cases
+        assert!(!is_file_scheme_uri(
+            "http://example.com/test.mbtiles",
+            &["mbtiles"]
+        ));
+        assert!(!is_file_scheme_uri("test.mbtiles", &["mbtiles"]));
+        assert!(!is_file_scheme_uri("file:test.txt", &["mbtiles"]));
+        assert!(!is_file_scheme_uri("file:", &["mbtiles"]));
+        assert!(!is_file_scheme_uri("", &["mbtiles"]));
+    }
+
     #[test]
     fn cli_bad_arguments() {
         for params in [
@@ -299,12 +371,14 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "postgres")]
     fn cli_bad_parsed_arguments() {
         let args = Args::parse_from(["martin", "--config", "c.toml", "postgres://a"]);
 
-        let env = FauxEnv::default();
         let mut config = Config::default();
-        let err = args.merge_into_config(&mut config, &env).unwrap_err();
+        let err = args
+            .merge_into_config(&mut config, &FauxEnv::default())
+            .unwrap_err();
         assert!(matches!(err, ConfigAndConnectionsError(..)));
     }
 
@@ -312,45 +386,62 @@ mod tests {
     fn cli_unknown_con_str() {
         let args = Args::parse_from(["martin", "foobar"]);
 
-        let env = FauxEnv::default();
         let mut config = Config::default();
-        let err = args.merge_into_config(&mut config, &env).unwrap_err();
+        let err = args
+            .merge_into_config(
+                &mut config,
+                #[cfg(feature = "postgres")]
+                &FauxEnv::default(),
+            )
+            .unwrap_err();
         let bad = vec!["foobar".to_string()];
         assert!(matches!(err, UnrecognizableConnections(v) if v == bad));
     }
 
-    #[test]
-    fn cli_multiple_extensions() {
+    #[cfg(all(feature = "pmtiles", feature = "mbtiles", feature = "unstable-cog"))]
+    #[tokio::test]
+    async fn cli_multiple_extensions() {
+        use std::ffi::OsString;
+
+        let script = include_str!("../../../../tests/fixtures/mbtiles/json.sql");
+        let (_mbt, _conn, file) = mbtiles::temp_named_mbtiles("json.mbtiles", script).await;
         let args = Args::parse_from([
-            "martin",
-            "../tests/fixtures/pmtiles/png.pmtiles",
-            "../tests/fixtures/mbtiles/json.mbtiles",
-            "../tests/fixtures/cog/rgba_u8_nodata.tiff",
-            "../tests/fixtures/cog/rgba_u8.tif",
+            OsString::from("martin"),
+            OsString::from("../tests/fixtures/pmtiles/png.pmtiles"),
+            file.as_os_str().to_owned(),
+            OsString::from("../tests/fixtures/cog/rgba_u8_nodata.tiff"),
+            OsString::from("../tests/fixtures/cog/rgba_u8.tif"),
         ]);
 
-        let env = FauxEnv::default();
         let mut config = Config::default();
-        let err = args.merge_into_config(&mut config, &env);
-        assert!(err.is_ok());
-        assert_yaml_snapshot!(config, @r#"
+        args.merge_into_config(
+            &mut config,
+            #[cfg(feature = "postgres")]
+            &FauxEnv::default(),
+        )
+        .unwrap();
+        insta::assert_yaml_snapshot!(config, @r#"
         pmtiles: "../tests/fixtures/pmtiles/png.pmtiles"
-        mbtiles: "../tests/fixtures/mbtiles/json.mbtiles"
+        mbtiles: "file:json.mbtiles?mode=memory&cache=shared"
         cog:
           - "../tests/fixtures/cog/rgba_u8_nodata.tiff"
           - "../tests/fixtures/cog/rgba_u8.tif"
         "#);
     }
 
+    #[cfg(all(feature = "pmtiles", feature = "mbtiles", feature = "unstable-cog"))]
     #[test]
     fn cli_directories_propagate() {
         let args = Args::parse_from(["martin", "../tests/fixtures/"]);
 
-        let env = FauxEnv::default();
         let mut config = Config::default();
-        let err = args.merge_into_config(&mut config, &env);
-        assert!(err.is_ok());
-        assert_yaml_snapshot!(config, @r#"
+        let err = args.merge_into_config(
+            &mut config,
+            #[cfg(feature = "postgres")]
+            &FauxEnv::default(),
+        );
+        err.unwrap();
+        insta::assert_yaml_snapshot!(config, @r#"
         pmtiles: "../tests/fixtures/"
         mbtiles: "../tests/fixtures/"
         cog: "../tests/fixtures/"

@@ -14,7 +14,7 @@ CREATE TABLE table_source_multiple_geom
 --        (ST_DUMP(ST_GENERATEPOINTS(st_transform(st_tileenvelope(0, 0, 0), 4326), 27))).geom,
 --        (ST_DUMP(ST_GENERATEPOINTS(st_transform(st_tileenvelope(0, 0, 0), 4326), 27))).geom;
 --
--- To dump the data above, uncomment code the above, comment the INSERT code bellow, and run:
+-- To dump the data above, uncomment code the above, comment the INSERT code below, and run:
 --   just restart
 --   just pg_dump --data-only --inserts --rows-per-insert=100 --table=table_source_multiple_geom
 
@@ -170,8 +170,8 @@ VALUES (
     '0101000020E610000099F640E9031266405CC296F14F363440'
 );
 
-CREATE INDEX ON table_source_multiple_geom USING gist (geom1);
-CREATE INDEX ON table_source_multiple_geom USING gist (geom2);
+CREATE INDEX CONCURRENTLY ON table_source_multiple_geom USING gist (geom1);
+CREATE INDEX CONCURRENTLY ON table_source_multiple_geom USING gist (geom2);
 
 CLUSTER table_source_multiple_geom_geom1_idx ON table_source_multiple_geom;
 CLUSTER table_source_multiple_geom_geom2_idx ON table_source_multiple_geom;

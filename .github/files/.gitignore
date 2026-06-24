@@ -1,0 +1,3 @@
+# These files are copied in the `just test-lambda`
+lambda-function/webp2.pmtiles
+lambda-layer/bin/martin

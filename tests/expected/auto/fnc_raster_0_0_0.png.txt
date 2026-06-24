@@ -1,0 +1,1 @@
+tests/output/auto/fnc_raster_0_0_0.png: PNG image data, 1 x 1, 8-bit/color RGB, non-interlaced

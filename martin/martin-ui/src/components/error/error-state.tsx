@@ -64,19 +64,19 @@ export function ErrorState({
         <CardDescription>{description || config.defaultDescription}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {showDetails && errorMessage && (
+        {showDetails && errorMessage ? (
           <div className="p-3 bg-destructive rounded-md border border-red-200">
             <p className="text-sm text-destructive-foreground font-mono break-words">
               {errorMessage}
             </p>
           </div>
-        )}
-        {onRetry && (
+        ) : null}
+        {onRetry ? (
           <Button className="w-full" disabled={isRetrying} onClick={onRetry}>
             <RefreshCw className={`h-4 w-4 mr-2 ${isRetrying ? 'animate-spin' : ''}`} />
             {isRetrying ? 'Retrying...' : 'Try Again'}
           </Button>
-        )}
+        ) : null}
       </CardContent>
     </Card>
   );
@@ -110,12 +110,18 @@ export function InlineErrorState({
         {getIcon()}
         <span className="text-sm destructive-foreground">{message}</span>
       </div>
-      {onRetry && (
-        <Button disabled={isRetrying} onClick={onRetry} size="sm" variant="outline">
-          <RefreshCw className={`h-3 w-3 mr-1 ${isRetrying ? 'animate-spin' : ''}`} />
+      {onRetry ? (
+        <Button
+          className="gap-1"
+          disabled={isRetrying}
+          onClick={onRetry}
+          size="sm"
+          variant="outline"
+        >
+          <RefreshCw className={`h-4 w-4 ${isRetrying ? 'animate-spin' : ''}`} />
           {isRetrying ? 'Retrying' : 'Retry'}
         </Button>
-      )}
+      ) : null}
     </div>
   );
 }

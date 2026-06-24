@@ -1,7 +1,4 @@
 id: cp_no-source
-tile_info:
-  format: mvt
-  encoding: gzip
 tilejson:
   tilejson: 3.0.0
   tiles: []
@@ -9,7 +6,7 @@ tilejson:
   - id: cities
     fields:
       name: String
-    description: ''
+    description: ""
     maxzoom: 6
     minzoom: 0
   bounds:
@@ -25,8 +22,11 @@ tilejson:
   maxzoom: 6
   minzoom: 0
   name: Major cities from Natural Earth data
-  version: '2'
+  version: "2"
+  compression: gzip
   format: pbf
   generator: martin-cp v0.0.0
-agg_tiles_hash: 2AEC2DC0D41746C548A2ABEC8C4CF366
-
+agg_tiles_hash: 08934F8E3E58DED510920E1DE6F4E78F
+tile_info:
+  format: mvt
+  encoding: gzip

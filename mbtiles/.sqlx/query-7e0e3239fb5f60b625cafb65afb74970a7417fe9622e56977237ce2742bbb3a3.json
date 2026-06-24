@@ -1,0 +1,18 @@
+{
+  "db_name": "SQLite",
+  "describe": {
+    "columns": [
+      {
+        "name": "is_valid",
+        "ordinal": 0,
+        "type_info": "Integer"
+      }
+    ],
+    "nullable": [false],
+    "parameters": {
+      "Right": 0
+    }
+  },
+  "hash": "7e0e3239fb5f60b625cafb65afb74970a7417fe9622e56977237ce2742bbb3a3",
+  "query": "SELECT (\n             -- Has a 'tiles' table\n             SELECT COUNT(*) = 1\n             FROM sqlite_master\n             WHERE name = 'tiles'\n                 AND type = 'table'\n             --\n         ) AND (\n             -- 'tiles' table's columns and their types are as expected:\n             -- 4 columns (zoom_level, tile_column, tile_row, tile_data).\n             -- The order is not important\n             SELECT COUNT(*) = 4\n             FROM pragma_table_info('tiles')\n             WHERE ((name = 'zoom_level' AND type LIKE '%INT%')\n                 OR (name = 'tile_column' AND type LIKE '%INT%')\n                 OR (name = 'tile_row' AND type LIKE '%INT%')\n                 OR (name = 'tile_data' AND type = 'BLOB'))\n             --\n         ) as is_valid;"
+}

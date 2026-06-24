@@ -17,7 +17,7 @@ FROM points1;
 -- SELECT generate_series(4, 30) as id,
 --        (ST_DUMP(ST_GENERATEPOINTS(st_transform(st_tileenvelope(0, 0, 0), 4326), 27))).geom;
 --
--- To dump the data above, uncomment code the above, comment the INSERT code bellow, and run:
+-- To dump the data above, uncomment code the above, comment the INSERT code below, and run:
 --   just restart
 --   just pg_dump --data-only --inserts --rows-per-insert=100 --table=points1
 
@@ -53,7 +53,7 @@ VALUES (1, '0101000020E6100000EC3A2806EDDA61401C2041E87DDA2740'),
 (29, '0101000020E61000006046EECC3C536440D410042DE5D04A40'),
 (30, '0101000020E61000000FFC00A790165040AA1B2B5EB01A2A40');
 
-CREATE INDEX ON points1 USING gist (geom);
+CREATE INDEX CONCURRENTLY ON points1 USING gist (geom);
 CLUSTER points1_geom_idx ON points1;
 
 DO $do$ BEGIN

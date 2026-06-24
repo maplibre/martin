@@ -1,5 +1,5 @@
 content-encoding: br
 content-type: application/json
-etag: W/"182-f4njoWr50mrArChr-3CjUg=="
+etag: "unstable due to floating-point rounding"
 transfer-encoding: chunked
 vary: accept-encoding, Origin, Access-Control-Request-Method, Access-Control-Request-Headers

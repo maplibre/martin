@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { formatFileSize } from '@/lib/utils';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { copyToClipboard, formatFileSize } from '@/lib/utils';
 
 describe('formatFileSize', () => {
   it("returns '0 Bytes' for 0", () => {
@@ -14,30 +14,87 @@ describe('formatFileSize', () => {
   });
 
   it('formats bytes correctly for typical values', () => {
-    expect(formatFileSize(1)).toBe('1 Bytes');
+    expect(formatFileSize(0)).toBe('0 Bytes');
+    expect(formatFileSize(1)).toBe('1 Byte');
+    expect(formatFileSize(2)).toBe('2 Bytes');
     expect(formatFileSize(512)).toBe('512 Bytes');
-    expect(formatFileSize(1024)).toBe('1 KiB');
-    expect(formatFileSize(1536)).toBe('1.5 KiB');
-    expect(formatFileSize(1048576)).toBe('1 MiB');
-    expect(formatFileSize(1073741824)).toBe('1 GiB');
-    expect(formatFileSize(1099511627776)).toBe('1 TiB');
+    expect(formatFileSize(1000)).toBe('1 KB');
+    expect(formatFileSize(1500)).toBe('1.5 KB');
+    expect(formatFileSize(1_000_000)).toBe('1 MB');
+    expect(formatFileSize(1_000_000_000)).toBe('1 GB');
+    expect(formatFileSize(1_000_000_000_000)).toBe('1 TB');
   });
 
-  it('formats bytes correctly if passed nonsenical floats', () => {
+  it('formats bytes correctly if passed nonsensical floats', () => {
     expect(formatFileSize(1.2345)).toBe('1 Bytes');
-    expect(formatFileSize(1512.345)).toBe('1.48 KiB');
+    expect(formatFileSize(1512.345)).toBe('1.51 KB');
   });
 
   it('formats with two decimal places for non-integer values', () => {
-    expect(formatFileSize(1234)).toBe('1.21 KiB');
-    expect(formatFileSize(10485760)).toBe('10 MiB');
-    expect(formatFileSize(10737418240)).toBe('10 GiB');
-    expect(formatFileSize(1100585369600)).toBe('1 TiB');
+    expect(formatFileSize(1234)).toBe('1.23 KB');
+    expect(formatFileSize(10_000_000)).toBe('10 MB');
+    expect(formatFileSize(10_000_000_000)).toBe('10 GB');
+    expect(formatFileSize(1_000_000_000_000)).toBe('1 TB');
   });
 
   it("returns 'File too large' for values exceeding TB", () => {
-    // 1 PB (petabyte) = 1024 TB
     expect(formatFileSize(1125899906842624)).toBe('File too large');
     expect(formatFileSize(Number.MAX_SAFE_INTEGER)).toBe('File too large');
+  });
+});
+
+describe('copyToClipboard', () => {
+  const execCommandMock = vi.fn().mockReturnValue(true);
+  // Store reference to original execCommand if it exists
+  // biome-ignore lint/suspicious/noExplicitAny: jsdom doesn't define execCommand, we need to add it
+  const originalDocument = globalThis.document as any;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    execCommandMock.mockReturnValue(true);
+    // Add execCommand to the document object (jsdom doesn't have this)
+    originalDocument.execCommand = execCommandMock;
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+    // Clean up execCommand
+    originalDocument.execCommand = undefined;
+  });
+
+  it('uses navigator.clipboard.writeText when available and succeeds', async () => {
+    const writeTextMock = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal('navigator', {
+      clipboard: { writeText: writeTextMock },
+    });
+
+    await copyToClipboard('test text');
+    expect(writeTextMock).toHaveBeenCalledWith('test text');
+  });
+
+  it('falls back to execCommand when navigator.clipboard is unavailable', async () => {
+    vi.stubGlobal('navigator', { clipboard: undefined });
+
+    await copyToClipboard('fallback text');
+    expect(execCommandMock).toHaveBeenCalledWith('copy');
+  });
+
+  it('falls back to execCommand when navigator.clipboard.writeText fails', async () => {
+    const writeTextMock = vi.fn().mockRejectedValue(new Error('Clipboard API error'));
+    vi.stubGlobal('navigator', {
+      clipboard: { writeText: writeTextMock },
+    });
+
+    await copyToClipboard('test text');
+    expect(writeTextMock).toHaveBeenCalledWith('test text');
+    expect(execCommandMock).toHaveBeenCalledWith('copy');
+  });
+
+  it('throws when both clipboard API and execCommand fail', async () => {
+    vi.stubGlobal('navigator', { clipboard: undefined });
+    execCommandMock.mockReturnValue(false);
+
+    await expect(copyToClipboard('will fail')).rejects.toThrow('Copy command failed');
   });
 });

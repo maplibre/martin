@@ -1,19 +1,20 @@
 import { Eye, Search, Type } from 'lucide-react';
 
 import { ErrorState } from '@/components/error/error-state';
+import { FontPreviewCanvas } from '@/components/font-preview-canvas';
 import { CatalogSkeleton } from '@/components/loading/catalog-skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { buildMartinUrl } from '@/lib/api';
-import type { Font } from '@/lib/types';
+import type { Catalog } from '@/lib/types.gen';
 import { CopyLinkButton } from '../ui/copy-link-button';
 import { DisabledNonInteractiveButton } from '../ui/disabled-non-interactive-button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
 
 interface FontCatalogProps {
-  fonts?: { [name: string]: Font };
+  fonts?: Catalog['fonts'];
   searchQuery?: string;
   onSearchChangeAction?: (query: string) => void;
   isLoading?: boolean;
@@ -53,7 +54,7 @@ export function FontCatalog({
     ([name, font]) =>
       name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       font.family.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      font.style.toLowerCase().includes(searchQuery.toLowerCase()),
+      (font.style ?? '').toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
   return (
@@ -83,11 +84,11 @@ export function FontCatalog({
                   <Type className="w-5 h-5 text-primary" />
                   <CardTitle className="text-lg font-mono">{name}</CardTitle>
                 </div>
-                {font.format && (
+                {font.format ? (
                   <Badge className="uppercase" variant="secondary">
                     {font.format}
                   </Badge>
-                )}
+                ) : null}
               </div>
               <CardDescription>
                 Family: {font.family} • Style: {font.style}
@@ -97,19 +98,7 @@ export function FontCatalog({
               <div className="space-y-4">
                 <div className="p-3 bg-gray-50 text-gray-900 rounded-lg">
                   <p className="text-sm font-medium mb-2 text-gray-900">Preview:</p>
-                  <Tooltip>
-                    <TooltipTrigger className="cursor-help">
-                      <p
-                        className="text-base text-gray-900 blur-xs animate-pulse"
-                        style={{ fontFamily: font.family, fontWeight: 500 }}
-                      >
-                        The quick brown fox jumps over the lazy dog
-                      </p>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Not currently implemented in the frontend</p>
-                    </TooltipContent>
-                  </Tooltip>
+                  <FontPreviewCanvas fontName={name} />
                 </div>
                 <div className="space-y-2 text-sm text-muted-foreground">
                   <div className="flex justify-between">

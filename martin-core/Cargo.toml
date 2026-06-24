@@ -1,6 +1,6 @@
 [package]
 name = "martin-core"
-version = "0.1.0"
+version = "0.8.0"
 authors = ["Yuri Astrakhan <YuriAstrakhan@gmail.com>", "MapLibre contributors"]
 description = "Basic building blocks of MapLibre's Martin tile server."
 keywords = ["maps", "tiles", "mvt", "tileserver"]
@@ -12,7 +12,19 @@ rust-version.workspace = true
 homepage.workspace = true
 
 [features]
-default = ["fonts", "styles", "sprites", "mbtiles", "pmtiles", "cog", "postgres"]
+default = [
+    "unstable-duckdb",
+    "fonts",
+    "mbtiles",
+    "metrics",
+    "passthrough",
+    "pmtiles",
+    "postgres",
+    "sprites",
+    "styles",
+    "unstable-cog",
+]
+metrics = ["dep:prometheus"]
 postgres = [
     "dep:deadpool-postgres",
     "dep:postgres",
@@ -23,66 +35,116 @@ postgres = [
     "dep:semver",
     "dep:tokio-postgres-rustls",
     "dep:serde_json",
+    "_tiles",
 ]
-cog = ["dep:png", "dep:tiff"]
+unstable-cog = ["dep:png", "dep:tiff", "dep:image", "dep:serde_json", "_tiles"]
+rendering = ["styles", "dep:maplibre_native", "dep:image", "dep:flume"]
 fonts = [
     "dep:bit-set",
     "dep:pbf_font_tools",
     "dep:regex",
     "dep:itertools",
     "dep:dashmap",
+    "dep:walkdir",
 ]
 sprites = [
+    "dep:actix-web",
     "dep:spreet",
     "dep:tokio",
     "tokio/fs",
     "dep:futures",
     "dep:dashmap",
+    "dep:walkdir",
 ]
-styles = ["dep:walkdir", "tokio/fs", "dep:dashmap"]
-mbtiles = ["dep:mbtiles"]
-pmtiles = ["dep:pmtiles", "dep:aws-config", "dep:url"]
+styles = ["tokio/fs", "dep:dashmap", "dep:walkdir"]
+mbtiles = ["dep:backon", "dep:mbtiles", "dep:tokio", "_tiles"]
+pmtiles = ["dep:pmtiles", "dep:object_store", "_tiles"]
+passthrough = ["dep:reqwest", "dep:serde_json", "_tiles"]
+unstable-duckdb = [
+    "dep:duckdb",
+    "_tiles",
+    "dep:deadpool",
+    "dep:url",
+    "dep:tokio",
+    "tokio/rt",
+    "tokio/rt-multi-thread",
+]
+_tiles = ["dep:base64"]
+test-pg = ["postgres"]
+unstable-schemas = ["dep:schemars", "dep:utoipa"]
+
+[target.'cfg(target_os = "linux")'.dependencies]
+image = { workspace = true, optional = true }
+maplibre_native = { workspace = true, optional = true }
 
 [dependencies]
+actix-web = { workspace = true, optional = true }
 async-trait.workspace = true
-aws-config = { workspace = true, optional = true }
+backon = { workspace = true, optional = true }
+base64  = { workspace = true, optional = true }
 bit-set = { workspace = true, optional = true }
+chrono.workspace = true
 dashmap = { workspace = true, optional = true }
+deadpool = { workspace = true, optional = true }
 deadpool-postgres = { workspace = true, optional = true }
+derive-debug.workspace = true
+duckdb = { workspace = true, optional = true }
+flume = { workspace = true, optional = true }
 futures = { workspace = true, optional = true }
+hotpath.workspace = true
+image = { workspace = true, optional = true }
 itertools = { workspace = true, optional = true }
-log.workspace = true
 martin-tile-utils.workspace = true
 mbtiles = { workspace = true, optional = true }
-moka.workspace = true
+moka = { workspace = true, features = ["future", "quanta"] }
+object_store = { workspace = true, optional = true }
 pbf_font_tools = { workspace = true, optional = true }
 pmtiles = { workspace = true, optional = true }
 png = { workspace = true, optional = true }
 postgres = { workspace = true, optional = true }
+prometheus = { workspace = true, optional = true }
 regex = { workspace = true, optional = true }
+reqwest = { workspace = true, optional = true }
 rustls = { workspace = true, optional = true }
 rustls-native-certs = { workspace = true, optional = true }
 rustls-pemfile = { workspace = true, optional = true }
+schemars = { workspace = true, optional = true }
 semver = { workspace = true, optional = true }
 serde.workspace = true
 serde_json = { workspace = true, optional = true }
 serde_with.workspace = true
 spreet = { workspace = true, optional = true }
-subst.workspace = true
 thiserror.workspace = true
 tiff = { workspace = true, optional = true }
 tilejson.workspace = true
 tokio = { workspace = true, optional = true }
 tokio-postgres-rustls = { workspace = true, optional = true }
+tracing.workspace = true
 url = { workspace = true, optional = true }
+utoipa = { workspace = true, optional = true }
 walkdir = { workspace = true, optional = true }
+xxhash-rust.workspace = true
 
 [dev-dependencies]
+actix-web.workspace = true
 approx.workspace = true
+backon.workspace = true
+bytes.workspace = true
+env_logger.workspace = true
+futures.workspace = true
+image-compare.workspace = true
 insta = { workspace = true, features = ["json", "yaml"] }
 rstest.workspace = true
+serde_json.workspace = true
+tempfile.workspace = true
 testcontainers-modules.workspace = true
 tokio.workspace = true
+url.workspace = true
+wiremock.workspace = true
+
+[[example]]
+name = "pmtiles-tileserver"
+required-features = ["pmtiles"]
 
 [lints]
 workspace = true

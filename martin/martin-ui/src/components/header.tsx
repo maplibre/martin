@@ -1,4 +1,4 @@
-import { BookOpen, Github, Info } from 'lucide-react';
+import { BookOpen, Code, Info } from 'lucide-react';
 import Logo from '@/components/logo';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -22,7 +22,9 @@ export function Header() {
               {import.meta.env.VITE_MARTIN_VERSION ? (
                 <a
                   className="p-1"
-                  href={`https://github.com/maplibre/martin/releases/tag/${import.meta.env.VITE_MARTIN_VERSION}`}
+                  href={`https://github.com/maplibre/martin/releases/tag/martin-v${import.meta.env.VITE_MARTIN_VERSION}`}
+                  rel="noopener noreferrer"
+                  target="_blank"
                 >
                   {import.meta.env.VITE_MARTIN_VERSION}
                 </a>
@@ -79,7 +81,7 @@ export function Header() {
                     rel="noopener noreferrer"
                     target="_blank"
                   >
-                    <Github size={20} />
+                    <Code size={20} />
                   </a>
                 </Button>
               </HoverCardTrigger>

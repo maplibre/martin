@@ -1,40 +1,65 @@
 use std::fmt::Display;
-use std::str::FromStr;
+use std::path::PathBuf;
+use std::str::FromStr as _;
 
-use futures::TryStreamExt;
-use log::{info, warn};
-use martin_tile_utils::TileInfo;
-use serde::ser::SerializeStruct;
-use serde::{Serialize, Serializer};
+use futures::TryStreamExt as _;
+use serde::Serialize;
 use serde_json::{Value as JSONValue, Value, json};
-use sqlx::{SqliteExecutor, query};
+use sqlx::{AssertSqlSafe, SqliteConnection, SqliteExecutor, query};
 use tilejson::{Bounds, Center, TileJSON, tilejson};
+use tracing::{info, warn};
 
 use crate::MbtError::InvalidZoomValue;
 use crate::Mbtiles;
 use crate::errors::MbtResult;
 
+/// Tileset metadata combining [MBTiles](https://github.com/mapbox/mbtiles-spec)
+/// and [TileJSON](https://github.com/mapbox/tilejson-spec) specifications.
+///
+/// Returned by [`Mbtiles::get_metadata`] and [`crate::MbtilesPool::get_metadata`].
+///
+/// # Example
+///
+/// ```no_run
+/// use mbtiles::MbtilesPool;
+///
+/// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+/// let pool = MbtilesPool::open_readonly("world.mbtiles").await?;
+/// let metadata = pool.get_metadata().await?;
+/// let tile_info = pool.detect_format(&metadata.tilejson).await?;
+///
+/// println!("Name: {}", metadata.tilejson.name.unwrap_or_default());
+/// println!("Zoom: {:?}-{:?}", metadata.tilejson.minzoom, metadata.tilejson.maxzoom);
+///
+/// // To get tile format, use detect_format separately:
+/// if let Some(tile_info) = tile_info {
+///     println!("Format: {}", tile_info.format);
+/// }
+/// # Ok(())
+/// # }
+/// ```
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct Metadata {
+    /// Tileset identifier, typically the filename without extension.
     pub id: String,
-    #[serde(serialize_with = "serialize_ti")]
-    pub tile_info: TileInfo,
-    pub layer_type: Option<String>,
-    pub tilejson: TileJSON,
-    pub json: Option<JSONValue>,
-    pub agg_tiles_hash: Option<String>,
-}
 
-#[allow(clippy::trivially_copy_pass_by_ref)]
-fn serialize_ti<S: Serializer>(ti: &TileInfo, serializer: S) -> Result<S::Ok, S::Error> {
-    let mut s = serializer.serialize_struct("TileInfo", 2)?;
-    s.serialize_field("format", &ti.format.to_string())?;
-    s.serialize_field(
-        "encoding",
-        ti.encoding.content_encoding().unwrap_or_default(),
-    )?;
-    s.end()
+    /// Layer type: `"overlay"` or `"baselayer"` (MBTiles-specific field).
+    // todo: change this to an enum
+    pub layer_type: Option<String>,
+
+    /// Core [TileJSON](https://github.com/mapbox/tilejson-spec) metadata.
+    ///
+    /// Includes name, bounds, zoom levels, attribution, vector layers, etc.
+    pub tilejson: TileJSON,
+
+    /// Custom JSON metadata for application-specific data.
+    pub json: Option<JSONValue>,
+
+    /// Aggregate hash of all tiles for validation and change detection.
+    ///
+    /// See [`Mbtiles::validate`] and [`Mbtiles::update_agg_tiles_hash`].
+    pub agg_tiles_hash: Option<String>,
 }
 
 impl Mbtiles {
@@ -42,8 +67,12 @@ impl Mbtiles {
         match val {
             Ok(v) => Some(v),
             Err(err) => {
-                let name = &self.filename();
-                warn!("Unable to parse metadata {title} value in {name}: {err}");
+                warn!(
+                    metadata.title = %title,
+                    mbtiles.file = %self.filename(),
+                    error = %err,
+                    "Unable to parse metadata value"
+                );
                 None
             }
         }
@@ -104,6 +133,51 @@ impl Mbtiles {
         Ok(())
     }
 
+    /// Retrieves all metadata from the `MBTiles` file.
+    ///
+    /// Reads the entire metadata table and constructs a [`Metadata`] struct
+    /// containing all tileset information. This includes:
+    /// - All `TileJSON` fields (bounds, zoom levels, attribution, etc.)
+    /// - Vector layer definitions (for MVT tiles)
+    /// - Custom JSON metadata
+    /// - Aggregate tiles hash (if present)
+    ///
+    /// # Format Detection
+    ///
+    /// To detect tile format and encoding, use [`detect_format`](Mbtiles::detect_format)
+    /// separately after getting metadata.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use mbtiles::Mbtiles;
+    ///
+    /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+    /// let mbt = Mbtiles::new("world.mbtiles")?;
+    /// let mut conn = mbt.open_readonly().await?;
+    ///
+    /// let meta = mbt.get_metadata(&mut conn).await?;
+    /// let tile_info = mbt.detect_format(&meta.tilejson, &mut conn).await?;
+    ///
+    /// // Access various metadata fields
+    /// println!("Name: {}", meta.tilejson.name.unwrap_or_default());
+    /// println!("Bounds: {:?}", meta.tilejson.bounds);
+    /// println!("Zoom: {:?}-{:?}", meta.tilejson.minzoom, meta.tilejson.maxzoom);
+    ///
+    /// // Detect tile format separately
+    /// if let Some(tile_info) = tile_info {
+    ///     println!("Format: {}", tile_info.format);
+    /// } else {
+    ///     println!("Format: Unknown (empty mbtiles)")
+    /// }
+    ///
+    /// if let Some(layers) = &meta.tilejson.vector_layers {
+    ///     println!("Vector layers: {}", layers.len());
+    /// }
+    /// # Ok(())
+    /// # }
+    /// ```
+    #[hotpath::measure]
     pub async fn get_metadata<T>(&self, conn: &mut T) -> MbtResult<Metadata>
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
@@ -132,21 +206,27 @@ impl Mbtiles {
                     "legend" => tj.legend = Some(value),
                     "template" => tj.template = Some(value),
                     "json" => json = self.to_val(serde_json::from_str(&value), &name),
-                    "format" | "generator" => {
+                    "format" | "generator" | "compression" => {
                         tj.other.insert(name, Value::String(value));
                     }
                     "agg_tiles_hash" => agg_tiles_hash = Some(value),
                     "scheme" => {
                         if value != "tms" {
-                            let file = &self.filename();
                             warn!(
-                                "File {file} has an unexpected metadata value {name}='{value}'. Only 'tms' is supported. Ignoring."
+                                mbtiles.file = %self.filename(),
+                                metadata.name = %name,
+                                metadata.value = %value,
+                                "Unexpected metadata value; only 'tms' is supported. Ignoring."
                             );
                         }
                     }
                     _ => {
-                        let file = &self.filename();
-                        info!("{file} has an unrecognized metadata value {name}={value}");
+                        info!(
+                            mbtiles.file = %self.filename(),
+                            metadata.name = %name,
+                            metadata.value = %value,
+                            "Unrecognized metadata value"
+                        );
                         tj.other.insert(name, Value::String(value));
                     }
                 }
@@ -174,7 +254,6 @@ impl Mbtiles {
 
         Ok(Metadata {
             id: self.filename().to_string(),
-            tile_info: self.detect_format(&tj, &mut *conn).await?,
             tilejson: tj,
             layer_type,
             json,
@@ -182,6 +261,40 @@ impl Mbtiles {
         })
     }
 
+    /// Inserts `TileJSON` metadata into the `MBTiles` metadata table.
+    ///
+    /// Writes all fields from a [`TileJSON`] struct to the metadata table,
+    /// converting them to the `MBTiles` key-value format. This includes:
+    /// - Standard fields: name, description, version, attribution, legend, template
+    /// - Geographic fields: bounds, center
+    /// - Zoom fields: minzoom, maxzoom
+    /// - Vector tile fields: `vector_layers` (stored in `json` metadata key)
+    /// - Custom fields: any values in `TileJSON.other`
+    ///
+    /// > [!NOTE]
+    /// > - Existing metadata values are replaced (INSERT OR REPLACE)
+    /// > - `None` values are skipped (not inserted)
+    /// > - Vector layers are serialized to JSON and stored in the `json` metadata key
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use mbtiles::Mbtiles;
+    /// use tilejson::tilejson;
+    ///
+    /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+    /// let mbt = Mbtiles::new("output.mbtiles")?;
+    /// let mut conn = mbt.open().await?;
+    ///
+    /// // Create TileJSON metadata
+    /// let tj = tilejson! { tiles: vec![] };
+    ///
+    /// // Insert all metadata
+    /// mbt.insert_metadata(&mut conn, &tj).await?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    #[hotpath::measure]
     pub async fn insert_metadata<T>(&self, conn: &mut T, tile_json: &TileJSON) -> MbtResult<()>
     where
         for<'e> &'e mut T: SqliteExecutor<'e>,
@@ -231,32 +344,70 @@ impl Mbtiles {
     }
 }
 
+/// Create an in memory, temporary mbtile connection with the given `script`
+pub async fn anonymous_mbtiles(script: &str) -> (Mbtiles, SqliteConnection) {
+    let mbt = Mbtiles::new(":memory:").expect("in-memory mbtiles can be created");
+    let mut conn = mbt.open().await.expect("in-memory mbtiles can be opened");
+    sqlx::raw_sql(AssertSqlSafe(script))
+        .execute(&mut conn)
+        .await
+        .expect("script execution succeeded");
+    (mbt, conn)
+}
+
+/// Create a named, in memory, temporary mbtile connection with the given `script`
+#[expect(
+    clippy::panic,
+    reason = "only useful for testing and the debug messages are better with panic"
+)]
+pub async fn temp_named_mbtiles(
+    file_name: &str,
+    script: &str,
+) -> (Mbtiles, SqliteConnection, PathBuf) {
+    let file = PathBuf::from(format!("file:{file_name}?mode=memory&cache=shared"));
+    let mbt =
+        Mbtiles::new(&file).unwrap_or_else(|_| panic!("can create pool for {}", file.display()));
+    let mut conn = mbt
+        .open()
+        .await
+        .unwrap_or_else(|_| panic!("can open connection to {}", file.display()));
+    sqlx::raw_sql(AssertSqlSafe(script))
+        .execute(&mut conn)
+        .await
+        .unwrap_or_else(|_| panic!("can execute script on {}", file.display()));
+    (mbt, conn, file)
+}
+
 #[cfg(test)]
 mod tests {
     use std::collections::BTreeMap;
 
-    use martin_tile_utils::{Encoding, Format};
+    use martin_tile_utils::{Encoding, Format, TileInfo};
     use sqlx::Executor as _;
     use tilejson::VectorLayer;
 
     use super::*;
     use crate::mbtiles::tests::open;
+    use crate::{MbtType, init_mbtiles_schema};
 
     #[actix_rt::test]
-    async fn mbtiles_meta() -> MbtResult<()> {
-        let filepath = "../tests/fixtures/mbtiles/geography-class-jpg.mbtiles";
-        let mbt = Mbtiles::new(filepath)?;
-        assert_eq!(mbt.filepath(), filepath);
-        assert_eq!(mbt.filename(), "geography-class-jpg");
-        Ok(())
+    async fn mbtiles_meta() {
+        let script = include_str!("../../tests/fixtures/mbtiles/geography-class-jpg.sql");
+        let (mbt, _) = anonymous_mbtiles(script).await;
+        assert_eq!(mbt.filepath(), ":memory:");
+        assert_eq!(mbt.filename(), ":memory:");
     }
 
     #[actix_rt::test]
-    async fn metadata_jpeg() -> MbtResult<()> {
-        let (mut conn, mbt) = open("../tests/fixtures/mbtiles/geography-class-jpg.mbtiles").await?;
-        let metadata = mbt.get_metadata(&mut conn).await?;
-        let tj = metadata.tilejson;
+    async fn metadata_jpeg() {
+        let script = include_str!("../../tests/fixtures/mbtiles/geography-class-jpg.sql");
+        let (mbt, mut conn) = anonymous_mbtiles(script).await;
+        let meta = mbt.get_metadata(&mut conn).await.unwrap();
 
+        let tile_info = mbt.detect_format(&meta.tilejson, &mut conn).await.unwrap();
+        assert_eq!(tile_info, Some(Format::Jpeg.into()));
+
+        let tj = meta.tilejson;
         assert_eq!(
             tj.description.unwrap(),
             "One of the example maps that comes with TileMill - a bright & colorful world map that blends retro and high-tech with its folded paper texture and interactive flag tooltips. "
@@ -265,21 +416,21 @@ mod tests {
         assert_eq!(tj.maxzoom.unwrap(), 1);
         assert_eq!(tj.minzoom.unwrap(), 0);
         assert_eq!(tj.name.unwrap(), "Geography Class");
-        assert_eq!(
-            tj.template.unwrap(),
-            "{{#__location__}}{{/__location__}}{{#__teaser__}}<div style=\"text-align:center;\">\n\n<img src=\"data:image/png;base64,{{flag_png}}\" style=\"-moz-box-shadow:0px 1px 3px #222;-webkit-box-shadow:0px 1px 5px #222;box-shadow:0px 1px 3px #222;\"><br>\n<strong>{{admin}}</strong>\n\n</div>{{/__teaser__}}{{#__full__}}{{/__full__}}"
-        );
+        assert_eq!(tj.template.unwrap(), "foobar");
         assert_eq!(tj.version.unwrap(), "1.0.0");
-        assert_eq!(metadata.id, "geography-class-jpg");
-        assert_eq!(metadata.tile_info, Format::Jpeg.into());
-        Ok(())
+        assert_eq!(meta.id, ":memory:");
     }
 
     #[actix_rt::test]
-    async fn metadata_mvt() -> MbtResult<()> {
-        let (mut conn, mbt) = open("../tests/fixtures/mbtiles/world_cities.mbtiles").await?;
-        let metadata = mbt.get_metadata(&mut conn).await?;
-        let tj = metadata.tilejson;
+    async fn metadata_mvt() {
+        let script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
+        let (mbt, mut conn) = anonymous_mbtiles(script).await;
+        let meta = mbt.get_metadata(&mut conn).await.unwrap();
+
+        let tile_info = mbt.detect_format(&meta.tilejson, &mut conn).await.unwrap();
+        assert_eq!(tile_info, Some(TileInfo::new(Format::Mvt, Encoding::Gzip)));
+
+        let tj = meta.tilejson;
 
         assert_eq!(tj.maxzoom.unwrap(), 6);
         assert_eq!(tj.minzoom.unwrap(), 0);
@@ -298,43 +449,57 @@ mod tests {
                 other: BTreeMap::default()
             }])
         );
-        assert_eq!(metadata.id, "world_cities");
-        assert_eq!(
-            metadata.tile_info,
-            TileInfo::new(Format::Mvt, Encoding::Gzip)
-        );
-        assert_eq!(metadata.layer_type, Some("overlay".to_string()));
-        Ok(())
+        assert_eq!(meta.id, ":memory:");
+        assert_eq!(meta.layer_type, Some("overlay".to_string()));
     }
 
     #[actix_rt::test]
-    async fn metadata_get_key() -> MbtResult<()> {
-        let (mut conn, mbt) = open("../tests/fixtures/mbtiles/world_cities.mbtiles").await?;
-
-        let res = mbt.get_metadata_value(&mut conn, "bounds").await?.unwrap();
+    async fn metadata_get_key() {
+        let script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
+        let (mbt, mut conn) = anonymous_mbtiles(script).await;
+        let res = mbt
+            .get_metadata_value(&mut conn, "bounds")
+            .await
+            .unwrap()
+            .unwrap();
         assert_eq!(res, "-123.123590,-37.818085,174.763027,59.352706");
-        let res = mbt.get_metadata_value(&mut conn, "name").await?.unwrap();
+        let res = mbt
+            .get_metadata_value(&mut conn, "name")
+            .await
+            .unwrap()
+            .unwrap();
         assert_eq!(res, "Major cities from Natural Earth data");
-        let res = mbt.get_metadata_value(&mut conn, "maxzoom").await?.unwrap();
+        let res = mbt
+            .get_metadata_value(&mut conn, "maxzoom")
+            .await
+            .unwrap()
+            .unwrap();
         assert_eq!(res, "6");
-        let res = mbt.get_metadata_value(&mut conn, "nonexistent_key").await?;
+        let res = mbt
+            .get_metadata_value(&mut conn, "nonexistent_key")
+            .await
+            .unwrap();
         assert_eq!(res, None);
-        let res = mbt.get_metadata_value(&mut conn, "").await?;
+        let res = mbt.get_metadata_value(&mut conn, "").await.unwrap();
         assert_eq!(res, None);
-        Ok(())
     }
 
     #[actix_rt::test]
-    async fn metadata_set_key() -> MbtResult<()> {
-        let (mut conn, mbt) = open("file:metadata_set_key_mem_db?mode=memory&cache=shared").await?;
+    async fn metadata_set_key() {
+        let (mut conn, mbt) = open(":memory:").await.unwrap();
 
         conn.execute("CREATE TABLE metadata (name text NOT NULL PRIMARY KEY, value text);")
-            .await?;
+            .await
+            .unwrap();
 
         mbt.set_metadata_value(&mut conn, "bounds", "0.0, 0.0, 0.0, 0.0")
-            .await?;
+            .await
+            .unwrap();
         assert_eq!(
-            mbt.get_metadata_value(&mut conn, "bounds").await?.unwrap(),
+            mbt.get_metadata_value(&mut conn, "bounds")
+                .await
+                .unwrap()
+                .unwrap(),
             "0.0, 0.0, 0.0, 0.0"
         );
 
@@ -343,15 +508,94 @@ mod tests {
             "bounds",
             "-123.123590,-37.818085,174.763027,59.352706",
         )
-        .await?;
+        .await
+        .unwrap();
         assert_eq!(
-            mbt.get_metadata_value(&mut conn, "bounds").await?.unwrap(),
+            mbt.get_metadata_value(&mut conn, "bounds")
+                .await
+                .unwrap()
+                .unwrap(),
             "-123.123590,-37.818085,174.763027,59.352706"
         );
 
-        mbt.delete_metadata_value(&mut conn, "bounds").await?;
-        assert_eq!(mbt.get_metadata_value(&mut conn, "bounds").await?, None);
+        mbt.delete_metadata_value(&mut conn, "bounds")
+            .await
+            .unwrap();
+        assert_eq!(
+            mbt.get_metadata_value(&mut conn, "bounds").await.unwrap(),
+            None
+        );
+    }
 
-        Ok(())
+    #[actix_rt::test]
+    async fn metadata_empty_tileset() {
+        let mbt = Mbtiles::new(":memory:").unwrap();
+        let mut conn = mbt.open().await.unwrap();
+        init_mbtiles_schema(&mut conn, MbtType::Flat, false)
+            .await
+            .unwrap();
+
+        // get_metadata should work on empty tileset
+        let meta = mbt.get_metadata(&mut conn).await;
+        let meta = meta.expect("get_metadata works on empty tileset");
+
+        // detect_format should return None for empty tileset
+        let tile_info = mbt.detect_format(&meta.tilejson, &mut conn).await.unwrap();
+        assert_eq!(tile_info, None);
+    }
+
+    #[actix_rt::test]
+    async fn metadata_mlt() {
+        let script = include_str!("../../tests/fixtures/mbtiles/mlt.sql");
+        let (mbt, mut conn) = anonymous_mbtiles(script).await;
+        let meta = mbt.get_metadata(&mut conn).await.unwrap();
+        // compression=none must round-trip through tilejson.other
+        insta::assert_yaml_snapshot!(meta.tilejson.other, @r#"
+        compression: none
+        format: application/vnd.maplibre-vector-tile
+        "#);
+        let tile_info = mbt.detect_format(&meta.tilejson, &mut conn).await.unwrap();
+        assert_eq!(
+            tile_info,
+            Some(TileInfo::new(Format::Mlt, Encoding::Internal))
+        );
+    }
+
+    #[actix_rt::test]
+    async fn update_compression_gzip() {
+        let script = include_str!("../../tests/fixtures/mbtiles/world_cities.sql");
+        let (mbt, mut conn) = anonymous_mbtiles(script).await;
+
+        mbt.update_compression(&mut conn).await.unwrap();
+
+        let compression = mbt
+            .get_metadata_value(&mut conn, "compression")
+            .await
+            .unwrap();
+        assert_eq!(
+            compression.as_deref(),
+            Some("gzip"),
+            "world_cities tiles are gzip-compressed; compression metadata should be 'gzip'"
+        );
+    }
+
+    #[actix_rt::test]
+    async fn update_compression_internal() {
+        let script = include_str!("../../tests/fixtures/mbtiles/geography-class-jpg.sql");
+        let (mbt, mut conn) = anonymous_mbtiles(script).await;
+
+        mbt.set_metadata_value(&mut conn, "compression", "gzip")
+            .await
+            .unwrap();
+
+        mbt.update_compression(&mut conn).await.unwrap();
+
+        assert_eq!(
+            mbt.get_metadata_value(&mut conn, "compression")
+                .await
+                .unwrap(),
+            None,
+            "JPEG tiles use internal compression; the compression metadata key should be absent"
+        );
     }
 }

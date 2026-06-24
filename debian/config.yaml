@@ -7,13 +7,15 @@ listen_addresses: '0.0.0.0:3000'
 # Number of web server workers
 worker_processes: 8
 
-# Amount of memory (in MB) to use for caching tiles [default: 512, 0 to disable]
-cache_size_mb: 512
+# Cache configuration
+cache:
+  # Amount of memory (in MB) to use for caching [default: 512, 0 to disable]
+  size_mb: 512
 
 # see https://maplibre.org/martin/config-file.html
 
 # postgres:
-#   connection_string: 'postgresql://postgres@localhost:5432/db'
+#   connection_string: 'postgres://postgres@localhost:5432/db'
 #   default_srid: 4326
 #   pool_size: 20
 #   max_feature_count: 1000

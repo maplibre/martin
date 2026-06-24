@@ -1,19 +1,22 @@
 {
   "fonts": {
     "Overpass Mono Light": {
-      "end": 64258,
+      "end": 128276,
       "family": "Overpass Mono",
-      "glyphs": 931,
+      "glyphs": 988,
       "start": 0,
       "style": "Light"
     },
     "Overpass Mono Regular": {
-      "end": 64258,
+      "end": 128276,
       "family": "Overpass Mono",
-      "glyphs": 931,
+      "glyphs": 988,
       "start": 0,
       "style": "Regular"
     }
+  },
+  "settings": {
+    "rendering": false
   },
   "sprites": {
     "src1": {
@@ -33,6 +36,9 @@
     },
     "osm-liberty-lite": {
       "path": "tests/fixtures/styles/src2/osm-liberty-lite.json"
+    },
+    "relative_urls": {
+      "path": "tests/fixtures/styles/relative_urls.json"
     }
   },
   "tiles": {
@@ -65,6 +71,10 @@
       "content_type": "application/x-protobuf",
       "description": "cb_2018_us_zcta510_500k.mbtiles",
       "name": "cb_2018_us_zcta510_500k.mbtiles"
+    },
+    "empty_bounds": {
+      "content_type": "application/x-protobuf",
+      "description": "public.empty_bounds.geom"
     },
     "function_Mixed_Name": {
       "content_type": "application/x-protobuf",
@@ -105,6 +115,10 @@
       "content_type": "application/x-protobuf",
       "description": "public.function_zxy_query_test"
     },
+    "function_zxy_raster": {
+      "content_type": "image/png",
+      "description": "a raster tile function source"
+    },
     "function_zxy_row": {
       "content_type": "application/x-protobuf",
       "description": "public.function_zxy_row"
@@ -120,7 +134,7 @@
     },
     "geography-class-jpg-diff": {
       "content_type": "image/jpeg",
-      "description": "One of the example maps that comes with TileMill - a bright & colorful world map that blends retro and high-tech with its folded paper texture and interactive flag tooltips. ",
+      "description": "A modified version of one of the example maps that comes with TileMill - a bright & colorful world map that blends retro and high-tech with its folded paper texture and interactive flag tooltips.",
       "name": "Geography Class"
     },
     "geography-class-jpg-modified": {
@@ -142,9 +156,36 @@
       "content_type": "application/json",
       "name": "Dummy json data"
     },
+    "linestring_bounds": {
+      "content_type": "application/x-protobuf",
+      "description": "public.linestring_bounds.geom"
+    },
+    "linestring_bounds_vertical": {
+      "content_type": "application/x-protobuf",
+      "description": "public.linestring_bounds_vertical.geom"
+    },
+    "mat_view": {
+      "content_type": "application/x-protobuf",
+      "description": "materialized view comment"
+    },
+    "mlt": {
+      "attribution": "<a href=\"https://www.openmaptiles.org/\" target=\"_blank\">&copy; OpenMapTiles</a> <a href=\"https://www.openstreetmap.org/copyright\" target=\"_blank\">&copy; OpenStreetMap contributors</a>",
+      "content_type": "application/vnd.maplibre-tile",
+      "description": "A tileset showcasing all layers in OpenMapTiles. https://openmaptiles.org",
+      "name": "OpenMapTiles"
+    },
+    "normalized-dedup-id": {
+      "content_type": "image/jpeg",
+      "description": "Test fixture for normalized schema with integer tile_data_id",
+      "name": "Normalized DedupId Test"
+    },
     "png": {
       "content_type": "image/png",
       "name": "ne2sr"
+    },
+    "point_bounds": {
+      "content_type": "application/x-protobuf",
+      "description": "public.point_bounds.geom"
     },
     "points1": {
       "content_type": "application/x-protobuf",
@@ -170,15 +211,6 @@
     "points_empty_srid": {
       "content_type": "application/x-protobuf",
       "description": "public.points_empty_srid.geom"
-    },
-    "rgb_u8": {
-      "content_type": "image/png"
-    },
-    "rgba_u8": {
-      "content_type": "image/png"
-    },
-    "rgba_u8_nodata": {
-      "content_type": "image/png"
     },
     "stamen_toner__raster_CC-BY-ODbL_z3": {
       "content_type": "image/png"
@@ -226,7 +258,7 @@
       "content_type": "application/x-protobuf",
       "description": "schema_b.view_name_existing_two_schemas.b_geom"
     },
-    "webp": {
+    "webp-no-primary": {
       "content_type": "image/webp",
       "name": "ne2sr"
     },
@@ -248,8 +280,7 @@
     "world_cities_diff": {
       "content_encoding": "gzip",
       "content_type": "application/x-protobuf",
-      "description": "Major cities from Natural Earth data",
-      "name": "Major cities from Natural Earth data"
+      "description": "A modified version of major cities from Natural Earth data"
     },
     "world_cities_modified": {
       "content_encoding": "gzip",

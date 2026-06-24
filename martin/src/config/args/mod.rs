@@ -1,10 +1,15 @@
 mod connections;
 pub use connections::State;
 
+#[cfg(any(feature = "postgres", feature = "unstable-duckdb"))]
+mod bounds;
+#[cfg(any(feature = "postgres", feature = "unstable-duckdb"))]
+pub use bounds::{BoundsCalcType, DEFAULT_BOUNDS_TIMEOUT};
+
 #[cfg(feature = "postgres")]
 mod postgres;
 #[cfg(feature = "postgres")]
-pub use postgres::{BoundsCalcType, DEFAULT_BOUNDS_TIMEOUT, PgArgs};
+pub use postgres::PostgresArgs;
 
 mod root;
 pub use root::*;

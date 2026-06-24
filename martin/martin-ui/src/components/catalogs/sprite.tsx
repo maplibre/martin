@@ -8,14 +8,13 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import type { SpriteCollection } from '@/lib/types';
+import { TooltipCopyText } from '@/components/ui/tooltip-copy-text';
+import type { Catalog } from '@/lib/types.gen';
 import { formatFileSize } from '@/lib/utils';
 import SpritePreview from '../sprite/SpritePreview';
 
 interface SpriteCatalogProps {
-  spriteCollections?: {
-    [sprite_collection_id: string]: SpriteCollection;
-  };
+  spriteCollections?: Catalog['sprites'];
   searchQuery?: string;
   onSearchChangeAction?: (query: string) => void;
   isLoading?: boolean;
@@ -95,10 +94,12 @@ export function SpriteCatalog({
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
                     <ImageIcon className="w-5 h-5 text-primary" />
-                    <CardTitle className="text-lg font-mono">{name}</CardTitle>
+                    <Badge variant="secondary">1x, 2x</Badge>
                   </div>
-                  <Badge variant="secondary">1x, 2x</Badge>
                 </div>
+                <CardTitle className="text-lg font-mono">
+                  <TooltipCopyText text={name} />
+                </CardTitle>
                 <CardDescription>{sprite.images.length} total icons</CardDescription>
               </CardHeader>
               <CardContent className="flex flex-col p-6 justify-between grow grow-1">
@@ -114,14 +115,14 @@ export function SpriteCatalog({
                       />
                     </div>
                   </div>
-                  {sprite.sizeInBytes && (
+                  {sprite.size_in_bytes ? (
                     <div className="space-y-2 text-sm text-muted-foreground mt-4">
                       <div className="flex justify-between">
                         <span>File Size:</span>
-                        <span>{formatFileSize(sprite.sizeInBytes)}</span>
+                        <span>{formatFileSize(sprite.size_in_bytes)}</span>
                       </div>
                     </div>
-                  )}
+                  ) : null}
                 </div>
                 <div className="flex flex-col md:flex-row items-center gap-2 mt-4">
                   <Button
@@ -170,7 +171,7 @@ export function SpriteCatalog({
         )}
       </div>
 
-      {selectedSprite && spriteCollections && (
+      {selectedSprite && spriteCollections ? (
         <SpritePreviewDialog
           name={selectedSprite}
           onCloseAction={() => onPreviewSprite(undefined)}
@@ -180,14 +181,14 @@ export function SpriteCatalog({
           }}
           sprite={spriteCollections[selectedSprite]}
         />
-      )}
-      {downloadSprite && spriteCollections && (
+      ) : null}
+      {downloadSprite && spriteCollections ? (
         <SpriteDownloadDialog
           name={downloadSprite}
           onCloseAction={() => onDownloadSprite(undefined)}
           sprite={spriteCollections[downloadSprite]}
         />
-      )}
+      ) : null}
     </>
   );
 }

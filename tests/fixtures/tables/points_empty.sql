@@ -5,5 +5,5 @@ CREATE TABLE points_empty
     geom GEOMETRY
 );
 
-CREATE INDEX ON points_empty USING gist (geom);
+CREATE INDEX CONCURRENTLY ON points_empty USING gist (geom);
 CLUSTER points_empty_geom_idx ON points_empty;

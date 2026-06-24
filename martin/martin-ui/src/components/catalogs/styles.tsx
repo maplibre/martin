@@ -6,14 +6,32 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { TooltipCopyText } from '@/components/ui/tooltip-copy-text';
 import { buildMartinUrl } from '@/lib/api';
-import type { Style } from '@/lib/types';
+import type { Catalog } from '@/lib/types.gen';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { FullscreenControl, Map as MapLibreMap } from '@vis.gl/react-maplibre';
-import { useState } from 'react';
+
+function StylePreviewMap({ styleName }: { styleName: string }) {
+  return (
+    <MapLibreMap
+      mapStyle={buildMartinUrl(`/style/${styleName}`)}
+      reuseMaps
+      style={{
+        aspectRatio: 16 / 9,
+        backgroundColor: '#E5E7EB',
+        backgroundImage: 'linear-gradient(to bottom right, var(--tw-gradient-stops))',
+        borderRadius: 'var(--radius)',
+        width: '100%',
+      }}
+    >
+      <FullscreenControl />
+    </MapLibreMap>
+  );
+}
 
 interface StylesCatalogProps {
-  styles?: { [name: string]: Style };
+  styles?: Catalog['styles'];
   searchQuery?: string;
   onSearchChangeAction?: (query: string) => void;
   isLoading?: boolean;
@@ -37,11 +55,6 @@ export function StylesCatalog({
   selectedStyleForGuide = undefined,
   onStyleGuide = () => {},
 }: StylesCatalogProps) {
-  const [viewState, setViewState] = useState({
-    latitude: 53,
-    longitude: 9,
-    zoom: 2,
-  });
   if (isLoading) {
     return (
       <CatalogSkeleton
@@ -99,50 +112,38 @@ export function StylesCatalog({
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
                   <Brush className="w-5 h-5 text-primary" />
-                  <CardTitle className="text-lg font-mono">{name}</CardTitle>
+                  {style.type ? <Badge variant="secondary">{style.type}</Badge> : null}
                 </div>
-                {style.type && <Badge variant="secondary">{style.type}</Badge>}
               </div>
+              <CardTitle className="text-lg font-mono">
+                <TooltipCopyText text={name} />
+              </CardTitle>
               <CardDescription>{style.path}</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                <MapLibreMap
-                  reuseMaps
-                  {...viewState}
-                  mapStyle={buildMartinUrl(`/style/${name}`)}
-                  onMove={(evt) => setViewState(evt.viewState)}
-                  style={{
-                    aspectRatio: 16 / 9,
-                    backgroundColor: '#E5E7EB',
-                    backgroundImage: 'linear-gradient(to bottom right, var(--tw-gradient-stops))',
-                    borderRadius: 'var(--radius)',
-                    width: '100%',
-                  }}
-                >
-                  <FullscreenControl />
-                </MapLibreMap>
+                <StylePreviewMap styleName={name} />
                 <div className="space-y-2 text-sm text-muted-foreground">
-                  {style.versionHash && (
+                  {style.version_hash ? (
                     <div className="flex justify-between">
                       <span>Version:</span>
-                      <span>{style.versionHash}</span>
+                      <span>{style.version_hash}</span>
                     </div>
-                  )}
-                  {style.layerCount && (
+                  ) : null}
+                  {style.layer_count ? (
                     <div className="flex justify-between">
                       <span>Layers:</span>
-                      <span>{style.layerCount}</span>
+                      <span>{style.layer_count}</span>
                     </div>
-                  )}
-                  {style.lastModifiedAt && (
+                  ) : null}
+                  {style.last_modified_at ? (
                     <div className="flex justify-between">
                       <span>Modified:</span>
-                      <span>{style.lastModifiedAt?.toLocaleString()}</span>
+                      <span>{style.last_modified_at?.toLocaleString()}</span>
                     </div>
-                  )}
+                  ) : null}
                 </div>
-                {style.colors && (
+                {style.colors ? (
                   <div>
                     <p className="text-sm font-medium mb-2">Color Palette:</p>
                     <div className="flex space-x-1">
@@ -156,7 +157,7 @@ export function StylesCatalog({
                       ))}
                     </div>
                   </div>
-                )}
+                ) : null}
                 <div className="flex flex-col md:flex-row items-center gap-2 mt-4">
                   <Button
                     className="flex-1 w-full"
@@ -201,13 +202,13 @@ export function StylesCatalog({
         </div>
       )}
 
-      {selectedStyleForGuide && styles && (
+      {selectedStyleForGuide && styles ? (
         <StyleIntegrationGuideDialog
           name={selectedStyleForGuide}
           onCloseAction={() => onStyleGuide(undefined)}
           style={styles[selectedStyleForGuide]}
         />
-      )}
+      ) : null}
     </div>
   );
 }

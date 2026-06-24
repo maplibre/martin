@@ -7,6 +7,7 @@ use pbf_font_tools::PbfFontError;
 use crate::resources::fonts::CP_RANGE_SIZE;
 
 /// Errors that can occur during font processing operations.
+#[non_exhaustive]
 #[derive(thiserror::Error, Debug)]
 pub enum FontError {
     /// The requested font ID was not found in the font catalog.
@@ -14,8 +15,13 @@ pub enum FontError {
     FontNotFound(String),
 
     /// The font range start value is greater than the end value.
-    #[error("Font range start ({0}) must be <= end ({1})")]
-    InvalidFontRangeStartEnd(u32, u32),
+    #[error("Font range start ({start}) must be <= end ({end})")]
+    InvalidFontRangeStartEnd {
+        /// The requested range start codepoint.
+        start: u32,
+        /// The requested range end codepoint.
+        end: u32,
+    },
 
     /// The font range start is not aligned to a 256-character boundary.
     #[error("Font range start ({0}) must be multiple of {CP_RANGE_SIZE} (e.g. 0, 256, 512, ...)")]
@@ -39,7 +45,7 @@ pub enum FontError {
 
     /// An I/O error occurred while accessing a font file or directory.
     #[error("IO error accessing {1}: {0}")]
-    IoError(std::io::Error, PathBuf),
+    IoError(#[source] std::io::Error, PathBuf),
 
     /// The specified path is not a valid font file (supports .ttf, .otf, .ttc).
     #[error("Invalid font file {0}")]

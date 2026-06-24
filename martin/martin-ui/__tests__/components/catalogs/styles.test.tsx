@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { StylesCatalog } from '@/components/catalogs/styles';
 import type { ErrorStateProps } from '@/components/error/error-state';
 import type { CatalogSkeletonProps } from '@/components/loading/catalog-skeleton';
-import type { Style } from '@/lib/types';
+import type { Catalog } from '@/lib/types.gen';
 
 interface MockComponentProps {
   children?: ReactNode;
@@ -77,50 +77,21 @@ vi.mock('@/components/loading/catalog-skeleton', () => ({
   ),
 }));
 
-// Mock lucide-react icons
-vi.mock('lucide-react', () => ({
-  Brush: () => (
-    <svg aria-label="Brush icon" data-testid="brush-icon" role="img">
-      🎨
-    </svg>
-  ),
-  Code: () => (
-    <svg aria-label="Code icon" data-testid="code-icon" role="img">
-      📄
-    </svg>
-  ),
-  Eye: () => (
-    <svg aria-label="Eye icon" data-testid="eye-icon" role="img">
-      👁
-    </svg>
-  ),
-  Search: () => (
-    <svg aria-label="Search icon" data-testid="search-icon" role="img">
-      🔍
-    </svg>
-  ),
-  SquarePen: () => (
-    <svg aria-label="Square pen icon" data-testid="squarepen-icon" role="img">
-      ✏️
-    </svg>
-  ),
-}));
-
 describe('StylesCatalog Component', () => {
-  const mockStyles: { [name: string]: Style } = {
+  const mockStyles: Catalog['styles'] = {
     'Basic Style': {
       colors: ['#FF5733', '#33FF57', '#3357FF', '#F3FF33'],
-      lastModifiedAt: new Date('2023-01-15'),
-      layerCount: 10,
+      last_modified_at: '2023-01-15',
+      layer_count: 10,
       path: '/styles/basic.json',
       type: 'vector',
     },
     'Hybrid Style': {
-      lastModifiedAt: new Date('2023-03-25'),
-      layerCount: 15,
+      last_modified_at: '2023-03-25',
+      layer_count: 15,
       path: '/styles/hybrid.json',
       type: 'hybrid',
-      versionHash: 'abc123',
+      version_hash: 'abc123',
     },
     'Satellite Style': {
       path: '/styles/satellite.json',
@@ -353,7 +324,7 @@ describe('StylesCatalog Component', () => {
     const { container } = render(<StylesCatalog {...defaultProps} />);
 
     // Check for SVG elements - different style types should have different icons
-    const svgElements = container.querySelectorAll('svg');
+    const svgElements = container.querySelectorAll('span[role="img"]');
 
     // Should have at least 4 SVGs: search icon + 3 style type icons
     expect(svgElements.length).toBeGreaterThan(3);
@@ -366,8 +337,8 @@ describe('StylesCatalog Component', () => {
     const layerMatches = container.textContent?.match(/Layers:/g) || [];
     expect(layerMatches.length).toBe(2); // Only Basic Style and Hybrid Style have layer counts
 
-    expect(container.textContent).toContain('10'); // Basic Style layerCount
-    expect(container.textContent).toContain('15'); // Hybrid Style layerCount
+    expect(container.textContent).toContain('10'); // Basic Style layer_count
+    expect(container.textContent).toContain('15'); // Hybrid Style layer_count
   });
 
   it('shows version hash for styles that have it', () => {
@@ -375,7 +346,7 @@ describe('StylesCatalog Component', () => {
 
     // Check that version hash label is present
     expect(container.textContent).toContain('Version:');
-    expect(container.textContent).toContain('abc123'); // Hybrid Style versionHash
+    expect(container.textContent).toContain('abc123'); // Hybrid Style version_hash
   });
 
   it('renders MapLibre map components for each style', () => {

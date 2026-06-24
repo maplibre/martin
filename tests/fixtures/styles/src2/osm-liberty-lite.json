@@ -4,23 +4,35 @@
   "layers": [
     {
       "id": "background",
-      "paint": { "background-color": "rgb(239,239,239)" },
+      "paint": {
+        "background-color": "rgb(239,239,239)"
+      },
       "type": "background"
     },
     {
       "id": "natural_earth",
       "maxzoom": 6,
-      "paint": { "raster-opacity": { "base": 1.5, "stops": [[0, 0.6], [6, 0.1]] } },
+      "paint": {
+        "raster-opacity": {
+          "base": 1.5,
+          "stops": [[0, 0.6], [6, 0.1]]
+        }
+      },
       "source": "natural_earth_shaded_relief",
       "type": "raster"
     },
     {
       "filter": ["all", ["==", "class", "river"], ["!=", "brunnel", "tunnel"]],
       "id": "waterway_river",
-      "layout": { "line-cap": "round" },
+      "layout": {
+        "line-cap": "round"
+      },
       "paint": {
         "line-color": "#a0c8f0",
-        "line-width": { "base": 1.2, "stops": [[11, 0.5], [20, 6]] }
+        "line-width": {
+          "base": 1.2,
+          "stops": [[11, 0.5], [20, 6]]
+        }
       },
       "source": "openmaptiles",
       "source-layer": "waterway",
@@ -29,7 +41,9 @@
     {
       "filter": ["all", ["!=", "brunnel", "tunnel"]],
       "id": "water",
-      "paint": { "fill-color": "rgb(158,189,255)" },
+      "paint": {
+        "fill-color": "rgb(158,189,255)"
+      },
       "source": "openmaptiles",
       "source-layer": "water",
       "type": "fill"
@@ -44,8 +58,14 @@
       },
       "paint": {
         "line-color": "hsl(248, 1%, 41%)",
-        "line-opacity": { "base": 1, "stops": [[0, 0.4], [4, 1]] },
-        "line-width": { "base": 1, "stops": [[3, 1], [5, 1.2], [12, 3]] }
+        "line-opacity": {
+          "base": 1,
+          "stops": [[0, 0.4], [4, 1]]
+        },
+        "line-width": {
+          "base": 1,
+          "stops": [[3, 1], [5, 1.2], [12, 3]]
+        }
       },
       "source": "openmaptiles",
       "source-layer": "boundary",
@@ -76,7 +96,9 @@
       "layout": {
         "text-field": "{name_en}",
         "text-font": ["Roboto Condensed Italic"],
-        "text-size": { "stops": [[4, 11], [6, 15]] },
+        "text-size": {
+          "stops": [[4, 11], [6, 15]]
+        },
         "text-transform": "uppercase"
       },
       "maxzoom": 6,
@@ -96,7 +118,9 @@
         "text-field": "{name_en}",
         "text-font": ["Roboto Condensed Italic"],
         "text-max-width": 6.25,
-        "text-size": { "stops": [[3, 11], [7, 17]] },
+        "text-size": {
+          "stops": [[3, 11], [7, 17]]
+        },
         "text-transform": "none",
         "visibility": "visible"
       },
@@ -117,7 +141,9 @@
         "text-field": "{name_en}",
         "text-font": ["Roboto Condensed Italic"],
         "text-max-width": 6.25,
-        "text-size": { "stops": [[2, 11], [5, 17]] },
+        "text-size": {
+          "stops": [[2, 11], [5, 17]]
+        },
         "text-transform": "none"
       },
       "paint": {
@@ -137,7 +163,9 @@
         "text-field": "{name_en}",
         "text-font": ["Roboto Condensed Italic"],
         "text-max-width": 6.25,
-        "text-size": { "stops": [[1, 11], [4, 17]] },
+        "text-size": {
+          "stops": [[1, 11], [4, 17]]
+        },
         "text-transform": "none"
       },
       "paint": {
@@ -181,14 +209,12 @@
     "natural_earth_shaded_relief": {
       "maxzoom": 6,
       "tileSize": 256,
-      "tiles": [
-        "https://klokantech.github.io/naturalearthtiles/tiles/natural_earth_2_shaded_relief.raster/{z}/{x}/{y}.png"
-      ],
+      "tiles": ["https://tiles.openfreemap.org/natural_earth/ne2sr/{z}/{x}/{y}.png"],
       "type": "raster"
     },
     "openmaptiles": {
       "type": "vector",
-      "url": "https://api.maptiler.com/tiles/v3-openmaptiles/tiles.json?key=get_your_own_OpIi9ZULNHzrESv6T2vL"
+      "url": "https://tiles.openfreemap.org/planet"
     }
   },
   "sprite": "https://maputnik.github.io/osm-liberty/sprites/osm-liberty",

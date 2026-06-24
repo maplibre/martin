@@ -2,14 +2,36 @@
 #![forbid(unsafe_code)]
 
 pub mod config;
+pub mod logging;
 
+#[cfg(feature = "_tiles")]
 mod source;
+#[cfg(feature = "_tiles")]
 pub use source::TileSources;
 
-mod utils;
-pub use utils::{IdResolver, MartinError, MartinResult};
+#[cfg(feature = "_tiles")]
+mod reload;
+#[cfg(feature = "_tiles")]
+pub use reload::{DeletedSource, NewSource, ReloadAdvisory};
+
+#[cfg(feature = "_tiles")]
+mod tile_source_manager;
+#[cfg(feature = "_tiles")]
+pub use tile_source_manager::TileSourceManager;
+
+mod error;
+pub use error::{MartinError, MartinResult};
+
+#[cfg(all(test, feature = "_tiles"))]
+mod test_support;
+
+#[cfg(feature = "styles")]
+pub mod maplibre_style;
 
 pub mod srv;
+
+#[cfg(feature = "unstable-schemas")]
+pub mod schemas;
 
 // Ensure README.md contains valid code
 #[cfg(doctest)]

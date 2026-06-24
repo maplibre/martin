@@ -17,7 +17,7 @@ CREATE TABLE autodetect.auto_table
 --        (random() * 100000)::int as feat_id,
 --        (ST_DUMP(ST_GENERATEPOINTS(st_transform(st_tileenvelope(0, 0, 0), 4326), 27))).geom;
 --
--- To dump the data above, uncomment code the above, comment the INSERT code bellow, and run:
+-- To dump the data above, uncomment code the above, comment the INSERT code below, and run:
 --   just restart
 --   just pg_dump --data-only --inserts --rows-per-insert=100 --table=autodetect.auto_table
 
@@ -53,7 +53,7 @@ VALUES (1, 71951, '0101000020E6100000211700C9E6DA6140F510E7C8F4DA2740'),
 (29, 63733, '0101000020E61000009A34CC4D671844C0903C5B00CF1B1340'),
 (30, 98054, '0101000020E6100000FCB7E4474EBA6140468D5E7496BD43C0');
 
-CREATE INDEX ON autodetect.auto_table USING gist (geom);
+CREATE INDEX CONCURRENTLY ON autodetect.auto_table USING gist (geom);
 CLUSTER auto_table_geom_idx ON autodetect.auto_table;
 
 
@@ -73,7 +73,7 @@ CREATE TABLE autodetect.bigint_table
 --        (random() * 100000)::bigint as big_feat_id,
 --        (ST_DUMP(ST_GENERATEPOINTS(st_transform(st_tileenvelope(0, 0, 0), 4326), 27))).geom;
 --
--- To dump the data above, uncomment code the above, comment the INSERT code bellow, and run:
+-- To dump the data above, uncomment code the above, comment the INSERT code below, and run:
 --   just restart
 --   just pg_dump --data-only --inserts --rows-per-insert=100 --table=autodetect.bigint_table
 
@@ -110,5 +110,5 @@ VALUES (1, 89698, '0101000020E6100000D4F7A0E7E2DA61402E2E980CB9DA2740'),
 (30, 89548, '0101000020E610000052F29460E5F96140CAA28F5DB33C51C0');
 
 
-CREATE INDEX ON autodetect.bigint_table USING gist (geom);
+CREATE INDEX CONCURRENTLY ON autodetect.bigint_table USING gist (geom);
 CLUSTER bigint_table_geom_idx ON autodetect.bigint_table;

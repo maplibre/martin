@@ -1,12 +1,12 @@
 mod errors;
-pub use errors::{PgError, PgResult};
+pub use errors::{PostgresError, PostgresResult};
 
 mod tls;
 
 mod pool;
-pub use pool::PgPool;
+pub use pool::PostgresPool;
 
 mod source;
-pub use source::{PgSource, PgSqlInfo};
+pub use source::{PostgresSource, PostgresSqlInfo};
 
 pub(crate) mod utils;

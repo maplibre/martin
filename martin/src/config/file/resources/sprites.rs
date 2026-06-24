@@ -1,0 +1,70 @@
+use std::collections::BTreeMap;
+
+use martin_core::sprites::SpriteSources;
+use serde::{Deserialize, Serialize};
+use tracing::warn;
+
+use crate::config::file::{
+    CacheSizeConfig, ConfigFileResult, ConfigurationLivecycleHooks, FileConfigEnum,
+    UnrecognizedKeys, UnrecognizedValues,
+};
+
+pub type SpriteConfig = FileConfigEnum<InnerSpriteConfig>;
+impl SpriteConfig {
+    pub fn resolve(&mut self) -> ConfigFileResult<SpriteSources> {
+        let Some(cfg) = self.extract_file_config() else {
+            return Ok(SpriteSources::default());
+        };
+
+        let mut results = SpriteSources::default();
+        let mut directories = Vec::new();
+        let mut configs = BTreeMap::new();
+
+        if let Some(sources) = cfg.sources {
+            for (id, source) in sources {
+                configs.insert(id.clone(), source.clone());
+                results.add_source(id, source.abs_path()?);
+            }
+        }
+
+        for path in cfg.paths {
+            let Some(name) = path.file_name() else {
+                warn!(
+                    "Ignoring sprite source with no name from {}",
+                    path.display()
+                );
+                continue;
+            };
+            directories.push(path.clone());
+            results.add_source(name.to_string_lossy().to_string(), path);
+        }
+
+        *self = Self::new_extended(directories, configs, cfg.custom);
+
+        Ok(results)
+    }
+}
+
+#[serde_with::skip_serializing_none]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
+pub struct InnerSpriteConfig {
+    /// Cache configuration for sprites.
+    /// Use `cache: disable` to disable sprite caching.
+    #[serde(default, skip_serializing_if = "CacheSizeConfig::is_empty")]
+    #[cfg_attr(
+        feature = "unstable-schemas",
+        schemars(with = "crate::config::file::CacheSizeConfigShape")
+    )]
+    pub cache: CacheSizeConfig,
+
+    #[serde(flatten, skip_serializing)]
+    #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
+    pub unrecognized: UnrecognizedValues,
+}
+
+impl ConfigurationLivecycleHooks for InnerSpriteConfig {
+    fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
+        self.unrecognized.keys().cloned().collect()
+    }
+}

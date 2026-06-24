@@ -1,7 +1,9 @@
+#![cfg(feature = "pmtiles")]
+
 use actix_web::http::header::{ACCEPT_ENCODING, CONTENT_ENCODING, CONTENT_TYPE};
 use actix_web::test::{TestRequest, call_service, read_body, read_body_json};
-use ctor::ctor;
 use indoc::indoc;
+#[cfg(all(feature = "rendering", target_os = "linux"))]
 use insta::assert_yaml_snapshot;
 use martin::config::file::srv::SrvConfig;
 use martin_tile_utils::decode_gzip;
@@ -10,23 +12,19 @@ use tilejson::TileJSON;
 pub mod utils;
 pub use utils::*;
 
-#[ctor]
-fn init() {
-    let _ = env_logger::builder().is_test(true).try_init();
-}
-
 macro_rules! create_app {
     ($sources:expr) => {{
         let state = mock_sources(mock_cfg($sources)).await.0;
         ::actix_web::test::init_service(
             ::actix_web::App::new()
                 .app_data(actix_web::web::Data::new(
-                    ::martin::srv::Catalog::new(&state).unwrap(),
+                    ::martin::srv::Catalog::new(
+                        #[cfg(any(feature = "sprites", feature = "fonts", feature = "styles"))]
+                        &state,
+                    )
+                    .unwrap(),
                 ))
-                .app_data(actix_web::web::Data::new(
-                    ::martin_core::cache::NO_MAIN_CACHE,
-                ))
-                .app_data(actix_web::web::Data::new(state.tiles))
+                .app_data(actix_web::web::Data::new(state.tile_manager))
                 .app_data(actix_web::web::Data::new(SrvConfig::default()))
                 .configure(|c| ::martin::srv::router(c, &SrvConfig::default())),
         )
@@ -40,13 +38,17 @@ fn test_get(path: &str) -> TestRequest {
 
 const CONFIG: &str = indoc! {"
         pmtiles:
+            aws_region: eu-central-1
+            skip_signature: true
             sources:
                 p_png: ../tests/fixtures/pmtiles/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles
                 s3: s3://pmtilestest/cb_2018_us_zcta510_500k.pmtiles
     "};
 
+#[cfg(all(feature = "rendering", target_os = "linux"))]
 #[actix_rt::test]
-async fn pmt_get_catalog() {
+#[tracing_test::traced_test]
+async fn pmt_get_catalog_with_rendering_feature() {
     let path = "pmtiles: ../tests/fixtures/pmtiles/stamen_toner__raster_CC-BY+ODbL_z3.pmtiles";
     let app = create_app! { path };
 
@@ -54,8 +56,10 @@ async fn pmt_get_catalog() {
     let response = call_service(&app, req).await;
     let response = assert_response(response).await;
     let body: serde_json::Value = read_body_json(response).await;
-    assert_yaml_snapshot!(body, @r"
+    assert_yaml_snapshot!(body, @"
     fonts: {}
+    settings:
+      rendering: false
     sprites: {}
     styles: {}
     tiles:
@@ -64,8 +68,10 @@ async fn pmt_get_catalog() {
     ");
 }
 
+#[cfg(all(feature = "rendering", target_os = "linux"))]
 #[actix_rt::test]
-async fn pmt_get_catalog_gzip() {
+#[tracing_test::traced_test]
+async fn pmt_get_catalog_gzip_with_rendering_feature() {
     let app = create_app! { CONFIG };
     let accept = (ACCEPT_ENCODING, "gzip");
     let req = test_get("/catalog").insert_header(accept).to_request();
@@ -73,8 +79,10 @@ async fn pmt_get_catalog_gzip() {
     let response = assert_response(response).await;
     let body = decode_gzip(&read_body(response).await).unwrap();
     let body: serde_json::Value = serde_json::from_slice(&body).unwrap();
-    assert_yaml_snapshot!(body, @r"
+    assert_yaml_snapshot!(body, @"
     fonts: {}
+    settings:
+      rendering: false
     sprites: {}
     styles: {}
     tiles:
@@ -89,6 +97,7 @@ async fn pmt_get_catalog_gzip() {
 }
 
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn pmt_get_tilejson() {
     let app = create_app! { CONFIG };
     let req = test_get("/p_png").to_request();
@@ -102,6 +111,7 @@ async fn pmt_get_tilejson() {
 }
 
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn pmt_get_tilejson_gzip() {
     let app = create_app! { CONFIG };
     let accept = (ACCEPT_ENCODING, "gzip");
@@ -117,6 +127,7 @@ async fn pmt_get_tilejson_gzip() {
 }
 
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn pmt_get_raster() {
     let app = create_app! { CONFIG };
     let req = test_get("/p_png/0/0/0").to_request();
@@ -130,6 +141,7 @@ async fn pmt_get_raster() {
 
 /// get a raster tile with accepted gzip enc, but should still be non-gzipped
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn pmt_get_raster_gzip() {
     let app = create_app! { CONFIG };
     let accept = (ACCEPT_ENCODING, "gzip");
@@ -143,6 +155,7 @@ async fn pmt_get_raster_gzip() {
 }
 
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn pmt_get_tilejson_s3() {
     let app = create_app! { CONFIG };
     let req = test_get("/s3").to_request();
@@ -157,6 +170,7 @@ async fn pmt_get_tilejson_s3() {
 }
 
 #[actix_rt::test]
+#[tracing_test::traced_test]
 async fn pmt_get_tile_s3() {
     let app = create_app! { CONFIG };
     let req = test_get("/s3/0/0/0").to_request();

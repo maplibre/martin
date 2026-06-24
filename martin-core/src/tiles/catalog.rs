@@ -5,6 +5,7 @@
 
 use std::collections::HashMap;
 
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_with;
 
@@ -35,6 +36,10 @@ pub type TileCatalog = HashMap<String, CatalogSourceEntry>;
 /// including HTTP headers and human-readable metadata.
 #[serde_with::skip_serializing_none]
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "unstable-schemas",
+    derive(schemars::JsonSchema, utoipa::ToSchema)
+)]
 pub struct CatalogSourceEntry {
     /// MIME type for the tile data (e.g., "application/x-protobuf", "image/png")
     pub content_type: String,
@@ -46,4 +51,8 @@ pub struct CatalogSourceEntry {
     pub description: Option<String>,
     /// Attribution text for the data source
     pub attribution: Option<String>,
+    /// Number of vector layers declared by this source.
+    pub layer_count: Option<u32>,
+    /// Timestamp of the underlying source's last modification.
+    pub last_modified_at: Option<DateTime<Utc>>,
 }

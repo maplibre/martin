@@ -1,9 +1,10 @@
 [package]
 name = "martin"
-version = "0.19.0"
+version = "1.11.0"
 authors = [
     "Stepan Kuzmin <to.stepan.kuzmin@gmail.com>",
     "Yuri Astrakhan <YuriAstrakhan@gmail.com>",
+    "Frank Elsinga <fr.elsinga+martin@gmail.com>",
     "MapLibre contributors",
 ]
 description = "Blazing fast and lightweight tile server with PostGIS, MBTiles, and PMTiles support"
@@ -15,6 +16,14 @@ license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
 homepage.workspace = true
+
+[package.metadata.binstall]
+pkg-url = "{ repo }/releases/download/martin-v{ version }/{ name }-{ target }.{ archive-format }"
+bin-dir = "{ bin }{ binary-ext }"
+pkg-fmt = "tgz"
+
+[package.metadata.binstall.overrides.x86_64-pc-windows-msvc]
+pkg-fmt = "zip"
 
 [package.metadata.deb]
 name = "martin"
@@ -75,39 +84,84 @@ name = "martin-cp"
 path = "src/bin/martin-cp.rs"
 required-features = ["mbtiles"]
 
+[[bin]]
+name = "gen-schemas"
+path = "src/bin/gen-schemas.rs"
+required-features = ["unstable-schemas"]
+
 [[bench]]
 name = "sources"
 harness = false
+required-features = ["_tiles"]
+
+[[bench]]
+name = "postgres_discovery"
+harness = false
+required-features = ["postgres"]
 
 [features]
 default = [
-    "cog",
     "fonts",
     "lambda",
     "mbtiles",
     "metrics",
     "pmtiles",
     "postgres",
+    "rendering",
     "sprites",
     "styles",
     "webui",
+    "mlt",
 ]
-cog = ["martin-core/cog"]
-fonts = ["martin-core/fonts"]
+unstable-cog = ["martin-core/unstable-cog", "_tiles"]
+rendering = ["styles", "martin-core/rendering", "dep:image"]
+fonts = ["martin-core/fonts", "_catalog"]
 lambda = ["dep:lambda-web"]
-mbtiles = ["martin-core/mbtiles"]
-metrics = ["dep:actix-web-prom"]
-pmtiles = ["martin-core/pmtiles"]
+mbtiles = ["martin-core/mbtiles", "dep:mbtiles", "_tiles"]
+metrics = ["martin-core/metrics", "dep:actix-web-prom", "dep:prometheus"]
+pmtiles = ["martin-core/pmtiles", "dep:object_store", "dep:xxhash-rust", "_tiles"]
 postgres = [
     "martin-core/postgres",
     "dep:enum-display",
     "dep:json-patch",
     "dep:postgis",
     "dep:postgres-protocol",
+    "dep:xxhash-rust",
+    "_tiles",
 ]
-sprites = ["martin-core/sprites"]
-styles = ["martin-core/styles", "dep:walkdir"]
+sprites = ["martin-core/sprites", "_catalog"]
+styles = ["martin-core/styles", "dep:walkdir", "_catalog"]
 webui = ["dep:actix-web-static-files", "dep:static-files", "dep:walkdir"]
+mlt = ["dep:mlt-core"]
+_tiles = ["martin-core/_tiles", "_catalog"]
+_catalog = []
+unstable-schemas = [
+    "dep:schemars",
+    "dep:utoipa",
+    "dep:utoipa-actix-web",
+    "martin-core/unstable-schemas",
+    "fonts",
+    "mbtiles",
+    "metrics",
+    "mlt",
+    "pmtiles",
+    "postgres",
+    "sprites",
+    "styles",
+]
+unstable-duckdb = ["martin-core/unstable-duckdb", "dep:duckdb", "dep:enum-display", "_tiles"]
+hotpath = [
+    "hotpath/hotpath",
+    "hotpath-alloc",
+    "hotpath/hotpath-mcp",
+    "hotpath/tokio",
+    "hotpath/futures",
+]
+hotpath-alloc = ["hotpath/hotpath-alloc"]
+hotpath_tui = ["hotpath", "hotpath/tui"]
+test-pg = ["postgres"]
+test-duckdb = ["unstable-duckdb"]
+test-minio = ["pmtiles"]
 
 [dependencies]
 actix-cors.workspace = true
@@ -120,47 +174,65 @@ actix-web-static-files = { workspace = true, optional = true }
 async-trait.workspace = true
 clap.workspace = true
 dashmap.workspace = true
+duckdb = { workspace = true, optional = true }
 enum-display = { workspace = true, optional = true }
-env_logger.workspace = true
 futures.workspace = true
+hotpath.workspace = true
+humantime-serde.workspace = true
+image = { workspace = true, optional = true }
+indicatif.workspace = true
 itertools.workspace = true
 json-patch = { workspace = true, optional = true }
 lambda-web = { workspace = true, optional = true }
 log.workspace = true
 martin-core.workspace = true
 martin-tile-utils.workspace = true
-mbtiles.workspace = true
+mbtiles = { workspace = true, optional = true }
+miette.workspace = true
+mlt-core = { workspace = true, optional = true }
+notify = { workspace = true }
 num_cpus.workspace = true
+object_store = { workspace = true, optional = true }
 postgis = { workspace = true, optional = true }
 postgres-protocol = { workspace = true, optional = true }
+prometheus = { workspace = true, optional = true }
 rustls.workspace = true
+schemars = { workspace = true, optional = true }
 serde.workspace = true
+serde-saphyr.workspace = true
 serde_json.workspace = true
 serde_with.workspace = true
-serde_yaml.workspace = true
 static-files = { workspace = true, optional = true }
 subst.workspace = true
 thiserror.workspace = true
-tiff = { workspace = true, optional = true }
 tilejson.workspace = true
 tokio = { workspace = true, features = ["io-std"] }
+tracing.workspace = true
+tracing-actix-web.workspace = true
+tracing-indicatif.workspace = true
+tracing-log = { workspace = true, features = ["interest-cache"] }
+tracing-subscriber = { workspace = true, default-features = false, features = ["env-filter", "json", "fmt", "std", "ansi", "chrono"] }
 url.workspace = true
+utoipa = { workspace = true, optional = true }
+utoipa-actix-web = { workspace = true, optional = true }
 walkdir = { workspace = true, optional = true }
-xxhash-rust.workspace = true
+xxhash-rust = { workspace = true, optional = true }
 
 [build-dependencies]
 static-files = { workspace = true, optional = true }
 walkdir = { workspace = true, optional = true }
 
 [dev-dependencies]
-approx.workspace = true
+backon.workspace = true
 criterion.workspace = true
-ctor.workspace = true
+image-compare.workspace = true
 indoc.workspace = true
 insta = { workspace = true, features = ["json", "yaml", "redactions"] }
-pprof.workspace = true
 rstest.workspace = true
 tempfile.workspace = true
+testcontainers-modules.workspace = true
+tokio = { workspace = true, features = ["test-util"] }
+tracing-test.workspace = true
 
 [lints]
 workspace = true

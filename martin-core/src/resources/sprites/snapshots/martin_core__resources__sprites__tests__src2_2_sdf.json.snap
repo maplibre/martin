@@ -4,9 +4,9 @@ expression: sprites.get_index()
 ---
 {
   "bicycle": {
-    "height": 36,
+    "height": 42,
     "pixelRatio": 2,
-    "width": 36,
+    "width": 42,
     "x": 0,
     "y": 0,
     "sdf": true

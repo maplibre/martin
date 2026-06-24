@@ -1,16 +1,30 @@
+use std::time::Duration;
+
 use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
 
-use crate::config::file::srv::{KEEP_ALIVE_DEFAULT, LISTEN_ADDRESSES_DEFAULT, SrvConfig};
+use crate::config::file::srv::{DEFAULT_KEEP_ALIVE, DEFAULT_LISTEN_ADDRESSES, SrvConfig};
 
-#[allow(clippy::doc_markdown)]
+#[allow(
+    clippy::doc_markdown,
+    reason = "for command line arguments, formatting `TileJSON` is awkward"
+)]
 #[derive(clap::Args, Debug, PartialEq, Default)]
 #[command(about, version)]
 pub struct SrvArgs {
-    #[arg(help = format!("Connection keep alive timeout. [DEFAULT: {KEEP_ALIVE_DEFAULT}]"), short, long)]
+    #[arg(help = format!("Connection keep alive timeout. [DEFAULT: {DEFAULT_KEEP_ALIVE}]"), short, long)]
     pub keep_alive: Option<u64>,
-    #[arg(help = format!("The socket address to bind. [DEFAULT: {LISTEN_ADDRESSES_DEFAULT}]"), short, long)]
+    #[arg(help = format!("The socket address to bind. [DEFAULT: {DEFAULT_LISTEN_ADDRESSES}]"), short, long)]
     pub listen_addresses: Option<String>,
+    /// Set URL path prefix for all API routes.
+    ///
+    /// When set, Martin will serve all endpoints under this path prefix (e.g., `/tiles/health`, `/tiles/catalog`).
+    /// This allows Martin to be served under a subpath when behind a reverse proxy.
+    /// Must begin with a `/`.
+    ///
+    /// Examples: `/tiles`, `/api/v1/tiles`
+    #[arg(long)]
+    pub route_prefix: Option<String>,
     /// Set TileJSON URL path prefix.
     ///
     /// This overrides the default of respecting the X-Rewrite-URL header.
@@ -19,7 +33,7 @@ pub struct SrvArgs {
     /// Must begin with a `/`.
     ///
     /// Examples: `/`, `/tiles`
-    #[arg(long)]
+    #[arg(long, hide = true)]
     pub base_path: Option<String>,
     /// Number of web server workers
     #[arg(short = 'W', long)]
@@ -32,18 +46,34 @@ pub struct SrvArgs {
     pub preferred_encoding: Option<PreferredEncoding>,
     /// Control Martin web UI. [DEFAULT: disabled]
     #[arg(short = 'u', long = "webui")]
-    #[cfg(feature = "webui")]
+    #[cfg(all(feature = "webui", not(docsrs)))]
     pub web_ui: Option<WebUiMode>,
+    /// If set, the version of the tileset (as specified in the MBTiles or PMTiles metadata)
+    /// will be embedded in the TileJSON `tiles` URL, with the set identifier.
+    /// For example, if the value of this option is `version`, and the tileset version is `1.0.0`,
+    /// the TileJSON `tiles` URL will be like `.../{z}/{x}/{y}?version=1.0.0`.
+    #[arg(long)]
+    #[cfg(feature = "_tiles")]
+    pub tilejson_url_version_param: Option<String>,
     /// Main cache size (in MB)
     #[arg(short = 'C', long)]
     pub cache_size: Option<u64>,
-    /// **Deprecated** Scan for new sources on sources list requests
-    #[arg(short, long, hide = true)]
-    pub watch: bool,
+    /// Maximum lifetime for cache entries (e.g. "1h", "30m", "1d")
+    #[arg(long, value_parser = parse_duration)]
+    pub cache_expiry: Option<Duration>,
+    /// Maximum idle time before cache entries are evicted (e.g. "15m", "1h")
+    #[arg(long, value_parser = parse_duration)]
+    pub cache_idle_timeout: Option<Duration>,
 }
 
-#[cfg(feature = "webui")]
+fn parse_duration(s: &str) -> Result<Duration, String> {
+    use humantime_serde::re::humantime;
+    humantime::parse_duration(s).map_err(|e| e.to_string())
+}
+
+#[cfg(all(feature = "webui", not(docsrs)))]
 #[derive(PartialEq, Eq, Debug, Clone, Copy, Default, Serialize, Deserialize, ValueEnum)]
+#[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 #[serde(rename_all = "lowercase")]
 pub enum WebUiMode {
     /// Disable Web UI interface. ***This is the default, but once implemented, the default will be enabled for localhost.***
@@ -61,6 +91,7 @@ pub enum WebUiMode {
 }
 
 #[derive(PartialEq, Eq, Debug, Clone, Copy, Serialize, Deserialize, ValueEnum)]
+#[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 #[serde(rename_all = "lowercase")]
 pub enum PreferredEncoding {
     #[serde(alias = "br")]
@@ -78,6 +109,9 @@ impl SrvArgs {
         if self.listen_addresses.is_some() {
             srv_config.listen_addresses = self.listen_addresses;
         }
+        if self.route_prefix.is_some() {
+            srv_config.route_prefix = self.route_prefix;
+        }
         if self.base_path.is_some() {
             srv_config.base_path = self.base_path;
         }
@@ -87,9 +121,13 @@ impl SrvArgs {
         if self.preferred_encoding.is_some() {
             srv_config.preferred_encoding = self.preferred_encoding;
         }
-        #[cfg(feature = "webui")]
+        #[cfg(all(feature = "webui", not(docsrs)))]
         if self.web_ui.is_some() {
             srv_config.web_ui = self.web_ui;
+        }
+        #[cfg(feature = "_tiles")]
+        if self.tilejson_url_version_param.is_some() {
+            srv_config.tilejson_url_version_param = self.tilejson_url_version_param;
         }
     }
 }

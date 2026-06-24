@@ -1,6 +1,7 @@
+import { Copy } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { useToast } from '@/hooks/use-toast';
+import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 import type { SpriteMeta } from './SpriteCache';
 
 type SpriteCanvasProps = {
@@ -12,24 +13,12 @@ type SpriteCanvasProps = {
 
 const SpriteCanvas = ({ meta, image, label, previewMode = false }: SpriteCanvasProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const { toast } = useToast();
+  // not using copied since on-click the tooltip closes
+  const { copy } = useCopyToClipboard({
+    successMessage: `Sprite ID "${label}" copied to clipboard`,
+  });
 
-  const handleClick = async () => {
-    try {
-      await navigator.clipboard.writeText(label);
-      toast({
-        description: `Sprite ID "${label}" copied to clipboard`,
-        title: 'Copied!',
-      });
-    } catch (err) {
-      console.error('Failed to copy sprite ID:', err);
-      toast({
-        description: 'Failed to copy sprite ID to clipboard',
-        title: 'Error',
-        variant: 'destructive',
-      });
-    }
-  };
+  const handleClick = () => copy(label);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -63,11 +52,13 @@ const SpriteCanvas = ({ meta, image, label, previewMode = false }: SpriteCanvasP
             <TooltipContent>
               <p>
                 Sprite:{' '}
-                <code className="bg-purple-200 font-semibold font-monospace text-purple-950 p-1 rounded-xs">
+                <code className="bg-purple-200 font-semibold font-monospace text-purple-950 p-1 m-1 rounded-xs">
                   {label}
                 </code>
                 <br />
-                <span className="text-xs text-gray-500">Click to copy</span>
+                <div className="pt-4 text-sm flex gap-1 flex-row justify-center p-0.5">
+                  <Copy className="h-4 w-4 mb-0.5" /> Click to copy
+                </div>
               </p>
             </TooltipContent>
           </Tooltip>
@@ -105,7 +96,9 @@ const SpriteCanvas = ({ meta, image, label, previewMode = false }: SpriteCanvasP
         </button>
       </TooltipTrigger>
       <TooltipContent>
-        <span className="text-xs">Click to copy</span>
+        <div className="text-xs flex flex-row gap-1 p-0.5">
+          <Copy className="h-3 w-3 mb-0.5" /> Click to copy
+        </div>
       </TooltipContent>
     </Tooltip>
   );

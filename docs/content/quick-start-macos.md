@@ -1,0 +1,36 @@
+---
+icon: simple/apple
+tags:
+  - getting-started
+---
+
+# Quick start on macOS
+
+1. Download some [demo tiles](https://github.com/maplibre/martin/raw/main/tests/fixtures/mbtiles/world_cities.sql).
+
+2. Download the latest version of Martin from
+   the [release page](https://github.com/maplibre/martin/releases/latest).
+   Use [about this Mac](https://support.apple.com/en-us/116943) to find your processors type.
+    * **for M1**: Use [martin-aarch64-apple-darwin.tar.gz](https://github.com/maplibre/martin/releases/latest/download/martin-aarch64-apple-darwin.tar.gz)
+    * **for x86**, you likely can compile us source, but we don't complie this for you due to runner avaliability.
+
+3. Extract content of both files and place them in a same directory.
+
+4. Open the command prompt and navigate to the directory where `martin` and `world_cities.sql` are located.
+
+5. Run the following command to start Martin with the demo data:
+
+```bash
+# Initialize a database
+sqlite3 world_cities.mbtiles < world_cities.sql
+
+# Show Martin help screen
+./martin --help
+
+# Run Martin with the sample data as the only tile source
+./martin world_cities.mbtiles
+```
+
+### View the map
+
+See [quick start with QGIS](quick-start-qgis.md) for instructions on how to view the map.

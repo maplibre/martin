@@ -1,40 +1,52 @@
 use async_trait::async_trait;
 use deadpool_postgres::tokio_postgres::types::{ToSql, Type};
-use log::debug;
-use martin_tile_utils::Encoding::Uncompressed;
-use martin_tile_utils::Format::Mvt;
 use martin_tile_utils::{TileCoord, TileData, TileInfo};
 use tilejson::TileJSON;
+use tracing::{debug, instrument};
 
-use crate::tiles::postgres::PgError::{GetTileError, GetTileWithQueryError, PrepareQueryError};
-use crate::tiles::postgres::PgPool;
+use crate::CacheZoomRange;
+use crate::tiles::postgres::PostgresError::{
+    GetTileError, GetTileWithQueryError, PrepareQueryError,
+};
+use crate::tiles::postgres::PostgresPool;
 use crate::tiles::postgres::utils::query_to_json;
 use crate::tiles::{BoxedSource, MartinCoreResult, Source, UrlQuery};
 
 #[derive(Clone, Debug)]
 /// `PostgreSQL` tile source that executes SQL queries to generate tiles.
-pub struct PgSource {
+pub struct PostgresSource {
     id: String,
-    info: PgSqlInfo,
-    pool: PgPool,
+    info: PostgresSqlInfo,
+    pool: PostgresPool,
     tilejson: TileJSON,
+    tile_info: TileInfo,
+    cache_zoom: CacheZoomRange,
 }
 
-impl PgSource {
+impl PostgresSource {
     /// Creates a new `PostgreSQL` tile source.
     #[must_use]
-    pub fn new(id: String, info: PgSqlInfo, tilejson: TileJSON, pool: PgPool) -> Self {
+    pub fn new(
+        id: String,
+        info: PostgresSqlInfo,
+        tilejson: TileJSON,
+        pool: PostgresPool,
+        tile_info: TileInfo,
+        cache_zoom: CacheZoomRange,
+    ) -> Self {
         Self {
             id,
             info,
             pool,
             tilejson,
+            tile_info,
+            cache_zoom,
         }
     }
 }
 
 #[async_trait]
-impl Source for PgSource {
+impl Source for PostgresSource {
     fn get_id(&self) -> &str {
         &self.id
     }
@@ -44,7 +56,7 @@ impl Source for PgSource {
     }
 
     fn get_tile_info(&self) -> TileInfo {
-        TileInfo::new(Mvt, Uncompressed)
+        self.tile_info
     }
 
     fn clone_source(&self) -> BoxedSource {
@@ -60,6 +72,21 @@ impl Source for PgSource {
         true
     }
 
+    fn cache_zoom(&self) -> CacheZoomRange {
+        self.cache_zoom
+    }
+
+    #[instrument(
+        level = "debug",
+        skip_all,
+        fields(
+            source.id = %self.id,
+            tile.z = xyz.z,
+            tile.x = xyz.x,
+            tile.y = xyz.y,
+        ),
+        err(Debug),
+    )]
     async fn get_tile(
         &self,
         xyz: TileCoord,
@@ -76,13 +103,11 @@ impl Source for PgSource {
         let prep_query = conn
             .prepare_typed_cached(sql, param_types)
             .await
-            .map_err(|e| {
-                PrepareQueryError(
-                    e,
-                    self.id.to_string(),
-                    self.info.signature.to_string(),
-                    self.info.sql_query.to_string(),
-                )
+            .map_err(|e| PrepareQueryError {
+                source: e,
+                source_id: self.id.clone(),
+                signature: self.info.signature.clone(),
+                query: self.info.sql_query.clone(),
             })?;
 
         let tile = if self.support_url_query() {
@@ -108,9 +133,9 @@ impl Source for PgSource {
             .map(|row| row.and_then(|r| r.get::<_, Option<TileData>>(0)))
             .map_err(|e| {
                 if self.support_url_query() {
-                    GetTileWithQueryError(e, self.id.to_string(), xyz, url_query.cloned())
+                    GetTileWithQueryError(e, self.id.clone(), xyz, url_query.cloned())
                 } else {
-                    GetTileError(e, self.id.to_string(), xyz)
+                    GetTileError(e, self.id.clone(), xyz)
                 }
             })?
             .unwrap_or_default();
@@ -121,7 +146,7 @@ impl Source for PgSource {
 
 #[derive(Clone, Debug)]
 /// SQL query information for `PostgreSQL` tile sources.
-pub struct PgSqlInfo {
+pub struct PostgresSqlInfo {
     /// SQL query string.
     pub sql_query: String,
     /// Whether the query uses URL query parameters.
@@ -130,7 +155,7 @@ pub struct PgSqlInfo {
     pub signature: String,
 }
 
-impl PgSqlInfo {
+impl PostgresSqlInfo {
     /// Creates new SQL query information.
     #[must_use]
     pub fn new(query: String, has_query_params: bool, signature: String) -> Self {

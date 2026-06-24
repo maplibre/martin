@@ -1,0 +1,34 @@
+{
+  "features": [
+    {
+      "geometry": {
+        "coordinates": [
+          655,
+          2513
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "id": 1,
+        "source_mvt_layer": "mat_view"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          1207,
+          2556
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "id": 2,
+        "source_mvt_layer": "mat_view"
+      },
+      "type": "Feature"
+    }
+  ],
+  "name": "merged",
+  "type": "FeatureCollection"
+}

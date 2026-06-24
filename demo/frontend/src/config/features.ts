@@ -1,19 +1,17 @@
 export default [
   {
-    description: 'Martin creates MVT vector tiles from any PostGIS table or view',
+    description: 'Serve vector tiles directly from your PostGIS database.',
     id: 1,
-    title: 'Turning Data into Vector Tiles',
+    title: 'Vector Tiles from PostGIS',
   },
   {
-    description:
-      'Martin is the only vector tile server capable of creating tiles using database functions directly',
+    description: 'Generate tiles dynamically using database functions.',
     id: 2,
-    title: 'Generating Tiles with Functions',
+    title: 'Function-Based Tile Generation',
   },
   {
-    description:
-      'Martin is ideal for large datasets as it allows passing parameters from a URL into a user function to filter features and aggregate attribute values',
+    description: 'Filter and aggregate data on the fly using URL parameters.',
     id: 3,
-    title: 'Filtering and Aggregating Data on the Fly',
+    title: 'Dynamic Filtering',
   },
 ];

@@ -17,7 +17,7 @@ COMMENT ON COLUMN points2.geom IS 'The geometry column';
 -- SELECT generate_series(4, 30) as id,
 --        (ST_DUMP(ST_GENERATEPOINTS(st_transform(st_tileenvelope(0, 0, 0), 4326), 27))).geom;
 --
--- To dump the data above, uncomment code the above, comment the INSERT code bellow, and run:
+-- To dump the data above, uncomment code the above, comment the INSERT code below, and run:
 --   just restart
 --   just pg_dump --data-only --inserts --rows-per-insert=100 --table=points2
 
@@ -53,5 +53,5 @@ VALUES (1, '0101000020E6100000C8B87C3FE5DA614032D27209ECDA2740'),
 (29, '0101000020E6100000CA5D434B9C8F53C002D9B561D3124E40'),
 (30, '0101000020E61000001076C2DDC6956540B0E88CCB964D2A40');
 
-CREATE INDEX ON points2 USING gist (geom);
+CREATE INDEX CONCURRENTLY ON points2 USING gist (geom);
 CLUSTER points2_geom_idx ON points2;

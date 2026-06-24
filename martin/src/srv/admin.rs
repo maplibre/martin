@@ -1,0 +1,126 @@
+#[cfg(feature = "_tiles")]
+use std::collections::HashMap;
+
+use actix_web::web::Data;
+use actix_web::{HttpResponse, Responder, middleware, route};
+#[cfg(feature = "_tiles")]
+use martin_core::tiles::catalog::TileCatalog;
+use serde::{Deserialize, Serialize};
+
+use crate::MartinResult;
+#[cfg(any(feature = "sprites", feature = "fonts", feature = "styles"))]
+use crate::config::file::ServerState;
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[cfg_attr(
+    feature = "unstable-schemas",
+    derive(schemars::JsonSchema, utoipa::ToSchema)
+)]
+pub struct Catalog {
+    // utoipa <=5.4 names every `HashMap<K, V>` as `HashMap`, so the four
+    // catalog fields would collide on a single `$ref` if we let them factor
+    // out - `#[schema(inline)]` keeps the schema for each field inline and
+    // distinct.
+    #[cfg(feature = "_tiles")]
+    #[cfg_attr(feature = "unstable-schemas", schema(inline))]
+    pub tiles: TileCatalog,
+    #[cfg(feature = "sprites")]
+    #[cfg_attr(feature = "unstable-schemas", schema(inline))]
+    pub sprites: martin_core::sprites::SpriteCatalog,
+    #[cfg(feature = "fonts")]
+    #[cfg_attr(feature = "unstable-schemas", schema(inline))]
+    pub fonts: martin_core::fonts::FontCatalog,
+    #[cfg(feature = "styles")]
+    #[cfg_attr(feature = "unstable-schemas", schema(inline))]
+    pub styles: martin_core::styles::StyleCatalog,
+    #[cfg_attr(feature = "unstable-schemas", schema(inline))]
+    pub settings: CatalogSettings,
+}
+
+/// Server-wide capability flags
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[cfg_attr(
+    feature = "unstable-schemas",
+    derive(schemars::JsonSchema, utoipa::ToSchema)
+)]
+pub struct CatalogSettings {
+    /// Whether server-side style rendering endpoints are enabled.
+    #[cfg(all(feature = "rendering", feature = "styles", target_os = "linux"))]
+    pub rendering: bool,
+}
+
+impl Catalog {
+    pub fn new(
+        #[cfg(any(feature = "sprites", feature = "fonts", feature = "styles"))] state: &ServerState,
+    ) -> MartinResult<Self> {
+        Ok(Self {
+            #[cfg(feature = "_tiles")]
+            tiles: HashMap::default(),
+            #[cfg(feature = "sprites")]
+            sprites: state.sprites.get_catalog()?,
+            #[cfg(feature = "fonts")]
+            fonts: state.fonts.get_catalog(),
+            #[cfg(feature = "styles")]
+            styles: state.styles.get_catalog(),
+            settings: CatalogSettings {
+                #[cfg(all(feature = "rendering", feature = "styles", target_os = "linux"))]
+                rendering: state.styles.is_rendering_enabled(),
+            },
+        })
+    }
+}
+
+#[cfg_attr(
+    feature = "unstable-schemas",
+    utoipa::path(
+        get,
+        path = "/catalog",
+        responses((status = 200, description = "Catalog of all configured sources", body = Catalog)),
+    )
+)]
+#[route(
+    "/catalog",
+    method = "GET",
+    method = "HEAD",
+    wrap = "middleware::Compress::default()"
+)]
+#[hotpath::measure]
+pub async fn get_catalog(
+    catalog: Data<Catalog>,
+    #[cfg(feature = "_tiles")] tile_manager: Data<crate::tile_source_manager::TileSourceManager>,
+) -> impl Responder {
+    #[cfg(feature = "_tiles")]
+    let catalog = {
+        let mut catalog = catalog.as_ref().clone();
+        catalog.tiles = tile_manager.tile_sources().get_catalog();
+        catalog
+    };
+    #[cfg(not(feature = "_tiles"))]
+    let catalog = catalog.as_ref();
+
+    HttpResponse::Ok().json(catalog)
+}
+
+#[cfg(all(feature = "webui", not(docsrs)))]
+pub mod webui {
+    include!(concat!(env!("OUT_DIR"), "/generated.rs"));
+}
+
+/// Root path in case web front is disabled.
+#[cfg(any(not(feature = "webui"), docsrs))]
+#[route("/", method = "GET", method = "HEAD")]
+async fn get_index_no_ui() -> &'static str {
+    "Martin server is running. The WebUI feature was disabled at the compile time.\n\n\
+    A list of all available sources is available at http://<host>/catalog\n\n\
+    See documentation https://github.com/maplibre/martin"
+}
+
+/// Root path in case web front is disabled and the `webui` feature is enabled.
+#[cfg(all(feature = "webui", not(docsrs)))]
+#[route("/", method = "GET", method = "HEAD")]
+async fn get_index_ui_disabled() -> &'static str {
+    "Martin server is running.\n\n
+    The WebUI feature can be enabled with the --webui enable-for-all CLI flag or in the config file, making it available to all users.\n\n
+    A list of all available sources is available at http://<host>/catalog\n\n\
+    See documentation https://github.com/maplibre/martin"
+}
