@@ -12,9 +12,11 @@ use i_overlay::core::overlay_rule::OverlayRule;
 use i_overlay::float::clip::FloatClip as _;
 use i_overlay::float::single::SingleFloatOverlay as _;
 use i_overlay::string::clip::ClipRule;
-use martin_tile_utils::{Encoding, Format, TileCoord, TileData, TileInfo, tile_bbox};
+use martin_tile_utils::{
+    Encoding, Format, TileCoord, TileData, TileInfo, tile_bbox, webmercator_to_wgs84,
+};
 use rayon::prelude::*;
-use tilejson::TileJSON;
+use tilejson::{Bounds, Center, TileJSON};
 use tokio::fs::{self};
 use tracing::trace;
 
@@ -67,10 +69,26 @@ impl GeoJsonSource {
             .parse::<GeoJson>()
             .map_err(|err| GeoJsonError::GeoJsonError(Box::new(err)))?;
 
-        let (geojson, rtree) = preprocess_geojson(geojson);
+        let (geojson, rtree, bounds) = preprocess_geojson(geojson);
 
-        let tilejson = tilejson::tilejson! {
-            tiles: vec![],
+        // The data bounding box is in Web Mercator; reproject its corners back to WGS84
+        // so TileJSON advertises the area covered. An empty source has no bounds.
+        let tilejson = if let Some(bounds) = bounds {
+            let (min_lng, min_lat) = webmercator_to_wgs84(bounds.min_x, bounds.min_y);
+            let (max_lng, max_lat) = webmercator_to_wgs84(bounds.max_x, bounds.max_y);
+            tilejson::tilejson! {
+                tiles: vec![],
+                bounds: Bounds::new(min_lng, min_lat, max_lng, max_lat),
+                center: Center {
+                    longitude: f64::midpoint(min_lng, max_lng),
+                    latitude: f64::midpoint(min_lat, max_lat),
+                    zoom: 0,
+                },
+            }
+        } else {
+            tilejson::tilejson! {
+                tiles: vec![],
+            }
         };
 
         Ok(Self {
@@ -192,7 +210,7 @@ impl Source for GeoJsonSource {
         process_geojson(&geojson, &mut mvt_writer)
             .map_err(GeoJsonError::GeozeroError)
             .map_err(MartinCoreError::GeoJsonError)?;
-        let mvt_layer = mvt_writer.layer("layer");
+        let mvt_layer = mvt_writer.layer(&self.id);
         let tile = Tile {
             layers: vec![mvt_layer],
         };
@@ -269,6 +287,12 @@ impl Rect {
         // max_x and max_y
         let (x, y) = (bbox[2], bbox[3]);
         self.extend(&[x, y]);
+    }
+
+    /// Returns the rectangle if it was extended by at least one point.
+    /// A default (un-extended) rectangle keeps its infinite corners and yields `None`.
+    pub(crate) fn into_finite(self) -> Option<Self> {
+        self.min_x.is_finite().then_some(self)
     }
 
     pub(crate) fn from_xyz(x: u32, y: u32, zoom: u8) -> Self {
@@ -559,7 +583,7 @@ mod tests {
         let decoded = Tile::decode(tile.as_slice()).expect("output is a valid MVT tile");
         assert_eq!(decoded.layers.len(), 1);
         let layer = &decoded.layers[0];
-        assert_eq!(layer.name, "layer");
+        assert_eq!(layer.name, "test-source-1", "layer is named after the source");
         assert_eq!(layer.extent(), EXTENT);
         assert_eq!(
             layer.features.len(),
@@ -577,16 +601,28 @@ mod tests {
             .await
             .unwrap();
 
+        use approx::assert_abs_diff_eq;
+
         let bounds = source.get_tilejson().bounds.expect("bounds should be set");
-        assert!((bounds.left - 10.0).abs() < 1e-6);
-        assert!((bounds.bottom - 10.0).abs() < 1e-6);
-        assert!((bounds.right - 20.0).abs() < 1e-6);
-        assert!((bounds.top - 20.0).abs() < 1e-6);
+        assert_abs_diff_eq!(bounds.left, 10.0, epsilon = 1e-6);
+        assert_abs_diff_eq!(bounds.bottom, 10.0, epsilon = 1e-6);
+        assert_abs_diff_eq!(bounds.right, 20.0, epsilon = 1e-6);
+        assert_abs_diff_eq!(bounds.top, 20.0, epsilon = 1e-6);
 
         let center = source.get_tilejson().center.expect("center should be set");
-        assert!((center.longitude - 15.0).abs() < 1e-6);
-        assert!((center.latitude - 15.0).abs() < 1e-6);
+        assert_abs_diff_eq!(center.longitude, 15.0, epsilon = 1e-6);
+        assert_abs_diff_eq!(center.latitude, 15.0, epsilon = 1e-6);
         assert_eq!(center.zoom, 0);
+    }
+
+    #[test]
+    fn empty_feature_collection_has_no_bounds() {
+        // No feature contributes a geometry, so there is no extent to advertise.
+        let geojson = r#"{"type":"FeatureCollection","features":[]}"#
+            .parse::<GeoJson>()
+            .unwrap();
+        let (_geojson, _rtree, bounds) = preprocess_geojson(geojson);
+        assert!(bounds.is_none());
     }
 
     #[test]

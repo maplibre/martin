@@ -12,7 +12,9 @@ use crate::tiles::geojson::source::Rect;
 // 2. Transform geometries from WGS84 to Web Mercator
 // 3. Add bounding boxes to R-tree
 // 4. Build spatial index for queries
-pub(crate) fn preprocess_geojson(geojson: GeoJson) -> (GeoJson, RTree<f64>) {
+/// Returns the preprocessed `FeatureCollection`, its spatial index, and the data
+/// bounding box in Web Mercator (`None` when no feature contributed a geometry).
+pub(crate) fn preprocess_geojson(geojson: GeoJson) -> (GeoJson, RTree<f64>, Option<Rect>) {
     match geojson {
         GeoJson::FeatureCollection(mut fc) => {
             // bounding box for entire feature collection
@@ -41,10 +43,9 @@ pub(crate) fn preprocess_geojson(geojson: GeoJson) -> (GeoJson, RTree<f64>) {
                 }
             }
 
-            fc.bbox = Some(vec![bbox.min_x, bbox.min_y, bbox.max_x, bbox.max_y]);
             fc.features = transformed_fs;
             let tree = builder.finish::<HilbertSort>();
-            (GeoJson::FeatureCollection(fc), tree)
+            (GeoJson::FeatureCollection(fc), tree, bbox.into_finite())
         }
         GeoJson::Feature(mut f) => {
             let count = u32::from(f.geometry.is_some());
@@ -54,25 +55,28 @@ pub(crate) fn preprocess_geojson(geojson: GeoJson) -> (GeoJson, RTree<f64>) {
                 features: vec![],
                 foreign_members: None,
             };
+            let mut bbox = Rect::default();
             if f.geometry.is_some() {
                 let transformed_g = transform_geometry(f.geometry.unwrap());
                 if let Some(bb) = &transformed_g.bbox {
                     builder.add(bb[0], bb[1], bb[2], bb[3]);
+                    bbox.extend_by_bbox(bb);
                 }
                 f.bbox.clone_from(&transformed_g.bbox);
                 f.geometry = Some(transformed_g);
 
-                fc.bbox.clone_from(&f.bbox);
                 fc.features.push(f);
             }
             let tree = builder.finish::<HilbertSort>();
-            (GeoJson::FeatureCollection(fc), tree)
+            (GeoJson::FeatureCollection(fc), tree, bbox.into_finite())
         }
         GeoJson::Geometry(g) => {
             let mut builder = RTreeBuilder::<f64>::new(1);
             let g = transform_geometry(g);
+            let mut bbox = Rect::default();
             if let Some(bb) = &g.bbox {
                 builder.add(bb[0], bb[1], bb[2], bb[3]);
+                bbox.extend_by_bbox(bb);
             }
             let f = Feature {
                 bbox: g.bbox.clone(),
@@ -82,12 +86,12 @@ pub(crate) fn preprocess_geojson(geojson: GeoJson) -> (GeoJson, RTree<f64>) {
                 foreign_members: None,
             };
             let fc = FeatureCollection {
-                bbox: f.bbox.clone(),
+                bbox: None,
                 features: vec![f],
                 foreign_members: None,
             };
             let tree = builder.finish::<HilbertSort>();
-            (GeoJson::FeatureCollection(fc), tree)
+            (GeoJson::FeatureCollection(fc), tree, bbox.into_finite())
         }
     }
 }
