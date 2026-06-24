@@ -248,14 +248,14 @@ SELECT (regexp_matches(
     Ok(version)
 }
 
-/// Track ongoing PostgreSQL queries so they can be cancelled.
+/// Track ongoing `PostgreSQL` queries so they can be cancelled.
 #[derive(Clone, Default)]
 pub struct ActiveQueryRegistry {
     counter: Arc<AtomicU64>,
     tokens: Arc<Mutex<HashMap<u64, CancelToken>>>,
 }
 
-/// Registry for tracking active PostgreSQL queries, allowing for cancellation and management.
+/// Registry for tracking active `PostgreSQL` queries, allowing for cancellation and management.
 impl std::fmt::Debug for ActiveQueryRegistry {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let (active_count, ids) = self
@@ -372,7 +372,7 @@ mod tests {
         assert!(postgis_version.patch >= 3); // we don't want to break this testcase just because postgis updates that image
     }
 
-    /// Verify cancel_all interrupts running queries
+    /// Verify `cancel_all` interrupts running queries
     #[tokio::test]
     async fn cancel_all_stops_pg_sleep() {
         let pool = PostgresPool::new(
