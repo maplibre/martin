@@ -1,9 +1,15 @@
 name: Setup Rust
-description: Free runner disk space, then install and select the stable Rust toolchain.
+description: Free runner disk space, install the stable Rust toolchain, and install the build tooling.
 inputs:
   components:
     description: Space-separated rustup components to add, e.g. "clippy rustfmt".
     default: ""
+  tools:
+    description: Comma-separated tools to install via taiki-e/install-action, e.g. "just,cargo-binstall". Empty to skip.
+    default: "just"
+  rendering:
+    description: Install the system dependencies needed to build maplibre-native. No-op on non-Linux runners.
+    default: "false"
 runs:
   using: composite
   steps:
@@ -27,3 +33,9 @@ runs:
       env:
         COMPONENTS: ${{ inputs.components }}
       run: rustup component add $COMPONENTS
+    - if: inputs.tools != ''
+      uses: taiki-e/install-action@0631aa6515c7d545823c67cfae7ef4fc7f490154 # v2.81.8
+      with: { tool: '${{ inputs.tools }}' }
+    - if: inputs.rendering == 'true' && runner.os == 'Linux'
+      shell: bash
+      run: just install-dependencies

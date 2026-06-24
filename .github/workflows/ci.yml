@@ -53,15 +53,11 @@ jobs:
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with: { persist-credentials: false }
       - uses: ./.github/actions/setup-rust
+        with: { rendering: true }
       - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1 # zizmor: ignore[cache-poisoning] dev-only build cache, keyed per matrix; poisoning risk accepted
         if: github.event_name != 'release' && github.event_name != 'workflow_dispatch'
         with:
           key: ${{ matrix.os }}
-      - uses: taiki-e/install-action@0631aa6515c7d545823c67cfae7ef4fc7f490154 # v2.81.8
-        with: { tool: 'just' }
-      - name: Install rendering dependencies
-        if: runner.os == 'Linux'
-        run: just install-dependencies
       - name: Install uv
         if: runner.os == 'Linux'
         uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0 # zizmor: ignore[cache-poisoning] dev-only tool cache; poisoning risk accepted
@@ -78,13 +74,9 @@ jobs:
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with: { persist-credentials: false }
       - uses: ./.github/actions/setup-rust
-        with: { components: clippy rustfmt }
-      - uses: taiki-e/install-action@0631aa6515c7d545823c67cfae7ef4fc7f490154 # v2.81.8
-        with: { tool: 'just' }
+        with: { components: clippy rustfmt, rendering: true }
       - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1 # zizmor: ignore[cache-poisoning] dev-only build cache, keyed per matrix; poisoning risk accepted
         if: github.event_name != 'release' && github.event_name != 'workflow_dispatch' && github.ref != 'refs/heads/main'
-      - name: Install rendering dependencies
-        run: just install-dependencies
       - run: just env-info
       - run: just clippy
       - run: just check
@@ -631,8 +623,6 @@ jobs:
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with: { persist-credentials: false }
       - uses: ./.github/actions/setup-rust
-      - uses: taiki-e/install-action@0631aa6515c7d545823c67cfae7ef4fc7f490154 # v2.81.8
-        with: { tool: 'just' }
       - name: Init database
         run: tests/fixtures/initdb.sh
         env:
@@ -660,8 +650,6 @@ jobs:
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with: { persist-credentials: false }
       - uses: ./.github/actions/setup-rust
-      - uses: taiki-e/install-action@0631aa6515c7d545823c67cfae7ef4fc7f490154 # v2.81.8
-        with: { tool: 'just' }
       - name: Unit Tests
         run: just test-minio
 
@@ -765,10 +753,7 @@ jobs:
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with: { persist-credentials: false }
       - uses: ./.github/actions/setup-rust
-      - uses: taiki-e/install-action@0631aa6515c7d545823c67cfae7ef4fc7f490154 # v2.81.8
-        with: { tool: 'just,cargo-binstall' }
-      - name: Install rendering dependencies
-        run: just install-dependencies
+        with: { tools: 'just,cargo-binstall', rendering: true }
       - name: Test packaging
         run: cargo publish --workspace --dry-run
       - name: Test cargo-binstall metadata
@@ -972,10 +957,7 @@ jobs:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with: { fetch-depth: 0, persist-credentials: false }
       - uses: ./.github/actions/setup-rust
-      - uses: taiki-e/install-action@0631aa6515c7d545823c67cfae7ef4fc7f490154 # v2.81.8
-        with: { tool: 'just' }
-      - name: Install rendering dependencies
-        run: just install-dependencies
+        with: { rendering: true }
       - name: Publish to crates.io if crate's version is newer
         uses: release-plz/action@064f4d1e36c843611ddf013be726beaa4ad804db # v0.5.129
         id: release
