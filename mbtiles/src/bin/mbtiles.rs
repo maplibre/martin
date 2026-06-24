@@ -3,21 +3,19 @@
     reason = "binary entrypoint writes results to stdout"
 )]
 
-use std::io::{IsTerminal as _, Read as _, Write as _};
+use std::io::IsTerminal as _;
 use std::path::{Path, PathBuf};
 
 use clap::builder::Styles;
 use clap::builder::styling::AnsiColor;
 use clap::{Parser, Subcommand, ValueEnum};
 use enum_display::EnumDisplay;
-use flate2::Compression;
-use flate2::read::GzDecoder;
-use flate2::write::GzEncoder;
-use futures::TryStreamExt as _;
+use futures::StreamExt as _;
+use martin_tile_utils::{Encoding, Format, TileInfo, decode_gzip, decode_zlib, encode_gzip};
 use mbtiles::{
     AggHashType, CopyDuplicateMode, CopyType, IntegrityCheckType, MbtResult, MbtType, MbtTypeCli,
     Mbtiles, MbtilesCopier, PatchTypeCli, UpdateZoomType, apply_patch, create_flat_tables,
-    create_metadata_table,
+    create_metadata_table, invert_y_value,
 };
 use serde::{Deserialize, Serialize};
 use tilejson::Bounds;
@@ -144,6 +142,9 @@ enum Commands {
         /// Tile ID scheme for input directory
         #[arg(long, value_enum, default_value = "xyz")]
         scheme: TileScheme,
+        /// Compression to store tiles with
+        #[arg(long, value_enum, default_value = "auto")]
+        compress: Compression,
     },
     /// Unpack an `MBTiles` file into a directory tree of tiles
     #[command(name = "unpack")]
@@ -166,6 +167,19 @@ enum TileScheme {
     /// TMS scheme where Y=0 is at the bottom
     #[value(name = "tms")]
     Tms,
+}
+
+#[derive(Clone, Copy, PartialEq, Debug, clap::ValueEnum)]
+enum Compression {
+    /// Gzip vector tiles and store everything else as-is, matching `MBTiles` conventions
+    #[value(name = "auto")]
+    Auto,
+    /// Store every tile uncompressed
+    #[value(name = "none")]
+    None,
+    /// Gzip-compress every tile
+    #[value(name = "gzip", alias = "gz")]
+    Gzip,
 }
 
 #[derive(Clone, Default, PartialEq, Debug, clap::Args)]
@@ -380,8 +394,9 @@ async fn main_int() -> anyhow::Result<()> {
             input_directory,
             output_file,
             scheme,
+            compress,
         } => {
-            pack(&input_directory, &output_file, scheme).await?;
+            pack(&input_directory, &output_file, scheme, compress).await?;
         }
         Commands::Unpack {
             input_file,
@@ -432,129 +447,161 @@ async fn meta_set_value(file: &Path, key: &str, value: Option<&str>) -> MbtResul
     }
 }
 
+/// Number of tiles inserted per transaction while packing.
+const PACK_BATCH_SIZE: usize = 1000;
+
+/// Extracts the `(z, x, y)` coordinates from a `{z}/{x}/{y}.{ext}` tile path.
+/// `y` is taken from the file stem so the extension is ignored.
+fn tile_coords(path: &Path) -> Option<(u8, u32, u32)> {
+    let y = path.file_stem()?.to_str()?.parse::<u32>().ok()?;
+    let mut dirs = path.ancestors().skip(1);
+    let x = dirs.next()?.file_name()?.to_str()?.parse::<u32>().ok()?;
+    let z = dirs.next()?.file_name()?.to_str()?.parse::<u8>().ok()?;
+    Some((z, x, y))
+}
+
+/// Re-encodes `data` so it ends up in `target` encoding, decoding any existing
+/// compression first so we never double-compress. `Internal` (PNG/JPEG/WebP) is
+/// already plaintext for our purposes.
+fn recode_tile(data: Vec<u8>, target: Encoding) -> anyhow::Result<Vec<u8>> {
+    let current = TileInfo::detect(&data).encoding;
+    if current == target {
+        return Ok(data);
+    }
+    let plain = match current {
+        Encoding::Uncompressed | Encoding::Internal => data,
+        Encoding::Gzip => decode_gzip(&data)?,
+        Encoding::Zlib => decode_zlib(&data)?,
+        Encoding::Brotli | Encoding::Zstd => {
+            anyhow::bail!("Cannot re-encode {current:?}-compressed tile data");
+        }
+    };
+    match target {
+        Encoding::Uncompressed => Ok(plain),
+        Encoding::Gzip => Ok(encode_gzip(&plain)?),
+        other => anyhow::bail!("Unsupported pack compression target: {other:?}"),
+    }
+}
+
 async fn pack(
     input_directory: &Path,
     output_file: &Path,
     scheme: TileScheme,
+    compress: Compression,
 ) -> anyhow::Result<()> {
-    if !input_directory.exists() {
-        anyhow::bail!(
-            "Input directory does not exist: {}",
-            input_directory.display()
-        );
-    }
-    if !input_directory.is_dir() {
-        anyhow::bail!(
-            "Input path is not a directory: {}",
-            input_directory.display()
-        );
-    }
-
     let mbt = Mbtiles::new(output_file)?;
     let mut conn = mbt.open_or_new().await?;
 
     create_metadata_table(&mut conn, false).await?;
     create_flat_tables(&mut conn, false).await?;
 
-    let walker = WalkDir::new(input_directory);
+    // Warn at most once per category so a misnamed tree does not flood the log.
+    let mut warned_about_dirs = false;
+    let mut warned_about_files = false;
+    let walker = WalkDir::new(input_directory).follow_links(true);
     let entries = walker.into_iter().filter_entry(|entry| {
-        let should_include = if entry.file_type().is_dir() {
-            // skip directories except the root unless they have numeric names
-            entry.depth() == 0
+        if entry.file_type().is_dir() {
+            // descend into the root and numerically-named `{z}`/`{x}` directories only
+            let keep = entry.depth() == 0
                 || entry
                     .file_name()
                     .to_str()
-                    .is_some_and(|s| s.parse::<u32>().is_ok())
+                    .is_some_and(|s| s.parse::<u32>().is_ok());
+            if !keep && !warned_about_dirs {
+                tracing::info!(
+                    "Skipping {} and similarly-named directories; expected numeric `z`/`x` directory names",
+                    entry.path().display()
+                );
+                warned_about_dirs = true;
+            }
+            keep
         } else {
-            // skip files that do not have a numeric basename
-            entry
-                .file_name()
-                .to_str()
-                .and_then(|s| s.split('.').next().map(|b| b.parse::<u32>().is_ok()))
-                .unwrap_or(false)
-        };
-
-        if !should_include {
-            tracing::info!(
-                "Skipping {}{}",
-                entry.path().display(),
-                if entry.file_type().is_dir() { "/" } else { "" }
-            );
+            // keep files whose stem is numeric (`{y}.{ext}`)
+            let keep = entry
+                .path()
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .is_some_and(|s| s.parse::<u32>().is_ok());
+            if !keep && !warned_about_files {
+                tracing::info!(
+                    "Skipping {} and similarly-named files; expected numeric `y.<ext>` file names",
+                    entry.path().display()
+                );
+                warned_about_files = true;
+            }
+            keep
         }
-
-        should_include
     });
 
-    let mut format: Option<String> = None;
-    let mut compress = false;
+    let mut format: Option<Format> = None;
+    let mut batch: Vec<(u8, u32, u32, Vec<u8>)> = Vec::with_capacity(PACK_BATCH_SIZE);
 
     for entry in entries {
-        let Some(entry) = entry.ok() else {
+        let entry = entry?;
+        if entry.file_type().is_dir() {
+            continue;
+        }
+        let path = entry.path();
+        let Some((z, x, y)) = tile_coords(path) else {
             continue;
         };
 
-        let path_components: Vec<_> = entry.path().iter().skip(1).collect();
-        let coords: Vec<u32> = path_components
-            .iter()
-            .filter_map(|c| {
-                c.to_str()
-                    .and_then(|s| s.split('.').next())
-                    .and_then(|basename| basename.parse().ok())
-            })
-            .collect();
-
-        if let [z, x, y] = coords.as_slice() {
-            let (z, x, y) = (u8::try_from(*z)?, *x, *y);
-            // TODO: set metadata format from extension of first file, and check that
-            // subsequent files have the same extension
-            if format.is_none() {
-                format = match entry.path().extension().and_then(|s| s.to_str()) {
-                    Some("pbf" | "mvt") => Some("pbf".to_string()),
-                    Some("jpg" | "jpeg") => Some("jpg".to_string()),
-                    Some("webp") => Some("webp".to_string()),
-                    Some("png") => Some("png".to_string()),
-                    _ => {
-                        anyhow::bail!("Unsupported file extension: {}", entry.path().display());
-                    }
-                };
-
-                if format == Some("pbf".to_string()) {
-                    compress = true;
-                }
+        let detected = path
+            .extension()
+            .and_then(|e| e.to_str())
+            .and_then(Format::parse)
+            .ok_or_else(|| anyhow::anyhow!("Unsupported file extension: {}", path.display()))?;
+        match format {
+            None => format = Some(detected),
+            Some(f) if f != detected => {
+                anyhow::bail!(
+                    "Inconsistent tile formats: found {detected} at {} but earlier tiles were {f}",
+                    path.display()
+                );
             }
-
-            let data = std::fs::read(entry.path())?;
-
-            let encoded = if compress {
-                let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
-                encoder.write_all(&data)?;
-                encoder.finish()?
-            } else {
-                data
-            };
-
-            // Convert from TMS to XYZ if necessary
-            let y = match scheme {
-                TileScheme::Xyz => mbtiles::invert_y_value(z, y),
-                TileScheme::Tms => y,
-            };
-
-            mbt.insert_tiles(
-                &mut conn,
-                MbtType::Flat,
-                CopyDuplicateMode::Abort,
-                &[(z, x, y, encoded)],
-            )
-            .await?;
+            Some(_) => {}
         }
+
+        let data = std::fs::read(path)?;
+        // `auto` follows the MBTiles convention of gzipping vector tiles and leaving
+        // raster tiles untouched; explicit choices apply to every tile.
+        let target = match compress {
+            Compression::Auto if detected == Format::Mvt => Encoding::Gzip,
+            Compression::Auto | Compression::None => Encoding::Uncompressed,
+            Compression::Gzip => Encoding::Gzip,
+        };
+        let encoded = recode_tile(data, target)?;
+
+        // `insert_tiles` expects XYZ `y` and stores it as TMS internally.
+        let y = match scheme {
+            TileScheme::Xyz => y,
+            TileScheme::Tms => invert_y_value(z, y),
+        };
+
+        batch.push((z, x, y, encoded));
+        if batch.len() >= PACK_BATCH_SIZE {
+            mbt.insert_tiles(&mut conn, MbtType::Flat, CopyDuplicateMode::Abort, &batch)
+                .await?;
+            batch.clear();
+        }
+    }
+    if !batch.is_empty() {
+        mbt.insert_tiles(&mut conn, MbtType::Flat, CopyDuplicateMode::Abort, &batch)
+            .await?;
     }
 
     if let Some(format) = format {
-        mbt.set_metadata_value(&mut conn, "format", format).await?;
+        mbt.set_metadata_value(&mut conn, "format", format.metadata_format_value())
+            .await?;
     }
 
-    // TODO: set minzoom, maxzoom, and bbox?
-    // either compute them, or possibly read them from {input_directory}/metadata.json
+    // Derive minzoom/maxzoom (and the compression key) and the geographic bounds from the
+    // tiles we just inserted.
+    mbt.update_metadata(&mut conn, UpdateZoomType::Reset)
+        .await?;
+    if let Some(bbox) = mbt.summary(&mut conn).await?.bbox {
+        mbt.set_metadata_value(&mut conn, "bounds", bbox).await?;
+    }
 
     Ok(())
 }
@@ -571,70 +618,40 @@ async fn unpack(
     let mbt = Mbtiles::new(input_file)?;
     let mut conn = mbt.open_readonly().await?;
 
-    // Get the format from metadata to determine file extension and compression
+    // Derive the output file extension from the stored format.
     let format = mbt.get_metadata_value(&mut conn, "format").await?;
-    let (extension, decompress) = match format.as_deref() {
-        Some("pbf") => ("mvt", true),
-        Some("jpg") => ("jpg", false),
-        Some("png") => ("png", false),
-        Some("webp") => ("webp", false),
-        Some(unknown) => {
-            anyhow::bail!("Unknown format in MBTiles metadata: {unknown}");
-        }
-        None => anyhow::bail!("No format specified in MBTiles metadata"),
+    let Some(format_str) = format.as_deref() else {
+        anyhow::bail!("No format specified in MBTiles metadata");
     };
+    let extension = Format::parse(format_str)
+        .ok_or_else(|| anyhow::anyhow!("Unknown format in MBTiles metadata: {format_str}"))?
+        .metadata_format_value();
 
-    // Create output directory if it doesn't exist
     std::fs::create_dir_all(output_directory)?;
 
-    // Query all tiles from the database
-    let mut tiles = sqlx::query!("SELECT zoom_level, tile_column, tile_row, tile_data FROM tiles ORDER BY zoom_level, tile_column, tile_row")
-        .fetch(&mut conn);
+    let mut tiles = mbt.stream_tiles(&mut conn);
+    while let Some(tile) = tiles.next().await {
+        // `stream_tiles` already validates the indices and yields XYZ coordinates.
+        let (coord, data) = tile?;
+        let Some(data) = data else { continue };
 
-    while let Some(tile) = tiles.try_next().await? {
-        let Some(z) = tile.zoom_level else {
-            tracing::warn!("Skipping tile with missing zoom level");
-            continue;
-        };
-        let Some(x) = tile.tile_column else {
-            tracing::warn!("Skipping tile with missing tile column");
-            continue;
-        };
-        let Some(y) = tile.tile_row else {
-            tracing::warn!("Skipping tile with missing tile row");
-            continue;
-        };
-        let Some(tile_data) = tile.tile_data else {
-            tracing::warn!("Skipping tile at {z}/{x}/{y} with missing data");
-            continue;
-        };
-
-        let z = u8::try_from(z)?;
-        let x = u32::try_from(x)?;
-        let y = u32::try_from(y)?;
-
-        // Convert from TMS to XYZ if necessary
         let y = match scheme {
-            TileScheme::Xyz => mbtiles::invert_y_value(z, y),
-            TileScheme::Tms => y,
+            TileScheme::Xyz => coord.y,
+            TileScheme::Tms => invert_y_value(coord.z, coord.y),
         };
 
-        let data = if decompress {
-            let mut decoder = GzDecoder::new(&tile_data[..]);
-            let mut decompressed = Vec::new();
-            decoder.read_to_end(&mut decompressed)?;
-            decompressed
+        // Vector tiles are stored gzip-compressed; write them back out decompressed.
+        let data = if TileInfo::detect(&data).encoding == Encoding::Gzip {
+            decode_gzip(&data)?
         } else {
-            tile_data
+            data
         };
 
-        // Create directory structure: output_directory/z/x/
-        let tile_dir = output_directory.join(z.to_string()).join(x.to_string());
+        let tile_dir = output_directory
+            .join(coord.z.to_string())
+            .join(coord.x.to_string());
         std::fs::create_dir_all(&tile_dir)?;
-
-        // Write tile file: output_directory/z/x/y.ext
-        let tile_file = tile_dir.join(format!("{y}.{extension}"));
-        std::fs::write(&tile_file, &data)?;
+        std::fs::write(tile_dir.join(format!("{y}.{extension}")), &data)?;
     }
 
     // TODO: write metadata.json file with minzoom, maxzoom, bounds, etc?
@@ -644,14 +661,16 @@ async fn unpack(
 
 #[cfg(test)]
 mod tests {
-    use std::path::PathBuf;
+    use std::path::{Path, PathBuf};
 
     use clap::Parser as _;
     use clap::error::ErrorKind;
     use mbtiles::CopyDuplicateMode;
 
     use super::*;
-    use crate::Commands::{ApplyPatch, Copy, Diff, MetaGetValue, MetaSetValue, Validate};
+    use crate::Commands::{
+        ApplyPatch, Copy, Diff, MetaGetValue, MetaSetValue, Pack, Unpack, Validate,
+    };
     use crate::{Args, IntegrityCheckType};
 
     #[test]
@@ -983,5 +1002,103 @@ mod tests {
                 }
             }
         );
+    }
+
+    // Behavioural pack/unpack coverage (round-trips, scheme flips, compression, metadata,
+    // and CLI error paths) lives in the integration suite `tests/test.sh`, which drives the
+    // real binary against fixture MBTiles. The unit tests below stay pure: argument parsing
+    // and the `tile_coords` path parser, neither of which touches the filesystem or SQLite.
+
+    #[test]
+    fn test_pack_defaults() {
+        assert_eq!(
+            Args::parse_from(["mbtiles", "pack", "src_dir", "out.mbtiles"]),
+            Args {
+                verbose: false,
+                command: Pack {
+                    input_directory: PathBuf::from("src_dir"),
+                    output_file: PathBuf::from("out.mbtiles"),
+                    scheme: TileScheme::Xyz,
+                    compress: Compression::Auto,
+                }
+            }
+        );
+    }
+
+    #[test]
+    fn test_pack_tms_uncompressed() {
+        assert_eq!(
+            Args::parse_from([
+                "mbtiles",
+                "pack",
+                "src_dir",
+                "out.mbtiles",
+                "--scheme",
+                "tms",
+                "--compress",
+                "none",
+            ]),
+            Args {
+                verbose: false,
+                command: Pack {
+                    input_directory: PathBuf::from("src_dir"),
+                    output_file: PathBuf::from("out.mbtiles"),
+                    scheme: TileScheme::Tms,
+                    compress: Compression::None,
+                }
+            }
+        );
+    }
+
+    #[test]
+    fn test_pack_compress_gzip_alias() {
+        let Pack { compress, .. } =
+            Args::parse_from(["mbtiles", "pack", "src", "out.mbtiles", "--compress", "gz"]).command
+        else {
+            panic!("expected a pack command");
+        };
+        assert_eq!(compress, Compression::Gzip);
+    }
+
+    #[test]
+    fn test_unpack_scheme() {
+        assert_eq!(
+            Args::parse_from([
+                "mbtiles",
+                "unpack",
+                "in.mbtiles",
+                "out_dir",
+                "--scheme",
+                "tms"
+            ]),
+            Args {
+                verbose: false,
+                command: Unpack {
+                    input_file: PathBuf::from("in.mbtiles"),
+                    output_directory: PathBuf::from("out_dir"),
+                    scheme: TileScheme::Tms,
+                }
+            }
+        );
+    }
+
+    #[test]
+    fn test_tile_coords() {
+        // `{z}/{x}/{y}.{ext}`, with the extension ignored.
+        assert_eq!(tile_coords(Path::new("0/0/0.png")), Some((0, 0, 0)));
+        assert_eq!(
+            tile_coords(Path::new("any/prefix/3/4/5.pbf")),
+            Some((3, 4, 5))
+        );
+        assert_eq!(tile_coords(Path::new("3/4/5")), Some((3, 4, 5)));
+
+        // Non-numeric components are rejected.
+        assert_eq!(tile_coords(Path::new("z/4/5.png")), None);
+        assert_eq!(tile_coords(Path::new("3/x/5.png")), None);
+        assert_eq!(tile_coords(Path::new("3/4/y.png")), None);
+
+        // Zoom must fit in a u8, and there must be enough path components.
+        assert_eq!(tile_coords(Path::new("999/4/5.png")), None);
+        assert_eq!(tile_coords(Path::new("5.png")), None);
     }
 }
