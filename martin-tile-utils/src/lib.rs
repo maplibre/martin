@@ -692,6 +692,28 @@ mod tests {
     }
 
     #[rstest]
+    #[case(0, 0, 0, [-20_037_508.342_789_25, -20_037_508.342_789_25, 20_037_508.342_789_25, 20_037_508.342_789_25])]
+    #[case(1, 0, 0, [-20_037_508.342_789_25, 0.0, 0.0, 20_037_508.342_789_25])]
+    #[case(1, 1, 1, [0.0, -20_037_508.342_789_25, 20_037_508.342_789_25, 0.0])]
+    #[case(2, 0, 0, [-20_037_508.342_789_25, 10_018_754.171_394_625, -10_018_754.171_394_625, 20_037_508.342_789_25])]
+    #[case(2, 2, 2, [0.0, -10_018_754.171_394_625, 10_018_754.171_394_625, 0.0])]
+    fn test_tile_bbox(
+        #[case] zoom: u8,
+        #[case] x: u32,
+        #[case] y: u32,
+        #[case] expected: [f64; 4],
+    ) {
+        let tile_length = EARTH_CIRCUMFERENCE / f64::from(1_u32 << zoom);
+        let bbox = tile_bbox(x, y, tile_length);
+        assert_relative_eq!(bbox[0], expected[0], epsilon = f64::EPSILON * 2.0);
+        assert_relative_eq!(bbox[1], expected[1], epsilon = f64::EPSILON * 2.0);
+        assert_relative_eq!(bbox[2], expected[2], epsilon = f64::EPSILON * 2.0);
+        assert_relative_eq!(bbox[3], expected[3], epsilon = f64::EPSILON * 2.0);
+        assert_relative_eq!(bbox[2] - bbox[0], tile_length, epsilon = f64::EPSILON * 2.0);
+        assert_relative_eq!(bbox[3] - bbox[1], tile_length, epsilon = f64::EPSILON * 2.0);
+    }
+
+    #[rstest]
     #[case(0, (0, 0, 0, 0))]
     #[case(1, (0, 1, 0, 1))]
     #[case(2, (0, 3, 0, 3))]

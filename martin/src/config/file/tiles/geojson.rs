@@ -58,12 +58,13 @@ mod tests {
 
     use crate::config::file::geojson::GeoJsonConfig;
     use crate::config::file::{
-        ConfigurationLivecycleHooks as _, FileConfigEnum, FileConfigSource, FileConfigSrc,
+        CachePolicy, ConfigurationLivecycleHooks as _, FileConfigEnum, FileConfigSource,
+        FileConfigSrc,
     };
 
     #[test]
     fn parse() {
-        let mut cfg = serde_yaml::from_str::<FileConfigEnum<GeoJsonConfig>>(indoc! {"
+        let mut cfg = serde_saphyr::from_str::<FileConfigEnum<GeoJsonConfig>>(indoc! {"
             paths:
               - /dir-path
               - /path/to/file2.ext
@@ -106,6 +107,11 @@ mod tests {
                     "pm-src2".to_string(),
                     FileConfigSrc::Obj(FileConfigSource {
                         path: PathBuf::from("/tmp/file.ext"),
+                        #[cfg(all(feature = "mlt", feature = "_tiles"))]
+                        convert_to_mlt: None,
+                        #[cfg(all(feature = "mlt", feature = "_tiles"))]
+                        convert_to_mvt: None,
+                        cache: CachePolicy::default(),
                     })
                 ),
                 (
@@ -116,6 +122,11 @@ mod tests {
                     "pm-src4".to_string(),
                     FileConfigSrc::Obj(FileConfigSource {
                         path: PathBuf::from("https://example.org/file4.ext"),
+                        #[cfg(all(feature = "mlt", feature = "_tiles"))]
+                        convert_to_mlt: None,
+                        #[cfg(all(feature = "mlt", feature = "_tiles"))]
+                        convert_to_mvt: None,
+                        cache: CachePolicy::default(),
                     })
                 ),
             ]))
