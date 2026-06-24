@@ -46,39 +46,6 @@ pub enum PackCompression {
     Gzip,
 }
 
-/// Parses the `{z}/{x}/{y}` coordinates out of a tile path, ignoring any extension and leading
-/// path components. Returns [`None`] if the trailing three components are not numeric.
-fn tile_coords(path: &Path) -> Option<(u8, u32, u32)> {
-    let y = path.file_stem()?.to_str()?.parse::<u32>().ok()?;
-    let mut dirs = path.ancestors().skip(1);
-    let x = dirs.next()?.file_name()?.to_str()?.parse::<u32>().ok()?;
-    let z = dirs.next()?.file_name()?.to_str()?.parse::<u8>().ok()?;
-    Some((z, x, y))
-}
-
-/// Re-encodes `data` so it ends up in `target` encoding, decoding any existing
-/// compression first so we never double-compress. `Internal` (PNG/JPEG/WebP) is
-/// already plaintext for our purposes.
-fn recode_tile(data: Vec<u8>, target: Encoding) -> MbtResult<Vec<u8>> {
-    let current = TileInfo::detect(&data).encoding;
-    if current == target {
-        return Ok(data);
-    }
-    let plain = match current {
-        Encoding::Uncompressed | Encoding::Internal => data,
-        Encoding::Gzip => decode_gzip(&data)?,
-        Encoding::Zlib => decode_zlib(&data)?,
-        Encoding::Brotli | Encoding::Zstd => {
-            return Err(MbtError::CannotRecodeCompressedTile(current));
-        }
-    };
-    match target {
-        Encoding::Uncompressed => Ok(plain),
-        Encoding::Gzip => Ok(encode_gzip(&plain)?),
-        other => Err(MbtError::UnsupportedPackTarget(other)),
-    }
-}
-
 /// Packs a `{z}/{x}/{y}.{ext}` directory tree at `input_directory` into a flat `MBTiles` file at
 /// `output_file`, interpreting the directory layout with `scheme` and compressing tiles per
 /// `compression`.
@@ -266,6 +233,39 @@ pub async fn unpack(
     // TODO: write metadata.json file with minzoom, maxzoom, bounds, etc?
 
     Ok(())
+}
+
+/// Parses the `{z}/{x}/{y}` coordinates out of a tile path, ignoring any extension and leading
+/// path components. Returns [`None`] if the trailing three components are not numeric.
+fn tile_coords(path: &Path) -> Option<(u8, u32, u32)> {
+    let y = path.file_stem()?.to_str()?.parse::<u32>().ok()?;
+    let mut dirs = path.ancestors().skip(1);
+    let x = dirs.next()?.file_name()?.to_str()?.parse::<u32>().ok()?;
+    let z = dirs.next()?.file_name()?.to_str()?.parse::<u8>().ok()?;
+    Some((z, x, y))
+}
+
+/// Re-encodes `data` so it ends up in `target` encoding, decoding any existing
+/// compression first so we never double-compress. `Internal` (PNG/JPEG/WebP) is
+/// already plaintext for our purposes.
+fn recode_tile(data: Vec<u8>, target: Encoding) -> MbtResult<Vec<u8>> {
+    let current = TileInfo::detect(&data).encoding;
+    if current == target {
+        return Ok(data);
+    }
+    let plain = match current {
+        Encoding::Uncompressed | Encoding::Internal => data,
+        Encoding::Gzip => decode_gzip(&data)?,
+        Encoding::Zlib => decode_zlib(&data)?,
+        Encoding::Brotli | Encoding::Zstd => {
+            return Err(MbtError::CannotRecodeCompressedTile(current));
+        }
+    };
+    match target {
+        Encoding::Uncompressed => Ok(plain),
+        Encoding::Gzip => Ok(encode_gzip(&plain)?),
+        other => Err(MbtError::UnsupportedPackTarget(other)),
+    }
 }
 
 #[cfg(test)]
