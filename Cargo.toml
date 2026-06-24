@@ -75,6 +75,7 @@ bytes = "1"
 chrono = { version = "0.4", default-features = false, features = ["serde"] }
 clap = { version = "4", features = ["derive", "unstable-markdown", "wrap_help"] }
 criterion = { version = "0.8", features = ["async_futures", "async_tokio", "html_reports"] }
+csscolorparser = "0.8"
 dashmap = { version = "6.1.0", features = ["serde", "inline", "rayon"] }
 deadpool = "0.13.0"
 deadpool-postgres = "0.14"
@@ -140,6 +141,7 @@ static-files = "0.2"
 strum = { version = "0.28", features = ["derive"] }
 subst = "0.3"
 tempfile = "3.21.0"
+test_each_file = "0.3"
 testcontainers-modules = { version = "0.15.0", features = ["postgres", "blocking", "minio"] }
 thiserror = "2"
 tiff = "0.11.1"
