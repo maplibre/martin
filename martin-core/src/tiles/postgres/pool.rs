@@ -265,6 +265,7 @@ impl std::fmt::Debug for ActiveQueryRegistry {
             .unwrap_or((0, Vec::new()));
 
         f.debug_struct("ActiveQueryRegistry")
+            .field("counter", &self.counter.load(Ordering::Relaxed))
             .field("active_count", &active_count)
             .field("active_ids", &ids)
             .finish()

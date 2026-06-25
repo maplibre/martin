@@ -1000,7 +1000,7 @@ mod tests {
         let status = "status";
         let expected_status = "interuption";
         let args = CopyArgs {
-            source: Some("blocking_source".to_string()),
+            source: Some("test_source".to_string()),
             output_file: output_file.clone(),
             max_zoom: Some(0),
             min_zoom: Some(0),
