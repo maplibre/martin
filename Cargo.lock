@@ -4795,6 +4795,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "tracing-test",
+ "walkdir",
  "xxhash-rust",
 ]
 
