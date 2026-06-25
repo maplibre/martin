@@ -157,6 +157,7 @@ backon.workspace = true
 bytes.workspace = true
 criterion = { workspace = true }
 env_logger.workspace = true
+fast-mvt.workspace = true
 futures.workspace = true
 image-compare.workspace = true
 insta = { workspace = true, features = ["json", "yaml"] }
