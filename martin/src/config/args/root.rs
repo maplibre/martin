@@ -483,9 +483,13 @@ mod tests {
             "../tests/fixtures/geojson/feature_collection_1.geojson",
         ]);
 
-        let env = FauxEnv::default();
         let mut config = Config::default();
-        args.merge_into_config(&mut config, &env).unwrap();
+        args.merge_into_config(
+            &mut config,
+            #[cfg(feature = "postgres")]
+            &FauxEnv::default(),
+        )
+        .unwrap();
         insta::assert_yaml_snapshot!(config, @r#"
         geojson: "../tests/fixtures/geojson/feature_collection_1.geojson"
         "#);

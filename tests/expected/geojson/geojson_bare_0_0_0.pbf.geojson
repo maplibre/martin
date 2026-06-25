@@ -29,7 +29,7 @@
         "type": "Polygon"
       },
       "properties": {
-        "source_mvt_layer": "layer"
+        "source_mvt_layer": "bare_geometry"
       },
       "type": "Feature"
     }

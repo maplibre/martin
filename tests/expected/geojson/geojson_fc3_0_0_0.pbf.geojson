@@ -30,7 +30,7 @@
       },
       "properties": {
         "id": 0,
-        "source_mvt_layer": "layer"
+        "source_mvt_layer": "feature_collection_3"
       },
       "type": "Feature"
     },
@@ -64,7 +64,7 @@
       },
       "properties": {
         "id": 1,
-        "source_mvt_layer": "layer"
+        "source_mvt_layer": "feature_collection_3"
       },
       "type": "Feature"
     },
@@ -98,7 +98,7 @@
       },
       "properties": {
         "id": 3,
-        "source_mvt_layer": "layer"
+        "source_mvt_layer": "feature_collection_3"
       },
       "type": "Feature"
     }

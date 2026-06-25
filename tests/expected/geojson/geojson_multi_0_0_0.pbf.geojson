@@ -21,7 +21,7 @@
       "properties": {
         "id": 1,
         "kind": "multipoint",
-        "source_mvt_layer": "layer"
+        "source_mvt_layer": "multi_geometries"
       },
       "type": "Feature"
     },
@@ -54,7 +54,7 @@
       "properties": {
         "id": 2,
         "kind": "multilinestring",
-        "source_mvt_layer": "layer"
+        "source_mvt_layer": "multi_geometries"
       },
       "type": "Feature"
     },
@@ -115,7 +115,7 @@
       "properties": {
         "id": 3,
         "kind": "multipolygon",
-        "source_mvt_layer": "layer"
+        "source_mvt_layer": "multi_geometries"
       },
       "type": "Feature"
     },
@@ -130,7 +130,7 @@
       "properties": {
         "id": 4,
         "kind": "geometrycollection",
-        "source_mvt_layer": "layer"
+        "source_mvt_layer": "multi_geometries"
       },
       "type": "Feature"
     },
@@ -151,7 +151,7 @@
       "properties": {
         "id": 4,
         "kind": "geometrycollection",
-        "source_mvt_layer": "layer"
+        "source_mvt_layer": "multi_geometries"
       },
       "type": "Feature"
     }

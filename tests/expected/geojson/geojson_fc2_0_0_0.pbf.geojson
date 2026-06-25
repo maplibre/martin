@@ -11,7 +11,7 @@
       "properties": {
         "id": 1,
         "name": "test-point",
-        "source_mvt_layer": "layer"
+        "source_mvt_layer": "feature_collection_2"
       },
       "type": "Feature"
     }

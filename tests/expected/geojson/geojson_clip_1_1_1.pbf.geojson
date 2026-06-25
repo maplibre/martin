@@ -65,7 +65,7 @@
       "properties": {
         "id": 1,
         "kind": "multipolygon-with-hole",
-        "source_mvt_layer": "layer"
+        "source_mvt_layer": "clip"
       },
       "type": "Feature"
     }

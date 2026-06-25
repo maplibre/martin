@@ -23,7 +23,7 @@
         },
         "prop_string": "hello",
         "prop_uint_large": -1,
-        "source_mvt_layer": "layer"
+        "source_mvt_layer": "properties"
       },
       "type": "Feature"
     }

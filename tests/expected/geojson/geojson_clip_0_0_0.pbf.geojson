@@ -79,7 +79,7 @@
       "properties": {
         "id": 1,
         "kind": "multipolygon-with-hole",
-        "source_mvt_layer": "layer"
+        "source_mvt_layer": "clip"
       },
       "type": "Feature"
     },
@@ -116,7 +116,7 @@
       "properties": {
         "id": 2,
         "kind": "polygon-northeast",
-        "source_mvt_layer": "layer"
+        "source_mvt_layer": "clip"
       },
       "type": "Feature"
     }
