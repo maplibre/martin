@@ -629,15 +629,19 @@ jobs:
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with: { persist-credentials: false }
       - uses: ./.github/actions/setup-rust
-      - name: Init databases
-        run: |
-          PGPORT="$PG11_ALPINE_PORT" tests/fixtures/initdb.sh
-          PGPORT="$PG18_ALPINE_PORT" tests/fixtures/initdb.sh
-          PGPORT="$PG18_SSL_PORT" tests/fixtures/initdb.sh
-        env:
-          PG11_ALPINE_PORT: ${{ job.services['pg11-alpine'].ports[5432] }}
-          PG18_ALPINE_PORT: ${{ job.services['pg18-alpine'].ports[5432] }}
-          PG18_SSL_PORT: ${{ job.services['pg18-ssl'].ports[5432] }}
+      - parallel:
+          - name: Init pg11-alpine database
+            run: tests/fixtures/initdb.sh
+            env:
+              PGPORT: ${{ job.services['pg11-alpine'].ports[5432] }}
+          - name: Init pg18-alpine database
+            run: tests/fixtures/initdb.sh
+            env:
+              PGPORT: ${{ job.services['pg18-alpine'].ports[5432] }}
+          - name: Init pg18-ssl database
+            run: tests/fixtures/initdb.sh
+            env:
+              PGPORT: ${{ job.services['pg18-ssl'].ports[5432] }}
       - name: Unit Tests postgis:11-3.0-alpine sslmode=disable
         run: |
           echo "Running unit tests, connecting to DATABASE_URL=$DATABASE_URL"
