@@ -78,8 +78,30 @@ jobs:
       - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1 # zizmor: ignore[cache-poisoning] dev-only build cache, keyed per matrix; poisoning risk accepted
         if: github.event_name != 'release' && github.event_name != 'workflow_dispatch' && github.ref != 'refs/heads/main'
       - run: just clippy
-      - run: just check
       - run: just check-doc
+  check-features:
+    name: Check feature matrix (${{ matrix.partition }})
+    permissions:
+      contents: read
+    # Depends on lint-rust not because it needs its output, but so the fan-out
+    # of partitions doesn't compete for the early pipeline slots (only ~10 run
+    # concurrently) before the cheaper clippy run has had a chance to fail fast.
+    needs:
+      - lint-rust
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        partition: [ 1/4, 2/4, 3/4, 4/4 ]
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with: { persist-credentials: false }
+      - uses: ./.github/actions/setup-rust
+        with: { rendering: true }
+      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1 # zizmor: ignore[cache-poisoning] dev-only build cache, keyed per matrix; poisoning risk accepted
+        if: github.event_name != 'release' && github.event_name != 'workflow_dispatch' && github.ref != 'refs/heads/main'
+      - run: just check --partition ${{ matrix.partition }}
   validate-schemas:
     name: Validate generated config + OpenAPI schemas
     permissions:
@@ -919,6 +941,7 @@ jobs:
       - validate-schemas
       - lint-unit-test-js
       - lint-rust
+      - check-features
       - lint-rust-dependencies
       - unit-test-rust
       - unit-test-svc-pg
