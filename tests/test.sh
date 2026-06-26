@@ -1202,6 +1202,105 @@ if [[ "$MBTILES_BIN" != "-" ]]; then
 
   { set +x; } 2> /dev/null
   echo "::endgroup::"
+
+  echo "::group::Test mbtiles pack/unpack"
+  set -x
+
+  # pack / unpack round-trip coverage. These verify themselves inline (no golden
+  # files) by comparing the regenerated tile tree / tiles table against the input,
+  # so the work happens in a temp dir rather than $TEST_OUT_DIR.
+  PU_DIR="$(mktemp -d "$TEST_TEMP_DIR/pack_unpack.XXXXXX")"
+
+  >&2 echo "Test pack/unpack: PBF tile tree round-trips through gzip compression"
+  $MBTILES_BIN unpack ./tests/fixtures/mbtiles/world_cities.mbtiles "$PU_DIR/wc_xyz"
+  # unpack names files with the metadata format extension and the xyz scheme by default
+  if [[ ! -f "$PU_DIR/wc_xyz/0/0/0.pbf" ]]; then
+    echo "ERROR: unpack did not write the expected 0/0/0.pbf tile"
+    exit 1
+  fi
+  $MBTILES_BIN pack "$PU_DIR/wc_xyz" "$PU_DIR/wc_repacked.mbtiles"
+  $MBTILES_BIN unpack "$PU_DIR/wc_repacked.mbtiles" "$PU_DIR/wc_xyz_again"
+  if ! diff --recursive "$PU_DIR/wc_xyz" "$PU_DIR/wc_xyz_again"; then
+    echo "ERROR: PBF pack -> unpack round-trip changed the tile tree"
+    exit 1
+  fi
+
+  >&2 echo "Test pack/unpack: --scheme flips the y coordinate"
+  $MBTILES_BIN unpack ./tests/fixtures/mbtiles/world_cities.mbtiles "$PU_DIR/wc_tms" --scheme tms
+  ( cd "$PU_DIR/wc_xyz" && find . -type f | sort ) > "$PU_DIR/xyz.list"
+  ( cd "$PU_DIR/wc_tms" && find . -type f | sort ) > "$PU_DIR/tms.list"
+  if diff --brief "$PU_DIR/xyz.list" "$PU_DIR/tms.list" > /dev/null; then
+    echo "ERROR: xyz and tms unpack produced identical file names; --scheme had no effect"
+    exit 1
+  fi
+
+  >&2 echo "Test pack/unpack: --compress none round-trips and stores vector tiles as-is"
+  $MBTILES_BIN pack "$PU_DIR/wc_xyz" "$PU_DIR/wc_default.mbtiles"
+  $MBTILES_BIN pack "$PU_DIR/wc_xyz" "$PU_DIR/wc_raw.mbtiles" --compress none
+  $MBTILES_BIN unpack "$PU_DIR/wc_raw.mbtiles" "$PU_DIR/wc_raw_out"
+  if ! diff --recursive "$PU_DIR/wc_xyz" "$PU_DIR/wc_raw_out"; then
+    echo "ERROR: --compress none pack -> unpack round-trip changed the tile tree"
+    exit 1
+  fi
+
+  >&2 echo "Test pack/unpack: unpack fails on a nonexistent file and on metadata without a format"
+  if $MBTILES_BIN unpack "$PU_DIR/does-not-exist.mbtiles" "$PU_DIR/missing_out" 2>&1; then
+    echo "ERROR: unpack of a nonexistent file should have failed"
+    exit 1
+  fi
+  if $MBTILES_BIN unpack ./tests/fixtures/mbtiles/geography-class-png.mbtiles "$PU_DIR/noformat_out" 2>&1; then
+    echo "ERROR: unpack should fail when the metadata table has no format"
+    exit 1
+  fi
+  if $MBTILES_BIN pack "$PU_DIR/does-not-exist-dir" "$PU_DIR/from_missing.mbtiles" 2>&1; then
+    echo "ERROR: pack of a nonexistent directory should have failed"
+    exit 1
+  fi
+
+  >&2 echo "Test pack/unpack: pack rejects unsupported extensions and inconsistent formats"
+  mkdir -p "$PU_DIR/bad_ext/0/0"
+  echo nope > "$PU_DIR/bad_ext/0/0/0.txt"
+  if $MBTILES_BIN pack "$PU_DIR/bad_ext" "$PU_DIR/bad_ext.mbtiles" 2>&1; then
+    echo "ERROR: pack of an unsupported file extension should have failed"
+    exit 1
+  fi
+  mkdir -p "$PU_DIR/mixed/0/0" "$PU_DIR/mixed/1/0"
+  cp "$PU_DIR/wc_xyz/0/0/0.pbf" "$PU_DIR/mixed/0/0/0.pbf"
+  echo raster > "$PU_DIR/mixed/1/0/0.png"
+  if $MBTILES_BIN pack "$PU_DIR/mixed" "$PU_DIR/mixed.mbtiles" 2>&1; then
+    echo "ERROR: pack of a directory with inconsistent tile formats should have failed"
+    exit 1
+  fi
+
+  if command -v sqlite3 > /dev/null; then
+    DUMP_TILES="SELECT zoom_level, tile_column, tile_row, hex(tile_data) FROM tiles ORDER BY 1, 2, 3;"
+
+    >&2 echo "Test pack/unpack: uncompressed image tiles round-trip byte-for-byte in both schemes"
+    sqlite3 ./tests/fixtures/mbtiles/webp-no-primary.mbtiles "$DUMP_TILES" > "$PU_DIR/webp_src.dump"
+    for scheme in xyz tms; do
+      $MBTILES_BIN unpack ./tests/fixtures/mbtiles/webp-no-primary.mbtiles "$PU_DIR/webp_$scheme" --scheme "$scheme"
+      $MBTILES_BIN pack "$PU_DIR/webp_$scheme" "$PU_DIR/webp_$scheme.mbtiles" --scheme "$scheme"
+      sqlite3 "$PU_DIR/webp_$scheme.mbtiles" "$DUMP_TILES" > "$PU_DIR/webp_$scheme.dump"
+      if ! diff "$PU_DIR/webp_src.dump" "$PU_DIR/webp_$scheme.dump"; then
+        echo "ERROR: webp pack/unpack ($scheme) did not reproduce the original tiles"
+        exit 1
+      fi
+    done
+
+    >&2 echo "Test pack/unpack: default gzips vector tiles while --compress none leaves them raw"
+    DEFAULT_GZ=$(sqlite3 "$PU_DIR/wc_default.mbtiles" "SELECT count(*) FROM tiles WHERE hex(substr(tile_data, 1, 2)) = '1F8B';")
+    RAW_GZ=$(sqlite3 "$PU_DIR/wc_raw.mbtiles" "SELECT count(*) FROM tiles WHERE hex(substr(tile_data, 1, 2)) = '1F8B';")
+    if [[ "$DEFAULT_GZ" -eq 0 || "$RAW_GZ" -ne 0 ]]; then
+      echo "ERROR: expected default pack to gzip vector tiles ($DEFAULT_GZ gzipped) and --compress none not to ($RAW_GZ gzipped)"
+      exit 1
+    fi
+  fi
+
+  # sudo fallback: the Docker image runs mbtiles as root, leaving root-owned dirs.
+  rm -rf "$PU_DIR" 2> /dev/null || sudo rm -rf "$PU_DIR"
+
+  { set +x; } 2> /dev/null
+  echo "::endgroup::"
 else
   echo "Skipping mbtiles utility tests"
 fi

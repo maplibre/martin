@@ -12,7 +12,8 @@ use clap::{Parser, Subcommand, ValueEnum};
 use enum_display::EnumDisplay;
 use mbtiles::{
     AggHashType, CopyDuplicateMode, CopyType, IntegrityCheckType, MbtResult, MbtTypeCli, Mbtiles,
-    MbtilesCopier, PatchTypeCli, UpdateZoomType, apply_patch,
+    MbtilesCopier, PackCompression, PatchTypeCli, TileScheme, UpdateZoomType, apply_patch, pack,
+    unpack,
 };
 use serde::{Deserialize, Serialize};
 use tilejson::Bounds;
@@ -127,6 +128,31 @@ enum Commands {
         /// How should the aggregate tiles hash be checked or updated.
         #[arg(long, value_enum)]
         agg_hash: Option<AggHashType>,
+    },
+    /// Pack a directory tree of tiles into an `MBTiles` file
+    #[command(name = "pack")]
+    Pack {
+        /// directory to read
+        input_directory: PathBuf,
+        /// `MBTiles` file to write
+        output_file: PathBuf,
+        /// Tile ID scheme for input directory
+        #[arg(long, value_enum, default_value_t)]
+        scheme: TileScheme,
+        /// Compression to store tiles with
+        #[arg(long, value_enum, default_value_t)]
+        compress: PackCompression,
+    },
+    /// Unpack an `MBTiles` file into a directory tree of tiles
+    #[command(name = "unpack")]
+    Unpack {
+        /// `MBTiles` file to read
+        input_file: PathBuf,
+        /// directory to write
+        output_directory: PathBuf,
+        /// Tile ID scheme for output directory
+        #[arg(long, value_enum, default_value_t)]
+        scheme: TileScheme,
     },
 }
 
@@ -338,6 +364,21 @@ async fn main_int() -> anyhow::Result<()> {
                 OutputFormat::JsonPretty => println!("{}", serde_json::to_string_pretty(&summary)?),
             }
         }
+        Commands::Pack {
+            input_directory,
+            output_file,
+            scheme,
+            compress,
+        } => {
+            pack(&input_directory, &output_file, scheme, compress).await?;
+        }
+        Commands::Unpack {
+            input_file,
+            output_directory,
+            scheme,
+        } => {
+            unpack(&input_file, &output_directory, scheme).await?;
+        }
     }
 
     Ok(())
@@ -389,7 +430,9 @@ mod tests {
     use mbtiles::CopyDuplicateMode;
 
     use super::*;
-    use crate::Commands::{ApplyPatch, Copy, Diff, MetaGetValue, MetaSetValue, Validate};
+    use crate::Commands::{
+        ApplyPatch, Copy, Diff, MetaGetValue, MetaSetValue, Pack, Unpack, Validate,
+    };
     use crate::{Args, IntegrityCheckType};
 
     #[test]
@@ -718,6 +761,85 @@ mod tests {
                     integrity_check: IntegrityCheckType::Quick,
                     update_agg_tiles_hash: false,
                     agg_hash: Some(AggHashType::Off),
+                }
+            }
+        );
+    }
+
+    // Behavioural pack/unpack coverage (round-trips, scheme flips, compression, metadata,
+    // and CLI error paths) lives in the integration suite `tests/test.sh`, which drives the
+    // real binary against fixture MBTiles. The unit tests below only cover argument parsing;
+    // the `pack`/`unpack` logic and its `tile_coords` parser are tested in the `mbtiles::pack`
+    // module.
+
+    #[test]
+    fn test_pack_defaults() {
+        assert_eq!(
+            Args::parse_from(["mbtiles", "pack", "src_dir", "out.mbtiles"]),
+            Args {
+                verbose: false,
+                command: Pack {
+                    input_directory: PathBuf::from("src_dir"),
+                    output_file: PathBuf::from("out.mbtiles"),
+                    scheme: TileScheme::Xyz,
+                    compress: PackCompression::Auto,
+                }
+            }
+        );
+    }
+
+    #[test]
+    fn test_pack_tms_uncompressed() {
+        assert_eq!(
+            Args::parse_from([
+                "mbtiles",
+                "pack",
+                "src_dir",
+                "out.mbtiles",
+                "--scheme",
+                "tms",
+                "--compress",
+                "none",
+            ]),
+            Args {
+                verbose: false,
+                command: Pack {
+                    input_directory: PathBuf::from("src_dir"),
+                    output_file: PathBuf::from("out.mbtiles"),
+                    scheme: TileScheme::Tms,
+                    compress: PackCompression::None,
+                }
+            }
+        );
+    }
+
+    #[test]
+    fn test_pack_compress_gzip_alias() {
+        let Pack { compress, .. } =
+            Args::parse_from(["mbtiles", "pack", "src", "out.mbtiles", "--compress", "gz"]).command
+        else {
+            panic!("expected a pack command");
+        };
+        assert_eq!(compress, PackCompression::Gzip);
+    }
+
+    #[test]
+    fn test_unpack_scheme() {
+        assert_eq!(
+            Args::parse_from([
+                "mbtiles",
+                "unpack",
+                "in.mbtiles",
+                "out_dir",
+                "--scheme",
+                "tms"
+            ]),
+            Args {
+                verbose: false,
+                command: Unpack {
+                    input_file: PathBuf::from("in.mbtiles"),
+                    output_directory: PathBuf::from("out_dir"),
+                    scheme: TileScheme::Tms,
                 }
             }
         );

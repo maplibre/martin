@@ -78,8 +78,30 @@ jobs:
       - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1 # zizmor: ignore[cache-poisoning] dev-only build cache, keyed per matrix; poisoning risk accepted
         if: github.event_name != 'release' && github.event_name != 'workflow_dispatch' && github.ref != 'refs/heads/main'
       - run: just clippy
-      - run: just check
       - run: just check-doc
+  check-features:
+    name: Check feature matrix (${{ matrix.partition }})
+    permissions:
+      contents: read
+    # Depends on lint-rust not because it needs its output, but so the fan-out
+    # of partitions doesn't compete for the early pipeline slots (only ~10 run
+    # concurrently) before the cheaper clippy run has had a chance to fail fast.
+    needs:
+      - lint-rust
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        partition: [ 1/4, 2/4, 3/4, 4/4 ]
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with: { persist-credentials: false }
+      - uses: ./.github/actions/setup-rust
+        with: { rendering: true }
+      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1 # zizmor: ignore[cache-poisoning] dev-only build cache, keyed per matrix; poisoning risk accepted
+        if: github.event_name != 'release' && github.event_name != 'workflow_dispatch' && github.ref != 'refs/heads/main'
+      - run: just check --partition ${{ matrix.partition }}
   validate-schemas:
     name: Validate generated config + OpenAPI schemas
     permissions:
@@ -565,42 +587,49 @@ jobs:
           retention-days: 5
 
   unit-test-svc-pg:
-    name: Unit test postgis:${{ matrix.img_ver }} sslmode=${{ matrix.sslmode }}
+    name: Unit test against PostGIS variants
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    strategy: &svc-strategy
-      fail-fast: true
-      matrix:
-        include:
-          # These must match the versions of postgres used in the docker-compose.yml
-          - img_ver: 11-3.0-alpine
-            args: postgres
-            sslmode: disable
-          - img_ver: 18-3.6-alpine
-            args: postgres
-            sslmode: disable
-          # alpine images don't support SSL, so for this we use the debian images
-          - img_ver: 18-3.6
-            args: postgres -c ssl=on -c ssl_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem -c ssl_key_file=/etc/ssl/private/ssl-cert-snakeoil.key
-            sslmode: require
-          #
-          # FIXME!
-          # DISABLED because Rustls fails to validate name (CN?) with the NotValidForName error
-          #- img_ver: 15-3.3
-          #  args: postgres -c ssl=on -c ssl_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem -c ssl_key_file=/etc/ssl/private/ssl-cert-snakeoil.key
-          #  sslmode: verify-ca
-          #- img_ver: 15-3.3
-          #  args: postgres -c ssl=on -c ssl_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem -c ssl_key_file=/etc/ssl/private/ssl-cert-snakeoil.key
-          #  sslmode: verify-full
-    env: &svc-env
+    env:
       PGDATABASE: test
       PGHOST: localhost
       PGUSER: postgres
       PGPASSWORD: postgres
     services:
-      postgres: &svc-postgres
-        image: postgis/postgis:${{ matrix.img_ver }}
+      pg11-alpine:
+        image: postgis/postgis:11-3.0-alpine
+        ports:
+          - 5432/tcp
+        options: >-
+          -e POSTGRES_DB=test
+          -e POSTGRES_USER=postgres
+          -e POSTGRES_PASSWORD=postgres
+          -e PGDATABASE=test
+          -e PGUSER=postgres
+          -e PGPASSWORD=postgres
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      pg18-alpine:
+        image: postgis/postgis:18-3.6-alpine
+        ports:
+          - 5432/tcp
+        options: >-
+          -e POSTGRES_DB=test
+          -e POSTGRES_USER=postgres
+          -e POSTGRES_PASSWORD=postgres
+          -e PGDATABASE=test
+          -e PGUSER=postgres
+          -e PGPASSWORD=postgres
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      # alpine images don't support SSL, so for sslmode=require we use the debian image
+      pg18-ssl:
+        image: postgis/postgis:18-3.6
         ports:
           - 5432/tcp
         options: >-
@@ -615,26 +644,44 @@ jobs:
           --health-timeout 5s
           --health-retries 5
           --entrypoint sh
-          postgis/postgis:${{ matrix.img_ver }}
-          -c "exec docker-entrypoint.sh ${{ matrix.args }}"
+          postgis/postgis:18-3.6
+          -c "exec docker-entrypoint.sh postgres -c ssl=on -c ssl_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem -c ssl_key_file=/etc/ssl/private/ssl-cert-snakeoil.key"
     steps:
       - name: Checkout sources
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with: { persist-credentials: false }
       - uses: ./.github/actions/setup-rust
-      - name: Init database
-        run: tests/fixtures/initdb.sh
-        env:
-          PGPORT: ${{ job.services.postgres.ports[5432] }}
-      - name: Unit Tests
-        if: matrix.sslmode != 'verify-ca' && matrix.sslmode != 'verify-full'
+      - parallel:
+          - name: Init pg11-alpine database
+            run: tests/fixtures/initdb.sh
+            env:
+              PGPORT: ${{ job.services['pg11-alpine'].ports[5432] }}
+          - name: Init pg18-alpine database
+            run: tests/fixtures/initdb.sh
+            env:
+              PGPORT: ${{ job.services['pg18-alpine'].ports[5432] }}
+          - name: Init pg18-ssl database
+            run: tests/fixtures/initdb.sh
+            env:
+              PGPORT: ${{ job.services['pg18-ssl'].ports[5432] }}
+      - name: Unit Tests postgis:11-3.0-alpine sslmode=disable
         run: |
           echo "Running unit tests, connecting to DATABASE_URL=$DATABASE_URL"
-          echo "Same but as base64 to prevent GitHub obfuscation (this is not a secret):"
-          echo "$DATABASE_URL" | base64
           just test-pg
         env:
-          DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services.postgres.ports[5432] }}/${{ env.PGDATABASE }}?sslmode=${{ matrix.sslmode }}
+          DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services['pg11-alpine'].ports[5432] }}/${{ env.PGDATABASE }}?sslmode=disable
+      - name: Unit Tests postgis:18-3.6-alpine sslmode=disable
+        run: |
+          echo "Running unit tests, connecting to DATABASE_URL=$DATABASE_URL"
+          just test-pg
+        env:
+          DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services['pg18-alpine'].ports[5432] }}/${{ env.PGDATABASE }}?sslmode=disable
+      - name: Unit Tests postgis:18-3.6 sslmode=require
+        run: |
+          echo "Running unit tests, connecting to DATABASE_URL=$DATABASE_URL"
+          just test-pg
+        env:
+          DATABASE_URL: postgres://${{ env.PGUSER }}:${{ env.PGUSER }}@${{ env.PGHOST }}:${{ job.services['pg18-ssl'].ports[5432] }}/${{ env.PGDATABASE }}?sslmode=require
 
   unit-test-svc-minio:
     # Exercises the PmtilesReloader's S3-prefix polling against a MinIO testcontainer
@@ -658,10 +705,54 @@ jobs:
     permissions:
       contents: read
     needs: [ build-x86_64-unknown-linux-gnu, build-debian-x86_64, unit-test-svc-pg ]
-    strategy: *svc-strategy
-    env: *svc-env
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          # These must match the versions of postgres used in the docker-compose.yml
+          - img_ver: 11-3.0-alpine
+            args: postgres
+            sslmode: disable
+          - img_ver: 18-3.6-alpine
+            args: postgres
+            sslmode: disable
+          # alpine images don't support SSL, so for this we use the debian images
+          - img_ver: 18-3.6
+            args: postgres -c ssl=on -c ssl_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem -c ssl_key_file=/etc/ssl/private/ssl-cert-snakeoil.key
+            sslmode: require
+          #
+          # FIXME!
+          # DISABLED because Rustls fails to validate name (CN?) with the NotValidForName error
+          #- img_ver: 15-3.3
+          #  args: postgres -c ssl=on -c ssl_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem -c ssl_key_file=/etc/ssl/private/ssl-cert-snakeoil.key
+          #  sslmode: verify-ca
+          #- img_ver: 15-3.3
+          #  args: postgres -c ssl=on -c ssl_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem -c ssl_key_file=/etc/ssl/private/ssl-cert-snakeoil.key
+          #  sslmode: verify-full
+    env:
+      PGDATABASE: test
+      PGHOST: localhost
+      PGUSER: postgres
+      PGPASSWORD: postgres
     services:
-      postgres: *svc-postgres
+      postgres:
+        image: postgis/postgis:${{ matrix.img_ver }}
+        ports:
+          - 5432/tcp
+        options: >-
+          -e POSTGRES_DB=test
+          -e POSTGRES_USER=postgres
+          -e POSTGRES_PASSWORD=postgres
+          -e PGDATABASE=test
+          -e PGUSER=postgres
+          -e PGPASSWORD=postgres
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+          --entrypoint sh
+          postgis/postgis:${{ matrix.img_ver }}
+          -c "exec docker-entrypoint.sh ${{ matrix.args }}"
     steps:
       - name: Checkout sources
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
@@ -783,27 +874,28 @@ jobs:
         with: { persist-credentials: false }
       - uses: taiki-e/install-action@0631aa6515c7d545823c67cfae7ef4fc7f490154 # v2.81.8
         with: { tool: 'just' }
-      - name: Download build artifact build-aarch64-apple-darwin
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with: { name: 'build-aarch64-apple-darwin', path: 'target/aarch64-apple-darwin' }
-      - name: Download build artifact build-aarch64-unknown-linux-gnu
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with: { name: 'build-aarch64-unknown-linux-gnu', path: 'target/aarch64-unknown-linux-gnu' }
-      - name: Download build artifact build-x86_64-unknown-linux-gnu
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with: { name: 'build-x86_64-unknown-linux-gnu', path: 'target/x86_64-unknown-linux-gnu' }
-      - name: Download build artifact build-aarch64-unknown-linux-musl
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with: { name: 'build-aarch64-unknown-linux-musl', path: 'target/aarch64-unknown-linux-musl' }
-      - name: Download build artifact build-x86_64-unknown-linux-musl
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with: { name: 'build-x86_64-unknown-linux-musl', path: 'target/x86_64-unknown-linux-musl' }
-      - name: Download build artifact build-x86_64-pc-windows-msvc
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with: { name: 'build-x86_64-pc-windows-msvc', path: 'target/x86_64-pc-windows-msvc' }
-      - name: Download build artifact build-debian-x86_64
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with: { name: 'build-debian-x86_64', path: 'target/debian-x86_64' }
+      - parallel:
+          - name: Download build artifact build-aarch64-apple-darwin
+            uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+            with: { name: 'build-aarch64-apple-darwin', path: 'target/aarch64-apple-darwin' }
+          - name: Download build artifact build-aarch64-unknown-linux-gnu
+            uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+            with: { name: 'build-aarch64-unknown-linux-gnu', path: 'target/aarch64-unknown-linux-gnu' }
+          - name: Download build artifact build-x86_64-unknown-linux-gnu
+            uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+            with: { name: 'build-x86_64-unknown-linux-gnu', path: 'target/x86_64-unknown-linux-gnu' }
+          - name: Download build artifact build-aarch64-unknown-linux-musl
+            uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+            with: { name: 'build-aarch64-unknown-linux-musl', path: 'target/aarch64-unknown-linux-musl' }
+          - name: Download build artifact build-x86_64-unknown-linux-musl
+            uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+            with: { name: 'build-x86_64-unknown-linux-musl', path: 'target/x86_64-unknown-linux-musl' }
+          - name: Download build artifact build-x86_64-pc-windows-msvc
+            uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+            with: { name: 'build-x86_64-pc-windows-msvc', path: 'target/x86_64-pc-windows-msvc' }
+          - name: Download build artifact build-debian-x86_64
+            uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+            with: { name: 'build-debian-x86_64', path: 'target/debian-x86_64' }
 
       - name: Package
         run: |
@@ -919,6 +1011,7 @@ jobs:
       - validate-schemas
       - lint-unit-test-js
       - lint-rust
+      - check-features
       - lint-rust-dependencies
       - unit-test-rust
       - unit-test-svc-pg
