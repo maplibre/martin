@@ -565,9 +565,6 @@ jobs:
           retention-days: 5
 
   unit-test-svc-pg:
-    # Runs the PG unit tests against every supported PostGIS/sslmode combination in a
-    # single job so the variants share one runner slot instead of one each. The combos
-    # must match the versions of postgres used in the docker-compose.yml.
     name: Unit test against PostGIS variants
     runs-on: ubuntu-latest
     permissions:
