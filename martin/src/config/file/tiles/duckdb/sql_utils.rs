@@ -66,10 +66,7 @@ mod tests {
         "https://example.org/data.parquet",
         "read_parquet('https://example.org/data.parquet')"
     )]
-    #[case::embedded_apostrophe(
-        "/data/O'Brien.parquet",
-        "read_parquet('/data/O''Brien.parquet')"
-    )]
+    #[case::embedded_apostrophe("/data/O'Brien.parquet", "read_parquet('/data/O''Brien.parquet')")]
     fn read_parquet_from_expr_cases(#[case] input: &str, #[case] expected: &str) {
         assert_eq!(read_parquet_from_expr(input), expected);
     }

@@ -2,9 +2,7 @@ use std::collections::BTreeMap;
 
 use martin_core::tiles::duckdb::DuckDBPool;
 
-use crate::config::file::tiles::duckdb::resolver::error::{
-    GeoparquetError, GeoparquetResult,
-};
+use crate::config::file::tiles::duckdb::resolver::error::{GeoparquetError, GeoparquetResult};
 use crate::config::file::tiles::duckdb::sources::GeoParquetEntry;
 use crate::config::file::tiles::duckdb::sql_utils::{escape_identifier, read_parquet_from_expr};
 
@@ -23,10 +21,7 @@ pub(crate) fn geoparquet_from_expr(entry: &GeoParquetEntry) -> GeoparquetResult<
         .ok_or_else(|| GeoparquetError::NonUtf8Path {
             path: entry.geoparquet.clone(),
         })?;
-    Ok((
-        read_parquet_from_expr(path_or_url),
-        path_or_url.to_string(),
-    ))
+    Ok((read_parquet_from_expr(path_or_url), path_or_url.to_string()))
 }
 
 pub(crate) async fn introspect(
@@ -114,14 +109,12 @@ async fn query_columns(
     let source_label = source_label.to_string();
 
     pool.generate_tile(move |conn| {
-        Ok(
-            conn.prepare(&query).and_then(|mut stmt| {
-                stmt.query_map([], |row| {
-                    Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-                })
-                .and_then(|rows| rows.collect::<Result<Vec<_>, _>>())
-            }),
-        )
+        Ok(conn.prepare(&query).and_then(|mut stmt| {
+            stmt.query_map([], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+            })
+            .and_then(|rows| rows.collect::<Result<Vec<_>, _>>())
+        }))
     })
     .await?
     .map_err(|source| {

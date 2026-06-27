@@ -180,7 +180,14 @@ async fn bounds_with_auto(
         BoundsCalcType::Quick => {
             match timeout(
                 DEFAULT_BOUNDS_TIMEOUT,
-                calc_bounds(pool, from_sql, label, geom_col, srid, BoundsCalcMode::Estimate),
+                calc_bounds(
+                    pool,
+                    from_sql,
+                    label,
+                    geom_col,
+                    srid,
+                    BoundsCalcMode::Estimate,
+                ),
             )
             .await
             {

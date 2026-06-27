@@ -62,7 +62,9 @@ pub enum GeoparquetError {
     SridUnknown { geometry_column: String },
 
     /// An introspection query failed to execute.
-    #[error("Error introspecting GeoParquet source '{source_label}' ({signature}): {query} {detail}")]
+    #[error(
+        "Error introspecting GeoParquet source '{source_label}' ({signature}): {query} {detail}"
+    )]
     IntrospectionQuery {
         /// Human-readable error detail from `DuckDB`.
         detail: String,

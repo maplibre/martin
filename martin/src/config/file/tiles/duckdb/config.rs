@@ -1,11 +1,13 @@
 use std::num::NonZeroUsize;
 
+use serde::Serializer;
 use serde::de::{self, Deserializer};
 use serde::{Deserialize, Serialize};
-use serde::Serializer;
 
 use crate::config::args::BoundsCalcType;
-use crate::config::file::tiles::duckdb::sources::{DuckDbDatabaseEntry, DuckDbSourceDefaults, GeoParquetEntry};
+use crate::config::file::tiles::duckdb::sources::{
+    DuckDbDatabaseEntry, DuckDbSourceDefaults, GeoParquetEntry,
+};
 use crate::config::file::{
     ConfigFileResult, ConfigurationLivecycleHooks, UnrecognizedKeys, UnrecognizedValues,
 };
@@ -37,7 +39,10 @@ fn is_default_auto_bounds(v: &BoundsCalcType) -> bool {
 #[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct DuckDbConfig {
     /// Connection pool size used by DuckDB sources unless overridden per-source.
-    #[serde(default = "default_pool_size", skip_serializing_if = "is_default_pool_size")]
+    #[serde(
+        default = "default_pool_size",
+        skip_serializing_if = "is_default_pool_size"
+    )]
     pub pool_size: NonZeroUsize,
     /// Optional DuckDB execution thread count for each connection.
     pub threads: Option<NonZeroUsize>,

@@ -4,10 +4,10 @@ use martin_tile_utils::{Encoding, Format, TileInfo};
 use tracing::debug;
 
 use crate::config::args::BoundsCalcType;
+use crate::config::file::CachePolicy;
 use crate::config::file::tiles::duckdb::resolver::bounds::calc_from_expr_bounds;
 use crate::config::file::tiles::duckdb::resolver::error::GeoparquetResult;
 use crate::config::file::tiles::duckdb::sources::GeoParquetEntry;
-use crate::config::file::CachePolicy;
 
 use super::introspect::{geoparquet_from_expr, introspect};
 use super::metadata::build_tilejson;

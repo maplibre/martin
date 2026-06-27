@@ -5,7 +5,7 @@ use martin_tile_utils::EARTH_CIRCUMFERENCE;
 use crate::config::file::tiles::duckdb::resolver::geoparquet::introspect::GeoParquetIntrospection;
 use crate::config::file::tiles::duckdb::sources::GeoParquetEntry;
 use crate::config::file::tiles::duckdb::sql_utils::{
-    escape_identifier, escape_sql_string, epsg_crs,
+    epsg_crs, escape_identifier, escape_sql_string,
 };
 
 const DEFAULT_EXTENT: u32 = 4096;
@@ -31,9 +31,8 @@ pub fn build_mvt_sql(
     // GeoParquet round-trips often drop embedded CRS metadata; stamp the resolved SRID
     // before any spatial predicate or transform.
     let source_geometry = format!("ST_SetCRS({escaped_geometry_column}::GEOMETRY, {source_crs})");
-    let transformed_geometry = format!(
-        "ST_Transform({source_geometry}, {source_crs}, {target_crs}, always_xy := true)"
-    );
+    let transformed_geometry =
+        format!("ST_Transform({source_geometry}, {source_crs}, {target_crs}, always_xy := true)");
     let layer_id = escape_sql_string(entry.layer_id.as_deref().unwrap_or(source_id));
 
     let tile_filter = if buffer == 0 {
@@ -150,7 +149,12 @@ mod tests {
             buffer: Some(0),
             ..GeoParquetEntry::default()
         };
-        let sql = build_mvt_sql(&introspection_with_srid(4326), &entry, "buildings", from_expr);
+        let sql = build_mvt_sql(
+            &introspection_with_srid(4326),
+            &entry,
+            "buildings",
+            from_expr,
+        );
 
         assert!(!sql.contains("ST_Expand(bounds.envelope,"));
         assert!(sql.contains("ST_Intersects("));

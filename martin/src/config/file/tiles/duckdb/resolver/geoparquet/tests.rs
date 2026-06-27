@@ -3,9 +3,9 @@ use martin_tile_utils::{Format, TileCoord};
 use tilejson::Bounds;
 
 use super::resolve_geoparquet_source;
+use crate::config::file::CachePolicy;
 use crate::config::file::tiles::duckdb::resolver::error::GeoparquetError;
 use crate::config::file::tiles::duckdb::sources::GeoParquetEntry;
-use crate::config::file::CachePolicy;
 use crate::test_support::duckdb::TestGeoParquet;
 
 fn points_fixture() -> TestGeoParquet {
@@ -40,10 +40,7 @@ async fn resolve_geoparquet_source_auto_detects_metadata() {
     assert_eq!(tilejson.name.as_deref(), Some("buildings"));
     assert_eq!(tilejson.minzoom, Some(0));
     assert_eq!(tilejson.maxzoom, Some(14));
-    assert_eq!(
-        tilejson.bounds,
-        Some(Bounds::new(10.0, 20.0, 11.0, 21.0))
-    );
+    assert_eq!(tilejson.bounds, Some(Bounds::new(10.0, 20.0, 11.0, 21.0)));
 
     let layers = tilejson
         .vector_layers
