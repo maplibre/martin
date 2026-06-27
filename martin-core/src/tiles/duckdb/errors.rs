@@ -3,7 +3,6 @@
 use deadpool::managed::{BuildError, PoolError};
 use duckdb::Error as DuckdbError;
 use martin_tile_utils::TileCoord;
-use std::path::PathBuf;
 use tokio::task::JoinError;
 
 use crate::tiles::UrlQuery;
@@ -58,15 +57,6 @@ pub enum DuckDBPoolManagerError {
     /// Thread count cannot be represented as a `DuckDB` setting value.
     #[error("Unable to apply DuckDB setting threads={0}: value is too large")]
     InvalidThreadCount(usize),
-
-    /// A local GeoParquet path cannot be represented as UTF-8 for SQL usage.
-    #[error("Unable to use GeoParquet path for {target}: non-UTF8 path {path:?}")]
-    NonUtf8Path {
-        /// The invalid path value.
-        path: PathBuf,
-        /// Source target.
-        target: Box<DuckDBPoolTarget>,
-    },
 
     /// The `DuckDB` connection failed a pool recycle health check.
     #[error("DuckDB connection health check failed for {target}: {source}")]

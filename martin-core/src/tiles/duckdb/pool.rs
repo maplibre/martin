@@ -11,12 +11,9 @@ use url::Url;
 
 use crate::tiles::duckdb::errors::DuckDBPoolManagerError;
 use crate::tiles::duckdb::errors::DuckDBPoolManagerError::{
-    ApplySetting, HealthCheck, InvalidThreadCount, LoadExtension, NonUtf8Path, Open,
+    ApplySetting, HealthCheck, InvalidThreadCount, LoadExtension, Open,
 };
 use crate::tiles::duckdb::{DuckDBError, DuckDBResult};
-
-/// Stable relation name used for GeoParquet sources.
-pub const GEOPARQUET_VIEW: &str = "geoparquet";
 
 /// Shared `DuckDB` infrastructure for tile sources.
 #[derive(Clone, Debug)]
@@ -170,46 +167,9 @@ impl DuckDBPoolManager {
         Ok(())
     }
 
-    fn escape_sql_string_literal(value: &str) -> String {
-        value.replace('\'', "''")
-    }
-
-    fn register_geoparquet_view(&self, conn: &Connection) -> Result<(), DuckDBPoolManagerError> {
-        let path_or_url = match &self.target {
-            DuckDBPoolTarget::GeoParquetLocal { path } => path
-                .to_str()
-                .map(str::to_owned)
-                .ok_or_else(|| NonUtf8Path {
-                    path: path.clone(),
-                    target: self.target.clone().into(),
-                })?,
-            DuckDBPoolTarget::GeoParquetRemote { url } => url.to_string(),
-            DuckDBPoolTarget::DatabaseFile { .. } => return Ok(()),
-        };
-        let escaped_path_or_url = Self::escape_sql_string_literal(&path_or_url);
-        let sql = format!(
-            "CREATE VIEW {GEOPARQUET_VIEW} AS SELECT * FROM read_parquet('{escaped_path_or_url}');"
-        );
-
-        conn.execute_batch(&sql).map_err(|source| ApplySetting {
-            source: source.into(),
-            setting: "geoparquet_view",
-            value: path_or_url,
-            target: self.target.clone().into(),
-        })?;
-
-        Ok(())
-    }
-
     fn open_ready_connection(&self) -> Result<Connection, DuckDBPoolManagerError> {
-        let access_mode = match &self.target {
-            DuckDBPoolTarget::DatabaseFile { .. } => AccessMode::ReadOnly,
-            DuckDBPoolTarget::GeoParquetLocal { .. } | DuckDBPoolTarget::GeoParquetRemote { .. } => {
-                AccessMode::ReadWrite
-            }
-        };
         let config = Config::default()
-            .access_mode(access_mode)
+            .access_mode(AccessMode::ReadOnly)
             .map_err(|source| Open {
                 source: source.into(),
                 target: self.target.clone().into(),
@@ -260,8 +220,6 @@ impl DuckDBPoolManager {
         if matches!(self.target, DuckDBPoolTarget::GeoParquetRemote { .. }) {
             self.load_extension(&conn, "httpfs")?;
         }
-
-        self.register_geoparquet_view(&conn)?;
 
         Ok(conn)
     }
