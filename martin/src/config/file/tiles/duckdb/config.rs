@@ -171,6 +171,25 @@ impl<'de> Deserialize<'de> for DuckDbSourceEntry {
     }
 }
 
+#[cfg(feature = "unstable-schemas")]
+impl schemars::JsonSchema for DuckDbSourceEntry {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        "DuckDbSourceEntry".into()
+    }
+
+    fn json_schema(generator: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        let database = generator.subschema_for::<DuckDbDatabaseEntry>();
+        let geoparquet = generator.subschema_for::<GeoParquetEntry>();
+        schemars::json_schema!({
+            "description": "DuckDB source entry: exactly one of `database` or `geoparquet` must be present.",
+            "oneOf": [
+                database,
+                geoparquet,
+            ]
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
