@@ -100,38 +100,6 @@ pub enum DuckDbSourceEntry {
 }
 
 impl DuckDbSourceEntry {
-    #[must_use]
-    pub(crate) fn pool_size_override(&self) -> Option<NonZeroUsize> {
-        match self {
-            Self::Database(v) => v.settings.pool_size,
-            Self::GeoParquet(v) => v.settings.pool_size,
-        }
-    }
-
-    #[must_use]
-    pub(crate) fn threads_override(&self) -> Option<NonZeroUsize> {
-        match self {
-            Self::Database(v) => v.settings.threads,
-            Self::GeoParquet(v) => v.settings.threads,
-        }
-    }
-
-    #[must_use]
-    pub(crate) fn memory_limit_mb_override(&self) -> Option<NonZeroUsize> {
-        match self {
-            Self::Database(v) => v.settings.memory_limit_mb,
-            Self::GeoParquet(v) => v.settings.memory_limit_mb,
-        }
-    }
-
-    #[must_use]
-    pub(crate) fn auto_bounds_override(&self) -> Option<BoundsCalcType> {
-        match self {
-            Self::Database(v) => v.settings.auto_bounds,
-            Self::GeoParquet(v) => v.settings.auto_bounds,
-        }
-    }
-
     pub(crate) fn finalize(&mut self) {
         match self {
             Self::Database(v) => v.finalize(),
@@ -263,19 +231,44 @@ sources:
     memory_limit_mb: 256
     auto_bounds: skip
 "#;
-        let cfg: DuckDbConfig = serde_saphyr::from_str(yaml).expect("duckdb config");
-        let Some(source) = cfg.sources.first() else {
-            panic!("expected one source");
+        let mut cfg: DuckDbConfig = serde_saphyr::from_str(yaml).expect("duckdb config");
+        cfg.finalize().expect("finalize duckdb config");
+
+        let DuckDbSourceEntry::GeoParquet(source) = &cfg.sources[0] else {
+            panic!("expected one geoparquet source");
         };
 
-        let effective_pool_size = source.pool_size_override().unwrap_or(cfg.pool_size);
-        let effective_threads = source.threads_override().or(cfg.threads);
-        let effective_memory_limit_mb = source.memory_limit_mb_override().or(cfg.memory_limit_mb);
-        let effective_auto_bounds = source.auto_bounds_override().unwrap_or(cfg.auto_bounds);
+        assert_eq!(source.settings.pool_size, NonZeroUsize::new(3));
+        assert_eq!(source.settings.threads, NonZeroUsize::new(2));
+        assert_eq!(source.settings.memory_limit_mb, NonZeroUsize::new(256));
+        assert_eq!(source.settings.auto_bounds, Some(BoundsCalcType::Skip));
+    }
 
-        assert_eq!(effective_pool_size, NonZeroUsize::new(3).expect("non-zero"));
-        assert_eq!(effective_threads, NonZeroUsize::new(2));
-        assert_eq!(effective_memory_limit_mb, NonZeroUsize::new(256));
-        assert_eq!(effective_auto_bounds, BoundsCalcType::Skip);
+    #[test]
+    fn source_entry_rejects_both_database_and_geoparquet() {
+        let yaml = r#"
+sources:
+  - database: /data/tiles.duckdb
+    geoparquet: /data/buildings.parquet
+"#;
+        let err = serde_saphyr::from_str::<DuckDbConfig>(yaml).expect_err("mixed entry keys");
+        assert!(
+            err.to_string()
+                .contains("cannot contain both `database` and `geoparquet`")
+        );
+    }
+
+    #[test]
+    fn source_entry_rejects_missing_database_and_geoparquet() {
+        let yaml = r#"
+sources:
+  - layer_id: buildings
+    srid: 4326
+"#;
+        let err = serde_saphyr::from_str::<DuckDbConfig>(yaml).expect_err("missing entry keys");
+        assert!(
+            err.to_string()
+                .contains("must contain exactly one of `database` or `geoparquet`")
+        );
     }
 }

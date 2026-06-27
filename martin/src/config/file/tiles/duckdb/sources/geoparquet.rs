@@ -19,6 +19,7 @@ pub struct GeoParquetEntry {
     /// Optional geometry column name. Auto-detected when omitted.
     pub geometry_column: Option<String>,
     /// Optional source SRID. Auto-detected when omitted.
+    /// Non-positive values are treated as unset and fall back to auto-detection.
     pub srid: Option<i32>,
     /// Optional minimum zoom for source metadata.
     pub minzoom: Option<u8>,
@@ -49,11 +50,39 @@ impl GeoParquetEntry {
         if self.geometry_column.as_deref() == Some("") {
             self.geometry_column = None;
         }
+        if let Some(srid) = self.srid
+            && srid <= 0
+        {
+            // Treat non-positive values as "unset" so SRID falls back to auto-detection.
+            self.srid = None;
+        }
     }
 }
 
 impl ConfigurationLivecycleHooks for GeoParquetEntry {
     fn get_unrecognized_keys(&self) -> UnrecognizedKeys {
         self.unrecognized.keys().cloned().collect()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn finalize_clears_empty_optional_strings() {
+        let mut entry = GeoParquetEntry {
+            geoparquet: PathBuf::from("/data/points.parquet"),
+            layer_id: Some(String::new()),
+            id_column: Some(String::new()),
+            geometry_column: Some(String::new()),
+            ..GeoParquetEntry::default()
+        };
+
+        entry.finalize();
+
+        assert_eq!(entry.layer_id, None);
+        assert_eq!(entry.id_column, None);
+        assert_eq!(entry.geometry_column, None);
     }
 }

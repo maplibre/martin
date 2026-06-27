@@ -1,7 +1,7 @@
 use martin_core::tiles::duckdb::DuckDBPool;
 use tilejson::Bounds;
 use tokio::time::timeout;
-use tracing::warn;
+use tracing::{debug, warn};
 
 use crate::config::args::{BoundsCalcType, DEFAULT_BOUNDS_TIMEOUT};
 use crate::config::file::tiles::duckdb::resolver::error::{BoundsError, BoundsResult};
@@ -121,12 +121,19 @@ FROM (
 WHERE out_box IS NOT NULL;"
         );
 
-        if let Ok(Some(bounds)) = fetch_bounds(pool, label, query, "approx-bounds").await {
-            return Ok(Some(bounds));
+        match fetch_bounds(pool, label, query, "approx-bounds").await {
+            Ok(Some(bounds)) => return Ok(Some(bounds)),
+            Ok(None) => {
+                debug!(
+                    "ST_Extent_Approx on {label}.{geom_col} returned no bounds, trying exact calculation"
+                );
+            }
+            Err(_) => {
+                warn!(
+                    "ST_Extent_Approx on {label}.{geom_col} failed, trying slower method to compute bounds"
+                );
+            }
         }
-        warn!(
-            "ST_Extent_Approx on {label}.{geom_col} failed, trying slower method to compute bounds"
-        );
     }
 
     let query = format!(
@@ -243,5 +250,34 @@ mod tests {
             .await
             .expect("skip bounds");
         assert_eq!(skip, None);
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn calc_from_expr_bounds_over_read_parquet() {
+        use crate::test_support::duckdb::TestGeoParquet;
+
+        let fixture = TestGeoParquet::from_sql(
+            "bounds.parquet",
+            include_str!("../../../../../../../tests/fixtures/duckdb/geoparquet_points.sql"),
+            "points",
+        );
+        let pool = fixture.query_pool("bounds-parquet", 1);
+        let from_expr = format!(
+            "read_parquet('{}')",
+            fixture.path().to_str().expect("utf-8 parquet path")
+        );
+
+        let bounds = super::calc_from_expr_bounds(
+            &pool,
+            &from_expr,
+            "points.parquet",
+            "geom",
+            4326,
+            BoundsCalcType::Calc,
+        )
+        .await
+        .expect("parquet bounds");
+
+        assert_eq!(bounds, Some(Bounds::new(9.0, 19.0, 11.0, 21.0)));
     }
 }
