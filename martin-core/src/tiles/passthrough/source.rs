@@ -440,7 +440,7 @@ fn normalize_etag(raw: &str) -> String {
         .trim_matches('"')
         .to_string()
 }
-  
+
 #[cfg(test)]
 mod tests {
     use super::*;
