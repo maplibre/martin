@@ -798,7 +798,7 @@
                 },
                 "maxzoom": 14,
                 "minzoom": 0,
-                "url": "https://api.example.com/{z}/{x}/{y}.mvt"
+                "url": "https://api.example.com/{z}/{x}/{y}"
               }
             }
           ],

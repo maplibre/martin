@@ -206,7 +206,7 @@ passthrough:
         Authorization: ${API_TOKEN}
       maxzoom: 14
       minzoom: 0
-      url: https://api.example.com/{z}/{x}/{y}.mvt
+      url: https://api.example.com/{z}/{x}/{y}
 # Publish `PMTiles` files from local disk or proxy to a web server
 pmtiles:
   # MVT->MLT encoder settings for all `PMTiles` sources.
