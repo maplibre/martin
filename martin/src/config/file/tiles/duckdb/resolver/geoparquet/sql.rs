@@ -108,7 +108,10 @@ mod tests {
     #[test]
     fn build_mvt_sql_includes_core_fragments() {
         let introspection = introspection_with_srid(4326);
-        let from_expr = format!("read_parquet({})", escape_sql_string("/data/points.parquet"));
+        let from_expr = format!(
+            "read_parquet({})",
+            escape_sql_string("/data/points.parquet")
+        );
         let sql = build_mvt_sql(
             &introspection,
             &GeoParquetEntry::default(),
@@ -144,7 +147,10 @@ mod tests {
 
     #[test]
     fn build_mvt_sql_expands_bounds_for_buffered_non_wgs84_sources() {
-        let from_expr = format!("read_parquet({})", escape_sql_string("/data/points.parquet"));
+        let from_expr = format!(
+            "read_parquet({})",
+            escape_sql_string("/data/points.parquet")
+        );
         let sql = build_mvt_sql(
             &introspection_with_srid(3857),
             &GeoParquetEntry::default(),
@@ -180,7 +186,10 @@ mod tests {
 
     #[test]
     fn build_mvt_sql_skips_bounds_expansion_when_buffer_is_zero() {
-        let from_expr = format!("read_parquet({})", escape_sql_string("/data/points.parquet"));
+        let from_expr = format!(
+            "read_parquet({})",
+            escape_sql_string("/data/points.parquet")
+        );
         let entry = GeoParquetEntry {
             buffer: Some(0),
             ..GeoParquetEntry::default()

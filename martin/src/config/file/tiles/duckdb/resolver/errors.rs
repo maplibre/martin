@@ -64,15 +64,11 @@ pub enum GeoparquetError {
     SridInvalidEpsgCode(String, String),
 
     /// Parsed EPSG code is zero or negative.
-    #[error(
-        "GeoParquet geometry column '{0}' has non-positive EPSG code {2} in CRS '{1}'"
-    )]
+    #[error("GeoParquet geometry column '{0}' has non-positive EPSG code {2} in CRS '{1}'")]
     SridNonPositive(String, String, i32),
 
     /// An introspection query failed to execute.
-    #[error(
-        "Error introspecting GeoParquet source '{1}' ({2}): {3} {0}"
-    )]
+    #[error("Error introspecting GeoParquet source '{1}' ({2}): {3} {0}")]
     IntrospectionQuery(String, String, String, String),
 
     /// An error from bounds calculation.

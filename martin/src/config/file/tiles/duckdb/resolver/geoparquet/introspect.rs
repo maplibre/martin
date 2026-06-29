@@ -167,10 +167,7 @@ pub(crate) fn parse_crs_to_srid(crs: &str, geometry_column: &str) -> GeoparquetR
     let geometry_column = geometry_column.to_string();
     let crs = crs.trim();
     if crs.is_empty() {
-        return Err(GeoparquetError::SridEmpty(
-            geometry_column,
-            crs.to_string(),
-        ));
+        return Err(GeoparquetError::SridEmpty(geometry_column, crs.to_string()));
     }
 
     if crs.eq_ignore_ascii_case("OGC:CRS84") {
@@ -187,9 +184,9 @@ pub(crate) fn parse_crs_to_srid(crs: &str, geometry_column: &str) -> GeoparquetR
         ));
     };
 
-    let srid = auth_code
-        .parse::<i32>()
-        .map_err(|_| GeoparquetError::SridInvalidEpsgCode(geometry_column.clone(), crs.to_string()))?;
+    let srid = auth_code.parse::<i32>().map_err(|_| {
+        GeoparquetError::SridInvalidEpsgCode(geometry_column.clone(), crs.to_string())
+    })?;
 
     NonZeroI32::new(srid).ok_or(GeoparquetError::SridNonPositive(
         geometry_column,
@@ -209,9 +206,7 @@ mod tests {
     #[case::ogc_crs84("OGC:CRS84", 4326)]
     fn parse_crs_to_srid_accepts_epsg_and_crs84(#[case] crs: &str, #[case] expected: i32) {
         assert_eq!(
-            parse_crs_to_srid(crs, "geom")
-                .expect("crs parsed")
-                .get(),
+            parse_crs_to_srid(crs, "geom").expect("crs parsed").get(),
             expected
         );
     }

@@ -103,10 +103,7 @@ async fn resolve_geoparquet_source_rejects_ambiguous_geometry_columns() {
     .await
     .expect_err("ambiguous geometry columns");
 
-    assert!(matches!(
-        err,
-        GeoparquetError::AmbiguousGeometryColumn(..)
-    ));
+    assert!(matches!(err, GeoparquetError::AmbiguousGeometryColumn(..)));
 }
 
 #[tokio::test(flavor = "multi_thread")]
