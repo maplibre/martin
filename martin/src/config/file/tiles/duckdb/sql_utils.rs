@@ -16,11 +16,6 @@ pub fn epsg_crs(srid: i32) -> String {
     escape_sql_string(&format!("EPSG:{srid}"))
 }
 
-/// Build a `read_parquet(...)` table-source expression for inline SQL `FROM` clauses.
-#[must_use]
-pub fn read_parquet_from_expr(path_or_url: &str) -> String {
-    format!("read_parquet({})", escape_sql_string(path_or_url))
-}
 
 #[cfg(test)]
 mod tests {
@@ -68,6 +63,6 @@ mod tests {
     )]
     #[case::embedded_apostrophe("/data/O'Brien.parquet", "read_parquet('/data/O''Brien.parquet')")]
     fn read_parquet_from_expr_cases(#[case] input: &str, #[case] expected: &str) {
-        assert_eq!(read_parquet_from_expr(input), expected);
+        assert_eq!(format!("read_parquet({})", escape_sql_string(input)), expected);
     }
 }

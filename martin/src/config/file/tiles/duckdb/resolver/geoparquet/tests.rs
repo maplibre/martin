@@ -4,7 +4,7 @@ use tilejson::Bounds;
 
 use super::resolve_geoparquet_source;
 use crate::config::file::CachePolicy;
-use crate::config::file::tiles::duckdb::resolver::error::GeoparquetError;
+use crate::config::file::tiles::duckdb::resolver::errors::GeoparquetError;
 use crate::config::file::tiles::duckdb::sources::GeoParquetEntry;
 use crate::test_support::duckdb::TestGeoParquet;
 
@@ -105,7 +105,7 @@ async fn resolve_geoparquet_source_rejects_ambiguous_geometry_columns() {
 
     assert!(matches!(
         err,
-        GeoparquetError::AmbiguousGeometryColumn { .. }
+        GeoparquetError::AmbiguousGeometryColumn(..)
     ));
 }
 
@@ -129,5 +129,5 @@ async fn resolve_geoparquet_source_rejects_missing_id_column() {
     .await
     .expect_err("missing id column");
 
-    assert!(matches!(err, GeoparquetError::IdColumnNotFound { .. }));
+    assert!(matches!(err, GeoparquetError::IdColumnNotFound(..)));
 }

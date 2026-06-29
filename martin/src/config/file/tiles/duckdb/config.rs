@@ -214,32 +214,74 @@ sources:
     buffer: 64
 "#;
         let cfg: DuckDbConfig = serde_saphyr::from_str(yaml).expect("duckdb config");
-        assert_eq!(cfg.sources.len(), 2);
 
-        let db = cfg.sources.iter().find_map(|source| match source {
-            DuckDbSourceEntry::Database(db) => Some(db),
-            DuckDbSourceEntry::GeoParquet(_) => None,
-        });
-        let gpq = cfg.sources.iter().find_map(|source| match source {
-            DuckDbSourceEntry::GeoParquet(gpq) => Some(gpq),
-            DuckDbSourceEntry::Database(_) => None,
-        });
-
-        let Some(db) = db else {
-            panic!("expected one database source entry");
-        };
-        let Some(gpq) = gpq else {
-            panic!("expected one geoparquet source entry");
-        };
-
-        assert_eq!(db.database, std::path::PathBuf::from("/data/tiles.duckdb"));
-        assert_eq!(
-            gpq.geoparquet,
-            std::path::PathBuf::from("/data/buildings.parquet")
-        );
-        assert_eq!(gpq.layer_id.as_deref(), Some("buildings"));
-        assert_eq!(gpq.geometry_column.as_deref(), Some("geom"));
-        assert_eq!(gpq.srid, Some(4326));
+        insta::assert_debug_snapshot!(cfg, @r#"
+        DuckDbConfig {
+            pool_size: 4,
+            threads: None,
+            memory_limit_mb: None,
+            auto_bounds: Quick,
+            sources: [
+                Database(
+                    DuckDbDatabaseEntry {
+                        database: "/data/tiles.duckdb",
+                        settings: DuckDbSourceSettings {
+                            pool_size: None,
+                            threads: None,
+                            memory_limit_mb: None,
+                            auto_bounds: None,
+                        },
+                        auto_publish: Some(
+                            Object {
+                                "tables": Object {
+                                    "from_schemas": String("autodetect"),
+                                },
+                            },
+                        ),
+                        tables: None,
+                        macros: None,
+                        unrecognized: {},
+                    },
+                ),
+                GeoParquet(
+                    GeoParquetEntry {
+                        geoparquet: "/data/buildings.parquet",
+                        layer_id: Some(
+                            "buildings",
+                        ),
+                        id_column: None,
+                        geometry_column: Some(
+                            "geom",
+                        ),
+                        srid: Some(
+                            4326,
+                        ),
+                        minzoom: Some(
+                            0,
+                        ),
+                        maxzoom: Some(
+                            14,
+                        ),
+                        extent: Some(
+                            4096,
+                        ),
+                        buffer: Some(
+                            64,
+                        ),
+                        clip_geom: None,
+                        settings: DuckDbSourceSettings {
+                            pool_size: None,
+                            threads: None,
+                            memory_limit_mb: None,
+                            auto_bounds: None,
+                        },
+                        unrecognized: {},
+                    },
+                ),
+            ],
+            unrecognized: {},
+        }
+        "#);
     }
 
     #[test]
@@ -258,14 +300,50 @@ sources:
         let mut cfg: DuckDbConfig = serde_saphyr::from_str(yaml).expect("duckdb config");
         cfg.finalize().expect("finalize duckdb config");
 
-        let DuckDbSourceEntry::GeoParquet(source) = &cfg.sources[0] else {
-            panic!("expected one geoparquet source");
-        };
-
-        assert_eq!(source.settings.pool_size, NonZeroUsize::new(3));
-        assert_eq!(source.settings.threads, NonZeroUsize::new(2));
-        assert_eq!(source.settings.memory_limit_mb, NonZeroUsize::new(256));
-        assert_eq!(source.settings.auto_bounds, Some(BoundsCalcType::Skip));
+        insta::assert_debug_snapshot!(cfg, @r#"
+        DuckDbConfig {
+            pool_size: 8,
+            threads: Some(
+                2,
+            ),
+            memory_limit_mb: Some(
+                1024,
+            ),
+            auto_bounds: Quick,
+            sources: [
+                GeoParquet(
+                    GeoParquetEntry {
+                        geoparquet: "/tmp/a.parquet",
+                        layer_id: None,
+                        id_column: None,
+                        geometry_column: None,
+                        srid: None,
+                        minzoom: None,
+                        maxzoom: None,
+                        extent: None,
+                        buffer: None,
+                        clip_geom: None,
+                        settings: DuckDbSourceSettings {
+                            pool_size: Some(
+                                3,
+                            ),
+                            threads: Some(
+                                2,
+                            ),
+                            memory_limit_mb: Some(
+                                256,
+                            ),
+                            auto_bounds: Some(
+                                Skip,
+                            ),
+                        },
+                        unrecognized: {},
+                    },
+                ),
+            ],
+            unrecognized: {},
+        }
+        "#);
     }
 
     #[test]

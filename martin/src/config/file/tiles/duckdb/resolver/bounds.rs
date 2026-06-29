@@ -4,7 +4,7 @@ use tokio::time::timeout;
 use tracing::{debug, warn};
 
 use crate::config::args::{BoundsCalcType, DEFAULT_BOUNDS_TIMEOUT};
-use crate::config::file::tiles::duckdb::resolver::error::{BoundsError, BoundsResult};
+use crate::config::file::tiles::duckdb::resolver::errors::{BoundsError, BoundsResult};
 use crate::config::file::tiles::duckdb::sql_utils::{epsg_crs, escape_identifier};
 
 /// How [`calc_bounds`] should compute a geometry bounds.
@@ -52,12 +52,7 @@ async fn fetch_bounds(
         }))
     })
     .await?
-    .map_err(|source| BoundsError::Query {
-        source: source.into(),
-        relation,
-        signature,
-        query: query_for_error,
-    })
+    .map_err(|source| BoundsError::Query(source.into(), relation, signature, query_for_error))
 }
 
 async fn calc_bounds(

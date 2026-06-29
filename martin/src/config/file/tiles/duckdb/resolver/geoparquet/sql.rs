@@ -83,8 +83,6 @@ FROM (
 ) AS tile;
 "
     )
-    .trim()
-    .to_string()
 }
 
 #[cfg(test)]
@@ -94,6 +92,7 @@ mod tests {
 
     use super::*;
     use crate::config::file::tiles::duckdb::sources::GeoParquetEntry;
+    use crate::config::file::tiles::duckdb::sql_utils::escape_sql_string;
 
     fn introspection_with_srid(srid: i32) -> GeoParquetIntrospection {
         GeoParquetIntrospection {
@@ -109,42 +108,79 @@ mod tests {
     #[test]
     fn build_mvt_sql_includes_core_fragments() {
         let introspection = introspection_with_srid(4326);
-        let from_expr = "read_parquet('/data/points.parquet')";
+        let from_expr = format!("read_parquet({})", escape_sql_string("/data/points.parquet"));
         let sql = build_mvt_sql(
             &introspection,
             &GeoParquetEntry::default(),
             "buildings",
-            from_expr,
+            &from_expr,
         );
 
-        assert!(sql.contains("ST_AsMVT(tile, 'buildings', 4096, 'geom'"));
-        assert!(sql.contains("4096::BIGINT, 64::BIGINT, true"));
-        assert!(sql.contains(
-            "ST_Transform(ST_SetCRS(\"geom\"::GEOMETRY, 'EPSG:4326'), 'EPSG:4326', 'EPSG:3857', always_xy := true)"
-        ));
-        assert!(sql.contains(", \"name\""));
-        assert!(sql.contains(", \"category\""));
-        assert!(sql.contains(from_expr));
-        assert!(sql.contains("ST_Intersects("));
-        assert!(sql.contains("ST_Expand(bounds.envelope,"));
+        insta::assert_snapshot!(sql, @r#"
+        WITH tile AS (
+            SELECT
+                ?::INTEGER AS z,
+                ?::INTEGER AS x,
+                ?::INTEGER AS y
+        ),
+        bounds AS (
+            SELECT ST_TileEnvelope(tile.z, tile.x, tile.y) AS envelope
+            FROM tile
+        )
+        SELECT ST_AsMVT(tile, 'buildings', 4096, 'geom')
+        FROM (
+          SELECT
+            ST_AsMVTGeom(
+                ST_Transform(ST_SetCRS("geom"::GEOMETRY, 'EPSG:4326'), 'EPSG:4326', 'EPSG:3857', always_xy := true),
+                ST_Extent(ST_TileEnvelope(tile.z, tile.x, tile.y)),
+                4096::BIGINT, 64::BIGINT, true
+            ) AS geom
+            , "category", "name"
+          FROM read_parquet('/data/points.parquet'), tile, bounds
+          WHERE ST_Intersects(ST_Transform(ST_SetCRS("geom"::GEOMETRY, 'EPSG:4326'), 'EPSG:4326', 'EPSG:3857', always_xy := true), ST_Expand(bounds.envelope, ((0.015625)::DOUBLE * (40075016.6855785)::DOUBLE) / power(2, tile.z)))
+        ) AS tile;
+        "#);
     }
 
     #[test]
     fn build_mvt_sql_expands_bounds_for_buffered_non_wgs84_sources() {
-        let from_expr = "read_parquet('/data/points.parquet')";
+        let from_expr = format!("read_parquet({})", escape_sql_string("/data/points.parquet"));
         let sql = build_mvt_sql(
             &introspection_with_srid(3857),
             &GeoParquetEntry::default(),
             "buildings",
-            from_expr,
+            &from_expr,
         );
 
-        assert!(sql.contains("ST_Expand(bounds.envelope,"));
+        insta::assert_snapshot!(sql, @r#"
+        WITH tile AS (
+            SELECT
+                ?::INTEGER AS z,
+                ?::INTEGER AS x,
+                ?::INTEGER AS y
+        ),
+        bounds AS (
+            SELECT ST_TileEnvelope(tile.z, tile.x, tile.y) AS envelope
+            FROM tile
+        )
+        SELECT ST_AsMVT(tile, 'buildings', 4096, 'geom')
+        FROM (
+          SELECT
+            ST_AsMVTGeom(
+                ST_Transform(ST_SetCRS("geom"::GEOMETRY, 'EPSG:3857'), 'EPSG:3857', 'EPSG:3857', always_xy := true),
+                ST_Extent(ST_TileEnvelope(tile.z, tile.x, tile.y)),
+                4096::BIGINT, 64::BIGINT, true
+            ) AS geom
+            , "category", "name"
+          FROM read_parquet('/data/points.parquet'), tile, bounds
+          WHERE ST_Intersects(ST_Transform(ST_SetCRS("geom"::GEOMETRY, 'EPSG:3857'), 'EPSG:3857', 'EPSG:3857', always_xy := true), ST_Expand(bounds.envelope, ((0.015625)::DOUBLE * (40075016.6855785)::DOUBLE) / power(2, tile.z)))
+        ) AS tile;
+        "#);
     }
 
     #[test]
     fn build_mvt_sql_skips_bounds_expansion_when_buffer_is_zero() {
-        let from_expr = "read_parquet('/data/points.parquet')";
+        let from_expr = format!("read_parquet({})", escape_sql_string("/data/points.parquet"));
         let entry = GeoParquetEntry {
             buffer: Some(0),
             ..GeoParquetEntry::default()
@@ -153,10 +189,32 @@ mod tests {
             &introspection_with_srid(4326),
             &entry,
             "buildings",
-            from_expr,
+            &from_expr,
         );
 
-        assert!(!sql.contains("ST_Expand(bounds.envelope,"));
-        assert!(sql.contains("ST_Intersects("));
+        insta::assert_snapshot!(sql, @r#"
+        WITH tile AS (
+            SELECT
+                ?::INTEGER AS z,
+                ?::INTEGER AS x,
+                ?::INTEGER AS y
+        ),
+        bounds AS (
+            SELECT ST_TileEnvelope(tile.z, tile.x, tile.y) AS envelope
+            FROM tile
+        )
+        SELECT ST_AsMVT(tile, 'buildings', 4096, 'geom')
+        FROM (
+          SELECT
+            ST_AsMVTGeom(
+                ST_Transform(ST_SetCRS("geom"::GEOMETRY, 'EPSG:4326'), 'EPSG:4326', 'EPSG:3857', always_xy := true),
+                ST_Extent(ST_TileEnvelope(tile.z, tile.x, tile.y)),
+                4096::BIGINT, 0::BIGINT, true
+            ) AS geom
+            , "category", "name"
+          FROM read_parquet('/data/points.parquet'), tile, bounds
+          WHERE ST_Intersects(ST_Transform(ST_SetCRS("geom"::GEOMETRY, 'EPSG:4326'), 'EPSG:4326', 'EPSG:3857', always_xy := true), bounds.envelope)
+        ) AS tile;
+        "#);
     }
 }

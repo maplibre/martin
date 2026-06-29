@@ -26,13 +26,14 @@ pub(crate) fn build_tilejson(
         other: BTreeMap::default(),
     };
 
-    tilejson! {
+    let mut tilejson = tilejson! {
         tiles: vec![],
         vector_layers: vec![layer],
         name: source_id.to_string(),
         description: format!("GeoParquet ({source_label})"),
-        minzoom: entry.minzoom.unwrap_or(0),
-        maxzoom: entry.maxzoom.unwrap_or(20),
-        bounds: bounds.unwrap_or_default(),
-    }
+    };
+    tilejson.minzoom = entry.minzoom;
+    tilejson.maxzoom = entry.maxzoom;
+    tilejson.bounds = bounds;
+    tilejson
 }

@@ -3,9 +3,9 @@ use std::num::NonZeroI32;
 
 use martin_core::tiles::duckdb::DuckDBPool;
 
-use crate::config::file::tiles::duckdb::resolver::error::{GeoparquetError, GeoparquetResult};
+use crate::config::file::tiles::duckdb::resolver::errors::{GeoparquetError, GeoparquetResult};
 use crate::config::file::tiles::duckdb::sources::GeoParquetEntry;
-use crate::config::file::tiles::duckdb::sql_utils::{escape_identifier, read_parquet_from_expr};
+use crate::config::file::tiles::duckdb::sql_utils::{escape_identifier, escape_sql_string};
 
 /// Column metadata discovered from a GeoParquet file.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -19,10 +19,11 @@ pub(crate) fn geoparquet_from_expr(entry: &GeoParquetEntry) -> GeoparquetResult<
     let path_or_url = entry
         .geoparquet
         .to_str()
-        .ok_or_else(|| GeoparquetError::NonUtf8Path {
-            path: entry.geoparquet.clone(),
-        })?;
-    Ok((read_parquet_from_expr(path_or_url), path_or_url.to_string()))
+        .ok_or_else(|| GeoparquetError::NonUtf8Path(entry.geoparquet.clone()))?;
+    Ok((
+        format!("read_parquet({})", escape_sql_string(path_or_url)),
+        path_or_url.to_string(),
+    ))
 }
 
 pub(crate) async fn introspect(
@@ -41,9 +42,7 @@ pub(crate) async fn introspect(
 
     if let Some(id_column) = &entry.id_column {
         if !all_columns.contains_key(id_column) {
-            return Err(GeoparquetError::IdColumnNotFound {
-                column: id_column.clone(),
-            });
+            return Err(GeoparquetError::IdColumnNotFound(id_column.clone()));
         }
     }
 
@@ -57,10 +56,12 @@ pub(crate) async fn introspect(
         .collect();
 
     let srid = match entry.srid {
-        Some(srid) => NonZeroI32::new(srid).ok_or_else(|| GeoparquetError::SridNonPositive {
-            geometry_column: geometry_column.clone(),
-            crs: "(configuration)".to_string(),
-            srid,
+        Some(srid) => NonZeroI32::new(srid).ok_or_else(|| {
+            GeoparquetError::SridNonPositive(
+                geometry_column.clone(),
+                "(configuration)".to_string(),
+                srid,
+            )
         })?,
         None => query_srid(pool, from_expr, source_label, &geometry_column).await?,
     };
@@ -82,25 +83,23 @@ fn select_geometry_column(
             return Ok(requested.clone());
         }
         if let Some(column_type) = all_columns.get(requested) {
-            return Err(GeoparquetError::NotGeometryColumn {
-                column: requested.clone(),
-                column_type: column_type.clone(),
-            });
+            return Err(GeoparquetError::NotGeometryColumn(
+                requested.clone(),
+                column_type.clone(),
+            ));
         }
-        return Err(GeoparquetError::GeometryColumnNotFound {
-            column: requested.clone(),
-        });
+        return Err(GeoparquetError::GeometryColumnNotFound(requested.clone()));
     }
 
     match geometry_columns.len() {
         0 => Err(GeoparquetError::NoGeometryColumn),
         1 => Ok(geometry_columns[0].0.clone()),
-        _ => Err(GeoparquetError::AmbiguousGeometryColumn {
-            columns: geometry_columns
+        _ => Err(GeoparquetError::AmbiguousGeometryColumn(
+            geometry_columns
                 .iter()
                 .map(|(name, _)| name.clone())
                 .collect(),
-        }),
+        )),
     }
 }
 
@@ -159,7 +158,7 @@ async fn query_srid(
         })?;
 
     match crs.flatten() {
-        None => Err(GeoparquetError::SridUnknown { geometry_column }),
+        None => Err(GeoparquetError::SridUnknown(geometry_column)),
         Some(crs) => parse_crs_to_srid(&crs, &geometry_column),
     }
 }
@@ -168,10 +167,10 @@ pub(crate) fn parse_crs_to_srid(crs: &str, geometry_column: &str) -> GeoparquetR
     let geometry_column = geometry_column.to_string();
     let crs = crs.trim();
     if crs.is_empty() {
-        return Err(GeoparquetError::SridEmpty {
+        return Err(GeoparquetError::SridEmpty(
             geometry_column,
-            crs: crs.to_string(),
-        });
+            crs.to_string(),
+        ));
     }
 
     if crs.eq_ignore_ascii_case("OGC:CRS84") {
@@ -182,47 +181,44 @@ pub(crate) fn parse_crs_to_srid(crs: &str, geometry_column: &str) -> GeoparquetR
         .strip_prefix("EPSG:")
         .or_else(|| crs.strip_prefix("epsg:"))
     else {
-        return Err(GeoparquetError::SridUnsupportedCrs {
+        return Err(GeoparquetError::SridUnsupportedCrs(
             geometry_column,
-            crs: crs.to_string(),
-        });
+            crs.to_string(),
+        ));
     };
 
-    let srid = auth_code.parse::<i32>().map_err(|_| GeoparquetError::SridInvalidEpsgCode {
-        geometry_column: geometry_column.clone(),
-        crs: crs.to_string(),
-    })?;
+    let srid = auth_code
+        .parse::<i32>()
+        .map_err(|_| GeoparquetError::SridInvalidEpsgCode(geometry_column.clone(), crs.to_string()))?;
 
-    NonZeroI32::new(srid).ok_or(GeoparquetError::SridNonPositive {
+    NonZeroI32::new(srid).ok_or(GeoparquetError::SridNonPositive(
         geometry_column,
-        crs: crs.to_string(),
+        crs.to_string(),
         srid,
-    })
+    ))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rstest::rstest;
 
-    #[test]
-    fn parse_crs_to_srid_accepts_epsg_and_crs84() {
-        for (crs, expected) in [
-            ("EPSG:4326", 4326),
-            ("epsg:3857", 3857),
-            ("OGC:CRS84", 4326),
-        ] {
-            assert_eq!(
-                parse_crs_to_srid(crs, "geom")
-                    .expect("crs parsed")
-                    .get(),
-                expected
-            );
-        }
+    #[rstest]
+    #[case::epsg_upper("EPSG:4326", 4326)]
+    #[case::epsg_lower("epsg:3857", 3857)]
+    #[case::ogc_crs84("OGC:CRS84", 4326)]
+    fn parse_crs_to_srid_accepts_epsg_and_crs84(#[case] crs: &str, #[case] expected: i32) {
+        assert_eq!(
+            parse_crs_to_srid(crs, "geom")
+                .expect("crs parsed")
+                .get(),
+            expected
+        );
     }
 
     #[test]
     fn parse_crs_to_srid_rejects_unknown_crs() {
         let err = parse_crs_to_srid("UNKNOWN:1", "geom").expect_err("unknown crs");
-        assert!(matches!(err, GeoparquetError::SridUnsupportedCrs { .. }));
+        assert!(matches!(err, GeoparquetError::SridUnsupportedCrs(..)));
     }
 }

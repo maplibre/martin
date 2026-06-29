@@ -6,7 +6,7 @@ use tracing::debug;
 use crate::config::args::BoundsCalcType;
 use crate::config::file::CachePolicy;
 use crate::config::file::tiles::duckdb::resolver::bounds::bounds_with_auto;
-use crate::config::file::tiles::duckdb::resolver::error::GeoparquetResult;
+use crate::config::file::tiles::duckdb::resolver::errors::GeoparquetResult;
 use crate::config::file::tiles::duckdb::sources::GeoParquetEntry;
 
 use super::introspect::{geoparquet_from_expr, introspect};
