@@ -440,3 +440,45 @@ fn normalize_etag(raw: &str) -> String {
         .trim_matches('"')
         .to_string()
 }
+  
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn from_string_headers_validates_and_collects() {
+        let transport = Transport::from_string_headers(
+            Duration::from_secs(1),
+            [
+                ("x-api-key", "secret"),
+                ("accept", "application/x-protobuf"),
+            ],
+        )
+        .unwrap();
+        assert_eq!(transport.headers.get("x-api-key").unwrap(), "secret");
+        assert_eq!(
+            transport.headers.get("accept").unwrap(),
+            "application/x-protobuf"
+        );
+    }
+
+    #[test]
+    fn from_string_headers_rejects_invalid_name() {
+        let err = Transport::from_string_headers(Duration::from_secs(1), [("bad name", "v")])
+            .unwrap_err();
+        assert!(matches!(
+            err,
+            PassthroughError::InvalidHeaderName { name, .. } if name == "bad name"
+        ));
+    }
+
+    #[test]
+    fn from_string_headers_rejects_invalid_value() {
+        let err = Transport::from_string_headers(Duration::from_secs(1), [("x-key", "bad\nvalue")])
+            .unwrap_err();
+        assert!(matches!(
+            err,
+            PassthroughError::InvalidHeaderValue { name, .. } if name == "x-key"
+        ));
+    }
+}
