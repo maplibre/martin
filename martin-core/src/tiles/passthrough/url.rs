@@ -33,7 +33,7 @@ impl UrlTemplate {
 
 /// Returns `true` if `url` contains all of the `{z}`, `{x}` and `{y}` placeholders.
 pub(crate) fn is_template(url: &str) -> bool {
-    url.contains("{z}") && url.contains("{x}") && url.contains("{y}")
+    url.contains("{z}") || url.contains("{x}") || url.contains("{y}")
 }
 
 /// Substitute the `{z}`, `{x}` and `{y}` placeholders in a template with concrete coordinates.
