@@ -41,7 +41,7 @@ fn passthrough_sources_example() -> serde_json::Value {
         "osm": "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
         "hosted": "https://demotiles.maplibre.org/tiles/tiles.json",
         "secure": {
-            "url": "https://api.example.com/{z}/{x}/{y}.mvt",
+            "url": "https://api.example.com/{z}/{x}/{y}",
             "headers": { "Authorization": "${API_TOKEN}" },
             "format": "mvt",
             "minzoom": 0,
