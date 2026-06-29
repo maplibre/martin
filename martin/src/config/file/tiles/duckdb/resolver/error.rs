@@ -57,9 +57,46 @@ pub enum GeoparquetError {
     #[error("GeoParquet path is not valid UTF-8: {path:?}")]
     NonUtf8Path { path: PathBuf },
 
-    /// SRID could not be determined from metadata or sampled geometries.
+    /// `ST_CRS` returned no CRS for the geometry column.
     #[error("Unable to determine SRID for GeoParquet geometry column '{geometry_column}'")]
     SridUnknown { geometry_column: String },
+
+    /// CRS string from `ST_CRS` was empty.
+    #[error(
+        "GeoParquet geometry column '{geometry_column}' has an empty CRS string"
+    )]
+    SridEmpty {
+        geometry_column: String,
+        crs: String,
+    },
+
+    /// CRS authority is not EPSG or OGC:CRS84.
+    #[error(
+        "GeoParquet geometry column '{geometry_column}' uses unsupported CRS '{crs}'"
+    )]
+    SridUnsupportedCrs {
+        geometry_column: String,
+        crs: String,
+    },
+
+    /// EPSG code is not a valid integer.
+    #[error(
+        "GeoParquet geometry column '{geometry_column}' has invalid EPSG code in CRS '{crs}'"
+    )]
+    SridInvalidEpsgCode {
+        geometry_column: String,
+        crs: String,
+    },
+
+    /// Parsed EPSG code is zero or negative.
+    #[error(
+        "GeoParquet geometry column '{geometry_column}' has non-positive EPSG code {srid} in CRS '{crs}'"
+    )]
+    SridNonPositive {
+        geometry_column: String,
+        crs: String,
+        srid: i32,
+    },
 
     /// An introspection query failed to execute.
     #[error(

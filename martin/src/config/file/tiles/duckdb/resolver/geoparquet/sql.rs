@@ -23,8 +23,7 @@ pub fn build_mvt_sql(
     let buffer = entry.buffer.unwrap_or(DEFAULT_BUFFER);
     let clip_geom = entry.clip_geom.unwrap_or(DEFAULT_CLIP_GEOM);
     let margin = f64::from(buffer) / f64::from(extent);
-    let srid = introspection.srid;
-    let source_crs = epsg_crs(srid);
+    let source_crs = epsg_crs(introspection.srid.get());
     let target_crs = epsg_crs(3857);
 
     let escaped_geometry_column = escape_identifier(&introspection.geometry_column);
@@ -91,6 +90,7 @@ FROM (
 #[cfg(test)]
 mod tests {
     use std::collections::BTreeMap;
+    use std::num::NonZeroI32;
 
     use super::*;
     use crate::config::file::tiles::duckdb::sources::GeoParquetEntry;
@@ -98,7 +98,7 @@ mod tests {
     fn introspection_with_srid(srid: i32) -> GeoParquetIntrospection {
         GeoParquetIntrospection {
             geometry_column: "geom".to_string(),
-            srid,
+            srid: NonZeroI32::new(srid).expect("test srid is non-zero"),
             property_columns: BTreeMap::from([
                 ("name".to_string(), "VARCHAR".to_string()),
                 ("category".to_string(), "VARCHAR".to_string()),

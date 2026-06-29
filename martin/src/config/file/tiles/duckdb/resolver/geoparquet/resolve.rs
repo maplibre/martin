@@ -5,7 +5,7 @@ use tracing::debug;
 
 use crate::config::args::BoundsCalcType;
 use crate::config::file::CachePolicy;
-use crate::config::file::tiles::duckdb::resolver::bounds::calc_from_expr_bounds;
+use crate::config::file::tiles::duckdb::resolver::bounds::bounds_with_auto;
 use crate::config::file::tiles::duckdb::resolver::error::GeoparquetResult;
 use crate::config::file::tiles::duckdb::sources::GeoParquetEntry;
 
@@ -25,17 +25,17 @@ pub async fn resolve_geoparquet_source(
     debug!(
         source.id = %source_id,
         geometry_column = %introspection.geometry_column,
-        srid = introspection.srid,
+        srid = introspection.srid.get(),
         "Resolved GeoParquet introspection"
     );
 
     let auto_bounds = entry.settings.auto_bounds.unwrap_or(BoundsCalcType::Quick);
-    let bounds = calc_from_expr_bounds(
+    let bounds = bounds_with_auto(
         &pool,
         &from_expr,
         &source_label,
         &introspection.geometry_column,
-        introspection.srid,
+        introspection.srid.get(),
         auto_bounds,
     )
     .await?;

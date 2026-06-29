@@ -164,7 +164,7 @@ FROM (
     fetch_bounds(pool, label, query, "bounds").await
 }
 
-async fn bounds_with_auto(
+pub async fn bounds_with_auto(
     pool: &DuckDBPool,
     from_sql: &str,
     label: &str,
@@ -203,35 +203,12 @@ async fn bounds_with_auto(
     }
 }
 
-pub async fn calc_relation_bounds(
-    pool: &DuckDBPool,
-    relation: &str,
-    geom_col: &str,
-    srid: i32,
-    auto_bounds: BoundsCalcType,
-) -> BoundsResult<Option<Bounds>> {
-    let from_sql = escape_relation(relation);
-    bounds_with_auto(pool, &from_sql, relation, geom_col, srid, auto_bounds).await
-}
-
-/// Compute bounds over a pre-built `FROM` expression (e.g. `read_parquet('...')`).
-pub async fn calc_from_expr_bounds(
-    pool: &DuckDBPool,
-    from_expr: &str,
-    label: &str,
-    geom_col: &str,
-    srid: i32,
-    auto_bounds: BoundsCalcType,
-) -> BoundsResult<Option<Bounds>> {
-    bounds_with_auto(pool, from_expr, label, geom_col, srid, auto_bounds).await
-}
-
 #[cfg(test)]
 #[cfg(feature = "unstable-duckdb")]
 mod tests {
     use tilejson::Bounds;
 
-    use super::calc_relation_bounds;
+    use super::{bounds_with_auto, escape_relation};
     use crate::config::args::BoundsCalcType;
     use crate::test_support::duckdb::TestDatabase;
 
@@ -242,25 +219,47 @@ mod tests {
             include_str!("../../../../../../../tests/fixtures/duckdb/bounds_point.sql"),
         );
         let pool = db.read_only_pool("bounds-test", 1);
+        let from_sql = escape_relation("test_geom");
 
-        let calc = calc_relation_bounds(&pool, "test_geom", "geom", 4326, BoundsCalcType::Calc)
-            .await
-            .expect("calculate bounds");
+        let calc = bounds_with_auto(
+            &pool,
+            &from_sql,
+            "test_geom",
+            "geom",
+            4326,
+            BoundsCalcType::Calc,
+        )
+        .await
+        .expect("calculate bounds");
         assert_eq!(calc, Some(Bounds::new(9.0, 19.0, 11.0, 21.0)));
 
-        let quick = calc_relation_bounds(&pool, "test_geom", "geom", 4326, BoundsCalcType::Quick)
-            .await
-            .expect("approx bounds");
+        let quick = bounds_with_auto(
+            &pool,
+            &from_sql,
+            "test_geom",
+            "geom",
+            4326,
+            BoundsCalcType::Quick,
+        )
+        .await
+        .expect("approx bounds");
         assert_eq!(quick, Some(Bounds::new(9.0, 19.0, 11.0, 21.0)));
 
-        let skip = calc_relation_bounds(&pool, "test_geom", "geom", 4326, BoundsCalcType::Skip)
-            .await
-            .expect("skip bounds");
+        let skip = bounds_with_auto(
+            &pool,
+            &from_sql,
+            "test_geom",
+            "geom",
+            4326,
+            BoundsCalcType::Skip,
+        )
+        .await
+        .expect("skip bounds");
         assert_eq!(skip, None);
     }
 
     #[tokio::test(flavor = "multi_thread")]
-    async fn calc_from_expr_bounds_over_read_parquet() {
+    async fn bounds_with_auto_over_read_parquet() {
         use crate::test_support::duckdb::TestGeoParquet;
 
         let fixture = TestGeoParquet::from_sql(
@@ -274,7 +273,7 @@ mod tests {
             fixture.path().to_str().expect("utf-8 parquet path")
         );
 
-        let bounds = super::calc_from_expr_bounds(
+        let bounds = bounds_with_auto(
             &pool,
             &from_expr,
             "points.parquet",

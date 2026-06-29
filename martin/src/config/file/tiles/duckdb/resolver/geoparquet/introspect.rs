@@ -1,4 +1,5 @@
 use std::collections::BTreeMap;
+use std::num::NonZeroI32;
 
 use martin_core::tiles::duckdb::DuckDBPool;
 
@@ -10,7 +11,7 @@ use crate::config::file::tiles::duckdb::sql_utils::{escape_identifier, read_parq
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct GeoParquetIntrospection {
     pub geometry_column: String,
-    pub srid: i32,
+    pub srid: NonZeroI32,
     pub property_columns: BTreeMap<String, String>,
 }
 
@@ -56,7 +57,11 @@ pub(crate) async fn introspect(
         .collect();
 
     let srid = match entry.srid {
-        Some(srid) => srid,
+        Some(srid) => NonZeroI32::new(srid).ok_or_else(|| GeoparquetError::SridNonPositive {
+            geometry_column: geometry_column.clone(),
+            crs: "(configuration)".to_string(),
+            srid,
+        })?,
         None => query_srid(pool, from_expr, source_label, &geometry_column).await?,
     };
 
@@ -128,7 +133,7 @@ async fn query_srid(
     from_expr: &str,
     source_label: &str,
     geometry_column: &str,
-) -> GeoparquetResult<i32> {
+) -> GeoparquetResult<NonZeroI32> {
     let escaped_geometry_column = escape_identifier(geometry_column);
     let query = format!(
         "SELECT ST_CRS({escaped_geometry_column}) \
@@ -153,48 +158,46 @@ async fn query_srid(
             GeoparquetError::introspection_query(source, source_label, "srid", query_for_error)
         })?;
 
-    match crs {
+    match crs.flatten() {
         None => Err(GeoparquetError::SridUnknown { geometry_column }),
-        Some(None) => Err(GeoparquetError::SridUnknown { geometry_column }),
-        Some(Some(crs)) => parse_crs_to_srid(&crs, &geometry_column),
+        Some(crs) => parse_crs_to_srid(&crs, &geometry_column),
     }
 }
 
-pub(crate) fn parse_crs_to_srid(crs: &str, geometry_column: &str) -> GeoparquetResult<i32> {
+pub(crate) fn parse_crs_to_srid(crs: &str, geometry_column: &str) -> GeoparquetResult<NonZeroI32> {
+    let geometry_column = geometry_column.to_string();
     let crs = crs.trim();
     if crs.is_empty() {
-        return Err(GeoparquetError::SridUnknown {
-            geometry_column: geometry_column.to_string(),
+        return Err(GeoparquetError::SridEmpty {
+            geometry_column,
+            crs: crs.to_string(),
         });
     }
 
     if crs.eq_ignore_ascii_case("OGC:CRS84") {
-        return Ok(4326);
+        return Ok(NonZeroI32::new(4326).expect("4326 is non-zero"));
     }
 
     let Some(auth_code) = crs
         .strip_prefix("EPSG:")
         .or_else(|| crs.strip_prefix("epsg:"))
     else {
-        return Err(GeoparquetError::SridUnknown {
-            geometry_column: geometry_column.to_string(),
+        return Err(GeoparquetError::SridUnsupportedCrs {
+            geometry_column,
+            crs: crs.to_string(),
         });
     };
 
-    auth_code
-        .parse::<i32>()
-        .map_err(|_| GeoparquetError::SridUnknown {
-            geometry_column: geometry_column.to_string(),
-        })
-        .and_then(|srid| {
-            if srid > 0 {
-                Ok(srid)
-            } else {
-                Err(GeoparquetError::SridUnknown {
-                    geometry_column: geometry_column.to_string(),
-                })
-            }
-        })
+    let srid = auth_code.parse::<i32>().map_err(|_| GeoparquetError::SridInvalidEpsgCode {
+        geometry_column: geometry_column.clone(),
+        crs: crs.to_string(),
+    })?;
+
+    NonZeroI32::new(srid).ok_or(GeoparquetError::SridNonPositive {
+        geometry_column,
+        crs: crs.to_string(),
+        srid,
+    })
 }
 
 #[cfg(test)]
@@ -209,7 +212,9 @@ mod tests {
             ("OGC:CRS84", 4326),
         ] {
             assert_eq!(
-                parse_crs_to_srid(crs, "geom").expect("crs parsed"),
+                parse_crs_to_srid(crs, "geom")
+                    .expect("crs parsed")
+                    .get(),
                 expected
             );
         }
@@ -218,6 +223,6 @@ mod tests {
     #[test]
     fn parse_crs_to_srid_rejects_unknown_crs() {
         let err = parse_crs_to_srid("UNKNOWN:1", "geom").expect_err("unknown crs");
-        assert!(matches!(err, GeoparquetError::SridUnknown { .. }));
+        assert!(matches!(err, GeoparquetError::SridUnsupportedCrs { .. }));
     }
 }
