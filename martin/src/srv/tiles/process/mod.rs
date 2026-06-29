@@ -230,9 +230,6 @@ mod tests {
         assert!(!decoded.data.is_empty());
     }
 
-    /// Converting MVT->MLT keeps the source etag with a `+mlt` suffix instead of
-    /// re-hashing, so the converted bytes get a distinct-but-stable etag. Converting
-    /// back to MVT appends `+mvt`.
     #[cfg(all(feature = "mlt", feature = "_tiles"))]
     #[test]
     fn conversion_suffixes_source_etag() {
