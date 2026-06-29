@@ -299,6 +299,10 @@ export interface components {
         };
         /**
          * @description Source font file container format.
+         *
+         *     The string serialization (serde and `strum`) is the lowercase file
+         *     extension, so [`FontFormat::VARIANTS`] doubles as the list of recognised
+         *     font extensions and [`str::parse`] maps an extension back to a variant.
          * @enum {string}
          */
         FontFormat: "otf" | "ttf" | "ttc";
