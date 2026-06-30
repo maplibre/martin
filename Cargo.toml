@@ -128,7 +128,7 @@ rustls-pemfile = "2"
 schemars = { version = "1.2", default-features = false, features = ["chrono04", "derive", "std"] }
 semver = "1"
 serde = { version = "1", features = ["derive"] }
-serde-saphyr = { version = "0.0.28", features = ["miette"] }
+serde-saphyr = { version = "0.0.28", features = ["miette", "properties"] }
 serde_json = "1"
 serde_with = { version = "3", default-features = false, features = ["macros"] }
 size_format = "1.0.2"
@@ -138,7 +138,6 @@ sqlite-hashes = { version = "0.10.6", default-features = false, features = ["md5
 sqlx = { version = "0.9.0", features = ["sqlite", "runtime-tokio"] }
 static-files = "0.2"
 strum = { version = "0.28", features = ["derive"] }
-subst = "0.3"
 tempfile = "3.21.0"
 testcontainers-modules = { version = "0.15.0", features = ["postgres", "blocking", "minio"] }
 thiserror = "2"

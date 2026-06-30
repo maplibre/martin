@@ -4637,7 +4637,6 @@ dependencies = [
  "serde_json",
  "serde_with",
  "static-files 0.2.5",
- "subst",
  "tempfile",
  "testcontainers-modules",
  "thiserror 2.0.18",
@@ -8021,16 +8020,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.118",
-]
-
-[[package]]
-name = "subst"
-version = "0.3.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0a9a86e5144f63c2d18334698269a8bfae6eece345c70b64821ea5b35054ec99"
-dependencies = [
- "memchr",
- "unicode-width 0.1.14",
 ]
 
 [[package]]
