@@ -1,11 +1,4 @@
-//! Static-render overlays: the typed boundary IR a rendered base map is
-//! decorated with.
-//!
-//! [`OverlaySpec`] is a pre-validated `GeoJSON` `FeatureCollection`. The wire
-//! format -- CSS-color strings, the `FeatureCollection` envelope -- is an
-//! application concern, so the `martin` crate owns deserialization and builds
-//! these types from a request body; martin-core only ever sees the already-valid
-//! IR. The geometry->layer fan-out is a rendering concern, applied at render time.
+//! Allows decorating a rendered base map with overlays.
 
 mod model;
 pub use model::*;

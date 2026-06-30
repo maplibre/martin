@@ -47,6 +47,7 @@ fonts = [
     "dep:itertools",
     "dep:dashmap",
     "dep:walkdir",
+    "dep:strum",
 ]
 sprites = [
     "dep:actix-web",

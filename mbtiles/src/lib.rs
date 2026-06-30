@@ -16,6 +16,9 @@ pub use mbtiles::{CopyType, MbtTypeCli, Mbtiles};
 mod metadata;
 pub use metadata::{Metadata, anonymous_mbtiles, temp_named_mbtiles};
 
+mod pack;
+pub use pack::{PackCompression, TileScheme, pack, unpack};
+
 mod patcher;
 pub use patcher::apply_patch;
 

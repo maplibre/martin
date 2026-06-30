@@ -27,6 +27,9 @@ binstall_args := if env('CI', '') != '' {'--no-confirm --no-track --disable-tele
 export RUSTFLAGS := env('RUSTFLAGS', if ci_mode == '1' {'-D warnings'} else {''})
 export RUSTDOCFLAGS := env('RUSTDOCFLAGS', if ci_mode == '1' {'-D warnings'} else {''})
 export RUST_BACKTRACE := env('RUST_BACKTRACE', if ci_mode == '1' {'1'} else {'0'})
+# Download the prebuilt maplibre_native core amalgam instead of compiling the ~1 GB C++ core from source.
+# Set MLN_PRECOMPILE=0 to build maplibre_native from source instead.
+export MLN_PRECOMPILE := env('MLN_PRECOMPILE', '1')
 #export RUST_LOG := 'debug'
 #export RUST_LOG := 'sqlx::query=info,trace'
 
@@ -261,9 +264,9 @@ move-artifacts target:
     fi
 
 
-# Quick compile without building a binary
-check: fetch (cargo-install 'cargo-hack')
-    cargo hack --exclude-features _tiles,_catalog,hotpath,hotpath_tui check --all-targets --each-feature --workspace
+# Quick compile without building a binary. Pass e.g. `--partition 1/4` to run only a subset of the feature matrix
+check *args: fetch (cargo-install 'cargo-hack')
+    cargo hack --exclude-features _tiles,_catalog,hotpath,hotpath_tui check --all-targets --each-feature --workspace {{args}}
 
 # Verify cargo-binstall metadata resolves correctly
 check-binstall: fetch (cargo-install 'cargo-binstall')
