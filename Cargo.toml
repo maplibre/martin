@@ -75,6 +75,7 @@ bytes = "1"
 chrono = { version = "0.4", default-features = false, features = ["serde"] }
 clap = { version = "4", features = ["derive", "unstable-markdown", "wrap_help"] }
 criterion = { version = "0.8", features = ["async_futures", "async_tokio", "html_reports"] }
+csscolorparser = "0.8"
 dashmap = { version = "6.1.0", features = ["serde", "inline", "rayon"] }
 deadpool = "0.13.0"
 deadpool-postgres = "0.14"
@@ -89,7 +90,7 @@ futures = "0.3"
 geo = "0.33.1"
 geo-index = { version = "0.3.3", features = ["rayon"] }
 geo-types = "0.7.18"
-geojson = { version = "0.24.2", features = ["geo-types"] }
+geojson = { version = "1", features = ["geo-types"] }
 geozero = { version = "0.15.1", features = ["with-mvt"] }
 hotpath = "0.17"
 humantime-serde = "1.1.1"
@@ -134,7 +135,7 @@ rustls-pemfile = "2"
 schemars = { version = "1.2", default-features = false, features = ["chrono04", "derive", "std"] }
 semver = "1"
 serde = { version = "1", features = ["derive"] }
-serde-saphyr = { version = "0.0.28", features = ["miette"] }
+serde-saphyr = { version = "0.0.28", features = ["miette", "properties"] }
 serde_json = "1"
 serde_with = { version = "3", default-features = false, features = ["macros"] }
 size_format = "1.0.2"
@@ -143,8 +144,9 @@ sqlite-compressions = { version = "0.3", default-features = false, features = ["
 sqlite-hashes = { version = "0.10.6", default-features = false, features = ["md5", "aggregate", "hex"] }
 sqlx = { version = "0.9.0", features = ["sqlite", "runtime-tokio"] }
 static-files = "0.2"
-subst = "0.3"
+strum = { version = "0.28", features = ["derive"] }
 tempfile = "3.21.0"
+test_each_file = "0.3"
 testcontainers-modules = { version = "0.15.0", features = ["postgres", "blocking", "minio"] }
 thiserror = "2"
 tiff = "0.11.1"

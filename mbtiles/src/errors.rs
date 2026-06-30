@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use martin_tile_utils::{MAX_ZOOM, TileInfo};
+use martin_tile_utils::{Encoding, Format, MAX_ZOOM, TileInfo};
 use sqlite_hashes::rusqlite;
 
 use crate::{AGG_TILES_HASH, AGG_TILES_HASH_AFTER_APPLY, AGG_TILES_HASH_BEFORE_APPLY, MbtType};
@@ -185,6 +185,28 @@ pub enum MbtError {
 
     #[error("BinDiff patch files can be only applied with `mbtiles copy --apply-patch` command")]
     UnsupportedPatchType,
+
+    #[error("Unsupported tile file extension: {0}")]
+    UnsupportedFileExtension(PathBuf),
+
+    #[error("Inconsistent tile formats: found {new} at {path} but earlier tiles were {old}")]
+    InconsistentTileFormats {
+        old: Format,
+        new: Format,
+        path: PathBuf,
+    },
+
+    #[error("Cannot re-encode {0:?}-compressed tile data")]
+    CannotRecodeCompressedTile(Encoding),
+
+    #[error("Unsupported pack compression target: {0:?}")]
+    UnsupportedPackTarget(Encoding),
+
+    #[error("No format specified in MBTiles metadata of {0}")]
+    NoFormatInMetadata(PathBuf),
+
+    #[error("Unknown format `{format}` in MBTiles metadata of {path}")]
+    UnknownFormatInMetadata { format: String, path: PathBuf },
 
     #[error(transparent)]
     IoError(#[from] std::io::Error),

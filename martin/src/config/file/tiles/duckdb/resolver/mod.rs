@@ -1,4 +1,7 @@
 pub mod bounds;
-pub mod error;
+pub mod errors;
+pub mod geoparquet;
 
-pub use error::{BoundsError, BoundsResult};
+pub use bounds::bounds_with_auto;
+pub use errors::{BoundsError, BoundsResult, GeoparquetError, GeoparquetResult};
+pub use geoparquet::{GeoParquetIntrospection, build_mvt_sql, resolve_geoparquet_source};

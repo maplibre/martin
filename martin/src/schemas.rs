@@ -52,6 +52,7 @@ pub struct MartinOpenApi;
 #[openapi(paths(
     crate::srv::get_rendered_tile_style,
     crate::srv::get_rendered_static_style,
+    crate::srv::post_rendered_static_style,
 ))]
 struct MartinRenderingOpenApi;
 

@@ -1,0 +1,21 @@
+{
+  "features": [
+    {
+      "geometry": {
+        "coordinates": [[[-40, -20], [10, -20], [10, 20], [-40, 20], [-40, -20]]],
+        "type": "Polygon"
+      },
+      "properties": { "fill-color": "#285DAA", "fill-opacity": 0.5 },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [[[-10, -20], [40, -20], [40, 20], [-10, 20], [-10, -20]]],
+        "type": "Polygon"
+      },
+      "properties": { "fill-color": "#95BEFA", "fill-opacity": 0.5 },
+      "type": "Feature"
+    }
+  ],
+  "type": "FeatureCollection"
+}

@@ -24,7 +24,7 @@
     "tailwind-merge": "3.6.0"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.5.0",
+    "@biomejs/biome": "2.5.1",
     "@rolldown/plugin-babel": "^0.2.3",
     "@tailwindcss/postcss": "^4.2.3",
     "@testing-library/react": "16.3.2",
@@ -59,7 +59,7 @@
     "build": "cross-env VITE_MARTIN_VERSION=$npm_package_version vite build",
     "dev": "vite --port 3001",
     "format": "biome check --write",
-    "gen-types": "openapi-typescript ../../schemas/openapi.json --output src/lib/types.gen.ts --root-types --root-types-no-schema-prefix",
+    "gen-types": "openapi-typescript ../../schemas/openapi.json --output src/lib/types.gen.ts --root-types --root-types-no-schema-prefix --default-non-nullable=false",
     "lint": "biome lint --write",
     "preview": "vite preview",
     "test": "vitest",
