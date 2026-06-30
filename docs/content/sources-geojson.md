@@ -40,6 +40,8 @@ Or via config file:
 geojson:
   paths:
     - /path/to/geojson/directory
+  sources:
+    foo: /path/to/file.geojson
 ```
 
 The following events are handled automatically:
