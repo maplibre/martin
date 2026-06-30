@@ -1,4 +1,4 @@
-//! Typed boundary IR for static-render overlays.
+//! Typed boundary intermediate representation for static-render overlays.
 //!
 //! A pre-validated `GeoJSON` `FeatureCollection`: the `martin` crate builds these
 //! types from a request body, so martin-core only ever sees already-valid input.

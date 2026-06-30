@@ -355,12 +355,12 @@ fn load_style_cached<S>(
 /// Applies an overlay to the renderer's style and removes it again on drop --
 /// even on an early return or panic -- so the cached style returns to a clean
 /// base for the next request.
-struct RenderOverlay<'r> {
+struct RendererWithOverlay<'r> {
     renderer: &'r mut ImageRenderer<Static>,
     applied: Option<AppliedOverlay>,
 }
 
-impl<'r> RenderOverlay<'r> {
+impl<'r> RendererWithOverlay<'r> {
     /// Apply `spec` to `renderer`'s style. The overlay lives until the returned
     /// guard drops.
     fn apply(
@@ -383,7 +383,7 @@ impl<'r> RenderOverlay<'r> {
     }
 }
 
-impl Drop for RenderOverlay<'_> {
+impl Drop for RendererWithOverlay<'_> {
     fn drop(&mut self) {
         if let Some(applied) = self.applied.take() {
             let mut style = self.renderer.style();
@@ -439,8 +439,8 @@ impl StaticRenderer {
             .bearing(params.bearing)
             .pitch(params.pitch);
 
-        let render_once = |renderer: &mut ImageRenderer<Static>| {
-            renderer
+        let render_once = |r: &mut ImageRenderer<Static>| {
+            r
                 .render_static(&camera)
                 .map_err(StyleError::RenderingError)
         };
@@ -454,7 +454,7 @@ impl StaticRenderer {
         // at least once; adding it before any render leaves it blank.
         let _ = render_once(&mut self.renderer);
 
-        let mut overlay = RenderOverlay::apply(&mut self.renderer, &params.overlays)?;
+        let mut overlay = RendererWithOverlay::apply(&mut self.renderer, &params.overlays)?;
         let renderer = overlay.renderer();
 
         // The source tiles synchronously, so this first render after `add_source`
