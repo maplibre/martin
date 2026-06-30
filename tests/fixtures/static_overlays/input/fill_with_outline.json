@@ -1,0 +1,23 @@
+{
+  "features": [
+    {
+      "geometry": {
+        "coordinates": [
+          [[-10.0, -10.0], [10.0, -10.0], [10.0, 10.0], [-10.0, 10.0], [-10.0, -10.0]]
+        ],
+        "type": "Polygon"
+      },
+      "properties": {
+        "fill-color": "green",
+        "fill-opacity": 1.0,
+        "line-cap": "round",
+        "line-color": "darkgreen",
+        "line-join": "round",
+        "line-opacity": 0.8,
+        "line-width": 2
+      },
+      "type": "Feature"
+    }
+  ],
+  "type": "FeatureCollection"
+}

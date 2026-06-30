@@ -7,6 +7,7 @@ use actix_web::http::header::{CONTENT_TYPE, LOCATION};
 use actix_web::test::{TestRequest, call_service, read_body};
 use martin::config::file::srv::SrvConfig;
 use rstest::rstest;
+use test_each_file::test_each_path;
 
 pub mod utils;
 pub use utils::*;
@@ -434,4 +435,114 @@ async fn scale_2x_doubles_pixel_dimensions() {
     let img_2x = image::load_from_memory(&two_x).expect("2x decodes");
     assert_eq!((img_1x.width(), img_1x.height()), (100, 100));
     assert_eq!((img_2x.width(), img_2x.height()), (200, 200));
+}
+
+/// Centered z=2 framing at a fixed 200×200 (for overlay-rendering tests
+/// where the camera shouldn't follow the geometry).
+const URI_CENTERED_200: &str = "/style/maplibre_demo/static/0,0,2/200x200.png";
+
+const OVERLAY_1X_DIR: &str = "../tests/fixtures/static_overlays/1x";
+
+async fn post_png_body(uri: &str, overlay_body: &[u8]) -> Vec<u8> {
+    let app = create_app! { CONFIG_STYLES.as_str() };
+    let req = TestRequest::post()
+        .uri(uri)
+        .insert_header(("content-type", "application/json"))
+        .set_payload(overlay_body.to_vec())
+        .to_request();
+    let resp = call_service(&app, req).await;
+    let resp = assert_response(resp).await;
+    read_body(resp).await.to_vec()
+}
+
+async fn post_no_body(uri: &str) -> Vec<u8> {
+    post_png_body(uri, b"").await
+}
+
+#[expect(clippy::panic, reason = "test fixture loader")]
+async fn run_overlay_scenario(geojson_path: &Path, uri: &str, expected_dir: &str) {
+    let display = geojson_path.display();
+    let body = std::fs::read(geojson_path).unwrap_or_else(|e| panic!("read {display}: {e}"));
+    let png = post_png_body(uri, &body).await;
+    let stem = geojson_path
+        .file_stem()
+        .and_then(std::ffi::OsStr::to_str)
+        .expect("scenario filename stem");
+    let ref_path = PathBuf::from(expected_dir).join(format!("{stem}.png"));
+    assert_png_matches(&ref_path, &png);
+}
+
+#[tokio::test]
+async fn empty_body_renders_base_map() {
+    // Same camera as GET; the byte-identical PNG fixture from the GET
+    // suite proves the POST path renders the same map when no overlays
+    // are supplied.
+    let body = post_no_body("/style/maplibre_demo/static/0,0,0/200x200.png").await;
+    assert_png_matches(&camera_ref("center_z0"), &body);
+}
+
+/// A parsed but empty overlay spec hits a different branch than an empty
+/// body: the body is decoded and deserialized into an `OverlaySpec`, but the
+/// resulting `OverlaySpec::is_empty()` short-circuits the apply pass so the
+/// base map is returned untouched.
+#[tokio::test]
+async fn empty_overlay_renders_base_map() {
+    let body = post_png_body(
+        "/style/maplibre_demo/static/0,0,0/200x200.png",
+        br#"{"type": "FeatureCollection", "features": []}"#,
+    )
+    .await;
+    assert_png_matches(&camera_ref("center_z0"), &body);
+}
+
+test_each_path! {
+    #[tokio::test]
+    async in "tests/fixtures/static_overlays/input"
+    as overlays_1x
+    => async |p: &Path| run_overlay_scenario(p, URI_CENTERED_200, OVERLAY_1X_DIR).await
+}
+
+/// Same centered framing at @2x. Camera (0,0,2) on 200x200@2x outputs a
+/// 400x400 image at scale `256·2²·2 = 2048 px/world`, so any feature off
+/// the camera center must scale up linearly with the pixel ratio.
+/// `fill_opacity` carries off-center polygons (centered at ±15°)
+/// and so locks down the @Nx alignment between overlays and the base map.
+const URI_CENTERED_200_2X: &str = "/style/maplibre_demo/static/0,0,2/200x200@2x.png";
+
+const OVERLAY_2X_DIR: &str = "../tests/fixtures/static_overlays/2x";
+
+test_each_path! {
+    #[tokio::test]
+    async in "tests/fixtures/static_overlays/input"
+    as overlays_2x
+    => async |p: &Path| run_overlay_scenario(p, URI_CENTERED_200_2X, OVERLAY_2X_DIR).await
+}
+
+/// Same overlays, same 200×200 frame, but the camera is tilted 60° (pitch).
+/// This locks down that overlays are re-projected through the same view
+/// matrix as the base map -- a flat 2D draw over the rendered tile would
+/// visibly drift here.
+const URI_CENTERED_200_PITCH: &str = "/style/maplibre_demo/static/0,0,2@0,60/200x200.png";
+
+const OVERLAY_1X_PITCH_DIR: &str = "../tests/fixtures/static_overlays/1x_pitch";
+
+test_each_path! {
+    #[tokio::test]
+    async in "tests/fixtures/static_overlays/input"
+    as overlays_1x_pitch
+    => async |p: &Path| run_overlay_scenario(p, URI_CENTERED_200_PITCH, OVERLAY_1X_PITCH_DIR).await
+}
+
+/// Same overlays, same 200×200 frame, but the camera is rotated 45°
+/// (bearing). Isolates the bearing axis from pitch so a regression in
+/// rotation handling shows up independently of tilt.
+const URI_CENTERED_200_BEARING: &str = "/style/maplibre_demo/static/0,0,2@45/200x200.png";
+
+const OVERLAY_1X_BEARING_DIR: &str = "../tests/fixtures/static_overlays/1x_bearing";
+
+test_each_path! {
+    #[tokio::test]
+    async in "tests/fixtures/static_overlays/input"
+    as overlays_1x_bearing
+    => async |p: &Path| run_overlay_scenario(p, URI_CENTERED_200_BEARING, OVERLAY_1X_BEARING_DIR).await
 }
