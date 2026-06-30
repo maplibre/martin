@@ -440,9 +440,7 @@ impl StaticRenderer {
             .pitch(params.pitch);
 
         let render_once = |r: &mut ImageRenderer<Static>| {
-            r
-                .render_static(&camera)
-                .map_err(StyleError::RenderingError)
+            r.render_static(&camera).map_err(StyleError::RenderingError)
         };
 
         if params.overlays.is_empty() {
