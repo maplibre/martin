@@ -3063,7 +3063,6 @@ version = "0.24.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e26f3c45b36fccc9cf2805e61d4da6bc4bbd5a3a9589b01afa3a40eff703bd79"
 dependencies = [
- "geo-types",
  "log",
  "serde",
  "serde_json",
@@ -4700,7 +4699,7 @@ dependencies = [
  "duckdb",
  "enum-display",
  "futures",
- "geojson",
+ "geojson 1.0.0",
  "hotpath",
  "humantime-serde",
  "image",
@@ -4775,7 +4774,7 @@ dependencies = [
  "geo",
  "geo-index",
  "geo-types",
- "geojson 0.24.2",
+ "geojson 1.0.0",
  "geozero",
  "hotpath",
  "i_overlay",
