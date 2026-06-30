@@ -26,7 +26,6 @@ pub fn escape_relation(relation: &str) -> String {
         .join(".")
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;

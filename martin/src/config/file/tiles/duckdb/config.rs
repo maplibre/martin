@@ -1,5 +1,5 @@
-use std::num::NonZeroUsize;
 use serde::{Deserialize, Serialize};
+use std::num::NonZeroUsize;
 
 use crate::config::args::BoundsCalcType;
 use crate::config::file::tiles::duckdb::sources::{
