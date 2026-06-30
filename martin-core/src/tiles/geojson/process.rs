@@ -60,8 +60,8 @@ pub(crate) fn preprocess_geojson(geojson: GeoJson) -> Result<Preprocessed, GeoJs
         features.push(PreparedFeature { geom, properties });
     }
 
-    let feature_count = u32::try_from(features.len())
-        .map_err(|_| GeoJsonError::TooManyFeatures(features.len()))?;
+    let feature_count =
+        u32::try_from(features.len()).map_err(|_| GeoJsonError::TooManyFeatures(features.len()))?;
     let mut builder = RTreeBuilder::<f64>::new(feature_count);
     for bbox in &bboxes {
         builder.add(bbox[0], bbox[1], bbox[2], bbox[3]);

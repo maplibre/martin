@@ -4,9 +4,7 @@ use geo::orient::Direction;
 use geo::{
     BooleanOps as _, MapCoords as _, Orient as _, Validation as _, bool_ops::FillRule, unary_union,
 };
-use geo_types::{
-    Coord, Geometry, GeometryCollection, MultiLineString, MultiPoint, Point, Polygon,
-};
+use geo_types::{Coord, Geometry, GeometryCollection, MultiLineString, MultiPoint, Point, Polygon};
 use martin_tile_utils::tile_bbox;
 
 use crate::tiles::geojson::convert::validate_and_simplify;
@@ -147,8 +145,7 @@ impl Rect {
                     .into_iter()
                     .filter_map(|g| self.clip_transform_validate_geometry(g))
                     .collect();
-                (!kept.is_empty())
-                    .then_some(Geometry::GeometryCollection(GeometryCollection(kept)))
+                (!kept.is_empty()).then_some(Geometry::GeometryCollection(GeometryCollection(kept)))
             }
             // GeoJSON never parses into these geometry variants.
             Geometry::Line(_) | Geometry::Rect(_) | Geometry::Triangle(_) => None,
