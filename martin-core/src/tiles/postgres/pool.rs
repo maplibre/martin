@@ -296,7 +296,7 @@ impl ActiveQueryRegistry {
     }
 }
 
-#[cfg(all(test, feature = "postgres"))]
+#[cfg(all(test, feature = "test-pg"))]
 mod tests {
     use std::time::Duration;
 
