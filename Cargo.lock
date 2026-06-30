@@ -4676,6 +4676,7 @@ dependencies = [
  "env_logger",
  "flume",
  "futures",
+ "geojson",
  "hotpath",
  "image",
  "image-compare",
