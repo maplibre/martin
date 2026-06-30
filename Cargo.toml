@@ -91,10 +91,9 @@ geo = "0.33.1"
 geo-index = { version = "0.3.3", features = ["rayon"] }
 geo-types = "0.7.18"
 geojson = { version = "1", features = ["geo-types"] }
-geozero = { version = "0.15.1", features = ["with-mvt"] }
+geozero = { version = "0.15.1", features = ["with-mvt", "with-geo"] }
 hotpath = "0.17"
 humantime-serde = "1.1.1"
-i_overlay = "4.0.7"
 image = { version = "0.25.8", default-features = false, features = ["png", "jpeg", "webp"] }
 image-compare = "0.5"
 indicatif = "0.18.3"

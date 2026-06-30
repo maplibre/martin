@@ -1,18 +1,15 @@
 use core::f64;
 
-use geojson::{Geometry, GeometryValue, Position};
-use i_overlay::core::fill_rule::FillRule;
-use i_overlay::core::overlay_rule::OverlayRule;
-use i_overlay::float::clip::FloatClip as _;
-use i_overlay::float::single::SingleFloatOverlay as _;
-use i_overlay::string::clip::ClipRule;
+use geo::orient::Direction;
+use geo::{
+    BooleanOps as _, MapCoords as _, Orient as _, Validation as _, bool_ops::FillRule, unary_union,
+};
+use geo_types::{
+    Coord, Geometry, GeometryCollection, MultiLineString, MultiPoint, Point, Polygon,
+};
 use martin_tile_utils::tile_bbox;
 
-use crate::tiles::geojson::convert::{
-    convert_validate_simplify_geom_geo, line_string_to_shape_path, multi_line_string_from_paths,
-    multi_line_string_to_shape_paths, multi_polygon_from_shapes, multi_polygon_to_shape_paths,
-    polygon_to_shape_paths,
-};
+use crate::tiles::geojson::convert::validate_and_simplify;
 use crate::tiles::geojson::process::tile_length_from_zoom;
 
 pub(crate) const BUFFER_SIZE: u32 = 256;
@@ -54,17 +51,6 @@ impl Rect {
         self.max_y = self.max_y.max(y);
     }
 
-    /// Extend with bounding box
-    pub(crate) fn extend_by_bbox(&mut self, bbox: &[f64]) {
-        // min_x and min_y
-        let (x, y) = (bbox[0], bbox[1]);
-        self.extend(&[x, y]);
-
-        // max_x and max_y
-        let (x, y) = (bbox[2], bbox[3]);
-        self.extend(&[x, y]);
-    }
-
     /// Returns the rectangle if it was extended by at least one point.
     /// A default (un-extended) rectangle keeps its infinite corners and yields `None`.
     pub(crate) fn into_finite(self) -> Option<Self> {
@@ -82,243 +68,97 @@ impl Rect {
         }
     }
 
-    pub(crate) fn from_position(position: &Position) -> Self {
-        let (x, y) = (position[0], position[1]);
-        Self {
-            min_x: x,
-            min_y: y,
-            max_x: x,
-            max_y: y,
+    /// The (buffered) tile rectangle as a clip polygon in Web Mercator coordinates.
+    fn clip_polygon(&self) -> Polygon<f64> {
+        geo_types::Rect::new(
+            Coord {
+                x: self.min_x,
+                y: self.min_y,
+            },
+            Coord {
+                x: self.max_x,
+                y: self.max_y,
+            },
+        )
+        .to_polygon()
+    }
+
+    /// Clip a 1-D geometry to the tile, snap to the integer grid, and validate; `None` if nothing remains.
+    fn clip_lines(&self, lines: &MultiLineString<f64>) -> Option<Geometry<f64>> {
+        let clipped = self.clip_polygon().clip(lines, false);
+        if clipped.0.is_empty() {
+            return None;
         }
+        let tile_space = clipped.map_coords(|c| self.to_tile_coord(c));
+        validate_and_simplify(tile_space.into())
     }
 
-    pub(crate) fn from_positions(positions: &[Position]) -> Self {
-        let mut rect = Self::default();
-        for p in positions {
-            rect.extend(p.as_slice());
+    /// Intersect a 2-D geometry with the tile, snap to the integer grid, orient for MVT, and validate; `None` if nothing remains.
+    fn clip_area(&self, area: &impl geo::BooleanOps<Scalar = f64>) -> Option<Geometry<f64>> {
+        let clipped = self
+            .clip_polygon()
+            .intersection_with_fill_rule(area, FillRule::EvenOdd);
+        if clipped.0.is_empty() {
+            return None;
         }
-        rect
-    }
-
-    pub(crate) fn from_linestrings(linestrings: &[Vec<Position>]) -> Self {
-        let mut rect = Self::default();
-
-        for l in linestrings {
-            for p in l {
-                rect.extend(p.as_slice());
-            }
+        let snapped = clipped.map_coords(|c| self.to_tile_coord(c));
+        // The integer snap can pinch a polygon into a self-touch; re-resolve it through the overlay
+        // engine so the topology is repaired rather than failing validation and dropping the feature.
+        let resolved = if snapped.is_valid() {
+            snapped
+        } else {
+            unary_union([&snapped])
+        };
+        if resolved.0.is_empty() {
+            // The snap collapsed the polygon below tile resolution; drop it rather than emit an
+            // empty geometry.
+            return None;
         }
-        rect
+        // The snap flips y, reversing ring orientation; re-orient so exterior rings are
+        // counter-clockwise (MVT's required winding once y points down in tile space).
+        let tile_space = resolved.orient(Direction::Default);
+        validate_and_simplify(tile_space.into())
     }
 
-    pub(crate) fn from_polygons(polygons: &[Vec<Vec<Position>>]) -> Self {
-        let mut rect = Self::default();
-        for polygon in polygons {
-            if let Some(rings) = polygon.first() {
-                for point in rings {
-                    rect.extend(point.as_slice());
-                }
-            }
-        }
-        rect
-    }
-
-    fn rings(&self) -> Vec<Vec<[f64; 2]>> {
-        let mut rings = vec![];
-        let ring = vec![
-            [self.min_x, self.max_y],
-            [self.min_x, self.min_y],
-            [self.max_x, self.min_y],
-            [self.max_x, self.max_y],
-        ];
-
-        rings.push(ring);
-        rings
-    }
-
-    #[expect(clippy::too_many_lines)]
+    /// Clip a Web Mercator geometry to this (buffered) tile, snap it to the integer MVT grid, and
+    /// validate; `None` when nothing of the geometry remains inside the tile.
     pub(crate) fn clip_transform_validate_geometry(
         &self,
-        mut geom: Geometry,
-        idx: usize,
-    ) -> Option<Geometry> {
-        match geom.value {
-            GeometryValue::Point { coordinates: p } => {
-                if self.inside(p.as_slice()) {
-                    // transform to tile coordinate system
-                    let transformed_p = self.transform_to_tile_coordinates(p.as_slice());
-                    geom.value = GeometryValue::Point {
-                        coordinates: transformed_p.into(),
-                    };
-                    Some(geom)
-                } else {
-                    None
-                }
-            }
-            GeometryValue::MultiPoint { coordinates: ps } => {
-                let filtered_ps: Vec<Position> = ps
+        geom: Geometry<f64>,
+    ) -> Option<Geometry<f64>> {
+        match geom {
+            Geometry::Point(p) => self
+                .inside(&[p.x(), p.y()])
+                .then(|| Geometry::Point(self.to_tile_coord(p.0).into())),
+            Geometry::MultiPoint(ps) => {
+                let kept: Vec<Point<f64>> = ps
                     .into_iter()
-                    .filter(|p| self.inside(p.as_slice()))
+                    .filter(|p| self.inside(&[p.x(), p.y()]))
+                    .map(|p| self.to_tile_coord(p.0).into())
                     .collect();
-
-                if filtered_ps.is_empty() {
-                    return None;
-                }
-
-                // transform to tile coordinate system
-                let transformed_ps = filtered_ps
-                    .iter()
-                    .map(|p| self.transform_to_tile_coordinates(p.as_slice()).into())
+                (!kept.is_empty()).then_some(Geometry::MultiPoint(MultiPoint(kept)))
+            }
+            Geometry::LineString(ls) => self.clip_lines(&MultiLineString(vec![ls])),
+            Geometry::MultiLineString(mls) => self.clip_lines(&mls),
+            Geometry::Polygon(polygon) => self.clip_area(&polygon),
+            Geometry::MultiPolygon(polygons) => self.clip_area(&polygons),
+            Geometry::GeometryCollection(gs) => {
+                let kept: Vec<Geometry<f64>> = gs
+                    .into_iter()
+                    .filter_map(|g| self.clip_transform_validate_geometry(g))
                     .collect();
-
-                geom.value = GeometryValue::MultiPoint {
-                    coordinates: transformed_ps,
-                };
-                Some(geom)
+                (!kept.is_empty())
+                    .then_some(Geometry::GeometryCollection(GeometryCollection(kept)))
             }
-            GeometryValue::LineString { coordinates: ls } => {
-                let string_line = line_string_to_shape_path(ls);
-                let clip = self.rings();
-                let clipped_ls = string_line.clip_by(
-                    &clip,
-                    FillRule::NonZero,
-                    ClipRule {
-                        invert: false,
-                        boundary_included: false,
-                    },
-                );
-
-                if clipped_ls.is_empty() {
-                    return None;
-                }
-
-                // transform to tile coordinate system
-                let transformed_ls = clipped_ls
-                    .iter()
-                    .map(|vec| {
-                        vec.iter()
-                            .map(|p| self.transform_to_tile_coordinates(p))
-                            .collect()
-                    })
-                    .collect();
-
-                geom.value = GeometryValue::MultiLineString {
-                    coordinates: multi_line_string_from_paths(transformed_ls),
-                };
-
-                // validate and simplify (remove duplicate points)
-                convert_validate_simplify_geom_geo(geom, idx).ok()
-            }
-            GeometryValue::MultiLineString { coordinates: ls } => {
-                let string_line = multi_line_string_to_shape_paths(ls);
-                let clip = self.rings();
-                let clipped_ls = string_line.clip_by(
-                    &clip,
-                    FillRule::NonZero,
-                    ClipRule {
-                        invert: false,
-                        boundary_included: false,
-                    },
-                );
-
-                if clipped_ls.is_empty() {
-                    return None;
-                }
-
-                // transform to tile coordinate system
-                let transformed_ls = clipped_ls
-                    .iter()
-                    .map(|vec| {
-                        vec.iter()
-                            .map(|p| self.transform_to_tile_coordinates(p))
-                            .collect()
-                    })
-                    .collect();
-                geom.value = GeometryValue::MultiLineString {
-                    coordinates: multi_line_string_from_paths(transformed_ls),
-                };
-
-                // validate and simplify (remove duplicate points)
-                convert_validate_simplify_geom_geo(geom, idx).ok()
-            }
-            GeometryValue::Polygon {
-                coordinates: polygon,
-            } => {
-                let subject = self.rings();
-                let clip = polygon_to_shape_paths(polygon);
-                let polygons = subject.overlay(&clip, OverlayRule::Intersect, FillRule::EvenOdd);
-
-                if polygons.is_empty() {
-                    return None;
-                }
-
-                // transform to tile coordinate system
-                let transformed_polygons = polygons
-                    .iter()
-                    .map(|polygon| {
-                        polygon
-                            .iter()
-                            .map(|ring| {
-                                ring.iter()
-                                    .map(|p| self.transform_to_tile_coordinates(p))
-                                    .collect()
-                            })
-                            .collect()
-                    })
-                    .collect();
-
-                geom.value = multi_polygon_from_shapes(transformed_polygons);
-
-                // validate and simplify (remove duplicate points)
-                convert_validate_simplify_geom_geo(geom, idx).ok()
-            }
-            GeometryValue::MultiPolygon {
-                coordinates: polygons,
-            } => {
-                let subject = self.rings();
-                let clip = multi_polygon_to_shape_paths(polygons);
-                let polygons = subject.overlay(&clip, OverlayRule::Intersect, FillRule::EvenOdd);
-
-                if polygons.is_empty() {
-                    return None;
-                }
-
-                // transform to tile coordinate system
-                let transformed_polygons = polygons
-                    .iter()
-                    .map(|polygon| {
-                        polygon
-                            .iter()
-                            .map(|ring| {
-                                ring.iter()
-                                    .map(|p| self.transform_to_tile_coordinates(p))
-                                    .collect()
-                            })
-                            .collect()
-                    })
-                    .collect();
-
-                geom.value = multi_polygon_from_shapes(transformed_polygons);
-
-                // validate and simplify (remove duplicate points)
-                convert_validate_simplify_geom_geo(geom, idx).ok()
-            }
-            GeometryValue::GeometryCollection { geometries: gs } => {
-                let mut geometries = vec![];
-                for (idx, g) in gs.into_iter().enumerate() {
-                    if let Some(value) = self.clip_transform_validate_geometry(g, idx) {
-                        geometries.push(value);
-                    }
-                }
-
-                if geometries.is_empty() {
-                    return None;
-                }
-
-                geom.value = GeometryValue::GeometryCollection { geometries };
-                Some(geom)
-            }
+            // GeoJSON never parses into these geometry variants.
+            Geometry::Line(_) | Geometry::Rect(_) | Geometry::Triangle(_) => None,
         }
+    }
+
+    /// Transform a Web Mercator coordinate into the integer-snapped MVT tile grid.
+    fn to_tile_coord(&self, c: Coord<f64>) -> Coord<f64> {
+        let [x, y] = self.transform_to_tile_coordinates(&[c.x, c.y]);
+        Coord { x, y }
     }
 
     /// Transform from EPSG:3857 to local MVT tile coordinates

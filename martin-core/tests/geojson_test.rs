@@ -63,6 +63,18 @@ fn gj_point(lng: f64, lat: f64) -> GjGeometry {
     })
 }
 
+/// A `geojson` `LineString` from `(lng, lat)` vertices, built via `geo-types`.
+fn gj_line(vertices: &[(f64, f64)]) -> GjGeometry {
+    let line = Geometry::LineString(ring(vertices));
+    GjGeometry::new(GjValue::from(&line))
+}
+
+/// A `geojson` `MultiLineString` from several `(lng, lat)` vertex lists, built via `geo-types`.
+fn gj_multiline(lines: &[&[(f64, f64)]]) -> GjGeometry {
+    let mls = geo_types::MultiLineString(lines.iter().map(|l| ring(l)).collect());
+    GjGeometry::new(GjValue::from(&Geometry::MultiLineString(mls)))
+}
+
 fn feature(geom: GjGeometry, props: Option<Map<String, serde_json::Value>>) -> Feature {
     Feature {
         bbox: None,
@@ -210,6 +222,49 @@ async fn clipping_keeps_coords_within_tile_plus_buffer() {
     }
 }
 
+/// A line crossing out of the queried tile is clipped to the tile-plus-buffer: it survives as a
+/// non-empty line whose every coordinate stays in bounds. Without clipping the far endpoint would
+/// project far outside `[-BUFFER, EXTENT + BUFFER]`.
+#[tokio::test]
+async fn linestring_crossing_boundary_is_clipped() {
+    // Runs west-to-east across the antimeridian-free width, from inside z1/1/0 (lng 0..180) out
+    // into the western hemisphere; the western part is clipped off at the tile's left edge.
+    let src = source("line", &GeoJson::Geometry(gj_line(&[(50.0, 40.0), (-50.0, 40.0)]))).await;
+    let tile = decode(&src.get_tile(xyz(1, 1, 0), None).await.unwrap());
+    let layer = &tile.layers[0];
+    assert_eq!(layer.features.len(), 1, "clipped line survives as one feature");
+
+    let coords = all_coords(&layer.features[0].geometry);
+    assert!(coords.len() >= 2, "a line keeps at least two vertices");
+    let bounds = (-BUFFER - FLOOR_SLACK)..=(EXTENT + BUFFER + FLOOR_SLACK);
+    for c in coords {
+        let (x, y) = (i64::from(c.x), i64::from(c.y));
+        assert!(bounds.contains(&x), "x={x} outside clip bounds {bounds:?}");
+        assert!(bounds.contains(&y), "y={y} outside clip bounds {bounds:?}");
+    }
+}
+
+/// A `MultiLineString` whose parts straddle different tile edges is clipped as a whole: it survives
+/// as one feature and every emitted coordinate stays within the tile-plus-buffer.
+#[tokio::test]
+async fn multilinestring_crossing_boundary_is_clipped() {
+    // One part exits west, the other exits south of z1/1/0 (lng 0..180, lat 0..~85).
+    let geom = gj_multiline(&[&[(50.0, 40.0), (-50.0, 40.0)], &[(80.0, 10.0), (80.0, -50.0)]]);
+    let src = source("mline", &GeoJson::Geometry(geom)).await;
+    let tile = decode(&src.get_tile(xyz(1, 1, 0), None).await.unwrap());
+    let layer = &tile.layers[0];
+    assert_eq!(layer.features.len(), 1, "clipped multiline survives as one feature");
+
+    let coords = all_coords(&layer.features[0].geometry);
+    assert!(coords.len() >= 4, "both clipped parts contribute vertices");
+    let bounds = (-BUFFER - FLOOR_SLACK)..=(EXTENT + BUFFER + FLOOR_SLACK);
+    for c in coords {
+        let (x, y) = (i64::from(c.x), i64::from(c.y));
+        assert!(bounds.contains(&x), "x={x} outside clip bounds {bounds:?}");
+        assert!(bounds.contains(&y), "y={y} outside clip bounds {bounds:?}");
+    }
+}
+
 /// A tile disjoint from all data returns an empty byte vector - the early-out path, not a
 /// valid-but-empty MVT tile.
 #[tokio::test]
@@ -334,6 +389,60 @@ async fn polygon_rings_follow_mvt_winding_order() {
     assert!(
         signed_area(&poly.interiors()[0]) < 0,
         "interior ring must be counter-clockwise (negative area in y-down space)"
+    );
+}
+
+/// A large polygon whose two lobes are joined by a sub-pixel neck must not vanish. The integer
+/// snap collapses the neck to a self-touch, which would fail validation and drop the whole feature;
+/// the topology is re-resolved so the substantial area survives.
+#[tokio::test]
+async fn polygon_pinched_by_snap_is_repaired_not_dropped() {
+    // Two 5x5 deg lobes joined by a 0.005 deg neck - far below one z0 tile unit (~0.088 deg),
+    // so the neck collapses on the 4096 grid.
+    let dumbbell = gj_polygon(
+        &[
+            (0.0, 0.0),
+            (5.0, 0.0),
+            (5.0, 2.4975),
+            (10.0, 2.4975),
+            (10.0, 0.0),
+            (15.0, 0.0),
+            (15.0, 5.0),
+            (10.0, 5.0),
+            (10.0, 2.5025),
+            (5.0, 2.5025),
+            (5.0, 5.0),
+            (0.0, 5.0),
+            (0.0, 0.0),
+        ],
+        &[],
+    );
+    let src = source("dumbbell", &GeoJson::Geometry(dumbbell)).await;
+    let tile = decode(&src.get_tile(xyz(0, 0, 0), None).await.unwrap());
+    let layer = &tile.layers[0];
+
+    assert!(
+        !layer.features.is_empty(),
+        "pinched polygon survives instead of being dropped wholesale"
+    );
+    let polys: Vec<&Polygon<i32>> = layer
+        .features
+        .iter()
+        .flat_map(|f| polygons(&f.geometry))
+        .collect();
+    assert!(!polys.is_empty(), "the surviving geometry is polygonal");
+}
+
+/// A polygon thinner than one tile unit collapses to nothing on the integer grid and must be
+/// dropped, not emitted as an empty geometry. (The topology-repair pass must not resurrect it.)
+#[tokio::test]
+async fn subpixel_polygon_is_dropped() {
+    // 0.005 deg wide at z0 is ~0.06 tile units - it floors to zero width.
+    let src = source("sliver", &GeoJson::Geometry(gj_square(10.0, 0.0, 10.005, 20.0))).await;
+    let tile = decode(&src.get_tile(xyz(0, 0, 0), None).await.unwrap());
+    assert!(
+        tile.layers.is_empty() || tile.layers[0].features.is_empty(),
+        "a sub-pixel polygon produces no feature"
     );
 }
 

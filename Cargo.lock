@@ -4777,7 +4777,6 @@ dependencies = [
  "geojson 1.0.0",
  "geozero",
  "hotpath",
- "i_overlay",
  "image",
  "image-compare",
  "insta",
