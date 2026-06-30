@@ -50,7 +50,7 @@ async fn resolve_geoparquet_source_auto_detects_metadata() {
     assert_eq!(layers[0].id, "buildings");
     assert_eq!(
         layers[0].fields.keys().collect::<Vec<_>>(),
-        vec!["id", "name"]
+        vec!["id", "point_name"]
     );
     assert_eq!(source.get_tile_info().format, Format::Mvt);
 }

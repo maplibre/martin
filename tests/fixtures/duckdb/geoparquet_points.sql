@@ -1,6 +1,6 @@
 CREATE TABLE points (
     id INTEGER,
-    name VARCHAR,
+    point_name VARCHAR,
     geom GEOMETRY
 );
 
