@@ -39,7 +39,7 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 async fn start(args: Args) -> MartinResult<()> {
     info!("Starting Martin v{VERSION}");
 
-    let env = OsEnv::default();
+    let env = OsEnv;
     let save_config = args.meta.save_config.clone();
     let mut config = if let Some(ref cfg_filename) = args.meta.config {
         info!("Using {}", cfg_filename.display());

@@ -1,0 +1,18 @@
+{
+  "features": [
+    {
+      "geometry": {
+        "coordinates": [[-10.0, -10.0], [10.0, 10.0]],
+        "type": "LineString"
+      },
+      "properties": {
+        "line-cap": "round",
+        "line-color": "#95BEFA",
+        "line-join": "round",
+        "line-width": 5
+      },
+      "type": "Feature"
+    }
+  ],
+  "type": "FeatureCollection"
+}

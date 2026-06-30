@@ -57,7 +57,8 @@ postgres = [
     "_tiles",
 ]
 unstable-cog = ["dep:png", "dep:tiff", "dep:image", "dep:serde_json", "_tiles"]
-rendering = ["styles", "dep:maplibre_native", "dep:image", "dep:flume"]
+overlay = ["dep:geojson", "dep:strum"]
+rendering = ["styles", "overlay", "dep:maplibre_native", "dep:image", "dep:flume"]
 fonts = [
     "dep:bit-set",
     "dep:pbf_font_tools",
@@ -65,6 +66,7 @@ fonts = [
     "dep:itertools",
     "dep:dashmap",
     "dep:walkdir",
+    "dep:strum",
 ]
 sprites = [
     "dep:actix-web",
@@ -139,6 +141,7 @@ serde.workspace = true
 serde_json = { workspace = true, optional = true }
 serde_with.workspace = true
 spreet = { workspace = true, optional = true }
+strum = { workspace = true, optional = true }
 thiserror.workspace = true
 tiff = { workspace = true, optional = true }
 tilejson.workspace = true
@@ -157,6 +160,7 @@ backon.workspace = true
 bytes.workspace = true
 criterion = { workspace = true }
 env_logger.workspace = true
+fast-mvt.workspace = true
 futures.workspace = true
 image-compare.workspace = true
 insta = { workspace = true, features = ["json", "yaml"] }

@@ -96,10 +96,10 @@ pub struct ExtraArgs {
 }
 
 impl Args {
-    pub fn merge_into_config<'a>(
+    pub fn merge_into_config(
         self,
         config: &mut Config,
-        #[cfg(feature = "postgres")] env: &impl Env<'a>,
+        #[cfg(feature = "postgres")] env: &impl Env,
     ) -> MartinResult<()> {
         if self.meta.config.is_some() && !self.meta.connection.is_empty() {
             return Err(ConfigAndConnectionsError(self.meta.connection));
@@ -143,7 +143,7 @@ impl Args {
                 config.postgres = pg_args.into_config(&mut cli_strings, env);
             } else {
                 // config was loaded from a file, we can only apply a few CLI overrides to it
-                pg_args.override_config(&mut config.postgres, env);
+                pg_args.override_config(&mut config.postgres);
             }
         }
 
