@@ -1,11 +1,8 @@
-use martin_core::tiles::BoxedSource;
-use martin_core::tiles::geojson::source::GeoJsonSource;
-
-use crate::config::file::FileConfigEnum;
 use crate::config::file::geojson::GeoJsonConfig;
 use crate::config::file::process::ProcessConfig;
 use crate::config::file::tiles::discovery::{FsDiscovery, FsSourceBuilder};
 use crate::config::file::tiles::driver::{Baseline, NotifyTrigger, ReloadDriver};
+use crate::config::file::{FileConfigEnum, TileSourceConfiguration as _};
 use crate::config::primitives::IdResolver;
 use crate::{MartinResult, TileSourceManager};
 
@@ -22,13 +19,15 @@ impl GeoJsonReloader {
         id_resolver: IdResolver,
         config: &FileConfigEnum<GeoJsonConfig>,
     ) -> Self {
-        // See `MbtilesReloader::new`: both boxes erase per-kind types to a shared shape.
-        // This builder captures nothing, but is `Box::new`d to share the boxed `FsSourceBuilder` type.
-        let build: FsSourceBuilder = Box::new(|id, path, policy| {
-            Box::pin(async move {
-                let src = GeoJsonSource::new(id, path, policy.zoom()).await?;
-                Ok(Box::new(src) as BoxedSource)
-            })
+        // Discovered files inherit the configured extent and buffer, so the builder closes over the
+        // custom config and delegates to its `new_sources` (see `PmtilesReloader::new`).
+        let geojson_config = match config {
+            FileConfigEnum::Config(cfg) => cfg.custom.clone(),
+            _ => GeoJsonConfig::default(),
+        };
+        let build: FsSourceBuilder = Box::new(move |id, path, policy| {
+            let config = geojson_config.clone();
+            Box::pin(async move { config.new_sources(id, path, policy).await })
         });
         let discovery = FsDiscovery::from_config(
             config,

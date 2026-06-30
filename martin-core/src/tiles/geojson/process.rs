@@ -8,7 +8,6 @@ use martin_tile_utils::{EARTH_CIRCUMFERENCE, wgs84_to_webmercator};
 use serde_json::Map;
 
 use crate::tiles::geojson::error::GeoJsonError;
-use crate::tiles::geojson::rect::Rect;
 
 /// A feature ready to be served: a Web Mercator geometry plus its `GeoJSON` properties.
 #[derive(Clone)]
@@ -21,7 +20,11 @@ pub(crate) struct PreparedFeature {
 
 /// Features ready to serve, their spatial index, and the data bounding box in Web Mercator
 /// (`None` when no feature contributed a geometry).
-type Preprocessed = (Vec<PreparedFeature>, RTree<f64>, Option<Rect>);
+type Preprocessed = (
+    Vec<PreparedFeature>,
+    RTree<f64>,
+    Option<geo_types::Rect<f64>>,
+);
 
 /// Preprocess a parsed `GeoJSON` document into features ready to serve.
 ///
@@ -41,7 +44,6 @@ pub(crate) fn preprocess_geojson(geojson: GeoJson) -> Result<Preprocessed, GeoJs
 
     let mut features = Vec::with_capacity(raw.len());
     let mut bboxes = Vec::with_capacity(raw.len());
-    let mut data_bounds = Rect::default();
     for (geometry, properties) in raw {
         let geom = geo_types::Geometry::<f64>::try_from(geometry.value)
             .map_err(|e| GeoJsonError::GeoJsonError(Box::new(e)))?;
@@ -54,8 +56,6 @@ pub(crate) fn preprocess_geojson(geojson: GeoJson) -> Result<Preprocessed, GeoJs
             continue;
         };
         let (min, max) = (bbox.min(), bbox.max());
-        data_bounds.extend(&[min.x, min.y]);
-        data_bounds.extend(&[max.x, max.y]);
         bboxes.push([min.x, min.y, max.x, max.y]);
         features.push(PreparedFeature { geom, properties });
     }
@@ -68,7 +68,26 @@ pub(crate) fn preprocess_geojson(geojson: GeoJson) -> Result<Preprocessed, GeoJs
     }
     let tree = builder.finish::<HilbertSort>();
 
-    Ok((features, tree, data_bounds.into_finite()))
+    // The data bounding box is the union of every feature's bbox.
+    let data_bounds = bboxes
+        .iter()
+        .copied()
+        .reduce(|a, b| {
+            [
+                a[0].min(b[0]),
+                a[1].min(b[1]),
+                a[2].max(b[2]),
+                a[3].max(b[3]),
+            ]
+        })
+        .map(|[min_x, min_y, max_x, max_y]| {
+            geo_types::Rect::new(
+                geo_types::Coord { x: min_x, y: min_y },
+                geo_types::Coord { x: max_x, y: max_y },
+            )
+        });
+
+    Ok((features, tree, data_bounds))
 }
 
 pub(crate) fn tile_length_from_zoom(zoom: u8) -> f64 {

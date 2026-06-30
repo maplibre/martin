@@ -1,4 +1,5 @@
 use std::fmt::Debug;
+use std::num::NonZeroU32;
 use std::path::PathBuf;
 
 use martin_core::tiles::BoxedSource;
@@ -12,10 +13,46 @@ use crate::config::file::{
     UnrecognizedValues,
 };
 
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+/// The MVT-spec tile extent `MapLibre` assumes, used when none is configured.
+fn default_extent() -> NonZeroU32 {
+    NonZeroU32::new(4096).expect("4096 is non-zero")
+}
+
+const fn default_buffer() -> u32 {
+    64
+}
+
+fn is_default_extent(extent: &NonZeroU32) -> bool {
+    *extent == default_extent()
+}
+
+const fn is_default_buffer(buffer: &u32) -> bool {
+    *buffer == default_buffer()
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct GeoJsonConfig {
+    /// Side length of the MVT tile coordinate grid each tile is encoded into, defaulting to 4096.
+    #[serde(default = "default_extent", skip_serializing_if = "is_default_extent")]
+    pub extent: NonZeroU32,
+
+    /// Clip margin kept around each tile edge, in tile units, defaulting to 64.
+    /// Increase it if you see seam artifacts on line caps/joins or polygon outlines near tile edges.
+    #[serde(default = "default_buffer", skip_serializing_if = "is_default_buffer")]
+    pub buffer: u32,
+
     #[serde(flatten, skip_serializing)]
     pub unrecognized: UnrecognizedValues,
+}
+
+impl Default for GeoJsonConfig {
+    fn default() -> Self {
+        Self {
+            extent: default_extent(),
+            buffer: default_buffer(),
+            unrecognized: UnrecognizedValues::default(),
+        }
+    }
 }
 
 impl ConfigurationLivecycleHooks for GeoJsonConfig {
@@ -35,7 +72,8 @@ impl TileSourceConfiguration for GeoJsonConfig {
         path: PathBuf,
         cache: CachePolicy,
     ) -> MartinResult<BoxedSource> {
-        let geojson_source = GeoJsonSource::new(id, path, cache.zoom()).await?;
+        let geojson_source =
+            GeoJsonSource::new(id, path, cache.zoom(), self.extent, self.buffer).await?;
         Ok(Box::new(geojson_source))
     }
 
@@ -131,5 +169,29 @@ mod tests {
                 ),
             ]))
         );
+    }
+
+    #[test]
+    fn extent_and_buffer_default_to_4096_and_64() {
+        let cfg = serde_saphyr::from_str::<GeoJsonConfig>("{}").unwrap();
+        assert_eq!(cfg.extent.get(), 4096);
+        assert_eq!(cfg.buffer, 64);
+    }
+
+    #[test]
+    fn extent_and_buffer_are_overridable() {
+        let cfg = serde_saphyr::from_str::<GeoJsonConfig>(indoc! {"
+            extent: 2048
+            buffer: 16
+        "})
+        .unwrap();
+        assert_eq!(cfg.extent.get(), 2048);
+        assert_eq!(cfg.buffer, 16);
+    }
+
+    #[test]
+    fn zero_extent_is_rejected() {
+        // `NonZeroU32` guards the divisor in the tile-coordinate transform.
+        serde_saphyr::from_str::<GeoJsonConfig>("extent: 0").unwrap_err();
     }
 }

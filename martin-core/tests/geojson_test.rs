@@ -21,12 +21,13 @@ use martin_core::tiles::geojson::source::GeoJsonSource;
 use martin_tile_utils::TileCoord;
 use serde_json::{Map, json};
 use std::io::Write as _;
+use std::num::NonZeroU32;
 
-/// MVT layer extent and clip buffer, mirroring the private `rect::{EXTENT, BUFFER_SIZE}`.
+/// The `GeoJsonConfig` default MVT layer extent and clip buffer.
 /// Clipped coordinates land within `[-BUFFER, EXTENT + BUFFER]`, give or take one unit of
 /// `transform_to_tile_coordinates`' `.floor()` rounding at the buffered edge.
 const EXTENT: i64 = 4096;
-const BUFFER: i64 = 256;
+const BUFFER: i64 = 64;
 const FLOOR_SLACK: i64 = 1;
 
 // --- input builders (geo-types -> geojson) -------------------------------------------------
@@ -96,8 +97,15 @@ fn collection(features: Vec<Feature>) -> GeoJson {
 // --- harness -------------------------------------------------------------------------------
 
 /// Serialize `gj` to a temp `.geojson` file and build a source through the public path-reading
-/// constructor, so the read+parse path is exercised exactly as in production.
+/// constructor, so the read+parse path is exercised exactly as in production. Uses the default
+/// extent and buffer.
 async fn source(id: &str, gj: &GeoJson) -> GeoJsonSource {
+    let extent = NonZeroU32::new(u32::try_from(EXTENT).unwrap()).unwrap();
+    source_with(id, gj, extent, u32::try_from(BUFFER).unwrap()).await
+}
+
+/// Like [`source`] but with an explicit MVT extent and clip buffer.
+async fn source_with(id: &str, gj: &GeoJson, extent: NonZeroU32, buffer: u32) -> GeoJsonSource {
     let mut tmp = tempfile::Builder::new()
         .suffix(".geojson")
         .tempfile()
@@ -109,6 +117,8 @@ async fn source(id: &str, gj: &GeoJson) -> GeoJsonSource {
         id.to_string(),
         tmp.path().to_path_buf(),
         CacheZoomRange::default(),
+        extent,
+        buffer,
     )
     .await
     .unwrap()
@@ -479,4 +489,39 @@ async fn decoded_tile_snapshot() {
     let src = source("snap", &gj).await;
     let tile = decode(&src.get_tile(xyz(0, 0, 0), None).await.unwrap());
     insta::assert_debug_snapshot!(tile.layers);
+}
+
+/// The configured MVT extent is advertised on the emitted layer.
+#[tokio::test]
+async fn extent_is_advertised_on_the_layer() {
+    let gj = GeoJson::Geometry(gj_square(10.0, 10.0, 20.0, 20.0));
+    for extent in [1024u32, 8192] {
+        let src = source_with("ext", &gj, NonZeroU32::new(extent).unwrap(), 0).await;
+        let tile = decode(&src.get_tile(xyz(0, 0, 0), None).await.unwrap());
+        assert_eq!(
+            tile.layers[0].extent.get(),
+            extent,
+            "layer advertises the configured extent {extent}"
+        );
+    }
+}
+
+/// The clip buffer pulls in geometry that sits just outside the bare tile; a zero buffer drops it.
+#[tokio::test]
+async fn buffer_includes_geometry_just_outside_the_tile() {
+    // ~1° west of z1/1/0's western edge (lng 0): inside a 256-unit buffer, outside the bare tile.
+    let pt = GeoJson::Geometry(gj_point(-1.0, 40.0));
+    let extent = NonZeroU32::new(4096).unwrap();
+
+    let buffered = source_with("buf", &pt, extent, 256).await;
+    let tile = decode(&buffered.get_tile(xyz(1, 1, 0), None).await.unwrap());
+    assert_eq!(
+        tile.layers[0].features.len(),
+        1,
+        "buffer keeps the point lying just outside the tile"
+    );
+
+    let unbuffered = source_with("nobuf", &pt, extent, 0).await;
+    let bytes = unbuffered.get_tile(xyz(1, 1, 0), None).await.unwrap();
+    assert!(bytes.is_empty(), "zero buffer drops the just-outside point");
 }

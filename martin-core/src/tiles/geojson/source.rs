@@ -1,4 +1,5 @@
 use std::fmt::{Debug, Formatter};
+use std::num::NonZeroU32;
 use std::path::PathBuf;
 use std::vec;
 
@@ -17,7 +18,7 @@ use tracing::trace;
 use crate::CacheZoomRange;
 use crate::tiles::geojson::error::GeoJsonError;
 use crate::tiles::geojson::process::{PreparedFeature, preprocess_geojson, process_properties};
-use crate::tiles::geojson::rect::{BUFFER_SIZE, EXTENT, Rect};
+use crate::tiles::geojson::rect::Rect;
 use crate::tiles::{BoxedSource, MartinCoreError, MartinCoreResult, Source, UrlQuery};
 
 /// A source for `GeoJSON` files
@@ -40,14 +41,20 @@ pub struct GeoJsonSource {
     tilejson: TileJSON,
     tile_info: TileInfo,
     cache_zoom: CacheZoomRange,
+    /// Side length of the MVT tile coordinate grid every tile is encoded into.
+    extent: NonZeroU32,
+    /// Clip margin kept around each tile edge, in tile units (a fraction of `extent`).
+    buffer: u32,
 }
 
 impl GeoJsonSource {
-    /// Create a new `GeoJSON` source
+    /// Create a new `GeoJSON` source rendering tiles at the given MVT `extent` and clip `buffer`.
     pub async fn new(
         id: String,
         path: PathBuf,
         cache_zoom: CacheZoomRange,
+        extent: NonZeroU32,
+        buffer: u32,
     ) -> Result<Self, GeoJsonError> {
         let geojson_str = fs::read_to_string(&path)
             .await
@@ -61,8 +68,8 @@ impl GeoJsonSource {
         // The data bounding box is in Web Mercator; reproject its corners back to WGS84
         // so TileJSON advertises the area covered. An empty source has no bounds.
         let tilejson = if let Some(bounds) = bounds {
-            let (min_lng, min_lat) = webmercator_to_wgs84(bounds.min_x, bounds.min_y);
-            let (max_lng, max_lat) = webmercator_to_wgs84(bounds.max_x, bounds.max_y);
+            let (min_lng, min_lat) = webmercator_to_wgs84(bounds.min().x, bounds.min().y);
+            let (max_lng, max_lat) = webmercator_to_wgs84(bounds.max().x, bounds.max().y);
             tilejson::tilejson! {
                 tiles: vec![],
                 bounds: Bounds::new(min_lng, min_lat, max_lng, max_lat),
@@ -85,6 +92,8 @@ impl GeoJsonSource {
             tilejson,
             tile_info: TileInfo::new(Format::Mvt, Encoding::Uncompressed),
             cache_zoom,
+            extent,
+            buffer,
         })
     }
 }
@@ -132,16 +141,8 @@ impl Source for GeoJsonSource {
         xyz: TileCoord,
         _url_query: Option<&UrlQuery>,
     ) -> MartinCoreResult<TileData> {
-        let mut rect = Rect::from_xyz(xyz.x, xyz.y, xyz.z);
-
-        // Add buffer for query and clipping
-        let buffer = f64::from(BUFFER_SIZE) / f64::from(EXTENT);
-        let buffer_x = (rect.max_x - rect.min_x) * buffer;
-        let buffer_y = (rect.max_y - rect.min_y) * buffer;
-        rect.min_x -= buffer_x;
-        rect.min_y -= buffer_y;
-        rect.max_x += buffer_x;
-        rect.max_y += buffer_y;
+        let mut rect = Rect::from_xyz(xyz.x, xyz.y, xyz.z, self.extent, self.buffer);
+        rect.add_buffer();
 
         let indices = self
             .rtree
@@ -175,7 +176,7 @@ impl Source for GeoJsonSource {
         }
 
         // Use unscaled writer as the coordinates are already in tile coordinate system
-        let mut mvt_writer = MvtWriter::new_unscaled(EXTENT)
+        let mut mvt_writer = MvtWriter::new_unscaled(self.extent.get())
             .map_err(GeoJsonError::GeozeroError)
             .map_err(MartinCoreError::GeoJsonError)?;
         encode_features(&flattened_fs, &mut mvt_writer)
@@ -252,10 +253,16 @@ mod tests {
     #[tokio::test]
     async fn test_get_tile() {
         let path = fixtures_dir().join("feature_collection_1.geojson");
-        let geojson_source =
-            GeoJsonSource::new("test-source-1".to_string(), path, CacheZoomRange::default())
-                .await
-                .unwrap();
+        let extent = NonZeroU32::new(4096).expect("4096 is non-zero");
+        let geojson_source = GeoJsonSource::new(
+            "test-source-1".to_string(),
+            path,
+            CacheZoomRange::default(),
+            extent,
+            64,
+        )
+        .await
+        .unwrap();
 
         // z1/1/0 covers the northern-eastern hemisphere: polygon id 0 lies fully inside
         // and id 3 is clipped to the tile, while id 1 (North America) is excluded.
@@ -270,7 +277,7 @@ mod tests {
             layer.name, "test-source-1",
             "layer is named after the source"
         );
-        assert_eq!(layer.extent(), EXTENT);
+        assert_eq!(layer.extent(), extent.get());
         assert_eq!(
             layer.features.len(),
             2,
@@ -285,9 +292,16 @@ mod tests {
         // bare_geometry is a polygon spanning lng/lat [10,10]..[20,20].
         // After WGS84 -> WebMercator -> WGS84 the bounds round-trip back to the input extent.
         let path = fixtures_dir().join("bare_geometry.geojson");
-        let source = GeoJsonSource::new("bare".to_string(), path, CacheZoomRange::default())
-            .await
-            .unwrap();
+        let extent = NonZeroU32::new(4096).expect("4096 is non-zero");
+        let source = GeoJsonSource::new(
+            "bare".to_string(),
+            path,
+            CacheZoomRange::default(),
+            extent,
+            64,
+        )
+        .await
+        .unwrap();
 
         let bounds = source.get_tilejson().bounds.expect("bounds should be set");
         assert_abs_diff_eq!(bounds.left, 10.0, epsilon = 1e-6);

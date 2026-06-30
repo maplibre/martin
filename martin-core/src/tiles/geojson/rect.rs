@@ -1,4 +1,5 @@
 use core::f64;
+use std::num::NonZeroU32;
 
 use geo::orient::Direction;
 use geo::{
@@ -10,26 +11,17 @@ use martin_tile_utils::tile_bbox;
 use crate::tiles::geojson::convert::validate_and_simplify;
 use crate::tiles::geojson::process::tile_length_from_zoom;
 
-pub(crate) const BUFFER_SIZE: u32 = 256;
-pub(crate) const EXTENT: u32 = 4096;
-
+/// A single tile in Web Mercator space, carrying the MVT resolution it is rendered at.
 #[derive(Debug, Clone)]
 pub(crate) struct Rect {
     pub(crate) min_x: f64,
     pub(crate) min_y: f64,
     pub(crate) max_x: f64,
     pub(crate) max_y: f64,
-}
-
-impl Default for Rect {
-    fn default() -> Self {
-        Self {
-            min_x: f64::INFINITY,
-            min_y: f64::INFINITY,
-            max_x: f64::NEG_INFINITY,
-            max_y: f64::NEG_INFINITY,
-        }
-    }
+    /// Side length of the MVT tile coordinate grid this tile is encoded into.
+    extent: NonZeroU32,
+    /// Clip margin in tile units kept around the tile edge, expressed as a fraction of `extent`.
+    buffer: u32,
 }
 
 impl Rect {
@@ -40,22 +32,7 @@ impl Rect {
         x >= self.min_x && x <= self.max_x && y >= self.min_y && y <= self.max_y
     }
 
-    /// Extend rectangle by point
-    pub(crate) fn extend(&mut self, point: &[f64]) {
-        let (x, y) = (point[0], point[1]);
-        self.min_x = self.min_x.min(x);
-        self.min_y = self.min_y.min(y);
-        self.max_x = self.max_x.max(x);
-        self.max_y = self.max_y.max(y);
-    }
-
-    /// Returns the rectangle if it was extended by at least one point.
-    /// A default (un-extended) rectangle keeps its infinite corners and yields `None`.
-    pub(crate) fn into_finite(self) -> Option<Self> {
-        self.min_x.is_finite().then_some(self)
-    }
-
-    pub(crate) fn from_xyz(x: u32, y: u32, zoom: u8) -> Self {
+    pub(crate) fn from_xyz(x: u32, y: u32, zoom: u8, extent: NonZeroU32, buffer: u32) -> Self {
         let tile_length = tile_length_from_zoom(zoom);
         let [min_x, min_y, max_x, max_y] = tile_bbox(x, y, tile_length);
         Self {
@@ -63,7 +40,26 @@ impl Rect {
             min_y,
             max_x,
             max_y,
+            extent,
+            buffer,
         }
+    }
+
+    /// The clip margin as a fraction of the tile width, e.g. `64 / 4096`.
+    fn buffer_fraction(&self) -> f64 {
+        f64::from(self.buffer) / f64::from(self.extent.get())
+    }
+
+    /// Grow the tile outward by the buffer fraction so geometry just outside the tile is still
+    /// fetched and clipped into the buffer margin.
+    pub(crate) fn add_buffer(&mut self) {
+        let fraction = self.buffer_fraction();
+        let buffer_x = (self.max_x - self.min_x) * fraction;
+        let buffer_y = (self.max_y - self.min_y) * fraction;
+        self.min_x -= buffer_x;
+        self.min_y -= buffer_y;
+        self.max_x += buffer_x;
+        self.max_y += buffer_y;
     }
 
     /// The (buffered) tile rectangle as a clip polygon in Web Mercator coordinates.
@@ -164,7 +160,8 @@ impl Rect {
         let y = point[1];
 
         // Take buffer into account and convert to original tile boundaries
-        let buffer = f64::from(BUFFER_SIZE) / f64::from(EXTENT);
+        let buffer = self.buffer_fraction();
+        let extent = f64::from(self.extent.get());
 
         let max_x = ((1.0 + buffer) * self.max_x + buffer * self.min_x) / (1.0 + 2.0 * buffer);
         let min_x = (self.min_x + max_x * buffer) / (1.0 + buffer);
@@ -172,11 +169,11 @@ impl Rect {
         let max_y = ((1.0 + buffer) * self.max_y + buffer * self.min_y) / (1.0 + 2.0 * buffer);
         let min_y = (self.min_y + max_y * buffer) / (1.0 + buffer);
 
-        let x_multiplier = f64::from(EXTENT) / (max_x - min_x);
-        let y_multiplier = f64::from(EXTENT) / (max_y - min_y);
+        let x_multiplier = extent / (max_x - min_x);
+        let y_multiplier = extent / (max_y - min_y);
 
         let x = ((x - min_x) * x_multiplier).floor();
-        let y = f64::from(EXTENT) - ((y - min_y) * y_multiplier).floor();
+        let y = extent - ((y - min_y) * y_multiplier).floor();
 
         [x, y]
     }
@@ -189,14 +186,9 @@ mod tests {
     #[test]
     fn test_transform_to_tile_coordinates() {
         let point = [1_962_772.0, 6_300_000.0];
-        let mut rect = Rect::from_xyz(70, 43, 7);
-        let buffer = f64::from(BUFFER_SIZE) / f64::from(EXTENT);
-        let buffer_x = (rect.max_x - rect.min_x) * buffer;
-        let buffer_y = (rect.max_y - rect.min_y) * buffer;
-        rect.min_x -= buffer_x;
-        rect.min_y -= buffer_y;
-        rect.max_x += buffer_x;
-        rect.max_y += buffer_y;
+        let extent = NonZeroU32::new(4096).expect("4096 is non-zero");
+        let mut rect = Rect::from_xyz(70, 43, 7, extent, 256);
+        rect.add_buffer();
         let transformed_point = rect.transform_to_tile_coordinates(&point);
         // `transform_to_tile_coordinates` floors to integer tile coordinates, so the
         // result is exact.
