@@ -1,10 +1,15 @@
 //! `PostgreSQL` connection pool implementation.
 
+use std::collections::HashMap;
 use std::path::PathBuf;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 
+use deadpool_postgres::tokio_postgres::CancelToken;
 use deadpool_postgres::{Manager, ManagerConfig, Object, Pool, RecyclingMethod};
 use postgres::config::SslMode;
 use semver::Version;
+use tokio::sync::Mutex;
 use tracing::{info, warn};
 
 use crate::tiles::postgres::PostgresError::{
@@ -37,6 +42,7 @@ pub struct PostgresPool {
     /// `true` if running postgis >= 3.1
     /// This being `false` indicates that tiles may be cut off at the edges.
     supports_tile_margin: bool,
+    active_query_registry: ActiveQueryRegistry,
 }
 
 impl PostgresPool {
@@ -65,6 +71,7 @@ impl PostgresPool {
             id: id.clone(),
             pool,
             supports_tile_margin: false,
+            active_query_registry: ActiveQueryRegistry::default(),
         };
         let conn = res.get().await?;
         let pg_ver = get_postgres_version(&conn).await?;
@@ -180,6 +187,12 @@ impl PostgresPool {
         &self.id
     }
 
+    /// Returns a reference to the active query registry.
+    #[must_use]
+    pub fn active_query_registry(&self) -> &ActiveQueryRegistry {
+        &self.active_query_registry
+    }
+
     /// Indicates if `ST_TileEnvelope` supports the margin parameter.
     ///
     /// `true` if running postgis >= `3.1`
@@ -235,10 +248,61 @@ SELECT (regexp_matches(
     Ok(version)
 }
 
+/// Track ongoing `PostgreSQL` queries so they can be cancelled.
+#[derive(Clone, Default)]
+pub struct ActiveQueryRegistry {
+    counter: Arc<AtomicU64>,
+    tokens: Arc<Mutex<HashMap<u64, CancelToken>>>,
+}
+
+/// Registry for tracking active `PostgreSQL` queries, allowing for cancellation and management.
+impl std::fmt::Debug for ActiveQueryRegistry {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let (active_count, ids) = self
+            .tokens
+            .try_lock()
+            .map(|tokens| (tokens.len(), tokens.keys().copied().collect::<Vec<_>>()))
+            .unwrap_or((0, Vec::new()));
+
+        f.debug_struct("ActiveQueryRegistry")
+            .field("counter", &self.counter.load(Ordering::Relaxed))
+            .field("active_count", &active_count)
+            .field("active_ids", &ids)
+            .finish()
+    }
+}
+
+impl ActiveQueryRegistry {
+    /// Registers a query's [`CancelToken`] and returns its registry id.
+    pub async fn register(&self, token: CancelToken) -> u64 {
+        let id = self.counter.fetch_add(1, Ordering::Relaxed);
+        self.tokens.lock().await.insert(id, token);
+        id
+    }
+
+    /// Removes a previously registered query from the registry.
+    pub async fn unregister(&self, id: u64) {
+        self.tokens.lock().await.remove(&id);
+    }
+
+    /// Cancels all registered queries.
+    pub async fn cancel_all(&self) {
+        let tokens: Vec<CancelToken> = self.tokens.lock().await.values().cloned().collect();
+        for token in tokens {
+            let _ = token
+                .cancel_query(deadpool_postgres::tokio_postgres::NoTls)
+                .await;
+        }
+    }
+}
+
 #[cfg(all(test, feature = "test-pg"))]
 mod tests {
+    use std::time::Duration;
+
     use backon::{ConstantBuilder, Retryable as _};
     use deadpool_postgres::tokio_postgres::Config;
+    use deadpool_postgres::tokio_postgres::error::SqlState;
     use postgres::NoTls;
     use testcontainers_modules::postgres::Postgres;
     use testcontainers_modules::testcontainers::ImageExt as _;
@@ -249,7 +313,7 @@ mod tests {
     async fn start_postgres_11_with_posgis_3_container()
     -> testcontainers_modules::testcontainers::ContainerAsync<Postgres> {
         const MAX_START_ATTEMPTS: usize = 3;
-        const RETRY_DELAY: std::time::Duration = std::time::Duration::from_secs(2);
+        const RETRY_DELAY: Duration = Duration::from_secs(2);
 
         (|| async {
             Postgres::default()
@@ -307,5 +371,43 @@ mod tests {
         assert_eq!(postgis_version.major, 3);
         assert_eq!(postgis_version.minor, 0);
         assert!(postgis_version.patch >= 3); // we don't want to break this testcase just because postgis updates that image
+    }
+
+    /// Verify `cancel_all` interrupts running queries
+    #[tokio::test]
+    async fn cancel_all_stops_pg_sleep() {
+        let pool = PostgresPool::new(
+            "postgres://postgres:postgres@localhost:5411/db?sslmode=disable",
+            None,
+            None,
+            None,
+            2,
+        )
+        .await
+        .unwrap();
+
+        let pool_for_sleep_task = pool.clone();
+        let sleep_task = tokio::spawn(async move {
+            let conn = pool_for_sleep_task.get().await.unwrap();
+            let reg_id = pool_for_sleep_task
+                .active_query_registry()
+                .register(conn.cancel_token())
+                .await;
+            let result = conn.query_one("SELECT pg_sleep(5)", &[]).await;
+            pool_for_sleep_task
+                .active_query_registry()
+                .unregister(reg_id)
+                .await;
+            result
+        });
+
+        tokio::time::sleep(Duration::from_millis(1)).await;
+        pool.active_query_registry.cancel_all().await;
+
+        let db_err = sleep_task.await.unwrap().unwrap_err();
+        assert_eq!(
+            db_err.as_db_error().unwrap().code(),
+            &SqlState::QUERY_CANCELED
+        );
     }
 }

@@ -208,7 +208,7 @@ serde_with.workspace = true
 static-files = { workspace = true, optional = true }
 thiserror.workspace = true
 tilejson.workspace = true
-tokio = { workspace = true, features = ["io-std"] }
+tokio = { workspace = true, features = ["io-std", "signal"] }
 tracing.workspace = true
 tracing-actix-web.workspace = true
 tracing-indicatif.workspace = true
