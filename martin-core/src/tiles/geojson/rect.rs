@@ -1,6 +1,6 @@
 use core::f64;
 
-use geojson::{Geometry, Value};
+use geojson::{Geometry, GeometryValue, Position};
 use i_overlay::core::fill_rule::FillRule;
 use i_overlay::core::overlay_rule::OverlayRule;
 use i_overlay::float::clip::FloatClip as _;
@@ -82,7 +82,7 @@ impl Rect {
         }
     }
 
-    pub(crate) fn from_position(position: &[f64]) -> Self {
+    pub(crate) fn from_position(position: &Position) -> Self {
         let (x, y) = (position[0], position[1]);
         Self {
             min_x: x,
@@ -92,31 +92,31 @@ impl Rect {
         }
     }
 
-    pub(crate) fn from_positions(positions: &[Vec<f64>]) -> Self {
+    pub(crate) fn from_positions(positions: &[Position]) -> Self {
         let mut rect = Self::default();
         for p in positions {
-            rect.extend(p);
+            rect.extend(p.as_slice());
         }
         rect
     }
 
-    pub(crate) fn from_linestrings(linestrings: &[Vec<Vec<f64>>]) -> Self {
+    pub(crate) fn from_linestrings(linestrings: &[Vec<Position>]) -> Self {
         let mut rect = Self::default();
 
         for l in linestrings {
             for p in l {
-                rect.extend(p);
+                rect.extend(p.as_slice());
             }
         }
         rect
     }
 
-    pub(crate) fn from_polygons(polygons: &[Vec<Vec<Vec<f64>>>]) -> Self {
+    pub(crate) fn from_polygons(polygons: &[Vec<Vec<Position>>]) -> Self {
         let mut rect = Self::default();
         for polygon in polygons {
             if let Some(rings) = polygon.first() {
                 for point in rings {
-                    rect.extend(point);
+                    rect.extend(point.as_slice());
                 }
             }
         }
@@ -143,19 +143,23 @@ impl Rect {
         idx: usize,
     ) -> Option<Geometry> {
         match geom.value {
-            Value::Point(p) => {
-                if self.inside(&p) {
+            GeometryValue::Point { coordinates: p } => {
+                if self.inside(p.as_slice()) {
                     // transform to tile coordinate system
-                    let transformed_p = self.transform_to_tile_coordinates(&p).to_vec();
-                    geom.value = Value::Point(transformed_p);
+                    let transformed_p = self.transform_to_tile_coordinates(p.as_slice());
+                    geom.value = GeometryValue::Point {
+                        coordinates: transformed_p.into(),
+                    };
                     Some(geom)
                 } else {
                     None
                 }
             }
-            Value::MultiPoint(ps) => {
-                let filtered_ps: Vec<Vec<f64>> =
-                    ps.into_iter().filter(|p| self.inside(p)).collect();
+            GeometryValue::MultiPoint { coordinates: ps } => {
+                let filtered_ps: Vec<Position> = ps
+                    .into_iter()
+                    .filter(|p| self.inside(p.as_slice()))
+                    .collect();
 
                 if filtered_ps.is_empty() {
                     return None;
@@ -164,16 +168,15 @@ impl Rect {
                 // transform to tile coordinate system
                 let transformed_ps = filtered_ps
                     .iter()
-                    .map(|p| {
-                        let coords = self.transform_to_tile_coordinates(p);
-                        coords.to_vec()
-                    })
+                    .map(|p| self.transform_to_tile_coordinates(p.as_slice()).into())
                     .collect();
 
-                geom.value = Value::MultiPoint(transformed_ps);
+                geom.value = GeometryValue::MultiPoint {
+                    coordinates: transformed_ps,
+                };
                 Some(geom)
             }
-            Value::LineString(ls) => {
+            GeometryValue::LineString { coordinates: ls } => {
                 let string_line = line_string_to_shape_path(ls);
                 let clip = self.rings();
                 let clipped_ls = string_line.clip_by(
@@ -199,12 +202,14 @@ impl Rect {
                     })
                     .collect();
 
-                geom.value = Value::MultiLineString(multi_line_string_from_paths(transformed_ls));
+                geom.value = GeometryValue::MultiLineString {
+                    coordinates: multi_line_string_from_paths(transformed_ls),
+                };
 
                 // validate and simplify (remove duplicate points)
                 convert_validate_simplify_geom_geo(geom, idx).ok()
             }
-            Value::MultiLineString(ls) => {
+            GeometryValue::MultiLineString { coordinates: ls } => {
                 let string_line = multi_line_string_to_shape_paths(ls);
                 let clip = self.rings();
                 let clipped_ls = string_line.clip_by(
@@ -229,12 +234,16 @@ impl Rect {
                             .collect()
                     })
                     .collect();
-                geom.value = Value::MultiLineString(multi_line_string_from_paths(transformed_ls));
+                geom.value = GeometryValue::MultiLineString {
+                    coordinates: multi_line_string_from_paths(transformed_ls),
+                };
 
                 // validate and simplify (remove duplicate points)
                 convert_validate_simplify_geom_geo(geom, idx).ok()
             }
-            Value::Polygon(polygon) => {
+            GeometryValue::Polygon {
+                coordinates: polygon,
+            } => {
                 let subject = self.rings();
                 let clip = polygon_to_shape_paths(polygon);
                 let polygons = subject.overlay(&clip, OverlayRule::Intersect, FillRule::EvenOdd);
@@ -263,7 +272,9 @@ impl Rect {
                 // validate and simplify (remove duplicate points)
                 convert_validate_simplify_geom_geo(geom, idx).ok()
             }
-            Value::MultiPolygon(polygons) => {
+            GeometryValue::MultiPolygon {
+                coordinates: polygons,
+            } => {
                 let subject = self.rings();
                 let clip = multi_polygon_to_shape_paths(polygons);
                 let polygons = subject.overlay(&clip, OverlayRule::Intersect, FillRule::EvenOdd);
@@ -292,7 +303,7 @@ impl Rect {
                 // validate and simplify (remove duplicate points)
                 convert_validate_simplify_geom_geo(geom, idx).ok()
             }
-            Value::GeometryCollection(gs) => {
+            GeometryValue::GeometryCollection { geometries: gs } => {
                 let mut geometries = vec![];
                 for (idx, g) in gs.into_iter().enumerate() {
                     if let Some(value) = self.clip_transform_validate_geometry(g, idx) {
@@ -304,7 +315,7 @@ impl Rect {
                     return None;
                 }
 
-                geom.value = Value::GeometryCollection(geometries);
+                geom.value = GeometryValue::GeometryCollection { geometries };
                 Some(geom)
             }
         }

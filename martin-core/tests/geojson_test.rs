@@ -12,7 +12,9 @@
 
 use fast_mvt::{MvtFeature, MvtReaderRef, MvtTile, MvtValue};
 use geo_types::{Coord, Geometry, LineString, Polygon};
-use geojson::{Feature, FeatureCollection, GeoJson, Geometry as GjGeometry, Value as GjValue};
+use geojson::{
+    Feature, FeatureCollection, GeoJson, Geometry as GjGeometry, GeometryValue as GjValue,
+};
 use martin_core::CacheZoomRange;
 use martin_core::tiles::Source as _;
 use martin_core::tiles::geojson::source::GeoJsonSource;
@@ -56,7 +58,9 @@ fn gj_square(min_lng: f64, min_lat: f64, max_lng: f64, max_lat: f64) -> GjGeomet
 }
 
 fn gj_point(lng: f64, lat: f64) -> GjGeometry {
-    GjGeometry::new(GjValue::Point(vec![lng, lat]))
+    GjGeometry::new(GjValue::Point {
+        coordinates: [lng, lat].into(),
+    })
 }
 
 fn feature(geom: GjGeometry, props: Option<Map<String, serde_json::Value>>) -> Feature {
@@ -229,10 +233,9 @@ async fn disjoint_tile_returns_empty_bytes() {
 /// contained geometry, each carrying the original feature's properties.
 #[tokio::test]
 async fn geometry_collection_flattens_sharing_properties() {
-    let gc = GjGeometry::new(GjValue::GeometryCollection(vec![
-        gj_square(10.0, 10.0, 20.0, 20.0),
-        gj_point(15.0, 15.0),
-    ]));
+    let gc = GjGeometry::new(GjValue::GeometryCollection {
+        geometries: vec![gj_square(10.0, 10.0, 20.0, 20.0), gj_point(15.0, 15.0)],
+    });
     let mut props = Map::new();
     props.insert("name".to_string(), json!("shared"));
 

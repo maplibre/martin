@@ -4,7 +4,7 @@ use std::io::Write as _;
 
 use criterion::{Criterion, criterion_group, criterion_main};
 use geo_types::{Coord, LineString, Polygon};
-use geojson::{Feature, FeatureCollection, GeoJson, Geometry, Value};
+use geojson::{Feature, FeatureCollection, GeoJson, Geometry, GeometryValue};
 use martin_core::CacheZoomRange;
 use martin_core::tiles::Source as _;
 use martin_core::tiles::geojson::source::GeoJsonSource;
@@ -46,7 +46,7 @@ fn synthetic_geojson() -> tempfile::NamedTempFile {
                 })
                 .collect();
             let geometry = geo_types::Geometry::from(Polygon::new(exterior, vec![]));
-            let mut feature = Feature::from(Geometry::new(Value::from(&geometry)));
+            let mut feature = Feature::from(Geometry::new(GeometryValue::from(&geometry)));
             feature.set_property("id", i);
             feature
         })

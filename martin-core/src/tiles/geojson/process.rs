@@ -1,6 +1,6 @@
 use geo_index::rtree::sort::HilbertSort;
 use geo_index::rtree::{RTree, RTreeBuilder};
-use geojson::{Feature, FeatureCollection, GeoJson, Geometry, JsonValue, Value};
+use geojson::{Feature, FeatureCollection, GeoJson, Geometry, GeometryValue, JsonValue, Position};
 use geozero::error::GeozeroError;
 use geozero::{ColumnValue, FeatureProcessor, GeomProcessor, PropertyProcessor};
 use martin_tile_utils::{EARTH_CIRCUMFERENCE, wgs84_to_webmercator};
@@ -101,19 +101,22 @@ pub(crate) fn preprocess_geojson(
 }
 
 /// Transform `GeoJSON` geometry and bounding box from WGS84 to Web Mercator
+#[expect(clippy::too_many_lines)]
 fn transform_geometry(mut geom: Geometry) -> Geometry {
     match geom.value {
-        Value::Point(mut p) => {
+        GeometryValue::Point { coordinates: mut p } => {
             wgs84_to_webmercator_mut_sliced(&mut p);
             let bbox = {
                 let rect = Rect::from_position(&p);
                 vec![rect.min_x, rect.min_y, rect.max_x, rect.max_y]
             };
-            geom.value = Value::Point(p);
+            geom.value = GeometryValue::Point { coordinates: p };
             geom.bbox = Some(bbox);
             geom
         }
-        Value::MultiPoint(mut ps) => {
+        GeometryValue::MultiPoint {
+            coordinates: mut ps,
+        } => {
             for p in &mut ps {
                 wgs84_to_webmercator_mut_sliced(p);
             }
@@ -121,11 +124,13 @@ fn transform_geometry(mut geom: Geometry) -> Geometry {
                 let rect = Rect::from_positions(&ps);
                 vec![rect.min_x, rect.min_y, rect.max_x, rect.max_y]
             };
-            geom.value = Value::MultiPoint(ps);
+            geom.value = GeometryValue::MultiPoint { coordinates: ps };
             geom.bbox = Some(bbox);
             geom
         }
-        Value::LineString(mut ps) => {
+        GeometryValue::LineString {
+            coordinates: mut ps,
+        } => {
             for p in &mut ps {
                 wgs84_to_webmercator_mut_sliced(p);
             }
@@ -133,11 +138,13 @@ fn transform_geometry(mut geom: Geometry) -> Geometry {
                 let rect = Rect::from_positions(&ps);
                 vec![rect.min_x, rect.min_y, rect.max_x, rect.max_y]
             };
-            geom.value = Value::LineString(ps);
+            geom.value = GeometryValue::LineString { coordinates: ps };
             geom.bbox = Some(bbox);
             geom
         }
-        Value::MultiLineString(mut ls) => {
+        GeometryValue::MultiLineString {
+            coordinates: mut ls,
+        } => {
             for ps in &mut ls {
                 for p in ps {
                     wgs84_to_webmercator_mut_sliced(p);
@@ -147,11 +154,13 @@ fn transform_geometry(mut geom: Geometry) -> Geometry {
                 let rect = Rect::from_linestrings(&ls);
                 vec![rect.min_x, rect.min_y, rect.max_x, rect.max_y]
             };
-            geom.value = Value::MultiLineString(ls);
+            geom.value = GeometryValue::MultiLineString { coordinates: ls };
             geom.bbox = Some(bbox);
             geom
         }
-        Value::Polygon(mut rs) => {
+        GeometryValue::Polygon {
+            coordinates: mut rs,
+        } => {
             for r in &mut rs {
                 for p in r {
                     wgs84_to_webmercator_mut_sliced(p);
@@ -161,11 +170,13 @@ fn transform_geometry(mut geom: Geometry) -> Geometry {
                 let rect = Rect::from_linestrings(&rs);
                 vec![rect.min_x, rect.min_y, rect.max_x, rect.max_y]
             };
-            geom.value = Value::Polygon(rs);
+            geom.value = GeometryValue::Polygon { coordinates: rs };
             geom.bbox = Some(bbox);
             geom
         }
-        Value::MultiPolygon(mut ps) => {
+        GeometryValue::MultiPolygon {
+            coordinates: mut ps,
+        } => {
             for poly in &mut ps {
                 for ring in poly {
                     for p in ring {
@@ -177,11 +188,11 @@ fn transform_geometry(mut geom: Geometry) -> Geometry {
                 let rect = Rect::from_polygons(&ps);
                 vec![rect.min_x, rect.min_y, rect.max_x, rect.max_y]
             };
-            geom.value = Value::MultiPolygon(ps);
+            geom.value = GeometryValue::MultiPolygon { coordinates: ps };
             geom.bbox = Some(bbox);
             geom
         }
-        Value::GeometryCollection(gs) => {
+        GeometryValue::GeometryCollection { geometries: gs } => {
             let mut geometries = vec![];
             for g in gs {
                 let g = transform_geometry(g);
@@ -196,14 +207,15 @@ fn transform_geometry(mut geom: Geometry) -> Geometry {
                 }
                 vec![rect.min_x, rect.min_y, rect.max_x, rect.max_y]
             };
-            geom.value = Value::GeometryCollection(geometries);
+            geom.value = GeometryValue::GeometryCollection { geometries };
             geom.bbox = Some(bbox);
             geom
         }
     }
 }
 
-fn wgs84_to_webmercator_mut_sliced(v: &mut [f64]) {
+fn wgs84_to_webmercator_mut_sliced(v: &mut Position) {
+    let v = v.as_slice_mut();
     assert!(v.len() >= 2);
     let (x, y) = wgs84_to_webmercator(v[0], v[1]);
     v[0] = x;
@@ -279,36 +291,50 @@ pub(crate) fn process_geojson_geom_n<P: GeomProcessor>(
     processor: &mut P,
 ) -> Result<(), GeozeroError> {
     match &geom.value {
-        Value::Point(geometry) => {
+        GeometryValue::Point {
+            coordinates: geometry,
+        } => {
             processor.point_begin(idx)?;
-            process_coord(geometry, processor.multi_dim(), 0, processor)?;
+            process_coord(geometry.as_slice(), processor.multi_dim(), 0, processor)?;
             processor.point_end(idx)
         }
-        Value::MultiPoint(geometry) => {
+        GeometryValue::MultiPoint {
+            coordinates: geometry,
+        } => {
             processor.multipoint_begin(geometry.len(), idx)?;
             let multi_dim = processor.multi_dim();
             for (idxc, point_type) in geometry.iter().enumerate() {
-                process_coord(point_type, multi_dim, idxc, processor)?;
+                process_coord(point_type.as_slice(), multi_dim, idxc, processor)?;
             }
             processor.multipoint_end(idx)
         }
-        Value::LineString(geometry) => process_linestring(geometry, true, idx, processor),
-        Value::MultiLineString(geometry) => {
+        GeometryValue::LineString {
+            coordinates: geometry,
+        } => process_linestring(geometry, true, idx, processor),
+        GeometryValue::MultiLineString {
+            coordinates: geometry,
+        } => {
             processor.multilinestring_begin(geometry.len(), idx)?;
             for (idx2, linestring_type) in geometry.iter().enumerate() {
                 process_linestring(linestring_type, false, idx2, processor)?;
             }
             processor.multilinestring_end(idx)
         }
-        Value::Polygon(geometry) => process_polygon(geometry, true, idx, processor),
-        Value::MultiPolygon(geometry) => {
+        GeometryValue::Polygon {
+            coordinates: geometry,
+        } => process_polygon(geometry, true, idx, processor),
+        GeometryValue::MultiPolygon {
+            coordinates: geometry,
+        } => {
             processor.multipolygon_begin(geometry.len(), idx)?;
             for (idx2, polygon_type) in geometry.iter().enumerate() {
                 process_polygon(polygon_type, false, idx2, processor)?;
             }
             processor.multipolygon_end(idx)
         }
-        Value::GeometryCollection(collection) => {
+        GeometryValue::GeometryCollection {
+            geometries: collection,
+        } => {
             processor.geometrycollection_begin(collection.len(), idx)?;
             for (idx2, geometry) in collection.iter().enumerate() {
                 process_geojson_geom_n(geometry, idx2, processor)?;
@@ -379,7 +405,7 @@ fn process_coord<P: GeomProcessor>(
 }
 
 fn process_linestring<P: GeomProcessor>(
-    linestring_type: &[Vec<f64>],
+    linestring_type: &[Position],
     tagged: bool,
     idx: usize,
     processor: &mut P,
@@ -387,13 +413,13 @@ fn process_linestring<P: GeomProcessor>(
     processor.linestring_begin(tagged, linestring_type.len(), idx)?;
     let multi_dim = processor.multi_dim();
     for (idxc, point_type) in linestring_type.iter().enumerate() {
-        process_coord(point_type, multi_dim, idxc, processor)?;
+        process_coord(point_type.as_slice(), multi_dim, idxc, processor)?;
     }
     processor.linestring_end(tagged, idx)
 }
 
 fn process_polygon<P: GeomProcessor>(
-    polygon_type: &[Vec<Vec<f64>>],
+    polygon_type: &[Vec<Position>],
     tagged: bool,
     idx: usize,
     processor: &mut P,

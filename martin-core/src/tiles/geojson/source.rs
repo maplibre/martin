@@ -4,7 +4,7 @@ use std::vec;
 
 use async_trait::async_trait;
 use geo_index::rtree::{RTree, RTreeIndex as _};
-use geojson::{Feature, FeatureCollection, GeoJson, Geometry, Value};
+use geojson::{Feature, FeatureCollection, GeoJson, Geometry, GeometryValue};
 use geozero::mvt::{Message as _, MvtWriter, Tile};
 use martin_tile_utils::{Encoding, Format, TileCoord, TileData, TileInfo, webmercator_to_wgs84};
 use rayon::prelude::*;
@@ -213,7 +213,7 @@ impl Source for GeoJsonSource {
 fn flatten_geometry_collections(mut f: Feature, out: &mut Vec<Feature>) {
     match f.geometry.take() {
         Some(Geometry {
-            value: Value::GeometryCollection(geometries),
+            value: GeometryValue::GeometryCollection { geometries },
             ..
         }) => {
             for geometry in geometries {
