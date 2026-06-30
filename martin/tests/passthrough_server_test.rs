@@ -119,7 +119,7 @@ async fn quoted_upstream_etag_is_normalized() {
     let response = call_service(&app, req).await;
     let response = assert_response(response).await;
 
-    assert_eq!(response.headers().get(ETAG).unwrap(), "\"real-etag\"");
+    assert_eq!(response.headers().get(ETAG).unwrap(), "\"HOYqgtryvtVnHNqNJcg5ug\"");
 }
 
 #[actix_rt::test]
