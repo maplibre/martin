@@ -1,7 +1,4 @@
 use std::num::NonZeroUsize;
-
-use serde::Serializer;
-use serde::de::{self, Deserializer};
 use serde::{Deserialize, Serialize};
 
 use crate::config::args::BoundsCalcType;
@@ -98,7 +95,8 @@ impl ConfigurationLivecycleHooks for DuckDbConfig {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(untagged)]
 pub enum DuckDbSourceEntry {
     Database(DuckDbDatabaseEntry),
     GeoParquet(GeoParquetEntry),
@@ -126,48 +124,6 @@ impl DuckDbSourceEntry {
             Self::GeoParquet(v) => &v.unrecognized,
         };
         values.keys().map(|k| format!("{prefix}{k}")).collect()
-    }
-}
-
-impl Serialize for DuckDbSourceEntry {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        match self {
-            Self::Database(v) => v.serialize(serializer),
-            Self::GeoParquet(v) => v.serialize(serializer),
-        }
-    }
-}
-
-impl<'de> Deserialize<'de> for DuckDbSourceEntry {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let value = serde_json::Value::deserialize(deserializer)?;
-        let object = value
-            .as_object()
-            .ok_or_else(|| de::Error::custom("duckdb source entry must be a YAML mapping"))?;
-
-        let has_database = object.contains_key("database");
-        let has_geoparquet = object.contains_key("geoparquet");
-
-        match (has_database, has_geoparquet) {
-            (true, false) => serde_json::from_value::<DuckDbDatabaseEntry>(value)
-                .map(Self::Database)
-                .map_err(|e| de::Error::custom(format!("invalid database source entry: {e}"))),
-            (false, true) => serde_json::from_value::<GeoParquetEntry>(value)
-                .map(Self::GeoParquet)
-                .map_err(|e| de::Error::custom(format!("invalid geoparquet source entry: {e}"))),
-            (false, false) => Err(de::Error::custom(
-                "duckdb source entry must contain exactly one of `database` or `geoparquet`",
-            )),
-            (true, true) => Err(de::Error::custom(
-                "duckdb source entry cannot contain both `database` and `geoparquet`",
-            )),
-        }
     }
 }
 
@@ -347,17 +303,42 @@ sources:
     }
 
     #[test]
-    fn source_entry_rejects_both_database_and_geoparquet() {
+    fn source_entry_with_both_keys_deserializes_as_database() {
         let yaml = r#"
 sources:
   - database: /data/tiles.duckdb
     geoparquet: /data/buildings.parquet
 "#;
-        let err = serde_saphyr::from_str::<DuckDbConfig>(yaml).expect_err("mixed entry keys");
-        assert!(
-            err.to_string()
-                .contains("cannot contain both `database` and `geoparquet`")
-        );
+        let cfg: DuckDbConfig = serde_saphyr::from_str(yaml).expect("duckdb config");
+
+        insta::assert_debug_snapshot!(cfg, @r#"
+        DuckDbConfig {
+            pool_size: 4,
+            threads: None,
+            memory_limit_mb: None,
+            auto_bounds: Quick,
+            sources: [
+                Database(
+                    DuckDbDatabaseEntry {
+                        database: "/data/tiles.duckdb",
+                        settings: DuckDbSourceSettings {
+                            pool_size: None,
+                            threads: None,
+                            memory_limit_mb: None,
+                            auto_bounds: None,
+                        },
+                        auto_publish: None,
+                        tables: None,
+                        macros: None,
+                        unrecognized: {
+                            "geoparquet": String("/data/buildings.parquet"),
+                        },
+                    },
+                ),
+            ],
+            unrecognized: {},
+        }
+        "#);
     }
 
     #[test]
@@ -370,7 +351,7 @@ sources:
         let err = serde_saphyr::from_str::<DuckDbConfig>(yaml).expect_err("missing entry keys");
         assert!(
             err.to_string()
-                .contains("must contain exactly one of `database` or `geoparquet`")
+                .contains("data did not match any variant of untagged enum DuckDbSourceEntry")
         );
     }
 }

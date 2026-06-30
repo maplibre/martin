@@ -18,14 +18,6 @@ enum BoundsCalcMode {
     Estimate,
 }
 
-fn escape_relation(relation: &str) -> String {
-    relation
-        .split('.')
-        .map(escape_identifier)
-        .collect::<Vec<_>>()
-        .join(".")
-}
-
 async fn fetch_bounds(
     pool: &DuckDBPool,
     relation: &str,
@@ -203,10 +195,10 @@ pub async fn bounds_with_auto(
 mod tests {
     use tilejson::Bounds;
 
-    use super::{bounds_with_auto, escape_relation};
+    use super::bounds_with_auto;
     use crate::config::args::BoundsCalcType;
     use crate::test_support::duckdb::TestDatabase;
-
+    use crate::config::file::tiles::duckdb::sql_utils::escape_relation;
     #[tokio::test(flavor = "multi_thread")]
     async fn calc_and_skip_relation_bounds() {
         let db = TestDatabase::from_sql(

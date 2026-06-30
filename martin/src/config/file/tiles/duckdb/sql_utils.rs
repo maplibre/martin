@@ -16,6 +16,17 @@ pub fn epsg_crs(srid: i32) -> String {
     escape_sql_string(&format!("EPSG:{srid}"))
 }
 
+/// Escape a DuckDB relation name (e.g. `"schema.table"`).
+#[must_use]
+pub fn escape_relation(relation: &str) -> String {
+    relation
+        .split('.')
+        .map(escape_identifier)
+        .collect::<Vec<_>>()
+        .join(".")
+}
+
+
 #[cfg(test)]
 mod tests {
     use super::*;
