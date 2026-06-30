@@ -16,6 +16,16 @@ pub fn epsg_crs(srid: i32) -> String {
     escape_sql_string(&format!("EPSG:{srid}"))
 }
 
+/// Escape a DuckDB relation name (e.g. `"schema.table"`).
+#[must_use]
+pub fn escape_relation(relation: &str) -> String {
+    relation
+        .split('.')
+        .map(escape_identifier)
+        .collect::<Vec<_>>()
+        .join(".")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -52,5 +62,19 @@ mod tests {
     #[case::negative(-1, "'EPSG:-1'")]
     fn epsg_crs_cases(#[case] srid: i32, #[case] expected: &str) {
         assert_eq!(epsg_crs(srid), expected);
+    }
+
+    #[rstest]
+    #[case::local_path("/data/buildings.parquet", "read_parquet('/data/buildings.parquet')")]
+    #[case::remote_url(
+        "https://example.org/data.parquet",
+        "read_parquet('https://example.org/data.parquet')"
+    )]
+    #[case::embedded_apostrophe("/data/O'Brien.parquet", "read_parquet('/data/O''Brien.parquet')")]
+    fn read_parquet_from_expr_cases(#[case] input: &str, #[case] expected: &str) {
+        assert_eq!(
+            format!("read_parquet({})", escape_sql_string(input)),
+            expected
+        );
     }
 }
