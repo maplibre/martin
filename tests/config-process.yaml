@@ -9,7 +9,7 @@ convert_to_mlt: auto
 
 # Database configuration
 postgres:
-  connection_string: '${DATABASE_URL:postgres://postgres@localhost:5432/db}'
+  connection_string: ${DATABASE_URL:-postgres://postgres@localhost:5432/db}
   default_srid: 4326
 
   tables:

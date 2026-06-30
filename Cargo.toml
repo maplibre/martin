@@ -75,6 +75,7 @@ bytes = "1"
 chrono = { version = "0.4", default-features = false, features = ["serde"] }
 clap = { version = "4", features = ["derive", "unstable-markdown", "wrap_help"] }
 criterion = { version = "0.8", features = ["async_futures", "async_tokio", "html_reports"] }
+csscolorparser = "0.8"
 dashmap = { version = "6.1.0", features = ["serde", "inline", "rayon"] }
 deadpool = "0.13.0"
 deadpool-postgres = "0.14"
@@ -82,11 +83,18 @@ derive-debug = "0.1.2"
 duckdb = { version = "1.10503.1", features = ["bundled", "parquet"] }
 enum-display = "0.2"
 env_logger = "0.11"
+fast-mvt = { version = "0.4", default-features = false, features = ["reader"] }
 flate2 = "1"
 flume = "0.12"
 futures = "0.3"
+geo = "0.33.1"
+geo-index = { version = "0.3.3", features = ["rayon"] }
+geo-types = "0.7.18"
+geojson = { version = "1", features = ["geo-types"] }
+geozero = { version = "0.15.1", features = ["with-mvt"] }
 hotpath = "0.17"
 humantime-serde = "1.1.1"
+i_overlay = "4.0.7"
 image = { version = "0.25.8", default-features = false, features = ["png", "jpeg", "webp"] }
 image-compare = "0.5"
 indicatif = "0.18.3"
@@ -115,7 +123,7 @@ postgres = { version = "0.19", features = ["with-time-0_3", "with-uuid-1", "with
 postgres-protocol = "0.6"
 pretty_assertions = "1"
 prometheus = { version = "0.14", default-features = false }
-rayon = "1"
+rayon = "1.11.0"
 regex = "1"
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "http2"] }
 rstest = "0.26.1"
@@ -127,7 +135,7 @@ rustls-pemfile = "2"
 schemars = { version = "1.2", default-features = false, features = ["chrono04", "derive", "std"] }
 semver = "1"
 serde = { version = "1", features = ["derive"] }
-serde-saphyr = { version = "0.0.28", features = ["miette"] }
+serde-saphyr = { version = "0.0.28", features = ["miette", "properties"] }
 serde_json = "1"
 serde_with = { version = "3", default-features = false, features = ["macros"] }
 size_format = "1.0.2"
@@ -137,8 +145,8 @@ sqlite-hashes = { version = "0.10.6", default-features = false, features = ["md5
 sqlx = { version = "0.9.0", features = ["sqlite", "runtime-tokio"] }
 static-files = "0.2"
 strum = { version = "0.28", features = ["derive"] }
-subst = "0.3"
 tempfile = "3.21.0"
+test_each_file = "0.3"
 testcontainers-modules = { version = "0.15.0", features = ["postgres", "blocking", "minio"] }
 thiserror = "2"
 tiff = "0.11.1"
