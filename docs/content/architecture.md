@@ -434,8 +434,8 @@ Read it when you're curious **why** certain choices were made.
     graph TB
         subgraph Load["Load time (once per source)"]
             File[".geojson / .json file"]
-            Parse["Parse (geojson crate)<br/>→ geo_types::Geometry"]
-            Reproject["Reproject WGS84 → WebMercator"]
+            Parse["Parse (geojson crate)<br/>-> geo_types::Geometry"]
+            Reproject["Reproject WGS84 -> WebMercator"]
             RTree["Packed Hilbert R-tree<br/>(geo_index)"]
         end
 
@@ -462,15 +462,15 @@ Read it when you're curious **why** certain choices were made.
 
     1. The requested `z/x/y` is converted to a Web Mercator tile `Rect`, grown outward by the configurable `buffer` (as a `buffer / extent` fraction) so geometry near the edge survives clipping.
     2. The R-tree is queried for candidate features overlapping the buffered rect; no candidates yields an empty tile (`204 No Content`).
-    3. Candidates are clipped in parallel (`rayon`): polygons via boolean intersection, lines via line-clip, points via containment — then snapped, repaired, re-oriented, and transformed into the tile's integer coordinate grid (`extent` units, y flipped for MVT).
+    3. Candidates are clipped in parallel (`rayon`): polygons via boolean intersection, lines via line-clip, points via containment - then snapped, repaired, re-oriented, and transformed into the tile's integer coordinate grid (`extent` units, y flipped for MVT).
     4. Surviving features are encoded into a single MVT layer named after the source id (`geozero::mvt`); properties are mapped to MVT column values (JSON arrays/objects serialized to strings, nulls dropped).
     5. The tile is returned uncompressed as `application/x-protobuf`; the shared server layer then handles caching, ETag/`304`, and `Content-Encoding`, identically to every other source.
 
     **Configuration** (`GeoJsonConfig`, both `.json` and `.geojson` extensions are discovered):
 
-    - `extent` (default `4096`) — side length of the MVT integer coordinate grid a tile is encoded into.
+    - `extent` (default `4096`) - side length of the MVT integer coordinate grid a tile is encoded into.
       A `NonZeroU32`, so `0` is rejected at parse time.
-    - `buffer` (default `64`, in tile units) — margin of geometry kept around each tile edge to avoid seams between neighbouring tiles.
+    - `buffer` (default `64`, in tile units) - margin of geometry kept around each tile edge to avoid seams between neighbouring tiles.
 
     Hot-reload uses the same generic Reload Driver as the other file sources (see below), watching the configured directories for added, changed, or removed `.geojson`/`.json` files.
 
