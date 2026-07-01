@@ -2,6 +2,8 @@
 pub mod cog;
 #[cfg(feature = "unstable-duckdb")]
 pub mod duckdb;
+#[cfg(feature = "geojson")]
+pub mod geojson;
 #[cfg(feature = "mbtiles")]
 pub mod mbtiles;
 #[cfg(feature = "pmtiles")]

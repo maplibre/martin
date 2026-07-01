@@ -93,3 +93,11 @@ If you [install Rust](https://www.rust-lang.org/tools/install), you can build ma
 cargo install martin --locked
 martin --help
 ```
+
+#### Platform-Specific Build Notes
+
+##### Windows
+
+When building from source on Windows, please note the following feature limitations:
+
+- **`unstable-rendering`**: This feature is **not available on Windows**. It requires `maplibre_native` which currently only supports MacOS and Linux. For updates, see [`maplibre/maplibre-native-rs`](https://github.com/maplibre/maplibre-native-rs).
