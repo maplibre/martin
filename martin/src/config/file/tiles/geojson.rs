@@ -22,12 +22,18 @@ const fn default_buffer() -> u32 {
     64
 }
 
-#[expect(clippy::trivially_copy_pass_by_ref, reason = "serde skip_serializing_if requires &T")]
+#[expect(
+    clippy::trivially_copy_pass_by_ref,
+    reason = "serde skip_serializing_if requires &T"
+)]
 fn is_default_extent(extent: &NonZeroU32) -> bool {
     *extent == default_extent()
 }
 
-#[expect(clippy::trivially_copy_pass_by_ref, reason = "serde skip_serializing_if requires &T")]
+#[expect(
+    clippy::trivially_copy_pass_by_ref,
+    reason = "serde skip_serializing_if requires &T"
+)]
 const fn is_default_buffer(buffer: &u32) -> bool {
     *buffer == default_buffer()
 }
