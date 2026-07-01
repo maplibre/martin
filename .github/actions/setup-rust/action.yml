@@ -14,11 +14,8 @@ runs:
   using: composite
   steps:
     # Frees ~25GB. martin compiles the bundled DuckDB and maplibre-native C++ trees, which
-    # otherwise exhaust the default runner disk. Runs in the background to overlap the toolchain
-    # and dependency installs; waited on below before the job's build starts. No-op on non-Linux.
+    # otherwise exhaust the default runner disk. No-op on non-Linux runners.
     - if: runner.os == 'Linux'
-      id: free-disk
-      background: true
       uses: BRAINSia/free-disk-space@7048ffbf50819342ac964ef3998a51c2564a8a75 # v2.1.3
       with:
         tool-cache: false
@@ -42,8 +39,6 @@ runs:
     - if: inputs.rendering == 'true' && runner.os == 'Linux'
       shell: bash
       run: just install-dependencies
-    - if: runner.os == 'Linux'
-      wait: free-disk
     - if: runner.os == 'Linux'
       shell: bash
       run: just env-info
