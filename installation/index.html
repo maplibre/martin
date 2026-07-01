@@ -791,6 +791,40 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Building from source">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#platform-specific-build-notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Platform-Specific Build Notes
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Platform-Specific Build Notes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#windows" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Windows
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
     </ul>
@@ -1201,6 +1235,12 @@ to <a href="https://github.com/maplibre/martin/issues/578">improve packaging for
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>cargo<span class="w"> </span>install<span class="w"> </span>martin<span class="w"> </span>--locked
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>martin<span class="w"> </span>--help
 </span></code></pre></div>
+<h4 id="platform-specific-build-notes">Platform-Specific Build Notes</h4>
+<h5 id="windows">Windows</h5>
+<p>When building from source on Windows, please note the following feature limitations:</p>
+<ul>
+<li><strong><code>unstable-rendering</code></strong>: This feature is <strong>not available on Windows</strong>. It requires <code>maplibre_native</code> which currently only supports MacOS and Linux. For updates, see <a href="https://github.com/maplibre/maplibre-native-rs"><code>maplibre/maplibre-native-rs</code></a>.</li>
+</ul>
 
 
   <nav class="md-tags" >

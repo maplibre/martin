@@ -844,6 +844,8 @@
       
         
       
+        
+      
     
     
     
@@ -1012,6 +1014,33 @@
     
   
   Cloud Optimized GeoTIFF File Sources
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../sources-geojson/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  GeoJSON Sources
 
     
   </span>
@@ -1480,6 +1509,8 @@
       
         
       
+        
+      
     
     
     
@@ -1519,17 +1550,22 @@
 <ul>
 <li><a href="../sources-files/">MBTiles Sources</a> Local Sqlite database containing pre-generated vector or raster tiles.</li>
 <li><a href="../sources-files/">PMTiles Sources</a> A local file or a web-accessible HTTP source with the pre-generated raster or vector tiles.</li>
+<li><a href="../sources-geojson/">GeoJSON Sources</a> A local file with geodata that we can convert to vector tiles.</li>
 <li><a href="../pg-connections/">PostgreSQL Connections</a> with</li>
 <li><a href="../sources-pg-tables/">Table Sources</a></li>
 <li><a href="../sources-pg-functions/">Function Sources</a></li>
 </ul>
-<p>The difference between tile archives (<em><a href="../sources-files/">MBTiles/PMTiles</a></em>) and a database (<a href="../sources-pg-tables/">PG-Table</a>/<a href="../sources-pg-functions/">PG-Function</a>) is that</p>
+<p>The difference between tile archives (<em><a href="../sources-files/">MBTiles/PMTiles</a></em>), semi-static data (<em><a href="../sources-geojson/">GeoJSON</a></em>) and a database (<a href="../sources-pg-tables/">PG-Table</a>/<a href="../sources-pg-functions/">PG-Function</a>) is that</p>
 <ul>
 <li><strong>database</strong> are more flexible and may (depending on how you fill it) be updated in <strong>real-time</strong>.</li>
 <li><strong>Tile archives</strong> on the other hand may (depending on the data) be more <strong>compact, memory efficient and exhibit better performance</strong> for tile-serving.</li>
+<li><strong>semi-static data</strong> is for the usecase when the <strong>data is relatively static</strong> and <strong>not large</strong> enough to justify converting it to a tile archive</li>
 </ul>
-<p>=&gt; For most usecases, you may want a mix of both. We support this via <a href="../sources-composite/">Composite Sources</a>
-=&gt; For some usecases, you want the flexibility of a database, but you don't want to pay the runtime-price. We offer the <a href="../martin-cp/"><code>martin-cp</code></a> utility to render all tiles into a tile archive. This can also be used to provide offline maps via <a href="../mbtiles-diff/">diffing and syncing <code>mbtiles</code></a></p>
+<blockquote>
+<p>[!TIP]
+For most usecases, you may want a mix of both. We support this via <a href="../sources-composite/">Composite Sources</a>
+For some usecases, you want the flexibility of a database, but you don't want to pay the runtime-price. We offer the <a href="../martin-cp/"><code>martin-cp</code></a> utility to render all tiles into a tile archive. This can also be used to provide offline maps via <a href="../mbtiles-diff/">diffing and syncing <code>mbtiles</code></a></p>
+</blockquote>
 <p>The difference between MBTiles and PMTiles is that:</p>
 <ul>
 <li><strong>MBTiles</strong> require the entire archive to be on the same machine. <strong>PMTiles</strong> can utilise a remote HTTP-Range request supporting server or a local file.</li>

@@ -1718,7 +1718,7 @@ Simple and fast for static datasets.</p>
 </ul>
 </details>
 <h2 id="component-interactions">Component Interactions</h2>
-<div class="tabbed-set tabbed-alternate" data-tabs="4:2"><input checked="checked" id="__tabbed_4_1" name="__tabbed_4" type="radio" /><input id="__tabbed_4_2" name="__tabbed_4" type="radio" /><div class="tabbed-labels"><label for="__tabbed_4_1">PosgtgreSQL Integration</label><label for="__tabbed_4_2">File Source Integration</label></div>
+<div class="tabbed-set tabbed-alternate" data-tabs="4:3"><input checked="checked" id="__tabbed_4_1" name="__tabbed_4" type="radio" /><input id="__tabbed_4_2" name="__tabbed_4" type="radio" /><input id="__tabbed_4_3" name="__tabbed_4" type="radio" /><div class="tabbed-labels"><label for="__tabbed_4_1">PosgtgreSQL Integration</label><label for="__tabbed_4_2">File Source Integration</label><label for="__tabbed_4_3">GeoJSON Integration</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
 <pre class="mermaid"><code>graph TB
@@ -1777,6 +1777,50 @@ Simple and fast for static datasets.</p>
 <li>Uses <code>object_store</code> crate for S3/Azure/GCP access</li>
 <li>Serves tiles directly from file format</li>
 </ol>
+</div>
+<div class="tabbed-block">
+<p>Unlike the other file sources, GeoJSON files hold raw geometry rather than pre-baked tiles.
+Martin loads the whole file once, reprojects and indexes it in memory, then clips and encodes an MVT tile on every request.</p>
+<pre class="mermaid"><code>graph TB
+    subgraph Load["Load time (once per source)"]
+        File[".geojson / .json file"]
+        Parse["Parse (geojson crate)&lt;br/&gt;-&gt; geo_types::Geometry"]
+        Reproject["Reproject WGS84 -&gt; WebMercator"]
+        RTree["Packed Hilbert R-tree&lt;br/&gt;(geo_index)"]
+    end
+
+    subgraph Request["Per tile request"]
+        Rect["Tile Rect + buffer&lt;br/&gt;(WebMercator bbox)"]
+        Query["R-tree candidate lookup"]
+        Clip["Parallel clip + transform&lt;br/&gt;(geo, rayon)"]
+        Encode["MVT encode&lt;br/&gt;(geozero::mvt)"]
+    end
+
+    File --&gt; Parse --&gt; Reproject --&gt; RTree
+    RTree -.-&gt;|in-memory features| Query
+    Rect --&gt; Query --&gt; Clip --&gt; Encode</code></pre>
+<p><strong>Load time</strong> (<code>GeoJsonSource::new</code> in <code>martin-core/src/tiles/geojson/</code>):</p>
+<ol>
+<li>The entire file is read into memory and parsed with the <code>geojson</code> crate; each feature's geometry becomes a <code>geo_types::Geometry&lt;f64&gt;</code>.</li>
+<li>Every geometry is reprojected once from WGS84 to Web Mercator, so all per-tile work stays in Mercator.</li>
+<li>A packed Hilbert R-tree (<code>geo_index</code>) is built over the feature bounding boxes for fast spatial lookup, and the union of all boxes becomes the TileJSON <code>bounds</code>.</li>
+<li>Features (Mercator geometry + JSON properties) are held in memory for the lifetime of the source.</li>
+</ol>
+<p><strong>Per request</strong> (<code>GeoJsonSource::get_tile</code>):</p>
+<ol>
+<li>The requested <code>z/x/y</code> is converted to a Web Mercator tile <code>Rect</code>, grown outward by the configurable <code>buffer</code> (as a <code>buffer / extent</code> fraction) so geometry near the edge survives clipping.</li>
+<li>The R-tree is queried for candidate features overlapping the buffered rect; no candidates yields an empty tile (<code>204 No Content</code>).</li>
+<li>Candidates are clipped in parallel (<code>rayon</code>): polygons via boolean intersection, lines via line-clip, points via containment - then snapped, repaired, re-oriented, and transformed into the tile's integer coordinate grid (<code>extent</code> units, y flipped for MVT).</li>
+<li>Surviving features are encoded into a single MVT layer named after the source id (<code>geozero::mvt</code>); properties are mapped to MVT column values (JSON arrays/objects serialized to strings, nulls dropped).</li>
+<li>The tile is returned uncompressed as <code>application/x-protobuf</code>; the shared server layer then handles caching, ETag/<code>304</code>, and <code>Content-Encoding</code>, identically to every other source.</li>
+</ol>
+<p><strong>Configuration</strong> (<code>GeoJsonConfig</code>, both <code>.json</code> and <code>.geojson</code> extensions are discovered):</p>
+<ul>
+<li><code>extent</code> (default <code>4096</code>) - side length of the MVT integer coordinate grid a tile is encoded into.
+  A <code>NonZeroU32</code>, so <code>0</code> is rejected at parse time.</li>
+<li><code>buffer</code> (default <code>64</code>, in tile units) - margin of geometry kept around each tile edge to avoid seams between neighbouring tiles.</li>
+</ul>
+<p>Hot-reload uses the same generic Reload Driver as the other file sources (see below), watching the configured directories for added, changed, or removed <code>.geojson</code>/<code>.json</code> files.</p>
 </div>
 </div>
 </div>

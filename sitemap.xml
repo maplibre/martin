@@ -73,6 +73,9 @@
         <loc>https://maplibre.org/martin/sources-cog-files/</loc>
       </url>
       <url>
+        <loc>https://maplibre.org/martin/sources-geojson/</loc>
+      </url>
+      <url>
         <loc>https://maplibre.org/martin/sources-composite/</loc>
       </url>
       <url>
