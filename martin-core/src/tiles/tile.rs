@@ -43,7 +43,6 @@ impl Tile {
         Self { data, info, etag }
     }
 
-
     /// Returns true if the tile data is empty.
     #[must_use]
     pub fn is_empty(&self) -> bool {
