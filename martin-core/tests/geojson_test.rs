@@ -193,8 +193,7 @@ async fn each_container_type_yields_one_named_layer() {
 }
 
 /// A near-world polygon queried on a single z1 quadrant must be clipped: every emitted coordinate
-/// stays within the tile plus its buffer. Without clipping the far hemisphere would project to
-/// coordinates far outside `[-BUFFER, EXTENT + BUFFER]`.
+/// stays within the tile plus its buffer.
 #[tokio::test]
 async fn clipping_keeps_coords_within_tile_plus_buffer() {
     let src = source(
@@ -207,7 +206,7 @@ async fn clipping_keeps_coords_within_tile_plus_buffer() {
     let layer = &tile.layers[0];
     assert!(!layer.features.is_empty(), "clipped polygon survives");
 
-    let bounds = (-BUFFER - 1)..=(EXTENT + BUFFER + 1);
+    let bounds = -65i64..=4161;
     for f in &layer.features {
         for c in all_coords(&f.geometry) {
             let (x, y) = (i64::from(c.x), i64::from(c.y));
@@ -218,8 +217,7 @@ async fn clipping_keeps_coords_within_tile_plus_buffer() {
 }
 
 /// A line crossing out of the queried tile is clipped to the tile-plus-buffer: it survives as a
-/// non-empty line whose every coordinate stays in bounds. Without clipping the far endpoint would
-/// project far outside `[-BUFFER, EXTENT + BUFFER]`.
+/// non-empty line whose every coordinate stays in bounds.
 #[tokio::test]
 async fn linestring_crossing_boundary_is_clipped() {
     // Runs west-to-east across the antimeridian-free width, from inside z1/1/0 (lng 0..180) out
@@ -239,7 +237,7 @@ async fn linestring_crossing_boundary_is_clipped() {
 
     let coords = all_coords(&layer.features[0].geometry);
     assert!(coords.len() >= 2, "a line keeps at least two vertices");
-    let bounds = (-BUFFER - 1)..=(EXTENT + BUFFER + 1);
+    let bounds = -65i64..=4161;
     for c in coords {
         let (x, y) = (i64::from(c.x), i64::from(c.y));
         assert!(bounds.contains(&x), "x={x} outside clip bounds {bounds:?}");
@@ -267,7 +265,7 @@ async fn multilinestring_crossing_boundary_is_clipped() {
 
     let coords = all_coords(&layer.features[0].geometry);
     assert!(coords.len() >= 4, "both clipped parts contribute vertices");
-    let bounds = (-BUFFER - 1)..=(EXTENT + BUFFER + 1);
+    let bounds = -65i64..=4161;
     for c in coords {
         let (x, y) = (i64::from(c.x), i64::from(c.y));
         assert!(bounds.contains(&x), "x={x} outside clip bounds {bounds:?}");
@@ -275,8 +273,7 @@ async fn multilinestring_crossing_boundary_is_clipped() {
     }
 }
 
-/// A tile disjoint from all data returns an empty byte vector - the early-out path, not a
-/// valid-but-empty MVT tile.
+/// A tile disjoint from all data returns an empty byte vector.
 #[tokio::test]
 async fn disjoint_tile_returns_empty_bytes() {
     // Data sits in the eastern hemisphere...
@@ -355,10 +352,9 @@ async fn property_types_round_trip_and_null_is_omitted() {
     assert!(prop(f, "nil").is_none(), "null property must be omitted");
 }
 
-/// Spec-as-truth: a polygon with a hole must encode its rings with MVT-compliant winding -
-/// exterior clockwise (positive signed area in y-down space), interior counter-clockwise. Because
-/// `fast-mvt` reconstructs polygons by ring winding, correct output decodes to exactly one polygon
-/// with exactly one interior ring; a winding bug would split the hole into a second polygon.
+/// A polygon with a hole encodes its rings with MVT-compliant winding: exterior clockwise
+/// (positive signed area in y-down space), interior counter-clockwise. `fast-mvt` reconstructs
+/// polygons by ring winding, so correct output decodes to one polygon with one interior ring.
 #[tokio::test]
 async fn polygon_rings_follow_mvt_winding_order() {
     let exterior = [
@@ -402,9 +398,9 @@ async fn polygon_rings_follow_mvt_winding_order() {
     );
 }
 
-/// A large polygon whose two lobes are joined by a sub-pixel neck must not vanish. The integer
-/// snap collapses the neck to a self-touch, which would fail validation and drop the whole feature;
-/// the topology is re-resolved so the substantial area survives.
+/// A large polygon whose two lobes are joined by a sub-pixel neck survives: the integer snap
+/// collapses the neck to a self-touch, and the topology is re-resolved so the substantial area
+/// is kept.
 #[tokio::test]
 async fn polygon_pinched_by_snap_is_repaired_not_dropped() {
     // Two 5x5 deg lobes joined by a 0.005 deg neck - far below one z0 tile unit (~0.088 deg),
@@ -443,8 +439,7 @@ async fn polygon_pinched_by_snap_is_repaired_not_dropped() {
     assert!(!polys.is_empty(), "the surviving geometry is polygonal");
 }
 
-/// A polygon thinner than one tile unit collapses to nothing on the integer grid and must be
-/// dropped, not emitted as an empty geometry. (The topology-repair pass must not resurrect it.)
+/// A polygon thinner than one tile unit collapses to nothing on the integer grid and is dropped.
 #[tokio::test]
 async fn subpixel_polygon_is_dropped() {
     // 0.005 deg wide at z0 is ~0.06 tile units - it floors to zero width.
@@ -460,9 +455,7 @@ async fn subpixel_polygon_is_dropped() {
     );
 }
 
-/// Regression tripwire: a mixed-geometry tile decoded to a stable structure. Not the exact-bytes
-/// oracle (that lives in the server e2e suite) - just a readable snapshot to catch unintended
-/// output drift.
+/// A mixed-geometry tile decodes to a stable structure; a readable snapshot to catch output drift.
 #[tokio::test]
 async fn decoded_tile_snapshot() {
     let mut props = Map::new();
