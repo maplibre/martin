@@ -1,15 +1,6 @@
 #![cfg(feature = "geojson")]
 #![allow(clippy::unwrap_used)]
 
-//! Integration tests for the `GeoJSON` tile source.
-//!
-//! These exercise the public contract `GeoJsonSource::new(path).get_tile(xyz)` and assert on the
-//! decoded MVT output, deliberately testing a different axis than the server-level e2e goldens:
-//! geometry/property *invariants* rather than exact bytes. Inputs are built with `geo-types`,
-//! serialized to a temp file, and fed through the same path-reading constructor users hit.
-//! MVT output is decoded with `fast-mvt`, which reconstructs `geo-types` geometries and classifies
-//! polygon rings by winding - so a winding regression shows up as a structurally wrong decode.
-
 use fast_mvt::{MvtFeature, MvtReaderRef, MvtTile, MvtValue};
 use geo_types::{Coord, Geometry, LineString, Polygon};
 use geojson::{
@@ -23,12 +14,7 @@ use serde_json::{Map, json};
 use std::io::Write as _;
 use std::num::NonZeroU32;
 
-/// The `GeoJsonConfig` default MVT layer extent and clip buffer.
-/// Clipped coordinates land within `[-BUFFER, EXTENT + BUFFER]`, give or take one unit of
-/// `transform_to_tile_coordinates`' `.floor()` rounding at the buffered edge.
-const EXTENT: i64 = 4096;
-const BUFFER: i64 = 64;
-const FLOOR_SLACK: i64 = 1;
+const 1: i64 = 1;
 
 // --- input builders (geo-types -> geojson) -------------------------------------------------
 
@@ -100,8 +86,9 @@ fn collection(features: Vec<Feature>) -> GeoJson {
 /// constructor, so the read+parse path is exercised exactly as in production. Uses the default
 /// extent and buffer.
 async fn source(id: &str, gj: &GeoJson) -> GeoJsonSource {
-    let extent = NonZeroU32::new(u32::try_from(EXTENT).unwrap()).unwrap();
-    source_with(id, gj, extent, u32::try_from(BUFFER).unwrap()).await
+    let extent = NonZeroU32::new(4096).unwrap();
+    let buffer = 64;
+    source_with(id, gj, extent, buffer).await
 }
 
 /// Like [`source`] but with an explicit MVT extent and clip buffer.
@@ -222,7 +209,7 @@ async fn clipping_keeps_coords_within_tile_plus_buffer() {
     let layer = &tile.layers[0];
     assert!(!layer.features.is_empty(), "clipped polygon survives");
 
-    let bounds = (-BUFFER - FLOOR_SLACK)..=(EXTENT + BUFFER + FLOOR_SLACK);
+    let bounds = (-BUFFER - 1)..=(EXTENT + BUFFER + 1);
     for f in &layer.features {
         for c in all_coords(&f.geometry) {
             let (x, y) = (i64::from(c.x), i64::from(c.y));
@@ -254,7 +241,7 @@ async fn linestring_crossing_boundary_is_clipped() {
 
     let coords = all_coords(&layer.features[0].geometry);
     assert!(coords.len() >= 2, "a line keeps at least two vertices");
-    let bounds = (-BUFFER - FLOOR_SLACK)..=(EXTENT + BUFFER + FLOOR_SLACK);
+    let bounds = (-BUFFER - 1)..=(EXTENT + BUFFER + 1);
     for c in coords {
         let (x, y) = (i64::from(c.x), i64::from(c.y));
         assert!(bounds.contains(&x), "x={x} outside clip bounds {bounds:?}");
@@ -282,7 +269,7 @@ async fn multilinestring_crossing_boundary_is_clipped() {
 
     let coords = all_coords(&layer.features[0].geometry);
     assert!(coords.len() >= 4, "both clipped parts contribute vertices");
-    let bounds = (-BUFFER - FLOOR_SLACK)..=(EXTENT + BUFFER + FLOOR_SLACK);
+    let bounds = (-BUFFER - 1)..=(EXTENT + BUFFER + 1);
     for c in coords {
         let (x, y) = (i64::from(c.x), i64::from(c.y));
         assert!(bounds.contains(&x), "x={x} outside clip bounds {bounds:?}");
