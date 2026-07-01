@@ -20,6 +20,8 @@ Martin optimizes for speed and heavy traffic, and is written in [Rust](https://g
   * [PostGIS](https://github.com/postgis/postgis) databases, automatically discovering compatible tables and functions
   * [PMTile](https://protomaps.com/blog/pmtiles-v3-whats-new), both local files and over HTTP
   * [MBTile](https://github.com/mapbox/mbtiles-spec) files
+  * [GeoJSON](https://maplibre.org/martin/sources-geojson.html) files, converted to vector tiles on the fly
+* [Passthrough](https://maplibre.org/martin/sources-passthrough.html) tiles from an upstream HTTP tile server
 * [Combine](https://maplibre.org/martin/sources-composite.html) multiple tile sources into one
 * Serve [styles](https://maplibre.org/martin/sources-styles.html) and generate [sprites](https://maplibre.org/martin/sources-sprites.html) or [font glyphs](https://maplibre.org/martin/sources-fonts.html) on the fly
 * Generate tiles in bulk from any Martin-supported sources into an `MBTiles` file with [martin-cp](https://maplibre.org/martin/martin-cp.html) tool
