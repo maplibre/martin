@@ -31,6 +31,7 @@ const fn is_default_buffer(buffer: &u32) -> bool {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "unstable-schemas", derive(schemars::JsonSchema))]
 pub struct GeoJsonConfig {
     /// Side length of the MVT tile coordinate grid each tile is encoded into, defaulting to 4096.
     #[serde(default = "default_extent", skip_serializing_if = "is_default_extent")]
@@ -42,6 +43,7 @@ pub struct GeoJsonConfig {
     pub buffer: u32,
 
     #[serde(flatten, skip_serializing)]
+    #[cfg_attr(feature = "unstable-schemas", schemars(skip))]
     pub unrecognized: UnrecognizedValues,
 }
 

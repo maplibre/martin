@@ -3,6 +3,7 @@
 use actix_web::http::header::{ACCEPT_ENCODING, CONTENT_ENCODING, CONTENT_TYPE};
 use actix_web::test::{TestRequest, call_service, read_body, read_body_json};
 use indoc::indoc;
+#[cfg(all(feature = "rendering", target_os = "linux"))]
 use insta::assert_yaml_snapshot;
 use martin::config::file::srv::SrvConfig;
 use martin_tile_utils::decode_gzip;
@@ -42,9 +43,10 @@ const CONFIG: &str = indoc! {"
                 geo2: ../tests/fixtures/geojson/feature_collection_2.geojson
     "};
 
+#[cfg(all(feature = "rendering", target_os = "linux"))]
 #[actix_rt::test]
 #[tracing_test::traced_test]
-async fn geojson_get_catalog() {
+async fn geojson_get_catalog_with_rendering_feature() {
     let path = "geojson: ../tests/fixtures/geojson/feature_collection_1.geojson";
     let app = create_app! { path };
 
@@ -64,9 +66,10 @@ async fn geojson_get_catalog() {
     ");
 }
 
+#[cfg(all(feature = "rendering", target_os = "linux"))]
 #[actix_rt::test]
 #[tracing_test::traced_test]
-async fn geojson_get_catalog_gzip() {
+async fn geojson_get_catalog_gzip_with_rendering_feature() {
     let app = create_app! { CONFIG };
     let accept = (ACCEPT_ENCODING, "gzip");
     let req = test_get("/catalog").insert_header(accept).to_request();
