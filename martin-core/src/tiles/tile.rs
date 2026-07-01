@@ -43,20 +43,6 @@ impl Tile {
         Self { data, info, etag }
     }
 
-    /// Returns an etag that is always a valid strong [entity-tag](https://httpwg.org/specs/rfc9110.html#field.etag) body.
-    ///
-    /// The stored [`etag`](Self::etag) may originate from an untrusted upstream source (a passthrough
-    /// tile source forwards the origin's `ETag`) and contain characters such as `"` that are not
-    /// permitted inside an entity-tag.
-    /// In that case the tile data is hashed instead so the result is always safe to wrap in an entity-tag.
-    #[must_use]
-    pub fn strong_etag(&self) -> String {
-        if is_valid_entity_tag(&self.etag) {
-            self.etag.clone()
-        } else {
-            hash_etag(&self.data)
-        }
-    }
 
     /// Returns true if the tile data is empty.
     #[must_use]
@@ -77,24 +63,18 @@ fn hash_etag(data: &[u8]) -> String {
     URL_SAFE_NO_PAD.encode(hash.to_ne_bytes())
 }
 
-/// Returns true if `tag` is a valid strong [entity-tag](https://httpwg.org/specs/rfc9110.html#field.etag) body.
-///
-/// Follows the `etagc` grammar of RFC 9110, allowing `0x21`, `0x23..=0x7E`, and `0x80..=0xFF` while
-/// rejecting `"`, control characters, and DEL.
-/// An empty tag is rejected so callers always fall back to a content hash.
-fn is_valid_entity_tag(tag: &str) -> bool {
-    !tag.is_empty()
-        && tag
-            .bytes()
-            .all(|c| c == 0x21 || (0x23..=0x7E).contains(&c) || c >= 0x80)
-}
-
 #[cfg(test)]
 mod tests {
     use martin_tile_utils::{Encoding, Format, TileInfo};
 
     use super::*;
 
+    fn is_valid_entity_tag(tag: &str) -> bool {
+        !tag.is_empty()
+            && tag
+                .bytes()
+                .all(|c| c == 0x21 || (0x23..=0x7E).contains(&c) || c >= 0x80)
+    }
     fn info() -> TileInfo {
         TileInfo::new(Format::Mvt, Encoding::Uncompressed)
     }
