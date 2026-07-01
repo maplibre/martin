@@ -14,7 +14,6 @@ use serde_json::{Map, json};
 use std::io::Write as _;
 use std::num::NonZeroU32;
 
-const 1: i64 = 1;
 
 // --- input builders (geo-types -> geojson) -------------------------------------------------
 
