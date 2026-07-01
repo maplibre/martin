@@ -1,0 +1,126 @@
+{
+  "features": [
+    {
+      "geometry": {
+        "coordinates": [
+          [
+            [
+              [
+                1365,
+                2906
+              ],
+              [
+                2730,
+                2906
+              ],
+              [
+                2730,
+                1189
+              ],
+              [
+                1365,
+                1189
+              ],
+              [
+                1365,
+                2906
+              ]
+            ],
+            [
+              [
+                1820,
+                1815
+              ],
+              [
+                2275,
+                1815
+              ],
+              [
+                2275,
+                2280
+              ],
+              [
+                1820,
+                2280
+              ],
+              [
+                1820,
+                1815
+              ]
+            ]
+          ],
+          [
+            [
+              [
+                3640,
+                1933
+              ],
+              [
+                3982,
+                1933
+              ],
+              [
+                3982,
+                1550
+              ],
+              [
+                3640,
+                1550
+              ],
+              [
+                3640,
+                1933
+              ]
+            ]
+          ]
+        ],
+        "type": "MultiPolygon"
+      },
+      "properties": {
+        "id": 1,
+        "kind": "multipolygon-with-hole",
+        "source_mvt_layer": "clip"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          [
+            [
+              [
+                3185,
+                2906
+              ],
+              [
+                3527,
+                2906
+              ],
+              [
+                3527,
+                2406
+              ],
+              [
+                3185,
+                2406
+              ],
+              [
+                3185,
+                2906
+              ]
+            ]
+          ]
+        ],
+        "type": "MultiPolygon"
+      },
+      "properties": {
+        "id": 2,
+        "kind": "polygon-northeast",
+        "source_mvt_layer": "clip"
+      },
+      "type": "Feature"
+    }
+  ],
+  "name": "merged",
+  "type": "FeatureCollection"
+}

@@ -112,6 +112,7 @@ default = [
     "sprites",
     "styles",
     "webui",
+    "geojson",
     "mlt",
 ]
 unstable-cog = ["martin-core/unstable-cog", "_tiles"]
@@ -132,6 +133,7 @@ postgres = [
     "dep:xxhash-rust",
     "_tiles",
 ]
+geojson = ["martin-core/geojson", "_tiles"]
 sprites = ["martin-core/sprites", "_catalog"]
 styles = ["martin-core/styles", "dep:walkdir", "_catalog"]
 webui = ["dep:actix-web-static-files", "dep:static-files", "dep:walkdir"]
@@ -211,12 +213,19 @@ serde_with.workspace = true
 static-files = { workspace = true, optional = true }
 thiserror.workspace = true
 tilejson.workspace = true
-tokio = { workspace = true, features = ["io-std"] }
+tokio = { workspace = true, features = ["io-std", "rt-multi-thread"] }
 tracing.workspace = true
 tracing-actix-web.workspace = true
 tracing-indicatif.workspace = true
 tracing-log = { workspace = true, features = ["interest-cache"] }
-tracing-subscriber = { workspace = true, default-features = false, features = ["env-filter", "json", "fmt", "std", "ansi", "chrono"] }
+tracing-subscriber = { workspace = true, default-features = false, features = [
+    "env-filter",
+    "json",
+    "fmt",
+    "std",
+    "ansi",
+    "chrono",
+] }
 url.workspace = true
 utoipa = { workspace = true, optional = true }
 utoipa-actix-web = { workspace = true, optional = true }

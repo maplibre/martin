@@ -857,6 +857,7 @@ test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'postgres.
 test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'postgres.functions.function_zxy_query.warning'. Please check your configuration file for typos."
 test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'pmtiles.warning'. Please check your configuration file for typos."
 test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'sprites.warning'. Please check your configuration file for typos."
+test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'geojson.warning'. Please check your configuration file for typos."
 # TODO: below should be changed to cog.warning once unstable-cog is made stable
 test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'cog'. Please check your configuration file for typos."
 test_log_has_str "$LOG_FILE" "Ignoring unrecognized configuration key 'styles.warning'. Please check your configuration file for typos."
@@ -908,6 +909,114 @@ kill_process "$MARTIN_PROC_ID" Martin
 test_log_has_str "$LOG_FILE" 'Table public.table_source has no spatial index on column geom'
 validate_log "$LOG_FILE"
 remove_lines "${TEST_OUT_DIR}/save_config.yaml" " connection_string: "
+echo "::endgroup::"
+
+echo "::group::Test GeoJSON source"
+TEST_NAME="geojson"
+LOG_FILE="${LOG_DIR}/${TEST_NAME}.txt"
+TEST_OUT_DIR="${TEST_OUT_BASE_DIR}/${TEST_NAME}"
+mkdir -p "$TEST_OUT_DIR"
+
+ARG=(--save-config "${TEST_OUT_DIR}/save_config.yaml" tests/fixtures/geojson)
+set -x
+$MARTIN_BIN "${ARG[@]}" 2>&1 | tee "$LOG_FILE" &
+MARTIN_PROC_ID=$(jobs -p | tail -n 1)
+{ set +x; } 2> /dev/null
+trap "echo 'Stopping Martin server $MARTIN_PROC_ID...'; kill -9 $MARTIN_PROC_ID 2> /dev/null || true; echo 'Stopped Martin server $MARTIN_PROC_ID';" EXIT HUP INT TERM
+wait_for "$MARTIN_PROC_ID" Martin "$MARTIN_URL/health"
+
+>&2 echo "Test GeoJSON catalog"
+test_jsn catalog_geojson catalog
+
+>&2 echo "***** Test GeoJSON input forms *****"
+# FeatureCollection (.geojson)
+test_jsn geojson_fc1       feature_collection_1
+test_pbf geojson_fc1_0_0_0 feature_collection_1/0/0/0
+# FeatureCollection of mixed Point/LineString/Polygon
+test_jsn geojson_fc2       feature_collection_2
+test_pbf geojson_fc2_0_0_0 feature_collection_2/0/0/0
+# FeatureCollection from a .json (not .geojson) file
+test_jsn geojson_fc3       feature_collection_3
+test_pbf geojson_fc3_0_0_0 feature_collection_3/0/0/0
+# A single top-level Feature
+test_jsn geojson_f1        feature_1
+test_pbf geojson_f1_0_0_0  feature_1/0/0/0
+# A bare top-level Geometry (no Feature/FeatureCollection wrapper)
+test_jsn geojson_bare       bare_geometry
+test_pbf geojson_bare_0_0_0 bare_geometry/0/0/0
+
+>&2 echo "***** Test GeoJSON geometry types (MultiPoint, MultiLineString, MultiPolygon, GeometryCollection) *****"
+test_jsn geojson_multi       multi_geometries
+test_pbf geojson_multi_0_0_0 multi_geometries/0/0/0
+
+>&2 echo "***** Test GeoJSON property value types (string/int/uint/float/bool/array/object, null omitted) *****"
+test_jsn geojson_props       properties
+test_pbf geojson_props_0_0_0 properties/0/0/0
+
+>&2 echo "***** Test GeoJSON clipping, spatial index and tile-coordinate transform at zoom > 0 *****"
+test_pbf geojson_clip_0_0_0 clip/0/0/0
+test_pbf geojson_clip_1_0_0 clip/1/0/0
+test_pbf geojson_clip_1_1_0 clip/1/1/0
+test_pbf geojson_clip_1_0_1 clip/1/0/1
+test_pbf geojson_clip_1_1_1 clip/1/1/1
+
+>&2 echo "***** Test GeoJSON empty tile returns 204 No Content *****"
+EMPTY_TILE_CODE=$($CURL --output /dev/null --write-out '%{http_code}' "$MARTIN_URL/feature_1/1/0/1")
+if [[ "$EMPTY_TILE_CODE" != "204" ]]; then
+  echo "ERROR: expected 204 for a tile with no features, got $EMPTY_TILE_CODE"
+  exit 1
+fi
+>&2 echo "OK: empty tile returned 204"
+
+kill_process "$MARTIN_PROC_ID" Martin
+test_log_has_str "$LOG_FILE" 'WARN Defaulting `pmtiles.allow_http` to `true`. This is likely to become an error in the future for better security.'
+test_log_has_str "$LOG_FILE" 'WARN Environment variable AWS_SKIP_CREDENTIALS is deprecated. Please use pmtiles.skip_signature in the configuration file instead.'
+test_log_has_str "$LOG_FILE" 'WARN Environment variable AWS_REGION is deprecated. Please use pmtiles.region in the configuration file instead.'
+validate_log "$LOG_FILE"
+echo "::endgroup::"
+
+echo "::group::Test GeoJSON hot reload"
+TEST_NAME="geojson_reload"
+LOG_FILE="${LOG_DIR}/${TEST_NAME}.txt"
+TEST_OUT_DIR="${TEST_OUT_BASE_DIR}/${TEST_NAME}"
+GEOJSON_RELOAD_WATCH_DIR="${TEST_TEMP_DIR}/geojson_reload_watch"
+mkdir -p "$TEST_OUT_DIR" "$GEOJSON_RELOAD_WATCH_DIR"
+
+ARG=("$GEOJSON_RELOAD_WATCH_DIR")
+set -x
+$MARTIN_BIN "${ARG[@]}" 2>&1 | tee "$LOG_FILE" &
+MARTIN_PROC_ID=$(jobs -p | tail -n 1)
+{ set +x; } 2> /dev/null
+trap "echo 'Stopping Martin server $MARTIN_PROC_ID...'; kill -9 $MARTIN_PROC_ID 2> /dev/null || true; echo 'Stopped Martin server $MARTIN_PROC_ID';" EXIT HUP INT TERM
+wait_for "$MARTIN_PROC_ID" Martin "$MARTIN_URL/health"
+
+GEOJSON_SOURCE_ID="feature_collection_1"
+
+>&2 echo "Test GeoJSON reload: catalog starts empty with no geojson in watch dir"
+$CURL "$MARTIN_URL/catalog" | jq --sort-keys > "$TEST_OUT_DIR/catalog_empty.json"
+
+>&2 echo "Test GeoJSON reload: adding a new GeoJSON file triggers source addition"
+install_watched_fixture "tests/fixtures/geojson/${GEOJSON_SOURCE_ID}.geojson" "$GEOJSON_RELOAD_WATCH_DIR/${GEOJSON_SOURCE_ID}.geojson"
+wait_for_catalog_source "$GEOJSON_SOURCE_ID"
+
+>&2 echo "Test GeoJSON reload: updating a GeoJSON file triggers source update"
+touch "$GEOJSON_RELOAD_WATCH_DIR/${GEOJSON_SOURCE_ID}.geojson"
+wait_for_log_str "$LOG_FILE" "Updated source source.id=${GEOJSON_SOURCE_ID}"
+
+>&2 echo "Test GeoJSON reload: removing a GeoJSON file triggers source removal"
+rm "$GEOJSON_RELOAD_WATCH_DIR/${GEOJSON_SOURCE_ID}.geojson"
+wait_for_catalog_source_removed "$GEOJSON_SOURCE_ID"
+$CURL "$MARTIN_URL/catalog" | jq --sort-keys > "$TEST_OUT_DIR/catalog_after_remove.json"
+
+kill_process "$MARTIN_PROC_ID" Martin
+
+test_log_has_str "$LOG_FILE" "Added source source.id=${GEOJSON_SOURCE_ID}"
+test_log_has_str "$LOG_FILE" "Updated source source.id=${GEOJSON_SOURCE_ID}"
+test_log_has_str "$LOG_FILE" "Removed source source.id=${GEOJSON_SOURCE_ID}"
+test_log_has_str "$LOG_FILE" 'Defaulting `pmtiles.allow_http` to `true`. This is likely to become an error in the future for better security.'
+test_log_has_str "$LOG_FILE" 'Environment variable AWS_SKIP_CREDENTIALS is deprecated. Please use pmtiles.skip_signature in the configuration file instead.'
+test_log_has_str "$LOG_FILE" 'Environment variable AWS_REGION is deprecated. Please use pmtiles.region in the configuration file instead.'
+validate_log "$LOG_FILE"
 echo "::endgroup::"
 
 if [[ "$MARTIN_CP_BIN" != "-" ]]; then

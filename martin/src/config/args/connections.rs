@@ -26,6 +26,7 @@ impl Arguments {
         feature = "postgres",
         feature = "mbtiles",
         feature = "pmtiles",
+        feature = "geojson",
         feature = "unstable-cog"
     ))]
     #[must_use]
@@ -37,6 +38,7 @@ impl Arguments {
         feature = "postgres",
         feature = "mbtiles",
         feature = "pmtiles",
+        feature = "geojson",
         feature = "unstable-cog"
     ))]
     /// Process input params in the original order, but only if no prior consumer has claimed it.

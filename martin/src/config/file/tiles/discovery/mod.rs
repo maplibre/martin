@@ -4,9 +4,19 @@
 mod discovery_trait;
 pub use discovery_trait::{Discovery, Version};
 
-#[cfg(any(feature = "mbtiles", feature = "unstable-cog", feature = "pmtiles"))]
+#[cfg(any(
+    feature = "mbtiles",
+    feature = "unstable-cog",
+    feature = "geojson",
+    feature = "pmtiles"
+))]
 mod fs;
-#[cfg(any(feature = "mbtiles", feature = "unstable-cog", feature = "pmtiles"))]
+#[cfg(any(
+    feature = "mbtiles",
+    feature = "unstable-cog",
+    feature = "geojson",
+    feature = "pmtiles"
+))]
 pub use fs::{FsDiscovery, FsSourceBuilder};
 
 #[cfg(feature = "pmtiles")]

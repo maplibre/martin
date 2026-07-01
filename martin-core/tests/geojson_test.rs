@@ -1,31 +1,18 @@
 #![cfg(feature = "geojson")]
 #![allow(clippy::unwrap_used)]
 
-//! Integration tests for the `GeoJSON` tile source.
-//!
-//! These exercise the public contract `GeoJsonSource::new(path).get_tile(xyz)` and assert on the
-//! decoded MVT output, deliberately testing a different axis than the server-level e2e goldens:
-//! geometry/property *invariants* rather than exact bytes. Inputs are built with `geo-types`,
-//! serialized to a temp file, and fed through the same path-reading constructor users hit.
-//! MVT output is decoded with `fast-mvt`, which reconstructs `geo-types` geometries and classifies
-//! polygon rings by winding - so a winding regression shows up as a structurally wrong decode.
-
 use fast_mvt::{MvtFeature, MvtReaderRef, MvtTile, MvtValue};
 use geo_types::{Coord, Geometry, LineString, Polygon};
-use geojson::{Feature, FeatureCollection, GeoJson, Geometry as GjGeometry, Value as GjValue};
+use geojson::{
+    Feature, FeatureCollection, GeoJson, Geometry as GjGeometry, GeometryValue as GjValue,
+};
 use martin_core::CacheZoomRange;
 use martin_core::tiles::Source as _;
 use martin_core::tiles::geojson::source::GeoJsonSource;
 use martin_tile_utils::TileCoord;
 use serde_json::{Map, json};
 use std::io::Write as _;
-
-/// MVT layer extent and clip buffer, mirroring the private `rect::{EXTENT, BUFFER_SIZE}`.
-/// Clipped coordinates land within `[-BUFFER, EXTENT + BUFFER]`, give or take one unit of
-/// `transform_to_tile_coordinates`' `.floor()` rounding at the buffered edge.
-const EXTENT: i64 = 4096;
-const BUFFER: i64 = 256;
-const FLOOR_SLACK: i64 = 1;
+use std::num::NonZeroU32;
 
 // --- input builders (geo-types -> geojson) -------------------------------------------------
 
@@ -56,7 +43,21 @@ fn gj_square(min_lng: f64, min_lat: f64, max_lng: f64, max_lat: f64) -> GjGeomet
 }
 
 fn gj_point(lng: f64, lat: f64) -> GjGeometry {
-    GjGeometry::new(GjValue::Point(vec![lng, lat]))
+    GjGeometry::new(GjValue::Point {
+        coordinates: [lng, lat].into(),
+    })
+}
+
+/// A `geojson` `LineString` from `(lng, lat)` vertices, built via `geo-types`.
+fn gj_line(vertices: &[(f64, f64)]) -> GjGeometry {
+    let line = Geometry::LineString(ring(vertices));
+    GjGeometry::new(GjValue::from(&line))
+}
+
+/// A `geojson` `MultiLineString` from several `(lng, lat)` vertex lists, built via `geo-types`.
+fn gj_multiline(lines: &[&[(f64, f64)]]) -> GjGeometry {
+    let mls = geo_types::MultiLineString(lines.iter().map(|l| ring(l)).collect());
+    GjGeometry::new(GjValue::from(&Geometry::MultiLineString(mls)))
 }
 
 fn feature(geom: GjGeometry, props: Option<Map<String, serde_json::Value>>) -> Feature {
@@ -80,8 +81,16 @@ fn collection(features: Vec<Feature>) -> GeoJson {
 // --- harness -------------------------------------------------------------------------------
 
 /// Serialize `gj` to a temp `.geojson` file and build a source through the public path-reading
-/// constructor, so the read+parse path is exercised exactly as in production.
+/// constructor, so the read+parse path is exercised exactly as in production. Uses the default
+/// extent and buffer.
 async fn source(id: &str, gj: &GeoJson) -> GeoJsonSource {
+    let extent = NonZeroU32::new(4096).unwrap();
+    let buffer = 64;
+    source_with(id, gj, extent, buffer).await
+}
+
+/// Like [`source`] but with an explicit MVT extent and clip buffer.
+async fn source_with(id: &str, gj: &GeoJson, extent: NonZeroU32, buffer: u32) -> GeoJsonSource {
     let mut tmp = tempfile::Builder::new()
         .suffix(".geojson")
         .tempfile()
@@ -93,6 +102,8 @@ async fn source(id: &str, gj: &GeoJson) -> GeoJsonSource {
         id.to_string(),
         tmp.path().to_path_buf(),
         CacheZoomRange::default(),
+        extent,
+        buffer,
     )
     .await
     .unwrap()
@@ -182,8 +193,7 @@ async fn each_container_type_yields_one_named_layer() {
 }
 
 /// A near-world polygon queried on a single z1 quadrant must be clipped: every emitted coordinate
-/// stays within the tile plus its buffer. Without clipping the far hemisphere would project to
-/// coordinates far outside `[-BUFFER, EXTENT + BUFFER]`.
+/// stays within the tile plus its buffer.
 #[tokio::test]
 async fn clipping_keeps_coords_within_tile_plus_buffer() {
     let src = source(
@@ -196,7 +206,7 @@ async fn clipping_keeps_coords_within_tile_plus_buffer() {
     let layer = &tile.layers[0];
     assert!(!layer.features.is_empty(), "clipped polygon survives");
 
-    let bounds = (-BUFFER - FLOOR_SLACK)..=(EXTENT + BUFFER + FLOOR_SLACK);
+    let bounds = -65i64..=4161;
     for f in &layer.features {
         for c in all_coords(&f.geometry) {
             let (x, y) = (i64::from(c.x), i64::from(c.y));
@@ -206,8 +216,64 @@ async fn clipping_keeps_coords_within_tile_plus_buffer() {
     }
 }
 
-/// A tile disjoint from all data returns an empty byte vector - the early-out path, not a
-/// valid-but-empty MVT tile.
+/// A line crossing out of the queried tile is clipped to the tile-plus-buffer: it survives as a
+/// non-empty line whose every coordinate stays in bounds.
+#[tokio::test]
+async fn linestring_crossing_boundary_is_clipped() {
+    // Runs west-to-east across the antimeridian-free width, from inside z1/1/0 (lng 0..180) out
+    // into the western hemisphere; the western part is clipped off at the tile's left edge.
+    let src = source(
+        "line",
+        &GeoJson::Geometry(gj_line(&[(50.0, 40.0), (-50.0, 40.0)])),
+    )
+    .await;
+    let tile = decode(&src.get_tile(xyz(1, 1, 0), None).await.unwrap());
+    let layer = &tile.layers[0];
+    assert_eq!(
+        layer.features.len(),
+        1,
+        "clipped line survives as one feature"
+    );
+
+    let coords = all_coords(&layer.features[0].geometry);
+    assert!(coords.len() >= 2, "a line keeps at least two vertices");
+    let bounds = -65i64..=4161;
+    for c in coords {
+        let (x, y) = (i64::from(c.x), i64::from(c.y));
+        assert!(bounds.contains(&x), "x={x} outside clip bounds {bounds:?}");
+        assert!(bounds.contains(&y), "y={y} outside clip bounds {bounds:?}");
+    }
+}
+
+/// A `MultiLineString` whose parts straddle different tile edges is clipped as a whole: it survives
+/// as one feature and every emitted coordinate stays within the tile-plus-buffer.
+#[tokio::test]
+async fn multilinestring_crossing_boundary_is_clipped() {
+    // One part exits west, the other exits south of z1/1/0 (lng 0..180, lat 0..~85).
+    let geom = gj_multiline(&[
+        &[(50.0, 40.0), (-50.0, 40.0)],
+        &[(80.0, 10.0), (80.0, -50.0)],
+    ]);
+    let src = source("mline", &GeoJson::Geometry(geom)).await;
+    let tile = decode(&src.get_tile(xyz(1, 1, 0), None).await.unwrap());
+    let layer = &tile.layers[0];
+    assert_eq!(
+        layer.features.len(),
+        1,
+        "clipped multiline survives as one feature"
+    );
+
+    let coords = all_coords(&layer.features[0].geometry);
+    assert!(coords.len() >= 4, "both clipped parts contribute vertices");
+    let bounds = -65i64..=4161;
+    for c in coords {
+        let (x, y) = (i64::from(c.x), i64::from(c.y));
+        assert!(bounds.contains(&x), "x={x} outside clip bounds {bounds:?}");
+        assert!(bounds.contains(&y), "y={y} outside clip bounds {bounds:?}");
+    }
+}
+
+/// A tile disjoint from all data returns an empty byte vector.
 #[tokio::test]
 async fn disjoint_tile_returns_empty_bytes() {
     // Data sits in the eastern hemisphere...
@@ -229,10 +295,9 @@ async fn disjoint_tile_returns_empty_bytes() {
 /// contained geometry, each carrying the original feature's properties.
 #[tokio::test]
 async fn geometry_collection_flattens_sharing_properties() {
-    let gc = GjGeometry::new(GjValue::GeometryCollection(vec![
-        gj_square(10.0, 10.0, 20.0, 20.0),
-        gj_point(15.0, 15.0),
-    ]));
+    let gc = GjGeometry::new(GjValue::GeometryCollection {
+        geometries: vec![gj_square(10.0, 10.0, 20.0, 20.0), gj_point(15.0, 15.0)],
+    });
     let mut props = Map::new();
     props.insert("name".to_string(), json!("shared"));
 
@@ -287,10 +352,9 @@ async fn property_types_round_trip_and_null_is_omitted() {
     assert!(prop(f, "nil").is_none(), "null property must be omitted");
 }
 
-/// Spec-as-truth: a polygon with a hole must encode its rings with MVT-compliant winding -
-/// exterior clockwise (positive signed area in y-down space), interior counter-clockwise. Because
-/// `fast-mvt` reconstructs polygons by ring winding, correct output decodes to exactly one polygon
-/// with exactly one interior ring; a winding bug would split the hole into a second polygon.
+/// A polygon with a hole encodes its rings with MVT-compliant winding: exterior clockwise
+/// (positive signed area in y-down space), interior counter-clockwise. `fast-mvt` reconstructs
+/// polygons by ring winding, so correct output decodes to one polygon with one interior ring.
 #[tokio::test]
 async fn polygon_rings_follow_mvt_winding_order() {
     let exterior = [
@@ -334,9 +398,64 @@ async fn polygon_rings_follow_mvt_winding_order() {
     );
 }
 
-/// Regression tripwire: a mixed-geometry tile decoded to a stable structure. Not the exact-bytes
-/// oracle (that lives in the server e2e suite) - just a readable snapshot to catch unintended
-/// output drift.
+/// A large polygon whose two lobes are joined by a sub-pixel neck survives: the integer snap
+/// collapses the neck to a self-touch, and the topology is re-resolved so the substantial area
+/// is kept.
+#[tokio::test]
+async fn polygon_pinched_by_snap_is_repaired_not_dropped() {
+    // Two 5x5 deg lobes joined by a 0.005 deg neck - far below one z0 tile unit (~0.088 deg),
+    // so the neck collapses on the 4096 grid.
+    let dumbbell = gj_polygon(
+        &[
+            (0.0, 0.0),
+            (5.0, 0.0),
+            (5.0, 2.4975),
+            (10.0, 2.4975),
+            (10.0, 0.0),
+            (15.0, 0.0),
+            (15.0, 5.0),
+            (10.0, 5.0),
+            (10.0, 2.5025),
+            (5.0, 2.5025),
+            (5.0, 5.0),
+            (0.0, 5.0),
+            (0.0, 0.0),
+        ],
+        &[],
+    );
+    let src = source("dumbbell", &GeoJson::Geometry(dumbbell)).await;
+    let tile = decode(&src.get_tile(xyz(0, 0, 0), None).await.unwrap());
+    let layer = &tile.layers[0];
+
+    assert!(
+        !layer.features.is_empty(),
+        "pinched polygon survives instead of being dropped wholesale"
+    );
+    let polys: Vec<&Polygon<i32>> = layer
+        .features
+        .iter()
+        .flat_map(|f| polygons(&f.geometry))
+        .collect();
+    assert!(!polys.is_empty(), "the surviving geometry is polygonal");
+}
+
+/// A polygon thinner than one tile unit collapses to nothing on the integer grid and is dropped.
+#[tokio::test]
+async fn subpixel_polygon_is_dropped() {
+    // 0.005 deg wide at z0 is ~0.06 tile units - it floors to zero width.
+    let src = source(
+        "sliver",
+        &GeoJson::Geometry(gj_square(10.0, 0.0, 10.005, 20.0)),
+    )
+    .await;
+    let tile = decode(&src.get_tile(xyz(0, 0, 0), None).await.unwrap());
+    assert!(
+        tile.layers.is_empty() || tile.layers[0].features.is_empty(),
+        "a sub-pixel polygon produces no feature"
+    );
+}
+
+/// A mixed-geometry tile decodes to a stable structure; a readable snapshot to catch output drift.
 #[tokio::test]
 async fn decoded_tile_snapshot() {
     let mut props = Map::new();
@@ -348,4 +467,39 @@ async fn decoded_tile_snapshot() {
     let src = source("snap", &gj).await;
     let tile = decode(&src.get_tile(xyz(0, 0, 0), None).await.unwrap());
     insta::assert_debug_snapshot!(tile.layers);
+}
+
+/// The configured MVT extent is advertised on the emitted layer.
+#[tokio::test]
+async fn extent_is_advertised_on_the_layer() {
+    let gj = GeoJson::Geometry(gj_square(10.0, 10.0, 20.0, 20.0));
+    for extent in [1024u32, 8192] {
+        let src = source_with("ext", &gj, NonZeroU32::new(extent).unwrap(), 0).await;
+        let tile = decode(&src.get_tile(xyz(0, 0, 0), None).await.unwrap());
+        assert_eq!(
+            tile.layers[0].extent.get(),
+            extent,
+            "layer advertises the configured extent {extent}"
+        );
+    }
+}
+
+/// The clip buffer pulls in geometry that sits just outside the bare tile; a zero buffer drops it.
+#[tokio::test]
+async fn buffer_includes_geometry_just_outside_the_tile() {
+    // ~1° west of z1/1/0's western edge (lng 0): inside a 256-unit buffer, outside the bare tile.
+    let pt = GeoJson::Geometry(gj_point(-1.0, 40.0));
+    let extent = NonZeroU32::new(4096).unwrap();
+
+    let buffered = source_with("buf", &pt, extent, 256).await;
+    let tile = decode(&buffered.get_tile(xyz(1, 1, 0), None).await.unwrap());
+    assert_eq!(
+        tile.layers[0].features.len(),
+        1,
+        "buffer keeps the point lying just outside the tile"
+    );
+
+    let unbuffered = source_with("nobuf", &pt, extent, 0).await;
+    let bytes = unbuffered.get_tile(xyz(1, 1, 0), None).await.unwrap();
+    assert!(bytes.is_empty(), "zero buffer drops the just-outside point");
 }

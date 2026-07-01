@@ -1,5 +1,6 @@
 ---
 source: martin-core/tests/geojson_test.rs
+assertion_line: 408
 expression: tile.layers
 ---
 [
@@ -9,7 +10,7 @@ expression: tile.layers
         features: [
             MvtFeature {
                 id: None,
-                geometry: POLYGON((2275 1816,2275 1934,2161 1934,2161 1816,2275 1816)),
+                geometry: POLYGON((2161 1816,2275 1816,2275 1934,2161 1934,2161 1816)),
                 properties: [
                     (
                         "kind",

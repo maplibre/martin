@@ -11,6 +11,7 @@ use tracing::{error, instrument, warn};
     feature = "pmtiles",
     feature = "mbtiles",
     feature = "unstable-cog",
+    feature = "geojson",
     feature = "styles",
     feature = "sprites",
     feature = "fonts",
@@ -20,6 +21,8 @@ use crate::config::file::FileConfigEnum;
 use crate::config::file::cog::CogConfig;
 #[cfg(feature = "fonts")]
 use crate::config::file::fonts::FontConfig;
+#[cfg(feature = "geojson")]
+use crate::config::file::geojson::GeoJsonConfig;
 #[cfg(feature = "mbtiles")]
 use crate::config::file::mbtiles::MbtConfig;
 #[cfg(feature = "passthrough")]
@@ -134,6 +137,11 @@ pub struct Config {
     #[cfg(feature = "unstable-cog")]
     #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
     pub cog: FileConfigEnum<CogConfig>,
+
+    /// Publish `GeoJSON` files as vector tile sources
+    #[cfg(feature = "geojson")]
+    #[serde(default, skip_serializing_if = "FileConfigEnum::is_none")]
+    pub geojson: FileConfigEnum<GeoJsonConfig>,
 
     /// Sprite configuration
     #[cfg(feature = "sprites")]

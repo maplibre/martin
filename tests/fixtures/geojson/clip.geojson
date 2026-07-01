@@ -1,0 +1,29 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": { "id": 1, "kind": "multipolygon-with-hole" },
+      "geometry": {
+        "type": "MultiPolygon",
+        "coordinates": [
+          [
+            [[-60.0, -60.0], [60.0, -60.0], [60.0, 60.0], [-60.0, 60.0], [-60.0, -60.0]],
+            [[-20.0, -20.0], [-20.0, 20.0], [20.0, 20.0], [20.0, -20.0], [-20.0, -20.0]]
+          ],
+          [[[140.0, -40.0], [170.0, -40.0], [170.0, -10.0], [140.0, -10.0], [140.0, -40.0]]]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "id": 2, "kind": "polygon-northeast" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [[100.0, 30.0], [130.0, 30.0], [130.0, 60.0], [100.0, 60.0], [100.0, 30.0]]
+        ]
+      }
+    }
+  ]
+}
