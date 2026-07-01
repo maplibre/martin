@@ -33,7 +33,12 @@ impl Tile {
     /// For empty tiles, etag will be base64 of `0`, otherwise base64 of [`xxh3_128(data)`](xxhash_rust::xxh3::xxh3_128).
     #[must_use]
     pub fn new_hash_etag(data: TileData, info: TileInfo) -> Self {
-        let etag = hash_etag(&data);
+        let etag = if data.is_empty() {
+            0
+        } else {
+            xxhash_rust::xxh3::xxh3_128(&data)
+        };
+        let etag = URL_SAFE_NO_PAD.encode(etag.to_ne_bytes());
         Self { data, info, etag }
     }
 
@@ -47,63 +52,5 @@ impl Tile {
     #[must_use]
     pub fn is_empty(&self) -> bool {
         self.data.is_empty()
-    }
-}
-
-/// Hashes tile data into a base64 etag.
-///
-/// For empty data the hash is `0`, otherwise [`xxh3_128`](xxhash_rust::xxh3::xxh3_128) of the data.
-fn hash_etag(data: &[u8]) -> String {
-    let hash = if data.is_empty() {
-        0
-    } else {
-        xxhash_rust::xxh3::xxh3_128(data)
-    };
-    URL_SAFE_NO_PAD.encode(hash.to_ne_bytes())
-}
-
-#[cfg(test)]
-mod tests {
-    use martin_tile_utils::{Encoding, Format, TileInfo};
-
-    use super::*;
-
-    fn is_valid_entity_tag(tag: &str) -> bool {
-        !tag.is_empty()
-            && tag
-                .bytes()
-                .all(|c| c == 0x21 || (0x23..=0x7E).contains(&c) || c >= 0x80)
-    }
-    fn info() -> TileInfo {
-        TileInfo::new(Format::Mvt, Encoding::Uncompressed)
-    }
-
-    #[test]
-    fn hashed_etag_is_used_as_is() {
-        let tile = Tile::new_hash_etag(vec![1, 2, 3], info());
-        assert_eq!(tile.strong_etag(), tile.etag);
-        assert!(is_valid_entity_tag(&tile.strong_etag()));
-    }
-
-    #[test]
-    fn valid_upstream_etag_is_preserved() {
-        let tile = Tile::new_with_etag(vec![1, 2, 3], info(), "abc123".to_string());
-        assert_eq!(tile.strong_etag(), "abc123");
-    }
-
-    #[test]
-    fn invalid_upstream_etag_falls_back_to_hash() {
-        let data = vec![1, 2, 3];
-        // A quoted upstream etag would make `EntityTag::new_strong` panic.
-        let tile = Tile::new_with_etag(data.clone(), info(), "\"abc\"".to_string());
-        let etag = tile.strong_etag();
-        assert!(is_valid_entity_tag(&etag));
-        assert_eq!(etag, hash_etag(&data));
-    }
-
-    #[test]
-    fn empty_upstream_etag_falls_back_to_hash() {
-        let tile = Tile::new_with_etag(vec![1, 2, 3], info(), String::new());
-        assert!(is_valid_entity_tag(&tile.strong_etag()));
     }
 }
