@@ -14,7 +14,6 @@ use serde_json::{Map, json};
 use std::io::Write as _;
 use std::num::NonZeroU32;
 
-
 // --- input builders (geo-types -> geojson) -------------------------------------------------
 
 /// A closed WGS84 ring from `(lng, lat)` corners.
