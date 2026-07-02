@@ -155,10 +155,13 @@ fn rewrite_legacy_substitution_syntax(contents: &str) -> Cow<'_, str> {
         return Cow::Borrowed(contents);
     }
 
-    warn!(
-        deprecated_tokens = rewrites,
-        "Deprecated `${{VAR:default}}` substitution syntax in config; use `${{VAR:-default}}`. Support for the single-colon form will be removed in a future release."
-    );
+    static WARNED: std::sync::Once = std::sync::Once::new();
+    WARNED.call_once(|| {
+        warn!(
+            deprecated_tokens = rewrites,
+            "Deprecated `${{VAR:default}}` substitution syntax in config; use `${{VAR:-default}}`. Support for the single-colon form will be removed in a future release."
+        );
+    });
     Cow::Owned(out)
 }
 
