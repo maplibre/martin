@@ -692,8 +692,6 @@ mod tests {
     }
 
     #[rstest]
-    // Web Mercator bounds `[min_x, min_y, max_x, max_y]` in meters.
-    // Every value is an exact power-of-two fraction of `EARTH_CIRCUMFERENCE`.
     #[case(0, 0, 0, [-20_037_508.342_789_25, -20_037_508.342_789_25, 20_037_508.342_789_25, 20_037_508.342_789_25])]
     #[case(1, 0, 0, [-20_037_508.342_789_25, 0.0, 0.0, 20_037_508.342_789_25])]
     #[case(1, 1, 1, [0.0, -20_037_508.342_789_25, 20_037_508.342_789_25, 0.0])]
@@ -711,7 +709,6 @@ mod tests {
         assert_relative_eq!(bbox[1], expected[1], epsilon = f64::EPSILON * 2.0);
         assert_relative_eq!(bbox[2], expected[2], epsilon = f64::EPSILON * 2.0);
         assert_relative_eq!(bbox[3], expected[3], epsilon = f64::EPSILON * 2.0);
-        // a tile is a square with side `tile_length`
         assert_relative_eq!(bbox[2] - bbox[0], tile_length, epsilon = f64::EPSILON * 2.0);
         assert_relative_eq!(bbox[3] - bbox[1], tile_length, epsilon = f64::EPSILON * 2.0);
     }

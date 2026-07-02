@@ -1,0 +1,35 @@
+{
+  "features": [
+    {
+      "geometry": {
+        "coordinates": [[[16, 48], [13, 48], [13, 46], [16, 46], [16, 48]]],
+        "type": "Polygon"
+      },
+      "properties": {
+        "id": 0
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [[[-75, 50], [-100, 50], [-100, 30], [-75, 30], [-75, 50]]],
+        "type": "Polygon"
+      },
+      "properties": {
+        "id": 1
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [[[25, 50], [-25, 50], [-25, -50], [25, -50], [25, 50]]],
+        "type": "Polygon"
+      },
+      "properties": {
+        "id": 3
+      },
+      "type": "Feature"
+    }
+  ],
+  "type": "FeatureCollection"
+}

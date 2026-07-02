@@ -13,7 +13,7 @@ mod ui 'martin/martin-ui/justfile'
 just := quote(just_executable())
 
 # list of features we deem stable for release packaging
-stable_features := 'fonts,lambda,mbtiles,metrics,mlt,pmtiles,postgres,sprites,styles,webui'
+stable_features := 'fonts,geojson,lambda,mbtiles,metrics,mlt,pmtiles,postgres,sprites,styles,webui'
 # if running in CI, treat warnings as errors by setting RUSTFLAGS and RUSTDOCFLAGS to '-D warnings' unless they are already set
 # Use `CI=true just ci-test` to run the same tests as in GitHub CI.
 # Use `just env-info` to see the current values of RUSTFLAGS and RUSTDOCFLAGS
@@ -59,6 +59,8 @@ bench: fetch
 bench-http requests='10m' pg_requests='500k':  (cargo-install 'oha')
     @echo "ATTENTION: Make sure Martin was started with    just bench-server"
     @echo "Warming up..."
+    oha --latency-correction -n 200            --no-tui http://localhost:3000/feature_collection_1/0/0/0 > /dev/null
+    oha --latency-correction -n {{requests}}            http://localhost:3000/feature_collection_1/0/0/0
     oha --latency-correction -n 100            --no-tui http://localhost:3000/function_zxy_query/18/235085/122323 > /dev/null
     oha --latency-correction -n {{pg_requests}}         http://localhost:3000/function_zxy_query/18/235085/122323
     oha --latency-correction -n 100            --no-tui -H 'Accept: application/vnd.maplibre-tile' http://localhost:3000/function_zxy_query/18/235085/122323 > /dev/null
@@ -70,7 +72,7 @@ bench-http requests='10m' pg_requests='500k':  (cargo-install 'oha')
 
 # Start release-compiled Martin server and a test database
 bench-server: fetch start
-    cargo run --release -- tests/fixtures/mbtiles tests/fixtures/pmtiles
+    cargo run --release -- tests/fixtures/mbtiles tests/fixtures/pmtiles tests/fixtures/geojson
 
 # Build martin with hotpath profiling support
 build-hotpath: fetch

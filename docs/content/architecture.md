@@ -425,6 +425,55 @@ Read it when you're curious **why** certain choices were made.
     5. Uses `object_store` crate for S3/Azure/GCP access
     6. Serves tiles directly from file format
 
+=== "GeoJSON Integration"
+
+    Unlike the other file sources, GeoJSON files hold raw geometry rather than pre-baked tiles.
+    Martin loads the whole file once, reprojects and indexes it in memory, then clips and encodes an MVT tile on every request.
+
+    ```mermaid
+    graph TB
+        subgraph Load["Load time (once per source)"]
+            File[".geojson / .json file"]
+            Parse["Parse (geojson crate)<br/>-> geo_types::Geometry"]
+            Reproject["Reproject WGS84 -> WebMercator"]
+            RTree["Packed Hilbert R-tree<br/>(geo_index)"]
+        end
+
+        subgraph Request["Per tile request"]
+            Rect["Tile Rect + buffer<br/>(WebMercator bbox)"]
+            Query["R-tree candidate lookup"]
+            Clip["Parallel clip + transform<br/>(geo, rayon)"]
+            Encode["MVT encode<br/>(geozero::mvt)"]
+        end
+
+        File --> Parse --> Reproject --> RTree
+        RTree -.->|in-memory features| Query
+        Rect --> Query --> Clip --> Encode
+    ```
+
+    **Load time** (`GeoJsonSource::new` in `martin-core/src/tiles/geojson/`):
+
+    1. The entire file is read into memory and parsed with the `geojson` crate; each feature's geometry becomes a `geo_types::Geometry<f64>`.
+    2. Every geometry is reprojected once from WGS84 to Web Mercator, so all per-tile work stays in Mercator.
+    3. A packed Hilbert R-tree (`geo_index`) is built over the feature bounding boxes for fast spatial lookup, and the union of all boxes becomes the TileJSON `bounds`.
+    4. Features (Mercator geometry + JSON properties) are held in memory for the lifetime of the source.
+
+    **Per request** (`GeoJsonSource::get_tile`):
+
+    1. The requested `z/x/y` is converted to a Web Mercator tile `Rect`, grown outward by the configurable `buffer` (as a `buffer / extent` fraction) so geometry near the edge survives clipping.
+    2. The R-tree is queried for candidate features overlapping the buffered rect; no candidates yields an empty tile (`204 No Content`).
+    3. Candidates are clipped in parallel (`rayon`): polygons via boolean intersection, lines via line-clip, points via containment - then snapped, repaired, re-oriented, and transformed into the tile's integer coordinate grid (`extent` units, y flipped for MVT).
+    4. Surviving features are encoded into a single MVT layer named after the source id (`geozero::mvt`); properties are mapped to MVT column values (JSON arrays/objects serialized to strings, nulls dropped).
+    5. The tile is returned uncompressed as `application/x-protobuf`; the shared server layer then handles caching, ETag/`304`, and `Content-Encoding`, identically to every other source.
+
+    **Configuration** (`GeoJsonConfig`, both `.json` and `.geojson` extensions are discovered):
+
+    - `extent` (default `4096`) - side length of the MVT integer coordinate grid a tile is encoded into.
+      A `NonZeroU32`, so `0` is rejected at parse time.
+    - `buffer` (default `64`, in tile units) - margin of geometry kept around each tile edge to avoid seams between neighbouring tiles.
+
+    Hot-reload uses the same generic Reload Driver as the other file sources (see below), watching the configured directories for added, changed, or removed `.geojson`/`.json` files.
+
 == Runtime Source Reloading
 
     After startup, Martin keeps the catalog in sync with its sources without a restart.

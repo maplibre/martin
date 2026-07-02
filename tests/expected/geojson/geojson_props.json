@@ -1,0 +1,17 @@
+{
+  "bounds": [
+    0,
+    0,
+    0,
+    0
+  ],
+  "center": [
+    0,
+    0,
+    0
+  ],
+  "tilejson": "3.0.0",
+  "tiles": [
+    "http://localhost:3111/properties/{z}/{x}/{y}"
+  ]
+}

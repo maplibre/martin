@@ -61,6 +61,7 @@ nav = [
             {"PostgreSQL Function Sources" = "sources-pg-functions.md"}
         ]},
         {"Cloud Optimized GeoTIFF File Sources" = "sources-cog-files.md"},
+        {"GeoJSON Sources" = "sources-geojson.md"},
         {"Composite Sources" = "sources-composite.md"}
     ]},
     {"Supporting Resources" = [
