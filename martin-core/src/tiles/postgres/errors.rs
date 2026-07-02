@@ -10,6 +10,7 @@ use martin_tile_utils::TileCoord;
 use semver::Version;
 
 use crate::tiles::UrlQuery;
+use crate::tiles::postgres::RedactedConnectionString;
 use crate::tiles::postgres::utils::query_to_json;
 
 /// Result type for `PostgreSQL` operations.
@@ -69,7 +70,7 @@ pub enum PostgresError {
 
     /// Invalid `PostgreSQL` connection string.
     #[error("Unable to parse connection string {1}: {0}")]
-    BadConnectionString(#[source] TokioPostgresError, String),
+    BadConnectionString(#[source] TokioPostgresError, RedactedConnectionString),
 
     /// Cannot parse `PostGIS` version.
     #[error("Unable to parse PostGIS version {1}: {0}")]
