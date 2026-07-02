@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.18.1](https://github.com/maplibre/martin/compare/mbtiles-v0.18.0...mbtiles-v0.18.1) - 2026-07-02
+
+### Added
+
+- Add `mbtiles pack` and `mbtiles unpack` subcommands ([#2199](https://github.com/maplibre/martin/pull/2199))
+- *(geojson)* serve MVT tiles from a GeoJSON file ([#2538](https://github.com/maplibre/martin/pull/2538))
+- *(tile-utils)* make tile_bbox public ([#2924](https://github.com/maplibre/martin/pull/2924))
+
+### Other
+
+- migrate YAML serialization to serde-saphyr, drop serde_yaml (config-5) ([#2877](https://github.com/maplibre/martin/pull/2877))
+
 ## [0.18.0](https://github.com/maplibre/martin/compare/mbtiles-v0.17.6...mbtiles-v0.18.0) - 2026-06-16
 
 ### Other

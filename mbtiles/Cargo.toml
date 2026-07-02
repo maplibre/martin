@@ -1,6 +1,6 @@
 [package]
 name = "mbtiles"
-version = "0.18.0"
+version = "0.18.1"
 authors = ["Yuri Astrakhan <YuriAstrakhan@gmail.com>", "MapLibre contributors"]
 description = "A simple low-level Mbtiles access and processing library, with some tile format detection and other relevant heuristics."
 keywords = ["mbtiles", "maps", "tiles", "mvt", "tilejson"]
