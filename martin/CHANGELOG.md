@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.12.0](https://github.com/maplibre/martin/compare/martin-v1.11.0...martin-v1.12.0) - 2026-07-02
+
+### Added
+
+- *(geojson)* serve MVT tiles from a GeoJSON file ([#2538](https://github.com/maplibre/martin/pull/2538))
+- *(rendering)* add static map overlay endpoint ([#2794](https://github.com/maplibre/martin/pull/2794))
+- geoparquet config and resolver wiring  ([#2931](https://github.com/maplibre/martin/pull/2931))
+- update to mlt-core 0.11.1 ([#2899](https://github.com/maplibre/martin/pull/2899))
+- *(geojson)* add GeoJSON tile source to martin-core ([#2925](https://github.com/maplibre/martin/pull/2925))
+- *(martin-core)* add static map overlay rendering engine ([#2922](https://github.com/maplibre/martin/pull/2922))
+- *(martin-core)* add Transport::from_string_headers ([#2913](https://github.com/maplibre/martin/pull/2913))
+- *(martin-core)* passthrough tile source ([#2908](https://github.com/maplibre/martin/pull/2908))
+- *(tile-utils)* make tile_bbox public ([#2924](https://github.com/maplibre/martin/pull/2924))
+- Add `mbtiles pack` and `mbtiles unpack` subcommands ([#2199](https://github.com/maplibre/martin/pull/2199))
+
+### Fixed
+
+- *(ci)* stop compiling bundled DuckDB in non-duckdb test builds and other CI stability fixes ([#2920](https://github.com/maplibre/martin/pull/2920))
+- gate idr lint expectations on absence of consuming backends ([#2916](https://github.com/maplibre/martin/pull/2916))
+
+### Other
+
+- *(deps)* Bump the all-npm-version-updates group across 2 directories with 18 updates ([#2940](https://github.com/maplibre/martin/pull/2940))
+- better yaml parsing for configs, e.g. anchors, ... (config-6) ([#2870](https://github.com/maplibre/martin/pull/2870))
+- *(deps)* Bump js-yaml from 4.1.1 to 4.2.0 in /martin/martin-ui in the all-npm-security-updates group across 1 directory ([#2933](https://github.com/maplibre/martin/pull/2933))
+- *(deps)* autoupdate pre-commit ([#2932](https://github.com/maplibre/martin/pull/2932))
+- *(martin-core)* derive font extensions from FontFormat via strum ([#2921](https://github.com/maplibre/martin/pull/2921))
+- Fold unicode arrows to ASCII in pre-commit ([#2909](https://github.com/maplibre/martin/pull/2909))
+- duckdb bounds refactor and sql utils ([#2902](https://github.com/maplibre/martin/pull/2902))
+- *(deps)* update mlt-core ([#2906](https://github.com/maplibre/martin/pull/2906))
+- fmt imports ([#2903](https://github.com/maplibre/martin/pull/2903))
+- migrate YAML serialization to serde-saphyr, drop serde_yaml (config-5) ([#2877](https://github.com/maplibre/martin/pull/2877))
+- *(deps-dev)* Bump the all-npm-security-updates group across 2 directories with 1 update ([#2900](https://github.com/maplibre/martin/pull/2900))
+
 ## [1.11.0](https://github.com/maplibre/martin/compare/martin-v1.10.1...martin-v1.11.0) - 2026-06-16
 
 ### Live reloading for PostgreSQL, PMTiles and COG sources
