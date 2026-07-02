@@ -28,7 +28,7 @@ docker run -p 3000:3000 \
 
 !!! note
     The default image is lean and does **not** include server-side style [rendering](sources-styles.md#server-side-raster-tile-rendering).
-    If you need it, use the batteries-included `-full` image instead (e.g. `ghcr.io/maplibre/martin:latest-full` or `ghcr.io/maplibre/martin:1.11.0-full`).
+    If you need it, use the batteries-included `-full` image instead (e.g. `ghcr.io/maplibre/martin:1.11.0 or `ghcr.io/maplibre/martin:1.11.0-full`).
     It is larger because it bundles the `maplibre_native` runtime libraries.
 
 ### From Binary Distributions Manually
@@ -112,7 +112,7 @@ martin --help
     The default feature set does **not** include server-side style [rendering](sources-styles.md#server-side-raster-tile-rendering).
     To include it (Linux only), add the `rendering` feature.
     You will need its build dependencies first (`just install-dependencies`).
-    
+
     ```bash
     cargo install martin --locked --features rendering
     ```
