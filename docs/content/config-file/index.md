@@ -14,6 +14,9 @@ For example, to use `MY_DATABASE_URL` in your
 config file: `connection_string: ${MY_DATABASE_URL}`, or with a
 default `connection_string: ${MY_DATABASE_URL:-postgres://postgres@localhost/db}`
 
+The legacy single-colon default `${MY_DATABASE_URL:postgres://postgres@localhost/db}` is still
+accepted for backward compatibility, but is deprecated in favor of the `:-` form shown above.
+
 ```bash
 martin --config config.yaml
 ```
