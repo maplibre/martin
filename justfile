@@ -12,8 +12,10 @@ mod ui 'martin/martin-ui/justfile'
 # Note that just_executable() may have `\` in Windows paths, so we need to quote it.
 just := quote(just_executable())
 
-# list of features we deem stable for release packaging
+# list of features we deem stable for release packaging (also the default feature set)
 stable_features := 'fonts,lambda,mbtiles,metrics,mlt,pmtiles,postgres,sprites,styles,webui'
+# stable_features plus features needing controlled native deps; ships in the `-full` image and tarballs
+full_features := stable_features + ',rendering'
 # if running in CI, treat warnings as errors by setting RUSTFLAGS and RUSTDOCFLAGS to '-D warnings' unless they are already set
 # Use `CI=true just ci-test` to run the same tests as in GitHub CI.
 # Use `just env-info` to see the current values of RUSTFLAGS and RUSTDOCFLAGS
@@ -223,6 +225,17 @@ build-release target:
         cargo build {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package martin --locked
     fi
 
+# Build `-full` binaries (adds rendering). Linux gnu only; needs `just install-dependencies`.
+build-release-full target:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    rustup target add {{target}}
+    if [[ "{{release_mode}}" == "1" ]]; then
+        export CARGO_TARGET_{{shoutysnakecase(target)}}_RUSTFLAGS='-C strip=debuginfo'
+    fi
+    cargo build {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package mbtiles --locked
+    cargo build {{if release_mode == '1' {'--release'} else {''} }} --target {{target}} --package martin --locked --no-default-features --features {{full_features}}
+
 # Build debian package
 # Note: rendering feature is excluded because the Debian build targets older glibc (ubuntu-22.04)
 # and maplibre_native pre-built libraries require newer glibc.
@@ -347,9 +360,9 @@ seed-render-fixtures:
     set -euo pipefail
     # Pre-build both test binaries so heavy downloads (e.g. the maplibre_native
     # blob from github.com) aren't captured into the cassette.
-    cargo test -p martin-core --features rendering --test rendering_test --no-run
-    cargo test -p martin --test styles_rendering_test --no-run
-    {{just}} _run-render-proxy record "cargo test -p martin-core --features rendering --test rendering_test && cargo test -p martin --test styles_rendering_test"
+    cargo test -p martin-core --no-default-features --features rendering --test rendering_test --no-run
+    cargo test -p martin --no-default-features --features rendering --test styles_rendering_test --no-run
+    {{just}} _run-render-proxy record "cargo test -p martin-core --no-default-features --features rendering --test rendering_test && cargo test -p martin --no-default-features --features rendering --test styles_rendering_test"
 
 # Generate code coverage report. Will install `cargo llvm-cov` if missing.
 coverage *args='--no-clean --open':  (cargo-install 'cargo-llvm-cov') clean start
@@ -364,7 +377,8 @@ coverage *args='--no-clean --open':  (cargo-install 'cargo-llvm-cov') clean star
     cargo llvm-cov clean --workspace
 
     echo "::group::Unit tests"
-    {{just}} with-render-cache '{{just}} test-cargo --all-targets && cargo test -p martin-core --features rendering --test rendering_test'
+    {{just}} test-cargo --all-targets
+    {{just}} test-rendering
     {{just}} test-pg
     echo "::endgroup::"
 
@@ -573,7 +587,8 @@ shear:
 
 # Run all tests using a test database
 test: start
-    {{just}} with-render-cache '{{just}} test-cargo --all-targets && cargo test -p martin-core --features rendering --test rendering_test'
+    {{just}} test-cargo --all-targets
+    {{just}} test-rendering
     {{just}} test-pg
     {{just}} test-doc
     {{just}} ui::test
@@ -589,6 +604,17 @@ test-pg: start
 test-minio:
     cargo test --features test-minio --no-default-features --test pmt_minio_test
 
+# Run server-side rendering tests only (Linux only; skipped elsewhere).
+# --no-default-features keeps the build minimal - just the rendering feature.
+test-rendering:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [ "$(uname)" != Linux ]; then
+        echo "rendering tests are Linux-only, skipping"
+        exit 0
+    fi
+    {{just}} with-render-cache 'cargo test -p martin-core --no-default-features --features rendering --test rendering_test && cargo test -p martin --no-default-features --features rendering --test styles_rendering_test'
+
 # Run Rust unit tests (cargo test)
 test-cargo *args:
     cargo test {{args}}
@@ -601,11 +627,7 @@ test-packages-ci:
     cargo test --package mbtiles --no-default-features
     cargo test --package mbtiles
     cargo test --package martin-core
-    if [ "$(uname)" = Linux ]; then
-        {{just}} with-render-cache 'cargo test --package martin'
-    else
-        cargo test --package martin
-    fi
+    cargo test --package martin
 
 # Run Rust doc tests
 test-doc *args:

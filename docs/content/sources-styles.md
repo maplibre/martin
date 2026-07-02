@@ -29,7 +29,15 @@ A restart of Martin is required to see new styles.
 ### Server-side raster tile rendering
 
 !!! warning
-    This feature is included in the default build on Linux.
+    Rendering is **not** part of the default build.
+    It relies on `maplibre_native`, which links pre-compiled native libraries with strict runtime requirements.
+    We only ship it where we control the runtime environment.
+    You get it by either:
+
+    - using the **`-full` Docker image** (`ghcr.io/maplibre/martin:latest-full`), or the matching `-full` Linux-gnu release tarball, or
+    - building from source with the `rendering` feature enabled (Linux only): `cargo install martin --features rendering`.
+
+    The default Docker image, the default release binaries, and `cargo install martin` do **not** include rendering.
     Its behaviour may change in patch releases.
 
     Limitations of our current implementation:
@@ -43,7 +51,7 @@ A restart of Martin is required to see new styles.
 
 We support generating a rasterised image for an XYZ tile of a given style.
 
-To do so, you need to enable the feature in the configuration file:
+To do so, you need a build that includes rendering (see above) and to enable the feature in the configuration file:
 
 ```yaml
 styles:

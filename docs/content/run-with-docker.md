@@ -9,6 +9,11 @@ tags:
 
 You can use official Docker image [`ghcr.io/maplibre/martin`](https://ghcr.io/maplibre/martin)
 
+!!! note "Image variants"
+    The default image (`:latest`, `:<version>`) is lean and does **not** include server-side style [rendering](sources-styles.md#server-side-raster-tile-rendering).
+    The batteries-included `-full` variant (`:latest-full`, `:<version>-full`) bundles the `maplibre_native` runtime libraries and enables rendering.
+    Use `-full` only if you need rendering; it is a larger image.
+
 ### Using Non-Local PostgreSQL
 
 ```bash

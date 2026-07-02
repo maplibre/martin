@@ -107,7 +107,6 @@ default = [
     "metrics",
     "pmtiles",
     "postgres",
-    "rendering",
     "sprites",
     "styles",
     "webui",
